@@ -7,6 +7,7 @@ import { consoleJobsLogger, type JobsLogger } from "./logger.js";
 import { getJobsOptions } from "./options.js";
 import { runClaimedJob } from "./process.js";
 import { checkHandlers } from "./handler-check.js";
+import { enqueueDueSchedules } from "./schedules.js";
 
 const DEFAULT_MAX_JOBS = 1000;
 const NEVER_ABORTED = new AbortController().signal;
@@ -33,11 +34,12 @@ export interface RunDueJobsReport {
 }
 
 /**
- * Claims and runs due jobs until none is due (a retried job is due later, so it waits for the clock). Returns what
+ * Enqueues the due runs of the schedules among its queues, then claims and runs due jobs until none is due (a retried job is due later, so it waits for the clock). Returns what
  * happened. Throws on a handler for a queue the config does not define; database failures propagate.
  */
 export async function runDueJobs(ctx: JobsContext, options: RunDueJobsOptions): Promise<RunDueJobsReport> {
   const queues = checkHandlers(getJobsOptions(ctx.config), options.handlers, options.queues);
+  await enqueueDueSchedules(ctx, { queues });
   const report = { succeeded: 0, retried: 0, failed: 0, stale: 0 };
   const maxJobs = options.maxJobs ?? DEFAULT_MAX_JOBS;
   const runOptions = {

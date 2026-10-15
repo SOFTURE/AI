@@ -373,8 +373,11 @@ verify: 2 routes at https://example.com, 1 passed, 1 failed; certificate passed;
 
 ## Deploy workflow
 
-`SOFTURE/AI/.github/workflows/deploy-app.yml` is a reusable workflow that releases one app to its VPS. The app keeps
-one caller, [`examples/deploy.yml`](examples/deploy.yml), with a single `uses:` line. For the release tag it:
+`SOFTURE/AI/.github/workflows/deploy-app.yml` is a reusable workflow that releases one app to its VPS. The app's
+caller, [`examples/deploy.yml`](examples/deploy.yml) (the file `init` writes), calls it with `deploy: false` to check
+and build, then runs the deploy action in a job of the `production` environment, which takes the app's secrets by name
+(**One job per environment**, below); a single `uses:` line with `app-secrets` still works, but CodeQL
+flags the expression that builds it. For the release tag, between them:
 
 1. checks every input (tag, URL, paths, image, command word, port, timeout, release branch, build arguments) before
    anything runs, then refuses a tag whose commit is not on the release branch (`release-branch`, else the caller's
@@ -448,7 +451,8 @@ which rendered from the deploy job's whole `secrets` context, is removed and `tr
 inputs `ssh-host-secret`, `ssh-user-secret`, `ssh-private-key-secret`, `ssh-known-hosts-secret` and `verify-env-secret`
 are gone. Secrets kept in an environment reach the release through the deploy action, each by name (below). A caller
 that builds `app-secrets` with `toJSON(secrets)` keeps working, but its own repository's scan flags that line; the
-action's `secret-names` is the form without it.
+action's `secret-names` is the form without it, and the one [`examples/deploy.yml`](examples/deploy.yml) and `init`'s
+caller use (issue #486).
 
 **One job per environment (the deploy action).** `secrets: inherit` passes nothing to a workflow of another owner,
 and a job with `uses:` cannot name an environment, so an app outside the SOFTURE organization cannot hand its
@@ -510,9 +514,9 @@ examples call `master`, which works but follows every merge. There is no moving 
 
 ### Release report
 
-[`deploy-report.yml`](../../.github/workflows/deploy-report.yml) is the caller's second job (`needs: deploy`,
-`if: always()`, see [`examples/deploy.yml`](examples/deploy.yml)). It reads the `deploy-report` artifact of the same
-run and the tag's GitHub Release body (`gh release view`), runs `softure-deploy release-report` and writes the body
+[`deploy-report.yml`](../../.github/workflows/deploy-report.yml) is the caller's last job (`needs: [build, deploy]`,
+`if: always() && needs.build.result == 'success'`, see [`examples/deploy.yml`](examples/deploy.yml)). It reads the
+`deploy-report` artifact of the same run and the tag's GitHub Release body (`gh release view`), runs `softure-deploy release-report` and writes the body
 back (`gh release edit`): the pipeline status replaced, a deployment row added on top. It is a workflow of its own
 because editing a release needs `contents: write`, which the caller grants to this job only; inside `deploy-app.yml`
 every job would have needed it. One report per tag runs at a time, so two runs never drop each other's row. A tag
@@ -686,7 +690,7 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 | `docker/server/cloudflare-only.sh`, `.service`, `.path`, `docker/prod/hooks/cloudflare-ranges.sh` | with `--cdn=cloudflare`: the origin firewall and its range refresh (below) |
 | `scripts/migrate.ts` | with a database: the migrate step the `Dockerfile` bundles |
 | `scripts/worker.ts` | with a database and `@softure-ai/jobs`: the job worker the `Dockerfile` bundles into `worker.mjs` and the compose file's `worker` service runs (below) |
-| `.github/workflows/deploy.yml` | the caller of `deploy-app.yml` with the domain, the image and the health path |
+| `.github/workflows/deploy.yml` | the caller: `deploy-app.yml` (`deploy: false`) with the domain, the image and the health path, then the deploy action in a `production` job with each secret the compose file requires by name, as [`examples/deploy.yml`](examples/deploy.yml) |
 | `.github/workflows/release.yml` | the caller of `deploy-cut-release.yml` (below): *Run workflow* cuts the next date tag in `UTC` and starts `deploy.yml` on it |
 | `.github/workflows/release-notes.yml` | the caller of `deploy-release-notes.yml` (below): *Run workflow* with `tag` and `body` replaces that release's body above its softure-deploy sections (`keep-report`) |
 | `.github/workflows/checks.yml` | the caller of `deploy-release-checks.yml` (below): `static` on every pull request, the unit tests on demand or with the `run-tests` label |
@@ -715,7 +719,9 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 - **Values are narrow:** the domain, image, name, paths, e-mail, env names, tables and report role are checked against patterns
   before anything is written, so no value can break out of YAML, bash or a Traefik rule.
 - **Secrets:** the compose file's required variables are the list the workflow renders: `POSTGRES_PASSWORD`,
-  `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` with a database, plus `--env`. Use URL-safe passwords
+  `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` with a database, plus `--env`. The caller's deploy step passes
+  each by name (an `env:` line and its name in `secret-names`), never the whole secrets context; a name added to the
+  compose file later gets a line in both. Set them in the repository or the `production` environment. Use URL-safe passwords
   (`openssl rand -hex 32`): they go into connection URLs as they are.
 
 **Job worker** (`@softure-ai/jobs`). The `worker` service runs the same image as the app with `node worker.mjs` and the

@@ -4,6 +4,7 @@ import { JOB_STATUSES, type JobStatus } from "../contract.js";
 import { jobs } from "../schema.js";
 import type { JobsContext } from "./context.js";
 import { getJobsOptions } from "./options.js";
+import { getScheduleStates, type ScheduleState } from "./schedules.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Rows deleted per statement, so pruning a large backlog never holds one long lock. */
@@ -39,11 +40,13 @@ export interface QueueStats {
   readonly due: number;
   /** The `run_at` of the oldest due pending job, or null: how far behind the workers are. */
   readonly oldestDueAt: Date | null;
+  /** The queue's schedule, when `schedules` names it: when it last ran and whether it is late. */
+  readonly schedule: ScheduleState | null;
 }
 
 /**
- * Counts per queue: every configured queue, plus any queue that still has rows in the table. For a dashboard, an ops
- * script or a health check of the app's own (`ops({ checks })`).
+ * Counts per queue: every configured queue, plus any queue that still has rows in the table, with the state of its
+ * schedule. For a dashboard, an ops script or a health check of the app's own (`ops({ checks })`).
  */
 export async function getQueueStats(ctx: JobsContext): Promise<QueueStats[]> {
   const now = ctx.clock.now();
@@ -56,12 +59,13 @@ export async function getQueueStats(ctx: JobsContext): Promise<QueueStats[]> {
     .from(jobs)
     .where(and(eq(jobs.status, "pending"), sql`${jobs.runAt} <= ${now}`))
     .groupBy(jobs.queue);
+  const scheduleStates = await getScheduleStates(ctx);
 
   const names = new Set([...Object.keys(getJobsOptions(ctx.config).queues), ...counted.map((row) => row.queue)]);
   return [...names].map((queue) => {
     const counts = Object.fromEntries(JOB_STATUSES.map((status) => [status, 0])) as Record<JobStatus, number>;
     for (const row of counted.filter((candidate) => candidate.queue === queue)) counts[row.status] = row.count;
     const due = backlog.find((row) => row.queue === queue);
-    return { queue, counts, due: due?.due ?? 0, oldestDueAt: due?.oldestDueAt ?? null };
+    return { queue, counts, due: due?.due ?? 0, oldestDueAt: due?.oldestDueAt ?? null, schedule: scheduleStates.get(queue) ?? null };
   });
 }

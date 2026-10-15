@@ -1,4 +1,4 @@
-import type { AdminActionErrorCode, BillingFormErrorCode, GrantFormErrorCode, PaymentFormErrorCode, TrialFormErrorCode } from "../contract.js";
+import type { AdminActionErrorCode, BillingFormErrorCode, GrantFormErrorCode, PaymentFormErrorCode, TrialFormErrorCode, UsageErrorCode } from "../contract.js";
 import { en } from "./en.js";
 
 export type BillingMessages = typeof en;
@@ -7,7 +7,7 @@ export type BillingMessages = typeof en;
 export const billingMessages = { en };
 
 /** The copy for an error code; an unknown code gets the generic failure. */
-export function getBillingErrorMessage(messages: BillingMessages, code: BillingFormErrorCode | PaymentFormErrorCode | GrantFormErrorCode | TrialFormErrorCode | AdminActionErrorCode): string {
+export function getBillingErrorMessage(messages: BillingMessages, code: BillingFormErrorCode | PaymentFormErrorCode | GrantFormErrorCode | TrialFormErrorCode | AdminActionErrorCode | UsageErrorCode): string {
   const separator = code.lastIndexOf(".");
   const namespace = code.slice(0, separator);
   const name = code.slice(separator + 1);

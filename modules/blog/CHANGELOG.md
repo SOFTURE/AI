@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## Unreleased
+
+- The IndexNow submit as a retried job (#493). With `@softure-ai/jobs` and a `blog.indexnow` queue in
+  `jobs({ queues })`, `softure-blog publish --commit` enqueues one job with the changed paths (deduplicated by a hash
+  of the paths) instead of submitting at once, and prints `indexnow: queued …` (`blog|indexnow|queued|<count>|<job
+  id>|<new|duplicate>|<paths>`). The new entry `@softure-ai/blog/jobs` has the worker's handler (`blogJobHandlers`):
+  it retries an unreachable engine, a 5xx and a 429 (after its `Retry-After`) and fails at once on any other 4xx.
+  `enqueueBlogIndexNow(ctx, run.changes)` is the enqueue for an app's own publishing path. `@softure-ai/jobs` is a
+  new optional peer; without the queue nothing changes.
+- `BlogIndexNowOutcome` has a new member, `queued`: an exhaustive `switch` over it needs the case.
+- Migrate (opt-in): add `jobs({ queues: { "blog.indexnow": {} } })` (with `@softure-ai/jobs` installed and migrated),
+  spread `blogJobHandlers` into the worker's handlers, and, in an app's own publishing path, replace
+  `submitBlogChanges(config, run.changes, { commit: true })` after a committed run with
+  `enqueueBlogIndexNow({ db, clock, config }, run.changes)`. A release script that parses `blog|indexnow|submitted`
+  accepts `queued` as success too.
+
 ## 0.2.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for

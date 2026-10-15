@@ -507,6 +507,18 @@ your own 1:1 table, never in `auth.users`. Expired sessions of a user are delete
 login; `pruneSessions(ctx)` from `@softure-ai/auth/server` deletes all of them for a scheduled job,
 and `prunePasswordResets(ctx)` does the same for expired reset links.
 
+**With `@softure-ai/jobs`.** `@softure-ai/auth/jobs` ships the handler and the schedule, so the worker runs the
+cleanup instead of an app cron (`auth.prune-sessions` hourly, `auth.prune-password-resets` daily; jobs README, "Schedules"):
+
+```ts
+// softure.config.ts
+jobs({ schedules: { ...authJobSchedules } }),
+// src/jobs/handlers.ts (the worker's handlers)
+export const handlers: JobHandlers = { ...authJobHandlers /* , the app's own */ };
+```
+
+`@softure-ai/jobs` is an optional peer: an app without it keeps calling the function from its own cron.
+
 **Adopting existing sessions.** An app that moves to this module from its own auth can keep its
 users, its password hashes when they are `scrypt$N$r$p$salt$key` strings, and its sessions when it
 stored them as the sha256 hex of the token. Its cookie has another name and its tokens another

@@ -6,6 +6,7 @@ import { jobs } from "../schema.js";
 import type { JobsContext } from "./context.js";
 import { toJob } from "./job-row.js";
 import { getJobsOptions, getQueue } from "./options.js";
+import { recordScheduleSuccess } from "./schedules.js";
 
 /** A job this worker holds: the job and the token its writes are fenced with. */
 export interface ClaimedJob {
@@ -87,7 +88,10 @@ export async function extendJobLease(ctx: JobsContext, claimed: ClaimedJob): Pro
   return rows.length > 0;
 }
 
-/** Records the end of an attempt. False when the job is no longer this claim's: nothing was written. */
+/**
+ * Records the end of an attempt; a success of a scheduled queue also updates its schedule, in the same transaction.
+ * False when the job is no longer this claim's: nothing was written.
+ */
 export async function completeJob(ctx: JobsContext, claimed: ClaimedJob, completion: Completion): Promise<boolean> {
   const now = ctx.clock.now();
   const unlocked = { lockedUntil: null, lockedBy: null, claimToken: null, updatedAt: now };
@@ -97,8 +101,12 @@ export async function completeJob(ctx: JobsContext, claimed: ClaimedJob, complet
       : completion.kind === "retry"
         ? { ...unlocked, status: "pending" as const, runAt: completion.runAt, lastError: completion.error }
         : { ...unlocked, status: "failed" as const, finishedAt: now, lastError: completion.error };
-  const rows = await ctx.db.update(jobs).set(set).where(isHeld(claimed)).returning();
-  return rows.length > 0;
+  return ctx.db.transaction(async (tx) => {
+    const rows = await tx.update(jobs).set(set).where(isHeld(claimed)).returning();
+    if (rows.length === 0) return false;
+    if (completion.kind === "succeeded") await recordScheduleSuccess({ ...ctx, db: tx }, claimed.job.queue);
+    return true;
+  });
 }
 
 /**

@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/jobs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SOFTURE AI jobs module: background jobs in Postgres. Enqueue inside the caller's transaction with an optional dedup key, claim with FOR UPDATE SKIP LOCKED under a lease, fenced completion, retry with exponential backoff and a terminal failed state, a worker process with graceful shutdown, and an in-process runner for tests.",
   "license": "MIT",
   "type": "module",

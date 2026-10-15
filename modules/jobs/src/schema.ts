@@ -1,4 +1,4 @@
-// Drizzle view of the module's table (migrations/0001_create_jobs.sql). The migration is the source of truth; this
+// Drizzle view of the module's tables (migrations/). The migrations are the source of truth; this
 // file only types the queries.
 import { bigint, integer, jsonb, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
@@ -23,3 +23,11 @@ export const jobs = jobsSchema.table("jobs", {
 });
 
 export type JobRow = typeof jobs.$inferSelect;
+
+export const schedules = jobsSchema.table("schedules", {
+  name: text("name").primaryKey(),
+  lastSlotAt: timestamp("last_slot_at", { withTimezone: true }).notNull(),
+  lastSucceededAt: timestamp("last_succeeded_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
