@@ -72,7 +72,7 @@ Done when: the job passes locally against a container and the PR's CI is green.
 
 ## Progress
 
-- [ ] Phase 1: roles in SOFTURE/VPS_FOUNDATION
-- [ ] Phase 2: package skeleton and inventory
-- [ ] Phase 3: playbooks and the CLI
-- [ ] Phase 4: CI converge and docs
+- [x] Phase 1: roles in SOFTURE/VPS_FOUNDATION
+- [x] Phase 2: package skeleton and inventory
+- [x] Phase 3: playbooks and the CLI
+- [x] Phase 4: CI converge and docs

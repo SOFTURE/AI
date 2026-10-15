@@ -1,12 +1,13 @@
 ---
 change_id: host-package
 title: "Provision a shared app server and onboard an app with one command, on top of softure.vps_foundation (issue #524)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 524
 branch: claude/project-thread-xj9lf0
 created: 2026-10-15
 updated: 2026-10-15
+archived_at: 2026-10-15
 ---
 
 ## Intent
@@ -34,3 +35,5 @@ generic default (`softure-edge`), so no app's name leaks into another.
 
 - Placement: issue mode, `roadmap_item: null`, issue #524.
 - Framing: skipped. The issue states the problem, the steps done by hand and the target shape.
+- Archived 2026-10-15: `@softure-ai/host` 0.1.0 (unreleased) in `tools/host/`; the three roles in
+  SOFTURE/VPS_FOUNDATION#1, which must merge first (it releases the pinned 1.25.0).
