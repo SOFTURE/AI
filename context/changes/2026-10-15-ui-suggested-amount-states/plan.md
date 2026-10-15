@@ -37,6 +37,6 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 ### Phase 1: States, hint and inline layout
 
 #### Automated
-- [ ] 1.1 No-suggestion state, suggestion hint and inline variant with new messages
-- [ ] 1.2 README and CHANGELOG describe the props and the migration
-- [ ] 1.3 Typecheck, lint, test and build green
+- [x] 1.1 No-suggestion state, suggestion hint and inline variant with new messages — 4bd14c2
+- [x] 1.2 README and CHANGELOG describe the props and the migration — 4bd14c2
+- [x] 1.3 Typecheck, lint, test and build green — 4bd14c2
