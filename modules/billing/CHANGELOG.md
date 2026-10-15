@@ -4,6 +4,27 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- `@softure-ai/billing/jobs` (#490): `billingJobHandlers`, `createBillingJobHandlers({ reminders })` and
+  `billingJobSchedules` run `sendAccessReminders` (`billing.access-reminders`) and `expireStaleRequests`
+  (`billing.expire-requests`) as daily `@softure-ai/jobs` schedules (00:00 UTC). A reminder run that meets a mail
+  outage (`mailing.unavailable`) is retried with the queue's backoff without mailing anyone twice; a refused sending
+  account or a spent quota fails the job, and the next day's run resumes. `@softure-ai/jobs` (^0.1.1) is a new
+  optional peer; the plain functions are unchanged, so an app without jobs keeps its cron.
+  Migrate (optional), for an app that runs `scripts/send-access-reminders.ts` and `scripts/expire-invoice-requests.ts`
+  from a cron today:
+  1. Install `@softure-ai/jobs` 0.1.1 or later and set up its worker (jobs README, "Running the worker"; with
+     `@softure-ai/deploy`, `softure-deploy init` adds it).
+  2. In `softure.config.ts`, add `...billingJobSchedules` to `jobs({ schedules })` (from `@softure-ai/billing/jobs`).
+     Without `mailing()` in the config, add only `"billing.expire-requests"`.
+  3. In the worker's handlers, add `...billingJobHandlers`, or `...createBillingJobHandlers({ reminders: { ... } })`
+     with the options the reminder script passed to `sendAccessReminders` (`buildMail`, `getScope`, `limit`,
+     `catchUpDays`, `pauseMs`). Keep `getScope` as it is, so accounts already mailed are not mailed again.
+  4. Deploy the worker, check that both queues run once (`getQueueStats`: `schedule.lastSucceededAt` is set), then
+     remove the two cron entries and delete both scripts. Running both for a day is harmless: the delivery ledger
+     sends each reminder once and a second expiry closes nothing new.
+
 ## 0.4.0
 
 - **Usage limits** (#474): `trial.limits`, `paid.limits`, `readOnly.limits` and `plans[].limits` declare a
