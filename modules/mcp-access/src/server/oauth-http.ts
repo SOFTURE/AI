@@ -22,6 +22,7 @@ import {
 import { parseClientRegistration } from "./oauth-validation.js";
 import { getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl } from "./options.js";
 import { resolveMcpOrigins } from "./origins.js";
+import { isClientRegistrationOpen } from "./registration-window.js";
 import { isValidCodeChallenge, PKCE_METHOD } from "./pkce.js";
 import type { McpAccessContext } from "./tokens.js";
 
@@ -221,14 +222,29 @@ function bodyTooLarge(config: SoftureConfig): Response {
 // ---------------------------------------------------------------------------------------------
 // Registration
 
+/** The answer while registration is closed, or null when it is open. A failing read closes (503). */
+async function refuseClosedRegistration(ctx: McpAccessContext): Promise<Response | null> {
+  try {
+    if (await isClientRegistrationOpen(ctx)) return null;
+  } catch (error) {
+    console.error(`@softure-ai/mcp-access: reading the client registration window failed: ${errorLogLabel(error)}`);
+    return protocolError("temporarily_unavailable", "The server is temporarily unavailable.", 503);
+  }
+  return protocolError("access_denied", "Client registration is closed.", 403);
+}
+
 /**
  * `POST` dynamic client registration (RFC 7591). Public by definition: claude.ai and ChatGPT
  * register before anyone signs in. A registration grants nothing; access needs a person's consent.
+ * With `oauth.registration: "closed"` it answers `403 access_denied` outside the window the
+ * `open-client-registration` ops script opens; the request still counts in the rate limit.
  */
 export async function handleClientRegistration(ctx: McpAccessContext, request: Request): Promise<Response> {
   if (!isOAuthEnabled(ctx.config)) return protocolError("not_found", "OAuth is not enabled.", 404);
   const limited = await limitProtocolRequest(ctx, request);
   if (limited !== null) return limited;
+  const closed = await refuseClosedRegistration(ctx);
+  if (closed !== null) return closed;
 
   const notJson = () => protocolError("invalid_client_metadata", "The request body must be a JSON object.");
   const text = await readCappedBody(ctx.config, request);

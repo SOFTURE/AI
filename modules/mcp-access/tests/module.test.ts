@@ -28,7 +28,7 @@ describe("the mcp-access module", () => {
       maxTokensPerUser: 20,
       expiryWarningDays: 14,
       resourceOrigins: [],
-      oauth: { enabled: false, accessTokenLifetimeMinutes: 60, refreshTokenLifetimeDays: 90, authorizationCodeLifetimeMinutes: 10, maxBodyBytes: 16_384, metadata: {} },
+      oauth: { enabled: false, registration: "open", accessTokenLifetimeMinutes: 60, refreshTokenLifetimeDays: 90, authorizationCodeLifetimeMinutes: 10, maxBodyBytes: 16_384, metadata: {} },
     });
     expect(mcpAccess({ serverName: "acme" }).routes).toEqual({
       page: "/account/mcp",
@@ -47,7 +47,7 @@ describe("the mcp-access module", () => {
       oauth: { enabled: true, accessTokenLifetimeMinutes: 30, refreshTokenLifetimeDays: 30, authorizationCodeLifetimeMinutes: 5, maxBodyBytes: 2048 },
     }).options as { legacyTokenPattern?: RegExp; oauth: unknown };
     expect(options.legacyTokenPattern?.source).toBe("^[0-9a-f]{64}$");
-    expect(options.oauth).toEqual({ enabled: true, accessTokenLifetimeMinutes: 30, refreshTokenLifetimeDays: 30, authorizationCodeLifetimeMinutes: 5, maxBodyBytes: 2048, metadata: {} });
+    expect(options.oauth).toEqual({ enabled: true, registration: "open", accessTokenLifetimeMinutes: 30, refreshTokenLifetimeDays: 30, authorizationCodeLifetimeMinutes: 5, maxBodyBytes: 2048, metadata: {} });
   });
 
   it("refuses a legacy pattern that is not anchored or keeps state, and lifetimes out of range", () => {
