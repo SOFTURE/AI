@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
+## 0.2.3
+
+- `sendGuardedRequest(url, { method, headers?, body?, timeoutMs, allowedPorts? }, seam?)` and `isPublicAddress(address)`
+  in `@softure-ai/security/server` (#479): a request to a URL someone else chose (RFC 8058 one-click unsubscribe,
+  webhook targets, link previews) that refuses non-public targets. Every resolved address is checked inside the
+  socket's lookup (no DNS rebinding window, `{ all: true }` answered as a list), IP literals are checked before
+  connecting, `agent: false`, no redirects, one time limit, the status only. RFC 6890 special-purpose ranges for IPv4
+  and IPv6 are refused, IPv4-mapped IPv6 included. New codes `security.outbound_invalid_url`,
+  `security.outbound_blocked`, `security.outbound_timeout`, `security.outbound_failed` (English messages added; an app
+  with its own translation adds `errors.outbound_*`).
+- Migrate an app that keeps its own guard: replace its outbound call with `sendGuardedRequest` (pass
+  `allowedPorts` if it accepted ports other than 443), map the four codes onto its own outcomes, and switch its tests
+  to the third argument (`isAllowedAddress`, `resolveHost`, `request`) to reach a fake server on loopback; then delete
+  the local address list and lookup.
+
 ## 0.2.2
 
 - `@softure-ai/security/jobs` (#491): `securityJobHandlers` and `securityJobSchedules` run `pruneRateLimits` hourly
@@ -26,7 +41,6 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `signRequestBody`; on the sending worker, sign the raw bytes with `signRequestBody` from
   `@softure-ai/security/signed-request` and drop a base64-in-JSON envelope. The header format is the same
   `t=,v1=` scheme, so a verifier that already signs `"<t>.<body>"` keeps working during the switch.
-
 ## 0.2.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for
