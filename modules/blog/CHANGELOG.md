@@ -6,6 +6,22 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Breaking (#509):** tool blocks return data and leave React out of the config. `defineToolBlock` moved from
+  `@softure-ai/blog/ui` to the root entry `@softure-ai/blog` (also `/server`) and no longer takes `Island`: its page
+  node is a plain `BlogToolNode` (`{ kind: "blog-tool", directive, tool, props, html, mode, className }`), so a
+  config that registers it imports no React. The page renders it with the app's islands, passed by tool name as
+  `view.tools` (`BlogViewOptions.tools`, `ArticleBody`'s `context.tools`, or `renderToolNode(node, islands)` in an
+  app's own page). A tool without an island keeps its static HTML.
+- `mode: "append"` keeps the static HTML and mounts the island in an element after it (`replace` stays the default).
+- `lazyToolIsland(() => import(…))` (`/ui`): the island's code loads only after hydration of a page that shows it.
+- `defineToolBlocks({ name, tools })`: several tools behind one directive, picked by its `type` attribute.
+- `BlockPlugin.numbers` may return `null`: no `block-numbers` check for that block.
+- Migrate: in the module the config imports, import `defineToolBlock` from `@softure-ai/blog` and drop `Island`;
+  build `export const BLOG_TOOLS: BlogToolIslands = { "<name>": Island }` in a plain module (no `"use client"`) from
+  the `"use client"` island components (a lazy one is `export const X = lazyToolIsland(() => import("./x").then((m) =>
+  m.X))` in a `"use client"` module); pass `view={{ tools: BLOG_TOOLS }}` to
+  `BlogArticlePage` and `GlossaryTermPage` (or `context.tools` to `ArticleBody`). An app with one directive for
+  several tools replaces its own dispatch with `defineToolBlocks` and keys `BLOG_TOOLS` by `type`.
 - The IndexNow submit as a retried job (#493). With `@softure-ai/jobs` and a `blog.indexnow` queue in
   `jobs({ queues })`, `softure-blog publish --commit` enqueues one job with the changed paths (deduplicated by a hash
   of the paths) instead of submitting at once, and prints `indexnow: queued …` (`blog|indexnow|queued|<count>|<job

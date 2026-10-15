@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+- `SuggestedAmountField` covers a suggestion row an app drew itself (#507). `suggestedValue` takes `null` (or is left
+  out) when there is nothing to suggest: the row shows `messages.none` ("No suggestion") and no button.
+  `suggestionHint` puts a "?" after the action that explains the suggestion or its absence, named by the new
+  `hintLabel` / `noneHintLabel` messages with the field's label; `suggestionHintProps` gives it the app's hint look.
+  `suggestionVariant="inline"` renders `{suggested} {useShort}` ("Suggested: 120 000,00 PLN use") as one small muted
+  row with a text button named by `use`. New slots `suggestionRow` and `suggestionText`. Existing calls keep the same
+  chip, name and behaviour; the chip's top margin moved from the `suggestion` slot to the new `suggestionRow`.
+  Migration for an app with its own `Suggested: {amount} <button>use</button> <Hint/>` row: drop the row and pass
+  `suggestionVariant="inline"`, `suggestedValue` (or `null`) and the explanation as `suggestionHint`; its own wording
+  goes into `suggestionMessages` or the provider's `suggestedAmount` group.
+- `Checklist` takes `rowLink` (the whole row, marker to trailing node, is one link), `trailing` (a node or
+  `(item, { isLink }) => node` after the body, e.g. a chevron) and `linkDone` (a done item with `href` links too) (#506).
+  All are off by default, so the markup stays the same. New slots: `row`, `trailing`.
+
 ## 0.3.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; `uiMessages` is English only and `locale` is any BCP 47

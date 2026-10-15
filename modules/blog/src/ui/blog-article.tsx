@@ -9,15 +9,20 @@ import { formatDay, type ArticleDates } from "../pages/dates.js";
 import type { Crumb } from "../pages/listing.js";
 import { getArticlePath } from "../pages/paths.js";
 import type { ArticleHeading, ArticleSegment } from "../render/render-article.js";
+import { isBlogToolNode, type BlogToolNode } from "../render/tool-block.js";
 import { BlogFooterNote, BlogLayout, JsonLdScript } from "./blog-layout.js";
 import { getBlogSlotClass } from "./class-names.js";
 import type { BlogPageContext } from "./page-context.js";
+import { renderToolNode } from "./tool-node.js";
 
 /** The class slots of a part a view renders; the parts work without them too. */
-type SlotContext = Pick<BlogPageContext, "classNames" | "unstyled">;
+type SlotContext = Pick<BlogPageContext, "classNames" | "unstyled" | "tools">;
+
+/** A node segment of a page body: a React node from the app's own block plugin, or a tool block's data. */
+export type BlogBodyNode = ReactNode | BlogToolNode;
 
 export interface RenderedBody {
-  readonly segments: readonly ArticleSegment<ReactNode>[];
+  readonly segments: readonly ArticleSegment<BlogBodyNode>[];
   readonly headings: readonly ArticleHeading[];
   readonly readingMinutes: number;
 }
@@ -38,8 +43,11 @@ export interface BlogArticleViewProps {
   readonly related?: readonly Pick<BlogArticle, "id" | "slug" | "title" | "description">[];
 }
 
-/** The body in order: HTML segments from the renderer, node segments (the app's block plugins) as they are. */
-export function ArticleBody({ segments, context }: { readonly segments: readonly ArticleSegment<ReactNode>[]; readonly context?: SlotContext }) {
+/**
+ * The body in order: HTML segments from the renderer, tool block nodes with the app's islands (`context.tools`),
+ * other node segments (the app's block plugins) as they are.
+ */
+export function ArticleBody({ segments, context }: { readonly segments: readonly ArticleSegment<BlogBodyNode>[]; readonly context?: SlotContext }) {
   const cls = getBlogSlotClass(context ?? {});
   return (
     <div className={cls("body")}>
@@ -49,7 +57,7 @@ export function ArticleBody({ segments, context }: { readonly segments: readonly
           <div key={index} className={cls("segment")} dangerouslySetInnerHTML={{ __html: segment.html }} />
         ) : (
           <div key={index} className={cls("segment")} data-block={segment.type}>
-            {segment.node}
+            {isBlogToolNode(segment.node) ? renderToolNode(segment.node, context?.tools ?? {}) : segment.node}
           </div>
         ),
       )}
