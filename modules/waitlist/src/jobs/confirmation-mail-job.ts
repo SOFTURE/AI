@@ -46,5 +46,5 @@ export const confirmationMailJobHandler = defineJobHandler({
   },
 });
 
-/** The handlers the waitlist contributes to the worker: `runJobWorkerProcess({ config, handlers: { ...waitlistJobHandlers } })`. */
-export const waitlistJobHandlers: JobHandlers = { [CONFIRMATION_MAIL_QUEUE]: confirmationMailJobHandler };
+/** The mail job for the worker, next to the prune handler: `handlers: { ...waitlistJobHandlers, ...confirmationMailJobHandlers }`. */
+export const confirmationMailJobHandlers: JobHandlers = { [CONFIRMATION_MAIL_QUEUE]: confirmationMailJobHandler };

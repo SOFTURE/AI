@@ -13,7 +13,10 @@ import { systemClock, type Clock, type SoftureConfig, type SoftureDatabaseConfig
 import { openCommandDatabase, type CommandDatabase, type DatabaseHandle } from "@softure-ai/db";
 import { z } from "zod";
 import { BLOG_REFRESH_SECRET_ENV, requestBlogRefresh } from "../discovery/refresh.js";
-import { submitBlogChanges } from "../discovery/submit.js";
+import { submitBlogChanges, type BlogIndexNowSubmit } from "../discovery/submit.js";
+import { getIndexNowPaths, type IndexNowChange } from "../discovery/indexnow.js";
+import type { BlogContext } from "../db/articles.js";
+import { hasBlogIndexNowQueue } from "../jobs/queue.js";
 import { parseArticleHistory, type ArticleHistoryMap } from "../db/history.js";
 import { runBlogPublish, type ArticleFile, type PublishGate } from "../db/publish-run.js";
 import { readArticleDir } from "../content/read-article-dir.js";
@@ -25,7 +28,7 @@ import { describeRefreshReason, findTextsToRefresh } from "../quality/refresh.js
 import { getLocalDate } from "../quality/settings.js";
 import type { OgFontSource } from "../options.js";
 import { createOgFontLoader } from "../server/og-fonts.js";
-import { getBlogOptions, getBlogReservedSlugs, getQualitySettings } from "../server/options.js";
+import { getBlogOptions, getBlogReservedSlugs, getBlogRoutes, getQualitySettings } from "../server/options.js";
 import { createPublishReporter, type CliOutput, type PublishFormat } from "./report.js";
 import { DEFAULT_SKILL_COMMAND, DEFAULT_SKILL_DIR, renderBlogSkill, SKILL_MARKER, type SkillFile } from "./skill.js";
 
@@ -87,6 +90,8 @@ publish   Brings the blog's tables to the state of the article files. A <path> i
           app (refreshBlogCache) to refresh its blog cache, before the IndexNow submit.
           With seo({ indexNow }) enabled, a commit submits the addresses whose answer
           changed (the text, its old slug, its listing) to IndexNow; a dry run prints them.
+          With a blog.indexnow queue in jobs({ queues }), a commit enqueues the submit for
+          the app's job worker, which retries it, instead of sending it at once.
 
 check     Runs the quality gate of blog({ quality }) over the files, without a database, and
           prints every finding as file:line: severity [rule] message. Exits 1 on any error.
@@ -380,7 +385,11 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
       report.refresh(refresh);
     }
     if (run.status === "done" && command.indexNow) {
-      report.indexNow(await submitBlogChanges(config, run.changes, { commit: run.committed, ...(options.indexNowFetch === undefined ? {} : { fetchImpl: options.indexNowFetch }) }));
+      report.indexNow(
+        run.committed && hasBlogIndexNowQueue(config)
+          ? await queueIndexNow({ db: opened.handle.db, clock, config }, run.changes)
+          : await submitBlogChanges(config, run.changes, { commit: run.committed, ...(options.indexNowFetch === undefined ? {} : { fetchImpl: options.indexNowFetch }) }),
+      );
     }
     return run.status === "done" ? EXIT_OK : EXIT_FAILED;
   } catch (error) {
@@ -388,6 +397,21 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
     return fail(`${describeError(error)} (did softure migrate run?)`);
   } finally {
     await opened.close();
+  }
+}
+
+/**
+ * With a `blog.indexnow` queue the submit runs in the app's job worker, with retries. `@softure-ai/jobs`
+ * is an optional peer, so its code loads only here. The publish is written either way: an enqueue
+ * that fails is a warning, like a failed submit.
+ */
+async function queueIndexNow(ctx: BlogContext, changes: readonly IndexNowChange[]): Promise<BlogIndexNowSubmit> {
+  try {
+    const { enqueueBlogIndexNow } = await import("../jobs/enqueue.js");
+    return await enqueueBlogIndexNow(ctx, changes);
+  } catch (error) {
+    const paths = getIndexNowPaths(changes, getBlogRoutes(ctx.config));
+    return { paths, outcome: { kind: "failed", code: "blog.indexnow_enqueue_failed", reason: `the IndexNow job could not be enqueued: ${describeError(error)}` } };
   }
 }
 

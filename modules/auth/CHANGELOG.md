@@ -8,12 +8,20 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 - Password reset mails can leave from a background job with retry (#494): `auth({ passwordReset: { send, enqueue:
   enqueuePasswordReset } })` from the new entry `@softure-ai/auth/jobs`, with `@softure-ai/jobs` as an optional peer
-  dependency (`^0.1.0`). The request then only enqueues `{ userId }` on the `auth.password-reset` queue; the handler
+  dependency (`^0.1.1`). The request then only enqueues `{ userId }` on the `auth.password-reset` queue; the handler
   issues the link when it runs (valid for `ttlMinutes` from the send) and calls the sender, retrying a failure with the
   queue's backoff. `deliverPasswordReset` returns `"queued"` in that mode; `sendPasswordReset(ctx, userId)` is the
   handler's work for an app's own worker. Without `enqueue` nothing changes. Migrate (optional): install
   `@softure-ai/jobs`, add `jobs({ queues: { "auth.password-reset": {} } })` to `softure.config.ts`, pass
-  `enqueue: enqueuePasswordReset`, and spread `authJobHandlers` into the worker's `handlers`.
+  `enqueue: enqueuePasswordReset`, and spread `passwordResetJobHandlers` into the worker's `handlers`.
+
+## 0.2.1
+
+- `@softure-ai/auth/jobs` (#491): `authJobHandlers` and `authJobSchedules` run `pruneSessions` (hourly) and
+  `prunePasswordResets` (daily) as `@softure-ai/jobs` schedules; `@softure-ai/jobs` (^0.1.1) is a new optional peer. Migrate
+  (optional): an app with `@softure-ai/jobs` adds `...authJobSchedules` to `jobs({ schedules })` and
+  `...authJobHandlers` to its worker's handlers, then removes the cron or script that called the two prunes. Without
+  jobs nothing changes.
 
 ## 0.2.0
 

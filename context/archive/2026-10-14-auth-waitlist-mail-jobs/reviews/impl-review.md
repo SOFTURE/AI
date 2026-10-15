@@ -25,3 +25,9 @@ branch: core refuses `"jobs": "^0.1.0?"` against the unreleased 0.0.0 manifest. 
 - Own handlers instead of the mailing delivery job of #492: a link must be minted at send time, and the ledger's
   stable idempotency key across retries would void the delivered link (asked the #492 thread; switch later if its
   API allows it without dead links).
+
+## After merging the main branch (2026-10-15)
+- #491 added `@softure-ai/auth/jobs` and `@softure-ai/waitlist/jobs` with `authJobHandlers` and `waitlistJobHandlers`
+  for the prune schedules, and raised the jobs peer to `^0.1.1`. The mail handlers were renamed to
+  `passwordResetJobHandlers` and `confirmationMailJobHandlers` and kept apart: a worker refuses a handler for a queue
+  the config does not define, so an app that only adopts the prunes must not get the mail queues with them.

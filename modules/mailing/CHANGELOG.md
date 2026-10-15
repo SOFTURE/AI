@@ -4,6 +4,33 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## 0.2.1
+
+- New entry `@softure-ai/mailing/jobs` (#492), with `@softure-ai/jobs` as an optional peer dependency:
+  `enqueueDelivery(ctx, { queue, scope, payload })` enqueues a delivery in the caller's transaction (the scope is
+  the job's dedup key); `defineDeliveryJobHandler({ payload, buildMail })` sends it through `deliverOnce` from the
+  jobs worker and retries `retry-later` and `halted` (after the provider's `Retry-After`, else the queue's backoff);
+  rejected mail fails at once; `getDeliveryJobResult` is the same mapping for an app's own handler. The payload holds
+  the app's ids; the handler builds the mail when it runs. New job codes `mailing.delivery_in_flight` and
+  `mailing.delivery_uncertain` with copy in `errors.mailing`. README, "Deliveries through jobs".
+- `resend()` reads `Retry-After` (seconds or an HTTP date); `ProviderOutcome` failures, `SendMailFailure` and
+  `deliverOnce`'s `retry-later` and `halted` outcomes carry it as the optional `retryAfterSeconds`. New export
+  `readRetryAfter(header, nowMs)` for a provider adapter of the app's own. A strict equality on these results
+  (`toStrictEqual`) sees the new field when the provider sends the header.
+- `module.json → dependsOn` names `jobs` as optional (`"*?"`); an app with both modules lists `jobs()` anywhere in
+  `modules`.
+- Migrate an app that retries `retry-later` by hand (a cron that calls `deliverOnce` again, a "try again" kept for
+  the user):
+  1. `npm install @softure-ai/jobs`, add `jobs({ queues: { "<queue>": { maxAttempts } } })` and run the worker
+     (jobs README, "Running the worker"); run the migrations.
+  2. Register `defineDeliveryJobHandler({ payload, buildMail })` for the queue; move the code that built the mail
+     into `buildMail`, reading the app's data by the ids in the payload.
+  3. Replace the `deliverOnce` call in the request with `enqueueDelivery({ ...ctx, db: tx }, { queue, scope,
+     payload })` inside the transaction of the write it belongs to, keeping the same `scope` (the ledger rows already
+     sent stay sent).
+  4. Drop the retry cron and the per-app attempt counting; `mailing({ maxAttempts })` now only applies to direct
+     `deliverOnce` calls.
+
 ## 0.2.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for

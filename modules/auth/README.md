@@ -16,7 +16,7 @@ script), `createAuthGuard` for the app's `proxy.ts`, and a health check that
 `GET /api/health` of `@softure-ai/ops` runs (every auth table answers, no rows read).
 `@softure-ai/auth/mailing` sends password reset mails through `@softure-ai/mailing`
 (`mailingResetSender()`); `@softure-ai/auth/jobs` sends them from a background job of `@softure-ai/jobs` with
-retry (`enqueuePasswordReset`, `authJobHandlers`). `@softure-ai/auth/testing` creates accounts directly in the database for
+retry (`enqueuePasswordReset`, `passwordResetJobHandlers`). `@softure-ai/auth/testing` creates accounts directly in the database for
 tests (`createTestAccount`, section 4, "Tests").
 
 ## 2. Installation
@@ -463,8 +463,8 @@ modules: [
 ];
 
 // scripts/worker.ts
-import { authJobHandlers } from "@softure-ai/auth/jobs";
-await runJobWorkerProcess({ config, handlers: { ...authJobHandlers, ...appHandlers } });
+import { passwordResetJobHandlers } from "@softure-ai/auth/jobs";
+await runJobWorkerProcess({ config, handlers: { ...passwordResetJobHandlers, ...appHandlers } });
 ```
 
 - The request (still after the response) looks the account up and enqueues `{ userId }` on `auth.password-reset`,
@@ -540,6 +540,18 @@ Your own tables reference `users.id` (exported as the Drizzle table `users`; rol
 your own 1:1 table, never in `auth.users`. Expired sessions of a user are deleted at their next
 login; `pruneSessions(ctx)` from `@softure-ai/auth/server` deletes all of them for a scheduled job,
 and `prunePasswordResets(ctx)` does the same for expired reset links.
+
+**With `@softure-ai/jobs`.** `@softure-ai/auth/jobs` ships the handler and the schedule, so the worker runs the
+cleanup instead of an app cron (`auth.prune-sessions` hourly, `auth.prune-password-resets` daily; jobs README, "Schedules"):
+
+```ts
+// softure.config.ts
+jobs({ schedules: { ...authJobSchedules } }),
+// src/jobs/handlers.ts (the worker's handlers)
+export const handlers: JobHandlers = { ...authJobHandlers /* , the app's own */ };
+```
+
+`@softure-ai/jobs` is an optional peer: an app without it keeps calling the function from its own cron.
 
 **Adopting existing sessions.** An app that moves to this module from its own auth can keep its
 users, its password hashes when they are `scrypt$N$r$p$salt$key` strings, and its sessions when it

@@ -39,5 +39,5 @@ export const passwordResetJobHandler = defineJobHandler({
   },
 });
 
-/** The handlers auth contributes to the worker: `runJobWorkerProcess({ config, handlers: { ...authJobHandlers } })`. */
-export const authJobHandlers: JobHandlers = { [PASSWORD_RESET_QUEUE]: passwordResetJobHandler };
+/** The reset job for the worker, next to the prune handlers: `handlers: { ...authJobHandlers, ...passwordResetJobHandlers }`. */
+export const passwordResetJobHandlers: JobHandlers = { [PASSWORD_RESET_QUEUE]: passwordResetJobHandler };

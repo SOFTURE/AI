@@ -24,6 +24,7 @@ describe("the jobs module", () => {
     const module = jobs({ queues: { "ai.reply": {} } });
     expect(module.options).toEqual({
       queues: { "ai.reply": { maxAttempts: 5, backoff: { baseSeconds: 10, maxSeconds: 3600 }, leaseSeconds: 300, concurrency: 1 } },
+      schedules: {},
       pollIntervalMs: 1000,
       shutdownGraceMs: 20_000,
       retention: { succeededDays: 7, failedDays: 30, cancelledDays: 7 },
@@ -46,8 +47,42 @@ describe("the jobs module", () => {
     );
   });
 
-  it("refuses an empty queue map", () => {
-    expect(() => jobs({ queues: {} })).toThrow("must define at least one queue");
+  it("refuses options with neither a queue nor a schedule", () => {
+    expect(() => jobs({ queues: {} })).toThrow("options.queues: must define at least one queue or schedule");
+    expect(() => jobs({})).toThrow("options.queues: must define at least one queue or schedule");
+  });
+
+  it("gives a schedule's queue the default queue settings unless queues names it", () => {
+    const module = jobs({
+      queues: { "auth.prune-sessions": { maxAttempts: 2 } },
+      schedules: { "auth.prune-sessions": { every: "1h" }, "security.prune-rate-limits": { every: "15m", payload: { all: true } } },
+    });
+    expect(module.options.queues).toEqual({
+      "auth.prune-sessions": { maxAttempts: 2, backoff: { baseSeconds: 10, maxSeconds: 3600 }, leaseSeconds: 300, concurrency: 1 },
+      "security.prune-rate-limits": { maxAttempts: 5, backoff: { baseSeconds: 10, maxSeconds: 3600 }, leaseSeconds: 300, concurrency: 1 },
+    });
+    expect(module.options.schedules).toEqual({
+      "auth.prune-sessions": { every: "1h", payload: {} },
+      "security.prune-rate-limits": { every: "15m", payload: { all: true } },
+    });
+  });
+
+  it.each(["0m", "1s", "90", "1w", "8d", "169h", "01h", "1.5h", ""])("refuses the schedule period %j", (every) => {
+    expect(() => jobs({ schedules: { "app.tick": { every } } })).toThrow(
+      "- options.schedules.app.tick.every: must be a whole number of minutes, hours or days (e.g. 15m, 1h, 1d), from 1m to 7d",
+    );
+  });
+
+  it("accepts schedule periods from one minute to seven days", () => {
+    for (const every of ["1m", "15m", "1h", "24h", "1d", "7d", "168h", "10080m"]) {
+      expect(() => jobs({ schedules: { "app.tick": { every } } })).not.toThrow();
+    }
+  });
+
+  it("refuses a schedule whose name is not a queue name", () => {
+    expect(() => jobs({ schedules: { Tick: { every: "1h" } } })).toThrow(
+      "- options.schedules.Tick: is not a queue name: lowercase letters, digits, _ . and -, starting with a letter",
+    );
   });
 });
 

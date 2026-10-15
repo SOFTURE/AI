@@ -1,13 +1,15 @@
-import { getMailingErrorMessage, mailingMessages, type MailingErrorCode } from "@softure-ai/mailing";
+import { getMailingErrorMessage, mailingMessages, type DeliveryJobErrorCode, type MailingErrorCode } from "@softure-ai/mailing";
 import { describe, expect, it } from "vitest";
 
-const CODES: MailingErrorCode[] = [
+const CODES: (MailingErrorCode | DeliveryJobErrorCode)[] = [
   "mailing.invalid_input",
   "mailing.rejected",
   "mailing.unavailable",
   "mailing.suppressed",
   "mailing.provider_refused",
   "mailing.quota_exceeded",
+  "mailing.delivery_in_flight",
+  "mailing.delivery_uncertain",
 ];
 
 describe("mailing messages", () => {

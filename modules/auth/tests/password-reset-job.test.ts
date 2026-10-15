@@ -1,5 +1,5 @@
 import type { AuthUser, PasswordResetDetails, PasswordResetSender } from "@softure-ai/auth";
-import { authJobHandlers, enqueuePasswordReset, PASSWORD_RESET_QUEUE } from "@softure-ai/auth/jobs";
+import { passwordResetJobHandlers, enqueuePasswordReset, PASSWORD_RESET_QUEUE } from "@softure-ai/auth/jobs";
 import { deliverPasswordReset, findPasswordResetUser, registerUser, resetPassword } from "@softure-ai/auth/server";
 import { jobs } from "@softure-ai/jobs";
 import type { JobsLogger } from "@softure-ai/jobs/server";
@@ -37,7 +37,7 @@ describe("password reset through jobs", () => {
   }
 
   function runJobs(): ReturnType<typeof runDueJobs> {
-    return runDueJobs(test.ctx, { handlers: authJobHandlers, logger: SILENT, random: () => 0 });
+    return runDueJobs(test.ctx, { handlers: passwordResetJobHandlers, logger: SILENT, random: () => 0 });
   }
 
   afterEach(async () => {

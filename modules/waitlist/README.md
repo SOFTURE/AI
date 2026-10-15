@@ -296,6 +296,18 @@ only at confirmation: the ledger is insert-only, and a row written before would 
 nobody proved. Run `pruneUnconfirmedSignups(ctx)` from a scheduled job to delete sign-ups whose link
 expired unused; until then they count nowhere, and a new sign-up of the address reuses the row.
 
+**With `@softure-ai/jobs`.** `@softure-ai/waitlist/jobs` ships the handler and the schedule, so the worker runs the
+cleanup instead of an app cron (`waitlist.prune-unconfirmed-signups` hourly; jobs README, "Schedules"):
+
+```ts
+// softure.config.ts
+jobs({ schedules: { ...waitlistJobSchedules } }),
+// src/jobs/handlers.ts (the worker's handlers)
+export const handlers: JobHandlers = { ...waitlistJobHandlers /* , the app's own */ };
+```
+
+`@softure-ai/jobs` is an optional peer: an app without it keeps calling the function from its own cron.
+
 **Through jobs.** By default the join action sends the confirmation mail once, after the response: a provider outage
 loses it and the person has to sign up again. With `@softure-ai/jobs` (an optional peer dependency), the join enqueues
 the sign-up's id in its own transaction and a worker sends the mail with retry and backoff:
@@ -312,8 +324,8 @@ modules: [
 ];
 
 // scripts/worker.ts
-import { waitlistJobHandlers } from "@softure-ai/waitlist/jobs";
-await runJobWorkerProcess({ config, handlers: { ...waitlistJobHandlers, ...appHandlers } });
+import { confirmationMailJobHandlers } from "@softure-ai/waitlist/jobs";
+await runJobWorkerProcess({ config, handlers: { ...confirmationMailJobHandlers, ...appHandlers } });
 ```
 
 - The payload is `{ signupId }`, deduplicated per sign-up while a job is pending; never the address or the token. A

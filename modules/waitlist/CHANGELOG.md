@@ -8,15 +8,22 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 - The double opt-in confirmation mail can leave from a background job with retry (#494):
   `waitlist({ doubleOptIn: true, confirmationMail: { enqueue: enqueueConfirmationMail } })` from the new entry
-  `@softure-ai/waitlist/jobs`, with `@softure-ai/jobs` as an optional peer dependency (`^0.1.0`). The join then
+  `@softure-ai/waitlist/jobs`, with `@softure-ai/jobs` as an optional peer dependency (`^0.1.1`). The join then
   enqueues `{ signupId }` on the `waitlist.confirmation-mail` queue in its own transaction and answers without
   sending; the handler mails a fresh link (a new token, the request's expiry) and retries a provider outage, a spent
   quota or a refused account. `PendingSignup.isMailQueued` says the job sends it; `sendConfirmationMail(ctx,
   signupId)` is the handler's work for an app's own worker. Without `confirmationMail.enqueue` nothing changes.
   Migrate (optional): install `@softure-ai/jobs`, add `jobs({ queues: { "waitlist.confirmation-mail": {} } })` to
   `softure.config.ts`, pass `confirmationMail: { enqueue: enqueueConfirmationMail }`, and spread
-  `waitlistJobHandlers` into the worker's `handlers`. An app whose `rewriteConfirmationLink` reads request scope
+  `confirmationMailJobHandlers` into the worker's `handlers`. An app whose `rewriteConfirmationLink` reads request scope
   (cookies, headers) keeps the default path.
+
+## 0.2.1
+
+- `@softure-ai/waitlist/jobs` (#491): `waitlistJobHandlers` and `waitlistJobSchedules` run
+  `pruneUnconfirmedSignups` hourly as a `@softure-ai/jobs` schedule; `@softure-ai/jobs` (^0.1.1) is a new optional peer.
+  Migrate (optional): an app with `@softure-ai/jobs` adds `...waitlistJobSchedules` to `jobs({ schedules })` and
+  `...waitlistJobHandlers` to its worker's handlers, then removes its own cron. Without jobs nothing changes.
 
 ## 0.2.0
 

@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/mailing",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "SOFTURE AI mailing module: sendMail over a provider adapter (Resend first) with plain-text and HTML bodies, sender and reply-to from config, idempotency keys, a timeout and a typed result; signed one-click unsubscribe (RFC 8058) with a suppression list for list mail; an exactly-once delivery ledger, campaigns sent from a content file by the softure-mail command, and a sender DNS check; a fake provider for tests.",
   "license": "MIT",
   "type": "module",
@@ -54,6 +54,11 @@
       "@softure-ai/source": "./src/cli/index.ts",
       "types": "./dist/cli/index.d.ts",
       "default": "./dist/cli/index.js"
+    },
+    "./jobs": {
+      "@softure-ai/source": "./src/jobs/index.ts",
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./dist/jobs/index.js"
     }
   },
   "scripts": {
@@ -65,10 +70,16 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
+    "@softure-ai/jobs": "^0.1.0",
     "@softure-ai/ui": "^0.3.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.0.0",
     "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@softure-ai/jobs": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@softure-ai/ui": "^0.3.0"

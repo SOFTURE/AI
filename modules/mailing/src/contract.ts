@@ -20,6 +20,13 @@ export type MailingErrorCode =
   /** The account's sending quota is spent (HTTP 429 that is not a rate limit). Stop sending; retry when it renews. */
   | "mailing.quota_exceeded";
 
+/** The codes a delivery job fails or retries with that are not a provider's answer (`@softure-ai/mailing/jobs`). */
+export type DeliveryJobErrorCode =
+  /** Another sender holds a fresh claim on the delivery; the job looks again once that claim could be stale. */
+  | "mailing.delivery_in_flight"
+  /** A claim older than the provider keeps its idempotency key is open: the mail may have gone out. Not retried. */
+  | "mailing.delivery_uncertain";
+
 /** The codes that are about the sending account, not the mail: a run of sends stops at the first one. */
 export const HALTING_ERROR_CODES: ReadonlySet<MailingErrorCode> = new Set(["mailing.provider_refused", "mailing.quota_exceeded"]);
 
@@ -149,8 +156,11 @@ export interface SentMail {
   readonly provider: string;
 }
 
-/** A failed send: the code, and the provider's HTTP status when it answered with one. */
-export type SendMailFailure = Err<MailingErrorCode> & { readonly httpStatus?: number };
+/**
+ * A failed send: the code, the provider's HTTP status when it answered with one, and how many seconds it asked to
+ * wait before the next try when it said so (`Retry-After`).
+ */
+export type SendMailFailure = Err<MailingErrorCode> & { readonly httpStatus?: number; readonly retryAfterSeconds?: number };
 
 export type SendMailResult = Ok<SentMail> | SendMailFailure;
 
@@ -169,10 +179,11 @@ export interface ProviderMessage {
 /**
  * What a provider answers. `httpStatus` is logged and returned with the failure; the mail never is. `refused` is the
  * provider refusing the sender (key, account), `quota_exceeded` a spent sending quota; `rejected` is about this mail.
+ * `retryAfterSeconds` is the wait the provider asked for (`Retry-After`), a whole number of seconds, 0 or more.
  */
 export type ProviderOutcome =
   | { readonly status: "sent"; readonly id: string }
-  | { readonly status: ProviderFailureStatus; readonly httpStatus?: number };
+  | { readonly status: ProviderFailureStatus; readonly httpStatus?: number; readonly retryAfterSeconds?: number };
 
 export type ProviderFailureStatus = "rejected" | "unavailable" | "refused" | "quota_exceeded";
 

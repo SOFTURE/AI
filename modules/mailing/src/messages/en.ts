@@ -7,6 +7,8 @@ export const en = {
       suppressed: "This address unsubscribed from these emails, so nothing was sent.",
       provider_refused: "The mail service refused our account, so nothing was sent. We need to fix it on our side.",
       quota_exceeded: "We reached our sending limit for now. Try again later.",
+      delivery_in_flight: "This message is being sent right now.",
+      delivery_uncertain: "This message may already have been sent. Check before sending it again.",
     },
   },
   footer: {

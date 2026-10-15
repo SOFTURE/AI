@@ -4,7 +4,7 @@ import { jobs } from "@softure-ai/jobs";
 import type { JobsLogger } from "@softure-ai/jobs/server";
 import { listJobs, runDueJobs } from "@softure-ai/jobs/testing";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
-import { CONFIRMATION_MAIL_QUEUE, enqueueConfirmationMail, waitlistJobHandlers } from "@softure-ai/waitlist/jobs";
+import { CONFIRMATION_MAIL_QUEUE, enqueueConfirmationMail, confirmationMailJobHandlers } from "@softure-ai/waitlist/jobs";
 import { confirmSignup, joinWaitlist, listSignups, type JoinWaitlistInput, type PendingSignup } from "@softure-ai/waitlist/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLIENT, createConfig, createTestWaitlist, OPTIONS, type TestWaitlist } from "./support.js";
@@ -30,7 +30,7 @@ describe("the confirmation mail through jobs", () => {
   }
 
   function runJobs(): ReturnType<typeof runDueJobs> {
-    return runDueJobs(test.ctx, { handlers: waitlistJobHandlers, logger: SILENT, random: () => 0 });
+    return runDueJobs(test.ctx, { handlers: confirmationMailJobHandlers, logger: SILENT, random: () => 0 });
   }
 
   function sentToken(index: number): string {

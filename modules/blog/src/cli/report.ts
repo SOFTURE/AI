@@ -13,7 +13,8 @@
 //   blog|imported|<id>|<published_at ISO or none>|<old slugs>
 //   blog|summary|<added>|<changed>|<unchanged>
 //   blog|cache|<off|skipped|dry-run|refreshed|failed>|…
-//   blog|indexnow|<off|skipped|dry-run|submitted|failed>|…
+//   blog|indexnow|<off|skipped|dry-run|submitted|queued|failed>|…
+//   blog|indexnow|queued|<count>|<job id>|<new|duplicate>|<paths>
 import type { BlogRefreshOutcome } from "../discovery/refresh.js";
 import { BLOG_REFRESH_SECRET_ENV } from "../discovery/refresh.js";
 import type { BlogIndexNowSubmit } from "../discovery/submit.js";
@@ -106,6 +107,13 @@ function createTextReporter(output: CliOutput): PublishReporter {
         case "submitted":
           output.log(`indexnow: submitted ${String(outcome.count)} URL(s) (${String(outcome.status)}): ${paths.join(" ")}`);
           return;
+        case "queued":
+          output.log(
+            outcome.isDuplicate
+              ? `indexnow: ${String(outcome.count)} URL(s) already queued as job ${outcome.jobId} on blog.indexnow: ${paths.join(" ")}`
+              : `indexnow: queued ${String(outcome.count)} URL(s) as job ${outcome.jobId} on blog.indexnow: ${paths.join(" ")}`,
+          );
+          return;
         case "failed":
           output.error(`warning indexnow: ${outcome.reason} (${outcome.code}); the publish is written, submit the addresses later: ${paths.join(" ")}`);
           return;
@@ -172,6 +180,9 @@ function createLineReporter(output: CliOutput): PublishReporter {
           return;
         case "submitted":
           line("indexnow", "submitted", outcome.count, outcome.status, paths.join(" "));
+          return;
+        case "queued":
+          line("indexnow", "queued", outcome.count, outcome.jobId, outcome.isDuplicate ? "duplicate" : "new", paths.join(" "));
           return;
         case "failed":
           line("indexnow", "failed", outcome.code, outcome.reason, paths.join(" "));

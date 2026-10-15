@@ -33,7 +33,9 @@ editor and no CMS, a text changes only through a commit and `softure-blog publis
 - Discovery: an RSS 2.0 feed (`serveBlogRss`), "read next" under every article (its cluster first, the
   pillar on top), and, with `@softure-ai/seo` (optional): sitemap entries with each text's real
   `lastmod` (`blogSitemap()`) and an IndexNow submit of the changed addresses after
-  `softure-blog publish --commit` (`submitBlogChanges` for an app's own publishing path).
+  `softure-blog publish --commit` (`submitBlogChanges` for an app's own publishing path), or, with
+  `@softure-ai/jobs` (optional), a `blog.indexnow` job that the app's worker submits with retries
+  (`@softure-ai/blog/jobs`).
 - A cache refresh route (`refreshBlogCache`, rate-limited through `@softure-ai/security`, a secret from
   `BLOG_REFRESH_SECRET`): `softure-blog publish --commit` calls it before the IndexNow submit, so the
   running app shows the change at once instead of after `revalidateSeconds`.
@@ -51,8 +53,8 @@ editor and no CMS, a text changes only through a commit and `softure-blog publis
 npm install @softure-ai/blog @softure-ai/ui
 ```
 
-`@softure-ai/ui` is a peer dependency (any 0.1.x), like the optional `@softure-ai/security` and
-`@softure-ai/seo`: the app installs it once, so the theme tokens come from one copy. Importing
+`@softure-ai/ui` is a peer dependency (any 0.1.x), like the optional `@softure-ai/security`,
+`@softure-ai/seo` and `@softure-ai/jobs`: the app installs it once, so the theme tokens come from one copy. Importing
 `@softure-ai/blog/styles.css` from JavaScript is safe with tree-shaking, because the package marks its CSS as a side
 effect.
 
@@ -534,7 +536,10 @@ softure-blog skill install [--dir <path>] [--command <cmd>] [--check] [--config 
   addresses whose answer changed (a text public before or after, its old slug after a rename, the
   listing or the glossary of its kind) as canonical URLs on seo's origin; a dry run prints them;
   `--no-indexnow` skips the submit (e.g. a local or CI database). A failed submit is a warning: the
-  publish stays written and the exit code stays 0.
+  publish stays written and the exit code stays 0. With a `blog.indexnow` queue in `jobs({ queues })`, a
+  commit enqueues the submit instead and prints `indexnow: queued <n> URL(s) as job <id> on blog.indexnow`
+  ("already queued as job <id>" while a job with the same addresses waits); the worker sends it ("The
+  IndexNow submit as a job" below). A dry run still prints the URLs.
 - `--stdin` reads the files from standard input instead of paths: with `--name <slug>.md`, the one file's
   text; without it, a JSON bundle `{"files":[{"name":"<slug>.md","text":"…"}]}` (a whole folder, and
   optionally `"history"`, the content of a `--history` file, so a container needs no file for it). A
@@ -569,6 +574,7 @@ blog|summary|<added>|<changed>|<unchanged>
 blog|written
 blog|cache|off|<revalidateSeconds>         | skipped | dry-run|<url> | refreshed|<url> | failed|<code>|<reason>
 blog|indexnow|off|<reason>                 | skipped | dry-run|<count>|<urls> | submitted|<count>|<status>|<paths> | failed|<code>|<reason>|<paths>
+               | queued|<count>|<job id>|<new|duplicate>|<paths>
 ```
 
 ```bash
@@ -641,6 +647,45 @@ After an app's own run, `submitBlogChanges(config, run.changes, { commit: run.co
 same addresses; inside Next, call `revalidateTag(BLOG_CACHE_TAG, { expire: 0 })` first, and outside it
 `requestBlogRefresh(config, run.changes, { commit: run.committed })` (`@softure-ai/blog/server`), so a
 crawler that answers the ping at once gets the new text.
+
+### The IndexNow submit as a job
+
+A synchronous submit is tried once: when IndexNow is slow it holds up the publish, and when it fails the
+addresses reach the engines only at the next publish. An app that runs `@softure-ai/jobs` moves the submit
+to its worker, which retries it:
+
+```ts
+// softure.config.ts
+modules: [
+  seo({ indexNow: { key: process.env.INDEXNOW_KEY } }),
+  jobs({ queues: { "blog.indexnow": { maxAttempts: 8, backoff: { baseSeconds: 30, maxSeconds: 3600 } } } }),
+  blog(),
+],
+
+// src/jobs/handlers.ts: the worker's handlers
+import { blogJobHandlers } from "@softure-ai/blog/jobs";
+export const handlers: JobHandlers = { ...blogJobHandlers, ...appHandlers };
+```
+
+- The queue switches it on: with `blog.indexnow` in `jobs({ queues })`, `softure-blog publish --commit`
+  enqueues one job after the commit and the cache refresh, with the changed paths as its payload, and
+  sends nothing itself. Without the queue (or without `jobs()`), the submit stays synchronous.
+- The worker must have `blogJobHandlers`; a queue without its handler keeps its jobs pending
+  (`getQueueStats` shows the backlog).
+- The handler builds the canonical URLs from the worker's config and submits them. It succeeds on 200 or
+  202; retries with the queue's backoff when the engine cannot be reached (`blog.indexnow_unreachable`) or
+  answers 5xx (`blog.indexnow_server_error`); retries after `Retry-After` on a 429
+  (`blog.indexnow_rate_limited`, the backoff without the header); and fails at once on any other 4xx
+  (`blog.indexnow_rejected`), an invalid key or a URL off the site (`blog.indexnow_refused`), or when seo or
+  its key is missing from the worker's config (`blog.indexnow_not_configured`).
+- Dedup: the job's key is a hash of its paths, so a re-run with the same addresses while a job waits
+  returns that job (`duplicate`) instead of a second submit.
+- A failed enqueue (the database refused it) is a warning, `blog.indexnow_enqueue_failed`, like a failed
+  submit: the publish stays written.
+- An app's own publishing path calls `enqueueBlogIndexNow({ db, clock, config }, run.changes)`
+  (`@softure-ai/blog/jobs`) after `runBlogPublish` commits and after its cache refresh, instead of
+  `submitBlogChanges`. It returns the same `{ paths, outcome }`, with `queued`, `skipped` or
+  `not_configured` (no job is written that could never succeed).
 
 `check` and `skill install` need no database, nor a database URL: the bin loads the config with the
 database optional for them (`@softure-ai/core`'s `withDatabaseOptional`), so a CI job without

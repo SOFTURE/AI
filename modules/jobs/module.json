@@ -1,9 +1,9 @@
 {
   "id": "jobs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "dependsOn": {},
   "dbSchema": "jobs",
-  "tables": ["jobs"],
+  "tables": ["jobs", "schedules"],
   "env": [],
   "switches": [],
   "routes": {},

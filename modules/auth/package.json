@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/auth",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "SOFTURE AI auth module: users, scrypt passwords, database sessions, register with consent, login, logout, password change, roles, a proxy route guard, pages and forms for Next.js, and a password reset sender over @softure-ai/mailing, sent in the request or by a background job through @softure-ai/jobs.",
   "license": "MIT",
   "type": "module",
@@ -36,6 +36,11 @@
       "@softure-ai/source": "./src/server/index.ts",
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
+    },
+    "./jobs": {
+      "@softure-ai/source": "./src/jobs/index.ts",
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./dist/jobs/index.js"
     },
     "./next": {
       "@softure-ai/source": "./src/next/index.ts",
@@ -83,7 +88,7 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "@softure-ai/jobs": "^0.1.0",
+    "@softure-ai/jobs": "^0.1.1",
     "@softure-ai/mailing": "^0.2.0",
     "@softure-ai/ops": "^0.2.0",
     "@softure-ai/ui": "^0.3.0",
