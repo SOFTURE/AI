@@ -168,7 +168,7 @@ labels; `messages` the built-in copy.
 | `BarList`, `renderBarListHtml`, `getBarListRows` | labelled horizontal bars with values, in React or as an HTML string ([Bar list](#bar-list)) |
 | `ChartCursor` | the client cursor around the frame; takes `points` as percentages computed on the server ([Cursor](#cursor)) |
 | `StackedAreas`, `stackSeries` | series stacked into bands, each an `Area` between its edges ([Steps and stacked areas](#steps-and-stacked-areas)) |
-| `EventAxis`, `layoutEventAxis` | a timeline of spans and milestones with a keyboard and pointer readout ([Event axis](#event-axis)) |
+| `EventAxis`, `layoutEventAxis`, `layoutEventRail` | a timeline of spans and milestones, or of milestones on one rail, with a keyboard and pointer readout ([Event axis](#event-axis)) |
 | `ChartSurface`, `getChartSurfaceAttributes` | a chart on the page, a dark band or a paper card ([Surfaces](#surfaces)) |
 
 ### Paths
@@ -477,6 +477,35 @@ leaving or blurring clears. The readout under the track is a polite live region 
 />
 ```
 
+#### Rail
+
+`layout="rail"` draws milestones only, on one line: each milestone after the first is joined to the previous one by a
+segment, the rail itself, and no rows are packed (`layoutEventRail`, server-safe). Three optional milestone fields
+shape the rail:
+
+| Field | What it does |
+| --- | --- |
+| `railSlot`, `railTone`, `railColor` | the colour of the segment leading to this milestone, apart from its dot (`color` over `slot` over `tone`, as for the dot); without them the segment takes the dot's colour |
+| `segmentLabel` | a short text on that segment, e.g. a duration; hidden when the segment is narrower than `minLabelWidth` (axis percent, default 0) and clipped with an ellipsis when it still overflows |
+| `tick` | a short text under the dot, e.g. the year |
+
+Keys, pointer and readout work as above; a segment activates the milestone it leads to. The track is hidden from
+assistive technology, so the readout (`detail` or `renderReadout`) should carry the date and the duration. The rail is
+`--sft-chart-event-rail-width` thick (`--sft-space-1`).
+
+```tsx
+<EventAxis
+  layout="rail"
+  title={copy.plan}
+  minLabelWidth={8}
+  items={[
+    { kind: "milestone", key: "today", label: copy.today, xPercent: x(today), tick: "2026" },
+    { kind: "milestone", key: "deadline", label: copy.deadline, detail: "2050", xPercent: x(deadline), tick: "2050",
+      tone: "danger", railTone: "success", segmentLabel: copy.duration },
+  ]}
+/>
+```
+
 ### Tokens
 
 Colours: `--sft-chart-{grid,axis,cursor,flag,on-flag}` and the series palette `--sft-chart-series-{1…6}`;
@@ -544,7 +573,7 @@ The package came out of an adopting app's hand-rolled charts. What each part of 
 | a surface-to-tone map and wrapper components | `surface` on `LineChart`, `ChartSurface` (`page`, `dark`, `paper`) | tuned tokens on `.sft-chart-surface-<name>` |
 | a step in a series, stacked band paths | `withStepAt`, `stackSeries`, `StackedAreas` | — |
 | colours for an open set of bands | `distinctColors(keys, palette?)` | — |
-| a hand-built timeline of spans and milestones | `EventAxis`, `layoutEventAxis` | the events and their copy |
+| a hand-built timeline of spans and milestones, or a rail of milestones | `EventAxis` (`layout`), `layoutEventAxis`, `layoutEventRail` | the events and their copy |
 | the cursor | `ChartCursor`: arrows, Home/End, Escape, pointer events, a polite live readout; `renderReadout`, `onActiveChange`, `frame={false}` for an app's own readout and plot | the readout's content |
 | colour-vision and contrast checks | `@softure-ai/ui/testing` (`findColorCollisions`, `contrastRatio`, `checkThemeContrast`) and `checkSeriesPalette` from `@softure-ai/charts/testing` | the colours themselves |
 
