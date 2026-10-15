@@ -23,11 +23,12 @@ export default defineConfig({
   },
   // A real Stripe payment needs the sandbox key and `stripe listen`: playwright.stripe-sandbox.config.ts.
   testIgnore: /\.stripe-sandbox\.spec\.ts$/,
-  // `*.serial.spec.ts` files change state every other spec relies on (closing registration), so they
-  // run alone, after the parallel project has finished.
+  // `*.serial.spec.ts` files change state every other spec relies on (closing registration) or read
+  // state every other spec changes (pin-trials over every account), so they run after the parallel
+  // project has finished, one at a time.
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: [/\.serial\.spec\.ts$/, /\.stripe-sandbox\.spec\.ts$/] },
-    { name: "serial", use: { ...devices["Desktop Chrome"] }, testMatch: /\.serial\.spec\.ts$/, dependencies: ["chromium"] },
+    { name: "serial", use: { ...devices["Desktop Chrome"] }, testMatch: /\.serial\.spec\.ts$/, dependencies: ["chromium"], workers: 1 },
   ],
   webServer: {
     command: `npm run start -- --port ${PORT}`,

@@ -1,6 +1,7 @@
 # @softure-ai/billing
 
-**Depends on:** core, db, ui, security, auth (mailing optional, for `@softure-ai/billing/mailing`).
+**Depends on:** core, db, ui, security, auth (mailing optional, for `@softure-ai/billing/mailing`; jobs optional, for
+`@softure-ai/billing/jobs`).
 
 Decides whether an account may still write: a trial every account starts with, paid access (dated
 or lifetime) and a read-only state once both end. It replaces FIRE_TRACKER's access logic
@@ -56,6 +57,9 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   (`buildMail`) and delivery scopes (`getScope`), as one `runDeliveries` run (`dryRun`, `limit`,
   `retakeUncertain`, `onDelivery`). `findAccessReminders` (`/server`) is the same list without mail,
   for an app that sends its own.
+- **Jobs** (`@softure-ai/billing/jobs`): `billingJobHandlers` and `billingJobSchedules` run the reminder mail and
+  the invoice request expiry as daily `@softure-ai/jobs` schedules instead of an app cron, with retries after a mail
+  outage (see "Scheduled runs" in §4).
 - **Plan and trial scripts** (`@softure-ai/billing/scripts`): `grant-plan`, `revoke-grant` and
   `extend-trial`, ops scripts (dry run by default, `--commit` writes) for a host without the admin
   page; their grants and extensions are in the account's history like the admin page's; and the
@@ -81,8 +85,8 @@ npm install @softure-ai/billing @softure-ai/auth @softure-ai/security @softure-a
 ```
 
 Peer dependencies: `next` 16, `react` 19, `drizzle-orm`; `@softure-ai/mailing` (optional) for
-`@softure-ai/billing/mailing`. The module depends on `security` and `auth`; a configuration without
-them fails at startup.
+`@softure-ai/billing/mailing`; `@softure-ai/jobs` 0.1.1 or later (optional) for `@softure-ai/billing/jobs`. The
+module depends on `security` and `auth`; a configuration without them fails at startup.
 
 ## 3. Configuration
 
@@ -114,7 +118,7 @@ billing({
 | `plans` | array, at most 12 | `[]` | The plans, in the order the tiles show them (see below). |
 | `payment` | `PaymentProvider` | — | The adapter the payment page uses: `stripe()` or `manual({ onRequest })`. The payment page throws without one. |
 | `partialRefunds` | `"pro_rata"` or `"keep_access"` | `"pro_rata"` | What a partial provider refund does to access (see "Refunds" in §4): `pro_rata` takes back the refunded share of the payment's unused days, `keep_access` nothing until the whole payment is refunded. |
-| `requests.expireAfterDays` | 1-365 | `30` | Days an open invoice request waits, counted from the buyer's last ask; `expireStaleRequests` (run daily, see "Invoice requests" in §4) then closes it as `expired` and clears its invoice details. |
+| `requests.expireAfterDays` | 1-365 | `30` | Days an open invoice request waits, counted from the buyer's last ask; `expireStaleRequests` (run daily, see "Scheduled runs" in §4) then closes it as `expired` and clears its invoice details. |
 | `adminRole` | role | `admin` | The auth role that may grant plans in `BillingAdminPage`; declare any other in `auth({ roles })`. A role auth does not declare fails the first billing request and the readiness probe. |
 | `routes.payment` | path | `/payment` | Where `PaymentPage` is mounted; the notice and the tiles link there, and Stripe Checkout returns there. |
 | `routes.admin` | path | `/admin/billing` | Where `BillingAdminPage` is mounted; its actions revalidate it, and the account lookup sends the admin there with `?account=<id>`. |
@@ -341,44 +345,12 @@ blocks other asks for a minute; the first ask after that hands the request over 
 `billing.invoice_field_required`, `billing.invoice_field_too_long` (the copy names the limit:
 200, 32, 500) or `billing.invoice_field_control_characters` (line breaks, tabs and other control
 characters, in every field, so a name cannot add lines to the owner's mail; the database refuses
-them too). Run `expireStaleRequests(ctx)` (`/server`) daily, like the reminder mail, to close
-requests nobody asked again for in `requests.expireAfterDays` days; it returns `{ expired }`, and
-a repeated run closes nothing new:
+them too). `expireStaleRequests(ctx)` (`/server`) closes requests nobody asked again for in
+`requests.expireAfterDays` days; it returns `{ expired }`, and a repeated run closes nothing new. Run it daily (see
+"Scheduled runs" below).
 
-```ts
-// scripts/expire-invoice-requests.ts (cron: 0 3 * * *)
-import { expireStaleRequests } from "@softure-ai/billing/server";
-import { systemClock } from "@softure-ai/core";
-import { createDatabase } from "@softure-ai/db";
-import config from "../softure.config.ts";
-
-if (config.database === null) throw new Error("expire-invoice-requests: the config has no database");
-const database = await createDatabase(config.database.url, { max: 1 });
-try {
-  console.log(JSON.stringify(await expireStaleRequests({ db: database.db, clock: systemClock, config })));
-} finally {
-  await database.close();
-}
-```
-
-**Reminder mail.** With `mailing({ ... })` in the config, run `sendAccessReminders` on a schedule,
-e.g. a daily cron job (or a platform scheduler) running a script:
-
-```ts
-// scripts/send-access-reminders.ts (cron: 0 9 * * *)
-import { sendAccessReminders } from "@softure-ai/billing/mailing";
-import { systemClock } from "@softure-ai/core";
-import { createDatabase } from "@softure-ai/db";
-import config from "../softure.config.ts";
-
-if (config.database === null) throw new Error("send-access-reminders: the config has no database");
-const database = await createDatabase(config.database.url, { max: 1 });
-try {
-  console.log(JSON.stringify(await sendAccessReminders({ db: database.db, clock: systemClock, config })));
-} finally {
-  await database.close();
-}
-```
+**Reminder mail.** With `mailing({ ... })` in the config, `sendAccessReminders(ctx)`
+(`@softure-ai/billing/mailing`) mails the accounts due a reminder. Run it daily (see "Scheduled runs" below).
 
 Each run mails the four states the notice shows: the trial or dated paid access ending (from
 `trial.reminderDays` / `paid.reminderDays` days left, "ends on {date}") and ended ("has ended",
@@ -419,6 +391,57 @@ await sendAccessReminders(ctx, {
   getScope: (reminder) => `app.${reminder.kind}:${reminder.userId}:${reminder.endsAtMicros}`,
   limit: 100, // a shared daily quota
 });
+```
+
+**Scheduled runs.** With `@softure-ai/jobs`, both run as daily schedules (00:00 UTC) of the app's job worker: add
+billing's schedules to the jobs config and its handlers to the worker's.
+
+```ts
+// softure.config.ts
+import { billingJobSchedules } from "@softure-ai/billing/jobs";
+
+jobs({ schedules: { ...billingJobSchedules } }); // billing.access-reminders and billing.expire-requests, daily
+```
+
+```ts
+// src/jobs/handlers.ts
+import { createBillingJobHandlers } from "@softure-ai/billing/jobs";
+
+export const handlers: JobHandlers = {
+  // `billingJobHandlers` is the same with the package's own mail and defaults.
+  ...createBillingJobHandlers({ reminders: { buildMail, getScope, limit: 100 } }), // sendAccessReminders' options
+};
+```
+
+- `billing.access-reminders` runs `sendAccessReminders` with `reminders` (every option but `dryRun`). A mail the
+  provider could not take now (`mailing.unavailable`) makes the job retry with the queue's backoff; the delivery
+  ledger keeps the mails already sent from going out twice. A refused sending account or a spent quota
+  (`mailing.provider_refused`, `mailing.quota_exceeded`) fails the job at once, since a retry minutes later rarely
+  helps; the next day's run resumes. Needs `mailing({ ... })`: without it every run throws, so an app without
+  mailing schedules only the expiry, `schedules: { "billing.expire-requests": billingJobSchedules["billing.expire-requests"] }`.
+- `billing.expire-requests` runs `expireStaleRequests`.
+- Another period: write the entry yourself, e.g. `"billing.access-reminders": { every: "6h" }`; repeated runs send
+  nothing twice. Queue settings (`maxAttempts`, `backoff`) go in `jobs({ queues })` as for any queue.
+- The entry loads without `@softure-ai/mailing`; the reminder handler loads the mailing adapter on its first run.
+
+Without jobs, a cron job (or a platform scheduler) runs a script daily:
+
+```ts
+// scripts/billing-daily.ts (cron: 0 3 * * *)
+import { sendAccessReminders } from "@softure-ai/billing/mailing";
+import { expireStaleRequests } from "@softure-ai/billing/server";
+import { systemClock } from "@softure-ai/core";
+import { createDatabase } from "@softure-ai/db";
+import config from "../softure.config.ts";
+
+if (config.database === null) throw new Error("billing-daily: the config has no database");
+const database = await createDatabase(config.database.url, { max: 1 });
+try {
+  const ctx = { db: database.db, clock: systemClock, config };
+  console.log(JSON.stringify({ expiry: await expireStaleRequests(ctx), reminders: await sendAccessReminders(ctx) }));
+} finally {
+  await database.close();
+}
 ```
 
 Guard every write action of the app, before reading any input:
