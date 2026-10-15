@@ -4,6 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **`init --edge=<network>` (#516):** for an app that runs as a second compose project next to another stack's
+  Traefik. init writes no Traefik service, no `traefik.yml` and no `letsencrypt` volume; the app joins the external
+  network and its own, and is published with labels (router, `websecure`, resolver `letsencrypt`, security headers,
+  the optional `www` redirect, all named after the app). The generated `deploy.sh` switches `app` alone and has no
+  `traefik` step. Refused together with `--cdn` or `--acme-email`; with a database a warning names the Postgres
+  loopback port both stacks would publish. Without `--edge` the files are the same as before, but for the next point.
+- **The switch starts the worker (#516):** `deploy.sh` ran `compose up … traefik app`, which never started the
+  `worker` service (nothing depends on it), so a release left the previous worker running. The switch now names
+  `worker` for an app that has one. An app that ran `init` with the worker adds ` worker` to the `compose up` line of
+  its `docker/server/deploy.sh` (after `traefik app`).
+- **Health wait options (#516):** the deploy action takes `health-status` (the status that counts as up, default
+  `200`; a redirect is not followed, so `302` passes a host behind a sign-in) and `health-headers` (masked
+  `Name: value` lines sent with the health request only, e.g. a Cloudflare Access service token). Without them the
+  wait is the same 200 check.
+
 ## 0.4.0
 
 - **Breaking (#476): no whole secrets context.** CodeQL (`actions/excessive-secrets-exposure`) flags `toJSON(secrets)`

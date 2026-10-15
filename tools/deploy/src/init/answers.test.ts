@@ -26,6 +26,21 @@ describe("parseInitAnswers", () => {
     expect(parseInitAnswers({ ...VALID, cdn: "fastly" })).toEqual({ ok: false, problems: ["cdn: cloudflare, the only CDN init knows"] });
   });
 
+  it("takes a Docker network name as edge, alone of cdn and acmeEmail (issue #516)", () => {
+    expect(parseInitAnswers({ ...VALID, edge: "proxy_edge-1" })).toEqual({ ok: true, answers: { ...VALID, edge: "proxy_edge-1" } });
+    expect(parseInitAnswers({ ...VALID, edge: "edge net" })).toEqual({
+      ok: false,
+      problems: ["edge: a Docker network name: letters, digits, _ . -, starting with a letter or digit, at most 63"],
+    });
+    expect(parseInitAnswers({ ...VALID, edge: "proxy", cdn: "cloudflare", acmeEmail: "ops@example.com" })).toEqual({
+      ok: false,
+      problems: [
+        "edge: --cdn belongs to the stack that owns the edge Traefik; drop it with --edge",
+        "edge: --acme-email belongs to the stack that owns the edge Traefik; drop it with --edge",
+      ],
+    });
+  });
+
   it("refuses values that would break out of YAML, bash or a Traefik rule, one line per field", () => {
     const result = parseInitAnswers({
       ...VALID,

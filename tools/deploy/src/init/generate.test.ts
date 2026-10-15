@@ -143,7 +143,7 @@ describe("planInitFiles", () => {
     const script = textOf(files, "docker/server/deploy.sh");
     expect(script).not.toContain("deploy_cli backup");
     expect(script).not.toContain("postgresql");
-    expect(script).toContain("# tag (tag), install the cron (cron), run the post-up hooks.");
+    expect(script).toContain("# an edge network), record the tag (tag), install the cron (cron), run the post-up hooks.");
     expect(script).toContain('TOOLS_IMAGE="softure-deploy-tools:9.9.9"');
     expect(script).not.toContain("BACKUP_DIR=");
   });
@@ -343,6 +343,96 @@ describe("planInitFiles", () => {
   it("copies the ops roles recipe unchanged", () => {
     const recipe = readFileSync(join(REPO_ROOT, "modules/ops/recipes/initdb/01-roles.sql"), "utf8");
     expect(textOf(plan(), "docker/prod/initdb/01-roles.sql")).toBe(recipe);
+  });
+});
+
+describe("planInitFiles with edge, an app behind another stack's Traefik (issue #516)", () => {
+  interface EdgeCompose {
+    services: Record<string, { networks?: string[]; labels?: string[]; ports?: string[] }>;
+    networks?: Record<string, unknown>;
+    volumes?: Record<string, unknown>;
+  }
+
+  const composeOf = (files: Map<string, PlannedFile>): EdgeCompose => parse(textOf(files, "docker/prod/docker-compose.yml")) as EdgeCompose;
+
+  it("writes no Traefik service, no rules file and no certificate volume", () => {
+    for (const facts of [FACTS, NO_DATABASE]) {
+      const files = plan({ edge: "proxy" }, facts);
+      expect([...files.keys()]).not.toContain("docker/prod/traefik.yml");
+      const compose = composeOf(files);
+      expect(Object.keys(compose.services)).not.toContain("traefik");
+      expect(Object.keys(compose.volumes ?? {})).not.toContain("letsencrypt");
+      for (const file of files.values()) expect(file.text, file.path).not.toMatch(/\{\{[#^/]?[a-zA-Z]+\}\}/);
+    }
+    expect(composeOf(plan({ edge: "proxy" })).volumes).toEqual({ "postgres-data": null });
+    expect(composeOf(plan({ edge: "proxy" }, NO_DATABASE))).not.toHaveProperty("volumes");
+  });
+
+  it("puts the app on the external edge network and its own, published by labels", () => {
+    const compose = composeOf(plan({ edge: "proxy" }));
+    expect(compose.networks).toEqual({ edge: { name: "proxy", external: true } });
+    expect(compose.services.app?.networks).toEqual(["edge", "default"]);
+    expect(compose.services.app?.labels).toEqual([
+      "traefik.enable=true",
+      "traefik.docker.network=proxy",
+      "traefik.http.routers.acme-app.rule=Host(`example.com`)",
+      "traefik.http.routers.acme-app.entrypoints=websecure",
+      "traefik.http.routers.acme-app.tls.certresolver=letsencrypt",
+      "traefik.http.routers.acme-app.service=acme-app",
+      "traefik.http.routers.acme-app.middlewares=acme-app-security-headers",
+      "traefik.http.services.acme-app.loadbalancer.server.port=3000",
+      "traefik.http.middlewares.acme-app-security-headers.headers.stsSeconds=31536000",
+      "traefik.http.middlewares.acme-app-security-headers.headers.stsIncludeSubdomains=true",
+      "traefik.http.middlewares.acme-app-security-headers.headers.contentTypeNosniff=true",
+      "traefik.http.middlewares.acme-app-security-headers.headers.referrerPolicy=strict-origin-when-cross-origin",
+    ]);
+    // Postgres and the migrate service stay on the project's own network only.
+    expect(compose.services.postgres?.networks).toBeUndefined();
+    expect(compose.services.migrate?.networks).toBeUndefined();
+  });
+
+  it("routes the allowed prefixes and redirects www through labels only when asked", () => {
+    const labels = composeOf(plan({ edge: "proxy", www: true, paths: ["/blog"] })).services.app?.labels ?? [];
+    expect(labels).toContain(`traefik.http.routers.acme-app.rule=${buildAppRule({ ...ANSWERS, paths: ["/blog"] }, FACTS)}`);
+    expect(labels.filter((label) => label.includes("www"))).toEqual([
+      "traefik.http.routers.acme-app-www.rule=Host(`www.example.com`)",
+      "traefik.http.routers.acme-app-www.entrypoints=websecure",
+      "traefik.http.routers.acme-app-www.tls.certresolver=letsencrypt",
+      "traefik.http.routers.acme-app-www.service=noop@internal",
+      "traefik.http.routers.acme-app-www.middlewares=acme-app-www-to-apex",
+      String.raw`traefik.http.middlewares.acme-app-www-to-apex.redirectregex.regex=^https?://www\.example\.com/(.*)`,
+      // Compose reads $$ as one $, so Traefik gets ${1}.
+      "traefik.http.middlewares.acme-app-www-to-apex.redirectregex.replacement=https://example.com/$${1}",
+      "traefik.http.middlewares.acme-app-www-to-apex.redirectregex.permanent=true",
+    ]);
+    expect((composeOf(plan({ edge: "proxy" })).services.app?.labels ?? []).filter((label) => label.includes("www"))).toEqual([]);
+  });
+
+  it("switches the app alone in deploy.sh, with no Traefik step", () => {
+    const script = textOf(plan({ edge: "proxy" }), "docker/server/deploy.sh");
+    expect(script).toContain("compose up --detach --wait --remove-orphans app ||");
+    expect(script).not.toContain("begin_step traefik");
+    expect(script).not.toContain("rules_changed");
+  });
+
+  it("leaves the files without edge as they were", () => {
+    const script = textOf(plan(), "docker/server/deploy.sh");
+    expect(script).toContain("compose up --detach --wait --remove-orphans traefik app ||");
+    expect(script).toContain("begin_step traefik");
+    const compose = composeOf(plan());
+    expect(compose).not.toHaveProperty("networks");
+    expect(compose.services.app).not.toHaveProperty("labels");
+  });
+});
+
+describe("the switch of deploy.sh", () => {
+  it("starts the worker with the app, so a release replaces it too", () => {
+    expect(textOf(plan({}, { hasJobs: true }), "docker/server/deploy.sh")).toContain(
+      "compose up --detach --wait --remove-orphans traefik app worker ||",
+    );
+    expect(textOf(plan({ edge: "proxy" }, { hasJobs: true }), "docker/server/deploy.sh")).toContain(
+      "compose up --detach --wait --remove-orphans app worker ||",
+    );
   });
 });
 
