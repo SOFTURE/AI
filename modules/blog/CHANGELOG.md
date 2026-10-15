@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
-## Unreleased
+## 0.3.0
 
 - **Breaking (#509):** tool blocks return data and leave React out of the config. `defineToolBlock` moved from
   `@softure-ai/blog/ui` to the root entry `@softure-ai/blog` (also `/server`) and no longer takes `Island`: its page

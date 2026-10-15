@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
-## Unreleased
+## 0.3.1
 
 - `SuggestedAmountField` covers a suggestion row an app drew itself (#507). `suggestedValue` takes `null` (or is left
   out) when there is nothing to suggest: the row shows `messages.none` ("No suggestion") and no button.
