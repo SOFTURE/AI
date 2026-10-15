@@ -1,12 +1,13 @@
 ---
 change_id: db-test-database-close-523
 title: "db: createTestDatabase's close() resolves on a copy that was never queried (issue #523)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 523
 branch: claude/project-thread-lxbetu
 created: 2026-10-15
 updated: 2026-10-15
+archived_at: 2026-10-15
 ---
 
 ## Intent

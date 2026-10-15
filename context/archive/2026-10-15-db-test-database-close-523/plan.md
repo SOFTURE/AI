@@ -1,6 +1,6 @@
 ---
 change_id: db-test-database-close-523
-status: in_progress
+status: archived
 ---
 
 # Plan: createTestDatabase's close() on an unqueried copy (issue #523)
