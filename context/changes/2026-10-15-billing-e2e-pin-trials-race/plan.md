@@ -32,5 +32,5 @@ against Postgres.
 ### Phase 1: Run pin-trials alone
 
 #### Automated
-- [ ] 1.1 pin-trials case in its own serial spec; serial project runs one worker
+- [x] 1.1 pin-trials case in its own serial spec; serial project runs one worker — 81c3d6f
 - [ ] 1.2 Typecheck, lint and test green; billing e2e green locally
