@@ -48,6 +48,15 @@ describe("blog markup and styles", () => {
     for (const { file, source } of readSources("")) expect(source, file).not.toMatch(/(?:from|import\() *"(?:\.\/next\/|next\/)/);
   });
 
+  it("reaches the optional @softure-ai/jobs only through the jobs entry, which the CLI loads dynamically", () => {
+    const sources = [...readSources(""), ...readSources("discovery"), ...readSources("cli"), ...readSources("server"), ...readSources("next"), ...readSources("db")];
+    for (const { file, source } of sources) {
+      expect(source, file).not.toContain('"@softure-ai/jobs');
+      // queue.ts names the queue without importing jobs; enqueue.ts and handler.ts do import it.
+      expect(source, file).not.toMatch(/^import [^;]*from "\.\.\/jobs\/(?!queue\.js")/m);
+    }
+  });
+
   it("keeps the command line off the Next adapter, so the bin runs without Next", () => {
     for (const { file, source } of readSources("cli")) expect(source, file).not.toMatch(/(?:from|import\() *"(?:\.\.\/next\/|next(?:\/[a-z]+)?")/);
   });

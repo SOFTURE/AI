@@ -37,7 +37,8 @@ export interface MailContext {
  * `invalid_input` (fix the input), `rejected` (do not retry), `unavailable` (retry later with the
  * same `idempotencyKey`), `suppressed` (a list mail to someone who unsubscribed; do not retry),
  * `provider_refused` / `quota_exceeded` (the account cannot send: stop, fix or wait, then retry). A
- * failure the provider answered with an HTTP status carries it as `httpStatus`.
+ * failure the provider answered with an HTTP status carries it as `httpStatus`, and the wait it asked for
+ * (`Retry-After`) as `retryAfterSeconds`.
  * Throws only when the module is not enabled, or for list mail without `context.db`.
  */
 export async function sendMail(context: MailContext, mail: OutgoingMail, options: SendMailOptions = {}): Promise<SendMailResult> {
@@ -64,7 +65,11 @@ export async function sendMail(context: MailContext, mail: OutgoingMail, options
   }
   const code = FAILURE_CODES[outcome.status];
   logFailure(provider, code, { status: outcome.httpStatus });
-  return outcome.httpStatus === undefined ? err(code) : { ...err(code), httpStatus: outcome.httpStatus };
+  return {
+    ...err(code),
+    ...(outcome.httpStatus === undefined ? {} : { httpStatus: outcome.httpStatus }),
+    ...(outcome.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: outcome.retryAfterSeconds }),
+  };
 }
 
 /** Why `previewMail` cannot render a mail: invalid input (with the fields), or list mail without the secret. */
@@ -171,15 +176,23 @@ async function callProvider(provider: MailProvider, message: Parameters<MailProv
 /** A provider's answer, narrowed: anything that is not a known outcome reads as `unavailable`. */
 function readOutcome(outcome: unknown): ProviderOutcome {
   if (typeof outcome !== "object" || outcome === null) return { status: "unavailable" };
-  const { status, id, httpStatus } = outcome as { status?: unknown; id?: unknown; httpStatus?: unknown };
+  const { status, id, httpStatus, retryAfterSeconds } = outcome as { status?: unknown; id?: unknown; httpStatus?: unknown; retryAfterSeconds?: unknown };
   if (status === "sent") {
     return typeof id === "string" && id !== "" ? { status, id } : { status: "unavailable" };
   }
   if (typeof status === "string" && Object.hasOwn(FAILURE_CODES, status)) {
-    const failure = status as ProviderFailureStatus;
-    return isHttpStatus(httpStatus) ? { status: failure, httpStatus } : { status: failure };
+    return {
+      status: status as ProviderFailureStatus,
+      ...(isHttpStatus(httpStatus) ? { httpStatus } : {}),
+      ...(isRetryAfter(retryAfterSeconds) ? { retryAfterSeconds } : {}),
+    };
   }
   return { status: "unavailable" };
+}
+
+/** A provider's `Retry-After` in whole seconds; anything else is dropped. */
+function isRetryAfter(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 function isHttpStatus(value: unknown): value is number {

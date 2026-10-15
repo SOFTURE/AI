@@ -21,6 +21,7 @@ export {
   requestPasswordReset,
   resetPassword,
   RESET_TOKEN_PARAM,
+  sendPasswordReset,
   type PasswordResetRequestInput,
   type PasswordResetRequestResult,
   type ResetPasswordErrorCode,

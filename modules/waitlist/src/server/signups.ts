@@ -63,9 +63,14 @@ export interface PendingSignup {
   readonly signup: WaitlistSignup;
   /** True for the first sign-up of this address. */
   readonly isNew: boolean;
-  /** The link's token, for `deliverConfirmationMail`. A credential: never log or return it to the client. */
+  /**
+   * The link's token, for `deliverConfirmationMail`. A credential: never log or return it to the client.
+   * When `isMailQueued`, the job replaces it with a token of its own when it sends.
+   */
   readonly token: string;
   readonly expiresAt: Date;
+  /** True when the mail was enqueued in this transaction (`confirmationMail.enqueue`): the caller sends nothing. */
+  readonly isMailQueued: boolean;
 }
 
 /**
@@ -202,19 +207,24 @@ async function joinNow(ctx: WaitlistContext, request: SignupRequest): Promise<Jo
 /**
  * Stores a request that waits for its link, with a new token that replaces any earlier one. An
  * unconfirmed row takes the requested scopes (nothing was granted yet); a confirmed row keeps its
- * scopes until the link is used.
+ * scopes until the link is used. With `confirmationMail.enqueue`, the mail job is enqueued in the
+ * same transaction.
  */
 async function requestConfirmation(ctx: WaitlistContext, request: SignupRequest, expiresInHours: number): Promise<PendingSignup> {
   const now = ctx.clock.now();
   const expiresAt = new Date(now.getTime() + expiresInHours * HOUR_MS);
   const { token, tokenHash } = createConfirmationToken();
+  const enqueue = getWaitlistOptions(ctx.config).confirmationMail.enqueue;
   const link = { pendingScopes: [...request.scopes], confirmationTokenHash: tokenHash, confirmationExpiresAt: expiresAt };
   const [inserted] = await ctx.db
     .insert(signups)
     .values({ ...request, scopes: [...request.scopes], locale: ctx.config.locale, createdAt: now, updatedAt: now, confirmedAt: null, ...link })
     .onConflictDoNothing({ target: signups.email })
     .returning();
-  if (inserted !== undefined) return { status: "confirmation_required", signup: toSignup(inserted), isNew: true, token, expiresAt };
+  if (inserted !== undefined) {
+    if (enqueue !== undefined) await enqueue(ctx, inserted.id);
+    return { status: "confirmation_required", signup: toSignup(inserted), isNew: true, token, expiresAt, isMailQueued: enqueue !== undefined };
+  }
 
   const current = await lockSignup(ctx, request.email);
   const [updated] = await ctx.db
@@ -223,7 +233,8 @@ async function requestConfirmation(ctx: WaitlistContext, request: SignupRequest,
     .where(eq(signups.id, current.id))
     .returning();
   if (updated === undefined) throw new Error("@softure-ai/waitlist: updating a locked sign-up changed no row");
-  return { status: "confirmation_required", signup: toSignup(updated), isNew: false, token, expiresAt };
+  if (enqueue !== undefined) await enqueue(ctx, updated.id);
+  return { status: "confirmation_required", signup: toSignup(updated), isNew: false, token, expiresAt, isMailQueued: enqueue !== undefined };
 }
 
 /**

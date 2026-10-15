@@ -15,7 +15,8 @@ for server code, roles (`requireRole`, `authorizeRole`, `hasRole`, and `grant-ro
 script), `createAuthGuard` for the app's `proxy.ts`, and a health check that
 `GET /api/health` of `@softure-ai/ops` runs (every auth table answers, no rows read).
 `@softure-ai/auth/mailing` sends password reset mails through `@softure-ai/mailing`
-(`mailingResetSender()`). `@softure-ai/auth/testing` creates accounts directly in the database for
+(`mailingResetSender()`); `@softure-ai/auth/jobs` sends them from a background job of `@softure-ai/jobs` with
+retry (`enqueuePasswordReset`, `passwordResetJobHandlers`). `@softure-ai/auth/testing` creates accounts directly in the database for
 tests (`createTestAccount`, section 4, "Tests").
 
 ## 2. Installation
@@ -91,6 +92,7 @@ export default config;
 | `onRegistered` | `(event, ctx) => Promise<void>` | none | Called after the account is created, inside the same transaction. |
 | `rewriteRedirect` | `(path, { config, searchParams? }) => string \| Promise<string>` | none | Rewrites the path of every auth redirect: the actions' (login, sign-up, password reset, logout), the login and register pages' redirect of a signed-in visitor and `requireUser`'s redirect to login, e.g. `tagRedirect` from `@softure-ai/analytics/next`, which keeps the channel tag. A page passes its own `searchParams` (`URLSearchParams`; `requireUser` hands over the ones the page gives it); an action passes none, and during a page's render the `Referer` is the page before, not the page itself. A result that is not a path on this app, or an error, leaves auth's own path. |
 | `passwordReset.send` | `(link, user, details) => Promise<void>` | none | Delivers reset links (section 4, "Password reset"). Without it password reset is off. |
+| `passwordReset.enqueue` | `(ctx, userId) => Promise<void>` | none | Sends the link from a background job instead of the request: `enqueuePasswordReset` of `@softure-ai/auth/jobs` (section 4, "Password reset through jobs"). Needs `send`. |
 | `passwordReset.ttlMinutes` | `number` (5-1440) | `60` | How long a reset link works. |
 | `routes` | `{ login, register, changePassword, forgotPassword, resetPassword, afterLogin, afterLogout }` | `/login`, `/register`, `/account/password`, `/forgot-password`, `/reset-password`, `/`, `/login` | Where the pages are mounted and where users land. |
 | `messages` | partial dictionaries per locale (`en` built in; any other is the app's own translation) | built in | Copy overrides (section 9). |
@@ -441,8 +443,40 @@ auth({
   link's path and query and swaps the origin in its sender, from what it knows about the user.
 - The reset page's referrer policy is `same-origin`, so the token in its URL never reaches another
   site. It still lands in your own access logs; it works once and expires.
-- `requestPasswordReset`, `deliverPasswordReset`, `resetPassword`, `findPasswordResetUser` and
+- `requestPasswordReset`, `deliverPasswordReset`, `sendPasswordReset`, `resetPassword`, `findPasswordResetUser` and
   `prunePasswordResets` in `@softure-ai/auth/server` do the same for your own flows.
+
+**Password reset through jobs.** Without it, the sender runs once after the response: a provider outage loses the mail.
+With `@softure-ai/jobs` (an optional peer dependency), the request only enqueues the account's id and a worker sends
+the link with retry and backoff:
+
+```ts
+// softure.config.ts
+import { auth } from "@softure-ai/auth";
+import { enqueuePasswordReset, PASSWORD_RESET_QUEUE } from "@softure-ai/auth/jobs";
+import { mailingResetSender } from "@softure-ai/auth/mailing";
+import { jobs } from "@softure-ai/jobs";
+
+modules: [
+  auth({ passwordReset: { send: mailingResetSender(), enqueue: enqueuePasswordReset } }),
+  jobs({ queues: { [PASSWORD_RESET_QUEUE]: { maxAttempts: 5 } } }), // "auth.password-reset"
+];
+
+// scripts/worker.ts
+import { passwordResetJobHandlers } from "@softure-ai/auth/jobs";
+await runJobWorkerProcess({ config, handlers: { ...passwordResetJobHandlers, ...appHandlers } });
+```
+
+- The request (still after the response) looks the account up and enqueues `{ userId }` on `auth.password-reset`,
+  deduplicated per account while a job is pending. No address and no token is ever in the payload, and no reset row
+  is written in the request.
+- The handler (`passwordResetJobHandler`) issues the link when it runs, so the link works for `ttlMinutes` from the
+  send, and calls `passwordReset.send`. Only the token's hash is stored, so a retry issues a new link that replaces
+  the last one: a retry after a send whose outcome was not recorded (a worker crash) mails a second link, and only
+  the newer works. A thrown sender is logged by its label (never the link) and retried as
+  `auth.password_reset_send_failed`; an account deleted in the meantime ends the job without a mail.
+- `mailingResetSender()` reads the registered config: the worker imports `softure.config.ts`, which registers it
+  (section 3).
 
 **Your own forms.** `@softure-ai/auth/ui` exports `LoginForm`, `RegisterForm`,
 `ChangePasswordForm`, `ForgotPasswordForm` and `ResetPasswordForm`; pass them the actions from
@@ -596,7 +630,10 @@ failure. `@softure-ai/privacy` stores the consent through it.
 
 `passwordReset.send(link, user, details)`: after a reset request is answered, for an existing
 account only (section 4, "Password reset"). `mailingResetSender()` from `@softure-ai/auth/mailing`
-plugs `@softure-ai/mailing` in here.
+plugs `@softure-ai/mailing` in here. With `passwordReset.enqueue`, it runs in the worker's reset job instead.
+
+`passwordReset.enqueue(ctx, userId)`: where a reset request is answered, for an existing account, instead of the
+sender. `enqueuePasswordReset` from `@softure-ai/auth/jobs` plugs `@softure-ai/jobs` in here.
 
 ## 11. GDPR
 
