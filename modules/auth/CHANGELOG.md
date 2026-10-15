@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
-## Unreleased
+## 0.2.3
 
 - `createCreateAccountScript(config, { maxAccounts?, alphabet?, clock? })` in `@softure-ai/auth/scripts` (#521): the
   `create-account` ops script creates an account while registration is closed, with a drawn temporary password or a

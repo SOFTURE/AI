@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.3
 
 - The language gate skips a verbatim quote marked in Markdown with `<!-- language: pl -->` … `<!-- /language -->`, on
   one line or around several (#517). An app no longer has to drop every check of `context/` because its workflow

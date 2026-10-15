@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.4.1
 
 - **`init --edge=<network>` (#516):** for an app that runs as a second compose project next to another stack's
   Traefik. init writes no Traefik service, no `traefik.yml` and no `letsencrypt` volume; the app joins the external
