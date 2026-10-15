@@ -428,8 +428,7 @@ describe("the deploy and verify jobs of deploy-app.yml run the deploy action of 
       verify: true,
       report: false,
       "origin-address": "${{ inputs.origin-address-var != '' && fromJSON(inputs.app-vars)[inputs.origin-address-var] || secrets.origin-address }}",
-      "verify-env": "${{ inputs.verify-env-secret != '' && secrets[inputs.verify-env-secret] || secrets.verify-env }}",
-      "verify-env-secret": "${{ inputs.verify-env-secret }}",
+      "verify-env": "${{ secrets.verify-env }}",
     });
     expect(inputs["deploy-config"]?.default).toBe("deploy.json");
   });
@@ -524,48 +523,62 @@ describe("the release guards of deploy-app.yml (DF-11)", () => {
   });
 });
 
-describe("the example caller workflow", () => {
+describe("the example caller workflow (issue #486)", () => {
   const caller = readYaml(EXAMPLE_CALLER);
-  const deployJob = caller.jobs.deploy as Job;
+  const action = readAction();
+  const build = caller.jobs.build as Job;
+  const deployJob = caller.jobs.deploy as Job & { environment?: string; needs?: unknown };
   const reportJob = caller.jobs.report as Job & { needs?: unknown; if?: string };
+  const step = deployJob.steps?.[0] as (Step & { env?: Record<string, string> }) | undefined;
+  const calledDeploy = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, "deploy-app.yml")));
+  const calledReport = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, "deploy-report.yml")));
 
-  it("calls the deploy workflow, then the report workflow, each with one uses: line", () => {
-    expect(Object.keys(caller.jobs)).toEqual(["deploy", "report"]);
-    expect(deployJob.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-app\.yml@master$/);
-    expect(reportJob.uses).toMatch(/^SOFTURE\/AI\/\.github\/workflows\/deploy-report\.yml@master$/);
+  it("builds through deploy-app.yml, deploys with the action, then reports, each at master", () => {
+    expect(Object.keys(caller.jobs)).toEqual(["build", "deploy", "report"]);
+    expect(build.uses).toBe(`${CALLER_PREFIX}deploy-app.yml@master`);
+    expect(step?.uses).toBe("SOFTURE/AI/.github/actions/deploy@master");
+    expect(reportJob.uses).toBe(`${CALLER_PREFIX}deploy-report.yml@master`);
   });
 
-  it("grants the deploy jobs what they need and nothing to write code; contents: write to the report job only", () => {
+  it("grants packages: write to the build, read to the deploy job, contents: write to the report job only", () => {
     expect(caller.permissions).toEqual({ contents: "read", packages: "write" });
-    expect(deployJob.permissions).toBeUndefined();
+    expect(build.permissions).toBeUndefined();
+    expect(deployJob.permissions).toEqual({ contents: "read", packages: "read" });
     expect(reportJob.permissions).toEqual({ contents: "write" });
   });
 
-  it("reports after the deploy whatever its result, on the same tag", () => {
-    expect(reportJob.needs).toBe("deploy");
-    expect(reportJob.if).toBe("${{ always() }}");
-    expect(reportJob.with?.tag).toBe(deployJob.with?.tag);
+  it("builds with deploy off, only declared inputs, every required one, and no secrets", () => {
+    expect(build.with?.deploy).toBe(false);
+    expect(build.secrets).toBeUndefined();
+    const passed = Object.keys(build.with ?? {});
+    for (const key of passed) expect(Object.keys(calledDeploy.inputs ?? {})).toContain(key);
+    for (const [key, input] of Object.entries(calledDeploy.inputs ?? {})) if (input.required === true) expect(passed).toContain(key);
   });
 
-  describe.each(["deploy", "report"])("the %s job", (id) => {
-    const job = caller.jobs[id] as Job;
-    const target = (job.uses ?? "").slice(CALLER_PREFIX.length).replace(/@.*$/, "");
-    const called = getWorkflowCall(readYaml(join(WORKFLOWS_DIR, target)));
-
-    it("passes only declared inputs and every required one", () => {
-      const declared = called.inputs ?? {};
-      const passed = Object.keys(job.with ?? {});
-      for (const key of passed) expect(Object.keys(declared)).toContain(key);
-      const required = Object.entries(declared).filter(([, input]) => input.required === true);
-      for (const [key] of required) expect(passed).toContain(key);
+  it("deploys from the production environment, the app's secrets by name", () => {
+    expect(deployJob.environment).toBe("production");
+    expect(deployJob.needs).toBe("build");
+    expect(step?.with).toMatchObject({
+      release: "${{ needs.build.outputs.release }}",
+      image: "${{ needs.build.outputs.image }}",
+      digest: "${{ needs.build.outputs.digest }}",
+      "ssh-private-key": "${{ secrets.DEPLOY_SSH_KEY }}",
+      "app-vars": "${{ toJSON(vars) }}",
     });
+    expect(step?.with?.["app-secrets"]).toBeUndefined();
+    const env = step?.env ?? {};
+    expect(Object.keys(env).length).toBeGreaterThan(0);
+    for (const [name, value] of Object.entries(env)) expect(value).toBe(`\${{ secrets.${name} }}`);
+    expect(String(step?.with?.["secret-names"]).split(/\s+/).sort()).toEqual(Object.keys(env).sort());
+    for (const key of Object.keys(step?.with ?? {})) expect(Object.keys(action.inputs)).toContain(key);
+  });
 
-    it("passes secrets explicitly: only declared ones and every required one", () => {
-      expect(job.secrets).not.toBe("inherit");
-      const declared = called.secrets ?? {};
-      const passed = Object.keys((job.secrets ?? {}) as Record<string, unknown>);
-      expect(passed.sort()).toEqual(Object.keys(declared).sort());
-    });
+  it("reports after the deploy whatever its result, once the build succeeded, on the same tag", () => {
+    expect(reportJob.needs).toEqual(["build", "deploy"]);
+    expect(reportJob.if).toBe("${{ always() && needs.build.result == 'success' }}");
+    expect(reportJob.with?.tag).toBe(build.with?.tag);
+    for (const key of Object.keys(reportJob.with ?? {})) expect(Object.keys(calledReport.inputs ?? {})).toContain(key);
+    expect(reportJob.secrets).toBeUndefined();
   });
 });
 
@@ -739,10 +752,10 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
     const send = deploySteps.find((step) => step.id === "send");
     expect(send?.if).toBeUndefined();
     expect(send?.with).toMatchObject({
-      "ssh-host": "${{ inputs.e2e && steps.e2e-server.outputs.host || inputs.secrets-from-environment && secrets[inputs.ssh-host-secret] || secrets.ssh-host }}",
-      "ssh-user": "${{ inputs.e2e && steps.e2e-server.outputs.user || inputs.secrets-from-environment && secrets[inputs.ssh-user-secret] || secrets.ssh-user }}",
-      "ssh-private-key": "${{ inputs.e2e && steps.e2e-server.outputs.private-key || inputs.secrets-from-environment && secrets[inputs.ssh-private-key-secret] || secrets.ssh-private-key }}",
-      "ssh-known-hosts": "${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || inputs.secrets-from-environment && secrets[inputs.ssh-known-hosts-secret] || secrets.ssh-known-hosts }}",
+      "ssh-host": "${{ inputs.e2e && steps.e2e-server.outputs.host || secrets.ssh-host }}",
+      "ssh-user": "${{ inputs.e2e && steps.e2e-server.outputs.user || secrets.ssh-user }}",
+      "ssh-private-key": "${{ inputs.e2e && steps.e2e-server.outputs.private-key || secrets.ssh-private-key }}",
+      "ssh-known-hosts": "${{ inputs.e2e && steps.e2e-server.outputs.known-hosts || secrets.ssh-known-hosts }}",
     });
   });
 
@@ -864,16 +877,14 @@ describe("deploy: false and the release output of deploy-app.yml (issue #468)", 
     const refused = check({
       PASSED_SECRETS: "ssh-host app-secrets",
       ORIGIN_ADDRESS: "203.0.113.7",
-      SECRETS_FROM_ENVIRONMENT: "true",
-      VERIFY_ENV_SECRET: "DEPLOY_VERIFY_ENV",
+      ORIGIN_ADDRESS_VAR: "DEPLOY_ORIGIN_IP",
     });
     expect(refused.status).toBe(1);
     for (const reason of [
       "true when the secret ssh-host is passed (the caller's job passes it to the deploy action)",
       "true when the secret app-secrets is passed (the caller's job passes it to the deploy action)",
       "true when the secret origin-address is passed (the deploy action takes it)",
-      "true with secrets-from-environment (the caller's job reads its environment)",
-      "true with verify-env-secret (the deploy action takes verify-env)",
+      "true with origin-address-var (the deploy action takes origin-address)",
     ]) {
       expect(refused.stdout).toContain(`::error::Input deploy is not valid: ${reason}`);
     }
@@ -909,9 +920,14 @@ describe("the example caller with environments (issue #468)", () => {
     expect(step?.with).toMatchObject({
       release: "${{ needs.build.outputs.release }}",
       "ssh-private-key": "${{ secrets.DEPLOY_SSH_KEY }}",
-      "app-secrets": "${{ toJSON(secrets) }}",
       "app-vars": "${{ toJSON(vars) }}",
     });
+    // The app's secrets by name (issue #476): each in the step's env from its own secret, all listed in secret-names.
+    expect(step?.with?.["app-secrets"]).toBeUndefined();
+    const env = (step as { env?: Record<string, string> } | undefined)?.env ?? {};
+    expect(Object.keys(env).length).toBeGreaterThan(0);
+    for (const [name, value] of Object.entries(env)) expect(value).toBe(`\${{ secrets.${name} }}`);
+    expect(String(step?.with?.["secret-names"]).split(/\s+/).sort()).toEqual(Object.keys(env).sort());
     for (const key of Object.keys(step?.with ?? {})) expect(Object.keys(action.inputs)).toContain(key);
   });
 
@@ -943,7 +959,7 @@ describe("the end-to-end caller e2e-deploy.yml", () => {
       if (input.required === true) expect(Object.keys(job.with ?? {})).toContain(key);
     }
     // The named form: every secret but origin-address, which has nothing to check on the test path (verify is
-    // skipped). None is `required: true` (secrets-from-environment passes none); the check job asks for them.
+    // skipped). None is `required: true` (a caller with deploy: false passes none); the check job asks for them.
     const passed = Object.keys(job.secrets as Record<string, unknown>);
     for (const key of passed) expect(Object.keys(called.secrets ?? {})).toContain(key);
     expect(passed.sort()).toEqual(["app-secrets", "ssh-host", "ssh-known-hosts", "ssh-private-key", "ssh-user"]);

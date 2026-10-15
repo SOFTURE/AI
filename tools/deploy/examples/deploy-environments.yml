@@ -9,11 +9,14 @@
 # - One job per environment declares `environment:` and runs the deploy action (.github/actions/deploy). That job's
 #   `secrets` and `vars` hold the environment's values over the repository's, so each environment renders its own
 #   .env.prod and reaches its own server. The environment's deployment policy (e.g. release tags only) and reviewers
-#   apply to that job.
+#   apply to that job. The app's secrets go to the action by name: each one in the step's `env:` and its name in
+#   `secret-names`, never the whole `secrets` context (`toJSON(secrets)` hands every secret, github_token included, to
+#   the runner, and CodeQL flags it as excessive-secrets-exposure).
 #
 # Copy it to the app's `.github/workflows/deploy.yml`, set `app-url`, `environment` and the secrets of each environment:
 # DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_KEY, DEPLOY_SSH_KNOWN_HOSTS and every name the compose file requires
-# (${NAME:?}); switches go in the environment's variables. Pin the workflow and the action to the same commit, best the
+# (${NAME:?}), each also listed in the action step's `env:` and `secret-names` (here AUTH_SECRET and DATABASE_URL);
+# switches go in the environment's variables. Pin the workflow and the action to the same commit, best the
 # commit of the release tag `deploy@<version>`: git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@<version>^{}'.
 # `release` holds the values deploy-app.yml checked (production's app-url and environment); another environment passes
 # its own `app-url` and `environment` to the action.
@@ -61,6 +64,10 @@ jobs:
       packages: read
     steps:
       - uses: SOFTURE/AI/.github/actions/deploy@master
+        # The app's secrets by name, the environment's over the repository's: one line per name the compose file uses.
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         with:
           release: ${{ needs.build.outputs.release }}
           image: ${{ needs.build.outputs.image }}
@@ -69,8 +76,8 @@ jobs:
           ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
           ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
-          # The environment's secrets over the repository's; only the compose file's names land in .env.prod.
-          app-secrets: ${{ toJSON(secrets) }}
+          # The names of the env: entries above that are the app's secrets; only the compose file's names land in .env.prod.
+          secret-names: AUTH_SECRET DATABASE_URL
           # The environment's variables over the repository's, rendered over a secret of the same name.
           app-vars: ${{ toJSON(vars) }}
           # Behind a CDN, the server's own IP: verify fails when the firewall lets direct traffic in. Empty skips it.
@@ -93,6 +100,9 @@ jobs:
       packages: read
     steps:
       - uses: SOFTURE/AI/.github/actions/deploy@master
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         with:
           release: ${{ needs.build.outputs.release }}
           app-url: https://dev.example.com
@@ -102,7 +112,7 @@ jobs:
           ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
           ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
-          app-secrets: ${{ toJSON(secrets) }}
+          secret-names: AUTH_SECRET DATABASE_URL
           app-vars: ${{ toJSON(vars) }}
 
   report:

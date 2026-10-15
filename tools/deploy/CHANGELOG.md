@@ -4,6 +4,64 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.4.0
+
+- **Breaking (#476): no whole secrets context.** CodeQL (`actions/excessive-secrets-exposure`) flags `toJSON(secrets)`
+  and `secrets[<computed name>]`: either hands the runner every secret of the job, `github_token` and the deploy key
+  included. `deploy-app.yml` no longer has either:
+  - `secrets-from-environment: true` is refused by the check job, and the inputs `ssh-host-secret`, `ssh-user-secret`,
+    `ssh-private-key-secret`, `ssh-known-hosts-secret` and `verify-env-secret` are removed (passing one fails the call
+    as an unknown input). The verify job no longer runs in `environment`.
+  - A caller with `secrets-from-environment` migrates as in 0.3.0 (the four steps below): `deploy: false` on the
+    `deploy-app.yml` job and one job per environment that runs the deploy action. A caller that passes named secrets,
+    or already runs the deploy action, changes nothing for this point.
+- **The deploy action takes the app's secrets by name:** a new input `secret-names` lists the secrets the step's `env:`
+  holds, so the caller writes one line per secret instead of `app-secrets: ${{ toJSON(secrets) }}`, and its own
+  repository's CodeQL scan has nothing to flag. Only the listed names are read; an empty value counts as unset (the
+  compose file's check names a required one). A name the runner owns (`PATH`, `HOME`, `CI`, `NODE_*`, `NPM_CONFIG_*`,
+  `GITHUB_*`, `RUNNER_*`, `ACTIONS_*`, `INPUT_*`), one the render step sets itself, a repeat, or `secret-names` next to
+  a non-empty `app-secrets` is refused by name, never by value. `app-secrets` keeps working unchanged.
+  To move an app from `app-secrets: ${{ toJSON(secrets) }}` (optional, recommended):
+  1. In each environment job's deploy action step, add `env:` with one line per secret the compose file uses
+     (`${NAME:?}` and the optional `${NAME:-…}` ones the app sets): `NAME: ${{ secrets.NAME }}`.
+  2. Replace `app-secrets: ${{ toJSON(secrets) }}` with `secret-names:` listing the same names, separated by spaces or
+     newlines. Keep `app-vars: ${{ toJSON(vars) }}` (variables, not secrets).
+  3. Pin the action and `deploy-app.yml` to the commit of the release tag carrying this change.
+  [`examples/deploy-environments.yml`](examples/deploy-environments.yml) shows the result.
+- **`init`'s caller passes secrets by name (#486):** the `.github/workflows/deploy.yml` that `softure-deploy init`
+  writes, and [`examples/deploy.yml`](examples/deploy.yml), no longer pass `app-secrets: ${{ toJSON(secrets) }}` to
+  `deploy-app.yml`. They call it as `build` with `deploy: false`, then a job `deploy` with `environment: production`
+  runs the deploy action, each secret the compose file requires in the step's `env:` and `secret-names` (init fills in
+  the names from the compose file it writes). The secrets may live in the repository or in the `production`
+  environment. An app that ran `init` before keeps working unchanged; to clear the CodeQL alert in its repository
+  (optional, recommended), replace the `deploy` job of its `.github/workflows/deploy.yml`:
+  1. Rename the job `deploy` to `build`, add `deploy: false` under its `with:`, and delete its whole `secrets:` block
+     (with `deploy: false` the check job refuses every secret). Move `app-vars` out of `with:` (step 3).
+  2. Add a job `deploy` with `needs: build`, `runs-on: ubuntu-latest`, `timeout-minutes: 30`,
+     `environment: production`, `concurrency: { group: deploy-production, cancel-in-progress: false }` and
+     `permissions: { contents: read, packages: read }`.
+  3. Give it one step, `uses: SOFTURE/AI/.github/actions/deploy@<the same ref as deploy-app.yml>`, with `env:` holding
+     `NAME: ${{ secrets.NAME }}` for every name of the old `app-secrets` comment ("reach .env.prod: …"), and `with:`
+     `release: ${{ needs.build.outputs.release }}`, `image: ${{ needs.build.outputs.image }}`,
+     `digest: ${{ needs.build.outputs.digest }}`, `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts`,
+     `origin-address` and `verify-env` from the same secrets as before, `secret-names:` listing the `env:` names, and
+     `app-vars: ${{ toJSON(vars) }}`.
+  4. A `report` job that called `deploy-report.yml` with `needs: deploy` takes `needs: [build, deploy]` and
+     `if: ${{ always() && needs.build.result == 'success' }}`.
+  Running `init --force` on a scratch copy of the app prints the same file with the app's names filled in;
+  [`examples/deploy.yml`](examples/deploy.yml) is the result for two secrets.
+
+- `init` adds a job worker for an app that depends on `@softure-ai/jobs` (and `@softure-ai/db`), issue #471:
+  `scripts/worker.ts` (calls `runJobWorkerProcess` with the app's handlers), its esbuild bundle `worker.mjs` in the
+  image, and a `worker` service in `docker/prod/docker-compose.yml` from the same image (`node worker.mjs`, the app's
+  environment, health check off, `stop_grace_period: 30s`, after `migrate`). Apps without `@softure-ai/jobs` get
+  byte-identical files. An app that already ran `init` adds the three parts by hand or re-runs `init --force` on those
+  files (see the README, `softure-deploy init`).
+- **Pinned callers say they are pinned (#473):** with `init --workflows-ref=<sha>`, the header comments of the
+  generated `deploy.yml`, `checks.yml`, `release.yml` and `release-notes.yml` say the callers are pinned to that commit
+  and are moved together on an upgrade; the "pin a commit SHA" advice and the `git ls-remote` hint are written only
+  when they call `master`. Only comments change: an app that already ran `init` may keep or hand-edit its comments.
+
 ## 0.3.0
 
 - **Per-environment secrets (#468):** the composite action `SOFTURE/AI/.github/actions/deploy` renders `.env.prod`,

@@ -1,13 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
-// Issue #296: with `secrets-from-environment: true` and `secrets: inherit`, deploy-app.yml's deploy job reads the app's
-// secrets and the SSH values from its own environment instead of named secrets the caller cannot fill from one. The
-// steps run here as the runner runs them; the render step runs the real CLI from source (through tsx).
+// Issue #476: neither deploy-app.yml nor the deploy action hands the whole secrets context to a runner (CodeQL
+// excessive-secrets-exposure). deploy-app.yml takes named secrets only and refuses the removed
+// `secrets-from-environment`; the action reads the app's secrets by name from its step's env (`secret-names`) and still
+// takes `app-secrets` for the apps that pass it. The steps run here as the runner runs them; the render step runs the
+// real CLI from source (through tsx).
 
 const WORKFLOW = join(import.meta.dirname, "../../../.github/workflows/deploy-app.yml");
 // The render, send and verify steps live in the deploy action, which the workflow's deploy and verify jobs run with the
@@ -58,7 +60,6 @@ function getActionCall(job: string): Step {
 }
 
 const CHECK_STEP = getStep("check", "Validate inputs");
-const SSH_CHECK_STEP = getStep("deploy", "Check the environment's SSH secrets");
 const RENDER_STEP = getStep("action", "Render .env.prod");
 const SEND_STEP = getStep("action", "Send the release to the server");
 const VERIFY_STEP = getStep("action", "Verify the routes in deploy.json");
@@ -87,22 +88,41 @@ function bash(script: string, env: Record<string, string>, cwd = root): Result {
 }
 
 describe("the inputs and secrets of deploy-app.yml", () => {
-  it("leave secrets-from-environment off and name the example caller's secrets by default", () => {
+  it("keep secrets-from-environment only to refuse it, and drop the inputs that named secrets to read", () => {
     expect(inputs["secrets-from-environment"]).toMatchObject({ type: "boolean", default: false });
-    expect(inputs["ssh-host-secret"]?.default).toBe("DEPLOY_SSH_HOST");
-    expect(inputs["ssh-user-secret"]?.default).toBe("DEPLOY_SSH_USER");
-    expect(inputs["ssh-private-key-secret"]?.default).toBe("DEPLOY_SSH_KEY");
-    expect(inputs["ssh-known-hosts-secret"]?.default).toBe("DEPLOY_SSH_KNOWN_HOSTS");
+    for (const name of ["ssh-host-secret", "ssh-user-secret", "ssh-private-key-secret", "ssh-known-hosts-secret", "verify-env-secret"]) {
+      expect(inputs[name], name).toBeUndefined();
+    }
     expect(inputs["origin-address-var"]).toMatchObject({ type: "string", default: "" });
   });
 
-  it("require no secret at the call, so a caller with secrets: inherit can call it", () => {
+  it("require no secret at the call, so a caller with deploy: false passes none", () => {
     for (const [name, secret] of Object.entries(declaredSecrets)) expect(secret.required, name).toBe(false);
   });
 
   it("let the check job see which named secrets were passed, never a value", () => {
     const passed = String(CHECK_STEP.env?.PASSED_SECRETS);
     for (const name of NAMED_SECRETS) expect(passed).toContain(`\${{ secrets.${name} != '' && '${name}' || '' }}`);
+  });
+});
+
+describe("the whole secrets context", () => {
+  // The two shapes the CodeQL query flags: toJSON over secrets (whole or one), and secrets[...] by a computed name.
+  const FILES = [
+    ...readdirSync(join(import.meta.dirname, "../../../.github/workflows")).map((name) => `.github/workflows/${name}`),
+    ".github/actions/deploy/action.yml",
+    // What an app copies or `init` writes into its own repository, whose scan flags the same shapes (issue #486).
+    ...readdirSync(join(import.meta.dirname, "../examples")).map((name) => `tools/deploy/examples/${name}`),
+    ...readdirSync(join(import.meta.dirname, "../templates/.github/workflows")).map((name) => `tools/deploy/templates/.github/workflows/${name}`),
+  ];
+
+  it.each(FILES)("never reaches a runner from %s", (file) => {
+    const text = readFileSync(join(import.meta.dirname, "../../..", file), "utf8");
+    const expressions = [...text.matchAll(/\$\{\{([\s\S]*?)\}\}/g)].map((match) => match[1] ?? "");
+    for (const expression of expressions) {
+      expect(expression, file).not.toMatch(/tojson\(\s*secrets/i);
+      expect(expression.trim(), file).not.toMatch(/^secrets\[(?!["'])/);
+    }
   });
 });
 
@@ -127,76 +147,51 @@ describe("the check job", () => {
       REPOSITORY: "acme/app",
       E2E: "false",
       APP_VARS: "{}",
-      SSH_HOST_SECRET: "DEPLOY_SSH_HOST",
-      SSH_USER_SECRET: "DEPLOY_SSH_USER",
-      SSH_PRIVATE_KEY_SECRET: "DEPLOY_SSH_KEY",
-      SSH_KNOWN_HOSTS_SECRET: "DEPLOY_SSH_KNOWN_HOSTS",
       ...env,
     });
   }
 
-  const FROM_ENVIRONMENT = { SECRETS_FROM_ENVIRONMENT: "true", DEPLOY_ENVIRONMENT: "production", PASSED_SECRETS: "    " };
   const BY_NAME = { SECRETS_FROM_ENVIRONMENT: "false", PASSED_SECRETS: NAMED_SECRETS.join(" ") };
+  const REMOVED_FLAG =
+    "::error::Input secrets-from-environment is not valid: false (removed in 0.4.0: deploy from the environment's own job " +
+    "with deploy: false and the deploy action, secrets by name)\n";
 
-  it("accepts the flag with an environment and no named secret (secrets: inherit)", () => {
-    const result = check(FROM_ENVIRONMENT);
-    expect(result.status, result.stdout).toBe(0);
-  });
-
-  it("accepts every named secret without the flag, as before", () => {
+  it("accepts every named secret", () => {
     const result = check(BY_NAME);
     expect(result.status, result.stdout).toBe(0);
   });
 
-  it("refuses the flag without an environment", () => {
-    const result = check({ ...FROM_ENVIRONMENT, DEPLOY_ENVIRONMENT: "" });
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe(
-      "::error::Input secrets-from-environment is not valid: false without environment (the deploy job reads that environment's secrets)\n",
-    );
+  it("refuses the removed secrets-from-environment, with or without an environment, and asks for nothing else", () => {
+    for (const environment of ["", "production"]) {
+      const result = check({ SECRETS_FROM_ENVIRONMENT: "true", DEPLOY_ENVIRONMENT: environment, PASSED_SECRETS: "    " });
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe(REMOVED_FLAG);
+    }
+    const withDeployFalse = check({ SECRETS_FROM_ENVIRONMENT: "true", DEPLOY: "false", PASSED_SECRETS: "" });
+    expect(withDeployFalse.status).toBe(1);
+    expect(withDeployFalse.stdout).toBe(REMOVED_FLAG);
   });
 
-  it("refuses the flag next to a named secret, naming each one", () => {
-    const result = check({ ...FROM_ENVIRONMENT, PASSED_SECRETS: " ssh-host  app-secrets " });
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe(
-      "::error::Input secrets-from-environment is not valid: false when the secret ssh-host is passed (pass secrets: inherit instead)\n" +
-        "::error::Input secrets-from-environment is not valid: false when the secret app-secrets is passed (pass secrets: inherit instead)\n",
-    );
-    const origin = check({ ...FROM_ENVIRONMENT, ORIGIN_ADDRESS: "203.0.113.7" });
-    expect(origin.status).toBe(1);
-    expect(origin.stdout).toContain("false when the secret origin-address is passed (use origin-address-var)");
-  });
-
-  it.each([
-    ["SSH_HOST_SECRET", "ssh-host-secret", "DEPLOY-SSH-HOST"],
-    ["SSH_USER_SECRET", "ssh-user-secret", ""],
-    ["SSH_PRIVATE_KEY_SECRET", "ssh-private-key-secret", "1KEY"],
-    ["SSH_KNOWN_HOSTS_SECRET", "ssh-known-hosts-secret", "KNOWN HOSTS"],
-  ])("refuses %s that is not a secret name under the flag", (variable, input, value) => {
-    const result = check({ ...FROM_ENVIRONMENT, [variable]: value });
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe(`::error::Input ${input} is not valid: a secret name (letters, digits, _)\n`);
-    expect(check({ ...BY_NAME, [variable]: value }).status).toBe(0);
-  });
-
-  it("refuses each missing named secret without the flag, before anything is built", () => {
+  it("refuses each missing named secret, before anything is built", () => {
     const result = check({ SECRETS_FROM_ENVIRONMENT: "false", PASSED_SECRETS: "ssh-host  ssh-known-hosts" });
     expect(result.status).toBe(1);
     expect(result.stdout).toBe(
       ["ssh-user", "ssh-private-key", "app-secrets"]
-        .map((name) => `::error::Secret ${name} is required: pass it, or set secrets-from-environment with secrets: inherit.\n`)
+        .map(
+          (name) =>
+            `::error::Secret ${name} is required: pass it, or set deploy: false and run the deploy action from the environment's job.\n`,
+        )
         .join(""),
     );
   });
 
   it("takes the origin address from the app-vars entry origin-address-var names, and checks it", () => {
     const vars = JSON.stringify({ DEPLOY_ORIGIN_IP: "203.0.113.7", PORT: 443, BAD: "https://203.0.113.7/" });
-    expect(check({ ...FROM_ENVIRONMENT, APP_VARS: vars, ORIGIN_ADDRESS_VAR: "DEPLOY_ORIGIN_IP" }).status).toBe(0);
-    const malformed = check({ ...FROM_ENVIRONMENT, APP_VARS: vars, ORIGIN_ADDRESS_VAR: "BAD" });
+    expect(check({ ...BY_NAME, APP_VARS: vars, ORIGIN_ADDRESS_VAR: "DEPLOY_ORIGIN_IP" }).status).toBe(0);
+    const malformed = check({ ...BY_NAME, APP_VARS: vars, ORIGIN_ADDRESS_VAR: "BAD" });
     expect(malformed.status).toBe(1);
     expect(malformed.stdout).toContain("::error::Input origin-address-var is not valid: an IP address or host with an optional :port");
-    const noConfig = check({ ...FROM_ENVIRONMENT, APP_VARS: vars, ORIGIN_ADDRESS_VAR: "DEPLOY_ORIGIN_IP", DEPLOY_CONFIG: "" });
+    const noConfig = check({ ...BY_NAME, APP_VARS: vars, ORIGIN_ADDRESS_VAR: "DEPLOY_ORIGIN_IP", DEPLOY_CONFIG: "" });
     expect(noConfig.status).toBe(1);
     expect(noConfig.stdout).toContain("::error::Input origin-address-var is not valid: empty when deploy-config is empty");
   });
@@ -207,7 +202,7 @@ describe("the check job", () => {
     ["app-vars that are not JSON", "not json", "DEPLOY_ORIGIN_IP"],
     ["app-vars that are a list", '["DEPLOY_ORIGIN_IP"]', "DEPLOY_ORIGIN_IP"],
   ])("refuses origin-address-var naming %s", (_label, vars, name) => {
-    const result = check({ ...FROM_ENVIRONMENT, APP_VARS: vars, ORIGIN_ADDRESS_VAR: name });
+    const result = check({ ...BY_NAME, APP_VARS: vars, ORIGIN_ADDRESS_VAR: name });
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("::error::Input origin-address-var is not valid: the name of a text entry in app-vars\n");
   });
@@ -223,55 +218,27 @@ describe("the check job", () => {
   });
 });
 
-describe("the deploy job under secrets-from-environment", () => {
-  it("checks the SSH secrets by name only under the flag and off the end-to-end path", () => {
-    expect(SSH_CHECK_STEP.if).toBe("inputs.secrets-from-environment && !inputs.e2e");
-    const missing = String(SSH_CHECK_STEP.env?.MISSING_SECRETS);
-    for (const input of ["ssh-host-secret", "ssh-user-secret", "ssh-private-key-secret", "ssh-known-hosts-secret"]) {
-      expect(missing).toContain(`\${{ secrets[inputs.${input}] == '' && inputs.${input} || '' }}`);
-    }
-    const steps = workflow.jobs.deploy?.steps ?? [];
-    expect(steps.indexOf(SSH_CHECK_STEP)).toBeLessThan(steps.indexOf(DEPLOY_CALL));
+describe("the deploy job", () => {
+  it("has no step that reads the environment's secrets by a computed name", () => {
+    const names = (workflow.jobs.deploy?.steps ?? []).map((step) => step.name);
+    expect(names).not.toContain("Check the environment's SSH secrets");
   });
 
-  it("names every SSH secret the environment lacks and stops", () => {
-    const names = "DEPLOY_SSH_HOST DEPLOY_SSH_USER\nDEPLOY_SSH_KEY DEPLOY_SSH_KNOWN_HOSTS";
-    const result = bash(SSH_CHECK_STEP.run ?? "", {
-      DEPLOY_ENVIRONMENT: "production",
-      SSH_SECRET_NAMES: names,
-      MISSING_SECRETS: " DEPLOY_SSH_USER  DEPLOY_SSH_KNOWN_HOSTS",
-    });
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe(
-      "::error::The environment production (or the repository) has no secret DEPLOY_SSH_USER, DEPLOY_SSH_KNOWN_HOSTS; " +
-        "the deploy reads the SSH values from DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_KEY, DEPLOY_SSH_KNOWN_HOSTS. " +
-        "A caller outside the SOFTURE organization gets no secret through secrets: inherit: run the deploy action from a job " +
-        "with environment (deploy: false).\n",
-    );
-    const complete = bash(SSH_CHECK_STEP.run ?? "", { DEPLOY_ENVIRONMENT: "production", SSH_SECRET_NAMES: names, MISSING_SECRETS: "   " });
-    expect(complete.status).toBe(0);
-    expect(complete.stdout).toBe("SSH values read from the secrets DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_KEY, DEPLOY_SSH_KNOWN_HOSTS.\n");
-  });
-
-  it("renders from the job's whole secrets context under the flag, else from app-secrets", () => {
-    expect(DEPLOY_CALL.with).toMatchObject({
-      "app-secrets": "${{ inputs.secrets-from-environment && toJSON(secrets) || secrets.app-secrets }}",
-      "secrets-context": "${{ inputs.secrets-from-environment }}",
-    });
+  it("renders from the named app-secrets, never a secrets context", () => {
+    expect(DEPLOY_CALL.with).toMatchObject({ "app-secrets": "${{ secrets.app-secrets }}", "secrets-context": false });
     expect(RENDER_STEP.env?.APP_SECRETS).toBe("${{ inputs.app-secrets }}");
+    expect(RENDER_STEP.env?.SECRET_NAMES).toBe("${{ inputs.secret-names }}");
     expect(RENDER_STEP.env?.SECRETS_FROM_ENVIRONMENT).toBe("${{ inputs.secrets-context }}");
   });
 
-  it("sends with the secrets the *-secret inputs name under the flag", () => {
-    for (const [variable, output, input, secret] of [
-      ["SSH_HOST", "host", "ssh-host-secret", "ssh-host"],
-      ["SSH_USER", "user", "ssh-user-secret", "ssh-user"],
-      ["SSH_PRIVATE_KEY", "private-key", "ssh-private-key-secret", "ssh-private-key"],
-      ["SSH_KNOWN_HOSTS", "known-hosts", "ssh-known-hosts-secret", "ssh-known-hosts"],
+  it("sends with the named SSH secrets, or the end-to-end server's values", () => {
+    for (const [variable, output, secret] of [
+      ["SSH_HOST", "host", "ssh-host"],
+      ["SSH_USER", "user", "ssh-user"],
+      ["SSH_PRIVATE_KEY", "private-key", "ssh-private-key"],
+      ["SSH_KNOWN_HOSTS", "known-hosts", "ssh-known-hosts"],
     ] as const) {
-      expect(DEPLOY_CALL.with?.[secret]).toBe(
-        `\${{ inputs.e2e && steps.e2e-server.outputs.${output} || inputs.secrets-from-environment && secrets[inputs.${input}] || secrets.${secret} }}`,
-      );
+      expect(DEPLOY_CALL.with?.[secret]).toBe(`\${{ inputs.e2e && steps.e2e-server.outputs.${output} || secrets.${secret} }}`);
       expect(SEND_STEP.env?.[variable]).toBe(`\${{ inputs.${secret} }}`);
     }
   });
@@ -301,14 +268,17 @@ describe("the deploy job under secrets-from-environment", () => {
       );
     });
 
-    function render(secretsContext: Record<string, string>, fromEnvironment: boolean): Result {
+    function render(secretsContext: Record<string, string>, fromEnvironment: boolean, stepEnv: Record<string, string> = {}): Result {
       const result = spawnSync("bash", ["-e", "-c", RENDER_STEP.run ?? ""], {
         cwd: workspace,
         encoding: "utf8",
         env: {
           PATH: process.env.PATH ?? "",
           HOME: root,
+          // The caller step's env: reaches the action's steps; the step's own variables below win over it.
+          ...stepEnv,
           APP_SECRETS: JSON.stringify(secretsContext),
+          SECRET_NAMES: stepEnv.SECRET_NAMES ?? "",
           SECRETS_FROM_ENVIRONMENT: String(fromEnvironment),
           APP_VARS: "{}",
           BUILD_ARGS: "",
@@ -363,6 +333,61 @@ describe("the deploy job under secrets-from-environment", () => {
       expect(result.status).toBe(1);
       expect(result.stdout).toBe("::error::app-secrets: NODE_AUTH_TOKEN is reserved for the runner and cannot be rendered.\n");
       expect(existsSync(join(workspace, ".env.prod"))).toBe(false);
+    });
+
+    describe("with secret-names", () => {
+      // What the caller's step sets: each secret by name from its own context, next to whatever the runner sets.
+      const STEP_ENV = {
+        AUTH_SECRET: "auth-from-environment",
+        DATABASE_URL: "postgres://app@db/app",
+        UNLISTED_SECRET: "unlisted-sentinel",
+        GITHUB_TOKEN: "ghs-token-sentinel",
+      };
+
+      it("renders exactly the listed names from the step's env, nothing it does not list", () => {
+        const result = render({}, true, { ...STEP_ENV, SECRET_NAMES: "AUTH_SECRET\n  DATABASE_URL " });
+        expect(result.status, result.stdout + result.stderr).toBe(0);
+        expect(readEnvNames()).toEqual(["AUTH_SECRET", "DATABASE_URL"]);
+        const text = readFileSync(join(workspace, ".env.prod"), "utf8");
+        expect(text).toContain("AUTH_SECRET=auth-from-environment");
+        for (const value of ["unlisted-sentinel", "ghs-token-sentinel"]) expect(text).not.toContain(value);
+        expect(result.stdout + result.stderr).not.toContain("auth-from-environment");
+      });
+
+      it("counts an empty or missing listed value as unset, so the compose file's check names it", () => {
+        const result = render({}, true, { ...STEP_ENV, DATABASE_URL: "", SECRET_NAMES: "AUTH_SECRET DATABASE_URL" });
+        expect(result.status).not.toBe(0);
+        expect(result.stdout + result.stderr).toContain("DATABASE_URL");
+        expect(existsSync(join(workspace, ".env.prod"))).toBe(false);
+      });
+
+      it("refuses names the runner or the step owns, a repeat and a token that is not a name, by position only", () => {
+        const result = render({}, true, {
+          ...STEP_ENV,
+          SECRET_NAMES: "AUTH_SECRET GITHUB_TOKEN NODE_OPTIONS COMPOSE_FILE AUTH_SECRET ci p@ss=word",
+        });
+        expect(result.status).toBe(1);
+        expect(result.stdout).toBe(
+          [
+            "GITHUB_TOKEN is reserved for the runner",
+            "NODE_OPTIONS is reserved for the runner",
+            "COMPOSE_FILE is a variable of the render step itself",
+            "AUTH_SECRET is listed twice",
+            "ci is reserved for the runner",
+            "item 7 is not a name (letters, digits, _)",
+          ]
+            .map((problem) => `::error::secret-names: ${problem}.\n`)
+            .join(""),
+        );
+        expect(result.stdout).not.toContain("p@ss");
+        expect(existsSync(join(workspace, ".env.prod"))).toBe(false);
+      });
+
+      it("refuses secret-names next to a non-empty app-secrets", () => {
+        const result = render({ AUTH_SECRET: "x" }, true, { ...STEP_ENV, SECRET_NAMES: "AUTH_SECRET DATABASE_URL" });
+        expect(result.status).toBe(1);
+        expect(result.stdout).toBe("::error::secret-names: pass the app's secrets by name or as app-secrets, not both.\n");
+      });
     });
 
     it("fails naming a compose name the environment does not hold", () => {

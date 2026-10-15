@@ -1,14 +1,24 @@
-# The caller of SOFTURE/AI's reusable deploy workflow (.github/workflows/deploy-app.yml). Copy it to the app's
-# `.github/workflows/deploy.yml` and set the two domain spots (`app-url`, and `image` when the default
-# ghcr.io/<owner>/<repository> does not fit) and the repository secrets named below, or keep them in the
-# `production` environment (the commented form at the end of the deploy job).
+# The caller of SOFTURE/AI's deploy workflow (.github/workflows/deploy-app.yml) and deploy action
+# (.github/actions/deploy) for one environment, production. Copy it to the app's `.github/workflows/deploy.yml`, set
+# `app-url` (and `image` when the default ghcr.io/<owner>/<repository> does not fit), list in the action step's `env:`
+# and `secret-names` every name the production compose file requires (${NAME:?}; here AUTH_SECRET and DATABASE_URL),
+# and set those secrets and DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_KEY, DEPLOY_SSH_KNOWN_HOSTS in the repository
+# or the `production` environment. `softure-deploy init` writes this file with the app's names filled in. More than
+# one environment: examples/deploy-environments.yml.
+#
+# - `build` calls deploy-app.yml with `deploy: false`: the inputs are checked, the tag must be on the release branch,
+#   the image is built (or a tested one is tagged), and nothing secret is involved.
+# - `deploy` declares `environment: production` and runs the deploy action: its secrets and variables are the
+#   environment's over the repository's, and the environment's deployment policy and reviewers apply. The app's
+#   secrets reach the action by name, never as the whole `secrets` context, which hands every secret to the runner
+#   and which CodeQL flags (excessive-secrets-exposure).
+# - `report` writes the pipeline status and a deployment row into the tag's release (deploy-report.yml); it is the
+#   only job that may write to the repository, and only to edit the release.
 #
 # A published GitHub Release deploys its tag; "Run workflow" deploys an existing tag again (a rollback is a
 # redeploy of an older tag). Only a tag whose commit is on the default branch deploys (`release-branch` names
-# another). After every run, `report` writes the pipeline status and a deployment row into the tag's release
-# (deploy-report.yml); it is the only job that may write to the repository, and only to edit the release.
-# SOFTURE/AI's workflows are called at `master`; pin a commit SHA for an immutable reference,
-# best the commit of the release tag `deploy@<version>` of the CLI the server runs:
+# another). SOFTURE/AI's workflow and action are called at `master`; pin both to the same commit SHA for an immutable
+# reference, best the commit of the release tag `deploy@<version>` of the CLI the server runs:
 # git ls-remote https://github.com/SOFTURE/AI 'refs/tags/deploy@<version>^{}'.
 
 name: deploy
@@ -23,61 +33,67 @@ on:
         type: string
         required: true
 
-# The ceiling of the deploy jobs: `build` pushes to GHCR, the rest only reads. `report` sets its own.
+# The ceiling of the jobs: `build` pushes to GHCR, `deploy` and `report` set their own.
 permissions:
   contents: read
   packages: write
 
 jobs:
-  deploy:
+  build:
     uses: SOFTURE/AI/.github/workflows/deploy-app.yml@master
     with:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
       app-url: https://example.com
       environment: production
-      # Non-secret values by name (switches, public settings): rendered into .env.prod like the secrets, over a
-      # secret of the same name, and not masked in the logs the way a secret `1` masks every `1`.
-      app-vars: ${{ toJSON(vars) }}
+      deploy: false
       # Public values baked into the image, one NAME=value per line. A name .env.prod also holds must carry the same
       # value there, or the release stops before it reaches the server:
       # build-args: |
       #   APP_ORIGIN=${{ vars.APP_ORIGIN }}
       # An image the app already built and tested, by digest from the same repository: deployed as it is, never rebuilt.
       # prebuilt-image: ghcr.io/<owner>/<repository>@sha256:<digest>
-    secrets:
-      ssh-host: ${{ secrets.DEPLOY_SSH_HOST }}
-      ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
-      ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-      ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
-      # Behind a CDN, the server's own IP: verify fails when the firewall lets direct traffic in. Unset skips it.
-      origin-address: ${{ secrets.DEPLOY_ORIGIN_IP }}
-      # Variables for verify only, e.g. the key a `webBotAuth` route signs with: a secret holding a JSON object such as
-      # {"WEB_BOT_AUTH_PRIVATE_KEY": "<base64 seed>"}. Unset passes nothing.
-      verify-env: ${{ secrets.DEPLOY_VERIFY_ENV }}
-      # Only the names the production compose file requires (${NAME:?}) reach .env.prod. Name the secrets
-      # one by one instead (a JSON object) when the repository holds many unrelated ones.
-      app-secrets: ${{ toJSON(secrets) }}
-    # Secrets kept only in the `production` environment (its deployment policy admits release tags only): the job above
-    # passes repository secrets, which the caller's job can read, never an environment's. Instead the deploy job reads
-    # them in the environment itself: replace the whole `secrets:` block above with `secrets: inherit` and add to `with:`
-    #   secrets-from-environment: true
-    #   # The secrets holding the SSH values (these are the defaults):
-    #   # ssh-host-secret: DEPLOY_SSH_HOST
-    #   # ssh-user-secret: DEPLOY_SSH_USER
-    #   # ssh-private-key-secret: DEPLOY_SSH_KEY
-    #   # ssh-known-hosts-secret: DEPLOY_SSH_KNOWN_HOSTS
-    #   # Verify runs outside the environment, and secrets: inherit cannot pass origin-address: keep the origin
-    #   # address as a repository variable DEPLOY_ORIGIN_IP (app-vars carries it) and name it here. Unset skips the check.
-    #   # origin-address-var: DEPLOY_ORIGIN_IP
-    #   # Variables for verify (a `webBotAuth` route's key): the environment secret holding verify-env's JSON object.
-    #   # It puts the verify job in the environment too, which asks again when the environment has required reviewers.
-    #   # verify-env-secret: DEPLOY_VERIFY_ENV
-    # Every secret of the environment and the repository then reaches the render step; only the compose file's names
-    # land in .env.prod.
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    # One deploy at a time; a running deploy is never cancelled halfway.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    # packages: read for the registry token the server pulls with.
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: SOFTURE/AI/.github/actions/deploy@master
+        # The app's secrets by name: one line per name the compose file requires, each also listed in secret-names.
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        with:
+          release: ${{ needs.build.outputs.release }}
+          image: ${{ needs.build.outputs.image }}
+          digest: ${{ needs.build.outputs.digest }}
+          ssh-host: ${{ secrets.DEPLOY_SSH_HOST }}
+          ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          # The names of the env: entries above; only the compose file's names land in .env.prod.
+          secret-names: AUTH_SECRET DATABASE_URL
+          # Non-secret values by name (switches, public settings): rendered into .env.prod like the secrets, over a
+          # secret of the same name, and not masked in the logs the way a secret `1` masks every `1`.
+          app-vars: ${{ toJSON(vars) }}
+          # Behind a CDN, the server's own IP: verify fails when the firewall lets direct traffic in. Unset skips it.
+          origin-address: ${{ secrets.DEPLOY_ORIGIN_IP }}
+          # Variables for verify only, e.g. the key a `webBotAuth` route signs with: a secret holding a JSON object such as
+          # {"WEB_BOT_AUTH_PRIVATE_KEY": "<base64 seed>"}. Unset passes nothing.
+          verify-env: ${{ secrets.DEPLOY_VERIFY_ENV }}
 
   report:
-    needs: deploy
-    if: ${{ always() }}
+    needs: [build, deploy]
+    if: ${{ always() && needs.build.result == 'success' }}
     permissions:
       contents: write
     uses: SOFTURE/AI/.github/workflows/deploy-report.yml@master
