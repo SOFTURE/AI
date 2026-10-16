@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
-## Unreleased
+## 0.6.0
 
 - **Lifetime access without a lifetime plan** (#539): an app whose plans are all dated can still grant lifetime
   access, e.g. to its owner's own account or a complimentary one. `grantLifetimeManually(ctx, { userId, adminId })`
