@@ -40,7 +40,7 @@ export {
   type MigrationReport,
   type MigrationStep,
 } from "./migrations/migrator.js";
-export { drizzleAppMigrations } from "./migrations/drizzle.js";
+export { drizzleAppMigrations, type DrizzleAppMigrationsOptions } from "./migrations/drizzle.js";
 export { adoptModule, type AdoptionReport, type AdoptOptions } from "./migrations/adopt.js";
 export { exportMigrations } from "./migrations/export.js";
 export {
