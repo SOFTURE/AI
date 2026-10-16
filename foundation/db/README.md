@@ -297,8 +297,8 @@ import { drizzleAppMigrations, type AppMigrations } from "@softure-ai/db";
 
 export const appMigrations: AppMigrations = {
   before: drizzleAppMigrations("./drizzle"),
-  // only when an app migration needs a module table: a second drizzle folder
-  // after: drizzleAppMigrations("./drizzle-after"),
+  // only when an app migration needs a module table: a second drizzle folder, on its own ledger
+  // after: drizzleAppMigrations("./drizzle-after", { migrationsTable: "__drizzle_migrations_after" }),
 };
 
 // scripts/migrate.ts
@@ -308,6 +308,12 @@ process.exitCode = await runMigrateCli({ config, argv: process.argv.slice(2), ap
 - Order of a run: the ledger, `before`, the module files in dependency order, `after`. Everything
   runs under the migration lock, after every module file passed its checks; nothing runs when a check
   fails. The hooks run on every run, so they must skip what they already applied (drizzle does).
+- A second drizzle folder needs a ledger of its own (`migrationsTable`, optionally `migrationsSchema`;
+  the default is `drizzle.__drizzle_migrations`). Drizzle applies only files newer than the newest row of
+  its ledger, so on a shared one every `after` file older than the newest `before` file would be skipped
+  for good on a fresh database. `migrate` (and `--plan`, and `createTestDatabase`) refuses a `before` and
+  an `after` `drizzleAppMigrations` on one ledger with `db.app_migrations_shared_ledger` before anything
+  runs.
 - A hook that throws is reported as `db.app_migration_failed` with the error and its causes (drizzle
   puts the Postgres message in `cause`). A failing `before` stops the run before any module file; a
   failing `after` leaves the module files applied.

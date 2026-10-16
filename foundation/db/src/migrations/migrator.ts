@@ -6,6 +6,7 @@
 // `app.baseline` names the module files the app's own history already creates (issue #152).
 import { ok, sortModulesByDependencies, type AnySoftureModule } from "@softure-ai/core";
 import type { DatabaseHandle } from "../client.js";
+import { getDrizzleLedger } from "./drizzle.js";
 import { applyFile, describeError, recordAdoption, withMigrationLock, type MigrationUnit } from "./apply.js";
 import { readMigrationFiles } from "./files.js";
 import { describeSchema, diffSchemas } from "./introspect.js";
@@ -98,7 +99,7 @@ export async function planMigrations(handle: DatabaseHandle, options: MigrateOpt
     return units;
   }
   const baseline = options.app?.baseline ?? {};
-  const baselineProblems = checkBaseline(options.modules, units.value, baseline);
+  const baselineProblems = [...checkAppHooks(options.app ?? {}), ...checkBaseline(options.modules, units.value, baseline)];
   if (baselineProblems.length > 0) {
     return failWith(baselineProblems);
   }
@@ -122,7 +123,7 @@ export async function migrate(handle: DatabaseHandle, options: MigrateOptions): 
   }
   const app = options.app ?? {};
   const baseline = app.baseline ?? {};
-  const baselineProblems = checkBaseline(options.modules, units.value, baseline);
+  const baselineProblems = [...checkAppHooks(app), ...checkBaseline(options.modules, units.value, baseline)];
   if (baselineProblems.length > 0) {
     return failWith(baselineProblems);
   }
@@ -244,6 +245,16 @@ function checkBaseline(
     }
     return checkThrough(unit, through);
   });
+}
+
+/**
+ * `before` and `after` must not be drizzle hooks on one ledger: drizzle applies only files newer than the ledger's
+ * newest row, so every `after` file older than the newest `before` file would be skipped silently (issue #534).
+ */
+function checkAppHooks(app: AppMigrations): MigrationProblem[] {
+  const before = app.before === undefined ? undefined : getDrizzleLedger(app.before);
+  const after = app.after === undefined ? undefined : getDrizzleLedger(app.after);
+  return before !== undefined && before === after ? [{ code: "db.app_migrations_shared_ledger", ledger: before }] : [];
 }
 
 /** `through` must be a whole number from 1 to the unit's file count. */

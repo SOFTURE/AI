@@ -11,6 +11,7 @@ export type MigrationProblem =
   | { readonly code: "db.migration_out_of_order"; readonly module: string; readonly version: number; readonly appliedVersion: number }
   | { readonly code: "db.migration_failed"; readonly module: string; readonly version: number; readonly name: string; readonly reason: string }
   | { readonly code: "db.app_migration_failed"; readonly phase: "before" | "after"; readonly reason: string }
+  | { readonly code: "db.app_migrations_shared_ledger"; readonly ledger: string }
   | { readonly code: "db.reserved_module"; readonly module: string }
   | { readonly code: "db.migrations_without_schema"; readonly module: string }
   | { readonly code: "db.dependency_cycle"; readonly modules: readonly string[] }
@@ -60,6 +61,12 @@ export function describeProblem(problem: MigrationProblem): string {
       return problem.phase === "before"
         ? `app: the before migrations failed: ${problem.reason}; no module migration ran`
         : `app: the after migrations failed: ${problem.reason}; the module migrations before it stay applied`;
+    case "db.app_migrations_shared_ledger":
+      return (
+        `app: the before and after drizzle migrations share the ledger ${problem.ledger}, so drizzle would skip every ` +
+        "after file older than the newest before file; give the after folder its own ledger " +
+        '(drizzleAppMigrations(folder, { migrationsTable: "__drizzle_migrations_after" }))'
+      );
     case "db.reserved_module":
       return `${problem.module}: uses a reserved id or schema (the id "softure"; the schemas softure, public, information_schema, drizzle, pg_* and names over 63 bytes)`;
     case "db.migrations_without_schema":
