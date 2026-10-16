@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/host",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SOFTURE AI host CLI: provisions a shared app server on top of the softure.vps_foundation Ansible collection (Traefik edge, Cloudflare-only origin, deploy user) and onboards an app with one command (server folder, first deploy.sh, forced-command deploy key, GitHub Environment and secrets, Cloudflare DNS and Access).",
   "license": "MIT",
   "type": "module",
