@@ -639,6 +639,19 @@ import config from "../softure.config";
 process.exitCode = await runBlogCli({ config, argv: process.argv.slice(2) });
 ```
 
+A bundler can pack that script into one file: the CLI loads the optional `@softure-ai/jobs` peer only through
+`@softure-ai/blog/jobs`, by a specifier bundlers do not follow, so a bundle without jobs builds and starts. An app
+that bundles the script and uses the `blog.indexnow` queue passes the enqueue in, so the bundle carries it:
+
+```ts
+import { enqueueBlogIndexNow } from "@softure-ai/blog/jobs";
+
+process.exitCode = await runBlogCli({ config, argv: process.argv.slice(2), enqueueIndexNow: enqueueBlogIndexNow });
+```
+
+Without it, a bundle with no `node_modules/@softure-ai/blog` next to it reports the enqueue as the
+`blog.indexnow_enqueue_failed` warning (the publish stays written).
+
 `publish` runs the quality gate on every file going public (status `published`, not `--withdraw`);
 one error refuses the run. The gate in `publish` does not resolve internal link targets, since a
 container that publishes may hold no app folder; run `check` in CI for those. `runBlogCli({ gate })`
