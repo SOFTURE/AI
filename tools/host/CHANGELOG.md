@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an operator who uses `@softure
 version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- No change for an operator: the code and playbooks are those of 0.1.0. This is the first version published through
+  the package's npm trusted publisher (OIDC, `release.yml`) with no token; 0.1.0 needed `NPM_TOKEN` as a new package.
+
 ## 0.1.0
 
 - First version (#524): `softure-host server` converges a shared app server on top of `softure.vps_foundation`
