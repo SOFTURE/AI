@@ -28,5 +28,7 @@ Files: `foundation/db/src/migrations/drizzle.ts`, `foundation/db/src/migrations/
 
 ## Progress
 
-- [ ] Phase 1: ledger option and refusal
-- [ ] Phase 2: docs
+- [x] Phase 1: ledger option and refusal (`9602cc1`; 5 tests written first, all red before the change)
+- [x] Phase 2: docs (README `after` example and ledger paragraph, CHANGELOG `## Unreleased`)
+
+Gates on the branch: typecheck, lint and the language gate green (pre-commit); the full `npm test` runs in pre-push.

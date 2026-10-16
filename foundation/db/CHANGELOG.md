@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
+## Unreleased
+
+- `drizzleAppMigrations(folder, { migrationsTable, migrationsSchema })` names the drizzle ledger the folder uses
+  (default `drizzle.__drizzle_migrations`, as before) (#534). Drizzle applies only files newer than the newest row of
+  its ledger, so an `after` folder sharing the `before` folder's ledger skipped every file older than the newest
+  `before` file on a fresh database, without an error. The README example now gives the `after` folder its own ledger.
+- `migrate`, `planMigrations` (`--plan`) and `createTestDatabase` refuse `before` and `after` `drizzleAppMigrations`
+  hooks on one ledger with the new problem `db.app_migrations_shared_ledger`, before anything runs. An app already
+  running such an `after` folder: create the new ledger table in production and copy the `after` files' rows into it
+  (matched by `hash`) before the first run on this version, or drizzle applies those files again.
+
 ## 0.1.11
 
 - `createTestDatabase()` and `createPgliteHandle()` resolve only once PGlite is ready, so `close()` resolves on a
