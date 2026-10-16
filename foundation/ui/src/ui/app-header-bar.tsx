@@ -28,7 +28,7 @@ export function AppHeaderBar({ brand, nav, actions, mobileMenu, isSticky = true,
   const slot = createSlotClassGetter<AppHeaderBarSlot>({
     defaults: {
       root: `${POSITION[isSticky ? "sticky" : "static"]} sft:border-b sft:border-border sft:bg-surface sft:font-sans sft:text-foreground`,
-      inner: "sft:mx-auto sft:flex sft:h-14 sft:w-full sft:items-center sft:gap-4 sft:px-4",
+      inner: "sft:mx-auto sft:box-border sft:flex sft:h-14 sft:w-full sft:items-center sft:gap-4 sft:px-4",
       brand: "sft:flex sft:shrink-0 sft:items-center sft:gap-2",
       nav: "sft:hidden sft:min-w-0 sft:flex-1 sft:items-center sft:gap-1 sft:md:flex",
       actions: "sft:ml-auto sft:flex sft:items-center sft:gap-2",
