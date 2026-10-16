@@ -1,18 +1,19 @@
 // Plans an admin grants by hand (the manual adapter's second half): each grant is recorded in
 // `billing.manual_grants` with what it added, who granted it and the request it answered, so a
 // mistaken one is revoked by taking back only that, and an account's history lists it beside its
-// provider payments. Locks follow `refundPayment`'s order (account, then the entitlement, then the
-// grant or request row), so none of them deadlock. A grant pins the account's derived row before it
+// provider payments; lifetime access is granted the same way without a plan. Locks follow
+// `refundPayment`'s order (account, then the entitlement, then the grant or request row), so none
+// of them deadlock. A grant pins the account's derived row before it
 // locks it, so its lifetime check holds even before the account's first change.
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, desc, eq } from "drizzle-orm";
-import type { AdminErrorCode, Entitlement, PaymentGrant, PlanPrice } from "../contract.js";
-import { findPlan } from "../plans.js";
+import type { AdminErrorCode, BillingErrorCode, Entitlement, PaymentGrant, Plan, PlanPrice } from "../contract.js";
+import { findPlan, LIFETIME_GRANT_PLAN_ID } from "../plans.js";
 import { entitlements, manualGrants, paymentRequests, payments, trialExtensions } from "../schema.js";
-import { findEntitlementRecord, pinEntitlementRow, type BillingContext } from "./entitlements.js";
+import { changeEntitlement, findEntitlementRecord, pinEntitlementRow, type BillingContext } from "./entitlements.js";
 import { getGrantColumns, readGrant } from "./payments.js";
-import { applyPlan, getBillingPlans } from "./plans.js";
+import { applyPlan, getBillingPlans, type AppliedPlan } from "./plans.js";
 import { findOpenRequest, getClosedRequestColumns, readPrice } from "./requests.js";
 import { hasActiveManualLifetime, hasPaidLifetimePayment, lockEntitlementRow, takeBackGrant } from "./take-back.js";
 import { isUserId, isUuid } from "./user-id.js";
@@ -34,6 +35,24 @@ export interface ManualGrantResult {
 
 export type GrantPlanManuallyError = "billing.plan_unknown" | "billing.account_unknown" | "billing.lifetime_active" | "billing.request_closed";
 
+export interface GrantLifetimeManuallyInput {
+  readonly userId: string;
+  /** The admin who grants; null for a grant without one (a script). */
+  readonly adminId: string | null;
+}
+
+export type GrantLifetimeManuallyError = "billing.account_unknown" | "billing.lifetime_active";
+
+/** What a manual grant gives: one payment of a declared plan, or lifetime access that needs no plan. */
+type ManualGrantTarget = { readonly kind: "plan"; readonly plan: Plan } | { readonly kind: "lifetime" };
+
+interface RecordManualGrantInput {
+  readonly userId: string;
+  readonly adminId: string | null;
+  readonly requestId?: string;
+  readonly target: ManualGrantTarget;
+}
+
 /**
  * Grants one payment of a plan by hand and records it, in one transaction: a paid period that
  * starts when the account's current access ends, or lifetime access. Refuses an account that has
@@ -45,6 +64,34 @@ export async function grantPlanManually(ctx: BillingContext, input: GrantPlanMan
   if (plan === undefined) return err("billing.plan_unknown");
   if (!isUserId(input.userId)) return err("billing.account_unknown");
   if (input.requestId !== undefined && !isUuid(input.requestId)) return err("billing.request_closed");
+  return recordManualGrant(ctx, { userId: input.userId, adminId: input.adminId, ...(input.requestId === undefined ? {} : { requestId: input.requestId }), target: { kind: "plan", plan } });
+}
+
+/**
+ * Grants lifetime access by hand without a plan (for an app whose plans are all dated: the owner's
+ * own account, a complimentary one) and records it like a plan grant, under
+ * `LIFETIME_GRANT_PLAN_ID` and without a price, so it is in the account's history and can be
+ * revoked there. Refuses an account that has lifetime access already; a refusal writes nothing.
+ * Database errors propagate.
+ */
+export async function grantLifetimeManually(ctx: BillingContext, input: GrantLifetimeManuallyInput): Promise<Ok<ManualGrantResult> | Err<GrantLifetimeManuallyError>> {
+  if (!isUserId(input.userId)) return err("billing.account_unknown");
+  const granted = await recordManualGrant(ctx, { userId: input.userId, adminId: input.adminId, target: { kind: "lifetime" } });
+  if (granted.ok) return granted;
+  const { error } = granted;
+  if (error === "billing.account_unknown" || error === "billing.lifetime_active") return err(error);
+  // No plan is looked up and no request is given.
+  throw new Error(`@softure-ai/billing: granting lifetime access by hand failed with ${error}`);
+}
+
+async function applyLifetime(ctx: BillingContext, userId: string): Promise<Ok<AppliedPlan> | Err<BillingErrorCode>> {
+  const changed = await changeEntitlement(ctx, userId, { type: "grant_lifetime" });
+  return changed.ok ? ok({ entitlement: changed.value, grant: { kind: "lifetime" } }) : changed;
+}
+
+async function recordManualGrant(ctx: BillingContext, input: RecordManualGrantInput): Promise<Ok<ManualGrantResult> | Err<GrantPlanManuallyError>> {
+  const { target } = input;
+  const planId = target.kind === "plan" ? target.plan.id : LIFETIME_GRANT_PLAN_ID;
   return ctx.db.transaction(async (tx) => {
     const now = ctx.clock.now();
     // A shared lock: the account cannot be deleted before the grant below.
@@ -57,8 +104,9 @@ export async function grantPlanManually(ctx: BillingContext, input: GrantPlanMan
     const record = await findEntitlementRecord({ ...ctx, db: tx }, input.userId);
     if (record?.isLifetime === true) return err("billing.lifetime_active");
 
-    // The price the grant is for: what its request quoted, else the plan's price now.
-    let price: PlanPrice = plan.price;
+    // The price the grant is for: what its request quoted, else the plan's price now; none for a
+    // lifetime granted without a plan.
+    let price: PlanPrice | null = target.kind === "plan" ? target.plan.price : null;
     if (input.requestId !== undefined) {
       const [closed] = await tx
         .update(paymentRequests)
@@ -74,25 +122,25 @@ export async function grantPlanManually(ctx: BillingContext, input: GrantPlanMan
       price = readPrice(closed.amount, closed.currency) ?? price;
     }
 
-    const applied = await applyPlan({ ...ctx, db: tx }, input.userId, input.planId);
-    // The plan and the locked account were checked above, and a plan grant always ends later.
-    if (!applied.ok) throw new Error(`@softure-ai/billing: granting plan "${input.planId}" by hand failed with ${applied.error}`);
+    const applied = target.kind === "plan" ? await applyPlan({ ...ctx, db: tx }, input.userId, planId) : await applyLifetime({ ...ctx, db: tx }, input.userId);
+    // The plan and the locked account were checked above, and a grant always ends later.
+    if (!applied.ok) throw new Error(`@softure-ai/billing: granting "${planId}" by hand failed with ${applied.error}`);
     const { grant } = applied.value;
     // A plan grant always adds a period of at least a day, or lifetime access.
-    if (grant === null) throw new Error(`@softure-ai/billing: plan "${input.planId}" was granted by hand but added nothing`);
+    if (grant === null) throw new Error(`@softure-ai/billing: "${planId}" was granted by hand but added nothing`);
     const [row] = await tx
       .insert(manualGrants)
       .values({
         userId: input.userId,
-        planId: input.planId,
+        planId,
         requestId: input.requestId ?? null,
         grantedBy: input.adminId,
         grantedAt: now,
         ...getGrantColumns(grant),
         grantKind: grant.kind,
         status: "active",
-        amount: price.amount,
-        currency: price.currency,
+        amount: price?.amount ?? null,
+        currency: price?.currency ?? null,
       })
       .returning();
     if (row === undefined) throw new Error("@softure-ai/billing: recording a manual grant returned no row");

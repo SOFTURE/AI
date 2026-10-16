@@ -1,12 +1,13 @@
 // The payment and admin pages, rendered to HTML with Next's request scope replaced as in
 // next-guards.test.ts: each has one `<h1>`, first in its `<main>`, from the messages by default,
 // replaced or left out through `heading`, with an optional `lead` paragraph after it. The admin
-// page has the trial card and lists a trial extension in the account's history.
+// page has the trial card, offers lifetime access without a lifetime plan, and lists a trial
+// extension and a lifetime grant in the account's history.
 import { getSessionCookie } from "@softure-ai/auth";
 import { grantRole, registerUser } from "@softure-ai/auth/server";
 import { billingMessages, manual, type BillingOptionsInput } from "@softure-ai/billing";
 import { BillingAdminPage, PaymentPage } from "@softure-ai/billing/next";
-import { extendTrialManually } from "@softure-ai/billing/server";
+import { extendTrialManually, grantLifetimeManually } from "@softure-ai/billing/server";
 import { ok, type SoftureConfig } from "@softure-ai/core";
 import type { Database } from "@softure-ai/db";
 import type { ReactNode } from "react";
@@ -112,5 +113,13 @@ describe("the billing pages", () => {
     expect(html).toContain(en.admin.history.trialExtended);
     expect(html).toContain("Trial until October 31, 2026");
     expect(html).toContain("The trial was until October 16, 2026");
+  });
+
+  it("offers lifetime access without a lifetime plan and names its grant in the history, revocable there", async () => {
+    await grantLifetimeManually(test.ctx, { userId: adaId, adminId: adaId });
+    const html = await renderHtml(await BillingAdminPage({ searchParams: Promise.resolve({ account: adaId }) }));
+    expect(html).toMatch(new RegExp(`data-value="_lifetime"[^>]*><span[^>]*>${en.admin.lifetimeOption}</span>`));
+    expect(html).toContain("Lifetime access, granted by hand");
+    expect(html).toContain('aria-label="Revoke Lifetime access granted on October 3, 2026"');
   });
 });

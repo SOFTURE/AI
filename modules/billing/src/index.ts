@@ -123,7 +123,7 @@ export {
   type PaymentRequest,
   type PaymentStart,
 } from "./payment.js";
-export { findPlan, getLocalizedText, getPeriodEnd, getPlanGrant } from "./plans.js";
+export { findPlan, getLocalizedText, getPeriodEnd, getPlanGrant, LIFETIME_GRANT_PLAN_ID } from "./plans.js";
 export {
   getPaymentGrant,
   getRefundEvent,

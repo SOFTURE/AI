@@ -9,7 +9,7 @@ import { ButtonLink, Card, EmptyState } from "@softure-ai/ui";
 import type { PaymentGrant, Plan } from "../contract.js";
 import { ACCOUNT_PARAM, CHECKOUT_PARAM, CHECKOUT_RESULTS, PLAN_FIELD, type CheckoutResult } from "../fields.js";
 import type { BillingMessages } from "../messages/index.js";
-import { findPlan, getLocalizedText } from "../plans.js";
+import { findPlan, getLocalizedText, LIFETIME_GRANT_PLAN_ID } from "../plans.js";
 import { formatPrice } from "../price.js";
 import { getEntitlement } from "../server/entitlements.js";
 import { getAccountHistory, type AccountHistoryEntry } from "../server/grants.js";
@@ -209,7 +209,8 @@ function toHistoryRow(entry: AccountHistoryEntry, context: RowContext): GrantHis
       revokeLabel: null,
     };
   }
-  const plan = getPlanName(plans, entry.planId, config.locale);
+  // Lifetime access granted without a plan is named by what it gives.
+  const plan = entry.planId === LIFETIME_GRANT_PLAN_ID ? copy.lifetime : getPlanName(plans, entry.planId, config.locale);
   if (entry.source === "manual") {
     const isActive = entry.status === "active";
     return {
@@ -273,7 +274,8 @@ export async function BillingAdminPage({ searchParams, heading, lead }: BillingA
   const account = accountId === undefined ? null : await findAccountById(ctx, accountId);
   const entitlement = account === null ? null : await getEntitlement(ctx, account.id);
   const history = account === null ? [] : (await getAccountHistory(ctx, account.id)).map((entry) => toHistoryRow(entry, context));
-  const planOptions = plans.map((plan) => ({ value: plan.id, label: getLocalizedText(plan.name, config.locale) }));
+  // Lifetime access needs no declared plan, so the form always offers it after the plans.
+  const planOptions = [...plans.map((plan) => ({ value: plan.id, label: getLocalizedText(plan.name, config.locale) })), { value: LIFETIME_GRANT_PLAN_ID, label: messages.admin.lifetimeOption }];
   return (
     <main className={LAYOUT_CLASS}>
       <PageHeading text={heading === undefined ? messages.admin.heading : heading} lead={lead ?? null} />
@@ -281,11 +283,10 @@ export async function BillingAdminPage({ searchParams, heading, lead }: BillingA
         <PaymentRequestList requests={requests} grantAction={grantRequestAction} dismissAction={dismissRequestAction} messages={messages} />
       </Card>
       <Card title={messages.admin.title} subtitle={messages.admin.lead}>
-        {planOptions.length === 0 ? (
-          <EmptyState title={messages.admin.noPlans} />
-        ) : (
+        <div className={STACK_CLASS}>
+          {plans.length === 0 ? <EmptyState title={messages.admin.noPlans} /> : null}
           <GrantForm action={grantPlanAction} plans={planOptions} messages={messages} locale={config.locale} />
-        )}
+        </div>
       </Card>
       <Card title={messages.admin.trial.title} subtitle={messages.admin.trial.lead}>
         <TrialForm action={extendTrialAction} messages={messages} locale={config.locale} />

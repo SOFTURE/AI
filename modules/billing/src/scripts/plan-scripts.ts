@@ -1,6 +1,6 @@
-// The operator's way to grant a plan and revoke a manual grant without the admin page: safe ops
-// scripts (`@softure-ai/ops/scripts`), dry run by default, `--commit` writes. They write through
-// `grantPlanManually` and `revokeManualGrant`, so a script's grant is in the account's history like
+// The operator's way to grant a plan or lifetime access and revoke a manual grant without the admin
+// page: safe ops scripts (`@softure-ai/ops/scripts`), dry run by default, `--commit` writes. They
+// write through `grantPlanManually`, `grantLifetimeManually` and `revokeManualGrant`, so a script's grant is in the account's history like
 // the admin page's, and either side can revoke the other's. Reports carry the user id, the
 // entitlement and the active manual grants (with the ids `revoke-grant` takes), never the email.
 import { ok, systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
@@ -12,13 +12,17 @@ import type { Entitlement, PaymentGrant } from "../contract.js";
 import { findPlan } from "../plans.js";
 import { manualGrants } from "../schema.js";
 import { getEntitlement, type BillingContext } from "../server/entitlements.js";
-import { getAccountHistory, grantPlanManually, revokeManualGrant } from "../server/grants.js";
+import { getAccountHistory, grantLifetimeManually, grantPlanManually, revokeManualGrant } from "../server/grants.js";
 import { findAccountByEmail, getBillingPlans } from "../server/plans.js";
 import { isUuid } from "../server/user-id.js";
 
 export interface GrantPlanScriptArgs {
   readonly email: string;
   readonly plan: string;
+}
+
+export interface GrantLifetimeScriptArgs {
+  readonly email: string;
 }
 
 export interface RevokeGrantScriptArgs {
@@ -37,6 +41,8 @@ const grantPlanArgs = z.strictObject({
   email: EMAIL,
   plan: z.string().min(1, "--plan=<plan id> is required"),
 });
+
+const grantLifetimeArgs = z.strictObject({ email: EMAIL });
 
 const revokeGrantArgs = z.strictObject({
   email: EMAIL,
@@ -112,6 +118,37 @@ export function createGrantPlanScript(config: SoftureConfig, options: PlanScript
           case "billing.request_closed":
             // The plan was checked above and no request is given.
             throw new Error(`grant-plan: granting plan "${args.plan}" failed with ${granted.error}`);
+        }
+      }
+      return ok({ before, after: await describeAccount(ctx, account.id) });
+    },
+  });
+}
+
+/**
+ * `grant-lifetime --email=…`: grants lifetime access without a plan (none of the declared plans has
+ * to be a lifetime one) and records it, so the admin page lists it and either side can revoke it.
+ */
+export function createGrantLifetimeScript(config: SoftureConfig, options: PlanScriptOptions = {}): OpsScript<GrantLifetimeScriptArgs> {
+  const clock = options.clock ?? systemClock;
+  return defineOpsScript({
+    name: "grant-lifetime",
+    description: "Grants lifetime access, free of charge and without a plan, to the account with the given email, recorded in its billing history.",
+    usage: ["--email=<account email>"],
+    args: grantLifetimeArgs,
+    run: async (tx, args) => {
+      const ctx: BillingContext = { db: tx, clock, config };
+      const account = await findAccountByEmail(ctx, args.email);
+      if (account === null) return refuseOpsScript(NO_ACCOUNT);
+      const before = await describeAccount(ctx, account.id);
+      const granted = await grantLifetimeManually(ctx, { userId: account.id, adminId: null });
+      if (!granted.ok) {
+        switch (granted.error) {
+          case "billing.lifetime_active":
+            return refuseOpsScript("the account has lifetime access already");
+          case "billing.account_unknown":
+            // Deleted between the lookup and the grant's lock.
+            return refuseOpsScript(NO_ACCOUNT);
         }
       }
       return ok({ before, after: await describeAccount(ctx, account.id) });
