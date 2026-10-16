@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
-## Unreleased
+## 0.3.2
 
 - `AppHeaderBar`'s `inner` row is `box-sizing: border-box`, so its padding stays inside the full width in an app
   without a global `box-sizing` reset (Tailwind's preflight or similar). Before, the row was 2rem wider than the
