@@ -60,8 +60,8 @@ describe("createIgnorePathsSampler", () => {
     expect(getExportedNames(exporter)).toEqual(["fetch"]);
   });
 
-  it("treats a trailing slash on an entry like none", () => {
-    const { tracer, exporter } = createTracer(["/api/health/"]);
+  it.each(["/api/health/", "/api/health///"])("treats trailing slashes on the entry %j like none", (entry) => {
+    const { tracer, exporter } = createTracer([entry]);
 
     tracer.startSpan("GET", { kind: SpanKind.SERVER, attributes: { "http.target": "/api/health" } }).end();
 

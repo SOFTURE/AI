@@ -46,7 +46,16 @@ function normalizePath(path: string, index: number): string {
     throw new Error(`observability: traces.ignorePaths[${String(index)}] must be a path starting with /`);
   }
   // `/api/health/` and `/api/health` mean the same subtree; `/` alone keeps its slash and ignores every path.
-  return trimmed.length > 1 ? trimmed.replace(/\/+$/, "") : trimmed;
+  return trimmed.length > 1 ? dropTrailingSlashes(trimmed) : trimmed;
+}
+
+// A loop, not `/\/+$/`: that regular expression backtracks polynomially on a run of slashes.
+function dropTrailingSlashes(path: string): string {
+  let end = path.length;
+  while (end > 1 && path[end - 1] === "/") {
+    end -= 1;
+  }
+  return path.slice(0, end);
 }
 
 function readPath(attributes: Attributes): string | null {
