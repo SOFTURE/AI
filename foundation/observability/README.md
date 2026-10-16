@@ -7,7 +7,9 @@ Logs and traces for Node.js processes and Next.js apps, shipped to any OpenTelem
 - one call that starts OpenTelemetry in a process: a tracer provider and a logger provider exporting over
   OTLP/HTTP protobuf, the resource attributes the app chooses, and spans for outgoing `fetch`
   ([Node.js](#nodejs), [Next.js](#nextjs));
-- an `onRequestError` for Next.js that logs every failed request with its route ([Next.js](#nextjs)).
+- an `onRequestError` for Next.js that logs every failed request with its route ([Next.js](#nextjs));
+- a probe that proves the backend accepts a span and a log record, as a function and as the
+  `softure-observability ping` command ([Verifying the export](#verifying-the-export)).
 
 The package carries no project, service or vendor names: the app passes them. With no endpoint configured nothing is
 exported and the loggers write to the console only.
@@ -36,6 +38,8 @@ Inside this repository it is a workspace package.
 | — | `OTEL_EXPORTER_OTLP_TRACES_HEADERS`, `OTEL_EXPORTER_OTLP_LOGS_HEADERS` | added to the headers of one signal |
 | `enabled` | `OTEL_SDK_DISABLED=true` turns export off | `false` turns export off |
 | `instrumentations.fetch` | — | spans for outgoing `fetch` (undici); default `true`, `false` in the Next.js adapter |
+| `traces.ignorePaths` | — | paths whose incoming requests get no trace, e.g. `["/api/health"]`, see [Health checks](#health-checks) |
+| `traces.stableHttpAttributes` | — | copies legacy HTTP server attributes onto their stable names; default `false`, `true` in the Next.js adapter, see [Next.js](#nextjs) |
 | `logLevel` | `SOFTURE_LOG_LEVEL` | minimum level: `debug`, `info` (default), `warn`, `error` |
 | `errorDetails` | — | `full` (default) or `label`, see [Errors and personal data](#errors-and-personal-data) |
 | `handleSignals` | — | flush on SIGTERM and SIGINT (at most 5 s), then end the process; default `false` |
@@ -86,6 +90,20 @@ A second `startObservability` in the same process returns the first handle (and 
 that signal, the package then re-raises it and the process ends as it would have; when the app listens to it itself,
 ending the process stays the app's job (call `shutdown()` in that listener to wait for the flush).
 
+### Health checks
+
+A container health check every 15 s is about 5,760 traces a day per container, most of what a quiet app sends.
+`traces: { ignorePaths: ["/api/health"] }` drops the server span of such a request and every span under it:
+
+- an entry matches its own path and everything below it as whole segments: `/api/health` also drops
+  `/api/health/live`, but not `/api/healthz`; the query string is ignored;
+- only incoming requests (server spans) are matched, read from `url.path` or `http.target`; an outgoing call to that
+  path is still traced;
+- every other span is sampled as without the option (`ParentBased(AlwaysOn)`);
+- an entry that does not start with `/` throws at start, with or without an endpoint.
+
+The health check's own failures still reach the logs: only its traces are dropped.
+
 ## Next.js
 
 `instrumentation.ts`:
@@ -122,8 +140,47 @@ What you get:
   them on (`instrumentations: { fetch: true }`) calls for `NEXT_OTEL_FETCH_DISABLED=1`, or every call is spanned twice.
 - `registerObservability` does nothing in the edge runtime, and starts in every Node.js server: `next start` and the
   standalone `server.js` (`output: "standalone"`, where `NEXT_RUNTIME` is unset at runtime) alike.
+- Next.js's server spans (`BaseServer.handleRequest`) carry only the legacy HTTP attributes. The adapter copies them
+  onto their stable names when the span ends (`traces.stableHttpAttributes`, on by default here), so queries written
+  against the current conventions match:
+
+  | Legacy (kept) | Stable (added) |
+  | --- | --- |
+  | `http.status_code` | `http.response.status_code` |
+  | `http.method` | `http.request.method` |
+  | `http.target` | `url.path` (without the query string) |
+
+  A stable key the span already has is kept. Before an app runs a version with this, query `http.status_code`
+  (e.g. `span.http.status_code >= 500` in Tempo). `traces: { stableHttpAttributes: false }` turns it off.
 - `onRequestError` logs one error record per failed request with `http.request.method`, `url.path` (without the
   query string, which can carry tokens), `next.route`, `next.route_type` and the error. Request headers are never logged.
+
+## Verifying the export
+
+An app that logs only `warn` and `error` sends no log record until something fails, so a wrong `/v1/logs` endpoint
+or a token without log-write scope would stay hidden until the logs are needed. The start-up line
+`observability: exporting …` only says export is configured. The probe says whether the backend accepts it:
+
+```bash
+# Same OTEL_* variables as the app; once per release, e.g. as a deploy verification step.
+npx softure-observability ping --service-name web
+```
+
+```text
+traces: accepted by https://otlp.example.com/otlp/v1/traces
+logs: refused by https://otlp.example.com/otlp/v1/logs (HTTP 401: Unauthorized)
+```
+
+- It sends one span and one log record, both named `softure.probe` with the attribute `softure.probe=true`, so a query
+  can leave them out (`softure.probe != true`).
+- Exit code `0` when every configured signal is accepted; `1` when one is refused (with the HTTP status, or
+  `no response` for an unreachable endpoint or a timeout of 10 s), when no endpoint is set, or when a variable is
+  malformed; `2` on a usage error. A signal without an endpoint prints `not configured` and does not fail the check.
+- Headers are never printed, and the endpoint shows as origin and path only.
+
+From code, `probeObservability(options)` of `/node` takes the options of `startObservability` (plus `timeoutMs`) and
+returns the outcome per signal. It uses providers of its own, so calling it in a running app leaves the app's export
+alone.
 
 ## Logger
 

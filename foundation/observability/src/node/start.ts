@@ -10,6 +10,8 @@ import { BatchSpanProcessor, NodeTracerProvider } from "@opentelemetry/sdk-trace
 
 import { configureLogging } from "../logger.js";
 import { resolveObservabilityConfig, type ObservabilityOptions } from "./config.js";
+import { createIgnorePathsSampler } from "./ignore-paths-sampler.js";
+import { StableHttpAttributesProcessor } from "./stable-http-attributes.js";
 
 export type ObservabilityHandle = {
   /** Whether this process exports traces or logs. */
@@ -61,6 +63,9 @@ export function startObservability(options: ObservabilityOptions = {}): Observab
 
 function register(options: ObservabilityOptions): Registration {
   const config = resolveObservabilityConfig(options, process.env);
+  // Built before the disabled check, so a wrong entry fails in development too, not only where export is on.
+  const ignorePaths = options.traces?.ignorePaths ?? [];
+  const sampler = ignorePaths.length === 0 ? undefined : createIgnorePathsSampler(ignorePaths);
   if (config.kind === "disabled") {
     console.log(`observability: export disabled (${config.reason})`);
     return { handle: disabledHandle(), dispose: () => Promise.resolve(), hasWarned: false };
@@ -73,10 +78,14 @@ function register(options: ObservabilityOptions): Registration {
 
   const tracerProvider = new NodeTracerProvider({
     resource,
+    ...(sampler === undefined ? {} : { sampler }),
     spanProcessors:
       config.traces === null
         ? []
-        : [new BatchSpanProcessor(new OTLPTraceExporter({ url: config.traces.url, headers: config.traces.headers }))],
+        : [
+            ...(options.traces?.stableHttpAttributes === true ? [new StableHttpAttributesProcessor()] : []),
+            new BatchSpanProcessor(new OTLPTraceExporter({ url: config.traces.url, headers: config.traces.headers })),
+          ],
   });
   // Registered even without trace export: the context manager is what puts trace ids on log records.
   tracerProvider.register();
