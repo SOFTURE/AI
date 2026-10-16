@@ -259,7 +259,7 @@ test("a lifetime account has nothing to pay, and the admin cannot grant it again
   const grant = async () => {
     await admin.getByLabel(copy.admin.email).fill(email);
     await admin.getByRole("combobox", { name: copy.admin.plan }).click();
-    await admin.getByRole("option", { name: en.plans.lifetime.name }).click();
+    await admin.getByRole("option", { name: en.plans.lifetime.name, exact: true }).click();
     await admin.getByRole("button", { name: copy.admin.submit }).click();
   };
   await grant();

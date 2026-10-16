@@ -149,6 +149,15 @@ describe("the Next adapter's guards", () => {
       expect(await countRows("billing.manual_grants", `user_id = '${ada.id}' AND granted_by = '${admin.id}'`)).toBe(1);
       expect(scope.revalidated).toEqual([ADMIN_PAGE]);
     });
+
+    it("grants lifetime access without a lifetime plan for an admin, once", async () => {
+      signInAs("admin");
+      const grantLifetime = () => grantPlanAction({ status: "idle" }, createForm({ email: "ada@example.com", plan: "_lifetime" }));
+      expect(await grantLifetime()).toEqual({ status: "granted", notice: "ada@example.com now has lifetime access.", planId: "_lifetime" });
+      expect(await countRows("billing.manual_grants", `user_id = '${ada.id}' AND plan_id = '_lifetime' AND granted_by = '${admin.id}' AND amount IS NULL`)).toBe(1);
+      expect(await grantLifetime()).toEqual({ status: "error", error: "billing.lifetime_active", email: "ada@example.com", planId: "_lifetime" });
+      expect(await countRows("billing.manual_grants", "true")).toBe(1);
+    });
   });
 
   describe("extendTrialAction", () => {

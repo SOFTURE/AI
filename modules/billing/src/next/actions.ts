@@ -14,8 +14,8 @@ import { redirect } from "next/navigation";
 import { getStartOfDay, parseDay } from "../calendar.js";
 import type { AdminActionErrorCode, AdminActionState, GrantFormState, PaymentFormState, TrialFormState } from "../contract.js";
 import { ACCOUNT_PARAM, EMAIL_FIELD, GRANT_FIELD, INVOICE_FIELDS, PLAN_FIELD, REQUEST_FIELD, TRIAL_LAST_DAY_FIELD } from "../fields.js";
-import { findPlan, getLocalizedText } from "../plans.js";
-import { grantPaymentRequest, grantPlanManually, revokeManualGrant } from "../server/grants.js";
+import { findPlan, getLocalizedText, LIFETIME_GRANT_PLAN_ID } from "../plans.js";
+import { grantLifetimeManually, grantPaymentRequest, grantPlanManually, revokeManualGrant } from "../server/grants.js";
 import { getBillingMessages, getBillingOptions, getBillingRoutes } from "../server/options.js";
 import { findAccountByEmail, getBillingPlans, startPayment } from "../server/plans.js";
 import type { BillingContext } from "../server/entitlements.js";
@@ -70,9 +70,10 @@ async function authorizeAdmin(config: SoftureConfig): Promise<Ok<AuthUser> | Err
 }
 
 /**
- * Grants one payment of a plan to the account with the form's email and records it in the
- * account's history. Only for the role of `billing({ adminRole })`, checked from the session
- * before the form is read. An account with lifetime access is refused.
+ * Grants one payment of a plan, or lifetime access without a plan (`LIFETIME_GRANT_PLAN_ID`), to
+ * the account with the form's email and records it in the account's history. Only for the role of
+ * `billing({ adminRole })`, checked from the session before the form is read. An account with
+ * lifetime access is refused.
  */
 export async function grantPlanAction(_previous: GrantFormState, formData: FormData): Promise<GrantFormState> {
   const config = getSoftureConfig();
@@ -82,18 +83,23 @@ export async function grantPlanAction(_previous: GrantFormState, formData: FormD
   const planId = readText(formData, PLAN_FIELD);
   const echo = { email, planId };
 
-  const plan = findPlan(getBillingPlans(config), planId);
-  if (plan === undefined) return { status: "error", error: "billing.plan_unknown", ...echo };
+  const isLifetime = planId === LIFETIME_GRANT_PLAN_ID;
+  const plan = isLifetime ? undefined : findPlan(getBillingPlans(config), planId);
+  if (!isLifetime && plan === undefined) return { status: "error", error: "billing.plan_unknown", ...echo };
   let result;
   try {
     const ctx = await getBillingContext(config);
     const account = await findAccountByEmail(ctx, email);
     if (account === null) return { status: "error", error: "billing.account_unknown", ...echo };
-    result = await grantPlanManually(ctx, { userId: account.id, planId: plan.id, adminId: admin.value.id });
+    result =
+      plan === undefined
+        ? await grantLifetimeManually(ctx, { userId: account.id, adminId: admin.value.id })
+        : await grantPlanManually(ctx, { userId: account.id, planId: plan.id, adminId: admin.value.id });
     if (result.ok) {
       refreshAdminPage(config);
       const messages = getBillingMessages(config).admin;
       const { entitlement } = result.value;
+      if (plan === undefined) return { status: "granted", notice: formatMessage(messages.grantedLifetime, { email: account.email }), planId };
       const values = { email: account.email, plan: getLocalizedText(plan.name, config.locale) };
       const notice =
         entitlement.status === "paid" && entitlement.endsAt !== null

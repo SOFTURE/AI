@@ -1,8 +1,8 @@
-// The grant-plan and revoke-grant ops scripts on PGlite: a dry run writes nothing and reports the
+// The grant-plan, grant-lifetime and revoke-grant ops scripts on PGlite: a dry run writes nothing and reports the
 // change, `--commit` records the grant like the admin page (in the history, revocable from either
 // side), refusals write nothing, and the command never prints the email.
 import { type BillingOptionsInput } from "@softure-ai/billing";
-import { createGrantPlanScript, createRevokeGrantScript } from "@softure-ai/billing/scripts";
+import { createGrantLifetimeScript, createGrantPlanScript, createRevokeGrantScript } from "@softure-ai/billing/scripts";
 import { getAccountHistory, getEntitlement, grantPlanManually, revokeManualGrant } from "@softure-ai/billing/server";
 import { err } from "@softure-ai/core";
 import { executeOpsScript, runOpsScript } from "@softure-ai/ops/scripts";
@@ -128,6 +128,67 @@ describe("the plan scripts", () => {
         database: test.database.db,
         output,
       });
+      expect(code).toBe(0);
+      expect(lines.at(-1)).toBe("COMMITTED");
+      expect(lines.join("\n")).not.toContain("ada@example.com");
+      expect(await readGrants(test)).toHaveLength(1);
+    });
+  });
+
+  describe("grant-lifetime", () => {
+    const DATED: BillingOptionsInput["plans"] = [{ id: "monthly", name: { en: "Monthly" }, price: { amount: 2900, currency: "PLN" }, period: "month" }];
+
+    function grantLifetime() {
+      return createGrantLifetimeScript(test.config, { clock: test.clock });
+    }
+
+    beforeEach(async () => {
+      await test.database.close();
+      test = await createTestBilling({ plans: DATED });
+      adaId = await createAccount(test, "ada@example.com");
+    });
+
+    it("writes nothing on a dry run and reports lifetime access, though no declared plan is a lifetime one", async () => {
+      const outcome = await executeOpsScript(test.database.db, grantLifetime(), { email: "ada@example.com" }, { commit: false });
+      expect(outcome).toMatchObject({
+        ok: true,
+        value: {
+          committed: false,
+          report: {
+            before: { userId: adaId, access: { status: "trial", endsAt: TRIAL_END }, grants: [] },
+            after: { userId: adaId, access: { status: "paid", endsAt: null }, grants: [{ planId: "_lifetime", grantedAt: NOW, grant: { kind: "lifetime" } }] },
+          },
+        },
+      });
+      expect(await readGrants(test)).toEqual([]);
+      expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "trial" });
+    });
+
+    it("records the grant with --commit, without a price, and revoke-grant takes it back", async () => {
+      const outcome = await executeOpsScript(test.database.db, grantLifetime(), { email: "Ada@Example.com" }, { commit: true });
+      expect(outcome).toMatchObject({ ok: true, value: { committed: true } });
+      const [row] = await readGrants(test);
+      expect(row).toMatchObject({ plan_id: "_lifetime", granted_by: null, granted_at: NOW, status: "active" });
+      const priced = await test.database.client.query<{ amount: number | null; currency: string | null }>("SELECT amount, currency FROM billing.manual_grants");
+      expect(priced.rows).toEqual([{ amount: null, currency: null }]);
+      expect(await getEntitlement(test.ctx, adaId)).toMatchObject({ status: "paid", endsAt: null });
+      const revoked = await executeOpsScript(test.database.db, revoke(), { email: "ada@example.com", grant: row?.id ?? "" }, { commit: true });
+      expect(revoked).toMatchObject({ ok: true, value: { report: { after: { access: { status: "trial", endsAt: TRIAL_END }, grants: [] } } } });
+    });
+
+    it("refuses an account with lifetime access, and an unknown email, writing nothing", async () => {
+      await executeOpsScript(test.database.db, grantLifetime(), { email: "ada@example.com" }, { commit: true });
+      const again = await executeOpsScript(test.database.db, grantLifetime(), { email: "ada@example.com" }, { commit: true });
+      expect(again).toEqual({ ok: false, error: "ops.script_refused", reason: "the account has lifetime access already" });
+      const unknown = await executeOpsScript(test.database.db, grantLifetime(), { email: "eve@example.com" }, { commit: true });
+      expect(unknown).toEqual({ ok: false, error: "ops.script_refused", reason: "no account has this email" });
+      expect(await readGrants(test)).toHaveLength(1);
+    });
+
+    it("runs as a command and never prints the email", async () => {
+      const lines: string[] = [];
+      const output = { log: (line: string) => lines.push(line), error: (line: string) => lines.push(line) };
+      const code = await runOpsScript({ script: grantLifetime(), argv: ["--email=ada@example.com", "--commit"], config: test.config, database: test.database.db, output });
       expect(code).toBe(0);
       expect(lines.at(-1)).toBe("COMMITTED");
       expect(lines.join("\n")).not.toContain("ada@example.com");

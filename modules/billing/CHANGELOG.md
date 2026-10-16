@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- **Lifetime access without a lifetime plan** (#539): an app whose plans are all dated can still grant lifetime
+  access, e.g. to its owner's own account or a complimentary one. `grantLifetimeManually(ctx, { userId, adminId })`
+  (`/server`) grants it and records it in `billing.manual_grants` under `LIFETIME_GRANT_PLAN_ID` (`"_lifetime"`, root
+  export) without a price, so the admin page's history lists it ("Lifetime access, granted by hand") and revokes it
+  like any manual grant. The admin page's "Grant access" form always offers **Lifetime access, free of charge** after
+  the plans (also with no plans declared), and the new ops script `grant-lifetime --email=… [--commit]`
+  (`createGrantLifetimeScript`, `@softure-ai/billing/scripts`) does the same from a terminal or `deploy.sh run`. New
+  messages `admin.grantedLifetime` and `admin.lifetimeOption`; `admin.noPlans` now says lifetime access needs no
+  plan. No migration.
+  Migrate (optional), for an app that wrote its own script around `changeEntitlement(ctx, userId, { type:
+  "grant_lifetime" })`: replace it with `grant-lifetime`. Lifetime access granted by that script stays as it is; it
+  is still not in the history.
+
 ## 0.5.0
 
 - `@softure-ai/billing/jobs` (#490): `billingJobHandlers`, `createBillingJobHandlers({ reminders })` and

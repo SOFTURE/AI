@@ -80,7 +80,9 @@ export const en = {
     pending: "Granting…",
     granted: "{email} now has {plan}.",
     grantedUntil: "{email} now has {plan}, with access until {date}.",
-    noPlans: "There are no plans to grant: add them to billing({ plans }).",
+    grantedLifetime: "{email} now has lifetime access.",
+    lifetimeOption: "Lifetime access, free of charge",
+    noPlans: "There are no plans to grant: add them to billing({ plans }). Lifetime access can be granted without one.",
     trial: {
       title: "Extend a trial",
       lead: "Give an account a longer trial for free, e.g. an invited user. It is not paid access: the account keeps its paid periods, and the trial lasts through the day you choose.",

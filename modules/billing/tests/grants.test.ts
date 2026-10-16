@@ -7,6 +7,7 @@ import {
   expireStaleRequests,
   getAccountHistory,
   getEntitlement,
+  grantLifetimeManually,
   grantPaymentRequest,
   grantPlanManually,
   listOpenRequests,
@@ -290,6 +291,51 @@ describe("granting by hand", () => {
     expect(await grantPlanManually(test.ctx, { userId: UNKNOWN_ID, planId: "monthly", adminId })).toEqual(err("billing.account_unknown"));
     expect(await grantPlanManually(test.ctx, { userId: "not-a-uuid", planId: "monthly", adminId })).toEqual(err("billing.account_unknown"));
     expect(await readManualGrants(test)).toMatchObject([{ request_id: null, granted_by: null, granted_from: TRIAL_END, granted_until: MONTH_AFTER_TRIAL }]);
+  });
+});
+
+describe("granting lifetime access without a plan", () => {
+  const DATED: BillingOptionsInput["plans"] = [{ id: "monthly", name: { en: "Monthly" }, price: { amount: 2900, currency: "PLN" }, period: "month" }];
+  let test: TestBilling;
+  let adaId: string;
+  let adminId: string;
+
+  beforeEach(async () => {
+    test = await createTestBilling({ plans: DATED });
+    adaId = await createAccount(test, "ada@example.com");
+    adminId = await createAccount(test, "admin@example.com");
+  });
+  afterEach(() => test.database.close());
+
+  it("grants lifetime access when no declared plan is a lifetime one, recorded without a price and listed in the history", async () => {
+    const granted = await grantLifetimeManually(test.ctx, { userId: adaId, adminId });
+    expect(granted).toMatchObject(ok({ grantId: expect.any(String) as unknown, entitlement: { status: "paid", endsAt: null } }));
+    expect(await readManualGrants(test)).toMatchObject([
+      { user_id: adaId, plan_id: "_lifetime", request_id: null, granted_by: adminId, granted_at: NOW, grant_kind: "lifetime", granted_from: null, granted_until: null, status: "active", amount: null, currency: null },
+    ]);
+    expect(await readRow(test, adaId)).toMatchObject({ is_lifetime: true });
+    expect(await getAccountHistory(test.ctx, adaId)).toMatchObject([{ source: "manual", planId: "_lifetime", grant: { kind: "lifetime" }, status: "active", isFromRequest: false, price: null }]);
+  });
+
+  it("keeps the dated periods granted before it, and refuses a plan grant or a second lifetime afterwards", async () => {
+    await grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId });
+    expect(await grantLifetimeManually(test.ctx, { userId: adaId, adminId: null })).toMatchObject({ ok: true });
+    expect(await grantLifetimeManually(test.ctx, { userId: adaId, adminId })).toEqual(err("billing.lifetime_active"));
+    expect(await grantPlanManually(test.ctx, { userId: adaId, planId: "monthly", adminId })).toEqual(err("billing.lifetime_active"));
+    expect(await readManualGrants(test)).toHaveLength(2);
+  });
+
+  it("is revoked like a plan grant, returning the account to what it had", async () => {
+    const granted = await grantLifetimeManually(test.ctx, { userId: adaId, adminId });
+    if (!granted.ok) throw new Error(`setup: grant failed with ${granted.error}`);
+    expect(await revokeManualGrant(test.ctx, { grantId: granted.value.grantId, adminId })).toEqual(ok({ status: "trial", endsAt: TRIAL_END, daysLeft: 14, isEnding: false }));
+    expect(await readRow(test, adaId)).toMatchObject({ is_lifetime: false });
+  });
+
+  it("refuses an unknown account or an id that is not a uuid and writes nothing", async () => {
+    expect(await grantLifetimeManually(test.ctx, { userId: UNKNOWN_ID, adminId })).toEqual(err("billing.account_unknown"));
+    expect(await grantLifetimeManually(test.ctx, { userId: "not-a-uuid", adminId })).toEqual(err("billing.account_unknown"));
+    expect(await readManualGrants(test)).toEqual([]);
   });
 });
 

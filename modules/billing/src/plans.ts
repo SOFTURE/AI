@@ -13,6 +13,12 @@ export function getLocalizedText(text: LocalizedText, locale: Locale): string {
   return pickLocalizedText(text, locale);
 }
 
+/**
+ * The plan id a manual grant of lifetime access without a plan is recorded under
+ * (`grantLifetimeManually`). Plan ids are kebab-case, so no declared plan can take it.
+ */
+export const LIFETIME_GRANT_PLAN_ID = "_lifetime";
+
 /** The plan with this id, or undefined. */
 export function findPlan(plans: readonly Plan[], planId: string): Plan | undefined {
   return plans.find((plan) => plan.id === planId);

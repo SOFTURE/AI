@@ -60,8 +60,8 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
 - **Jobs** (`@softure-ai/billing/jobs`): `billingJobHandlers` and `billingJobSchedules` run the reminder mail and
   the invoice request expiry as daily `@softure-ai/jobs` schedules instead of an app cron, with retries after a mail
   outage (see "Scheduled runs" in §4).
-- **Plan and trial scripts** (`@softure-ai/billing/scripts`): `grant-plan`, `revoke-grant` and
-  `extend-trial`, ops scripts (dry run by default, `--commit` writes) for a host without the admin
+- **Plan and trial scripts** (`@softure-ai/billing/scripts`): `grant-plan`, `grant-lifetime`,
+  `revoke-grant` and `extend-trial`, ops scripts (dry run by default, `--commit` writes) for a host without the admin
   page; their grants and extensions are in the account's history like the admin page's; and the
   read-only `entitlement-status` (see "Scripts" in §4).
 - **Existing accounts**: `trial.startsAt` gives accounts created before a chosen day a trial from
@@ -318,7 +318,10 @@ action checks the role from the session again before reading its form. It has fo
   transaction (`grantPaymentRequest`); **Dismiss** closes it without a grant; **History** opens the
   account's history. A request is granted or dismissed once: a second click finds it closed.
 - **Grant access**: a plan for the account with a given email, recorded like a request's grant.
-  An account with lifetime access is refused (`billing.lifetime_active`): a dated period under
+  The list ends with **Lifetime access, free of charge**, offered even when no declared plan is a
+  lifetime one (or none is declared): it grants lifetime access without a price through
+  `grantLifetimeManually`, so it is in the account's history and revoked there like any manual
+  grant. An account with lifetime access is refused (`billing.lifetime_active`): a dated period under
   lifetime would be invisible.
 - **Extend a trial**: the account's email and the trial's new last day (a date field; the trial
   ends when the next day begins in the app's time zone). `extendTrialAction` calls
@@ -502,7 +505,11 @@ Server functions, for scripts and other hosts (`@softure-ai/billing/server`):
 `grantPlanManually(ctx, { userId, planId, adminId, requestId? })` grants one payment of a plan,
 records it in the account's history (closing the request when given) and returns
 `{ grantId, entitlement }` (`Err<billing.plan_unknown | billing.account_unknown |
-billing.lifetime_active | billing.request_closed>` otherwise); `grantPaymentRequest(ctx, { requestId,
+billing.lifetime_active | billing.request_closed>` otherwise); `grantLifetimeManually(ctx, { userId,
+adminId })` grants lifetime access without a plan and records it the same way, under the plan id
+`LIFETIME_GRANT_PLAN_ID` (`"_lifetime"`, which no declared plan can take) with no price
+(`Err<billing.account_unknown | billing.lifetime_active>` otherwise; its usage limits are
+`paid.limits`); `grantPaymentRequest(ctx, { requestId,
 adminId })` does it for an open request; `revokeManualGrant(ctx, { grantId, adminId })` takes one
 back (`Err<billing.grant_revoked>` when it was revoked before); `getAccountHistory(ctx, userId)`,
 `listOpenRequests(ctx, limit?)`, `dismissPaymentRequest(ctx, requestId)`. `grantPlan(ctx, userId,
@@ -525,7 +532,7 @@ period without losing a concurrent grant).
 
 **Scripts.** `@softure-ai/billing/scripts` builds ops scripts on `@softure-ai/ops/scripts` (dry run by
 default, `--commit` writes, one transaction), for an operator without the admin page or at a
-terminal: `grant-plan`, `revoke-grant`, `extend-trial` and `entitlement-status` here, `import-entitlements` and `pin-trials` under
+terminal: `grant-plan`, `grant-lifetime`, `revoke-grant`, `extend-trial` and `entitlement-status` here, `import-entitlements` and `pin-trials` under
 "Existing accounts" below. The app bundles them like its other scripts and runs them with its
 database URL:
 
@@ -542,15 +549,20 @@ process.exitCode = await runOpsScript({ script: createGrantPlanScript(config), a
   `grantPlanManually` (no admin: `granted_by` is null), so it is in the account's history and the
   admin page can revoke it. Refuses an undeclared plan (naming the declared ones), an unknown email
   and an account with lifetime access.
+- `grant-lifetime --email=…` grants lifetime access, free of charge and without a plan, through
+  `grantLifetimeManually` (no admin), for an app whose plans are all dated: the owner's own account
+  or a complimentary one. It is in the account's history and revocable like a plan grant. Refuses an
+  unknown email and an account with lifetime access. On a VPS deployed with `@softure-ai/deploy` it
+  runs in the app container (`deploy.sh run`), since it needs no file.
 - `revoke-grant --email=… --grant=<id>` revokes one active manual grant of that account through
   `revokeManualGrant` (a script's or the admin page's) and takes back what it added. Refuses an
   unknown email and an id that is not an active manual grant of the account (another account's,
   revoked, mistyped).
 
-Both print the account's state `before` and `after`: the user id (never the email), the
+All three print the account's state `before` and `after`: the user id (never the email), the
 entitlement and the active manual grants with their ids, newest first; a dry run of either script
-shows the id `revoke-grant` takes. `createGrantPlanScript(config, { clock? })` and
-`createRevokeGrantScript(config, { clock? })` take a clock for tests (`executeOpsScript`).
+shows the id `revoke-grant` takes. `createGrantPlanScript(config, { clock? })`,
+`createGrantLifetimeScript(config, { clock? })` and `createRevokeGrantScript(config, { clock? })` take a clock for tests (`executeOpsScript`).
 
 - `extend-trial --email=…|--user=<account id> --until=YYYY-MM-DD|--days=N` extends one account's
   trial through `extendTrialManually` (no admin: `extended_by` is null), so it is in the account's
@@ -958,7 +970,7 @@ payment: manual({
   holds a test key; the example's `e2e/billing-checkout.stripe-sandbox.spec.ts`), and with signed
   webhook fixtures. Only the card is paid end to end; BLIK and Przelewy24 are not.
 - A grant through `grantPlan` (or a raw `changeEntitlement`, an import) is not recorded: it is not
-  in the history and cannot be revoked; the `grant-plan` script records its grants.
+  in the history and cannot be revoked; the `grant-plan` and `grant-lifetime` scripts record theirs.
 - The owner hears of an open request once: a buyer who corrects the details later changes the
   admin page, not the mail already sent. Two asks at once for the same plan hand over once; if that
   hand-over fails, the other ask has already answered "sent", and the next ask retries.

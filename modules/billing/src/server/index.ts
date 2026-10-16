@@ -16,10 +16,13 @@ export {
 export {
   ACCOUNT_HISTORY_LIMIT,
   getAccountHistory,
+  grantLifetimeManually,
   grantPaymentRequest,
   grantPlanManually,
   revokeManualGrant,
   type AccountHistoryEntry,
+  type GrantLifetimeManuallyError,
+  type GrantLifetimeManuallyInput,
   type GrantPaymentRequestInput,
   type GrantPlanManuallyError,
   type GrantPlanManuallyInput,
