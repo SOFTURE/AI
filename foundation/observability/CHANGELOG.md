@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `traces.stableHttpAttributes`: the legacy HTTP attributes of a server span are copied onto their stable names when
+  it ends (`http.status_code` to `http.response.status_code`, `http.method` to `http.request.method`, `http.target` to
+  `url.path` without the query); the legacy keys stay. On by default in `registerObservability` (`/next`), so
+  Next.js's request spans match queries on the current conventions; off by default in `startObservability` (#545).
+- `traces.ignorePaths`: incoming requests to these paths (and below them) get no trace, e.g. a container health check
+  (#546).
+- `probeObservability` (`/node`) and the `softure-observability ping` command: send one probe span and one probe log
+  record (`softure.probe=true`) and report per signal whether the backend accepted it, with the HTTP status when not;
+  the command exits non-zero then (#547).
+
 ## 0.1.3
 
 - The `@softure-ai/core` range also accepts 0.2.0, so an app can install core 0.2.0 next to this version.

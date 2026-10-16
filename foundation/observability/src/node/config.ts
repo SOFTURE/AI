@@ -18,12 +18,29 @@ export type ObservabilityOptions = {
   enabled?: boolean;
   /** `fetch`: spans for outgoing `fetch` calls (undici). Default `true`; the Next.js adapter defaults it to `false`. */
   instrumentations?: { fetch?: boolean };
+  /** How spans are recorded; see `TraceOptions`. */
+  traces?: TraceOptions;
   /** Minimum level of every logger (see `configureLogging`). */
   logLevel?: LogLevel;
   /** How much of an error the loggers record (see `configureLogging`). */
   errorDetails?: ErrorDetails;
   /** Flush on SIGTERM and SIGINT, then let the signal end the process. Default `false`. */
   handleSignals?: boolean;
+};
+
+export type TraceOptions = {
+  /**
+   * Paths whose incoming requests get no trace, e.g. `["/api/health"]`: the server span and every span under it are
+   * dropped. An entry matches its own path and everything below it as whole segments; the query string is ignored.
+   * Every entry starts with `/`.
+   */
+  ignorePaths?: readonly string[];
+  /**
+   * Copies the legacy HTTP server attributes onto their stable names when a server span ends: `http.status_code` to
+   * `http.response.status_code`, `http.method` to `http.request.method`, `http.target` to `url.path` (without the
+   * query). The legacy keys stay. Default `false`; the Next.js adapter defaults it to `true`.
+   */
+  stableHttpAttributes?: boolean;
 };
 
 export type SignalExport = { url: string; headers: Record<string, string> };

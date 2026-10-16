@@ -11,11 +11,19 @@ export type ReceivedRequest = {
 export type OtlpReceiver = {
   url: string;
   requests: ReceivedRequest[];
+  /** Every body received on `path`, concatenated. */
+  bodyOf(path: string): Buffer;
   close(): Promise<void>;
 };
 
-/** A stand-in OTLP/HTTP receiver on a random local port: answers 200 and records every request. */
-export async function startOtlpReceiver(): Promise<OtlpReceiver> {
+export type OtlpReceiverOptions = {
+  /** The status every request gets. Default 200. */
+  status?: number;
+};
+
+/** A stand-in OTLP/HTTP receiver on a random local port: answers `status` (200) and records every request. */
+export async function startOtlpReceiver(options: OtlpReceiverOptions = {}): Promise<OtlpReceiver> {
+  const status = options.status ?? 200;
   const requests: ReceivedRequest[] = [];
   const server = createServer((request, response) => {
     const chunks: Buffer[] = [];
@@ -27,7 +35,7 @@ export async function startOtlpReceiver(): Promise<OtlpReceiver> {
         headers: request.headers,
         body: Buffer.concat(chunks),
       });
-      response.writeHead(200, { "content-type": "application/x-protobuf" });
+      response.writeHead(status, { "content-type": "application/x-protobuf" });
       response.end();
     });
   });
@@ -38,6 +46,7 @@ export async function startOtlpReceiver(): Promise<OtlpReceiver> {
   return {
     url: `http://127.0.0.1:${port}`,
     requests,
+    bodyOf: (path) => Buffer.concat(requests.filter((request) => request.path === path).map((request) => request.body)),
     close: () =>
       new Promise<void>((resolve, reject) => {
         server.closeAllConnections();
