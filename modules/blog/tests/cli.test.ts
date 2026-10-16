@@ -3,7 +3,8 @@ import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runBlogCli, runBlogCommand, type CliOutput, type RunBlogCliOptions } from "@softure-ai/blog/cli";
+import { runBlogCli, runBlogCommand, type CliOutput, type EnqueueBlogIndexNow, type RunBlogCliOptions } from "@softure-ai/blog/cli";
+import { enqueueBlogIndexNow } from "@softure-ai/blog/jobs";
 import { findArticleBySlug } from "@softure-ai/blog/server";
 import { jobs } from "@softure-ai/jobs";
 import { listJobs } from "@softure-ai/jobs/testing";
@@ -405,7 +406,7 @@ describe("softure-blog publish with a blog.indexnow queue in jobs()", () => {
     await test.database.close();
   });
 
-  async function run(argv: string[]) {
+  async function run(argv: string[], extra: Pick<RunBlogCliOptions, "enqueueIndexNow"> = {}) {
     const { output, lines, errors } = createOutput();
     const code = await runBlogCli({
       config: test.config,
@@ -419,9 +420,29 @@ describe("softure-blog publish with a blog.indexnow queue in jobs()", () => {
         return Promise.resolve(new Response(null, { status: 200 }));
       },
       env: {},
+      ...extra,
     });
     return { code, lines, errors };
   }
+
+  it("enqueues through the app's enqueueIndexNow when it passes one (a bundled CLI, #549)", async () => {
+    const calls: string[][] = [];
+    const enqueueIndexNow: EnqueueBlogIndexNow = (ctx, changes) => {
+      calls.push(changes.map((change) => change.slug));
+      return enqueueBlogIndexNow(ctx, changes);
+    };
+    const result = await run(["publish", "--commit"], { enqueueIndexNow });
+    const [job] = await listJobs(test.database.db);
+    expect(calls).toEqual([["index-funds", "tax-wrapper"]]);
+    expect(result.lines.slice(-1)).toEqual([`indexnow: queued 2 URL(s) as job ${job?.id ?? ""} on blog.indexnow: /blog/index-funds /blog`]);
+  });
+
+  it("reports a failing enqueueIndexNow as a warning and keeps the publish", async () => {
+    const result = await run(["publish", "--commit"], { enqueueIndexNow: () => Promise.reject(new Error("queue offline")) });
+    expect(result.code).toBe(0);
+    expect(result.errors).toEqual(["warning indexnow: the IndexNow job could not be enqueued: queue offline (blog.indexnow_enqueue_failed); the publish is written, submit the addresses later: /blog/index-funds /blog"]);
+    expect(await listJobs(test.database.db)).toEqual([]);
+  });
 
   it("enqueues the submit on a commit instead of sending it, and says so", async () => {
     const result = await run(["publish", "--commit"]);

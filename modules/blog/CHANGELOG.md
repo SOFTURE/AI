@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## Unreleased
+
+- **Fix (#549):** the CLI no longer pulls the optional `@softure-ai/jobs` peer into a single-file bundle. It loads
+  `@softure-ai/blog/jobs` by a specifier bundlers do not follow, so an app that bundles `runBlogCli` without jobs
+  builds and starts with no alias or stub. An app that bundles the CLI and uses the `blog.indexnow` queue passes
+  `runBlogCli({ enqueueIndexNow: enqueueBlogIndexNow })` (new option, type `EnqueueBlogIndexNow` from
+  `@softure-ai/blog/cli`). `node_modules` installs need no change.
+
 ## 0.3.0
 
 - **Breaking (#509):** tool blocks return data and leave React out of the config. `defineToolBlock` moved from

@@ -59,7 +59,16 @@ export interface RunBlogCliOptions {
   readonly env?: Readonly<Record<string, string | undefined>>;
   /** What `publish --stdin` reads. Default: the whole of `process.stdin`, as UTF-8. */
   readonly readStdin?: () => Promise<string>;
+  /**
+   * Enqueues the IndexNow submit when the config has a `blog.indexnow` queue: pass `enqueueBlogIndexNow` from
+   * `@softure-ai/blog/jobs` when a bundler packs this script. Default: that function, loaded from the installed
+   * package at run time, so a bundle without the optional `@softure-ai/jobs` peer builds and starts.
+   */
+  readonly enqueueIndexNow?: EnqueueBlogIndexNow;
 }
+
+/** The shape of `enqueueBlogIndexNow` (`@softure-ai/blog/jobs`). */
+export type EnqueueBlogIndexNow = (ctx: BlogContext, changes: readonly IndexNowChange[]) => Promise<BlogIndexNowSubmit>;
 
 export const EXIT_OK = 0;
 export const EXIT_FAILED = 1;
@@ -387,7 +396,7 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
     if (run.status === "done" && command.indexNow) {
       report.indexNow(
         run.committed && hasBlogIndexNowQueue(config)
-          ? await queueIndexNow({ db: opened.handle.db, clock, config }, run.changes)
+          ? await queueIndexNow({ db: opened.handle.db, clock, config }, run.changes, options.enqueueIndexNow)
           : await submitBlogChanges(config, run.changes, { commit: run.committed, ...(options.indexNowFetch === undefined ? {} : { fetchImpl: options.indexNowFetch }) }),
       );
     }
@@ -402,17 +411,27 @@ async function runPublish(command: Extract<BlogCommand, { kind: "publish" }>, op
 
 /**
  * With a `blog.indexnow` queue the submit runs in the app's job worker, with retries. `@softure-ai/jobs`
- * is an optional peer, so its code loads only here. The publish is written either way: an enqueue
- * that fails is a warning, like a failed submit.
+ * is an optional peer, so its code loads only here, and through a specifier bundlers do not follow: a
+ * bundled CLI without the peer must build and start (#549). The publish is written either way: an
+ * enqueue that fails is a warning, like a failed submit.
  */
-async function queueIndexNow(ctx: BlogContext, changes: readonly IndexNowChange[]): Promise<BlogIndexNowSubmit> {
+async function queueIndexNow(ctx: BlogContext, changes: readonly IndexNowChange[], enqueue: EnqueueBlogIndexNow | undefined): Promise<BlogIndexNowSubmit> {
   try {
-    const { enqueueBlogIndexNow } = await import("../jobs/enqueue.js");
-    return await enqueueBlogIndexNow(ctx, changes);
+    return await (enqueue ?? (await loadEnqueueBlogIndexNow()))(ctx, changes);
   } catch (error) {
     const paths = getIndexNowPaths(changes, getBlogRoutes(ctx.config));
     return { paths, outcome: { kind: "failed", code: "blog.indexnow_enqueue_failed", reason: `the IndexNow job could not be enqueued: ${describeError(error)}` } };
   }
+}
+
+const JOBS_ENTRY = "@softure-ai/blog/jobs";
+
+async function loadEnqueueBlogIndexNow(): Promise<EnqueueBlogIndexNow> {
+  // A variable, not a literal: esbuild, Vite and webpack leave the import to Node, which resolves the
+  // package's own name through its exports.
+  const specifier: string = JOBS_ENTRY;
+  const entry = (await import(/* @vite-ignore */ /* webpackIgnore: true */ specifier)) as typeof import("../jobs/index.js");
+  return entry.enqueueBlogIndexNow;
 }
 
 async function runCheck(command: Extract<BlogCommand, { kind: "check" }>, options: RunBlogCliOptions, output: CliOutput): Promise<number> {
