@@ -1,12 +1,13 @@
 ---
 change_id: db-drizzle-after-ledger-534
 title: "db: drizzleAppMigrations takes its own ledger, and a shared before/after ledger is refused (issue #534)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 534
 branch: claude/project-thread-l13j1e
 created: 2026-10-16
 updated: 2026-10-16
+archived_at: 2026-10-16
 ---
 
 ## Intent

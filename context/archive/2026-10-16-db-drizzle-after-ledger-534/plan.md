@@ -1,6 +1,6 @@
 ---
 change_id: db-drizzle-after-ledger-534
-status: in_progress
+status: archived
 ---
 
 # Plan: drizzleAppMigrations ledger option and shared-ledger refusal (issue #534)
