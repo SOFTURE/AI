@@ -16,6 +16,7 @@ import { errorLogLabel, getModule } from "@softure-ai/core";
 import { consumeRateLimit, identifyClient } from "@softure-ai/security/server";
 import type { McpServerIdentity } from "../contract.js";
 import { getProtectedResourceMetadataUrl, isOAuthEnabled } from "./oauth-http.js";
+import { getMcpAccessOptions } from "./options.js";
 import { resolveMcpOrigins } from "./origins.js";
 import { MCP_READ_SCOPE, MCP_WRITE_SCOPE } from "./scopes.js";
 import { verifyAccessToken, type McpAccessContext } from "./tokens.js";
@@ -95,9 +96,12 @@ export function createMcpEndpoint({ createServer }: McpEndpointOptions): McpEndp
  */
 async function authenticate(ctx: McpAccessContext, request: Request): Promise<AuthInfo | Response> {
   const header = request.headers.get("authorization");
+  // Clients request the challenge's scope first (MCP authorization, scope selection), so it names
+  // `mcp:write` while the app allows writes; the person's tick on the consent page still decides.
+  const requiredScopes = getMcpAccessOptions(ctx.config).allowWrites ? [MCP_READ_SCOPE, MCP_WRITE_SCOPE] : [MCP_READ_SCOPE];
   const challenge = isOAuthEnabled(ctx.config)
-    ? { requiredScopes: [MCP_READ_SCOPE], resourceMetadataUrl: getProtectedResourceMetadataUrl(ctx.config, resolveMcpOrigins(ctx.config, request)) }
-    : { requiredScopes: [MCP_READ_SCOPE] };
+    ? { requiredScopes, resourceMetadataUrl: getProtectedResourceMetadataUrl(ctx.config, resolveMcpOrigins(ctx.config, request)) }
+    : { requiredScopes };
   if (header === null || !BEARER_PREFIX.test(header)) {
     return bearerAuthChallengeResponse(new OAuthError(OAuthErrorCode.InvalidToken, "Missing Bearer token"), challenge);
   }

@@ -47,6 +47,58 @@ describe("getScheduleSlot", () => {
   });
 });
 
+describe("getScheduleSlot of a local-time schedule", () => {
+  const REMINDERS = { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw", payload: {} };
+  const slot = (schedule: typeof REMINDERS, now: string) => getScheduleSlot(schedule, new Date(now)).toISOString();
+
+  it("gives the latest listed local time at or before now", () => {
+    // Warsaw is UTC+2 in September: 09:00 is 07:00Z, 21:00 is 19:00Z.
+    expect(slot(REMINDERS, "2026-09-15T06:59:59Z")).toBe("2026-09-14T19:00:00.000Z");
+    expect(slot(REMINDERS, "2026-09-15T07:00:00Z")).toBe("2026-09-15T07:00:00.000Z");
+    expect(slot(REMINDERS, "2026-09-15T18:59:59Z")).toBe("2026-09-15T07:00:00.000Z");
+    expect(slot(REMINDERS, "2026-09-15T19:00:00Z")).toBe("2026-09-15T19:00:00.000Z");
+    expect(slot(REMINDERS, "2026-09-15T23:30:00Z")).toBe("2026-09-15T19:00:00.000Z");
+  });
+
+  it("keeps the local time across a DST change", () => {
+    // Warsaw leaves summer time on 2026-10-25 and enters it on 2027-03-28.
+    expect(slot(REMINDERS, "2026-10-24T12:00:00Z")).toBe("2026-10-24T07:00:00.000Z");
+    expect(slot(REMINDERS, "2026-10-25T12:00:00Z")).toBe("2026-10-25T08:00:00.000Z");
+    expect(slot(REMINDERS, "2026-10-25T07:30:00Z")).toBe("2026-10-24T19:00:00.000Z");
+    expect(slot(REMINDERS, "2027-03-27T12:00:00Z")).toBe("2027-03-27T08:00:00.000Z");
+    expect(slot(REMINDERS, "2027-03-28T12:00:00Z")).toBe("2027-03-28T07:00:00.000Z");
+  });
+
+  it("runs a skipped local time after the change and a repeated one at its first occurrence", () => {
+    const night = { at: ["02:30"], timeZone: "Europe/Warsaw", payload: {} };
+    // 2027-03-28 jumps from 02:00 CET to 03:00 CEST: 02:30 does not exist and runs at 03:30 CEST.
+    expect(slot(night, "2027-03-28T01:30:00Z")).toBe("2027-03-28T01:30:00.000Z");
+    expect(slot(night, "2027-03-28T01:29:59Z")).toBe("2027-03-27T01:30:00.000Z");
+    // 2026-10-25 repeats 02:00 to 03:00: 02:30 CEST (00:30Z) comes first, 02:30 CET (01:30Z) does not run again.
+    expect(slot(night, "2026-10-25T00:30:00Z")).toBe("2026-10-25T00:30:00.000Z");
+    expect(slot(night, "2026-10-25T01:45:00Z")).toBe("2026-10-25T00:30:00.000Z");
+  });
+
+  it("only moves forward as the clock does, minute by minute across both DST changes", () => {
+    for (const [from, to] of [
+      ["2026-10-24T00:00:00Z", "2026-10-27T00:00:00Z"],
+      ["2027-03-27T00:00:00Z", "2027-03-30T00:00:00Z"],
+    ] as const) {
+      const slots = new Set<string>();
+      let previous = Number.NEGATIVE_INFINITY;
+      for (let now = Date.parse(from); now < Date.parse(to); now += MINUTE_MS) {
+        const current = getScheduleSlot(REMINDERS, new Date(now)).getTime();
+        expect(current).toBeGreaterThanOrEqual(previous);
+        expect(current).toBeLessThanOrEqual(now);
+        previous = current;
+        slots.add(new Date(current).toISOString());
+      }
+      // Two slots a day over three days, plus the evening slot of the day before.
+      expect(slots.size).toBe(7);
+    }
+  });
+});
+
 describe("enqueueDueSchedules", () => {
   let test: TestJobs;
 
@@ -136,6 +188,29 @@ describe("enqueueDueSchedules", () => {
     expect(await listJobs(test.database.db)).toHaveLength(1);
   });
 
+  it("enqueues a local-time schedule once per listed time, across a DST change", async () => {
+    test = await createTestJobs({ schedules: { "billing.send-reminders": { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw" } } });
+    const { runs, handler } = countingHandler();
+    const handlers = { "billing.send-reminders": handler };
+    // From 2026-10-24 12:00Z, every 15 minutes for two days, over the 2026-10-25 change to winter time.
+    test.clock.set(new Date("2026-10-24T12:00:00Z"));
+    for (let tick = 0; tick < 2 * 24 * 4; tick += 1) {
+      await runDueJobs(test.ctx, { handlers });
+      await runDueJobs(test.ctx, { handlers });
+      test.clock.advance(15 * MINUTE_MS);
+    }
+
+    const runAts = (await listJobs(test.database.db)).map((job) => job.runAt.toISOString());
+    expect(runs).toHaveLength(runAts.length);
+    expect(runAts).toEqual([
+      "2026-10-24T12:00:00.000Z",
+      "2026-10-24T19:00:00.000Z",
+      "2026-10-25T08:00:00.000Z",
+      "2026-10-25T20:00:00.000Z",
+      "2026-10-26T08:00:00.000Z",
+    ]);
+  });
+
   it("enqueues nothing without schedules", async () => {
     test = await createTestJobs();
     expect(await enqueueDueSchedules(test.ctx)).toEqual([]);
@@ -157,6 +232,19 @@ describe("schedule state in getQueueStats", () => {
     test = await createTestJobs({ schedules: SCHEDULES });
     expect(await getSchedule("app.prune")).toEqual({ everySeconds: 3600, lastEnqueuedAt: null, lastSucceededAt: null, isLate: true });
     expect(await getSchedule("ai.reply")).toBeNull();
+  });
+
+  it("reports the longest gap between the local times as the period of a local-time schedule", async () => {
+    test = await createTestJobs({
+      schedules: {
+        "app.twice": { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw" },
+        "app.once": { at: ["06:15"], timeZone: "UTC" },
+        "app.uneven": { at: ["08:00", "10:00", "18:00"], timeZone: "UTC" },
+      },
+    });
+    expect((await getSchedule("app.twice"))?.everySeconds).toBe(12 * 3600);
+    expect((await getSchedule("app.once"))?.everySeconds).toBe(24 * 3600);
+    expect((await getSchedule("app.uneven"))?.everySeconds).toBe(14 * 3600);
   });
 
   it("records the last success and turns late two periods after it", async () => {
