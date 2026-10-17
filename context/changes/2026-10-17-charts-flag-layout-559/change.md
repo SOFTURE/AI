@@ -27,6 +27,13 @@ batched by the coordinator: no version bump here, the CHANGELOG gets `## Unrelea
 - Additive: `ChartFlag` and `LineChart` render exactly as today when the new props are not given.
 - The adopting app is not changed by this work; the migration is described in the CHANGELOG and on the issue.
 
+## Decisions (auto)
+
+- `layoutFlags` returns `{ placements, rows, hiddenCount }` instead of a bare array: placements stay in input order
+  (as the issue asks) and the counts serve the "+N" marker.
+- Widths come from the caller in the unit of `x`; `LineChart` takes them as `flagStack.widthOf` in plot percent.
+- Hidden flags keep their guide line on `LineChart`; their labels go into one "+N" chip on the row after the last.
+
 ## Notes
 
 - Framing: skipped. The issue names the problem, the helper's shape and the acceptance criteria.
