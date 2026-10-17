@@ -13,6 +13,7 @@ export {
   type ImportEntitlementError,
   type ImportEntitlementInput,
 } from "./entitlements.js";
+export { getEntitlementStatesSql } from "./entitlement-sql.js";
 export {
   ACCOUNT_HISTORY_LIMIT,
   getAccountHistory,

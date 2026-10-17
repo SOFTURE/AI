@@ -21,6 +21,7 @@ test("the page lists the ledger and the module migrations applied by softure mig
     "billing 9 record_pending_charge_states (applied)",
     "billing 10 record_trial_extensions_and_index_foreign_keys (applied)",
     "billing 11 create_usage (applied)",
+    "billing 12 create_entitlement_state_functions (applied)",
     "blog 1 create_articles (applied)",
     "feature-switches 1 create_switches (applied)",
     "guestbook 1 create_entries (applied)",
