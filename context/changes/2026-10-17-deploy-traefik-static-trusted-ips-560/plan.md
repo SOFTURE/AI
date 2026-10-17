@@ -28,5 +28,5 @@ Files: `tools/deploy/templates/docker/prod/hooks/cloudflare-ranges.sh.tmpl`, `to
 
 ## Progress
 
-- [ ] Phase 1: hook option
-- [ ] Phase 2: docs
+- [x] Phase 1: hook option (8ec06ca; 7 new tests, 6 red before the change)
+- [x] Phase 2: docs (README Cloudflare section, CHANGELOG `## Unreleased` with the migration)
