@@ -30,6 +30,6 @@ the migration for an adopting app (drop the 401 rewrite workaround, reconnect on
 
 ## Progress
 
-- [ ] Phase 1: challenge scope
+- [x] Phase 1: challenge scope (tests for allowWrites on were red before the change, on and off, OAuth on and off)
 - [ ] Phase 2: default scope
 - [ ] Phase 3: docs
