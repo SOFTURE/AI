@@ -1,9 +1,10 @@
-// Recurring schedules: each schedule's runs start on whole periods counted from the Unix epoch, so every worker
-// computes the same period. A worker takes a period with a conditional upsert of `jobs.schedules` and enqueues its run
+// Recurring schedules: a period schedule's runs start on whole periods counted from the Unix epoch, a local-time
+// schedule's at its listed times of day in its time zone, so every worker computes the same slot. A worker takes a period with a conditional upsert of `jobs.schedules` and enqueues its run
 // in the same transaction, so each period is enqueued once however many workers race for it.
 import { eq, inArray, lt } from "drizzle-orm";
-import { parseEverySeconds, type JobScheduleOptions, type JobsOptions } from "../options.js";
+import { parseEverySeconds, type JobScheduleOptions, type JobsOptions, type LocalTimeScheduleOptions } from "../options.js";
 import { schedules } from "../schema.js";
+import { getWallClock, getZonedInstant } from "../zoned-time.js";
 import type { JobsContext } from "./context.js";
 import { enqueueJob } from "./enqueue.js";
 import { getJobsOptions } from "./options.js";
@@ -16,6 +17,7 @@ export const SCHEDULE_DEDUP_KEY = "schedule";
 
 /** A schedule's health as `getQueueStats` reports it. */
 export interface ScheduleState {
+  /** The period; for a local-time schedule the longest gap between two of its times of day (24h for one time). */
   readonly everySeconds: number;
   /** The start of the latest period a run was enqueued for; null before any worker saw the schedule. */
   readonly lastEnqueuedAt: Date | null;
@@ -33,8 +35,12 @@ export interface EnqueueDueSchedulesInput {
   readonly queues?: readonly string[];
 }
 
-/** The start of the period `now` falls in. */
+/**
+ * The slot `now` falls in: the start of its period, or the latest of the schedule's local times at or before `now`.
+ * Slots only move forward as `now` does, across DST changes too.
+ */
 export function getScheduleSlot(schedule: JobScheduleOptions, now: Date): Date {
+  if ("at" in schedule) return new Date(getLocalTimeSlot(schedule, now.getTime()));
   const periodMs = getEverySeconds(schedule) * 1000;
   return new Date(Math.floor(now.getTime() / periodMs) * periodMs);
 }
@@ -114,8 +120,38 @@ export function getSchedule(options: JobsOptions, name: string): JobScheduleOpti
 }
 
 function getEverySeconds(schedule: JobScheduleOptions): number {
+  if ("at" in schedule) return getLongestGapSeconds(schedule.at);
   const seconds = parseEverySeconds(schedule.every);
   // The options schema refused any other value at startup.
   if (seconds === null) throw new Error(`@softure-ai/jobs: invalid schedule period "${schedule.every}"`);
   return seconds;
+}
+
+function getLocalTimeSlot(schedule: LocalTimeScheduleOptions, now: number): number {
+  const today = getWallClock(now, schedule.timeZone);
+  // The calendar day before today's local date; Date.UTC rolls day 0 over to the month before.
+  const yesterday = new Date(Date.UTC(today.year, today.month - 1, today.day - 1));
+  const days = [
+    { year: yesterday.getUTCFullYear(), month: yesterday.getUTCMonth() + 1, day: yesterday.getUTCDate() },
+    { year: today.year, month: today.month, day: today.day },
+  ];
+  let slot = Number.NEGATIVE_INFINITY;
+  for (const day of days) {
+    for (const time of schedule.at) {
+      const [hour, minute] = time.split(":").map(Number);
+      const instant = getZonedInstant({ ...day, hour: hour ?? 0, minute: minute ?? 0 }, schedule.timeZone);
+      if (instant <= now && instant > slot) slot = instant;
+    }
+  }
+  return slot;
+}
+
+/** The longest gap between two consecutive times of day, wrapping past midnight; `times` is sorted. */
+function getLongestGapSeconds(times: readonly string[]): number {
+  const minutes = times.map((time) => {
+    const [hour, minute] = time.split(":").map(Number);
+    return (hour ?? 0) * 60 + (minute ?? 0);
+  });
+  const gaps = minutes.map((minute, index) => (minutes[(index + 1) % minutes.length] ?? minute) - minute + (index === minutes.length - 1 ? 24 * 60 : 0));
+  return Math.max(...gaps) * 60;
 }

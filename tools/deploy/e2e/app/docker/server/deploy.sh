@@ -72,9 +72,17 @@
 #
 # The cron: each release writes the crontab lines marked "# softure-deploy:softure-example": one runs `maintain` daily (a
 # backup with the release's retention, the newest BACKUP_KEEP and none older than BACKUP_MAX_AGE_DAYS, when there is a
-# database, then the removal of this app's images whose release folder is gone and of dangling images, then the
-# maintain hooks without a schedule), and one per scheduled maintain hook runs `maintain <hook>`. deploy and maintain
-# never run at the same time (flock on .deploy.lock).
+# database, and its test restore (verify-backup, below), then the removal of this app's images whose release folder is
+# gone and of dangling images, then the maintain hooks without a schedule), and one per scheduled maintain hook runs
+# `maintain <hook>`. deploy and maintain never run at the same time (flock on .deploy.lock).
+#
+# verify-backup: on the Sunday run by default (database.verifyBackup: weekly, daily or never), maintain counts the rows
+# of database.rowCountTables (less excludeTableData, whose rows the dump leaves out) right before the backup, restores
+# the new dump with pg_restore --exit-on-error into the throwaway database $VERIFY_DATABASE of the same Postgres, as the
+# postgres service's superuser (POSTGRES_USER, else postgres), so the dump meets the server's roles and extensions,
+# compares the restored counts (none may be lower), and drops the database again. A dump that does not restore, or
+# holds fewer rows, fails the maintain run (result|failed|verify-backup|…). The restore needs free disk for a second
+# copy of the database while it runs.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -87,6 +95,8 @@ BACKUP_PREFIX=db
 BACKUP_KEEP=7
 # Deleted data must not outlive this many days in a backup.
 BACKUP_MAX_AGE_DAYS=30
+# The throwaway database verify-backup restores into; dropped again after every restore.
+VERIFY_DATABASE=softure_verify_backup
 TAG_FILE="$APP_DIR/.deployed-tag"
 RELEASES_DIR="$APP_DIR/releases"
 RELEASE_KEEP=5
@@ -124,6 +134,10 @@ db_user=""
 db_name=""
 container=""
 backup_file=""
+verify_backup="weekly"
+verify_tables=""
+verify_user=""
+verify_created=""
 
 begin_step() {
   current_step="$1"
@@ -176,6 +190,7 @@ finish() {
   local status=$?
   set +e
   if [ -n "$container" ]; then docker rm --force "$container" > /dev/null 2>&1; fi
+  if [ -n "$verify_created" ]; then drop_verify_database > /dev/null 2>&1; fi
   if [ "$status" -ne 0 ] && [ -n "$restore_armed" ]; then restore_previous; fi
   if [ -n "$work" ]; then rm -rf "$work"; fi
   if [ -n "$reports_result" ]; then
@@ -269,6 +284,8 @@ load_settings() {
   app_journal="$(cat "$settings_dir/app-journal")"
   app_ledger="$(cat "$settings_dir/app-ledger")"
   exclude_table_data="$(cat "$settings_dir/exclude-table-data")"
+  verify_backup="$(cat "$settings_dir/verify-backup")"
+  verify_tables="$(cat "$settings_dir/verify-tables")"
   if [ "$access" != "host" ] && [ "$access" != "compose-exec" ]; then return 1; fi
 }
 
@@ -397,13 +414,54 @@ guard_schema() {
   fi
 }
 
-# Row counts of the release's deploy.json tables: count_rows <flags…> (--out, --compare).
+# Row counts of the live database: count_rows <--config=<deploy.json> or --tables=<list>> <flags…> (--out, --compare).
 count_rows() {
+  local tables="$1"
+  shift
   if [ "$access" = "compose-exec" ]; then
-    run_on_snapshot row-counts --config="$release_config" "$@" -- --config="$release_config"
+    run_on_snapshot row-counts "$tables" "$@" -- "$tables"
   else
-    deploy_cli row-counts --config="$release_config" "$@"
+    deploy_cli row-counts "$tables" "$@"
   fi
+}
+
+# Whether this maintain run test-restores its backup (database.verifyBackup): weekly runs on Sunday.
+is_verify_day() {
+  case "$verify_backup" in
+    daily) return 0 ;;
+    never) return 1 ;;
+    *) [ "$(date +%u)" = "7" ] ;;
+  esac
+}
+
+# One statement through psql in the postgres service as its superuser: verify_psql <database> <statement>.
+verify_psql() {
+  compose exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -At -U "$verify_user" -d "$1" -c "$2"
+}
+
+drop_verify_database() {
+  verify_psql postgres "DROP DATABASE IF EXISTS $VERIFY_DATABASE" < /dev/null > /dev/null
+}
+
+# Restores the dump this run took into $VERIFY_DATABASE (see the header) and compares the restored counts with
+# $work/counts-at-dump.json; the database is dropped after a success here, after a failure by the exit trap.
+verify_backup() {
+  local dump="$BACKUP_DIR/$backup_file" query
+  if [ -z "$backup_file" ] || [ ! -f "$dump" ]; then fail "cannot find the new backup in $BACKUP_DIR."; fi
+  drop_verify_database || fail "cannot drop the leftover database $VERIFY_DATABASE."
+  verify_created="yes"
+  verify_psql postgres "CREATE DATABASE $VERIFY_DATABASE TEMPLATE template0" < /dev/null > /dev/null \
+    || fail "cannot create the throwaway database $VERIFY_DATABASE."
+  compose exec -T postgres pg_restore --exit-on-error --no-password -U "$verify_user" -d "$VERIFY_DATABASE" < "$dump" >&2 \
+    || fail "$backup_file does not restore; check the backups in $BACKUP_DIR."
+  if [ -n "$verify_tables" ]; then
+    query="$(deploy_cli row-counts --print-query --tables="$verify_tables")" || fail "cannot build the row-count query."
+    verify_psql "$VERIFY_DATABASE" "$query" < /dev/null \
+      | deploy_cli_stdin row-counts --stdin --tables="$verify_tables" --compare="$work/counts-at-dump.json" >&2 \
+      || fail "the restored $backup_file holds fewer rows than the live database had before the dump."
+  fi
+  drop_verify_database || fail "cannot drop the throwaway database $VERIFY_DATABASE."
+  verify_created=""
 }
 
 # A row-counts file as `users=3,billing.plans=2` for the step line; table names never hold `,` or `=`.
@@ -541,8 +599,29 @@ if [ "$command_name" = "maintain" ]; then
 
   begin_step backup
   prepare_database
+  verify_user="$(read_env POSTGRES_USER)"
+  verify_user="${verify_user:-postgres}"
+  # The counts a restored dump must reach, taken before the dump: rows added after it are not in it. A failed count
+  # still lets the backup run and fails the verify-backup step after it.
+  verifies=""
+  counted_at_dump="yes"
+  if is_verify_day; then
+    verifies="yes"
+    if [ -n "$verify_tables" ]; then
+      count_rows --tables="$verify_tables" --out="$work/counts-at-dump.json" >&2 || counted_at_dump=""
+    fi
+  fi
   back_up_database || fail "the backup failed."
   step_ok "$backup_file"
+
+  begin_step verify-backup
+  if [ -z "$verifies" ]; then
+    step_ok "skipped"
+  else
+    if [ -z "$counted_at_dump" ]; then fail "counting the rows before the backup failed; $backup_file was not restored."; fi
+    verify_backup
+    step_ok "$backup_file"
+  fi
 
   # This app's image tags without a release folder go (the newest RELEASE_KEEP stay, so a rollback to them needs no
   # pull); a tag a container still uses is refused by Docker and stays. Then the dangling images of the host.
@@ -738,7 +817,7 @@ fi
 # it may join the list in the release whose migration creates it.
 counted=""
 if [ "$lists_tables" -eq 0 ] && [ -n "$previous_tag" ]; then
-  count_rows --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
+  count_rows --config="$release_config" --out="$work/counts-before.json" || fail "counting rows failed; nothing was restarted."
   counted="yes"
   step_ok "$(summarize_counts "$work/counts-before.json")"
 else
@@ -767,7 +846,7 @@ fi
 
 if [ -n "$counted" ]; then
   begin_step row-counts-after
-  count_rows --compare="$work/counts-before.json" --out="$work/counts-after.json" \
+  count_rows --config="$release_config" --compare="$work/counts-before.json" --out="$work/counts-after.json" \
     || fail "rows were lost on $TAG; the backup before it is the newest in $BACKUP_DIR."
   step_ok "$(summarize_counts "$work/counts-after.json")"
 fi

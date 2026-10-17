@@ -20,6 +20,8 @@ describe("planServerSettings", () => {
       "app-journal": "",
       "app-ledger": "",
       "exclude-table-data": "",
+      "verify-backup": "weekly\n",
+      "verify-tables": "",
       "hooks-pre-migrate": "",
       "hooks-post-up": "",
       "hooks-maintain": "",
@@ -43,6 +45,20 @@ describe("planServerSettings", () => {
     expect(files["hooks-maintain"]).toBe("daily\0run\x001\0true\0");
     expect(files.cron).toBe("purge\0*/15 * * * *\0");
     expect(files["scheduled-purge"]).toBe("purge\0compose\x005\0exec\0-T\0app\0node\0p.mjs\0");
+  });
+
+  it("writes the verify schedule and the counted tables less those whose data the backups leave out (issue #561)", () => {
+    const files = plan({
+      database: { verifyBackup: "daily", rowCountTables: ["users", "security.rate_limits", "billing.plans"], excludeTableData: ["security.rate_limits"] },
+    });
+    expect(files["verify-backup"]).toBe("daily\n");
+    expect(files["verify-tables"]).toBe("users,billing.plans\n");
+    expect(plan({ database: { rowCountTables: ["a"], excludeTableData: ["a"] } })["verify-tables"]).toBe("");
+    expect(plan({ database: { verifyBackup: "never" } })["verify-backup"]).toBe("never\n");
+  });
+
+  it("refuses an unknown verify schedule", () => {
+    expect(issuesOf({ database: { verifyBackup: "monthly" } })).not.toEqual([]);
   });
 });
 
