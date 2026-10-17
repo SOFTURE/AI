@@ -273,6 +273,12 @@ const databaseSchema = z
       .min(1)
       .optional()
       .describe("Tables whose rows stay out of deploy.sh's backups (their definition stays), e.g. a table of IP addresses."),
+    verifyBackup: z
+      .enum(["weekly", "daily", "never"])
+      .optional()
+      .describe(
+        "How often deploy.sh's maintain run test-restores its new backup into a throwaway database and compares the rowCountTables (less excludeTableData) with the live counts: weekly (default, the Sunday run), daily or never.",
+      ),
   })
   .describe("Settings of the database steps of softure-deploy.");
 
@@ -296,6 +302,7 @@ export const BUILT_IN_STEP_NAMES = [
   "env",
   "images",
   "restore",
+  "verify-backup",
 ] as const;
 
 const HOOK_NAME = /^[a-z][a-z0-9-]{0,39}$/;

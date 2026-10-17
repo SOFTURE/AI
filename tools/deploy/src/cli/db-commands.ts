@@ -262,6 +262,6 @@ export async function runRowCounts(args: string[], io: CliIo): Promise<void> {
   const { changes, lost } = compareRowCounts(before, counts);
   io.stdout(changes.map((change) => `row-counts: ${formatRowCountChange(change)}\n`).join(""));
   if (lost.length > 0) {
-    fail(`row-counts: the deploy lost rows or tables: ${lost.map(formatRowCountLoss).join(", ")}.`);
+    fail(`row-counts: lost rows or tables: ${lost.map(formatRowCountLoss).join(", ")}.`);
   }
 }
