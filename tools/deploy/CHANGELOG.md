@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **`cloudflare-ranges` reads a Traefik static config file (#560):** the hook `init --cdn=cloudflare` writes looked
+  for `forwardedHeaders.trustedIPs` only in the compose file's flags, so an app with Traefik's static configuration in
+  `traefik.yml` or `traefik.toml` got a false warning on every run. It now takes `--traefik-static-config <path>`
+  (relative to the compose file's folder) and checks every `trustedIPs` list of that file instead (YAML block or flow
+  lists, TOML arrays); a missing range is still a warning, and so is a file it cannot read or one without
+  `trustedIPs`. An unknown argument fails the hook. Without the option nothing changes. An app that runs a forked
+  hook for this reason:
+  1. copies the hook again from `init --cdn=cloudflare` of this version (or applies the template's diff) to
+     `docker/prod/hooks/cloudflare-ranges.sh`;
+  2. adds the option to both hooks of `deploy.json`:
+     `{ "name": "cloudflare-ranges", "run": ["bash", "hooks/cloudflare-ranges.sh", "--traefik-static-config", "traefik/traefik.yml"] }`
+     and the same `run` for `cloudflare-ranges-daily` (the path is the app's own static config, relative to the
+     compose file's folder, which the release ships to the server).
+
 ## 0.4.1
 
 - **`init --edge=<network>` (#516):** for an app that runs as a second compose project next to another stack's
