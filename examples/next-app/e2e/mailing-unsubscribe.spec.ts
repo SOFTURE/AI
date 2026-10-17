@@ -155,8 +155,10 @@ test("a forged link is refused by the route and by the page, and a GET on the ro
   const forged = `r=${"A".repeat(43)}&t=${"B".repeat(43)}`;
   expect((await request.post(`/api/mailing/unsubscribe?${forged}`, { data: "List-Unsubscribe=One-Click" })).status()).toBe(400);
 
-  await page.goto(`/api/mailing/unsubscribe?${forged}`);
-  await expect(page).toHaveURL(`/unsubscribe?${forged}`);
+  // The route's GET sends the browser to the page with the link; the page then strips it from the address bar.
+  const landing = await page.goto(`/api/mailing/unsubscribe?${forged}`);
+  expect(landing?.url()).toContain(`/unsubscribe?${forged}`);
+  await expect(page).toHaveURL("/unsubscribe");
   await page.getByRole("button", { name: unsubscribeCopy.submit }).click();
   await expect(page.getByRole("heading", { name: unsubscribeCopy.invalidTitle })).toBeVisible();
 
