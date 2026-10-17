@@ -47,6 +47,8 @@ export {
   type JobSchedulesInput,
   type JobsOptions,
   type JobsOptionsInput,
+  type LocalTimeScheduleOptions,
+  type PeriodScheduleOptions,
 } from "./options.js";
 export { defineJobHandler, failJob, retryJobLater, type JobHandler, type JobHandlerContext, type JobHandlers } from "./handlers.js";
 export { jobs as jobsTable, schedules as jobSchedulesTable } from "./schema.js";
