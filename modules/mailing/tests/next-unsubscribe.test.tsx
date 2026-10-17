@@ -104,6 +104,52 @@ describe("the unsubscribe adapter", () => {
       expect(logged()).not.toContain(KEY);
     });
 
+    it("records the URL's link on a one-click POST, whatever link the body carries", async () => {
+      const other = getRecipientKey("bob@example.org");
+      expect((await post(QUERY, `r=${other}&t=${signRecipientKey(other, SECRET)}`)).status).toBe(200);
+      expect(await listSuppressions(test.database)).toEqual([`${KEY} one-click ${NOW.toISOString()}`]);
+    });
+  });
+
+  describe("the route taking the page's form", () => {
+    const submitForm = (body: string, contentType = "application/x-www-form-urlencoded") =>
+      postUnsubscribeRoute(new Request("https://app.example.com/api/mailing/unsubscribe", { method: "POST", body, headers: { "content-type": contentType } }));
+
+    it("records the opt-out of the link in the body and sends the browser to the page's outcome", async () => {
+      const response = await submitForm(QUERY);
+      expect(response.status).toBe(303);
+      expect(response.headers.get("location")).toBe("/unsubscribe?status=done");
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await listSuppressions(test.database)).toEqual([`${KEY} page ${NOW.toISOString()}`]);
+    });
+
+    it("sends a forged link to the invalid outcome and stores nothing", async () => {
+      const response = await submitForm(`r=${KEY}&t=${"A".repeat(43)}`);
+      expect(response.status).toBe(303);
+      expect(response.headers.get("location")).toBe("/unsubscribe?status=invalid");
+      expect(await listSuppressions(test.database)).toEqual([]);
+    });
+
+    it("brings the form back with the same link when the database fails, and logs no link", async () => {
+      await test.database.client.query("DROP TABLE mailing.suppressions CASCADE");
+      const response = await submitForm(QUERY);
+      expect(response.status).toBe(303);
+      expect(response.headers.get("location")).toBe(`/unsubscribe?status=failed&${QUERY}`);
+      expect(logged()).toMatch(/^@softure-ai\/mailing: unsubscribe failed: /);
+      expect(logged()).not.toContain(KEY);
+    });
+
+    it.each([
+      ["a form without a link", "List-Unsubscribe=One-Click", "application/x-www-form-urlencoded"],
+      ["a body that is not a form", JSON.stringify({ r: KEY, t: SIGNATURE }), "application/json"],
+      ["a form larger than any link", `${QUERY}&pad=${"x".repeat(9000)}`, "application/x-www-form-urlencoded"],
+    ])("answers 400 to %s, as to any POST without a link", async (_case, body, contentType) => {
+      expect((await submitForm(body, contentType)).status).toBe(400);
+      expect(await listSuppressions(test.database)).toEqual([]);
+    });
+  });
+
+  describe("the one-click route's GET", () => {
     it("sends a browser that opens the header link to the page, with the same link", () => {
       const response = getUnsubscribeRoute(new Request(`https://app.example.com/api/mailing/unsubscribe?${QUERY}`));
       expect(response.status).toBe(303);
@@ -158,6 +204,29 @@ describe("the unsubscribe adapter", () => {
       expect(html).toContain(`name="t" value="${SIGNATURE}"`);
       expect(html).toContain(`<meta name="referrer" content="same-origin"/>`);
       expect(await listSuppressions(test.database)).toEqual([]);
+    });
+
+    it("posts the form to the one-click route's bare path, so the token is never in a request line", async () => {
+      const html = await renderPage(QUERY);
+      expect(html).toMatch(/<form [^>]*action="\/api\/mailing\/unsubscribe" method="post">/);
+      expect(html).not.toMatch(/action="[^"]*\?/);
+    });
+
+    it("strips the link's parameters from the address bar after load", async () => {
+      const strip = vi.fn();
+      vi.stubGlobal("location", new URL(`https://app.example.com/unsubscribe?${QUERY}&utm=x#top`));
+      vi.stubGlobal("history", { state: { __NA: true }, replaceState: strip });
+      try {
+        const { stripQueryParams } = await import("../src/next/strip-link-query.js");
+        stripQueryParams(["r", "t"]);
+        expect(strip).toHaveBeenCalledWith({ __NA: true }, "", "/unsubscribe?utm=x#top");
+        strip.mockClear();
+        vi.stubGlobal("location", new URL("https://app.example.com/unsubscribe?status=done"));
+        stripQueryParams(["r", "t"]);
+        expect(strip).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
 
     it("shows the outcome after a submit", async () => {

@@ -59,6 +59,8 @@ export const en = {
   colorField: {
     /** Name of the colour picker next to the hex field. */
     picker: "Pick a colour: {label}",
+    /** Name of the row of preset swatches above the hex field. */
+    presets: "Preset colours: {label}",
   },
   suggestedAmount: {
     /** The chip that fills the suggested amount. */

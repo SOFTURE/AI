@@ -20,7 +20,18 @@ function toHookRecord(hook: DeployHook | MaintainHook): string {
 }
 
 /**
- * The files `server-settings` writes: `access`, `app-journal`, `app-ledger`, `exclude-table-data` (comma list), one
+ * The tables a restored backup must hold as many rows of as the live database had right before the dump:
+ * `rowCountTables` less `excludeTableData`, whose rows the dump leaves out. Undefined when none are left.
+ */
+export function getVerifyTables(database: DeployConfig["database"]): string | undefined {
+  const excluded = new Set(database?.excludeTableData ?? []);
+  const tables = (database?.rowCountTables ?? []).filter((table) => !excluded.has(table));
+  return tables.length === 0 ? undefined : tables.join(",");
+}
+
+/**
+ * The files `server-settings` writes: `access`, `app-journal`, `app-ledger`, `exclude-table-data` (comma list),
+ * `verify-backup` (weekly, daily or never), `verify-tables` (comma list of `getVerifyTables`), one
  * `hooks-<point>` per point (records of `toHookRecord`; a scheduled maintain hook is left out), `cron` (name and
  * schedule of each scheduled maintain hook, NUL-separated) and `scheduled-<name>` (that hook's record). Each value ends
  * in a newline or a NUL, or the file is empty.
@@ -36,6 +47,8 @@ export function planServerSettings(config: DeployConfig): ServerSettingsFiles {
     "app-journal": line(database?.appMigrations?.journal),
     "app-ledger": line(database?.appMigrations === undefined ? undefined : (database.appMigrations.ledger ?? DEFAULT_APP_LEDGER)),
     "exclude-table-data": line(database?.excludeTableData?.join(",")),
+    "verify-backup": line(database?.verifyBackup ?? "weekly"),
+    "verify-tables": line(getVerifyTables(database)),
     "hooks-pre-migrate": (hooks["pre-migrate"] ?? []).map(toHookRecord).join(""),
     "hooks-post-up": (hooks["post-up"] ?? []).map(toHookRecord).join(""),
     "hooks-maintain": maintain.filter((hook) => hook.schedule === undefined).map(toHookRecord).join(""),
@@ -46,7 +59,8 @@ export function planServerSettings(config: DeployConfig): ServerSettingsFiles {
 
 /**
  * `softure-deploy server-settings --config=<deploy.json> --out-dir=<dir>`: validates the release's deploy.json and
- * writes what init's deploy.sh reads from it (database access, the app ledger, backup exclusions, hooks, cron lines).
+ * writes what init's deploy.sh reads from it (database access, the app ledger, backup exclusions and verification, hooks,
+ * cron lines).
  */
 export function runServerSettings(args: string[], io: CliIo): void {
   const flags = readFlags("server-settings", args, {

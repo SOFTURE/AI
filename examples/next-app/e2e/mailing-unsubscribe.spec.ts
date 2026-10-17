@@ -122,8 +122,12 @@ test("the footer link opens a page that unsubscribes only when its button is pre
   const visitor = await browser.newContext({ extraHTTPHeaders: clientAddressHeaders() });
   try {
     const visit = await visitor.newPage();
+    const requests: string[] = [];
+    visit.on("request", (request) => requests.push(`${request.method()} ${request.url()}`));
     await visit.goto(pageLink);
     await expect(visit.getByRole("heading", { name: unsubscribeCopy.title })).toBeVisible();
+    // Once loaded, the signed token leaves the address bar (and with it the history entry).
+    await expect(visit).toHaveURL((url) => url.pathname === "/unsubscribe" && url.search === "");
 
     // Opening the page changed nothing: a newsletter still goes out.
     await sendTestMail(page, { isNewsletter: true });
@@ -133,6 +137,11 @@ test("the footer link opens a page that unsubscribes only when its button is pre
     await visit.getByRole("button", { name: unsubscribeCopy.submit }).click();
     await expect(visit.getByRole("heading", { name: unsubscribeCopy.doneTitle })).toBeVisible();
     expect(new URL(visit.url()).search).toBe("?status=done");
+    // The confirm POST went to the bare route, and no request after the opening GET carried the token.
+    expect(requests).toContain(`POST ${new URL("/api/mailing/unsubscribe", pageLink).href}`);
+    const signature = new URL(pageLink).searchParams.get("t") ?? "";
+    expect(signature).not.toBe("");
+    expect(requests.slice(1).filter((request) => request.includes(signature))).toEqual([]);
   } finally {
     await visitor.close();
   }
@@ -146,8 +155,10 @@ test("a forged link is refused by the route and by the page, and a GET on the ro
   const forged = `r=${"A".repeat(43)}&t=${"B".repeat(43)}`;
   expect((await request.post(`/api/mailing/unsubscribe?${forged}`, { data: "List-Unsubscribe=One-Click" })).status()).toBe(400);
 
-  await page.goto(`/api/mailing/unsubscribe?${forged}`);
-  await expect(page).toHaveURL(`/unsubscribe?${forged}`);
+  // The route's GET sends the browser to the page with the link; the page then strips it from the address bar.
+  const landing = await page.goto(`/api/mailing/unsubscribe?${forged}`);
+  expect(landing?.url()).toContain(`/unsubscribe?${forged}`);
+  await expect(page).toHaveURL("/unsubscribe");
   await page.getByRole("button", { name: unsubscribeCopy.submit }).click();
   await expect(page.getByRole("heading", { name: unsubscribeCopy.invalidTitle })).toBeVisible();
 

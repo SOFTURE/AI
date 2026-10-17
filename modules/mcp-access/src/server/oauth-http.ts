@@ -173,6 +173,15 @@ export function isWriteScopeRequested(scope: string | null): boolean {
   return (scope ?? "").split(/\s+/).includes(MCP_WRITE_SCOPE);
 }
 
+/**
+ * Whether the request asks to write, where a missing or blank `scope` is the server's default
+ * (RFC 6749 §3.3): both scopes while the app allows writes, `mcp:read` otherwise.
+ */
+function isWriteRequestedOrDefault(config: SoftureConfig, scope: string | null): boolean {
+  if (scope === null || scope.trim() === "") return getMcpAccessOptions(config).allowWrites;
+  return isWriteScopeRequested(scope);
+}
+
 // ---------------------------------------------------------------------------------------------
 // Rate limit
 
@@ -458,7 +467,7 @@ export async function validateAuthorizationRequest(
     return back("invalid_request", "PKCE is required: code_challenge with code_challenge_method S256.");
   }
   if (!isAcceptableResource(ctx.config, params.get("resource"), origins)) return back("invalid_target", "The resource parameter does not name this MCP server.");
-  return { kind: "valid", request: { client, redirectUri, state, codeChallenge, isWriteRequested: isWriteScopeRequested(params.get("scope")) } };
+  return { kind: "valid", request: { client, redirectUri, state, codeChallenge, isWriteRequested: isWriteRequestedOrDefault(ctx.config, params.get("scope")) } };
 }
 
 /** The consent page with the request's parameters: where the decision sends the person back. */

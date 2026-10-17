@@ -4,6 +4,38 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+All additive (#558); existing calls keep their markup, names and look.
+
+- `AccountMenu` takes `trigger` (`ReactNode`), shown in the button instead of the `UserIcon`, e.g. the account's
+  initial in a circle. The button keeps its name from `messages.accountMenu` ("Account").
+- `DisclosureMenu` (and so `AccountMenu` and `MobileMenu`) animates its panel out as well as in. The panel carries
+  `data-state="open" | "closed"`, enters with `@starting-style` (a short fade and lift on `--sft-duration-fast`) and,
+  on close, stays shown and inert to the pointer until its transition ends, then gets `hidden`. Under
+  `prefers-reduced-motion` nothing runs and it hides at once. `useDisclosure` is unchanged: markup an app builds on
+  `panelProps` still hides straight away. An app with its own motion can key it on `data-state` through
+  `classNames.panel`.
+- `MobileMenu.items` takes groups, `{ heading, items }` (`MobileMenuGroup`), next to plain links; a group is an `<li>`
+  with its heading and a nested list named by it. New: `isMobileMenuGroup`, `MobileMenuEntry`, slots `group`,
+  `heading`, `groupList`.
+- `ColorField` takes `presets` (`{ value, label }[]`, `ColorPreset`): a row of swatches above the input, a radio group
+  named by the new `colorField.presets` message ("Preset colours: {label}", overridable through `pickerMessages` or
+  the provider), each swatch named by its `label`. A click or an arrow key fills the field with the preset's
+  `#rrggbb`; the swatch matching the value is checked. The swatches are buttons, so the form data still holds only
+  `name`. New slots `presets`, `preset`.
+
+Migration for an app that kept its own header menus and colour field:
+
+1. Replace the account menu with `<AccountMenu trigger={<YourInitialCircle />} …>`; keep its links as `children` and
+   the sign-out as `footer`. Drop the app's own exit-transition code; restyle the motion with `classNames.panel` and
+   `data-[state=closed]:` classes if the defaults do not fit.
+2. Replace the phone menu with `<MobileMenu items={[{ heading: "App", items: […] }, { heading: "Account", items: […] },
+   { heading: "Help", items: […] }]} />`; the headings are the app's own text.
+3. Replace the preset row next to the picker with `<ColorField presets={[{ value: "#…", label: "…" }, …]} />`, and
+   pass the app's wording for the group's name as `pickerMessages={{ presets: "…" }}` (or the provider's
+   `colorField` group).
+
 ## 0.3.2
 
 - `AppHeaderBar`'s `inner` row is `box-sizing: border-box`, so its padding stays inside the full width in an app

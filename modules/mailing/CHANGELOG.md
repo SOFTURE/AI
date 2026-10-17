@@ -4,6 +4,27 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## Unreleased
+
+- The unsubscribe page no longer posts to the URL that carries the signed token (#556). Its form sends the link in
+  hidden fields to the one-click route's bare path (`routes.oneClick`); `postUnsubscribeRoute` records a POST
+  whose URL has no link and whose URL-encoded body (at most 8 KiB) has one as a `page` opt-out and answers with a
+  303 to the page's outcome (`/unsubscribe?status=done`, `invalid` or `failed`), as the server action did. A mail
+  client's RFC 8058 one-click POST (link in the URL) is unchanged. With JavaScript the page also strips the link's
+  parameters from the address bar after load (`history.replaceState`); without it the page still works.
+- `unsubscribeAction` is unchanged and still exported, but the package page no longer uses it: a server action
+  posts to the page's URL, query included.
+- Migrate an app:
+  1. Using the package page and route (`UnsubscribePage` or `createUnsubscribePage`, `postUnsubscribeRoute` on
+     `routes.oneClick`): nothing to change. The route must stay mounted and public, as before.
+  2. An app that kept its own unsubscribe page only to move the token out of the URL (hidden fields plus
+     `history.replaceState`): delete that page and mount the package page instead
+     (`export { UnsubscribePage as default } from "@softure-ai/mailing/next"`, or `createUnsubscribePage({ Layout })`
+     for the app's frame).
+  3. An app with its own form posting to `unsubscribeAction`: point the form at the route instead
+     (`<form action="/api/mailing/unsubscribe" method="post">` with the link's `r` and `t`, or the legacy
+     parameters, as hidden fields) to keep the token out of the POST URL.
+
 ## 0.2.1
 
 - New entry `@softure-ai/mailing/jobs` (#492), with `@softure-ai/jobs` as an optional peer dependency:

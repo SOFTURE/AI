@@ -1,4 +1,4 @@
-import type { DeepPartial, Locale } from "@softure-ai/core";
+import { type DeepPartial, formatMessage, type Locale } from "@softure-ai/core";
 import { ChartCursor, type CursorPoint } from "../cursor/chart-cursor.js";
 import { getChartsCopy, type ChartsMessages } from "../messages/index.js";
 import { dateTicks, formatDateTick } from "../scale/date-ticks.js";
@@ -9,7 +9,8 @@ import { ChartPlot } from "./chart-plot.js";
 import { cx, seriesSlot } from "./class-names.js";
 import { ChartDataTable } from "./data-table.js";
 import { ChartFlag } from "./flag.js";
-import { PLOT_HEIGHT, PLOT_WIDTH, toPercent } from "./geometry.js";
+import { layoutFlags } from "./flag-layout.js";
+import { edgeAlign, PLOT_HEIGHT, PLOT_WIDTH, toPercent } from "./geometry.js";
 import { Legend, LegendItem, LegendSwatch } from "./legend.js";
 import { Baseline, GridLines, GuideLine, SeriesLine } from "./lines.js";
 import { type ChartSurfaceName, getChartSurfaceAttributes } from "./surface.js";
@@ -39,11 +40,23 @@ export interface LineChartFlag {
   readonly label: string;
 }
 
+/** Flags stacked into rows so their chips do not collide (`layoutFlags`), widths in percent of the plot's width. */
+export interface LineChartFlagStack {
+  /** A flag chip's width in percent of the plot's width: measured, or estimated from the label's length. */
+  readonly widthOf: (flag: LineChartFlag) => number;
+  /** The least space between two chips in one row, in percent of the plot's width. Default 0. */
+  readonly gap?: number;
+  /** The most rows of chips; the flags beyond keep their guide and are counted on one "+N" chip below. Default: no limit. */
+  readonly maxRows?: number;
+}
+
 export interface LineChartProps {
   /** The chart's title: its caption, the table's caption and part of the cursor's name. */
   readonly title: string;
   readonly series: readonly LineChartSeries[];
   readonly flags?: readonly LineChartFlag[];
+  /** Stacks colliding flag chips into rows; without it every chip sits on the top row. */
+  readonly flagStack?: LineChartFlagStack;
   /** Locale of the labels (`Intl`) and of the built-in copy. */
   readonly locale: Locale;
   /** The app's IANA time zone (core's `config.timezone`): date ticks and dates are calendar days there. */
@@ -77,6 +90,7 @@ export function LineChart({
   title,
   series,
   flags = [],
+  flagStack,
   locale,
   timeZone,
   formatValue,
@@ -134,13 +148,7 @@ export function LineChart({
       <figcaption className="sft-chart-title">{title}</figcaption>
       <ChartCursor title={title} points={cursorPoints} locale={locale} messages={messages}>
         <ValueAxis ticks={valueAxisTicks({ ticks: values, scale: yScale, format: formatValue })} />
-        <ChartPlot
-          overlay={visibleFlags.map((flag) => (
-            <ChartFlag key={flag.key} xPercent={toPercent(xScale(flag.x), PLOT_WIDTH)}>
-              {flag.label}
-            </ChartFlag>
-          ))}
-        >
+        <ChartPlot overlay={renderFlagChips({ flags: visibleFlags, flagStack, toXPercent: (date) => toPercent(xScale(date), PLOT_WIDTH), copy })}>
           <GridLines ys={values.map((value) => yScale(value))} />
           <Baseline y={yScale(0)} />
           {visibleFlags.map((flag) => (
@@ -171,6 +179,54 @@ export function LineChart({
       />
     </figure>
   );
+}
+
+interface FlagChipsOptions {
+  readonly flags: readonly LineChartFlag[];
+  readonly flagStack: LineChartFlagStack | undefined;
+  readonly toXPercent: (date: Date) => number;
+  readonly copy: ChartsMessages;
+}
+
+/** The flag chips, each on its row when stacked; the flags that fit in no row share one "+N" chip below the rows. */
+function renderFlagChips({ flags, flagStack, toXPercent, copy }: FlagChipsOptions) {
+  const placed = flags.map((flag) => ({ flag, xPercent: toXPercent(flag.x) }));
+  if (!flagStack) {
+    return placed.map(({ flag, xPercent }) => (
+      <ChartFlag key={flag.key} xPercent={xPercent}>
+        {flag.label}
+      </ChartFlag>
+    ));
+  }
+  const { placements, rows, hiddenCount } = layoutFlags(
+    placed.map(({ flag, xPercent }) => ({ x: xPercent, width: flagStack.widthOf(flag), align: edgeAlign(xPercent) })),
+    { gap: flagStack.gap, maxRows: flagStack.maxRows },
+  );
+  const hidden = placed.filter((_, index) => placements[index]?.hidden === true);
+  const firstHidden = hidden.reduce<(typeof placed)[number] | undefined>((first, entry) => (first && first.xPercent <= entry.xPercent ? first : entry), undefined);
+  return [
+    ...placed.map(({ flag, xPercent }, index) => {
+      const placement = placements[index];
+      if (!placement || placement.hidden) return null;
+      return (
+        <ChartFlag key={flag.key} xPercent={xPercent} row={placement.row}>
+          {flag.label}
+        </ChartFlag>
+      );
+    }),
+    firstHidden && (
+      <ChartFlag
+        key="sft-more-flags"
+        xPercent={firstHidden.xPercent}
+        row={rows}
+        variant="outline"
+        className="sft-chart-flag-more"
+        title={hidden.map(({ flag }) => flag.label).join(", ")}
+      >
+        {formatMessage(copy.lineChart.moreFlags, { count: String(hiddenCount) })}
+      </ChartFlag>
+    ),
+  ];
 }
 
 function assertSharedDates(series: readonly LineChartSeries[], dates: readonly Date[]): void {
