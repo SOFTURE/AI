@@ -6,6 +6,19 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **`cloudflare-ranges` reads a Traefik static config file (#560):** the hook `init --cdn=cloudflare` writes looked
+  for `forwardedHeaders.trustedIPs` only in the compose file's flags, so an app with Traefik's static configuration in
+  `traefik.yml` or `traefik.toml` got a false warning on every run. It now takes `--traefik-static-config <path>`
+  (relative to the compose file's folder) and checks every `trustedIPs` list of that file instead (YAML block or flow
+  lists, TOML arrays); a missing range is still a warning, and so is a file it cannot read or one without
+  `trustedIPs`. An unknown argument fails the hook. Without the option nothing changes. An app that runs a forked
+  hook for this reason:
+  1. copies the hook again from `init --cdn=cloudflare` of this version (or applies the template's diff) to
+     `docker/prod/hooks/cloudflare-ranges.sh`;
+  2. adds the option to both hooks of `deploy.json`:
+     `{ "name": "cloudflare-ranges", "run": ["bash", "hooks/cloudflare-ranges.sh", "--traefik-static-config", "traefik/traefik.yml"] }`
+     and the same `run` for `cloudflare-ranges-daily` (the path is the app's own static config, relative to the
+     compose file's folder, which the release ships to the server).
 - **`maintain` test-restores its backup (#561):** a new `verify-backup` step of the generated `deploy.sh`. On the
   Sunday run by default it counts `database.rowCountTables` (less `excludeTableData`, whose rows the dump leaves out)
   right before the backup, restores the new dump with `pg_restore --exit-on-error` into the throwaway database
@@ -15,7 +28,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `database.verifyBackup`: `"weekly"` (default), `"daily"` or `"never"`. `server-settings` writes `verify-backup` and
   `verify-tables` for the script; `verify-backup` is a built-in step name, so a hook can no longer take it.
 - `row-counts --compare` fails with `row-counts: lost rows or tables: …` (it said "the deploy lost rows or tables").
-- **Migration for an app with a database:** `deploy.sh` belongs to the app, so nothing changes until the app takes
+- **Migration for #561 (an app with a database):** `deploy.sh` belongs to the app, so nothing changes until the app takes
   the new script:
   1. Bump `@softure-ai/deploy` to this version (the generated script pins the CLI it calls, and only this version's
      `server-settings` writes the verify files).

@@ -764,7 +764,11 @@ to Traefik directly and send any `cf-connecting-ip`, so rate limits keyed on it 
   Cloudflare reachable).
 - `forwardedHeaders.trustedIPs` on both Traefik entry points, from the ranges this version ships, so
   `X-Forwarded-For` is kept from Cloudflare only. The hook warns when Cloudflare publishes a range missing there;
-  copy the new list into the compose file. `proxyProtocol` stays off: Cloudflare's HTTP proxy does not send it (only
+  copy the new list into the compose file. An app that keeps Traefik's static configuration in a file instead of
+  flags (Traefik takes one source) names it in both hooks' `run`, relative to the compose file's folder:
+  `["bash", "hooks/cloudflare-ranges.sh", "--traefik-static-config", "traefik/traefik.yml"]`. The hook then reads
+  every `trustedIPs` list of that file (YAML block or flow lists, TOML arrays) and warns about each range one of
+  them lacks; a file it cannot read, or one without `trustedIPs`, is a warning too (issue #560). `proxyProtocol` stays off: Cloudflare's HTTP proxy does not send it (only
   Spectrum does).
 - A `next` line in init's output for the two steps init cannot do: root's install, and the `DEPLOY_ORIGIN_IP` secret
   that makes the deploy workflow's `verify --origin` check that a direct connection gets no answer.

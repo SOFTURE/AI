@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- OAuth clients now ask for writes (#553): while `allowWrites` is on, the endpoint's `401` challenge names
+  `scope="mcp:read mcp:write"` (it named only `mcp:read`, and clients such as claude.ai request the challenge's scope,
+  so the consent page never offered writes). An authorization request without `scope` now gets both scopes while
+  `allowWrites` is on (RFC 6749 §3.3 default). The person's tick on the consent page still decides; with
+  `allowWrites` off nothing changes. Migrate: an app that wrapped the MCP route to rewrite the challenge's `scope`, or
+  defaulted a missing `scope` on its consent page, drops that workaround. Grants made before stay read-only: the
+  person disconnects and reconnects the app once to be offered writes.
+
 ## 0.2.2
 
 - `oauth.registration` (#520): `"closed"` keeps `POST /api/oauth/register` shut (`403 access_denied`) except while a
