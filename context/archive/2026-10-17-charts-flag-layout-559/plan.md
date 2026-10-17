@@ -1,6 +1,6 @@
 ---
 change_id: charts-flag-layout-559
-status: in_progress
+status: archived
 ---
 
 # Plan: layoutFlags and stacked LineChart flags (issue #559)

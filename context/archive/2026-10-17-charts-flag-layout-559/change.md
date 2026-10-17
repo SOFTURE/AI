@@ -1,12 +1,13 @@
 ---
 change_id: charts-flag-layout-559
 title: "charts: layoutFlags stacks timeline flags into rows so their labels do not collide (issue #559)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 559
 branch: claude/project-thread-hx6b0t
 created: 2026-10-17
 updated: 2026-10-17
+archived_at: 2026-10-17
 ---
 
 ## Intent
