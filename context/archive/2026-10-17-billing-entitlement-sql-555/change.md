@@ -1,12 +1,13 @@
 ---
 change_id: billing-entitlement-sql-555
 title: "billing: entitlement state in SQL and a test factory in billing/testing (issue #555)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 555
 branch: claude/project-thread-8t6fqx
 created: 2026-10-17
 updated: 2026-10-17
+archived_at: 2026-10-17
 ---
 
 ## Intent

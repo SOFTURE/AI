@@ -1,6 +1,6 @@
 ---
 change_id: billing-entitlement-sql-555
-status: in_progress
+status: archived
 ---
 
 # Plan: entitlement state in SQL and a test factory (issue #555)
