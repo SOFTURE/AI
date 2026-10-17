@@ -41,6 +41,6 @@ Files: `foundation/charts/src/svg/flag.tsx`, `foundation/charts/src/svg/line-cha
 
 ## Progress
 
-- [ ] Phase 1: layoutFlags
+- [x] Phase 1: layoutFlags (8 tests written first; the import failed before the helper existed)
 - [ ] Phase 2: ChartFlag row and LineChart flagStack
 - [ ] Phase 3: docs

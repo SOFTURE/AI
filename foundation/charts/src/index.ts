@@ -44,6 +44,8 @@ export type { LegendItemElement, LegendItemProps, LegendSwatchProps, SwatchShape
 export { Legend, LegendItem, LegendSwatch } from "./svg/legend.js";
 export type { ChartFlagProps, ChartFlagSize, ChartFlagVariant } from "./svg/flag.js";
 export { ChartFlag } from "./svg/flag.js";
+export type { FlagLayout, FlagLayoutInput, FlagLayoutOptions, FlagPlacement, HiddenFlagPlacement, ShownFlagPlacement } from "./svg/flag-layout.js";
+export { layoutFlags } from "./svg/flag-layout.js";
 export type { ChartPinClassNames, ChartPinProps, ChartPinRing, ChartPinSize, ChartPinVariant } from "./svg/pin.js";
 export { ChartPin } from "./svg/pin.js";
 export type { ChartDataTableProps } from "./svg/data-table.js";
