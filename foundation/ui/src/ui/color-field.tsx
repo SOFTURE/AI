@@ -1,7 +1,7 @@
 "use client";
 
 import { formatMessage } from "@softure-ai/core";
-import { useId, useState } from "react";
+import { type KeyboardEvent, useId, useRef, useState } from "react";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
 import { Field, type FieldSlot, getDescribedBy, INPUT_CLASS } from "./field.js";
@@ -12,14 +12,25 @@ import { useUiCopyProps, useUiLocale } from "./locale.js";
 // A colour as hex text with a native colour picker as its swatch. Only the text input is submitted (`name`),
 // so the value is the text the user sees; the picker and the text follow each other. Text that is not a hex
 // colour stays as typed for the `pattern` (and the server) to reject, and the swatch keeps the last valid colour.
+// `presets` adds a row of swatches above: a radio group of buttons (roving tab stop, arrow keys pick), not native
+// radios, so the form data still holds only the text input.
 
-export type ColorFieldSlot = FieldSlot | "row" | "swatch" | "input";
+export type ColorFieldSlot = FieldSlot | "presets" | "preset" | "row" | "swatch" | "input";
+
+export interface ColorPreset {
+  /** A hex colour (`#rrggbb` or `#rgb`); picking the swatch fills the field with its `#rrggbb` form. */
+  readonly value: string;
+  /** The swatch's name for assistive technology ("Ocean"). */
+  readonly label: string;
+}
 
 export type ColorFieldProps = Omit<BaseFieldProps, "classNames"> &
   FieldValueProps & {
     readonly placeholder?: string;
+    /** Preset colours shown as a row of swatches above the input; none by default. */
+    readonly presets?: readonly ColorPreset[];
     readonly classNames?: ClassNames<ColorFieldSlot>;
-    /** Copy overrides for the picker's name. */
+    /** Copy overrides for the picker's and the presets' names. */
     readonly pickerMessages?: CopyProps<"colorField">["messages"];
   };
 
@@ -35,6 +46,9 @@ export function normalizeHexColor(text: string): string | null {
 }
 
 const COLOR_FIELD_CLASSES = {
+  presets: "sft:mb-2 sft:flex sft:flex-wrap sft:gap-2",
+  preset:
+    "sft:m-0 sft:box-border sft:size-7 sft:shrink-0 sft:cursor-pointer sft:appearance-none sft:rounded-full sft:border sft:border-border-strong sft:p-0 sft:transition-shadow sft:duration-(--sft-duration-fast) sft:aria-checked:ring-2 sft:aria-checked:ring-foreground sft:aria-checked:ring-offset-2 sft:aria-checked:ring-offset-surface sft:focus-visible:outline-2 sft:focus-visible:outline-offset-4 sft:focus-visible:outline-focus sft:motion-reduce:transition-none",
   row: "sft:flex sft:items-center sft:gap-2",
   swatch:
     "sft:m-0 sft:box-border sft:size-10 sft:shrink-0 sft:cursor-pointer sft:appearance-none sft:rounded-control sft:border sft:border-border-strong sft:bg-surface sft:p-1 sft:focus-visible:outline-2 sft:focus-visible:outline-offset-2 sft:focus-visible:outline-focus sft:[&::-webkit-color-swatch-wrapper]:p-0 sft:[&::-webkit-color-swatch]:rounded-control sft:[&::-webkit-color-swatch]:border-0 sft:[&::-moz-color-swatch]:rounded-control sft:[&::-moz-color-swatch]:border-0",
@@ -55,6 +69,7 @@ export function ColorField({
   defaultValue = "",
   onValueChange,
   placeholder,
+  presets,
   classNames,
   unstyled,
   locale: explicitLocale,
@@ -91,7 +106,34 @@ export function ColorField({
     onValueChange?.(next);
   }
 
-  const slot = createSlotClassGetter<"row" | "swatch" | "input">({
+  const presetRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const presetValues = (presets ?? []).map((preset) => normalizeHexColor(preset.value));
+  const checkedIndex = presetValues.indexOf(normalizeHexColor(text) ?? "");
+  const tabStopIndex = Math.max(checkedIndex, 0);
+
+  function pickPreset(index: number) {
+    const value = presetValues[index];
+    if (value === undefined || value === null) return;
+    update(value);
+    presetRefs.current[index]?.focus();
+  }
+
+  function handlePresetKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const count = presetValues.length;
+    const next: number | undefined = {
+      ArrowRight: index + 1,
+      ArrowDown: index + 1,
+      ArrowLeft: index - 1,
+      ArrowUp: index - 1,
+      Home: 0,
+      End: count - 1,
+    }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    pickPreset((next + count) % count);
+  }
+
+  const slot = createSlotClassGetter<"presets" | "preset" | "row" | "swatch" | "input">({
     defaults: COLOR_FIELD_CLASSES,
     classNames,
     unstyled,
@@ -112,6 +154,28 @@ export function ColorField({
       locale={locale}
       messages={messages}
     >
+      {presets === undefined || presets.length === 0 ? null : (
+        <span role="radiogroup" aria-label={formatMessage(copy.presets, { label })} className={slot("presets")}>
+          {presets.map((preset, index) => (
+            <button
+              key={preset.value}
+              ref={(node) => {
+                presetRefs.current[index] = node;
+              }}
+              type="button"
+              role="radio"
+              aria-checked={index === checkedIndex}
+              aria-label={preset.label}
+              tabIndex={index === tabStopIndex ? 0 : -1}
+              // The swatch is the user's data, not a design token.
+              style={{ backgroundColor: presetValues[index] ?? undefined }}
+              onClick={() => pickPreset(index)}
+              onKeyDown={(event) => handlePresetKeyDown(event, index)}
+              className={slot("preset")}
+            />
+          ))}
+        </span>
+      )}
       <span className={slot("row")}>
         <input
           type="color"

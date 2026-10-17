@@ -234,7 +234,11 @@ validates as usual; a `setting` passes `required` to its switch.
 `ColorField` is a hex colour as text (`#rrggbb`, sent under `name`) with the browser's colour picker as its swatch;
 the two follow each other. On blur `#abc` and `ABCDEF` become `#aabbcc` and `#abcdef`; other text stays as typed for
 the `pattern` and the server to reject, and the swatch keeps the last valid colour. `normalizeHexColor(text)` is the
-same rule for the server (`null` when the text is not a colour). Slots: the field's, plus `row`, `swatch`, `input`.
+same rule for the server (`null` when the text is not a colour). `presets` (`{ value, label }[]`) adds a row of
+swatches above the input: a radio group named "Preset colours: {label}" (`colorField.presets`), each swatch named by
+its `label`; a click or an arrow key fills the field with the preset's `#rrggbb`, and the swatch matching the value
+is checked. The swatches are buttons, so the form data still holds only `name`. Slots: the field's, plus `presets`,
+`preset`, `row`, `swatch`, `input`.
 
 `SuggestedAmountField` is a `MoneyField` with a chip under it ("Use 1 234,50 PLN", or `suggestionLabel`) that fills
 `suggestedValue` in the locale's notation and focuses the field. It stays a form field: a rejected submit replays
@@ -248,7 +252,8 @@ hint classes, gap and width). Every text is a `suggestedAmount` message (`use`, 
 `suggestionRow`, `suggestion` (the chip or the text button) and `suggestionText`.
 
 ```tsx
-<ColorField name="accent" label="Accent colour" defaultValue={brand.accent} />
+<ColorField name="accent" label="Accent colour" defaultValue={brand.accent}
+  presets={[{ value: "#0ea5e9", label: "Ocean" }, { value: "#f59e0b", label: "Amber" }]} />
 <SuggestedAmountField name="budget" label="Monthly budget" suffix="PLN" suggestedValue={lastMonth} />
 <SuggestedAmountField
   name="target"
@@ -448,10 +453,27 @@ if (old !== null && !/^\d{4}-\d{2}-\d{2}$/.test(old) && !Number.isNaN(Date.parse
 `AppHeaderBar` (server-safe) is a sticky `<header>` (`isSticky={false}` lets it scroll away): `brand` on the left,
 `nav` from the `md` breakpoint (48rem) up, `actions` on the right and `mobileMenu` below `md`. Slots: `root`, `inner`,
 `brand`, `nav`, `actions`, `mobileMenu`. `AccountMenu` and `MobileMenu` are `DisclosureMenu`s (the same closing
-rules; pass the route as `closeKey`) named by the `appShell` messages ("Account", "Menu"). `AccountMenu` shows the
-`UserIcon` (`isLabelShown` adds the name), then `name` and `email`, the links (`children`) and `footer` after a
-divider. `MobileMenu` shows the `MenuIcon` and a `<nav>` of `items` (`isCurrent` gives `aria-current="page"`),
-then `children`. Extra slots: `identity`, `name`, `email`, `footer`; `nav`, `list`, `item`, `link`.
+rules; pass the route as `closeKey`) named by the `appShell` messages ("Account", "Menu"). Their panel carries
+`data-state="open" | "closed"`: it fades in, and on close it stays shown (inert to the pointer) until its transition
+ends, then gets `hidden`; under `prefers-reduced-motion` it hides at once. `AccountMenu` shows the `UserIcon`, or
+`trigger` in its place (the account's initial in a circle; the button keeps the name "Account"), `isLabelShown`
+adds the name; then `name` and `email`, the links (`children`) and `footer` after a divider. `MobileMenu` shows the
+`MenuIcon` and a `<nav>` of `items` (`isCurrent` gives `aria-current="page"`), then `children`. An entry of `items`
+can be a group, `{ heading, items }`: its links go in a nested list named by the heading (`isMobileMenuGroup` tells
+the two apart). Extra slots: `identity`, `name`, `email`, `footer`; `nav`, `list`, `item`, `link`, `group`,
+`heading`, `groupList`.
+
+```tsx
+<AccountMenu trigger={<span className="initial">{user.name[0]}</span>} name={user.name} closeKey={pathname} />
+<MobileMenu
+  items={[
+    { heading: "App", items: [{ href: "/", label: "Dashboard", isCurrent: true }] },
+    { heading: "Account", items: [{ href: "/settings", label: "Settings" }] },
+  ]}
+  LinkComponent={Link}
+  closeKey={pathname}
+/>
+```
 
 `Stepper` is a `<nav>` (`label`) holding an ordered list of steps: an `icon` or the number in a marker, a check once
 done. The current step has `aria-current="step"`; a completed one reads "(completed)" and is the only kind that
