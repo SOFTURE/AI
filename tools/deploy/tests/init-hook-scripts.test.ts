@@ -194,6 +194,77 @@ describe("hooks/cloudflare-ranges.sh", () => {
     );
   });
 
+  describe("with --traefik-static-config (#560)", () => {
+    const ALL = `${IPV4}\n${IPV6}`;
+    const STATIC_ARGS = ["--traefik-static-config", "traefik/traefik.yml"];
+
+    it.each([
+      [
+        "a YAML block list on each entry point",
+        `entryPoints:\n  web:\n    address: ":80"\n    forwardedHeaders:\n      trustedIPs:\n        - "173.245.48.0/20"\n        - 103.21.244.0/22 # Cloudflare\n        - '2400:cb00::/32'\n        - 2606:4700::/32\n  websecure:\n    forwardedHeaders:\n      trustedIPs:\n        - 173.245.48.0/20\n        - 103.21.244.0/22\n        - 2400:cb00::/32\n        - 2606:4700::/32\n    address: ":443"\n`,
+      ],
+      [
+        "a YAML flow list",
+        `entryPoints:\n  websecure:\n    forwardedHeaders:\n      trustedIPs: ["173.245.48.0/20", "103.21.244.0/22", "2400:cb00::/32", "2606:4700::/32"]\n`,
+      ],
+      [
+        "a TOML array over several lines",
+        `[entryPoints.websecure.forwardedHeaders]\n  trustedIPs = [\n    "173.245.48.0/20", "103.21.244.0/22",\n    "2400:cb00::/32",\n    "2606:4700::/32",\n  ]\n`,
+      ],
+    ])("reports no missing range when %s holds them all", (_case, config) => {
+      const { script, env } = setUp({ v4: IPV4, v6: IPV6 });
+      write("app/traefik/traefik.yml", config);
+      const result = run({ script, args: STATIC_ARGS, cwd: join(dir, "app"), env });
+      expect(result.stderr).toBe("hook: wrote 4 Cloudflare ranges to cloudflare-ips.txt.\n");
+      expect(result.status).toBe(0);
+      expect(ranges()).toBe(`${ALL}\n`);
+    });
+
+    it("warns once per range that one entry point's list lacks, naming the file", () => {
+      const { script, env } = setUp({ v4: `${IPV4}\n198.51.100.0/24`, v6: IPV6 });
+      write(
+        "app/traefik/traefik.yml",
+        `entryPoints:\n  web:\n    forwardedHeaders:\n      trustedIPs: [173.245.48.0/20, 103.21.244.0/22, 198.51.100.0/24, 2400:cb00::/32, 2606:4700::/32]\n  websecure:\n    forwardedHeaders:\n      # trustedIPs: [198.51.100.0/24]\n      trustedIPs:\n        - 173.245.48.0/20\n        - 103.21.244.0/22\n        - 2400:cb00::/32\n`,
+      );
+      const result = run({ script, args: STATIC_ARGS, cwd: join(dir, "app"), env });
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe(
+        "hook: wrote 5 Cloudflare ranges to cloudflare-ips.txt.\n" +
+          "hook: warning: forwardedHeaders.trustedIPs in traefik/traefik.yml lacks Cloudflare's 198.51.100.0/24 2606:4700::/32; add them there.\n",
+      );
+    });
+
+    it("reads no trustedIPs from the compose file once a static config is named", () => {
+      const { script, env } = setUp({ v4: `${IPV4}\n198.51.100.0/24`, v6: IPV6 });
+      write("app/traefik/traefik.yml", `entryPoints:\n  websecure:\n    forwardedHeaders:\n      trustedIPs: [173.245.48.0/20, 103.21.244.0/22, 198.51.100.0/24, 2400:cb00::/32, 2606:4700::/32]\n`);
+      const result = run({ script, args: STATIC_ARGS, cwd: join(dir, "app"), env });
+      expect(result.status).toBe(0);
+      expect(result.stderr).not.toContain("warning");
+    });
+
+    it.each([
+      ["is missing", undefined, "hook: warning: the Traefik static config traefik/traefik.yml is not a readable file; its trustedIPs are not checked.\n"],
+      ["has no trustedIPs", `entryPoints:\n  websecure:\n    address: ":443"\n`, "hook: warning: traefik/traefik.yml has no forwardedHeaders.trustedIPs; add Cloudflare's ranges there.\n"],
+    ])("warns and passes when the file %s", (_case, config, warning) => {
+      const { script, env } = setUp({ v4: IPV4, v6: IPV6 });
+      if (config !== undefined) write("app/traefik/traefik.yml", config);
+      const result = run({ script, args: STATIC_ARGS, cwd: join(dir, "app"), env });
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe(`hook: wrote 4 Cloudflare ranges to cloudflare-ips.txt.\n${warning}`);
+    });
+
+    it.each([
+      ["an unknown argument", ["--trusted"], "hook: unknown argument --trusted; the only one is --traefik-static-config <path>.\n"],
+      ["the option without a path", ["--traefik-static-config"], "hook: --traefik-static-config needs a path relative to the app folder.\n"],
+    ])("fails on %s before downloading anything", (_case, args, message) => {
+      const { script, env } = setUp({ v4: IPV4, v6: IPV6 });
+      const result = run({ script, args, cwd: join(dir, "app"), env });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toBe(message);
+      expect(existsSync(join(dir, "app/cloudflare-ips.txt"))).toBe(false);
+    });
+  });
+
   it("keeps the ranges already there when the download fails, and fails when there are none", () => {
     const { script, env } = setUp({ v4: IPV4 });
     const none = run({ script, cwd: join(dir, "app"), env });
