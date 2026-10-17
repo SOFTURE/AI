@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.2
 
 - Schedules at local times of day (#554): `schedules: { "<queue>": { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw" } }`
   enqueues one run per listed local time, with the zone's offset on each date, so the run keeps its local time across

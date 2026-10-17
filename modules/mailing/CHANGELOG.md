@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
-## Unreleased
+## 0.2.2
 
 - The unsubscribe page no longer posts to the URL that carries the signed token (#556). Its form sends the link in
   hidden fields to the one-click route's bare path (`routes.oneClick`); `postUnsubscribeRoute` records a POST
