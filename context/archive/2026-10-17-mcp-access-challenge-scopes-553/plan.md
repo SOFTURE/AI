@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-challenge-scopes-553
-status: open
+status: archived
 ---
 
 # Plan: challenge and default scopes follow allowWrites (issue #553)

@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-challenge-scopes-553
 title: "mcp-access: the 401 challenge names mcp:write while writes are allowed (issue #553)"
-status: open
+status: archived
 roadmap_item: null
 issue: 553
 branch: claude/project-thread-m228dg
 created: 2026-10-17
 updated: 2026-10-17
+archived_at: 2026-10-17
 ---
 
 ## Intent
