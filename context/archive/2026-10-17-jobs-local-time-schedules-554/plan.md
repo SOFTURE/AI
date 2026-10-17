@@ -1,6 +1,6 @@
 ---
 change_id: jobs-local-time-schedules-554
-status: open
+status: archived
 ---
 
 # Plan: local-time schedules (issue #554)

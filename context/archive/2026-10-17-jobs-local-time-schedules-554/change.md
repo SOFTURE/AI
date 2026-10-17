@@ -1,12 +1,13 @@
 ---
 change_id: jobs-local-time-schedules-554
 title: "jobs: schedules at local times of day in a time zone (issue #554)"
-status: open
+status: archived
 roadmap_item: null
 issue: 554
 branch: claude/project-thread-xwkjzd
 created: 2026-10-17
 updated: 2026-10-17
+archived_at: 2026-10-17
 ---
 
 ## Intent
