@@ -73,6 +73,27 @@ describe("the jobs module", () => {
     );
   });
 
+  it("parses a local-time schedule, sorting its times", () => {
+    const module = jobs({ schedules: { "billing.send-reminders": { at: ["21:00", "09:00"], timeZone: "Europe/Warsaw" } } });
+    expect(module.options.schedules).toEqual({
+      "billing.send-reminders": { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw", payload: {} },
+    });
+  });
+
+  it.each([
+    [{ at: ["09:00"] }, "- options.schedules.app.tick.timeZone: is required with at"],
+    [{ at: ["09:00"], timeZone: "Mars/Olympus" }, "- options.schedules.app.tick.timeZone: is not a time zone the runtime knows"],
+    [{ at: ["9:00"], timeZone: "UTC" }, "- options.schedules.app.tick.at.0: must be times of day as HH:MM (00:00 to 23:59), each once"],
+    [{ at: ["24:00"], timeZone: "UTC" }, "- options.schedules.app.tick.at.0: must be times of day as HH:MM"],
+    [{ at: ["09:00", "09:00"], timeZone: "UTC" }, "- options.schedules.app.tick.at: must be times of day as HH:MM"],
+    [{ at: [], timeZone: "UTC" }, "- options.schedules.app.tick.at: Too small"],
+    [{ every: "1h", at: ["09:00"], timeZone: "UTC" }, "- options.schedules.app.tick.every: set either every or at, not both"],
+    [{}, "- options.schedules.app.tick.every: set either every or at, not both"],
+    [{ every: "1d", timeZone: "UTC" }, "- options.schedules.app.tick.timeZone: applies to at only; every runs in UTC"],
+  ])("refuses the local-time schedule %j", (schedule, message) => {
+    expect(() => jobs({ schedules: { "app.tick": schedule } })).toThrow(message);
+  });
+
   it("accepts schedule periods from one minute to seven days", () => {
     for (const every of ["1m", "15m", "1h", "24h", "1d", "7d", "168h", "10080m"]) {
       expect(() => jobs({ schedules: { "app.tick": { every } } })).not.toThrow();
