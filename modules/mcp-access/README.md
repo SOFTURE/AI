@@ -14,7 +14,9 @@ limit check made race-free.
 - `POST /api/mcp`: identifies the client and counts the request (bucket `mcp`), verifies the
   `Authorization: Bearer` token, then hands the request to a **fresh server from the app's factory**
   with `{ userId, canWrite, tokenId }`. Unknown, revoked, expired and malformed tokens all get the
-  same `401 invalid_token` with a `WWW-Authenticate: Bearer` challenge.
+  same `401 invalid_token` with a `WWW-Authenticate: Bearer` challenge. The challenge's `scope` is
+  `mcp:read mcp:write` while `allowWrites` is on and `mcp:read` otherwise, so an OAuth client asks
+  for what it may get.
 - **Writes need two consents:** the app's `allowWrites` option and a token issued with write
   access. `canWrite` is decided on every request, so turning `allowWrites` off makes every token
   read-only at once.
@@ -29,7 +31,8 @@ limit check made race-free.
     open to anyone, or closed outside a window an ops script opens (`oauth.registration`);
   - `/oauth/authorize`: authorization code with PKCE `S256` only, on a consent page that shows the
     app, where the code goes, the signed-in account and the access; writes need the `mcp:write`
-    scope, `allowWrites` and the person's tick;
+    scope, `allowWrites` and the person's tick. A request without `scope` gets the default scope:
+    both scopes while `allowWrites` is on, `mcp:read` otherwise;
   - `POST /api/oauth/token`: `authorization_code` and `refresh_token`. Refresh tokens rotate on
     every use; presenting a rotated one again (`previous_refresh_token_hash`) revokes the whole
     grant, and so does reusing a code (RFC 6749 §4.1.2). `resource` (RFC 8707) must name the

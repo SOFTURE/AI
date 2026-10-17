@@ -140,6 +140,22 @@ describe("the MCP endpoint", () => {
       expect(response.headers.get("www-authenticate")).toContain('resource_metadata="http://localhost:3000/.well-known/oauth-protected-resource/api/mcp"');
     });
 
+    it.each([
+      ["names both scopes while the app allows writes", true, 'scope="mcp:read mcp:write"'],
+      ["names only mcp:read while the app does not allow writes", false, 'scope="mcp:read"'],
+    ])("%s in the 401 challenge, so a client asks for what it may get (#553)", async (_case, allowWrites, scope) => {
+      const ctx = { ...test.ctx, config: createConfig({ ...OAUTH_OPTIONS, allowWrites, ...(allowWrites ? {} : { tools: [] }) }) };
+      const response = await endpoint(ctx, createMcpRequest(callTool("whoami")));
+      expect(response.status).toBe(401);
+      expect(response.headers.get("www-authenticate")).toContain(scope);
+    });
+
+    it("names the same scopes in the challenge while OAuth is off (#553)", async () => {
+      expect((await send(callTool("whoami"))).headers.get("www-authenticate")).toContain('scope="mcp:read mcp:write"');
+      const readOnly = { ...test.ctx, config: createConfig({ ...OPTIONS, allowWrites: false, tools: [] }) };
+      expect((await endpoint(readOnly, createMcpRequest(callTool("whoami")))).headers.get("www-authenticate")).toContain('scope="mcp:read"');
+    });
+
     it("leaves resource_metadata out while OAuth is off", async () => {
       const response = await send(callTool("whoami"));
       expect(response.headers.get("www-authenticate")).not.toContain("resource_metadata");
