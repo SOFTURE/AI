@@ -69,5 +69,5 @@ export type { EventAxisEntry, EventAxisItem, EventAxisLayout, EventAxisMilestone
 export { layoutEventAxis, layoutEventRail } from "./svg/event-layout.js";
 
 // The composition: a time series line chart with everything above.
-export type { LineChartFlag, LineChartProps, LineChartSeries, TimePoint } from "./svg/line-chart.js";
+export type { LineChartFlag, LineChartFlagStack, LineChartProps, LineChartSeries, TimePoint } from "./svg/line-chart.js";
 export { LineChart } from "./svg/line-chart.js";
