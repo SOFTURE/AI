@@ -41,6 +41,8 @@ Files: `foundation/charts/src/svg/flag.tsx`, `foundation/charts/src/svg/line-cha
 
 ## Progress
 
-- [x] Phase 1: layoutFlags (8 tests written first; the import failed before the helper existed)
-- [x] Phase 2: ChartFlag row and LineChart flagStack (7 tests written first, 6 red before the change; `--sft-chart-flag-row` registered as a local property in the token guard)
-- [x] Phase 3: docs (README "Stacked flags", CHANGELOG `## Unreleased` with the migration)
+- [x] Phase 1 (cb9d3ed): layoutFlags (8 tests written first; the import failed before the helper existed)
+- [x] Phase 2 (7b89c93): ChartFlag row and LineChart flagStack (7 tests written first, 6 red before the change; `--sft-chart-flag-row` registered as a local property in the token guard)
+- [x] Phase 3 (d88ae61): docs (README "Stacked flags", CHANGELOG `## Unreleased` with the migration)
+
+Gates on the branch: `npm run typecheck` and `npm run lint` in pre-commit; charts tests 263 passed, repository tests 551 passed; the full `npm test` runs in pre-push.
