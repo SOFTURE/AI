@@ -3,6 +3,7 @@
 import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
 import { getButtonClass } from "./button.js";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
+import { getLeaveTime, LEAVE_TIMEOUT_MS } from "./motion-time.js";
 
 // The WAI-ARIA disclosure pattern for navigation: a button that shows and hides a panel of links.
 // No `role="menu"`: the panel holds ordinary links, read and tabbed through as such. While open:
@@ -12,6 +13,9 @@ import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 //   propagation (React 19 does so for events before hydration) cannot hide it;
 // - a click on a link inside the panel closes, and so does a new `closeKey` (the app's route);
 // - focus moving out by keyboard closes; a pointer moving focus out is the outside press already.
+// `DisclosureMenu`'s panel carries `data-state="open" | "closed"`: it enters with `@starting-style` and, on close,
+// stays shown (inert to the pointer) until its transition ends, then gets `hidden`. Under reduced motion nothing
+// runs, so it hides at once. `useDisclosure` itself sets `hidden` straight away.
 
 export interface UseDisclosureOptions {
   /** A change closes the disclosure. Pass the route (the pathname), so a navigation closes it. */
@@ -130,6 +134,53 @@ export function useDisclosure({ closeKey, defaultOpen = false, closeOutsideOn = 
   };
 }
 
+/** Keeps a closing panel shown until its transition or animation ends; a re-open cancels the wait. */
+function usePanelLeave(isOpen: boolean, panelRef: (node: HTMLElement | null) => void) {
+  const nodeRef = useRef<HTMLElement | null>(null);
+  const [seenOpen, setSeenOpen] = useState(isOpen);
+  const [isLeaving, setIsLeaving] = useState(false);
+  if (seenOpen !== isOpen) {
+    setSeenOpen(isOpen);
+    setIsLeaving(!isOpen);
+  }
+
+  useEffect(() => {
+    const panel = nodeRef.current;
+    if (!isLeaving || panel === null) return;
+    let isDone = false;
+    const finish = () => {
+      if (isDone) return;
+      isDone = true;
+      setIsLeaving(false);
+    };
+    const wait = getLeaveTime([panel]);
+    if (wait === 0) {
+      finish();
+      return;
+    }
+    const handleEnd = (event: Event) => {
+      if (event.target === panel) finish();
+    };
+    panel.addEventListener("transitionend", handleEnd);
+    panel.addEventListener("animationend", handleEnd);
+    const timer = setTimeout(finish, Math.min(wait + 50, LEAVE_TIMEOUT_MS));
+    return () => {
+      panel.removeEventListener("transitionend", handleEnd);
+      panel.removeEventListener("animationend", handleEnd);
+      clearTimeout(timer);
+    };
+  }, [isLeaving]);
+
+  const setPanelNode = useCallback(
+    (node: HTMLElement | null) => {
+      nodeRef.current = node;
+      panelRef(node);
+    },
+    [panelRef],
+  );
+  return { isLeaving, setPanelNode };
+}
+
 export type DisclosureMenuSlot = "root" | "trigger" | "label" | "panel";
 export type DisclosureMenuAlign = "start" | "end";
 
@@ -150,6 +201,9 @@ export interface DisclosureMenuProps extends UseDisclosureOptions {
 
 const PANEL_ALIGN: Readonly<Record<DisclosureMenuAlign, string>> = { start: "sft:left-0", end: "sft:right-0" };
 
+const PANEL_MOTION =
+  "sft:transition-[opacity,translate] sft:duration-(--sft-duration-fast) sft:ease-(--sft-ease-out) sft:starting:-translate-y-1 sft:starting:opacity-0 sft:data-[state=closed]:pointer-events-none sft:data-[state=closed]:-translate-y-1 sft:data-[state=closed]:opacity-0 sft:motion-reduce:transition-none";
+
 const PANEL_BASE =
   "sft:absolute sft:top-full sft:z-40 sft:mt-1 sft:flex sft:min-w-48 sft:flex-col sft:gap-0.5 sft:rounded-card sft:border sft:border-border sft:bg-surface-raised sft:p-1 sft:text-sm sft:text-foreground sft:shadow-2 sft:[&[hidden]]:hidden sft:[&_a]:block sft:[&_a]:rounded-control sft:[&_a]:px-3 sft:[&_a]:py-2 sft:[&_a]:text-foreground sft:[&_a]:no-underline sft:[&_a:hover]:bg-foreground/5 sft:[&_a:focus-visible]:outline-2 sft:[&_a:focus-visible]:outline-focus";
 
@@ -166,13 +220,14 @@ export function DisclosureMenu({
   classNames,
   unstyled,
 }: DisclosureMenuProps) {
-  const { triggerProps, panelProps } = useDisclosure({ closeKey, defaultOpen, closeOutsideOn });
+  const { isOpen, triggerProps, panelProps } = useDisclosure({ closeKey, defaultOpen, closeOutsideOn });
+  const { isLeaving, setPanelNode } = usePanelLeave(isOpen, panelProps.ref);
   const slot = createSlotClassGetter<DisclosureMenuSlot>({
     defaults: {
       root: "sft:relative sft:inline-block sft:font-sans",
       trigger: getButtonClass({ variant: "ghost" }),
       label: "",
-      panel: `${PANEL_BASE} ${PANEL_ALIGN[align]}`,
+      panel: `${PANEL_BASE} ${PANEL_MOTION} ${PANEL_ALIGN[align]}`,
     },
     classNames,
     unstyled,
@@ -183,7 +238,13 @@ export function DisclosureMenu({
         {icon}
         {isLabelHidden ? null : <span className={slot("label")}>{label}</span>}
       </button>
-      <div {...panelProps} className={slot("panel")}>
+      <div
+        ref={setPanelNode}
+        id={panelProps.id}
+        hidden={!isOpen && !isLeaving}
+        data-state={isOpen ? "open" : "closed"}
+        className={slot("panel")}
+      >
         {children}
       </div>
     </div>
