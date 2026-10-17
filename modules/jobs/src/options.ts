@@ -1,5 +1,6 @@
 // The options an app passes to `jobs({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
+import { isTimeZone } from "./zoned-time.js";
 
 const QUEUE_NAME = /^[a-z][a-z0-9_.-]{0,62}$/;
 const QUEUE_NAME_HINT = "is not a queue name: lowercase letters, digits, _ . and -, starting with a letter";
@@ -30,12 +31,57 @@ const backoffSchema = z
     return seconds <= MAX_EVERY_SECONDS ? seconds : null;
   }
 
-  const scheduleSchema = z.strictObject({
-    /** How often the schedule runs: `15m`, `1h`, `1d`. Runs start on whole periods counted from 1970-01-01 00:00 UTC. */
-    every: z.string().refine((every) => parseEverySeconds(every) !== null, { message: EVERY_HINT }),
-    /** The payload of every run; default `{}`. */
-    payload: z.record(z.string(), z.unknown()).default({}),
-  });
+  const AT_TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+  const AT_HINT = "must be times of day as HH:MM (00:00 to 23:59), each once";
+  const MAX_AT_TIMES = 48;
+
+  const scheduleSchema = z
+    .strictObject({
+      /** How often the schedule runs: `15m`, `1h`, `1d`. Runs start on whole periods counted from 1970-01-01 00:00 UTC. */
+      every: z.string().refine((every) => parseEverySeconds(every) !== null, { message: EVERY_HINT }).optional(),
+      /** Instead of `every`: the local times of day the schedule runs at, `HH:MM`, in `timeZone`. */
+      at: z
+        .array(z.string().regex(AT_TIME, { message: AT_HINT }))
+        .min(1)
+        .max(MAX_AT_TIMES)
+        .refine((times) => new Set(times).size === times.length, { message: AT_HINT })
+        .optional(),
+      /** The IANA time zone of `at`, such as `Europe/Warsaw`; required with `at`. */
+      timeZone: z.string().refine(isTimeZone, { message: "is not a time zone the runtime knows (an IANA name such as Europe/Warsaw)" }).optional(),
+      /** The payload of every run; default `{}`. */
+      payload: z.record(z.string(), z.unknown()).default({}),
+    })
+    .superRefine((schedule, context) => {
+      if ((schedule.every === undefined) === (schedule.at === undefined)) {
+        context.addIssue({ code: "custom", path: ["every"], message: "set either every or at, not both" });
+      }
+      if (schedule.at !== undefined && schedule.timeZone === undefined) {
+        context.addIssue({ code: "custom", path: ["timeZone"], message: "is required with at" });
+      }
+      if (schedule.every !== undefined && schedule.timeZone !== undefined) {
+        context.addIssue({ code: "custom", path: ["timeZone"], message: "applies to at only; every runs in UTC" });
+      }
+    })
+    .transform((schedule): PeriodScheduleOptions | LocalTimeScheduleOptions => {
+      if (schedule.at !== undefined && schedule.timeZone !== undefined) {
+        return { at: [...schedule.at].sort(), timeZone: schedule.timeZone, payload: schedule.payload };
+      }
+      // The refinement above leaves every set whenever at is not.
+      return { every: schedule.every ?? "", payload: schedule.payload };
+    });
+
+/** A schedule that runs once per period, aligned to UTC. */
+export interface PeriodScheduleOptions {
+  readonly every: string;
+  readonly payload: Record<string, unknown>;
+}
+
+/** A schedule that runs at local times of day in a time zone; `at` is sorted. */
+export interface LocalTimeScheduleOptions {
+  readonly at: readonly string[];
+  readonly timeZone: string;
+  readonly payload: Record<string, unknown>;
+}
 
 const queueSchema = z.strictObject({
   /** Attempts before a job is `failed` for good; the first run counts. */
@@ -65,8 +111,9 @@ export const jobsOptionsSchema = z
     /** The queues, by name. A job is enqueued to one of them and runs with its settings. */
     queues: z.record(z.string(), queueSchema).default({}).superRefine(checkNames),
     /**
-     * Recurring runs, by queue name: the worker enqueues one job per period (`every`) however many workers run. A
-     * schedule's queue takes the default queue settings unless `queues` names it.
+     * Recurring runs, by queue name: the worker enqueues one job per period (`every`) or per local time of day (`at`
+     * in `timeZone`) however many workers run. A schedule's queue takes the default queue settings unless `queues`
+     * names it.
      */
     schedules: z.record(z.string(), scheduleSchema).default({}).superRefine(checkNames),
     /** How long an idle worker waits before it looks for due jobs again. */
