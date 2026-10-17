@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
-## Unreleased
+## 0.7.0
 
 - **Entitlement state in SQL** (#555): migration `0012` adds `billing.entitlement_states(as_of, trial_days,
   time_zone, trial_starts_on)` (one row per account) and `billing.entitlement_state(user_id, as_of, ...)`, a stable
