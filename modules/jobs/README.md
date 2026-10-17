@@ -47,7 +47,9 @@ export default defineSoftureConfig({
 | `queues.<name>.backoff` | `{ baseSeconds: 10, maxSeconds: 3600 }` | delay after attempt n is `min(max, base * 2^(n-1))`, shortened by up to 20 % at random |
 | `queues.<name>.leaseSeconds` | `300` | how long a claimed job is reserved; the worker extends it while the handler runs, so it bounds how long a crashed worker's job waits, not how long a handler may take |
 | `queues.<name>.concurrency` | `1` | jobs of the queue one worker process runs at once |
-| `schedules.<queue>.every` | (required) | how often the schedule runs: `<n>m`, `<n>h` or `<n>d`, from `1m` to `7d` (§3, "Schedules") |
+| `schedules.<queue>.every` | (one of `every`, `at`) | how often the schedule runs: `<n>m`, `<n>h` or `<n>d`, from `1m` to `7d`, aligned to UTC (§3, "Schedules") |
+| `schedules.<queue>.at` | (one of `every`, `at`) | local times of day the schedule runs at, `HH:MM` (`00:00` to `23:59`), each once, up to 48 |
+| `schedules.<queue>.timeZone` | (required with `at`) | the IANA time zone of `at`, such as `Europe/Warsaw` or `UTC` |
 | `schedules.<queue>.payload` | `{}` | the payload of every scheduled run |
 | `pollIntervalMs` | `1000` | how often an idle worker looks for due jobs |
 | `shutdownGraceMs` | `20000` | how long a stopping worker waits for running handlers before releasing their jobs |
@@ -154,7 +156,8 @@ a process of its own.
 
 ### Schedules
 
-A schedule runs its queue's handler once per period, instead of an app cron:
+A schedule runs its queue's handler once per period (`every`) or at local times of day (`at` in `timeZone`), instead
+of an app cron:
 
 ```ts
 import { authJobSchedules } from "@softure-ai/auth/jobs";
@@ -165,6 +168,8 @@ jobs({
     ...authJobSchedules, // auth.prune-sessions hourly, auth.prune-password-resets daily
     ...securityJobSchedules, // security.prune-rate-limits hourly
     "app.digest": { every: "1d", payload: { kind: "weekly" } },
+    // The trial-ending reminder at 09:00 and 21:00 in the users' time zone, in place of billing's daily UTC period.
+    "billing.access-reminders": { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw" },
   },
 });
 ```
@@ -179,10 +184,15 @@ export const handlers: JobHandlers = { ...authJobHandlers, ...securityJobHandler
 
 - Periods start on whole multiples of `every` counted from 1970-01-01 00:00 UTC: `1h` on the full hour, `1d` at
   midnight UTC, `15m` at :00, :15, :30, :45. A run is due at the start of its period.
+- An `at` schedule's slots are its listed times on each local date in `timeZone`, with the zone's offset on that date:
+  `09:00` in `Europe/Warsaw` is 07:00 UTC in summer and 08:00 UTC in winter. A time a DST change skips runs as far
+  after the change as it would have been (`02:30` on the spring-forward day runs at 03:30); a time a DST change
+  repeats runs once, at its first occurrence. A worker that starts after a listed time enqueues that slot's run at
+  once, the same way a period schedule enqueues the period it starts in.
 - Once per period, however many workers run: a worker takes a period with a conditional upsert of
   `jobs.schedules` (the period must be later than the stored one) and enqueues the run in the same transaction, so a
   missed or doubled tick cannot happen. A worker enqueues only the schedules of the queues it runs.
-- Missed periods (no worker ran) collapse into one run for the current period.
+- Missed periods or times (no worker ran) collapse into one run for the current slot.
 - Every scheduled run has the dedup key `schedule`: while a run is still pending or running (retrying a failure), the
   next period joins it instead of queueing a second run behind it.
 - Scheduled runs are ordinary jobs: retries, `maxAttempts`, `getJob`, `retryJob` and pruning apply.
@@ -190,8 +200,8 @@ export const handlers: JobHandlers = { ...authJobHandlers, ...securityJobHandler
   `@softure-ai/waitlist/jobs`, `@softure-ai/security/jobs`, `@softure-ai/analytics/jobs`), with `@softure-ai/jobs` as an
   optional peer.
 
-`getQueueStats` reports each scheduled queue's `schedule`: `everySeconds`, `lastEnqueuedAt` (the start of the latest
-period a run was enqueued for), `lastSucceededAt` (any succeeded job of the queue, a run enqueued by hand too) and
+`getQueueStats` reports each scheduled queue's `schedule`: `everySeconds` (for an `at` schedule the longest gap
+between two of its times, 24h for one time), `lastEnqueuedAt` (the start of the latest slot a run was enqueued for), `lastSucceededAt` (any succeeded job of the queue, a run enqueued by hand too) and
 `isLate`: no success within two periods, counted from when a worker first saw the schedule, or no worker has seen it
 at all. The module's health check does not fail on a late schedule (a late cleanup must not take the app out of
 rotation); an app that wants an alarm adds a check of its own:
@@ -283,7 +293,8 @@ logger gets payload paths, never values, for a payload that does not match its s
 ## 12. Limitations
 
 - Polling, no `LISTEN/NOTIFY`: a job waits up to `pollIntervalMs` when the worker is idle.
-- Schedules take a fixed period (`every`), aligned to UTC; no cron expressions, no time zones, no "at 03:00".
+- Schedules take a fixed period aligned to UTC (`every`) or times of day in a time zone (`at`); no cron expressions,
+  no days of the week.
 - No priorities within a queue and no rate limits per queue beyond `concurrency`; split work into queues instead.
 - At-least-once delivery (§3, "Handlers run at least once").
 - PGlite has one connection, so tests run claims one after another; concurrent claiming is Postgres behaviour
