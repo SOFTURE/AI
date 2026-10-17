@@ -1,12 +1,13 @@
 ---
 change_id: mailing-unsubscribe-clean-url-556
 title: "mailing: the unsubscribe page posts to a URL without the signed token (issue #556)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 556
 branch: claude/project-thread-b9guky
 created: 2026-10-17
 updated: 2026-10-17
+archived_at: 2026-10-17
 ---
 
 ## Intent

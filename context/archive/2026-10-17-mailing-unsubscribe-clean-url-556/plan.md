@@ -1,6 +1,6 @@
 ---
 change_id: mailing-unsubscribe-clean-url-556
-status: in_progress
+status: archived
 ---
 
 # Plan: unsubscribe page posts to a clean URL (issue #556)
@@ -38,6 +38,12 @@ Files: `examples/next-app/e2e/mailing-unsubscribe.spec.ts`, `modules/mailing/REA
 
 ## Progress
 
-- [ ] Phase 1: route
-- [ ] Phase 2: page
-- [ ] Phase 3: e2e and docs
+- [x] Phase 1: route (c6cc301)
+- [x] Phase 2: page (d1a9a6b)
+- [x] Phase 3: e2e and docs (77e6a1e, plus the forged-link e2e fix after the first local run)
+
+The route tests were red (400 instead of 303) before `route.ts` changed; the page tests were red before `pages.tsx`
+and `strip-link-query.tsx`. Gates on the branch: typecheck, lint, `npm test` (mailing 617 tests). Local e2e on the
+built example app: `mailing-unsubscribe.spec.ts`, `mailing*` and `waitlist.spec.ts`, 14 passed; the first run
+showed the forged-link test still expected the token in the address bar after the page loaded, now it expects
+the stripped one.
