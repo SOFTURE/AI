@@ -20,6 +20,7 @@ import { type CopyProps, getCopy } from "./copy.js";
 import { FormError } from "./feedback.js";
 import { CloseIcon } from "./icons.js";
 import { useUiCopyProps } from "./locale.js";
+import { getLeaveTime, LEAVE_TIMEOUT_MS } from "./motion-time.js";
 
 // A modal dialog: a header with the title and a close button, a scrolling body and a footer with
 // the actions. `width="panel"` is a full-height sheet from the right; `StandingPanel` is that sheet
@@ -80,33 +81,6 @@ export function useModalClose(): RequestClose {
 function runAtOnce(after: () => void): void {
   after();
 }
-
-/** The longest wait from a list of CSS times ("0.2s, 150ms"). */
-function getLongestTime(durations: string, delays: string): number {
-  const toMs = (time: string) => (time.trim().endsWith("ms") ? Number.parseFloat(time) : Number.parseFloat(time) * 1000);
-  const delayList = delays.split(",");
-  return durations
-    .split(",")
-    .map((duration, index) => toMs(duration) + toMs(delayList[index % delayList.length] ?? "0s"))
-    .filter((time) => Number.isFinite(time))
-    .reduce((longest, time) => Math.max(longest, time), 0);
-}
-
-/** How long the leave motion of these elements runs, in ms; 0 when nothing moves. */
-function getLeaveTime(elements: readonly (HTMLElement | null)[]): number {
-  return elements.reduce((longest, element) => {
-    if (element === null) return longest;
-    const style = getComputedStyle(element);
-    return Math.max(
-      longest,
-      getLongestTime(style.transitionDuration || "0s", style.transitionDelay || "0s"),
-      getLongestTime(style.animationDuration || "0s", style.animationDelay || "0s"),
-    );
-  }, 0);
-}
-
-/** A leave motion that never ends (a missing `transitionend`) still closes after this. */
-const LEAVE_TIMEOUT_MS = 1000;
 
 /**
  * The close path of a dialog: at once for `enter`; for `enter-leave`, `closing` first and `after` when the

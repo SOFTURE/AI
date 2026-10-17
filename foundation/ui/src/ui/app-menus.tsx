@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 import type { LinkComponentType } from "./button.js";
 import { type ClassNames, createSlotClassGetter } from "./class-names.js";
 import { type CopyProps, getCopy } from "./copy.js";
@@ -21,6 +21,11 @@ export interface AccountMenuProps extends CopyProps<"appShell">, Pick<UseDisclos
   readonly children?: ReactNode;
   /** Under the links, after a divider: the sign-out form. */
   readonly footer?: ReactNode;
+  /**
+   * What the trigger button shows instead of the user icon, e.g. the account's initial in a circle. It is
+   * decoration: the button keeps its name from `messages.accountMenu`.
+   */
+  readonly trigger?: ReactNode;
   /** Shows the trigger's name next to the icon; the icon alone by default. */
   readonly isLabelShown?: boolean;
   readonly align?: DisclosureMenuAlign;
@@ -34,6 +39,7 @@ export function AccountMenu({
   email,
   children,
   footer,
+  trigger,
   isLabelShown = false,
   align = "end",
   closeKey,
@@ -58,7 +64,7 @@ export function AccountMenu({
   return (
     <DisclosureMenu
       label={copy.accountMenu}
-      icon={<UserIcon />}
+      icon={trigger ?? <UserIcon />}
       isLabelHidden={!isLabelShown}
       align={align}
       closeKey={closeKey}
@@ -85,10 +91,24 @@ export interface MobileMenuItem {
   readonly isCurrent?: boolean;
 }
 
-export type MobileMenuSlot = DisclosureMenuSlot | "nav" | "list" | "item" | "link";
+/** Links under a heading ("Account", "Help"); a nested list named by the heading. */
+export interface MobileMenuGroup {
+  readonly heading: string;
+  readonly items: readonly MobileMenuItem[];
+}
+
+export type MobileMenuEntry = MobileMenuItem | MobileMenuGroup;
+
+/** Whether an entry of `MobileMenu.items` is a group of links rather than one link. */
+export function isMobileMenuGroup(entry: MobileMenuEntry): entry is MobileMenuGroup {
+  return "items" in entry;
+}
+
+export type MobileMenuSlot = DisclosureMenuSlot | "nav" | "list" | "item" | "link" | "group" | "heading" | "groupList";
 
 export interface MobileMenuProps extends CopyProps<"appShell">, Pick<UseDisclosureOptions, "closeKey" | "closeOutsideOn"> {
-  readonly items: readonly MobileMenuItem[];
+  /** The links, flat or under headings (`MobileMenuGroup`); both kinds can be mixed. */
+  readonly items: readonly MobileMenuEntry[];
   /** Renders each link (for example Next's `Link`); a plain `<a>` when omitted. */
   readonly LinkComponent?: LinkComponentType;
   /** More content under the links (a theme switch, a sign-out). */
@@ -112,16 +132,28 @@ export function MobileMenu({
   messages,
 }: MobileMenuProps) {
   const copy = getCopy("appShell", useUiCopyProps("appShell", { locale, messages }));
-  const slot = createSlotClassGetter<"nav" | "list" | "item" | "link">({
+  const groupIdPrefix = useId();
+  const slot = createSlotClassGetter<"nav" | "list" | "item" | "link" | "group" | "heading" | "groupList">({
     defaults: {
       nav: "",
       list: "sft:m-0 sft:flex sft:list-none sft:flex-col sft:gap-0.5 sft:p-0",
       item: "",
       link: "sft:aria-[current=page]:bg-foreground/5 sft:aria-[current=page]:font-semibold",
+      group: "sft:mt-1 sft:border-t sft:border-border sft:pt-1 sft:first:mt-0 sft:first:border-t-0 sft:first:pt-0",
+      heading: "sft:m-0 sft:px-3 sft:pt-2 sft:pb-1 sft:text-xs sft:font-semibold sft:text-muted",
+      groupList: "sft:m-0 sft:flex sft:list-none sft:flex-col sft:gap-0.5 sft:p-0",
     },
     classNames,
     unstyled,
   });
+  function renderItem(item: MobileMenuItem) {
+    const props = { href: item.href, "aria-current": item.isCurrent === true ? ("page" as const) : undefined, className: slot("link") };
+    return (
+      <li key={item.href} className={slot("item")}>
+        {LinkComponent === undefined ? <a {...props}>{item.label}</a> : <LinkComponent {...props}>{item.label}</LinkComponent>}
+      </li>
+    );
+  }
   return (
     <DisclosureMenu
       label={copy.mobileMenu}
@@ -135,11 +167,17 @@ export function MobileMenu({
     >
       <nav aria-label={copy.mobileMenu} className={slot("nav")}>
         <ul className={slot("list")}>
-          {items.map((item) => {
-            const props = { href: item.href, "aria-current": item.isCurrent === true ? ("page" as const) : undefined, className: slot("link") };
+          {items.map((entry, index) => {
+            if (!isMobileMenuGroup(entry)) return renderItem(entry);
+            const headingId = `${groupIdPrefix}-${index}`;
             return (
-              <li key={item.href} className={slot("item")}>
-                {LinkComponent === undefined ? <a {...props}>{item.label}</a> : <LinkComponent {...props}>{item.label}</LinkComponent>}
+              <li key={`group-${entry.heading}`} className={slot("group")}>
+                <p id={headingId} className={slot("heading")}>
+                  {entry.heading}
+                </p>
+                <ul aria-labelledby={headingId} className={slot("groupList")}>
+                  {entry.items.map(renderItem)}
+                </ul>
               </li>
             );
           })}
