@@ -1,12 +1,13 @@
 ---
 change_id: ui-menus-color-presets-558
 title: "ui: AccountMenu trigger and exit transition, MobileMenu groups, ColorField presets (issue #558)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 558
 branch: claude/project-thread-ia89y3
 created: 2026-10-17
 updated: 2026-10-17
+archived_at: 2026-10-17
 ---
 
 ## Intent
@@ -49,3 +50,4 @@ version bump, the CHANGELOG gets `## Unreleased`.
 - `ColorField.presets` renders a `role="radiogroup"` of `role="radio"` swatch buttons (roving tab stop, arrow keys)
   above the input. Buttons, not native radios: a native radio would add a field to the form's data. The group is
   named by the new `colorField.presets` message ("Preset colours: {label}"); each swatch by its preset's `label`.
+- No native `title` tooltip on the swatches: the package's architecture test forbids hover-only tooltips.

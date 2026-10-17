@@ -1,6 +1,6 @@
 ---
 change_id: ui-menus-color-presets-558
-status: in_progress
+status: archived
 ---
 
 # Plan: AccountMenu trigger and leave motion, MobileMenu groups, ColorField presets (issue #558)
@@ -40,7 +40,12 @@ README entries for the new props.
 
 ## Progress
 
-- [ ] Phase 1: menu trigger and leave motion
-- [ ] Phase 2: MobileMenu groups
-- [ ] Phase 3: ColorField presets
-- [ ] Phase 4: docs
+- [x] Phase 1: menu trigger and leave motion (28953ad)
+- [x] Phase 2: MobileMenu groups (28953ad)
+- [x] Phase 3: ColorField presets (28953ad)
+- [x] Phase 4: docs (09cf7b1)
+
+Phases 1 to 3 share one commit: `AccountMenu` and `MobileMenu` live in the same file. The 17 tests in
+`adoption-gaps-558.test.tsx` were written first; 12 failed against master's sources (the other 5 assert behaviour
+that master already has). `foundation/ui` 628 tests pass, `tests/repo` pass, `npm run build` builds the CSS with
+every new class.
