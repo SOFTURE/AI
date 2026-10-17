@@ -7,6 +7,10 @@ export const en = {
     /** Name of the event axis' focusable area. */
     label: "{title}. Use the left and right arrow keys to move between events, Home and End to jump to the ends.",
   },
+  lineChart: {
+    /** The chip that stands for the flags that fit in no row (`flagStack.maxRows`); `{count}` is how many. */
+    moreFlags: "+{count}",
+  },
   table: {
     /** Header of the table's first column, the date of each row. */
     date: "Date",

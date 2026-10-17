@@ -139,6 +139,49 @@ cursor stop per date; different dates throw a `TypeError`). `formatDate` changes
 table's dates (a medium date in `timeZone` by default); `valueTickTarget` and `dateTickTarget` the number of
 labels; `messages` the built-in copy.
 
+### Stacked flags
+
+Close flags overlap on the top row. `flagStack` stacks them into rows: give each chip's width in percent of the
+plot's width (measured in the browser, or estimated from the label), an optional `gap` (same unit) and `maxRows`.
+
+```tsx
+<LineChart
+  {...props}
+  flags={flags}
+  flagStack={{ widthOf: (flag) => flag.label.length * 1.2 + 3, gap: 1, maxRows: 2 }}
+/>;
+```
+
+Each chip takes the lowest row it fits, by x, then input order. A flag that fits in no row keeps its guide, and the
+hidden flags share one outline chip on the row after the last, at the leftmost one's x, reading "+N"
+(`lineChart.moreFlags`) with their labels as its `title`. Without `flagStack` every chip sits on the top row as before.
+
+`layoutFlags(flags, { gap, maxRows })` is the layout on its own, server-safe, for an app that places its own chips:
+each flag is `{ x, width, align? }` in one unit (`align` as `ChartFlag` aligns it, `edgeAlign(x)` there; `center` by
+default). It returns `placements` in input order (`{ hidden: false, row, start, end }` or
+`{ hidden: true, row: null, start, end }`), `rows` and `hiddenCount`, the same for the same input; chips in one row
+are at least `gap` apart. A non-finite `x` or `width`, a negative `width` or `gap`, or a `maxRows` that is not a
+whole number of at least 1 throws a `RangeError`. `ChartFlag`'s `row` moves a chip down by its own height and
+`--sft-space-1` per row (`--sft-chart-flag-row`):
+
+```tsx
+const { placements, hiddenCount } = layoutFlags(
+  events.map((event) => ({ x: event.xPercent, width: measure(event.label), align: edgeAlign(event.xPercent) })),
+  { gap: 1, maxRows: 3 },
+);
+events.map((event, index) => {
+  const placement = placements[index];
+  return placement && !placement.hidden ? (
+    <ChartFlag key={event.key} xPercent={event.xPercent} row={placement.row}>
+      {event.label}
+    </ChartFlag>
+  ) : null;
+});
+```
+
+An app with its own greedy stacking (rows by x and measured width, a row cap, a "+N" overflow) drops it for
+`layoutFlags`, or for `flagStack` when it draws a `LineChart`.
+
 ### Accessibility
 
 - The SVG is hidden from assistive technology. Every chart carries its data as a visually hidden
@@ -161,7 +204,7 @@ labels; `messages` the built-in copy.
 | `ValueAxis`, `valueAxisTicks` | value labels at heights in %; from four labels, every other one is hidden on narrow screens, counted from the top (`narrow="all"` keeps them all) |
 | `TimeAxis`, `timeAxisTicks`, `numberAxisTicks` | date or number labels at % of the width; with `ends`, the ends sit at the edges and middle labels stay clear of them; an optional second row ([Horizontal axes](#horizontal-axes)) |
 | `Legend`, `LegendItem`, `LegendSwatch` | swatches `box`, `dot`, `line`, `dashed`, `dotted` in a `slot`, a `tone` or a `color`, `faded`; `LegendItem` takes `as` (`li`, `div`, `span`) to sit outside `Legend`'s list, and `faded` ([Colour by meaning](#colour-by-meaning)) |
-| `ChartFlag` | a chip at the top of the plot; within 18 % of an edge it aligns to that edge (`edgeAlign`); variants and sizes ([options](#line-and-marker-options)) |
+| `ChartFlag` | a chip at the top of the plot; within 18 % of an edge it aligns to that edge (`edgeAlign`); variants and sizes ([options](#line-and-marker-options)); `row` and `layoutFlags` stack it ([Stacked flags](#stacked-flags)); `title` |
 | `ChartPin` | an event pin on a curve: a dashed line from the bottom up to a point and a round dot on it ([Pins](#pins)) |
 | `ChartDataTable` | the visually hidden table |
 | `Sankey`, `layoutSankey` | a two-sided flow: inputs → hub → outputs ([Sankey](#sankey)) |

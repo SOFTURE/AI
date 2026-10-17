@@ -275,6 +275,11 @@
     white-space: nowrap;
   }
 
+  /* A lower row (ChartFlag's `row`, e.g. from layoutFlags): one chip height and a small space per row. */
+  .sft-chart-flag-stacked {
+    translate: 0 calc(var(--sft-chart-flag-row) * (100% + var(--sft-space-1)));
+  }
+
   /* Placed by the parent: no top of its own, or a parent placing it by its bottom would stretch it. */
   .sft-chart-flag-free {
     position: static;
