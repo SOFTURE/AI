@@ -61,6 +61,11 @@
       "@softure-ai/source": "./src/ui/index.ts",
       "types": "./dist/ui/index.d.ts",
       "default": "./dist/ui/index.js"
+    },
+    "./testing": {
+      "@softure-ai/source": "./src/testing/index.ts",
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
     }
   },
   "scripts": {
