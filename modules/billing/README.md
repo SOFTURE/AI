@@ -75,6 +75,13 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   an account's state, the plan paying for today and its limits; **`consumeUsage()`** counts usage per
   calendar month in `billing.usage` and refuses atomically once the limit is used up (see "Usage
   limits" in §4).
+- **Entitlement state in SQL** (migration `0012`): `billing.entitlement_states(...)` and
+  `billing.entitlement_state(user_id, ...)` answer what `getEntitlement()` answers, for an app's own SQL
+  (recipient selection, reports); `getEntitlementStatesSql(ctx)` (`/server`) fills in the app's trial policy (see
+  "Entitlement state in SQL" in §5).
+- **Test fixtures** (`@softure-ai/billing/testing`): `createTestEntitlement()` writes an account's row and
+  `setTestEntitlementState()` puts it in a named state at the clock's instant, so tests never insert into
+  `billing.entitlements` by hand (see "Test fixtures" in §5).
 - Export and deletion of the entitlement row, the payments, the invoice requests, the manual grants, the trial extensions and the usage ledger (`@softure-ai/privacy`), and a health check for
   `GET /api/health`.
 
@@ -838,6 +845,70 @@ foreign key.
 
 A grant and the request it closes share a transaction; a grant and a revoke take the account, then
 the entitlement, then their row (a conditional update), the order of a refund.
+
+**Entitlement state in SQL.** `migrations/0012_create_entitlement_state_functions.sql` creates two functions, the
+stable contract for an app's own SQL: a change to the package's rules or tables keeps their names and columns, so
+an app never re-implements the state machine over `billing.entitlements`.
+
+- `billing.entitlement_states(as_of timestamptz, trial_days integer, time_zone text, trial_starts_on date DEFAULT
+  NULL)`: one row per account in `auth.users`.
+- `billing.entitlement_state(user_id uuid, as_of, trial_days, time_zone, trial_starts_on)`: the same columns
+  without `user_id` for one account; no row when no account has this id.
+
+| Column | Meaning |
+| --- | --- |
+| `user_id` | The account (`entitlement_states` only). |
+| `status` | `trial`, `paid` or `read_only`, as `getEntitlement()` answers at `as_of`. |
+| `ends_at` | When the trial or dated paid access ends; NULL for lifetime access and when read-only. |
+| `read_only_since`, `read_only_reason` | When write access ended and why (`trial_ended` or `paid_ended`); NULL unless read-only. |
+| `trial_ends_at`, `paid_until`, `is_lifetime` | The record the state comes from: the stored row, or the derived trial. |
+| `is_stored` | Whether the account has a row in `billing.entitlements`. |
+
+The trial of an account without a row depends on `trial.days`, `trial.startsAt` and `config.timezone`, which the
+database does not know, so they are arguments. In TypeScript, `getEntitlementStatesSql(ctx, asOf?)` (`/server`)
+fills them from the config (and `as_of` from the clock), so nothing is copied:
+
+```ts
+import { getEntitlementStatesSql } from "@softure-ai/billing/server";
+import { sql } from "drizzle-orm";
+
+// Accounts whose trial ended, that never had paid access and are not lifetime: an offer mail.
+const states = getEntitlementStatesSql(ctx);
+const { rows } = await ctx.db.execute(sql`
+  select u.id, u.email from auth.users u
+  join ${states} s on s.user_id = u.id
+  where s.status = 'read_only' and s.read_only_reason = 'trial_ended' and s.paid_until is null
+`);
+```
+
+A plain SQL report passes the app's values itself, e.g. for `billing({ trial: { days: 14 } })` in Warsaw:
+`select status, count(*) from billing.entitlement_states(now(), 14, 'Europe/Warsaw') group by status`. The functions
+read the tables with the caller's rights; `days_left` and `is_ending` stay in TypeScript (they follow the reminder
+options).
+
+**Test fixtures.** `@softure-ai/billing/testing` (server-only, never imported by the module's runtime) writes
+entitlement rows for tests; the account must exist first (`createTestAccount` from `@softure-ai/auth/testing`). Both
+helpers take a billing context (`{ db, clock, config }`) or a bare database, write with an upsert (a second call
+moves the account to a new state; `created_at` stays) and throw for an unknown account.
+
+```ts
+import { createTestEntitlement, setTestEntitlementState } from "@softure-ai/billing/testing";
+
+await createTestEntitlement(ctx, { userId, paidUntil: new Date("2026-12-01T00:00:00Z") });
+await createTestEntitlement(db, { userId, trialEndsAt, lifetime: true, now });
+await setTestEntitlementState(ctx, { userId, state: { status: "trial", days: 2 } });
+await setTestEntitlementState(ctx, { userId, state: { status: "read_only", reason: "paid_ended" } });
+```
+
+- `createTestEntitlement(target, { userId, trialEndsAt?, paidUntil?, lifetime?, now? })`: without `trialEndsAt`, the
+  account's derived trial with a context, or its creation (no trial left) with a bare database; `now` (the clock or
+  the wall clock) is `created_at` and `updated_at`.
+- `setTestEntitlementState(target, { userId, state, now? })`: `state` is `{ status: "trial", days? }` (default 7),
+  `{ status: "paid", days? }` (default 30), `{ status: "lifetime" }` or `{ status: "read_only", reason?, days? }`
+  (default `trial_ended`, 1 day ago); days are 24-hour days from `now`.
+
+An app no longer needs a row at registration to keep its fixtures and SQL simple: reads derive the trial, the SQL
+functions derive it the same way, and fixtures write rows through these helpers.
 
 ## 6. Environment variables
 

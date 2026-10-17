@@ -36,6 +36,12 @@ Files: `migrations/0012_create_entitlement_state_functions.sql`, `src/server/ent
 
 ## Progress
 
-- [ ] Phase 1: test factory
-- [ ] Phase 2: SQL surface
-- [ ] Phase 3: docs
+- [x] Phase 1: test factory (078b35d)
+- [x] Phase 2: SQL surface (3d01238)
+- [x] Phase 3: docs
+
+`src/schema.ts` kept its header: it lists tables, and 0012 adds none. The property tests create their accounts with
+`createTestAccount` (auth's registration rate limit refuses more than a few registrations from one client). Two
+mutations of the migration (paid access covering its end instant; the creation day read in UTC) each fail the four
+property tests. `EXPLAIN` on `entitlement_state` shows the function inlined into two primary-key index scans.
+Gates on the branch: typecheck, lint, `npm test` for billing and `tests/repo`.

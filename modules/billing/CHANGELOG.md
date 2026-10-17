@@ -4,6 +4,31 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- **Entitlement state in SQL** (#555): migration `0012` adds `billing.entitlement_states(as_of, trial_days,
+  time_zone, trial_starts_on)` (one row per account) and `billing.entitlement_state(user_id, as_of, ...)`, a stable
+  contract for an app's own SQL that answers what `getEntitlement` answers (`status`, `ends_at`, `read_only_since`,
+  `read_only_reason`, the record behind it and `is_stored`), checked against it by a property test across trial
+  policies and time zones. The trial policy is an argument, because the database does not know the config;
+  `getEntitlementStatesSql(ctx, asOf?)` (`/server`) fills it from `softure.config.ts` for SQL built in TypeScript.
+- **`@softure-ai/billing/testing`** (#555): `createTestEntitlement(target, { userId, trialEndsAt?, paidUntil?,
+  lifetime?, now? })` writes (upserts) an account's row and `setTestEntitlementState(target, { userId, state })` puts
+  an account on a trial, paid or lifetime access, or read-only after either, relative to the clock. `target` is a
+  billing context or a bare database.
+  Migrate (optional), for an app that re-derives access in SQL or inserts entitlement rows itself:
+  1. Run `softure migrate` (adds the two functions; no table changes).
+  2. Replace SQL that reads `billing.entitlements` to decide access (trial from `created_at` when there is no row,
+     `paid_until`, `is_lifetime`) with a join on `getEntitlementStatesSql(ctx)`, or on
+     `billing.entitlement_states(now(), <trial.days>, '<timezone>'[, '<trial.startsAt>'])` in plain SQL; filter on
+     `status`, `read_only_reason` and `paid_until`.
+  3. Replace fixture inserts and helpers that update `billing.entitlements` with `createTestEntitlement` or
+     `setTestEntitlementState`.
+  4. Drop the row the app inserts at registration (e.g. in `onRegistered`) if it existed only for fixtures and SQL:
+     reads, the SQL functions and the first change all derive the same trial. Rows already written stay valid; an
+     app that relied on them to freeze trials against a later `trial.days` change runs `pin-trials` before such a
+     change instead.
+
 ## 0.6.0
 
 - **Lifetime access without a lifetime plan** (#539): an app whose plans are all dated can still grant lifetime
