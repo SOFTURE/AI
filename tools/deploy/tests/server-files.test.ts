@@ -92,6 +92,7 @@ if [ "$1" = "compose" ] && [[ " $* " == *" exec "* ]]; then
       exit 1
       ;;
     *" ls ops "*) for script in \${OPS_SCRIPTS:-grant-access set-password}; do echo "$script.mjs"; done; exit 0 ;;
+    *" pg_restore "*) cat > "$EXEC_STDIN.restore"; exit 0 ;;
   esac
   cat > "$EXEC_STDIN"
   echo "exec: done"
@@ -119,6 +120,12 @@ if [ "$1" = "-l" ]; then
 fi
 if [ "$1" = "-" ]; then cat > "$CRONTAB_FILE"; exit 0; fi
 exit 2
+`;
+
+// verify-backup runs on Sunday (\`date +%u\` is 7); WEEKDAY sets the day, Wednesday unless a test names one.
+const STUB_DATE = `#!/usr/bin/env bash
+if [ "$*" = "+%u" ]; then echo "\${WEEKDAY:-3}"; exit 0; fi
+exec /bin/date "$@"
 `;
 
 // flock is not on every developer machine (macOS); the lock itself is the kernel's, not this script's.
@@ -253,6 +260,7 @@ beforeEach(() => {
   write(join(stubBin, "npx"), STUB_NPX, 0o755);
   write(join(stubBin, "crontab"), STUB_CRONTAB, 0o755);
   write(join(stubBin, "flock"), STUB_FLOCK, 0o755);
+  write(join(stubBin, "date"), STUB_DATE, 0o755);
 });
 
 afterEach(() => {
@@ -1076,7 +1084,7 @@ describe("deploy.sh maintain", () => {
     const result = runServer("maintain", "");
     expect(result.status).toBe(0);
     expect(result.stdout).toBe(
-      `step|settings|ok\nbackup: wrote ${server}/backups/db-20261006-120000.dump (2048 bytes)\nstep|backup|ok|db-20261006-120000.dump\nstep|images|ok|removed 0\nresult|ok\n`,
+      `step|settings|ok\nbackup: wrote ${server}/backups/db-20261006-120000.dump (2048 bytes)\nstep|backup|ok|db-20261006-120000.dump\nstep|verify-backup|ok|skipped\nstep|images|ok|removed 0\nresult|ok\n`,
     );
     expect(readFileSync(npxLog, "utf8")).toMatch(
       new RegExp(`--yes @softure-ai/deploy@9\\.9\\.9 backup --dir=${server}/backups --prefix=db --keep=7 --max-age-days=30\n$`),
@@ -1087,6 +1095,148 @@ describe("deploy.sh maintain", () => {
     const result = runServer("maintain", "");
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("result|failed|env|nothing is deployed here yet.\n");
+  });
+});
+
+describe("deploy.sh maintain test-restores its backup (issue #561)", () => {
+  const COMPOSE = "compose --env-file .env.prod --file docker-compose.yml";
+  const DUMP = "db-20261006-120000.dump";
+  const TABLES = "users,billing.subscriptions";
+
+  function deployWithDatabase(options: { envProd?: string; tables?: string[]; database?: Record<string, unknown> } = {}): void {
+    writeCheckout({
+      facts: { ...NO_DATABASE, hasDatabase: true },
+      tables: options.tables ?? ["users", "billing.subscriptions"],
+      envProd: options.envProd ?? "POSTGRES_PASSWORD='pw'\n",
+    });
+    if (options.database !== undefined) {
+      const path = join(checkout, "deploy.json");
+      const config = JSON.parse(readFileSync(path, "utf8")) as { database?: object };
+      config.database = { ...config.database, ...options.database };
+      writeFileSync(path, JSON.stringify(config));
+    }
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    // The stub CLI prints the backup line without writing the dump; the server has it as a real backup would.
+    write(join(server, "backups", DUMP), "PGDMP-backup");
+    rmSync(dockerLog, { force: true });
+    rmSync(npxLog, { force: true });
+  }
+
+  function readNpxCalls(): string[] {
+    return readFileSync(npxLog, "utf8").trim().split("\n").map((line) => line.replace(/^--yes @softure-ai\/deploy@9\.9\.9 /, ""));
+  }
+
+  function readVerifyCalls(): string[] {
+    return readDockerLog().filter((line) => /softure_verify_backup|pg_restore/.test(line));
+  }
+
+  function lastLine(result: BashResult): string {
+    return result.stdout.trimEnd().split("\n").at(-1) ?? "";
+  }
+
+  it("counts before the dump, restores it into a throwaway database, compares and drops it on Sunday", () => {
+    deployWithDatabase();
+    const result = runServer("maintain", "", { WEEKDAY: "7" });
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toEqual([
+      "step|settings|ok",
+      `step|backup|ok|${DUMP}`,
+      `step|verify-backup|ok|${DUMP}`,
+      "step|images|ok|removed 0",
+    ]);
+    expect(lastLine(result)).toBe("result|ok");
+    const calls = readNpxCalls().filter((call) => !call.startsWith("server-settings"));
+    const work = /--out=(\S+)\/counts-at-dump\.json/.exec(calls[0] ?? "")?.[1] ?? "";
+    expect(calls).toEqual([
+      `row-counts --tables=${TABLES} --out=${work}/counts-at-dump.json`,
+      `backup --dir=${server}/backups --prefix=db --keep=7 --max-age-days=30`,
+      `row-counts --print-query --tables=${TABLES}`,
+      `row-counts --stdin --tables=${TABLES} --compare=${work}/counts-at-dump.json`,
+    ]);
+    const psql = `${COMPOSE} exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -At -U postgres`;
+    const verify = readVerifyCalls();
+    expect(verify.slice(0, 3)).toEqual([
+      `${psql} -d postgres -c DROP DATABASE IF EXISTS softure_verify_backup`,
+      `${psql} -d postgres -c CREATE DATABASE softure_verify_backup TEMPLATE template0`,
+      `${COMPOSE} exec -T postgres pg_restore --exit-on-error --no-password -U postgres -d softure_verify_backup`,
+    ]);
+    expect(verify[3]).toMatch(new RegExp(`^${psql} -d softure_verify_backup -c SELECT `));
+    expect(verify.slice(4)).toEqual([`${psql} -d postgres -c DROP DATABASE IF EXISTS softure_verify_backup`]);
+    expect(readFileSync(join(root, "exec-stdin.restore"), "utf8")).toBe("PGDMP-backup");
+  });
+
+  it("skips the restore on other days and with never, and restores every day with daily", () => {
+    deployWithDatabase();
+    const weekday = runServer("maintain", "");
+    expect(weekday.status).toBe(0);
+    expect(readLines(weekday.stdout, "step")).toContain("step|verify-backup|ok|skipped");
+    expect(readVerifyCalls()).toEqual([]);
+    expect(readNpxCalls().filter((call) => call.startsWith("row-counts"))).toEqual([]);
+
+    deployWithDatabase({ database: { verifyBackup: "never" } });
+    expect(readLines(runServer("maintain", "", { WEEKDAY: "7" }).stdout, "step")).toContain("step|verify-backup|ok|skipped");
+    expect(readVerifyCalls()).toEqual([]);
+
+    deployWithDatabase({ database: { verifyBackup: "daily" } });
+    expect(readLines(runServer("maintain", "").stdout, "step")).toContain(`step|verify-backup|ok|${DUMP}`);
+    expect(readVerifyCalls()).toHaveLength(5);
+  });
+
+  it("fails maintain when the dump does not restore, and still drops the throwaway database", () => {
+    deployWithDatabase();
+    const result = runServer("maintain", "", { WEEKDAY: "7", FAIL_DOCKER_ON: "pg_restore" });
+    expect(result.status).toBe(1);
+    expect(lastLine(result)).toBe(`result|failed|verify-backup|${DUMP} does not restore; check the backups in ${server}/backups.`);
+    expect(readVerifyCalls().at(-1)).toBe(
+      `${COMPOSE} exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -At -U postgres -d postgres -c DROP DATABASE IF EXISTS softure_verify_backup`,
+    );
+  });
+
+  it("fails maintain when the restored dump holds fewer rows than before the dump", () => {
+    deployWithDatabase();
+    const result = runServer("maintain", "", { WEEKDAY: "7", FAIL_NPX_ON: "--compare=" });
+    expect(result.status).toBe(1);
+    expect(lastLine(result)).toBe(`result|failed|verify-backup|the restored ${DUMP} holds fewer rows than the live database had before the dump.`);
+    expect(readVerifyCalls().at(-1)).toMatch(/-d postgres -c DROP DATABASE IF EXISTS softure_verify_backup$/);
+  });
+
+  it("still backs up when the count before the dump fails, then fails the verify step", () => {
+    deployWithDatabase();
+    const result = runServer("maintain", "", { WEEKDAY: "7", FAIL_NPX_ON: "--out=" });
+    expect(result.status).toBe(1);
+    expect(readLines(result.stdout, "step")).toContain(`step|backup|ok|${DUMP}`);
+    expect(lastLine(result)).toBe(`result|failed|verify-backup|counting the rows before the backup failed; ${DUMP} was not restored.`);
+    expect(readVerifyCalls()).toEqual([]);
+  });
+
+  it("leaves excluded tables out of the counts and works through the postgres service with compose-exec", () => {
+    deployWithDatabase({
+      envProd: "POSTGRES_USER='appuser'\nPOSTGRES_DB='app_db'\n",
+      database: { access: "compose-exec", excludeTableData: ["billing.subscriptions"] },
+    });
+    const result = runServer("maintain", "", { WEEKDAY: "7" });
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toContain(`step|verify-backup|ok|${DUMP}`);
+    const calls = readNpxCalls().filter((call) => call.startsWith("row-counts"));
+    expect(calls.map((call) => call.replace(/=\S+\/counts-at-dump\.json/, "=<work>/counts-at-dump.json"))).toEqual([
+      "row-counts --print-query --tables=users",
+      "row-counts --stdin --tables=users --out=<work>/counts-at-dump.json",
+      "row-counts --print-query --tables=users",
+      "row-counts --stdin --tables=users --compare=<work>/counts-at-dump.json",
+    ]);
+    const docker = readDockerLog();
+    expect(docker.some((line) => line.startsWith(`${COMPOSE} exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -At -U appuser -d app_db -c SELECT `))).toBe(true);
+    expect(readVerifyCalls()).toContain(`${COMPOSE} exec -T postgres pg_restore --exit-on-error --no-password -U appuser -d softure_verify_backup`);
+  });
+
+  it("restores without counting when deploy.json lists no tables", () => {
+    deployWithDatabase({ tables: [] });
+    const result = runServer("maintain", "", { WEEKDAY: "7" });
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toContain(`step|verify-backup|ok|${DUMP}`);
+    expect(readNpxCalls().filter((call) => call.startsWith("row-counts"))).toEqual([]);
+    expect(readVerifyCalls()).toHaveLength(4);
   });
 });
 
