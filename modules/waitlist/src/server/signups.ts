@@ -139,8 +139,8 @@ function checkScopes(ctx: WaitlistContext, requested: readonly string[], placeme
 }
 
 /**
- * Signs `email` up for the checked scopes: counts `waitlist` per client, checks the form, counts
- * `waitlist-email` per address, then, in one transaction, applies the request (`joined`) or, with
+ * Signs `email` up for the checked scopes: counts `waitlist` per client, checks the form (a missing
+ * required scope is refused before the address is read), then the address, counts `waitlist-email` per address, then, in one transaction, applies the request (`joined`) or, with
  * double opt-in, stores it with a new link that replaces any earlier one (`confirmation_required`).
  * Without double opt-in, an address on mailing's suppression list gets `suppressed` and nothing is
  * written. The result does not tell a new address from a known one to the client; `isNew` is for the caller.
@@ -151,10 +151,11 @@ export async function joinWaitlist(ctx: WaitlistContext, input: JoinWaitlistInpu
   const byClient = await consumeRateLimit(ctx, { bucket: BUCKETS.client, key: input.clientKey });
   if (!byClient.ok) return byClient;
 
-  const email = normalizeEmail(input.email);
-  if (email === null) return err("waitlist.email_invalid");
+  // The form comes before the address: a missing required consent is refused without reading it.
   const scopes = checkScopes(ctx, input.scopes, input.placement);
   if (!scopes.ok) return scopes;
+  const email = normalizeEmail(input.email);
+  if (email === null) return err("waitlist.email_invalid");
   const channel = input.channel ?? null;
   if (channel !== null && !isChannel(channel)) return err("waitlist.form_invalid");
   const byEmail = await consumeRateLimit(ctx, { bucket: BUCKETS.email, key: subjectKey(`email:${email}`) });

@@ -27,5 +27,5 @@ migration for an app that kept its own action.
 
 ## Progress
 
-- [ ] Phase 1: consent gate first
+- [x] Phase 1: consent gate first (3 tests written first; the order test was red before the change; all 181 waitlist tests pass)
 - [ ] Phase 2: docs
