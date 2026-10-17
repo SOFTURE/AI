@@ -23,7 +23,7 @@ import { submitPageUnsubscribe } from "./page-submit.js";
 const NO_STORE = { "cache-control": "no-store" };
 
 /**
- * Records the opt-out of the link in the URL. The body (`List-Unsubscribe=One-Click`) is not read:
+ * Records the opt-out of the link in the URL. Its body (`List-Unsubscribe=One-Click`) is not read:
  * anyone can send it, the signature is the proof. 200 once recorded (also again), 400 for a link
  * that does not verify (200 with `mailing({ oneClickInvalidLinkStatus: 200 })`, so the answer never
  * tells whether a token is live), 500 when the database fails: the client may retry, and 200 would

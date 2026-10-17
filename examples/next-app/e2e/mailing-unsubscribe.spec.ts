@@ -122,8 +122,12 @@ test("the footer link opens a page that unsubscribes only when its button is pre
   const visitor = await browser.newContext({ extraHTTPHeaders: clientAddressHeaders() });
   try {
     const visit = await visitor.newPage();
+    const requests: string[] = [];
+    visit.on("request", (request) => requests.push(`${request.method()} ${request.url()}`));
     await visit.goto(pageLink);
     await expect(visit.getByRole("heading", { name: unsubscribeCopy.title })).toBeVisible();
+    // Once loaded, the signed token leaves the address bar (and with it the history entry).
+    await expect(visit).toHaveURL((url) => url.pathname === "/unsubscribe" && url.search === "");
 
     // Opening the page changed nothing: a newsletter still goes out.
     await sendTestMail(page, { isNewsletter: true });
@@ -133,6 +137,11 @@ test("the footer link opens a page that unsubscribes only when its button is pre
     await visit.getByRole("button", { name: unsubscribeCopy.submit }).click();
     await expect(visit.getByRole("heading", { name: unsubscribeCopy.doneTitle })).toBeVisible();
     expect(new URL(visit.url()).search).toBe("?status=done");
+    // The confirm POST went to the bare route, and no request after the opening GET carried the token.
+    expect(requests).toContain(`POST ${new URL("/api/mailing/unsubscribe", pageLink).href}`);
+    const signature = new URL(pageLink).searchParams.get("t") ?? "";
+    expect(signature).not.toBe("");
+    expect(requests.slice(1).filter((request) => request.includes(signature))).toEqual([]);
   } finally {
     await visitor.close();
   }

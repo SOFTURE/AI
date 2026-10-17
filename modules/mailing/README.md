@@ -583,6 +583,16 @@ function AppShell({ title, lead, children }: UnsubscribeLayoutProps) {
 export default createUnsubscribePage({ Layout: AppShell, classNames: { submit: "w-full" } });
 ```
 
+**The token stays out of request lines.** The page's form posts the link in hidden fields to the
+route's bare path (`routes.oneClick`), which records it as a `page` opt-out and answers with a 303
+to the page's outcome (`?status=done`, `invalid` or `failed`). The route tells the two callers
+apart by where the link is: in the URL, a mail client's one-click POST; only in a URL-encoded body
+(at most 8 KiB), the page's form. With JavaScript the page also takes the link out of the address
+bar once loaded (`history.replaceState`), so it does not stay in the tab's history. The page sets
+`<meta name="referrer" content="same-origin">`, so no other site sees it in a `Referer`.
+`unsubscribeAction` stays exported for an app's own form, but a server action posts to the page's
+URL, query included: prefer posting to the route as the package page does.
+
 Both must stay public: keep them out of the auth guard's `protect` list. The route has no per-IP
 rate limit on purpose: mail providers post from a few shared addresses that act for millions of
 people, so a bucket would refuse real unsubscribes; the signature is checked before any database
@@ -651,7 +661,8 @@ None.
 
 ## 8. Appearance
 
-The unsubscribe page is a `Card` from `@softure-ai/ui` with a plain form (no client JavaScript),
+The unsubscribe page is a `Card` from `@softure-ai/ui` with a plain form (it works without client
+JavaScript; one small client component only cleans the address bar),
 styled by the app's tokens. `createUnsubscribePage({ classNames, unstyled, Layout })` adds the app's
 classes or its own layout (section 4).
 
