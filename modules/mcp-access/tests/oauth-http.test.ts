@@ -268,6 +268,18 @@ describe("the OAuth HTTP layer", () => {
       });
     });
 
+    it.each([
+      ["no scope, while the app allows writes", { scope: null }, true, true],
+      ["a blank scope, while the app allows writes", { scope: " " }, true, true],
+      ["no scope, while the app does not allow writes", { scope: null }, false, false],
+      ["only mcp:read", { scope: "mcp:read" }, true, false],
+    ])("reads %s as the default scope (#553)", async (_case, change, allowWrites, isWriteRequested) => {
+      const ctx = { ...test.ctx, config: createConfig({ ...OAUTH_OPTIONS, allowWrites, ...(allowWrites ? {} : { tools: [] }) }) };
+      const { body } = await register();
+      const outcome = await validateAuthorizationRequest(ctx, authorizationParams(body.client_id ?? "", change));
+      expect(outcome.kind === "valid" && outcome.request.isWriteRequested).toBe(isWriteRequested);
+    });
+
     it("shows, never redirects, an unknown client or a redirect URI the client did not register", async () => {
       const { body } = await register();
       expect(await validateAuthorizationRequest(test.ctx, authorizationParams("nobody"))).toEqual({ kind: "show-error", reason: "unknown_client" });
