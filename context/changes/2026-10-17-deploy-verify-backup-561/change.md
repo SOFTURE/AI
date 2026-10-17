@@ -1,12 +1,13 @@
 ---
 change_id: deploy-verify-backup-561
 title: "deploy: maintain test-restores the backup (issue #561)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 561
 branch: claude/project-thread-jj6e89
 created: 2026-10-17
 updated: 2026-10-17
+archived_at: 2026-10-17
 ---
 
 ## Intent

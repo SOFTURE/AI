@@ -1,6 +1,6 @@
 ---
 change_id: deploy-verify-backup-561
-status: in_progress
+status: archived
 ---
 
 # Plan: verify-backup in maintain (issue #561)
@@ -36,6 +36,13 @@ migration steps.
 
 ## Progress
 
-- [ ] Phase 1: settings
-- [ ] Phase 2: the step in deploy.sh
-- [ ] Phase 3: docs
+- [x] Phase 1: settings (0b3081e)
+- [x] Phase 2: the step in deploy.sh (3d13b8e)
+- [x] Phase 3: docs (6d0f493)
+
+Phase 1 tests were red before `planServerSettings` and the schema changed; the eight new or changed `deploy.sh`
+tests were red against the old template. Checked by hand against a real Postgres 16: a dump restores into a
+`template0` database with its owners and grants; a dump cut short inside its data or with a corrupted block fails
+`pg_restore --exit-on-error`; a grant to a role the server lacks fails it; a table in `--exclude-table-data`
+restores empty, and `row-counts --stdin --compare` on the restored snapshot fails a lower count. Gates on the branch:
+typecheck, lint, the deploy package's and the repository's tests.
