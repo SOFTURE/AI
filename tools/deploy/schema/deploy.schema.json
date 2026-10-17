@@ -55,6 +55,15 @@
             "type": "string",
             "pattern": "^[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)?$"
           }
+        },
+        "verifyBackup": {
+          "description": "How often deploy.sh's maintain run test-restores its new backup into a throwaway database and compares the rowCountTables (less excludeTableData) with the live counts: weekly (default, the Sunday run), daily or never.",
+          "type": "string",
+          "enum": [
+            "weekly",
+            "daily",
+            "never"
+          ]
         }
       },
       "additionalProperties": false,

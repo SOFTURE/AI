@@ -359,7 +359,8 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   stays out of the repository. Pass the server's IP, not a name that resolves through the CDN.
 - The schema is in [`schema/deploy.schema.json`](schema/deploy.schema.json) (`npm run schema -w @softure-ai/deploy`
   after changing `src/verify/schema.ts`). The route list is the app's; the package holds only the engine.
-- The same file holds `database.rowCountTables`, the tables `row-counts` compares (see above).
+- The same file holds `database.rowCountTables`, the tables `row-counts` compares (see above), and
+  `database.verifyBackup`, how often `maintain` test-restores its backup (`weekly`, `daily` or `never`).
 
 ```text
 Result  Status  Route     Detail
@@ -836,10 +837,20 @@ else, or more than one line, exits 2; `maintain` also takes a hook's name, below
   5. with a database: `row-counts --compare`;
   6. records the tag in `.deployed-tag`, writes its crontab lines (below) and runs the `post-up` hooks.
 - **`maintain`**, the daily cron's command: with a database a `backup` with the same retention, so no dump outlives
-  30 days between releases either; then removes this app's image tags whose release folder is gone (the newest 5
+  30 days between releases either, and its test restore (`verify-backup`, below); then removes this app's image tags whose release folder is gone (the newest 5
   stay for a quick rollback; Docker refuses one a container uses) and the host's dangling images; then the `maintain`
   hooks without a schedule. **`maintain <hook>`** runs only that scheduled hook (its own crontab line); a name
   `deploy.json` does not schedule fails.
+- **`verify-backup`**, a step of `maintain` with a database (issue #561): on the Sunday run by default, maintain counts
+  `database.rowCountTables` less `database.excludeTableData` (their rows are not in the dump, so they would restore
+  empty) right before the backup, restores the new dump with `pg_restore --exit-on-error` into the throwaway database
+  `softure_verify_backup` of the same Postgres (in the `postgres` service, as `POSTGRES_USER`, else `postgres`, in
+  both access modes, so the dump meets the server's roles and extensions), compares the restored counts with
+  `row-counts --compare` (none may be lower) and drops the database again, also after a failure. A dump that does
+  not restore (cut short, corrupted, a role or extension the server lacks) or holds fewer rows fails the run:
+  `result|failed|verify-backup|<message>`; on success `step|verify-backup|ok|<dump file>`, on other days
+  `step|verify-backup|ok|skipped`. `database.verifyBackup` in `deploy.json` sets how often: `"weekly"` (default),
+  `"daily"` or `"never"`. The restore needs free disk for a second copy of the database while it runs.
 - **`run <script> [--key[=value] …]`** and **`report [--key=value …]`**, with a database: an ops script of the live
   image, or a read-only SQL file on stdin; see [Ops scripts and reports on the server](#ops-scripts-and-reports-on-the-server).
 
@@ -890,7 +901,7 @@ previous tag, which the failure message names.
 
 **Output.** One line per finished step on stdout, `step|<name>|ok[|<detail>]` (`archive`, `files`, `pull`,
 `settings`, `postgres`, `backup`, `schema`, `row-counts-before`, `switch`, `traefik`, `row-counts-after`, `tag`, `cron`
-and each hook's name; `restore` after a restore; `backup`, `images` and the hooks for `maintain`), and every `deploy` or `maintain` run, refused commands included,
+and each hook's name; `restore` after a restore; `backup`, `verify-backup`, `images` and the hooks for `maintain`), and every `deploy` or `maintain` run, refused commands included,
 ends with `result|ok` or `result|failed|<step>|<message>`. Messages for people start with `deploy:`.
 
 **Cron.** Each release rewrites the deploy user's crontab lines marked `# softure-deploy:<name>`: `maintain`

@@ -311,7 +311,7 @@ describe.runIf(ADMIN_URL !== undefined)("softure-deploy database commands on Pos
       out = [];
       expect(await runCli(["row-counts", "--tables=users", "--compare=before.json"], io)).toBe(1);
       expect(out.join("")).toBe("row-counts: users 2 -> 1 (-1)\n");
-      expect(err.join("")).toBe("row-counts: the deploy lost rows or tables: users (fewer rows than before).\n");
+      expect(err.join("")).toBe("row-counts: lost rows or tables: users (fewer rows than before).\n");
     });
 
     it("counts the tables listed in deploy.json when --tables is not given", async () => {
@@ -366,7 +366,7 @@ describe.runIf(ADMIN_URL !== undefined)("softure-deploy database commands on Pos
       expect(out.join("")).toBe(
         "row-counts: users 2 -> 1 (-1)\nrow-counts: billing.subscriptions 0 -> 0 (0)\nrow-counts: notes absent -> 0 (created by this release)\n",
       );
-      expect(err.join("")).toBe("row-counts: the deploy lost rows or tables: users (fewer rows than before).\n");
+      expect(err.join("")).toBe("row-counts: lost rows or tables: users (fewer rows than before).\n");
     });
 
     it("fails when a table counted before is absent after the deploy", async () => {
@@ -378,7 +378,7 @@ describe.runIf(ADMIN_URL !== undefined)("softure-deploy database commands on Pos
       out = [];
       expect(await runCli(["row-counts", "--tables=users", "--compare=before.json"], io)).toBe(1);
       expect(out.join("")).toBe("row-counts: users 2 -> absent\n");
-      expect(err.join("")).toBe("row-counts: the deploy lost rows or tables: users (absent after the deploy).\n");
+      expect(err.join("")).toBe("row-counts: lost rows or tables: users (absent after the deploy).\n");
     });
   });
 });
