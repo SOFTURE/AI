@@ -1,12 +1,13 @@
 ---
 change_id: waitlist-consent-gate-557
 title: "waitlist: a missing required consent is refused before the address is read (issue #557)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 557
 branch: claude/project-thread-juqf2n
 created: 2026-10-17
 updated: 2026-10-17
+archived_at: 2026-10-17
 ---
 
 ## Intent

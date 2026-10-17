@@ -1,6 +1,6 @@
 ---
 change_id: waitlist-consent-gate-557
-status: in_progress
+status: archived
 ---
 
 # Plan: waitlist consent checked before the address (issue #557)
