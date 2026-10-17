@@ -872,7 +872,7 @@ fills them from the config (and `as_of` from the clock), so nothing is copied:
 import { getEntitlementStatesSql } from "@softure-ai/billing/server";
 import { sql } from "drizzle-orm";
 
-// Accounts whose trial ended, that never had paid access and are not lifetime: an offer mail.
+// Accounts read-only after their trial, with no paid access on record: an offer mail.
 const states = getEntitlementStatesSql(ctx);
 const { rows } = await ctx.db.execute(sql`
   select u.id, u.email from auth.users u
