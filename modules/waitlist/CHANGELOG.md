@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
+## Unreleased
+
+- A form without a required consent is refused before its address is read (#557): `joinWaitlist` and
+  `joinWaitlistAction` now check the scopes in front of the address, so a missing required scope answers
+  `waitlist.consent_required` (`field: "consent"`) even when the address is malformed. As before, the refusal spends
+  one attempt of the client's `waitlist` bucket and none of the address's `waitlist-email` bucket, and it writes,
+  looks up and mails nothing. Declaring the consent is the existing `waitlist({ scopes: [{ id, required: true, label
+  }] })`; `WaitlistForm` renders it as a required checkbox, with a `ReactNode` label through `<Waitlist
+  consentLabels={{ [id]: <>…</> }} />` or `WaitlistFormScope.label`. Migrate (optional): an app that kept its own
+  join action only to gate the consent declares that consent as a required scope and switches to `<Waitlist />` or
+  `joinWaitlistAction`, then removes its own action and its own rate limit call. Apps without a required scope: an
+  empty form with a malformed address now answers `waitlist.consent_required` instead of `waitlist.email_invalid`;
+  nothing else changes.
+
 ## 0.3.0
 
 - The double opt-in confirmation mail can leave from a background job with retry (#494):

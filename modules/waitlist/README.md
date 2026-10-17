@@ -86,7 +86,7 @@ waitlist({
 
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `scopes` | `{ id, required?, document?, label: { en, <locale>? } }[]`, 1 to 16 | required | The checkboxes, in order. `id` is kebab-case (at most 64 characters) and becomes the consent purpose in `privacy.consents`. `required` scopes must be checked; without any required scope, at least one must be. `document` names a document of `privacy({ documents })`, whose version is recorded with the consent. |
+| `scopes` | `{ id, required?, document?, label: { en, <locale>? } }[]`, 1 to 16 | required | The checkboxes, in order. `id` is kebab-case (at most 64 characters) and becomes the consent purpose in `privacy.consents`. `required` scopes must be checked; without any required scope, at least one must be. A form missing one is refused with `waitlist.consent_required` before its address is read: the refusal costs one attempt of the client's `waitlist` bucket and none of the address's, and writes, looks up and sends nothing. `WaitlistForm` renders a required scope as a required checkbox whose label can be markup (`consentLabels`). `document` names a document of `privacy({ documents })`, whose version is recorded with the consent. |
 | `placements` | kebab-case `string[]` | `["default"]` | Where the app embeds the form. Each sign-up stores the placement of its first form. |
 | `welcomeMail` | `boolean` | `true` | Sends the welcome mail (with double opt-in, after the confirmation). Off, the app sends its own (or none). |
 | `doubleOptIn` | `boolean` or `{ expiresInHours? }` | `false` | A sign-up counts only after the link in a confirmation mail is used. `true` keeps the link working for 168 hours (7 days); `expiresInHours` sets 1 to 720. Section 10. |
