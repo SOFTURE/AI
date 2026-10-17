@@ -1,6 +1,6 @@
 ---
 change_id: deploy-traefik-static-trusted-ips-560
-status: in_progress
+status: archived
 ---
 
 # Plan: cloudflare-ranges reads trustedIPs from a static config file (issue #560)

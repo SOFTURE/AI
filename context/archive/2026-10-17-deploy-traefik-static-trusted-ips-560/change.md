@@ -1,12 +1,13 @@
 ---
 change_id: deploy-traefik-static-trusted-ips-560
 title: "deploy: the cloudflare-ranges hook reads trustedIPs from Traefik's static config file too (issue #560)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 560
 branch: claude/project-thread-ow7rdd
 created: 2026-10-17
 updated: 2026-10-17
+archived_at: 2026-10-17
 ---
 
 ## Intent
