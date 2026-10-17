@@ -206,6 +206,29 @@ describe("the unsubscribe adapter", () => {
       expect(await listSuppressions(test.database)).toEqual([]);
     });
 
+    it("posts the form to the one-click route's bare path, so the token is never in a request line", async () => {
+      const html = await renderPage(QUERY);
+      expect(html).toMatch(/<form [^>]*action="\/api\/mailing\/unsubscribe" method="post">/);
+      expect(html).not.toMatch(/action="[^"]*\?/);
+    });
+
+    it("strips the link's parameters from the address bar after load", async () => {
+      const strip = vi.fn();
+      vi.stubGlobal("location", new URL(`https://app.example.com/unsubscribe?${QUERY}&utm=x#top`));
+      vi.stubGlobal("history", { state: { __NA: true }, replaceState: strip });
+      try {
+        const { stripQueryParams } = await import("../src/next/strip-link-query.js");
+        stripQueryParams(["r", "t"]);
+        expect(strip).toHaveBeenCalledWith({ __NA: true }, "", "/unsubscribe?utm=x#top");
+        strip.mockClear();
+        vi.stubGlobal("location", new URL("https://app.example.com/unsubscribe?status=done"));
+        stripQueryParams(["r", "t"]);
+        expect(strip).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
     it("shows the outcome after a submit", async () => {
       expect(await renderPage("status=done")).toContain("You are unsubscribed");
       expect(await renderPage("status=invalid")).toContain("This link does not work");

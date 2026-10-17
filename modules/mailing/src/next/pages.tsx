@@ -1,17 +1,20 @@
 // The unsubscribe page, ready to mount with one line:
 // `export { UnsubscribePage as default } from "@softure-ai/mailing/next"`.
-// A server component without client JavaScript: the button is a plain form posting a server
-// action, so it works in any browser a mail client opens. Opening the page changes nothing (mail
-// scanners open links too) and does not check the signature: the submit does. It takes the
+// A server component: the button is a plain form posting the link, in hidden fields, to the
+// one-click route's bare path (route.ts), so it works without JavaScript in any browser a mail
+// client opens and the signed token never sits in a POST's request line. With JavaScript a small
+// client component also takes the link out of the address bar. Opening the page changes nothing
+// (mail scanners open links too) and does not check the signature: the submit does. It takes the
 // module's signed links and, with `mailing({ legacyUnsubscribe })`, the app's older ones: mount it
 // at the old links' path too.
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { Button, Card, createSlotClassGetter, FormError, type ClassNames } from "@softure-ai/ui";
 import type { ComponentType, ReactNode } from "react";
+import { getMailingRoutes } from "../server/options.js";
 import { getUnsubscribeLinkParams, readUnsubscribeLink } from "../server/unsubscribe-link.js";
-import { unsubscribeAction } from "./actions.js";
 import { getMailingMessages } from "./messages.js";
 import { UNSUBSCRIBE_STATUS_PARAM } from "./params.js";
+import { StripLinkQuery } from "./strip-link-query.js";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -111,7 +114,8 @@ async function renderUnsubscribePage(searchParams: SearchParams | undefined, opt
   const submit = slot("submit");
   return (
     <UnsubscribeLayout title={messages.title} lead={messages.lead} slot={slot} options={options}>
-      <form action={unsubscribeAction} className={slot("form")}>
+      <StripLinkQuery names={Object.keys(linkParams)} />
+      <form action={getMailingRoutes(config).oneClick} method="post" className={slot("form")}>
         {Object.entries(linkParams).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
         ))}
