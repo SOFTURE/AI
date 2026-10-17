@@ -4,6 +4,31 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **`maintain` test-restores its backup (#561):** a new `verify-backup` step of the generated `deploy.sh`. On the
+  Sunday run by default it counts `database.rowCountTables` (less `excludeTableData`, whose rows the dump leaves out)
+  right before the backup, restores the new dump with `pg_restore --exit-on-error` into the throwaway database
+  `softure_verify_backup` of the same Postgres (as the `postgres` service's superuser, in both access modes), compares
+  the restored counts (none may be lower) and drops the database again. A dump that does not restore or holds fewer
+  rows fails the maintain run with `result|failed|verify-backup|<message>`. `deploy.json` takes
+  `database.verifyBackup`: `"weekly"` (default), `"daily"` or `"never"`. `server-settings` writes `verify-backup` and
+  `verify-tables` for the script; `verify-backup` is a built-in step name, so a hook can no longer take it.
+- `row-counts --compare` fails with `row-counts: lost rows or tables: …` (it said "the deploy lost rows or tables").
+- **Migration for an app with a database:** `deploy.sh` belongs to the app, so nothing changes until the app takes
+  the new script:
+  1. Bump `@softure-ai/deploy` to this version (the generated script pins the CLI it calls, and only this version's
+     `server-settings` writes the verify files).
+  2. Take the new `docker/server/deploy.sh`: `softure-deploy init --force` and keep the app's own edits, or copy from
+     this version's `templates/docker/server/deploy.sh.tmpl` the `VERIFY_DATABASE` constant, the `verify_*` variables,
+     the `drop_verify_database` line in `finish`, the two `verify_*` reads in `load_settings`, the functions from
+     `count_rows` to `verify_backup` (`count_rows` now takes `--config=…` or `--tables=…` first, so the two calls in
+     the deploy part change too) and the `backup`/`verify-backup` block of `maintain`.
+  3. Optional: set `database.verifyBackup` in `deploy.json` (`"daily"` to see it run on the next maintain, `"never"`
+     on a host without disk for a second copy of the database).
+  4. The next release installs the script; check the Sunday maintain in `journalctl -t <name>-maintain` for
+     `step|verify-backup|ok|<dump file>`.
+
 ## 0.4.1
 
 - **`init --edge=<network>` (#516):** for an app that runs as a second compose project next to another stack's
