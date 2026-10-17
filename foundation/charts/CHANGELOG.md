@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## Unreleased
+
+- `layoutFlags(flags, { gap, maxRows })` (issue #559): a server-safe layout that gives each flag a row so chips in one
+  row stay `gap` apart, hides and counts the flags beyond `maxRows`, and returns the same rows for the same input.
+  `FlagLayout`, `FlagLayoutInput`, `FlagLayoutOptions`, `FlagPlacement` and its two cases are exported.
+- `ChartFlag` takes `row` (moved down by its own height and `--sft-space-1` per row) and `title`.
+- `LineChart` takes `flagStack` (`widthOf` in plot percent, `gap`, `maxRows`; type `LineChartFlagStack`): colliding
+  chips take rows, and the flags that fit in none keep their guide and share one "+N" chip (`lineChart.moreFlags`).
+  Without it the chart renders as before.
+- Migration for an app with its own flag stacking: replace it with `layoutFlags` (pass `align: edgeAlign(x)` when the
+  chips are `ChartFlag`s placed by `xPercent`) and render each shown flag with `row={placement.row}`; draw the "+N"
+  marker from `hiddenCount`. On a `LineChart`, pass `flagStack` instead. An app that overrides the copy adds
+  `lineChart.moreFlags` to its translation (`{count}` is the number of hidden flags).
+
 ## 0.3.0
 
 - `EventAxis` takes `layout="rail"` (issue #508): milestones on one line, each joined to the previous one by a segment

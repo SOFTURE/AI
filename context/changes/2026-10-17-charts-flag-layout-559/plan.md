@@ -43,4 +43,4 @@ Files: `foundation/charts/src/svg/flag.tsx`, `foundation/charts/src/svg/line-cha
 
 - [x] Phase 1: layoutFlags (8 tests written first; the import failed before the helper existed)
 - [x] Phase 2: ChartFlag row and LineChart flagStack (7 tests written first, 6 red before the change; `--sft-chart-flag-row` registered as a local property in the token guard)
-- [ ] Phase 3: docs
+- [x] Phase 3: docs (README "Stacked flags", CHANGELOG `## Unreleased` with the migration)
