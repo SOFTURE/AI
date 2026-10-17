@@ -9,7 +9,7 @@ Input: change.md, research.md. Complexity: small (one option shape, one slot fun
 
 ## Phase 1: options and slots (TDD)
 
-Files: `modules/jobs/src/options.ts`, `modules/jobs/src/server/schedules.ts`, new `modules/jobs/src/server/zoned-time.ts`,
+Files: `modules/jobs/src/options.ts`, `modules/jobs/src/server/schedules.ts`, new `modules/jobs/src/zoned-time.ts`,
 `modules/jobs/tests/schedules.test.ts`, `modules/jobs/tests/module.test.ts` (option validation, if it holds those tests).
 
 1. Tests first:
@@ -33,5 +33,6 @@ Files: `modules/jobs/src/options.ts`, `modules/jobs/src/server/schedules.ts`, ne
 
 ## Progress
 
-- [ ] Phase 1: options and slots
-- [ ] Phase 2: docs
+- [x] Phase 1: options and slots (7ccfb84; `zoned-time.ts` moved to `src/` because the options schema validates the
+  zone at startup and `src/options.ts` must not import from `server/`)
+- [x] Phase 2: docs (README options table, Schedules, Limitations; CHANGELOG `## Unreleased` with the migration)
