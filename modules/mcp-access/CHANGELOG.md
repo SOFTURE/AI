@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## Unreleased
+## 0.2.3
 
 - OAuth clients now ask for writes (#553): while `allowWrites` is on, the endpoint's `401` challenge names
   `scope="mcp:read mcp:write"` (it named only `mcp:read`, and clients such as claude.ai request the challenge's scope,
