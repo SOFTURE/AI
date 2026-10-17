@@ -32,4 +32,4 @@ the migration for an adopting app (drop the 401 rewrite workaround, reconnect on
 
 - [x] Phase 1: challenge scope (tests for allowWrites on were red before the change, on and off, OAuth on and off)
 - [x] Phase 2: default scope (no and blank scope with allowWrites on were red before the change)
-- [ ] Phase 3: docs
+- [x] Phase 3: docs (README challenge and default scope, CHANGELOG `## Unreleased` with the migration)
