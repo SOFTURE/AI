@@ -29,4 +29,4 @@ and `import` both), `CHANGELOG.md` `## Unreleased` with the migration (drop the 
 ## Progress
 
 - [x] Phase 1: resolve through the react-server condition (4 tests written first; the CommonJS one was red before the change; tsx of a `.ts` file in a CommonJS package checked by hand)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (README stdio register line, CHANGELOG `## Unreleased` with the migration)
