@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
-## Unreleased
+## 0.2.3
 
 - `softure-mail test` sends a list-kind test mail without the app database (#573). With `database: null` it skips the
   suppression check (the recipient is always `testAddress`, the operator's own), sends the mail with the unsubscribe
