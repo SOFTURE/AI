@@ -1,6 +1,6 @@
 ---
 change_id: privacy-copy-drizzle-ledger-572
-status: in_progress
+status: archived
 ---
 
 # Plan: copyAccount compares the drizzle journal too (issue #572)
@@ -27,5 +27,5 @@ app can drop.
 
 ## Progress
 
-- [ ] Phase 1: drizzle ledgers in the check
-- [ ] Phase 2: docs
+- [x] Phase 1: drizzle ledgers in the check (8380f90; 2 tests, the refusal test red before the change; 15 of 15 copy tests pass)
+- [x] Phase 2: docs (a436dd8; README refusal list and "Same migrations", CHANGELOG `## Unreleased` with the migration)

@@ -1,12 +1,13 @@
 ---
 change_id: privacy-copy-drizzle-ledger-572
 title: "privacy: copyAccount's ledger check also compares the app's drizzle journal (issue #572)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 572
 branch: claude/project-thread-bz2ak2
 created: 2026-10-18
 updated: 2026-10-18
+archived_at: 2026-10-18
 ---
 
 ## Intent
