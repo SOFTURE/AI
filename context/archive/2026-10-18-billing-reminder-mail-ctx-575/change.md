@@ -1,12 +1,13 @@
 ---
 change_id: billing-reminder-mail-ctx-575
 title: "billing: buildMail gets the run's module context (issue #575)"
-status: open
+status: archived
 roadmap_item: null
 issue: 575
 branch: claude/project-thread-uqrltu
 created: 2026-10-18
 updated: 2026-10-18
+archived_at: 2026-10-18
 ---
 
 ## Intent

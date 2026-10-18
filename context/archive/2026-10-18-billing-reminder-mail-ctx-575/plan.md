@@ -1,6 +1,6 @@
 ---
 change_id: billing-reminder-mail-ctx-575
-status: open
+status: archived
 ---
 
 # Plan: buildMail gets the run's module context (issue #575)
@@ -25,5 +25,5 @@ for an app that wrapped the run in its own job handler.
 
 ## Progress
 
-- [ ] Phase 1: ctx on the template's context
-- [ ] Phase 2: docs
+- [x] Phase 1: ctx on the template's context (84f4dbe; the job test was red before the change: the template threw on `ctx`; 29 tests in the two files pass)
+- [x] Phase 2: docs (84f4dbe, committed with phase 1: README template context, CHANGELOG `## Unreleased` with the migration)
