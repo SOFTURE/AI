@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-server-only-cjs-571
-status: in_progress
+status: archived
 ---
 
 # Plan: stdio/register resolves server-only to a real file (issue #571)
@@ -28,5 +28,5 @@ and `import` both), `CHANGELOG.md` `## Unreleased` with the migration (drop the 
 
 ## Progress
 
-- [x] Phase 1: resolve through the react-server condition (4 tests written first; the CommonJS one was red before the change; tsx of a `.ts` file in a CommonJS package checked by hand)
-- [x] Phase 2: docs (README stdio register line, CHANGELOG `## Unreleased` with the migration)
+- [x] Phase 1: resolve through the react-server condition (4 tests written first; the CommonJS one was red before the change; tsx of a `.ts` file in a CommonJS package checked by hand), c6c015d
+- [x] Phase 2: docs (README stdio register line, CHANGELOG `## Unreleased` with the migration), 06a8817

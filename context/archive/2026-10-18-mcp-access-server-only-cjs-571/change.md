@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-server-only-cjs-571
 title: "mcp-access: stdio/register resolves server-only to a real file, so CommonJS require works (issue #571)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 571
 branch: claude/project-thread-nsr8bn
 created: 2026-10-18
 updated: 2026-10-18
+archived_at: 2026-10-18
 ---
 
 ## Intent
