@@ -32,5 +32,5 @@ for an app that kept its own preview-then-send path.
 
 ## Progress
 
-- [x] Phase 1: list-kind test mail without the database (4 tests written first; 621 mailing tests pass)
-- [ ] Phase 2: docs
+- [x] Phase 1: list-kind test mail without the database (4 tests written first; 621 mailing tests pass; 2f5372e)
+- [x] Phase 2: docs (README Test send, CHANGELOG `## Unreleased` with the migration, help text)

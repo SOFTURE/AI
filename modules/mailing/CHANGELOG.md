@@ -4,6 +4,24 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## Unreleased
+
+- `softure-mail test` sends a list-kind test mail without the app database (#573). With `database: null` it skips the
+  suppression check (the recipient is always `testAddress`, the operator's own), sends the mail with the unsubscribe
+  footer and the RFC 8058 headers, and ends its output line with "no database, so the suppression list was not
+  checked". Without `MAILING_UNSUBSCRIBE_SECRET` it is still refused; with a database nothing changes (an
+  unsubscribed test address answers `suppressed`).
+- The bin loads the config with the database optional for `test` and `dns`: an unset or empty database URL loads as
+  `database: null` instead of refusing the config. `campaign` and `import` still need it.
+- Migrate an app:
+  1. An app that kept its own path for a test send without the database (`previewMail` with the list footer, then
+     `sendMail` as transactional mail carrying it): delete it and run `softure-mail test <content-file>` (or
+     `--kind <list kind>`) with the provider key, `MAILING_UNSUBSCRIBE_SECRET` and `testAddress`, without
+     `DATABASE_URL`.
+  2. From an app script (`runMailCli`), load the config inside `withDatabaseOptional` from `@softure-ai/core`, e.g.
+     `const { default: config } = await withDatabaseOptional(() => import("../softure.config"));`, so a missing URL
+     gives `database: null`.
+
 ## 0.2.2
 
 - The unsubscribe page no longer posts to the URL that carries the signed token (#556). Its form sends the link in

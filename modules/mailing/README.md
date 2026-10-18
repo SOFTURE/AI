@@ -434,7 +434,12 @@ It sends to `mailing({ testAddress })` and to no one else; without that option i
 campaign file is sent outside the ledger (nothing is registered or recorded), so it can be sent
 again after every edit. `--kind` (an alias of `kindAliases` too) overrides the file's kind; list
 mail opens the database for the suppression check, so an unsubscribed test address answers
-`suppressed`. The output masks the address and names the provider's failure with its HTTP status.
+`suppressed`. Without a database (`database: null`: a CI job or an operator machine with only the
+provider key, `MAILING_UNSUBSCRIBE_SECRET` and the test address) the check is skipped, the list mail
+goes out with its footer and RFC 8058 headers, and the output says so; without the secret it is still
+refused. The bin loads the config with the database optional for `test` (and `dns`), so an unset or
+empty `DATABASE_URL` reads as no database; an app script that loads its config itself wraps that
+import in `withDatabaseOptional` from `@softure-ai/core`. The output masks the address and names the provider's failure with its HTTP status.
 `--preview` prints what `previewMail` returns, like the campaign's dry run. The preview reads the
 secret from `runMailCli({ env })`, a real send from `process.env`, as every send does.
 
