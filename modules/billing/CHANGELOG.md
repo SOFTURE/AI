@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- **The reminder template gets the run's context** (#575): `AccessReminderMailContext` gains `ctx`, the module
+  context `sendAccessReminders(ctx, ...)` was called with. Under `createBillingJobHandlers({ reminders })` that is the
+  job's own context, so `buildMail` can query with the job's `ctx.db` and read `ctx.clock` and `ctx.config` (read
+  only: the template also runs in a dry run). Additive: existing templates and `sendAccessReminders` callers keep
+  working unchanged.
+
+  Migration for an app that wrapped the reminder run in its own `defineJobHandler` to reach the database:
+  1. Move the account check into `buildMail({ reminder, ctx, mail })`, reading with `ctx.db` and `ctx.clock`
+     instead of the handler's context; return `null` to skip the account this run.
+  2. Register `...createBillingJobHandlers({ reminders: { buildMail, getScope, limit } })` in the worker's handlers
+     and delete the app's own `billing.access-reminders` handler.
+  3. Keep `billingJobSchedules` (or the app's schedule for `billing.access-reminders`) in the jobs config.
+
 ## 0.7.0
 
 - **Entitlement state in SQL** (#555): migration `0012` adds `billing.entitlement_states(as_of, trial_days,
