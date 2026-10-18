@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`privacy@x.y.z`).
 
+## Unreleased
+
+- `copyAccount` and `createCopyAccountScript` also compare the app's drizzle journals before copying (#572): every
+  ledger table in the `drizzle` schema (`drizzle.__drizzle_migrations` and any second `migrationsTable` of
+  `drizzleAppMigrations`). A drizzle migration on one side only, or with another hash, refuses with
+  `privacy.copy_ledger_mismatch`, writes nothing, and the detail names it as
+  `drizzle.<table>#<created_at> only in the target` (or `has another checksum`). A database without the `drizzle`
+  schema behaves as before; `ledger: "ignore"` skips both checks. Migrate: an app that wraps the copy script's `run`
+  to compare `drizzle.__drizzle_migrations` itself can drop that wrapper and call the script directly. A journal kept
+  in a custom `migrationsSchema` is not compared; keep that wrapper only for such a journal.
+
 ## 0.2.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for
