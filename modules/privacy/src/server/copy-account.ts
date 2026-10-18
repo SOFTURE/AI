@@ -56,8 +56,9 @@ export interface CopyAccountInput {
    */
   readonly newEmail?: string;
   /**
-   * "refuse" (default): refuse when the two databases' migration ledgers (`softure.migrations`)
-   * differ, since a column only the target has would silently take its default. "ignore" skips it.
+   * "refuse" (default): refuse when the two databases' migration ledgers differ (`softure.migrations`
+   * and the app's drizzle journals, every ledger table in the `drizzle` schema), since a column only
+   * the target has would silently take its default. "ignore" skips it.
    */
   readonly ledger?: "refuse" | "ignore";
 }
@@ -115,7 +116,10 @@ interface Catalog {
   readonly foreignKeys: readonly ForeignKey[];
 }
 
-/** The migration ledger as `module#version` to checksum; empty without a ledger table. */
+/**
+ * The migration ledgers as `module#version` (and `drizzle.<table>#<created_at>` for the app's drizzle
+ * journals) to checksum; empty without ledger tables.
+ */
 type Ledger = ReadonlyMap<string, string>;
 
 /** What the source read gives the write: the rows and the source's ledger. */
@@ -143,6 +147,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACCOUNTS = getTableConfig(users);
 const ACCOUNTS_KEY = `${ACCOUNTS.schema ?? "public"}.${ACCOUNTS.name}`;
 const CONSENTS_KEY = "privacy.consents";
+/** The schema `@softure-ai/db` reserves for the app's drizzle journals (`drizzleAppMigrations`). */
+const DRIZZLE_SCHEMA = "drizzle";
 /** How many ledger differences a refusal names before it only counts the rest. */
 const MAX_LEDGER_DIFFERENCES = 5;
 /** SQLSTATE class 23: integrity constraint violations (unique, foreign key, check, not null). */
@@ -239,14 +245,33 @@ async function writeAccount(input: CopyAccountInput, source: SourceRead): Promis
   });
 }
 
-/** Every ledger row as `module#version` to checksum; empty while the ledger table does not exist. */
+/** Every ledger row: the modules' `softure.migrations` and the app's drizzle journals; empty while none exist. */
 async function readLedger(db: Queryable): Promise<Ledger> {
+  const ledger = new Map<string, string>();
   const table = await db.execute<{ found: boolean }>(sql`SELECT to_regclass('softure.migrations') IS NOT NULL AS found`);
-  if (table.rows[0]?.found !== true) return new Map();
-  const result = await db.execute<{ module: string; version: number; checksum: string }>(
-    sql`SELECT module, version, checksum FROM softure.migrations ORDER BY module, version`,
-  );
-  return new Map(result.rows.map((row) => [`${row.module}#${String(row.version)}`, row.checksum]));
+  if (table.rows[0]?.found === true) {
+    const result = await db.execute<{ module: string; version: number; checksum: string }>(
+      sql`SELECT module, version, checksum FROM softure.migrations ORDER BY module, version`,
+    );
+    for (const row of result.rows) ledger.set(`${row.module}#${String(row.version)}`, row.checksum);
+  }
+  for (const name of await findDrizzleLedgers(db)) {
+    const result = await db.execute<{ created_at: string | null; hash: string }>(
+      sql`SELECT created_at::text AS created_at, hash FROM ${sql.identifier(DRIZZLE_SCHEMA)}.${sql.identifier(name)} ORDER BY id`,
+    );
+    for (const row of result.rows) ledger.set(`${DRIZZLE_SCHEMA}.${name}#${row.created_at ?? "null"}`, row.hash);
+  }
+  return ledger;
+}
+
+/** The tables in the `drizzle` schema shaped like drizzle's migration ledger (`id`, `hash`, `created_at`). */
+async function findDrizzleLedgers(db: Queryable): Promise<string[]> {
+  const result = await db.execute<{ name: string }>(sql`
+    SELECT table_name AS name FROM information_schema.columns
+    WHERE table_schema = ${DRIZZLE_SCHEMA} AND column_name IN ('id', 'hash', 'created_at')
+    GROUP BY table_name HAVING count(*) = 3
+    ORDER BY table_name`);
+  return result.rows.map((row) => row.name);
 }
 
 /** Refuses when a migration ran on one side only, or ran from another file (checksum) on each side. */
