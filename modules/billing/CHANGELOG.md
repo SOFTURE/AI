@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
-## Unreleased
+## 0.8.0
 
 - **The reminder template gets the run's context** (#575): `AccessReminderMailContext` gains `ctx`, the module
   context `sendAccessReminders(ctx, ...)` was called with. Under `createBillingJobHandlers({ reminders })` that is the
