@@ -12,6 +12,7 @@ import { mailing } from "@softure-ai/mailing";
 import { fakeMailProvider, type FakeMailProvider } from "@softure-ai/mailing/testing";
 import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
 import { headerIp, security } from "@softure-ai/security";
+import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { createAccount, NOW, TIMEZONE, type TestBilling } from "./support.js";
 
@@ -126,5 +127,24 @@ describe("the billing jobs", () => {
 
     expect(await runDueJobs(test.ctx, { handlers })).toEqual({ succeeded: 2, retried: 0, failed: 0, stale: 0 });
     expect(provider.sent.map((mail) => mail.subject)).toEqual(["Last day: October 16, 2026"]);
+  });
+
+  it("gives the reminder template the job's database and clock", async () => {
+    const provider = fakeMailProvider();
+    const test = await setUp(provider);
+    await createAccount(test, "ada@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+    const handlers = createBillingJobHandlers({
+      reminders: {
+        pauseMs: 0,
+        buildMail: async ({ reminder, ctx }) => {
+          const result = await ctx.db.execute<{ email: string }>(sql`select email from auth.users where id = ${reminder.userId}`);
+          return { subject: `${result.rows[0]?.email ?? "unknown"} at ${ctx.clock.now().toISOString()}`, text: "Pay." };
+        },
+      },
+    });
+
+    expect(await runDueJobs(test.ctx, { handlers })).toEqual({ succeeded: 2, retried: 0, failed: 0, stale: 0 });
+    expect(provider.sent.map((mail) => mail.subject)).toEqual([`ada@example.com at ${IN_TRIAL_WINDOW.toISOString()}`]);
   });
 });

@@ -257,6 +257,50 @@ describe("copyAccount", () => {
     expect(ignored.ok).toBe(true);
   });
 
+  it("refuses when the app's drizzle journals differ, naming each difference, unless told to ignore them", async () => {
+    const journal = `
+      CREATE SCHEMA drizzle;
+      CREATE TABLE drizzle.__drizzle_migrations (id serial PRIMARY KEY, hash text NOT NULL, created_at bigint);
+      CREATE TABLE drizzle.__drizzle_migrations_after (id serial PRIMARY KEY, hash text NOT NULL, created_at bigint);
+      INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES (repeat('c', 64), 1760000000000);
+      INSERT INTO drizzle.__drizzle_migrations_after (hash, created_at) VALUES (repeat('d', 64), 1760000000001);
+    `;
+    await source.database.client.exec(journal);
+    await target.database.client.exec(journal);
+    // An app migration only the target ran (a nullable column the copy would fill with NULL), and one edited later.
+    await target.database.client.exec(`
+      INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES (repeat('e', 64), 1760000000002);
+      UPDATE drizzle.__drizzle_migrations_after SET hash = repeat('f', 64);
+    `);
+
+    const refused = await copyAccount({ from: source.database.db, to: target.database.db, userId: ada.id, commit: true, onMissingReference: "null" });
+    expect(refused).toEqual({
+      ok: false,
+      error: "privacy.copy_ledger_mismatch",
+      detail:
+        "the migration ledgers differ: drizzle.__drizzle_migrations_after#1760000000001 has another checksum, " +
+        "drizzle.__drizzle_migrations#1760000000002 only in the target",
+    });
+    expect(await findTraces(target.database, [ada.id])).toEqual([]);
+
+    const ignored = await copyAccount({ from: source.database.db, to: target.database.db, userId: ada.id, commit: true, onMissingReference: "null", ledger: "ignore" });
+    expect(ignored.ok).toBe(true);
+  });
+
+  it("copies when both databases ran the same drizzle journal", async () => {
+    const journal = `
+      CREATE SCHEMA drizzle;
+      CREATE TABLE drizzle.__drizzle_migrations (id serial PRIMARY KEY, hash text NOT NULL, created_at bigint);
+      INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES (repeat('c', 64), 1760000000000);
+      CREATE TABLE drizzle.notes (body text);
+    `;
+    await source.database.client.exec(journal);
+    await target.database.client.exec(journal);
+
+    const copied = await copyAccount({ from: source.database.db, to: target.database.db, userId: ada.id, commit: true, onMissingReference: "null" });
+    expect(copied.ok).toBe(true);
+  });
+
   it("gives the account a new email in the target and moves its copied email consents to it", async () => {
     // The target has its own account and email consent under Ada's old address; both stay.
     await seedUser(target, "ada@example.com");

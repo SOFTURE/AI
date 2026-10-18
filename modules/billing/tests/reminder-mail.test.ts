@@ -252,6 +252,7 @@ describe("sendAccessReminders with the app's template and scopes", () => {
         lastDay: "October 16, 2026",
         link: PAYMENT_LINK,
         mail: renderAccessReminderMail(billingMessages.en, { kind: "trial-ending", lastDay: "October 16, 2026", link: PAYMENT_LINK }),
+        ctx: test.ctx,
       },
     ]);
     expect(test.provider.sent.map((mail) => [mail.to, mail.subject, mail.text, mail.html])).toEqual([

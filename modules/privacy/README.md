@@ -386,13 +386,19 @@ try {
   another type), `copy_reference_missing` (a copied row references a row neither the copy nor the
   target has, such as an OAuth client), `copy_conflict` (a target constraint rejects a row; the
   detail names it), `copy_unsupported` (a cycle of foreign keys between tables),
-  `copy_verification_failed`, `copy_ledger_mismatch` (the two databases' migration ledgers,
-  `softure.migrations`, differ: a migration ran on one side only, or from another file; the detail
-  names up to five differences). With `onMissingReference: "null"`, a SET NULL key whose row the
+  `copy_verification_failed`, `copy_ledger_mismatch` (the two databases' migration ledgers differ:
+  `softure.migrations` or the app's drizzle journals; a migration ran on one side only, or from
+  another file; the detail names up to five differences, such as `privacy#1 has another checksum` or
+  `drizzle.__drizzle_migrations#1760000000000 only in the target`). With `onMissingReference: "null"`, a SET NULL key whose row the
   target lacks is written as NULL instead, and counted in the report.
 - **Same migrations.** A column only the target has would silently take its default (NULL) in every
-  copied row, so the copy first compares the ledgers and refuses when they differ. `ledger:
-  "ignore"` skips the check, for a target whose extra migrations are known to be harmless.
+  copied row, so the copy first compares the ledgers and refuses when they differ: the modules'
+  `softure.migrations` and the app's own drizzle journals, every table in the `drizzle` schema shaped
+  like drizzle's ledger (`__drizzle_migrations`, and a second one such as
+  `drizzleAppMigrations(folder, { migrationsTable: "__drizzle_migrations_after" })`). A drizzle row is
+  named by its journal entry's `when` (`created_at`) and compared by its hash. A journal kept in
+  another schema (`migrationsSchema`) is not seen. `ledger: "ignore"` skips the check, for a target
+  whose extra migrations are known to be harmless.
 - **A new email.** `newEmail` gives the account another address in the target (trimmed and
   lowercased): its `auth.users` row and its email-keyed consents are written with it and verified as
   written. The target must not have an account with the new address; one with the old address is
