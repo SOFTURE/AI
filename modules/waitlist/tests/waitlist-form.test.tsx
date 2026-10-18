@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
-import { getScopeFieldName, waitlistMessages, type WaitlistFormState } from "@softure-ai/waitlist";
+import { getScopeFieldName, waitlistMessages, type WaitlistFormState, type WaitlistFormSuccessState } from "@softure-ai/waitlist";
 import { type WaitlistFormAction, WaitlistForm, type WaitlistFormScope } from "@softure-ai/waitlist/ui";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(cleanup);
@@ -93,5 +94,73 @@ describe("WaitlistForm", () => {
     renderForm(answering({ status: "error", error: "security.rate_limited" }));
     await submit();
     expect(screen.getByText(en.errors.security.rate_limited)).toBeDefined();
+  });
+});
+
+describe("WaitlistForm after a sign-up, in the app's own view", () => {
+  function renderWith(action: WaitlistFormAction, props: Partial<Parameters<typeof WaitlistForm>[0]>) {
+    return render(<WaitlistForm action={action} scopes={SCOPES} placement="hero" messages={en} {...props} />);
+  }
+
+  it("calls onSuccess exactly once with the sign-up's state", async () => {
+    const onSuccess = vi.fn<(state: WaitlistFormSuccessState) => void>();
+    const url = "https://app.example.com/unsubscribe?r=key&t=signature";
+    renderWith(answering({ status: "ok", unsubscribeUrl: url }), { onSuccess });
+    await submit();
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledWith({ status: "ok", unsubscribeUrl: url });
+  });
+
+  it("calls onSuccess once under Strict Mode too", async () => {
+    const onSuccess = vi.fn<(state: WaitlistFormSuccessState) => void>();
+    render(
+      <StrictMode>
+        <WaitlistForm action={answering({ status: "ok" })} scopes={SCOPES} placement="hero" messages={en} onSuccess={onSuccess} />
+      </StrictMode>,
+    );
+    await submit();
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onSuccess when the address waits for its confirmation link", async () => {
+    const onSuccess = vi.fn<(state: WaitlistFormSuccessState) => void>();
+    renderWith(answering({ status: "confirmation_sent" }), { onSuccess });
+    await submit();
+    expect(onSuccess).toHaveBeenCalledWith({ status: "confirmation_sent" });
+  });
+
+  it("does not call onSuccess for a refused sign-up", async () => {
+    const onSuccess = vi.fn<(state: WaitlistFormSuccessState) => void>();
+    renderWith(answering({ status: "error", error: "security.rate_limited" }), { onSuccess });
+    await submit();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("shows the app's success node in place of the form and of the default notice", async () => {
+    renderWith(answering({ status: "ok", unsubscribeUrl: "https://app.example.com/u" }), {
+      success: <section aria-label="You are in">Thanks, see you at launch.</section>,
+    });
+    await submit();
+    expect(screen.getByRole("region", { name: "You are in" }).textContent).toBe("Thanks, see you at launch.");
+    expect(screen.queryByText(en.form.success)).toBeNull();
+    expect(screen.queryByRole("link", { name: en.form.unsubscribeLink })).toBeNull();
+    expect(screen.queryByRole("button", { name: en.form.submit })).toBeNull();
+  });
+
+  it("renders a success function with the sign-up's state", async () => {
+    renderWith(answering({ status: "confirmation_sent" }), {
+      success: (state) => <p>{state.status === "confirmation_sent" ? "Check your inbox." : "You are in."}</p>,
+    });
+    await submit();
+    expect(screen.getByText("Check your inbox.")).toBeDefined();
+  });
+
+  it("lets onSuccess move focus to the app's view, which is already on the page", async () => {
+    renderWith(answering({ status: "ok" }), {
+      success: <h2 id="joined" tabIndex={-1}>You are on the list</h2>,
+      onSuccess: () => document.getElementById("joined")?.focus(),
+    });
+    await submit();
+    expect(document.activeElement?.textContent).toBe("You are on the list");
   });
 });

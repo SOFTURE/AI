@@ -1,6 +1,7 @@
 // The waitlist form wired to the registered config, to embed in any server component with one line:
 // `<Waitlist placement="hero" />`. Scope labels come from `waitlist({ scopes })` in the app's
-// locale; `consentLabels` replaces one with markup, e.g. a link to the privacy policy.
+// locale; `consentLabels` replaces one with markup, e.g. a link to the privacy policy. `success` is a node only:
+// a server component cannot hand functions to the client form, so `onSuccess` needs `WaitlistForm` itself.
 import { getSoftureConfig } from "@softure-ai/core/next";
 import type { ClassNames } from "@softure-ai/ui";
 import type { ReactNode } from "react";
@@ -15,9 +16,11 @@ export interface WaitlistProps {
   readonly consentLabels?: Readonly<Partial<Record<string, ReactNode>>>;
   readonly classNames?: ClassNames<WaitlistFormSlot>;
   readonly unstyled?: boolean;
+  /** The app's view in place of the default success notice (see `WaitlistFormProps.success`). */
+  readonly success?: ReactNode;
 }
 
-export function Waitlist({ placement, consentLabels, classNames, unstyled }: WaitlistProps) {
+export function Waitlist({ placement, consentLabels, classNames, unstyled, success }: WaitlistProps) {
   const config = getSoftureConfig();
   const options = getWaitlistOptions(config);
   const resolvedPlacement = placement ?? options.placements[0];
@@ -38,6 +41,7 @@ export function Waitlist({ placement, consentLabels, classNames, unstyled }: Wai
       locale={config.locale}
       classNames={classNames}
       unstyled={unstyled}
+      success={success}
     />
   );
 }
