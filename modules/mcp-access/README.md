@@ -204,8 +204,10 @@ claude mcp add acme -e MCP_USER_ID=<account id> -- npx tsx --import @softure-ai/
 - `canWrite` needs `allowWrites: true` here and the app's `allowWrites`. The token id is `"stdio"`.
 - The database opens like a package command's (`database.handle`, else `database.url`) and closes with the
   connection. Messages go to stderr; stdout is the protocol.
-- `@softure-ai/mcp-access/stdio/register` (`--import`) resolves `server-only` to an empty module, so a factory
-  written for Next runs in plain Node. It needs Node 22.15 or later (`module.registerHooks`).
+- `@softure-ai/mcp-access/stdio/register` (`--import`) resolves `server-only` the way Next does (its `react-server`
+  condition, the installed package's empty file), so a factory written for Next runs in plain Node, through a
+  CommonJS `require` (`.cjs`, scripts tsx compiles to CommonJS) as well as an ES `import`. Without `server-only`
+  installed, an ES import gets an empty module. It needs Node 22.15 or later (`module.registerHooks`).
 
 ### Catalog parity
 

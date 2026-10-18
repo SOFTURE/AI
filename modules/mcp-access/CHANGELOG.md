@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- `stdio/register` works for CommonJS (#571): it resolved `server-only` to a `data:` module, which an ES `import`
+  loads but a CommonJS `require` reads as a file path (`ENOENT … open 'data:text/javascript,…'`), so every `.cjs` file
+  and every script tsx compiles to CommonJS failed. It now resolves the installed `server-only` through its
+  `react-server` condition to the package's empty file, which both loaders open; nothing else resolves differently.
+  Migrate: an app that seeds `require.cache` for `server-only` (with `server-only/empty.js`) in its scripts or its
+  stdio entry drops that shim and keeps only `--import @softure-ai/mcp-access/stdio/register` (`node` or `tsx`).
+
 ## 0.2.3
 
 - OAuth clients now ask for writes (#553): while `allowWrites` is on, the endpoint's `401` challenge names
