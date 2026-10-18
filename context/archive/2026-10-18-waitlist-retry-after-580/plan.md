@@ -1,6 +1,6 @@
 ---
 change_id: waitlist-retry-after-580
-status: in_progress
+status: archived
 ---
 
 # Plan: retryAfterSeconds in the waitlist form state (issue #580)

@@ -1,12 +1,13 @@
 ---
 change_id: waitlist-retry-after-580
 title: "waitlist: WaitlistFormState carries retryAfterSeconds on security.rate_limited (issue #580)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 580
 branch: claude/project-thread-w3rtzl
 created: 2026-10-18
 updated: 2026-10-18
+archived_at: 2026-10-18
 ---
 
 ## Intent
