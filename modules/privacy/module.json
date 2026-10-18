@@ -1,6 +1,6 @@
 {
   "id": "privacy",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "dependsOn": { "auth": "^0.2.0", "security": "^0.2.0", "ops": "^0.2.0?" },
   "dbSchema": "privacy",
   "tables": ["consents"],
