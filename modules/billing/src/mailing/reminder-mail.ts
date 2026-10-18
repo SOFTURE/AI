@@ -40,6 +40,11 @@ export interface AccessReminderMailContext {
   readonly link: string;
   /** The package's own mail for this reminder, to send as is or to change. */
   readonly mail: AccessReminderMail;
+  /**
+   * The module context the run was given (`sendAccessReminders(ctx, ...)`; the job's own under
+   * `createBillingJobHandlers`): its `db` and `clock` let the template read the account at send time.
+   */
+  readonly ctx: ModuleContext<Queryable>;
 }
 
 export interface SendAccessRemindersOptions extends FindAccessRemindersOptions, RunDeliveriesOptions {
@@ -118,7 +123,7 @@ export async function sendAccessReminders(ctx: ModuleContext<Queryable>, options
   const build = async (reminder: AccessReminderDue): Promise<Delivery | null> => {
     const lastDay = formatLastDay(reminder.endsAt, ctx.config.locale, ctx.config.timezone);
     const defaultMail = renderAccessReminderMail(messages, { kind: reminder.kind, lastDay, link });
-    const mail = buildMail === undefined ? defaultMail : await buildMail({ reminder, lastDay, link, mail: defaultMail });
+    const mail = buildMail === undefined ? defaultMail : await buildMail({ reminder, lastDay, link, mail: defaultMail, ctx });
     return mail === null ? null : { scope: getScope(reminder), mail: { to: reminder.email, ...mail } };
   };
   const run = await runDeliveries(ctx, { recipients: due, build }, { ...runOptions, pauseMs });
