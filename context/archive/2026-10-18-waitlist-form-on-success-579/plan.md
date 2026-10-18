@@ -1,6 +1,6 @@
 ---
 change_id: waitlist-form-on-success-579
-status: in_progress
+status: archived
 ---
 
 # Plan: WaitlistForm onSuccess and success view (issue #579)
@@ -28,5 +28,5 @@ Files: `modules/waitlist/src/contract.ts`, `modules/waitlist/src/ui/waitlist-for
 
 ## Progress
 
-- [ ] Phase 1: the props (TDD)
-- [ ] Phase 2: docs
+- [x] Phase 1: the props (TDD) (12e07c8; 7 tests, 6 red before the change; 188 of 188 waitlist tests pass)
+- [x] Phase 2: docs (eee9b20; README success view and client example, CHANGELOG `## Unreleased` with the migration)

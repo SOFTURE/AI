@@ -1,12 +1,13 @@
 ---
 change_id: waitlist-form-on-success-579
 title: "waitlist: WaitlistForm takes an onSuccess callback and a success view (issue #579)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 579
 branch: claude/project-thread-37fb11
 created: 2026-10-18
 updated: 2026-10-18
+archived_at: 2026-10-18
 ---
 
 ## Intent
