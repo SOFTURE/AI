@@ -31,5 +31,5 @@ kept its own action to carry the value, and for an app with its own translation 
 
 ## Progress
 
-- [ ] Phase 1: carry and show the wait
-- [ ] Phase 2: docs
+- [x] Phase 1: carry and show the wait (3 tests written first; 184 waitlist tests pass; 4ae0d84)
+- [x] Phase 2: docs (README form state and Copy, CHANGELOG `## Unreleased` with the migration)

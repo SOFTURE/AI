@@ -154,6 +154,9 @@ Opening the page changes nothing (mail scanners open links): it shows a button t
 
 An app that composes its own form passes `joinWaitlistAction` (`/next`) to `WaitlistForm` (`/ui`)
 with the scopes it prepared (`{ id, label, required }`), the placement and the messages.
+A rate limit refusal answers `{ status: "error", error: "security.rate_limited", retryAfterSeconds }`: the
+limiter's whole seconds until the client may try again. `WaitlistForm` shows it as `form.retryAfter` in minutes,
+rounded up; a state without the value shows `errors.security.rate_limited`.
 
 Server functions, for scripts and other hosts (`@softure-ai/waitlist/server`):
 `joinWaitlist(ctx, { email, scopes, placement, clientKey })` returns
@@ -221,8 +224,8 @@ passes both through.
 ## 9. Copy
 
 `waitlistMessages` (English, the only built-in language): `form` (field label, button, pending text, the confirmation,
-with double opt-in `confirmationSent`, and `unsubscribeHint` with `unsubscribeLink` for the link
-of `unsubscribeLinkOnSuccess`), `welcomeMail` (subject and text; mailing appends the
+with double opt-in `confirmationSent`, `unsubscribeHint` with `unsubscribeLink` for the link
+of `unsubscribeLinkOnSuccess`, and `retryAfter` for a rate limit refusal, with `{minutes}`), `welcomeMail` (subject and text; mailing appends the
 unsubscribe footer), `confirmationMail` (subject, text and `action`, the link's label in the HTML
 body; in the text body the link follows the text), `confirm`
 (the confirmation page: its states and button) and `errors`. Override

@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
+## Unreleased
+
+- A rate-limited join tells the person when to try again (#580): `joinWaitlistAction` now answers
+  `{ status: "error", error: "security.rate_limited", retryAfterSeconds, email, scopes }`, with the limiter's whole
+  seconds (at least 1) for either bucket (`waitlist` per client, `waitlist-email` per address). `WaitlistFormState`
+  gains the optional `retryAfterSeconds`, set only with that error; other states are unchanged. `WaitlistForm` shows
+  the new copy `form.retryAfter` ("Too many attempts. Try again in {minutes} min.", minutes rounded up, at least 1)
+  and keeps `errors.security.rate_limited` when the state has no value. Migrate (optional): an app that kept its own
+  join action only to carry the wait switches to `<Waitlist />` or `joinWaitlistAction` and removes its own action
+  and its own rate limit call; an app that renders the state itself reads `state.retryAfterSeconds`. An app with its
+  own translation adds `form.retryAfter` to it (`waitlist({ messages: { <locale>: { form: { retryAfter: "…{minutes}…"
+  } } } })`), or the English text shows for a refusal that carries the wait.
+
 ## 0.3.1
 
 - A form without a required consent is refused before its address is read (#557): `joinWaitlist` and
