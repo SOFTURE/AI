@@ -59,7 +59,32 @@ export async function sendMail(context: MailContext, mail: OutgoingMail, options
     }
   }
 
-  const outcome = await callProvider(provider, composeMessage(context.config, valid, secret), timeoutMs);
+  return deliver(provider, composeMessage(context.config, valid, secret), timeoutMs);
+}
+
+/**
+ * `sendMail` without the suppression check, for `softure-mail test` without a database: its recipient is always the
+ * operator's own `testAddress`. List mail still needs the secret. Internal: not exported from `/server`, so no app
+ * code can send list mail to a real recipient past the suppression list.
+ */
+export async function sendMailUnchecked(config: SoftureConfig, mail: OutgoingMail, options: SendMailOptions = {}): Promise<SendMailResult> {
+  const { provider, timeoutMs } = getMailingOptions(config);
+  const validation = validateMail(mail, options);
+  if (!validation.ok) {
+    logFailure(provider, "mailing.invalid_input", { fields: validation.fields });
+    return err("mailing.invalid_input");
+  }
+  const secret = readUnsubscribeSecrets().current;
+  if (validation.value.kind !== TRANSACTIONAL_KIND && secret === null) {
+    logFailure(provider, "mailing.unavailable", { cause: "no_unsubscribe_secret" });
+    return err("mailing.unavailable");
+  }
+  return deliver(provider, composeMessage(config, validation.value, secret), timeoutMs);
+}
+
+/** Hands `message` to the provider and maps its outcome to the result, logging a failure. */
+async function deliver(provider: MailProvider, message: ProviderMessage, timeoutMs: number): Promise<SendMailResult> {
+  const outcome = await callProvider(provider, message, timeoutMs);
   if (outcome.status === "sent") {
     return ok({ id: outcome.id, provider: provider.name });
   }
