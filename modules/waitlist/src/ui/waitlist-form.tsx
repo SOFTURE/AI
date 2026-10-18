@@ -1,6 +1,6 @@
 "use client";
 
-import type { Locale } from "@softure-ai/core";
+import { formatMessage, type Locale } from "@softure-ai/core";
 import { Button, Checkbox, type ClassNames, createSlotClassGetter, FormError, TextField } from "@softure-ai/ui";
 import { type ReactNode, useActionState, useEffect, useRef } from "react";
 import { INITIAL_WAITLIST_FORM_STATE, type WaitlistFormState, type WaitlistFormSuccessState } from "../contract.js";
@@ -55,6 +55,22 @@ const DEFAULT_CLASSES: Readonly<Record<WaitlistFormSlot, string>> = {
   unsubscribe: "sft:m-0 sft:text-sm sft:text-muted sft:break-words",
 };
 
+const SECONDS_PER_MINUTE = 60;
+
+/** The error's copy; a rate limit refusal that carries its wait says how many minutes are left. */
+function getErrorMessage(messages: WaitlistMessages, state: WaitlistFormState): string | undefined {
+  if (state.error === undefined) return undefined;
+  if (state.error === "security.rate_limited" && state.retryAfterSeconds !== undefined) {
+    return formatMessage(messages.form.retryAfter, { minutes: getRetryMinutes(state.retryAfterSeconds) });
+  }
+  return getWaitlistErrorMessage(messages, state.error);
+}
+
+/** Whole minutes, rounded up and at least 1, so a wait under a minute never reads as "0 min". */
+function getRetryMinutes(seconds: number): number {
+  return Math.max(1, Math.ceil(seconds / SECONDS_PER_MINUTE));
+}
+
 function isSuccessState(state: WaitlistFormState): state is WaitlistFormSuccessState {
   return state.status === "ok" || state.status === "confirmation_sent";
 }
@@ -99,7 +115,7 @@ export function WaitlistForm({
     );
   }
 
-  const message = state.error === undefined ? undefined : getWaitlistErrorMessage(messages, state.error);
+  const message = getErrorMessage(messages, state);
   const checked = new Set(state.scopes ?? []);
   return (
     <div className={slot("root")}>

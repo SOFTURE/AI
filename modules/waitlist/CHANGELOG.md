@@ -15,6 +15,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   focus, `onSuccess={() => cardRef.current?.focus()}` (README, "An app that composes its own form"); then it removes
   its own form and its state handling. A card that should keep the unsubscribe link reads `state.unsubscribeUrl` in
   the function form.
+- A rate-limited join tells the person when to try again (#580): `joinWaitlistAction` now answers
+  `{ status: "error", error: "security.rate_limited", retryAfterSeconds, email, scopes }`, with the limiter's whole
+  seconds (at least 1) for either bucket (`waitlist` per client, `waitlist-email` per address). `WaitlistFormState`
+  gains the optional `retryAfterSeconds`, set only with that error; other states are unchanged. `WaitlistForm` shows
+  the new copy `form.retryAfter` ("Too many attempts. Try again in {minutes} min.", minutes rounded up, at least 1)
+  and keeps `errors.security.rate_limited` when the state has no value. Migrate (optional): an app that kept its own
+  join action only to carry the wait switches to `<Waitlist />` or `joinWaitlistAction` and removes its own action
+  and its own rate limit call; an app that renders the state itself reads `state.retryAfterSeconds`. An app with its
+  own translation adds `form.retryAfter` to it (`waitlist({ messages: { <locale>: { form: { retryAfter: "…{minutes}…"
+  } } } })`), or the English text shows for a refusal that carries the wait.
 
 ## 0.3.1
 

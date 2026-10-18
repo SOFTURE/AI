@@ -42,6 +42,8 @@ export interface WaitlistFormState {
    * to the person, never log it.
    */
   readonly unsubscribeUrl?: string;
+  /** With `error: "security.rate_limited"` only: whole seconds until the limit lets the client try again, at least 1. */
+  readonly retryAfterSeconds?: number;
 }
 
 /** A state that replaces the form: the sign-up counts (`ok`) or waits for its confirmation link. */

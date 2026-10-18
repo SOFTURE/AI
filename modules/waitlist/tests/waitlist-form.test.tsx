@@ -95,6 +95,23 @@ describe("WaitlistForm", () => {
     await submit();
     expect(screen.getByText(en.errors.security.rate_limited)).toBeDefined();
   });
+
+  it("tells how long to wait when the refusal carries it, in whole minutes rounded up", async () => {
+    renderForm(answering({ status: "error", error: "security.rate_limited", retryAfterSeconds: 61 }));
+    await submit();
+    expect(screen.getByText("Too many attempts. Try again in 2 min.")).toBeDefined();
+    cleanup();
+    renderForm(answering({ status: "error", error: "security.rate_limited", retryAfterSeconds: 30 }));
+    await submit();
+    expect(screen.getByText("Too many attempts. Try again in 1 min.")).toBeDefined();
+  });
+
+  it("uses the app's copy for the wait", async () => {
+    const messages = { ...en, form: { ...en.form, retryAfter: "Slow down: {minutes} minutes to go." } };
+    render(<WaitlistForm action={answering({ status: "error", error: "security.rate_limited", retryAfterSeconds: 600 })} scopes={SCOPES} placement="hero" messages={messages} />);
+    await submit();
+    expect(screen.getByText("Slow down: 10 minutes to go.")).toBeDefined();
+  });
 });
 
 describe("WaitlistForm after a sign-up, in the app's own view", () => {
