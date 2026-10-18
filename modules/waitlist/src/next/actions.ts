@@ -57,7 +57,8 @@ export async function joinWaitlistAction(_previous: WaitlistFormState, formData:
   }
   if (!result.ok) {
     const field = result.error === "waitlist.email_invalid" ? "email" : result.error === "waitlist.consent_required" ? "consent" : undefined;
-    return { status: "error", error: result.error, ...(field === undefined ? {} : { field }), ...echo };
+    const wait = result.error === "security.rate_limited" ? { retryAfterSeconds: result.retryAfterSeconds } : {};
+    return { status: "error", error: result.error, ...(field === undefined ? {} : { field }), ...wait, ...echo };
   }
 
   const joined = result.value;

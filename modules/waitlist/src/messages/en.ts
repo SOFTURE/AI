@@ -7,6 +7,8 @@ export const en = {
     confirmationSent: "Almost there: we sent you an email. Open the link in it to confirm your address and join the list.",
     unsubscribeHint: "Keep this link: it takes you off the list whenever you want.",
     unsubscribeLink: "Unsubscribe",
+    /** A rate limit refusal that says how long to wait. `{minutes}`: whole minutes, at least 1 ("min" does not inflect). */
+    retryAfter: "Too many attempts. Try again in {minutes} min.",
   },
   confirmationMail: {
     subject: "Confirm your place on the waitlist",
