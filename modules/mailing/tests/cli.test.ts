@@ -1,6 +1,7 @@
 // `softure-mail`: the campaign command over a database connection and the DNS check.
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { withDatabaseOptional, type SoftureConfig } from "@softure-ai/core";
 import { getRecipientKey, signRecipientKey } from "@softure-ai/mailing/server";
 import { DEFAULT_PAUSE_MS, runMailCli, runMailCommand, type CliOutput, type RunMailCliOptions } from "@softure-ai/mailing/cli";
 import { fakeMailProvider, type FakeMailProvider } from "@softure-ai/mailing/testing";
@@ -10,6 +11,7 @@ import { createConfig, createTestMailing, NOW, SECRET, type TestMailing } from "
 const CAMPAIGN_DIR = fileURLToPath(new URL("./fixtures/campaign/", import.meta.url));
 const HISTORY_DIR = fileURLToPath(new URL("./fixtures/history/", import.meta.url));
 const APP_DIR = fileURLToPath(new URL("./fixtures/app/", import.meta.url));
+const APP_WITHOUT_DATABASE_DIR = fileURLToPath(new URL("./fixtures/app-without-database/", import.meta.url));
 const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET };
 const SEND = ["campaign", "launch.md", "--recipients", "recipients.txt"];
 
@@ -675,6 +677,48 @@ describe("softure-mail test", () => {
     const result = await run(["test", "--kind", "Not A Kind", "--preview"]);
     expect(result).toEqual({ code: 1, lines: [], errors: ["softure-mail test: the mail is invalid (kind)"] });
   });
+
+  describe("without the app database", () => {
+    // What the bin loads where DATABASE_URL is unset: the config with `database: null`.
+    async function createConfigWithoutDatabase(): Promise<SoftureConfig> {
+      const config = await withDatabaseOptional(() => createConfig(provider, { testAddress: TEST_ADDRESS, databaseUrl: "" }));
+      expect(config.database).toBeNull();
+      return config;
+    }
+
+    it("sends a list-kind test mail with the footer and the RFC 8058 headers, without the suppression check", async () => {
+      const result = await run(["test", "launch.md"], { config: await createConfigWithoutDatabase() });
+
+      expect(result).toEqual({
+        code: 0,
+        lines: [`test mail (newsletter) sent to o*******@example.com; provider message id ${provider.sent[0]?.id ?? ""}; no database, so the suppression list was not checked`],
+        errors: [],
+      });
+      expect(provider.sent.map((mail) => mail.to)).toEqual([TEST_ADDRESS]);
+      expect(provider.sent[0]?.headers).toEqual({
+        "List-Unsubscribe": expect.stringMatching(/^<https:\/\/app\.example\.com\/api\/mailing\/unsubscribe\?r=/) as unknown,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      });
+      expect(provider.sent[0]?.text).toContain("https://app.example.com/unsubscribe?r=");
+      expect(provider.sent[0]?.html).toContain("https://app.example.com/unsubscribe?r=");
+      expect(opened).toBe(0);
+    });
+
+    it("still refuses a list-kind test mail without the unsubscribe secret", async () => {
+      vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", "");
+      const result = await run(["test", "--kind", "newsletter"], { config: await createConfigWithoutDatabase() });
+
+      expect(result).toEqual({ code: 1, lines: [], errors: ["test mail (newsletter) to o*******@example.com not sent: unavailable"] });
+      expect(provider.sent).toEqual([]);
+    });
+
+    it("sends transactional test mail as before", async () => {
+      const result = await run(["test"], { config: await createConfigWithoutDatabase() });
+
+      expect(result.lines).toEqual([`test mail (transactional) sent to o*******@example.com; provider message id ${provider.sent[0]?.id ?? ""}`]);
+      expect(provider.sent[0]?.headers).toEqual({});
+    });
+  });
 });
 
 describe("the softure-mail bin", () => {
@@ -701,6 +745,19 @@ describe("the softure-mail bin", () => {
       errors: [`softure-mail: no config found; looked for softure.config.ts, softure.config.mts, softure.config.js, softure.config.mjs in ${CAMPAIGN_DIR}; pass --config <file>`],
     });
     expect(await runBin(["dns", "--config", "nowhere.mjs"], CAMPAIGN_DIR)).toMatchObject({ code: 1, errors: [`softure-mail: config file ${CAMPAIGN_DIR}nowhere.mjs does not exist`] });
+  });
+
+  it("loads a config whose database URL is empty for test, and sends list mail without the suppression check", async () => {
+    vi.stubEnv("MAILING_UNSUBSCRIBE_SECRET", SECRET);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const test = await runBin(["test", "--kind", "newsletter"], APP_WITHOUT_DATABASE_DIR);
+      expect(test).toMatchObject({ code: 0, errors: [] });
+      expect(test.lines[0]).toMatch(/^test mail \(newsletter\) sent to o\*+@example\.com; provider message id .+; no database, so the suppression list was not checked$/);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.restoreAllMocks();
+    }
   });
 
   it("refuses --config without a path", async () => {

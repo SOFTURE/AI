@@ -20,7 +20,7 @@ import { checkSenderDns, getSenderDomain, resendReturnPath, type DmarcAlignment,
 import { checkImportedDeliveries, importDeliveries, type ImportedDelivery, type ImportProblem } from "../server/import-deliveries.js";
 import { maskAddress, redactUnsubscribeSignatures } from "../server/operator-output.js";
 import { getMailingOptions, resolveMailKind } from "../server/options.js";
-import { previewMail, sendMail } from "../server/send-mail.js";
+import { previewMail, sendMail, sendMailUnchecked } from "../server/send-mail.js";
 import { MIN_UNSUBSCRIBE_SECRET_LENGTH, readUnsubscribeSecrets, UNSUBSCRIBE_SECRET_ENV, type Env } from "../server/unsubscribe-link.js";
 
 export interface CliOutput {
@@ -85,7 +85,8 @@ test      Sends one mail to testAddress of the mailing options, and to no one el
           campaign in <content-file> (without the ledger: it can be sent again), or a short
           fixed test mail.
   --kind <kind>        the mail's kind (default: the file's, else transactional); list kinds
-                       get the unsubscribe footer and headers
+                       get the unsubscribe footer and headers, and are refused for a test address
+                       that unsubscribed; without a database that check is skipped
   --preview            print the mail instead of sending it
 
 import    Writes deliveries the app made before it adopted the module into the ledger, so
@@ -687,10 +688,8 @@ async function runTest(command: Extract<Command, { kind: "test" }>, options: Run
     return EXIT_OK;
   }
   if (kind === TRANSACTIONAL_KIND) return reportTestSend(await sendMail({ config }, mail), { masked, kind }, output);
-  if (config.database === null) {
-    output.error("softure-mail test: list mail needs the database (its suppression list); set database.url in softure.config");
-    return EXIT_FAILED;
-  }
+  // The test address is the operator's own: without a database (CI, an operator machine) its suppression check guards nothing.
+  if (config.database === null) return reportTestSend(await sendMailUnchecked(config, mail), { masked, kind, unchecked: true }, output);
   let opened: CommandDatabase;
   try {
     opened = await openDatabase(config.database, options.openDatabase);
@@ -705,9 +704,10 @@ async function runTest(command: Extract<Command, { kind: "test" }>, options: Run
   }
 }
 
-function reportTestSend(result: Awaited<ReturnType<typeof sendMail>>, sent: { readonly masked: string; readonly kind: string }, output: CliOutput): number {
+function reportTestSend(result: Awaited<ReturnType<typeof sendMail>>, sent: { readonly masked: string; readonly kind: string; readonly unchecked?: boolean }, output: CliOutput): number {
   if (result.ok) {
-    output.log(`test mail (${sent.kind}) sent to ${sent.masked}; provider message id ${result.value.id}`);
+    const note = sent.unchecked === true ? "; no database, so the suppression list was not checked" : "";
+    output.log(`test mail (${sent.kind}) sent to ${sent.masked}; provider message id ${result.value.id}${note}`);
     return EXIT_OK;
   }
   const status = result.httpStatus === undefined ? "" : ` (HTTP ${String(result.httpStatus)})`;

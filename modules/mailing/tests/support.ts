@@ -21,15 +21,17 @@ export const MAIL: OutgoingMail = {
 };
 
 type ConfigOptions = Partial<MailingOptionsInput> & {
+  /** Default: an in-memory database. An empty URL loads as `database: null` inside `withDatabaseOptional`. */
+  readonly databaseUrl?: string;
   readonly locale?: string;
   readonly messages?: NonNullable<Parameters<typeof mailing>[0]>["messages"];
   readonly mailingInput?: Parameters<typeof mailing>[0];
 };
 
 export function createConfig(provider: MailProvider, options: ConfigOptions = {}): SoftureConfig {
-  const { locale = "en", mailingInput, ...mailingOptions } = options;
+  const { databaseUrl = "pglite://", locale = "en", mailingInput, ...mailingOptions } = options;
   return defineSoftureConfig({
-    database: { url: "pglite://" },
+    database: { url: databaseUrl },
     locale,
     timezone: "UTC",
     appOrigin: "https://app.example.com",

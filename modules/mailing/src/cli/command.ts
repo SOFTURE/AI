@@ -1,7 +1,7 @@
 // The `softure-mail` bin. It loads the app's config through `@softure-ai/core/cli`, like
 // `softure migrate` (@softure-ai/db): the file must be loadable by Node itself (`.js`/`.mjs`, or `.ts`
 // where Node strips types). Anything else uses an app script with `runMailCli` instead (see run.ts).
-import { loadAppConfig, takeConfigOption } from "@softure-ai/core/cli";
+import { loadAppConfig, takeConfigOption, type DatabaseRequirement } from "@softure-ai/core/cli";
 import { EXIT_FAILED, EXIT_USAGE, MAIL_USAGE, runMailCli, type CliOutput } from "./run.js";
 
 export interface RunMailCommandOptions {
@@ -29,7 +29,7 @@ export async function runMailCommand(options: RunMailCommandOptions): Promise<nu
   const { configPath, argv } = taken;
   if (!needsConfig(argv) && configPath === undefined) return runMailCli({ argv, cwd: options.cwd, output });
 
-  const loaded = await loadAppConfig({ cwd: options.cwd, configPath, appScript: APP_SCRIPT });
+  const loaded = await loadAppConfig({ cwd: options.cwd, configPath, appScript: APP_SCRIPT, database: getDatabaseRequirement(argv) });
   if (!loaded.ok) {
     output.error(`softure-mail: ${loaded.problem}`);
     return EXIT_FAILED;
@@ -41,4 +41,12 @@ export async function runMailCommand(options: RunMailCommandOptions): Promise<nu
 function needsConfig(argv: readonly string[]): boolean {
   if (argv.length === 0 || argv.includes("--help")) return false;
   return !(argv[0] === "dns" && argv.some((arg) => arg === "--domain" || arg.startsWith("--domain=")));
+}
+
+/**
+ * `test` and `dns` never need a connection, so a missing or empty database URL loads as `database: null` (a CI job
+ * with only the provider key and the unsubscribe secret); the commands that connect keep refusing such a config.
+ */
+function getDatabaseRequirement(argv: readonly string[]): DatabaseRequirement {
+  return argv[0] === "test" || argv[0] === "dns" ? "optional" : "required";
 }

@@ -32,5 +32,5 @@ for an app that kept its own preview-then-send path.
 
 ## Progress
 
-- [ ] Phase 1: list-kind test mail without the database
+- [x] Phase 1: list-kind test mail without the database (4 tests written first; 621 mailing tests pass)
 - [ ] Phase 2: docs
