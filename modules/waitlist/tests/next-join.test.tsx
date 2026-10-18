@@ -73,6 +73,26 @@ describe("the join action", () => {
     expect(await listJobs(test.database.db)).toMatchObject([{ queue: CONFIRMATION_MAIL_QUEUE, status: "pending" }]);
   });
 
+  it("answers a rate-limited submission with the limiter's wait, and no wait on other refusals", async () => {
+    await start(OPTIONS, { buckets: { waitlist: { limit: 2, windowMinutes: 15 }, "waitlist-email": { limit: 3, windowMinutes: 60 } } });
+    expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm("x"))).toEqual({
+      status: "error",
+      error: "waitlist.email_invalid",
+      field: "email",
+      email: "x",
+      scopes: ["launch"],
+    });
+    expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm())).toEqual({ status: "ok" });
+    // The test clock stands still, so the client's window has all of its 15 minutes left.
+    expect(await joinWaitlistAction(INITIAL_WAITLIST_FORM_STATE, joinForm())).toEqual({
+      status: "error",
+      error: "security.rate_limited",
+      retryAfterSeconds: 900,
+      email: ADA,
+      scopes: ["launch"],
+    });
+  });
+
   it("stores the channel the app resolves for the request", async () => {
     const resolveChannel = vi.fn(() => Promise.resolve("newsletter"));
     await start({ ...OPTIONS, resolveChannel });

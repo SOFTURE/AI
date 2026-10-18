@@ -42,6 +42,8 @@ export interface WaitlistFormState {
    * to the person, never log it.
    */
   readonly unsubscribeUrl?: string;
+  /** With `error: "security.rate_limited"` only: whole seconds until the limit lets the client try again, at least 1. */
+  readonly retryAfterSeconds?: number;
 }
 
 export const INITIAL_WAITLIST_FORM_STATE: WaitlistFormState = { status: "idle" };
