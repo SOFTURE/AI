@@ -1,6 +1,6 @@
 ---
 change_id: mailing-test-without-database-573
-status: in_progress
+status: archived
 ---
 
 # Plan: softure-mail test without the database (issue #573)

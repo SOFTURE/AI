@@ -1,12 +1,13 @@
 ---
 change_id: mailing-test-without-database-573
 title: "mailing: softure-mail test sends a list-kind test mail without the app database (issue #573)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 573
 branch: claude/project-thread-01xw7b
 created: 2026-10-18
 updated: 2026-10-18
+archived_at: 2026-10-18
 ---
 
 ## Intent
