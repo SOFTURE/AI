@@ -273,6 +273,35 @@ app that renders the expiry itself.
 `revokeTokenAction` (`/next`) as props for an app that composes its own page, and `grants` with
 `revokeGrantAction` for the connected apps list. It manages focus itself: the issued token's heading takes focus
 when it appears, and "Done" returns focus to the name field.
+`getTokenManagerProps({ userId })` (`/next`) builds every other
+prop exactly as `McpAccessPage` does: `tools`, `tokens` (status, scope, created, expiry and last-use lines in the
+config's locale and zone), `grants` only while `oauth.enabled`, `allowWrites`, `maxTokens`, `messages` and `locale`.
+It checks no session: pass the signed-in user's id from the app's own check. For example, a page with its own `<h1>`:
+
+```tsx
+// app/account/mcp/page.tsx
+import { requireUser } from "@softure-ai/auth/next";
+import { getTokenManagerProps, issueTokenAction, revokeGrantAction, revokeTokenAction } from "@softure-ai/mcp-access/next";
+import { TokenManager } from "@softure-ai/mcp-access/ui";
+
+export const dynamic = "force-dynamic";
+
+export default async function Page() {
+  const user = await requireUser({ next: "/account/mcp" });
+  const props = await getTokenManagerProps({ userId: user.id });
+  return (
+    <main>
+      <h1>{t("mcp.title")}</h1>
+      <TokenManager
+        {...props}
+        issueAction={issueTokenAction}
+        revokeAction={revokeTokenAction}
+        {...(props.grants === undefined ? {} : { revokeGrantAction })}
+      />
+    </main>
+  );
+}
+```
 
 With `oauth.enabled`, mount the OAuth routes and the consent page too (the paths for the default
 `routes`):
