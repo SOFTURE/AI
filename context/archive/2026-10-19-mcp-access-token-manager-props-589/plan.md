@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-token-manager-props-589
-status: in_progress
+status: archived
 ---
 
 # Plan: export the TokenManager prop builder (issue #589)

@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-token-manager-props-589
 title: "mcp-access: export the TokenManager prop builder for an app's own token page (issue #589)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 589
 branch: claude/project-thread-5a5pk1
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent
