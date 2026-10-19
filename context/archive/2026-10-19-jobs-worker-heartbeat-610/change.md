@@ -1,12 +1,13 @@
 ---
 change_id: jobs-worker-heartbeat-610
 title: "jobs/deploy: a health check that proves the worker's loop runs (issue #610)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 610
 branch: claude/project-thread-pm4ru8
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent

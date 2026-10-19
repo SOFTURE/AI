@@ -1,6 +1,6 @@
 ---
 change_id: jobs-worker-heartbeat-610
-status: in_progress
+status: archived
 ---
 
 # Plan: a heartbeat for the jobs worker (issue #610)
@@ -53,6 +53,10 @@ their tests.
 
 ## Progress
 
-- [ ] Phase 1: jobs heartbeat and check
-- [ ] Phase 2: deploy init uses the check
-- [ ] Phase 3: docs
+- [x] Phase 1: jobs heartbeat and check (c81f1c3)
+- [x] Phase 2: deploy init uses the check (92b4d84; PR #611's branch merged in first, a338f91, since it changes the
+  same compose block and merges before this one)
+- [x] Phase 3: docs (61dffb6)
+
+The new tests were red before each phase's code (missing exports, then the old template). Gates: typecheck, lint,
+jobs tests (106), deploy tests (769), repository tests (551).
