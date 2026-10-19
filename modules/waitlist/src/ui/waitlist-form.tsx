@@ -203,10 +203,11 @@ export function WaitlistForm({
           variant={submitVariant}
           fullWidth={submitFullWidth}
           pending={isPending}
+          pendingLabel={messages.form.pending}
           classNames={{ root: slot("submit") }}
           unstyled={unstyled}
         >
-          {isPending ? messages.form.pending : messages.form.submit}
+          {messages.form.submit}
         </Button>
       </form>
     </div>

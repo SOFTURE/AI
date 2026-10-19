@@ -182,6 +182,28 @@ describe("WaitlistForm after a sign-up, in the app's own view", () => {
   });
 });
 
+describe("WaitlistForm's submit button while sending", () => {
+  it("reserves the pending label's width while idle", () => {
+    renderForm(answering({ status: "idle" }));
+    const button = screen.getByRole("button", { name: en.form.submit });
+    expect(button.querySelector("[data-reserve]")?.getAttribute("data-reserve")).toBe(en.form.pending);
+  });
+
+  it("shows the pending label and reserves the idle one while the action runs", async () => {
+    let finish: (state: WaitlistFormState) => void = () => undefined;
+    const action = vi.fn<WaitlistFormAction>(() => new Promise((resolve) => (finish = resolve)));
+    renderForm(action);
+    await submit();
+    const button = screen.getByRole("button", { name: en.form.pending });
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.querySelector("[data-reserve]")?.getAttribute("data-reserve")).toBe(en.form.submit);
+    await act(async () => {
+      finish({ status: "idle" });
+      await Promise.resolve();
+    });
+  });
+});
+
 describe("WaitlistForm in the app's look", () => {
   it("keeps today's full-width primary button by default", () => {
     renderForm(answering({ status: "idle" }));
