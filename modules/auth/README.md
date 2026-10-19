@@ -503,7 +503,10 @@ await runJobWorkerProcess({ config, handlers: { ...passwordResetJobHandlers, ...
 **Your own forms.** `@softure-ai/auth/ui` exports `LoginForm`, `RegisterForm`,
 `ChangePasswordForm`, `ForgotPasswordForm` and `ResetPasswordForm`; pass them the actions from
 `@softure-ai/auth/next`. `RegisterForm` takes `consentLabel` and `extraFields` like
-`createRegisterPage`.
+`createRegisterPage`, and `consentProps` (`{ id, classNames }`) for the consent box: an unticked box shows
+`errors.auth.consent_required` under it instead of the browser's bubble, and the server's consent error shows there
+too. A field error for a field the form does not render (e.g. `consent` with `requireConsent={false}`) shows as the
+form error.
 
 **Tests.** `createTestAccount(db, { email, password, roles?, scrypt? })` from `@softure-ai/auth/testing`
 writes an account and its role rows in one transaction, hashed as registration hashes it, and returns
@@ -628,7 +631,10 @@ Pages and forms are built from `@softure-ai/ui` (Card, fields, Checkbox, Button)
 compiled classes, so `@softure-ai/ui/styles.css` styles them and the `--sft-*` tokens theme them.
 Each form takes `classNames` for its slots (`root`, `form`, `footer`, `link`, `notice`, and `submit`
 for the submit button's class), `submitVariant` (a `Button` variant, `primary` by default) and
-`unstyled`; pages are server components you can replace with your own page around the forms.
+`unstyled`. `fieldClassNames` (the ui field slots: `label`, `hint`, `input`, ...), `fieldHintAs` and
+`fieldHintProps` go to every text and password field of the form, so its labels and hints match the app's other
+forms; `RegisterForm`'s consent box takes its look from `consentProps.classNames`. Pages are server components you can
+replace with your own page around the forms.
 
 ## 9. Copy
 

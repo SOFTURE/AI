@@ -1,8 +1,21 @@
 "use client";
 
 import { formatMessage, type Locale } from "@softure-ai/core";
-import { Button, type ButtonVariant, Checkbox, type ClassNames, createSlotClassGetter, FormError, PasswordField, TextField } from "@softure-ai/ui";
-import { type ReactNode, useActionState } from "react";
+import {
+  Button,
+  type ButtonVariant,
+  Checkbox,
+  type CheckboxSlot,
+  type ClassNames,
+  createSlotClassGetter,
+  FormError,
+  type HintAppearance,
+  type HintPlacement,
+  type InputFieldSlot,
+  PasswordField,
+  TextField,
+} from "@softure-ai/ui";
+import { type InvalidEvent, type ReactNode, useActionState, useState } from "react";
 import { type AuthFormField, type AuthFormState, INITIAL_AUTH_FORM_STATE } from "../contract.js";
 import { type AuthMessages, getAuthErrorMessage } from "../messages/index.js";
 
@@ -23,6 +36,17 @@ interface AuthFormBaseProps {
   readonly unstyled?: boolean;
   /** The submit button's look; `primary` by default. Its class goes in `classNames.submit`. */
   readonly submitVariant?: ButtonVariant;
+  /** Classes for every text and password field of the form (label, hint, input, ...), to match the app's other forms. */
+  readonly fieldClassNames?: ClassNames<InputFieldSlot>;
+  /** Where the fields show their hints: under the label (default) or behind a "?" tooltip. */
+  readonly fieldHintAs?: HintPlacement;
+  /** The tooltip hint's look for every field, so it matches the app's standalone hints. */
+  readonly fieldHintProps?: HintAppearance;
+}
+
+/** The field props every form passes to each of its text and password fields. */
+function getFieldLook({ fieldClassNames, fieldHintAs, fieldHintProps, unstyled, locale }: AuthFormBaseProps) {
+  return { classNames: fieldClassNames, hintAs: fieldHintAs, hintProps: fieldHintProps, unstyled, locale };
 }
 
 const DEFAULT_CLASSES: Readonly<Record<AuthFormSlot, string>> = {
@@ -35,13 +59,75 @@ const DEFAULT_CLASSES: Readonly<Record<AuthFormSlot, string>> = {
   submit: "",
 };
 
-/** The error of one field, or of the form when no field owns it. */
-function useErrors(state: AuthFormState, messages: AuthMessages) {
+/**
+ * The error of one field, or of the form when no field owns it or the form does not render that field
+ * (e.g. `consent` with the box left out), so a server error is never dropped.
+ */
+function useErrors(state: AuthFormState, messages: AuthMessages, renderedFields: readonly AuthFormField[]) {
   const message = state.error === undefined ? undefined : getAuthErrorMessage(messages, state.error);
+  const isFieldRendered = state.field !== undefined && renderedFields.includes(state.field);
   return {
     at: (field: AuthFormField) => (state.field === field ? message : undefined),
-    form: state.field === undefined ? message : undefined,
+    form: isFieldRendered ? undefined : message,
   };
+}
+
+/** The consent box's own props: its id (e.g. for the app's tests) and its look. */
+export interface ConsentProps {
+  readonly id?: string;
+  readonly classNames?: ClassNames<CheckboxSlot>;
+}
+
+/** The first control of `form` that fails its constraints, in document order. */
+function getFirstInvalidControl(form: HTMLFormElement): Element | undefined {
+  return Array.from(form.elements).find(
+    (element) =>
+      (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) &&
+      !element.validity.valid,
+  );
+}
+
+/**
+ * A required consent box. An unticked box shows `requiredMessage` under it instead of the browser's bubble (as ui's
+ * `CheckboxField` in statement mode does) and takes focus when it is the form's first invalid control; the server's
+ * error shows there otherwise.
+ */
+function ConsentCheckbox({
+  label,
+  requiredMessage,
+  error,
+  consentProps,
+  unstyled,
+}: {
+  label: ReactNode;
+  requiredMessage: string;
+  error: string | undefined;
+  consentProps: ConsentProps | undefined;
+  unstyled: boolean | undefined;
+}) {
+  const [invalidMessage, setInvalidMessage] = useState<string | undefined>(undefined);
+  function handleInvalid(event: InvalidEvent<HTMLInputElement>) {
+    event.preventDefault();
+    setInvalidMessage(requiredMessage);
+    const box = event.currentTarget;
+    const firstInvalid = box.form === null ? box : getFirstInvalidControl(box.form);
+    if (firstInvalid === box) box.focus();
+  }
+  return (
+    <Checkbox
+      id={consentProps?.id}
+      classNames={consentProps?.classNames}
+      name="consent"
+      label={label}
+      required
+      error={invalidMessage ?? error}
+      onInvalid={handleInvalid}
+      onChange={(event) => {
+        if (event.currentTarget.checked) setInvalidMessage(undefined);
+      }}
+      unstyled={unstyled}
+    />
+  );
 }
 
 function FormShell({
@@ -92,9 +178,11 @@ export interface LoginFormProps extends AuthFormBaseProps {
   readonly notice?: string;
 }
 
-export function LoginForm({ action, messages, locale, next, registerHref, forgotPasswordHref, notice, classNames, unstyled, submitVariant }: LoginFormProps) {
+export function LoginForm(props: LoginFormProps) {
+  const { action, messages, next, registerHref, forgotPasswordHref, notice, classNames, unstyled, submitVariant } = props;
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
-  const errors = useErrors(state, messages);
+  const errors = useErrors(state, messages, ["email", "password"]);
+  const field = getFieldLook(props);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   const footer =
     registerHref === undefined && forgotPasswordHref === undefined && notice === undefined ? undefined : (
@@ -142,16 +230,14 @@ export function LoginForm({ action, messages, locale, next, registerHref, forgot
         required
         defaultValue={state.email ?? ""}
         error={errors.at("email")}
-        unstyled={unstyled}
-        locale={locale}
+        {...field}
       />
       <PasswordField
         name="password"
         label={messages.fields.password}
         autoComplete="current-password"
         error={errors.at("password")}
-        unstyled={unstyled}
-        locale={locale}
+        {...field}
       />
     </FormShell>
   );
@@ -166,6 +252,8 @@ export interface RegisterFormProps extends AuthFormBaseProps {
   readonly minPasswordLength: number;
   /** The consent statement; may contain links to the terms. Defaults to `messages.fields.consent`. */
   readonly consentLabel?: ReactNode;
+  /** The consent box's id and look (`classNames` for its `CheckboxSlot`s). */
+  readonly consentProps?: ConsentProps;
   /**
    * The app's own inputs, before the consent checkbox. Their values reach `onRegistered` as
    * `event.fields` when their names are declared in `auth({ registrationFields })`.
@@ -173,22 +261,12 @@ export interface RegisterFormProps extends AuthFormBaseProps {
   readonly extraFields?: ReactNode;
 }
 
-export function RegisterForm({
-  action,
-  messages,
-  locale,
-  next,
-  loginHref,
-  requireConsent,
-  minPasswordLength,
-  consentLabel,
-  extraFields,
-  classNames,
-  unstyled,
-  submitVariant,
-}: RegisterFormProps) {
+export function RegisterForm(props: RegisterFormProps) {
+  const { action, messages, next, loginHref, requireConsent, minPasswordLength, consentLabel, consentProps, extraFields } = props;
+  const { classNames, unstyled, submitVariant } = props;
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
-  const errors = useErrors(state, messages);
+  const errors = useErrors(state, messages, requireConsent ? ["email", "password", "consent"] : ["email", "password"]);
+  const field = getFieldLook(props);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   const footer =
     loginHref === undefined ? undefined : (
@@ -220,8 +298,7 @@ export function RegisterForm({
         required
         defaultValue={state.email ?? ""}
         error={errors.at("email")}
-        unstyled={unstyled}
-        locale={locale}
+        {...field}
       />
       <PasswordField
         name="password"
@@ -230,12 +307,17 @@ export function RegisterForm({
         autoComplete="new-password"
         minLength={minPasswordLength}
         error={errors.at("password")}
-        unstyled={unstyled}
-        locale={locale}
+        {...field}
       />
       {extraFields}
       {requireConsent ? (
-        <Checkbox name="consent" label={consentLabel ?? messages.fields.consent} required error={errors.at("consent")} unstyled={unstyled} />
+        <ConsentCheckbox
+          label={consentLabel ?? messages.fields.consent}
+          requiredMessage={messages.errors.auth.consent_required}
+          error={errors.at("consent")}
+          consentProps={consentProps}
+          unstyled={unstyled}
+        />
       ) : null}
     </FormShell>
   );
@@ -245,9 +327,11 @@ export interface ChangePasswordFormProps extends AuthFormBaseProps {
   readonly minPasswordLength: number;
 }
 
-export function ChangePasswordForm({ action, messages, locale, minPasswordLength, classNames, unstyled, submitVariant }: ChangePasswordFormProps) {
+export function ChangePasswordForm(props: ChangePasswordFormProps) {
+  const { action, messages, minPasswordLength, classNames, unstyled, submitVariant } = props;
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
-  const errors = useErrors(state, messages);
+  const errors = useErrors(state, messages, ["currentPassword", "newPassword"]);
+  const field = getFieldLook(props);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   const notice =
     state.status === "ok" ? (
@@ -272,8 +356,7 @@ export function ChangePasswordForm({ action, messages, locale, minPasswordLength
         label={messages.fields.currentPassword}
         autoComplete="current-password"
         error={errors.at("currentPassword")}
-        unstyled={unstyled}
-        locale={locale}
+        {...field}
       />
       <PasswordField
         name="newPassword"
@@ -282,8 +365,7 @@ export function ChangePasswordForm({ action, messages, locale, minPasswordLength
         autoComplete="new-password"
         minLength={minPasswordLength}
         error={errors.at("newPassword")}
-        unstyled={unstyled}
-        locale={locale}
+        {...field}
       />
     </FormShell>
   );
@@ -296,9 +378,11 @@ export interface ForgotPasswordFormProps extends AuthFormBaseProps {
 }
 
 /** Asks for a reset link. Its confirmation is the same whether or not the email has an account. */
-export function ForgotPasswordForm({ action, messages, locale, ttlMinutes, loginHref, classNames, unstyled, submitVariant }: ForgotPasswordFormProps) {
+export function ForgotPasswordForm(props: ForgotPasswordFormProps) {
+  const { action, messages, ttlMinutes, loginHref, classNames, unstyled, submitVariant } = props;
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
-  const errors = useErrors(state, messages);
+  const errors = useErrors(state, messages, ["email"]);
+  const field = getFieldLook(props);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   const backToLogin =
     loginHref === undefined ? undefined : (
@@ -338,8 +422,7 @@ export function ForgotPasswordForm({ action, messages, locale, ttlMinutes, login
         required
         defaultValue={state.email ?? ""}
         error={errors.at("email")}
-        unstyled={unstyled}
-        locale={locale}
+        {...field}
       />
     </FormShell>
   );
@@ -352,9 +435,11 @@ export interface ResetPasswordFormProps extends AuthFormBaseProps {
 }
 
 /** Sets a new password from a reset link; its action goes to the login page on success. */
-export function ResetPasswordForm({ action, messages, locale, token, minPasswordLength, classNames, unstyled, submitVariant }: ResetPasswordFormProps) {
+export function ResetPasswordForm(props: ResetPasswordFormProps) {
+  const { action, messages, token, minPasswordLength, classNames, unstyled, submitVariant } = props;
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
-  const errors = useErrors(state, messages);
+  const errors = useErrors(state, messages, ["newPassword"]);
+  const field = getFieldLook(props);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   return (
     <FormShell
@@ -375,8 +460,7 @@ export function ResetPasswordForm({ action, messages, locale, token, minPassword
         autoComplete="new-password"
         minLength={minPasswordLength}
         error={errors.at("newPassword")}
-        unstyled={unstyled}
-        locale={locale}
+        {...field}
       />
     </FormShell>
   );
