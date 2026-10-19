@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
-## Unreleased
+## 0.5.0
 
 - `WaitlistForm` takes the app's look and ids for its fields and button (#593): `emailProps` (`id`, `placeholder`),
   `fieldClassNames`, `fieldHintAs` and `fieldHintProps` for the email field; `scopeClassNames` for every consent box;
