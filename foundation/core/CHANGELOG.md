@@ -18,6 +18,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
     these. Check two differences: overlap counts a single shared day, and a period's error sits on `to`. An app
     that typed a local date-time as `string` passes values through `localDateTimeSchema` (or `isLocalDateTime`)
     before using them as `LocalDateTime`.
+- `requestJson({ url, fetch?, headers?, timeoutMs?, schema? })`: a JSON GET for third-party APIs (#598). A timeout
+  (default 10 000 ms), no redirect followed, `Accept: application/json` by default, and every failure returned as an
+  `HttpJsonFailure` with a code and the status, never the URL or the error text: `core.http_unreachable`,
+  `core.http_refused` (3xx, 401, 403), `core.http_rate_limited` (429), `core.http_unavailable` (5xx),
+  `core.http_unexpected_answer` (other status, not JSON, fails the schema). The body is `unknown` without a zod
+  `schema` and the schema's output with one. `toQueryString(record)` builds a query string, skipping `null` and
+  `undefined`. English copy for the five codes in `coreMessages` (`errors.http_*`).
+  - Migrate (optional): an app with its own request helper replaces it with `requestJson`, passes the same headers
+    and timeout, moves its response check into `schema`, and maps the five codes to its own codes and messages
+    (`result.error`, `result.status`). The helper's own timeout, redirect and error-scrubbing code can go.
 
 ## 0.2.0
 
