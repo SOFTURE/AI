@@ -67,10 +67,15 @@ function register(options: ObservabilityOptions): Registration {
   const ignorePaths = options.traces?.ignorePaths ?? [];
   const sampler = ignorePaths.length === 0 ? undefined : createIgnorePathsSampler(ignorePaths);
   if (config.kind === "disabled") {
-    console.log(`observability: export disabled (${config.reason})`);
+    // The reason names the skipped endpoints already, so they get this one line, as a warning.
+    const print = config.warnings.length === 0 ? console.log : console.warn;
+    print(`observability: export disabled (${config.reason})`);
     return { handle: disabledHandle(), dispose: () => Promise.resolve(), hasWarned: false };
   }
 
+  for (const warning of config.warnings) {
+    console.warn(`observability: ${warning}`);
+  }
   const resource = defaultResource().merge(resourceFromAttributes(config.resourceAttributes));
   // Failed exports (a wrong token, an unreachable endpoint) would be silent otherwise. Export errors carry the
   // response, never the request headers.

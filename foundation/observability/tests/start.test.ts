@@ -49,6 +49,35 @@ describe("startObservability without an endpoint", () => {
   });
 });
 
+describe("startObservability with an endpoint it cannot export to", () => {
+  it("does not throw on BuildKit's unix:// trace socket, warns once and exports nothing", () => {
+    process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = "unix:///dev/otel-grpc.sock";
+
+    const handle = startObservability({ serviceName: "my-service" });
+
+    expect(handle.isExporting).toBe(false);
+    expect(output).toEqual([
+      "observability: export disabled (OTEL_EXPORTER_OTLP_TRACES_ENDPOINT has the unsupported scheme unix: " +
+        "(only http: and https:))",
+    ]);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns about the skipped signal and keeps exporting the other one", async () => {
+    receiver = await startOtlpReceiver();
+    process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = "unix:///dev/otel-grpc.sock";
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = `${receiver.url}/otlp`;
+
+    const handle = startObservability({ serviceName: "my-service" });
+
+    expect(handle.isExporting).toBe(true);
+    expect(output).toContain(
+      "observability: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT has the unsupported scheme unix: (only http: and https:)",
+    );
+    expect(output).toContain(`observability: exporting logs to ${receiver.url} as my-service`);
+  });
+});
+
 describe("startObservability with an endpoint", () => {
   it("exports traces, logs and fetch spans over OTLP/HTTP protobuf with the auth header", async () => {
     receiver = await startOtlpReceiver();
