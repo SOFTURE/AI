@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- `getTokenManagerProps({ userId, config?, now? })` in `/next` (#589): every data prop of `TokenManager` (`tools`,
+  `tokens`, `grants` while OAuth is on, `allowWrites`, `maxTokens`, `messages`, `locale`), built exactly as
+  `McpAccessPage` builds them, which now renders through it. For an app that composes its own page around
+  `TokenManager` (its own `<h1>`, its own frame). It checks no session: pass the signed-in user's id. Migrate: an app
+  that copied the page's builders (`toRow`, `toGrant`, `toTool`, `describeStatus` and the date formatting) deletes
+  them and spreads `await getTokenManagerProps({ userId: user.id })` into `TokenManager`, adding only the actions
+  (`revokeGrantAction` only when `grants` is present). Its output is unchanged.
+
 ## 0.2.4
 
 - `stdio/register` works for CommonJS (#571): it resolved `server-only` to a `data:` module, which an ES `import`

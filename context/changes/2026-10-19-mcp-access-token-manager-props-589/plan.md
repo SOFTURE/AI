@@ -32,5 +32,5 @@ migration (drop the local copies of the builders).
 
 ## Progress
 
-- [ ] Phase 1: the builder
-- [ ] Phase 2: docs
+- [x] Phase 1: the builder (4 tests written first; 33 mcp-access and repo test files pass; 4ff495c)
+- [x] Phase 2: docs (README `getTokenManagerProps` with a page example, CHANGELOG `## Unreleased` with the migration)
