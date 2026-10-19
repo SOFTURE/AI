@@ -271,7 +271,8 @@ app that renders the expiry itself.
 
 `TokenManager` (`@softure-ai/mcp-access/ui`) takes the actions `issueTokenAction` and
 `revokeTokenAction` (`/next`) as props for an app that composes its own page, and `grants` with
-`revokeGrantAction` for the connected apps list.
+`revokeGrantAction` for the connected apps list. It manages focus itself: the issued token's heading takes focus
+when it appears, and "Done" returns focus to the name field.
 
 With `oauth.enabled`, mount the OAuth routes and the consent page too (the paths for the default
 `routes`):

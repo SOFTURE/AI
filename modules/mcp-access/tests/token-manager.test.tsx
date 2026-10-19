@@ -106,6 +106,35 @@ describe("TokenManager", () => {
     expect(document.body.textContent).not.toContain(TOKEN);
   });
 
+  it("moves focus to the issued token's heading, also for a second token", async () => {
+    const SECOND: IssueTokenFormState = ISSUED.status === "ok" ? { status: "ok", issued: { ...ISSUED.issued, id: "33333333-2222-4333-8444-555555555555", name: "Phone" } } : ISSUED;
+    const issueAction = vi.fn<IssueTokenAction>().mockResolvedValueOnce(ISSUED).mockResolvedValueOnce(SECOND);
+    renderManager({ issueAction });
+    fireEvent.change(screen.getByRole("textbox", { name: en.issue.name }), { target: { value: "Desktop" } });
+    await submit(screen.getByRole("button", { name: en.issue.submit }));
+    const heading = screen.getByRole("heading", { name: "Token created: Desktop" });
+    expect(document.activeElement).toBe(heading);
+    expect(heading.tabIndex).toBe(-1);
+    fireEvent.change(screen.getByRole("textbox", { name: en.issue.name }), { target: { value: "Phone" } });
+    screen.getByRole("button", { name: en.issue.submit }).focus();
+    await submit(screen.getByRole("button", { name: en.issue.submit }));
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Token created: Phone" }));
+  });
+
+  it("returns focus to the name field when the token is hidden", async () => {
+    renderManager();
+    fireEvent.change(screen.getByRole("textbox", { name: en.issue.name }), { target: { value: "Desktop" } });
+    await submit(screen.getByRole("button", { name: en.issue.submit }));
+    const done = screen.getByRole("button", { name: en.issued.done });
+    done.focus();
+    await act(async () => {
+      fireEvent.click(done);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(screen.queryByText("Token created: Desktop")).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("textbox", { name: en.issue.name }));
+  });
+
   it("shows the refusal of the issue action", async () => {
     renderManager({ issueAction: () => Promise.resolve({ status: "error", error: "mcp-access.token_limit_reached" }) });
     fireEvent.change(screen.getByRole("textbox", { name: en.issue.name }), { target: { value: "Desktop" } });
