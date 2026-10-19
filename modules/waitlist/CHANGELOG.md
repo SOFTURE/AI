@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
-## Unreleased
+## 0.4.0
 
 - `WaitlistForm` takes the app's own success view and a callback (#579): `success` (a node or `(state) =>
   ReactNode`) is shown in place of the default notice and unsubscribe link once the sign-up counts (`ok`) or waits
