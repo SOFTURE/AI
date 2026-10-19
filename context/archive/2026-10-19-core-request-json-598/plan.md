@@ -1,6 +1,6 @@
 ---
 change_id: core-request-json-598
-status: planned
+status: archived
 ---
 
 # Plan: requestJson and toQueryString in core (issue #598)
