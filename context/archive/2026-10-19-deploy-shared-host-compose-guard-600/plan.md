@@ -1,6 +1,6 @@
 ---
 change_id: deploy-shared-host-compose-guard-600
-status: open
+status: archived
 ---
 
 # Plan: checkSharedHostCompose (issue #600)

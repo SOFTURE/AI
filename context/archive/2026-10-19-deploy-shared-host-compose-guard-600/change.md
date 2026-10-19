@@ -1,12 +1,13 @@
 ---
 change_id: deploy-shared-host-compose-guard-600
 title: "deploy: checkSharedHostCompose, a compose guard for an app on a shared edge proxy (issue #600)"
-status: open
+status: archived
 roadmap_item: null
 issue: 600
 branch: claude/project-thread-s8tp95
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent
