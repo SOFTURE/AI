@@ -158,8 +158,16 @@ function FormShell({
       <form action={formAction} className={slot("form")}>
         {children}
         <FormError message={formError} unstyled={unstyled} />
-        <Button type="submit" variant={submitVariant} fullWidth pending={isPending} classNames={{ root: slot("submit") }} unstyled={unstyled}>
-          {isPending ? pendingLabel : submitLabel}
+        <Button
+          type="submit"
+          variant={submitVariant}
+          fullWidth
+          pending={isPending}
+          pendingLabel={pendingLabel}
+          classNames={{ root: slot("submit") }}
+          unstyled={unstyled}
+        >
+          {submitLabel}
         </Button>
       </form>
       {footer}

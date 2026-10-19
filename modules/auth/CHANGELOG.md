@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- The auth forms' submit button keeps its width while sending (#616): `LoginForm`, `RegisterForm`,
+  `ChangePasswordForm`, `ForgotPasswordForm` and `ResetPasswordForm` pass their pending copy to ui's `Button` as
+  `pendingLabel`, so the idle button reserves the longer label and the spinner sits in the label, as in ui's
+  `ActionForm`. The label is now wrapped in ui's label spans; the button's root and its `submit` class are unchanged.
+  Nothing to migrate.
+
 ## 0.2.4
 
 All additive (#588); existing calls keep their fields, names and look.
