@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **The worker's health check asks its loop (#610):** with `@softure-ai/jobs` 0.1.3 or later (installed, else the
+  lowest version of the app's range), `init` writes `scripts/worker.ts` with
+  `healthFile: "/tmp/softure-jobs-worker.alive"` and the `worker` service's check
+  `test: ["CMD", "node", "worker.mjs", "--health"]`, which fails when the loop has not reached the database for five
+  poll intervals (at least 30 s), not only when the process is gone. With an older jobs it keeps the PID 1 check and
+  warns. An app with a worker upgrades `@softure-ai/jobs` first, then changes the `runJobWorkerProcess` call in its
+  `scripts/worker.ts` to `await runJobWorkerProcess({ config, handlers, healthFile: "/tmp/softure-jobs-worker.alive" });`
+  and the worker's `healthcheck.test` in `docker/prod/docker-compose.yml` (and its integration compose file, if that
+  runs the worker) to `["CMD", "node", "worker.mjs", "--health"]`; the interval, timeout, retries and start period stay.
+  Or it re-runs `init --force` into a scratch folder and copies both.
 - **The worker service has a health check (#609):** `init` gave the `@softure-ai/jobs` worker
   `healthcheck: disable: true`, and Docker Compose fails `up --wait` on such a service ("container …-worker-1 has no
   healthcheck configured"), so every deploy of an app with a worker failed at the switch, and so did an integration
