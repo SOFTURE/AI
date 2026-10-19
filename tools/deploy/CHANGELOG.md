@@ -4,6 +4,27 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **The worker service has a health check (#609):** `init` gave the `@softure-ai/jobs` worker
+  `healthcheck: disable: true`, and Docker Compose fails `up --wait` on such a service ("container …-worker-1 has no
+  healthcheck configured"), so every deploy of an app with a worker failed at the switch, and so did an integration
+  stack started with `up --wait`. The service now checks that PID 1 (`node worker.mjs`) is alive. An app with a
+  `worker` service replaces its `healthcheck` block in `docker/prod/docker-compose.yml`, and in its own integration
+  compose file if that has one, with:
+
+  ```yaml
+  worker:
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  ```
+
+  Or it re-runs `init --force` into a scratch folder and copies the `worker` service. Nothing else changes.
+
 ## 0.4.2
 
 - **`cloudflare-ranges` reads a Traefik static config file (#560):** the hook `init --cdn=cloudflare` writes looked
