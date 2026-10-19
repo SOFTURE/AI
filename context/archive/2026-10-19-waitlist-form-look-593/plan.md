@@ -1,6 +1,6 @@
 ---
 change_id: waitlist-form-look-593
-status: in_progress
+status: archived
 ---
 
 # Plan: the app's look and ids in WaitlistForm (issue #593)

@@ -1,12 +1,13 @@
 ---
 change_id: waitlist-form-look-593
 title: "waitlist: WaitlistForm's email field, consent boxes and submit button take the app's look and ids (issue #593)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 593
 branch: claude/project-thread-q06mw7
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent
