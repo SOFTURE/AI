@@ -277,7 +277,7 @@ None. Tokens, slots and styles live in `@softure-ai/ui`.
   locale and reused. `locale` is any BCP 47 tag; a category the forms leave out falls back to `other`.
 - `getMessage(dictionary, "errors.unexpected")` reads a dotted path.
 - Core's own keys (`coreMessages`): `errors.database_failed`, `errors.unexpected`, the copy for
-  the `core.database_failed` and `core.unexpected` codes.
+  the `core.database_failed` and `core.unexpected` codes, and `errors.http_*` for `requestJson`'s codes.
 
 **Errors as values.** `Result<T, E>` is `{ ok: true, value } | { ok: false, error }`, built with
 `ok(value)` / `ok()` and `err("module.code")`. Codes are namespaced by module id
@@ -304,6 +304,45 @@ if (plan.endedAt !== null) throw new PublicError("This plan has ended; pick anot
 
 `isPublicError` recognises one from another copy of core too (a registry symbol, not `instanceof`).
 `safeError` itself still answers `core.unexpected` for it, since callers switch on its two codes.
+
+**External JSON APIs.** `requestJson({ url, fetch?, headers?, timeoutMs?, schema? })` GETs a third-party JSON API
+and returns `Ok<value>` or an `HttpJsonFailure` (`{ ok: false, error, status }`). It sets the details a hand-written
+helper tends to miss:
+
+- a timeout, `AbortSignal.timeout(timeoutMs)` (default 10 000 ms), body included;
+- `redirect: "manual"`, so a key in a header or the URL never follows a redirect to another host;
+- `Accept: application/json` unless `headers` sets its own;
+- every failure is a code plus the status (`null` when no response arrived), never the URL, a header or the caught
+  error's text (some APIs put the key in the URL, and a fetch error can quote it).
+
+| Code | When |
+|---|---|
+| `core.http_unreachable` | network error, timeout, a body that breaks off |
+| `core.http_refused` | 3xx, an opaque redirect, 401, 403 |
+| `core.http_rate_limited` | 429 |
+| `core.http_unavailable` | 5xx |
+| `core.http_unexpected_answer` | any other non-2xx status, a body that is not JSON or fails the schema |
+
+Without `schema` the value is `unknown`, to be narrowed at the boundary; with a zod schema it is the schema's
+output. `fetch` defaults to the global one; tests pass a fake. `toQueryString(record)` builds the query part
+(without `?`) from strings, numbers and booleans, leaving out `null` and `undefined`:
+
+```ts
+import { err, requestJson, toQueryString } from "@softure-ai/core";
+import { z } from "zod";
+
+const rateSchema = z.object({ rates: z.array(z.object({ mid: z.number() })) });
+
+const result = await requestJson({
+  url: `https://api.example.com/rates?${toQueryString({ currency, date, page: undefined })}`,
+  headers: { Authorization: `Bearer ${env.RATES_API_KEY}` },
+  timeoutMs: 5_000,
+  schema: rateSchema,
+});
+if (!result.ok) {
+  return err(result.error === "core.http_rate_limited" ? "rates.busy" : "rates.unavailable"); // the app's own codes
+}
+```
 
 **Time.** Server code receives a `Clock` (`ModuleContext.clock`) instead of calling `new Date()`.
 `systemClock` is the real one; `createTestClock(start)` has `advance(ms)` and `set(date)`.
@@ -334,6 +373,35 @@ or a fractional count.
 | `wholeMonthsBetween(from, to)` | The most months `n` with `addCalendarMonths(from, n)` (clamped) not after `to`: Jan 31 to Feb 28 is 1. Swapping the days turns the sign. |
 
 `calendarDaySchema` is `isCalendarDay` as a zod schema, for tool and form inputs that take a day.
+
+**Calendar periods.** A `CalendarPeriod` is `{ from, to }`, two calendar days with **both ends included**:
+one day is `{ from: d, to: d }`. `calendarPeriodSchema` parses one from input and refuses `to` before `from`
+with the message `must not come before from` on the path `["to"]`, so a form shows it next to the end field;
+a malformed day gets only its own `calendarDaySchema` issue.
+
+| Function | Semantics |
+| --- | --- |
+| `isDayInPeriod(day, period)` | `day` lies in `period`, either end included. |
+| `doPeriodsOverlap(a, b)` | The periods share at least one day: `12-01..12-31` and `12-31..01-05` overlap, `12-01..12-31` and `01-01..01-31` do not. |
+| `countPeriodDays(period)` | Days in the period, both ends counted: 1 for a single day, 31 for December. |
+
+They throw a `RangeError` for a malformed day or a period that ends before it starts.
+
+```ts
+const input = z.object({ stay: calendarPeriodSchema }).parse(body);
+countPeriodDays(input.stay); // 7
+```
+
+**Local date-times.** A `LocalDateTime` is `YYYY-MM-DDTHH:mm` with no time zone: a time that is local at a
+place, such as a departure or a booking slot, read the same whatever the server's zone. The day part must be a
+real calendar day (`2026-02-30T10:00` is refused), the hour 00-23 and the minute 00-59; no seconds, no offset.
+It is a branded string, so only `localDateTimeSchema` (input) or `isLocalDateTime(value)` (a guard) make one,
+and it sorts as text in time order. `getLocalDay(value)` returns its `YYYY-MM-DD` day.
+
+```ts
+const departure = localDateTimeSchema.parse("2026-12-01T06:45"); // LocalDateTime
+isDayInPeriod(getLocalDay(departure), trip); // true when the departure falls on a day of the trip
+```
 
 **Display.** One way to show days, money and percentages in every module and app, in `config.locale`:
 

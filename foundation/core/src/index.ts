@@ -11,6 +11,14 @@ export {
   wholeMonthsBetween,
   type EndOfMonth,
 } from "./calendar-day.js";
+export {
+  calendarPeriodSchema,
+  countPeriodDays,
+  doPeriodsOverlap,
+  isDayInPeriod,
+  type CalendarPeriod,
+} from "./calendar-period.js";
+export { getLocalDay, isLocalDateTime, localDateTimeSchema, type LocalDateTime } from "./local-date-time.js";
 export { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
 export {
   DEFAULT_DURATION_MESSAGES,
@@ -27,6 +35,15 @@ export {
   type FormatMoneyOptions,
   type FormatPercentOptions,
 } from "./format.js";
+export {
+  requestJson,
+  toQueryString,
+  type FetchFunction,
+  type HttpJsonFailure,
+  type HttpJsonFailureCode,
+  type RequestJsonOptions,
+  type RequestJsonSchemaOptions,
+} from "./http-json.js";
 export { memoizeByContent, type MemoizeByContentOptions, type MemoizedFunction } from "./memoize.js";
 export { createTestClock, systemClock, type Clock, type TestClock } from "./clock.js";
 export {

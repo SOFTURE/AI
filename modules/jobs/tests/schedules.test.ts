@@ -1,7 +1,7 @@
 // Recurring schedules: one run per period however many runners race for it, missed periods collapse into one run, a
 // run still live absorbs the next period, a success is recorded, and a schedule that stops running reads as late.
-import { err, ok, systemClock } from "@softure-ai/core";
-import { defineJobHandler, type JobHandlers, type JobsOptionsInput } from "@softure-ai/jobs";
+import { err, ok, systemClock, type ErrorCode } from "@softure-ai/core";
+import { defineJobHandler, failJob, type JobHandlers, type JobsOptionsInput } from "@softure-ai/jobs";
 import {
   claimJobs,
   enqueueDueSchedules,
@@ -36,6 +36,10 @@ function countingHandler(): { runs: unknown[]; handler: JobHandlers[string] } {
     },
   });
   return { runs, handler };
+}
+
+function failingHandler(code: ErrorCode): JobHandlers[string] {
+  return defineJobHandler({ payload: z.object({}), run: () => Promise.resolve(failJob(code)) });
 }
 
 describe("getScheduleSlot", () => {
@@ -230,7 +234,15 @@ describe("schedule state in getQueueStats", () => {
 
   it("reports a schedule no worker has seen as late, and a queue without a schedule as null", async () => {
     test = await createTestJobs({ schedules: SCHEDULES });
-    expect(await getSchedule("app.prune")).toEqual({ everySeconds: 3600, lastEnqueuedAt: null, lastSucceededAt: null, isLate: true });
+    expect(await getSchedule("app.prune")).toEqual({
+      everySeconds: 3600,
+      lastEnqueuedAt: null,
+      lastSucceededAt: null,
+      lastFailedAt: null,
+      lastFailureCode: null,
+      isLate: true,
+      isFailing: false,
+    });
     expect(await getSchedule("ai.reply")).toBeNull();
   });
 
@@ -253,7 +265,15 @@ describe("schedule state in getQueueStats", () => {
     await runDueJobs(test.ctx, { handlers: { "app.prune": countingHandler().handler } });
     const succeededAt = test.clock.now();
 
-    expect(await getSchedule("app.prune")).toEqual({ everySeconds: 3600, lastEnqueuedAt: NOW, lastSucceededAt: succeededAt, isLate: false });
+    expect(await getSchedule("app.prune")).toEqual({
+      everySeconds: 3600,
+      lastEnqueuedAt: NOW,
+      lastSucceededAt: succeededAt,
+      lastFailedAt: null,
+      lastFailureCode: null,
+      isLate: false,
+      isFailing: false,
+    });
     test.clock.advance(2 * HOUR_MS);
     expect((await getSchedule("app.prune"))?.isLate).toBe(false);
     test.clock.advance(1);
@@ -284,6 +304,66 @@ describe("schedule state in getQueueStats", () => {
     }
     test.clock.advance(1);
     expect(await getSchedule("app.prune")).toMatchObject({ lastSucceededAt: null, isLate: true });
+  });
+
+  it("records a failure after a success as failing, with the handler's code", async () => {
+    test = await createTestJobs({ schedules: SCHEDULES, queues: { "app.prune": { maxAttempts: 1 } } });
+    await runDueJobs(test.ctx, { handlers: { "app.prune": countingHandler().handler } });
+    const succeededAt = test.clock.now();
+    test.clock.advance(HOUR_MS);
+    await runDueJobs(test.ctx, { handlers: { "app.prune": failingHandler("app.source_down") } });
+
+    expect(await getSchedule("app.prune")).toMatchObject({
+      lastSucceededAt: succeededAt,
+      lastFailedAt: test.clock.now(),
+      lastFailureCode: "app.source_down",
+      isFailing: true,
+    });
+  });
+
+  it("stops failing after a later success and keeps the last failure", async () => {
+    test = await createTestJobs({ schedules: SCHEDULES, queues: { "app.prune": { maxAttempts: 1 } } });
+    await runDueJobs(test.ctx, { handlers: { "app.prune": failingHandler("app.source_down") } });
+    const failedAt = test.clock.now();
+    expect(await getSchedule("app.prune")).toMatchObject({ lastSucceededAt: null, lastFailedAt: failedAt, isFailing: true });
+
+    test.clock.advance(HOUR_MS);
+    await runDueJobs(test.ctx, { handlers: { "app.prune": countingHandler().handler } });
+
+    expect(await getSchedule("app.prune")).toMatchObject({
+      lastSucceededAt: test.clock.now(),
+      lastFailedAt: failedAt,
+      lastFailureCode: "app.source_down",
+      isFailing: false,
+    });
+  });
+
+  it("records no failure for an attempt that is retried and then succeeds", async () => {
+    test = await createTestJobs({ schedules: SCHEDULES, queues: { "app.prune": { maxAttempts: 2, backoff: { baseSeconds: 10 } } } });
+    let calls = 0;
+    const flaky = defineJobHandler({
+      payload: z.object({}),
+      run: () => {
+        calls += 1;
+        return Promise.resolve(calls === 1 ? err("app.source_down") : ok());
+      },
+    });
+    await runDueJobs(test.ctx, { handlers: { "app.prune": flaky } });
+    test.clock.advance(MINUTE_MS);
+    await runDueJobs(test.ctx, { handlers: { "app.prune": flaky } });
+
+    expect(await getSchedule("app.prune")).toMatchObject({ lastSucceededAt: test.clock.now(), lastFailedAt: null, lastFailureCode: null, isFailing: false });
+  });
+
+  it("records a run whose lease ended with no attempts left as failing with jobs.lease_expired", async () => {
+    test = await createTestJobs({ schedules: SCHEDULES, queues: { "app.prune": { maxAttempts: 1, leaseSeconds: 30 } } });
+    await enqueueDueSchedules(test.ctx, { queues: ["app.prune"] });
+    await claimJobs(test.ctx, { queue: "app.prune", limit: 1, workerId: "died" });
+    test.clock.advance(MINUTE_MS);
+
+    await claimJobs(test.ctx, { queue: "app.prune", limit: 1, workerId: "next" });
+
+    expect(await getSchedule("app.prune")).toMatchObject({ lastFailedAt: test.clock.now(), lastFailureCode: "jobs.lease_expired", isFailing: true });
   });
 });
 
