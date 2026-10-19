@@ -13,6 +13,7 @@ import { pruneJobs } from "../server/maintenance.js";
 import { getJobsOptions, getQueue } from "../server/options.js";
 import { runClaimedJob } from "../server/process.js";
 import { enqueueScheduledRun, getSchedule, getScheduleNames, getScheduleSlot } from "../server/schedules.js";
+import { createHealthFile } from "./health.js";
 
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 /** A lease is extended three times per lease period, so one slow write does not lose it. */
@@ -35,6 +36,11 @@ export interface RunJobWorkerOptions {
   readonly random?: () => number;
   /** How often a running job's lease is extended; default a third of the queue's `leaseSeconds`. */
   readonly heartbeatMs?: number;
+  /**
+   * A file the loop touches after each round whose claims reached the database (removed at start and after a clean
+   * stop), for a health check of the loop: `checkJobWorkerHealth`. Default none.
+   */
+  readonly healthFile?: string;
 }
 
 interface RunningJob {
@@ -69,6 +75,9 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
   if (idle.length > 0 && options.queues === undefined) {
     logger.warn("configured queues without a handler are not run by this worker", { queues: idle.join(", ") });
   }
+  const healthFile = options.healthFile === undefined ? undefined : createHealthFile(options.healthFile, logger);
+  // A file left by an earlier run of the same container must not pass the check before this loop ran a round.
+  healthFile?.remove();
   logger.info("worker started", { workerId, queues: queues.join(", ") });
 
   const start = (claimed: ClaimedJob): RunningJob => {
@@ -113,6 +122,7 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
         logger.error("could not enqueue a scheduled run; trying again next round", { queue: name, error });
       }
     }
+    let isClaimFailed = false;
     for (const queue of queues) {
       const slots = running.get(queue) ?? new Set<RunningJob>();
       const free = getQueue(jobsOptions, queue).concurrency - slots.size;
@@ -121,6 +131,7 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
         const claimed = await claimJobs(ctx, { queue, limit: free, workerId });
         for (const job of claimed) slots.add(start(job));
       } catch (error) {
+        isClaimFailed = true;
         logger.error("could not claim jobs", { queue, error });
       }
     }
@@ -133,10 +144,12 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
         logger.error("could not prune finished jobs", { error });
       }
     }
+    if (!isClaimFailed) healthFile?.touch();
     await wakeUp.wait(jobsOptions.pollIntervalMs, options.signal);
   }
 
   await stop(running, { ctx, logger, graceMs: jobsOptions.shutdownGraceMs });
+  healthFile?.remove();
   logger.info("worker stopped", { workerId });
 }
 
