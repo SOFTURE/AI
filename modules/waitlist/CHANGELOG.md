@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
+## Unreleased
+
+- `WaitlistForm` takes the app's look and ids for its fields and button (#593): `emailProps` (`id`, `placeholder`),
+  `fieldClassNames`, `fieldHintAs` and `fieldHintProps` for the email field; `scopeClassNames` for every consent box;
+  `WaitlistFormScope.description` (a line under the statement) and `inputId` (the box's id); `submitVariant`,
+  `submitFullWidth` (default `true`) and the `submit` slot in `classNames` for the button. `<Waitlist />` passes them
+  through, with `consentDescriptions` and `consentIds` per scope id. `WaitlistEmailProps` is exported from `/ui`.
+  Without the new props the markup is unchanged. Migrate (optional): an app that kept its own form because its look
+  differed renders `WaitlistForm` (or `<Waitlist />`) with its button width and variant (`submitFullWidth={false}`,
+  `submitVariant`, `classNames.submit`), its label class (`fieldClassNames.label`), its placeholder and field id
+  (`emailProps={{ id: "field-email", placeholder }}`), and per scope its sentence and id (`description`, `inputId`, or
+  `consentDescriptions` and `consentIds`); then it removes its own form and its state handling (README, "Appearance").
+
 ## 0.4.0
 
 - `WaitlistForm` takes the app's own success view and a callback (#579): `success` (a node or `(state) =>

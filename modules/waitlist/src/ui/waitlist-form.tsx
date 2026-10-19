@@ -1,7 +1,19 @@
 "use client";
 
 import { formatMessage, type Locale } from "@softure-ai/core";
-import { Button, Checkbox, type ClassNames, createSlotClassGetter, FormError, TextField } from "@softure-ai/ui";
+import {
+  Button,
+  type ButtonVariant,
+  Checkbox,
+  type CheckboxSlot,
+  type ClassNames,
+  createSlotClassGetter,
+  FormError,
+  type HintAppearance,
+  type HintPlacement,
+  type InputFieldSlot,
+  TextField,
+} from "@softure-ai/ui";
 import { type ReactNode, useActionState, useEffect, useRef } from "react";
 import { INITIAL_WAITLIST_FORM_STATE, type WaitlistFormState, type WaitlistFormSuccessState } from "../contract.js";
 import { EMAIL_FIELD, getScopeFieldName, PLACEMENT_FIELD } from "../fields.js";
@@ -12,11 +24,11 @@ import { getWaitlistErrorMessage, type WaitlistMessages } from "../messages/inde
 // JavaScript; after a sign-up it shows the confirmation (or, with double opt-in, where to confirm)
 // instead of the form, with the person's unsubscribe link when the action returned one; `success` replaces that
 // view with the app's own and `onSuccess` follows it. Copy comes from the module's messages and the scope labels
-// the server prepared; styling only from @softure-ai/ui.
+// the server prepared; styling only from @softure-ai/ui, with the app's look and ids passed through to its primitives.
 
 export type WaitlistFormAction = (previous: WaitlistFormState, formData: FormData) => Promise<WaitlistFormState>;
 
-export type WaitlistFormSlot = "root" | "form" | "scopes" | "notice" | "unsubscribe";
+export type WaitlistFormSlot = "root" | "form" | "scopes" | "notice" | "unsubscribe" | "submit";
 
 /** One consent checkbox, prepared on the server. */
 export interface WaitlistFormScope {
@@ -25,6 +37,16 @@ export interface WaitlistFormScope {
   readonly label: ReactNode;
   /** The form cannot be sent without it. */
   readonly required: boolean;
+  /** A line under the statement (e.g. "You can unsubscribe any time."), tied to the box with `aria-describedby`. */
+  readonly description?: ReactNode;
+  /** The box's id, stable across renders (e.g. for a link or a test); unique on the page. Generated without it. */
+  readonly inputId?: string;
+}
+
+/** The email field's own props: a stable id (e.g. for a sticky bar elsewhere that focuses it) and the app's placeholder. */
+export interface WaitlistEmailProps {
+  readonly id?: string;
+  readonly placeholder?: string;
 }
 
 export interface WaitlistFormProps {
@@ -45,6 +67,20 @@ export interface WaitlistFormProps {
   readonly success?: ReactNode | ((state: WaitlistFormSuccessState) => ReactNode);
   /** Called once per successful answer, after the success view is on the page (e.g. to move focus to it). */
   readonly onSuccess?: (state: WaitlistFormSuccessState) => void;
+  /** The email field's id and placeholder. */
+  readonly emailProps?: WaitlistEmailProps;
+  /** Classes for the email field (label, input, ...), to match the app's other forms. */
+  readonly fieldClassNames?: ClassNames<InputFieldSlot>;
+  /** Where the email field shows a hint: under the label (default) or behind a "?" tooltip. */
+  readonly fieldHintAs?: HintPlacement;
+  /** The tooltip hint's look, so it matches the app's standalone hints. */
+  readonly fieldHintProps?: HintAppearance;
+  /** Classes for every consent box (box, label, description, ...). */
+  readonly scopeClassNames?: ClassNames<CheckboxSlot>;
+  /** The submit button's look; `primary` by default. Its class goes in `classNames.submit`. */
+  readonly submitVariant?: ButtonVariant;
+  /** Whether the submit button fills the form's width; `true` by default. */
+  readonly submitFullWidth?: boolean;
 }
 
 const DEFAULT_CLASSES: Readonly<Record<WaitlistFormSlot, string>> = {
@@ -53,6 +89,7 @@ const DEFAULT_CLASSES: Readonly<Record<WaitlistFormSlot, string>> = {
   scopes: "sft:flex sft:flex-col sft:gap-3",
   notice: "sft:m-0 sft:text-sm sft:text-success",
   unsubscribe: "sft:m-0 sft:text-sm sft:text-muted sft:break-words",
+  submit: "",
 };
 
 const SECONDS_PER_MINUTE = 60;
@@ -85,6 +122,13 @@ export function WaitlistForm({
   unstyled,
   success,
   onSuccess,
+  emailProps,
+  fieldClassNames,
+  fieldHintAs,
+  fieldHintProps,
+  scopeClassNames,
+  submitVariant = "primary",
+  submitFullWidth = true,
 }: WaitlistFormProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_WAITLIST_FORM_STATE);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
@@ -122,14 +166,19 @@ export function WaitlistForm({
       <form action={formAction} className={slot("form")}>
         <input type="hidden" name={PLACEMENT_FIELD} value={placement} />
         <TextField
+          id={emailProps?.id}
           name={EMAIL_FIELD}
           type="email"
           label={messages.form.email}
           autoComplete="email"
+          placeholder={emailProps?.placeholder}
           required
           defaultValue={state.email ?? ""}
           error={state.field === "email" ? message : undefined}
           locale={locale}
+          classNames={fieldClassNames}
+          hintAs={fieldHintAs}
+          hintProps={fieldHintProps}
           unstyled={unstyled}
         />
         <div className={slot("scopes")}>
@@ -137,16 +186,26 @@ export function WaitlistForm({
             <Checkbox
               // Remounted after each answer, so the checked state follows the last submit.
               key={`${scope.id}:${String(checked.has(scope.id))}`}
+              id={scope.inputId}
               name={getScopeFieldName(scope.id)}
               label={scope.label}
+              description={scope.description}
               required={scope.required}
               defaultChecked={checked.has(scope.id)}
+              classNames={scopeClassNames}
               unstyled={unstyled}
             />
           ))}
         </div>
         <FormError message={state.field === "email" ? undefined : message} unstyled={unstyled} />
-        <Button type="submit" variant="primary" fullWidth pending={isPending} unstyled={unstyled}>
+        <Button
+          type="submit"
+          variant={submitVariant}
+          fullWidth={submitFullWidth}
+          pending={isPending}
+          classNames={{ root: slot("submit") }}
+          unstyled={unstyled}
+        >
           {isPending ? messages.form.pending : messages.form.submit}
         </Button>
       </form>
