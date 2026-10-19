@@ -1,6 +1,6 @@
 ---
 change_id: jobs-schedule-last-failure-603
-status: in_progress
+status: archived
 ---
 
 # Plan: last failure of a scheduled queue (issue #603)
@@ -35,5 +35,5 @@ Files: new `modules/jobs/migrations/0003_add_schedule_failures.sql`, `modules/jo
 
 ## Progress
 
-- [ ] Phase 1: record and report the last failure
-- [ ] Phase 2: docs
+- [x] Phase 1: record and report the last failure (f65b83e)
+- [x] Phase 2: docs (f65b83e, committed together with phase 1)

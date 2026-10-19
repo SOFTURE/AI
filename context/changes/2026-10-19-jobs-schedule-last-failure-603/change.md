@@ -1,12 +1,13 @@
 ---
 change_id: jobs-schedule-last-failure-603
 title: "jobs: getQueueStats reports a scheduled queue's last failure (issue #603)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 603
 branch: claude/project-thread-plc486
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent
