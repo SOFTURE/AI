@@ -88,6 +88,78 @@ describe("RegisterForm", () => {
   });
 });
 
+describe("RegisterForm consent box", () => {
+  it("shows the consent message under an unticked box instead of the browser's bubble, and clears it when ticked", () => {
+    render(<RegisterForm action={answering({ status: "idle" })} messages={en} requireConsent minPasswordLength={10} />);
+    const box = screen.getByLabelText(en.fields.consent);
+    const isNotCancelled = fireEvent.invalid(box);
+    expect(isNotCancelled).toBe(false);
+    expect(screen.getByText(en.errors.auth.consent_required)).toBeDefined();
+    expect(box.getAttribute("aria-invalid")).toBe("true");
+    fireEvent.click(box);
+    expect(screen.queryByText(en.errors.auth.consent_required)).toBeNull();
+  });
+
+  it("takes the app's id and look, and shows the server's consent error at that id", async () => {
+    const action = answering({ status: "error", error: "auth.consent_required", field: "consent", email: "ada@example.com" });
+    render(
+      <RegisterForm
+        action={action}
+        messages={en}
+        requireConsent
+        minPasswordLength={10}
+        consentProps={{ id: "field-consent", classNames: { root: "app-consent" } }}
+      />,
+    );
+    expect(document.querySelector("#field-consent")).toBe(screen.getByLabelText(en.fields.consent));
+    expect(document.querySelector("#field-consent")?.closest(".app-consent")).not.toBeNull();
+    await submit(screen.getByRole("button", { name: en.register.submit }));
+    expect(document.querySelector("#field-consent-error")?.textContent).toBe(en.errors.auth.consent_required);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows an error for a field it does not render as the form error", async () => {
+    const action = answering({ status: "error", error: "auth.consent_required", field: "consent" });
+    render(<RegisterForm action={action} messages={en} requireConsent={false} minPasswordLength={10} />);
+    await submit(screen.getByRole("button", { name: en.register.submit }));
+    expect(screen.getByRole("alert").textContent).toBe(en.errors.auth.consent_required);
+  });
+});
+
+describe("field looks", () => {
+  it("passes fieldClassNames and fieldHintProps to every text and password field", () => {
+    const { unmount } = render(
+      <RegisterForm
+        action={answering({ status: "idle" })}
+        messages={en}
+        requireConsent
+        minPasswordLength={10}
+        fieldClassNames={{ label: "app-label", hint: "app-hint" }}
+      />,
+    );
+    expect(screen.getByText(en.fields.email).className).toContain("app-label");
+    expect(screen.getByText(en.fields.password).className).toContain("app-label");
+    expect(screen.getByText("At least 10 characters.").className).toContain("app-hint");
+    unmount();
+    render(<LoginForm action={answering({ status: "idle" })} messages={en} fieldClassNames={{ label: "app-label" }} />);
+    expect(screen.getByText(en.fields.email).className).toContain("app-label");
+    expect(screen.getByText(en.fields.password).className).toContain("app-label");
+  });
+
+  it("shows the password hint as a tooltip in the app's look with fieldHintAs and fieldHintProps", () => {
+    render(
+      <ChangePasswordForm
+        action={answering({ status: "idle" })}
+        messages={en}
+        minPasswordLength={10}
+        fieldHintAs="tooltip"
+        fieldHintProps={{ classNames: { trigger: "app-hint-trigger" } }}
+      />,
+    );
+    expect(document.querySelectorAll(".app-hint-trigger")).toHaveLength(1);
+  });
+});
+
 describe("ChangePasswordForm", () => {
   it("confirms a change", async () => {
     render(<ChangePasswordForm action={answering({ status: "ok" })} messages={en} minPasswordLength={10} />);

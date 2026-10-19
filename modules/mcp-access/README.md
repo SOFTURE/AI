@@ -271,7 +271,9 @@ app that renders the expiry itself.
 
 `TokenManager` (`@softure-ai/mcp-access/ui`) takes the actions `issueTokenAction` and
 `revokeTokenAction` (`/next`) as props for an app that composes its own page, and `grants` with
-`revokeGrantAction` for the connected apps list. `getTokenManagerProps({ userId })` (`/next`) builds every other
+`revokeGrantAction` for the connected apps list. It manages focus itself: the issued token's heading takes focus
+when it appears, and "Done" returns focus to the name field.
+`getTokenManagerProps({ userId })` (`/next`) builds every other
 prop exactly as `McpAccessPage` does: `tools`, `tokens` (status, scope, created, expiry and last-use lines in the
 config's locale and zone), `grants` only while `oauth.enabled`, `allowWrites`, `maxTokens`, `messages` and `locale`.
 It checks no session: pass the signed-in user's id from the app's own check. For example, a page with its own `<h1>`:

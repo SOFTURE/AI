@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `TokenManager` keeps keyboard focus (#590): when the issued token appears, focus moves to its heading
+  (`tabIndex={-1}`), so a screen reader announces the token that is shown only once; "Done, hide the token" returns
+  focus to the issue form's name field instead of dropping it to `<body>`. Migrate: nothing to change; an app that
+  moved focus itself around `TokenManager` can drop that code.
 - `getTokenManagerProps({ userId, config?, now? })` in `/next` (#589): every data prop of `TokenManager` (`tools`,
   `tokens`, `grants` while OAuth is on, `allowWrites`, `maxTokens`, `messages`, `locale`), built exactly as
   `McpAccessPage` builds them, which now renders through it. For an app that composes its own page around
