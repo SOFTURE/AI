@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `getQueueStats` reports a scheduled queue's last failure (#603): each `schedule` gains `lastFailedAt` (when a job of
+  the queue last ended `failed`: attempts used up, `failJob`, an invalid payload or an expired lease with no attempts
+  left; a retried attempt does not count), `lastFailureCode` (that job's error code, never an error's text) and
+  `isFailing` (`lastFailedAt` later than `lastSucceededAt`, or a failure and no success yet). Stored in
+  `jobs.schedules` in the same transaction as the failed job, so it outlives pruning; migration
+  `0003_add_schedule_failures.sql` adds two nullable columns.
+- Migration for an app: run the module migrations (`0003` adds the columns; failures before it are not back-filled).
+  An app that kept a log of its own runs only to tell whether the latest run failed reads
+  `stats.schedule.isFailing`, `lastFailedAt` and `lastFailureCode` from `getQueueStats` instead and can drop that log.
+  Code or tests that compare a whole `schedule` with `toEqual` see the three new fields.
+
 ## 0.1.2
 
 - Schedules at local times of day (#554): `schedules: { "<queue>": { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw" } }`
