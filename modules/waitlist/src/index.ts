@@ -28,7 +28,7 @@ export const WAITLIST_RATE_LIMIT_BUCKETS = {
 export const waitlist = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.5.0",
+    version: "0.5.1",
     dependsOn: { security: "^0.2.0", auth: "^0.2.0", mailing: "^0.2.0", privacy: "^0.2.0", ops: "^0.2.0?", jobs: "^0.1.1?" },
     dbSchema: "waitlist",
     tables: ["signups"],

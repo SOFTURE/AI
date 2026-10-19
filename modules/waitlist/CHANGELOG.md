@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
-## Unreleased
+## 0.5.1
 
 - `WaitlistForm`'s submit button keeps its width while sending (#615): it passes `messages.form.pending` to ui's
   `Button` as `pendingLabel`, so the idle button reserves the longer label and the spinner sits in the label, as in
