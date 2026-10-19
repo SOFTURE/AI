@@ -23,11 +23,17 @@ export interface ScheduleState {
   readonly lastEnqueuedAt: Date | null;
   /** When a job of the schedule's queue last succeeded; null when none has yet. */
   readonly lastSucceededAt: Date | null;
+  /** When a job of the schedule's queue last ended `failed` (attempts used up, or failed for good); null when none has. */
+  readonly lastFailedAt: Date | null;
+  /** That job's error code (the handler's code, `jobs.handler_threw`, `jobs.lease_expired`…); null when none failed. */
+  readonly lastFailureCode: string | null;
   /**
    * True when no run succeeded within two periods (counted from when a worker first saw the schedule), or no worker
    * has seen it at all: no worker runs its queue, or its runs keep failing.
    */
   readonly isLate: boolean;
+  /** True when the latest outcome is a failure: `lastFailedAt` is later than `lastSucceededAt`, or nothing succeeded. */
+  readonly isFailing: boolean;
 }
 
 export interface EnqueueDueSchedulesInput {
@@ -90,6 +96,13 @@ export async function recordScheduleSuccess(ctx: JobsContext, queue: string): Pr
   await ctx.db.update(schedules).set({ lastSucceededAt: now, updatedAt: now }).where(eq(schedules.name, queue));
 }
 
+/** Notes a failed job of a scheduled queue (terminal, not a retried attempt) with its error code. */
+export async function recordScheduleFailure(ctx: JobsContext, queue: string, code: string): Promise<void> {
+  if (!Object.hasOwn(getJobsOptions(ctx.config).schedules, queue)) return;
+  const now = ctx.clock.now();
+  await ctx.db.update(schedules).set({ lastFailedAt: now, lastFailureCode: code, updatedAt: now }).where(eq(schedules.name, queue));
+}
+
 /** The state of every configured schedule, by queue name. */
 export async function getScheduleStates(ctx: JobsContext): Promise<Map<string, ScheduleState>> {
   const options = getJobsOptions(ctx.config);
@@ -103,7 +116,11 @@ export async function getScheduleStates(ctx: JobsContext): Promise<Map<string, S
       const row = rows.find((candidate) => candidate.name === name);
       const since = row?.lastSucceededAt ?? row?.createdAt ?? null;
       const isLate = since === null || now - since.getTime() > 2 * everySeconds * 1000;
-      return [name, { everySeconds, lastEnqueuedAt: row?.lastSlotAt ?? null, lastSucceededAt: row?.lastSucceededAt ?? null, isLate }];
+      const lastSucceededAt = row?.lastSucceededAt ?? null;
+      const lastFailedAt = row?.lastFailedAt ?? null;
+      const isFailing = lastFailedAt !== null && (lastSucceededAt === null || lastFailedAt > lastSucceededAt);
+      const lastFailureCode = row?.lastFailureCode ?? null;
+      return [name, { everySeconds, lastEnqueuedAt: row?.lastSlotAt ?? null, lastSucceededAt, lastFailedAt, lastFailureCode, isLate, isFailing }];
     }),
   );
 }
