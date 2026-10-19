@@ -47,9 +47,13 @@ Inside this repository it is a workspace package.
 Options win over the environment. Headers merge per key: per-signal variables over `OTEL_EXPORTER_OTLP_HEADERS`,
 `headers` over both. A signal without an endpoint is not exported; with neither, nothing is.
 
-A malformed value (an endpoint that is not an http(s) URL, a header entry without a key) throws at start with the name
-of the option or variable, never its value; in Next.js that stops the server from starting, which is deliberate. A
-failed export (a wrong token, an unreachable endpoint) is printed as an OpenTelemetry error on the console.
+A malformed value (an endpoint that is not a URL, such as `localhost:4318` without `http://`, a header entry without a
+key) throws at start with the name of the option or variable, never its value; in Next.js that stops the server from
+starting, which is deliberate. An endpoint with a scheme other than `http:` or `https:` (Docker BuildKit sets
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=unix:///dev/otel-grpc.sock` in every `RUN` step; `grpc://`) does not throw: that
+signal is not exported, the start-up prints one warning naming the variable and the scheme, and the other signal keeps
+its own endpoint. A per-signal variable is not replaced by `OTEL_EXPORTER_OTLP_ENDPOINT` then. A failed export (a wrong
+token, an unreachable endpoint) is printed as an OpenTelemetry error on the console.
 
 **Secrets.** The `Authorization` header is a credential: pass it from the environment (`OTEL_EXPORTER_OTLP_HEADERS`
 or your own variable read into `headers`), never from code or a committed file. The package never prints headers;
