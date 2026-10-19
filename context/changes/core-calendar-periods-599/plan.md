@@ -52,8 +52,8 @@ Additive exports only; rollback is reverting the commits. Conflicts with #598 ar
 ### Phase 1: calendar periods and local date-times
 
 #### Automated
-- [ ] 1.1 Period and local date-time tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Period and local date-time tests pass (31 tests, written first) — 393ff93
+- [x] 1.2 Gates green (typecheck, lint, test; core 24 files, 345 tests) — 393ff93
 
 ### Phase 2: docs
 
