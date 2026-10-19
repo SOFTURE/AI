@@ -1,6 +1,6 @@
 ---
 change_id: deploy-worker-healthcheck-609
-status: open
+status: archived
 ---
 
 # Plan: worker health check (issue #609)
@@ -32,5 +32,12 @@ enhancement as its own issue.
 
 ## Progress
 
-- [ ] Phase 1: the template
-- [ ] Phase 2: docs
+- [x] Phase 1: the template (9d5b1c1)
+- [x] Phase 2: docs (54c6318)
+
+The changed `generate.test.ts` case was red against the old template. Checked by hand with Docker Compose 5.6.0 and an
+image whose own `HEALTHCHECK` always fails, running as a non-root user: with the new check `up --wait` reports the
+worker healthy (the service's check replaces the image's); a worker whose process exits fails `up --wait`. The
+"has no healthcheck configured" failure itself did not reproduce on 5.6.0 with `disable: true`, so it depends on the
+Compose release the adopting app runs; the new check passes either way. The jobs heartbeat is filed as #610. Gates:
+typecheck, lint, the deploy package's tests (767 passed).

@@ -1,12 +1,13 @@
 ---
 change_id: deploy-worker-healthcheck-609
 title: "deploy: the worker service gets a health check that `compose up --wait` accepts (issue #609)"
-status: open
+status: archived
 roadmap_item: null
 issue: 609
 branch: claude/project-thread-qfomlz
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent
