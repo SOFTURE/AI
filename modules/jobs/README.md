@@ -151,6 +151,31 @@ On SIGTERM the worker stops claiming, waits up to `shutdownGraceMs` for running 
 releases their jobs (pending again, due now, the attempt given back). Database errors while claiming or recording are
 logged and retried on the next round; a database restart does not end the worker.
 
+**Health check of the loop.** A process that is alive is not a loop that runs: a hung claim query or a database
+connection the worker never gets back leaves the process up and the jobs untouched. With `healthFile`, the loop
+touches that file after each round in which every claim reached the database (it removes a file left by an earlier
+run at start, and removes its own after a clean stop), and the same entry answers `--health` instead of running:
+
+```ts
+// scripts/worker.ts
+await runJobWorkerProcess({ config, handlers, healthFile: "/tmp/softure-jobs-worker.alive" });
+```
+
+```yaml
+# docker compose: the worker service
+healthcheck:
+  test: ["CMD", "node", "worker.mjs", "--health"]
+```
+
+`node worker.mjs --health` opens no database and starts no loop: it exits 0 when the file is no older than
+`healthMaxAgeMs` (default five poll intervals, at least 30 s: `getJobWorkerHealthMaxAgeMs(config)`) and 1 when it is
+missing or older, with one line saying which. `--health` without `healthFile` exits 1 rather than start a second
+worker; an older jobs version has no `--health` and would start one, so switch the check only after upgrading. An app
+that runs the loop itself passes `healthFile` to `runJobWorker` and checks with
+`checkJobWorkerHealth({ healthFile, maxAgeMs })`. `docker compose up --wait` then waits for a loop that reached the
+database, and the container reads `unhealthy` while it is stuck; Docker's `restart:` policy does not act on that
+status (a monitor or an orchestrator does). `@softure-ai/deploy` writes both lines from `init`.
+
 `runJobWorker({ db, config, handlers, signal })` is the loop without the process part, for an app that runs it inside
 a process of its own.
 

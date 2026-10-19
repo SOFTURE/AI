@@ -7,7 +7,7 @@ import { findRequiredNames } from "../env/required-names.js";
 import { parseDeployConfig } from "../verify/schema.js";
 import type { InitAnswers } from "./answers.js";
 import type { AppFacts } from "./app-facts.js";
-import { buildAppRule, planInitFiles, writeInitFiles, type PlannedFile } from "./generate.js";
+import { buildAppRule, hasWorkerHeartbeat, planInitFiles, writeInitFiles, type PlannedFile } from "./generate.js";
 
 const REPO_ROOT = join(import.meta.dirname, "../../../..");
 
@@ -215,6 +215,25 @@ describe("planInitFiles", () => {
     // The worker needs no secret the app does not already have.
     const required = (files: Map<string, PlannedFile>) => findRequiredNames(textOf(files, "docker/prod/docker-compose.yml")).map((variable) => variable.name);
     expect(required(plan({}, { hasJobs: true }))).toEqual(required(plan()));
+  });
+
+  it("checks the worker's loop with --health from jobs 0.1.3, and only that PID 1 runs on an older or unknown jobs", () => {
+    type Compose = { services: Record<string, { healthcheck?: { test?: unknown } }> };
+    const checkOf = (files: Map<string, PlannedFile>) => (parse(textOf(files, "docker/prod/docker-compose.yml")) as Compose).services.worker?.healthcheck?.test;
+    for (const jobsVersion of ["0.1.3", "0.1.10", "0.2.0", "1.0.0"]) {
+      const files = plan({}, { hasJobs: true, jobsVersion });
+      expect(checkOf(files), jobsVersion).toEqual(["CMD", "node", "worker.mjs", "--health"]);
+      expect(textOf(files, "scripts/worker.ts")).toContain('await runJobWorkerProcess({ config, handlers, healthFile: "/tmp/softure-jobs-worker.alive" });');
+      for (const file of files.values()) expect(file.text, file.path).not.toMatch(/\{\{[#^/]?[a-zA-Z]+\}\}/);
+    }
+    for (const jobsVersion of ["0.1.2", "0.0.9", null, undefined]) {
+      const files = plan({}, { hasJobs: true, jobsVersion });
+      expect(checkOf(files), String(jobsVersion)).toEqual(["CMD", "node", "-e", "process.kill(1, 0)"]);
+      expect(textOf(files, "scripts/worker.ts")).toContain("await runJobWorkerProcess({ config, handlers });");
+      expect(textOf(files, "scripts/worker.ts")).not.toContain("healthFile");
+    }
+    expect(hasWorkerHeartbeat({ ...FACTS, hasJobs: true, jobsVersion: "0.1.3" })).toBe(true);
+    expect(hasWorkerHeartbeat({ ...FACTS, hasDatabase: false, hasJobs: true, jobsVersion: "0.1.3" })).toBe(false);
   });
 
   it("writes hooks/lib.sh for every app and the Cloudflare files only with cdn cloudflare", () => {

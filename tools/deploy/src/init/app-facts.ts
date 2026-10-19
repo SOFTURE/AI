@@ -10,6 +10,7 @@ export const COMPOSE_FILE = "docker/prod/docker-compose.yml";
 const NEXT_CONFIG_FILES = ["next.config.ts", "next.config.mts", "next.config.js", "next.config.mjs"];
 const SERVER_EXTERNAL_LIST = /serverExternalPackages\s*:\s*\[([^\]]*)\]/;
 const DB_PACKAGE_LITERAL = /(["'`])@softure-ai\/db\1/;
+const JOBS_PACKAGE = "@softure-ai/jobs";
 
 const packageJsonSchema = z.looseObject({
   name: z.string().optional(),
@@ -28,6 +29,11 @@ export interface AppFacts {
    * it as a `worker` service. Absent (facts built by hand) means no.
    */
   hasJobs?: boolean;
+  /**
+   * The `@softure-ai/jobs` version: the installed one (`node_modules`), else the lowest the app's range allows; null
+   * when neither reads (no jobs, or a range such as `*`). Absent (facts built by hand) means unknown.
+   */
+  jobsVersion?: string | null;
   /** A `public/` folder, copied into the image next to the standalone server. */
   hasPublicDir: boolean;
   /** The Next config file, or null when the app has none. */
@@ -76,6 +82,29 @@ function isDbListedAsServerExternal(configText: string): boolean {
   return configText.includes("serverExternalPackages") && DB_PACKAGE_LITERAL.test(configText);
 }
 
+/** The first `a.b.c` in a version or a range (`^0.1.3`, `>=0.1.3 <0.2`); null when there is none. No backtracking regex. */
+function findVersion(text: string): string | null {
+  for (const token of text.split(/[^\d.]+/)) {
+    const parts = token.split(".").slice(0, 3);
+    if (parts.length === 3 && parts.every((part) => part !== "")) return parts.join(".");
+  }
+  return null;
+}
+
+/** The installed version of a package, else the lowest version its range in package.json allows; null when neither reads. */
+function readPackageVersion(dir: string, name: string, range: string | undefined): string | null {
+  if (range === undefined) return null;
+  try {
+    const installed: unknown = JSON.parse(readFileSync(join(dir, "node_modules", name, "package.json"), "utf8"));
+    const version = z.object({ version: z.string() }).safeParse(installed);
+    const found = version.success ? findVersion(version.data.version) : null;
+    if (found !== null) return found;
+  } catch {
+    // Not installed (or unreadable): fall back to the range.
+  }
+  return findVersion(range);
+}
+
 /** Reads the facts `init` takes from the app; an unreadable package.json is an expected failure. */
 export function readAppFacts(dir: string): AppFactsResult {
   const pkg = readPackageJson(dir);
@@ -91,7 +120,8 @@ export function readAppFacts(dir: string): AppFactsResult {
       packageName: pkg.name,
       hasDatabase: "@softure-ai/db" in dependencies,
       hasHealthRoute: "@softure-ai/ops" in dependencies,
-      hasJobs: "@softure-ai/jobs" in dependencies,
+      hasJobs: JOBS_PACKAGE in dependencies,
+      jobsVersion: readPackageVersion(dir, JOBS_PACKAGE, dependencies[JOBS_PACKAGE]),
       hasPublicDir: existsSync(publicDir) && statSync(publicDir).isDirectory(),
       nextConfigFile,
       isStandalone: configText.includes("standalone"),

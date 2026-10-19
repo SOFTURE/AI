@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- A health check of the worker's loop (#610): `runJobWorkerProcess({ healthFile })` (and `runJobWorker`) touches the
+  file after each round whose claims reached the database, removes a stale one at start and its own after a clean
+  stop; started with `--health`, the same entry checks the file instead of running (exit 0 when no older than
+  `healthMaxAgeMs`, default five poll intervals and at least 30 s; 1 when missing or older, or without `healthFile`).
+  New exports from `@softure-ai/jobs/worker`: `checkJobWorkerHealth`, `getJobWorkerHealthMaxAgeMs`, `JobWorkerHealth`.
+  Off by default: an app that passes no `healthFile` sees no change.
+- Migration for an app whose worker runs in Docker with a liveness check of PID 1 (`node -e "process.kill(1, 0)"`):
+  after upgrading to this version, pass `healthFile: "/tmp/softure-jobs-worker.alive"` in `scripts/worker.ts` and set
+  the worker service's `healthcheck.test` to `["CMD", "node", "worker.mjs", "--health"]` in the production compose
+  file (and the integration one, if it has a worker). Do it in that order: an older worker does not know `--health`.
 - `getQueueStats` reports a scheduled queue's last failure (#603): each `schedule` gains `lastFailedAt` (when a job of
   the queue last ended `failed`: attempts used up, `failJob`, an invalid payload or an expired lease with no attempts
   left; a retried attempt does not count), `lastFailureCode` (that job's error code, never an error's text) and

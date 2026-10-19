@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **The worker's health check asks its loop (#610):** with `@softure-ai/jobs` 0.1.3 or later (installed, else the
+  lowest version of the app's range), `init` writes `scripts/worker.ts` with
+  `healthFile: "/tmp/softure-jobs-worker.alive"` and the `worker` service's check
+  `test: ["CMD", "node", "worker.mjs", "--health"]`, which fails when the loop has not reached the database for five
+  poll intervals (at least 30 s), not only when the process is gone. With an older jobs it keeps the PID 1 check and
+  warns. An app with a worker upgrades `@softure-ai/jobs` first, then changes the `runJobWorkerProcess` call in its
+  `scripts/worker.ts` to `await runJobWorkerProcess({ config, handlers, healthFile: "/tmp/softure-jobs-worker.alive" });`
+  and the worker's `healthcheck.test` in `docker/prod/docker-compose.yml` (and its integration compose file, if that
+  runs the worker) to `["CMD", "node", "worker.mjs", "--health"]`; the interval, timeout, retries and start period stay.
+  Or it re-runs `init --force` into a scratch folder and copies both.
 - **`checkSharedHostCompose` in `@softure-ai/deploy/testing` (#600):** a guard over the production compose file of an
   app that runs next to another stack's Traefik (`init --edge`). It returns the violations as values (rule, service,
   message): the edge network joined only as `external: true` and never changed, no `ports` or `network_mode: host`,

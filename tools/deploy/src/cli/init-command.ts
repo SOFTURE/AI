@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseInitAnswers, toAppName, type InitAnswers } from "../init/answers.js";
 import { COMPOSE_FILE, readAppFacts, type AppFacts } from "../init/app-facts.js";
-import { DEFAULT_APP_ROLE, hasWorker, planInitFiles, TEMPLATE_VERSIONS, writeInitFiles } from "../init/generate.js";
+import { DEFAULT_APP_ROLE, hasWorker, hasWorkerHeartbeat, JOBS_HEARTBEAT_VERSION, planInitFiles, TEMPLATE_VERSIONS, writeInitFiles } from "../init/generate.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { readFlags } from "./options.js";
@@ -45,6 +45,15 @@ function listNextConfigWarnings(facts: AppFacts): string[] {
 function listWorkerWarnings(facts: AppFacts): string[] {
   if (facts.hasJobs !== true || facts.hasDatabase) return [];
   return ["@softure-ai/jobs is a dependency but @softure-ai/db is not; the worker container needs the database part, so none was written"];
+}
+
+/** A worker whose jobs version has no heartbeat: its health check proves only that the process runs. */
+function listWorkerHeartbeatWarnings(facts: AppFacts): string[] {
+  if (!hasWorker(facts) || hasWorkerHeartbeat(facts)) return [];
+  const version = facts.jobsVersion ?? "of unknown version";
+  return [
+    `@softure-ai/jobs ${version} has no worker heartbeat; the worker service checks only that its process runs (upgrade to ${JOBS_HEARTBEAT_VERSION} or later and re-run init for a check of its loop)`,
+  ];
 }
 
 /** A value `deploy.sh` takes from a compose file init keeps, which could not be read there. */
@@ -142,6 +151,7 @@ export function runInit(args: string[], io: CliIo): void {
   const warnings = [
     ...listNextConfigWarnings(facts),
     ...listWorkerWarnings(facts),
+    ...listWorkerHeartbeatWarnings(facts),
     ...listComposeWarnings(facts, answersResult.answers, replacesCompose),
     ...listEdgeWarnings(facts, answersResult.answers),
     ...listWorkflowsRefWarnings({ written: result.written, workflowsRef: answersResult.answers.workflowsRef, cliVersion }),

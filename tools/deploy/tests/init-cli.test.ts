@@ -141,6 +141,24 @@ describe("softure-deploy init", () => {
     expect(readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8")).toContain('command: ["node", "worker.mjs"]');
   });
 
+  it("checks the worker's loop when the installed jobs has the heartbeat, else warns that it checks only the process", async () => {
+    writeApp({ name: "shop", dependencies: { "@softure-ai/db": "^0.1.9", "@softure-ai/jobs": "^0.1.2" } });
+    expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+    expect(out.join("")).toContain(
+      "warning @softure-ai/jobs 0.1.2 has no worker heartbeat; the worker service checks only that its process runs (upgrade to 0.1.3 or later and re-run init for a check of its loop)\n",
+    );
+    expect(readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8")).toContain('test: ["CMD", "node", "-e", "process.kill(1, 0)"]');
+
+    // The installed version wins over the range.
+    mkdirSync(join(dir, "node_modules/@softure-ai/jobs"), { recursive: true });
+    writeFileSync(join(dir, "node_modules/@softure-ai/jobs/package.json"), JSON.stringify({ name: "@softure-ai/jobs", version: "0.1.3" }));
+    out.length = 0;
+    expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`, "--force"], makeIo())).toBe(0);
+    expect(out.join("")).not.toContain("no worker heartbeat");
+    expect(readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8")).toContain('test: ["CMD", "node", "worker.mjs", "--health"]');
+    expect(readFileSync(join(dir, "scripts/worker.ts"), "utf8")).toContain('healthFile: "/tmp/softure-jobs-worker.alive"');
+  });
+
   it("warns and writes no worker for @softure-ai/jobs without @softure-ai/db", async () => {
     writeApp({ name: "shop", dependencies: { "@softure-ai/jobs": "^0.1.0" } });
     expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);

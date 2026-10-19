@@ -50,6 +50,32 @@ export function hasWorker(facts: AppFacts): boolean {
   return facts.hasDatabase && facts.hasJobs === true;
 }
 
+/** The first `@softure-ai/jobs` version whose worker writes a heartbeat file and answers `--health`. */
+export const JOBS_HEARTBEAT_VERSION = "0.1.3";
+
+/** Where the generated `scripts/worker.ts` keeps the worker's heartbeat: writable by the image's user, gone with the container. */
+export const WORKER_HEALTH_FILE = "/tmp/softure-jobs-worker.alive";
+
+/** Whether `a.b.c` is at least `minimum`; false for a version that does not read. */
+function isVersionAtLeast(version: string | null | undefined, minimum: string): boolean {
+  const parts = version?.split(".").map(Number) ?? [];
+  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part))) return false;
+  const required = minimum.split(".").map(Number);
+  for (const [index, part] of parts.entries()) {
+    const floor = required[index] ?? 0;
+    if (part !== floor) return part > floor;
+  }
+  return true;
+}
+
+/**
+ * The worker's health check asks its loop (`node worker.mjs --health`) when the app's jobs version has the heartbeat;
+ * an older or unknown one keeps the check that PID 1 runs, since `--health` would start a second worker there.
+ */
+export function hasWorkerHeartbeat(facts: AppFacts): boolean {
+  return hasWorker(facts) && isVersionAtLeast(facts.jobsVersion, JOBS_HEARTBEAT_VERSION);
+}
+
 /** Every file init can write, in the order it reports them. */
 export const TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "Dockerfile.tmpl", target: "Dockerfile", mode: FILE_MODE, isIncluded: always },
@@ -142,6 +168,8 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     cliVersion,
     database: facts.hasDatabase,
     worker: hasWorker(facts),
+    workerHeartbeat: hasWorkerHeartbeat(facts),
+    workerHealthFile: WORKER_HEALTH_FILE,
     databaseName: answers.name.replaceAll("-", "_"),
     publicDir: facts.hasPublicDir,
     healthPath: getHealthPath(facts),

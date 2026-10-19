@@ -734,7 +734,12 @@ app's environment (`APP_ORIGIN`, `DATABASE_URL` as the app role, `--env`), so it
 `node -e "process.kill(1, 0)"`, which passes while PID 1 (`node worker.mjs`) runs. `docker compose up --wait` needs
 that check: it fails on a service whose health check is turned off (`healthcheck: disable: true`, "has no healthcheck
 configured"). The check assumes `node` is PID 1, so the service sets no `init: true`; it proves that the process runs,
-not that its job loop makes progress.
+not that its job loop makes progress. With `@softure-ai/jobs` 0.1.3 or later (the installed version, else the lowest
+one the app's range allows) `init` checks the loop instead: `scripts/worker.ts` passes
+`healthFile: "/tmp/softure-jobs-worker.alive"`, which the loop touches after each round that reached the database, and
+the check is `node worker.mjs --health` (healthy while the file is no older than five poll intervals, at least 30 s).
+`init` warns when the app's jobs version is older and keeps the PID 1 check, since an older `worker.mjs --health` would
+start a second worker.
 It starts after `migrate`, and a deploy stops it with SIGTERM: running jobs get the module's `shutdownGraceMs` (20 s by
 default) and the rest are released for the next worker; `stop_grace_period: 30s` leaves that time before Docker kills
 it. `scripts/worker.ts` imports `handlers` from `src/jobs/handlers`; point it at the app's own module. An app that ran
