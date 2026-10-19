@@ -97,9 +97,10 @@ services:
 {{#worker}}
 
   # The job worker (@softure-ai/jobs): the same image running `node worker.mjs`, with the app's environment. It
-  # serves no HTTP, so the image's health check (which asks the app's port) is off. On a deploy it gets SIGTERM, lets
-  # running jobs finish for the module's shutdownGraceMs (20 s by default) and releases the rest; the stop grace
-  # period below leaves it that time before Docker kills it.
+  # serves no HTTP, so the image's health check (which asks the app's port) is replaced by a liveness check of PID 1
+  # (`node worker.mjs`): `docker compose up --wait` fails on a service whose check is disabled. On a deploy it gets
+  # SIGTERM, lets running jobs finish for the module's shutdownGraceMs (20 s by default) and releases the rest; the
+  # stop grace period below leaves it that time before Docker kills it.
   worker:
     image: {{image}}:${TAG}
     restart: unless-stopped
@@ -111,7 +112,11 @@ services:
 {{appEnvLines}}
 {{/hasAppEnv}}
     healthcheck:
-      disable: true
+      test: ["CMD", "node", "-e", "process.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     stop_grace_period: 30s
     depends_on:
       migrate:
