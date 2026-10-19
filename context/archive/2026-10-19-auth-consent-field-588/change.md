@@ -1,12 +1,13 @@
 ---
 change_id: auth-consent-field-588
 title: "auth: RegisterForm's consent box with requiredMessage, id and look, and field classNames on every form (issue #588)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 588
 branch: claude/project-thread-tnq1ni
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent

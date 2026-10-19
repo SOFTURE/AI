@@ -1,6 +1,6 @@
 ---
 change_id: auth-consent-field-588
-status: in_progress
+status: archived
 ---
 
 # Plan: consent box and field looks in the auth forms (issue #588)
