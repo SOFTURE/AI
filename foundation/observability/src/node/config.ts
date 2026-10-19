@@ -45,88 +45,131 @@ export type TraceOptions = {
 
 export type SignalExport = { url: string; headers: Record<string, string> };
 
+/** `warnings`: endpoints that were skipped (an unsupported scheme), naming the source and the scheme only. */
 export type ResolvedObservabilityConfig =
-  | { kind: "disabled"; reason: string }
+  | { kind: "disabled"; reason: string; warnings: string[] }
   | {
       kind: "export";
       traces: SignalExport | null;
       logs: SignalExport | null;
       resourceAttributes: Record<string, string>;
+      warnings: string[];
     };
 
 export type Environment = Readonly<Record<string, string | undefined>>;
 
 type Signal = "traces" | "logs";
 
+type CheckedUrl = { kind: "url"; url: URL } | { kind: "unsupported"; warning: string };
+
+type ResolvedSignal =
+  | { kind: "export"; target: SignalExport }
+  | { kind: "none" }
+  | { kind: "unsupported"; warning: string };
+
+// A scheme followed by `//`: a value without it (`localhost:4318`) is a mistyped URL, not another transport.
+const SCHEME_URL = /^[a-z][a-z0-9+.-]*:\/\//i;
+
 /**
  * Where traces and logs go and with which resource, from the options first and the standard `OTEL_*` variables
  * second. A base endpoint gets `/v1/<signal>` appended; a per-signal variable (`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`)
- * is used as given. Errors name the option or variable that is wrong, never its value.
+ * is used as given. An endpoint with a scheme other than http(s) (BuildKit's `unix://` trace socket, `grpc://`) is
+ * skipped with a warning: telemetry must not stop the program it observes. Errors and warnings name the option or
+ * variable, never its value.
  */
 export function resolveObservabilityConfig(
   options: ObservabilityOptions,
   env: Environment,
 ): ResolvedObservabilityConfig {
   if (options.enabled === false) {
-    return { kind: "disabled", reason: "enabled: false" };
+    return { kind: "disabled", reason: "enabled: false", warnings: [] };
   }
   if (readEnv(env, "OTEL_SDK_DISABLED")?.toLowerCase() === "true") {
-    return { kind: "disabled", reason: "OTEL_SDK_DISABLED" };
+    return { kind: "disabled", reason: "OTEL_SDK_DISABLED", warnings: [] };
   }
 
   const traces = resolveSignal("traces", options, env);
   const logs = resolveSignal("logs", options, env);
-  if (traces === null && logs === null) {
-    return { kind: "disabled", reason: "no OTLP endpoint" };
+  // One shared endpoint skipped for both signals is one warning.
+  const warnings = [
+    ...new Set([traces, logs].flatMap((signal) => (signal.kind === "unsupported" ? [signal.warning] : []))),
+  ];
+  if (traces.kind !== "export" && logs.kind !== "export") {
+    return { kind: "disabled", reason: warnings.length === 0 ? "no OTLP endpoint" : warnings.join("; "), warnings };
   }
 
-  return { kind: "export", traces, logs, resourceAttributes: resolveResourceAttributes(options, env) };
+  return {
+    kind: "export",
+    traces: traces.kind === "export" ? traces.target : null,
+    logs: logs.kind === "export" ? logs.target : null,
+    resourceAttributes: resolveResourceAttributes(options, env),
+    warnings,
+  };
 }
 
-function resolveSignal(signal: Signal, options: ObservabilityOptions, env: Environment): SignalExport | null {
+function resolveSignal(signal: Signal, options: ObservabilityOptions, env: Environment): ResolvedSignal {
   const signalKey = `OTEL_EXPORTER_OTLP_${signal.toUpperCase()}`;
-  const url = resolveSignalUrl(signal, signalKey, options, env);
-  if (url === null) {
-    return null;
+  const resolved = resolveSignalUrl(signal, signalKey, options, env);
+  if (resolved === null) {
+    return { kind: "none" };
   }
+  if (resolved.kind === "unsupported") {
+    return resolved;
+  }
+  const url = resolved.url;
 
   // Merged per key, the way the OTLP exporters merge them anyway: per-signal over shared, options over both.
   const sharedHeaders = parseKeyValueList(readEnv(env, "OTEL_EXPORTER_OTLP_HEADERS"), "OTEL_EXPORTER_OTLP_HEADERS");
   const signalHeaders = parseKeyValueList(readEnv(env, `${signalKey}_HEADERS`), `${signalKey}_HEADERS`);
 
-  return { url, headers: { ...sharedHeaders, ...signalHeaders, ...options.headers } };
+  return { kind: "export", target: { url, headers: { ...sharedHeaders, ...signalHeaders, ...options.headers } } };
 }
 
-function resolveSignalUrl(signal: Signal, signalKey: string, options: ObservabilityOptions, env: Environment) {
+// A per-signal variable with an unsupported scheme does not fall back to the base endpoint: it wins by the OTel spec.
+function resolveSignalUrl(
+  signal: Signal,
+  signalKey: string,
+  options: ObservabilityOptions,
+  env: Environment,
+): { kind: "url"; url: string } | { kind: "unsupported"; warning: string } | null {
   const optionEndpoint = options.endpoint?.trim();
   if (optionEndpoint !== undefined && optionEndpoint !== "") {
-    return appendSignalPath(checkUrl(optionEndpoint, "options.endpoint"), signal);
+    return withSignalPath(checkUrl(optionEndpoint, "options.endpoint"), signal);
   }
 
   const signalEndpoint = readEnv(env, `${signalKey}_ENDPOINT`);
   if (signalEndpoint !== undefined) {
-    return checkUrl(signalEndpoint, `${signalKey}_ENDPOINT`).toString();
+    const checked = checkUrl(signalEndpoint, `${signalKey}_ENDPOINT`);
+    return checked.kind === "url" ? { kind: "url", url: checked.url.toString() } : checked;
   }
 
   const baseEndpoint = readEnv(env, "OTEL_EXPORTER_OTLP_ENDPOINT");
   if (baseEndpoint !== undefined) {
-    return appendSignalPath(checkUrl(baseEndpoint, "OTEL_EXPORTER_OTLP_ENDPOINT"), signal);
+    return withSignalPath(checkUrl(baseEndpoint, "OTEL_EXPORTER_OTLP_ENDPOINT"), signal);
   }
 
   return null;
 }
 
-function checkUrl(value: string, source: string): URL {
+function withSignalPath(checked: CheckedUrl, signal: Signal) {
+  return checked.kind === "url" ? { kind: "url" as const, url: appendSignalPath(checked.url, signal) } : checked;
+}
+
+function checkUrl(value: string, source: string): CheckedUrl {
   let url: URL;
   try {
     url = new URL(value);
   } catch {
     throw new Error(`observability: ${source} is not a URL`);
   }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`observability: ${source} must be an http(s) URL`);
+  if (url.protocol === "http:" || url.protocol === "https:") {
+    return { kind: "url", url };
   }
-  return url;
+  if (!SCHEME_URL.test(value)) {
+    throw new Error(`observability: ${source} is not a URL`);
+  }
+  const warning = `${source} has the unsupported scheme ${url.protocol} (only http: and https:)`;
+  return { kind: "unsupported", warning };
 }
 
 // Only the path changes: resolving the path against the origin would read `//host` as another host and drop the
