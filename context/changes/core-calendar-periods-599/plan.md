@@ -58,4 +58,4 @@ Additive exports only; rollback is reverting the commits. Conflicts with #598 ar
 ### Phase 2: docs
 
 #### Automated
-- [ ] 2.1 README and CHANGELOG document the API; repo tests (links) pass
+- [x] 2.1 README and CHANGELOG document the API; repo tests (links) pass — b478ba5
