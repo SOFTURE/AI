@@ -1,12 +1,13 @@
 ---
 change_id: observability-endpoint-scheme-608
 title: "observability: an OTLP endpoint with an unsupported scheme disables that signal instead of throwing (issue #608)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 608
 branch: claude/project-thread-oeszy5
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent
@@ -45,5 +46,9 @@ Labels: `bug`. observability 0.2.0 is the latest on npm and on master. The check
   is additive for readers; a test or caller that compares the whole object with `toEqual` sees the new key.
 - The rule applies to every source, `options.endpoint` included: the outcome the issue asks for (never crash on an
   endpoint the package cannot export to) does not depend on who set it.
+- A value whose scheme is not followed by `//` (`localhost:4318`, which `URL` reads as scheme `localhost:`) stays a
+  "not a URL" error: it is a mistyped http endpoint, not another transport, and the warning would print the host.
+- When export is disabled only because of skipped endpoints, `startObservability` prints the one "export disabled"
+  line with `console.warn` (the reason already names the variable and the scheme) instead of a second line.
 - A per-signal variable with an unsupported scheme does not fall back to the base endpoint: the per-signal variable
   wins by the OTel spec, and BuildKit meant that signal to go to its socket, not elsewhere.

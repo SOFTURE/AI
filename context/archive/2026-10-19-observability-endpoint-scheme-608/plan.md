@@ -1,6 +1,6 @@
 ---
 change_id: observability-endpoint-scheme-608
-status: in_progress
+status: archived
 ---
 
 # Plan: an unsupported OTLP endpoint scheme disables the signal (issue #608)
@@ -31,5 +31,5 @@ adopting app can drop (`OTEL_SDK_DISABLED=true` on the build step) once released
 
 ## Progress
 
-- [ ] Phase 1: resolver and start (TDD)
-- [ ] Phase 2: docs
+- [x] Phase 1: resolver and start (TDD) (6 tests written first, 9 failed without the change; 93 observability tests pass; the issue repro starts with export disabled; 68762c7)
+- [x] Phase 2: docs (README configuration paragraph, CHANGELOG `## Unreleased` with the migration; 7f67f6c)
