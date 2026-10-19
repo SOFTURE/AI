@@ -1,12 +1,13 @@
 ---
 change_id: billing-notice-extra-actions-587
 title: "billing: AccessNotice and CurrentAccessNotice take the app's own extra actions (issue #587)"
-status: open
+status: archived
 roadmap_item: null
 issue: 587
 branch: claude/project-thread-hymkls
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent

@@ -1,6 +1,6 @@
 ---
 change_id: billing-notice-extra-actions-587
-status: open
+status: archived
 ---
 
 # Plan: the app's own actions in the access notice (issue #587)
@@ -28,5 +28,5 @@ the migration for an app that kept its own notice for a second action.
 
 ## Progress
 
-- [ ] Phase 1: extraActions (TDD)
-- [ ] Phase 2: docs
+- [x] Phase 1: extraActions (TDD) (first test failed before the prop; 45 access tests, 673 billing tests pass; a0152f7)
+- [x] Phase 2: docs (README account status and slots, CHANGELOG `## Unreleased` with the migration; bcc4b90)
