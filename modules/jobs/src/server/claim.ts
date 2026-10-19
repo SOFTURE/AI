@@ -6,7 +6,7 @@ import { jobs } from "../schema.js";
 import type { JobsContext } from "./context.js";
 import { toJob } from "./job-row.js";
 import { getJobsOptions, getQueue } from "./options.js";
-import { recordScheduleSuccess } from "./schedules.js";
+import { recordScheduleFailure, recordScheduleSuccess } from "./schedules.js";
 
 /** A job this worker holds: the job and the token its writes are fenced with. */
 export interface ClaimedJob {
@@ -89,7 +89,8 @@ export async function extendJobLease(ctx: JobsContext, claimed: ClaimedJob): Pro
 }
 
 /**
- * Records the end of an attempt; a success of a scheduled queue also updates its schedule, in the same transaction.
+ * Records the end of an attempt; a success or a terminal failure of a scheduled queue also updates its schedule, in
+ * the same transaction.
  * False when the job is no longer this claim's: nothing was written.
  */
 export async function completeJob(ctx: JobsContext, claimed: ClaimedJob, completion: Completion): Promise<boolean> {
@@ -105,6 +106,7 @@ export async function completeJob(ctx: JobsContext, claimed: ClaimedJob, complet
     const rows = await tx.update(jobs).set(set).where(isHeld(claimed)).returning();
     if (rows.length === 0) return false;
     if (completion.kind === "succeeded") await recordScheduleSuccess({ ...ctx, db: tx }, claimed.job.queue);
+    if (completion.kind === "failed") await recordScheduleFailure({ ...ctx, db: tx }, claimed.job.queue, completion.error);
     return true;
   });
 }
@@ -132,18 +134,22 @@ export async function releaseJob(ctx: JobsContext, claimed: ClaimedJob): Promise
 }
 
 async function failExhaustedLeases(ctx: JobsContext, queue: string, now: Date): Promise<void> {
-  await ctx.db
-    .update(jobs)
-    .set({
-      status: "failed",
-      lastError: LEASE_EXPIRED,
-      finishedAt: now,
-      lockedUntil: null,
-      lockedBy: null,
-      claimToken: null,
-      updatedAt: now,
-    })
-    .where(and(eq(jobs.queue, queue), eq(jobs.status, "running"), lte(jobs.lockedUntil, now), gte(jobs.attempts, jobs.maxAttempts)));
+  await ctx.db.transaction(async (tx) => {
+    const failed = await tx
+      .update(jobs)
+      .set({
+        status: "failed",
+        lastError: LEASE_EXPIRED,
+        finishedAt: now,
+        lockedUntil: null,
+        lockedBy: null,
+        claimToken: null,
+        updatedAt: now,
+      })
+      .where(and(eq(jobs.queue, queue), eq(jobs.status, "running"), lte(jobs.lockedUntil, now), gte(jobs.attempts, jobs.maxAttempts)))
+      .returning({ id: jobs.id });
+    if (failed.length > 0) await recordScheduleFailure({ ...ctx, db: tx }, queue, LEASE_EXPIRED);
+  });
 }
 
 function isHeld(claimed: ClaimedJob) {

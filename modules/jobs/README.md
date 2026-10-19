@@ -226,9 +226,24 @@ export const handlers: JobHandlers = { ...authJobHandlers, ...securityJobHandler
   optional peer.
 
 `getQueueStats` reports each scheduled queue's `schedule`: `everySeconds` (for an `at` schedule the longest gap
-between two of its times, 24h for one time), `lastEnqueuedAt` (the start of the latest slot a run was enqueued for), `lastSucceededAt` (any succeeded job of the queue, a run enqueued by hand too) and
-`isLate`: no success within two periods, counted from when a worker first saw the schedule, or no worker has seen it
-at all. The module's health check does not fail on a late schedule (a late cleanup must not take the app out of
+between two of its times, 24h for one time), `lastEnqueuedAt` (the start of the latest slot a run was enqueued for), `lastSucceededAt` (any succeeded job of the queue, a run enqueued by hand too),
+`lastFailedAt` and `lastFailureCode` (the latest job of the queue that ended `failed`, with its error code: the
+handler's code, `jobs.handler_threw`, `jobs.invalid_payload` or `jobs.lease_expired`, never an error's text; a retried
+attempt is not a failure until the attempts are used up), `isFailing` and `isLate`. A queue is failing when its latest
+outcome is a failure: `isFailing` is `lastFailedAt !== null && (lastSucceededAt === null || lastFailedAt >
+lastSucceededAt)`. It is late when no run succeeded within two periods, counted from when a worker first saw the
+schedule, or no worker has seen it at all. Successes and failures are recorded once a worker has taken the schedule's
+first slot (its row in `jobs.schedules` exists), and they outlive the pruned jobs.
+
+An app that shows how fresh a synced source is needs nothing else:
+
+```ts
+const sync = (await getQueueStats(ctx)).find((stats) => stats.queue === "app.sync")?.schedule;
+// "Updated at {lastSucceededAt}", plus "the last update failed ({lastFailureCode})" while isFailing.
+const freshness = { updatedAt: sync?.lastSucceededAt ?? null, isFailing: sync?.isFailing ?? false };
+```
+
+The module's health check does not fail on a late schedule (a late cleanup must not take the app out of
 rotation); an app that wants an alarm adds a check of its own:
 
 ```ts
@@ -271,7 +286,8 @@ Nothing to mount: the module has no routes or pages. The worker is a process (§
 
 ## 5. Migrations and tables
 
-Schema `jobs`, two tables, `migrations/0001_create_jobs.sql` and `migrations/0002_create_schedules.sql`:
+Schema `jobs`, two tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql` and
+`migrations/0003_add_schedule_failures.sql`:
 
 `jobs.jobs`: `id` (bigint identity; a string in the API), `queue`, `payload` (jsonb), `status` (`pending`, `running`,
 `succeeded`, `failed`, `cancelled`), `attempts`, `max_attempts`, `run_at`, `locked_until`, `locked_by` (the worker,
@@ -280,7 +296,8 @@ Schema `jobs`, two tables, `migrations/0001_create_jobs.sql` and `migrations/000
 for finished jobs; a partial unique index allows one live job per queue and dedup key.
 
 `jobs.schedules`: `name` (the schedule's queue, primary key), `last_slot_at` (the start of the latest period a run
-was enqueued for), `last_succeeded_at`, `created_at`, `updated_at`. One row per schedule a worker has seen; a row of
+was enqueued for), `last_succeeded_at`, `last_failed_at`, `last_failure_code` (an error code, never a message),
+`created_at`, `updated_at`. One row per schedule a worker has seen; a row of
 a schedule removed from the config stays and is ignored.
 
 The app role needs `SELECT, INSERT, UPDATE, DELETE` on the tables, which the `@softure-ai/ops` roles recipe grants on

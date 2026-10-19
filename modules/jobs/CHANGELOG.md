@@ -16,6 +16,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   after upgrading to this version, pass `healthFile: "/tmp/softure-jobs-worker.alive"` in `scripts/worker.ts` and set
   the worker service's `healthcheck.test` to `["CMD", "node", "worker.mjs", "--health"]` in the production compose
   file (and the integration one, if it has a worker). Do it in that order: an older worker does not know `--health`.
+- `getQueueStats` reports a scheduled queue's last failure (#603): each `schedule` gains `lastFailedAt` (when a job of
+  the queue last ended `failed`: attempts used up, `failJob`, an invalid payload or an expired lease with no attempts
+  left; a retried attempt does not count), `lastFailureCode` (that job's error code, never an error's text) and
+  `isFailing` (`lastFailedAt` later than `lastSucceededAt`, or a failure and no success yet). Stored in
+  `jobs.schedules` in the same transaction as the failed job, so it outlives pruning; migration
+  `0003_add_schedule_failures.sql` adds two nullable columns.
+- Migration for an app: run the module migrations (`0003` adds the columns; failures before it are not back-filled).
+  An app that kept a log of its own runs only to tell whether the latest run failed reads
+  `stats.schedule.isFailing`, `lastFailedAt` and `lastFailureCode` from `getQueueStats` instead and can drop that log.
+  Code or tests that compare a whole `schedule` with `toEqual` see the three new fields.
 
 ## 0.1.2
 
