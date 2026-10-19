@@ -3,6 +3,7 @@
 // they render nothing.
 import { getSoftureConfig } from "@softure-ai/core/next";
 import type { ClassNames, LinkComponentType } from "@softure-ai/ui";
+import type { ReactNode } from "react";
 import { getBillingMessages, getBillingRoutes } from "../server/options.js";
 import {
   AccessBadge,
@@ -63,11 +64,13 @@ export interface CurrentAccessNoticeProps {
   readonly LinkComponent?: LinkComponentType;
   /** The frame's tone while access is ending (default `neutral`) and once it has ended (default `danger`). */
   readonly tones?: Partial<Record<"ending" | "ended", AccessNoticeTone>>;
+  /** The app's own actions (e.g. a "Download your data" link), rendered after the payment link. */
+  readonly extraActions?: ReactNode;
   readonly classNames?: ClassNames<AccessNoticeSlot>;
   readonly unstyled?: boolean;
 }
 
-export async function CurrentAccessNotice({ LinkComponent, tones, classNames, unstyled }: CurrentAccessNoticeProps) {
+export async function CurrentAccessNotice({ LinkComponent, tones, extraActions, classNames, unstyled }: CurrentAccessNoticeProps) {
   const entitlement = await getCurrentEntitlement();
   if (entitlement === null) return null;
   const config = getSoftureConfig();
@@ -80,6 +83,7 @@ export async function CurrentAccessNotice({ LinkComponent, tones, classNames, un
       paymentHref={getBillingRoutes(config).payment}
       LinkComponent={LinkComponent}
       tones={tones}
+      extraActions={extraActions}
       classNames={classNames}
       unstyled={unstyled}
     />
