@@ -802,6 +802,41 @@ database, init warns that Postgres is published on `127.0.0.1:5432`, which the f
 the host port in the compose file, or drop it and set `database.access` to `compose-exec` in `deploy.json`. The
 Cloudflare origin lock is host-wide and stays with the stack that installed it.
 
+**Guard the compose file** (issue #600). Names are global on a shared Traefik and the neighbour's stack owns the
+network, so a test of the app's own keeps its production compose file in line; the release checks run it with the
+rest of the app's tests. `checkSharedHostCompose` from `@softure-ai/deploy/testing` returns the violations as values,
+each with its `rule`, `service` (`null` for a top-level one) and `message`; an empty list passes:
+
+```ts
+import { readFileSync } from "node:fs";
+import { checkSharedHostCompose } from "@softure-ai/deploy/testing";
+
+it("keeps the production compose file safe next to the edge stack", () => {
+  const compose = readFileSync("docker/prod/docker-compose.yml", "utf8");
+  expect(checkSharedHostCompose(compose, { edgeNetwork: "proxy", namePrefix: "acme", bypassPaths: ["/mcp", "/oauth"] })).toEqual([]);
+});
+```
+
+| Rule | Breach |
+| --- | --- |
+| `edge-network-missing` | no top-level network joins `edgeNetwork` (by `name`, by key, or the legacy `external: { name }`) |
+| `edge-network-not-external` | a network declares `edgeNetwork` instead of joining it with `external: true` |
+| `edge-network-changed` | the external network sets anything besides `external` and `name` (`driver`, `ipam`, `internal`, ...) |
+| `host-ports` | a service publishes `ports`, a loopback one included: the neighbour may hold it (drop Postgres's port and set `database.access` to `compose-exec`) |
+| `host-network` | a service uses `network_mode: host` |
+| `traefik-name-prefix` | a Traefik router, middleware or service (`http`, `tcp`, `udp`) is not named `namePrefix` or `<namePrefix>-...`; `acme` does not pass `acmecorp` |
+| `traefik-network` | `traefik.docker.network` names another network than `edgeNetwork` |
+| `bypass-path-blocked` | a router that serves a bypass path (or part of it) carries a `basicAuth`, `digestAuth`, `forwardAuth`, `ipAllowList` or `ipWhiteList` middleware, also inside a `chain` |
+| `bypass-path-claimed` | a router that serves a bypass path has no `Host` matcher, so it takes the path on every host of the edge proxy |
+| `compose-unreadable` | the file is not YAML or not a mapping |
+
+Labels are read as a map or a `key=value` list, on the service and under `deploy.labels`. A router serves a bypass
+path when one of its `Path`, `PathPrefix` or `PathRegexp` matchers reaches under it, or it has none, unless a negated
+`!PathPrefix` covers the whole path; a router without a `rule` has the provider's `Host` default. Only middlewares
+defined in the file are known: a reference to another provider's (`auth@file`) is not counted, and a `PathRegexp` that
+JavaScript cannot compile matches nothing. `init --edge` writes a file that passes, except for the Postgres port of
+an app with a database. Empty `edgeNetwork` or `namePrefix`, or a bypass path without a leading `/`, throws.
+
 An app whose host sits behind an outer sign-in (Cloudflare Access on every path) passes `health-status` or
 `health-headers` to the deploy action, so the health wait gets through. The routes in `deploy.json` are requested
 without those headers and would see the sign-in: list only routes the proxy lets through, or set `verify: false` on the
@@ -1138,7 +1173,8 @@ own failure is exit 1 with the host named. An app without a database has neither
 
 ## Testing an operator wrapper
 
-`@softure-ai/deploy/testing` puts a fake `ssh` first on `PATH`, so a wrapper around `run` or `report` is tested
+`@softure-ai/deploy/testing` also exports `checkSharedHostCompose`, see [Edge network](#softure-deploy-init).
+It puts a fake `ssh` first on `PATH`, so a wrapper around `run` or `report` is tested
 without a server (issue #405):
 
 ```ts

@@ -9,19 +9,20 @@ describe("resolveObservabilityConfig: endpoints", () => {
     expect(resolveObservabilityConfig({ serviceName: "svc" }, {})).toEqual({
       kind: "disabled",
       reason: "no OTLP endpoint",
+      warnings: [],
     });
   });
 
   it("is disabled by OTEL_SDK_DISABLED even with an endpoint", () => {
     const config = resolveObservabilityConfig({ endpoint: BASE }, { OTEL_SDK_DISABLED: "true" });
 
-    expect(config).toEqual({ kind: "disabled", reason: "OTEL_SDK_DISABLED" });
+    expect(config).toEqual({ kind: "disabled", reason: "OTEL_SDK_DISABLED", warnings: [] });
   });
 
   it("is disabled by enabled: false", () => {
     const config = resolveObservabilityConfig({ endpoint: BASE, enabled: false }, {});
 
-    expect(config).toEqual({ kind: "disabled", reason: "enabled: false" });
+    expect(config).toEqual({ kind: "disabled", reason: "enabled: false", warnings: [] });
   });
 
   it("appends the signal paths to a base endpoint, with or without a trailing slash", () => {
@@ -90,14 +91,46 @@ describe("resolveObservabilityConfig: endpoints", () => {
     });
   });
 
-  it("refuses an endpoint that is not an http(s) URL, naming the source and not the value", () => {
-    expect(() => resolveObservabilityConfig({}, { OTEL_EXPORTER_OTLP_ENDPOINT: "ftp://secret-host" })).toThrow(
-      /OTEL_EXPORTER_OTLP_ENDPOINT/,
+  it("refuses an endpoint that is not a URL, naming the source and not the value", () => {
+    expect(() => resolveObservabilityConfig({}, { OTEL_EXPORTER_OTLP_ENDPOINT: "secret-host:4318" })).toThrow(
+      /OTEL_EXPORTER_OTLP_ENDPOINT is not a URL/,
     );
-    expect(() => resolveObservabilityConfig({}, { OTEL_EXPORTER_OTLP_ENDPOINT: "ftp://secret-host" })).not.toThrow(
-      /secret-host/,
+    expect(() => resolveObservabilityConfig({}, { OTEL_EXPORTER_OTLP_ENDPOINT: "secret host" })).not.toThrow(
+      /secret/,
     );
     expect(() => resolveObservabilityConfig({ endpoint: "not a url" }, {})).toThrow(/options\.endpoint/);
+  });
+
+  it("disables export for BuildKit's unix:// trace socket, warning with the variable and the scheme only", () => {
+    const config = resolveObservabilityConfig(
+      {},
+      { OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "unix:///dev/otel-grpc.sock" },
+    );
+
+    const warning = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT has the unsupported scheme unix: (only http: and https:)";
+    expect(config).toEqual({ kind: "disabled", reason: warning, warnings: [warning] });
+  });
+
+  it("keeps exporting the other signal when one endpoint has an unsupported scheme", () => {
+    const config = resolveObservabilityConfig(
+      {},
+      { OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "unix:///dev/otel-grpc.sock", OTEL_EXPORTER_OTLP_ENDPOINT: BASE },
+    );
+
+    expect(config).toMatchObject({
+      kind: "export",
+      traces: null,
+      logs: { url: `${BASE}/v1/logs` },
+      warnings: ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT has the unsupported scheme unix: (only http: and https:)"],
+    });
+  });
+
+  it("disables export for an unsupported scheme in options.endpoint, without the value in the warning", () => {
+    const config = resolveObservabilityConfig({ endpoint: "grpc://secret-host:4317" }, {});
+
+    const warning = "options.endpoint has the unsupported scheme grpc: (only http: and https:)";
+    expect(config).toEqual({ kind: "disabled", reason: warning, warnings: [warning] });
+    expect(JSON.stringify(config)).not.toContain("secret-host");
   });
 });
 

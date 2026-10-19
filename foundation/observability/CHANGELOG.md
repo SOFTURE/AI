@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- An OTLP endpoint with a scheme other than `http:`/`https:` no longer throws at start: that signal is not exported
+  and one warning names the option or variable and the scheme (#608). Docker BuildKit sets
+  `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=unix:///dev/otel-grpc.sock` in every `RUN` step, so a script that started
+  observability during `docker build` died with `must be an http(s) URL`; it now runs with export disabled. A value
+  that is not a URL at all (`localhost:4318`) still throws.
+- `ResolvedObservabilityConfig` (from `resolveObservabilityConfig`) carries `warnings: string[]` on both variants. A
+  test that compares the whole object with `toEqual` adds `warnings: []`.
+- Migration: an app that set `OTEL_SDK_DISABLED=true` on a Dockerfile `RUN` step only to get past this error can
+  remove it after upgrading.
+
 ## 0.2.0
 
 - `traces.stableHttpAttributes`: the legacy HTTP attributes of a server span are copied onto their stable names when

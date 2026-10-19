@@ -35,6 +35,15 @@ export {
   type FormatMoneyOptions,
   type FormatPercentOptions,
 } from "./format.js";
+export {
+  requestJson,
+  toQueryString,
+  type FetchFunction,
+  type HttpJsonFailure,
+  type HttpJsonFailureCode,
+  type RequestJsonOptions,
+  type RequestJsonSchemaOptions,
+} from "./http-json.js";
 export { memoizeByContent, type MemoizeByContentOptions, type MemoizedFunction } from "./memoize.js";
 export { createTestClock, systemClock, type Clock, type TestClock } from "./clock.js";
 export {
