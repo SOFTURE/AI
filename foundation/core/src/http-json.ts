@@ -45,13 +45,14 @@ export async function requestJson(
   options: RequestJsonOptions & { readonly schema?: z.ZodType },
 ): Promise<Ok<unknown> | HttpJsonFailure> {
   const fetchFunction = options.fetch ?? globalThis.fetch;
-  const headers = new Headers(options.headers);
-  if (!headers.has("accept")) {
-    headers.set("accept", "application/json");
-  }
 
   let response: Response;
   try {
+    // Inside the try: an invalid header value throws a message that quotes it.
+    const headers = new Headers(options.headers);
+    if (!headers.has("accept")) {
+      headers.set("accept", "application/json");
+    }
     response = await fetchFunction(options.url, {
       method: "GET",
       headers,
@@ -65,6 +66,8 @@ export async function requestJson(
 
   const statusFailure = getStatusFailure(response);
   if (statusFailure !== null) {
+    // Release the connection; a body that cannot be cancelled changes nothing for the caller.
+    await response.body?.cancel().catch(() => undefined);
     return statusFailure;
   }
 

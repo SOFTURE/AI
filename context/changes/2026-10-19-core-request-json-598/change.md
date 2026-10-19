@@ -1,7 +1,7 @@
 ---
 change_id: core-request-json-598
 title: "core: requestJson, a JSON GET for external APIs that returns a Result with failure codes (issue #598)"
-status: implementing
+status: reviewed
 roadmap_item: null
 issue: 598
 branch: claude/project-thread-9tfiaa

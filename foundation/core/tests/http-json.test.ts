@@ -96,6 +96,27 @@ describe("requestJson: status classes", () => {
   });
 });
 
+describe("requestJson: failed requests", () => {
+  it("cancels the body of a failed status so the connection is released", async () => {
+    let isCancelled = false;
+    const body = new ReadableStream({
+      cancel() {
+        isCancelled = true;
+      },
+    });
+    const { fetch } = createFakeFetch(() => new Response(body, { status: 503 }));
+    expect(await requestJson({ fetch, url: URL_WITH_KEY })).toEqual({ ok: false, error: "core.http_unavailable", status: 503 });
+    expect(isCancelled).toBe(true);
+  });
+
+  it("does not leak an invalid header value through a thrown error", async () => {
+    const { fetch, requests } = createFakeFetch(() => respondWith("{}"));
+    const result = await requestJson({ fetch, url: URL_WITH_KEY, headers: { Authorization: `Bearer ${API_KEY}\nX-Injected: 1` } });
+    expect(result).toEqual({ ok: false, error: "core.http_unreachable", status: null });
+    expect(requests).toHaveLength(0);
+  });
+});
+
 describe("requestJson: unexpected answers", () => {
   it("reports a body that is not JSON", async () => {
     const { fetch } = createFakeFetch(() => respondWith("<html>maintenance</html>"));
