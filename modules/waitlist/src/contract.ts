@@ -46,6 +46,9 @@ export interface WaitlistFormState {
   readonly retryAfterSeconds?: number;
 }
 
+/** A state that replaces the form: the sign-up counts (`ok`) or waits for its confirmation link. */
+export type WaitlistFormSuccessState = WaitlistFormState & { readonly status: "ok" | "confirmation_sent" };
+
 export const INITIAL_WAITLIST_FORM_STATE: WaitlistFormState = { status: "idle" };
 
 /** One sign-up as the module returns it. */

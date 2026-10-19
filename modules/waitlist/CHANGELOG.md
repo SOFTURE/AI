@@ -6,6 +6,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `WaitlistForm` takes the app's own success view and a callback (#579): `success` (a node or `(state) =>
+  ReactNode`) is shown in place of the default notice and unsubscribe link once the sign-up counts (`ok`) or waits
+  for its link (`confirmation_sent`); `onSuccess(state)` is called once per sign-up, after that view is on the page.
+  `WaitlistFormSuccessState` (the root entry) types both. `<Waitlist />` takes `success` as a node. Without the new
+  props nothing changes. Migrate (optional): an app that kept its own form only to show a confirmation card renders
+  `WaitlistForm` from a client component with `action={joinWaitlistAction}`, `success={<Card />}` and, to move
+  focus, `onSuccess={() => cardRef.current?.focus()}` (README, "An app that composes its own form"); then it removes
+  its own form and its state handling. A card that should keep the unsubscribe link reads `state.unsubscribeUrl` in
+  the function form.
 - A rate-limited join tells the person when to try again (#580): `joinWaitlistAction` now answers
   `{ status: "error", error: "security.rate_limited", retryAfterSeconds, email, scopes }`, with the limiter's whole
   seconds (at least 1) for either bucket (`waitlist` per client, `waitlist-email` per address). `WaitlistFormState`

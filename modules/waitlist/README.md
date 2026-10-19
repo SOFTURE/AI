@@ -158,6 +158,30 @@ A rate limit refusal answers `{ status: "error", error: "security.rate_limited",
 limiter's whole seconds until the client may try again. `WaitlistForm` shows it as `form.retryAfter` in minutes,
 rounded up; a state without the value shows `errors.security.rate_limited`.
 
+After a sign-up the form shows its notice in place of the form. `success` replaces that view (the notice and the
+unsubscribe link) with the app's own, either a node or `(state) => ReactNode`, where `state.status` is `ok` or
+`confirmation_sent` and `state.unsubscribeUrl` is the link when the app asked for one. `onSuccess(state)` is called
+once per sign-up, after the app's view is on the page, e.g. to move focus to it. `<Waitlist success={<Card />} />`
+takes a node; functions cannot cross from a server component, so `onSuccess` and the function form need
+`WaitlistForm` in the app's own client component:
+
+```tsx
+"use client";
+import { WaitlistForm, type WaitlistFormProps } from "@softure-ai/waitlist/ui";
+
+export function JoinForm(props: Omit<WaitlistFormProps, "success" | "onSuccess">) {
+  return (
+    <WaitlistForm
+      {...props}
+      success={(state) => <JoinedCard id="joined" pending={state.status === "confirmation_sent"} />}
+      onSuccess={() => document.getElementById("joined")?.focus()}
+    />
+  );
+}
+```
+
+The server page renders `<JoinForm action={joinWaitlistAction} scopes={…} placement="hero" messages={…} />`.
+
 Server functions, for scripts and other hosts (`@softure-ai/waitlist/server`):
 `joinWaitlist(ctx, { email, scopes, placement, clientKey })` returns
 `Ok<{ status: "joined", signup, isNew, recordedScopes }>` (applied at once),

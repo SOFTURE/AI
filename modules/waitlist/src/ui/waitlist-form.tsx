@@ -2,16 +2,17 @@
 
 import { formatMessage, type Locale } from "@softure-ai/core";
 import { Button, Checkbox, type ClassNames, createSlotClassGetter, FormError, TextField } from "@softure-ai/ui";
-import { type ReactNode, useActionState } from "react";
-import { INITIAL_WAITLIST_FORM_STATE, type WaitlistFormState } from "../contract.js";
+import { type ReactNode, useActionState, useEffect, useRef } from "react";
+import { INITIAL_WAITLIST_FORM_STATE, type WaitlistFormState, type WaitlistFormSuccessState } from "../contract.js";
 import { EMAIL_FIELD, getScopeFieldName, PLACEMENT_FIELD } from "../fields.js";
 import { getWaitlistErrorMessage, type WaitlistMessages } from "../messages/index.js";
 
 // The waitlist form: an email field, one checkbox per consent scope and the submit button. It
 // submits straight to its server action through `useActionState`, so it works before (and without)
 // JavaScript; after a sign-up it shows the confirmation (or, with double opt-in, where to confirm)
-// instead of the form, with the person's unsubscribe link when the action returned one. Copy comes from the
-// module's messages and the scope labels the server prepared; styling only from @softure-ai/ui.
+// instead of the form, with the person's unsubscribe link when the action returned one; `success` replaces that
+// view with the app's own and `onSuccess` follows it. Copy comes from the module's messages and the scope labels
+// the server prepared; styling only from @softure-ai/ui.
 
 export type WaitlistFormAction = (previous: WaitlistFormState, formData: FormData) => Promise<WaitlistFormState>;
 
@@ -36,6 +37,14 @@ export interface WaitlistFormProps {
   readonly locale?: Locale;
   readonly classNames?: ClassNames<WaitlistFormSlot>;
   readonly unstyled?: boolean;
+  /**
+   * Shown in the `root` slot in place of the default success view (the notice and the unsubscribe link) once the
+   * sign-up counts or waits for its confirmation link. A function gets that state, e.g. to tell `ok` from
+   * `confirmation_sent` or to show `unsubscribeUrl`.
+   */
+  readonly success?: ReactNode | ((state: WaitlistFormSuccessState) => ReactNode);
+  /** Called once per successful answer, after the success view is on the page (e.g. to move focus to it). */
+  readonly onSuccess?: (state: WaitlistFormSuccessState) => void;
 }
 
 const DEFAULT_CLASSES: Readonly<Record<WaitlistFormSlot, string>> = {
@@ -62,10 +71,36 @@ function getRetryMinutes(seconds: number): number {
   return Math.max(1, Math.ceil(seconds / SECONDS_PER_MINUTE));
 }
 
-export function WaitlistForm({ action, scopes, placement, messages, locale, classNames, unstyled }: WaitlistFormProps) {
+function isSuccessState(state: WaitlistFormState): state is WaitlistFormSuccessState {
+  return state.status === "ok" || state.status === "confirmation_sent";
+}
+
+export function WaitlistForm({
+  action,
+  scopes,
+  placement,
+  messages,
+  locale,
+  classNames,
+  unstyled,
+  success,
+  onSuccess,
+}: WaitlistFormProps) {
   const [state, formAction, isPending] = useActionState(action, INITIAL_WAITLIST_FORM_STATE);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
-  if (state.status === "ok" || state.status === "confirmation_sent") {
+  // Each answer is a new state object, so remembering the last one notified keeps re-renders and
+  // Strict Mode's second effect run from calling `onSuccess` twice.
+  const notifiedState = useRef<WaitlistFormState | null>(null);
+  useEffect(() => {
+    if (onSuccess === undefined || !isSuccessState(state) || notifiedState.current === state) return;
+    notifiedState.current = state;
+    onSuccess(state);
+  }, [state, onSuccess]);
+
+  if (isSuccessState(state)) {
+    if (success !== undefined) {
+      return <div className={slot("root")}>{typeof success === "function" ? success(state) : success}</div>;
+    }
     return (
       <div className={slot("root")}>
         <p role="status" className={slot("notice")}>

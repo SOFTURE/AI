@@ -53,6 +53,7 @@ export {
   type WaitlistFormErrorCode,
   type WaitlistFormField,
   type WaitlistFormState,
+  type WaitlistFormSuccessState,
   type WaitlistJoinedEvent,
   type WaitlistSignup,
 } from "./contract.js";
