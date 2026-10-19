@@ -40,5 +40,7 @@ describe("ChartFlag rows", () => {
   it("divides the row offset by the chip's rows, 1 when it has none", () => {
     const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
     expect(css).toContain("translate: 0 calc(var(--sft-chart-flag-row) * (100% + var(--sft-space-1)) / var(--sft-chart-flag-rows, 1));");
+    // The padding goes into a sum of lengths in the span's min-height, so even zero needs a unit there.
+    expect(css).toContain("--sft-chart-flag-pad-y: 0px;");
   });
 });

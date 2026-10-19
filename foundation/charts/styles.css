@@ -311,7 +311,7 @@
   }
 
   .sft-chart-flag-sm {
-    --sft-chart-flag-pad-y: 0;
+    --sft-chart-flag-pad-y: 0px;
 
     padding: var(--sft-chart-flag-pad-y) var(--sft-space-1);
     font-size: calc(var(--sft-text-xs) * 0.9);
