@@ -1,12 +1,13 @@
 ---
 change_id: waitlist-form-pending-label-615
 title: "waitlist: WaitlistForm's submit button reserves the pending label's width (issue #615)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 615
 branch: claude/project-thread-fjyw6e
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent
