@@ -5,6 +5,7 @@ export {
   type AuthFormSlot,
   ChangePasswordForm,
   type ChangePasswordFormProps,
+  type ConsentProps,
   ForgotPasswordForm,
   type ForgotPasswordFormProps,
   LoginForm,
