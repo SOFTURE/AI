@@ -508,7 +508,20 @@ the status alone.
 
 `texts` are functions, so pass them from a server component (as `CurrentAccessBadge` is) or a client one rendering
 `AccessBadge`, not across the server-client boundary. The app's words go through its own message layer. The notice's `tones={{ ending, ended }}` sets its
-frame, `neutral` (the raised surface) or `danger` (default `neutral` and `danger`).
+frame, `neutral` (the raised surface) or `danger` (default `neutral` and `danger`). `extraActions` adds the app's
+own actions after the payment link, in the `actions` slot, whenever the notice shows (ending or ended access), e.g. a
+link to the app's data export that answers "did I lose anything?" in the read-only state:
+
+```tsx
+<CurrentAccessNotice
+  LinkComponent={Link}
+  extraActions={<Link href="/account/export">Download your data</Link>}
+/>
+```
+
+The nodes are the app's own, so their link component, wording and style come from the app (an `unstyled` notice
+leaves them as they are). To show an action only when access has ended, render `AccessNotice` (`/ui`) with
+`getCurrentEntitlement()` and pass `extraActions` when `entitlement.status === "read_only"`.
 
 Server functions, for scripts and other hosts (`@softure-ai/billing/server`):
 `grantPlanManually(ctx, { userId, planId, adminId, requestId? })` grants one payment of a plan,
@@ -933,8 +946,8 @@ app styles, and always `data-kind` (the kind, e.g. `paid-ending`) and `data-tone
 end-to-end tests and an app's own tint of the whole pill (a `[data-tone="warning"]` selector, or the
 `data-[tone=warning]:` variant in a `classNames.root` of the app's Tailwind). The other slots are `full` and `short` (the two texts of the `responsive` variant, swapped by
 `display`) and `prefix` (`srPrefix`, visually hidden); an `unstyled` badge hides `prefix` and one of `full`/`short`
-itself. `AccessNotice` takes `root`, `message` and `actions` and
-renders the `@softure-ai/ui` `ButtonLink`; ended access uses the danger surface of `FormError`.
+itself. `AccessNotice` takes `root`, `message` and `actions` (a wrapping row with a gap, holding the payment link and
+`extraActions`) and renders the `@softure-ai/ui` `ButtonLink`; ended access uses the danger surface of `FormError`.
 Both accept `unstyled`. `PricingTiles` takes `root`, `tile`, `badge`, `name`, `description`,
 `priceRow`, `price`, `period`, `features`, `feature`, `featureIcon` and `action`; a featured or chosen
 tile gets `--sft-border-strong` and a shadow, and sets `data-plan`, `data-featured` and

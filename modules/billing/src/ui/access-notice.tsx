@@ -3,6 +3,7 @@
 // the link goes through an injected `LinkComponent` (Next's `Link` in `/next`).
 import { formatMessage, type Locale } from "@softure-ai/core";
 import { ButtonLink, type ClassNames, createSlotClassGetter, type LinkComponentType } from "@softure-ai/ui";
+import type { ReactNode } from "react";
 import type { Entitlement } from "../contract.js";
 import type { BillingMessages } from "../messages/index.js";
 import type { AccessTone } from "./access-badge.js";
@@ -22,6 +23,8 @@ export interface AccessNoticeProps {
   readonly LinkComponent?: LinkComponentType;
   /** The frame's tone while access is ending (default `neutral`) and once it has ended (default `danger`). */
   readonly tones?: Partial<Record<"ending" | "ended", AccessNoticeTone>>;
+  /** The app's own actions (e.g. a "Download your data" link), rendered in the `actions` slot after the payment link. */
+  readonly extraActions?: ReactNode;
   readonly classNames?: ClassNames<AccessNoticeSlot>;
   readonly unstyled?: boolean;
 }
@@ -57,7 +60,7 @@ function getNoticeCopy(entitlement: Entitlement, messages: BillingMessages, loca
   }
 }
 
-export function AccessNotice({ entitlement, messages, locale, timezone, paymentHref, LinkComponent, tones, classNames, unstyled }: AccessNoticeProps) {
+export function AccessNotice({ entitlement, messages, locale, timezone, paymentHref, LinkComponent, tones, extraActions, classNames, unstyled }: AccessNoticeProps) {
   const notice = getNoticeCopy(entitlement, messages, locale, timezone);
   if (notice === null) return null;
   const tone = notice.isEnded ? (tones?.ended ?? "danger") : (tones?.ending ?? "neutral");
@@ -65,7 +68,7 @@ export function AccessNotice({ entitlement, messages, locale, timezone, paymentH
     defaults: {
       root: `sft:flex sft:flex-col sft:gap-3 sft:rounded-control sft:border sft:px-4 sft:py-2.5 sft:font-sans sft:text-sm sft:text-foreground ${FRAME[tone]}`,
       message: "sft:m-0",
-      actions: "sft:flex sft:shrink-0",
+      actions: "sft:flex sft:shrink-0 sft:flex-wrap sft:items-center sft:gap-3",
     },
     classNames,
     unstyled,
@@ -77,6 +80,7 @@ export function AccessNotice({ entitlement, messages, locale, timezone, paymentH
         <ButtonLink href={paymentHref} LinkComponent={LinkComponent} variant={notice.isEnded ? "primary" : "secondary"} size="sm" unstyled={unstyled}>
           {notice.action}
         </ButtonLink>
+        {extraActions}
       </div>
     </div>
   );
