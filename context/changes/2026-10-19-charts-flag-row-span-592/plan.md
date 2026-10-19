@@ -41,6 +41,6 @@ Files: `foundation/charts/src/svg/flag.tsx`, `foundation/charts/styles.css`, `fo
 
 ## Progress
 
-- [ ] Phase 1: `rows` in layoutFlags
-- [ ] Phase 2: `rows` on ChartFlag
-- [ ] Phase 3: docs
+- [x] Phase 1: `rows` in layoutFlags (7 tests written first, 6 failing before; 94955c5)
+- [x] Phase 2: `rows` on ChartFlag (6 tests written first and failing; the token allowlist in `architecture.test.ts` takes the two new local properties; d39b857)
+- [x] Phase 3: docs (README Stacked flags and the primitives table, CHANGELOG `## Unreleased`)
