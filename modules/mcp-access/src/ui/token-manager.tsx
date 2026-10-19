@@ -2,7 +2,7 @@
 
 import { formatMessage, type Locale } from "@softure-ai/core";
 import { Button, ButtonLink, Checkbox, type ClassNames, createSlotClassGetter, FormError, TextField } from "@softure-ai/ui";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import type { IssuedToken, IssueTokenFormState, RevokeGrantFormState, RevokeTokenFormState } from "../contract.js";
 import { getTokenErrorMessage, type McpAccessMessages } from "../messages/index.js";
 import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
@@ -11,8 +11,9 @@ import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
 // setup snippets, the owner's tokens with a revoke button each, and, with OAuth on, the apps
 // connected through OAuth with a disconnect button each. Both forms submit to their
 // server actions through `useActionState`. The plaintext lives only in the issue form's state:
-// "Done" or leaving the page drops it. Copy comes from the module's messages; styling only from
-// @softure-ai/ui classes.
+// "Done" or leaving the page drops it. Focus follows the one-time token: its heading takes focus
+// when it appears, and "Done" hands focus back to the name field. Copy comes from the module's
+// messages; styling only from @softure-ai/ui classes.
 
 export type IssueTokenAction = (previous: IssueTokenFormState, formData: FormData) => Promise<IssueTokenFormState>;
 export type RevokeTokenAction = (previous: RevokeTokenFormState, formData: FormData) => Promise<RevokeTokenFormState>;
@@ -124,9 +125,14 @@ function IssuedTokenPanel({
   unstyled: boolean | undefined;
 }) {
   const snippet = (title: string, value: string) => <Snippet title={title} value={value} messages={messages} slot={slot} unstyled={unstyled} />;
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  // Once per issued token, so a screen reader announces it; not on re-renders while the owner copies.
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [issued.id]);
   return (
     <section className={slot("section")}>
-      <h3 className={slot("heading")}>{formatMessage(messages.issued.title, { name: issued.name })}</h3>
+      <h3 ref={headingRef} tabIndex={-1} className={slot("heading")}>{formatMessage(messages.issued.title, { name: issued.name })}</h3>
       <p className={slot("text")}>{messages.issued.once}</p>
       <p className={slot("text")}>
         {issued.expiresText} {issued.canWrite ? messages.issued.readWrite : messages.issued.readOnly}
@@ -168,11 +174,20 @@ function IssueForm({
   // The id of the issued token the owner dismissed; a new one shows again.
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const issued = state.status === "ok" && state.issued.id !== dismissedId ? state.issued : null;
+  const formRef = useRef<HTMLFormElement>(null);
+  function dismiss(id: string) {
+    setDismissedId(id);
+    // The focused "Done" button unmounts with the panel; once it is gone, the name field is the next step.
+    requestAnimationFrame(() => {
+      const field = formRef.current?.elements.namedItem("name");
+      if (field instanceof HTMLInputElement) field.focus();
+    });
+  }
   return (
     <>
       <section className={slot("section")}>
         <h2 className={slot("heading")}>{messages.issue.title}</h2>
-        <form action={formAction} className={slot("list")}>
+        <form ref={formRef} action={formAction} className={slot("list")}>
           <TextField
             name="name"
             label={messages.issue.name}
@@ -191,7 +206,7 @@ function IssueForm({
           </Button>
         </form>
       </section>
-      {issued === null ? null : <IssuedTokenPanel issued={issued} onDone={() => setDismissedId(issued.id)} messages={messages} slot={slot} unstyled={unstyled} />}
+      {issued === null ? null : <IssuedTokenPanel issued={issued} onDone={() => dismiss(issued.id)} messages={messages} slot={slot} unstyled={unstyled} />}
     </>
   );
 }
