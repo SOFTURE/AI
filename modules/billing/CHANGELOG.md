@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- **The access notice takes the app's own actions** (#587): `AccessNotice` (`/ui`) and `CurrentAccessNotice`
+  (`/next`) take `extraActions` (React nodes), rendered in the `actions` slot after the payment link whenever the
+  notice shows. The `actions` slot default gains `sft:flex-wrap sft:items-center sft:gap-3`, so two actions sit
+  apart and wrap on a narrow screen; with only the payment link the notice looks as before. Additive: existing
+  callers keep working unchanged.
+
+  Migration for an app that kept its own notice (or dropped a second action) to show e.g. "Download your data":
+  1. Replace the app's notice with `<CurrentAccessNotice LinkComponent={Link} extraActions={<Link
+     href="/account/export">Download your data</Link>} />`, with the link's text from the app's message layer.
+  2. To show the action only once access has ended, render `AccessNotice` with `getCurrentEntitlement()` and pass
+     `extraActions` only when `entitlement.status === "read_only"`.
+  3. An app that styles the `actions` slot through `classNames.actions` checks the gap between the two actions.
+
 ## 0.8.0
 
 - **The reminder template gets the run's context** (#575): `AccessReminderMailContext` gains `ctx`, the module
