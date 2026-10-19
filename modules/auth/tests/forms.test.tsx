@@ -1,6 +1,13 @@
 // @vitest-environment happy-dom
 import { authMessages, type AuthFormState } from "@softure-ai/auth";
-import { ChangePasswordForm, LoginForm, RegisterForm, type AuthFormAction } from "@softure-ai/auth/ui";
+import {
+  ChangePasswordForm,
+  ForgotPasswordForm,
+  LoginForm,
+  RegisterForm,
+  ResetPasswordForm,
+  type AuthFormAction,
+} from "@softure-ai/auth/ui";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -197,5 +204,39 @@ describe("the submit button", () => {
     const button = screen.getByRole("button", { name: en.changePassword.submit });
     expect(button.getAttribute("data-variant")).toBe("secondary");
     expect(button.className).toContain("app-submit");
+  });
+});
+
+describe("the auth forms' submit button while sending", () => {
+  const idle = () => answering({ status: "idle" });
+
+  it.each([
+    { form: "LoginForm", copy: en.login, view: () => <LoginForm action={idle()} messages={en} /> },
+    { form: "RegisterForm", copy: en.register, view: () => <RegisterForm action={idle()} messages={en} requireConsent={false} minPasswordLength={10} /> },
+    { form: "ChangePasswordForm", copy: en.changePassword, view: () => <ChangePasswordForm action={idle()} messages={en} minPasswordLength={10} /> },
+    { form: "ForgotPasswordForm", copy: en.forgotPassword, view: () => <ForgotPasswordForm action={idle()} messages={en} ttlMinutes={30} /> },
+    { form: "ResetPasswordForm", copy: en.resetPassword, view: () => <ResetPasswordForm action={idle()} messages={en} token="t" minPasswordLength={10} /> },
+  ])("$form reserves the pending label's width while idle", ({ copy, view }) => {
+    render(view());
+    const button = screen.getByRole("button", { name: copy.submit });
+    expect(button.querySelector("[data-reserve]")?.getAttribute("data-reserve")).toBe(copy.pending);
+  });
+
+  it("shows the pending label and reserves the idle one while the action runs", async () => {
+    let finish: (state: AuthFormState) => void = () => undefined;
+    const action = vi.fn<AuthFormAction>(() => new Promise((resolve) => (finish = resolve)));
+    render(<LoginForm action={action} messages={en} />);
+    await submit(screen.getByRole("button", { name: en.login.submit }));
+    try {
+      const button = screen.getByRole("button", { name: en.login.pending });
+      expect(button.getAttribute("aria-busy")).toBe("true");
+      expect(button.querySelector("[data-reserve]")?.getAttribute("data-reserve")).toBe(en.login.submit);
+    } finally {
+      // A pending async action holds back every later form action in React, so it always settles here.
+      await act(async () => {
+        finish({ status: "idle" });
+        await Promise.resolve();
+      });
+    }
   });
 });
