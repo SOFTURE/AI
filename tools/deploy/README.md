@@ -730,7 +730,11 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 
 **Job worker** (`@softure-ai/jobs`). The `worker` service runs the same image as the app with `node worker.mjs` and the
 app's environment (`APP_ORIGIN`, `DATABASE_URL` as the app role, `--env`), so it needs no secret of its own. The image's
-`HEALTHCHECK` asks the app's port, so the service turns it off; `docker compose up --wait` then waits for it to run.
+`HEALTHCHECK` asks the app's port, so the service replaces it with a liveness check of its own:
+`node -e "process.kill(1, 0)"`, which passes while PID 1 (`node worker.mjs`) runs. `docker compose up --wait` needs
+that check: it fails on a service whose health check is turned off (`healthcheck: disable: true`, "has no healthcheck
+configured"). The check assumes `node` is PID 1, so the service sets no `init: true`; it proves that the process runs,
+not that its job loop makes progress.
 It starts after `migrate`, and a deploy stops it with SIGTERM: running jobs get the module's `shutdownGraceMs` (20 s by
 default) and the rest are released for the next worker; `stop_grace_period: 30s` leaves that time before Docker kills
 it. `scripts/worker.ts` imports `handlers` from `src/jobs/handlers`; point it at the app's own module. An app that ran
