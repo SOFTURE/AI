@@ -34,5 +34,5 @@ the migration for an app that has its own helper.
 
 ## Progress
 
-- [ ] Phase 1: requestJson and toQueryString
-- [ ] Phase 2: docs
+- [x] Phase 1: requestJson and toQueryString (30 tests written first and failing; 344 core tests pass; f513307)
+- [x] Phase 2: docs (README "External JSON APIs" next to `safeError`, CHANGELOG `## Unreleased` with the migration)
