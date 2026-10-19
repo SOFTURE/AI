@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## Unreleased
+
+- `layoutFlags` takes `rows` on each flag (issue #592): how many rows its chip is tall, a whole number of at least 1,
+  default 1. A flag with `rows: 2` takes its row and the one below; a flag takes a row only where every row it spans
+  is free at its extent. `FlagLayout.rows` counts the spanned rows and `maxRows` applies to them. Placements keep
+  their shape (`row` is the top row), and one-row flags lay out exactly as before.
+- `ChartFlag` takes `rows`: a spanning chip is as tall as its rows and `row` still moves it by one row per row
+  (`--sft-chart-flag-rows`, `.sft-chart-flag-span`). Without it the chip renders as before.
+- Migration for an app that lifts flags above a two-line chip itself: pass `rows: 2` for that flag to `layoutFlags`
+  and drop the post-processing of the placements (each placement's `row` is final). When the chips are `ChartFlag`s,
+  pass the same `rows` to the spanning chip. An app that places chips upward from the plot keeps placing them itself:
+  row `r` with `rows: n` occupies the rows `r` to `r + n - 1`, counted from the row next to the plot.
+
 ## 0.4.0
 
 - `layoutFlags(flags, { gap, maxRows })` (issue #559): a server-safe layout that gives each flag a row so chips in one

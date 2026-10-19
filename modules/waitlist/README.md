@@ -153,7 +153,7 @@ Opening the page changes nothing (mail scanners open links): it shows a button t
 `expired`, `limited`, `failed`; the last two keep the link for a retry).
 
 An app that composes its own form passes `joinWaitlistAction` (`/next`) to `WaitlistForm` (`/ui`)
-with the scopes it prepared (`{ id, label, required }`), the placement and the messages.
+with the scopes it prepared (`{ id, label, required, description?, inputId? }`), the placement and the messages.
 A rate limit refusal answers `{ status: "error", error: "security.rate_limited", retryAfterSeconds }`: the
 limiter's whole seconds until the client may try again. `WaitlistForm` shows it as `form.retryAfter` in minutes,
 rounded up; a state without the value shows `errors.security.rate_limited`.
@@ -241,9 +241,36 @@ address applies them).
 ## 8. Appearance
 
 `WaitlistForm` uses the `@softure-ai/ui` primitives (TextField, Checkbox, FormError, Button) and
-takes `classNames` for its slots `root`, `form`, `scopes`, `notice` and `unsubscribe` (the
-paragraph with the unsubscribe link), or `unstyled`. `Waitlist`
-passes both through.
+takes `classNames` for its slots `root`, `form`, `scopes`, `notice`, `unsubscribe` (the
+paragraph with the unsubscribe link) and `submit` (the button), or `unstyled`. To match the app's other forms
+(the names are those of `@softure-ai/auth`'s forms):
+
+| Prop | Type | Default | What it changes |
+| --- | --- | --- | --- |
+| `emailProps` | `{ id?, placeholder? }` | none | The email field's id (stable, e.g. `field-email` for a sticky bar that focuses it) and the app's placeholder. |
+| `fieldClassNames` | `ClassNames<InputFieldSlot>` | none | The email field's classes (`label`, `input`, ...). |
+| `fieldHintAs`, `fieldHintProps` | `HintPlacement`, `HintAppearance` | block hint | The field hint's placement and tooltip look, as in ui's `TextField`. |
+| `scopeClassNames` | `ClassNames<CheckboxSlot>` | none | Every consent box's classes (`box`, `label`, `description`, ...). |
+| `submitVariant` | `ButtonVariant` | `primary` | The button's look. |
+| `submitFullWidth` | `boolean` | `true` | `false` keeps the button at its content's width. |
+
+Each `WaitlistFormScope` also takes `description` (a line under the statement, e.g. "You can unsubscribe any time.",
+tied to the box with `aria-describedby`) and `inputId` (the box's id). Ids must be unique on the page: a form mounted
+twice (hero and footer) gets its own ids per placement; without them ui generates unique ones, as before.
+`Waitlist` passes all of these through, with `consentDescriptions` and `consentIds` per scope id next to
+`consentLabels`:
+
+```tsx
+<Waitlist
+  placement="hero"
+  consentDescriptions={{ launch: "You can unsubscribe any time." }}
+  consentIds={{ launch: "field-consent-launch" }}
+  emailProps={{ id: "field-email", placeholder: "you@example.com" }}
+  fieldClassNames={{ label: "app-label" }}
+  submitFullWidth={false}
+  submitVariant="ink"
+/>
+```
 
 ## 9. Copy
 

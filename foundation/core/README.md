@@ -335,6 +335,35 @@ or a fractional count.
 
 `calendarDaySchema` is `isCalendarDay` as a zod schema, for tool and form inputs that take a day.
 
+**Calendar periods.** A `CalendarPeriod` is `{ from, to }`, two calendar days with **both ends included**:
+one day is `{ from: d, to: d }`. `calendarPeriodSchema` parses one from input and refuses `to` before `from`
+with the message `must not come before from` on the path `["to"]`, so a form shows it next to the end field;
+a malformed day gets only its own `calendarDaySchema` issue.
+
+| Function | Semantics |
+| --- | --- |
+| `isDayInPeriod(day, period)` | `day` lies in `period`, either end included. |
+| `doPeriodsOverlap(a, b)` | The periods share at least one day: `12-01..12-31` and `12-31..01-05` overlap, `12-01..12-31` and `01-01..01-31` do not. |
+| `countPeriodDays(period)` | Days in the period, both ends counted: 1 for a single day, 31 for December. |
+
+They throw a `RangeError` for a malformed day or a period that ends before it starts.
+
+```ts
+const input = z.object({ stay: calendarPeriodSchema }).parse(body);
+countPeriodDays(input.stay); // 7
+```
+
+**Local date-times.** A `LocalDateTime` is `YYYY-MM-DDTHH:mm` with no time zone: a time that is local at a
+place, such as a departure or a booking slot, read the same whatever the server's zone. The day part must be a
+real calendar day (`2026-02-30T10:00` is refused), the hour 00-23 and the minute 00-59; no seconds, no offset.
+It is a branded string, so only `localDateTimeSchema` (input) or `isLocalDateTime(value)` (a guard) make one,
+and it sorts as text in time order. `getLocalDay(value)` returns its `YYYY-MM-DD` day.
+
+```ts
+const departure = localDateTimeSchema.parse("2026-12-01T06:45"); // LocalDateTime
+isDayInPeriod(getLocalDay(departure), trip); // true when the departure falls on a day of the trip
+```
+
 **Display.** One way to show days, money and percentages in every module and app, in `config.locale`:
 
 ```ts

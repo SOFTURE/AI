@@ -3,6 +3,7 @@
 // `Waitlist` in `/next` renders it wired to the registered config.
 export {
   WaitlistForm,
+  type WaitlistEmailProps,
   type WaitlistFormAction,
   type WaitlistFormProps,
   type WaitlistFormScope,

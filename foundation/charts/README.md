@@ -157,22 +157,26 @@ hidden flags share one outline chip on the row after the last, at the leftmost o
 (`lineChart.moreFlags`) with their labels as its `title`. Without `flagStack` every chip sits on the top row as before.
 
 `layoutFlags(flags, { gap, maxRows })` is the layout on its own, server-safe, for an app that places its own chips:
-each flag is `{ x, width, align? }` in one unit (`align` as `ChartFlag` aligns it, `edgeAlign(x)` there; `center` by
-default). It returns `placements` in input order (`{ hidden: false, row, start, end }` or
+each flag is `{ x, width, align?, rows? }` in one unit (`align` as `ChartFlag` aligns it, `edgeAlign(x)` there;
+`center` by default). It returns `placements` in input order (`{ hidden: false, row, start, end }` or
 `{ hidden: true, row: null, start, end }`), `rows` and `hiddenCount`, the same for the same input; chips in one row
-are at least `gap` apart. A non-finite `x` or `width`, a negative `width` or `gap`, or a `maxRows` that is not a
-whole number of at least 1 throws a `RangeError`. `ChartFlag`'s `row` moves a chip down by its own height and
-`--sft-space-1` per row (`--sft-chart-flag-row`):
+are at least `gap` apart. A flag with `rows: 2` (a two-line chip, e.g. two close dates merged into one) takes its
+`row` and the one below it, and a flag takes a row only where every row it spans is free at its extent, so it lifts
+only the flags it collides with. `rows` in the result counts the spanned rows, and `maxRows` applies to them: a flag
+whose span would end below `maxRows` is hidden. A non-finite `x` or `width`, a negative `width` or `gap`, or a
+`rows` or `maxRows` that is not a whole number of at least 1 throws a `RangeError`. `ChartFlag`'s `row` moves a chip down by its own height and
+`--sft-space-1` per row (`--sft-chart-flag-row`); give a spanning chip the same `rows`, and it is as tall as its rows
+(one line and the chip's padding per row) and still moves by one row per row:
 
 ```tsx
 const { placements, hiddenCount } = layoutFlags(
-  events.map((event) => ({ x: event.xPercent, width: measure(event.label), align: edgeAlign(event.xPercent) })),
+  events.map((event) => ({ x: event.xPercent, width: measure(event.label), align: edgeAlign(event.xPercent), rows: event.rows })),
   { gap: 1, maxRows: 3 },
 );
 events.map((event, index) => {
   const placement = placements[index];
   return placement && !placement.hidden ? (
-    <ChartFlag key={event.key} xPercent={event.xPercent} row={placement.row}>
+    <ChartFlag key={event.key} xPercent={event.xPercent} row={placement.row} rows={event.rows}>
       {event.label}
     </ChartFlag>
   ) : null;
@@ -204,7 +208,7 @@ An app with its own greedy stacking (rows by x and measured width, a row cap, a 
 | `ValueAxis`, `valueAxisTicks` | value labels at heights in %; from four labels, every other one is hidden on narrow screens, counted from the top (`narrow="all"` keeps them all) |
 | `TimeAxis`, `timeAxisTicks`, `numberAxisTicks` | date or number labels at % of the width; with `ends`, the ends sit at the edges and middle labels stay clear of them; an optional second row ([Horizontal axes](#horizontal-axes)) |
 | `Legend`, `LegendItem`, `LegendSwatch` | swatches `box`, `dot`, `line`, `dashed`, `dotted` in a `slot`, a `tone` or a `color`, `faded`; `LegendItem` takes `as` (`li`, `div`, `span`) to sit outside `Legend`'s list, and `faded` ([Colour by meaning](#colour-by-meaning)) |
-| `ChartFlag` | a chip at the top of the plot; within 18 % of an edge it aligns to that edge (`edgeAlign`); variants and sizes ([options](#line-and-marker-options)); `row` and `layoutFlags` stack it ([Stacked flags](#stacked-flags)); `title` |
+| `ChartFlag` | a chip at the top of the plot; within 18 % of an edge it aligns to that edge (`edgeAlign`); variants and sizes ([options](#line-and-marker-options)); `row`, `rows` and `layoutFlags` stack it ([Stacked flags](#stacked-flags)); `title` |
 | `ChartPin` | an event pin on a curve: a dashed line from the bottom up to a point and a round dot on it ([Pins](#pins)) |
 | `ChartDataTable` | the visually hidden table |
 | `Sankey`, `layoutSankey` | a two-sided flow: inputs → hub → outputs ([Sankey](#sankey)) |
