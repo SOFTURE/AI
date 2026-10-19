@@ -22,7 +22,8 @@ Files: `modules/auth/src/ui/auth-forms.tsx`, `tests/forms.test.tsx`.
 2. `ConsentCheckbox` (module-private): ui `Checkbox` plus local state for the required message, `onInvalid` and
    `onChange` as in ui's `CheckboxField`; the server error shows when no local message is set.
 3. `useErrors(state, messages, rendered)`: `form` also takes the message when `state.field` is not in `rendered`.
-4. `AuthFormBaseProps`: `fieldClassNames`, `fieldHintProps`; every field gets them. `RegisterFormProps`:
+4. `AuthFormBaseProps`: `fieldClassNames`, `fieldHintAs`, `fieldHintProps`; every field gets them (`fieldHintAs`
+   added because ui applies `hintProps` only to a tooltip hint, and the auth hints are block hints by default). `RegisterFormProps`:
    `consentProps`.
 
 ## Phase 2: docs
@@ -32,5 +33,5 @@ app's workaround (drop `requireConsent={false}` and its own box, pass `consentPr
 
 ## Progress
 
-- [ ] Phase 1: consent box, unrendered field errors, field looks
-- [ ] Phase 2: docs
+- [x] Phase 1: consent box, unrendered field errors, field looks (5 tests written first; 406 auth tests pass; ec11c63)
+- [x] Phase 2: docs (README Your own forms and Appearance, CHANGELOG `## Unreleased` with the migration)

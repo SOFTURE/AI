@@ -262,8 +262,8 @@ export interface RegisterFormProps extends AuthFormBaseProps {
 }
 
 export function RegisterForm(props: RegisterFormProps) {
-  const { action, messages, next, loginHref, requireConsent, minPasswordLength, consentLabel, consentProps, extraFields, classNames, unstyled, submitVariant } =
-    props;
+  const { action, messages, next, loginHref, requireConsent, minPasswordLength, consentLabel, consentProps, extraFields } = props;
+  const { classNames, unstyled, submitVariant } = props;
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
   const errors = useErrors(state, messages, requireConsent ? ["email", "password", "consent"] : ["email", "password"]);
   const field = getFieldLook(props);
