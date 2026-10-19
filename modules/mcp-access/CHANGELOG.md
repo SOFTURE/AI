@@ -10,6 +10,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   (`tabIndex={-1}`), so a screen reader announces the token that is shown only once; "Done, hide the token" returns
   focus to the issue form's name field instead of dropping it to `<body>`. Migrate: nothing to change; an app that
   moved focus itself around `TokenManager` can drop that code.
+- `getTokenManagerProps({ userId, config?, now? })` in `/next` (#589): every data prop of `TokenManager` (`tools`,
+  `tokens`, `grants` while OAuth is on, `allowWrites`, `maxTokens`, `messages`, `locale`), built exactly as
+  `McpAccessPage` builds them, which now renders through it. For an app that composes its own page around
+  `TokenManager` (its own `<h1>`, its own frame). It checks no session: pass the signed-in user's id. Migrate: an app
+  that copied the page's builders (`toRow`, `toGrant`, `toTool`, `describeStatus` and the date formatting) deletes
+  them and spreads `await getTokenManagerProps({ userId: user.id })` into `TokenManager`, adding only the actions
+  (`revokeGrantAction` only when `grants` is present). Its output is unchanged.
 
 ## 0.2.4
 
