@@ -194,7 +194,7 @@ describe("planInitFiles", () => {
     expect(dockerfile.split("--alias:server-only=./.esbuild/empty.mjs")).toHaveLength(4);
   });
 
-  it("runs the worker from the app's image after the migrations, with the app's environment and no health check", () => {
+  it("runs the worker from the app's image after the migrations, with the app's environment and a liveness check of its own", () => {
     const compose = parse(textOf(plan({}, { hasJobs: true }), "docker/prod/docker-compose.yml")) as {
       services: Record<string, Record<string, unknown>>;
     };
@@ -207,7 +207,8 @@ describe("planInitFiles", () => {
         DATABASE_URL: "postgresql://softure_app:${SOFTURE_APP_PASSWORD:?}@postgres:5432/acme_app",
         AUTH_SECRET: "${AUTH_SECRET:?}",
       },
-      healthcheck: { disable: true },
+      // `docker compose up --wait` fails on a service whose health check is disabled (#609).
+      healthcheck: { test: ["CMD", "node", "-e", "process.kill(1, 0)"], interval: "10s", timeout: "5s", retries: 3, start_period: "10s" },
       stop_grace_period: "30s",
       depends_on: { migrate: { condition: "service_completed_successfully" } },
     });
