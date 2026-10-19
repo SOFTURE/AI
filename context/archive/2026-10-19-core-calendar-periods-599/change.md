@@ -1,13 +1,13 @@
 ---
 change_id: core-calendar-periods-599
 title: "core: calendar periods and local wall-clock date-times next to calendarDaySchema (issue #599)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 599
 branch: claude/project-thread-i3jnji
 created: 2026-10-19
 updated: 2026-10-19
-archived_at: null
+archived_at: 2026-10-19
 ---
 
 ## Intent
