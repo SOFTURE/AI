@@ -181,3 +181,85 @@ describe("WaitlistForm after a sign-up, in the app's own view", () => {
     expect(document.activeElement?.textContent).toBe("You are on the list");
   });
 });
+
+describe("WaitlistForm in the app's look", () => {
+  it("keeps today's full-width primary button by default", () => {
+    renderForm(answering({ status: "idle" }));
+    const button = screen.getByRole("button", { name: en.form.submit });
+    expect(button.className).toContain("sft:w-full");
+  });
+
+  it("takes the button's width, variant and class", () => {
+    render(
+      <WaitlistForm
+        action={answering({ status: "idle" })}
+        scopes={SCOPES}
+        placement="hero"
+        messages={en}
+        submitFullWidth={false}
+        submitVariant="ink"
+        classNames={{ submit: "app-button" }}
+      />,
+    );
+    const button = screen.getByRole("button", { name: en.form.submit });
+    expect(button.className).not.toContain("sft:w-full");
+    expect(button.className).toContain("sft:bg-foreground");
+    expect(button.className).toContain("app-button");
+  });
+
+  it("gives the email field a stable id, the app's placeholder and label class", () => {
+    render(
+      <WaitlistForm
+        action={answering({ status: "idle" })}
+        scopes={SCOPES}
+        placement="hero"
+        messages={en}
+        emailProps={{ id: "field-email", placeholder: "you@example.com" }}
+        fieldClassNames={{ label: "app-label" }}
+      />,
+    );
+    const field = screen.getByLabelText(en.form.email);
+    expect(field.id).toBe("field-email");
+    expect(field.getAttribute("placeholder")).toBe("you@example.com");
+    expect(document.querySelector(`label[for="field-email"]`)?.className).toContain("app-label");
+  });
+
+  it("renders a consent box at its id with its description and the app's box classes", () => {
+    const scopes: WaitlistFormScope[] = [
+      { id: "launch", label: "Tell me when it opens.", required: true, inputId: "field-consent-launch", description: "You can unsubscribe any time." },
+      { id: "newsletter", label: "Send me the newsletter.", required: false },
+    ];
+    render(
+      <WaitlistForm
+        action={answering({ status: "idle" })}
+        scopes={scopes}
+        placement="hero"
+        messages={en}
+        scopeClassNames={{ label: "app-check" }}
+      />,
+    );
+    const box = screen.getByRole("checkbox", { name: "Tell me when it opens." });
+    expect(box.id).toBe("field-consent-launch");
+    const describedBy = box.getAttribute("aria-describedby") ?? "";
+    expect(document.getElementById(describedBy.split(" ")[0] ?? "")?.textContent).toBe("You can unsubscribe any time.");
+    expect(screen.getByText("Tell me when it opens.").className).toContain("app-check");
+    expect(screen.getByText("Send me the newsletter.").className).toContain("app-check");
+    expect(screen.getByRole("checkbox", { name: "Send me the newsletter." }).getAttribute("aria-describedby")).toBeNull();
+  });
+
+  it("keeps the box's id after an answer remounts it", async () => {
+    const scopes: WaitlistFormScope[] = [{ id: "launch", label: "Tell me when it opens.", required: true, inputId: "field-consent-launch" }];
+    render(
+      <WaitlistForm
+        action={answering({ status: "error", error: "waitlist.email_invalid", field: "email", email: "ada", scopes: ["launch"] })}
+        scopes={scopes}
+        placement="hero"
+        messages={en}
+      />,
+    );
+    await submit();
+    const box = screen.getByRole("checkbox", { name: "Tell me when it opens." });
+    expect(box.id).toBe("field-consent-launch");
+    expect(box).toHaveProperty("checked", true);
+  });
+});
