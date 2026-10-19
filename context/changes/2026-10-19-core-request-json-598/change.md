@@ -1,7 +1,7 @@
 ---
 change_id: core-request-json-598
 title: "core: requestJson, a JSON GET for external APIs that returns a Result with failure codes (issue #598)"
-status: planned
+status: implementing
 roadmap_item: null
 issue: 598
 branch: claude/project-thread-9tfiaa
@@ -26,7 +26,7 @@ parallel thread (`index.ts`, README, CHANGELOG); master is merged in before the 
 ## Acceptance
 
 - `requestJson({ url, fetch?, headers?, timeoutMs?, schema? })` from `@softure-ai/core` returns
-  `Promise<Result<T, HttpJsonFailureCode> | HttpJsonFailure>`: `Ok` with the parsed body (`unknown` without a schema,
+  `Promise<Ok<T> | HttpJsonFailure>`: `Ok` with the parsed body (`unknown` without a schema,
   the schema's output with one) or an `HttpJsonFailure`.
 - `HttpJsonFailure` is `Err<HttpJsonFailureCode>` plus `status: number | null`; the codes are a closed union:
   `core.http_unreachable` (network error, timeout), `core.http_refused` (3xx, opaque redirect, 401, 403),
