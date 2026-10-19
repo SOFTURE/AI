@@ -1,6 +1,6 @@
 ---
 change_id: auth-forms-pending-label-616
-status: in_progress
+status: archived
 ---
 
 # Plan: pending label in the auth forms (issue #616)
@@ -22,5 +22,5 @@ Files: `modules/auth/src/ui/auth-forms.tsx`, `modules/auth/tests/forms.test.tsx`
 
 ## Progress
 
-- [ ] Phase 1: pass pendingLabel (TDD)
-- [ ] Phase 2: docs
+- [x] Phase 1: pass pendingLabel (TDD) (6 tests written first, all failed without the change; 412 auth tests pass; 357a431)
+- [x] Phase 2: docs (CHANGELOG `## Unreleased`; 75df246)

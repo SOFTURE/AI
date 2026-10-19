@@ -1,12 +1,13 @@
 ---
 change_id: auth-forms-pending-label-616
 title: "auth: the auth forms' submit button reserves the pending label's width (issue #616)"
-status: open
+status: archived
 roadmap_item: null
 issue: 616
 branch: claude/project-thread-2rwrun
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent
@@ -33,6 +34,8 @@ Labels: `bug`, `pkg: auth`. Same gap as #615 (waitlist). ui `^0.3.0` (the declar
 ## Notes
 
 - Framing: skipped. The issue states the problem and the fix.
+- The pending test settles its action in `finally`: React holds every later form action behind a pending async
+  action, so a failed assertion that leaves it pending would fail unrelated tests under the shuffled test order.
 
 ## Decisions (auto)
 
