@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- New (#599): calendar periods and local wall-clock date-times next to calendar days.
+  - `CalendarPeriod` (`{ from, to }`, both ends included) and `calendarPeriodSchema`, which refuses `to` before
+    `from` on the path `["to"]` with `must not come before from`.
+  - `isDayInPeriod(day, period)`, `doPeriodsOverlap(a, b)` (one shared day overlaps, adjacent periods do not),
+    `countPeriodDays(period)` (1 for a single day).
+  - `LocalDateTime`, a branded `YYYY-MM-DDTHH:mm` string with no zone, made by `localDateTimeSchema` or
+    `isLocalDateTime(value)`; its day part goes through `isCalendarDay`, so `2026-02-30T10:00` is refused.
+    `getLocalDay(value)` returns the day.
+  - Migrate: an app that defined its own period or local date-time drops its schema, type and helpers and imports
+    these. Check two differences: overlap counts a single shared day, and a period's error sits on `to`. An app
+    that typed a local date-time as `string` passes values through `localDateTimeSchema` (or `isLocalDateTime`)
+    before using them as `LocalDateTime`.
+
 ## 0.2.0
 
 - **Breaking (#446):** English is the only built-in language.
