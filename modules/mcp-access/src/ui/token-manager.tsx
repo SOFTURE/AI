@@ -11,9 +11,9 @@ import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
 // setup snippets, the owner's tokens with a revoke button each, and, with OAuth on, the apps
 // connected through OAuth with a disconnect button each. Both forms submit to their
 // server actions through `useActionState`. The plaintext lives only in the issue form's state:
-// "Done" or leaving the page drops it. Focus follows the one-time token: its heading takes focus when
-// it appears, and "Done" hands focus back to the name field. Copy comes from the module's messages; styling only from
-// @softure-ai/ui classes.
+// "Done" or leaving the page drops it. Focus follows the one-time token: its heading takes focus
+// when it appears, and "Done" hands focus back to the name field. Copy comes from the module's
+// messages; styling only from @softure-ai/ui classes.
 
 export type IssueTokenAction = (previous: IssueTokenFormState, formData: FormData) => Promise<IssueTokenFormState>;
 export type RevokeTokenAction = (previous: RevokeTokenFormState, formData: FormData) => Promise<RevokeTokenFormState>;

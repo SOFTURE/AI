@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-token-focus-590
-status: in_progress
+status: archived
 ---
 
 # Plan: focus on the issued token and back to the name field (issue #590)

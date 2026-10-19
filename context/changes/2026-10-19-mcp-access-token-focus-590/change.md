@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-token-focus-590
 title: "mcp-access: TokenManager moves focus to the issued token and back to the name field (issue #590)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 590
 branch: claude/project-thread-i2aag6
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent
