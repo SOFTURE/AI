@@ -31,5 +31,5 @@ migration for an app that kept its own form for its look.
 
 ## Progress
 
-- [ ] Phase 1: form props (TDD)
-- [ ] Phase 2: docs
+- [x] Phase 1: form props (TDD) (5 form tests written first, 4 failed without the change; `Waitlist` passthrough test; 198 waitlist tests pass; 7c97f1d)
+- [x] Phase 2: docs (README section 4 and Appearance, CHANGELOG `## Unreleased` with the migration; 6b6662f)
