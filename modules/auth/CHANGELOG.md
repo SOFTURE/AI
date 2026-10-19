@@ -4,6 +4,29 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+All additive (#588); existing calls keep their fields, names and look.
+
+- `RegisterForm`'s consent box shows `errors.auth.consent_required` under the box when a submit finds it unticked,
+  instead of the browser's own bubble, and takes focus when it is the first invalid control; ticking it clears the
+  message. It takes `consentProps` (`{ id, classNames }`, `ConsentProps`), so with `id: "field-consent"` the box is
+  `#field-consent` and its error `#field-consent-error`.
+- A server error for a field a form does not render (e.g. `consent` with `requireConsent={false}`) now shows as the
+  form error instead of being dropped.
+- Every form takes `fieldClassNames` (ui's `InputFieldSlot`s: `label`, `hint`, `input`, ...), `fieldHintAs` and
+  `fieldHintProps`, passed to each of its text and password fields.
+
+Migration for an app that turned the box off and rendered its own (`requireConsent={false}` plus a `CheckboxField`
+in `extraFields`):
+
+1. Drop `requireConsent={false}` and the app's consent box from `extraFields`; pass the statement as `consentLabel`.
+2. Pass `consentProps={{ id: "field-consent" }}` (the id the app's tests use) and the box's classes in
+   `consentProps.classNames`.
+3. Pass the app's field look as `fieldClassNames` (e.g. `{ label: "…" }`) and, for "?" hints, `fieldHintAs="tooltip"`
+   with `fieldHintProps`.
+4. An app with its own translation already has `errors.auth.consent_required`; its wording is the box's message.
+
 ## 0.2.3
 
 - `createCreateAccountScript(config, { maxAccounts?, alphabet?, clock? })` in `@softure-ai/auth/scripts` (#521): the
