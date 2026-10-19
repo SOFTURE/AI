@@ -27,5 +27,5 @@ Files: `modules/mcp-access/src/ui/token-manager.tsx`, `modules/mcp-access/tests/
 
 ## Progress
 
-- [ ] Phase 1: move focus
-- [ ] Phase 2: docs
+- [x] Phase 1: move focus (2 tests written first and failing; 17 TokenManager tests pass; a6c56dc)
+- [x] Phase 2: docs (README next to `TokenManager`, CHANGELOG `## Unreleased`)
