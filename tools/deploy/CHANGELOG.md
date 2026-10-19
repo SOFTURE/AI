@@ -6,6 +6,19 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **`checkSharedHostCompose` in `@softure-ai/deploy/testing` (#600):** a guard over the production compose file of an
+  app that runs next to another stack's Traefik (`init --edge`). It returns the violations as values (rule, service,
+  message): the edge network joined only as `external: true` and never changed, no `ports` or `network_mode: host`,
+  every Traefik router, middleware and service named `<prefix>` or `<prefix>-...`, `traefik.docker.network` on the
+  edge network, and no router that serves a bypass path (`/mcp`, `/oauth`) behind an auth or allow-list middleware or
+  without a `Host` matcher. New runtime dependency: `yaml`. Nothing changes for an app that does not call it. An app
+  with its own guard replaces it:
+  1. bump `@softure-ai/deploy` to this version;
+  2. in its infrastructure test, call
+     `checkSharedHostCompose(readFileSync("docker/prod/docker-compose.yml", "utf8"), { edgeNetwork, namePrefix, bypassPaths })`
+     and expect `[]`;
+  3. delete the hand-written guard and the tests that only cover the rules above (keep tests of anything app-specific).
+  A loopback-published Postgres port fails `host-ports`: drop it and set `database.access` to `compose-exec`.
 - **The worker service has a health check (#609):** `init` gave the `@softure-ai/jobs` worker
   `healthcheck: disable: true`, and Docker Compose fails `up --wait` on such a service ("container …-worker-1 has no
   healthcheck configured"), so every deploy of an app with a worker failed at the switch, and so did an integration

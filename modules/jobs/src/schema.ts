@@ -28,6 +28,8 @@ export const schedules = jobsSchema.table("schedules", {
   name: text("name").primaryKey(),
   lastSlotAt: timestamp("last_slot_at", { withTimezone: true }).notNull(),
   lastSucceededAt: timestamp("last_succeeded_at", { withTimezone: true }),
+  lastFailedAt: timestamp("last_failed_at", { withTimezone: true }),
+  lastFailureCode: text("last_failure_code"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 });
