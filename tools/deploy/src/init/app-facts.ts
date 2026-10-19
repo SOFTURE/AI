@@ -11,7 +11,6 @@ const NEXT_CONFIG_FILES = ["next.config.ts", "next.config.mts", "next.config.js"
 const SERVER_EXTERNAL_LIST = /serverExternalPackages\s*:\s*\[([^\]]*)\]/;
 const DB_PACKAGE_LITERAL = /(["'`])@softure-ai\/db\1/;
 const JOBS_PACKAGE = "@softure-ai/jobs";
-const VERSION = /\d+\.\d+\.\d+/;
 
 const packageJsonSchema = z.looseObject({
   name: z.string().optional(),
@@ -83,17 +82,27 @@ function isDbListedAsServerExternal(configText: string): boolean {
   return configText.includes("serverExternalPackages") && DB_PACKAGE_LITERAL.test(configText);
 }
 
+/** The first `a.b.c` in a version or a range (`^0.1.3`, `>=0.1.3 <0.2`); null when there is none. No backtracking regex. */
+function findVersion(text: string): string | null {
+  for (const token of text.split(/[^\d.]+/)) {
+    const parts = token.split(".").slice(0, 3);
+    if (parts.length === 3 && parts.every((part) => part !== "")) return parts.join(".");
+  }
+  return null;
+}
+
 /** The installed version of a package, else the lowest version its range in package.json allows; null when neither reads. */
 function readPackageVersion(dir: string, name: string, range: string | undefined): string | null {
   if (range === undefined) return null;
   try {
     const installed: unknown = JSON.parse(readFileSync(join(dir, "node_modules", name, "package.json"), "utf8"));
-    const version = z.object({ version: z.string().regex(VERSION) }).safeParse(installed);
-    if (version.success) return VERSION.exec(version.data.version)?.[0] ?? null;
+    const version = z.object({ version: z.string() }).safeParse(installed);
+    const found = version.success ? findVersion(version.data.version) : null;
+    if (found !== null) return found;
   } catch {
     // Not installed (or unreadable): fall back to the range.
   }
-  return VERSION.exec(range)?.[0] ?? null;
+  return findVersion(range);
 }
 
 /** Reads the facts `init` takes from the app; an unreadable package.json is an expected failure. */

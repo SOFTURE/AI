@@ -17,3 +17,9 @@ Checked the diff (c81f1c3, 92b4d84, 61dffb6) against plan.md, plan-review.md and
 | 5 | Minor | `init` now warns for every app on jobs 0.1.2 or older until it upgrades. | Intended: it names what the check proves and how to get the stronger one. |
 
 No Critical or Major findings.
+
+## After the PR's code scanning
+
+| # | Severity | Finding | Decision |
+|---|---|---|---|
+| 6 | Major | CodeQL: the version regex (`/\d+\.\d+\.\d+/`) runs polynomially on a range with a long digit run. | Replaced by a split on non-version characters (`findVersion`); a 100 000-digit range is tested. |
