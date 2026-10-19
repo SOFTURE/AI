@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.3
 
 - A health check of the worker's loop (#610): `runJobWorkerProcess({ healthFile })` (and `runJobWorker`) touches the
   file after each round whose claims reached the database, removes a stale one at start and its own after a clean

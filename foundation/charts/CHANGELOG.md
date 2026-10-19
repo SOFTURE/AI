@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
-## Unreleased
+## 0.5.0
 
 - `layoutFlags` takes `rows` on each flag (issue #592): how many rows its chip is tall, a whole number of at least 1,
   default 1. A flag with `rows: 2` takes its row and the one below; a flag takes a row only where every row it spans

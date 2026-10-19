@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.3.0
 
 - An OTLP endpoint with a scheme other than `http:`/`https:` no longer throws at start: that signal is not exported
   and one warning names the option or variable and the scheme (#608). Docker BuildKit sets

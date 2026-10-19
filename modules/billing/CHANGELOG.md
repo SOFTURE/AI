@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
-## Unreleased
+## 0.9.0
 
 - **The access notice takes the app's own actions** (#587): `AccessNotice` (`/ui`) and `CurrentAccessNotice`
   (`/next`) take `extraActions` (React nodes), rendered in the `actions` slot after the payment link whenever the
