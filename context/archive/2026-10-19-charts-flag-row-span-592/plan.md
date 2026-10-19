@@ -1,6 +1,6 @@
 ---
 change_id: charts-flag-row-span-592
-status: in_progress
+status: archived
 ---
 
 # Plan: flags spanning several rows (issue #592)

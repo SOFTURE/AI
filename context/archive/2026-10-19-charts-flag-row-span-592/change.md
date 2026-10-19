@@ -1,12 +1,13 @@
 ---
 change_id: charts-flag-row-span-592
 title: "charts: layoutFlags and ChartFlag take a flag that spans several rows (issue #592)"
-status: open
+status: archived
 roadmap_item: null
 issue: 592
 branch: claude/project-thread-9475ks
 created: 2026-10-19
 updated: 2026-10-19
+archived_at: 2026-10-19
 ---
 
 ## Intent
