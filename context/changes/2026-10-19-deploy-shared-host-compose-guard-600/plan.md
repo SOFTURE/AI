@@ -28,5 +28,5 @@ app replaces its own guard.
 
 ## Progress
 
-- [ ] Phase 1: the guard
-- [ ] Phase 2: docs
+- [x] Phase 1: the guard (19 tests; the init --edge fixture passes; d9e9fae)
+- [x] Phase 2: docs (README "Edge network" with the rule table, testing section, CHANGELOG `## Unreleased`)

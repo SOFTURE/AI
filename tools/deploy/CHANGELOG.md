@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **`checkSharedHostCompose` in `@softure-ai/deploy/testing` (#600):** a guard over the production compose file of an
+  app that runs next to another stack's Traefik (`init --edge`). It returns the violations as values (rule, service,
+  message): the edge network joined only as `external: true` and never changed, no `ports` or `network_mode: host`,
+  every Traefik router, middleware and service named `<prefix>` or `<prefix>-...`, `traefik.docker.network` on the
+  edge network, and no router that serves a bypass path (`/mcp`, `/oauth`) behind an auth or allow-list middleware or
+  without a `Host` matcher. New runtime dependency: `yaml`. Nothing changes for an app that does not call it. An app
+  with its own guard replaces it:
+  1. bump `@softure-ai/deploy` to this version;
+  2. in its infrastructure test, call
+     `checkSharedHostCompose(readFileSync("docker/prod/docker-compose.yml", "utf8"), { edgeNetwork, namePrefix, bypassPaths })`
+     and expect `[]`;
+  3. delete the hand-written guard and the tests that only cover the rules above (keep tests of anything app-specific).
+  A loopback-published Postgres port fails `host-ports`: drop it and set `database.access` to `compose-exec`.
+
 ## 0.4.2
 
 - **`cloudflare-ranges` reads a Traefik static config file (#560):** the hook `init --cdn=cloudflare` writes looked
