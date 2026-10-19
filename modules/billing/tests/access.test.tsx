@@ -251,6 +251,20 @@ describe("AccessNotice", () => {
     expect(screen.getByRole("status").className).toContain("sft:border-border-strong");
   });
 
+  it("renders the app's own actions after the payment link", () => {
+    renderNotice(TRIAL_ENDED, { extraActions: <a href="/account/export">Download your data</a> });
+    const links = screen.getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/payment", "/account/export"]);
+    expect(links[1]?.parentElement?.className).toBe("sft:flex sft:shrink-0 sft:flex-wrap sft:items-center sft:gap-3");
+    cleanup();
+    renderNotice(PAID_ENDING, { extraActions: <a href="/account/export">Download your data</a> });
+    expect(screen.getByRole("link", { name: "Download your data" }).getAttribute("href")).toBe("/account/export");
+  });
+
+  it("hides the app's own actions with the notice outside its reminder window", () => {
+    expect(renderNotice(TRIAL, { extraActions: <a href="/account/export">Download your data</a> }).container.innerHTML).toBe("");
+  });
+
   it("renders the link through the app's link component", () => {
     function AppLink(props: LinkComponentProps) {
       return <a {...props} data-app-link="" />;

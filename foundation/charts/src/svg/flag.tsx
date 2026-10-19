@@ -22,6 +22,11 @@ export interface ChartFlagProps extends DataAttributes {
    * Read when the flag is placed by `xPercent`.
    */
   readonly row?: number;
+  /**
+   * How many rows the chip is tall, a whole number of at least 1 (e.g. 2 for a two-line chip, as given to
+   * `layoutFlags`). Default 1. Above 1, the chip is as tall as its rows and `row` still moves it by one row per row.
+   */
+  readonly rows?: number;
   /** A tooltip, e.g. the labels a "+N" chip stands for. */
   readonly title?: string;
   /** Added to the package classes. */
@@ -35,9 +40,11 @@ export interface ChartFlagProps extends DataAttributes {
  * A flag: a chip over an event, in the same look in both themes. Goes in `ChartPlot`'s overlay; the guide under it
  * is a `GuideLine`. Near an edge it aligns to the edge, or it would leave the card.
  */
-export function ChartFlag({ xPercent, variant = "flag", size = "md", row = 0, title, className, style, children, ...data }: ChartFlagProps) {
+export function ChartFlag({ xPercent, variant = "flag", size = "md", row = 0, rows = 1, title, className, style, children, ...data }: ChartFlagProps) {
+  if (!Number.isInteger(rows) || rows < 1) throw new RangeError(`ChartFlag: rows must be a whole number of at least 1 (got ${String(rows)}).`);
   const isPlaced = xPercent !== undefined;
   const isStacked = isPlaced && row !== 0;
+  const isSpanning = rows > 1;
   const classes = cx(
     "sft-chart-flag",
     isPlaced ? `sft-chart-align-${edgeAlign(xPercent)}` : "sft-chart-flag-free",
@@ -45,9 +52,11 @@ export function ChartFlag({ xPercent, variant = "flag", size = "md", row = 0, ti
     size !== "md" && `sft-chart-flag-${size}`,
     className,
     isStacked && "sft-chart-flag-stacked",
+    isSpanning && "sft-chart-flag-span",
   );
   const rowStyle = isStacked ? ({ "--sft-chart-flag-row": row } as CSSProperties) : undefined;
-  const inline = isPlaced ? { left: percent(xPercent), ...rowStyle, ...style } : style;
+  const spanStyle = isSpanning ? ({ "--sft-chart-flag-rows": rows } as CSSProperties) : undefined;
+  const inline = isPlaced ? { left: percent(xPercent), ...rowStyle, ...spanStyle, ...style } : spanStyle && { ...spanStyle, ...style };
   return (
     <span {...data} title={title} className={classes} style={inline}>
       {children}
