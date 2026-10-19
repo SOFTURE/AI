@@ -263,9 +263,11 @@
 
   /* Flags: a chip at the top of the plot. */
   .sft-chart-flag {
+    --sft-chart-flag-pad-y: var(--sft-space-1);
+
     position: absolute;
     top: 0;
-    padding: var(--sft-space-1) var(--sft-space-2);
+    padding: var(--sft-chart-flag-pad-y) var(--sft-space-2);
     border-radius: var(--sft-radius-control);
     background: var(--sft-chart-flag);
     color: var(--sft-chart-on-flag);
@@ -275,9 +277,20 @@
     white-space: nowrap;
   }
 
-  /* A lower row (ChartFlag's `row`, e.g. from layoutFlags): one chip height and a small space per row. */
+  /*
+   * A lower row (ChartFlag's `row`, e.g. from layoutFlags): one chip height and a small space per row. A chip that
+   * spans rows is as tall as its rows, so its own height and space are divided by them.
+   */
   .sft-chart-flag-stacked {
-    translate: 0 calc(var(--sft-chart-flag-row) * (100% + var(--sft-space-1)));
+    translate: 0 calc(var(--sft-chart-flag-row) * (100% + var(--sft-space-1)) / var(--sft-chart-flag-rows, 1));
+  }
+
+  /* A chip that spans rows (ChartFlag's `rows`): one row is a line and its padding, rows apart by a small space. */
+  .sft-chart-flag-span {
+    box-sizing: border-box;
+    min-height: calc(
+      var(--sft-chart-flag-rows) * (1lh + 2 * var(--sft-chart-flag-pad-y)) + (var(--sft-chart-flag-rows) - 1) * var(--sft-space-1)
+    );
   }
 
   /* Placed by the parent: no top of its own, or a parent placing it by its bottom would stretch it. */
@@ -298,7 +311,9 @@
   }
 
   .sft-chart-flag-sm {
-    padding: 0 var(--sft-space-1);
+    --sft-chart-flag-pad-y: 0px;
+
+    padding: var(--sft-chart-flag-pad-y) var(--sft-space-1);
     font-size: calc(var(--sft-text-xs) * 0.9);
   }
 
