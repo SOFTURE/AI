@@ -857,11 +857,15 @@ else, or more than one line, exits 2; `maintain` also takes a hook's name, below
   1. refuses anything but a Docker tag; reads at most 16 MiB, refuses an archive with anything but files and folders,
      a path outside it or a name the server keeps (`.env.prod.prev`, `.deployed-tag`, `.deploy.lock`, `backups`,
      `releases`), unpacks it into `releases/<tag>/` (the newest 5 are kept) and checks the compose file with
-     `docker compose config`;
+     `docker compose config`. When the archive's `deploy.sh` differs from the running one, the shipped script runs
+     the release (issue #621): the running copy hands it the same command and archive from a copy in the run's
+     temporary folder, keeps the lock for it and ends with its status, so a release whose script starts a new service
+     (the jobs `worker`) starts it in that release. Only a script that takes the hand-off gets it: one from 0.4.3 or
+     earlier (a rollback to an old tag) is run by the running copy as before;
   2. saves every installed file the release is about to replace, then moves `.env.prod` into place (0600) with
      `TAG=<tag>` in it (so a `docker compose` by hand or from the cron runs the live release), copies the other files
      next to itself (in place, so Traefik's bind-mounted rules keep their inode; files 0644, folders 0755), replaces
-     itself by a rename (the new copy runs from the next release), reads the release's `deploy.json` through
+     itself by a rename, reads the release's `deploy.json` through
      `softure-deploy server-settings` (the `settings` step; an invalid file stops the release before anything
      restarts) and pulls the image. A `.registry-token` in the
      archive (non-empty, or the release is refused) is never installed: the pull logs in with it under a
@@ -1286,6 +1290,9 @@ problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong 
   then every release ships it.
 - A `deploy.sh` older than the registry token copies `.registry-token` next to itself like any other file (the token
   has expired by then): call the workflow with `registry-token: false` until a release has shipped the new script.
+- A `deploy.sh` from 0.4.3 or earlier finishes the release that ships its successor itself, so that release cannot need
+  anything only the new script does (a new service in the switch, a new step); from the next release on, the shipped
+  script runs its own release.
 - `init` writes one app per VPS, with Traefik in the app's compose file.
 - The end-to-end test stops at the server's forced command: neither the shipped `deploy.sh` nor the `verify` job runs
   there (DF-15).
