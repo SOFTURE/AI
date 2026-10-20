@@ -1,6 +1,6 @@
 ---
 change_id: deploy-script-handoff-621
-status: planned
+status: archived
 ---
 
 # Plan: the release runs its own deploy.sh (issue #621)
@@ -48,5 +48,9 @@ that needs the new script; and the issue's workaround for an app already hit.
 
 ## Progress
 
-- [ ] Phase 1: the hand-off
-- [ ] Phase 2: docs
+- [x] Phase 1: the hand-off (2e00802)
+- [x] Phase 2: docs (82f74eb)
+
+The hand-off test was red against the old template (the running copy switched `traefik app`, no worker). The e2e app
+was regenerated. Gates: typecheck, lint (with the language gate), the deploy package's tests (796 passed, 18
+skipped) and the repository tests (551 passed).

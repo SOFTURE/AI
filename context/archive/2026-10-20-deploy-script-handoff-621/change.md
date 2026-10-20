@@ -1,12 +1,13 @@
 ---
 change_id: deploy-script-handoff-621
 title: "deploy: a release runs the deploy.sh it ships, so a new service starts in that release (issue #621)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 621
 branch: claude/project-thread-4a6w82
 created: 2026-10-20
 updated: 2026-10-20
+archived_at: 2026-10-20
 ---
 
 ## Intent
