@@ -35,6 +35,11 @@
 # through `env:`, never interpolated into it. The CLI comes from npm (`deploy-cli-version`), so the workflow runs once
 # @softure-ai/deploy is published (DP-8).
 #
+# `build: false` (with `deploy: false`) runs the check job alone and hands out `release` and `sha` (the tag's commit)
+# within a minute: a release pipeline checks the deploy's secrets with the action's `preflight` and builds the image
+# next to the checks, instead of finding a missing secret after an hour of green checks (issue #628,
+# tools/deploy/examples/deploy-pipeline.yml).
+#
 # Secrets come one of two ways. By name: the caller passes `app-secrets` and the four SSH secrets from its own context,
 # which holds repository and organization secrets only (a job with `uses:` cannot name an environment). From an
 # environment: `deploy: false` runs the check and the build only, and the caller's own job, which declares
@@ -108,6 +113,10 @@ on:
         default: ""
       deploy:
         description: "false: check and build only, no secrets; the caller's own job, in its environment, runs the deploy action with the release output"
+        type: boolean
+        default: true
+      build:
+        description: "false (with deploy: false): the check job only, nothing built; the release and sha outputs come within a minute, for a preflight and an image built next to the checks"
         type: boolean
         default: true
       secrets-from-environment:
@@ -206,6 +215,9 @@ on:
       release:
         description: The check job's validated values as one JSON object, the deploy action's release input
         value: ${{ jobs.check.outputs.release }}
+      sha:
+        description: The full commit SHA of the tag, e.g. deploy-release-image.yml's ref
+        value: ${{ jobs.check.outputs.sha }}
       image:
         description: The pushed image reference with its tag
         value: ${{ jobs.build.outputs.image }}
@@ -228,6 +240,7 @@ jobs:
       image: ${{ steps.inputs.outputs.image }}
       server-files: ${{ steps.inputs.outputs.server-files }}
       release: ${{ steps.inputs.outputs.release }}
+      sha: ${{ steps.commit.outputs.sha }}
     steps:
       - id: inputs
         name: Validate inputs
@@ -253,6 +266,7 @@ jobs:
           SECRET_MIN_LENGTHS: ${{ inputs.secret-min-lengths }}
           REGISTRY_TOKEN: ${{ inputs.registry-token }}
           DEPLOY: ${{ inputs.deploy }}
+          BUILD: ${{ inputs.build }}
           E2E: ${{ inputs.e2e }}
           REPOSITORY: ${{ github.repository }}
           ORIGIN_ADDRESS: ${{ secrets.origin-address }}
@@ -322,6 +336,12 @@ jobs:
                 failures=$((failures + 1))
               fi
             done
+          fi
+          # The check alone, for a preflight and an image built next to the checks (issue #628): nothing to deploy,
+          # and nothing to tag.
+          if [ "${BUILD:-true}" = "false" ]; then
+            if [ "${DEPLOY:-true}" != "false" ]; then reject build "true with deploy (the deploy sends the image the build makes)"; fi
+            if [ -n "${PREBUILT_IMAGE:-}" ]; then reject build "true with prebuilt-image (only the build tags it)"; fi
           fi
           origin_input=origin-address
           # The origin address from an app-vars entry, for a caller that keeps it a variable. Not a secret, so it is
@@ -421,7 +441,8 @@ jobs:
           filter: tree:0
           sparse-checkout: /${{ inputs.compose-file }}
           sparse-checkout-cone-mode: false
-      - name: Refuse a tag off the release branch
+      - id: commit
+        name: Refuse a tag off the release branch
         env:
           TAG: ${{ inputs.tag }}
           RELEASE_BRANCH: ${{ inputs.release-branch }}
@@ -446,10 +467,12 @@ jobs:
             exit 1
           fi
           echo "The commit $sha of $TAG is on $branch."
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
   build:
     name: build and push the image
     needs: check
+    if: inputs.build
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

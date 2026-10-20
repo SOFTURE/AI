@@ -170,13 +170,17 @@ describe("the deploy action (issue #468)", () => {
       RELEASE: "${{ inputs.release }}",
       ENVIRONMENT_INPUT: "${{ inputs.environment }}",
       APP_URL_INPUT: "${{ inputs.app-url }}",
+      PREFLIGHT: "${{ inputs.preflight }}",
+      SEND: "${{ inputs.send }}",
+      VERIFY: "${{ inputs.verify }}",
+      REPORT: "${{ inputs.report }}",
     });
     expect(action.inputs.release?.required).toBe(true);
   });
 
   it("checks out only the server files the check job anchored, at the tag, into its own folder, without credentials", () => {
     const checkout = steps.find((step) => step.uses?.startsWith("actions/checkout@") === true);
-    expect(checkout?.if).toBe("inputs.send == 'true'");
+    expect(checkout?.if).toBe("inputs.send == 'true' || inputs.preflight == 'true'");
     expect(checkout?.with).toEqual({
       ref: "${{ steps.release.outputs.tag }}",
       path: ".softure-ai-release",
@@ -894,6 +898,317 @@ describe("deploy: false and the release output of deploy-app.yml (issue #468)", 
     const missing = check({ DEPLOY: "true" });
     expect(missing.status).toBe(1);
     expect(missing.stdout).toContain("::error::Secret ssh-host is required");
+  });
+});
+
+describe("build: false and the sha output of deploy-app.yml (issue #628)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const call = getWorkflowCall(workflow) as WorkflowCall & { outputs?: Record<string, { value?: string }> };
+  const jobs = workflow.jobs as Record<string, Job & { if?: string; outputs?: Record<string, string> }>;
+  const checkStep = jobs.check?.steps?.[0];
+  const ENV: Record<string, string> = {
+    TAG: "v1.2.3",
+    APP_URL: "https://example.com",
+    IMAGE: "",
+    BUILD_CONTEXT: ".",
+    DOCKERFILE: "Dockerfile",
+    COMPOSE_FILE: "docker/prod/docker-compose.yml",
+    SERVER_SCRIPT: "docker/server/deploy.sh",
+    DEPLOY_ENVIRONMENT: "production",
+    REMOTE_COMMAND: "deploy",
+    SSH_PORT: "22",
+    HEALTH_PATH: "/api/health",
+    VERIFY_TIMEOUT: "300",
+    DEPLOY_CONFIG: "deploy.json",
+    DEPLOY_CLI_VERSION: "0.3.0",
+    NODE_VERSION: "22",
+    REPOSITORY: "acme/app",
+    E2E: "false",
+    APP_VARS: "{}",
+    DEPLOY: "false",
+    BUILD: "false",
+    PASSED_SECRETS: "",
+  };
+
+  it("builds by default, and runs the build job only when it is on", () => {
+    expect(call.inputs?.build).toMatchObject({ type: "boolean", default: true });
+    expect(checkStep?.env).toMatchObject({ BUILD: "${{ inputs.build }}" });
+    expect(jobs.build?.if).toBe("inputs.build");
+  });
+
+  it("checks the inputs and hands out the release with the build off", () => {
+    const result = runScript(checkStep?.run ?? "", ENV);
+    expect(result.status, result.stdout).toBe(0);
+    expect(result.output).toMatch(/^release=\{/m);
+  });
+
+  it("refuses the build off with a deploy or a prebuilt image, naming why", () => {
+    const refused = runScript(checkStep?.run ?? "", {
+      ...ENV,
+      DEPLOY: "true",
+      PASSED_SECRETS: "ssh-host ssh-user ssh-private-key ssh-known-hosts app-secrets",
+      PREBUILT_IMAGE: `ghcr.io/acme/app@sha256:${"a".repeat(64)}`,
+    });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::Input build is not valid: true with deploy (the deploy sends the image the build makes)");
+    expect(refused.stdout).toContain("::error::Input build is not valid: true with prebuilt-image (only the build tags it)");
+  });
+
+  it("puts out the tag's commit from the branch guard, as the workflow output sha", () => {
+    const guard = findNamedStep(jobs.check, "Refuse a tag off the release branch");
+    expect(guard.id).toBe("commit");
+    expect(guard.run).toContain('echo "sha=$sha" >> "$GITHUB_OUTPUT"');
+    expect(jobs.check?.outputs?.sha).toBe("${{ steps.commit.outputs.sha }}");
+    expect(call.outputs?.sha?.value).toBe("${{ jobs.check.outputs.sha }}");
+  });
+});
+
+describe("deploy-cancel-run.yml (issue #628)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-cancel-run.yml"));
+  const call = getWorkflowCall(workflow);
+  const job = workflow.jobs.cancel;
+  const step = findNamedStep(job, "Cancel this run");
+
+  it("takes nothing, and only its one job may write to Actions", () => {
+    expect(call.inputs).toBeUndefined();
+    expect(call.secrets).toBeUndefined();
+    expect(workflow.permissions).toEqual({});
+    expect(Object.keys(workflow.jobs)).toEqual(["cancel"]);
+    expect(job?.permissions).toEqual({ actions: "write" });
+    expect(step.env).toEqual({
+      GH_TOKEN: "${{ github.token }}",
+      REPOSITORY: "${{ github.repository }}",
+      RUN_ID: "${{ github.run_id }}",
+    });
+  });
+
+  it("cancels the calling run through the runs API", () => {
+    const result = runScript(step.run ?? "", { GH_TOKEN: "token", REPOSITORY: "acme/app", RUN_ID: "42" }, {
+      bin: { gh: '#!/bin/bash\nprintf \'%s\\n\' "$*" >> "$RUNNER_TEMP/gh-calls"\n' },
+    });
+    expect(result.status, result.stdout).toBe(0);
+    expect(result.stdout).toContain("cancelling run 42");
+  });
+
+  it("calls gh with the run's cancel endpoint and nothing else", () => {
+    const dir = mkdtempSync(join(tmpdir(), "deploy-cancel-"));
+    try {
+      const log = join(dir, "calls");
+      const result = runScript(step.run ?? "", { GH_TOKEN: "token", REPOSITORY: "acme/app", RUN_ID: "42" }, {
+        bin: { gh: `#!/bin/bash\nprintf '%s\\n' "$*" >> '${log}'\n` },
+      });
+      expect(result.status, result.stdout).toBe(0);
+      expect(readFileSync(log, "utf8")).toBe("api --method POST repos/acme/app/actions/runs/42/cancel\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("warns instead of failing when the API refuses, e.g. a run another watcher cancelled already", () => {
+    const result = runScript(step.run ?? "", { GH_TOKEN: "token", REPOSITORY: "acme/app", RUN_ID: "42" }, {
+      bin: { gh: "#!/bin/bash\necho 'HTTP 409' >&2\nexit 1\n" },
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("::warning::");
+  });
+});
+
+describe("the fail-fast input of deploy-release-checks.yml (issue #628)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-release-checks.yml"));
+  const jobs = workflow.jobs as Record<string, Job & { strategy?: Record<string, unknown> }>;
+
+  it("is off by default, so a pull request still sees every red shard, and stops the other shards when on", () => {
+    expect(getWorkflowCall(workflow).inputs?.["fail-fast"]).toMatchObject({ type: "boolean", default: false });
+    expect(jobs.unit?.strategy?.["fail-fast"]).toBe("${{ inputs.fail-fast }}");
+  });
+});
+
+describe("the preflight of the deploy action (issue #628)", () => {
+  const action = readAction();
+  const steps = action.runs.steps;
+  const check = steps.find((step) => step.name === "Check the SSH secrets");
+  const release = steps[0]?.run ?? "";
+
+  function readRelease(env: Record<string, string>): { status: number | null; stdout: string } {
+    const result = runScript(release, { ENVIRONMENT_INPUT: "", APP_URL_INPUT: "", ...env });
+    return { status: result.status, stdout: result.stdout };
+  }
+
+  const RELEASE = JSON.stringify({
+    tag: "v1", "app-url": "https://example.com", image: "ghcr.io/acme/app", environment: "production",
+    "compose-file": "docker/prod/docker-compose.yml", "server-script": "docker/server/deploy.sh",
+    "deploy-config": "deploy.json", "remote-command": "deploy", "ssh-port": "22", "health-path": "/api/health",
+    "verify-timeout-seconds": "300", "deploy-cli-version": "0.3.0", "node-version": "22", "build-args": "",
+    "secret-min-lengths": "", "registry-token": "true", "server-files": "/docker/prod/\n",
+  });
+
+  it("is off by default", () => {
+    expect(action.inputs.preflight?.default).toBe("false");
+  });
+
+  it("accepts a preflight with send, verify and report off, and refuses it with any of them on", () => {
+    const off = { RELEASE, PREFLIGHT: "true", SEND: "false", VERIFY: "false", REPORT: "false" };
+    expect(readRelease(off).status).toBe(0);
+    for (const on of ["SEND", "VERIFY", "REPORT"]) {
+      const refused = readRelease({ ...off, [on]: "true" });
+      expect(refused.status, on).toBe(1);
+      expect(refused.stdout).toContain("::error::Input preflight is not valid: true only with send, verify and report false");
+    }
+  });
+
+  it("checks out the server files, sets up Node and renders .env.prod for a send or a preflight, then stops", () => {
+    const either = "inputs.send == 'true' || inputs.preflight == 'true'";
+    expect(steps.find((step) => step.uses?.startsWith("actions/checkout@") === true)?.if).toBe(either);
+    expect(steps.find((step) => step.uses?.startsWith("actions/setup-node@") === true)?.if).toBe(
+      `${either} || (inputs.verify == 'true' && steps.release.outputs.deploy-config != '')`,
+    );
+    expect(steps.find((step) => step.name === "Render .env.prod")?.if).toBe(either);
+    expect(check?.if).toBe(either);
+    for (const name of ["Pack the release", "Send the release to the server"]) {
+      expect(steps.find((step) => step.name === name)?.if, name).toBe("inputs.send == 'true'");
+    }
+    const cleanup = steps.at(-1);
+    expect(cleanup?.if).toBe("always()");
+    expect(cleanup?.run).toContain(".softure-ai-release/.env.prod");
+  });
+
+  it("checks the SSH secrets right after the release, before anything is fetched, and never connects", () => {
+    expect(steps.indexOf(check as Step)).toBe(1);
+    expect(check?.run ?? "").not.toMatch(/\bssh\b -/);
+    expect(check?.env).toEqual({
+      SSH_HOST: "${{ inputs.ssh-host }}",
+      SSH_USER: "${{ inputs.ssh-user }}",
+      SSH_PRIVATE_KEY: "${{ inputs.ssh-private-key }}",
+      SSH_KNOWN_HOSTS: "${{ inputs.ssh-known-hosts }}",
+      SSH_PORT: "${{ steps.release.outputs.ssh-port }}",
+    });
+  });
+
+  describe("the SSH check", () => {
+    const dir = mkdtempSync(join(tmpdir(), "deploy-ssh-check-"));
+    const keyFile = join(dir, "id_ed25519");
+    spawnSync("ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", "test", "-f", keyFile]);
+    const encryptedFile = join(dir, "id_encrypted");
+    spawnSync("ssh-keygen", ["-q", "-t", "ed25519", "-N", "secret-phrase", "-C", "test", "-f", encryptedFile]);
+    const hostKey = readFileSync(`${keyFile}.pub`, "utf8").split(" ").slice(0, 2).join(" ");
+    const VALID = {
+      SSH_HOST: "203.0.113.7",
+      SSH_USER: "deploy",
+      SSH_PRIVATE_KEY: readFileSync(keyFile, "utf8"),
+      SSH_KNOWN_HOSTS: `203.0.113.7 ${hostKey}`,
+      SSH_PORT: "22",
+    };
+    const ENCRYPTED_KEY = readFileSync(encryptedFile, "utf8");
+    rmSync(dir, { recursive: true, force: true });
+
+    function runCheck(env: Record<string, string>): { status: number | null; stdout: string } {
+      const result = runScript(check?.run ?? "", { ...VALID, ...env });
+      return { status: result.status, stdout: result.stdout };
+    }
+
+    it("passes valid secrets, on port 22 and on another port", () => {
+      const passed = runCheck({});
+      expect(passed.status, passed.stdout).toBe(0);
+      const port = runCheck({ SSH_PORT: "2222", SSH_KNOWN_HOSTS: `[203.0.113.7]:2222 ${hostKey}` });
+      expect(port.status, port.stdout).toBe(0);
+    });
+
+    it("names every empty secret", () => {
+      const empty = runCheck({ SSH_HOST: "", SSH_USER: "", SSH_PRIVATE_KEY: "", SSH_KNOWN_HOSTS: "" });
+      expect(empty.status).toBe(1);
+      for (const input of ["ssh-host", "ssh-user", "ssh-private-key", "ssh-known-hosts"]) {
+        expect(empty.stdout).toContain(`::error::${input} is empty`);
+      }
+    });
+
+    it.each([
+      ["SSH_HOST", "bad host;", "::error::ssh-host is not a host name or address."],
+      ["SSH_USER", "Root User", "::error::ssh-user is not a user name."],
+      ["SSH_PRIVATE_KEY", "not a key", "::error::ssh-private-key is not an OpenSSH private key"],
+      ["SSH_KNOWN_HOSTS", `198.51.100.1 ${hostKey}`, "::error::ssh-known-hosts has no line for the host ssh-host names"],
+      ["SSH_PORT", "2222", "::error::ssh-known-hosts has no line for the host ssh-host names"],
+    ])("refuses %s=%s", (name, value, message) => {
+      const refused = runCheck({ [name]: value });
+      expect(refused.status).toBe(1);
+      expect(refused.stdout).toContain(message);
+      expect(refused.stdout).not.toContain("PRIVATE KEY");
+    });
+
+    it("refuses a key with a passphrase, which the send could not use", () => {
+      const refused = runCheck({ SSH_PRIVATE_KEY: ENCRYPTED_KEY });
+      expect(refused.status).toBe(1);
+      expect(refused.stdout).toContain("::error::ssh-private-key is not an OpenSSH private key without a passphrase");
+    });
+  });
+});
+
+describe("the example release pipeline that fails fast (issue #628)", () => {
+  const caller = parse(readFileSync(join(REPO_ROOT, "tools/deploy/examples/deploy-pipeline.yml"), "utf8")) as Workflow;
+  const jobs = caller.jobs as Record<string, Job & { needs?: string | string[]; if?: string; environment?: unknown; "runs-on"?: string }>;
+  const needsOf = (id: string): string[] => {
+    const needs = jobs[id]?.needs ?? [];
+    return typeof needs === "string" ? [needs] : needs;
+  };
+  const watchers = Object.entries(jobs).filter(([, job]) => job.uses?.includes("deploy-cancel-run.yml") === true);
+
+  it("checks the release first without building, so the preflight and the image start at once", () => {
+    expect(jobs.release?.uses).toBe(`${CALLER_PREFIX}deploy-app.yml@master`);
+    expect(jobs.release?.with).toMatchObject({ deploy: false, build: false });
+    expect(needsOf("preflight")).toEqual(["release"]);
+    expect(needsOf("image")).toEqual(["release"]);
+    expect(jobs.image?.with?.ref).toBe("${{ needs.release.outputs.sha }}");
+    expect(needsOf("static")).toEqual([]);
+    expect(needsOf("unit")).toEqual([]);
+  });
+
+  it("runs the static checks and the unit shards as two calls, the shards failing fast", () => {
+    expect(jobs.static?.uses).toBe(`${CALLER_PREFIX}deploy-release-checks.yml@master`);
+    expect(jobs.static?.with).toMatchObject({ unit: false });
+    expect(jobs.unit?.uses).toBe(`${CALLER_PREFIX}deploy-release-checks.yml@master`);
+    expect(jobs.unit?.with).toMatchObject({ static: false, "fail-fast": true });
+  });
+
+  it("runs the preflight in the production environment with the deploy's secrets, checks only", () => {
+    const preflight = jobs.preflight?.steps?.[0];
+    const deploy = jobs.deploy?.steps?.[0];
+    expect(jobs.preflight?.environment).toBe("production");
+    expect(jobs.preflight?.permissions).toEqual({ contents: "read" });
+    expect(preflight?.uses).toBe("SOFTURE/AI/.github/actions/deploy@master");
+    expect(preflight?.with).toMatchObject({
+      release: "${{ needs.release.outputs.release }}",
+      preflight: true,
+      send: false,
+      verify: false,
+      report: false,
+    });
+    expect(preflight?.env).toEqual(deploy?.env);
+    for (const input of ["ssh-host", "ssh-user", "ssh-private-key", "ssh-known-hosts", "secret-names", "app-vars"]) {
+      expect(preflight?.with?.[input], input).toBe(deploy?.with?.[input]);
+    }
+  });
+
+  it("builds the release from the tested image only after every part passed", () => {
+    expect(needsOf("build").sort()).toEqual(["image", "preflight", "static", "unit"]);
+    expect(jobs.build?.with).toMatchObject({ deploy: false, "prebuilt-image": "${{ needs.image.outputs.prebuilt-image }}" });
+    expect(needsOf("deploy")).toEqual(["build"]);
+  });
+
+  it("watches each part before the build with its own job, and never the build, the deploy or the report", () => {
+    expect(watchers.map(([id]) => id).sort()).toEqual(["stop-on-image", "stop-on-preflight", "stop-on-static", "stop-on-unit"]);
+    for (const [id, job] of watchers) {
+      expect(job.uses, id).toBe(`${CALLER_PREFIX}deploy-cancel-run.yml@master`);
+      expect(job.if, id).toBe("failure()");
+      expect(needsOf(id), id).toEqual([id.replace("stop-on-", "")]);
+      expect(job.permissions, id).toEqual({ actions: "write" });
+    }
+  });
+
+  it("grants actions: write to the watchers only", () => {
+    expect(JSON.stringify(caller.permissions)).not.toContain("actions");
+    for (const [id, job] of Object.entries(jobs)) {
+      if (id.startsWith("stop-on-")) continue;
+      expect(JSON.stringify(job.permissions ?? {}), id).not.toContain("actions");
+    }
   });
 });
 

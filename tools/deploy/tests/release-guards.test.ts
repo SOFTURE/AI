@@ -116,14 +116,23 @@ describe("the release branch guard of the check job", () => {
   function guard(env: Record<string, string>): Result {
     return bash(GUARD_SCRIPT, {
       cwd: clone,
-      env: { TAG: "v1.1.0", RELEASE_BRANCH: "", DEFAULT_BRANCH: "master", REPOSITORY: "acme/app", ...env },
+      env: {
+        TAG: "v1.1.0",
+        RELEASE_BRANCH: "",
+        DEFAULT_BRANCH: "master",
+        REPOSITORY: "acme/app",
+        GITHUB_OUTPUT: join(root, "output"),
+        ...env,
+      },
     });
   }
 
-  it("passes a tag on the default branch, an annotated one too", () => {
+  it("passes a tag on the default branch, an annotated one too, and puts out its commit", () => {
+    writeFileSync(join(root, "output"), "");
     const latest = guard({});
     expect(latest.status, latest.stdout).toBe(0);
     expect(latest.stdout).toMatch(/^The commit [0-9a-f]{40} of v1\.1\.0 is on master\.$/m);
+    expect(readFileSync(join(root, "output"), "utf8")).toBe(`sha=${git(clone, "rev-parse", "v1.1.0^{commit}")}\n`);
     expect(guard({ TAG: "v1.0.0" }).status).toBe(0);
   });
 

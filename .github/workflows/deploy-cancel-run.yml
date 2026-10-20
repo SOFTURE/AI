@@ -1,0 +1,44 @@
+# Cancels the run that calls it (@softure-ai/deploy, issue #628): the fail-fast step of a release pipeline. A part of
+# the pipeline that failed (the preflight, the static checks, the unit shards, the image) makes the rest of the run
+# worthless, yet every other job keeps running and is billed until it ends. A watcher job per part calls this one:
+#
+#   stop-on-image:
+#     needs: image
+#     if: failure()
+#     permissions:
+#       actions: write
+#     uses: SOFTURE/AI/.github/workflows/deploy-cancel-run.yml@<sha>
+#
+# One watcher per part, because a job that needs several waits for the slowest of them. Only parts that run before the
+# deploy are watched, so a running deploy is never cancelled halfway. A workflow of its own so that `actions: write`
+# stays out of every other workflow: deploy-release-checks.yml is also called by pull requests, whose caller grants
+# `contents: read` only. The caller is `tools/deploy/examples/deploy-pipeline.yml`; README, "Fail fast".
+
+name: deploy-cancel-run
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  cancel:
+    name: cancel the run
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Cancelling a run of the repository.
+    permissions:
+      actions: write
+    steps:
+      # Two watchers can fire for one failure (failure() also sees a failed ancestor), and the second finds the run
+      # cancelled already: a refusal is a warning, since the run is red either way.
+      - name: Cancel this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          echo "A part of the release failed, so nothing else in it can matter: cancelling run $RUN_ID."
+          if ! gh api --method POST "repos/$REPOSITORY/actions/runs/$RUN_ID/cancel" > /dev/null; then
+            echo "::warning::The runs API did not cancel run $RUN_ID (cancelled already?); its other jobs run to their end."
+          fi

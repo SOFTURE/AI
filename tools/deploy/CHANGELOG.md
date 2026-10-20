@@ -12,6 +12,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   nothing changes. The new input `static-cache-paths` (default empty, no cache) keeps files such as `.eslintcache`
   and `*.tsbuildinfo` between runs of `static`; pass them with a command that writes them (`eslint --cache`,
   `tsc --incremental`), README "Release checks". Nothing to do for an app that wants neither.
+- **A failed release attempt stops at once (#628):** a release pipeline no longer pays for jobs after one part has
+  failed, nor finds a missing deploy secret after an hour of green checks. New, all opt-in:
+  `deploy-cancel-run.yml` (cancels the calling run; a watcher job per part calls it with `actions: write`),
+  `deploy-release-checks.yml`'s `fail-fast` (a red shard cancels the others), `deploy-app.yml`'s `build: false` (the
+  check job alone) and output `sha` (the tag's commit), and the deploy action's `preflight` (the SSH values and
+  `.env.prod` checked, nothing sent). Before every send the action now checks the SSH values the same way, so an empty
+  secret, a key with a passphrase or known hosts without the server fail with the input's name instead of an ssh
+  error. An app adopts it by replacing its deploy caller with
+  [`examples/deploy-pipeline.yml`](examples/deploy-pipeline.yml) (its app URL, secrets and check commands carried
+  over), README "Fail fast". Nothing changes for an app that keeps its caller.
 
 ## 0.4.4
 

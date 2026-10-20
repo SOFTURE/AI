@@ -427,6 +427,10 @@ flags the expression that builds it. For the release tag, between them:
 | `registry-token` | `true` | send the deploy job's `GITHUB_TOKEN` (`packages: read`, valid until the job ends) for the server's pull |
 | `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
 | `deploy` | `true` | `false` stops after the build: no deploy, verify or summary job; the caller's own jobs run the deploy action with the `release` output (below) |
+| `build` | `true` | `false` (with `deploy: false`, without `prebuilt-image`) runs the check job alone: `release` and `sha` within a minute, for a preflight and an image built next to the checks (**Fail fast**, below) |
+
+Outputs: `release` (below), `image` and `digest` (the build's), and `sha`, the full commit SHA of the tag (the check job
+resolves it for the branch guard), e.g. `deploy-release-image.yml`'s `ref`.
 
 Secrets, passed by name: `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts` and `app-secrets` (a JSON
 object such as `toJSON(secrets)`; names like `PATH`, `HOME`, `NODE_*` and `NPM_CONFIG_*` are refused, in `app-vars`
@@ -492,6 +496,12 @@ verify` with the tag's `deploy-config`, then the `deploy-report` artifact and th
 | `health-status` | `200` | the status the health wait counts as up; the first answer counts (a redirect is not followed), so `302` passes a host whose access proxy sends every request to its sign-in |
 | `health-headers` | none | request headers of the health wait only, one `Name: value` line each (e.g. `CF-Access-Client-Id` and `CF-Access-Client-Secret` of a Cloudflare Access service token from secrets); each value is masked and curl reads them from a file only the runner's user can read. A line that is not `Name: value` is refused by its number |
 | `send`, `verify`, `report` | `true` | each part on its own; `report: false` for every environment but one, since a run holds one `deploy-report` artifact |
+| `preflight` | `false` | `true` (with `send`, `verify` and `report` all `false`, else refused) checks the deploy's prerequisites and stops: the SSH values, and `.env.prod` rendered from the step's secrets (the required names, `secret-min-lengths`, the `build-args` agreement), then deleted (**Fail fast**, below) |
+
+Before every send, and in a preflight, the step "Check the SSH secrets" names each SSH input that is empty, a host or
+user that is not one, a key `ssh-keygen -y` cannot read without a passphrase, and known hosts with no line for the host
+(`[host]:port` off port 22). It never connects, since the server's forced command would deploy, and never prints a
+value.
 | `image`, `digest` | none | the build job's outputs, for the report |
 
 `deploy-report.yml` then runs after the environment that reports, as in the example. Pin the workflow and the action
@@ -586,6 +596,7 @@ release tag is then added to exactly the bytes the checks passed. Its inputs bes
 | `install-command` | `npm ci` | before `static` and each shard |
 | `static`, `static-command` | `true`, `npx tsc --noEmit && npm run lint --if-present` | |
 | `unit`, `test-command`, `shards` | `true`, `npm test -- --shard="$SHARD_INDEX/$SHARD_COUNT"`, `1` | |
+| `fail-fast` | `false` | a red unit shard cancels the other shards (a release; a pull request sees every red shard) |
 | `static-cache-paths` | empty | files `static` keeps between runs, one path or glob per line inside the checkout |
 | `sparse-checkout` | the whole commit | non-cone checkout patterns for every job |
 
@@ -609,7 +620,8 @@ costs a cold run):
 ```
 
 **Before a deploy.** In the deploy caller, `checks` and `image` jobs ahead of `deploy` make the release deploy only
-the image the checks passed (the caller's top-level `permissions` already grant `packages: write`):
+the image the checks passed (the caller's top-level `permissions` already grant `packages: write`). The shortest form
+is below; **Fail fast** shows the same pipeline that stops at its first red part:
 
 ```yaml
 jobs:
@@ -634,6 +646,34 @@ jobs:
       prebuilt-image: ${{ needs.image.outputs.prebuilt-image }}
       # ...the rest as before
 ```
+
+### Fail fast
+
+A release pipeline (checks, image, integration, deploy) whose parts run in parallel keeps paying for every job after one
+part has failed: GitHub Actions has no fail-fast across jobs, and a red image does not stop four unit shards. And a
+deploy that finds a missing SSH secret at its last step has spent the whole pipeline first. In an adopting app, 7 of 10
+release attempts failed and took about 75% of the release minutes (issue #628).
+[`examples/deploy-pipeline.yml`](examples/deploy-pipeline.yml) is the deploy caller that avoids both, with every gate
+kept:
+
+1. `release` calls `deploy-app.yml` with `deploy: false` and `build: false`: within a minute it has checked the inputs
+   and the tag's branch and puts out `release` and `sha`.
+2. `preflight`, a job in the deploy's environment with the deploy's secrets, runs the deploy action with
+   `preflight: true` (and `send`, `verify`, `report` false): the SSH values and `.env.prod` are checked while the long
+   jobs have only begun. With required reviewers on the environment, this job asks for an approval too.
+3. `static` (`unit: false`) and `unit` (`static: false`, `fail-fast: true`) are two calls of
+   `deploy-release-checks.yml`, and `image` builds `sha` next to them.
+4. `build` (`prebuilt-image`) needs all four; `deploy` and `report` follow as in `examples/deploy.yml`.
+5. One watcher job per part, `needs: <part>`, `if: failure()`, `permissions: { actions: write }`, calls
+   `SOFTURE/AI/.github/workflows/deploy-cancel-run.yml`, which cancels the run through the runs API (a second
+   watcher that finds the run cancelled already only warns). One per part, because a job that needs several waits for
+   the slowest of them; `failure()` also fires for a failed ancestor, so a red `release` stops the run too. Nothing
+   after `build` is watched, so a running deploy is never cancelled halfway. An integration part gets a watcher the
+   same way.
+
+Cancelling takes `actions: write`, which stays in the watchers: `deploy-release-checks.yml` keeps `contents: read`,
+since a pull request's caller grants nothing more (a called job may not ask for more than its caller grants, whatever
+its `if`). The two calls of the checks each run `prepare` with the tag, which costs seconds.
 
 ### Edit release notes
 

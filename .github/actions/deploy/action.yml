@@ -31,6 +31,9 @@ inputs:
   verify:
     description: Wait for the health route, then run softure-deploy verify with deploy.json
     default: "true"
+  preflight:
+    description: "Check only, before the expensive jobs: the SSH secrets (no connection) and .env.prod rendered from this job's secrets, then deleted. Needs send, verify and report false"
+    default: "false"
   report:
     description: Upload this deploy's facts as the artifact deploy-report (deploy-report.yml reads it); false for a second environment in the same run
     default: "true"
@@ -115,10 +118,18 @@ runs:
         RELEASE: ${{ inputs.release }}
         ENVIRONMENT_INPUT: ${{ inputs.environment }}
         APP_URL_INPUT: ${{ inputs.app-url }}
+        PREFLIGHT: ${{ inputs.preflight }}
+        SEND: ${{ inputs.send }}
+        VERIFY: ${{ inputs.verify }}
+        REPORT: ${{ inputs.report }}
       run: |
         keys='tag app-url image environment compose-file server-script deploy-config remote-command ssh-port health-path verify-timeout-seconds deploy-cli-version node-version build-args secret-min-lengths registry-token server-files'
         if ! printf '%s' "${RELEASE:-}" | jq -e 'type == "object"' > /dev/null 2>&1; then
           echo "::error::release is not deploy-app.yml's release output (a JSON object)."
+          exit 1
+        fi
+        if [ "${PREFLIGHT:-false}" = "true" ] && { [ "${SEND:-true}" != "false" ] || [ "${VERIFY:-true}" != "false" ] || [ "${REPORT:-true}" != "false" ]; }; then
+          echo "::error::Input preflight is not valid: true only with send, verify and report false (a preflight checks, it never deploys)."
           exit 1
         fi
         if [ -n "${APP_URL_INPUT:-}" ] && [[ ! "$APP_URL_INPUT" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/?$ ]]; then
@@ -151,8 +162,51 @@ runs:
           exit 1
         fi
         echo "report-environment=$environment" >> "$GITHUB_OUTPUT"
+    # The SSH values, before anything is fetched (issue #628): each one set, the host and user well formed, a key ssh can
+    # use without a passphrase, and a known_hosts line for the host. No connection: the server's forced command would
+    # deploy. Messages name the input, never a value.
+    - name: Check the SSH secrets
+      if: inputs.send == 'true' || inputs.preflight == 'true'
+      shell: bash
+      env:
+        SSH_HOST: ${{ inputs.ssh-host }}
+        SSH_USER: ${{ inputs.ssh-user }}
+        SSH_PRIVATE_KEY: ${{ inputs.ssh-private-key }}
+        SSH_KNOWN_HOSTS: ${{ inputs.ssh-known-hosts }}
+        SSH_PORT: ${{ steps.release.outputs.ssh-port }}
+      run: |
+        failures=0
+        refuse() {
+          echo "::error::$1"
+          failures=$((failures + 1))
+        }
+        for pair in "ssh-host:${SSH_HOST:-}" "ssh-user:${SSH_USER:-}" "ssh-private-key:${SSH_PRIVATE_KEY:+set}" "ssh-known-hosts:${SSH_KNOWN_HOSTS:+set}"; do
+          if [ -z "${pair#*:}" ]; then refuse "${pair%%:*} is empty: the job's environment (or the repository) has no value for it."; fi
+        done
+        if [ -n "${SSH_HOST:-}" ] && [[ ! "$SSH_HOST" =~ ^[A-Za-z0-9.:-]+$ ]]; then refuse "ssh-host is not a host name or address."; fi
+        if [ -n "${SSH_USER:-}" ] && [[ ! "$SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then refuse "ssh-user is not a user name."; fi
+        check_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/ssh-check.XXXXXX")"
+        trap 'rm -rf "$check_dir"' EXIT
+        (
+          umask 077
+          printf '%s\n' "${SSH_PRIVATE_KEY:-}" > "$check_dir/key"
+          printf '%s\n' "${SSH_KNOWN_HOSTS:-}" > "$check_dir/known_hosts"
+        )
+        if [ -n "${SSH_PRIVATE_KEY:-}" ] && ! ssh-keygen -y -P '' -f "$check_dir/key" > /dev/null 2>&1 < /dev/null; then
+          refuse "ssh-private-key is not an OpenSSH private key without a passphrase."
+        fi
+        if [ -n "${SSH_KNOWN_HOSTS:-}" ] && [ -n "${SSH_HOST:-}" ] && [[ "$SSH_HOST" =~ ^[A-Za-z0-9.:-]+$ ]]; then
+          # known_hosts names a host off port 22 as [host]:port.
+          entry="$SSH_HOST"
+          if [ "${SSH_PORT:-22}" != "22" ]; then entry="[$SSH_HOST]:$SSH_PORT"; fi
+          if ! ssh-keygen -F "$entry" -f "$check_dir/known_hosts" > /dev/null 2>&1; then
+            refuse "ssh-known-hosts has no line for the host ssh-host names (port ${SSH_PORT:-22}); the send would refuse the server."
+          fi
+        fi
+        if (( failures > 0 )); then exit 1; fi
+        echo "The SSH secrets are set: a usable key and a known host key for the server (port ${SSH_PORT:-22})."
     # Only the server files deploy-app.yml's check job anchored, so no .npmrc of the app steers npx.
-    - if: inputs.send == 'true'
+    - if: inputs.send == 'true' || inputs.preflight == 'true'
       uses: actions/checkout@v7
       with:
         ref: ${{ steps.release.outputs.tag }}
@@ -160,7 +214,7 @@ runs:
         persist-credentials: false
         sparse-checkout: ${{ steps.release.outputs.server-files }}
         sparse-checkout-cone-mode: false
-    - if: inputs.send == 'true' || (inputs.verify == 'true' && steps.release.outputs.deploy-config != '')
+    - if: inputs.send == 'true' || inputs.preflight == 'true' || (inputs.verify == 'true' && steps.release.outputs.deploy-config != '')
       uses: actions/setup-node@v7
       with:
         node-version: ${{ steps.release.outputs.node-version }}
@@ -171,8 +225,9 @@ runs:
     # release. With secret-names the secrets are read by name from this step's environment, which holds the env: of the
     # caller's step: only the listed names, never a variable of the runner or of this step. Then each build argument whose name .env.prod holds must carry the same value there; a difference
     # removes the file and names the variable, never a value.
+    # A preflight renders the same file and stops; the last step deletes it.
     - name: Render .env.prod
-      if: inputs.send == 'true'
+      if: inputs.send == 'true' || inputs.preflight == 'true'
       shell: bash
       working-directory: .softure-ai-release
       env:
