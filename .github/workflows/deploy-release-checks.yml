@@ -1,12 +1,15 @@
 # The checks an app runs before a release, and on its pull requests (@softure-ai/deploy, issue #406): a reusable
 # workflow an app calls with one `uses:` line instead of keeping the same jobs in every repository.
 #
-# - `prepare` checks the inputs and resolves the commit every other job checks out. With a `tag`, the tag must match
-#   `tag-pattern` (the `vYYYY.MM.DD` tags deploy-cut-release.yml cuts, `-2`, `-3` on a busy day) and its commit must
-#   be on the release branch (the caller's default branch unless `release-branch` names another). Without a tag it
-#   checks the caller's own commit (`github.sha`), which is how a pull request runs it.
+# - `prepare` resolves the commit every other job checks out and builds the shard list. With a `tag`, the tag must
+#   match `tag-pattern` (the `vYYYY.MM.DD` tags deploy-cut-release.yml cuts, `-2`, `-3` on a busy day) and its commit
+#   must be on the release branch (the caller's default branch unless `release-branch` names another). Without a tag
+#   and with one shard (a pull request) it is skipped, since every job is billed a whole minute (issue #627): the
+#   other jobs then check out the caller's own commit (`github.sha`).
+# - Every job checks the inputs first, with one step written once (the `check-inputs` anchor).
 # - `static` runs `static-command` (type check and lint; init's caller runs `next typegen` first, since a fresh
-#   checkout has no generated route types).
+#   checkout has no generated route types). `static-cache-paths` keeps files such as `.eslintcache` and
+#   `*.tsbuildinfo` between runs for a command that uses them (`eslint --cache`, `tsc --incremental`).
 # - `unit` runs `test-command` once per shard (`shards`, 1 to 20) with `SHARD_INDEX` and `SHARD_COUNT` set: one job
 #   of a large suite outlasts a hosted runner's patience, N jobs in parallel do not.
 # The image the checks passed is built by deploy-release-image.yml, a separate workflow so that this one needs
@@ -64,6 +67,10 @@ on:
         description: How many parallel jobs the unit tests are split into (1 to 20)
         type: number
         default: 1
+      static-cache-paths:
+        description: "Files static keeps between runs, one path or glob per line inside the checkout (e.g. .eslintcache and **/*.tsbuildinfo); empty = no cache"
+        type: string
+        default: ""
       sparse-checkout:
         description: "Checkout patterns, non-cone (e.g. /* and !/context/archive/); empty = the whole commit"
         type: string
@@ -71,7 +78,7 @@ on:
     outputs:
       sha:
         description: The commit that was checked
-        value: ${{ jobs.prepare.outputs.sha }}
+        value: ${{ jobs.prepare.outputs.sha || github.sha }}
 
 permissions:
   contents: read
@@ -79,6 +86,8 @@ permissions:
 jobs:
   prepare:
     name: prepare
+    # A tag to guard, or a shard list to build; a pull request's run needs neither.
+    if: inputs.tag != '' || (inputs.unit && inputs.shards != 1)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # The branch guard reads the tag's history.
@@ -89,7 +98,8 @@ jobs:
       ref: ${{ steps.commit.outputs.ref }}
       shards: ${{ steps.inputs.outputs.shards }}
     steps:
-      - id: inputs
+      - &check-inputs
+        id: inputs
         name: Check the inputs
         env:
           TAG: ${{ inputs.tag }}
@@ -103,6 +113,7 @@ jobs:
           UNIT: ${{ inputs.unit }}
           TEST_COMMAND: ${{ inputs.test-command }}
           SHARDS: ${{ inputs.shards }}
+          STATIC_CACHE_PATHS: ${{ inputs.static-cache-paths }}
         run: |
           failures=0
           reject() {
@@ -136,6 +147,16 @@ jobs:
           if [ "$STATIC" = "true" ] && [ -z "$STATIC_COMMAND" ]; then reject static-command "a command (or static: false)"; fi
           if [ "$UNIT" = "true" ] && [ -z "$TEST_COMMAND" ]; then reject test-command "a command (or unit: false)"; fi
           if [[ ! "$SHARDS" =~ ^[1-9][0-9]?$ ]] || (( SHARDS > 20 )); then reject shards "1 to 20"; fi
+          # actions/cache resolves a path against the workspace; nothing outside the checkout is kept.
+          while IFS= read -r path || [ -n "$path" ]; do
+            path="${path#!}"
+            case "$path" in
+              /* | "~"* | .. | ../* | */.. | */../*)
+                reject static-cache-paths "paths inside the checkout (no leading / or ~, no ..)"
+                break
+                ;;
+            esac
+          done <<< "$STATIC_CACHE_PATHS"
           if (( failures > 0 )); then exit 1; fi
           shards="1"
           index=2
@@ -195,12 +216,14 @@ jobs:
   static:
     name: static
     needs: prepare
-    if: inputs.static
+    # A skipped prepare (no tag, one shard) still lets it run; a failed one does not.
+    if: ${{ !cancelled() && inputs.static && needs.prepare.result != 'failure' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
     steps:
+      - *check-inputs
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.ref }}
@@ -211,6 +234,14 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ inputs.cache }}
+      # One entry per commit, restored from the newest of the same lockfile: the caller's tools decide what is
+      # still valid, so a stale entry costs a cold run, never a wrong result. Saved only when the job passes.
+      - if: inputs.static-cache-paths != ''
+        uses: actions/cache@v6
+        with:
+          path: ${{ inputs.static-cache-paths }}
+          key: softure-static-${{ runner.os }}-${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock') }}-${{ needs.prepare.outputs.sha || github.sha }}
+          restore-keys: softure-static-${{ runner.os }}-${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock') }}-
       - name: Install
         env:
           INSTALL_COMMAND: ${{ inputs.install-command }}
@@ -223,7 +254,7 @@ jobs:
   unit:
     name: unit ${{ matrix.shard }}/${{ inputs.shards }}
     needs: prepare
-    if: inputs.unit
+    if: ${{ !cancelled() && inputs.unit && needs.prepare.result != 'failure' }}
     runs-on: ubuntu-latest
     # One shard; split the suite into more shards when one runs longer.
     timeout-minutes: 60
@@ -232,8 +263,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.prepare.outputs.shards) }}
+        shard: ${{ fromJSON(needs.prepare.outputs.shards || '[1]') }}
     steps:
+      - *check-inputs
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.ref }}
