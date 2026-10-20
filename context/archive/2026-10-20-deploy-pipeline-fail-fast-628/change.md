@@ -1,12 +1,13 @@
 ---
 change_id: deploy-pipeline-fail-fast-628
 title: "A failed release attempt stops at once: cancel-on-failure watchers and an early deploy preflight (issue #628)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 628
 branch: claude/project-thread-jp4cc5
 created: 2026-10-20
 updated: 2026-10-20
+archived_at: 2026-10-20
 ---
 
 ## Intent

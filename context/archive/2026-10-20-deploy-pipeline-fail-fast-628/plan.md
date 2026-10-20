@@ -1,6 +1,6 @@
 ---
 change_id: deploy-pipeline-fail-fast-628
-status: in_progress
+status: archived
 ---
 
 # Plan: fail fast across a release pipeline, and a deploy preflight (issue #628)
