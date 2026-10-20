@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.4.4
 
 - **A release runs the `deploy.sh` it ships (#621):** `deploy.sh` installs its successor by a rename and used to
   finish the release itself, so a release whose new script starts a new service (0.4.3's switch adds `worker`) was
