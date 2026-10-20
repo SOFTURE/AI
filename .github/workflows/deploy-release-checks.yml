@@ -11,7 +11,9 @@
 #   checkout has no generated route types). `static-cache-paths` keeps files such as `.eslintcache` and
 #   `*.tsbuildinfo` between runs for a command that uses them (`eslint --cache`, `tsc --incremental`).
 # - `unit` runs `test-command` once per shard (`shards`, 1 to 20) with `SHARD_INDEX` and `SHARD_COUNT` set: one job
-#   of a large suite outlasts a hosted runner's patience, N jobs in parallel do not.
+#   of a large suite outlasts a hosted runner's patience, N jobs in parallel do not. With `fail-fast` a red shard
+#   cancels the others (a release; issue #628). Cancelling the rest of a caller's run takes `actions: write`, which a
+#   pull request's caller does not grant, so that lives in deploy-cancel-run.yml, called by the caller's watchers.
 # The image the checks passed is built by deploy-release-image.yml, a separate workflow so that this one needs
 # `contents: read` only: a pull request's caller grants nothing more. The callers are
 # `tools/deploy/examples/checks.yml` (pull requests and on demand) and the `checks` job of a deploy caller (README,
@@ -67,6 +69,10 @@ on:
         description: How many parallel jobs the unit tests are split into (1 to 20)
         type: number
         default: 1
+      fail-fast:
+        description: "A red unit shard cancels the other shards; for a release, where one red shard decides the run. Off by default, so a pull request sees every red shard"
+        type: boolean
+        default: false
       static-cache-paths:
         description: "Files static keeps between runs, one path or glob per line inside the checkout (e.g. .eslintcache and **/*.tsbuildinfo); empty = no cache"
         type: string
@@ -261,7 +267,7 @@ jobs:
     permissions:
       contents: read
     strategy:
-      fail-fast: false
+      fail-fast: ${{ inputs.fail-fast }}
       matrix:
         shard: ${{ fromJSON(needs.prepare.outputs.shards || '[1]') }}
     steps:

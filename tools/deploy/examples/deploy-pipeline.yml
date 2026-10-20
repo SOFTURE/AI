@@ -1,0 +1,173 @@
+# A release pipeline that fails fast (issue #628): the checks, the image and the deploy of examples/deploy.yml in one
+# workflow, where the first red part stops the rest of the run and the deploy's secrets are checked before the long
+# jobs, not after them. Copy it to the app's `.github/workflows/deploy.yml` in place of the shorter caller, then set
+# what examples/deploy.yml says (app-url, the secrets in both `env:` blocks and `secret-names`) and the checks' commands.
+#
+# - `release` calls deploy-app.yml with `build: false`: the inputs and the tag's branch are checked within a minute,
+#   and its outputs `release` and `sha` (the tag's commit) start the rest.
+# - `preflight` runs the deploy action with `preflight: true` in the `production` environment, with the same secrets as
+#   `deploy`: the SSH values (no connection) and `.env.prod` rendered and deleted, so a missing secret stops the run in
+#   its first minutes. An environment with required reviewers asks for this job too.
+# - `static` and `unit` are two calls of deploy-release-checks.yml, so each has its own watcher; `fail-fast` stops the
+#   other shards when one is red. `image` builds the tag's commit next to them (deploy-release-image.yml).
+# - `build` tags the tested image only after every part passed; `deploy` and `report` as in examples/deploy.yml.
+# - One `stop-on-<part>` watcher per part: when that part fails it cancels the run (deploy-cancel-run.yml, the only
+#   job with `actions: write`). One per part, because a job that needs several waits for the slowest. Nothing after
+#   `build` is watched, so a running deploy is never cancelled. An integration suite against the image
+#   (deploy-integration.yml with `image`) gets the same: `needs: image`, `build` needs it, and a `stop-on-integration`.
+#
+# SOFTURE/AI's workflows and action are called at `master`; pin every `uses:` to the same commit SHA for an immutable
+# reference (README, "Which ref callers pin").
+
+name: deploy
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to deploy
+        type: string
+        required: true
+
+# The ceiling of the jobs: `image` and `build` push to GHCR; the watchers and `report` set their own.
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  release:
+    uses: SOFTURE/AI/.github/workflows/deploy-app.yml@master
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      app-url: https://example.com
+      environment: production
+      deploy: false
+      build: false
+
+  preflight:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: SOFTURE/AI/.github/actions/deploy@master
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        with:
+          release: ${{ needs.release.outputs.release }}
+          preflight: true
+          send: false
+          verify: false
+          report: false
+          ssh-host: ${{ secrets.DEPLOY_SSH_HOST }}
+          ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          secret-names: AUTH_SECRET DATABASE_URL
+          app-vars: ${{ toJSON(vars) }}
+
+  static:
+    uses: SOFTURE/AI/.github/workflows/deploy-release-checks.yml@master
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      static-command: npx next typegen && npx tsc --noEmit && npm run lint --if-present
+      unit: false
+
+  unit:
+    uses: SOFTURE/AI/.github/workflows/deploy-release-checks.yml@master
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      static: false
+      shards: 4
+      fail-fast: true
+
+  image:
+    needs: release
+    uses: SOFTURE/AI/.github/workflows/deploy-release-image.yml@master
+    with:
+      ref: ${{ needs.release.outputs.sha }}
+
+  build:
+    needs: [preflight, static, unit, image]
+    uses: SOFTURE/AI/.github/workflows/deploy-app.yml@master
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      app-url: https://example.com
+      environment: production
+      deploy: false
+      prebuilt-image: ${{ needs.image.outputs.prebuilt-image }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    # One deploy at a time; a running deploy is never cancelled halfway.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    # packages: read for the registry token the server pulls with.
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: SOFTURE/AI/.github/actions/deploy@master
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        with:
+          release: ${{ needs.build.outputs.release }}
+          image: ${{ needs.build.outputs.image }}
+          digest: ${{ needs.build.outputs.digest }}
+          ssh-host: ${{ secrets.DEPLOY_SSH_HOST }}
+          ssh-user: ${{ secrets.DEPLOY_SSH_USER }}
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          ssh-known-hosts: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          secret-names: AUTH_SECRET DATABASE_URL
+          app-vars: ${{ toJSON(vars) }}
+          origin-address: ${{ secrets.DEPLOY_ORIGIN_IP }}
+          verify-env: ${{ secrets.DEPLOY_VERIFY_ENV }}
+
+  report:
+    needs: [build, deploy]
+    if: ${{ always() && needs.build.result == 'success' }}
+    permissions:
+      contents: write
+    uses: SOFTURE/AI/.github/workflows/deploy-report.yml@master
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+
+  # Fail fast: the first red part cancels the run. `failure()` also fires for a failed ancestor, so a red `release`
+  # stops the run through the preflight's and the image's watchers.
+  stop-on-preflight:
+    needs: preflight
+    if: failure()
+    permissions:
+      actions: write
+    uses: SOFTURE/AI/.github/workflows/deploy-cancel-run.yml@master
+
+  stop-on-static:
+    needs: static
+    if: failure()
+    permissions:
+      actions: write
+    uses: SOFTURE/AI/.github/workflows/deploy-cancel-run.yml@master
+
+  stop-on-unit:
+    needs: unit
+    if: failure()
+    permissions:
+      actions: write
+    uses: SOFTURE/AI/.github/workflows/deploy-cancel-run.yml@master
+
+  stop-on-image:
+    needs: image
+    if: failure()
+    permissions:
+      actions: write
+    uses: SOFTURE/AI/.github/workflows/deploy-cancel-run.yml@master
