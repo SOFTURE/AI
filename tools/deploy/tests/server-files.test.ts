@@ -999,6 +999,100 @@ describe("deploy.sh puts the previous files back when a release fails before the
   });
 });
 
+describe("a release runs the deploy.sh it ships (issue #621)", () => {
+  const SCRIPT = "docker/server/deploy.sh";
+  const SWITCH = "compose --env-file .env.prod --file docker-compose.yml up --detach --wait --remove-orphans";
+
+  // The script of a later release: the same render, but its switch also starts the worker, the case of the issue.
+  function shipWorkerInSwitch(edit: (text: string) => string = (text) => text): void {
+    const file = join(checkout, SCRIPT);
+    const text = readFileSync(file, "utf8").replace("--remove-orphans traefik app", "--remove-orphans traefik app worker");
+    writeFileSync(file, edit(text));
+  }
+
+  function readSwitchLines(): string[] {
+    return readDockerLog().filter((line) => line.startsWith(SWITCH));
+  }
+
+  it("hands a release with a changed deploy.sh to that script, which runs it in the app's folder", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog);
+    shipWorkerInSwitch();
+
+    const result = deploy("v2", packArchive());
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("deploy: v2 ships a different deploy.sh; it runs the release.\n");
+    expect(readSwitchLines()).toEqual([`${SWITCH} traefik app worker`]);
+    expect(readLines(result.stdout, "step")).toEqual([
+      "step|archive|ok",
+      "step|files|ok",
+      "step|settings|ok",
+      "step|pull|ok",
+      "step|switch|ok",
+      "step|tag|ok",
+      "step|cron|ok",
+    ]);
+    expect(readLines(result.stdout, "result")).toEqual(["result|ok"]);
+    expect(readFileSync(join(server, "deploy.sh"), "utf8")).toBe(readFileSync(join(checkout, SCRIPT), "utf8"));
+    expect(readFileSync(join(server, ".deployed-tag"), "utf8")).toBe("v2\n");
+    expect(readFileSync(join(server, ".env.prod"), "utf8")).toBe(`${ENV_PROD}TAG=v2\n`);
+    expect(readdirSync(join(server, "releases")).sort()).toEqual(["v1", "v2"]);
+    expect(readFileSync(crontabFile, "utf8")).toContain(`SSH_ORIGINAL_COMMAND=maintain ${server}/deploy.sh `);
+  });
+
+  it("does not hand the release on once the shipped script is the running one", () => {
+    shipWorkerInSwitch();
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog);
+
+    const result = deploy("v2", packArchive());
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(readSwitchLines()).toEqual([`${SWITCH} traefik app worker`]);
+  });
+
+  it("ends with the shipped script's failure, its own result line and the previous files back", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    const previousScript = readFileSync(join(server, "deploy.sh"), "utf8");
+    shipWorkerInSwitch();
+
+    const result = deploy("v2", packArchive(), { FAIL_DOCKER_ON: "pull " });
+    expect(result.status).toBe(1);
+    expect(readLines(result.stdout, "result")).toEqual(["result|failed|pull|cannot pull ghcr.io/acme/app:v2."]);
+    expect(readLines(result.stdout, "step")).toEqual(["step|archive|ok", "step|files|ok", "step|settings|ok", "step|restore|ok"]);
+    expect(readFileSync(join(server, "deploy.sh"), "utf8")).toBe(previousScript);
+    expect(readFileSync(join(server, ".deployed-tag"), "utf8")).toBe("v1\n");
+  });
+
+  it("runs a shipped script older than the hand-off itself and installs it for the next release", () => {
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog);
+    shipWorkerInSwitch((text) => text.replaceAll("SOFTURE_DEPLOY_HANDOFF_FROM", "SOFTURE_DEPLOY_UNKNOWN"));
+
+    const result = deploy("v2", packArchive());
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(readSwitchLines()).toEqual([`${SWITCH} traefik app`]);
+    expect(readFileSync(join(server, "deploy.sh"), "utf8")).toBe(readFileSync(join(checkout, SCRIPT), "utf8"));
+  });
+
+  // The lock is the kernel's: only a host with flock shows that the handed-off copy keeps it instead of waiting for it
+  // (the stub of the other tests always succeeds).
+  const realFlock = spawnSync("sh", ["-c", "command -v flock"], { encoding: "utf8" }).stdout.trim();
+  it.runIf(realFlock !== "")("keeps the lock through the hand-off instead of waiting for it", () => {
+    rmSync(join(stubBin, "flock"));
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    shipWorkerInSwitch();
+
+    const started = Date.now();
+    const result = deploy("v2", packArchive());
+    expect(result.status).toBe(0);
+    expect(Date.now() - started).toBeLessThan(5000);
+    const holder = spawnSync(realFlock, ["--nonblock", join(server, ".deploy.lock"), "true"]);
+    expect(holder.status).toBe(0);
+  });
+});
+
 describe("deploy.sh keeps one maintenance line of its app in the crontab", () => {
   it("rewrites its own line on every release and keeps the other lines, another app's too", () => {
     const foreign = "0 1 * * * /usr/local/bin/other-job # softure-deploy:acme-app-2\n5 * * * * echo keep\n";
