@@ -4,6 +4,26 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **A release runs the `deploy.sh` it ships (#621):** `deploy.sh` installs its successor by a rename and used to
+  finish the release itself, so a release whose new script starts a new service (0.4.3's switch adds `worker`) was
+  run by the old script: the service never started, and the deploy still reported `result|ok`. Now, after the archive
+  checks and before anything is installed, a running script whose release ships a different `deploy.sh` hands the
+  whole release to it (same command, same archive, the lock kept, from a copy in the run's temporary folder) and ends
+  with its status; the step and result lines are the shipped script's. A shipped script without the hand-off (older
+  than this version, e.g. a rollback to an old tag) is run by the running copy as before. An app adopts it in three
+  steps:
+  1. bump `@softure-ai/deploy` to this version and take the new `docker/server/deploy.sh`: re-run `init --force`
+     into a scratch folder and copy that file, or apply the template's diff to a script the app changed (the
+     `HANDOFF_FROM` lines, `take_lock`, and the hand-off block after the archive's reserved-name check);
+  2. ship it in a release that needs nothing else from the new script: that release is still run by the old copy,
+     which installs the new one; every later release is run by the script it ships;
+  3. an app already hit by the issue (a `worker` service with no container after moving to 0.4.3) starts it once by
+     hand with the live tag, `flock .deploy.lock docker compose --env-file .env.prod --file docker-compose.yml up
+     --detach --wait --no-deps worker` in `/srv/<name>/`, or publishes one more release (the 0.4.3 script installed
+     by the last one starts it).
+
 ## 0.4.3
 
 - **The worker's health check asks its loop (#610):** with `@softure-ai/jobs` 0.1.3 or later (installed, else the

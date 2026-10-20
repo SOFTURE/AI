@@ -26,8 +26,12 @@
 # The release archive is a gzip tar of the tag's docker/prod/ (docker-compose.yml, traefik.yml unless the app joins an
 # edge network, and, with a database, initdb/), this script, deploy.json and the rendered .env.prod. It is unpacked
 # into releases/<tag>/ and its files are installed next to this script in /srv/softure-example/, so only the first setup
-# copies this script there by hand. A new copy of this script is installed by a rename: the running copy finishes, the
-# new one runs from the next release.
+# copies this script there by hand. A new copy of this script is installed by a rename, and a release runs the copy it
+# ships: when the archive's deploy.sh differs from the running one and takes the hand-off (it reads
+# SOFTURE_DEPLOY_HANDOFF_FROM), the running copy checks the archive, then hands the whole release to a copy of it in
+# the run's temporary folder (same command, same archive on stdin, the lock kept, SOFTURE_DEPLOY_HANDOFF_FROM set to
+# this folder) and ends with its status, printing no step or result line of its own. A shipped script older than the
+# hand-off (a rollback to an old tag) is run by the running copy, which installs it for the next release.
 #
 # The archive may also hold .registry-token, the deploy job's short-lived GITHUB_TOKEN: the image is then pulled
 # with it through a Docker config in this run's temporary folder, so the host keeps no registry login and the token
@@ -85,7 +89,13 @@
 # copy of the database while it runs.
 set -euo pipefail
 
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# A copy handed the release by the running script (see the header) runs from a temporary folder and gets the app's.
+HANDOFF_FROM="${SOFTURE_DEPLOY_HANDOFF_FROM:-}"
+if [ -n "$HANDOFF_FROM" ]; then
+  APP_DIR="$HANDOFF_FROM"
+else
+  APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
 IMAGE="localhost:5000/softure/ai-deploy-e2e"
 DEPLOY_CLI="@softure-ai/deploy@0.0.0"
 TOOLS_IMAGE="softure-deploy-tools:0.0.0-pg16"
@@ -223,7 +233,9 @@ compose() {
 
 take_lock() {
   begin_step lock
-  exec 9> "$LOCK_FILE"
+  # A handed-off copy inherits the running script's fd 9 and its lock: flock on that same open file succeeds at once,
+  # while reopening the file would wait for the lock its own caller holds.
+  if [ -z "$HANDOFF_FROM" ]; then exec 9> "$LOCK_FILE"; fi
   if ! command -v flock > /dev/null; then fail "flock is missing on this host (util-linux)."; fi
   flock -w "$LOCK_WAIT_SECONDS" 9 || fail "another deploy or maintain run still holds $LOCK_FILE."
 }
@@ -732,6 +744,16 @@ done
 for reserved in "${RESERVED_NAMES[@]}"; do
   if [ -e "$release_dir/$reserved" ]; then refuse "the release archive holds $reserved, a name this server keeps for itself."; fi
 done
+# The release runs the deploy.sh it ships (see the header): nothing is installed and no step line printed before this.
+if [ -z "$HANDOFF_FROM" ] && ! cmp -s "$release_dir/deploy.sh" "${BASH_SOURCE[0]}" \
+  && grep -q 'SOFTURE_DEPLOY_HANDOFF_FROM' "$release_dir/deploy.sh"; then
+  cp "$release_dir/deploy.sh" "$work/deploy.sh" || fail "cannot copy the release's deploy.sh."
+  echo "deploy: $TAG ships a different deploy.sh; it runs the release." >&2
+  reports_result=""
+  handoff_status=0
+  SOFTURE_DEPLOY_HANDOFF_FROM="$APP_DIR" bash "$work/deploy.sh" < "$archive" || handoff_status=$?
+  exit "$handoff_status"
+fi
 registry_token=""
 if [ -e "$release_dir/.registry-token" ]; then
   if [ ! -f "$release_dir/.registry-token" ] || [ ! -s "$release_dir/.registry-token" ]; then
