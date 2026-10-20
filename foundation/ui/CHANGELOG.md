@@ -4,6 +4,25 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+All additive (#623); existing calls keep their markup and names.
+
+- `EyeOffIcon`: the `EyeIcon` drawing crossed out by a corner-to-corner slash, for the hidden side of a show / hide
+  toggle.
+- `IconButton` shows a pressed look at `aria-pressed="true"`, in both tones: the accent fill, `on-accent` text and an
+  inset ring in the text colour (the look of a chosen segment, a cue that does not rely on colour), kept on hover. A
+  button without `aria-pressed`, or with `aria-pressed={false}`, looks as before.
+- `IconProps` is part of the public API (it already was through the root export; a test now keeps it there).
+
+Migration for an app with its own toggle styling:
+
+1. Replace the local crossed-eye icon with `import { EyeOffIcon } from "@softure-ai/ui"`, e.g.
+   `<IconButton label="Show series" aria-pressed={!isHidden}>{isHidden ? <EyeOffIcon /> : <EyeIcon />}</IconButton>`.
+2. Drop the app's `[aria-pressed="true"]` CSS rule and the `classNames.root` that only carried it; set `aria-pressed`
+   on the `IconButton`. Keep `classNames.root` only to restyle the pressed look.
+3. Type an app's own icon component with `import type { IconProps } from "@softure-ai/ui"`.
+
 ## 0.3.3
 
 All additive (#558); existing calls keep their markup, names and look.

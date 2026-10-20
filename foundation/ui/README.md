@@ -118,8 +118,8 @@ or a comment throw.
 
 | Group | Components and helpers |
 | --- | --- |
-| Actions | `Button` (`primary`, `secondary`, `ghost`, `danger`, `ink`, `ink-outline`; `sm`, `md`, `lg`; `pending`, `pendingLabel`), `ButtonLink`, `ButtonAnchor`, `IconButton`, `getButtonClass` |
-| Icons | `ArrowLeftIcon` … `ChatIcon`, `ChildIcon`, `LoanIcon` (35, decorative, `size` and `className`) |
+| Actions | `Button` (`primary`, `secondary`, `ghost`, `danger`, `ink`, `ink-outline`; `sm`, `md`, `lg`; `pending`, `pendingLabel`), `ButtonLink`, `ButtonAnchor`, `IconButton` (a toggle with `aria-pressed="true"` shows the pressed look: accent fill and an inset ring), `getButtonClass` |
+| Icons | `ArrowLeftIcon` … `ChatIcon`, `ChildIcon`, `LoanIcon`, `EyeIcon` / `EyeOffIcon` for a show / hide toggle (36, decorative, `size` and `className`; `IconProps` for an app's own icon) |
 | Surfaces | `Card` (`boxed`, `lead`, `flat`; `step`, `done`, `accent`, `headingLevel`, `headingSize`, `collapsible`), `CardDisclosure`, `CollapsibleSection`, `Stat`, `EmptyState`, `Hint`, `FormError`, `Checklist` (onboarding items), `DeferredRender` (stream a slow part) |
 | Fields | `Field`, `FieldGroup`, `TextField`, `PasswordField`, `MoneyField`, `SuggestedAmountField`, `ColorField` + `normalizeHexColor`, `SelectField`, `CheckboxField` (`required`, `requiredMessage`), `INPUT_CLASS`, `NUMBER_INPUT_CLASS` |
 | Controls | `Select` (ARIA listbox), `Switch`, `SwitchControl`, `Checkbox`, `SegmentedControl`, `SEGMENTED_GROUP_CLASS` + `SEGMENT_ACTIVE_CLASS` / `SEGMENT_IDLE_CLASS` (an app's own segments), `CopyButton` |
