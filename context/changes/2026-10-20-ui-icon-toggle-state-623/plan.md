@@ -43,5 +43,5 @@ commits to roll back.
 
 ## Progress
 
-- [ ] Phase 1: icon, pressed look, tests
+- [x] Phase 1: icon, pressed look, tests (`EyeOffIcon`, `ICON_PRESSED` on every `IconButton` root, tests for both and for `IconProps`; compiled CSS carries the `[aria-pressed=true]` and pressed-hover rules; f822c48)
 - [ ] Phase 2: docs
