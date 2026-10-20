@@ -558,17 +558,19 @@ scope: packages keep their own release workflow.
 `SOFTURE/AI/.github/workflows/deploy-release-checks.yml` holds the checks every app ran in its own YAML before a
 release, and on its pull requests. Its jobs:
 
-1. `prepare` checks the inputs (one `::error::` line each) and resolves the commit the other jobs check out. With a
-   `tag`, the tag must match `tag-pattern` (the `vYYYY.MM.DD` tags `deploy-cut-release.yml` cuts, `-2`, `-3` on a
-   busy day) and its commit must be on the release branch (`release-branch`, else the caller's default branch; commits
-   only are fetched). Without a tag it checks the caller's own commit, which is how a pull request runs it.
+1. `prepare` resolves the commit the other jobs check out and builds the shard list. With a `tag`, the tag must match
+   `tag-pattern` (the `vYYYY.MM.DD` tags `deploy-cut-release.yml` cuts, `-2`, `-3` on a busy day) and its commit must
+   be on the release branch (`release-branch`, else the caller's default branch; commits only are fetched). Without a
+   tag and with one shard, which is how a pull request runs it, `prepare` is skipped (every job is billed at least a
+   minute) and the other jobs check out the caller's own commit.
 2. `static` installs (`install-command`) and runs `static-command`: the type check and lint. A Next app runs
-   `next typegen` first, since a fresh checkout has no generated route types; `init`'s caller does.
+   `next typegen` first, since a fresh checkout has no generated route types; `init`'s caller does. With
+   `static-cache-paths` it keeps those files between runs (below).
 3. `unit` installs and runs `test-command` once per shard, `shards` jobs in parallel (1 to 20, 60 minutes each), with
    `SHARD_INDEX` (from 1) and `SHARD_COUNT` set; the default `npm test -- --shard="$SHARD_INDEX/$SHARD_COUNT"` suits
    Vitest.
 
-Every job reads the repository only (`contents: read`), so a pull request's caller grants nothing more. The image is
+Every job checks the inputs first (one `::error::` line each), with the same step. Every job reads the repository only (`contents: read`), so a pull request's caller grants nothing more. The image is
 built by `SOFTURE/AI/.github/workflows/deploy-release-image.yml`, a separate workflow: one job `build` (the only one
 with `packages: write`) checks out `ref` (a full commit SHA, the checks' `sha` output), pushes `<image>:sha-<sha>` to
 GHCR and outputs `prebuilt-image`, `<image>@sha256:<digest>`, the form `deploy-app.yml`'s `prebuilt-image` takes. The
@@ -584,13 +586,27 @@ release tag is then added to exactly the bytes the checks passed. Its inputs bes
 | `install-command` | `npm ci` | before `static` and each shard |
 | `static`, `static-command` | `true`, `npx tsc --noEmit && npm run lint --if-present` | |
 | `unit`, `test-command`, `shards` | `true`, `npm test -- --shard="$SHARD_INDEX/$SHARD_COUNT"`, `1` | |
+| `static-cache-paths` | empty | files `static` keeps between runs, one path or glob per line inside the checkout |
 | `sparse-checkout` | the whole commit | non-cone checkout patterns for every job |
 
-Output: `sha`. The commands are the app's own and run with `bash -e -c` from `env:`, never interpolated.
+Output: `sha` (the caller's commit when there was no tag). The commands are the app's own and run with `bash -e -c` from `env:`, never interpolated.
 
 **On pull requests.** `init` writes `.github/workflows/checks.yml` (the same file as
 [`examples/checks.yml`](examples/checks.yml)): `static` on every pull request; the unit tests, which cost the most
 Actions minutes, on *Run workflow* or with the label `run-tests`.
+
+**A warm static job.** `tsc --noEmit` and type-checked ESLint start from scratch in a fresh checkout. A command that
+writes caches, with `static-cache-paths` naming them, reuses the last run's work (`actions/cache`, one entry per
+commit, restored from the newest entry of the same lockfile, saved only when `static` passes; a stale entry only
+costs a cold run):
+
+```yaml
+    with:
+      static-command: npx next typegen && npx tsc --noEmit --incremental && npx eslint --cache --max-warnings 0 .
+      static-cache-paths: |
+        .eslintcache
+        **/*.tsbuildinfo
+```
 
 **Before a deploy.** In the deploy caller, `checks` and `image` jobs ahead of `deploy` make the release deploy only
 the image the checks passed (the caller's top-level `permissions` already grant `packages: write`):

@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **A pull request's checks cost less (#627):** `deploy-release-checks.yml` skips `prepare` when there is no tag and
+  one shard (a pull request's run), so the job no longer bills a minute for seconds of work; `static` and each `unit`
+  shard check the inputs themselves first, and the output `sha` is the caller's commit. With a tag or several shards
+  nothing changes. The new input `static-cache-paths` (default empty, no cache) keeps files such as `.eslintcache`
+  and `*.tsbuildinfo` between runs of `static`; pass them with a command that writes them (`eslint --cache`,
+  `tsc --incremental`), README "Release checks". Nothing to do for an app that wants neither.
+
 ## 0.4.4
 
 - **A release runs the `deploy.sh` it ships (#621):** `deploy.sh` installs its successor by a rename and used to
