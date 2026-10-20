@@ -1045,8 +1045,11 @@ blog({
   the file; the next card tries again. `softure-blog check` reads the same sources, so CI reports such a
   file first (`softure-blog check: Blog OG card: brand.fonts[0] …`, one error, exit 1).
 - Paths are read on the Node.js runtime (the route's default). With `output: "standalone"`, list the
-  folder in `outputFileTracingIncludes` (`{ "/blog/[slug]/opengraph-image": ["./assets/fonts/**"] }`);
-  a route moved to the edge runtime takes `https` URLs only.
+  folder in `outputFileTracingIncludes` (`{ "/blog/\\[slug\\]/opengraph-image": ["./assets/fonts/**"] }`);
+  a route moved to the edge runtime takes `https` URLs only. Escape the brackets: the keys are globs, and
+  Turbopack reads an unescaped `[slug]` as a character class, so the key matches no route, the fonts are
+  not traced into `.next/standalone` and every card fails with ENOENT. The escaped key works with webpack
+  too.
 - With brand fonts the card has no other font: a character none of them has is not drawn.
 
 ## 9. Copy
