@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.4.5
 
 - **A pull request's checks cost less (#627):** `deploy-release-checks.yml` skips `prepare` when there is no tag and
   one shard (a pull request's run), so the job no longer bills a minute for seconds of work; `static` and each `unit`
