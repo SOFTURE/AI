@@ -1,6 +1,6 @@
 ---
 change_id: blog-og-tracing-key-620
-status: in_progress
+status: archived
 ---
 
 # Plan: escaped tracing key in the blog README (issue #620)
@@ -30,4 +30,4 @@ Docs only; revert the commit.
 
 ## Progress
 
-- [ ] Phase 1: README and CHANGELOG
+- [x] Phase 1: README and CHANGELOG (escaped key and the reason in README §8, CHANGELOG `## Unreleased`; picomatch matches the route with the escaped key; 8f456ef)

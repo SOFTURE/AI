@@ -1,12 +1,13 @@
 ---
 change_id: blog-og-tracing-key-620
 title: "blog: README's outputFileTracingIncludes key escapes [slug] (issue #620)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 620
 branch: claude/project-thread-967u1t
 created: 2026-10-20
 updated: 2026-10-20
+archived_at: 2026-10-20
 ---
 
 ## Intent
