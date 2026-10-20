@@ -1550,6 +1550,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
     UNIT: "true",
     TEST_COMMAND: String(inputs["test-command"]?.default),
     SHARDS: "1",
+    STATIC_CACHE_PATHS: "",
   };
 
   it("checks the caller's commit by default: static and one unit shard, and reads the repository only", () => {
@@ -1562,7 +1563,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
       "install-command": { default: "npm ci" },
     });
     expect(Object.keys(call.outputs ?? {})).toEqual(["sha"]);
-    expect(call.outputs?.sha?.value).toBe("${{ jobs.prepare.outputs.sha }}");
+    expect(call.outputs?.sha?.value).toBe("${{ jobs.prepare.outputs.sha || github.sha }}");
     expect(Object.keys(jobs)).toEqual(["prepare", "static", "unit"]);
     for (const job of Object.values(jobs)) expect(job.permissions).toEqual({ contents: "read" });
   });
@@ -1592,6 +1593,10 @@ describe("deploy-release-checks.yml (issue #406)", () => {
     ["STATIC_COMMAND", "", "Input static-command is not valid"],
     ["TEST_COMMAND", "", "Input test-command is not valid"],
     ["INSTALL_COMMAND", "", "Input install-command is not valid"],
+    ["STATIC_CACHE_PATHS", ".eslintcache\n/tmp/cache", "Input static-cache-paths is not valid: paths inside the checkout"],
+    ["STATIC_CACHE_PATHS", "../.eslintcache", "Input static-cache-paths is not valid: paths inside the checkout"],
+    ["STATIC_CACHE_PATHS", "a/../../b", "Input static-cache-paths is not valid: paths inside the checkout"],
+    ["STATIC_CACHE_PATHS", "~/.cache", "Input static-cache-paths is not valid: paths inside the checkout"],
   ])("refuses %s=%s", (name, value, message) => {
     const tag: Record<string, string> = name === "TAG_PATTERN" ? { TAG: "v2026.10.12" } : {};
     const refused = runScript(inputStep.run ?? "", { ...DEFAULTS, ...tag, [name]: value });
@@ -1696,14 +1701,62 @@ describe("deploy-release-checks.yml (issue #406)", () => {
   });
 
   it("runs the unit tests once per shard, each told its index and the count", () => {
-    expect(jobs.unit?.if).toBe("inputs.unit");
-    expect(jobs.static?.if).toBe("inputs.static");
-    expect(jobs.unit?.strategy?.matrix).toEqual({ shard: "${{ fromJSON(needs.prepare.outputs.shards) }}" });
+    expect(jobs.unit?.strategy?.matrix).toEqual({ shard: "${{ fromJSON(needs.prepare.outputs.shards || '[1]') }}" });
     expect(findNamedStep(jobs.unit, "Unit tests").env).toMatchObject({ SHARD_INDEX: "${{ matrix.shard }}", SHARD_COUNT: "${{ inputs.shards }}" });
     const result = runScript(`SHARD_INDEX=2 SHARD_COUNT=3; ${String(inputs["test-command"]?.default).replace(/^npm test --/, "printf '%s\\n'")}`, {});
     expect(result.stdout).toBe("--shard=2/3\n");
   });
 
+  describe("a pull request's run (issue #627)", () => {
+    it("runs prepare only for a tag or more than one unit shard", () => {
+      expect((jobs.prepare as { if?: string }).if).toBe("inputs.tag != '' || (inputs.unit && inputs.shards != 1)");
+    });
+
+    it("runs static and unit after a skipped prepare, never after a failed or cancelled one", () => {
+      expect(jobs.static?.needs).toBe("prepare");
+      expect(jobs.unit?.needs).toBe("prepare");
+      expect(jobs.static?.if).toBe("${{ !cancelled() && inputs.static && needs.prepare.result != 'failure' }}");
+      expect(jobs.unit?.if).toBe("${{ !cancelled() && inputs.unit && needs.prepare.result != 'failure' }}");
+    });
+
+    it("checks the inputs first in every job, with the one step prepare runs", () => {
+      for (const id of ["prepare", "static", "unit"]) {
+        expect(jobs[id]?.steps?.[0], id).toEqual(inputStep);
+      }
+    });
+
+    it("accepts cache paths inside the checkout", () => {
+      const accepted = runScript(inputStep.run ?? "", { ...DEFAULTS, STATIC_CACHE_PATHS: ".eslintcache\n**/*.tsbuildinfo\n\napps/web/.eslintcache\n" });
+      expect(accepted.status).toBe(0);
+      expect(inputStep.env).toMatchObject({ STATIC_CACHE_PATHS: "${{ inputs.static-cache-paths }}" });
+      expect(inputs["static-cache-paths"]).toMatchObject({ default: "" });
+    });
+  });
+
+  describe("the static cache (issue #627)", () => {
+    const steps = jobs.static?.steps ?? [];
+    const cacheIndex = steps.findIndex((step) => step.uses?.startsWith("actions/cache@") === true);
+    const cache = steps[cacheIndex];
+
+    it("restores and saves the caller's paths before the install, only when it names some", () => {
+      expect(cache?.uses).toBe("actions/cache@v6");
+      expect(cache?.if).toBe("inputs.static-cache-paths != ''");
+      expect(cache?.with?.path).toBe("${{ inputs.static-cache-paths }}");
+      expect(cacheIndex).toBeGreaterThan(steps.findIndex((step) => step.uses?.startsWith("actions/setup-node@") === true));
+      expect(cacheIndex).toBeLessThan(steps.indexOf(findNamedStep(jobs.static, "Install")));
+    });
+
+    it("keys an entry on the OS, the lockfiles and the commit, and restores by the lockfile prefix", () => {
+      const prefix = "softure-static-${{ runner.os }}-${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock') }}-";
+      expect(cache?.with?.key).toBe(`${prefix}\${{ needs.prepare.outputs.sha || github.sha }}`);
+      expect(cache?.with?.["restore-keys"]).toBe(prefix);
+    });
+
+    it("is the only cache, and unit has none", () => {
+      expect(steps.filter((step) => step.uses?.startsWith("actions/cache@") === true)).toHaveLength(1);
+      expect((jobs.unit?.steps ?? []).some((step) => step.uses?.startsWith("actions/cache@") === true)).toBe(false);
+    });
+  });
 });
 
 describe("deploy-release-image.yml (issue #406)", () => {
