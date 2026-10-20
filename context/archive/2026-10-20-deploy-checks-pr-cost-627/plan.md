@@ -1,6 +1,6 @@
 ---
 change_id: deploy-checks-pr-cost-627
-status: in_progress
+status: archived
 ---
 
 # Plan: a pull request's checks without a prepare job, and an opt-in static cache (issue #627)
@@ -41,5 +41,9 @@ Files: `tests/repo/deploy-workflows.test.ts`, `.github/workflows/deploy-release-
 
 ## Progress
 
-- [ ] Phase 1: the workflow
-- [ ] Phase 2: docs
+- [x] Phase 1: the workflow (8d2e25d)
+- [x] Phase 2: docs (443fb70)
+
+The new tests were red against the old workflow (13 failures). actionlint 1.7.12 passes over the workflow (aliases
+included) and the example callers. Gates: typecheck, lint (with the language gate), `tests/repo/deploy-workflows.test.ts`
+(207 passed).

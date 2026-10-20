@@ -1,12 +1,13 @@
 ---
 change_id: deploy-checks-pr-cost-627
 title: "deploy-release-checks.yml: no billed prepare job without a tag, and an optional static cache (issue #627)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 627
 branch: claude/project-thread-jl433u
 created: 2026-10-20
 updated: 2026-10-20
+archived_at: 2026-10-20
 ---
 
 ## Intent
