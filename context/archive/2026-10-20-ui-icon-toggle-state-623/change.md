@@ -1,12 +1,13 @@
 ---
 change_id: ui-icon-toggle-state-623
 title: "ui: crossed-eye icon and a pressed look for IconButton toggles (issue #623)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 623
 branch: claude/project-thread-gbfo12
 created: 2026-10-20
 updated: 2026-10-20
+archived_at: 2026-10-20
 ---
 
 ## Intent
