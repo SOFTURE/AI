@@ -268,6 +268,11 @@ const ICON_TONE: Readonly<Record<IconButtonTone, string>> = {
   danger: "sft:text-muted sft:not-disabled:hover:bg-danger/10 sft:not-disabled:hover:text-danger",
 };
 
+// A toggle (`aria-pressed="true"`) looks like a chosen segment: the accent fill plus an inset ring, a cue that does
+// not rely on colour. The hover classes repeat the fill, since `not-disabled:hover:` outranks a lone attribute.
+const ICON_PRESSED =
+  "sft:aria-pressed:bg-accent-fill sft:aria-pressed:text-on-accent sft:aria-pressed:ring-1 sft:aria-pressed:ring-inset sft:aria-pressed:ring-foreground sft:aria-pressed:not-disabled:hover:bg-accent-fill-hover sft:aria-pressed:not-disabled:hover:text-on-accent";
+
 const ICON_BORDER = {
   bordered: "sft:border sft:border-border-strong sft:not-disabled:hover:border-foreground",
   plain: "sft:border sft:border-transparent",
@@ -288,7 +293,7 @@ export type IconButtonProps = Omit<
   readonly children: ReactNode;
 };
 
-/** A button with only an icon, named by `label`. */
+/** A button with only an icon, named by `label`. With `aria-pressed="true"` it shows the pressed look. */
 export function IconButton({
   label,
   tone = "neutral",
@@ -300,7 +305,7 @@ export function IconButton({
   children,
   ...rest
 }: IconButtonProps) {
-  const root = [ICON_BASE, ICON_SIZE[size], ICON_TONE[tone], ICON_BORDER[bordered ? "bordered" : "plain"]]
+  const root = [ICON_BASE, ICON_SIZE[size], ICON_TONE[tone], ICON_PRESSED, ICON_BORDER[bordered ? "bordered" : "plain"]]
     .filter((part) => part !== "")
     .join(" ");
   const slot = createSlotClassGetter<IconButtonSlot>({ defaults: { root }, classNames, unstyled });

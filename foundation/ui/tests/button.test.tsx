@@ -162,6 +162,28 @@ describe("IconButton", () => {
     expect([sizeOf("sm"), sizeOf("md"), sizeOf("lg")]).toEqual(["sft:size-8", "sft:size-8", "sft:size-11"]);
   });
 
+  it("shows the pressed look at aria-pressed in both tones and passes the attribute through", () => {
+    const pressed = [
+      "sft:aria-pressed:bg-accent-fill",
+      "sft:aria-pressed:text-on-accent",
+      "sft:aria-pressed:ring-1",
+      "sft:aria-pressed:ring-inset",
+      "sft:aria-pressed:ring-foreground",
+      "sft:aria-pressed:not-disabled:hover:bg-accent-fill-hover",
+      "sft:aria-pressed:not-disabled:hover:text-on-accent",
+    ];
+    for (const tone of ["neutral", "danger"] as const) {
+      const html = renderToStaticMarkup(
+        <IconButton label="Only this one" tone={tone} aria-pressed>
+          <CheckIcon />
+        </IconButton>,
+      );
+      expect(html).toContain('aria-pressed="true"');
+      const classes = html.match(/class="([^"]*)"/)?.[1]?.split(" ") ?? [];
+      expect(classes.filter((name) => name.startsWith("sft:aria-pressed:"))).toEqual(pressed);
+    }
+  });
+
   it("differs between tones only in colour classes", () => {
     const classesOf = (tone: "neutral" | "danger") =>
       (renderToStaticMarkup(
