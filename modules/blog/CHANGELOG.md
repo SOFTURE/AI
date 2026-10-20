@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## Unreleased
+
+- **Docs fix (#620):** README §8 now writes the `outputFileTracingIncludes` key for the article card with escaped
+  brackets, `"/blog/\\[slug\\]/opengraph-image"`. Turbopack reads the keys as globs, so the old
+  `"/blog/[slug]/opengraph-image"` traced nothing and a standalone build shipped no brand fonts (every card answered
+  500, ENOENT). An app that copied the old key replaces it with the escaped one; the escaped key works with webpack too.
+
 ## 0.3.1
 
 - **Fix (#549):** the CLI no longer pulls the optional `@softure-ai/jobs` peer into a single-file bundle. It loads
