@@ -4,6 +4,28 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Metrics: with an endpoint, `startObservability` also exports metrics over OTLP/HTTP protobuf to
+  `<endpoint>/v1/metrics` (`OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`, `_HEADERS`), every 60 s and on shutdown:
+  `http.server.request.duration`, `http.client.request.duration` and Node.js runtime metrics (event loop, GC, heap)
+  (#632). On by default. `metrics: { enabled: false }` or `OTEL_METRICS_EXPORTER=none` turns metric export off,
+  `instrumentations: { runtime: false }` the runtime metrics only, `metrics.exportIntervalMs` sets the interval. The
+  README's "Metrics" section counts the series it adds.
+- Incoming requests to `node:http`/`node:https` servers (Express and the like) get server spans, so request latency
+  and 4xx/5xx show in traces and the logs of a request carry its trace id (#632). Also when `node:http` was imported
+  before `startObservability`. `traces.ignorePaths` drops them from traces and from the duration metric; the query
+  string is recorded as `url.query=REDACTED`. Outgoing `http.request` calls get client spans. Off with
+  `instrumentations: { http: false }`; off by default in `registerObservability` (`/next`), since Next.js spans its
+  requests itself.
+- `environment` is written as both `deployment.environment.name` and `deployment.environment`, as
+  `SOFTURE.Common.Observability` (.NET) does, so dashboards filtering on `deployment_environment` match Node.js
+  services too (#632).
+- `ResolvedObservabilityConfig` carries `metrics: SignalExport | null` on the `export` variant; a test comparing the
+  whole object with `toEqual` adds it. New exported types: `InstrumentationOptions`, `MetricOptions`.
+- Migration: an app that set `OTEL_RESOURCE_ATTRIBUTES=deployment.environment=<env>` only to work around the missing
+  key can drop it. An app that must not add series sets `metrics: { enabled: false }` before upgrading.
+
 ## 0.3.0
 
 - An OTLP endpoint with a scheme other than `http:`/`https:` no longer throws at start: that signal is not exported
