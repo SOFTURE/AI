@@ -19,7 +19,7 @@ const PATH_ATTRIBUTES = ["url.path", "http.target"] as const;
  * `/api/healthz`. The query string is ignored. Throws when an entry does not start with `/`.
  */
 export function createIgnorePathsSampler(paths: readonly string[]): Sampler {
-  const prefixes = paths.map((path, index) => normalizePath(path, index));
+  const prefixes = normalizePaths(paths);
   const fallback = new ParentBasedSampler({ root: new AlwaysOnSampler() });
 
   return {
@@ -38,6 +38,19 @@ export function createIgnorePathsSampler(paths: readonly string[]): Sampler {
     },
     toString: () => `IgnorePathsSampler{${prefixes.join(",")}}`,
   };
+}
+
+/**
+ * Whether a request target (a path with its query, or a full URL) is one of `paths` or below one, by the rules of
+ * `createIgnorePathsSampler`. Throws when an entry does not start with `/`.
+ */
+export function createIgnoredPathMatcher(paths: readonly string[]): (target: string) => boolean {
+  const prefixes = normalizePaths(paths);
+  return (target) => isIgnored(getPath(target), prefixes);
+}
+
+function normalizePaths(paths: readonly string[]): string[] {
+  return paths.map((path, index) => normalizePath(path, index));
 }
 
 function normalizePath(path: string, index: number): string {

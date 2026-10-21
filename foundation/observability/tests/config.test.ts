@@ -33,6 +33,7 @@ describe("resolveObservabilityConfig: endpoints", () => {
         kind: "export",
         traces: { url: `${BASE}/v1/traces` },
         logs: { url: `${BASE}/v1/logs` },
+        metrics: { url: `${BASE}/v1/metrics` },
       });
     }
   });
@@ -65,10 +66,52 @@ describe("resolveObservabilityConfig: endpoints", () => {
     });
   });
 
+  it("uses OTEL_EXPORTER_OTLP_METRICS_ENDPOINT as given, with its own headers over the shared ones", () => {
+    const config = resolveObservabilityConfig(
+      {},
+      {
+        OTEL_EXPORTER_OTLP_ENDPOINT: BASE,
+        OTEL_EXPORTER_OTLP_HEADERS: "authorization=shared,x-a=1",
+        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://metrics.example.com/m",
+        OTEL_EXPORTER_OTLP_METRICS_HEADERS: "authorization=metrics",
+      },
+    );
+
+    expect(config).toMatchObject({
+      kind: "export",
+      logs: { url: `${BASE}/v1/logs`, headers: { authorization: "shared", "x-a": "1" } },
+      metrics: { url: "https://metrics.example.com/m", headers: { authorization: "metrics", "x-a": "1" } },
+    });
+  });
+
+  it("exports no metrics with metrics.enabled false, keeping traces and logs", () => {
+    const config = resolveObservabilityConfig({ endpoint: BASE, metrics: { enabled: false } }, {});
+
+    expect(config).toMatchObject({
+      kind: "export",
+      traces: { url: `${BASE}/v1/traces` },
+      logs: { url: `${BASE}/v1/logs` },
+      metrics: null,
+    });
+  });
+
+  it("exports no metrics with OTEL_METRICS_EXPORTER=none, in any case", () => {
+    for (const value of ["none", "NONE", " none "]) {
+      const config = resolveObservabilityConfig({ endpoint: BASE }, { OTEL_METRICS_EXPORTER: value });
+
+      expect(config).toMatchObject({ kind: "export", traces: { url: `${BASE}/v1/traces` }, metrics: null });
+    }
+  });
+
   it("exports only the signal that has an endpoint", () => {
     const config = resolveObservabilityConfig({}, { OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: "https://logs.example.com/l" });
 
-    expect(config).toMatchObject({ kind: "export", traces: null, logs: { url: "https://logs.example.com/l" } });
+    expect(config).toMatchObject({
+      kind: "export",
+      traces: null,
+      logs: { url: "https://logs.example.com/l" },
+      metrics: null,
+    });
   });
 
   it("keeps the host of a base endpoint whose path starts with two slashes", () => {
@@ -195,6 +238,7 @@ describe("resolveObservabilityConfig: resource", () => {
         "service.name": "from-env",
         "service.version": "1.0.0",
         "service.namespace": "my-project",
+        "deployment.environment": "production",
         "deployment.environment.name": "production",
         team: "a b",
       },
@@ -209,6 +253,28 @@ describe("resolveObservabilityConfig: resource", () => {
 
     expect(config).toMatchObject({
       resourceAttributes: { "service.name": "my-service", "service.version": "2.0.0" },
+    });
+  });
+
+  it("writes the environment option under both deployment.environment keys, over OTEL_RESOURCE_ATTRIBUTES", () => {
+    const config = resolveObservabilityConfig(
+      { endpoint: BASE, environment: "prod" },
+      { OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=staging,deployment.environment.name=staging" },
+    );
+
+    expect(config).toMatchObject({
+      resourceAttributes: { "deployment.environment": "prod", "deployment.environment.name": "prod" },
+    });
+  });
+
+  it("leaves both deployment.environment keys from OTEL_RESOURCE_ATTRIBUTES alone without the option", () => {
+    const config = resolveObservabilityConfig(
+      { endpoint: BASE },
+      { OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=staging" },
+    );
+
+    expect(config.kind === "export" ? config.resourceAttributes : null).toEqual({
+      "deployment.environment": "staging",
     });
   });
 });
