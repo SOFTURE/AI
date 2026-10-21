@@ -10,7 +10,8 @@ received message.
 A job queue in one table (`jobs.jobs`) with enqueue inside the caller's transaction and dedup keys, claims with
 `FOR UPDATE SKIP LOCKED` under a lease, fenced completion, retry with exponential backoff, a worker process with
 graceful shutdown, recurring schedules that run once per period however many workers run, and an in-process runner
-for tests and cron-driven apps.
+for tests and cron-driven apps. For jobs that poll a third-party source: a cursor per source and a processed-item
+ledger, so a second run never acts twice on the same item (§3, "Sync state for polling").
 
 ## 2. Installation
 
@@ -53,7 +54,7 @@ export default defineSoftureConfig({
 | `schedules.<queue>.payload` | `{}` | the payload of every scheduled run |
 | `pollIntervalMs` | `1000` | how often an idle worker looks for due jobs |
 | `shutdownGraceMs` | `20000` | how long a stopping worker waits for running handlers before releasing their jobs |
-| `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7 }` | how long finished jobs are kept; the worker prunes once an hour |
+| `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90 }` | how long finished jobs, and sync ledger items no run met, are kept; the worker prunes once an hour |
 
 A queue name is lowercase letters, digits, `_`, `.` and `-`. A queue the config does not define is refused by
 `enqueueJob` and by the worker: a typo is a bug, not a new queue. A schedule defines its queue too, with the default
@@ -264,6 +265,54 @@ among its queues, then runs every due job once, in this process, one after anoth
 `{ succeeded, retried, failed, stale }`. A cron can drain a queue with it; call `pruneJobs(ctx)` from the same cron.
 `enqueueDueSchedules(ctx, { queues? })` only enqueues the due scheduled runs.
 
+### Sync state for polling
+
+A job that polls a source (new mails under a label, changed tasks in a list, rows flagged for export) needs a cursor
+that moves only after its batch was handled, and a ledger that remembers which items were handled. From
+`@softure-ai/jobs/server`:
+
+```ts
+import { err, ok } from "@softure-ai/core";
+import { skipSyncItem } from "@softure-ai/jobs";
+import { advanceSyncCursor, getSyncCursor, processSyncItem } from "@softure-ai/jobs/server";
+
+const from = await getSyncCursor(ctx, "gmail.inbox");
+const batch = await gmail.listSince(from); // the app's own client
+for (const message of batch.messages) {
+  await processSyncItem(ctx, { source: "gmail.inbox", itemId: message.id, maxAttempts: 3 }, async ({ db }) => {
+    if (!isTask(message)) return skipSyncItem("app.not_a_task");
+    const created = await createTask(db, message); // written through the item's transaction
+    return created.ok ? ok({ status: "done", resultRef: created.value.id }) : err("app.task_failed");
+  });
+}
+await advanceSyncCursor(ctx, { source: "gmail.inbox", from, to: batch.nextCursor });
+```
+
+- `processSyncItem(ctx, { source, itemId, maxAttempts? }, run)` takes the item's ledger row (inserting it on first
+  sight, locking it so two workers on one item take turns) and runs `run` unless the item is already `done`,
+  `skipped` or `failed`, which returns `{ kind: "skipped", item }`. `run` gets `{ ...ctx, db, attempt }` where `db` is
+  the item's transaction: writes through it commit together with the ledger's `done`, so "effect first, then
+  acknowledge" needs no code of the app's. `ok()` or `ok({ status: "done", resultRef })` → `handled`, item `done`;
+  `skipSyncItem(reason?)` → `handled`, item `skipped`; an `Err` → the writes roll back, the attempt counts, the item
+  stays `pending` (`retrying`) until `maxAttempts` (default 5) runs failed, then `failed`; `failSyncItem(code)` fails
+  it at once. A throw is recorded as a failed attempt with `jobs.sync_item_threw` and rethrown, so a poison item still
+  ends `failed`.
+- A call outside the database (an API) is not rolled back: a crash after it and before the commit repeats it on the
+  next run. Keep it idempotent where the source allows, and keep each item short: its transaction stays open while
+  `run` runs.
+- `getSyncCursor(ctx, source)` returns the cursor or `null`. `advanceSyncCursor(ctx, { source, from, to })` is a
+  compare-and-set: refused with `jobs.sync_cursor_moved` when the stored cursor is no longer `from`, so a slower
+  worker cannot move it back; re-read and go on. Pass a transaction as `ctx.db` to move it with the batch's last write.
+- `listSyncItems(ctx, { source?, status?, since?, limit? })` lists the ledger, most recently changed first (default
+  100, at most 1000): what passed, what failed and with which code, for an overview page or an MCP tool.
+- `pruneSyncItems(ctx)` deletes items no `processSyncItem` call met for `retention.syncItemsDays` (90), whatever
+  their status; every call touches `last_seen_at`, so an item the source still returns is never forgotten (and never
+  handled twice). The worker runs it with its hourly prune; an app without a worker calls it from its cron.
+- A source name is lowercase letters, digits, `_ . : -`, starting with a letter, up to 127 characters (`gmail.inbox`,
+  `todoist:project-42`); an item id up to 500 characters.
+- In tests, `listSyncState(db)` from `@softure-ai/jobs/testing` returns `{ cursors, items }` for assertions after
+  `runDueJobs` ran the polling job.
+
 ### Steering and overview
 
 From `@softure-ai/jobs/server`, each on `ctx = { db, clock, config }`:
@@ -286,8 +335,8 @@ Nothing to mount: the module has no routes or pages. The worker is a process (§
 
 ## 5. Migrations and tables
 
-Schema `jobs`, two tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql` and
-`migrations/0003_add_schedule_failures.sql`:
+Schema `jobs`, four tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
+`migrations/0003_add_schedule_failures.sql` and `migrations/0004_create_sync_state.sql`:
 
 `jobs.jobs`: `id` (bigint identity; a string in the API), `queue`, `payload` (jsonb), `status` (`pending`, `running`,
 `succeeded`, `failed`, `cancelled`), `attempts`, `max_attempts`, `run_at`, `locked_until`, `locked_by` (the worker,
@@ -299,6 +348,13 @@ for finished jobs; a partial unique index allows one live job per queue and dedu
 was enqueued for), `last_succeeded_at`, `last_failed_at`, `last_failure_code` (an error code, never a message),
 `created_at`, `updated_at`. One row per schedule a worker has seen; a row of
 a schedule removed from the config stays and is ignored.
+
+`jobs.sync_cursors`: `source` (primary key), `cursor` (1 to 2000 characters), `created_at`, `updated_at`.
+
+`jobs.sync_items`: `source` and `item_id` (primary key), `status` (`pending`, `done`, `skipped`, `failed`),
+`error_code` (the last failure's code or the skip reason, never a message), `attempts`, `result_ref` (done items only),
+`first_seen_at`, `last_seen_at`, `updated_at`, `finished_at`. Checks keep `finished_at` set exactly for final items and
+an error code on failed ones.
 
 The app role needs `SELECT, INSERT, UPDATE, DELETE` on the tables, which the `@softure-ai/ops` roles recipe grants on
 every schema the migrator creates.
@@ -318,7 +374,8 @@ No UI.
 ## 9. Copy
 
 `errors.*` in `src/messages/en.ts`, one key per error code (`invalid_payload`, `handler_threw`, `lease_expired`,
-`not_found`, `not_cancellable`, `not_retryable`, `dedup_key_taken`), for an admin screen that shows a job's state.
+`not_found`, `not_cancellable`, `not_retryable`, `dedup_key_taken`, `sync_cursor_moved`, `sync_item_threw`), for an
+admin screen that shows a job's or a sync item's state.
 
 ## 10. Hooks
 
@@ -330,7 +387,8 @@ a release, pruning.
 
 No export or deletion contributor: jobs are transient and pruned (§3, `retention`). Keep personal data out of
 payloads (ids only); then a deleted account leaves nothing personal in `jobs.jobs`. `last_error` holds codes, and the
-logger gets payload paths, never values, for a payload that does not match its schema.
+logger gets payload paths, never values, for a payload that does not match its schema. The sync ledger holds the
+source's item ids, not their content; if an id is personal (an e-mail address), the app hashes it before passing it.
 
 ## 12. Limitations
 

@@ -4,6 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Sync state for jobs that poll a third-party source (#639): a cursor per source and a processed-item ledger, so a
+  second run never acts twice on the same item, a failed item is retried a bounded number of times and an overview
+  shows what passed, what failed and why. New in `@softure-ai/jobs/server`: `getSyncCursor`, `advanceSyncCursor`
+  (compare-and-set; `jobs.sync_cursor_moved` when another run moved it first), `processSyncItem` (runs the callback in
+  the item's transaction, so the app's writes commit with the ledger's `done`; returns `handled`, `retrying`, `failed`
+  or `skipped`), `listSyncItems`, `pruneSyncItems`. New in `@softure-ai/jobs`: `skipSyncItem`, `failSyncItem`, the
+  `SyncItem*` types, `SYNC_ITEM_STATUSES`, `jobSyncCursorsTable`, `jobSyncItemsTable`; in `@softure-ai/jobs/testing`:
+  `listSyncState`. Error codes `jobs.sync_cursor_moved` and `jobs.sync_item_threw` with their `errors.*` copy.
+- `retention.syncItemsDays` (default 90): ledger items no run met for that long are deleted by the worker's hourly
+  prune (or `pruneSyncItems` from a cron).
+- Migration for an app: run the module migrations (`0004_create_sync_state.sql` adds `jobs.sync_cursors` and
+  `jobs.sync_items`). An app that keeps its own cursor and processed-items tables for a polling job can move to these
+  (copy its rows into them, then drop its tables); nothing changes for an app that does not poll. Code or tests that
+  compare the whole parsed `retention` option with `toEqual` see the new key.
+
 ## 0.1.3
 
 - A health check of the worker's loop (#610): `runJobWorkerProcess({ healthFile })` (and `runJobWorker`) touches the

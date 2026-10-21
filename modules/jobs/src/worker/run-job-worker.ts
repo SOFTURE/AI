@@ -10,6 +10,7 @@ import type { JobsContext } from "../server/context.js";
 import { checkHandlers } from "../server/handler-check.js";
 import { consoleJobsLogger, type JobsLogger } from "../server/logger.js";
 import { pruneJobs } from "../server/maintenance.js";
+import { pruneSyncItems } from "../server/sync-items.js";
 import { getJobsOptions, getQueue } from "../server/options.js";
 import { runClaimedJob } from "../server/process.js";
 import { enqueueScheduledRun, getSchedule, getScheduleNames, getScheduleSlot } from "../server/schedules.js";
@@ -142,6 +143,12 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
         if (deleted > 0) logger.info("pruned finished jobs", { deleted });
       } catch (error) {
         logger.error("could not prune finished jobs", { error });
+      }
+      try {
+        const deleted = await pruneSyncItems(ctx);
+        if (deleted > 0) logger.info("pruned sync ledger items", { deleted });
+      } catch (error) {
+        logger.error("could not prune sync ledger items", { error });
       }
     }
     if (!isClaimFailed) healthFile?.touch();

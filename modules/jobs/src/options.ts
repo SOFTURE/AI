@@ -104,6 +104,8 @@ const retentionSchema = z.strictObject({
   failedDays: z.number().int().min(1).max(3650).default(30),
   /** Days a cancelled job is kept. */
   cancelledDays: z.number().int().min(0).max(3650).default(7),
+  /** Days a sync ledger item is kept after the last run that met it (`processSyncItem`). */
+  syncItemsDays: z.number().int().min(1).max(3650).default(90),
 });
 
 export const jobsOptionsSchema = z
@@ -120,8 +122,8 @@ export const jobsOptionsSchema = z
     pollIntervalMs: z.number().int().min(50).max(60_000).default(1000),
     /** How long a stopping worker waits for running handlers before it releases their jobs. */
     shutdownGraceMs: z.number().int().min(0).max(10 * 60_000).default(20_000),
-    /** How long finished jobs are kept; the worker prunes once an hour. */
-    retention: retentionSchema.default({ succeededDays: 7, failedDays: 30, cancelledDays: 7 }),
+    /** How long finished jobs and unseen sync ledger items are kept; the worker prunes once an hour. */
+    retention: retentionSchema.default({ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90 }),
   })
   .superRefine((options, context) => {
     if (Object.keys(options.queues).length === 0 && Object.keys(options.schedules).length === 0) {

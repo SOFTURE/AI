@@ -1,6 +1,6 @@
 // Drizzle view of the module's tables (migrations/). The migrations are the source of truth; this
 // file only types the queries.
-import { bigint, integer, jsonb, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, integer, jsonb, pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const jobsSchema = pgSchema("jobs");
 
@@ -33,3 +33,29 @@ export const schedules = jobsSchema.table("schedules", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 });
+
+export const syncCursors = jobsSchema.table("sync_cursors", {
+  source: text("source").primaryKey(),
+  cursor: text("cursor").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
+
+export const syncItems = jobsSchema.table(
+  "sync_items",
+  {
+    source: text("source").notNull(),
+    itemId: text("item_id").notNull(),
+    status: text("status", { enum: ["pending", "done", "skipped", "failed"] }).notNull(),
+    errorCode: text("error_code"),
+    attempts: integer("attempts").notNull(),
+    resultRef: text("result_ref"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [primaryKey({ columns: [table.source, table.itemId] })],
+);
+
+export type SyncItemRow = typeof syncItems.$inferSelect;
