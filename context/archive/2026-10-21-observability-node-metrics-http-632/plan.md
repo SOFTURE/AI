@@ -1,6 +1,6 @@
 ---
 change_id: observability-node-metrics-http-632
-status: in_progress
+status: archived
 ---
 
 # Plan: metrics, inbound HTTP spans and both environment keys (issue #632)
@@ -33,10 +33,13 @@ Files: `src/node/start.ts`, `src/node/ignore-paths-sampler.ts`, `src/next/index.
 
 ## Phase 3: docs
 
-README (signals, options, cardinality, http instrumentation load order), CHANGELOG `## 0.4.0`, version bump 0.4.0.
+README (signals, options, cardinality, http instrumentation load order), CHANGELOG `## Unreleased`; the bump to
+0.4.0 is the release pull request (`npm run release:version`).
 
 ## Progress
 
-- [ ] Phase 1: config (TDD)
-- [ ] Phase 2: start (TDD)
-- [ ] Phase 3: docs
+- [x] Phase 1: config (TDD) (7 tests written first and failing; metrics signal, off switches, both environment keys)
+- [x] Phase 2: start (TDD) (10 tests written first, 7 failing without the change; process-wide http instrumentation,
+  shutdown order fixed after a manual ESM run; 107 observability tests pass)
+- [x] Phase 3: docs (README configuration, Incoming requests, Metrics; CHANGELOG `## Unreleased`; the version bump
+  follows in the release pull request)

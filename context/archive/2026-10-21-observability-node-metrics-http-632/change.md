@@ -1,12 +1,13 @@
 ---
 change_id: observability-node-metrics-http-632
 title: "observability: OTLP metrics, inbound HTTP spans and both deployment environment keys in startObservability (issue #632)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 632
 branch: claude/project-thread-aenczl
 created: 2026-10-21
 updated: 2026-10-21
+archived_at: 2026-10-21
 ---
 
 ## Intent
