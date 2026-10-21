@@ -38,6 +38,11 @@
       "types": "./dist/testing.d.ts",
       "default": "./dist/testing.js"
     },
+    "./testing/global-setup": {
+      "@softure-ai/source": "./src/testing/global-setup.ts",
+      "types": "./dist/testing/global-setup.d.ts",
+      "default": "./dist/testing/global-setup.js"
+    },
     "./cli": {
       "@softure-ai/source": "./src/cli/index.ts",
       "types": "./dist/cli/index.d.ts",

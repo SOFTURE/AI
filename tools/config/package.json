@@ -25,7 +25,8 @@
     "provenance": true
   },
   "bin": {
-    "softure-check-language": "./dist/cli/check-language.js"
+    "softure-check-language": "./dist/cli/check-language.js",
+    "softure-context-only-push": "./dist/cli/context-only-push.js"
   },
   "exports": {
     "./eslint": {

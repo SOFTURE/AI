@@ -311,6 +311,9 @@ thin actions) are not needed.
 
 - **Unit/contract:** vitest + `createTestDatabase()` (PGlite with the migrations of the module and its
   dependencies), random order, injected clock, test time zone ≠ UTC (FIRE uses America/New_York).
+  The `@softure-ai/db/testing/global-setup` global setup migrates each module set once per run, and
+  `{ reuse: true }` resets a used database instead of copying a new one
+  ([foundation/db](../foundation/db/README.md), section 5).
 - **Clock shift:** an app's date guards are checked ahead of time with `TEST_TODAY=YYYY-MM-DD` and the
   `@softure-ai/testing/vitest-setup` setup file, which moves the global `Date` to that day while time
   keeps running ([foundation/testing](../foundation/testing/README.md)). Module code still takes the
