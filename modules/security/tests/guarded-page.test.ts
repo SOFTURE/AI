@@ -17,7 +17,8 @@ beforeEach(async () => {
   routes = new Map();
   server = createServer((request, response) => {
     received.push(request);
-    const route = routes.get(request.url ?? "");
+    // Matched by comparing paths, never by looking a handler up with the request's URL as the key.
+    const route = [...routes].find(([path]) => path === request.url)?.[1];
     if (route === undefined) {
       response.writeHead(404, { "content-type": "text/plain" }).end("missing");
     } else {
