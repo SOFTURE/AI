@@ -5,6 +5,9 @@ import type { ClientIpResolver } from "./client-ip.js";
 const BUCKET_NAME = /^[a-z][a-z0-9_.-]{0,62}$/;
 const MAX_LIMIT = 1_000_000;
 const MAX_WINDOW_MINUTES = 7 * 24 * 60;
+/** Default days a webhook delivery id is kept: well past every provider's retry window (Shopify retries for 48 hours). */
+export const WEBHOOK_DELIVERY_RETENTION_DAYS = 30;
+const MAX_RETENTION_DAYS = 365;
 
 const RESOLVER_HINT = "must be a client-IP resolver or a non-empty list of them, e.g. cloudflareIp()";
 const BUCKET_NAME_HINT = "is not a bucket name: lowercase letters, digits, _ . and -, starting with a letter";
@@ -64,6 +67,10 @@ export const securityOptionsSchema = z.strictObject({
   ipv6Subnet: z.number().int().min(1).max(128).default(64),
   /** Chance that a consumed attempt also deletes expired rows. */
   cleanupProbability: z.number().min(0).max(1).default(0.01),
+  /** The delivery ledger (`recordDeliveryOnce`): ids older than `retentionDays` are pruned. */
+  webhookDeliveries: z
+    .strictObject({ retentionDays: z.number().int().min(1).max(MAX_RETENTION_DAYS).default(WEBHOOK_DELIVERY_RETENTION_DAYS) })
+    .default({ retentionDays: WEBHOOK_DELIVERY_RETENTION_DAYS }),
 });
 
 export type SecurityOptionsInput = z.input<typeof securityOptionsSchema>;

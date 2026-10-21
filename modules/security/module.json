@@ -3,7 +3,7 @@
   "version": "0.2.3",
   "dependsOn": { "jobs": "^0.1.1?" },
   "dbSchema": "security",
-  "tables": ["rate_limits"],
+  "tables": ["rate_limits", "webhook_deliveries"],
   "env": [],
   "switches": [],
   "routes": {},

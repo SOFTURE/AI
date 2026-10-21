@@ -16,7 +16,7 @@ export const security = defineModule({
     version: "0.2.3",
     dependsOn: { jobs: "^0.1.1?" },
     dbSchema: "security",
-    tables: ["rate_limits"],
+    tables: ["rate_limits", "webhook_deliveries"],
     env: [],
     switches: [],
     routes: {},
@@ -46,6 +46,7 @@ export {
   type RateLimitKeyKind,
   type SecurityOptions,
   type SecurityOptionsInput,
+  WEBHOOK_DELIVERY_RETENTION_DAYS,
 } from "./options.js";
 export {
   readSmallBody,
@@ -54,14 +55,24 @@ export {
   type ReadSmallBodyOptions,
   type ReadSmallBodyResult,
 } from "./read-small-body.js";
-export { rateLimits } from "./schema.js";
+export { rateLimits, webhookDeliveries } from "./schema.js";
 export {
   MIN_SIGNING_SECRET_LENGTH,
   SIGNED_REQUEST_TOLERANCE_SECONDS,
   signRequestBody,
+  signWebhookBody,
   verifySignedRequest,
+  verifyWebhookSignature,
+  WEBHOOK_SIGNATURE_ALGORITHMS,
+  WEBHOOK_SIGNATURE_ENCODINGS,
   type SignRequestBodyInput,
+  type SignWebhookBodyInput,
   type SigningSecret,
   type VerifySignedRequestInput,
   type VerifySignedRequestResult,
+  type VerifyWebhookSignatureInput,
+  type VerifyWebhookSignatureResult,
+  type WebhookSignatureAlgorithm,
+  type WebhookSignatureEncoding,
+  type WebhookSignatureFormat,
 } from "./signed-request.js";
