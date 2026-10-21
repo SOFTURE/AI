@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
+## Unreleased
+
+- `fetchGuardedPage(url, { timeoutMs, maxBytes, maxRedirects?, accept?, userAgent?, allowedPorts?, allowTruncation? },
+  seam?)` in `@softure-ai/security/server` (#636): a GET of a page at a URL someone else chose (saved links, link
+  previews, page summaries). Redirects are followed (default 5) and every hop goes through the same checks as
+  `sendGuardedRequest`, the guarded lookup included; one time limit covers the whole fetch; the body comes back as a
+  `Uint8Array` capped at `maxBytes` after gzip, deflate or brotli is undone, with `status`, `finalUrl`, `contentType`,
+  `charset` and `truncated`. Default ports `[80, 443]`. New code `security.outbound_too_large` (with
+  `allowTruncation: false`; English message added, an app with its own translation adds `errors.outbound_too_large`).
+- `htmlToReadableText(html, { baseUrl })` in the new entry point `@softure-ai/security/readable-text` (#636): the page's `title`, `description`,
+  main text and absolute links, with no network and no script. New dependency `node-html-parser`.
+- Nothing to migrate: `sendGuardedRequest` behaves as before.
+
 ## 0.2.3
 
 - `sendGuardedRequest(url, { method, headers?, body?, timeoutMs, allowedPorts? }, seam?)` and `isPublicAddress(address)`

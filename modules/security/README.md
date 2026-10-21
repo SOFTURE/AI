@@ -12,7 +12,8 @@ resolvers and `readSmallBody`, so every public route and server action can refus
 they cost anything. Webhook-style endpoints read the raw body with `readSmallBodyBytes` and check a
 shared-secret signature with `verifySignedRequest`; the sender signs with `signRequestBody` (§4,
 "Signed requests"). A request to a URL someone else chose goes through `sendGuardedRequest`, which refuses
-private and other non-public targets (§4, "Requests to third-party URLs").
+private and other non-public targets (§4, "Requests to third-party URLs"); a page behind such a URL is fetched with
+`fetchGuardedPage` and turned into plain text with `htmlToReadableText` (§4, "Fetching a page").
 
 ## 2. Installation
 
@@ -271,6 +272,51 @@ const result = await sendGuardedRequest(`http://unsubscribe.test:${port}/`, { me
 });
 ```
 
+### Fetching a page
+
+A saved link, a link preview or a "summarize this page" feature needs the page itself. `fetchGuardedPage` sends a
+GET with the same guard on every hop: the first URL and each redirect's `Location` (resolved against the hop it came
+from) pass the URL checks above and are resolved through the guarded lookup again, so a short link cannot redirect
+the server to `169.254.169.254` or a host that resolves to the private network. One timer covers every hop and the
+body, and the body is cut at `maxBytes` after `content-encoding` (gzip, deflate, brotli) is undone, so a small
+compressed answer cannot expand past the cap.
+
+```ts
+import { htmlToReadableText } from "@softure-ai/security/readable-text";
+import { fetchGuardedPage } from "@softure-ai/security/server";
+
+const fetched = await fetchGuardedPage(savedLink.url, { timeoutMs: 10_000, maxBytes: 2_000_000 });
+if (!fetched.ok) return markPreviewFailed(fetched.error);
+const { status, finalUrl, contentType, charset, body } = fetched.value;
+if (status !== 200 || contentType !== "text/html") return markPreviewFailed("not_a_page");
+const html = new TextDecoder(charset ?? "utf-8").decode(body); // an unknown label throws a RangeError
+const { title, description, text, links } = htmlToReadableText(html, { baseUrl: finalUrl });
+```
+
+| Function | Returns |
+| --- | --- |
+| `fetchGuardedPage(url, { timeoutMs, maxBytes, maxRedirects?, accept?, userAgent?, allowedPorts?, allowTruncation? }, seam?)` (`@softure-ai/security/server`) | `Ok<{ status, finalUrl, contentType, charset, body: Uint8Array, truncated }>`, or `Err` with the `security.outbound_*` codes above or `security.outbound_too_large` |
+| `htmlToReadableText(html, { baseUrl })` (`@softure-ai/security/readable-text`) | `{ title, description, text, links: { text, url }[] }`; no network, no script |
+
+**Options.** `maxRedirects` defaults to 5 (more hops is `security.outbound_failed`; `0` returns a 3xx as the page).
+`allowedPorts` defaults to `[80, 443]`, since plain `http:` links are common and the guard holds on any port; every
+hop must stay inside it. `accept` defaults to HTML first, `userAgent` to `GUARDED_PAGE_USER_AGENT`. A body longer than
+`maxBytes` comes back cut with `truncated: true`, or as `security.outbound_too_large` with `allowTruncation: false`.
+
+**What comes back.** Any status, a 404 or a 500 included, is `Ok` with its body: the caller decides. `contentType`
+is the media type in lowercase without parameters; `charset` is the declared label (the `content-type` parameter,
+else for HTML a `<meta charset>` or `http-equiv` in the first 1024 bytes) or `null`. Decoding stays with the caller.
+An encoding the fetch cannot undo, or a body that does not decode, is `security.outbound_failed`.
+
+**Readable text.** `htmlToReadableText` lives in its own entry point, `@softure-ai/security/readable-text`, so
+`/server` does not load the HTML parser for an app that never uses it; it runs anywhere, not only on Node. It parses the HTML into a static tree (`node-html-parser`): no script runs and
+nothing is loaded. The title is `<title>`, else `og:title`, else the first `h1`; the description is the meta
+description, else `og:description` (a video page often has nothing else). The text is `main` (else `body`), narrowed
+to its only `article`, without scripts, styles, navigation, forms, asides, hidden nodes and the page's own header and
+footer; blocks become paragraphs, list items `- ` or `1. ` lines, `pre` keeps its lines. Links stay as their text,
+and `links` lists the absolute `http:`/`https:` URLs once each (resolved on `<base>`, else `baseUrl`), without
+`mailto:`, `javascript:` and links to a place on the same page.
+
 ## 5. Migrations and tables
 
 Schema `security`, one migration:
@@ -336,8 +382,11 @@ export const handlers: JobHandlers = { ...securityJobHandlers /* , the app's own
   next cleanup or a scheduled `pruneRateLimits`.
 - Signed requests stop forgery and replay outside the window, not a replay inside it: an endpoint
   whose effect must happen once also deduplicates by a message id.
-- `sendGuardedRequest` returns the status only: no response body, no redirect following and no proxy
-  support. A request that must go through an outbound proxy needs its own client.
+- `sendGuardedRequest` returns the status only: no response body and no redirect following
+  (`fetchGuardedPage` reads the body and follows redirects, GET only). Neither supports an outbound proxy: a request
+  that must go through one needs its own client.
+- `htmlToReadableText` reads the HTML as served; a page that renders its content with JavaScript has little text
+  beyond its title and description.
 
 ## Build
 

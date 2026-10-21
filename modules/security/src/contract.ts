@@ -11,7 +11,8 @@ export type SecurityErrorCode =
   | "security.outbound_invalid_url"
   | "security.outbound_blocked"
   | "security.outbound_timeout"
-  | "security.outbound_failed";
+  | "security.outbound_failed"
+  | "security.outbound_too_large";
 
 /** A consumed attempt that fits in the bucket's window. */
 export interface RateLimitAllowance {

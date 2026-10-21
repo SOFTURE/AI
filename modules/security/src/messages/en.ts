@@ -9,5 +9,6 @@ export const en = {
     outbound_blocked: "That address cannot be contacted.",
     outbound_timeout: "The other server did not answer in time.",
     outbound_failed: "The other server could not be reached.",
+    outbound_too_large: "The page is too large.",
   },
 };
