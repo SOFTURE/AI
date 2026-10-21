@@ -44,6 +44,17 @@ describe("spans", () => {
     expect(JSON.stringify(span?.attributes)).not.toMatch(/private prompt|secret answer|acc-1/);
   });
 
+  it("name a text call llm.generate_text and never record the answer", async () => {
+    const llm = createLlm({ model: fakeModel({ kind: "text", text: "secret summary" }), tracer });
+
+    await llm.generateText({ prompt: "private prompt" });
+
+    const [span] = exporter.getFinishedSpans();
+    expect(span?.name).toBe("llm.generate_text");
+    expect(span?.attributes["softure.llm.outcome"]).toBe("ok");
+    expect(JSON.stringify(span?.attributes)).not.toMatch(/private prompt|secret summary/);
+  });
+
   it("mark a failed call as an error with its code", async () => {
     const llm = createLlm({ model: fakeModel({ kind: "unavailable" }), tracer });
 

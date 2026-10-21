@@ -1,9 +1,16 @@
 import { err, ok, systemClock, type Clock, type Result } from "@softure-ai/core";
 import type { Tracer } from "@opentelemetry/api";
-import { AISDKError, generateText, NoObjectGeneratedError, Output, type LanguageModel } from "ai";
+import { AISDKError, generateText as sdkGenerateText, NoObjectGeneratedError, Output, type LanguageModel } from "ai";
 import type { z } from "zod";
-import type { LlmErrorCode, LlmUsage, ModelPricing, StructuredResult, UsageRecord } from "./contract.js";
-import { endCallSpan, failCallSpan, getDefaultTracer, startCallSpan } from "./tracing.js";
+import type { LlmErrorCode, LlmUsage, ModelPricing, StructuredResult, TextResult, UsageRecord } from "./contract.js";
+import {
+  endCallSpan,
+  failCallSpan,
+  getDefaultTracer,
+  startCallSpan,
+  STRUCTURED_SPAN_NAME,
+  TEXT_SPAN_NAME,
+} from "./tracing.js";
 import { getCostUsd, toLlmUsage } from "./usage.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -30,11 +37,12 @@ export interface LlmOptions {
   readonly tracer?: Tracer;
 }
 
-export interface StructuredRequest<T> {
-  /** The shape of the answer; the output is parsed and validated with it. */
-  readonly schema: z.ZodType<T>;
+/** What both calls share. */
+interface BaseRequest {
   readonly system?: string;
   readonly prompt: string;
+  /** Upper limit of output tokens; a model that stops on it yields `llm.output_truncated`. Default: the provider's. */
+  readonly maxOutputTokens?: number;
   /** Overrides the default time limit for this call. */
   readonly timeoutMs?: number;
   /** Overrides the default model for this call. */
@@ -43,9 +51,22 @@ export interface StructuredRequest<T> {
   readonly attributes?: Readonly<Record<string, string>>;
 }
 
+export interface StructuredRequest<T> extends BaseRequest {
+  /** The shape of the answer; the output is parsed and validated with it. */
+  readonly schema: z.ZodType<T>;
+}
+
+export interface TextRequest extends BaseRequest {
+  /** Cuts the trimmed answer to at most this many characters, at the last whitespace inside the limit. */
+  readonly maxChars?: number;
+}
+
 export interface Llm {
   generateStructured<T>(request: StructuredRequest<T>): Promise<Result<StructuredResult<T>, LlmErrorCode>>;
+  generateText(request: TextRequest): Promise<Result<TextResult, LlmErrorCode>>;
 }
+
+type SdkResult = Awaited<ReturnType<typeof sdkGenerateText>>;
 
 type CallOutcome<T> =
   | { readonly kind: "answered"; readonly output: T; readonly model: string; readonly usage: LlmUsage }
@@ -53,6 +74,24 @@ type CallOutcome<T> =
   | { readonly kind: "timed_out" };
 
 type Settled<T> = { readonly kind: "resolved"; readonly value: T } | { readonly kind: "rejected"; readonly error: unknown };
+
+/** One model call as the two operations describe it to the shared call path. */
+interface ModelCall<T> {
+  readonly operation: "generateStructured" | "generateText";
+  readonly spanName: string;
+  readonly request: BaseRequest;
+  /** The AI SDK's structured output setting; absent for free text. */
+  readonly output?: ReturnType<typeof Output.object>;
+  /** Turns a finished answer into the operation's value, or a failure code. */
+  readonly readAnswer: (result: SdkResult) => { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: LlmErrorCode };
+}
+
+interface CallSuccess<T> {
+  readonly output: T;
+  readonly usage: LlmUsage;
+  readonly model: string;
+  readonly costUsd: number | null;
+}
 
 /** Creates the app's language model access. Invalid options throw a `RangeError` naming the option. */
 export function createLlm(options: LlmOptions): Llm {
@@ -63,16 +102,18 @@ export function createLlm(options: LlmOptions): Llm {
   const tracer = options.tracer ?? getDefaultTracer();
   const pricing = options.pricing ?? {};
 
-  async function generateStructured<T>(request: StructuredRequest<T>): Promise<Result<StructuredResult<T>, LlmErrorCode>> {
-    assertTimeout(request.timeoutMs, "generateStructured: timeoutMs");
+  async function runCall<T>(call: ModelCall<T>): Promise<Result<CallSuccess<T>, LlmErrorCode>> {
+    const { request } = call;
+    assertTimeout(request.timeoutMs, `${call.operation}: timeoutMs`);
+    assertPositiveInteger(request.maxOutputTokens, `${call.operation}: maxOutputTokens`);
     const model = request.model ?? options.model;
     const { provider, modelId } = model;
-    const span = startCallSpan(tracer, { provider, model: modelId });
+    const span = startCallSpan(tracer, call.spanName, { provider, model: modelId });
     const startedAt = clock.now();
 
     let outcome: CallOutcome<T>;
     try {
-      outcome = await callModel(request, model, request.timeoutMs ?? options.timeoutMs ?? DEFAULT_TIMEOUT_MS, options.maxRetries);
+      outcome = await callModel(call, model, request.timeoutMs ?? options.timeoutMs ?? DEFAULT_TIMEOUT_MS, options.maxRetries);
     } catch (error) {
       failCallSpan(span, error);
       throw error;
@@ -104,16 +145,45 @@ export function createLlm(options: LlmOptions): Llm {
     return ok({ output: outcome.output, usage: outcome.usage, model: answeredModel, costUsd });
   }
 
-  return { generateStructured };
+  async function generateStructured<T>(request: StructuredRequest<T>): Promise<Result<StructuredResult<T>, LlmErrorCode>> {
+    return runCall<T>({
+      operation: "generateStructured",
+      spanName: STRUCTURED_SPAN_NAME,
+      request,
+      output: Output.object({ schema: request.schema }),
+      // The schema above validated the output; the SDK types it from the schema it was given.
+      readAnswer: (result) => ({ ok: true, value: result.output as T }),
+    });
+  }
+
+  async function generateText(request: TextRequest): Promise<Result<TextResult, LlmErrorCode>> {
+    assertPositiveInteger(request.maxChars, "generateText: maxChars");
+    const result = await runCall({
+      operation: "generateText",
+      spanName: TEXT_SPAN_NAME,
+      request,
+      readAnswer: (answer) => {
+        const text = answer.text.trim();
+        if (text === "") return { ok: false, code: "llm.invalid_output" };
+        return { ok: true, value: cutText(text, request.maxChars) };
+      },
+    });
+    if (!result.ok) return result;
+    const { output, ...rest } = result.value;
+    return ok({ text: output.text, truncated: output.truncated, ...rest });
+  }
+
+  return { generateStructured, generateText };
 }
 
 /** Runs the AI SDK call under a time limit. Rejects only with an error that is not the AI SDK's (a bug). */
 async function callModel<T>(
-  request: StructuredRequest<T>,
+  call: ModelCall<T>,
   model: LlmModel,
   timeoutMs: number,
   maxRetries: number | undefined,
 ): Promise<CallOutcome<T>> {
+  const { request } = call;
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timedOut = new Promise<{ readonly kind: "timed_out" }>((resolve) => {
@@ -123,11 +193,12 @@ async function callModel<T>(
     }, timeoutMs);
   });
   // Settled into a value before the race, so a rejection after the timeout is never unhandled.
-  const call: Promise<Settled<Awaited<ReturnType<typeof generateText>>>> = generateText({
+  const pending: Promise<Settled<SdkResult>> = sdkGenerateText({
     model,
-    output: Output.object({ schema: request.schema }),
+    ...(call.output === undefined ? {} : { output: call.output }),
     ...(request.system === undefined ? {} : { system: request.system }),
     prompt: request.prompt,
+    ...(request.maxOutputTokens === undefined ? {} : { maxOutputTokens: request.maxOutputTokens }),
     abortSignal: controller.signal,
     ...(maxRetries === undefined ? {} : { maxRetries }),
   }).then(
@@ -135,33 +206,43 @@ async function callModel<T>(
     (error: unknown) => ({ kind: "rejected", error }),
   );
 
-  let settled: Settled<Awaited<ReturnType<typeof generateText>>> | { readonly kind: "timed_out" };
+  let settled: Settled<SdkResult> | { readonly kind: "timed_out" };
   try {
-    settled = await Promise.race([call, timedOut]);
+    settled = await Promise.race([pending, timedOut]);
   } finally {
     clearTimeout(timer);
   }
 
   if (settled.kind === "timed_out" || controller.signal.aborted) return { kind: "timed_out" };
-  if (settled.kind === "resolved") {
-    return {
-      kind: "answered",
-      // The schema above validated the output; the SDK types it from the schema it was given.
-      output: settled.value.output as T,
-      model: settled.value.response.modelId,
-      usage: toLlmUsage(settled.value.totalUsage),
-    };
-  }
-  return classifyFailure(settled.error);
+  if (settled.kind === "rejected") return classifyFailure(settled.error);
+
+  const answer = settled.value;
+  const answeredModel = answer.response.modelId;
+  const usage = toLlmUsage(answer.totalUsage);
+  if (answer.finishReason === "length") return { kind: "failed", code: "llm.output_truncated", model: answeredModel, usage };
+  const read = call.readAnswer(answer);
+  if (!read.ok) return { kind: "failed", code: read.code, model: answeredModel, usage };
+  return { kind: "answered", output: read.value, model: answeredModel, usage };
 }
 
 function classifyFailure(error: unknown): CallOutcome<never> {
   if (NoObjectGeneratedError.isInstance(error)) {
-    return { kind: "failed", code: "llm.invalid_output", model: error.response?.modelId, usage: toLlmUsage(error.usage) };
+    const code = error.finishReason === "length" ? "llm.output_truncated" : "llm.invalid_output";
+    return { kind: "failed", code, model: error.response?.modelId, usage: toLlmUsage(error.usage) };
   }
   if (error instanceof DOMException && error.name === "TimeoutError") return { kind: "timed_out" };
   if (AISDKError.isInstance(error)) return { kind: "failed", code: "llm.unavailable" };
   throw error;
+}
+
+/** Cuts `text` to at most `maxChars` characters (code points), at the last whitespace when there is one. */
+function cutText(text: string, maxChars: number | undefined): { readonly text: string; readonly truncated: boolean } {
+  const chars = Array.from(text);
+  if (maxChars === undefined || chars.length <= maxChars) return { text, truncated: false };
+  const head = chars.slice(0, maxChars).join("");
+  if (/\s/.test(chars[maxChars] ?? "")) return { text: head.trimEnd(), truncated: true };
+  const lastSpace = head.search(/\s\S*$/);
+  return { text: lastSpace > 0 ? head.slice(0, lastSpace).trimEnd() : head, truncated: true };
 }
 
 function assertTimeout(value: number | undefined, name: string): void {
@@ -181,4 +262,9 @@ function assertPricing(pricing: ModelPricing): void {
       throw new RangeError(`createLlm: pricing["${model}"] must hold prices of 0 or more`);
     }
   }
+}
+
+function assertPositiveInteger(value: number | undefined, name: string): void {
+  if (value === undefined) return;
+  if (!Number.isInteger(value) || value <= 0) throw new RangeError(`createLlm: ${name} must be a whole number of 1 or more`);
 }

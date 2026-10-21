@@ -76,6 +76,24 @@ describe("generateStructured", () => {
     expect(usage.records.map((record) => [record.outcome, record.usage.totalTokens])).toEqual([["llm.invalid_output", 15]]);
   });
 
+  it("sends maxOutputTokens to the model", async () => {
+    const model = fakeModel({ kind: "output", value: { score: 1 } });
+
+    await createLlm({ model }).generateStructured({ schema: scoreSchema, prompt: "Text", maxOutputTokens: 64 });
+
+    expect(model.doGenerateCalls[0]?.maxOutputTokens).toBe(64);
+  });
+
+  it("returns llm.output_truncated when the model stops on the token limit, and records the usage", async () => {
+    const usage = captureUsage();
+    const llm = createLlm({ model: fakeModel({ kind: "truncated", text: '{"score":' }), onUsage: usage.onUsage });
+
+    const result = await llm.generateStructured({ schema: scoreSchema, prompt: "Text" });
+
+    expect(result).toEqual({ ok: false, error: "llm.output_truncated" });
+    expect(usage.records.map((record) => [record.outcome, record.usage.totalTokens])).toEqual([["llm.output_truncated", 15]]);
+  });
+
   it("returns llm.unavailable when the provider fails, and records no usage", async () => {
     const usage = captureUsage();
     const llm = createLlm({ model: fakeModel({ kind: "unavailable" }), onUsage: usage.onUsage, maxRetries: 0 });
@@ -183,5 +201,13 @@ describe("createLlm options", () => {
     const llm = createLlm({ model });
 
     await expect(llm.generateStructured({ schema: scoreSchema, prompt: "Text", timeoutMs: -5 })).rejects.toThrow(RangeError);
+  });
+
+  it("refuses a token limit that is not a positive whole number", async () => {
+    const llm = createLlm({ model });
+
+    await expect(llm.generateStructured({ schema: scoreSchema, prompt: "Text", maxOutputTokens: 1.5 })).rejects.toThrow(
+      "generateStructured: maxOutputTokens",
+    );
   });
 });
