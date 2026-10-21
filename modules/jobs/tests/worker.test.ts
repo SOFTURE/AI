@@ -3,7 +3,7 @@
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { err, ok, systemClock, type SoftureConfig } from "@softure-ai/core";
 import { defineJobHandler, type JobsOptionsInput } from "@softure-ai/jobs";
-import { enqueueJob, getJob, type JobsContext, type JobsLogger } from "@softure-ai/jobs/server";
+import { enqueueJob, getJob, listSyncItems, type JobsContext, type JobsLogger } from "@softure-ai/jobs/server";
 import { runJobWorker, runJobWorkerProcess } from "@softure-ai/jobs/worker";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -70,6 +70,26 @@ describe("runJobWorker", () => {
     controller.abort();
     await worker;
     expect(peak).toBe(2);
+  });
+
+  it("prunes sync ledger items past their retention on its first round", async () => {
+    await setUp();
+    const longAgo = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000);
+    await database.client.query(
+      `INSERT INTO jobs.sync_items (source, item_id, status, attempts, first_seen_at, last_seen_at, updated_at, finished_at)
+       VALUES ('gmail.inbox', 'old', 'done', 1, $1, $1, $1, $1), ('gmail.inbox', 'recent', 'done', 1, now(), now(), now(), now())`,
+      [longAgo],
+    );
+    const logger = createRecordingLogger();
+    const controller = new AbortController();
+    const handlers = { "ai.reply": defineJobHandler({ payload: z.object({}), run: () => Promise.resolve(ok()) }) };
+    const worker = runJobWorker({ db: database.db, config, handlers, signal: controller.signal, logger, workerId: "test" });
+
+    await waitFor(async () => (await listSyncItems(ctx)).length === 1);
+    controller.abort();
+    await worker;
+    expect((await listSyncItems(ctx)).map((item) => item.itemId)).toEqual(["recent"]);
+    expect(logger.lines).toContain("info: pruned sync ledger items");
   });
 
   it("picks up a job enqueued while it waits", async () => {

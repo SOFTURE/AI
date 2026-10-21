@@ -3,7 +3,7 @@
   "version": "0.1.3",
   "dependsOn": {},
   "dbSchema": "jobs",
-  "tables": ["jobs", "schedules"],
+  "tables": ["jobs", "schedules", "sync_cursors", "sync_items"],
   "env": [],
   "switches": [],
   "routes": {},

@@ -23,4 +23,13 @@ export {
   type EnqueueDueSchedulesInput,
   type ScheduleState,
 } from "./schedules.js";
+export { advanceSyncCursor, getSyncCursor, SYNC_SOURCE, type AdvanceSyncCursorInput } from "./sync-cursors.js";
+export {
+  listSyncItems,
+  processSyncItem,
+  pruneSyncItems,
+  type ListSyncItemsInput,
+  type ProcessSyncItemInput,
+  type SyncItemContext,
+} from "./sync-items.js";
 export { runDueJobs, type RunDueJobsOptions, type RunDueJobsReport } from "./run-due.js";
