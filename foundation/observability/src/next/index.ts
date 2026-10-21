@@ -28,7 +28,8 @@ export type NextRequestErrorHandler = (
 /**
  * Starts observability from `register()` in `instrumentation.ts`, in the Node.js runtime only (the edge runtime gets
  * nothing). Spans for outgoing `fetch` are off by default, because Next.js spans `fetch` itself; turning them on
- * calls for `NEXT_OTEL_FETCH_DISABLED=1`. `traces.stableHttpAttributes` is on by default, because Next.js's own server
+ * calls for `NEXT_OTEL_FETCH_DISABLED=1`. Server spans from the http instrumentation are off by default too, because
+ * Next.js spans every request itself; runtime metrics stay on. `traces.stableHttpAttributes` is on by default, because Next.js's own server
  * spans carry only the legacy `http.status_code`, `http.method` and `http.target`. Resolves to `null` in the edge
  * runtime.
  */
@@ -40,7 +41,7 @@ export async function registerObservability(options: ObservabilityOptions = {}):
   const { startObservability } = await import("../node/index.js");
   return startObservability({
     ...options,
-    instrumentations: { fetch: false, ...options.instrumentations },
+    instrumentations: { fetch: false, http: false, ...options.instrumentations },
     traces: { stableHttpAttributes: true, ...options.traces },
   });
 }
