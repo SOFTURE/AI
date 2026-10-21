@@ -1,12 +1,13 @@
 ---
 change_id: guarded-page-fetch-636
 title: "security: fetchGuardedPage and htmlToReadableText (issue #636)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 636
 branch: claude/project-thread-ygrs09
 created: 2026-10-21
 updated: 2026-10-21
+archived_at: 2026-10-21
 ---
 
 ## Intent

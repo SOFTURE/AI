@@ -1,6 +1,6 @@
 ---
 change_id: guarded-page-fetch-636
-status: in_progress
+status: archived
 ---
 
 # Plan: fetchGuardedPage and htmlToReadableText (issue #636)
@@ -58,6 +58,10 @@ Files: `modules/security/src/server/readable-text.ts`, `modules/security/tests/r
 
 ## Progress
 
-- [ ] Phase 1: the shared guard and fetchGuardedPage
-- [ ] Phase 2: htmlToReadableText
-- [ ] Phase 3: docs
+- [x] Phase 1: the shared guard and fetchGuardedPage (5f5e21d)
+- [x] Phase 2: htmlToReadableText (5f5e21d)
+- [x] Phase 3: docs (5f5e21d)
+
+One commit for the three phases: the tests were written first in each phase, run against the new code, and kept
+alongside it. Gates: typecheck, lint (with the language gate), `modules/security` tests (305 passed, the page fetch
+five runs in a row).
