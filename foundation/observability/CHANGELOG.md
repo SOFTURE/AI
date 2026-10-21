@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.4.0
 
 - Metrics: with an endpoint, `startObservability` also exports metrics over OTLP/HTTP protobuf to
   `<endpoint>/v1/metrics` (`OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`, `_HEADERS`), every 60 s and on shutdown:
