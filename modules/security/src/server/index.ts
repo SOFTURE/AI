@@ -20,3 +20,13 @@ export {
   type GuardedRequestSeam,
   type ResolveHost,
 } from "./guarded-request.js";
+export {
+  fetchGuardedPage,
+  GUARDED_PAGE_DEFAULT_PORTS,
+  GUARDED_PAGE_USER_AGENT,
+  type GuardedPage,
+  type GuardedPageErrorCode,
+  type GuardedPageOptions,
+  type GuardedPageResult,
+} from "./guarded-page.js";
+export { htmlToReadableText, type ReadableLink, type ReadableText, type ReadableTextOptions } from "./readable-text.js";
