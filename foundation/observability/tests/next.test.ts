@@ -1,3 +1,6 @@
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
+
 import { logs } from "@opentelemetry/api-logs";
 import { InMemoryLogRecordExporter, LoggerProvider, SimpleLogRecordProcessor } from "@opentelemetry/sdk-logs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -5,9 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLogger } from "../src/index.js";
 import { createOnRequestError, registerObservability } from "../src/next/index.js";
 import { resetObservabilityForTests } from "../src/node/start.js";
+import { startOtlpReceiver, type OtlpReceiver } from "./otlp-receiver.js";
 
 const initialRuntime = process.env.NEXT_RUNTIME;
 let output: string[];
+let receiver: OtlpReceiver | undefined;
+let app: Server | undefined;
 
 beforeEach(() => {
   output = [];
@@ -23,6 +29,11 @@ beforeEach(() => {
 
 afterEach(async () => {
   await resetObservabilityForTests();
+  await receiver?.close();
+  receiver = undefined;
+  app?.closeAllConnections();
+  await new Promise<void>((resolve) => (app === undefined ? resolve() : app.close(() => resolve())));
+  app = undefined;
   vi.restoreAllMocks();
   Reflect.deleteProperty(globalThis, "EdgeRuntime");
   if (initialRuntime === undefined) {
@@ -68,6 +79,24 @@ describe("registerObservability", () => {
 
     expect(handle?.isExporting).toBe(false);
     expect(output).toContain("observability: export disabled (no OTLP endpoint)");
+  });
+});
+
+describe("registerObservability: defaults", () => {
+  it("adds no HTTP server span of its own, since Next.js spans its requests, and still exports metrics", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    receiver = await startOtlpReceiver();
+    app = createServer((_request, response) => response.end("ok"));
+    await new Promise<void>((resolve) => app?.listen(0, "127.0.0.1", resolve));
+    const { port } = app.address() as AddressInfo;
+
+    const handle = await registerObservability({ serviceName: "my-service", endpoint: receiver.url });
+    const response = await fetch(`http://127.0.0.1:${String(port)}/orders`);
+    await response.arrayBuffer();
+    await handle?.forceFlush();
+
+    expect(receiver.bodyOf("/v1/traces").includes("/orders")).toBe(false);
+    expect(receiver.bodyOf("/v1/metrics").includes("nodejs.eventloop.utilization")).toBe(true);
   });
 });
 
