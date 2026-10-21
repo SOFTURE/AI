@@ -10,14 +10,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 let server: Server;
 let port: number;
 let received: IncomingMessage[];
-let routes: Record<string, (response: ServerResponse) => void>;
+let routes: Map<string, (response: ServerResponse) => void>;
 
 beforeEach(async () => {
   received = [];
-  routes = {};
+  routes = new Map();
   server = createServer((request, response) => {
     received.push(request);
-    const route = routes[request.url ?? ""];
+    const route = routes.get(request.url ?? "");
     if (route === undefined) {
       response.writeHead(404, { "content-type": "text/plain" }).end("missing");
     } else {
@@ -62,7 +62,7 @@ describe("fetchGuardedPage", () => {
   });
 
   it("returns the body with its status, content type and charset", async () => {
-    routes["/article"] = html("<h1>Hello</h1>", { "content-type": "Text/HTML; Charset=\"UTF-8\"" });
+    routes.set("/article", html("<h1>Hello</h1>", { "content-type": "Text/HTML; Charset=\"UTF-8\"" }));
     const result = await fetchGuardedPage(page("/article"), { timeoutMs: 2000, maxBytes: 1000, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -78,7 +78,7 @@ describe("fetchGuardedPage", () => {
   });
 
   it("sends GET with the accept, user-agent and accept-encoding headers", async () => {
-    routes["/"] = html("ok");
+    routes.set("/", html("ok"));
     await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port], accept: "text/html", userAgent: "LinkBot/1.0" }, loopbackAllowed);
     expect(received).toHaveLength(1);
     expect(received[0]?.method).toBe("GET");
@@ -88,7 +88,7 @@ describe("fetchGuardedPage", () => {
   });
 
   it("sends a default accept and user-agent", async () => {
-    routes["/"] = html("ok");
+    routes.set("/", html("ok"));
     await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
     expect(received[0]?.headers.accept).toBe("text/html,application/xhtml+xml;q=0.9,*/*;q=0.8");
     expect(received[0]?.headers["user-agent"]).toBe("Mozilla/5.0 (compatible; softure-ai-security)");
@@ -100,9 +100,9 @@ describe("fetchGuardedPage", () => {
   });
 
   it("follows a chain of redirects, relative and absolute, resolving every hop through the guard", async () => {
-    routes["/short"] = redirect(301, "/step");
-    routes["/step"] = redirect(302, `http://final.test:${port}/article?id=1`);
-    routes["/article?id=1"] = html("final");
+    routes.set("/short", redirect(301, "/step"));
+    routes.set("/step", redirect(302, `http://final.test:${port}/article?id=1`));
+    routes.set("/article?id=1", html("final"));
     const result = await fetchGuardedPage(page("/short"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok && { finalUrl: result.value.finalUrl, body: text(result.value.body) }).toEqual({
       finalUrl: `http://final.test:${port}/article?id=1`,
@@ -113,20 +113,20 @@ describe("fetchGuardedPage", () => {
   });
 
   it.each([303, 307, 308])("follows a %s redirect", async (status) => {
-    routes["/from"] = redirect(status, "/to");
-    routes["/to"] = html("there");
+    routes.set("/from", redirect(status, "/to"));
+    routes.set("/to", html("there"));
     const result = await fetchGuardedPage(page("/from"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok && result.value.finalUrl).toBe(page("/to"));
   });
 
   it("refuses a redirect to a non-public literal before connecting to it", async () => {
-    routes["/"] = redirect(302, "http://169.254.169.254/latest/meta-data");
+    routes.set("/", redirect(302, "http://169.254.169.254/latest/meta-data"));
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port, 80] }, loopbackAllowed);
     expect(result).toEqual({ ok: false, error: "security.outbound_blocked" });
   });
 
   it("refuses a redirect to a host that resolves to a non-public address", async () => {
-    routes["/"] = redirect(302, `http://internal.test:${port}/admin`);
+    routes.set("/", redirect(302, `http://internal.test:${port}/admin`));
     const result = await fetchGuardedPage(
       page("/"),
       { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] },
@@ -142,7 +142,7 @@ describe("fetchGuardedPage", () => {
   });
 
   it("refuses a redirect to a port outside allowedPorts", async () => {
-    routes["/"] = redirect(302, "http://links.test:6379/");
+    routes.set("/", redirect(302, "http://links.test:6379/"));
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
     expect(result).toEqual({ ok: false, error: "security.outbound_blocked" });
   });
@@ -150,45 +150,45 @@ describe("fetchGuardedPage", () => {
   it.each(["file:///etc/passwd", "ftp://links.test/", "http://user:secret@links.test/", "http://[::1"])(
     "refuses a redirect to %s as an invalid URL",
     async (location) => {
-      routes["/"] = redirect(302, location);
+      routes.set("/", redirect(302, location));
       const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
       expect(result).toEqual({ ok: false, error: "security.outbound_invalid_url" });
     },
   );
 
   it("fails after more redirects than maxRedirects", async () => {
-    routes["/loop"] = redirect(302, "/loop");
+    routes.set("/loop", redirect(302, "/loop"));
     const result = await fetchGuardedPage(page("/loop"), { timeoutMs: 2000, maxBytes: 100, maxRedirects: 3, allowedPorts: [port] }, loopbackAllowed);
     expect(result).toEqual({ ok: false, error: "security.outbound_failed" });
     expect(received).toHaveLength(4);
   });
 
   it("follows exactly maxRedirects hops", async () => {
-    routes["/a"] = redirect(302, "/b");
-    routes["/b"] = html("b");
+    routes.set("/a", redirect(302, "/b"));
+    routes.set("/b", html("b"));
     const result = await fetchGuardedPage(page("/a"), { timeoutMs: 2000, maxBytes: 100, maxRedirects: 1, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok && result.value.finalUrl).toBe(page("/b"));
   });
 
   it("returns a redirect as the page with maxRedirects 0", async () => {
-    routes["/a"] = redirect(302, "/b");
+    routes.set("/a", redirect(302, "/b"));
     const result = await fetchGuardedPage(page("/a"), { timeoutMs: 2000, maxBytes: 100, maxRedirects: 0, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok && { status: result.value.status, finalUrl: result.value.finalUrl }).toEqual({ status: 302, finalUrl: page("/a") });
     expect(received).toHaveLength(1);
   });
 
   it("returns a 3xx without a location as the page", async () => {
-    routes["/"] = (response) => response.writeHead(304).end();
+    routes.set("/", (response) => response.writeHead(304).end());
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok && result.value.status).toBe(304);
   });
 
   it("cuts a body longer than maxBytes and says so", async () => {
-    routes["/"] = (response) => {
+    routes.set("/", (response) => {
       response.writeHead(200, { "content-type": "text/plain" });
       response.write("a".repeat(600));
       response.end("b".repeat(600));
-    };
+    });
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 1000, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok && { length: result.value.body.length, truncated: result.value.truncated, tail: text(result.value.body).slice(-401) }).toEqual({
       length: 1000,
@@ -198,23 +198,23 @@ describe("fetchGuardedPage", () => {
   });
 
   it("keeps a body of exactly maxBytes whole", async () => {
-    routes["/"] = html("x".repeat(100));
+    routes.set("/", html("x".repeat(100)));
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok && { length: result.value.body.length, truncated: result.value.truncated }).toEqual({ length: 100, truncated: false });
   });
 
   it("refuses a body longer than maxBytes with allowTruncation false", async () => {
-    routes["/"] = html("x".repeat(101));
+    routes.set("/", html("x".repeat(101)));
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port], allowTruncation: false }, loopbackAllowed);
     expect(result).toEqual({ ok: false, error: "security.outbound_too_large" });
   });
 
   it("stops reading a body that never ends at maxBytes", async () => {
-    routes["/"] = (response) => {
+    routes.set("/", (response) => {
       response.writeHead(200, { "content-type": "text/plain" });
       const timer = setInterval(() => response.write("y".repeat(512)), 1);
       response.on("close", () => clearInterval(timer));
-    };
+    });
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 4096, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok && { length: result.value.body.length, truncated: result.value.truncated }).toEqual({ length: 4096, truncated: true });
   });
@@ -224,27 +224,27 @@ describe("fetchGuardedPage", () => {
     ["deflate", deflateSync],
     ["br", brotliCompressSync],
   ] as const)("decodes a %s body", async (encoding, compress) => {
-    routes["/"] = (response) => response.writeHead(200, { "content-type": "text/html", "content-encoding": encoding }).end(compress("<p>Hello</p>"));
+    routes.set("/", (response) => response.writeHead(200, { "content-type": "text/html", "content-encoding": encoding }).end(compress("<p>Hello</p>")));
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok && text(result.value.body)).toBe("<p>Hello</p>");
   });
 
   it("caps a compressed body by its decoded size", async () => {
     const bomb = gzipSync(Buffer.alloc(10 * 1024 * 1024));
-    routes["/"] = (response) => response.writeHead(200, { "content-type": "text/plain", "content-encoding": "gzip" }).end(bomb);
+    routes.set("/", (response) => response.writeHead(200, { "content-type": "text/plain", "content-encoding": "gzip" }).end(bomb));
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 64 * 1024, allowedPorts: [port] }, loopbackAllowed);
     expect(bomb.length).toBeLessThan(64 * 1024);
     expect(result.ok && { length: result.value.body.length, truncated: result.value.truncated }).toEqual({ length: 64 * 1024, truncated: true });
   });
 
   it("fails on a body that does not decode", async () => {
-    routes["/"] = (response) => response.writeHead(200, { "content-encoding": "gzip" }).end("not gzip");
+    routes.set("/", (response) => response.writeHead(200, { "content-encoding": "gzip" }).end("not gzip"));
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
     expect(result).toEqual({ ok: false, error: "security.outbound_failed" });
   });
 
   it("fails on an encoding it cannot undo", async () => {
-    routes["/"] = (response) => response.writeHead(200, { "content-encoding": "zstd" }).end("data");
+    routes.set("/", (response) => response.writeHead(200, { "content-encoding": "zstd" }).end("data"));
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
     expect(result).toEqual({ ok: false, error: "security.outbound_failed" });
   });
@@ -254,15 +254,15 @@ describe("fetchGuardedPage", () => {
     ["<meta charset=ISO-8859-2>", "iso-8859-2"],
     ['<meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS">', "shift_jis"],
   ])("reads the charset of an HTML page from %s when the header has none", async (meta, charset) => {
-    routes["/"] = html(`<html><head>${meta}<title>t</title></head></html>`, { "content-type": "text/html" });
+    routes.set("/", html(`<html><head>${meta}<title>t</title></head></html>`, { "content-type": "text/html" }));
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 2000, maxBytes: 1000, allowedPorts: [port] }, loopbackAllowed);
     expect(result.ok && result.value.charset).toBe(charset);
   });
 
   it("prefers the header's charset and reads no meta outside HTML", async () => {
-    routes["/html"] = html('<meta charset="windows-1250">', { "content-type": "text/html; charset=utf-8" });
-    routes["/text"] = html('<meta charset="windows-1250">', { "content-type": "text/plain" });
-    routes["/none"] = (response) => response.writeHead(200).end("bytes");
+    routes.set("/html", html('<meta charset="windows-1250">', { "content-type": "text/html; charset=utf-8" }));
+    routes.set("/text", html('<meta charset="windows-1250">', { "content-type": "text/plain" }));
+    routes.set("/none", (response) => response.writeHead(200).end("bytes"));
     const options = { timeoutMs: 2000, maxBytes: 1000, allowedPorts: [port] };
     const [fromHeader, plain, none] = await Promise.all([
       fetchGuardedPage(page("/html"), options, loopbackAllowed),
@@ -275,11 +275,11 @@ describe("fetchGuardedPage", () => {
   });
 
   it("times out on a body that trickles past timeoutMs", async () => {
-    routes["/"] = (response) => {
+    routes.set("/", (response) => {
       response.writeHead(200, { "content-type": "text/plain" });
       const timer = setInterval(() => response.write("z"), 20);
       response.on("close", () => clearInterval(timer));
-    };
+    });
     const result = await fetchGuardedPage(page("/"), { timeoutMs: 150, maxBytes: 1_000_000, allowedPorts: [port] }, loopbackAllowed);
     expect(result).toEqual({ ok: false, error: "security.outbound_timeout" });
   });
@@ -288,10 +288,10 @@ describe("fetchGuardedPage", () => {
     const slowRedirect = (location: string) => (response: ServerResponse) => {
       setTimeout(() => response.writeHead(302, { location }).end(), 80);
     };
-    routes["/1"] = slowRedirect("/2");
-    routes["/2"] = slowRedirect("/3");
-    routes["/3"] = slowRedirect("/4");
-    routes["/4"] = html("late");
+    routes.set("/1", slowRedirect("/2"));
+    routes.set("/2", slowRedirect("/3"));
+    routes.set("/3", slowRedirect("/4"));
+    routes.set("/4", html("late"));
     const result = await fetchGuardedPage(page("/1"), { timeoutMs: 200, maxBytes: 100, allowedPorts: [port] }, loopbackAllowed);
     expect(result).toEqual({ ok: false, error: "security.outbound_timeout" });
   });
