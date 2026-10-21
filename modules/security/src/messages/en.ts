@@ -5,6 +5,7 @@ export const en = {
     body_too_large: "The request is too large.",
     body_unreadable: "The request could not be read. Try again.",
     signature_invalid: "The request could not be verified.",
+    delivery_id_invalid: "The request could not be processed.",
     outbound_invalid_url: "The address is not a valid web address.",
     outbound_blocked: "That address cannot be contacted.",
     outbound_timeout: "The other server did not answer in time.",

@@ -8,6 +8,7 @@ export type SecurityErrorCode =
   | "security.body_too_large"
   | "security.body_unreadable"
   | "security.signature_invalid"
+  | "security.delivery_id_invalid"
   | "security.outbound_invalid_url"
   | "security.outbound_blocked"
   | "security.outbound_timeout"

@@ -21,7 +21,32 @@ describe("the security module", () => {
   it("fills in the defaults and takes a single resolver as a list", () => {
     const resolver = headerIp("x-real-ip");
     const module = security({ clientIp: resolver, buckets: BUCKETS });
-    expect(module.options).toEqual({ clientIp: [resolver], buckets: BUCKETS, unidentified: "refuse", ipv6Subnet: 64, cleanupProbability: 0.01 });
+    expect(module.options).toEqual({
+      clientIp: [resolver],
+      buckets: BUCKETS,
+      unidentified: "refuse",
+      ipv6Subnet: 64,
+      cleanupProbability: 0.01,
+      webhookDeliveries: { retentionDays: 30 },
+    });
+  });
+
+  it("takes a webhook delivery retention of 1 to 365 whole days", () => {
+    expect(security({ clientIp: headerIp("x-real-ip"), buckets: BUCKETS, webhookDeliveries: { retentionDays: 7 } }).options.webhookDeliveries).toEqual({
+      retentionDays: 7,
+    });
+    expect(security({ clientIp: headerIp("x-real-ip"), buckets: BUCKETS, webhookDeliveries: {} }).options.webhookDeliveries).toEqual({
+      retentionDays: 30,
+    });
+    expect(() => security({ clientIp: headerIp("x-real-ip"), buckets: BUCKETS, webhookDeliveries: { retentionDays: 0 } })).toThrow(
+      "- options.webhookDeliveries.retentionDays: Too small: expected number to be >=1",
+    );
+    expect(() => security({ clientIp: headerIp("x-real-ip"), buckets: BUCKETS, webhookDeliveries: { retentionDays: 1.5 } })).toThrow(
+      "options.webhookDeliveries.retentionDays",
+    );
+    expect(() => security({ clientIp: headerIp("x-real-ip"), buckets: BUCKETS, webhookDeliveries: { retentionDays: 366 } })).toThrow(
+      "- options.webhookDeliveries.retentionDays: Too big: expected number to be <=365",
+    );
   });
 
   it("refuses options it cannot run with, listing every problem", () => {
