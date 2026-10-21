@@ -1,12 +1,13 @@
 # @softure-ai/observability
 
-Logs and traces for Node.js processes and Next.js apps, shipped to any OpenTelemetry (OTLP/HTTP) backend:
+Logs, traces and metrics for Node.js processes and Next.js apps, shipped to any OpenTelemetry (OTLP/HTTP) backend:
 
 - a structured logger: levels, attributes, child loggers, one line on the console, and an OpenTelemetry log record
   that carries the active trace and span ids ([Logger](#logger));
-- one call that starts OpenTelemetry in a process: a tracer provider and a logger provider exporting over
-  OTLP/HTTP protobuf, the resource attributes the app chooses, and spans for outgoing `fetch`
-  ([Node.js](#nodejs), [Next.js](#nextjs));
+- one call that starts OpenTelemetry in a process: tracer, logger and meter providers exporting over OTLP/HTTP
+  protobuf, the resource attributes the app chooses, server spans and a request duration metric for incoming HTTP
+  requests, spans for outgoing `fetch`, and Node.js runtime metrics ([Node.js](#nodejs), [Metrics](#metrics),
+  [Next.js](#nextjs));
 - an `onRequestError` for Next.js that logs every failed request with its route ([Next.js](#nextjs));
 - a probe that proves the backend accepts a span and a log record, as a function and as the
   `softure-observability ping` command ([Verifying the export](#verifying-the-export)).
@@ -31,13 +32,17 @@ Inside this repository it is a workspace package.
 | `serviceName` | `OTEL_SERVICE_NAME`, then `service.name` in `OTEL_RESOURCE_ATTRIBUTES` | `service.name`: the process, e.g. `api` |
 | `serviceNamespace` | `service.namespace` in `OTEL_RESOURCE_ATTRIBUTES` | `service.namespace`: the project |
 | `serviceVersion` | `service.version` in `OTEL_RESOURCE_ATTRIBUTES` | `service.version` |
-| `environment` | `deployment.environment.name` in `OTEL_RESOURCE_ATTRIBUTES` | `deployment.environment.name`, e.g. `production` |
-| `endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | base URL; `/v1/traces` and `/v1/logs` are appended |
-| — | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | per-signal URL, used as given |
+| `environment` | `deployment.environment.name` and `deployment.environment` in `OTEL_RESOURCE_ATTRIBUTES` | both `deployment.environment.name` and `deployment.environment`, e.g. `production` |
+| `endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | base URL; `/v1/traces`, `/v1/logs` and `/v1/metrics` are appended |
+| — | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`, `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | per-signal URL, used as given |
 | `headers` | `OTEL_EXPORTER_OTLP_HEADERS` (`key=value,key2=value2`, URL-encoded values) | headers of every export, e.g. `Authorization` |
-| — | `OTEL_EXPORTER_OTLP_TRACES_HEADERS`, `OTEL_EXPORTER_OTLP_LOGS_HEADERS` | added to the headers of one signal |
+| — | `OTEL_EXPORTER_OTLP_TRACES_HEADERS`, `OTEL_EXPORTER_OTLP_LOGS_HEADERS`, `OTEL_EXPORTER_OTLP_METRICS_HEADERS` | added to the headers of one signal |
 | `enabled` | `OTEL_SDK_DISABLED=true` turns export off | `false` turns export off |
 | `instrumentations.fetch` | — | spans for outgoing `fetch` (undici); default `true`, `false` in the Next.js adapter |
+| `instrumentations.http` | — | server spans and `http.server.request.duration` for incoming requests, spans for outgoing `http.request`; default `true`, `false` in the Next.js adapter, see [Incoming requests](#incoming-requests) |
+| `instrumentations.runtime` | — | Node.js runtime metrics (event loop, GC, heap); default `true`, see [Metrics](#metrics) |
+| `metrics.enabled` | `OTEL_METRICS_EXPORTER=none` turns metric export off | `false` exports no metrics; traces and logs stay; default `true` |
+| `metrics.exportIntervalMs` | — | how often metrics are exported; default `60000` |
 | `traces.ignorePaths` | — | paths whose incoming requests get no trace, e.g. `["/api/health"]`, see [Health checks](#health-checks) |
 | `traces.stableHttpAttributes` | — | copies legacy HTTP server attributes onto their stable names; default `false`, `true` in the Next.js adapter, see [Next.js](#nextjs) |
 | `logLevel` | `SOFTURE_LOG_LEVEL` | minimum level: `debug`, `info` (default), `warn`, `error` |
@@ -90,14 +95,35 @@ await observability.shutdown();
 
 A second `startObservability` in the same process returns the first handle (and warns once).
 
+`environment` is written under both `deployment.environment.name` and `deployment.environment`, the keys
+`SOFTURE.Common.Observability` (.NET) writes, so a dashboard filtering on either label (`deployment_environment` or
+`deployment_environment_name` in Prometheus) matches Node.js and .NET services alike.
+
 `handleSignals: true` flushes on SIGTERM and SIGINT for at most 5 seconds. When the app has no listener of its own for
 that signal, the package then re-raises it and the process ends as it would have; when the app listens to it itself,
 ending the process stays the app's job (call `shutdown()` in that listener to wait for the flush).
 
+### Incoming requests
+
+Every request to a `node:http` or `node:https` server (Express, Fastify, a plain `http.createServer`) gets a server
+span named by its method, with `http.request.method`, `url.path`, `http.response.status_code` and the client
+address, and is counted in the `http.server.request.duration` metric. The logs written while the request is handled
+carry its trace id. Outgoing `http.request` calls get client spans too (outgoing `fetch` is
+`instrumentations.fetch`).
+
+- The query string is never recorded: a request that has one gets `url.query=REDACTED`, because a query can carry a
+  reset or unsubscribe token.
+- It works whether the app imported `node:http` (or Express) before `startObservability` or not; start it first
+  anyway, so the work before it is traced too.
+- Span names carry no route (`GET`, not `GET /orders/:id`): the package does not instrument Express itself. Filter on
+  `url.path` instead.
+- `instrumentations: { http: false }` turns it off.
+
 ### Health checks
 
 A container health check every 15 s is about 5,760 traces a day per container, most of what a quiet app sends.
-`traces: { ignorePaths: ["/api/health"] }` drops the server span of such a request and every span under it:
+`traces: { ignorePaths: ["/api/health"] }` drops the server span of such a request and every span under it, and
+leaves it out of `http.server.request.duration`:
 
 - an entry matches its own path and everything below it as whole segments: `/api/health` also drops
   `/api/health/live`, but not `/api/healthz`; the query string is ignored;
@@ -107,6 +133,23 @@ A container health check every 15 s is about 5,760 traces a day per container, m
 - an entry that does not start with `/` throws at start, with or without an endpoint.
 
 The health check's own failures still reach the logs: only its traces are dropped.
+
+## Metrics
+
+With an endpoint, metrics go to `<endpoint>/v1/metrics` every 60 s (`metrics.exportIntervalMs`), cumulative, with
+the same resource as traces and logs, and once more on `shutdown()`:
+
+- `http.server.request.duration` (histogram, seconds) by `http.request.method`, `http.response.status_code`,
+  `url.scheme` and `network.protocol.version`: request rate, latency and error rate. Never by path, so its series stay
+  bounded. `http.client.request.duration` likewise for outgoing calls, by `server.address`.
+- Node.js runtime metrics (`instrumentations.runtime`): `nodejs.eventloop.utilization`, `nodejs.eventloop.delay.*`,
+  `nodejs.eventloop.time`, `v8js.gc.duration`, `v8js.memory.heap.*` per heap space, `v8js.resource.active`.
+
+**Series.** Backends that bill or cap by active series (Grafana Cloud Free counts them) see roughly 100 series per
+process from the runtime metrics, and for each histogram about 17 series (buckets, sum, count) per combination of its
+attributes: for a service answering `GET` and `POST` with `200`, `401` and `500`, about 100 for the request duration.
+Several replicas multiply it. `instrumentations: { runtime: false }` drops the runtime metrics;
+`metrics: { enabled: false }` or `OTEL_METRICS_EXPORTER=none` exports no metrics at all.
 
 ## Next.js
 
@@ -140,6 +183,8 @@ What you get:
 - Next.js's own spans (the request, rendering, route handlers, `fetch`) go to the tracer provider the package
   registers. Next.js looks up the app's `@opentelemetry/api` first, so the app must resolve one copy of it:
   `npm ls @opentelemetry/api` should show a single version.
+- The `node:http` instrumentation is off in Next.js (`instrumentations.http: false`), because Next.js spans every
+  request itself; a second server span would re-parent Next.js's own. Runtime metrics are exported as in Node.js.
 - `fetch` spans of the undici instrumentation are off in Next.js, because Next.js spans `fetch` itself. Turning
   them on (`instrumentations: { fetch: true }`) calls for `NEXT_OTEL_FETCH_DISABLED=1`, or every call is spanned twice.
 - `registerObservability` does nothing in the edge runtime, and starts in every Node.js server: `next start` and the
@@ -222,9 +267,8 @@ anywhere sets `errorDetails: "label"` (or `configureLogging({ errorDetails: "lab
 
 ## Limitations
 
-- No metrics: only traces and logs are exported.
 - No browser telemetry: an OTLP token must not reach a client bundle; use the frontend's own error reporting.
-- No `node:http` instrumentation: it cannot patch an ES module process that imported `http` first, and in Next.js it
-  would re-parent Next.js's spans. Incoming requests of a plain Node.js server are not spanned.
+- No framework instrumentation (Express, Fastify): server spans and metrics carry no route.
+- The probe (`softure-observability ping`) checks traces and logs only, not metrics.
 - OTLP/HTTP protobuf only (no gRPC, no JSON).
 - Batches are sent every few seconds; a process killed without `shutdown()` (or `handleSignals`) can lose the last one.

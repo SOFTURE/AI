@@ -8,24 +8,52 @@ export type ObservabilityOptions = {
   serviceNamespace?: string;
   /** `service.version`. */
   serviceVersion?: string;
-  /** `deployment.environment.name`, e.g. `production`. */
+  /**
+   * `deployment.environment.name` and `deployment.environment`, e.g. `production`. Both, as
+   * `SOFTURE.Common.Observability` (.NET) writes them, so a query on either label matches every service.
+   */
   environment?: string;
-  /** Base OTLP/HTTP endpoint; `/v1/traces` and `/v1/logs` are appended. Else `OTEL_EXPORTER_OTLP_ENDPOINT`. */
+  /**
+   * Base OTLP/HTTP endpoint; `/v1/traces`, `/v1/logs` and `/v1/metrics` are appended. Else
+   * `OTEL_EXPORTER_OTLP_ENDPOINT`.
+   */
   endpoint?: string;
   /** Headers of every export request; else `OTEL_EXPORTER_OTLP_HEADERS`. Pass secrets from the environment only. */
   headers?: Readonly<Record<string, string>>;
   /** `false` turns export off whatever the endpoint; so does `OTEL_SDK_DISABLED=true`. */
   enabled?: boolean;
-  /** `fetch`: spans for outgoing `fetch` calls (undici). Default `true`; the Next.js adapter defaults it to `false`. */
-  instrumentations?: { fetch?: boolean };
+  /** What is recorded automatically; see `InstrumentationOptions`. */
+  instrumentations?: InstrumentationOptions;
   /** How spans are recorded; see `TraceOptions`. */
   traces?: TraceOptions;
+  /** Whether and how often metrics are exported; see `MetricOptions`. */
+  metrics?: MetricOptions;
   /** Minimum level of every logger (see `configureLogging`). */
   logLevel?: LogLevel;
   /** How much of an error the loggers record (see `configureLogging`). */
   errorDetails?: ErrorDetails;
   /** Flush on SIGTERM and SIGINT, then let the signal end the process. Default `false`. */
   handleSignals?: boolean;
+};
+
+export type InstrumentationOptions = {
+  /** Spans for outgoing `fetch` calls (undici). Default `true`; the Next.js adapter defaults it to `false`. */
+  fetch?: boolean;
+  /**
+   * Server spans and the `http.server.request.duration` metric for incoming requests to `node:http`/`node:https`
+   * servers (Express, Fastify, plain `http`), plus spans for outgoing `http.request`. Default `true`; the Next.js
+   * adapter defaults it to `false`, because Next.js spans its requests itself.
+   */
+  http?: boolean;
+  /** Node.js runtime metrics: event loop delay and utilization, garbage collection, heap. Default `true`. */
+  runtime?: boolean;
+};
+
+export type MetricOptions = {
+  /** `false` exports no metrics; so does `OTEL_METRICS_EXPORTER=none`. Traces and logs stay. Default `true`. */
+  enabled?: boolean;
+  /** How often the metrics are exported. Default 60 000 ms. */
+  exportIntervalMs?: number;
 };
 
 export type TraceOptions = {
@@ -52,13 +80,14 @@ export type ResolvedObservabilityConfig =
       kind: "export";
       traces: SignalExport | null;
       logs: SignalExport | null;
+      metrics: SignalExport | null;
       resourceAttributes: Record<string, string>;
       warnings: string[];
     };
 
 export type Environment = Readonly<Record<string, string | undefined>>;
 
-type Signal = "traces" | "logs";
+type Signal = "traces" | "logs" | "metrics";
 
 type CheckedUrl = { kind: "url"; url: URL } | { kind: "unsupported"; warning: string };
 
@@ -71,7 +100,7 @@ type ResolvedSignal =
 const SCHEME_URL = /^[a-z][a-z0-9+.-]*:\/\//i;
 
 /**
- * Where traces and logs go and with which resource, from the options first and the standard `OTEL_*` variables
+ * Where traces, logs and metrics go and with which resource, from the options first and the standard `OTEL_*` variables
  * second. A base endpoint gets `/v1/<signal>` appended; a per-signal variable (`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`)
  * is used as given. An endpoint with a scheme other than http(s) (BuildKit's `unix://` trace socket, `grpc://`) is
  * skipped with a warning: telemetry must not stop the program it observes. Errors and warnings name the option or
@@ -90,11 +119,15 @@ export function resolveObservabilityConfig(
 
   const traces = resolveSignal("traces", options, env);
   const logs = resolveSignal("logs", options, env);
-  // One shared endpoint skipped for both signals is one warning.
+  const metrics: ResolvedSignal = isMetricExportOff(options, env)
+    ? { kind: "none" }
+    : resolveSignal("metrics", options, env);
+  const signals = [traces, logs, metrics];
+  // One shared endpoint skipped for every signal is one warning.
   const warnings = [
-    ...new Set([traces, logs].flatMap((signal) => (signal.kind === "unsupported" ? [signal.warning] : []))),
+    ...new Set(signals.flatMap((signal) => (signal.kind === "unsupported" ? [signal.warning] : []))),
   ];
-  if (traces.kind !== "export" && logs.kind !== "export") {
+  if (signals.every((signal) => signal.kind !== "export")) {
     return { kind: "disabled", reason: warnings.length === 0 ? "no OTLP endpoint" : warnings.join("; "), warnings };
   }
 
@@ -102,9 +135,14 @@ export function resolveObservabilityConfig(
     kind: "export",
     traces: traces.kind === "export" ? traces.target : null,
     logs: logs.kind === "export" ? logs.target : null,
+    metrics: metrics.kind === "export" ? metrics.target : null,
     resourceAttributes: resolveResourceAttributes(options, env),
     warnings,
   };
+}
+
+function isMetricExportOff(options: ObservabilityOptions, env: Environment): boolean {
+  return options.metrics?.enabled === false || readEnv(env, "OTEL_METRICS_EXPORTER")?.toLowerCase() === "none";
 }
 
 function resolveSignal(signal: Signal, options: ObservabilityOptions, env: Environment): ResolvedSignal {
@@ -192,6 +230,7 @@ function resolveResourceAttributes(options: ObservabilityOptions, env: Environme
   setIfPresent(attributes, "service.namespace", options.serviceNamespace);
   setIfPresent(attributes, "service.version", options.serviceVersion);
   setIfPresent(attributes, "deployment.environment.name", options.environment);
+  setIfPresent(attributes, "deployment.environment", options.environment);
   return attributes;
 }
 
