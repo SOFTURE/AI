@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- `requestJson` writes (#635): `method` (`"GET"` by default, `"POST" | "PUT" | "PATCH" | "DELETE"`), `body` sent as
+  JSON with `Content-Type: application/json` unless the caller sets its own, and `idempotencyKey` sent as
+  `Idempotency-Key`. A write answered with an empty body (204, or 200 with nothing) returns `ok(undefined)`, so a
+  write with a schema returns `Ok<T | undefined>`; a non-empty answer still goes through the schema. A GET takes no
+  body, and its empty answer stays `core.http_unexpected_answer`. New types `HttpJsonMethod`, `HttpJsonWriteMethod`,
+  `RequestJsonReadOptions`, `RequestJsonWriteOptions`.
+- New code `core.http_conflict` for 409 and 412 (a stale version or sha), for every method, with English copy in
+  `coreMessages` (`errors.http_conflict`).
+  - Migrate: a caller that switched on `core.http_unexpected_answer` to spot a 409 or 412 switches on
+    `core.http_conflict` instead; an exhaustive `switch` over `HttpJsonFailureCode` gets the new case. An app with
+    its own write helper replaces it with `requestJson({ method, body })` and handles `ok(undefined)` for 204s.
+
 ## 0.2.1
 
 - New (#599): calendar periods and local wall-clock date-times next to calendar days.

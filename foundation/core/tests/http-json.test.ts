@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
-import { coreMessages, requestJson, toQueryString, type HttpJsonFailure } from "@softure-ai/core";
+import { coreMessages, requestJson, toQueryString, type HttpJsonFailure, type Ok } from "@softure-ai/core";
 
 const API_KEY = "sk_live_secret_123";
 const URL_WITH_KEY = `https://api.example.com/v1/rates?api_key=${API_KEY}`;
@@ -189,7 +189,7 @@ describe("requestJson: no secret in a failure", () => {
   it("never puts the URL, the key or the error text into any failure", async () => {
     const answers: (() => Promise<Response>)[] = [
       () => Promise.reject(new TypeError(`fetch failed for ${URL_WITH_KEY}`)),
-      ...[302, 401, 429, 500, 404].map((status) => () => Promise.resolve(respondWith(URL_WITH_KEY, status))),
+      ...[302, 401, 409, 412, 429, 500, 404].map((status) => () => Promise.resolve(respondWith(URL_WITH_KEY, status))),
       () => Promise.resolve(respondWith(`not json ${URL_WITH_KEY}`)),
       () => Promise.resolve(respondWith(JSON.stringify({ rate: URL_WITH_KEY }))),
     ];
@@ -198,6 +198,9 @@ describe("requestJson: no secret in a failure", () => {
       const result = await requestJson({
         fetch: answer,
         url: URL_WITH_KEY,
+        method: "POST",
+        body: { apiKey: API_KEY, note: URL_WITH_KEY },
+        idempotencyKey: API_KEY,
         headers: { Authorization: `Bearer ${API_KEY}` },
         schema: z.object({ rate: z.number() }),
       });
@@ -216,6 +219,121 @@ describe("requestJson: no secret in a failure", () => {
   });
 });
 
+describe("requestJson: write calls", () => {
+  it.each(["POST", "PUT", "PATCH", "DELETE"] as const)("sends a %s with a JSON body", async (method) => {
+    const { fetch, requests } = createFakeFetch(() => respondWith('{"id":7}', 201));
+    const result = await requestJson({ fetch, url: URL_WITH_KEY, method, body: { title: "Buy milk", done: false } });
+
+    expect(result).toEqual({ ok: true, value: { id: 7 } });
+    expect(requests).toHaveLength(1);
+    const [request] = requests;
+    expect(request?.init.method).toBe(method);
+    expect(request?.init.body).toBe('{"title":"Buy milk","done":false}');
+    expect(request?.init.redirect).toBe("manual");
+    expect(request?.init.signal).toBeInstanceOf(AbortSignal);
+    const headers = new Headers(request?.init.headers);
+    expect(headers.get("content-type")).toBe("application/json");
+    expect(headers.get("accept")).toBe("application/json");
+    expect(headers.has("idempotency-key")).toBe(false);
+  });
+
+  it("sends a JSON null body", async () => {
+    const { fetch, requests } = createFakeFetch(() => respondWith("", 204));
+    await requestJson({ fetch, url: URL_WITH_KEY, method: "PUT", body: null });
+    expect(requests[0]?.init.body).toBe("null");
+  });
+
+  it("sends no body and no content type without a body", async () => {
+    const { fetch, requests } = createFakeFetch(() => respondWith("", 204));
+    await requestJson({ fetch, url: URL_WITH_KEY, method: "DELETE" });
+    expect(requests[0]?.init.body).toBeUndefined();
+    expect(new Headers(requests[0]?.init.headers).has("content-type")).toBe(false);
+  });
+
+  it("keeps the caller's own content type", async () => {
+    const { fetch, requests } = createFakeFetch(() => respondWith("{}"));
+    await requestJson({
+      fetch,
+      url: URL_WITH_KEY,
+      method: "PATCH",
+      body: [{ op: "replace", path: "/title", value: "x" }],
+      headers: { "Content-Type": "application/json-patch+json" },
+    });
+    expect(new Headers(requests[0]?.init.headers).get("content-type")).toBe("application/json-patch+json");
+  });
+
+  it("sends the idempotency key as Idempotency-Key", async () => {
+    const { fetch, requests } = createFakeFetch(() => respondWith("{}", 201));
+    await requestJson({ fetch, url: URL_WITH_KEY, method: "POST", body: {}, idempotencyKey: "task-42-create" });
+    expect(new Headers(requests[0]?.init.headers).get("idempotency-key")).toBe("task-42-create");
+  });
+
+  it("does not leak an invalid idempotency key through a thrown error", async () => {
+    const { fetch, requests } = createFakeFetch(() => respondWith("{}"));
+    const result = await requestJson({ fetch, url: URL_WITH_KEY, method: "POST", idempotencyKey: `${API_KEY}\nX: 1` });
+    expect(result).toEqual({ ok: false, error: "core.http_unreachable", status: null });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("throws, sending nothing, for a body JSON cannot represent", async () => {
+    const { fetch, requests } = createFakeFetch(() => respondWith("{}"));
+    await expect(requestJson({ fetch, url: URL_WITH_KEY, method: "POST", body: { size: 1n } })).rejects.toThrow(TypeError);
+    expect(requests).toHaveLength(0);
+  });
+});
+
+describe("requestJson: empty answers", () => {
+  it.each([
+    ["a 204", "", 204],
+    ["a 200 with no content", "", 200],
+    ["a 202 with only whitespace", " \n", 202],
+  ])("returns ok(undefined) for %s to a write", async (_name, body, status) => {
+    const { fetch } = createFakeFetch(() => respondWith(body, status));
+    expect(await requestJson({ fetch, url: URL_WITH_KEY, method: "DELETE" })).toEqual({ ok: true, value: undefined });
+  });
+
+  it("returns ok(undefined) for an empty write answer even with a schema", async () => {
+    const { fetch } = createFakeFetch(() => respondWith("", 204));
+    const result = await requestJson({ fetch, url: URL_WITH_KEY, method: "PUT", body: {}, schema: z.object({ id: z.number() }) });
+    expect(result).toEqual({ ok: true, value: undefined });
+  });
+
+  it("validates a non-empty write answer with the schema", async () => {
+    const schema = z.object({ id: z.number() });
+    const { fetch } = createFakeFetch(() => respondWith('{"id":"seven"}', 201));
+    const result = await requestJson({ fetch, url: URL_WITH_KEY, method: "POST", body: {}, schema });
+    expect(result).toEqual({ ok: false, error: "core.http_unexpected_answer", status: 201 });
+  });
+
+  it("types a write's schema value as possibly undefined and a GET's as the schema's output", () => {
+    const schema = z.object({ id: z.number() });
+    const fetch = () => Promise.resolve(respondWith("{}"));
+    expectTypeOf(requestJson({ fetch, url: URL_WITH_KEY, schema })).resolves.toEqualTypeOf<
+      Ok<{ id: number }> | HttpJsonFailure
+    >();
+    expectTypeOf(requestJson({ fetch, url: URL_WITH_KEY, method: "POST", schema })).resolves.toEqualTypeOf<
+      Ok<{ id: number } | undefined> | HttpJsonFailure
+    >();
+    // @ts-expect-error a GET carries no body
+    void requestJson({ fetch, url: URL_WITH_KEY, method: "GET", body: {} });
+  });
+});
+
+describe("requestJson: conflicts", () => {
+  it.each([409, 412])("reports a %i to a write as a conflict", async (status) => {
+    const { fetch } = createFakeFetch(() => respondWith('{"message":"sha mismatch"}', status));
+    expect(await requestJson({ fetch, url: URL_WITH_KEY, method: "PUT", body: { sha: "abc" } })).toEqual({
+      ok: false,
+      error: "core.http_conflict",
+      status,
+    });
+  });
+
+  it.each([409, 412])("reports a %i to a GET as a conflict", async (status) => {
+    expect(await requestWithStatus(status)).toEqual({ ok: false, error: "core.http_conflict", status });
+  });
+});
+
 describe("coreMessages for the HTTP codes", () => {
   it("has English copy for every failure code", () => {
     const errors = coreMessages.en.errors;
@@ -224,6 +342,7 @@ describe("coreMessages for the HTTP codes", () => {
     expect(errors.http_rate_limited).toBe("The service is receiving too many requests. Please try again later.");
     expect(errors.http_unavailable).toBe("The service is unavailable right now. Please try again later.");
     expect(errors.http_unexpected_answer).toBe("The service sent an answer that could not be read.");
+    expect(errors.http_conflict).toBe("The data changed in the meantime. Please reload it and try again.");
   });
 });
 
