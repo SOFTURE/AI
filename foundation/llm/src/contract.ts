@@ -1,11 +1,12 @@
 // Error codes and the shapes an app reads back from @softure-ai/llm. No copy: the app translates codes itself.
 
 /** Every expected failure of a call, as a stable code. */
-export const LLM_ERROR_CODES = ["llm.unavailable", "llm.invalid_output", "llm.timeout"] as const;
+export const LLM_ERROR_CODES = ["llm.unavailable", "llm.invalid_output", "llm.output_truncated", "llm.timeout"] as const;
 
 /**
  * - `llm.unavailable`: the provider failed (HTTP error, network, missing key, retries exhausted);
- * - `llm.invalid_output`: the model answered, but not with JSON matching the schema;
+ * - `llm.invalid_output`: the model answered, but not with JSON matching the schema (or, for text, with nothing);
+ * - `llm.output_truncated`: the model stopped on the output token limit before finishing its answer;
  * - `llm.timeout`: no answer within `timeoutMs`.
  */
 export type LlmErrorCode = (typeof LLM_ERROR_CODES)[number];
@@ -50,6 +51,17 @@ export interface UsageRecord {
 /** The value of a successful `generateStructured`. */
 export interface StructuredResult<T> {
   readonly output: T;
+  readonly usage: LlmUsage;
+  readonly model: string;
+  readonly costUsd: number | null;
+}
+
+/** The value of a successful `generateText`. */
+export interface TextResult {
+  /** The answer without surrounding whitespace, cut to `maxChars` when given. */
+  readonly text: string;
+  /** `true` when `maxChars` cut the answer. */
+  readonly truncated: boolean;
   readonly usage: LlmUsage;
   readonly model: string;
   readonly costUsd: number | null;
