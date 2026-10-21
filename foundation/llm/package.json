@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/llm",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SOFTURE AI language model access: schema-validated structured output and plain text over an AI SDK model, timeouts, stable error codes, token usage and cost records, OpenTelemetry spans and a fake model for tests.",
   "license": "MIT",
   "type": "module",
