@@ -1,6 +1,6 @@
 ---
 change_id: jobs-sync-state-639
-status: done
+status: archived
 ---
 
 # Plan: jobs sync state (issue #639)

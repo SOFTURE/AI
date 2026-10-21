@@ -1,12 +1,13 @@
 ---
 change_id: jobs-sync-state-639
 title: "jobs: sync state for polling integrations, a cursor per source and a processed-item ledger (issue #639)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 639
 branch: claude/project-thread-29wf7r
 created: 2026-10-21
 updated: 2026-10-21
+archived_at: 2026-10-21
 ---
 
 ## Intent
