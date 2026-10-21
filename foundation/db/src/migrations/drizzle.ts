@@ -1,5 +1,6 @@
 // The app's own drizzle-kit migrations as an app migration hook: drizzle's migrator for the handle's driver,
 // loaded only when the hook runs, so an app ships just its own driver.
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppMigrationHook } from "./migrator.js";
 
@@ -13,8 +14,14 @@ export interface DrizzleAppMigrationsOptions {
 const DEFAULT_TABLE = "__drizzle_migrations";
 const DEFAULT_SCHEMA = "drizzle";
 
-// The ledger each hook writes to, so `migrate` can refuse a `before` and an `after` sharing one (issue #534).
-const ledgers = new WeakMap<AppMigrationHook, string>();
+interface DrizzleHookSource {
+  /** `schema.table`, so `migrate` can refuse a `before` and an `after` sharing one (issue #534). */
+  readonly ledger: string;
+  /** The absolute folder, so a test template can be identified by its files across processes (issue #641). */
+  readonly folder: string;
+}
+
+const sources = new WeakMap<AppMigrationHook, DrizzleHookSource>();
 
 /**
  * A hook for `app.before` (or `app.after`) that applies the drizzle-kit folder (`meta/_journal.json` and its SQL
@@ -39,11 +46,16 @@ export function drizzleAppMigrations(folder: string | URL, options: DrizzleAppMi
     const { migrate } = await import("drizzle-orm/pglite/migrator");
     await migrate(handle.db, config);
   };
-  ledgers.set(hook, `${config.migrationsSchema}.${config.migrationsTable}`);
+  sources.set(hook, { ledger: `${config.migrationsSchema}.${config.migrationsTable}`, folder: resolve(migrationsFolder) });
   return hook;
 }
 
 /** The ledger (`schema.table`) a `drizzleAppMigrations` hook writes to; `undefined` for any other hook. */
 export function getDrizzleLedger(hook: AppMigrationHook): string | undefined {
-  return ledgers.get(hook);
+  return sources.get(hook)?.ledger;
+}
+
+/** The absolute folder a `drizzleAppMigrations` hook applies; `undefined` for any other hook. */
+export function getDrizzleFolder(hook: AppMigrationHook): string | undefined {
+  return sources.get(hook)?.folder;
 }

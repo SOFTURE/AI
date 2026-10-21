@@ -18,7 +18,7 @@ export const jobs = defineModule({
     version: "0.1.3",
     dependsOn: {},
     dbSchema: "jobs",
-    tables: ["jobs", "schedules"],
+    tables: ["jobs", "schedules", "sync_cursors", "sync_items"],
     env: [],
     switches: [],
     routes: {},
@@ -51,4 +51,15 @@ export {
   type PeriodScheduleOptions,
 } from "./options.js";
 export { defineJobHandler, failJob, retryJobLater, type JobHandler, type JobHandlerContext, type JobHandlers } from "./handlers.js";
-export { jobs as jobsTable, schedules as jobSchedulesTable } from "./schema.js";
+export { jobs as jobsTable, schedules as jobSchedulesTable, syncCursors as jobSyncCursorsTable, syncItems as jobSyncItemsTable } from "./schema.js";
+export {
+  failSyncItem,
+  skipSyncItem,
+  SYNC_ITEM_STATUSES,
+  type SyncItem,
+  type SyncItemCompletion,
+  type SyncItemFailure,
+  type SyncItemOutcome,
+  type SyncItemRunResult,
+  type SyncItemStatus,
+} from "./sync.js";

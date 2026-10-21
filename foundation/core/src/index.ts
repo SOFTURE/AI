@@ -41,8 +41,12 @@ export {
   type FetchFunction,
   type HttpJsonFailure,
   type HttpJsonFailureCode,
+  type HttpJsonMethod,
+  type HttpJsonWriteMethod,
   type RequestJsonOptions,
+  type RequestJsonReadOptions,
   type RequestJsonSchemaOptions,
+  type RequestJsonWriteOptions,
 } from "./http-json.js";
 export { memoizeByContent, type MemoizeByContentOptions, type MemoizedFunction } from "./memoize.js";
 export { createTestClock, systemClock, type Clock, type TestClock } from "./clock.js";

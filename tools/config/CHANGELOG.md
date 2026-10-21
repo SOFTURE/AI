@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The lefthook preset skips typecheck, ESLint and the tests on `pre-push` when the push changes only files under
+  `context/` (#641); the language gate still runs. The condition is the new bin `softure-context-only-push`
+  (`git diff @{push} HEAD`; no upstream or any other file: everything runs). Roadmap and change-state pushes cost
+  seconds instead of a full suite.
+
 ## 0.1.3
 
 - The language gate skips a verbatim quote marked in Markdown with `<!-- language: pl -->` … `<!-- /language -->`, on

@@ -305,8 +305,8 @@ if (plan.endedAt !== null) throw new PublicError("This plan has ended; pick anot
 `isPublicError` recognises one from another copy of core too (a registry symbol, not `instanceof`).
 `safeError` itself still answers `core.unexpected` for it, since callers switch on its two codes.
 
-**External JSON APIs.** `requestJson({ url, fetch?, headers?, timeoutMs?, schema? })` GETs a third-party JSON API
-and returns `Ok<value>` or an `HttpJsonFailure` (`{ ok: false, error, status }`). It sets the details a hand-written
+**External JSON APIs.** `requestJson({ url, method?, body?, idempotencyKey?, fetch?, headers?, timeoutMs?, schema? })`
+calls a third-party JSON API (a GET by default) and returns `Ok<value>` or an `HttpJsonFailure` (`{ ok: false, error, status }`). It sets the details a hand-written
 helper tends to miss:
 
 - a timeout, `AbortSignal.timeout(timeoutMs)` (default 10 000 ms), body included;
@@ -319,6 +319,7 @@ helper tends to miss:
 |---|---|
 | `core.http_unreachable` | network error, timeout, a body that breaks off |
 | `core.http_refused` | 3xx, an opaque redirect, 401, 403 |
+| `core.http_conflict` | 409, 412 (a stale version or sha: re-read, then retry) |
 | `core.http_rate_limited` | 429 |
 | `core.http_unavailable` | 5xx |
 | `core.http_unexpected_answer` | any other non-2xx status, a body that is not JSON or fails the schema |
@@ -341,6 +342,25 @@ const result = await requestJson({
 });
 if (!result.ok) {
   return err(result.error === "core.http_rate_limited" ? "rates.busy" : "rates.unavailable"); // the app's own codes
+}
+```
+
+Writes take `method: "POST" | "PUT" | "PATCH" | "DELETE"` and a `body`, sent as JSON with
+`Content-Type: application/json` unless `headers` sets its own; a value JSON cannot represent (a cycle, a BigInt)
+throws before anything is sent. `idempotencyKey` is sent as `Idempotency-Key`. A write answered with an empty body
+(a 204, or a 200 with nothing) is `ok(undefined)`, schema or not, so a write's value is `T | undefined`; a non-empty
+answer still goes through the schema. A GET carries no body, and an empty answer to it stays an unexpected answer.
+
+```ts
+const saved = await requestJson({
+  url: `https://api.example.com/tasks/${task.id}`,
+  method: "PUT",
+  body: { title: task.title, version: task.version },
+  headers: { Authorization: `Bearer ${env.TASKS_API_KEY}` },
+  schema: z.object({ version: z.number() }),
+});
+if (!saved.ok && saved.error === "core.http_conflict") {
+  // someone else changed the task: read it again and retry the write
 }
 ```
 

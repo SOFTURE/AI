@@ -16,6 +16,7 @@ interface LefthookJob {
   name: string;
   run: string;
   glob?: string;
+  skip?: { run: string }[];
 }
 
 type Lefthook = Record<string, { parallel?: boolean; piped?: boolean; jobs: LefthookJob[] }>;
@@ -83,6 +84,12 @@ describe("the lefthook preset", () => {
     expect(getRuns("pre-push").test).toBe("npm test");
   });
 
+  it("skips typecheck, lint and tests, not the language gate, for a push that changes only context/", () => {
+    const skips = Object.fromEntries((hooks["pre-push"]?.jobs ?? []).map((job) => [job.name, job.skip]));
+    const contextOnly = [{ run: "npx softure-context-only-push" }];
+    expect(skips).toEqual({ typecheck: contextOnly, lint: contextOnly, language: undefined, test: contextOnly });
+  });
+
   describe("with one job changed by an app", () => {
     // A scratch app inside the repository's node_modules, with the preset where an installed package puts it.
     const cacheDir = join(REPO_ROOT, "node_modules/.cache");
@@ -124,6 +131,6 @@ describe("the lefthook preset", () => {
 
   it("calls the bin the package ships", () => {
     const manifest = readJson<{ bin: Record<string, string> }>(join(PACKAGE_DIR, "package.json"));
-    expect(Object.keys(manifest.bin)).toEqual(["softure-check-language"]);
+    expect(Object.keys(manifest.bin)).toEqual(["softure-check-language", "softure-context-only-push"]);
   });
 });

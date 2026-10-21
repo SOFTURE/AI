@@ -10,6 +10,8 @@
 #   pre-commit  typecheck, ESLint on the staged files and the language gate, in parallel.
 #   commit-msg  the language gate on the commit message.
 #   pre-push    typecheck, the whole ESLint run, the language gate on every tracked file, then tests.
+#               A push that changes only files under `context/` (workflow artifacts, roadmap state) runs the
+#               language gate alone (`softure-context-only-push`; no upstream or any other file: everything runs).
 #
 # `glob` is the "was any code touched" switch: a commit that stages only Markdown skips typecheck
 # and ESLint. The language job has no glob, so it checks Markdown too. `--max-warnings 0`: a warning
@@ -37,14 +39,22 @@ commit-msg:
       run: npx softure-check-language --commit-msg {1}
 
 # `piped`: the first red job stops the rest, so a type error does not wait for the whole test run.
+# No `eslint --cache`: the rules are type-aware, and the cache keys a file by its own content, so a type change in
+# one file would leave stale results for the files that use it.
 pre-push:
   piped: true
   jobs:
     - name: typecheck
       run: npx tsc --noEmit
+      skip:
+        - run: npx softure-context-only-push
     - name: lint
       run: npx eslint . --max-warnings 0
+      skip:
+        - run: npx softure-context-only-push
     - name: language
       run: npx softure-check-language --all
     - name: test
       run: npm test
+      skip:
+        - run: npx softure-context-only-push

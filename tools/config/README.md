@@ -81,7 +81,14 @@ extends:
 |---|---|
 | `pre-commit` | `tsc --noEmit`, ESLint on the staged files, the language gate on the staged files (in parallel; a Markdown-only commit skips the first two) |
 | `commit-msg` | the language gate on the message |
-| `pre-push` | `tsc --noEmit`, `eslint .`, the language gate on every tracked file, `npm test` (stops at the first failure) |
+| `pre-push` | `tsc --noEmit`, `eslint .`, the language gate on every tracked file, `npm test` (stops at the first failure); a push that changes only `context/` runs the language gate alone |
+
+A push of workflow artifacts alone (roadmap or change state under `context/`) skips typecheck, ESLint and the tests:
+their `skip` condition is `npx softure-context-only-push`, which exits 0 only when every file the push of the current
+branch changes (`git diff @{push} HEAD`, so a merge that brings in code counts) is under `context/`. A branch without
+upstream, nothing to push, or a git error runs everything. ESLint runs without `--cache` on purpose: the rules are
+type-aware, and the cache keys a file by its own content, so a type change in one file would leave stale results for
+the files that use it.
 
 Install the hooks from `prepare`, skipped when `CI` is set (lefthook 2 installs unconditionally, and a CI checkout
 has no use for hooks):

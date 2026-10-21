@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
+## Unreleased
+
+- `@softure-ai/db/testing/global-setup`, a Vitest `globalSetup` module: each module set is migrated once per run
+  instead of once per test file (#641). The template is written to a folder the setup creates and removes
+  (`SOFTURE_DB_TEST_TEMPLATES`), named by a hash of the module migration files, the drizzle folders' files and the
+  baseline; every other file and worker loads it from disk. An app hook other than `drizzleAppMigrations` needs the
+  new `templateKey` option to be shared; without it, its template stays per file as before.
+- `createTestDatabase(modules, { reuse: true })`: `close()` returns the database to a pool and the next call gets it
+  back reset to the template (rows, seed rows and ledgers, sequences, session state) in milliseconds instead of a new
+  copy (~0.5 s). A database whose schema a test changed is replaced by a fresh copy.
+- Without the setup and without `reuse`, nothing changes.
+
 ## 0.1.12
 
 - `drizzleAppMigrations(folder, { migrationsTable, migrationsSchema })` names the drizzle ledger the folder uses

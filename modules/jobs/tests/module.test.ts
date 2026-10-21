@@ -27,7 +27,7 @@ describe("the jobs module", () => {
       schedules: {},
       pollIntervalMs: 1000,
       shutdownGraceMs: 20_000,
-      retention: { succeededDays: 7, failedDays: 30, cancelledDays: 7 },
+      retention: { succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90 },
     });
   });
 
@@ -168,5 +168,69 @@ describe("jobs.jobs constraints", () => {
     await insertRow({ dedup_key: "message-2", status: "succeeded", attempts: 1, finished_at: NOW });
     await expect(insertRow({ dedup_key: "message-2" })).resolves.toBeDefined();
     await expect(insertRow({ dedup_key: "message-1", queue: "mail.send" })).resolves.toBeDefined();
+  });
+});
+
+describe("jobs.sync_items and jobs.sync_cursors constraints", () => {
+  let test: TestJobs;
+
+  beforeEach(async () => {
+    test = await createTestJobs();
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  async function insertItem(overrides: Record<string, unknown> = {}): Promise<unknown> {
+    const row = {
+      source: "gmail.inbox",
+      item_id: "m1",
+      status: "pending",
+      error_code: null,
+      attempts: 0,
+      result_ref: null,
+      last_seen_at: NOW,
+      finished_at: null,
+      ...overrides,
+    };
+    return test.database.client.query(
+      `INSERT INTO jobs.sync_items (source, item_id, status, error_code, attempts, result_ref, first_seen_at, last_seen_at,
+         updated_at, finished_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $9)`,
+      [row.source, row.item_id, row.status, row.error_code, row.attempts, row.result_ref, NOW, row.last_seen_at, row.finished_at],
+    );
+  }
+
+  it("accepts a pending, a done, a skipped and a failed item", async () => {
+    await expect(insertItem()).resolves.toBeDefined();
+    await expect(insertItem({ item_id: "m2", status: "done", attempts: 1, result_ref: "task-1", finished_at: NOW })).resolves.toBeDefined();
+    await expect(insertItem({ item_id: "m3", status: "skipped", attempts: 1, finished_at: NOW })).resolves.toBeDefined();
+    await expect(insertItem({ item_id: "m4", status: "failed", attempts: 2, error_code: "app.down", finished_at: NOW })).resolves.toBeDefined();
+  });
+
+  it.each([
+    ["an uppercase source", { source: "Gmail" }],
+    ["an unknown status", { status: "succeeded", finished_at: NOW }],
+    ["an empty item id", { item_id: "" }],
+    ["negative attempts", { attempts: -1 }],
+    ["a finished item without finished_at", { status: "done", attempts: 1 }],
+    ["a pending item with finished_at", { finished_at: NOW }],
+    ["a failed item without an error code", { status: "failed", attempts: 1, finished_at: NOW }],
+    ["a done item never run", { status: "done", finished_at: NOW }],
+    ["a result reference on a pending item", { result_ref: "task-1" }],
+    ["a last sighting before the first", { last_seen_at: new Date(NOW.getTime() - 1) }],
+  ])("rejects %s", async (_case, overrides) => {
+    await expect(insertItem(overrides)).rejects.toThrow(/check constraint/);
+  });
+
+  it("keeps one row per source and item, and one cursor per source", async () => {
+    await insertItem();
+    await expect(insertItem()).rejects.toThrow(/duplicate key/);
+    await expect(insertItem({ source: "todoist:project-42" })).resolves.toBeDefined();
+    const insertCursor = (cursor: string) =>
+      test.database.client.query("INSERT INTO jobs.sync_cursors (source, cursor, created_at, updated_at) VALUES ($1, $2, $3, $3)", ["gmail.inbox", cursor, NOW]);
+    await expect(insertCursor("")).rejects.toThrow(/check constraint/);
+    await insertCursor("100");
+    await expect(insertCursor("200")).rejects.toThrow(/duplicate key/);
   });
 });
