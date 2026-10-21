@@ -29,4 +29,3 @@ export {
   type GuardedPageOptions,
   type GuardedPageResult,
 } from "./guarded-page.js";
-export { htmlToReadableText, type ReadableLink, type ReadableText, type ReadableTextOptions } from "./readable-text.js";

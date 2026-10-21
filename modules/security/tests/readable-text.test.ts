@@ -1,7 +1,7 @@
 // HTML to readable text: fixtures shaped like real pages (a news article, a video page, a repository page) and the
 // rules one by one.
 import { readFileSync } from "node:fs";
-import { htmlToReadableText } from "@softure-ai/security/server";
+import { htmlToReadableText } from "@softure-ai/security/readable-text";
 import { describe, expect, it } from "vitest";
 
 function readFixture(name: string): string {

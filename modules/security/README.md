@@ -282,7 +282,8 @@ body, and the body is cut at `maxBytes` after `content-encoding` (gzip, deflate,
 compressed answer cannot expand past the cap.
 
 ```ts
-import { fetchGuardedPage, htmlToReadableText } from "@softure-ai/security/server";
+import { htmlToReadableText } from "@softure-ai/security/readable-text";
+import { fetchGuardedPage } from "@softure-ai/security/server";
 
 const fetched = await fetchGuardedPage(savedLink.url, { timeoutMs: 10_000, maxBytes: 2_000_000 });
 if (!fetched.ok) return markPreviewFailed(fetched.error);
@@ -292,10 +293,10 @@ const html = new TextDecoder(charset ?? "utf-8").decode(body); // an unknown lab
 const { title, description, text, links } = htmlToReadableText(html, { baseUrl: finalUrl });
 ```
 
-| Function (`@softure-ai/security/server`) | Returns |
+| Function | Returns |
 | --- | --- |
-| `fetchGuardedPage(url, { timeoutMs, maxBytes, maxRedirects?, accept?, userAgent?, allowedPorts?, allowTruncation? }, seam?)` | `Ok<{ status, finalUrl, contentType, charset, body: Uint8Array, truncated }>`, or `Err` with the `security.outbound_*` codes above or `security.outbound_too_large` |
-| `htmlToReadableText(html, { baseUrl })` | `{ title, description, text, links: { text, url }[] }`; no network, no script |
+| `fetchGuardedPage(url, { timeoutMs, maxBytes, maxRedirects?, accept?, userAgent?, allowedPorts?, allowTruncation? }, seam?)` (`@softure-ai/security/server`) | `Ok<{ status, finalUrl, contentType, charset, body: Uint8Array, truncated }>`, or `Err` with the `security.outbound_*` codes above or `security.outbound_too_large` |
+| `htmlToReadableText(html, { baseUrl })` (`@softure-ai/security/readable-text`) | `{ title, description, text, links: { text, url }[] }`; no network, no script |
 
 **Options.** `maxRedirects` defaults to 5 (more hops is `security.outbound_failed`; `0` returns a 3xx as the page).
 `allowedPorts` defaults to `[80, 443]`, since plain `http:` links are common and the guard holds on any port; every
@@ -307,7 +308,8 @@ is the media type in lowercase without parameters; `charset` is the declared lab
 else for HTML a `<meta charset>` or `http-equiv` in the first 1024 bytes) or `null`. Decoding stays with the caller.
 An encoding the fetch cannot undo, or a body that does not decode, is `security.outbound_failed`.
 
-**Readable text.** `htmlToReadableText` parses the HTML into a static tree (`node-html-parser`): no script runs and
+**Readable text.** `htmlToReadableText` lives in its own entry point, `@softure-ai/security/readable-text`, so
+`/server` does not load the HTML parser for an app that never uses it; it runs anywhere, not only on Node. It parses the HTML into a static tree (`node-html-parser`): no script runs and
 nothing is loaded. The title is `<title>`, else `og:title`, else the first `h1`; the description is the meta
 description, else `og:description` (a video page often has nothing else). The text is `main` (else `body`), narrowed
 to its only `article`, without scripts, styles, navigation, forms, asides, hidden nodes and the page's own header and

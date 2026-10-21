@@ -13,7 +13,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `Uint8Array` capped at `maxBytes` after gzip, deflate or brotli is undone, with `status`, `finalUrl`, `contentType`,
   `charset` and `truncated`. Default ports `[80, 443]`. New code `security.outbound_too_large` (with
   `allowTruncation: false`; English message added, an app with its own translation adds `errors.outbound_too_large`).
-- `htmlToReadableText(html, { baseUrl })` in `@softure-ai/security/server` (#636): the page's `title`, `description`,
+- `htmlToReadableText(html, { baseUrl })` in the new entry point `@softure-ai/security/readable-text` (#636): the page's `title`, `description`,
   main text and absolute links, with no network and no script. New dependency `node-html-parser`.
 - Nothing to migrate: `sendGuardedRequest` behaves as before.
 

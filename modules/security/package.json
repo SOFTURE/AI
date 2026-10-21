@@ -46,6 +46,11 @@
       "@softure-ai/source": "./src/signed-request.ts",
       "types": "./dist/signed-request.d.ts",
       "default": "./dist/signed-request.js"
+    },
+    "./readable-text": {
+      "@softure-ai/source": "./src/readable-text.ts",
+      "types": "./dist/readable-text.d.ts",
+      "default": "./dist/readable-text.js"
     }
   },
   "scripts": {

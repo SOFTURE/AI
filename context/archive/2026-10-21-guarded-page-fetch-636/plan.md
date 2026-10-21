@@ -45,8 +45,9 @@ Files: `modules/security/src/server/readable-text.ts`, `modules/security/tests/r
 
 ## Decisions (auto)
 
-- `htmlToReadableText` stays in security (coordinator's brief, no overlap with #635 in core); exported from
-  `/server` next to the fetch.
+- `htmlToReadableText` stays in security (coordinator's brief, no overlap with #635 in core), in its own entry point
+  `@softure-ai/security/readable-text`: re-exported from `/server`, it made every importer of `/server` load
+  `node-html-parser` (the example app's build failed through `@softure-ai/blog/next`).
 - Redirect loop or too many hops → `security.outbound_failed`: the issue keeps the existing codes; a new code only
   for the size cap (`security.outbound_too_large`).
 - `allowTruncation` defaults to `true`: a link preview wants the head of a long page, not an error.
@@ -65,3 +66,7 @@ Files: `modules/security/src/server/readable-text.ts`, `modules/security/tests/r
 One commit for the three phases: the tests were written first in each phase, run against the new code, and kept
 alongside it. Gates: typecheck, lint (with the language gate), `modules/security` tests (305 passed, the page fetch
 five runs in a row).
+
+CI follow-ups: the test server routes through a `Map` (CodeQL, dynamic dispatch on the URL); the readable text
+moved to its own entry point after the example app e2e build could not resolve `node-html-parser` (verified with a
+local `next build` of the example).
