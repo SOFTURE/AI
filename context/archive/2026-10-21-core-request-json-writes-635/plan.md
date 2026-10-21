@@ -1,6 +1,6 @@
 ---
 change_id: core-request-json-writes-635
-status: in_progress
+status: archived
 ---
 
 # Plan: requestJson for write calls (issue #635)
@@ -31,5 +31,5 @@ README "External JSON APIs" (writes, the code table), CHANGELOG `## Unreleased` 
 
 ## Progress
 
-- [ ] Phase 1: write methods, empty answers, conflict
-- [ ] Phase 2: docs
+- [x] Phase 1: write methods, empty answers, conflict (17 tests written first and failing; core suite passes)
+- [x] Phase 2: docs (README writes subsection and code table, CHANGELOG `## Unreleased` with the migration)

@@ -1,12 +1,13 @@
 ---
 change_id: core-request-json-writes-635
 title: "core: requestJson for write calls (POST, PUT, PATCH, DELETE), empty answers and http_conflict (issue #635)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 635
 branch: claude/project-thread-jjudlr
 created: 2026-10-21
 updated: 2026-10-21
+archived_at: 2026-10-21
 ---
 
 ## Intent
