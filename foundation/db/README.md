@@ -427,7 +427,7 @@ For fresh databases of an app that adopted a module, declare a baseline (section
 
 **Tests:** `createTestDatabase(modules)` from `@softure-ai/db/testing` returns `{ db, client, close }`:
 an in-memory PGlite with the ledger and the listed modules migrated (list the module and the
-modules it depends on). Each module set is migrated once per test worker and copied per call; a
+modules it depends on). Each module set is migrated once into a template and copied per call; a
 broken migration throws naming the file. An app with its own migrations passes the same hooks,
 `createTestDatabase(modules, { app: appMigrations })`, so module tables can reference app tables; the
 template is cached per hook object, so import the shared object rather than writing hooks inline.
@@ -438,6 +438,53 @@ import { createTestDatabase } from "@softure-ai/db/testing";
 const database = await createTestDatabase([notes()]);
 afterEach(() => database.close());
 ```
+
+**A template per run, not per file.** The template cache is module state, and Vitest isolates modules
+per test file, so without more each test file migrates again (seconds per file). Add the global setup,
+and every module set is migrated once per run and loaded from disk by every other file and worker:
+
+```ts
+// vitest.config.ts
+export default defineConfig({ test: { globalSetup: ["@softure-ai/db/testing/global-setup"] } });
+```
+
+- The setup creates a temporary folder, names it in `SOFTURE_DB_TEST_TEMPLATES` for the workers, and
+  removes it when the run ends. An app that sets the variable itself keeps its folder; that folder must
+  not outlive a dependency upgrade, since the file names do not cover the PGlite or package version.
+- A template on disk is named by a hash of what it is built from: the module ids and every file in their
+  migration folders, each `drizzleAppMigrations` folder's files and ledger, `templateKey`, the baseline.
+  Editing a migration gives a new template.
+- An app hook other than `drizzleAppMigrations` is a function nothing can identify in another process: give
+  it `templateKey` (change the key when its migrations change), or its template stays per file:
+  `createTestDatabase(modules, { app: appMigrations, templateKey: "app-v12" })`.
+- Two workers that need the same template at once may both build it; the file is written under a
+  temporary name and renamed, so a reader sees the whole file or none.
+
+**Reuse: a reset instead of a new copy.** A copy of the template costs ~0.4-0.6 s per call; most tests
+only need empty tables. With `reuse: true`, `close()` returns the database to a pool, and the next call
+gets it back reset to the template (a few milliseconds):
+
+```ts
+let database: TestDatabase;
+beforeEach(async () => {
+  database = await createTestDatabase([notes()], { reuse: true });
+});
+afterEach(() => database.close());
+afterAll(() => closeReusedTestDatabases());
+```
+
+- Reset: session state discarded (`DISCARD ALL`: settings, temporary tables, prepared statements,
+  listeners, advisory locks), every table emptied and the template's rows copied back (seed rows and the
+  migration ledgers included), sequences set to the template's values, populated materialized views
+  refreshed.
+- A test that changed the schema (a table, column, index, constraint, function, trigger or enum value)
+  or left a transaction open hands back a database that cannot be reset; the next call closes it and
+  gets a fresh copy. Two databases open at the same time are never the same instance.
+- The pool is module state: one per test file under Vitest's default isolation.
+  `closeReusedTestDatabases()` in `afterAll` closes its idle databases.
+- Seed rows, identity values and sequences come back exactly as a fresh copy has them. A test that
+  counts on an exact id after inserts should read it, not assume it: PGlite's sequences resume past
+  their logged values in every copy, with or without reuse.
 
 ## 6. Environment variables
 

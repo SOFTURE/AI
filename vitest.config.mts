@@ -29,6 +29,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // One migrated template per module set for the whole run, not per test file (issue #641).
+    globalSetup: ["./foundation/db/src/testing/global-setup.ts"],
     include: [
       "tests/**/*.test.ts",
       "{foundation,modules,tools,templates}/*/{src,tests}/**/*.test.{ts,tsx}",
