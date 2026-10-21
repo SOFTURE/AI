@@ -45,4 +45,4 @@ CHANGELOG. Revert the commits to roll back.
 ## Progress
 
 - [x] Phase 1: generateText, truncation code, fake model, tests (shared `runCall`, `llm.output_truncated` for both calls, `maxOutputTokens`, `maxChars`, fake `truncated` response; 51 llm tests green)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (README call, error and fake-model tables, CHANGELOG `## Unreleased`, package description)
