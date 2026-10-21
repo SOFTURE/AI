@@ -1,12 +1,13 @@
 ---
 change_id: db-testing-template-reuse-641
 title: "db/testing: one migrated template per run and a reusable test database; context-only pushes skip the heavy pre-push jobs (issue #641)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 641
 branch: claude/project-thread-h0rzu2
 created: 2026-10-21
 updated: 2026-10-21
+archived_at: 2026-10-21
 ---
 
 ## Intent

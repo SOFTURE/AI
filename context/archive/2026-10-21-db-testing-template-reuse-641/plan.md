@@ -1,6 +1,6 @@
 ---
 change_id: db-testing-template-reuse-641
-status: in_progress
+status: archived
 ---
 
 # Plan: db/testing template per run, reuse mode, context-only pushes (issue #641)
