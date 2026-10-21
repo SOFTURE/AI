@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
-## Unreleased
+## 0.2.2
 
 - `requestJson` writes (#635): `method` (`"GET"` by default, `"POST" | "PUT" | "PATCH" | "DELETE"`), `body` sent as
   JSON with `Content-Type: application/json` unless the caller sets its own, and `idempotencyKey` sent as
