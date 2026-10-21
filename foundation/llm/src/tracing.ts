@@ -2,15 +2,16 @@ import { SpanStatusCode, trace, type Span, type Tracer } from "@opentelemetry/ap
 import type { LlmErrorCode, LlmUsage } from "./contract.js";
 
 export const TRACER_NAME = "@softure-ai/llm";
-export const SPAN_NAME = "llm.generate_structured";
+export const STRUCTURED_SPAN_NAME = "llm.generate_structured";
+export const TEXT_SPAN_NAME = "llm.generate_text";
 
 /** The global tracer: a no-op until the app starts an OpenTelemetry SDK (e.g. @softure-ai/observability). */
 export function getDefaultTracer(): Tracer {
   return trace.getTracer(TRACER_NAME);
 }
 
-export function startCallSpan(tracer: Tracer, request: { provider: string; model: string }): Span {
-  return tracer.startSpan(SPAN_NAME, {
+export function startCallSpan(tracer: Tracer, name: string, request: { provider: string; model: string }): Span {
+  return tracer.startSpan(name, {
     attributes: {
       "gen_ai.operation.name": "generate_content",
       "gen_ai.provider.name": request.provider,
