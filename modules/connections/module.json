@@ -1,0 +1,21 @@
+{
+  "id": "connections",
+  "version": "0.1.0",
+  "dependsOn": { "auth": "^0.2.0" },
+  "dbSchema": "connections",
+  "tables": ["accounts", "oauth_states"],
+  "env": [
+    {
+      "name": "SOFTURE_CONNECTIONS_KEYS",
+      "required": true,
+      "description": "Encryption keyring for stored tokens and keys: <id>:<base64 32 bytes>[,<id>:<key>...], the first one seals"
+    }
+  ],
+  "switches": [],
+  "routes": { "page": "/admin/connections", "callback": "/api/connections/callback" },
+  "mount": [
+    { "kind": "page", "path": "app/admin/connections/page.tsx", "export": "ConnectionsPage" },
+    { "kind": "route-handler", "path": "app/api/connections/callback/route.ts", "export": "completeConnectionRoute" }
+  ],
+  "privacy": { "exports": true, "deletes": true }
+}
