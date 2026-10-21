@@ -1,6 +1,6 @@
 ---
 change_id: llm-generate-text-637
-status: in_progress
+status: archived
 ---
 
 # Plan: generateText in @softure-ai/llm (issue #637)

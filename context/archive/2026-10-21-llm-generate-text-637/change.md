@@ -1,12 +1,13 @@
 ---
 change_id: llm-generate-text-637
 title: "llm: free-text generation next to generateStructured (issue #637)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 637
 branch: claude/project-thread-d6papf
 created: 2026-10-21
 updated: 2026-10-21
+archived_at: 2026-10-21
 ---
 
 ## Intent
