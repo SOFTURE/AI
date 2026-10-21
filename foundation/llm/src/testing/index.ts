@@ -15,8 +15,10 @@ export interface FakeUsage {
 export type FakeResponse =
   /** Answers with `value` serialised to JSON. */
   | { readonly kind: "output"; readonly value: unknown; readonly usage?: FakeUsage }
-  /** Answers with raw text, e.g. to provoke `llm.invalid_output`. */
+  /** Answers with raw text: the answer of `generateText`, or not JSON to provoke `llm.invalid_output`. */
   | { readonly kind: "text"; readonly text: string; readonly usage?: FakeUsage }
+  /** Stops on the output token limit after `text` (default empty), to provoke `llm.output_truncated`. */
+  | { readonly kind: "truncated"; readonly text?: string; readonly usage?: FakeUsage }
   /** Fails like a provider returning HTTP 503 (`llm.unavailable`). */
   | { readonly kind: "unavailable" }
   /** Never answers; ends only when the call is aborted (`llm.timeout`). */
@@ -65,6 +67,8 @@ async function answer(response: FakeResponse, modelId: string, abortSignal: Abor
       return toResult(JSON.stringify(response.value), modelId, response.usage ?? DEFAULT_USAGE);
     case "text":
       return toResult(response.text, modelId, response.usage ?? DEFAULT_USAGE);
+    case "truncated":
+      return toResult(response.text ?? "", modelId, response.usage ?? DEFAULT_USAGE, "length");
     case "unavailable":
       throw new APICallError({
         message: "fakeModel: the provider is unavailable",
@@ -83,11 +87,11 @@ async function answer(response: FakeResponse, modelId: string, abortSignal: Abor
   }
 }
 
-function toResult(text: string, modelId: string, usage: FakeUsage) {
+function toResult(text: string, modelId: string, usage: FakeUsage, finishReason: "stop" | "length" = "stop") {
   const cached = usage.cachedInputTokens ?? 0;
   return {
     content: [{ type: "text" as const, text }],
-    finishReason: { unified: "stop" as const, raw: "stop" },
+    finishReason: { unified: finishReason, raw: finishReason },
     usage: {
       inputTokens: { total: usage.inputTokens, noCache: usage.inputTokens - cached, cacheRead: cached, cacheWrite: 0 },
       outputTokens: { total: usage.outputTokens, text: usage.outputTokens, reasoning: 0 },

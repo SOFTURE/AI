@@ -1,10 +1,11 @@
 # @softure-ai/llm
 
-One way for an app to ask a language model for structured data: the app builds the model with any
+One way for an app to ask a language model for structured data or plain text: the app builds the model with any
 [AI SDK](https://ai-sdk.dev) provider, and the package gives it
 
 - `generateStructured`: the answer parsed and validated by a zod schema, a time limit, and a `Result` whose failures
   are stable codes;
+- `generateText`: plain text (a summary, a Markdown rewrite, a short title) with the same limits, codes and records;
 - a usage record per call (tokens, cost from the app's price table, outcome, the app's attributes such as an account
   id), for quotas and billing;
 - an OpenTelemetry span per call;
@@ -51,8 +52,20 @@ const result = await llm.generateStructured({
   prompt: reviewText,
   attributes: { accountId: account.id },
 });
-if (!result.ok) return result; // "llm.unavailable" | "llm.invalid_output" | "llm.timeout"
+if (!result.ok) return result; // "llm.unavailable" | "llm.invalid_output" | "llm.output_truncated" | "llm.timeout"
 const { output, usage, model, costUsd } = result.value;
+```
+
+```ts
+const summary = await llm.generateText({
+  system: "Summarise the e-mail in two sentences.",
+  prompt: mailBody,
+  maxOutputTokens: 200,
+  maxChars: 400,
+  attributes: { accountId: account.id },
+});
+if (!summary.ok) return summary;
+const { text, truncated } = summary.value;
 ```
 
 ### `createLlm(options)`
@@ -77,18 +90,36 @@ option.
 | `schema` | zod schema of the answer; the model is asked for JSON and the answer is validated with it |
 | `system` | optional system text |
 | `prompt` | the user text |
+| `maxOutputTokens` | upper limit of output tokens (a whole number of 1 or more); default: the provider's |
 | `timeoutMs` | overrides the default time limit for this call |
 | `model` | overrides the default model for this call (e.g. a cheaper one for a simple task) |
 | `attributes` | `Record<string, string>` passed to `onUsage` as given; never written to spans |
 
 Returns `Result<{ output, usage, model, costUsd }, LlmErrorCode>` (`ok` / `err` of `@softure-ai/core`).
 
+### `generateText(request)`
+
+Asks for plain text: no JSON envelope, so long Markdown is neither escaped nor cut inside a string. The fields of
+`generateStructured` without `schema` (`system`, `prompt`, `maxOutputTokens`, `timeoutMs`, `model`, `attributes`), and
+
+| Field | Meaning |
+| --- | --- |
+| `maxChars` | cuts the answer to at most this many characters (code points), at the last whitespace inside the limit, or hard when there is none; a whole number of 1 or more |
+
+Returns `Result<{ text, truncated, usage, model, costUsd }, LlmErrorCode>`. `text` is the answer without surrounding
+whitespace; `truncated` is `true` when `maxChars` cut it. An answer that is empty or only whitespace is
+`llm.invalid_output`. Streaming is not offered.
+
+A `maxChars`, `maxOutputTokens` or per-call `timeoutMs` that is out of range rejects with a `RangeError` naming the
+call and the field, before the model is called.
+
 ## Error codes
 
 | Code | When | Usage recorded |
 | --- | --- | --- |
 | `llm.unavailable` | the provider failed: an HTTP error, the network, a missing or wrong key, retries exhausted | no |
-| `llm.invalid_output` | the model answered, but not with JSON matching the schema | yes (the tokens were spent) |
+| `llm.invalid_output` | the model answered, but not with JSON matching the schema; for `generateText`, with an empty text | yes (the tokens were spent) |
+| `llm.output_truncated` | the model stopped on the output token limit (`maxOutputTokens` or the provider's) before finishing | yes |
 | `llm.timeout` | no answer within `timeoutMs`; the call is aborted | no |
 
 `LLM_ERROR_CODES` lists them. An error that does not come from the AI SDK (a bug in the app's code or a provider) is
@@ -98,18 +129,19 @@ not mapped: it propagates, as does an error thrown by `onUsage`.
 
 `UsageRecord` is `{ model, provider, usage, costUsd, outcome, durationMs, at, attributes }`, where `usage` is
 `{ inputTokens, outputTokens, totalTokens, cachedInputTokens, reasoningTokens }`. A count the provider does not report
-reads `0`. `outcome` is `"ok"` or the call's error code (`llm.invalid_output`, the one failure that still records
-usage). `model` is the id the provider answered with, which is also the key `pricing` is read with.
+reads `0`. `outcome` is `"ok"` or the call's error code (`llm.invalid_output` and `llm.output_truncated`, the
+failures that still record usage). `model` is the id the provider answered with, which is also the key `pricing` is read with.
 
 Cost: `(input − cached) × inputPerMillion + cached × (cachedInputPerMillion ?? inputPerMillion) + output ×
 outputPerMillion`, divided by one million. `getCostUsd(pricing, model, usage)` is exported for estimates.
 
 The package keeps nothing: storing records (a table, a counter per account, a monthly cap) is the app's or a quota
-module's job, inside `onUsage`. To refuse a call over quota, check the quota before calling `generateStructured`.
+module's job, inside `onUsage`. To refuse a call over quota, check the quota before calling `generateStructured` or
+`generateText`.
 
 ## Tracing
 
-Every call is one span `llm.generate_structured` with `gen_ai.operation.name`, `gen_ai.provider.name`,
+Every call is one span, `llm.generate_structured` or `llm.generate_text`, with `gen_ai.operation.name`, `gen_ai.provider.name`,
 `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`,
 `softure.llm.cost_usd` and `softure.llm.outcome`; a failed call has status `ERROR` with its code. The prompt, the
 answer and the call's attributes are never recorded (they may hold personal data). Without an OpenTelemetry SDK in
@@ -134,7 +166,8 @@ expect(model.doGenerateCalls).toHaveLength(0);
 | Response | Effect |
 | --- | --- |
 | `{ kind: "output", value, usage? }` | answers with `value` as JSON |
-| `{ kind: "text", text, usage? }` | answers with raw text (e.g. not JSON → `llm.invalid_output`) |
+| `{ kind: "text", text, usage? }` | answers with raw text: the answer of `generateText`, or not JSON → `llm.invalid_output` |
+| `{ kind: "truncated", text?, usage? }` | stops on the output token limit after `text` → `llm.output_truncated` |
 | `{ kind: "unavailable" }` | fails like a provider returning HTTP 503 → `llm.unavailable` |
 | `{ kind: "hang" }` | never answers until aborted → `llm.timeout` (use fake timers) |
 
@@ -143,6 +176,6 @@ the last one repeats. `model.doGenerateCalls` holds what was sent (prompt, respo
 
 ## Limitations
 
-- Structured output only: no free text, streaming or tools yet.
+- Structured output and plain text only: no streaming or tools yet.
 - AI SDK 7 only (`ai@^7`).
 - No built-in price list: prices change often and differ per provider, so the app keeps them.

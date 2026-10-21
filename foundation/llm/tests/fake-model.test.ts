@@ -35,6 +35,14 @@ describe("fakeModel", () => {
     });
   });
 
+  it("stops on the token limit for a truncated response", async () => {
+    const model = fakeModel({ kind: "truncated" });
+
+    const result = await createLlm({ model }).generateText({ prompt: "p" });
+
+    expect(result).toEqual({ ok: false, error: "llm.output_truncated" });
+  });
+
   it("refuses a script without responses", () => {
     expect(() => fakeModel({ modelId: "m" } as never)).toThrow("at least one response");
   });
