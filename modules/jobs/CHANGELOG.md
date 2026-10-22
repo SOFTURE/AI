@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Calendar filters on local-time schedules (#651): `daysOfWeek` (ISO `1` Monday to `7` Sunday) and `daysOfMonth`
+  (`1` to `31` and `"last"`) keep an `at` schedule to the local dates in its `timeZone` that match (both, when both
+  are given); a day a month lacks never matches. Empty lists, out-of-range or repeated values, and a filter on an
+  `every` schedule are refused at config load. New type export `DayOfMonth`; `LocalTimeScheduleOptions` gains the
+  two optional fields.
+- `getQueueStats` for every `at` schedule: `everySeconds` is the gap from the current slot to the next (it was the
+  longest gap between the times of day), and `isLate` turns true once the second slot after the last success (or
+  after a worker first saw the schedule) has passed (it was twice the longest gap). Equal for evenly spread times;
+  stricter for uneven ones. `every` schedules are unchanged.
+- Migration for an app: none required. An app that runs a job daily and returns early on the wrong weekday or day
+  of the month moves that check into the schedule (`daysOfWeek`, `daysOfMonth`) and drops it from the handler. An
+  alarm or test built on `everySeconds` of an `at` schedule with uneven times reads the new value.
+
 ## 0.1.4
 
 - Sync state for jobs that poll a third-party source (#639): a cursor per source and a processed-item ledger, so a

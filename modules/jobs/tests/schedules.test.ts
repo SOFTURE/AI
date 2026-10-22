@@ -1,7 +1,7 @@
 // Recurring schedules: one run per period however many runners race for it, missed periods collapse into one run, a
 // run still live absorbs the next period, a success is recorded, and a schedule that stops running reads as late.
 import { err, ok, systemClock, type ErrorCode } from "@softure-ai/core";
-import { defineJobHandler, failJob, type JobHandlers, type JobsOptionsInput } from "@softure-ai/jobs";
+import { defineJobHandler, failJob, type JobHandlers, type JobsOptionsInput, type LocalTimeScheduleOptions } from "@softure-ai/jobs";
 import {
   claimJobs,
   enqueueDueSchedules,
@@ -100,6 +100,79 @@ describe("getScheduleSlot of a local-time schedule", () => {
       // Two slots a day over three days, plus the evening slot of the day before.
       expect(slots.size).toBe(7);
     }
+  });
+});
+
+describe("getScheduleSlot of a local-time schedule with calendar filters", () => {
+  const WEEKDAYS = { at: ["08:00", "20:00"], timeZone: "Europe/Warsaw", daysOfWeek: [1, 2, 3, 4, 5], payload: {} };
+  const slot = (schedule: LocalTimeScheduleOptions, now: string) => getScheduleSlot(schedule, new Date(now)).toISOString();
+  const utc = (at: string, filters: Pick<LocalTimeScheduleOptions, "daysOfWeek" | "daysOfMonth">): LocalTimeScheduleOptions => ({
+    at: [at],
+    timeZone: "UTC",
+    ...filters,
+    payload: {},
+  });
+
+  it("skips the days of the week the schedule leaves out", () => {
+    // 2026-10-17 is a Saturday; Warsaw is UTC+2 until 2026-10-25.
+    expect(slot(WEEKDAYS, "2026-10-17T12:00:00Z")).toBe("2026-10-16T18:00:00.000Z");
+    expect(slot(WEEKDAYS, "2026-10-19T05:59:59Z")).toBe("2026-10-16T18:00:00.000Z");
+    expect(slot(WEEKDAYS, "2026-10-19T06:00:00Z")).toBe("2026-10-19T06:00:00.000Z");
+  });
+
+  it("runs on the listed days of the month, and on the last one with last", () => {
+    const tenth = utc("08:00", { daysOfMonth: [10] });
+    expect(slot(tenth, "2026-10-10T07:59:59Z")).toBe("2026-09-10T08:00:00.000Z");
+    expect(slot(tenth, "2026-10-10T08:00:00Z")).toBe("2026-10-10T08:00:00.000Z");
+    const last = utc("23:00", { daysOfMonth: ["last"] });
+    expect(slot(last, "2026-05-01T00:00:00Z")).toBe("2026-04-30T23:00:00.000Z");
+    expect(slot(last, "2026-03-15T00:00:00Z")).toBe("2026-02-28T23:00:00.000Z");
+    expect(slot(last, "2028-03-01T00:00:00Z")).toBe("2028-02-29T23:00:00.000Z");
+    expect(slot(last, "2026-06-01T00:00:00Z")).toBe("2026-05-31T23:00:00.000Z");
+  });
+
+  it("never runs a day the month lacks", () => {
+    expect(slot(utc("08:00", { daysOfMonth: [31] }), "2026-05-15T00:00:00Z")).toBe("2026-03-31T08:00:00.000Z");
+  });
+
+  it("needs both filters to match when both are given", () => {
+    // The 10th was a Saturday in January and October 2026.
+    const saturdayTenth = utc("08:00", { daysOfWeek: [6], daysOfMonth: [10] });
+    expect(slot(saturdayTenth, "2026-10-12T00:00:00Z")).toBe("2026-10-10T08:00:00.000Z");
+    expect(slot(saturdayTenth, "2026-10-09T00:00:00Z")).toBe("2026-01-10T08:00:00.000Z");
+  });
+
+  it("reads the date in the schedule's time zone", () => {
+    // 00:30 on 1 November in Warsaw (CET) is 23:30Z on 31 October.
+    const first = { at: ["00:30"], timeZone: "Europe/Warsaw", daysOfMonth: [1], payload: {} };
+    expect(slot(first, "2026-10-31T23:29:59Z")).toBe("2026-09-30T22:30:00.000Z");
+    expect(slot(first, "2026-10-31T23:30:00Z")).toBe("2026-10-31T23:30:00.000Z");
+  });
+
+  it("finds the rarest filter, the 31st on a Monday, 608 days back", () => {
+    expect(slot(utc("12:00", { daysOfWeek: [1], daysOfMonth: [31] }), "2025-03-30T12:00:00Z")).toBe("2023-07-31T12:00:00.000Z");
+  });
+
+  it("only moves forward as the clock does, minute by minute over a weekend", () => {
+    const slots = new Set<string>();
+    let previous = Number.NEGATIVE_INFINITY;
+    for (let now = Date.parse("2026-10-16T00:00:00Z"); now < Date.parse("2026-10-21T00:00:00Z"); now += MINUTE_MS) {
+      const current = getScheduleSlot(WEEKDAYS, new Date(now)).getTime();
+      expect(current).toBeGreaterThanOrEqual(previous);
+      expect(current).toBeLessThanOrEqual(now);
+      previous = current;
+      slots.add(new Date(current).toISOString());
+    }
+    // Thursday's evening slot, then Friday, Monday and Tuesday twice each; nothing on the weekend.
+    expect([...slots]).toEqual([
+      "2026-10-15T18:00:00.000Z",
+      "2026-10-16T06:00:00.000Z",
+      "2026-10-16T18:00:00.000Z",
+      "2026-10-19T06:00:00.000Z",
+      "2026-10-19T18:00:00.000Z",
+      "2026-10-20T06:00:00.000Z",
+      "2026-10-20T18:00:00.000Z",
+    ]);
   });
 });
 
@@ -215,6 +288,23 @@ describe("enqueueDueSchedules", () => {
     ]);
   });
 
+  it("enqueues a filtered schedule only on the dates it matches", async () => {
+    test = await createTestJobs({ schedules: { "app.inbox-poll": { at: ["09:00"], timeZone: "UTC", daysOfWeek: [1, 2, 3, 4, 5] } } });
+    const { runs, handler } = countingHandler();
+    const handlers = { "app.inbox-poll": handler };
+    // From Friday 2026-10-16 12:00Z, every 30 minutes for four days.
+    test.clock.set(new Date("2026-10-16T12:00:00Z"));
+    for (let tick = 0; tick < 4 * 24 * 2; tick += 1) {
+      await runDueJobs(test.ctx, { handlers });
+      test.clock.advance(30 * MINUTE_MS);
+    }
+
+    const runAts = (await listJobs(test.database.db)).map((job) => job.runAt.toISOString());
+    expect(runs).toHaveLength(3);
+    // Friday's slot at once (the worker starts after it), then Monday and Tuesday.
+    expect(runAts).toEqual(["2026-10-16T12:00:00.000Z", "2026-10-19T09:00:00.000Z", "2026-10-20T09:00:00.000Z"]);
+  });
+
   it("enqueues nothing without schedules", async () => {
     test = await createTestJobs();
     expect(await enqueueDueSchedules(test.ctx)).toEqual([]);
@@ -246,7 +336,7 @@ describe("schedule state in getQueueStats", () => {
     expect(await getSchedule("ai.reply")).toBeNull();
   });
 
-  it("reports the longest gap between the local times as the period of a local-time schedule", async () => {
+  it("reports the gap from the current slot to the next as the period of a local-time schedule", async () => {
     test = await createTestJobs({
       schedules: {
         "app.twice": { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw" },
@@ -254,9 +344,31 @@ describe("schedule state in getQueueStats", () => {
         "app.uneven": { at: ["08:00", "10:00", "18:00"], timeZone: "UTC" },
       },
     });
+    // NOW is 12:00Z, 14:00 in Warsaw.
     expect((await getSchedule("app.twice"))?.everySeconds).toBe(12 * 3600);
     expect((await getSchedule("app.once"))?.everySeconds).toBe(24 * 3600);
+    expect((await getSchedule("app.uneven"))?.everySeconds).toBe(8 * 3600);
+    test.clock.advance(7 * HOUR_MS);
     expect((await getSchedule("app.uneven"))?.everySeconds).toBe(14 * 3600);
+  });
+
+  it("does not report a weekday schedule late over the weekend, and does once a Monday slot is missed", async () => {
+    const hourly = Array.from({ length: 13 }, (_, index) => `${String(8 + index).padStart(2, "0")}:00`);
+    test = await createTestJobs({ schedules: { "app.inbox-poll": { at: hourly, timeZone: "UTC", daysOfWeek: [1, 2, 3, 4, 5] } } });
+    const handlers = { "app.inbox-poll": countingHandler().handler };
+    // Friday 2026-10-16 20:00Z, the week's last slot.
+    test.clock.set(new Date("2026-10-16T20:00:00Z"));
+    await runDueJobs(test.ctx, { handlers });
+
+    test.clock.set(new Date("2026-10-17T12:00:00Z"));
+    // Friday 20:00 to Monday 08:00.
+    expect(await getSchedule("app.inbox-poll")).toMatchObject({ everySeconds: 60 * 3600, isLate: false });
+    test.clock.set(new Date("2026-10-19T09:00:00Z"));
+    expect(await getSchedule("app.inbox-poll")).toMatchObject({ everySeconds: 3600, isLate: false });
+    test.clock.advance(1);
+    expect((await getSchedule("app.inbox-poll"))?.isLate).toBe(true);
+    await runDueJobs(test.ctx, { handlers });
+    expect((await getSchedule("app.inbox-poll"))?.isLate).toBe(false);
   });
 
   it("records the last success and turns late two periods after it", async () => {

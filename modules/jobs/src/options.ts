@@ -34,6 +34,10 @@ const backoffSchema = z
   const AT_TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
   const AT_HINT = "must be times of day as HH:MM (00:00 to 23:59), each once";
   const MAX_AT_TIMES = 48;
+  const DAYS_OF_WEEK_HINT = "must be ISO days of the week (1 Monday to 7 Sunday), each once";
+  const DAYS_OF_MONTH_HINT = 'must be days of the month (1 to 31, or "last"), each once';
+
+  const isUnique = (values: readonly unknown[]): boolean => new Set(values).size === values.length;
 
   const scheduleSchema = z
     .strictObject({
@@ -45,6 +49,22 @@ const backoffSchema = z
         .min(1)
         .max(MAX_AT_TIMES)
         .refine((times) => new Set(times).size === times.length, { message: AT_HINT })
+        .optional(),
+      /** With `at`: the local days of the week it runs on, ISO 1 (Monday) to 7 (Sunday); default every day. */
+      daysOfWeek: z
+        .array(z.number().int().min(1, { message: DAYS_OF_WEEK_HINT }).max(7, { message: DAYS_OF_WEEK_HINT }))
+        .min(1)
+        .refine(isUnique, { message: DAYS_OF_WEEK_HINT })
+        .optional(),
+      /** With `at`: the local days of the month it runs on, 1 to 31 or `"last"`; a day a month lacks never matches. */
+      daysOfMonth: z
+        .array(
+          z.union([z.number().int().min(1, { message: DAYS_OF_MONTH_HINT }).max(31, { message: DAYS_OF_MONTH_HINT }), z.literal("last")], {
+            message: DAYS_OF_MONTH_HINT,
+          }),
+        )
+        .min(1)
+        .refine(isUnique, { message: DAYS_OF_MONTH_HINT })
         .optional(),
       /** The IANA time zone of `at`, such as `Europe/Warsaw`; required with `at`. */
       timeZone: z.string().refine(isTimeZone, { message: "is not a time zone the runtime knows (an IANA name such as Europe/Warsaw)" }).optional(),
@@ -61,10 +81,21 @@ const backoffSchema = z
       if (schedule.every !== undefined && schedule.timeZone !== undefined) {
         context.addIssue({ code: "custom", path: ["timeZone"], message: "applies to at only; every runs in UTC" });
       }
+      for (const filter of ["daysOfWeek", "daysOfMonth"] as const) {
+        if (schedule.every !== undefined && schedule[filter] !== undefined) {
+          context.addIssue({ code: "custom", path: [filter], message: "applies to at only; every has no local date" });
+        }
+      }
     })
     .transform((schedule): PeriodScheduleOptions | LocalTimeScheduleOptions => {
       if (schedule.at !== undefined && schedule.timeZone !== undefined) {
-        return { at: [...schedule.at].sort(), timeZone: schedule.timeZone, payload: schedule.payload };
+        return {
+          at: [...schedule.at].sort(),
+          timeZone: schedule.timeZone,
+          ...(schedule.daysOfWeek === undefined ? {} : { daysOfWeek: [...schedule.daysOfWeek].sort((a, b) => a - b) }),
+          ...(schedule.daysOfMonth === undefined ? {} : { daysOfMonth: sortDaysOfMonth(schedule.daysOfMonth) }),
+          payload: schedule.payload,
+        };
       }
       // The refinement above leaves every set whenever at is not.
       return { every: schedule.every ?? "", payload: schedule.payload };
@@ -76,10 +107,18 @@ export interface PeriodScheduleOptions {
   readonly payload: Record<string, unknown>;
 }
 
-/** A schedule that runs at local times of day in a time zone; `at` is sorted. */
+/** A day of the month a local-time schedule runs on: 1 to 31, or the month's last day. */
+export type DayOfMonth = number | "last";
+
+/**
+ * A schedule that runs at local times of day in a time zone, on the local dates that match both filters (when given);
+ * `at` and the filters are sorted.
+ */
 export interface LocalTimeScheduleOptions {
   readonly at: readonly string[];
   readonly timeZone: string;
+  readonly daysOfWeek?: readonly number[];
+  readonly daysOfMonth?: readonly DayOfMonth[];
   readonly payload: Record<string, unknown>;
 }
 
@@ -134,6 +173,11 @@ export const jobsOptionsSchema = z
     const scheduledOnly = Object.keys(options.schedules).filter((name) => !Object.hasOwn(options.queues, name));
     return { ...options, queues: { ...options.queues, ...Object.fromEntries(scheduledOnly.map((name) => [name, queueSchema.parse({})])) } };
   });
+
+/** Days 1 to 31 in order, then `"last"`. */
+function sortDaysOfMonth(days: readonly DayOfMonth[]): DayOfMonth[] {
+  return [...days].sort((a, b) => (a === "last" ? 32 : a) - (b === "last" ? 32 : b));
+}
 
 function checkNames(record: Record<string, unknown>, context: z.RefinementCtx): void {
   for (const name of Object.keys(record).filter((candidate) => !QUEUE_NAME.test(candidate))) {
