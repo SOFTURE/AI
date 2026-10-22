@@ -1,4 +1,5 @@
 // The options an app passes to `jobs({ ... })` in softure.config.ts, parsed at startup.
+import type { Err, ErrorCode, Ok } from "@softure-ai/core";
 import { z } from "zod";
 import type { JobFailedEvent, ScheduleStateChangedEvent } from "./contract.js";
 import type { JobsContext } from "./server/context.js";
@@ -12,6 +13,25 @@ const DAY_SECONDS = 24 * 60 * 60;
 export type OnJobFailedHook = (event: JobFailedEvent, ctx: JobsContext) => Promise<void> | void;
 /** Runs once per transition of a schedule between `healthy`, `failing` and `late`; a throw is logged and changes nothing. */
 export type OnScheduleStateChangedHook = (event: ScheduleStateChangedEvent, ctx: JobsContext) => Promise<void> | void;
+
+/** The same pattern auth enforces for role names. */
+const ROLE_NAME_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/;
+
+/**
+ * The role check of the admin page: `{ requireRole, authorizeRole }` from `@softure-ai/auth/next`. Injected, because
+ * auth itself depends on jobs. `requireRole` ends the request (Next's "not found") for anyone without the role;
+ * `authorizeRole` returns an error code for the actions to show.
+ */
+export interface JobsPanelGuard {
+  readonly requireRole: (role: string) => Promise<unknown>;
+  readonly authorizeRole: (role: string) => Promise<Ok<unknown> | Err<ErrorCode>>;
+}
+
+function isPanelGuard(value: unknown): value is JobsPanelGuard {
+  if (typeof value !== "object" || value === null) return false;
+  const guard = value as Partial<Record<keyof JobsPanelGuard, unknown>>;
+  return typeof guard.requireRole === "function" && typeof guard.authorizeRole === "function";
+}
 
 const backoffSchema = z
   .strictObject({
@@ -180,6 +200,13 @@ export const jobsOptionsSchema = z
      * schedule that keeps failing alerts once. The worker checks at most once a minute; `runDueJobs` once at its end.
      */
     onScheduleStateChanged: z.custom<OnScheduleStateChangedHook>((value) => typeof value === "function", "must be a function").optional(),
+    /** The auth role that may open the admin page (`JobsPage`) and use its actions. */
+    panelRole: z.string().regex(ROLE_NAME_PATTERN, "must be a role name such as admin").default("admin"),
+    /**
+     * The role check of the admin page: `{ requireRole, authorizeRole }` from `@softure-ai/auth/next`. Without it the
+     * page is "not found" for everyone and its actions are refused.
+     */
+    panelGuard: z.custom<JobsPanelGuard>(isPanelGuard, "must be { requireRole, authorizeRole } from @softure-ai/auth/next").optional(),
   })
   .superRefine((options, context) => {
     if (Object.keys(options.queues).length === 0 && Object.keys(options.schedules).length === 0) {

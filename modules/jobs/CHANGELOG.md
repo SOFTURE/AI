@@ -6,6 +6,20 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Admin page (#654): `JobsPage` from `@softure-ai/jobs/next` (mount `app/admin/jobs/page.tsx`, route `panel`
+  `/admin/jobs`) and the composable `JobsPanel` from the new `@softure-ai/jobs/ui`: per queue the counts, the oldest
+  due job and the schedule's health with **Run now**; recent failed, cancelled and retrying jobs with **Retry** and
+  **Cancel**; the sync ledger per source with a status filter and **Retry item**. Codes only, never a payload or an
+  error text. New options `panelRole` (default `admin`) and `panelGuard`; new in `/server`: `listRecentJobs`,
+  `runScheduleNow`, `retrySyncItem`, `getJobsRoutes`; new codes `jobs.not_a_schedule`, `jobs.sync_item_not_found`,
+  `jobs.sync_item_not_retryable`; new exports `JobsFormState`, `JobsFormErrorCode`, `JobsPanelGuard`,
+  `getJobsErrorMessage`. `@softure-ai/ui`, `next` and `react` are optional peers, needed only for the page.
+- Migration for an app that wants the page: add `export { JobsPage as default } from "@softure-ai/jobs/next"` as
+  `app/admin/jobs/page.tsx` and pass auth's role check, `jobs({ …, panelGuard: { requireRole, authorizeRole } })`
+  with both imported from `@softure-ai/auth/next` (jobs cannot depend on auth, which depends on jobs). Without
+  `panelGuard` the page is "not found" for everyone. An app that built its own jobs screen can drop it. Apps that do
+  not mount the page change nothing.
+
 - Alert hooks (#653): `onJobFailed(event, ctx)` runs once when a job ends `failed` (attempts used up, `failJob`,
   invalid payload, lease lost with no attempts left) with `{ queue, jobId, code, attempts, at }`;
   `onScheduleStateChanged(event, ctx)` runs once per transition of a scheduled queue between `healthy`, `failing` and
