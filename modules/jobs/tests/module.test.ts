@@ -28,6 +28,7 @@ describe("the jobs module", () => {
       pollIntervalMs: 1000,
       shutdownGraceMs: 20_000,
       retention: { succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90 },
+      panelRole: "admin",
     });
   });
 

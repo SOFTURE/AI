@@ -6,7 +6,7 @@
   "tables": ["jobs", "schedules", "sync_cursors", "sync_items"],
   "env": [],
   "switches": [],
-  "routes": {},
-  "mount": [],
+  "routes": { "panel": "/admin/jobs" },
+  "mount": [{ "kind": "page", "path": "app/admin/jobs/page.tsx", "export": "JobsPage" }],
   "privacy": { "exports": false, "deletes": false }
 }
