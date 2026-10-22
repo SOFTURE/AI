@@ -18,7 +18,7 @@ import { listConfiguredCampaignRecipients, planCampaign, sendCampaign, type Camp
 import type { DeliveryContext, RunHaltReason } from "../server/deliveries.js";
 import { checkSenderDns, getSenderDomain, resendReturnPath, type DmarcAlignment, type DmarcExpectation, type DmarcPolicy, type DnsCheck, type ResolveCname, type ResolveMx, type ResolveTxt, type ReturnPathHost } from "../server/dns.js";
 import { checkImportedDeliveries, importDeliveries, type ImportedDelivery, type ImportProblem } from "../server/import-deliveries.js";
-import { maskAddress, redactUnsubscribeSignatures } from "../server/operator-output.js";
+import { formatMailPreview, maskAddress } from "../server/operator-output.js";
 import { getMailingOptions, resolveMailKind } from "../server/options.js";
 import { previewMail, sendMail, sendMailUnchecked } from "../server/send-mail.js";
 import { MIN_UNSUBSCRIBE_SECRET_LENGTH, readUnsubscribeSecrets, UNSUBSCRIBE_SECRET_ENV, type Env } from "../server/unsubscribe-link.js";
@@ -636,17 +636,7 @@ const PREVIEW_ADDRESS = "recipient@example.com";
 
 /** The mail as the provider would get it, one output line per line, the address masked and signatures redacted. */
 function printPreview(message: ProviderMessage, output: CliOutput): void {
-  const headers = [
-    `From: ${message.from}`,
-    `To: ${maskAddress(message.to)}`,
-    ...(message.replyTo === null ? [] : [`Reply-To: ${maskAddress(message.replyTo)}`]),
-    `Subject: ${message.subject}`,
-    ...Object.entries(message.headers).map(([name, value]) => `${name}: ${value}`),
-  ];
-  const sections = [`--- preview (addresses masked, link signatures redacted) ---`, ...headers, "", "--- text ---", message.text];
-  if (message.html !== null) sections.push("--- html ---", message.html);
-  sections.push("--- end of preview ---");
-  for (const line of redactUnsubscribeSignatures(sections.join("\n")).split("\n")) output.log(line);
+  for (const line of formatMailPreview(message)) output.log(line);
 }
 
 /** The fixed mail of `softure-mail test` without a content file. Operator text: the test address is the operator's. */

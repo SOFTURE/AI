@@ -117,6 +117,25 @@ describe("deliveries through jobs", () => {
     expect(await listJobs(test.ctx.db)).toEqual([]);
   });
 
+  it.each([
+    ["a Uint8Array", { file: new Uint8Array([1]) }],
+    ["a Buffer in an array", { files: [Buffer.from("pdf")] }],
+    ["an ArrayBuffer deep inside", { invoice: { raw: new ArrayBuffer(4) } }],
+  ])("refuses a payload holding %s and enqueues nothing", async (_name, payload) => {
+    await expect(enqueueDelivery(test.ctx, { queue: QUEUE, scope: SCOPE, payload })).rejects.toThrow(`enqueueDelivery payload for scope "${SCOPE}" holds binary data`);
+    expect(await listJobs(test.ctx.db)).toEqual([]);
+  });
+
+  it("sends the attachments buildMail loads by the id in the payload", async () => {
+    const content = new TextEncoder().encode("%PDF-1.7 invoice");
+    test.buildMail.mockImplementation(() =>
+      Promise.resolve({ ...MAIL, attachments: [{ filename: "invoice-42.pdf", contentType: "application/pdf", content }] }),
+    );
+    await enqueueDelivery(test.ctx, { queue: QUEUE, scope: SCOPE, payload: { userId: "user_7", invoiceId: "inv_42" } });
+    expect(await test.run()).toEqual({ succeeded: 1, retried: 0, failed: 0, stale: 0 });
+    expect(test.provider.sent[0]?.attachments).toEqual([{ filename: "invoice-42.pdf", contentType: "application/pdf", content }]);
+  });
+
   it("retries an unavailable provider with the queue's backoff and sends once with the same key", async () => {
     test.respond.mockReturnValueOnce({ status: "unavailable", httpStatus: 503 });
     await enqueueDelivery(test.ctx, { queue: QUEUE, scope: SCOPE, payload: { userId: "user_7" } });

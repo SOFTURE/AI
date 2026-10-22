@@ -1,6 +1,6 @@
 // A provider that sends nothing: it captures mail in memory (`provider.sent`) and, with an outbox
 // file, appends each mail as one JSON line for a test in another process (an e2e against
-// `next start`). It honours idempotency keys like a real provider: a repeated key answers the
+// `next start`), attachment bytes as base64. It honours idempotency keys like a real provider: a repeated key answers the
 // first id and captures nothing new.
 import { appendFile } from "node:fs/promises";
 import type { MailProvider, ProviderMessage, ProviderOutcome } from "../contract.js";
@@ -34,6 +34,7 @@ export function fakeMailProvider(options: FakeMailProviderOptions = {}): FakeMai
 
   return {
     name: "fake",
+    supportsAttachments: true,
     get sent() {
       return [...sent];
     },
@@ -54,13 +55,27 @@ export function fakeMailProvider(options: FakeMailProviderOptions = {}): FakeMai
       if (knownId !== undefined) return { status: "sent", id: knownId };
 
       counter += 1;
-      const captured: CapturedMail = { ...message, headers: { ...message.headers }, id: `fake-${String(counter)}-${crypto.randomUUID()}` };
+      const captured: CapturedMail = {
+        ...message,
+        headers: { ...message.headers },
+        ...(message.attachments === undefined ? {} : { attachments: message.attachments.map((attachment) => ({ ...attachment, content: attachment.content.slice() })) }),
+        id: `fake-${String(counter)}-${crypto.randomUUID()}`,
+      };
       if (options.outboxFile !== undefined) {
-        await appendFile(options.outboxFile, `${JSON.stringify(captured)}\n`, "utf8");
+        await appendFile(options.outboxFile, `${JSON.stringify(toOutboxLine(captured))}\n`, "utf8");
       }
       sent.push(captured);
       if (message.idempotencyKey !== null) idsByKey.set(message.idempotencyKey, captured.id);
       return { status: "sent", id: captured.id };
     },
+  };
+}
+
+/** A captured mail as one outbox line: attachment bytes as base64 (`readMailOutbox` decodes them). */
+function toOutboxLine(mail: CapturedMail): unknown {
+  if (mail.attachments === undefined) return mail;
+  return {
+    ...mail,
+    attachments: mail.attachments.map((attachment) => ({ ...attachment, content: Buffer.from(attachment.content).toString("base64") })),
   };
 }

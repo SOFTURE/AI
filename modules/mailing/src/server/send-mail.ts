@@ -1,12 +1,15 @@
 // Sends one mail through the configured provider, with three rules: it never throws for a failed
 // send (every failure is a result), nothing of the mail (address, subject, body, key) reaches a log
 // or the result, and `headers` cannot replace the envelope or the sender (a mail's own reply-to is
-// the `replyTo` field, checked like `to`). List mail (any kind but `transactional`) also gets a signed unsubscribe
+// the `replyTo` field, checked like `to`). Attachments go only to a provider that declares it delivers them, and a
+// log line describes them by count, content type and size, never by name or content. List mail (any kind but `transactional`) also gets a signed unsubscribe
 // link in a footer and the RFC 8058 headers, and is refused for a recipient who unsubscribed.
 import { err, type Err, ok, type Ok, selectMessages, type SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
+import { getContentTypeEssence } from "../attachments.js";
 import {
   TRANSACTIONAL_KIND,
+  type MailAttachment,
   type MailingErrorCode,
   type MailProvider,
   type OutgoingMail,
@@ -42,19 +45,20 @@ export interface MailContext {
  * Throws only when the module is not enabled, or for list mail without `context.db`.
  */
 export async function sendMail(context: MailContext, mail: OutgoingMail, options: SendMailOptions = {}): Promise<SendMailResult> {
-  const { provider, timeoutMs } = getMailingOptions(context.config);
+  const { provider, timeoutMs, attachments: limits } = getMailingOptions(context.config);
 
-  const validation = validateMail(mail, options);
+  const validation = validateMail(mail, options, limits);
   if (!validation.ok) {
     logFailure(provider, "mailing.invalid_input", { fields: validation.fields });
     return err("mailing.invalid_input");
   }
   const valid = validation.value;
+  if (!canCarryAttachments(provider, valid)) return refuseAttachments(provider, valid);
   const secret = readUnsubscribeSecrets().current;
   if (valid.kind !== TRANSACTIONAL_KIND) {
     const refusal = await checkListMail(context, valid, secret);
     if (refusal !== null) {
-      logFailure(provider, refusal.error, { cause: refusal.cause });
+      logFailure(provider, refusal.error, { cause: refusal.cause, attachments: valid.attachments });
       return err(refusal.error);
     }
   }
@@ -68,15 +72,16 @@ export async function sendMail(context: MailContext, mail: OutgoingMail, options
  * code can send list mail to a real recipient past the suppression list.
  */
 export async function sendMailUnchecked(config: SoftureConfig, mail: OutgoingMail, options: SendMailOptions = {}): Promise<SendMailResult> {
-  const { provider, timeoutMs } = getMailingOptions(config);
-  const validation = validateMail(mail, options);
+  const { provider, timeoutMs, attachments: limits } = getMailingOptions(config);
+  const validation = validateMail(mail, options, limits);
   if (!validation.ok) {
     logFailure(provider, "mailing.invalid_input", { fields: validation.fields });
     return err("mailing.invalid_input");
   }
+  if (!canCarryAttachments(provider, validation.value)) return refuseAttachments(provider, validation.value);
   const secret = readUnsubscribeSecrets().current;
   if (validation.value.kind !== TRANSACTIONAL_KIND && secret === null) {
-    logFailure(provider, "mailing.unavailable", { cause: "no_unsubscribe_secret" });
+    logFailure(provider, "mailing.unavailable", { cause: "no_unsubscribe_secret", attachments: validation.value.attachments });
     return err("mailing.unavailable");
   }
   return deliver(provider, composeMessage(config, validation.value, secret), timeoutMs);
@@ -89,12 +94,22 @@ async function deliver(provider: MailProvider, message: ProviderMessage, timeout
     return ok({ id: outcome.id, provider: provider.name });
   }
   const code = FAILURE_CODES[outcome.status];
-  logFailure(provider, code, { status: outcome.httpStatus });
+  logFailure(provider, code, { status: outcome.httpStatus, attachments: message.attachments ?? [] });
   return {
     ...err(code),
     ...(outcome.httpStatus === undefined ? {} : { httpStatus: outcome.httpStatus }),
     ...(outcome.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: outcome.retryAfterSeconds }),
   };
+}
+
+/** False for a mail with attachments and a provider that does not declare it delivers them. */
+function canCarryAttachments(provider: MailProvider, mail: ValidMail): boolean {
+  return mail.attachments.length === 0 || provider.supportsAttachments === true;
+}
+
+function refuseAttachments(provider: MailProvider, mail: ValidMail): SendMailResult {
+  logFailure(provider, "mailing.invalid_input", { fields: ["attachments"], cause: "provider_without_attachments", attachments: mail.attachments });
+  return err("mailing.invalid_input");
 }
 
 /** Why `previewMail` cannot render a mail: invalid input (with the fields), or list mail without the secret. */
@@ -110,14 +125,15 @@ export interface PreviewMailOptions extends SendMailOptions {
 }
 
 /**
- * Exactly what `sendMail` would hand the provider for `mail`: the sender, the reply-to, and for list mail the
- * footer with a link signed for `mail.to` and the RFC 8058 headers. Sends nothing, logs nothing and needs no
- * database: it does not check the suppression list, so it renders a mail `sendMail` would refuse as suppressed.
+ * Exactly what `sendMail` would hand the provider for `mail`: the sender, the reply-to, the attachments, and for list
+ * mail the footer with a link signed for `mail.to` and the RFC 8058 headers. Sends nothing, logs nothing and needs no
+ * database: it does not check the suppression list, so it renders a mail `sendMail` would refuse as suppressed, nor
+ * whether the provider delivers attachments.
  * The links in it are credentials for `mail.to`. Throws only when the module is not enabled.
  */
 export function previewMail(config: SoftureConfig, mail: OutgoingMail, options: PreviewMailOptions = {}): MailPreviewResult {
   const { env, ...sendOptions } = options;
-  const validation = validateMail(mail, sendOptions);
+  const validation = validateMail(mail, sendOptions, getMailingOptions(config).attachments);
   if (!validation.ok) return { ...err("mailing.invalid_input"), fields: validation.fields };
   const secret = readUnsubscribeSecrets(env).current;
   if (validation.value.kind !== TRANSACTIONAL_KIND && secret === null) return { ...err("mailing.unavailable"), cause: "no_unsubscribe_secret" };
@@ -159,8 +175,8 @@ async function checkListMail(context: MailContext, mail: ValidMail, secret: stri
  */
 function composeMessage(config: SoftureConfig, mail: ValidMail, secret: string | null): ProviderMessage {
   const { from, replyTo } = getMailingOptions(config);
-  const { idempotencyKey, kind, replyTo: mailReplyTo, ...content } = mail;
-  const envelope = { from, replyTo: mailReplyTo ?? replyTo ?? null, idempotencyKey };
+  const { idempotencyKey, kind, replyTo: mailReplyTo, attachments, ...content } = mail;
+  const envelope = { from, replyTo: mailReplyTo ?? replyTo ?? null, idempotencyKey, ...(attachments.length === 0 ? {} : { attachments }) };
   if (kind === TRANSACTIONAL_KIND || secret === null) return { ...content, ...envelope };
   const links = buildUnsubscribeLinks(config, mail.to, secret);
   // The module factory merged the dictionaries; their shape is the module's own.
@@ -226,15 +242,21 @@ function isHttpStatus(value: unknown): value is number {
 
 /**
  * The module's only log line. Deliberately takes nothing but the provider, the code, a status,
- * field names and a fixed cause: anything added "for diagnosis" is where an address leaks first.
+ * field names, a fixed cause and the attachments' content types and sizes: anything added "for
+ * diagnosis" is where an address leaks first. Filenames stay out like the subject: they are the
+ * app's text and often name a person or an invoice.
  */
 function logFailure(
   provider: MailProvider,
   code: MailingErrorCode,
-  details: { readonly status?: number; readonly fields?: readonly string[]; readonly cause?: string },
+  details: { readonly status?: number; readonly fields?: readonly string[]; readonly cause?: string; readonly attachments?: readonly MailAttachment[] },
 ): void {
   const parts = [`provider=${provider.name}`, `reason=${code.slice("mailing.".length)}`, `status=${details.status === undefined ? "none" : String(details.status)}`];
   if (details.fields !== undefined) parts.push(`fields=${details.fields.join(",")}`);
   if (details.cause !== undefined) parts.push(`cause=${details.cause}`);
+  if (details.attachments !== undefined && details.attachments.length > 0) {
+    const attachments = details.attachments.map((attachment) => `${getContentTypeEssence(attachment.contentType)}:${String(attachment.content.byteLength)}`);
+    parts.push(`attachments=${attachments.join(",")}`);
+  }
   console.error(`mailing: send failed ${parts.join(" ")}`);
 }

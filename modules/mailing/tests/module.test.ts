@@ -1,7 +1,7 @@
 // The module definition: its manifest and the options an app passes in softure.config.ts.
 import { readFileSync } from "node:fs";
 import { defineSoftureConfig, toModuleJson } from "@softure-ai/core";
-import { DEFAULT_TIMEOUT_MS, mailing, resend } from "@softure-ai/mailing";
+import { DEFAULT_ATTACHMENT_CONTENT_TYPES, DEFAULT_TIMEOUT_MS, mailing, resend } from "@softure-ai/mailing";
 import { getMailingOptions } from "@softure-ai/mailing/server";
 import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -36,7 +36,7 @@ describe("the mailing module", () => {
     expect(mailing({ from: FROM, provider: fakeMailProvider(), routes: { unsubscribe: "/opt-out" } }).routes.unsubscribe).toBe("/opt-out");
   });
 
-  it("keeps the options it was given and defaults the timeout to ten seconds, the claim windows to 15 minutes and 23 hours, attempts to 5 and the one-click invalid-link status to 400", () => {
+  it("keeps the options it was given and defaults the timeout to ten seconds, the claim windows to 15 minutes and 23 hours, attempts to 5, the one-click invalid-link status to 400 and the attachment limits", () => {
     const provider = resend({ apiKey: "re_test" });
     expect(mailing({ from: FROM, replyTo: REPLY_TO, provider }).options).toEqual({
       from: FROM,
@@ -47,6 +47,7 @@ describe("the mailing module", () => {
       uncertainClaimMs: 23 * 3_600_000,
       maxAttempts: 5,
       oneClickInvalidLinkStatus: 400,
+      attachments: { maxCount: 10, maxTotalBytes: 28_000_000, contentTypes: [...DEFAULT_ATTACHMENT_CONTENT_TYPES] },
     });
     expect(DEFAULT_TIMEOUT_MS).toBe(10_000);
   });
