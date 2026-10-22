@@ -1,9 +1,10 @@
 // Claiming and the fenced writes of a claimed job. Every write after the claim names the claim token, so a worker
 // whose job was taken over (its lease ended) or released cannot record anything for the newer claim.
 import { and, asc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
-import type { Job } from "../contract.js";
+import type { Job, JobFailedEvent } from "../contract.js";
 import { jobs } from "../schema.js";
 import type { JobsContext } from "./context.js";
+import { notifyJobFailed, type HookOptions } from "./hooks.js";
 import { toJob } from "./job-row.js";
 import { getJobsOptions, getQueue } from "./options.js";
 import { recordScheduleFailure, recordScheduleSuccess } from "./schedules.js";
@@ -20,6 +21,8 @@ export interface ClaimJobsInput {
   readonly limit: number;
   /** Who claims, stored in `locked_by` for inspection: host and process, e.g. `worker-1:4211`. */
   readonly workerId: string;
+  /** Where a failing `onJobFailed` hook is logged; default the console logger. */
+  readonly logger?: HookOptions["logger"];
 }
 
 /** What a finished attempt records. */
@@ -33,14 +36,15 @@ const LEASE_EXPIRED = "jobs.lease_expired";
 /**
  * Claims up to `limit` due jobs of one queue, oldest due first: pending jobs whose `run_at` has come and running jobs
  * whose lease ended (their worker died). Each claim counts as an attempt. A job whose lease ended with no attempts
- * left is failed with `jobs.lease_expired` instead. Rows another worker is claiming at the same moment are skipped
+ * left is failed with `jobs.lease_expired` instead (and `onJobFailed` runs for it). Rows another worker is claiming at the same moment are skipped
  * (`FOR UPDATE SKIP LOCKED`), so workers never wait on each other.
  */
 export async function claimJobs(ctx: JobsContext, input: ClaimJobsInput): Promise<ClaimedJob[]> {
   const queue = getQueue(getJobsOptions(ctx.config), input.queue);
   if (input.limit < 1) return [];
   const now = ctx.clock.now();
-  await failExhaustedLeases(ctx, input.queue, now);
+  const expired = await failExhaustedLeases(ctx, input.queue, now);
+  await notifyJobFailed(ctx, expired, { logger: input.logger });
 
   const due = ctx.db
     .select({ id: jobs.id })
@@ -90,10 +94,10 @@ export async function extendJobLease(ctx: JobsContext, claimed: ClaimedJob): Pro
 
 /**
  * Records the end of an attempt; a success or a terminal failure of a scheduled queue also updates its schedule, in
- * the same transaction.
+ * the same transaction. After a recorded terminal failure the app's `onJobFailed` hook runs.
  * False when the job is no longer this claim's: nothing was written.
  */
-export async function completeJob(ctx: JobsContext, claimed: ClaimedJob, completion: Completion): Promise<boolean> {
+export async function completeJob(ctx: JobsContext, claimed: ClaimedJob, completion: Completion, options: HookOptions = {}): Promise<boolean> {
   const now = ctx.clock.now();
   const unlocked = { lockedUntil: null, lockedBy: null, claimToken: null, updatedAt: now };
   const set =
@@ -102,13 +106,18 @@ export async function completeJob(ctx: JobsContext, claimed: ClaimedJob, complet
       : completion.kind === "retry"
         ? { ...unlocked, status: "pending" as const, runAt: completion.runAt, lastError: completion.error }
         : { ...unlocked, status: "failed" as const, finishedAt: now, lastError: completion.error };
-  return ctx.db.transaction(async (tx) => {
+  const isRecorded = await ctx.db.transaction(async (tx) => {
     const rows = await tx.update(jobs).set(set).where(isHeld(claimed)).returning();
     if (rows.length === 0) return false;
     if (completion.kind === "succeeded") await recordScheduleSuccess({ ...ctx, db: tx }, claimed.job.queue);
     if (completion.kind === "failed") await recordScheduleFailure({ ...ctx, db: tx }, claimed.job.queue, completion.error);
     return true;
   });
+  if (isRecorded && completion.kind === "failed") {
+    const { job } = claimed;
+    await notifyJobFailed(ctx, [{ queue: job.queue, jobId: job.id, code: completion.error, attempts: job.attempts, at: now }], options);
+  }
+  return isRecorded;
 }
 
 /**
@@ -133,8 +142,9 @@ export async function releaseJob(ctx: JobsContext, claimed: ClaimedJob): Promise
   return rows.length > 0;
 }
 
-async function failExhaustedLeases(ctx: JobsContext, queue: string, now: Date): Promise<void> {
-  await ctx.db.transaction(async (tx) => {
+/** Fails the running jobs of `queue` whose lease ended with no attempts left; returns what `onJobFailed` gets. */
+async function failExhaustedLeases(ctx: JobsContext, queue: string, now: Date): Promise<JobFailedEvent[]> {
+  return ctx.db.transaction(async (tx) => {
     const failed = await tx
       .update(jobs)
       .set({
@@ -147,8 +157,9 @@ async function failExhaustedLeases(ctx: JobsContext, queue: string, now: Date): 
         updatedAt: now,
       })
       .where(and(eq(jobs.queue, queue), eq(jobs.status, "running"), lte(jobs.lockedUntil, now), gte(jobs.attempts, jobs.maxAttempts)))
-      .returning({ id: jobs.id });
+      .returning({ id: jobs.id, attempts: jobs.attempts });
     if (failed.length > 0) await recordScheduleFailure({ ...ctx, db: tx }, queue, LEASE_EXPIRED);
+    return failed.map((row) => ({ queue, jobId: row.id.toString(), code: LEASE_EXPIRED, attempts: row.attempts, at: now }));
   });
 }
 

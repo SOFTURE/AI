@@ -34,7 +34,7 @@ export async function runClaimedJob(ctx: JobsContext, claimed: ClaimedJob, optio
     // Paths only: the values are the app's data.
     const paths = payload.error.issues.map((issue) => issue.path.map(String).join(".") || "(root)").join(", ");
     options.logger.warn("job payload does not match its handler's schema; failed without running", { ...fields, paths });
-    return record(ctx, claimed, { kind: "failed", error: INVALID_PAYLOAD });
+    return record(ctx, claimed, { kind: "failed", error: INVALID_PAYLOAD }, options.logger);
   }
 
   let result: JobRunResult;
@@ -48,7 +48,7 @@ export async function runClaimedJob(ctx: JobsContext, claimed: ClaimedJob, optio
     // The job was released or taken over while the handler ran; the fenced write below would be refused anyway.
     return { kind: "stale" };
   }
-  return record(ctx, claimed, decide(ctx, claimed, result, options));
+  return record(ctx, claimed, decide(ctx, claimed, result, options), options.logger);
 }
 
 function decide(ctx: JobsContext, claimed: ClaimedJob, result: unknown, options: RunClaimedJobOptions): Completion {
@@ -69,8 +69,8 @@ function decide(ctx: JobsContext, claimed: ClaimedJob, result: unknown, options:
   return { kind: "retry", error, runAt: new Date(ctx.clock.now().getTime() + Math.round(delaySeconds * 1000)) };
 }
 
-async function record(ctx: JobsContext, claimed: ClaimedJob, completion: Completion): Promise<JobOutcome> {
-  const isRecorded = await completeJob(ctx, claimed, completion);
+async function record(ctx: JobsContext, claimed: ClaimedJob, completion: Completion, logger: JobsLogger): Promise<JobOutcome> {
+  const isRecorded = await completeJob(ctx, claimed, completion, { logger });
   if (!isRecorded) return { kind: "stale" };
   if (completion.kind === "succeeded") return { kind: "succeeded" };
   if (completion.kind === "retry") return { kind: "retried", error: completion.error, runAt: completion.runAt };

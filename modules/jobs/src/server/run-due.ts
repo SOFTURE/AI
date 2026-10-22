@@ -7,6 +7,7 @@ import { consoleJobsLogger, type JobsLogger } from "./logger.js";
 import { getJobsOptions } from "./options.js";
 import { runClaimedJob } from "./process.js";
 import { checkHandlers } from "./handler-check.js";
+import { checkScheduleStates } from "./hooks.js";
 import { enqueueDueSchedules } from "./schedules.js";
 
 const DEFAULT_MAX_JOBS = 1000;
@@ -34,17 +35,18 @@ export interface RunDueJobsReport {
 }
 
 /**
- * Enqueues the due runs of the schedules among its queues, then claims and runs due jobs until none is due (a retried job is due later, so it waits for the clock). Returns what
- * happened. Throws on a handler for a queue the config does not define; database failures propagate.
+ * Enqueues the due runs of the schedules among its queues, then claims and runs due jobs until none is due (a retried job is due later, so it waits for the clock), then checks
+ * schedule health for `onScheduleStateChanged`. Returns what happened. Throws on a handler for a queue the config does not define; database failures propagate.
  */
 export async function runDueJobs(ctx: JobsContext, options: RunDueJobsOptions): Promise<RunDueJobsReport> {
   const queues = checkHandlers(getJobsOptions(ctx.config), options.handlers, options.queues);
   await enqueueDueSchedules(ctx, { queues });
   const report = { succeeded: 0, retried: 0, failed: 0, stale: 0 };
   const maxJobs = options.maxJobs ?? DEFAULT_MAX_JOBS;
+  const logger = options.logger ?? consoleJobsLogger;
   const runOptions = {
     handlers: options.handlers,
-    logger: options.logger ?? consoleJobsLogger,
+    logger,
     signal: NEVER_ABORTED,
     random: options.random ?? Math.random,
   };
@@ -53,7 +55,7 @@ export async function runDueJobs(ctx: JobsContext, options: RunDueJobsOptions): 
   while (hasClaimed && attempts < maxJobs) {
     hasClaimed = false;
     for (const queue of queues) {
-      const [claimed] = await claimJobs(ctx, { queue, limit: 1, workerId: options.workerId ?? "run-due-jobs" });
+      const [claimed] = await claimJobs(ctx, { queue, limit: 1, workerId: options.workerId ?? "run-due-jobs", logger });
       if (claimed === undefined) continue;
       hasClaimed = true;
       attempts += 1;
@@ -62,5 +64,6 @@ export async function runDueJobs(ctx: JobsContext, options: RunDueJobsOptions): 
       if (attempts >= maxJobs) break;
     }
   }
+  await checkScheduleStates(ctx, { logger });
   return report;
 }
