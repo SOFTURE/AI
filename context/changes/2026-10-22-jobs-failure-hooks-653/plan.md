@@ -37,5 +37,6 @@ Files: `modules/jobs/src/contract.ts`, `src/options.ts`, `src/index.ts`, `src/sc
 
 ## Progress
 
-- [ ] Phase 1: hooks, migration and wiring
-- [ ] Phase 2: docs
+- [x] Phase 1: hooks, migration and wiring (d249e32; the worker's check runs before its claims, so a job claimed in
+  the same round is seen by the next check, as the worker test shows)
+- [x] Phase 2: docs (a66d20a, README alert-loop guard in the review fix; CHANGELOG `## Unreleased`)

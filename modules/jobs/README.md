@@ -285,6 +285,7 @@ An app that must tell its operator when unattended work breaks sets two optional
 jobs({
   schedules: { "app.sync": { every: "1h" } },
   onJobFailed: async ({ queue, jobId, code, attempts, at }, ctx) => {
+    if (queue === "ops.alert") return; // an alert that failed must not enqueue another alert
     await enqueueJob(ctx, { queue: "ops.alert", payload: { kind: "job_failed", queue, jobId, code, attempts, at: at.toISOString() } });
   },
   onScheduleStateChanged: async ({ queue, state, lastFailureCode, at }, ctx) => {
