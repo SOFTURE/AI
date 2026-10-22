@@ -57,6 +57,8 @@ export default defineSoftureConfig({
 | `pollIntervalMs` | `1000` | how often an idle worker looks for due jobs |
 | `shutdownGraceMs` | `20000` | how long a stopping worker waits for running handlers before releasing their jobs |
 | `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90 }` | how long finished jobs, and sync ledger items no run met, are kept; the worker prunes once an hour |
+| `onJobFailed` | none | `(event, ctx)`, run once when a job ends `failed` (§3, "Alert hooks") |
+| `onScheduleStateChanged` | none | `(event, ctx)`, run once per transition of a schedule between `healthy`, `failing` and `late` (§3, "Alert hooks") |
 
 A queue name is lowercase letters, digits, `_`, `.` and `-`. A queue the config does not define is refused by
 `enqueueJob` and by the worker: a typo is a bug, not a new queue. A schedule defines its queue too, with the default
@@ -274,11 +276,49 @@ ops({
 });
 ```
 
+### Alert hooks
+
+An app that must tell its operator when unattended work breaks sets two optional hooks instead of polling
+`getQueueStats` and keeping its own "already alerted" state:
+
+```ts
+jobs({
+  schedules: { "app.sync": { every: "1h" } },
+  onJobFailed: async ({ queue, jobId, code, attempts, at }, ctx) => {
+    await enqueueJob(ctx, { queue: "ops.alert", payload: { kind: "job_failed", queue, jobId, code, attempts, at: at.toISOString() } });
+  },
+  onScheduleStateChanged: async ({ queue, state, lastFailureCode, at }, ctx) => {
+    // state: "failing", "late", or "healthy" again after a recovery.
+    await enqueueJob(ctx, { queue: "ops.alert", payload: { kind: "schedule", queue, state, lastFailureCode, at: at.toISOString() } });
+  },
+});
+```
+
+- `onJobFailed({ queue, jobId, code, attempts, at }, ctx)` runs once when a job ends `failed`: attempts used up,
+  `failJob`, a payload that does not match its schema (`jobs.invalid_payload`), or a lease that ended with no attempts
+  left (`jobs.lease_expired`). Not for a retried attempt and not for an outcome the claim fence refused. It runs after
+  the write commits, in the process that recorded it (the worker, `runDueJobs`, or an app calling `completeJob` or
+  `claimJobs`).
+- `onScheduleStateChanged({ queue, state, lastFailureCode, at }, ctx)` runs once per transition of a scheduled queue
+  into or out of trouble. `state` is `failing` when `isFailing`, else `late` when `isLate`, else `healthy` (§3,
+  "Schedules"): one state at a time, so a failing hourly job that also turns late alerts once, and the next success
+  reports `healthy`. The last reported state is kept in `jobs.schedules.reported_state` and moved with a conditional
+  update, so one worker reports each transition however many run. The worker checks at most once a minute (lateness
+  moves with the clock alone); `runDueJobs` checks once at its end; `checkScheduleStates(ctx, { logger? })` from
+  `@softure-ai/jobs/server` checks on demand. A schedule no worker has enqueued yet is skipped. Without the hook,
+  nothing is checked or written.
+- Events carry codes and ids only, never a payload or an error's text. A hook that throws is logged through `logger`
+  (`the onJobFailed hook failed`, with the error's kind) and never fails the job, the claim or the worker; the
+  transition stays reported. A hook is awaited: keep it short, or enqueue a job (as above) that sends the mail
+  (`@softure-ai/mailing`) with its own retries.
+- In tests, `recordJobHooks()` from `@softure-ai/jobs/testing` gives `{ options, failedJobs, scheduleStateChanges }`:
+  pass `jobs({ queues, ...recorder.options })` and assert the arrays after `runDueJobs`.
+
 ### Without a worker
 
 `runDueJobs(ctx, { handlers })` (from `@softure-ai/jobs/server` or `/testing`) enqueues the due runs of the schedules
-among its queues, then runs every due job once, in this process, one after another, and returns
-`{ succeeded, retried, failed, stale }`. A cron can drain a queue with it; call `pruneJobs(ctx)` from the same cron.
+among its queues, then runs every due job once, in this process, one after another, checks schedule health for
+`onScheduleStateChanged`, and returns `{ succeeded, retried, failed, stale }`. A cron can drain a queue with it; call `pruneJobs(ctx)` from the same cron.
 `enqueueDueSchedules(ctx, { queues? })` only enqueues the due scheduled runs.
 
 ### Sync state for polling
@@ -352,7 +392,8 @@ Nothing to mount: the module has no routes or pages. The worker is a process (§
 ## 5. Migrations and tables
 
 Schema `jobs`, four tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
-`migrations/0003_add_schedule_failures.sql` and `migrations/0004_create_sync_state.sql`:
+`migrations/0003_add_schedule_failures.sql`, `migrations/0004_create_sync_state.sql` and
+`migrations/0005_add_schedule_reported_state.sql`:
 
 `jobs.jobs`: `id` (bigint identity; a string in the API), `queue`, `payload` (jsonb), `status` (`pending`, `running`,
 `succeeded`, `failed`, `cancelled`), `attempts`, `max_attempts`, `run_at`, `locked_until`, `locked_by` (the worker,
@@ -362,7 +403,8 @@ for finished jobs; a partial unique index allows one live job per queue and dedu
 
 `jobs.schedules`: `name` (the schedule's queue, primary key), `last_slot_at` (the start of the latest period a run
 was enqueued for), `last_succeeded_at`, `last_failed_at`, `last_failure_code` (an error code, never a message),
-`created_at`, `updated_at`. One row per schedule a worker has seen; a row of
+`reported_state` (`healthy`, `failing` or `late`: the state `onScheduleStateChanged` last reported; default
+`healthy`), `created_at`, `updated_at`. One row per schedule a worker has seen; a row of
 a schedule removed from the config stays and is ignored.
 
 `jobs.sync_cursors`: `source` (primary key), `cursor` (1 to 2000 characters), `created_at`, `updated_at`.
@@ -397,7 +439,8 @@ admin screen that shows a job's or a sync item's state.
 
 The handlers (§3) are the app's code. `logger` (`info`, `warn`, `error`; `@softure-ai/observability`'s `Logger` fits)
 receives the worker's lines: started, stopped, a scheduled run enqueued, a thrown handler with its error, a lost lease,
-a release, pruning.
+a release, pruning, a failed alert hook. `onJobFailed` and `onScheduleStateChanged` are the app's alert hooks (§3,
+"Alert hooks").
 
 ## 11. GDPR
 
