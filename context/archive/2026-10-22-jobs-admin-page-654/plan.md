@@ -1,6 +1,6 @@
 ---
 change_id: jobs-admin-page-654
-status: in_progress
+status: archived
 ---
 
 # Plan: jobs admin page (issue #654)
@@ -36,6 +36,6 @@ Files: `modules/jobs/package.json` (exports `./next`, `./ui`; peers `@softure-ai
 
 ## Progress
 
-- [ ] Phase 1: server functions
-- [ ] Phase 2: page, actions and panel
-- [ ] Phase 3: docs
+- [x] Phase 1: server functions (cc75ff3)
+- [x] Phase 2: page, actions and panel (217bb12; role check injected as `panelGuard`; tests use a stub guard, since a dev dependency on auth would form the same cycle)
+- [x] Phase 3: docs (18b1128; README §1-§4, §8, §9; CHANGELOG `## Unreleased` with the migration steps)

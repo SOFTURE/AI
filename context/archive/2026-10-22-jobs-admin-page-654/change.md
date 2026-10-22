@@ -1,12 +1,13 @@
 ---
 change_id: jobs-admin-page-654
 title: "jobs: admin page for queues, schedules, failed jobs and the sync ledger (issue #654)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 654
 branch: claude/project-thread-crn6oz
 created: 2026-10-22
 updated: 2026-10-22
+archived_at: 2026-10-22
 ---
 
 ## Intent
