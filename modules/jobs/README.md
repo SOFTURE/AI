@@ -11,13 +11,17 @@ A job queue in one table (`jobs.jobs`) with enqueue inside the caller's transact
 `FOR UPDATE SKIP LOCKED` under a lease, fenced completion, retry with exponential backoff, a worker process with
 graceful shutdown, recurring schedules that run once per period however many workers run, and an in-process runner
 for tests and cron-driven apps. For jobs that poll a third-party source: a cursor per source and a processed-item
-ledger, so a second run never acts twice on the same item (§3, "Sync state for polling").
+ledger, so a second run never acts twice on the same item (§3, "Sync state for polling"). For the operator: an admin
+page with the queues, schedule health, recent failures and the sync ledger, with Run now, Retry and Cancel (§4).
 
 ## 2. Installation
 
 ```bash
 npm install @softure-ai/jobs @softure-ai/core @softure-ai/db drizzle-orm zod
 ```
+
+The admin page (§4) also needs `@softure-ai/ui`, `next` and `react`, and `@softure-ai/auth` for its role check; a
+worker-only app needs none of them.
 
 The worker runs as its own process. With `@softure-ai/deploy`, `softure-deploy init` sees `@softure-ai/jobs` in
 `package.json` and adds `scripts/worker.ts`, its bundle in the image and a `worker` service next to the app (deploy
@@ -59,6 +63,9 @@ export default defineSoftureConfig({
 | `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90 }` | how long finished jobs, and sync ledger items no run met, are kept; the worker prunes once an hour |
 | `onJobFailed` | none | `(event, ctx)`, run once when a job ends `failed` (§3, "Alert hooks") |
 | `onScheduleStateChanged` | none | `(event, ctx)`, run once per transition of a schedule between `healthy`, `failing` and `late` (§3, "Alert hooks") |
+| `panelRole` | `"admin"` | the auth role that may open the admin page and use its actions (§4) |
+| `panelGuard` | none | the page's role check, `{ requireRole, authorizeRole }` from `@softure-ai/auth/next`; without it the page is "not found" for everyone (§4) |
+| `routes.panel` | `/admin/jobs` | the page's path, for revalidation after an action (§4) |
 
 A queue name is lowercase letters, digits, `_`, `.` and `-`. A queue the config does not define is refused by
 `enqueueJob` and by the worker: a typo is a bug, not a new queue. A schedule defines its queue too, with the default
@@ -382,6 +389,9 @@ From `@softure-ai/jobs/server`, each on `ctx = { db, clock, config }`:
 | `getJob(ctx, id)` | the `Job` or `null` |
 | `cancelJob(ctx, id)` | a pending job becomes `cancelled`; `jobs.not_cancellable` for a running or finished one, `jobs.not_found` |
 | `retryJob(ctx, id)` | a failed or cancelled job runs again from scratch (attempts 0, due now); `jobs.not_retryable`, `jobs.dedup_key_taken` while a live job has its key, `jobs.not_found` |
+| `listRecentJobs(ctx, { statuses, queue?, limit? })` | jobs in any of `statuses` (a job status or `retrying`: pending after a failed attempt), most recently changed first, up to `limit` (default 50, at most 500) |
+| `runScheduleNow(ctx, queue)` | enqueues a run of the schedule now with its payload and dedup key, joining a pending run (`isDuplicate: true`); the schedule's own period is left alone; `jobs.not_a_schedule` |
+| `retrySyncItem(ctx, { source, itemId })` | a `failed` ledger item back to `pending`, attempts and code cleared, so the next `processSyncItem` runs it; `jobs.sync_item_not_retryable`, `jobs.sync_item_not_found` |
 | `getQueueStats(ctx)` | per queue: counts per status, the due backlog, the `run_at` of its oldest due job and its `schedule` (or `null`) |
 | `pruneJobs(ctx)` | deletes finished jobs past their retention; returns the count |
 
@@ -391,7 +401,34 @@ can wrap `retryJob` and `cancelJob` for the operator.
 
 ## 4. Mounting
 
-Nothing to mount: the module has no routes or pages. The worker is a process (§3, "Running the worker").
+The worker is a process (§3, "Running the worker"). The admin page is one file:
+
+```ts
+// app/admin/jobs/page.tsx
+export { JobsPage as default } from "@softure-ai/jobs/next";
+```
+
+and its role check comes from `@softure-ai/auth`, passed in the config (jobs cannot import auth itself: auth depends on
+jobs):
+
+```ts
+import { authorizeRole, requireRole } from "@softure-ai/auth/next";
+
+jobs({ queues: { … }, panelRole: "admin", panelGuard: { requireRole, authorizeRole } });
+```
+
+The page shows, per queue, the counts per status and the oldest due job, and for a scheduled queue its period, last
+success, last failure with its code, its health (`healthy`, `failing`, `late`) and **Run now**; then the 50 most
+recent failed, cancelled and retrying jobs with code and attempts, with **Retry** (failed, cancelled) and **Cancel**
+(pending); then the 100 most recently changed sync ledger items per source with status, code, attempts and last
+sighting, a status filter (`?sync=failed`) and **Retry item** on a failed item. Payloads and error texts never reach
+the page: rows are built field by field and failures are codes. Anyone without `panelRole` gets Next's "not found";
+every action checks the role again from the session before it reads its form.
+
+An app with its own page shell composes the same parts: `getQueueStats`, `listRecentJobs` and `listSyncItems` from
+`/server`, `toJobsPanelData(source, messages, config)` and `getJobsMessages(config)` from `/next`, `JobsPanel` from
+`/ui` (`classNames` per slot, `unstyled`), and the actions `runScheduleNowAction`, `retryJobAction`,
+`cancelJobAction`, `retrySyncItemAction` from `/next`.
 
 ## 5. Migrations and tables
 
@@ -431,13 +468,19 @@ None.
 
 ## 8. Appearance
 
-No UI.
+`JobsPanel` uses `@softure-ai/ui` primitives (`Button`, `FormError`) and its `sft:` classes; the page wraps it in a
+`Card`. Status colours come from the theme tokens (success, warning, danger). Slots: `root`, `section`,
+`sectionTitle`, `lead`, `list`, `item`, `header`, `title`, `status`, `details`, `detail`, `actions`, `notice`,
+`filter`, `filterLink`, `empty`.
 
 ## 9. Copy
 
-`errors.*` in `src/messages/en.ts`, one key per error code (`invalid_payload`, `handler_threw`, `lease_expired`,
-`not_found`, `not_cancellable`, `not_retryable`, `dedup_key_taken`, `sync_cursor_moved`, `sync_item_threw`), for an
-admin screen that shows a job's or a sync item's state.
+`src/messages/en.ts`: the page (`page`, `queues`, `jobs`, `sync`) and `errors.*`, one key per error code's name
+(`invalid_payload`, `handler_threw`, `lease_expired`, `not_found`, `not_cancellable`, `not_retryable`,
+`dedup_key_taken`, `sync_cursor_moved`, `sync_item_threw`, `not_a_schedule`, `sync_item_not_found`,
+`sync_item_not_retryable`, and `forbidden`, `database_failed`, `unexpected` for `auth.forbidden` and the `core.*`
+failures); `getJobsErrorMessage(messages, code)` picks one. An app overrides any of it with
+`jobs({ messages: { en: { page: { title: "Workers" } } } })`.
 
 ## 10. Hooks
 
