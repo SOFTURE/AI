@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/jobs",
   "version": "0.1.4",
-  "description": "SOFTURE AI jobs module: background jobs in Postgres. Enqueue inside the caller's transaction with an optional dedup key, claim with FOR UPDATE SKIP LOCKED under a lease, fenced completion, retry with exponential backoff and a terminal failed state, a worker process with graceful shutdown, and an in-process runner for tests.",
+  "description": "SOFTURE AI jobs module: background jobs in Postgres. Enqueue inside the caller's transaction with an optional dedup key, claim with FOR UPDATE SKIP LOCKED under a lease, fenced completion, retry with exponential backoff and a terminal failed state, a worker process with graceful shutdown, an in-process runner for tests, and an admin page for queues, schedules, failed jobs and the sync ledger.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -42,6 +42,16 @@
       "types": "./dist/worker/index.d.ts",
       "default": "./dist/worker/index.js"
     },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    },
+    "./ui": {
+      "@softure-ai/source": "./src/ui/index.ts",
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    },
     "./testing": {
       "@softure-ai/source": "./src/testing/index.ts",
       "types": "./dist/testing/index.d.ts",
@@ -57,6 +67,23 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "drizzle-orm": "^0.45.2"
+    "@softure-ai/ui": "^0.3.0",
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.0.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@softure-ai/ui": "^0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@softure-ai/ui": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
   }
 }

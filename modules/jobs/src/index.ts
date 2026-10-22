@@ -1,6 +1,6 @@
 // Public API of @softure-ai/jobs: the module factory for softure.config.ts, the handler helpers and the types.
 // Database work is in `@softure-ai/jobs/server`, the worker in `@softure-ai/jobs/worker`, the in-process runner for
-// tests in `@softure-ai/jobs/testing`.
+// tests in `@softure-ai/jobs/testing`, the admin page and its actions in `/next`, its panel in `/ui`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
 import { jobsMessages } from "./messages/index.js";
 import { jobsOptionsSchema } from "./options.js";
@@ -21,8 +21,8 @@ export const jobs = defineModule({
     tables: ["jobs", "schedules", "sync_cursors", "sync_items"],
     env: [],
     switches: [],
-    routes: {},
-    mount: [],
+    routes: { panel: "/admin/jobs" },
+    mount: [{ kind: "page", path: "app/admin/jobs/page.tsx", export: "JobsPage" }],
     privacy: { exports: false, deletes: false },
   },
   messages: jobsMessages,
@@ -38,16 +38,19 @@ export {
   type JobFailure,
   type JobOutcome,
   type JobsErrorCode,
+  type JobsFormErrorCode,
+  type JobsFormState,
   type JobStatus,
   type ScheduleHealth,
   type ScheduleStateChangedEvent,
 } from "./contract.js";
-export { jobsMessages, type JobsMessages } from "./messages/index.js";
+export { getJobsErrorMessage, jobsMessages, type JobsMessages } from "./messages/index.js";
 export {
   jobsOptionsSchema,
   type DayOfMonth,
   type JobQueueOptions,
   type JobScheduleOptions,
+  type JobsPanelGuard,
   type JobSchedulesInput,
   type JobsOptions,
   type JobsOptionsInput,

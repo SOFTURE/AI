@@ -1,6 +1,7 @@
 // Recurring schedules: a period schedule's runs start on whole periods counted from the Unix epoch, a local-time
 // schedule's at its listed times of day in its time zone, so every worker computes the same slot. A worker takes a period with a conditional upsert of `jobs.schedules` and enqueues its run
 // in the same transaction, so each period is enqueued once however many workers race for it.
+import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { eq, inArray, lt } from "drizzle-orm";
 import {
   parseEverySeconds,
@@ -12,7 +13,7 @@ import {
 import { schedules } from "../schema.js";
 import { getWallClock, getZonedInstant } from "../zoned-time.js";
 import type { JobsContext } from "./context.js";
-import { enqueueJob } from "./enqueue.js";
+import { enqueueJob, type EnqueuedJob } from "./enqueue.js";
 import { getJobsOptions } from "./options.js";
 
 /**
@@ -94,6 +95,20 @@ export async function enqueueScheduledRun(ctx: JobsContext, name: string, slot: 
     await enqueueJob({ ...ctx, db: tx }, { queue: name, payload: schedule.payload, dedupKey: SCHEDULE_DEDUP_KEY });
     return true;
   });
+}
+
+export type RunScheduleNowResult = Ok<EnqueuedJob> | Err<"jobs.not_a_schedule">;
+
+/**
+ * Enqueues a run of the schedule `queue` now, with its payload and its dedup key: while a run is pending or running,
+ * this joins it (`isDuplicate: true`). The schedule's period is left alone, so its regular run still comes. Refused
+ * with `jobs.not_a_schedule` for a queue `schedules` does not name.
+ */
+export async function runScheduleNow(ctx: JobsContext, queue: string): Promise<RunScheduleNowResult> {
+  const options = getJobsOptions(ctx.config);
+  if (!Object.hasOwn(options.schedules, queue)) return err("jobs.not_a_schedule");
+  const schedule = getSchedule(options, queue);
+  return ok(await enqueueJob(ctx, { queue, payload: schedule.payload, dedupKey: SCHEDULE_DEDUP_KEY }));
 }
 
 /** Notes a succeeded job of a scheduled queue (any job of it, a run enqueued by hand too). */

@@ -1,13 +1,13 @@
 // The processed-item ledger of a polled source: source + item id → outcome, attempts, first and last sighting. One
 // transaction takes the item's row (an upsert that also locks it, so two workers on one item take turns), runs the
 // caller's callback in a savepoint and records the outcome, so the caller's writes and the ledger commit together.
-import type { ErrorCode } from "@softure-ai/core";
+import { err, ok, type Err, type ErrorCode, type Ok } from "@softure-ai/core";
 import { and, desc, eq, gte, lt, sql, type SQL } from "drizzle-orm";
 import { syncItems, type SyncItemRow } from "../schema.js";
 import type { SyncItem, SyncItemFailure, SyncItemOutcome, SyncItemRunResult, SyncItemStatus } from "../sync.js";
 import type { JobsContext } from "./context.js";
 import { getJobsOptions } from "./options.js";
-import { checkSyncSource } from "./sync-cursors.js";
+import { checkSyncSource, SYNC_SOURCE } from "./sync-cursors.js";
 
 const SYNC_ITEM_THREW = "jobs.sync_item_threw";
 const DEFAULT_MAX_ATTEMPTS = 5;
@@ -42,6 +42,13 @@ export interface ListSyncItemsInput {
   /** Default 100, at most 1000. */
   readonly limit?: number;
 }
+
+export interface RetrySyncItemInput {
+  readonly source: string;
+  readonly itemId: string;
+}
+
+export type RetrySyncItemResult = Ok<SyncItem> | Err<"jobs.sync_item_not_found" | "jobs.sync_item_not_retryable">;
 
 /** Thrown inside the savepoint to roll back the callback's writes when it returned a failure. */
 class RunFailed extends Error {
@@ -166,6 +173,24 @@ export async function listSyncItems(ctx: JobsContext, input: ListSyncItemsInput 
     .orderBy(desc(syncItems.updatedAt), syncItems.source, syncItems.itemId)
     .limit(limit);
   return rows.map(toSyncItem);
+}
+
+/**
+ * Puts a `failed` item back to `pending` with its attempts and error cleared, so the next `processSyncItem` call that
+ * meets it runs its callback again. Refused for an item the ledger does not have (an invalid source or id included) or
+ * one that is not `failed`.
+ */
+export async function retrySyncItem(ctx: JobsContext, input: RetrySyncItemInput): Promise<RetrySyncItemResult> {
+  if (!SYNC_SOURCE.test(input.source) || input.itemId.length === 0 || input.itemId.length > MAX_ITEM_ID_LENGTH) return err("jobs.sync_item_not_found");
+  const where = and(eq(syncItems.source, input.source), eq(syncItems.itemId, input.itemId));
+  const [row] = await ctx.db
+    .update(syncItems)
+    .set({ status: "pending", attempts: 0, errorCode: null, finishedAt: null, updatedAt: ctx.clock.now() })
+    .where(and(where, eq(syncItems.status, "failed")))
+    .returning();
+  if (row !== undefined) return ok(toSyncItem(row));
+  const [existing] = await ctx.db.select({ status: syncItems.status }).from(syncItems).where(where).limit(1);
+  return existing === undefined ? err("jobs.sync_item_not_found") : err("jobs.sync_item_not_retryable");
 }
 
 /**

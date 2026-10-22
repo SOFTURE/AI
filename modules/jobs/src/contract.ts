@@ -1,6 +1,6 @@
 // Result types and error codes of the jobs module. No user-facing copy here: the UI translates codes through
 // `messages` (docs/02-module-standard.md §6).
-import type { Err, ErrorCode } from "@softure-ai/core";
+import type { CoreErrorCode, Err, ErrorCode } from "@softure-ai/core";
 
 export type JobsErrorCode =
   | "jobs.invalid_payload"
@@ -11,7 +11,10 @@ export type JobsErrorCode =
   | "jobs.not_retryable"
   | "jobs.dedup_key_taken"
   | "jobs.sync_cursor_moved"
-  | "jobs.sync_item_threw";
+  | "jobs.sync_item_threw"
+  | "jobs.not_a_schedule"
+  | "jobs.sync_item_not_found"
+  | "jobs.sync_item_not_retryable";
 
 export const JOB_STATUSES = ["pending", "running", "succeeded", "failed", "cancelled"] as const;
 
@@ -76,4 +79,14 @@ export interface ScheduleStateChangedEvent {
   /** The code of the queue's last terminal failure; null when none has failed. */
   readonly lastFailureCode: string | null;
   readonly at: Date;
+}
+
+/** What an action of the admin page can answer with: a module code, the role check's refusal, or a safe failure. */
+export type JobsFormErrorCode = JobsErrorCode | "auth.forbidden" | CoreErrorCode;
+
+/** The state of one form of the admin page (`useActionState`). `notice` tells a new run from a joined one. */
+export interface JobsFormState {
+  readonly status: "idle" | "ok" | "error";
+  readonly error?: JobsFormErrorCode;
+  readonly notice?: "run_enqueued" | "run_joined";
 }
