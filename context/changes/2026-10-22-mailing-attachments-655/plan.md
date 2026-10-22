@@ -1,6 +1,6 @@
 ---
 change_id: mailing-attachments-655
-status: in_progress
+status: archived
 ---
 
 # Plan: attachments on sendMail (issue #655)
@@ -68,5 +68,17 @@ Files: `src/jobs/delivery-job.ts`, `tests/jobs.test.ts`.
 - `MailProvider.supportsAttachments` (opt-in): a provider without it gets no mail with attachments
   (`mailing.invalid_input`), so an older custom adapter cannot drop files silently.
 - Empty attachments are refused: an empty file is almost always a bug in the caller.
+- (During implementation) `ProviderMessage.attachments` is optional and present only when the mail has attachments,
+  instead of an always-present empty list: a `ProviderMessage` built by existing code (tests, custom fakes, older
+  outbox lines) stays valid and equal, and providers read `message.attachments ?? []`.
+- (During implementation) the preview printer moved from the CLI to `formatMailPreview` in
+  `server/operator-output.ts` (exported from `/server`), so it is tested directly and an app's own dry run can use it.
+- (During implementation) the container lacked `ssh-keygen`, which a repository test of the deploy workflows needs;
+  installed it locally (environment only, no repository change).
 
 ## Progress
+
+- [x] Phase 1: contract, options and validation (700545c)
+- [x] Phase 2: providers, outbox and dry run (700545c)
+- [x] Phase 3: queued deliveries (700545c)
+- [x] Phase 4: docs (4c1b800)

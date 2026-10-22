@@ -1,12 +1,13 @@
 ---
 change_id: mailing-attachments-655
 title: "mailing: attachments on sendMail (issue #655)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 655
 branch: claude/project-thread-auuo2c
 created: 2026-10-22
 updated: 2026-10-22
+archived_at: 2026-10-22
 ---
 
 ## Intent
