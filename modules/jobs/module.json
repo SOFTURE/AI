@@ -1,6 +1,6 @@
 {
   "id": "jobs",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "dependsOn": {},
   "dbSchema": "jobs",
   "tables": ["jobs", "schedules", "sync_cursors", "sync_items"],
