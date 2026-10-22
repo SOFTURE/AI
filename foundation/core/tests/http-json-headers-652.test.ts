@@ -220,6 +220,13 @@ describe("parseLinkHeader", () => {
     expect(parseLinkHeader('</items?page=2>; rel="next"')).toEqual({ next: "/items?page=2" });
   });
 
+  it("reads a long hostile value in linear time", () => {
+    const started = performance.now();
+    expect(parseLinkHeader("<=".repeat(200_000))).toEqual({});
+    expect(parseLinkHeader(`${"<a>; rel=x, ".repeat(50_000)}<https://a/2>; rel=next`)).toEqual({ next: "https://a/2" });
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
   it.each([null, "", "garbage", "https://a/2; rel=next", '<https://a/2>; title="next"', '<>; rel="next"'])(
     "returns no links for %j",
     (value) => {

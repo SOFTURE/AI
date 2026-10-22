@@ -49,3 +49,6 @@ Files: `foundation/core/src/http-json.ts`, `foundation/core/src/index.ts`, `foun
 
 Tests were written first and failed on the missing option and export (39 of 47) before the code existed. Gates:
 typecheck, ESLint on the changed files, language gate, `foundation/core` tests (444 passed), repository tests.
+
+After review: CodeQL flagged the `Link` regular expression as quadratic on a value with many `<` and no `>`;
+`parseLinkHeader` now scans with `indexOf` (linear), with a test that took 35 s on the old code.

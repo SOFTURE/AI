@@ -205,9 +205,6 @@ export interface LinkHeaderLinks {
 
 type LinkRelation = keyof LinkHeaderLinks;
 
-// One link: the URL in angle brackets and its parameters up to the next link. Splitting by commas would break a URL
-// that contains one.
-const LINK_PATTERN = /<([^>]*)>([^<]*)/g;
 const REL_PATTERN = /(?:^|;)\s*rel\s*=\s*(?:"([^"]*)"|([^\s;,"]+))/i;
 const LINK_RELATIONS: Readonly<Record<string, LinkRelation>> = {
   next: "next",
@@ -227,16 +224,27 @@ export function parseLinkHeader(value: string | null | undefined): LinkHeaderLin
   if (value === null || value === undefined) {
     return links;
   }
-  for (const [, url, parameters] of value.matchAll(LINK_PATTERN)) {
-    const rel = REL_PATTERN.exec(parameters ?? "");
+  // One link: the URL in angle brackets and its parameters up to the next `<`. Splitting by commas would break a URL
+  // that contains one, and a regular expression would rescan the rest of a hostile value from every `<`.
+  let position = 0;
+  while (position < value.length) {
+    const open = value.indexOf("<", position);
+    const close = open === -1 ? -1 : value.indexOf(">", open + 1);
+    if (close === -1) {
+      break;
+    }
+    const nextOpen = value.indexOf("<", close + 1);
+    position = nextOpen === -1 ? value.length : nextOpen;
+    const url = value.slice(open + 1, close).trim();
+    const rel = REL_PATTERN.exec(value.slice(close + 1, position));
     const relationTypes = rel?.[1] ?? rel?.[2];
-    if (url === undefined || url.trim() === "" || relationTypes === undefined) {
+    if (url === "" || relationTypes === undefined) {
       continue;
     }
     for (const relationType of relationTypes.trim().toLowerCase().split(/\s+/)) {
       const relation = LINK_RELATIONS[relationType];
       if (relation !== undefined && links[relation] === undefined) {
-        links[relation] = url.trim();
+        links[relation] = url;
       }
     }
   }
