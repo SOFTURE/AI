@@ -11,7 +11,10 @@ export type JobsErrorCode =
   | "jobs.not_retryable"
   | "jobs.dedup_key_taken"
   | "jobs.sync_cursor_moved"
-  | "jobs.sync_item_threw";
+  | "jobs.sync_item_threw"
+  | "jobs.not_a_schedule"
+  | "jobs.sync_item_not_found"
+  | "jobs.sync_item_not_retryable";
 
 export const JOB_STATUSES = ["pending", "running", "succeeded", "failed", "cancelled"] as const;
 

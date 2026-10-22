@@ -9,5 +9,8 @@ export const en = {
     dedup_key_taken: "Another job for the same work is already waiting or running.",
     sync_cursor_moved: "Another run moved the sync position first.",
     sync_item_threw: "Handling the item failed unexpectedly.",
+    not_a_schedule: "This queue has no schedule.",
+    sync_item_not_found: "The item is not in the ledger.",
+    sync_item_not_retryable: "Only a failed item can be tried again.",
   },
 };
