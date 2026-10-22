@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
-## Unreleased
+## 0.2.4
 
 - Attachments on `sendMail` and `deliverOnce` (#655): `attachments?: { filename, contentType, content: Uint8Array }[]`
   on a mail. Checked before sending (`mailing.invalid_input`, `fields=attachments`): at most `attachments.maxCount`
