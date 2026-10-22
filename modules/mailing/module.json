@@ -1,6 +1,6 @@
 {
   "id": "mailing",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "dependsOn": { "jobs": "*?" },
   "dbSchema": "mailing",
   "tables": ["suppressions", "campaigns", "deliveries"],

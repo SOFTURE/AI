@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.5
 
 - Admin page (#654): `JobsPage` from `@softure-ai/jobs/next` (mount `app/admin/jobs/page.tsx`, route `panel`
   `/admin/jobs`) and the composable `JobsPanel` from the new `@softure-ai/jobs/ui`: per queue the counts, the oldest

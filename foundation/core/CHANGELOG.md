@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
-## Unreleased
+## 0.2.3
 
 - `requestJson` reads response headers (#652), with no breaking change to calls that do not use the new option.
   - `readHeaders: readonly string[]`: response headers to return, by name (any letter case), an explicit allow-list.
