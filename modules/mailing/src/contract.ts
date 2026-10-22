@@ -138,6 +138,31 @@ export interface OutgoingMail {
    * list kind.
    */
   readonly kind?: string;
+  /**
+   * Files sent with the mail, e.g. an invoice PDF or a report. Checked before anything leaves the process: at most
+   * `mailing({ attachments: { maxCount } })` files and `maxTotalBytes` bytes in all, a plain filename and a content
+   * type from the allow-list. The provider must declare `supportsAttachments`. Never logged: a failure logs the count,
+   * the content types and the sizes only.
+   */
+  readonly attachments?: readonly MailAttachment[];
+}
+
+/** One file attached to a mail. */
+export interface MailAttachment {
+  /** The name the recipient sees, e.g. `invoice-2026-10.pdf`: 1 to 255 characters, no path separators or control characters. */
+  readonly filename: string;
+  /** The MIME type, e.g. `application/pdf`; it must be on the module's allow-list (`attachments.contentTypes`). */
+  readonly contentType: string;
+  /** The file's bytes, at least one. A Node `Buffer` is a `Uint8Array` too. */
+  readonly content: Uint8Array;
+}
+
+/** What an attachment looks like in a log, a dry run or an app's own records: everything but the bytes. */
+export interface AttachmentSummary {
+  readonly filename: string;
+  readonly contentType: string;
+  /** The content's length in bytes. */
+  readonly size: number;
 }
 
 export interface SendMailOptions {
@@ -174,6 +199,8 @@ export interface ProviderMessage {
   readonly html: string | null;
   readonly headers: Readonly<Record<string, string>>;
   readonly idempotencyKey: string | null;
+  /** The mail's attachments, only when it has any; given only to a provider that declares `supportsAttachments`. */
+  readonly attachments?: readonly MailAttachment[];
 }
 
 /**
@@ -194,5 +221,11 @@ export type ProviderFailureStatus = "rejected" | "unavailable" | "refused" | "qu
 export interface MailProvider {
   /** A short lowercase name for logs and `SentMail.provider`. */
   readonly name: string;
+  /**
+   * True when `send` delivers `ProviderMessage.attachments`. Without it, a mail with attachments is refused as
+   * `mailing.invalid_input` before the provider is called, so an adapter written before attachments existed never
+   * drops a file silently.
+   */
+  readonly supportsAttachments?: boolean;
   send(message: ProviderMessage, context: { readonly signal: AbortSignal }): Promise<ProviderOutcome>;
 }

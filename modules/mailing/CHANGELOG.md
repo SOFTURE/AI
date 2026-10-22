@@ -4,6 +4,33 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## Unreleased
+
+- Attachments on `sendMail` and `deliverOnce` (#655): `attachments?: { filename, contentType, content: Uint8Array }[]`
+  on a mail. Checked before sending (`mailing.invalid_input`, `fields=attachments`): at most `attachments.maxCount`
+  files (default 10), at most `attachments.maxTotalBytes` raw bytes (default and maximum 28,000,000, about 37.3 MB
+  base64, under the 40 MB cap), a filename without path separators or control characters, a content type on
+  `attachments.contentTypes` (default `DEFAULT_ATTACHMENT_CONTENT_TYPES`). New option `attachments` in
+  `mailing({ ... })`.
+- `MailProvider.supportsAttachments`: a provider gets `ProviderMessage.attachments` only when it declares it;
+  otherwise a mail with attachments is refused as `invalid_input` (`cause=provider_without_attachments`). `resend()`
+  sends them as base64 with `content_type`; `fakeMailProvider()` captures them, and its outbox file stores them as
+  base64 that `readMailOutbox` decodes back to bytes.
+- The failure log line adds `attachments=<type>:<bytes>,...` (never filenames or content). `describeAttachments`
+  returns `{ filename, contentType, size }[]`; `formatMailPreview` (`/server`) prints a `previewMail` value with an
+  attachments section, and `softure-mail` previews use it.
+- Queued deliveries carry no bytes: `enqueueDelivery` throws for a payload with a `Uint8Array`, `Buffer` or
+  `ArrayBuffer`; `buildMail` loads attachments from the app's storage by reference.
+- `validateMail(mail, options, limits?)` takes the attachment limits (default: the module defaults).
+- Migrate an app:
+  1. An app that bypasses mailing to send a file (a provider SDK or the user's mailbox API): call `sendMail` (or
+     `deliverOnce`, or `enqueueDelivery` with the file's id in the payload and the bytes loaded in `buildMail`) with
+     `attachments`, and delete the bypass.
+  2. A content type outside the default list: pass `mailing({ attachments: { contentTypes: [...] } })` with the
+     full list the app needs.
+  3. A custom `MailProvider` that should carry attachments: map `message.attachments` and set
+     `supportsAttachments: true`. Nothing to change otherwise.
+
 ## 0.2.3
 
 - `softure-mail test` sends a list-kind test mail without the app database (#573). With `database: null` it skips the

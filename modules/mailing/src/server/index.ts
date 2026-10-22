@@ -61,7 +61,7 @@ export {
   type ImportSummary,
 } from "./import-deliveries.js";
 export { addHtmlFooter, addTextFooter, getListUnsubscribeHeaders, SIGNATURE_SEPARATOR } from "./list-mail.js";
-export { maskAddress, redactUnsubscribeSignatures } from "./operator-output.js";
+export { formatMailPreview, maskAddress, redactUnsubscribeSignatures } from "./operator-output.js";
 export { getMailingModule, getMailingOptions, getMailingRoutes, resolveMailKind, type MailingRoutes } from "./options.js";
 export { runDeliveries, type DeliveryRunInput, type DeliveryRunSummary, type RunDeliveriesOptions } from "./run-deliveries.js";
 export { previewMail, sendMail, type MailContext, type MailPreviewFailure, type MailPreviewResult, type PreviewMailOptions } from "./send-mail.js";

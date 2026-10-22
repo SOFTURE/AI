@@ -167,7 +167,7 @@ export async function forecastDelivery(ctx: DeliveryContext, delivery: Delivery,
     if (age <= windows.staleClaimMs) return { status: "in-flight" };
     if (age > windows.uncertainClaimMs && !windows.retakeUncertain) return { status: "uncertain" };
   }
-  if (!validateMail(delivery.mail).ok) return { status: "rejected", reason: "mailing.invalid_input" };
+  if (!validateMail(delivery.mail, {}, getMailingOptions(ctx.config).attachments).ok) return { status: "rejected", reason: "mailing.invalid_input" };
   if (kind !== TRANSACTIONAL_KIND && (await isSuppressed(ctx, delivery.mail.to))) return { status: "rejected", reason: "mailing.suppressed" };
   return { status: "send" };
 }

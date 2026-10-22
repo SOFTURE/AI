@@ -1,6 +1,7 @@
 // The options an app passes to `mailing({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
 import { isMailbox, isMailKind, isSingleAddress } from "./address.js";
+import { DEFAULT_ATTACHMENT_CONTENT_TYPES, DEFAULT_MAX_ATTACHMENTS, getContentTypeEssence, isContentType, MAX_ATTACHMENT_BYTES } from "./attachments.js";
 import type { CampaignRecipientFilter, CampaignRecipientSource, LegacyUnsubscribe, MailProvider, OnUnsubscribedHook } from "./contract.js";
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
@@ -55,6 +56,22 @@ function isMailProvider(value: unknown): value is MailProvider {
   return typeof candidate.name === "string" && candidate.name !== "" && typeof candidate.send === "function";
 }
 
+const attachmentsOptionsSchema = z.strictObject({
+  /** Files per mail, 1 to 100. Default 10. */
+  maxCount: z.number().int().min(1).max(100).default(DEFAULT_MAX_ATTACHMENTS),
+  /** Raw bytes of all attachments of one mail, at most (and by default) 28,000,000: about 37.3 MB base64. */
+  maxTotalBytes: z.number().int().min(1).max(MAX_ATTACHMENT_BYTES).default(MAX_ATTACHMENT_BYTES),
+  /**
+   * The content types an attachment may have, e.g. `["application/pdf"]`; replaces the default list
+   * (`DEFAULT_ATTACHMENT_CONTENT_TYPES`). Compared without parameters and case.
+   */
+  contentTypes: z
+    .array(z.string().trim().refine(isContentType, "must be a MIME type such as application/pdf"))
+    .min(1)
+    .transform((types) => [...new Set(types.map(getContentTypeEssence))])
+    .default([...DEFAULT_ATTACHMENT_CONTENT_TYPES]),
+});
+
 export const mailingOptionsSchema = z.strictObject({
   /**
    * The sender of every mail: `hello@example.com` or `Plan <hello@example.com>`. It must be on a
@@ -108,6 +125,8 @@ export const mailingOptionsSchema = z.strictObject({
    * idempotency window. More than `staleClaimMs`, at most 30 days.
    */
   uncertainClaimMs: z.number().int().min(60_000).max(30 * 24 * HOUR_MS).default(DEFAULT_UNCERTAIN_CLAIM_MS),
+  /** Limits on attachments: count, total size and allowed content types. Defaults fit Resend's 40 MB cap. */
+  attachments: attachmentsOptionsSchema.prefault({}),
 }).refine((options) => options.uncertainClaimMs > options.staleClaimMs, { message: "must be more than staleClaimMs", path: ["uncertainClaimMs"] });
 
 export type MailingOptionsInput = z.input<typeof mailingOptionsSchema>;
