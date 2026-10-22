@@ -305,7 +305,7 @@ if (plan.endedAt !== null) throw new PublicError("This plan has ended; pick anot
 `isPublicError` recognises one from another copy of core too (a registry symbol, not `instanceof`).
 `safeError` itself still answers `core.unexpected` for it, since callers switch on its two codes.
 
-**External JSON APIs.** `requestJson({ url, method?, body?, idempotencyKey?, fetch?, headers?, timeoutMs?, schema? })`
+**External JSON APIs.** `requestJson({ url, method?, body?, idempotencyKey?, fetch?, headers?, timeoutMs?, schema?, readHeaders?, clock? })`
 calls a third-party JSON API (a GET by default) and returns `Ok<value>` or an `HttpJsonFailure` (`{ ok: false, error, status }`). It sets the details a hand-written
 helper tends to miss:
 
@@ -350,6 +350,35 @@ Writes take `method: "POST" | "PUT" | "PATCH" | "DELETE"` and a `body`, sent as 
 throws before anything is sent. `idempotencyKey` is sent as `Idempotency-Key`. A write answered with an empty body
 (a 204, or a 200 with nothing) is `ok(undefined)`, schema or not, so a write's value is `T | undefined`; a non-empty
 answer still goes through the schema. A GET carries no body, and an empty answer to it stays an unexpected answer.
+
+**Response headers.** A failure with `core.http_rate_limited` (429) or `core.http_unavailable` (5xx) always carries
+`retryAfterSeconds`: the `Retry-After` header as seconds (delay-seconds, or an HTTP date measured against `clock`,
+default `systemClock`, rounded up), between 0 and 86 400, or `null` when the header is missing or malformed. It goes
+straight into `retryJobLater` of `@softure-ai/jobs`. Narrowing on `error` types it; other failures do not carry it.
+
+Any other header is read only when named in `readHeaders` (any letter case; an explicit allow-list, so nothing secret
+leaves by accident). The value then becomes `{ body, headers }`, with each requested name as a key and `null` for a
+header the answer lacks; a failure that had a response carries the same `headers`. Without `readHeaders` the value is
+the body, as before. A name that is not a valid header name throws a `RangeError` before anything is sent.
+`parseLinkHeader(value)` reads a `Link` header (RFC 8288) into `{ next?, prev?, first?, last? }`, the URLs as
+written (`previous` counts as `prev`; the first link of a relation wins; `null` or garbage gives `{}`):
+
+```ts
+import { parseLinkHeader, requestJson } from "@softure-ai/core";
+
+const page = await requestJson({
+  url,
+  headers: { Authorization: `Bearer ${env.REPORTS_API_KEY}` },
+  schema: z.array(rowSchema),
+  readHeaders: ["link", "x-ratelimit-remaining"],
+});
+if (!page.ok) {
+  if (page.error === "core.http_rate_limited") return retryJobLater("app.reports_busy", page.retryAfterSeconds ?? 60);
+  return page;
+}
+const { next } = parseLinkHeader(page.value.headers.link);
+// page.value.body: the rows; next: the URL of the next page, or undefined on the last one
+```
 
 ```ts
 const saved = await requestJson({

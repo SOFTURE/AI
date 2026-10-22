@@ -4,6 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- `requestJson` reads response headers (#652), with no breaking change to calls that do not use the new option.
+  - `readHeaders: readonly string[]`: response headers to return, by name (any letter case), an explicit allow-list.
+    With it the value is `{ body, headers }` (each requested name a key, `null` when absent) and a failure that had a
+    response carries `headers`. A name that is not a valid header name throws a `RangeError` before the request.
+  - `retryAfterSeconds: number | null` on every `core.http_rate_limited` and `core.http_unavailable` failure, parsed
+    from `Retry-After` (seconds, or an HTTP date measured against the new `clock` option), 0 to 86 400.
+    `HttpJsonFailure` is now a union narrowed by `error`, and a rate limited or unavailable failure's `status` is a
+    `number`.
+  - `parseLinkHeader(value)` returns the `next`, `prev`, `first` and `last` URLs of a `Link` header.
+  - New types `HttpJsonAnswer`, `HttpJsonResponseHeaders`, `HttpJsonRetryableCode`, `LinkHeaderLinks`,
+    `RequestJsonReadHeadersOptions`.
+  - Migrate: nothing is required. A test that deep-compares a 429 or 5xx failure adds `retryAfterSeconds: null` (or
+    the parsed value). An app that dropped to raw `fetch` for `Retry-After`, a `Link` header or rate-limit headers
+    goes back to `requestJson` with `readHeaders`, and passes `retryAfterSeconds` to `retryJobLater`.
+
 ## 0.2.2
 
 - `requestJson` writes (#635): `method` (`"GET"` by default, `"POST" | "PUT" | "PATCH" | "DELETE"`), `body` sent as
