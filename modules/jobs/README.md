@@ -51,6 +51,8 @@ export default defineSoftureConfig({
 | `schedules.<queue>.every` | (one of `every`, `at`) | how often the schedule runs: `<n>m`, `<n>h` or `<n>d`, from `1m` to `7d`, aligned to UTC (§3, "Schedules") |
 | `schedules.<queue>.at` | (one of `every`, `at`) | local times of day the schedule runs at, `HH:MM` (`00:00` to `23:59`), each once, up to 48 |
 | `schedules.<queue>.timeZone` | (required with `at`) | the IANA time zone of `at`, such as `Europe/Warsaw` or `UTC` |
+| `schedules.<queue>.daysOfWeek` | every day | with `at`: the local days of the week it runs on, ISO `1` (Monday) to `7` (Sunday), each once |
+| `schedules.<queue>.daysOfMonth` | every day | with `at`: the local days of the month it runs on, `1` to `31` or `"last"`, each once |
 | `schedules.<queue>.payload` | `{}` | the payload of every scheduled run |
 | `pollIntervalMs` | `1000` | how often an idle worker looks for due jobs |
 | `shutdownGraceMs` | `20000` | how long a stopping worker waits for running handlers before releasing their jobs |
@@ -196,6 +198,14 @@ jobs({
     "app.digest": { every: "1d", payload: { kind: "weekly" } },
     // The trial-ending reminder at 09:00 and 21:00 in the users' time zone, in place of billing's daily UTC period.
     "billing.access-reminders": { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw" },
+    // Hourly from 08:00 to 20:00, Monday to Friday; on the 10th of each month; on the month's last day.
+    "app.inbox-poll": {
+      at: ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"],
+      timeZone: "Europe/Warsaw",
+      daysOfWeek: [1, 2, 3, 4, 5],
+    },
+    "app.monthly-nudge": { at: ["08:00"], timeZone: "Europe/Warsaw", daysOfMonth: [10] },
+    "app.close-period": { at: ["23:00"], timeZone: "Europe/Warsaw", daysOfMonth: ["last"] },
   },
 });
 ```
@@ -215,6 +225,9 @@ export const handlers: JobHandlers = { ...authJobHandlers, ...securityJobHandler
   after the change as it would have been (`02:30` on the spring-forward day runs at 03:30); a time a DST change
   repeats runs once, at its first occurrence. A worker that starts after a listed time enqueues that slot's run at
   once, the same way a period schedule enqueues the period it starts in.
+- `daysOfWeek` and `daysOfMonth` keep an `at` schedule's slots to the local dates in `timeZone` that match (both,
+  when both are given). A day a month lacks never matches (`31` skips April); `"last"` is the month's last day,
+  the 28th or 29th in February. Filters apply to `at` only; on `every` they are refused at startup.
 - Once per period, however many workers run: a worker takes a period with a conditional upsert of
   `jobs.schedules` (the period must be later than the stored one) and enqueues the run in the same transaction, so a
   missed or doubled tick cannot happen. A worker enqueues only the schedules of the queues it runs.
@@ -226,14 +239,17 @@ export const handlers: JobHandlers = { ...authJobHandlers, ...securityJobHandler
   `@softure-ai/waitlist/jobs`, `@softure-ai/security/jobs`, `@softure-ai/analytics/jobs`), with `@softure-ai/jobs` as an
   optional peer.
 
-`getQueueStats` reports each scheduled queue's `schedule`: `everySeconds` (for an `at` schedule the longest gap
-between two of its times, 24h for one time), `lastEnqueuedAt` (the start of the latest slot a run was enqueued for), `lastSucceededAt` (any succeeded job of the queue, a run enqueued by hand too),
+`getQueueStats` reports each scheduled queue's `schedule`: `everySeconds` (for an `at` schedule the gap from its
+current slot to the next: 60h on a Saturday for a weekday schedule whose last time is Friday 20:00 and first Monday
+08:00), `lastEnqueuedAt` (the start of the latest slot a run was enqueued for), `lastSucceededAt` (any succeeded job of the queue, a run enqueued by hand too),
 `lastFailedAt` and `lastFailureCode` (the latest job of the queue that ended `failed`, with its error code: the
 handler's code, `jobs.handler_threw`, `jobs.invalid_payload` or `jobs.lease_expired`, never an error's text; a retried
 attempt is not a failure until the attempts are used up), `isFailing` and `isLate`. A queue is failing when its latest
 outcome is a failure: `isFailing` is `lastFailedAt !== null && (lastSucceededAt === null || lastFailedAt >
 lastSucceededAt)`. It is late when no run succeeded within two periods, counted from when a worker first saw the
-schedule, or no worker has seen it at all. Successes and failures are recorded once a worker has taken the schedule's
+schedule, or no worker has seen it at all; for an `at` schedule two periods are its next two slots after that
+success, so the weekday schedule is not late over the weekend and is late after Monday 09:00 when the 08:00 run has
+not succeeded. Successes and failures are recorded once a worker has taken the schedule's
 first slot (its row in `jobs.schedules` exists), and they outlive the pruned jobs.
 
 An app that shows how fresh a synced source is needs nothing else:
@@ -393,8 +409,8 @@ source's item ids, not their content; if an id is personal (an e-mail address), 
 ## 12. Limitations
 
 - Polling, no `LISTEN/NOTIFY`: a job waits up to `pollIntervalMs` when the worker is idle.
-- Schedules take a fixed period aligned to UTC (`every`) or times of day in a time zone (`at`); no cron expressions,
-  no days of the week.
+- Schedules take a fixed period aligned to UTC (`every`) or times of day in a time zone (`at`), with
+  calendar filters (`daysOfWeek`, `daysOfMonth`) on `at` schedules only; no cron expressions.
 - No priorities within a queue and no rate limits per queue beyond `concurrency`; split work into queues instead.
 - At-least-once delivery (§3, "Handlers run at least once").
 - PGlite has one connection, so tests run claims one after another; concurrent claiming is Postgres behaviour

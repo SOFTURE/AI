@@ -42,6 +42,7 @@ export {
 export { jobsMessages, type JobsMessages } from "./messages/index.js";
 export {
   jobsOptionsSchema,
+  type DayOfMonth,
   type JobQueueOptions,
   type JobScheduleOptions,
   type JobSchedulesInput,

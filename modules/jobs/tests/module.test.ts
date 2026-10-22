@@ -1,7 +1,7 @@
 // The module definition: its manifest, its options and the constraints of its table.
 import { readFileSync } from "node:fs";
 import { toModuleJson } from "@softure-ai/core";
-import { jobs, jobsMessages } from "@softure-ai/jobs";
+import { jobs, jobsMessages, type DayOfMonth } from "@softure-ai/jobs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestJobs, NOW, type TestJobs } from "./support.js";
 
@@ -78,6 +78,38 @@ describe("the jobs module", () => {
     expect(module.options.schedules).toEqual({
       "billing.send-reminders": { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw", payload: {} },
     });
+  });
+
+  it("parses calendar filters of a local-time schedule, sorting them", () => {
+    const module = jobs({
+      schedules: { "app.close-period": { at: ["23:00"], timeZone: "Europe/Warsaw", daysOfWeek: [5, 1, 3], daysOfMonth: ["last", 10, 1] } },
+    });
+    expect(module.options.schedules).toEqual({
+      "app.close-period": { at: ["23:00"], timeZone: "Europe/Warsaw", daysOfWeek: [1, 3, 5], daysOfMonth: [1, 10, "last"], payload: {} },
+    });
+  });
+
+  it.each([
+    [{ daysOfWeek: [] }, "- options.schedules.app.tick.daysOfWeek: Too small"],
+    [{ daysOfWeek: [0] }, "- options.schedules.app.tick.daysOfWeek.0: must be ISO days of the week (1 Monday to 7 Sunday), each once"],
+    [{ daysOfWeek: [8] }, "- options.schedules.app.tick.daysOfWeek.0: must be ISO days of the week"],
+    [{ daysOfWeek: [1.5] }, "- options.schedules.app.tick.daysOfWeek.0:"],
+    [{ daysOfWeek: [1, 1] }, "- options.schedules.app.tick.daysOfWeek: must be ISO days of the week"],
+    [{ daysOfMonth: [] }, "- options.schedules.app.tick.daysOfMonth: Too small"],
+    [{ daysOfMonth: [0] }, '- options.schedules.app.tick.daysOfMonth.0: must be days of the month (1 to 31, or "last"), each once'],
+    [{ daysOfMonth: [32] }, "- options.schedules.app.tick.daysOfMonth.0: must be days of the month"],
+    // A value the type refuses too, as a config written in plain JavaScript could hold it.
+    [{ daysOfMonth: ["first"] as unknown as DayOfMonth[] }, "- options.schedules.app.tick.daysOfMonth.0: must be days of the month"],
+    [{ daysOfMonth: ["last", "last"] as DayOfMonth[] }, "- options.schedules.app.tick.daysOfMonth: must be days of the month"],
+  ])("refuses the calendar filter %j", (filter, message) => {
+    expect(() => jobs({ schedules: { "app.tick": { at: ["09:00"], timeZone: "UTC", ...filter } } })).toThrow(message);
+  });
+
+  it.each([
+    [{ daysOfWeek: [1] }, "- options.schedules.app.tick.daysOfWeek: applies to at only; every has no local date"],
+    [{ daysOfMonth: [1] }, "- options.schedules.app.tick.daysOfMonth: applies to at only; every has no local date"],
+  ])("refuses the calendar filter %j on a period schedule", (filter, message) => {
+    expect(() => jobs({ schedules: { "app.tick": { every: "1h", ...filter } } })).toThrow(message);
   });
 
   it.each([
