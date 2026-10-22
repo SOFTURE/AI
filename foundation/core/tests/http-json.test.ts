@@ -84,11 +84,16 @@ describe("requestJson: status classes", () => {
   });
 
   it("reports a 429 as rate limited", async () => {
-    expect(await requestWithStatus(429)).toEqual({ ok: false, error: "core.http_rate_limited", status: 429 });
+    expect(await requestWithStatus(429)).toEqual({ ok: false, error: "core.http_rate_limited", status: 429, retryAfterSeconds: null });
   });
 
   it.each([500, 502, 503, 504])("reports a %i as unavailable", async (status) => {
-    expect(await requestWithStatus(status)).toEqual({ ok: false, error: "core.http_unavailable", status });
+    expect(await requestWithStatus(status)).toEqual({
+      ok: false,
+      error: "core.http_unavailable",
+      status,
+      retryAfterSeconds: null,
+    });
   });
 
   it.each([400, 404, 410])("reports any other status (%i) as an unexpected answer", async (status) => {
@@ -105,7 +110,12 @@ describe("requestJson: failed requests", () => {
       },
     });
     const { fetch } = createFakeFetch(() => new Response(body, { status: 503 }));
-    expect(await requestJson({ fetch, url: URL_WITH_KEY })).toEqual({ ok: false, error: "core.http_unavailable", status: 503 });
+    expect(await requestJson({ fetch, url: URL_WITH_KEY })).toEqual({
+      ok: false,
+      error: "core.http_unavailable",
+      status: 503,
+      retryAfterSeconds: null,
+    });
     expect(isCancelled).toBe(true);
   });
 
@@ -214,7 +224,10 @@ describe("requestJson: no secret in a failure", () => {
       const text = JSON.stringify(failure);
       expect(text).not.toContain(API_KEY);
       expect(text).not.toContain("api.example.com");
-      expect(Object.keys(failure).sort()).toEqual(["error", "ok", "status"]);
+      const isRetryable = failure.error === "core.http_rate_limited" || failure.error === "core.http_unavailable";
+      expect(Object.keys(failure).sort()).toEqual(
+        isRetryable ? ["error", "ok", "retryAfterSeconds", "status"] : ["error", "ok", "status"],
+      );
     }
   });
 });

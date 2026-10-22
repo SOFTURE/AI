@@ -82,7 +82,10 @@ export const handlers: JobHandlers = {
       const message = await findMessage(db, messageId);
       if (message === null) return failJob("app.message_gone"); // failed at once, no retry
       const reply = await callModel(message, { signal });
-      if (reply.status === 429) return retryJobLater("app.rate_limited", reply.retryAfterSeconds);
+      // requestJson (`@softure-ai/core`) parses Retry-After into retryAfterSeconds on a 429 or 5xx
+      if (!reply.ok && reply.error === "core.http_rate_limited") {
+        return retryJobLater("app.rate_limited", reply.retryAfterSeconds ?? 60);
+      }
       if (!reply.ok) return reply; // an Err: retried with the queue's backoff
       await saveReply(db, messageId, reply.value);
       return ok();
