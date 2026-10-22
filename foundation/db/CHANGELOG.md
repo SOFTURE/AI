@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
-## Unreleased
+## 0.1.13
 
 - `@softure-ai/db/testing/global-setup`, a Vitest `globalSetup` module: each module set is migrated once per run
   instead of once per test file (#641). The template is written to a folder the setup creates and removes

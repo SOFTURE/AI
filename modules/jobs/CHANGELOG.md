@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.4
 
 - Sync state for jobs that poll a third-party source (#639): a cursor per source and a processed-item ledger, so a
   second run never acts twice on the same item, a failed item is retried a bounded number of times and an overview
