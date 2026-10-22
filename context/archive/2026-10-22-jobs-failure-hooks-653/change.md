@@ -1,12 +1,13 @@
 ---
 change_id: jobs-failure-hooks-653
 title: "jobs: hooks when a job ends failed or a schedule turns failing or late (issue #653)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 653
 branch: claude/project-thread-wxkrco
 created: 2026-10-22
 updated: 2026-10-22
+archived_at: 2026-10-22
 ---
 
 ## Intent

@@ -1,6 +1,6 @@
 ---
 change_id: jobs-failure-hooks-653
-status: in_progress
+status: archived
 ---
 
 # Plan: hooks for failed jobs and schedule health (issue #653)
