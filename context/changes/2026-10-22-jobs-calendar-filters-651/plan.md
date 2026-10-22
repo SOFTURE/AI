@@ -33,5 +33,5 @@ Files: `modules/jobs/src/options.ts`, `modules/jobs/src/server/schedules.ts`, `m
 
 ## Progress
 
-- [ ] Phase 1: options, slots and lateness
+- [x] Phase 1: options, slots and lateness (49ecdfd)
 - [ ] Phase 2: docs
