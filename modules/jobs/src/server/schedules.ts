@@ -2,7 +2,13 @@
 // schedule's at its listed times of day in its time zone, so every worker computes the same slot. A worker takes a period with a conditional upsert of `jobs.schedules` and enqueues its run
 // in the same transaction, so each period is enqueued once however many workers race for it.
 import { eq, inArray, lt } from "drizzle-orm";
-import { parseEverySeconds, type JobScheduleOptions, type JobsOptions, type LocalTimeScheduleOptions } from "../options.js";
+import {
+  parseEverySeconds,
+  type JobScheduleOptions,
+  type JobsOptions,
+  type LocalTimeScheduleOptions,
+  type PeriodScheduleOptions,
+} from "../options.js";
 import { schedules } from "../schema.js";
 import { getWallClock, getZonedInstant } from "../zoned-time.js";
 import type { JobsContext } from "./context.js";
@@ -17,7 +23,7 @@ export const SCHEDULE_DEDUP_KEY = "schedule";
 
 /** A schedule's health as `getQueueStats` reports it. */
 export interface ScheduleState {
-  /** The period; for a local-time schedule the longest gap between two of its times of day (24h for one time). */
+  /** The period; for a local-time schedule the gap from its current slot to the next one. */
   readonly everySeconds: number;
   /** The start of the latest period a run was enqueued for; null before any worker saw the schedule. */
   readonly lastEnqueuedAt: Date | null;
@@ -29,7 +35,8 @@ export interface ScheduleState {
   readonly lastFailureCode: string | null;
   /**
    * True when no run succeeded within two periods (counted from when a worker first saw the schedule), or no worker
-   * has seen it at all: no worker runs its queue, or its runs keep failing.
+   * has seen it at all: no worker runs its queue, or its runs keep failing. For a local-time schedule two periods are
+   * its next two slots, so a weekday schedule is not late over the weekend.
    */
   readonly isLate: boolean;
   /** True when the latest outcome is a failure: `lastFailedAt` is later than `lastSucceededAt`, or nothing succeeded. */
@@ -42,8 +49,8 @@ export interface EnqueueDueSchedulesInput {
 }
 
 /**
- * The slot `now` falls in: the start of its period, or the latest of the schedule's local times at or before `now`.
- * Slots only move forward as `now` does, across DST changes too.
+ * The slot `now` falls in: the start of its period, or the latest of the schedule's local times at or before `now` on
+ * a local date its filters let through. Slots only move forward as `now` does, across DST changes too.
  */
 export function getScheduleSlot(schedule: JobScheduleOptions, now: Date): Date {
   if ("at" in schedule) return new Date(getLocalTimeSlot(schedule, now.getTime()));
@@ -112,10 +119,10 @@ export async function getScheduleStates(ctx: JobsContext): Promise<Map<string, S
   const now = ctx.clock.now().getTime();
   return new Map(
     names.map((name) => {
-      const everySeconds = getEverySeconds(getSchedule(options, name));
+      const schedule = getSchedule(options, name);
       const row = rows.find((candidate) => candidate.name === name);
       const since = row?.lastSucceededAt ?? row?.createdAt ?? null;
-      const isLate = since === null || now - since.getTime() > 2 * everySeconds * 1000;
+      const { everySeconds, isLate } = getLateness(schedule, now, since?.getTime() ?? null);
       const lastSucceededAt = row?.lastSucceededAt ?? null;
       const lastFailedAt = row?.lastFailedAt ?? null;
       const isFailing = lastFailedAt !== null && (lastSucceededAt === null || lastFailedAt > lastSucceededAt);
@@ -136,39 +143,73 @@ export function getSchedule(options: JobsOptions, name: string): JobScheduleOpti
   return schedule;
 }
 
-function getEverySeconds(schedule: JobScheduleOptions): number {
-  if ("at" in schedule) return getLongestGapSeconds(schedule.at);
+/**
+ * A schedule's period at `now` and whether it is late: no success (or first sighting, `since`) within two periods.
+ * A local-time schedule's period is the gap from its current slot to the next, and it is late once the second slot
+ * after `since` has passed.
+ */
+function getLateness(schedule: JobScheduleOptions, now: number, since: number | null): { everySeconds: number; isLate: boolean } {
+  if ("at" in schedule) {
+    const slot = getLocalTimeSlot(schedule, now);
+    const everySeconds = (getNextLocalTimeSlot(schedule, slot) - slot) / 1000;
+    const isLate = since === null || now > getNextLocalTimeSlot(schedule, getNextLocalTimeSlot(schedule, since));
+    return { everySeconds, isLate };
+  }
+  const everySeconds = getEverySeconds(schedule);
+  return { everySeconds, isLate: since === null || now - since > 2 * everySeconds * 1000 };
+}
+
+function getEverySeconds(schedule: PeriodScheduleOptions): number {
   const seconds = parseEverySeconds(schedule.every);
   // The options schema refused any other value at startup.
   if (seconds === null) throw new Error(`@softure-ai/jobs: invalid schedule period "${schedule.every}"`);
   return seconds;
 }
 
+/**
+ * The local dates a slot is looked for on, back or forward from `instant`. The rarest filter (the 31st on one weekday)
+ * recurs within 609 days over the 400-year Gregorian cycle, so the search always ends with a slot.
+ */
+const MAX_SEARCH_DAYS = 800;
+
+/** The latest slot at or before `now`. */
 function getLocalTimeSlot(schedule: LocalTimeScheduleOptions, now: number): number {
-  const today = getWallClock(now, schedule.timeZone);
-  // The calendar day before today's local date; Date.UTC rolls day 0 over to the month before.
-  const yesterday = new Date(Date.UTC(today.year, today.month - 1, today.day - 1));
-  const days = [
-    { year: yesterday.getUTCFullYear(), month: yesterday.getUTCMonth() + 1, day: yesterday.getUTCDate() },
-    { year: today.year, month: today.month, day: today.day },
-  ];
-  let slot = Number.NEGATIVE_INFINITY;
-  for (const day of days) {
-    for (const time of schedule.at) {
-      const [hour, minute] = time.split(":").map(Number);
-      const instant = getZonedInstant({ ...day, hour: hour ?? 0, minute: minute ?? 0 }, schedule.timeZone);
-      if (instant <= now && instant > slot) slot = instant;
-    }
-  }
-  return slot;
+  return findLocalTimeSlot(schedule, now, -1, (instant) => instant <= now);
 }
 
-/** The longest gap between two consecutive times of day, wrapping past midnight; `times` is sorted. */
-function getLongestGapSeconds(times: readonly string[]): number {
-  const minutes = times.map((time) => {
-    const [hour, minute] = time.split(":").map(Number);
-    return (hour ?? 0) * 60 + (minute ?? 0);
-  });
-  const gaps = minutes.map((minute, index) => (minutes[(index + 1) % minutes.length] ?? minute) - minute + (index === minutes.length - 1 ? 24 * 60 : 0));
-  return Math.max(...gaps) * 60;
+/** The earliest slot after `after`. */
+function getNextLocalTimeSlot(schedule: LocalTimeScheduleOptions, after: number): number {
+  return findLocalTimeSlot(schedule, after, 1, (instant) => instant > after);
+}
+
+/**
+ * Walks local dates from the one `instant` falls on (`step` -1 back, 1 forward) and returns, on the first date the
+ * filters let through with a time that `isWanted`, the nearest such time.
+ */
+function findLocalTimeSlot(schedule: LocalTimeScheduleOptions, instant: number, step: -1 | 1, isWanted: (candidate: number) => boolean): number {
+  const start = getWallClock(instant, schedule.timeZone);
+  for (let offset = 0; offset <= MAX_SEARCH_DAYS; offset += 1) {
+    // Date.UTC rolls a day outside the month over into the month before or after.
+    const date = new Date(Date.UTC(start.year, start.month - 1, start.day + step * offset));
+    if (!isScheduledDate(schedule, date)) continue;
+    const day = { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() };
+    const instants = schedule.at
+      .map((time) => {
+        const [hour, minute] = time.split(":").map(Number);
+        return getZonedInstant({ ...day, hour: hour ?? 0, minute: minute ?? 0 }, schedule.timeZone);
+      })
+      .filter(isWanted);
+    if (instants.length > 0) return step < 0 ? Math.max(...instants) : Math.min(...instants);
+  }
+  // Unreachable for the filters the options schema accepts (see MAX_SEARCH_DAYS).
+  throw new Error(`@softure-ai/jobs: no slot within ${MAX_SEARCH_DAYS} days of the schedule's filters`);
+}
+
+/** True when the local date (`date` at midnight UTC) passes the schedule's day-of-week and day-of-month filters. */
+function isScheduledDate(schedule: LocalTimeScheduleOptions, date: Date): boolean {
+  const isoWeekday = ((date.getUTCDay() + 6) % 7) + 1;
+  if (schedule.daysOfWeek !== undefined && !schedule.daysOfWeek.includes(isoWeekday)) return false;
+  if (schedule.daysOfMonth === undefined) return true;
+  const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  return schedule.daysOfMonth.some((day) => (day === "last" ? date.getUTCDate() === lastDay : date.getUTCDate() === day));
 }
