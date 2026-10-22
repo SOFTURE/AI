@@ -4,6 +4,33 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
+## 0.2.4
+
+- `fetchGuardedPage(url, { timeoutMs, maxBytes, maxRedirects?, accept?, userAgent?, allowedPorts?, allowTruncation? },
+  seam?)` in `@softure-ai/security/server` (#636): a GET of a page at a URL someone else chose (saved links, link
+  previews, page summaries). Redirects are followed (default 5) and every hop goes through the same checks as
+  `sendGuardedRequest`, the guarded lookup included; one time limit covers the whole fetch; the body comes back as a
+  `Uint8Array` capped at `maxBytes` after gzip, deflate or brotli is undone, with `status`, `finalUrl`, `contentType`,
+  `charset` and `truncated`. Default ports `[80, 443]`. New code `security.outbound_too_large` (with
+  `allowTruncation: false`; English message added, an app with its own translation adds `errors.outbound_too_large`).
+- `htmlToReadableText(html, { baseUrl })` in the new entry point `@softure-ai/security/readable-text` (#636): the page's `title`, `description`,
+  main text and absolute links, with no network and no script. New dependency `node-html-parser`.
+- `verifyWebhookSignature({ secret, header, body, algorithm, encoding, prefix? })` and `signWebhookBody(…)` in
+  `@softure-ai/security` and `@softure-ai/security/signed-request` (#638): third-party webhook signatures, an HMAC
+  (`"sha256"` or `"sha1"`) over the raw body in `"hex"` or `"base64"`, optionally behind a prefix such as `sha256=`, no
+  timestamp. Constant-time byte comparison, secret lists for rotation, fails closed with `security.signature_invalid`.
+  README "Third-party webhooks" lists GitHub, Shopify and Lemon Squeezy presets.
+- A webhook delivery ledger (#638): migration `0002_create_webhook_deliveries.sql` (`security.webhook_deliveries`),
+  `recordDeliveryOnce(ctx, { source, deliveryId })` → `Ok<true>` the first time, `Ok<false>` for a replay, and
+  `forgetDelivery` / `pruneWebhookDeliveries` in `@softure-ai/security/server`; option
+  `webhookDeliveries: { retentionDays }` (default 30); job `security.prune-webhook-deliveries` (daily) in
+  `@softure-ai/security/jobs`. New code `security.delivery_id_invalid` (English message added; an app with its own
+  translation adds `errors.delivery_id_invalid`).
+- Migrate: run `softure migrate` (one new table). An app with `...securityJobSchedules` and `...securityJobHandlers`
+  gets the new daily job without changes. An app that verifies a provider's webhook with its own code replaces the
+  comparison with `verifyWebhookSignature` and its duplicate check with `recordDeliveryOnce`.
+- Nothing else to migrate: `sendGuardedRequest` and `verifySignedRequest` behave as before.
+
 ## 0.2.3
 
 - `sendGuardedRequest(url, { method, headers?, body?, timeoutMs, allowedPorts? }, seam?)` and `isPublicAddress(address)`

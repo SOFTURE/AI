@@ -10,6 +10,13 @@ export {
   type SecurityContext,
 } from "./rate-limit.js";
 export { listRateLimitBuckets, type RateLimitBucketEntry } from "./options.js";
+export {
+  forgetDelivery,
+  pruneWebhookDeliveries,
+  recordDeliveryOnce,
+  type RecordDeliveryResult,
+  type WebhookDelivery,
+} from "./webhook-deliveries.js";
 export { isPublicAddress } from "./public-address.js";
 export {
   GUARDED_REQUEST_DEFAULT_PORTS,
@@ -20,3 +27,12 @@ export {
   type GuardedRequestSeam,
   type ResolveHost,
 } from "./guarded-request.js";
+export {
+  fetchGuardedPage,
+  GUARDED_PAGE_DEFAULT_PORTS,
+  GUARDED_PAGE_USER_AGENT,
+  type GuardedPage,
+  type GuardedPageErrorCode,
+  type GuardedPageOptions,
+  type GuardedPageResult,
+} from "./guarded-page.js";

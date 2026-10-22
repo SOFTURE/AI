@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" data-color-mode="auto">
+<head>
+  <meta charset="utf-8">
+  <title>GitHub - example/tiny-queue: A tiny job queue for Postgres</title>
+  <meta name="description" content="A tiny job queue for Postgres. Contribute to example/tiny-queue development by creating an account.">
+  <base href="https://code.example.com/">
+</head>
+<body>
+  <div class="js-header-wrapper"><header role="banner"><a href="/" aria-label="Homepage"><svg><path d="M0 0"/></svg></a>
+    <nav aria-label="Global"><a href="/pulls">Pull requests</a><a href="/issues">Issues</a></nav></header></div>
+  <main>
+    <div id="repository-container-header">
+      <strong><a href="example/tiny-queue">tiny-queue</a></strong>
+      <nav aria-label="Repository" role="navigation"><a href="example/tiny-queue/issues">Issues 4</a></nav>
+    </div>
+    <table aria-labelledby="folders-and-files">
+      <tr><td><a href="example/tiny-queue/tree/main/src">src</a></td><td>Retry with backoff</td></tr>
+      <tr><td><a href="example/tiny-queue/blob/main/README.md">README.md</a></td><td>Document the API</td></tr>
+    </table>
+    <article class="markdown-body entry-content" itemprop="text">
+      <h1 dir="auto">tiny-queue</h1>
+      <p dir="auto">A tiny job queue for Postgres, built on <code>SKIP LOCKED</code>.</p>
+      <h2 dir="auto">Install</h2>
+      <pre><code>npm install tiny-queue
+npx tiny-queue migrate</code></pre>
+      <h2 dir="auto">Usage</h2>
+      <ol>
+        <li>Create a queue.</li>
+        <li>Add jobs with <code>enqueue(name, payload)</code>.</li>
+        <li>Run <a href="docs/worker.md">a worker</a>.</li>
+      </ol>
+      <p dir="auto">See <a href="https://www.postgresql.org/docs/current/sql-select.html#SQL-FOR-UPDATE-SHARE">the Postgres docs</a>
+        and <a href="mailto:maintainer@example.com">mail the maintainer</a> or <a href="javascript:void(0)">copy</a>.</p>
+    </article>
+  </main>
+  <footer><a href="/site/terms">Terms</a></footer>
+</body>
+</html>

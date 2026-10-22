@@ -192,7 +192,7 @@ import { securityJobSchedules } from "@softure-ai/security/jobs";
 jobs({
   schedules: {
     ...authJobSchedules, // auth.prune-sessions hourly, auth.prune-password-resets daily
-    ...securityJobSchedules, // security.prune-rate-limits hourly
+    ...securityJobSchedules, // security.prune-rate-limits hourly, security.prune-webhook-deliveries daily
     "app.digest": { every: "1d", payload: { kind: "weekly" } },
     // The trial-ending reminder at 09:00 and 21:00 in the users' time zone, in place of billing's daily UTC period.
     "billing.access-reminders": { at: ["09:00", "21:00"], timeZone: "Europe/Warsaw" },

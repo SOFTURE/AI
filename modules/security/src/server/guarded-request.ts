@@ -42,9 +42,10 @@ export interface GuardedRequestSeam {
 
 export const GUARDED_REQUEST_DEFAULT_PORTS: readonly number[] = [443];
 
-class BlockedAddressError extends Error {
+/** The socket's lookup refused the host: one of its addresses is not allowed. */
+export class BlockedAddressError extends Error {
   constructor(hostname: string) {
-    super(`sendGuardedRequest: ${hostname} resolves to an address that is not allowed`);
+    super(`guarded request: ${hostname} resolves to an address that is not allowed`);
     this.name = "BlockedAddressError";
   }
 }
@@ -55,32 +56,34 @@ const resolveWithDns: ResolveHost = (hostname, family, callback) => {
   });
 };
 
-/**
- * Sends one request and returns its status, never following a redirect (a 3xx comes back as its status) and
- * never reading the body. Refused before any connection: a URL that does not parse, is not `http:` or
- * `https:` or carries credentials (`security.outbound_invalid_url`); a port outside `allowedPorts` (default
- * 443) or an IP literal that is not public (`security.outbound_blocked`). A host name is resolved to every
- * address and refused when any of them is not public (`security.outbound_blocked`). Past `timeoutMs` the
- * request is torn down (`security.outbound_timeout`); any other network or TLS failure is
- * `security.outbound_failed`.
- */
-export async function sendGuardedRequest(
-  url: string,
-  options: GuardedRequestOptions,
-  seam: GuardedRequestSeam = {},
-): Promise<GuardedRequestResult> {
-  const { method, headers = {}, body, timeoutMs, allowedPorts = GUARDED_REQUEST_DEFAULT_PORTS } = options;
+/** Throws a `RangeError` naming `operation` unless `timeoutMs` is a positive whole number. */
+export function assertTimeout(operation: string, timeoutMs: number): void {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
-    throw new RangeError(`sendGuardedRequest: timeoutMs must be a positive whole number, got ${String(timeoutMs)}`);
+    throw new RangeError(`${operation}: timeoutMs must be a positive whole number, got ${String(timeoutMs)}`);
   }
-  if (allowedPorts.length === 0 || !allowedPorts.every((port) => Number.isInteger(port) && port > 0 && port < 65536)) {
-    throw new RangeError(`sendGuardedRequest: allowedPorts must list ports from 1 to 65535, got [${allowedPorts.join(", ")}]`);
-  }
-  const isAllowedAddress = seam.isAllowedAddress ?? isPublicAddress;
+}
 
+/** Throws a `RangeError` naming `operation` unless `allowedPorts` lists ports from 1 to 65535. */
+export function assertPorts(operation: string, allowedPorts: readonly number[]): void {
+  if (allowedPorts.length === 0 || !allowedPorts.every((port) => Number.isInteger(port) && port > 0 && port < 65536)) {
+    throw new RangeError(`${operation}: allowedPorts must list ports from 1 to 65535, got [${allowedPorts.join(", ")}]`);
+  }
+}
+
+/**
+ * The checks that run before any connection: `security.outbound_invalid_url` for a URL that does not parse
+ * (against `base` when given), is not `http:` or `https:` or carries credentials; `security.outbound_blocked` for a
+ * port outside `allowedPorts` or an IP literal that is not allowed. A host name is checked later, in the lookup.
+ */
+export function checkGuardedUrl(
+  url: string,
+  allowedPorts: readonly number[],
+  isAllowedAddress: (address: string) => boolean,
+  base?: URL,
+): Ok<URL> | Err<"security.outbound_invalid_url" | "security.outbound_blocked"> {
   let target: URL;
   try {
-    target = new URL(url);
+    target = new URL(url, base);
   } catch {
     return err("security.outbound_invalid_url");
   }
@@ -97,12 +100,53 @@ export async function sendGuardedRequest(
   if (isIP(literal) !== 0 && !isAllowedAddress(literal)) {
     return err("security.outbound_blocked");
   }
+  return ok(target);
+}
+
+/**
+ * Starts a request to a checked target with the guarded lookup and no pooled socket (a pooled socket would skip
+ * the lookup). Throws synchronously when Node cannot send a header (a control character, an invalid name).
+ */
+export function openGuardedRequest(
+  target: URL,
+  init: { readonly method: string; readonly headers: Readonly<Record<string, string>> },
+  seam: GuardedRequestSeam,
+): ClientRequest {
+  const send = seam.request ?? (target.protocol === "https:" ? requestHttps : requestHttp);
+  return send(target, {
+    method: init.method,
+    headers: { ...init.headers },
+    agent: false,
+    lookup: guardLookup(seam.isAllowedAddress ?? isPublicAddress, seam.resolveHost ?? resolveWithDns),
+  });
+}
+
+/**
+ * Sends one request and returns its status, never following a redirect (a 3xx comes back as its status) and
+ * never reading the body. Refused before any connection: a URL that does not parse, is not `http:` or
+ * `https:` or carries credentials (`security.outbound_invalid_url`); a port outside `allowedPorts` (default
+ * 443) or an IP literal that is not public (`security.outbound_blocked`). A host name is resolved to every
+ * address and refused when any of them is not public (`security.outbound_blocked`). Past `timeoutMs` the
+ * request is torn down (`security.outbound_timeout`); any other network or TLS failure is
+ * `security.outbound_failed`.
+ */
+export async function sendGuardedRequest(
+  url: string,
+  options: GuardedRequestOptions,
+  seam: GuardedRequestSeam = {},
+): Promise<GuardedRequestResult> {
+  const { method, headers = {}, body, timeoutMs, allowedPorts = GUARDED_REQUEST_DEFAULT_PORTS } = options;
+  assertTimeout("sendGuardedRequest", timeoutMs);
+  assertPorts("sendGuardedRequest", allowedPorts);
+  const checked = checkGuardedUrl(url, allowedPorts, seam.isAllowedAddress ?? isPublicAddress);
+  if (!checked.ok) {
+    return checked;
+  }
 
   const requestHeaders: Record<string, string> = { ...headers };
   if (body !== undefined && !Object.keys(requestHeaders).some((name) => name.toLowerCase() === "content-length")) {
     requestHeaders["content-length"] = String(Buffer.byteLength(body));
   }
-  const send = seam.request ?? (isHttps ? requestHttps : requestHttp);
 
   return new Promise<GuardedRequestResult>((resolve) => {
     let settled = false;
@@ -121,15 +165,8 @@ export async function sendGuardedRequest(
     };
 
     try {
-      request = send(target, {
-        method,
-        headers: requestHeaders,
-        // A pooled socket would skip the lookup below.
-        agent: false,
-        lookup: guardLookup(isAllowedAddress, seam.resolveHost ?? resolveWithDns),
-      });
+      request = openGuardedRequest(checked.value, { method, headers: requestHeaders }, seam);
     } catch {
-      // Node throws synchronously on a header it cannot send (a control character, an invalid name).
       settle(err("security.outbound_failed"));
       return;
     }

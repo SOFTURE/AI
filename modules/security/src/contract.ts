@@ -8,10 +8,12 @@ export type SecurityErrorCode =
   | "security.body_too_large"
   | "security.body_unreadable"
   | "security.signature_invalid"
+  | "security.delivery_id_invalid"
   | "security.outbound_invalid_url"
   | "security.outbound_blocked"
   | "security.outbound_timeout"
-  | "security.outbound_failed";
+  | "security.outbound_failed"
+  | "security.outbound_too_large";
 
 /** A consumed attempt that fits in the bucket's window. */
 export interface RateLimitAllowance {
