@@ -1,7 +1,8 @@
 // Deliveries through @softure-ai/jobs: the app enqueues a delivery in its own transaction and the jobs worker sends
 // it, retrying while the provider is unavailable. The job runs at least once; the delivery ledger and its idempotency
 // key make the mail go out once. The job payload holds the ledger scope and the app's ids, never the mail: the
-// handler builds the mail from the app's data when it runs.
+// handler builds the mail from the app's data when it runs. Attachments too: the app keeps the file in its own storage
+// (with its own retention) and `buildMail` loads it by reference on every attempt; bytes in the payload are refused.
 import { err, ok, type Ok } from "@softure-ai/core";
 import { defineJobHandler, failJob, retryJobLater, type JobFailure, type JobHandler, type JobHandlerContext } from "@softure-ai/jobs";
 import { enqueueJob, type EnqueuedJob, type JobsContext } from "@softure-ai/jobs/server";
@@ -22,7 +23,10 @@ export interface EnqueueDeliveryInput<TPayload> {
    * dedup key: while a job for this scope is pending or running, a second enqueue returns it.
    */
   readonly scope: string;
-  /** The app's ids the handler builds the mail from. JSON; no addresses, names or tokens. */
+  /**
+   * The app's ids the handler builds the mail from. JSON; no addresses, names or tokens, and no file content: an
+   * attachment is referenced by the app's id for it and loaded in `buildMail`.
+   */
   readonly payload: TPayload;
   /** When the job becomes due; default now. Not together with `delaySeconds`. */
   readonly runAt?: Date;
@@ -33,11 +37,17 @@ export interface EnqueueDeliveryInput<TPayload> {
 
 /**
  * Enqueues a delivery. Pass the caller's transaction as `ctx.db`, so the job exists exactly when the caller's own
- * change commits. Throws for a malformed scope, and like `enqueueJob` (an unknown queue, a database failure).
+ * change commits. Throws for a malformed scope, for a payload that holds binary data (a `Uint8Array`, `Buffer` or
+ * `ArrayBuffer`: reference the file instead), and like `enqueueJob` (an unknown queue, a database failure).
  */
 export async function enqueueDelivery<TPayload>(ctx: JobsContext, input: EnqueueDeliveryInput<TPayload>): Promise<EnqueuedJob> {
   if (!isDeliveryScope(input.scope)) {
     throw new Error(`@softure-ai/mailing: enqueueDelivery scope "${input.scope}" must be lowercase letters, digits and ._:- (at most 128 characters)`);
+  }
+  if (hasBinaryData(input.payload)) {
+    throw new Error(
+      `@softure-ai/mailing: enqueueDelivery payload for scope "${input.scope}" holds binary data; store the file in the app and pass its id, then load it in buildMail`,
+    );
   }
   return enqueueJob(ctx, {
     queue: input.queue,
@@ -47,6 +57,15 @@ export async function enqueueDelivery<TPayload>(ctx: JobsContext, input: Enqueue
     ...(input.delaySeconds === undefined ? {} : { delaySeconds: input.delaySeconds }),
     ...(input.maxAttempts === undefined ? {} : { maxAttempts: input.maxAttempts }),
   });
+}
+
+/** True when `value` holds an `ArrayBuffer` or a view of one (`Uint8Array`, `Buffer`) anywhere in its objects and arrays. */
+function hasBinaryData(value: unknown, seen: Set<object> = new Set()): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) return true;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  return Object.values(value).some((item) => hasBinaryData(item, seen));
 }
 
 /** What `buildMail` receives besides the app's payload: the job's context and the delivery's scope. */
@@ -60,7 +79,8 @@ export interface DeliveryJobHandlerOptions<TSchema extends z.ZodType> {
   /**
    * Builds the mail from the app's data. Called on every attempt, before the ledger is read, so it must have no side
    * effects and return the same mail each time: a different body under the same idempotency key is refused by the
-   * provider. Return `null` when there is nothing to send any more (the account is gone); the job then succeeds.
+   * provider. Attachments are loaded here from the app's storage by the ids in the payload; keep the file until the
+   * job is done. Return `null` when there is nothing to send any more (the account is gone); the job then succeeds.
    */
   readonly buildMail: (payload: z.output<TSchema>, context: DeliveryJobContext) => Promise<OutgoingMail | null>;
   /** The ledger's claim windows; `maxAttempts` is the job's, so the ledger does not count attempts here. */

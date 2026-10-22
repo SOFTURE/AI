@@ -64,14 +64,25 @@ export {
   MAX_SUBJECT_LENGTH,
   RESERVED_HEADERS,
 } from "./address.js";
+export {
+  DEFAULT_ATTACHMENT_CONTENT_TYPES,
+  DEFAULT_MAX_ATTACHMENTS,
+  describeAttachments,
+  isAttachmentFilename,
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENT_FILENAME_LENGTH,
+  type AttachmentLimits,
+} from "./attachments.js";
 export { HALTING_ERROR_CODES, TRANSACTIONAL_KIND } from "./contract.js";
 export type {
+  AttachmentSummary,
   CampaignRecipient,
   CampaignRecipientFilter,
   CampaignRecipientSource,
   DeliveryJobErrorCode,
   LegacyUnsubscribe,
   LegacyUnsubscribeParams,
+  MailAttachment,
   MailingErrorCode,
   MailProvider,
   OnUnsubscribedHook,

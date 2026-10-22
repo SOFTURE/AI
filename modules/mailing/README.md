@@ -46,8 +46,10 @@ can be imported into it, and `softure-mail` sends campaigns from a content file.
   `importDeliveries` (and `softure-mail import`) seeds it with the app's earlier history.
 - **Deliveries through jobs.** `enqueueDelivery` and `defineDeliveryJobHandler` (`/jobs`) let an app enqueue a
   mail with its own write and have the `@softure-ai/jobs` worker send it, retrying while the provider is down.
+- **Attachments.** `attachments: [{ filename, contentType, content }]` on a mail (an invoice PDF, a report, an
+  export), checked against a count, a total size and a content type allow-list before anything is sent.
 - **Preview and test send.** `previewMail(config, mail)` returns exactly what `sendMail` hands the
-  provider; `softure-mail test` sends a mail to the configured `testAddress` and nowhere else.
+  provider, and `formatMailPreview(message)` prints it for a terminal; `softure-mail test` sends a mail to the configured `testAddress` and nowhere else.
 - **A SQL surface** for the app's own queries: `mailing.recipient_key(address)`,
   `mailing.is_suppressed(address)`, `mailing.was_delivered(scope, address)` and the views
   `mailing.delivery_outcomes` and `mailing.suppressed_recipients` (section 5).
@@ -91,12 +93,51 @@ Rules that hold for every send:
   values and the subject.
 - **Nothing of the mail is logged.** One line per failure:
   `mailing: send failed provider=resend reason=rejected status=422` (with `fields=to,subject` for
-  invalid input). Provider refusal messages are never read: they can echo the address.
+  invalid input, and `attachments=application/pdf:48213,text/csv:512` when the mail has attachments: content
+  type and size only). Provider refusal messages are never read: they can echo the address.
 - **Timeout.** After `timeoutMs` the provider's signal aborts and the send answers `unavailable`,
   even when the provider ignores the signal.
 - **List mail fails closed.** No secret or an unreadable suppression list means nothing is sent.
   A list mail cannot bring its own `List-Unsubscribe` or `List-Unsubscribe-Post`: the module writes
   them (`invalid_input`).
+
+**Attachments.** A mail can carry files, e.g. a received cost invoice forwarded to a bookkeeping service's import
+address, an invoice or monthly report the app generated, or an export the user asked for:
+
+```ts
+import { sendMail } from "@softure-ai/mailing/next";
+
+await sendMail(
+  {
+    to: bookkeeping.importAddress,
+    subject: `Cost invoice ${invoice.number}`,
+    text: "Cost invoice attached.",
+    attachments: [{ filename: `invoice-${invoice.number}.pdf`, contentType: "application/pdf", content: pdfBytes }],
+  },
+  { idempotencyKey: `cost-invoice:${invoice.id}` },
+);
+```
+
+- `content` is a `Uint8Array` (a Node `Buffer` is one), at least one byte. The module sends the bytes as given.
+- Checked before anything leaves the process, else `mailing.invalid_input` with `fields=attachments`: at most
+  `attachments.maxCount` files (default 10); at most `attachments.maxTotalBytes` raw bytes in all (default and
+  maximum 28,000,000: base64 grows them by a third, about 37.3 MB on the wire, under the 40 MB a mail may have at
+  Resend); a filename of 1 to 255 characters without `/`, `\`, control characters, `.` or `..`; a content type
+  (`type/subtype`, parameters allowed) on the allow-list. The default list (`DEFAULT_ATTACHMENT_CONTENT_TYPES`) has
+  PDF, plain text, CSV, calendar, JSON, XML, ZIP, XLSX, DOCX, PNG, JPEG, GIF and WebP; HTML, SVG, scripts and
+  executables are left out. `mailing({ attachments: { contentTypes } })` replaces it with the app's own list.
+- **Only a provider that delivers them gets them.** A provider declares `supportsAttachments: true` (`resend()`
+  and `fakeMailProvider()` do); for any other a mail with attachments is `mailing.invalid_input`
+  (`cause=provider_without_attachments`), so an adapter written before attachments existed never drops a file.
+- **Logs and dry runs.** The failure line names content types and sizes, never filenames (they are the app's text
+  and often name a person or an invoice, like the subject) or bytes. `describeAttachments(attachments)` gives
+  `{ filename, contentType, size }[]` for the app's own records; `previewMail` returns the attachments and
+  `formatMailPreview` lists them as `invoice-42.pdf (application/pdf, 48213 bytes)`.
+- **Queued mail references files.** A delivery through jobs (`enqueueDelivery`) never carries bytes: the job payload
+  holds the app's ids (`{ invoiceId }`), `buildMail` loads the file from the app's storage on every attempt, and
+  `enqueueDelivery` throws for a payload with a `Uint8Array`, `Buffer` or `ArrayBuffer` in it. The app keeps the file
+  (its storage, its retention) until the job is done; it must return the same bytes each attempt, like the body.
+- The delivery ledger stores nothing of the mail, attachments included.
 
 **How a link works.** The link carries `r`, the base64url SHA-256 of the trimmed, lowercased
 address, and `t`, the base64url HMAC-SHA256 of a fixed prefix plus `r` under
@@ -194,7 +235,8 @@ await db.transaction(async (tx) => {
   must have no side effects and return the same mail each time: the provider refuses a different body under the
   same idempotency key (`mailing.rejected`). A link with a one-time token must be reproducible per request (derive
   the token from the request's row, or store it encrypted), never minted per attempt. `buildMail` returning `null`
-  ends the job as done with nothing sent (the account is gone).
+  ends the job as done with nothing sent (the account is gone). Attachments are loaded in `buildMail` from the
+  app's storage by an id in the payload; bytes in the payload throw (section 1, Attachments).
 - **The scope is the ledger key and the job's dedup key.** One scope per mail the app means to send once:
   `auth.password-reset:<request id>`, `app.welcome:<user id>`. While a job for it is pending or running, a second
   `enqueueDelivery` returns that job (`isDuplicate: true`). `runAt`, `delaySeconds` and `maxAttempts` pass through to
@@ -526,6 +568,7 @@ mailing({
 | `uncertainClaimMs` | `number` | `82800000` (23 h) | How old a claim may get before it waits for an operator (`uncertain`). More than `staleClaimMs`, at most 30 days; keep it under the provider's idempotency window. |
 | `testAddress` | `string` | none | The only address `softure-mail test` sends to (section 1, Test send). |
 | `kindAliases` | `Record<string, string>` | none | Alias to kind for campaign files and `softure-mail test --kind`, e.g. `{ news: "newsletter" }`. Kebab-case on both sides; an alias never names a kind another alias points at. |
+| `attachments` | `{ maxCount?, maxTotalBytes?, contentTypes? }` | `10`, `28000000`, `DEFAULT_ATTACHMENT_CONTENT_TYPES` | Limits on a mail's attachments: files 1 to 100; raw bytes in all, at most 28,000,000 (about 37.3 MB base64); the allowed content types, replacing the default list (section 1, Attachments). |
 | `routes` | `{ unsubscribe?, oneClick? }` | `/unsubscribe`, `/api/mailing/unsubscribe` | Where you mount the page and the route; links are built on `appOrigin` plus these paths. |
 
 `resend({ apiKey?, endpoint?, fetch? })`: without `apiKey` it reads `RESEND_API_KEY` on every send,
@@ -548,7 +591,8 @@ const provider: MailProvider = {
 ```
 
 A provider receives a validated `ProviderMessage` (`from`, `to`, `replyTo`, `subject`, `text`, `html`,
-`headers`, `idempotencyKey`, nulls for what is absent) and answers `sent` with an id, or `rejected`
+`headers`, `idempotencyKey`, nulls for what is absent; `attachments` only when the mail has some and the provider
+declares `supportsAttachments: true`) and answers `sent` with an id, or `rejected`
 (this mail), `refused` (the account or key), `quota_exceeded` (the account's quota) or `unavailable`
 (try later), each with an optional `httpStatus`. A throw or anything else reads as `unavailable`.
 
@@ -769,7 +813,9 @@ personal data. So the module neither exports nor deletes per user (`privacy: { e
 
 ## 12. Limitations
 
-- One recipient per call; no cc, bcc or attachments.
+- One recipient per call; no cc or bcc.
+- Attachments are sent as regular files: no inline images (`cid:`), no content scanning. Campaigns
+  (`softure-mail campaign`) carry none.
 - `sendMail` does not retry: the caller retries `unavailable` with the same `idempotencyKey` (Resend
   keeps keys for 24 hours), uses `deliverOnce`, which keeps the state between runs, or enqueues it with
   `enqueueDelivery`, which retries it from a job.

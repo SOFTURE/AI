@@ -32,6 +32,7 @@ export function resend(options: ResendOptions = {}): MailProvider {
   const endpoint = options.endpoint ?? RESEND_ENDPOINT;
   return {
     name: "resend",
+    supportsAttachments: true,
     send: async (message, { signal }) => {
       const apiKey = (options.apiKey ?? process.env[RESEND_API_KEY_ENV] ?? "").trim();
       if (apiKey === "") {
@@ -65,6 +66,15 @@ function toResendBody(message: ProviderMessage): Record<string, unknown> {
     ...(message.html === null ? {} : { html: message.html }),
     ...(message.replyTo === null ? {} : { reply_to: message.replyTo }),
     ...(Object.keys(message.headers).length === 0 ? {} : { headers: message.headers }),
+    ...(message.attachments === undefined || message.attachments.length === 0
+      ? {}
+      : {
+          attachments: message.attachments.map((attachment) => ({
+            filename: attachment.filename,
+            content: Buffer.from(attachment.content.buffer, attachment.content.byteOffset, attachment.content.byteLength).toString("base64"),
+            content_type: attachment.contentType,
+          })),
+        }),
   };
 }
 
