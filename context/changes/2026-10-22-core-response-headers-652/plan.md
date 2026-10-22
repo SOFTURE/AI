@@ -1,6 +1,6 @@
 ---
 change_id: core-response-headers-652
-status: in_progress
+status: archived
 ---
 
 # Plan: response headers in requestJson (issue #652)
@@ -44,5 +44,8 @@ Files: `foundation/core/src/http-json.ts`, `foundation/core/src/index.ts`, `foun
 
 ## Progress
 
-- [ ] Phase 1: readHeaders, retryAfterSeconds, parseLinkHeader
-- [ ] Phase 2: docs
+- [x] Phase 1: readHeaders, retryAfterSeconds, parseLinkHeader (1bfcd30)
+- [x] Phase 2: docs (792101d)
+
+Tests were written first and failed on the missing option and export (39 of 47) before the code existed. Gates:
+typecheck, ESLint on the changed files, language gate, `foundation/core` tests (444 passed), repository tests.

@@ -1,12 +1,13 @@
 ---
 change_id: core-response-headers-652
 title: "core: requestJson reads selected response headers, Retry-After and Link (issue #652)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 652
 branch: claude/project-thread-lw8t7r
 created: 2026-10-22
 updated: 2026-10-22
+archived_at: 2026-10-22
 ---
 
 ## Intent
