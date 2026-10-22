@@ -1,6 +1,6 @@
 ---
 change_id: jobs-calendar-filters-651
-status: in_progress
+status: archived
 ---
 
 # Plan: calendar filters on local-time schedules (issue #651)
@@ -34,4 +34,4 @@ Files: `modules/jobs/src/options.ts`, `modules/jobs/src/server/schedules.ts`, `m
 ## Progress
 
 - [x] Phase 1: options, slots and lateness (49ecdfd)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (4eadbf1; README options table, Schedules, getQueueStats, Limitations; CHANGELOG `## Unreleased`)

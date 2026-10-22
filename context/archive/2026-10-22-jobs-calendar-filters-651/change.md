@@ -1,12 +1,13 @@
 ---
 change_id: jobs-calendar-filters-651
 title: "jobs: calendar filters on local-time schedules (issue #651)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 651
 branch: claude/project-thread-rkkc5h
 created: 2026-10-22
 updated: 2026-10-22
+archived_at: 2026-10-22
 ---
 
 ## Intent
