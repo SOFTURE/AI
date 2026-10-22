@@ -1,6 +1,7 @@
 // The worker loop: enqueues the due runs of the schedules among its queues, claims due jobs of every queue it has a
-// handler for, up to each queue's concurrency, runs them, keeps their leases alive, prunes old jobs once an hour, and
-// on abort stops claiming, waits the grace period and releases what is still running.
+// handler for, up to each queue's concurrency, runs them, keeps their leases alive, checks schedule health for the
+// app's hook once a minute, prunes old jobs once an hour, and on abort stops claiming, waits the grace period and
+// releases what is still running.
 import { hostname } from "node:os";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
@@ -8,6 +9,7 @@ import type { JobHandlers } from "../handlers.js";
 import { claimJobs, extendJobLease, releaseJob, type ClaimedJob } from "../server/claim.js";
 import type { JobsContext } from "../server/context.js";
 import { checkHandlers } from "../server/handler-check.js";
+import { checkScheduleStates } from "../server/hooks.js";
 import { consoleJobsLogger, type JobsLogger } from "../server/logger.js";
 import { pruneJobs } from "../server/maintenance.js";
 import { pruneSyncItems } from "../server/sync-items.js";
@@ -17,6 +19,8 @@ import { enqueueScheduledRun, getSchedule, getScheduleNames, getScheduleSlot } f
 import { createHealthFile } from "./health.js";
 
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+/** How often the loop compares schedule health with what `onScheduleStateChanged` last reported. */
+const SCHEDULE_CHECK_INTERVAL_MS = 60 * 1000;
 /** A lease is extended three times per lease period, so one slow write does not lose it. */
 const HEARTBEATS_PER_LEASE = 3;
 
@@ -68,6 +72,7 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
   const running = new Map<string, Set<RunningJob>>(queues.map((queue) => [queue, new Set()]));
   const wakeUp = createWakeUp();
   let lastPruneAt = Number.NEGATIVE_INFINITY;
+  let lastScheduleCheckAt = Number.NEGATIVE_INFINITY;
   // Per schedule, the latest period this worker already settled (enqueued, or found taken), so it writes once per period.
   const settledSlots = new Map<string, number>();
   const scheduleNames = getScheduleNames(jobsOptions, queues);
@@ -123,13 +128,21 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
         logger.error("could not enqueue a scheduled run; trying again next round", { queue: name, error });
       }
     }
+    if (ctx.clock.now().getTime() - lastScheduleCheckAt >= SCHEDULE_CHECK_INTERVAL_MS) {
+      lastScheduleCheckAt = ctx.clock.now().getTime();
+      try {
+        await checkScheduleStates(ctx, { logger });
+      } catch (error) {
+        logger.error("could not check schedule states", { error });
+      }
+    }
     let isClaimFailed = false;
     for (const queue of queues) {
       const slots = running.get(queue) ?? new Set<RunningJob>();
       const free = getQueue(jobsOptions, queue).concurrency - slots.size;
       if (free <= 0 || options.signal.aborted) continue;
       try {
-        const claimed = await claimJobs(ctx, { queue, limit: free, workerId });
+        const claimed = await claimJobs(ctx, { queue, limit: free, workerId, logger });
         for (const job of claimed) slots.add(start(job));
       } catch (error) {
         isClaimFailed = true;

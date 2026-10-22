@@ -12,6 +12,7 @@ export {
 } from "./claim.js";
 export type { JobsContext } from "./context.js";
 export { enqueueJob, type EnqueuedJob, type EnqueueJobInput } from "./enqueue.js";
+export { checkScheduleStates, getScheduleHealth, notifyJobFailed, type HookOptions } from "./hooks.js";
 export { consoleJobsLogger, type JobsLogFields, type JobsLogger } from "./logger.js";
 export { getQueueStats, pruneJobs, type QueueStats } from "./maintenance.js";
 export { getJobsOptions } from "./options.js";

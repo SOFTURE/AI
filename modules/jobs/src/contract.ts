@@ -54,3 +54,26 @@ export type JobOutcome =
   | { readonly kind: "failed"; readonly error: string }
   /** The job was taken over (lease ended) or released before the attempt finished; nothing was recorded. */
   | { readonly kind: "stale" };
+
+/** What `onJobFailed` receives: codes and ids only, never the payload or an error's text. */
+export interface JobFailedEvent {
+  readonly queue: string;
+  readonly jobId: string;
+  /** The job's `last_error`: the handler's code, `jobs.handler_threw`, `jobs.invalid_payload`, `jobs.lease_expired`… */
+  readonly code: string;
+  /** Attempts the job used. */
+  readonly attempts: number;
+  readonly at: Date;
+}
+
+/** A schedule's health as `onScheduleStateChanged` reports it; `failing` wins over `late` when both hold. */
+export type ScheduleHealth = "healthy" | "failing" | "late";
+
+/** What `onScheduleStateChanged` receives, once per transition. */
+export interface ScheduleStateChangedEvent {
+  readonly queue: string;
+  readonly state: ScheduleHealth;
+  /** The code of the queue's last terminal failure; null when none has failed. */
+  readonly lastFailureCode: string | null;
+  readonly at: Date;
+}

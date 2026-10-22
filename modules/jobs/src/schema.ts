@@ -30,6 +30,7 @@ export const schedules = jobsSchema.table("schedules", {
   lastSucceededAt: timestamp("last_succeeded_at", { withTimezone: true }),
   lastFailedAt: timestamp("last_failed_at", { withTimezone: true }),
   lastFailureCode: text("last_failure_code"),
+  reportedState: text("reported_state", { enum: ["healthy", "failing", "late"] }).notNull().default("healthy"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 });

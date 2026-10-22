@@ -6,6 +6,21 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Alert hooks (#653): `onJobFailed(event, ctx)` runs once when a job ends `failed` (attempts used up, `failJob`,
+  invalid payload, lease lost with no attempts left) with `{ queue, jobId, code, attempts, at }`;
+  `onScheduleStateChanged(event, ctx)` runs once per transition of a scheduled queue between `healthy`, `failing` and
+  `late` (`failing` wins over `late`) with `{ queue, state, lastFailureCode, at }`, the recovery included. Events carry
+  codes and ids only. A throwing hook is logged by error kind and never fails the job or the worker. The worker checks
+  schedule health once a minute, `runDueJobs` once at its end. New in `@softure-ai/jobs`: the event and hook types
+  (`JobFailedEvent`, `ScheduleHealth`, `ScheduleStateChangedEvent`, `OnJobFailedHook`, `OnScheduleStateChangedHook`);
+  in `/server`: `checkScheduleStates`, `getScheduleHealth`, `notifyJobFailed`, an optional `logger` on `claimJobs`
+  and a fourth `options` argument on `completeJob`; in `/testing`: `recordJobHooks()`.
+- Migration `0005_add_schedule_reported_state.sql` adds `jobs.schedules.reported_state` (default `healthy`). An app
+  runs it with its other migrations; with `onScheduleStateChanged` set, a schedule already failing or late at the
+  first check after the upgrade is reported once.
+- Migration for an app: none required. An app that polls `getQueueStats` from a job of its own and keeps an
+  "already alerted" state moves that into the two hooks (e.g. enqueue a mail job) and drops its own state.
+
 - Calendar filters on local-time schedules (#651): `daysOfWeek` (ISO `1` Monday to `7` Sunday) and `daysOfMonth`
   (`1` to `31` and `"last"`) keep an `at` schedule to the local dates in its `timeZone` that match (both, when both
   are given); a day a month lacks never matches. Empty lists, out-of-range or repeated values, and a filter on an

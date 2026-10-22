@@ -1,10 +1,17 @@
 // The options an app passes to `jobs({ ... })` in softure.config.ts, parsed at startup.
 import { z } from "zod";
+import type { JobFailedEvent, ScheduleStateChangedEvent } from "./contract.js";
+import type { JobsContext } from "./server/context.js";
 import { isTimeZone } from "./zoned-time.js";
 
 const QUEUE_NAME = /^[a-z][a-z0-9_.-]{0,62}$/;
 const QUEUE_NAME_HINT = "is not a queue name: lowercase letters, digits, _ . and -, starting with a letter";
 const DAY_SECONDS = 24 * 60 * 60;
+
+/** Runs once when a job ends `failed`; a throw is logged and changes nothing. */
+export type OnJobFailedHook = (event: JobFailedEvent, ctx: JobsContext) => Promise<void> | void;
+/** Runs once per transition of a schedule between `healthy`, `failing` and `late`; a throw is logged and changes nothing. */
+export type OnScheduleStateChangedHook = (event: ScheduleStateChangedEvent, ctx: JobsContext) => Promise<void> | void;
 
 const backoffSchema = z
   .strictObject({
@@ -163,6 +170,16 @@ export const jobsOptionsSchema = z
     shutdownGraceMs: z.number().int().min(0).max(10 * 60_000).default(20_000),
     /** How long finished jobs and unseen sync ledger items are kept; the worker prunes once an hour. */
     retention: retentionSchema.default({ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90 }),
+    /**
+     * Runs once when a job ends `failed` (attempts used up, `failJob`, invalid payload, lease lost with no attempts
+     * left), after the write commits: e.g. mail the operator.
+     */
+    onJobFailed: z.custom<OnJobFailedHook>((value) => typeof value === "function", "must be a function").optional(),
+    /**
+     * Runs once per transition of a scheduled queue between `healthy`, `failing` and `late` (recovery included), so a
+     * schedule that keeps failing alerts once. The worker checks at most once a minute; `runDueJobs` once at its end.
+     */
+    onScheduleStateChanged: z.custom<OnScheduleStateChangedHook>((value) => typeof value === "function", "must be a function").optional(),
   })
   .superRefine((options, context) => {
     if (Object.keys(options.queues).length === 0 && Object.keys(options.schedules).length === 0) {

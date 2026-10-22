@@ -34,10 +34,13 @@ export const jobs = defineModule({
 export {
   JOB_STATUSES,
   type Job,
+  type JobFailedEvent,
   type JobFailure,
   type JobOutcome,
   type JobsErrorCode,
   type JobStatus,
+  type ScheduleHealth,
+  type ScheduleStateChangedEvent,
 } from "./contract.js";
 export { jobsMessages, type JobsMessages } from "./messages/index.js";
 export {
@@ -49,6 +52,8 @@ export {
   type JobsOptions,
   type JobsOptionsInput,
   type LocalTimeScheduleOptions,
+  type OnJobFailedHook,
+  type OnScheduleStateChangedHook,
   type PeriodScheduleOptions,
 } from "./options.js";
 export { defineJobHandler, failJob, retryJobLater, type JobHandler, type JobHandlerContext, type JobHandlers } from "./handlers.js";
