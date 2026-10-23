@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.4.7
 
 - **A release cuts and reports on a self-hosted runner without the GitHub CLI (#686):** the jobs that call `gh`
   (`deploy-cut-release` → `cut`, `deploy-report` → `report`, `deploy-release-notes` → `notes`, `deploy-cancel-run` →
