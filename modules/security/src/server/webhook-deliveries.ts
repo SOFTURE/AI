@@ -70,7 +70,8 @@ export async function pruneWebhookDeliveries(ctx: SecurityContext): Promise<void
   await ctx.db.delete(webhookDeliveries).where(lt(webhookDeliveries.receivedAt, cutoff));
 }
 
-function assertSource(source: string): void {
+/** Throws on a source that breaks the naming rule: the source is the app's constant, so a bad one is a bug. */
+export function assertSource(source: string): void {
   if (!SOURCE_PATTERN.test(source)) {
     throw new RangeError(
       `@softure-ai/security: "${source}" is not a webhook source: lowercase letters, digits, _ . and -, starting with a letter, at most 63`,

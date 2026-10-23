@@ -67,6 +67,38 @@ export interface VerifyWebhookSignatureInput extends WebhookSignatureFormat {
 
 export type VerifyWebhookSignatureResult = Ok<undefined> | Err<"security.signature_invalid">;
 
+/** A sender's whole webhook format: where the signature is, how it is written, and where its delivery id is. */
+export interface WebhookSender extends WebhookSignatureFormat {
+  /** The signature header, lowercase. */
+  readonly header: string;
+  /** The header holding the sender's delivery id, lowercase; absent when the id is only in the payload. */
+  readonly deliveryIdHeader?: string;
+}
+
+/**
+ * The formats of a few common senders, from their public documentation (README "Third-party webhooks"). Spread one
+ * where a `WebhookSender` is expected; check the provider's current docs before adding one.
+ */
+export const WEBHOOK_SENDERS = {
+  github: { header: "x-hub-signature-256", algorithm: "sha256", encoding: "hex", prefix: "sha256=", deliveryIdHeader: "x-github-delivery" },
+  githubSha1: { header: "x-hub-signature", algorithm: "sha1", encoding: "hex", prefix: "sha1=", deliveryIdHeader: "x-github-delivery" },
+  shopify: { header: "x-shopify-hmac-sha256", algorithm: "sha256", encoding: "base64", deliveryIdHeader: "x-shopify-webhook-id" },
+  lemonSqueezy: { header: "x-signature", algorithm: "sha256", encoding: "hex" },
+} as const satisfies Readonly<Record<string, WebhookSender>>;
+
+export interface SignWebhookRequestInput {
+  readonly url: string;
+  readonly sender: WebhookSender;
+  /** The secret as the provider issued it. */
+  readonly secret: string;
+  /** The exact bytes sent; a string is sent as UTF-8. */
+  readonly body: string | Uint8Array;
+  /** Sent in `sender.deliveryIdHeader`; ignored for a sender without one. */
+  readonly deliveryId?: string;
+  /** More headers, e.g. an event name; `content-type` defaults to JSON; the signature and delivery id headers win. */
+  readonly headers?: Readonly<Record<string, string>>;
+}
+
 const SIGNATURE_PATTERN = /^[0-9a-f]{64}$/;
 const TIMESTAMP_PATTERN = /^\d{1,12}$/;
 const HEX_PATTERN = /^[0-9a-fA-F]+$/;
@@ -141,6 +173,22 @@ export async function signWebhookBody(input: SignWebhookBodyInput): Promise<stri
   }
   const mac = await hmac(hash.name, input.secret, toBytes(input.body));
   return `${input.prefix ?? ""}${input.encoding === "hex" ? toHex(mac) : toBase64(mac)}`;
+}
+
+/**
+ * A POST to `url` as the sender would make it: the body, its signature in `sender.header` and the delivery id. For
+ * tests of a webhook route (`handleWebhook` in `@softure-ai/security/server`). Throws as `signWebhookBody` does.
+ */
+export async function signWebhookRequest(input: SignWebhookRequestInput): Promise<Request> {
+  const headers = new Headers(input.headers);
+  if (!headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+  headers.set(input.sender.header, await signWebhookBody({ ...input.sender, secret: input.secret, body: input.body }));
+  if (input.deliveryId !== undefined && input.sender.deliveryIdHeader !== undefined) {
+    headers.set(input.sender.deliveryIdHeader, input.deliveryId);
+  }
+  return new Request(input.url, { method: "POST", headers, body: toBytes(input.body) });
 }
 
 /**
