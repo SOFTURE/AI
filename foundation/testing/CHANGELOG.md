@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`testing@x.y.z`).
 
-## Unreleased
+## 0.2.0
 
 - `fakeFetch(routes)`: a scripted fake `fetch` for code that takes an injected `fetch` (`requestJson`, API
   clients). Routes by method and exact URL or `RegExp`, in order or `repeat`; answers with `json`, `body`, `status`,
