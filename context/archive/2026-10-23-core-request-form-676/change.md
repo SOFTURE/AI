@@ -1,12 +1,13 @@
 ---
 change_id: core-request-form-676
 title: "core: requestJson sends form bodies, URL-encoded and multipart (issue #676)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 676
 branch: claude/project-thread-e00l8d
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent

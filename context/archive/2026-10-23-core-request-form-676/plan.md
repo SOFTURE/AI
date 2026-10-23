@@ -1,6 +1,6 @@
 ---
 change_id: core-request-form-676
-status: in_progress
+status: archived
 ---
 
 # Plan: form bodies in requestJson (issue #676)
@@ -55,6 +55,10 @@ Files: `foundation/testing/src/fetch/fake-fetch.ts`, `foundation/testing/src/ind
 
 ## Progress
 
-- [ ] Phase 1: core `form` option and body guard
-- [ ] Phase 2: fakeFetch records form bodies and connections passes `form`
-- [ ] Phase 3: docs
+- [x] Phase 1: core `form` option and body guard (7c88546)
+- [x] Phase 2: fakeFetch records form bodies and connections passes `form` (5bcf4ec)
+- [x] Phase 3: docs (c8ac85f)
+- [x] Implementation review fix: binary file parts in fakeFetch (b64c76d)
+
+Tests were written before the code in phase 1 (13 of 21 failed on the missing option and guard). In phase 2 the
+fakeFetch tests and the code were written together; the review's binary-part test was run red on the old code first.
