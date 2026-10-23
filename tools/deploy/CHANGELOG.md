@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **An integration run deletes its ref again (#684):** `deploy-integration.yml`'s step "Delete the integration ref"
+  called `DELETE repos/<owner>/<repo>/git/heads/<branch>`, which is not an endpoint: GitHub answered 404, every
+  `integration/*` run ended red after storing its note, and the ref stayed. The step now calls
+  `git/refs/heads/<branch>`. Nothing to change in the caller; delete the `integration/*` branches earlier runs left
+  behind (`git push origin --delete integration/<name>`, or the repository's Branches page).
+
 ## 0.4.6
 
 - **The runner is the caller's choice (#670):** every reusable workflow takes the input `runs-on`, JSON: one label

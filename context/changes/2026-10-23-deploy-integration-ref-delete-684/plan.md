@@ -28,5 +28,5 @@ already has.
 
 ## Progress
 
-- [ ] Phase 1: fix the endpoint
+- [x] Phase 1: fix the endpoint (493581d)
 - [ ] Phase 2: changelog
