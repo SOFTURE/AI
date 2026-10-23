@@ -33,11 +33,13 @@ RUN npm run build
 # external too: bundled, the adapter of a driver the app does not install would fail migrate.mjs at start.
 # Two flags make a data layer shared with the app bundle for plain Node: `server-only` (which throws outside React's
 # server build) becomes an empty module, and the banner gives CJS dependencies inside the ESM bundle their `require`.
+# The banner imports createRequire under its own name: a bundled package that imports createRequire itself
+# (@softure-ai/observability does) would otherwise declare it twice, and the bundle would not load.
 RUN mkdir -p .esbuild && printf 'export {};\n' > .esbuild/empty.mjs \
  && npx softure migrate --export-migrations ./softure-migrations \
  && npx --yes esbuild@{{esbuildVersion}} scripts/migrate.ts --bundle --platform=node --format=esm --target=node22 \
       --alias:server-only=./.esbuild/empty.mjs \
-      --banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);" \
+      --banner:js="import { createRequire as __bundleCreateRequire } from 'module'; const require = __bundleCreateRequire(import.meta.url);" \
       --external:pg --external:@electric-sql/pglite \
       --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outfile=migrate.mjs
 
@@ -46,7 +48,7 @@ RUN mkdir -p .esbuild && printf 'export {};\n' > .esbuild/empty.mjs \
 # docker/prod/docker-compose.yml runs it as `node worker.mjs` from this same image.
 RUN npx --yes esbuild@{{esbuildVersion}} scripts/worker.ts --bundle --platform=node --format=esm --target=node22 \
       --alias:server-only=./.esbuild/empty.mjs \
-      --banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);" \
+      --banner:js="import { createRequire as __bundleCreateRequire } from 'module'; const require = __bundleCreateRequire(import.meta.url);" \
       --external:pg --external:@electric-sql/pglite \
       --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outfile=worker.mjs
 
@@ -58,7 +60,7 @@ RUN mkdir -p ops \
  && if [ -n "$entries" ]; then \
       npx --yes esbuild@{{esbuildVersion}} $entries --bundle --platform=node --format=esm --target=node22 \
         --alias:server-only=./.esbuild/empty.mjs \
-        --banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);" \
+        --banner:js="import { createRequire as __bundleCreateRequire } from 'module'; const require = __bundleCreateRequire(import.meta.url);" \
         --external:pg --external:@electric-sql/pglite \
         --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outdir=ops --out-extension:.js=.mjs; \
     fi
