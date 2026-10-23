@@ -1,12 +1,13 @@
 ---
 change_id: security-webhook-handler-665
 title: "security: one handler for third-party webhooks (issue #665)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 665
 branch: claude/project-thread-v8yn3j
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent

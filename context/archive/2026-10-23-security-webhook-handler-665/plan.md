@@ -1,6 +1,6 @@
 ---
 change_id: security-webhook-handler-665
-status: planned
+status: archived
 ---
 
 # Plan: one handler for third-party webhooks (issue #665)
@@ -52,11 +52,18 @@ Files: `modules/security/README.md`, `CHANGELOG.md` (Unreleased).
   is an optional function on the event for senders without an id header.
 - `handle` failing is caught: rolled back, logged with `console.error` (package prefix, error message only, never
   the body) and answered 500 with a code. Letting it propagate would leave the answer to the host.
+- (During implementation) configuration checks (module configured, `source` rule, delivery id source) run before the
+  request is read, so the catch around the transaction only ever sees the work's or the database's failure;
+  `assertSource` is exported inside the package for that.
+- (During implementation) the JSON parse returns a result value instead of `undefined`, so a schema that accepts
+  `undefined` cannot let a non-JSON body through.
+- (During implementation) `signWebhookRequest` sets `content-type: application/json` unless the caller's headers set
+  one.
 - A body that is not UTF-8 or not JSON, and one the schema refuses, share `security.webhook_payload_invalid`: the
   sender cannot fix either by retrying.
 
 ## Progress
 
-- [ ] Phase 1: presets and the signed request helper
-- [ ] Phase 2: handleWebhook
-- [ ] Phase 3: docs
+- [x] Phase 1: presets and the signed request helper (6db41d5)
+- [x] Phase 2: handleWebhook (6db41d5)
+- [x] Phase 3: docs (1f2c06b)
