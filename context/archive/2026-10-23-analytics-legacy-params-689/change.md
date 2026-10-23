@@ -1,12 +1,13 @@
 ---
 change_id: analytics-legacy-params-689
 title: "analytics: read-only legacy names of the channel parameter (issue #689)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 689
 branch: claude/project-thread-d2vtk8
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent

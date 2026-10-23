@@ -1,6 +1,6 @@
 ---
 change_id: analytics-legacy-params-689
-status: in_progress
+status: archived
 ---
 
 # Plan: legacy names of the channel parameter (issue #689)
@@ -43,5 +43,5 @@ Files: `modules/analytics/src/options.ts`, `src/channel-rule.ts`, `src/server/ch
 
 ## Progress
 
-- [ ] Phase 1: options, readers and writers
-- [ ] Phase 2: docs
+- [x] Phase 1: options, readers and writers (af843b2)
+- [x] Phase 2: docs (b4f6791)
