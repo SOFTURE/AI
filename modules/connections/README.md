@@ -20,7 +20,11 @@ server for clients that call the app.
 - **`getAccessToken(ctx, { provider, accountId? })`**: a `Result` with a usable token. Close to expiry it refreshes
   under the row's lease (two workers never spend one refresh token twice; the others wait and read the new token).
   `invalid_grant` becomes the terminal `connections.reconnect_required`; network failures, 429, 5xx and odd answers
-  are the retryable `connections.refresh_failed`.
+  are the retryable `connections.refresh_failed`. `forceRefresh: true` refreshes now, under the same lease, for a
+  token the provider refused before its expiry.
+- **`requestWithConnection(ctx, { provider, accountId? }, options)`**: one API call with the stored credential of any
+  kind, through `requestJson`. On a 401 with OAuth it refreshes once and retries once; only a second 401 (or the
+  first for a key) reports the credential rejected.
 - **`getCredential`** for API keys and Basic, **`reportCredentialRejected`** when the app saw a 401, and
   **`getAuthorizationHeader`** for either.
 - **`onReconnectRequired`**, a hook that runs once when a connection needs reconnecting, so the app can alert the
@@ -28,8 +32,8 @@ server for clients that call the app.
 - A **privacy contributor**, a **health check**, the **`softure-connections`** command (`key`, `rotate-keys`) and a
   **fake OAuth provider** for tests (`@softure-ai/connections/testing`).
 
-Provider-specific API clients are out of scope: the app calls the API with the token, for example through
-`requestJson` of `@softure-ai/core`.
+Provider-specific API clients are out of scope: the app calls the API with `requestWithConnection`, or with the token
+and `requestJson` of `@softure-ai/core`.
 
 ## 2. Installation
 
@@ -150,17 +154,41 @@ const views = await listConnections(await getConnectionsContext(config));
 **Using a connection** from server code:
 
 ```ts
-import { getAccessToken } from "@softure-ai/connections/next"; // or /server with your own ctx (a job, a script)
-import { requestJson } from "@softure-ai/core";
+import { requestWithConnection } from "@softure-ai/connections/next"; // or /server with your own ctx (a job, a script)
+
+const inbox = await requestWithConnection(
+  { provider: "google" },
+  { url: "https://gmail.googleapis.com/gmail/v1/users/me/messages", schema: InboxSchema },
+);
+if (!inbox.ok) return inbox; // connections.reconnect_required is terminal; refresh_failed and refresh_in_progress retry
+```
+
+`requestWithConnection` takes every option of `requestJson` (`schema`, `method`, `body`, `idempotencyKey`,
+`readHeaders`, `fetch`, `timeoutMs`), sets the `Authorization` header (it replaces one the caller passes) and returns
+the `requestJson` result unchanged, with these exceptions:
+
+- the credential cannot be read: the `connections.*` code of `getAccessToken` or `getCredential`, nothing is sent;
+- a 401 with OAuth: one refresh (only while the stored token is still the refused one, so overlapping calls spend one
+  refresh) and one retry. A failed refresh answers its code (`connections.reconnect_required` after `invalid_grant`,
+  the retryable `connections.refresh_failed`);
+- a second 401, a 401 with an API key or Basic credential, or a 401 with an OAuth connection without a refresh token:
+  `reportCredentialRejected` (the hook runs once) and `connections.reconnect_required`.
+
+A 403 is a permission problem, not a dead credential: it comes back as `core.http_refused` and reports nothing.
+
+An app with its own HTTP client reads the token and refreshes it itself:
+
+```ts
+import { getAccessToken } from "@softure-ai/connections/next";
 
 const token = await getAccessToken({ provider: "google" });
-if (!token.ok) return token; // connections.reconnect_required is terminal; refresh_failed and refresh_in_progress retry
-const inbox = await requestJson({
-  url: "https://gmail.googleapis.com/gmail/v1/users/me/messages",
-  headers: { authorization: `Bearer ${token.value.accessToken}` },
-});
-if (!inbox.ok && inbox.status === 401) await reportCredentialRejected(ctx, { provider: "google" });
+// ...the provider answered 401 before the token's expiry:
+const fresh = await getAccessToken({ provider: "google", forceRefresh: true }); // same lease, same invalid_grant handling
+// still 401: await reportCredentialRejected(ctx, { provider: "google" });
 ```
+
+`replaceRejectedToken(ctx, { provider, accountId?, rejectedToken })` of `/server` is the forced refresh the helper
+uses: it refreshes only while the stored token is `rejectedToken` and otherwise answers the token stored since.
 
 `getCredential({ provider: "raindrop" })` answers `{ kind: "api_key", apiKey }` or `{ kind: "basic", username,
 password }`; `getAuthorizationHeader(credential)` turns either (or `{ kind: "oauth", accessToken }`) into the header.
@@ -267,6 +295,8 @@ const callback = fake.consent(started.value.url); // the user clicks "Allow"
 await completeAuthorization(ctx, { params: { state: callback.searchParams.get("state"), code: callback.searchParams.get("code"), error: null }, actorId });
 fake.revokeGrant(); // the next refresh answers invalid_grant
 fake.failNext("unavailable", "rate_limited"); // the next token calls fail
+fake.rejectAccessTokens(); // fake.apiUrl answers 401 to every token issued so far; refresh tokens still work
+await requestWithConnection(ctx, { provider: "fake" }, { url: fake.apiUrl, fetch: fake.fetch }); // refreshes, retries
 ```
 
 ## Build
