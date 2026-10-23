@@ -1,6 +1,6 @@
 ---
 change_id: connections-request-retry-663
-status: in_progress
+status: archived
 ---
 
 # Plan: request helper and forced refresh (issue #663)
@@ -50,7 +50,17 @@ Files: `src/server/request.ts` (new), `src/server/index.ts`, `src/next/tokens.ts
   same code it gets from `getAccessToken`. Any other `requestJson` result is returned unchanged.
 - Only a 401 triggers the refresh and the report; a 403 is a permission problem, not a dead credential.
 - The retry is skipped (and the credential reported) when a forced refresh answers the same token (no refresh token).
+- `replaceRejectedToken` is exported from `/server` too: an app with its own HTTP client gets the same
+  "refresh once for the refused token" behaviour.
+- (During implementation) a forced call on an OAuth token that never expires and has no refresh token answers the
+  stored token; before, the no-refresh-token branch treated a null expiry as expired, which only a forced call can
+  reach.
 - The helper does not default the API `fetch` to `connections({ fetch })`, which is the token endpoint's fetch; the
   caller passes `fetch` like with `requestJson`.
 
 ## Progress
+
+- [x] Phase 1: forced refresh, 2aeff78
+- [x] Phase 2: requestWithConnection and the fake resource endpoint, c7478b0
+- [x] Phase 3: docs, and the never-expiring token case, 5f2c4e9
+- [x] Implementation review: approved

@@ -1,12 +1,13 @@
 ---
 change_id: connections-request-retry-663
 title: "connections: call an API with a stored credential, refresh once on a 401 (issue #663)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 663
 branch: claude/project-thread-2y67t3
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent
