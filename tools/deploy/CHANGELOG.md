@@ -13,6 +13,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   the banner of each esbuild command in its `Dockerfile` with
   `--banner:js="import { createRequire as __bundleCreateRequire } from 'module'; const require = __bundleCreateRequire(import.meta.url);"`
   (or re-runs `init --force`); README "Bundled for plain Node" explains why.
+- **Jobs on a reused self-hosted runner get the whole commit (#687):** a runner that keeps its work directory between
+  jobs kept the sparse checkout of an earlier job (`deploy-release-checks.yml`'s `prepare` checks out only
+  `package.json`), so the next job's full checkout left just those files and `setup-node` failed with "Dependencies
+  lock file is not found". Every job of the reusable workflows that checks out now empties the workspace first, as a
+  hosted runner does. Nothing to change in the caller; a job fails, naming the workspace, when it cannot remove a file
+  there (another user's, e.g. a container's volume). The app's own jobs on such a runner need an ephemeral runner or a
+  job-started hook that empties the workspace (README "Runner").
 
 ## 0.4.6
 
