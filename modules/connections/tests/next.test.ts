@@ -3,7 +3,7 @@
 // through `database.handle`, so the real role check, the real flow and the real store run.
 import { getSessionCookie } from "@softure-ai/auth";
 import { grantRole, registerUser } from "@softure-ai/auth/server";
-import { completeConnectionRoute, disconnectAction, getAccessToken, getCredential, readPageNotice, saveCredentialAction, startConnectionAction } from "@softure-ai/connections/next";
+import { completeConnectionRoute, disconnectAction, getAccessToken, getCredential, readPageNotice, requestWithConnection, saveCredentialAction, startConnectionAction } from "@softure-ai/connections/next";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { clearSoftureConfig, registerSoftureConfig } from "@softure-ai/core/next";
 import { closeConfiguredDatabases, createPgliteHandle } from "@softure-ai/db";
@@ -91,6 +91,10 @@ describe("the Next adapter", () => {
     expect(readPageNotice(location.searchParams)).toEqual({ kind: "connected", provider: "fake", accountId: "default" });
     expect(await listRows(test.database)).toEqual(["fake/default connected oauth test"]);
     expect((await getAccessToken({ provider: "fake" })).ok).toBe(true);
+    // Request code with the app's context: a token refused early is refreshed once and the call retried.
+    test.fake.rejectAccessTokens();
+    expect(await requestWithConnection({ provider: "fake" }, { url: test.fake.apiUrl, fetch: test.fake.fetch })).toEqual({ ok: true, value: { ok: true } });
+    expect(test.fake.calls.refresh).toBe(1);
   });
 
   it("lands on the page with the code when the callback fails, never the provider's text", async () => {
