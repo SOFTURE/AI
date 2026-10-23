@@ -29,29 +29,50 @@ export const DEFAULT_CHANNEL_CAP = 100;
 export const CHANNEL_NORMALIZATIONS = ["none", "trim-lowercase"] as const;
 export type ChannelNormalization = (typeof CHANNEL_NORMALIZATIONS)[number];
 
+/** The most earlier names of the channel parameter (`channel.legacyParams`) or channel fields one config lists. */
+export const MAX_LEGACY_NAMES = 4;
+
 /** A field name of the funnel's wire format (`step`, `k`, `z`): short, lowercase, URL-safe. */
 const fieldNameSchema = z.string().regex(PARAM_PATTERN, "must be lowercase letters, digits, - or _, starting with a letter, at most 32 characters");
 
-const channelOptionsSchema = z.strictObject({
-  /** The query parameter that carries the channel, e.g. `?z=newsletter`. */
-  param: z.string().regex(PARAM_PATTERN, "must be lowercase letters, digits, - or _, starting with a letter, at most 32 characters").default("z"),
-  /** What a valid value looks like; anything else is ignored. */
-  pattern: z
-    .instanceof(RegExp, { message: "must be a RegExp" })
-    // A global or sticky RegExp keeps `lastIndex` between tests, so the same value would pass, then fail.
-    .refine((pattern) => !pattern.global && !pattern.sticky, "must not use the g or y flag")
-    .refine((pattern) => pattern.global || pattern.sticky || !pattern.test(OVERFLOW_CHANNEL), `must not accept "${OVERFLOW_CHANNEL}", the funnel's overflow key`)
-    .default(DEFAULT_CHANNEL_PATTERN),
-  /** The longest value accepted; longer ones are ignored, never cut. */
-  maxLength: z
-    .number()
-    .int()
-    .min(1)
-    .max(MAX_CHANNEL_LENGTH, `must be at most ${String(MAX_CHANNEL_LENGTH)}`)
-    .default(32),
-  /** How a raw value is repaired before the pattern and length checks; the browser keeper does the same. */
-  normalize: z.enum(CHANNEL_NORMALIZATIONS).default("none"),
-});
+const PARAM_MESSAGE = "must be lowercase letters, digits, - or _, starting with a letter, at most 32 characters";
+
+const channelOptionsSchema = z
+  .strictObject({
+    /** The query parameter that carries the channel, e.g. `?z=newsletter`. The package writes only this one. */
+    param: z.string().regex(PARAM_PATTERN, PARAM_MESSAGE).default("z"),
+    /**
+     * Earlier names of the parameter, read after `param` in this order and never written: links shared
+     * before a rename (`?z=reddit` once `param` is `ref`) keep their channel, and the tagger and the
+     * keeper rewrite the address to `param`.
+     */
+    legacyParams: z
+      .array(z.string().regex(PARAM_PATTERN, PARAM_MESSAGE))
+      .max(MAX_LEGACY_NAMES, `takes at most ${String(MAX_LEGACY_NAMES)} names`)
+      .default([]),
+    /** What a valid value looks like; anything else is ignored. */
+    pattern: z
+      .instanceof(RegExp, { message: "must be a RegExp" })
+      // A global or sticky RegExp keeps `lastIndex` between tests, so the same value would pass, then fail.
+      .refine((pattern) => !pattern.global && !pattern.sticky, "must not use the g or y flag")
+      .refine((pattern) => pattern.global || pattern.sticky || !pattern.test(OVERFLOW_CHANNEL), `must not accept "${OVERFLOW_CHANNEL}", the funnel's overflow key`)
+      .default(DEFAULT_CHANNEL_PATTERN),
+    /** The longest value accepted; longer ones are ignored, never cut. */
+    maxLength: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_CHANNEL_LENGTH, `must be at most ${String(MAX_CHANNEL_LENGTH)}`)
+      .default(32),
+    /** How a raw value is repaired before the pattern and length checks; the browser keeper does the same. */
+    normalize: z.enum(CHANNEL_NORMALIZATIONS).default("none"),
+  })
+  .superRefine((channel, context) => {
+    channel.legacyParams.forEach((name, index) => {
+      if (name === channel.param) context.addIssue({ code: "custom", path: ["legacyParams", index], message: `"${name}" is the current param` });
+      else if (channel.legacyParams.indexOf(name) !== index) context.addIssue({ code: "custom", path: ["legacyParams", index], message: `"${name}" is listed twice` });
+    });
+  });
 
 /**
  * Whether the app already knows `channel` from its own tables (a sign-up or an account attributed to
@@ -73,20 +94,33 @@ const wireSchema = z
     /** The fields that name the step, e.g. `["step", "k"]`; the first is sent. A request naming the step twice counts nothing. */
     stepFields: z.array(fieldNameSchema).min(1, "needs at least one field").max(4, "takes at most 4 fields").default(["step"]),
     /**
-     * A field of the beacon body or pixel query that carries the channel (`"z"`), for pages that send it
-     * themselves; `null` (the default): only the page the request came from decides. A valid value
-     * wins over the page's; an invalid one is ignored.
+     * The field of the beacon body or pixel query that carries the channel (`"z"`), for pages that send it
+     * themselves, or a list of them (`["ref", "z"]`) so pages cached before a rename keep counting;
+     * `null` (the default): only the page the request came from decides. A valid value wins over the
+     * page's; an invalid one, or two values across the fields, is ignored.
      */
-    channelField: fieldNameSchema.nullable().default(null),
+    channelField: z
+      .union([fieldNameSchema, z.array(fieldNameSchema).min(1, "needs at least one field").max(MAX_LEGACY_NAMES, `takes at most ${String(MAX_LEGACY_NAMES)} fields`)])
+      .nullable()
+      .default(null),
   })
   .superRefine((wire, context) => {
     wire.stepFields.forEach((field, index) => {
       if (wire.stepFields.indexOf(field) !== index) context.addIssue({ code: "custom", path: ["stepFields", index], message: `"${field}" is listed twice` });
     });
-    if (wire.channelField !== null && wire.stepFields.includes(wire.channelField)) {
-      context.addIssue({ code: "custom", path: ["channelField"], message: `"${wire.channelField}" already names the step` });
-    }
+    const channelFields = toFieldList(wire.channelField);
+    channelFields.forEach((field, index) => {
+      const path = typeof wire.channelField === "string" ? ["channelField"] : ["channelField", index];
+      if (wire.stepFields.includes(field)) context.addIssue({ code: "custom", path, message: `"${field}" already names the step` });
+      else if (channelFields.indexOf(field) !== index) context.addIssue({ code: "custom", path, message: `"${field}" is listed twice` });
+    });
   });
+
+/** `funnel.wire.channelField` as a list: none for `null`, one for a single name. */
+export function toFieldList(field: string | readonly string[] | null): readonly string[] {
+  if (field === null) return [];
+  return typeof field === "string" ? [field] : field;
+}
 
 /**
  * How a step is counted:
