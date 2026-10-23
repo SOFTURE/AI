@@ -20,6 +20,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   hosted runner does. Nothing to change in the caller; a job fails, naming the workspace, when it cannot remove a file
   there (another user's, e.g. a container's volume). The app's own jobs on such a runner need an ephemeral runner or a
   job-started hook that empties the workspace (README "Runner").
+- **An integration run deletes its ref again (#684):** `deploy-integration.yml`'s step "Delete the integration ref"
+  called `DELETE repos/<owner>/<repo>/git/heads/<branch>`, which is not an endpoint: GitHub answered 404, every
+  `integration/*` run ended red after storing its note, and the ref stayed. The step now calls
+  `git/refs/heads/<branch>`. Nothing to change in the caller; delete the `integration/*` branches earlier runs left
+  behind (`git push origin --delete integration/<name>`, or the repository's Branches page).
 
 ## 0.4.6
 
