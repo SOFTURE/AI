@@ -42,9 +42,14 @@ Files: `tools/deploy/README.md`, `tools/deploy/CHANGELOG.md`, `modules/blog/READ
 - `blog-links.yml` belongs to `@softure-ai/blog`; it gets the same input and its README a line.
 - The e2e check calls the workflow with trivial commands: the point is the runner wiring, the checks themselves are
   covered by the repository's own CI.
+- (During implementation) The step is anchored (`&check-runner`) only in files with several jobs; actionlint refuses
+  an anchor nobody uses, so single-job files carry the step plainly. The guard compares every job's first step with
+  `deploy-release-checks.yml`'s, so the copies cannot drift.
+- (During implementation) `deploy-workflows.test.ts` reads every job's steps after the runner check (its `readYaml`
+  drops it), so the tests of each workflow's own first step stay as they are.
 
 ## Progress
 
-- [ ] Phase 1: the guard and the check
-- [ ] Phase 2: the workflows
-- [ ] Phase 3: docs
+- [x] Phase 1: the guard and the check (bb21cbe)
+- [x] Phase 2: the workflows (5e0c491)
+- [x] Phase 3: docs (17731d2)
