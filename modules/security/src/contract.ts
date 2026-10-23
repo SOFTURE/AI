@@ -9,6 +9,8 @@ export type SecurityErrorCode =
   | "security.body_unreadable"
   | "security.signature_invalid"
   | "security.delivery_id_invalid"
+  | "security.webhook_payload_invalid"
+  | "security.webhook_failed"
   | "security.outbound_invalid_url"
   | "security.outbound_blocked"
   | "security.outbound_timeout"

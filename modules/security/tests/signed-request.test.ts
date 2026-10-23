@@ -136,10 +136,12 @@ describe("@softure-ai/security/signed-request", () => {
     expect(Object.keys(signedRequestEntry).sort()).toEqual([
       "MIN_SIGNING_SECRET_LENGTH",
       "SIGNED_REQUEST_TOLERANCE_SECONDS",
+      "WEBHOOK_SENDERS",
       "WEBHOOK_SIGNATURE_ALGORITHMS",
       "WEBHOOK_SIGNATURE_ENCODINGS",
       "signRequestBody",
       "signWebhookBody",
+      "signWebhookRequest",
       "verifySignedRequest",
       "verifyWebhookSignature",
     ]);
