@@ -55,12 +55,13 @@ interface WorkflowCall {
   secrets?: Record<string, { required?: boolean }>;
 }
 
-// Every job of a reusable workflow opens with the runner check (issue #670), which workflow-runners.test.ts covers;
-// the tests here read the steps after it.
+// Every job of a reusable workflow opens with the runner check (issue #670), and every one that checks out then empties
+// the workspace (issue #687); workflow-runners.test.ts covers both, so the tests here read the steps after them.
 function readYaml(path: string): Workflow {
   const workflow = parse(readFileSync(path, "utf8")) as Workflow;
   for (const job of Object.values(workflow.jobs)) {
     if (job.steps?.[0]?.name === "Check the runner") job.steps = job.steps.slice(1);
+    if (job.steps?.[0]?.name === "Empty the workspace") job.steps = job.steps.slice(1);
   }
   return workflow;
 }
