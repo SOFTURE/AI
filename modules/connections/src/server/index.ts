@@ -57,4 +57,4 @@ export {
 } from "./privacy.js";
 export { reencryptConnections, type ReencryptOptions, type ReencryptReport } from "./rotate.js";
 export type { ConnectionsContext } from "./store.js";
-export { getAccessToken, type GetAccessTokenInput, type GetAccessTokenResult } from "./tokens.js";
+export { getAccessToken, replaceRejectedToken, type GetAccessTokenInput, type GetAccessTokenResult, type ReplaceRejectedTokenInput } from "./tokens.js";

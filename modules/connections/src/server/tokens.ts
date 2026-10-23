@@ -18,12 +18,41 @@ export interface GetAccessTokenInput {
   readonly provider: string;
   /** One of the provider's `accounts`; `default` when omitted. */
   readonly accountId?: string;
+  /**
+   * Refresh now, even when the stored token is not close to expiry (the provider refused it early). Same lease,
+   * same `invalid_grant` handling; without a refresh token the stored token is answered as it is.
+   */
+  readonly forceRefresh?: boolean;
 }
 
 export type GetAccessTokenResult = Ok<AccessToken> | Err<ConnectionsTokenErrorCode>;
 
 /** A usable access token for the provider account, refreshed when it expires within `refreshSkewSeconds`. */
 export async function getAccessToken(ctx: ConnectionsContext, input: GetAccessTokenInput): Promise<GetAccessTokenResult> {
+  return readAccessToken(ctx, input, input.forceRefresh === true ? { rejectedToken: null } : null);
+}
+
+export interface ReplaceRejectedTokenInput {
+  readonly provider: string;
+  readonly accountId?: string;
+  /** The access token the provider just refused. */
+  readonly rejectedToken: string;
+}
+
+/**
+ * A forced refresh only while the stored access token is still the refused one: callers that saw a 401 for the
+ * same token at the same time spend one refresh, and the others read its result.
+ */
+export async function replaceRejectedToken(ctx: ConnectionsContext, input: ReplaceRejectedTokenInput): Promise<GetAccessTokenResult> {
+  return readAccessToken(ctx, input, { rejectedToken: input.rejectedToken });
+}
+
+/** A refresh regardless of expiry; `rejectedToken` limits it to a stored token equal to that one. */
+interface ForceRefresh {
+  readonly rejectedToken: string | null;
+}
+
+async function readAccessToken(ctx: ConnectionsContext, input: ProviderAccount, force: ForceRefresh | null): Promise<GetAccessTokenResult> {
   const accountId = input.accountId ?? DEFAULT_ACCOUNT_ID;
   const found = findProvider(ctx.config, input.provider, accountId);
   if (!found.ok) return found;
@@ -33,7 +62,12 @@ export async function getAccessToken(ctx: ConnectionsContext, input: GetAccessTo
   if (!keyring.ok) return keyring;
   const row = await findAccount(ctx, provider.id, accountId);
   if (row === undefined) return err("connections.not_connected");
-  return resolveToken(ctx, { provider, keyring: keyring.value, row, mayWait: true });
+  return resolveToken(ctx, { provider, keyring: keyring.value, row, mayWait: true, force });
+}
+
+interface ProviderAccount {
+  readonly provider: string;
+  readonly accountId?: string;
 }
 
 interface ResolveInput {
@@ -42,13 +76,15 @@ interface ResolveInput {
   readonly row: AccountRow;
   /** Whether to wait for another worker's refresh; false on the second try after a wait. */
   readonly mayWait: boolean;
+  /** Refresh even when the token is fresh; null for the usual expiry rule. */
+  readonly force: ForceRefresh | null;
 }
 
 async function resolveToken(ctx: ConnectionsContext, input: ResolveInput): Promise<GetAccessTokenResult> {
   const { row, keyring } = input;
   if (row.status === "reconnect_required") return err("connections.reconnect_required");
   const now = ctx.clock.now();
-  if (isFresh(ctx, row, now)) return toAccessToken(keyring, row);
+  if (input.force === null ? isFresh(ctx, row, now) : !isRejected(keyring, row, input.force)) return toAccessToken(keyring, row);
   if (!row.hasRefreshToken) {
     // Nothing to refresh with: usable until it expires, then only a reconnect helps.
     if (row.expiresAt !== null && row.expiresAt > now) return toAccessToken(keyring, row);
@@ -65,7 +101,7 @@ async function resolveToken(ctx: ConnectionsContext, input: ResolveInput): Promi
     .returning();
   if (leased === undefined) return input.mayWait ? waitForRefresh(ctx, input) : err("connections.refresh_in_progress");
   // Another worker may have finished a refresh between the read and the lease.
-  if (isFresh(ctx, leased, now) || leased.credentials !== row.credentials) {
+  if ((input.force === null && isFresh(ctx, leased, now)) || leased.credentials !== row.credentials) {
     await releaseLease(ctx, leased.id, leaseId);
     return toAccessToken(keyring, leased);
   }
@@ -157,7 +193,8 @@ async function waitForRefresh(ctx: ConnectionsContext, input: ResolveInput): Pro
     const row = await findAccount(ctx, input.row.provider, input.row.accountId);
     if (row === undefined) return err("connections.not_connected");
     if (row.status === "reconnect_required") return err("connections.reconnect_required");
-    if (row.credentials !== input.row.credentials) return resolveToken(ctx, { ...input, row, mayWait: false });
+    // The other worker stored a new token: it is the refresh this caller asked for, forced or not.
+    if (row.credentials !== input.row.credentials) return resolveToken(ctx, { ...input, row, mayWait: false, force: null });
     if (row.leaseUntil === null || row.leaseUntil <= ctx.clock.now()) {
       // The other worker gave up (a retryable failure) or died: one attempt of our own.
       return resolveToken(ctx, { ...input, row, mayWait: false });
@@ -177,6 +214,14 @@ async function recordFailure(ctx: ConnectionsContext, rowId: string, leaseId: st
 function isFresh(ctx: ConnectionsContext, row: AccountRow, now: Date): boolean {
   const skew = getConnectionsOptions(ctx.config).refreshSkewSeconds * 1000;
   return row.expiresAt === null || row.expiresAt.getTime() - now.getTime() > skew;
+}
+
+/** Whether a forced refresh applies to this row: always, or while it still holds the refused token. */
+function isRejected(keyring: Keyring, row: AccountRow, force: ForceRefresh): boolean {
+  if (force.rejectedToken === null) return true;
+  const secrets = openOAuthSecrets(keyring, row);
+  // An unreadable row fails the same way in `toAccessToken`; refreshing would not open it either.
+  return secrets.ok && secrets.value.accessToken === force.rejectedToken;
 }
 
 function toAccessToken(keyring: Keyring, row: AccountRow): GetAccessTokenResult {
