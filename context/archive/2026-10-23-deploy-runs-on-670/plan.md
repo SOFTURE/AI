@@ -1,6 +1,6 @@
 ---
 change_id: deploy-runs-on-670
-status: in_progress
+status: archived
 ---
 
 # Plan: a runs-on input on every reusable workflow (issue #670)
