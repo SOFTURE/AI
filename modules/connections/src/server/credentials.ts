@@ -3,7 +3,7 @@
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, eq } from "drizzle-orm";
 import type { ConnectionsFlowErrorCode, ConnectionsTokenErrorCode, StoredCredential } from "../contract.js";
-import { DEFAULT_ACCOUNT_ID } from "../options.js";
+import { DEFAULT_ACCOUNT_ID, DEFAULT_CREDENTIAL_HEADER, DEFAULT_CREDENTIAL_SCHEME, type CredentialHeaderPlacement, type ProviderDefinition } from "../options.js";
 import { accounts } from "../schema.js";
 import { getCredentialContext, sealSecret } from "./crypto.js";
 import { findProvider, getConnectionsOptions, readClientCredentials } from "./options.js";
@@ -104,7 +104,10 @@ export async function getCredential(ctx: ConnectionsContext, input: ProviderAcco
   return opened.ok ? ok({ kind: "basic", username: opened.value.username, password: opened.value.password }) : opened;
 }
 
-/** `Authorization` header value for a stored credential: `Bearer <key>` or `Basic <base64>`. */
+/**
+ * `Authorization` header value for a stored credential: `Bearer <key>` or `Basic <base64>`. It ignores a provider's
+ * `header`; `formatCredentialHeader` and `getCredentialHeader` honour it.
+ */
 export function getAuthorizationHeader(credential: StoredCredential | { readonly kind: "oauth"; readonly accessToken: string }): string {
   switch (credential.kind) {
     case "api_key":
@@ -114,6 +117,41 @@ export function getAuthorizationHeader(credential: StoredCredential | { readonly
     case "basic":
       return `Basic ${Buffer.from(`${credential.username}:${credential.password}`, "utf8").toString("base64")}`;
   }
+}
+
+/** A header that carries a credential, its name lowercase. */
+export interface CredentialHeader {
+  readonly name: string;
+  readonly value: string;
+}
+
+const AUTHORIZATION_BEARER: CredentialHeaderPlacement = { name: DEFAULT_CREDENTIAL_HEADER, scheme: DEFAULT_CREDENTIAL_SCHEME };
+
+/** Where a provider's credential goes: an API key provider's `header`, else `Authorization` (Bearer for a key). */
+export function getCredentialPlacement(provider: ProviderDefinition): CredentialHeaderPlacement {
+  return provider.kind === "api_key" ? (provider.header ?? AUTHORIZATION_BEARER) : AUTHORIZATION_BEARER;
+}
+
+/**
+ * The header for a credential. An API key goes where `placement` says (by default `Authorization: Bearer <key>`);
+ * Basic and an OAuth token always go in `Authorization`.
+ */
+export function formatCredentialHeader(
+  credential: StoredCredential | { readonly kind: "oauth"; readonly accessToken: string },
+  placement: CredentialHeaderPlacement = AUTHORIZATION_BEARER,
+): CredentialHeader {
+  if (credential.kind !== "api_key") return { name: DEFAULT_CREDENTIAL_HEADER, value: getAuthorizationHeader(credential) };
+  return { name: placement.name, value: placement.scheme === null ? credential.apiKey : `${placement.scheme} ${credential.apiKey}` };
+}
+
+export type GetCredentialHeaderResult = Ok<CredentialHeader> | Err<ConnectionsTokenErrorCode>;
+
+/** The stored API key or Basic credential of a provider account as the header the provider reads it from. */
+export async function getCredentialHeader(ctx: ConnectionsContext, input: ProviderAccountInput): Promise<GetCredentialHeaderResult> {
+  const found = findProvider(ctx.config, input.provider, input.accountId ?? DEFAULT_ACCOUNT_ID);
+  if (!found.ok) return found;
+  const credential = await getCredential(ctx, input);
+  return credential.ok ? ok(formatCredentialHeader(credential.value, getCredentialPlacement(found.value))) : credential;
 }
 
 /**

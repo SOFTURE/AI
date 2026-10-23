@@ -6,6 +6,21 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 
 ## Unreleased
 
+- An `api_key` provider can say where its key goes (#675): `header: { name: "x-api-key" }` sends the bare key in that
+  header, `header: { name: "authorization", scheme: "Token" }` sends `Authorization: Token <key>`. Without `header`
+  nothing changes (`Authorization: Bearer <key>`). The name must be an HTTP token (it is stored lowercase), and
+  `scheme` is allowed only with `authorization` (`Bearer` when omitted).
+- `requestWithConnection` sends the key in that header and replaces the caller's header of the same name; the 401
+  rule is unchanged, so a provider that reads `x-api-key` no longer refuses a Bearer header and marks a valid key
+  `reconnect_required`.
+- `getCredentialHeader(ctx, { provider, accountId? })` in `/server` and `getCredentialHeader({ provider, accountId? })`
+  in `/next` answer `{ name, value }` for an app with its own HTTP client; `formatCredentialHeader(credential,
+  placement?)` and `getCredentialPlacement(provider)` in `/server` do the same without a read. `getAuthorizationHeader`
+  is unchanged.
+- Migration for an app: optional. A client that hand-writes a custom key header with `getCredential` and repeats the
+  401 handling can declare `header` on its provider and call `requestWithConnection` (or take the header from
+  `getCredentialHeader`).
+
 - `requestWithConnection` takes `requestJson`'s new `form` option (a `URLSearchParams` or a `FormData` with files)
   and sends it as it is, also on the retry after an OAuth refresh (#676). Needs the next `@softure-ai/core` release.
 

@@ -62,10 +62,13 @@ export { connectionsMessages, getConnectionsErrorMessage, type ConnectionsMessag
 export {
   ACCOUNT_ID_PATTERN,
   DEFAULT_ACCOUNT_ID,
+  DEFAULT_CREDENTIAL_HEADER,
+  DEFAULT_CREDENTIAL_SCHEME,
   MAX_ID_LENGTH,
   PROVIDER_ID_PATTERN,
   type ConnectionsOptions,
   type ConnectionsOptionsInput,
+  type CredentialHeaderPlacement,
   type KeyProviderDefinition,
   type OAuthProviderDefinition,
   type OnReconnectRequiredHook,
