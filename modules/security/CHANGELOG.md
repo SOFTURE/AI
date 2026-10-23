@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
-## Unreleased
+## 0.2.5
 
 - `handleWebhook(ctx, request, { source, maxBytes, sender, secret, schema, deliveryId?, handle })` in
   `@softure-ai/security/server` (#665): the whole route of a third-party webhook in one call, a web `Request` in and a
