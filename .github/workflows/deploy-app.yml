@@ -260,6 +260,18 @@ jobs:
             echo "::error::Input runs-on is not valid: a JSON label such as '\"ubuntu-latest\"' or a non-empty array of labels such as '[\"self-hosted\",\"linux\"]'"
             exit 1
           fi
+      # A self-hosted runner keeps one work directory per repository between jobs, and a sparse checkout an earlier job
+      # left there outlives the next full one (issue #687): every job that checks out starts from an empty workspace,
+      # as on a hosted runner.
+      - &empty-workspace
+        name: Empty the workspace
+        # Outside the workspace, and before a job's defaults.run.working-directory (inside the checkout) exists.
+        working-directory: ${{ runner.temp }}
+        run: |
+          if ! find "${GITHUB_WORKSPACE:?}" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; then
+            echo "::error::The workspace $GITHUB_WORKSPACE could not be emptied: files of another user (a container's volume) are left there. Remove them on the runner, and empty the workspace in its job-started hook (@softure-ai/deploy README, \"Runner\")."
+            exit 1
+          fi
 
       - id: inputs
         name: Validate inputs
@@ -502,6 +514,7 @@ jobs:
       digest: ${{ steps.push.outputs.digest || steps.retag.outputs.digest }}
     steps:
       - *check-runner
+      - *empty-workspace
       - if: inputs.prebuilt-image == ''
         uses: actions/checkout@v7
         with:
@@ -589,6 +602,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - *check-runner
+      - *empty-workspace
       # End-to-end test only (refused outside SOFTURE/AI by the check job): the server files at the workspace root for
       # the server the runner becomes, the CLI of the tag itself, built from a full checkout, so the test needs no
       # published version, the image the build job handed over, and this runner set up as the server.
@@ -706,6 +720,7 @@ jobs:
       contents: read
     steps:
       - *check-runner
+      - *empty-workspace
       - uses: actions/checkout@v7
         with:
           repository: ${{ job.workflow_repository }}
