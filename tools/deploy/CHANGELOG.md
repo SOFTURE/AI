@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **A release cuts and reports on a self-hosted runner without the GitHub CLI (#686):** the jobs that call `gh`
+  (`deploy-cut-release` → `cut`, `deploy-report` → `report`, `deploy-release-notes` → `notes`, `deploy-cancel-run` →
+  `cancel`, `deploy-integration` → `record`) no longer stop at `gh: command not found`. When the runner has no `gh`,
+  the step "Set up the GitHub CLI" downloads GitHub CLI 2.103.0 for Linux x64 or arm64, checks it against its pinned
+  SHA-256, unpacks it into `$RUNNER_TEMP` for that job and puts it on `PATH`, with no `sudo`. Any other platform, a
+  missing `curl` or `tar`, a failed download or a wrong checksum fails the step with a message that names the cause.
+  Nothing to do for an app on GitHub's hosted runners, which have `gh`. An app's own steps that call `gh` on a
+  self-hosted runner install it themselves (README "Runner").
 - **Bundles that include `@softure-ai/observability` 0.4.0 load again (#681):** the esbuild banner of the `Dockerfile`
   written by `init` imports `createRequire as __bundleCreateRequire`, so it no longer collides with observability's own
   top-level `createRequire` import (`SyntaxError: Identifier 'createRequire' has already been declared` when
