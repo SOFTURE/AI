@@ -1,7 +1,8 @@
 ---
 change_id: deploy-reused-workspace-687
 title: "deploy: reusable workflow jobs start from an empty workspace on a reused runner (issue #687)"
-status: in_progress
+status: archived
+archived_at: 2026-10-23
 roadmap_item: null
 issue: 687
 branch: claude/project-thread-wuolmx

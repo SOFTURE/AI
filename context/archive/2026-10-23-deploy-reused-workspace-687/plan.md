@@ -1,6 +1,6 @@
 ---
 change_id: deploy-reused-workspace-687
-status: in_progress
+status: archived
 ---
 
 # Plan: empty workspace per job on a reused runner (issue #687)
@@ -35,5 +35,9 @@ jobs per README).
 
 ## Progress
 
-- [ ] Phase 1: the step and its test
-- [ ] Phase 2: docs
+- [x] Phase 1: the step and its test (3319e43)
+- [x] Phase 2: docs (ae92060)
+
+Tests were written before the step in phase 1 (10 new tests failed on master: no "Empty the workspace" step). The
+existing `deploy-workflows.test.ts` reads the steps after the shared prefix, so its `readYaml` now drops this step as
+it drops the runner check.
