@@ -13,6 +13,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   the banner of each esbuild command in its `Dockerfile` with
   `--banner:js="import { createRequire as __bundleCreateRequire } from 'module'; const require = __bundleCreateRequire(import.meta.url);"`
   (or re-runs `init --force`); README "Bundled for plain Node" explains why.
+- **An integration run deletes its ref again (#684):** `deploy-integration.yml`'s step "Delete the integration ref"
+  called `DELETE repos/<owner>/<repo>/git/heads/<branch>`, which is not an endpoint: GitHub answered 404, every
+  `integration/*` run ended red after storing its note, and the ref stayed. The step now calls
+  `git/refs/heads/<branch>`. Nothing to change in the caller; delete the `integration/*` branches earlier runs left
+  behind (`git push origin --delete integration/<name>`, or the repository's Branches page).
 
 ## 0.4.6
 
