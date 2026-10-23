@@ -1,6 +1,6 @@
 ---
 change_id: deploy-gh-self-hosted-686
-status: in_progress
+status: archived
 ---
 
 # Plan: the reusable workflows install the GitHub CLI when the runner has none (issue #686)
@@ -43,6 +43,6 @@ Files: `tools/deploy/README.md` (Runner section), `tools/deploy/CHANGELOG.md`.
 
 ## Progress
 
-- [ ] Phase 1: the guard and the step's behaviour
-- [ ] Phase 2: the workflows
-- [ ] Phase 3: docs
+- [x] Phase 1: the guard and the step's behaviour (15d477a)
+- [x] Phase 2: the workflows (6e41ffd)
+- [x] Phase 3: docs (1ffb719)

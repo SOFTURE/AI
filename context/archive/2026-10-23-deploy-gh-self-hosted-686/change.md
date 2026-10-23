@@ -1,12 +1,13 @@
 ---
 change_id: deploy-gh-self-hosted-686
 title: "deploy: the reusable workflows install the GitHub CLI on a runner without it (issue #686)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 686
 branch: claude/project-thread-80srlx
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent
