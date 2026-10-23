@@ -1,6 +1,6 @@
 ---
 change_id: deploy-bundle-banner-681
-status: in_progress
+status: archived
 ---
 
 # Plan: the esbuild banner no longer collides with a bundled createRequire (issue #681)
