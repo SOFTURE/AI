@@ -305,7 +305,7 @@ if (plan.endedAt !== null) throw new PublicError("This plan has ended; pick anot
 `isPublicError` recognises one from another copy of core too (a registry symbol, not `instanceof`).
 `safeError` itself still answers `core.unexpected` for it, since callers switch on its two codes.
 
-**External JSON APIs.** `requestJson({ url, method?, body? | form?, idempotencyKey?, fetch?, headers?, timeoutMs?, schema?, readHeaders?, clock? })`
+**External JSON APIs.** `requestJson({ url, method?, body? | form?, idempotencyKey?, fetch?, headers?, timeoutMs?, schema?, errorSchema?, readHeaders?, clock? })`
 calls a third-party JSON API (a GET by default) and returns `Ok<value>` or an `HttpJsonFailure` (`{ ok: false, error, status }`). It sets the details a hand-written
 helper tends to miss:
 
@@ -413,6 +413,25 @@ const saved = await requestJson({
 });
 if (!saved.ok && saved.error === "core.http_conflict") {
   // someone else changed the task: read it again and retry the write
+}
+```
+
+The body of an error answer is cancelled unread, unless the call passes `errorSchema`: then every failure carries
+`errorBody`, the schema's output for a 4xx, 429 or 5xx whose body is JSON that passes it, and `null` otherwise (an
+empty, non-JSON or invalid body, a redirect, no response, a body that broke off or timed out, a 2xx that failed
+`schema`). Only what the schema names leaves; its issues never do. The read is bounded by `timeoutMs`. A call without
+`errorSchema` keeps `HttpJsonFailure` and no `errorBody`.
+
+```ts
+const token = await requestJson({
+  url: provider.tokenUrl,
+  method: "POST",
+  form: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }),
+  schema: z.object({ access_token: z.string() }),
+  errorSchema: z.object({ error: z.string() }), // RFC 6749 §5.2
+});
+if (!token.ok && token.errorBody?.error === "invalid_grant") {
+  // the grant expired or was revoked: ask the user to reconnect
 }
 ```
 

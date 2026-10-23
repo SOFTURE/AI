@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `requestJson` reads the body of an error answer through an opt-in `errorSchema` (#680), for OAuth errors
+  (`invalid_grant`) and provider error codes. With it, every failure carries `errorBody`: the schema's output for a
+  4xx, 429 or 5xx whose body is JSON that passes it, `null` otherwise (an empty, non-JSON or invalid body, a redirect,
+  no response, a body that broke off or timed out, a 2xx that failed `schema`). The read is bounded by the call's
+  timeout; only the schema's output leaves. New types: `RequestJsonErrorSchemaOptions`, `HttpJsonErrorBodyFailure`,
+  `HttpJsonFailureFor`.
+  - Migrate: nothing. Without `errorSchema` the body is cancelled as before and the failure type is still
+    `HttpJsonFailure`.
 - `requestJson` sends form bodies (#676): `form: URLSearchParams | FormData` on a write, exclusive with `body` in the
   types. `URLSearchParams` goes out as `application/x-www-form-urlencoded` (a `Content-Type` the caller sets wins);
   `FormData`, with `Blob` or `File` parts, as `multipart/form-data` with the boundary `fetch` adds, and a
