@@ -712,15 +712,16 @@ A self-hosted runner has to provide what the hosted image has and the jobs use:
 - `bash`, `git`, `curl` and `tar`, as on any runner the actions run on;
 - an SSH client (`ssh`, `ssh-keygen`) for the deploy job.
 
-The GitHub CLI is not required (issue #686). The jobs that call `gh` (`deploy-cut-release` → `cut`, `deploy-report`
-→ `report`, `deploy-release-notes` → `notes`, `deploy-cancel-run` → `cancel`, `deploy-integration` → `record`) run
-the step "Set up the GitHub CLI" after the runner check (and after "Empty the workspace" in a job that checks out). A runner that has `gh` uses its own and the step does
-nothing; on one without it the step downloads GitHub CLI 2.103.0 for Linux x64 or arm64 from its GitHub release,
-checks the archive against the SHA-256 pinned in the workflow, unpacks it into `$RUNNER_TEMP` for that job only and
-puts it on `PATH`, with no `sudo` and no change to the machine. The runner must reach `github.com` for that. Any other
-platform (macOS, Windows, 32-bit ARM), a missing `curl` or `tar`, a failed download or a checksum that does not match
-fails the step with a message that names the cause; install `gh` on such a runner instead. An app's own steps that
-call `gh` (its release notes, say) do not get this step: on a self-hosted runner they install `gh` themselves.
+The GitHub CLI is not required (issue #686). The jobs that call `gh` (`deploy-cut-release` → `cut`, `deploy-report` →
+`report`, `deploy-release-notes` → `notes`, `deploy-cancel-run` → `cancel`, `deploy-integration` → `record`) run the
+step "Set up the GitHub CLI" after the runner check (and after "Empty the workspace" in a job that checks out). A runner
+that has `gh` uses its own and the step does nothing; on one without it the step downloads GitHub CLI 2.103.0 for Linux
+x64 or arm64 from its GitHub release, checks the archive against the SHA-256 pinned in the workflow, unpacks it into
+`$RUNNER_TEMP` for that job only and puts it on `PATH`, with no `sudo` and no change to the machine. The runner must
+reach `github.com` for that. Any other platform (macOS, Windows, 32-bit ARM), a missing `curl` or `tar`, a failed
+download or a checksum that does not match fails the step with a message that names the cause; install `gh` on such a
+runner instead. An app's own steps that call `gh` (its release notes, say) do not get this step: on a self-hosted runner
+they install `gh` themselves.
 
 Never use a self-hosted runner for a public repository: a pull request from a fork runs its own code on the machine,
 with whatever that machine can reach, and a non-ephemeral runner keeps what it left there for the next job.
