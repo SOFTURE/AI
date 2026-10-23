@@ -230,53 +230,84 @@ A webhook from a product you do not control is signed in that product's format: 
 under a secret the provider issued, written in hex or base64 in a header of its own, sometimes behind a prefix, with
 no timestamp. `verifyWebhookSignature` checks any such format; the format is three values, not a provider SDK.
 
+The route for one sender is a `handleWebhook` call. It takes the web `Request` and returns the `Response`, so on
+Next.js it is the route handler body:
+
 ```ts
-import { readSmallBodyBytes, verifyWebhookSignature } from "@softure-ai/security";
-import { recordDeliveryOnce } from "@softure-ai/security/server";
+import { WEBHOOK_SENDERS } from "@softure-ai/security";
+import { handleWebhook } from "@softure-ai/security/server";
 
-export async function POST(request: Request): Promise<Response> {
-  const body = await readSmallBodyBytes(request, { maxBytes: 1024 * 1024 });
-  if (!body.ok) return Response.json({ error: body.error }, { status: body.error === "security.body_too_large" ? 413 : 400 });
+const issueEventSchema = z.object({ action: z.string(), issue: z.object({ id: z.number() }) });
 
-  const signed = await verifyWebhookSignature({
+export function POST(request: Request): Promise<Response> {
+  return handleWebhook({ db, clock: systemClock, config }, request, {
+    source: "github",
+    maxBytes: 1024 * 1024,
+    sender: WEBHOOK_SENDERS.github,
     secret: process.env.GITHUB_WEBHOOK_SECRET,
-    header: request.headers.get("x-hub-signature-256"),
-    body: body.value,
-    algorithm: "sha256",
-    encoding: "hex",
-    prefix: "sha256=",
-  });
-  if (!signed.ok) return Response.json({ error: signed.error }, { status: 401 });
-
-  const event: unknown = JSON.parse(new TextDecoder().decode(body.value));
-  return db.transaction(async (tx) => {
-    const delivery = await recordDeliveryOnce(
-      { db: tx, clock: systemClock, config },
-      { source: "github", deliveryId: request.headers.get("x-github-delivery") ?? "" },
-    );
-    if (!delivery.ok) return Response.json({ error: delivery.error }, { status: 400 });
-    if (!delivery.value) return new Response(null, { status: 200 }); // a retry: already done
-    // … the work, with tx
-    return new Response(null, { status: 200 });
+    schema: issueEventSchema,
+    handle: async (event, { db: tx }) => {
+      // The work, with the delivery's transaction: store the event or `enqueueJob({ db: tx, … }, …)`.
+    },
   });
 }
 ```
 
-**Presets.** The formats of a few common senders, from their public documentation; check the provider's current
-docs when adding one.
+The order is fixed: the size limit, the signature over the raw bytes, then parsing and validating the event, then
+the delivery recorded (`recordDeliveryOnce`) and `handle` run in one transaction. Nothing is parsed before the
+signature verifies and nothing is recorded before the event validates. Error bodies are `{ "error": "<code>" }`,
+never a message:
 
-| Sender | Signature header | `algorithm` | `encoding` | `prefix` | Delivery id header |
+| Status | Code | When |
+| --- | --- | --- |
+| 200 | none | the work is done, or the delivery is a replay (the work is skipped) |
+| 413 | `security.body_too_large` | the body is over `maxBytes` |
+| 400 | `security.body_unreadable` | the body could not be read |
+| 401 | `security.signature_invalid` | the signature does not verify, or `secret` is missing or empty |
+| 400 | `security.webhook_payload_invalid` | the body is not UTF-8 JSON, or `schema` refuses it |
+| 400 | `security.delivery_id_invalid` | the delivery id is missing, empty, over 200 characters or holds control characters |
+| 500 | `security.webhook_failed` | `handle` (or the database) threw: logged with the error message, rolled back, so the sender's retry is processed |
+
+A sender without a delivery id header (Lemon Squeezy) gets `deliveryId: (event) => event.meta.webhook_id`, read from
+the validated event. A sender the presets lack is any `{ header, algorithm, encoding, prefix?, deliveryIdHeader? }`
+(`WebhookSender`). A missing `deliveryIdHeader` without `deliveryId`, and a malformed `source`, throw before the
+request is read: both are configuration bugs.
+
+**Testing a route.** `signWebhookRequest({ url, sender, secret, body, deliveryId?, headers? })` builds the POST the
+sender would send, signed with `signWebhookBody`:
+
+```ts
+const request = await signWebhookRequest({
+  url: "https://app.example/api/webhooks/github",
+  sender: WEBHOOK_SENDERS.github,
+  secret: "test-secret",
+  body: JSON.stringify({ action: "opened", issue: { id: 42 } }),
+  deliveryId: "d-1",
+});
+expect((await POST(request)).status).toBe(200);
+```
+
+**By hand.** For a flow `handleWebhook` does not fit (a body that is not JSON, work that cannot share the
+transaction), the same steps are public: `readSmallBodyBytes` (413/400), `verifyWebhookSignature` (401), a guarded
+parse, then `recordDeliveryOnce` in the work's transaction, or `forgetDelivery` when the work fails outside it.
+
+**Presets.** The formats of a few common senders, from their public documentation, exported as `WEBHOOK_SENDERS`
+(`@softure-ai/security` and `/signed-request`); check the provider's current docs when adding one.
+
+| Preset | Signature header | `algorithm` | `encoding` | `prefix` | Delivery id header |
 | --- | --- | --- | --- | --- | --- |
-| GitHub | `X-Hub-Signature-256` | `"sha256"` | `"hex"` | `"sha256="` | `X-GitHub-Delivery` |
-| GitHub, legacy | `X-Hub-Signature` | `"sha1"` | `"hex"` | `"sha1="` | `X-GitHub-Delivery` |
-| Shopify | `X-Shopify-Hmac-Sha256` | `"sha256"` | `"base64"` | none | `X-Shopify-Webhook-Id` |
-| Lemon Squeezy | `X-Signature` | `"sha256"` | `"hex"` | none | none: deduplicate on an id in the verified payload |
+| `github` | `X-Hub-Signature-256` | `"sha256"` | `"hex"` | `"sha256="` | `X-GitHub-Delivery` |
+| `githubSha1` | `X-Hub-Signature` | `"sha1"` | `"hex"` | `"sha1="` | `X-GitHub-Delivery` |
+| `shopify` | `X-Shopify-Hmac-Sha256` | `"sha256"` | `"base64"` | none | `X-Shopify-Webhook-Id` |
+| `lemonSqueezy` | `X-Signature` | `"sha256"` | `"hex"` | none | none: deduplicate on an id in the verified payload |
 
 A sender that signs `"<timestamp>.<body>"` and writes `t=<seconds>,v1=<hex>` (Stripe's `Stripe-Signature`) already
 matches `verifySignedRequest` (§4, "Signed requests"), which also bounds the timestamp.
 
 | Function | Returns |
 | --- | --- |
+| `handleWebhook(ctx, request, { source, maxBytes, sender, secret, schema, deliveryId?, handle })` (`/server`) | the `Response` (table above) |
+| `signWebhookRequest({ url, sender, secret, body, deliveryId?, headers? })` (`@softure-ai/security` and `/signed-request`) | a signed `Request`, for tests of a route |
 | `verifyWebhookSignature({ secret, header, body, algorithm, encoding, prefix? })` (`@softure-ai/security` and `/signed-request`) | `Ok<undefined>` or `Err<"security.signature_invalid">` |
 | `signWebhookBody({ secret, body, algorithm, encoding, prefix? })` (same entries) | the header value the provider would send, for tests of a handler |
 | `recordDeliveryOnce(ctx, { source, deliveryId })` (`/server`) | `Ok<true>` the first time, `Ok<false>` for a replay, or `Err<"security.delivery_id_invalid">` |
@@ -427,7 +458,8 @@ No UI. Show the error codes through your own forms with the copy below.
 ## 9. Copy
 
 `errors.rate_limited`, `errors.client_unidentified`, `errors.body_too_large`,
-`errors.body_unreadable`, `errors.signature_invalid`, `errors.delivery_id_invalid` and the `errors.outbound_*` keys in
+`errors.body_unreadable`, `errors.signature_invalid`, `errors.delivery_id_invalid`,
+`errors.webhook_payload_invalid`, `errors.webhook_failed` and the `errors.outbound_*` keys in
 `src/messages/en.ts`, one per error code
 (`security.<key>`). Override them per locale: `security({ …, messages: { en: { errors: { rate_limited: "…" } } } })`.
 
