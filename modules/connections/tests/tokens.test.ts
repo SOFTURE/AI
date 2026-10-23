@@ -1,7 +1,7 @@
 // getAccessToken: a fresh token as stored, a refresh close to expiry under the row's lease (one refresh for
 // overlapping callers), rotation, the terminal invalid_grant with the hook once, and retryable failures.
 import type { ReconnectRequiredEvent } from "@softure-ai/connections";
-import { getAccessToken, listConnections } from "@softure-ai/connections/server";
+import { getAccessToken, listConnections, replaceRejectedToken } from "@softure-ai/connections/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { connectFake } from "./connect.js";
 import { createTestConnections, NOW, readRawRow, type CreateTestConnectionsOptions, type TestConnections } from "./support.js";
@@ -179,6 +179,60 @@ describe("getAccessToken", () => {
       console.error = original;
     }
     expect(logged).toEqual(["@softure-ai/connections: the onReconnectRequired hook failed: Error"]);
+  });
+
+  it("forceRefresh refreshes a fresh token under the lease and stores the new one", async () => {
+    await setUp();
+    const first = await token();
+    const forced = await getAccessToken(test.ctx, { provider: "fake", forceRefresh: true });
+    if (!forced.ok) throw new Error(`test: forced refresh failed with ${forced.error}`);
+    expect(forced.value.accessToken).not.toBe(first);
+    expect(test.fake.calls.refresh).toBe(1);
+    expect(await token()).toBe(forced.value.accessToken);
+    expect(await readRawRow(test.database, "fake")).toMatchObject({ refreshed_at: test.clock.now(), lease_id: null, lease_until: null });
+  });
+
+  it("forceRefresh refreshes once for overlapping callers", async () => {
+    await setUp();
+    test.fake.setDelay(30);
+    const results = await Promise.all([1, 2, 3].map(() => getAccessToken(test.ctx, { provider: "fake", forceRefresh: true })));
+    expect(test.fake.calls.refresh).toBe(1);
+    expect(new Set(results.map((result) => (result.ok ? result.value.accessToken : result.error))).size).toBe(1);
+  });
+
+  it("forceRefresh turns invalid_grant into reconnect_required with the hook once", async () => {
+    await setUp();
+    test.fake.revokeGrant();
+    expect(await getAccessToken(test.ctx, { provider: "fake", forceRefresh: true })).toEqual({ ok: false, error: "connections.reconnect_required" });
+    expect(events.map((event) => event.reason)).toEqual(["invalid_grant"]);
+  });
+
+  it("forceRefresh keeps the connection on a retryable failure", async () => {
+    await setUp();
+    test.fake.failNext("unavailable");
+    expect(await getAccessToken(test.ctx, { provider: "fake", forceRefresh: true })).toEqual({ ok: false, error: "connections.refresh_failed" });
+    expect(await readRawRow(test.database, "fake")).toMatchObject({ status: "connected", last_error: "connections.refresh_failed", lease_id: null });
+  });
+
+  it("forceRefresh answers the stored token when there is no refresh token", async () => {
+    await setUp({ fake: { issuesRefreshToken: false } });
+    const first = await token();
+    expect(await token()).toBe(first);
+    const forced = await getAccessToken(test.ctx, { provider: "fake", forceRefresh: true });
+    expect(forced.ok && forced.value.accessToken).toBe(first);
+    expect(test.fake.calls.refresh).toBe(0);
+    expect(events).toEqual([]);
+  });
+
+  it("replaceRejectedToken refreshes only while the stored token is the refused one", async () => {
+    await setUp();
+    const first = await token();
+    const replaced = await replaceRejectedToken(test.ctx, { provider: "fake", rejectedToken: first });
+    if (!replaced.ok) throw new Error(`test: replace failed with ${replaced.error}`);
+    expect(replaced.value.accessToken).not.toBe(first);
+    // A second caller that saw the same 401 reads the replacement instead of refreshing again.
+    expect(await replaceRejectedToken(test.ctx, { provider: "fake", rejectedToken: first })).toEqual(replaced);
+    expect(test.fake.calls.refresh).toBe(1);
   });
 
   it("answers codes for what it cannot serve", async () => {

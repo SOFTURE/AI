@@ -4,6 +4,26 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `requestWithConnection(ctx, { provider, accountId? }, options)` in `/server`, and `requestWithConnection({ provider,
+  accountId? }, options)` in `/next` with the app's context (#663): one API call with the stored credential of any
+  kind. It sets the `Authorization` header, takes every option of `requestJson` and returns its result unchanged; on a
+  401 with OAuth it refreshes once and retries once, and only a second 401 (or the first for an API key or Basic
+  credential, or for OAuth without a refresh token) calls `reportCredentialRejected` and answers
+  `connections.reconnect_required`. Credential failures come back as the `connections.*` codes.
+- `getAccessToken(ctx, { provider, accountId?, forceRefresh: true })` refreshes now, under the row's lease, even when
+  the token is not close to expiry (`invalid_grant` is terminal as before; without a refresh token the stored token is
+  answered). `replaceRejectedToken(ctx, { provider, accountId?, rejectedToken })` refreshes only while the stored
+  token is the refused one, so overlapping callers spend one refresh.
+- `/testing`: the fake provider has a resource endpoint `fake.apiUrl` (401 for a token it does not accept),
+  `fake.rejectAccessTokens()` (every issued access token refused early) and `fake.calls.api`.
+- Migration for an app: optional. An API client that repeats `getAccessToken` (or `getCredential`),
+  `getAuthorizationHeader`, `requestJson` and `reportCredentialRejected` on a 401 can be replaced by one
+  `requestWithConnection` call with the same `requestJson` options (drop its own `authorization` header). Branch on
+  `connections.reconnect_required` (terminal) versus `connections.refresh_failed` / `connections.refresh_in_progress`
+  (retry later) as with `getAccessToken`.
+
 ## 0.1.1
 
 - No change for an app: the code is that of 0.1.0. This is the first version published through the package's npm
