@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- `stripe()` creates the Checkout session through core's `requestJson({ form, errorSchema })` (#677) instead of its own
+  `fetch` call. Codes, the logged HTTP status and Stripe's `error.type`/`error.code` are unchanged, and the request
+  still goes out with `cache: "no-store"`. Two fixes come with it: a redirect is refused (logged with its status)
+  instead of followed with the secret key, and a network failure is logged by its code (`core.http_unreachable`)
+  instead of the error's name. Needs the `@softure-ai/core` release that carries `form` and `errorSchema` (the range is
+  raised with it).
+
 ## 0.9.0
 
 - **The access notice takes the app's own actions** (#587): `AccessNotice` (`/ui`) and `CurrentAccessNotice`
