@@ -1,6 +1,6 @@
 ---
 change_id: connections-api-key-header-675
-status: in_progress
+status: archived
 ---
 
 # Plan: API key placement (issue #675)
@@ -48,6 +48,6 @@ README §3 (option row and example), §4 (`getCredentialHeader`), CHANGELOG `## 
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1: c219933
+- [x] Phase 2: 4e36320
+- [x] Phase 3: 6b23eb1

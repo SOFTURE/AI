@@ -1,12 +1,13 @@
 ---
 change_id: connections-api-key-header-675
 title: "connections: API keys in a custom header or with a scheme other than Bearer (issue #675)"
-status: open
+status: archived
 roadmap_item: null
 issue: 675
 branch: claude/project-thread-nyz2r8
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent

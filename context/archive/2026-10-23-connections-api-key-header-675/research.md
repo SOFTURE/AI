@@ -1,6 +1,6 @@
 ---
 change_id: connections-api-key-header-675
-status: done
+status: archived
 ---
 
 # Research: API key placement (issue #675)
