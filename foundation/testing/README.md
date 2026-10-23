@@ -175,7 +175,9 @@ api.expectAllUsed(); // every scripted answer was used and no call went unanswer
   call rejects with the signal's reason; an already aborted signal rejects at once.
 - **Records.** `api.calls` lists every answered call as `{ method, url, headers, body, json }`: the method
   in upper case, header names in lower case, the body as text (null without one) and parsed as JSON
-  (undefined when it is not JSON). A `Request` input is read the same way; `init` wins over it.
+  (undefined when it is not JSON). A URL-encoded or multipart body (a `URLSearchParams` or `FormData`, or a
+  string sent with that content type) adds `form`, its fields in order: `{ kind: "text", name, value }` or
+  `{ kind: "file", name, fileName, type, size }`. A `Request` input is read the same way; `init` wins over it.
 - **Unmatched calls fail.** A call no route answers rejects with
   `fakeFetch: no scripted answer for <METHOD> <url>` and lands in `api.unmatched`. Code under test may
   catch that rejection (`requestJson` reports it as a network error), so `expectAllUsed()` throws for it

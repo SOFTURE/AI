@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `requestWithConnection` takes `requestJson`'s new `form` option (a `URLSearchParams` or a `FormData` with files)
+  and sends it as it is, also on the retry after an OAuth refresh (#676). Needs the next `@softure-ai/core` release.
+
 ## 0.2.0
 
 - `requestWithConnection(ctx, { provider, accountId? }, options)` in `/server`, and `requestWithConnection({ provider,
