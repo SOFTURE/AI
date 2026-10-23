@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`testing@x.y.z`).
 
+## Unreleased
+
+- `fakeFetch(routes)`: a scripted fake `fetch` for code that takes an injected `fetch` (`requestJson`, API
+  clients). Routes by method and exact URL or `RegExp`, in order or `repeat`; answers with `json`, `body`, `status`,
+  `headers`, `throws` or a `delayMs` that respects `init.signal`; records each call (`method`, `url`, lower-case
+  `headers`, `body`, `json`); an unmatched call rejects with its method and URL and fails `expectAllUsed()`, which
+  also lists routes that never answered. Additive: an app can replace its own fakes one suite at a time by passing
+  `api.fetch` where it passed its fake, and asserting on `api.calls` instead of `mock.calls` (#664).
+
 ## 0.1.5
 
 - `createTestDatabaseClient(url, { max? })` in `@softure-ai/testing/playwright`: a raw client on the integration

@@ -11,6 +11,8 @@ Test tools shared by SOFTURE apps and modules:
 - Playwright helpers for black-box tests of an app: a `test` with its own client address per test, a
   config preset, client addresses, the auth forms, unique test data, the product select, polling, links
   and assertions ([Playwright helpers](#playwright-helpers));
+- a scripted fake `fetch` for code that takes an injected `fetch`, such as `requestJson` from
+  `@softure-ai/core` or an API client ([Fake fetch](#fake-fetch));
 - source guards for architecture tests: raw colours, inline copy, forbidden phrases, import lists, comment
   stripping and the Next.js server-action rules ([Source guards](#source-guards)).
 
@@ -140,6 +142,50 @@ export default mergeConfig(
 
 `vitest` is an optional peer dependency.
 
+## Fake fetch
+
+Code that calls another service takes an injected `fetch`. `fakeFetch(routes)` answers it from a script and
+never reaches the network:
+
+```ts
+import { fakeFetch } from "@softure-ai/testing";
+
+const api = fakeFetch([
+  { method: "GET", url: "https://api.example.com/v1/items?page=1", json: { items: [], next: null }, headers: { link: '<https://api.example.com/v1/items?page=2>; rel="next"' } },
+  { method: "POST", url: /\/v1\/items$/, status: 429, headers: { "retry-after": "30" } },
+  { url: "https://api.example.com/v1/down", throws: new TypeError("fetch failed") },
+  { url: "https://api.example.com/v1/slow", delayMs: 60_000, repeat: true },
+]);
+
+await client({ fetch: api.fetch }).list();
+expect(api.calls[0]).toMatchObject({ method: "GET", headers: { authorization: "Bearer t" } });
+api.expectAllUsed(); // every scripted answer was used and no call went unanswered
+```
+
+- **Routing.** A route matches a method (any letter case; omitted, any method) and an exact URL (compared
+  after URL normalisation, so `https://a.example` matches `https://a.example/`) or a `RegExp` tested against
+  the full URL. A route answers one call, then is spent; `repeat: true` answers every matching call. For a
+  call the first matching route that still answers wins, so routes with the same URL answer in the listed
+  order.
+- **Answers.** One of `json` (sent with `content-type: application/json` unless `headers` sets one),
+  `body` (any `BodyInit`; use a string or bytes on a repeated route, since a stream is read once) or
+  `throws` (the call rejects with that error, as a network failure does); with none, an empty body.
+  `status` defaults to 200 and must be 200 to 599. Each call gets a fresh `Response`.
+- **Delay.** `delayMs` waits before answering. When `init.signal` aborts during the wait (a timeout), the
+  call rejects with the signal's reason; an already aborted signal rejects at once.
+- **Records.** `api.calls` lists every answered call as `{ method, url, headers, body, json }`: the method
+  in upper case, header names in lower case, the body as text (null without one) and parsed as JSON
+  (undefined when it is not JSON). A `Request` input is read the same way; `init` wins over it.
+- **Unmatched calls fail.** A call no route answers rejects with
+  `fakeFetch: no scripted answer for <METHOD> <url>` and lands in `api.unmatched`. Code under test may
+  catch that rejection (`requestJson` reports it as a network error), so `expectAllUsed()` throws for it
+  too, together with every route that never answered.
+- **Checked when built.** Two answers on one route, a body with status 204, 205 or 304, a status outside
+  200 to 599 or a negative delay throws from `fakeFetch` itself, naming the route.
+
+`api.fetch` fits `typeof fetch` and core's `FetchFunction`. The helper throws plain errors, so it needs no
+Vitest at run time.
+
 ## API
 
 | Export | What it does |
@@ -155,6 +201,8 @@ export default mergeConfig(
 | `shiftClock(day)` | Moves the global `Date` to noon of `day` and lets it run; shifting again replaces the earlier shift. |
 | `restoreClock()` | Puts the real `Date` back; does nothing when the clock is not shifted. |
 | `isClockShifted()` | Whether the global `Date` is shifted. |
+| `fakeFetch(routes)` | A scripted [fake fetch](#fake-fetch): `{ fetch, calls, unmatched, expectAllUsed }`; throws for a route that cannot be answered as scripted. |
+| `FakeFetchRoute`, `FakeFetchCall`, `FakeFetch` | The types of a route, a recorded call and the fake. |
 
 ## Playwright helpers
 
