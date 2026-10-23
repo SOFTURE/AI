@@ -1,6 +1,6 @@
 ---
 change_id: ci-render-ffmpeg-672
-status: planned
+status: archived
 ---
 
 # Plan: ffmpeg without apt in the marketing-kit render job (issue #672)
@@ -44,5 +44,5 @@ Files: `.github/workflows/ci.yml`, `tools/marketing-kit/README.md`.
 
 ## Progress
 
-- [ ] Phase 1: repository test (fails first)
-- [ ] Phase 2: the workflow step and the README
+- [x] Phase 1: repository test (fails first) (fails on the apt step, passes after Phase 2; 888e6b8)
+- [x] Phase 2: the workflow step and the README (step script run locally against the real release: both checksums OK in 3 s, a wrong checksum exits 1; actionlint 1.7.12 clean; render test 2/2 passed locally with the static FFmpeg 6.0 first on PATH, 272 s; fa624f8)

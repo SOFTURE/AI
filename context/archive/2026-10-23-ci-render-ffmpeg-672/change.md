@@ -1,12 +1,13 @@
 ---
 change_id: ci-render-ffmpeg-672
 title: "ci: the marketing-kit render job installs ffmpeg without apt (issue #672)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 672
 branch: claude/project-thread-h45fkw
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent
