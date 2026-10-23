@@ -1,6 +1,6 @@
 ---
 change_id: billing-access-changed-hook-696
-status: in_progress
+status: archived
 ---
 
 # Plan: a hook when access changes, and the account in onDelivery (issue #696)

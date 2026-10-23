@@ -1,12 +1,13 @@
 ---
 change_id: billing-access-changed-hook-696
 title: "billing: a hook when access is granted, refunded or extended, and the account in onDelivery (issue #696)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 696
 branch: claude/project-thread-3in7ns
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent
