@@ -48,6 +48,8 @@ export {
   type HttpJsonRetryableCode,
   type HttpJsonWriteMethod,
   type LinkHeaderLinks,
+  type RequestJsonFormWriteOptions,
+  type RequestJsonJsonWriteOptions,
   type RequestJsonOptions,
   type RequestJsonReadHeadersOptions,
   type RequestJsonReadOptions,

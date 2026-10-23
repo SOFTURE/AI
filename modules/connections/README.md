@@ -167,7 +167,7 @@ const inbox = await requestWithConnection(
 if (!inbox.ok) return inbox; // connections.reconnect_required is terminal; refresh_failed and refresh_in_progress retry
 ```
 
-`requestWithConnection` takes every option of `requestJson` (`schema`, `method`, `body`, `idempotencyKey`,
+`requestWithConnection` takes every option of `requestJson` (`schema`, `method`, `body` or `form`, `idempotencyKey`,
 `readHeaders`, `fetch`, `timeoutMs`), sets the `Authorization` header (it replaces one the caller passes) and returns
 the `requestJson` result unchanged, with these exceptions:
 
@@ -178,7 +178,8 @@ the `requestJson` result unchanged, with these exceptions:
 - a second 401, a 401 with an API key or Basic credential, or a 401 with an OAuth connection without a refresh token:
   `reportCredentialRejected` (the hook runs once) and `connections.reconnect_required`.
 
-A 403 is a permission problem, not a dead credential: it comes back as `core.http_refused` and reports nothing.
+A `form` (a `URLSearchParams` or a `FormData` with files) is sent as it is, and sent again on the retry after a
+refresh. A 403 is a permission problem, not a dead credential: it comes back as `core.http_refused` and reports nothing.
 
 An app with its own HTTP client reads the token and refreshes it itself:
 

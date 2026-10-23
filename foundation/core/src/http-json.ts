@@ -1,5 +1,5 @@
-// A JSON call to a third-party API (a GET, or a write with a JSON body), with the details every app's own copy has to
-// get right: a timeout, no redirect followed (a key in a header or the URL never reaches another host), and every
+// A JSON call to a third-party API (a GET, or a write with a JSON or form body), with the details every app's own copy
+// has to get right: a timeout, no redirect followed (a key in a header or the URL never reaches another host), and every
 // failure returned as a code. A caught error's message is never read, since it can quote the URL and some APIs put
 // the key there. The body stays `unknown` unless a zod schema narrows it. Response headers are read only by name from
 // the caller's allow-list, so nothing secret is surfaced by accident.
@@ -74,17 +74,39 @@ export interface RequestJsonSchemaOptions<S extends z.ZodType> extends RequestJs
 export interface RequestJsonReadOptions extends RequestJsonOptions {
   readonly method?: "GET";
   readonly body?: never;
+  readonly form?: never;
   readonly idempotencyKey?: never;
 }
 
-/** A write: the body is sent as JSON, and an answer with no body is `ok(undefined)`. */
-export interface RequestJsonWriteOptions extends RequestJsonOptions {
+interface RequestJsonWriteBaseOptions extends RequestJsonOptions {
   readonly method: HttpJsonWriteMethod;
-  /** Serialised with `JSON.stringify`; `undefined` sends no body. A value JSON cannot represent throws. */
-  readonly body?: unknown;
   /** Sent as `Idempotency-Key`, for providers that deduplicate retried writes by it. */
   readonly idempotencyKey?: string;
 }
+
+/** A write with a JSON body (or none). */
+export interface RequestJsonJsonWriteOptions extends RequestJsonWriteBaseOptions {
+  /**
+   * Serialised with `JSON.stringify`; `undefined` sends no body. A value JSON cannot represent throws, and so does a
+   * `FormData`, `URLSearchParams`, `Blob`, binary buffer or stream (send a form with `form`).
+   */
+  readonly body?: unknown;
+  readonly form?: undefined;
+}
+
+/** A write with a form body; the answer is still read as JSON. */
+export interface RequestJsonFormWriteOptions extends RequestJsonWriteBaseOptions {
+  /**
+   * `URLSearchParams` is sent as `application/x-www-form-urlencoded` (a `Content-Type` in `headers` wins). `FormData`
+   * is sent as `multipart/form-data` with the boundary `fetch` adds; a `Content-Type` in `headers` is dropped, since
+   * it could not carry the boundary.
+   */
+  readonly form: URLSearchParams | FormData;
+  readonly body?: undefined;
+}
+
+/** A write: the body is sent as JSON or as a form, and an answer with no body is `ok(undefined)`. */
+export type RequestJsonWriteOptions = RequestJsonJsonWriteOptions | RequestJsonFormWriteOptions;
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_RETRY_AFTER_SECONDS = 86_400;
@@ -127,8 +149,8 @@ export async function requestJson(
   const fetchFunction = options.fetch ?? globalThis.fetch;
   const method = options.method ?? "GET";
   const isWrite = method !== "GET";
-  // Outside the try on purpose: a body JSON cannot represent is the caller's bug, not an unreachable service.
-  const body = options.body === undefined ? undefined : JSON.stringify(options.body);
+  // Outside the try on purpose: a body that cannot be sent is the caller's bug, not an unreachable service.
+  const { body, contentType } = getRequestBody(options);
 
   let response: Response;
   try {
@@ -137,8 +159,11 @@ export async function requestJson(
     if (!headers.has("accept")) {
       headers.set("accept", "application/json");
     }
-    if (body !== undefined && !headers.has("content-type")) {
-      headers.set("content-type", "application/json");
+    if (contentType === null) {
+      // A multipart body: `fetch` sets the type with the boundary, and a hand-set one would make it unreadable.
+      headers.delete("content-type");
+    } else if (contentType !== undefined && !headers.has("content-type")) {
+      headers.set("content-type", contentType);
     }
     if (options.idempotencyKey !== undefined) {
       headers.set("idempotency-key", options.idempotencyKey);
@@ -263,6 +288,41 @@ export function toQueryString(params: Readonly<Record<string, string | number | 
     }
   }
   return search.toString();
+}
+
+/**
+ * The body to send and the content type to set unless `headers` has one (`null`: remove any, `fetch` sets it).
+ * Throws for a misuse, before anything is sent.
+ */
+function getRequestBody(options: RequestJsonReadOptions | RequestJsonWriteOptions): {
+  readonly body: string | URLSearchParams | FormData | undefined;
+  readonly contentType: string | null | undefined;
+} {
+  // Read as unknown: a JavaScript caller can pass what the types rule out.
+  const form: unknown = options.form;
+  if (form !== undefined) {
+    if (options.body !== undefined) throw new TypeError("requestJson: pass either body or form, not both");
+    if ((options.method ?? "GET") === "GET") throw new TypeError("requestJson: a GET carries no form");
+    if (form instanceof URLSearchParams) return { body: form, contentType: "application/x-www-form-urlencoded" };
+    if (form instanceof FormData) return { body: form, contentType: null };
+    throw new TypeError("requestJson: form must be a URLSearchParams or a FormData");
+  }
+  if (options.body === undefined) return { body: undefined, contentType: undefined };
+  const kind = getNonJsonBodyKind(options.body);
+  if (kind !== null) {
+    // JSON.stringify would send `{}` (or a buffer's indices) and the provider would get nothing it can read.
+    throw new TypeError(`requestJson: body is ${kind}, which JSON cannot carry; use \`form\` for a form or a file upload`);
+  }
+  return { body: JSON.stringify(options.body), contentType: "application/json" };
+}
+
+function getNonJsonBodyKind(body: unknown): string | null {
+  if (body instanceof FormData) return "a FormData";
+  if (body instanceof URLSearchParams) return "a URLSearchParams";
+  if (body instanceof Blob) return "a Blob";
+  if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) return "a binary buffer";
+  if (body instanceof ReadableStream) return "a stream";
+  return null;
 }
 
 function getStatusFailureCode(response: Response): HttpJsonFailureCode | null {

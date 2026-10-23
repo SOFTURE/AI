@@ -21,6 +21,9 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
   401 handling can declare `header` on its provider and call `requestWithConnection` (or take the header from
   `getCredentialHeader`).
 
+- `requestWithConnection` takes `requestJson`'s new `form` option (a `URLSearchParams` or a `FormData` with files)
+  and sends it as it is, also on the retry after an OAuth refresh (#676). Needs the next `@softure-ai/core` release.
+
 ## 0.2.0
 
 - `requestWithConnection(ctx, { provider, accountId? }, options)` in `/server`, and `requestWithConnection({ provider,
