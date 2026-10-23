@@ -1,6 +1,6 @@
 ---
 change_id: testing-fake-fetch-664
-status: in_progress
+status: archived
 ---
 
 # Plan: a scripted fake fetch (issue #664)
@@ -38,8 +38,12 @@ Files: `foundation/testing/src/fetch/fake-fetch.ts`, `foundation/testing/src/ind
 - An unmatched call rejects (like a network failure) and is also kept in `unmatched`, so `expectAllUsed` fails the
   test even when the code under test swallowed the rejection.
 - The answer is a discriminated union: `json`, `body` or `throws`, never two of them.
+- (During implementation) `throws` takes an `Error` (a `TypeError`, a `DOMException`), not any value: the typed lint
+  rule `only-throw-error` holds, and a network failure is always an error object.
+- (During implementation) a route with two answers is also refused at run time, for callers outside TypeScript.
+- (Implementation review) the delay listens to the signal of a `Request` input as well as `init.signal`.
 
 ## Progress
 
-- [ ] Phase 1: fakeFetch
-- [ ] Phase 2: docs
+- [x] Phase 1: fakeFetch (fbc495a)
+- [x] Phase 2: docs (0209ec2)

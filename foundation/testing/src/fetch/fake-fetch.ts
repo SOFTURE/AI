@@ -63,7 +63,9 @@ export function fakeFetch(routes: readonly FakeFetchRoute[]): FakeFetch {
   const unmatched: FakeFetchCall[] = [];
 
   async function fetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-    throwIfAborted(init?.signal ?? (input instanceof Request ? input.signal : undefined));
+    const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
+    // A real `fetch` rejects with the signal's own reason; `throwIfAborted` throws exactly that.
+    signal?.throwIfAborted();
     const call = await readCall(input, init);
     const state = states.find((entry) => (entry.route.repeat === true || entry.uses === 0) && matches(entry.route, call));
     if (state === undefined) {
@@ -73,7 +75,7 @@ export function fakeFetch(routes: readonly FakeFetchRoute[]): FakeFetch {
     state.uses += 1;
     calls.push(call);
     const { route } = state;
-    if (route.delayMs !== undefined && route.delayMs > 0) await wait(route.delayMs, init?.signal ?? undefined);
+    if (route.delayMs !== undefined && route.delayMs > 0) await wait(route.delayMs, signal ?? undefined);
     if ("throws" in route && route.throws !== undefined) throw route.throws;
     return buildResponse(route);
   }
@@ -169,11 +171,6 @@ function buildResponse(route: FakeFetchRoute): Response {
     return new Response(JSON.stringify(route.json), { status, headers });
   }
   return new Response(NULL_BODY_STATUSES.has(status) ? null : (route.body ?? null), { status, headers });
-}
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  // `throwIfAborted` throws the signal's own reason, as a real `fetch` rejects with it.
-  signal?.throwIfAborted();
 }
 
 function wait(ms: number, signal: AbortSignal | undefined): Promise<void> {

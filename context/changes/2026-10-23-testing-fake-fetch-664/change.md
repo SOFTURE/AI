@@ -1,12 +1,13 @@
 ---
 change_id: testing-fake-fetch-664
 title: "testing: a scripted fake fetch (issue #664)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 664
 branch: claude/project-thread-s3jpy0
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent

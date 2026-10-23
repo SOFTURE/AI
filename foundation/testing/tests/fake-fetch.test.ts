@@ -108,6 +108,12 @@ describe("fakeFetch answers", () => {
     await expect(pending).rejects.toMatchObject({ name: "TimeoutError" });
   });
 
+  it("takes the signal of a Request input when init has none", async () => {
+    const api = fakeFetch([{ url: `${API}/slow`, delayMs: 5_000 }]);
+    const request = new Request(`${API}/slow`, { signal: AbortSignal.timeout(10) });
+    await expect(api.fetch(request)).rejects.toMatchObject({ name: "TimeoutError" });
+  });
+
   it("rejects at once when the signal is already aborted", async () => {
     const controller = new AbortController();
     const reason = new Error("cancelled");
