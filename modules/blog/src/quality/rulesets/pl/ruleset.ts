@@ -35,6 +35,25 @@ export const plRuleset: LanguageRuleset = {
       message: "the \"it is not X, it is Y\" contrast; say Y right away",
     },
     {
+      id: "not-x-but-y-bare",
+      severity: "warning",
+      copySeverity: "error",
+      pattern: wordPattern(`(?<!(?<![\\p{L}\\d])to )nie (?!(?:tylko|chodzi o)(?![\\p{L}\\d]))[^.!?,]{1,60}, (?:tylko|lecz)`),
+      message: "the bare \"not X, but Y\" contrast; say Y right away, and keep the contrast only where someone really claims X",
+    },
+    {
+      id: "verdict-label",
+      severity: "error",
+      pattern: /(?:^|(?<=[.!?…]\s))(?:wniosek|podsumowanie|puenta|morał|sedno)\s?:/giu,
+      message: "a verdict label before the point (\"Conclusion:\"); write the sentence without the label",
+    },
+    {
+      id: "fragile-spot",
+      severity: "error",
+      pattern: wordPattern(`najkruchsz${L} (?:miejsc${L}|ogniw${L}|punkt${L}|element${L})|najsłabsz${L} ogniw${L}|pię[tc]${L} achillesow${L}`),
+      message: "the \"weakest link\" cliché; name what breaks and when",
+    },
+    {
       id: "meta-commentary",
       severity: "error",
       pattern: wordPattern(

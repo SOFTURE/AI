@@ -9,6 +9,8 @@ export interface StylePattern {
   /** The rule id; the same id in two rulesets names the same habit. */
   readonly id: string;
   readonly severity: QualitySeverity;
+  /** The severity in copy that is not an article (`checkCopyText`), when it differs; default: `severity`. */
+  readonly copySeverity?: QualitySeverity;
   /** Global, so every hit counts. */
   readonly pattern: RegExp;
   /** What is wrong and what to write instead. */

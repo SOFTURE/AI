@@ -50,6 +50,7 @@ const CORE_RULES: readonly QualityCatalogRule[] = [
   rule("style", "long-sentences", "warning", "sentences fit in limits.sentenceWords"),
   rule("style", "monotone-rhythm", "warning", "sentence lengths vary"),
   rule("style", "repeated-openings", "warning", "no three sentences in a row start with the same word"),
+  rule("style", "stacked-asides", "warning", "no sentence carries two worded asides in parentheses"),
 ];
 
 const YMYL_RULES: readonly QualityCatalogRule[] = [
