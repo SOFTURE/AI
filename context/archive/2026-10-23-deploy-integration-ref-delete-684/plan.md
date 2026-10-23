@@ -1,6 +1,6 @@
 ---
 change_id: deploy-integration-ref-delete-684
-status: active
+status: archived
 ---
 
 # Plan: integration ref deletion through git/refs (issue #684)
@@ -29,4 +29,6 @@ already has.
 ## Progress
 
 - [x] Phase 1: fix the endpoint (493581d)
-- [ ] Phase 2: changelog
+- [x] Phase 2: changelog (0f1d31c)
+
+Tests were written before the fix in phase 1 (the new test failed with "Not Found (HTTP 404)" on the old path).
