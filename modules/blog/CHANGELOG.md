@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## Unreleased
+
+- **`stacked-asides` ignores formulas (#700):** a word in an aside counts from two letters up, so formula variables
+  and one-letter words no longer make an aside worded. `K × (1 + r/m)^(m × n)` passes `checkCopyText` and gives no
+  warning in an article; real worded asides are flagged as before.
+
 ## 0.4.0
 
 - **A voice check for copy that is not an article (#690):** `checkCopyText(text, { mode, quality })` from
