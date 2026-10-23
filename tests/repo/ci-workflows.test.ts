@@ -10,9 +10,18 @@ import { REPO_ROOT } from "./repo-files.js";
 
 const WORKFLOWS_DIR = join(REPO_ROOT, ".github/workflows");
 
+interface Step {
+  name?: string;
+  uses?: string;
+  with?: Record<string, unknown>;
+  run?: string;
+  env?: Record<string, string>;
+  "timeout-minutes"?: number;
+}
+
 interface Job {
   "timeout-minutes"?: number;
-  steps?: { uses?: string; with?: Record<string, unknown> }[];
+  steps?: Step[];
 }
 
 interface Workflow {
@@ -51,6 +60,22 @@ describe("ci.yml", () => {
       expect(trigger?.["paths-ignore"]).toBeUndefined();
       expect(trigger?.paths).toBeUndefined();
     }
+  });
+
+  // apt fetched ffmpeg from the runner's Ubuntu mirror, which at times served it at a few KB/s and held the render
+  // job until its timeout (#672).
+  it("installs ffmpeg for the render job from pinned, checksummed builds, not apt, within its own timeout", () => {
+    const render = readWorkflow("ci.yml").jobs.render;
+    const install = render?.steps?.find((step) => step.name === "Install ffmpeg");
+    expect(install?.run).toBeDefined();
+    expect(install?.run).not.toMatch(/apt(-get)?\b/);
+    expect(install?.run).toContain("sha256sum -c");
+    expect(install?.run).toContain("$GITHUB_PATH");
+    expect(install?.env?.FFMPEG_RELEASE).toMatch(/^https:\/\/github\.com\/[^/]+\/[^/]+\/releases\/download\/[^/]+$/);
+    expect(install?.env?.FFMPEG_RELEASE).not.toMatch(/\/latest$/);
+    expect(install?.env?.FFMPEG_SHA256).toMatch(/^[0-9a-f]{64}$/);
+    expect(install?.env?.FFPROBE_SHA256).toMatch(/^[0-9a-f]{64}$/);
+    expect(install?.["timeout-minutes"]).toBeLessThan(render?.["timeout-minutes"] ?? 0);
   });
 });
 
