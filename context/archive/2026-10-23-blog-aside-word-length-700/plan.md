@@ -1,6 +1,6 @@
 ---
 change_id: blog-aside-word-length-700
-status: in_progress
+status: archived
 ---
 
 # Plan: single letters do not make an aside worded (issue #700)
@@ -28,5 +28,5 @@ Files: `modules/blog/src/quality/rules/style.ts`, `modules/blog/tests/quality/co
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 1: 9e72e6a
+- [x] Phase 2: 15ed628
