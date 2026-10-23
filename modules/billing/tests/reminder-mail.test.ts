@@ -364,6 +364,28 @@ describe("sendAccessReminders as a delivery run", () => {
     expect(statuses.toSorted()).toEqual(["done", "sent"]);
   });
 
+  it("tells onDelivery which account, kind and scope each outcome is for, and nothing for a skipped account", async () => {
+    const test = await setUp();
+    const adaId = await createAccount(test, "ada@example.com");
+    const bobId = await createAccount(test, "bob@example.com");
+    const carolId = await createAccount(test, "carol@example.com");
+    test.clock.set(IN_TRIAL_WINDOW);
+    const getScope = (reminder: { readonly userId: string; readonly kind: string }) => `app.${reminder.kind}:${reminder.userId}`;
+    const reported: unknown[] = [];
+
+    await sendAccessReminders(test.ctx, {
+      ...NO_PAUSE,
+      getScope,
+      buildMail: ({ reminder, mail }) => (reminder.userId === bobId ? null : mail),
+      onDelivery: (outcome, reminder) => reported.push([outcome.status, reminder]),
+    });
+
+    expect(reported).toHaveLength(2);
+    expect(reported).toEqual(
+      expect.arrayContaining([adaId, carolId].map((accountId) => ["sent", { accountId, kind: "trial-ending", scope: `app.trial-ending:${accountId}` }])),
+    );
+  });
+
   it("finds the app's own ledger entry under a scope it built in SQL from the stored end, microseconds included", async () => {
     const test = await setUp();
     const userId = await createAccount(test, "ada@example.com");

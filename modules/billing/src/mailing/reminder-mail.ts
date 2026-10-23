@@ -6,7 +6,7 @@
 import { formatMessage, type ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import type { OutgoingMail } from "@softure-ai/mailing";
-import { runDeliveries, type Delivery, type DeliveryRunSummary, type RunDeliveriesOptions } from "@softure-ai/mailing/server";
+import { runDeliveries, type Delivery, type DeliveryOutcome, type DeliveryRunSummary, type RunDeliveriesOptions } from "@softure-ai/mailing/server";
 import type { BillingMessages } from "../messages/index.js";
 import { getAccessReminderScope, type AccessReminderKind } from "../reminder.js";
 import { getBillingMessages, getBillingRoutes } from "../server/options.js";
@@ -47,7 +47,15 @@ export interface AccessReminderMailContext {
   readonly ctx: ModuleContext<Queryable>;
 }
 
-export interface SendAccessRemindersOptions extends FindAccessRemindersOptions, RunDeliveriesOptions {
+/** Which reminder a delivery outcome is for (`sendAccessReminders`' `onDelivery`). */
+export interface AccessReminderDelivery {
+  readonly accountId: string;
+  readonly kind: AccessReminderKind;
+  /** The delivery scope in `mailing.deliveries` (the app's own when it passes `getScope`). */
+  readonly scope: string;
+}
+
+export interface SendAccessRemindersOptions extends FindAccessRemindersOptions, Omit<RunDeliveriesOptions, "onDelivery"> {
   /**
    * The app's template: the mail to send this account, or null to send it nothing this run (counted in `skipped`;
    * a later run asks again). Without `html` the mail goes out as plain text. The package's own mail by default.
@@ -63,6 +71,12 @@ export interface SendAccessRemindersOptions extends FindAccessRemindersOptions, 
   readonly getScope?: (reminder: AccessReminderDue) => string;
   /** Milliseconds to wait after each mail a provider was called for. Default 500; 0 never waits. */
   readonly pauseMs?: number;
+  /**
+   * Called after every delivery of a real run with its outcome and the reminder it was for (the account, the kind,
+   * the scope), e.g. to record an analytics event per account. Never receives the address; an account the template
+   * skipped gets no call.
+   */
+  readonly onDelivery?: (outcome: DeliveryOutcome, reminder: AccessReminderDelivery) => void;
 }
 
 /**
@@ -115,17 +129,28 @@ function getDefaultScope(reminder: AccessReminderDue): string {
  * failure propagates, and so does a `limit` that is not a whole number of at least 1.
  */
 export async function sendAccessReminders(ctx: ModuleContext<Queryable>, options: SendAccessRemindersOptions = {}): Promise<AccessReminderSummary> {
-  const { catchUpDays, buildMail, getScope = getDefaultScope, pauseMs = DEFAULT_REMINDER_PAUSE_MS, ...runOptions } = options;
+  const { catchUpDays, buildMail, getScope = getDefaultScope, pauseMs = DEFAULT_REMINDER_PAUSE_MS, onDelivery, ...runOptions } = options;
   const due = await findAccessReminders(ctx, catchUpDays === undefined ? {} : { catchUpDays });
   const messages = getBillingMessages(ctx.config);
   const link = new URL(getBillingRoutes(ctx.config).payment, ctx.config.appOrigin).href;
 
+  // `runDeliveries` builds and delivers one recipient at a time, in order, and reports a delivery before it reads
+  // the next recipient: the outcome it reports is always for the reminder built last.
+  let built: AccessReminderDelivery | null = null;
   const build = async (reminder: AccessReminderDue): Promise<Delivery | null> => {
     const lastDay = formatLastDay(reminder.endsAt, ctx.config.locale, ctx.config.timezone);
     const defaultMail = renderAccessReminderMail(messages, { kind: reminder.kind, lastDay, link });
     const mail = buildMail === undefined ? defaultMail : await buildMail({ reminder, lastDay, link, mail: defaultMail, ctx });
-    return mail === null ? null : { scope: getScope(reminder), mail: { to: reminder.email, ...mail } };
+    if (mail === null) return null;
+    const scope = getScope(reminder);
+    built = { accountId: reminder.userId, kind: reminder.kind, scope };
+    return { scope, mail: { to: reminder.email, ...mail } };
   };
-  const run = await runDeliveries(ctx, { recipients: due, build }, { ...runOptions, pauseMs });
+  const report = (outcome: DeliveryOutcome): void => {
+    // A delivery is only reported after its recipient was built.
+    if (built === null) throw new Error("@softure-ai/billing: a reminder delivery was reported before any was built");
+    onDelivery?.(outcome, built);
+  };
+  const run = await runDeliveries(ctx, { recipients: due, build }, { ...runOptions, pauseMs, ...(onDelivery === undefined ? {} : { onDelivery: report }) });
   return { due: due.length, ...run };
 }
