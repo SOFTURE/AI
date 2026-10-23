@@ -17,3 +17,12 @@ export function parseChannel(value: string | null | undefined, options: ChannelR
   if (normalized.length === 0 || normalized.length > options.maxLength) return null;
   return options.pattern.test(normalized) ? normalized : null;
 }
+
+/**
+ * The raw value that decides the channel in `params`: the first value of the first of `names` present
+ * (the current parameter, then the legacy ones in order), valid or not; undefined when none is present.
+ */
+export function readChannelParam(params: URLSearchParams, names: readonly string[]): string | undefined {
+  const name = names.find((candidate) => params.has(candidate));
+  return name === undefined ? undefined : (params.get(name) ?? undefined);
+}

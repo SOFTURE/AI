@@ -3,13 +3,15 @@
 // before the proxy runs, and a route served from the router's cache sends no request at all). The
 // keeper remembers the last valid tag seen in the address bar and hands back the URL with it when
 // a navigation lands without the parameter. Like the proxy, it never stores the tag anywhere.
-import { parseChannel } from "../channel-rule.js";
+import { parseChannel, readChannelParam } from "../channel-rule.js";
 import type { ChannelNormalization } from "../options.js";
 
 /** The channel options as plain values, so a server component can pass them to the browser. */
 export interface ChannelRule {
   /** The query parameter that carries the channel. */
   readonly param: string;
+  /** Earlier names of the parameter, read after `param` and rewritten to it in the address bar. None when absent. */
+  readonly legacyParams?: readonly string[];
   /** The source of the pattern a valid value matches. */
   readonly pattern: string;
   /** The pattern's flags (never `g` or `y`; the options refuse them). */
@@ -41,22 +43,33 @@ export interface ChannelKeeper {
 }
 
 /**
- * The keeper for one page's lifetime. A URL with the parameter decides: a valid value is remembered,
- * an invalid one forgets the tag, and neither is touched.
+ * The keeper for one page's lifetime. A URL with the parameter (or a legacy name) decides: a valid
+ * value is remembered, an invalid one forgets the tag. A valid value under a legacy name is moved to
+ * `param`, and a legacy name next to `param` is dropped; otherwise a URL that decides is not touched.
  */
 export function createChannelKeeper(rule: ChannelRule): ChannelKeeper {
   const options = { pattern: new RegExp(rule.pattern, rule.flags), maxLength: rule.maxLength, normalize: rule.normalize ?? "none" };
+  const legacyParams = rule.legacyParams ?? [];
+  const names = [rule.param, ...legacyParams];
   const origins = new Set(rule.origins ?? []);
   let remembered: string | null = null;
   const keep = (href: string): string | null => {
     if (!URL.canParse(href)) return null;
     const url = new URL(href);
-    if (url.searchParams.has(rule.param)) {
-      remembered = parseChannel(url.searchParams.get(rule.param), options);
-      return null;
+    const raw = readChannelParam(url.searchParams, names);
+    if (raw !== undefined) {
+      remembered = parseChannel(raw, options);
+      const hasLegacy = legacyParams.some((name) => url.searchParams.has(name));
+      if (!hasLegacy || (remembered === null && !url.searchParams.has(rule.param))) return null;
+      return withRememberedTag(url);
     }
     if (remembered === null) return null;
-    url.searchParams.set(rule.param, remembered);
+    return withRememberedTag(url);
+  };
+  /** `url`'s href with the legacy names gone and `param` set to the remembered tag, or left as it is without one. */
+  const withRememberedTag = (url: URL): string => {
+    for (const name of legacyParams) url.searchParams.delete(name);
+    if (remembered !== null && !url.searchParams.has(rule.param)) url.searchParams.set(rule.param, remembered);
     return url.href;
   };
   const tagLink = (href: string, current: string): string | null => {
@@ -64,7 +77,7 @@ export function createChannelKeeper(rule: ChannelRule): ChannelKeeper {
     const page = new URL(current);
     const link = new URL(href, page);
     if (link.protocol !== "http:" && link.protocol !== "https:") return null;
-    if (link.origin === page.origin || !origins.has(link.origin) || link.searchParams.has(rule.param)) return null;
+    if (link.origin === page.origin || !origins.has(link.origin) || names.some((name) => link.searchParams.has(name))) return null;
     link.searchParams.set(rule.param, remembered);
     return link.href;
   };
