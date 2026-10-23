@@ -4,6 +4,25 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- **A hook on access changes** (#696): `billing({ onAccessChanged(event, ctx) })` is called after a grant, a refund (or
+  a revoked manual grant) or a trial extension committed, with `{ accountId, change: "granted" | "refunded" |
+  "trial_extended", planId, endsAt, entitlement }` and the context the change ran with. It covers the admin page, the
+  ops scripts and provider payments (`recordPayment`, `refundPayment`, `failRefund`, so the Stripe webhook too). A
+  throw is logged by the change's kind and never fails the change. Types `AccessChange`, `AccessChangedEvent`,
+  `OnAccessChanged` from the root entry. Additive.
+- **`sendAccessReminders`' `onDelivery` names the reminder** (#696): a second argument `{ accountId, kind, scope }`
+  (type `AccessReminderDelivery` from `/mailing`); an account `buildMail` skipped gets no call. A one-argument
+  callback keeps working.
+
+  Migration for an app that records billing analytics:
+  1. Pass `onAccessChanged` to `billing({ ... })` and send the event there (e.g. `plan_granted` with `planId`, and
+     the person's current plan from `entitlement`), instead of polling `billing.entitlements` or wrapping the
+     package's server actions.
+  2. In `sendAccessReminders` (or `createBillingJobHandlers({ reminders })`), read the account from `onDelivery`'s
+     second argument and drop the recipient remembered from the last `buildMail` call.
+
 ## 0.9.1
 
 - `stripe()` creates the Checkout session through core's `requestJson({ form, errorSchema })` (#677) instead of its own

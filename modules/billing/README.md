@@ -126,6 +126,7 @@ billing({
 | `payment` | `PaymentProvider` | — | The adapter the payment page uses: `stripe()` or `manual({ onRequest })`. The payment page throws without one. |
 | `partialRefunds` | `"pro_rata"` or `"keep_access"` | `"pro_rata"` | What a partial provider refund does to access (see "Refunds" in §4): `pro_rata` takes back the refunded share of the payment's unused days, `keep_access` nothing until the whole payment is refunded. |
 | `requests.expireAfterDays` | 1-365 | `30` | Days an open invoice request waits, counted from the buyer's last ask; `expireStaleRequests` (run daily, see "Scheduled runs" in §4) then closes it as `expired` and clears its invoice details. |
+| `onAccessChanged` | function | — | Called after a grant, a refund or a trial extension committed (see "Hooks" in §10); a throw is logged and never fails the change. |
 | `adminRole` | role | `admin` | The auth role that may grant plans in `BillingAdminPage`; declare any other in `auth({ roles })`. A role auth does not declare fails the first billing request and the readiness probe. |
 | `routes.payment` | path | `/payment` | Where `PaymentPage` is mounted; the notice and the tiles link there, and Stripe Checkout returns there. |
 | `routes.admin` | path | `/admin/billing` | Where `BillingAdminPage` is mounted; its actions revalidate it, and the account lookup sends the admin there with `?account=<id>`. |
@@ -374,7 +375,8 @@ extended trial or a renewal is a new window. The run is mailing's `runDeliveries
 options: `dryRun` (reads the ledger, sends and writes nothing; `sent` counts what would go out),
 `limit` (most mails handed to the provider; the rest is counted in `remaining`), `retakeUncertain`
 (the operator's word to resend claims old enough that their mail may have gone out), `onDelivery`
-(each outcome, never the address), `stopOnRetryLater` (default `true`) and the claim windows. Its
+(each outcome with the reminder it was for, `{ accountId, kind, scope }`, never the address; an account
+`buildMail` skipped gets no call), `stopOnRetryLater` (default `true`) and the claim windows. Its
 own: `catchUpDays` (0 to 365) and `pauseMs` between two mails the provider was called for (default
 500, Resend's two requests per second). The summary is `runDeliveries`' (`sent`, `skipped` when the
 template returned null, `done`, `inFlight`, `uncertain`, `rejected` by reason, `retryLater`,
@@ -1006,8 +1008,32 @@ payment: manual({
     return sent.ok ? ok() : err(sent.error);
   },
 }),
-``` Apps react to a change in their own code around `changeEntitlement` and
-`grantPlan`. The Stripe webhook has no hook yet; its effect shows in `getEntitlement`.
+```
+
+`billing({ onAccessChanged(event, ctx) })` is called once per change of access that billing records, after its
+transaction committed, with the context the change ran with:
+
+| `change` | Called by | `planId` | `endsAt` |
+| --- | --- | --- | --- |
+| `granted` | `grantPlanManually`, `grantPaymentRequest`, `grantLifetimeManually` (the admin page, the `grant-plan` script), `recordPayment` (a paid checkout, the Stripe webhook), `failRefund` when it gives access back | the plan's id (`LIFETIME_GRANT_PLAN_ID` for lifetime access granted without a plan) | paid access' end after the change; null for lifetime access |
+| `refunded` | `revokeManualGrant` (the admin page, the `revoke-grant` script), `refundPayment` (a full or partial refund, the Stripe webhook), `failRefund` when a kept refund applies | the refunded grant's or payment's plan | paid access' end after the change; null when none is left (or lifetime access stays) |
+| `trial_extended` | `extendTrialManually` (the admin page, the `extend-trial` script) | null | the new trial end |
+
+The event also carries `accountId` and `entitlement` (where the account stands after the change, as `getEntitlement`
+returns it). A refusal, a repeated webhook delivery and an unknown payment call nothing; so do the low-level
+`grantPlan`, `changeEntitlement` and `importEntitlement`, which run inside the caller's transaction and record nothing.
+The hook may read the change through `ctx.db` (it is committed; called with a `ctx` whose `db` is the app's own open
+transaction, it runs after the function's work but before the app commits). A throw or a rejection is logged as
+`@softure-ai/billing: onAccessChanged failed for a "<change>" change: <error name>` (never the message or the account)
+and the change still answers as done, so the hook is for side effects that may be lost, such as analytics:
+
+```ts
+billing({
+  onAccessChanged: async ({ accountId, change, planId }) => {
+    await captureServerEvent({ distinctId: accountId, event: `plan_${change}`, properties: { planId } });
+  },
+}),
+```
 
 ## 11. GDPR
 

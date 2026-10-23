@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import type { Entitlement, TrialExtensionErrorCode } from "../contract.js";
 import { applyEntitlementEvent, resolveEntitlement } from "../entitlement.js";
 import { entitlements, trialExtensions } from "../schema.js";
+import { notifyAccessChanged } from "./access-changed.js";
 import { findEntitlementRecord, pinEntitlementRow, type BillingContext } from "./entitlements.js";
 import { getEntitlementPolicy } from "./options.js";
 import { lockEntitlementRow } from "./take-back.js";
@@ -35,7 +36,7 @@ export interface TrialExtensionResult {
  */
 export async function extendTrialManually(ctx: BillingContext, input: ExtendTrialManuallyInput): Promise<Ok<TrialExtensionResult> | Err<TrialExtensionErrorCode>> {
   if (!isUserId(input.userId)) return err("billing.account_unknown");
-  return ctx.db.transaction(async (tx) => {
+  const extended = await ctx.db.transaction(async (tx): Promise<Ok<TrialExtensionResult & { trialEndsAt: Date }> | Err<TrialExtensionErrorCode>> => {
     const now = ctx.clock.now();
     // A shared lock: the account cannot be deleted before the extension below.
     const [account] = await tx.select({ createdAt: users.createdAt }).from(users).where(eq(users.id, input.userId)).for("key share");
@@ -65,6 +66,10 @@ export async function extendTrialManually(ctx: BillingContext, input: ExtendTria
       .values({ userId: input.userId, extendedBy: input.adminId, extendedAt: now, previousEndsAt: record.trialEndsAt, endsAt: next.value.trialEndsAt })
       .returning();
     if (row === undefined) throw new Error("@softure-ai/billing: recording a trial extension returned no row");
-    return ok({ extensionId: row.id, entitlement: resolveEntitlement(next.value, now, getEntitlementPolicy(ctx.config)) });
+    return ok({ extensionId: row.id, entitlement: resolveEntitlement(next.value, now, getEntitlementPolicy(ctx.config)), trialEndsAt: next.value.trialEndsAt });
   });
+  if (!extended.ok) return extended;
+  const { extensionId, entitlement, trialEndsAt } = extended.value;
+  await notifyAccessChanged(ctx, { accountId: input.userId, change: "trial_extended", planId: null, entitlement, trialEndsAt });
+  return ok({ extensionId, entitlement });
 }
