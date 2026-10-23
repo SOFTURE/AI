@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
-## Unreleased
+## 0.3.3
 
 - **The runner is the caller's choice (#670):** `blog-links.yml` takes the input `runs-on`, JSON: one label
   (`'"ubuntu-latest"'`, the default) or an array of labels (`'["self-hosted","linux"]'`). Nothing to do for an app
