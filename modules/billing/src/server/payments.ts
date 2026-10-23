@@ -23,6 +23,7 @@ import { resolveEntitlement } from "../entitlement.js";
 import { getRestoredDays, moveBackByDays, type RefundShare } from "../refund.js";
 import { payments, refundFailures } from "../schema.js";
 import { readStripeWebhook, type FailedRefund, type PaidCheckout, type StripeWebhookError } from "../stripe-webhook.js";
+import { notifyAccessChanged, type AccessChangeInput } from "./access-changed.js";
 import { changeEntitlement, findEntitlementRecord, type BillingContext } from "./entitlements.js";
 import { getBillingOptions, getEntitlementPolicy } from "./options.js";
 import { applyPlan, getBillingPlans } from "./plans.js";
@@ -64,7 +65,7 @@ export type RecordPaymentError = "billing.account_unknown" | "billing.plan_unkno
 export async function recordPayment(ctx: BillingContext, input: RecordPaymentInput): Promise<Ok<PaymentOutcome> | Err<RecordPaymentError>> {
   if (findPlan(getBillingPlans(ctx.config), input.planId) === undefined) return err("billing.plan_unknown");
   if (!isUserId(input.userId)) return err("billing.account_unknown");
-  return ctx.db.transaction(async (tx) => {
+  const recorded = await ctx.db.transaction(async (tx): Promise<Ok<PaymentOutcome> | Err<RecordPaymentError>> => {
     const now = ctx.clock.now();
     // A shared lock: the account cannot be deleted before the grant below.
     const [account] = await tx.select({ id: users.id }).from(users).where(eq(users.id, input.userId)).for("key share");
@@ -98,6 +99,28 @@ export async function recordPayment(ctx: BillingContext, input: RecordPaymentInp
     await tx.update(payments).set(getGrantColumns(grant)).where(eq(payments.id, payment.id));
     return ok({ status: "granted", entitlement: applied.value.entitlement });
   });
+  if (recorded.ok && recorded.value.status === "granted") {
+    await notifyAccessChanged(ctx, { accountId: input.userId, change: "granted", planId: input.planId, entitlement: recorded.value.entitlement });
+  }
+  return recorded;
+}
+
+/** A webhook outcome and the access change it made, reported once its transaction committed. */
+interface ChangedOutcome {
+  readonly outcome: PaymentOutcome;
+  readonly change: AccessChangeInput | null;
+}
+
+/** Runs a payment change in one transaction, then reports its access change to the app's hook. */
+async function runPaymentChange(ctx: BillingContext, run: (tx: Queryable) => Promise<ChangedOutcome>): Promise<Ok<PaymentOutcome>> {
+  const { outcome, change } = await ctx.db.transaction(run);
+  if (change !== null) await notifyAccessChanged(ctx, change);
+  return ok(outcome);
+}
+
+/** The outcome alone, for a delivery that changed no access. */
+function getUnchanged(outcome: PaymentOutcome): ChangedOutcome {
+  return { outcome, change: null };
 }
 
 export interface RefundPaymentInput {
@@ -153,24 +176,24 @@ export function readGrant(row: GrantColumns): PaymentGrant | null {
  * Database errors propagate.
  */
 export async function refundPayment(ctx: BillingContext, input: RefundPaymentInput): Promise<Ok<PaymentOutcome>> {
-  return ctx.db.transaction(async (tx) => {
+  return runPaymentChange(ctx, async (tx) => {
     const now = ctx.clock.now();
     const match = and(eq(payments.provider, input.provider), eq(payments.paymentId, input.paymentId));
     const [found] = await tx.select({ userId: payments.userId }).from(payments).where(match);
-    if (found === undefined) return ok({ status: "unknown_payment" });
+    if (found === undefined) return getUnchanged({ status: "unknown_payment" });
     const { userId } = found;
     // The account first (the lock order of every change), the entitlement, then the payment row.
     await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("key share");
     await lockEntitlementRow(tx, userId);
     const [payment] = await tx.select().from(payments).where(match).for("update");
     // Erased with the account in the meantime.
-    if (payment === undefined) return ok({ status: "duplicate" });
+    if (payment === undefined) return getUnchanged({ status: "duplicate" });
 
     const state = { reported: input.amountRefunded ?? payment.amount, observedAt: input.observedAt ?? now };
     const applied = await applyChargeState({ ...ctx, db: tx }, { payment, state, now });
-    if (applied !== null) return ok(applied);
+    if (applied !== null) return { outcome: applied, change: { accountId: userId, change: "refunded", planId: payment.planId, entitlement: applied.entitlement } };
     await keepNewerChargeState(tx, payment, state);
-    return ok({ status: "duplicate" });
+    return getUnchanged({ status: "duplicate" });
   });
 }
 
@@ -277,19 +300,19 @@ export interface FailRefundInput extends FailedRefund {
  * propagate.
  */
 export async function failRefund(ctx: BillingContext, input: FailRefundInput): Promise<Ok<PaymentOutcome>> {
-  return ctx.db.transaction(async (tx) => {
+  return runPaymentChange(ctx, async (tx) => {
     const now = ctx.clock.now();
     const txCtx = { ...ctx, db: tx };
     const match = and(eq(payments.provider, input.provider), eq(payments.paymentId, input.paymentId));
     const [found] = await tx.select({ userId: payments.userId }).from(payments).where(match);
-    if (found === undefined) return ok({ status: "unknown_payment" });
+    if (found === undefined) return getUnchanged({ status: "unknown_payment" });
     const { userId } = found;
     // The lock order of `refundPayment`: the account, the entitlement, then the payment row.
     await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("key share");
     await lockEntitlementRow(tx, userId);
     const [payment] = await tx.select().from(payments).where(match).for("update");
     // Erased with the account in the meantime.
-    if (payment === undefined) return ok({ status: "unknown_payment" });
+    if (payment === undefined) return getUnchanged({ status: "unknown_payment" });
 
     const recorded = await tx
       .insert(refundFailures)
@@ -303,14 +326,20 @@ export async function failRefund(ctx: BillingContext, input: FailRefundInput): P
       })
       .onConflictDoNothing()
       .returning();
-    if (recorded.length === 0) return ok({ status: "duplicate" });
+    if (recorded.length === 0) return getUnchanged({ status: "duplicate" });
 
     const seenAt = payment.refundsSeenAt;
     const isCounted = seenAt !== null && input.refundCreatedAt <= seenAt && seenAt < input.failedAt;
     const restoredAmount = isCounted ? Math.min(input.amount, payment.refundedAmount) : 0;
     const restored = restoredAmount === 0 ? null : await restoreRefund(txCtx, { payment, restoredAmount, now });
     const kept = await applyKeptChargeState(txCtx, payment.id, now);
-    return ok({ status: "refund_failed", entitlement: kept?.entitlement ?? restored ?? (await readEntitlement(txCtx, userId, now)) });
+    const entitlement = kept?.entitlement ?? restored ?? (await readEntitlement(txCtx, userId, now));
+    // A kept refund applied after the restore decides where access ends; a restore alone gives access back.
+    const change = kept !== null ? "refunded" : restored !== null ? "granted" : null;
+    return {
+      outcome: { status: "refund_failed", entitlement },
+      change: change === null ? null : { accountId: userId, change, planId: payment.planId, entitlement },
+    };
   });
 }
 

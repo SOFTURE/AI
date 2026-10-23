@@ -61,6 +61,6 @@ Files: `modules/billing/README.md`, `CHANGELOG.md` (Unreleased).
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1
 - [ ] Phase 2
 - [ ] Phase 3
