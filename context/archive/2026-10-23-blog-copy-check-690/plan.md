@@ -1,6 +1,6 @@
 ---
 change_id: blog-copy-check-690
-status: in_progress
+status: archived
 ---
 
 # Plan: a voice check for copy that is not an article (issue #690)
@@ -50,5 +50,8 @@ Files: `modules/blog/src/quality/check-copy.ts` (new), `rules/copy.ts` (new), `r
 
 ## Progress
 
-- [ ] Phase 1: `checkCopyText` and the new rules
-- [ ] Phase 2: docs
+- [x] Phase 1: `checkCopyText` and the new rules (9c50c5d)
+- [x] Phase 2: docs (a5278f6)
+
+Tests were written before the code in phase 1. In `channel` mode the bold rhythm rules give way to
+`channel-markup` (impl-review).

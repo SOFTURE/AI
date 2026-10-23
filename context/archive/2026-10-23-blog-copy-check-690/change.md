@@ -1,12 +1,13 @@
 ---
 change_id: blog-copy-check-690
 title: "blog: a voice check for copy that is not an article (issue #690)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 690
 branch: claude/project-thread-ipcfvp
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent
