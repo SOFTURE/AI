@@ -6,7 +6,7 @@ import { findArticleImages } from "../render/images.js";
 import { findArticleBlocks, type FoundBlock } from "../render/render-article.js";
 import { parseArticleFile, type ParseArticleFileOptions } from "../content/article-file.js";
 import { splitArticleBody, splitBlocks } from "./blocks.js";
-import { sortFindings, type QualityFinding } from "./finding.js";
+import type { QualityFinding } from "./finding.js";
 import type { QualityPlugin } from "./plugin.js";
 import { checkBlockNumbers, checkBlockRequires, checkDirectives } from "./rules/blocks.js";
 import { checkFacts } from "./rules/facts.js";
@@ -16,7 +16,7 @@ import { checkLinks, collectLinks, type InternalLinkResolver } from "./rules/lin
 import { checkFootnotes, checkLead, checkLength, checkMetadata, checkSections } from "./rules/structure.js";
 import { checkMetadataStyle, checkRhythm, checkStyle } from "./rules/style.js";
 import { checkNumberSources, checkSources } from "./rules/ymyl.js";
-import { getEffectiveSeverity, type QualitySettings } from "./settings.js";
+import { applySeverity, type QualitySettings } from "./settings.js";
 
 export interface QualityCheckResult {
   readonly findings: readonly QualityFinding[];
@@ -103,14 +103,5 @@ function runPlugin(plugin: QualityPlugin, context: Parameters<QualityPlugin["che
     declared.has(finding.rule)
       ? finding
       : { rule: "plugin-rule-undeclared", severity: "error", message: `plugin ${plugin.name} reported rule ${finding.rule}, which it does not declare`, ...(finding.line === undefined ? {} : { line: finding.line }) },
-  );
-}
-
-function applySeverity(settings: QualitySettings, findings: readonly QualityFinding[]): QualityFinding[] {
-  return sortFindings(
-    findings.flatMap((finding) => {
-      const severity = getEffectiveSeverity(settings, finding.rule, finding.severity);
-      return severity === null ? [] : [{ ...finding, severity }];
-    }),
   );
 }

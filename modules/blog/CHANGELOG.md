@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## 0.4.0
+
+- **A voice check for copy that is not an article (#690):** `checkCopyText(text, { mode, quality })` from
+  `/server` checks landing text, posts and mails with the same `quality` options as `blog()`; `mode: "channel"` also
+  flags markdown that a plain-text editor shows as noise (README, "Copy that is not an article"). An app that
+  composed `plRuleset`, `toProse`, `splitSentences` and `wordPattern` into its own checker can replace it with this
+  call.
+- **New rules:** `verdict-label` ("Conclusion:" at a sentence start) and `fragile-spot` ("the weakest link") in both
+  rulesets, errors; `not-x-but-y-bare` in `pl`, the contrast without the leading pronoun, a warning in articles and an
+  error in copy; `stacked-asides`, two worded asides in one sentence, a warning in articles. An article that uses
+  these phrases now gets findings; `quality.severity` turns any of them off. Copy-only rules: `dash-pivot`,
+  `channel-markup`.
+- `StylePattern` has an optional `copySeverity`; `resolveStyleSettings(options)` and the `StyleSettings` type are
+  exported for apps that run the style rules themselves.
+
 ## 0.3.3
 
 - **The runner is the caller's choice (#670):** `blog-links.yml` takes the input `runs-on`, JSON: one label

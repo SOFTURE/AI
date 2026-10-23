@@ -24,10 +24,15 @@ export function getChannelOptions(config: SoftureConfig): ChannelOptions {
   return getAnalyticsOptions(config).channel;
 }
 
+/** The names the channel is read under: `param` first, then each of `legacyParams` in order. */
+export function getChannelParams(options: Pick<ChannelOptions, "param" | "legacyParams">): readonly string[] {
+  return [options.param, ...options.legacyParams];
+}
+
 /** The channel options as plain values for the browser (`<ChannelKeeper />`). Throws when the module is not enabled. */
 export function getChannelRule(config: SoftureConfig): ChannelRule {
-  const { param, pattern, maxLength, normalize } = getChannelOptions(config);
-  return { param, pattern: pattern.source, flags: pattern.flags, maxLength, normalize, origins: getFirstPartyOrigins(config) };
+  const { param, legacyParams, pattern, maxLength, normalize } = getChannelOptions(config);
+  return { param, legacyParams, pattern: pattern.source, flags: pattern.flags, maxLength, normalize, origins: getFirstPartyOrigins(config) };
 }
 
 /**

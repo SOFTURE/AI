@@ -21,6 +21,9 @@ steps, the cap and the time zone moved into configuration and the report turned 
   parameter (default `z`), what a valid value looks like (default lowercase words joined by `-` or
   `_`) and its longest length (default 32, at most 64). An invalid value is ignored, never trimmed,
   cut or repaired, unless `channel.normalize: "trim-lowercase"` trims and lowercases it first.
+- **Renaming the parameter without losing shared links** (`channel.legacyParams`): earlier names are
+  read after `param` and never written, and the tagger and the keeper move them to `param` in the
+  address bar (see "Renaming the channel parameter" below).
 - **More than one first-party origin** (`analytics({ origins })`): an app serving public pages on
   the apex and the product on `appOrigin` lists the apex; every check below accepts pages on any of
   them, and behind a reverse proxy the origin a request was sent to is read from `Host`
@@ -113,7 +116,7 @@ import { analytics } from "@softure-ai/analytics";
 // in defineSoftureConfig({ modules: [...] }); every key is optional:
 analytics({
   origins: [], // e.g. ["https://example.com"] when the product runs on https://app.example.com
-  channel: { param: "z", pattern: /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/, maxLength: 32, normalize: "none" },
+  channel: { param: "z", legacyParams: [], pattern: /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/, maxLength: 32, normalize: "none" },
   funnel: {
     steps: [
       { id: "landing", via: "pixel", pages: ["/"] }, // or (page) => page.pathname === "/"
@@ -133,6 +136,7 @@ analytics({
 | --- | --- | --- |
 | `origins` | `[]` | up to 16 http(s) origins besides `appOrigin` and the config's `origins.trustedOrigins` (no path, query or credentials), reduced to their origin; prefer the config's block, which every module reads |
 | `channel.param` | `"z"` | lowercase letters, digits, `-` or `_`, starting with a letter, at most 32 characters |
+| `channel.legacyParams` | `[]` | up to 4 earlier names of the parameter (the `param` rule), each once and none equal to `param`; every reader takes `param` first, then each of them in order (the first name present decides, valid or not); the package writes `param` only |
 | `channel.pattern` | `DEFAULT_CHANNEL_PATTERN` | a `RegExp` without the `g` or `y` flag (they keep state between tests) |
 | `channel.maxLength` | `32` | an integer from 1 to `MAX_CHANNEL_LENGTH` (64) |
 | `channel.normalize` | `"none"` | `"none"` takes a value as it is; `"trim-lowercase"` trims and lowercases it before the pattern and length checks, on the server, in the browser keeper and in `recordFunnelStep` |
@@ -140,10 +144,32 @@ analytics({
 | `funnel.steps[].pages` | none (any first-party page) | only on a `pixel` step: 1 to 32 pathnames (starting with a single `/`, no query or fragment; percent-encoded like the browser's, so `/café` matches), compared exactly with the `pathname` of the page the pixel was requested from, as the browser sends it (`/` is only the root; a trailing slash or a `basePath` is part of it; the origin is not compared), or `(page: URL) => boolean` for dynamic routes or to tell origins apart; a pixel from any other page answers the same GIF and counts nothing; a throw is logged and counts nothing |
 | `funnel.channelCap` | `100` | an integer from 1 to 10 000 |
 | `funnel.wire.stepFields` | `["step"]` | 1 to 4 field names (the `param` rule), each once; the endpoint takes the step from any of them (one value in all, or none counts); the package's beacon and pixel send the first (`getFunnelStepField`) |
-| `funnel.wire.channelField` | `null` | a field name that is not a step field: a valid channel in the body or query wins over the page's; an invalid one is ignored |
+| `funnel.wire.channelField` | `null` | a field name that is not a step field, or a list of 1 to 4 of them, each once: a valid channel in the body or query wins over the page's; an invalid one, or two values across the fields, is ignored |
 | `funnel.channelFromReferer` | none | `(page: URL) => string \| null`, called for a counted step whose page has no tag; the answer passes the channel rule; a throw is logged and counts no channel |
 | `funnel.isKnownChannel` | none | `(channel, ctx) => boolean \| Promise<boolean>`, asked for every count with a channel (keep it to one indexed lookup; `ctx.db` runs in the counting transaction); `true` keeps the channel's own counter past the cap; a throw fails the count like a database error |
 | `routes.funnel` | `/api/analytics/funnel` | the endpoint's path; `<FunnelPixel>` and `<FunnelBeacon>` use it |
+
+### Renaming the channel parameter
+
+Links shared with `?z=reddit` stay in posts, comments and bookmarks for months. To move to `?ref=` without
+losing them, list the old name as a legacy one:
+
+```ts
+analytics({
+  channel: { param: "ref", legacyParams: ["z"] },
+  // only when pages send the channel in the beacon body themselves: cached pages keep sending `z`
+  funnel: { wire: { channelField: ["ref", "z"] } },
+}),
+```
+
+- `?z=reddit` and `?ref=reddit` both read `reddit` on the server (`readChannel`, `getChannel`), in a page's
+  search params (`getChannelFromSearchParams`), in the browser keeper and in the funnel endpoint; `?ref=` wins
+  when both are present.
+- Links and redirects the package writes (`withChannel`, `tagPath`, `tagRedirect`, the tagger, the keeper)
+  carry `ref` only. A navigation through `?z=reddit` ends with `?ref=reddit` in the address bar: the tagger
+  answers it with a 307 (within `targets`), and the keeper rewrites it with `replaceState` after client
+  navigations. An invalid value under the old name is left as it is.
+- Drop the legacy name once old links no longer matter; without `legacyParams` nothing changes.
 
 Counting sign-ups as the last step, next to the other hooks (`countRegistration` runs in a
 savepoint and logs a failure instead of throwing, so a broken counter never refuses a sign-up):

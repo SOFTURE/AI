@@ -32,11 +32,11 @@ describe("the analytics module", () => {
   it("fills in the defaults: ?z=, lowercase words, at most 32 characters, no steps, a cap of 100", () => {
     expect(analytics().options).toEqual({
       origins: [],
-      channel: { param: "z", pattern: DEFAULT_CHANNEL_PATTERN, maxLength: 32, normalize: "none" },
+      channel: { param: "z", legacyParams: [], pattern: DEFAULT_CHANNEL_PATTERN, maxLength: 32, normalize: "none" },
       funnel: { steps: [], channelCap: DEFAULT_CHANNEL_CAP, wire: { stepFields: ["step"], channelField: null } },
     });
     expect(analytics({ funnel: { steps: [{ id: "landing" }] } }).options.funnel.steps).toEqual([{ id: "landing", via: "beacon" }]);
-    expect(analytics({ channel: { param: "ref" } }).options.channel).toEqual({ param: "ref", pattern: DEFAULT_CHANNEL_PATTERN, maxLength: 32, normalize: "none" });
+    expect(analytics({ channel: { param: "ref" } }).options.channel).toEqual({ param: "ref", legacyParams: [], pattern: DEFAULT_CHANNEL_PATTERN, maxLength: 32, normalize: "none" });
   });
 
   it("refuses a wire format, normalisation or Referer hook it cannot use", () => {

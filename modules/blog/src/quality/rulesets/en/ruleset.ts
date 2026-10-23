@@ -32,6 +32,18 @@ export const enRuleset: LanguageRuleset = {
       message: "the \"it is not X, it is Y\" contrast; say Y right away",
     },
     {
+      id: "verdict-label",
+      severity: "error",
+      pattern: /(?:^|(?<=[.!?…]\s))(?:the )?(?:bottom line|key takeaway|takeaway|verdict|conclusion|summary|lesson|moral|tl;dr)\s?:/giu,
+      message: "a verdict label before the point (\"Conclusion:\"); write the sentence without the label",
+    },
+    {
+      id: "fragile-spot",
+      severity: "error",
+      pattern: wordPattern("achilles['’]? heel|weakest link|most fragile (?:point|spot|part|link)"),
+      message: "the \"weakest link\" cliché; name what breaks and when",
+    },
+    {
       id: "meta-commentary",
       severity: "error",
       pattern: wordPattern(
