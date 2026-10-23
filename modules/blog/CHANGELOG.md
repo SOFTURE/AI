@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
-## Unreleased
+## 0.4.0
 
 - **A voice check for copy that is not an article (#690):** `checkCopyText(text, { mode, quality })` from
   `/server` checks landing text, posts and mails with the same `quality` options as `blog()`; `mode: "channel"` also
