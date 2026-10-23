@@ -181,6 +181,14 @@ describe("fakeFetch records", () => {
     expect(call?.json).toBeUndefined();
   });
 
+  it("records the exact size of a binary file part", async () => {
+    const api = fakeFetch([{ method: "POST", url: `${API}/files` }]);
+    const form = new FormData();
+    form.append("image", new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0xff, 0xfe, 0x00, 0x80])], { type: "image/png" }), "a.png");
+    await api.fetch(`${API}/files`, { method: "POST", body: form });
+    expect(api.calls[0]?.form).toEqual([{ kind: "file", name: "image", fileName: "a.png", type: "image/png", size: 8 }]);
+  });
+
   it("parses a hand-encoded body by the content type the caller set", async () => {
     const api = fakeFetch([{ method: "POST", url: `${API}/token`, repeat: true }]);
     await api.fetch(`${API}/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" }, body: "a=1&b=%C3%A9" });

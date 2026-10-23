@@ -1,5 +1,5 @@
-// A JSON call to a third-party API (a GET, or a write with a JSON or form body), with the details every app's own copy has to
-// get right: a timeout, no redirect followed (a key in a header or the URL never reaches another host), and every
+// A JSON call to a third-party API (a GET, or a write with a JSON or form body), with the details every app's own copy
+// has to get right: a timeout, no redirect followed (a key in a header or the URL never reaches another host), and every
 // failure returned as a code. A caught error's message is never read, since it can quote the URL and some APIs put
 // the key there. The body stays `unknown` unless a zod schema narrows it. Response headers are read only by name from
 // the caller's allow-list, so nothing secret is surfaced by accident.

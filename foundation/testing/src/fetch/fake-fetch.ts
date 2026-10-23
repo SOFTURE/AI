@@ -155,9 +155,11 @@ async function readCall(input: string | URL | Request, init: RequestInit | undef
   });
   const sent = getSentBody(request, init);
   if (sent === null) return { method, url, headers, body: null, json: undefined };
-  const body = await sent.text();
+  // Bytes first: a file part that is not text would not survive a round trip through a string.
+  const bytes = await sent.arrayBuffer();
+  const body = new TextDecoder().decode(bytes);
   // The type `fetch` would send: the caller's own, or the one the body brings (a multipart boundary included).
-  const form = await parseForm(body, headers["content-type"] ?? sent.headers.get("content-type"));
+  const form = await parseForm(bytes, headers["content-type"] ?? sent.headers.get("content-type"));
   return { method, url, headers, body, json: parseJson(body), ...(form === undefined ? {} : { form }) };
 }
 
@@ -171,7 +173,7 @@ function getSentBody(request: Request | undefined, init: RequestInit | undefined
   return null;
 }
 
-async function parseForm(body: string, contentType: string | null): Promise<FakeFetchFormField[] | undefined> {
+async function parseForm(body: ArrayBuffer, contentType: string | null): Promise<FakeFetchFormField[] | undefined> {
   const type = contentType?.split(";")[0]?.trim().toLowerCase();
   if (type !== "application/x-www-form-urlencoded" && type !== "multipart/form-data") return undefined;
   let data: FormData;
