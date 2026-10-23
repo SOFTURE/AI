@@ -381,7 +381,7 @@ jobs:
           case "$GITHUB_REF" in
             "refs/heads/$REF_PREFIX"*)
               # The API, not git: the checkout above is skipped when the suite was cancelled.
-              if ! gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/${GITHUB_REF#refs/}" 2> "$RUNNER_TEMP/gh-error"; then
+              if ! gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/${GITHUB_REF#refs/}" 2> "$RUNNER_TEMP/gh-error"; then
                 # Already gone (a re-run, or the author deleted it) is fine; anything else is not.
                 grep -q "Reference does not exist" "$RUNNER_TEMP/gh-error" || { cat "$RUNNER_TEMP/gh-error" >&2; exit 1; }
               fi
