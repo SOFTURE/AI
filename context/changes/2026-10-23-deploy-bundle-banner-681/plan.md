@@ -1,0 +1,44 @@
+---
+change_id: deploy-bundle-banner-681
+status: in_progress
+---
+
+# Plan: the esbuild banner no longer collides with a bundled createRequire (issue #681)
+
+Input: change.md, research.md. Complexity: small (one template, one test, docs).
+
+## Phase 1: banner and bundle test (TDD)
+
+Files: `tools/deploy/templates/Dockerfile.tmpl`, `tools/deploy/src/init/generate.test.ts`,
+`tools/deploy/tests/bundle-banner.test.ts`, `tools/deploy/package.json`, `package-lock.json`.
+
+1. Test first: `tests/bundle-banner.test.ts` renders the worker variant of the `Dockerfile` through `planInitFiles`,
+   reads the `--banner:js="…"` value of the `worker.mjs` command, bundles an entry that imports and calls
+   `startObservability` from `@softure-ai/observability/node` with esbuild (`--bundle --platform=node --format=esm
+   --target=node22`, the same alias and externals, condition `@softure-ai/source`) into a temporary folder, and
+   expects `node --check` on the bundle to pass. A second case asserts every esbuild command in the rendered
+   `Dockerfile` uses that same banner. Red on master.
+2. Template: the three banners become
+   `import { createRequire as __bundleCreateRequire } from 'module'; const require = __bundleCreateRequire(import.meta.url);`,
+   and the comment says why the alias. `generate.test.ts` asserts the new banner.
+3. `@softure-ai/observability` `^0.4.0` becomes a devDependency of deploy.
+
+## Phase 2: docs
+
+`tools/deploy/README.md` ("Bundled for plain Node": the alias and the migration line for apps generated before),
+`tools/deploy/CHANGELOG.md` `## Unreleased`, `foundation/observability/CHANGELOG.md` 0.4.0 (a note for apps that copied
+the banner).
+
+## Decisions (auto)
+
+- Alias the import instead of dropping the banner: CJS dependencies inside the bundle still need `require`.
+- `__bundleCreateRequire`, the name the issue proposes and the adopting app already uses.
+- The test bundles observability's source (condition `@softure-ai/source`), not its `dist/`, so it runs without a build
+  and always against the code on the branch.
+- The observability note goes into the existing 0.4.0 section (the issue asks for it there); its CHANGELOG keeps 0.4.0
+  as its newest heading, so no unreleased observability change is implied.
+
+## Progress
+
+- [ ] Phase 1: banner and bundle test
+- [ ] Phase 2: docs
