@@ -1,8 +1,9 @@
 // The Stripe adapter (https://docs.stripe.com/api/checkout/sessions/create): a one-time Checkout
 // session per payment, paid on Stripe's page; the verified webhook (`stripeWebhookRoute` in
-// `/next`) grants the plan once Stripe reports the money. Stripe's HTTP API through `fetch`, like
-// mailing's `resend()`: no SDK, and tests inject `fetch`.
-import { err, ok } from "@softure-ai/core";
+// `/next`) grants the plan once Stripe reports the money. Stripe's HTTP API through core's
+// `requestJson` (a form body, no redirect followed): no SDK, and tests inject `fetch`.
+import { err, ok, requestJson } from "@softure-ai/core";
+import { z } from "zod";
 import { CHECKOUT_PARAM, PLAN_FIELD, type CheckoutResult } from "./fields.js";
 import type { PaymentContext, PaymentProvider, PaymentRequest } from "./payment.js";
 import { getLocalizedText } from "./plans.js";
@@ -72,11 +73,13 @@ function readCheckoutUrl(payload: unknown): string | null {
   return typeof url === "string" && url.startsWith("https://") ? url : null;
 }
 
-/** Stripe's error type and code for the log; its message can echo the request back. */
-function describeStripeError(payload: unknown): string {
-  const error: unknown = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>).error : null;
-  if (typeof error !== "object" || error === null) return "no error body";
-  const { type, code } = error as Record<string, unknown>;
+/** The part of Stripe's error answer the log may show; its `message` can echo the request back. */
+const stripeErrorSchema = z.object({ error: z.object({ type: z.unknown(), code: z.unknown() }) });
+
+/** Stripe's error type and code for the log, from the error answer read through `stripeErrorSchema`. */
+function describeStripeError(errorBody: z.output<typeof stripeErrorSchema> | null): string {
+  if (errorBody === null) return "no error body";
+  const { type, code } = errorBody.error;
   return [type, code].filter((part) => typeof part === "string").join("/") || "no error type";
 }
 
@@ -102,26 +105,25 @@ export function stripe(options: StripeOptions = {}): PaymentProvider {
         return err("billing.payment_failed");
       }
       const fetchImpl = options.fetch ?? fetch;
-      let response: Response;
-      try {
-        response = await fetchImpl(new URL("/v1/checkout/sessions", apiBase), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/x-www-form-urlencoded" },
-          body: getCheckoutSessionParams(ctx, request),
-          signal: AbortSignal.timeout(STRIPE_TIMEOUT_MS),
-          cache: "no-store",
-        });
-      } catch (error) {
+      const answer = await requestJson({
+        url: new URL("/v1/checkout/sessions", apiBase),
+        method: "POST",
+        form: getCheckoutSessionParams(ctx, request),
+        headers: { authorization: `Bearer ${secretKey}` },
+        // Next.js may cache a server `fetch`; a checkout session is created once per payment.
+        fetch: (input, init) => fetchImpl(input, { ...init, cache: "no-store" }),
+        timeoutMs: STRIPE_TIMEOUT_MS,
+        errorSchema: stripeErrorSchema,
+      });
+      if (!answer.ok && answer.status === null) {
         // A timeout or a network failure: nothing was created that the buyer can pay.
-        console.error(`@softure-ai/billing: the Stripe checkout for plan "${request.plan.id}" could not be created: ${error instanceof Error ? error.name : typeof error}`);
+        console.error(`@softure-ai/billing: the Stripe checkout for plan "${request.plan.id}" could not be created: ${answer.error}`);
         return err("billing.payment_failed");
       }
-      const payload: unknown = await response.json().catch(() => null);
-      const url = response.ok ? readCheckoutUrl(payload) : null;
+      const url = answer.ok ? readCheckoutUrl(answer.value) : null;
       if (url === null) {
-        console.error(
-          `@softure-ai/billing: Stripe refused the checkout for plan "${request.plan.id}" (HTTP ${String(response.status)}, ${response.ok ? "no checkout url" : describeStripeError(payload)})`,
-        );
+        const detail = answer.ok ? "no checkout url" : describeStripeError(answer.errorBody);
+        console.error(`@softure-ai/billing: Stripe refused the checkout for plan "${request.plan.id}" (HTTP ${answer.ok ? "200" : String(answer.status)}, ${detail})`);
         return err("billing.payment_failed");
       }
       return ok({ type: "redirect", url });

@@ -118,9 +118,14 @@ describe("stripe()", () => {
     const [call] = calls;
     expect(call?.url).toBe("https://api.stripe.com/v1/checkout/sessions");
     expect(call?.init.method).toBe("POST");
-    expect(call?.init.headers).toEqual({ Authorization: "Bearer sk_test_123", "Content-Type": "application/x-www-form-urlencoded" });
+    const headers = new Headers(call?.init.headers);
+    expect(headers.get("authorization")).toBe("Bearer sk_test_123");
+    expect(headers.get("content-type")).toBe("application/x-www-form-urlencoded");
+    expect(headers.get("accept")).toBe("application/json");
     expect(call?.body).toBe(getCheckoutSessionParams(ctx, request()).toString());
     expect(call?.init.signal).toBeInstanceOf(AbortSignal);
+    expect(call?.init.cache).toBe("no-store");
+    expect(call?.init.redirect).toBe("manual");
   });
 
   it("reads STRIPE_SECRET_KEY on every payment and takes another API base", async () => {
@@ -129,7 +134,7 @@ describe("stripe()", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", " sk_test_env ");
     await provider.startPayment(ctx, request());
     expect(calls[0]?.url).toBe("http://127.0.0.1:12111/v1/checkout/sessions");
-    expect(calls[0]?.init.headers).toMatchObject({ Authorization: "Bearer sk_test_env" });
+    expect(new Headers(calls[0]?.init.headers).get("authorization")).toBe("Bearer sk_test_env");
   });
 
   it("fails for a price it cannot charge exactly, calling nothing; building its params is a bug", async () => {
@@ -158,6 +163,21 @@ describe("stripe()", () => {
     expect(await stripe({ secretKey: "sk_test_123", fetch }).startPayment(ctx, request())).toEqual(err("billing.payment_failed"));
     expect(logged()).toContain('plan "monthly" (HTTP 400, invalid_request_error/amount_too_small)');
     expect(logged()).not.toContain("ada@example.com");
+    expect(logged()).not.toContain("sk_test_123");
+  });
+
+  it("refuses a redirect instead of following it with the secret key, logging its status", async () => {
+    const { calls, fetch } = createFetch(() => Promise.resolve(new Response(null, { status: 307, headers: { location: "https://elsewhere.example/v1" } })));
+    expect(await stripe({ secretKey: "sk_test_123", fetch }).startPayment(ctx, request())).toEqual(err("billing.payment_failed"));
+    expect(calls).toHaveLength(1);
+    expect(logged()).toContain('plan "monthly" (HTTP 307, no error body)');
+    expect(logged()).not.toContain("elsewhere.example");
+  });
+
+  it("logs a network failure by its code, without the error's text", async () => {
+    const { fetch } = createFetch(() => Promise.reject(new TypeError("fetch failed: https://api.stripe.com/v1/checkout/sessions?key=sk_test_123")));
+    expect(await stripe({ secretKey: "sk_test_123", fetch }).startPayment(ctx, request())).toEqual(err("billing.payment_failed"));
+    expect(logged()).toContain('the Stripe checkout for plan "monthly" could not be created: core.http_unreachable');
     expect(logged()).not.toContain("sk_test_123");
   });
 
