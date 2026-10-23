@@ -1,6 +1,6 @@
 ---
 change_id: blog-dash-pivot-699
-status: in_progress
+status: archived
 ---
 
 # Plan: dash-pivot catches a dash next to one number and a glued em dash (issue #699)
@@ -29,4 +29,6 @@ Files: `modules/blog/src/quality/rules/copy.ts`, `modules/blog/tests/quality/cop
 
 ## Progress
 
-- [x] Phase 1: the rule and docs (SHA)
+- [x] Phase 1: the rule and docs (5b8a5af)
+
+Tests were written before the code and failed without it (three cases).

@@ -1,12 +1,13 @@
 ---
 change_id: blog-dash-pivot-699
 title: "blog: dash-pivot catches a dash next to one number and a glued em dash (issue #699)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 699
 branch: claude/project-thread-apwlpl
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent
