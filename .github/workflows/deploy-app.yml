@@ -75,6 +75,10 @@ name: deploy-app
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: The runner of every job as JSON, one label or an array of labels (e.g. "ubuntu-latest" or ["self-hosted","linux"])
+        type: string
+        default: '"ubuntu-latest"'
       tag:
         description: The release tag to build and deploy (a git tag of the app; also the image tag)
         type: string
@@ -231,7 +235,7 @@ permissions:
 jobs:
   check:
     name: check inputs
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 5
     # The branch guard reads the tag's history.
     permissions:
@@ -242,6 +246,21 @@ jobs:
       release: ${{ steps.inputs.outputs.release }}
       sha: ${{ steps.commit.outputs.sha }}
     steps:
+      - &check-runner
+        name: Check the runner
+        env:
+          RUNS_ON: ${{ inputs.runs-on }}
+        # GitHub picked this runner from the value already, so a value that is not JSON never gets here; this step
+        # refuses the JSON that GitHub takes but the input does not mean (an object, an empty array, a number).
+        run: |
+          label='"[^"\\]+"'
+          space='[[:space:]]*'
+          pattern="^$space($label|\\[$space$label($space,$space$label)*$space\\])$space\$"
+          if [[ ! "$RUNS_ON" =~ $pattern ]]; then
+            echo "::error::Input runs-on is not valid: a JSON label such as '\"ubuntu-latest\"' or a non-empty array of labels such as '[\"self-hosted\",\"linux\"]'"
+            exit 1
+          fi
+
       - id: inputs
         name: Validate inputs
         env:
@@ -473,7 +492,7 @@ jobs:
     name: build and push the image
     needs: check
     if: inputs.build
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -482,6 +501,7 @@ jobs:
       image: ${{ steps.ref.outputs.image }}
       digest: ${{ steps.push.outputs.digest || steps.retag.outputs.digest }}
     steps:
+      - *check-runner
       - if: inputs.prebuilt-image == ''
         uses: actions/checkout@v7
         with:
@@ -553,7 +573,7 @@ jobs:
     name: deploy over SSH
     needs: [check, build]
     if: inputs.deploy
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 15
     # packages: read for the registry token the server pulls with.
     permissions:
@@ -568,6 +588,7 @@ jobs:
       group: deploy-app-${{ github.repository }}-${{ inputs.environment }}${{ inputs.e2e && format('-e2e-{0}', github.run_id) || '' }}
       cancel-in-progress: false
     steps:
+      - *check-runner
       # End-to-end test only (refused outside SOFTURE/AI by the check job): the server files at the workspace root for
       # the server the runner becomes, the CLI of the tag itself, built from a full checkout, so the test needs no
       # published version, the image the build job handed over, and this runner set up as the server.
@@ -678,12 +699,13 @@ jobs:
     # The end-to-end test's stack runs on the deploy job's runner, so that job runs these steps itself.
     if: ${{ inputs.deploy && !inputs.e2e }}
     # Outside the environment, so a protected environment is not asked twice.
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     # Above the longest verify-timeout-seconds the check job accepts (9999 s).
     timeout-minutes: 180
     permissions:
       contents: read
     steps:
+      - *check-runner
       - uses: actions/checkout@v7
         with:
           repository: ${{ job.workflow_repository }}
@@ -711,10 +733,11 @@ jobs:
     name: summarize the run
     needs: [check, build, deploy, verify]
     if: ${{ always() && inputs.deploy }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 5
     permissions: {}
     steps:
+      - *check-runner
       - name: Write deploy-report.json
         env:
           TAG: ${{ inputs.tag }}

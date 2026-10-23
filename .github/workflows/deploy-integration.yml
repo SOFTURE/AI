@@ -28,6 +28,10 @@ name: deploy-integration
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: The runner of every job as JSON, one label or an array of labels (e.g. "ubuntu-latest" or ["self-hosted","linux"])
+        type: string
+        default: '"ubuntu-latest"'
       test-command:
         description: The app's full suite, run with bash from the repository root; exit 0 is green, anything else red
         type: string
@@ -99,7 +103,7 @@ permissions:
 jobs:
   test:
     name: run the suite
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     # A number, not an input: the repository guards require one on every job. Two hours fit a full end-to-end suite.
     timeout-minutes: 120
     permissions:
@@ -108,6 +112,21 @@ jobs:
     outputs:
       result: ${{ steps.suite.outputs.result }}
     steps:
+      - &check-runner
+        name: Check the runner
+        env:
+          RUNS_ON: ${{ inputs.runs-on }}
+        # GitHub picked this runner from the value already, so a value that is not JSON never gets here; this step
+        # refuses the JSON that GitHub takes but the input does not mean (an object, an empty array, a number).
+        run: |
+          label='"[^"\\]+"'
+          space='[[:space:]]*'
+          pattern="^$space($label|\\[$space$label($space,$space$label)*$space\\])$space\$"
+          if [[ ! "$RUNS_ON" =~ $pattern ]]; then
+            echo "::error::Input runs-on is not valid: a JSON label such as '\"ubuntu-latest\"' or a non-empty array of labels such as '[\"self-hosted\",\"linux\"]'"
+            exit 1
+          fi
+
       - name: Validate inputs
         env:
           TEST_COMMAND: ${{ inputs.test-command }}
@@ -248,7 +267,7 @@ jobs:
     name: store the result note
     needs: test
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 10
     permissions:
       contents: write
@@ -258,6 +277,7 @@ jobs:
       group: deploy-integration-record-${{ github.repository }}-${{ github.ref }}
       cancel-in-progress: false
     steps:
+      - *check-runner
       - uses: actions/checkout@v7
         if: needs.test.result != 'cancelled'
         with:

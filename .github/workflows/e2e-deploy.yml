@@ -8,7 +8,7 @@
 # the command line, the archive's files byte for byte and the names in .env.prod. A broken step, deploy.sh or verify
 # fails here instead of on an app's first live deploy. The `report` job calls ./.github/workflows/deploy-report.yml the
 # same way (DF-10): it writes the run's report into a fixture body instead of a release, and `assert` checks that body
-# too.
+# too. The `checks` job calls ./.github/workflows/deploy-release-checks.yml with an explicit `runs-on` (issue #670).
 #
 # The release guard runs for real: the deployed commit is the pull request's head (its merge commit is on no branch)
 # and the release branch is the one it was pushed to; a dispatch runs from a branch.
@@ -23,6 +23,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/deploy-app.yml"
+      - ".github/workflows/deploy-release-checks.yml"
       - ".github/actions/deploy/**"
       - ".github/workflows/e2e-deploy.yml"
       - "tools/deploy/**"
@@ -30,6 +31,7 @@ on:
     branches: [master]
     paths:
       - ".github/workflows/deploy-app.yml"
+      - ".github/workflows/deploy-release-checks.yml"
       - ".github/actions/deploy/**"
       - ".github/workflows/e2e-deploy.yml"
       - "tools/deploy/**"
@@ -76,6 +78,21 @@ jobs:
       app-secrets: >-
         {"AUTH_SECRET":"e2e-auth-secret","POSTGRES_PASSWORD":"e2e-postgres","SOFTURE_APP_PASSWORD":"e2e-app",
         "SOFTURE_MIGRATOR_PASSWORD":"e2e-migrator","UNUSED_SECRET":"e2e-unused"}
+
+  # The runner a caller passes (issue #670), in its array form, on a real runner. The commands are trivial on
+  # purpose: the checks themselves are this repository's own CI.
+  checks:
+    name: deploy-release-checks.yml (runs-on)
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy-release-checks.yml
+    with:
+      runs-on: '["ubuntu-latest"]'
+      cache: ""
+      install-command: echo nothing to install
+      static-command: node --version
+      unit: false
+      sparse-checkout: /package.json
 
   report:
     name: deploy-report.yml
