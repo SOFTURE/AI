@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`analytics@x.y.z`).
 
-## Unreleased
+## 0.3.0
 
 - `channel.legacyParams` (#689): earlier names of the channel parameter, read after `param` and never written, so an
   app can rename its links (`?z=` → `?ref=`) without losing the ones already shared. Every reader (`readChannel`,
