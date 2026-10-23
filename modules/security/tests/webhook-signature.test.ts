@@ -1,7 +1,13 @@
 // Third-party webhook signatures: HMAC over the raw body in hex or base64, with no timestamp. The expected values come
 // from `node:crypto`, an implementation independent of the Web Crypto code under test.
 import { createHmac } from "node:crypto";
-import { signWebhookBody, verifyWebhookSignature, type VerifyWebhookSignatureInput } from "@softure-ai/security/signed-request";
+import {
+  signWebhookBody,
+  signWebhookRequest,
+  verifyWebhookSignature,
+  WEBHOOK_SENDERS,
+  type VerifyWebhookSignatureInput,
+} from "@softure-ai/security/signed-request";
 import { describe, expect, it } from "vitest";
 
 const SECRET = "provider-issued-secret";
@@ -152,5 +158,51 @@ describe("signWebhookBody", () => {
     await expect(signWebhookBody({ secret: "", body: BODY, algorithm: "sha256", encoding: "hex" })).rejects.toThrow(
       "signWebhookBody: the secret must not be empty",
     );
+  });
+});
+
+describe("WEBHOOK_SENDERS and signWebhookRequest", () => {
+  const WEBHOOK_URL = "https://app.example/api/webhooks/tasks";
+
+  it.each(Object.entries(WEBHOOK_SENDERS))("signs a request the %s preset verifies", async (_name, sender) => {
+    const request = await signWebhookRequest({ url: WEBHOOK_URL, sender, secret: SECRET, body: BODY, deliveryId: "d-1" });
+    const result = await verifyWebhookSignature({ ...sender, secret: SECRET, header: request.headers.get(sender.header), body: await request.text() });
+    expect(result).toEqual({ ok: true, value: undefined });
+  });
+
+  it("writes GitHub's header exactly as GitHub does", async () => {
+    const request = await signWebhookRequest({ url: WEBHOOK_URL, sender: WEBHOOK_SENDERS.github, secret: SECRET, body: BODY, deliveryId: "d-1" });
+    expect(request.method).toBe("POST");
+    expect(request.headers.get("x-hub-signature-256")).toBe(`sha256=${nodeHmac("sha256", SECRET, BODY, "hex")}`);
+    expect(request.headers.get("x-github-delivery")).toBe("d-1");
+    expect(request.headers.get("content-type")).toBe("application/json");
+    expect(await request.text()).toBe(BODY);
+  });
+
+  it("writes Shopify's header in base64 without a prefix", async () => {
+    const request = await signWebhookRequest({ url: WEBHOOK_URL, sender: WEBHOOK_SENDERS.shopify, secret: SECRET, body: BODY });
+    expect(request.headers.get("x-shopify-hmac-sha256")).toBe(nodeHmac("sha256", SECRET, BODY, "base64"));
+    expect(request.headers.get("x-shopify-webhook-id")).toBeNull();
+  });
+
+  it("keeps extra headers, lets them set the content type, and ignores a delivery id the sender has no header for", async () => {
+    const request = await signWebhookRequest({
+      url: WEBHOOK_URL,
+      sender: WEBHOOK_SENDERS.lemonSqueezy,
+      secret: SECRET,
+      body: BODY,
+      deliveryId: "d-1",
+      headers: { "x-event-name": "order_created", "content-type": "application/vnd.api+json", "x-signature": "forged" },
+    });
+    expect(request.headers.get("x-event-name")).toBe("order_created");
+    expect(request.headers.get("content-type")).toBe("application/vnd.api+json");
+    expect(request.headers.get("x-signature")).toBe(nodeHmac("sha256", SECRET, BODY, "hex"));
+    expect([...request.headers.keys()].sort()).toEqual(["content-type", "x-event-name", "x-signature"]);
+  });
+
+  it("sends bytes untouched", async () => {
+    const bytes = new Uint8Array([0xff, 0x00, 0x7b]);
+    const request = await signWebhookRequest({ url: WEBHOOK_URL, sender: WEBHOOK_SENDERS.github, secret: SECRET, body: bytes });
+    expect(new Uint8Array(await request.arrayBuffer())).toEqual(bytes);
   });
 });

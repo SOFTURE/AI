@@ -2,7 +2,8 @@
 // PKCE S256, refresh with optional rotation) and RFC 7009 revocation, reached through a `fetch` the app's
 // `connections({ fetch })` takes. It checks what a real provider checks (client credentials, redirect URI, PKCE
 // verifier, one-time codes, live refresh tokens) and lets a test break it: a revoked grant (`invalid_grant`),
-// an outage, a rate limit, a refused client, an unreadable answer, a slow answer.
+// an outage, a rate limit, a refused client, an unreadable answer, a slow answer. A resource endpoint (`apiUrl`)
+// answers 401 to an access token it does not accept, so a test can refuse a token before its expiry.
 import { createHash, randomBytes } from "node:crypto";
 import type { FetchFunction } from "@softure-ai/core";
 import type { ProviderDefinitionInput } from "../options.js";
@@ -54,11 +55,17 @@ export interface FakeOAuthProvider {
   setDelay(milliseconds: number): void;
   /** Whether the provider would accept this access token. */
   isAccessTokenValid(token: string): boolean;
+  /** Every access token issued so far is refused from now on (revoked early); refresh tokens stay valid. */
+  rejectAccessTokens(): void;
+  /** A resource endpoint: a GET with `Authorization: Bearer <live token>` answers 200 `{ ok: true }`, anything else 401. */
+  readonly apiUrl: string;
   /** What the provider saw. */
   readonly calls: {
     readonly authorizationCode: number;
     readonly refresh: number;
     readonly revoke: number;
+    /** Calls to `apiUrl`, accepted or not. */
+    readonly api: number;
     /** The form of the last token or revoke call, client secret included, for assertions. */
     readonly lastForm: URLSearchParams | null;
     readonly lastAuthorization: string | null;
@@ -84,14 +91,14 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
   const ttl = options.accessTokenTtlSeconds === undefined ? 3600 : options.accessTokenTtlSeconds;
   const issuesRefreshToken = options.issuesRefreshToken ?? true;
   const rotates = options.rotatesRefreshToken ?? false;
-  const urls = { authorize: `${origin}/authorize`, token: `${origin}/token`, revoke: `${origin}/revoke` };
+  const urls = { authorize: `${origin}/authorize`, token: `${origin}/token`, revoke: `${origin}/revoke`, api: `${origin}/api/me` };
 
   const codes = new Map<string, PendingCode>();
   const refreshTokens = new Map<string, string>();
   const accessTokens = new Set<string>();
   const failures: FakeFailure[] = [];
   let delay = 0;
-  const calls = { authorizationCode: 0, refresh: 0, revoke: 0, lastForm: null as URLSearchParams | null, lastAuthorization: null as string | null };
+  const calls = { authorizationCode: 0, refresh: 0, revoke: 0, api: 0, lastForm: null as URLSearchParams | null, lastAuthorization: null as string | null };
 
   const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
@@ -166,8 +173,16 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
     return json(400, { error: "unsupported_grant_type" });
   }
 
+  function handleApi(authorization: string | null): Response {
+    calls.api += 1;
+    const token = authorization?.startsWith("Bearer ") === true ? authorization.slice(7) : "";
+    return accessTokens.has(token) ? json(200, { ok: true }) : json(401, { error: "invalid_token" });
+  }
+
   const fetch: FetchFunction = async (input, init) => {
     const url = String(input);
+    // Before the token endpoint's bookkeeping: `failNext` and `lastForm` stay about token and revoke calls.
+    if (url === urls.api && (init.method ?? "GET") === "GET") return handleApi(new Headers(init.headers).get("authorization"));
     const form = new URLSearchParams(typeof init.body === "string" ? init.body : "");
     const authorization = new Headers(init.headers).get("authorization");
     calls.lastForm = form;
@@ -239,6 +254,10 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
     isAccessTokenValid(token) {
       return accessTokens.has(token);
     },
+    rejectAccessTokens() {
+      accessTokens.clear();
+    },
+    apiUrl: urls.api,
     calls,
   };
 }

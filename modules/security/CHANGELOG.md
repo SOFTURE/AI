@@ -4,6 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
+## Unreleased
+
+- `handleWebhook(ctx, request, { source, maxBytes, sender, secret, schema, deliveryId?, handle })` in
+  `@softure-ai/security/server` (#665): the whole route of a third-party webhook in one call, a web `Request` in and a
+  `Response` out. The order is fixed: size limit, signature over the raw bytes, JSON parse and zod validation, then
+  `recordDeliveryOnce` and `handle` in one transaction. Answers 200 (done or replay), 413, 400, 401 and 500, with
+  `{ error: <code> }` bodies only. A body that is not JSON now answers 400 instead of throwing. New codes
+  `security.webhook_payload_invalid` and `security.webhook_failed` (English messages added; an app with its own
+  translation adds `errors.webhook_payload_invalid` and `errors.webhook_failed`).
+- `WEBHOOK_SENDERS` (`github`, `githubSha1`, `shopify`, `lemonSqueezy`) and the `WebhookSender` type in
+  `@softure-ai/security` and `/signed-request` (#665): the README's preset table as constants.
+- `signWebhookRequest({ url, sender, secret, body, deliveryId?, headers? })` in the same entries (#665): a signed POST
+  for tests of a webhook route.
+- Migrate: nothing required. An app with a hand-written webhook route (README "Third-party webhooks", before) can
+  replace it with `handleWebhook` and a zod schema of the event; the answers stay the same except a body that is not
+  JSON or does not match the schema, now 400 `security.webhook_payload_invalid`.
+
 ## 0.2.4
 
 - `fetchGuardedPage(url, { timeoutMs, maxBytes, maxRedirects?, accept?, userAgent?, allowedPorts?, allowTruncation? },
