@@ -29,4 +29,4 @@ Files: `modules/blog/src/quality/rules/copy.ts`, `modules/blog/tests/quality/cop
 
 ## Progress
 
-- [ ] Phase 1: the rule and docs
+- [x] Phase 1: the rule and docs (SHA)
