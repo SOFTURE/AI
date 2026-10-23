@@ -1,12 +1,13 @@
 ---
 change_id: form-calls-request-json-677
 title: "connections, billing: move the hand-written form calls onto requestJson (issue #677)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 677
 branch: claude/project-thread-gbysu1
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent

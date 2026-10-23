@@ -1,6 +1,6 @@
 ---
 change_id: form-calls-request-json-677
-status: in_progress
+status: archived
 ---
 
 # Plan: form calls through requestJson (issue #677)
@@ -35,5 +35,8 @@ Files: `modules/billing/src/stripe.ts`, `modules/billing/tests/stripe.test.ts`, 
 
 ## Progress
 
-- [ ] Phase 1: connections token client
-- [ ] Phase 2: billing Stripe checkout
+- [x] Phase 1: connections token client (67f3985)
+- [x] Phase 2: billing Stripe checkout (feb0e8b)
+
+Tests were written before the code: in phase 1 the form assertion failed on the old string body, in phase 2 the
+`no-store`/`manual` and the logged-code tests failed.
