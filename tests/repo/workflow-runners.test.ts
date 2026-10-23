@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { REPO_ROOT } from "./repo-files.js";
 
@@ -26,8 +26,10 @@ const DEFAULT_RUNS_ON = '"ubuntu-latest"';
 
 interface Step {
   name?: string;
+  uses?: string;
   env?: Record<string, unknown>;
   run?: string;
+  "working-directory"?: string;
 }
 
 interface Job {
@@ -36,15 +38,7 @@ interface Job {
 }
 
 interface Workflow {
-  on: Record<
-    string,
-    {
-      inputs?: Record<
-        string,
-        { type?: string; default?: unknown; required?: boolean }
-      >;
-    } | null
-  >;
+  on: Record<string, { inputs?: Record<string, { type?: string; default?: unknown; required?: boolean }> } | null>;
   jobs: Record<string, Job>;
 }
 
@@ -54,9 +48,7 @@ function readWorkflow(name: string): Workflow {
 
 const REUSABLE = readdirSync(WORKFLOWS_DIR).filter((name) => {
   const workflow = readWorkflow(name);
-  return (
-    Object.keys(workflow.on).length === 1 && "workflow_call" in workflow.on
-  );
+  return Object.keys(workflow.on).length === 1 && "workflow_call" in workflow.on;
 });
 
 function getCheckStep(name: string, jobId: string): Step | undefined {
@@ -65,15 +57,31 @@ function getCheckStep(name: string, jobId: string): Step | undefined {
 
 const FIRST_CHECK = getCheckStep("deploy-release-checks.yml", "static");
 
+// A self-hosted runner keeps one work directory per repository between jobs, and a sparse checkout an earlier job left
+// there outlives the next full checkout (issue #687), so every job that checks out empties the workspace first.
+const EMPTY_WORKSPACE = getJobSteps("deploy-release-checks.yml", "static")[1];
+
+function getJobSteps(name: string, jobId: string): Step[] {
+  return readWorkflow(name).jobs[jobId]?.steps ?? [];
+}
+
+function isCheckout(step: Step): boolean {
+  return step.uses?.startsWith("actions/checkout@") ?? false;
+}
+
+function runEmptyWorkspace(env: Record<string, string>): { status: number | null; output: string } {
+  const result = spawnSync("bash", ["-e", "-c", EMPTY_WORKSPACE?.run ?? "exit 99"], {
+    env: { PATH: process.env.PATH, ...env },
+    encoding: "utf8",
+  });
+  return { status: result.status, output: result.stdout + result.stderr };
+}
+
 function runCheck(value: string): { status: number | null; output: string } {
-  const result = spawnSync(
-    "bash",
-    ["-e", "-c", FIRST_CHECK?.run ?? "exit 99"],
-    {
-      env: { PATH: process.env.PATH, RUNS_ON: value },
-      encoding: "utf8",
-    },
-  );
+  const result = spawnSync("bash", ["-e", "-c", FIRST_CHECK?.run ?? "exit 99"], {
+    env: { PATH: process.env.PATH, RUNS_ON: value },
+    encoding: "utf8",
+  });
   return { status: result.status, output: result.stdout + result.stderr };
 }
 
@@ -115,6 +123,75 @@ describe.each(REUSABLE)("reusable %s", (name) => {
     for (const id of Object.keys(workflow.jobs)) {
       expect(getCheckStep(name, id), `${name} → ${id}`).toEqual(FIRST_CHECK);
     }
+  });
+
+  it("empties the workspace right after the runner check in every job that checks out (issue #687)", () => {
+    for (const id of Object.keys(workflow.jobs)) {
+      const steps = getJobSteps(name, id);
+      if (!steps.some(isCheckout)) continue;
+      expect(steps[1], `${name} → ${id}`).toEqual(EMPTY_WORKSPACE);
+    }
+  });
+});
+
+describe("the workspace step (issue #687)", () => {
+  let root = "";
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "empty-workspace-"));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("runs outside the workspace, with nothing interpolated into the script", () => {
+    expect(EMPTY_WORKSPACE?.name).toBe("Empty the workspace");
+    expect(EMPTY_WORKSPACE?.["working-directory"]).toBe("${{ runner.temp }}");
+    expect(EMPTY_WORKSPACE?.run).not.toContain("${{");
+  });
+
+  it("removes files, dot files and folders, a git folder included, and keeps the workspace", () => {
+    const workspace = join(root, "app");
+    mkdirSync(join(workspace, ".git/info"), { recursive: true });
+    writeFileSync(join(workspace, ".git/info/sparse-checkout"), "/package.json\n");
+    writeFileSync(join(workspace, "package.json"), "{}");
+    writeFileSync(join(workspace, ".eslintcache"), "");
+    mkdirSync(join(workspace, ".softure-ai-deploy/nested"), { recursive: true });
+
+    expect(runEmptyWorkspace({ GITHUB_WORKSPACE: workspace })).toEqual({ status: 0, output: "" });
+    expect(readdirSync(workspace)).toEqual([]);
+  });
+
+  it("passes on an empty workspace, as on a hosted runner", () => {
+    const workspace = join(root, "app");
+    mkdirSync(workspace);
+    expect(runEmptyWorkspace({ GITHUB_WORKSPACE: workspace })).toEqual({ status: 0, output: "" });
+    expect(existsSync(workspace)).toBe(true);
+  });
+
+  it("fails, naming the workspace, when an entry cannot be removed", () => {
+    const workspace = join(root, "app");
+    mkdirSync(workspace);
+    writeFileSync(join(workspace, "owned-by-root"), "");
+    const bin = join(root, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "rm"), "#!/bin/sh\necho \"rm: Permission denied\" >&2\nexit 1\n");
+    chmodSync(join(bin, "rm"), 0o755);
+
+    const result = spawnSync("bash", ["-e", "-c", EMPTY_WORKSPACE?.run ?? "exit 99"], {
+      env: { PATH: `${bin}:${process.env.PATH ?? ""}`, GITHUB_WORKSPACE: workspace },
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(`::error::The workspace ${workspace} could not be emptied`);
+    expect(readdirSync(workspace)).toEqual(["owned-by-root"]);
+  });
+
+  it("refuses an unset workspace and removes nothing", () => {
+    const result = runEmptyWorkspace({});
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain("GITHUB_WORKSPACE");
   });
 });
 
@@ -163,9 +240,7 @@ const GH_STEP_NAME = "Set up the GitHub CLI";
 const CALLS_GH = /(^|[\s;&|(!])gh\s+(api|release|workflow|run)\b/m;
 
 function callsGh(job: Job): boolean {
-  return (job.steps ?? []).some(
-    (step) => step.name !== GH_STEP_NAME && CALLS_GH.test(step.run ?? ""),
-  );
+  return (job.steps ?? []).some((step) => step.name !== GH_STEP_NAME && CALLS_GH.test(step.run ?? ""));
 }
 
 const GH_JOBS = REUSABLE.flatMap((name) =>
@@ -174,7 +249,7 @@ const GH_JOBS = REUSABLE.flatMap((name) =>
     .map(([id]) => `${name} → ${id}`),
 );
 
-const GH_STEP = readWorkflow("deploy-cut-release.yml").jobs.cut?.steps?.[1];
+const GH_STEP = getJobSteps("deploy-cut-release.yml", "cut")[1];
 const GH_SCRIPT = GH_STEP?.run ?? "exit 99";
 
 describe("the jobs that call gh", () => {
@@ -188,27 +263,24 @@ describe("the jobs that call gh", () => {
     ]);
   });
 
-  it.each(REUSABLE)(
-    "%s sets gh up second in exactly those jobs, with the one shared step",
-    (name) => {
-      for (const [id, job] of Object.entries(readWorkflow(name).jobs)) {
-        const steps = job.steps ?? [];
-        if (callsGh(job)) {
-          expect(steps[1], `${name} → ${id}`).toEqual(GH_STEP);
-        } else {
-          expect(
-            steps.some((step) => step.name === GH_STEP_NAME),
-            `${name} → ${id}`,
-          ).toBe(false);
-        }
+  it.each(REUSABLE)("%s sets gh up after the shared steps in exactly those jobs, with the one shared step", (name) => {
+    for (const [id, job] of Object.entries(readWorkflow(name).jobs)) {
+      const steps = job.steps ?? [];
+      if (callsGh(job)) {
+        // After the runner check, and after the workspace step when the job checks out (issue #687).
+        expect(steps[steps.some(isCheckout) ? 2 : 1], `${name} → ${id}`).toEqual(GH_STEP);
+      } else {
+        expect(
+          steps.some((step) => step.name === GH_STEP_NAME),
+          `${name} → ${id}`,
+        ).toBe(false);
       }
-    },
-  );
+    }
+  });
 });
 
 describe("the GitHub CLI setup step", () => {
-  const PINNED_SUM =
-    /fdd768eb70f6409f80fcfa9f3a1c0adf0fc98d827ab3ce0bed2ac22762c5d786/;
+  const PINNED_SUM = /fdd768eb70f6409f80fcfa9f3a1c0adf0fc98d827ab3ce0bed2ac22762c5d786/;
   const VERSION = /^\s*version=([0-9.]+)$/m.exec(GH_SCRIPT)?.[1] ?? "";
 
   interface Sandbox {
@@ -220,17 +292,7 @@ describe("the GitHub CLI setup step", () => {
 
   // A PATH of its own: only the tools the step uses, so the machine's own gh is never found.
   function makeSandbox(
-    tools: string[] = [
-      "tar",
-      "gzip",
-      "mkdir",
-      "rm",
-      "cut",
-      "cp",
-      "sha256sum",
-      "shasum",
-      "perl",
-    ],
+    tools: string[] = ["tar", "gzip", "mkdir", "rm", "cut", "cp", "sha256sum", "shasum", "perl"],
   ): Sandbox {
     const root = mkdtempSync(join(tmpdir(), "gh-setup-"));
     const bin = join(root, "bin");
@@ -259,10 +321,7 @@ describe("the GitHub CLI setup step", () => {
     const name = `gh_${VERSION}_linux_${arch}`;
     const source = join(sandbox.root, "source");
     mkdirSync(join(source, name, "bin"), { recursive: true });
-    writeFileSync(
-      join(source, name, "bin/gh"),
-      `#!/bin/bash\necho "gh version ${VERSION}"\n`,
-    );
+    writeFileSync(join(source, name, "bin/gh"), `#!/bin/bash\necho "gh version ${VERSION}"\n`);
     chmodSync(join(source, name, "bin/gh"), 0o755);
     const archive = join(sandbox.root, "gh.tar.gz");
     spawnSync("tar", ["-czf", archive, "-C", source, name]);
@@ -274,12 +333,7 @@ describe("the GitHub CLI setup step", () => {
     );
     const hash = spawnSync(
       "bash",
-      [
-        "-c",
-        `(sha256sum "$1" 2> /dev/null || shasum -a 256 "$1") | cut -d " " -f 1`,
-        "_",
-        archive,
-      ],
+      ["-c", `(sha256sum "$1" 2> /dev/null || shasum -a 256 "$1") | cut -d " " -f 1`, "_", archive],
       {
         encoding: "utf8",
       },
@@ -287,24 +341,17 @@ describe("the GitHub CLI setup step", () => {
     return hash.stdout.trim();
   }
 
-  function runStep(
-    sandbox: Sandbox,
-    options: { script?: string; os?: string; arch?: string } = {},
-  ) {
-    const result = spawnSync(
-      "/bin/bash",
-      ["-e", "-c", options.script ?? GH_SCRIPT],
-      {
-        env: {
-          PATH: sandbox.bin,
-          RUNNER_OS: options.os ?? "Linux",
-          RUNNER_ARCH: options.arch ?? "X64",
-          RUNNER_TEMP: sandbox.temp,
-          GITHUB_PATH: sandbox.githubPath,
-        },
-        encoding: "utf8",
+  function runStep(sandbox: Sandbox, options: { script?: string; os?: string; arch?: string } = {}) {
+    const result = spawnSync("/bin/bash", ["-e", "-c", options.script ?? GH_SCRIPT], {
+      env: {
+        PATH: sandbox.bin,
+        RUNNER_OS: options.os ?? "Linux",
+        RUNNER_ARCH: options.arch ?? "X64",
+        RUNNER_TEMP: sandbox.temp,
+        GITHUB_PATH: sandbox.githubPath,
       },
-    );
+      encoding: "utf8",
+    });
     return {
       status: result.status,
       output: result.stdout + result.stderr,
@@ -318,9 +365,7 @@ describe("the GitHub CLI setup step", () => {
     expect(GH_SCRIPT).not.toContain("${{");
     expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     expect(GH_SCRIPT).toMatch(PINNED_SUM);
-    expect(GH_SCRIPT).toMatch(
-      /7f322df34e624d14f5ec0c4acb121fd6dfa14392fdbbd1066aa8e0a05ac3721e/,
-    );
+    expect(GH_SCRIPT).toMatch(/7f322df34e624d14f5ec0c4acb121fd6dfa14392fdbbd1066aa8e0a05ac3721e/);
   });
 
   it("does nothing when the runner has gh", () => {
@@ -377,43 +422,27 @@ describe("the GitHub CLI setup step", () => {
       `::error::The GitHub CLI archive gh_${VERSION}_linux_amd64.tar.gz does not match its pinned SHA-256`,
     );
     expect(result.githubPath).toBe("");
-    expect(
-      existsSync(
-        join(sandbox.temp, `gh-${VERSION}`, `gh_${VERSION}_linux_amd64`),
-      ),
-    ).toBe(false);
+    expect(existsSync(join(sandbox.temp, `gh-${VERSION}`, `gh_${VERSION}_linux_amd64`))).toBe(false);
     rmSync(sandbox.root, { recursive: true, force: true });
   });
 
   it.each([
     ["X64", "amd64", PINNED_SUM],
-    [
-      "ARM64",
-      "arm64",
-      /7f322df34e624d14f5ec0c4acb121fd6dfa14392fdbbd1066aa8e0a05ac3721e/,
-    ],
-  ])(
-    "on %s unpacks the matching %s archive into RUNNER_TEMP and puts its bin on GITHUB_PATH",
-    (arch, asset, pinned) => {
-      const sandbox = makeSandbox();
-      const sum = writeArchiveCurl(sandbox, asset);
-      const result = runStep(sandbox, {
-        arch,
-        script: GH_SCRIPT.replace(pinned, sum),
-      });
-      const bin = join(
-        sandbox.temp,
-        `gh-${VERSION}`,
-        `gh_${VERSION}_linux_${asset}`,
-        "bin",
-      );
-      expect(result.status, result.output).toBe(0);
-      expect(result.githubPath).toBe(`${bin}\n`);
-      expect(result.output).toContain(`gh version ${VERSION}`);
-      expect(readFileSync(join(sandbox.root, "curl-args"), "utf8")).toContain(
-        `https://github.com/cli/cli/releases/download/v${VERSION}/gh_${VERSION}_linux_${asset}.tar.gz`,
-      );
-      rmSync(sandbox.root, { recursive: true, force: true });
-    },
-  );
+    ["ARM64", "arm64", /7f322df34e624d14f5ec0c4acb121fd6dfa14392fdbbd1066aa8e0a05ac3721e/],
+  ])("on %s unpacks the matching %s archive into RUNNER_TEMP and puts its bin on GITHUB_PATH", (arch, asset, pinned) => {
+    const sandbox = makeSandbox();
+    const sum = writeArchiveCurl(sandbox, asset);
+    const result = runStep(sandbox, {
+      arch,
+      script: GH_SCRIPT.replace(pinned, sum),
+    });
+    const bin = join(sandbox.temp, `gh-${VERSION}`, `gh_${VERSION}_linux_${asset}`, "bin");
+    expect(result.status, result.output).toBe(0);
+    expect(result.githubPath).toBe(`${bin}\n`);
+    expect(result.output).toContain(`gh version ${VERSION}`);
+    expect(readFileSync(join(sandbox.root, "curl-args"), "utf8")).toContain(
+      `https://github.com/cli/cli/releases/download/v${VERSION}/gh_${VERSION}_linux_${asset}.tar.gz`,
+    );
+    rmSync(sandbox.root, { recursive: true, force: true });
+  });
 });

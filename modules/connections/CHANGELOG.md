@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.3.0
 
 - The token and revocation calls go through core's `requestJson({ form, errorSchema })` (#677) instead of a copy of its
   rules. Codes and behaviour are unchanged: an OAuth error (`invalid_grant`, `invalid_client`) is read from a 2xx or

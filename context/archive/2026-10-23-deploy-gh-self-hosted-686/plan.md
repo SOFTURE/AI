@@ -40,6 +40,8 @@ Files: `tools/deploy/README.md` (Runner section), `tools/deploy/CHANGELOG.md`.
 - Linux x64 and arm64 only; other platforms fail with a message to install `gh` on the runner.
 - One identical step guarded by the repository test, as the runner check is, instead of a composite action (a
   reusable workflow called from another repository would need the action at a pinned ref of this repository).
+- (Merging #687) The step follows the runner check and, in a job that checks out, the "Empty the workspace" step
+  #687 put second; the guard reads its position from whether the job checks out.
 
 ## Progress
 

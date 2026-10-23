@@ -61,6 +61,9 @@ rewrite the paragraph around its one thought; do not swap a word for a synonym.
 | `these-days` | | | Start with the number or the answer, not with "these times". |
 | `not-only-but-also` | | | Name both things plainly: "cheap and simple". |
 | `not-x-but-y` | | | Say Y right away; the contrast with X nobody claimed is a template. |
+| `not-x-but-y-bare` | | | The same contrast without "it is": say Y; keep "not X" only where someone really claims X. |
+| `verdict-label` | | | Drop the label ("Conclusion:", "Bottom line:") and write the sentence. |
+| `fragile-spot` | | | Name what breaks and when, not "the weakest link" or "the Achilles' heel". |
 | `meta-commentary` | | | Remove "in this article", "let us look at", "as mentioned": the text moves forward by itself. |
 | `throat-clearing` | | | Cut the run-up ("the truth is", "interestingly") and keep the claim. |
 | `empty-conclusion` | | | End with the last concrete fact, without "in summary" and a repeat. |
@@ -81,6 +84,7 @@ rewrite the paragraph around its one thought; do not swap a word for a synonym.
 | `long-sentences` | | | Split sentences longer than {{sentenceWords}} words. |
 | `monotone-rhythm` | | | Mix short and long sentences. |
 | `repeated-openings` | | | Do not start three sentences in a row with the same word. |
+| `stacked-asides` | | | Keep one aside in parentheses per sentence; fold the other into the sentence or cut it. |
 
 ## Voice
 

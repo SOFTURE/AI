@@ -700,14 +700,21 @@ A self-hosted runner has to provide what the hosted image has and the jobs use:
 - Docker with buildx (the image build, the integration stack, the end-to-end server);
 - passwordless `sudo`, or Playwright's system dependencies installed beforehand, since `playwright install --with-deps`
   calls `apt-get`;
-- a clean state between jobs: the checkout cleans the workspace, but containers, networks and volumes a job leaves
-  behind stay on the machine; use ephemeral runners, or clean them up in the runner's job hooks;
+- a clean state between jobs: containers, networks and volumes a job leaves behind stay on the machine; use ephemeral
+  runners, or clean them up in the runner's job hooks;
+- a workspace the job can empty. A runner keeps one work directory per repository between jobs, and a sparse checkout
+  an earlier job left there outlives the next full checkout: actions/checkout exits 0 with only the sparse files (e.g.
+  only `package.json`, so `setup-node` finds no lock file; issue #687). Every job of these workflows that checks out
+  therefore empties `$GITHUB_WORKSPACE` first (step "Empty the workspace"), and fails, naming the workspace, when a
+  file there belongs to another user (a container's volume). The app's own jobs on the same runner need the same: an
+  ephemeral runner, or a job-started hook (`ACTIONS_RUNNER_HOOK_JOB_STARTED`) that runs
+  `find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +`;
 - `bash`, `git`, `curl` and `tar`, as on any runner the actions run on;
 - an SSH client (`ssh`, `ssh-keygen`) for the deploy job.
 
 The GitHub CLI is not required (issue #686). The jobs that call `gh` (`deploy-cut-release` → `cut`, `deploy-report`
 → `report`, `deploy-release-notes` → `notes`, `deploy-cancel-run` → `cancel`, `deploy-integration` → `record`) run
-the step "Set up the GitHub CLI" right after the runner check. A runner that has `gh` uses its own and the step does
+the step "Set up the GitHub CLI" after the runner check (and after "Empty the workspace" in a job that checks out). A runner that has `gh` uses its own and the step does
 nothing; on one without it the step downloads GitHub CLI 2.103.0 for Linux x64 or arm64 from its GitHub release,
 checks the archive against the SHA-256 pinned in the workflow, unpacks it into `$RUNNER_TEMP` for that job only and
 puts it on `PATH`, with no `sudo` and no change to the machine. The runner must reach `github.com` for that. Any other

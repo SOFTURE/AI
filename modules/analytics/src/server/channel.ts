@@ -3,9 +3,9 @@
 // from through `Referer`, but only from one of this app's origins (`appOrigin`, the config's `origins.trustedOrigins`
 // and `analytics({ origins })`).
 import { readForwardedProto, readRequestHost, type SoftureConfig } from "@softure-ai/core";
-import { parseChannel } from "../channel-rule.js";
+import { parseChannel, readChannelParam } from "../channel-rule.js";
 import type { ChannelFromReferer } from "../options.js";
-import { getChannelOptions, getFirstPartyOrigins } from "./options.js";
+import { getChannelOptions, getChannelParams, getFirstPartyOrigins } from "./options.js";
 
 export { getFirstPartyOrigins, parseChannel };
 
@@ -33,25 +33,32 @@ export function readPublicOrigin(config: SoftureConfig, request: Request): strin
   return candidates.find((origin) => new URL(origin).protocol === `${proto ?? ""}:`) ?? candidates[0] ?? null;
 }
 
-/** The channel of a request: its URL's parameter, else the one on the first-party page it came from. */
+/**
+ * The channel of a request: its URL's parameter, else the one on the first-party page it came from.
+ * Each is read under `param`, then under each of `legacyParams`; the first name present decides.
+ */
 export function readChannel(config: SoftureConfig, sources: ChannelSources): string | null {
   const options = getChannelOptions(config);
+  const names = getChannelParams(options);
   const url = toUrl(sources.url);
-  if (url?.searchParams.has(options.param)) return parseChannel(url.searchParams.get(options.param), options);
+  const own = url === null ? undefined : readChannelParam(url.searchParams, names);
+  if (own !== undefined) return parseChannel(own, options);
   const referer = toUrl(sources.referer);
   if (referer === null || !isFirstParty(referer, { config, url, host: sources.host ?? null })) return null;
-  return parseChannel(referer.searchParams.get(options.param), options);
+  return parseChannel(readChannelParam(referer.searchParams, names), options);
 }
 
-/** Whether `url` already carries the channel parameter (with any value). */
+/** Whether `url` already carries the channel parameter, or one of its legacy names (with any value). */
 export function hasChannelParam(config: SoftureConfig, url: URL): boolean {
-  return url.searchParams.has(getChannelOptions(config).param);
+  return getChannelParams(getChannelOptions(config)).some((name) => url.searchParams.has(name));
 }
 
-/** A copy of `url` with the channel parameter set to `channel`. */
+/** A copy of `url` with the channel parameter set to `channel` and its legacy names removed. */
 export function withChannel(config: SoftureConfig, url: URL, channel: string): URL {
+  const { param, legacyParams } = getChannelOptions(config);
   const tagged = new URL(url);
-  tagged.searchParams.set(getChannelOptions(config).param, channel);
+  for (const name of legacyParams) tagged.searchParams.delete(name);
+  tagged.searchParams.set(param, channel);
   return tagged;
 }
 

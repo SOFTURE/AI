@@ -1,6 +1,7 @@
 // The quality gate's public surface, re-exported from `@softure-ai/blog/server`.
 export { listQualityRules, QUALITY_RULE_GROUPS, type QualityCatalogRule, type QualityRuleGroup } from "./catalog.js";
 export { checkArticle, checkArticleText, type CheckArticleInput, type CheckArticleTextInput, type QualityCheckResult } from "./check-article.js";
+export { checkCopyText, COPY_MODES, type CheckCopyTextOptions, type CopyCheckResult, type CopyMode } from "./check-copy.js";
 export { checkArticleFiles, type CheckArticleFilesOptions, type FileCheckResult } from "./check-files.js";
 export { getProseBlocks, splitArticleBody, splitBlocks, type Block, type BlockKind } from "./blocks.js";
 export { checkExternalLinks, checkExternalUrl, type FetchLike } from "./external-links.js";
@@ -13,7 +14,7 @@ export { qualityOptionsSchema, type QualityLimits, type QualityOptions, type Qua
 export { isQualityPlugin, type QualityPlugin, type QualityPluginContext, type QualityRuleInfo } from "./plugin.js";
 export { collectLinks, type InternalLinkResolver, type LinkSummary } from "./rules/links.js";
 export { enRuleset, plRuleset, QUALITY_LANGUAGES, QUALITY_RULESETS, type LanguageRuleset, type QualityLanguage, type StylePattern } from "./rulesets/index.js";
-export { getLocalDate, resolveQualitySettings, type QualityPaths, type QualitySettings } from "./settings.js";
+export { getLocalDate, resolveQualitySettings, resolveStyleSettings, type QualityPaths, type QualitySettings, type StyleSettings } from "./settings.js";
 export {
   countWords,
   findBareUrls,

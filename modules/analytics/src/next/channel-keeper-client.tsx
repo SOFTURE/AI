@@ -20,14 +20,15 @@ export function ChannelKeeperClient({ rule }: ChannelKeeperClientProps) {
   const search = useSearchParams().toString();
   const keep = useRef<ChannelKeeper | null>(null);
   const { param, pattern, flags, maxLength, normalize } = rule;
-  // A string, not the array: the server component hands a new array on every render.
+  // Strings, not the arrays: the server component hands new arrays on every render.
   const origins = (rule.origins ?? []).join(" ");
+  const legacyParams = (rule.legacyParams ?? []).join(" ");
 
   useLayoutEffect(() => {
-    keep.current ??= createChannelKeeper({ param, pattern, flags, maxLength, normalize, origins: splitOrigins(origins) });
+    keep.current ??= createChannelKeeper({ param, legacyParams: splitList(legacyParams), pattern, flags, maxLength, normalize, origins: splitList(origins) });
     const tagged = keep.current(window.location.href);
     if (tagged !== null) window.history.replaceState(null, "", tagged);
-  }, [pathname, search, param, pattern, flags, maxLength, normalize, origins]);
+  }, [pathname, search, param, legacyParams, pattern, flags, maxLength, normalize, origins]);
 
   // A link to the app's other origin gets the tag just before the browser follows it: the default
   // referrer policy drops the query from a cross-origin Referer. Capture phase, so it runs before
@@ -50,6 +51,6 @@ export function ChannelKeeperClient({ rule }: ChannelKeeperClientProps) {
   return null;
 }
 
-function splitOrigins(origins: string): string[] {
-  return origins === "" ? [] : origins.split(" ");
+function splitList(list: string): string[] {
+  return list === "" ? [] : list.split(" ");
 }

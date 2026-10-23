@@ -74,6 +74,17 @@ jobs:
             echo "::error::Input runs-on is not valid: a JSON label such as '\"ubuntu-latest\"' or a non-empty array of labels such as '[\"self-hosted\",\"linux\"]'"
             exit 1
           fi
+      # A self-hosted runner keeps one work directory per repository between jobs, and a sparse checkout an earlier job
+      # left there outlives the next full one (issue #687): every job that checks out starts from an empty workspace,
+      # as on a hosted runner.
+      - name: Empty the workspace
+        # Outside the workspace, and before a job's defaults.run.working-directory (inside the checkout) exists.
+        working-directory: ${{ runner.temp }}
+        run: |
+          if ! find "${GITHUB_WORKSPACE:?}" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; then
+            echo "::error::The workspace $GITHUB_WORKSPACE could not be emptied: files of another user (a container's volume) are left there. Remove them on the runner, and empty the workspace in its job-started hook (@softure-ai/deploy README, \"Runner\")."
+            exit 1
+          fi
 
       # GitHub's hosted images ship the GitHub CLI, a self-hosted runner may not (issue #686): without it, this installs
       # a pinned copy into RUNNER_TEMP for this job only, checked against its SHA-256 first, with no sudo.
