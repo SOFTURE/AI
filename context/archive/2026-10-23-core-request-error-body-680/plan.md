@@ -1,6 +1,6 @@
 ---
 change_id: core-request-error-body-680
-status: in_progress
+status: archived
 ---
 
 # Plan: error answer body in requestJson (issue #680)
@@ -39,5 +39,7 @@ Files: `foundation/core/src/http-json.ts`, `foundation/core/src/index.ts`,
 
 ## Progress
 
-- [ ] Phase 1: `errorSchema` option
-- [ ] Phase 2: docs
+- [x] Phase 1: `errorSchema` option (1cdbffd)
+- [x] Phase 2: docs (f25662e)
+
+Tests were written before the code in phase 1 (18 of 23 failed on the missing option).

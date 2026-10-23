@@ -1,12 +1,13 @@
 ---
 change_id: core-request-error-body-680
 title: "core: requestJson reads the error answer's body through a schema (issue #680)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 680
 branch: claude/project-thread-p39tv3
 created: 2026-10-23
 updated: 2026-10-23
+archived_at: 2026-10-23
 ---
 
 ## Intent
