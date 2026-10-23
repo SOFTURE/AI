@@ -6,6 +6,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Bundles that include `@softure-ai/observability` 0.4.0 load again (#681):** the esbuild banner of the `Dockerfile`
+  written by `init` imports `createRequire as __bundleCreateRequire`, so it no longer collides with observability's own
+  top-level `createRequire` import (`SyntaxError: Identifier 'createRequire' has already been declared` when
+  `migrate.mjs`, `worker.mjs` or an `ops/<name>.mjs` bundles `startObservability`). An app generated earlier replaces
+  the banner of each esbuild command in its `Dockerfile` with
+  `--banner:js="import { createRequire as __bundleCreateRequire } from 'module'; const require = __bundleCreateRequire(import.meta.url);"`
+  (or re-runs `init --force`); README "Bundled for plain Node" explains why.
 - **An integration run deletes its ref again (#684):** `deploy-integration.yml`'s step "Delete the integration ref"
   called `DELETE repos/<owner>/<repo>/git/heads/<branch>`, which is not an endpoint: GitHub answered 404, every
   `integration/*` run ended red after storing its note, and the ref stayed. The step now calls
