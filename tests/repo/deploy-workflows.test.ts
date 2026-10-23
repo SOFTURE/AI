@@ -55,8 +55,14 @@ interface WorkflowCall {
   secrets?: Record<string, { required?: boolean }>;
 }
 
+// Every job of a reusable workflow opens with the runner check (issue #670), which workflow-runners.test.ts covers;
+// the tests here read the steps after it.
 function readYaml(path: string): Workflow {
-  return parse(readFileSync(path, "utf8")) as Workflow;
+  const workflow = parse(readFileSync(path, "utf8")) as Workflow;
+  for (const job of Object.values(workflow.jobs)) {
+    if (job.steps?.[0]?.name === "Check the runner") job.steps = job.steps.slice(1);
+  }
+  return workflow;
 }
 
 interface Action {
@@ -969,8 +975,8 @@ describe("deploy-cancel-run.yml (issue #628)", () => {
   const job = workflow.jobs.cancel;
   const step = findNamedStep(job, "Cancel this run");
 
-  it("takes nothing, and only its one job may write to Actions", () => {
-    expect(call.inputs).toBeUndefined();
+  it("takes only the runner, and only its one job may write to Actions", () => {
+    expect(Object.keys(call.inputs ?? {})).toEqual(["runs-on"]);
     expect(call.secrets).toBeUndefined();
     expect(workflow.permissions).toEqual({});
     expect(Object.keys(workflow.jobs)).toEqual(["cancel"]);
