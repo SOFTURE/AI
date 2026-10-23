@@ -87,7 +87,8 @@ async function resolveToken(ctx: ConnectionsContext, input: ResolveInput): Promi
   if (input.force === null ? isFresh(ctx, row, now) : !isRejected(keyring, row, input.force)) return toAccessToken(keyring, row);
   if (!row.hasRefreshToken) {
     // Nothing to refresh with: usable until it expires, then only a reconnect helps.
-    if (row.expiresAt !== null && row.expiresAt > now) return toAccessToken(keyring, row);
+    // (A forced call reaches here with a token that never expires, too.)
+    if (row.expiresAt === null || row.expiresAt > now) return toAccessToken(keyring, row);
     await markReconnectRequired(ctx, { rowId: row.id, provider: row.provider, accountId: row.accountId, kind: "oauth", reason: "expired" });
     return err("connections.reconnect_required");
   }

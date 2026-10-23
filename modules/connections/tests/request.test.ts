@@ -113,6 +113,14 @@ describe("requestWithConnection", () => {
       expect(events.map((event) => event.reason)).toEqual(["rejected"]);
     });
 
+    it("reports a refused token that never expires as rejected, not expired", async () => {
+      await setUp({ fake: { issuesRefreshToken: false, accessTokenTtlSeconds: null } });
+      await connectFake(test);
+      test.fake.rejectAccessTokens();
+      expect(await requestWithConnection(test.ctx, { provider: "fake" }, { url: test.fake.apiUrl, fetch: test.fake.fetch })).toEqual({ ok: false, error: "connections.reconnect_required" });
+      expect(events.map((event) => event.reason)).toEqual(["rejected"]);
+    });
+
     it("refreshes once for overlapping calls refused with the same token", async () => {
       await setUp();
       await connectFake(test);
