@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.0
 
 - `requestWithConnection(ctx, { provider, accountId? }, options)` in `/server`, and `requestWithConnection({ provider,
   accountId? }, options)` in `/next` with the app's context (#663): one API call with the stored credential of any
