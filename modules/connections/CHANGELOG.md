@@ -6,6 +6,11 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 
 ## Unreleased
 
+- The token and revocation calls go through core's `requestJson({ form, errorSchema })` (#677) instead of a copy of its
+  rules. Codes and behaviour are unchanged: an OAuth error (`invalid_grant`, `invalid_client`) is read from a 2xx or
+  4xx answer, a 429 or 5xx is a plain failure whatever its body says, and a redirect is never followed. Needs the
+  `@softure-ai/core` release that carries `form` and `errorSchema` (the range is raised with it).
+- The fake provider (`/testing`) reads a form body sent as `URLSearchParams` as well as its text.
 - An `api_key` provider can say where its key goes (#675): `header: { name: "x-api-key" }` sends the bare key in that
   header, `header: { name: "authorization", scheme: "Token" }` sends `Authorization: Token <key>`. Without `header`
   nothing changes (`Authorization: Bearer <key>`). The name must be an HTTP token (it is stored lowercase), and
