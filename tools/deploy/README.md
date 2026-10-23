@@ -675,6 +675,38 @@ Cancelling takes `actions: write`, which stays in the watchers: `deploy-release-
 since a pull request's caller grants nothing more (a called job may not ask for more than its caller grants, whatever
 its `if`). The two calls of the checks each run `prepare` with the tag, which costs seconds.
 
+### Runner
+
+Every job of the reusable workflows (`deploy-app`, `deploy-release-checks`, `deploy-release-image`,
+`deploy-integration`, `deploy-report`, `deploy-cut-release`, `deploy-release-notes`, `deploy-cancel-run`, and the
+blog's `blog-links`) runs on the runner the input `runs-on` names (issue #670). The input is JSON: one label, or an
+array of labels a runner must all carry. The default, `'"ubuntu-latest"'`, keeps a caller that passes nothing on
+GitHub's hosted runner.
+
+```yaml
+  checks:
+    uses: SOFTURE/AI/.github/workflows/deploy-release-checks.yml@<sha>
+    with:
+      runs-on: '["self-hosted","linux"]'
+```
+
+Each job checks the value first and refuses, naming `runs-on`, an object, an empty array, an empty label or a number.
+A value that is not JSON at all never reaches that check: GitHub reads `runs-on` before the job has a runner and
+fails the job with its own error on the `runs-on` line. One value covers every job of a workflow; a caller that
+wants some jobs elsewhere calls the workflow twice or keeps those jobs in its own file.
+
+A self-hosted runner has to provide what the hosted image has and the jobs use:
+
+- Docker with buildx (the image build, the integration stack, the end-to-end server);
+- passwordless `sudo`, or Playwright's system dependencies installed beforehand, since `playwright install --with-deps`
+  calls `apt-get`;
+- a clean state between jobs: the checkout cleans the workspace, but containers, networks and volumes a job leaves
+  behind stay on the machine; use ephemeral runners, or clean them up in the runner's job hooks;
+- `bash`, `git`, `curl` and `tar`, as on any runner the actions run on.
+
+Never use a self-hosted runner for a public repository: a pull request from a fork runs its own code on the machine,
+with whatever that machine can reach, and a non-ephemeral runner keeps what it left there for the next job.
+
 ### Edit release notes
 
 `SOFTURE/AI/.github/workflows/deploy-release-notes.yml` replaces the body of one release: an agent's cloud session
@@ -718,6 +750,9 @@ The caller's `report` job calls `deploy-report.yml` with `e2e: true` (refused ou
 from the tag writes the report into a fixture body, uploaded as `deploy-report-body` instead of edited into a
 release; [`e2e/check-report.sh`](e2e/check-report.sh) checks the owner's line, a status row per job and one
 `deployed` row with the built image.
+
+The caller's `checks` job calls `deploy-release-checks.yml` with `runs-on: '["ubuntu-latest"]'` and trivial
+commands: the array form of the runner input, on a real runner ("Runner" above).
 
 The caller's `assert` job runs [`e2e/check-received.sh`](e2e/check-received.sh): the image is
 `localhost:5000/softure/ai-deploy-e2e:<sha>`, the command line `deploy <sha>`, the files are byte for byte the tag's,

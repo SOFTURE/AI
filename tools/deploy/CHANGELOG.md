@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **The runner is the caller's choice (#670):** every reusable workflow takes the input `runs-on`, JSON: one label
+  (`'"ubuntu-latest"'`, the default) or an array of labels (`'["self-hosted","linux"]'`), and every job runs there.
+  Each job checks the value first and refuses an object, an empty array, an empty label or a number, naming
+  `runs-on`. Nothing to do for an app that stays on GitHub's hosted runners; README "Runner" lists what a self-hosted
+  runner has to provide and why a public repository must not use one.
+
 ## 0.4.5
 
 - **A pull request's checks cost less (#627):** `deploy-release-checks.yml` skips `prepare` when there is no tag and
