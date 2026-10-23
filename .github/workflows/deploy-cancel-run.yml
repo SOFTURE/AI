@@ -49,6 +49,55 @@ jobs:
             exit 1
           fi
 
+      # GitHub's hosted images ship the GitHub CLI, a self-hosted runner may not (issue #686): without it, this installs
+      # a pinned copy into RUNNER_TEMP for this job only, checked against its SHA-256 first, with no sudo.
+      - name: Set up the GitHub CLI
+        run: |
+          if command -v gh > /dev/null; then
+            exit 0
+          fi
+          version=2.103.0
+          case "$RUNNER_OS $RUNNER_ARCH" in
+            "Linux X64") arch=amd64 sum=fdd768eb70f6409f80fcfa9f3a1c0adf0fc98d827ab3ce0bed2ac22762c5d786 ;;
+            "Linux ARM64") arch=arm64 sum=7f322df34e624d14f5ec0c4acb121fd6dfa14392fdbbd1066aa8e0a05ac3721e ;;
+            *)
+              echo "::error::The GitHub CLI (gh) is not on this runner and cannot be installed on $RUNNER_OS $RUNNER_ARCH: install gh on the runner (https://cli.github.com)"
+              exit 1
+              ;;
+          esac
+          missing=""
+          for tool in curl tar; do
+            command -v "$tool" > /dev/null || missing="$missing $tool"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::The GitHub CLI (gh) is not on this runner, and installing it needs:$missing"
+            exit 1
+          fi
+          name="gh_${version}_linux_$arch"
+          url="https://github.com/cli/cli/releases/download/v$version/$name.tar.gz"
+          dir="$RUNNER_TEMP/gh-$version"
+          archive="$dir/$name.tar.gz"
+          rm -rf "$dir"
+          mkdir -p "$dir"
+          if ! curl -fsSL --retry 3 -o "$archive" "$url"; then
+            echo "::error::Downloading the GitHub CLI failed: $url"
+            exit 1
+          fi
+          if command -v sha256sum > /dev/null; then
+            actual="$(sha256sum "$archive" | cut -d " " -f 1)"
+          else
+            actual="$(shasum -a 256 "$archive" | cut -d " " -f 1)"
+          fi
+          if [ "$actual" != "$sum" ]; then
+            echo "::error::The GitHub CLI archive $name.tar.gz does not match its pinned SHA-256 ($actual, expected $sum)"
+            rm -rf "$dir"
+            exit 1
+          fi
+          tar -xzf "$archive" -C "$dir"
+          rm -f "$archive"
+          "$dir/$name/bin/gh" --version
+          echo "$dir/$name/bin" >> "$GITHUB_PATH"
+
       # Two watchers can fire for one failure (failure() also sees a failed ancestor), and the second finds the run
       # cancelled already: a refusal is a warning, since the run is red either way.
       - name: Cancel this run
