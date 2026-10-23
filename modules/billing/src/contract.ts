@@ -1,6 +1,7 @@
 // Result types and error codes of the billing module. No user-facing copy here: the UI translates
 // codes through `messages` (docs/02-module-standard.md §6).
-import type { CoreErrorCode, LocalizedText as CoreLocalizedText } from "@softure-ai/core";
+import type { CoreErrorCode, LocalizedText as CoreLocalizedText, ModuleContext } from "@softure-ai/core";
+import type { Queryable } from "@softure-ai/db";
 import type { InvoiceFieldErrorCode } from "./invoice.js";
 
 export type BillingErrorCode =
@@ -95,6 +96,38 @@ export type PaymentGrant =
   /** A paid period from where access ended (or the payment's instant) to the period's end. */
   | { readonly kind: "period"; readonly from: Date; readonly until: Date }
   | { readonly kind: "lifetime" };
+
+/**
+ * How an account's access changed: a plan, lifetime access or refunded days were granted (a manual grant, a provider
+ * payment, a failed refund giving days back), a grant or a payment was taken back (a revoke, a full or partial
+ * refund), or an admin extended the trial.
+ */
+export type AccessChange = "granted" | "refunded" | "trial_extended";
+
+/** What `billing({ onAccessChanged })` gets after a change committed. */
+export interface AccessChangedEvent {
+  readonly accountId: string;
+  readonly change: AccessChange;
+  /**
+   * The plan the grant or the refunded payment was for (`LIFETIME_GRANT_PLAN_ID` for lifetime access granted without
+   * a plan); null for a trial extension.
+   */
+  readonly planId: string | null;
+  /**
+   * The end of the access the change is about, the first instant it no longer covers: the new trial end for
+   * `trial_extended`, otherwise paid access' end after the change (null for lifetime access, or when no paid access
+   * is left).
+   */
+  readonly endsAt: Date | null;
+  /** Where the account stands after the change. */
+  readonly entitlement: Entitlement;
+}
+
+/**
+ * The app's hook on access changes, e.g. an analytics event per grant. Called after the change's transaction
+ * committed, with the context the change ran with; a throw or a rejection is logged and never undoes or fails it.
+ */
+export type OnAccessChanged = (event: AccessChangedEvent, ctx: ModuleContext<Queryable>) => void | Promise<void>;
 
 /** Copy per locale (any BCP 47 tag); a locale without its own text falls back to its language, then `en`. */
 export type LocalizedText = CoreLocalizedText;

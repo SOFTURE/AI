@@ -11,6 +11,7 @@ import { and, desc, eq } from "drizzle-orm";
 import type { AdminErrorCode, BillingErrorCode, Entitlement, PaymentGrant, Plan, PlanPrice } from "../contract.js";
 import { findPlan, LIFETIME_GRANT_PLAN_ID } from "../plans.js";
 import { entitlements, manualGrants, paymentRequests, payments, trialExtensions } from "../schema.js";
+import { notifyAccessChanged } from "./access-changed.js";
 import { changeEntitlement, findEntitlementRecord, pinEntitlementRow, type BillingContext } from "./entitlements.js";
 import { getGrantColumns, readGrant } from "./payments.js";
 import { applyPlan, getBillingPlans, type AppliedPlan } from "./plans.js";
@@ -92,7 +93,7 @@ async function applyLifetime(ctx: BillingContext, userId: string): Promise<Ok<Ap
 async function recordManualGrant(ctx: BillingContext, input: RecordManualGrantInput): Promise<Ok<ManualGrantResult> | Err<GrantPlanManuallyError>> {
   const { target } = input;
   const planId = target.kind === "plan" ? target.plan.id : LIFETIME_GRANT_PLAN_ID;
-  return ctx.db.transaction(async (tx) => {
+  const granted = await ctx.db.transaction(async (tx): Promise<Ok<ManualGrantResult> | Err<GrantPlanManuallyError>> => {
     const now = ctx.clock.now();
     // A shared lock: the account cannot be deleted before the grant below.
     const [account] = await tx.select({ createdAt: users.createdAt }).from(users).where(eq(users.id, input.userId)).for("key share");
@@ -146,6 +147,8 @@ async function recordManualGrant(ctx: BillingContext, input: RecordManualGrantIn
     if (row === undefined) throw new Error("@softure-ai/billing: recording a manual grant returned no row");
     return ok({ grantId: row.id, entitlement: applied.value.entitlement });
   });
+  if (granted.ok) await notifyAccessChanged(ctx, { accountId: input.userId, change: "granted", planId, entitlement: granted.value.entitlement });
+  return granted;
 }
 
 export interface GrantPaymentRequestInput {
@@ -173,7 +176,7 @@ export interface RevokeManualGrantInput {
  */
 export async function revokeManualGrant(ctx: BillingContext, input: RevokeManualGrantInput): Promise<Ok<Entitlement> | Err<Extract<AdminErrorCode, "billing.grant_revoked">>> {
   if (!isUuid(input.grantId)) return err("billing.grant_revoked");
-  return ctx.db.transaction(async (tx) => {
+  const taken = await ctx.db.transaction(async (tx): Promise<Err<"billing.grant_revoked"> | Ok<{ userId: string; planId: string; entitlement: Entitlement }>> => {
     const now = ctx.clock.now();
     const [found] = await tx.select({ userId: manualGrants.userId }).from(manualGrants).where(eq(manualGrants.id, input.grantId));
     if (found === undefined) return err("billing.grant_revoked");
@@ -196,8 +199,12 @@ export async function revokeManualGrant(ctx: BillingContext, input: RevokeManual
         hasOtherLifetime: async () => (await hasActiveManualLifetime(tx, found.userId, revoked.id)) || (await hasPaidLifetimePayment(tx, found.userId)),
       },
     );
-    return ok(entitlement);
+    return ok({ userId: found.userId, planId: revoked.planId, entitlement });
   });
+  if (!taken.ok) return taken;
+  const { userId, planId, entitlement } = taken.value;
+  await notifyAccessChanged(ctx, { accountId: userId, change: "refunded", planId, entitlement });
+  return ok(entitlement);
 }
 
 /**
