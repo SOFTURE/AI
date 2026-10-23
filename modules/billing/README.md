@@ -1022,7 +1022,8 @@ transaction committed, with the context the change ran with:
 The event also carries `accountId` and `entitlement` (where the account stands after the change, as `getEntitlement`
 returns it). A refusal, a repeated webhook delivery and an unknown payment call nothing; so do the low-level
 `grantPlan`, `changeEntitlement` and `importEntitlement`, which run inside the caller's transaction and record nothing.
-The hook may read the change through `ctx.db` (it is committed). A throw or a rejection is logged as
+The hook may read the change through `ctx.db` (it is committed; called with a `ctx` whose `db` is the app's own open
+transaction, it runs after the function's work but before the app commits). A throw or a rejection is logged as
 `@softure-ai/billing: onAccessChanged failed for a "<change>" change: <error name>` (never the message or the account)
 and the change still answers as done, so the hook is for side effects that may be lost, such as analytics:
 
