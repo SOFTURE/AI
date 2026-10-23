@@ -718,7 +718,8 @@ check: 2 file(s), 1 error(s), 0 warning(s): red, do not publish
 Exit codes: 0 green (warnings allowed), 1 an error, 2 usage error. `--external` also requests every
 external link (HEAD, then GET when a server refuses HEAD; 2xx after redirects). Run it weekly with the
 reusable workflow of this repository, `.github/workflows/blog-links.yml` (its header holds the
-snippet for the app).
+snippet for the app). Its input `runs-on` picks the runner, as for the deploy workflows
+([deploy README, "Runner"](../../tools/deploy/README.md#runner)).
 
 ### The writing skill
 

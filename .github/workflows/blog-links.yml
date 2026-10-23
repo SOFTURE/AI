@@ -28,6 +28,10 @@ name: blog-links
 on:
   workflow_call:
     inputs:
+      runs-on:
+        description: The runner of every job as JSON, one label or an array of labels (e.g. "ubuntu-latest" or ["self-hosted","linux"])
+        type: string
+        default: '"ubuntu-latest"'
       node-version:
         description: Node.js version of the app
         type: string
@@ -51,7 +55,7 @@ permissions:
 jobs:
   links:
     name: blog gate + external links
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     # A link check that hangs on a dead server must not hold a runner for the default six hours.
     timeout-minutes: 15
     defaults:
@@ -60,6 +64,20 @@ jobs:
     env:
       LEFTHOOK: "0"
     steps:
+      - name: Check the runner
+        env:
+          RUNS_ON: ${{ inputs.runs-on }}
+        # GitHub picked this runner from the value already, so a value that is not JSON never gets here; this step
+        # refuses the JSON that GitHub takes but the input does not mean (an object, an empty array, a number).
+        run: |
+          label='"[^"\\]+"'
+          space='[[:space:]]*'
+          pattern="^$space($label|\\[$space$label($space,$space$label)*$space\\])$space\$"
+          if [[ ! "$RUNS_ON" =~ $pattern ]]; then
+            echo "::error::Input runs-on is not valid: a JSON label such as '\"ubuntu-latest\"' or a non-empty array of labels such as '[\"self-hosted\",\"linux\"]'"
+            exit 1
+          fi
+
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
