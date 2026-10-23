@@ -78,6 +78,9 @@ connections({
       clientSecretEnv: "GITHUB_CLIENT_SECRET",
     },
     { kind: "api_key", id: "raindrop", label: { en: "Raindrop" }, hint: { en: "Settings, Integrations, Create test token." } },
+    // A key read from its own header (bare), or from Authorization with another scheme:
+    { kind: "api_key", id: "vendor", label: { en: "Vendor" }, header: { name: "x-vendor-apikey" } },
+    { kind: "api_key", id: "other", label: { en: "Other" }, header: { name: "authorization", scheme: "Token" } },
     { kind: "basic", id: "toggl", accounts: ["work", "personal"] },
   ],
   onReconnectRequired: async (event, ctx) => {
@@ -105,6 +108,7 @@ connections({
 | `providers[].rotatesRefreshToken` | `boolean` | `false` | The provider spends a refresh token on use; a refresh answer without a new one then ends the grant when its access token expires. |
 | `providers[].refreshTokenMaxAgeDays` | `number` | none | Shows the connection as expiring before a refresh token the provider will drop (when the provider does not send `refresh_token_expires_in`). |
 | `providers[].hint` | `{ en?, <locale>? }` | none | (api_key, basic) Where the admin finds the key. |
+| `providers[].header` | `{ name, scheme? }` | `Authorization: Bearer` | (api_key) Where the key goes: `{ name: "x-api-key" }` sends the bare key in that header; `{ name: "authorization", scheme: "Token" }` sends `Token <key>`. The name is an HTTP token (stored lowercase); `scheme` only with `authorization`, `Bearer` when omitted. |
 | `panelRole` | `string` | `"admin"` | The auth role that opens the page, connects and disconnects. |
 | `refreshSkewSeconds` | `number` | `300` | A token this close to expiry is refreshed before it is handed out. |
 | `expiringWithinHours` | `number` | `72` | A grant that dies within this many hours shows as expiring. |
@@ -191,7 +195,12 @@ const fresh = await getAccessToken({ provider: "google", forceRefresh: true }); 
 uses: it refreshes only while the stored token is `rejectedToken` and otherwise answers the token stored since.
 
 `getCredential({ provider: "raindrop" })` answers `{ kind: "api_key", apiKey }` or `{ kind: "basic", username,
-password }`; `getAuthorizationHeader(credential)` turns either (or `{ kind: "oauth", accessToken }`) into the header.
+password }`; `getAuthorizationHeader(credential)` turns either (or `{ kind: "oauth", accessToken }`) into the
+`Authorization` value, ignoring a provider's `header`. For an app with its own HTTP client,
+`getCredentialHeader({ provider })` (`/next`; `getCredentialHeader(ctx, { provider })` in `/server`) answers
+`{ name, value }` where the provider reads it (`{ name: "x-vendor-apikey", value: "<key>" }`), with the failures of
+`getCredential`; `formatCredentialHeader(credential, getCredentialPlacement(provider))` of `/server` is the same
+without the read. `requestWithConnection` sets that header and replaces the caller's header of the same name.
 
 The server functions in `/server` take `{ db, clock, config, env? }`; `env` defaults to `process.env` (the keyring
 and the client secrets), so a worker outside Next builds the context the same way as `getConnectionsContext` does.
