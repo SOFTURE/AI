@@ -152,9 +152,12 @@ export function checkRhythm({ blocks, settings }: StyleInput): QualityFinding[] 
 }
 
 const PARENTHETICAL = /\(([^()]*)\)/g;
-const LETTER_WORD = /\p{L}[\p{L}\d'’-]*/gu;
+const LETTER_WORD = /\p{L}{2,}[\p{L}\d'’-]*/gu;
 
-/** Asides in parentheses that hold at least two words with letters: "(paid every year)", not "(5%)", "(2024)" or "(ETF)". */
+/**
+ * Asides in parentheses that hold at least two words of two letters or more: "(paid every year)", not "(5%)",
+ * "(2024)", "(ETF)" or a formula's "(1 + r/m)".
+ */
 export function countWordedAsides(prose: string): number {
   return [...prose.matchAll(PARENTHETICAL)].filter((match) => (match[1]?.match(LETTER_WORD)?.length ?? 0) >= 2).length;
 }
