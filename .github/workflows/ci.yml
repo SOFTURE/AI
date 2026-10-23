@@ -112,8 +112,26 @@ jobs:
           cache: npm
       - run: npm ci
       # The fixture's voiceover and sound effects are tones generated with ffmpeg; the test probes the MP4 with ffprobe.
+      # Static FFmpeg 6.0 builds (johnvansickle.com, with libx264, aac and libmp3lame) from a versioned GitHub release,
+      # checked against their SHA-256 and put first on PATH. Not apt: the runner's Ubuntu mirror at times served the
+      # ~60 packages at a few KB/s and held the job until its timeout (#672).
       - name: Install ffmpeg
-        run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg)
+        timeout-minutes: 3
+        env:
+          FFMPEG_RELEASE: https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0
+          FFMPEG_SHA256: 17c1ae10b52ac499180679fe6ba77e17642390c4eedb0f1e3b0ac045da55128f
+          FFPROBE_SHA256: 88ca6818d82a70e87de2bb6166026ad411528c72eda0e4e11ed25d185116ee17
+        run: |
+          bin="$RUNNER_TEMP/ffmpeg/bin"
+          mkdir -p "$bin"
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/ffmpeg.gz" "$FFMPEG_RELEASE/ffmpeg-linux-x64.gz"
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/ffprobe.gz" "$FFMPEG_RELEASE/ffprobe-linux-x64.gz"
+          printf '%s  %s\n' "$FFMPEG_SHA256" "$RUNNER_TEMP/ffmpeg.gz" "$FFPROBE_SHA256" "$RUNNER_TEMP/ffprobe.gz" | sha256sum -c -
+          gunzip -c "$RUNNER_TEMP/ffmpeg.gz" > "$bin/ffmpeg"
+          gunzip -c "$RUNNER_TEMP/ffprobe.gz" > "$bin/ffprobe"
+          chmod +x "$bin/ffmpeg" "$bin/ffprobe"
+          "$bin/ffmpeg" -hide_banner -version | head -n 1
+          echo "$bin" >> "$GITHUB_PATH"
       # hyperframes would settle for the runner's Chrome and fall back to its slower screenshot capture; `--force`
       # downloads the chrome-headless-shell it pins, so CI renders the way a real film does.
       - name: Install hyperframes' Chrome
