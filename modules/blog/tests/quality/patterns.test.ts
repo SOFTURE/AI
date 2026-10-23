@@ -7,6 +7,8 @@ const SAMPLES: Readonly<Record<string, string>> = {
   "these-days": "In today's fast-paced world, everyone saves.",
   "not-only-but-also": "The fund is not only cheap but also simple.",
   "not-x-but-y": "It's not a fund, it's a lifestyle.",
+  "verdict-label": "The numbers are clear. Bottom line: save.",
+  "fragile-spot": "Fees are the Achilles' heel of the plan.",
   "meta-commentary": "Let's dive into the numbers.",
   "throat-clearing": "Here's why fees matter.",
   "empty-conclusion": "In conclusion, fees matter.",
