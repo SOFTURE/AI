@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`testing@x.y.z`).
 
+## Unreleased
+
+- `fakeFetch` records form bodies (#676): a call whose body is URL-encoded or multipart (a `URLSearchParams` or
+  `FormData`, or a string sent with that content type) carries `form`, its fields in order as
+  `{ kind: "text", name, value }` or `{ kind: "file", name, fileName, type, size }` (new type `FakeFetchFormField`).
+  `body` keeps the encoded text. Additive: other calls have no `form` key.
+
 ## 0.2.0
 
 - `fakeFetch(routes)`: a scripted fake `fetch` for code that takes an injected `fetch` (`requestJson`, API
