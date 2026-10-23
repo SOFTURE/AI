@@ -17,6 +17,11 @@ const ENV_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 /** The same pattern auth enforces for role names. */
 const ROLE_NAME_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/;
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+/** An RFC 9110 token: a header name or an auth scheme. */
+const HTTP_TOKEN_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+/** The header an API key goes in when the provider names none, and its scheme there. */
+export const DEFAULT_CREDENTIAL_HEADER = "authorization";
+export const DEFAULT_CREDENTIAL_SCHEME = "Bearer";
 
 /** Copy per locale; a locale without its own text falls back to `en`, then to the provider id. */
 const localizedTextSchema = z.record(z.string().refine(isLocale, "must be a BCP 47 language tag"), z.string().trim().min(1).max(500));
@@ -77,7 +82,37 @@ const keyProviderShape = {
   hint: localizedTextSchema.optional(),
 };
 
-const apiKeyProviderSchema = z.strictObject({ kind: z.literal("api_key"), ...keyProviderShape });
+const httpTokenSchema = z.string().max(100).regex(HTTP_TOKEN_PATTERN, "must be an HTTP token (letters, digits and !#$%&'*+-.^_`|~)");
+
+/**
+ * Where an API key goes: a header with the bare key (`{ name: "x-api-key" }`) or `Authorization` with a scheme
+ * (`{ name: "authorization", scheme: "Token" }`, `Bearer` when omitted). Parsed to a lowercase name and a scheme
+ * that is null for a bare key.
+ */
+const credentialHeaderSchema = z
+  .strictObject({ name: httpTokenSchema, scheme: httpTokenSchema.optional() })
+  .superRefine((header, context) => {
+    if (header.scheme !== undefined && header.name.toLowerCase() !== DEFAULT_CREDENTIAL_HEADER) {
+      context.addIssue({ code: "custom", path: ["scheme"], message: "is allowed only with the authorization header" });
+    }
+  })
+  .transform((header): CredentialHeaderPlacement => {
+    const name = header.name.toLowerCase();
+    return { name, scheme: header.scheme ?? (name === DEFAULT_CREDENTIAL_HEADER ? DEFAULT_CREDENTIAL_SCHEME : null) };
+  });
+
+/** The header an API key is sent in, and the scheme before the key (null: the bare key). */
+export interface CredentialHeaderPlacement {
+  readonly name: string;
+  readonly scheme: string | null;
+}
+
+const apiKeyProviderSchema = z.strictObject({
+  kind: z.literal("api_key"),
+  ...keyProviderShape,
+  /** Where the key goes; `Authorization: Bearer <key>` when omitted. */
+  header: credentialHeaderSchema.optional(),
+});
 const basicProviderSchema = z.strictObject({ kind: z.literal("basic"), ...keyProviderShape });
 
 const providerSchema = z.discriminatedUnion("kind", [oauthProviderSchema, apiKeyProviderSchema, basicProviderSchema]);

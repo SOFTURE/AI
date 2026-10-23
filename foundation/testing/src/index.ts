@@ -2,4 +2,4 @@
 export { isClockShifted, readTestToday, restoreClock, shiftClock } from "./vitest/shift-clock.js";
 export { DEFAULT_TEST_TIME_ZONE, pinTestTimeZone, pinTimeZone, readTestTimeZone } from "./vitest/time-zone.js";
 export { readGoogleFontNames, softureStubsPlugin, softureVitestConfig, VITEST_SETUP_FILE, type SoftureVitestOptions } from "./vitest/preset.js";
-export { fakeFetch, type FakeFetch, type FakeFetchCall, type FakeFetchRoute } from "./fetch/fake-fetch.js";
+export { fakeFetch, type FakeFetch, type FakeFetchCall, type FakeFetchFormField, type FakeFetchRoute } from "./fetch/fake-fetch.js";

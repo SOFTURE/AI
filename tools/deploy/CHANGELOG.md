@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **Bundles that include `@softure-ai/observability` 0.4.0 load again (#681):** the esbuild banner of the `Dockerfile`
+  written by `init` imports `createRequire as __bundleCreateRequire`, so it no longer collides with observability's own
+  top-level `createRequire` import (`SyntaxError: Identifier 'createRequire' has already been declared` when
+  `migrate.mjs`, `worker.mjs` or an `ops/<name>.mjs` bundles `startObservability`). An app generated earlier replaces
+  the banner of each esbuild command in its `Dockerfile` with
+  `--banner:js="import { createRequire as __bundleCreateRequire } from 'module'; const require = __bundleCreateRequire(import.meta.url);"`
+  (or re-runs `init --force`); README "Bundled for plain Node" explains why.
+
 ## 0.4.6
 
 - **The runner is the caller's choice (#670):** every reusable workflow takes the input `runs-on`, JSON: one label

@@ -1,9 +1,9 @@
 // The calls to a provider's token and revocation endpoints (RFC 6749 §4.1.3, §6; RFC 7009): a form-encoded
-// POST that asks for JSON, with the same rules as core's `requestJson`: a timeout, no redirect followed (the
-// client secret never reaches another host), and failures as codes. A caught error's message is never read,
-// since it can quote the URL, and a provider's error description is never kept, since some echo the token.
-// The OAuth error code (`invalid_grant`) is read from any answer, including a 200 (GitHub answers errors so).
-import type { FetchFunction } from "@softure-ai/core";
+// POST that asks for JSON, sent through core's `requestJson`: a timeout, no redirect followed (the client secret
+// never reaches another host), and failures as codes. A caught error's message is never read, since it can quote
+// the URL, and a provider's error description is never kept, since some echo the token. The OAuth error code
+// (`invalid_grant`) is read from a 2xx (GitHub answers errors so) or a 4xx answer, never from a 429 or a 5xx.
+import { requestJson, type FetchFunction, type HttpJsonErrorBodyFailure } from "@softure-ai/core";
 import { z } from "zod";
 import type { OAuthProviderDefinition } from "../options.js";
 
@@ -56,12 +56,14 @@ const errorBodySchema = z.object({ error: z.string().regex(/^[\x20-\x7e]{1,100}$
 /** POSTs `params` to the provider's token endpoint and reads the tokens or the OAuth error. */
 export async function requestTokens(options: TokenCallOptions): Promise<TokenCallResult> {
   const answer = await postForm(options.provider.tokenUrl, options);
-  if (answer.kind === "failed") return answer;
-  const failure = readOAuthError(answer.body, answer.status);
-  if (failure !== null) return failure;
-  if (answer.status < 200 || answer.status >= 300) return { kind: "failed", status: answer.status };
-  const parsed = tokenBodySchema.safeParse(answer.body);
-  if (!parsed.success) return { kind: "failed", status: answer.status };
+  if (!answer.ok) return readFailure(answer);
+  // A 2xx; `requestJson` does not say which, and no caller tells them apart.
+  const status = 200;
+  // GitHub answers an OAuth error with a 200.
+  const error = errorBodySchema.safeParse(answer.value);
+  if (error.success) return { kind: "oauth_error", error: error.data.error, status };
+  const parsed = tokenBodySchema.safeParse(answer.value);
+  if (!parsed.success) return { kind: "failed", status };
   const body = parsed.data;
   return {
     kind: "tokens",
@@ -79,57 +81,37 @@ export async function requestTokens(options: TokenCallOptions): Promise<TokenCal
 /** RFC 7009: asks the provider to revoke `token`. Best effort: answers whether the provider took it. */
 export async function revokeToken(options: TokenCallOptions & { readonly revokeUrl: string }): Promise<boolean> {
   const answer = await postForm(options.revokeUrl, options);
-  return answer.kind === "answered" && answer.status >= 200 && answer.status < 300;
+  return answer.ok;
 }
 
-type FormAnswer = { readonly kind: "answered"; readonly status: number; readonly body: unknown } | { readonly kind: "failed"; readonly status: number | null };
-
-async function postForm(url: string, options: TokenCallOptions): Promise<FormAnswer> {
-  const body = new URLSearchParams(options.params);
-  const headers = new Headers({ accept: "application/json", "content-type": "application/x-www-form-urlencoded" });
+function postForm(url: string, options: TokenCallOptions) {
+  const form = new URLSearchParams(options.params);
+  const headers = new Headers();
   if (options.provider.clientAuth === "basic" && options.client.clientSecret !== null) {
     // RFC 6749 §2.3.1: both parts form-encoded before the Basic encoding.
     const user = encodeURIComponent(options.client.clientId);
     const password = encodeURIComponent(options.client.clientSecret);
     headers.set("authorization", `Basic ${Buffer.from(`${user}:${password}`).toString("base64")}`);
   } else {
-    body.set("client_id", options.client.clientId);
-    if (options.client.clientSecret !== null) body.set("client_secret", options.client.clientSecret);
+    form.set("client_id", options.client.clientId);
+    if (options.client.clientSecret !== null) form.set("client_secret", options.client.clientSecret);
   }
-
-  let response: Response;
-  try {
-    response = await options.fetch(url, {
-      method: "POST",
-      headers,
-      body: body.toString(),
-      redirect: "manual",
-      signal: AbortSignal.timeout(options.timeoutMs),
-    });
-  } catch {
-    // Network error or timeout; the error's text can quote the URL.
-    return { kind: "failed", status: null };
-  }
-  const { status } = response;
-  if (response.type === "opaqueredirect" || (status >= 300 && status < 400) || status === 429 || status >= 500) {
-    await response.body?.cancel().catch(() => undefined);
-    return { kind: "failed", status };
-  }
-  let text: string;
-  try {
-    text = await response.text();
-  } catch {
-    return { kind: "failed", status };
-  }
-  if (text.trim() === "") return { kind: "answered", status, body: null };
-  try {
-    return { kind: "answered", status, body: JSON.parse(text) as unknown };
-  } catch {
-    return { kind: "failed", status };
-  }
+  return requestJson({
+    url,
+    method: "POST",
+    form,
+    headers,
+    fetch: options.fetch,
+    timeoutMs: options.timeoutMs,
+    errorSchema: errorBodySchema,
+  });
 }
 
-function readOAuthError(body: unknown, status: number): TokenCallResult | null {
-  const parsed = errorBodySchema.safeParse(body);
-  return parsed.success ? { kind: "oauth_error", error: parsed.data.error, status } : null;
+/** An OAuth error from a 4xx answer (RFC 6749 §5.2); a rate limit or an outage never is one, whatever its body says. */
+function readFailure(failure: HttpJsonErrorBodyFailure<z.output<typeof errorBodySchema>>): TokenCallResult {
+  const isRetryable = failure.error === "core.http_rate_limited" || failure.error === "core.http_unavailable";
+  if (failure.status !== null && failure.errorBody !== null && !isRetryable) {
+    return { kind: "oauth_error", error: failure.errorBody.error, status: failure.status };
+  }
+  return { kind: "failed", status: failure.status };
 }

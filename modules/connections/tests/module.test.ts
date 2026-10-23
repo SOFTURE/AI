@@ -98,6 +98,45 @@ describe("the connections module", () => {
     );
   });
 
+  it("parses where an API key goes, lowercasing the header name", () => {
+    expect(
+      connections({
+        providers: [
+          { kind: "api_key", id: "vendor", header: { name: "X-Vendor-ApiKey" } },
+          { kind: "api_key", id: "bearer", header: { name: "Authorization" } },
+          { kind: "api_key", id: "token", header: { name: "authorization", scheme: "Token" } },
+        ],
+      }).options.providers.map((provider) => (provider.kind === "api_key" ? provider.header : undefined)),
+    ).toEqual([
+      { name: "x-vendor-apikey", scheme: null },
+      { name: "authorization", scheme: "Bearer" },
+      { name: "authorization", scheme: "Token" },
+    ]);
+  });
+
+  it("refuses a header name or a scheme that is not an HTTP token, and a scheme outside authorization", () => {
+    expect(() =>
+      connections({
+        providers: [
+          { kind: "api_key", id: "a", header: { name: "x api key" } },
+          { kind: "api_key", id: "b", header: { name: "authorization", scheme: "To ken" } },
+          { kind: "api_key", id: "c", header: { name: "" } },
+        ],
+      }),
+    ).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "connections":',
+        "- options.providers.0.header.name: must be an HTTP token (letters, digits and !#$%&'*+-.^_`|~)",
+        "- options.providers.1.header.scheme: must be an HTTP token (letters, digits and !#$%&'*+-.^_`|~)",
+        "- options.providers.2.header.name: must be an HTTP token (letters, digits and !#$%&'*+-.^_`|~)",
+      ].join("\n"),
+    );
+    expect(() => connections({ providers: [{ kind: "api_key", id: "a", header: { name: "x-api-key", scheme: "Token" } }] })).toThrow(
+      "- options.providers.0.header.scheme: is allowed only with the authorization header",
+    );
+    expect(() => connections({ providers: [{ kind: "basic", id: "a", header: { name: "x-api-key" } }] } as never)).toThrow(/options\.providers\.0/);
+  });
+
   it("takes http endpoints on localhost, for a provider emulator", () => {
     expect(() => connections({ providers: [{ ...OAUTH, authorizeUrl: "http://localhost:9099/auth", tokenUrl: "http://127.0.0.1:9099/token" }] })).not.toThrow();
   });

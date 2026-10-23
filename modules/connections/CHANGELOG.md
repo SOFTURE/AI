@@ -4,6 +4,31 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The token and revocation calls go through core's `requestJson({ form, errorSchema })` (#677) instead of a copy of its
+  rules. Codes and behaviour are unchanged: an OAuth error (`invalid_grant`, `invalid_client`) is read from a 2xx or
+  4xx answer, a 429 or 5xx is a plain failure whatever its body says, and a redirect is never followed. Needs the
+  `@softure-ai/core` release that carries `form` and `errorSchema` (the range is raised with it).
+- The fake provider (`/testing`) reads a form body sent as `URLSearchParams` as well as its text.
+- An `api_key` provider can say where its key goes (#675): `header: { name: "x-api-key" }` sends the bare key in that
+  header, `header: { name: "authorization", scheme: "Token" }` sends `Authorization: Token <key>`. Without `header`
+  nothing changes (`Authorization: Bearer <key>`). The name must be an HTTP token (it is stored lowercase), and
+  `scheme` is allowed only with `authorization` (`Bearer` when omitted).
+- `requestWithConnection` sends the key in that header and replaces the caller's header of the same name; the 401
+  rule is unchanged, so a provider that reads `x-api-key` no longer refuses a Bearer header and marks a valid key
+  `reconnect_required`.
+- `getCredentialHeader(ctx, { provider, accountId? })` in `/server` and `getCredentialHeader({ provider, accountId? })`
+  in `/next` answer `{ name, value }` for an app with its own HTTP client; `formatCredentialHeader(credential,
+  placement?)` and `getCredentialPlacement(provider)` in `/server` do the same without a read. `getAuthorizationHeader`
+  is unchanged.
+- Migration for an app: optional. A client that hand-writes a custom key header with `getCredential` and repeats the
+  401 handling can declare `header` on its provider and call `requestWithConnection` (or take the header from
+  `getCredentialHeader`).
+
+- `requestWithConnection` takes `requestJson`'s new `form` option (a `URLSearchParams` or a `FormData` with files)
+  and sends it as it is, also on the retry after an OAuth refresh (#676). Needs the next `@softure-ai/core` release.
+
 ## 0.2.0
 
 - `requestWithConnection(ctx, { provider, accountId? }, options)` in `/server`, and `requestWithConnection({ provider,

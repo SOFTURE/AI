@@ -25,6 +25,11 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
   whole object with `toEqual` adds it. New exported types: `InstrumentationOptions`, `MetricOptions`.
 - Migration: an app that set `OTEL_RESOURCE_ATTRIBUTES=deployment.environment=<env>` only to work around the missing
   key can drop it. An app that must not add series sets `metrics: { enabled: false }` before upgrading.
+- Bundling: `startObservability` now imports `createRequire` from `node:module` at the top level. An ESM bundle whose
+  esbuild banner also imports `createRequire` (the banner `softure-deploy init` wrote up to deploy 0.4.6) fails to
+  load with `SyntaxError: Identifier 'createRequire' has already been declared`. Import it under another name in the
+  banner: `import { createRequire as __bundleCreateRequire } from 'module'; const require =
+  __bundleCreateRequire(import.meta.url);` (#681).
 
 ## 0.3.0
 

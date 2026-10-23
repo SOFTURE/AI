@@ -3,7 +3,7 @@
 // through `database.handle`, so the real role check, the real flow and the real store run.
 import { getSessionCookie } from "@softure-ai/auth";
 import { grantRole, registerUser } from "@softure-ai/auth/server";
-import { completeConnectionRoute, disconnectAction, getAccessToken, getCredential, readPageNotice, requestWithConnection, saveCredentialAction, startConnectionAction } from "@softure-ai/connections/next";
+import { completeConnectionRoute, disconnectAction, getAccessToken, getCredential, getCredentialHeader, readPageNotice, requestWithConnection, saveCredentialAction, startConnectionAction } from "@softure-ai/connections/next";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { clearSoftureConfig, registerSoftureConfig } from "@softure-ai/core/next";
 import { closeConfiguredDatabases, createPgliteHandle } from "@softure-ai/db";
@@ -131,6 +131,7 @@ describe("the Next adapter", () => {
     await signIn("grace@example.com", "admin");
     expect(await saveCredentialAction(IDLE, createForm({ provider: "raindrop", kind: "api_key", apiKey: "rd-key" }))).toEqual({ status: "ok" });
     expect(await getCredential({ provider: "raindrop" })).toEqual({ ok: true, value: { kind: "api_key", apiKey: "rd-key" } });
+    expect(await getCredentialHeader({ provider: "raindrop" })).toEqual({ ok: true, value: { name: "authorization", value: "Bearer rd-key" } });
     expect(await saveCredentialAction(IDLE, createForm({ provider: "toggl", account: "work", kind: "basic", username: "ada", password: "pw" }))).toEqual({ status: "ok" });
     expect(await saveCredentialAction(IDLE, createForm({ provider: "raindrop", kind: "api_key", apiKey: "" }))).toEqual({ status: "error", error: "connections.credential_invalid" });
     expect(await disconnectAction(IDLE, createForm({ provider: "raindrop" }))).toEqual({ status: "ok" });

@@ -305,7 +305,7 @@ if (plan.endedAt !== null) throw new PublicError("This plan has ended; pick anot
 `isPublicError` recognises one from another copy of core too (a registry symbol, not `instanceof`).
 `safeError` itself still answers `core.unexpected` for it, since callers switch on its two codes.
 
-**External JSON APIs.** `requestJson({ url, method?, body?, idempotencyKey?, fetch?, headers?, timeoutMs?, schema?, readHeaders?, clock? })`
+**External JSON APIs.** `requestJson({ url, method?, body? | form?, idempotencyKey?, fetch?, headers?, timeoutMs?, schema?, errorSchema?, readHeaders?, clock? })`
 calls a third-party JSON API (a GET by default) and returns `Ok<value>` or an `HttpJsonFailure` (`{ ok: false, error, status }`). It sets the details a hand-written
 helper tends to miss:
 
@@ -351,6 +351,29 @@ throws before anything is sent. `idempotencyKey` is sent as `Idempotency-Key`. A
 (a 204, or a 200 with nothing) is `ok(undefined)`, schema or not, so a write's value is `T | undefined`; a non-empty
 answer still goes through the schema. A GET carries no body, and an empty answer to it stays an unexpected answer.
 
+**Form bodies.** A write to an API that answers JSON but takes a form (an OAuth token endpoint, Stripe, a file upload)
+passes `form` instead of `body`; the two exclude each other. A `URLSearchParams` is sent as
+`application/x-www-form-urlencoded` (a `Content-Type` in `headers` wins). A `FormData`, with `Blob` or `File` parts, is
+sent as `multipart/form-data` with the boundary `fetch` adds; a `Content-Type` in `headers` is dropped, since it could
+not carry the boundary. The answer is read like any write's, and the timeout covers the upload. A `FormData`,
+`URLSearchParams`, `Blob`, binary buffer or stream passed as `body` throws a `TypeError` before anything is sent, since
+JSON would turn it into `{}`.
+
+```ts
+const form = new FormData();
+form.append("purpose", "invoice");
+form.append("file", new Blob([pdfBytes], { type: "application/pdf" }), "invoice-7.pdf");
+
+const uploaded = await requestJson({
+  url: "https://api.example.com/v1/files",
+  method: "POST",
+  form,
+  headers: { Authorization: `Bearer ${env.FILES_API_KEY}` },
+  timeoutMs: 30_000,
+  schema: z.object({ id: z.string() }),
+});
+```
+
 **Response headers.** A failure with `core.http_rate_limited` (429) or `core.http_unavailable` (5xx) always carries
 `retryAfterSeconds`: the `Retry-After` header as seconds (delay-seconds, or an HTTP date measured against `clock`,
 default `systemClock`, rounded up), between 0 and 86 400, or `null` when the header is missing or malformed. It goes
@@ -390,6 +413,25 @@ const saved = await requestJson({
 });
 if (!saved.ok && saved.error === "core.http_conflict") {
   // someone else changed the task: read it again and retry the write
+}
+```
+
+The body of an error answer is cancelled unread, unless the call passes `errorSchema`: then every failure carries
+`errorBody`, the schema's output for a 4xx, 429 or 5xx whose body is JSON that passes it, and `null` otherwise (an
+empty, non-JSON or invalid body, a redirect, no response, a body that broke off or timed out, a 2xx that failed
+`schema`). Only what the schema names leaves; its issues never do. The read is bounded by `timeoutMs`. A call without
+`errorSchema` keeps `HttpJsonFailure` and no `errorBody`.
+
+```ts
+const token = await requestJson({
+  url: provider.tokenUrl,
+  method: "POST",
+  form: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }),
+  schema: z.object({ access_token: z.string() }),
+  errorSchema: z.object({ error: z.string() }), // RFC 6749 §5.2
+});
+if (!token.ok && token.errorBody?.error === "invalid_grant") {
+  // the grant expired or was revoked: ask the user to reconnect
 }
 ```
 
