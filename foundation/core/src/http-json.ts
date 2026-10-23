@@ -2,7 +2,8 @@
 // has to get right: a timeout, no redirect followed (a key in a header or the URL never reaches another host), and every
 // failure returned as a code. A caught error's message is never read, since it can quote the URL and some APIs put
 // the key there. The body stays `unknown` unless a zod schema narrows it. Response headers are read only by name from
-// the caller's allow-list, so nothing secret is surfaced by accident.
+// the caller's allow-list, and an error answer's body only through the caller's `errorSchema`, so nothing secret is
+// surfaced by accident.
 import type { z } from "zod";
 import { systemClock, type Clock } from "./clock.js";
 import { err, ok, type Err, type Ok } from "./result.js";
@@ -37,6 +38,18 @@ export type HttpJsonFailure =
       readonly headers?: HttpJsonResponseHeaders;
     });
 
+/**
+ * A failed `requestJson` made with `errorSchema`: `errorBody` is the schema's output when the answer was a 4xx, 429 or
+ * 5xx whose body is JSON that passes it, and `null` otherwise (an empty or invalid body, a redirect, no response, a
+ * body that broke off, a 2xx that failed `schema`).
+ */
+export type HttpJsonErrorBodyFailure<B> = HttpJsonFailure & { readonly errorBody: B | null };
+
+/** The failure of a call whose `errorSchema` is `E`: `HttpJsonFailure` when the call passed none. */
+export type HttpJsonFailureFor<E extends z.ZodType | undefined> = E extends z.ZodType
+  ? HttpJsonErrorBodyFailure<z.output<E>>
+  : HttpJsonFailure;
+
 /** The value of a call made with `readHeaders`: the body as without it, and the requested headers. */
 export type HttpJsonAnswer<T, H extends string> = { readonly body: T; readonly headers: HttpJsonResponseHeaders<H> };
 
@@ -59,6 +72,14 @@ export interface RequestJsonOptions {
 /** Response headers to return, by name (any letter case). Only these are read. */
 export interface RequestJsonReadHeadersOptions<H extends string> {
   readonly readHeaders: readonly H[];
+}
+
+/**
+ * Reads the body of a 4xx, 429 or 5xx answer through this schema into the failure's `errorBody`. Without it the body
+ * is cancelled unread. The schema's issues never leave, only its output.
+ */
+export interface RequestJsonErrorSchemaOptions<E extends z.ZodType | undefined> {
+  readonly errorSchema?: E;
 }
 
 /** The calls without `readHeaders`, whose value is the body itself. */
@@ -119,29 +140,39 @@ const HEADER_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
  * `ok(undefined)`, schema or not. 3xx, 401 and 403 are refused, 409 and 412 a conflict, 429 rate limited, 5xx
  * unavailable, and any other non-2xx status or a body that is not JSON or fails the schema an unexpected answer.
  * With `readHeaders` the value is `{ body, headers }`, and a failure that had a response carries `headers` too.
+ * With `errorSchema` every failure carries `errorBody` (see `HttpJsonErrorBodyFailure`).
  */
-export function requestJson<S extends z.ZodType, const H extends string>(
-  options: RequestJsonSchemaOptions<S> & RequestJsonReadOptions & RequestJsonReadHeadersOptions<H>,
-): Promise<Ok<HttpJsonAnswer<z.output<S>, H>> | HttpJsonFailure>;
-export function requestJson<S extends z.ZodType, const H extends string>(
-  options: RequestJsonSchemaOptions<S> & RequestJsonWriteOptions & RequestJsonReadHeadersOptions<H>,
-): Promise<Ok<HttpJsonAnswer<z.output<S> | undefined, H>> | HttpJsonFailure>;
-export function requestJson<const H extends string>(
-  options: (RequestJsonReadOptions | RequestJsonWriteOptions) & RequestJsonReadHeadersOptions<H>,
-): Promise<Ok<HttpJsonAnswer<unknown, H>> | HttpJsonFailure>;
-export function requestJson<S extends z.ZodType>(
-  options: RequestJsonSchemaOptions<S> & RequestJsonReadOptions & WithoutReadHeaders,
-): Promise<Ok<z.output<S>> | HttpJsonFailure>;
-export function requestJson<S extends z.ZodType>(
-  options: RequestJsonSchemaOptions<S> & RequestJsonWriteOptions & WithoutReadHeaders,
-): Promise<Ok<z.output<S> | undefined> | HttpJsonFailure>;
-export function requestJson(
-  options: (RequestJsonReadOptions | RequestJsonWriteOptions) & WithoutReadHeaders,
-): Promise<Ok<unknown> | HttpJsonFailure>;
+export function requestJson<S extends z.ZodType, const H extends string, E extends z.ZodType | undefined = undefined>(
+  options: RequestJsonSchemaOptions<S> &
+    RequestJsonReadOptions &
+    RequestJsonReadHeadersOptions<H> &
+    RequestJsonErrorSchemaOptions<E>,
+): Promise<Ok<HttpJsonAnswer<z.output<S>, H>> | HttpJsonFailureFor<E>>;
+export function requestJson<S extends z.ZodType, const H extends string, E extends z.ZodType | undefined = undefined>(
+  options: RequestJsonSchemaOptions<S> &
+    RequestJsonWriteOptions &
+    RequestJsonReadHeadersOptions<H> &
+    RequestJsonErrorSchemaOptions<E>,
+): Promise<Ok<HttpJsonAnswer<z.output<S> | undefined, H>> | HttpJsonFailureFor<E>>;
+export function requestJson<const H extends string, E extends z.ZodType | undefined = undefined>(
+  options: (RequestJsonReadOptions | RequestJsonWriteOptions) &
+    RequestJsonReadHeadersOptions<H> &
+    RequestJsonErrorSchemaOptions<E>,
+): Promise<Ok<HttpJsonAnswer<unknown, H>> | HttpJsonFailureFor<E>>;
+export function requestJson<S extends z.ZodType, E extends z.ZodType | undefined = undefined>(
+  options: RequestJsonSchemaOptions<S> & RequestJsonReadOptions & WithoutReadHeaders & RequestJsonErrorSchemaOptions<E>,
+): Promise<Ok<z.output<S>> | HttpJsonFailureFor<E>>;
+export function requestJson<S extends z.ZodType, E extends z.ZodType | undefined = undefined>(
+  options: RequestJsonSchemaOptions<S> & RequestJsonWriteOptions & WithoutReadHeaders & RequestJsonErrorSchemaOptions<E>,
+): Promise<Ok<z.output<S> | undefined> | HttpJsonFailureFor<E>>;
+export function requestJson<E extends z.ZodType | undefined = undefined>(
+  options: (RequestJsonReadOptions | RequestJsonWriteOptions) & WithoutReadHeaders & RequestJsonErrorSchemaOptions<E>,
+): Promise<Ok<unknown> | HttpJsonFailureFor<E>>;
 export async function requestJson(
   options: (RequestJsonReadOptions | RequestJsonWriteOptions) & {
     readonly schema?: z.ZodType;
     readonly readHeaders?: readonly string[];
+    readonly errorSchema?: z.ZodType;
   },
 ): Promise<Ok<unknown> | HttpJsonFailure> {
   // Before anything is sent: a write must not go out when its answer cannot be read.
@@ -177,16 +208,24 @@ export async function requestJson(
     });
   } catch {
     // Network error or timeout. The error's text can quote the URL, so it is dropped on purpose.
-    return httpFailure("core.http_unreachable", null);
+    return withErrorBody(httpFailure("core.http_unreachable", null), options.errorSchema, null);
   }
 
   const headers = options.readHeaders === undefined ? undefined : readResponseHeaders(response, options.readHeaders);
-  const fail = (code: HttpJsonFailureCode): HttpJsonFailure =>
-    withHeaders(responseFailure(code, response, options.clock ?? systemClock), headers);
+  const fail = (code: HttpJsonFailureCode, errorBody: unknown = null): HttpJsonFailure =>
+    withErrorBody(
+      withHeaders(responseFailure(code, response, options.clock ?? systemClock), headers),
+      options.errorSchema,
+      errorBody,
+    );
   const succeed = (body: unknown): Ok<unknown> => ok(headers === undefined ? body : { body, headers });
 
   const statusFailureCode = getStatusFailureCode(response);
   if (statusFailureCode !== null) {
+    if (options.errorSchema !== undefined && !isRedirect(response)) {
+      // The read runs under the request's signal, so the timeout bounds it.
+      return fail(statusFailureCode, await readErrorBody(response, options.errorSchema));
+    }
     // Release the connection; a body that cannot be cancelled changes nothing for the caller.
     await response.body?.cancel().catch(() => undefined);
     return fail(statusFailureCode);
@@ -325,9 +364,34 @@ function getNonJsonBodyKind(body: unknown): string | null {
   return null;
 }
 
+function isRedirect(response: Response): boolean {
+  return response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400);
+}
+
+/**
+ * The error answer's body through `errorSchema`, or `null` when it breaks off (the timeout included), is empty, is
+ * not JSON or fails the schema. Neither the text nor the schema's issues leave.
+ */
+async function readErrorBody(response: Response, errorSchema: z.ZodType): Promise<unknown> {
+  let text: string;
+  try {
+    text = await response.text();
+  } catch {
+    return null;
+  }
+  let answer: unknown;
+  try {
+    answer = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  const parsed = errorSchema.safeParse(answer);
+  return parsed.success ? parsed.data : null;
+}
+
 function getStatusFailureCode(response: Response): HttpJsonFailureCode | null {
   const { status } = response;
-  if (response.type === "opaqueredirect" || (status >= 300 && status < 400) || status === 401 || status === 403) {
+  if (isRedirect(response) || status === 401 || status === 403) {
     return "core.http_refused";
   }
   if (status === 409 || status === 412) {
@@ -359,6 +423,13 @@ function responseFailure(code: HttpJsonFailureCode, response: Response, clock: C
 
 function withHeaders(failure: HttpJsonFailure, headers: HttpJsonResponseHeaders | undefined): HttpJsonFailure {
   return headers === undefined ? failure : { ...failure, headers };
+}
+
+/** Adds `errorBody` only to the calls made with `errorSchema`, so the others keep their shape. */
+function withErrorBody(failure: HttpJsonFailure, errorSchema: z.ZodType | undefined, errorBody: unknown): HttpJsonFailure {
+  if (errorSchema === undefined) return failure;
+  const withBody: HttpJsonErrorBodyFailure<unknown> = { ...failure, errorBody };
+  return withBody;
 }
 
 function assertHeaderNames(names: readonly string[] | undefined): void {
