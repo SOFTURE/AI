@@ -1,6 +1,6 @@
 ---
 change_id: themes-notion-708
-status: implementing
+status: archived
 ---
 
 # Plan: shared theme packages, starting with Notion (issue #708)

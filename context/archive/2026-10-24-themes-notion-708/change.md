@@ -1,12 +1,13 @@
 ---
 change_id: themes-notion-708
 title: "themes: shared theme packages, starting with a Notion theme on shadcn/ui (issue #708)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: 708
 branch: claude/project-thread-6eu3g7
 created: 2026-10-24
 updated: 2026-10-24
+archived_at: 2026-10-24
 ---
 
 ## Intent
