@@ -1,6 +1,6 @@
 ---
 change_id: blog-emoji-text-signs-712
-status: planned
+status: archived
 ---
 
 # Plan: the emoji rule passes text-style ©, ® and ™ (issue #712)
@@ -25,4 +25,4 @@ rule).
 
 ## Progress
 
-- [ ] Phase 1: pattern, tests, docs
+- [x] Phase 1: pattern, tests, docs (a88d760)

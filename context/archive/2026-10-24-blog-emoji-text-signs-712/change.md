@@ -1,12 +1,13 @@
 ---
 change_id: blog-emoji-text-signs-712
 title: "blog: the emoji rule passes text-style ©, ® and ™ (issue #712)"
-status: open
+status: archived
 roadmap_item: null
 issue: 712
 branch: claude/project-thread-749chz
 created: 2026-10-24
 updated: 2026-10-24
+archived_at: 2026-10-24
 ---
 
 ## Intent
