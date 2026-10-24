@@ -1,6 +1,6 @@
 ---
 change_id: analytics-tagger-invalid-referer-702
-status: planned
+status: archived
 ---
 
 # Plan: the tagger passes a navigation with an unparsable Referer (issue #702)
@@ -26,4 +26,4 @@ Files: `modules/analytics/src/proxy/index.ts`, `modules/analytics/tests/tagger-s
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1: 9f02250

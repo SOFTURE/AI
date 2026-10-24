@@ -1,12 +1,13 @@
 ---
 change_id: analytics-tagger-invalid-referer-702
 title: "analytics: the channel tagger passes a navigation with an unparsable Referer (issue #702)"
-status: open
+status: archived
 roadmap_item: null
 issue: 702
 branch: claude/project-thread-o6ufmr
 created: 2026-10-24
 updated: 2026-10-24
+archived_at: 2026-10-24
 ---
 
 ## Intent
