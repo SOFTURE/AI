@@ -1,12 +1,13 @@
 {
   "name": "softure-ai",
   "private": true,
-  "description": "SOFTURE AI — modular, tested building blocks for AI-assembled apps",
+  "description": "SOFTURE AI \u2014 modular, tested building blocks for AI-assembled apps",
   "license": "MIT",
   "workspaces": [
     "foundation/*",
     "modules/*",
     "tools/*",
+    "themes/*",
     "templates/*"
   ],
   "engines": {
