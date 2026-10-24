@@ -35,8 +35,20 @@
     "./theme.css": "./dist/theme.css",
     "./sft-bridge.css": "./dist/sft-bridge.css"
   },
+  "softureTheme": {
+    "sources": [
+      "./ui",
+      "./notion"
+    ],
+    "imports": [
+      "tw-animate-css"
+    ],
+    "stylesheets": [
+      "sft-bridge.css"
+    ]
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node scripts/build-css.mjs"
+    "build": "tsc -p tsconfig.build.json && softure-theme-css"
   },
   "dependencies": {
     "@softure-ai/theme-kit": "^0.1.0",
