@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`analytics@x.y.z`).
 
+## Unreleased
+
+- `createChannelTagger().tag` returns `null` again for a navigation whose `Referer` is not a valid URL (#702); 0.3.0
+  threw `TypeError: Invalid URL`, so an app's `proxy.ts` answered 500. Nothing to change in the app.
+
 ## 0.3.0
 
 - `channel.legacyParams` (#689): earlier names of the channel parameter, read after `param` and never written, so an

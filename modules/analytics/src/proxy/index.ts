@@ -105,10 +105,11 @@ export function createChannelTagger(config: SoftureConfig, options: ChannelTagge
       // A URL with only a legacy name decides itself, and a valid value is moved to `param`.
       const isRename = hasChannelParam(config, url);
       const channel = isRename ? readChannel(config, { url }) : readRequestChannel(request, url);
+      if (channel === null) return null;
+      // The header is the visitor's to send: one that does not parse leaves the request itself as the source.
       const referer = request.headers.get("referer");
-      // A channel from the page came from the Referer, so the header is a valid URL then.
-      const source = isRename && (referer === null || !URL.canParse(referer)) ? url : new URL(referer ?? url);
-      if (channel === null || !isTarget(url, source)) return null;
+      const source = referer !== null && URL.canParse(referer) ? new URL(referer) : url;
+      if (!isTarget(url, source)) return null;
       // Built on the public origin (else appOrigin, as auth's guard does): behind a proxy the request
       // URL carries an internal host. The path is set, not parsed against the origin:
       // `//elsewhere.example` would leave it.
