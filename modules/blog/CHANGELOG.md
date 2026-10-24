@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **`dash-pivot` catches two more pivots (#699):** a spaced dash with a number on one side only (`Up to 65 — after
+  tax.`) and an em dash glued to two words (`small—they`). Only a dash with a number on both sides passes as a range
+  (`2020 – 2024`, `20% – 30%`, `$10 – $20`); a glued en dash (`Warsaw–Berlin`) still passes. An app that added its
+  own voice phrase for these pivots can drop it.
 - **`stacked-asides` ignores formulas (#700):** a word in an aside counts from two letters up, so formula variables
   and one-letter words no longer make an aside worded. `K × (1 + r/m)^(m × n)` passes `checkCopyText` and gives no
   warning in an article; real worded asides are flagged as before.

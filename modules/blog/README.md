@@ -195,7 +195,7 @@ more in a short text:
 | --- | --- |
 | a ruleset pattern with `copySeverity` | that severity (`not-x-but-y-bare` is an error) |
 | `stacked-asides` | an error: two worded asides (two words of two letters or more; formula variables do not count) in one sentence, or three in a post of up to 300 words |
-| `dash-pivot` | an error: a spaced em or en dash between words; a dash next to a number is a range and passes |
+| `dash-pivot` | an error: a spaced em or en dash between words, or an em dash glued to two words (`small—they`); a dash with a number on both sides is a range and passes (`2020 – 2024`, `20% – 30%`) |
 | `channel-markup` | `mode: "channel"` only, an error per kind of markdown a plain-text editor shows as is: bold, italics, headings, bracket links, embedded images, quotes, tables, inline code, code blocks, rules, HTML. Bare URLs and `- ` / `1. ` lists pass; `bold-density` and `bold-labels` are left to it |
 
 `mode: "copy"` (the default) reads markdown as prose, for text the app renders itself. `dash-pivot` and
