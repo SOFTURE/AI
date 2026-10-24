@@ -1,7 +1,7 @@
 // The English ruleset: the same habits as the Polish one, in English, after `blader/humanizer` and
 // `hardikpandya/stop-slop`. Errors are habits a careful author uses rarely and on purpose; warnings
 // are words that say nothing alone but betray a template in a cluster.
-import { wordPattern } from "../../text.js";
+import { emojiPattern, wordPattern } from "../../text.js";
 import type { LanguageRuleset } from "../types.js";
 
 export const enRuleset: LanguageRuleset = {
@@ -94,7 +94,7 @@ export const enRuleset: LanguageRuleset = {
     {
       id: "emoji",
       severity: "error",
-      pattern: /\p{Extended_Pictographic}/gu,
+      pattern: emojiPattern(),
       message: "an emoji in the text; remove it",
     },
     {

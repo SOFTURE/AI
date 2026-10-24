@@ -111,3 +111,11 @@ export function normalizeNumber(raw: string, notation: NumberNotation): string {
 export function wordPattern(source: string): RegExp {
   return new RegExp(`(?<![\\p{L}\\d])(?:${source})(?![\\p{L}\\d])`, "giu");
 }
+
+/**
+ * A pictograph, except the copyright, registered and trade mark signs written as text (#712): those carry the
+ * Unicode emoji properties but render as typography unless U+FE0F follows them.
+ */
+export function emojiPattern(): RegExp {
+  return /(?![©®™](?!️))\p{Extended_Pictographic}/gu;
+}
