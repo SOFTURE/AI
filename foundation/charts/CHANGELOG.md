@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`charts@x.y.z`).
 
+## Unreleased
+
+- `ChartFlag` applies `style` on a free flag (no `xPercent`) of one row (issue #711). Before, the style was dropped
+  unless `rows` was above 1, so free flags positioned with `style={{ bottom: … }}` all sat at the default place. An app
+  that worked around it with translate classes can drop them and pass the position in `style`.
+
 ## 0.5.0
 
 - `layoutFlags` takes `rows` on each flag (issue #592): how many rows its chip is tall, a whole number of at least 1,
