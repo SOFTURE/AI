@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- No change to the package itself: the first version published through the npm trusted publisher (OIDC) with
+  provenance, without a token.
+
 ## 0.1.0
 
 - First version (#708): `NOTION_THEME` (the Notion design system's tokens), `theme.css` (tokens, Tailwind
