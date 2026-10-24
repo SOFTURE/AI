@@ -2,7 +2,7 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
-## Unreleased
+## 0.1.0
 
 - First version: `ThemeDefinition` and `SHADCN_COLOR_ROLES` (the token contract), `buildThemeCss` (tokens on
   `:root`, dark by the system setting and by `.dark` / `[data-theme]`, the Tailwind `@theme inline` block),
