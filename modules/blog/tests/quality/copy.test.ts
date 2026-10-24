@@ -169,3 +169,20 @@ describe("checkCopyText in channel mode", () => {
     expect(rulesOf(checkCopyText("> Fees are crucial.", { mode: "channel" }).findings)).toEqual(["channel-markup:error", "crucial:error"]);
   });
 });
+
+describe("the emoji rule (#712)", () => {
+  const emojiOf = (text: string, language: "en" | "pl") =>
+    checkCopyText(text, { quality: { language } }).findings.filter((finding) => finding.rule === "emoji").length;
+
+  it.each(["en", "pl"] as const)("passes the copyright, registered and trade mark signs written as text (%s)", (language) => {
+    expect(emojiOf("© 2026 Plan", language)).toBe(0);
+    expect(emojiOf("Plan® and Fund™ are names.", language)).toBe(0);
+  });
+
+  it.each(["en", "pl"] as const)("flags the signs in emoji presentation and real emoji (%s)", (language) => {
+    expect(emojiOf("©️ 2026 Plan", language)).toBe(1);
+    expect(emojiOf("Returns grow 🚀", language)).toBe(1);
+    expect(emojiOf("©🚀 2026 Plan", language)).toBe(1);
+    expect(emojiOf("I ❤ fees.", language)).toBe(1);
+  });
+});
