@@ -2,6 +2,11 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
+## 0.1.1
+
+- No change to the package itself: the first version published through the npm trusted publisher (OIDC) with
+  provenance, without a token.
+
 ## 0.1.0
 
 - First version: `ThemeDefinition` and `SHADCN_COLOR_ROLES` (the token contract), `buildThemeCss` (tokens on
