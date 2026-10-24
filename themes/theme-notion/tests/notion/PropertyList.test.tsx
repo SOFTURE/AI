@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { readTextNodes } from "../support.js";
+
 import { PropertyList } from "../../src/notion/PropertyList.js";
 
 describe("PropertyList", () => {
@@ -13,7 +15,7 @@ describe("PropertyList", () => {
         ]}
       />,
     );
-    const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const text = readTextNodes(html).join(" ");
 
     expect(html).toContain('data-slot="property-list"');
     expect(html.match(/data-orientation="horizontal"/g)).toHaveLength(2);

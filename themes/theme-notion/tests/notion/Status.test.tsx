@@ -2,6 +2,8 @@ import { CircleCheck, CircleX } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { readTextNodes } from "../support.js";
+
 import { Status } from "../../src/notion/Status.js";
 
 describe("Status", () => {
@@ -11,7 +13,7 @@ describe("Status", () => {
         Done
       </Status>,
     );
-    const text = html.replace(/<[^>]+>/g, "").trim();
+    const text = readTextNodes(html).join("");
 
     expect(html).toContain('data-slot="status"');
     expect(html).toContain('data-color="green"');
