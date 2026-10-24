@@ -56,7 +56,7 @@ export function ChartFlag({ xPercent, variant = "flag", size = "md", row = 0, ro
   );
   const rowStyle = isStacked ? ({ "--sft-chart-flag-row": row } as CSSProperties) : undefined;
   const spanStyle = isSpanning ? ({ "--sft-chart-flag-rows": rows } as CSSProperties) : undefined;
-  const inline = isPlaced ? { left: percent(xPercent), ...rowStyle, ...spanStyle, ...style } : spanStyle && { ...spanStyle, ...style };
+  const inline = isPlaced ? { left: percent(xPercent), ...rowStyle, ...spanStyle, ...style } : { ...spanStyle, ...style };
   return (
     <span {...data} title={title} className={classes} style={inline}>
       {children}
