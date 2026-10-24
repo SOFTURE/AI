@@ -3,9 +3,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    // The CSS copy script and the bin are checked JavaScript (JSDoc), like the root scripts/.
+    // The CSS copy script is checked JavaScript (JSDoc), like the root scripts/.
     "allowJs": true,
     "checkJs": true
   },
-  "include": ["src/**/*", "tests/**/*", "scripts/**/*", "bin/**/*"]
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*"]
 }
