@@ -1,12 +1,13 @@
 ---
 change_id: themes-generic-kit-708
 title: "themes: a generic theme contract in theme-kit, so a new theme needs no kit or script changes (issue #708)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 708
 branch: claude/project-thread-e5uut7
 created: 2026-10-24
 updated: 2026-10-24
+archived_at: 2026-10-24
 ---
 
 ## Intent

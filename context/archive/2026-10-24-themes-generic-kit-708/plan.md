@@ -1,6 +1,6 @@
 ---
 change_id: themes-generic-kit-708
-status: in_progress
+status: archived
 ---
 
 # Plan: a generic theme contract (issue #708)
@@ -42,6 +42,6 @@ Files: `themes/theme-kit/src/build/*`, `src/cli/bin.ts`, `package.json` (`./buil
 
 ## Progress
 
-- [ ] Phase 1: kit API
-- [ ] Phase 2: stylesheet builder and command
-- [ ] Phase 3: Notion on the contract, repo test, docs
+- [x] Phase 1: kit API (d466c79)
+- [x] Phase 2: stylesheet builder and command (a18a169; bin as a checked-in .mjs, see impl-review)
+- [x] Phase 3: Notion on the contract, repo test, docs (cbadb0e)
