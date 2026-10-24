@@ -4,13 +4,21 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildThemeCss } from "@softure-ai/theme-kit";
+import { buildThemeStylesheet, parseThemePackageConfig, type ThemePackageConfig } from "@softure-ai/theme-kit/build";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { buildThemeStylesheet, COMPONENT_SOURCES } from "../scripts/build-css.mjs";
 import { NOTION_THEME } from "../src/index.js";
 
 const PACKAGE_DIR = fileURLToPath(new URL("..", import.meta.url));
+
+function readConfig(): ThemePackageConfig {
+  const manifest = JSON.parse(readFileSync(join(PACKAGE_DIR, "package.json"), "utf8")) as { softureTheme?: unknown };
+  const parsed = parseThemePackageConfig(manifest.softureTheme);
+  if (!parsed.ok) throw new Error(parsed.error);
+  return parsed.config;
+}
+
+const CONFIG = readConfig();
 
 function getTailwindCli(): string {
   const manifestPath = createRequire(import.meta.url).resolve("@tailwindcss/cli/package.json");
@@ -25,8 +33,8 @@ let compiled = "";
 beforeAll(() => {
   // Inside the package, so `tw-animate-css` and `tailwindcss` resolve from its node_modules as in an app.
   workDir = mkdtempSync(join(PACKAGE_DIR, ".css-test-"));
-  const sources = COMPONENT_SOURCES.map((source) => join(PACKAGE_DIR, "src", source));
-  writeFileSync(join(workDir, "theme.css"), buildThemeStylesheet({ buildThemeCss, theme: NOTION_THEME, sources }));
+  const sources = CONFIG.sources.map((source) => join(PACKAGE_DIR, "src", source));
+  writeFileSync(join(workDir, "theme.css"), buildThemeStylesheet({ theme: NOTION_THEME, sources, imports: CONFIG.imports }));
   writeFileSync(join(workDir, "app.css"), '@import "tailwindcss" source(none);\n@import "./theme.css";\n');
   execFileSync(process.execPath, [getTailwindCli(), "-i", join(workDir, "app.css"), "-o", join(workDir, "out.css")], {
     cwd: workDir,
@@ -41,7 +49,7 @@ afterAll(() => {
 
 describe("theme.css in an app's Tailwind", () => {
   it("names the components as sources and imports the animations the components use", () => {
-    expect(buildThemeStylesheet({ buildThemeCss, theme: NOTION_THEME, sources: COMPONENT_SOURCES }).split("\n").slice(0, 3)).toEqual([
+    expect(buildThemeStylesheet({ theme: NOTION_THEME, ...CONFIG }).split("\n").slice(0, 3)).toEqual([
       '@import "tw-animate-css";',
       '@source "./ui";',
       '@source "./notion";',

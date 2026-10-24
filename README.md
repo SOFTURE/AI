@@ -40,8 +40,9 @@ tools/
   host/              shared app server (Ansible, softure.vps_foundation) and one-command app onboarding
   config/            shared app tooling: ESLint preset, tsconfig base, lefthook hooks, language gate
 themes/              shadcn/ui themes an app installs instead of copying components
-  theme-kit/         @softure-ai/theme-kit: token contract, theme CSS generator, cn, scoped preflight
-  theme-notion/      @softure-ai/theme-notion: the Notion design system (tokens, 36 components, compositions)
+  theme-kit/         @softure-ai/theme-kit: the theme contract (defineTheme), CSS generator and build, cn, preflight
+  theme-notion/      @softure-ai/theme-notion: the first theme, Notion (tokens, 36 components, compositions)
+  theme-<name>/      each further theme, on the kit's contract (themes/theme-kit/README.md)
 docs/                assessment, module standard, plans
 ```
 

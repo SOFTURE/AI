@@ -1,7 +1,5 @@
+import { TOKEN_NAME, UNSAFE_VALUE } from "./check-theme.js";
 import { isColorAlias, type ThemeDefinition } from "./theme-definition.js";
-
-const TOKEN_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const UNSAFE_VALUE = /[;{}<>\r\n]/;
 
 /** Light by default, and for an element or a page that asks for it. */
 const LIGHT_SELECTOR = ':root, .light, [data-theme="light"]';

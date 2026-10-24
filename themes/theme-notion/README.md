@@ -104,6 +104,12 @@ then the deltas above), not in the app.
 
 ## Tokens
 
-`NOTION_THEME` (`src/tokens.ts`) is the source; `tests/tokens.test.ts` keeps it equal to the design system's token
-snapshot (`tests/fixtures/notion-tokens.json`). When the design system changes, refresh the snapshot and the
-definition in one change. `cn` is `createThemeCn(NOTION_THEME)`.
+`NOTION_THEME` (`src/tokens.ts`, also exported as `theme`, the name every theme package uses) is the source, declared
+with the kit's `defineTheme`; `tests/tokens.test.ts` keeps it equal to the design system's token snapshot
+(`tests/fixtures/notion-tokens.json`). When the design system changes, refresh the snapshot and the definition in one
+change. `cn` is `createThemeCn(NOTION_THEME)`. The build writes `theme.css` with the kit's `softure-theme-css` from
+`softureTheme` in `package.json` (the kit README, "The theme package contract").
+
+**Overriding a token.** Redefine its CSS variable after `theme.css` (`:root { --primary: #e16259; }`, and the same in
+a `.dark` block for the dark value), or build a variant with `extendTheme(theme, { name, colors: { … } })` and write
+it with `buildThemeCss` (the kit README, "Overriding in an app").

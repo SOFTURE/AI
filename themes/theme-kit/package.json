@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/theme-kit",
   "version": "0.1.0",
-  "description": "SOFTURE AI theme kit: the token contract, the theme CSS generator, cn and the scoped preflight every shadcn/ui theme package shares.",
+  "description": "SOFTURE AI theme kit: the theme contract (defineTheme), the theme CSS generator and build command, cn and the scoped preflight every shadcn/ui theme package shares.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
@@ -16,6 +16,7 @@
     "directory": "themes/theme-kit"
   },
   "files": [
+    "bin",
     "dist",
     "CHANGELOG.md",
     "src",
@@ -25,6 +26,9 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "bin": {
+    "softure-theme-css": "./bin/softure-theme-css.mjs"
   },
   "exports": {
     ".": {
@@ -36,6 +40,11 @@
       "@softure-ai/source": "./src/react/index.ts",
       "types": "./dist/react/index.d.ts",
       "default": "./dist/react/index.js"
+    },
+    "./build": {
+      "@softure-ai/source": "./src/build/index.ts",
+      "types": "./dist/build/index.d.ts",
+      "default": "./dist/build/index.js"
     },
     "./preflight.css": "./dist/preflight.css"
   },

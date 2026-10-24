@@ -1,6 +1,6 @@
 // The Notion theme: tokens, cn, the shadcn/ui components with the theme's deltas, and the compositions.
 // The stylesheets are separate entries: `@softure-ai/theme-notion/theme.css` and `/sft-bridge.css`.
-export { NOTION_THEME } from "./tokens.js";
+export { NOTION_THEME, theme } from "./tokens.js";
 export { cn } from "./lib/utils.js";
 export { notionMessages, type NotionMessages } from "./messages/index.js";
 

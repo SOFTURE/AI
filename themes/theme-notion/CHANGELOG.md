@@ -11,3 +11,6 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   components with the Notion deltas, `Status`, `PageHeader`, `PropertyList`, `PageFrame`, `PALETTE_COLORS`,
   `ICON_STROKE_WIDTH`, `cn`, the built-in English copy with props to replace it, and `sft-bridge.css` for the pages of
   the SOFTURE packages.
+- On the kit's theme package contract (#708): `theme` (the standard export, same as `NOTION_THEME`, declared with
+  `defineTheme`), `softureTheme` in `package.json`, and `theme.css` built by the kit's `softure-theme-css` instead of
+  a script of its own.

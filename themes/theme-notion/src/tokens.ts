@@ -1,11 +1,11 @@
-import type { ThemeDefinition } from "@softure-ai/theme-kit";
+import { defineTheme } from "@softure-ai/theme-kit";
 
 /**
  * The Notion theme: the token values of the Notion design system (shadcn/ui new-york v4 with Notion's colours, type,
  * radii and shadows). `tests/tokens.test.ts` keeps them equal to the design system's token snapshot
- * (`tests/fixtures/notion-tokens.json`); `scripts/build-css.mjs` turns them into `theme.css`.
+ * (`tests/fixtures/notion-tokens.json`); the kit's `softure-theme-css` turns them into `theme.css`.
  */
-export const NOTION_THEME = {
+export const NOTION_THEME = defineTheme({
   name: "Notion",
   colors: {
     background: { light: "#ffffff", dark: "#191919" },
@@ -134,4 +134,7 @@ export const NOTION_THEME = {
   },
   // The design system allows only its own colours, so no raw Tailwind colour utility exists.
   clearDefaultPalette: true,
-} as const satisfies ThemeDefinition;
+});
+
+/** The theme under the name every theme package exports, so an app swaps themes by the import path alone. */
+export const theme = NOTION_THEME;
