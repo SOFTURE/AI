@@ -1,6 +1,6 @@
 ---
 change_id: charts-free-flag-style-711
-status: in_progress
+status: archived
 ---
 
 # Plan: ChartFlag applies style on a free flag (issue #711)
@@ -25,4 +25,4 @@ Files: `foundation/charts/src/svg/flag.tsx`, `foundation/charts/tests/flag-free-
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1: ec45e17

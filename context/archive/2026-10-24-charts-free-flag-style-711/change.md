@@ -1,12 +1,13 @@
 ---
 change_id: charts-free-flag-style-711
 title: "charts: ChartFlag applies style on a free flag of one row (issue #711)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 711
 branch: claude/project-thread-ofuvde
 created: 2026-10-24
 updated: 2026-10-24
+archived_at: 2026-10-24
 ---
 
 ## Intent
