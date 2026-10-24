@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
-## Unreleased
+## 0.4.1
 
 - **`dash-pivot` catches two more pivots (#699):** a spaced dash with a number on one side only (`Up to 65 — after
   tax.`) and an em dash glued to two words (`small—they`). Only a dash with a number on both sides passes as a range
