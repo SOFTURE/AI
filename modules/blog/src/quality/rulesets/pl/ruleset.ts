@@ -2,7 +2,7 @@
 // extension of `blader/humanizer` and `hardikpandya/stop-slop`. Errors are habits a careful author uses
 // rarely and on purpose; warnings are words that say nothing alone but betray a template in a cluster.
 // FIRE's voice (no first person singular) and finance phrases are app config, not Polish.
-import { wordPattern } from "../../text.js";
+import { emojiPattern, wordPattern } from "../../text.js";
 import type { LanguageRuleset } from "../types.js";
 
 const L = "\\p{L}*";
@@ -104,7 +104,7 @@ export const plRuleset: LanguageRuleset = {
     {
       id: "emoji",
       severity: "error",
-      pattern: /\p{Extended_Pictographic}/gu,
+      pattern: emojiPattern(),
       message: "an emoji in the text; remove it",
     },
     {
