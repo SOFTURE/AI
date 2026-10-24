@@ -50,6 +50,8 @@ describe("the new Polish rules", () => {
       expect(rulesOf(checkCopyText(text, { quality }).findings)).toEqual(["dash-pivot:error"]);
     }
     expect(rulesOf(checkCopyText("Opłata (płacona co roku) zjada zysk (i procent składany).", { quality }).findings)).toEqual(["stacked-asides:error"]);
+    expect(checkCopyText("Wzór to K × (1 + r/m)^(m × n), więc kwota rośnie co roku.", { quality }).findings).toEqual([]);
+    expect(checkCopyText("Kupuj (w z) i trzymaj (i w).", { quality }).findings).toEqual([]);
   });
 
   it("flags markdown of a forum post in channel mode", () => {

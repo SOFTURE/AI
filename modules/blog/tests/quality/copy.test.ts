@@ -68,6 +68,20 @@ describe("stacked asides", () => {
     expect(checkCopyText("The fee (0.2%) of the fund (ETF) since (2024) is low (https://example.com).").findings).toEqual([]);
   });
 
+  it("does not count single letters as words: formula variables and one-letter words (#700)", () => {
+    const formula = "The formula is K × (1 + r/m)^(m × n), so 10 000 grows at 6% a year.";
+    expect(checkCopyText(formula).findings).toEqual([]);
+    const settings = resolveQualitySettings(qualityOptionsSchema.parse({}), { appOrigin: "https://example.com", timezone: "UTC" });
+    const article = MODEL.replace("\n---\n\n", `\n---\n\n${formula}\n\n`);
+    const findings = checkArticleText({ text: article, fileName: "index-funds.md", settings, today: "2026-10-23" }).findings;
+    expect(findings.filter((finding) => finding.rule === "stacked-asides")).toEqual([]);
+    expect(checkCopyText("Plot it (x y) against time (a b).").findings).toEqual([]);
+  });
+
+  it("still counts an aside of two words of two letters or more", () => {
+    expect(rulesOf(checkCopyText("The fee (as of now) eats the return (by a lot) over time.").findings)).toEqual(["stacked-asides:error"]);
+  });
+
   it("flags three worded asides in a short post, even one per sentence", () => {
     const post = "Fees matter (more than you think). Pick a fund (any broad one). Hold it (for decades).";
     expect(checkCopyText(post).findings).toEqual([{ rule: "stacked-asides", severity: "error", message: "3 worded asides in parentheses in a post of 16 words; keep at most two, and fold the rest into sentences" }]);
