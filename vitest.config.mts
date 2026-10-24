@@ -33,7 +33,7 @@ export default defineConfig({
     globalSetup: ["./foundation/db/src/testing/global-setup.ts"],
     include: [
       "tests/**/*.test.ts",
-      "{foundation,modules,tools,templates}/*/{src,tests}/**/*.test.{ts,tsx}",
+      "{foundation,modules,tools,themes,templates}/*/{src,tests}/**/*.test.{ts,tsx}",
     ],
     // Random order: no test may depend on running after another.
     sequence: { shuffle: true },

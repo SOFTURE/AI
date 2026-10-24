@@ -1,0 +1,77 @@
+/*
+ * Tailwind CSS v4's preflight, scoped to design-system elements: every shadcn/ui part carries `data-slot`, so a
+ * screen root with a `data-slot` brings the reset to everything inside it, while pages drawn by other packages (on
+ * `@softure-ai/ui`'s own base) keep theirs. Import it instead of Tailwind's `preflight.css` when the app mixes both;
+ * an app that is all design system can take Tailwind's full preflight instead.
+ *
+ * Reads `--border`, `--ring` and `--muted-foreground` from the theme. Also turns transitions and animations off under
+ * `prefers-reduced-motion`.
+ */
+@layer base {
+  :where([data-slot], [data-slot] *),
+  :where([data-slot], [data-slot] *)::before,
+  :where([data-slot], [data-slot] *)::after,
+  :where([data-slot], [data-slot] *)::backdrop {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid var(--border);
+  }
+
+  :where([data-slot], [data-slot] *) {
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+
+  :where(h1, h2, h3, h4, h5, h6):where([data-slot], [data-slot] *) {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  :where(a):where([data-slot], [data-slot] *) {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  :where(ol, ul, menu):where([data-slot], [data-slot] *) {
+    list-style: none;
+  }
+
+  :where(img, svg, video, canvas):where([data-slot], [data-slot] *) {
+    display: block;
+    vertical-align: middle;
+  }
+
+  :where(table):where([data-slot], [data-slot] *) {
+    border-collapse: collapse;
+    text-indent: 0;
+  }
+
+  :where(button, input, select, optgroup, textarea):where([data-slot], [data-slot] *) {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background-color: transparent;
+    border-radius: 0;
+    opacity: 1;
+  }
+
+  :where(button, [role="button"]):where([data-slot], [data-slot] *):not(:disabled) {
+    cursor: pointer;
+  }
+
+  :where(textarea):where([data-slot], [data-slot] *) {
+    resize: vertical;
+  }
+
+  :where(::placeholder):where([data-slot], [data-slot] *) {
+    opacity: 1;
+    color: var(--muted-foreground);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where([data-slot], [data-slot] *) {
+      transition-duration: 0s !important;
+      animation-duration: 0s !important;
+    }
+  }
+}

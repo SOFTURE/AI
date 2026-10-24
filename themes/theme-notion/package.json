@@ -1,0 +1,59 @@
+{
+  "name": "@softure-ai/theme-notion",
+  "version": "0.1.0",
+  "description": "SOFTURE AI Notion theme: shadcn/ui components (new-york v4, Radix, Tailwind CSS v4, lucide) with the Notion design system's tokens and deltas, ready to import.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "themes/theme-notion"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./theme.css": "./dist/theme.css",
+    "./sft-bridge.css": "./dist/sft-bridge.css"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/build-css.mjs"
+  },
+  "dependencies": {
+    "@softure-ai/theme-kit": "^0.1.0",
+    "class-variance-authority": "^0.7.1",
+    "cmdk": "^1.1.1",
+    "lucide-react": "^1.61.0",
+    "radix-ui": "^1.8.1",
+    "sonner": "^2.0.8",
+    "tw-animate-css": "^1.4.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0"
+  },
+  "devDependencies": {
+    "@softure-ai/ui": "^0.3.4",
+    "zod": "^4.6.5"
+  }
+}

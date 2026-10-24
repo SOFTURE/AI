@@ -1,0 +1,47 @@
+/*
+ * The bridge from the `--sft-*` tokens of @softure-ai/ui to the Notion theme. Pages rendered by the SOFTURE packages
+ * (sign-in, password, MCP access, OAuth consent) read `--sft-*`; inside a `PageFrame` (any `[data-page-frame]`
+ * element) those tokens point at the Notion values, so the package pages take the theme's colours, type, radii and
+ * shadows. Scoped to the frame, not `:root`: screens still on `--sft-*` keep their look until they move. The Notion
+ * colours and shadows switch scheme by themselves, so the bridge needs no dark block. Spacing, text sizes and
+ * durations stay the package's: the scales already match, and the theme has no motion tokens.
+ *
+ * Import it after `theme.css`, through the app's Tailwind (it reads the theme with `--theme()`).
+ */
+@layer base {
+  [data-page-frame] {
+    --sft-font-sans: --theme(--font-sans);
+    --sft-font-heading: --theme(--font-sans);
+    --sft-font-mono: --theme(--font-mono);
+
+    --sft-radius-control: --theme(--radius-md);
+    --sft-radius-card: --theme(--radius-lg);
+    --sft-radius-pill: --theme(--radius-full);
+
+    --sft-color-background: var(--background);
+    --sft-color-surface: var(--card);
+    --sft-color-surface-raised: var(--popover);
+    --sft-color-foreground: var(--foreground);
+    --sft-color-muted: var(--muted-foreground);
+    --sft-color-border: var(--border);
+    --sft-color-border-strong: var(--control-off);
+    --sft-color-accent: var(--primary);
+    --sft-color-accent-fill: var(--primary);
+    --sft-color-accent-fill-hover: var(--primary-hover);
+    --sft-color-on-accent: var(--primary-foreground);
+    --sft-color-danger: var(--red);
+    --sft-color-success: var(--green);
+    --sft-color-warning: var(--orange);
+    --sft-color-focus: var(--ring);
+    --sft-color-overlay: var(--overlay);
+
+    --sft-shadow-1: var(--shadow-card);
+    --sft-shadow-2: var(--shadow-dialog);
+  }
+
+  /* A page in a frame fills the window: no browser margin, the Notion background behind everything. */
+  body:has([data-page-frame]) {
+    margin: 0;
+    background-color: var(--background);
+  }
+}

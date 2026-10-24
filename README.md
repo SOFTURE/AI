@@ -39,6 +39,9 @@ tools/
   deploy/            one-VPS deploy CLI: .env.prod from secrets, release notes, verify from deploy.json
   host/              shared app server (Ansible, softure.vps_foundation) and one-command app onboarding
   config/            shared app tooling: ESLint preset, tsconfig base, lefthook hooks, language gate
+themes/              shadcn/ui themes an app installs instead of copying components
+  theme-kit/         @softure-ai/theme-kit: token contract, theme CSS generator, cn, scoped preflight
+  theme-notion/      @softure-ai/theme-notion: the Notion design system (tokens, 36 components, compositions)
 docs/                assessment, module standard, plans
 ```
 
