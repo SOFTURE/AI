@@ -132,3 +132,26 @@ describe("isNavigation", () => {
     expect(isNavigation(request({ "sec-fetch-mode": "cors", "sec-fetch-dest": "empty" }))).toBe(false);
   });
 });
+
+describe("tag with a Referer that is not a URL (#702)", () => {
+  // A port that is not a number: the header is present but does not parse.
+  const BAD_REFERER = "http://localhost:3000.example.com/?z=newsletter";
+
+  it("passes the navigation on instead of throwing", () => {
+    const targets = vi.fn(() => true);
+    for (const channels of [
+      createChannelTagger(createConfig()),
+      createChannelTagger(createConfig(), { targets: ["/register"] }),
+      createChannelTagger(createConfig(), { targets }),
+    ]) {
+      expect(channels.tag(createRequest("/register", { referer: BAD_REFERER }))).toBeNull();
+      expect(channels.tag(createRequest("/pricing", { referer: BAD_REFERER }))).toBeNull();
+    }
+    expect(targets).not.toHaveBeenCalled();
+  });
+
+  it("still moves a legacy name to the parameter, judged against the request itself", () => {
+    const channels = createChannelTagger(createConfig({ channel: { param: "ref", legacyParams: ["z"] } }), { targets: ["/register"] });
+    expect(channels.tag(createRequest("/register?z=ads", { referer: BAD_REFERER }))?.headers.get("location")).toBe(`${APP_ORIGIN}/register?ref=ads`);
+  });
+});
