@@ -8,18 +8,33 @@ import { countWordedAsides } from "./style.js";
 /** A post up to this many words is short: three worded asides in it read as a template. */
 export const SHORT_POST_WORDS = 300;
 
-const SPACED_DASH = /(\S+)\s([—–])\s(\S+)/gu;
+/** A spaced em or en dash between two words, or an em dash glued to two letters ("small—they"). */
+const DASH_PIVOT = /(\S+)\s([—–])\s(\S+)|(\p{L}+)(—)(\p{L}+)/gu;
+/** A number, with any unit sign glued to it ("20%", "$10"), on the side next to the dash. */
+const ENDS_WITH_NUMBER = /\d[^\p{L}\d\s]*$/u;
+const STARTS_WITH_NUMBER = /^[^\p{L}\d\s]*\d/u;
 
-/** A spaced em or en dash between words; a dash next to a number is a range ("2020 – 2024"). */
+/** A dash between words; a dash with a number on both sides is a range ("2020 – 2024") and passes. */
 export function checkDashPivots(blocks: readonly Block[]): QualityFinding[] {
   const findings: QualityFinding[] = [];
   for (const block of getProseBlocks(blocks)) {
-    const pivot = [...toProse(block.text).matchAll(SPACED_DASH)].find((match) => !/\d$/.test(match[1] ?? "") && !/^\d/.test(match[3] ?? ""));
-    if (pivot === undefined) continue;
-    const sample = `${(pivot[1] ?? "").replace(/[.,;:!?]+$/, "")} ${pivot[2] ?? ""} ${(pivot[3] ?? "").replace(/[.,;:!?]+$/, "")}`;
+    const sample = findDashPivot(toProse(block.text));
+    if (sample === undefined) continue;
     findings.push({ rule: "dash-pivot", severity: "error", message: `"${sample}": a dash as a pivot between two thoughts; use a full stop, a comma or a colon`, line: block.line });
   }
   return findings;
+}
+
+/** The first dash pivot in the text, as the words around it, or `undefined` when it has none. */
+function findDashPivot(text: string): string | undefined {
+  for (const match of text.matchAll(DASH_PIVOT)) {
+    if (match[4] !== undefined) return `${match[4]}${match[5] ?? ""}${match[6] ?? ""}`;
+    const before = match[1] ?? "";
+    const after = match[3] ?? "";
+    if (ENDS_WITH_NUMBER.test(before) && STARTS_WITH_NUMBER.test(after)) continue;
+    return `${before.replace(/[.,;:!?]+$/, "")} ${match[2] ?? ""} ${after.replace(/[.,;:!?]+$/, "")}`;
+  }
+  return undefined;
 }
 
 /** Three or more worded asides in a short post, even one per sentence. */

@@ -46,6 +46,9 @@ describe("the new Polish rules", () => {
 
   it("finds Polish dash pivots and stacked asides in a post", () => {
     expect(rulesOf(checkCopyText("Opłata wygląda na małą — nie jest.", { quality }).findings)).toEqual(["dash-pivot:error"]);
+    for (const text of ["Do 65 — po podatku.", "Jak Wy planujecie lata między odejściem a 60/65 — osobna pula, obligacje, praca dorywcza?", "Opłata wygląda na małą—nie jest."]) {
+      expect(rulesOf(checkCopyText(text, { quality }).findings)).toEqual(["dash-pivot:error"]);
+    }
     expect(rulesOf(checkCopyText("Opłata (płacona co roku) zjada zysk (i procent składany).", { quality }).findings)).toEqual(["stacked-asides:error"]);
   });
 

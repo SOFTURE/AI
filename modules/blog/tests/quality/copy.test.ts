@@ -91,6 +91,25 @@ describe("dash pivots", () => {
   it("leaves a range between numbers and a hyphenated word alone", () => {
     expect(checkCopyText("Between 2020 – 2024 the fee fell. A low-cost fund.\n\nPages 10—12.").findings).toEqual([]);
   });
+
+  it("leaves a range with a unit sign glued to each number alone", () => {
+    expect(checkCopyText("Fees run 20% – 30% a year.\n\nA plan costs $10 – $20.").findings).toEqual([]);
+  });
+
+  it("flags a spaced dash with a number on one side only", () => {
+    expect(checkCopyText("Up to 65 — after tax.").findings).toEqual([
+      { rule: "dash-pivot", severity: "error", message: '"65 — after": a dash as a pivot between two thoughts; use a full stop, a comma or a colon', line: 1 },
+    ]);
+    expect(rulesOf(checkCopyText("The years between leaving and 60/65 — a separate pot.").findings)).toEqual(["dash-pivot:error"]);
+    expect(rulesOf(checkCopyText("The gap — 65 years of saving.").findings)).toEqual(["dash-pivot:error"]);
+  });
+
+  it("flags an em dash glued to two words, but not a glued en dash", () => {
+    expect(checkCopyText("Fees look small—they are not.").findings).toEqual([
+      { rule: "dash-pivot", severity: "error", message: '"small—they": a dash as a pivot between two thoughts; use a full stop, a comma or a colon', line: 1 },
+    ]);
+    expect(checkCopyText("The Warsaw–Berlin route.").findings).toEqual([]);
+  });
 });
 
 describe("checkCopyText in channel mode", () => {
