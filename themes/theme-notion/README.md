@@ -73,6 +73,18 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `DialogCo
   (button, field, menu item), `lg` 8 (callout, card), `xl` 10 (menu, select, dialog), `full` (switch).
 - Icons: lucide at `ICON_STROKE_WIDTH` (1.75), 16 px in text; they inherit the text colour. No emoji in the interface.
 - Statuses always carry a word and an icon, so states read apart without telling green from red.
+- Figures, bar segments and box edges take a **tone** by what they mean: `default` (text colour), `success` (green,
+  done), `warning` (orange, to do), `danger` (red, owed or failing), `muted` (gray, out of play). `TONE_COLORS` gives
+  a tone's palette colour (`null` for `default`); `TONE_TEXT`, `TONE_FILL` and `TONE_EDGE` give literal class names
+  (`text-*`, `bg-*`, `border-l-*`) that the shipped `theme.css` already generates, so the app adds no `@source`. The
+  app keeps only its meaning-to-tone table:
+
+  ```tsx
+  import { TONE_TEXT, type Tone } from "@softure-ai/theme-notion";
+
+  const PAYMENT_TONE: Record<"paid" | "due" | "overdue", Tone> = { paid: "success", due: "warning", overdue: "danger" };
+  <span className={TONE_TEXT[PAYMENT_TONE.overdue]}>1 200</span>
+  ```
 
 ## Components
 

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { buildThemeStylesheet, parseThemePackageConfig, type ThemePackageConfig } from "@softure-ai/theme-kit/build";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { NOTION_THEME } from "../src/index.js";
+import { NOTION_THEME, TONE_EDGE, TONE_FILL, TONE_TEXT } from "../src/index.js";
 
 const PACKAGE_DIR = fileURLToPath(new URL("..", import.meta.url));
 
@@ -62,6 +62,12 @@ describe("theme.css in an app's Tailwind", () => {
     }
     expect(compiled).toMatch(/\.shadow-menu \{[^}]*var\(--shadow-menu\)/);
     expect(compiled).toContain("--primary: #2383e2;");
+  });
+
+  it("generates every tone's class names without an app source of its own", () => {
+    for (const className of new Set([...Object.values(TONE_TEXT), ...Object.values(TONE_FILL), ...Object.values(TONE_EDGE)])) {
+      expect([className, compiled.includes(`.${className} {`)]).toEqual([className, true]);
+    }
   });
 
   it("generates the side panel's layout variants and its hidden rule", () => {
