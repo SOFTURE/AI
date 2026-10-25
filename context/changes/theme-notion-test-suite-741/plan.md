@@ -121,7 +121,7 @@ README "Testing" section (layers, how to update the parity fixture, the upstream
   `tests/contrast.test.ts` (every rendered pair, AA 4.5 and 3:1 for the ring) → adopted in the merge instead of the
   floor test; axe `color-contrast` is on. Item 4.3 is met at AA, not at a floor.
 - Two parts still below AA after #756 (inline Code red on secondary; a destructive Badge with a colour in dark) →
-  filed as #763 and listed as known axe violations pointing at it, not fixed here (outside this change's scope).
+  filed as #763 (outside this change's scope); listed as known axe violations until it landed, then removed.
 - #747 fixed ItemGroup and ScrollArea → their known violations are removed and their deltas listed.
 - The four drag announcements of `SortableList` are checked in `tests/notion/Sortable.test.tsx` during a keyboard
   drag → the message-layer test lists them as checked elsewhere, like the phone sheet's copy.

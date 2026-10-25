@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-test-suite-741
 title: "theme-notion: full test suite so the design system cannot drift (issue #741)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 741
 branch: claude/project-thread-rtvg34
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

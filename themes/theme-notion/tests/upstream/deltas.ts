@@ -66,6 +66,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { cn } from \"../lib/utils.js\"",
     },
     {
+      reason: "imports: relative paths with `.js`; the palette tag classes and the variants a colour applies to",
+      upstream: "import { Slot } from \"radix-ui\"\n",
+      ours: "import { Slot } from \"radix-ui\"\n\nconst TAG_COLORS = {\n  default: \"bg-default-tag text-default-tag-foreground\",\n  gray: \"bg-gray-tag text-gray-tag-foreground\",\n  brown: \"bg-brown-tag text-brown-tag-foreground\",\n  orange: \"bg-orange-tag text-orange-tag-foreground\",\n  yellow: \"bg-yellow-tag text-yellow-tag-foreground\",\n  green: \"bg-green-tag text-green-tag-foreground\",\n  blue: \"bg-blue-tag text-blue-tag-foreground\",\n  purple: \"bg-purple-tag text-purple-tag-foreground\",\n  pink: \"bg-pink-tag text-pink-tag-foreground\",\n  red: \"bg-red-tag text-red-tag-foreground\",\n}\n\n// Every variant a palette colour applies to: all but destructive.\nconst COLORED_VARIANTS = [\"default\", \"secondary\", \"outline\", \"ghost\", \"link\", \"tag\"] as const\n",
+    },
+    {
       reason: "focus: `ring-2 ring-ring` instead of `ring-[3px] ring-ring/50`",
       upstream: "  \"inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3\",",
       ours: "  \"inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3\",",
@@ -81,9 +86,14 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "          \"bg-destructive text-destructive-foreground focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90 dark:[a&]:hover:bg-destructive/50\",",
     },
     {
-      reason: "badge: links in `text-link` (WCAG AA contrast); the `tag` variant (20 px, radius 3) and the nine palette tags",
+      reason: "badge: links in `text-link` (WCAG AA contrast); the `tag` variant (20 px, radius 3); `color` values live in compound variants",
       upstream: "        link: \"text-primary underline-offset-4 [a&]:hover:underline\",",
-      ours: "        link: \"text-link underline-offset-4 [a&]:hover:underline\",\n        tag: \"h-5 rounded-xs px-1.5 py-0 text-sm font-normal\",\n      },\n      color: {\n        none: \"\",\n        default: \"bg-default-tag text-default-tag-foreground\",\n        gray: \"bg-gray-tag text-gray-tag-foreground\",\n        brown: \"bg-brown-tag text-brown-tag-foreground\",\n        orange: \"bg-orange-tag text-orange-tag-foreground\",\n        yellow: \"bg-yellow-tag text-yellow-tag-foreground\",\n        green: \"bg-green-tag text-green-tag-foreground\",\n        blue: \"bg-blue-tag text-blue-tag-foreground\",\n        purple: \"bg-purple-tag text-purple-tag-foreground\",\n        pink: \"bg-pink-tag text-pink-tag-foreground\",\n        red: \"bg-red-tag text-red-tag-foreground\",",
+      ours: "        link: \"text-link underline-offset-4 [a&]:hover:underline\",\n        tag: \"h-5 rounded-xs px-1.5 py-0 text-sm font-normal\",\n      },\n      color: {\n        none: \"\",\n        default: \"\",\n        gray: \"\",\n        brown: \"\",\n        orange: \"\",\n        yellow: \"\",\n        green: \"\",\n        blue: \"\",\n        purple: \"\",\n        pink: \"\",\n        red: \"\",",
+    },
+    {
+      reason: "badge: a palette colour applies to every variant but destructive, which keeps its own fill and text (WCAG AA contrast)",
+      upstream: "      },\n    },",
+      ours: "      },\n    },\n    // A destructive badge keeps its own fill and text whatever its colour.\n    compoundVariants: Object.entries(TAG_COLORS).map(([color, className]) => ({\n      variant: [...COLORED_VARIANTS],\n      color: color as keyof typeof TAG_COLORS,\n      className,\n    })),",
     },
     {
       reason: "badge: `color` defaults to none",
@@ -149,6 +159,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "        \"flex items-center gap-2 rounded-md border bg-muted px-4 text-sm font-medium shadow-xs [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4\",",
       ours: "        \"flex items-center gap-2 rounded-md border bg-muted px-4 text-sm font-medium [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4\",",
     },
+    {
+      reason: "button group: the separator in `border` (WCAG 1.4.11 non-text contrast)",
+      upstream: "        \"relative m-0! self-stretch bg-input data-[orientation=vertical]:h-auto\",",
+      ours: "        \"relative m-0! self-stretch bg-border data-[orientation=vertical]:h-auto\",",
+    },
   ],
   "button": [
     {
@@ -172,9 +187,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "          \"bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:hover:bg-destructive/50 dark:focus-visible:ring-destructive/40\",",
     },
     {
-      reason: "button: thin `input` border, no shadows, `secondary` hover `accent-strong`, the Notion ghost, links in `text-link`",
+      reason: "button: thin `border` outline, no shadows, `secondary` hover `accent-strong`, the Notion ghost, links in `text-link`",
       upstream: "          \"border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50\",\n        secondary:\n          \"bg-secondary text-secondary-foreground hover:bg-secondary/80\",\n        ghost:\n          \"hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50\",\n        link: \"text-primary underline-offset-4 hover:underline\",",
-      ours: "          \"border border-input bg-background hover:bg-accent hover:text-accent-foreground\",\n        secondary: \"bg-secondary text-secondary-foreground hover:bg-accent-strong\",\n        ghost: \"text-muted-foreground hover:bg-accent hover:text-foreground\",\n        link: \"text-link underline-offset-4 hover:underline\",",
+      ours: "          \"border border-border bg-background hover:bg-accent hover:text-accent-foreground\",\n        secondary: \"bg-secondary text-secondary-foreground hover:bg-accent-strong\",\n        ghost: \"text-muted-foreground hover:bg-accent hover:text-foreground\",\n        link: \"text-link underline-offset-4 hover:underline\",",
     },
     {
       reason: "button: 28 px, a smaller padding on the icon side",
@@ -467,6 +482,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { cn } from \"../lib/utils.js\"",
     },
     {
+      reason: "imports: relative paths with `.js`; a caller's fill class is detected",
+      upstream: "import { Progress as ProgressPrimitive } from \"radix-ui\"\n",
+      ours: "import { Progress as ProgressPrimitive } from \"radix-ui\"\n\nconst FILL_CLASS = /(^|\\s)bg-/\n\nfunction hasFillClass(className: string | undefined): boolean {\n  return className !== undefined && FILL_CLASS.test(className)\n}\n",
+    },
+    {
       reason: "progress: `indicatorClassName` styles the fill",
       upstream: "  className,",
       ours: "  className,\n  indicatorClassName,",
@@ -487,9 +507,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "        \"relative h-1.5 w-full overflow-hidden rounded-full bg-primary/20\",",
     },
     {
-      reason: "progress: `indicatorClassName` styles the fill",
+      reason: "progress: `indicatorClassName` styles the fill; in dark the default fill is `link` (WCAG 1.4.11 non-text contrast)",
       upstream: "        className=\"h-full w-full flex-1 bg-primary transition-all\"",
-      ours: "        className={cn(\"h-full w-full flex-1 bg-primary transition-all\", indicatorClassName)}",
+      ours: "        className={cn(\n          \"h-full w-full flex-1 bg-primary transition-all\",\n          // In dark the default fill is the lighter link blue, so it reaches 3:1 against its track; a fill colour of\n          // the caller's own replaces both.\n          !hasFillClass(indicatorClassName) && \"dark:bg-link\",\n          indicatorClassName\n        )}",
     },
   ],
   "radio-group": [
@@ -776,9 +796,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "  variant = \"line\",",
     },
     {
-      reason: "tabs: the trigger in `muted-foreground` instead of `foreground/60` (WCAG AA contrast); the theme's focus ring",
-      upstream: "        \"relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",",
-      ours: "        \"relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-muted-foreground transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",",
+      reason: "tabs: the trigger in `muted-foreground` instead of `foreground/60` (WCAG AA contrast); the theme's focus ring; the active default tab outlined in `input` (`ring` when focused) on `accent/40` in dark (WCAG 1.4.11)",
+      upstream: "        \"relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",\n        \"group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent\",\n        \"data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 dark:data-[state=active]:text-foreground\",",
+      ours: "        \"relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-muted-foreground transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",\n        \"group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent\",\n        \"bg-clip-padding data-[state=active]:border-input data-[state=active]:bg-background data-[state=active]:text-foreground focus-visible:data-[state=active]:border-ring dark:data-[state=active]:bg-accent/40 dark:data-[state=active]:text-foreground\",",
     },
   ],
   "textarea": [
