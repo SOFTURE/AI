@@ -22,7 +22,10 @@ Files: `themes/theme-notion/src/ui/progress.tsx`, `src/notion/Stats.tsx`, `tests
 - An explicit `tone: "default"` takes `TONE_FILL.default` (gray), as the issue says "from `TONE_FILL` when a tone is
   set"; no tone keeps the primary bar.
 - No version bump: the coordinator releases in a batch.
+- Found while implementing: the shadcn `Progress` destructured `value` and never passed it to the Radix root, so every
+  bar was indeterminate (no `aria-valuenow`). Fixed in the same phase (`value={value}` on the root) with a `Progress`
+  test that fails without it; the acceptance item `aria-valuenow` depends on it.
 
 ## Progress
 
-- [ ] Phase 1: progress on StatCard
+- [x] Phase 1: progress on StatCard (46f3714)

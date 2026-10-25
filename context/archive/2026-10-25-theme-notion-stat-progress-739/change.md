@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-stat-progress-739
 title: "theme-notion: progress bar in StatCard (issue #739)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 739
 branch: claude/project-thread-h4usah
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
