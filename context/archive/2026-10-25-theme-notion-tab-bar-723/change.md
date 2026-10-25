@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-tab-bar-723
 title: "theme-notion: TabBar, line tabs as links with icon and count (issue #723)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 723
 branch: claude/project-thread-cxwygc
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

@@ -19,4 +19,4 @@ Files: `themes/theme-notion/src/notion/TabBar.tsx`, `src/index.ts`, `tests/notio
 
 ## Progress
 
-- [ ] Phase 1: TabBar
+- [x] Phase 1: TabBar (2d243f1)
