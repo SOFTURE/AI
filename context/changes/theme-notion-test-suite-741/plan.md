@@ -117,6 +117,14 @@ README "Testing" section (layers, how to update the parity fixture, the upstream
   decision for the owner (tokens are the design system's).
 - Finalise fixture, inventory and baselines after #735–#740 are on master → the coordinator's brief.
 - No version bump → the coordinator releases in a batch.
+- Owner's answer on contrast (2026-10-25): darken to WCAG AA. #756 changed the tokens and brought its own
+  `tests/contrast.test.ts` (every rendered pair, AA 4.5 and 3:1 for the ring) → adopted in the merge instead of the
+  floor test; axe `color-contrast` is on. Item 4.3 is met at AA, not at a floor.
+- Two parts still below AA after #756 (inline Code red on secondary; a destructive Badge with a colour in dark) →
+  filed as #763 and listed as known axe violations pointing at it, not fixed here (outside this change's scope).
+- #747 fixed ItemGroup and ScrollArea → their known violations are removed and their deltas listed.
+- The four drag announcements of `SortableList` are checked in `tests/notion/Sortable.test.tsx` during a keyboard
+  drag → the message-layer test lists them as checked elsewhere, like the phone sheet's copy.
 
 ## Progress
 
@@ -125,41 +133,41 @@ README "Testing" section (layers, how to update the parity fixture, the upstream
 ### Phase 1: upstream delta guard
 
 #### Automated
-- [ ] 1.1 Every `src/ui` file equals its pinned upstream with its listed deltas, and every delta is used
-- [ ] 1.2 Each of the four #735 drifts fails the guard
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Every `src/ui` file equals its pinned upstream with its listed deltas, and every delta is used — a1aa8f2
+- [x] 1.2 Each of the four #735 drifts fails the guard — a1aa8f2
+- [x] 1.3 Gates green (typecheck, lint, test) — a1aa8f2
 
 ### Phase 2: gallery cases, render and parity
 
 #### Automated
-- [ ] 2.1 Every export and every cva variant × size renders its root slot
-- [ ] 2.2 Every case's slot classes equal `notion-slots.json`
-- [ ] 2.3 Gates green (typecheck, lint, test)
+- [x] 2.1 Every export and every cva variant × size renders its root slot — 46c22dc
+- [x] 2.2 Every case's slot classes equal `notion-slots.json` — 46c22dc
+- [x] 2.3 Gates green (typecheck, lint, test) — 46c22dc
 
 ### Phase 3: behaviour
 
 #### Automated
-- [ ] 3.1 Sidebar, form controls, overlays, tabs and message props behave as specified
-- [ ] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 Sidebar, form controls, overlays, tabs and message props behave as specified — 7ca87b2
+- [x] 3.2 Gates green (typecheck, lint, test) — 7ca87b2
 
 ### Phase 4: Tailwind generation, inventory, contrast
 
 #### Automated
-- [ ] 4.1 Every fixture class generates CSS
-- [ ] 4.2 Exports, files, README list and cases agree
-- [ ] 4.3 Text contrast is at least today's ratio in both schemes
-- [ ] 4.4 Gates green (typecheck, lint, test)
+- [x] 4.1 Every fixture class generates CSS — cf8fd7c
+- [x] 4.2 Exports, files, README list and cases agree — cf8fd7c
+- [x] 4.3 Text contrast is at least today's ratio in both schemes — cf8fd7c
+- [x] 4.4 Gates green (typecheck, lint, test) — cf8fd7c
 
 ### Phase 5: visual regression and axe in CI
 
 #### Automated
-- [ ] 5.1 Visual baselines committed and matched in CI
-- [ ] 5.2 axe finds no violations in either scheme
-- [ ] 5.3 Coverage of theme-notion `src` ≥ 90% statements and branches
-- [ ] 5.4 Gates green (typecheck, lint, test)
+- [x] 5.1 Visual baselines committed and matched in CI — 45f3e33
+- [x] 5.2 axe finds no violations in either scheme — 45f3e33
+- [x] 5.3 Coverage of theme-notion `src` ≥ 90% statements and branches — 45f3e33
+- [x] 5.4 Gates green (typecheck, lint, test) — 45f3e33
 
 ### Phase 6: docs
 
 #### Automated
-- [ ] 6.1 README Testing section and CHANGELOG entry present
-- [ ] 6.2 Gates green (typecheck, lint, test)
+- [x] 6.1 README Testing section and CHANGELOG entry present — 944125d
+- [x] 6.2 Gates green (typecheck, lint, test) — 944125d
