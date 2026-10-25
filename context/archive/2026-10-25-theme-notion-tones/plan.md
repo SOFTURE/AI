@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-tones
-status: open
+status: archived
 ---
 
 # Plan: theme-notion tones (issue #720)
@@ -26,4 +26,4 @@ Files: `themes/theme-notion/src/notion/tones.ts`, `src/index.ts`, `tests/notion/
 
 ## Progress
 
-- [x] Phase 1: tones
+- [x] Phase 1: tones (d741f02)

@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-tones
 title: "theme-notion: tones, a figure's colour by what it means (issue #720)"
-status: open
+status: archived
 roadmap_item: null
 issue: 720
 branch: claude/project-thread-rw66gq
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
