@@ -222,6 +222,10 @@ Deltas from stock shadcn:
 - `table`: a 34 px header in `muted-foreground`, a line under the last row too.
 - `sidebar`: a controlled sidebar keeps no cookie; the phone sheet's title and description are props; the menu
   skeleton's width is stable per item (shadcn draws a random one during render).
+- `item`: inside an `ItemGroup` (a `role="list"`) every `Item` renders `role="listitem"`; an `asChild` item keeps its
+  child's role (a link stays a link), so wrap it in an element with `role="listitem"`. `scroll-area`: the viewport
+  takes `tabIndex={0}` so keyboard users can scroll it; `viewportProps` reach the viewport (`tabIndex: -1` removes
+  the tab stop when the content has its own focusable elements).
 - `sonner`: no `next-themes`; `theme` is a prop. Focus everywhere: `ring-2 ring-ring` instead of `ring-[3px]`.
 
 A component the app needs beyond these: add it in this package (`npx shadcn@latest add <name>` in a scratch app,

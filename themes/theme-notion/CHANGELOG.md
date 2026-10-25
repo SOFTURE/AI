@@ -49,6 +49,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
   border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
   release), which both wirings already import: update the kit, no other change.
+- Accessibility (#747): an `Item` inside an `ItemGroup` renders `role="listitem"`, so a group is a list with list
+  items (axe `aria-required-children`); an `asChild` item keeps its child's role, wrap it in a `role="listitem"`
+  element. The `ScrollArea` viewport takes `tabIndex={0}` and shows its focus ring on Tab (axe
+  `scrollable-region-focusable`); the new `viewportProps` prop passes any viewport prop, `tabIndex: -1` included.
+  Nothing to change in an app.
 - `StatCard` (#739): optional `progress` (0–100, clamped) draws a 6 px bar under the figure with the package's
   `Progress`, filled in `TONE_FILL[tone]` when the card has a tone and in primary otherwise; `progressLabel` names it
   (default: `label`). Marked `data-slot="stat-card-progress"`. Cards without `progress` render as before. An app that
