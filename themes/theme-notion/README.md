@@ -292,8 +292,9 @@ are the design system's, shifted in lightness only (hue and chroma kept) where a
 `link` is a lighter blue there (in light both are `#0171cf`). The destructive fill is dimmed in dark
 (`dark:bg-destructive/60`, as shadcn/ui's badge), so `destructive` in dark is the lighter text red.
 Control boundaries and states reach 3:1 (SC 1.4.11): the `input` border of fields and select triggers, the
-`control-off` switch track, the checked fill, and the progress fill against its track (in dark the default fill is
-`link`). Use `border-input` for a field's boundary only; a separator or a button outline uses `border-border`, which
+`control-off` switch track, the checked fill, the progress fill against its track (in dark the default fill is
+`link`), and the selected pill of the default `Tabs` variant, which keeps its fill and shadow and draws an `input`
+border outside its fill (`bg-clip-padding`), so the border reads against the list as well as the pill. Use `border-input` for a field's boundary only; a separator or a button outline uses `border-border`, which
 is decoration and stays quiet.
 
 **Overriding a token.** Redefine its CSS variable after `theme.css` (`:root { --primary: #e16259; }`, and the same in

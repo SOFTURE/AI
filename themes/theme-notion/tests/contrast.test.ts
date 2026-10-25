@@ -15,6 +15,9 @@ interface Pair {
   readonly text: string;
   // The surface from the bottom layer up; each layer is composited over the ones below it.
   readonly on: readonly string[];
+  // The layers the text or indicator is painted over, when they differ from `on` (a border clipped outside its
+  // element's fill sits on what surrounds the element); defaults to `on`.
+  readonly paintedOn?: readonly string[];
   readonly min: number;
   readonly schemes?: readonly Scheme[];
 }
@@ -52,8 +55,10 @@ function getLuminance(rgb: Rgb): number {
 }
 
 function getContrast(pair: Pair, scheme: Scheme): number {
-  const surface = pair.on.reduce<Rgb>((below, layer) => composite(layer, below, scheme), [255, 255, 255]);
-  const text = composite(pair.text, surface, scheme);
+  const flatten = (layers: readonly string[]): Rgb =>
+    layers.reduce<Rgb>((below, layer) => composite(layer, below, scheme), [255, 255, 255]);
+  const surface = flatten(pair.on);
+  const text = composite(pair.text, flatten(pair.paintedOn ?? pair.on), scheme);
   const [lighter, darker] = [getLuminance(text), getLuminance(surface)].sort((a, b) => b - a) as [number, number];
   return (lighter + 0.05) / (darker + 0.05);
 }
@@ -91,6 +96,12 @@ const PROGRESS_FILLS: readonly Pair[] = [
   ...["gray", "green", "orange", "red"].map((text) => ({ text, on: [], min: NON_TEXT_MIN })),
 ];
 
+// The selected tab's pill on the `muted` list: the page background in light, a lifted `accent` in dark.
+const SELECTED_TAB_FILLS: readonly { fill: string; schemes: readonly Scheme[] }[] = [
+  { fill: "background", schemes: ["light"] },
+  { fill: "accent/40", schemes: ["dark"] },
+];
+
 // SC 1.4.11: what identifies a control and its state, against what surrounds it. Decorative separators (`border`,
 // `sidebar-border`) are not listed: they only separate content.
 const NON_TEXT_PAIRS: readonly Pair[] = [
@@ -108,6 +119,12 @@ const NON_TEXT_PAIRS: readonly Pair[] = [
   ...PROGRESS_FILLS.flatMap((fill) =>
     CONTROL_SURFACES.map((on) => ({ ...fill, on: [...on, "primary/20"] })),
   ),
+  // The selected tab of the default Tabs variant: its `input` border, painted over the list (`bg-clip-padding`),
+  // against the list (and the unselected tabs on it) and against the pill's own fill.
+  ...SELECTED_TAB_FILLS.flatMap(({ fill, schemes }) => [
+    { text: "input", on: ["muted"], min: NON_TEXT_MIN, schemes },
+    { text: "input", on: ["muted", fill], paintedOn: ["muted"], min: NON_TEXT_MIN, schemes },
+  ]),
 ];
 
 // Every text/background pair the theme's own parts render (`src/ui`, `src/notion`), in both schemes unless noted.
