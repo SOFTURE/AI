@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `PageHeader` takes `crumbsLabel` (#719): the accessible name of the breadcrumb it renders for `crumbs`, so an app
+  in another language replaces the built-in English "breadcrumb". Without it the markup is unchanged.
+
 ## 0.1.1
 
 - No change to the package itself: the first version published through the npm trusted publisher (OIDC) with
