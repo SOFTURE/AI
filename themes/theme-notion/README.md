@@ -111,7 +111,27 @@ word), `PageHeader` (breadcrumb, icon box, title, description, actions), `Proper
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
-list of what it counts, below).
+list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below).
+
+**`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill
+`icon · Label: value ▾` that opens a menu of options in the design system's popover. While the default value is
+chosen the pill is muted; `isActive` (a non-default value) turns it into the blue tag and sets `data-active`. The
+children are `DropdownMenu` items, so the menu works from the keyboard. `FilterChipAdd` is the "+ Add filter" pill
+next to them (`label` replaces the built-in "Add filter"), opening a menu of the fields to filter by.
+
+```tsx
+<div className="flex flex-wrap gap-1">
+  <FilterChip label="Status:" value={status ?? "all"} icon={<CircleDot aria-hidden="true" />} isActive={status !== null}>
+    <DropdownMenuRadioGroup value={status ?? "all"} onValueChange={setStatus}>
+      <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+      <DropdownMenuRadioItem value="failed">Failed</DropdownMenuRadioItem>
+    </DropdownMenuRadioGroup>
+  </FilterChip>
+  <FilterChipAdd>
+    <DropdownMenuItem onSelect={() => addFilter("owner")}>Owner</DropdownMenuItem>
+  </FilterChipAdd>
+</div>
+```
 
 **`SidePanel`.** A panel next to a canvas (a map) that leaves the canvas usable, so a switch inside shows its effect
 at once (`Sheet` is modal). It floats on `background` with `shadow-menu`, 24 rem wide, full width on a phone, with a
