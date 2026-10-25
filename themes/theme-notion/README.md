@@ -69,7 +69,7 @@ import { CircleCheck } from "lucide-react";
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
 `DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Steps stateLabels`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
-`CommandDialog title description`.
+`CommandDialog title description`, `SortableList instructions announcements`, `SortableHandle label`.
 
 ## Rules, in short
 
@@ -113,7 +113,8 @@ and more, a native `<details>`), `PageFrame` (a page outside the app shell, the 
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
-stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below).
+stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
+`SortableList`, `SortableItem` and `SortableHandle` (rows reordered by dragging, below).
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill
 `icon · Label: value ▾` that opens a menu of options in the design system's popover. While the default value is
@@ -214,6 +215,39 @@ plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-bloc
 ```tsx
 <p>Run <Code>npm ci</Code> first.</p>
 <CodeBlock label="Build log" wrap>{log}</CodeBlock>
+```
+
+**`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and
+`@dnd-kit/sortable`. On a touch screen a long press (`holdDelay`, 500 ms) lifts a row; moving more than `tolerance`
+(8 px) before that scrolls instead, and a tap still activates the row. A mouse drags the same way; from the keyboard
+Space or Enter picks the focused row up, the arrows move it, Space or Enter drops it and Escape cancels. The row only
+moves up and down. The lifted row floats on `accent-strong` with `shadow-menu` above its siblings and carries
+`data-dragging`; every row has `touch-manipulation select-none` and no long-press callout. The order stays with the
+app: `items` are the rows' ids in order, and `onReorder(next, { id, from, to })` gets the new order on a drop.
+`dragBy="handle"` leaves the row alone and drags only by a `SortableHandle` (a ghost grip button, for a desktop list;
+a mouse starts at once there). A screen reader hears the `instructions` on the row (or handle) and the
+`announcements` while it moves: strings with `{item}`, `{position}` and `{total}`, where `getItemLabel(id)` names the
+row (the id by default). `data-slot="sortable-list"`, `sortable-item` (with `data-id`) and `sortable-handle` mark the
+parts.
+
+```tsx
+<SortableList label="Shopping list" items={ids} onReorder={(next) => setIds(next)}
+  getItemLabel={(id) => byId[id].name} announcements={{ pickedUp: t("sort.pickedUp") }}>
+  {ids.map((id) => (
+    <SortableItem key={id} id={id} className="flex h-row-height items-center gap-2 px-2">
+      <Link href={`/items/${id}`}>{byId[id].name}</Link>
+    </SortableItem>
+  ))}
+</SortableList>
+
+<SortableList label="Columns" items={columns} onReorder={setColumns} dragBy="handle">
+  {columns.map((id) => (
+    <SortableItem key={id} id={id} className="flex items-center gap-1 px-1">
+      <SortableHandle label="Move column" />
+      {id}
+    </SortableItem>
+  ))}
+</SortableList>
 ```
 
 Deltas from stock shadcn:

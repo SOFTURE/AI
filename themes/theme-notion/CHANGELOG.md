@@ -53,6 +53,18 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   also a screen-reader word (`stateLabels` replaces the English copy, `notionMessages.en.steps`), and
   `data-slot="steps"`, `data-step`, `data-state` mark the parts. An app that draws its own stage lists replaces them
   with `import { Steps } from "@softure-ai/theme-notion"` and maps its own stage status to the four states.
+- `SortableList`, `SortableItem` and `SortableHandle` (#752): a list whose rows are reordered by dragging, on the
+  headless `@dnd-kit/core` and `@dnd-kit/sortable` (new dependencies of the package). A long press of 500 ms lifts a
+  row on a touch screen (`holdDelay`, `tolerance` 8 px: a swipe before the hold scrolls, a tap still activates the
+  row), the keyboard reorders with Space or Enter, the arrows and Escape, and the row moves only up and down. The
+  lifted row is styled by the theme (`data-dragging`: `accent-strong`, `shadow-menu`, raised); every row is
+  `touch-manipulation select-none` without the long-press callout. `items` (ids in order) and
+  `onReorder(next, { id, from, to })` keep the order with the app. `instructions` and `announcements` (strings with
+  `{item}`, `{position}`, `{total}`; English defaults in `notionMessages.en.sortable`) take the app's wording, and
+  `getItemLabel` names a row. `dragBy="handle"` drags only by a `SortableHandle` grip button. An app that wired
+  dnd-kit itself replaces its `DndContext`, sensors, `SortableContext` and the composed lifted-row classes with
+  `import { SortableList, SortableItem } from "@softure-ai/theme-notion"`, passes its message-dictionary strings as
+  `instructions` and `announcements`, and drops its own `@dnd-kit/*` dependencies unless it uses them elsewhere.
 
 ## 0.2.0
 

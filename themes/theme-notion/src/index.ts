@@ -55,6 +55,17 @@ export { PageHeader, type PageCrumb, type PageHeaderProps } from "./notion/PageH
 export { PropertyList, type Property, type PropertyListProps } from "./notion/PropertyList.js";
 export { SidePanel, type SidePanelLayout, type SidePanelProps } from "./notion/SidePanel.js";
 export {
+  SortableHandle,
+  SortableItem,
+  SortableList,
+  type SortableAnnouncements,
+  type SortableDragBy,
+  type SortableHandleProps,
+  type SortableItemProps,
+  type SortableListProps,
+  type SortableMove,
+} from "./notion/Sortable.js";
+export {
   StatCards,
   StatPills,
   StatsFold,
