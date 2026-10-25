@@ -67,8 +67,9 @@ import { CircleCheck } from "lucide-react";
 
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
-`DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Sidebar mobileTitle mobileDescription`,
-`SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`, `CommandDialog title description`.
+`DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Steps stateLabels`,
+`Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
+`CommandDialog title description`.
 
 ## Rules, in short
 
@@ -111,7 +112,8 @@ word), `PageHeader` (breadcrumb, icon box, title, description, actions), `Proper
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
-list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below).
+list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
+stages with a state, below).
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill
 `icon · Label: value ▾` that opens a menu of options in the design system's popover. While the default value is
@@ -166,6 +168,24 @@ A screen's summary figures: `StatsFold` (figures folded under a heading, closed 
   />
   <StatPills label="Counts" pills={[{ key: "late", label: "Late", value: "1", tone: "danger" }]} />
 </StatsFold>
+```
+
+An ordered process: `Steps` (the stages of a multi-step task, the phases of a migration, the steps of one run). An
+`<ol>` where each step has a number in a badge coloured by its `state` (`done` green, `current` primary, `failed` red,
+`todo` muted, the default), a `title`, an optional `note` and an optional `aside` at its end (a tag naming the service
+the step uses). Layouts: `row` (default, a wrapping grid of cards, the current one on `blue-bg`) and `list` (compact
+rows with a square badge). The current step carries `aria-current="step"`; each state is also a word for a screen
+reader (`stateLabels` replaces the English words). `data-slot="steps"`, `data-step` and `data-state` mark the parts.
+
+```tsx
+<Steps
+  label="Invoice stages"
+  steps={[
+    { key: "period", title: "Period", state: "done" },
+    { key: "document", title: "Document", state: "current", note: "2 files attached" },
+    { key: "invoice", title: "Final invoice", aside: <Badge variant="tag" color="blue">KSeF</Badge> },
+  ]}
+/>
 ```
 
 **`MarkPopover`.** A tag in a palette colour with an icon and a count; a click or Enter opens the design system's
