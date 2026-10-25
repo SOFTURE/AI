@@ -2,6 +2,14 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
+## Unreleased
+
+- `base.css` (#718): the page base for an app on the scoped `preflight.css`: `body` without the browser's margin, on
+  the theme's `background`, `foreground` and sans font, in `@layer base`. Radix portals on `body` inherit it.
+- `maplibre.css` (#718): the theme's sans font on MapLibre maps, unlayered and more specific than `maplibre-gl.css`,
+  so it wins in any load order.
+- Both read only contract tokens and go through the app's Tailwind (`--theme()`), after the theme's `theme.css`.
+
 ## 0.1.1
 
 - No change to the package itself: the first version published through the npm trusted publisher (OIDC) with
