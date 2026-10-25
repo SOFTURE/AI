@@ -11,12 +11,33 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   the pointer sizes `control-height` 28 and `row-height` 34. No component changes height. An app that used the raw
   spacing scale for this (`min-h-11`) replaces it with `min-h-touch-target`, keeping the pointer height on desktop
   where it wants it (`min-h-touch-target md:min-h-row-height`).
+- Fixes (#735), class strings that sat on a neighbouring element since 0.1.0, now as in the design system and stock
+  shadcn/ui new-york v4:
+  - `Sidebar`: a `collapsible="none"` sidebar is again a full-height column on `bg-sidebar` (it was transparent); the
+    phone sheet has no padding and no close button of its own (`p-0 [&>button]:hidden`), so it shows only the
+    sidebar; the desktop gap animates its width again when the sidebar collapses.
+  - `Checkbox`: the tick is 14 px (`size-3.5`) instead of lucide's 24 px default.
+  - `Select`: the scroll-up arrow is 16 px (`size-4`); an item's icons and check are `muted-foreground` unless they
+    carry a text colour of their own.
+  - `FieldTitle`: 14 px in medium weight (`text-sm font-medium`, `items-center`), no longer `FieldLabel`'s peer and
+    group markers.
+  An app that overrode these classes by `className` to work around them can drop the override.
+- `page.css` (#735): the design system's page base rules, `body` text at `text-sm` (14 px), `::selection` on
+  `blue-tag` and `html` font smoothing. Add `@import "@softure-ai/theme-notion/page.css";` after the kit's `base.css`
+  in `globals.css` (both README wirings show it); an app that kept those rules itself drops them.
 - `FilterChip` and `FilterChipAdd` (#737): a list's filter pills as a Notion database view draws them, a 24 px
   `rounded-full` pill `icon · Label: value ▾` that opens a `DropdownMenu` of options (pass `DropdownMenu` items as
   children) in the design system's popover. `isActive` turns the pill into the blue tag and sets `data-active`;
   `data-slot="filter-chip"`, `filter-chip-value` and `filter-chip-add` mark the parts. `FilterChipAdd` is the
   "+ Add filter" pill; its text comes from `notionMessages.en.filterChip.add` and is replaced through `label`. An app
   that styled its own filter trigger replaces it with `import { FilterChip, FilterChipAdd } from "@softure-ai/theme-notion"`.
+- `Steps` (#738): an ordered process (the stages of a multi-step task, the phases of a migration, the steps of one
+  run) as an `<ol>`. Each step has a number in a badge coloured by its `state` (`done`, `current`, `todo` default,
+  `failed`), a `title`, an optional `note` and an optional `aside`; layouts `row` (a wrapping grid of cards, the
+  current one on `blue-bg`) and `list` (compact rows). The current step carries `aria-current="step"`, each state is
+  also a screen-reader word (`stateLabels` replaces the English copy, `notionMessages.en.steps`), and
+  `data-slot="steps"`, `data-step`, `data-state` mark the parts. An app that draws its own stage lists replaces them
+  with `import { Steps } from "@softure-ai/theme-notion"` and maps its own stage status to the four states.
 
 ## 0.2.0
 
