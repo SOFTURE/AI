@@ -51,4 +51,5 @@ export { PageHeader, type PageCrumb, type PageHeaderProps } from "./notion/PageH
 export { PropertyList, type Property, type PropertyListProps } from "./notion/PropertyList.js";
 export { SidePanel, type SidePanelLayout, type SidePanelProps } from "./notion/SidePanel.js";
 export { Status, type StatusProps } from "./notion/Status.js";
+export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
 export { TONES, TONE_COLORS, TONE_EDGE, TONE_FILL, TONE_TEXT, type Tone } from "./notion/tones.js";

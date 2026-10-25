@@ -64,6 +64,13 @@ describe("theme.css in an app's Tailwind", () => {
     expect(compiled).toContain("--primary: #2383e2;");
   });
 
+  it("generates the TabBar's line-tab utilities, the current tab's underline included", () => {
+    for (const utility of [".h-control-height", ".text-ui-medium", ".duration-120", ".after\\:h-0\\.5", ".tabular-nums"]) {
+      expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
+    }
+    expect(compiled).toMatch(/\.aria-\\\[current\\=page\\\]\\:after\\:opacity-100/);
+  });
+
   it("generates every tone's class names without an app source of its own", () => {
     for (const className of new Set([...Object.values(TONE_TEXT), ...Object.values(TONE_FILL), ...Object.values(TONE_EDGE)])) {
       expect([className, compiled.includes(`.${className} {`)]).toEqual([className, true]);
