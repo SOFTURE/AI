@@ -26,7 +26,7 @@ function fontFace(family: string, weight: number, file: string): string {
 }
 
 /**
- * The gallery's stylesheet: an app's globals.css (Tailwind, the theme, the kit's base) plus fonts shipped in npm
+ * The gallery's stylesheet: an app's globals.css (Tailwind, the theme, the kit's base, the theme's page base) plus fonts shipped in npm
  * packages instead of the system stack, so the container and the CI runner rasterise the same glyphs.
  */
 function writeStylesheet(): void {
@@ -40,12 +40,14 @@ function writeStylesheet(): void {
     fontFace("Gallery Mono", 400, "@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2"),
   ];
   const base = join(PACKAGE_DIR, "..", "theme-kit", "src", "base.css");
+  const page = join(PACKAGE_DIR, "src", "page.css");
   writeFileSync(
     join(GALLERY_DIR, "app.css"),
     [
       '@import "tailwindcss" source(none);',
       '@import "./theme.css";',
       `@import ${JSON.stringify(base)};`,
+      `@import ${JSON.stringify(page)};`,
       '@theme { --font-sans: "Gallery Sans", sans-serif; --font-mono: "Gallery Mono", monospace; }',
       ...fonts,
       "",
