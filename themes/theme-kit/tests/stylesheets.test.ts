@@ -15,15 +15,24 @@ function readVariables(rules: string): string[] {
 describe("base.css", () => {
   const rules = readRules("base.css");
 
-  it("styles only body, in the base layer, so every component and utility overrides it", () => {
+  it("styles only the universal selector and body, in the base layer, so every component and utility overrides it", () => {
     expect(rules.startsWith("@layer base {")).toBe(true);
-    expect([...rules.matchAll(/^\s*([^@\s{}][^{}]*)\{/gm)].map((match) => (match[1] ?? "").trim())).toEqual(["body"]);
+    expect([...rules.matchAll(/^\s*([^@\s{}][^{}]*)\{/gm)].map((match) => (match[1] ?? "").replace(/\s+/g, " ").trim())).toEqual([
+      "*, ::before, ::after, ::backdrop",
+      "body",
+    ]);
+  });
+
+  it("gives borders the theme's border colour and outlines a half-transparent ring, as shadcn/ui's globals.css does", () => {
+    expect(rules).toContain(
+      "  *,\n  ::before,\n  ::after,\n  ::backdrop {\n    border-color: var(--border);\n    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);\n  }",
+    );
   });
 
   it("clears the browser's margin and reads only contract colours and the theme's sans font", () => {
     expect(rules).toContain("margin: 0;");
     const colors = readVariables(rules).filter((name) => name !== "--font-sans");
-    expect(colors.sort()).toEqual(["--background", "--foreground"]);
+    expect(colors.sort()).toEqual(["--background", "--border", "--foreground", "--ring"]);
     for (const name of colors) expect(SHADCN_COLOR_ROLES).toContain(name.slice(2));
     expect(rules).toContain("font-family: --theme(--font-sans);");
   });

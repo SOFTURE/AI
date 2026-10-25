@@ -31,6 +31,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   (`text-primary` on text, a link colour) moves to `text-link`; a destructive fill of its own adds
   `dark:bg-destructive/60`; a hard-coded `#2383e2` or `#787774` moves to the token; text faded by an opacity
   modifier (`text-foreground/60`) moves to `text-muted-foreground`.
+- Fix (#746): table rows and the table footer, accordion items, default and destructive alerts, the command input,
+  item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
+  border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
+  release), which both wirings already import: update the kit, no other change.
 - `StatCard` (#739): optional `progress` (0–100, clamped) draws a 6 px bar under the figure with the package's
   `Progress`, filled in `TONE_FILL[tone]` when the card has a tone and in primary otherwise; `progressLabel` names it
   (default: `label`). Marked `data-slot="stat-card-progress"`. Cards without `progress` render as before. An app that

@@ -2,6 +2,14 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
+## Unreleased
+
+- `base.css` (#746): every element's `border-color` is the theme's `border` and its `outline-color` a half-transparent
+  `ring` (shadcn/ui's `* { @apply border-border outline-ring/50; }`), in `@layer base` after Tailwind's preflight. A
+  `border` without a colour class (table rows, accordion items, alerts, sheets) no longer draws in the text colour; a
+  `border-*` or `outline-*` utility still wins. An app that imports `base.css` changes nothing; one that kept the
+  shadcn rule in its own `globals.css` can drop it.
+
 ## 0.1.2
 
 - `base.css` (#718): the page base for an app on the scoped `preflight.css`: `body` without the browser's margin, on
