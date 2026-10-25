@@ -31,4 +31,11 @@ Files: `themes/theme-notion/src/tokens.ts`, `tests/fixtures/notion-tokens.json`,
 
 ## Progress
 
-- [ ] Phase 1: the code colour, the destructive badge, tests and docs
+- [x] Phase 1: the code colour, the destructive badge, tests and docs (c184f13)
+
+## Notes from implementation
+
+- cva's `compoundVariants` takes a mutable variant array, so the list is a readonly `COLORED_VARIANTS` tuple spread
+  into each entry.
+- Tailwind compiles `text-code-foreground` to `color: var(--code-foreground)` next to the `text-code` font size; a
+  `theme-css` test guards both.
