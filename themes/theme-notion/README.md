@@ -113,7 +113,7 @@ and more, a native `<details>`), `PageFrame` (a page outside the app shell, the 
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
-stages with a state, below).
+stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below).
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill
 `icon · Label: value ▾` that opens a menu of options in the design system's popover. While the default value is
@@ -204,6 +204,16 @@ work. The colour means the worst of what it lists; the copy is props.
   <span role="listitem">Payment overdue</span>
   <span role="listitem"><a href="/tickets">Tickets to buy</a></span>
 </MarkPopover>
+```
+
+**`Code` and `CodeBlock`.** `Code` is inline code: the `text-code` style (13/20 mono) in `red` on `secondary`, as in
+Notion. `CodeBlock` is a `<pre>` for logs and file paths on `muted`, radius 8; long lines scroll sideways, `wrap` wraps
+them. With `label` the block is a named region (`role="region"`) that keyboard users can focus and scroll; without it,
+plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-block"` mark the parts.
+
+```tsx
+<p>Run <Code>npm ci</Code> first.</p>
+<CodeBlock label="Build log" wrap>{log}</CodeBlock>
 ```
 
 Deltas from stock shadcn:

@@ -42,6 +42,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `data-slot="filter-chip"`, `filter-chip-value` and `filter-chip-add` mark the parts. `FilterChipAdd` is the
   "+ Add filter" pill; its text comes from `notionMessages.en.filterChip.add` and is replaced through `label`. An app
   that styled its own filter trigger replaces it with `import { FilterChip, FilterChipAdd } from "@softure-ai/theme-notion"`.
+- `Code` and `CodeBlock` (#740): inline code (`text-code` mono, `red` on `secondary`, `rounded-xs px-1`) and a mono
+  block on `muted` (`rounded-lg px-4 py-3`) that scrolls sideways, or wraps with `wrap`. `label` makes the block a
+  named, focusable region. `data-slot="code"` / `data-slot="code-block"`. An app that writes these classes on its own
+  `<code>` and `<pre>` replaces them with `import { Code, CodeBlock } from "@softure-ai/theme-notion"`.
 - `Steps` (#738): an ordered process (the stages of a multi-step task, the phases of a migration, the steps of one
   run) as an `<ol>`. Each step has a number in a badge coloured by its `state` (`done`, `current`, `todo` default,
   `failed`), a `title`, an optional `note` and an optional `aside`; layouts `row` (a wrapping grid of cards, the
