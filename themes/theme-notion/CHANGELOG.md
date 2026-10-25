@@ -6,6 +6,22 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `RadioGroup` and `RadioGroupItem` (#736): the shadcn new-york v4 `radio-group` (Radix), drawn like `checkbox`: 16 px,
+  a 1.5 px `muted-foreground` border, the checked border and dot in `primary`, focus `ring-2 ring-ring`,
+  `aria-invalid` like the other fields. Arrow keys move the choice. `data-slot="radio-group"`, `radio-group-item` and
+  `radio-group-indicator` as in shadcn. An app that draws its own radio replaces it with
+  `import { RadioGroup, RadioGroupItem } from "@softure-ai/theme-notion"`.
+- Accessibility (#747): an `Item` inside an `ItemGroup` renders `role="listitem"`, so a group is a list with list
+  items (axe `aria-required-children`); an `asChild` item keeps its child's role, wrap it in a `role="listitem"`
+  element. The `ScrollArea` viewport takes `tabIndex={0}` and shows its focus ring on Tab (axe
+  `scrollable-region-focusable`); the new `viewportProps` prop passes any viewport prop, `tabIndex: -1` included.
+  Nothing to change in an app.
+- `StatCard` (#739): optional `progress` (0–100, clamped) draws a 6 px bar under the figure with the package's
+  `Progress`, filled in `TONE_FILL[tone]` when the card has a tone and in primary otherwise; `progressLabel` names it
+  (default: `label`). Marked `data-slot="stat-card-progress"`. Cards without `progress` render as before. An app that
+  rebuilt a budget card around `Progress` (e.g. "21.5 / 23.4 h") goes back to `StatCards` with `progress`.
+- `Progress`: the value now reaches the Radix root, so the bar reports `aria-valuenow` and its state (it was always
+  indeterminate to assistive tech before); a new optional `indicatorClassName` recolours the fill.
 - Fixes (#735), class strings that sat on a neighbouring element since 0.1.0, now as in the design system and stock
   shadcn/ui new-york v4:
   - `Sidebar`: a `collapsible="none"` sidebar is again a full-height column on `bg-sidebar` (it was transparent); the
@@ -26,6 +42,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `data-slot="filter-chip"`, `filter-chip-value` and `filter-chip-add` mark the parts. `FilterChipAdd` is the
   "+ Add filter" pill; its text comes from `notionMessages.en.filterChip.add` and is replaced through `label`. An app
   that styled its own filter trigger replaces it with `import { FilterChip, FilterChipAdd } from "@softure-ai/theme-notion"`.
+- `Code` and `CodeBlock` (#740): inline code (`text-code` mono, `red` on `secondary`, `rounded-xs px-1`) and a mono
+  block on `muted` (`rounded-lg px-4 py-3`) that scrolls sideways, or wraps with `wrap`. `label` makes the block a
+  named, focusable region. `data-slot="code"` / `data-slot="code-block"`. An app that writes these classes on its own
+  `<code>` and `<pre>` replaces them with `import { Code, CodeBlock } from "@softure-ai/theme-notion"`.
 - `Steps` (#738): an ordered process (the stages of a multi-step task, the phases of a migration, the steps of one
   run) as an `<ol>`. Each step has a number in a badge coloured by its `state` (`done`, `current`, `todo` default,
   `failed`), a `title`, an optional `note` and an optional `aside`; layouts `row` (a wrapping grid of cards, the

@@ -103,18 +103,18 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHead
 
 ## Components
 
-All 36 shadcn/ui components of the design system, exported from the package root: accordion, alert, alert-dialog,
+All 37 shadcn/ui components of the design system, exported from the package root: accordion, alert, alert-dialog,
 avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, command, dialog, dropdown-menu, empty,
-field, input, input-group, item, kbd, label, popover, progress, scroll-area, select, separator, sheet, sidebar,
-skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
+field, input, input-group, item, kbd, label, popover, progress, radio-group, scroll-area, select, separator, sheet,
+sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
-stages with a state, below), `SortableList`, `SortableItem` and `SortableHandle` (rows reordered by dragging,
-below).
+stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
+`SortableList`, `SortableItem` and `SortableHandle` (rows reordered by dragging, below).
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill
 `icon · Label: value ▾` that opens a menu of options in the design system's popover. While the default value is
@@ -154,9 +154,11 @@ Escape inside or the close button calls `onClose`, and the caller moves focus ba
 ```
 
 A screen's summary figures: `StatsFold` (figures folded under a heading, closed by default, on native `<details>`),
-`StatCards` (a wrapping row of figure cards: label, figure in its tone, optional `hint`, optional `aside` tag;
-`isFullWidth` and `isOneRow` change the grid) and `StatPills` ("label **value**" tags in one row). Each figure takes a
-`tone`; the app keeps only its own table of which meaning takes which tone.
+`StatCards` (a wrapping row of figure cards: label, figure in its tone, optional `progress` bar under the figure,
+optional `hint`, optional `aside` tag; `isFullWidth` and `isOneRow` change the grid) and `StatPills` ("label **value**" tags in one row). Each figure takes a
+`tone`; the app keeps only its own table of which meaning takes which tone. A card's `progress` (0–100, clamped) draws
+the package's 6 px `Progress` under the figure, filled in the card's tone (primary without one) and named by
+`progressLabel` (default: the card's `label`).
 
 ```tsx
 <StatsFold title="Summary">
@@ -165,6 +167,7 @@ A screen's summary figures: `StatsFold` (figures folded under a heading, closed 
     cards={[
       { key: "paid", label: "Paid", value: "1,200", tone: "success" },
       { key: "owed", label: "Owed", value: "300", tone: "danger", hint: "2 invoices", aside: { text: "+5%" } },
+      { key: "hours", label: "Hours", value: "21.5 / 23.4 h", progress: 92, progressLabel: "Hours used" },
     ]}
   />
   <StatPills label="Counts" pills={[{ key: "late", label: "Late", value: "1", tone: "danger" }]} />
@@ -202,6 +205,16 @@ work. The colour means the worst of what it lists; the copy is props.
   <span role="listitem">Payment overdue</span>
   <span role="listitem"><a href="/tickets">Tickets to buy</a></span>
 </MarkPopover>
+```
+
+**`Code` and `CodeBlock`.** `Code` is inline code: the `text-code` style (13/20 mono) in `red` on `secondary`, as in
+Notion. `CodeBlock` is a `<pre>` for logs and file paths on `muted`, radius 8; long lines scroll sideways, `wrap` wraps
+them. With `label` the block is a named region (`role="region"`) that keyboard users can focus and scroll; without it,
+plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-block"` mark the parts.
+
+```tsx
+<p>Run <Code>npm ci</Code> first.</p>
+<CodeBlock label="Build log" wrap>{log}</CodeBlock>
 ```
 
 **`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and
@@ -246,11 +259,16 @@ Deltas from stock shadcn:
 - `input`, `textarea`, `select`, `input-group`: 28 px high, grey `field` background, thin `input` border.
 - `dropdown-menu`, `select`, `popover`, `command`: radius 10, `shadow-menu` without a border, 28 px items.
 - `dialog`, `alert-dialog`: radius 10, `shadow-dialog`, no border. `card`: `shadow-card` instead of a border.
-- `checkbox` 16 px with a 1.5 px border, `switch` 26 × 16 (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native
-  switch drawn the same), `tooltip` dark without an arrow, `tabs` default to the `line` variant, `progress` 6 px.
+- `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
+  (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,
+  `tabs` default to the `line` variant, `progress` 6 px.
 - `table`: a 34 px header in `muted-foreground`, a line under the last row too.
 - `sidebar`: a controlled sidebar keeps no cookie; the phone sheet's title and description are props; the menu
   skeleton's width is stable per item (shadcn draws a random one during render).
+- `item`: inside an `ItemGroup` (a `role="list"`) every `Item` renders `role="listitem"`; an `asChild` item keeps its
+  child's role (a link stays a link), so wrap it in an element with `role="listitem"`. `scroll-area`: the viewport
+  takes `tabIndex={0}` so keyboard users can scroll it; `viewportProps` reach the viewport (`tabIndex: -1` removes
+  the tab stop when the content has its own focusable elements).
 - `sonner`: no `next-themes`; `theme` is a prop. Focus everywhere: `ring-2 ring-ring` instead of `ring-[3px]`.
 
 A component the app needs beyond these: add it in this package (`npx shadcn@latest add <name>` in a scratch app,
