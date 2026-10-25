@@ -33,4 +33,12 @@ Files: `themes/theme-notion/src/ui/tabs.tsx`, `tests/contrast.test.ts`, `tests/u
 
 ## Progress
 
-- [ ] Phase 1: the selected pill boundary, tests and docs
+- [x] Phase 1: the selected pill boundary, tests and docs (1cb39ac)
+
+## Notes from implementation
+
+- The compiled order was checked, not only the class string: the line override and `focus-visible` border come after
+  `data-[state=active]:border-input` (`tests/theme-css.test.ts` guards it).
+- `contrast.test.ts` gained an optional `paintedOn` stack per pair, so the border is measured as the browser paints it
+  (over the list) against both neighbours; with the border painted over the pill instead, light drops to 2.95 against
+  the list, and the test fails.
