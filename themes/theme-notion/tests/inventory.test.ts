@@ -69,7 +69,9 @@ describe("the package inventory", () => {
 
   it("exports every value of every composition and helper file", async () => {
     for (const file of NOTION_FILES) {
-      const module = (await import(`../src/notion/${file}`)) as Record<string, unknown>;
+      const base = file.replace(/\.tsx?$/, "");
+      // A static extension in each import, so Vite can resolve the variable part.
+      const module = (file.endsWith(".tsx") ? await import(`../src/notion/${base}.tsx`) : await import(`../src/notion/${base}.ts`)) as Record<string, unknown>;
       for (const name of Object.keys(module)) expect([file, name, name in theme]).toEqual([file, name, true]);
     }
   });

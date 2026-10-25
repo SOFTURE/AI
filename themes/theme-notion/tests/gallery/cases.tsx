@@ -324,7 +324,7 @@ function SidebarDemo({ collapsible, side, variant }: { collapsible?: "offcanvas"
                     <Folder />
                     <span>Projects</span>
                   </SidebarMenuButton>
-                  <SidebarMenuAction showOnHover>
+                  <SidebarMenuAction showOnHover aria-label="Add a project page">
                     <Plus />
                   </SidebarMenuAction>
                   <SidebarMenuSub>
@@ -1024,7 +1024,7 @@ const UI_CASES: readonly GalleryCase[] = [
     component: "Table",
     root: '[data-slot="table"]',
     render: () => (
-      <Table className="w-[32rem]">
+      <Table className="w-full max-w-[32rem]">
         <TableCaption>Invoices of October</TableCaption>
         <TableHeader>
           <TableRow>
@@ -1201,7 +1201,7 @@ const NOTION_CASES: readonly GalleryCase[] = [
       component: "SidePanel",
       root: `[data-slot="side-panel"][data-layout="${layout}"]`,
       render: () => (
-        <div className="relative flex h-64 w-[48rem] bg-muted">
+        <div className="relative flex h-64 w-full bg-muted">
           <div className="flex-1" />
           <SidePanel id={`panel-${layout}`} heading="Layers" layout={layout} isOpen onClose={() => undefined}>
             <p className="text-ui">Traffic</p>

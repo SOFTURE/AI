@@ -1318,7 +1318,7 @@
   ],
   "Table": [
     ["table-container","relative w-full overflow-x-auto"],
-    ["table","caption-bottom text-sm w-[32rem]"],
+    ["table","caption-bottom text-sm w-full max-w-[32rem]"],
     ["table-caption","mt-4 text-sm text-muted-foreground"],
     ["table-header","[&_tr]:border-b"],
     ["table-row","border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted"],

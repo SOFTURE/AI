@@ -48,7 +48,9 @@
     ]
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && softure-theme-css"
+    "build": "tsc -p tsconfig.build.json && softure-theme-css",
+    "test:visual": "NODE_OPTIONS=--conditions=@softure-ai/source playwright test",
+    "test:coverage": "vitest run --root ../.. themes/theme-notion --coverage.enabled --coverage.provider=v8 --coverage.include='themes/theme-notion/src/**' --coverage.reportsDirectory=coverage/theme-notion --coverage.thresholds.statements=90 --coverage.thresholds.branches=90"
   },
   "dependencies": {
     "@softure-ai/theme-kit": "^0.1.2",
