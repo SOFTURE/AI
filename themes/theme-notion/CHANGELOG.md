@@ -37,6 +37,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `<details>`, closed by default), as a wrapping row of cards (label, figure in its tone, optional hint and aside tag,
   `isFullWidth` / `isOneRow` layouts) and as "label **value**" tags. `data-slot`, `data-stat`, `data-tone` and
   `data-layout` mark the parts. An app that kept these as its own code drops them and imports them from the package.
+- `DetailTable` (#721): an item's details as a label and value table; rows without a value are left out, and nothing
+  renders when no row has one. On a phone the label sits above its value.
+- `FoldRow` (#721): an item as one folding list row (chevron, title, facts, tone badges) that opens in place to a
+  `DetailTable` plus optional children; a native `<details>`, closed by default, no client state. `data-slot` names:
+  `fold-row`, `fold-row-summary`, `fold-row-heading`, `fold-row-fact`, `fold-row-badges`, `fold-row-content`,
+  `detail-table`.
 
 ## 0.1.1
 

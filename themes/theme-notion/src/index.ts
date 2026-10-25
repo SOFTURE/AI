@@ -43,6 +43,8 @@ export * from "./ui/textarea.js";
 export * from "./ui/tooltip.js";
 
 export { ICON_STROKE_WIDTH } from "./notion/icon-stroke.js";
+export { DetailTable, type DetailRow, type DetailTableProps } from "./notion/DetailTable.js";
+export { FoldRow, type FoldRowBadge, type FoldRowProps } from "./notion/FoldRow.js";
 export { PALETTE_COLORS, type PaletteColor } from "./notion/palette.js";
 export { MarkPopover, type MarkPopoverProps } from "./notion/MarkPopover.js";
 export { PageFrame, type PageFrameProps } from "./notion/PageFrame.js";
