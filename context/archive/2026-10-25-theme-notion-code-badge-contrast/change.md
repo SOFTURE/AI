@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-code-badge-contrast
 title: "theme-notion: inline Code and a destructive Badge with a colour meet WCAG AA text contrast (issue #763)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 763
 branch: claude/project-thread-sjmx1z
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

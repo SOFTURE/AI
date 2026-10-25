@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-code-badge-contrast
-status: in_progress
+status: archived
 ---
 
 # Plan: theme-notion Code and destructive Badge contrast (issue #763)
