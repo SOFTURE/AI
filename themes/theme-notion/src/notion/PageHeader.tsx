@@ -19,6 +19,8 @@ export interface PageCrumb {
 export interface PageHeaderProps {
   title: ReactNode;
   crumbs?: PageCrumb[];
+  // The breadcrumb's accessible name in the app's language; the built-in English one when absent.
+  crumbsLabel?: string;
   // A lucide icon, never an emoji.
   icon?: ReactNode;
   description?: ReactNode;
@@ -29,11 +31,11 @@ export interface PageHeaderProps {
 }
 
 // The page's header, once per screen: breadcrumb, page icon, the 40 px title, what follows it, a description and actions.
-export function PageHeader({ title, crumbs, icon, description, actions, children, className }: PageHeaderProps) {
+export function PageHeader({ title, crumbs, crumbsLabel, icon, description, actions, children, className }: PageHeaderProps) {
   return (
     <header data-slot="page-header" className={cn("flex flex-col", className)}>
       {crumbs && crumbs.length > 0 ? (
-        <Breadcrumb>
+        <Breadcrumb {...(crumbsLabel === undefined ? {} : { "aria-label": crumbsLabel })}>
           <BreadcrumbList>
             {crumbs.map((crumb, index) => (
               <Fragment key={`${index}-${crumb.label}`}>

@@ -16,6 +16,8 @@ npm i @softure-ai/theme-notion tailwindcss @tailwindcss/postcss
 @import "tailwindcss";
 @import "@softure-ai/theme-notion/theme.css";       /* tokens, utilities, dark:, animations, the components' classes */
 @import "@softure-ai/theme-notion/sft-bridge.css";  /* optional: pages of the SOFTURE packages in a PageFrame */
+@import "@softure-ai/theme-kit/base.css";            /* body on the theme's background, text colour and font */
+@import "@softure-ai/theme-kit/maplibre.css";        /* only if the app shows MapLibre maps */
 ```
 
 `theme.css` names the package's components as Tailwind sources, so their classes are generated without the app
@@ -32,7 +34,15 @@ taking the scoped preflight instead of Tailwind's:
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "@softure-ai/theme-notion/theme.css";
 @import "@softure-ai/theme-notion/sft-bridge.css";
+@import "@softure-ai/theme-kit/base.css";            /* nothing else styles body under the scoped preflight */
+@import "@softure-ai/theme-kit/maplibre.css";        /* only if the app shows MapLibre maps */
 ```
+
+`base.css` gives `body` the theme's background, text colour and sans font without the browser's 8 px margin, so a
+page without a shell root, the dark scheme and the Radix portals mounted on `body` (select lists, menus, sheets) all
+take the theme. `maplibre.css` puts the theme's sans font on MapLibre maps (markers, popups, the attribution), which
+`maplibre-gl.css` sets to Helvetica. Both read the theme with `--theme()`, so they go through the app's Tailwind
+after `theme.css`; the app's `globals.css` keeps only `@import` lines.
 
 ```tsx
 import { Button, Badge, Status, PageHeader, TooltipProvider, Toaster } from "@softure-ai/theme-notion";
@@ -52,9 +62,9 @@ import { CircleCheck } from "lucide-react";
 `light` the other way. `Toaster` follows the system unless it gets `theme="light" | "dark"`.
 
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
-wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `DialogContent closeLabel`,
-`SheetContent closeLabel`, `SidePanel closeLabel`, `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`,
-`Spinner aria-label`, `CommandDialog title description`.
+wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
+`DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Sidebar mobileTitle mobileDescription`,
+`SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`, `CommandDialog title description`.
 
 ## Rules, in short
 
@@ -96,7 +106,8 @@ word), `PageHeader` (breadcrumb, icon box, title, description, actions), `Proper
 `DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
-and count, the shown tab in the address; `Tabs` keeps it in client state).
+and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
+list of what it counts, below).
 
 **`SidePanel`.** A panel next to a canvas (a map) that leaves the canvas usable, so a switch inside shows its effect
 at once (`Sheet` is modal). It floats on `background` with `shadow-menu`, 24 rem wide, full width on a phone, with a
@@ -113,6 +124,39 @@ Escape inside or the close button calls `onClose`, and the caller moves focus ba
     {/* switches */}
   </SidePanel>
 </div>
+```
+
+A screen's summary figures: `StatsFold` (figures folded under a heading, closed by default, on native `<details>`),
+`StatCards` (a wrapping row of figure cards: label, figure in its tone, optional `hint`, optional `aside` tag;
+`isFullWidth` and `isOneRow` change the grid) and `StatPills` ("label **value**" tags in one row). Each figure takes a
+`tone`; the app keeps only its own table of which meaning takes which tone.
+
+```tsx
+<StatsFold title="Summary">
+  <StatCards
+    label="Totals"
+    cards={[
+      { key: "paid", label: "Paid", value: "1,200", tone: "success" },
+      { key: "owed", label: "Owed", value: "300", tone: "danger", hint: "2 invoices", aside: { text: "+5%" } },
+    ]}
+  />
+  <StatPills label="Counts" pills={[{ key: "late", label: "Late", value: "1", tone: "danger" }]} />
+</StatsFold>
+```
+
+**`MarkPopover`.** A tag in a palette colour with an icon and a count; a click or Enter opens the design system's
+popover listing the entries, Escape or a click outside closes it. It runs on the browser's Popover API (no client
+state, no portal): the panel sits in the top layer, so a card's `overflow` never clips it, centred on a phone and
+under its mark where CSS anchor positioning is supported. Only phrasing elements, so it fits inside a `<summary>` or
+a paragraph; a click on the panel's text does not toggle an enclosing `<details>`, links and buttons inside still
+work. The colour means the worst of what it lists; the copy is props.
+
+```tsx
+<MarkPopover color="red" icon={TriangleAlert} count={2} label="2 open warnings, show the list"
+  heading="Open warnings" closeLabel="Close" buttonData={{ "data-kind": "warnings" }}>
+  <span role="listitem">Payment overdue</span>
+  <span role="listitem"><a href="/tickets">Tickets to buy</a></span>
+</MarkPopover>
 ```
 
 Deltas from stock shadcn:

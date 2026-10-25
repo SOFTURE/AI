@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- README (#718): both wirings import the kit's `base.css` (the page base on `body`) and, for an app with MapLibre maps,
+  `maplibre.css`. Needs `@softure-ai/theme-kit` with those files (the next kit release). An app that kept its own
+  `body` rule (`margin: 0`, `background: var(--background)`, `color: var(--foreground)`,
+  `font-family: --theme(--font-sans)`) or `body .maplibregl-map { font-family: … }` replaces them with the two
+  `@import` lines after `theme.css`.
 - `TabBar` (#723): a screen's tabs as line tabs where each tab is a link (`<a href>`), so the shown tab lives in the
   address and a link, a form's return or a reload land on the same tab. Optional icon before the label and count
   after it (0 included); the current link carries `aria-current="page"`; the row scrolls sideways on a phone.
@@ -21,6 +26,17 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `Sheet`. Layouts `over`, `beside`, `left`, `list`; hidden while closed, focus moves in when it opens, Escape and the
   close button call `onClose`. An app that kept its own copy replaces it with the import (same props; `closeLabel` is
   now optional, default "Close") and drops its own file.
+- `PageHeader` takes `crumbsLabel` (#719): the accessible name of the breadcrumb it renders for `crumbs`, so an app
+  in another language replaces the built-in English "breadcrumb". Without it the markup is unchanged.
+- `MarkPopover` (#725): a counted tag (`badgeVariants({ variant: "tag", color })` with an icon and a count) that opens
+  the design system's popover listing entries, on the browser's Popover API with no client state, phrasing
+  elements only (`data-slot="mark"`, `data-slot="mark-popover"`). An app with its own copy of this mark deletes it
+  and imports `MarkPopover` (and `MarkPopoverProps`) from `@softure-ai/theme-notion`: same props, same markup and
+  classes; its domain marks (warnings, tickets) keep passing their entries as `role="listitem"` spans.
+- `StatsFold`, `StatCards` and `StatPills` (#722): a screen's summary figures, folded under a heading (native
+  `<details>`, closed by default), as a wrapping row of cards (label, figure in its tone, optional hint and aside tag,
+  `isFullWidth` / `isOneRow` layouts) and as "label **value**" tags. `data-slot`, `data-stat`, `data-tone` and
+  `data-layout` mark the parts. An app that kept these as its own code drops them and imports them from the package.
 - `DetailTable` (#721): an item's details as a label and value table; rows without a value are left out, and nothing
   renders when no row has one. On a phone the label sits above its value.
 - `FoldRow` (#721): an item as one folding list row (chevron, title, facts, tone badges) that opens in place to a

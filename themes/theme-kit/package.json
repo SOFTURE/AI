@@ -46,7 +46,9 @@
       "types": "./dist/build/index.d.ts",
       "default": "./dist/build/index.js"
     },
-    "./preflight.css": "./dist/preflight.css"
+    "./preflight.css": "./dist/preflight.css",
+    "./base.css": "./dist/base.css",
+    "./maplibre.css": "./dist/maplibre.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node scripts/copy-css.mjs"
