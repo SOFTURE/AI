@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-crumbs-label-719
-status: in_progress
+status: archived
 ---
 
 # Plan: PageHeader breadcrumb label (issue #719)
@@ -24,4 +24,4 @@ Files: `themes/theme-notion/src/notion/PageHeader.tsx`, `themes/theme-notion/tes
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1: efeccaa

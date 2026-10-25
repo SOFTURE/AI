@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-crumbs-label-719
 title: "theme-notion: PageHeader passes the breadcrumb's accessible name (issue #719)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 719
 branch: claude/project-thread-o4tpeo
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
