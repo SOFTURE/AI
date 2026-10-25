@@ -1,0 +1,22 @@
+/*
+ * The Notion page base: the rules of the design system's base layer that the kit's `base.css` leaves to the theme.
+ * Text outside the components takes the panel size (14 px, `text-sm`), selected text the blue tag colour, and the page
+ * greyscale font smoothing on macOS. In `@layer base`, so every component and utility overrides it.
+ *
+ * Import it after `theme.css` and the kit's `base.css`, through the app's Tailwind (it reads the type scale with
+ * `--theme()`).
+ */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    font-size: --theme(--text-sm);
+    line-height: --theme(--text-sm--line-height);
+  }
+
+  ::selection {
+    background: var(--blue-tag);
+  }
+}
