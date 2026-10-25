@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Accessibility (#747): an `Item` inside an `ItemGroup` renders `role="listitem"`, so a group is a list with list
+  items (axe `aria-required-children`); an `asChild` item keeps its child's role, wrap it in a `role="listitem"`
+  element. The `ScrollArea` viewport takes `tabIndex={0}` and shows its focus ring on Tab (axe
+  `scrollable-region-focusable`); the new `viewportProps` prop passes any viewport prop, `tabIndex: -1` included.
+  Nothing to change in an app.
 - `FilterChip` and `FilterChipAdd` (#737): a list's filter pills as a Notion database view draws them, a 24 px
   `rounded-full` pill `icon · Label: value ▾` that opens a `DropdownMenu` of options (pass `DropdownMenu` items as
   children) in the design system's popover. `isActive` turns the pill into the blue tag and sets `data-active`;
