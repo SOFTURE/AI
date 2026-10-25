@@ -1,5 +1,5 @@
 {
-  "source": "The Notion design system's tokens.json, copied 2026-10-23; values only, usage notes live in the design system",
+  "source": "The Notion design system's tokens.json, copied 2026-10-23; values only, usage notes live in the design system; text colours adjusted to WCAG 2.2 AA contrast 2026-10-25 (issue #756)",
   "name": "Notion Design System",
   "version": 1,
   "color": {
@@ -59,8 +59,8 @@
       {
         "name": "primary",
         "value": {
-          "light": "#2383e2",
-          "dark": "#2383e2"
+          "light": "#0171cf",
+          "dark": "#0171cf"
         }
       },
       {
@@ -73,8 +73,15 @@
       {
         "name": "primary-hover",
         "value": {
-          "light": "#0077d4",
-          "dark": "#0077d4"
+          "light": "#0066b8",
+          "dark": "#0066b8"
+        }
+      },
+      {
+        "name": "link",
+        "value": {
+          "light": "#0171cf",
+          "dark": "#409cfd"
         }
       },
       {
@@ -101,8 +108,8 @@
       {
         "name": "muted-foreground",
         "value": {
-          "light": "#787774",
-          "dark": "#9b9b9b"
+          "light": "#656461",
+          "dark": "#a5a5a5"
         }
       },
       {
@@ -129,8 +136,8 @@
       {
         "name": "destructive",
         "value": {
-          "light": "#eb5757",
-          "dark": "#eb5757"
+          "light": "#c63339",
+          "dark": "#fd6866"
         }
       },
       {
@@ -171,8 +178,8 @@
       {
         "name": "ring",
         "value": {
-          "light": "rgba(35, 131, 226, 0.57)",
-          "dark": "rgba(35, 131, 226, 0.57)"
+          "light": "rgba(1, 113, 207, 0.8)",
+          "dark": "rgba(64, 156, 253, 0.65)"
         }
       },
       {
@@ -192,8 +199,8 @@
       {
         "name": "sidebar-primary",
         "value": {
-          "light": "#2383e2",
-          "dark": "#2383e2"
+          "light": "#0171cf",
+          "dark": "#0171cf"
         }
       },
       {
@@ -227,8 +234,8 @@
       {
         "name": "sidebar-ring",
         "value": {
-          "light": "rgba(35, 131, 226, 0.57)",
-          "dark": "rgba(35, 131, 226, 0.57)"
+          "light": "rgba(1, 113, 207, 0.8)",
+          "dark": "rgba(64, 156, 253, 0.65)"
         }
       },
       {
@@ -255,8 +262,8 @@
       {
         "name": "gray",
         "value": {
-          "light": "#787774",
-          "dark": "#9b9b9b"
+          "light": "#656461",
+          "dark": "#a5a5a5"
         }
       },
       {
@@ -283,7 +290,7 @@
       {
         "name": "brown",
         "value": {
-          "light": "#9f6b53",
+          "light": "#98644d",
           "dark": "#ba856f"
         }
       },
@@ -311,7 +318,7 @@
       {
         "name": "orange",
         "value": {
-          "light": "#d9730d",
+          "light": "#af5a02",
           "dark": "#c77d48"
         }
       },
@@ -339,7 +346,7 @@
       {
         "name": "yellow",
         "value": {
-          "light": "#cb912f",
+          "light": "#986702",
           "dark": "#ca984d"
         }
       },
@@ -354,7 +361,7 @@
         "name": "yellow-tag",
         "value": {
           "light": "#fdecc8",
-          "dark": "#89632a"
+          "dark": "#825c23"
         }
       },
       {
@@ -367,7 +374,7 @@
       {
         "name": "green",
         "value": {
-          "light": "#448361",
+          "light": "#3e7d5c",
           "dark": "#529e72"
         }
       },
@@ -395,7 +402,7 @@
       {
         "name": "blue",
         "value": {
-          "light": "#337ea9",
+          "light": "#2b77a2",
           "dark": "#379ad3"
         }
       },
@@ -423,8 +430,8 @@
       {
         "name": "purple",
         "value": {
-          "light": "#9065b0",
-          "dark": "#9d68d3"
+          "light": "#8a5faa",
+          "dark": "#a974e0"
         }
       },
       {
@@ -451,8 +458,8 @@
       {
         "name": "pink",
         "value": {
-          "light": "#c14c8a",
-          "dark": "#d15796"
+          "light": "#ba4684",
+          "dark": "#dc61a0"
         }
       },
       {
@@ -479,8 +486,8 @@
       {
         "name": "red",
         "value": {
-          "light": "#d44c47",
-          "dark": "#df5452"
+          "light": "#c8413d",
+          "dark": "#ea5e5b"
         }
       },
       {

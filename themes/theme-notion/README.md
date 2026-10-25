@@ -75,7 +75,7 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHead
 
 - Background `background`, text `foreground`, secondary text `muted-foreground`. Never pure black.
 - Hover is the grey `accent` background, never a border or a shadow; selected and pressed use `accent-strong`.
-- One `primary` (blue, `#2383e2`) action per screen. Other buttons are `secondary`, `outline` or `ghost`.
+- One `primary` (blue, `#0171cf`) action per screen. Other buttons are `secondary`, `outline` or `ghost`.
 - A palette colour (`gray`, `brown`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `red`, each with `-bg`,
   `-tag`, `-tag-foreground`) marks an area (a tag) or a state (a status, a callout), never decoration. The same
   colour always means the same thing; the app keeps its own table of meanings.
@@ -281,6 +281,13 @@ with the kit's `defineTheme`; `tests/tokens.test.ts` keeps it equal to the desig
 (`tests/fixtures/notion-tokens.json`). When the design system changes, refresh the snapshot and the definition in one
 change. `cn` is `createThemeCn(NOTION_THEME)`. The build writes `theme.css` with the kit's `softure-theme-css` from
 `softureTheme` in `package.json` (the kit README, "The theme package contract").
+
+**Contrast.** Every text colour meets WCAG 2.2 AA (4.5:1) on the surfaces the parts put it on, in light and dark,
+and the focus ring reaches 3:1 against the page; `tests/contrast.test.ts` lists the pairs and guards them. The values
+are the design system's, shifted in lightness only (hue and chroma kept) where a pair fell short. Blue text is
+`text-link`, not `text-primary`: `primary` is the fill under white text, and in dark no one blue serves both, so
+`link` is a lighter blue there (in light both are `#0171cf`). The destructive fill is dimmed in dark
+(`dark:bg-destructive/60`, as shadcn/ui's badge), so `destructive` in dark is the lighter text red.
 
 **Overriding a token.** Redefine its CSS variable after `theme.css` (`:root { --primary: #e16259; }`, and the same in
 a `.dark` block for the dark value), or build a variant with `extendTheme(theme, { name, colors: { … } })` and write
