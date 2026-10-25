@@ -11,6 +11,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `body` rule (`margin: 0`, `background: var(--background)`, `color: var(--foreground)`,
   `font-family: --theme(--font-sans)`) or `body .maplibregl-map { font-family: … }` replaces them with the two
   `@import` lines after `theme.css`.
+- `SidePanel` (#724): a non-modal panel at a side of a canvas (a map) that leaves the canvas usable, unlike the modal
+  `Sheet`. Layouts `over`, `beside`, `left`, `list`; hidden while closed, focus moves in when it opens, Escape and the
+  close button call `onClose`. An app that kept its own copy replaces it with the import (same props; `closeLabel` is
+  now optional, default "Close") and drops its own file.
 
 ## 0.1.1
 
