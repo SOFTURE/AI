@@ -6,6 +6,7 @@ export const en = {
   breadcrumb: { label: "breadcrumb", more: "More" },
   dialog: { close: "Close" },
   sheet: { close: "Close" },
+  sidePanel: { close: "Close" },
   sidebar: { mobileTitle: "Sidebar", mobileDescription: "Displays the mobile sidebar.", toggle: "Toggle Sidebar" },
   spinner: { label: "Loading" },
   command: { title: "Command Palette", description: "Search for a command to run..." },

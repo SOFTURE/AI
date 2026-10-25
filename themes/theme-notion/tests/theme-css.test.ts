@@ -71,6 +71,12 @@ describe("theme.css in an app's Tailwind", () => {
     expect(compiled).toMatch(/\.aria-\\\[current\\=page\\\]\\:after\\:opacity-100/);
   });
 
+  it("generates the side panel's layout variants and its hidden rule", () => {
+    for (const utility of [".z-3", ".shadow-menu", "\\[\\&\\[hidden\\]\\]\\:hidden", "max-sm\\:data-\\[layout\\=beside\\]\\:absolute", "data-\\[layout\\=list\\]\\:flex-none"]) {
+      expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
+    }
+  });
+
   it("generates the open and close animations from tw-animate-css", () => {
     expect(compiled).toContain(".animate-in");
   });
