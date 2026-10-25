@@ -51,5 +51,5 @@ Files: `themes/theme-notion/README.md`, `themes/theme-notion/CHANGELOG.md`.
 
 ## Progress
 
-- [ ] Phase 1: SortableList, SortableItem, SortableHandle
-- [ ] Phase 2: docs
+- [x] Phase 1: SortableList, SortableItem, SortableHandle (d482450)
+- [x] Phase 2: docs (4a0f7c1)

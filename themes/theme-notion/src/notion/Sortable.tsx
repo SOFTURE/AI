@@ -179,7 +179,7 @@ const SORTABLE_ITEM =
   "rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu";
 
 // One row of a `SortableList`. In `row` mode the row itself is the drag target and is focusable; in `handle` mode a
-// `SortableHandle` inside it is.
+// `SortableHandle` inside it is. The drag's own pointer and key handlers win over the same props on the drag target.
 export function SortableItem({ id, className, style, children, ...props }: SortableItemProps) {
   const { dragBy } = useContext(SortableListContext);
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
@@ -196,8 +196,8 @@ export function SortableItem({ id, className, style, children, ...props }: Sorta
         data-dragging={isDragging ? "" : undefined}
         className={cn(SORTABLE_ITEM, className)}
         style={{ ...style, transform: CSS.Translate.toString(transform), transition }}
-        {...rowBinding}
         {...props}
+        {...rowBinding}
       >
         {children}
       </li>
@@ -223,11 +223,11 @@ export function SortableHandle({ label = messages.sortable.handle, className, ..
       size="icon-sm"
       data-slot="sortable-handle"
       className={cn("cursor-grab touch-none text-muted-foreground active:cursor-grabbing", className)}
+      {...props}
       {...attributes}
       {...listeners}
       role="button"
       aria-label={label}
-      {...props}
     >
       <GripVertical aria-hidden="true" strokeWidth={ICON_STROKE_WIDTH} />
     </Button>
