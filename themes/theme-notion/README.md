@@ -94,7 +94,8 @@ field, input, input-group, item, kbd, label, popover, progress, scroll-area, sel
 skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`), `SidePanel` (a non-modal panel at a side
-of a canvas, below).
+of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon and count, the shown tab in the address;
+`Tabs` keeps it in client state).
 
 **`SidePanel`.** A panel next to a canvas (a map) that leaves the canvas usable, so a switch inside shows its effect
 at once (`Sheet` is modal). It floats on `background` with `shadow-menu`, 24 rem wide, full width on a phone, with a
