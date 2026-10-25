@@ -20,6 +20,18 @@ describe("Progress", () => {
     expect(html).toContain('data-state="indeterminate"');
   });
 
+  it("fills in primary, and in dark in the lighter link blue so the fill reaches 3:1 against its track", () => {
+    const html = renderToStaticMarkup(<Progress value={10} />);
+
+    expect(html).toContain('data-slot="progress-indicator" class="h-full w-full flex-1 bg-primary transition-all dark:bg-link"');
+  });
+
+  it("keeps the dark default fill when the caller's indicator classes set no fill colour", () => {
+    const html = renderToStaticMarkup(<Progress value={10} indicatorClassName="rounded-none" />);
+
+    expect(html).toContain('class="h-full w-full flex-1 bg-primary transition-all dark:bg-link rounded-none"');
+  });
+
   it("merges the caller's indicator classes over the primary fill", () => {
     const html = renderToStaticMarkup(<Progress value={10} indicatorClassName="bg-red" />);
 

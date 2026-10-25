@@ -129,7 +129,7 @@ describe("StatCards progress", () => {
   });
 
   it("fills the bar in primary without a tone and in the tone's colour with one", () => {
-    expect(renderCard({ progress: 50 })).toContain('data-slot="progress-indicator" class="h-full w-full flex-1 bg-primary transition-all"');
+    expect(renderCard({ progress: 50 })).toContain('data-slot="progress-indicator" class="h-full w-full flex-1 bg-primary transition-all dark:bg-link"');
     expect(renderCard({ progress: 50, tone: "warning" })).toContain(
       'data-slot="progress-indicator" class="h-full w-full flex-1 transition-all bg-orange"',
     );
