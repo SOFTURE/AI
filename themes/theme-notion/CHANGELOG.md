@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Selected tab (#760): the selected pill of the default (`variant="default"`) `Tabs` list reaches WCAG 2.2 SC 1.4.11
+  (3:1) against the list and the unselected tabs, in light and dark; before, the white pill on `muted` was 1.07:1 and
+  the dark pill about 1.1:1. The active trigger draws an `input` border in both schemes (in dark it replaces
+  `border-border`) and clips its fill to the padding box (`bg-clip-padding`), so the border sits on the list: 3.13
+  against the list and 3.35 against the pill in light, 3.30 and 3.11 in dark. Fill, shadow and text colour are
+  unchanged; the `line` variant keeps its underline and no border in both schemes; a focused tab still shows the
+  `ring` border. No token changes. An app changes nothing, unless it restyles the active tab with its own
+  `data-[state=active]:border-*` class.
 - Non-text contrast (#759): control boundaries and states reach WCAG 2.2 SC 1.4.11 (3:1) against every page surface
   in light and dark; `tests/contrast.test.ts` guards the pairs. Alpha raised only, colour channels (hue) kept:
 
