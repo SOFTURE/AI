@@ -38,5 +38,5 @@ Files: `themes/theme-kit/README.md`, `themes/theme-kit/CHANGELOG.md`, `themes/th
 
 ## Progress
 
-- [ ] Phase 1: kit stylesheets
-- [ ] Phase 2: docs
+- [x] Phase 1: kit stylesheets (39be9bf)
+- [x] Phase 2: docs

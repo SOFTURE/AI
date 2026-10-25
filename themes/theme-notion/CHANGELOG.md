@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- README (#718): both wirings import the kit's `base.css` (the page base on `body`) and, for an app with MapLibre maps,
+  `maplibre.css`. Needs `@softure-ai/theme-kit` with those files (the next kit release). An app that kept its own
+  `body` rule (`margin: 0`, `background: var(--background)`, `color: var(--foreground)`,
+  `font-family: --theme(--font-sans)`) or `body .maplibregl-map { font-family: … }` replaces them with the two
+  `@import` lines after `theme.css`.
+
 ## 0.1.1
 
 - No change to the package itself: the first version published through the npm trusted publisher (OIDC) with
