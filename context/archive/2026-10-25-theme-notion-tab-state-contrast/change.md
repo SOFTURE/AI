@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-tab-state-contrast
 title: "theme-notion: the selected tab of the default Tabs variant meets WCAG 1.4.11 state contrast (issue #760)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 760
 branch: claude/project-thread-hp4xeo
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

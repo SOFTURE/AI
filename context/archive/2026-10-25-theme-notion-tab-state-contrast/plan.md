@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-tab-state-contrast
-status: in_progress
+status: archived
 ---
 
 # Plan: theme-notion selected tab state contrast (issue #760)
