@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `SidePanel` (#724): a non-modal panel at a side of a canvas (a map) that leaves the canvas usable, unlike the modal
+  `Sheet`. Layouts `over`, `beside`, `left`, `list`; hidden while closed, focus moves in when it opens, Escape and the
+  close button call `onClose`. An app that kept its own copy replaces it with the import (same props; `closeLabel` is
+  now optional, default "Close") and drops its own file.
 - `PageHeader` takes `crumbsLabel` (#719): the accessible name of the breadcrumb it renders for `crumbs`, so an app
   in another language replaces the built-in English "breadcrumb". Without it the markup is unchanged.
 
