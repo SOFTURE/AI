@@ -22,9 +22,10 @@ const MINUTE_MS = 60 * 1000;
 /** The query parameter of the reset link that carries the token. */
 export const RESET_TOKEN_PARAM = "token";
 
-/** Whether the app passed a sender, i.e. whether password reset is offered at all. */
+/** Whether password reset is offered at all: passwords are on and the app passed a sender. */
 export function isPasswordResetEnabled(config: SoftureConfig): boolean {
-  return getAuthOptions(config).passwordReset.send !== undefined;
+  const options = getAuthOptions(config);
+  return options.password.enabled && options.passwordReset.send !== undefined;
 }
 
 export interface PasswordResetRequestInput {

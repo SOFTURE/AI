@@ -59,7 +59,7 @@ describe("createAuthGuard", () => {
   describe("deny by default", () => {
     const denyAll = createAuthGuard(config, { protect: ["/"], exclude: ["/", "/pricing", "/blog", "/api/public/"] });
 
-    it.each(["/login", "/login?next=%2Faccount", "/register", "/forgot-password", "/reset-password?token=x", "/api/auth/session"])(
+    it.each(["/login", "/login?next=%2Faccount", "/register", "/forgot-password", "/reset-password?token=x", "/api/auth/session", "/api/auth/oidc/google/callback?code=x"])(
       "never guards auth's own public route %s, so protect: ['/'] cannot loop",
       (path) => {
         expect(denyAll(request(path))).toBeNull();

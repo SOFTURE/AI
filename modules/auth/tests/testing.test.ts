@@ -130,7 +130,7 @@ describe("createTestAccount", () => {
 
       expect(onRegistered).toHaveBeenCalledTimes(1);
       expect(onRegistered).toHaveBeenCalledWith(
-        { user: account, consent: { acceptedAt: CREATED_AT }, fields: { channel: "newsletter" } },
+        { user: account, consent: { acceptedAt: CREATED_AT }, fields: { channel: "newsletter" }, oidcProvider: null },
         expect.objectContaining({ config: test.config, clock: test.clock }),
       );
     });
@@ -139,7 +139,7 @@ describe("createTestAccount", () => {
       const onRegistered = vi.fn(() => Promise.resolve());
       test = await createTestAuth({ auth: { onRegistered, requireConsent: false } });
       const account = await createTestAccount(test.ctx, { email: "ada@example.com", password: PASSWORD, runHooks: true });
-      expect(onRegistered).toHaveBeenCalledWith({ user: account, consent: null, fields: {} }, expect.anything());
+      expect(onRegistered).toHaveBeenCalledWith({ user: account, consent: null, fields: {}, oidcProvider: null }, expect.anything());
     });
 
     it("rolls the account back when the hook throws", async () => {

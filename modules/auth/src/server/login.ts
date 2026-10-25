@@ -22,10 +22,11 @@ export interface LoginInput {
 
 export type LoginResult = Ok<SignedIn> | Err<"auth.invalid_credentials"> | RateLimitRejection;
 
-/** Checks the credentials and opens a session. Database errors propagate. */
+/** Checks the credentials and opens a session; with `password.enabled: false` no password opens one. Database errors propagate. */
 export async function loginUser(ctx: AuthContext, input: LoginInput): Promise<LoginResult> {
   const options = getAuthOptions(ctx.config);
   assertAuthBuckets(ctx.config);
+  if (!options.password.enabled) return err("auth.invalid_credentials");
   const byClient = await consumeRateLimit(ctx, { bucket: BUCKETS.login, key: input.clientKey });
   if (!byClient.ok) return byClient;
 

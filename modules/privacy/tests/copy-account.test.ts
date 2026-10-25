@@ -94,6 +94,7 @@ describe("copyAccount", () => {
         userId: ada.id,
         tables: [
           { table: "auth.users", rows: 1, nulledReferences: 0 },
+          { table: "auth.identities", rows: 0, nulledReferences: 0 },
           { table: "auth.password_resets", rows: 1, nulledReferences: 0 },
           { table: "auth.sessions", rows: 1, nulledReferences: 0 },
           { table: "auth.user_roles", rows: 1, nulledReferences: 0 },
@@ -210,6 +211,7 @@ describe("copyAccount", () => {
 
     expect(result.ok && result.value.tables.map((entry) => entry.table)).toEqual([
       "auth.users",
+      "auth.identities",
       "auth.password_resets",
       "auth.user_roles",
       "notes.notes",

@@ -96,8 +96,8 @@ adds tables; rollback is in its header. Apps without `oidc` see no change beside
 ### Phase 2: the OIDC flow and the fake provider
 
 #### Automated
-- [ ] 2.1 Flow and ID token tests (happy paths and every refusal listed) pass against the fake provider
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 Flow and ID token tests (happy paths and every refusal listed) pass against the fake provider — 4d04563
+- [x] 2.2 Gates green (typecheck, lint, test) — 4d04563
 
 ### Phase 3: password switch-off and the Next adapter
 
