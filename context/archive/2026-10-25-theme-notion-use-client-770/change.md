@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-use-client-770
 title: "theme-notion: the package root imports from a Server Component again (issue #770)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 770
 branch: claude/project-thread-q3ll8h
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
