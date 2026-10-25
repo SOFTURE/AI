@@ -29,4 +29,4 @@ Files: `themes/theme-notion/src/notion/SidePanel.tsx`, `src/index.ts`, `src/mess
 
 ## Progress
 
-- [ ] Phase 1: component, tests, docs
+- [x] Phase 1: component, tests, docs (e49ff34)
