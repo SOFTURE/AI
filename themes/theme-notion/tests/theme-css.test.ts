@@ -82,6 +82,13 @@ describe("theme.css in an app's Tailwind", () => {
     }
   });
 
+  it("generates the sortable row's touch defaults and its lifted look", () => {
+    for (const utility of [".touch-manipulation", ".select-none", "\\[-webkit-touch-callout\\:none\\]", "data-\\[dragging\\]\\:bg-accent-strong", "data-\\[dragging\\]\\:shadow-menu", ".touch-none", ".cursor-grab"]) {
+      expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
+    }
+    expect(compiled).toMatch(/-webkit-touch-callout: none/);
+  });
+
   it("generates the side panel's layout variants and its hidden rule", () => {
     for (const utility of [".z-3", ".shadow-menu", "\\[\\&\\[hidden\\]\\]\\:hidden", "max-sm\\:data-\\[layout\\=beside\\]\\:absolute", "data-\\[layout\\=list\\]\\:flex-none"]) {
       expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
