@@ -12,6 +12,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   rebuilt a budget card around `Progress` (e.g. "21.5 / 23.4 h") goes back to `StatCards` with `progress`.
 - `Progress`: the value now reaches the Radix root, so the bar reports `aria-valuenow` and its state (it was always
   indeterminate to assistive tech before); a new optional `indicatorClassName` recolours the fill.
+- `FilterChip` and `FilterChipAdd` (#737): a list's filter pills as a Notion database view draws them, a 24 px
+  `rounded-full` pill `icon · Label: value ▾` that opens a `DropdownMenu` of options (pass `DropdownMenu` items as
+  children) in the design system's popover. `isActive` turns the pill into the blue tag and sets `data-active`;
+  `data-slot="filter-chip"`, `filter-chip-value` and `filter-chip-add` mark the parts. `FilterChipAdd` is the
+  "+ Add filter" pill; its text comes from `notionMessages.en.filterChip.add` and is replaced through `label`. An app
+  that styled its own filter trigger replaces it with `import { FilterChip, FilterChipAdd } from "@softure-ai/theme-notion"`.
 
 ## 0.2.0
 
