@@ -62,9 +62,9 @@ import { CircleCheck } from "lucide-react";
 `light` the other way. `Toaster` follows the system unless it gets `theme="light" | "dark"`.
 
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
-wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `DialogContent closeLabel`,
-`SheetContent closeLabel`, `SidePanel closeLabel`, `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`,
-`Spinner aria-label`, `CommandDialog title description`.
+wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
+`DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Sidebar mobileTitle mobileDescription`,
+`SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`, `CommandDialog title description`.
 
 ## Rules, in short
 
