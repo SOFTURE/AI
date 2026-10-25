@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-fold-row-721
 title: "theme-notion: DetailTable and FoldRow (issue #721)"
-status: open
+status: archived
 roadmap_item: null
 issue: 721
 branch: claude/project-thread-5ygzcn
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

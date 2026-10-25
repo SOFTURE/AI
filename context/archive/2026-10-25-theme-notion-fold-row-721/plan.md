@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-fold-row-721
-status: planned
+status: done
 ---
 
 # Plan: DetailTable and FoldRow (issue #721)
@@ -38,5 +38,5 @@ README "Components" names both compositions; CHANGELOG "Unreleased" entry.
 ## Progress
 
 - [x] Phase 1: DetailTable (f4f7018)
-- [ ] Phase 2: FoldRow (waits for #720 on master)
-- [ ] Phase 3: docs
+- [x] Phase 2: FoldRow (407ce23, after #720 merged in 203cf7e)
+- [x] Phase 3: docs (407ce23, README and CHANGELOG with phase 2)
