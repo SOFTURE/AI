@@ -1,6 +1,6 @@
 ---
 change_id: themes-page-base-718
-status: in_progress
+status: archived
 ---
 
 # Plan: page base and MapLibre font stylesheets (issue #718)
@@ -39,4 +39,4 @@ Files: `themes/theme-kit/README.md`, `themes/theme-kit/CHANGELOG.md`, `themes/th
 ## Progress
 
 - [x] Phase 1: kit stylesheets (39be9bf)
-- [x] Phase 2: docs
+- [x] Phase 2: docs (5f5537c)

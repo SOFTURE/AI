@@ -1,12 +1,13 @@
 ---
 change_id: themes-page-base-718
 title: "theme-kit: page base and MapLibre font stylesheets for apps with SOFTURE package pages (issue #718)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 718
 branch: claude/project-thread-wve3hx
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
