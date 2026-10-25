@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `Badge variant="destructive"` draws its text in `destructive-foreground` (white), as `Button` does. It had
+  `text-white`, which generates nothing because the theme clears Tailwind's default palette, so the text took the
+  inherited colour on the red background. Found by the new Tailwind generation test (#741).
+- A test suite in eight layers (#741, README "Testing"): every export rendered, a class parity fixture, a guard
+  against the pinned shadcn new-york v4 sources with the listed deltas, behaviour, Tailwind generation, visual
+  regression and axe in CI, token contrast, inventory. Nothing for an app to change.
+
 ## 0.2.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.2` (was `^0.1.0`): the version that ships `base.css` and `maplibre.css`, which
