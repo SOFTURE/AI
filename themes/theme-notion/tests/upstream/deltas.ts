@@ -414,6 +414,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
   ],
   "item": [
     {
+      reason: "client module: the ItemGroup context needs React's client API, so a Server Component can import the package root (issue #770)",
+      upstream: "import * as React from \"react\"",
+      ours: "\"use client\"\n\nimport * as React from \"react\"",
+    },
+    {
       reason: "imports: relative paths with `.js` under NodeNext, `cn` from the theme",
       upstream: "import { cn } from \"cn\"",
       ours: "import { cn } from \"../lib/utils.js\"",

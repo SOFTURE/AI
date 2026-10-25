@@ -28,6 +28,29 @@ const THEME_DIRS = readdirSync(join(REPO_ROOT, "themes"))
   .map((name) => `themes/${name}`)
   .filter((dir) => dir !== KIT_DIR && existsSync(join(REPO_ROOT, dir, "package.json")));
 
+const CLIENT_DIRECTIVE = /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*["']use client["']/;
+const CREATES_CONTEXT = /\bcreateContext\b/;
+const CALLS_HOOK = /\buse[A-Z]\w*\s*\(/;
+
+function listSourceFiles(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .filter((name) => /\.tsx?$/.test(name) && !name.endsWith(".d.ts"))
+    .map((name) => join(dir, name));
+}
+
+// A file that creates a context, or a component file that calls a hook, must be a client module: the package root
+// re-exports it, and a Server Component that imports the root would otherwise evaluate it without React's client
+// API (issue #770). Plain `.ts` hook modules only define hooks, which runs nothing at import.
+function findMissingClientDirectives(srcDir: string): string[] {
+  return listSourceFiles(srcDir)
+    .filter((file) => {
+      const source = readFileSync(file, "utf8");
+      const needsClient = CREATES_CONTEXT.test(source) || (file.endsWith(".tsx") && CALLS_HOOK.test(source));
+      return needsClient && !CLIENT_DIRECTIVE.test(source);
+    })
+    .map((file) => file.slice(srcDir.length + 1));
+}
+
 function readManifest(dir: string): ThemeManifest {
   return JSON.parse(readFileSync(join(REPO_ROOT, dir, "package.json"), "utf8")) as ThemeManifest;
 }
@@ -66,6 +89,10 @@ describe("theme packages", () => {
           `./dist/${name}`,
         ]);
       }
+    });
+
+    it("marks every source file with a context or a component hook as a client module", () => {
+      expect(findMissingClientDirectives(join(REPO_ROOT, dir, "src"))).toEqual([]);
     });
 
     it("exports a theme that meets the contract from src/tokens.ts, and theme and cn from its entry", async () => {
