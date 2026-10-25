@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `StatCard` (#739): optional `progress` (0–100, clamped) draws a 6 px bar under the figure with the package's
+  `Progress`, filled in `TONE_FILL[tone]` when the card has a tone and in primary otherwise; `progressLabel` names it
+  (default: `label`). Marked `data-slot="stat-card-progress"`. Cards without `progress` render as before. An app that
+  rebuilt a budget card around `Progress` (e.g. "21.5 / 23.4 h") goes back to `StatCards` with `progress`.
+- `Progress`: the value now reaches the Radix root, so the bar reports `aria-valuenow` and its state (it was always
+  indeterminate to assistive tech before); a new optional `indicatorClassName` recolours the fill.
+
 ## 0.2.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.2` (was `^0.1.0`): the version that ships `base.css` and `maplibre.css`, which
