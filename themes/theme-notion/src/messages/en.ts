@@ -5,6 +5,7 @@
 export const en = {
   breadcrumb: { label: "breadcrumb", more: "More" },
   dialog: { close: "Close" },
+  filterChip: { add: "Add filter" },
   sheet: { close: "Close" },
   sidePanel: { close: "Close" },
   sidebar: { mobileTitle: "Sidebar", mobileDescription: "Displays the mobile sidebar.", toggle: "Toggle Sidebar" },
