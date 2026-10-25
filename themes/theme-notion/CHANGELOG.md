@@ -134,6 +134,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   dnd-kit itself replaces its `DndContext`, sensors, `SortableContext` and the composed lifted-row classes with
   `import { SortableList, SortableItem } from "@softure-ai/theme-notion"`, passes its message-dictionary strings as
   `instructions` and `announcements`, and drops its own `@dnd-kit/*` dependencies unless it uses them elsewhere.
+- A test suite in eight layers (#741, README "Testing"): every export rendered, a class parity fixture, a guard
+  against the pinned shadcn new-york v4 sources with the listed deltas, behaviour, Tailwind generation, visual
+  regression and axe (WCAG 2.1 AA, colour contrast included) in CI, inventory. Nothing for an app to change.
 
 ## 0.2.0
 
