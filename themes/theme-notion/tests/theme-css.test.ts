@@ -78,6 +78,11 @@ describe("theme.css in an app's Tailwind", () => {
     expect(compiled).toContain("--primary: #0171cf;");
   });
 
+  it("generates inline code's text style and its own colour as two utilities", () => {
+    expect(compiled).toMatch(/\.text-code \{\s*font-size: 13px;/);
+    expect(compiled).toMatch(/\.text-code-foreground \{\s*color: var\(--code-foreground\);/);
+  });
+
   it("gives an app's phone rows the 44 px touch-target size", () => {
     expect(compiled).toMatch(/\.min-h-touch-target \{\s*min-height: 44px;\s*\}/);
     expect(compiled).toMatch(/\.size-touch-target \{\s*width: 44px;\s*height: 44px;\s*\}/);
@@ -88,6 +93,15 @@ describe("theme.css in an app's Tailwind", () => {
       expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
     }
     expect(compiled).toMatch(/\.aria-\\\[current\\=page\\\]\\:after\\:opacity-100/);
+  });
+
+  it("lets the line variant and the focus border override the selected tab's boundary", () => {
+    const boundary = compiled.indexOf(".data-\\[state\\=active\\]\\:border-input[");
+    const lineOverride = compiled.indexOf(".group-data-\\[variant\\=line\\]\\/tabs-list\\:data-\\[state\\=active\\]\\:border-transparent:");
+    const focus = compiled.indexOf(".focus-visible\\:data-\\[state\\=active\\]\\:border-ring:");
+    expect(boundary).toBeGreaterThan(-1);
+    expect(lineOverride).toBeGreaterThan(boundary);
+    expect(focus).toBeGreaterThan(boundary);
   });
 
   it("generates every tone's class names without an app source of its own", () => {

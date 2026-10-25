@@ -99,6 +99,13 @@
         }
       },
       {
+        "name": "code-foreground",
+        "value": {
+          "light": "#c33c39",
+          "dark": "#f86a66"
+        }
+      },
+      {
         "name": "muted",
         "value": {
           "light": "#f7f7f5",
@@ -157,8 +164,8 @@
       {
         "name": "input",
         "value": {
-          "light": "rgba(15, 15, 15, 0.1)",
-          "dark": "rgba(255, 255, 255, 0.075)"
+          "light": "rgba(15, 15, 15, 0.46)",
+          "dark": "rgba(255, 255, 255, 0.36)"
         }
       },
       {
@@ -171,8 +178,8 @@
       {
         "name": "control-off",
         "value": {
-          "light": "rgba(135, 131, 120, 0.3)",
-          "dark": "rgba(202, 196, 183, 0.15)"
+          "light": "rgba(135, 131, 120, 0.95)",
+          "dark": "rgba(202, 196, 183, 0.5)"
         }
       },
       {

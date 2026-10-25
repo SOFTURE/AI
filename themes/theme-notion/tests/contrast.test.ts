@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { NOTION_THEME, PALETTE_COLORS } from "../src/index.js";
 
-// WCAG 2.2 AA: 4.5:1 for text (SC 1.4.3), 3:1 for the focus ring against the page (SC 1.4.11).
+// WCAG 2.2 AA: 4.5:1 for text (SC 1.4.3), 3:1 for control boundaries, states and the focus ring (SC 1.4.11).
 const TEXT_MIN = 4.5;
 const NON_TEXT_MIN = 3;
 
@@ -15,6 +15,9 @@ interface Pair {
   readonly text: string;
   // The surface from the bottom layer up; each layer is composited over the ones below it.
   readonly on: readonly string[];
+  // The layers the text or indicator is painted over, when they differ from `on` (a border clipped outside its
+  // element's fill sits on what surrounds the element); defaults to `on`.
+  readonly paintedOn?: readonly string[];
   readonly min: number;
   readonly schemes?: readonly Scheme[];
 }
@@ -52,8 +55,10 @@ function getLuminance(rgb: Rgb): number {
 }
 
 function getContrast(pair: Pair, scheme: Scheme): number {
-  const surface = pair.on.reduce<Rgb>((below, layer) => composite(layer, below, scheme), [255, 255, 255]);
-  const text = composite(pair.text, surface, scheme);
+  const flatten = (layers: readonly string[]): Rgb =>
+    layers.reduce<Rgb>((below, layer) => composite(layer, below, scheme), [255, 255, 255]);
+  const surface = flatten(pair.on);
+  const text = composite(pair.text, flatten(pair.paintedOn ?? pair.on), scheme);
   const [lighter, darker] = [getLuminance(text), getLuminance(surface)].sort((a, b) => b - a) as [number, number];
   return (lighter + 0.05) / (darker + 0.05);
 }
@@ -72,6 +77,54 @@ const SURFACES: readonly (readonly string[])[] = [
   ["sidebar", "sidebar-accent"],
   ["background", "field"],
   ["background", "muted/50"],
+];
+
+// The page surfaces a control sits on.
+const CONTROL_SURFACES: readonly (readonly string[])[] = [
+  ["background"],
+  ["card"],
+  ["popover"],
+  ["muted"],
+  ["secondary"],
+  ["sidebar"],
+];
+
+// The progress fills: the default (the link blue in dark) and the `StatCard` tone fills.
+const PROGRESS_FILLS: readonly Pair[] = [
+  { text: "primary", on: [], min: NON_TEXT_MIN, schemes: ["light"] },
+  { text: "link", on: [], min: NON_TEXT_MIN, schemes: ["dark"] },
+  ...["gray", "green", "orange", "red"].map((text) => ({ text, on: [], min: NON_TEXT_MIN })),
+];
+
+// The selected tab's pill on the `muted` list: the page background in light, a lifted `accent` in dark.
+const SELECTED_TAB_FILLS: readonly { fill: string; schemes: readonly Scheme[] }[] = [
+  { fill: "background", schemes: ["light"] },
+  { fill: "accent/40", schemes: ["dark"] },
+];
+
+// SC 1.4.11: what identifies a control and its state, against what surrounds it. Decorative separators (`border`,
+// `sidebar-border`) are not listed: they only separate content.
+const NON_TEXT_PAIRS: readonly Pair[] = [
+  // The boundary of Input, Textarea, SelectTrigger and InputGroup; the Switch off track (and the bridge's
+  // `border-strong` for the package fields).
+  ...["input", "control-off"].flatMap((text) => CONTROL_SURFACES.map((on) => ({ text, on, min: NON_TEXT_MIN }))),
+  // The Switch thumb on its off and on track.
+  ...CONTROL_SURFACES.flatMap((on) => [
+    { text: "background", on: [...on, "control-off"], min: NON_TEXT_MIN },
+    { text: "background", on: [...on, "primary"], min: NON_TEXT_MIN },
+  ]),
+  // A checked Switch track, Checkbox and RadioGroup item (their unchecked outline is `muted-foreground`, checked above).
+  ...[["background"], ["card"], ["popover"], ["muted"]].map((on) => ({ text: "primary", on, min: NON_TEXT_MIN })),
+  // The Progress fill against its track, which is a quiet extent: the fill carries the value.
+  ...PROGRESS_FILLS.flatMap((fill) =>
+    CONTROL_SURFACES.map((on) => ({ ...fill, on: [...on, "primary/20"] })),
+  ),
+  // The selected tab of the default Tabs variant: its `input` border, painted over the list (`bg-clip-padding`),
+  // against the list (and the unselected tabs on it) and against the pill's own fill.
+  ...SELECTED_TAB_FILLS.flatMap(({ fill, schemes }) => [
+    { text: "input", on: ["muted"], min: NON_TEXT_MIN, schemes },
+    { text: "input", on: ["muted", fill], paintedOn: ["muted"], min: NON_TEXT_MIN, schemes },
+  ]),
 ];
 
 // Every text/background pair the theme's own parts render (`src/ui`, `src/notion`), in both schemes unless noted.
@@ -97,6 +150,8 @@ const PAIRS: readonly Pair[] = [
     on,
     min: TEXT_MIN,
   })),
+  // Inline Code: the code red on its grey chip.
+  { text: "code-foreground", on: ["secondary"], min: TEXT_MIN },
   // Link variants and hovered inline links.
   ...[["background"], ["card"], ["popover"], ["muted"]].map((on) => ({ text: "link", on, min: TEXT_MIN })),
   { text: "tooltip-foreground", on: ["tooltip"], min: TEXT_MIN },
@@ -110,6 +165,7 @@ const PAIRS: readonly Pair[] = [
   { text: "default-tag-foreground", on: ["default-tag"], min: TEXT_MIN },
   // The focus ring against the page.
   ...[["background"], ["card"], ["popover"]].map((on) => ({ text: "ring", on, min: NON_TEXT_MIN })),
+  ...NON_TEXT_PAIRS,
 ];
 
 describe("Notion theme contrast (WCAG 2.2 AA)", () => {

@@ -6,6 +6,41 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Code and destructive Badge contrast (#763): inline `Code` and a destructive `Badge` with a `color` reach WCAG 2.2 AA
+  (4.5:1) in light and dark; `tests/contrast.test.ts` guards the code pair.
+
+  | Part | Light before → after | Dark before → after |
+  | --- | --- | --- |
+  | `Code` text: `red` → new token `code-foreground` | `#c8413d` → `#c33c39` (4.33 → 4.61 on `secondary`) | `#ea5e5b` → `#f86a66` (3.98 → 4.62 on `secondary`) |
+  | `Badge variant="destructive" color="…"` text | the colour's tag text → `destructive-foreground` | `#d4d4d4` / `rgba(255, 255, 255, 0.81)` (3.98 / 4.46) → `#ffffff` on `destructive/60` |
+
+  Lightness-only shift for the code red (OKLCH hue and chroma kept); `red` and every other part that uses it are
+  unchanged. `Badge`: the `color` classes apply to every variant but `destructive` (cva `compoundVariants`, so
+  `badgeVariants()` callers get it too); a destructive badge keeps its own fill and white text whatever `color` is.
+  An app changes nothing, unless it styled code with `text-red` itself (move it to `text-code-foreground`) or relied
+  on a colour on a destructive badge (use `variant="tag"` with the colour instead).
+- Selected tab (#760): the selected pill of the default (`variant="default"`) `Tabs` list reaches WCAG 2.2 SC 1.4.11
+  (3:1) against the list and the unselected tabs, in light and dark; before, the white pill on `muted` was 1.07:1 and
+  the dark pill about 1.1:1. The active trigger draws an `input` border in both schemes (in dark it replaces
+  `border-border`) and clips its fill to the padding box (`bg-clip-padding`), so the border sits on the list: 3.13
+  against the list and 3.35 against the pill in light, 3.30 and 3.11 in dark. Fill, shadow and text colour are
+  unchanged; the `line` variant keeps its underline and no border in both schemes; a focused tab still shows the
+  `ring` border. No token changes. An app changes nothing, unless it restyles the active tab with its own
+  `data-[state=active]:border-*` class.
+- Non-text contrast (#759): control boundaries and states reach WCAG 2.2 SC 1.4.11 (3:1) against every page surface
+  in light and dark; `tests/contrast.test.ts` guards the pairs. Alpha raised only, colour channels (hue) kept:
+
+  | Token | Light before → after | Dark before → after |
+  | --- | --- | --- |
+  | `input` (field and select trigger border) | `rgba(15, 15, 15, 0.1)` → `rgba(15, 15, 15, 0.46)` | `rgba(255, 255, 255, 0.075)` → `rgba(255, 255, 255, 0.36)` |
+  | `control-off` (switch off track, the bridge's `border-strong`) | `rgba(135, 131, 120, 0.3)` → `rgba(135, 131, 120, 0.95)` | `rgba(202, 196, 183, 0.15)` → `rgba(202, 196, 183, 0.5)` |
+
+  Parts: the outline `Button` border and the `ButtonGroup` separator use `border` (their label identifies them, so
+  they keep the old quiet weight); the dark active tab is `dark:border-border dark:bg-accent/40` (the same look as
+  before); `Progress` fills in `link` in dark when `indicatorClassName` sets no fill colour, so the fill reaches 3:1
+  against its track. Decorative separators (`border`, `sidebar-border`) are unchanged. An app changes: a
+  `border-input` or `bg-input` of its own that only separates content (a divider, a button outline) moves to
+  `border-border` / `bg-border`; its fields keep `border-input` and gain the contrast without a change.
 - Fix (#746): table rows and the table footer, accordion items, default and destructive alerts, the command input,
   item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
   border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
