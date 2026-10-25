@@ -53,7 +53,7 @@ import { CircleCheck } from "lucide-react";
 
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `DialogContent closeLabel`,
-`SheetContent closeLabel`, `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`,
+`SheetContent closeLabel`, `SidePanel closeLabel`, `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`,
 `Spinner aria-label`, `CommandDialog title description`.
 
 ## Rules, in short
@@ -73,6 +73,18 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `DialogCo
   (button, field, menu item), `lg` 8 (callout, card), `xl` 10 (menu, select, dialog), `full` (switch).
 - Icons: lucide at `ICON_STROKE_WIDTH` (1.75), 16 px in text; they inherit the text colour. No emoji in the interface.
 - Statuses always carry a word and an icon, so states read apart without telling green from red.
+- Figures, bar segments and box edges take a **tone** by what they mean: `default` (text colour), `success` (green,
+  done), `warning` (orange, to do), `danger` (red, owed or failing), `muted` (gray, out of play). `TONE_COLORS` gives
+  a tone's palette colour (`null` for `default`); `TONE_TEXT`, `TONE_FILL` and `TONE_EDGE` give literal class names
+  (`text-*`, `bg-*`, `border-l-*`) that the shipped `theme.css` already generates, so the app adds no `@source`. The
+  app keeps only its meaning-to-tone table:
+
+  ```tsx
+  import { TONE_TEXT, type Tone } from "@softure-ai/theme-notion";
+
+  const PAYMENT_TONE: Record<"paid" | "due" | "overdue", Tone> = { paid: "success", due: "warning", overdue: "danger" };
+  <span className={TONE_TEXT[PAYMENT_TONE.overdue]}>1 200</span>
+  ```
 
 ## Components
 
@@ -81,7 +93,25 @@ avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, co
 field, input, input-group, item, kbd, label, popover, progress, scroll-area, select, separator, sheet, sidebar,
 skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
-`PageFrame` (a page outside the app shell, the target of `sft-bridge.css`).
+`PageFrame` (a page outside the app shell, the target of `sft-bridge.css`), `SidePanel` (a non-modal panel at a side
+of a canvas, below).
+
+**`SidePanel`.** A panel next to a canvas (a map) that leaves the canvas usable, so a switch inside shows its effect
+at once (`Sheet` is modal). It floats on `background` with `shadow-menu`, 24 rem wide, full width on a phone, with a
+heading and a ghost close button. Layouts: `over` (over the canvas's right side), `left` (over its left side),
+`beside` (after the canvas, which shrinks to at least 24 rem or half) and `list` (a 24 rem column before the canvas);
+`beside` and `list` cover the whole canvas on a phone. While closed it is `hidden`. Focus moves into it when it opens;
+Escape inside or the close button calls `onClose`, and the caller moves focus back to its opener.
+
+```tsx
+<div className="relative flex h-full">
+  <button type="button" aria-controls="layers" aria-expanded={isOpen} onClick={() => setOpen(true)}>Layers</button>
+  <Map className="flex-1" />
+  <SidePanel id="layers" heading="Layers" layout="over" isOpen={isOpen} onClose={() => setOpen(false)}>
+    {/* switches */}
+  </SidePanel>
+</div>
+```
 
 Deltas from stock shadcn:
 
