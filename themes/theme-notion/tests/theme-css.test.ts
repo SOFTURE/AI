@@ -64,6 +64,13 @@ describe("theme.css in an app's Tailwind", () => {
     expect(compiled).toContain("--primary: #2383e2;");
   });
 
+  it("generates the TabBar's line-tab utilities, the current tab's underline included", () => {
+    for (const utility of [".h-control-height", ".text-ui-medium", ".duration-120", ".after\\:h-0\\.5", ".tabular-nums"]) {
+      expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
+    }
+    expect(compiled).toMatch(/\.aria-\\\[current\\=page\\\]\\:after\\:opacity-100/);
+  });
+
   it("generates the open and close animations from tw-animate-css", () => {
     expect(compiled).toContain(".animate-in");
   });

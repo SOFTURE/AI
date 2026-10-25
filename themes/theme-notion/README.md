@@ -81,7 +81,8 @@ avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, co
 field, input, input-group, item, kbd, label, popover, progress, scroll-area, select, separator, sheet, sidebar,
 skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
-`PageFrame` (a page outside the app shell, the target of `sft-bridge.css`).
+`PageFrame` (a page outside the app shell, the target of `sft-bridge.css`), `TabBar` (a screen's tabs as links with an
+optional icon and count, the shown tab in the address; `Tabs` keeps it in client state).
 
 Deltas from stock shadcn:
 

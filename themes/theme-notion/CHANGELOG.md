@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `TabBar` (#723): a screen's tabs as line tabs where each tab is a link (`<a href>`), so the shown tab lives in the
+  address and a link, a form's return or a reload land on the same tab. Optional icon before the label and count
+  after it (0 included); the current link carries `aria-current="page"`; the row scrolls sideways on a phone.
+  `data-slot="tab-bar"`, `data-tab` and `data-slot="tab-bar-count"` mark the parts. An app that keeps its own copy
+  replaces it with `import { TabBar } from "@softure-ai/theme-notion"`; the props are the same (`label`, `tabs`,
+  `current`). For client-state tabs keep `Tabs`.
+
 ## 0.1.1
 
 - No change to the package itself: the first version published through the npm trusted publisher (OIDC) with

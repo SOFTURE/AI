@@ -48,3 +48,4 @@ export { PageFrame, type PageFrameProps } from "./notion/PageFrame.js";
 export { PageHeader, type PageCrumb, type PageHeaderProps } from "./notion/PageHeader.js";
 export { PropertyList, type Property, type PropertyListProps } from "./notion/PropertyList.js";
 export { Status, type StatusProps } from "./notion/Status.js";
+export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
