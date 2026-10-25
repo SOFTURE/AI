@@ -102,8 +102,8 @@ adds tables; rollback is in its header. Apps without `oidc` see no change beside
 ### Phase 3: password switch-off and the Next adapter
 
 #### Automated
-- [ ] 3.1 Server refusals with the password off, pages, guard and form tests pass
-- [ ] 3.2 Gates green (typecheck, lint, test, build)
+- [x] 3.1 Server refusals with the password off, pages, guard and form tests pass — 43d7bfb
+- [x] 3.2 Gates green (typecheck, lint, test, build) — 43d7bfb
 
 #### Manual
 - [ ] 3.3 A real Google sign-in on a deployed app (owner's adopting app, after the release)
