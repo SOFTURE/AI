@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-contrast-aa
 title: "theme-notion: every text colour meets WCAG AA contrast (issue #756)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 756
 branch: claude/project-thread-zxg237
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-contrast-aa
-status: in_progress
+status: archived
 ---
 
 # Plan: theme-notion WCAG AA contrast (issue #756)
@@ -44,5 +44,13 @@ Files: `themes/theme-notion/tests/contrast.test.ts`.
 
 ## Progress
 
-- [ ] Phase 1: tokens and components
-- [ ] Phase 2: contrast test
+- [x] Phase 1: tokens and components (0330308)
+- [x] Phase 2: contrast test (c9d4f1e)
+
+## Notes from implementation
+
+- Dark `muted-foreground` went to `#a5a5a5` (not `#a0a0a0`) so it also passes on a hovered `secondary` surface.
+- A focused destructive menu item in dark is tinted `destructive/10` instead of `/20`, so the dark `destructive`
+  stays closer to the design system's red.
+- `Badge` destructive used `text-white`, which the theme's cleared palette never generates; it reads
+  `text-destructive-foreground` now (found in the screenshots).
