@@ -2,10 +2,11 @@ import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Badge } from "../ui/badge.js";
+import { Progress } from "../ui/progress.js";
 import { cn } from "../lib/utils.js";
 
 import { ICON_STROKE_WIDTH } from "./icon-stroke.js";
-import { TONE_COLORS, TONE_TEXT, type Tone } from "./tones.js";
+import { TONE_COLORS, TONE_FILL, TONE_TEXT, type Tone } from "./tones.js";
 
 export interface StatsFoldProps {
   /** The section's heading. */
@@ -50,6 +51,10 @@ export interface StatCard {
   readonly hint?: string;
   readonly tone?: Tone;
   readonly aside?: StatCardAside;
+  /** A bar under the figure, 0–100 (clamped); in the card's `tone` when it has one, primary otherwise. */
+  readonly progress?: number;
+  /** The bar's accessible name; defaults to `label`. */
+  readonly progressLabel?: string;
 }
 
 export interface StatCardsProps {
@@ -62,13 +67,19 @@ export interface StatCardsProps {
   readonly isOneRow?: boolean;
 }
 
+function clampProgress(progress: number): number {
+  if (!Number.isFinite(progress)) return 0;
+  return Math.min(100, Math.max(0, progress));
+}
+
 function getStatCardsLayout(isFullWidth: boolean, isOneRow: boolean): "row" | "full" | "grid" {
   if (isOneRow) return "row";
   return isFullWidth ? "full" : "grid";
 }
 
 // Summary figures as a row of cards wrapping on a narrow screen: the label, the figure in its tone's colour (never
-// broken, tabular numbers), an optional note under it and an optional short figure on its right as a tag.
+// broken, tabular numbers), an optional bar under it, an optional note and an optional short figure on its right as a
+// tag.
 export function StatCards({ label, cards, isFullWidth = false, isOneRow = false }: StatCardsProps) {
   return (
     <ul
@@ -91,11 +102,20 @@ export function StatCards({ label, cards, isFullWidth = false, isOneRow = false 
             data-stat={card.key}
             className="flex min-w-0 items-start justify-between gap-2 rounded-lg bg-card p-3 text-card-foreground shadow-card"
           >
-            <div className="min-w-0">
+            <div className={cn("min-w-0", card.progress !== undefined && "flex-1")}>
               <div className="text-section-label text-muted-foreground">{card.label}</div>
               <div data-tone={tone} className={cn("mt-1 text-heading-3 whitespace-nowrap tabular-nums", TONE_TEXT[tone])}>
                 {card.value}
               </div>
+              {card.progress === undefined ? null : (
+                <Progress
+                  value={clampProgress(card.progress)}
+                  aria-label={card.progressLabel ?? card.label}
+                  data-slot="stat-card-progress"
+                  className="mt-2"
+                  indicatorClassName={card.tone === undefined ? undefined : TONE_FILL[card.tone]}
+                />
+              )}
               {card.hint === undefined ? null : <div className="mt-1 text-small text-muted-foreground">{card.hint}</div>}
             </div>
             {card.aside === undefined ? null : (

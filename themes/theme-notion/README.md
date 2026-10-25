@@ -17,6 +17,7 @@ npm i @softure-ai/theme-notion tailwindcss @tailwindcss/postcss
 @import "@softure-ai/theme-notion/theme.css";       /* tokens, utilities, dark:, animations, the components' classes */
 @import "@softure-ai/theme-notion/sft-bridge.css";  /* optional: pages of the SOFTURE packages in a PageFrame */
 @import "@softure-ai/theme-kit/base.css";            /* body on the theme's background, text colour and font */
+@import "@softure-ai/theme-notion/page.css";         /* body text 14 px, blue text selection, font smoothing */
 @import "@softure-ai/theme-kit/maplibre.css";        /* only if the app shows MapLibre maps */
 ```
 
@@ -35,13 +36,16 @@ taking the scoped preflight instead of Tailwind's:
 @import "@softure-ai/theme-notion/theme.css";
 @import "@softure-ai/theme-notion/sft-bridge.css";
 @import "@softure-ai/theme-kit/base.css";            /* nothing else styles body under the scoped preflight */
+@import "@softure-ai/theme-notion/page.css";
 @import "@softure-ai/theme-kit/maplibre.css";        /* only if the app shows MapLibre maps */
 ```
 
 `base.css` gives `body` the theme's background, text colour and sans font without the browser's 8 px margin, so a
 page without a shell root, the dark scheme and the Radix portals mounted on `body` (select lists, menus, sheets) all
 take the theme. `maplibre.css` puts the theme's sans font on MapLibre maps (markers, popups, the attribution), which
-`maplibre-gl.css` sets to Helvetica. Both read the theme with `--theme()`, so they go through the app's Tailwind
+`maplibre-gl.css` sets to Helvetica. `page.css` carries the rest of the design system's base layer: text outside the
+components at the panel size (`text-sm`, 14 px, instead of the browser's 16 px), selected text on `blue-tag`, and
+`-webkit-font-smoothing: antialiased` on `html`. All three read the theme with `--theme()` or its tokens, so they go through the app's Tailwind
 after `theme.css`; the app's `globals.css` keeps only `@import` lines.
 
 ```tsx
@@ -99,10 +103,10 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHead
 
 ## Components
 
-All 36 shadcn/ui components of the design system, exported from the package root: accordion, alert, alert-dialog,
+All 37 shadcn/ui components of the design system, exported from the package root: accordion, alert, alert-dialog,
 avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, command, dialog, dropdown-menu, empty,
-field, input, input-group, item, kbd, label, popover, progress, scroll-area, select, separator, sheet, sidebar,
-skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
+field, input, input-group, item, kbd, label, popover, progress, radio-group, scroll-area, select, separator, sheet,
+sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
@@ -149,9 +153,11 @@ Escape inside or the close button calls `onClose`, and the caller moves focus ba
 ```
 
 A screen's summary figures: `StatsFold` (figures folded under a heading, closed by default, on native `<details>`),
-`StatCards` (a wrapping row of figure cards: label, figure in its tone, optional `hint`, optional `aside` tag;
-`isFullWidth` and `isOneRow` change the grid) and `StatPills` ("label **value**" tags in one row). Each figure takes a
-`tone`; the app keeps only its own table of which meaning takes which tone.
+`StatCards` (a wrapping row of figure cards: label, figure in its tone, optional `progress` bar under the figure,
+optional `hint`, optional `aside` tag; `isFullWidth` and `isOneRow` change the grid) and `StatPills` ("label **value**" tags in one row). Each figure takes a
+`tone`; the app keeps only its own table of which meaning takes which tone. A card's `progress` (0–100, clamped) draws
+the package's 6 px `Progress` under the figure, filled in the card's tone (primary without one) and named by
+`progressLabel` (default: the card's `label`).
 
 ```tsx
 <StatsFold title="Summary">
@@ -160,6 +166,7 @@ A screen's summary figures: `StatsFold` (figures folded under a heading, closed 
     cards={[
       { key: "paid", label: "Paid", value: "1,200", tone: "success" },
       { key: "owed", label: "Owed", value: "300", tone: "danger", hint: "2 invoices", aside: { text: "+5%" } },
+      { key: "hours", label: "Hours", value: "21.5 / 23.4 h", progress: 92, progressLabel: "Hours used" },
     ]}
   />
   <StatPills label="Counts" pills={[{ key: "late", label: "Late", value: "1", tone: "danger" }]} />
@@ -218,11 +225,16 @@ Deltas from stock shadcn:
 - `input`, `textarea`, `select`, `input-group`: 28 px high, grey `field` background, thin `input` border.
 - `dropdown-menu`, `select`, `popover`, `command`: radius 10, `shadow-menu` without a border, 28 px items.
 - `dialog`, `alert-dialog`: radius 10, `shadow-dialog`, no border. `card`: `shadow-card` instead of a border.
-- `checkbox` 16 px with a 1.5 px border, `switch` 26 × 16 (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native
-  switch drawn the same), `tooltip` dark without an arrow, `tabs` default to the `line` variant, `progress` 6 px.
+- `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
+  (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,
+  `tabs` default to the `line` variant, `progress` 6 px.
 - `table`: a 34 px header in `muted-foreground`, a line under the last row too.
 - `sidebar`: a controlled sidebar keeps no cookie; the phone sheet's title and description are props; the menu
   skeleton's width is stable per item (shadcn draws a random one during render).
+- `item`: inside an `ItemGroup` (a `role="list"`) every `Item` renders `role="listitem"`; an `asChild` item keeps its
+  child's role (a link stays a link), so wrap it in an element with `role="listitem"`. `scroll-area`: the viewport
+  takes `tabIndex={0}` so keyboard users can scroll it; `viewportProps` reach the viewport (`tabIndex: -1` removes
+  the tab stop when the content has its own focusable elements).
 - `sonner`: no `next-themes`; `theme` is a prop. Focus everywhere: `ring-2 ring-ring` instead of `ring-[3px]`.
 
 A component the app needs beyond these: add it in this package (`npx shadcn@latest add <name>` in a scratch app,

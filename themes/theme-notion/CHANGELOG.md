@@ -6,6 +6,36 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `RadioGroup` and `RadioGroupItem` (#736): the shadcn new-york v4 `radio-group` (Radix), drawn like `checkbox`: 16 px,
+  a 1.5 px `muted-foreground` border, the checked border and dot in `primary`, focus `ring-2 ring-ring`,
+  `aria-invalid` like the other fields. Arrow keys move the choice. `data-slot="radio-group"`, `radio-group-item` and
+  `radio-group-indicator` as in shadcn. An app that draws its own radio replaces it with
+  `import { RadioGroup, RadioGroupItem } from "@softure-ai/theme-notion"`.
+- Accessibility (#747): an `Item` inside an `ItemGroup` renders `role="listitem"`, so a group is a list with list
+  items (axe `aria-required-children`); an `asChild` item keeps its child's role, wrap it in a `role="listitem"`
+  element. The `ScrollArea` viewport takes `tabIndex={0}` and shows its focus ring on Tab (axe
+  `scrollable-region-focusable`); the new `viewportProps` prop passes any viewport prop, `tabIndex: -1` included.
+  Nothing to change in an app.
+- `StatCard` (#739): optional `progress` (0–100, clamped) draws a 6 px bar under the figure with the package's
+  `Progress`, filled in `TONE_FILL[tone]` when the card has a tone and in primary otherwise; `progressLabel` names it
+  (default: `label`). Marked `data-slot="stat-card-progress"`. Cards without `progress` render as before. An app that
+  rebuilt a budget card around `Progress` (e.g. "21.5 / 23.4 h") goes back to `StatCards` with `progress`.
+- `Progress`: the value now reaches the Radix root, so the bar reports `aria-valuenow` and its state (it was always
+  indeterminate to assistive tech before); a new optional `indicatorClassName` recolours the fill.
+- Fixes (#735), class strings that sat on a neighbouring element since 0.1.0, now as in the design system and stock
+  shadcn/ui new-york v4:
+  - `Sidebar`: a `collapsible="none"` sidebar is again a full-height column on `bg-sidebar` (it was transparent); the
+    phone sheet has no padding and no close button of its own (`p-0 [&>button]:hidden`), so it shows only the
+    sidebar; the desktop gap animates its width again when the sidebar collapses.
+  - `Checkbox`: the tick is 14 px (`size-3.5`) instead of lucide's 24 px default.
+  - `Select`: the scroll-up arrow is 16 px (`size-4`); an item's icons and check are `muted-foreground` unless they
+    carry a text colour of their own.
+  - `FieldTitle`: 14 px in medium weight (`text-sm font-medium`, `items-center`), no longer `FieldLabel`'s peer and
+    group markers.
+  An app that overrode these classes by `className` to work around them can drop the override.
+- `page.css` (#735): the design system's page base rules, `body` text at `text-sm` (14 px), `::selection` on
+  `blue-tag` and `html` font smoothing. Add `@import "@softure-ai/theme-notion/page.css";` after the kit's `base.css`
+  in `globals.css` (both README wirings show it); an app that kept those rules itself drops them.
 - `FilterChip` and `FilterChipAdd` (#737): a list's filter pills as a Notion database view draws them, a 24 px
   `rounded-full` pill `icon · Label: value ▾` that opens a `DropdownMenu` of options (pass `DropdownMenu` items as
   children) in the design system's popover. `isActive` turns the pill into the blue tag and sets `data-active`;
