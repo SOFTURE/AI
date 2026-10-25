@@ -90,8 +90,8 @@ adds tables; rollback is in its header. Apps without `oidc` see no change beside
 ### Phase 1: options, tables, buckets, privacy
 
 #### Automated
-- [ ] 1.1 Option refusals and defaults tested; migration constraints and privacy export/delete tested
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Option refusals and defaults tested; migration constraints and privacy export/delete tested — f7cf56b
+- [x] 1.2 Gates green (typecheck, lint, test) — f7cf56b
 
 ### Phase 2: the OIDC flow and the fake provider
 

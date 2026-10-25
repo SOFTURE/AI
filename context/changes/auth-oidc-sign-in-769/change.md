@@ -1,7 +1,7 @@
 ---
 change_id: auth-oidc-sign-in-769
 title: "auth: sign in with an OpenID Connect provider (Google), limited to allowed domains or emails (issue #769)"
-status: plan_reviewed
+status: implementing
 roadmap_item: null
 issue: 769
 branch: claude/project-thread-yi0acu
