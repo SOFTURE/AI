@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `touch-target` size (#742): `--spacing-touch-target: 44px` (Apple HIG 44 pt, WCAG 2.5.5 target size), so
+  `min-h-touch-target` and `size-touch-target` give rows and controls tapped on a phone a finger-sized height next to
+  the pointer sizes `control-height` 28 and `row-height` 34. No component changes height. An app that used the raw
+  spacing scale for this (`min-h-11`) replaces it with `min-h-touch-target`, keeping the pointer height on desktop
+  where it wants it (`min-h-touch-target md:min-h-row-height`).
 - `FilterChip` and `FilterChipAdd` (#737): a list's filter pills as a Notion database view draws them, a 24 px
   `rounded-full` pill `icon · Label: value ▾` that opens a `DropdownMenu` of options (pass `DropdownMenu` items as
   children) in the design system's popover. `isActive` turns the pill into the blue tag and sets `data-active`;

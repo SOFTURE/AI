@@ -131,6 +131,7 @@ export const NOTION_THEME = defineTheme({
     "content-width-wide": "1152px",
     "control-height": "28px",
     "row-height": "34px",
+    "touch-target": "44px",
   },
   // The design system allows only its own colours, so no raw Tailwind colour utility exists.
   clearDefaultPalette: true,
