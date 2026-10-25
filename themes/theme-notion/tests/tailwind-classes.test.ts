@@ -56,8 +56,9 @@ describe("readSourceClassStrings", () => {
   it("reads className attributes and cn and cva arguments, not variant names or other strings", () => {
     const source = `const vVariants = cva("base", { variants: { size: { sm: "h-6" } }, defaultVariants: { size: "sm" } })
 const label = "Not a class"
+const PILL_CLASS = "rounded-full"
 export const A = () => <div className="flex gap-1" title="Hi"><span className={cn("p-1", isOn && "p-2", side === "left" && "pl-1", vVariants({ size: "sm" }))} /></div>`;
 
-    expect([...readSourceClassStrings(source, "a.tsx")].sort()).toEqual(["base", "flex gap-1", "h-6", "p-1", "p-2", "pl-1"]);
+    expect([...readSourceClassStrings(source, "a.tsx")].sort()).toEqual(["base", "flex gap-1", "h-6", "p-1", "p-2", "pl-1", "rounded-full"]);
   });
 });

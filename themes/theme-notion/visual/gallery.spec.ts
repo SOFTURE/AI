@@ -53,6 +53,7 @@ for (const galleryCase of GALLERY_CASES.filter((candidate) => candidate.isIsolat
     // On a phone the sidebar is a sheet behind its trigger: open it, so the sheet itself is what gets compared.
     const isPhoneSheet = galleryCase.component === "Sidebar" && testInfo.project.name.startsWith("phone") && !galleryCase.name.includes("collapsible=none");
     if (isPhoneSheet) await page.locator('[data-slot="sidebar-trigger"]').click();
+    if (galleryCase.clickToOpen !== undefined) await page.locator(galleryCase.clickToOpen).first().click();
     await expect(page.locator(isPhoneSheet ? '[data-slot="sidebar"][data-mobile="true"]' : galleryCase.root).first()).toBeVisible();
 
     await expect(page).toHaveScreenshot(`${galleryCase.name}.png`);

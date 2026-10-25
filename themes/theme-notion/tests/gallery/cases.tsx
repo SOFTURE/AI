@@ -96,6 +96,8 @@ import {
   FieldSeparator,
   FieldSet,
   FieldTitle,
+  FilterChip,
+  FilterChipAdd,
   FoldRow,
   Input,
   InputGroup,
@@ -217,6 +219,8 @@ export interface GalleryCase {
    * which would cover the other cases.
    */
   readonly isIsolated?: boolean;
+  /** On the visual page, the element to click first: a part that only opens on a click (no open prop). */
+  readonly clickToOpen?: string;
   readonly render: () => ReactElement;
 }
 
@@ -1107,6 +1111,22 @@ const UI_CASES: readonly GalleryCase[] = [
   },
 ];
 
+function FilterRow({ isActive }: { isActive: boolean }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <FilterChip label="Status:" value={isActive ? "Failed" : "all"} isActive={isActive} icon={<CircleCheck aria-hidden="true" />}>
+        <DropdownMenuRadioGroup value={isActive ? "failed" : "all"}>
+          <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="failed">Failed</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </FilterChip>
+      <FilterChipAdd>
+        <DropdownMenuItem>Date</DropdownMenuItem>
+      </FilterChipAdd>
+    </div>
+  );
+}
+
 const NOTION_CASES: readonly GalleryCase[] = [
   {
     name: "DetailTable",
@@ -1120,6 +1140,26 @@ const NOTION_CASES: readonly GalleryCase[] = [
           { key: "due", label: "Due", value: "3 November" },
         ]}
       />
+    ),
+  },
+  ...[false, true].map(
+    (isActive): GalleryCase => ({
+      name: `FilterChip[isActive=${String(isActive)}]`,
+      component: "FilterChip",
+      root: '[data-slot="filter-chip"]',
+      render: () => <FilterRow isActive={isActive} />,
+    }),
+  ),
+  {
+    name: "FilterChip[open]",
+    component: "FilterChipAdd",
+    root: '[data-slot="filter-chip-add"]',
+    isIsolated: true,
+    clickToOpen: '[data-slot="filter-chip"]',
+    render: () => (
+      <div className="p-6">
+        <FilterRow isActive />
+      </div>
     ),
   },
   {

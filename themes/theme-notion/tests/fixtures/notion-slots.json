@@ -677,6 +677,21 @@
     ["input","h-7 w-full min-w-0 rounded-md border border-input bg-field px-2.5 py-1 text-base transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40"],
     ["field-error","text-sm font-normal text-destructive"]
   ],
+  "FilterChip[isActive=false]": [
+    ["filter-chip","inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2 text-sm whitespace-nowrap text-muted-foreground transition-colors duration-120 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[active]:bg-blue-tag data-[active]:text-blue-tag-foreground data-[active]:hover:bg-blue-tag data-[active]:data-[state=open]:bg-blue-tag"],
+    ["filter-chip-value","font-medium"],
+    ["filter-chip-add","inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2 text-sm whitespace-nowrap text-muted-foreground transition-colors duration-120 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5"]
+  ],
+  "FilterChip[isActive=true]": [
+    ["filter-chip","inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2 text-sm whitespace-nowrap text-muted-foreground transition-colors duration-120 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[active]:bg-blue-tag data-[active]:text-blue-tag-foreground data-[active]:hover:bg-blue-tag data-[active]:data-[state=open]:bg-blue-tag"],
+    ["filter-chip-value","font-medium"],
+    ["filter-chip-add","inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2 text-sm whitespace-nowrap text-muted-foreground transition-colors duration-120 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5"]
+  ],
+  "FilterChip[open]": [
+    ["filter-chip","inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2 text-sm whitespace-nowrap text-muted-foreground transition-colors duration-120 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 data-[active]:bg-blue-tag data-[active]:text-blue-tag-foreground data-[active]:hover:bg-blue-tag data-[active]:data-[state=open]:bg-blue-tag"],
+    ["filter-chip-value","font-medium"],
+    ["filter-chip-add","inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2 text-sm whitespace-nowrap text-muted-foreground transition-colors duration-120 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5"]
+  ],
   "FoldRow": [
     ["fold-row","group/fold-row border-b border-border"],
     ["fold-row-summary","flex min-h-row-height cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"],

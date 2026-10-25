@@ -7,6 +7,7 @@ import {
   Breadcrumb,
   BreadcrumbEllipsis,
   CommandDialog,
+  FilterChipAdd,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -83,6 +84,7 @@ const CASES: Readonly<Record<string, MessageCase>> = {
       return trigger === rail ? trigger : `${String(trigger)} / ${String(rail)}`;
     },
   },
+  "filterChip.add": { render: (text) => <FilterChipAdd label={text}>{null}</FilterChipAdd>, read: textOf('[data-slot="filter-chip-add"] span') },
   "spinner.label": { render: (text) => <Spinner {...labelled(text)} />, read: attributeOf('[role="status"]', "aria-label") },
   "command.title": { render: (text) => <CommandDialog open title={text} />, read: textOf('[data-slot="dialog-title"]') },
   "command.description": { render: (text) => <CommandDialog open description={text} />, read: textOf('[data-slot="dialog-description"]') },

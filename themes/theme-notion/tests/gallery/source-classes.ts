@@ -26,13 +26,18 @@ function collectStrings(node: ts.Node, into: Set<string>): void {
 }
 
 /**
- * The class strings written in a component file: `className` attributes and the arguments of `cn` and `cva`
- * (variant values included, variant names left out).
+ * The class strings written in a component file: `className` attributes, constants named `*_CLASS(ES)` and the
+ * arguments of `cn` and `cva` (variant values included, variant names left out).
  */
 export function readSourceClassStrings(source: string, fileName: string): Set<string> {
   const file = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const strings = new Set<string>();
   const visit = (node: ts.Node): void => {
+    // A class list kept in a constant (`const PILL_CLASS = "…"`).
+    if (ts.isVariableDeclaration(node) && /CLASS(ES)?$/.test(node.name.getText(file)) && node.initializer !== undefined) {
+      collectStrings(node.initializer, strings);
+      return;
+    }
     if (ts.isJsxAttribute(node) && node.name.getText(file) === "className" && node.initializer !== undefined) {
       collectStrings(node.initializer, strings);
       return;
