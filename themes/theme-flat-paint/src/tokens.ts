@@ -41,6 +41,8 @@ const SHADCN_ROLES = {
  * one heavy grotesque, one flat lime accent). `tests/tokens.test.ts` keeps them equal to the design system's token
  * snapshot (`tests/fixtures/flat-paint-tokens.json`); the shadcn roles are aliases on top. A design system value that
  * names another token (`{lime}`) is written out, except for a token that follows another one in both schemes.
+ * Text sizes and line heights are the snapshot's px in rem (16 px = 1 rem), so type follows the reader's browser
+ * font size; spacing and radii stay px.
  */
 export const FLAT_PAINT_THEME = defineTheme({
   name: "Flat Paint",
@@ -89,22 +91,22 @@ export const FLAT_PAINT_THEME = defineTheme({
     mono: "\"Ubuntu Mono\", ui-monospace, monospace",
   },
   textStyles: {
-    "hero": { fontSize: "88px", lineHeight: "0.92", fontWeight: 700, letterSpacing: "-0.035em" },
-    "display": { fontSize: "60px", lineHeight: "1.08", fontWeight: 700, letterSpacing: "-0.02em" },
-    "headline": { fontSize: "40px", lineHeight: "1.1", fontWeight: 700, letterSpacing: "-0.02em" },
-    "page": { fontSize: "30px", lineHeight: "1.2", fontWeight: 700, letterSpacing: "-0.015em" },
-    "section": { fontSize: "30px", lineHeight: "1.15", fontWeight: 700, letterSpacing: "-0.012em" },
-    "band": { fontSize: "26px", lineHeight: "1.15", fontWeight: 700, letterSpacing: "-0.022em" },
-    "subsection": { fontSize: "18px", lineHeight: "1.35", fontWeight: 700, letterSpacing: "-0.011em" },
-    "body": { fontSize: "16px", lineHeight: "1.5", fontWeight: 400, letterSpacing: "-0.011em" },
-    "body-sm": { fontSize: "14px", lineHeight: "20px", fontWeight: 400 },
-    "label": { fontSize: "14px", lineHeight: "20px", fontWeight: 500 },
-    "caption": { fontSize: "12px", lineHeight: "16px", fontWeight: 400 },
-    "eyebrow": { fontSize: "11px", lineHeight: "16px", fontWeight: 500, letterSpacing: "0.12em" },
-    "figure-lg": { fontSize: "36px", lineHeight: "40px", fontWeight: 700 },
-    "figure": { fontSize: "24px", lineHeight: "32px", fontWeight: 700 },
-    "num": { fontSize: "14px", lineHeight: "20px", fontWeight: 500 },
-    "tabular": { fontSize: "14px", lineHeight: "20px", fontWeight: 400 },
+    "hero": { fontSize: "5.5rem", lineHeight: "0.92", fontWeight: 700, letterSpacing: "-0.035em" },
+    "display": { fontSize: "3.75rem", lineHeight: "1.08", fontWeight: 700, letterSpacing: "-0.02em" },
+    "headline": { fontSize: "2.5rem", lineHeight: "1.1", fontWeight: 700, letterSpacing: "-0.02em" },
+    "page": { fontSize: "1.875rem", lineHeight: "1.2", fontWeight: 700, letterSpacing: "-0.015em" },
+    "section": { fontSize: "1.875rem", lineHeight: "1.15", fontWeight: 700, letterSpacing: "-0.012em" },
+    "band": { fontSize: "1.625rem", lineHeight: "1.15", fontWeight: 700, letterSpacing: "-0.022em" },
+    "subsection": { fontSize: "1.125rem", lineHeight: "1.35", fontWeight: 700, letterSpacing: "-0.011em" },
+    "body": { fontSize: "1rem", lineHeight: "1.5", fontWeight: 400, letterSpacing: "-0.011em" },
+    "body-sm": { fontSize: "0.875rem", lineHeight: "1.25rem", fontWeight: 400 },
+    "label": { fontSize: "0.875rem", lineHeight: "1.25rem", fontWeight: 500 },
+    "caption": { fontSize: "0.75rem", lineHeight: "1rem", fontWeight: 400 },
+    "eyebrow": { fontSize: "0.6875rem", lineHeight: "1rem", fontWeight: 500, letterSpacing: "0.12em" },
+    "figure-lg": { fontSize: "2.25rem", lineHeight: "2.5rem", fontWeight: 700 },
+    "figure": { fontSize: "1.5rem", lineHeight: "2rem", fontWeight: 700 },
+    "num": { fontSize: "0.875rem", lineHeight: "1.25rem", fontWeight: 500 },
+    "tabular": { fontSize: "0.875rem", lineHeight: "1.25rem", fontWeight: 400 },
   },
   radii: {
     "flag": "4px",

@@ -61,6 +61,12 @@ function toColorValue(value: z.infer<typeof themed> | string): ColorValue {
 const ownColors = Object.entries(FLAT_PAINT_THEME.colors).slice(0, snapshot.color.tokens.length);
 const shadcnAliases = Object.entries(FLAT_PAINT_THEME.colors).slice(snapshot.color.tokens.length);
 
+/** A px length in rem at the browser's default 16 px; anything else (a unitless line height) as it is. */
+function toRem(value: string): string {
+  const px = /^(\d+(?:\.\d+)?)px$/.exec(value);
+  return px ? `${Number(px[1]) / 16}rem` : value;
+}
+
 describe("FLAT_PAINT_THEME", () => {
   it("starts with exactly the snapshot's colours, in its order, with their light and dark values", () => {
     expect(ownColors).toEqual(snapshot.color.tokens.map((token) => [token.name, toColorValue(token.value)]));
@@ -86,7 +92,13 @@ describe("FLAT_PAINT_THEME", () => {
           .map(({ name, fontSize, lineHeight, fontWeight, letterSpacing }) => [
             name,
             // The family stays out: the definition's text styles take no font (a `tabular` figure sets it by class).
-            { fontSize, lineHeight: String(lineHeight), fontWeight, ...(letterSpacing === undefined ? {} : { letterSpacing }) },
+            // Sizes go in as rem, so the type follows the reader's browser font size; the snapshot writes px.
+            {
+              fontSize: toRem(fontSize),
+              lineHeight: toRem(String(lineHeight)),
+              fontWeight,
+              ...(letterSpacing === undefined ? {} : { letterSpacing }),
+            },
           ]),
       ),
     );
@@ -101,6 +113,10 @@ describe("FLAT_PAINT_THEME", () => {
         ]),
       ),
     );
+  });
+
+  it("converts a px length to rem and leaves a unitless value", () => {
+    expect([toRem("88px"), toRem("20px"), toRem("1.5")]).toEqual(["5.5rem", "1.25rem", "1.5"]);
   });
 
   it("defines every colour role shadcn/ui components read", () => {

@@ -81,7 +81,7 @@ describe("theme.css in an app's Tailwind", () => {
   });
 
   it("generates the type scale with its line height, weight and tracking", () => {
-    expect(compiled).toMatch(/\.text-hero \{\s*font-size: 88px;\s*line-height: var\(--tw-leading, 0\.92\);\s*letter-spacing: var\(--tw-tracking, -0\.035em\);\s*font-weight: var\(--tw-font-weight, 700\);/);
+    expect(compiled).toMatch(/\.text-hero \{\s*font-size: 5\.5rem;\s*line-height: var\(--tw-leading, 0\.92\);\s*letter-spacing: var\(--tw-tracking, -0\.035em\);\s*font-weight: var\(--tw-font-weight, 700\);/);
   });
 
   it("generates the spacing, size and container tokens as utilities", () => {
