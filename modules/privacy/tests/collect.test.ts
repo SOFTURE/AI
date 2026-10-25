@@ -72,7 +72,7 @@ describe("collectUserData", () => {
   it("gives an unknown user an export with empty parts", async () => {
     const result = await collectUserData(test.ctx, "00000000-0000-4000-8000-000000000000");
     if (!result.ok) throw new Error(result.error);
-    expect(result.value.document.data["auth"]).toEqual({ account: null, roles: [], sessions: [], passwordReset: null });
+    expect(result.value.document.data["auth"]).toEqual({ account: null, roles: [], sessions: [], passwordReset: null, identities: [] });
     expect(result.value.document.data["notes"]).toEqual({ notes: [] });
     expect(result.value.document.data["privacy"]).toEqual({ consents: [] });
   });

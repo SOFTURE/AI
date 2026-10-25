@@ -16,7 +16,14 @@ export type AuthErrorCode =
   | "auth.unauthenticated"
   | "auth.forbidden"
   | "auth.reset_token_invalid"
-  | "auth.password_reset_unavailable";
+  | "auth.password_reset_unavailable"
+  | "auth.oidc_failed"
+  | "auth.oidc_cancelled"
+  | "auth.oidc_not_allowed"
+  | "auth.oidc_no_account";
+
+/** Why an OpenID Connect sign-in did not open a session; the login page shows it (`?oidc_error=`). */
+export type OidcSignInErrorCode = Extract<AuthErrorCode, `auth.oidc_${string}`>;
 
 /** Every code an auth form can show: its own, the rate limiter's and the generic ones. */
 export type AuthFormErrorCode = AuthErrorCode | Extract<SecurityErrorCode, "security.rate_limited" | "security.client_unidentified"> | CoreErrorCode;
@@ -46,6 +53,8 @@ export interface RegisteredEvent {
   readonly consent: { readonly acceptedAt: Date } | null;
   /** The declared `registrationFields` the form sent, by name; client input, so validate it. */
   readonly fields: Readonly<Record<string, string>>;
+  /** The OpenID Connect provider of a sign-in that created the account; null for the register form. */
+  readonly oidcProvider: string | null;
 }
 
 /** The fields of the auth forms that can carry their own error. */

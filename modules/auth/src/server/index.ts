@@ -9,6 +9,23 @@ export {
   type OnlyAccountResult,
   type ResolveOnlyAccountOptions,
 } from "./only-account.js";
+export {
+  completeOidcSignIn,
+  findOidcProvider,
+  getAllowedEmail,
+  getOidcCallbackPath,
+  getOidcProviders,
+  getOidcRedirectUri,
+  startOidcSignIn,
+  type CompleteOidcSignInInput,
+  type CompleteOidcSignInResult,
+  type IdentityClaims,
+  type OidcCallbackParams,
+  type OidcContext,
+  type StartedOidcSignIn,
+  type StartOidcSignInInput,
+  type StartOidcSignInResult,
+} from "./oidc/index.js";
 export { getAuthOptions, getAuthRoutes, type AuthRoutes } from "./options.js";
 export { hashPassword, isPasswordHash, matchPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyPassword, type PasswordMatch } from "./password.js";
 export {
