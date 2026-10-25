@@ -15,6 +15,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `Sheet`. Layouts `over`, `beside`, `left`, `list`; hidden while closed, focus moves in when it opens, Escape and the
   close button call `onClose`. An app that kept its own copy replaces it with the import (same props; `closeLabel` is
   now optional, default "Close") and drops its own file.
+- `DetailTable` (#721): an item's details as a label and value table; rows without a value are left out, and nothing
+  renders when no row has one. On a phone the label sits above its value.
+- `FoldRow` (#721): an item as one folding list row (chevron, title, facts, tone badges) that opens in place to a
+  `DetailTable` plus optional children; a native `<details>`, closed by default, no client state. `data-slot` names:
+  `fold-row`, `fold-row-summary`, `fold-row-heading`, `fold-row-fact`, `fold-row-badges`, `fold-row-content`,
+  `detail-table`.
 
 ## 0.1.1
 
