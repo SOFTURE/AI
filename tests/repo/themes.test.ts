@@ -28,9 +28,25 @@ const THEME_DIRS = readdirSync(join(REPO_ROOT, "themes"))
   .map((name) => `themes/${name}`)
   .filter((dir) => dir !== KIT_DIR && existsSync(join(REPO_ROOT, dir, "package.json")));
 
-const CLIENT_DIRECTIVE = /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*["']use client["']/;
+const CLIENT_DIRECTIVE = /^["']use client["']/;
 const CREATES_CONTEXT = /\bcreateContext\b/;
 const CALLS_HOOK = /\buse[A-Z]\w*\s*\(/;
+
+// React allows comments before a directive, so they are skipped (a loop, not a regex: no backtracking).
+function hasClientDirective(source: string): boolean {
+  let rest = source.trimStart();
+  for (;;) {
+    if (rest.startsWith("//")) {
+      const end = rest.indexOf("\n");
+      rest = end === -1 ? "" : rest.slice(end + 1).trimStart();
+    } else if (rest.startsWith("/*")) {
+      const end = rest.indexOf("*/", 2);
+      rest = end === -1 ? "" : rest.slice(end + 2).trimStart();
+    } else {
+      return CLIENT_DIRECTIVE.test(rest);
+    }
+  }
+}
 
 function listSourceFiles(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" })
@@ -46,7 +62,7 @@ function findMissingClientDirectives(srcDir: string): string[] {
     .filter((file) => {
       const source = readFileSync(file, "utf8");
       const needsClient = CREATES_CONTEXT.test(source) || (file.endsWith(".tsx") && CALLS_HOOK.test(source));
-      return needsClient && !CLIENT_DIRECTIVE.test(source);
+      return needsClient && !hasClientDirective(source);
     })
     .map((file) => file.slice(srcDir.length + 1));
 }
