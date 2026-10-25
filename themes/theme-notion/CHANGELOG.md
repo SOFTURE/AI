@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `Code` and `CodeBlock` (#740): inline code (`text-code` mono, `red` on `secondary`, `rounded-xs px-1`) and a mono
+  block on `muted` (`rounded-lg px-4 py-3`) that scrolls sideways, or wraps with `wrap`. `label` makes the block a
+  named, focusable region. `data-slot="code"` / `data-slot="code-block"`. An app that writes these classes on its own
+  `<code>` and `<pre>` replaces them with `import { Code, CodeBlock } from "@softure-ai/theme-notion"`.
+
 ## 0.2.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.2` (was `^0.1.0`): the version that ships `base.css` and `maplibre.css`, which

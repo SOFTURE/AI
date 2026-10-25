@@ -107,7 +107,7 @@ word), `PageHeader` (breadcrumb, icon box, title, description, actions), `Proper
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
-list of what it counts, below).
+list of what it counts, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below).
 
 **`SidePanel`.** A panel next to a canvas (a map) that leaves the canvas usable, so a switch inside shows its effect
 at once (`Sheet` is modal). It floats on `background` with `shadow-menu`, 24 rem wide, full width on a phone, with a
@@ -157,6 +157,16 @@ work. The colour means the worst of what it lists; the copy is props.
   <span role="listitem">Payment overdue</span>
   <span role="listitem"><a href="/tickets">Tickets to buy</a></span>
 </MarkPopover>
+```
+
+**`Code` and `CodeBlock`.** `Code` is inline code: the `text-code` style (13/20 mono) in `red` on `secondary`, as in
+Notion. `CodeBlock` is a `<pre>` for logs and file paths on `muted`, radius 8; long lines scroll sideways, `wrap` wraps
+them. With `label` the block is a named region (`role="region"`) that keyboard users can focus and scroll; without it,
+plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-block"` mark the parts.
+
+```tsx
+<p>Run <Code>npm ci</Code> first.</p>
+<CodeBlock label="Build log" wrap>{log}</CodeBlock>
 ```
 
 Deltas from stock shadcn:
