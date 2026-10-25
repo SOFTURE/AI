@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `FilterChip` and `FilterChipAdd` (#737): a list's filter pills as a Notion database view draws them, a 24 px
+  `rounded-full` pill `icon · Label: value ▾` that opens a `DropdownMenu` of options (pass `DropdownMenu` items as
+  children) in the design system's popover. `isActive` turns the pill into the blue tag and sets `data-active`;
+  `data-slot="filter-chip"`, `filter-chip-value` and `filter-chip-add` mark the parts. `FilterChipAdd` is the
+  "+ Add filter" pill; its text comes from `notionMessages.en.filterChip.add` and is replaced through `label`. An app
+  that styled its own filter trigger replaces it with `import { FilterChip, FilterChipAdd } from "@softure-ai/theme-notion"`.
 - `Steps` (#738): an ordered process (the stages of a multi-step task, the phases of a migration, the steps of one
   run) as an `<ol>`. Each step has a number in a badge coloured by its `state` (`done`, `current`, `todo` default,
   `failed`), a `title`, an optional `note` and an optional `aside`; layouts `row` (a wrapping grid of cards, the
