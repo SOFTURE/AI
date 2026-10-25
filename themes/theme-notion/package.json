@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/theme-notion",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "SOFTURE AI Notion theme: shadcn/ui components (new-york v4, Radix, Tailwind CSS v4, lucide) with the Notion design system's tokens and deltas, ready to import.",
   "license": "MIT",
   "type": "module",
