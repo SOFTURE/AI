@@ -49,6 +49,6 @@ Mirror the new exports in the "NOTION · Design System" artifact bundle (no visu
 
 ## Progress
 
-- [ ] Phase 1: the new options and their tests
-- [ ] Phase 2: docs
-- [ ] Phase 3: design system
+- [x] Phase 1: the new options and their tests (5272270)
+- [x] Phase 2: docs (5272270, same commit)
+- [x] Phase 3: design system (artifact version 17, no repository commit)

@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-sortable-gaps-771
 title: "theme-notion: SortableList gaps, disabled, drop groups, drag callbacks, activator, ol (issue #771)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 771
 branch: claude/project-thread-8yxuzo
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
