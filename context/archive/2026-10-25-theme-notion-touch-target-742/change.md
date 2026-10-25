@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-touch-target-742
 title: "theme-notion: a touch-target size token for phone list rows (issue #742)"
-status: open
+status: archived
 roadmap_item: null
 issue: 742
 branch: claude/project-thread-5qfylo
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

@@ -19,4 +19,4 @@ Files: `themes/theme-notion/src/tokens.ts`, `tests/fixtures/notion-tokens.json`,
 
 ## Progress
 
-- [ ] Phase 1: the touch-target size
+- [x] Phase 1: the touch-target size (8b9ea0d)
