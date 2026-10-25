@@ -81,7 +81,23 @@ avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, co
 field, input, input-group, item, kbd, label, popover, progress, scroll-area, select, separator, sheet, sidebar,
 skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
-`PageFrame` (a page outside the app shell, the target of `sft-bridge.css`).
+`PageFrame` (a page outside the app shell, the target of `sft-bridge.css`), `MarkPopover` (a counted tag that opens a list of
+what it counts).
+
+**MarkPopover.** A tag in a palette colour with an icon and a count; a click or Enter opens the design system's
+popover listing the entries, Escape or a click outside closes it. It runs on the browser's Popover API (no client
+state, no portal): the panel sits in the top layer, so a card's `overflow` never clips it, centred on a phone and
+under its mark where CSS anchor positioning is supported. Only phrasing elements, so it fits inside a `<summary>` or
+a paragraph; a click on the panel's text does not toggle an enclosing `<details>`, links and buttons inside still
+work. The colour means the worst of what it lists; the copy is props.
+
+```tsx
+<MarkPopover color="red" icon={TriangleAlert} count={2} label="2 open warnings, show the list"
+  heading="Open warnings" closeLabel="Close" buttonData={{ "data-kind": "warnings" }}>
+  <span role="listitem">Payment overdue</span>
+  <span role="listitem"><a href="/tickets">Tickets to buy</a></span>
+</MarkPopover>
+```
 
 Deltas from stock shadcn:
 

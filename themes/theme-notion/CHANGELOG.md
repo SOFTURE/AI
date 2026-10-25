@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `MarkPopover` (#725): a counted tag (`badgeVariants({ variant: "tag", color })` with an icon and a count) that opens
+  the design system's popover listing entries, on the browser's Popover API with no client state, phrasing
+  elements only (`data-slot="mark"`, `data-slot="mark-popover"`). An app with its own copy of this mark deletes it
+  and imports `MarkPopover` (and `MarkPopoverProps`) from `@softure-ai/theme-notion`: same props, same markup and
+  classes; its domain marks (warnings, tickets) keep passing their entries as `role="listitem"` spans.
+
 ## 0.1.1
 
 - No change to the package itself: the first version published through the npm trusted publisher (OIDC) with
