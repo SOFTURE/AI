@@ -27,31 +27,24 @@ function getColor(token: string, scheme: Scheme): string {
 
 const AA_TEXT = 4.5;
 
-// The design system's own values below AA 4.5: Notion's grey secondary text in the light scheme. Each pins today's
-// ratio as a floor, so a token change can only raise it; reaching AA is a design system decision.
-const BELOW_AA: Readonly<Record<string, number>> = {
-  "light muted-foreground on background": 4.47,
-  "light muted-foreground on muted": 4.17,
-  "light muted-foreground on sidebar": 4.17,
-};
-
 const TEXT_ROLES = ["foreground", "muted-foreground", "sidebar-foreground"] as const;
 const BACKGROUNDS = ["background", "muted", "sidebar"] as const;
-const PAIRS = (["light", "dark"] as const).flatMap((scheme) =>
-  TEXT_ROLES.flatMap((text) => BACKGROUNDS.map((background) => ({ scheme, text, background, name: `${scheme} ${text} on ${background}` }))),
-);
+// Text drawn on a solid fill: buttons, badges and the active sidebar item.
+const SOLID_PAIRS = [
+  ["primary-foreground", "primary"],
+  ["destructive-foreground", "destructive"],
+  ["sidebar-primary-foreground", "sidebar-primary"],
+] as const;
+const PAIRS = (["light", "dark"] as const).flatMap((scheme) => [
+  ...TEXT_ROLES.flatMap((text) => BACKGROUNDS.map((background) => ({ scheme, text, background, name: `${scheme} ${text} on ${background}` }))),
+  ...SOLID_PAIRS.map(([text, background]) => ({ scheme, text, background, name: `${scheme} ${text} on ${background}` })),
+]);
 
 describe("text contrast of the design system's tokens", () => {
-  it.each(PAIRS)("$name is at least AA or its pinned floor", ({ scheme, text, background, name }) => {
+  it.each(PAIRS)("$name meets WCAG AA", ({ scheme, text, background }) => {
     const contrast = getContrast(getColor(text, scheme), getColor(background, scheme));
 
-    expect(contrast).toBeGreaterThanOrEqual(BELOW_AA[name] ?? AA_TEXT);
-  });
-
-  it("lists only pairs that are below AA today", () => {
-    const belowAa = PAIRS.filter(({ scheme, text, background }) => getContrast(getColor(text, scheme), getColor(background, scheme)) < AA_TEXT).map(({ name }) => name);
-
-    expect(belowAa).toEqual(Object.keys(BELOW_AA));
+    expect(contrast).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
   it("computes WCAG ratios", () => {

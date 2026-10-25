@@ -9,10 +9,8 @@ import { GALLERY_DIR } from "./build-gallery.js";
 
 const PAGE_URL = pathToFileURL(join(GALLERY_DIR, "index.html")).href;
 
-// WCAG 2.1 A and AA. `color-contrast` is off: the design system's light secondary text and white on its blue are
-// below AA by its own tokens, a design decision pinned as a floor in tests/contrast.test.ts.
+// WCAG 2.1 A and AA, colour contrast included.
 const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
-const AXE_DISABLED = ["color-contrast"];
 
 // Violations known and tracked elsewhere: the rule, a selector fragment of the offending node, and why it stays.
 // An entry whose violation no longer occurs is harmless; remove it with the fix.
@@ -33,7 +31,7 @@ async function openCase(page: Page, name: string | null): Promise<void> {
 }
 
 async function expectNoAxeViolations(page: Page): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).disableRules(AXE_DISABLED).analyze();
+  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
   const unknown = results.violations.flatMap((violation) =>
     violation.nodes.map((node) => `${violation.id}: ${node.target.join(" ")}`).filter((entry) => !isKnown(entry.split(": ")[0] ?? "", entry.slice(entry.indexOf(": ") + 2))),
   );
