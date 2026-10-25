@@ -302,3 +302,41 @@ is decoration and stays quiet.
 **Overriding a token.** Redefine its CSS variable after `theme.css` (`:root { --primary: #e16259; }`, and the same in
 a `.dark` block for the dark value), or build a variant with `extendTheme(theme, { name, colors: { … } })` and write
 it with `buildThemeCss` (the kit README, "Overriding in an app").
+
+## Testing
+
+The suite keeps the package equal to the design system: a class that drifts fails a gate before merge. Layers 1–5
+and 8 run in `npm test`; the visual and accessibility layers and the coverage threshold run in the `themes` workflow
+on every pull request that touches `themes/`.
+
+1. **Every export renders** (`tests/render.test.tsx`): one gallery case (`tests/gallery/cases.tsx`) per component,
+   composition and `cva` variant × size, overlays open.
+2. **Class parity** (`tests/parity.test.tsx`): every case's `data-slot` elements with their class strings equal
+   `tests/fixtures/notion-slots.json`.
+3. **Upstream guard** (`tests/upstream.test.ts`): each `src/ui` file equals the pinned shadcn new-york v4 source
+   (`tests/upstream/*.tsx.txt`, commit in `tests/upstream/source.json`) with the deltas listed in
+   `tests/upstream/deltas.ts`, each with its reason. A change nobody listed fails here.
+4. **Behaviour** (`tests/behaviour/`): the sidebar's modes, phone sheet, cookie and labels; form controls; overlays
+   (open, choose, close label, Escape, focus return); tabs; every message-layer prop.
+5. **Tailwind generation** (`tests/tailwind-classes.test.ts`): every class written in `src/ui` and `src/notion` and
+   every class in the parity fixture generates CSS on the theme (no unknown token, no cleared default colour).
+6. **Visual regression** (`visual/gallery.spec.ts`): the gallery and each overlay at 1440 and 390 px, light and dark,
+   against `visual/baselines/`, in Playwright's Chromium with fonts from npm packages.
+7. **Accessibility**: axe (WCAG 2.1 A and AA, colour contrast included) on the same pages; the token pairs in
+   `tests/contrast.test.ts` (see Contrast above) run in `npm test`.
+8. **Inventory** (`tests/inventory.test.ts`): exports, files, the README's component list and the gallery agree.
+
+Coverage of `src` stays at or above 90% of statements and branches (`npm run test:coverage -w @softure-ai/theme-notion`).
+
+**Changing a component on purpose.** Edit the file, then in the same change:
+
+- add or edit its entry in `tests/upstream/deltas.ts` (the upstream text, the package's text, why);
+- refresh the parity fixture and review its diff:
+  `UPDATE_FIXTURES=1 npx vitest run themes/theme-notion/tests/parity.test.tsx`;
+- refresh the visual baselines and look at the changed images:
+  `npm run test:visual -w @softure-ai/theme-notion -- --update-snapshots` (needs
+  `npx playwright install chromium` once). The CI job uploads the expected, actual and diff images when a comparison
+  fails.
+
+A new component gets a case in `tests/gallery/cases.tsx` (and its `cva` axes in `CVA_AXES`), a pinned upstream file
+when it comes from shadcn, and a line in the component list above.

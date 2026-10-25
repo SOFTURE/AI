@@ -1,0 +1,67 @@
+# The theme packages' slow layers (themes/theme-notion/README.md, "Testing"): the visual gallery compared with its
+# committed baselines and checked by axe, in light and dark, desktop and phone; and the coverage threshold. Only
+# changes under themes/ can move them, so other pull requests skip the run. The fast layers run in `npm test` (ci.yml).
+
+name: themes
+
+on:
+  pull_request:
+    paths:
+      - "themes/**"
+      - "package-lock.json"
+      - ".github/workflows/themes.yml"
+  push:
+    branches: [master]
+    paths:
+      - "themes/**"
+      - "package-lock.json"
+      - ".github/workflows/themes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: themes-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    name: theme-notion visual regression and axe
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Playwright's own Chromium build for the installed version: the build the baselines were taken with, not the
+      # runner's Google Chrome.
+      - name: Install Chromium
+        timeout-minutes: 5
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:visual -w @softure-ai/theme-notion
+      # The report holds the expected, actual and diff images of a failed comparison.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: theme-notion-visual-report
+          path: |
+            themes/theme-notion/visual/report
+            themes/theme-notion/visual/results
+          retention-days: 7
+
+  coverage:
+    name: theme-notion coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:coverage -w @softure-ai/theme-notion
