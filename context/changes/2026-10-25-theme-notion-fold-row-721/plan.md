@@ -37,6 +37,6 @@ README "Components" names both compositions; CHANGELOG "Unreleased" entry.
 
 ## Progress
 
-- [ ] Phase 1: DetailTable
-- [ ] Phase 2: FoldRow
+- [x] Phase 1: DetailTable (f4f7018)
+- [ ] Phase 2: FoldRow (waits for #720 on master)
 - [ ] Phase 3: docs
