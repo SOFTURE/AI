@@ -755,6 +755,10 @@
       {
         "name": "row-height",
         "value": "34px"
+      },
+      {
+        "name": "touch-target",
+        "value": "44px"
       }
     ]
   }

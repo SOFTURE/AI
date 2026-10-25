@@ -30,6 +30,9 @@ function getTailwindCli(): string {
   return join(dirname(manifestPath), manifest.bin.tailwindcss);
 }
 
+// Classes an app writes in its own markup.
+const APP_CLASSES = ["min-h-touch-target", "size-touch-target"];
+
 let workDir = "";
 let compiled = "";
 
@@ -39,8 +42,14 @@ beforeAll(() => {
   workDir = mkdtempSync(join(PACKAGE_DIR, ".css-test-"));
   const sources = CONFIG.sources.map((source) => join(PACKAGE_DIR, "src", source));
   writeFileSync(join(workDir, "theme.css"), buildThemeStylesheet({ theme: NOTION_THEME, sources, imports: CONFIG.imports }));
-  const kitImports = [...KIT_STYLESHEETS, PAGE_STYLESHEET].map((path) => `@import ${JSON.stringify(path)};\n`).join("");
-  writeFileSync(join(workDir, "app.css"), `@import "tailwindcss" source(none);\n@import "./theme.css";\n${kitImports}`);
+  const kitImports = [...KIT_STYLESHEETS, PAGE_STYLESHEET].map((path) => `@import ${JSON.stringify(path)};
+`).join("");
+  // An app's own markup reaches Tailwind as its own source; here inline, for the sizes no component uses.
+  const appSource = `@source inline("${APP_CLASSES.join(" ")}");
+`;
+  writeFileSync(join(workDir, "app.css"), `@import "tailwindcss" source(none);
+@import "./theme.css";
+${kitImports}${appSource}`);
   execFileSync(process.execPath, [getTailwindCli(), "-i", join(workDir, "app.css"), "-o", join(workDir, "out.css")], {
     cwd: workDir,
     stdio: ["ignore", "ignore", "pipe"],
@@ -69,6 +78,11 @@ describe("theme.css in an app's Tailwind", () => {
     expect(compiled).toContain("--primary: #0171cf;");
   });
 
+  it("gives an app's phone rows the 44 px touch-target size", () => {
+    expect(compiled).toMatch(/\.min-h-touch-target \{\s*min-height: 44px;\s*\}/);
+    expect(compiled).toMatch(/\.size-touch-target \{\s*width: 44px;\s*height: 44px;\s*\}/);
+  });
+
   it("generates the TabBar's line-tab utilities, the current tab's underline included", () => {
     for (const utility of [".h-control-height", ".text-ui-medium", ".duration-120", ".after\\:h-0\\.5", ".tabular-nums"]) {
       expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
@@ -80,6 +94,13 @@ describe("theme.css in an app's Tailwind", () => {
     for (const className of new Set([...Object.values(TONE_TEXT), ...Object.values(TONE_FILL), ...Object.values(TONE_EDGE)])) {
       expect([className, compiled.includes(`.${className} {`)]).toEqual([className, true]);
     }
+  });
+
+  it("generates the sortable row's touch defaults and its lifted look", () => {
+    for (const utility of [".touch-manipulation", ".select-none", "\\[-webkit-touch-callout\\:none\\]", "data-\\[dragging\\]\\:bg-accent-strong", "data-\\[dragging\\]\\:shadow-menu", ".touch-none", ".cursor-grab"]) {
+      expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
+    }
+    expect(compiled).toMatch(/-webkit-touch-callout: none/);
   });
 
   it("generates the side panel's layout variants and its hidden rule", () => {

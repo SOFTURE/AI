@@ -20,6 +20,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   against its track. Decorative separators (`border`, `sidebar-border`) are unchanged. An app changes: a
   `border-input` or `bg-input` of its own that only separates content (a divider, a button outline) moves to
   `border-border` / `bg-border`; its fields keep `border-input` and gain the contrast without a change.
+- Fix (#746): table rows and the table footer, accordion items, default and destructive alerts, the command input,
+  item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
+  border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
+  release), which both wirings already import: update the kit, no other change.
+- `touch-target` size (#742): `--spacing-touch-target: 44px` (Apple HIG 44 pt, WCAG 2.5.5 target size), so
+  `min-h-touch-target` and `size-touch-target` give rows and controls tapped on a phone a finger-sized height next to
+  the pointer sizes `control-height` 28 and `row-height` 34. No component changes height. An app that used the raw
+  spacing scale for this (`min-h-11`) replaces it with `min-h-touch-target`, keeping the pointer height on desktop
+  where it wants it (`min-h-touch-target md:min-h-row-height`).
 - Contrast (#756): every text colour now meets WCAG 2.2 AA (4.5:1) on the surfaces the parts put it on, in light and
   dark, and the focus ring reaches 3:1; `tests/contrast.test.ts` guards each pair. Lightness-only shifts, hue and
   chroma kept:
@@ -45,10 +54,6 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   (`text-primary` on text, a link colour) moves to `text-link`; a destructive fill of its own adds
   `dark:bg-destructive/60`; a hard-coded `#2383e2` or `#787774` moves to the token; text faded by an opacity
   modifier (`text-foreground/60`) moves to `text-muted-foreground`.
-- Fix (#746): table rows and the table footer, accordion items, default and destructive alerts, the command input,
-  item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
-  border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
-  release), which both wirings already import: update the kit, no other change.
 - `RadioGroup` and `RadioGroupItem` (#736): the shadcn new-york v4 `radio-group` (Radix), drawn like `checkbox`: 16 px,
   a 1.5 px `muted-foreground` border, the checked border and dot in `primary`, focus `ring-2 ring-ring`,
   `aria-invalid` like the other fields. Arrow keys move the choice. `data-slot="radio-group"`, `radio-group-item` and
@@ -85,6 +90,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `data-slot="filter-chip"`, `filter-chip-value` and `filter-chip-add` mark the parts. `FilterChipAdd` is the
   "+ Add filter" pill; its text comes from `notionMessages.en.filterChip.add` and is replaced through `label`. An app
   that styled its own filter trigger replaces it with `import { FilterChip, FilterChipAdd } from "@softure-ai/theme-notion"`.
+- `Code` and `CodeBlock` (#740): inline code (`text-code` mono, `red` on `secondary`, `rounded-xs px-1`) and a mono
+  block on `muted` (`rounded-lg px-4 py-3`) that scrolls sideways, or wraps with `wrap`. `label` makes the block a
+  named, focusable region. `data-slot="code"` / `data-slot="code-block"`. An app that writes these classes on its own
+  `<code>` and `<pre>` replaces them with `import { Code, CodeBlock } from "@softure-ai/theme-notion"`.
 - `Steps` (#738): an ordered process (the stages of a multi-step task, the phases of a migration, the steps of one
   run) as an `<ol>`. Each step has a number in a badge coloured by its `state` (`done`, `current`, `todo` default,
   `failed`), a `title`, an optional `note` and an optional `aside`; layouts `row` (a wrapping grid of cards, the
@@ -92,6 +101,18 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   also a screen-reader word (`stateLabels` replaces the English copy, `notionMessages.en.steps`), and
   `data-slot="steps"`, `data-step`, `data-state` mark the parts. An app that draws its own stage lists replaces them
   with `import { Steps } from "@softure-ai/theme-notion"` and maps its own stage status to the four states.
+- `SortableList`, `SortableItem` and `SortableHandle` (#752): a list whose rows are reordered by dragging, on the
+  headless `@dnd-kit/core` and `@dnd-kit/sortable` (new dependencies of the package). A long press of 500 ms lifts a
+  row on a touch screen (`holdDelay`, `tolerance` 8 px: a swipe before the hold scrolls, a tap still activates the
+  row), the keyboard reorders with Space or Enter, the arrows and Escape, and the row moves only up and down. The
+  lifted row is styled by the theme (`data-dragging`: `accent-strong`, `shadow-menu`, raised); every row is
+  `touch-manipulation select-none` without the long-press callout. `items` (ids in order) and
+  `onReorder(next, { id, from, to })` keep the order with the app. `instructions` and `announcements` (strings with
+  `{item}`, `{position}`, `{total}`; English defaults in `notionMessages.en.sortable`) take the app's wording, and
+  `getItemLabel` names a row. `dragBy="handle"` drags only by a `SortableHandle` grip button. An app that wired
+  dnd-kit itself replaces its `DndContext`, sensors, `SortableContext` and the composed lifted-row classes with
+  `import { SortableList, SortableItem } from "@softure-ai/theme-notion"`, passes its message-dictionary strings as
+  `instructions` and `announcements`, and drops its own `@dnd-kit/*` dependencies unless it uses them elsewhere.
 
 ## 0.2.0
 
