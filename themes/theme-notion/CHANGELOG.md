@@ -4,6 +4,28 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `SortableList` covers what kept an app on its own dnd-kit wiring (#771); everything is opt-in, existing lists
+  behave as before:
+  - `disabled` on the list (read-only: no row lifts by touch, mouse or keyboard, rows stay clickable) and on a
+    `SortableItem` (one row; wins over the list's). A disabled row carries `data-disabled` and no drag attributes; a
+    disabled row's `SortableHandle` is a disabled button.
+  - `group` on a `SortableItem`: a lifted row lands only among rows of its own group, by pointer and keyboard.
+  - `onDragStart(id)`, `onDragEnd(id, move | null)` (every drop, `null` when the order stayed) and
+    `onDragCancel(id)`; the list carries `data-sorting` while a row is lifted. The list's props no longer take the
+    native HTML `onDragStart` / `onDragEnd` (dnd-kit never used native drag events).
+  - `dragBy="activator"` with `SortableActivator`: the app's own element inside the row lifts it with the row's
+    hold; a press elsewhere in the row does not. The keyboard picks up the focused row, which stays focusable.
+  - `as="ol"`; children that are not a `SortableItem` stay in place.
+  - Fix: a key pressed on a control inside a row (Enter on a button) no longer picks up the row in `row` mode.
+  - Migration for an app with its own `DndContext` / `useSortable`: render `SortableList` (`as="ol"` for a numbered
+    list, `disabled` for the read-only mode, `dragBy="activator"` with the row's button in `SortableActivator`),
+    a `SortableItem` per row with `group`, and move the lift and drop side effects (hiding secondary content, a
+    vibration) to `onDragStart` / `onDragEnd` / `onDragCancel` or to `group-data-[sorting]:…` classes. Drop the
+    click grace timer after a drop: the click that ends a mouse drop never reaches the row. Remove the app's
+    `accent-strong` / `shadow-menu` lifted classes and its `@dnd-kit/*` dependencies if nothing else uses them.
+
 ## 0.3.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.3` (was `^0.1.2`): the version whose `base.css` carries the border and outline

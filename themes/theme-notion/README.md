@@ -117,7 +117,7 @@ and more, a native `<details>`), `PageFrame` (a page outside the app shell, the 
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
 stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
-`SortableList`, `SortableItem` and `SortableHandle` (rows reordered by dragging, below).
+`SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below).
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill
 `icon · Label: value ▾` that opens a menu of options in the design system's popover. While the default value is
@@ -230,8 +230,20 @@ app: `items` are the rows' ids in order, and `onReorder(next, { id, from, to })`
 `dragBy="handle"` leaves the row alone and drags only by a `SortableHandle` (a ghost grip button, for a desktop list;
 a mouse starts at once there). A screen reader hears the `instructions` on the row (or handle) and the
 `announcements` while it moves: strings with `{item}`, `{position}` and `{total}`, where `getItemLabel(id)` names the
-row (the id by default). `data-slot="sortable-list"`, `sortable-item` (with `data-id`) and `sortable-handle` mark the
-parts.
+row (the id by default). `data-slot="sortable-list"`, `sortable-item` (with `data-id`), `sortable-handle` and
+`sortable-activator` mark the parts.
+
+`dragBy="activator"` lifts a row only from the app's own element wrapped in `SortableActivator` (the row's button,
+not its unfolded details), with the same hold; the element keeps its click and keys. The keyboard still picks up the
+focused row, so the row stays focusable next to the button: Space and Enter on the button keep meaning "open". A key
+pressed on any control inside a row stays with that control in every mode. `disabled` on the list makes it read-only
+(no row lifts by touch, mouse or keyboard, the drag attributes go, the rows keep their own handlers, `data-disabled`
+marks them); `disabled` on a `SortableItem` holds one row and wins over the list's. `group` on a `SortableItem` keeps
+a lifted row among rows of the same group (by pointer and keyboard); rows without a group form one together.
+`onDragStart(id)`, `onDragEnd(id, move | null)` (every drop; `null` when the order stayed) and `onDragCancel(id)`
+follow the drag, and the list carries `data-sorting` while a row is lifted (`group-data-[sorting]:hidden` on a row's
+secondary content with `group` on the list). `as="ol"` renders a numbered list; children that are not a
+`SortableItem` (an empty-state `<li>`) stay in place. The click that ends a mouse drop never reaches the row.
 
 ```tsx
 <SortableList label="Shopping list" items={ids} onReorder={(next) => setIds(next)}
@@ -250,6 +262,23 @@ parts.
       {id}
     </SortableItem>
   ))}
+</SortableList>
+
+<SortableList label="Day" as="ol" items={ids} onReorder={setIds} dragBy="activator" disabled={isReadOnly}
+  onDragStart={() => navigator.vibrate?.(10)} className="group">
+  {ids.map((id) => (
+    <SortableItem key={id} id={id} group={byId[id].isStop ? "stops" : "to-fit"}>
+      <SortableActivator>
+        <button type="button" onClick={() => toggle(id)}>{byId[id].name}</button>
+      </SortableActivator>
+      {openId === id ? (
+        <div className="group-data-[sorting]:hidden">
+          <DetailTable label="Details" rows={byId[id].details} />
+        </div>
+      ) : null}
+    </SortableItem>
+  ))}
+  {ids.length === 0 ? <li className="text-muted-foreground">Nothing planned</li> : null}
 </SortableList>
 ```
 

@@ -181,6 +181,7 @@ import {
   Skeleton,
   Spinner,
   StatCards,
+  SortableActivator,
   SortableHandle,
   SortableItem,
   SortableList,
@@ -1177,7 +1178,7 @@ const NOTION_CASES: readonly GalleryCase[] = [
       ),
     }),
   ),
-  ...(["row", "handle"] as const).map(
+  ...(["row", "handle", "activator"] as const).map(
     (dragBy): GalleryCase => ({
       name: `SortableList[dragBy=${dragBy}]`,
       component: "SortableList",
@@ -1187,7 +1188,13 @@ const NOTION_CASES: readonly GalleryCase[] = [
           {["plan", "build", "ship"].map((id) => (
             <SortableItem key={id} id={id} className="flex items-center gap-2 px-2 py-1 text-ui">
               {dragBy === "handle" ? <SortableHandle /> : null}
-              {id}
+              {dragBy === "activator" ? (
+                <SortableActivator>
+                  <button type="button">{id}</button>
+                </SortableActivator>
+              ) : (
+                id
+              )}
             </SortableItem>
           ))}
         </SortableList>
