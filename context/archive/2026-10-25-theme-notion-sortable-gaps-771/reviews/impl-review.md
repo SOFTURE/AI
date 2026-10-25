@@ -23,6 +23,6 @@ Reviewed commit 5272270 against plan.md and issue #771.
 - Classes unchanged; the gallery gains `SortableList[dragBy=activator]` (fixture: additions only).
 - Docs: README paragraph and example, CHANGELOG Unreleased with the app's migration. Design system artifact
   updated (bundle, types, SortableList card, version 17), render-checked in light and dark.
-- Gates: typecheck, ESLint, language gate green; theme-notion tests 802/802 (26 in Sortable).
+- Gates: typecheck, ESLint, language gate green; theme-notion tests 806/806 (26 in Sortable).
 
 Verdict: approved, no changes.
