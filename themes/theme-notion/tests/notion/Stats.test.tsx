@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { StatCards, StatPills, StatsFold } from "../../src/notion/Stats.js";
+import { StatCards, StatPills, StatsFold, type StatCard } from "../../src/notion/Stats.js";
 import { readTextNodes } from "../support.js";
 
 describe("StatsFold", () => {
@@ -87,6 +87,68 @@ describe("StatCards", () => {
     );
 
     expect(html).toMatch(/data-slot="stat-card-aside" data-variant="tag" class="[^"]*bg-default-tag[^"]*" data-tone="default"/);
+  });
+});
+
+describe("StatCards progress", () => {
+  function renderCard(card: Partial<StatCard>): string {
+    return renderToStaticMarkup(<StatCards label="Budgets" cards={[{ key: "hours", label: "Hours", value: "21.5 / 23.4 h", ...card }]} />);
+  }
+
+  function readProgressBar(html: string): string {
+    const match = /<div [^>]*role="progressbar"[^>]*>/.exec(html);
+    if (match === null) throw new Error(`No progress bar in ${html}`);
+    return match[0];
+  }
+
+  it("draws no bar and keeps the left column unchanged when not given a progress", () => {
+    const html = renderCard({});
+
+    expect(html).not.toContain("progressbar");
+    expect(html).toContain('<li data-stat="hours" class="flex min-w-0 items-start justify-between gap-2 rounded-lg bg-card p-3 text-card-foreground shadow-card"><div class="min-w-0">');
+  });
+
+  it("draws a 6 px bar under the figure, above the hint, named after the label", () => {
+    const html = renderCard({ progress: 92, hint: "this month" });
+    const bar = readProgressBar(html);
+
+    expect(bar).toContain('aria-valuenow="92"');
+    expect(bar).toContain('aria-label="Hours"');
+    expect(bar).toContain('data-slot="stat-card-progress"');
+    expect(bar).toContain('class="relative h-1.5 w-full overflow-hidden rounded-full bg-primary/20 mt-2"');
+    expect(html).toContain('<div class="min-w-0 flex-1">');
+    expect(html.indexOf("21.5 / 23.4 h")).toBeLessThan(html.indexOf('role="progressbar"'));
+    expect(html.indexOf('role="progressbar"')).toBeLessThan(html.indexOf("this month"));
+    expect(readTextNodes(html)).toEqual(["Hours", "21.5 / 23.4 h", "this month"]);
+  });
+
+  it("takes the accessible name from progressLabel when given", () => {
+    expect(readProgressBar(renderCard({ progress: 50, progressLabel: "Hours used of the budget" }))).toContain(
+      'aria-label="Hours used of the budget"',
+    );
+  });
+
+  it("fills the bar in primary without a tone and in the tone's colour with one", () => {
+    expect(renderCard({ progress: 50 })).toContain('data-slot="progress-indicator" class="h-full w-full flex-1 bg-primary transition-all"');
+    expect(renderCard({ progress: 50, tone: "warning" })).toContain(
+      'data-slot="progress-indicator" class="h-full w-full flex-1 transition-all bg-orange"',
+    );
+    expect(renderCard({ progress: 50, tone: "default" })).toContain(
+      'data-slot="progress-indicator" class="h-full w-full flex-1 transition-all bg-gray"',
+    );
+  });
+
+  it.each([
+    { progress: -5, expected: 0 },
+    { progress: 0, expected: 0 },
+    { progress: 100, expected: 100 },
+    { progress: 140, expected: 100 },
+    { progress: Number.NaN, expected: 0 },
+  ])("clamps $progress to $expected", ({ progress, expected }) => {
+    const html = renderCard({ progress });
+
+    expect(readProgressBar(html)).toContain(`aria-valuenow="${String(expected)}"`);
+    expect(html).toContain(`style="transform:translateX(-${String(100 - expected)}%)"`);
   });
 });
 
