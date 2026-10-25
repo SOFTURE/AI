@@ -16,6 +16,8 @@ npm i @softure-ai/theme-notion tailwindcss @tailwindcss/postcss
 @import "tailwindcss";
 @import "@softure-ai/theme-notion/theme.css";       /* tokens, utilities, dark:, animations, the components' classes */
 @import "@softure-ai/theme-notion/sft-bridge.css";  /* optional: pages of the SOFTURE packages in a PageFrame */
+@import "@softure-ai/theme-kit/base.css";            /* body on the theme's background, text colour and font */
+@import "@softure-ai/theme-kit/maplibre.css";        /* only if the app shows MapLibre maps */
 ```
 
 `theme.css` names the package's components as Tailwind sources, so their classes are generated without the app
@@ -32,7 +34,15 @@ taking the scoped preflight instead of Tailwind's:
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "@softure-ai/theme-notion/theme.css";
 @import "@softure-ai/theme-notion/sft-bridge.css";
+@import "@softure-ai/theme-kit/base.css";            /* nothing else styles body under the scoped preflight */
+@import "@softure-ai/theme-kit/maplibre.css";        /* only if the app shows MapLibre maps */
 ```
+
+`base.css` gives `body` the theme's background, text colour and sans font without the browser's 8 px margin, so a
+page without a shell root, the dark scheme and the Radix portals mounted on `body` (select lists, menus, sheets) all
+take the theme. `maplibre.css` puts the theme's sans font on MapLibre maps (markers, popups, the attribution), which
+`maplibre-gl.css` sets to Helvetica. Both read the theme with `--theme()`, so they go through the app's Tailwind
+after `theme.css`; the app's `globals.css` keeps only `@import` lines.
 
 ```tsx
 import { Button, Badge, Status, PageHeader, TooltipProvider, Toaster } from "@softure-ai/theme-notion";

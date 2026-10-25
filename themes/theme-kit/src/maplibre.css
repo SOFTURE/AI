@@ -1,0 +1,11 @@
+/*
+ * The theme's sans font on MapLibre maps: `maplibre-gl.css` is unlayered and sets its own font family on
+ * `.maplibregl-map`, so markers, popups and the attribution render in Helvetica. Unlayered too, since an unlayered
+ * rule beats every layered one, and one type selector more specific, so it wins whatever order the sheets load in.
+ * Only the family changes; MapLibre's size and line height stay.
+ *
+ * Import it if the app shows MapLibre maps, through the app's Tailwind (it reads the font with `--theme()`).
+ */
+body .maplibregl-map {
+  font-family: --theme(--font-sans);
+}

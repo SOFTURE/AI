@@ -10,6 +10,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NOTION_THEME, TONE_EDGE, TONE_FILL, TONE_TEXT } from "../src/index.js";
 
 const PACKAGE_DIR = fileURLToPath(new URL("..", import.meta.url));
+// The kit's page stylesheets, from its sources: an app imports them as `@softure-ai/theme-kit/<name>.css`.
+const KIT_STYLESHEETS = ["base.css", "maplibre.css"].map((name) => fileURLToPath(new URL(`../../theme-kit/src/${name}`, import.meta.url)));
 
 function readConfig(): ThemePackageConfig {
   const manifest = JSON.parse(readFileSync(join(PACKAGE_DIR, "package.json"), "utf8")) as { softureTheme?: unknown };
@@ -29,13 +31,14 @@ function getTailwindCli(): string {
 let workDir = "";
 let compiled = "";
 
-// An app's globals.css: Tailwind, then the theme, compiled by the real Tailwind CLI over the component sources.
+// An app's globals.css: Tailwind, the theme and the kit's page stylesheets, compiled by the real Tailwind CLI over the component sources.
 beforeAll(() => {
   // Inside the package, so `tw-animate-css` and `tailwindcss` resolve from its node_modules as in an app.
   workDir = mkdtempSync(join(PACKAGE_DIR, ".css-test-"));
   const sources = CONFIG.sources.map((source) => join(PACKAGE_DIR, "src", source));
   writeFileSync(join(workDir, "theme.css"), buildThemeStylesheet({ theme: NOTION_THEME, sources, imports: CONFIG.imports }));
-  writeFileSync(join(workDir, "app.css"), '@import "tailwindcss" source(none);\n@import "./theme.css";\n');
+  const kitImports = KIT_STYLESHEETS.map((path) => `@import ${JSON.stringify(path)};\n`).join("");
+  writeFileSync(join(workDir, "app.css"), `@import "tailwindcss" source(none);\n@import "./theme.css";\n${kitImports}`);
   execFileSync(process.execPath, [getTailwindCli(), "-i", join(workDir, "app.css"), "-o", join(workDir, "out.css")], {
     cwd: workDir,
     stdio: ["ignore", "ignore", "pipe"],
@@ -93,5 +96,17 @@ describe("theme.css in an app's Tailwind", () => {
 
   it("compiles dark: to the theme's scheme rule, not to the system setting alone", () => {
     expect(compiled).toMatch(/\.dark\\:bg-transparent:where\(\.dark, \.dark \*, \[data-theme="dark"\], \[data-theme="dark"\] \*\)/);
+  });
+});
+
+describe("the kit's page stylesheets after theme.css", () => {
+  const sans = NOTION_THEME.fonts.sans;
+
+  it("gives body the theme's background, text colour and sans font, without the browser's margin", () => {
+    expect(compiled).toContain(`body {\n    margin: 0;\n    background: var(--background);\n    color: var(--foreground);\n    font-family: ${sans};\n  }`);
+  });
+
+  it("gives MapLibre maps the theme's sans font", () => {
+    expect(compiled).toContain(`body .maplibregl-map {\n  font-family: ${sans};\n}`);
   });
 });

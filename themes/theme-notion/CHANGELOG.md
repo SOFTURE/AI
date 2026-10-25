@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- README (#718): both wirings import the kit's `base.css` (the page base on `body`) and, for an app with MapLibre maps,
+  `maplibre.css`. Needs `@softure-ai/theme-kit` with those files (the next kit release). An app that kept its own
+  `body` rule (`margin: 0`, `background: var(--background)`, `color: var(--foreground)`,
+  `font-family: --theme(--font-sans)`) or `body .maplibregl-map { font-family: … }` replaces them with the two
+  `@import` lines after `theme.css`.
 - `TabBar` (#723): a screen's tabs as line tabs where each tab is a link (`<a href>`), so the shown tab lives in the
   address and a link, a form's return or a reload land on the same tab. Optional icon before the label and count
   after it (0 included); the current link carries `aria-current="page"`; the row scrolls sideways on a phone.
