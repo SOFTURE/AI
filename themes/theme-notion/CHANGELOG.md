@@ -6,6 +6,19 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Code and destructive Badge contrast (#763): inline `Code` and a destructive `Badge` with a `color` reach WCAG 2.2 AA
+  (4.5:1) in light and dark; `tests/contrast.test.ts` guards the code pair.
+
+  | Part | Light before → after | Dark before → after |
+  | --- | --- | --- |
+  | `Code` text: `red` → new token `code-foreground` | `#c8413d` → `#c33c39` (4.33 → 4.61 on `secondary`) | `#ea5e5b` → `#f86a66` (3.98 → 4.62 on `secondary`) |
+  | `Badge variant="destructive" color="…"` text | the colour's tag text → `destructive-foreground` | `#d4d4d4` / `rgba(255, 255, 255, 0.81)` (3.98 / 4.46) → `#ffffff` on `destructive/60` |
+
+  Lightness-only shift for the code red (OKLCH hue and chroma kept); `red` and every other part that uses it are
+  unchanged. `Badge`: the `color` classes apply to every variant but `destructive` (cva `compoundVariants`, so
+  `badgeVariants()` callers get it too); a destructive badge keeps its own fill and white text whatever `color` is.
+  An app changes nothing, unless it styled code with `text-red` itself (move it to `text-code-foreground`) or relied
+  on a colour on a destructive badge (use `variant="tag"` with the colour instead).
 - Selected tab (#760): the selected pill of the default (`variant="default"`) `Tabs` list reaches WCAG 2.2 SC 1.4.11
   (3:1) against the list and the unselected tabs, in light and dark; before, the white pill on `muted` was 1.07:1 and
   the dark pill about 1.1:1. The active trigger draws an `input` border in both schemes (in dark it replaces

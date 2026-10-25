@@ -20,6 +20,7 @@ export const NOTION_THEME = defineTheme({
     link: { light: "#0171cf", dark: "#409cfd" },
     secondary: { light: "#f1f1ef", dark: "#2f2f2f" },
     "secondary-foreground": { light: "#37352f", dark: "#d4d4d4" },
+    "code-foreground": { light: "#c33c39", dark: "#f86a66" },
     muted: { light: "#f7f7f5", dark: "#202020" },
     "muted-foreground": { light: "#656461", dark: "#a5a5a5" },
     accent: { light: "rgba(55, 53, 47, 0.08)", dark: "rgba(255, 255, 255, 0.055)" },

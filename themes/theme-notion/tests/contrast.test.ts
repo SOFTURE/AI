@@ -150,6 +150,8 @@ const PAIRS: readonly Pair[] = [
     on,
     min: TEXT_MIN,
   })),
+  // Inline Code: the code red on its grey chip.
+  { text: "code-foreground", on: ["secondary"], min: TEXT_MIN },
   // Link variants and hovered inline links.
   ...[["background"], ["card"], ["popover"], ["muted"]].map((on) => ({ text: "link", on, min: TEXT_MIN })),
   { text: "tooltip-foreground", on: ["tooltip"], min: TEXT_MIN },

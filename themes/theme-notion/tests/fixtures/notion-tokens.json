@@ -99,6 +99,13 @@
         }
       },
       {
+        "name": "code-foreground",
+        "value": {
+          "light": "#c33c39",
+          "dark": "#f86a66"
+        }
+      },
+      {
         "name": "muted",
         "value": {
           "light": "#f7f7f5",
