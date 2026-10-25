@@ -6,7 +6,8 @@ the token contract, the way a theme is declared, the CSS generator, the build co
 theme is a new `themes/theme-<name>` folder that follows the contract below; nothing in the kit changes.
 
 Apps install a theme package (e.g. [`@softure-ai/theme-notion`](../theme-notion/README.md)), which depends on the kit.
-An app imports the kit directly only for `preflight.css`, `useIsMobile`, or to build its own variant of a theme.
+An app imports the kit directly only for its stylesheets (`preflight.css`, `base.css`, `maplibre.css`), `useIsMobile`,
+or to build its own variant of a theme.
 
 ## Design
 
@@ -44,8 +45,13 @@ ThemeDefinition (data)  ──defineTheme──▶  theme (checked)  ──build
 | `createCn(options)`, `createThemeCn(definition)` | shadcn/ui's `cn`, with tailwind-merge told the theme's named text styles and shadows (`text-body` and `text-muted-foreground` both stay) |
 | `useIsMobile()`, `MOBILE_BREAKPOINT` (`/react`) | The sidebar's breakpoint (768 px), on `useSyncExternalStore`; the server renders the desktop layout |
 | `preflight.css` | Tailwind's preflight scoped to `[data-slot]` elements, in `@layer base` with zero specificity, plus `prefers-reduced-motion` |
+| `base.css` | The page base: `body` without the browser's margin, on the theme's `background`, `foreground` and sans font, in `@layer base` (Radix portals on `body` inherit it) |
+| `maplibre.css` | The theme's sans font on MapLibre maps (`body .maplibregl-map`, unlayered, so it beats `maplibre-gl.css` in any load order) |
 | `softure-theme-css [packageDir]` | Builds a theme package's stylesheets after `tsc` (the contract below) |
 | `/build`: `parseThemePackageConfig`, `buildThemeStylesheet`, `writeThemeStylesheets`, `buildThemePackage` | The code behind the command, for tests and tools (Node only) |
+
+`base.css` and `maplibre.css` read the font with `--theme()`, so they are imported through the app's Tailwind, after
+the theme's `theme.css`. They read only contract tokens, so they work with every theme.
 
 ## The theme package contract
 

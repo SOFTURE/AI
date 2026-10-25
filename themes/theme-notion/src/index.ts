@@ -44,6 +44,7 @@ export * from "./ui/tooltip.js";
 
 export { ICON_STROKE_WIDTH } from "./notion/icon-stroke.js";
 export { PALETTE_COLORS, type PaletteColor } from "./notion/palette.js";
+export { MarkPopover, type MarkPopoverProps } from "./notion/MarkPopover.js";
 export { PageFrame, type PageFrameProps } from "./notion/PageFrame.js";
 export { PageHeader, type PageCrumb, type PageHeaderProps } from "./notion/PageHeader.js";
 export { PropertyList, type Property, type PropertyListProps } from "./notion/PropertyList.js";
@@ -60,4 +61,5 @@ export {
   type StatsFoldProps,
 } from "./notion/Stats.js";
 export { Status, type StatusProps } from "./notion/Status.js";
+export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
 export { TONES, TONE_COLORS, TONE_EDGE, TONE_FILL, TONE_TEXT, type Tone } from "./notion/tones.js";
