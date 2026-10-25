@@ -2,7 +2,7 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
-## Unreleased
+## 0.1.3
 
 - `base.css` (#746): every element's `border-color` is the theme's `border` and its `outline-color` a half-transparent
   `ring` (shadcn/ui's `* { @apply border-border outline-ring/50; }`), in `@layer base` after Tailwind's preflight. A
