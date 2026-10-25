@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Fix (#746): table rows and the table footer, accordion items, default and destructive alerts, the command input,
+  item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
+  border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
+  release), which both wirings already import: update the kit, no other change.
 - `touch-target` size (#742): `--spacing-touch-target: 44px` (Apple HIG 44 pt, WCAG 2.5.5 target size), so
   `min-h-touch-target` and `size-touch-target` give rows and controls tapped on a phone a finger-sized height next to
   the pointer sizes `control-height` 28 and `row-height` 34. No component changes height. An app that used the raw

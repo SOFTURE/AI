@@ -129,6 +129,14 @@ describe("the kit's page stylesheets after theme.css", () => {
     expect(compiled).toContain(`body {\n    margin: 0;\n    background: var(--background);\n    color: var(--foreground);\n    font-family: ${sans};\n  }`);
   });
 
+  it("draws a border without a colour class in the theme's border colour, after Tailwind's preflight", () => {
+    const preflight = compiled.indexOf("border: 0 solid;");
+    const fallback = compiled.indexOf("*, ::before, ::after, ::backdrop {\n    border-color: var(--border);\n    outline-color: var(--ring);");
+    expect(preflight).toBeGreaterThan(-1);
+    expect(fallback).toBeGreaterThan(preflight);
+    expect(compiled.slice(fallback)).toMatch(/^[^}]*outline-color: color-mix\(in oklab, var\(--ring\) 50%, transparent\);/);
+  });
+
   it("gives MapLibre maps the theme's sans font", () => {
     expect(compiled).toContain(`body .maplibregl-map {\n  font-family: ${sans};\n}`);
   });
