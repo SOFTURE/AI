@@ -17,6 +17,6 @@ Reviewed the diff of 1383346 against plan.md and issue #759.
 - Look: before/after screenshots of both schemes; field borders and the off switch read clearly, hue kept; outline
   buttons, button groups and tabs unchanged.
 - Docs: README "Contrast" paragraph; CHANGELOG Unreleased with the before/after table and the app's migration.
-- Gates: typecheck, ESLint, language gate (pre-commit), `vitest themes/theme-notion` (139 passed).
+- Gates: typecheck, ESLint, language gate (pre-commit), `vitest themes/theme-notion` (137 passed).
 
 Verdict: approved, no changes.
