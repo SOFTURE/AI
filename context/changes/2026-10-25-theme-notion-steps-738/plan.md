@@ -43,5 +43,5 @@ Files: `themes/theme-notion/README.md`, `themes/theme-notion/CHANGELOG.md`.
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1: d7605f3
 - [ ] Phase 2
