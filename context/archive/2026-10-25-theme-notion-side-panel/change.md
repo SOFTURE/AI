@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-side-panel
 title: "theme-notion: SidePanel, a non-modal panel at a side of a canvas (issue #724)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 724
 branch: claude/project-thread-cso2bo
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

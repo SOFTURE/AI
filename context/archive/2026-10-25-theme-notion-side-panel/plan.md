@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-side-panel
-status: in_progress
+status: archived
 ---
 
 # Plan: theme-notion SidePanel (issue #724)
