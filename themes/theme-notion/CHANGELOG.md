@@ -16,6 +16,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   block on `muted` (`rounded-lg px-4 py-3`) that scrolls sideways, or wraps with `wrap`. `label` makes the block a
   named, focusable region. `data-slot="code"` / `data-slot="code-block"`. An app that writes these classes on its own
   `<code>` and `<pre>` replaces them with `import { Code, CodeBlock } from "@softure-ai/theme-notion"`.
+- `Steps` (#738): an ordered process (the stages of a multi-step task, the phases of a migration, the steps of one
+  run) as an `<ol>`. Each step has a number in a badge coloured by its `state` (`done`, `current`, `todo` default,
+  `failed`), a `title`, an optional `note` and an optional `aside`; layouts `row` (a wrapping grid of cards, the
+  current one on `blue-bg`) and `list` (compact rows). The current step carries `aria-current="step"`, each state is
+  also a screen-reader word (`stateLabels` replaces the English copy, `notionMessages.en.steps`), and
+  `data-slot="steps"`, `data-step`, `data-state` mark the parts. An app that draws its own stage lists replaces them
+  with `import { Steps } from "@softure-ai/theme-notion"` and maps its own stage status to the four states.
 
 ## 0.2.0
 
