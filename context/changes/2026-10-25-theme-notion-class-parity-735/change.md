@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-class-parity-735
 title: "theme-notion: misplaced class strings in sidebar, checkbox, select and field; page base rules (issue #735)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 735
 branch: claude/project-thread-wrn4uo
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

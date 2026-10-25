@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-class-parity-735
-status: in_progress
+status: archived
 ---
 
 # Plan: class string parity and page base rules (issue #735)
@@ -46,5 +46,5 @@ Files: `themes/theme-notion/src/page.css`, `themes/theme-notion/package.json`, `
 
 ## Progress
 
-- [ ] Phase 1: class strings and regression tests
-- [ ] Phase 2: page base stylesheet and docs
+- [x] Phase 1: class strings and regression tests (51e3b02)
+- [x] Phase 2: page base stylesheet and docs (4014d51)
