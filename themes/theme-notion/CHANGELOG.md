@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `FilterChip` and `FilterChipAdd` (#737): a list's filter pills as a Notion database view draws them, a 24 px
+  `rounded-full` pill `icon · Label: value ▾` that opens a `DropdownMenu` of options (pass `DropdownMenu` items as
+  children) in the design system's popover. `isActive` turns the pill into the blue tag and sets `data-active`;
+  `data-slot="filter-chip"`, `filter-chip-value` and `filter-chip-add` mark the parts. `FilterChipAdd` is the
+  "+ Add filter" pill; its text comes from `notionMessages.en.filterChip.add` and is replaced through `label`. An app
+  that styled its own filter trigger replaces it with `import { FilterChip, FilterChipAdd } from "@softure-ai/theme-notion"`.
 - `Badge variant="destructive"` draws its text in `destructive-foreground` (white), as `Button` does. It had
   `text-white`, which generates nothing because the theme clears Tailwind's default palette, so the text took the
   inherited colour on the red background. Found by the new Tailwind generation test (#741).
