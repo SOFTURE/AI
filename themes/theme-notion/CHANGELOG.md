@@ -4,8 +4,10 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.3.0
 
+- Needs `@softure-ai/theme-kit` `^0.1.3` (was `^0.1.2`): the version whose `base.css` carries the border and outline
+  colour rule (#746), which both wirings in the README import.
 - Code and destructive Badge contrast (#763): inline `Code` and a destructive `Badge` with a `color` reach WCAG 2.2 AA
   (4.5:1) in light and dark; `tests/contrast.test.ts` guards the code pair.
 
