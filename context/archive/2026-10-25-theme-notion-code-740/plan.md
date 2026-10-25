@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-code-740
-status: in_progress
+status: archived
 ---
 
 # Plan: Code and CodeBlock (issue #740)
@@ -31,4 +31,4 @@ Files: `themes/theme-notion/src/notion/Code.tsx`, `themes/theme-notion/tests/not
 
 ## Progress
 
-- [ ] Phase 1: parts and docs
+- [x] Phase 1: parts and docs (f577bd7)
