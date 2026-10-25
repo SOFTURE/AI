@@ -27,6 +27,7 @@ export * from "./ui/kbd.js";
 export * from "./ui/label.js";
 export * from "./ui/popover.js";
 export * from "./ui/progress.js";
+export * from "./ui/radio-group.js";
 export * from "./ui/scroll-area.js";
 export * from "./ui/select.js";
 export * from "./ui/separator.js";
