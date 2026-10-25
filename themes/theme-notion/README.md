@@ -105,7 +105,7 @@ skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. C
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`), `SidePanel` (a non-modal panel at a side
 of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon and count, the shown tab in the address;
-`Tabs` keeps it in client state).
+`Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a list of what it counts, below).
 
 **`SidePanel`.** A panel next to a canvas (a map) that leaves the canvas usable, so a switch inside shows its effect
 at once (`Sheet` is modal). It floats on `background` with `shadow-menu`, 24 rem wide, full width on a phone, with a
@@ -122,6 +122,21 @@ Escape inside or the close button calls `onClose`, and the caller moves focus ba
     {/* switches */}
   </SidePanel>
 </div>
+```
+
+**`MarkPopover`.** A tag in a palette colour with an icon and a count; a click or Enter opens the design system's
+popover listing the entries, Escape or a click outside closes it. It runs on the browser's Popover API (no client
+state, no portal): the panel sits in the top layer, so a card's `overflow` never clips it, centred on a phone and
+under its mark where CSS anchor positioning is supported. Only phrasing elements, so it fits inside a `<summary>` or
+a paragraph; a click on the panel's text does not toggle an enclosing `<details>`, links and buttons inside still
+work. The colour means the worst of what it lists; the copy is props.
+
+```tsx
+<MarkPopover color="red" icon={TriangleAlert} count={2} label="2 open warnings, show the list"
+  heading="Open warnings" closeLabel="Close" buttonData={{ "data-kind": "warnings" }}>
+  <span role="listitem">Payment overdue</span>
+  <span role="listitem"><a href="/tickets">Tickets to buy</a></span>
+</MarkPopover>
 ```
 
 Deltas from stock shadcn:
