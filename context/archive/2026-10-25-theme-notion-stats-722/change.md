@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-stats-722
 title: "theme-notion: StatsFold, StatCards and StatPills (issue #722)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 722
 branch: claude/project-thread-s8rvlb
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

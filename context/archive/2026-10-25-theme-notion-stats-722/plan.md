@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-stats-722
-status: in_progress
+status: archived
 ---
 
 # Plan: theme-notion StatsFold, StatCards, StatPills (issue #722)
@@ -34,5 +34,5 @@ Files: `themes/theme-notion/README.md`, `themes/theme-notion/CHANGELOG.md`.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 1: c497001
+- [x] Phase 2: 7e37917
