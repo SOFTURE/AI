@@ -10,6 +10,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
   border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
   release), which both wirings already import: update the kit, no other change.
+- `StatCard` (#739): optional `progress` (0–100, clamped) draws a 6 px bar under the figure with the package's
+  `Progress`, filled in `TONE_FILL[tone]` when the card has a tone and in primary otherwise; `progressLabel` names it
+  (default: `label`). Marked `data-slot="stat-card-progress"`. Cards without `progress` render as before. An app that
+  rebuilt a budget card around `Progress` (e.g. "21.5 / 23.4 h") goes back to `StatCards` with `progress`.
+- `Progress`: the value now reaches the Radix root, so the bar reports `aria-valuenow` and its state (it was always
+  indeterminate to assistive tech before); a new optional `indicatorClassName` recolours the fill.
 - Fixes (#735), class strings that sat on a neighbouring element since 0.1.0, now as in the design system and stock
   shadcn/ui new-york v4:
   - `Sidebar`: a `collapsible="none"` sidebar is again a full-height column on `bg-sidebar` (it was transparent); the
