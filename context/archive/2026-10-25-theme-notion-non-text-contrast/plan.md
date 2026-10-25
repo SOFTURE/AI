@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-non-text-contrast
-status: planned
+status: archived
 ---
 
 # Plan: theme-notion non-text contrast (issue #759)
@@ -38,4 +38,4 @@ Files: `themes/theme-notion/src/tokens.ts`, `tests/fixtures/notion-tokens.json`,
 
 ## Progress
 
-- [ ] Phase 1: tokens, components, tests and docs
+- [x] Phase 1: tokens, components, tests and docs (1383346)

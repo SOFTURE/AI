@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-non-text-contrast
 title: "theme-notion: control boundaries and states meet WCAG 1.4.11 non-text contrast (issue #759)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 759
 branch: claude/project-thread-74fdjg
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
