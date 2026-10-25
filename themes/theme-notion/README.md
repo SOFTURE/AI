@@ -71,7 +71,7 @@ import { CircleCheck } from "lucide-react";
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
 `DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Steps stateLabels`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
-`CommandDialog title description`.
+`CommandDialog title description`, `SortableList instructions announcements`, `SortableHandle label`.
 
 ## Rules, in short
 
@@ -105,17 +105,18 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHead
 
 ## Components
 
-All 36 shadcn/ui components of the design system, exported from the package root: accordion, alert, alert-dialog,
+All 37 shadcn/ui components of the design system, exported from the package root: accordion, alert, alert-dialog,
 avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, command, dialog, dropdown-menu, empty,
-field, input, input-group, item, kbd, label, popover, progress, scroll-area, select, separator, sheet, sidebar,
-skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
+field, input, input-group, item, kbd, label, popover, progress, radio-group, scroll-area, select, separator, sheet,
+sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
-stages with a state, below).
+stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
+`SortableList`, `SortableItem` and `SortableHandle` (rows reordered by dragging, below).
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill
 `icon · Label: value ▾` that opens a menu of options in the design system's popover. While the default value is
@@ -208,6 +209,49 @@ work. The colour means the worst of what it lists; the copy is props.
 </MarkPopover>
 ```
 
+**`Code` and `CodeBlock`.** `Code` is inline code: the `text-code` style (13/20 mono) in `red` on `secondary`, as in
+Notion. `CodeBlock` is a `<pre>` for logs and file paths on `muted`, radius 8; long lines scroll sideways, `wrap` wraps
+them. With `label` the block is a named region (`role="region"`) that keyboard users can focus and scroll; without it,
+plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-block"` mark the parts.
+
+```tsx
+<p>Run <Code>npm ci</Code> first.</p>
+<CodeBlock label="Build log" wrap>{log}</CodeBlock>
+```
+
+**`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and
+`@dnd-kit/sortable`. On a touch screen a long press (`holdDelay`, 500 ms) lifts a row; moving more than `tolerance`
+(8 px) before that scrolls instead, and a tap still activates the row. A mouse drags the same way; from the keyboard
+Space or Enter picks the focused row up, the arrows move it, Space or Enter drops it and Escape cancels. The row only
+moves up and down. The lifted row floats on `accent-strong` with `shadow-menu` above its siblings and carries
+`data-dragging`; every row has `touch-manipulation select-none` and no long-press callout. The order stays with the
+app: `items` are the rows' ids in order, and `onReorder(next, { id, from, to })` gets the new order on a drop.
+`dragBy="handle"` leaves the row alone and drags only by a `SortableHandle` (a ghost grip button, for a desktop list;
+a mouse starts at once there). A screen reader hears the `instructions` on the row (or handle) and the
+`announcements` while it moves: strings with `{item}`, `{position}` and `{total}`, where `getItemLabel(id)` names the
+row (the id by default). `data-slot="sortable-list"`, `sortable-item` (with `data-id`) and `sortable-handle` mark the
+parts.
+
+```tsx
+<SortableList label="Shopping list" items={ids} onReorder={(next) => setIds(next)}
+  getItemLabel={(id) => byId[id].name} announcements={{ pickedUp: t("sort.pickedUp") }}>
+  {ids.map((id) => (
+    <SortableItem key={id} id={id} className="flex h-row-height items-center gap-2 px-2">
+      <Link href={`/items/${id}`}>{byId[id].name}</Link>
+    </SortableItem>
+  ))}
+</SortableList>
+
+<SortableList label="Columns" items={columns} onReorder={setColumns} dragBy="handle">
+  {columns.map((id) => (
+    <SortableItem key={id} id={id} className="flex items-center gap-1 px-1">
+      <SortableHandle label="Move column" />
+      {id}
+    </SortableItem>
+  ))}
+</SortableList>
+```
+
 Deltas from stock shadcn:
 
 - `button`: sizes 28/24/32 px, a smaller padding on the icon side, a Notion `ghost`, `secondary` hover
@@ -217,8 +261,9 @@ Deltas from stock shadcn:
 - `input`, `textarea`, `select`, `input-group`: 28 px high, grey `field` background, thin `input` border.
 - `dropdown-menu`, `select`, `popover`, `command`: radius 10, `shadow-menu` without a border, 28 px items.
 - `dialog`, `alert-dialog`: radius 10, `shadow-dialog`, no border. `card`: `shadow-card` instead of a border.
-- `checkbox` 16 px with a 1.5 px border, `switch` 26 × 16 (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native
-  switch drawn the same), `tooltip` dark without an arrow, `tabs` default to the `line` variant, `progress` 6 px.
+- `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
+  (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,
+  `tabs` default to the `line` variant, `progress` 6 px.
 - `table`: a 34 px header in `muted-foreground`, a line under the last row too.
 - `sidebar`: a controlled sidebar keeps no cookie; the phone sheet's title and description are props; the menu
   skeleton's width is stable per item (shadcn draws a random one during render).
