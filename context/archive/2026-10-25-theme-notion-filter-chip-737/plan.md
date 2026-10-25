@@ -25,4 +25,4 @@ Files: `themes/theme-notion/src/notion/FilterChip.tsx`, `src/index.ts`, `src/mes
 
 ## Progress
 
-- [ ] Phase 1: FilterChip and FilterChipAdd
+- [x] Phase 1: FilterChip and FilterChipAdd (8224090)

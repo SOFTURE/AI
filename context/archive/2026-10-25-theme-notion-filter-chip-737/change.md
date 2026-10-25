@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-filter-chip-737
 title: "theme-notion: FilterChip, a Notion-style list filter pill (issue #737)"
-status: open
+status: archived
 roadmap_item: null
 issue: 737
 branch: claude/project-thread-nqq6re
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
