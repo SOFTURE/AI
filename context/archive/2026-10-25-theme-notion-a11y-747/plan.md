@@ -23,4 +23,4 @@ Files: `themes/theme-notion/src/ui/item.tsx`, `src/ui/scroll-area.tsx`, `tests/u
 
 ## Progress
 
-- [ ] Phase 1: list items and a focusable viewport
+- [x] Phase 1: list items and a focusable viewport (d22c0d4)

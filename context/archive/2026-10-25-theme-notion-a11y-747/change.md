@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-a11y-747
 title: "theme-notion: ItemGroup list items and a focusable ScrollArea (issue #747)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 747
 branch: claude/project-thread-pnvbf2
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
