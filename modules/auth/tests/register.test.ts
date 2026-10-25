@@ -97,7 +97,7 @@ describe("registerUser", () => {
     const { ctx } = await setUp({ auth: { requireConsent: false, onRegistered } });
     expect((await registerUser(ctx, { ...INPUT, hasConsented: false })).ok).toBe(true);
     expect(onRegistered).toHaveBeenCalledWith(
-      { user: expect.objectContaining({ email: "ada@example.com" }) as unknown, consent: null, fields: {} },
+      { user: expect.objectContaining({ email: "ada@example.com" }) as unknown, consent: null, fields: {}, oidcProvider: null },
       expect.anything(),
     );
   });

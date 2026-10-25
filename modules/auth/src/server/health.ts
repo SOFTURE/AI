@@ -12,5 +12,7 @@ export const checkAuthTables: HealthCheck = async (context) => {
   await db.execute(sql`select 1 from auth.sessions limit 0`);
   await db.execute(sql`select 1 from auth.user_roles limit 0`);
   await db.execute(sql`select 1 from auth.password_resets limit 0`);
+  await db.execute(sql`select 1 from auth.identities limit 0`);
+  await db.execute(sql`select 1 from auth.oidc_states limit 0`);
   return ok();
 };

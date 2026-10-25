@@ -3,7 +3,7 @@
   "version": "0.2.5",
   "dependsOn": { "security": "^0.2.0", "mailing": "^0.2.0?", "ops": "^0.2.0?", "jobs": "^0.1.1?" },
   "dbSchema": "auth",
-  "tables": ["users", "sessions", "user_roles", "password_resets"],
+  "tables": ["users", "sessions", "user_roles", "password_resets", "identities", "oidc_states"],
   "env": [
     {
       "name": "SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED",
@@ -28,6 +28,7 @@
     { "kind": "page", "path": "app/forgot-password/page.tsx", "export": "ForgotPasswordPage" },
     { "kind": "page", "path": "app/reset-password/page.tsx", "export": "ResetPasswordPage" },
     { "kind": "route-handler", "path": "app/api/auth/session/route.ts", "export": "getSessionRoute" },
+    { "kind": "route-handler", "path": "app/api/auth/oidc/[provider]/callback/route.ts", "export": "oidcCallbackRoute" },
     { "kind": "middleware", "path": "proxy.ts", "export": "createAuthGuard" }
   ],
   "privacy": { "exports": true, "deletes": true }

@@ -75,7 +75,7 @@ export async function createTestAccount(target: Queryable | AuthContext, input: 
     if (input.runHooks === true && ctx !== null) {
       const options = getAuthOptions(ctx.config);
       const consent = options.requireConsent ? { acceptedAt: now } : null;
-      await options.onRegistered?.({ user, consent, fields: input.fields ?? {} }, { ...ctx, db: tx });
+      await options.onRegistered?.({ user, consent, fields: input.fields ?? {}, oidcProvider: null }, { ...ctx, db: tx });
     }
     return user;
   });

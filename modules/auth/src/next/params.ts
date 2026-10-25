@@ -2,3 +2,6 @@
 
 /** Set on the login page after a password reset, so it confirms the change. */
 export const PASSWORD_RESET_DONE_PARAM = "reset";
+
+/** Set on the login page after a failed OpenID Connect sign-in: the error code it shows. */
+export const OIDC_ERROR_PARAM = "oidc_error";

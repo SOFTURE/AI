@@ -64,6 +64,12 @@ export const en = {
   logout: {
     submit: "Log out",
   },
+  oidc: {
+    /** The button of an OpenID Connect provider; `{provider}` is its `name` (e.g. Google). */
+    signInWith: "Sign in with {provider}",
+    /** Between the provider buttons and the password form. */
+    divider: "or",
+  },
   errors: {
     auth: {
       invalid_credentials: "The email or password is incorrect.",
@@ -79,6 +85,10 @@ export const en = {
       forbidden: "You do not have access to this.",
       reset_token_invalid: "This link has expired or has already been used. Ask for a new one.",
       password_reset_unavailable: "Password reset is not available.",
+      oidc_failed: "Signing in did not work. Try again.",
+      oidc_cancelled: "Signing in was cancelled.",
+      oidc_not_allowed: "This account may not sign in here.",
+      oidc_no_account: "There is no account for this sign-in. Ask for access.",
     },
     security: {
       rate_limited: "Too many attempts. Wait a few minutes and try again.",
