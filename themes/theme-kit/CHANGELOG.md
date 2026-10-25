@@ -2,7 +2,7 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
-## Unreleased
+## 0.1.2
 
 - `base.css` (#718): the page base for an app on the scoped `preflight.css`: `body` without the browser's margin, on
   the theme's `background`, `foreground` and sans font, in `@layer base`. Radix portals on `body` inherit it.
