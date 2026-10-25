@@ -20,6 +20,8 @@ import {
   SidebarRail,
   SidebarTrigger,
   Spinner,
+  Steps,
+  type StepState,
 } from "../../src/index.js";
 import { installDomShims } from "../gallery/dom.js";
 
@@ -85,6 +87,17 @@ const CASES: Readonly<Record<string, MessageCase>> = {
     },
   },
   "filterChip.add": { render: (text) => <FilterChipAdd label={text}>{null}</FilterChipAdd>, read: textOf('[data-slot="filter-chip-add"] span') },
+  ...Object.fromEntries(
+    (["done", "current", "todo", "failed"] as const satisfies readonly StepState[]).map((state) => [
+      `steps.${state}`,
+      {
+        render: (text: string | undefined) => (
+          <Steps label="Run" steps={[{ key: "one", title: "One", state }]} stateLabels={text === undefined ? undefined : { [state]: text }} />
+        ),
+        read: () => document.querySelector('[data-slot="steps"] .sr-only')?.textContent?.replace(/^, /, ""),
+      },
+    ]),
+  ),
   "spinner.label": { render: (text) => <Spinner {...labelled(text)} />, read: attributeOf('[role="status"]', "aria-label") },
   "command.title": { render: (text) => <CommandDialog open title={text} />, read: textOf('[data-slot="dialog-title"]') },
   "command.description": { render: (text) => <CommandDialog open description={text} />, read: textOf('[data-slot="dialog-description"]') },

@@ -179,6 +179,7 @@ import {
   Skeleton,
   Spinner,
   StatCards,
+  Steps,
   StatPills,
   StatsFold,
   Status,
@@ -1313,6 +1314,25 @@ const NOTION_CASES: readonly GalleryCase[] = [
         <Status color={color} icon={CircleCheck}>
           {color}
         </Status>
+      ),
+    }),
+  ),
+  ...(["row", "list"] as const).map(
+    (layout): GalleryCase => ({
+      name: `Steps[layout=${layout}]`,
+      component: "Steps",
+      root: `[data-slot="steps"][data-layout="${layout}"]`,
+      render: () => (
+        <Steps
+          label="Invoice run"
+          layout={layout}
+          steps={[
+            { key: "period", title: "Period", note: "October", state: "done" },
+            { key: "document", title: "Document", note: "Drafting", state: "current", aside: <Badge variant="tag" color="blue">PDF</Badge> },
+            { key: "mail", title: "E-mail draft", state: "failed", note: "Mailbox refused" },
+            { key: "invoice", title: "Final invoice" },
+          ]}
+        />
       ),
     }),
   ),

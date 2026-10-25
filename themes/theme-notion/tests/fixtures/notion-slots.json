@@ -1310,6 +1310,30 @@
   "Status[color=yellow]": [
     ["status","inline-flex w-fit shrink-0 items-center justify-center overflow-hidden rounded-full border border-transparent py-0.5 whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [a&]:hover:bg-accent [a&]:hover:text-accent-foreground gap-1.5 px-0 text-sm font-normal [&>svg]:size-4 text-yellow"]
   ],
+  "Steps[layout=list]": [
+    ["steps","flex flex-col"],
+    ["step-number","mt-px flex size-5 shrink-0 items-center justify-center text-small font-medium tabular-nums rounded-sm bg-green-tag text-green-tag-foreground"],
+    ["step-note","mt-0.5 text-small text-muted-foreground"],
+    ["step-number","mt-px flex size-5 shrink-0 items-center justify-center text-small font-medium tabular-nums rounded-sm bg-primary text-primary-foreground"],
+    ["step-note","mt-0.5 text-small text-muted-foreground"],
+    ["step-aside","shrink-0"],
+    ["badge","inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-blue-tag text-blue-tag-foreground"],
+    ["step-number","mt-px flex size-5 shrink-0 items-center justify-center text-small font-medium tabular-nums rounded-sm bg-red-tag text-red-tag-foreground"],
+    ["step-note","mt-0.5 text-small text-muted-foreground"],
+    ["step-number","mt-px flex size-5 shrink-0 items-center justify-center text-small font-medium tabular-nums rounded-sm bg-muted text-muted-foreground"]
+  ],
+  "Steps[layout=row]": [
+    ["steps","grid grid-cols-[repeat(auto-fill,minmax(min(12rem,100%),1fr))] gap-2"],
+    ["step-number","mt-px flex size-5 shrink-0 items-center justify-center text-small font-medium tabular-nums rounded-full bg-green-tag text-green-tag-foreground"],
+    ["step-note","mt-0.5 text-small text-muted-foreground"],
+    ["step-number","mt-px flex size-5 shrink-0 items-center justify-center text-small font-medium tabular-nums rounded-full bg-primary text-primary-foreground"],
+    ["step-note","mt-0.5 text-small text-muted-foreground"],
+    ["step-aside","shrink-0"],
+    ["badge","inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-blue-tag text-blue-tag-foreground"],
+    ["step-number","mt-px flex size-5 shrink-0 items-center justify-center text-small font-medium tabular-nums rounded-full bg-red-tag text-red-tag-foreground"],
+    ["step-note","mt-0.5 text-small text-muted-foreground"],
+    ["step-number","mt-px flex size-5 shrink-0 items-center justify-center text-small font-medium tabular-nums rounded-full bg-muted text-muted-foreground"]
+  ],
   "Switch[size=default]": [
     ["switch","peer group/switch inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-4 data-[size=default]:w-[26px] data-[size=default]:p-0.5 data-[size=sm]:h-3.5 data-[size=sm]:w-[22px] data-[size=sm]:p-0.5 data-[state=checked]:bg-primary data-[state=unchecked]:bg-control-off"],
     ["switch-thumb","pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-3 group-data-[size=sm]/switch:size-2.5 data-[state=checked]:translate-x-[10px] data-[state=unchecked]:translate-x-0 shadow-[0_1px_2px_rgba(15,15,15,0.2)]"],
