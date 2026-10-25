@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { NOTION_THEME, PALETTE_COLORS } from "../src/index.js";
 
-// WCAG 2.2 AA: 4.5:1 for text (SC 1.4.3), 3:1 for the focus ring against the page (SC 1.4.11).
+// WCAG 2.2 AA: 4.5:1 for text (SC 1.4.3), 3:1 for control boundaries, states and the focus ring (SC 1.4.11).
 const TEXT_MIN = 4.5;
 const NON_TEXT_MIN = 3;
 
@@ -74,6 +74,42 @@ const SURFACES: readonly (readonly string[])[] = [
   ["background", "muted/50"],
 ];
 
+// The page surfaces a control sits on.
+const CONTROL_SURFACES: readonly (readonly string[])[] = [
+  ["background"],
+  ["card"],
+  ["popover"],
+  ["muted"],
+  ["secondary"],
+  ["sidebar"],
+];
+
+// The progress fills: the default (the link blue in dark) and the `StatCard` tone fills.
+const PROGRESS_FILLS: readonly Pair[] = [
+  { text: "primary", on: [], min: NON_TEXT_MIN, schemes: ["light"] },
+  { text: "link", on: [], min: NON_TEXT_MIN, schemes: ["dark"] },
+  ...["gray", "green", "orange", "red"].map((text) => ({ text, on: [], min: NON_TEXT_MIN })),
+];
+
+// SC 1.4.11: what identifies a control and its state, against what surrounds it. Decorative separators (`border`,
+// `sidebar-border`) are not listed: they only separate content.
+const NON_TEXT_PAIRS: readonly Pair[] = [
+  // The boundary of Input, Textarea, SelectTrigger and InputGroup; the Switch off track (and the bridge's
+  // `border-strong` for the package fields).
+  ...["input", "control-off"].flatMap((text) => CONTROL_SURFACES.map((on) => ({ text, on, min: NON_TEXT_MIN }))),
+  // The Switch thumb on its off and on track.
+  ...CONTROL_SURFACES.flatMap((on) => [
+    { text: "background", on: [...on, "control-off"], min: NON_TEXT_MIN },
+    { text: "background", on: [...on, "primary"], min: NON_TEXT_MIN },
+  ]),
+  // A checked Switch track and Checkbox.
+  ...[["background"], ["card"], ["popover"], ["muted"]].map((on) => ({ text: "primary", on, min: NON_TEXT_MIN })),
+  // The Progress fill against its track, which is a quiet extent: the fill carries the value.
+  ...PROGRESS_FILLS.flatMap((fill) =>
+    CONTROL_SURFACES.map((on) => ({ ...fill, on: [...on, "primary/20"] })),
+  ),
+];
+
 // Every text/background pair the theme's own parts render (`src/ui`, `src/notion`), in both schemes unless noted.
 const PAIRS: readonly Pair[] = [
   ...["foreground", "muted-foreground"].flatMap((text) => SURFACES.map((on) => ({ text, on, min: TEXT_MIN }))),
@@ -110,6 +146,7 @@ const PAIRS: readonly Pair[] = [
   { text: "default-tag-foreground", on: ["default-tag"], min: TEXT_MIN },
   // The focus ring against the page.
   ...[["background"], ["card"], ["popover"]].map((on) => ({ text: "ring", on, min: NON_TEXT_MIN })),
+  ...NON_TEXT_PAIRS,
 ];
 
 describe("Notion theme contrast (WCAG 2.2 AA)", () => {

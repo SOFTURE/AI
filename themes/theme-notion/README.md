@@ -241,6 +241,10 @@ are the design system's, shifted in lightness only (hue and chroma kept) where a
 `text-link`, not `text-primary`: `primary` is the fill under white text, and in dark no one blue serves both, so
 `link` is a lighter blue there (in light both are `#0171cf`). The destructive fill is dimmed in dark
 (`dark:bg-destructive/60`, as shadcn/ui's badge), so `destructive` in dark is the lighter text red.
+Control boundaries and states reach 3:1 (SC 1.4.11): the `input` border of fields and select triggers, the
+`control-off` switch track, the checked fill, and the progress fill against its track (in dark the default fill is
+`link`). Use `border-input` for a field's boundary only; a separator or a button outline uses `border-border`, which
+is decoration and stays quiet.
 
 **Overriding a token.** Redefine its CSS variable after `theme.css` (`:root { --primary: #e16259; }`, and the same in
 a `.dark` block for the dark value), or build a variant with `extendTheme(theme, { name, colors: { … } })` and write

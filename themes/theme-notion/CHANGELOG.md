@@ -6,6 +6,20 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Non-text contrast (#759): control boundaries and states reach WCAG 2.2 SC 1.4.11 (3:1) against every page surface
+  in light and dark; `tests/contrast.test.ts` guards the pairs. Alpha raised only, colour channels (hue) kept:
+
+  | Token | Light before → after | Dark before → after |
+  | --- | --- | --- |
+  | `input` (field and select trigger border) | `rgba(15, 15, 15, 0.1)` → `rgba(15, 15, 15, 0.46)` | `rgba(255, 255, 255, 0.075)` → `rgba(255, 255, 255, 0.36)` |
+  | `control-off` (switch off track, the bridge's `border-strong`) | `rgba(135, 131, 120, 0.3)` → `rgba(135, 131, 120, 0.95)` | `rgba(202, 196, 183, 0.15)` → `rgba(202, 196, 183, 0.5)` |
+
+  Parts: the outline `Button` border and the `ButtonGroup` separator use `border` (their label identifies them, so
+  they keep the old quiet weight); the dark active tab is `dark:border-border dark:bg-accent/40` (the same look as
+  before); `Progress` fills in `link` in dark when `indicatorClassName` sets no fill colour, so the fill reaches 3:1
+  against its track. Decorative separators (`border`, `sidebar-border`) are unchanged. An app changes: a
+  `border-input` or `bg-input` of its own that only separates content (a divider, a button outline) moves to
+  `border-border` / `bg-border`; its fields keep `border-input` and gain the contrast without a change.
 - Contrast (#756): every text colour now meets WCAG 2.2 AA (4.5:1) on the surfaces the parts put it on, in light and
   dark, and the focus ring reaches 3:1; `tests/contrast.test.ts` guards each pair. Lightness-only shifts, hue and
   chroma kept:
