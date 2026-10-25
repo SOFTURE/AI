@@ -1,13 +1,13 @@
 ---
 change_id: auth-oidc-sign-in-769
 title: "auth: sign in with an OpenID Connect provider (Google), limited to allowed domains or emails (issue #769)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: 769
 branch: claude/project-thread-yi0acu
 created: 2026-10-25
 updated: 2026-10-25
-archived_at: null
+archived_at: 2026-10-25
 ---
 
 ## Intent
@@ -47,3 +47,4 @@ is in the CHANGELOG and the issue's closing comment.
 ## Notes
 
 - Framing: skipped. The issue states the problem, the proposal and the acceptance.
+- Open after the merge: plan item 3.3, a real Google sign-in on an adopting app after the release (owner check).

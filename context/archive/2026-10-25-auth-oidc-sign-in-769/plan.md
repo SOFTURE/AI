@@ -111,4 +111,4 @@ adds tables; rollback is in its header. Apps without `oidc` see no change beside
 ### Phase 4: docs
 
 #### Automated
-- [ ] 4.1 README and CHANGELOG updated; markdown link test green
+- [x] 4.1 README and CHANGELOG updated; markdown link test green — b27c8b1
