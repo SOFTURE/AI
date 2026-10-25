@@ -49,6 +49,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
   border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
   release), which both wirings already import: update the kit, no other change.
+- `RadioGroup` and `RadioGroupItem` (#736): the shadcn new-york v4 `radio-group` (Radix), drawn like `checkbox`: 16 px,
+  a 1.5 px `muted-foreground` border, the checked border and dot in `primary`, focus `ring-2 ring-ring`,
+  `aria-invalid` like the other fields. Arrow keys move the choice. `data-slot="radio-group"`, `radio-group-item` and
+  `radio-group-indicator` as in shadcn. An app that draws its own radio replaces it with
+  `import { RadioGroup, RadioGroupItem } from "@softure-ai/theme-notion"`.
 - Accessibility (#747): an `Item` inside an `ItemGroup` renders `role="listitem"`, so a group is a list with list
   items (axe `aria-required-children`); an `asChild` item keeps its child's role, wrap it in a `role="listitem"`
   element. The `ScrollArea` viewport takes `tabIndex={0}` and shows its focus ring on Tab (axe
