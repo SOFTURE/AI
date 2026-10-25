@@ -26,4 +26,4 @@ Files: `themes/theme-notion/src/notion/tones.ts`, `src/index.ts`, `tests/notion/
 
 ## Progress
 
-- [ ] Phase 1: tones
+- [x] Phase 1: tones
