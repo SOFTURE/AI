@@ -1,12 +1,13 @@
 ---
 change_id: theme-kit-default-border-746
 title: "theme-kit base.css: default border and outline colour from the theme (issue #746)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 746
 branch: claude/project-thread-hs9gk5
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

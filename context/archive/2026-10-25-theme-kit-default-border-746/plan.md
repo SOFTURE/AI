@@ -1,6 +1,6 @@
 ---
 change_id: theme-kit-default-border-746
-status: planned
+status: archived
 ---
 
 # Plan: default border and outline colour (issue #746)
@@ -32,4 +32,4 @@ Files: `themes/theme-kit/src/base.css`, `themes/theme-kit/tests/stylesheets.test
 
 ## Progress
 
-- [ ] Phase 1: the base rule, tests and docs
+- [x] Phase 1: the base rule, tests and docs (c973bb9)
