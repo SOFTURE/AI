@@ -48,4 +48,5 @@ export { MarkPopover, type MarkPopoverProps } from "./notion/MarkPopover.js";
 export { PageFrame, type PageFrameProps } from "./notion/PageFrame.js";
 export { PageHeader, type PageCrumb, type PageHeaderProps } from "./notion/PageHeader.js";
 export { PropertyList, type Property, type PropertyListProps } from "./notion/PropertyList.js";
+export { SidePanel, type SidePanelLayout, type SidePanelProps } from "./notion/SidePanel.js";
 export { Status, type StatusProps } from "./notion/Status.js";

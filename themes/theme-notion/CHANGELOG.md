@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `SidePanel` (#724): a non-modal panel at a side of a canvas (a map) that leaves the canvas usable, unlike the modal
+  `Sheet`. Layouts `over`, `beside`, `left`, `list`; hidden while closed, focus moves in when it opens, Escape and the
+  close button call `onClose`. An app that kept its own copy replaces it with the import (same props; `closeLabel` is
+  now optional, default "Close") and drops its own file.
 - `MarkPopover` (#725): a counted tag (`badgeVariants({ variant: "tag", color })` with an icon and a count) that opens
   the design system's popover listing entries, on the browser's Popover API with no client state, phrasing
   elements only (`data-slot="mark"`, `data-slot="mark-popover"`). An app with its own copy of this mark deletes it

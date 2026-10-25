@@ -53,7 +53,7 @@ import { CircleCheck } from "lucide-react";
 
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `DialogContent closeLabel`,
-`SheetContent closeLabel`, `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`,
+`SheetContent closeLabel`, `SidePanel closeLabel`, `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`,
 `Spinner aria-label`, `CommandDialog title description`.
 
 ## Rules, in short
@@ -81,10 +81,27 @@ avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, co
 field, input, input-group, item, kbd, label, popover, progress, scroll-area, select, separator, sheet, sidebar,
 skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
-`PageFrame` (a page outside the app shell, the target of `sft-bridge.css`), `MarkPopover` (a counted tag that opens a list of
-what it counts).
+`PageFrame` (a page outside the app shell, the target of `sft-bridge.css`), `SidePanel` (a non-modal panel at a side
+of a canvas, below), `MarkPopover` (a counted tag that opens a list of what it counts, below).
 
-**MarkPopover.** A tag in a palette colour with an icon and a count; a click or Enter opens the design system's
+**`SidePanel`.** A panel next to a canvas (a map) that leaves the canvas usable, so a switch inside shows its effect
+at once (`Sheet` is modal). It floats on `background` with `shadow-menu`, 24 rem wide, full width on a phone, with a
+heading and a ghost close button. Layouts: `over` (over the canvas's right side), `left` (over its left side),
+`beside` (after the canvas, which shrinks to at least 24 rem or half) and `list` (a 24 rem column before the canvas);
+`beside` and `list` cover the whole canvas on a phone. While closed it is `hidden`. Focus moves into it when it opens;
+Escape inside or the close button calls `onClose`, and the caller moves focus back to its opener.
+
+```tsx
+<div className="relative flex h-full">
+  <button type="button" aria-controls="layers" aria-expanded={isOpen} onClick={() => setOpen(true)}>Layers</button>
+  <Map className="flex-1" />
+  <SidePanel id="layers" heading="Layers" layout="over" isOpen={isOpen} onClose={() => setOpen(false)}>
+    {/* switches */}
+  </SidePanel>
+</div>
+```
+
+**`MarkPopover`.** A tag in a palette colour with an icon and a count; a click or Enter opens the design system's
 popover listing the entries, Escape or a click outside closes it. It runs on the browser's Popover API (no client
 state, no portal): the panel sits in the top layer, so a card's `overflow` never clips it, centred on a phone and
 under its mark where CSS anchor positioning is supported. Only phrasing elements, so it fits inside a `<summary>` or
