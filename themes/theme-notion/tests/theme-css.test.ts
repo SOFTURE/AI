@@ -75,7 +75,7 @@ describe("theme.css in an app's Tailwind", () => {
       expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
     }
     expect(compiled).toMatch(/\.shadow-menu \{[^}]*var\(--shadow-menu\)/);
-    expect(compiled).toContain("--primary: #2383e2;");
+    expect(compiled).toContain("--primary: #0171cf;");
   });
 
   it("gives an app's phone rows the 44 px touch-target size", () => {
@@ -94,6 +94,13 @@ describe("theme.css in an app's Tailwind", () => {
     for (const className of new Set([...Object.values(TONE_TEXT), ...Object.values(TONE_FILL), ...Object.values(TONE_EDGE)])) {
       expect([className, compiled.includes(`.${className} {`)]).toEqual([className, true]);
     }
+  });
+
+  it("generates the sortable row's touch defaults and its lifted look", () => {
+    for (const utility of [".touch-manipulation", ".select-none", "\\[-webkit-touch-callout\\:none\\]", "data-\\[dragging\\]\\:bg-accent-strong", "data-\\[dragging\\]\\:shadow-menu", ".touch-none", ".cursor-grab"]) {
+      expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
+    }
+    expect(compiled).toMatch(/-webkit-touch-callout: none/);
   });
 
   it("generates the side panel's layout variants and its hidden rule", () => {
