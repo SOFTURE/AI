@@ -33,7 +33,8 @@
       "default": "./dist/index.js"
     },
     "./theme.css": "./dist/theme.css",
-    "./sft-bridge.css": "./dist/sft-bridge.css"
+    "./sft-bridge.css": "./dist/sft-bridge.css",
+    "./page.css": "./dist/page.css"
   },
   "softureTheme": {
     "sources": [
@@ -44,7 +45,8 @@
       "tw-animate-css"
     ],
     "stylesheets": [
-      "sft-bridge.css"
+      "sft-bridge.css",
+      "page.css"
     ]
   },
   "scripts": {
