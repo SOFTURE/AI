@@ -49,6 +49,17 @@ export { PageFrame, type PageFrameProps } from "./notion/PageFrame.js";
 export { PageHeader, type PageCrumb, type PageHeaderProps } from "./notion/PageHeader.js";
 export { PropertyList, type Property, type PropertyListProps } from "./notion/PropertyList.js";
 export { SidePanel, type SidePanelLayout, type SidePanelProps } from "./notion/SidePanel.js";
+export {
+  StatCards,
+  StatPills,
+  StatsFold,
+  type StatCard,
+  type StatCardAside,
+  type StatCardsProps,
+  type StatPill,
+  type StatPillsProps,
+  type StatsFoldProps,
+} from "./notion/Stats.js";
 export { Status, type StatusProps } from "./notion/Status.js";
 export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
 export { TONES, TONE_COLORS, TONE_EDGE, TONE_FILL, TONE_TEXT, type Tone } from "./notion/tones.js";

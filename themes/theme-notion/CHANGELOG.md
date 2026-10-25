@@ -33,6 +33,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   elements only (`data-slot="mark"`, `data-slot="mark-popover"`). An app with its own copy of this mark deletes it
   and imports `MarkPopover` (and `MarkPopoverProps`) from `@softure-ai/theme-notion`: same props, same markup and
   classes; its domain marks (warnings, tickets) keep passing their entries as `role="listitem"` spans.
+- `StatsFold`, `StatCards` and `StatPills` (#722): a screen's summary figures, folded under a heading (native
+  `<details>`, closed by default), as a wrapping row of cards (label, figure in its tone, optional hint and aside tag,
+  `isFullWidth` / `isOneRow` layouts) and as "label **value**" tags. `data-slot`, `data-stat`, `data-tone` and
+  `data-layout` mark the parts. An app that kept these as its own code drops them and imports them from the package.
 
 ## 0.1.1
 
