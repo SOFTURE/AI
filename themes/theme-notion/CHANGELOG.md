@@ -6,6 +6,31 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Contrast (#756): every text colour now meets WCAG 2.2 AA (4.5:1) on the surfaces the parts put it on, in light and
+  dark, and the focus ring reaches 3:1; `tests/contrast.test.ts` guards each pair. Lightness-only shifts, hue and
+  chroma kept:
+
+  | Token | Light before → after | Dark before → after |
+  | --- | --- | --- |
+  | `muted-foreground`, `gray` | `#787774` → `#656461` | `#9b9b9b` → `#a5a5a5` |
+  | `primary`, `sidebar-primary` | `#2383e2` → `#0171cf` | `#2383e2` → `#0171cf` |
+  | `primary-hover` | `#0077d4` → `#0066b8` | `#0077d4` → `#0066b8` |
+  | `link` (new) | `#0171cf` | `#409cfd` |
+  | `destructive` | `#eb5757` → `#c63339` | `#eb5757` → `#fd6866` |
+  | `ring`, `sidebar-ring` | `rgba(35, 131, 226, 0.57)` → `rgba(1, 113, 207, 0.8)` | → `rgba(64, 156, 253, 0.65)` |
+  | `brown` / `orange` / `yellow` / `green` | `#9f6b53` / `#d9730d` / `#cb912f` / `#448361` → `#98644d` / `#af5a02` / `#986702` / `#3e7d5c` | unchanged |
+  | `blue` / `purple` / `pink` / `red` | `#337ea9` / `#9065b0` / `#c14c8a` / `#d44c47` → `#2b77a2` / `#8a5faa` / `#ba4684` / `#c8413d` | purple `#9d68d3` → `#a974e0`, pink `#d15796` → `#dc61a0`, red `#df5452` → `#ea5e5b` |
+  | `yellow-tag` | unchanged | `#89632a` → `#825c23` |
+
+  Parts: the link variants of `Button` and `Badge` and hovered inline links (`Empty`, `Item`, `Field`) use the new
+  `text-link`; `Button` destructive is `dark:bg-destructive/60` (hover `/50`) like `Badge`; `Badge` default hovers on
+  `primary-hover`; tab triggers and the sidebar group label read `text-muted-foreground` instead of faded
+  `text-foreground/60` and `text-sidebar-foreground/70`; the destructive `Alert` description is `text-destructive`;
+  a focused destructive menu item in dark is tinted `destructive/10`. `Badge` destructive text is `text-destructive-foreground`: its
+  `text-white` was never generated (the theme clears Tailwind's palette), so the label drew in the body colour. An app changes: blue text of its own
+  (`text-primary` on text, a link colour) moves to `text-link`; a destructive fill of its own adds
+  `dark:bg-destructive/60`; a hard-coded `#2383e2` or `#787774` moves to the token; text faded by an opacity
+  modifier (`text-foreground/60`) moves to `text-muted-foreground`.
 - Fixes (#735), class strings that sat on a neighbouring element since 0.1.0, now as in the design system and stock
   shadcn/ui new-york v4:
   - `Sidebar`: a `collapsible="none"` sidebar is again a full-height column on `bg-sidebar` (it was transparent); the

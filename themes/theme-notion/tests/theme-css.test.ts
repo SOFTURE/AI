@@ -66,7 +66,7 @@ describe("theme.css in an app's Tailwind", () => {
       expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
     }
     expect(compiled).toMatch(/\.shadow-menu \{[^}]*var\(--shadow-menu\)/);
-    expect(compiled).toContain("--primary: #2383e2;");
+    expect(compiled).toContain("--primary: #0171cf;");
   });
 
   it("generates the TabBar's line-tab utilities, the current tab's underline included", () => {
