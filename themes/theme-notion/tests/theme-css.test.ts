@@ -12,6 +12,8 @@ import { NOTION_THEME, TONE_EDGE, TONE_FILL, TONE_TEXT } from "../src/index.js";
 const PACKAGE_DIR = fileURLToPath(new URL("..", import.meta.url));
 // The kit's page stylesheets, from its sources: an app imports them as `@softure-ai/theme-kit/<name>.css`.
 const KIT_STYLESHEETS = ["base.css", "maplibre.css"].map((name) => fileURLToPath(new URL(`../../theme-kit/src/${name}`, import.meta.url)));
+// The theme's own page base, from its sources: an app imports it as `@softure-ai/theme-notion/page.css`.
+const PAGE_STYLESHEET = fileURLToPath(new URL("../src/page.css", import.meta.url));
 
 function readConfig(): ThemePackageConfig {
   const manifest = JSON.parse(readFileSync(join(PACKAGE_DIR, "package.json"), "utf8")) as { softureTheme?: unknown };
@@ -37,7 +39,7 @@ beforeAll(() => {
   workDir = mkdtempSync(join(PACKAGE_DIR, ".css-test-"));
   const sources = CONFIG.sources.map((source) => join(PACKAGE_DIR, "src", source));
   writeFileSync(join(workDir, "theme.css"), buildThemeStylesheet({ theme: NOTION_THEME, sources, imports: CONFIG.imports }));
-  const kitImports = KIT_STYLESHEETS.map((path) => `@import ${JSON.stringify(path)};\n`).join("");
+  const kitImports = [...KIT_STYLESHEETS, PAGE_STYLESHEET].map((path) => `@import ${JSON.stringify(path)};\n`).join("");
   writeFileSync(join(workDir, "app.css"), `@import "tailwindcss" source(none);\n@import "./theme.css";\n${kitImports}`);
   execFileSync(process.execPath, [getTailwindCli(), "-i", join(workDir, "app.css"), "-o", join(workDir, "out.css")], {
     cwd: workDir,
@@ -116,5 +118,17 @@ describe("the kit's page stylesheets after theme.css", () => {
 
   it("gives MapLibre maps the theme's sans font", () => {
     expect(compiled).toContain(`body .maplibregl-map {\n  font-family: ${sans};\n}`);
+  });
+});
+
+describe("page.css after theme.css", () => {
+  it("sets the text outside the components to Tailwind's text-sm (14 px)", () => {
+    expect(compiled).toContain("--text-sm: 0.875rem;");
+    expect(compiled).toContain("body {\n    font-size: var(--text-sm);\n    line-height: var(--text-sm--line-height);\n  }");
+  });
+
+  it("colours selected text with the blue tag colour and smooths the page's fonts", () => {
+    expect(compiled).toContain("::selection {\n    background: var(--blue-tag);\n  }");
+    expect(compiled).toContain("html {\n    -webkit-font-smoothing: antialiased;\n  }");
   });
 });
