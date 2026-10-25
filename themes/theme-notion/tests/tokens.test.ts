@@ -71,7 +71,7 @@ describe("NOTION_THEME", () => {
 
   it("generates its CSS without an error, clearing Tailwind's default palette", () => {
     const css = buildThemeCss(NOTION_THEME);
-    expect(css).toContain("  --primary: #2383e2;");
+    expect(css).toContain("  --primary: #0171cf;");
     expect(css).toContain("  --color-*: initial;");
   });
 });
