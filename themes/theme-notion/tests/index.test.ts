@@ -14,7 +14,7 @@ describe("@softure-ai/theme-notion", () => {
   });
 
   it("exports every shadcn component file, by its main component", async () => {
-    expect(UI_FILES.length).toBe(36);
+    expect(UI_FILES.length).toBe(37);
     for (const file of UI_FILES) {
       const module = (await import(`../src/ui/${file}.tsx`)) as Record<string, unknown>;
       const names = Object.keys(module);

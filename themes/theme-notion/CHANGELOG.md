@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `RadioGroup` and `RadioGroupItem` (#736): the shadcn new-york v4 `radio-group` (Radix), drawn like `checkbox`: 16 px,
+  a 1.5 px `muted-foreground` border, the checked border and dot in `primary`, focus `ring-2 ring-ring`,
+  `aria-invalid` like the other fields. Arrow keys move the choice. `data-slot="radio-group"`, `radio-group-item` and
+  `radio-group-indicator` as in shadcn. An app that draws its own radio replaces it with
+  `import { RadioGroup, RadioGroupItem } from "@softure-ai/theme-notion"`.
+
 ## 0.2.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.2` (was `^0.1.0`): the version that ships `base.css` and `maplibre.css`, which

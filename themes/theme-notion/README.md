@@ -98,10 +98,10 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHead
 
 ## Components
 
-All 36 shadcn/ui components of the design system, exported from the package root: accordion, alert, alert-dialog,
+All 37 shadcn/ui components of the design system, exported from the package root: accordion, alert, alert-dialog,
 avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, command, dialog, dropdown-menu, empty,
-field, input, input-group, item, kbd, label, popover, progress, scroll-area, select, separator, sheet, sidebar,
-skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
+field, input, input-group, item, kbd, label, popover, progress, radio-group, scroll-area, select, separator, sheet,
+sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
@@ -168,8 +168,9 @@ Deltas from stock shadcn:
 - `input`, `textarea`, `select`, `input-group`: 28 px high, grey `field` background, thin `input` border.
 - `dropdown-menu`, `select`, `popover`, `command`: radius 10, `shadow-menu` without a border, 28 px items.
 - `dialog`, `alert-dialog`: radius 10, `shadow-dialog`, no border. `card`: `shadow-card` instead of a border.
-- `checkbox` 16 px with a 1.5 px border, `switch` 26 × 16 (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native
-  switch drawn the same), `tooltip` dark without an arrow, `tabs` default to the `line` variant, `progress` 6 px.
+- `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
+  (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,
+  `tabs` default to the `line` variant, `progress` 6 px.
 - `table`: a 34 px header in `muted-foreground`, a line under the last row too.
 - `sidebar`: a controlled sidebar keeps no cookie; the phone sheet's title and description are props; the menu
   skeleton's width is stable per item (shadcn draws a random one during render).
