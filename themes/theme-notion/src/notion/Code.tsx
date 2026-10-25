@@ -7,7 +7,7 @@ export function Code({ className, ...props }: ComponentProps<"code">) {
   return (
     <code
       data-slot="code"
-      className={cn("rounded-xs bg-secondary px-1 font-mono text-code text-red", className)}
+      className={cn("rounded-xs bg-secondary px-1 font-mono text-code text-code-foreground", className)}
       {...props}
     />
   );

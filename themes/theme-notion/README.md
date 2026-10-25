@@ -210,8 +210,8 @@ work. The colour means the worst of what it lists; the copy is props.
 </MarkPopover>
 ```
 
-**`Code` and `CodeBlock`.** `Code` is inline code: the `text-code` style (13/20 mono) in `red` on `secondary`, as in
-Notion. `CodeBlock` is a `<pre>` for logs and file paths on `muted`, radius 8; long lines scroll sideways, `wrap` wraps
+**`Code` and `CodeBlock`.** `Code` is inline code: the `text-code` style (13/20 mono) in its own red,
+`code-foreground` (a shade of the palette `red` that reaches 4.5:1 on its chip), on `secondary`, as in Notion. `CodeBlock` is a `<pre>` for logs and file paths on `muted`, radius 8; long lines scroll sideways, `wrap` wraps
 them. With `label` the block is a named region (`role="region"`) that keyboard users can focus and scroll; without it,
 plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-block"` mark the parts.
 
@@ -257,7 +257,8 @@ Deltas from stock shadcn:
 
 - `button`: sizes 28/24/32 px, a smaller padding on the icon side, a Notion `ghost`, `secondary` hover
   `accent-strong`, no shadows.
-- `badge`: a `tag` variant and a `color` prop with the nine palette colours. `alert`: palette colour variants (a
+- `badge`: a `tag` variant and a `color` prop with the nine palette colours (and `default`); `color` applies to every
+  variant but `destructive`, which keeps its own fill and white text. `alert`: palette colour variants (a
   Notion callout).
 - `input`, `textarea`, `select`, `input-group`: 28 px high, grey `field` background, thin `input` border.
 - `dropdown-menu`, `select`, `popover`, `command`: radius 10, `shadow-menu` without a border, 28 px items.
@@ -290,7 +291,8 @@ and the focus ring reaches 3:1 against the page; `tests/contrast.test.ts` lists 
 are the design system's, shifted in lightness only (hue and chroma kept) where a pair fell short. Blue text is
 `text-link`, not `text-primary`: `primary` is the fill under white text, and in dark no one blue serves both, so
 `link` is a lighter blue there (in light both are `#0171cf`). The destructive fill is dimmed in dark
-(`dark:bg-destructive/60`, as shadcn/ui's badge), so `destructive` in dark is the lighter text red.
+(`dark:bg-destructive/60`, as shadcn/ui's badge), so `destructive` in dark is the lighter text red. Inline code has its
+own `code-foreground`, since the palette `red` falls short on the grey code chip.
 Control boundaries and states reach 3:1 (SC 1.4.11): the `input` border of fields and select triggers, the
 `control-off` switch track, the checked fill, the progress fill against its track (in dark the default fill is
 `link`), and the selected pill of the default `Tabs` variant, which keeps its fill and shadow and draws an `input`

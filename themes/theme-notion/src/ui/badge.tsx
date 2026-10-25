@@ -3,6 +3,22 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../lib/utils.js"
 import { Slot } from "radix-ui"
 
+const TAG_COLORS = {
+  default: "bg-default-tag text-default-tag-foreground",
+  gray: "bg-gray-tag text-gray-tag-foreground",
+  brown: "bg-brown-tag text-brown-tag-foreground",
+  orange: "bg-orange-tag text-orange-tag-foreground",
+  yellow: "bg-yellow-tag text-yellow-tag-foreground",
+  green: "bg-green-tag text-green-tag-foreground",
+  blue: "bg-blue-tag text-blue-tag-foreground",
+  purple: "bg-purple-tag text-purple-tag-foreground",
+  pink: "bg-pink-tag text-pink-tag-foreground",
+  red: "bg-red-tag text-red-tag-foreground",
+}
+
+// Every variant a palette colour applies to: all but destructive.
+const COLORED_VARIANTS = ["default", "secondary", "outline", "ghost", "link", "tag"] as const
+
 const badgeVariants = cva(
   "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
   {
@@ -21,18 +37,24 @@ const badgeVariants = cva(
       },
       color: {
         none: "",
-        default: "bg-default-tag text-default-tag-foreground",
-        gray: "bg-gray-tag text-gray-tag-foreground",
-        brown: "bg-brown-tag text-brown-tag-foreground",
-        orange: "bg-orange-tag text-orange-tag-foreground",
-        yellow: "bg-yellow-tag text-yellow-tag-foreground",
-        green: "bg-green-tag text-green-tag-foreground",
-        blue: "bg-blue-tag text-blue-tag-foreground",
-        purple: "bg-purple-tag text-purple-tag-foreground",
-        pink: "bg-pink-tag text-pink-tag-foreground",
-        red: "bg-red-tag text-red-tag-foreground",
+        default: "",
+        gray: "",
+        brown: "",
+        orange: "",
+        yellow: "",
+        green: "",
+        blue: "",
+        purple: "",
+        pink: "",
+        red: "",
       },
     },
+    // A destructive badge keeps its own fill and text whatever its colour.
+    compoundVariants: Object.entries(TAG_COLORS).map(([color, className]) => ({
+      variant: [...COLORED_VARIANTS],
+      color: color as keyof typeof TAG_COLORS,
+      className,
+    })),
     defaultVariants: {
       variant: "default",
       color: "none",

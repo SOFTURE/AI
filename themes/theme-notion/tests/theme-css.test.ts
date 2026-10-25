@@ -78,6 +78,11 @@ describe("theme.css in an app's Tailwind", () => {
     expect(compiled).toContain("--primary: #0171cf;");
   });
 
+  it("generates inline code's text style and its own colour as two utilities", () => {
+    expect(compiled).toMatch(/\.text-code \{\s*font-size: 13px;/);
+    expect(compiled).toMatch(/\.text-code-foreground \{\s*color: var\(--code-foreground\);/);
+  });
+
   it("gives an app's phone rows the 44 px touch-target size", () => {
     expect(compiled).toMatch(/\.min-h-touch-target \{\s*min-height: 44px;\s*\}/);
     expect(compiled).toMatch(/\.size-touch-target \{\s*width: 44px;\s*height: 44px;\s*\}/);

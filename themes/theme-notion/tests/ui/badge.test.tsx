@@ -24,4 +24,32 @@ describe("Badge", () => {
     expect(html).toContain("bg-secondary");
     expect(html).not.toMatch(/-tag\b/);
   });
+
+  it.each(["default", ...PALETTE_COLORS] as const)(
+    "keeps a destructive badge on its own fill and text with color %s",
+    (color) => {
+      const html = renderToStaticMarkup(
+        <Badge variant="destructive" color={color}>
+          Overdue
+        </Badge>,
+      );
+
+      expect(html).toContain("bg-destructive text-destructive-foreground");
+      expect(html).toContain("dark:bg-destructive/60");
+      expect(html).not.toMatch(/-tag\b|-tag-foreground/);
+    },
+  );
+
+  it.each(["default", "secondary", "outline", "ghost", "link"] as const)(
+    "draws the colour's tag on the %s variant",
+    (variant) => {
+      const html = renderToStaticMarkup(
+        <Badge variant={variant} color="red">
+          Late
+        </Badge>,
+      );
+
+      expect(html).toContain("bg-red-tag text-red-tag-foreground");
+    },
+  );
 });

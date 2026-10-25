@@ -10,12 +10,12 @@ function readClasses(html: string): string[] {
 }
 
 describe("Code", () => {
-  it("renders inline code in the code style, red on secondary", () => {
+  it("renders inline code in the code style, in the code red on secondary", () => {
     const html = renderToStaticMarkup(<Code>npm ci</Code>);
 
     expect(html.startsWith('<code data-slot="code"')).toBe(true);
     expect(readClasses(html).sort()).toEqual(
-      ["bg-secondary", "font-mono", "px-1", "rounded-xs", "text-code", "text-red"].sort(),
+      ["bg-secondary", "font-mono", "px-1", "rounded-xs", "text-code", "text-code-foreground"].sort(),
     );
     expect(readTextNodes(html)).toEqual(["npm ci"]);
   });
@@ -24,7 +24,8 @@ describe("Code", () => {
     const html = renderToStaticMarkup(<Code className="text-blue">x</Code>);
 
     expect(readClasses(html)).toContain("text-blue");
-    expect(readClasses(html)).not.toContain("text-red");
+    expect(readClasses(html)).not.toContain("text-code-foreground");
+    expect(readClasses(html)).toContain("text-code");
   });
 });
 
