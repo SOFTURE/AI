@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `touch-target` size (#742): `--spacing-touch-target: 44px` (Apple HIG 44 pt, WCAG 2.5.5 target size), so
+  `min-h-touch-target` and `size-touch-target` give rows and controls tapped on a phone a finger-sized height next to
+  the pointer sizes `control-height` 28 and `row-height` 34. No component changes height. An app that used the raw
+  spacing scale for this (`min-h-11`) replaces it with `min-h-touch-target`, keeping the pointer height on desktop
+  where it wants it (`min-h-touch-target md:min-h-row-height`).
 - Contrast (#756): every text colour now meets WCAG 2.2 AA (4.5:1) on the surfaces the parts put it on, in light and
   dark, and the focus ring reaches 3:1; `tests/contrast.test.ts` guards each pair. Lightness-only shifts, hue and
   chroma kept:

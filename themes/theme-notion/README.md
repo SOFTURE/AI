@@ -84,7 +84,8 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHead
 - Type: system sans, mono for identifiers. `text-page-title` 40/48 bold once per screen, `text-heading-1..3`
   30/24/20, `text-body` 16/24, `text-ui` 14/20 (panels), `text-small` 12/16, `text-section-label` 12/16 medium.
 - Spacing on a 4 px grid (`p-1` = 4 px). Sizes: `sidebar-width` 240, `content-width` 708, `content-width-wide` 1152,
-  `control-height` 28, `row-height` 34. Radius: `rounded-xs` 3 (tag, checkbox), `sm` 4 (tooltip, kbd), `md` 6
+  `control-height` 28, `row-height` 34, `touch-target` 44 (rows and controls meant to be tapped on a phone, e.g.
+  `min-h-touch-target md:min-h-row-height`). Radius: `rounded-xs` 3 (tag, checkbox), `sm` 4 (tooltip, kbd), `md` 6
   (button, field, menu item), `lg` 8 (callout, card), `xl` 10 (menu, select, dialog), `full` (switch).
 - Icons: lucide at `ICON_STROKE_WIDTH` (1.75), 16 px in text; they inherit the text colour. No emoji in the interface.
 - Statuses always carry a word and an icon, so states read apart without telling green from red.
