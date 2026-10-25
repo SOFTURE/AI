@@ -19,6 +19,9 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  SortableHandle,
+  SortableItem,
+  SortableList,
   Spinner,
   Steps,
   type StepState,
@@ -98,6 +101,27 @@ const CASES: Readonly<Record<string, MessageCase>> = {
       },
     ]),
   ),
+  "sortable.instructions": {
+    render: (text) => (
+      <SortableList label="List" items={["a"]} onReorder={() => undefined} {...(text === undefined ? {} : { instructions: text })}>
+        <SortableItem id="a">A</SortableItem>
+      </SortableList>
+    ),
+    read: () => {
+      const describedBy = document.querySelector('[data-slot="sortable-item"]')?.getAttribute("aria-describedby") ?? "";
+      return document.getElementById(describedBy)?.textContent;
+    },
+  },
+  "sortable.handle": {
+    render: (text) => (
+      <SortableList label="List" items={["a"]} onReorder={() => undefined} dragBy="handle">
+        <SortableItem id="a">
+          <SortableHandle label={text} />
+        </SortableItem>
+      </SortableList>
+    ),
+    read: attributeOf('[data-slot="sortable-handle"]', "aria-label"),
+  },
   "spinner.label": { render: (text) => <Spinner {...labelled(text)} />, read: attributeOf('[role="status"]', "aria-label") },
   "command.title": { render: (text) => <CommandDialog open title={text} />, read: textOf('[data-slot="dialog-title"]') },
   "command.description": { render: (text) => <CommandDialog open description={text} />, read: textOf('[data-slot="dialog-description"]') },
@@ -110,15 +134,23 @@ function readMessage(path: string): string {
 }
 
 const MESSAGE_PATHS = Object.entries(notionMessages.en).flatMap(([group, texts]) => Object.keys(texts).map((key) => `${group}.${key}`));
-// The phone sheet's copy is checked where a phone is stubbed (tests/behaviour/sidebar.test.tsx).
-const PHONE_ONLY = new Set(["sidebar.mobileTitle", "sidebar.mobileDescription"]);
+// Checked elsewhere: the phone sheet's copy where a phone is stubbed (tests/behaviour/sidebar.test.tsx), the drag
+// announcements during a keyboard drag (tests/notion/Sortable.test.tsx).
+const CHECKED_ELSEWHERE = new Set([
+  "sidebar.mobileTitle",
+  "sidebar.mobileDescription",
+  "sortable.pickedUp",
+  "sortable.moved",
+  "sortable.dropped",
+  "sortable.cancelled",
+]);
 
 describe("the message layer", () => {
   it("has a case for every built-in text", () => {
-    expect([...Object.keys(CASES), ...PHONE_ONLY].sort()).toEqual([...MESSAGE_PATHS].sort());
+    expect([...Object.keys(CASES), ...CHECKED_ELSEWHERE].sort()).toEqual([...MESSAGE_PATHS].sort());
   });
 
-  it.each(MESSAGE_PATHS.filter((path) => !PHONE_ONLY.has(path)))("%s is English by default and the app's text when given", (path) => {
+  it.each(MESSAGE_PATHS.filter((path) => !CHECKED_ELSEWHERE.has(path)))("%s is English by default and the app's text when given", (path) => {
     const messageCase = CASES[path];
     if (messageCase === undefined) throw new Error(`no case for ${path}`);
 

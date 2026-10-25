@@ -55,6 +55,9 @@
     "test:coverage": "vitest run --root ../.. themes/theme-notion --coverage.enabled --coverage.provider=v8 --coverage.include='themes/theme-notion/src/**' --coverage.reportsDirectory=coverage/theme-notion --coverage.thresholds.statements=90 --coverage.thresholds.branches=90"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@softure-ai/theme-kit": "^0.1.2",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",

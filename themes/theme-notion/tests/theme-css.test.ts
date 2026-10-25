@@ -30,6 +30,9 @@ function getTailwindCli(): string {
   return join(dirname(manifestPath), manifest.bin.tailwindcss);
 }
 
+// Classes an app writes in its own markup.
+const APP_CLASSES = ["min-h-touch-target", "size-touch-target"];
+
 let workDir = "";
 let compiled = "";
 
@@ -39,8 +42,14 @@ beforeAll(() => {
   workDir = mkdtempSync(join(PACKAGE_DIR, ".css-test-"));
   const sources = CONFIG.sources.map((source) => join(PACKAGE_DIR, "src", source));
   writeFileSync(join(workDir, "theme.css"), buildThemeStylesheet({ theme: NOTION_THEME, sources, imports: CONFIG.imports }));
-  const kitImports = [...KIT_STYLESHEETS, PAGE_STYLESHEET].map((path) => `@import ${JSON.stringify(path)};\n`).join("");
-  writeFileSync(join(workDir, "app.css"), `@import "tailwindcss" source(none);\n@import "./theme.css";\n${kitImports}`);
+  const kitImports = [...KIT_STYLESHEETS, PAGE_STYLESHEET].map((path) => `@import ${JSON.stringify(path)};
+`).join("");
+  // An app's own markup reaches Tailwind as its own source; here inline, for the sizes no component uses.
+  const appSource = `@source inline("${APP_CLASSES.join(" ")}");
+`;
+  writeFileSync(join(workDir, "app.css"), `@import "tailwindcss" source(none);
+@import "./theme.css";
+${kitImports}${appSource}`);
   execFileSync(process.execPath, [getTailwindCli(), "-i", join(workDir, "app.css"), "-o", join(workDir, "out.css")], {
     cwd: workDir,
     stdio: ["ignore", "ignore", "pipe"],
@@ -66,7 +75,12 @@ describe("theme.css in an app's Tailwind", () => {
       expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
     }
     expect(compiled).toMatch(/\.shadow-menu \{[^}]*var\(--shadow-menu\)/);
-    expect(compiled).toContain("--primary: #2383e2;");
+    expect(compiled).toContain("--primary: #0171cf;");
+  });
+
+  it("gives an app's phone rows the 44 px touch-target size", () => {
+    expect(compiled).toMatch(/\.min-h-touch-target \{\s*min-height: 44px;\s*\}/);
+    expect(compiled).toMatch(/\.size-touch-target \{\s*width: 44px;\s*height: 44px;\s*\}/);
   });
 
   it("generates the TabBar's line-tab utilities, the current tab's underline included", () => {
@@ -80,6 +94,13 @@ describe("theme.css in an app's Tailwind", () => {
     for (const className of new Set([...Object.values(TONE_TEXT), ...Object.values(TONE_FILL), ...Object.values(TONE_EDGE)])) {
       expect([className, compiled.includes(`.${className} {`)]).toEqual([className, true]);
     }
+  });
+
+  it("generates the sortable row's touch defaults and its lifted look", () => {
+    for (const utility of [".touch-manipulation", ".select-none", "\\[-webkit-touch-callout\\:none\\]", "data-\\[dragging\\]\\:bg-accent-strong", "data-\\[dragging\\]\\:shadow-menu", ".touch-none", ".cursor-grab"]) {
+      expect([utility, compiled.includes(utility)]).toEqual([utility, true]);
+    }
+    expect(compiled).toMatch(/-webkit-touch-callout: none/);
   });
 
   it("generates the side panel's layout variants and its hidden rule", () => {
@@ -106,6 +127,14 @@ describe("the kit's page stylesheets after theme.css", () => {
 
   it("gives body the theme's background, text colour and sans font, without the browser's margin", () => {
     expect(compiled).toContain(`body {\n    margin: 0;\n    background: var(--background);\n    color: var(--foreground);\n    font-family: ${sans};\n  }`);
+  });
+
+  it("draws a border without a colour class in the theme's border colour, after Tailwind's preflight", () => {
+    const preflight = compiled.indexOf("border: 0 solid;");
+    const fallback = compiled.indexOf("*, ::before, ::after, ::backdrop {\n    border-color: var(--border);\n    outline-color: var(--ring);");
+    expect(preflight).toBeGreaterThan(-1);
+    expect(fallback).toBeGreaterThan(preflight);
+    expect(compiled.slice(fallback)).toMatch(/^[^}]*outline-color: color-mix\(in oklab, var\(--ring\) 50%, transparent\);/);
   });
 
   it("gives MapLibre maps the theme's sans font", () => {

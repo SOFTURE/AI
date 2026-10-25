@@ -15,8 +15,8 @@ const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 // Violations known and tracked elsewhere: the rule, a selector fragment of the offending node, and why it stays.
 // An entry whose violation no longer occurs is harmless; remove it with the fix.
 const KNOWN_VIOLATIONS: readonly { readonly rule: string; readonly target: RegExp; readonly reason: string }[] = [
-  { rule: "aria-required-children", target: /item-group/, reason: "ItemGroup is a list without list items (SOFTURE/AI#747)" },
-  { rule: "scrollable-region-focusable", target: /rounded-\\\[inherit\\\]/, reason: "ScrollArea's viewport cannot take focus (SOFTURE/AI#747)" },
+  { rule: "color-contrast", target: /^code$/, reason: "inline Code's red on secondary is below AA (SOFTURE/AI#763)" },
+  { rule: "color-contrast", target: /bg-destructive.*-tag\b|-tag\b.*bg-destructive/, reason: "a destructive Badge with a colour takes the colour's text on the dimmed fill in dark (SOFTURE/AI#763)" },
   { rule: "aria-required-children", target: /^#radix-/, reason: "cmdk wraps its options in a sizer div inside the listbox (library markup)" },
   { rule: "aria-hidden-focus", target: /^#gallery$/, reason: "an open Radix Select hides the page while its trigger stays focusable; Tab closes the list" },
 ];

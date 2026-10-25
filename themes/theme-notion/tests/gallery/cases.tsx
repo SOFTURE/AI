@@ -130,6 +130,8 @@ import {
   PopoverTitle,
   PopoverTrigger,
   Progress,
+  RadioGroup,
+  RadioGroupItem,
   PropertyList,
   ScrollArea,
   ScrollBar,
@@ -179,6 +181,9 @@ import {
   Skeleton,
   Spinner,
   StatCards,
+  SortableHandle,
+  SortableItem,
+  SortableList,
   Steps,
   StatPills,
   StatsFold,
@@ -203,6 +208,8 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  Code,
+  CodeBlock,
 } from "../../src/index.js";
 
 /** One rendering of the gallery: a component, a variant or a composition, as an app would use it. */
@@ -840,6 +847,25 @@ const UI_CASES: readonly GalleryCase[] = [
     render: () => <Progress value={60} aria-label="Done" className="w-80" />,
   },
   {
+    name: "RadioGroup",
+    component: "RadioGroup",
+    root: '[data-slot="radio-group"]',
+    render: () => (
+      <RadioGroup defaultValue="weekly" aria-label="Report frequency">
+        {["daily", "weekly", "monthly"].map((value) => (
+          <div key={value} className="flex items-center gap-2 text-ui">
+            <RadioGroupItem value={value} id={`frequency-${value}`} />
+            <Label htmlFor={`frequency-${value}`}>{value}</Label>
+          </div>
+        ))}
+        <div className="flex items-center gap-2 text-ui">
+          <RadioGroupItem value="never" id="frequency-never" disabled />
+          <Label htmlFor="frequency-never">never</Label>
+        </div>
+      </RadioGroup>
+    ),
+  },
+  {
     name: "ScrollArea",
     component: "ScrollArea",
     root: '[data-slot="scroll-area"]',
@@ -1129,6 +1155,45 @@ function FilterRow({ isActive }: { isActive: boolean }) {
 }
 
 const NOTION_CASES: readonly GalleryCase[] = [
+  {
+    name: "Code",
+    component: "Code",
+    root: '[data-slot="code"]',
+    render: () => (
+      <p className="text-ui">
+        Run <Code>npm ci</Code> first.
+      </p>
+    ),
+  },
+  ...[false, true].map(
+    (wrap): GalleryCase => ({
+      name: `CodeBlock[wrap=${String(wrap)}]`,
+      component: "CodeBlock",
+      root: '[data-slot="code-block"]',
+      render: () => (
+        <CodeBlock label="Deploy log" wrap={wrap} className="w-80">
+          {"$ softure-deploy release --environment production --version 0.4.7\nRelease 0.4.7 is live."}
+        </CodeBlock>
+      ),
+    }),
+  ),
+  ...(["row", "handle"] as const).map(
+    (dragBy): GalleryCase => ({
+      name: `SortableList[dragBy=${dragBy}]`,
+      component: "SortableList",
+      root: '[data-slot="sortable-list"]',
+      render: () => (
+        <SortableList label="Stages" items={["plan", "build", "ship"]} onReorder={() => undefined} dragBy={dragBy} className="w-64">
+          {["plan", "build", "ship"].map((id) => (
+            <SortableItem key={id} id={id} className="flex items-center gap-2 px-2 py-1 text-ui">
+              {dragBy === "handle" ? <SortableHandle /> : null}
+              {id}
+            </SortableItem>
+          ))}
+        </SortableList>
+      ),
+    }),
+  ),
   {
     name: "DetailTable",
     component: "DetailTable",

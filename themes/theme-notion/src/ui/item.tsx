@@ -5,14 +5,19 @@ import { Slot } from "radix-ui"
 
 import { Separator } from "./separator.js"
 
+// Set by ItemGroup so that its items render as list items (axe aria-required-children).
+const ItemGroupContext = React.createContext(false)
+
 function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div
-      role="list"
-      data-slot="item-group"
-      className={cn("group/item-group flex flex-col", className)}
-      {...props}
-    />
+    <ItemGroupContext.Provider value={true}>
+      <div
+        role="list"
+        data-slot="item-group"
+        className={cn("group/item-group flex flex-col", className)}
+        {...props}
+      />
+    </ItemGroupContext.Provider>
   )
 }
 
@@ -60,8 +65,12 @@ function Item({
 }: React.ComponentProps<"div"> &
   VariantProps<typeof itemVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot.Root : "div"
+  const isInGroup = React.useContext(ItemGroupContext)
+  // An asChild item keeps its child's own role (a link stays a link).
+  const role = isInGroup && !asChild ? "listitem" : undefined
   return (
     <Comp
+      role={role}
       data-slot="item"
       data-variant={variant}
       data-size={size}
@@ -135,7 +144,7 @@ function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
       data-slot="item-description"
       className={cn(
         "line-clamp-2 text-sm leading-normal font-normal text-balance text-muted-foreground",
-        "[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        "[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-link",
         className
       )}
       {...props}

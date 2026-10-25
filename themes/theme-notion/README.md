@@ -42,7 +42,9 @@ taking the scoped preflight instead of Tailwind's:
 
 `base.css` gives `body` the theme's background, text colour and sans font without the browser's 8 px margin, so a
 page without a shell root, the dark scheme and the Radix portals mounted on `body` (select lists, menus, sheets) all
-take the theme. `maplibre.css` puts the theme's sans font on MapLibre maps (markers, popups, the attribution), which
+take the theme. It also gives every `border` without a colour class the theme's `border` grey and outlines a
+half-transparent `ring` (shadcn/ui's `globals.css` rule), so table rows, accordion items, alerts and sheets do not
+draw in the text colour. `maplibre.css` puts the theme's sans font on MapLibre maps (markers, popups, the attribution), which
 `maplibre-gl.css` sets to Helvetica. `page.css` carries the rest of the design system's base layer: text outside the
 components at the panel size (`text-sm`, 14 px, instead of the browser's 16 px), selected text on `blue-tag`, and
 `-webkit-font-smoothing: antialiased` on `html`. All three read the theme with `--theme()` or its tokens, so they go through the app's Tailwind
@@ -69,13 +71,13 @@ import { CircleCheck } from "lucide-react";
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
 `DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Steps stateLabels`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
-`CommandDialog title description`.
+`CommandDialog title description`, `SortableList instructions announcements`, `SortableHandle label`.
 
 ## Rules, in short
 
 - Background `background`, text `foreground`, secondary text `muted-foreground`. Never pure black.
 - Hover is the grey `accent` background, never a border or a shadow; selected and pressed use `accent-strong`.
-- One `primary` (blue, `#2383e2`) action per screen. Other buttons are `secondary`, `outline` or `ghost`.
+- One `primary` (blue, `#0171cf`) action per screen. Other buttons are `secondary`, `outline` or `ghost`.
 - A palette colour (`gray`, `brown`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `red`, each with `-bg`,
   `-tag`, `-tag-foreground`) marks an area (a tag) or a state (a status, a callout), never decoration. The same
   colour always means the same thing; the app keeps its own table of meanings.
@@ -84,7 +86,8 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHead
 - Type: system sans, mono for identifiers. `text-page-title` 40/48 bold once per screen, `text-heading-1..3`
   30/24/20, `text-body` 16/24, `text-ui` 14/20 (panels), `text-small` 12/16, `text-section-label` 12/16 medium.
 - Spacing on a 4 px grid (`p-1` = 4 px). Sizes: `sidebar-width` 240, `content-width` 708, `content-width-wide` 1152,
-  `control-height` 28, `row-height` 34. Radius: `rounded-xs` 3 (tag, checkbox), `sm` 4 (tooltip, kbd), `md` 6
+  `control-height` 28, `row-height` 34, `touch-target` 44 (rows and controls meant to be tapped on a phone, e.g.
+  `min-h-touch-target md:min-h-row-height`). Radius: `rounded-xs` 3 (tag, checkbox), `sm` 4 (tooltip, kbd), `md` 6
   (button, field, menu item), `lg` 8 (callout, card), `xl` 10 (menu, select, dialog), `full` (switch).
 - Icons: lucide at `ICON_STROKE_WIDTH` (1.75), 16 px in text; they inherit the text colour. No emoji in the interface.
 - Statuses always carry a word and an icon, so states read apart without telling green from red.
@@ -103,17 +106,18 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHead
 
 ## Components
 
-All 36 shadcn/ui components of the design system, exported from the package root: accordion, alert, alert-dialog,
+All 37 shadcn/ui components of the design system, exported from the package root: accordion, alert, alert-dialog,
 avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, command, dialog, dropdown-menu, empty,
-field, input, input-group, item, kbd, label, popover, progress, scroll-area, select, separator, sheet, sidebar,
-skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
+field, input, input-group, item, kbd, label, popover, progress, radio-group, scroll-area, select, separator, sheet,
+sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
-stages with a state, below).
+stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
+`SortableList`, `SortableItem` and `SortableHandle` (rows reordered by dragging, below).
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill
 `icon · Label: value ▾` that opens a menu of options in the design system's popover. While the default value is
@@ -153,9 +157,11 @@ Escape inside or the close button calls `onClose`, and the caller moves focus ba
 ```
 
 A screen's summary figures: `StatsFold` (figures folded under a heading, closed by default, on native `<details>`),
-`StatCards` (a wrapping row of figure cards: label, figure in its tone, optional `hint`, optional `aside` tag;
-`isFullWidth` and `isOneRow` change the grid) and `StatPills` ("label **value**" tags in one row). Each figure takes a
-`tone`; the app keeps only its own table of which meaning takes which tone.
+`StatCards` (a wrapping row of figure cards: label, figure in its tone, optional `progress` bar under the figure,
+optional `hint`, optional `aside` tag; `isFullWidth` and `isOneRow` change the grid) and `StatPills` ("label **value**" tags in one row). Each figure takes a
+`tone`; the app keeps only its own table of which meaning takes which tone. A card's `progress` (0–100, clamped) draws
+the package's 6 px `Progress` under the figure, filled in the card's tone (primary without one) and named by
+`progressLabel` (default: the card's `label`).
 
 ```tsx
 <StatsFold title="Summary">
@@ -164,6 +170,7 @@ A screen's summary figures: `StatsFold` (figures folded under a heading, closed 
     cards={[
       { key: "paid", label: "Paid", value: "1,200", tone: "success" },
       { key: "owed", label: "Owed", value: "300", tone: "danger", hint: "2 invoices", aside: { text: "+5%" } },
+      { key: "hours", label: "Hours", value: "21.5 / 23.4 h", progress: 92, progressLabel: "Hours used" },
     ]}
   />
   <StatPills label="Counts" pills={[{ key: "late", label: "Late", value: "1", tone: "danger" }]} />
@@ -203,6 +210,49 @@ work. The colour means the worst of what it lists; the copy is props.
 </MarkPopover>
 ```
 
+**`Code` and `CodeBlock`.** `Code` is inline code: the `text-code` style (13/20 mono) in `red` on `secondary`, as in
+Notion. `CodeBlock` is a `<pre>` for logs and file paths on `muted`, radius 8; long lines scroll sideways, `wrap` wraps
+them. With `label` the block is a named region (`role="region"`) that keyboard users can focus and scroll; without it,
+plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-block"` mark the parts.
+
+```tsx
+<p>Run <Code>npm ci</Code> first.</p>
+<CodeBlock label="Build log" wrap>{log}</CodeBlock>
+```
+
+**`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and
+`@dnd-kit/sortable`. On a touch screen a long press (`holdDelay`, 500 ms) lifts a row; moving more than `tolerance`
+(8 px) before that scrolls instead, and a tap still activates the row. A mouse drags the same way; from the keyboard
+Space or Enter picks the focused row up, the arrows move it, Space or Enter drops it and Escape cancels. The row only
+moves up and down. The lifted row floats on `accent-strong` with `shadow-menu` above its siblings and carries
+`data-dragging`; every row has `touch-manipulation select-none` and no long-press callout. The order stays with the
+app: `items` are the rows' ids in order, and `onReorder(next, { id, from, to })` gets the new order on a drop.
+`dragBy="handle"` leaves the row alone and drags only by a `SortableHandle` (a ghost grip button, for a desktop list;
+a mouse starts at once there). A screen reader hears the `instructions` on the row (or handle) and the
+`announcements` while it moves: strings with `{item}`, `{position}` and `{total}`, where `getItemLabel(id)` names the
+row (the id by default). `data-slot="sortable-list"`, `sortable-item` (with `data-id`) and `sortable-handle` mark the
+parts.
+
+```tsx
+<SortableList label="Shopping list" items={ids} onReorder={(next) => setIds(next)}
+  getItemLabel={(id) => byId[id].name} announcements={{ pickedUp: t("sort.pickedUp") }}>
+  {ids.map((id) => (
+    <SortableItem key={id} id={id} className="flex h-row-height items-center gap-2 px-2">
+      <Link href={`/items/${id}`}>{byId[id].name}</Link>
+    </SortableItem>
+  ))}
+</SortableList>
+
+<SortableList label="Columns" items={columns} onReorder={setColumns} dragBy="handle">
+  {columns.map((id) => (
+    <SortableItem key={id} id={id} className="flex items-center gap-1 px-1">
+      <SortableHandle label="Move column" />
+      {id}
+    </SortableItem>
+  ))}
+</SortableList>
+```
+
 Deltas from stock shadcn:
 
 - `button`: sizes 28/24/32 px, a smaller padding on the icon side, a Notion `ghost`, `secondary` hover
@@ -212,11 +262,16 @@ Deltas from stock shadcn:
 - `input`, `textarea`, `select`, `input-group`: 28 px high, grey `field` background, thin `input` border.
 - `dropdown-menu`, `select`, `popover`, `command`: radius 10, `shadow-menu` without a border, 28 px items.
 - `dialog`, `alert-dialog`: radius 10, `shadow-dialog`, no border. `card`: `shadow-card` instead of a border.
-- `checkbox` 16 px with a 1.5 px border, `switch` 26 × 16 (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native
-  switch drawn the same), `tooltip` dark without an arrow, `tabs` default to the `line` variant, `progress` 6 px.
+- `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
+  (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,
+  `tabs` default to the `line` variant, `progress` 6 px.
 - `table`: a 34 px header in `muted-foreground`, a line under the last row too.
 - `sidebar`: a controlled sidebar keeps no cookie; the phone sheet's title and description are props; the menu
   skeleton's width is stable per item (shadcn draws a random one during render).
+- `item`: inside an `ItemGroup` (a `role="list"`) every `Item` renders `role="listitem"`; an `asChild` item keeps its
+  child's role (a link stays a link), so wrap it in an element with `role="listitem"`. `scroll-area`: the viewport
+  takes `tabIndex={0}` so keyboard users can scroll it; `viewportProps` reach the viewport (`tabIndex: -1` removes
+  the tab stop when the content has its own focusable elements).
 - `sonner`: no `next-themes`; `theme` is a prop. Focus everywhere: `ring-2 ring-ring` instead of `ring-[3px]`.
 
 A component the app needs beyond these: add it in this package (`npx shadcn@latest add <name>` in a scratch app,
@@ -229,6 +284,13 @@ with the kit's `defineTheme`; `tests/tokens.test.ts` keeps it equal to the desig
 (`tests/fixtures/notion-tokens.json`). When the design system changes, refresh the snapshot and the definition in one
 change. `cn` is `createThemeCn(NOTION_THEME)`. The build writes `theme.css` with the kit's `softure-theme-css` from
 `softureTheme` in `package.json` (the kit README, "The theme package contract").
+
+**Contrast.** Every text colour meets WCAG 2.2 AA (4.5:1) on the surfaces the parts put it on, in light and dark,
+and the focus ring reaches 3:1 against the page; `tests/contrast.test.ts` lists the pairs and guards them. The values
+are the design system's, shifted in lightness only (hue and chroma kept) where a pair fell short. Blue text is
+`text-link`, not `text-primary`: `primary` is the fill under white text, and in dark no one blue serves both, so
+`link` is a lighter blue there (in light both are `#0171cf`). The destructive fill is dimmed in dark
+(`dark:bg-destructive/60`, as shadcn/ui's badge), so `destructive` in dark is the lighter text red.
 
 **Overriding a token.** Redefine its CSS variable after `theme.css` (`:root { --primary: #e16259; }`, and the same in
 a `.dark` block for the dark value), or build a variant with `extendTheme(theme, { name, colors: { … } })` and write
@@ -253,8 +315,8 @@ on every pull request that touches `themes/`.
    every class in the parity fixture generates CSS on the theme (no unknown token, no cleared default colour).
 6. **Visual regression** (`visual/gallery.spec.ts`): the gallery and each overlay at 1440 and 390 px, light and dark,
    against `visual/baselines/`, in Playwright's Chromium with fonts from npm packages.
-7. **Accessibility**: axe (WCAG 2.1 A and AA) on the same pages; text contrast of the tokens in
-   `tests/contrast.test.ts` (AA, or today's ratio as a floor where the design system is below it).
+7. **Accessibility**: axe (WCAG 2.1 A and AA, colour contrast included) on the same pages; the token pairs in
+   `tests/contrast.test.ts` (see Contrast above) run in `npm test`.
 8. **Inventory** (`tests/inventory.test.ts`): exports, files, the README's component list and the gallery agree.
 
 Coverage of `src` stays at or above 90% of statements and branches (`npm run test:coverage -w @softure-ai/theme-notion`).

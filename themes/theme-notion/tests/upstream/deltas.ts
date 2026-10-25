@@ -47,9 +47,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { cn } from \"../lib/utils.js\"",
     },
     {
-      reason: "alert: palette colour variants (a Notion callout)",
+      reason: "alert: palette colour variants (a Notion callout); the destructive description in full `destructive` (WCAG AA contrast)",
       upstream: "          \"bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current\",",
-      ours: "          \"bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current\",\n        gray: \"border-transparent bg-gray-bg text-foreground [&>svg]:text-gray *:data-[slot=alert-description]:text-foreground\",\n        brown: \"border-transparent bg-brown-bg text-foreground [&>svg]:text-brown *:data-[slot=alert-description]:text-foreground\",\n        orange: \"border-transparent bg-orange-bg text-foreground [&>svg]:text-orange *:data-[slot=alert-description]:text-foreground\",\n        yellow: \"border-transparent bg-yellow-bg text-foreground [&>svg]:text-yellow *:data-[slot=alert-description]:text-foreground\",\n        green: \"border-transparent bg-green-bg text-foreground [&>svg]:text-green *:data-[slot=alert-description]:text-foreground\",\n        blue: \"border-transparent bg-blue-bg text-foreground [&>svg]:text-blue *:data-[slot=alert-description]:text-foreground\",\n        purple: \"border-transparent bg-purple-bg text-foreground [&>svg]:text-purple *:data-[slot=alert-description]:text-foreground\",\n        pink: \"border-transparent bg-pink-bg text-foreground [&>svg]:text-pink *:data-[slot=alert-description]:text-foreground\",\n        red: \"border-transparent bg-red-bg text-foreground [&>svg]:text-red *:data-[slot=alert-description]:text-foreground\",",
+      ours: "          \"bg-card text-destructive *:data-[slot=alert-description]:text-destructive [&>svg]:text-current\",\n        gray: \"border-transparent bg-gray-bg text-foreground [&>svg]:text-gray *:data-[slot=alert-description]:text-foreground\",\n        brown: \"border-transparent bg-brown-bg text-foreground [&>svg]:text-brown *:data-[slot=alert-description]:text-foreground\",\n        orange: \"border-transparent bg-orange-bg text-foreground [&>svg]:text-orange *:data-[slot=alert-description]:text-foreground\",\n        yellow: \"border-transparent bg-yellow-bg text-foreground [&>svg]:text-yellow *:data-[slot=alert-description]:text-foreground\",\n        green: \"border-transparent bg-green-bg text-foreground [&>svg]:text-green *:data-[slot=alert-description]:text-foreground\",\n        blue: \"border-transparent bg-blue-bg text-foreground [&>svg]:text-blue *:data-[slot=alert-description]:text-foreground\",\n        purple: \"border-transparent bg-purple-bg text-foreground [&>svg]:text-purple *:data-[slot=alert-description]:text-foreground\",\n        pink: \"border-transparent bg-pink-bg text-foreground [&>svg]:text-pink *:data-[slot=alert-description]:text-foreground\",\n        red: \"border-transparent bg-red-bg text-foreground [&>svg]:text-red *:data-[slot=alert-description]:text-foreground\",",
     },
   ],
   "avatar": [
@@ -71,19 +71,19 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "  \"inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3\",",
     },
     {
-      reason: "badge: `destructive-foreground` text (the theme clears Tailwind's `white`)",
+      reason: "badge: default hovers on `primary-hover` (WCAG AA contrast)",
+      upstream: "        default: \"bg-primary text-primary-foreground [a&]:hover:bg-primary/90\",",
+      ours: "        default: \"bg-primary text-primary-foreground [a&]:hover:bg-primary-hover\",",
+    },
+    {
+      reason: "badge: `destructive-foreground` text (the theme clears Tailwind's `white`), dark hover `destructive/50` like Button",
       upstream: "          \"bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90\",",
-      ours: "          \"bg-destructive text-destructive-foreground focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90\",",
+      ours: "          \"bg-destructive text-destructive-foreground focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90 dark:[a&]:hover:bg-destructive/50\",",
     },
     {
-      reason: "badge: the `tag` variant (20 px, radius 3)",
+      reason: "badge: links in `text-link` (WCAG AA contrast); the `tag` variant (20 px, radius 3) and the nine palette tags",
       upstream: "        link: \"text-primary underline-offset-4 [a&]:hover:underline\",",
-      ours: "        link: \"text-primary underline-offset-4 [a&]:hover:underline\",\n        tag: \"h-5 rounded-xs px-1.5 py-0 text-sm font-normal\",",
-    },
-    {
-      reason: "badge: the `color` variant, the nine palette tags",
-      upstream: "      },",
-      ours: "      },\n      color: {\n        none: \"\",\n        default: \"bg-default-tag text-default-tag-foreground\",\n        gray: \"bg-gray-tag text-gray-tag-foreground\",\n        brown: \"bg-brown-tag text-brown-tag-foreground\",\n        orange: \"bg-orange-tag text-orange-tag-foreground\",\n        yellow: \"bg-yellow-tag text-yellow-tag-foreground\",\n        green: \"bg-green-tag text-green-tag-foreground\",\n        blue: \"bg-blue-tag text-blue-tag-foreground\",\n        purple: \"bg-purple-tag text-purple-tag-foreground\",\n        pink: \"bg-pink-tag text-pink-tag-foreground\",\n        red: \"bg-red-tag text-red-tag-foreground\",\n      },",
+      ours: "        link: \"text-link underline-offset-4 [a&]:hover:underline\",\n        tag: \"h-5 rounded-xs px-1.5 py-0 text-sm font-normal\",\n      },\n      color: {\n        none: \"\",\n        default: \"bg-default-tag text-default-tag-foreground\",\n        gray: \"bg-gray-tag text-gray-tag-foreground\",\n        brown: \"bg-brown-tag text-brown-tag-foreground\",\n        orange: \"bg-orange-tag text-orange-tag-foreground\",\n        yellow: \"bg-yellow-tag text-yellow-tag-foreground\",\n        green: \"bg-green-tag text-green-tag-foreground\",\n        blue: \"bg-blue-tag text-blue-tag-foreground\",\n        purple: \"bg-purple-tag text-purple-tag-foreground\",\n        pink: \"bg-pink-tag text-pink-tag-foreground\",\n        red: \"bg-red-tag text-red-tag-foreground\",",
     },
     {
       reason: "badge: `color` defaults to none",
@@ -167,14 +167,14 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "        default: \"bg-primary text-primary-foreground hover:bg-primary-hover\",",
     },
     {
-      reason: "button: the `destructive-foreground` token",
+      reason: "button: the `destructive-foreground` token, dark hover `destructive/50` (WCAG AA contrast)",
       upstream: "          \"bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40\",",
-      ours: "          \"bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40\",",
+      ours: "          \"bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:hover:bg-destructive/50 dark:focus-visible:ring-destructive/40\",",
     },
     {
-      reason: "button: thin `input` border, no shadows, `secondary` hover `accent-strong`, the Notion ghost",
-      upstream: "          \"border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50\",\n        secondary:\n          \"bg-secondary text-secondary-foreground hover:bg-secondary/80\",\n        ghost:\n          \"hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50\",",
-      ours: "          \"border border-input bg-background hover:bg-accent hover:text-accent-foreground\",\n        secondary: \"bg-secondary text-secondary-foreground hover:bg-accent-strong\",\n        ghost: \"text-muted-foreground hover:bg-accent hover:text-foreground\",",
+      reason: "button: thin `input` border, no shadows, `secondary` hover `accent-strong`, the Notion ghost, links in `text-link`",
+      upstream: "          \"border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50\",\n        secondary:\n          \"bg-secondary text-secondary-foreground hover:bg-secondary/80\",\n        ghost:\n          \"hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50\",\n        link: \"text-primary underline-offset-4 hover:underline\",",
+      ours: "          \"border border-input bg-background hover:bg-accent hover:text-accent-foreground\",\n        secondary: \"bg-secondary text-secondary-foreground hover:bg-accent-strong\",\n        ghost: \"text-muted-foreground hover:bg-accent hover:text-foreground\",\n        link: \"text-link underline-offset-4 hover:underline\",",
     },
     {
       reason: "button: 28 px, a smaller padding on the icon side",
@@ -289,9 +289,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "          \"z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-1 text-popover-foreground shadow-menu data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",",
     },
     {
-      reason: "menu item: radius 6, at least 28 px high",
+      reason: "menu item: radius 6, at least 28 px high; a focused destructive item in dark is tinted `destructive/10` (WCAG AA contrast)",
       upstream: "        \"relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!\",",
-      ours: "        \"relative flex cursor-default items-center gap-2 rounded-md min-h-7 px-2 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!\",",
+      ours: "        \"relative flex cursor-default items-center gap-2 rounded-md min-h-7 px-2 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/10 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!\",",
     },
     {
       reason: "menu item: radius 6, at least 28 px high",
@@ -325,6 +325,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "import { cn } from \"cn\"",
       ours: "import { cn } from \"../lib/utils.js\"",
     },
+    {
+      reason: "empty: hovered inline links in `text-link` (WCAG AA contrast)",
+      upstream: "        \"text-sm/relaxed text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary\",",
+      ours: "        \"text-sm/relaxed text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-link\",",
+    },
   ],
   "field": [
     {
@@ -336,6 +341,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       reason: "imports: relative paths with `.js` under NodeNext, `cn` from the theme",
       upstream: "import { Label } from \"@/registry/new-york-v4/ui/label\"\nimport { Separator } from \"@/registry/new-york-v4/ui/separator\"",
       ours: "import { Label } from \"./label.js\"\nimport { Separator } from \"./separator.js\"",
+    },
+    {
+      reason: "field: hovered inline links in `text-link` (WCAG AA contrast)",
+      upstream: "        \"[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary\",",
+      ours: "        \"[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-link\",",
     },
   ],
   "input-group": [
@@ -394,14 +404,34 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { cn } from \"../lib/utils.js\"",
     },
     {
-      reason: "imports: relative paths with `.js` under NodeNext, `cn` from the theme",
+      reason: "imports: relative paths with `.js`; ItemGroup tells its items they are list items",
       upstream: "import { Separator } from \"@/registry/new-york-v4/ui/separator\"",
-      ours: "import { Separator } from \"./separator.js\"",
+      ours: "import { Separator } from \"./separator.js\"\n\n// Set by ItemGroup so that its items render as list items (axe aria-required-children).\nconst ItemGroupContext = React.createContext(false)",
+    },
+    {
+      reason: "item group: provides the list context to its items (axe aria-required-children)",
+      upstream: "    <div\n      role=\"list\"\n      data-slot=\"item-group\"\n      className={cn(\"group/item-group flex flex-col\", className)}\n      {...props}\n    />",
+      ours: "    <ItemGroupContext.Provider value={true}>\n      <div\n        role=\"list\"\n        data-slot=\"item-group\"\n        className={cn(\"group/item-group flex flex-col\", className)}\n        {...props}\n      />\n    </ItemGroupContext.Provider>",
     },
     {
       reason: "focus: `ring-2 ring-ring` instead of `ring-[3px] ring-ring/50`",
       upstream: "  \"group/item flex flex-wrap items-center rounded-md border border-transparent text-sm transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [a]:transition-colors [a]:hover:bg-accent/50\",",
       ours: "  \"group/item flex flex-wrap items-center rounded-md border border-transparent text-sm transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring [a]:transition-colors [a]:hover:bg-accent/50\",",
+    },
+    {
+      reason: "item: `role=listitem` inside an ItemGroup, except an asChild item that keeps its child's role",
+      upstream: "  const Comp = asChild ? Slot.Root : \"div\"",
+      ours: "  const Comp = asChild ? Slot.Root : \"div\"\n  const isInGroup = React.useContext(ItemGroupContext)\n  // An asChild item keeps its child's own role (a link stays a link).\n  const role = isInGroup && !asChild ? \"listitem\" : undefined",
+    },
+    {
+      reason: "item: `role=listitem` inside an ItemGroup, except an asChild item that keeps its child's role",
+      upstream: "    <Comp",
+      ours: "    <Comp\n      role={role}",
+    },
+    {
+      reason: "item: hovered inline links in `text-link` (WCAG AA contrast)",
+      upstream: "        \"[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary\",",
+      ours: "        \"[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-link\",",
     },
   ],
   "kbd": [
@@ -437,9 +467,41 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { cn } from \"../lib/utils.js\"",
     },
     {
+      reason: "progress: `indicatorClassName` styles the fill",
+      upstream: "  className,",
+      ours: "  className,\n  indicatorClassName,",
+    },
+    {
+      reason: "progress: `indicatorClassName` styles the fill",
+      upstream: "}: React.ComponentProps<typeof ProgressPrimitive.Root>) {",
+      ours: "}: React.ComponentProps<typeof ProgressPrimitive.Root> & {\n  /** Classes merged over the indicator's, e.g. another fill colour. */\n  indicatorClassName?: string\n}) {",
+    },
+    {
+      reason: "progress: `indicatorClassName` styles the fill",
+      upstream: "      data-slot=\"progress\"",
+      ours: "      data-slot=\"progress\"\n      value={value}",
+    },
+    {
       reason: "progress: 6 px",
       upstream: "        \"relative h-2 w-full overflow-hidden rounded-full bg-primary/20\",",
       ours: "        \"relative h-1.5 w-full overflow-hidden rounded-full bg-primary/20\",",
+    },
+    {
+      reason: "progress: `indicatorClassName` styles the fill",
+      upstream: "        className=\"h-full w-full flex-1 bg-primary transition-all\"",
+      ours: "        className={cn(\"h-full w-full flex-1 bg-primary transition-all\", indicatorClassName)}",
+    },
+  ],
+  "radio-group": [
+    {
+      reason: "imports: relative paths with `.js` under NodeNext, `cn` from the theme",
+      upstream: "import { cn } from \"cn\"",
+      ours: "import { cn } from \"../lib/utils.js\"",
+    },
+    {
+      reason: "radio: 16 px, a 1.5 px `muted-foreground` border that turns `primary` when checked, no shadow, the theme's focus ring",
+      upstream: "        \"aspect-square size-4 shrink-0 rounded-full border border-input text-primary shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:ring-destructive/40\",",
+      ours: "        \"aspect-square size-4 shrink-0 rounded-full border-[1.5px] border-muted-foreground text-primary transition-shadow outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary dark:aria-invalid:ring-destructive/40\",",
     },
   ],
   "scroll-area": [
@@ -449,9 +511,29 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { cn } from \"../lib/utils.js\"",
     },
     {
-      reason: "focus: `ring-2 ring-ring` instead of `ring-[3px] ring-ring/50`",
+      reason: "scroll area: `viewportProps` reach the viewport",
+      upstream: "  children,",
+      ours: "  children,\n  viewportProps,",
+    },
+    {
+      reason: "scroll area: `viewportProps` reach the viewport",
+      upstream: "}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {",
+      ours: "}: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {\n  viewportProps?: React.ComponentProps<typeof ScrollAreaPrimitive.Viewport>\n}) {",
+    },
+    {
+      reason: "scroll area: the viewport is focusable (axe scrollable-region-focusable)",
+      upstream: "      className={cn(\"relative\", className)}\n      {...props}\n    >",
+      ours: "      className={cn(\"relative\", className)}\n      {...props}\n    >\n      {/* Focusable, so keyboard users can scroll content without focusable elements (axe scrollable-region-focusable). */}",
+    },
+    {
+      reason: "scroll area: the viewport is focusable (axe scrollable-region-focusable)",
+      upstream: "      <ScrollAreaPrimitive.Viewport",
+      ours: "      <ScrollAreaPrimitive.Viewport\n        tabIndex={0}",
+    },
+    {
+      reason: "focus: `ring-2 ring-ring` instead of `ring-[3px] ring-ring/50`; `viewportProps` with their classes merged",
       upstream: "        className=\"size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1\"",
-      ours: "        className=\"size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-1\"",
+      ours: "        {...viewportProps}\n        className={cn(\n          \"size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-1\",\n          viewportProps?.className\n        )}",
     },
   ],
   "select": [
@@ -587,6 +669,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "      title={label}",
     },
     {
+      reason: "sidebar: the group label in `muted-foreground` instead of `sidebar-foreground/70` (WCAG AA contrast)",
+      upstream: "        \"flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0\",",
+      ours: "        \"flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-muted-foreground ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0\",",
+    },
+    {
       reason: "sidebar: the menu skeleton's width is stable per item (pure render)",
       upstream: "  // Random width between 50 to 90%.",
       ours: "  // A width between 50 and 90%, stable per skeleton (shadcn draws a random one, which is impure during render).\n  const id = React.useId()",
@@ -689,9 +776,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "  variant = \"line\",",
     },
     {
-      reason: "focus: `ring-2 ring-ring` instead of `ring-[3px] ring-ring/50`",
+      reason: "tabs: the trigger in `muted-foreground` instead of `foreground/60` (WCAG AA contrast); the theme's focus ring",
       upstream: "        \"relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",",
-      ours: "        \"relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",",
+      ours: "        \"relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-muted-foreground transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",",
     },
   ],
   "textarea": [
