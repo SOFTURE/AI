@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-mark-popover-725
-status: in_progress
+status: archived
 ---
 
 # Plan: MarkPopover in theme-notion (issue #725)
@@ -31,4 +31,4 @@ Files: `themes/theme-notion/src/notion/MarkPopover.tsx`, `themes/theme-notion/sr
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1: 235b354

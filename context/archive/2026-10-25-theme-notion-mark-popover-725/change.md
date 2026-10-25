@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-mark-popover-725
 title: "theme-notion: MarkPopover, a counted tag that opens a list on the Popover API (issue #725)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 725
 branch: claude/project-thread-az7npq
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
