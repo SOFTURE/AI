@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-steps-738
-status: in_progress
+status: archived
 ---
 
 # Plan: theme-notion Steps (issue #738)
@@ -44,4 +44,4 @@ Files: `themes/theme-notion/README.md`, `themes/theme-notion/CHANGELOG.md`.
 ## Progress
 
 - [x] Phase 1: d7605f3
-- [ ] Phase 2
+- [x] Phase 2: 0d7c89c

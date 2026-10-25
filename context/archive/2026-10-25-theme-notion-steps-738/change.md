@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-steps-738
 title: "theme-notion: Steps, numbered stages with a state (issue #738)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 738
 branch: claude/project-thread-ptq4g9
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent
