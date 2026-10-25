@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-sortable-752
 title: "theme-notion: sortable list, drag to reorder with a lifted row and a touch hold (issue #752)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 752
 branch: claude/project-thread-zkpdgn
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

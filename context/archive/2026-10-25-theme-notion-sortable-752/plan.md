@@ -1,5 +1,6 @@
 ---
 change_id: theme-notion-sortable-752
+status: archived
 ---
 
 # Plan: theme-notion sortable list (issue #752)
