@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-radio-group-736
 title: "theme-notion: RadioGroup, shadcn radio-group with the checkbox deltas (issue #736)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 736
 branch: claude/project-thread-8pkidy
 created: 2026-10-25
 updated: 2026-10-25
+archived_at: 2026-10-25
 ---
 
 ## Intent

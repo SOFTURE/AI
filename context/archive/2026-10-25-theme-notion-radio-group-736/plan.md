@@ -20,4 +20,4 @@ Files: `themes/theme-notion/src/ui/radio-group.tsx`, `src/index.ts`, `tests/ui/r
 
 ## Progress
 
-- [ ] Phase 1: RadioGroup
+- [x] Phase 1: RadioGroup (fed660e)
