@@ -15,6 +15,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `Sheet`. Layouts `over`, `beside`, `left`, `list`; hidden while closed, focus moves in when it opens, Escape and the
   close button call `onClose`. An app that kept its own copy replaces it with the import (same props; `closeLabel` is
   now optional, default "Close") and drops its own file.
+- `StatsFold`, `StatCards` and `StatPills` (#722): a screen's summary figures, folded under a heading (native
+  `<details>`, closed by default), as a wrapping row of cards (label, figure in its tone, optional hint and aside tag,
+  `isFullWidth` / `isOneRow` layouts) and as "label **value**" tags. `data-slot`, `data-stat`, `data-tone` and
+  `data-layout` mark the parts. An app that kept these as its own code drops them and imports them from the package.
 
 ## 0.1.1
 

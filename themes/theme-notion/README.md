@@ -113,6 +113,24 @@ Escape inside or the close button calls `onClose`, and the caller moves focus ba
 </div>
 ```
 
+A screen's summary figures: `StatsFold` (figures folded under a heading, closed by default, on native `<details>`),
+`StatCards` (a wrapping row of figure cards: label, figure in its tone, optional `hint`, optional `aside` tag;
+`isFullWidth` and `isOneRow` change the grid) and `StatPills` ("label **value**" tags in one row). Each figure takes a
+`tone`; the app keeps only its own table of which meaning takes which tone.
+
+```tsx
+<StatsFold title="Summary">
+  <StatCards
+    label="Totals"
+    cards={[
+      { key: "paid", label: "Paid", value: "1,200", tone: "success" },
+      { key: "owed", label: "Owed", value: "300", tone: "danger", hint: "2 invoices", aside: { text: "+5%" } },
+    ]}
+  />
+  <StatPills label="Counts" pills={[{ key: "late", label: "Late", value: "1", tone: "danger" }]} />
+</StatsFold>
+```
+
 Deltas from stock shadcn:
 
 - `button`: sizes 28/24/32 px, a smaller padding on the icon side, a Notion `ghost`, `secondary` hover
