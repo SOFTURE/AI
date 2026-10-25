@@ -16,6 +16,8 @@ npm i @softure-ai/theme-notion tailwindcss @tailwindcss/postcss
 @import "tailwindcss";
 @import "@softure-ai/theme-notion/theme.css";       /* tokens, utilities, dark:, animations, the components' classes */
 @import "@softure-ai/theme-notion/sft-bridge.css";  /* optional: pages of the SOFTURE packages in a PageFrame */
+@import "@softure-ai/theme-kit/base.css";            /* body on the theme's background, text colour and font */
+@import "@softure-ai/theme-kit/maplibre.css";        /* only if the app shows MapLibre maps */
 ```
 
 `theme.css` names the package's components as Tailwind sources, so their classes are generated without the app
@@ -32,7 +34,15 @@ taking the scoped preflight instead of Tailwind's:
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "@softure-ai/theme-notion/theme.css";
 @import "@softure-ai/theme-notion/sft-bridge.css";
+@import "@softure-ai/theme-kit/base.css";            /* nothing else styles body under the scoped preflight */
+@import "@softure-ai/theme-kit/maplibre.css";        /* only if the app shows MapLibre maps */
 ```
+
+`base.css` gives `body` the theme's background, text colour and sans font without the browser's 8 px margin, so a
+page without a shell root, the dark scheme and the Radix portals mounted on `body` (select lists, menus, sheets) all
+take the theme. `maplibre.css` puts the theme's sans font on MapLibre maps (markers, popups, the attribution), which
+`maplibre-gl.css` sets to Helvetica. Both read the theme with `--theme()`, so they go through the app's Tailwind
+after `theme.css`; the app's `globals.css` keeps only `@import` lines.
 
 ```tsx
 import { Button, Badge, Status, PageHeader, TooltipProvider, Toaster } from "@softure-ai/theme-notion";
@@ -52,9 +62,9 @@ import { CircleCheck } from "lucide-react";
 `light` the other way. `Toaster` follows the system unless it gets `theme="light" | "dark"`.
 
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
-wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `DialogContent closeLabel`,
-`SheetContent closeLabel`, `SidePanel closeLabel`, `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`,
-`Spinner aria-label`, `CommandDialog title description`.
+wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
+`DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Sidebar mobileTitle mobileDescription`,
+`SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`, `CommandDialog title description`.
 
 ## Rules, in short
 
@@ -73,6 +83,18 @@ wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `DialogCo
   (button, field, menu item), `lg` 8 (callout, card), `xl` 10 (menu, select, dialog), `full` (switch).
 - Icons: lucide at `ICON_STROKE_WIDTH` (1.75), 16 px in text; they inherit the text colour. No emoji in the interface.
 - Statuses always carry a word and an icon, so states read apart without telling green from red.
+- Figures, bar segments and box edges take a **tone** by what they mean: `default` (text colour), `success` (green,
+  done), `warning` (orange, to do), `danger` (red, owed or failing), `muted` (gray, out of play). `TONE_COLORS` gives
+  a tone's palette colour (`null` for `default`); `TONE_TEXT`, `TONE_FILL` and `TONE_EDGE` give literal class names
+  (`text-*`, `bg-*`, `border-l-*`) that the shipped `theme.css` already generates, so the app adds no `@source`. The
+  app keeps only its meaning-to-tone table:
+
+  ```tsx
+  import { TONE_TEXT, type Tone } from "@softure-ai/theme-notion";
+
+  const PAYMENT_TONE: Record<"paid" | "due" | "overdue", Tone> = { paid: "success", due: "warning", overdue: "danger" };
+  <span className={TONE_TEXT[PAYMENT_TONE.overdue]}>1 200</span>
+  ```
 
 ## Components
 
@@ -82,7 +104,8 @@ field, input, input-group, item, kbd, label, popover, progress, scroll-area, sel
 skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`), `SidePanel` (a non-modal panel at a side
-of a canvas, below), `MarkPopover` (a counted tag that opens a list of what it counts, below).
+of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon and count, the shown tab in the address;
+`Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a list of what it counts, below).
 
 **`SidePanel`.** A panel next to a canvas (a map) that leaves the canvas usable, so a switch inside shows its effect
 at once (`Sheet` is modal). It floats on `background` with `shadow-menu`, 24 rem wide, full width on a phone, with a

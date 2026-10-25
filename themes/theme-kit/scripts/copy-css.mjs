@@ -5,7 +5,7 @@
 import { copyFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const STYLESHEETS = ["preflight.css"];
+const STYLESHEETS = ["preflight.css", "base.css", "maplibre.css"];
 
 for (const name of STYLESHEETS) {
   copyFileSync(fileURLToPath(new URL(`../src/${name}`, import.meta.url)), fileURLToPath(new URL(`../dist/${name}`, import.meta.url)));

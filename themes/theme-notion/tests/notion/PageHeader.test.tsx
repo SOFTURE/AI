@@ -25,6 +25,17 @@ describe("PageHeader", () => {
     expect(html).toContain("rounded-xl bg-secondary");
   });
 
+  it("names the breadcrumb with crumbsLabel and keeps the built-in English name without it", () => {
+    const crumbs = [{ label: "Workspace", href: "/" }, { label: "Projects" }];
+
+    expect(renderToStaticMarkup(<PageHeader title="Projects" crumbs={crumbs} crumbsLabel="Path" />)).toContain(
+      '<nav aria-label="Path" data-slot="breadcrumb">',
+    );
+    expect(renderToStaticMarkup(<PageHeader title="Projects" crumbs={crumbs} />)).toContain(
+      '<nav aria-label="breadcrumb" data-slot="breadcrumb">',
+    );
+  });
+
   it("puts what it holds right under the title, before the description", () => {
     expect(renderToStaticMarkup(<PageHeader title="Tasks" description="Open tasks"><section>filters</section></PageHeader>)).toBe(
       '<header data-slot="page-header" class="flex flex-col"><h1 class="text-page-title text-balance">Tasks</h1><section>filters</section><p class="mt-1 text-body text-muted-foreground">Open tasks</p></header>',
