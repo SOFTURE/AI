@@ -9,5 +9,6 @@ export const en = {
   sidePanel: { close: "Close" },
   sidebar: { mobileTitle: "Sidebar", mobileDescription: "Displays the mobile sidebar.", toggle: "Toggle Sidebar" },
   spinner: { label: "Loading" },
+  steps: { done: "Done", current: "Current", todo: "To do", failed: "Failed" },
   command: { title: "Command Palette", description: "Search for a command to run..." },
 } as const;
