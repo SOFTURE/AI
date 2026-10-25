@@ -13,6 +13,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   "+ Add filter" pill; its text comes from `notionMessages.en.filterChip.add` and is replaced through `label`. An app
   that styled its own filter trigger replaces it with `import { FilterChip, FilterChipAdd } from "@softure-ai/theme-notion"`.
 
+## Unreleased
+
+- Fix (#746): table rows and the table footer, accordion items, default and destructive alerts, the command input,
+  item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
+  border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
+  release), which both wirings already import: update the kit, no other change.
+
 ## 0.2.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.2` (was `^0.1.0`): the version that ships `base.css` and `maplibre.css`, which

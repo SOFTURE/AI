@@ -45,7 +45,7 @@ ThemeDefinition (data)  ──defineTheme──▶  theme (checked)  ──build
 | `createCn(options)`, `createThemeCn(definition)` | shadcn/ui's `cn`, with tailwind-merge told the theme's named text styles and shadows (`text-body` and `text-muted-foreground` both stay) |
 | `useIsMobile()`, `MOBILE_BREAKPOINT` (`/react`) | The sidebar's breakpoint (768 px), on `useSyncExternalStore`; the server renders the desktop layout |
 | `preflight.css` | Tailwind's preflight scoped to `[data-slot]` elements, in `@layer base` with zero specificity, plus `prefers-reduced-motion` |
-| `base.css` | The page base: `body` without the browser's margin, on the theme's `background`, `foreground` and sans font, in `@layer base` (Radix portals on `body` inherit it) |
+| `base.css` | The page base: `body` without the browser's margin, on the theme's `background`, `foreground` and sans font (Radix portals on `body` inherit it); a `border` without a colour class in the theme's `border` and outlines in a half-transparent `ring`, as shadcn/ui's `globals.css` does, where Tailwind's preflight leaves `currentColor`; all in `@layer base` |
 | `maplibre.css` | The theme's sans font on MapLibre maps (`body .maplibregl-map`, unlayered, so it beats `maplibre-gl.css` in any load order) |
 | `softure-theme-css [packageDir]` | Builds a theme package's stylesheets after `tsc` (the contract below) |
 | `/build`: `parseThemePackageConfig`, `buildThemeStylesheet`, `writeThemeStylesheets`, `buildThemePackage` | The code behind the command, for tests and tools (Node only) |

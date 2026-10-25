@@ -40,7 +40,9 @@ taking the scoped preflight instead of Tailwind's:
 
 `base.css` gives `body` the theme's background, text colour and sans font without the browser's 8 px margin, so a
 page without a shell root, the dark scheme and the Radix portals mounted on `body` (select lists, menus, sheets) all
-take the theme. `maplibre.css` puts the theme's sans font on MapLibre maps (markers, popups, the attribution), which
+take the theme. It also gives every `border` without a colour class the theme's `border` grey and outlines a
+half-transparent `ring` (shadcn/ui's `globals.css` rule), so table rows, accordion items, alerts and sheets do not
+draw in the text colour. `maplibre.css` puts the theme's sans font on MapLibre maps (markers, popups, the attribution), which
 `maplibre-gl.css` sets to Helvetica. Both read the theme with `--theme()`, so they go through the app's Tailwind
 after `theme.css`; the app's `globals.css` keeps only `@import` lines.
 
