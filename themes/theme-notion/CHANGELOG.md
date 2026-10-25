@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `FilterChip` and `FilterChipAdd` (#737): a list's filter pills as a Notion database view draws them, a 24 px
+  `rounded-full` pill `icon · Label: value ▾` that opens a `DropdownMenu` of options (pass `DropdownMenu` items as
+  children) in the design system's popover. `isActive` turns the pill into the blue tag and sets `data-active`;
+  `data-slot="filter-chip"`, `filter-chip-value` and `filter-chip-add` mark the parts. `FilterChipAdd` is the
+  "+ Add filter" pill; its text comes from `notionMessages.en.filterChip.add` and is replaced through `label`. An app
+  that styled its own filter trigger replaces it with `import { FilterChip, FilterChipAdd } from "@softure-ai/theme-notion"`.
+
 ## 0.2.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.2` (was `^0.1.0`): the version that ships `base.css` and `maplibre.css`, which
