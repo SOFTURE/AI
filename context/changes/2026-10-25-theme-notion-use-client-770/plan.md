@@ -24,4 +24,4 @@ Files: `themes/theme-notion/src/ui/item.tsx`, `tests/repo/themes.test.ts`, `them
 
 ## Progress
 
-- [ ] Phase 1: the directive and the guard
+- [x] Phase 1: the directive and the guard (bbad826)
