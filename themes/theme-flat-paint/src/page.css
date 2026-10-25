@@ -1,0 +1,94 @@
+/*
+ * The Flat Paint page base: what the design system decides beyond the tokens. Import it after `theme.css` and the
+ * kit's `base.css`, through the app's Tailwind (it reads the theme with `--theme()` and declares motion tokens).
+ *
+ * - The browser's own controls follow the scheme of each scope (`color-scheme`).
+ * - Body text keeps the grotesque's tighter tracking; the type scale's styles carry their own and override it.
+ * - Placeholders in `muted` (4.5:1 in both schemes, the browser's grey is not), selected text in lime with ink.
+ * - Three voices for numbers: `figure` (a hero figure in the text face, even digits), `num` (an amount or a date in a
+ *   row or a sentence) and `tabular` (the mono face, only for digits compared down a column).
+ * - `card-surface`: a card as a surface, `surface` with one `border` hairline, no shadow.
+ * - Motion: three durations under 300 ms and three easings that never overshoot; a bare `transition` takes the fast
+ *   one. `prefers-reduced-motion: reduce` stops all of it, delays included, at 1 ms (end events still fire).
+ */
+:root,
+.light,
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light, [data-theme="light"]) {
+    color-scheme: dark;
+  }
+}
+
+.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root {
+  --duration-fast: 160ms;
+  --duration-base: 200ms;
+  --duration-slow: 240ms;
+}
+
+@theme static {
+  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out-snap: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-out-settle: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --default-transition-duration: var(--duration-fast);
+  --default-transition-timing-function: var(--ease-out-soft);
+}
+
+@layer base {
+  body {
+    letter-spacing: -0.011em;
+  }
+
+  ::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+
+  ::selection {
+    background-color: var(--lime);
+    color: var(--ink);
+  }
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-family: --theme(--font-mono);
+}
+
+.figure {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-family: --theme(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+.num {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-family: --theme(--font-sans);
+}
+
+.card-surface {
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
