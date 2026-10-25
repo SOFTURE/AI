@@ -28,6 +28,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   against its track. Decorative separators (`border`, `sidebar-border`) are unchanged. An app changes: a
   `border-input` or `bg-input` of its own that only separates content (a divider, a button outline) moves to
   `border-border` / `bg-border`; its fields keep `border-input` and gain the contrast without a change.
+- Fix (#746): table rows and the table footer, accordion items, default and destructive alerts, the command input,
+  item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
+  border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
+  release), which both wirings already import: update the kit, no other change.
+- `touch-target` size (#742): `--spacing-touch-target: 44px` (Apple HIG 44 pt, WCAG 2.5.5 target size), so
+  `min-h-touch-target` and `size-touch-target` give rows and controls tapped on a phone a finger-sized height next to
+  the pointer sizes `control-height` 28 and `row-height` 34. No component changes height. An app that used the raw
+  spacing scale for this (`min-h-11`) replaces it with `min-h-touch-target`, keeping the pointer height on desktop
+  where it wants it (`min-h-touch-target md:min-h-row-height`).
 - Contrast (#756): every text colour now meets WCAG 2.2 AA (4.5:1) on the surfaces the parts put it on, in light and
   dark, and the focus ring reaches 3:1; `tests/contrast.test.ts` guards each pair. Lightness-only shifts, hue and
   chroma kept:
@@ -53,10 +62,6 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   (`text-primary` on text, a link colour) moves to `text-link`; a destructive fill of its own adds
   `dark:bg-destructive/60`; a hard-coded `#2383e2` or `#787774` moves to the token; text faded by an opacity
   modifier (`text-foreground/60`) moves to `text-muted-foreground`.
-- Fix (#746): table rows and the table footer, accordion items, default and destructive alerts, the command input,
-  item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
-  border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
-  release), which both wirings already import: update the kit, no other change.
 - `RadioGroup` and `RadioGroupItem` (#736): the shadcn new-york v4 `radio-group` (Radix), drawn like `checkbox`: 16 px,
   a 1.5 px `muted-foreground` border, the checked border and dot in `primary`, focus `ring-2 ring-ring`,
   `aria-invalid` like the other fields. Arrow keys move the choice. `data-slot="radio-group"`, `radio-group-item` and

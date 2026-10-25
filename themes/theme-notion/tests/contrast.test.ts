@@ -113,7 +113,7 @@ const NON_TEXT_PAIRS: readonly Pair[] = [
     { text: "background", on: [...on, "control-off"], min: NON_TEXT_MIN },
     { text: "background", on: [...on, "primary"], min: NON_TEXT_MIN },
   ]),
-  // A checked Switch track and Checkbox.
+  // A checked Switch track, Checkbox and RadioGroup item (their unchecked outline is `muted-foreground`, checked above).
   ...[["background"], ["card"], ["popover"], ["muted"]].map((on) => ({ text: "primary", on, min: NON_TEXT_MIN })),
   // The Progress fill against its track, which is a quiet extent: the fill carries the value.
   ...PROGRESS_FILLS.flatMap((fill) =>
