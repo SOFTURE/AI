@@ -1,0 +1,62 @@
+{
+  "name": "@softure-ai/theme-flat-paint",
+  "version": "0.0.0",
+  "description": "SOFTURE AI Flat Paint theme: near-black or white, cards with one hairline, one heavy grotesque and one flat lime accent; the tokens, the @softure-ai/ui bridge, the page base and the look of the ui components.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "themes/theme-flat-paint"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./theme.css": "./dist/theme.css",
+    "./sft-bridge.css": "./dist/sft-bridge.css",
+    "./page.css": "./dist/page.css"
+  },
+  "softureTheme": {
+    "sources": [
+      "./look"
+    ],
+    "stylesheets": [
+      "sft-bridge.css",
+      "page.css"
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && softure-theme-css"
+  },
+  "dependencies": {
+    "@softure-ai/theme-kit": "^0.1.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "tailwindcss": "^4.0.0"
+  },
+  "devDependencies": {
+    "@softure-ai/ui": "^0.3.4",
+    "zod": "^4.6.5"
+  }
+}
