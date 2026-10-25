@@ -75,10 +75,6 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   (`text-primary` on text, a link colour) moves to `text-link`; a destructive fill of its own adds
   `dark:bg-destructive/60`; a hard-coded `#2383e2` or `#787774` moves to the token; text faded by an opacity
   modifier (`text-foreground/60`) moves to `text-muted-foreground`.
-- Fix (#746): table rows and the table footer, accordion items, default and destructive alerts, the command input,
-  item media and sheets drew their borders in the text colour under Tailwind's full preflight. The rule that makes a
-  border without a colour class the theme's `border` grey ships in `@softure-ai/theme-kit/base.css` (the kit's next
-  release), which both wirings already import: update the kit, no other change.
 - `RadioGroup` and `RadioGroupItem` (#736): the shadcn new-york v4 `radio-group` (Radix), drawn like `checkbox`: 16 px,
   a 1.5 px `muted-foreground` border, the checked border and dot in `primary`, focus `ring-2 ring-ring`,
   `aria-invalid` like the other fields. Arrow keys move the choice. `data-slot="radio-group"`, `radio-group-item` and
