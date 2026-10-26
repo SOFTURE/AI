@@ -250,6 +250,21 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "  title = messages.command.title,\n  description = messages.command.description,",
     },
     {
+      reason: "a11y (#809): the dialog's title names the search field through cmdk's `label` (its `aria-labelledby` wins over `aria-label`)",
+      upstream: "        <Command className=",
+      ours: "        <Command label={title} className=",
+    },
+    {
+      reason: "input row (#809): trailing content after the input and the row's classes from the app",
+      upstream: "function CommandInput({\n  className,\n  ...props\n}: React.ComponentProps<typeof CommandPrimitive.Input>) {\n  return (\n    <div\n      data-slot=\"command-input-wrapper\"\n      className=\"flex h-9 items-center gap-2 border-b px-3\"\n    >",
+      ours: "function CommandInput({\n  className,\n  wrapperClassName,\n  children,\n  ...props\n}: React.ComponentProps<typeof CommandPrimitive.Input> & {\n  /** Classes for the input row (e.g. its height), merged after the row's own. */\n  wrapperClassName?: string\n  /** Content at the end of the input row, after the input (e.g. a `Kbd`). */\n  children?: React.ReactNode\n}) {\n  return (\n    <div\n      data-slot=\"command-input-wrapper\"\n      className={cn(\"flex h-9 items-center gap-2 border-b px-3\", wrapperClassName)}\n    >",
+    },
+    {
+      reason: "input row (#809): trailing content after the input and the row's classes from the app",
+      upstream: "        {...props}\n      />\n    </div>\n  )\n}\n\nfunction CommandList(",
+      ours: "        {...props}\n      />\n      {children}\n    </div>\n  )\n}\n\nfunction CommandList(",
+    },
+    {
       reason: "menu item: radius 6, at least 28 px high",
       upstream: "        \"relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground\",",
       ours: "        \"relative flex cursor-default items-center gap-2 rounded-md min-h-7 px-2 py-1 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground\",",
