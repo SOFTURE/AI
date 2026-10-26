@@ -18,6 +18,21 @@ describe("@softure-ai/theme-flat-paint", () => {
     expect(flatPaint.getIconButtonLook("lg", "neutral")).toBe("focus-visible:outline-offset-0");
   });
 
+  it("gives a dialog the rising panel and a side panel the one from the right, both on the flat veil", () => {
+    expect(flatPaint.getModalLook("form")).toBe(flatPaint.MODAL_LOOK);
+    expect(flatPaint.getModalLook("confirmation")).toBe(flatPaint.MODAL_LOOK);
+    expect(flatPaint.getModalLook("panel")).toBe(flatPaint.STANDING_PANEL_LOOK);
+    expect(flatPaint.MODAL_LOOK).toEqual({
+      overlay: "bg-ink/60 veil-enter transition-none",
+      panel: "shadow-none normal-case transition-none dialog-enter",
+      header: "items-center",
+      title: "text-page",
+      close: "rounded-md focus-visible:outline-offset-0",
+    });
+    expect(flatPaint.STANDING_PANEL_LOOK.panel).toBe("shadow-none normal-case transition-none side-panel-enter");
+    expect(flatPaint.STANDING_PANEL_LOOK.overlay).toBe(flatPaint.MODAL_LOOK.overlay);
+  });
+
   it("maps each data role onto the ui tone the bridge paints in its colour", () => {
     expect(flatPaint.ROLE_TONE).toEqual({ accessible: "success", locked: "warning", debt: "danger" });
   });
@@ -45,6 +60,13 @@ describe("@softure-ai/theme-flat-paint", () => {
       accent: "accent",
       muted: "muted",
     });
+  });
+
+  it("lets a selected row's surface and bar win over the row's in cn", () => {
+    const row = flatPaint.cn(flatPaint.DATA_TABLE_LOOK.row, flatPaint.DATA_TABLE_LOOK.selectedRow).split(" ");
+    expect(row).toContain("bg-surface-raised");
+    expect(row).toContain("shadow-selected-row");
+    expect(row).not.toContain("bg-surface");
   });
 
   it("merges the theme's text styles with Tailwind's sizes as one kind in cn", () => {

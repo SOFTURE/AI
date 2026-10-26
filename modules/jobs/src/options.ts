@@ -1,9 +1,8 @@
 // The options an app passes to `jobs({ ... })` in softure.config.ts, parsed at startup.
-import type { Err, ErrorCode, Ok } from "@softure-ai/core";
+import { isTimeZone, type Err, type ErrorCode, type Ok } from "@softure-ai/core";
 import { z } from "zod";
 import type { JobFailedEvent, ScheduleStateChangedEvent } from "./contract.js";
 import type { JobsContext } from "./server/context.js";
-import { isTimeZone } from "./zoned-time.js";
 
 const QUEUE_NAME = /^[a-z][a-z0-9_.-]{0,62}$/;
 const QUEUE_NAME_HINT = "is not a queue name: lowercase letters, digits, _ . and -, starting with a letter";
