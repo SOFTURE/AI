@@ -1,12 +1,13 @@
 ---
 change_id: ci-playwright-chromium-cache-820
 title: "ci: Chromium install survives a slow apt mirror (issue #820)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 820
 branch: claude/project-thread-8k5vj4
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent

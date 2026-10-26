@@ -1,6 +1,6 @@
 ---
 change_id: ci-playwright-chromium-cache-820
-status: in_progress
+status: archived
 ---
 
 # Plan: Chromium install survives a slow apt mirror (issue #820)
@@ -31,4 +31,4 @@ Files: `.github/actions/playwright-chromium/action.yml`, `.github/workflows/them
 
 ## Progress
 
-- [ ] Phase 1: shared install action, wired into themes.yml and e2e.yml, with a repository test
+- [x] Phase 1: shared install action, wired into themes.yml and e2e.yml, with a repository test (6249d7f)
