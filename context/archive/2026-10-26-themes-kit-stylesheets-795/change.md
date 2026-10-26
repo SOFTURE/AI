@@ -1,12 +1,13 @@
 ---
 change_id: themes-kit-stylesheets-795
 title: "Themes ship the kit's page stylesheets as their own (issue #795)"
-status: open
+status: archived
 roadmap_item: null
 issue: 795
 branch: claude/project-thread-oixpsr
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent

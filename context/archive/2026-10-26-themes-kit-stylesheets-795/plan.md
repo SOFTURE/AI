@@ -1,6 +1,6 @@
 ---
 change_id: themes-kit-stylesheets-795
-status: open
+status: archived
 ---
 
 # Plan: themes ship the kit's page stylesheets as their own (issue #795)
@@ -41,5 +41,5 @@ Files: READMEs and CHANGELOGs of theme-kit, theme-notion, theme-flat-paint; comm
 
 ## Progress
 
-- [ ] Phase 1: the contract and the build
-- [ ] Phase 2: docs
+- [x] Phase 1: the contract and the build (fd5ebce, kit and repo theme tests 58/58)
+- [x] Phase 2: docs (6a0d421)
