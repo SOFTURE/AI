@@ -1,12 +1,13 @@
 ---
 change_id: theme-flat-paint-segmented-780
 title: "theme-flat-paint: slot maps for ui's SegmentedControl and ThemeSwitch (issue #780)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 780
 branch: claude/project-thread-xxkzrz
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent

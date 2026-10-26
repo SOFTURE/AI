@@ -1,6 +1,6 @@
 ---
 change_id: theme-flat-paint-segmented-780
-status: in_progress
+status: archived
 ---
 
 # Plan: SegmentedControl and ThemeSwitch slot maps (issue #780)
@@ -28,4 +28,4 @@ Files: `themes/theme-flat-paint/src/look/controls.ts`, `src/index.ts`, `tests/*`
 
 ## Progress
 
-- [ ] Phase 1: look maps
+- [x] Phase 1: look maps (788ebb1, tests 45/45 in the package)
