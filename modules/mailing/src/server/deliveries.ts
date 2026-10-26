@@ -13,7 +13,7 @@ import { HALTING_ERROR_CODES, TRANSACTIONAL_KIND, type MailingErrorCode, type Ou
 import { DEFAULT_MAX_ATTEMPTS, DEFAULT_STALE_CLAIM_MS, DEFAULT_UNCERTAIN_CLAIM_MS } from "../options.js";
 import { deliveries } from "../schema.js";
 import { getMailingOptions } from "./options.js";
-import { sendMail } from "./send-mail.js";
+import { resolveSender, sendMail } from "./send-mail.js";
 import { isSuppressed } from "./suppressions.js";
 import { getRecipientKey } from "./unsubscribe-link.js";
 import { validateMail } from "./validate-mail.js";
@@ -167,7 +167,8 @@ export async function forecastDelivery(ctx: DeliveryContext, delivery: Delivery,
     if (age <= windows.staleClaimMs) return { status: "in-flight" };
     if (age > windows.uncertainClaimMs && !windows.retakeUncertain) return { status: "uncertain" };
   }
-  if (!validateMail(delivery.mail, {}, getMailingOptions(ctx.config).attachments).ok) return { status: "rejected", reason: "mailing.invalid_input" };
+  const validation = validateMail(delivery.mail, {}, getMailingOptions(ctx.config).attachments);
+  if (!validation.ok || resolveSender(ctx.config, validation.value) === null) return { status: "rejected", reason: "mailing.invalid_input" };
   if (kind !== TRANSACTIONAL_KIND && (await isSuppressed(ctx, delivery.mail.to))) return { status: "rejected", reason: "mailing.suppressed" };
   return { status: "send" };
 }
