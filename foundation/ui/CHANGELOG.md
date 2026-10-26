@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+- `DisclosureMenu` (and so `AccountMenu` and `MobileMenu`): the panel's link rules no longer restyle a `ButtonLink`
+  placed in the panel (#777). Links that carry `data-variant` keep their own display, padding and colours; the panel's
+  rules for other links now have zero specificity (`:where()`), so an app's own class on a link wins over them. Plain
+  links look as before.
+
+Migration for an app that reset the panel's link rules through `classNames.panel`, for example with
+`[&_a]:inline-flex [&_a]:px-4 [&_a]:py-0 [&_a:not(:hover)]:text-muted`: drop those resets. A `ButtonLink` in the panel now looks as it
+does everywhere else; as a flex item of the column panel it stretches to the panel's width, so wrap it in a
+`<div>` if it should keep its own width.
+
 ## 0.3.4
 
 All additive (#623); existing calls keep their markup and names.

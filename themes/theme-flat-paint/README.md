@@ -65,7 +65,8 @@ import { BUTTON_VARIANT_LOOK, CARD_TITLE_LOOK, ROLE_TONE, STAT_VALUE_LOOK } from
 - `position-*` colours are a palette for user-chosen series and markers only, never a button, a card or text.
 - **Flat, no exceptions**: depth is the step `background` → `surface` → `surface-raised` and one 1 px `border`. No
   shadow, glow, gradient or `backdrop-filter`; the overlay is ink at 60 % without blur. The only "shadows" are lines:
-  `shadow-selected-row` (a 3 px bar) and `shadow-shot-frame` (a 1 px frame).
+  `shadow-selected-row` (a 3 px bar) and `shadow-shot-frame` (a 1 px frame). A product shot takes the `shot-frame`
+  class from `page.css` (block, full width, `rounded-card`, that frame, cropped from the top, `paper` behind it).
 - At most one `lead` card and one `primary` button per screen.
 - Type: one face, Ubuntu (400 text, 500 labels and buttons, 700 headings and figures), Ubuntu Mono only in columns of
   digits. Headings `text-hero` 88, `text-display` 60, `text-headline` 40, `text-page` and `text-section` 30,
@@ -105,6 +106,21 @@ the app adds no `@source`.
 | `SEGMENTED_GROUP_LOOK`, `SEGMENT_ACTIVE_LOOK`, `SEGMENT_IDLE_LOOK`, `SEGMENT_ACTIVE_WHEN_CURRENT_LOOK` | a segmented control, and ui's `SegmentedNav` |
 | `SEGMENTED_CONTROL_LOOK`, `THEME_SWITCH_LOOK` | `SegmentedControl` and `ThemeSwitch` slots with `unstyled`: the checked segment without lime, the legend hidden (spread the map and set `legend` to show it) |
 | `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK` | the active segment as `has-checked:` variants, for an option wrapping a native radio |
+| `DATA_TABLE_LOOK` | an app's own `<table>`: `headerCell`, `row`, `cell`, `amountCell`, `emptyCell`, `selectedRow`, `stickyColumn` |
+
+A data table (ui has no table component): column headers 12 px 500 `muted`, 44 px rows with a `border` hairline,
+amounts right-aligned in `tabular` with the last column bold, an empty cell `—` in `muted`, the selected row on
+`surface-raised` with the lime bar and a bold year, and a column stuck to the right with a hairline on its left below
+`xl`. Add a slot on top of another with `cn`, so the later one wins:
+
+```tsx
+const t = DATA_TABLE_LOOK;
+<tr className={cn(t.row, isSelected && t.selectedRow)}>
+  <th scope="row" className={t.cell}>2031</th>
+  <td className={cn(t.amountCell, amount === null && t.emptyCell)}>{amount ?? "—"}</td>
+  <td className={cn(t.amountCell, t.stickyColumn)}>{total}</td>
+</tr>
+```
 
 ## Tokens
 

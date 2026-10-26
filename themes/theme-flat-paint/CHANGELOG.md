@@ -18,6 +18,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   is the active segment as `has-checked:` variants. An app replaces its own two slot maps with
   `<SegmentedControl unstyled classNames={SEGMENTED_CONTROL_LOOK} … />` and
   `<ThemeSwitch unstyled classNames={THEME_SWITCH_LOOK} />`.
+- `DATA_TABLE_LOOK` (#784): the design system's data table as slots for an app's own `<table>` (header cell, row,
+  text cell, amount cell, empty cell, selected row with the lime bar, sticky column with its hairline below `xl`). An
+  app that wrote these rules itself replaces them with the slots.
+- `page.css` gains `.shot-frame` (#784): an image framed as the product (card radius, the `--shadow-shot-frame`
+  hairline, `object-fit: cover` from the top, `paper` behind a lazy image). An app that wrote
+  `box-shadow: 0 0 0 1px var(--paper-line)` by hand uses the class instead and keeps its own aspect ratio.
 
 ## 0.1.1
 
