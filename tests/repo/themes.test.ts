@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { checkTheme, type ThemeDefinition } from "@softure-ai/theme-kit";
-import { parseThemePackageConfig } from "@softure-ai/theme-kit/build";
+import { KIT_STYLESHEETS, parseThemePackageConfig } from "@softure-ai/theme-kit/build";
 import { describe, expect, it } from "vitest";
 
 import { REPO_ROOT } from "./repo-files.js";
@@ -89,6 +89,10 @@ describe("theme packages", () => {
 
     it("builds its CSS with the kit's command and ships theme.css", () => {
       expect([manifest.scripts?.build, manifest.exports?.["./theme.css"]]).toEqual([BUILD, "./dist/theme.css"]);
+    });
+
+    it("exports the kit's page stylesheets under its own name, so an app imports CSS only from the theme", () => {
+      expect(KIT_STYLESHEETS.map((name) => manifest.exports?.[`./${name}`])).toEqual(KIT_STYLESHEETS.map((name) => `./dist/${name}`));
     });
 
     it("declares a valid softureTheme whose folders and stylesheets exist and are exported", () => {
