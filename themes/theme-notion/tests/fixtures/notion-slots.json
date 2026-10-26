@@ -1277,6 +1277,15 @@
     ["skeleton","animate-pulse rounded-md bg-accent h-4 w-48"],
     ["skeleton","animate-pulse rounded-md bg-accent h-4 w-64"]
   ],
+  "SortableList[dragBy=activator]": [
+    ["sortable-list","flex flex-col w-64"],
+    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-activator",""],
+    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-activator",""],
+    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-activator",""]
+  ],
   "SortableList[dragBy=handle]": [
     ["sortable-list","flex flex-col w-64"],
     ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
