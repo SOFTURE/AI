@@ -1,12 +1,13 @@
 ---
 change_id: theme-flat-paint-look-maps-782
 title: "theme-flat-paint: look maps for Hint, Checklist, Stepper, the menu panel and ColorField (issue #782)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 782
 branch: claude/project-thread-j7mwlv
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent

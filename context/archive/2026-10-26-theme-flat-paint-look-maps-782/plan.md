@@ -31,4 +31,4 @@ Files: `themes/theme-flat-paint/src/look/{hint,checklist,stepper,menu,color-fiel
 
 ## Progress
 
-- [ ] Phase 1: the five look maps
+- [x] Phase 1: the five look maps (0bf7310)

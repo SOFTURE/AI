@@ -27,7 +27,7 @@
 
 ## Conclusion
 
-Add `src/look/disclosure.ts`-style modules: `hint.ts`, `checklist.ts`, `stepper.ts`, `menu.ts`, `color-field.ts`,
+Add one module per component under `src/look/`: `hint.ts`, `checklist.ts`, `stepper.ts`, `menu.ts`, `color-field.ts`,
 each a `Record<Slot, string>` limited to the slots that differ (HINT_LOOK as a `HintAppearance`-shaped object). Export
 them from the root, cover them in `tests/index.test.ts` and `tests/theme-css.test.ts` (classes generated), document
 them in the README table and CHANGELOG `Unreleased`.
