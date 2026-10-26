@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-tool-call-hook-804
 title: "mcp-access: an optional onToolCall hook around each tool call (issue #804)"
-status: open
+status: archived
 roadmap_item: null
 issue: 804
 branch: claude/project-thread-ldi70r
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent

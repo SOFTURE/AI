@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-tool-call-hook-804
-status: open
+status: archived
 ---
 
 # Plan: an optional onToolCall hook around each tool call (issue #804)
@@ -53,6 +53,6 @@ Files: `modules/mcp-access/README.md`, `modules/mcp-access/CHANGELOG.md`.
 
 ## Progress
 
-- [ ] Phase 1: the hook in withToolErrors and actionTool
-- [ ] Phase 2: findTokenClientName
-- [ ] Phase 3: README and CHANGELOG
+- [x] Phase 1: the hook in withToolErrors and actionTool (d28f65c)
+- [x] Phase 2: findTokenClientName (d28f65c, one commit with phase 1: the test file covers both)
+- [x] Phase 3: README and CHANGELOG (6168632)
