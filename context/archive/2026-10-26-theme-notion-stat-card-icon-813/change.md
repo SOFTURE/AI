@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-stat-card-icon-813
 title: "theme-notion: optional icon before a StatCard's label (issue #813)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 813
 branch: claude/project-thread-x2eewi
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent

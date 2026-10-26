@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-stat-card-icon-813
-status: in_progress
+status: archived
 ---
 
 # Plan: theme-notion StatCard icon (issue #813)
@@ -34,6 +34,6 @@ StatCards preview card; render-check in light and dark.
 
 ## Progress
 
-- [ ] Phase 1: the component and its tests
-- [ ] Phase 2: docs
-- [ ] Phase 3: design system
+- [x] Phase 1: the component and its tests (ad07399, theme-notion tests 808/808)
+- [x] Phase 2: docs (73ff3a9)
+- [x] Phase 3: design system (artifact version 20, no repository commit)
