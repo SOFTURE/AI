@@ -2,12 +2,26 @@
 // summary, its own retention, and the read for an operator's runs page.
 import { err, ok } from "@softure-ai/core";
 import { defineJobHandler, failJob, type JobHandlers, type JobsOptionsInput } from "@softure-ai/jobs";
-import { claimJobs, completeJob, enqueueJob, getJob, retryJob, runScheduleNow, type JobsLogger, type JobsLogFields } from "@softure-ai/jobs/server";
+import {
+  claimJobs,
+  completeJob,
+  enqueueJob,
+  getJob,
+  listJobRuns,
+  pruneJobRuns,
+  pruneJobs,
+  retryJob,
+  runScheduleNow,
+  type JobsLogger,
+  type JobsLogFields,
+} from "@softure-ai/jobs/server";
 import { listJobs, listRunHistory, runDueJobs } from "@softure-ai/jobs/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createTestJobs, NOW, SECOND_MS, type TestJobs } from "./support.js";
 
+const DAY_MS = 24 * 60 * 60 * SECOND_MS;
+const succeed = defineJobHandler({ payload: z.unknown(), run: () => Promise.resolve(ok()) });
 const SCHEDULES = { "app.sync": { every: "1h", payload: { full: false } } } satisfies JobsOptionsInput["schedules"];
 
 function createLogger(): JobsLogger & { lines: string[]; fields: JobsLogFields[] } {
@@ -167,6 +181,70 @@ describe("the run history", () => {
 
       expect(await completeJob(test.ctx, stale, { kind: "succeeded", summary: { code: "app.done" } })).toBe(false);
       expect(await listRunHistory(test.database.db)).toEqual([]);
+    });
+  });
+
+  describe("retention", () => {
+    it("keeps runs for retention.runsDays (30 by default) after their succeeded jobs are pruned", async () => {
+      test = await createTestJobs();
+      const { id } = await enqueueJob(test.ctx, { queue: "mail.send", payload: {} });
+      await run({ "mail.send": succeed });
+
+      test.clock.advance(8 * DAY_MS);
+      expect(await pruneJobs(test.ctx)).toBe(1);
+      expect(await pruneJobRuns(test.ctx)).toBe(0);
+      expect(await listRunHistory(test.database.db)).toMatchObject([{ jobId: id, outcome: "succeeded" }]);
+
+      test.clock.advance(22 * DAY_MS);
+      expect(await pruneJobRuns(test.ctx)).toBe(0);
+      test.clock.advance(1);
+      expect(await pruneJobRuns(test.ctx)).toBe(1);
+      expect(await listRunHistory(test.database.db)).toEqual([]);
+    });
+
+    it("follows a configured runsDays", async () => {
+      test = await createTestJobs({ retention: { runsDays: 2 } });
+      await enqueueJob(test.ctx, { queue: "mail.send", payload: {} });
+      await run({ "mail.send": succeed });
+      test.clock.advance(2 * DAY_MS + 1);
+      expect(await pruneJobRuns(test.ctx)).toBe(1);
+    });
+  });
+
+  describe("listJobRuns", () => {
+    async function seed() {
+      test = await createTestJobs();
+      await enqueueJob(test.ctx, { queue: "mail.send", payload: {}, origin: "manual" });
+      await enqueueJob(test.ctx, { queue: "ai.reply", payload: {} });
+      await run({ "mail.send": succeed, "ai.reply": defineJobHandler({ payload: z.unknown(), run: () => Promise.resolve(err("app.provider_down")) }) });
+      test.clock.advance(SECOND_MS);
+      await enqueueJob(test.ctx, { queue: "mail.send", payload: {} });
+      await run({ "mail.send": succeed, "ai.reply": succeed });
+    }
+
+    it("lists runs newest first, the later recorded first within the same instant", async () => {
+      await seed();
+      expect((await listJobRuns(test.ctx)).map((row) => [row.queue, row.origin, row.outcome])).toEqual([
+        ["mail.send", "app", "succeeded"],
+        ["mail.send", "manual", "succeeded"],
+        ["ai.reply", "app", "retried"],
+      ]);
+    });
+
+    it("filters by queue, origin and outcome, and stops at the limit", async () => {
+      await seed();
+      expect(await listJobRuns(test.ctx, { queue: "ai.reply" })).toMatchObject([{ queue: "ai.reply" }]);
+      expect(await listJobRuns(test.ctx, { origin: "manual" })).toMatchObject([{ origin: "manual" }]);
+      expect(await listJobRuns(test.ctx, { outcomes: ["retried", "failed"] })).toMatchObject([{ outcome: "retried" }]);
+      expect(await listJobRuns(test.ctx, { outcomes: [] })).toEqual([]);
+      expect(await listJobRuns(test.ctx, { limit: 1 })).toHaveLength(1);
+    });
+
+    it("refuses a limit outside 1 to 500", async () => {
+      test = await createTestJobs();
+      for (const limit of [0, 501, 1.5]) {
+        await expect(listJobRuns(test.ctx, { limit })).rejects.toThrow(RangeError);
+      }
     });
   });
 });

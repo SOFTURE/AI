@@ -25,6 +25,7 @@ export { checkScheduleStates, getScheduleHealth, notifyJobFailed, type HookOptio
 export { consoleJobsLogger, type JobsLogFields, type JobsLogger } from "./logger.js";
 export { getQueueStats, pruneJobs, type QueueStats } from "./maintenance.js";
 export { getJobsOptions, getJobsRoutes } from "./options.js";
+export { listJobRuns, pruneJobRuns, type ListJobRunsInput } from "./runs.js";
 export { runClaimedJob, type RunClaimedJobOptions } from "./process.js";
 export {
   enqueueDueSchedules,
