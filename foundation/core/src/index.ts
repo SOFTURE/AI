@@ -19,6 +19,14 @@ export {
   type CalendarPeriod,
 } from "./calendar-period.js";
 export { getLocalDay, isLocalDateTime, localDateTimeSchema, type LocalDateTime } from "./local-date-time.js";
+export {
+  getDayStartInstant,
+  getLocalDateTimeInstant,
+  getWallClock,
+  getZonedInstant,
+  isTimeZone,
+  type WallClock,
+} from "./zoned-time.js";
 export { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
 export {
   DEFAULT_DURATION_MESSAGES,

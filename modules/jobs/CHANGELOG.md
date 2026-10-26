@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The zoned-time helpers moved to `@softure-ai/core` (#783), which now exports them (`getWallClock`,
+  `getZonedInstant`, `isTimeZone`, plus `getDayStartInstant` and `getLocalDateTimeInstant`). Local-time schedules
+  behave exactly as before, across DST changes too. Needs `@softure-ai/core` 0.2.5 or later.
+  - Migrate: nothing.
+
 ## 0.1.5
 
 - Admin page (#654): `JobsPage` from `@softure-ai/jobs/next` (mount `app/admin/jobs/page.tsx`, route `panel`
