@@ -1,6 +1,6 @@
 ---
 change_id: llm-provider-cost-call-hook-805
-status: planned
+status: archived
 ---
 
 # Plan: provider cost and an onCall hook (issue #805)
@@ -52,6 +52,7 @@ Files: `foundation/llm/README.md`, `foundation/llm/CHANGELOG.md`.
 
 ## Progress
 
-- [ ] Phase 1: provider cost and costSource
-- [ ] Phase 2: onCall
-- [ ] Phase 3: README and CHANGELOG
+- [x] Phase 1: provider cost and costSource (a8fa2db)
+- [x] Phase 2: onCall (a8fa2db, one commit with phase 1: the test file covers both)
+- [x] Phase 3: README and CHANGELOG (03fdb22)
+- [x] Implementation review fix: one duration for both hooks (66848cb)

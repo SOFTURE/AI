@@ -1,12 +1,13 @@
 ---
 change_id: llm-provider-cost-call-hook-805
 title: "llm: the provider's billed cost in the usage record and an onCall hook per call (issue #805)"
-status: open
+status: archived
 roadmap_item: null
 issue: 805
 branch: claude/project-thread-eni8wl
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent
