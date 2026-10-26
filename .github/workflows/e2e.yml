@@ -67,9 +67,12 @@ jobs:
       - name: Install the example app (packed foundation packages)
         working-directory: examples/next-app
         run: npm ci
+      # Cached browser; apt may meet a slow mirror, hence the long timeout (#820).
       - name: Install Chromium
-        working-directory: examples/next-app
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 15
+        uses: ./.github/actions/playwright-chromium
+        with:
+          working-directory: examples/next-app
       # The root ESLint config lints the example once it is installed.
       - run: npx eslint examples --max-warnings 0
       - name: Migrate (softure migrate)
@@ -154,8 +157,10 @@ jobs:
         run: npm ci
       - name: Install Chromium
         if: steps.key.outputs.present == 'true'
-        working-directory: examples/next-app
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 15
+        uses: ./.github/actions/playwright-chromium
+        with:
+          working-directory: examples/next-app
       - name: Migrate (softure migrate)
         if: steps.key.outputs.present == 'true'
         working-directory: examples/next-app
