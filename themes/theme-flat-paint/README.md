@@ -19,9 +19,14 @@ npm i @softure-ai/theme-flat-paint @softure-ai/ui tailwindcss @tailwindcss/postc
 @import "tailwindcss";
 @import "@softure-ai/theme-flat-paint/theme.css";     /* tokens, utilities, dark:, the look maps as sources */
 @import "@softure-ai/theme-flat-paint/sft-bridge.css"; /* ui's --sft-* tokens on the theme's roles */
-@import "@softure-ai/theme-kit/base.css";             /* body on the theme's background, text colour and font */
+@import "@softure-ai/theme-flat-paint/base.css";      /* body on the theme's background, text colour and font */
 @import "@softure-ai/theme-flat-paint/page.css";      /* scheme, number classes, motion, reduced motion */
 ```
+
+Every stylesheet comes from the theme. `base.css` (and `preflight.css`, `maplibre.css`) are the kit's
+([`@softure-ai/theme-kit`](../theme-kit/README.md)), re-exported by the theme: they resolve the kit from the theme's own
+dependency, so the app declares only the theme and gets the kit version the theme was built against, in any package
+manager layout.
 
 **Fonts.** The theme names `Ubuntu` and `Ubuntu Mono` (the `latin-ext` subset carries Polish letters). An app that
 loads them with `next/font` points the stacks at its variables after the imports:

@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `base.css`, `preflight.css`, `maplibre.css` (#795): the kit's page stylesheets, exported by the theme as
+  `@softure-ai/theme-flat-paint/<name>.css`. Each is one `@import` of the kit's file, resolved from the theme's own dependency,
+  so the app gets the kit version the theme was built against and needs no `@softure-ai/theme-kit` of its own. An app
+  replaces `@softure-ai/theme-kit/` with `@softure-ai/theme-flat-paint/` in its `globals.css` and drops a direct
+  `@softure-ai/theme-kit` dependency it kept only for the CSS. The old imports keep working while the kit is hoisted.
 - `SEGMENTED_CONTROL_LOOK` and `THEME_SWITCH_LOOK` (#780): ready slot maps for ui's `SegmentedControl` and
   `ThemeSwitch` with `unstyled`; the checked segment is surface, strong line and bold (never lime, which fails WCAG
   1.4.11 on white), focus is a 2 px accent outline, the legend is visually hidden. `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK`
