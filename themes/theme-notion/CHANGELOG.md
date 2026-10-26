@@ -13,6 +13,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `wrapperClassName`, merged into the row's classes (`h-12` for the 48 px row). An app drops its absolutely
   positioned `Kbd` beside `CommandInput` and its parent selector on `data-slot=command-input-wrapper`; a `label` it
   set on `Command` keeps working. Without the new props the classes are unchanged.
+- `StatCards` (#813): a card takes an optional `icon` (a Lucide icon component, e.g. `icon: Wallet`), drawn before the
+  label at 16 px with `ICON_STROKE_WIDTH` in the label's muted colour, 6 px apart, `aria-hidden`. An app that rebuilt
+  the card from `Card` to show the icon goes back to `StatCards`. A card without `icon` renders as before.
 - `base.css`, `preflight.css`, `maplibre.css` (#795): the kit's page stylesheets, exported by the theme as
   `@softure-ai/theme-notion/<name>.css`. Each is one `@import` of the kit's file, resolved from the theme's own dependency,
   so the app gets the kit version the theme was built against and needs no `@softure-ai/theme-kit` of its own. An app

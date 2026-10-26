@@ -75,9 +75,10 @@ const { text, truncated } = summary.value;
 | `model` | required | an AI SDK model object (`LanguageModelV2`/`V3`/`V4`) from a provider; a bare model id string (the SDK's gateway) is not accepted |
 | `pricing` | `{}` | model id → `{ inputPerMillion, outputPerMillion, cachedInputPerMillion? }` in USD; a model without an entry has `costUsd: null` |
 | `onUsage` | none | `(record: UsageRecord) => void \| Promise<void>`, awaited after each call that reached the model and reported usage |
+| `onCall` | none | `(record: LlmCallRecord) => void \| Promise<void>`, awaited after every finished call, failures and timeouts included, after `onUsage` |
 | `timeoutMs` | `30000` | time limit of one call, provider retries included |
 | `maxRetries` | the AI SDK's (2) | retries of a failed provider call inside the time limit |
-| `clock` | `systemClock` | the `Clock` of `@softure-ai/core`, for `at` and `durationMs` |
+| `clock` | `systemClock` | the `Clock` of `@softure-ai/core`, for `at`, `startedAt` and `durationMs` |
 | `tracer` | global tracer `@softure-ai/llm` | an OpenTelemetry `Tracer` |
 
 A timeout of 0 or less, a negative or fractional `maxRetries`, or a negative price throws a `RangeError` naming the
@@ -93,9 +94,9 @@ option.
 | `maxOutputTokens` | upper limit of output tokens (a whole number of 1 or more); default: the provider's |
 | `timeoutMs` | overrides the default time limit for this call |
 | `model` | overrides the default model for this call (e.g. a cheaper one for a simple task) |
-| `attributes` | `Record<string, string>` passed to `onUsage` as given; never written to spans |
+| `attributes` | `Record<string, string>` passed to `onUsage` and `onCall` as given; never written to spans |
 
-Returns `Result<{ output, usage, model, costUsd }, LlmErrorCode>` (`ok` / `err` of `@softure-ai/core`).
+Returns `Result<{ output, usage, model, costUsd, costSource }, LlmErrorCode>` (`ok` / `err` of `@softure-ai/core`).
 
 ### `generateText(request)`
 
@@ -106,7 +107,7 @@ Asks for plain text: no JSON envelope, so long Markdown is neither escaped nor c
 | --- | --- |
 | `maxChars` | cuts the answer to at most this many characters (code points), at the last whitespace inside the limit, or hard when there is none; a whole number of 1 or more |
 
-Returns `Result<{ text, truncated, usage, model, costUsd }, LlmErrorCode>`. `text` is the answer without surrounding
+Returns `Result<{ text, truncated, usage, model, costUsd, costSource }, LlmErrorCode>`. `text` is the answer without surrounding
 whitespace; `truncated` is `true` when `maxChars` cut it. An answer that is empty or only whitespace is
 `llm.invalid_output`. Streaming is not offered.
 
@@ -123,17 +124,47 @@ call and the field, before the model is called.
 | `llm.timeout` | no answer within `timeoutMs`; the call is aborted | no |
 
 `LLM_ERROR_CODES` lists them. An error that does not come from the AI SDK (a bug in the app's code or a provider) is
-not mapped: it propagates, as does an error thrown by `onUsage`.
+not mapped: it propagates, as does an error thrown by `onUsage` or `onCall`.
 
 ## Usage and cost
 
-`UsageRecord` is `{ model, provider, usage, costUsd, outcome, durationMs, at, attributes }`, where `usage` is
+`UsageRecord` is `{ model, provider, usage, costUsd, costSource, outcome, durationMs, at, attributes }`, where `usage` is
 `{ inputTokens, outputTokens, totalTokens, cachedInputTokens, reasoningTokens }`. A count the provider does not report
 reads `0`. `outcome` is `"ok"` or the call's error code (`llm.invalid_output` and `llm.output_truncated`, the
 failures that still record usage). `model` is the id the provider answered with, which is also the key `pricing` is read with.
 
-Cost: `(input − cached) × inputPerMillion + cached × (cachedInputPerMillion ?? inputPerMillion) + output ×
-outputPerMillion`, divided by one million. `getCostUsd(pricing, model, usage)` is exported for estimates.
+Cost: when the provider reports what it billed (OpenRouter's `providerMetadata.openrouter.usage.cost`), `costUsd` is
+that figure and `costSource` is `"provider"`, also for a model `pricing` does not list. Otherwise the price table gives
+`(input − cached) × inputPerMillion + cached × (cachedInputPerMillion ?? inputPerMillion) + output × outputPerMillion`,
+divided by one million, with `costSource: "price_table"`. Without either, `costUsd` and `costSource` are `null`. The
+result of the call carries the same `costUsd` and `costSource` as the record. `getCostUsd(pricing, model, usage)` is
+exported for estimates.
+
+### A record of every call
+
+`onUsage` sees only the calls that reported usage. For a ledger of every call (a cost screen, a spending limit, a
+calls panel), pass `onCall`: it gets one `LlmCallRecord` per finished call, `llm.unavailable` and `llm.timeout`
+included:
+
+| Field | Meaning |
+| --- | --- |
+| `operation` | `"generateStructured"` or `"generateText"` |
+| `model`, `provider` | the model id the provider answered with; without an answer, the requested one |
+| `outcome` | `"ok"` or the call's error code |
+| `usage` | as in `UsageRecord`; `null` when the provider reported none (`llm.unavailable`, `llm.timeout`) |
+| `costUsd`, `costSource` | as in `UsageRecord`; `null` without usage |
+| `startedAt`, `durationMs` | when the call started and how long it took, retries included |
+| `attributes` | the call's `attributes` |
+
+```ts
+export const llm = createLlm({
+  model: openrouter(process.env.LLM_MODEL ?? "openai/gpt-5-mini"),
+  onCall: (record) => saveLlmCall(db, record), // flow and task come from attributes
+});
+```
+
+An app that wrapped the model in an AI SDK middleware to read the provider's cost, and wrapped `generateStructured` /
+`generateText` to see failed calls, drops both and reads `costUsd`, `costSource` and `outcome` from this record.
 
 The package keeps nothing: storing records (a table, a counter per account, a monthly cap) is the app's or a quota
 module's job, inside `onUsage`. To refuse a call over quota, check the quota before calling `generateStructured` or
@@ -143,7 +174,7 @@ module's job, inside `onUsage`. To refuse a call over quota, check the quota bef
 
 Every call is one span, `llm.generate_structured` or `llm.generate_text`, with `gen_ai.operation.name`, `gen_ai.provider.name`,
 `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`,
-`softure.llm.cost_usd` and `softure.llm.outcome`; a failed call has status `ERROR` with its code. The prompt, the
+`softure.llm.cost_usd`, `softure.llm.cost_source` and `softure.llm.outcome`; a failed call has status `ERROR` with its code. The prompt, the
 answer and the call's attributes are never recorded (they may hold personal data). Without an OpenTelemetry SDK in
 the process (e.g. `@softure-ai/observability`) the spans are no-ops.
 
@@ -165,13 +196,14 @@ expect(model.doGenerateCalls).toHaveLength(0);
 
 | Response | Effect |
 | --- | --- |
-| `{ kind: "output", value, usage? }` | answers with `value` as JSON |
-| `{ kind: "text", text, usage? }` | answers with raw text: the answer of `generateText`, or not JSON → `llm.invalid_output` |
-| `{ kind: "truncated", text?, usage? }` | stops on the output token limit after `text` → `llm.output_truncated` |
+| `{ kind: "output", value, usage?, providerMetadata? }` | answers with `value` as JSON |
+| `{ kind: "text", text, usage?, providerMetadata? }` | answers with raw text: the answer of `generateText`, or not JSON → `llm.invalid_output` |
+| `{ kind: "truncated", text?, usage?, providerMetadata? }` | stops on the output token limit after `text` → `llm.output_truncated` |
 | `{ kind: "unavailable" }` | fails like a provider returning HTTP 503 → `llm.unavailable` |
 | `{ kind: "hang" }` | never answers until aborted → `llm.timeout` (use fake timers) |
 
-`usage` is `{ inputTokens, outputTokens, cachedInputTokens? }`, default 10 and 5. Each call takes the next response;
+`usage` is `{ inputTokens, outputTokens, cachedInputTokens? }`, default 10 and 5. `providerMetadata` is what the
+provider reports next to the answer, e.g. `{ openrouter: { usage: { cost: 0.0012 } } }` for a billed cost. Each call takes the next response;
 the last one repeats. `model.doGenerateCalls` holds what was sent (prompt, response format, abort signal).
 
 ## Limitations

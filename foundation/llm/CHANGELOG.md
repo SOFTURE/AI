@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The provider's billed cost (#805): when the provider reports what it billed (OpenRouter's
+  `providerMetadata.openrouter.usage.cost`), `costUsd` is that figure, also for a model `pricing` does not list. A new
+  `costSource` (`"provider"` | `"price_table"` | `null`) on `UsageRecord` and on both results says where `costUsd`
+  came from; the span gets `softure.llm.cost_source`. Without a provider figure the values are as before.
+- `onCall` (#805): an optional hook awaited after every finished call, `llm.unavailable` and `llm.timeout` included,
+  with an `LlmCallRecord { operation, model, provider, outcome, usage, costUsd, costSource, startedAt, durationMs,
+  attributes }` (`usage` is `null` when the provider reported none). It runs after `onUsage`; a throw propagates, as
+  from `onUsage`. Migrate: an app that wraps the model with `wrapLanguageModel` to read the provider's cost and joins it
+  to `onUsage` through `AsyncLocalStorage`, and wraps `generateStructured` / `generateText` to record failed calls,
+  drops both and writes its ledger from `onCall`.
+- `fakeModel`: `providerMetadata` on `output`, `text` and `truncated` responses.
+
 ## 0.1.2
 
 - `generateText({ system, prompt, maxOutputTokens, maxChars, timeoutMs, model, attributes })` (#637): plain text for

@@ -1,5 +1,5 @@
 import { SpanStatusCode, trace, type Span, type Tracer } from "@opentelemetry/api";
-import type { LlmErrorCode, LlmUsage } from "./contract.js";
+import type { CostSource, LlmErrorCode, LlmUsage } from "./contract.js";
 
 export const TRACER_NAME = "@softure-ai/llm";
 export const STRUCTURED_SPAN_NAME = "llm.generate_structured";
@@ -23,7 +23,7 @@ export function startCallSpan(tracer: Tracer, name: string, request: { provider:
 /** Ends the span with the outcome. Never records the prompt, the output or the call's attributes. */
 export function endCallSpan(
   span: Span,
-  outcome: { code: "ok" | LlmErrorCode; model?: string; usage?: LlmUsage; costUsd?: number | null },
+  outcome: { code: "ok" | LlmErrorCode; model?: string; usage?: LlmUsage; costUsd?: number | null; costSource?: CostSource | null },
 ): void {
   span.setAttribute("softure.llm.outcome", outcome.code);
   if (outcome.model !== undefined) span.setAttribute("gen_ai.response.model", outcome.model);
@@ -32,6 +32,7 @@ export function endCallSpan(
     span.setAttribute("gen_ai.usage.output_tokens", outcome.usage.outputTokens);
   }
   if (outcome.costUsd !== undefined && outcome.costUsd !== null) span.setAttribute("softure.llm.cost_usd", outcome.costUsd);
+  if (outcome.costSource !== undefined && outcome.costSource !== null) span.setAttribute("softure.llm.cost_source", outcome.costSource);
   span.setStatus(outcome.code === "ok" ? { code: SpanStatusCode.OK } : { code: SpanStatusCode.ERROR, message: outcome.code });
   span.end();
 }

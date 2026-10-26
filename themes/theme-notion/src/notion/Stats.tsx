@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Badge } from "../ui/badge.js";
@@ -47,6 +47,8 @@ export interface StatCard {
   /** Unique within the row; kept as `data-stat`. */
   readonly key: string;
   readonly label: string;
+  /** A decorative icon before the label: 16 px, the design system's stroke, the label's muted colour. */
+  readonly icon?: LucideIcon;
   readonly value: string;
   readonly hint?: string;
   readonly tone?: Tone;
@@ -77,9 +79,19 @@ function getStatCardsLayout(isFullWidth: boolean, isOneRow: boolean): "row" | "f
   return isFullWidth ? "full" : "grid";
 }
 
-// Summary figures as a row of cards wrapping on a narrow screen: the label, the figure in its tone's colour (never
-// broken, tabular numbers), an optional bar under it, an optional note and an optional short figure on its right as a
-// tag.
+function StatCardLabel({ label, icon: Icon }: { readonly label: string; readonly icon: LucideIcon | undefined }) {
+  if (Icon === undefined) return <div className="text-section-label text-muted-foreground">{label}</div>;
+  return (
+    <div className="flex items-center gap-1.5 text-section-label text-muted-foreground">
+      <Icon aria-hidden="true" strokeWidth={ICON_STROKE_WIDTH} className="size-4 shrink-0" />
+      {label}
+    </div>
+  );
+}
+
+// Summary figures as a row of cards wrapping on a narrow screen: the label (after an optional icon), the figure in its
+// tone's colour (never broken, tabular numbers), an optional bar under it, an optional note and an optional short
+// figure on its right as a tag.
 export function StatCards({ label, cards, isFullWidth = false, isOneRow = false }: StatCardsProps) {
   return (
     <ul
@@ -103,7 +115,7 @@ export function StatCards({ label, cards, isFullWidth = false, isOneRow = false 
             className="flex min-w-0 items-start justify-between gap-2 rounded-lg bg-card p-3 text-card-foreground shadow-card"
           >
             <div className={cn("min-w-0", card.progress !== undefined && "flex-1")}>
-              <div className="text-section-label text-muted-foreground">{card.label}</div>
+              <StatCardLabel label={card.label} icon={card.icon} />
               <div data-tone={tone} className={cn("mt-1 text-heading-3 whitespace-nowrap tabular-nums", TONE_TEXT[tone])}>
                 {card.value}
               </div>
