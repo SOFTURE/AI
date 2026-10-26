@@ -40,3 +40,4 @@ export {
   type ThemeSwitchSlot,
 } from "./look/controls.js";
 export { ROLE_TONE, type DataRole, type UiTone } from "./look/roles.js";
+export { DATA_TABLE_LOOK, type DataTableSlot } from "./look/table.js";

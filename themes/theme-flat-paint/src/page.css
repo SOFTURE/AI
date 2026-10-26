@@ -8,6 +8,8 @@
  * - Three voices for numbers: `figure` (a hero figure in the text face, even digits), `num` (an amount or a date in a
  *   row or a sentence) and `tabular` (the mono face, only for digits compared down a column).
  * - `card-surface`: a card as a surface, `surface` with one `border` hairline, no shadow.
+ * - `shot-frame`: an image framed as the product itself, not a device mockup: the card radius, the shot-frame
+ *   hairline, cropped from the top, on `paper` until a lazy image loads. The aspect ratio stays the app's.
  * - Motion: three durations under 300 ms and three easings that never overshoot; a bare `transition` takes the fast
  *   one. `prefers-reduced-motion: reduce` stops all of it, delays included, at 1 ms (end events still fire).
  */
@@ -78,6 +80,16 @@
 .card-surface {
   border: 1px solid var(--border);
   background-color: var(--surface);
+}
+
+.shot-frame {
+  display: block;
+  width: 100%;
+  border-radius: --theme(--radius-card);
+  box-shadow: var(--shadow-shot-frame);
+  object-fit: cover;
+  object-position: top;
+  background-color: var(--paper);
 }
 
 @media (prefers-reduced-motion: reduce) {
