@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   BUTTON_VARIANT_LOOK,
   CHECKBOX_LOOK,
+  DATA_TABLE_LOOK,
   FLAT_PAINT_THEME,
   SEGMENT_ACTIVE_LOOK,
   SWITCH_TRACK_LOOK,
@@ -78,6 +79,26 @@ describe("theme.css in an app's Tailwind", () => {
     for (const selector of [".bg-ink", ".text-paper", ".peer-checked\\:bg-accent-fill", ".border-line-strong", ".peer-aria-invalid\\:border-debt"]) {
       expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
     }
+  });
+
+  it("generates the data table's classes from the look maps", () => {
+    expect(compiled).toMatch(/\.h-touch \{\s*height: 44px;/);
+    expect(compiled).toMatch(/\.text-caption \{\s*font-size: 0\.75rem;/);
+    expect(compiled).toMatch(/\.bg-surface-raised \{\s*background-color: var\(--surface-raised\);/);
+    expect(compiled).toMatch(/\.shadow-selected-row \{\s*--tw-shadow: var\(--shadow-selected-row\);/);
+    expect(compiled).toContain(".last\\:font-bold:last-child {");
+    expect(compiled).toContain(".\\[\\&\\>\\:first-child\\]\\:font-bold > :first-child {");
+    expect(compiled).toMatch(/\.sticky \{\s*position: sticky;/);
+    expect(compiled).toMatch(/\.bg-inherit \{\s*background-color: inherit;/);
+    expect(compiled).toContain("inset 1px 0 0 var(--tw-shadow-color, var(--border))");
+    expect(compiled).toMatch(/@media \(width >= 80rem\) \{\s*\.xl\\:shadow-none \{\s*--tw-shadow: 0 0 #0000;/);
+    expect(DATA_TABLE_LOOK.stickyColumn.split(" ")).toContain("xl:shadow-none");
+  });
+
+  it("frames a product shot on the theme's radius, hairline and paper", () => {
+    expect(compiled).toMatch(
+      /\.shot-frame \{\s*display: block;\s*width: 100%;\s*border-radius: 12px;\s*box-shadow: var\(--shadow-shot-frame\);\s*object-fit: cover;\s*object-position: top;\s*background-color: var\(--paper\);\s*\}/,
+    );
   });
 
   it("generates the type scale with its line height, weight and tracking", () => {

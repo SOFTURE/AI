@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `DATA_TABLE_LOOK` (#784): the design system's data table as slots for an app's own `<table>` (header cell, row,
+  text cell, amount cell, empty cell, selected row with the lime bar, sticky column with its hairline below `xl`). An
+  app that wrote these rules itself replaces them with the slots.
+- `page.css` gains `.shot-frame` (#784): an image framed as the product (card radius, the `--shadow-shot-frame`
+  hairline, `object-fit: cover` from the top, `paper` behind a lazy image). An app that wrote
+  `box-shadow: 0 0 0 1px var(--paper-line)` by hand uses the class instead and keeps its own aspect ratio.
+
 ## 0.1.1
 
 - No change to the package itself: the first version published through the npm trusted publisher (OIDC) with

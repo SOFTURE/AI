@@ -22,6 +22,13 @@ describe("@softure-ai/theme-flat-paint", () => {
     expect(flatPaint.ROLE_TONE).toEqual({ accessible: "success", locked: "warning", debt: "danger" });
   });
 
+  it("lets a selected row's surface and bar win over the row's in cn", () => {
+    const row = flatPaint.cn(flatPaint.DATA_TABLE_LOOK.row, flatPaint.DATA_TABLE_LOOK.selectedRow).split(" ");
+    expect(row).toContain("bg-surface-raised");
+    expect(row).toContain("shadow-selected-row");
+    expect(row).not.toContain("bg-surface");
+  });
+
   it("merges the theme's text styles with Tailwind's sizes as one kind in cn", () => {
     expect(flatPaint.cn("text-sm", "text-subsection")).toBe("text-subsection");
     expect(flatPaint.cn("text-subsection", "text-muted")).toBe("text-subsection text-muted");
