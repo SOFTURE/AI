@@ -49,3 +49,30 @@ export const SEGMENT_IDLE_LOOK = `${SEGMENT_BASE} border-transparent font-medium
 /** `SEGMENT_ACTIVE_LOOK` as `data-current:` variants, for ui's `SegmentedNav`, which marks the current link. */
 export const SEGMENT_ACTIVE_WHEN_CURRENT_LOOK =
   "data-current:border-line-strong data-current:bg-surface data-current:font-semibold data-current:text-foreground";
+
+/** `SEGMENT_ACTIVE_LOOK` as `has-checked:` variants, for an option that wraps a native radio (ui's `SegmentedControl`). */
+export const SEGMENT_ACTIVE_WHEN_CHECKED_LOOK =
+  "has-checked:border-line-strong has-checked:bg-surface has-checked:font-semibold has-checked:text-foreground";
+
+/** The slots of `@softure-ai/ui`'s `SegmentedControl`. */
+export type SegmentedControlSlot = "root" | "legend" | "options" | "option" | "input" | "label";
+
+/** The slots of `@softure-ai/ui`'s `ThemeSwitch`, a `SegmentedControl`. */
+export type ThemeSwitchSlot = SegmentedControlSlot;
+
+/**
+ * The segmented control in ui's slots (with `unstyled`): the checked segment in surface, strong line and bold, never
+ * lime; focus as a 2 px accent outline. The legend is for assistive technology only (`unstyled` ignores
+ * `isLegendHidden`): spread the map and set `legend` to show it.
+ */
+export const SEGMENTED_CONTROL_LOOK: Readonly<Record<SegmentedControlSlot, string>> = {
+  root: "m-0 min-w-0 border-0 p-0",
+  legend: "sr-only",
+  options: SEGMENTED_GROUP_LOOK,
+  option: `${SEGMENT_IDLE_LOOK} ${SEGMENT_ACTIVE_WHEN_CHECKED_LOOK} has-focus-visible:outline-2 has-focus-visible:outline-offset-1 has-focus-visible:outline-accent`,
+  input: "sr-only",
+  label: "",
+};
+
+/** `SEGMENTED_CONTROL_LOOK` for ui's `ThemeSwitch` (with `unstyled`), whose default paints the checked segment lime. */
+export const THEME_SWITCH_LOOK: Readonly<Record<ThemeSwitchSlot, string>> = SEGMENTED_CONTROL_LOOK;

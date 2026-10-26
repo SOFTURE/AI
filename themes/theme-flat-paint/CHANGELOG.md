@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `SEGMENTED_CONTROL_LOOK` and `THEME_SWITCH_LOOK` (#780): ready slot maps for ui's `SegmentedControl` and
+  `ThemeSwitch` with `unstyled`; the checked segment is surface, strong line and bold (never lime, which fails WCAG
+  1.4.11 on white), focus is a 2 px accent outline, the legend is visually hidden. `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK`
+  is the active segment as `has-checked:` variants. An app replaces its own two slot maps with
+  `<SegmentedControl unstyled classNames={SEGMENTED_CONTROL_LOOK} … />` and
+  `<ThemeSwitch unstyled classNames={THEME_SWITCH_LOOK} />`.
 - `DATA_TABLE_LOOK` (#784): the design system's data table as slots for an app's own `<table>` (header cell, row,
   text cell, amount cell, empty cell, selected row with the lime bar, sticky column with its hairline below `xl`). An
   app that wrote these rules itself replaces them with the slots.
