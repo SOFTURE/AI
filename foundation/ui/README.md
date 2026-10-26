@@ -378,7 +378,9 @@ waits for the click instead, for a panel in the document flow (a phone menu push
 on `pointerdown` would move another element under the finger before the click lands. `useDisclosure({ closeKey,
 closeOutsideOn })` gives the same behaviour to an app's own
 markup (`triggerProps` on a `<button>`, `panelProps` on the panel). Slots: `root`, `trigger`, `label`, `panel`;
-`align` (`end` by default) picks the edge the panel lines up with.
+`align` (`end` by default) picks the edge the panel lines up with. The panel gives plain links its menu-row look (block,
+padding, foreground colour, hover background). A link with `data-variant` (`ButtonLink`) is left alone and keeps its
+button look, and the panel's link rules have zero specificity, so a class of the app's own on a link wins over them.
 
 `ConfirmActionButton` opens a `confirmation` `Modal` with the stakes (`description`) and Cancel plus a `danger`
 confirm button; the dialog waits for the user, with no timer. While `action` runs the dialog cannot be dismissed.
