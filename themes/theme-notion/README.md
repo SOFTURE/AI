@@ -71,7 +71,8 @@ import { CircleCheck } from "lucide-react";
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
 `DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Steps stateLabels`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
-`CommandDialog title description`, `SortableList instructions announcements`, `SortableHandle label`.
+`CommandDialog title description` (`title` also names its search field), `Command label` (the search field's
+name outside a `CommandDialog`; without it the field has none), `SortableList instructions announcements`, `SortableHandle label`.
 
 ## Rules, in short
 
@@ -291,6 +292,19 @@ Deltas from stock shadcn:
   Notion callout).
 - `input`, `textarea`, `select`, `input-group`: 28 px high, grey `field` background, thin `input` border.
 - `dropdown-menu`, `select`, `popover`, `command`: radius 10, `shadow-menu` without a border, 28 px items.
+- `command`: `CommandDialog` passes its `title` to cmdk's `label`, the search field's accessible name (cmdk's
+  `aria-labelledby` wins over an `aria-label` on `CommandInput`). `CommandInput` renders its `children` at the end of
+  the input row and merges `wrapperClassName` into the row:
+
+  ```tsx
+  <CommandDialog open={open} onOpenChange={setOpen} title="Search pages">
+    <CommandInput placeholder="Search…" wrapperClassName="h-12">
+      <Kbd>Esc</Kbd>
+    </CommandInput>
+    <CommandList>…</CommandList>
+  </CommandDialog>
+  ```
+
 - `dialog`, `alert-dialog`: radius 10, `shadow-dialog`, no border. `card`: `shadow-card` instead of a border.
 - `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
   (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,

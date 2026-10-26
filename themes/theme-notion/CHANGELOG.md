@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `Command` (#809): `CommandDialog` passes its `title` to cmdk's `label`, so the palette's combobox is named by the
+  dialog's title (it had an empty name: cmdk's `aria-labelledby` points at its hidden label and wins over an
+  `aria-label` on `CommandInput`). A bare `Command` needs `label` from the app. `CommandInput` takes `children`,
+  rendered after the input inside the input row (a `Kbd` "Esc" sits at its right end with no positioning), and
+  `wrapperClassName`, merged into the row's classes (`h-12` for the 48 px row). An app drops its absolutely
+  positioned `Kbd` beside `CommandInput` and its parent selector on `data-slot=command-input-wrapper`; a `label` it
+  set on `Command` keeps working. Without the new props the classes are unchanged.
+
 ## 0.4.0
 
 - Server Components (#770): the package root imports from a React Server Component again. 0.3.0's `ui/item.tsx`
