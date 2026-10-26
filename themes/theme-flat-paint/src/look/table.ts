@@ -12,7 +12,8 @@ const CELL_BASE = "px-3 align-middle";
  * - `selectedRow`: added after `row` with `cn`, the raised surface with the 3 px lime bar and a bold first cell (the
  *   year);
  * - `stickyColumn`: added to the cells of a column stuck to the right while the table scrolls, with a hairline on its
- *   left below `xl` (an inset shadow: a collapsed border does not stick with the cell).
+ *   left below `xl` (an inset shadow: a collapsed border does not stick with the cell). It inherits the row's
+ *   background, so the header row needs one too (`bg-surface`).
  */
 export const DATA_TABLE_LOOK: Readonly<Record<DataTableSlot, string>> = {
   headerCell: `${CELL_BASE} h-10 text-left text-caption font-medium text-muted`,

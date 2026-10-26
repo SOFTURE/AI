@@ -29,4 +29,4 @@ Files: `themes/theme-flat-paint/src/look/table.ts`, `src/index.ts`, `src/page.cs
 
 ## Progress
 
-- [ ] Phase 1: DataTable look and shot frame
+- [x] Phase 1: DataTable look and shot frame (e3d5e3a, package tests 42/42)
