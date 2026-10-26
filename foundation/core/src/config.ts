@@ -7,6 +7,7 @@ import { isLocale, type Locale } from "./i18n.js";
 import type { AnySoftureModule } from "./module.js";
 import { err, ok, type Result } from "./result.js";
 import { parseVersionRange, satisfiesRange } from "./version-range.js";
+import { isTimeZone } from "./zoned-time.js";
 
 /**
  * Filled by `@softure-ai/db` through declaration merging with `{ handle: DatabaseHandle }`, so `database.handle`
@@ -256,15 +257,6 @@ function checkDatabase(config: { database: unknown; modules: readonly AnySofture
   return config.modules
     .filter((module) => module.manifest.dbSchema !== null)
     .map((module) => `database: required because module "${module.id}" has a database schema`);
-}
-
-function isTimeZone(value: string): boolean {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: value });
-    return value !== "";
-  } catch {
-    return false;
-  }
 }
 
 function isOrigin(value: string): boolean {

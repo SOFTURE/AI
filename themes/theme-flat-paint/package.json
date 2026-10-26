@@ -34,7 +34,10 @@
     },
     "./theme.css": "./dist/theme.css",
     "./sft-bridge.css": "./dist/sft-bridge.css",
-    "./page.css": "./dist/page.css"
+    "./page.css": "./dist/page.css",
+    "./preflight.css": "./dist/preflight.css",
+    "./base.css": "./dist/base.css",
+    "./maplibre.css": "./dist/maplibre.css"
   },
   "softureTheme": {
     "sources": [

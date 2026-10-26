@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- `AuthMessages`: the OpenID Connect keys (`oidc`, `errors.auth.oidc_failed`, `oidc_cancelled`, `oidc_not_allowed`,
+  `oidc_no_account`) are optional (#786). In 0.2.6 they were required, so an app with its own dictionary typed
+  `AuthMessages` stopped compiling, although that release was described as additive. A missing key reads the English
+  copy: `OidcSignIn` falls back to `authMessages.en.oidc`, and `getAuthErrorMessage` to the English message of a known
+  code before the dictionary's generic failure. No change for an app.
+
 ## 0.2.6
 
 Sign in with an OpenID Connect provider (Google), limited to allowed domains or emails (#769). Additive: an app without
