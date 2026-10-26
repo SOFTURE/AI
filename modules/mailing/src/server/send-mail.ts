@@ -1,7 +1,7 @@
 // Sends one mail through the configured provider, with three rules: it never throws for a failed
 // send (every failure is a result), nothing of the mail (address, subject, body, key) reaches a log
 // or the result, and `headers` cannot replace the envelope or the sender (a mail's own reply-to is
-// the `replyTo` field, checked like `to`). Attachments go only to a provider that declares it delivers them, and a
+// the `replyTo` field, checked like `to`; its sender is a name of `mailing({ senders })`, never an address). Attachments go only to a provider that declares it delivers them, and a
 // log line describes them by count, content type and size, never by name or content. List mail (any kind but `transactional`) also gets a signed unsubscribe
 // link in a footer and the RFC 8058 headers, and is refused for a recipient who unsubscribed.
 import { err, type Err, ok, type Ok, selectMessages, type SoftureConfig } from "@softure-ai/core";
@@ -53,6 +53,7 @@ export async function sendMail(context: MailContext, mail: OutgoingMail, options
     return err("mailing.invalid_input");
   }
   const valid = validation.value;
+  if (resolveSender(context.config, valid) === null) return refuseSender(provider, valid);
   if (!canCarryAttachments(provider, valid)) return refuseAttachments(provider, valid);
   const secret = readUnsubscribeSecrets().current;
   if (valid.kind !== TRANSACTIONAL_KIND) {
@@ -78,6 +79,7 @@ export async function sendMailUnchecked(config: SoftureConfig, mail: OutgoingMai
     logFailure(provider, "mailing.invalid_input", { fields: validation.fields });
     return err("mailing.invalid_input");
   }
+  if (resolveSender(config, validation.value) === null) return refuseSender(provider, validation.value);
   if (!canCarryAttachments(provider, validation.value)) return refuseAttachments(provider, validation.value);
   const secret = readUnsubscribeSecrets().current;
   if (validation.value.kind !== TRANSACTIONAL_KIND && secret === null) {
@@ -105,6 +107,21 @@ async function deliver(provider: MailProvider, message: ProviderMessage, timeout
 /** False for a mail with attachments and a provider that does not declare it delivers them. */
 function canCarryAttachments(provider: MailProvider, mail: ValidMail): boolean {
   return mail.attachments.length === 0 || provider.supportsAttachments === true;
+}
+
+/**
+ * The sender of `mail`: its named sender of `mailing({ senders })`, `from` when it names none, or `null` when the name
+ * is not configured (the mail must not go out: a request cannot pick a sender the app does not have).
+ */
+export function resolveSender(config: SoftureConfig, mail: Pick<ValidMail, "sender">): string | null {
+  const { from, senders = {} } = getMailingOptions(config);
+  if (mail.sender === null) return from;
+  return Object.hasOwn(senders, mail.sender) ? (senders[mail.sender] ?? null) : null;
+}
+
+function refuseSender(provider: MailProvider, mail: ValidMail): SendMailResult {
+  logFailure(provider, "mailing.invalid_input", { fields: ["sender"], attachments: mail.attachments });
+  return err("mailing.invalid_input");
 }
 
 function refuseAttachments(provider: MailProvider, mail: ValidMail): SendMailResult {
@@ -135,6 +152,7 @@ export function previewMail(config: SoftureConfig, mail: OutgoingMail, options: 
   const { env, ...sendOptions } = options;
   const validation = validateMail(mail, sendOptions, getMailingOptions(config).attachments);
   if (!validation.ok) return { ...err("mailing.invalid_input"), fields: validation.fields };
+  if (resolveSender(config, validation.value) === null) return { ...err("mailing.invalid_input"), fields: ["sender"] };
   const secret = readUnsubscribeSecrets(env).current;
   if (validation.value.kind !== TRANSACTIONAL_KIND && secret === null) return { ...err("mailing.unavailable"), cause: "no_unsubscribe_secret" };
   return ok(composeMessage(config, validation.value, secret));
@@ -170,12 +188,15 @@ async function checkListMail(context: MailContext, mail: ValidMail, secret: stri
 }
 
 /**
- * The message the provider receives: the configured sender, the mail's or the configured reply-to, and for list
- * mail the footer and headers signed with `secret` (which the caller checked is set).
+ * The message the provider receives: the resolved sender (see `resolveSender`), the mail's or the configured
+ * reply-to, and for list mail the footer and headers signed with `secret` (which the caller checked is set).
  */
 function composeMessage(config: SoftureConfig, mail: ValidMail, secret: string | null): ProviderMessage {
-  const { from, replyTo } = getMailingOptions(config);
-  const { idempotencyKey, kind, replyTo: mailReplyTo, attachments, ...content } = mail;
+  const { replyTo } = getMailingOptions(config);
+  const { idempotencyKey, kind, replyTo: mailReplyTo, sender, attachments, ...content } = mail;
+  const from = resolveSender(config, { sender });
+  // Every caller refused an unknown sender before composing.
+  if (from === null) throw new Error("@softure-ai/mailing: composeMessage got a sender the config does not have");
   const envelope = { from, replyTo: mailReplyTo ?? replyTo ?? null, idempotencyKey, ...(attachments.length === 0 ? {} : { attachments }) };
   if (kind === TRANSACTIONAL_KIND || secret === null) return { ...content, ...envelope };
   const links = buildUnsubscribeLinks(config, mail.to, secret);

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { hasLineBreak, isHeaderName, isIdempotencyKey, isListMailHeader, isMailKind, isReservedHeader, isSingleAddress, MAX_SUBJECT_LENGTH } from "../address.js";
 import { DEFAULT_ATTACHMENT_LIMITS, getContentTypeEssence, isAttachmentFilename, isContentType, type AttachmentLimits } from "../attachments.js";
 import { TRANSACTIONAL_KIND, type MailAttachment } from "../contract.js";
+import { SENDER_NAME } from "../options.js";
 
 const headersSchema = z.record(z.string(), z.string()).superRefine((headers, context) => {
   for (const [name, value] of Object.entries(headers)) {
@@ -42,6 +43,7 @@ const mailFields = {
     .optional(),
   headers: headersSchema.optional(),
   replyTo: z.string().trim().refine(isSingleAddress).optional(),
+  sender: z.string().regex(SENDER_NAME).optional(),
   kind: z.string().refine(isMailKind).default(TRANSACTIONAL_KIND),
 };
 
@@ -78,6 +80,8 @@ export interface ValidMail {
   readonly headers: Readonly<Record<string, string>>;
   /** The mail's own reply-to; null to use the configured one. */
   readonly replyTo: string | null;
+  /** The name of a configured sender; null for `from`. Its value is looked up in the config (`resolveSender`). */
+  readonly sender: string | null;
   /** `transactional` or a list kind. */
   readonly kind: string;
   readonly idempotencyKey: string | null;
@@ -90,7 +94,7 @@ export type MailValidation = { readonly ok: true; readonly value: ValidMail } | 
 /**
  * Checks one mail and its send options, its attachments against `limits` (default: the module's defaults; `sendMail`
  * passes the configured ones). `fields` lists what failed (`to`, `subject`, `text`, `html`, `headers`, `replyTo`,
- * `kind`, `attachments`, `idempotencyKey`, or `mail` when the input is not an object).
+ * `sender` (its shape only: whether the app configured it is `resolveSender`'s check), `kind`, `attachments`, `idempotencyKey`, or `mail` when the input is not an object).
  */
 export function validateMail(mail: unknown, options: unknown = {}, limits: AttachmentLimits = DEFAULT_ATTACHMENT_LIMITS): MailValidation {
   const parsedMail = getMailSchema(limits).safeParse(mail);
@@ -100,7 +104,7 @@ export function validateMail(mail: unknown, options: unknown = {}, limits: Attac
     const fields = new Set(issues.map((issue) => (issue.path.length === 0 ? "mail" : String(issue.path[0]))));
     return { ok: false, fields: [...fields] };
   }
-  const { to, subject, text, html, headers, replyTo, kind, attachments = [] } = parsedMail.data;
+  const { to, subject, text, html, headers, replyTo, sender, kind, attachments = [] } = parsedMail.data;
   return {
     ok: true,
     value: {
@@ -110,6 +114,7 @@ export function validateMail(mail: unknown, options: unknown = {}, limits: Attac
       html: html ?? null,
       headers: headers ?? {},
       replyTo: replyTo ?? null,
+      sender: sender ?? null,
       kind,
       idempotencyKey: parsedOptions.data.idempotencyKey ?? null,
       attachments,
