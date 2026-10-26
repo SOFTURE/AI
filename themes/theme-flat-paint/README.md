@@ -107,6 +107,9 @@ the app adds no `@source`.
 | `SEGMENTED_CONTROL_LOOK`, `THEME_SWITCH_LOOK` | `SegmentedControl` and `ThemeSwitch` slots with `unstyled`: the checked segment without lime, the legend hidden (spread the map and set `legend` to show it) |
 | `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK` | the active segment as `has-checked:` variants, for an option wrapping a native radio |
 | `DATA_TABLE_LOOK` | an app's own `<table>`: `headerCell`, `row`, `cell`, `amountCell`, `emptyCell`, `selectedRow`, `stickyColumn` |
+| `getChartFlagLook(look, size)`, `CHART_FLAG_VARIANT_LOOK`, `CHART_FLAG_SIZE_LOOK` | `@softure-ai/charts` `ChartFlag variant="flag"` `className`: `accent` (lime, ink text) or `deep` (a variant date, white text), by size |
+| `CHART_PIN_LOOK` | `ChartPin` `classNames`: `dot` (fill by variant, plus size by size), ring by the chart's surface, `line` by surface |
+| `CHART_ROLE_TONE` | the charts tone (`ChartToneName`) of each role: `accessible`, `locked`, `debt`, `accent`, `muted` |
 
 A data table (ui has no table component): column headers 12 px 500 `muted`, 44 px rows with a `border` hairline,
 amounts right-aligned in `tabular` with the last column bold, an empty cell `—` in `muted`, the selected row on
@@ -121,6 +124,29 @@ const t = DATA_TABLE_LOOK;
   <td className={cn(t.amountCell, t.stickyColumn)}>{total}</td>
 </tr>
 ```
+
+The pin's ring carries its contrast (lime on white does not hold 3:1), so it follows the surface the chart sits on:
+the text colour on the page, ink on a dark band, white on a paper card. charts draws the pin's dashed line itself,
+so `CHART_PIN_LOOK.line` colours that dash (`--sft-chart-pin-line`, the chart axis at 60 %, 70 % on paper) rather
+than adding a border of its own.
+
+```tsx
+import { ChartFlag, ChartPin } from "@softure-ai/charts";
+import { CHART_PIN_LOOK, getChartFlagLook } from "@softure-ai/theme-flat-paint";
+
+const surface = "paper";
+<ChartFlag xPercent={62} size="sm" className={getChartFlagLook("deep", "sm")}>2041</ChartFlag>
+<ChartPin
+  xPercent={62}
+  yPercent={40}
+  classNames={{
+    dot: `${CHART_PIN_LOOK.dot.flag} ${CHART_PIN_LOOK.size.md} ${CHART_PIN_LOOK.ring[surface]}`,
+    line: CHART_PIN_LOOK.line[surface],
+  }}
+/>
+```
+
+A line or marker in a role's colour takes the role's tone: `tone={CHART_ROLE_TONE.locked}`.
 
 ## Tokens
 
