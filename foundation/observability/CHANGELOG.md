@@ -8,8 +8,8 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 
 - Metrics: `http.client.request.duration` no longer counts the OTLP exporter's own requests (#810). The `node:http`
   instrumentation skips requests to the resolved trace, log and metric URLs (same scheme, host, port and path), so a
-  process that makes no outgoing `node:http` calls of its own exports no client histogram at all; on Grafana Cloud
-  that removed about 34 active series per process. Calls to other paths on the collector's host are still measured.
+  process that makes no outgoing `node:http` calls of its own exports no client histogram at all (in an adopting
+  app's job worker, 34 active series that measured only the export). Calls to other paths on the collector's host are still measured.
   An app that set `instrumentations: { http: false }` only to drop those series can remove it.
 
 ## 0.4.0

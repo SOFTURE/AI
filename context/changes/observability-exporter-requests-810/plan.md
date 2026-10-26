@@ -37,4 +37,4 @@ Files: `foundation/observability/README.md`, `foundation/observability/CHANGELOG
 ## Progress
 
 - [x] Phase 1: skip export requests in the http instrumentation (f1753b1)
-- [ ] Phase 2: README and CHANGELOG
+- [x] Phase 2: README and CHANGELOG (8dac839)
