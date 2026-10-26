@@ -1,7 +1,7 @@
 // The panel's rows from the module's reads: every line in the app's copy, dates in its zone, no payload.
 import { defineJobHandler, failJob, failSyncItem, jobsMessages } from "@softure-ai/jobs";
 import { toJobsPanelData } from "@softure-ai/jobs/next";
-import { enqueueJob, getQueueStats, listRecentJobs, listSyncItems, processSyncItem } from "@softure-ai/jobs/server";
+import { enqueueJob, getQueueStats, listJobRuns, listRecentJobs, listSyncItems, processSyncItem } from "@softure-ai/jobs/server";
 import { runDueJobs } from "@softure-ai/jobs/testing";
 import { err, ok } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -88,6 +88,44 @@ describe("toJobsPanelData", () => {
       },
     ]);
     expect(JSON.stringify(jobs)).not.toContain("grace@example.com");
+  });
+
+  it("leaves the runs out when the source has none, so an app's own composition is unchanged", async () => {
+    expect(await read()).not.toHaveProperty("runs");
+  });
+
+  it("describes each run: origin, attempt, summary or error code, and never its payload", async () => {
+    const done = await enqueueJob(test.ctx, { queue: "ai.reply", payload: { to: "grace@example.com" }, origin: "webhook.stripe" });
+    const summary = { code: "sync.imported", items: { new: 3, failed: 1 }, steps: { fetch: "done", notify: "skipped" } } as const;
+    await runDueJobs(test.ctx, { handlers: { "ai.reply": defineJobHandler({ payload: z.unknown(), run: () => Promise.resolve(ok({ summary })) }) } });
+    test.clock.advance(SECOND_MS);
+    const bounced = await enqueueJob(test.ctx, { queue: "mail.send", payload: { to: "grace@example.com" } });
+    await runDueJobs(test.ctx, { handlers: failing, random: () => 0 });
+    const [stats, jobs, runs] = await Promise.all([getQueueStats(test.ctx), listRecentJobs(test.ctx, { statuses: ["failed"] }), listJobRuns(test.ctx)]);
+    const data = toJobsPanelData({ stats, jobs, runs, syncItems: [] }, en, test.ctx.config);
+
+    expect(data.runs?.map(({ heading, outcome, outcomeLabel, details }) => ({ heading, outcome, outcomeLabel, details }))).toEqual([
+      {
+        heading: `mail.send · job ${bounced.id}`,
+        outcome: "failed",
+        outcomeLabel: "Failed",
+        details: ["Started by the app", "Attempt 1", "Error: app.bounced", "Finished on Sep 15, 2026, 2:00 PM"],
+      },
+      {
+        heading: `ai.reply · job ${done.id}`,
+        outcome: "succeeded",
+        outcomeLabel: "Succeeded",
+        details: [
+          "Started by webhook.stripe",
+          "Attempt 1",
+          "Result: sync.imported",
+          "Items: 3 new · 0 skipped · 1 failed",
+          "Steps: fetch done, notify skipped",
+          "Finished on Sep 15, 2026, 2:00 PM",
+        ],
+      },
+    ]);
+    expect(JSON.stringify(data.runs)).not.toContain("grace@example.com");
   });
 
   it("groups the ledger by source, with Retry item only for a failed item", async () => {

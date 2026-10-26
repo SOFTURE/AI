@@ -96,7 +96,9 @@ import { BUTTON_VARIANT_LOOK, CARD_TITLE_LOOK, ROLE_TONE, STAT_VALUE_LOOK } from
 
 Class strings for `className` / `classNames` of the ui components, holding only what differs from ui's defaults (an
 app class beats ui's `@layer softure`). They are literals, so `theme.css` lists their folder as a Tailwind source and
-the app adds no `@source`.
+the app adds no `@source`. A state that ui draws per item (a done checklist row, the current step) is a variant on
+the state attribute ui sets on the item (`in-data-done:`, `in-data-[state=current]:`), so one class string covers every
+state. App-specific motion (a wizard's step stamp) stays in the app.
 
 | Export | For |
 | --- | --- |
@@ -109,12 +111,19 @@ the app adds no `@source`.
 | `CHECKBOX_LOOK` | `Checkbox` slots with `unstyled` |
 | `getModalLook(width)`, `MODAL_LOOK`, `STANDING_PANEL_LOOK` | `Modal` and `StandingPanel` `classNames`: flat veil, entrance motion, no shadow, title on `text-page` |
 | `SEGMENTED_GROUP_LOOK`, `SEGMENT_ACTIVE_LOOK`, `SEGMENT_IDLE_LOOK`, `SEGMENT_ACTIVE_WHEN_CURRENT_LOOK` | a segmented control, and ui's `SegmentedNav` |
+| `HINT_LOOK` | `Hint` as a whole appearance (`classNames` and the 8 px `triggerGap`): `<Hint {...HINT_LOOK}>` |
+| `CHECKLIST_LOOK` | `Checklist` `classNames`: hairline list, done marker and label (by ui's `data-done`) |
+| `STEPPER_LOOK` | `Stepper` `classNames`: marker per state (by ui's `data-state`), label hidden on phones |
+| `MENU_PANEL_LOOK` | `DisclosureMenu`, `AccountMenu`, `MobileMenu` slots `trigger` and `panel` |
+| `COLOR_FIELD_LOOK` | `ColorField` slots `preset` (square, framed when picked) and `swatch` (the native picker) |
 | `SEGMENTED_CONTROL_LOOK`, `THEME_SWITCH_LOOK` | `SegmentedControl` and `ThemeSwitch` slots with `unstyled`: the checked segment without lime, the legend hidden (spread the map and set `legend` to show it) |
 | `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK` | the active segment as `has-checked:` variants, for an option wrapping a native radio |
 | `DATA_TABLE_LOOK` | an app's own `<table>`: `headerCell`, `row`, `cell`, `amountCell`, `emptyCell`, `selectedRow`, `stickyColumn` |
 | `getChartFlagLook(look, size)`, `CHART_FLAG_VARIANT_LOOK`, `CHART_FLAG_SIZE_LOOK` | `@softure-ai/charts` `ChartFlag variant="flag"` `className`: `accent` (lime, ink text) or `deep` (a variant date, white text), by size |
 | `CHART_PIN_LOOK` | `ChartPin` `classNames`: `dot` (fill by variant, plus size by size), ring by the chart's surface, `line` by surface |
 | `CHART_ROLE_TONE` | the charts tone (`ChartToneName`) of each role: `accessible`, `locked`, `debt`, `accent`, `muted` |
+| `RADIO_LOOK` | a radio's `box`, `input` (the drawn circle) and `mark` (a 12 px check icon): a lime disc with an `accent` line and a black check when checked, as the checkbox |
+| `CHOICE_ROW_LOOK`, `CHOICE_CARD_LOOK` | a single choice drawn as a list row (lime bar when checked) or a bordered tile: `label`, `control`, `body`, `title`, `description`; markup below |
 
 A data table (ui has no table component): column headers 12 px 500 `muted`, 44 px rows with a `border` hairline,
 amounts right-aligned in `tabular` with the last column bold, an empty cell `—` in `muted`, the selected row on
@@ -152,6 +161,26 @@ const surface = "paper";
 ```
 
 A line or marker in a role's colour takes the role's tone: `tone={CHART_ROLE_TONE.locked}`.
+
+A radio choice: a `label` wraps the native radio, so a click on the whole row or tile checks it and the label carries
+the checked (`has-checked:`) and focus (`has-focus-visible:`) states. The card puts `control` after `body`.
+
+```tsx
+import { CHOICE_ROW_LOOK as look, RADIO_LOOK as radio } from "@softure-ai/theme-flat-paint";
+
+<label className={look.label}>
+  <span className={look.control}>
+    <span className={radio.box}>
+      <input type="radio" name="plan" value="yearly" className={radio.input} />
+      <span className={radio.mark} aria-hidden="true"><CheckIcon size={12} /></span>
+    </span>
+  </span>
+  <span className={look.body}>
+    <span className={look.title}>Yearly</span>
+    <span className={look.description}>Billed once a year</span>
+  </span>
+</label>
+```
 
 ## Tokens
 

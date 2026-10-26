@@ -3,7 +3,7 @@
   "version": "0.1.5",
   "dependsOn": {},
   "dbSchema": "jobs",
-  "tables": ["jobs", "schedules", "sync_cursors", "sync_items"],
+  "tables": ["jobs", "runs", "schedules", "sync_cursors", "sync_items"],
   "env": [],
   "switches": [],
   "routes": { "panel": "/admin/jobs" },

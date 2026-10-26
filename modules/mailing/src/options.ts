@@ -23,6 +23,13 @@ const RESERVED_LINK_PARAMS: ReadonlySet<string> = new Set(["r", "status"]);
 const LINK_PARAM = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
 
 const MAX_LINK_PARAMS = 8;
+
+/** A name of `mailing({ senders })`, the value of `OutgoingMail.sender`: a letter, then letters, digits, `_` or `-`. */
+export const SENDER_NAME = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
+
+const sendersSchema = z
+  .record(z.string(), z.string().trim().refine(isMailbox, "must be an address or Name <address>, e.g. Alerts <alerts@example.com>"))
+  .refine((senders) => Object.keys(senders).every((name) => SENDER_NAME.test(name)), "every name must be a letter, then letters, digits, _ or -, at most 32 characters");
 const linkParamNames = z.array(z.string().regex(LINK_PARAM, "must be a query name: a letter, then letters, digits, _ or -, at most 32 characters"));
 
 /** Both forms of `params`, normalised to required and optional names, with the limits on all names together. */
@@ -78,6 +85,11 @@ export const mailingOptionsSchema = z.strictObject({
    * domain the provider signs (DKIM), or DMARC rejects the mail.
    */
   from: z.string().trim().refine(isMailbox, "must be an address or Name <address>, e.g. Plan <hello@example.com>"),
+  /**
+   * Named extra senders a mail picks with `OutgoingMail.sender`, e.g. `{ alerts: "App <alerts@example.com>" }`. Each
+   * is validated like `from` and must sit on a domain the provider signs; `softure-mail dns` checks every one.
+   */
+  senders: sendersSchema.optional(),
   /** Where replies go; may sit on another domain than `from` (DMARC does not check it). */
   replyTo: z.string().trim().refine(isSingleAddress, "must be one address, e.g. support@example.com").optional(),
   /**

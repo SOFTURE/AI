@@ -2,12 +2,12 @@
 
 import { Button, type ClassNames, createSlotClassGetter, FormError } from "@softure-ai/ui";
 import { useActionState, type ReactNode } from "react";
-import type { JobsFormState, JobStatus, ScheduleHealth } from "../contract.js";
+import type { JobRunOutcome, JobsFormState, JobStatus, ScheduleHealth } from "../contract.js";
 import { getJobsErrorMessage, type JobsMessages } from "../messages/index.js";
 import type { SyncItemStatus } from "../sync.js";
 
 // The jobs admin panel: the queues with their counts and schedule health and a Run now action for a scheduled one;
-// the recent failed, cancelled and retrying jobs with Retry or Cancel; the sync ledger per source with a status filter
+// the recent failed, cancelled and retrying jobs with Retry or Cancel; the recent runs (when passed); the sync ledger per source with a status filter
 // and Retry item. Every action is a form posting to a server action through `useActionState`, with its error shown in
 // place. Rows come prepared from the server (`toJobsPanelData`): codes only, never a payload or an error text. Copy
 // comes from the module's messages; styling only from @softure-ai/ui classes.
@@ -63,6 +63,16 @@ export interface JobsPanelJob {
   readonly canCancel: boolean;
 }
 
+/** One recorded attempt of the run history. */
+export interface JobsPanelRun {
+  readonly id: string;
+  readonly heading: string;
+  readonly outcome: JobRunOutcome;
+  readonly outcomeLabel: string;
+  /** Origin, attempt, summary and error lines, already in the app's copy. */
+  readonly details: readonly string[];
+}
+
 /** One item of the sync ledger. */
 export interface JobsPanelSyncItem {
   readonly source: string;
@@ -91,6 +101,8 @@ export interface JobsPanelFilterLink {
 export interface JobsPanelProps {
   readonly queues: readonly JobsPanelQueue[];
   readonly jobs: readonly JobsPanelJob[];
+  /** The run history's newest rows; the section is left out when omitted. */
+  readonly runs?: readonly JobsPanelRun[];
   readonly syncSources: readonly JobsPanelSyncSource[];
   /** The ledger's status filter; nothing is shown when empty or omitted. */
   readonly syncFilter?: readonly JobsPanelFilterLink[];
@@ -131,6 +143,12 @@ const JOB_TONES: Readonly<Record<JobStatus, string>> = {
   succeeded: "sft:text-success",
   failed: "sft:text-danger",
   cancelled: "sft:text-muted",
+};
+
+const RUN_TONES: Readonly<Record<JobRunOutcome, string>> = {
+  succeeded: "sft:text-success",
+  retried: "sft:text-warning",
+  failed: "sft:text-danger",
 };
 
 const SYNC_TONES: Readonly<Record<SyncItemStatus, string>> = {
@@ -209,8 +227,11 @@ function Section({ title, lead, children, slot }: { title: string; lead?: string
   );
 }
 
-/** Queues, recent problem jobs and the sync ledger, each with its actions; an empty state for each when it has none. */
-export function JobsPanel({ queues, jobs, syncSources, syncFilter = [], actions, messages, classNames, unstyled }: JobsPanelProps) {
+/**
+ * Queues, recent problem jobs, recent runs (when `runs` is passed) and the sync ledger, each with its actions; an
+ * empty state for each when it has none.
+ */
+export function JobsPanel({ queues, jobs, runs, syncSources, syncFilter = [], actions, messages, classNames, unstyled }: JobsPanelProps) {
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   const form = { messages, slot, unstyled };
   return (
@@ -248,6 +269,22 @@ export function JobsPanel({ queues, jobs, syncSources, syncFilter = [], actions,
           </ul>
         )}
       </Section>
+      {runs !== undefined && (
+        <Section title={messages.runs.title} lead={messages.runs.lead} slot={slot}>
+          {runs.length === 0 ? (
+            <p className={slot("empty")}>{messages.runs.empty}</p>
+          ) : (
+            <ul className={slot("list")}>
+              {runs.map((run) => (
+                <li key={run.id} className={slot("item")} data-outcome={run.outcome}>
+                  <Header title={run.heading} status={run.outcomeLabel} tone={RUN_TONES[run.outcome]} slot={slot} unstyled={unstyled} />
+                  <Details lines={run.details} slot={slot} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      )}
       <Section title={messages.sync.title} lead={messages.sync.lead} slot={slot}>
         {syncFilter.length > 0 && (
           <nav className={slot("filter")} aria-label={messages.sync.filterLabel}>

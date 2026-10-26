@@ -131,6 +131,11 @@ export interface OutgoingMail {
    */
   readonly replyTo?: string;
   /**
+   * The name of a sender of `mailing({ senders })`, e.g. `alerts`; without it the mail goes out from `from`. Never an
+   * address, so a request can never choose the sender. An unknown name is `mailing.invalid_input` (`fields=sender`).
+   */
+  readonly sender?: string;
+  /**
    * `transactional` (the default) for mail the recipient needs whatever they unsubscribed from:
    * password resets, receipts, account notices. Any other kebab-case name (e.g. `newsletter`) is
    * list mail: it gets a signed unsubscribe link in a footer and the RFC 8058 headers, and is
@@ -189,7 +194,10 @@ export type SendMailFailure = Err<MailingErrorCode> & { readonly httpStatus?: nu
 
 export type SendMailResult = Ok<SentMail> | SendMailFailure;
 
-/** What a provider receives: a validated mail with the sender from the configuration and the mail's or the configured reply-to. */
+/**
+ * What a provider receives: a validated mail with the sender from the configuration (the mail's named sender, else
+ * `from`) and the mail's or the configured reply-to.
+ */
 export interface ProviderMessage {
   readonly from: string;
   readonly to: string;
