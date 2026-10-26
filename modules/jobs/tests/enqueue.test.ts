@@ -28,6 +28,7 @@ describe("enqueueJob", () => {
       lockedUntil: null,
       lockedBy: null,
       dedupKey: null,
+      origin: "app",
       lastError: null,
       createdAt: NOW,
       updatedAt: NOW,

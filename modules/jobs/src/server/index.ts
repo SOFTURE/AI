@@ -32,6 +32,7 @@ export {
   runScheduleNow,
   SCHEDULE_DEDUP_KEY,
   type EnqueueDueSchedulesInput,
+  type RunScheduleNowOptions,
   type RunScheduleNowResult,
   type ScheduleState,
 } from "./schedules.js";

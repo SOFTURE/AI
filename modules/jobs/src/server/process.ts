@@ -3,6 +3,7 @@
 import type { ErrorCode } from "@softure-ai/core";
 import type { JobOutcome } from "../contract.js";
 import type { AnyJobHandler, JobHandlers, JobRunResult } from "../handlers.js";
+import { jobRunSummarySchema, type JobRunSummary } from "../summary.js";
 import type { ClaimedJob, Completion } from "./claim.js";
 import { completeJob } from "./claim.js";
 import { clampRetrySeconds, getRetryDelaySeconds } from "./backoff.js";
@@ -53,7 +54,7 @@ export async function runClaimedJob(ctx: JobsContext, claimed: ClaimedJob, optio
 
 function decide(ctx: JobsContext, claimed: ClaimedJob, result: unknown, options: RunClaimedJobOptions): Completion {
   const { job } = claimed;
-  if (isOk(result)) return { kind: "succeeded" };
+  if (isOk(result)) return { kind: "succeeded", summary: readSummary(result, claimed, options) };
   const failure = readFailure(result);
   if (failure === null) {
     options.logger.error("job handler returned neither ok() nor an error; treated as a throw", { queue: job.queue, jobId: job.id });
@@ -75,6 +76,20 @@ async function record(ctx: JobsContext, claimed: ClaimedJob, completion: Complet
   if (completion.kind === "succeeded") return { kind: "succeeded" };
   if (completion.kind === "retry") return { kind: "retried", error: completion.error, runAt: completion.runAt };
   return { kind: "failed", error: completion.error };
+}
+
+/**
+ * The checked summary of `ok({ summary })`; null without one (`ok()`, a value of the handler's own). An invalid summary
+ * is dropped with a warning naming its paths, never its values: the job did its work and stays succeeded.
+ */
+function readSummary(result: unknown, claimed: ClaimedJob, options: RunClaimedJobOptions): JobRunSummary | null {
+  const value = (result as { value?: unknown }).value;
+  if (typeof value !== "object" || value === null || !Object.hasOwn(value, "summary")) return null;
+  const parsed = jobRunSummarySchema.safeParse((value as { summary: unknown }).summary);
+  if (parsed.success) return parsed.data;
+  const paths = parsed.error.issues.map((issue) => issue.path.map(String).join(".") || "(root)").join(", ");
+  options.logger.warn("job summary does not match the summary schema; recorded without it", { queue: claimed.job.queue, jobId: claimed.job.id, paths });
+  return null;
 }
 
 /** Throws on a queue without a handler: the caller claims only queues it has handlers for. */
