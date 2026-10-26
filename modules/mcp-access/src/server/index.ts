@@ -92,6 +92,7 @@ export {
   issueAccessToken,
   listAccessTokens,
   pruneAccessTokens,
+  findTokenClientName,
   revokeAccessToken,
   verifyAccessToken,
   type IssueAccessTokenInput,
@@ -101,4 +102,14 @@ export {
   type RevokeAccessTokenInput,
   type VerifiedAccessToken,
 } from "./tokens.js";
-export { toolError, toolResult, withToolErrors, type ToolErrorHints, type ToolErrorOptions } from "./tools.js";
+export {
+  toolError,
+  toolResult,
+  withToolErrors,
+  type ToolCaller,
+  type ToolCallHook,
+  type ToolCallOutcome,
+  type ToolCallRecord,
+  type ToolErrorHints,
+  type ToolErrorOptions,
+} from "./tools.js";
