@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.4.0
 
 - Server Components (#770): the package root imports from a React Server Component again. 0.3.0's `ui/item.tsx`
   created the `ItemGroup` context at module level without `"use client"`, so `next build` failed with
