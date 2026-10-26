@@ -37,6 +37,31 @@ describe("@softure-ai/theme-flat-paint", () => {
     expect(flatPaint.ROLE_TONE).toEqual({ accessible: "success", locked: "warning", debt: "danger" });
   });
 
+  it("builds a chart flag's look from its look and size", () => {
+    expect(flatPaint.getChartFlagLook("deep", "sm")).toBe(
+      "bg-lime-deep text-paper rounded-flag px-1.5 py-0.5 text-[0.6875rem] whitespace-nowrap font-bold tabular-nums",
+    );
+    expect(flatPaint.getChartFlagLook("accent", "md")).toBe(
+      "bg-accent-fill text-on-accent rounded-md px-2 py-1 text-xs whitespace-nowrap font-bold tabular-nums",
+    );
+  });
+
+  it("rings a chart pin's dot per surface and colours the package's dash instead of adding a border", () => {
+    expect(flatPaint.CHART_PIN_LOOK.ring).toEqual({ page: "border-foreground", dark: "border-ink", paper: "border-paper" });
+    expect(Object.values(flatPaint.CHART_PIN_LOOK.line).filter((look) => look.includes("border"))).toEqual([]);
+    expect(flatPaint.CHART_PIN_LOOK.line.paper).toContain("var(--sft-chart-axis)_70%");
+  });
+
+  it("maps each chart role onto the charts tone that paints it", () => {
+    expect(flatPaint.CHART_ROLE_TONE).toEqual({
+      accessible: "success",
+      locked: "warning",
+      debt: "danger",
+      accent: "accent",
+      muted: "muted",
+    });
+  });
+
   it("lets a selected row's surface and bar win over the row's in cn", () => {
     const row = flatPaint.cn(flatPaint.DATA_TABLE_LOOK.row, flatPaint.DATA_TABLE_LOOK.selectedRow).split(" ");
     expect(row).toContain("bg-surface-raised");
