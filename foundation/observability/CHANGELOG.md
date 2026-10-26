@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `lifetime: "short"` for a process that does one job and ends (a migration, an ops script, a cron run) (#814): no
+  metrics, since every run would only add new series under a new `service.instance.id`; traces and logs stay and are
+  flushed when the process ends on its own (`beforeExit`), without calling `shutdown()`. `process.exit()` still needs
+  an `await shutdown()` before it. New exported type: `ProcessLifetime`. The README's "Series" paragraph counts the
+  cost per run.
+- Migration: an app that sets `metrics: { enabled: false }` in its own script wrapper can pass `lifetime: "short"`
+  instead; its explicit `shutdown()` before the end can stay (it is idempotent).
+
 ## 0.4.0
 
 - Metrics: with an endpoint, `startObservability` also exports metrics over OTLP/HTTP protobuf to
