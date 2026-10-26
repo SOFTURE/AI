@@ -1,12 +1,13 @@
 {
   "name": "softure-ai",
   "private": true,
-  "description": "SOFTURE AI — modular, tested building blocks for AI-assembled apps",
+  "description": "SOFTURE AI \u2014 modular, tested building blocks for AI-assembled apps",
   "license": "MIT",
   "workspaces": [
     "foundation/*",
     "modules/*",
     "tools/*",
+    "themes/*",
     "templates/*"
   ],
   "engines": {
@@ -17,12 +18,14 @@
     "@modelcontextprotocol/server": "^2.3.0",
     "@softure-ai/skills": "^0.10.0",
     "@tailwindcss/cli": "^4.3.3",
+    "@tailwindcss/node": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/semver": "^7.8.0",
+    "@vitest/coverage-v8": "^5.0.3",
     "drizzle-orm": "^0.45.3",
     "esbuild": "^0.28.2",
     "eslint": "^10.11.0",

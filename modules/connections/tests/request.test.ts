@@ -195,4 +195,39 @@ describe("requestWithConnection", () => {
       expect(await readRawRow(test.database, "raindrop")).toMatchObject({ status: "connected" });
     });
   });
+
+  describe("with an API key provider's own header", () => {
+    const providers = (): CreateTestConnectionsOptions["providers"] => () => [
+      { kind: "api_key", id: "vendor", header: { name: "X-Vendor-ApiKey" } },
+      { kind: "api_key", id: "other", header: { name: "Authorization", scheme: "Token" } },
+    ];
+
+    it("sends the bare key in that header, replacing the caller's header of that name and keeping its authorization header", async () => {
+      await setUp({ providers: providers() });
+      await saveCredential(test.ctx, { provider: "vendor", credential: { kind: "api_key", apiKey: "v-key" }, actorId: ADMIN });
+      const api = createRecordingFetch(status(200, { ok: true }));
+      const result = await requestWithConnection(test.ctx, { provider: "vendor" }, { url: API, fetch: api.fetch, headers: { "x-vendor-apikey": "stale", authorization: "Bearer app" } });
+      expect(result).toEqual({ ok: true, value: { ok: true } });
+      expect(api.calls).toHaveLength(1);
+      expect(api.calls[0]?.headers.get("x-vendor-apikey")).toBe("v-key");
+      expect(api.calls[0]?.authorization).toBe("Bearer app");
+    });
+
+    it("sends the key with the provider's scheme in Authorization", async () => {
+      await setUp({ providers: providers() });
+      await saveCredential(test.ctx, { provider: "other", credential: { kind: "api_key", apiKey: "o-key" }, actorId: ADMIN });
+      const api = createRecordingFetch(status(200, {}));
+      await requestWithConnection(test.ctx, { provider: "other" }, { url: API, fetch: api.fetch, headers: [["AUTHORIZATION", "x"]] });
+      expect(api.calls.map((call) => call.authorization)).toEqual(["Token o-key"]);
+    });
+
+    it("still reports a 401 at once, without a retry", async () => {
+      await setUp({ providers: providers() });
+      await saveCredential(test.ctx, { provider: "vendor", credential: { kind: "api_key", apiKey: "v-key" }, actorId: ADMIN });
+      const api = createRecordingFetch(status(401));
+      expect(await requestWithConnection(test.ctx, { provider: "vendor" }, { url: API, fetch: api.fetch })).toEqual({ ok: false, error: "connections.reconnect_required" });
+      expect(api.calls).toHaveLength(1);
+      expect(events).toEqual([{ provider: "vendor", accountId: "default", kind: "api_key", reason: "rejected", at: test.clock.now() }]);
+    });
+  });
 });

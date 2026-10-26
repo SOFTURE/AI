@@ -2,7 +2,7 @@
 // zone) and the blog's image policy, with the ruleset and voice patterns compiled once.
 import { toCalendarDay, type SoftureConfig } from "@softure-ai/core";
 import type { ArticleImagePolicy } from "../render/images.js";
-import type { QualitySeverity } from "./finding.js";
+import { sortFindings, type QualityFinding, type QualitySeverity } from "./finding.js";
 import type { QualityOptions } from "./options.js";
 import { QUALITY_RULESETS } from "./rulesets/index.js";
 import type { LanguageRuleset, StylePattern } from "./rulesets/types.js";
@@ -22,6 +22,9 @@ export interface QualitySettings {
   readonly paths: QualityPaths;
 }
 
+/** What the style and rhythm rules read: no origins, time zone or paths, so copy without an app config can use them. */
+export type StyleSettings = Pick<QualitySettings, "options" | "ruleset" | "voicePatterns">;
+
 export interface QualityPaths {
   readonly articles: string;
   readonly terms: string;
@@ -40,6 +43,17 @@ export function resolveQualitySettings(
   },
   images: ArticleImagePolicy | null = null,
 ): QualitySettings {
+  const { ruleset, voicePatterns } = resolveStyleSettings(options);
+  const origins = [config.appOrigin, ...(config.siteOrigin === undefined ? [] : [config.siteOrigin]), ...options.ownOrigins].map((origin) => new URL(origin).origin);
+  const paths: QualityPaths = {
+    articles: options.paths.articles ?? config.routes?.index ?? DEFAULT_PATHS.articles,
+    terms: options.paths.terms ?? config.routes?.glossary ?? DEFAULT_PATHS.terms,
+  };
+  return { options, ruleset, voicePatterns, ownOrigins: [...new Set(origins)], timeZone: config.timezone, images, paths };
+}
+
+/** The ruleset of the options' language and the voice patterns: the app's phrases plus, when switched on, first person singular. */
+export function resolveStyleSettings(options: QualityOptions): StyleSettings {
   const ruleset = QUALITY_RULESETS[options.language];
   const voicePatterns: StylePattern[] = options.voice.phrases.map((phrase) => ({
     id: phrase.id,
@@ -55,12 +69,7 @@ export function resolveQualitySettings(
       message: "first person singular; the texts are signed by the editors (\"we\", \"you\"), never \"I\"",
     });
   }
-  const origins = [config.appOrigin, ...(config.siteOrigin === undefined ? [] : [config.siteOrigin]), ...options.ownOrigins].map((origin) => new URL(origin).origin);
-  const paths: QualityPaths = {
-    articles: options.paths.articles ?? config.routes?.index ?? DEFAULT_PATHS.articles,
-    terms: options.paths.terms ?? config.routes?.glossary ?? DEFAULT_PATHS.terms,
-  };
-  return { options, ruleset, voicePatterns, ownOrigins: [...new Set(origins)], timeZone: config.timezone, images, paths };
+  return { options, ruleset, voicePatterns };
 }
 
 /** `YYYY-MM-DD` of a moment in a time zone: core's `toCalendarDay` under the name this module exports. */
@@ -69,8 +78,18 @@ export function getLocalDate(moment: Date, timeZone: string): string {
 }
 
 /** The severity a finding of `rule` gets: the override, else its own; `null` for "off". */
-export function getEffectiveSeverity(settings: QualitySettings, rule: string, severity: QualitySeverity): QualitySeverity | null {
+export function getEffectiveSeverity(settings: Pick<QualitySettings, "options">, rule: string, severity: QualitySeverity): QualitySeverity | null {
   const override = settings.options.severity[rule];
   if (override === undefined) return severity;
   return override === "off" ? null : override;
+}
+
+/** The findings with the app's severity overrides applied (rules set to "off" dropped), sorted. */
+export function applySeverity(settings: Pick<QualitySettings, "options">, findings: readonly QualityFinding[]): QualityFinding[] {
+  return sortFindings(
+    findings.flatMap((finding) => {
+      const severity = getEffectiveSeverity(settings, finding.rule, finding.severity);
+      return severity === null ? [] : [{ ...finding, severity }];
+    }),
+  );
 }

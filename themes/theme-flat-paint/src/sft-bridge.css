@@ -1,0 +1,45 @@
+/*
+ * The bridge from the `--sft-*` tokens of @softure-ai/ui to the Flat Paint roles. Every ui component (buttons,
+ * fields, cards, hints, modals, toasts, charts) paints with `--sft-*`; here each of those colours is a role of the
+ * theme, so the palette has one source and a ui component takes the look without class overrides.
+ *
+ * On every scheme scope, not `:root` alone: a custom property holding `var()` resolves on the element that declares
+ * it and children inherit the result, so an alias on `:root` alone would freeze the root's values inside a `.dark`
+ * band of a light page. Unlayered, so it beats the package's defaults in `@layer softure`.
+ *
+ * Shadows are a transparent zero shadow, not `none`: ui composes `box-shadow` from a list, where `none` would void the
+ * whole declaration; the material stays flat. The overlay is ink at 60 % in both schemes, without blur.
+ *
+ * Import it after `theme.css`, through the app's Tailwind (it reads the fonts and radii with `--theme()`).
+ */
+:root,
+.light,
+.dark,
+[data-theme] {
+  --sft-color-background: var(--background);
+  --sft-color-surface: var(--surface);
+  --sft-color-surface-raised: var(--surface-raised);
+  --sft-color-foreground: var(--foreground);
+  --sft-color-muted: var(--muted);
+  --sft-color-border: var(--border);
+  --sft-color-border-strong: var(--line-strong);
+  --sft-color-accent: var(--accent);
+  --sft-color-accent-fill: var(--accent-fill);
+  --sft-color-accent-fill-hover: var(--accent-fill-hover);
+  --sft-color-on-accent: var(--on-accent);
+  --sft-color-danger: var(--debt);
+  --sft-color-success: var(--accessible);
+  --sft-color-warning: var(--locked);
+  --sft-color-focus: var(--accent);
+  --sft-color-overlay: color-mix(in oklab, var(--ink) 60%, transparent);
+  --sft-shadow-1: 0 0 #0000;
+  --sft-shadow-2: 0 0 #0000;
+  --sft-font-sans: --theme(--font-sans);
+  --sft-font-heading: --theme(--font-sans);
+  --sft-font-mono: --theme(--font-mono);
+  --sft-radius-control: --theme(--radius-control);
+  --sft-radius-card: --theme(--radius-card);
+  --sft-radius-pill: --theme(--radius-pill);
+  --sft-chart-grid: var(--border);
+  --sft-chart-axis: var(--muted);
+}

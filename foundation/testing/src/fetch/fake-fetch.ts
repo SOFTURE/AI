@@ -25,6 +25,11 @@ export type FakeFetchRoute = FakeFetchAnswer & {
   readonly delayMs?: number;
 };
 
+/** One field of a form body, in the order it was sent. */
+export type FakeFetchFormField =
+  | { readonly kind: "text"; readonly name: string; readonly value: string }
+  | { readonly kind: "file"; readonly name: string; readonly fileName: string; readonly type: string; readonly size: number };
+
 /** A call the fake received. */
 export interface FakeFetchCall {
   /** Upper case. */
@@ -36,6 +41,11 @@ export interface FakeFetchCall {
   readonly body: string | null;
   /** The body parsed as JSON; undefined when there is no body or it is not JSON. */
   readonly json: unknown;
+  /**
+   * The fields of a URL-encoded or multipart body, files by name, type and size; absent for any other body. The
+   * encoded text stays in `body`.
+   */
+  readonly form?: readonly FakeFetchFormField[];
 }
 
 export interface FakeFetch {
@@ -143,18 +153,44 @@ async function readCall(input: string | URL | Request, init: RequestInit | undef
   new Headers(init?.headers ?? request?.headers).forEach((value, key) => {
     headers[key] = value;
   });
-  const body = await readBody(request, init);
-  return { method, url, headers, body, json: parseJson(body) };
+  const sent = getSentBody(request, init);
+  if (sent === null) return { method, url, headers, body: null, json: undefined };
+  // Bytes first: a file part that is not text would not survive a round trip through a string.
+  const bytes = await sent.arrayBuffer();
+  const body = new TextDecoder().decode(bytes);
+  // The type `fetch` would send: the caller's own, or the one the body brings (a multipart boundary included).
+  const form = await parseForm(bytes, headers["content-type"] ?? sent.headers.get("content-type"));
+  return { method, url, headers, body, json: parseJson(body), ...(form === undefined ? {} : { form }) };
 }
 
-async function readBody(request: Request | undefined, init: RequestInit | undefined): Promise<string | null> {
-  if (init?.body !== undefined && init.body !== null) return new Response(init.body).text();
-  if (request?.body !== undefined && request.body !== null) return request.clone().text();
+/** The request body as a `Response`, which reads it as text and knows the content type it implies. */
+function getSentBody(request: Request | undefined, init: RequestInit | undefined): Response | null {
+  if (init?.body !== undefined && init.body !== null) return new Response(init.body);
+  if (request?.body !== undefined && request.body !== null) {
+    const copy = request.clone();
+    return new Response(copy.body, { headers: copy.headers });
+  }
   return null;
 }
 
-function parseJson(body: string | null): unknown {
-  if (body === null || body === "") return undefined;
+async function parseForm(body: ArrayBuffer, contentType: string | null): Promise<FakeFetchFormField[] | undefined> {
+  const type = contentType?.split(";")[0]?.trim().toLowerCase();
+  if (type !== "application/x-www-form-urlencoded" && type !== "multipart/form-data") return undefined;
+  let data: FormData;
+  try {
+    data = await new Response(body, { headers: { "content-type": contentType ?? type } }).formData();
+  } catch {
+    // A body that does not parse as the form it claims to be (a multipart type set by hand, without the boundary):
+    // the raw text stays in `body`.
+    return undefined;
+  }
+  return [...data].map(([name, value]): FakeFetchFormField =>
+    typeof value === "string" ? { kind: "text", name, value } : { kind: "file", name, fileName: value.name, type: value.type, size: value.size },
+  );
+}
+
+function parseJson(body: string): unknown {
+  if (body === "") return undefined;
   try {
     return JSON.parse(body) as unknown;
   } catch {

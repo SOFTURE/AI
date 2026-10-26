@@ -154,6 +154,68 @@ describe("fakeFetch records", () => {
     expect(api.calls[0]).toMatchObject({ body: "a=1&b=2", json: undefined });
   });
 
+  it("records the fields of a URLSearchParams body in order, repeated names included", async () => {
+    const api = fakeFetch([{ method: "POST", url: `${API}/token` }]);
+    await api.fetch(`${API}/token`, { method: "POST", body: new URLSearchParams([["scope", "a"], ["grant_type", "x y"], ["scope", "b"]]) });
+    expect(api.calls[0]?.form).toEqual([
+      { kind: "text", name: "scope", value: "a" },
+      { kind: "text", name: "grant_type", value: "x y" },
+      { kind: "text", name: "scope", value: "b" },
+    ]);
+  });
+
+  it("records the text fields and the file parts of a FormData body by name, type and size", async () => {
+    const api = fakeFetch([{ method: "POST", url: `${API}/files` }]);
+    const form = new FormData();
+    form.append("purpose", "invoice");
+    form.append("file", new Blob(["%PDF-1.7"], { type: "application/pdf" }), "invoice-7.pdf");
+    form.append("note", new File(["hi"], "note.txt"));
+    await api.fetch(`${API}/files`, { method: "POST", body: form });
+    const [call] = api.calls;
+    expect(call?.form).toEqual([
+      { kind: "text", name: "purpose", value: "invoice" },
+      { kind: "file", name: "file", fileName: "invoice-7.pdf", type: "application/pdf", size: 8 },
+      { kind: "file", name: "note", fileName: "note.txt", type: "application/octet-stream", size: 2 },
+    ]);
+    expect(call?.body).toContain('filename="invoice-7.pdf"');
+    expect(call?.json).toBeUndefined();
+  });
+
+  it("records the exact size of a binary file part", async () => {
+    const api = fakeFetch([{ method: "POST", url: `${API}/files` }]);
+    const form = new FormData();
+    form.append("image", new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0xff, 0xfe, 0x00, 0x80])], { type: "image/png" }), "a.png");
+    await api.fetch(`${API}/files`, { method: "POST", body: form });
+    expect(api.calls[0]?.form).toEqual([{ kind: "file", name: "image", fileName: "a.png", type: "image/png", size: 8 }]);
+  });
+
+  it("parses a hand-encoded body by the content type the caller set", async () => {
+    const api = fakeFetch([{ method: "POST", url: `${API}/token`, repeat: true }]);
+    await api.fetch(`${API}/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" }, body: "a=1&b=%C3%A9" });
+    expect(api.calls[0]?.form).toEqual([
+      { kind: "text", name: "a", value: "1" },
+      { kind: "text", name: "b", value: "\u00e9" },
+    ]);
+  });
+
+  it("reads the form of a Request input", async () => {
+    const api = fakeFetch([{ method: "POST", url: `${API}/files` }]);
+    const form = new FormData();
+    form.append("a", "1");
+    await api.fetch(new Request(`${API}/files`, { method: "POST", body: form }));
+    expect(api.calls[0]?.form).toEqual([{ kind: "text", name: "a", value: "1" }]);
+  });
+
+  it("records no form for a JSON body or a multipart type set by hand without a boundary", async () => {
+    const api = fakeFetch([{ method: "POST", url: `${API}/a`, repeat: true }]);
+    await api.fetch(`${API}/a`, { method: "POST", headers: { "content-type": "application/json" }, body: '{"a":1}' });
+    const form = new FormData();
+    form.append("a", "1");
+    await api.fetch(`${API}/a`, { method: "POST", headers: { "content-type": "multipart/form-data" }, body: form });
+    expect(api.calls.map((call) => "form" in call)).toEqual([false, false]);
+    expect(api.calls[1]?.body).toContain('name="a"');
+  });
+
   it("reads method, headers and body from a Request input, init overriding the method", async () => {
     const api = fakeFetch([{ method: "PUT", url: `${API}/a` }]);
     const request = new Request(`${API}/a`, { method: "POST", headers: { "X-Key": "k" }, body: '{"v":1}' });

@@ -1,9 +1,18 @@
 // API key and Basic credentials, the app's report of a refused credential, and disconnecting.
 import type { ReconnectRequiredEvent } from "@softure-ai/connections";
-import { disconnect, getAuthorizationHeader, getCredential, listConnections, reportCredentialRejected, saveCredential } from "@softure-ai/connections/server";
+import {
+  disconnect,
+  formatCredentialHeader,
+  getAuthorizationHeader,
+  getCredential,
+  getCredentialHeader,
+  listConnections,
+  reportCredentialRejected,
+  saveCredential,
+} from "@softure-ai/connections/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { connectFake } from "./connect.js";
-import { ADMIN, createTestConnections, listRows, readRawRow, type TestConnections } from "./support.js";
+import { ADMIN, createTestConnections, KEY_PROVIDERS, listRows, readRawRow, type TestConnections } from "./support.js";
 
 describe("key credentials", () => {
   let test: TestConnections;
@@ -62,6 +71,17 @@ describe("key credentials", () => {
     expect(getAuthorizationHeader({ kind: "oauth", accessToken: "t" })).toBe("Bearer t");
     expect(getAuthorizationHeader({ kind: "basic", username: "ada", password: "pä" })).toBe(`Basic ${Buffer.from("ada:pä", "utf8").toString("base64")}`);
   });
+
+  it("formats the header for a key where the placement says, and Basic and OAuth always in Authorization", () => {
+    expect(formatCredentialHeader({ kind: "api_key", apiKey: "k" })).toEqual({ name: "authorization", value: "Bearer k" });
+    expect(formatCredentialHeader({ kind: "api_key", apiKey: "k" }, { name: "x-api-key", scheme: null })).toEqual({ name: "x-api-key", value: "k" });
+    expect(formatCredentialHeader({ kind: "api_key", apiKey: "k" }, { name: "authorization", scheme: "Token" })).toEqual({ name: "authorization", value: "Token k" });
+    expect(formatCredentialHeader({ kind: "oauth", accessToken: "t" }, { name: "x-api-key", scheme: null })).toEqual({ name: "authorization", value: "Bearer t" });
+    expect(formatCredentialHeader({ kind: "basic", username: "ada", password: "pw" }, { name: "x-api-key", scheme: null })).toEqual({
+      name: "authorization",
+      value: `Basic ${Buffer.from("ada:pw").toString("base64")}`,
+    });
+  });
 });
 
 describe("disconnect", () => {
@@ -95,5 +115,36 @@ describe("disconnect", () => {
     expect(await disconnect(test.ctx, { provider: "raindrop" })).toEqual({ ok: true, value: { revoked: false } });
     expect(test.fake.calls.revoke).toBe(0);
     expect(await disconnect(test.ctx, { provider: "nope" })).toEqual({ ok: false, error: "connections.unknown_provider" });
+  });
+});
+
+describe("getCredentialHeader", () => {
+  let test: TestConnections;
+
+  beforeEach(async () => {
+    test = await createTestConnections({
+      providers: (fake) => [fake.definition, ...KEY_PROVIDERS, { kind: "api_key", id: "vendor", header: { name: "X-Vendor-ApiKey" } }],
+    });
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  it("answers the stored credential as the header its provider reads", async () => {
+    await saveCredential(test.ctx, { provider: "vendor", credential: { kind: "api_key", apiKey: "v-key" }, actorId: ADMIN });
+    await saveCredential(test.ctx, { provider: "raindrop", credential: { kind: "api_key", apiKey: "rd-key" }, actorId: ADMIN });
+    await saveCredential(test.ctx, { provider: "toggl", accountId: "work", credential: { kind: "basic", username: "ada", password: "pw" }, actorId: ADMIN });
+    expect(await getCredentialHeader(test.ctx, { provider: "vendor" })).toEqual({ ok: true, value: { name: "x-vendor-apikey", value: "v-key" } });
+    expect(await getCredentialHeader(test.ctx, { provider: "raindrop" })).toEqual({ ok: true, value: { name: "authorization", value: "Bearer rd-key" } });
+    expect(await getCredentialHeader(test.ctx, { provider: "toggl", accountId: "work" })).toEqual({
+      ok: true,
+      value: { name: "authorization", value: `Basic ${Buffer.from("ada:pw").toString("base64")}` },
+    });
+  });
+
+  it("answers the credential failures of getCredential", async () => {
+    expect(await getCredentialHeader(test.ctx, { provider: "vendor" })).toEqual({ ok: false, error: "connections.not_connected" });
+    expect(await getCredentialHeader(test.ctx, { provider: "nope" })).toEqual({ ok: false, error: "connections.unknown_provider" });
+    expect(await getCredentialHeader(test.ctx, { provider: "fake" })).toEqual({ ok: false, error: "connections.wrong_kind" });
   });
 });

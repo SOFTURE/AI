@@ -55,12 +55,15 @@ interface WorkflowCall {
   secrets?: Record<string, { required?: boolean }>;
 }
 
-// Every job of a reusable workflow opens with the runner check (issue #670), which workflow-runners.test.ts covers;
-// the tests here read the steps after it.
+// Every job of a reusable workflow opens with the runner check (issue #670), every one that checks out then empties
+// the workspace (issue #687), and every one that calls gh then sets it up (issue #686); workflow-runners.test.ts
+// covers all three, so the tests here read the steps after them.
 function readYaml(path: string): Workflow {
   const workflow = parse(readFileSync(path, "utf8")) as Workflow;
   for (const job of Object.values(workflow.jobs)) {
     if (job.steps?.[0]?.name === "Check the runner") job.steps = job.steps.slice(1);
+    if (job.steps?.[0]?.name === "Empty the workspace") job.steps = job.steps.slice(1);
+    if (job.steps?.[0]?.name === "Set up the GitHub CLI") job.steps = job.steps.slice(1);
   }
   return workflow;
 }
@@ -1706,23 +1709,42 @@ describe("deploy-integration.yml (issue #248)", () => {
     ]);
   });
 
-  it("deletes only an integration ref, and accepts one already gone", () => {
+  it("deletes only an integration ref, through git/refs, and accepts one already gone (issue #684)", () => {
     expect(deleteRef?.if).toBe("always()");
-    const gh = '#!/bin/sh\necho "$@" >> "$RUNNER_TEMP/../gh-calls"\n[ "$GH_FAIL" = "" ] || { echo "$GH_FAIL" >&2; exit 1; }\n';
-    const prefixed = runStep(deleteRef, { GITHUB_REF: "refs/heads/e2e-run/feature", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "e2e-run/" }, { gh });
-    expect(prefixed.stdout).toContain("Deleted refs/heads/e2e-run/feature.");
-    const tag = runStep(deleteRef, { GITHUB_REF: "refs/tags/v1.2.3", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/", GH_FAIL: "must not run" }, { gh });
-    expect(tag.stdout).toContain("is not an integration ref; it stays");
-    const integration = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/feature", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/" }, { gh });
+    // Answers like the API: only DELETE repos/<repo>/git/refs/heads/... exists, any other path is a 404.
+    const gh = [
+      "#!/bin/sh",
+      'echo "$*" >> "$RUNNER_TEMP/gh-calls"',
+      'case "$*" in',
+      '  "api --method DELETE repos/$GITHUB_REPOSITORY/git/refs/heads/"*) ;;',
+      '  *) echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;',
+      "esac",
+      '[ "$GH_FAIL" = "" ] || { echo "$GH_FAIL" >&2; exit 1; }',
+      "",
+    ].join("\n");
+    const calls = 'cat "$RUNNER_TEMP/gh-calls" 2>/dev/null || true';
+    const withCalls = (step: Step | undefined): Step | undefined => step && { ...step, run: `${step.run ?? ""}\n${calls}` };
+
+    const prefixed = runStep(withCalls(deleteRef), { GITHUB_REF: "refs/heads/e2e-run/feature", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "e2e-run/" }, { gh });
+    expect(prefixed.status, prefixed.stderr).toBe(0);
+    expect(prefixed.stdout).toBe("Deleted refs/heads/e2e-run/feature.\napi --method DELETE repos/acme/app/git/refs/heads/e2e-run/feature\n");
+    const integration = runStep(withCalls(deleteRef), { GITHUB_REF: "refs/heads/integration/feature", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/" }, { gh });
     expect(integration.status, integration.stderr).toBe(0);
-    expect(integration.stdout).toContain("Deleted refs/heads/integration/feature.");
-    const main = runStep(deleteRef, { GITHUB_REF: "refs/heads/main", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/", GH_FAIL: "must not run" }, { gh });
+    expect(integration.stdout).toBe("Deleted refs/heads/integration/feature.\napi --method DELETE repos/acme/app/git/refs/heads/integration/feature\n");
+
+    const tag = runStep(withCalls(deleteRef), { GITHUB_REF: "refs/tags/v1.2.3", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/" }, { gh });
+    expect(tag.status).toBe(0);
+    expect(tag.stdout).toBe("refs/tags/v1.2.3 is not an integration ref; it stays.\n");
+    const main = runStep(withCalls(deleteRef), { GITHUB_REF: "refs/heads/main", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/" }, { gh });
     expect(main.status).toBe(0);
-    expect(main.stdout).toContain("is not an integration ref; it stays");
+    expect(main.stdout).toBe("refs/heads/main is not an integration ref; it stays.\n");
+
     const gone = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/x", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/", GH_FAIL: "Reference does not exist (HTTP 422)" }, { gh });
     expect(gone.status).toBe(0);
+    expect(gone.stdout).toBe("Deleted refs/heads/integration/x.\n");
     const denied = runStep(deleteRef, { GITHUB_REF: "refs/heads/integration/x", GITHUB_REPOSITORY: "acme/app", REF_PREFIX: "integration/", GH_FAIL: "Resource not accessible (HTTP 403)" }, { gh });
     expect(denied.status).toBe(1);
+    expect(denied.stderr).toContain("Resource not accessible (HTTP 403)");
   });
 
   it("refuses an input that is not valid before anything runs", () => {

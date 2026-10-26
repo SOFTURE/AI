@@ -1,5 +1,5 @@
 // `requestWithConnection`: one call to a provider's API with a stored credential of any kind. It sets the
-// `Authorization` header, calls `requestJson` and returns its result unchanged, except on a 401: with OAuth the token
+// credential's header (`Authorization`, or an API key provider's own `header`), calls `requestJson` and returns its result unchanged, except on a 401: with OAuth the token
 // is refreshed once (only while the stored token is still the refused one, so overlapping callers spend one refresh)
 // and the call is retried once; a second 401, or a 401 for an API key or Basic credential, reports the credential
 // rejected and answers `connections.reconnect_required`.
@@ -18,7 +18,14 @@ import {
 import type { z } from "zod";
 import type { ConnectionsTokenErrorCode } from "../contract.js";
 import { DEFAULT_ACCOUNT_ID } from "../options.js";
-import { getAuthorizationHeader, getCredential, reportCredentialRejected, type ProviderAccountInput } from "./credentials.js";
+import {
+  formatCredentialHeader,
+  getCredential,
+  getCredentialPlacement,
+  reportCredentialRejected,
+  type CredentialHeader,
+  type ProviderAccountInput,
+} from "./credentials.js";
 import { findProvider } from "./options.js";
 import type { ConnectionsContext } from "./store.js";
 import { getAccessToken, replaceRejectedToken } from "./tokens.js";
@@ -33,8 +40,8 @@ interface WithoutReadHeaders {
 
 /**
  * The overloads of `requestJson`, after the arguments `P` that name the connection (`ctx` and the account in
- * `/server`, the account alone in `/next`). The `Authorization` header is set by the helper and replaces the
- * caller's own.
+ * `/server`, the account alone in `/next`). The credential's header (`Authorization`, or an API key provider's
+ * `header`) is set by the helper and replaces the caller's header of that name.
  */
 export interface RequestWithConnection<P extends readonly unknown[]> {
   <S extends z.ZodType, const H extends string>(
@@ -76,20 +83,20 @@ export async function sendWithConnection(ctx: ConnectionsContext, account: Provi
   if (found.value.kind !== "oauth") {
     const credential = await getCredential(ctx, target);
     if (!credential.ok) return credential;
-    const answer = await callJson(withAuthorization(options, getAuthorizationHeader(credential.value)));
+    const answer = await callJson(withCredentialHeader(options, formatCredentialHeader(credential.value, getCredentialPlacement(found.value))));
     return isUnauthorized(answer) ? rejectCredential(ctx, target) : answer;
   }
 
   const token = await getAccessToken(ctx, target);
   if (!token.ok) return token;
-  const first = await callJson(withAuthorization(options, getAuthorizationHeader({ kind: "oauth", accessToken: token.value.accessToken })));
+  const first = await callJson(withCredentialHeader(options, formatCredentialHeader({ kind: "oauth", accessToken: token.value.accessToken })));
   if (!isUnauthorized(first)) return first;
 
   const replaced = await replaceRejectedToken(ctx, { ...target, rejectedToken: token.value.accessToken });
   if (!replaced.ok) return replaced;
   // No refresh token to get another one with: the refused token is all there is.
   if (replaced.value.accessToken === token.value.accessToken) return rejectCredential(ctx, target);
-  const second = await callJson(withAuthorization(options, getAuthorizationHeader({ kind: "oauth", accessToken: replaced.value.accessToken })));
+  const second = await callJson(withCredentialHeader(options, formatCredentialHeader({ kind: "oauth", accessToken: replaced.value.accessToken })));
   return isUnauthorized(second) ? rejectCredential(ctx, target) : second;
 }
 
@@ -106,14 +113,14 @@ async function rejectCredential(ctx: ConnectionsContext, account: ProviderAccoun
 }
 
 /**
- * The options with the `Authorization` header replaced. The headers stay a list of pairs: a `Headers` built here
+ * The options with the credential's header replaced (names compared case-insensitively). The headers stay a list of pairs: a `Headers` built here
  * would throw a message quoting an invalid value, outside `requestJson`'s try that keeps such messages in.
  */
-function withAuthorization(options: ConnectionRequestOptions, authorization: string): ConnectionRequestOptions {
+function withCredentialHeader(options: ConnectionRequestOptions, credential: CredentialHeader): ConnectionRequestOptions {
   const pairs: [string, string][] = [];
   const { headers } = options;
   if (headers instanceof Headers) headers.forEach((value, name) => void pairs.push([name, value]));
   else if (Array.isArray(headers)) pairs.push(...headers.map(([name, value]): [string, string] => [String(name), String(value)]));
   else if (headers !== undefined) pairs.push(...Object.entries(headers));
-  return { ...options, headers: [...pairs.filter(([name]) => name.toLowerCase() !== "authorization"), ["authorization", authorization]] };
+  return { ...options, headers: [...pairs.filter(([name]) => name.toLowerCase() !== credential.name), [credential.name, credential.value]] };
 }

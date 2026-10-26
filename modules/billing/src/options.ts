@@ -2,7 +2,7 @@
 import { isLocale } from "@softure-ai/core";
 import { z } from "zod";
 import { parseDay } from "./calendar.js";
-import { PERIOD_UNITS, type PlanPeriod } from "./contract.js";
+import { PERIOD_UNITS, type OnAccessChanged, type PlanPeriod } from "./contract.js";
 import { isPaymentProvider, type PaymentProvider } from "./payment.js";
 import { isSupportedCurrency } from "./price.js";
 
@@ -143,6 +143,11 @@ export const billingOptionsSchema = z.strictObject({
   partialRefunds: z.enum(PARTIAL_REFUND_POLICIES).default("pro_rata"),
   /** The auth role that may grant plans in the admin page; declared in `auth({ roles })` unless `admin`. */
   adminRole: z.string().min(1).default("admin"),
+  /**
+   * Called after a grant, a refund (or a revoked grant) or a trial extension committed, e.g. to record an analytics
+   * event; a throw is logged and never fails the change.
+   */
+  onAccessChanged: z.custom<OnAccessChanged>((value) => typeof value === "function", "must be a function").optional(),
 }).superRefine((options, context) => {
   const { payment } = options;
   if (payment?.checkPrice === undefined) return;

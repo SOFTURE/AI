@@ -1,7 +1,7 @@
 // The English ruleset: the same habits as the Polish one, in English, after `blader/humanizer` and
 // `hardikpandya/stop-slop`. Errors are habits a careful author uses rarely and on purpose; warnings
 // are words that say nothing alone but betray a template in a cluster.
-import { wordPattern } from "../../text.js";
+import { emojiPattern, wordPattern } from "../../text.js";
 import type { LanguageRuleset } from "../types.js";
 
 export const enRuleset: LanguageRuleset = {
@@ -30,6 +30,18 @@ export const enRuleset: LanguageRuleset = {
       severity: "error",
       pattern: wordPattern("it(?:'s| is) not (?:just |only |about )?[^.!?,;]{1,60}[,;] it(?:'s| is)|this isn't (?:just )?[^.!?,;]{1,60}[,;] it's"),
       message: "the \"it is not X, it is Y\" contrast; say Y right away",
+    },
+    {
+      id: "verdict-label",
+      severity: "error",
+      pattern: /(?:^|(?<=[.!?…]\s))(?:the )?(?:bottom line|key takeaway|takeaway|verdict|conclusion|summary|lesson|moral|tl;dr)\s?:/giu,
+      message: "a verdict label before the point (\"Conclusion:\"); write the sentence without the label",
+    },
+    {
+      id: "fragile-spot",
+      severity: "error",
+      pattern: wordPattern("achilles['’]? heel|weakest link|most fragile (?:point|spot|part|link)"),
+      message: "the \"weakest link\" cliché; name what breaks and when",
     },
     {
       id: "meta-commentary",
@@ -82,7 +94,7 @@ export const enRuleset: LanguageRuleset = {
     {
       id: "emoji",
       severity: "error",
-      pattern: /\p{Extended_Pictographic}/gu,
+      pattern: emojiPattern(),
       message: "an emoji in the text; remove it",
     },
     {

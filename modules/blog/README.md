@@ -161,8 +161,8 @@ severity; the writing skill is kept in step with it):
 | structure | `title-length`, `description-length`, **`as-of-future`**, `stale`, **`summary-missing`**, **`lead`** (a paragraph first), `lead-length`, **`lead-number`**, **`heading-h1`**, **`heading-order`**, **`sections`** (two `##`), **`section-question`**, **`section-answer`**, `section-answer-length`, **`length`** (a warning above the maximum), **`footnote-undefined`**, `footnote-unused` |
 | links | **`internal-links`** (a warning for a term), **`internal-link-target`** (`check` only), `external-link-https`, **`external-link-dead`** (`--external` only), **`term-form-conflict`** (`check` only: a checked published term shares a form with another published term; `publish` refuses it whatever its severity) |
 | images | **`image-source`** (a site path or a host of `blog({ images })`; every image while the app has no policy), **`image-alt`**, **`image-dimensions`** (the policy's `dimensions` knows it) |
-| style (ruleset) | **`announcement`**, **`these-days`**, **`not-only-but-also`**, **`not-x-but-y`**, **`meta-commentary`**, **`throat-clearing`**, **`empty-conclusion`**, **`crucial`**, **`plays-a-role`**, **`puffery`**, **`chatbot-phrases`**, **`emoji`**, `filler-words`, `exclamation`, `straight-quotes` (`pl`), `title-case-heading` (`pl`) |
-| style (rhythm) | **`dashes`**, `dashes-paragraph`, `bold-density`, `bold-labels`, `triads`, `long-sentences`, `monotone-rhythm`, `repeated-openings` |
+| style (ruleset) | **`announcement`**, **`these-days`**, **`not-only-but-also`**, **`not-x-but-y`**, `not-x-but-y-bare` (`pl`; an error in copy), **`verdict-label`**, **`fragile-spot`**, **`meta-commentary`**, **`throat-clearing`**, **`empty-conclusion`**, **`crucial`**, **`plays-a-role`**, **`puffery`**, **`chatbot-phrases`**, **`emoji`**, `filler-words`, `exclamation`, `straight-quotes` (`pl`), `title-case-heading` (`pl`) |
+| style (rhythm) | **`dashes`**, `dashes-paragraph`, `bold-density`, `bold-labels`, `triads`, `long-sentences`, `monotone-rhythm`, `repeated-openings`, `stacked-asides` |
 | voice | **`first-person-singular`** and the app's phrases, when configured |
 | ymyl | **`sources-missing`**, **`source-https`**, **`number-source`**, **`footnote-source`**, **`footnote-not-in-sources`**, **`profit-promise`**, when `ymyl` is on |
 | blocks | **`block-requires`**: a fenced block of a block plugin has the frontmatter keys it `requires`, when `blocks` is set; **`block-numbers`**: every significant number of the paragraph right before and right after a block is one of the block's `numbers`, when a block plugin has `numbers` |
@@ -174,6 +174,32 @@ there). A warning pattern is reported once per text with its count. A significan
 amount, a percentage or a number from 1000 up, in the ruleset's notation; years, ages, small counts
 and legal references ("art. 27", "section 401") need no source. Messages are English: they are read
 by developers and by the agents that write the texts.
+
+**Copy that is not an article.** Landing and calculator text, a post pasted into a forum or a social
+network, a list mail: `checkCopyText(text, { mode, quality })` (`/server`) runs the ruleset's patterns,
+the app's voice, the profit promises (with `ymyl`) and the rhythm rules over plain paragraphs, with no
+frontmatter, structure, links or facts. Pass the same `quality` object as `blog({ quality })`;
+`language`, `voice`, `ymyl`, `limits` and `severity` apply, and invalid options throw.
+
+```ts
+import { checkCopyText, formatFinding, hasQualityErrors } from "@softure-ai/blog/server";
+
+const { findings } = checkCopyText(post, { mode: "channel", quality: { language: "pl" } });
+if (hasQualityErrors(findings)) throw new Error(findings.map(formatFinding).join("\n"));
+```
+
+Lines count from 1 in the text given. Copy is judged stricter than an article, since one tell weighs
+more in a short text:
+
+| Rule | In copy |
+| --- | --- |
+| a ruleset pattern with `copySeverity` | that severity (`not-x-but-y-bare` is an error) |
+| `stacked-asides` | an error: two worded asides (two words of two letters or more; formula variables do not count) in one sentence, or three in a post of up to 300 words |
+| `dash-pivot` | an error: a spaced em or en dash between words, or an em dash glued to two words (`small—they`); a dash with a number on both sides is a range and passes (`2020 – 2024`, `20% – 30%`) |
+| `channel-markup` | `mode: "channel"` only, an error per kind of markdown a plain-text editor shows as is: bold, italics, headings, bracket links, embedded images, quotes, tables, inline code, code blocks, rules, HTML. Bare URLs and `- ` / `1. ` lists pass; `bold-density` and `bold-labels` are left to it |
+
+`mode: "copy"` (the default) reads markdown as prose, for text the app renders itself. `dash-pivot` and
+`channel-markup` are copy rules only: the article catalog and the writing skill do not list them.
 
 **Numbers next to a block.** A block plugin with `numbers(block)` (the block's numbers, as numbers or
 as strings in the ruleset's notation) gets the `block-numbers` rule: the significant numbers of the

@@ -2,7 +2,7 @@
 // extension of `blader/humanizer` and `hardikpandya/stop-slop`. Errors are habits a careful author uses
 // rarely and on purpose; warnings are words that say nothing alone but betray a template in a cluster.
 // FIRE's voice (no first person singular) and finance phrases are app config, not Polish.
-import { wordPattern } from "../../text.js";
+import { emojiPattern, wordPattern } from "../../text.js";
 import type { LanguageRuleset } from "../types.js";
 
 const L = "\\p{L}*";
@@ -33,6 +33,25 @@ export const plRuleset: LanguageRuleset = {
       severity: "error",
       pattern: wordPattern("(?:to nie (?:jest )?[^.!?,]{1,60}, (?:to|tylko|lecz)|nie chodzi o [^.!?]{1,80}[.,] (?:chodzi o|tylko o|lecz o))"),
       message: "the \"it is not X, it is Y\" contrast; say Y right away",
+    },
+    {
+      id: "not-x-but-y-bare",
+      severity: "warning",
+      copySeverity: "error",
+      pattern: wordPattern(`(?<!(?<![\\p{L}\\d])to )nie (?!(?:tylko|chodzi o)(?![\\p{L}\\d]))[^.!?,]{1,60}, (?:tylko|lecz)`),
+      message: "the bare \"not X, but Y\" contrast; say Y right away, and keep the contrast only where someone really claims X",
+    },
+    {
+      id: "verdict-label",
+      severity: "error",
+      pattern: /(?:^|(?<=[.!?…]\s))(?:wniosek|podsumowanie|puenta|morał|sedno)\s?:/giu,
+      message: "a verdict label before the point (\"Conclusion:\"); write the sentence without the label",
+    },
+    {
+      id: "fragile-spot",
+      severity: "error",
+      pattern: wordPattern(`najkruchsz${L} (?:miejsc${L}|ogniw${L}|punkt${L}|element${L})|najsłabsz${L} ogniw${L}|pię[tc]${L} achillesow${L}`),
+      message: "the \"weakest link\" cliché; name what breaks and when",
     },
     {
       id: "meta-commentary",
@@ -85,7 +104,7 @@ export const plRuleset: LanguageRuleset = {
     {
       id: "emoji",
       severity: "error",
-      pattern: /\p{Extended_Pictographic}/gu,
+      pattern: emojiPattern(),
       message: "an emoji in the text; remove it",
     },
     {

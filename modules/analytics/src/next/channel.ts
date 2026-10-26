@@ -6,9 +6,10 @@
 import { errorLogLabel, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import type { Queryable } from "@softure-ai/db";
+import { readChannelParam } from "../channel-rule.js";
 import { parseChannel, readChannel, tagPath } from "../server/channel.js";
 import { recordFunnelStep, type AnalyticsContext } from "../server/funnel.js";
-import { getChannelOptions } from "../server/options.js";
+import { getChannelOptions, getChannelParams } from "../server/options.js";
 
 /** A page's `searchParams`, awaited, or any `URLSearchParams`. */
 export type SearchParamsInput = URLSearchParams | Readonly<Record<string, string | readonly string[] | undefined>>;
@@ -24,11 +25,16 @@ export async function getChannel(config: SoftureConfig = getSoftureConfig()): Pr
   return readChannel(config, { referer: requestHeaders.get("referer"), host: requestHeaders.get("host") });
 }
 
-/** The channel in a page's `searchParams`; the first value when the parameter repeats. */
+/**
+ * The channel in a page's `searchParams`, under `param`, else the first of `legacyParams` present; the
+ * first value when the parameter repeats.
+ */
 export function getChannelFromSearchParams(searchParams: SearchParamsInput, config: SoftureConfig = getSoftureConfig()): string | null {
   const options = getChannelOptions(config);
-  if (searchParams instanceof URLSearchParams) return parseChannel(searchParams.get(options.param), options);
-  const value = searchParams[options.param];
+  const names = getChannelParams(options);
+  if (searchParams instanceof URLSearchParams) return parseChannel(readChannelParam(searchParams, names), options);
+  const name = names.find((candidate) => searchParams[candidate] !== undefined);
+  const value = name === undefined ? undefined : searchParams[name];
   return parseChannel(typeof value === "string" ? value : value?.[0], options);
 }
 

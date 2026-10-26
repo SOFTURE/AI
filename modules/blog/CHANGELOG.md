@@ -4,6 +4,38 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## 0.4.2
+
+- **`emoji` passes `©`, `®` and `™` written as text (#712):** the rule no longer flags these signs unless U+FE0F
+  follows them, so a footer such as `© 2026 Product name` passes `checkCopyText` and the article check. Real emoji
+  and the signs in emoji presentation (`©️`) stay errors. An app that filtered this finding out by hand can drop the
+  filter.
+
+## 0.4.1
+
+- **`dash-pivot` catches two more pivots (#699):** a spaced dash with a number on one side only (`Up to 65 — after
+  tax.`) and an em dash glued to two words (`small—they`). Only a dash with a number on both sides passes as a range
+  (`2020 – 2024`, `20% – 30%`, `$10 – $20`); a glued en dash (`Warsaw–Berlin`) still passes. An app that added its
+  own voice phrase for these pivots can drop it.
+- **`stacked-asides` ignores formulas (#700):** a word in an aside counts from two letters up, so formula variables
+  and one-letter words no longer make an aside worded. `K × (1 + r/m)^(m × n)` passes `checkCopyText` and gives no
+  warning in an article; real worded asides are flagged as before.
+
+## 0.4.0
+
+- **A voice check for copy that is not an article (#690):** `checkCopyText(text, { mode, quality })` from
+  `/server` checks landing text, posts and mails with the same `quality` options as `blog()`; `mode: "channel"` also
+  flags markdown that a plain-text editor shows as noise (README, "Copy that is not an article"). An app that
+  composed `plRuleset`, `toProse`, `splitSentences` and `wordPattern` into its own checker can replace it with this
+  call.
+- **New rules:** `verdict-label` ("Conclusion:" at a sentence start) and `fragile-spot` ("the weakest link") in both
+  rulesets, errors; `not-x-but-y-bare` in `pl`, the contrast without the leading pronoun, a warning in articles and an
+  error in copy; `stacked-asides`, two worded asides in one sentence, a warning in articles. An article that uses
+  these phrases now gets findings; `quality.severity` turns any of them off. Copy-only rules: `dash-pivot`,
+  `channel-markup`.
+- `StylePattern` has an optional `copySeverity`; `resolveStyleSettings(options)` and the `StyleSettings` type are
+  exported for apps that run the style rules themselves.
+
 ## 0.3.3
 
 - **The runner is the caller's choice (#670):** `blog-links.yml` takes the input `runs-on`, JSON: one label

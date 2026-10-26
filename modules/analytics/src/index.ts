@@ -17,7 +17,7 @@ export const MODULE_ID = "analytics";
 export const analytics = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.1",
+    version: "0.3.1",
     dependsOn: { security: "^0.2.0?", jobs: "^0.1.1?" },
     dbSchema: "analytics",
     tables: ["funnel_counts"],

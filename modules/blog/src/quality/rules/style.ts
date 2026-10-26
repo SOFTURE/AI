@@ -3,13 +3,14 @@
 import { getProseBlocks, type Block } from "../blocks.js";
 import type { QualityFinding } from "../finding.js";
 import type { StylePattern } from "../rulesets/types.js";
+import type { StyleSettings } from "../settings.js";
 import { countWords, splitSentences, toProse } from "../text.js";
 import type { RuleInput } from "./input.js";
 
 const PROFIT_PROMISE_MESSAGE = "a promise of profit or an order to buy; not acceptable in a your-money-or-your-life text";
 
 /** The patterns the prose is matched against: ruleset style, app voice, and profit promises when YMYL is on. */
-export function getActivePatterns({ settings }: Pick<RuleInput, "settings">): StylePattern[] {
+export function getActivePatterns({ settings }: { readonly settings: StyleSettings }): StylePattern[] {
   const patterns = [...settings.ruleset.patterns, ...settings.voicePatterns];
   if (settings.options.ymyl !== null) {
     patterns.push({ id: "profit-promise", severity: "error", pattern: settings.ruleset.profitPromises, message: PROFIT_PROMISE_MESSAGE });
@@ -28,12 +29,18 @@ export function checkMetadataStyle(input: RuleInput): QualityFinding[] {
   }));
 }
 
-export function checkStyle(input: RuleInput): QualityFinding[] {
+export function checkStyle(input: StyleInput): QualityFinding[] {
   return matchPatterns(getProseBlocks(input.blocks), getActivePatterns(input));
 }
 
+/** What the style and rhythm rules read: blocks and settings, no article. */
+export interface StyleInput {
+  readonly blocks: readonly Block[];
+  readonly settings: StyleSettings;
+}
+
 /** One error per pattern and block; warnings aggregated to one finding per pattern with a count. */
-function matchPatterns(blocks: readonly Block[], patterns: readonly StylePattern[]): QualityFinding[] {
+export function matchPatterns(blocks: readonly Block[], patterns: readonly StylePattern[]): QualityFinding[] {
   const findings: QualityFinding[] = [];
   const warningHits = new Map<string, { count: number; line: number; sample: string }>();
   for (const block of blocks) {
@@ -63,7 +70,7 @@ function matchPatterns(blocks: readonly Block[], patterns: readonly StylePattern
 const DASH = /\s[—–-]\s|—/g;
 
 /** Rhythm and formatting: dashes (an error over the limit), bold, bold labels, triads, sentence length and variety, openings, headings. */
-export function checkRhythm({ blocks, settings }: RuleInput): QualityFinding[] {
+export function checkRhythm({ blocks, settings }: StyleInput): QualityFinding[] {
   const findings: QualityFinding[] = [];
   const { limits } = settings.options;
   const prose = getProseBlocks(blocks).filter((block) => block.kind !== "heading" && block.kind !== "table");
@@ -115,6 +122,14 @@ export function checkRhythm({ blocks, settings }: RuleInput): QualityFinding[] {
       });
     }
   }
+  const stacked = sentences.filter((sentence) => countWordedAsides(sentence) >= 2).length;
+  if (stacked > 0) {
+    findings.push({
+      rule: "stacked-asides",
+      severity: "warning",
+      message: `${String(stacked)} sentences carry two or more worded asides in parentheses; keep one and fold the other into the sentence`,
+    });
+  }
   for (let index = 2; index < sentences.length; index += 1) {
     const openings = sentences.slice(index - 2, index + 1).map((sentence) => sentence.split(" ")[0]?.toLowerCase());
     const opening = openings[0];
@@ -134,4 +149,15 @@ export function checkRhythm({ blocks, settings }: RuleInput): QualityFinding[] {
     }
   }
   return findings;
+}
+
+const PARENTHETICAL = /\(([^()]*)\)/g;
+const LETTER_WORD = /\p{L}{2,}[\p{L}\d'’-]*/gu;
+
+/**
+ * Asides in parentheses that hold at least two words of two letters or more: "(paid every year)", not "(5%)",
+ * "(2024)", "(ETF)" or a formula's "(1 + r/m)".
+ */
+export function countWordedAsides(prose: string): number {
+  return [...prose.matchAll(PARENTHETICAL)].filter((match) => (match[1]?.match(LETTER_WORD)?.length ?? 0) >= 2).length;
 }

@@ -168,7 +168,7 @@ describe("planInitFiles", () => {
   it("bundles migrate.mjs and the ops scripts with server-only emptied and a require for CJS dependencies", () => {
     const full = textOf(plan(), "Dockerfile");
     expect(full).toContain("RUN mkdir -p .esbuild && printf 'export {};\\n' > .esbuild/empty.mjs");
-    const banner = `--banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);"`;
+    const banner = `--banner:js="import { createRequire as __bundleCreateRequire } from 'module'; const require = __bundleCreateRequire(import.meta.url);"`;
     expect(full.split("--alias:server-only=./.esbuild/empty.mjs")).toHaveLength(3);
     expect(full.split(banner)).toHaveLength(3);
   });

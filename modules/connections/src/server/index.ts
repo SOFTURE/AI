@@ -15,13 +15,18 @@ export {
 } from "./crypto.js";
 export {
   disconnect,
+  formatCredentialHeader,
   getAuthorizationHeader,
   getCredential,
+  getCredentialHeader,
+  getCredentialPlacement,
   MAX_CREDENTIAL_LENGTH,
   reportCredentialRejected,
   saveCredential,
+  type CredentialHeader,
   type CredentialInput,
   type DisconnectResult,
+  type GetCredentialHeaderResult,
   type GetCredentialResult,
   type ProviderAccountInput,
   type SaveCredentialInput,

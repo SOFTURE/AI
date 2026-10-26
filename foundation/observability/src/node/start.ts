@@ -16,6 +16,7 @@ import { BatchSpanProcessor, NodeTracerProvider } from "@opentelemetry/sdk-trace
 
 import { configureLogging } from "../logger.js";
 import { resolveObservabilityConfig, type ObservabilityOptions } from "./config.js";
+import { createExportRequestMatcher, type OutgoingRequestTarget } from "./export-request-matcher.js";
 import { createIgnoredPathMatcher, createIgnorePathsSampler } from "./ignore-paths-sampler.js";
 import { StableHttpAttributesProcessor } from "./stable-http-attributes.js";
 
@@ -158,7 +159,14 @@ function register(options: ObservabilityOptions): Registration {
   const stopHttpInstrumentation =
     options.instrumentations?.http === false
       ? () => undefined
-      : startHttpInstrumentation({ tracerProvider, meterProvider, isIgnoredPath });
+      : startHttpInstrumentation({
+          tracerProvider,
+          meterProvider,
+          isIgnoredPath,
+          isExportRequest: createExportRequestMatcher(
+            [config.traces, config.logs, config.metrics].flatMap((signal) => (signal === null ? [] : [signal.url])),
+          ),
+        });
 
   const forceFlush = async (): Promise<void> => {
     await Promise.all([tracerProvider.forceFlush(), loggerProvider?.forceFlush(), meterProvider?.forceFlush()]);
@@ -213,11 +221,14 @@ type HttpInstrumentationTarget = {
   tracerProvider: NodeTracerProvider;
   meterProvider: MeterProvider | null;
   isIgnoredPath: (target: string) => boolean;
+  isExportRequest: (target: OutgoingRequestTarget) => boolean;
 };
 
 function startHttpInstrumentation(target: HttpInstrumentationTarget): () => void {
   const config = {
     ignoreIncomingRequestHook: (request: { url?: string }) => target.isIgnoredPath(request.url ?? ""),
+    // The exporter suppresses tracing for its own requests, but not `http.client.request.duration` (issue #810).
+    ignoreOutgoingRequestHook: (request: OutgoingRequestTarget) => target.isExportRequest(request),
     startIncomingSpanHook: (request: { url?: string }) => (request.url?.includes("?") === true ? REDACTED_QUERY : {}),
   };
   const instrumentation = httpInstrumentation ?? new HttpInstrumentation({ ...config, enabled: false });

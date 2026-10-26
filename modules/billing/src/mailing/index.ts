@@ -4,6 +4,7 @@ export {
   DEFAULT_REMINDER_PAUSE_MS,
   renderAccessReminderMail,
   sendAccessReminders,
+  type AccessReminderDelivery,
   type AccessReminderMail,
   type AccessReminderMailContext,
   type AccessReminderMailInput,

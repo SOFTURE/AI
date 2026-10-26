@@ -183,7 +183,8 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
     const url = String(input);
     // Before the token endpoint's bookkeeping: `failNext` and `lastForm` stay about token and revoke calls.
     if (url === urls.api && (init.method ?? "GET") === "GET") return handleApi(new Headers(init.headers).get("authorization"));
-    const form = new URLSearchParams(typeof init.body === "string" ? init.body : "");
+    // A form arrives as `URLSearchParams` from `requestJson`, or as its text from a hand-written call.
+    const form = new URLSearchParams(init.body instanceof URLSearchParams || typeof init.body === "string" ? init.body : "");
     const authorization = new Headers(init.headers).get("authorization");
     calls.lastForm = form;
     calls.lastAuthorization = authorization;

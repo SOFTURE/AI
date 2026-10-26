@@ -27,7 +27,8 @@ export interface ChannelTagger {
   /**
    * A 307 to the same URL with the channel, for a GET navigation (`isNavigation`) without the parameter
    * that comes from a first-party page with a valid one and whose path `targets` accepts; null otherwise
-   * (the request goes on). The target is on the origin the request was sent to when it is configured or
+   * (the request goes on). A navigation that carries a valid value under one of `legacyParams` only is
+   * answered the same way, with the value moved to `param`, so the old name leaves the address bar. The target is on the origin the request was sent to when it is configured or
    * is the request URL's own host, else on `appOrigin`.
    */
   tag(request: Request): Response | null;
@@ -71,10 +72,10 @@ export function createChannelTagger(config: SoftureConfig, options: ChannelTagge
   const readRequestChannel = (request: Request, url: URL): string | null => {
     const referer = request.headers.get("referer");
     const channel = readChannel(config, { url, referer });
-    if (channel !== null || options.channelFromReferer === undefined || url.searchParams.has(param)) return channel;
+    if (channel !== null || options.channelFromReferer === undefined || hasChannelParam(config, url)) return channel;
     if (referer === null || !URL.canParse(referer)) return null;
     const page = new URL(referer);
-    if (page.searchParams.has(param) || !isFirstParty(page, { config, url, host: null })) return null;
+    if (hasChannelParam(config, page) || !isFirstParty(page, { config, url, host: null })) return null;
     return deriveChannel(config, { hook: options.channelFromReferer, label: "channelFromReferer" }, page);
   };
 
@@ -100,10 +101,15 @@ export function createChannelTagger(config: SoftureConfig, options: ChannelTagge
     tag(request) {
       if (!isNavigation(request)) return null;
       const url = new URL(request.url);
-      if (hasChannelParam(config, url)) return null;
-      const channel = readRequestChannel(request, url);
-      // A channel came from the Referer, so the header is a valid URL here.
-      if (channel === null || !isTarget(url, new URL(request.headers.get("referer") ?? url))) return null;
+      if (url.searchParams.has(param)) return null;
+      // A URL with only a legacy name decides itself, and a valid value is moved to `param`.
+      const isRename = hasChannelParam(config, url);
+      const channel = isRename ? readChannel(config, { url }) : readRequestChannel(request, url);
+      if (channel === null) return null;
+      // The header is the visitor's to send: one that does not parse leaves the request itself as the source.
+      const referer = request.headers.get("referer");
+      const source = referer !== null && URL.canParse(referer) ? new URL(referer) : url;
+      if (!isTarget(url, source)) return null;
       // Built on the public origin (else appOrigin, as auth's guard does): behind a proxy the request
       // URL carries an internal host. The path is set, not parsed against the origin:
       // `//elsewhere.example` would leave it.

@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/deploy",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "SOFTURE AI deploy CLI for a one-VPS app: renders .env.prod from CI secrets (names from the compose file), writes the release report between two tags, backs up the database, guards the migration ledger, compares row counts, verifies production against deploy.json, runs ops scripts and read-only SQL reports on the server and generates an app's deploy files once (init).",
   "license": "MIT",
   "type": "module",
@@ -55,6 +55,8 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@softure-ai/core": "^0.2.0",
+    "@softure-ai/observability": "^0.4.0",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.0",
     "web-bot-auth": "^0.2.0"
   }

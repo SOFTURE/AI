@@ -1,0 +1,430 @@
+{
+  "source": "The design system artifact's project/tokens.json (Flat Paint), copied 2026-10-25; values only, usage notes, samples and display names live in the design system; the eight position colours carry English names in both (issue #765)",
+  "name": "Flat Paint",
+  "version": 1,
+  "color": {
+    "themes": [
+      {
+        "id": "light",
+        "name": "Light"
+      },
+      {
+        "id": "dark",
+        "name": "Dark"
+      }
+    ],
+    "tokens": [
+      {
+        "name": "ink",
+        "value": "#0c0c0d"
+      },
+      {
+        "name": "ink-raised",
+        "value": "#17181a"
+      },
+      {
+        "name": "ink-line",
+        "value": "#2a2c30"
+      },
+      {
+        "name": "ink-muted",
+        "value": "#a3a6ad"
+      },
+      {
+        "name": "lime",
+        "value": "#cff26b"
+      },
+      {
+        "name": "lime-hover",
+        "value": "#bfe654"
+      },
+      {
+        "name": "lime-deep",
+        "value": "#356912"
+      },
+      {
+        "name": "paper",
+        "value": "#ffffff"
+      },
+      {
+        "name": "paper-line",
+        "value": "#e6e7ea"
+      },
+      {
+        "name": "graphite",
+        "value": "#16181d"
+      },
+      {
+        "name": "graphite-muted",
+        "value": "#5b606b"
+      },
+      {
+        "name": "background",
+        "value": {
+          "light": "#f6f7f8",
+          "dark": "{ink}"
+        }
+      },
+      {
+        "name": "surface",
+        "value": {
+          "light": "{paper}",
+          "dark": "{ink-raised}"
+        }
+      },
+      {
+        "name": "surface-raised",
+        "value": {
+          "light": "{paper}",
+          "dark": "#1f2023"
+        }
+      },
+      {
+        "name": "border",
+        "value": {
+          "light": "{paper-line}",
+          "dark": "{ink-line}"
+        }
+      },
+      {
+        "name": "line-strong",
+        "value": {
+          "light": "#8a8f98",
+          "dark": "#6b6f77"
+        }
+      },
+      {
+        "name": "foreground",
+        "value": {
+          "light": "#16171a",
+          "dark": "#f2f3f5"
+        }
+      },
+      {
+        "name": "muted",
+        "value": {
+          "light": "{graphite-muted}",
+          "dark": "{ink-muted}"
+        }
+      },
+      {
+        "name": "accent",
+        "value": {
+          "light": "{lime-deep}",
+          "dark": "{lime}"
+        }
+      },
+      {
+        "name": "accent-fill",
+        "value": {
+          "light": "{lime}",
+          "dark": "{lime}"
+        }
+      },
+      {
+        "name": "accent-fill-hover",
+        "value": {
+          "light": "{lime-hover}",
+          "dark": "{lime-hover}"
+        }
+      },
+      {
+        "name": "on-accent",
+        "value": {
+          "light": "{ink}",
+          "dark": "{ink}"
+        }
+      },
+      {
+        "name": "accessible",
+        "value": {
+          "light": "#0f766e",
+          "dark": "#2dd4bf"
+        }
+      },
+      {
+        "name": "locked",
+        "value": {
+          "light": "#b45309",
+          "dark": "#fbbf24"
+        }
+      },
+      {
+        "name": "debt",
+        "value": {
+          "light": "#be123c",
+          "dark": "#f87171"
+        }
+      },
+      {
+        "name": "position-teal",
+        "value": "#12a18b"
+      },
+      {
+        "name": "position-amber",
+        "value": "#bc8415"
+      },
+      {
+        "name": "position-blue",
+        "value": "#396bac"
+      },
+      {
+        "name": "position-violet",
+        "value": "#8c3ae9"
+      },
+      {
+        "name": "position-lilac",
+        "value": "#c954ff"
+      },
+      {
+        "name": "position-steel",
+        "value": "#4b7f9b"
+      },
+      {
+        "name": "position-magenta",
+        "value": "#ea43e5"
+      },
+      {
+        "name": "position-copper",
+        "value": "#b47c3c"
+      }
+    ]
+  },
+  "type": {
+    "families": {
+      "sans": "Ubuntu, system-ui, sans-serif",
+      "mono": "\"Ubuntu Mono\", ui-monospace, monospace"
+    },
+    "groups": [
+      {
+        "name": "Headings",
+        "styles": [
+          {
+            "name": "hero",
+            "fontSize": "88px",
+            "lineHeight": 0.92,
+            "letterSpacing": "-0.035em",
+            "fontWeight": 700
+          },
+          {
+            "name": "display",
+            "fontSize": "60px",
+            "lineHeight": 1.08,
+            "letterSpacing": "-0.02em",
+            "fontWeight": 700
+          },
+          {
+            "name": "headline",
+            "fontSize": "40px",
+            "lineHeight": 1.1,
+            "letterSpacing": "-0.02em",
+            "fontWeight": 700
+          },
+          {
+            "name": "page",
+            "fontSize": "30px",
+            "lineHeight": 1.2,
+            "letterSpacing": "-0.015em",
+            "fontWeight": 700
+          },
+          {
+            "name": "section",
+            "fontSize": "30px",
+            "lineHeight": 1.15,
+            "letterSpacing": "-0.012em",
+            "fontWeight": 700
+          },
+          {
+            "name": "band",
+            "fontSize": "26px",
+            "lineHeight": 1.15,
+            "letterSpacing": "-0.022em",
+            "fontWeight": 700
+          },
+          {
+            "name": "subsection",
+            "fontSize": "18px",
+            "lineHeight": 1.35,
+            "letterSpacing": "-0.011em",
+            "fontWeight": 700
+          }
+        ]
+      },
+      {
+        "name": "Text",
+        "styles": [
+          {
+            "name": "body",
+            "fontSize": "16px",
+            "lineHeight": 1.5,
+            "letterSpacing": "-0.011em",
+            "fontWeight": 400
+          },
+          {
+            "name": "body-sm",
+            "fontSize": "14px",
+            "lineHeight": "20px",
+            "fontWeight": 400
+          },
+          {
+            "name": "label",
+            "fontSize": "14px",
+            "lineHeight": "20px",
+            "fontWeight": 500
+          },
+          {
+            "name": "caption",
+            "fontSize": "12px",
+            "lineHeight": "16px",
+            "fontWeight": 400
+          },
+          {
+            "name": "eyebrow",
+            "fontSize": "11px",
+            "lineHeight": "16px",
+            "letterSpacing": "0.12em",
+            "fontWeight": 500
+          }
+        ]
+      },
+      {
+        "name": "Numbers",
+        "styles": [
+          {
+            "name": "figure-lg",
+            "fontSize": "36px",
+            "lineHeight": "40px",
+            "fontWeight": 700
+          },
+          {
+            "name": "figure",
+            "fontSize": "24px",
+            "lineHeight": "32px",
+            "fontWeight": 700
+          },
+          {
+            "name": "num",
+            "fontSize": "14px",
+            "lineHeight": "20px",
+            "fontWeight": 500
+          },
+          {
+            "name": "tabular",
+            "family": "mono",
+            "fontSize": "14px",
+            "lineHeight": "20px",
+            "fontWeight": 400
+          }
+        ]
+      }
+    ]
+  },
+  "spacing": {
+    "tokens": [
+      {
+        "name": "spacing-hairbar",
+        "value": "3px"
+      },
+      {
+        "name": "spacing-control-x",
+        "value": "12px"
+      },
+      {
+        "name": "spacing-button-x",
+        "value": "16px"
+      },
+      {
+        "name": "spacing-card-panel",
+        "value": "20px"
+      },
+      {
+        "name": "spacing-card",
+        "value": "24px"
+      },
+      {
+        "name": "spacing-section",
+        "value": "96px"
+      }
+    ]
+  },
+  "radius": {
+    "tokens": [
+      {
+        "name": "radius-flag",
+        "value": "4px"
+      },
+      {
+        "name": "radius-checkbox",
+        "value": "5px"
+      },
+      {
+        "name": "radius-segment",
+        "value": "6px"
+      },
+      {
+        "name": "radius-control",
+        "value": "8px"
+      },
+      {
+        "name": "radius-nested",
+        "value": "8px"
+      },
+      {
+        "name": "radius-card",
+        "value": "12px"
+      },
+      {
+        "name": "radius-pill",
+        "value": "9999px"
+      }
+    ]
+  },
+  "size": {
+    "tokens": [
+      {
+        "name": "size-control-sm",
+        "value": "32px"
+      },
+      {
+        "name": "size-control-md",
+        "value": "40px"
+      },
+      {
+        "name": "size-control-lg",
+        "value": "48px"
+      },
+      {
+        "name": "size-touch",
+        "value": "44px"
+      }
+    ]
+  },
+  "container": {
+    "tokens": [
+      {
+        "name": "container-measure",
+        "value": "42rem"
+      },
+      {
+        "name": "container-panel",
+        "value": "80rem"
+      },
+      {
+        "name": "container-apex",
+        "value": "96rem"
+      }
+    ]
+  },
+  "shadow": {
+    "tokens": [
+      {
+        "name": "shadow-selected-row",
+        "value": "inset 3px 0 0 #cff26b"
+      },
+      {
+        "name": "shadow-shot-frame",
+        "value": "0 0 0 1px #e6e7ea"
+      }
+    ]
+  }
+}

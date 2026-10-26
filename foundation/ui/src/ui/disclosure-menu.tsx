@@ -204,8 +204,10 @@ const PANEL_ALIGN: Readonly<Record<DisclosureMenuAlign, string>> = { start: "sft
 const PANEL_MOTION =
   "sft:transition-[opacity,translate] sft:duration-(--sft-duration-fast) sft:ease-(--sft-ease-out) sft:starting:-translate-y-1 sft:starting:opacity-0 sft:data-[state=closed]:pointer-events-none sft:data-[state=closed]:-translate-y-1 sft:data-[state=closed]:opacity-0 sft:motion-reduce:transition-none";
 
+// The panel's link rules skip links that carry `data-variant` (a `ButtonLink`), which keep their own look, and sit in
+// `:where()` (zero specificity), so an app's own class on a link outranks them.
 const PANEL_BASE =
-  "sft:absolute sft:top-full sft:z-40 sft:mt-1 sft:flex sft:min-w-48 sft:flex-col sft:gap-0.5 sft:rounded-card sft:border sft:border-border sft:bg-surface-raised sft:p-1 sft:text-sm sft:text-foreground sft:shadow-2 sft:[&[hidden]]:hidden sft:[&_a]:block sft:[&_a]:rounded-control sft:[&_a]:px-3 sft:[&_a]:py-2 sft:[&_a]:text-foreground sft:[&_a]:no-underline sft:[&_a:hover]:bg-foreground/5 sft:[&_a:focus-visible]:outline-2 sft:[&_a:focus-visible]:outline-focus";
+  "sft:absolute sft:top-full sft:z-40 sft:mt-1 sft:flex sft:min-w-48 sft:flex-col sft:gap-0.5 sft:rounded-card sft:border sft:border-border sft:bg-surface-raised sft:p-1 sft:text-sm sft:text-foreground sft:shadow-2 sft:[&[hidden]]:hidden sft:[:where(&_a:not([data-variant]))]:block sft:[:where(&_a:not([data-variant]))]:rounded-control sft:[:where(&_a:not([data-variant]))]:px-3 sft:[:where(&_a:not([data-variant]))]:py-2 sft:[:where(&_a:not([data-variant]))]:text-foreground sft:[:where(&_a:not([data-variant]))]:no-underline sft:[:where(&_a:not([data-variant]):hover)]:bg-foreground/5 sft:[:where(&_a:not([data-variant]):focus-visible)]:outline-2 sft:[:where(&_a:not([data-variant]):focus-visible)]:outline-focus";
 
 /** A button that shows and hides a panel of links (a user menu, a phone navigation). */
 export function DisclosureMenu({

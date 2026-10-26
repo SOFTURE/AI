@@ -161,7 +161,8 @@ the same resource as traces and logs, and once more on `shutdown()`:
 
 - `http.server.request.duration` (histogram, seconds) by `http.request.method`, `http.response.status_code`,
   `url.scheme` and `network.protocol.version`: request rate, latency and error rate. Never by path, so its series stay
-  bounded. `http.client.request.duration` likewise for outgoing calls, by `server.address`.
+  bounded. `http.client.request.duration` likewise for outgoing calls, by `server.address`. The exporter's own
+  requests to the trace, log and metric endpoints are not measured (nor traced); other paths on that host are.
 - Node.js runtime metrics (`instrumentations.runtime`): `nodejs.eventloop.utilization`, `nodejs.eventloop.delay.*`,
   `nodejs.eventloop.time`, `v8js.gc.duration`, `v8js.memory.heap.*` per heap space, `v8js.resource.active`.
 

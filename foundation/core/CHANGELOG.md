@@ -4,6 +4,40 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- The way back from days to instants (#783): `getDayStartInstant(day, timeZone)` returns the first instant of a
+  `YYYY-MM-DD` day in an IANA zone, `getLocalDateTimeInstant(value, timeZone)` the instant of a `LocalDateTime`, with
+  DST handled (a repeated time gives its first occurrence, a skipped time the instant the same distance after the
+  change). Also exported: `getWallClock`, `getZonedInstant`, the `WallClock` type and `isTimeZone`. They moved from
+  `@softure-ai/jobs`, which now imports them from core.
+  - Migrate: nothing. An app that copied the zoned-time arithmetic (for example to query a calendar API by the
+    owner's days) can drop its copy and import these.
+
+## 0.2.4
+
+- `requestJson` reads the body of an error answer through an opt-in `errorSchema` (#680), for OAuth errors
+  (`invalid_grant`) and provider error codes. With it, every failure carries `errorBody`: the schema's output for a
+  4xx, 429 or 5xx whose body is JSON that passes it, `null` otherwise (an empty, non-JSON or invalid body, a redirect,
+  no response, a body that broke off or timed out, a 2xx that failed `schema`). The read is bounded by the call's
+  timeout; only the schema's output leaves. New types: `RequestJsonErrorSchemaOptions`, `HttpJsonErrorBodyFailure`,
+  `HttpJsonFailureFor`.
+  - Migrate: nothing. Without `errorSchema` the body is cancelled as before and the failure type is still
+    `HttpJsonFailure`.
+- `requestJson` sends form bodies (#676): `form: URLSearchParams | FormData` on a write, exclusive with `body` in the
+  types. `URLSearchParams` goes out as `application/x-www-form-urlencoded` (a `Content-Type` the caller sets wins);
+  `FormData`, with `Blob` or `File` parts, as `multipart/form-data` with the boundary `fetch` adds, and a
+  `Content-Type` the caller sets is dropped. The answer is read as for any write (schema, empty answer
+  `ok(undefined)`, status codes, `readHeaders`, `idempotencyKey`, the timeout covering the upload).
+  `RequestJsonWriteOptions` is now the union of the new `RequestJsonJsonWriteOptions` and
+  `RequestJsonFormWriteOptions`.
+- `requestJson` throws a `TypeError` before sending when `body` is a `FormData`, `URLSearchParams`, `Blob`, binary
+  buffer or stream (these used to go out as `{}`), when `body` and `form` are both given, when a GET has a `form`, or
+  when `form` is neither type.
+  - Migrate: nothing for a JSON `body`. A call that passed a form or a file as `body` (and so sent `{}`) passes it as
+    `form`. A hand-written form helper (an OAuth token call, a file upload) can move to `requestJson({ method, form })`.
+    A type that `extends RequestJsonWriteOptions` extends one of the two new interfaces instead.
+
 ## 0.2.3
 
 - `requestJson` reads response headers (#652), with no breaking change to calls that do not use the new option.

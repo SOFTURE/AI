@@ -1,5 +1,5 @@
 // The options an app passes to `auth({ ... })` in softure.config.ts, parsed at startup.
-import type { ModuleContext, SoftureConfig } from "@softure-ai/core";
+import type { FetchFunction, ModuleContext, SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { z } from "zod";
 import type { RegisteredEvent } from "./contract.js";
@@ -86,9 +86,76 @@ function parseAdminEmailList(raw: string): string[] {
   return emails;
 }
 
+/** A provider id: the path segment of its callback (`/api/auth/oidc/<id>/callback`) and the key of its identities. */
+export const OIDC_PROVIDER_ID_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
+const GOOGLE_ISSUER = "https://accounts.google.com";
+const ENV_NAME = /^[A-Z][A-Z0-9_]{0,127}$/;
+const LOCAL_HOSTS: ReadonlySet<string> = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** An https URL, or http on the local machine (a development identity provider). */
+export function isSecureEndpoint(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.username !== "" || url.password !== "" || url.hash !== "") return false;
+  return url.protocol === "https:" || (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname));
+}
+
+const domainSchema = z.string().trim().toLowerCase().regex(DOMAIN, "must be a lowercase host name such as example.com");
+
+const oidcProviderSchema = z
+  .strictObject({
+    /** The provider's id in URLs and in `auth.identities`, e.g. `google`. */
+    id: z.string().regex(OIDC_PROVIDER_ID_PATTERN, "must be an id such as google (a-z first, then a-z, 0-9 or -, at most 32)"),
+    /** The provider's name as the button shows it (`messages.oidc.signInWith`), e.g. `Google`. */
+    name: z.string().trim().min(1).max(64),
+    /** The issuer; its discovery document is `<issuer>/.well-known/openid-configuration`. */
+    issuer: z
+      .string()
+      .refine(isSecureEndpoint, "must be an https URL (http only on localhost)")
+      .transform((issuer) => issuer.replace(/\/+$/, "")),
+    /** The environment variable that holds the client id. */
+    clientIdEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GOOGLE_AUTH_CLIENT_ID"),
+    /** The environment variable that holds the client secret; absent for a public client. */
+    clientSecretEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GOOGLE_AUTH_CLIENT_SECRET").optional(),
+    /** How the client authenticates at the token endpoint: form fields (`client_secret_post`) or HTTP Basic. */
+    clientAuth: z.enum(["body", "basic"]).default("body"),
+    /** Requested scopes; `openid` and `email` are always sent. */
+    scopes: z.array(z.string().regex(/^[\x21\x23-\x5b\x5d-\x7e]{1,128}$/, "must be a scope token")).default([]),
+    /** Extra parameters of the authorize URL, e.g. `{ prompt: "select_account", hd: "example.com" }`. */
+    authorizeParams: z.record(z.string().regex(/^[a-z_]{1,64}$/), z.string().max(512)).default({}),
+    /** Who may sign in: a verified email in one of these domains. */
+    allowedDomains: z.array(domainSchema).default([]),
+    /** Who may sign in: one of these verified emails. */
+    allowedEmails: z.array(adminEmailSchema).default([]),
+    /**
+     * A domain match also needs the token's `hd` claim to name that domain (a Google Workspace account). Defaults to
+     * true for Google, whose consumer accounts can carry a verified address of any domain.
+     */
+    requireHostedDomain: z.boolean().optional(),
+    /** A first sign-in of an allowed identity without an account creates one (no password); false only links. */
+    createAccounts: z.boolean().default(true),
+  })
+  .transform((provider) => ({ ...provider, requireHostedDomain: provider.requireHostedDomain ?? provider.issuer === GOOGLE_ISSUER }))
+  .refine((provider) => provider.allowedDomains.length + provider.allowedEmails.length > 0, {
+    message: "needs allowedDomains or allowedEmails: an OpenID Connect sign-in is limited to them",
+    path: ["allowedDomains"],
+  });
+
+export type OidcProviderInput = z.input<typeof oidcProviderSchema>;
+export type OidcProvider = z.output<typeof oidcProviderSchema>;
+
 export const authOptionsSchema = z.strictObject({
   password: z
     .strictObject({
+      /**
+       * The password form and routes (login, register, change, reset). False leaves OpenID Connect as the only way in:
+       * the pages are not found and the server functions refuse.
+       */
+      enabled: z.boolean().default(true),
       /** Shortest password a user may set (characters). */
       minLength: z.number().int().min(8).max(128).default(10),
       /** Hash cost; memory per hash is 128 * cost * blockSize bytes. Raising it rehashes each password at its owner's next login. */
@@ -167,6 +234,21 @@ export const authOptionsSchema = z.strictObject({
       ttlMinutes: z.number().int().min(5).max(1440).default(60),
     })
     .prefault({}),
+  /** Sign-in with OpenID Connect providers (e.g. Google), limited to allowed domains or emails. Off without providers. */
+  oidc: z
+    .strictObject({
+      providers: z
+        .array(oidcProviderSchema)
+        .refine((providers) => new Set(providers.map((provider) => provider.id)).size === providers.length, "must not repeat a provider id")
+        .default([]),
+      /** How long a started sign-in may take at the provider. */
+      stateTtlMinutes: z.number().int().min(1).max(60).default(10),
+      /** Timeout of each call to a provider (discovery, keys, token). */
+      httpTimeoutMs: z.number().int().min(1000).max(60_000).default(10_000),
+      /** The `fetch` the provider calls go through; tests pass a fake provider's. */
+      fetch: z.custom<FetchFunction>((value) => typeof value === "function", "must be a function").optional(),
+    })
+    .prefault({}),
   /** Called after an account is created, in the same transaction (e.g. to store the consent). */
   onRegistered: z.custom<OnRegisteredHook>((value) => typeof value === "function", "must be a function").optional(),
   /** Rewrites the path of every auth redirect (e.g. `tagRedirect` from `@softure-ai/analytics/next`). */
@@ -174,6 +256,9 @@ export const authOptionsSchema = z.strictObject({
 }).superRefine((options, context) => {
   if (options.passwordReset.enqueue !== undefined && options.passwordReset.send === undefined) {
     context.addIssue({ code: "custom", path: ["passwordReset", "enqueue"], message: "needs passwordReset.send, which the job calls" });
+  }
+  if (!options.password.enabled && options.oidc.providers.length === 0) {
+    context.addIssue({ code: "custom", path: ["password", "enabled"], message: "needs an oidc provider: without passwords nobody could sign in" });
   }
   const legacy = options.legacySession?.cookieName;
   const base = options.cookie.name;

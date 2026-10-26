@@ -22,7 +22,8 @@ describe("the auth privacy contributor", () => {
       `SELECT 'users' AS name, count(*)::int AS count FROM auth.users WHERE id = $1
        UNION ALL SELECT 'sessions', count(*)::int FROM auth.sessions WHERE user_id = $1
        UNION ALL SELECT 'user_roles', count(*)::int FROM auth.user_roles WHERE user_id = $1
-       UNION ALL SELECT 'password_resets', count(*)::int FROM auth.password_resets WHERE user_id = $1`,
+       UNION ALL SELECT 'password_resets', count(*)::int FROM auth.password_resets WHERE user_id = $1
+       UNION ALL SELECT 'identities', count(*)::int FROM auth.identities WHERE user_id = $1`,
       [userId],
     );
     return Object.fromEntries(result.rows.map((row) => [row.name, row.count]));
@@ -40,6 +41,10 @@ describe("the auth privacy contributor", () => {
         NOW,
         new Date(NOW.getTime() + 3_600_000),
       ]);
+      await test.database.client.query(
+        "INSERT INTO auth.identities (provider, subject, user_id, email, created_at, last_login_at) VALUES ('google', $1, $2, 'x@example.com', $3, $3)",
+        [id, id, NOW],
+      );
     }
   });
   afterEach(async () => {
@@ -52,7 +57,7 @@ describe("the auth privacy contributor", () => {
     expect(auth().privacy?.deleteUserData).toBe(deleteAuthUserData);
   });
 
-  it("exports the account, its roles, sessions and pending reset, without any hash", async () => {
+  it("exports the account, its roles, sessions, pending reset and identities, without any hash", async () => {
     const result = await exportAuthUserData(test.ctx, adaId);
     expect(result).toEqual({
       ok: true,
@@ -61,27 +66,28 @@ describe("the auth privacy contributor", () => {
         roles: [{ role: "admin", grantedAt: NOW }],
         sessions: [{ createdAt: NOW, expiresAt: new Date(NOW.getTime() + 30 * 24 * 3_600_000) }],
         passwordReset: { createdAt: NOW, expiresAt: new Date(NOW.getTime() + 3_600_000) },
+        identities: [{ provider: "google", subject: adaId, email: "x@example.com", createdAt: NOW, lastLoginAt: NOW }],
       },
     });
     expect(JSON.stringify(result)).not.toMatch(/scrypt\$|[0-9a-f]{64}/);
   });
 
   it("exports nothing for an unknown account or an id that is not a UUID", async () => {
-    const empty = { ok: true, value: { account: null, roles: [], sessions: [], passwordReset: null } };
+    const empty = { ok: true, value: { account: null, roles: [], sessions: [], passwordReset: null, identities: [] } };
     expect(await exportAuthUserData(test.ctx, UNKNOWN_ID)).toEqual(empty);
     expect(await exportAuthUserData(test.ctx, "not-a-uuid")).toEqual(empty);
   });
 
-  it("deletes the account with its sessions, roles and reset link, and nothing of another account", async () => {
+  it("deletes the account with its sessions, roles, reset link and identities, and nothing of another account", async () => {
     await createSession(test.ctx, adaId);
     expect(await deleteAuthUserData(test.ctx, adaId)).toEqual({ ok: true, value: undefined });
-    expect(await countUserRows(adaId)).toEqual({ users: 0, sessions: 0, user_roles: 0, password_resets: 0 });
-    expect(await countUserRows(bobId)).toEqual({ users: 1, sessions: 1, user_roles: 1, password_resets: 1 });
+    expect(await countUserRows(adaId)).toEqual({ users: 0, sessions: 0, user_roles: 0, password_resets: 0, identities: 0 });
+    expect(await countUserRows(bobId)).toEqual({ users: 1, sessions: 1, user_roles: 1, password_resets: 1, identities: 1 });
   });
 
   it("deletes nothing for an id that is not a UUID", async () => {
     expect(await deleteAuthUserData(test.ctx, "not-a-uuid")).toEqual({ ok: true, value: undefined });
-    expect(await countUserRows(adaId)).toEqual({ users: 1, sessions: 1, user_roles: 1, password_resets: 1 });
+    expect(await countUserRows(adaId)).toEqual({ users: 1, sessions: 1, user_roles: 1, password_resets: 1, identities: 1 });
   });
 });
 

@@ -19,6 +19,10 @@ export default defineConfig([
     "examples/*/next-env.d.ts",
     "examples/*/test-results/**",
     "examples/*/playwright-report/**",
+    // A theme's built visual gallery and its Playwright output (themes/theme-notion/visual).
+    "themes/*/visual/.gallery/**",
+    "themes/*/visual/results/**",
+    "themes/*/visual/report/**",
     ...(isExampleAppInstalled ? [] : ["examples/**"]),
   ]),
   js.configs.recommended,

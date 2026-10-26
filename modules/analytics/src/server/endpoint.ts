@@ -9,7 +9,8 @@
 //
 // The wire format is configurable (`funnel.wire`): the step may come under several field names, so
 // pages cached with an older format keep counting, and with `channelField` a page may send its channel
-// itself. That channel is no less trusted than the Referer's: both come from the client.
+// itself, under one name or several. That channel is no less trusted than the Referer's: both come
+// from the client.
 //
 // A pixel step that names its pages (`pages`) counts only from one of them: a framework that
 // prefetches a link loads the linked page's pixel with the current page as its Referer, which would
@@ -23,7 +24,7 @@ import type { SoftureConfig } from "@softure-ai/core";
 import { readSmallBody } from "@softure-ai/security";
 import { deriveChannel, isFirstParty, parseChannel, readChannel } from "./channel.js";
 import { findPublicStep, recordFunnelStepQuietly, type AnalyticsContext } from "./funnel.js";
-import type { FunnelStep } from "../options.js";
+import { toFieldList, type FunnelStep } from "../options.js";
 import { getAnalyticsOptions } from "./options.js";
 
 /** The beacon's body is `step=<id>`; anything larger is not a beacon. */
@@ -66,9 +67,10 @@ async function countPixel(ctx: AnalyticsContext, request: Request): Promise<bool
 /** Counts the step `fields` name for a visit, with the channel the fields, the page or its path give. */
 async function countStep(ctx: AnalyticsContext, fields: URLSearchParams, visit: Visit, via: "beacon" | "pixel"): Promise<boolean> {
   const { funnel, channel: channelOptions } = getAnalyticsOptions(ctx.config);
-  const step = findPublicStep(funnel.steps, readStep(fields, funnel.wire.stepFields), via);
+  const step = findPublicStep(funnel.steps, readSingle(fields, funnel.wire.stepFields), via);
   if (step === null || !isStepPage(step, visit.page)) return true;
-  const sent = funnel.wire.channelField === null ? null : parseChannel(readSingle(fields, funnel.wire.channelField), channelOptions);
+  const channelFields = toFieldList(funnel.wire.channelField);
+  const sent = channelFields.length === 0 ? null : parseChannel(readSingle(fields, channelFields), channelOptions);
   const channel = sent ?? visit.channel ?? deriveChannel(ctx.config, { hook: funnel.channelFromReferer, label: "funnel.channelFromReferer" }, visit.page);
   return recordFunnelStepQuietly(ctx, { step: step.id, channel });
 }
@@ -117,14 +119,8 @@ function readVisit(config: SoftureConfig, request: Request): Visit | null {
   return { channel: readChannel(config, { url, referer }), page };
 }
 
-/** The step when exactly one value appears across the step fields; two of them name no step. */
-function readStep(params: URLSearchParams, fields: readonly string[]): string | null {
+/** The value when exactly one appears across `fields` (a step, a sent channel); two or none give null. */
+function readSingle(params: URLSearchParams, fields: readonly string[]): string | null {
   const values = fields.flatMap((field) => params.getAll(field));
-  return values.length === 1 ? (values[0] ?? null) : null;
-}
-
-/** The field's value when it appears exactly once. */
-function readSingle(params: URLSearchParams, field: string): string | null {
-  const values = params.getAll(field);
   return values.length === 1 ? (values[0] ?? null) : null;
 }

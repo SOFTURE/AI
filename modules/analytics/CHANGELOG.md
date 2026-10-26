@@ -4,6 +4,27 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`analytics@x.y.z`).
 
+## 0.3.1
+
+- `createChannelTagger().tag` returns `null` again for a navigation whose `Referer` is not a valid URL (#702); 0.3.0
+  threw `TypeError: Invalid URL`, so an app's `proxy.ts` answered 500. Nothing to change in the app.
+
+## 0.3.0
+
+- `channel.legacyParams` (#689): earlier names of the channel parameter, read after `param` and never written, so an
+  app can rename its links (`?z=` → `?ref=`) without losing the ones already shared. Every reader (`readChannel`,
+  `getChannel`, `getChannelFromSearchParams`, `hasChannelParam`, the keeper, the funnel endpoint's `Referer`) takes
+  `param` first, then each legacy name; `withChannel`, `tagPath`, the tagger and the keeper write `param` only, and a
+  navigation through a valid legacy name is moved to `param` (a 307 from the tagger, `replaceState` from the keeper).
+  `getChannelRule` hands the browser `legacyParams` too. Up to 4 names, each once, none equal to `param`.
+- `funnel.wire.channelField` takes a list of up to 4 field names as well as one (#689), so pages cached before a
+  rename keep sending their channel; one value in all counts, as with `stepFields`. Its parsed type widens to
+  `string | string[] | null`.
+- Migrate (optional): an app renaming its parameter sets `channel: { param: "<new>", legacyParams: ["<old>"] }`, and,
+  only if its pages send the channel in the beacon body, `funnel.wire.channelField: ["<new>", "<old>"]`. Nothing else
+  changes: `<ChannelKeeper />` and the tagger pick the names up from the config. Without `legacyParams` nothing
+  changes.
+
 ## 0.2.1
 
 - `@softure-ai/analytics/jobs` (#491): `analyticsJobHandlers` and `createAnalyticsJobSchedules({ keepDays })` run

@@ -176,6 +176,7 @@ describe("getChannelRule", () => {
   it("hands the default channel options to the browser as plain values", () => {
     expect(getChannelRule(createConfig())).toEqual({
       param: "z",
+      legacyParams: [],
       pattern: "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
       flags: "",
       maxLength: 32,
@@ -187,6 +188,7 @@ describe("getChannelRule", () => {
   it("hands a custom parameter, pattern with flags and length over exactly", () => {
     expect(getChannelRule(createConfig({ channel: { param: "src", pattern: /^[a-z]+$/i, maxLength: 12 } }))).toEqual({
       param: "src",
+      legacyParams: [],
       pattern: "^[a-z]+$",
       flags: "i",
       maxLength: 12,

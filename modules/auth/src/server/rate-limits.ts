@@ -12,6 +12,8 @@ export const BUCKETS = {
   passwordReset: "password-reset",
   passwordResetAccount: "password-reset-account",
   passwordResetConfirm: "password-reset-confirm",
+  oidcStart: "oidc-start",
+  oidcCallback: "oidc-callback",
 } as const;
 
 /** The subject key of an account's email for `login-account` and `password-reset-account`. */
@@ -27,11 +29,15 @@ export function userSubjectKey(userId: string): string {
 /** The buckets only password reset counts in; not needed while it is off. */
 const RESET_BUCKETS: ReadonlySet<string> = new Set([BUCKETS.passwordReset, BUCKETS.passwordResetAccount, BUCKETS.passwordResetConfirm]);
 
+/** The buckets only OpenID Connect sign-in counts in; not needed without providers. */
+const OIDC_BUCKETS: ReadonlySet<string> = new Set([BUCKETS.oidcStart, BUCKETS.oidcCallback]);
+
 const checkedConfigs = new WeakSet<SoftureConfig>();
 
 /**
  * Throws, naming every missing bucket, when the app's `security({ buckets })` lacks one auth
- * counts in: the reset buckets only when password reset is on (`passwordReset.send`). Checked once
+ * counts in: the reset buckets only when password reset is on (`passwordReset.send`), the OpenID Connect ones only
+ * with a provider. Checked once
  * per config, before the first attempt is counted, so a setup mistake is one clear error instead of
  * a generic failure on every login.
  */
@@ -39,8 +45,10 @@ export function assertAuthBuckets(config: SoftureConfig): void {
   if (checkedConfigs.has(config)) return;
   const options = getModule(config, "security")?.options as { buckets?: Readonly<Record<string, unknown>> } | undefined;
   const configured = options?.buckets ?? {};
-  const isResetOn = getAuthOptions(config).passwordReset.send !== undefined;
-  const required = Object.values(BUCKETS).filter((name) => isResetOn || !RESET_BUCKETS.has(name));
+  const authOptions = getAuthOptions(config);
+  const isResetOn = authOptions.passwordReset.send !== undefined;
+  const isOidcOn = authOptions.oidc.providers.length > 0;
+  const required = Object.values(BUCKETS).filter((name) => (isResetOn || !RESET_BUCKETS.has(name)) && (isOidcOn || !OIDC_BUCKETS.has(name)));
   const missing = required.filter((name) => !Object.hasOwn(configured, name));
   if (missing.length > 0) {
     throw new Error(

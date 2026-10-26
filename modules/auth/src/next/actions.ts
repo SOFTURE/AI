@@ -21,10 +21,14 @@ import { loginUser } from "../server/login.js";
 import { getAuthRoutes } from "../server/options.js";
 import { deliverPasswordReset, requestPasswordReset, resetPassword } from "../server/password-reset.js";
 import { registerUser } from "../server/register.js";
+import { startOidcSignIn } from "../server/oidc/flow.js";
 import { logoutSession } from "../server/sessions.js";
 import { getAuthContext } from "./context.js";
+import { writeOidcStateCookie } from "./oidc-cookie.js";
+import { getOidcErrorLoginPath } from "./oidc-login-url.js";
 import { PASSWORD_RESET_DONE_PARAM } from "./params.js";
-import { clearSessionCookie, readLegacySessionToken, readSessionToken, writeSessionCookie } from "./session-cookie.js";
+import { endPreviousSession, readHeldTokens } from "./previous-session.js";
+import { clearSessionCookie, readSessionToken, writeSessionCookie } from "./session-cookie.js";
 
 /** Longer values are cut: the server functions refuse them anyway, and nothing huge is echoed back. */
 const MAX_FIELD_LENGTH = 4096;
@@ -44,6 +48,7 @@ const registerInput = z.object({ email: text, password: text, next: nextPath, co
 const changePasswordInput = z.object({ currentPassword: text, newPassword: text });
 const forgotPasswordInput = z.object({ email: text });
 const resetPasswordInput = z.object({ token: text, newPassword: text });
+const oidcSignInInput = z.object({ provider: text, next: nextPath });
 
 const FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
   "auth.email_invalid": "email",
@@ -208,21 +213,25 @@ export async function resetPasswordAction(_previous: AuthFormState, formData: Fo
   redirect(await resolveRedirectTarget(config, `${getAuthRoutes(config).login}?${PASSWORD_RESET_DONE_PARAM}=1`));
 }
 
-/** Every session token the browser holds: the current cookie's and a legacy session's. */
-async function readHeldTokens(config: SoftureConfig): Promise<string[]> {
-  const tokens = [await readSessionToken(config), await readLegacySessionToken(config)];
-  return [...new Set(tokens.filter((token) => token !== null))];
-}
+/**
+ * Starts an OpenID Connect sign-in: the provider button's form posts `provider` and `next`. The state goes into a
+ * short-lived cookie and the browser to the provider; a failure goes back to the login page, which shows its code.
+ */
+export async function oidcSignInAction(formData: FormData): Promise<void> {
+  const config = getSoftureConfig();
+  const input = readForm(oidcSignInInput, formData);
+  const client = identifyClient({ config }, await headers());
+  if (!client.ok) redirect(getOidcErrorLoginPath(config, client.error, input.next));
 
-/** Ends the sessions the browser held before a login or register, so they cannot be reused. */
-async function endPreviousSession(config: SoftureConfig): Promise<void> {
-  for (const previous of await readHeldTokens(config)) {
-    try {
-      await logoutSession(await getAuthContext(config), previous);
-    } catch (error) {
-      reportFailure("ending the previous session", error);
-    }
+  let result;
+  try {
+    result = await startOidcSignIn(await getAuthContext(config), { provider: input.provider, next: input.next, clientKey: client.value });
+  } catch (error) {
+    result = { ok: false as const, error: reportFailure("starting an OpenID Connect sign-in", error) };
   }
+  if (!result.ok) redirect(getOidcErrorLoginPath(config, result.error, input.next));
+  await writeOidcStateCookie(config, result.value.state, result.value.maxAgeSeconds);
+  redirect(result.value.url);
 }
 
 /** Where to go after logout: a path on this app, checked like login's `next`. */

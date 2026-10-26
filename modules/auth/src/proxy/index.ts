@@ -43,6 +43,8 @@ export interface AuthGuardOptions {
 
 /** Mounted at a fixed path by the module (manifest `mount`); it answers `{ user: null }` without a session. */
 const SESSION_ROUTE = "/api/auth/session";
+/** The OpenID Connect callbacks (`/api/auth/oidc/<provider>/callback`): a visitor arrives there without a session. */
+const OIDC_ROUTES = "/api/auth/oidc";
 
 export type AuthGuard = (request: Request) => Response | null;
 
@@ -53,7 +55,7 @@ export function createAuthGuard(config: SoftureConfig, options: AuthGuardOptions
   const prefixes = options.protect.map((prefix) => normalizePrefix(prefix, "protected"));
   const changePassword = normalizePrefix(routes.changePassword, "protected");
   // Auth's own public pages: guarding them would send a visitor from the login page to itself.
-  const publicPaths = [routes.login, routes.register, routes.forgotPassword, routes.resetPassword, SESSION_ROUTE].map((path) =>
+  const publicPaths = [routes.login, routes.register, routes.forgotPassword, routes.resetPassword, SESSION_ROUTE, OIDC_ROUTES].map((path) =>
     normalizePrefix(path, "excluded"),
   );
   const excluded = (options.exclude ?? []).map((prefix) => normalizePrefix(prefix, "excluded"));

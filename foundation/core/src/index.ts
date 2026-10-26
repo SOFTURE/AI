@@ -19,6 +19,14 @@ export {
   type CalendarPeriod,
 } from "./calendar-period.js";
 export { getLocalDay, isLocalDateTime, localDateTimeSchema, type LocalDateTime } from "./local-date-time.js";
+export {
+  getDayStartInstant,
+  getLocalDateTimeInstant,
+  getWallClock,
+  getZonedInstant,
+  isTimeZone,
+  type WallClock,
+} from "./zoned-time.js";
 export { CURRENCY_MINOR_UNIT_DIGITS } from "./currency-digits.js";
 export {
   DEFAULT_DURATION_MESSAGES,
@@ -41,13 +49,18 @@ export {
   toQueryString,
   type FetchFunction,
   type HttpJsonAnswer,
+  type HttpJsonErrorBodyFailure,
   type HttpJsonFailure,
+  type HttpJsonFailureFor,
   type HttpJsonFailureCode,
   type HttpJsonMethod,
   type HttpJsonResponseHeaders,
   type HttpJsonRetryableCode,
   type HttpJsonWriteMethod,
   type LinkHeaderLinks,
+  type RequestJsonErrorSchemaOptions,
+  type RequestJsonFormWriteOptions,
+  type RequestJsonJsonWriteOptions,
   type RequestJsonOptions,
   type RequestJsonReadHeadersOptions,
   type RequestJsonReadOptions,

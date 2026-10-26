@@ -1,7 +1,8 @@
 # @softure-ai/auth
 
 Accounts for a Next.js app: register with a required consent, login, logout, password change,
-password reset by an emailed link, roles with admin-only surfaces that fail closed, database sessions, a route guard for `proxy.ts`, and ready pages and forms. The reference module
+password reset by an emailed link, sign-in with an OpenID Connect provider (Google) limited to allowed domains or
+emails, roles with admin-only surfaces that fail closed, database sessions, a route guard for `proxy.ts`, and ready pages and forms. The reference module
 of the SOFTURE standard (docs/02): it has every layer, from migrations to messages. It counts
 attempts with the rate limiter of `@softure-ai/security`, and its route guard is separate from
 channel tagging.
@@ -17,7 +18,9 @@ script), a `create-account` script for the first account of an app with registra
 `@softure-ai/auth/mailing` sends password reset mails through `@softure-ai/mailing`
 (`mailingResetSender()`); `@softure-ai/auth/jobs` sends them from a background job of `@softure-ai/jobs` with
 retry (`enqueuePasswordReset`, `passwordResetJobHandlers`). `@softure-ai/auth/testing` creates accounts directly in the database for
-tests (`createTestAccount`, section 4, "Tests").
+tests (`createTestAccount`, section 4, "Tests") and ships a fake OpenID Connect provider (`createFakeOidcProvider`).
+`auth({ oidc })` adds "Sign in with Google" (or any OpenID Connect provider) next to the password form, or instead of it
+with `password: { enabled: false }` (section 3, "OpenID Connect sign-in").
 
 ## 2. Installation
 
@@ -119,9 +122,78 @@ successful or not, so a test suite that logs in many times from one address must
 passwords for one email, from any addresses, block logins to that account for the rest of the
 window, the owner's included. Raise its limit if that trade-off is wrong for your app. Auth checks
 at its first call that the buckets it counts in exist and names the missing ones: the three
-`password-reset*` buckets only when `passwordReset.send` is set. A request whose client address
+`password-reset*` buckets only when `passwordReset.send` is set, `oidc-start` and `oidc-callback` (per client address)
+only with an OpenID Connect provider. A request whose client address
 cannot be resolved is refused (`security.client_unidentified`); the security README shows resolver
 chains for production and for development and test stacks.
+
+### OpenID Connect sign-in
+
+Sign in with Google, or any OpenID Connect provider, for the accounts of a Workspace domain or a short list of
+emails. Off without providers. With `password: { enabled: false }` it is the only way in: no password, no
+registration form, no outer sign-in in front of the host.
+
+```ts
+auth({
+  oidc: {
+    providers: [
+      {
+        id: "google", // the callback is /api/auth/oidc/google/callback
+        name: "Google", // the button reads "Sign in with Google" (messages.oidc.signInWith)
+        issuer: "https://accounts.google.com", // discovery: <issuer>/.well-known/openid-configuration
+        clientIdEnv: "GOOGLE_AUTH_CLIENT_ID",
+        clientSecretEnv: "GOOGLE_AUTH_CLIENT_SECRET",
+        allowedDomains: ["example.com"], // a verified email of these domains...
+        allowedEmails: ["partner@other.test"], // ...or one of these emails
+        authorizeParams: { prompt: "select_account", hd: "example.com" }, // optional, sent as they are
+        createAccounts: true, // default; false only links existing accounts
+      },
+    ],
+  },
+  password: { enabled: false }, // optional: hide the password form and refuse every password route
+});
+```
+
+At the provider, register `<appOrigin>/api/auth/oidc/<id>/callback` as the redirect URI (Google: an OAuth client of
+type "Web application"; for a Workspace-only app, set the consent screen to "Internal") and put its id and secret in
+the variables the provider names.
+
+- **Flow.** The button posts to `oidcSignInAction`: it counts `oidc-start`, stores the sign-in (`auth.oidc_states`:
+  the sha256 of a one-time `state`, a `nonce`, a PKCE S256 verifier and `next`), keeps the state in a short-lived
+  `<cookie>_oidc` cookie (host-only, `SameSite=Lax`) and sends the browser to the provider. The callback route counts
+  `oidc-callback`, requires the cookie's state (so a callback started in another browser is refused), consumes the
+  row, exchanges the code (client secret in the form, or `clientAuth: "basic"`) and verifies the ID token: RS256 or
+  ES256 signature against the issuer's JWKS (refetched once a minute at most when a key id is unknown), `iss`,
+  `aud`/`azp`, `exp`, `iat`, `nonce`. Discovery must name the configured issuer and https endpoints (http only on
+  localhost).
+- **Who may sign in.** `email_verified` is required, then the email must be in `allowedEmails` or its domain in
+  `allowedDomains` (one of the two lists is required). For `https://accounts.google.com`, `requireHostedDomain`
+  defaults to true: a domain match also needs Google's `hd` claim to name that domain, because a consumer Google
+  account can carry a verified address of any domain. A refused identity goes back to the login page with
+  `?oidc_error=auth.oidc_not_allowed` and never gets an account.
+- **Accounts.** The provider's subject finds the account (`auth.identities`), so an email change at the provider does
+  not lock its owner out. A first sign-in links the account with the same verified email, or creates one (with an
+  unusable password) when `createAccounts` is on; account creation does not look at `registrationClosed`, the
+  allowlist is the gate. An account keeps one identity per provider: a new subject with an email that already has one
+  (a recycled address) is refused with `auth.oidc_no_account`. `onRegistered` runs for a created account with
+  `consent: null`, `fields: {}` and `oidcProvider: "<id>"`.
+- **Session.** The callback ends the sessions the browser held and opens a normal auth session, so `requireUser`,
+  `requireRole`, `adminEmails` and every module built on auth work unchanged. It answers a `303` to `next` (through
+  `rewriteRedirect`), or to the login page with `?oidc_error=<code>`: `auth.oidc_failed` (the reason is in the log
+  only: `OpenID Connect sign-in with google failed: id_token audience`), `auth.oidc_cancelled`,
+  `auth.oidc_not_allowed`, `auth.oidc_no_account`, or a rate limit code.
+- **Passwords off.** `password: { enabled: false }` (needs a provider): `LoginPage` shows only the provider buttons,
+  `loginUser` answers `auth.invalid_credentials`, registration is closed, password reset is off and the
+  change-password page is not found (`changePassword` answers `auth.forbidden`).
+- **Your own page.** `OidcSignIn` from `@softure-ai/auth/ui` renders the buttons
+  (`<OidcSignIn action={oidcSignInAction} providers={[{ id: "google", name: "Google" }]} messages={…} next="/" />`),
+  with `error`, `hasDivider`, `classNames` (`root`, `form`, `submit`, `divider`), `submitVariant` (`secondary` by
+  default) and `unstyled`. `startOidcSignIn` and `completeOidcSignIn` in `@softure-ai/auth/server` are the flow
+  without Next.
+- **Tests.** `createFakeOidcProvider({ clock })` from `@softure-ai/auth/testing` is a provider in memory (discovery,
+  JWKS, token endpoint, real RS256 or ES256 signatures): pass `fake.definition` as a provider, `fake.fetch` as
+  `oidc.fetch` and `fake.env` as the context's `env`; `fake.signIn(authorizeUrl, { subject, email, hostedDomain })`
+  answers the callback URL. It can break on purpose (`claims`, `signWith`, `rotateKeys`, `failNext`, `setDiscovery`).
 
 ## 4. Mounting
 
@@ -139,7 +211,11 @@ export { ForgotPasswordPage as default } from "@softure-ai/auth/next";
 export { ResetPasswordPage as default } from "@softure-ai/auth/next";
 // app/api/auth/session/route.ts: { user: { id, email } | null }, never cached
 export { getSessionRoute as GET } from "@softure-ai/auth/next";
+// app/api/auth/oidc/[provider]/callback/route.ts (with auth({ oidc })): the OpenID Connect callback
+export { oidcCallbackRoute as GET } from "@softure-ai/auth/next";
 ```
+
+The route guard never guards `/api/auth/oidc/…`: a visitor arrives there without a session.
 
 The register page takes a consent label (links to your terms) and inputs of your own through
 `createRegisterPage`, so you keep the module's page:
@@ -549,8 +625,8 @@ module itself.
 
 `softure migrate` applies `migrations/0001_create_users_and_sessions.sql`,
 `0002_create_user_roles.sql`, `0003_create_password_resets.sql` and
-`0004_index_users_created_at.sql` (an index on `users.created_at` for billing's reminder mail)
-after security's.
+`0004_index_users_created_at.sql` (an index on `users.created_at` for billing's reminder mail) and
+`0005_create_identities_and_oidc_states.sql` after security's.
 
 - `auth.users(id uuid, email, password_hash, created_at, password_changed_at)`: the email is stored
   trimmed and lowercased (`CHECK`), unique; the hash must be a `scrypt$…` string.
@@ -560,6 +636,11 @@ after security's.
   `(user_id, role)`; the role name has the declared shape (`CHECK`).
 - `auth.password_resets(user_id → users ON DELETE CASCADE, token_hash, created_at, expires_at)`,
   primary key `user_id` (one pending link per account), unique `token_hash` (sha256 only).
+- `auth.identities(provider, subject, user_id → users ON DELETE CASCADE, email, created_at, last_login_at)`, primary
+  key `(provider, subject)`, unique `(user_id, provider)`: the OpenID Connect identities; `email` is the verified
+  email of the last sign-in.
+- `auth.oidc_states(state_hash, provider, nonce, code_verifier, next_path, created_at, expires_at)`: sign-ins in
+  flight (sha256 of the state only), one-time; expired rows go when the next sign-in starts.
 
 Your own tables reference `users.id` (exported as the Drizzle table `users`; roles as `userRoles`); keep app columns in
 your own 1:1 table, never in `auth.users`. Expired sessions of a user are deleted at their next
@@ -603,6 +684,7 @@ its NFC form fails, then rehashes it in NFC.
 | Name | Required | Meaning |
 | --- | --- | --- |
 | `SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED` | no | `true` / `1` closes registration, `false` / `0` opens it, over the declared default. Any other value closes it and logs the variable name. When the app defines the switch in `@softure-ai/feature-switches`, that module reads this variable by its own rules (`on` / `off` too; an unreadable value gives the fail mode). |
+| `<clientIdEnv>`, `<clientSecretEnv>` | with `oidc` | The client id and secret of each OpenID Connect provider, under the names its entry declares (e.g. `GOOGLE_AUTH_CLIENT_ID`, `GOOGLE_AUTH_CLIENT_SECRET`). A missing one fails the sign-in and logs the variable's name. |
 | `SEED_EMAIL`, `SEED_PASSWORD` | for `runSeedAccount` | The development account the seed entry creates (section 4, "Development seed"). |
 
 ## 7. Switches
@@ -642,19 +724,22 @@ replace with your own page around the forms.
 `auth({ messages: { en: { login: { title: "Sign in to Acme" } } } })`; another language is the app's own
 translation under its locale, `auth({ messages: { de: authDe } })`. Groups: `fields`, `login`,
 `register`, `changePassword`, `forgotPassword`, `resetPassword`, `resetMail` (the reset mail of
-`mailingResetSender()`; `minutes` holds plural forms), `logout`, and `errors.{auth,security,core}` keyed by the error code
+`mailingResetSender()`; `minutes` holds plural forms), `logout`, `oidc` (`signInWith` with `{provider}`, `divider`), and `errors.{auth,security,core}` keyed by the error code
 (`auth.invalid_credentials` → `errors.auth.invalid_credentials`). `getAuthErrorMessage(messages, code)`
-looks one up.
+looks one up. In `AuthMessages` the OpenID Connect keys (`oidc` and `errors.auth.oidc_*`) are optional, so a dictionary
+typed `AuthMessages` that predates them still compiles; `OidcSignIn` and `getAuthErrorMessage` read the English copy
+for a key the dictionary lacks.
 
 ## 10. Hooks
 
-`onRegistered({ user, consent, fields }, ctx)`: after the user row is inserted, in the same
+`onRegistered({ user, consent, fields, oidcProvider }, ctx)`: after the user row is inserted, in the same
 transaction (`ctx.db` is the transaction). `consent` is `{ acceptedAt }`, or `null` with
 `requireConsent: false`. `fields` holds the declared `registrationFields` the form sent, by name
 (strings cut to 512 characters, empty ones left out). They come from the client, and a link can set
 a carried one, so validate them before you store them. The hook runs inside the register action,
 so it can also read the request (`headers()`, `cookies()` from `next/headers`). A thrown error rolls the registration back and the user sees a generic
-failure. `@softure-ai/privacy` stores the consent through it.
+failure. `@softure-ai/privacy` stores the consent through it. An account created by an OpenID Connect sign-in runs it
+too, with `consent: null`, `fields: {}` and `oidcProvider` set to the provider's id (`null` for the register form).
 
 `passwordReset.send(link, user, details)`: after a reset request is answered, for an existing
 account only (section 4, "Password reset"). `mailingResetSender()` from `@softure-ai/auth/mailing`
@@ -670,9 +755,10 @@ contributes to `@softure-ai/privacy` (`privacy` flags on):
 
 - **Export** (`exportAuthUserData`): the account (id, email, `createdAt`, `passwordChangedAt`),
   stored roles with their grant dates, sessions (created and expiry dates) and a pending reset link
-  (created and expiry dates). Never the password hash or a token hash. A role held through
+  (created and expiry dates), and OpenID Connect identities (provider, subject, email, created and last sign-in
+  dates). Never the password hash or a token hash. A role held through
   `adminEmails` is configuration, so it is not in the export.
-- **Deletion** (`deleteAuthUserData`): the user's sessions, pending reset, roles and then the
+- **Deletion** (`deleteAuthUserData`): the user's sessions, pending reset, roles, identities and then the
   account row, so every session ends with the account. Privacy runs auth after the modules that
   depend on it, and the app's contributors before all modules.
 
@@ -696,5 +782,9 @@ Rate limit rows of `security` hold only SHA-256 prefixes of the email and user i
 - A temporary password from the script is not forced to change at the next login.
 - `maxAccounts` limits the `create-account` script only; registration does not count accounts. An app that must hold
   at most N accounts keeps registration closed.
+- OpenID Connect: no Front-Channel or Back-Channel Logout (a sign-out at the provider leaves the app's session), no
+  refresh of the account's email from the provider (`users.email` keeps the first one; `identities.email` follows),
+  and `isCurrentPassword` cannot re-check an account that has no password of its own. With passwords on and reset
+  configured, the owner of an account created by a sign-in can still set a password through a reset link.
 - A registration attempt reveals whether an email has an account (`auth.email_taken`); the
   `register` rate limit bounds how fast anyone can ask.
