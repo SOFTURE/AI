@@ -6,8 +6,9 @@ the token contract, the way a theme is declared, the CSS generator, the build co
 theme is a new `themes/theme-<name>` folder that follows the contract below; nothing in the kit changes.
 
 Apps install a theme package (e.g. [`@softure-ai/theme-notion`](../theme-notion/README.md)), which depends on the kit.
-An app imports the kit directly only for its stylesheets (`preflight.css`, `base.css`, `maplibre.css`), `useIsMobile`,
-or to build its own variant of a theme.
+An app imports the kit directly only for `useIsMobile` or to build its own variant of a theme. Its stylesheets
+(`preflight.css`, `base.css`, `maplibre.css`) reach the app through the theme: every theme re-exports them under its
+own name (`@softure-ai/theme-notion/base.css`), so the app imports CSS only from the package it declared.
 
 ## Design
 
@@ -27,7 +28,7 @@ ThemeDefinition (data)  ──defineTheme──▶  theme (checked)  ──build
   list. The literal types stay, so `theme.colors.primary` is known to the compiler.
 - **Built the same way.** A theme package has no build script of its own. It declares its stylesheet as data
   (`softureTheme` in `package.json`) and its build runs the kit's `softure-theme-css`, which writes `dist/theme.css`
-  from the package's `theme` and copies its extra stylesheets.
+  from the package's `theme`, copies its extra stylesheets and re-exports the kit's.
 - **Variants, not copies.** `extendTheme(base, overrides)` gives a theme that differs from another in a few tokens:
   each token group of the overrides is laid over the base's (a token is replaced whole), the result is checked.
 - **Checked in the repository.** `tests/repo/themes.test.ts` runs the contract over every `themes/theme-*` package,
@@ -49,9 +50,10 @@ ThemeDefinition (data)  ──defineTheme──▶  theme (checked)  ──build
 | `maplibre.css` | The theme's sans font on MapLibre maps (`body .maplibregl-map`, unlayered, so it beats `maplibre-gl.css` in any load order) |
 | `softure-theme-css [packageDir]` | Builds a theme package's stylesheets after `tsc` (the contract below) |
 | `/build`: `parseThemePackageConfig`, `buildThemeStylesheet`, `writeThemeStylesheets`, `buildThemePackage` | The code behind the command, for tests and tools (Node only) |
+| `/build`: `KIT_STYLESHEETS`, `buildKitStylesheetReexport(name)` | The kit stylesheets every theme re-exports, and the text of a theme's re-export |
 
 `base.css` and `maplibre.css` read the font with `--theme()`, so they are imported through the app's Tailwind, after
-the theme's `theme.css`. They read only contract tokens, so they work with every theme.
+the theme's `theme.css`. An app imports them from its theme (`@softure-ai/theme-<name>/base.css`). They read only contract tokens, so they work with every theme.
 
 ## The theme package contract
 
@@ -63,7 +65,8 @@ Every `themes/theme-<name>` package (named `@softure-ai/theme-<name>` by its fol
 3. `package.json`:
    - depends on `@softure-ai/theme-kit`; takes `react` and `tailwindcss` `^4.0.0` as peers;
    - `"build": "tsc -p tsconfig.build.json && softure-theme-css"`;
-   - exports `./theme.css` (`./dist/theme.css`) and each extra stylesheet (`./<name>.css` → `./dist/<name>.css`);
+   - exports `./theme.css` (`./dist/theme.css`), each extra stylesheet (`./<name>.css` → `./dist/<name>.css`) and the
+     kit's stylesheets (`./preflight.css`, `./base.css`, `./maplibre.css` → `./dist/<name>.css`);
    - declares the stylesheet:
 
      ```json
@@ -76,7 +79,10 @@ Every `themes/theme-<name>` package (named `@softure-ai/theme-<name>` by its fol
 
      `sources`: the component folders under `src/` (and `dist/`), written into `theme.css` as `@source`, so the app's
      Tailwind generates their classes inside `node_modules`. `imports`: CSS packages the components need, imported
-     first. `stylesheets`: plain CSS files in `src/` copied to `dist/` as they are. Each defaults to none.
+     first. `stylesheets`: plain CSS files in `src/` copied to `dist/` as they are; a kit stylesheet's name is refused.
+     Each defaults to none. The command also writes `dist/preflight.css`, `dist/base.css` and `dist/maplibre.css`, each
+     one line, `@import "@softure-ai/theme-kit/<name>.css";`: a bundler resolves it from the theme's folder, so the
+     app gets the kit version the theme depends on even when the kit is not hoisted (pnpm, a nested second version).
 
 4. A component file that creates a React context or calls a hook starts with `"use client"` (as does any source file
    that calls `createContext`), so the package root stays importable from a Server Component. Plain `.ts` modules that
