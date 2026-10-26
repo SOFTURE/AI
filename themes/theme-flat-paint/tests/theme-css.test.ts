@@ -12,6 +12,7 @@ import {
   CHECKBOX_LOOK,
   DATA_TABLE_LOOK,
   FLAT_PAINT_THEME,
+  MODAL_LOOK,
   SEGMENT_ACTIVE_LOOK,
   SEGMENTED_CONTROL_LOOK,
   SWITCH_TRACK_LOOK,
@@ -100,6 +101,26 @@ describe("theme.css in an app's Tailwind", () => {
     expect(compiled).toMatch(
       /\.shot-frame \{\s*display: block;\s*width: 100%;\s*border-radius: 12px;\s*box-shadow: var\(--shadow-shot-frame\);\s*object-fit: cover;\s*object-position: top;\s*background-color: var\(--paper\);\s*\}/,
     );
+  });
+
+  it("generates the dialog look's utilities from the look maps", () => {
+    expect(MODAL_LOOK.overlay?.split(" ")).toContain("bg-ink/60");
+    expect(compiled).toMatch(/\.bg-ink\\\/60 \{[^}]*background-color: color-mix\(in oklab, var\(--ink\) 60%, transparent\);/);
+    expect(compiled).toMatch(/\.transition-none \{\s*transition-property: none;/);
+    expect(compiled).toMatch(/\.shadow-none \{/);
+    expect(compiled).toMatch(/\.text-page \{\s*font-size: 1\.875rem;/);
+  });
+
+  it("enters a dialog within the motion tokens: the veil, a sheet below 40rem, a fade up from 40rem, a side panel", () => {
+    expect(compiled).toMatch(/@keyframes flat-paint-veil-in \{\s*from \{\s*background-color: transparent;/);
+    expect(compiled).toMatch(/@keyframes flat-paint-sheet-in \{\s*from \{\s*translate: 0 100%;/);
+    expect(compiled).toMatch(/@keyframes flat-paint-rise-in \{\s*from \{\s*opacity: 0;\s*translate: 0 0\.75rem;/);
+    expect(compiled).toMatch(/@keyframes flat-paint-side-in \{\s*from \{\s*translate: 100% 0;/);
+    expect(compiled).toMatch(/\.veil-enter \{\s*animation: flat-paint-veil-in var\(--duration-base\) var\(--ease-out-soft\) backwards;/);
+    expect(compiled).toMatch(/\.dialog-enter \{\s*animation: flat-paint-sheet-in var\(--duration-slow\) var\(--ease-out-soft\) backwards;/);
+    expect(compiled).toMatch(/@media \(width >= 40rem\) \{\s*\.dialog-enter \{\s*animation-name: flat-paint-rise-in;/);
+    expect(compiled).toMatch(/\.side-panel-enter \{\s*animation: flat-paint-side-in var\(--duration-slow\) var\(--ease-out-soft\) backwards;/);
+    expect(compiled).not.toMatch(/@keyframes flat-paint-[a-z-]+ \{[^@]*scale/);
   });
 
   it("generates the type scale with its line height, weight and tracking", () => {

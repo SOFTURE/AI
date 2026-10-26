@@ -39,5 +39,6 @@ export {
   type SegmentedControlSlot,
   type ThemeSwitchSlot,
 } from "./look/controls.js";
+export { MODAL_LOOK, STANDING_PANEL_LOOK, getModalLook, type ModalLook, type ModalSlot, type ModalWidth } from "./look/modal.js";
 export { ROLE_TONE, type DataRole, type UiTone } from "./look/roles.js";
 export { DATA_TABLE_LOOK, type DataTableSlot } from "./look/table.js";

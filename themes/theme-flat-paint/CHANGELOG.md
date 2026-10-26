@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `Modal` and `StandingPanel` look (#781): `page.css` adds the dialog entrances (`veil-enter`, `dialog-enter`: a
+  bottom sheet on a phone, a fade up 0.75 rem from 40 rem, `side-panel-enter`: from the right; slow duration, soft
+  easing, no scale, no exit), and the look maps add `MODAL_LOOK`, `STANDING_PANEL_LOOK` and `getModalLook(width)`
+  (veil `bg-ink/60`, panel without shadow or transition, close button `rounded-md`, title on `text-page`). An app
+  drops its own keyframes and slot classes and passes `classNames={getModalLook(width)}` to `Modal` and
+  `classNames={STANDING_PANEL_LOOK}` to `StandingPanel`.
 - `SEGMENTED_CONTROL_LOOK` and `THEME_SWITCH_LOOK` (#780): ready slot maps for ui's `SegmentedControl` and
   `ThemeSwitch` with `unstyled`; the checked segment is surface, strong line and bold (never lime, which fails WCAG
   1.4.11 on white), focus is a 2 px accent outline, the legend is visually hidden. `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK`
