@@ -12,6 +12,7 @@ const WORKFLOWS_DIR = join(REPO_ROOT, ".github/workflows");
 
 interface Step {
   name?: string;
+  if?: string;
   uses?: string;
   with?: Record<string, unknown>;
   run?: string;
@@ -91,6 +92,58 @@ describe("e2e.yml", () => {
     for (const pattern of workflow.on.push?.["paths-ignore"] ?? []) {
       expect(pattern).not.toMatch(/^examples\b|^\*\*\/\*\.md$/);
     }
+  });
+});
+
+// `npx playwright install --with-deps chromium` ran apt against the runner's Ubuntu mirror within a 5-minute step, and
+// a slow mirror failed the theme-notion visual job before any test ran (#820). The browser now comes from a cache
+// keyed on the Playwright version, and apt gets a step timeout long enough to wait out a slow mirror.
+const CHROMIUM_ACTION = "./.github/actions/playwright-chromium";
+
+describe.each([
+  ["themes.yml", "visual"],
+  ["e2e.yml", "e2e"],
+  ["e2e.yml", "stripe-sandbox"],
+])("%s → %s installs Chromium", (name, jobId) => {
+  const job = readWorkflow(name).jobs[jobId];
+  const install = job?.steps?.find((step) => step.name === "Install Chromium");
+
+  it("through the shared cached action", () => {
+    expect(install?.uses).toBe(CHROMIUM_ACTION);
+    expect(install?.run).toBeUndefined();
+  });
+
+  it("within a step timeout that waits out a slow mirror and still ends before the job's", () => {
+    expect(install?.["timeout-minutes"]).toBeGreaterThanOrEqual(15);
+    if (job?.["timeout-minutes"] !== undefined) {
+      expect(install?.["timeout-minutes"]).toBeLessThan(job["timeout-minutes"]);
+    }
+  });
+});
+
+describe("the playwright-chromium action", () => {
+  interface CompositeAction {
+    runs: { using: string; steps: Step[] };
+  }
+  const action = parse(
+    readFileSync(join(REPO_ROOT, ".github/actions/playwright-chromium/action.yml"), "utf8"),
+  ) as CompositeAction;
+  const steps = action.runs.steps;
+  const cache = steps.find((step) => step.uses?.startsWith("actions/cache@"));
+
+  it("caches Playwright's browsers keyed on the installed playwright-core version", () => {
+    expect(action.runs.using).toBe("composite");
+    expect(cache?.with?.path).toBe("~/.cache/ms-playwright");
+    expect(cache?.with?.key).toContain("steps.version.outputs.playwright");
+    const version = steps.find((step) => step.with === undefined && step.run?.includes("playwright-core/package.json"));
+    expect(version?.run).toContain("$GITHUB_OUTPUT");
+  });
+
+  it("downloads the browser only on a cache miss and installs the system packages on its own", () => {
+    const browser = steps.find((step) => step.run?.includes("npx playwright install chromium"));
+    expect(browser?.run).not.toContain("--with-deps");
+    expect(browser?.if).toContain("cache-hit != 'true'");
+    expect(steps.some((step) => step.run?.includes("npx playwright install-deps chromium"))).toBe(true);
   });
 });
 
