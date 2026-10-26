@@ -78,6 +78,10 @@ Every `themes/theme-<name>` package (named `@softure-ai/theme-<name>` by its fol
      Tailwind generates their classes inside `node_modules`. `imports`: CSS packages the components need, imported
      first. `stylesheets`: plain CSS files in `src/` copied to `dist/` as they are. Each defaults to none.
 
+4. A component file that creates a React context or calls a hook starts with `"use client"` (as does any source file
+   that calls `createContext`), so the package root stays importable from a Server Component. Plain `.ts` modules that
+   only define a hook (`useIsMobile`) need no directive.
+
 `theme.css` is then `@import` lines, `@source` lines and the generated tokens, in that order.
 
 ## The generated CSS

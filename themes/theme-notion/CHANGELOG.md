@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Server Components (#770): the package root imports from a React Server Component again. 0.3.0's `ui/item.tsx`
+  created the `ItemGroup` context at module level without `"use client"`, so `next build` failed with
+  `createContext is not a function` on any server page that imported from `@softure-ai/theme-notion`, even for
+  server-safe parts such as `PageHeader` or `Empty`. The file is a client module now; `tests/repo/themes.test.ts`
+  checks every theme so a file with a context or a component hook cannot ship without the directive. An app on 0.2.0
+  moves to this version with no change of its own; an app on 0.3.0 drops any workaround that avoided the root import.
+
 ## 0.3.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.3` (was `^0.1.2`): the version whose `base.css` carries the border and outline
