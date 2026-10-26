@@ -1,12 +1,13 @@
 ---
 change_id: theme-flat-paint-modal-look
 title: "theme-flat-paint: Modal and StandingPanel look (issue #781)"
-status: open
+status: archived
 roadmap_item: null
 issue: 781
 branch: claude/project-thread-kk83kj
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent
