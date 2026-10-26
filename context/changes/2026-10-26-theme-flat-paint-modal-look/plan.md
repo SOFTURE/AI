@@ -1,6 +1,6 @@
 ---
 change_id: theme-flat-paint-modal-look
-status: planned
+status: archived
 ---
 
 # Plan: Flat Paint Modal and StandingPanel look (issue #781)
@@ -30,4 +30,4 @@ Files: `themes/theme-flat-paint/src/page.css`, `src/look/modal.ts`, `src/index.t
 
 ## Progress
 
-- [ ] Phase 1: motion and look maps
+- [x] Phase 1: motion and look maps (05ed54c, tests 42/42)
