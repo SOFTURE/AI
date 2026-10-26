@@ -1,12 +1,13 @@
 ---
 change_id: observability-short-lived-814
 title: "observability: a short-lived mode for one-shot processes (issue #814)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 814
 branch: claude/project-thread-4gobi3
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent

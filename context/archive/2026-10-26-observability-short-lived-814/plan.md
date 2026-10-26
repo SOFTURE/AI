@@ -1,6 +1,6 @@
 ---
 change_id: observability-short-lived-814
-status: in_progress
+status: archived
 ---
 
 # Plan: a short-lived mode for one-shot processes (issue #814)
@@ -37,5 +37,5 @@ paragraph names the cost per run), `CHANGELOG.md` `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: `lifetime: "short"`
-- [ ] Phase 2: docs
+- [x] Phase 1: `lifetime: "short"` (fe6a858)
+- [x] Phase 2: docs (cadfb37)
