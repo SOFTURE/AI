@@ -11,8 +11,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   rules for other links now have zero specificity (`:where()`), so an app's own class on a link wins over them. Plain
   links look as before.
 
-Migration for an app that reset the panel's link rules through `classNames.panel` (e.g. `[&_a]:inline-flex
-[&_a]:px-4 [&_a]:py-0 [&_a:not(:hover)]:text-muted`): drop those resets. A `ButtonLink` in the panel now looks as it
+Migration for an app that reset the panel's link rules through `classNames.panel`, for example with
+`[&_a]:inline-flex [&_a]:px-4 [&_a]:py-0 [&_a:not(:hover)]:text-muted`: drop those resets. A `ButtonLink` in the panel now looks as it
 does everywhere else; as a flex item of the column panel it stretches to the panel's width, so wrap it in a
 `<div>` if it should keep its own width.
 
