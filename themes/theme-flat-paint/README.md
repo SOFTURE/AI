@@ -103,6 +103,8 @@ the app adds no `@source`.
 | `CHECKBOX_LOOK` | `Checkbox` slots with `unstyled` |
 | `getModalLook(width)`, `MODAL_LOOK`, `STANDING_PANEL_LOOK` | `Modal` and `StandingPanel` `classNames`: flat veil, entrance motion, no shadow, title on `text-page` |
 | `SEGMENTED_GROUP_LOOK`, `SEGMENT_ACTIVE_LOOK`, `SEGMENT_IDLE_LOOK`, `SEGMENT_ACTIVE_WHEN_CURRENT_LOOK` | a segmented control, and ui's `SegmentedNav` |
+| `SEGMENTED_CONTROL_LOOK`, `THEME_SWITCH_LOOK` | `SegmentedControl` and `ThemeSwitch` slots with `unstyled`: the checked segment without lime, the legend hidden (spread the map and set `legend` to show it) |
+| `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK` | the active segment as `has-checked:` variants, for an option wrapping a native radio |
 
 ## Tokens
 
