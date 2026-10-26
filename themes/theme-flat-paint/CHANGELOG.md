@@ -6,6 +6,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Look maps for five more ui components (#782): `HINT_LOOK` (spread on `Hint`: 10 px glyph, `accent` focus ring,
+  6 px bubble, 8 px gap), `CHECKLIST_LOOK` (hairline list, `accessible` done marker, struck-through done label),
+  `STEPPER_LOOK` (32/40 px markers per state, label for screen readers only on phones), `MENU_PANEL_LOOK` (ghost
+  trigger, flat panel with an opacity and scale entrance; for `DisclosureMenu`, `AccountMenu` and `MobileMenu`) and
+  `COLOR_FIELD_LOOK` (square presets framed when picked, a 28 × 36 px native picker). An app that carries these
+  class strings itself replaces them with the maps, e.g. `<Checklist classNames={CHECKLIST_LOOK} …>`; one that
+  merges its own classes in passes `cn(CHECKLIST_LOOK.row, …)`.
 - `base.css`, `preflight.css`, `maplibre.css` (#795): the kit's page stylesheets, exported by the theme as
   `@softure-ai/theme-flat-paint/<name>.css`. Each is one `@import` of the kit's file, resolved from the theme's own dependency,
   so the app gets the kit version the theme was built against and needs no `@softure-ai/theme-kit` of its own. An app

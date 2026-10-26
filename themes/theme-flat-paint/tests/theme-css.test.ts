@@ -11,11 +11,16 @@ import {
   BUTTON_VARIANT_LOOK,
   CHART_PIN_LOOK,
   CHECKBOX_LOOK,
+  CHECKLIST_LOOK,
+  COLOR_FIELD_LOOK,
   DATA_TABLE_LOOK,
   FLAT_PAINT_THEME,
+  HINT_LOOK,
+  MENU_PANEL_LOOK,
   MODAL_LOOK,
   SEGMENT_ACTIVE_LOOK,
   SEGMENTED_CONTROL_LOOK,
+  STEPPER_LOOK,
   SWITCH_TRACK_LOOK,
 } from "../src/index.js";
 
@@ -80,6 +85,19 @@ describe("theme.css in an app's Tailwind", () => {
       expect([className, classes.includes(className)]).toEqual([className, true]);
     }
     for (const selector of [".bg-ink", ".text-paper", ".peer-checked\\:bg-accent-fill", ".border-line-strong", ".peer-aria-invalid\\:border-debt", ".has-checked\\:bg-surface", ".has-focus-visible\\:outline-accent"]) {
+      expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
+    }
+  });
+
+  it("generates the state variants of the component look maps", () => {
+    for (const className of [
+      ...(CHECKLIST_LOOK.marker ?? "").split(" "),
+      ...(STEPPER_LOOK.marker ?? "").split(" "),
+      ...(MENU_PANEL_LOOK.panel ?? "").split(" "),
+      ...(COLOR_FIELD_LOOK.preset ?? "").split(" "),
+      ...HINT_LOOK.classNames.trigger?.split(" ") ?? [],
+    ]) {
+      const selector = `.${className.replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character}`)}`;
       expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
     }
   });

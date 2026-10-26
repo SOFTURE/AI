@@ -96,7 +96,9 @@ import { BUTTON_VARIANT_LOOK, CARD_TITLE_LOOK, ROLE_TONE, STAT_VALUE_LOOK } from
 
 Class strings for `className` / `classNames` of the ui components, holding only what differs from ui's defaults (an
 app class beats ui's `@layer softure`). They are literals, so `theme.css` lists their folder as a Tailwind source and
-the app adds no `@source`.
+the app adds no `@source`. A state that ui draws per item (a done checklist row, the current step) is a variant on
+the state attribute ui sets on the item (`in-data-done:`, `in-data-[state=current]:`), so one class string covers every
+state. App-specific motion (a wizard's step stamp) stays in the app.
 
 | Export | For |
 | --- | --- |
@@ -109,6 +111,11 @@ the app adds no `@source`.
 | `CHECKBOX_LOOK` | `Checkbox` slots with `unstyled` |
 | `getModalLook(width)`, `MODAL_LOOK`, `STANDING_PANEL_LOOK` | `Modal` and `StandingPanel` `classNames`: flat veil, entrance motion, no shadow, title on `text-page` |
 | `SEGMENTED_GROUP_LOOK`, `SEGMENT_ACTIVE_LOOK`, `SEGMENT_IDLE_LOOK`, `SEGMENT_ACTIVE_WHEN_CURRENT_LOOK` | a segmented control, and ui's `SegmentedNav` |
+| `HINT_LOOK` | `Hint` as a whole appearance (`classNames` and the 8 px `triggerGap`): `<Hint {...HINT_LOOK}>` |
+| `CHECKLIST_LOOK` | `Checklist` `classNames`: hairline list, done marker and label (by ui's `data-done`) |
+| `STEPPER_LOOK` | `Stepper` `classNames`: marker per state (by ui's `data-state`), label hidden on phones |
+| `MENU_PANEL_LOOK` | `DisclosureMenu`, `AccountMenu`, `MobileMenu` slots `trigger` and `panel` |
+| `COLOR_FIELD_LOOK` | `ColorField` slots `preset` (square, framed when picked) and `swatch` (the native picker) |
 | `SEGMENTED_CONTROL_LOOK`, `THEME_SWITCH_LOOK` | `SegmentedControl` and `ThemeSwitch` slots with `unstyled`: the checked segment without lime, the legend hidden (spread the map and set `legend` to show it) |
 | `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK` | the active segment as `has-checked:` variants, for an option wrapping a native radio |
 | `DATA_TABLE_LOOK` | an app's own `<table>`: `headerCell`, `row`, `cell`, `amountCell`, `emptyCell`, `selectedRow`, `stickyColumn` |
