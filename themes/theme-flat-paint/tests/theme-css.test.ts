@@ -13,6 +13,7 @@ import {
   CHECKBOX_LOOK,
   FLAT_PAINT_THEME,
   SEGMENT_ACTIVE_LOOK,
+  SEGMENTED_CONTROL_LOOK,
   SWITCH_TRACK_LOOK,
 } from "../src/index.js";
 
@@ -72,11 +73,11 @@ describe("theme.css in an app's Tailwind", () => {
   });
 
   it("generates every class of the look maps without an app source of its own", () => {
-    const classes = [BUTTON_VARIANT_LOOK.ink, CHECKBOX_LOOK.frame, SEGMENT_ACTIVE_LOOK, SWITCH_TRACK_LOOK].flatMap((look) => look.split(" "));
-    for (const className of ["bg-ink", "text-paper", "peer-checked:bg-accent-fill", "border-line-strong", "peer-aria-invalid:border-debt"]) {
+    const classes = [BUTTON_VARIANT_LOOK.ink, CHECKBOX_LOOK.frame, SEGMENT_ACTIVE_LOOK, SEGMENTED_CONTROL_LOOK.option, SWITCH_TRACK_LOOK].flatMap((look) => look.split(" "));
+    for (const className of ["bg-ink", "text-paper", "peer-checked:bg-accent-fill", "border-line-strong", "peer-aria-invalid:border-debt", "has-checked:bg-surface", "has-focus-visible:outline-accent"]) {
       expect([className, classes.includes(className)]).toEqual([className, true]);
     }
-    for (const selector of [".bg-ink", ".text-paper", ".peer-checked\\:bg-accent-fill", ".border-line-strong", ".peer-aria-invalid\\:border-debt"]) {
+    for (const selector of [".bg-ink", ".text-paper", ".peer-checked\\:bg-accent-fill", ".border-line-strong", ".peer-aria-invalid\\:border-debt", ".has-checked\\:bg-surface", ".has-focus-visible\\:outline-accent"]) {
       expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
     }
   });

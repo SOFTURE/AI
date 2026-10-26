@@ -102,6 +102,8 @@ the app adds no `@source`.
 | `SWITCH_INPUT_LOOK`, `SWITCH_TRACK_LOOK`, `SWITCH_KNOB_LOOK` | a switch drawn over a native checkbox |
 | `CHECKBOX_LOOK` | `Checkbox` slots with `unstyled` |
 | `SEGMENTED_GROUP_LOOK`, `SEGMENT_ACTIVE_LOOK`, `SEGMENT_IDLE_LOOK`, `SEGMENT_ACTIVE_WHEN_CURRENT_LOOK` | a segmented control, and ui's `SegmentedNav` |
+| `SEGMENTED_CONTROL_LOOK`, `THEME_SWITCH_LOOK` | `SegmentedControl` and `ThemeSwitch` slots with `unstyled`: the checked segment without lime, the legend hidden (spread the map and set `legend` to show it) |
+| `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK` | the active segment as `has-checked:` variants, for an option wrapping a native radio |
 | `getChartFlagLook(look, size)`, `CHART_FLAG_VARIANT_LOOK`, `CHART_FLAG_SIZE_LOOK` | `@softure-ai/charts` `ChartFlag variant="flag"` `className`: `accent` (lime, ink text) or `deep` (a variant date, white text), by size |
 | `CHART_PIN_LOOK` | `ChartPin` `classNames`: `dot` (fill by variant, plus size by size), ring by the chart's surface, `line` by surface |
 | `CHART_ROLE_TONE` | the charts tone (`ChartToneName`) of each role: `accessible`, `locked`, `debt`, `accent`, `muted` |

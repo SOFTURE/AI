@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `SEGMENTED_CONTROL_LOOK` and `THEME_SWITCH_LOOK` (#780): ready slot maps for ui's `SegmentedControl` and
+  `ThemeSwitch` with `unstyled`; the checked segment is surface, strong line and bold (never lime, which fails WCAG
+  1.4.11 on white), focus is a 2 px accent outline, the legend is visually hidden. `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK`
+  is the active segment as `has-checked:` variants. An app replaces its own two slot maps with
+  `<SegmentedControl unstyled classNames={SEGMENTED_CONTROL_LOOK} … />` and
+  `<ThemeSwitch unstyled classNames={THEME_SWITCH_LOOK} />`.
 - The look of the `@softure-ai/charts` primitives (#779), in `look/chart.ts`: `CHART_FLAG_VARIANT_LOOK` (`accent`,
   `deep`), `CHART_FLAG_SIZE_LOOK` and `getChartFlagLook` for `ChartFlag`; `CHART_PIN_LOOK` (dot fill and size, the
   ring per chart surface, the event line per surface) for `ChartPin`; `CHART_ROLE_TONE`, the charts tone of each role.
