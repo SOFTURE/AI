@@ -1,12 +1,13 @@
 ---
 change_id: auth-optional-oidc-messages-786
 title: "auth: OpenID Connect message keys optional in AuthMessages (issue #786)"
-status: open
+status: archived
 roadmap_item: null
 issue: 786
 branch: claude/project-thread-cvdn8i
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent

@@ -1,6 +1,6 @@
 ---
 change_id: auth-optional-oidc-messages-786
-status: open
+status: archived
 ---
 
 # Plan: optional OpenID Connect message keys (issue #786)
@@ -28,4 +28,4 @@ Files: `modules/auth/src/messages/index.ts`, `src/ui/oidc-sign-in.tsx`, `tests/m
 
 ## Progress
 
-- [ ] Phase 1: optional keys with English fallback
+- [x] Phase 1: optional keys with English fallback (a5dc750, auth tests 464/464)
