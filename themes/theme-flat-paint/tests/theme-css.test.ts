@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   BUTTON_VARIANT_LOOK,
+  CHART_PIN_LOOK,
   CHECKBOX_LOOK,
   FLAT_PAINT_THEME,
   SEGMENT_ACTIVE_LOOK,
@@ -78,6 +79,15 @@ describe("theme.css in an app's Tailwind", () => {
     for (const selector of [".bg-ink", ".text-paper", ".peer-checked\\:bg-accent-fill", ".border-line-strong", ".peer-aria-invalid\\:border-debt"]) {
       expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
     }
+  });
+
+  it("generates the chart look maps, the pin line as the package's dash colour", () => {
+    expect(compiled).toMatch(/\.rounded-flag \{\s*border-radius: 4px;/);
+    for (const selector of [".bg-lime-deep", ".bg-accent-fill", ".text-on-accent", ".size-2\\.5", ".border-paper", ".text-\\[0\\.6875rem\\]"]) {
+      expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
+    }
+    expect(CHART_PIN_LOOK.line.paper.startsWith("[--sft-chart-pin-line:")).toBe(true);
+    expect(compiled).toContain("--sft-chart-pin-line: color-mix(in oklab,var(--sft-chart-axis) 70%,transparent);");
   });
 
   it("generates the type scale with its line height, weight and tracking", () => {

@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The look of the `@softure-ai/charts` primitives (#779), in `look/chart.ts`: `CHART_FLAG_VARIANT_LOOK` (`accent`,
+  `deep`), `CHART_FLAG_SIZE_LOOK` and `getChartFlagLook` for `ChartFlag`; `CHART_PIN_LOOK` (dot fill and size, the
+  ring per chart surface, the event line per surface) for `ChartPin`; `CHART_ROLE_TONE`, the charts tone of each role.
+  An app that passed `border-l border-dashed border-chart-axis/60` to the pin line drops it: that border drew a second
+  dash next to the package's; `CHART_PIN_LOOK.line` colours the package's own dash instead.
+
 ## 0.1.1
 
 - No change to the package itself: the first version published through the npm trusted publisher (OIDC) with

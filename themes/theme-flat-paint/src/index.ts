@@ -1,4 +1,5 @@
-// The Flat Paint theme: tokens, cn and the look of the @softure-ai/ui components in this design system.
+// The Flat Paint theme: tokens, cn and the look of the @softure-ai/ui and @softure-ai/charts components in
+// this design system.
 // The stylesheets are separate entries: `@softure-ai/theme-flat-paint/theme.css`, `/sft-bridge.css` and `/page.css`.
 export { FLAT_PAINT_THEME, theme } from "./tokens.js";
 export { cn } from "./lib/utils.js";
@@ -23,6 +24,20 @@ export {
   type CardVariant,
   type StatSize,
 } from "./look/card.js";
+export {
+  CHART_FLAG_SIZE_LOOK,
+  CHART_FLAG_VARIANT_LOOK,
+  CHART_PIN_LOOK,
+  CHART_ROLE_TONE,
+  getChartFlagLook,
+  type ChartFlagLook,
+  type ChartFlagSize,
+  type ChartPinSize,
+  type ChartPinVariant,
+  type ChartRole,
+  type ChartSurface,
+  type ChartTone,
+} from "./look/chart.js";
 export {
   CHECKBOX_LOOK,
   SEGMENTED_GROUP_LOOK,
