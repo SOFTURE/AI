@@ -4,6 +4,44 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## 0.2.6
+
+Sign in with an OpenID Connect provider (Google), limited to allowed domains or emails (#769). Additive: an app without
+`oidc` sees no change except two new bucket defaults.
+
+- `auth({ oidc: { providers: [{ id, name, issuer, clientIdEnv, clientSecretEnv, allowedDomains, allowedEmails,
+  createAccounts, ... }] } })`: authorization code flow with PKCE S256, a one-time state bound to the browser by a
+  short-lived cookie, a nonce, and the ID token verified against the issuer's JWKS (RS256, ES256). `email_verified`
+  is required, then the allowlist; for Google a domain match also needs the `hd` claim (`requireHostedDomain`).
+- New tables `auth.identities` (provider, subject → account; one per provider and account) and `auth.oidc_states`
+  (migration `0005`). A first sign-in links the account with the same verified email or creates one without a usable
+  password; later sign-ins find it by the provider's subject.
+- `password: { enabled: false }`: only the provider buttons; login, registration, reset and password change refuse.
+- `oidcSignInAction` and `oidcCallbackRoute` in `/next`, `OidcSignIn` in `/ui`, `startOidcSignIn` and
+  `completeOidcSignIn` in `/server`, `createFakeOidcProvider` in `/testing`. `LoginPage` shows the buttons and the
+  `?oidc_error=` message.
+- `AUTH_RATE_LIMIT_BUCKETS` gains `oidc-start` and `oidc-callback` (20 per 15 minutes per client address), required
+  only with a provider. New error codes `auth.oidc_failed`, `auth.oidc_cancelled`, `auth.oidc_not_allowed`,
+  `auth.oidc_no_account`; new copy `oidc.signInWith`, `oidc.divider` and the four error messages.
+- `RegisteredEvent` gains `oidcProvider` (`null` from the register form); `ChangePasswordErrorCode` gains
+  `auth.forbidden`. The privacy export lists `identities`, and the deletion removes them.
+- Needs `@softure-ai/core` `^0.2.4` (form bodies and error bodies of `requestJson`).
+
+Migration for an app that wants Google-only sign-in (for example one behind Cloudflare Access today):
+
+1. Run `softure migrate` (adds the two tables).
+2. In Google Cloud, create an OAuth client of type "Web application" with the redirect URI
+   `<APP_ORIGIN>/api/auth/oidc/google/callback`; for a Workspace-only app set the consent screen to "Internal".
+3. Set `GOOGLE_AUTH_CLIENT_ID` and `GOOGLE_AUTH_CLIENT_SECRET` in every environment.
+4. Add the provider to `auth({ oidc: { providers: [...] } })` with `issuer: "https://accounts.google.com"` and
+   `allowedDomains` (and/or `allowedEmails`), and `password: { enabled: false }` to drop the password form.
+5. Mount `app/api/auth/oidc/[provider]/callback/route.ts` with `export { oidcCallbackRoute as GET } from
+   "@softure-ai/auth/next";`. The app's security buckets already have the new ones when it spreads
+   `AUTH_RATE_LIMIT_BUCKETS`; otherwise add `oidc-start` and `oidc-callback`.
+6. Sign in once: the existing owner account (same email) is linked, nothing else changes. Then the outer sign-in in
+   front of the host (Cloudflare Access) and its bypass list can go, and the `create-account` password account and
+   change-password page are no longer needed.
+
 ## 0.2.5
 
 - The auth forms' submit button keeps its width while sending (#616): `LoginForm`, `RegisterForm`,

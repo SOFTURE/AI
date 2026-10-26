@@ -14,9 +14,10 @@ const OFF = new Set(["false", "0"]);
  * Whether registration is closed. The app's switch provider answers first (env override, stored
  * value, default and fail mode as it defines them). Without one, the env override wins over the
  * declared default; a value it cannot read closes registration (fail closed) and is logged once, by
- * name, never by value.
+ * name, never by value. With `password.enabled: false` the register form is gone, so it is always closed.
  */
 export async function isRegistrationClosed(ctx: ModuleContext, env: Readonly<Record<string, string | undefined>> = process.env): Promise<boolean> {
+  if (!getAuthOptions(ctx.config).password.enabled) return true;
   const reading = await readSwitch(ctx, REGISTRATION_CLOSED_SWITCH);
   if (reading.kind === "value") return reading.isEnabled;
   const override = env[REGISTRATION_CLOSED_ENV]?.trim().toLowerCase();

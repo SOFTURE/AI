@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Server Components (#770): the package root imports from a React Server Component again. 0.3.0's `ui/item.tsx`
+  created the `ItemGroup` context at module level without `"use client"`, so `next build` failed with
+  `createContext is not a function` on any server page that imported from `@softure-ai/theme-notion`, even for
+  server-safe parts such as `PageHeader` or `Empty`. The file is a client module now; `tests/repo/themes.test.ts`
+  checks every theme so a file with a context or a component hook cannot ship without the directive. An app on 0.2.0
+  moves to this version with no change of its own; an app on 0.3.0 drops any workaround that avoided the root import.
 - `SortableList` covers what kept an app on its own dnd-kit wiring (#771); everything is opt-in, existing lists
   behave as before:
   - `disabled` on the list (read-only: no row lifts by touch, mouse or keyboard, rows stay clickable) and on a

@@ -19,7 +19,7 @@ describe("the auth module", () => {
 
   it("fills in the defaults", () => {
     expect(auth().options).toEqual({
-      password: { minLength: 10, scrypt: { cost: 2 ** 17, blockSize: 8, parallelization: 1 } },
+      password: { enabled: true, minLength: 10, scrypt: { cost: 2 ** 17, blockSize: 8, parallelization: 1 } },
       session: { ttlDays: 30 },
       cookie: { name: "softure_session" },
       requireConsent: true,
@@ -28,7 +28,75 @@ describe("the auth module", () => {
       roles: [],
       adminEmails: [],
       passwordReset: { ttlMinutes: 60 },
+      oidc: { providers: [], stateTtlMinutes: 10, httpTimeoutMs: 10_000 },
     });
+  });
+
+  it("fills in an OpenID Connect provider's defaults, requiring Workspace accounts for a Google domain", () => {
+    const options = auth({
+      oidc: {
+        providers: [
+          { id: "google", name: "Google", issuer: "https://accounts.google.com/", clientIdEnv: "GOOGLE_AUTH_CLIENT_ID", allowedDomains: [" Example.com"] },
+          { id: "corp", name: "Corp", issuer: "https://id.example.com", clientIdEnv: "CORP_ID", allowedEmails: ["Ada@Example.com"] },
+        ],
+      },
+    }).options;
+    expect(options.oidc.providers).toEqual([
+      {
+        id: "google",
+        name: "Google",
+        issuer: "https://accounts.google.com",
+        clientIdEnv: "GOOGLE_AUTH_CLIENT_ID",
+        clientAuth: "body",
+        scopes: [],
+        authorizeParams: {},
+        allowedDomains: ["example.com"],
+        allowedEmails: [],
+        requireHostedDomain: true,
+        createAccounts: true,
+      },
+      {
+        id: "corp",
+        name: "Corp",
+        issuer: "https://id.example.com",
+        clientIdEnv: "CORP_ID",
+        clientAuth: "body",
+        scopes: [],
+        authorizeParams: {},
+        allowedDomains: [],
+        allowedEmails: ["ada@example.com"],
+        requireHostedDomain: false,
+        createAccounts: true,
+      },
+    ]);
+  });
+
+  it("refuses OpenID Connect providers it cannot run safely, and passwords off without a provider", () => {
+    const provider = { id: "google", name: "Google", issuer: "https://accounts.google.com", clientIdEnv: "GOOGLE_AUTH_CLIENT_ID", allowedDomains: ["example.com"] };
+    expect(() =>
+      auth({
+        oidc: {
+          providers: [
+            { ...provider, id: "Google", issuer: "http://accounts.google.com", clientIdEnv: "google id", allowedDomains: [] },
+            provider,
+            provider,
+          ],
+        },
+      }),
+    ).toThrow(
+      [
+        'Invalid SOFTURE configuration in module "auth":',
+        "- options.oidc.providers.0.id: must be an id such as google (a-z first, then a-z, 0-9 or -, at most 32)",
+        "- options.oidc.providers.0.issuer: must be an https URL (http only on localhost)",
+        "- options.oidc.providers.0.clientIdEnv: must be an environment variable name such as GOOGLE_AUTH_CLIENT_ID",
+        "- options.oidc.providers: must not repeat a provider id",
+      ].join("\n"),
+    );
+    expect(() => auth({ oidc: { providers: [{ ...provider, allowedDomains: [] }] } })).toThrow(
+      "- options.oidc.providers.0.allowedDomains: needs allowedDomains or allowedEmails: an OpenID Connect sign-in is limited to them",
+    );
+    expect(() => auth({ password: { enabled: false } })).toThrow("- options.password.enabled: needs an oidc provider: without passwords nobody could sign in");
+    expect(() => auth({ password: { enabled: false }, oidc: { providers: [{ ...provider, issuer: "http://localhost:8080/realms/dev" }] } })).not.toThrow();
   });
 
   it("refuses options it cannot run with, listing every problem", () => {
@@ -157,6 +225,34 @@ describe("auth tables constraints", () => {
     await expect(insert(otherId, "c".repeat(64), new Date(NOW.getTime() + 1000))).rejects.toThrow(/duplicate key/);
   });
 
+  it("keeps one identity per provider and account, and deletes identities with the account", async () => {
+    const userId = await insertUser("ada@example.com");
+    const insertIdentity = (subject: string, provider = "google") =>
+      test.database.client.query(
+        "INSERT INTO auth.identities (provider, subject, user_id, email, created_at, last_login_at) VALUES ($1, $2, $3, 'ada@example.com', $4, $4)",
+        [provider, subject, userId, NOW],
+      );
+    await insertIdentity("sub-1");
+    await expect(insertIdentity("sub-2")).rejects.toThrow(/identities_user_provider_key/);
+    await expect(insertIdentity("sub-1", "Google")).rejects.toThrow(/check/i);
+    await insertIdentity("sub-1", "corp");
+    await test.database.client.query("DELETE FROM auth.users WHERE id = $1", [userId]);
+    const left = await test.database.client.query("SELECT 1 FROM auth.identities");
+    expect(left.rows).toEqual([]);
+  });
+
+  it("rejects an OpenID Connect state that is not sha256 hex, a short nonce and a next path that is not a path", async () => {
+    const insertState = (stateHash: string, nonce: string, nextPath: string) =>
+      test.database.client.query(
+        "INSERT INTO auth.oidc_states (state_hash, provider, nonce, code_verifier, next_path, created_at, expires_at) VALUES ($1, 'google', $2, $3, $4, $5, $6)",
+        [stateHash, nonce, "v".repeat(43), nextPath, NOW, new Date(NOW.getTime() + 600_000)],
+      );
+    await insertState("a".repeat(64), "n".repeat(43), "/dashboard");
+    await expect(insertState("b".repeat(63), "n".repeat(43), "/")).rejects.toThrow(/check/i);
+    await expect(insertState("c".repeat(64), "short", "/")).rejects.toThrow(/check/i);
+    await expect(insertState("d".repeat(64), "n".repeat(43), "https://evil.test/")).rejects.toThrow(/check/i);
+  });
+
   it("deletes a user's sessions with the user", async () => {
     const userId = await insertUser("ada@example.com");
     await test.database.client.query("INSERT INTO auth.sessions (token_hash, user_id, created_at, expires_at) VALUES ($1, $2, $3, $4)", [
@@ -201,6 +297,16 @@ describe("the auth health check", () => {
     }
   });
 
+  it("throws without the identities table", async () => {
+    const test = await createTestAuth();
+    try {
+      await test.database.client.query("DROP TABLE auth.identities");
+      await expect(auth().health?.(test.ctx)).rejects.toThrow(/auth\.identities/);
+    } finally {
+      await test.database.close();
+    }
+  });
+
   it("throws without the roles table", async () => {
     const test = await createTestAuth();
     try {
@@ -221,6 +327,6 @@ describe("the default buckets", () => {
 describe("the rate limit bucket defaults (#328)", () => {
   it("declare what each bucket is keyed by", () => {
     const kinds = Object.fromEntries(Object.entries(AUTH_RATE_LIMIT_BUCKETS).map(([name, bucket]) => [name, bucket.key]));
-    expect(kinds).toEqual({ "register": "ip", "login": "ip", "login-account": "account", "change-password": "account", "password-reset": "ip", "password-reset-account": "account", "password-reset-confirm": "ip" });
+    expect(kinds).toEqual({ "register": "ip", "login": "ip", "login-account": "account", "change-password": "account", "password-reset": "ip", "password-reset-account": "account", "password-reset-confirm": "ip", "oidc-start": "ip", "oidc-callback": "ip" });
   });
 });

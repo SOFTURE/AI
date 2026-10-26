@@ -71,7 +71,7 @@ export async function registerUser(ctx: AuthContext, input: RegisterInput): Prom
     const user = { id: row.id, email: row.email, createdAt: row.createdAt };
 
     const fields = pickRegistrationFields(options.registrationFields, input.fields);
-    await options.onRegistered?.({ user, consent: options.requireConsent ? { acceptedAt: now } : null, fields }, txCtx);
+    await options.onRegistered?.({ user, consent: options.requireConsent ? { acceptedAt: now } : null, fields, oidcProvider: null }, txCtx);
     const session = await createSession(txCtx, user.id);
     return ok({ user, session });
   });

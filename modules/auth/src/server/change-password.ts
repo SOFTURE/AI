@@ -21,6 +21,7 @@ export interface ChangePasswordInput {
 
 export type ChangePasswordErrorCode =
   | "auth.unauthenticated"
+  | "auth.forbidden"
   | "auth.current_password_invalid"
   | "auth.password_unchanged"
   | "auth.password_too_short"
@@ -32,6 +33,8 @@ export type ChangePasswordResult = Ok<undefined> | Err<ChangePasswordErrorCode> 
 export async function changePassword(ctx: AuthContext, input: ChangePasswordInput): Promise<ChangePasswordResult> {
   const options = getAuthOptions(ctx.config);
   assertAuthBuckets(ctx.config);
+  // Passwords are off: there is none to change.
+  if (!options.password.enabled) return err("auth.forbidden");
   const user = await findSessionUser(ctx, input.sessionToken);
   if (user === null) return err("auth.unauthenticated");
 

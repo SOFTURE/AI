@@ -23,7 +23,8 @@ export const REGISTRATION_CLOSED_ENV = "SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED"
  * Rate limit buckets auth consumes, with defaults to spread into `security({ buckets })`:
  * `register` and `login` per client address, `login-account` per email, `change-password` per user,
  * `password-reset` (link requests) and `password-reset-confirm` (new passwords) per client address,
- * and `password-reset-account` per email, which bounds the mails one address can receive.
+ * `password-reset-account` per email, which bounds the mails one address can receive, and `oidc-start` and
+ * `oidc-callback` (OpenID Connect sign-ins started and completed) per client address.
  */
 export const AUTH_RATE_LIMIT_BUCKETS = {
   register: { limit: 5, windowMinutes: 15, key: "ip" },
@@ -33,6 +34,8 @@ export const AUTH_RATE_LIMIT_BUCKETS = {
   "password-reset": { limit: 10, windowMinutes: 15, key: "ip" },
   "password-reset-account": { limit: 3, windowMinutes: 15, key: "account" },
   "password-reset-confirm": { limit: 10, windowMinutes: 15, key: "ip" },
+  "oidc-start": { limit: 20, windowMinutes: 15, key: "ip" },
+  "oidc-callback": { limit: 20, windowMinutes: 15, key: "ip" },
 } as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
@@ -42,10 +45,10 @@ export const AUTH_RATE_LIMIT_BUCKETS = {
 export const auth = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.5",
+    version: "0.2.6",
     dependsOn: { security: "^0.2.0", mailing: "^0.2.0?", ops: "^0.2.0?", jobs: "^0.1.1?" },
     dbSchema: "auth",
-    tables: ["users", "sessions", "user_roles", "password_resets"],
+    tables: ["users", "sessions", "user_roles", "password_resets", "identities", "oidc_states"],
     env: [
       {
         name: REGISTRATION_CLOSED_ENV,
@@ -70,6 +73,7 @@ export const auth = defineModule({
       { kind: "page", path: "app/forgot-password/page.tsx", export: "ForgotPasswordPage" },
       { kind: "page", path: "app/reset-password/page.tsx", export: "ResetPasswordPage" },
       { kind: "route-handler", path: "app/api/auth/session/route.ts", export: "getSessionRoute" },
+      { kind: "route-handler", path: "app/api/auth/oidc/[provider]/callback/route.ts", export: "oidcCallbackRoute" },
       { kind: "middleware", path: "proxy.ts", export: "createAuthGuard" },
     ],
     privacy: { exports: true, deletes: true },
@@ -89,11 +93,22 @@ export type {
   AuthFormState,
   AuthUser,
   NewSession,
+  OidcSignInErrorCode,
   RegisteredEvent,
   SignedIn,
 } from "./contract.js";
 export { authMessages, getAuthErrorMessage, type AuthMessages } from "./messages/index.js";
-export type { AuthOptions, AuthOptionsInput, OnRegisteredHook, RewriteRedirect, RewriteRedirectContext, ScryptParams } from "./options.js";
+export {
+  OIDC_PROVIDER_ID_PATTERN,
+  type AuthOptions,
+  type AuthOptionsInput,
+  type OidcProvider,
+  type OidcProviderInput,
+  type OnRegisteredHook,
+  type RewriteRedirect,
+  type RewriteRedirectContext,
+  type ScryptParams,
+} from "./options.js";
 export {
   consolePasswordResetSender,
   type PasswordResetDetails,
@@ -103,4 +118,4 @@ export {
 export { getSessionCookie, type SessionCookie } from "./session-cookie.js";
 export { toSafeNextPath } from "./safe-next-path.js";
 export { ADMIN_ROLE, ROLE_NAME_PATTERN } from "./roles.js";
-export { passwordResets, sessions, userRoles, users } from "./schema.js";
+export { identities, oidcStates, passwordResets, sessions, userRoles, users } from "./schema.js";

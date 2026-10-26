@@ -6,6 +6,7 @@ export {
   loginAction,
   logoutAction,
   type LogoutInput,
+  oidcSignInAction,
   registerAction,
   resetPasswordAction,
 } from "./actions.js";
@@ -30,5 +31,6 @@ export {
   type RegisterPageOptions,
   ResetPasswordPage,
 } from "./pages.js";
+export { oidcCallbackRoute } from "./oidc-route.js";
 export { getSessionRoute } from "./route.js";
 export type { PageSearchParams } from "./search-params.js";

@@ -1,6 +1,7 @@
 // Pages ready to mount with one line: `export { LoginPage as default } from "@softure-ai/auth/next"`.
 // Server components: they read the config and the session, and render the forms from `../ui`.
 import type { SoftureConfig } from "@softure-ai/core";
+import type { AuthFormErrorCode } from "../contract.js";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { Card } from "@softure-ai/ui";
 import { notFound, redirect } from "next/navigation";
@@ -10,12 +11,15 @@ import { toSafeNextPath } from "../safe-next-path.js";
 import { getAuthOptions, getAuthRoutes } from "../server/options.js";
 import { findPasswordResetUser, isPasswordResetEnabled, RESET_TOKEN_PARAM } from "../server/password-reset.js";
 import { isRegistrationClosed } from "../server/switches.js";
+import { getAuthErrorMessage } from "../messages/index.js";
+import { getOidcProviders } from "../server/oidc/context.js";
 import { ChangePasswordForm, ForgotPasswordForm, LoginForm, RegisterForm, ResetPasswordForm } from "../ui/auth-forms.js";
-import { changePasswordAction, forgotPasswordAction, loginAction, registerAction, resetPasswordAction } from "./actions.js";
+import { OidcSignIn } from "../ui/oidc-sign-in.js";
+import { changePasswordAction, forgotPasswordAction, loginAction, oidcSignInAction, registerAction, resetPasswordAction } from "./actions.js";
 import { getAuthContext } from "./context.js";
 import { getCurrentUser, requireUser } from "./current-user.js";
 import { getAuthMessages } from "./messages.js";
-import { PASSWORD_RESET_DONE_PARAM } from "./params.js";
+import { OIDC_ERROR_PARAM, PASSWORD_RESET_DONE_PARAM } from "./params.js";
 import { toUrlSearchParams } from "./search-params.js";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -27,6 +31,8 @@ export interface AuthPageProps {
 const LAYOUT_CLASS = "sft:mx-auto sft:box-border sft:w-full sft:sm:max-w-md sft:px-4 sft:py-4";
 const FOOTER_CLASS = "sft:m-0 sft:text-sm sft:text-muted";
 const LINK_CLASS = "sft:font-medium sft:text-accent";
+/** An error code as auth writes it into `?oidc_error=`; anything else in the URL is not shown. */
+const ERROR_CODE = /^[a-z]+\.[a-z_]{1,64}$/;
 /** The server keeps 512 characters of a registration field; nothing longer is echoed into the page. */
 const MAX_CARRIED_LENGTH = 512;
 
@@ -54,24 +60,43 @@ async function redirectSignedIn(config: SoftureConfig, next: string, searchParam
   redirect(await resolveRedirectTarget(config, next, toUrlSearchParams(await searchParams)));
 }
 
+/**
+ * The login page: the OpenID Connect buttons when the app configured providers, then the password form unless
+ * `password.enabled` is false. A failed provider sign-in comes back here with `?oidc_error=`, shown above the buttons.
+ */
 export async function LoginPage({ searchParams }: AuthPageProps) {
   const config = getSoftureConfig();
   const routes = getAuthRoutes(config);
   const next = await readNext(searchParams, routes.afterLogin);
   if ((await getCurrentUser()) !== null) await redirectSignedIn(config, next, searchParams);
   const messages = getAuthMessages(config);
+  const isPasswordOn = getAuthOptions(config).password.enabled;
+  const providers = getOidcProviders(config).map((provider) => ({ id: provider.id, name: provider.name }));
+  const oidcError = await readParam(searchParams, OIDC_ERROR_PARAM);
   const isClosed = await isRegistrationClosed(await getAuthContext(config));
   return (
     <AuthLayout title={messages.login.title} lead={messages.login.lead}>
-      <LoginForm
-        action={loginAction}
-        messages={messages}
-        locale={config.locale}
-        next={next}
-        registerHref={isClosed ? undefined : routes.register}
-        forgotPasswordHref={isPasswordResetEnabled(config) ? routes.forgotPassword : undefined}
-        notice={(await readParam(searchParams, PASSWORD_RESET_DONE_PARAM)) === "1" ? messages.resetPassword.success : undefined}
-      />
+      {providers.length === 0 ? null : (
+        <OidcSignIn
+          action={oidcSignInAction}
+          providers={providers}
+          messages={messages}
+          next={next}
+          error={oidcError !== undefined && ERROR_CODE.test(oidcError) ? getAuthErrorMessage(messages, oidcError as AuthFormErrorCode) : undefined}
+          hasDivider={isPasswordOn}
+        />
+      )}
+      {!isPasswordOn ? null : (
+        <LoginForm
+          action={loginAction}
+          messages={messages}
+          locale={config.locale}
+          next={next}
+          registerHref={isClosed ? undefined : routes.register}
+          forgotPasswordHref={isPasswordResetEnabled(config) ? routes.forgotPassword : undefined}
+          notice={(await readParam(searchParams, PASSWORD_RESET_DONE_PARAM)) === "1" ? messages.resetPassword.success : undefined}
+        />
+      )}
     </AuthLayout>
   );
 }
@@ -147,8 +172,10 @@ async function readCarriedFields(searchParams: SearchParams | undefined, declare
   return carried;
 }
 
+/** Not found when `password.enabled` is false: there is no password to change. */
 export async function ChangePasswordPage() {
   const config = getSoftureConfig();
+  if (!getAuthOptions(config).password.enabled) notFound();
   const routes = getAuthRoutes(config);
   await requireUser({ next: routes.changePassword });
   const messages = getAuthMessages(config);

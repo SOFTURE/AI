@@ -15,3 +15,4 @@ export {
   ResetPasswordForm,
   type ResetPasswordFormProps,
 } from "./auth-forms.js";
+export { OidcSignIn, type OidcSignInProps, type OidcSignInProvider, type OidcSignInSlot } from "./oidc-sign-in.js";
