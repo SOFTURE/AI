@@ -1,12 +1,13 @@
 ---
 change_id: observability-exporter-requests-810
 title: "observability: the OTLP exporter's own requests are not measured (issue #810)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 810
 branch: claude/project-thread-1ab3ch
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent

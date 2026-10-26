@@ -1,6 +1,6 @@
 ---
 change_id: observability-exporter-requests-810
-status: planned
+status: archived
 ---
 
 # Plan: the OTLP exporter's own requests are not measured (issue #810)
