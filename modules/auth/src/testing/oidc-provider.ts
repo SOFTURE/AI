@@ -34,6 +34,10 @@ export interface FakeOidcUser {
   readonly emailVerified?: boolean;
   /** Google's Workspace domain claim. */
   readonly hostedDomain?: string;
+  /** The `name` claim (sent with the `profile` scope). */
+  readonly name?: string;
+  /** The `given_name` claim. */
+  readonly givenName?: string;
 }
 
 export interface FakeSignInOptions {
@@ -131,6 +135,8 @@ export function createFakeOidcProvider(options: FakeOidcProviderOptions = {}): F
     };
     if (pending.nonce !== null) claims.nonce = pending.nonce;
     if (pending.user.hostedDomain !== undefined) claims.hd = pending.user.hostedDomain;
+    if (pending.user.name !== undefined) claims.name = pending.user.name;
+    if (pending.user.givenName !== undefined) claims.given_name = pending.user.givenName;
     for (const [name, value] of Object.entries(pending.options.claims ?? {})) {
       if (value === undefined) delete claims[name];
       else claims[name] = value;

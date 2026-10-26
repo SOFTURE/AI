@@ -1,13 +1,13 @@
 // The account an OpenID Connect identity signs in to. The provider's subject finds it (`auth.identities`), so an
 // email change at the provider keeps it; a first sign-in links the account with the same verified email, or creates
 // one with an unusable password when the provider may create accounts. One transaction, so two first sign-ins at
-// once end with one account and one identity.
+// once end with one account and one identity. Every sign-in that carries a display name stores it on the account.
 import { randomBytes } from "node:crypto";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, eq } from "drizzle-orm";
 import type { AuthUser } from "../../contract.js";
 import type { OidcProvider } from "../../options.js";
-import { identities, users } from "../../schema.js";
+import { AUTH_USER_COLUMNS, identities, users } from "../../schema.js";
 import { getAuthOptions } from "../options.js";
 import { hashPassword } from "../password.js";
 import type { AuthContext } from "../sessions.js";
@@ -16,6 +16,8 @@ export interface OidcIdentity {
   readonly subject: string;
   /** Verified, trimmed and lowercased. */
   readonly email: string;
+  /** Normalized (`toDisplayName`); null when the token carries none, which keeps the stored one. */
+  readonly displayName: string | null;
 }
 
 export type OidcAccountResult = Ok<AuthUser> | Err<"auth.oidc_no_account">;
@@ -28,7 +30,7 @@ export async function resolveOidcAccount(ctx: AuthContext, provider: OidcProvide
     const txCtx: AuthContext = { ...ctx, db: tx };
     const findLinked = async (): Promise<AuthUser | undefined> => {
       const [row] = await tx
-        .select({ id: users.id, email: users.email, createdAt: users.createdAt })
+        .select(AUTH_USER_COLUMNS)
         .from(identities)
         .innerJoin(users, eq(users.id, identities.userId))
         .where(and(eq(identities.provider, provider.id), eq(identities.subject, identity.subject)))
@@ -42,11 +44,11 @@ export async function resolveOidcAccount(ctx: AuthContext, provider: OidcProvide
         .update(identities)
         .set({ email: identity.email, lastLoginAt: now })
         .where(and(eq(identities.provider, provider.id), eq(identities.subject, identity.subject)));
-      return ok(linked);
+      return ok(await storeDisplayName(tx, linked, identity.displayName));
     }
 
     let [user] = await tx
-      .select({ id: users.id, email: users.email, createdAt: users.createdAt })
+      .select(AUTH_USER_COLUMNS)
       .from(users)
       .where(eq(users.email, identity.email))
       .limit(1);
@@ -57,14 +59,14 @@ export async function resolveOidcAccount(ctx: AuthContext, provider: OidcProvide
       const unusablePassword = await hashPassword(randomBytes(32).toString("base64url"), options.password.scrypt);
       const [created] = await tx
         .insert(users)
-        .values({ email: identity.email, passwordHash: unusablePassword, createdAt: now, passwordChangedAt: now })
+        .values({ email: identity.email, passwordHash: unusablePassword, createdAt: now, passwordChangedAt: now, displayName: identity.displayName })
         .onConflictDoNothing({ target: users.email })
-        .returning({ id: users.id, email: users.email, createdAt: users.createdAt });
+        .returning(AUTH_USER_COLUMNS);
       isCreated = created !== undefined;
       // Taken meanwhile by another sign-in or a registration: that account is the one to link.
       [user] =
         created === undefined
-          ? await tx.select({ id: users.id, email: users.email, createdAt: users.createdAt }).from(users).where(eq(users.email, identity.email)).limit(1)
+          ? await tx.select(AUTH_USER_COLUMNS).from(users).where(eq(users.email, identity.email)).limit(1)
           : [created];
       if (user === undefined) return err("auth.oidc_no_account");
     }
@@ -76,7 +78,15 @@ export async function resolveOidcAccount(ctx: AuthContext, provider: OidcProvide
     // The pair may have been linked meanwhile; an account that already has another subject of this provider is refused.
     const nowLinked = await findLinked();
     if (nowLinked?.id !== user.id) return err("auth.oidc_no_account");
-    if (isCreated) await options.onRegistered?.({ user, consent: null, fields: {}, oidcProvider: provider.id }, txCtx);
-    return ok(user);
+    const signedIn = await storeDisplayName(tx, user, identity.displayName);
+    if (isCreated) await options.onRegistered?.({ user: signedIn, consent: null, fields: {}, oidcProvider: provider.id }, txCtx);
+    return ok(signedIn);
   });
+}
+
+/** The account with the provider's display name stored; unchanged when the token carries none or the same one. */
+async function storeDisplayName(db: AuthContext["db"], user: AuthUser, displayName: string | null): Promise<AuthUser> {
+  if (displayName === null || displayName === user.displayName) return user;
+  await db.update(users).set({ displayName }).where(eq(users.id, user.id));
+  return { ...user, displayName };
 }

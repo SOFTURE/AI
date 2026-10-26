@@ -33,6 +33,12 @@ export interface AuthUser {
   readonly id: string;
   readonly email: string;
   readonly createdAt: Date;
+  /**
+   * The name the OpenID Connect provider sent at the latest sign-in that carried one (`name`, else `given_name`);
+   * null for a password account and for a provider that sends none. The package always sets it; it is optional only
+   * so an app's own `AuthUser` literals (tests, fakes) keep compiling, and `undefined` reads like null.
+   */
+  readonly displayName?: string | null;
 }
 
 /** A session just opened: the token goes into the cookie and is never stored. */

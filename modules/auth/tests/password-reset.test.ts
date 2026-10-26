@@ -110,7 +110,7 @@ describe("password reset", () => {
       expect(sent).toHaveLength(1);
       const [message] = sent;
       expect(message?.link).toMatch(/^http:\/\/localhost:3000\/reset-password\?token=[A-Za-z0-9_-]{43}$/);
-      expect(message?.user).toEqual({ id: userId, email: EMAIL, createdAt: NOW });
+      expect(message?.user).toEqual({ id: userId, email: EMAIL, createdAt: NOW, displayName: null });
       expect(message?.details).toEqual({ expiresAt: new Date(NOW.getTime() + 60 * MINUTE_MS), locale: "en" });
     });
 
@@ -154,7 +154,7 @@ describe("password reset", () => {
   describe("findPasswordResetUser", () => {
     it("finds the account of a live token and nothing for a malformed, unknown or expired one", async () => {
       const token = await issueToken();
-      expect(await findPasswordResetUser(test.ctx, token)).toEqual({ id: userId, email: EMAIL, createdAt: NOW });
+      expect(await findPasswordResetUser(test.ctx, token)).toEqual({ id: userId, email: EMAIL, createdAt: NOW, displayName: null });
       expect(await findPasswordResetUser(test.ctx, "short")).toBeNull();
       expect(await findPasswordResetUser(test.ctx, "C".repeat(43))).toBeNull();
       test.clock.advance(60 * MINUTE_MS);

@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- `AuthUser.displayName` (`string | null`): the name an OpenID Connect provider sends (`name`, else `given_name`),
+  stored on the account at every sign-in that carries one and kept when a sign-in carries none (#802). Null for a
+  password account. Normalized (control characters dropped, whitespace collapsed, trimmed, at most 200 characters); a
+  malformed claim is ignored. The property is optional in the type, so an app's own `AuthUser` literals keep
+  compiling; the package always sets it.
+- New column `auth.users.display_name` (migration `0006`, nullable, no rewrite). The privacy export lists
+  `account.displayName`; the deletion removes it with the account.
+- The OpenID Connect flow always requests the `profile` scope with `openid email`, so Google sends the name. Google
+  shows it as part of the basic sign-in consent.
+- `createFakeOidcProvider`: `FakeOidcUser` gains `name` and `givenName`.
+
+Migration for an app: run `softure migrate` (migration `0006`). To show the signed-in user by name, read
+`user.displayName ?? user.email`. Users who signed in before the release get their name at their next sign-in.
+
 ## 0.2.6
 
 Sign in with an OpenID Connect provider (Google), limited to allowed domains or emails (#769). Additive: an app without

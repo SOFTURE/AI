@@ -1,6 +1,7 @@
 // Drizzle view of the module's tables (migrations/0001_create_users_and_sessions.sql,
 // 0002_create_user_roles.sql, 0003_create_password_resets.sql, the users.created_at index of
-// 0004_index_users_created_at.sql and 0005_create_identities_and_oidc_states.sql). The migrations are the source of truth; this file only types
+// 0004_index_users_created_at.sql, 0005_create_identities_and_oidc_states.sql and
+// 0006_add_users_display_name.sql). The migrations are the source of truth; this file only types
 // the queries. App tables may reference `users.id`.
 import { pgSchema, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
@@ -12,7 +13,11 @@ export const users = authSchema.table("users", {
   passwordHash: text("password_hash").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   passwordChangedAt: timestamp("password_changed_at", { withTimezone: true }).notNull(),
+  displayName: text("display_name"),
 });
+
+/** The columns of an `AuthUser`: every query that returns one selects these. */
+export const AUTH_USER_COLUMNS = { id: users.id, email: users.email, createdAt: users.createdAt, displayName: users.displayName };
 
 export const sessions = authSchema.table("sessions", {
   tokenHash: text("token_hash").primaryKey(),
