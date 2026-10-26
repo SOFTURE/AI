@@ -2,7 +2,7 @@
 // transaction takes the item's row (an upsert that also locks it, so two workers on one item take turns), runs the
 // caller's callback in a savepoint and records the outcome, so the caller's writes and the ledger commit together.
 import { err, ok, type Err, type ErrorCode, type Ok } from "@softure-ai/core";
-import { and, desc, eq, gte, lt, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, sql, type SQL } from "drizzle-orm";
 import { syncItems, type SyncItemRow } from "../schema.js";
 import type { SyncItem, SyncItemFailure, SyncItemOutcome, SyncItemRunResult, SyncItemStatus } from "../sync.js";
 import type { JobsContext } from "./context.js";
@@ -49,6 +49,15 @@ export interface RetrySyncItemInput {
 }
 
 export type RetrySyncItemResult = Ok<SyncItem> | Err<"jobs.sync_item_not_found" | "jobs.sync_item_not_retryable">;
+
+export interface ReopenSyncItemInput {
+  readonly source: string;
+  readonly itemId: string;
+}
+
+export type ReopenSyncItemResult = Ok<SyncItem> | Err<"jobs.sync_item_not_found">;
+
+const SETTLED_STATUSES: readonly SyncItemStatus[] = ["done", "skipped", "failed"];
 
 /** Thrown inside the savepoint to roll back the callback's writes when it returned a failure. */
 class RunFailed extends Error {
@@ -191,6 +200,28 @@ export async function retrySyncItem(ctx: JobsContext, input: RetrySyncItemInput)
   if (row !== undefined) return ok(toSyncItem(row));
   const [existing] = await ctx.db.select({ status: syncItems.status }).from(syncItems).where(where).limit(1);
   return existing === undefined ? err("jobs.sync_item_not_found") : err("jobs.sync_item_not_retryable");
+}
+
+/**
+ * Puts a settled item (`done`, `skipped` or `failed`) back to `pending` as never tried: attempts, error code, result
+ * reference and finish time cleared, so the next `processSyncItem` call that meets it runs its callback again. This
+ * deliberately breaks "at most once" for that one item: call it only on an explicit operator action ("process this
+ * again"). A `pending` item is returned as it is, so a repeated call is harmless. Runs on `ctx.db`: pass a transaction
+ * to reopen the item together with the caller's own writes (e.g. enqueueing the job that processes it). An item being
+ * handled right now is reopened once its run has settled. `jobs.sync_item_not_found` for an item the ledger does not
+ * have (an invalid source or id included).
+ */
+export async function reopenSyncItem(ctx: JobsContext, input: ReopenSyncItemInput): Promise<ReopenSyncItemResult> {
+  if (!SYNC_SOURCE.test(input.source) || input.itemId.length === 0 || input.itemId.length > MAX_ITEM_ID_LENGTH) return err("jobs.sync_item_not_found");
+  const where = and(eq(syncItems.source, input.source), eq(syncItems.itemId, input.itemId));
+  const [row] = await ctx.db
+    .update(syncItems)
+    .set({ status: "pending", attempts: 0, errorCode: null, resultRef: null, finishedAt: null, updatedAt: ctx.clock.now() })
+    .where(and(where, inArray(syncItems.status, [...SETTLED_STATUSES])))
+    .returning();
+  if (row !== undefined) return ok(toSyncItem(row));
+  const [pending] = await ctx.db.select().from(syncItems).where(where).limit(1);
+  return pending === undefined ? err("jobs.sync_item_not_found") : ok(toSyncItem(pending));
 }
 
 /**

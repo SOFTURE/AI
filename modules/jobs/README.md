@@ -372,6 +372,20 @@ await advanceSyncCursor(ctx, { source: "gmail.inbox", from, to: batch.nextCursor
   worker cannot move it back; re-read and go on. Pass a transaction as `ctx.db` to move it with the batch's last write.
 - `listSyncItems(ctx, { source?, status?, since?, limit? })` lists the ledger, most recently changed first (default
   100, at most 1000): what passed, what failed and with which code, for an overview page or an MCP tool.
+- `reopenSyncItem(ctx, { source, itemId })` puts a `done`, `skipped` or `failed` item back to `pending` as never
+  tried (attempts, code, result reference and finish time cleared), so the next `processSyncItem` runs it again; a
+  `pending` item is returned as it is; `jobs.sync_item_not_found`. It breaks "at most once" for that item on purpose:
+  call it only on an explicit operator action ("process this mail again"). Pass a transaction as `ctx.db` to reopen
+  the item and enqueue the job that processes it in one commit:
+
+  ```ts
+  await db.transaction(async (tx) => {
+    const reopened = await reopenSyncItem({ ...ctx, db: tx }, { source: "gmail.inbox", itemId });
+    if (!reopened.ok) return reopened;
+    await enqueueJob({ ...ctx, db: tx }, { queue: "gmail.process", payload: { itemId } });
+    return reopened;
+  });
+  ```
 - `pruneSyncItems(ctx)` deletes items no `processSyncItem` call met for `retention.syncItemsDays` (90), whatever
   their status; every call touches `last_seen_at`, so an item the source still returns is never forgotten (and never
   handled twice). The worker runs it with its hourly prune; an app without a worker calls it from its cron.
@@ -392,6 +406,7 @@ From `@softure-ai/jobs/server`, each on `ctx = { db, clock, config }`:
 | `listRecentJobs(ctx, { statuses, queue?, limit? })` | jobs in any of `statuses` (a job status or `retrying`: pending after a failed attempt), most recently changed first, up to `limit` (default 50, at most 500) |
 | `runScheduleNow(ctx, queue)` | enqueues a run of the schedule now with its payload and dedup key, joining a pending run (`isDuplicate: true`); the schedule's own period is left alone; `jobs.not_a_schedule` |
 | `retrySyncItem(ctx, { source, itemId })` | a `failed` ledger item back to `pending`, attempts and code cleared, so the next `processSyncItem` runs it; `jobs.sync_item_not_retryable`, `jobs.sync_item_not_found` |
+| `reopenSyncItem(ctx, { source, itemId })` | a `done`, `skipped` or `failed` ledger item back to `pending` as never tried, for an explicit "process again"; a `pending` item unchanged; `jobs.sync_item_not_found` |
 | `getQueueStats(ctx)` | per queue: counts per status, the due backlog, the `run_at` of its oldest due job and its `schedule` (or `null`) |
 | `pruneJobs(ctx)` | deletes finished jobs past their retention; returns the count |
 

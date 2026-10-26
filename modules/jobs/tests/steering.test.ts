@@ -1,6 +1,7 @@
-// The admin page's steering functions: recent jobs, running a schedule now, putting a failed sync item back.
+// The admin page's steering functions: recent jobs, running a schedule now, putting a failed sync item back, and
+// reopening a settled sync item for an operator.
 import { err, ok } from "@softure-ai/core";
-import { defineJobHandler, failSyncItem } from "@softure-ai/jobs";
+import { defineJobHandler, failSyncItem, skipSyncItem } from "@softure-ai/jobs";
 import {
   cancelJob,
   enqueueDueSchedules,
@@ -8,6 +9,7 @@ import {
   listRecentJobs,
   listSyncItems,
   processSyncItem,
+  reopenSyncItem,
   retrySyncItem,
   runScheduleNow,
   SCHEDULE_DEDUP_KEY,
@@ -129,5 +131,75 @@ describe("retrySyncItem", () => {
     expect(await retrySyncItem(test.ctx, { source: SOURCE, itemId: "m-2" })).toEqual(err("jobs.sync_item_not_found"));
     expect(await retrySyncItem(test.ctx, { source: "Not A Source", itemId: "m-1" })).toEqual(err("jobs.sync_item_not_found"));
     expect((await listSyncItems(test.ctx)).map((item) => item.status)).toEqual(["done"]);
+  });
+});
+
+describe("reopenSyncItem", () => {
+  let test: TestJobs;
+
+  beforeEach(async () => {
+    test = await createTestJobs();
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  it("reopens a done, a skipped and a failed item as never tried, and the next run handles each again", async () => {
+    await processSyncItem(test.ctx, { source: SOURCE, itemId: "done" }, () => Promise.resolve(ok({ status: "done" as const, resultRef: "reply-1" })));
+    await processSyncItem(test.ctx, { source: SOURCE, itemId: "skipped" }, () => Promise.resolve(skipSyncItem("app.newsletter")));
+    await processSyncItem(test.ctx, { source: SOURCE, itemId: "failed" }, () => Promise.resolve(failSyncItem("app.unparseable")));
+    test.clock.advance(SECOND_MS);
+    const now = test.clock.now();
+
+    for (const itemId of ["done", "skipped", "failed"]) {
+      const reopened = await reopenSyncItem(test.ctx, { source: SOURCE, itemId });
+      expect(reopened).toMatchObject({ ok: true, value: { itemId, status: "pending", attempts: 0, errorCode: null, resultRef: null, finishedAt: null, updatedAt: now } });
+      let runs = 0;
+      const outcome = await processSyncItem(test.ctx, { source: SOURCE, itemId, maxAttempts: 1 }, () => {
+        runs += 1;
+        return Promise.resolve(ok());
+      });
+      expect(runs).toBe(1);
+      expect(outcome).toMatchObject({ kind: "handled", item: { status: "done", attempts: 1, resultRef: null } });
+    }
+  });
+
+  it("returns a pending item as it is, its attempts and code kept, so a repeated call is harmless", async () => {
+    await processSyncItem(test.ctx, { source: SOURCE, itemId: "m-1" }, () => Promise.resolve(err("app.rate_limited")));
+    const [before] = await listSyncItems(test.ctx);
+    test.clock.advance(SECOND_MS);
+
+    expect(await reopenSyncItem(test.ctx, { source: SOURCE, itemId: "m-1" })).toEqual(ok(before));
+    expect(before).toMatchObject({ status: "pending", attempts: 1, errorCode: "app.rate_limited" });
+  });
+
+  it("refuses an item the ledger does not have, an invalid source and an invalid id as not found", async () => {
+    await processSyncItem(test.ctx, { source: SOURCE, itemId: "m-1" }, () => Promise.resolve(ok()));
+    expect(await reopenSyncItem(test.ctx, { source: SOURCE, itemId: "m-2" })).toEqual(err("jobs.sync_item_not_found"));
+    expect(await reopenSyncItem(test.ctx, { source: "Not A Source", itemId: "m-1" })).toEqual(err("jobs.sync_item_not_found"));
+    expect(await reopenSyncItem(test.ctx, { source: SOURCE, itemId: "" })).toEqual(err("jobs.sync_item_not_found"));
+    expect(await reopenSyncItem(test.ctx, { source: SOURCE, itemId: "m".repeat(501) })).toEqual(err("jobs.sync_item_not_found"));
+    expect((await listSyncItems(test.ctx)).map((item) => item.status)).toEqual(["done"]);
+  });
+
+  it("reopens in the caller's transaction, together with its enqueue, and rolls back with it", async () => {
+    await processSyncItem(test.ctx, { source: SOURCE, itemId: "m-1" }, () => Promise.resolve(ok()));
+
+    const failure = new Error("the caller failed after the reopen");
+    const rolledBack = test.ctx.db.transaction(async (tx) => {
+      await reopenSyncItem({ ...test.ctx, db: tx }, { source: SOURCE, itemId: "m-1" });
+      await enqueueJob({ ...test.ctx, db: tx }, { queue: "mail.send", payload: {} });
+      throw failure;
+    });
+    await expect(rolledBack).rejects.toBe(failure);
+    expect((await listSyncItems(test.ctx)).map((item) => item.status)).toEqual(["done"]);
+    expect(await listJobs(test.database.db)).toEqual([]);
+
+    await test.ctx.db.transaction(async (tx) => {
+      await reopenSyncItem({ ...test.ctx, db: tx }, { source: SOURCE, itemId: "m-1" });
+      await enqueueJob({ ...test.ctx, db: tx }, { queue: "mail.send", payload: {} });
+    });
+    expect((await listSyncItems(test.ctx)).map((item) => item.status)).toEqual(["pending"]);
+    expect((await listJobs(test.database.db)).map((job) => job.queue)).toEqual(["mail.send"]);
   });
 });
