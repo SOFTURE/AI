@@ -34,4 +34,5 @@ export {
   SWITCH_TRACK_LOOK,
   type CheckboxSlot,
 } from "./look/controls.js";
+export { MODAL_LOOK, STANDING_PANEL_LOOK, getModalLook, type ModalLook, type ModalSlot, type ModalWidth } from "./look/modal.js";
 export { ROLE_TONE, type DataRole, type UiTone } from "./look/roles.js";
