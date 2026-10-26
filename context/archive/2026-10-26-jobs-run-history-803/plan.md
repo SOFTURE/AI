@@ -63,7 +63,7 @@ dictionary adds `runs`).
 
 ## Progress
 
-- [ ] Phase 1: origin, summary and the runs table
-- [ ] Phase 2: retention and reads
-- [ ] Phase 3: the admin page
-- [ ] Phase 4: docs
+- [x] Phase 1: origin, summary and the runs table (546c01a)
+- [x] Phase 2: retention and reads (09b7913)
+- [x] Phase 3: the admin page (a5a2afc)
+- [x] Phase 4: docs (a42823b)

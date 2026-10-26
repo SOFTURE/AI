@@ -1,12 +1,13 @@
 ---
 change_id: jobs-run-history-803
 title: "jobs: keep a run's result summary and what started it, beyond the succeeded-job retention (issue #803)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 803
 branch: claude/project-thread-fa43ml
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent
