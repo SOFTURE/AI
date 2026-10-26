@@ -1,4 +1,5 @@
-// The Flat Paint theme: tokens, cn and the look of the @softure-ai/ui components in this design system.
+// The Flat Paint theme: tokens, cn and the look of the @softure-ai/ui and @softure-ai/charts components in
+// this design system.
 // The stylesheets are separate entries: `@softure-ai/theme-flat-paint/theme.css`, `/sft-bridge.css` and `/page.css`.
 export { FLAT_PAINT_THEME, theme } from "./tokens.js";
 export { cn } from "./lib/utils.js";
@@ -24,6 +25,27 @@ export {
   type StatSize,
 } from "./look/card.js";
 export {
+  CHART_FLAG_SIZE_LOOK,
+  CHART_FLAG_VARIANT_LOOK,
+  CHART_PIN_LOOK,
+  CHART_ROLE_TONE,
+  getChartFlagLook,
+  type ChartFlagLook,
+  type ChartFlagSize,
+  type ChartPinSize,
+  type ChartPinVariant,
+  type ChartRole,
+  type ChartSurface,
+  type ChartTone,
+} from "./look/chart.js";
+export {
+  CHOICE_CARD_LOOK,
+  CHOICE_ROW_LOOK,
+  RADIO_LOOK,
+  type ChoiceSlot,
+  type RadioSlot,
+} from "./look/choice.js";
+export {
   CHECKBOX_LOOK,
   SEGMENTED_CONTROL_LOOK,
   SEGMENTED_GROUP_LOOK,
@@ -39,4 +61,11 @@ export {
   type SegmentedControlSlot,
   type ThemeSwitchSlot,
 } from "./look/controls.js";
+export { MODAL_LOOK, STANDING_PANEL_LOOK, getModalLook, type ModalLook, type ModalSlot, type ModalWidth } from "./look/modal.js";
 export { ROLE_TONE, type DataRole, type UiTone } from "./look/roles.js";
+export { CHECKLIST_LOOK, type ChecklistSlot } from "./look/checklist.js";
+export { COLOR_FIELD_LOOK, type ColorFieldSlot } from "./look/color-field.js";
+export { HINT_LOOK, type HintLook, type HintSlot } from "./look/hint.js";
+export { MENU_PANEL_LOOK, type MenuPanelSlot } from "./look/menu.js";
+export { STEPPER_LOOK, type StepperSlot } from "./look/stepper.js";
+export { DATA_TABLE_LOOK, type DataTableSlot } from "./look/table.js";
