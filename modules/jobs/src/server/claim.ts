@@ -7,7 +7,9 @@ import type { JobsContext } from "./context.js";
 import { notifyJobFailed, type HookOptions } from "./hooks.js";
 import { toJob } from "./job-row.js";
 import { getJobsOptions, getQueue } from "./options.js";
+import { recordRuns, type RunRecord } from "./runs.js";
 import { recordScheduleFailure, recordScheduleSuccess } from "./schedules.js";
+import type { JobRunSummary } from "../summary.js";
 
 /** A job this worker holds: the job and the token its writes are fenced with. */
 export interface ClaimedJob {
@@ -27,7 +29,8 @@ export interface ClaimJobsInput {
 
 /** What a finished attempt records. */
 export type Completion =
-  | { readonly kind: "succeeded" }
+  /** `summary`: the handler's checked run summary, kept in the run history. */
+  | { readonly kind: "succeeded"; readonly summary?: JobRunSummary | null }
   | { readonly kind: "retry"; readonly error: string; readonly runAt: Date }
   | { readonly kind: "failed"; readonly error: string };
 
@@ -93,8 +96,8 @@ export async function extendJobLease(ctx: JobsContext, claimed: ClaimedJob): Pro
 }
 
 /**
- * Records the end of an attempt; a success or a terminal failure of a scheduled queue also updates its schedule, in
- * the same transaction. After a recorded terminal failure the app's `onJobFailed` hook runs.
+ * Records the end of an attempt and its row in the run history; a success or a terminal failure of a scheduled queue
+ * also updates its schedule, all in the same transaction. After a recorded terminal failure the app's `onJobFailed` hook runs.
  * False when the job is no longer this claim's: nothing was written.
  */
 export async function completeJob(ctx: JobsContext, claimed: ClaimedJob, completion: Completion, options: HookOptions = {}): Promise<boolean> {
@@ -109,6 +112,7 @@ export async function completeJob(ctx: JobsContext, claimed: ClaimedJob, complet
   const isRecorded = await ctx.db.transaction(async (tx) => {
     const rows = await tx.update(jobs).set(set).where(isHeld(claimed)).returning();
     if (rows.length === 0) return false;
+    await recordRuns(tx, [toRunRecord(claimed, completion, now)]);
     if (completion.kind === "succeeded") await recordScheduleSuccess({ ...ctx, db: tx }, claimed.job.queue);
     if (completion.kind === "failed") await recordScheduleFailure({ ...ctx, db: tx }, claimed.job.queue, completion.error);
     return true;
@@ -157,10 +161,32 @@ async function failExhaustedLeases(ctx: JobsContext, queue: string, now: Date): 
         updatedAt: now,
       })
       .where(and(eq(jobs.queue, queue), eq(jobs.status, "running"), lte(jobs.lockedUntil, now), gte(jobs.attempts, jobs.maxAttempts)))
-      .returning({ id: jobs.id, attempts: jobs.attempts });
+      .returning({ id: jobs.id, attempts: jobs.attempts, origin: jobs.origin });
     if (failed.length > 0) await recordScheduleFailure({ ...ctx, db: tx }, queue, LEASE_EXPIRED);
+    await recordRuns(
+      tx,
+      failed.map((row) => ({
+        jobId: row.id.toString(),
+        queue,
+        origin: row.origin,
+        attempt: row.attempts,
+        outcome: "failed" as const,
+        errorCode: LEASE_EXPIRED,
+        summary: null,
+        startedAt: null,
+        finishedAt: now,
+      })),
+    );
     return failed.map((row) => ({ queue, jobId: row.id.toString(), code: LEASE_EXPIRED, attempts: row.attempts, at: now }));
   });
+}
+
+/** The run row of a completed attempt. The claim set `updated_at`, so the claimed job's `updatedAt` is its start. */
+function toRunRecord(claimed: ClaimedJob, completion: Completion, now: Date): RunRecord {
+  const { job } = claimed;
+  const base = { jobId: job.id, queue: job.queue, origin: job.origin, attempt: job.attempts, startedAt: job.updatedAt, finishedAt: now };
+  if (completion.kind === "succeeded") return { ...base, outcome: "succeeded", errorCode: null, summary: completion.summary ?? null };
+  return { ...base, outcome: completion.kind === "retry" ? "retried" : "failed", errorCode: completion.error, summary: null };
 }
 
 function isHeld(claimed: ClaimedJob) {

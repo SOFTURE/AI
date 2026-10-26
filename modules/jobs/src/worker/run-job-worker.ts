@@ -1,6 +1,6 @@
 // The worker loop: enqueues the due runs of the schedules among its queues, claims due jobs of every queue it has a
 // handler for, up to each queue's concurrency, runs them, keeps their leases alive, checks schedule health for the
-// app's hook once a minute, prunes old jobs once an hour, and on abort stops claiming, waits the grace period and
+// app's hook once a minute, prunes old jobs and runs once an hour, and on abort stops claiming, waits the grace period and
 // releases what is still running.
 import { hostname } from "node:os";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
@@ -12,6 +12,7 @@ import { checkHandlers } from "../server/handler-check.js";
 import { checkScheduleStates } from "../server/hooks.js";
 import { consoleJobsLogger, type JobsLogger } from "../server/logger.js";
 import { pruneJobs } from "../server/maintenance.js";
+import { pruneJobRuns } from "../server/runs.js";
 import { pruneSyncItems } from "../server/sync-items.js";
 import { getJobsOptions, getQueue } from "../server/options.js";
 import { runClaimedJob } from "../server/process.js";
@@ -156,6 +157,12 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
         if (deleted > 0) logger.info("pruned finished jobs", { deleted });
       } catch (error) {
         logger.error("could not prune finished jobs", { error });
+      }
+      try {
+        const deleted = await pruneJobRuns(ctx);
+        if (deleted > 0) logger.info("pruned the run history", { deleted });
+      } catch (error) {
+        logger.error("could not prune the run history", { error });
       }
       try {
         const deleted = await pruneSyncItems(ctx);

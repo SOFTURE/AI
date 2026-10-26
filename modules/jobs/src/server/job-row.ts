@@ -18,6 +18,7 @@ export function toJob(row: JobRow): Job {
     lockedUntil: row.lockedUntil,
     lockedBy: row.lockedBy,
     dedupKey: row.dedupKey,
+    origin: row.origin,
     lastError: row.lastError,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

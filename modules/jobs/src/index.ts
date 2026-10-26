@@ -18,7 +18,7 @@ export const jobs = defineModule({
     version: "0.1.5",
     dependsOn: {},
     dbSchema: "jobs",
-    tables: ["jobs", "schedules", "sync_cursors", "sync_items"],
+    tables: ["jobs", "runs", "schedules", "sync_cursors", "sync_items"],
     env: [],
     switches: [],
     routes: { panel: "/admin/jobs" },
@@ -32,11 +32,14 @@ export const jobs = defineModule({
 });
 
 export {
+  JOB_RUN_OUTCOMES,
   JOB_STATUSES,
   type Job,
   type JobFailedEvent,
   type JobFailure,
   type JobOutcome,
+  type JobRun,
+  type JobRunOutcome,
   type JobsErrorCode,
   type JobsFormErrorCode,
   type JobsFormState,
@@ -60,7 +63,8 @@ export {
   type PeriodScheduleOptions,
 } from "./options.js";
 export { defineJobHandler, failJob, retryJobLater, type JobHandler, type JobHandlerContext, type JobHandlers } from "./handlers.js";
-export { jobs as jobsTable, schedules as jobSchedulesTable, syncCursors as jobSyncCursorsTable, syncItems as jobSyncItemsTable } from "./schema.js";
+export { JOB_STEP_OUTCOMES, jobRunSummarySchema, type JobRunSummary, type JobStepOutcome } from "./summary.js";
+export { jobs as jobsTable, runs as jobRunsTable, schedules as jobSchedulesTable, syncCursors as jobSyncCursorsTable, syncItems as jobSyncItemsTable } from "./schema.js";
 export {
   failSyncItem,
   skipSyncItem,

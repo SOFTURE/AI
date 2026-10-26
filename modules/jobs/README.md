@@ -60,7 +60,7 @@ export default defineSoftureConfig({
 | `schedules.<queue>.payload` | `{}` | the payload of every scheduled run |
 | `pollIntervalMs` | `1000` | how often an idle worker looks for due jobs |
 | `shutdownGraceMs` | `20000` | how long a stopping worker waits for running handlers before releasing their jobs |
-| `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90 }` | how long finished jobs, and sync ledger items no run met, are kept; the worker prunes once an hour |
+| `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30 }` | how long finished jobs, sync ledger items no run met, and the run history (§3, "Run history") are kept; the worker prunes once an hour |
 | `onJobFailed` | none | `(event, ctx)`, run once when a job ends `failed` (§3, "Alert hooks") |
 | `onScheduleStateChanged` | none | `(event, ctx)`, run once per transition of a schedule between `healthy`, `failing` and `late` (§3, "Alert hooks") |
 | `panelRole` | `"admin"` | the auth role that may open the admin page and use its actions (§4) |
@@ -101,7 +101,8 @@ export const handlers: JobHandlers = {
 };
 ```
 
-- `ok()`: done, the job is `succeeded`.
+- `ok()`: done, the job is `succeeded`. `ok({ summary })` also leaves a code-only summary in the run history (§3,
+  "Run history").
 - An `Err` (any `Result` failure): retried after the backoff delay, until `maxAttempts`; then `failed`.
 - `failJob(code)`: `failed` at once.
 - `retryJobLater(code, seconds)`: retried after `seconds` instead of the backoff (a provider's `Retry-After`); still
@@ -134,6 +135,7 @@ await db.transaction(async (tx) => {
 | `runAt` / `delaySeconds` | when the job is due; default now; one or the other |
 | `dedupKey` | while a pending or running job of the queue has this key, the call returns that job (`isDuplicate: true`) instead of writing a second one; a finished job frees the key |
 | `maxAttempts` | this job's own limit instead of the queue's |
+| `origin` | what started the job, kept with it and its runs: default `app`; the schedule's runs are `schedule`, `runScheduleNow`'s `manual`; an app names its own (`webhook.stripe`), lowercase like a queue name |
 
 Inside the caller's transaction the job exists exactly when the caller's change commits; a rolled-back transaction
 leaves no job behind.
@@ -325,11 +327,43 @@ jobs({
 - In tests, `recordJobHooks()` from `@softure-ai/jobs/testing` gives `{ options, failedJobs, scheduleStateChanges }`:
   pass `jobs({ queues, ...recorder.options })` and assert the arrays after `runDueJobs`.
 
+### Run history
+
+Every recorded attempt leaves one row in `jobs.runs`: the job id, queue, `origin`, attempt number, outcome
+(`succeeded`, `retried`, `failed`), the error code of a failure, the handler's summary, and when it started and
+finished. Rows are written in the transaction that records the outcome, so an attempt another claim replaced leaves
+none, and a lease that ended with no attempts left leaves a `failed` row with `jobs.lease_expired` and no start. They
+are kept for `retention.runsDays` (30), whatever happens to the job: a succeeded job is still pruned after
+`succeededDays`, its runs are not.
+
+A handler adds a summary with `ok({ summary })`, codes and counts only:
+
+```ts
+return ok({
+  summary: {
+    code: "sync.imported", // what the run came to, a lowercase code
+    items: { new: created, skipped, failed }, // non-negative integers, each optional
+    steps: { fetch: "done", parse: "done", notify: "skipped" }, // step name → done | skipped | failed, at most 50
+  },
+});
+```
+
+The summary is checked with `jobRunSummarySchema` (exported with the `JobRunSummary` type). One that does not match is
+dropped with a warning that names its paths, never its values, and the job stays succeeded: it did its work. `ok()`
+and `ok(value)` without a `summary` key record no summary. A failure has no summary; its code is the run's.
+
+- `listJobRuns(ctx, { queue?, origin?, outcomes?, limit? })` from `/server` lists runs newest first (default 50, at
+  most 500): "what did each run do, what started it".
+- `pruneJobRuns(ctx)` deletes runs past `runsDays`; the worker runs it with its hourly prune.
+- In tests, `listRunHistory(db)` from `/testing` returns every run, oldest first.
+- `runScheduleNow(ctx, queue, { origin })` names its origin (default `manual`); a call that joins a waiting run keeps
+  that run's origin.
+
 ### Without a worker
 
 `runDueJobs(ctx, { handlers })` (from `@softure-ai/jobs/server` or `/testing`) enqueues the due runs of the schedules
 among its queues, then runs every due job once, in this process, one after another, checks schedule health for
-`onScheduleStateChanged`, and returns `{ succeeded, retried, failed, stale }`. A cron can drain a queue with it; call `pruneJobs(ctx)` from the same cron.
+`onScheduleStateChanged`, and returns `{ succeeded, retried, failed, stale }`. A cron can drain a queue with it; call `pruneJobs(ctx)` and `pruneJobRuns(ctx)` from the same cron.
 `enqueueDueSchedules(ctx, { queues? })` only enqueues the due scheduled runs.
 
 ### Sync state for polling
@@ -412,10 +446,12 @@ From `@softure-ai/jobs/server`, each on `ctx = { db, clock, config }`:
 | `cancelJob(ctx, id)` | a pending job becomes `cancelled`; `jobs.not_cancellable` for a running or finished one, `jobs.not_found` |
 | `retryJob(ctx, id)` | a failed or cancelled job runs again from scratch (attempts 0, due now); `jobs.not_retryable`, `jobs.dedup_key_taken` while a live job has its key, `jobs.not_found` |
 | `listRecentJobs(ctx, { statuses, queue?, limit? })` | jobs in any of `statuses` (a job status or `retrying`: pending after a failed attempt), most recently changed first, up to `limit` (default 50, at most 500) |
-| `runScheduleNow(ctx, queue)` | enqueues a run of the schedule now with its payload and dedup key, joining a pending run (`isDuplicate: true`); the schedule's own period is left alone; `jobs.not_a_schedule` |
+| `runScheduleNow(ctx, queue, { origin? })` | enqueues a run of the schedule now with its payload and dedup key (origin `manual` unless named), joining a pending run (`isDuplicate: true`); the schedule's own period is left alone; `jobs.not_a_schedule` |
 | `retrySyncItem(ctx, { source, itemId })` | a `failed` ledger item back to `pending`, attempts and code cleared, so the next `processSyncItem` runs it; `jobs.sync_item_not_retryable`, `jobs.sync_item_not_found` |
 | `getQueueStats(ctx)` | per queue: counts per status, the due backlog, the `run_at` of its oldest due job and its `schedule` (or `null`) |
 | `pruneJobs(ctx)` | deletes finished jobs past their retention; returns the count |
+| `listJobRuns(ctx, { queue?, origin?, outcomes?, limit? })` | the run history, newest first (§3, "Run history") |
+| `pruneJobRuns(ctx)` | deletes runs past `retention.runsDays`; returns the count |
 
 `getQueueStats` suits an app health check of its own, `ops({ checks: { "app.jobs": … } })`, e.g. unavailable when the
 oldest due job of a queue waited more than ten minutes (no worker is running). An ops script (`@softure-ai/ops/scripts`)
@@ -442,27 +478,33 @@ jobs({ queues: { … }, panelRole: "admin", panelGuard: { requireRole, authorize
 The page shows, per queue, the counts per status and the oldest due job, and for a scheduled queue its period, last
 success, last failure with its code, its health (`healthy`, `failing`, `late`) and **Run now**; then the 50 most
 recent failed, cancelled and retrying jobs with code and attempts, with **Retry** (failed, cancelled) and **Cancel**
-(pending); then the 100 most recently changed sync ledger items per source with status, code, attempts and last
+(pending); then the 50 most recent runs with what started them, outcome, attempt, the summary's code, item counts
+and steps, or the failure's code; then the 100 most recently changed sync ledger items per source with status, code, attempts and last
 sighting, a status filter (`?sync=failed`) and **Retry item** on a failed item. Payloads and error texts never reach
 the page: rows are built field by field and failures are codes. Anyone without `panelRole` gets Next's "not found";
 every action checks the role again from the session before it reads its form.
 
-An app with its own page shell composes the same parts: `getQueueStats`, `listRecentJobs` and `listSyncItems` from
-`/server`, `toJobsPanelData(source, messages, config)` and `getJobsMessages(config)` from `/next`, `JobsPanel` from
-`/ui` (`classNames` per slot, `unstyled`), and the actions `runScheduleNowAction`, `retryJobAction`,
+An app with its own page shell composes the same parts: `getQueueStats`, `listRecentJobs`, `listJobRuns` and `listSyncItems`
+from `/server`, `toJobsPanelData(source, messages, config)` and `getJobsMessages(config)` from `/next`, `JobsPanel` from
+`/ui` (`classNames` per slot, `unstyled`; its runs section shows only when `runs` is passed), and the actions `runScheduleNowAction`, `retryJobAction`,
 `cancelJobAction`, `retrySyncItemAction` from `/next`.
 
 ## 5. Migrations and tables
 
-Schema `jobs`, four tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
-`migrations/0003_add_schedule_failures.sql`, `migrations/0004_create_sync_state.sql` and
-`migrations/0005_add_schedule_reported_state.sql`:
+Schema `jobs`, five tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
+`migrations/0003_add_schedule_failures.sql`, `migrations/0004_create_sync_state.sql`,
+`migrations/0005_add_schedule_reported_state.sql` and `migrations/0006_create_runs.sql`:
 
 `jobs.jobs`: `id` (bigint identity; a string in the API), `queue`, `payload` (jsonb), `status` (`pending`, `running`,
 `succeeded`, `failed`, `cancelled`), `attempts`, `max_attempts`, `run_at`, `locked_until`, `locked_by` (the worker,
-`<hostname>:<pid>`), `claim_token`, `dedup_key`, `last_error` (an error code, never a message), `created_at`,
+`<hostname>:<pid>`), `claim_token`, `dedup_key`, `origin` (default `app`), `last_error` (an error code, never a
+message), `created_at`,
 `updated_at`, `finished_at`. Checks keep the lease columns set exactly while `running` and `finished_at` set exactly
 for finished jobs; a partial unique index allows one live job per queue and dedup key.
+
+`jobs.runs`: `id` (bigint identity), `job_id` (no foreign key: runs outlive pruned jobs), `queue`, `origin`,
+`attempt`, `outcome` (`succeeded`, `retried`, `failed`), `error_code` (set exactly for a failure), `summary` (jsonb,
+successes only, checked by the module), `started_at` (null when unknown), `finished_at`.
 
 `jobs.schedules`: `name` (the schedule's queue, primary key), `last_slot_at` (the start of the latest period a run
 was enqueued for), `last_succeeded_at`, `last_failed_at`, `last_failure_code` (an error code, never a message),
