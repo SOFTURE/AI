@@ -104,6 +104,28 @@ the app adds no `@source`.
 | `SEGMENTED_GROUP_LOOK`, `SEGMENT_ACTIVE_LOOK`, `SEGMENT_IDLE_LOOK`, `SEGMENT_ACTIVE_WHEN_CURRENT_LOOK` | a segmented control, and ui's `SegmentedNav` |
 | `SEGMENTED_CONTROL_LOOK`, `THEME_SWITCH_LOOK` | `SegmentedControl` and `ThemeSwitch` slots with `unstyled`: the checked segment without lime, the legend hidden (spread the map and set `legend` to show it) |
 | `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK` | the active segment as `has-checked:` variants, for an option wrapping a native radio |
+| `RADIO_LOOK` | a radio's `box`, `input` (the drawn circle) and `mark` (a 12 px check icon): a lime disc with an `accent` line and a black check when checked, as the checkbox |
+| `CHOICE_ROW_LOOK`, `CHOICE_CARD_LOOK` | a single choice drawn as a list row (lime bar when checked) or a bordered tile: `label`, `control`, `body`, `title`, `description`; markup below |
+
+A radio choice: a `label` wraps the native radio, so a click on the whole row or tile checks it and the label carries
+the checked (`has-checked:`) and focus (`has-focus-visible:`) states. The card puts `control` after `body`.
+
+```tsx
+import { CHOICE_ROW_LOOK as look, RADIO_LOOK as radio } from "@softure-ai/theme-flat-paint";
+
+<label className={look.label}>
+  <span className={look.control}>
+    <span className={radio.box}>
+      <input type="radio" name="plan" value="yearly" className={radio.input} />
+      <span className={radio.mark} aria-hidden="true"><CheckIcon size={12} /></span>
+    </span>
+  </span>
+  <span className={look.body}>
+    <span className={look.title}>Yearly</span>
+    <span className={look.description}>Billed once a year</span>
+  </span>
+</label>
+```
 
 ## Tokens
 

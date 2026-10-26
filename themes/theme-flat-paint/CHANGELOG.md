@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `RADIO_LOOK`, `CHOICE_ROW_LOOK` and `CHOICE_CARD_LOOK` (#794): one look for a single-choice radio list. The checked
+  radio is a lime disc with an `accent` line and a black check (as the checkbox and the switch knob); the row marks
+  the checked choice with a wash and the 3 px lime bar (`shadow-selected-row`), the card with a doubled foreground
+  line; keyboard focus is an `accent` outline on the label; the title turns bold when checked. An app replaces its
+  hand-written row and card classes with the slots (markup in the README); the row's accent ring becomes the disc.
+
 - `SEGMENTED_CONTROL_LOOK` and `THEME_SWITCH_LOOK` (#780): ready slot maps for ui's `SegmentedControl` and
   `ThemeSwitch` with `unstyled`; the checked segment is surface, strong line and bold (never lime, which fails WCAG
   1.4.11 on white), focus is a 2 px accent outline, the legend is visually hidden. `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK`
