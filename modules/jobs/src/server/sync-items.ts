@@ -214,14 +214,23 @@ export async function retrySyncItem(ctx: JobsContext, input: RetrySyncItemInput)
 export async function reopenSyncItem(ctx: JobsContext, input: ReopenSyncItemInput): Promise<ReopenSyncItemResult> {
   if (!SYNC_SOURCE.test(input.source) || input.itemId.length === 0 || input.itemId.length > MAX_ITEM_ID_LENGTH) return err("jobs.sync_item_not_found");
   const where = and(eq(syncItems.source, input.source), eq(syncItems.itemId, input.itemId));
-  const [row] = await ctx.db
-    .update(syncItems)
-    .set({ status: "pending", attempts: 0, errorCode: null, resultRef: null, finishedAt: null, updatedAt: ctx.clock.now() })
-    .where(and(where, inArray(syncItems.status, [...SETTLED_STATUSES])))
-    .returning();
-  if (row !== undefined) return ok(toSyncItem(row));
-  const [pending] = await ctx.db.select().from(syncItems).where(where).limit(1);
-  return pending === undefined ? err("jobs.sync_item_not_found") : ok(toSyncItem(pending));
+  const reopen = async (): Promise<SyncItemRow | undefined> => {
+    const [row] = await ctx.db
+      .update(syncItems)
+      .set({ status: "pending", attempts: 0, errorCode: null, resultRef: null, finishedAt: null, updatedAt: ctx.clock.now() })
+      .where(and(where, inArray(syncItems.status, [...SETTLED_STATUSES])))
+      .returning();
+    return row;
+  };
+  const reopened = await reopen();
+  if (reopened !== undefined) return ok(toSyncItem(reopened));
+  const [current] = await ctx.db.select().from(syncItems).where(where).limit(1);
+  if (current === undefined) return err("jobs.sync_item_not_found");
+  if (current.status === "pending") return ok(toSyncItem(current));
+  // A run settled the item between the two statements: reopen what it left. Only a reopen or a retry makes a settled
+  // item pending again, so a second try finds it settled or pending.
+  const settled = await reopen();
+  return ok(toSyncItem(settled ?? current));
 }
 
 /**

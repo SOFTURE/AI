@@ -24,4 +24,4 @@ Files: `modules/jobs/src/server/sync-items.ts`, `modules/jobs/src/server/index.t
 
 ## Progress
 
-- [ ] Phase 1: `reopenSyncItem`
+- [x] Phase 1: `reopenSyncItem` (75ec63e, steering tests 12/12)
