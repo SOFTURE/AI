@@ -1,6 +1,6 @@
 ---
 change_id: theme-flat-paint-radio-794
-status: planned
+status: archived
 ---
 
 # Plan: radio and choice look maps (issue #794)
@@ -35,4 +35,4 @@ Files: `themes/theme-flat-paint/src/look/choice.ts` (new), `src/index.ts`, `test
 
 ## Progress
 
-- [ ] Phase 1: look maps
+- [x] Phase 1: look maps (a436ec6, tests 53/53 in the package)

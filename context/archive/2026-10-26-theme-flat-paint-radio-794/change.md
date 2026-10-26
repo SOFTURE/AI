@@ -1,12 +1,13 @@
 ---
 change_id: theme-flat-paint-radio-794
 title: "theme-flat-paint: look maps for radio choices, choice row and choice card (issue #794)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 794
 branch: claude/project-thread-kisvhq
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent
