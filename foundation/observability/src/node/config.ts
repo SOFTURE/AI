@@ -34,7 +34,15 @@ export type ObservabilityOptions = {
   errorDetails?: ErrorDetails;
   /** Flush on SIGTERM and SIGINT, then let the signal end the process. Default `false`. */
   handleSignals?: boolean;
+  /**
+   * `"short"` for a process that does one job and ends (a migration, an ops script, a cron run): no metrics, since
+   * every run would only add new series, whatever `metrics.enabled` says; traces and logs stay and are flushed when
+   * the process ends on its own. Default `"long"`: a server or worker.
+   */
+  lifetime?: ProcessLifetime;
 };
+
+export type ProcessLifetime = "long" | "short";
 
 export type InstrumentationOptions = {
   /** Spans for outgoing `fetch` calls (undici). Default `true`; the Next.js adapter defaults it to `false`. */
@@ -142,7 +150,11 @@ export function resolveObservabilityConfig(
 }
 
 function isMetricExportOff(options: ObservabilityOptions, env: Environment): boolean {
-  return options.metrics?.enabled === false || readEnv(env, "OTEL_METRICS_EXPORTER")?.toLowerCase() === "none";
+  return (
+    options.lifetime === "short" ||
+    options.metrics?.enabled === false ||
+    readEnv(env, "OTEL_METRICS_EXPORTER")?.toLowerCase() === "none"
+  );
 }
 
 function resolveSignal(signal: Signal, options: ObservabilityOptions, env: Environment): ResolvedSignal {

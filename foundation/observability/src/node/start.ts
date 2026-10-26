@@ -181,6 +181,7 @@ function register(options: ObservabilityOptions): Registration {
   };
 
   const removeSignalHandlers = options.handleSignals === true ? installSignalHandlers(shutdown) : () => undefined;
+  const removeExitFlush = options.lifetime === "short" ? installExitFlush(shutdown) : () => undefined;
 
   const signals = [
     config.traces === null ? null : "traces",
@@ -201,6 +202,7 @@ function register(options: ObservabilityOptions): Registration {
     },
     dispose: async () => {
       removeSignalHandlers();
+      removeExitFlush();
       await shutdown();
     },
     hasWarned: false,
@@ -268,6 +270,19 @@ function installSignalHandlers(shutdown: () => Promise<void>): () => void {
     for (const [signal, listener] of listeners) {
       process.off(signal, listener);
     }
+  };
+}
+
+// `beforeExit` fires when the event loop empties, so a script that ends on its own is flushed without calling
+// `shutdown()`. The flush keeps the loop alive until it settles; the exit code the script set stays.
+// `process.exit()` and an uncaught exception skip it.
+function installExitFlush(shutdown: () => Promise<void>): () => void {
+  const listener = (): void => {
+    void shutdown().catch(() => undefined);
+  };
+  process.once("beforeExit", listener);
+  return () => {
+    process.off("beforeExit", listener);
   };
 }
 
