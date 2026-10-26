@@ -733,7 +733,9 @@ translation under its locale, `auth({ messages: { de: authDe } })`. Groups: `fie
 `register`, `changePassword`, `forgotPassword`, `resetPassword`, `resetMail` (the reset mail of
 `mailingResetSender()`; `minutes` holds plural forms), `logout`, `oidc` (`signInWith` with `{provider}`, `divider`), and `errors.{auth,security,core}` keyed by the error code
 (`auth.invalid_credentials` → `errors.auth.invalid_credentials`). `getAuthErrorMessage(messages, code)`
-looks one up.
+looks one up. In `AuthMessages` the OpenID Connect keys (`oidc` and `errors.auth.oidc_*`) are optional, so a dictionary
+typed `AuthMessages` that predates them still compiles; `OidcSignIn` and `getAuthErrorMessage` read the English copy
+for a key the dictionary lacks.
 
 ## 10. Hooks
 

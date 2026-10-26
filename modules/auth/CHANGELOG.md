@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `AuthMessages`: the OpenID Connect keys (`oidc`, `errors.auth.oidc_failed`, `oidc_cancelled`, `oidc_not_allowed`,
+  `oidc_no_account`) are optional (#786). In 0.2.6 they were required, so an app with its own dictionary typed
+  `AuthMessages` stopped compiling, although that release was described as additive. A missing key reads the English
+  copy: `OidcSignIn` falls back to `authMessages.en.oidc`, and `getAuthErrorMessage` to the English message of a known
+  code before the dictionary's generic failure. No change for an app.
 - `AuthUser.displayName` (`string | null`): the name an OpenID Connect provider sends (`name`, else `given_name`),
   stored on the account at every sign-in that carries one and kept when a sign-in carries none (#802). Null for a
   password account. Normalized (control characters dropped, whitespace collapsed, trimmed, at most 200 characters); a
