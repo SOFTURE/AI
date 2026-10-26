@@ -1,6 +1,6 @@
 ---
 change_id: mailing-named-senders-798
-status: planned
+status: archived
 ---
 
 # Plan: a sender per mail (issue #798)
@@ -50,6 +50,7 @@ Files: `src/cli/run.ts`, `tests/cli.test.ts`.
 
 ## Progress
 
-- [ ] Phase 1: options, contract and the send path
-- [ ] Phase 2: `softure-mail dns` over every sender
-- [ ] Phase 3: docs
+- [x] Phase 1: options, contract and the send path (9b8b077)
+- [x] Phase 2: `softure-mail dns` over every sender (94cb11b)
+- [x] Phase 3: docs (656446f)
+- [x] Implementation review fixes (988b9eb)
