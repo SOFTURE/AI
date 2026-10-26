@@ -1,3 +1,4 @@
+import { Wallet } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -29,6 +30,25 @@ describe("StatsFold", () => {
 
 describe("StatCards", () => {
   const cards = [{ key: "paid", label: "Paid", value: "1 200 PLN" }] as const;
+
+  it("draws a decorative icon before the label in the label's row when given one (#813)", () => {
+    const html = renderToStaticMarkup(
+      <StatCards label="Totals" cards={[{ key: "paid", label: "Paid", value: "1 200 PLN", icon: Wallet }]} />,
+    );
+
+    expect(html).toMatch(
+      /<div class="flex items-center gap-1\.5 text-section-label text-muted-foreground"><svg [^>]*aria-hidden="true"[^>]*>.*?<\/svg>Paid<\/div>/,
+    );
+    expect(html).toMatch(/<svg [^>]*stroke-width="1\.75"[^>]*class="lucide lucide-wallet size-4 shrink-0"/);
+    expect(readTextNodes(html)).toEqual(["Paid", "1 200 PLN"]);
+  });
+
+  it("keeps the label's markup without an icon", () => {
+    const html = renderToStaticMarkup(<StatCards label="Totals" cards={cards} />);
+
+    expect(html).toContain('<div class="text-section-label text-muted-foreground">Paid</div>');
+    expect(html).not.toContain("<svg");
+  });
 
   it("draws the narrow grid by default", () => {
     const html = renderToStaticMarkup(<StatCards label="Totals" cards={cards} />);
