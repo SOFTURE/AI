@@ -2,7 +2,7 @@
 
 import { formatMessage } from "@softure-ai/core";
 import { Button, type ButtonVariant, type ClassNames, createSlotClassGetter, FormError } from "@softure-ai/ui";
-import type { AuthMessages } from "../messages/index.js";
+import { type AuthMessages, getOidcMessages } from "../messages/index.js";
 
 // The OpenID Connect buttons: one small form per provider, posting `provider` and `next` to the start action
 // (`oidcSignInAction` of `@softure-ai/auth/next`), so it works without JavaScript. Copy comes from messages.
@@ -42,6 +42,7 @@ const DEFAULT_CLASSES: Readonly<Record<OidcSignInSlot, string>> = {
 export function OidcSignIn(props: OidcSignInProps) {
   const { action, providers, messages, next, error, hasDivider = false, classNames, unstyled, submitVariant = "secondary" } = props;
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
+  const copy = getOidcMessages(messages);
   return (
     <div className={slot("root")}>
       <FormError message={error} unstyled={unstyled} />
@@ -50,11 +51,11 @@ export function OidcSignIn(props: OidcSignInProps) {
           <input type="hidden" name="provider" value={provider.id} />
           {next === undefined ? null : <input type="hidden" name="next" value={next} />}
           <Button type="submit" variant={submitVariant} fullWidth classNames={{ root: slot("submit") }} unstyled={unstyled}>
-            {formatMessage(messages.oidc.signInWith, { provider: provider.name })}
+            {formatMessage(copy.signInWith, { provider: provider.name })}
           </Button>
         </form>
       ))}
-      {hasDivider ? <p className={slot("divider")}>{messages.oidc.divider}</p> : null}
+      {hasDivider ? <p className={slot("divider")}>{copy.divider}</p> : null}
     </div>
   );
 }

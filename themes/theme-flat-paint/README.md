@@ -70,7 +70,8 @@ import { BUTTON_VARIANT_LOOK, CARD_TITLE_LOOK, ROLE_TONE, STAT_VALUE_LOOK } from
 - `position-*` colours are a palette for user-chosen series and markers only, never a button, a card or text.
 - **Flat, no exceptions**: depth is the step `background` → `surface` → `surface-raised` and one 1 px `border`. No
   shadow, glow, gradient or `backdrop-filter`; the overlay is ink at 60 % without blur. The only "shadows" are lines:
-  `shadow-selected-row` (a 3 px bar) and `shadow-shot-frame` (a 1 px frame).
+  `shadow-selected-row` (a 3 px bar) and `shadow-shot-frame` (a 1 px frame). A product shot takes the `shot-frame`
+  class from `page.css` (block, full width, `rounded-card`, that frame, cropped from the top, `paper` behind it).
 - At most one `lead` card and one `primary` button per screen.
 - Type: one face, Ubuntu (400 text, 500 labels and buttons, 700 headings and figures), Ubuntu Mono only in columns of
   digits. Headings `text-hero` 88, `text-display` 60, `text-headline` 40, `text-page` and `text-section` 30,
@@ -106,9 +107,51 @@ the app adds no `@source`.
 | `FIELD_LABEL_LOOK` | `Field` slot `label`, and a label built next to a field |
 | `SWITCH_INPUT_LOOK`, `SWITCH_TRACK_LOOK`, `SWITCH_KNOB_LOOK` | a switch drawn over a native checkbox |
 | `CHECKBOX_LOOK` | `Checkbox` slots with `unstyled` |
+| `getModalLook(width)`, `MODAL_LOOK`, `STANDING_PANEL_LOOK` | `Modal` and `StandingPanel` `classNames`: flat veil, entrance motion, no shadow, title on `text-page` |
 | `SEGMENTED_GROUP_LOOK`, `SEGMENT_ACTIVE_LOOK`, `SEGMENT_IDLE_LOOK`, `SEGMENT_ACTIVE_WHEN_CURRENT_LOOK` | a segmented control, and ui's `SegmentedNav` |
 | `SEGMENTED_CONTROL_LOOK`, `THEME_SWITCH_LOOK` | `SegmentedControl` and `ThemeSwitch` slots with `unstyled`: the checked segment without lime, the legend hidden (spread the map and set `legend` to show it) |
 | `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK` | the active segment as `has-checked:` variants, for an option wrapping a native radio |
+| `DATA_TABLE_LOOK` | an app's own `<table>`: `headerCell`, `row`, `cell`, `amountCell`, `emptyCell`, `selectedRow`, `stickyColumn` |
+| `getChartFlagLook(look, size)`, `CHART_FLAG_VARIANT_LOOK`, `CHART_FLAG_SIZE_LOOK` | `@softure-ai/charts` `ChartFlag variant="flag"` `className`: `accent` (lime, ink text) or `deep` (a variant date, white text), by size |
+| `CHART_PIN_LOOK` | `ChartPin` `classNames`: `dot` (fill by variant, plus size by size), ring by the chart's surface, `line` by surface |
+| `CHART_ROLE_TONE` | the charts tone (`ChartToneName`) of each role: `accessible`, `locked`, `debt`, `accent`, `muted` |
+
+A data table (ui has no table component): column headers 12 px 500 `muted`, 44 px rows with a `border` hairline,
+amounts right-aligned in `tabular` with the last column bold, an empty cell `—` in `muted`, the selected row on
+`surface-raised` with the lime bar and a bold year, and a column stuck to the right with a hairline on its left below
+`xl`. Add a slot on top of another with `cn`, so the later one wins:
+
+```tsx
+const t = DATA_TABLE_LOOK;
+<tr className={cn(t.row, isSelected && t.selectedRow)}>
+  <th scope="row" className={t.cell}>2031</th>
+  <td className={cn(t.amountCell, amount === null && t.emptyCell)}>{amount ?? "—"}</td>
+  <td className={cn(t.amountCell, t.stickyColumn)}>{total}</td>
+</tr>
+```
+
+The pin's ring carries its contrast (lime on white does not hold 3:1), so it follows the surface the chart sits on:
+the text colour on the page, ink on a dark band, white on a paper card. charts draws the pin's dashed line itself,
+so `CHART_PIN_LOOK.line` colours that dash (`--sft-chart-pin-line`, the chart axis at 60 %, 70 % on paper) rather
+than adding a border of its own.
+
+```tsx
+import { ChartFlag, ChartPin } from "@softure-ai/charts";
+import { CHART_PIN_LOOK, getChartFlagLook } from "@softure-ai/theme-flat-paint";
+
+const surface = "paper";
+<ChartFlag xPercent={62} size="sm" className={getChartFlagLook("deep", "sm")}>2041</ChartFlag>
+<ChartPin
+  xPercent={62}
+  yPercent={40}
+  classNames={{
+    dot: `${CHART_PIN_LOOK.dot.flag} ${CHART_PIN_LOOK.size.md} ${CHART_PIN_LOOK.ring[surface]}`,
+    line: CHART_PIN_LOOK.line[surface],
+  }}
+/>
+```
+
+A line or marker in a role's colour takes the role's tone: `tone={CHART_ROLE_TONE.locked}`.
 
 ## Tokens
 
