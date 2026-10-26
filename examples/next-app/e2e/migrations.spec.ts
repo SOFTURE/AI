@@ -11,6 +11,7 @@ test("the page lists the ledger and the module migrations applied by softure mig
     "auth 3 create_password_resets (applied)",
     "auth 4 index_users_created_at (applied)",
     "auth 5 create_identities_and_oidc_states (applied)",
+    "auth 6 add_users_display_name (applied)",
     "billing 1 create_entitlements (applied)",
     "billing 2 create_payments (applied)",
     "billing 3 record_payment_grants (applied)",
