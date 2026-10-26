@@ -2,6 +2,14 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
+## Unreleased
+
+- Themes re-export the kit's stylesheets (#795): `softure-theme-css` also writes `dist/preflight.css`,
+  `dist/base.css` and `dist/maplibre.css` into every theme, each one `@import "@softure-ai/theme-kit/<name>.css";`,
+  and the theme contract requires the matching `exports`. `KIT_STYLESHEETS` and `buildKitStylesheetReexport` in
+  `/build`; `parseThemePackageConfig` refuses a theme stylesheet named like a kit one. A theme package adds the three
+  exports (`tests/repo/themes.test.ts` checks it); the kit keeps exporting its own files.
+
 ## 0.1.3
 
 - `base.css` (#746): every element's `border-color` is the theme's `border` and its `outline-color` a half-transparent

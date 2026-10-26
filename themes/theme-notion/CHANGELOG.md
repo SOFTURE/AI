@@ -13,6 +13,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `wrapperClassName`, merged into the row's classes (`h-12` for the 48 px row). An app drops its absolutely
   positioned `Kbd` beside `CommandInput` and its parent selector on `data-slot=command-input-wrapper`; a `label` it
   set on `Command` keeps working. Without the new props the classes are unchanged.
+- `base.css`, `preflight.css`, `maplibre.css` (#795): the kit's page stylesheets, exported by the theme as
+  `@softure-ai/theme-notion/<name>.css`. Each is one `@import` of the kit's file, resolved from the theme's own dependency,
+  so the app gets the kit version the theme was built against and needs no `@softure-ai/theme-kit` of its own. An app
+  replaces `@softure-ai/theme-kit/` with `@softure-ai/theme-notion/` in its `globals.css` and drops a direct
+  `@softure-ai/theme-kit` dependency it kept only for the CSS. The old imports keep working while the kit is hoisted.
 
 ## 0.4.0
 
