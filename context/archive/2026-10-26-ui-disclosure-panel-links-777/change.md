@@ -1,12 +1,13 @@
 ---
 change_id: ui-disclosure-panel-links-777
 title: "ui: DisclosureMenu panel link rules yield to a link's own classes (issue #777)"
-status: open
+status: archived
 roadmap_item: null
 issue: 777
 branch: claude/project-thread-lkia6n
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent
