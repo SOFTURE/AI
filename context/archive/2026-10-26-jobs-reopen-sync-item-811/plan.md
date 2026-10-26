@@ -1,6 +1,6 @@
 ---
 change_id: jobs-reopen-sync-item-811
-status: in_progress
+status: archived
 ---
 
 # Plan: reopen a settled sync item (issue #811)

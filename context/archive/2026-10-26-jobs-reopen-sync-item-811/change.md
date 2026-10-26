@@ -1,12 +1,13 @@
 ---
 change_id: jobs-reopen-sync-item-811
 title: "jobs: reopen a settled sync item so an operator can process it once more (issue #811)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 811
 branch: claude/project-thread-8q0rkg
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent
