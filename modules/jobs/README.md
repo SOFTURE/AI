@@ -367,6 +367,28 @@ await advanceSyncCursor(ctx, { source: "gmail.inbox", from, to: batch.nextCursor
 - A call outside the database (an API) is not rolled back: a crash after it and before the commit repeats it on the
   next run. Keep it idempotent where the source allows, and keep each item short: its transaction stays open while
   `run` runs.
+- Every database access inside `run` goes through its `db`, never the outer `ctx.db`. On a real pool a read through
+  `ctx.db` takes a second connection and sees nothing the item wrote; on the one-connection test database
+  (`@softure-ai/db/testing`) it would wait for the item's transaction forever, so it rejects at once with
+  `PoolInsideTransactionError` (recorded as a thrown attempt). A helper that takes a context gets the callback's,
+  e.g. a delivery to a provider with its stored credential (`@softure-ai/connections`):
+
+  ```ts
+  import { requestWithConnection } from "@softure-ai/connections/server";
+
+  await processSyncItem(ctx, { source: "crm.export", itemId: row.id }, async ({ db }) => {
+    const sent = await requestWithConnection(
+      { ...ctx, db }, // not ctx: the credential is read (and refreshed) in the item's transaction
+      { provider: "crm" },
+      { method: "POST", url: `${CRM_API}/contacts`, body: toContact(row), idempotencyKey: row.id },
+    );
+    return sent.ok ? ok() : err(sent.error);
+  });
+  ```
+
+  A token refreshed during a delivery that then fails is rolled back with the item: the next attempt refreshes
+  again (a provider that rotates refresh tokens may then answer `invalid_grant`, which marks the connection
+  `reconnect_required`). While the transaction is open, another delivery for the same account waits on its row.
 - `getSyncCursor(ctx, source)` returns the cursor or `null`. `advanceSyncCursor(ctx, { source, from, to })` is a
   compare-and-set: refused with `jobs.sync_cursor_moved` when the stored cursor is no longer `from`, so a slower
   worker cannot move it back; re-read and go on. Pass a transaction as `ctx.db` to move it with the batch's last write.

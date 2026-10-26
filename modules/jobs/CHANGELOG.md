@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- README, "Sync state for polling": every database access inside a `processSyncItem` callback goes through the
+  callback's `db`, with a provider call through `requestWithConnection` and what a rolled-back token refresh means
+  (#785). On the test database a read through the outer `ctx.db` now fails at once (`@softure-ai/db` testing).
+  - Migrate: a callback that calls a helper with the job's context passes `{ ...ctx, db: itemContext.db }` instead.
+
 ## 0.1.5
 
 - Admin page (#654): `JobsPage` from `@softure-ai/jobs/next` (mount `app/admin/jobs/page.tsx`, route `panel`
