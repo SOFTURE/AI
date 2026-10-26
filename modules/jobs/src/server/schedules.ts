@@ -1,7 +1,7 @@
 // Recurring schedules: a period schedule's runs start on whole periods counted from the Unix epoch, a local-time
 // schedule's at its listed times of day in its time zone, so every worker computes the same slot. A worker takes a period with a conditional upsert of `jobs.schedules` and enqueues its run
 // in the same transaction, so each period is enqueued once however many workers race for it.
-import { err, ok, type Err, type Ok } from "@softure-ai/core";
+import { err, getWallClock, getZonedInstant, ok, type Err, type Ok } from "@softure-ai/core";
 import { eq, inArray, lt } from "drizzle-orm";
 import {
   parseEverySeconds,
@@ -11,7 +11,6 @@ import {
   type PeriodScheduleOptions,
 } from "../options.js";
 import { schedules } from "../schema.js";
-import { getWallClock, getZonedInstant } from "../zoned-time.js";
 import type { JobsContext } from "./context.js";
 import { enqueueJob, type EnqueuedJob } from "./enqueue.js";
 import { getJobsOptions } from "./options.js";
@@ -202,7 +201,7 @@ function getNextLocalTimeSlot(schedule: LocalTimeScheduleOptions, after: number)
  * filters let through with a time that `isWanted`, the nearest such time.
  */
 function findLocalTimeSlot(schedule: LocalTimeScheduleOptions, instant: number, step: -1 | 1, isWanted: (candidate: number) => boolean): number {
-  const start = getWallClock(instant, schedule.timeZone);
+  const start = getWallClock(new Date(instant), schedule.timeZone);
   for (let offset = 0; offset <= MAX_SEARCH_DAYS; offset += 1) {
     // Date.UTC rolls a day outside the month over into the month before or after.
     const date = new Date(Date.UTC(start.year, start.month - 1, start.day + step * offset));
@@ -211,7 +210,7 @@ function findLocalTimeSlot(schedule: LocalTimeScheduleOptions, instant: number, 
     const instants = schedule.at
       .map((time) => {
         const [hour, minute] = time.split(":").map(Number);
-        return getZonedInstant({ ...day, hour: hour ?? 0, minute: minute ?? 0 }, schedule.timeZone);
+        return getZonedInstant({ ...day, hour: hour ?? 0, minute: minute ?? 0 }, schedule.timeZone).getTime();
       })
       .filter(isWanted);
     if (instants.length > 0) return step < 0 ? Math.max(...instants) : Math.min(...instants);
