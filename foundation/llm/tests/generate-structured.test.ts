@@ -35,6 +35,7 @@ describe("generateStructured", () => {
         usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15, cachedInputTokens: 0, reasoningTokens: 0 },
         model: "small",
         costUsd: 0.00003,
+        costSource: "price_table",
       },
     });
     expect(usage.records).toEqual([
@@ -43,6 +44,7 @@ describe("generateStructured", () => {
         provider: "mock-provider",
         usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15, cachedInputTokens: 0, reasoningTokens: 0 },
         costUsd: 0.00003,
+        costSource: "price_table",
         outcome: "ok",
         durationMs: 0,
         at: START,
