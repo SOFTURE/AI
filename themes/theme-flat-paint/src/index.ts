@@ -25,13 +25,18 @@ export {
 } from "./look/card.js";
 export {
   CHECKBOX_LOOK,
+  SEGMENTED_CONTROL_LOOK,
   SEGMENTED_GROUP_LOOK,
   SEGMENT_ACTIVE_LOOK,
+  SEGMENT_ACTIVE_WHEN_CHECKED_LOOK,
   SEGMENT_ACTIVE_WHEN_CURRENT_LOOK,
   SEGMENT_IDLE_LOOK,
   SWITCH_INPUT_LOOK,
   SWITCH_KNOB_LOOK,
   SWITCH_TRACK_LOOK,
+  THEME_SWITCH_LOOK,
   type CheckboxSlot,
+  type SegmentedControlSlot,
+  type ThemeSwitchSlot,
 } from "./look/controls.js";
 export { ROLE_TONE, type DataRole, type UiTone } from "./look/roles.js";
