@@ -9,12 +9,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   BUTTON_VARIANT_LOOK,
+  CHART_PIN_LOOK,
   CHECKBOX_LOOK,
   CHECKLIST_LOOK,
   COLOR_FIELD_LOOK,
+  DATA_TABLE_LOOK,
   FLAT_PAINT_THEME,
   HINT_LOOK,
   MENU_PANEL_LOOK,
+  MODAL_LOOK,
   SEGMENT_ACTIVE_LOOK,
   SEGMENTED_CONTROL_LOOK,
   STEPPER_LOOK,
@@ -97,6 +100,55 @@ describe("theme.css in an app's Tailwind", () => {
       const selector = `.${className.replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character}`)}`;
       expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
     }
+  });
+
+  it("generates the chart look maps, the pin line as the package's dash colour", () => {
+    expect(compiled).toMatch(/\.rounded-flag \{\s*border-radius: 4px;/);
+    for (const selector of [".bg-lime-deep", ".bg-accent-fill", ".text-on-accent", ".size-2\\.5", ".border-paper", ".text-\\[0\\.6875rem\\]"]) {
+      expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
+    }
+    expect(CHART_PIN_LOOK.line.paper.startsWith("[--sft-chart-pin-line:")).toBe(true);
+    expect(compiled).toContain("--sft-chart-pin-line: color-mix(in oklab,var(--sft-chart-axis) 70%,transparent);");
+  });
+
+  it("generates the data table's classes from the look maps", () => {
+    expect(compiled).toMatch(/\.h-touch \{\s*height: 44px;/);
+    expect(compiled).toMatch(/\.text-caption \{\s*font-size: 0\.75rem;/);
+    expect(compiled).toMatch(/\.bg-surface-raised \{\s*background-color: var\(--surface-raised\);/);
+    expect(compiled).toMatch(/\.shadow-selected-row \{\s*--tw-shadow: var\(--shadow-selected-row\);/);
+    expect(compiled).toContain(".last\\:font-bold:last-child {");
+    expect(compiled).toContain(".\\[\\&\\>\\:first-child\\]\\:font-bold > :first-child {");
+    expect(compiled).toMatch(/\.sticky \{\s*position: sticky;/);
+    expect(compiled).toMatch(/\.bg-inherit \{\s*background-color: inherit;/);
+    expect(compiled).toContain("inset 1px 0 0 var(--tw-shadow-color, var(--border))");
+    expect(compiled).toMatch(/@media \(width >= 80rem\) \{\s*\.xl\\:shadow-none \{\s*--tw-shadow: 0 0 #0000;/);
+    expect(DATA_TABLE_LOOK.stickyColumn.split(" ")).toContain("xl:shadow-none");
+  });
+
+  it("frames a product shot on the theme's radius, hairline and paper", () => {
+    expect(compiled).toMatch(
+      /\.shot-frame \{\s*display: block;\s*width: 100%;\s*border-radius: 12px;\s*box-shadow: var\(--shadow-shot-frame\);\s*object-fit: cover;\s*object-position: top;\s*background-color: var\(--paper\);\s*\}/,
+    );
+  });
+
+  it("generates the dialog look's utilities from the look maps", () => {
+    expect(MODAL_LOOK.overlay?.split(" ")).toContain("bg-ink/60");
+    expect(compiled).toMatch(/\.bg-ink\\\/60 \{[^}]*background-color: color-mix\(in oklab, var\(--ink\) 60%, transparent\);/);
+    expect(compiled).toMatch(/\.transition-none \{\s*transition-property: none;/);
+    expect(compiled).toMatch(/\.shadow-none \{/);
+    expect(compiled).toMatch(/\.text-page \{\s*font-size: 1\.875rem;/);
+  });
+
+  it("enters a dialog within the motion tokens: the veil, a sheet below 40rem, a fade up from 40rem, a side panel", () => {
+    expect(compiled).toMatch(/@keyframes flat-paint-veil-in \{\s*from \{\s*background-color: transparent;/);
+    expect(compiled).toMatch(/@keyframes flat-paint-sheet-in \{\s*from \{\s*translate: 0 100%;/);
+    expect(compiled).toMatch(/@keyframes flat-paint-rise-in \{\s*from \{\s*opacity: 0;\s*translate: 0 0\.75rem;/);
+    expect(compiled).toMatch(/@keyframes flat-paint-side-in \{\s*from \{\s*translate: 100% 0;/);
+    expect(compiled).toMatch(/\.veil-enter \{\s*animation: flat-paint-veil-in var\(--duration-base\) var\(--ease-out-soft\) backwards;/);
+    expect(compiled).toMatch(/\.dialog-enter \{\s*animation: flat-paint-sheet-in var\(--duration-slow\) var\(--ease-out-soft\) backwards;/);
+    expect(compiled).toMatch(/@media \(width >= 40rem\) \{\s*\.dialog-enter \{\s*animation-name: flat-paint-rise-in;/);
+    expect(compiled).toMatch(/\.side-panel-enter \{\s*animation: flat-paint-side-in var\(--duration-slow\) var\(--ease-out-soft\) backwards;/);
+    expect(compiled).not.toMatch(/@keyframes flat-paint-[a-z-]+ \{[^@]*scale/);
   });
 
   it("generates the type scale with its line height, weight and tracking", () => {

@@ -494,6 +494,28 @@ const departure = localDateTimeSchema.parse("2026-12-01T06:45"); // LocalDateTim
 isDayInPeriod(getLocalDay(departure), trip); // true when the departure falls on a day of the trip
 ```
 
+**Back to instants.** An external API that takes a range of instants (a calendar API's `timeMin`/`timeMax` in
+RFC 3339) needs the instant a day, or a local date-time, starts in a zone. These helpers use the runtime's `Intl`
+data and handle DST: a time a change repeats gives its first occurrence, a time a change skips gives the instant
+the same distance after it (02:30 on a day that jumps from 02:00 to 03:00 gives 03:30).
+
+| Function | Semantics |
+| --- | --- |
+| `getDayStartInstant(day, timeZone)` | The first instant of `day` in the zone (its midnight). A skipped midnight gives the instant after the change. The inverse of `toCalendarDay`. |
+| `getLocalDateTimeInstant(value, timeZone)` | The instant a clock in the zone shows the `LocalDateTime`. |
+| `getWallClock(instant, timeZone)` | The `WallClock` (`{ year, month, day, hour, minute }`, month from 1) of an instant in the zone. |
+| `getZonedInstant(wallClock, timeZone)` | The instant a clock in the zone shows `wallClock`. |
+| `isTimeZone(timeZone)` | An IANA zone the runtime knows (`Europe/Warsaw`, `UTC`); `""` is not one. |
+
+They return `Date`s and throw a `RangeError` that names the function for a malformed day or date-time, an invalid
+date or an unknown zone.
+
+```ts
+const day = getCalendarDay(context.clock, config.timezone);
+const timeMin = getDayStartInstant(day, config.timezone).toISOString();
+const timeMax = getDayStartInstant(addCalendarDays(day, 7), config.timezone).toISOString();
+```
+
 **Display.** One way to show days, money and percentages in every module and app, in `config.locale`:
 
 ```ts

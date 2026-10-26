@@ -11,6 +11,12 @@ export interface ThemePackageConfig {
   stylesheets: string[];
 }
 
+/**
+ * The kit's page stylesheets. Every theme ships them under its own name (`@softure-ai/theme-notion/base.css`) as
+ * re-exports of the kit's, so an app imports CSS only from the theme it installed (issue #795).
+ */
+export const KIT_STYLESHEETS = ["preflight.css", "base.css", "maplibre.css"] as const;
+
 export type ConfigResult = { ok: true; config: ThemePackageConfig } | { ok: false; error: string };
 
 const SOURCE_PATH = /^\.\/[a-z0-9-]+(?:\/[a-z0-9-]+)*$/;
@@ -42,5 +48,7 @@ export function parseThemePackageConfig(value: unknown): ConfigResult {
   for (const result of [sources, imports, stylesheets]) {
     if (typeof result === "string") return { ok: false, error: `softureTheme: ${result}` };
   }
+  const taken = (stylesheets as string[]).filter((name) => (KIT_STYLESHEETS as readonly string[]).includes(name));
+  if (taken.length > 0) return { ok: false, error: `softureTheme: "stylesheets" holds ${taken.join(", ")}, which the kit's re-exports take` };
   return { ok: true, config: { sources: sources as string[], imports: imports as string[], stylesheets: stylesheets as string[] } };
 }

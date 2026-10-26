@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- The way back from days to instants (#783): `getDayStartInstant(day, timeZone)` returns the first instant of a
+  `YYYY-MM-DD` day in an IANA zone, `getLocalDateTimeInstant(value, timeZone)` the instant of a `LocalDateTime`, with
+  DST handled (a repeated time gives its first occurrence, a skipped time the instant the same distance after the
+  change). Also exported: `getWallClock`, `getZonedInstant`, the `WallClock` type and `isTimeZone`. They moved from
+  `@softure-ai/jobs`, which now imports them from core.
+  - Migrate: nothing. An app that copied the zoned-time arithmetic (for example to query a calendar API by the
+    owner's days) can drop its copy and import these.
+
 ## 0.2.4
 
 - `requestJson` reads the body of an error answer through an opt-in `errorSchema` (#680), for OAuth errors
