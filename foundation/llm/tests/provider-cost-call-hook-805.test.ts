@@ -148,6 +148,24 @@ describe("onCall", () => {
     ]);
   });
 
+  it("gives both hooks the call's own duration, not the time the other hook took", async () => {
+    const clock = createTestClock(START);
+    const durations: number[] = [];
+    const llm = createLlm({
+      model: fakeModel({ kind: "output", value: { score: 1 } }),
+      clock,
+      onUsage: (record) => {
+        durations.push(record.durationMs);
+        clock.advance(5_000);
+      },
+      onCall: (record) => void durations.push(record.durationMs),
+    });
+
+    await llm.generateStructured({ schema: scoreSchema, prompt: "Text" });
+
+    expect(durations).toEqual([0, 0]);
+  });
+
   it("records llm.invalid_output with its usage, after onUsage", async () => {
     const order: string[] = [];
     const llm = createLlm({

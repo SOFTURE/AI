@@ -144,6 +144,8 @@ export function createLlm(options: LlmOptions): Llm {
       throw error;
     }
 
+    // Measured once, so neither hook's own time counts towards the other's record.
+    const durationMs = clock.now().getTime() - startedAt.getTime();
     const attributes = request.attributes ?? {};
     const report = async (ended: {
       readonly outcome: "ok" | LlmErrorCode;
@@ -153,7 +155,6 @@ export function createLlm(options: LlmOptions): Llm {
       readonly costSource: CostSource | null;
     }): Promise<void> => {
       if (options.onCall === undefined) return;
-      const durationMs = clock.now().getTime() - startedAt.getTime();
       await options.onCall({ operation: call.operation, provider, ...ended, startedAt, durationMs, attributes });
     };
 
@@ -180,7 +181,7 @@ export function createLlm(options: LlmOptions): Llm {
         costUsd,
         costSource,
         outcome: code,
-        durationMs: clock.now().getTime() - startedAt.getTime(),
+        durationMs,
         at: startedAt,
         attributes,
       });
