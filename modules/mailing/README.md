@@ -8,7 +8,7 @@ can be imported into it, and `softure-mail` sends campaigns from a content file.
 
 ## 1. What it provides
 
-- `mailing({ from, replyTo, provider, timeoutMs, ... })` for `softure.config.ts` (section 3).
+- `mailing({ from, senders, replyTo, provider, timeoutMs, ... })` for `softure.config.ts` (section 3).
 - `sendMail(context, mail, options)` in `@softure-ai/mailing/server` and `sendMail(mail, options)` in
   `@softure-ai/mailing/next` (on the registered config). The result is a core `Result`; a failure the
   provider answered with an HTTP status also carries it as `httpStatus`:
@@ -85,6 +85,12 @@ Rules that hold for every send:
   instead of `mailing({ replyTo })`, e.g. the buyer of a request mailed to the operator:
   `sendMail({ to: operator, replyTo: request.account.email, subject, text })`. Without it the
   configured one is used; the `Reply-To` header stays refused.
+- **Sender per mail, by name.** `sender` names one of `mailing({ senders })`, e.g. operator alerts from
+  `alerts` and client mail from `from`: `sendMail({ to: operator, sender: "alerts", subject, text })`.
+  Without it the mail goes out from `from`. It is never an address, so a request cannot choose the
+  sender; an unknown name is `mailing.invalid_input` (`fields=sender`) and nothing is sent.
+  `deliverOnce` and `enqueueDelivery` carry it as part of the mail (`buildMail` returns it), and
+  `previewMail` shows the resolved `From`.
 - **Text always, HTML optionally.** `text` is required; `html` is a string the app rendered (from a
   template string or React email components rendered to a string: the module does not render).
 - **Headers cannot take over the mail.** `headers` is for headers like `List-Unsubscribe`;
@@ -496,13 +502,16 @@ address the same way the commands do.
 ### Sender DNS check: `softure-mail dns`
 
 ```bash
-softure-mail dns                                       # the domain of `from` (and replyTo) in the config
+softure-mail dns                                       # every sender domain in the config (and replyTo)
 softure-mail dns --domain mail.example.com --spf-host send.mail.example.com
 softure-mail dns --spf-host send.mail.example.com --resend-return-path \
   --dmarc-policy reject --dmarc-sp reject --dmarc-adkim s --dmarc-aspf s
 ```
 
-It reports each check as `pass`, `warn` or `fail`, exiting 1 on any `fail`:
+Without `--domain` it checks every distinct domain of `from` and `senders`, `from`'s first, one report each; the
+REPLY and INBOUND checks belong to the first. With several domains, each `--spf-host` and `--return-path` counts for
+the domain it sits under (`send.clients.example.net` for `clients.example.net`), and a host under none of them is an
+error. It reports each check as `pass`, `warn` or `fail`, exiting 1 on any `fail`:
 
 - **SPF**: one `v=spf1` record on the domain or each `--spf-host`; `+all` warns. Resend publishes SPF on
   `send.<domain>`.
@@ -555,6 +564,7 @@ mailing({
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `from` | `string` | required | `addr` or `Name <addr>` (no commas, semicolons or quotes in the name). Must be on the domain the provider signs (DKIM); with DMARC `adkim=s` exactly that subdomain. |
+| `senders` | `Record<string, string>` | none | Named extra senders a mail picks with `sender`, e.g. `{ alerts: "App <alerts@example.com>" }`. Names: a letter, then letters, digits, `_` or `-`, at most 32 characters. Each value is checked like `from` and must be on a domain the provider signs. |
 | `replyTo` | `string` | none | One address for replies; may be on another domain (DMARC does not check it). |
 | `provider` | `MailProvider` | required | `resend()`, `fakeMailProvider()` or your own adapter. |
 | `timeoutMs` | `number` | `10000` | 1000 to 60000. |
@@ -829,7 +839,9 @@ personal data. So the module neither exports nor deletes per user (`privacy: { e
   removed by hand (`getRecipientKey(address)`).
 - Lowercasing the whole address merges `Ada@` and `ada@` (allowed to differ by RFC 5321, never in
   practice); an unsubscribe then covers both.
-- The display name in `from` cannot contain commas, semicolons or quotes (no RFC 5322 quoting).
+- A named sender carries no reply-to of its own: pass `replyTo` on the mail. Campaigns and
+  `softure-mail test` always send from `from`.
+- The display name in `from` and `senders` cannot contain commas, semicolons or quotes (no RFC 5322 quoting).
 - Address checks are structural (one `@`, a dot in the domain, no separators); the provider has the
   last word.
 

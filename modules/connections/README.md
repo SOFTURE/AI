@@ -206,6 +206,13 @@ without the read. `requestWithConnection` sets that header and replaces the call
 The server functions in `/server` take `{ db, clock, config, env? }`; `env` defaults to `process.env` (the keyring
 and the client secrets), so a worker outside Next builds the context the same way as `getConnectionsContext` does.
 
+**Inside a transaction** (a jobs `processSyncItem` callback, the app's own `db.transaction`), pass the transaction as
+`db`: `requestWithConnection({ ...ctx, db: tx }, ...)`. The credential is then read, and a refresh written, in that
+transaction: a refresh is rolled back with it when the transaction fails, and another call for the same account
+waits on the account's row until it ends. With the outer `ctx.db` the read takes a second connection on Postgres, and
+on the one-connection test database (`@softure-ai/db/testing`) it rejects with `PoolInsideTransactionError` instead
+of waiting forever.
+
 ## 5. Migrations and tables
 
 Schema `connections`, one migration (`0001_create_accounts_and_states.sql`):

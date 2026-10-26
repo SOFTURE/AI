@@ -26,6 +26,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `getZonedInstant`, `isTimeZone`, plus `getDayStartInstant` and `getLocalDateTimeInstant`). Local-time schedules
   behave exactly as before, across DST changes too. Needs `@softure-ai/core` 0.2.5 or later.
   - Migrate: nothing.
+- README, "Sync state for polling": every database access inside a `processSyncItem` callback goes through the
+  callback's `db`, with a provider call through `requestWithConnection` and what a rolled-back token refresh means
+  (#785). On the test database a read through the outer `ctx.db` now fails at once (`@softure-ai/db` testing).
+  - Migrate: a callback that calls a helper with the job's context passes `{ ...ctx, db: itemContext.db }` instead.
 
 ## 0.1.5
 

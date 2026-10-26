@@ -4,6 +4,7 @@ export type {
   InstrumentationOptions,
   MetricOptions,
   ObservabilityOptions,
+  ProcessLifetime,
   ResolvedObservabilityConfig,
   SignalExport,
   TraceOptions,

@@ -103,6 +103,27 @@ describe("resolveObservabilityConfig: endpoints", () => {
     }
   });
 
+  it("exports no metrics for a short-lived process, keeping traces and logs, also with a metrics endpoint", () => {
+    const env = { OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://metrics.example.com/m" };
+
+    const config = resolveObservabilityConfig({ endpoint: BASE, lifetime: "short" }, env);
+
+    expect(config).toMatchObject({
+      kind: "export",
+      traces: { url: `${BASE}/v1/traces` },
+      logs: { url: `${BASE}/v1/logs` },
+      metrics: null,
+    });
+  });
+
+  it("exports metrics for a long-lived process, the default", () => {
+    for (const lifetime of ["long", undefined] as const) {
+      const config = resolveObservabilityConfig({ endpoint: BASE, lifetime }, {});
+
+      expect(config).toMatchObject({ kind: "export", metrics: { url: `${BASE}/v1/metrics` } });
+    }
+  });
+
   it("exports only the signal that has an endpoint", () => {
     const config = resolveObservabilityConfig({}, { OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: "https://logs.example.com/l" });
 
