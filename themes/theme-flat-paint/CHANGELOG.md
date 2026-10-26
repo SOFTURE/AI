@@ -24,6 +24,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `page.css` gains `.shot-frame` (#784): an image framed as the product (card radius, the `--shadow-shot-frame`
   hairline, `object-fit: cover` from the top, `paper` behind a lazy image). An app that wrote
   `box-shadow: 0 0 0 1px var(--paper-line)` by hand uses the class instead and keeps its own aspect ratio.
+- The look of the `@softure-ai/charts` primitives (#779), in `look/chart.ts`: `CHART_FLAG_VARIANT_LOOK` (`accent`,
+  `deep`), `CHART_FLAG_SIZE_LOOK` and `getChartFlagLook` for `ChartFlag`; `CHART_PIN_LOOK` (dot fill and size, the
+  ring per chart surface, the event line per surface) for `ChartPin`; `CHART_ROLE_TONE`, the charts tone of each role.
+  An app that passed `border-l border-dashed border-chart-axis/60` to the pin line drops it: that border drew a second
+  dash next to the package's; `CHART_PIN_LOOK.line` colours the package's own dash instead.
 
 ## 0.1.1
 

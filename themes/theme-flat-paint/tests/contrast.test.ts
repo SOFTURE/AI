@@ -52,6 +52,10 @@ describe.each(["light", "dark"] as const)("contrast in the %s scheme", (scheme) 
     expect(getContrast("on-accent", "accent-fill-hover", scheme)).toBeGreaterThanOrEqual(TEXT_MIN);
   });
 
+  it("puts white text on the deep chart flag at 4.5:1 or more (the lime flag is black on lime, above)", () => {
+    expect(getContrast("paper", "lime-deep", scheme)).toBeGreaterThanOrEqual(TEXT_MIN);
+  });
+
   it("draws the focus ring and control boundaries at 3:1 or more on every surface", () => {
     for (const surface of SURFACES) {
       for (const role of ["accent", "line-strong"]) {
