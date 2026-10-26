@@ -13,6 +13,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `COLOR_FIELD_LOOK` (square presets framed when picked, a 28 × 36 px native picker). An app that carries these
   class strings itself replaces them with the maps, e.g. `<Checklist classNames={CHECKLIST_LOOK} …>`; one that
   merges its own classes in passes `cn(CHECKLIST_LOOK.row, …)`.
+- `SEGMENTED_CONTROL_LOOK` and `THEME_SWITCH_LOOK` (#780): ready slot maps for ui's `SegmentedControl` and
+  `ThemeSwitch` with `unstyled`; the checked segment is surface, strong line and bold (never lime, which fails WCAG
+  1.4.11 on white), focus is a 2 px accent outline, the legend is visually hidden. `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK`
+  is the active segment as `has-checked:` variants. An app replaces its own two slot maps with
+  `<SegmentedControl unstyled classNames={SEGMENTED_CONTROL_LOOK} … />` and
+  `<ThemeSwitch unstyled classNames={THEME_SWITCH_LOOK} />`.
 
 ## 0.1.1
 

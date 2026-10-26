@@ -109,6 +109,8 @@ state. App-specific motion (a wizard's step stamp) stays in the app.
 | `STEPPER_LOOK` | `Stepper` `classNames`: marker per state (by ui's `data-state`), label hidden on phones |
 | `MENU_PANEL_LOOK` | `DisclosureMenu`, `AccountMenu`, `MobileMenu` slots `trigger` and `panel` |
 | `COLOR_FIELD_LOOK` | `ColorField` slots `preset` (square, framed when picked) and `swatch` (the native picker) |
+| `SEGMENTED_CONTROL_LOOK`, `THEME_SWITCH_LOOK` | `SegmentedControl` and `ThemeSwitch` slots with `unstyled`: the checked segment without lime, the legend hidden (spread the map and set `legend` to show it) |
+| `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK` | the active segment as `has-checked:` variants, for an option wrapping a native radio |
 
 ## Tokens
 
