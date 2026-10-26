@@ -1,7 +1,8 @@
 // Sends one mail through the configured provider, with three rules: it never throws for a failed
 // send (every failure is a result), nothing of the mail (address, subject, body, key) reaches a log
 // or the result, and `headers` cannot replace the envelope or the sender (a mail's own reply-to is
-// the `replyTo` field, checked like `to`; its sender is a name of `mailing({ senders })`, never an address). Attachments go only to a provider that declares it delivers them, and a
+// the `replyTo` field, checked like `to`; its sender is a name of `mailing({ senders })`, never an
+// address). Attachments go only to a provider that declares it delivers them, and a
 // log line describes them by count, content type and size, never by name or content. List mail (any kind but `transactional`) also gets a signed unsubscribe
 // link in a footer and the RFC 8058 headers, and is refused for a recipient who unsubscribed.
 import { err, type Err, ok, type Ok, selectMessages, type SoftureConfig } from "@softure-ai/core";
