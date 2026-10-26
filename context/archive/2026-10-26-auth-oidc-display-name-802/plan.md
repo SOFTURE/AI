@@ -1,6 +1,6 @@
 ---
 change_id: auth-oidc-display-name-802
-status: in_progress
+status: archived
 ---
 
 # Plan: display name from OpenID Connect (issue #802)
@@ -46,4 +46,4 @@ tests, `README.md`, `CHANGELOG.md`, `module.json` (no table change).
 
 ## Progress
 
-- [ ] Phase 1: store and expose the display name
+- [x] Phase 1: store and expose the display name (8ab2891, auth tests 467/467)

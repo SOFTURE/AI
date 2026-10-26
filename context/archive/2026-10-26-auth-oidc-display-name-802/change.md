@@ -1,12 +1,13 @@
 ---
 change_id: auth-oidc-display-name-802
 title: "auth: keep the display name an OpenID Connect provider returns (issue #802)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 802
 branch: claude/project-thread-ocjzvc
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent
