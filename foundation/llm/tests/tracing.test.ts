@@ -37,6 +37,7 @@ describe("spans", () => {
       "gen_ai.response.model": "small",
       "gen_ai.usage.input_tokens": 10,
       "gen_ai.usage.output_tokens": 5,
+      "softure.llm.cost_source": "price_table",
       "softure.llm.cost_usd": 0.000015,
       "softure.llm.outcome": "ok",
     });

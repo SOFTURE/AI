@@ -103,6 +103,26 @@ A second `startObservability` in the same process returns the first handle (and 
 that signal, the package then re-raises it and the process ends as it would have; when the app listens to it itself,
 ending the process stays the app's job (call `shutdown()` in that listener to wait for the flush).
 
+### Scripts and one-shot processes
+
+A migration, an ops script or a cron run does one job and ends. Start it with `lifetime: "short"`:
+
+```ts
+startObservability({ serviceName: "migrate", serviceNamespace: "my-project", lifetime: "short" });
+
+await migrate();
+// No shutdown() needed: the logs and traces are flushed when the process ends on its own.
+```
+
+- No metrics: every run gets a new `service.instance.id` and would add about 110 series that only last that run
+  (see "Series" below). `metrics.enabled` and the metric instrumentations are ignored.
+- Traces and logs are exported as for a long-running process.
+- When the event loop empties (`beforeExit`), everything buffered is flushed before the process exits, and the exit code
+  the script set (`process.exitCode`) stays. An unreachable endpoint delays the exit by the exporter timeout (10 s).
+- `process.exit()` and an uncaught exception end the process without that flush: call `await observability.shutdown()`
+  before `process.exit()`, and catch the script's error to log it and set `process.exitCode` instead of letting it
+  escape.
+
 ### Incoming requests
 
 Every request to a `node:http` or `node:https` server (Express, Fastify, a plain `http.createServer`) gets a server
@@ -141,15 +161,19 @@ the same resource as traces and logs, and once more on `shutdown()`:
 
 - `http.server.request.duration` (histogram, seconds) by `http.request.method`, `http.response.status_code`,
   `url.scheme` and `network.protocol.version`: request rate, latency and error rate. Never by path, so its series stay
-  bounded. `http.client.request.duration` likewise for outgoing calls, by `server.address`.
+  bounded. `http.client.request.duration` likewise for outgoing calls, by `server.address`. The exporter's own
+  requests to the trace, log and metric endpoints are not measured (nor traced); other paths on that host are.
 - Node.js runtime metrics (`instrumentations.runtime`): `nodejs.eventloop.utilization`, `nodejs.eventloop.delay.*`,
   `nodejs.eventloop.time`, `v8js.gc.duration`, `v8js.memory.heap.*` per heap space, `v8js.resource.active`.
 
 **Series.** Backends that bill or cap by active series (Grafana Cloud Free counts them) see roughly 100 series per
 process from the runtime metrics, and for each histogram about 17 series (buckets, sum, count) per combination of its
 attributes: for a service answering `GET` and `POST` with `200`, `401` and `500`, about 100 for the request duration.
-Several replicas multiply it. `instrumentations: { runtime: false }` drops the runtime metrics;
-`metrics: { enabled: false }` or `OTEL_METRICS_EXPORTER=none` exports no metrics at all.
+Several replicas multiply it. A one-shot process (a migration, a script, a cron run) pays this on every run: it gets a
+new `service.instance.id` each time and exports once at the end, so about 110 new series per run that nobody reads;
+three daily scripts add about 1,300 series a week. Start those with `lifetime: "short"` (see "Scripts and one-shot
+processes"). `instrumentations: { runtime: false }` drops the runtime metrics; `metrics: { enabled: false }` or
+`OTEL_METRICS_EXPORTER=none` exports no metrics at all.
 
 ## Next.js
 

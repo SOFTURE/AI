@@ -1,6 +1,7 @@
 // Result types and error codes of the jobs module. No user-facing copy here: the UI translates codes through
 // `messages` (docs/02-module-standard.md §6).
 import type { CoreErrorCode, Err, ErrorCode } from "@softure-ai/core";
+import type { JobRunSummary } from "./summary.js";
 
 export type JobsErrorCode =
   | "jobs.invalid_payload"
@@ -34,11 +35,37 @@ export interface Job {
   readonly lockedUntil: Date | null;
   readonly lockedBy: string | null;
   readonly dedupKey: string | null;
+  /** What enqueued the job: `app` (default of `enqueueJob`), `schedule`, `manual` (`runScheduleNow`) or the app's own. */
+  readonly origin: string;
   /** The error code of the last failed attempt. */
   readonly lastError: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly finishedAt: Date | null;
+}
+
+export const JOB_RUN_OUTCOMES = ["succeeded", "retried", "failed"] as const;
+
+/** How a recorded attempt ended: `retried` is a failed attempt with attempts left. */
+export type JobRunOutcome = (typeof JOB_RUN_OUTCOMES)[number];
+
+/** One recorded attempt of a job, kept for `retention.runsDays` whatever happens to the job. */
+export interface JobRun {
+  readonly id: string;
+  /** The job's id; the job itself may have been pruned. */
+  readonly jobId: string;
+  readonly queue: string;
+  readonly origin: string;
+  /** The attempt's number, starting at 1. */
+  readonly attempt: number;
+  readonly outcome: JobRunOutcome;
+  /** The failure's code; null for a success. */
+  readonly errorCode: string | null;
+  /** The handler's summary; null when it returned none (or an invalid one), and for a failure. */
+  readonly summary: JobRunSummary | null;
+  /** Null when unknown: a lease that ended with no attempts left. */
+  readonly startedAt: Date | null;
+  readonly finishedAt: Date;
 }
 
 /**

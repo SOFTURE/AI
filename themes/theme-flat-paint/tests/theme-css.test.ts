@@ -12,12 +12,15 @@ import {
   CHART_PIN_LOOK,
   CHECKBOX_LOOK,
   CHECKLIST_LOOK,
+  CHOICE_CARD_LOOK,
+  CHOICE_ROW_LOOK,
   COLOR_FIELD_LOOK,
   DATA_TABLE_LOOK,
   FLAT_PAINT_THEME,
   HINT_LOOK,
   MENU_PANEL_LOOK,
   MODAL_LOOK,
+  RADIO_LOOK,
   SEGMENT_ACTIVE_LOOK,
   SEGMENTED_CONTROL_LOOK,
   STEPPER_LOOK,
@@ -80,11 +83,11 @@ describe("theme.css in an app's Tailwind", () => {
   });
 
   it("generates every class of the look maps without an app source of its own", () => {
-    const classes = [BUTTON_VARIANT_LOOK.ink, CHECKBOX_LOOK.frame, SEGMENT_ACTIVE_LOOK, SEGMENTED_CONTROL_LOOK.option, SWITCH_TRACK_LOOK].flatMap((look) => look.split(" "));
-    for (const className of ["bg-ink", "text-paper", "peer-checked:bg-accent-fill", "border-line-strong", "peer-aria-invalid:border-debt", "has-checked:bg-surface", "has-focus-visible:outline-accent"]) {
+    const classes = [BUTTON_VARIANT_LOOK.ink, CHECKBOX_LOOK.frame, SEGMENT_ACTIVE_LOOK, SEGMENTED_CONTROL_LOOK.option, SWITCH_TRACK_LOOK, RADIO_LOOK.input, RADIO_LOOK.mark, CHOICE_ROW_LOOK.label, CHOICE_ROW_LOOK.title, CHOICE_CARD_LOOK.label].flatMap((look) => look.split(" "));
+    for (const className of ["bg-ink", "text-paper", "peer-checked:bg-accent-fill", "border-line-strong", "peer-aria-invalid:border-debt", "has-checked:bg-surface", "has-focus-visible:outline-accent", "checked:bg-accent-fill", "peer-checked:scale-100", "has-checked:shadow-selected-row", "group-has-checked:font-bold", "has-checked:ring-foreground"]) {
       expect([className, classes.includes(className)]).toEqual([className, true]);
     }
-    for (const selector of [".bg-ink", ".text-paper", ".peer-checked\\:bg-accent-fill", ".border-line-strong", ".peer-aria-invalid\\:border-debt", ".has-checked\\:bg-surface", ".has-focus-visible\\:outline-accent"]) {
+    for (const selector of [".bg-ink", ".text-paper", ".peer-checked\\:bg-accent-fill", ".border-line-strong", ".peer-aria-invalid\\:border-debt", ".has-checked\\:bg-surface", ".has-focus-visible\\:outline-accent", ".checked\\:bg-accent-fill", ".peer-checked\\:scale-100", ".has-checked\\:shadow-selected-row", ".group-has-checked\\:font-bold", ".has-checked\\:ring-foreground"]) {
       expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
     }
   });

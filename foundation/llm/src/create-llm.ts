@@ -2,7 +2,16 @@ import { err, ok, systemClock, type Clock, type Result } from "@softure-ai/core"
 import type { Tracer } from "@opentelemetry/api";
 import { AISDKError, generateText as sdkGenerateText, NoObjectGeneratedError, Output, type LanguageModel } from "ai";
 import type { z } from "zod";
-import type { LlmErrorCode, LlmUsage, ModelPricing, StructuredResult, TextResult, UsageRecord } from "./contract.js";
+import type {
+  CostSource,
+  LlmCallHook,
+  LlmErrorCode,
+  LlmUsage,
+  ModelPricing,
+  StructuredResult,
+  TextResult,
+  UsageRecord,
+} from "./contract.js";
 import {
   endCallSpan,
   failCallSpan,
@@ -11,7 +20,7 @@ import {
   STRUCTURED_SPAN_NAME,
   TEXT_SPAN_NAME,
 } from "./tracing.js";
-import { getCostUsd, toLlmUsage } from "./usage.js";
+import { readProviderCostUsd, resolveCost, toLlmUsage } from "./usage.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -28,6 +37,8 @@ export interface LlmOptions {
   readonly pricing?: ModelPricing;
   /** Called after every call that reached the model and reported usage; a throw propagates to the caller. */
   readonly onUsage?: (record: UsageRecord) => void | Promise<void>;
+  /** Called after every finished call, failures and timeouts included, after `onUsage`; a throw propagates too. */
+  readonly onCall?: LlmCallHook;
   /** Default time limit of a call, retries included. Default 30 000. */
   readonly timeoutMs?: number;
   /** Retries of a failed provider call inside the time limit. Default: the AI SDK's (2). */
@@ -47,7 +58,7 @@ interface BaseRequest {
   readonly timeoutMs?: number;
   /** Overrides the default model for this call. */
   readonly model?: LlmModel;
-  /** Passed to `onUsage` as given (e.g. `{ accountId }`); never written to spans. */
+  /** Passed to `onUsage` and `onCall` as given (e.g. `{ accountId }`); never written to spans. */
   readonly attributes?: Readonly<Record<string, string>>;
 }
 
@@ -68,9 +79,22 @@ export interface Llm {
 
 type SdkResult = Awaited<ReturnType<typeof sdkGenerateText>>;
 
+/** `providerCostUsd`: the USD the provider reported for an answer, `null` when it reported none. */
 type CallOutcome<T> =
-  | { readonly kind: "answered"; readonly output: T; readonly model: string; readonly usage: LlmUsage }
-  | { readonly kind: "failed"; readonly code: LlmErrorCode; readonly model?: string; readonly usage?: LlmUsage }
+  | {
+      readonly kind: "answered";
+      readonly output: T;
+      readonly model: string;
+      readonly usage: LlmUsage;
+      readonly providerCostUsd: number | null;
+    }
+  | {
+      readonly kind: "failed";
+      readonly code: LlmErrorCode;
+      readonly model?: string;
+      readonly usage?: LlmUsage;
+      readonly providerCostUsd?: number | null;
+    }
   | { readonly kind: "timed_out" };
 
 type Settled<T> = { readonly kind: "resolved"; readonly value: T } | { readonly kind: "rejected"; readonly error: unknown };
@@ -91,6 +115,7 @@ interface CallSuccess<T> {
   readonly usage: LlmUsage;
   readonly model: string;
   readonly costUsd: number | null;
+  readonly costSource: CostSource | null;
 }
 
 /** Creates the app's language model access. Invalid options throw a `RangeError` naming the option. */
@@ -119,14 +144,34 @@ export function createLlm(options: LlmOptions): Llm {
       throw error;
     }
 
+    // Measured once, so neither hook's own time counts towards the other's record.
+    const durationMs = clock.now().getTime() - startedAt.getTime();
+    const attributes = request.attributes ?? {};
+    const report = async (ended: {
+      readonly outcome: "ok" | LlmErrorCode;
+      readonly model: string;
+      readonly usage: LlmUsage | null;
+      readonly costUsd: number | null;
+      readonly costSource: CostSource | null;
+    }): Promise<void> => {
+      if (options.onCall === undefined) return;
+      await options.onCall({ operation: call.operation, provider, ...ended, startedAt, durationMs, attributes });
+    };
+
     if (outcome.kind === "timed_out") {
       endCallSpan(span, { code: "llm.timeout" });
+      await report({ outcome: "llm.timeout", model: modelId, usage: null, costUsd: null, costSource: null });
       return err("llm.timeout");
     }
     const answeredModel = outcome.model ?? modelId;
-    const costUsd = outcome.usage === undefined ? null : getCostUsd(pricing, answeredModel, outcome.usage);
+    const { costUsd, costSource } = resolveCost({
+      pricing,
+      model: answeredModel,
+      usage: outcome.usage,
+      providerCostUsd: outcome.providerCostUsd ?? null,
+    });
     const code = outcome.kind === "answered" ? "ok" : outcome.code;
-    endCallSpan(span, { code, model: answeredModel, usage: outcome.usage, costUsd });
+    endCallSpan(span, { code, model: answeredModel, usage: outcome.usage, costUsd, costSource });
 
     if (outcome.usage !== undefined && options.onUsage !== undefined) {
       await options.onUsage({
@@ -134,15 +179,17 @@ export function createLlm(options: LlmOptions): Llm {
         provider,
         usage: outcome.usage,
         costUsd,
+        costSource,
         outcome: code,
-        durationMs: clock.now().getTime() - startedAt.getTime(),
+        durationMs,
         at: startedAt,
-        attributes: request.attributes ?? {},
+        attributes,
       });
     }
+    await report({ outcome: code, model: answeredModel, usage: outcome.usage ?? null, costUsd, costSource });
 
     if (outcome.kind === "failed") return err(outcome.code);
-    return ok({ output: outcome.output, usage: outcome.usage, model: answeredModel, costUsd });
+    return ok({ output: outcome.output, usage: outcome.usage, model: answeredModel, costUsd, costSource });
   }
 
   async function generateStructured<T>(request: StructuredRequest<T>): Promise<Result<StructuredResult<T>, LlmErrorCode>> {
@@ -219,10 +266,12 @@ async function callModel<T>(
   const answer = settled.value;
   const answeredModel = answer.response.modelId;
   const usage = toLlmUsage(answer.totalUsage);
-  if (answer.finishReason === "length") return { kind: "failed", code: "llm.output_truncated", model: answeredModel, usage };
+  const providerCostUsd = readProviderCostUsd(answer.providerMetadata);
+  const answered = { model: answeredModel, usage, providerCostUsd };
+  if (answer.finishReason === "length") return { kind: "failed", code: "llm.output_truncated", ...answered };
   const read = call.readAnswer(answer);
-  if (!read.ok) return { kind: "failed", code: read.code, model: answeredModel, usage };
-  return { kind: "answered", output: read.value, model: answeredModel, usage };
+  if (!read.ok) return { kind: "failed", code: read.code, ...answered };
+  return { kind: "answered", output: read.value, ...answered };
 }
 
 function classifyFailure(error: unknown): CallOutcome<never> {

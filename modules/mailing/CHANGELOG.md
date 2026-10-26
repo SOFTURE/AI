@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## Unreleased
+
+- Named senders (#798): `mailing({ senders: { alerts: "App <alerts@example.com>" } })` adds senders a mail picks by
+  name with `OutgoingMail.sender` (e.g. operator alerts from `alerts`, client mail from `from`). Each is checked like
+  `from`. An unknown name is `mailing.invalid_input` (`fields=sender`) and nothing is sent; a mail without `sender`
+  goes out from `from`, as before. `deliverOnce`, `runDeliveries` and `enqueueDelivery` (through `buildMail`) carry
+  it with the mail; `previewMail` shows the resolved `From`. `ValidMail` gains `sender` (the name, or `null`).
+- `softure-mail dns` without `--domain` checks every distinct domain of `from` and `senders`, one report each, and
+  fails when any of them fails. The REPLY and INBOUND checks stay with the domain of `from`. With several domains,
+  `--spf-host` and `--return-path` hosts count for the domain they sit under; a host under none of them is an error.
+  A config whose senders all share `from`'s domain prints the same report as before.
+- Migrate an app that sends operator alerts and client mail from one sender:
+  1. Add the second sender: `mailing({ from: "App <hello@example.com>", senders: { alerts: "App <alerts@example.com>" } })`.
+  2. Pass `sender: "alerts"` on the alert mail (in `sendMail`, `deliverOnce` or the alert's `buildMail`).
+  3. Run `softure-mail dns` (with `--spf-host send.<domain>` for each domain on Resend) to check every sender domain.
+
 ## 0.2.4
 
 - Attachments on `sendMail` and `deliverOnce` (#655): `attachments?: { filename, contentType, content: Uint8Array }[]`

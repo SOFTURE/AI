@@ -16,6 +16,7 @@ export const jobs = jobsSchema.table("jobs", {
   lockedBy: text("locked_by"),
   claimToken: uuid("claim_token"),
   dedupKey: text("dedup_key"),
+  origin: text("origin").notNull().default("app"),
   lastError: text("last_error"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
@@ -23,6 +24,21 @@ export const jobs = jobsSchema.table("jobs", {
 });
 
 export type JobRow = typeof jobs.$inferSelect;
+
+export const runs = jobsSchema.table("runs", {
+  id: bigint("id", { mode: "bigint" }).primaryKey().generatedAlwaysAsIdentity(),
+  jobId: bigint("job_id", { mode: "bigint" }).notNull(),
+  queue: text("queue").notNull(),
+  origin: text("origin").notNull(),
+  attempt: integer("attempt").notNull(),
+  outcome: text("outcome", { enum: ["succeeded", "retried", "failed"] }).notNull(),
+  errorCode: text("error_code"),
+  summary: jsonb("summary"),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  finishedAt: timestamp("finished_at", { withTimezone: true }).notNull(),
+});
+
+export type RunRow = typeof runs.$inferSelect;
 
 export const schedules = jobsSchema.table("schedules", {
   name: text("name").primaryKey(),

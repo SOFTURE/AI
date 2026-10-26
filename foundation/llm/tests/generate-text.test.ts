@@ -29,7 +29,7 @@ describe("generateText", () => {
 
     expect(result).toEqual({
       ok: true,
-      value: { text: "# Summary\n\nTwo lines.", truncated: false, usage: USAGE, model: "small", costUsd: 0.00003 },
+      value: { text: "# Summary\n\nTwo lines.", truncated: false, usage: USAGE, model: "small", costUsd: 0.00003, costSource: "price_table" },
     });
     expect(usage.records).toEqual([
       {
@@ -37,6 +37,7 @@ describe("generateText", () => {
         provider: "mock-provider",
         usage: USAGE,
         costUsd: 0.00003,
+        costSource: "price_table",
         outcome: "ok",
         durationMs: 0,
         at: START,

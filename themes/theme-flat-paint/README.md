@@ -122,6 +122,8 @@ state. App-specific motion (a wizard's step stamp) stays in the app.
 | `getChartFlagLook(look, size)`, `CHART_FLAG_VARIANT_LOOK`, `CHART_FLAG_SIZE_LOOK` | `@softure-ai/charts` `ChartFlag variant="flag"` `className`: `accent` (lime, ink text) or `deep` (a variant date, white text), by size |
 | `CHART_PIN_LOOK` | `ChartPin` `classNames`: `dot` (fill by variant, plus size by size), ring by the chart's surface, `line` by surface |
 | `CHART_ROLE_TONE` | the charts tone (`ChartToneName`) of each role: `accessible`, `locked`, `debt`, `accent`, `muted` |
+| `RADIO_LOOK` | a radio's `box`, `input` (the drawn circle) and `mark` (a 12 px check icon): a lime disc with an `accent` line and a black check when checked, as the checkbox |
+| `CHOICE_ROW_LOOK`, `CHOICE_CARD_LOOK` | a single choice drawn as a list row (lime bar when checked) or a bordered tile: `label`, `control`, `body`, `title`, `description`; markup below |
 
 A data table (ui has no table component): column headers 12 px 500 `muted`, 44 px rows with a `border` hairline,
 amounts right-aligned in `tabular` with the last column bold, an empty cell `—` in `muted`, the selected row on
@@ -159,6 +161,26 @@ const surface = "paper";
 ```
 
 A line or marker in a role's colour takes the role's tone: `tone={CHART_ROLE_TONE.locked}`.
+
+A radio choice: a `label` wraps the native radio, so a click on the whole row or tile checks it and the label carries
+the checked (`has-checked:`) and focus (`has-focus-visible:`) states. The card puts `control` after `body`.
+
+```tsx
+import { CHOICE_ROW_LOOK as look, RADIO_LOOK as radio } from "@softure-ai/theme-flat-paint";
+
+<label className={look.label}>
+  <span className={look.control}>
+    <span className={radio.box}>
+      <input type="radio" name="plan" value="yearly" className={radio.input} />
+      <span className={radio.mark} aria-hidden="true"><CheckIcon size={12} /></span>
+    </span>
+  </span>
+  <span className={look.body}>
+    <span className={look.title}>Yearly</span>
+    <span className={look.description}>Billed once a year</span>
+  </span>
+</label>
+```
 
 ## Tokens
 
