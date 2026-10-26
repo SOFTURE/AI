@@ -1,6 +1,6 @@
 ---
 change_id: db-testing-pool-in-transaction-785
-status: open
+status: archived
 ---
 
 # Plan: fail fast on a pool query inside a test transaction (issue #785)
@@ -45,5 +45,5 @@ Files: `modules/jobs/README.md`, `modules/jobs/CHANGELOG.md`, `modules/jobs/test
 
 ## Progress
 
-- [ ] Phase 1: guard in db/testing
-- [ ] Phase 2: docs in jobs and connections
+- [x] Phase 1: guard in db/testing (920ca3b, db tests 6/6 new)
+- [x] Phase 2: docs in jobs and connections (e4b6be5, jobs sync tests 23/23)

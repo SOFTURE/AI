@@ -1,12 +1,13 @@
 ---
 change_id: db-testing-pool-in-transaction-785
 title: "db/testing: fail fast on a pool query inside a transaction of the single-connection test database (issue #785)"
-status: open
+status: archived
 roadmap_item: null
 issue: 785
 branch: claude/project-thread-fo2sjr
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent
@@ -20,7 +21,7 @@ the same for `requestWithConnection` inside a transaction.
 
 ## Context
 
-- Labels: none yet. Found while adopting jobs and connections in an adopting app.
+- Labels: `bug`, `pkg: jobs`, `pkg: db`, `pkg: connections` (set with this change). Found while adopting jobs and connections in an adopting app.
 - PGlite has one connection: `client.query` outside a transaction waits on the transaction mutex the open
   transaction holds, so it never returns while the transaction waits for it.
 
