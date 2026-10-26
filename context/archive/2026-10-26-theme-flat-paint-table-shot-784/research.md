@@ -1,6 +1,6 @@
 ---
 change_id: theme-flat-paint-table-shot-784
-status: in_progress
+status: archived
 ---
 
 # Research: DataTable look and shot frame (issue #784)

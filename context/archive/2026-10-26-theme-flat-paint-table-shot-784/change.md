@@ -1,12 +1,13 @@
 ---
 change_id: theme-flat-paint-table-shot-784
 title: "theme-flat-paint: the DataTable look and the product shot frame class (issue #784)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 784
 branch: claude/project-thread-fhtuyc
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent
