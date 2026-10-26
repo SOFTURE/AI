@@ -96,11 +96,13 @@ import    Writes deliveries the app made before it adopted the module into the l
           stops the import before anything is written.
   --dry-run            check the file and change nothing
 
-dns       Checks SPF, DKIM and DMARC for the sender domain (default: the domain of "from").
+dns       Checks SPF, DKIM and DMARC for every sender domain (default: the domains of "from"
+          and "senders"; the reply-to and inbound checks go with the domain of "from").
   --domain <domain>       check this domain instead
   --dkim-selector <name>  DKIM selector to look up (default resend; repeatable)
   --spf-host <host>       where SPF is published (default the domain; repeatable;
-                          Resend publishes it on send.<domain>)
+                          Resend publishes it on send.<domain>); with several sender
+                          domains, a host counts for the domain it sits under
   --dmarc-policy <p>      require at least this DMARC policy (quarantine or reject)
                           and pct=100; a weaker record fails
   --dmarc-sp <p>          require at least this subdomain policy (sp, else p)
@@ -108,7 +110,8 @@ dns       Checks SPF, DKIM and DMARC for the sender domain (default: the domain 
   --dmarc-aspf <a>        require this SPF alignment (r or s; absent counts as r)
   --reply-to <address>    check that this address's domain accepts mail (MX, one SPF)
                           (default: replyTo of the config, when --domain is not given)
-  --return-path <host>    a return-path host that must be a CNAME or have MX (repeatable)
+  --return-path <host>    a return-path host that must be a CNAME or have MX (repeatable;
+                          with several sender domains, for the domain it sits under)
   --resend-return-path    check Resend's send.<domain> and rsend.<domain> CNAMEs
   --inbound cloudflare    check that Cloudflare Email Routing receives the reply-to domain's
                           mail (its MX and one SPF record that includes it)
@@ -333,26 +336,86 @@ function parseDmarcExpectation(values: ParsedValues): DmarcExpectation | undefin
   return Object.keys(expectation).length === 0 ? undefined : expectation;
 }
 
-async function runDns(command: Extract<Command, { kind: "dns" }>, options: RunMailCliOptions, output: CliOutput): Promise<number> {
-  let domain = command.domain;
-  let replyTo = command.replyTo;
-  if (domain === undefined) {
-    if (options.config === undefined) {
-      output.error("softure-mail dns: pass --domain <domain>, or run it with the app's config to check the sender's domain");
-      return EXIT_FAILED;
-    }
-    const mailing = getMailingOptions(options.config);
-    domain = getSenderDomain(mailing.from);
-    replyTo ??= mailing.replyTo;
+type DnsCommand = Extract<Command, { kind: "dns" }>;
+
+/** One domain `softure-mail dns` checks, with the hosts given for it and, for the first, the reply-path checks. */
+interface DnsTarget {
+  readonly domain: string;
+  readonly spfHosts: readonly string[] | undefined;
+  readonly returnPathHosts: readonly string[];
+  readonly replyTo: string | undefined;
+  readonly inbound: "cloudflare" | undefined;
+}
+
+async function runDns(command: DnsCommand, options: RunMailCliOptions, output: CliOutput): Promise<number> {
+  const targets = getDnsTargets(command, options.config);
+  if (typeof targets === "string") {
+    output.error(`softure-mail dns: ${targets}`);
+    return EXIT_FAILED;
   }
-  const returnPath: ReturnPathHost[] = [...(command.resendReturnPath ? resendReturnPath(domain) : []), ...command.returnPathHosts.map((host) => ({ host }))];
+  let failed = 0;
+  for (const target of targets) failed += await checkDnsTarget(command, target, options, output);
+  return failed === 0 ? EXIT_OK : EXIT_FAILED;
+}
+
+/**
+ * The domains to check: `--domain` alone, else the distinct domains of `from` and `senders`, `from`'s first. With
+ * several, a host option goes to the domain it sits under (the longest that matches); one under none is an error.
+ */
+function getDnsTargets(command: DnsCommand, config: SoftureConfig | undefined): DnsTarget[] | string {
+  const single = (domain: string, replyTo: string | undefined): DnsTarget[] => [
+    { domain, spfHosts: command.spfHosts, returnPathHosts: command.returnPathHosts, replyTo, inbound: command.inbound },
+  ];
+  if (command.domain !== undefined) return single(command.domain, command.replyTo);
+  if (config === undefined) return "pass --domain <domain>, or run it with the app's config to check the sender's domain";
+  const mailing = getMailingOptions(config);
+  const domains = [...new Set([mailing.from, ...Object.values(mailing.senders ?? {})].map((sender) => getSenderDomain(sender).toLowerCase()))];
+  const replyTo = command.replyTo ?? mailing.replyTo;
+  const [first = ""] = domains;
+  if (domains.length === 1) return single(first, replyTo);
+
+  const spfHosts = assignHostsToDomains("--spf-host", command.spfHosts ?? [], domains);
+  if (typeof spfHosts === "string") return spfHosts;
+  const returnPathHosts = assignHostsToDomains("--return-path", command.returnPathHosts, domains);
+  if (typeof returnPathHosts === "string") return returnPathHosts;
+  return domains.map((domain, index) => ({
+    domain,
+    spfHosts: spfHosts.get(domain),
+    returnPathHosts: returnPathHosts.get(domain) ?? [],
+    replyTo: index === 0 ? replyTo : undefined,
+    inbound: index === 0 ? command.inbound : undefined,
+  }));
+}
+
+/** The hosts of `option` by the domain each sits under, or the error for one under none of `domains`. */
+function assignHostsToDomains(option: string, hosts: readonly string[], domains: readonly string[]): Map<string, string[]> | string {
+  const byDomain = new Map<string, string[]>();
+  for (const host of hosts) {
+    const domain = findHostDomain(host, domains);
+    if (domain === null) return `${option} ${host} sits under none of the sender domains (${domains.join(", ")})`;
+    byDomain.set(domain, [...(byDomain.get(domain) ?? []), host]);
+  }
+  return byDomain;
+}
+
+/** The longest of `domains` that `host` is or sits under, or `null`. */
+function findHostDomain(host: string, domains: readonly string[]): string | null {
+  const name = host.trim().toLowerCase().replace(/\.$/, "");
+  const matches = domains.filter((domain) => name === domain || name.endsWith(`.${domain}`));
+  return matches.reduce<string | null>((longest, domain) => (longest === null || domain.length > longest.length ? domain : longest), null);
+}
+
+/** Checks one domain and prints its report; returns how many checks failed. */
+async function checkDnsTarget(command: DnsCommand, target: DnsTarget, options: RunMailCliOptions, output: CliOutput): Promise<number> {
+  const { domain, replyTo } = target;
+  const returnPath: ReturnPathHost[] = [...(command.resendReturnPath ? resendReturnPath(domain) : []), ...target.returnPathHosts.map((host) => ({ host }))];
   const report = await checkSenderDns(domain, {
     ...(command.dkimSelectors === undefined ? {} : { dkimSelectors: command.dkimSelectors }),
-    ...(command.spfHosts === undefined ? {} : { spfHosts: command.spfHosts }),
+    ...(target.spfHosts === undefined ? {} : { spfHosts: target.spfHosts }),
     ...(command.expectDmarc === undefined ? {} : { expectDmarc: command.expectDmarc }),
     ...(replyTo === undefined ? {} : { replyTo }),
     returnPath,
-    ...(command.inbound === undefined ? {} : { inbound: command.inbound }),
+    ...(target.inbound === undefined ? {} : { inbound: target.inbound }),
     ...(options.resolveTxt === undefined ? {} : { resolveTxt: options.resolveTxt }),
     ...(options.resolveMx === undefined ? {} : { resolveMx: options.resolveMx }),
     ...(options.resolveCname === undefined ? {} : { resolveCname: options.resolveCname }),
@@ -376,15 +439,16 @@ async function runDns(command: Extract<Command, { kind: "dns" }>, options: RunMa
   const failedReply = countFailed(reply);
   const failedPaths = countFailed(paths);
   const failedInbound = countFailed(inbound);
-  if (failedAuthentication + failedReply + failedPaths + failedInbound === 0) {
+  const failed = failedAuthentication + failedReply + failedPaths + failedInbound;
+  if (failed === 0) {
     output.log("receivers can authenticate mail from this domain");
-    return EXIT_OK;
+    return 0;
   }
   if (failedAuthentication > 0) output.log(`${String(failedAuthentication)} check(s) failed: list mail from this domain will land in spam or be refused`);
   if (failedReply > 0) output.log("the reply-to domain does not accept mail: replies will bounce");
   if (failedPaths > 0) output.log(`${String(failedPaths)} return-path host(s) failed: the provider cannot use them for bounces`);
   if (failedInbound > 0) output.log("the inbound service does not receive this domain's mail: replies will not reach it");
-  return EXIT_FAILED;
+  return failed;
 }
 
 async function runCampaign(command: Extract<Command, { kind: "campaign" }>, options: RunMailCliOptions, output: CliOutput): Promise<number> {
