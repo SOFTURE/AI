@@ -1,12 +1,13 @@
 ---
 change_id: theme-flat-paint-chart-look
 title: "theme-flat-paint: look maps for the chart primitives (issue #779)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 779
 branch: claude/project-thread-ivipvl
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent

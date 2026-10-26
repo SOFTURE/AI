@@ -1,6 +1,6 @@
 ---
 change_id: theme-flat-paint-chart-look
-status: in_progress
+status: archived
 ---
 
 # Plan: chart look maps (issue #779)
@@ -41,4 +41,4 @@ Files: `themes/theme-flat-paint/src/look/chart.ts`, `src/index.ts`, `tests/index
 
 ## Progress
 
-- [ ] Phase 1: look maps, tests, docs
+- [x] Phase 1: look maps, tests, docs (f6eac8b, theme tests 45/45)
