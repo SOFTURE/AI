@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { jobsMessages, type JobsFormState } from "@softure-ai/jobs";
-import { JobsPanel, type JobsPanelAction, type JobsPanelActions, type JobsPanelJob, type JobsPanelQueue, type JobsPanelSyncSource } from "@softure-ai/jobs/ui";
+import { JobsPanel, type JobsPanelAction, type JobsPanelActions, type JobsPanelJob, type JobsPanelQueue, type JobsPanelRun, type JobsPanelSyncSource } from "@softure-ai/jobs/ui";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +22,8 @@ const FAILED: JobsPanelJob = {
   canCancel: false,
 };
 const RETRYING: JobsPanelJob = { ...FAILED, id: "8", heading: "mail.send · job 8", status: "pending", statusLabel: "Retrying", canRetry: false, canCancel: true };
+
+const RUN: JobsPanelRun = { id: "3", heading: "reports.daily · job 7", outcome: "succeeded", outcomeLabel: "Succeeded", details: ["Started by the schedule", "Items: 3 new · 0 skipped · 0 failed"] };
 
 const INBOX: JobsPanelSyncSource = {
   source: "gmail.inbox",
@@ -83,6 +85,20 @@ describe("JobsPanel", () => {
     await submit(within(getItem("mail.send · job 8")).getByRole("button", { name: "Cancel" }));
     expect(cancelJob.mock.calls[0]?.[1].get("id")).toBe("8");
     expect(screen.getByText(en.errors.not_cancellable)).toBeTruthy();
+  });
+
+  it("shows the recent runs with their outcome and details only when runs are passed", () => {
+    const { rerender } = render(<JobsPanel queues={[]} jobs={[]} syncSources={[]} actions={createActions()} messages={en} />);
+    expect(screen.queryByRole("region", { name: "Recent runs" })).toBeNull();
+
+    rerender(<JobsPanel queues={[]} jobs={[]} runs={[RUN]} syncSources={[]} actions={createActions()} messages={en} />);
+    const item = getItem("reports.daily · job 7");
+    expect(item.getAttribute("data-outcome")).toBe("succeeded");
+    expect(within(item).getByText("Succeeded")).toBeTruthy();
+    expect(within(item).getByText("Items: 3 new · 0 skipped · 0 failed")).toBeTruthy();
+
+    rerender(<JobsPanel queues={[]} jobs={[]} runs={[]} syncSources={[]} actions={createActions()} messages={en} />);
+    expect(within(screen.getByRole("region", { name: "Recent runs" })).getByText("No runs yet.")).toBeTruthy();
   });
 
   it("lists the ledger per source with Retry item for a failed item only", async () => {
