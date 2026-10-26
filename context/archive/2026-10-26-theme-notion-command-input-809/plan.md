@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-command-input-809
-status: planned
+status: archived
 ---
 
 # Plan: theme-notion CommandInput name and trailing content (issue #809)
@@ -42,6 +42,6 @@ let the command palette preview use the trailing `Kbd` if it shows one.
 
 ## Progress
 
-- [ ] Phase 1: the component and its tests
-- [ ] Phase 2: docs
-- [ ] Phase 3: design system
+- [x] Phase 1: the component and its tests (038a656, theme-notion tests 810/810)
+- [x] Phase 2: docs (5f1e20d)
+- [x] Phase 3: design system (artifact version 18, no repository commit)
