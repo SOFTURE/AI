@@ -33,5 +33,5 @@ Files: `modules/jobs/src/zoned-time.ts` (deleted), `modules/jobs/src/options.ts`
 
 ## Progress
 
-- [ ] Phase 1: the helpers in core
-- [ ] Phase 2: jobs imports from core
+- [x] Phase 1: the helpers in core (b502f01)
+- [x] Phase 2: jobs imports from core (dfe9af3)

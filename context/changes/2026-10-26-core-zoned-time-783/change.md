@@ -1,12 +1,13 @@
 ---
 change_id: core-zoned-time-783
 title: "core: the instant a calendar day (or local date-time) starts in a time zone (issue #783)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 783
 branch: claude/project-thread-y9d2n2
 created: 2026-10-26
 updated: 2026-10-26
+archived_at: 2026-10-26
 ---
 
 ## Intent
