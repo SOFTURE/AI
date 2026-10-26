@@ -9,6 +9,7 @@ import { SYNC_ITEM_STATUSES, type SyncItemStatus } from "../sync.js";
 import { listRecentJobs } from "../server/admin.js";
 import { getQueueStats } from "../server/maintenance.js";
 import { getJobsOptions, getJobsRoutes } from "../server/options.js";
+import { listJobRuns } from "../server/runs.js";
 import { listSyncItems } from "../server/sync-items.js";
 import { JobsPanel, type JobsPanelFilterLink } from "../ui/jobs-panel.js";
 import { cancelJobAction, retryJobAction, retrySyncItemAction, runScheduleNowAction } from "./actions.js";
@@ -20,6 +21,7 @@ const LAYOUT_CLASS = "sft:mx-auto sft:box-border sft:w-full sft:sm:max-w-3xl sft
 /** The query parameter of the ledger's status filter. */
 export const SYNC_FILTER_PARAM = "sync";
 const RECENT_JOBS_LIMIT = 50;
+const RECENT_RUNS_LIMIT = 50;
 const SYNC_ITEMS_LIMIT = 100;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -44,12 +46,13 @@ export async function JobsPage({ searchParams }: JobsPageProps = {}) {
   const messages = getJobsMessages(config);
   const ctx = await getJobsContext(config);
   const filter = readSyncFilter(await searchParams);
-  const [stats, jobs, syncItems] = await Promise.all([
+  const [stats, jobs, runs, syncItems] = await Promise.all([
     getQueueStats(ctx),
     listRecentJobs(ctx, { statuses: ["failed", "cancelled", "retrying"], limit: RECENT_JOBS_LIMIT }),
+    listJobRuns(ctx, { limit: RECENT_RUNS_LIMIT }),
     listSyncItems(ctx, { ...(filter === null ? {} : { status: filter }), limit: SYNC_ITEMS_LIMIT }),
   ]);
-  const data = toJobsPanelData({ stats, jobs, syncItems }, messages, config);
+  const data = toJobsPanelData({ stats, jobs, runs, syncItems }, messages, config);
   const panel = getJobsRoutes(config).panel;
   const syncFilter: JobsPanelFilterLink[] = [
     { label: messages.sync.filterAll, href: panel, isCurrent: filter === null },

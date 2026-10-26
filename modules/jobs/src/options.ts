@@ -171,6 +171,8 @@ const retentionSchema = z.strictObject({
   cancelledDays: z.number().int().min(0).max(3650).default(7),
   /** Days a sync ledger item is kept after the last run that met it (`processSyncItem`). */
   syncItemsDays: z.number().int().min(1).max(3650).default(90),
+  /** Days a row of the run history is kept after its attempt finished, whatever happened to its job. */
+  runsDays: z.number().int().min(1).max(3650).default(30),
 });
 
 export const jobsOptionsSchema = z
@@ -187,8 +189,8 @@ export const jobsOptionsSchema = z
     pollIntervalMs: z.number().int().min(50).max(60_000).default(1000),
     /** How long a stopping worker waits for running handlers before it releases their jobs. */
     shutdownGraceMs: z.number().int().min(0).max(10 * 60_000).default(20_000),
-    /** How long finished jobs and unseen sync ledger items are kept; the worker prunes once an hour. */
-    retention: retentionSchema.default({ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90 }),
+    /** How long finished jobs, unseen sync ledger items and the run history are kept; the worker prunes once an hour. */
+    retention: retentionSchema.default({ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30 }),
     /**
      * Runs once when a job ends `failed` (attempts used up, `failJob`, invalid payload, lease lost with no attempts
      * left), after the write commits: e.g. mail the operator.

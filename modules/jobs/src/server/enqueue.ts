@@ -6,6 +6,9 @@ import type { JobsContext } from "./context.js";
 import { getJobsOptions, getQueue } from "./options.js";
 
 const MAX_DEDUP_KEY_LENGTH = 200;
+/** The shape of a queue name: `app`, `schedule`, `manual`, `webhook.stripe`. */
+const ORIGIN = /^[a-z][a-z0-9_.-]{0,62}$/;
+const DEFAULT_ORIGIN = "app";
 const MAX_DELAY_SECONDS = 365 * 24 * 60 * 60;
 /** A dedup key can free up between the insert and the lookup (the live job finished); then the insert runs again. */
 const MAX_DEDUP_ROUNDS = 3;
@@ -29,6 +32,11 @@ export interface EnqueueJobInput {
   readonly dedupKey?: string;
   /** Overrides the queue's `maxAttempts` for this job. */
   readonly maxAttempts?: number;
+  /**
+   * What started the job, kept with it and its runs: default `app`. The schedule's runs are `schedule`,
+   * `runScheduleNow`'s `manual`; an app names its own (`webhook.stripe`). Lowercase, the shape of a queue name.
+   */
+  readonly origin?: string;
 }
 
 export interface EnqueuedJob {
@@ -60,6 +68,7 @@ export async function enqueueJob(ctx: JobsContext, input: EnqueueJobInput): Prom
     maxAttempts: input.maxAttempts ?? queue.maxAttempts,
     runAt,
     dedupKey: input.dedupKey ?? null,
+    origin: input.origin ?? DEFAULT_ORIGIN,
     createdAt: now,
     updatedAt: now,
   };
@@ -105,6 +114,9 @@ function checkInput(input: EnqueueJobInput): void {
   }
   if (input.maxAttempts !== undefined && !(Number.isInteger(input.maxAttempts) && input.maxAttempts >= 1 && input.maxAttempts <= 1000)) {
     throw new RangeError("@softure-ai/jobs: enqueueJob maxAttempts must be an integer from 1 to 1000");
+  }
+  if (input.origin !== undefined && !ORIGIN.test(input.origin)) {
+    throw new RangeError("@softure-ai/jobs: enqueueJob origin must be lowercase letters, digits, '_', '.' or '-', starting with a letter, at most 63 characters");
   }
   if (input.payload === undefined || input.payload === null) {
     throw new Error("@softure-ai/jobs: enqueueJob needs a payload; pass {} for a job without data");

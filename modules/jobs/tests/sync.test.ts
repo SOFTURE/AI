@@ -211,6 +211,16 @@ describe("processSyncItem", () => {
     expect((await listSyncState(test.database.db)).items).toMatchObject([{ itemId: "m1", status: "pending", errorCode: "jobs.sync_item_threw", attempts: 1 }]);
   });
 
+  it("fails fast, as a thrown attempt, when the callback reads through the job's pool instead of its db (#785)", async () => {
+    const run = async (): Promise<SyncItemRunResult> => {
+      await test.ctx.db.execute(sql`select 1`); // the outer context: on the one-connection test database this would hang
+      return ok();
+    };
+    const attempt = processSyncItem(test.ctx, { source: SOURCE, itemId: "m1" }, run);
+    await expect(attempt).rejects.toMatchObject({ cause: { name: "PoolInsideTransactionError" } });
+    expect((await listSyncState(test.database.db)).items).toMatchObject([{ itemId: "m1", status: "pending", errorCode: "jobs.sync_item_threw", attempts: 1 }]);
+  });
+
   it("counts an invalid result reference as a thrown attempt and rolls back the write", async () => {
     const task = createTask("m1", ok({ status: "done", resultRef: "" }));
     await expect(processSyncItem(test.ctx, { source: SOURCE, itemId: "m1" }, task.run)).rejects.toThrow("a sync item resultRef must have 1 to 500 characters");

@@ -13,6 +13,7 @@ import { migrate, type AppMigrationHook, type AppMigrations } from "./migrations
 import { describeProblem } from "./migrations/problems.js";
 import { acquirePooledDatabase, closePooledDatabases } from "./testing/reuse.js";
 import { computeTemplateName, getTemplateDir, readStoredTemplate, storeTemplate } from "./testing/template-store.js";
+import { guardPoolInsideTransaction } from "./testing/transaction-guard.js";
 
 export {
   DEFAULT_DATABASE_OPENERS,
@@ -22,6 +23,7 @@ export {
   type EntryReach,
 } from "./entry-guard.js";
 export { TEMPLATE_DIR_VARIABLE } from "./testing/template-store.js";
+export { PoolInsideTransactionError } from "./testing/transaction-guard.js";
 
 export interface TestDatabase {
   readonly db: PgliteClientDatabase;
@@ -56,13 +58,15 @@ let nextHookId = 1;
 /**
  * A fresh, migrated, in-memory database per call. List the module under test and the modules it
  * depends on. Throws when a migration (a module file or an app hook) fails: that is a bug in the
- * module package or the app's migrations.
+ * module package or the app's migrations. A query on `db` or `client` from inside one of the
+ * database's open transactions rejects with `PoolInsideTransactionError` instead of hanging.
  */
 export async function createTestDatabase(modules: readonly AnySoftureModule[] = [], options: CreateTestDatabaseOptions = {}): Promise<TestDatabase> {
   const app = options.app ?? {};
   const key = computeTemplateKey(modules, app, options.templateKey);
   const openCopy = async (): Promise<TestDatabase> => {
     const client = new PGlite({ loadDataDir: await getTemplate(key, modules, app, options.templateKey) });
+    guardPoolInsideTransaction(client);
     const handle = await createPgliteHandle(client);
     return { db: handle.db, client, close: handle.close };
   };
