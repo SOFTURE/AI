@@ -21,7 +21,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
     `pruneJobs`. An app that kept its own run table and wrapped its handlers can return `ok({ summary })`, pass
     `origin` to `enqueueJob` / `runScheduleNow` instead of through the payload, read `listJobRuns`, and drop its
     table. An app with its own full dictionary for another locale adds the `runs` copy (see `messages/en.ts`).
-
+- `reopenSyncItem(ctx, { source, itemId })` in `/server` (#811): puts a `done`, `skipped` or `failed` sync item back
+  to `pending` as never tried (attempts, error code, result reference and finish time cleared), so the next
+  `processSyncItem` runs it again; a `pending` item is returned unchanged; `jobs.sync_item_not_found` otherwise. It
+  runs on `ctx.db`, so a transaction reopens the item together with the app's enqueue. New types
+  `ReopenSyncItemInput`, `ReopenSyncItemResult`.
+  - Migrate: an app that reopens items with its own `UPDATE` of the sync items table calls
+    `reopenSyncItem({ ...ctx, db: tx }, { source, itemId })` inside the same transaction instead.
 - The zoned-time helpers moved to `@softure-ai/core` (#783), which now exports them (`getWallClock`,
   `getZonedInstant`, `isTimeZone`, plus `getDayStartInstant` and `getLocalDateTimeInstant`). Local-time schedules
   behave exactly as before, across DST changes too. Needs `@softure-ai/core` 0.2.5 or later.
