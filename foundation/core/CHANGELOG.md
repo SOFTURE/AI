@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- `requestBytes({ url, method?, body?, accept?, maxBytes?, idempotencyKey?, headers?, fetch?, timeoutMs?, clock? })`
+  (#824) downloads a binary body (a PDF, an image) with `requestJson`'s rules: the timeout bounds the body too, no
+  redirect is followed, the same status codes, no caught error's text. It answers `Ok<{ bytes: Uint8Array,
+  contentType: string | null }>` or an `HttpBytesFailure`. The body is read chunk by chunk under `maxBytes` (default
+  `DEFAULT_MAX_BYTES`, 25 MiB): a `Content-Length` above it, or a body that grows past it, is the new
+  `core.http_too_large` (with the status) and the rest is not read. `accept` sets `Accept` (default `*/*`). New copy:
+  `errors.http_too_large`.
+  - Migrate: nothing. An app that downloads files with its own `fetch` can switch to it.
+
 ## 0.2.5
 
 - The way back from days to instants (#783): `getDayStartInstant(day, timeZone)` returns the first instant of a
