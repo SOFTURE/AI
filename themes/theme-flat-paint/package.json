@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/theme-flat-paint",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "SOFTURE AI Flat Paint theme: near-black or white, cards with one hairline, one heavy grotesque and one flat lime accent; the tokens, the @softure-ai/ui bridge, the page base and the look of the ui components.",
   "license": "MIT",
   "type": "module",
