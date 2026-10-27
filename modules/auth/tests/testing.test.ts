@@ -87,7 +87,7 @@ describe("createTestAccount", () => {
       const passwordHash = await hashPassword(PASSWORD, FAST_SCRYPT);
       const account = await createTestAccount(test.ctx.db, { id: ID, email: "ada@example.com", passwordHash, createdAt: CREATED_AT });
 
-      expect(account).toEqual({ id: ID, email: "ada@example.com", createdAt: CREATED_AT });
+      expect(account).toEqual({ id: ID, email: "ada@example.com", createdAt: CREATED_AT, displayName: null });
       expect(await readStoredHash("ada@example.com")).toBe(passwordHash);
       const [row] = await test.ctx.db.select({ changed: users.passwordChangedAt }).from(users).where(eq(users.id, ID));
       expect(row?.changed).toEqual(CREATED_AT);

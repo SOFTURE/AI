@@ -8,6 +8,8 @@ import { passed, refused, type Checked } from "./context.js";
 /** Clock skew tolerated between this server and the provider. */
 const SKEW_SECONDS = 60;
 const MAX_TOKEN_LENGTH = 16_384;
+/** The longest display name kept, in characters (code points); `auth.users.display_name` checks the same bound. */
+export const MAX_DISPLAY_NAME_LENGTH = 200;
 const SEGMENT = /^[A-Za-z0-9_-]+$/;
 
 const ALGORITHMS = { RS256: "RSA", ES256: "EC" } as const;
@@ -27,6 +29,9 @@ const claimsSchema = z.object({
   // Most providers send a boolean; some send the string.
   email_verified: z.union([z.boolean(), z.enum(["true", "false"]).transform((value) => value === "true")]).optional(),
   hd: z.string().max(253).optional(),
+  // Profile claims are best effort: a malformed one is dropped, never a reason to refuse the sign-in.
+  name: z.unknown().optional(),
+  given_name: z.unknown().optional(),
 });
 
 export interface DecodedIdToken {
@@ -94,6 +99,8 @@ export interface IdentityClaims {
   readonly email: string | null;
   readonly isEmailVerified: boolean;
   readonly hostedDomain: string | null;
+  /** `name`, else `given_name`, normalized; null when the token carries neither. */
+  readonly displayName: string | null;
 }
 
 /** The identity, or the reason (for the log) the claims do not fit this sign-in. */
@@ -114,7 +121,19 @@ export function checkIdTokenClaims(payload: unknown, expected: ExpectedClaims): 
     email: claims.email === undefined ? null : claims.email.trim().toLowerCase(),
     isEmailVerified: claims.email_verified === true,
     hostedDomain: claims.hd === undefined ? null : claims.hd.trim().toLowerCase(),
+    displayName: toDisplayName(claims.name) ?? toDisplayName(claims.given_name),
   });
+}
+
+/**
+ * A profile claim as a display name: NFC, control and format characters dropped, whitespace collapsed, trimmed, at
+ * most `MAX_DISPLAY_NAME_LENGTH` characters. Null for anything but a string with visible text.
+ */
+export function toDisplayName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.normalize("NFC").replace(/[\p{Cc}\p{Cf}]/gu, " ").replace(/\s+/gu, " ").trim();
+  const name = [...cleaned].slice(0, MAX_DISPLAY_NAME_LENGTH).join("").trimEnd();
+  return name === "" ? null : name;
 }
 
 function isSameText(a: string, b: string): boolean {

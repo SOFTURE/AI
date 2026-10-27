@@ -25,7 +25,7 @@ import { exchangeCode } from "./token-request.js";
 const RANDOM_BYTES = 32;
 const MAX_STATE_LENGTH = 512;
 const MAX_CODE_LENGTH = 4096;
-const REQUIRED_SCOPES = ["openid", "email"];
+const REQUIRED_SCOPES = ["openid", "email", "profile"];
 
 export interface StartOidcSignInInput {
   readonly provider: string;
@@ -150,7 +150,7 @@ export async function completeOidcSignIn(ctx: OidcContext, input: CompleteOidcSi
 
   const email = getAllowedEmail(provider, claims.value);
   if (email === null) return err("auth.oidc_not_allowed");
-  const account = await resolveOidcAccount(ctx, provider, { subject: claims.value.subject, email });
+  const account = await resolveOidcAccount(ctx, provider, { subject: claims.value.subject, email, displayName: claims.value.displayName });
   if (!account.ok) return account;
 
   await deleteExpiredSessions(ctx, account.value.id);

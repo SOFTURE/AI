@@ -75,7 +75,7 @@ describe("password reset through jobs", () => {
     expect(await runJobs()).toEqual({ succeeded: 1, retried: 0, failed: 0, stale: 0 });
 
     expect(sent).toHaveLength(1);
-    expect(sent[0]?.user).toEqual({ id: userId, email: EMAIL, createdAt: NOW });
+    expect(sent[0]?.user).toEqual({ id: userId, email: EMAIL, createdAt: NOW, displayName: null });
     expect(sent[0]?.details).toEqual({ expiresAt: new Date(NOW.getTime() + 65 * MINUTE_MS), locale: "en" });
     const token = new URL(sent[0]?.link ?? "").searchParams.get("token") ?? "";
     expect((await resetPassword(test.ctx, { token, newPassword: "a brand new passphrase", clientKey: CLIENT })).ok).toBe(true);

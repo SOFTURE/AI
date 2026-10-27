@@ -68,7 +68,7 @@ export async function registerUser(ctx: AuthContext, input: RegisterInput): Prom
       .onConflictDoNothing({ target: users.email })
       .returning();
     if (row === undefined) return err("auth.email_taken");
-    const user = { id: row.id, email: row.email, createdAt: row.createdAt };
+    const user = { id: row.id, email: row.email, createdAt: row.createdAt, displayName: row.displayName };
 
     const fields = pickRegistrationFields(options.registrationFields, input.fields);
     await options.onRegistered?.({ user, consent: options.requireConsent ? { acceptedAt: now } : null, fields, oidcProvider: null }, txCtx);

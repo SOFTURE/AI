@@ -1,4 +1,4 @@
-// The auth part of a GDPR export and deletion (`@softure-ai/privacy`): the account, its roles, its
+// The auth part of a GDPR export and deletion (`@softure-ai/privacy`): the account (with its display name), its roles, its
 // sessions, a pending reset link and its OpenID Connect identities. Secrets never leave: no password hash and no token hash.
 import { ok, type ModuleContext, type Ok, type PrivacyContributor } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
@@ -13,6 +13,8 @@ export interface AuthUserData {
     readonly email: string;
     readonly createdAt: Date;
     readonly passwordChangedAt: Date;
+    /** The name the OpenID Connect provider sent; null when none did. */
+    readonly displayName: string | null;
   } | null;
   /** Stored roles; a role held through `adminEmails` is configuration, not stored data. */
   readonly roles: readonly { readonly role: string; readonly grantedAt: Date }[];
@@ -38,7 +40,7 @@ export async function exportAuthUserData(context: ModuleContext, userId: string)
   // Core types `db` as unknown; privacy passes the @softure-ai/db handle or its transaction.
   const db = context.db as Queryable;
   const [account] = await db
-    .select({ id: users.id, email: users.email, createdAt: users.createdAt, passwordChangedAt: users.passwordChangedAt })
+    .select({ id: users.id, email: users.email, createdAt: users.createdAt, passwordChangedAt: users.passwordChangedAt, displayName: users.displayName })
     .from(users)
     .where(eq(users.id, userId));
   const roles = await db

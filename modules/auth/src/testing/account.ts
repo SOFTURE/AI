@@ -71,7 +71,7 @@ export async function createTestAccount(target: Queryable | AuthContext, input: 
     if (row === undefined) throw new Error(`createTestAccount: an account with the email "${email.value}" already exists`);
     const roles = input.roles ?? [];
     if (roles.length > 0) await tx.insert(userRoles).values(roles.map((role) => ({ userId: row.id, role, grantedAt: now })));
-    const user = { id: row.id, email: row.email, createdAt: row.createdAt };
+    const user = { id: row.id, email: row.email, createdAt: row.createdAt, displayName: row.displayName };
     if (input.runHooks === true && ctx !== null) {
       const options = getAuthOptions(ctx.config);
       const consent = options.requireConsent ? { acceptedAt: now } : null;

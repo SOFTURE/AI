@@ -47,7 +47,7 @@ describe("registerUser", () => {
     const result = await registerUser(ctx, INPUT);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.user).toEqual({ id: expect.any(String) as string, email: "ada@example.com", createdAt: NOW });
+    expect(result.value.user).toEqual({ id: expect.any(String) as string, email: "ada@example.com", createdAt: NOW, displayName: null });
     expect(result.value.session.expiresAt).toEqual(new Date(NOW.getTime() + 30 * DAY_MS));
     expect(await findSessionUser(ctx, result.value.session.token)).toEqual(result.value.user);
 
