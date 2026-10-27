@@ -201,6 +201,21 @@ the variables the provider names.
   `oidc.fetch` and `fake.env` as the context's `env`; `fake.signIn(authorizeUrl, { subject, email, hostedDomain, name, givenName })`
   answers the callback URL. It can break on purpose (`claims`, `signWith`, `rotateKeys`, `failNext`, `setDiscovery`).
 
+**Without a provider.** OpenID Connect is opt-in: an app chooses its sign-in methods, and with no
+`oidc.providers` nothing of it runs. What such an app still gets, and why it needs nothing:
+
+- **Tables.** `softure migrate` creates `auth.identities` and `auth.oidc_states` for every app (migration `0005`):
+  a module's migrations run in one numbered sequence and cannot depend on its options. Without a provider nothing
+  writes to them; they stay empty. The privacy export and deletion read them by user and find nothing.
+- **Rate limit buckets.** `oidc-start` and `oidc-callback` are required only with a provider. Spreading
+  `AUTH_RATE_LIMIT_BUCKETS` adds their definitions, which count nothing until a sign-in starts; an app that lists its
+  buckets by hand leaves them out.
+- **Copy.** The `oidc` copy and the `errors.auth.oidc_*` codes are optional in `AuthMessages` (section 9); a
+  dictionary without them compiles.
+- **Routes.** `app/api/auth/oidc/[provider]/callback/route.ts` is needed only with a provider; leave it unmounted.
+
+The one step on a bump past 0.2.5: run `softure migrate`, as for any release with a migration.
+
 ## 4. Mounting
 
 One line per file, owned by the app (docs/02 §8):

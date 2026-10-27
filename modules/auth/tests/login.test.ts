@@ -85,6 +85,22 @@ describe("loginUser", () => {
     expect((await loginUser(ctx, LOGIN)).ok).toBe(true);
   });
 
+  it("needs no OpenID Connect bucket and writes no OpenID Connect row without a provider", async () => {
+    await setUp();
+    const withoutOidc = Object.fromEntries(Object.entries(AUTH_RATE_LIMIT_BUCKETS).filter(([name]) => !name.startsWith("oidc-")));
+    const lean = await createTestAuth({ onlyBuckets: withoutOidc });
+    try {
+      const registered = await registerUser(lean.ctx, { email: EMAIL, password: PASSWORD, hasConsented: true, clientKey: CLIENT });
+      expect(registered.ok).toBe(true);
+      expect((await loginUser(lean.ctx, LOGIN)).ok).toBe(true);
+      expect(await countRows(lean.database, "identities")).toBe(0);
+      expect(await countRows(lean.database, "oidc_states")).toBe(0);
+      expect((await listAttempts(lean.database)).filter((row) => row.startsWith("oidc-"))).toEqual([]);
+    } finally {
+      await lean.database.close();
+    }
+  });
+
   it("needs no password reset bucket while password reset is off", async () => {
     await setUp();
     const withoutReset = Object.fromEntries(Object.entries(AUTH_RATE_LIMIT_BUCKETS).filter(([name]) => !name.startsWith("password-reset")));
