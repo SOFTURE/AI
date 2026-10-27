@@ -1,12 +1,13 @@
 ---
 change_id: auth-oidc-opt-in-786
 title: "auth: OpenID Connect strictly opt-in, inert parts documented (issue #786, follow-up)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 786
 branch: claude/project-thread-30yjgp
 created: 2026-10-27
 updated: 2026-10-27
+archived_at: 2026-10-27
 ---
 
 ## Intent

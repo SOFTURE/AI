@@ -1,6 +1,6 @@
 ---
 change_id: auth-oidc-opt-in-786
-status: in_progress
+status: archived
 ---
 
 # Plan: OpenID Connect strictly opt-in (issue #786, follow-up)
@@ -32,4 +32,4 @@ Files: `modules/auth/tests/login.test.ts`, `modules/auth/tests/support.ts`, `mod
 
 ## Progress
 
-- [ ] Phase 1: pin the opt-in behaviour and document it
+- [x] Phase 1: pin the opt-in behaviour and document it (bef85a3, auth and repo tests green)
