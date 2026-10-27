@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- `requestText({ url, accept?, maxBytes?, followRedirects?, notFoundAsNull?, headers?, fetch?, timeoutMs?, clock? })`
+  (#828) reads a text page (HTML, CSV) with `requestBytes`' rules: the timeout bounds the body too, the same status
+  codes and `Retry-After` parsing, the `maxBytes` cap (`core.http_too_large`), no caught error's text. It answers
+  `Ok<{ text, url, status, contentType }>` or an `HttpTextFailure` (the `HttpBytesFailure` union). The body is decoded
+  with the `charset` of `Content-Type`, UTF-8 otherwise. Redirects stay refused unless `followRedirects: true`, which
+  answers the final `url`; `notFoundAsNull: true` answers 404 and 410 as `ok(null)`. `requestBytes` now shares its
+  capped body read with it; its behaviour is unchanged.
+  - Migrate: nothing. An app with its own `fetch` wrapper for an HTML page can switch to it and drop its status
+    mapping and `Retry-After` parsing.
+
 ## 0.2.6
 
 - `requestBytes({ url, method?, body?, accept?, maxBytes?, idempotencyKey?, headers?, fetch?, timeoutMs?, clock? })`
