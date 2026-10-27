@@ -3,7 +3,8 @@
 // failure returned as a code. A caught error's message is never read, since it can quote the URL and some APIs put
 // the key there. The body stays `unknown` unless a zod schema narrows it. Response headers are read only by name from
 // the caller's allow-list, and an error answer's body only through the caller's `errorSchema`, so nothing secret is
-// surfaced by accident.
+// surfaced by accident. The exported helpers below `requestJson` are shared with `requestBytes` (http-bytes.ts) and
+// are not part of the package's API.
 import type { z } from "zod";
 import { systemClock, type Clock } from "./clock.js";
 import { err, ok, type Err, type Ok } from "./result.js";
@@ -129,7 +130,7 @@ export interface RequestJsonFormWriteOptions extends RequestJsonWriteBaseOptions
 /** A write: the body is sent as JSON or as a form, and an answer with no body is `ok(undefined)`. */
 export type RequestJsonWriteOptions = RequestJsonJsonWriteOptions | RequestJsonFormWriteOptions;
 
-const DEFAULT_TIMEOUT_MS = 10_000;
+export const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_RETRY_AFTER_SECONDS = 86_400;
 // An RFC 9110 token: what a header name may be made of.
 const HEADER_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
@@ -333,7 +334,7 @@ export function toQueryString(params: Readonly<Record<string, string | number | 
  * The body to send and the content type to set unless `headers` has one (`null`: remove any, `fetch` sets it).
  * Throws for a misuse, before anything is sent.
  */
-function getRequestBody(options: RequestJsonReadOptions | RequestJsonWriteOptions): {
+export function getRequestBody(options: { readonly method?: HttpJsonMethod; readonly body?: unknown; readonly form?: unknown }): {
   readonly body: string | URLSearchParams | FormData | undefined;
   readonly contentType: string | null | undefined;
 } {
@@ -364,7 +365,7 @@ function getNonJsonBodyKind(body: unknown): string | null {
   return null;
 }
 
-function isRedirect(response: Response): boolean {
+export function isRedirect(response: Response): boolean {
   return response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400);
 }
 
@@ -389,7 +390,7 @@ async function readErrorBody(response: Response, errorSchema: z.ZodType): Promis
   return parsed.success ? parsed.data : null;
 }
 
-function getStatusFailureCode(response: Response): HttpJsonFailureCode | null {
+export function getStatusFailureCode(response: Response): HttpJsonFailureCode | null {
   const { status } = response;
   if (isRedirect(response) || status === 401 || status === 403) {
     return "core.http_refused";
@@ -409,11 +410,11 @@ function getStatusFailureCode(response: Response): HttpJsonFailureCode | null {
   return null;
 }
 
-function httpFailure(code: Exclude<HttpJsonFailureCode, HttpJsonRetryableCode>, status: number | null): HttpJsonFailure {
+export function httpFailure(code: Exclude<HttpJsonFailureCode, HttpJsonRetryableCode>, status: number | null): HttpJsonFailure {
   return { ...err(code), status };
 }
 
-function responseFailure(code: HttpJsonFailureCode, response: Response, clock: Clock): HttpJsonFailure {
+export function responseFailure(code: HttpJsonFailureCode, response: Response, clock: Clock): HttpJsonFailure {
   if (code === "core.http_rate_limited" || code === "core.http_unavailable") {
     const retryAfterSeconds = getRetryAfterSeconds(response.headers.get("retry-after"), clock.now());
     return { ...err(code), status: response.status, retryAfterSeconds };

@@ -67,6 +67,16 @@ export {
   type RequestJsonSchemaOptions,
   type RequestJsonWriteOptions,
 } from "./http-json.js";
+export {
+  DEFAULT_MAX_BYTES,
+  requestBytes,
+  type HttpBytesAnswer,
+  type HttpBytesFailure,
+  type HttpBytesFailureCode,
+  type RequestBytesOptions,
+  type RequestBytesReadOptions,
+  type RequestBytesWriteOptions,
+} from "./http-bytes.js";
 export { memoizeByContent, type MemoizeByContentOptions, type MemoizedFunction } from "./memoize.js";
 export { createTestClock, systemClock, type Clock, type TestClock } from "./clock.js";
 export {
