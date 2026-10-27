@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.0
 
 - The provider's billed cost (#805): when the provider reports what it billed (OpenRouter's
   `providerMetadata.openrouter.usage.cost`), `costUsd` is that figure, also for a model `pricing` does not list. A new
