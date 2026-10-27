@@ -277,7 +277,7 @@ None. Tokens, slots and styles live in `@softure-ai/ui`.
   locale and reused. `locale` is any BCP 47 tag; a category the forms leave out falls back to `other`.
 - `getMessage(dictionary, "errors.unexpected")` reads a dotted path.
 - Core's own keys (`coreMessages`): `errors.database_failed`, `errors.unexpected`, the copy for
-  the `core.database_failed` and `core.unexpected` codes, and `errors.http_*` for the codes of `requestJson` and `requestBytes`.
+  the `core.database_failed` and `core.unexpected` codes, and `errors.http_*` for the codes of `requestJson`, `requestBytes` and `requestText`.
 
 **Errors as values.** `Result<T, E>` is `{ ok: true, value } | { ok: false, error }`, built with
 `ok(value)` / `ok()` and `err("module.code")`. Codes are namespaced by module id
@@ -446,6 +446,21 @@ status) and the rest is not read.
 const pdf = await requestBytes({ url: invoicePdfUrl, headers: { authorization: `Bearer ${key}` }, accept: "application/pdf" });
 if (!pdf.ok) return pdf;
 await saveFile(pdf.value.bytes, pdf.value.contentType);
+```
+
+**Text pages.** `requestText({ url, accept?, maxBytes?, followRedirects?, notFoundAsNull?, fetch?, headers?, timeoutMs?, clock? })`
+reads a text body (an HTML page, a CSV export) with the same timeout, status rules, `Retry-After` parsing, size cap and
+codes as `requestBytes`, and answers `Ok<{ text, url, status, contentType }>`. The body is decoded with the `charset` of
+`Content-Type` (UTF-8 when it has none or an unknown one). `accept` sets `Accept` (default HTML first). Redirects are
+refused (`core.http_refused`) unless `followRedirects: true`, which follows them and answers the final `url`; use it
+for public pages only, since the headers follow the redirect. With `notFoundAsNull: true`, 404 and 410 answer
+`ok(null)` instead of `core.http_unexpected_answer`.
+
+```ts
+const page = await requestText({ url: listingUrl, followRedirects: true, notFoundAsNull: true });
+if (!page.ok) return page; // core.http_rate_limited carries retryAfterSeconds, like a JSON call
+if (page.value === null) return ok(null); // the listing is gone
+const id = /window\.__ID__ = "([^"]+)"/.exec(page.value.text)?.[1];
 ```
 
 **Time.** Server code receives a `Clock` (`ModuleContext.clock`) instead of calling `new Date()`.
