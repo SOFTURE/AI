@@ -1,6 +1,7 @@
 // A binary download from a third-party API (a PDF, an image, an export), with `requestJson`'s rules: a timeout that
 // bounds the body too, no redirect followed, the same status codes, and no caught error's message read (it can quote
-// the URL). The body is read chunk by chunk under a size cap, so a runaway answer is refused instead of buffered.
+// the URL). The body is read chunk by chunk under a size cap, so a runaway answer is refused instead of buffered. The
+// exported helpers below `requestBytes` are shared with `requestText` (http-text.ts) and are not part of the package's API.
 import { systemClock } from "./clock.js";
 import {
   DEFAULT_TIMEOUT_MS,
@@ -59,10 +60,7 @@ export const DEFAULT_MAX_BYTES = 25 * 1024 * 1024;
  * and the rest is not read. Throws for a misuse (an invalid `maxBytes`, a GET with a body) before anything is sent.
  */
 export async function requestBytes(options: RequestBytesOptions): Promise<Ok<HttpBytesAnswer> | HttpBytesFailure> {
-  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
-  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
-    throw new RangeError(`requestBytes: maxBytes must be a positive integer, got ${String(maxBytes)}`);
-  }
+  const maxBytes = getMaxBytes("requestBytes", options.maxBytes);
   const method = options.method ?? "GET";
   // Read as unknown: a JavaScript caller can pass what the types rule out.
   const requestBody: unknown = options.body;
@@ -95,6 +93,25 @@ export async function requestBytes(options: RequestBytesOptions): Promise<Ok<Htt
     await cancelBody(response);
     return responseFailure(statusFailureCode, response, options.clock ?? systemClock);
   }
+  const bytes = await readCappedBody(response, maxBytes);
+  if (!bytes.ok) return bytes;
+  return ok({ bytes: bytes.value, contentType: response.headers.get("content-type") });
+}
+
+/** `maxBytes` or the default; throws for a value that is not a positive integer, before anything is sent. */
+export function getMaxBytes(caller: string, maxBytes: number | undefined): number {
+  const value = maxBytes ?? DEFAULT_MAX_BYTES;
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new RangeError(`${caller}: maxBytes must be a positive integer, got ${String(value)}`);
+  }
+  return value;
+}
+
+/**
+ * The body of a successful answer, read chunk by chunk. A `Content-Length` above `maxBytes`, or a body that grows past
+ * it, is `core.http_too_large` and the rest is cancelled unread; a body that breaks off is `core.http_unreachable`.
+ */
+export async function readCappedBody(response: Response, maxBytes: number): Promise<Ok<Uint8Array> | HttpBytesFailure> {
   const tooLarge = { ...err("core.http_too_large"), status: response.status } as const;
   if (Number(response.headers.get("content-length") ?? 0) > maxBytes) {
     await cancelBody(response);
@@ -117,11 +134,11 @@ export async function requestBytes(options: RequestBytesOptions): Promise<Ok<Htt
     // The body broke off, usually the timeout firing mid-body.
     return httpFailure("core.http_unreachable", response.status);
   }
-  return ok({ bytes: concatChunks(chunks, total), contentType: response.headers.get("content-type") });
+  return ok(concatChunks(chunks, total));
 }
 
 /** Releases the connection; a body that cannot be cancelled changes nothing for the caller. */
-async function cancelBody(response: Response): Promise<void> {
+export async function cancelBody(response: Response): Promise<void> {
   await response.body?.cancel().catch(() => undefined);
 }
 

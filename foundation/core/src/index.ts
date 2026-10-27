@@ -77,6 +77,13 @@ export {
   type RequestBytesReadOptions,
   type RequestBytesWriteOptions,
 } from "./http-bytes.js";
+export {
+  requestText,
+  type HttpTextAnswer,
+  type HttpTextFailure,
+  type HttpTextFailureCode,
+  type RequestTextOptions,
+} from "./http-text.js";
 export { memoizeByContent, type MemoizeByContentOptions, type MemoizedFunction } from "./memoize.js";
 export { createTestClock, systemClock, type Clock, type TestClock } from "./clock.js";
 export {
