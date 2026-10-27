@@ -16,10 +16,15 @@ npm i @softure-ai/theme-notion tailwindcss @tailwindcss/postcss
 @import "tailwindcss";
 @import "@softure-ai/theme-notion/theme.css";       /* tokens, utilities, dark:, animations, the components' classes */
 @import "@softure-ai/theme-notion/sft-bridge.css";  /* optional: pages of the SOFTURE packages in a PageFrame */
-@import "@softure-ai/theme-kit/base.css";            /* body on the theme's background, text colour and font */
+@import "@softure-ai/theme-notion/base.css";         /* body on the theme's background, text colour and font */
 @import "@softure-ai/theme-notion/page.css";         /* body text 14 px, blue text selection, font smoothing */
-@import "@softure-ai/theme-kit/maplibre.css";        /* only if the app shows MapLibre maps */
+@import "@softure-ai/theme-notion/maplibre.css";     /* only if the app shows MapLibre maps */
 ```
+
+Every stylesheet comes from the theme. `base.css`, `maplibre.css` and `preflight.css` are the kit's
+([`@softure-ai/theme-kit`](../theme-kit/README.md)), re-exported by the theme: they resolve the kit from the theme's own
+dependency, so the app declares only the theme and gets the kit version the theme was built against, in any package
+manager layout.
 
 `theme.css` names the package's components as Tailwind sources, so their classes are generated without the app
 listing `node_modules`. It clears Tailwind's default palette: only the theme's colours exist as utilities.
@@ -31,13 +36,13 @@ taking the scoped preflight instead of Tailwind's:
 @import "@softure-ai/ui/styles.css";                 /* first: it declares the layer order */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
-@import "@softure-ai/theme-kit/preflight.css";      /* Tailwind's preflight, only inside [data-slot] elements */
+@import "@softure-ai/theme-notion/preflight.css";   /* Tailwind's preflight, only inside [data-slot] elements */
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "@softure-ai/theme-notion/theme.css";
 @import "@softure-ai/theme-notion/sft-bridge.css";
-@import "@softure-ai/theme-kit/base.css";            /* nothing else styles body under the scoped preflight */
+@import "@softure-ai/theme-notion/base.css";         /* nothing else styles body under the scoped preflight */
 @import "@softure-ai/theme-notion/page.css";
-@import "@softure-ai/theme-kit/maplibre.css";        /* only if the app shows MapLibre maps */
+@import "@softure-ai/theme-notion/maplibre.css";     /* only if the app shows MapLibre maps */
 ```
 
 `base.css` gives `body` the theme's background, text colour and sans font without the browser's 8 px margin, so a
@@ -161,14 +166,15 @@ A screen's summary figures: `StatsFold` (figures folded under a heading, closed 
 optional `hint`, optional `aside` tag; `isFullWidth` and `isOneRow` change the grid) and `StatPills` ("label **value**" tags in one row). Each figure takes a
 `tone`; the app keeps only its own table of which meaning takes which tone. A card's `progress` (0–100, clamped) draws
 the package's 6 px `Progress` under the figure, filled in the card's tone (primary without one) and named by
-`progressLabel` (default: the card's `label`).
+`progressLabel` (default: the card's `label`). A card's `icon` (a Lucide icon component) is drawn before the label: 16 px,
+`ICON_STROKE_WIDTH`, the label's muted colour, 6 px apart, `aria-hidden` (the label stays the card's text).
 
 ```tsx
 <StatsFold title="Summary">
   <StatCards
     label="Totals"
     cards={[
-      { key: "paid", label: "Paid", value: "1,200", tone: "success" },
+      { key: "paid", label: "Paid", value: "1,200", tone: "success", icon: Wallet },
       { key: "owed", label: "Owed", value: "300", tone: "danger", hint: "2 invoices", aside: { text: "+5%" } },
       { key: "hours", label: "Hours", value: "21.5 / 23.4 h", progress: 92, progressLabel: "Hours used" },
     ]}

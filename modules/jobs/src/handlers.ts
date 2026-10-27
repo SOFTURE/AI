@@ -22,9 +22,10 @@ export interface JobHandlerContext {
 }
 
 /**
- * What a handler returns: `ok()` when the work is done; an `Err` to try again with the queue's backoff (until the
- * attempts are used up); `failJob(code)` to fail for good; `retryJobLater(code, seconds)` to try again after a delay
- * the handler chooses. A throw is retried like an `Err` with the code `jobs.handler_threw` and logged.
+ * What a handler returns: `ok()` when the work is done, or `ok({ summary })` with a code-only `JobRunSummary` the run
+ * history keeps; an `Err` to try again with the queue's backoff (until the attempts are used up); `failJob(code)` to
+ * fail for good; `retryJobLater(code, seconds)` to try again after a delay the handler chooses. A throw is retried
+ * like an `Err` with the code `jobs.handler_threw` and logged.
  */
 export type JobRunResult = Ok<unknown> | JobFailure;
 

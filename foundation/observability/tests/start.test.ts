@@ -1,4 +1,5 @@
 import { createServer, type Server } from "node:http";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import type { AddressInfo } from "node:net";
 
 import { trace } from "@opentelemetry/api";
@@ -32,6 +33,8 @@ beforeEach(() => {
 
 afterEach(async () => {
   await resetObservabilityForTests();
+  // Undoes a test's syncBuiltinESMExports: the instrumentation is off again, so is the `node:http` namespace.
+  syncBuiltinESMExports();
   await receiver?.close();
   receiver = undefined;
   app?.closeAllConnections();
@@ -49,6 +52,19 @@ async function startApp(): Promise<string> {
   await new Promise<void>((resolve) => app?.listen(0, "127.0.0.1", resolve));
   const { port } = app.address() as AddressInfo;
   return `http://127.0.0.1:${String(port)}`;
+}
+
+// Through `node:http` (not `fetch`), required after start the way a CommonJS dependency would.
+async function httpGet(url: string): Promise<void> {
+  const http = createRequire(import.meta.url)("node:http") as typeof import("node:http");
+  await new Promise<void>((resolve, reject) => {
+    http
+      .get(url, (response) => {
+        response.resume();
+        response.on("end", resolve);
+      })
+      .on("error", reject);
+  });
 }
 
 async function get(url: string): Promise<void> {
@@ -286,6 +302,29 @@ describe("startObservability: metrics", () => {
     expect(metrics.includes("nodejs.eventloop.utilization")).toBe(true);
     expect(metrics.includes("my-service")).toBe(true);
     expect(metrics.includes("deployment.environment")).toBe(true);
+  });
+
+  it("measures the program's own node:http calls, not the exporter's requests", async () => {
+    receiver = await startOtlpReceiver();
+    const appUrl = await startApp();
+    // The export requests go to `localhost`, the program's call to `127.0.0.1`: `server.address` tells them apart.
+    const handle = startObservability({
+      serviceName: "my-service",
+      endpoint: `${receiver.url.replace("127.0.0.1", "localhost")}/otlp`,
+    });
+    // The exporter loads `http` with `import()`. In an app that has not imported it before start, that namespace holds
+    // the instrumented `request`; this file imported it already, so the namespace is brought up to date here.
+    syncBuiltinESMExports();
+
+    await httpGet(`${appUrl}/orders`);
+    // The first flush exports traces and logs; the second measures those requests, if they are measured at all.
+    await handle.forceFlush();
+    await handle.forceFlush();
+
+    const metrics = receiver.bodyOf("/otlp/v1/metrics");
+    expect(metrics.includes("http.client.request.duration")).toBe(true);
+    expect(metrics.includes("127.0.0.1")).toBe(true);
+    expect(metrics.includes("localhost")).toBe(false);
   });
 
   it("exports the last runtime metrics on shutdown, without a flush before it", async () => {

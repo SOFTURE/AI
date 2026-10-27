@@ -1,25 +1,29 @@
 // The panel's data from the module's reads: the page uses it, and an app that builds the page inside its own shell
-// (`getQueueStats` + `listRecentJobs` + `listSyncItems` + `JobsPanel` + the actions) uses the same mapping. Rows are
+// (`getQueueStats` + `listRecentJobs` + `listJobRuns` + `listSyncItems` + `JobsPanel` + the actions) uses the same
+// mapping. Rows are
 // built field by field: a job's payload never reaches the browser, and failures appear as codes only.
 import { formatMessage, type SoftureConfig } from "@softure-ai/core";
 import { getScheduleHealth } from "../server/hooks.js";
-import type { Job } from "../contract.js";
+import type { Job, JobRun } from "../contract.js";
 import type { JobsMessages } from "../messages/index.js";
 import type { QueueStats } from "../server/maintenance.js";
 import { getJobsOptions } from "../server/options.js";
 import type { SyncItem } from "../sync.js";
-import type { JobsPanelJob, JobsPanelQueue, JobsPanelSyncSource } from "../ui/jobs-panel.js";
+import type { JobsPanelJob, JobsPanelQueue, JobsPanelRun, JobsPanelSyncSource } from "../ui/jobs-panel.js";
 
-/** What the page read: the queue overview, the recent problem jobs and the latest sync ledger items. */
+/** What the page read: the queue overview, the recent problem jobs, the newest runs and the latest sync ledger items. */
 export interface JobsPanelSource {
   readonly stats: readonly QueueStats[];
   readonly jobs: readonly Job[];
+  /** The run history (`listJobRuns`); without it the panel leaves its section out. */
+  readonly runs?: readonly JobRun[];
   readonly syncItems: readonly SyncItem[];
 }
 
 export interface JobsPanelData {
   readonly queues: JobsPanelQueue[];
   readonly jobs: JobsPanelJob[];
+  readonly runs?: JobsPanelRun[];
   readonly syncSources: JobsPanelSyncSource[];
 }
 
@@ -30,6 +34,7 @@ export function toJobsPanelData(source: JobsPanelSource, messages: JobsMessages,
   return {
     queues: source.stats.map((stats) => toQueue(stats, messages, config, date)),
     jobs: source.jobs.map((job) => toJob(job, messages, date)),
+    ...(source.runs === undefined ? {} : { runs: source.runs.map((run) => toRun(run, messages, date)) }),
     syncSources: toSyncSources(source.syncItems, messages, date),
   };
 }
@@ -63,6 +68,32 @@ function toJob(job: Job, messages: JobsMessages, date: (value: Date) => string):
     details,
     canRetry: job.status === "failed" || job.status === "cancelled",
     canCancel: job.status === "pending",
+  };
+}
+
+function toRun(run: JobRun, messages: JobsMessages, date: (value: Date) => string): JobsPanelRun {
+  const origins = messages.runs.origins as Readonly<Record<string, string>>;
+  const details = [
+    formatMessage(messages.runs.origin, { origin: (Object.hasOwn(origins, run.origin) ? origins[run.origin] : undefined) ?? run.origin }),
+    formatMessage(messages.runs.attempt, { attempt: run.attempt }),
+  ];
+  const { summary } = run;
+  if (summary?.code !== undefined) details.push(formatMessage(messages.runs.result, { code: summary.code }));
+  if (summary?.items !== undefined) {
+    details.push(formatMessage(messages.runs.items, { new: summary.items.new ?? 0, skipped: summary.items.skipped ?? 0, failed: summary.items.failed ?? 0 }));
+  }
+  if (summary?.steps !== undefined && Object.keys(summary.steps).length > 0) {
+    const steps = Object.entries(summary.steps).map(([step, outcome]) => formatMessage(messages.runs.step, { step, outcome: messages.runs.stepStatus[outcome] }));
+    details.push(formatMessage(messages.runs.steps, { steps: steps.join(", ") }));
+  }
+  if (run.errorCode !== null) details.push(formatMessage(messages.runs.code, { code: run.errorCode }));
+  details.push(formatMessage(messages.runs.finished, { date: date(run.finishedAt) }));
+  return {
+    id: run.id,
+    heading: formatMessage(messages.runs.heading, { queue: run.queue, jobId: run.jobId }),
+    outcome: run.outcome,
+    outcomeLabel: messages.runs.outcome[run.outcome],
+    details,
   };
 }
 

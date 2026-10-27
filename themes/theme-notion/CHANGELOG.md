@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `StatCards` (#813): a card takes an optional `icon` (a Lucide icon component, e.g. `icon: Wallet`), drawn before the
+  label at 16 px with `ICON_STROKE_WIDTH` in the label's muted colour, 6 px apart, `aria-hidden`. An app that rebuilt
+  the card from `Card` to show the icon goes back to `StatCards`. A card without `icon` renders as before.
+- `base.css`, `preflight.css`, `maplibre.css` (#795): the kit's page stylesheets, exported by the theme as
+  `@softure-ai/theme-notion/<name>.css`. Each is one `@import` of the kit's file, resolved from the theme's own dependency,
+  so the app gets the kit version the theme was built against and needs no `@softure-ai/theme-kit` of its own. An app
+  replaces `@softure-ai/theme-kit/` with `@softure-ai/theme-notion/` in its `globals.css` and drops a direct
+  `@softure-ai/theme-kit` dependency it kept only for the CSS. The old imports keep working while the kit is hoisted.
+
 ## 0.4.0
 
 - Server Components (#770): the package root imports from a React Server Component again. 0.3.0's `ui/item.tsx`
