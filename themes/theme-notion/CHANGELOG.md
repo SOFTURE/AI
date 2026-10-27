@@ -4,8 +4,10 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.5.0
 
+- Needs `@softure-ai/theme-kit` `^0.1.4` (was `^0.1.3`): the version whose `softure-theme-css` writes `preflight.css`
+  and the stylesheet re-exports (#795).
 - `Command` (#809): `CommandDialog` passes its `title` to cmdk's `label`, so the palette's combobox is named by the
   dialog's title (it had an empty name: cmdk's `aria-labelledby` points at its hidden label and wins over an
   `aria-label` on `CommandInput`). A bare `Command` needs `label` from the app. `CommandInput` takes `children`,

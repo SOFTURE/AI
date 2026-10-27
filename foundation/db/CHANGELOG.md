@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
-## Unreleased
+## 0.1.14
 
 - `createTestDatabase`: a query on the database's `db` or `client` made from inside one of its open transactions
   rejects at once with `PoolInsideTransactionError` (exported from `@softure-ai/db/testing`) instead of hanging until

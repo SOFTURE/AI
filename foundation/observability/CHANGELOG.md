@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.4.1
 
 - `lifetime: "short"` for a process that does one job and ends (a migration, an ops script, a cron run) (#814): no
   metrics, since every run would only add new series under a new `service.instance.id`; traces and logs stay and are

@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/theme-notion",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "SOFTURE AI Notion theme: shadcn/ui components (new-york v4, Radix, Tailwind CSS v4, lucide) with the Notion design system's tokens and deltas, ready to import.",
   "license": "MIT",
   "type": "module",
@@ -61,7 +61,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@softure-ai/theme-kit": "^0.1.3",
+    "@softure-ai/theme-kit": "^0.1.4",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
     "lucide-react": "^1.61.0",

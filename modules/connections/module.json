@@ -1,6 +1,6 @@
 {
   "id": "connections",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "dependsOn": { "auth": "^0.2.0" },
   "dbSchema": "connections",
   "tables": ["accounts", "oauth_states"],

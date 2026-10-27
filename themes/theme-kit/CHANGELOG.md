@@ -2,7 +2,7 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
-## Unreleased
+## 0.1.4
 
 - Themes re-export the kit's stylesheets (#795): `softure-theme-css` also writes `dist/preflight.css`,
   `dist/base.css` and `dist/maplibre.css` into every theme, each one `@import "@softure-ai/theme-kit/<name>.css";`,

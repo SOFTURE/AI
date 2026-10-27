@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/observability",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "SOFTURE AI observability: a structured logger that writes to the console and to OpenTelemetry, and OTLP/HTTP export of traces, logs and metrics for Node.js processes and Next.js apps.",
   "license": "MIT",
   "type": "module",

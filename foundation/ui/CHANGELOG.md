@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
-## Unreleased
+## 0.3.5
 
 - `DisclosureMenu` (and so `AccountMenu` and `MobileMenu`): the panel's link rules no longer restyle a `ButtonLink`
   placed in the panel (#777). Links that carry `data-variant` keep their own display, padding and colours; the panel's
