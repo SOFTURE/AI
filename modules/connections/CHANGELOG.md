@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.3.2
 
 - `downloadWithConnection(ctx, { provider, accountId? }, options)` in `/server` and `downloadWithConnection({ provider,
   accountId? }, options)` in `/next` (#824) download a file (an invoice or report PDF) with the stored credential:
