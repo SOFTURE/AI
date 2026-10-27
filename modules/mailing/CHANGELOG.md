@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
-## Unreleased
+## 0.2.5
 
 - Named senders (#798): `mailing({ senders: { alerts: "App <alerts@example.com>" } })` adds senders a mail picks by
   name with `OutgoingMail.sender` (e.g. operator alerts from `alerts`, client mail from `from`). Each is checked like
