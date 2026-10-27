@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
-## Unreleased
+## 0.2.8
 
 - OpenID Connect stays opt-in, now stated and tested (#786). An app without `oidc.providers` runs none of it. On a bump
   past 0.2.5 such an app still gets two empty tables (`auth.identities`, `auth.oidc_states`, migration `0005`): a
