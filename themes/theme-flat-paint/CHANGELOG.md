@@ -6,6 +6,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Needs `@softure-ai/theme-kit` `^0.1.4` (was `^0.1.2`): the version whose `softure-theme-css` writes `preflight.css`
+  and the stylesheet re-exports (#795).
 - Look maps for five more ui components (#782): `HINT_LOOK` (spread on `Hint`: 10 px glyph, `accent` focus ring,
   6 px bubble, 8 px gap), `CHECKLIST_LOOK` (hairline list, `accessible` done marker, struck-through done label),
   `STEPPER_LOOK` (32/40 px markers per state, label for screen readers only on phones), `MENU_PANEL_LOOK` (ghost

@@ -62,7 +62,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/core": "^0.2.0",
+    "@softure-ai/core": "^0.2.5",
     "@softure-ai/db": "^0.1.9",
     "zod": "^4.6.5"
   },

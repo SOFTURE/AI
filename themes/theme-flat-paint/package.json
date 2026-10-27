@@ -52,7 +52,7 @@
     "build": "tsc -p tsconfig.build.json && softure-theme-css"
   },
   "dependencies": {
-    "@softure-ai/theme-kit": "^0.1.2"
+    "@softure-ai/theme-kit": "^0.1.4"
   },
   "peerDependencies": {
     "react": "^19.0.0",
