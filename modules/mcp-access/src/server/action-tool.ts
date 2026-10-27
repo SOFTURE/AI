@@ -1,7 +1,7 @@
 // A server action as a write tool: the tool's arguments become the form the action reads, so the tool
 // and the form share one validation path, and the action's error state becomes a tool error.
 import type { CallToolResult } from "@modelcontextprotocol/server";
-import { describeCode, toolError, toolResult, withToolErrors, type ToolErrorHints } from "./tools.js";
+import { toolResult, withToolErrors, type ToolCaller, type ToolCallHook, type ToolErrorHints } from "./tools.js";
 
 /** The action, called with the form. A `useActionState` action is passed as `(form) => action(INITIAL, form)`. */
 export type FormActionHandler = (formData: FormData) => unknown;
@@ -11,8 +11,12 @@ export interface ActionToolOptions {
   readonly message?: string | ((state: unknown) => string);
   /** Texts per error code, as in `withToolErrors`. */
   readonly hints?: ToolErrorHints;
-  /** The tool's name in the log line. */
+  /** The tool's name in the log line and in the `onToolCall` record. */
   readonly label?: string;
+  /** Called once after each call with its record, as in `withToolErrors`. */
+  readonly onToolCall?: ToolCallHook;
+  /** Who called, for the record, as in `withToolErrors`. */
+  readonly caller?: ToolCaller;
 }
 
 /** The tool callback for `server.registerTool(name, { inputSchema }, actionTool(handler))`. */
@@ -23,11 +27,18 @@ export function actionTool(handler: FormActionHandler, options: ActionToolOption
       async () => {
         const state = await handler(toFormData(args));
         const error = readErrorCode(state);
-        if (error !== null) return toolError(describeCode(error, hints));
+        // As a core result, so withToolErrors answers it through the hints and records its code.
+        if (error !== null) return { ok: false, error };
         if (options.message === undefined) return toolResult(state);
         return toolResult(typeof options.message === "string" ? options.message : options.message(state));
       },
-      { hints, ...(options.label === undefined ? {} : { label: options.label }) },
+      {
+        hints,
+        args,
+        ...(options.label === undefined ? {} : { label: options.label }),
+        ...(options.onToolCall === undefined ? {} : { onToolCall: options.onToolCall }),
+        ...(options.caller === undefined ? {} : { caller: options.caller }),
+      },
     );
 }
 
