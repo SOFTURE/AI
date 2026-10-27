@@ -1,6 +1,6 @@
 ---
 change_id: connections-download-824
-status: open
+status: archived
 ---
 
 # Plan: binary download with a stored connection (issue #824)
@@ -51,7 +51,7 @@ Files: `modules/connections/src/server/request.ts`, `src/server/index.ts`, `src/
 
 ## Progress
 
-- [ ] Phase 1: core requestBytes
-- [ ] Phase 2: downloadWithConnection
-- [ ] Phase 3: docs
-- [ ] Implementation review
+- [x] Phase 1: core requestBytes, 8d01710
+- [x] Phase 2: downloadWithConnection, 6c36af4
+- [x] Phase 3: docs, 682ac40
+- [x] Implementation review: approved

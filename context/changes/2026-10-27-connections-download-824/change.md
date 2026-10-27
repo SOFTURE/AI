@@ -1,12 +1,13 @@
 ---
 change_id: connections-download-824
 title: "connections: download a binary body with a stored connection (issue #824)"
-status: open
+status: archived
 roadmap_item: null
 issue: 824
 branch: claude/project-thread-he8ygz
 created: 2026-10-27
 updated: 2026-10-27
+archived_at: 2026-10-27
 ---
 
 ## Intent
