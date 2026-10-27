@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.6
 
 - Run history (#803): every recorded attempt leaves a row in the new `jobs.runs` table with the job id, queue,
   `origin`, attempt, outcome (`succeeded`, `retried`, `failed`), the failure's code, the handler's summary, start and
