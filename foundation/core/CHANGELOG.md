@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
-## Unreleased
+## 0.2.5
 
 - The way back from days to instants (#783): `getDayStartInstant(day, timeZone)` returns the first instant of a
   `YYYY-MM-DD` day in an IANA zone, `getLocalDateTimeInstant(value, timeZone)` the instant of a `LocalDateTime`, with
