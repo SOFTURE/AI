@@ -1,7 +1,7 @@
 export const en = {
   page: {
     title: "Background jobs",
-    lead: "Queues, schedules, recent failures and the sync ledger. Job data and error texts are never shown, only codes.",
+    lead: "Queues, schedules, recent failures, recent runs and the sync ledger. Job data and error texts are never shown, only codes.",
   },
   queues: {
     title: "Queues",
@@ -45,6 +45,35 @@ export const en = {
     retrying: "Retrying…",
     cancel: "Cancel",
     cancelling: "Cancelling…",
+  },
+  runs: {
+    title: "Recent runs",
+    lead: "Every recorded attempt, newest first: what started it and the summary its handler returned.",
+    empty: "No runs yet.",
+    heading: "{queue} · job {jobId}",
+    origin: "Started by {origin}",
+    origins: {
+      app: "the app",
+      schedule: "the schedule",
+      manual: "hand (Run now)",
+    },
+    attempt: "Attempt {attempt}",
+    result: "Result: {code}",
+    items: "Items: {new} new · {skipped} skipped · {failed} failed",
+    steps: "Steps: {steps}",
+    step: "{step} {outcome}",
+    stepStatus: {
+      done: "done",
+      skipped: "skipped",
+      failed: "failed",
+    },
+    code: "Error: {code}",
+    finished: "Finished on {date}",
+    outcome: {
+      succeeded: "Succeeded",
+      retried: "Will retry",
+      failed: "Failed",
+    },
   },
   sync: {
     title: "Sync ledger",

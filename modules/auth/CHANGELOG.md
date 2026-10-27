@@ -11,6 +11,19 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `AuthMessages` stopped compiling, although that release was described as additive. A missing key reads the English
   copy: `OidcSignIn` falls back to `authMessages.en.oidc`, and `getAuthErrorMessage` to the English message of a known
   code before the dictionary's generic failure. No change for an app.
+- `AuthUser.displayName` (`string | null`): the name an OpenID Connect provider sends (`name`, else `given_name`),
+  stored on the account at every sign-in that carries one and kept when a sign-in carries none (#802). Null for a
+  password account. Normalized (control characters dropped, whitespace collapsed, trimmed, at most 200 characters); a
+  malformed claim is ignored. The property is optional in the type, so an app's own `AuthUser` literals keep
+  compiling; the package always sets it.
+- New column `auth.users.display_name` (migration `0006`, nullable, no rewrite). The privacy export lists
+  `account.displayName`; the deletion removes it with the account.
+- The OpenID Connect flow always requests the `profile` scope with `openid email`, so Google sends the name. Google
+  shows it as part of the basic sign-in consent.
+- `createFakeOidcProvider`: `FakeOidcUser` gains `name` and `givenName`.
+
+Migration for an app: run `softure migrate` (migration `0006`). To show the signed-in user by name, read
+`user.displayName ?? user.email`. Users who signed in before the release get their name at their next sign-in.
 
 ## 0.2.6
 

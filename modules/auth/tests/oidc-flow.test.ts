@@ -58,7 +58,7 @@ describe("startOidcSignIn", () => {
       response_type: "code",
       client_id: "fake-client",
       redirect_uri: "http://localhost:3000/api/auth/oidc/fake/callback",
-      scope: "openid email",
+      scope: "openid email profile",
       state: started.value.state,
       nonce: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) as unknown,
       code_challenge: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) as unknown,
@@ -119,7 +119,7 @@ describe("completeOidcSignIn", () => {
     const withHook = await setUp({}, { onRegistered });
     const result = await signIn(withHook, ADA, {}, "/reports");
     if (!result.ok) throw new Error(result.error);
-    expect(result.value.user).toEqual({ id: expect.any(String) as unknown, email: "ada@example.com", createdAt: NOW });
+    expect(result.value.user).toEqual({ id: expect.any(String) as unknown, email: "ada@example.com", createdAt: NOW, displayName: null });
     expect(result.value.next).toBe("/reports");
     expect(await findSessionUser(withHook.ctx, result.value.session.token)).toEqual(result.value.user);
     const identities = await withHook.test.database.client.query("SELECT provider, subject, user_id, email FROM auth.identities");
@@ -174,6 +174,66 @@ describe("completeOidcSignIn", () => {
     expect(results.map((result) => result.ok)).toEqual([true, true]);
     expect(await countRows(setup.test, "users")).toBe(1);
     expect(await countRows(setup.test, "identities")).toBe(1);
+  });
+
+  describe("the display name", () => {
+    async function readDisplayName(setup: Setup): Promise<string | null | undefined> {
+      const row = await setup.test.database.client.query<{ display_name: string | null }>("SELECT display_name FROM auth.users");
+      return row.rows[0]?.display_name;
+    }
+
+    it("stores the name of a first sign-in and returns it on the user and its session", async () => {
+      const setup = await setUp();
+      const result = await signIn(setup, { ...ADA, name: "Ada Lovelace" });
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.user.displayName).toBe("Ada Lovelace");
+      expect(await findSessionUser(setup.ctx, result.value.session.token)).toEqual(result.value.user);
+      expect(await readDisplayName(setup)).toBe("Ada Lovelace");
+    });
+
+    it("hands the stored name to onRegistered for a created account", async () => {
+      const onRegistered = vi.fn(() => Promise.resolve());
+      const setup = await setUp({}, { onRegistered });
+      expect((await signIn(setup, { ...ADA, name: "Ada Lovelace" })).ok).toBe(true);
+      expect(onRegistered).toHaveBeenCalledWith(expect.objectContaining({ user: expect.objectContaining({ displayName: "Ada Lovelace" }) as unknown }), expect.anything());
+    });
+
+    it("refreshes the name on a later sign-in and keeps it when a sign-in carries none", async () => {
+      const setup = await setUp();
+      expect((await signIn(setup, { ...ADA, name: "Ada Byron" })).ok).toBe(true);
+      const renamed = await signIn(setup, { ...ADA, name: "Ada Lovelace" });
+      expect(renamed.ok && renamed.value.user.displayName).toBe("Ada Lovelace");
+      const nameless = await signIn(setup, ADA);
+      expect(nameless.ok && nameless.value.user.displayName).toBe("Ada Lovelace");
+      expect(await readDisplayName(setup)).toBe("Ada Lovelace");
+    });
+
+    it("stores the name on a linked password account", async () => {
+      const setup = await setUp();
+      const registered = await registerUser(setup.ctx, { email: "ada@example.com", password: PASSWORD, hasConsented: true, clientKey: CLIENT });
+      if (!registered.ok) throw new Error(registered.error);
+      expect(registered.value.user.displayName).toBeNull();
+      const result = await signIn(setup, { ...ADA, name: "Ada Lovelace" });
+      expect(result.ok && result.value.user).toEqual({ ...registered.value.user, displayName: "Ada Lovelace" });
+    });
+
+    it("falls back to given_name, and leaves null without either", async () => {
+      const setup = await setUp();
+      const given = await signIn(setup, { ...ADA, givenName: "Ada" });
+      expect(given.ok && given.value.user.displayName).toBe("Ada");
+      const other = await signIn(setup, { subject: "sub-grace", email: "grace@example.com" });
+      expect(other.ok && other.value.user.displayName).toBeNull();
+    });
+
+    it("normalizes the name and ignores one that is blank or not a string, without refusing the sign-in", async () => {
+      const setup = await setUp();
+      const spaced = await signIn(setup, { ...ADA, name: "  Ada\u0000 \t Lovelace\n" });
+      expect(spaced.ok && spaced.value.user.displayName).toBe("Ada Lovelace");
+      const long = await signIn(setup, { ...ADA, name: "é".repeat(250) });
+      expect(long.ok && long.value.user.displayName).toBe("é".repeat(200));
+      const blank = await signIn(setup, ADA, { claims: { name: "   ", given_name: 42 } });
+      expect(blank.ok && blank.value.user.displayName).toBe("é".repeat(200));
+    });
   });
 
   it("creates an account a password login cannot open", async () => {

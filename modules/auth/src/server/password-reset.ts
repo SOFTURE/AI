@@ -9,7 +9,7 @@ import { consumeRateLimit } from "@softure-ai/security/server";
 import { and, eq, gt, lte } from "drizzle-orm";
 import type { AuthUser } from "../contract.js";
 import type { PasswordResetSender } from "../password-reset-sender.js";
-import { passwordResets, sessions, users } from "../schema.js";
+import { AUTH_USER_COLUMNS, passwordResets, sessions, users } from "../schema.js";
 import { getAuthOptions, getAuthRoutes } from "./options.js";
 import { hashPassword } from "./password.js";
 import { assertAuthBuckets, BUCKETS, emailSubjectKey } from "./rate-limits.js";
@@ -68,7 +68,7 @@ export async function deliverPasswordReset(ctx: AuthContext, email: string): Pro
   if (send === undefined) {
     throw new Error("@softure-ai/auth: deliverPasswordReset needs auth({ passwordReset: { send } })");
   }
-  const [user] = await ctx.db.select(USER_COLUMNS).from(users).where(eq(users.email, email)).limit(1);
+  const [user] = await ctx.db.select(AUTH_USER_COLUMNS).from(users).where(eq(users.email, email)).limit(1);
   if (user === undefined) return "no_account";
   if (enqueue !== undefined) {
     await enqueue(ctx, user.id);
@@ -88,13 +88,12 @@ export async function sendPasswordReset(ctx: AuthContext, userId: string): Promi
   if (send === undefined) {
     throw new Error("@softure-ai/auth: sendPasswordReset needs auth({ passwordReset: { send } })");
   }
-  const [user] = await ctx.db.select(USER_COLUMNS).from(users).where(eq(users.id, userId)).limit(1);
+  const [user] = await ctx.db.select(AUTH_USER_COLUMNS).from(users).where(eq(users.id, userId)).limit(1);
   if (user === undefined) return "no_account";
   await issueAndSend(ctx, user, send);
   return "sent";
 }
 
-const USER_COLUMNS = { id: users.id, email: users.email, createdAt: users.createdAt };
 
 async function issueAndSend(ctx: AuthContext, user: AuthUser, send: PasswordResetSender): Promise<void> {
   const { token, expiresAt } = await issuePasswordReset(ctx, user.id);
@@ -124,7 +123,7 @@ export function getPasswordResetLink(config: SoftureConfig, token: string): stri
 export async function findPasswordResetUser(ctx: AuthContext, token: string): Promise<AuthUser | null> {
   if (!isSessionTokenShape(token)) return null;
   const [row] = await ctx.db
-    .select({ id: users.id, email: users.email, createdAt: users.createdAt })
+    .select(AUTH_USER_COLUMNS)
     .from(passwordResets)
     .innerJoin(users, eq(users.id, passwordResets.userId))
     .where(and(eq(passwordResets.tokenHash, hashSessionToken(token)), gt(passwordResets.expiresAt, ctx.clock.now())))

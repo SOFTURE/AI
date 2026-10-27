@@ -62,7 +62,7 @@ describe("the auth privacy contributor", () => {
     expect(result).toEqual({
       ok: true,
       value: {
-        account: { id: adaId, email: "ada@example.com", createdAt: NOW, passwordChangedAt: NOW },
+        account: { id: adaId, email: "ada@example.com", createdAt: NOW, passwordChangedAt: NOW, displayName: null },
         roles: [{ role: "admin", grantedAt: NOW }],
         sessions: [{ createdAt: NOW, expiresAt: new Date(NOW.getTime() + 30 * 24 * 3_600_000) }],
         passwordReset: { createdAt: NOW, expiresAt: new Date(NOW.getTime() + 3_600_000) },
@@ -70,6 +70,22 @@ describe("the auth privacy contributor", () => {
       },
     });
     expect(JSON.stringify(result)).not.toMatch(/scrypt\$|[0-9a-f]{64}/);
+  });
+
+  it("exports the display name an OpenID Connect provider sent, and the deletion removes it with the account", async () => {
+    await test.database.client.query("UPDATE auth.users SET display_name = 'Ada Lovelace' WHERE id = $1", [adaId]);
+    const result = await exportAuthUserData(test.ctx, adaId);
+    expect(result.value.account?.displayName).toBe("Ada Lovelace");
+    await deleteAuthUserData(test.ctx, adaId);
+    const left = await test.database.client.query("SELECT display_name FROM auth.users WHERE display_name IS NOT NULL");
+    expect(left.rows).toEqual([]);
+  });
+
+  it("refuses a stored display name that is blank, untrimmed or longer than 200 characters", async () => {
+    for (const name of ["", " Ada", "a".repeat(201)]) {
+      await expect(test.database.client.query("UPDATE auth.users SET display_name = $1 WHERE id = $2", [name, adaId])).rejects.toThrow(/users_display_name_check/);
+    }
+    await test.database.client.query("UPDATE auth.users SET display_name = $1 WHERE id = $2", ["é".repeat(200), adaId]);
   });
 
   it("exports nothing for an unknown account or an id that is not a UUID", async () => {

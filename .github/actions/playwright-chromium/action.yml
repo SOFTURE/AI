@@ -1,0 +1,33 @@
+# Playwright's own Chromium build for the installed version, with the system packages it needs. The browser comes
+# from a cache keyed on the resolved playwright-core version, so a Playwright bump installs its new pinned build and
+# the cache never serves another revision. The system packages come from the runner's Ubuntu mirror through apt on
+# every run; the calling step's timeout has to leave room for a slow mirror (#820). Composite steps cannot carry
+# `timeout-minutes`, so the caller sets it.
+
+name: Install Playwright Chromium
+description: Install Playwright's Chromium for the installed Playwright version, cached, with its system packages.
+
+inputs:
+  working-directory:
+    description: The folder whose node_modules hold Playwright.
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - id: version
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: echo "playwright=$(node -p "require('playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
+    - id: cache
+      uses: actions/cache@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-chromium-${{ runner.os }}-${{ steps.version.outputs.playwright }}
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npx playwright install chromium
+    - shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npx playwright install-deps chromium

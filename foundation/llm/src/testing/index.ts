@@ -1,5 +1,5 @@
 // Test double for code that calls @softure-ai/llm: an AI SDK model that answers from a script.
-import { APICallError } from "ai";
+import { APICallError, type ProviderMetadata } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 const DEFAULT_MODEL_ID = "fake-model";
@@ -11,14 +11,26 @@ export interface FakeUsage {
   readonly cachedInputTokens?: number;
 }
 
+/**
+ * What the provider reports next to an answer, e.g. OpenRouter's billed cost:
+ * `{ openrouter: { usage: { cost: 0.0012 } } }`.
+ */
+export type FakeProviderMetadata = ProviderMetadata;
+
+/** What an answer may carry besides its text. */
+interface FakeAnswerDetails {
+  readonly usage?: FakeUsage;
+  readonly providerMetadata?: FakeProviderMetadata;
+}
+
 /** One scripted answer. `usage` defaults to 10 input and 5 output tokens. */
 export type FakeResponse =
   /** Answers with `value` serialised to JSON. */
-  | { readonly kind: "output"; readonly value: unknown; readonly usage?: FakeUsage }
+  | ({ readonly kind: "output"; readonly value: unknown } & FakeAnswerDetails)
   /** Answers with raw text: the answer of `generateText`, or not JSON to provoke `llm.invalid_output`. */
-  | { readonly kind: "text"; readonly text: string; readonly usage?: FakeUsage }
+  | ({ readonly kind: "text"; readonly text: string } & FakeAnswerDetails)
   /** Stops on the output token limit after `text` (default empty), to provoke `llm.output_truncated`. */
-  | { readonly kind: "truncated"; readonly text?: string; readonly usage?: FakeUsage }
+  | ({ readonly kind: "truncated"; readonly text?: string } & FakeAnswerDetails)
   /** Fails like a provider returning HTTP 503 (`llm.unavailable`). */
   | { readonly kind: "unavailable" }
   /** Never answers; ends only when the call is aborted (`llm.timeout`). */
@@ -64,11 +76,11 @@ function isResponse(value: FakeModelOptions | FakeResponse): value is FakeRespon
 async function answer(response: FakeResponse, modelId: string, abortSignal: AbortSignal | undefined) {
   switch (response.kind) {
     case "output":
-      return toResult(JSON.stringify(response.value), modelId, response.usage ?? DEFAULT_USAGE);
+      return toResult(JSON.stringify(response.value), modelId, response);
     case "text":
-      return toResult(response.text, modelId, response.usage ?? DEFAULT_USAGE);
+      return toResult(response.text, modelId, response);
     case "truncated":
-      return toResult(response.text ?? "", modelId, response.usage ?? DEFAULT_USAGE, "length");
+      return toResult(response.text ?? "", modelId, response, "length");
     case "unavailable":
       throw new APICallError({
         message: "fakeModel: the provider is unavailable",
@@ -87,9 +99,11 @@ async function answer(response: FakeResponse, modelId: string, abortSignal: Abor
   }
 }
 
-function toResult(text: string, modelId: string, usage: FakeUsage, finishReason: "stop" | "length" = "stop") {
+function toResult(text: string, modelId: string, details: FakeAnswerDetails, finishReason: "stop" | "length" = "stop") {
+  const usage = details.usage ?? DEFAULT_USAGE;
   const cached = usage.cachedInputTokens ?? 0;
   return {
+    ...(details.providerMetadata === undefined ? {} : { providerMetadata: details.providerMetadata }),
     content: [{ type: "text" as const, text }],
     finishReason: { unified: finishReason, raw: finishReason },
     usage: {

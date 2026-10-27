@@ -76,7 +76,8 @@ import { CircleCheck } from "lucide-react";
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
 `DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Steps stateLabels`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
-`CommandDialog title description`, `SortableList instructions announcements`, `SortableHandle label`.
+`CommandDialog title description` (`title` also names its search field), `Command label` (the search field's
+name outside a `CommandDialog`; without it the field has none), `SortableList instructions announcements`, `SortableHandle label`.
 
 ## Rules, in short
 
@@ -166,14 +167,15 @@ A screen's summary figures: `StatsFold` (figures folded under a heading, closed 
 optional `hint`, optional `aside` tag; `isFullWidth` and `isOneRow` change the grid) and `StatPills` ("label **value**" tags in one row). Each figure takes a
 `tone`; the app keeps only its own table of which meaning takes which tone. A card's `progress` (0–100, clamped) draws
 the package's 6 px `Progress` under the figure, filled in the card's tone (primary without one) and named by
-`progressLabel` (default: the card's `label`).
+`progressLabel` (default: the card's `label`). A card's `icon` (a Lucide icon component) is drawn before the label: 16 px,
+`ICON_STROKE_WIDTH`, the label's muted colour, 6 px apart, `aria-hidden` (the label stays the card's text).
 
 ```tsx
 <StatsFold title="Summary">
   <StatCards
     label="Totals"
     cards={[
-      { key: "paid", label: "Paid", value: "1,200", tone: "success" },
+      { key: "paid", label: "Paid", value: "1,200", tone: "success", icon: Wallet },
       { key: "owed", label: "Owed", value: "300", tone: "danger", hint: "2 invoices", aside: { text: "+5%" } },
       { key: "hours", label: "Hours", value: "21.5 / 23.4 h", progress: 92, progressLabel: "Hours used" },
     ]}
@@ -296,6 +298,19 @@ Deltas from stock shadcn:
   Notion callout).
 - `input`, `textarea`, `select`, `input-group`: 28 px high, grey `field` background, thin `input` border.
 - `dropdown-menu`, `select`, `popover`, `command`: radius 10, `shadow-menu` without a border, 28 px items.
+- `command`: `CommandDialog` passes its `title` to cmdk's `label`, the search field's accessible name (cmdk's
+  `aria-labelledby` wins over an `aria-label` on `CommandInput`). `CommandInput` renders its `children` at the end of
+  the input row and merges `wrapperClassName` into the row:
+
+  ```tsx
+  <CommandDialog open={open} onOpenChange={setOpen} title="Search pages">
+    <CommandInput placeholder="Search…" wrapperClassName="h-12">
+      <Kbd>Esc</Kbd>
+    </CommandInput>
+    <CommandList>…</CommandList>
+  </CommandDialog>
+  ```
+
 - `dialog`, `alert-dialog`: radius 10, `shadow-dialog`, no border. `card`: `shadow-card` instead of a border.
 - `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
   (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,

@@ -6,6 +6,21 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Run history (#803): every recorded attempt leaves a row in the new `jobs.runs` table with the job id, queue,
+  `origin`, attempt, outcome (`succeeded`, `retried`, `failed`), the failure's code, the handler's summary, start and
+  finish, kept for the new `retention.runsDays` (default 30) whatever happens to the job. A handler returns a
+  code-only summary with `ok({ summary: { code?, items?: { new?, skipped?, failed? }, steps? } })`; an invalid one is
+  dropped with a warning and the job stays succeeded. `enqueueJob` takes `origin` (default `app`); scheduled runs are
+  `schedule`, `runScheduleNow(ctx, queue, { origin })` defaults to `manual`; `Job` has `origin`. New in
+  `@softure-ai/jobs`: `JobRun`, `JobRunOutcome`, `JOB_RUN_OUTCOMES`, `JobRunSummary`, `jobRunSummarySchema`,
+  `JobStepOutcome`, `JOB_STEP_OUTCOMES`, `jobRunsTable`; in `/server`: `listJobRuns`, `pruneJobRuns`,
+  `RunScheduleNowOptions`; in `/testing`: `listRunHistory`; in `/ui`: `JobsPanelRun` and an optional `runs` prop of
+  `JobsPanel`. The admin page shows the 50 most recent runs. The worker prunes the history hourly.
+  - Migrate: run `migrations/0006_create_runs.sql` with the app's other migrations (adds `jobs.jobs.origin` with
+    default `app` and creates `jobs.runs`). An app without a worker adds `pruneJobRuns(ctx)` to the cron that calls
+    `pruneJobs`. An app that kept its own run table and wrapped its handlers can return `ok({ summary })`, pass
+    `origin` to `enqueueJob` / `runScheduleNow` instead of through the payload, read `listJobRuns`, and drop its
+    table. An app with its own full dictionary for another locale adds the `runs` copy (see `messages/en.ts`).
 - `reopenSyncItem(ctx, { source, itemId })` in `/server` (#811): puts a `done`, `skipped` or `failed` sync item back
   to `pending` as never tried (attempts, error code, result reference and finish time cleared), so the next
   `processSyncItem` runs it again; a `pending` item is returned unchanged; `jobs.sync_item_not_found` otherwise. It
@@ -17,6 +32,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `getZonedInstant`, `isTimeZone`, plus `getDayStartInstant` and `getLocalDateTimeInstant`). Local-time schedules
   behave exactly as before, across DST changes too. Needs `@softure-ai/core` 0.2.5 or later.
   - Migrate: nothing.
+- README, "Sync state for polling": every database access inside a `processSyncItem` callback goes through the
+  callback's `db`, with a provider call through `requestWithConnection` and what a rolled-back token refresh means
+  (#785). On the test database a read through the outer `ctx.db` now fails at once (`@softure-ai/db` testing).
+  - Migrate: a callback that calls a helper with the job's context passes `{ ...ctx, db: itemContext.db }` instead.
 
 ## 0.1.5
 

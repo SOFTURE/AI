@@ -91,23 +91,28 @@ export async function enqueueScheduledRun(ctx: JobsContext, name: string, slot: 
       })
       .returning({ name: schedules.name });
     if (taken === undefined) return false;
-    await enqueueJob({ ...ctx, db: tx }, { queue: name, payload: schedule.payload, dedupKey: SCHEDULE_DEDUP_KEY });
+    await enqueueJob({ ...ctx, db: tx }, { queue: name, payload: schedule.payload, dedupKey: SCHEDULE_DEDUP_KEY, origin: "schedule" });
     return true;
   });
 }
 
 export type RunScheduleNowResult = Ok<EnqueuedJob> | Err<"jobs.not_a_schedule">;
 
+export interface RunScheduleNowOptions {
+  /** What started the run, kept with the job and its runs; default `manual`. */
+  readonly origin?: string;
+}
+
 /**
  * Enqueues a run of the schedule `queue` now, with its payload and its dedup key: while a run is pending or running,
- * this joins it (`isDuplicate: true`). The schedule's period is left alone, so its regular run still comes. Refused
- * with `jobs.not_a_schedule` for a queue `schedules` does not name.
+ * this joins it (`isDuplicate: true`, and the waiting run keeps its own origin). The schedule's period is left alone,
+ * so its regular run still comes. Refused with `jobs.not_a_schedule` for a queue `schedules` does not name.
  */
-export async function runScheduleNow(ctx: JobsContext, queue: string): Promise<RunScheduleNowResult> {
-  const options = getJobsOptions(ctx.config);
-  if (!Object.hasOwn(options.schedules, queue)) return err("jobs.not_a_schedule");
-  const schedule = getSchedule(options, queue);
-  return ok(await enqueueJob(ctx, { queue, payload: schedule.payload, dedupKey: SCHEDULE_DEDUP_KEY }));
+export async function runScheduleNow(ctx: JobsContext, queue: string, options: RunScheduleNowOptions = {}): Promise<RunScheduleNowResult> {
+  const jobsOptions = getJobsOptions(ctx.config);
+  if (!Object.hasOwn(jobsOptions.schedules, queue)) return err("jobs.not_a_schedule");
+  const schedule = getSchedule(jobsOptions, queue);
+  return ok(await enqueueJob(ctx, { queue, payload: schedule.payload, dedupKey: SCHEDULE_DEDUP_KEY, origin: options.origin ?? "manual" }));
 }
 
 /** Notes a succeeded job of a scheduled queue (any job of it, a run enqueued by hand too). */

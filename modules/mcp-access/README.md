@@ -177,6 +177,25 @@ if (canWrite) {
   `{ status: "error", error }` state is a tool error through the hints; otherwise the answer is `message` (text or
   `(state) => text`), else the state as JSON.
 
+To keep a record of tool calls (a calls panel, usage figures), pass `onToolCall` with a `caller` built once per
+request in the factory. The hook runs after each call with one record: `tool` (the `label`, else `"call"`),
+`tokenId`, `clientName`, `argumentNames` (names only, never values), `outcome` (`succeeded` with `itemCount` for an
+array value, `failed` with the result's error code, `thrown` with the `safeError` code, `null` for a
+`PublicError`), `startedAt` and `durationMs`. The hook is awaited; when it throws, the failure is logged by kind and
+the assistant gets the same answer. `findTokenClientName(ctx, tokenId)` gives the token's name (`null` for the stdio
+id or a token that is gone).
+
+```ts
+export async function createServer({ userId, canWrite, tokenId }: McpServerIdentity) {
+  const caller = { tokenId, clientName: await findTokenClientName(ctx, tokenId) };
+  const onToolCall = (record: ToolCallRecord) => saveToolCall(db, userId, record);
+  server.registerTool("list_orders", { inputSchema: { status: z.string() } }, (args) =>
+    withToolErrors(() => findOrders(db, userId, args), { label: "list_orders", caller, args, onToolCall }),
+  );
+  // actionTool(handler, { label: "place_order", caller, onToolCall }) passes its arguments itself.
+}
+```
+
 ### Stdio
 
 A local assistant on the machine that holds the database can run the same factory over stdio, without a token:

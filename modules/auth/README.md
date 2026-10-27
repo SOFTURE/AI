@@ -177,6 +177,12 @@ the variables the provider names.
   allowlist is the gate. An account keeps one identity per provider: a new subject with an email that already has one
   (a recycled address) is refused with `auth.oidc_no_account`. `onRegistered` runs for a created account with
   `consent: null`, `fields: {}` and `oidcProvider: "<id>"`.
+- **Display name.** The flow always requests `openid email profile`. Every sign-in whose ID token carries `name` (else
+  `given_name`) stores it on the account (`auth.users.display_name`), normalized: control characters dropped,
+  whitespace collapsed, trimmed, at most 200 characters. `AuthUser.displayName` (from `getCurrentUser`, `requireUser`
+  and every other reader) is that name, or null for a password account and a provider that sends none; a sign-in
+  without a name keeps the stored one. A malformed name claim is ignored, never a reason to refuse the sign-in.
+  Show it with a fallback: `user.displayName ?? user.email`.
 - **Session.** The callback ends the sessions the browser held and opens a normal auth session, so `requireUser`,
   `requireRole`, `adminEmails` and every module built on auth work unchanged. It answers a `303` to `next` (through
   `rewriteRedirect`), or to the login page with `?oidc_error=<code>`: `auth.oidc_failed` (the reason is in the log
@@ -192,7 +198,7 @@ the variables the provider names.
   without Next.
 - **Tests.** `createFakeOidcProvider({ clock })` from `@softure-ai/auth/testing` is a provider in memory (discovery,
   JWKS, token endpoint, real RS256 or ES256 signatures): pass `fake.definition` as a provider, `fake.fetch` as
-  `oidc.fetch` and `fake.env` as the context's `env`; `fake.signIn(authorizeUrl, { subject, email, hostedDomain })`
+  `oidc.fetch` and `fake.env` as the context's `env`; `fake.signIn(authorizeUrl, { subject, email, hostedDomain, name, givenName })`
   answers the callback URL. It can break on purpose (`claims`, `signWith`, `rotateKeys`, `failNext`, `setDiscovery`).
 
 ## 4. Mounting
@@ -625,11 +631,12 @@ module itself.
 
 `softure migrate` applies `migrations/0001_create_users_and_sessions.sql`,
 `0002_create_user_roles.sql`, `0003_create_password_resets.sql` and
-`0004_index_users_created_at.sql` (an index on `users.created_at` for billing's reminder mail) and
-`0005_create_identities_and_oidc_states.sql` after security's.
+`0004_index_users_created_at.sql` (an index on `users.created_at` for billing's reminder mail),
+`0005_create_identities_and_oidc_states.sql` and `0006_add_users_display_name.sql` after security's.
 
-- `auth.users(id uuid, email, password_hash, created_at, password_changed_at)`: the email is stored
-  trimmed and lowercased (`CHECK`), unique; the hash must be a `scrypt$…` string.
+- `auth.users(id uuid, email, password_hash, created_at, password_changed_at, display_name)`: the email is stored
+  trimmed and lowercased (`CHECK`), unique; the hash must be a `scrypt$…` string; `display_name` is null or the
+  OpenID Connect provider's name, trimmed, 1 to 200 characters (`CHECK`).
 - `auth.sessions(token_hash, user_id → users ON DELETE CASCADE, created_at, expires_at)`: only the
   sha256 of the cookie token is stored.
 - `auth.user_roles(user_id → users ON DELETE CASCADE, role, granted_at)`, primary key
@@ -750,10 +757,11 @@ sender. `enqueuePasswordReset` from `@softure-ai/auth/jobs` plugs `@softure-ai/j
 
 ## 11. GDPR
 
-The module stores an email, a password hash, session rows, role rows and pending reset rows. It
+The module stores an email, a display name from an OpenID Connect provider, a password hash, session rows, role rows
+and pending reset rows. It
 contributes to `@softure-ai/privacy` (`privacy` flags on):
 
-- **Export** (`exportAuthUserData`): the account (id, email, `createdAt`, `passwordChangedAt`),
+- **Export** (`exportAuthUserData`): the account (id, email, `createdAt`, `passwordChangedAt`, `displayName`),
   stored roles with their grant dates, sessions (created and expiry dates) and a pending reset link
   (created and expiry dates), and OpenID Connect identities (provider, subject, email, created and last sign-in
   dates). Never the password hash or a token hash. A role held through

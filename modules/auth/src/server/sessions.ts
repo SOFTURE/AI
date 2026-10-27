@@ -3,7 +3,7 @@ import type { ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { and, eq, gt, lte, ne } from "drizzle-orm";
 import type { AuthUser, NewSession } from "../contract.js";
-import { sessions, users } from "../schema.js";
+import { AUTH_USER_COLUMNS, sessions, users } from "../schema.js";
 import { getAuthOptions, getLegacyTokenPattern } from "./options.js";
 import { createSessionToken, hashSessionToken, isSessionTokenShape } from "./session-token.js";
 
@@ -24,7 +24,7 @@ export async function createSession(ctx: AuthContext, userId: string): Promise<N
 export async function findSessionUser(ctx: AuthContext, token: string): Promise<AuthUser | null> {
   if (!isSessionTokenShape(token, getLegacyTokenPattern(ctx.config))) return null;
   const [row] = await ctx.db
-    .select({ id: users.id, email: users.email, createdAt: users.createdAt })
+    .select(AUTH_USER_COLUMNS)
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.tokenHash, hashSessionToken(token)), gt(sessions.expiresAt, ctx.clock.now())))

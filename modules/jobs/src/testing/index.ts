@@ -1,11 +1,12 @@
 // Test helpers of @softure-ai/jobs: run due jobs in-process against a test database (`createTestDatabase` from
-// `@softure-ai/db/testing`), read the tables back and record the alert hooks' calls.
+// `@softure-ai/db/testing`), read the tables back (the run history too) and record the alert hooks' calls.
 import type { Queryable } from "@softure-ai/db";
 import { asc } from "drizzle-orm";
-import type { Job, JobFailedEvent, ScheduleStateChangedEvent } from "../contract.js";
+import type { Job, JobFailedEvent, JobRun, ScheduleStateChangedEvent } from "../contract.js";
 import type { OnJobFailedHook, OnScheduleStateChangedHook } from "../options.js";
-import { jobs, syncCursors, syncItems } from "../schema.js";
+import { jobs, runs, syncCursors, syncItems } from "../schema.js";
 import { toJob } from "../server/job-row.js";
+import { toJobRun } from "../server/runs.js";
 import { toSyncItem } from "../server/sync-items.js";
 import type { SyncItem } from "../sync.js";
 
@@ -15,6 +16,12 @@ export { runDueJobs, type RunDueJobsOptions, type RunDueJobsReport } from "../se
 export async function listJobs(db: Queryable): Promise<Job[]> {
   const rows = await db.select().from(jobs).orderBy(asc(jobs.id));
   return rows.map(toJob);
+}
+
+/** Every row of the run history, oldest first: for assertions. */
+export async function listRunHistory(db: Queryable): Promise<JobRun[]> {
+  const rows = await db.select().from(runs).orderBy(asc(runs.id));
+  return rows.map(toJobRun);
 }
 
 export interface SyncState {

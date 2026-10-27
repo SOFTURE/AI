@@ -58,5 +58,5 @@ export async function loginUser(ctx: AuthContext, input: LoginInput): Promise<Lo
       .where(and(eq(users.id, user.id), eq(users.passwordHash, user.passwordHash)));
   }
   const session = await createSession(ctx, user.id);
-  return ok({ user: { id: user.id, email: user.email, createdAt: user.createdAt }, session });
+  return ok({ user: { id: user.id, email: user.email, createdAt: user.createdAt, displayName: user.displayName }, session });
 }
