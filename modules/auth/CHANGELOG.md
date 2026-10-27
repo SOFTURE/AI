@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- OpenID Connect stays opt-in, now stated and tested (#786). An app without `oidc.providers` runs none of it. On a bump
+  past 0.2.5 such an app still gets two empty tables (`auth.identities`, `auth.oidc_states`, migration `0005`): a
+  module's migrations are one numbered sequence and cannot depend on its options, and without a provider nothing
+  writes to them. The `oidc-start` and `oidc-callback` buckets are required only with a provider; spreading
+  `AUTH_RATE_LIMIT_BUCKETS` adds their definitions, which count nothing. A new test pins it: without a provider and
+  without those buckets, registration and login work and no OpenID Connect row is written. README section 3,
+  "Without a provider", lists it all.
+- The 0.2.6 entry below is corrected: it called the release additive without naming migration `0005` or the copy
+  keys that 0.2.6 required (optional since 0.2.7).
+
+Steps for an app without a provider, from any version up to 0.2.5 to this one: run `softure migrate` (migrations
+`0005` and `0006`). Nothing else: no copy, buckets, environment variables or routes to add.
+
 ## 0.2.7
 
 - `AuthMessages`: the OpenID Connect keys (`oidc`, `errors.auth.oidc_failed`, `oidc_cancelled`, `oidc_not_allowed`,
@@ -27,8 +42,10 @@ Migration for an app: run `softure migrate` (migration `0006`). To show the sign
 
 ## 0.2.6
 
-Sign in with an OpenID Connect provider (Google), limited to allowed domains or emails (#769). Additive: an app without
-`oidc` sees no change except two new bucket defaults.
+Sign in with an OpenID Connect provider (Google), limited to allowed domains or emails (#769). Opt-in, but not
+additive for every app: an app without `oidc` runs migration `0005` (two tables it leaves empty), and an app with its
+own dictionary typed `AuthMessages` must add the OpenID Connect copy keys (optional again in 0.2.7). The two new bucket
+defaults are required only with a provider.
 
 - `auth({ oidc: { providers: [{ id, name, issuer, clientIdEnv, clientSecretEnv, allowedDomains, allowedEmails,
   createAccounts, ... }] } })`: authorization code flow with PKCE S256, a one-time state bound to the browser by a

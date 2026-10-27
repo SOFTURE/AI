@@ -24,7 +24,8 @@ export const REGISTRATION_CLOSED_ENV = "SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED"
  * `register` and `login` per client address, `login-account` per email, `change-password` per user,
  * `password-reset` (link requests) and `password-reset-confirm` (new passwords) per client address,
  * `password-reset-account` per email, which bounds the mails one address can receive, and `oidc-start` and
- * `oidc-callback` (OpenID Connect sign-ins started and completed) per client address.
+ * `oidc-callback` (OpenID Connect sign-ins started and completed) per client address. The `oidc-*` buckets are
+ * required only with a provider and count nothing without one, so an app without OpenID Connect may leave them out.
  */
 export const AUTH_RATE_LIMIT_BUCKETS = {
   register: { limit: 5, windowMinutes: 15, key: "ip" },
