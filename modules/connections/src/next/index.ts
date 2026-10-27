@@ -7,4 +7,4 @@ export { getConnectionsMessages } from "./messages.js";
 export { ConnectionsPage, type ConnectionsPageProps } from "./pages.js";
 export { toConnectionPanelRows } from "./panel-rows.js";
 export { completeConnectionRoute } from "./route.js";
-export { getAccessToken, getCredential, getCredentialHeader, requestWithConnection } from "./tokens.js";
+export { downloadWithConnection, getAccessToken, getCredential, getCredentialHeader, requestWithConnection } from "./tokens.js";
