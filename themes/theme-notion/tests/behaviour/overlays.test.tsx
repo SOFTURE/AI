@@ -26,6 +26,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Kbd,
   Select,
   SelectContent,
   SelectItem,
@@ -294,5 +295,58 @@ describe("Command", () => {
     );
     expect(screen.getByRole("dialog", { name: "Command Palette" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+  });
+
+  it("names the dialog's search field by the dialog's title (#809)", () => {
+    render(
+      <CommandDialog open title="Jump to">
+        <CommandInput />
+      </CommandDialog>,
+    );
+    expect(screen.getByRole("combobox", { name: "Jump to" })).toBeTruthy();
+
+    cleanup();
+    render(
+      <CommandDialog open>
+        <CommandInput />
+      </CommandDialog>,
+    );
+    expect(screen.getByRole("combobox", { name: "Command Palette" })).toBeTruthy();
+  });
+
+  it("names a bare Command's search field by its label", () => {
+    render(
+      <Command label="Search pages">
+        <CommandInput />
+      </Command>,
+    );
+    expect(screen.getByRole("combobox", { name: "Search pages" })).toBeTruthy();
+  });
+
+  it("renders trailing content after the input inside the input row, with the app's row classes (#809)", () => {
+    render(
+      <Command label="Search">
+        <CommandInput wrapperClassName="h-12">
+          <Kbd>Esc</Kbd>
+        </CommandInput>
+      </Command>,
+    );
+    const row = document.querySelector('[data-slot="command-input-wrapper"]');
+    expect(row?.className).toBe("flex items-center gap-2 border-b px-3 h-12");
+    expect(Array.from(row?.children ?? []).map((child) => child.getAttribute("data-slot") ?? child.tagName)).toEqual([
+      "svg",
+      "command-input",
+      "kbd",
+    ]);
+    expect(row?.lastElementChild?.textContent).toBe("Esc");
+  });
+
+  it("keeps the input row's own classes without wrapperClassName", () => {
+    render(
+      <Command label="Search">
+        <CommandInput />
+      </Command>,
+    );
+    expect(document.querySelector('[data-slot="command-input-wrapper"]')?.className).toBe("flex h-9 items-center gap-2 border-b px-3");
   });
 });
