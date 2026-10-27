@@ -62,7 +62,9 @@ export {
 } from "./privacy.js";
 export { reencryptConnections, type ReencryptOptions, type ReencryptReport } from "./rotate.js";
 export {
+  downloadWithConnection,
   requestWithConnection,
+  type ConnectionDownloadResult,
   type ConnectionRequestFailure,
   type ConnectionRequestOptions,
   type ConnectionRequestResult,

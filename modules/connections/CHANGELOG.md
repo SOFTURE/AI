@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `downloadWithConnection(ctx, { provider, accountId? }, options)` in `/server` and `downloadWithConnection({ provider,
+  accountId? }, options)` in `/next` (#824) download a file (an invoice or report PDF) with the stored credential:
+  the same header, refresh-once-and-retry on an OAuth 401 and `connections.reconnect_required` rules as
+  `requestWithConnection`, on the same code path. It takes the options of core's `requestBytes` (`method`, a JSON
+  `body`, `accept`, `maxBytes`, `idempotencyKey`, `headers`, `fetch`, `timeoutMs`) and answers `Ok<{ bytes:
+  Uint8Array, contentType }>`, a `core.http_*` failure (`core.http_too_large` for a body above `maxBytes`, default
+  25 MiB) or a `connections.*` code. Needs the `@softure-ai/core` release that carries `requestBytes` (the range is
+  raised with it).
+  - Migrate: optional. An app with its own download helper (`getCredentialHeader`, `fetch`, its own 401 and status
+    handling) replaces it with `downloadWithConnection` and gains the OAuth refresh and retry.
+
 ## 0.3.1
 
 - README: `requestWithConnection` inside a transaction takes the transaction as `db` (#785).

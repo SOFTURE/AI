@@ -1,7 +1,14 @@
 // Token and key reads for server components, actions and route handlers, with the registered config. Nothing is
 // cached: a refresh stored by another instance is read on the next call.
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { sendWithConnection, type ConnectionRequestOptions, type RequestWithConnection } from "../server/request.js";
+import type { RequestBytesOptions } from "@softure-ai/core";
+import {
+  downloadWithConnection as downloadWithStoredConnection,
+  sendWithConnection,
+  type ConnectionDownloadResult,
+  type ConnectionRequestOptions,
+  type RequestWithConnection,
+} from "../server/request.js";
 import {
   getCredentialHeader as getStoredCredentialHeader,
   getCredential as getStoredCredential,
@@ -30,3 +37,8 @@ export async function getCredentialHeader(input: ProviderAccountInput): Promise<
 /** Calls a provider's API with the account's stored credential (`requestWithConnection` of `/server`). */
 export const requestWithConnection = (async (account: ProviderAccountInput, options: ConnectionRequestOptions) =>
   sendWithConnection(await getConnectionsContext(getSoftureConfig()), account, options)) as RequestWithConnection<[account: ProviderAccountInput]>;
+
+/** Downloads a file with the account's stored credential (`downloadWithConnection` of `/server`). */
+export async function downloadWithConnection(account: ProviderAccountInput, options: RequestBytesOptions): Promise<ConnectionDownloadResult> {
+  return downloadWithStoredConnection(await getConnectionsContext(getSoftureConfig()), account, options);
+}

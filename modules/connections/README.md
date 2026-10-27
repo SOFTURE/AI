@@ -25,6 +25,8 @@ server for clients that call the app.
 - **`requestWithConnection(ctx, { provider, accountId? }, options)`**: one API call with the stored credential of any
   kind, through `requestJson`. On a 401 with OAuth it refreshes once and retries once; only a second 401 (or the
   first for a key) reports the credential rejected.
+- **`downloadWithConnection(ctx, { provider, accountId? }, options)`**: the same for a file (an invoice PDF), through
+  `requestBytes`: the bytes as a `Uint8Array` with the content type, under a size cap.
 - **`getCredential`** for API keys and Basic, **`reportCredentialRejected`** when the app saw a 401, and
   **`getAuthorizationHeader`** for either.
 - **`onReconnectRequired`**, a hook that runs once when a connection needs reconnecting, so the app can alert the
@@ -180,6 +182,23 @@ the `requestJson` result unchanged, with these exceptions:
 
 A `form` (a `URLSearchParams` or a `FormData` with files) is sent as it is, and sent again on the retry after a
 refresh. A 403 is a permission problem, not a dead credential: it comes back as `core.http_refused` and reports nothing.
+
+**Downloading a file** (an invoice or report PDF) takes the same credential path, through core's `requestBytes`:
+
+```ts
+import { downloadWithConnection } from "@softure-ai/connections/next"; // or /server with your own ctx
+
+const pdf = await downloadWithConnection(
+  { provider: "invoicing" },
+  { url: `https://api.invoicing.example/v3/invoices/${id}/pdf`, accept: "application/pdf", maxBytes: 10 * 1024 * 1024 },
+);
+if (!pdf.ok) return pdf; // core.http_too_large above maxBytes, the other codes as above
+return new Response(pdf.value.bytes, { headers: { "content-type": pdf.value.contentType ?? "application/pdf" } });
+```
+
+It takes `method` (a GET by default), a JSON `body` for a write that renders a file, `accept` (default `*/*`),
+`maxBytes` (default 25 MiB), `idempotencyKey`, `headers`, `fetch` and `timeoutMs`, and follows the same 401 rules as
+`requestWithConnection`. The body is read in chunks and dropped as soon as it passes `maxBytes`.
 
 An app with its own HTTP client reads the token and refreshes it itself:
 

@@ -277,7 +277,7 @@ None. Tokens, slots and styles live in `@softure-ai/ui`.
   locale and reused. `locale` is any BCP 47 tag; a category the forms leave out falls back to `other`.
 - `getMessage(dictionary, "errors.unexpected")` reads a dotted path.
 - Core's own keys (`coreMessages`): `errors.database_failed`, `errors.unexpected`, the copy for
-  the `core.database_failed` and `core.unexpected` codes, and `errors.http_*` for `requestJson`'s codes.
+  the `core.database_failed` and `core.unexpected` codes, and `errors.http_*` for the codes of `requestJson` and `requestBytes`.
 
 **Errors as values.** `Result<T, E>` is `{ ok: true, value } | { ok: false, error }`, built with
 `ok(value)` / `ok()` and `err("module.code")`. Codes are namespaced by module id
@@ -433,6 +433,19 @@ const token = await requestJson({
 if (!token.ok && token.errorBody?.error === "invalid_grant") {
   // the grant expired or was revoked: ask the user to reconnect
 }
+```
+
+**External files.** `requestBytes({ url, method?, body?, accept?, maxBytes?, idempotencyKey?, fetch?, headers?, timeoutMs?, clock? })`
+downloads a binary body (a PDF, an image) with the same timeout, redirect and status rules and the same codes as
+`requestJson`, and answers `Ok<{ bytes: Uint8Array, contentType: string | null }>`. `accept` sets `Accept` (default
+`*/*`); a JSON `body` goes with a write only. The body is read in chunks under `maxBytes` (default 25 MiB,
+`DEFAULT_MAX_BYTES`): a `Content-Length` above it, or a body that grows past it, is `core.http_too_large` (with the
+status) and the rest is not read.
+
+```ts
+const pdf = await requestBytes({ url: invoicePdfUrl, headers: { authorization: `Bearer ${key}` }, accept: "application/pdf" });
+if (!pdf.ok) return pdf;
+await saveFile(pdf.value.bytes, pdf.value.contentType);
 ```
 
 **Time.** Server code receives a `Clock` (`ModuleContext.clock`) instead of calling `new Date()`.

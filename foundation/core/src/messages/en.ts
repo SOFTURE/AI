@@ -8,5 +8,6 @@ export const en = {
     http_unavailable: "The service is unavailable right now. Please try again later.",
     http_conflict: "The data changed in the meantime. Please reload it and try again.",
     http_unexpected_answer: "The service sent an answer that could not be read.",
+    http_too_large: "The service sent a file that is too large.",
   },
 };

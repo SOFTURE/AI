@@ -3,7 +3,7 @@
 // through `database.handle`, so the real role check, the real flow and the real store run.
 import { getSessionCookie } from "@softure-ai/auth";
 import { grantRole, registerUser } from "@softure-ai/auth/server";
-import { completeConnectionRoute, disconnectAction, getAccessToken, getCredential, getCredentialHeader, readPageNotice, requestWithConnection, saveCredentialAction, startConnectionAction } from "@softure-ai/connections/next";
+import { completeConnectionRoute, disconnectAction, downloadWithConnection, getAccessToken, getCredential, getCredentialHeader, readPageNotice, requestWithConnection, saveCredentialAction, startConnectionAction } from "@softure-ai/connections/next";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { clearSoftureConfig, registerSoftureConfig } from "@softure-ai/core/next";
 import { closeConfiguredDatabases, createPgliteHandle } from "@softure-ai/db";
@@ -95,6 +95,9 @@ describe("the Next adapter", () => {
     test.fake.rejectAccessTokens();
     expect(await requestWithConnection({ provider: "fake" }, { url: test.fake.apiUrl, fetch: test.fake.fetch })).toEqual({ ok: true, value: { ok: true } });
     expect(test.fake.calls.refresh).toBe(1);
+    // A download takes the same path.
+    const download = await downloadWithConnection({ provider: "fake" }, { url: test.fake.apiUrl, fetch: test.fake.fetch });
+    expect(download.ok && new TextDecoder().decode(download.value.bytes)).toBe('{"ok":true}');
   });
 
   it("lands on the page with the code when the callback fails, never the provider's text", async () => {
