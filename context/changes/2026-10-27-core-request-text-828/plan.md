@@ -1,6 +1,6 @@
 ---
 change_id: core-request-text-828
-status: in_progress
+status: archived
 ---
 
 # Plan: a text (HTML) request in core (issue #828)
@@ -39,6 +39,6 @@ Files: `foundation/core/src/http-bytes.ts` (extract the capped read), `foundatio
 
 ## Progress
 
-- [ ] Phase 1: requestText
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: requestText, a17abea
+- [x] Phase 2: docs, 674ba39
+- [x] Implementation review: approved

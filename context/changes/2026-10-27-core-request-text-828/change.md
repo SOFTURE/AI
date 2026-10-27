@@ -1,12 +1,13 @@
 ---
 change_id: core-request-text-828
 title: "core: a text (HTML) counterpart of requestJson with the same failure codes (issue #828)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 828
 branch: claude/project-thread-micwuo
 created: 2026-10-27
 updated: 2026-10-27
+archived_at: 2026-10-27
 ---
 
 ## Intent
