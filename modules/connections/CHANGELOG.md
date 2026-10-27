@@ -12,8 +12,7 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
   `requestWithConnection`, on the same code path. It takes the options of core's `requestBytes` (`method`, a JSON
   `body`, `accept`, `maxBytes`, `idempotencyKey`, `headers`, `fetch`, `timeoutMs`) and answers `Ok<{ bytes:
   Uint8Array, contentType }>`, a `core.http_*` failure (`core.http_too_large` for a body above `maxBytes`, default
-  25 MiB) or a `connections.*` code. Needs the `@softure-ai/core` release that carries `requestBytes` (the range is
-  raised with it).
+  25 MiB) or a `connections.*` code. Requires `@softure-ai/core` ^0.2.6, the release that carries `requestBytes`.
   - Migrate: optional. An app with its own download helper (`getCredentialHeader`, `fetch`, its own 401 and status
     handling) replaces it with `downloadWithConnection` and gains the OAuth refresh and retry.
 
