@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- A hook around each tool call (#804): `withToolErrors` and `actionTool` take optional `onToolCall`, `caller`
+  (`{ tokenId, clientName }`) and, for `withToolErrors`, `args`. The hook gets one `ToolCallRecord` per call: tool
+  name, token id, client name, argument names (never values), outcome (`succeeded` with an item count, `failed` with
+  the error code, `thrown` with the `safeError` code), start and duration. A failing hook is logged by kind and never
+  changes the answer. `findTokenClientName(ctx, tokenId)` (`/server`) gives the token's name. Migrate: an app that
+  wraps each tool's work inside `withToolErrors` to read the raw result and time it, and looks up
+  `mcp.access_tokens.name` itself, drops both and passes `{ caller, args, onToolCall }` instead. `actionTool` now
+  answers an error state through `withToolErrors`'s result path; the answer is the same.
+
 ## 0.2.5
 
 - `TokenManager` keeps keyboard focus (#590): when the issued token appears, focus moves to its heading

@@ -8,6 +8,7 @@ export {
   type JobsPanelJob,
   type JobsPanelProps,
   type JobsPanelQueue,
+  type JobsPanelRun,
   type JobsPanelSlot,
   type JobsPanelSyncItem,
   type JobsPanelSyncSource,

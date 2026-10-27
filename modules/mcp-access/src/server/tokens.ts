@@ -160,6 +160,16 @@ export interface VerifiedAccessToken {
 }
 
 /**
+ * A token's name, the client it was issued for ("Laptop", an OAuth client's name), for a record of tool calls:
+ * `null` for an id that is not a stored token's (the stdio id, a pruned or unknown token).
+ */
+export async function findTokenClientName(ctx: McpAccessContext, tokenId: string): Promise<string | null> {
+  if (!UUID_SHAPE.test(tokenId)) return null;
+  const [row] = await ctx.db.select({ name: accessTokens.name }).from(accessTokens).where(eq(accessTokens.id, tokenId));
+  return row?.name ?? null;
+}
+
+/**
  * The identity behind a token, or null for anything unknown, revoked or expired: the caller cannot
  * tell which, so a guess learns nothing. The expiry sits in the query, so no code path can forget
  * it. Records the use (at most once a minute per token); a failed record is logged and does not

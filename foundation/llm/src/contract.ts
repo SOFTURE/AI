@@ -33,14 +33,22 @@ export interface ModelPrice {
 /** Model id (as the provider reports it) → price. */
 export type ModelPricing = Readonly<Record<string, ModelPrice>>;
 
+/**
+ * Where `costUsd` came from: `provider` is the USD the provider reported it billed (OpenRouter's
+ * `providerMetadata.openrouter.usage.cost`), `price_table` is the app's `pricing` applied to the token counts.
+ */
+export type CostSource = "provider" | "price_table";
+
 /** What `onUsage` receives after every call that reached the model and reported usage. */
 export interface UsageRecord {
   /** The model id the provider answered with. */
   readonly model: string;
   readonly provider: string;
   readonly usage: LlmUsage;
-  /** `null` when `pricing` has no entry for the model. */
+  /** The provider's billed cost when it reported one, else the price table's; `null` when neither has a figure. */
   readonly costUsd: number | null;
+  /** `null` exactly when `costUsd` is `null`. */
+  readonly costSource: CostSource | null;
   readonly outcome: "ok" | LlmErrorCode;
   readonly durationMs: number;
   readonly at: Date;
@@ -48,12 +56,34 @@ export interface UsageRecord {
   readonly attributes: Readonly<Record<string, string>>;
 }
 
+/** What `onCall` receives after every finished call, failures included. */
+export interface LlmCallRecord {
+  readonly operation: "generateStructured" | "generateText";
+  /** The model id the provider answered with, else (no answer: `llm.unavailable`, `llm.timeout`) the requested one. */
+  readonly model: string;
+  readonly provider: string;
+  readonly outcome: "ok" | LlmErrorCode;
+  /** `null` when the call ended without the provider reporting usage. */
+  readonly usage: LlmUsage | null;
+  readonly costUsd: number | null;
+  readonly costSource: CostSource | null;
+  readonly startedAt: Date;
+  /** From the start of the call to its end, retries included. */
+  readonly durationMs: number;
+  /** The call's `attributes`, e.g. `{ accountId }`. */
+  readonly attributes: Readonly<Record<string, string>>;
+}
+
+/** The `onCall` hook. */
+export type LlmCallHook = (record: LlmCallRecord) => void | Promise<void>;
+
 /** The value of a successful `generateStructured`. */
 export interface StructuredResult<T> {
   readonly output: T;
   readonly usage: LlmUsage;
   readonly model: string;
   readonly costUsd: number | null;
+  readonly costSource: CostSource | null;
 }
 
 /** The value of a successful `generateText`. */
@@ -65,4 +95,5 @@ export interface TextResult {
   readonly usage: LlmUsage;
   readonly model: string;
   readonly costUsd: number | null;
+  readonly costSource: CostSource | null;
 }

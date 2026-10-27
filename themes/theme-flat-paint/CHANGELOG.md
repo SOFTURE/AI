@@ -6,12 +6,29 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Look maps for five more ui components (#782): `HINT_LOOK` (spread on `Hint`: 10 px glyph, `accent` focus ring,
+  6 px bubble, 8 px gap), `CHECKLIST_LOOK` (hairline list, `accessible` done marker, struck-through done label),
+  `STEPPER_LOOK` (32/40 px markers per state, label for screen readers only on phones), `MENU_PANEL_LOOK` (ghost
+  trigger, flat panel with an opacity and scale entrance; for `DisclosureMenu`, `AccountMenu` and `MobileMenu`) and
+  `COLOR_FIELD_LOOK` (square presets framed when picked, a 28 × 36 px native picker). An app that carries these
+  class strings itself replaces them with the maps, e.g. `<Checklist classNames={CHECKLIST_LOOK} …>`; one that
+  merges its own classes in passes `cn(CHECKLIST_LOOK.row, …)`.
+- `base.css`, `preflight.css`, `maplibre.css` (#795): the kit's page stylesheets, exported by the theme as
+  `@softure-ai/theme-flat-paint/<name>.css`. Each is one `@import` of the kit's file, resolved from the theme's own dependency,
+  so the app gets the kit version the theme was built against and needs no `@softure-ai/theme-kit` of its own. An app
+  replaces `@softure-ai/theme-kit/` with `@softure-ai/theme-flat-paint/` in its `globals.css` and drops a direct
+  `@softure-ai/theme-kit` dependency it kept only for the CSS. The old imports keep working while the kit is hoisted.
 - `Modal` and `StandingPanel` look (#781): `page.css` adds the dialog entrances (`veil-enter`, `dialog-enter`: a
   bottom sheet on a phone, a fade up 0.75 rem from 40 rem, `side-panel-enter`: from the right; slow duration, soft
   easing, no scale, no exit), and the look maps add `MODAL_LOOK`, `STANDING_PANEL_LOOK` and `getModalLook(width)`
   (veil `bg-ink/60`, panel without shadow or transition, close button `rounded-md`, title on `text-page`). An app
   drops its own keyframes and slot classes and passes `classNames={getModalLook(width)}` to `Modal` and
   `classNames={STANDING_PANEL_LOOK}` to `StandingPanel`.
+- `RADIO_LOOK`, `CHOICE_ROW_LOOK` and `CHOICE_CARD_LOOK` (#794): one look for a single-choice radio list. The checked
+  radio is a lime disc with an `accent` line and a black check (as the checkbox and the switch knob); the row marks
+  the checked choice with a wash and the 3 px lime bar (`shadow-selected-row`), the card with a doubled foreground
+  line; keyboard focus is an `accent` outline on the label; the title turns bold when checked. An app replaces its
+  hand-written row and card classes with the slots (markup in the README); the row's accent ring becomes the disc.
 - `SEGMENTED_CONTROL_LOOK` and `THEME_SWITCH_LOOK` (#780): ready slot maps for ui's `SegmentedControl` and
   `ThemeSwitch` with `unstyled`; the checked segment is surface, strong line and bold (never lime, which fails WCAG
   1.4.11 on white), focus is a 2 px accent outline, the legend is visually hidden. `SEGMENT_ACTIVE_WHEN_CHECKED_LOOK`

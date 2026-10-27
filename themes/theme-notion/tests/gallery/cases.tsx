@@ -1364,7 +1364,7 @@ const NOTION_CASES: readonly GalleryCase[] = [
           isFullWidth={isFullWidth}
           isOneRow={isOneRow}
           cards={[
-            { key: "a", label: "Booked", value: "21.5 h", tone: "success" },
+            { key: "a", label: "Booked", value: "21.5 h", tone: "success", icon: Calendar },
             { key: "b", label: "Left", value: "1.9 h", tone: "muted" },
           ]}
         />

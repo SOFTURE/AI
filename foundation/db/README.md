@@ -439,6 +439,13 @@ const database = await createTestDatabase([notes()]);
 afterEach(() => database.close());
 ```
 
+**One connection.** PGlite has a single connection, so a query on `database.db` (or `database.client`) made
+from inside one of its open transactions would wait for that transaction forever. `createTestDatabase` rejects such a
+call at once with `PoolInsideTransactionError` (under drizzle, the `cause` of its query error), naming the cause:
+pass the transaction's `db` to the code instead, e.g. `{ ...ctx, db: tx }`. On a real Postgres pool the same code
+takes a second connection and works, but it reads outside the transaction and is not rolled back with it. Work that
+does not run inside the transaction's callback still waits for the transaction and runs after it, as before.
+
 **A template per run, not per file.** The template cache is module state, and Vitest isolates modules
 per test file, so without more each test file migrates again (seconds per file). Add the global setup,
 and every module set is migrated once per run and loaded from disk by every other file and worker:

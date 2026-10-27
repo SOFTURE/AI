@@ -573,6 +573,70 @@ describe("softure-mail dns", () => {
     expect(result.errors[0]).toBe('softure-mail: --inbound expects cloudflare, got "gmail"');
   });
 
+  describe("with named senders", () => {
+    const clientRecords = {
+      "send.clients.example.net": ["v=spf1 include:amazonses.com ~all"],
+      "resend._domainkey.clients.example.net": ["p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC"],
+      "_dmarc.clients.example.net": ["v=DMARC1; p=reject"],
+    };
+    const withSenders = (senders: Record<string, string>) => ({ config: createConfig(fakeMailProvider(), { senders }) });
+
+    afterEach(() => {
+      for (const host of Object.keys(clientRecords)) delete records[host];
+    });
+
+    it("checks a domain once when every sender shares it", async () => {
+      const result = await run(["dns", "--spf-host", "send.mail.example.com"], withSenders({ alerts: "Alerts <alerts@mail.example.com>" }));
+      expect(result.code).toBe(0);
+      expect(result.lines.filter((line) => line.startsWith("sender domain"))).toEqual(["sender domain mail.example.com"]);
+    });
+
+    it("checks every sender domain, gives each its own hosts and keeps the reply checks with the domain of from", async () => {
+      Object.assign(records, clientRecords);
+      const result = await run(["dns", "--spf-host", "send.mail.example.com", "--spf-host", "send.clients.example.net"], withSenders({ clientMail: "App <hello@Clients.example.net>" }));
+      expect(result).toEqual({
+        code: 0,
+        lines: [
+          "sender domain mail.example.com",
+          "SPF   pass  found          send.mail.example.com  v=spf1 include:amazonses.com ~all",
+          "DKIM  pass  found          resend._domainkey.mail.example.com  p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC",
+          "DMARC warn  monitor-only   _dmarc.example.com  v=DMARC1; p=none",
+          "REPLY pass  found          example.com  10 route1.mx.example.net",
+          "receivers can authenticate mail from this domain",
+          "sender domain clients.example.net",
+          "SPF   pass  found          send.clients.example.net  v=spf1 include:amazonses.com ~all",
+          "DKIM  pass  found          resend._domainkey.clients.example.net  p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC",
+          "DMARC pass  found          _dmarc.clients.example.net  v=DMARC1; p=reject",
+          "receivers can authenticate mail from this domain",
+        ],
+        errors: [],
+      });
+    });
+
+    it("fails when a named sender's domain fails, though the domain of from passes", async () => {
+      const result = await run(["dns", "--spf-host", "send.mail.example.com"], withSenders({ clientMail: "hello@clients.example.net" }));
+      expect(result.code).toBe(1);
+      expect(result.errors).toEqual([
+        "SPF   fail  missing        clients.example.net",
+        "DKIM  fail  missing        resend._domainkey.clients.example.net",
+        "DMARC fail  missing        _dmarc.clients.example.net",
+      ]);
+    });
+
+    it("refuses a host under none of the sender domains", async () => {
+      const result = await run(["dns", "--spf-host", "send.other.example.org"], withSenders({ clientMail: "hello@clients.example.net" }));
+      expect(result).toMatchObject({
+        code: 1,
+        errors: ["softure-mail dns: --spf-host send.other.example.org sits under none of the sender domains (mail.example.com, clients.example.net)"],
+      });
+    });
+
+    it("checks only the given domain with --domain", async () => {
+      const result = await run(["dns", "--domain", "mail.example.com", "--spf-host", "send.mail.example.com"], withSenders({ clientMail: "hello@clients.example.net" }));
+      expect(result.lines.filter((line) => line.startsWith("sender domain"))).toEqual(["sender domain mail.example.com"]);
+    });
+  });
+
   it("needs a domain or the config", async () => {
     expect(await run(["dns"], { config: undefined })).toMatchObject({ code: 1, errors: ["softure-mail dns: pass --domain <domain>, or run it with the app's config to check the sender's domain"] });
   });

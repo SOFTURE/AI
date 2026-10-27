@@ -160,6 +160,9 @@ describe("the Next adapter", () => {
     expect(html).toContain("Background jobs");
     expect(html).toContain("reports.daily");
     expect(html).toContain("Last error: app.bounced");
+    expect(html).toContain("Recent runs");
+    expect(html).toContain("Started by the app");
+    expect(html).toContain("Error: app.bounced");
     expect(html).toContain("Item m-1");
     expect(html).toContain("Code: app.unparseable");
     expect(html).toContain('href="/admin/jobs?sync=failed" class="sft:text-accent sft:underline" aria-current="page"');
