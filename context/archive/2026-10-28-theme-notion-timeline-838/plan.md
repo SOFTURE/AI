@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-timeline-838
-status: in_progress
+status: archived
 ---
 
 # Plan: Timeline (issue #838)
@@ -39,5 +39,10 @@ A `Timeline` component card (guidelines and preview) in "NOTION · Design System
 
 - [x] Phase 1: Timeline
 - [x] Phase 2: docs
-- [ ] Phase 3: design system artifact
-- [ ] Implementation review
+- [x] Phase 3: design system artifact, NOTION · Design System versions 29–31 (Timeline card, bundle rebuilt)
+- [x] Implementation review: approved
+
+## Notes
+
+- After the first adopter's screenshots, a compact entry keeps its description and badges on one wrapping line (a
+  move's route and status), so a move takes two lines instead of three.
