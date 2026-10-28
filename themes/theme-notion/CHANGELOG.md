@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.8.0
 
 - Safe-area insets (#851): with `viewport-fit=cover` (an app installed on a phone's home screen), the parts at a
   screen edge no longer run under the notch, the status bar or the home indicator. `SheetContent` pads by the insets of
