@@ -98,6 +98,13 @@ name outside a `CommandDialog`; without it the field has none), `SortableList in
   (button, field, menu item), `lg` 8 (callout, card), `xl` 10 (menu, select, dialog), `full` (switch).
 - Icons: lucide at `ICON_STROKE_WIDTH` (1.75), 16 px in text; they inherit the text colour. No emoji in the interface.
 - Statuses always carry a word and an icon, so states read apart without telling green from red.
+- Installed on a phone's home screen (`viewport-fit=cover`), the parts at a screen edge pad by the screen's
+  safe-area insets on the edges they touch: `SheetContent` (every `side`, its close button too), the `Sidebar` on a
+  phone, the popper `SelectContent` (its height stops short of the inset it opens towards) and `PageFrame`. The insets
+  are 0 on a desktop and in a browser with its own bars. Padding passed to `SheetContent` replaces the inset on that
+  edge, so put content padding on its children (`SheetHeader`, `SheetFooter`, an inner `div`). An app pads its own
+  screen roots with the same classes: `pt-[env(safe-area-inset-top)]`, `pb-[env(safe-area-inset-bottom)]`,
+  `pl-[env(safe-area-inset-left)]`, `pr-[env(safe-area-inset-right)]`.
 - Figures, bar segments and box edges take a **tone** by what they mean: `default` (text colour), `success` (green,
   done), `warning` (orange, to do), `danger` (red, owed or failing), `muted` (gray, out of play). `TONE_COLORS` gives
   a tone's palette colour (`null` for `default`); `TONE_TEXT`, `TONE_FILL` and `TONE_EDGE` give literal class names

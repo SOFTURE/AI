@@ -165,7 +165,7 @@ describe("Sidebar on a phone", () => {
     isPhone = true;
   });
 
-  it("opens as a sheet without its own close button or padding, titled by props", () => {
+  it("opens as a sheet without its own close button, padded only by the screen's insets, titled by props", () => {
     renderSidebar({ sidebar: { mobileTitle: "Menu", mobileDescription: "The app's pages." } });
     expect(document.querySelector('[data-mobile="true"]')).toBeNull();
 
@@ -175,7 +175,10 @@ describe("Sidebar on a phone", () => {
 
     // The sheet content carries the sidebar's slot, so the sidebar's CSS applies to it.
     const sheet = document.querySelector('[data-slot="sidebar"][data-mobile="true"]');
-    expect(classesOf(sheet ?? document.body)).toEqual(expect.arrayContaining(["bg-sidebar", "p-0", "text-sidebar-foreground", "[&>button]:hidden"]));
+    expect(classesOf(sheet ?? document.body)).toEqual(
+      expect.arrayContaining(["bg-sidebar", "text-sidebar-foreground", "[&>button]:hidden", "pt-[env(safe-area-inset-top)]", "pb-[env(safe-area-inset-bottom)]", "pl-[env(safe-area-inset-left)]"]),
+    );
+    expect(classesOf(sheet ?? document.body)).not.toContain("p-0");
     expect(screen.getByRole("dialog", { name: "Menu" })).toBe(sheet);
     expect(sheet?.querySelector(":scope > button")?.textContent).toBe("Close");
     expect(screen.getByText("The app's pages.").dataset["slot"]).toBe("sheet-description");

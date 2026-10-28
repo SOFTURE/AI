@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Safe-area insets (#851): with `viewport-fit=cover` (an app installed on a phone's home screen), the parts at a
+  screen edge no longer run under the notch, the status bar or the home indicator. `SheetContent` pads by the insets of
+  the edges it touches (`right`: top, right, bottom; `left`: top, left, bottom; `top`: top, left, right; `bottom`:
+  bottom, left, right), and its close button clears the top and right insets where the sheet touches those edges. The
+  `Sidebar` on a phone keeps those insets (its sheet no longer carries `p-0`). The popper `SelectContent` caps its
+  height by the inset on the side it opens towards. `PageFrame` pads by all four insets. The insets are 0 on a desktop
+  and in a browser with its own bars, so nothing moves there. An app drops its `env(safe-area-inset-*)` classes on
+  `SheetContent` and `SelectContent`; one that passes its own `p-*`/`pt-*`/`pb-*` to `SheetContent` replaces the inset
+  on that edge and moves that padding to the sheet's children.
+
 ## 0.7.0
 
 - `Timeline` (#838): a new composition for dated entries on one vertical rail: a marker in a palette colour with an

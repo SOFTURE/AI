@@ -588,9 +588,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "        \"flex w-fit items-center justify-between gap-2 rounded-md border border-input bg-field px-2.5 py-1 text-sm whitespace-nowrap transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[placeholder]:text-muted-foreground data-[size=default]:h-7 data-[size=sm]:h-6 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground\",",
     },
     {
-      reason: "menu: radius 10 and `shadow-menu`, no border",
+      reason: "menu: radius 10 and `shadow-menu`, no border; the popper list clears the safe-area inset on the side it opens towards (#851)",
       upstream: "          \"relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",",
-      ours: "          \"relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover text-popover-foreground shadow-menu data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",",
+      ours: "          \"relative z-50 max-h-(--radix-select-content-available-height) data-[side=bottom]:max-h-[calc(var(--radix-select-content-available-height)-env(safe-area-inset-bottom))] data-[side=top]:max-h-[calc(var(--radix-select-content-available-height)-env(safe-area-inset-top))] min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover text-popover-foreground shadow-menu data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",",
     },
     {
       reason: "menu item: radius 6, at least 28 px high",
@@ -625,6 +625,31 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       reason: "copy: built-in English text from the message layer, overridable by a prop",
       upstream: "  showCloseButton?: boolean",
       ours: "  showCloseButton?: boolean\n  // The close button's hidden text, from the app's message layer.\n  closeLabel?: string",
+    },
+    {
+      reason: "safe area: a sheet pads by the screen's safe-area insets on the edges it touches (`viewport-fit=cover`, #851)",
+      upstream: "            \"inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm\",",
+      ours: "            \"inset-y-0 right-0 h-full pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm\",",
+    },
+    {
+      reason: "safe area: a sheet pads by the screen's safe-area insets on the edges it touches (`viewport-fit=cover`, #851)",
+      upstream: "            \"inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm\",",
+      ours: "            \"inset-y-0 left-0 h-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm\",",
+    },
+    {
+      reason: "safe area: a sheet pads by the screen's safe-area insets on the edges it touches (`viewport-fit=cover`, #851)",
+      upstream: "            \"inset-x-0 top-0 h-auto border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top\",",
+      ours: "            \"inset-x-0 top-0 h-auto pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top\",",
+    },
+    {
+      reason: "safe area: a sheet pads by the screen's safe-area insets on the edges it touches (`viewport-fit=cover`, #851)",
+      upstream: "            \"inset-x-0 bottom-0 h-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom\",",
+      ours: "            \"inset-x-0 bottom-0 h-auto pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom\",",
+    },
+    {
+      reason: "safe area: the close button clears the top and right insets where the sheet touches those screen edges (#851)",
+      upstream: "          <SheetPrimitive.Close className=\"absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary\">",
+      ours: "          <SheetPrimitive.Close\n            className={cn(\n              \"absolute rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary\",\n              side === \"bottom\" ? \"top-4\" : \"top-[calc(--spacing(4)+env(safe-area-inset-top))]\",\n              side === \"left\" ? \"right-4\" : \"right-[calc(--spacing(4)+env(safe-area-inset-right))]\"\n            )}\n          >",
     },
     {
       reason: "copy: built-in English text from the message layer, overridable by a prop",
@@ -672,6 +697,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       reason: "copy: built-in English text from the message layer, overridable by a prop",
       upstream: "  collapsible?: \"offcanvas\" | \"icon\" | \"none\"",
       ours: "  collapsible?: \"offcanvas\" | \"icon\" | \"none\"\n  // The phone sheet's accessible title and description, from the app's message layer.\n  mobileTitle?: string\n  mobileDescription?: string",
+    },
+    {
+      reason: "safe area: no `p-0` on the phone sheet, so the sheet's safe-area insets stay (#851)",
+      upstream: "          className=\"w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden\"",
+      ours: "          className=\"w-(--sidebar-width) bg-sidebar text-sidebar-foreground [&>button]:hidden\"",
     },
     {
       reason: "copy: built-in English text from the message layer, overridable by a prop",
