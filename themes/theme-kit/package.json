@@ -46,6 +46,11 @@
       "types": "./dist/build/index.d.ts",
       "default": "./dist/build/index.js"
     },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    },
     "./preflight.css": "./dist/preflight.css",
     "./base.css": "./dist/base.css",
     "./maplibre.css": "./dist/maplibre.css"
@@ -58,6 +63,15 @@
     "tailwind-merge": "^3.7.0"
   },
   "peerDependencies": {
+    "next": "^16.0.0",
     "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "lucide": "^1.61.0"
   }
 }

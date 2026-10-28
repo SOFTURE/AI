@@ -13,4 +13,5 @@ export { checkTheme } from "./check-theme.js";
 export { defineTheme } from "./define-theme.js";
 export { extendTheme, type ThemeOverrides } from "./extend-theme.js";
 export { buildThemeCss } from "./build-theme-css.js";
+export { getThemeColor, type ColorScheme } from "./get-theme-color.js";
 export { createCn, createThemeCn, type ClassValue, type Cn, type CnOptions } from "./create-cn.js";
