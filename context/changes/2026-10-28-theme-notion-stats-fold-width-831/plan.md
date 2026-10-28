@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-stats-fold-width-831
-status: in_progress
+status: done
 ---
 
 # Plan: StatsFold content width (issue #831)
@@ -23,7 +23,7 @@ so the visual baselines do not move (checked: 84 visual tests pass unchanged).
 
 ## Phase 3: design system artifact
 
-Rebuild the bundle and publish to NOTION · Design System (recipe in project memory); the preview shows the default.
+Update the bundle and publish to NOTION · Design System (recipe in project memory); the preview shows the default.
 
 ## Decisions (auto)
 
@@ -35,6 +35,8 @@ Rebuild the bundle and publish to NOTION · Design System (recipe in project mem
 
 ## Progress
 
-- [ ] Phase 1: isInset
-- [ ] Phase 2: docs and gallery
-- [ ] Phase 3: design system artifact
+- [x] Phase 1: isInset, 0481325
+- [x] Phase 2: docs and parity fixture, 0481325
+- [x] Phase 3: design system artifact, NOTION · Design System versions 21-22 (bundle patched in place, `index.d.ts`,
+  StatCards README and preview; render-checked light and dark: the content's edges equal the summary row's)
+- [x] Implementation review: approved

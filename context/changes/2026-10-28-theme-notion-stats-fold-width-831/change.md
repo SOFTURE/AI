@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-stats-fold-width-831
 title: "theme-notion: StatsFold content spans the header's width, the inset is an opt-in prop (issue #831)"
-status: open
+status: archived
 roadmap_item: null
 issue: 831
 branch: claude/project-thread-a0o397
 created: 2026-10-28
 updated: 2026-10-28
+archived_at: 2026-10-28
 ---
 
 ## Intent
