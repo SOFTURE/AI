@@ -1,6 +1,6 @@
 ---
 change_id: auth-github-secret-names-846
-status: in_progress
+status: archived
 ---
 
 # Plan: GitHub sign-in secret names (issue #846)
@@ -25,5 +25,5 @@ Files: `modules/auth/README.md`, `modules/auth/src/options.ts`, `modules/auth/CH
 
 ## Progress
 
-- [ ] Phase 1: rename in the example and the hint
-- [ ] Implementation review
+- [x] Phase 1: rename in the example and the hint (54bc3cc)
+- [x] Implementation review: approved

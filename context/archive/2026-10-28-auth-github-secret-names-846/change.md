@@ -1,12 +1,13 @@
 ---
 change_id: auth-github-secret-names-846
 title: "auth: GitHub sign-in example uses secret names GitHub Actions accepts (issue #846)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 846
 branch: claude/project-thread-c8a3fl
 created: 2026-10-28
 updated: 2026-10-28
+archived_at: 2026-10-28
 ---
 
 ## Intent
