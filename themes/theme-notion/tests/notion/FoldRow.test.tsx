@@ -9,6 +9,10 @@ function readAttribute(html: string, name: string): string[] {
   return [...html.matchAll(new RegExp(`${name}="([^"]+)"`, "g"))].map((match) => match[1] ?? "");
 }
 
+function readContentClass(html: string): string | undefined {
+  return /<div data-slot="fold-row-content" data-inset="(?:true|false)" class="([^"]+)"/.exec(html)?.[1];
+}
+
 describe("FoldRow", () => {
   it("renders a closed details row with its title, facts, badges and details", () => {
     const html = renderToStaticMarkup(
@@ -78,5 +82,43 @@ describe("FoldRow", () => {
     ]);
     expect(html).toContain("empty:hidden");
     expect(html).toMatch(/<div data-slot="fold-row-content"[^>]*><\/div>/);
+  });
+
+  it("pads the opened content equally on all four sides by default", () => {
+    const html = renderToStaticMarkup(
+      <FoldRow title="Dentist" badges={[]} detailsLabel="Visit details" details={[]} />,
+    );
+
+    expect(readContentClass(html)).toBe("flex flex-col gap-2 p-3 empty:hidden");
+    expect(html).toContain('<div data-slot="fold-row-content" data-inset="false"');
+  });
+
+  it("indents the opened content under the title with isInset", () => {
+    const html = renderToStaticMarkup(
+      <FoldRow title="Dentist" badges={[]} detailsLabel="Visit details" details={[]} isInset />,
+    );
+
+    expect(readContentClass(html)).toBe("flex flex-col gap-2 py-2 pr-1 pl-6 empty:hidden");
+    expect(html).toContain('<div data-slot="fold-row-content" data-inset="true"');
+  });
+
+  it("renders a summary slot after the chevron in place of the title, facts and badges", () => {
+    const html = renderToStaticMarkup(
+      <FoldRow summary={<strong>Invoice 12/2026</strong>}>
+        <ul>
+          <li>Line</li>
+        </ul>
+      </FoldRow>,
+    );
+
+    expect(readAttribute(html, "data-slot")).toEqual([
+      "fold-row",
+      "fold-row-summary",
+      "fold-row-summary-slot",
+      "fold-row-content",
+    ]);
+    expect(html).toMatch(/<summary[^>]*><svg[^>]*lucide-chevron-right/);
+    expect(html).not.toContain("detail-table");
+    expect(readTextNodes(html)).toEqual(["Invoice 12/2026", "Line"]);
   });
 });
