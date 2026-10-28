@@ -1,12 +1,13 @@
 ---
 change_id: theme-kit-app-icon-839
 title: "theme-kit: an app icon (favicon) helper drawn from the theme tokens (issue #839)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 839
 branch: claude/project-thread-93ntkg
 created: 2026-10-28
 updated: 2026-10-28
+archived_at: 2026-10-28
 ---
 
 ## Intent

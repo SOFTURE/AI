@@ -1,6 +1,6 @@
 ---
 change_id: theme-kit-app-icon-839
-status: impl_reviewed
+status: archived
 ---
 
 # Plan: app icon helper in theme-kit (issue #839)
