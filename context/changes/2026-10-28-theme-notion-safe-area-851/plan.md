@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-safe-area-851
-status: in_progress
+status: archived
 ---
 
 # Plan: safe-area insets (issue #851)
@@ -43,7 +43,7 @@ Mirror the class changes in "NOTION · Design System" (patch `bundle.js`, add th
 
 ## Progress
 
-- [ ] Phase 1: components
-- [ ] Phase 2: docs
-- [ ] Phase 3: design system artifact
-- [ ] Implementation review
+- [x] Phase 1: components (46cd893)
+- [x] Phase 2: docs (6930842)
+- [x] Phase 3: design system artifact, NOTION · Design System versions 32–33
+- [x] Implementation review: approved

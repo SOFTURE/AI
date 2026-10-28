@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-safe-area-851
 title: "theme-notion: overlays and frames take the screen's safe-area insets (issue #851)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 851
 branch: claude/project-thread-rxbgp4
 created: 2026-10-28
 updated: 2026-10-28
+archived_at: 2026-10-28
 ---
 
 ## Intent
