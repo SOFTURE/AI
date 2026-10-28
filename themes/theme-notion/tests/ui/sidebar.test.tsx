@@ -61,7 +61,7 @@ describe("Sidebar", () => {
     expect(classes).not.toContain("bg-sidebar");
   });
 
-  it("opens on a phone as an unpadded sheet on the sidebar background, without the sheet's own close button", () => {
+  it("opens on a phone as a sheet padded only by the safe-area insets, on the sidebar background, without the sheet's own close button", () => {
     mockPhoneViewport();
     render(
       <SidebarProvider>
@@ -72,6 +72,8 @@ describe("Sidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
     const classes = readClasses(document.querySelector('[data-mobile="true"]'));
 
-    expect(classes).toEqual(expect.arrayContaining(["bg-sidebar", "p-0", "text-sidebar-foreground", "[&>button]:hidden"]));
+    expect(classes).toEqual(expect.arrayContaining(["bg-sidebar", "text-sidebar-foreground", "[&>button]:hidden"]));
+    // No padding of its own: only the sheet's safe-area insets (#851).
+    expect(classes).not.toContain("p-0");
   });
 });
