@@ -83,7 +83,8 @@ name outside a `CommandDialog`; without it the field has none), `SortableList in
 
 - Background `background`, text `foreground`, secondary text `muted-foreground`. Never pure black.
 - Hover is the grey `accent` background, never a border or a shadow; selected and pressed use `accent-strong`.
-- One `primary` (blue, `#0171cf`) action per screen. Other buttons are `secondary`, `outline` or `ghost`.
+- One `primary` (blue, `#0171cf`) action per screen. Other buttons are `secondary`, `outline` or `ghost`; a button
+  over a map or an image is `floating`.
 - A palette colour (`gray`, `brown`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `red`, each with `-bg`,
   `-tag`, `-tag-foreground`) marks an area (a tag) or a state (a status, a callout), never decoration. The same
   colour always means the same thing; the app keeps its own table of meanings.
@@ -294,7 +295,9 @@ secondary content with `group` on the list). `as="ol"` renders a numbered list; 
 Deltas from stock shadcn:
 
 - `button`: sizes 28/24/32 px, a smaller padding on the icon side, a Notion `ghost`, `secondary` hover
-  `accent-strong`, no shadows.
+  `accent-strong`, no shadows. `outline` lays its hover tint over its opaque background. A `floating` variant is for a
+  button over a map, an image or any non-page surface: opaque in every state, `shadow-menu`, no border, the `accent`
+  tint on hover and `accent-strong` while `aria-expanded="true"`.
 - `badge`: a `tag` variant and a `color` prop with the nine palette colours (and `default`); `color` applies to every
   variant but `destructive`, which keeps its own fill and white text. `alert`: palette colour variants (a
   Notion callout).

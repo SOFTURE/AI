@@ -187,9 +187,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "          \"bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:hover:bg-destructive/50 dark:focus-visible:ring-destructive/40\",",
     },
     {
-      reason: "button: thin `border` outline, no shadows, `secondary` hover `accent-strong`, the Notion ghost, links in `text-link`",
+      reason: "button: thin `border` outline whose hover tint is layered over its opaque background, no shadows, `secondary` hover `accent-strong`, the Notion ghost, links in `text-link`, a `floating` variant for buttons over content",
       upstream: "          \"border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50\",\n        secondary:\n          \"bg-secondary text-secondary-foreground hover:bg-secondary/80\",\n        ghost:\n          \"hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50\",\n        link: \"text-primary underline-offset-4 hover:underline\",",
-      ours: "          \"border border-border bg-background hover:bg-accent hover:text-accent-foreground\",\n        secondary: \"bg-secondary text-secondary-foreground hover:bg-accent-strong\",\n        ghost: \"text-muted-foreground hover:bg-accent hover:text-foreground\",\n        link: \"text-link underline-offset-4 hover:underline\",",
+      ours: "          \"border border-border bg-background hover:bg-linear-to-r hover:from-accent hover:to-accent hover:text-accent-foreground\",\n        secondary: \"bg-secondary text-secondary-foreground hover:bg-accent-strong\",\n        ghost: \"text-muted-foreground hover:bg-accent hover:text-foreground\",\n        link: \"text-link underline-offset-4 hover:underline\",\n        floating:\n          \"bg-background text-foreground shadow-menu hover:bg-linear-to-r hover:from-accent hover:to-accent aria-expanded:bg-linear-to-r aria-expanded:from-accent-strong aria-expanded:to-accent-strong disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none\",",
     },
     {
       reason: "button: 28 px, a smaller padding on the icon side",
