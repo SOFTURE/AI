@@ -10,7 +10,7 @@ function readAttribute(html: string, name: string): string[] {
 }
 
 function readContentClass(html: string): string | undefined {
-  return /<div data-slot="fold-row-content" class="([^"]+)"/.exec(html)?.[1];
+  return /<div data-slot="fold-row-content" data-inset="(?:true|false)" class="([^"]+)"/.exec(html)?.[1];
 }
 
 describe("FoldRow", () => {
@@ -90,7 +90,7 @@ describe("FoldRow", () => {
     );
 
     expect(readContentClass(html)).toBe("flex flex-col gap-2 p-3 empty:hidden");
-    expect(html).not.toContain("data-inset");
+    expect(html).toContain('<div data-slot="fold-row-content" data-inset="false"');
   });
 
   it("indents the opened content under the title with isInset", () => {
@@ -99,7 +99,7 @@ describe("FoldRow", () => {
     );
 
     expect(readContentClass(html)).toBe("flex flex-col gap-2 py-2 pr-1 pl-6 empty:hidden");
-    expect(html.startsWith('<details data-slot="fold-row" data-inset="true"')).toBe(true);
+    expect(html).toContain('<div data-slot="fold-row-content" data-inset="true"');
   });
 
   it("renders a summary slot after the chevron in place of the title, facts and badges", () => {

@@ -7,12 +7,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 ## Unreleased
 
 - `FoldRow` (#832): the opened content (`fold-row-content`) is padded equally on all four sides (`p-3`, 12 px) instead
-  of 24 px on the left and 4 px on the right, so a `DetailTable` sits centred under the row. `isInset` (default
-  `false`) keeps the old indented look (`py-2 pr-1 pl-6`) and sets `data-inset` on the row. New `summary` slot: a node
-  drawn after the chevron in place of `title`, `facts` and `badges`; `details` and `detailsLabel` are now optional
-  together (no table without them). An app that wants the old indent adds `isInset`; an app that drew rows "as
-  `FoldRow` is" with its own markup for a custom summary or content passes `summary` and `children` and drops its copy
-  of the classes. Existing calls compile unchanged.
+  of 24 px on the left and 4 px on the right, so a `DetailTable` sits centred under the row. `isInset` (default `false`)
+  keeps the old indented look (`py-2 pr-1 pl-6`) and sets `data-inset="true"` on `fold-row-content` (`"false"` without
+  it, as `StatsFold` does). New `summary` slot: a node drawn after the chevron in place of `title`, `facts` and
+  `badges`; `details` and `detailsLabel` are now optional together (no table without them). An app that wants the old
+  indent adds `isInset`; an app that drew rows "as `FoldRow` is" with its own markup for a custom summary or content
+  passes `summary` and `children` and drops its copy of the classes. Existing calls compile unchanged.
 
 ## 0.5.0
 

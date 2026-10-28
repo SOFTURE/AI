@@ -128,9 +128,9 @@ stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block 
 **`FoldRow`.** An item as one list row in a native `<details>`: a chevron, the title, short facts and badges on the
 right; opened, it shows a `DetailTable` and its `children`. The opened content is padded 12 px on all four sides
 (`p-3`), so a table sits centred under the row; `isInset` indents it under the title instead (24 px on the left) and
-sets `data-inset`. A row with a summary of its own (icons, a status) passes `summary`, drawn after the chevron in
-place of `title`, `facts` and `badges`; `details` and `detailsLabel` are optional together, so the content can be
-several tables or a list.
+sets `data-inset` on the content, like `StatsFold`. A row with a summary of its own (icons, a status) passes `summary`,
+drawn after the chevron in place of `title`, `facts` and `badges`; `details` and `detailsLabel` are optional together,
+so the content can be several tables or a list.
 
 ```tsx
 <FoldRow title="Dentist" facts={["12.01.2027"]} badges={[]} detailsLabel="Visit details" details={rows} />

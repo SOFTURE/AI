@@ -113,11 +113,7 @@ function FoldRowChevron() {
 export function FoldRow(props: FoldRowProps) {
   const { isInset = false, children } = props;
   return (
-    <details
-      data-slot="fold-row"
-      data-inset={isInset ? "true" : undefined}
-      className="group/fold-row border-b border-border"
-    >
+    <details data-slot="fold-row" className="group/fold-row border-b border-border">
       <summary
         data-slot="fold-row-summary"
         className="flex min-h-row-height cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
@@ -136,7 +132,7 @@ export function FoldRow(props: FoldRowProps) {
           </>
         )}
       </summary>
-      <div data-slot="fold-row-content" className={isInset ? INSET_CONTENT_CLASS : CONTENT_CLASS}>
+      <div data-slot="fold-row-content" data-inset={isInset} className={isInset ? INSET_CONTENT_CLASS : CONTENT_CLASS}>
         {props.details === undefined ? null : <DetailTable label={props.detailsLabel} rows={props.details} />}
         {children}
       </div>
