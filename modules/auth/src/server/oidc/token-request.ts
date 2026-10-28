@@ -3,7 +3,7 @@
 // another host. Only the ID token is read; the access token is not kept.
 import { requestJson } from "@softure-ai/core";
 import { z } from "zod";
-import type { OidcProvider } from "../../options.js";
+import type { OpenIdProvider } from "../../options.js";
 import { getAuthOptions } from "../options.js";
 import { passed, refused, type Checked, type OidcClient, type OidcContext } from "./context.js";
 
@@ -13,7 +13,7 @@ const errorBodySchema = z.object({ error: z.string().regex(/^[a-z_]{1,64}$/) });
 
 
 export interface TokenExchangeInput {
-  readonly provider: OidcProvider;
+  readonly provider: OpenIdProvider;
   readonly client: OidcClient;
   readonly tokenEndpoint: string;
   readonly code: string;

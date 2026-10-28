@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- Sign in with GitHub (#840): an `oidc.providers` entry with `type: "github"` (an OAuth App; GitHub is no OpenID
+  Connect provider). It shares the button, rate limits, state, PKCE, callback route, allowlist, identities and
+  session with the OpenID Connect providers; the code buys an access token, and the account (GitHub's numeric id as
+  the subject, `name` or `login` as the display name) and its verified emails come from the GitHub API. README
+  section 3, "GitHub". `createFakeGithubProvider` in `@softure-ai/auth/testing`. New types `GithubProvider` and
+  `OpenIdProvider` (the two members of `OidcProvider`).
+- A parsed provider entry carries `type` (`"oidc"` for an entry without one). Additive: no migration, no new bucket,
+  no copy key; an existing entry parses and behaves as before. Code that narrows `OidcProvider` to read `issuer` now
+  checks `type === "oidc"` first.
+
 ## 0.2.8
 
 - OpenID Connect stays opt-in, now stated and tested (#786). An app without `oidc.providers` runs none of it. On a bump

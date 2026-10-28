@@ -1,8 +1,8 @@
-// OpenID Connect sign-in: the authorization code flow with PKCE S256 (RFC 7636), a one-time state and a nonce.
+// OpenID Connect sign-in (and GitHub's OAuth App sign-in, `github.ts`): the authorization code flow with PKCE S256 (RFC 7636), a one-time state and a nonce.
 // `startOidcSignIn` stores the sign-in (the state's sha256, the nonce, the verifier, the return path) and answers
 // the provider's authorize URL and the state, which the adapter keeps in a short-lived cookie: the callback must come
 // back to the browser that started it (no login CSRF). `completeOidcSignIn` consumes the row, exchanges the code,
-// verifies the ID token, checks the allowlist and opens a session. Nothing the provider says is echoed: failures
+// verifies the ID token (GitHub: reads the account with the access token), checks the allowlist and opens a session. Nothing the provider says is echoed: failures
 // are codes, and the reason behind `auth.oidc_failed` goes to the log only.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
@@ -10,15 +10,16 @@ import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit } from "@softure-ai/security/server";
 import { and, eq, gt, lte } from "drizzle-orm";
 import type { OidcSignInErrorCode, SignedIn } from "../../contract.js";
-import type { OidcProvider } from "../../options.js";
+import type { OidcProvider, OpenIdProvider } from "../../options.js";
 import { toSafeNextPath } from "../../safe-next-path.js";
 import { oidcStates } from "../../schema.js";
 import { getAuthOptions, getAuthRoutes } from "../options.js";
 import { assertAuthBuckets, BUCKETS } from "../rate-limits.js";
 import { createSession, deleteExpiredSessions } from "../sessions.js";
 import { resolveOidcAccount } from "./accounts.js";
-import { findOidcProvider, getOidcRedirectUri, readOidcClient, type OidcContext } from "./context.js";
+import { findOidcProvider, getOidcRedirectUri, passed, readOidcClient, refused, type Checked, type OidcClient, type OidcContext } from "./context.js";
 import { findSigningKey, getProviderMetadata } from "./discovery.js";
+import { exchangeGithubCode, getGithubScopes, GITHUB_AUTHORIZE_ENDPOINT, readGithubAccount } from "./github.js";
 import { checkIdTokenClaims, decodeIdToken, isSignedBy, type IdentityClaims } from "./id-token.js";
 import { exchangeCode } from "./token-request.js";
 
@@ -55,12 +56,13 @@ export async function startOidcSignIn(ctx: OidcContext, input: StartOidcSignInIn
   if (provider === undefined) return err("auth.oidc_failed");
   const client = readOidcClient(ctx, provider);
   if (!client.ok) return fail(provider, client.reason);
-  const metadata = await getProviderMetadata(ctx, provider);
-  if (!metadata.ok) return fail(provider, metadata.reason);
+  const authorizeEndpoint = await getAuthorizeEndpoint(ctx, provider);
+  if (!authorizeEndpoint.ok) return fail(provider, authorizeEndpoint.reason);
 
   const now = ctx.clock.now();
   const ttlMinutes = getAuthOptions(ctx.config).oidc.stateTtlMinutes;
   const state = createRandomValue();
+  // GitHub sends no ID token, so its nonce is stored but never sent.
   const nonce = createRandomValue();
   const codeVerifier = createRandomValue();
   await ctx.db.delete(oidcStates).where(lte(oidcStates.expiresAt, now));
@@ -74,14 +76,18 @@ export async function startOidcSignIn(ctx: OidcContext, input: StartOidcSignInIn
     expiresAt: new Date(now.getTime() + ttlMinutes * 60_000),
   });
 
-  const url = new URL(metadata.value.authorizationEndpoint);
+  const url = new URL(authorizeEndpoint.value);
   for (const [name, value] of Object.entries(provider.authorizeParams)) url.searchParams.set(name, value);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", client.value.clientId);
   url.searchParams.set("redirect_uri", getOidcRedirectUri(ctx.config, provider.id));
-  url.searchParams.set("scope", [...new Set([...REQUIRED_SCOPES, ...provider.scopes])].join(" "));
+  if (provider.type === "github") {
+    url.searchParams.set("scope", getGithubScopes(provider));
+  } else {
+    url.searchParams.set("scope", [...new Set([...REQUIRED_SCOPES, ...provider.scopes])].join(" "));
+  }
   url.searchParams.set("state", state);
-  url.searchParams.set("nonce", nonce);
+  if (provider.type === "oidc") url.searchParams.set("nonce", nonce);
   url.searchParams.set("code_challenge", createHash("sha256").update(codeVerifier, "ascii").digest("base64url"));
   url.searchParams.set("code_challenge_method", "S256");
   return ok({ url: url.toString(), state, maxAgeSeconds: ttlMinutes * 60 });
@@ -128,34 +134,65 @@ export async function completeOidcSignIn(ctx: OidcContext, input: CompleteOidcSi
 
   const client = readOidcClient(ctx, provider);
   if (!client.ok) return fail(provider, client.reason);
-  const metadata = await getProviderMetadata(ctx, provider);
-  if (!metadata.ok) return fail(provider, metadata.reason);
-  const exchanged = await exchangeCode(ctx, {
-    provider,
-    client: client.value,
-    tokenEndpoint: metadata.value.tokenEndpoint,
-    code,
-    codeVerifier: pending.codeVerifier,
-    redirectUri: getOidcRedirectUri(ctx.config, provider.id),
-  });
-  if (!exchanged.ok) return fail(provider, exchanged.reason);
+  const exchange = { client: client.value, code, codeVerifier: pending.codeVerifier, redirectUri: getOidcRedirectUri(ctx.config, provider.id) };
+  const identity = provider.type === "github" ? await readGithubIdentity(ctx, provider, exchange) : await readOpenIdIdentity(ctx, provider, exchange, pending.nonce);
+  if (!identity.ok) return fail(provider, identity.reason);
 
-  const token = decodeIdToken(exchanged.value);
-  if (!token.ok) return fail(provider, token.reason);
-  const key = await findSigningKey(ctx, metadata.value, { kid: token.value.kid, keyType: token.value.keyType });
-  if (!key.ok) return fail(provider, key.reason);
-  if (!isSignedBy(token.value, key.value)) return fail(provider, "id_token signature");
-  const claims = checkIdTokenClaims(token.value.payload, { issuer: provider.issuer, clientId: client.value.clientId, nonce: pending.nonce, now });
-  if (!claims.ok) return fail(provider, claims.reason);
-
-  const email = getAllowedEmail(provider, claims.value);
+  const email = identity.value.email;
   if (email === null) return err("auth.oidc_not_allowed");
-  const account = await resolveOidcAccount(ctx, provider, { subject: claims.value.subject, email, displayName: claims.value.displayName });
+  const account = await resolveOidcAccount(ctx, provider, { subject: identity.value.subject, email, displayName: identity.value.displayName });
   if (!account.ok) return account;
 
   await deleteExpiredSessions(ctx, account.value.id);
   const session = await createSession(ctx, account.value.id);
   return ok({ user: account.value, session, next: toSafeNextPath(pending.nextPath, getAuthRoutes(ctx.config).afterLogin) });
+}
+
+interface CodeExchange {
+  readonly client: OidcClient;
+  readonly code: string;
+  readonly codeVerifier: string;
+  readonly redirectUri: string;
+}
+
+/** Who signed in: the provider's subject, the allowed email (null when none is allowed) and the display name. */
+interface SignedInIdentity {
+  readonly subject: string;
+  readonly email: string | null;
+  readonly displayName: string | null;
+}
+
+/** Where the browser is sent: the discovery document's authorize endpoint, or GitHub's fixed one. */
+async function getAuthorizeEndpoint(ctx: OidcContext, provider: OidcProvider): Promise<Checked<string>> {
+  if (provider.type === "github") return passed(GITHUB_AUTHORIZE_ENDPOINT);
+  const metadata = await getProviderMetadata(ctx, provider);
+  return metadata.ok ? passed(metadata.value.authorizationEndpoint) : metadata;
+}
+
+/** OpenID Connect: the code for an ID token, verified against the issuer's keys and the sign-in's nonce. */
+async function readOpenIdIdentity(ctx: OidcContext, provider: OpenIdProvider, exchange: CodeExchange, nonce: string): Promise<Checked<SignedInIdentity>> {
+  const metadata = await getProviderMetadata(ctx, provider);
+  if (!metadata.ok) return metadata;
+  const exchanged = await exchangeCode(ctx, { provider, tokenEndpoint: metadata.value.tokenEndpoint, ...exchange });
+  if (!exchanged.ok) return exchanged;
+  const token = decodeIdToken(exchanged.value);
+  if (!token.ok) return token;
+  const key = await findSigningKey(ctx, metadata.value, { kid: token.value.kid, keyType: token.value.keyType });
+  if (!key.ok) return key;
+  if (!isSignedBy(token.value, key.value)) return refused("id_token signature");
+  const claims = checkIdTokenClaims(token.value.payload, { issuer: provider.issuer, clientId: exchange.client.clientId, nonce, now: ctx.clock.now() });
+  if (!claims.ok) return claims;
+  return passed({ subject: claims.value.subject, email: getAllowedEmail(provider, claims.value), displayName: claims.value.displayName });
+}
+
+/** GitHub: the code for an access token, then the account and the first of its verified emails the allowlist names. */
+async function readGithubIdentity(ctx: OidcContext, provider: OidcProvider, exchange: CodeExchange): Promise<Checked<SignedInIdentity>> {
+  const exchanged = await exchangeGithubCode(ctx, exchange);
+  if (!exchanged.ok) return exchanged;
+  const account = await readGithubAccount(ctx, exchanged.value);
+  if (!account.ok) return account;
+  const email = account.value.verifiedEmails.find((candidate) => isAllowedEmail(provider, candidate, null)) ?? null;
+  return passed({ subject: account.value.subject, email, displayName: account.value.displayName });
 }
 
 /**
@@ -165,13 +202,17 @@ export async function completeOidcSignIn(ctx: OidcContext, input: CompleteOidcSi
 export function getAllowedEmail(provider: OidcProvider, claims: IdentityClaims): string | null {
   const { email } = claims;
   if (email === null || !claims.isEmailVerified) return null;
-  if (provider.allowedEmails.includes(email)) return email;
+  return isAllowedEmail(provider, email, claims.hostedDomain) ? email : null;
+}
+
+/** Whether a verified `email` is on the provider's allowlist (`hostedDomain`: the token's `hd`, null without one). */
+function isAllowedEmail(provider: OidcProvider, email: string, hostedDomain: string | null): boolean {
+  if (provider.allowedEmails.includes(email)) return true;
   const at = email.lastIndexOf("@");
-  if (at <= 0) return null;
+  if (at <= 0) return false;
   const domain = email.slice(at + 1);
-  if (!provider.allowedDomains.includes(domain)) return null;
-  if (provider.requireHostedDomain && claims.hostedDomain !== domain) return null;
-  return email;
+  if (!provider.allowedDomains.includes(domain)) return false;
+  return !provider.requireHostedDomain || hostedDomain === domain;
 }
 
 function fail(provider: OidcProvider, reason: string): Err<"auth.oidc_failed"> {

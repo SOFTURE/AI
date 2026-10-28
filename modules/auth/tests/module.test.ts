@@ -43,6 +43,7 @@ describe("the auth module", () => {
     }).options;
     expect(options.oidc.providers).toEqual([
       {
+        type: "oidc",
         id: "google",
         name: "Google",
         issuer: "https://accounts.google.com",
@@ -56,6 +57,7 @@ describe("the auth module", () => {
         createAccounts: true,
       },
       {
+        type: "oidc",
         id: "corp",
         name: "Corp",
         issuer: "https://id.example.com",

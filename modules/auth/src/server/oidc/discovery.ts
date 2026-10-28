@@ -4,7 +4,7 @@
 import { createPublicKey, type JsonWebKey, type KeyObject } from "node:crypto";
 import { requestJson, type SoftureConfig } from "@softure-ai/core";
 import { z } from "zod";
-import { isSecureEndpoint, type OidcProvider } from "../../options.js";
+import { isSecureEndpoint, type OpenIdProvider } from "../../options.js";
 import { getAuthOptions } from "../options.js";
 import { passed, refused, type Checked, type OidcContext } from "./context.js";
 
@@ -67,7 +67,7 @@ function requestOptions(ctx: OidcContext) {
 }
 
 /** The provider's endpoints, or the reason (for the log) they could not be read. */
-export async function getProviderMetadata(ctx: OidcContext, provider: OidcProvider): Promise<Checked<ProviderMetadata>> {
+export async function getProviderMetadata(ctx: OidcContext, provider: OpenIdProvider): Promise<Checked<ProviderMetadata>> {
   const cache = getCache(metadataCache, ctx.config);
   const now = ctx.clock.now().getTime();
   const cached = cache.get(provider.issuer);

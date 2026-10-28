@@ -43,5 +43,5 @@ pins option parsing.
 
 ## Progress
 
-- [ ] Phase 1: provider entry, flow and fake
-- [ ] Phase 2: docs
+- [x] Phase 1: provider entry, flow and fake (auth tests green, 15 new in `tests/github-flow.test.ts`)
+- [x] Phase 2: docs (README section 3 "GitHub", CHANGELOG `Unreleased`)

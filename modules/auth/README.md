@@ -18,8 +18,9 @@ script), a `create-account` script for the first account of an app with registra
 `@softure-ai/auth/mailing` sends password reset mails through `@softure-ai/mailing`
 (`mailingResetSender()`); `@softure-ai/auth/jobs` sends them from a background job of `@softure-ai/jobs` with
 retry (`enqueuePasswordReset`, `passwordResetJobHandlers`). `@softure-ai/auth/testing` creates accounts directly in the database for
-tests (`createTestAccount`, section 4, "Tests") and ships a fake OpenID Connect provider (`createFakeOidcProvider`).
-`auth({ oidc })` adds "Sign in with Google" (or any OpenID Connect provider) next to the password form, or instead of it
+tests (`createTestAccount`, section 4, "Tests") and ships a fake OpenID Connect provider (`createFakeOidcProvider`) and a
+fake GitHub (`createFakeGithubProvider`).
+`auth({ oidc })` adds "Sign in with Google" (or any OpenID Connect provider, or GitHub) next to the password form, or instead of it
 with `password: { enabled: false }` (section 3, "OpenID Connect sign-in").
 
 ## 2. Installation
@@ -200,6 +201,52 @@ the variables the provider names.
   JWKS, token endpoint, real RS256 or ES256 signatures): pass `fake.definition` as a provider, `fake.fetch` as
   `oidc.fetch` and `fake.env` as the context's `env`; `fake.signIn(authorizeUrl, { subject, email, hostedDomain, name, givenName })`
   answers the callback URL. It can break on purpose (`claims`, `signWith`, `rotateKeys`, `failNext`, `setDiscovery`).
+
+#### GitHub
+
+GitHub is no OpenID Connect provider for people (an OAuth App has no discovery, ID token or JWKS), so it has its own
+entry type in the same list. Everything around the protocol step is shared: the button, `oidc-start` and
+`oidc-callback`, the state row and cookie, PKCE S256, the callback route, the allowlist, `auth.identities`, the
+session and the error codes.
+
+```ts
+auth({
+  oidc: {
+    providers: [
+      {
+        type: "github", // no issuer: GitHub's endpoints are fixed
+        id: "github", // default; the callback is /api/auth/oidc/github/callback
+        name: "GitHub", // default
+        clientIdEnv: "GITHUB_AUTH_CLIENT_ID",
+        clientSecretEnv: "GITHUB_AUTH_CLIENT_SECRET", // required: an OAuth App always has a secret
+        allowedEmails: ["owner@example.com"], // or allowedDomains
+        authorizeParams: { allow_signup: "false" }, // optional, sent as they are
+      },
+    ],
+  },
+  password: { enabled: false },
+});
+```
+
+At GitHub (Settings, Developer settings, OAuth Apps, New OAuth App): the homepage URL is `appOrigin`, the
+authorization callback URL is `<appOrigin>/api/auth/oidc/<id>/callback`; generate a client secret and put the id and
+the secret in the variables the entry names. An entry without `type` stays an OpenID Connect one.
+
+- **Flow.** The browser goes to `https://github.com/login/oauth/authorize` with `read:user user:email` (plus the
+  entry's `scopes`), the state and the PKCE challenge; no nonce is sent. The callback exchanges the code at
+  `https://github.com/login/oauth/access_token` (GitHub answers an OAuth error such as `bad_verification_code` with
+  status 200; the flow reads it and logs `token bad_verification_code`), then reads `GET /user` and
+  `GET /user/emails` at `https://api.github.com` with the access token. The token is used for those two calls only,
+  never stored or logged.
+- **Who may sign in.** Only verified emails count. The primary one is tried first, then every other verified one, and
+  the first the allowlist names signs in (there is no hosted domain). An account without an allowed verified email
+  goes back with `auth.oidc_not_allowed`.
+- **Accounts and name.** The subject is GitHub's numeric user id, so a renamed login or a changed email keeps the
+  account. The display name is the profile's `name`, else the `login`.
+- **Tests.** `createFakeGithubProvider()` from `@softure-ai/auth/testing` is GitHub in memory (authorize, token
+  endpoint, `/user`, `/user/emails`): pass `fake.definition`, `fake.fetch` and `fake.env` as for the OpenID Connect
+  fake; `fake.signIn(authorizeUrl, { id, login, name, emails: [{ email, primary, verified }] })` answers the callback
+  URL, and `failNext("bad_verification_code" | "token_unavailable" | "api_unavailable")` breaks it on purpose.
 
 **Without a provider.** OpenID Connect is opt-in: an app chooses its sign-in methods, and with no
 `oidc.providers` nothing of it runs. What such an app still gets, and why it needs nothing:
@@ -706,7 +753,7 @@ its NFC form fails, then rehashes it in NFC.
 | Name | Required | Meaning |
 | --- | --- | --- |
 | `SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED` | no | `true` / `1` closes registration, `false` / `0` opens it, over the declared default. Any other value closes it and logs the variable name. When the app defines the switch in `@softure-ai/feature-switches`, that module reads this variable by its own rules (`on` / `off` too; an unreadable value gives the fail mode). |
-| `<clientIdEnv>`, `<clientSecretEnv>` | with `oidc` | The client id and secret of each OpenID Connect provider, under the names its entry declares (e.g. `GOOGLE_AUTH_CLIENT_ID`, `GOOGLE_AUTH_CLIENT_SECRET`). A missing one fails the sign-in and logs the variable's name. |
+| `<clientIdEnv>`, `<clientSecretEnv>` | with `oidc` | The client id and secret of each OpenID Connect provider or GitHub OAuth App, under the names its entry declares (e.g. `GOOGLE_AUTH_CLIENT_ID`, `GITHUB_AUTH_CLIENT_SECRET`). A missing one fails the sign-in and logs the variable's name. |
 | `SEED_EMAIL`, `SEED_PASSWORD` | for `runSeedAccount` | The development account the seed entry creates (section 4, "Development seed"). |
 
 ## 7. Switches
