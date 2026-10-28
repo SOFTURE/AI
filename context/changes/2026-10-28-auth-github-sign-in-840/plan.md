@@ -1,6 +1,6 @@
 ---
 change_id: auth-github-sign-in-840
-status: implementing
+status: archived
 ---
 
 # Plan: sign in with GitHub (issue #840)
@@ -44,5 +44,5 @@ Files: `modules/auth/src/options.ts`, `src/server/oidc/{flow,github,discovery,co
 
 ## Progress
 
-- [ ] Phase 1: the GitHub provider
-- [ ] Phase 2: docs
+- [x] Phase 1: the GitHub provider (996b4ff, auth tests green)
+- [x] Phase 2: docs (4ed8cc8)

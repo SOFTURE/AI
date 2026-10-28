@@ -1,12 +1,13 @@
 ---
 change_id: auth-github-sign-in-840
 title: "auth: sign in with GitHub (OAuth App), limited to allowed emails or domains (issue #840)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: 840
 branch: claude/project-thread-5gulb1
 created: 2026-10-28
 updated: 2026-10-28
+archived_at: 2026-10-28
 ---
 
 ## Intent
