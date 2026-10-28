@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-fold-row-padding-832
 title: "theme-notion: FoldRow content with equal padding, indentation opt-in through isInset (issue #832)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 832
 branch: claude/project-thread-pfibio
 created: 2026-10-28
 updated: 2026-10-28
+archived_at: 2026-10-28
 ---
 
 ## Intent

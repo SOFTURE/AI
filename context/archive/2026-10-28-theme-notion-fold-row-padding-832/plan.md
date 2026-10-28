@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-fold-row-padding-832
-status: in_progress
+status: archived
 ---
 
 # Plan: FoldRow equal padding and isInset (issue #832)
