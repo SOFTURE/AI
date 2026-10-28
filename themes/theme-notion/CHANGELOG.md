@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.6.0
 
 - `FoldRow` (#832): the opened content (`fold-row-content`) is padded equally on all four sides (`p-3`, 12 px) instead
   of 24 px on the left and 4 px on the right, so a `DetailTable` sits centred under the row. `isInset` (default `false`)
