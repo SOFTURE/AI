@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.7.0
+
+- `Timeline` (#838): a new composition for dated entries on one vertical rail: a marker in a palette colour with an
+  optional icon, the time, title, description, badges and content, `compact` minor entries between major ones, a
+  dashed rail for something missing, the body as a button (`onSelect`, `actionLabel`) and marks at the right edge
+  outside it (`aside`). An app that drew a timeline from list rows with coloured left borders moves to `Timeline`.
+
 ## 0.6.0
 
 - `FoldRow` (#832): the opened content (`fold-row-content`) is padded equally on all four sides (`p-3`, 12 px) instead
