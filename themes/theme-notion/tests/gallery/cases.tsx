@@ -250,7 +250,7 @@ export const CVA_AXES: Readonly<Record<string, { readonly component: string; rea
   buttonVariants: {
     component: "Button",
     axes: {
-      variant: ["default", "destructive", "outline", "secondary", "ghost", "link"],
+      variant: ["default", "destructive", "outline", "secondary", "ghost", "link", "floating"],
       size: ["default", "xs", "sm", "lg", "icon", "icon-xs", "icon-sm", "icon-lg"],
     },
   },
