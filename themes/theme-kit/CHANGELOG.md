@@ -2,7 +2,7 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
-## Unreleased
+## 0.1.5
 
 - App icon (#839): `@softure-ai/theme-kit/next` exports `drawAppIcon({ theme, icon, size, tone, scheme, shape })`, the
   `next/og` image for `app/icon.tsx` and `app/apple-icon.tsx` in any theme's colours, with `APP_ICON_SIZE` (32 × 32),
