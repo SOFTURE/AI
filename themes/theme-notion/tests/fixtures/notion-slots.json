@@ -1320,7 +1320,7 @@
   "Stats": [
     ["stats-fold","group/stats-fold"],
     ["stats-fold-summary","flex h-row-height cursor-pointer list-none items-center gap-1 rounded-md px-1 text-foreground transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"],
-    ["stats-fold-content","flex flex-col gap-3 pt-2 pb-1 pl-6"],
+    ["stats-fold-content","flex flex-col gap-3 pt-2 pb-1"],
     ["stat-cards","grid gap-2 grid-cols-[repeat(auto-fill,minmax(min(10rem,100%),1fr))]"],
     ["stat-card-aside","inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 font-normal bg-orange-tag text-orange-tag-foreground text-small"],
     ["stat-card-aside","inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 font-normal bg-default-tag text-default-tag-foreground text-small"],

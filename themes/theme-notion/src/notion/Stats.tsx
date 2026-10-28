@@ -13,11 +13,17 @@ export interface StatsFoldProps {
   readonly title: string;
   readonly children: ReactNode;
   readonly className?: string;
+  /**
+   * Indents the content to line up with the title after the chevron. Off by default: the content spans the fold's
+   * full width, with the same left and right edges as the heading row.
+   */
+  readonly isInset?: boolean;
 }
 
 // A screen's summary figures folded under a heading, closed by default: the design system's collapsible (a ghost row
-// with a chevron that turns when open, the content indented under it), on native `<details>` so it needs no client.
-export function StatsFold({ title, children, className }: StatsFoldProps) {
+// with a chevron that turns when open, the content under it at the row's full width or, with `isInset`, indented to
+// the title), on native `<details>` so it needs no client.
+export function StatsFold({ title, children, className, isInset = false }: StatsFoldProps) {
   return (
     <details data-slot="stats-fold" className={cn("group/stats-fold", className)}>
       <summary
@@ -31,7 +37,11 @@ export function StatsFold({ title, children, className }: StatsFoldProps) {
         />
         <h2 className="text-ui-medium">{title}</h2>
       </summary>
-      <div data-slot="stats-fold-content" className="flex flex-col gap-3 pt-2 pb-1 pl-6">
+      <div
+        data-slot="stats-fold-content"
+        data-inset={isInset}
+        className={cn("flex flex-col gap-3 pt-2 pb-1", isInset && "pl-6")}
+      >
         {children}
       </div>
     </details>
