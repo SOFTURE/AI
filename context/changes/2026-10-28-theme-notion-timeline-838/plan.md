@@ -48,8 +48,11 @@ Files: `themes/theme-notion/tests/gallery/cases.tsx`, `themes/theme-notion/tests
   tabular-nums`; description `text-small text-muted-foreground`.
 - `badges`, `children` and `aside` are nodes: the app brings its own `Badge`, `Status` or `MarkPopover`.
 - No built-in copy: `label` and `actionLabel` are required where they apply.
+- Implementation: `actionLabel` is not an `aria-label` but an `sr-only` prefix of the button's content. axe's
+  `label-content-name-mismatch` (WCAG 2.5.3, label in name) failed the gallery with an `aria-label` that hid the
+  visible words; now the name is "<actionLabel>, <visible words>", so a speech-input user can say what they see.
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1: cdc681e
 - [ ] Phase 2

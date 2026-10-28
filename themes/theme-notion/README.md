@@ -123,7 +123,7 @@ and more, a native `<details>`), `PageFrame` (a page outside the app shell, the 
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
-stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
+stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below).
 
 **`FoldRow`.** An item as one list row in a native `<details>`: a chevron, the title, short facts and badges on the
@@ -215,6 +215,38 @@ reader (`stateLabels` replaces the English words). `data-slot="steps"`, `data-st
     { key: "period", title: "Period", state: "done" },
     { key: "document", title: "Document", state: "current", note: "2 files attached" },
     { key: "invoice", title: "Final invoice", aside: <Badge variant="tag" color="blue">KSeF</Badge> },
+  ]}
+/>
+```
+
+Entries in time: `Timeline` (a trip's stays and the moves between them, a record's history). An `<ol>` where every
+entry has a marker on one continuous vertical rail, from the first marker to the last, then an optional `time` line
+(muted, tabular figures), the `title`, an optional `description` and an optional `badges` row (statuses, tags).
+`children` go under the body (deadlines, notes) and `aside` at the right edge (marks). `size`: `default` (a 24 px
+round marker in the colour's tag fill with an optional Lucide `icon`) or `compact` (a minor entry between two major
+ones: a 16 px icon or a dot in the colour, on the page background, and tighter text). `color` is a palette colour
+(`gray` by default) and never stands alone: the entry's words carry the meaning, and the marker is hidden from a
+screen reader. `line: "dashed"` dashes the rail through an entry where something is missing (a gap). `onSelect` with
+`actionLabel` turns the body into a button (list-row hover, focus ring) whose accessible name is `actionLabel` (what
+it does, "Open the stay", for a screen reader only) followed by the entry's visible words, so a speech-input user can
+name it by what they see; `children` and `aside` stay
+outside it, so a `MarkPopover` or a link never nests in a button. `data` passes `data-*` attributes to the entry.
+No hooks: without `onSelect` it renders on the server. `data-slot="timeline"`, `timeline-item` (with `data-size`,
+`data-color`, `data-line`), `timeline-rail`, `timeline-marker`, `timeline-body`, `timeline-time`, `timeline-title`,
+`timeline-description`, `timeline-badges`, `timeline-content` and `timeline-aside` mark the parts.
+
+```tsx
+<Timeline
+  label="Trip"
+  items={[
+    { key: "lisbon", time: "3–6 Dec", title: "Lisbon", description: "3 nights", color: "green", icon: BedDouble,
+      badges: <Status color="green" icon={CircleCheck}>Booked</Status>,
+      onSelect: () => openStay("lisbon"), actionLabel: "Open the stay", data: { "data-stay": "lisbon" } },
+    { key: "train", time: "6 Dec, 09:12", title: "Train to Porto", size: "compact", color: "blue", icon: TrainFront },
+    { key: "gap", time: "6–7 Dec", title: "No stay yet", color: "orange", line: "dashed" },
+    { key: "porto", time: "7–10 Dec", title: "Porto", color: "blue", icon: BedDouble,
+      aside: <MarkPopover color="red" icon={TriangleAlert} count={1} label="1 warning" heading="Warnings" closeLabel="Close">…</MarkPopover>,
+      children: "Pay by 1 Dec" },
   ]}
 />
 ```

@@ -134,12 +134,14 @@ describe("Timeline", () => {
     expect(html.match(/aria-hidden="true" data-slot="timeline-rail"/g)).toHaveLength(2);
   });
 
-  it("turns the body into a named button when the entry is selectable", () => {
-    const html = render([{ key: "a", title: "Lisbon", onSelect: () => undefined, actionLabel: "Open the Lisbon stay" }]);
+  it("turns the body into a button whose name starts with the action, then the visible words", () => {
+    const html = render([{ key: "a", title: "Lisbon", onSelect: () => undefined, actionLabel: "Open the stay" }]);
 
     expect(html).toContain(
-      '<button type="button" data-slot="timeline-body" aria-label="Open the Lisbon stay" class="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1 text-left cursor-pointer transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">',
+      '<button type="button" data-slot="timeline-body" class="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1 text-left cursor-pointer transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">' +
+        '<span class="sr-only">Open the stay, </span><span data-slot="timeline-title" class="text-ui-medium">Lisbon</span></button>',
     );
+    expect(html).not.toContain("aria-label=\"Open");
     expect(html).not.toContain('<div data-slot="timeline-body"');
   });
 
@@ -156,7 +158,7 @@ describe("Timeline", () => {
     ]);
     const body = /<button type="button" data-slot="timeline-body"[^>]*>(.*?)<\/button>/.exec(html)?.[1] ?? "";
 
-    expect(body).toBe('<span data-slot="timeline-title" class="text-ui-medium">Lisbon</span>');
+    expect(body).toBe('<span class="sr-only">Open, </span><span data-slot="timeline-title" class="text-ui-medium">Lisbon</span>');
     expect(html).toContain('<div data-slot="timeline-aside" class="flex shrink-0 items-center gap-1 pt-1"><button type="button">Marks</button></div>');
     expect(html).toContain('<div data-slot="timeline-content" class="px-2 pt-1 text-small"><a href="#pay">Pay</a></div>');
   });

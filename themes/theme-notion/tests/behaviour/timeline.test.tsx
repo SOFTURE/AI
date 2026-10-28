@@ -18,7 +18,7 @@ describe("Timeline", () => {
             key: "lisbon",
             title: "Lisbon",
             onSelect,
-            actionLabel: "Open the Lisbon stay",
+            actionLabel: "Open the stay",
             aside: (
               <button type="button" onClick={onMark}>
                 Marks
@@ -33,7 +33,7 @@ describe("Timeline", () => {
     expect(onSelect).not.toHaveBeenCalled();
     expect(onMark).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Open the Lisbon stay" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Open the stay, .*Lisbon/ }));
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 

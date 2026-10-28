@@ -1,4 +1,18 @@
-import { Bell, Calendar, CircleCheck, FileText, Folder, Inbox, Plus, Search, Settings, TriangleAlert } from "lucide-react";
+import {
+  BedDouble,
+  Bell,
+  Calendar,
+  CircleCheck,
+  FileText,
+  Folder,
+  Inbox,
+  Plane,
+  Plus,
+  Search,
+  Settings,
+  TrainFront,
+  TriangleAlert,
+} from "lucide-react";
 import type { ReactElement } from "react";
 
 import {
@@ -191,6 +205,7 @@ import {
   Status,
   Switch,
   TabBar,
+  Timeline,
   Table,
   TableBody,
   TableCaption,
@@ -1445,6 +1460,71 @@ const NOTION_CASES: readonly GalleryCase[] = [
           { key: "pages", label: "Pages", href: "#pages", icon: <FileText />, count: 12 },
           { key: "files", label: "Files", href: "#files", count: 0 },
           { key: "trash", label: "Trash", href: "#trash" },
+        ]}
+      />
+    ),
+  },
+  {
+    name: "Timeline[size=default]",
+    component: "Timeline",
+    root: '[data-slot="timeline"]:has([data-size="default"]):not(:has([data-size="compact"]))',
+    render: () => (
+      <Timeline
+        label="Trip stays"
+        items={[
+          {
+            key: "lisbon",
+            time: "3–6 Dec",
+            title: "Lisbon",
+            description: "3 nights, Alfama",
+            color: "green",
+            icon: BedDouble,
+            badges: (
+              <>
+                <Status color="green" icon={CircleCheck}>
+                  Booked
+                </Status>
+                <Badge variant="tag" color="blue">
+                  City
+                </Badge>
+              </>
+            ),
+            onSelect: () => undefined,
+            actionLabel: "Open the stay",
+            data: { "data-stay": "lisbon" },
+          },
+          { key: "gap", time: "6–7 Dec", title: "No stay yet", description: "1 night", color: "orange", line: "dashed" },
+          {
+            key: "porto",
+            time: "7–10 Dec",
+            title: "Porto",
+            description: "3 nights",
+            color: "blue",
+            icon: BedDouble,
+            aside: (
+              <Badge variant="tag" color="red">
+                <TriangleAlert /> 2
+              </Badge>
+            ),
+            children: <span className="text-muted-foreground">Pay by 1 Dec</span>,
+          },
+        ]}
+      />
+    ),
+  },
+  {
+    name: "Timeline[size=compact]",
+    component: "Timeline",
+    root: '[data-slot="timeline"]:has([data-size="compact"])',
+    render: () => (
+      <Timeline
+        label="Trip legs"
+        items={[
+          { key: "lisbon", time: "3–6 Dec", title: "Lisbon", color: "green", icon: BedDouble },
+          { key: "train", time: "6 Dec, 09:12", title: "Train to Porto", description: "2 h 50 min", size: "compact", color: "blue", icon: TrainFront },
+          { key: "check-in", title: "Check-in from 15:00", size: "compact" },
+          { key: "porto", time: "6–10 Dec", title: "Porto", color: "green", icon: BedDouble },
+          { key: "flight", time: "10 Dec, 07:40", title: "Flight home", size: "compact", color: "purple", icon: Plane },
         ]}
       />
     ),

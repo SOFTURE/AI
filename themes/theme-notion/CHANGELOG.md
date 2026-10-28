@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `Timeline` (#838): a new composition for entries in time (a trip's stays and the moves between them). An `<ol>`
+  with one continuous vertical rail from the first marker to the last; each entry has a marker (`size: "default"`, a
+  24 px circle in the `color`'s tag fill with an optional Lucide `icon`, or `"compact"`, a minor entry with a 16 px
+  icon or a dot on the page background), an optional `time`, the `title`, an optional `description`, `badges`,
+  `children` under the body and an `aside` at the right edge. `line: "dashed"` marks a gap, `onSelect` with
+  `actionLabel` turns the body into a button named by `actionLabel` and then the visible words (content and aside
+  stay outside it), `data` passes `data-*` attributes.
+  An app that drew a timeline from list rows with a coloured left border per row replaces them with `Timeline` and
+  keeps its own words for each state in the title and badges.
+
 ## 0.6.0
 
 - `FoldRow` (#832): the opened content (`fold-row-content`) is padded equally on all four sides (`p-3`, 12 px) instead

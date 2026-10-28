@@ -16,7 +16,10 @@ export type TimelineLine = "solid" | "dashed";
 export type TimelineSelectProps =
   | {
       readonly onSelect: () => void;
-      /** The button's accessible name. */
+      /**
+       * What the button does ("Open the stay"): the start of its accessible name, for a screen reader only. The
+       * entry's visible words follow it, so the name always contains what a speech-input user sees (WCAG 2.5.3).
+       */
       readonly actionLabel: string;
     }
   | {
@@ -179,6 +182,7 @@ function TimelineMarker({ size, color, icon: Icon }: { size: TimelineSize; color
 function TimelineBody({ item, size }: { item: TimelineItem; size: TimelineSize }) {
   const content = (
     <>
+      {item.actionLabel === undefined ? null : <span className="sr-only">{item.actionLabel}, </span>}
       {item.time === undefined ? null : (
         <span data-slot="timeline-time" className="text-small text-muted-foreground tabular-nums">
           {item.time}
@@ -210,7 +214,6 @@ function TimelineBody({ item, size }: { item: TimelineItem; size: TimelineSize }
     <button
       type="button"
       data-slot="timeline-body"
-      aria-label={item.actionLabel}
       onClick={item.onSelect}
       className={cn(BODY[size], BODY_BUTTON)}
     >
