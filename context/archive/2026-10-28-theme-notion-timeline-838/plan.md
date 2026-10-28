@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-timeline-838
-status: done
+status: archived
 ---
 
 # Plan: theme-notion Timeline (issue #838)

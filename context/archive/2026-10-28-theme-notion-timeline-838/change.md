@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-timeline-838
 title: "theme-notion: Timeline, a vertical rail of dated entries with markers (issue #838)"
-status: open
+status: archived
 roadmap_item: null
 issue: 838
 branch: claude/project-thread-xewhx9
 created: 2026-10-28
 updated: 2026-10-28
+archived_at: 2026-10-28
 ---
 
 ## Intent
