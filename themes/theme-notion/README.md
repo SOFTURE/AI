@@ -125,6 +125,20 @@ list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filte
 stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below).
 
+**`FoldRow`.** An item as one list row in a native `<details>`: a chevron, the title, short facts and badges on the
+right; opened, it shows a `DetailTable` and its `children`. The opened content is padded 12 px on all four sides
+(`p-3`), so a table sits centred under the row; `isInset` indents it under the title instead (24 px on the left) and
+sets `data-inset`. A row with a summary of its own (icons, a status) passes `summary`, drawn after the chevron in
+place of `title`, `facts` and `badges`; `details` and `detailsLabel` are optional together, so the content can be
+several tables or a list.
+
+```tsx
+<FoldRow title="Dentist" facts={["12.01.2027"]} badges={[]} detailsLabel="Visit details" details={rows} />
+<FoldRow summary={<><Receipt aria-hidden="true" className="size-4" /> Invoice 12/2026 <Badge>Paid</Badge></>}>
+  <InvoiceLines />
+</FoldRow>
+```
+
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill
 `icon · Label: value ▾` that opens a menu of options in the design system's popover. While the default value is
 chosen the pill is muted; `isActive` (a non-default value) turns it into the blue tag and sets `data-active`. The

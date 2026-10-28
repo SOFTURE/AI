@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `FoldRow` (#832): the opened content (`fold-row-content`) is padded equally on all four sides (`p-3`, 12 px) instead
+  of 24 px on the left and 4 px on the right, so a `DetailTable` sits centred under the row. `isInset` (default
+  `false`) keeps the old indented look (`py-2 pr-1 pl-6`) and sets `data-inset` on the row. New `summary` slot: a node
+  drawn after the chevron in place of `title`, `facts` and `badges`; `details` and `detailsLabel` are now optional
+  together (no table without them). An app that wants the old indent adds `isInset`; an app that drew rows "as
+  `FoldRow` is" with its own markup for a custom summary or content passes `summary` and `children` and drops its copy
+  of the classes. Existing calls compile unchanged.
+
 ## 0.5.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.4` (was `^0.1.3`): the version whose `softure-theme-css` writes `preflight.css`
