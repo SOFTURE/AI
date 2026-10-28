@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.7.0
 
 - `Timeline` (#838): a new composition for dated entries on one vertical rail: a marker in a palette colour with an
   optional icon, the time, title, description, badges and content, `compact` minor entries between major ones, a
