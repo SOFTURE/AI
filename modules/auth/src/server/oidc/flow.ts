@@ -1,4 +1,5 @@
-// OpenID Connect sign-in: the authorization code flow with PKCE S256 (RFC 7636), a one-time state and a nonce.
+// Sign-in through a provider: the authorization code flow with PKCE S256 (RFC 7636), a one-time state and, for
+// OpenID Connect, a nonce. A GitHub provider (an OAuth App) shares everything but the protocol step (`github.ts`).
 // `startOidcSignIn` stores the sign-in (the state's sha256, the nonce, the verifier, the return path) and answers
 // the provider's authorize URL and the state, which the adapter keeps in a short-lived cookie: the callback must come
 // back to the browser that started it (no login CSRF). `completeOidcSignIn` consumes the row, exchanges the code,
@@ -10,16 +11,18 @@ import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit } from "@softure-ai/security/server";
 import { and, eq, gt, lte } from "drizzle-orm";
 import type { OidcSignInErrorCode, SignedIn } from "../../contract.js";
-import type { OidcProvider } from "../../options.js";
+import type { OidcProvider, OpenIdConnectProvider } from "../../options.js";
 import { toSafeNextPath } from "../../safe-next-path.js";
 import { oidcStates } from "../../schema.js";
 import { getAuthOptions, getAuthRoutes } from "../options.js";
 import { assertAuthBuckets, BUCKETS } from "../rate-limits.js";
 import { createSession, deleteExpiredSessions } from "../sessions.js";
-import { resolveOidcAccount } from "./accounts.js";
-import { findOidcProvider, getOidcRedirectUri, readOidcClient, type OidcContext } from "./context.js";
+import { resolveOidcAccount, type OidcIdentity } from "./accounts.js";
+import { getAllowedEmail } from "./allowlist.js";
+import { findOidcProvider, getOidcRedirectUri, passed, readOidcClient, refused, type Checked, type OidcClient, type OidcContext } from "./context.js";
 import { findSigningKey, getProviderMetadata } from "./discovery.js";
-import { checkIdTokenClaims, decodeIdToken, isSignedBy, type IdentityClaims } from "./id-token.js";
+import { GITHUB_AUTHORIZE_URL, GITHUB_SCOPES, readGithubIdentity } from "./github.js";
+import { checkIdTokenClaims, decodeIdToken, isSignedBy } from "./id-token.js";
 import { exchangeCode } from "./token-request.js";
 
 const RANDOM_BYTES = 32;
@@ -55,12 +58,17 @@ export async function startOidcSignIn(ctx: OidcContext, input: StartOidcSignInIn
   if (provider === undefined) return err("auth.oidc_failed");
   const client = readOidcClient(ctx, provider);
   if (!client.ok) return fail(provider, client.reason);
-  const metadata = await getProviderMetadata(ctx, provider);
-  if (!metadata.ok) return fail(provider, metadata.reason);
+  let authorizationEndpoint = GITHUB_AUTHORIZE_URL;
+  if (provider.type === "oidc") {
+    const metadata = await getProviderMetadata(ctx, provider);
+    if (!metadata.ok) return fail(provider, metadata.reason);
+    authorizationEndpoint = metadata.value.authorizationEndpoint;
+  }
 
   const now = ctx.clock.now();
   const ttlMinutes = getAuthOptions(ctx.config).oidc.stateTtlMinutes;
   const state = createRandomValue();
+  // GitHub takes no nonce; the row keeps one anyway (the column is required) and nothing reads it.
   const nonce = createRandomValue();
   const codeVerifier = createRandomValue();
   await ctx.db.delete(oidcStates).where(lte(oidcStates.expiresAt, now));
@@ -74,14 +82,14 @@ export async function startOidcSignIn(ctx: OidcContext, input: StartOidcSignInIn
     expiresAt: new Date(now.getTime() + ttlMinutes * 60_000),
   });
 
-  const url = new URL(metadata.value.authorizationEndpoint);
+  const url = new URL(authorizationEndpoint);
   for (const [name, value] of Object.entries(provider.authorizeParams)) url.searchParams.set(name, value);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", client.value.clientId);
   url.searchParams.set("redirect_uri", getOidcRedirectUri(ctx.config, provider.id));
-  url.searchParams.set("scope", [...new Set([...REQUIRED_SCOPES, ...provider.scopes])].join(" "));
+  url.searchParams.set("scope", provider.type === "github" ? GITHUB_SCOPES : [...new Set([...REQUIRED_SCOPES, ...provider.scopes])].join(" "));
   url.searchParams.set("state", state);
-  url.searchParams.set("nonce", nonce);
+  if (provider.type === "oidc") url.searchParams.set("nonce", nonce);
   url.searchParams.set("code_challenge", createHash("sha256").update(codeVerifier, "ascii").digest("base64url"));
   url.searchParams.set("code_challenge_method", "S256");
   return ok({ url: url.toString(), state, maxAgeSeconds: ttlMinutes * 60 });
@@ -128,29 +136,16 @@ export async function completeOidcSignIn(ctx: OidcContext, input: CompleteOidcSi
 
   const client = readOidcClient(ctx, provider);
   if (!client.ok) return fail(provider, client.reason);
-  const metadata = await getProviderMetadata(ctx, provider);
-  if (!metadata.ok) return fail(provider, metadata.reason);
-  const exchanged = await exchangeCode(ctx, {
-    provider,
-    client: client.value,
-    tokenEndpoint: metadata.value.tokenEndpoint,
-    code,
-    codeVerifier: pending.codeVerifier,
-    redirectUri: getOidcRedirectUri(ctx.config, provider.id),
-  });
-  if (!exchanged.ok) return fail(provider, exchanged.reason);
+  const exchange = { client: client.value, code, codeVerifier: pending.codeVerifier, redirectUri: getOidcRedirectUri(ctx.config, provider.id) };
+  const identity =
+    provider.type === "github"
+      ? await readGithubIdentity(ctx, { ...exchange, provider })
+      : await readOpenIdConnectIdentity(ctx, { ...exchange, provider, nonce: pending.nonce, now });
+  if (!identity.ok) return fail(provider, identity.reason);
 
-  const token = decodeIdToken(exchanged.value);
-  if (!token.ok) return fail(provider, token.reason);
-  const key = await findSigningKey(ctx, metadata.value, { kid: token.value.kid, keyType: token.value.keyType });
-  if (!key.ok) return fail(provider, key.reason);
-  if (!isSignedBy(token.value, key.value)) return fail(provider, "id_token signature");
-  const claims = checkIdTokenClaims(token.value.payload, { issuer: provider.issuer, clientId: client.value.clientId, nonce: pending.nonce, now });
-  if (!claims.ok) return fail(provider, claims.reason);
-
-  const email = getAllowedEmail(provider, claims.value);
+  const { email } = identity.value;
   if (email === null) return err("auth.oidc_not_allowed");
-  const account = await resolveOidcAccount(ctx, provider, { subject: claims.value.subject, email, displayName: claims.value.displayName });
+  const account = await resolveOidcAccount(ctx, provider, { subject: identity.value.subject, email, displayName: identity.value.displayName });
   if (!account.ok) return account;
 
   await deleteExpiredSessions(ctx, account.value.id);
@@ -158,25 +153,46 @@ export async function completeOidcSignIn(ctx: OidcContext, input: CompleteOidcSi
   return ok({ user: account.value, session, next: toSafeNextPath(pending.nextPath, getAuthRoutes(ctx.config).afterLogin) });
 }
 
-/**
- * The identity's email when it may sign in: verified, and listed in `allowedEmails` or of a domain in
- * `allowedDomains` (with `requireHostedDomain`, the `hd` claim must name that domain too); null otherwise.
- */
-export function getAllowedEmail(provider: OidcProvider, claims: IdentityClaims): string | null {
-  const { email } = claims;
-  if (email === null || !claims.isEmailVerified) return null;
-  if (provider.allowedEmails.includes(email)) return email;
-  const at = email.lastIndexOf("@");
-  if (at <= 0) return null;
-  const domain = email.slice(at + 1);
-  if (!provider.allowedDomains.includes(domain)) return null;
-  if (provider.requireHostedDomain && claims.hostedDomain !== domain) return null;
-  return email;
+interface OpenIdConnectExchange {
+  readonly provider: OpenIdConnectProvider;
+  readonly client: OidcClient;
+  readonly code: string;
+  readonly codeVerifier: string;
+  readonly redirectUri: string;
+  readonly nonce: string;
+  readonly now: Date;
 }
+
+/** The OpenID Connect step: exchange the code, verify the ID token, apply the allowlist (email null when refused). */
+async function readOpenIdConnectIdentity(ctx: OidcContext, input: OpenIdConnectExchange): Promise<Checked<NullableEmail<OidcIdentity>>> {
+  const { provider, client } = input;
+  const metadata = await getProviderMetadata(ctx, provider);
+  if (!metadata.ok) return metadata;
+  const exchanged = await exchangeCode(ctx, {
+    provider,
+    client,
+    tokenEndpoint: metadata.value.tokenEndpoint,
+    code: input.code,
+    codeVerifier: input.codeVerifier,
+    redirectUri: input.redirectUri,
+  });
+  if (!exchanged.ok) return exchanged;
+  const token = decodeIdToken(exchanged.value);
+  if (!token.ok) return token;
+  const key = await findSigningKey(ctx, metadata.value, { kid: token.value.kid, keyType: token.value.keyType });
+  if (!key.ok) return key;
+  if (!isSignedBy(token.value, key.value)) return refused("id_token signature");
+  const claims = checkIdTokenClaims(token.value.payload, { issuer: provider.issuer, clientId: client.clientId, nonce: input.nonce, now: input.now });
+  if (!claims.ok) return claims;
+  return passed({ subject: claims.value.subject, email: getAllowedEmail(provider, claims.value), displayName: claims.value.displayName });
+}
+
+type NullableEmail<T extends { readonly email: string }> = Omit<T, "email"> & { readonly email: string | null };
 
 function fail(provider: OidcProvider, reason: string): Err<"auth.oidc_failed"> {
   // The reason is this module's own wording: never a value from the provider or the browser.
-  console.warn(`@softure-ai/auth: OpenID Connect sign-in with ${provider.id} failed: ${reason}`);
+  const kind = provider.type === "github" ? "GitHub" : "OpenID Connect";
+  console.warn(`@softure-ai/auth: ${kind} sign-in with ${provider.id} failed: ${reason}`);
   return err("auth.oidc_failed");
 }
 

@@ -5,7 +5,7 @@
 // outage, an endpoint on plain http.
 import { createHash, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
 import { systemClock, type Clock, type FetchFunction } from "@softure-ai/core";
-import type { OidcProviderInput } from "../options.js";
+import type { OpenIdConnectProviderInput } from "../options.js";
 
 export interface FakeOidcProviderOptions {
   /** The provider id. Default `fake`. */
@@ -54,7 +54,7 @@ export type FakeOidcFailure = "unavailable" | "invalid_grant" | "no_id_token";
 
 export interface FakeOidcProvider {
   /** The provider entry for `auth({ oidc: { providers: [fake.definition] } })`. */
-  readonly definition: OidcProviderInput;
+  readonly definition: OpenIdConnectProviderInput;
   /** The environment the definition reads its client id and secret from. */
   readonly env: Readonly<Record<string, string>>;
   /** The `fetch` for `auth({ oidc: { fetch } })`. */

@@ -43,6 +43,7 @@ describe("the auth module", () => {
     }).options;
     expect(options.oidc.providers).toEqual([
       {
+        type: "oidc",
         id: "google",
         name: "Google",
         issuer: "https://accounts.google.com",
@@ -56,6 +57,7 @@ describe("the auth module", () => {
         createAccounts: true,
       },
       {
+        type: "oidc",
         id: "corp",
         name: "Corp",
         issuer: "https://id.example.com",
@@ -93,7 +95,7 @@ describe("the auth module", () => {
       ].join("\n"),
     );
     expect(() => auth({ oidc: { providers: [{ ...provider, allowedDomains: [] }] } })).toThrow(
-      "- options.oidc.providers.0.allowedDomains: needs allowedDomains or allowedEmails: an OpenID Connect sign-in is limited to them",
+      "- options.oidc.providers.0.allowedDomains: needs allowedDomains or allowedEmails: a sign-in through a provider is limited to them",
     );
     expect(() => auth({ password: { enabled: false } })).toThrow("- options.password.enabled: needs an oidc provider: without passwords nobody could sign in");
     expect(() => auth({ password: { enabled: false }, oidc: { providers: [{ ...provider, issuer: "http://localhost:8080/realms/dev" }] } })).not.toThrow();
