@@ -123,7 +123,7 @@ and more, a native `<details>`), `PageFrame` (a page outside the app shell, the 
 `SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
-stages with a state, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
+stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below).
 
 **`FoldRow`.** An item as one list row in a native `<details>`: a chevron, the title, short facts and badges on the
@@ -215,6 +215,36 @@ reader (`stateLabels` replaces the English words). `data-slot="steps"`, `data-st
     { key: "period", title: "Period", state: "done" },
     { key: "document", title: "Document", state: "current", note: "2 files attached" },
     { key: "invoice", title: "Final invoice", aside: <Badge variant="tag" color="blue">KSeF</Badge> },
+  ]}
+/>
+```
+
+A dated sequence: `Timeline` (a trip's stays and the moves between them, an order's history, a project's milestones).
+An `<ol>` named by `label` where each entry sits on one continuous vertical rail, running from the first marker to the
+last: a marker in a palette `color` (`gray` by default) with an optional Lucide `icon`, then the body: an optional `time`
+(muted, tabular figures), the `title`, an optional muted `description`, an optional `badges` row (statuses, tags) and
+optional `children` under it (deadlines, notes). `size` `default` is a major entry (a 24 px round marker in the colour's
+tag fill, the time above the title); `compact` is a minor entry between two major ones (the icon or a dot in the
+colour on the page, the time after the title). `line: "dashed"` dashes the rail through an entry for something
+missing. With `onSelect` the body is a button; `actionLabel` is read before its visible text ("Show on the map"), so
+the button's name says what it does and still contains every word it shows; `aside` sits at the right edge outside that
+button, so a mark with its own popover never nests in it. The colour never carries a meaning alone: put the state in
+words in `badges`. `data` sets an app's own `data-*` attributes on the item. `data-slot="timeline"`,
+`timeline-item` (with `data-item`, `data-size`, `data-line`), `timeline-rail`, `timeline-marker`, `timeline-item-body`
+and the body's parts mark the parts.
+
+```tsx
+<Timeline
+  label="Trip"
+  items={[
+    { key: "flight", size: "compact", icon: Plane, color: "green", title: "Flight", time: "7 Dec, 07:15", description: "Home → Hanoi" },
+    {
+      key: "hanoi", icon: BedDouble, color: "green", time: "8–9 Dec · 2 nights", title: "Hanoi",
+      badges: <Status color="green" icon={CircleCheck}>Booked</Status>,
+      onSelect: () => showOnMap("hanoi"), actionLabel: "Show on the map",
+    },
+    { key: "sapa", icon: CircleDashed, color: "yellow", line: "dashed", time: "11–12 Dec", title: "Sa Pa",
+      badges: <Status color="yellow" icon={CircleDashed}>No stay</Status> },
   ]}
 />
 ```

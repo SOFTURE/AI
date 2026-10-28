@@ -1,4 +1,4 @@
-import { Bell, Calendar, CircleCheck, FileText, Folder, Inbox, Plus, Search, Settings, TriangleAlert } from "lucide-react";
+import { BedDouble, Bell, Calendar, CircleCheck, CircleDashed, FileText, Folder, Inbox, Plane, Plus, Search, Settings, TrainFront, TriangleAlert } from "lucide-react";
 import type { ReactElement } from "react";
 
 import {
@@ -191,6 +191,7 @@ import {
   Status,
   Switch,
   TabBar,
+  Timeline,
   Table,
   TableBody,
   TableCaption,
@@ -1428,6 +1429,69 @@ const NOTION_CASES: readonly GalleryCase[] = [
             { key: "document", title: "Document", note: "Drafting", state: "current", aside: <Badge variant="tag" color="blue">PDF</Badge> },
             { key: "mail", title: "E-mail draft", state: "failed", note: "Mailbox refused" },
             { key: "invoice", title: "Final invoice" },
+          ]}
+        />
+      ),
+    }),
+  ),
+  ...(["default", "compact"] as const).map(
+    (size): GalleryCase => ({
+      name: `Timeline[size=${size}]`,
+      component: "Timeline",
+      root: '[data-slot="timeline"]',
+      render: () => (
+        <Timeline
+          label="Trip"
+          items={[
+            {
+              key: "flight",
+              size: "compact",
+              icon: Plane,
+              color: "green",
+              title: "Flight",
+              time: "7 Dec, 07:15 → 8 Dec, 04:35",
+              description: "Home → Hanoi",
+            },
+            {
+              key: "hanoi",
+              size,
+              icon: BedDouble,
+              color: "green",
+              time: "8–9 Dec · 2 nights",
+              title: "Hanoi",
+              badges: (
+                <>
+                  <Status color="green" icon={CircleCheck}>
+                    Booked
+                  </Status>
+                  <Badge variant="tag" color="gray">
+                    In the plan
+                  </Badge>
+                </>
+              ),
+              aside: (
+                <Badge variant="tag" color="red">
+                  <TriangleAlert />1
+                </Badge>
+              ),
+              onSelect: () => undefined,
+              actionLabel: "Show on the map",
+            },
+            { key: "train", size: "compact", icon: TrainFront, color: "blue", title: "Train", time: "10 Dec, 22:00", description: "Hanoi → Sa Pa" },
+            {
+              key: "gap",
+              size,
+              icon: CircleDashed,
+              color: "yellow",
+              line: "dashed",
+              time: "11–12 Dec · 2 nights",
+              title: "Sa Pa",
+              badges: (
+                <Status color="yellow" icon={CircleDashed}>
+                  No stay
+                </Status>
+              ),
+            },
           ]}
         />
       ),

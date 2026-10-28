@@ -81,4 +81,5 @@ export {
 export { Status, type StatusProps } from "./notion/Status.js";
 export { Steps, type StepItem, type StepState, type StepsLayout, type StepsProps } from "./notion/Steps.js";
 export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
+export { Timeline, type TimelineItem, type TimelineItemSize, type TimelineLine, type TimelineProps } from "./notion/Timeline.js";
 export { TONES, TONE_COLORS, TONE_EDGE, TONE_FILL, TONE_TEXT, type Tone } from "./notion/tones.js";
