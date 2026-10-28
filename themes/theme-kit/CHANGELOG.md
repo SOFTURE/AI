@@ -2,6 +2,16 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
+## Unreleased
+
+- App icon (#839): `@softure-ai/theme-kit/next` exports `drawAppIcon({ theme, icon, size, tone, scheme, shape })`, the
+  `next/og` image for `app/icon.tsx` and `app/apple-icon.tsx` in any theme's colours, with `APP_ICON_SIZE` (32 × 32),
+  `APPLE_ICON_SIZE` (180 × 180), `buildAppIconElement` and `renderIconSvg`. The glyph is icon data
+  (`import { Wallet } from "lucide"`) or `{ svg }` markup. `next` `^16.0.0` is a new optional peer, needed only for
+  `/next`. An app that draws its icon itself can replace its `icon.tsx` / `apple-icon.tsx` with the README's
+  examples: add `lucide` (the same icons as lucide-react, as data) and drop the `renderToStaticMarkup` step.
+- `getThemeColor(theme, name, scheme)` (#839): a colour's value in one scheme, aliases followed.
+
 ## 0.1.4
 
 - Themes re-export the kit's stylesheets (#795): `softure-theme-css` also writes `dist/preflight.css`,

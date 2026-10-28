@@ -6,7 +6,7 @@ the token contract, the way a theme is declared, the CSS generator, the build co
 theme is a new `themes/theme-<name>` folder that follows the contract below; nothing in the kit changes.
 
 Apps install a theme package (e.g. [`@softure-ai/theme-notion`](../theme-notion/README.md)), which depends on the kit.
-An app imports the kit directly only for `useIsMobile` or to build its own variant of a theme. Its stylesheets
+An app imports the kit directly only for `useIsMobile`, the app icon (`/next`) or to build its own variant of a theme. Its stylesheets
 (`preflight.css`, `base.css`, `maplibre.css`) reach the app through the theme: every theme re-exports them under its
 own name (`@softure-ai/theme-notion/base.css`), so the app imports CSS only from the package it declared.
 
@@ -43,8 +43,10 @@ ThemeDefinition (data)  ──defineTheme──▶  theme (checked)  ──build
 | `checkTheme(definition)` | The contract problems as messages; empty when the theme is complete |
 | `extendTheme(base, overrides)` | A checked variant of a theme: a new name, per group only the tokens that change |
 | `buildThemeCss(definition)` | The theme's tokens as CSS for Tailwind CSS v4 (below) |
+| `getThemeColor(theme, name, scheme)` | A colour's value in one scheme (`light` by default), aliases followed, for code drawing outside the page |
 | `createCn(options)`, `createThemeCn(definition)` | shadcn/ui's `cn`, with tailwind-merge told the theme's named text styles and shadows (`text-body` and `text-muted-foreground` both stay) |
 | `useIsMobile()`, `MOBILE_BREAKPOINT` (`/react`) | The sidebar's breakpoint (768 px), on `useSyncExternalStore`; the server renders the desktop layout |
+| `drawAppIcon(options)`, `APP_ICON_SIZE`, `APPLE_ICON_SIZE` (`/next`) | The app's tab and home screen icon in the theme's colours, as a `next/og` image (below) |
 | `preflight.css` | Tailwind's preflight scoped to `[data-slot]` elements, in `@layer base` with zero specificity, plus `prefers-reduced-motion` |
 | `base.css` | The page base: `body` without the browser's margin, on the theme's `background`, `foreground` and sans font (Radix portals on `body` inherit it); a `border` without a colour class in the theme's `border` and outlines in a half-transparent `ring`, as shadcn/ui's `globals.css` does, where Tailwind's preflight leaves `currentColor`; all in `@layer base` |
 | `maplibre.css` | The theme's sans font on MapLibre maps (`body .maplibregl-map`, unlayered, so it beats `maplibre-gl.css` in any load order) |
@@ -54,6 +56,55 @@ ThemeDefinition (data)  ──defineTheme──▶  theme (checked)  ──build
 
 `base.css` and `maplibre.css` read the font with `--theme()`, so they are imported through the app's Tailwind, after
 the theme's `theme.css`. An app imports them from its theme (`@softure-ai/theme-<name>/base.css`). They read only contract tokens, so they work with every theme.
+
+## App icon
+
+`@softure-ai/theme-kit/next` draws the app's icon from any theme's tokens, so apps on one domain get tabs that read
+apart without theme code of their own. `next` (16) is an optional peer, needed only for this subpath.
+
+```tsx
+// app/icon.tsx
+import { APP_ICON_SIZE, drawAppIcon } from "@softure-ai/theme-kit/next";
+import { theme } from "@softure-ai/theme-notion";
+import { Wallet } from "lucide";
+
+export const size = APP_ICON_SIZE;
+export const contentType = "image/png";
+
+export default function Icon() {
+  return drawAppIcon({ theme, icon: Wallet });
+}
+```
+
+```tsx
+// app/apple-icon.tsx: full bleed, iOS rounds it itself
+import { APPLE_ICON_SIZE, drawAppIcon } from "@softure-ai/theme-kit/next";
+import { theme } from "@softure-ai/theme-notion";
+import { Wallet } from "lucide";
+
+export const size = APPLE_ICON_SIZE;
+export const contentType = "image/png";
+
+export default function AppleIcon() {
+  return drawAppIcon({ theme, icon: Wallet, size: APPLE_ICON_SIZE, shape: "square" });
+}
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `theme` | | Any theme that meets the contract; its colours are read as values, aliases followed |
+| `icon` | | The glyph: a 24 × 24 stroke icon as data (`IconNode`), or `{ svg }`, one standalone `<svg>` drawn in `currentColor` |
+| `size` | `APP_ICON_SIZE` (32 × 32) | The image size; pass the same constant as the file's `size` export |
+| `tone` | `primary` | The pair of contract roles: `primary`, `secondary`, `accent` (each on its `-foreground`), `inverse` (`background` on `foreground`) |
+| `scheme` | `light` | The scheme the colours come from: a favicon is one image for both |
+| `shape` | `rounded` | `rounded` (corners at 22 % of the side) or `square` (full bleed) |
+
+The glyph is data, not a component. A metadata route renders on the server, and lucide-react's icons are client
+modules that call `useContext`: `next/og` runs no hooks, and Next refuses `react-dom/server` in app code. lucide's
+framework-free package, `lucide`, exports the same icons as data (`import { Wallet } from "lucide"`), with the same
+names as lucide-react; add it next to lucide-react. Another icon set goes in as its SVG markup (`{ svg: "<svg …>" }`).
+`buildAppIconElement(options)` returns the element without drawing it, and `renderIconSvg(icon, color)` the glyph's
+markup, for an image of the app's own.
 
 ## The theme package contract
 
