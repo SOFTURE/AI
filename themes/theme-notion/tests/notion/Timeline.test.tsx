@@ -6,14 +6,21 @@ import * as theme from "../../src/index.js";
 import { PALETTE_COLORS } from "../../src/notion/palette.js";
 import { Timeline, type TimelineItem } from "../../src/notion/Timeline.js";
 
-const RAIL_BASE = "absolute left-3 w-0 -translate-x-1/2 border-l border-accent-strong";
+const ITEM = "group/timeline-item relative grid grid-cols-[1.5rem_minmax(0,1fr)_auto] gap-x-1";
+const RAIL =
+  "absolute top-0 bottom-0 left-3 -translate-x-1/2 border-l-2 border-border group-first/timeline-item:top-4 group-last/timeline-item:bottom-auto group-last/timeline-item:h-4 group-only/timeline-item:hidden";
+// As rendered: the markup escapes `&>` in the arbitrary variant.
+const MARKER_DEFAULT = "relative mt-1 flex size-6 items-center justify-center justify-self-center rounded-full [&amp;&gt;svg]:size-3.5";
+const MARKER_COMPACT =
+  "relative mt-1.5 flex size-5 items-center justify-center justify-self-center rounded-full bg-background [&amp;&gt;svg]:size-3.5";
+const BODY_DEFAULT = "flex min-w-0 flex-col gap-0.5 rounded-md px-2 py-1 text-start";
+const BODY_BUTTON =
+  "cursor-pointer text-foreground transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+const TITLE = '<span data-slot="timeline-item-title" class="text-ui-medium [overflow-wrap:anywhere]">';
+const TIME = '<span data-slot="timeline-item-time" class="text-small text-muted-foreground tabular-nums">';
 
 function render(items: readonly TimelineItem[]): string {
   return renderToStaticMarkup(<Timeline label="Trip" items={items} />);
-}
-
-function readRails(html: string): string[] {
-  return [...html.matchAll(/data-slot="timeline-rail" class="([^"]+)"/g)].map((match) => match[1] ?? "");
 }
 
 function readSlots(html: string): string[] {
@@ -21,15 +28,21 @@ function readSlots(html: string): string[] {
 }
 
 describe("Timeline", () => {
-  it("renders one entry as a labelled ordered list with no rail", () => {
+  it("renders one entry as a labelled ordered list with a rail, a gray dot marker and a plain body", () => {
     expect(render([{ key: "only", title: "Lisbon" }])).toBe(
       '<ol aria-label="Trip" data-slot="timeline" class="flex flex-col">' +
-        '<li data-slot="timeline-item" data-size="default" data-color="gray" data-line="solid" class="relative flex min-w-0 items-start gap-1 pb-2 last:pb-0">' +
-        '<span aria-hidden="true" data-slot="timeline-marker" class="relative mt-1 flex size-6 shrink-0 items-center justify-center">' +
-        '<span class="flex size-6 items-center justify-center rounded-full bg-gray-tag text-gray-tag-foreground"></span></span>' +
-        '<div class="flex min-w-0 flex-1 flex-col">' +
-        '<div data-slot="timeline-body" class="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1 text-left">' +
-        '<span data-slot="timeline-title" class="text-ui-medium">Lisbon</span></div></div></li></ol>',
+        `<li data-slot="timeline-item" data-item="only" data-size="default" data-line="solid" class="${ITEM} pb-2">` +
+        `<span aria-hidden="true" data-slot="timeline-rail" class="${RAIL} border-solid"></span>` +
+        `<span aria-hidden="true" data-slot="timeline-marker" data-color="gray" class="${MARKER_DEFAULT} bg-gray-tag text-gray-tag-foreground">` +
+        '<span class="rounded-full size-2 bg-current"></span></span>' +
+        '<div class="flex min-w-0 flex-col col-span-2">' +
+        `<div data-slot="timeline-item-body" class="${BODY_DEFAULT}">${TITLE}Lisbon</span></div></div></li></ol>`,
+    );
+  });
+
+  it("adds the app's className to the list", () => {
+    expect(renderToStaticMarkup(<Timeline label="Trip" items={[]} className="max-w-md" />)).toBe(
+      '<ol aria-label="Trip" data-slot="timeline" class="flex flex-col max-w-md"></ol>',
     );
   });
 
@@ -44,87 +57,78 @@ describe("Timeline", () => {
         aside: <strong>2</strong>,
         children: <p>Pay by 1 Dec</p>,
       },
-      { key: "next", title: "Porto" },
     ]);
 
-    expect(readSlots(html).slice(0, 10)).toEqual([
+    expect(readSlots(html)).toEqual([
       "timeline",
       "timeline-item",
       "timeline-rail",
       "timeline-marker",
-      "timeline-body",
-      "timeline-time",
-      "timeline-title",
-      "timeline-description",
-      "timeline-badges",
-      "timeline-content",
+      "timeline-item-body",
+      "timeline-item-time",
+      "timeline-item-title",
+      "timeline-item-description",
+      "timeline-item-badges",
+      "timeline-item-content",
+      "timeline-item-aside",
     ]);
-    expect(readSlots(html)[10]).toBe("timeline-aside");
-    expect(html).toContain('<span data-slot="timeline-time" class="text-small text-muted-foreground tabular-nums">3–6 Dec</span>');
-    expect(html).toContain('<span data-slot="timeline-description" class="text-small text-muted-foreground">3 nights</span>');
-    expect(html).toContain('<span data-slot="timeline-badges" class="mt-0.5 flex flex-wrap gap-1"><em>booked</em></span>');
-    expect(html).toContain('<div data-slot="timeline-content" class="px-2 pt-1 text-small"><p>Pay by 1 Dec</p></div>');
-    expect(html).toContain('<div data-slot="timeline-aside" class="flex shrink-0 items-center gap-1 pt-1"><strong>2</strong></div>');
+    expect(html).toContain(`${TIME}3–6 Dec</span>${TITLE}Lisbon</span>`);
+    expect(html).toContain(
+      '<span data-slot="timeline-item-description" class="text-small text-muted-foreground [overflow-wrap:anywhere]">3 nights</span>',
+    );
+    expect(html).toContain('<span data-slot="timeline-item-badges" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"><em>booked</em></span>');
+    expect(html).toContain('<div data-slot="timeline-item-content" class="px-2 pb-1"><p>Pay by 1 Dec</p></div>');
+    expect(html).toContain('<div data-slot="timeline-item-aside" class="flex shrink-0 items-start gap-1 pt-1"><strong>2</strong></div>');
+    // With an aside, the body leaves the third column to it.
+    expect(html).toContain('<div class="flex min-w-0 flex-col">');
   });
 
   it("leaves out the optional parts when absent", () => {
     const html = render([{ key: "a", title: "A" }]);
 
-    for (const slot of ["timeline-time", "timeline-description", "timeline-badges", "timeline-content", "timeline-aside"]) {
-      expect(html).not.toContain(`data-slot="${slot}"`);
+    for (const slot of ["time", "description", "badges", "content", "aside"]) {
+      expect(html).not.toContain(`data-slot="timeline-item-${slot}"`);
     }
   });
 
-  it("runs the rail from the first marker's centre to the last marker's centre", () => {
-    const rails = readRails(render([{ key: "a", title: "A" }, { key: "b", title: "B" }, { key: "c", title: "C" }]));
+  it("gives every entry one rail segment that the first, last and only entry trim by position", () => {
+    const html = render([{ key: "a", title: "A" }, { key: "b", title: "B", size: "compact" }, { key: "c", title: "C" }]);
 
-    expect(rails).toEqual([
-      `${RAIL_BASE} border-solid top-4 bottom-0`,
-      `${RAIL_BASE} border-solid top-0 bottom-0`,
-      `${RAIL_BASE} border-solid top-0 h-4`,
-    ]);
-  });
-
-  it("measures the rail's ends from a compact marker's centre", () => {
-    const rails = readRails(render([{ key: "a", title: "A", size: "compact" }, { key: "b", title: "B", size: "compact" }]));
-
-    expect(rails).toEqual([`${RAIL_BASE} border-solid top-3 bottom-0`, `${RAIL_BASE} border-solid top-0 h-3`]);
+    expect(html.match(/data-slot="timeline-rail"/g)).toHaveLength(3);
+    expect(RAIL).toContain("group-first/timeline-item:top-4");
+    expect(RAIL).toContain("group-last/timeline-item:h-4");
+    expect(RAIL).toContain("group-only/timeline-item:hidden");
   });
 
   it("dashes the rail through a gap entry only", () => {
-    const html = render([{ key: "a", title: "A" }, { key: "gap", title: "No stay", line: "dashed" }, { key: "c", title: "C" }]);
+    const html = render([{ key: "a", title: "A" }, { key: "gap", title: "No stay", line: "dashed" }]);
 
-    expect(readRails(html)).toEqual([
-      `${RAIL_BASE} border-solid top-4 bottom-0`,
-      `${RAIL_BASE} border-dashed top-0 bottom-0`,
-      `${RAIL_BASE} border-solid top-0 h-4`,
-    ]);
-    expect(html).toContain('data-slot="timeline-item" data-size="default" data-color="gray" data-line="dashed"');
+    expect(html).toContain(`data-item="a" data-size="default" data-line="solid"`);
+    expect(html).toContain(`data-item="gap" data-size="default" data-line="dashed"`);
+    expect(html.match(/class="[^"]*border-dashed"/g)).toHaveLength(1);
   });
 
   it("fills a default marker with each palette colour's tag pair and draws its icon", () => {
     for (const color of PALETTE_COLORS) {
       const html = render([{ key: "a", title: "A", color, icon: BedDouble }]);
 
-      expect(html).toContain(`data-color="${color}"`);
-      expect(html).toContain(`<span class="flex size-6 items-center justify-center rounded-full bg-${color}-tag text-${color}-tag-foreground"><svg`);
-      expect(html).toMatch(/<svg[^>]*stroke-width="1.75"[^>]*class="lucide lucide-bed-double size-3.5"/);
+      expect(html).toContain(
+        `data-slot="timeline-marker" data-color="${color}" class="${MARKER_DEFAULT} bg-${color}-tag text-${color}-tag-foreground"><svg`,
+      );
+      expect(html).toMatch(/<svg[^>]*stroke-width="1.75"[^>]*class="lucide lucide-bed-double"/);
     }
   });
 
-  it("draws a compact entry as a coloured icon or a dot on the page background, with tighter text", () => {
-    const withIcon = render([{ key: "move", title: "Train", size: "compact", color: "blue", icon: TrainFront }]);
+  it("draws a compact marker as a coloured icon or dot on the page background, with the time beside the title", () => {
+    const withIcon = render([{ key: "move", time: "09:12", title: "Train", size: "compact", color: "blue", icon: TrainFront }]);
     const withDot = render([{ key: "note", title: "Check-in", size: "compact", color: "orange" }]);
 
-    expect(withIcon).toContain('class="relative mt-0.5 flex h-5 w-6 shrink-0 items-center justify-center"');
-    expect(withIcon).toContain('<span class="flex size-5 items-center justify-center rounded-full bg-background"><svg');
-    expect(withIcon).toMatch(/class="lucide lucide-train-front size-4 text-blue"/);
-    expect(withIcon).toContain('class="relative flex min-w-0 items-start gap-1 pb-1 last:pb-0"');
-    expect(withIcon).toContain('class="flex w-full min-w-0 flex-col items-start gap-0 rounded-md px-2 py-0.5 text-left"');
-    expect(withIcon).toContain('<span data-slot="timeline-title" class="text-small">Train</span>');
-    expect(withDot).toContain(
-      '<span class="flex size-4 items-center justify-center rounded-full bg-background"><span class="size-2 rounded-full bg-orange"></span></span>',
+    expect(withIcon).toContain(`data-color="blue" class="${MARKER_COMPACT} text-blue"><svg`);
+    expect(withIcon).toContain(`data-size="compact" data-line="solid" class="${ITEM} pb-1"`);
+    expect(withIcon).toContain(
+      `<div data-slot="timeline-item-body" class="flex min-w-0 flex-col rounded-md px-2 py-1 text-start"><span class="flex flex-wrap items-baseline gap-x-2">${TITLE}Train</span>${TIME}09:12</span></span>`,
     );
+    expect(withDot).toContain(`data-color="orange" class="${MARKER_COMPACT} text-orange"><span class="rounded-full size-2 bg-orange"></span>`);
   });
 
   it("hides the marker and the rail from assistive technology", () => {
@@ -135,14 +139,14 @@ describe("Timeline", () => {
   });
 
   it("turns the body into a button whose name starts with the action, then the visible words", () => {
-    const html = render([{ key: "a", title: "Lisbon", onSelect: () => undefined, actionLabel: "Open the stay" }]);
+    const html = render([{ key: "a", title: "Lisbon", onSelect: () => undefined, actionLabel: "Show on the map" }]);
 
     expect(html).toContain(
-      '<button type="button" data-slot="timeline-body" class="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1 text-left cursor-pointer transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">' +
-        '<span class="sr-only">Open the stay, </span><span data-slot="timeline-title" class="text-ui-medium">Lisbon</span></button>',
+      `<button type="button" data-slot="timeline-item-body" class="${BODY_DEFAULT} ${BODY_BUTTON}">` +
+        `<span class="sr-only">Show on the map: </span>${TITLE}Lisbon</span></button>`,
     );
-    expect(html).not.toContain("aria-label=\"Open");
-    expect(html).not.toContain('<div data-slot="timeline-body"');
+    expect(html).not.toContain("aria-label=\"Show");
+    expect(html).not.toContain('<div data-slot="timeline-item-body"');
   });
 
   it("keeps the content and the aside outside the body's button", () => {
@@ -156,17 +160,17 @@ describe("Timeline", () => {
         children: <a href="#pay">Pay</a>,
       },
     ]);
-    const body = /<button type="button" data-slot="timeline-body"[^>]*>(.*?)<\/button>/.exec(html)?.[1] ?? "";
+    const body = /<button type="button" data-slot="timeline-item-body"[^>]*>(.*?)<\/button>/.exec(html)?.[1] ?? "";
 
-    expect(body).toBe('<span class="sr-only">Open, </span><span data-slot="timeline-title" class="text-ui-medium">Lisbon</span>');
-    expect(html).toContain('<div data-slot="timeline-aside" class="flex shrink-0 items-center gap-1 pt-1"><button type="button">Marks</button></div>');
-    expect(html).toContain('<div data-slot="timeline-content" class="px-2 pt-1 text-small"><a href="#pay">Pay</a></div>');
+    expect(body).toBe(`<span class="sr-only">Open: </span>${TITLE}Lisbon</span>`);
+    expect(html).toContain('<div data-slot="timeline-item-aside" class="flex shrink-0 items-start gap-1 pt-1"><button type="button">Marks</button></div>');
+    expect(html).toContain('<div data-slot="timeline-item-content" class="px-2 pb-1"><a href="#pay">Pay</a></div>');
   });
 
   it("passes the entry's data attributes without letting them replace its own", () => {
-    const html = render([{ key: "a", title: "A", data: { "data-stay": "s1", "data-slot": "mine", "data-kind": undefined } }]);
+    const html = render([{ key: "a", title: "A", data: { "data-stay": "s1", "data-slot": "mine", "data-item": "x", "data-kind": undefined } }]);
 
-    expect(html).toContain('<li data-stay="s1" data-slot="timeline-item"');
+    expect(html).toContain('<li data-stay="s1" data-slot="timeline-item" data-item="a"');
     expect(html).not.toContain("data-kind");
     expect(html).not.toContain('data-slot="mine"');
   });
@@ -179,4 +183,3 @@ describe("Timeline", () => {
     expect(theme.Timeline).toBe(Timeline);
   });
 });
-

@@ -6,19 +6,19 @@ import { cn } from "../lib/utils.js";
 import { ICON_STROKE_WIDTH } from "./icon-stroke.js";
 import type { PaletteColor } from "./palette.js";
 
-// `default`: a major entry; `compact`: a minor entry between two major ones.
+// `default`: a major entry; `compact`: a minor entry between two major ones (a move between two stays).
 export type TimelineSize = "default" | "compact";
 
 // `dashed`: something is missing through this entry (a gap).
 export type TimelineLine = "solid" | "dashed";
 
-/** The body as a button with its accessible name, or plain text. */
+/** The body as a button, or plain text. */
 export type TimelineSelectProps =
   | {
       readonly onSelect: () => void;
       /**
-       * What the button does ("Open the stay"): the start of its accessible name, for a screen reader only. The
-       * entry's visible words follow it, so the name always contains what a speech-input user sees (WCAG 2.5.3).
+       * What the button does ("Show on the map"): read before the entry's visible words, for a screen reader only, so
+       * the button's name always contains what a speech-input user sees (WCAG 2.5.3).
        */
       readonly actionLabel: string;
     }
@@ -28,27 +28,27 @@ export type TimelineSelectProps =
     };
 
 export type TimelineItem = TimelineSelectProps & {
-  /** React's key for the entry. */
+  /** Unique within the list; kept on the entry as `data-item`. */
   readonly key: string;
   readonly title: ReactNode;
-  /** A muted line above the title, in tabular figures. */
+  /** Muted, in tabular figures: above the title of a default entry, beside the title of a compact one. */
   readonly time?: ReactNode;
   readonly description?: ReactNode;
-  /** A wrapping row under the description: statuses, tags. */
+  /** A wrapping row under the description: statuses and tags, inside the body's button when there is one. */
   readonly badges?: ReactNode;
   /** Drawn at the entry's right edge, outside the body's button, so marks with their own buttons never nest. */
   readonly aside?: ReactNode;
   /** Drawn under the body, outside its button: deadlines, notes. */
   readonly children?: ReactNode;
-  /** Defaults to `default`. */
-  readonly size?: TimelineSize;
+  /** A line icon in the marker; without one the marker shows a dot. */
+  readonly icon?: LucideIcon;
   /** The marker's palette colour, defaults to `gray`. It never stands alone: the entry's words carry the meaning. */
   readonly color?: PaletteColor;
-  /** A line icon in the marker; a compact entry without one shows a dot. */
-  readonly icon?: LucideIcon;
+  /** Defaults to `default`. */
+  readonly size?: TimelineSize;
   /** The rail through this entry; defaults to `solid`. */
   readonly line?: TimelineLine;
-  /** Passed to the entry, for an app's hooks and tests. */
+  /** Passed to the entry, for an app's hooks and tests; the entry's own attributes win. */
   readonly data?: Readonly<Record<`data-${string}`, string | undefined>>;
 };
 
@@ -56,11 +56,12 @@ export interface TimelineProps {
   // The list's accessible name.
   readonly label: string;
   readonly items: readonly TimelineItem[];
+  readonly className?: string;
 }
 
 // Literal class names per colour and size, so Tailwind generates each one (the theme's `@source` covers this folder).
 
-// A major entry's marker: the colour's tag fill.
+// A default marker: the colour's tag fill.
 const MARKER_FILL: Readonly<Record<PaletteColor, string>> = {
   gray: "bg-gray-tag text-gray-tag-foreground",
   brown: "bg-brown-tag text-brown-tag-foreground",
@@ -73,7 +74,7 @@ const MARKER_FILL: Readonly<Record<PaletteColor, string>> = {
   red: "bg-red-tag text-red-tag-foreground",
 };
 
-// A minor entry's icon, in the colour on the page background.
+// A compact marker: the icon in the colour, on the page background.
 const MARKER_TEXT: Readonly<Record<PaletteColor, string>> = {
   gray: "text-gray",
   brown: "text-brown",
@@ -86,7 +87,7 @@ const MARKER_TEXT: Readonly<Record<PaletteColor, string>> = {
   red: "text-red",
 };
 
-// A minor entry's dot.
+// A compact marker without an icon: a dot in the colour.
 const MARKER_DOT: Readonly<Record<PaletteColor, string>> = {
   gray: "bg-gray",
   brown: "bg-brown",
@@ -99,105 +100,81 @@ const MARKER_DOT: Readonly<Record<PaletteColor, string>> = {
   red: "bg-red",
 };
 
-// The marker column: 24 px wide for every size, so the rail runs straight; the box is as tall as the first line.
-const MARKER_BOX: Readonly<Record<TimelineSize, string>> = {
-  default: "relative mt-1 flex size-6 shrink-0 items-center justify-center",
-  compact: "relative mt-0.5 flex h-5 w-6 shrink-0 items-center justify-center",
+// Three columns: the 24 px marker column the rail runs through, the body, the aside.
+const ITEM = "group/timeline-item relative grid grid-cols-[1.5rem_minmax(0,1fr)_auto] gap-x-1";
+
+const ITEM_SPACING: Readonly<Record<TimelineSize, string>> = {
+  default: "pb-2",
+  compact: "pb-1",
 };
 
-// The rail starts at the first marker's centre and ends at the last one's (the marker box's top margin plus half its
-// height).
-const RAIL_FROM_CENTRE: Readonly<Record<TimelineSize, string>> = {
-  default: "top-4",
-  compact: "top-3",
-};
-
-const RAIL_TO_CENTRE: Readonly<Record<TimelineSize, string>> = {
-  default: "h-4",
-  compact: "h-3",
-};
+// The rail through one entry, top to bottom; the first starts and the last ends at its marker's centre (16 px down for
+// both sizes), a single entry has none.
+const RAIL =
+  "absolute top-0 bottom-0 left-3 -translate-x-1/2 border-l-2 border-border group-first/timeline-item:top-4 group-last/timeline-item:bottom-auto group-last/timeline-item:h-4 group-only/timeline-item:hidden";
 
 const RAIL_LINE: Readonly<Record<TimelineLine, string>> = {
   solid: "border-solid",
   dashed: "border-dashed",
 };
 
+// Opaque (the tag fill, or the page background), so the rail never crosses a marker.
+const MARKER: Readonly<Record<TimelineSize, string>> = {
+  default: "relative mt-1 flex size-6 items-center justify-center justify-self-center rounded-full [&>svg]:size-3.5",
+  compact:
+    "relative mt-1.5 flex size-5 items-center justify-center justify-self-center rounded-full bg-background [&>svg]:size-3.5",
+};
+
 const BODY: Readonly<Record<TimelineSize, string>> = {
-  default: "flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1 text-left",
-  compact: "flex w-full min-w-0 flex-col items-start gap-0 rounded-md px-2 py-0.5 text-left",
+  default: "flex min-w-0 flex-col gap-0.5 rounded-md px-2 py-1 text-start",
+  compact: "flex min-w-0 flex-col rounded-md px-2 py-1 text-start",
 };
 
 const BODY_BUTTON =
-  "cursor-pointer transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+  "cursor-pointer text-foreground transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
-const TITLE: Readonly<Record<TimelineSize, string>> = {
-  default: "text-ui-medium",
-  compact: "text-small",
-};
-
-const ITEM: Readonly<Record<TimelineSize, string>> = {
-  default: "relative flex min-w-0 items-start gap-1 pb-2 last:pb-0",
-  compact: "relative flex min-w-0 items-start gap-1 pb-1 last:pb-0",
-};
-
-// The rail through one entry: from its top (or its marker, for the first) to its bottom (or its marker, for the
-// last). A single entry has none.
-function getRailClass({ size, line, index, count }: { size: TimelineSize; line: TimelineLine; index: number; count: number }): string | null {
-  if (count < 2) return null;
-  const isFirst = index === 0;
-  const isLast = index === count - 1;
-  return cn(
-    "absolute left-3 w-0 -translate-x-1/2 border-l border-accent-strong",
-    RAIL_LINE[line],
-    isFirst ? RAIL_FROM_CENTRE[size] : "top-0",
-    isLast ? RAIL_TO_CENTRE[size] : "bottom-0",
-  );
-}
-
-function TimelineMarker({ size, color, icon: Icon }: { size: TimelineSize; color: PaletteColor; icon?: LucideIcon }) {
-  if (size === "default") {
-    return (
-      <span aria-hidden="true" data-slot="timeline-marker" className={MARKER_BOX.default}>
-        <span className={cn("flex size-6 items-center justify-center rounded-full", MARKER_FILL[color])}>
-          {Icon === undefined ? null : <Icon strokeWidth={ICON_STROKE_WIDTH} className="size-3.5" />}
-        </span>
-      </span>
-    );
-  }
+function TimelineMarker({ icon: Icon, color, size }: { icon?: LucideIcon; color: PaletteColor; size: TimelineSize }) {
+  const colorClass = size === "default" ? MARKER_FILL[color] : MARKER_TEXT[color];
+  const dotClass = size === "default" ? "size-2 bg-current" : cn("size-2", MARKER_DOT[color]);
   return (
-    <span aria-hidden="true" data-slot="timeline-marker" className={MARKER_BOX.compact}>
-      {Icon === undefined ? (
-        <span className="flex size-4 items-center justify-center rounded-full bg-background">
-          <span className={cn("size-2 rounded-full", MARKER_DOT[color])} />
-        </span>
-      ) : (
-        <span className="flex size-5 items-center justify-center rounded-full bg-background">
-          <Icon strokeWidth={ICON_STROKE_WIDTH} className={cn("size-4", MARKER_TEXT[color])} />
-        </span>
-      )}
+    <span aria-hidden="true" data-slot="timeline-marker" data-color={color} className={cn(MARKER[size], colorClass)}>
+      {Icon === undefined ? <span className={cn("rounded-full", dotClass)} /> : <Icon strokeWidth={ICON_STROKE_WIDTH} />}
     </span>
   );
 }
 
 function TimelineBody({ item, size }: { item: TimelineItem; size: TimelineSize }) {
+  const time =
+    item.time === undefined ? null : (
+      <span data-slot="timeline-item-time" className="text-small text-muted-foreground tabular-nums">
+        {item.time}
+      </span>
+    );
+  const title = (
+    <span data-slot="timeline-item-title" className="text-ui-medium [overflow-wrap:anywhere]">
+      {item.title}
+    </span>
+  );
   const content = (
     <>
-      {item.actionLabel === undefined ? null : <span className="sr-only">{item.actionLabel}, </span>}
-      {item.time === undefined ? null : (
-        <span data-slot="timeline-time" className="text-small text-muted-foreground tabular-nums">
-          {item.time}
+      {size === "default" ? (
+        <>
+          {time}
+          {title}
+        </>
+      ) : (
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          {title}
+          {time}
         </span>
       )}
-      <span data-slot="timeline-title" className={TITLE[size]}>
-        {item.title}
-      </span>
       {item.description === undefined ? null : (
-        <span data-slot="timeline-description" className="text-small text-muted-foreground">
+        <span data-slot="timeline-item-description" className="text-small text-muted-foreground [overflow-wrap:anywhere]">
           {item.description}
         </span>
       )}
       {item.badges === undefined ? null : (
-        <span data-slot="timeline-badges" className="mt-0.5 flex flex-wrap gap-1">
+        <span data-slot="timeline-item-badges" className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
           {item.badges}
         </span>
       )}
@@ -205,63 +182,62 @@ function TimelineBody({ item, size }: { item: TimelineItem; size: TimelineSize }
   );
   if (item.onSelect === undefined) {
     return (
-      <div data-slot="timeline-body" className={BODY[size]}>
+      <div data-slot="timeline-item-body" className={BODY[size]}>
         {content}
       </div>
     );
   }
   return (
-    <button
-      type="button"
-      data-slot="timeline-body"
-      onClick={item.onSelect}
-      className={cn(BODY[size], BODY_BUTTON)}
-    >
+    <button type="button" data-slot="timeline-item-body" className={cn(BODY[size], BODY_BUTTON)} onClick={item.onSelect}>
+      <span className="sr-only">{`${item.actionLabel}: `}</span>
       {content}
     </button>
   );
 }
 
-// A vertical rail of entries in time: each entry's marker sits on one continuous line that runs from the first
-// marker to the last, then its time, title, description and badges, content under them and an aside at the right
-// edge. A compact entry is a minor step between two major ones; a dashed rail marks a gap. The marker's colour
-// never stands alone: the entry's words carry the meaning, and the marker is hidden from assistive technology.
-export function Timeline({ label, items }: TimelineProps) {
+function TimelineEntry({ item }: { item: TimelineItem }) {
+  const size = item.size ?? "default";
+  const line = item.line ?? "solid";
+  const color = item.color ?? "gray";
   return (
-    <ol aria-label={label} data-slot="timeline" className="flex flex-col">
-      {items.map((item, index) => {
-        const size = item.size ?? "default";
-        const color = item.color ?? "gray";
-        const line = item.line ?? "solid";
-        const railClass = getRailClass({ size, line, index, count: items.length });
-        return (
-          <li
-            key={item.key}
-            {...item.data}
-            data-slot="timeline-item"
-            data-size={size}
-            data-color={color}
-            data-line={line}
-            className={ITEM[size]}
-          >
-            {railClass === null ? null : <span aria-hidden="true" data-slot="timeline-rail" className={railClass} />}
-            <TimelineMarker size={size} color={color} icon={item.icon} />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <TimelineBody item={item} size={size} />
-              {item.children === undefined ? null : (
-                <div data-slot="timeline-content" className="px-2 pt-1 text-small">
-                  {item.children}
-                </div>
-              )}
-            </div>
-            {item.aside === undefined ? null : (
-              <div data-slot="timeline-aside" className="flex shrink-0 items-center gap-1 pt-1">
-                {item.aside}
-              </div>
-            )}
-          </li>
-        );
-      })}
+    <li
+      {...item.data}
+      data-slot="timeline-item"
+      data-item={item.key}
+      data-size={size}
+      data-line={line}
+      className={cn(ITEM, ITEM_SPACING[size])}
+    >
+      <span aria-hidden="true" data-slot="timeline-rail" className={cn(RAIL, RAIL_LINE[line])} />
+      <TimelineMarker icon={item.icon} color={color} size={size} />
+      <div className={cn("flex min-w-0 flex-col", item.aside === undefined && "col-span-2")}>
+        <TimelineBody item={item} size={size} />
+        {item.children === undefined ? null : (
+          <div data-slot="timeline-item-content" className="px-2 pb-1">
+            {item.children}
+          </div>
+        )}
+      </div>
+      {item.aside === undefined ? null : (
+        <div data-slot="timeline-item-aside" className="flex shrink-0 items-start gap-1 pt-1">
+          {item.aside}
+        </div>
+      )}
+    </li>
+  );
+}
+
+// Entries in time on one vertical rail that runs from the first marker to the last: each entry's marker, then its
+// time, title, description and badges, content under them and an aside at the right edge. A compact entry is a minor
+// one between two major ones; a dashed rail marks a gap. The marker's colour never stands alone: the entry's words
+// carry the meaning, and the marker and the rail are hidden from assistive technology. No hooks: without `onSelect`
+// it renders on the server.
+export function Timeline({ label, items, className }: TimelineProps) {
+  return (
+    <ol aria-label={label} data-slot="timeline" className={cn("flex flex-col", className)}>
+      {items.map((item) => (
+        <TimelineEntry key={item.key} item={item} />
+      ))}
     </ol>
   );
 }

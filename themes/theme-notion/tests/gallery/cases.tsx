@@ -1490,7 +1490,7 @@ const NOTION_CASES: readonly GalleryCase[] = [
               </>
             ),
             onSelect: () => undefined,
-            actionLabel: "Open the stay",
+            actionLabel: "Show on the map",
             data: { "data-stay": "lisbon" },
           },
           { key: "gap", time: "6–7 Dec", title: "No stay yet", description: "1 night", color: "orange", line: "dashed" },

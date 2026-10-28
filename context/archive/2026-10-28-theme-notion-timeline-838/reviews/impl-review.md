@@ -23,4 +23,11 @@ Reviewed the branch against plan.md and the acceptance of issue #838.
 - Note for the badges slot: it sits inside the button when `onSelect` is set, so it is for statuses and tags; the
   README says so through "marks go in `aside`".
 
+## Second pass: alignment with the design system card
+
+- The artifact's Timeline card and bundle were already published; the package now renders the same markup and
+  classes (checked against the bundle's `Timeline`), so the sync is a card refresh, not a new component.
+- Static tests rewritten for the card's slots and classes; the behaviour test and axe (four projects) pass; the
+  parity fixture and the four `gallery.png` baselines refreshed; the rendered cases checked in light and dark.
+
 Verdict: approved, no changes.

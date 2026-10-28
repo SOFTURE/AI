@@ -52,7 +52,16 @@ Files: `themes/theme-notion/tests/gallery/cases.tsx`, `themes/theme-notion/tests
   `label-content-name-mismatch` (WCAG 2.5.3, label in name) failed the gallery with an `aria-label` that hid the
   visible words; now the name is "<actionLabel>, <visible words>", so a speech-input user can say what they see.
 
+- Aligned with the design system: the "NOTION · Design System" artifact already carried a Timeline card and a
+  `Timeline` in its bundle (drawn by the adopting app with the issue). The package follows that card exactly, so the
+  two do not drift: slots `timeline-item-*`, `data-item` on the entry, `data-color` on the marker, a 2 px `border`
+  rail trimmed with `group-first`/`group-last`/`group-only` variants (both sizes centre their marker 16 px down), the
+  time beside the title in a compact entry, a dot in a marker without an icon, `className` on the list, and
+  `actionLabel` read as "`actionLabel`: visible words". This replaces the first cut's 1 px `accent-strong` rail,
+  index-based rail classes and `timeline-body` slot names.
+
 ## Progress
 
 - [x] Phase 1: cdc681e
 - [x] Phase 2: d76be36
+- [x] Alignment with the design system card: see the commit after the archive
