@@ -13,6 +13,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `badges`; `details` and `detailsLabel` are now optional together (no table without them). An app that wants the old
   indent adds `isInset`; an app that drew rows "as `FoldRow` is" with its own markup for a custom summary or content
   passes `summary` and `children` and drops its copy of the classes. Existing calls compile unchanged.
+- `StatsFold` (#831): the content spans the heading row's full width by default, with the same left and right edges
+  as the row; it was indented on the left only (`pl-6`), so a card or a full-width bar under the heading sat off-centre.
+  The indented look is the new `isInset` prop (default `false`), which lines the content up with the title after the
+  chevron. The content carries `data-inset="true|false"`. An app that wants the old look passes `isInset`; an app that
+  undid the indent with its own class drops it.
 
 ## 0.5.0
 
