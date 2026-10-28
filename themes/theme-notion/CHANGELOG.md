@@ -13,6 +13,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   hover and the `accent-strong` tint while `aria-expanded="true"`, and a disabled state with muted text at full
   opacity. An app drops its `hover:bg-background hover:bg-linear-to-r hover:from-accent hover:to-accent` workaround
   and uses `variant="floating"` for map and image controls.
+- `StatsFold` (#831): the content spans the heading row's full width by default, with the same left and right edges
+  as the row; it was indented on the left only (`pl-6`), so a card or a full-width bar under the heading sat off-centre.
+  The indented look is the new `isInset` prop (default `false`), which lines the content up with the title after the
+  chevron. The content carries `data-inset="true|false"`. An app that wants the old look passes `isInset`; an app that
+  undid the indent with its own class drops it.
 
 ## 0.5.0
 

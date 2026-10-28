@@ -170,6 +170,8 @@ optional `hint`, optional `aside` tag; `isFullWidth` and `isOneRow` change the g
 the package's 6 px `Progress` under the figure, filled in the card's tone (primary without one) and named by
 `progressLabel` (default: the card's `label`). A card's `icon` (a Lucide icon component) is drawn before the label: 16 px,
 `ICON_STROKE_WIDTH`, the label's muted colour, 6 px apart, `aria-hidden` (the label stays the card's text).
+`StatsFold`'s content spans the heading row's full width (the same left and right edges as the row); `isInset` indents
+it to line up with the title after the chevron.
 
 ```tsx
 <StatsFold title="Summary">
