@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `Button` (#833): the `outline` hover no longer swaps the opaque `bg-background` for the translucent `bg-accent`; the
+  accent is laid over the background as a gradient layer, so an outline button over a map or an image keeps its
+  surface on hover (on the page it looks the same as before). A new `floating` variant is for a button that floats over
+  content: opaque `bg-background` in every state, `text-foreground`, `shadow-menu` and no border, the `accent` tint on
+  hover and the `accent-strong` tint while `aria-expanded="true"`, and a disabled state with muted text at full
+  opacity. An app drops its `hover:bg-background hover:bg-linear-to-r hover:from-accent hover:to-accent` workaround
+  and uses `variant="floating"` for map and image controls.
+
 ## 0.5.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.4` (was `^0.1.3`): the version whose `softure-theme-css` writes `preflight.css`
