@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-floating-button-833
 title: "theme-notion: a Button that stays opaque over a map or an image (issue #833)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 833
 branch: claude/project-thread-i54udz
 created: 2026-10-28
 updated: 2026-10-28
+archived_at: 2026-10-28
 ---
 
 ## Intent

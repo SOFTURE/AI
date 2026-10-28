@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-floating-button-833
-status: planned
+status: archived
 ---
 
 # Plan: theme-notion opaque floating Button (issue #833)
@@ -40,6 +40,6 @@ render-check in light and dark over an image.
 
 ## Progress
 
-- [ ] Phase 1: the component and its tests
-- [ ] Phase 2: docs
-- [ ] Phase 3: design system
+- [x] Phase 1: the component and its tests (acfcba14, theme-notion tests 831/831)
+- [x] Phase 2: docs (7dd0ad3e)
+- [x] Phase 3: design system (artifact versions 25-26, no repository commit)
