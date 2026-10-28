@@ -1256,6 +1256,31 @@ const NOTION_CASES: readonly GalleryCase[] = [
     ),
   },
   {
+    name: "FoldRow[inset]",
+    component: "FoldRow",
+    root: '[data-slot="fold-row"]',
+    render: () => (
+      <FoldRow
+        title="Website redesign"
+        facts={["12 pages"]}
+        badges={[{ key: "paid", text: "Paid", tone: "success" }]}
+        detailsLabel="Project details"
+        details={[{ key: "lead", label: "Lead", value: "Ada" }]}
+        isInset
+      />
+    ),
+  },
+  {
+    name: "FoldRow[summary]",
+    component: "FoldRow",
+    root: '[data-slot="fold-row"]',
+    render: () => (
+      <FoldRow summary={<span className="text-ui-medium">Website redesign</span>}>
+        <p>Pages, owners and deadlines.</p>
+      </FoldRow>
+    ),
+  },
+  {
     name: "MarkPopover",
     component: "MarkPopover",
     root: '[data-slot="mark-popover"]',
