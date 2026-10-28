@@ -1506,7 +1506,7 @@
     ["timeline-item-body","flex min-w-0 flex-col rounded-md px-2 py-1 text-start cursor-pointer text-foreground transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"],
     ["timeline-item-title","text-ui-medium [overflow-wrap:anywhere]"],
     ["timeline-item-time","text-small text-muted-foreground tabular-nums"],
-    ["timeline-item-badges","mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"],
+    ["timeline-item-badges","flex flex-wrap items-center gap-x-3 gap-y-1"],
     ["status","inline-flex w-fit shrink-0 items-center justify-center overflow-hidden rounded-full border border-transparent py-0.5 whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [a&]:hover:bg-accent [a&]:hover:text-accent-foreground gap-1.5 px-0 text-sm font-normal [&>svg]:size-4 text-green"],
     ["badge","inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-gray-tag text-gray-tag-foreground"],
     ["timeline-item-aside","flex shrink-0 items-start gap-1 pt-1"],
@@ -1524,7 +1524,7 @@
     ["timeline-item-body","flex min-w-0 flex-col rounded-md px-2 py-1 text-start"],
     ["timeline-item-title","text-ui-medium [overflow-wrap:anywhere]"],
     ["timeline-item-time","text-small text-muted-foreground tabular-nums"],
-    ["timeline-item-badges","mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"],
+    ["timeline-item-badges","flex flex-wrap items-center gap-x-3 gap-y-1"],
     ["status","inline-flex w-fit shrink-0 items-center justify-center overflow-hidden rounded-full border border-transparent py-0.5 whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [a&]:hover:bg-accent [a&]:hover:text-accent-foreground gap-1.5 px-0 text-sm font-normal [&>svg]:size-4 text-yellow"]
   ],
   "Timeline[size=default]": [
@@ -1542,7 +1542,7 @@
     ["timeline-item-body","flex min-w-0 flex-col gap-0.5 rounded-md px-2 py-1 text-start cursor-pointer text-foreground transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"],
     ["timeline-item-time","text-small text-muted-foreground tabular-nums"],
     ["timeline-item-title","text-ui-medium [overflow-wrap:anywhere]"],
-    ["timeline-item-badges","mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"],
+    ["timeline-item-badges","flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5"],
     ["status","inline-flex w-fit shrink-0 items-center justify-center overflow-hidden rounded-full border border-transparent py-0.5 whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [a&]:hover:bg-accent [a&]:hover:text-accent-foreground gap-1.5 px-0 text-sm font-normal [&>svg]:size-4 text-green"],
     ["badge","inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-gray-tag text-gray-tag-foreground"],
     ["timeline-item-aside","flex shrink-0 items-start gap-1 pt-1"],
@@ -1560,7 +1560,7 @@
     ["timeline-item-body","flex min-w-0 flex-col gap-0.5 rounded-md px-2 py-1 text-start"],
     ["timeline-item-time","text-small text-muted-foreground tabular-nums"],
     ["timeline-item-title","text-ui-medium [overflow-wrap:anywhere]"],
-    ["timeline-item-badges","mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"],
+    ["timeline-item-badges","flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5"],
     ["status","inline-flex w-fit shrink-0 items-center justify-center overflow-hidden rounded-full border border-transparent py-0.5 whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [a&]:hover:bg-accent [a&]:hover:text-accent-foreground gap-1.5 px-0 text-sm font-normal [&>svg]:size-4 text-yellow"]
   ],
   "Toaster": [

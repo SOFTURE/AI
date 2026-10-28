@@ -168,6 +168,18 @@ function TimelineBody({ item, size }: { readonly item: TimelineItem; readonly si
         {item.time}
       </span>
     );
+  const description =
+    item.description === undefined ? null : (
+      <span data-slot="timeline-item-description" className="text-small text-muted-foreground [overflow-wrap:anywhere]">
+        {item.description}
+      </span>
+    );
+  const badges =
+    item.badges === undefined ? null : (
+      <span data-slot="timeline-item-badges" className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", size === "default" && "mt-0.5")}>
+        {item.badges}
+      </span>
+    );
   const content = (
     <>
       {size === "default" ? (
@@ -185,14 +197,18 @@ function TimelineBody({ item, size }: { readonly item: TimelineItem; readonly si
           {time}
         </span>
       )}
-      {item.description === undefined ? null : (
-        <span data-slot="timeline-item-description" className="text-small text-muted-foreground [overflow-wrap:anywhere]">
-          {item.description}
-        </span>
-      )}
-      {item.badges === undefined ? null : (
-        <span data-slot="timeline-item-badges" className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-          {item.badges}
+      {size === "default" ? (
+        <>
+          {description}
+          {badges}
+        </>
+      ) : description === null || badges === null ? (
+        (description ?? badges)
+      ) : (
+        // A minor entry keeps its route and its status on one wrapping line.
+        <span className="flex flex-wrap items-center gap-x-3">
+          {description}
+          {badges}
         </span>
       )}
     </>

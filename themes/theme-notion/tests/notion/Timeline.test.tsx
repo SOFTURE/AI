@@ -107,8 +107,18 @@ describe("Timeline", () => {
     );
 
     expect(readSlot(html, "timeline-item-description")).toEqual(["text-small text-muted-foreground [overflow-wrap:anywhere]"]);
-    expect(readSlot(html, "timeline-item-badges")).toEqual(["mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"]);
+    expect(readSlot(html, "timeline-item-badges")).toEqual(["flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5"]);
     expect(html).toContain('<div data-slot="timeline-item-content" class="px-2 pb-1"><p>Pay by 1 Dec</p></div>');
+  });
+
+  it("keeps a compact entry's description and badges on one wrapping line", () => {
+    const both = renderToStaticMarkup(<Timeline label="Trip" items={[{ key: "move", title: "Train", size: "compact", description: "A → B", badges: <em>Booked</em> }]} />);
+    const routeOnly = renderToStaticMarkup(<Timeline label="Trip" items={[{ key: "move", title: "Train", size: "compact", description: "A → B" }]} />);
+    const badgesOnly = renderToStaticMarkup(<Timeline label="Trip" items={[{ key: "move", title: "Train", size: "compact", badges: <em>Booked</em> }]} />);
+
+    expect(both).toMatch(/<span class="flex flex-wrap items-center gap-x-3"><span data-slot="timeline-item-description"[^>]*>A → B<\/span><span data-slot="timeline-item-badges" class="flex flex-wrap items-center gap-x-3 gap-y-1"><em>Booked<\/em>/);
+    expect(routeOnly).toContain('<span data-slot="timeline-item-description" class="text-small text-muted-foreground [overflow-wrap:anywhere]">A → B</span></div>');
+    expect(badgesOnly).toContain('<span data-slot="timeline-item-badges" class="flex flex-wrap items-center gap-x-3 gap-y-1"><em>Booked</em></span></div>');
   });
 
   it("makes the body a button named by its action and its text that calls onSelect, with the aside beside it and not inside", () => {

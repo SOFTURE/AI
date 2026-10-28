@@ -225,7 +225,7 @@ last: a marker in a palette `color` (`gray` by default) with an optional Lucide 
 (muted, tabular figures), the `title`, an optional muted `description`, an optional `badges` row (statuses, tags) and
 optional `children` under it (deadlines, notes). `size` `default` is a major entry (a 24 px round marker in the colour's
 tag fill, the time above the title); `compact` is a minor entry between two major ones (the icon or a dot in the
-colour on the page, the time after the title). `line: "dashed"` dashes the rail through an entry for something
+colour on the page, the time after the title, the description and badges on one wrapping line). `line: "dashed"` dashes the rail through an entry for something
 missing. With `onSelect` the body is a button; `actionLabel` is read before its visible text ("Show on the map"), so
 the button's name says what it does and still contains every word it shows; `aside` sits at the right edge outside that
 button, so a mark with its own popover never nests in it. The colour never carries a meaning alone: put the state in
