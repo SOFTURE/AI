@@ -161,9 +161,9 @@ const githubProviderSchema = z.strictObject({
   /** The provider's name as the button shows it, e.g. `GitHub`. */
   name: z.string().trim().min(1).max(64),
   /** The environment variable that holds the OAuth App's client id. */
-  clientIdEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GITHUB_AUTH_CLIENT_ID"),
+  clientIdEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GH_AUTH_CLIENT_ID"),
   /** The environment variable that holds the OAuth App's client secret (GitHub's token endpoint always needs it). */
-  clientSecretEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GITHUB_AUTH_CLIENT_SECRET"),
+  clientSecretEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GH_AUTH_CLIENT_SECRET"),
   /** Extra parameters of the authorize URL, e.g. `{ allow_signup: "false", prompt: "select_account" }`. */
   authorizeParams: authorizeParamsSchema,
   ...allowlistShape,

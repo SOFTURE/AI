@@ -16,6 +16,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - Types: `OidcProvider` is now a union of `OpenIdConnectProvider` (`type: "oidc"`, the default for an entry without
   `type`) and `GithubProvider`; code that reads `provider.issuer` narrows on `type` first. The parsed options carry
   `type`. New exports: `OpenIdConnectProvider`, `OpenIdConnectProviderInput`, `GithubProvider`, `GithubProviderInput`.
+- The GitHub sign-in example and the `clientIdEnv`/`clientSecretEnv` hints name `GH_AUTH_CLIENT_ID` and
+  `GH_AUTH_CLIENT_SECRET` (#846): GitHub Actions refuses secret names that start with `GITHUB_`. Any name still parses.
 - The allowlist message reads "a sign-in through a provider is limited to them".
 
 No change for an app: existing entries parse as before, no migration, bucket, route or copy is added. Sign-in through
