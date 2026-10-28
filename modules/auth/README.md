@@ -123,13 +123,13 @@ passwords for one email, from any addresses, block logins to that account for th
 window, the owner's included. Raise its limit if that trade-off is wrong for your app. Auth checks
 at its first call that the buckets it counts in exist and names the missing ones: the three
 `password-reset*` buckets only when `passwordReset.send` is set, `oidc-start` and `oidc-callback` (per client address)
-only with an OpenID Connect provider. A request whose client address
+only with a provider (OpenID Connect or GitHub). A request whose client address
 cannot be resolved is refused (`security.client_unidentified`); the security README shows resolver
 chains for production and for development and test stacks.
 
 ### OpenID Connect sign-in
 
-Sign in with Google, or any OpenID Connect provider, for the accounts of a Workspace domain or a short list of
+Sign in with Google, or any OpenID Connect provider (or GitHub, below), for the accounts of a Workspace domain or a short list of
 emails. Off without providers. With `password: { enabled: false }` it is the only way in: no password, no
 registration form, no outer sign-in in front of the host.
 
@@ -200,6 +200,51 @@ the variables the provider names.
   JWKS, token endpoint, real RS256 or ES256 signatures): pass `fake.definition` as a provider, `fake.fetch` as
   `oidc.fetch` and `fake.env` as the context's `env`; `fake.signIn(authorizeUrl, { subject, email, hostedDomain, name, givenName })`
   answers the callback URL. It can break on purpose (`claims`, `signWith`, `rotateKeys`, `failNext`, `setDiscovery`).
+
+#### GitHub sign-in
+
+GitHub is not an OpenID Connect provider for people (an OAuth App has no discovery document, ID token or keys), so it
+is a provider type of its own in the same list. It shares the button, the route, the cookie, the state and PKCE, the
+`oidc-*` buckets, the allowlist, `auth.identities`, account linking, `onRegistered` and the error codes above; only the
+protocol step differs.
+
+```ts
+auth({
+  password: { enabled: false },
+  oidc: {
+    providers: [
+      {
+        type: "github", // no issuer: GitHub's endpoints are fixed
+        id: "github", // the callback is /api/auth/oidc/github/callback
+        name: "GitHub",
+        clientIdEnv: "GITHUB_AUTH_CLIENT_ID",
+        clientSecretEnv: "GITHUB_AUTH_CLIENT_SECRET", // required: GitHub's token endpoint always needs it
+        allowedEmails: ["owner@example.com"], // or allowedDomains
+        authorizeParams: { allow_signup: "false" }, // optional, sent as they are
+      },
+    ],
+  },
+});
+```
+
+At GitHub, create an OAuth App (Settings, Developer settings, OAuth Apps), set its "Authorization callback URL" to
+`<appOrigin>/api/auth/oidc/<id>/callback` and put its client id and a client secret in the variables above.
+
+- **Flow.** The browser goes to `https://github.com/login/oauth/authorize` with the scopes `read:user user:email`, the
+  state and the PKCE S256 challenge (no nonce). The callback exchanges the code at
+  `https://github.com/login/oauth/access_token` (GitHub answers an OAuth error with status 200, which still fails the
+  sign-in), then reads `GET https://api.github.com/user` and `GET https://api.github.com/user/emails` with the access
+  token. The token is used for those two reads only: it is never stored or logged.
+- **Who may sign in.** Only verified emails count. The primary email is tried first, then any other verified email,
+  and the first one that `allowedEmails` or `allowedDomains` accepts signs in (there is no hosted domain on GitHub).
+  None: `auth.oidc_not_allowed`.
+- **Accounts.** The subject is the numeric GitHub account id, so a renamed login or a changed email keeps the account.
+  The display name is the profile `name`, else the `login`. The log line reads `GitHub sign-in with github failed: …`.
+- **Tests.** `createFakeGithubProvider()` from `@softure-ai/auth/testing` is GitHub in memory (authorize check, token
+  endpoint with PKCE and one-time codes, `/user`, `/user/emails`): pass `fake.definition`, `fake.fetch` and `fake.env`
+  as with the OpenID Connect fake; `fake.signIn(authorizeUrl, { id, login, name, emails: [{ email, verified, primary }] })`
+  answers the callback URL, `{ deny: true }` a refusal, and `failNext` breaks the next calls
+  (`unavailable`, `bad_verification_code`, `user_unavailable`, `emails_unavailable`).
 
 **Without a provider.** OpenID Connect is opt-in: an app chooses its sign-in methods, and with no
 `oidc.providers` nothing of it runs. What such an app still gets, and why it needs nothing:

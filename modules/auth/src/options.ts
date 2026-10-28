@@ -106,47 +106,88 @@ export function isSecureEndpoint(value: string): boolean {
 
 const domainSchema = z.string().trim().toLowerCase().regex(DOMAIN, "must be a lowercase host name such as example.com");
 
+/** Who may sign in through a provider; refined on every provider type. */
+const allowlistShape = {
+  /** Who may sign in: a verified email in one of these domains. */
+  allowedDomains: z.array(domainSchema).default([]),
+  /** Who may sign in: one of these verified emails. */
+  allowedEmails: z.array(adminEmailSchema).default([]),
+  /** A first sign-in of an allowed identity without an account creates one (no password); false only links. */
+  createAccounts: z.boolean().default(true),
+};
+
+const providerIdSchema = z.string().regex(OIDC_PROVIDER_ID_PATTERN, "must be an id such as google (a-z first, then a-z, 0-9 or -, at most 32)");
+const authorizeParamsSchema = z.record(z.string().regex(/^[a-z_]{1,64}$/), z.string().max(512)).default({});
+
+const openIdConnectProviderSchema = z.strictObject({
+  /** Optional: an entry without `type` is an OpenID Connect provider. */
+  type: z.literal("oidc").default("oidc"),
+  /** The provider's id in URLs and in `auth.identities`, e.g. `google`. */
+  id: providerIdSchema,
+  /** The provider's name as the button shows it (`messages.oidc.signInWith`), e.g. `Google`. */
+  name: z.string().trim().min(1).max(64),
+  /** The issuer; its discovery document is `<issuer>/.well-known/openid-configuration`. */
+  issuer: z
+    .string()
+    .refine(isSecureEndpoint, "must be an https URL (http only on localhost)")
+    .transform((issuer) => issuer.replace(/\/+$/, "")),
+  /** The environment variable that holds the client id. */
+  clientIdEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GOOGLE_AUTH_CLIENT_ID"),
+  /** The environment variable that holds the client secret; absent for a public client. */
+  clientSecretEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GOOGLE_AUTH_CLIENT_SECRET").optional(),
+  /** How the client authenticates at the token endpoint: form fields (`client_secret_post`) or HTTP Basic. */
+  clientAuth: z.enum(["body", "basic"]).default("body"),
+  /** Requested scopes; `openid` and `email` are always sent. */
+  scopes: z.array(z.string().regex(/^[\x21\x23-\x5b\x5d-\x7e]{1,128}$/, "must be a scope token")).default([]),
+  /** Extra parameters of the authorize URL, e.g. `{ prompt: "select_account", hd: "example.com" }`. */
+  authorizeParams: authorizeParamsSchema,
+  ...allowlistShape,
+  /**
+   * A domain match also needs the token's `hd` claim to name that domain (a Google Workspace account). Defaults to
+   * true for Google, whose consumer accounts can carry a verified address of any domain.
+   */
+  requireHostedDomain: z.boolean().optional(),
+});
+
+/**
+ * Sign-in with a GitHub OAuth App: not OpenID Connect (no discovery, ID token or keys), so the endpoints are fixed and
+ * the account is read from GitHub's API with the access token, which is not kept. Everything around it (state, PKCE,
+ * cookie, rate limits, callback route, allowlist, identities) is the OpenID Connect sign-in's.
+ */
+const githubProviderSchema = z.strictObject({
+  type: z.literal("github"),
+  /** The provider's id in URLs and in `auth.identities`, e.g. `github`. */
+  id: providerIdSchema,
+  /** The provider's name as the button shows it, e.g. `GitHub`. */
+  name: z.string().trim().min(1).max(64),
+  /** The environment variable that holds the OAuth App's client id. */
+  clientIdEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GITHUB_AUTH_CLIENT_ID"),
+  /** The environment variable that holds the OAuth App's client secret (GitHub's token endpoint always needs it). */
+  clientSecretEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GITHUB_AUTH_CLIENT_SECRET"),
+  /** Extra parameters of the authorize URL, e.g. `{ allow_signup: "false", prompt: "select_account" }`. */
+  authorizeParams: authorizeParamsSchema,
+  ...allowlistShape,
+});
+
 const oidcProviderSchema = z
-  .strictObject({
-    /** The provider's id in URLs and in `auth.identities`, e.g. `google`. */
-    id: z.string().regex(OIDC_PROVIDER_ID_PATTERN, "must be an id such as google (a-z first, then a-z, 0-9 or -, at most 32)"),
-    /** The provider's name as the button shows it (`messages.oidc.signInWith`), e.g. `Google`. */
-    name: z.string().trim().min(1).max(64),
-    /** The issuer; its discovery document is `<issuer>/.well-known/openid-configuration`. */
-    issuer: z
-      .string()
-      .refine(isSecureEndpoint, "must be an https URL (http only on localhost)")
-      .transform((issuer) => issuer.replace(/\/+$/, "")),
-    /** The environment variable that holds the client id. */
-    clientIdEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GOOGLE_AUTH_CLIENT_ID"),
-    /** The environment variable that holds the client secret; absent for a public client. */
-    clientSecretEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GOOGLE_AUTH_CLIENT_SECRET").optional(),
-    /** How the client authenticates at the token endpoint: form fields (`client_secret_post`) or HTTP Basic. */
-    clientAuth: z.enum(["body", "basic"]).default("body"),
-    /** Requested scopes; `openid` and `email` are always sent. */
-    scopes: z.array(z.string().regex(/^[\x21\x23-\x5b\x5d-\x7e]{1,128}$/, "must be a scope token")).default([]),
-    /** Extra parameters of the authorize URL, e.g. `{ prompt: "select_account", hd: "example.com" }`. */
-    authorizeParams: z.record(z.string().regex(/^[a-z_]{1,64}$/), z.string().max(512)).default({}),
-    /** Who may sign in: a verified email in one of these domains. */
-    allowedDomains: z.array(domainSchema).default([]),
-    /** Who may sign in: one of these verified emails. */
-    allowedEmails: z.array(adminEmailSchema).default([]),
-    /**
-     * A domain match also needs the token's `hd` claim to name that domain (a Google Workspace account). Defaults to
-     * true for Google, whose consumer accounts can carry a verified address of any domain.
-     */
-    requireHostedDomain: z.boolean().optional(),
-    /** A first sign-in of an allowed identity without an account creates one (no password); false only links. */
-    createAccounts: z.boolean().default(true),
-  })
-  .transform((provider) => ({ ...provider, requireHostedDomain: provider.requireHostedDomain ?? provider.issuer === GOOGLE_ISSUER }))
+  .discriminatedUnion("type", [openIdConnectProviderSchema, githubProviderSchema])
+  .transform((provider) =>
+    provider.type === "github"
+      ? { ...provider, requireHostedDomain: false as const }
+      : { ...provider, requireHostedDomain: provider.requireHostedDomain ?? provider.issuer === GOOGLE_ISSUER },
+  )
   .refine((provider) => provider.allowedDomains.length + provider.allowedEmails.length > 0, {
-    message: "needs allowedDomains or allowedEmails: an OpenID Connect sign-in is limited to them",
+    message: "needs allowedDomains or allowedEmails: a sign-in through a provider is limited to them",
     path: ["allowedDomains"],
   });
 
 export type OidcProviderInput = z.input<typeof oidcProviderSchema>;
+export type OpenIdConnectProviderInput = z.input<typeof openIdConnectProviderSchema>;
+export type GithubProviderInput = z.input<typeof githubProviderSchema>;
+/** A configured sign-in provider: OpenID Connect (`type: "oidc"`) or GitHub (`type: "github"`). */
 export type OidcProvider = z.output<typeof oidcProviderSchema>;
+export type OpenIdConnectProvider = Extract<OidcProvider, { readonly type: "oidc" }>;
+export type GithubProvider = Extract<OidcProvider, { readonly type: "github" }>;
 
 export const authOptionsSchema = z.strictObject({
   password: z
@@ -234,7 +275,10 @@ export const authOptionsSchema = z.strictObject({
       ttlMinutes: z.number().int().min(5).max(1440).default(60),
     })
     .prefault({}),
-  /** Sign-in with OpenID Connect providers (e.g. Google), limited to allowed domains or emails. Off without providers. */
+  /**
+   * Sign-in with OpenID Connect providers (e.g. Google) or GitHub (`type: "github"`), limited to allowed domains or
+   * emails. Off without providers.
+   */
   oidc: z
     .strictObject({
       providers: z
@@ -243,7 +287,7 @@ export const authOptionsSchema = z.strictObject({
         .default([]),
       /** How long a started sign-in may take at the provider. */
       stateTtlMinutes: z.number().int().min(1).max(60).default(10),
-      /** Timeout of each call to a provider (discovery, keys, token). */
+      /** Timeout of each call to a provider (discovery, keys, token, GitHub's API). */
       httpTimeoutMs: z.number().int().min(1000).max(60_000).default(10_000),
       /** The `fetch` the provider calls go through; tests pass a fake provider's. */
       fetch: z.custom<FetchFunction>((value) => typeof value === "function", "must be a function").optional(),
