@@ -217,8 +217,8 @@ auth({
         type: "github", // no issuer: GitHub's endpoints are fixed
         id: "github", // the callback is /api/auth/oidc/github/callback
         name: "GitHub",
-        clientIdEnv: "GITHUB_AUTH_CLIENT_ID",
-        clientSecretEnv: "GITHUB_AUTH_CLIENT_SECRET", // required: GitHub's token endpoint always needs it
+        clientIdEnv: "GH_AUTH_CLIENT_ID",
+        clientSecretEnv: "GH_AUTH_CLIENT_SECRET", // required: GitHub's token endpoint always needs it
         allowedEmails: ["owner@example.com"], // or allowedDomains
         authorizeParams: { allow_signup: "false" }, // optional, sent as they are
       },
@@ -229,6 +229,8 @@ auth({
 
 At GitHub, create an OAuth App (Settings, Developer settings, OAuth Apps), set its "Authorization callback URL" to
 `<appOrigin>/api/auth/oidc/<id>/callback` and put its client id and a client secret in the variables above.
+Keep the `GITHUB_` prefix off these names: GitHub Actions refuses secret names that start with it, so a deploy
+workflow could not hold them as Environment secrets.
 
 - **Flow.** The browser goes to `https://github.com/login/oauth/authorize` with the scopes `read:user user:email`, the
   state and the PKCE S256 challenge (no nonce). The callback exchanges the code at
