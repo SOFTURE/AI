@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `StatsFold` (#831): the content spans the heading row's full width by default, with the same left and right edges
+  as the row; it was indented on the left only (`pl-6`), so a card or a full-width bar under the heading sat off-centre.
+  The indented look is the new `isInset` prop (default `false`), which lines the content up with the title after the
+  chevron. The content carries `data-inset="true|false"`. An app that wants the old look passes `isInset`; an app that
+  undid the indent with its own class drops it.
+
 ## 0.5.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.4` (was `^0.1.3`): the version whose `softure-theme-css` writes `preflight.css`

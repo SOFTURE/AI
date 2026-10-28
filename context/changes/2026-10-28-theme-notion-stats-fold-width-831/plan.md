@@ -17,8 +17,9 @@ Files: `themes/theme-notion/src/notion/Stats.tsx`, `themes/theme-notion/tests/no
 
 ## Phase 2: docs and gallery
 
-`themes/theme-notion/README.md` (the prop next to the example), `CHANGELOG.md` under `## Unreleased`, the gallery
-case shows both looks.
+`themes/theme-notion/README.md` (the prop next to the example), `CHANGELOG.md` under `## Unreleased`, the parity
+fixture (`tests/fixtures/notion-slots.json`) refreshed. The gallery case keeps the default: the fold is closed there,
+so the visual baselines do not move (checked: 84 visual tests pass unchanged).
 
 ## Phase 3: design system artifact
 

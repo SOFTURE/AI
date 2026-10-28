@@ -18,7 +18,30 @@ describe("StatsFold", () => {
     expect(html).toContain('<summary data-slot="stats-fold-summary"');
     expect(html).toContain('<h2 class="text-ui-medium">Summary</h2>');
     expect(html).toContain("group-open/stats-fold:rotate-90");
-    expect(html).toContain('<div data-slot="stats-fold-content" class="flex flex-col gap-3 pt-2 pb-1 pl-6"><p>figures</p></div>');
+  });
+
+  it("spans the heading row's full width by default, with no horizontal padding on the content (#831)", () => {
+    const html = renderToStaticMarkup(
+      <StatsFold title="Summary">
+        <p>figures</p>
+      </StatsFold>,
+    );
+
+    expect(html).toContain(
+      '<div data-slot="stats-fold-content" data-inset="false" class="flex flex-col gap-3 pt-2 pb-1"><p>figures</p></div>',
+    );
+  });
+
+  it("indents the content to the title after the chevron with isInset (#831)", () => {
+    const html = renderToStaticMarkup(
+      <StatsFold title="Summary" isInset>
+        <p>figures</p>
+      </StatsFold>,
+    );
+
+    expect(html).toContain(
+      '<div data-slot="stats-fold-content" data-inset="true" class="flex flex-col gap-3 pt-2 pb-1 pl-6"><p>figures</p></div>',
+    );
   });
 
   it("adds the caller's class to the fold", () => {
