@@ -42,7 +42,7 @@ FoldRow preview, render-check light and dark, publish.
 
 ## Progress
 
-- [ ] Phase 1: FoldRow
-- [ ] Phase 2: docs
-- [ ] Phase 3: design system artifact
-- [ ] Implementation review
+- [x] Phase 1: FoldRow, b862025 (formatting follow-up in the review commit)
+- [x] Phase 2: docs, 929f75c
+- [x] Phase 3: design system artifact, NOTION · Design System version 24 (bundle built with #831's StatsFold)
+- [x] Implementation review: approved

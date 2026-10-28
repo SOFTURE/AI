@@ -67,28 +67,18 @@ function FoldRowFixedSummary({
   return (
     <>
       {/* The chevron and the title wrap as one: a long title folds onto lines beside its chevron. */}
-      <span
-        data-slot="fold-row-heading"
-        className="flex min-w-0 items-center gap-2"
-      >
+      <span data-slot="fold-row-heading" className="flex min-w-0 items-center gap-2">
         <FoldRowChevron />
         <span className="min-w-0 text-ui-medium">{title}</span>
       </span>
       {facts.map((fact, index) => (
         // Facts have no identity of their own; their order is fixed for one render.
-        <span
-          key={index}
-          data-slot="fold-row-fact"
-          className="text-ui text-muted-foreground"
-        >
+        <span key={index} data-slot="fold-row-fact" className="text-ui text-muted-foreground">
           {fact}
         </span>
       ))}
       {badges.length === 0 ? null : (
-        <span
-          data-slot="fold-row-badges"
-          className="ml-auto inline-flex flex-wrap gap-1"
-        >
+        <span data-slot="fold-row-badges" className="ml-auto inline-flex flex-wrap gap-1">
           {badges.map((badge) => {
             const tone = badge.tone ?? "default";
             return (
@@ -133,11 +123,7 @@ export function FoldRow(props: FoldRowProps) {
         className="flex min-h-row-height cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
       >
         {props.summary === undefined ? (
-          <FoldRowFixedSummary
-            title={props.title}
-            facts={props.facts}
-            badges={props.badges ?? []}
-          />
+          <FoldRowFixedSummary title={props.title} facts={props.facts} badges={props.badges ?? []} />
         ) : (
           <>
             <FoldRowChevron />
@@ -150,13 +136,8 @@ export function FoldRow(props: FoldRowProps) {
           </>
         )}
       </summary>
-      <div
-        data-slot="fold-row-content"
-        className={isInset ? INSET_CONTENT_CLASS : CONTENT_CLASS}
-      >
-        {props.details === undefined ? null : (
-          <DetailTable label={props.detailsLabel} rows={props.details} />
-        )}
+      <div data-slot="fold-row-content" className={isInset ? INSET_CONTENT_CLASS : CONTENT_CLASS}>
+        {props.details === undefined ? null : <DetailTable label={props.detailsLabel} rows={props.details} />}
         {children}
       </div>
     </details>

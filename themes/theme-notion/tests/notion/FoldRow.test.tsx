@@ -6,9 +6,7 @@ import { readTextNodes } from "../support.js";
 import { FoldRow } from "../../src/notion/FoldRow.js";
 
 function readAttribute(html: string, name: string): string[] {
-  return [...html.matchAll(new RegExp(`${name}="([^"]+)"`, "g"))].map(
-    (match) => match[1] ?? "",
-  );
+  return [...html.matchAll(new RegExp(`${name}="([^"]+)"`, "g"))].map((match) => match[1] ?? "");
 }
 
 function readContentClass(html: string): string | undefined {
@@ -51,16 +49,8 @@ describe("FoldRow", () => {
       "fold-row-content",
       "detail-table",
     ]);
-    expect(readAttribute(html, "data-badge")).toEqual([
-      "state",
-      "cost",
-      "area",
-    ]);
-    expect(readAttribute(html, "data-tone")).toEqual([
-      "success",
-      "warning",
-      "default",
-    ]);
+    expect(readAttribute(html, "data-badge")).toEqual(["state", "cost", "area"]);
+    expect(readAttribute(html, "data-tone")).toEqual(["success", "warning", "default"]);
     expect(html).toContain("bg-green-tag");
     expect(html).toContain("bg-orange-tag");
     expect(html).toContain("bg-default-tag");
@@ -81,12 +71,7 @@ describe("FoldRow", () => {
 
   it("leaves out the facts, the badge group and the table when they are empty", () => {
     const html = renderToStaticMarkup(
-      <FoldRow
-        title="Dentist"
-        badges={[]}
-        detailsLabel="Visit details"
-        details={[]}
-      />,
+      <FoldRow title="Dentist" badges={[]} detailsLabel="Visit details" details={[]} />,
     );
 
     expect(readAttribute(html, "data-slot")).toEqual([
@@ -101,12 +86,7 @@ describe("FoldRow", () => {
 
   it("pads the opened content equally on all four sides by default", () => {
     const html = renderToStaticMarkup(
-      <FoldRow
-        title="Dentist"
-        badges={[]}
-        detailsLabel="Visit details"
-        details={[]}
-      />,
+      <FoldRow title="Dentist" badges={[]} detailsLabel="Visit details" details={[]} />,
     );
 
     expect(readContentClass(html)).toBe("flex flex-col gap-2 p-3 empty:hidden");
@@ -115,21 +95,11 @@ describe("FoldRow", () => {
 
   it("indents the opened content under the title with isInset", () => {
     const html = renderToStaticMarkup(
-      <FoldRow
-        title="Dentist"
-        badges={[]}
-        detailsLabel="Visit details"
-        details={[]}
-        isInset
-      />,
+      <FoldRow title="Dentist" badges={[]} detailsLabel="Visit details" details={[]} isInset />,
     );
 
-    expect(readContentClass(html)).toBe(
-      "flex flex-col gap-2 py-2 pr-1 pl-6 empty:hidden",
-    );
-    expect(
-      html.startsWith('<details data-slot="fold-row" data-inset="true"'),
-    ).toBe(true);
+    expect(readContentClass(html)).toBe("flex flex-col gap-2 py-2 pr-1 pl-6 empty:hidden");
+    expect(html.startsWith('<details data-slot="fold-row" data-inset="true"')).toBe(true);
   });
 
   it("renders a summary slot after the chevron in place of the title, facts and badges", () => {
