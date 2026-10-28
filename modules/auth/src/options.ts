@@ -165,7 +165,7 @@ const githubProviderSchema = z.strictObject({
   ...providerFields,
   name: providerFields.name.default("GitHub"),
   /** The environment variable that holds the OAuth App's client secret (GitHub has no public clients). */
-  clientSecretEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GITHUB_AUTH_CLIENT_SECRET"),
+  clientSecretEnv: z.string().regex(ENV_NAME, "must be an environment variable name such as GH_AUTH_CLIENT_SECRET"),
 });
 
 const oidcProviderSchema = z

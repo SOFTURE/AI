@@ -46,7 +46,7 @@ describe("a GitHub provider entry", () => {
     const options = auth({
       oidc: {
         providers: [
-          { type: "github", clientIdEnv: "GITHUB_AUTH_CLIENT_ID", clientSecretEnv: "GITHUB_AUTH_CLIENT_SECRET", allowedEmails: ["Ada@Example.com"] },
+          { type: "github", clientIdEnv: "GH_AUTH_CLIENT_ID", clientSecretEnv: "GH_AUTH_CLIENT_SECRET", allowedEmails: ["Ada@Example.com"] },
           { id: "corp", name: "Corp", issuer: "https://id.example.com", clientIdEnv: "CORP_ID", allowedDomains: ["example.com"] },
         ],
       },
@@ -56,8 +56,8 @@ describe("a GitHub provider entry", () => {
         type: "github",
         id: "github",
         name: "GitHub",
-        clientIdEnv: "GITHUB_AUTH_CLIENT_ID",
-        clientSecretEnv: "GITHUB_AUTH_CLIENT_SECRET",
+        clientIdEnv: "GH_AUTH_CLIENT_ID",
+        clientSecretEnv: "GH_AUTH_CLIENT_SECRET",
         scopes: [],
         authorizeParams: {},
         allowedDomains: [],
@@ -70,8 +70,8 @@ describe("a GitHub provider entry", () => {
   });
 
   it("refuses an entry without a client secret, with an issuer, or without an allowlist", () => {
-    const base = { type: "github" as const, clientIdEnv: "GITHUB_AUTH_CLIENT_ID", clientSecretEnv: "GITHUB_AUTH_CLIENT_SECRET", allowedEmails: ["ada@example.com"] };
-    const withoutSecret = { type: "github" as const, clientIdEnv: "GITHUB_AUTH_CLIENT_ID", allowedEmails: ["ada@example.com"] };
+    const base = { type: "github" as const, clientIdEnv: "GH_AUTH_CLIENT_ID", clientSecretEnv: "GH_AUTH_CLIENT_SECRET", allowedEmails: ["ada@example.com"] };
+    const withoutSecret = { type: "github" as const, clientIdEnv: "GH_AUTH_CLIENT_ID", allowedEmails: ["ada@example.com"] };
     expect(() => auth({ oidc: { providers: [withoutSecret as typeof base] } })).toThrow(/options\.oidc\.providers\.0\.clientSecretEnv/);
     expect(() => auth({ oidc: { providers: [{ ...base, issuer: "https://github.com" } as typeof base] } })).toThrow(/options\.oidc\.providers\.0: Unrecognized key: "issuer"/);
     expect(() => auth({ oidc: { providers: [{ ...base, allowedEmails: [] }] } })).toThrow(/needs allowedDomains or allowedEmails/);

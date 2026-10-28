@@ -217,8 +217,8 @@ auth({
         type: "github", // no issuer: GitHub's endpoints are fixed
         id: "github", // default; the callback is /api/auth/oidc/github/callback
         name: "GitHub", // default
-        clientIdEnv: "GITHUB_AUTH_CLIENT_ID",
-        clientSecretEnv: "GITHUB_AUTH_CLIENT_SECRET", // required: an OAuth App always has a secret
+        clientIdEnv: "GH_AUTH_CLIENT_ID",
+        clientSecretEnv: "GH_AUTH_CLIENT_SECRET", // required: an OAuth App always has a secret
         allowedEmails: ["owner@example.com"], // or allowedDomains
         authorizeParams: { allow_signup: "false" }, // optional, sent as they are
       },
@@ -230,7 +230,8 @@ auth({
 
 At GitHub (Settings, Developer settings, OAuth Apps, New OAuth App): the homepage URL is `appOrigin`, the
 authorization callback URL is `<appOrigin>/api/auth/oidc/<id>/callback`; generate a client secret and put the id and
-the secret in the variables the entry names. An entry without `type` stays an OpenID Connect one.
+the secret in the variables the entry names (not `GITHUB_…`: GitHub Actions refuses secret names with that prefix,
+so a deploy that passes them as secrets could not). An entry without `type` stays an OpenID Connect one.
 
 - **Flow.** The browser goes to `https://github.com/login/oauth/authorize` with `read:user user:email` (plus the
   entry's `scopes`), the state and the PKCE challenge; no nonce is sent. The callback exchanges the code at
@@ -753,7 +754,7 @@ its NFC form fails, then rehashes it in NFC.
 | Name | Required | Meaning |
 | --- | --- | --- |
 | `SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED` | no | `true` / `1` closes registration, `false` / `0` opens it, over the declared default. Any other value closes it and logs the variable name. When the app defines the switch in `@softure-ai/feature-switches`, that module reads this variable by its own rules (`on` / `off` too; an unreadable value gives the fail mode). |
-| `<clientIdEnv>`, `<clientSecretEnv>` | with `oidc` | The client id and secret of each OpenID Connect provider or GitHub OAuth App, under the names its entry declares (e.g. `GOOGLE_AUTH_CLIENT_ID`, `GITHUB_AUTH_CLIENT_SECRET`). A missing one fails the sign-in and logs the variable's name. |
+| `<clientIdEnv>`, `<clientSecretEnv>` | with `oidc` | The client id and secret of each OpenID Connect provider or GitHub OAuth App, under the names its entry declares (e.g. `GOOGLE_AUTH_CLIENT_ID`, `GH_AUTH_CLIENT_SECRET`). A missing one fails the sign-in and logs the variable's name. |
 | `SEED_EMAIL`, `SEED_PASSWORD` | for `runSeedAccount` | The development account the seed entry creates (section 4, "Development seed"). |
 
 ## 7. Switches
