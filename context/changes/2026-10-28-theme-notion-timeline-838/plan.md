@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-timeline-838
-status: planned
+status: done
 ---
 
 # Plan: theme-notion Timeline (issue #838)
@@ -55,4 +55,4 @@ Files: `themes/theme-notion/tests/gallery/cases.tsx`, `themes/theme-notion/tests
 ## Progress
 
 - [x] Phase 1: cdc681e
-- [ ] Phase 2
+- [x] Phase 2: d76be36
