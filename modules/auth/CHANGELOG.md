@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
-## Unreleased
+## 0.2.9
 
 - Sign in with GitHub (#840): a provider entry `{ type: "github", id, name, clientIdEnv, clientSecretEnv,
   allowedEmails | allowedDomains }` in `oidc.providers`. GitHub is an OAuth App, not OpenID Connect: the endpoints are
