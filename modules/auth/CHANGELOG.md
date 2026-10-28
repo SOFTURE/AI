@@ -4,6 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- Sign in with GitHub (#840): a provider entry `{ type: "github", id, name, clientIdEnv, clientSecretEnv,
+  allowedEmails | allowedDomains }` in `oidc.providers`. GitHub is an OAuth App, not OpenID Connect: the endpoints are
+  fixed, and the account is read from GitHub's API (`/user`, `/user/emails`) with an access token that is never
+  stored. The subject is the numeric account id; only verified emails count, primary first. Everything else is the
+  OpenID Connect sign-in's: state, PKCE, cookie, `oidc-*` buckets, callback route, allowlist, `auth.identities`,
+  linking, `onRegistered`, error codes. `createFakeGithubProvider` in `@softure-ai/auth/testing` tests it without
+  network. README section 3, "GitHub sign-in".
+- Types: `OidcProvider` is now a union of `OpenIdConnectProvider` (`type: "oidc"`, the default for an entry without
+  `type`) and `GithubProvider`; code that reads `provider.issuer` narrows on `type` first. The parsed options carry
+  `type`. New exports: `OpenIdConnectProvider`, `OpenIdConnectProviderInput`, `GithubProvider`, `GithubProviderInput`.
+- The allowlist message reads "a sign-in through a provider is limited to them".
+
+No change for an app: existing entries parse as before, no migration, bucket, route or copy is added. Sign-in through
+a provider stays opt-in.
+
 ## 0.2.8
 
 - OpenID Connect stays opt-in, now stated and tested (#786). An app without `oidc.providers` runs none of it. On a bump
