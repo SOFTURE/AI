@@ -1,7 +1,7 @@
 # @softure-ai/pwa
 
 An installable Next.js app that works offline: the web app manifest, the icons, a service worker served from a route,
-the new-build update flow and the online state. The app keeps only what is its own: its copy, its offline page and its
+the new-build update flow, the install offer for phones and the online state. The app keeps only what is its own: its copy, its offline page and its
 mark.
 
 ## 1. What it provides
@@ -37,6 +37,17 @@ mark.
   return to the foreground; no worker under `next dev`; a failed registration is reported and the app keeps working.
   The prompt is a theme component (`UpdatePrompt` in `@softure-ai/theme-notion`).
 - **The build version**: `.next/BUILD_ID`, read once per process, `dev` without a build.
+- **The install offer for phones** (`useInstallOffer({ app })`): Chromium's `beforeinstallprompt` is kept from the
+  moment `@softure-ai/pwa/react` loads (it often fires before hydration), with `preventDefault()` to stop the
+  browser's mini bar, and forgotten on `appinstalled` (`installPromptStore`, a `useSyncExternalStore` store with a
+  `null` server snapshot; `openInstallPrompt()` uses it once and answers whether the sheet opened). The offer is a pure
+  function, `pickInstallOffer({ isIos, isPhone, isInstalled, isClosed, hasPrompt })` → `"ios_steps"`,
+  `"browser_prompt"` or `"none"`: an iOS device (an iPad reporting a Mac user agent too) gets the steps, a phone with a
+  kept prompt gets the prompt, a desktop and the installed app never get an offer. The device facts are
+  `isIosDevice`, `isPhoneDevice` (`navigator.userAgentData.mobile` where present, else `Mobi|Android`) and
+  `isInstalledApp` (`display-mode: standalone` or iOS `navigator.standalone`). Closing it is remembered per device in
+  `localStorage` under `<app>:pwa-install-closed`; a blocked storage shows the offer, a refused write closes it for the
+  open page only. The bar is a theme component (`InstallBar` in `@softure-ai/theme-notion`).
 - **`useIsOnline()`** over `navigator.onLine` (the server render counts as online).
 - **Clearing the device on sign-out**: a registry of what the device keeps for the signed-in user
   (`registerDeviceData`, for the app and its modules) and `clearDeviceData()`, which clears every part and the pages
@@ -144,6 +155,24 @@ and icon its HTML names; if it answers anything but a 200 HTML page, the install
 
 Without React, `watchServiceWorker({ onUpdateReady, onError })` runs the same flow and returns `{ activate, stop }`.
 
+The install offer, in the same kind of client component (`app` is the same id as the service worker route's):
+
+```tsx
+"use client";
+import type { PwaMessages } from "@softure-ai/pwa";
+import { useInstallOffer } from "@softure-ai/pwa/react";
+import { InstallBar } from "@softure-ai/theme-notion";
+export function AppInstall({ messages }: { messages: PwaMessages }) {
+  const { offer, install, close } = useInstallOffer({ app: "fire" });
+  return <InstallBar offer={offer} onInstall={() => void install()} onClose={close} {...messages.install} />;
+}
+```
+
+The kept prompt listens from the moment `@softure-ai/pwa/react` loads: import it from a client component rendered by
+the root layout, so the module is in the first page's bundle. Without React, `installPromptStore` (`subscribe`,
+`getSnapshot`) and `openInstallPrompt()` give the same prompt, and `pickInstallOffer` with the device facts and
+`isInstallOfferClosed(getInstallOfferKey(app))` the same offer.
+
 ## 5. Migrations and tables
 
 None. The package has no database.
@@ -160,11 +189,13 @@ None.
 
 The package draws nothing on the page. The icons take the theme's colours (`tone`, `primary` by default, through
 theme-kit's `drawAppIcon`), the manifest the theme's `background` value. The update prompt is the theme's
-`UpdatePrompt`.
+`UpdatePrompt`, the install bar its `InstallBar`.
 
 ## 9. Copy
 
-`pwaMessages.en.update`: `title`, `description`, `reload`, the update prompt's copy. The manifest's `name`,
+`pwaMessages.en.update`: `title`, `description`, `reload`, the update prompt's copy. `pwaMessages.en.install`: `title`,
+`description`, `install` (the prompt button), `shareStep` and `addStep` (the iOS steps), `close` (the close button's
+accessible name), the install bar's copy. The manifest's `name`,
 `shortName` and `description` are the app's own copy, passed to `createManifestRoute`.
 
 ## 10. Hooks
@@ -172,6 +203,9 @@ theme-kit's `drawAppIcon`), the manifest the theme's `background` value. The upd
 - `useServiceWorkerUpdate({ onError })`: a failed registration (default: `console.error`; the app keeps working).
 - `watchServiceWorker({ onUpdateReady, onError, container, visibility, reload, isDevelopment })`: every browser
   dependency is injectable for tests.
+- `useInstallOffer({ app, store })`: `store` replaces the page's `installPromptStore` (tests, or a store over another
+  event target from `createInstallPromptStore(target)`). The device facts and the storage helpers take the navigator,
+  the window and the storage as arguments, the browser's own by default.
 - `extraOrigins`: the worker's extension point for another origin with its own cache.
 - A page sends the worker `{ type: "clear-pages" }` to drop the kept pages (e.g. on sign-out).
 - `registerDeviceData({ caches?, indexedDb?, storageKeys? })`: what the device keeps for the signed-in user. `caches`
@@ -227,10 +261,12 @@ session cookie.
   `Cache-Control: no-cache` and `Service-Worker-Allowed: /`; keep both headers.
 - The worker keeps pages only after a visit; a page never opened online is the offline page.
 - An excluded prefix is untouched: those pages show the browser's own offline error.
-- Not in this package (filed): the install offer (#873), Playwright helpers for installed-app checks (#875).
+- The install offer covers Chromium's prompt and iOS Safari's steps. Other browsers (Firefox on Android, Samsung
+  Internet without the prompt) get no offer; their own menu still installs the app.
 - `clearDeviceData` clears only what was registered and the current build's kept pages; a database another tab holds
   open is reported as failed and deleted by the browser once that tab closes it. A sign-out on another device or in
   another browser clears nothing here.
+- Not in this package (filed): Playwright helpers for installed-app checks (#875).
 
 ## Build
 

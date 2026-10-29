@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/pwa",
   "version": "0.0.0",
-  "description": "SOFTURE AI pwa module: an installable app that works offline. The web app manifest from the theme's token values, the icon registry and its route, a service worker served from a route and generated from one testable function, the new-build update flow, the build version and useIsOnline.",
+  "description": "SOFTURE AI pwa module: an installable app that works offline. The web app manifest from the theme's token values, the icon registry and its route, a service worker served from a route and generated from one testable function, the new-build update flow, the install offer for phones, the build version and useIsOnline.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

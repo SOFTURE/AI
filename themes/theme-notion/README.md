@@ -138,7 +138,8 @@ list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filte
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
 `MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
-`UpdatePrompt` (the offer to reload into a new build, for an installed app, below).
+`UpdatePrompt` (the offer to reload into a new build, for an installed app, below),
+`InstallBar` (the offer to install the app on a phone, below).
 
 **Touch sizes.** The controls a phone view taps most reach the `touch-target` token (44 px, Apple's HIG and WCAG
 2.5.5): `Button` sizes `touch` (44 px high, padded like `lg`) and `icon-touch` (44 × 44), `SelectTrigger`
@@ -398,6 +399,17 @@ keyed like `pwaMessages.en.update`; `data-slot="update-prompt"` marks the root.
 ```tsx
 const { isUpdateReady, activate } = useServiceWorkerUpdate(); // @softure-ai/pwa/react
 <UpdatePrompt open={isUpdateReady} onReload={activate} {...messages.update} />
+```
+
+**`InstallBar`.** The offer to install the app on a phone, for an app on `@softure-ai/pwa`: a floating `Alert` like
+`UpdatePrompt` (bottom of the screen, inside the safe-area insets, `max-w-md`), with the browser's install `Button` at
+the touch height for `offer="browser_prompt"`, or the two iOS steps with their icons (Share, then Add to Home Screen)
+for `offer="ios_steps"`, and a ghost close `Button` at `icon-touch` (`md:size-7` on a desktop) labelled by `close`. It
+is a polite `status` and draws nothing for `offer="none"`. The copy is props, keyed like `pwaMessages.en.install`:
+
+```tsx
+const { offer, install, close } = useInstallOffer({ app: "fire" }); // @softure-ai/pwa/react
+<InstallBar offer={offer} onInstall={() => void install()} onClose={close} {...messages.install} />
 ```
 
 **`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and
