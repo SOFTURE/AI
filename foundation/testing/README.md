@@ -290,6 +290,63 @@ test("a saved entry is stored once", async ({ page }) => {
 own `testing` export, which knows its schema and invariants (`@softure-ai/mailing/testing` reads the
 fake outbox, for example). This package keeps what every app shares: unique names, `withDatabase` and the raw test database client.
 
+### Installed app and phone checks
+
+An installable app checks what a phone user sees: the app opened from the home screen, the status bar and the home
+indicator over the page, a slow network and CPU, no network at all, and controls a finger can hit. The helpers that
+need CDP (`emulateSafeAreaInsets`, `throttleLikePhone`) are Chromium only and fail naming the helper on another
+browser; the rest work in every browser.
+
+```ts
+import {
+  emulateInstalledApp,
+  emulateSafeAreaInsets,
+  expect,
+  expectClearOfSafeAreaInsets,
+  expectLoadWithin,
+  expectTouchTargets,
+  expectWorksOffline,
+  IPHONE_SAFE_AREA,
+  test,
+  throttleLikePhone,
+} from "@softure-ai/testing/playwright";
+
+test.use({ viewport: IPHONE_SAFE_AREA.viewport, hasTouch: true, isMobile: true });
+
+test.beforeEach(async ({ context, page }) => {
+  await emulateInstalledApp(context);
+  await emulateSafeAreaInsets(page, IPHONE_SAFE_AREA.insets);
+});
+
+test("the installed app keeps its bars clear of the status bar and the home indicator", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Install" })).toHaveCount(0);
+  await expectClearOfSafeAreaInsets(page.getByRole("navigation").getByRole("link"), IPHONE_SAFE_AREA.insets);
+  await expectTouchTargets(page.getByRole("navigation"));
+});
+
+test("the start page loads within 3 s on a slow phone", async ({ context, page }) => {
+  await throttleLikePhone(context, page, "SLOW_4G");
+  await expectLoadWithin(page, "/", 3000);
+});
+
+test("the app opens offline", async ({ page }) => {
+  await expectWorksOffline(page, { path: "/", answer: page.getByRole("heading", { name: "Today" }) });
+  await expectWorksOffline(page, { path: "/", offlinePath: "/never-visited", answer: page.getByText("You are offline") });
+});
+```
+
+| Export | What it does |
+| --- | --- |
+| `emulateInstalledApp(contextOrPage)` | An init script: iOS's `navigator.standalone` is `true` and `display-mode` reads `standalone` in `matchMedia` and in same-origin style sheets, added later ones included (Chromium's CDP cannot emulate `display-mode`, so the script rewrites the media conditions; cross-origin sheets keep their own answer). Call it before the page opens. |
+| `emulateSafeAreaInsets(page, insets)`, `IPHONE_SAFE_AREA` | Sets `env(safe-area-inset-*)` over CDP (the page needs `viewport-fit=cover`). `IPHONE_SAFE_AREA` is an iPhone in portrait: viewport 390 × 844, insets 47 top and 34 bottom. Chromium only. |
+| `expectClearOfSafeAreaInsets(controls, insets, { colorSchemes? })` | No visible element of the locator overlaps an inset band, checked in light and dark by default (the scheme goes back to the context's after). Reads the current scroll position: the fixed bars are what it is for. The failure lists each element, its position, the band and the scheme. |
+| `throttleLikePhone(context, page, profile?, { cpuSlowdown? })` | The phone's network (`"SLOW_4G"` by default, `"FAST_4G"` or a `{ latencyMs, downloadThroughput, uploadThroughput }` in bytes per second) and a 4× slower CPU over CDP; returns `{ release() }`. Chromium only. |
+| `PHONE_NETWORK_PROFILES`, `PHONE_CPU_SLOWDOWN` | Chrome DevTools' "Fast 4G" and "Slow 4G" presets, and Lighthouse's mid-range phone CPU slowdown (4). |
+| `expectLoadWithin(page, path, budgetMs, { event? })` | Opens `path` and asserts navigation timing reached `load` (or `domcontentloaded`) within the budget; returns the measured ms. |
+| `expectWorksOffline(page, { path, answer, offlinePath?, timeout? })` | Opens `path`, waits until a service worker controls the page (reloading once for a worker that does not claim its first page), goes offline, reloads (or opens `offlinePath`) and expects `answer` visible; back online whatever happens. |
+| `expectTouchTargets(scope, { minSize?, controls? })`, `TOUCH_TARGET_PX`, `TAPPABLE_SELECTOR` | Every visible tappable control (links, buttons, form controls, their ARIA roles) in a page or locator is at least 44 × 44 px, the themes' touch target; `controls` checks a locator of your own. The failure lists each control with its size. |
+
 ## Source guards
 
 `@softure-ai/testing/guards`, for the architecture tests of a package or an app: rules no linter states,

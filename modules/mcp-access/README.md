@@ -43,7 +43,8 @@ limit check made race-free.
 - Tokens an app issued before adopting the module keep working through `legacyTokenPattern`.
 - Server functions for scripts and other hosts, and a health check for `GET /api/health`.
 - For the app's own server: tool result helpers with a safe error boundary and server actions as write tools
-  (`/server`), a stdio entry for local assistants (`/stdio`), a catalog parity check (`/testing`), a gate before a
+  (`/server`), a server factory whose version follows the tool list, so clients drop a stale cached `tools/list`
+  (`createMcpServerFactory`, `measureToolList`, `/server`), a stdio entry for local assistants (`/stdio`), a catalog parity check (`/testing`), a gate before a
   token is issued (`issueToken`, `/next`) and the `softure-mcp prune` command for a daily cleanup (§4, §5).
 
 ## 2. Installation
@@ -146,6 +147,38 @@ is true. GET and DELETE are not exported, so Next answers them with 405: the end
 Answers to 2025-era clients come as one SSE `message` event, to 2026-07-28 clients as plain JSON;
 mid-call notifications (progress, logging) are dropped. Keep `/api/mcp` out of a proxy guard that
 redirects to the login page: the endpoint authenticates by token, not by cookie.
+
+### A version that follows the tool list
+
+MCP clients keep their cached `tools/list` until the server version they read at `initialize` changes, so a
+release that adds a tool or changes a schema under the same `version` leaves the assistant on the old schemas.
+`createMcpServerFactory` builds the factory with a version derived from the tools:
+
+```ts
+// lib/mcp-server.ts
+import { createMcpServerFactory } from "@softure-ai/mcp-access/server";
+
+export const createServer = createMcpServerFactory({
+  name: "acme",
+  release: "2.1.0", // optional, default 1.0.0
+  registerTools: (server, { userId, canWrite }) => {
+    server.registerTool("list_orders", { description: "Lists your orders." }, () => listOrders(userId));
+    if (canWrite) server.registerTool("cancel_order", { ... }, (input) => cancelOrder(userId, input));
+  },
+});
+```
+
+- The version is `<release>-tools-<12 hex>`, a semver prerelease (comparisons ignore build metadata). The hex is a
+  sha256 of every tool as `tools/list` serves it (name, title, description, annotations, input and output JSON
+  Schema), in name order with keys sorted: the same registrations always give the same version, any change of a
+  name, description or schema changes it, a different registration order does not.
+- It is measured once per access level, on a recording server with the same name and `serverOptions`, so a
+  read-only token gets the version of its smaller list. The list may depend on `canWrite` only; for one that depends
+  on the account, call `measureToolList(registerTools, { release, name })` → `{ toolListVersion, toolCount }` per
+  server instead. `version` passes a fixed value instead of the measured one.
+- In the app's tests, `measureServedToolLists(createServer)` (`/testing`) gives `{ read, write }` with the version
+  and count of each level, for an inline snapshot next to the catalog check: a schema change that forgets to update
+  the snapshot fails the test.
 
 ### Writing tools
 
