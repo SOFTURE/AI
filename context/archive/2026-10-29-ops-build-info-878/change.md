@@ -1,12 +1,13 @@
 ---
 change_id: ops-build-info-878
 title: "ops, deploy: build info (release, commit, built and started times) and a smoke check that production runs the released tag (issue #878)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 878
 branch: claude/project-thread-0g1cpe
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent

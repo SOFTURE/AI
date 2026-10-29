@@ -1,6 +1,6 @@
 ---
 change_id: ops-build-info-878
-status: in_progress
+status: done
 ---
 
 # Plan: build info and the deploy smoke check (issue #878)
@@ -62,11 +62,15 @@ ops README (build info section, env vars), deploy README (smoke, changelog), bot
 - The commit check accepts a short build commit (7+ hex) that prefixes the tag's commit.
 - No version bump: the coordinator releases (`deploy-cli-version` defaults follow in the release).
 - MCP `get_server_info` is left for the follow-up after #877.
+- Measured: `next build` of the example app (Next 16, Turbopack) inlines `SOFTURE_BUILD_COMMIT` and
+  `SOFTURE_BUILD_TIME` into the bundled ops code (no `process.env.SOFTURE_BUILD_*` read left in `.next/server`), and
+  `next start` with `SOFTURE_RELEASE=v9.9.9` answered `{"release":"v9.9.9","commit":"e247efb…","builtAt":…,
+  "startedAt":…}` with `cache-control: no-store`; `/api/health/build` is listed as dynamic (ƒ).
 
 ## Progress
 
-- [ ] Phase 1: ops build info
-- [ ] Phase 2: deploy CLI
-- [ ] Phase 3: action, workflows, templates, example app
-- [ ] Phase 4: docs
-- [ ] Implementation review
+- [x] Phase 1: ops build info, e139c76
+- [x] Phase 2: deploy CLI, 73387a0
+- [x] Phase 3: action, workflows, templates, example app, 7f3dc45
+- [x] Phase 4: docs, e247efb
+- [x] Implementation review: approved
