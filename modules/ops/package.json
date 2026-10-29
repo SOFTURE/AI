@@ -42,6 +42,11 @@
       "types": "./dist/next/index.d.ts",
       "default": "./dist/next/index.js"
     },
+    "./next-config": {
+      "@softure-ai/source": "./src/next-config/index.ts",
+      "types": "./dist/next-config/index.d.ts",
+      "default": "./dist/next-config/index.js"
+    },
     "./scripts": {
       "@softure-ai/source": "./src/scripts/index.ts",
       "types": "./dist/scripts/index.d.ts",

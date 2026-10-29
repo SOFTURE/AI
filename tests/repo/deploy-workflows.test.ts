@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { REPO_ROOT } from "./repo-files.js";
 
@@ -417,7 +417,10 @@ describe("the deploy and verify jobs of deploy-app.yml run the deploy action of 
     const deployJob = workflow.jobs.deploy as Job & { outputs?: Record<string, string>; if?: string };
     expect(deployJob.permissions).toEqual({ contents: "read", packages: "read" });
     expect(deployJob.if).toBe("inputs.deploy");
-    expect(deployJob.outputs).toEqual({ "server-lines": "${{ steps.send.outputs.server-lines }}" });
+    expect(deployJob.outputs).toEqual({
+      "server-lines": "${{ steps.send.outputs.server-lines }}",
+      "sent-at": "${{ steps.send.outputs.sent-at }}",
+    });
     const send = deployJob.steps?.find((step) => step.id === "send");
     expect(send?.uses).toBe("./.softure-ai-deploy/.github/actions/deploy");
     expect(send?.with).toMatchObject({
@@ -442,8 +445,11 @@ describe("the deploy and verify jobs of deploy-app.yml run the deploy action of 
       report: false,
       "origin-address": "${{ inputs.origin-address-var != '' && fromJSON(inputs.app-vars)[inputs.origin-address-var] || secrets.origin-address }}",
       "verify-env": "${{ secrets.verify-env }}",
+      "build-info-path": "${{ inputs.build-info-path }}",
+      "deployed-at": "${{ needs.deploy.outputs.sent-at }}",
     });
     expect(inputs["deploy-config"]?.default).toBe("deploy.json");
+    expect(inputs["build-info-path"]).toMatchObject({ type: "string", default: "" });
   });
 });
 
@@ -532,7 +538,8 @@ describe("the release guards of deploy-app.yml (DF-11)", () => {
 
   it("passes build-args to the image build", () => {
     expect(inputs["build-args"]).toMatchObject({ type: "string", default: "" });
-    expect(build?.with?.["build-args"]).toBe("${{ inputs.build-args }}");
+    // Then the tag's commit for the build info (issue #878).
+    expect(build?.with?.["build-args"]).toBe("${{ inputs.build-args }}\nSOFTURE_BUILD_COMMIT=${{ needs.check.outputs.sha }}\n");
   });
 });
 
@@ -794,6 +801,8 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
       report: false,
       "deploy-cli": "${{ format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) }}",
       "ca-file": "${{ steps.e2e-server.outputs.ca-file }}",
+      "build-info-path": "${{ inputs.build-info-path }}",
+      "deployed-at": "${{ steps.send.outputs.sent-at }}",
     });
     const verify = readAction().runs.steps.find((step) => step.name === "Verify the routes in deploy.json");
     expect(verify?.env).toMatchObject({ NODE_EXTRA_CA_CERTS: "${{ inputs.ca-file }}" });
@@ -1069,7 +1078,7 @@ describe("the preflight of the deploy action (issue #628)", () => {
     const either = "inputs.send == 'true' || inputs.preflight == 'true'";
     expect(steps.find((step) => step.uses?.startsWith("actions/checkout@") === true)?.if).toBe(either);
     expect(steps.find((step) => step.uses?.startsWith("actions/setup-node@") === true)?.if).toBe(
-      `${either} || (inputs.verify == 'true' && steps.release.outputs.deploy-config != '')`,
+      `${either} || (inputs.verify == 'true' && (steps.release.outputs.deploy-config != '' || inputs.build-info-path != ''))`,
     );
     expect(steps.find((step) => step.name === "Render .env.prod")?.if).toBe(either);
     expect(check?.if).toBe(either);
@@ -2144,7 +2153,11 @@ describe("deploy-release-image.yml (issue #406)", () => {
     const checkout = (job?.steps ?? []).find((step) => step.uses?.startsWith("actions/checkout@") === true);
     expect(checkout?.with).toMatchObject({ ref: "${{ inputs.ref }}", "persist-credentials": false });
     const push = (job?.steps ?? []).find((step) => step.uses?.startsWith("docker/build-push-action@") === true);
-    expect(push?.with).toMatchObject({ push: true, tags: "${{ steps.ref.outputs.tagged }}", "build-args": "${{ inputs.build-args }}" });
+    expect(push?.with).toMatchObject({
+      push: true,
+      tags: "${{ steps.ref.outputs.tagged }}",
+      "build-args": "${{ inputs.build-args }}\nSOFTURE_BUILD_COMMIT=${{ inputs.ref }}\n",
+    });
   });
 
   it("hands the image on by digest, the form deploy-app.yml's prebuilt-image takes", () => {
@@ -2323,5 +2336,165 @@ describe("the example release-notes caller (issue #406)", () => {
     expect(job.uses).toBe("SOFTURE/AI/.github/workflows/deploy-release-notes.yml@master");
     expect(job.with).toEqual({ tag: "${{ inputs.tag }}", body: "${{ inputs.body }}", "keep-report": "${{ inputs.keep-report }}" });
     expect(caller.permissions).toEqual({ contents: "write" });
+  });
+});
+
+describe("the smoke check of deploy-app.yml and the deploy action (issue #878)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const inputs = getWorkflowCall(workflow).inputs ?? {};
+  const checkStep = workflow.jobs.check?.steps?.[0];
+  const action = readAction();
+  const smoke = action.runs.steps.find((step) => step.id === "smoke");
+  const smokeIndex = action.runs.steps.findIndex((step) => step.id === "smoke");
+  const ENV: Record<string, string> = {
+    TAG: "v1.2.3",
+    APP_URL: "https://example.com",
+    IMAGE: "",
+    BUILD_CONTEXT: ".",
+    DOCKERFILE: "Dockerfile",
+    COMPOSE_FILE: "docker/prod/docker-compose.yml",
+    SERVER_SCRIPT: "docker/server/deploy.sh",
+    DEPLOY_ENVIRONMENT: "production",
+    REMOTE_COMMAND: "deploy",
+    SSH_PORT: "22",
+    HEALTH_PATH: "/api/health",
+    VERIFY_TIMEOUT: "300",
+    DEPLOY_CONFIG: "deploy.json",
+    DEPLOY_CLI_VERSION: "0.3.0",
+    NODE_VERSION: "22",
+    REPOSITORY: "acme/app",
+    E2E: "false",
+    APP_VARS: "{}",
+    DEPLOY: "false",
+    BUILD: "true",
+    PASSED_SECRETS: "",
+  };
+  // Records the command line and the header file, prints SMOKE_OUTPUT and exits with SMOKE_EXIT.
+  const STUB_NPX = `#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$SMOKE_LOG"
+for arg in "$@"; do
+  case "$arg" in --headers-file=*) cat "\${arg#--headers-file=}" > "$SMOKE_LOG.headers" ;; esac
+done
+printf '%s\\n' "$SMOKE_OUTPUT"
+exit "\${SMOKE_EXIT:-0}"
+`;
+  let repo: string;
+  let commit: string;
+
+  beforeEach(() => {
+    repo = mkdtempSync(join(tmpdir(), "deploy-smoke-tag-"));
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+    git("init", "-q");
+    writeFileSync(join(repo, "docker-compose.yml"), "services: {}\n");
+    git("add", ".");
+    git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-qm", "release");
+    commit = git("rev-parse", "HEAD").stdout.trim();
+  });
+
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  function runSmoke(env: Record<string, string>) {
+    const result = runScript(smoke?.run ?? "exit 9", {
+      APP_URL: "https://example.com",
+      TAG: "v1.2.3",
+      BUILD_INFO_PATH: "/api/health/build",
+      BUILD_INFO_HEADERS: "",
+      DEPLOYED_AT: "2026-10-29T15:00:00Z",
+      DEPLOY_CLI_VERSION: "0.4.8",
+      DEPLOY_CLI: "",
+      NODE_EXTRA_CA_CERTS: "",
+      SMOKE_LOG: join(repo, "smoke.log"),
+      SMOKE_OUTPUT: "PASS    release  release v1.2.3",
+      ...env,
+    }, { cwd: repo, bin: { npx: STUB_NPX } });
+    const log = existsSync(join(repo, "smoke.log")) ? readFileSync(join(repo, "smoke.log"), "utf8") : "";
+    const headers = existsSync(join(repo, "smoke.log.headers")) ? readFileSync(join(repo, "smoke.log.headers"), "utf8") : null;
+    return { ...result, log, headers };
+  }
+
+  it("takes build-info-path as an optional input, validated by the check job", () => {
+    expect(inputs["build-info-path"]).toMatchObject({ type: "string", default: "" });
+    expect(checkStep?.env).toMatchObject({ BUILD_INFO_PATH: "${{ inputs.build-info-path }}" });
+    expect(runScript(checkStep?.run ?? "", ENV).status).toBe(0);
+    expect(runScript(checkStep?.run ?? "", { ...ENV, BUILD_INFO_PATH: "/api/health/build" }).status).toBe(0);
+    const refused = runScript(checkStep?.run ?? "", { ...ENV, BUILD_INFO_PATH: "api/build;rm" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::Input build-info-path is not valid: a path starting with /");
+  });
+
+  it("refuses a caller's own SOFTURE_BUILD_COMMIT build argument, which the build sets", () => {
+    const refused = runScript(checkStep?.run ?? "", { ...ENV, BUILD_ARGS: "APP_ORIGIN=https://example.com\nSOFTURE_BUILD_COMMIT=abc1234" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::Input build-args is not valid: without SOFTURE_BUILD_COMMIT (the build sets it to the tag's commit)");
+  });
+
+  it("adds the inputs and the sent-at output to the action, all optional", () => {
+    expect(action.inputs["build-info-path"]?.default).toBe("");
+    expect(action.inputs["build-info-headers"]?.default).toBe("");
+    expect(action.inputs["deployed-at"]?.default).toBe("");
+    expect(action.outputs["sent-at"]?.value).toBe("${{ steps.send.outputs.sent-at }}");
+  });
+
+  it("runs after the routes, from a checkout of the tag that holds only the compose file, and counts in the report", () => {
+    const routesIndex = action.runs.steps.findIndex((step) => step.id === "routes");
+    const checkout = action.runs.steps[smokeIndex - 1];
+    expect(smokeIndex).toBeGreaterThan(routesIndex);
+    expect(checkout?.uses?.startsWith("actions/checkout@")).toBe(true);
+    expect(checkout?.if).toBe("inputs.verify == 'true' && inputs.build-info-path != ''");
+    expect(checkout?.with).toMatchObject({
+      ref: "${{ steps.release.outputs.tag }}",
+      path: ".softure-ai-smoke",
+      "persist-credentials": false,
+      "sparse-checkout": "/${{ steps.release.outputs.compose-file }}",
+    });
+    expect(smoke?.if).toBe("inputs.verify == 'true' && inputs.build-info-path != ''");
+    expect(smoke?.["working-directory"]).toBe(".softure-ai-smoke");
+    expect(smoke?.env).toMatchObject({
+      DEPLOYED_AT: "${{ inputs.deployed-at || steps.send.outputs.sent-at }}",
+      BUILD_INFO_HEADERS: "${{ inputs.build-info-headers }}",
+    });
+    const report = action.runs.steps.find((step) => step.name === "Write deploy-report.json");
+    expect(report?.env?.VERIFY_RESULT).toContain("steps.smoke.outcome != 'failure'");
+  });
+
+  it("runs softure-deploy smoke with the tag, its commit, the path and the deploy time, and writes the summary line", () => {
+    const result = runSmoke({});
+    expect(result.status, result.stdout).toBe(0);
+    expect(result.log).toBe(
+      `--yes --package=@softure-ai/deploy@0.4.8 softure-deploy smoke https://example.com --tag=v1.2.3 --commit=${commit} --path=/api/health/build --deployed-at=2026-10-29T15:00:00Z\n`,
+    );
+    expect(result.stdout).toContain("PASS    release  release v1.2.3");
+    expect(result.summary).toBe("Smoke check: passed\n\n```text\nPASS    release  release v1.2.3\n```\n");
+  });
+
+  it("fails with the CLI's status and writes Smoke check: failed", () => {
+    const result = runSmoke({ SMOKE_EXIT: "1", SMOKE_OUTPUT: "FAIL    release  release v1.2.2, expected v1.2.3" });
+    expect(result.status).toBe(1);
+    expect(result.summary).toMatch(/^Smoke check: failed\n/);
+    expect(result.stdout).toContain("::error::Smoke check: failed. Production does not answer the build of v1.2.3");
+  });
+
+  it("skips the start time without a deploy time, and refuses a path that is not one", () => {
+    const result = runSmoke({ DEPLOYED_AT: "" });
+    expect(result.status).toBe(0);
+    expect(result.log).not.toContain("--deployed-at");
+    expect(result.stdout).toContain("smoke: no deploy time (deployed-at), so the start time is not checked.");
+    const refused = runSmoke({ BUILD_INFO_PATH: "build" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::Input build-info-path is not valid: a path starting with /");
+  });
+
+  it("hands the headers over in a file, masked, and names a bad line by its number only", () => {
+    const result = runSmoke({ BUILD_INFO_HEADERS: "CF-Access-Client-Id: id-1\r\nCF-Access-Client-Secret: secret-2\n" });
+    expect(result.status).toBe(0);
+    expect(result.headers).toBe("CF-Access-Client-Id: id-1\nCF-Access-Client-Secret: secret-2\n");
+    expect(result.stdout).toContain("::add-mask::secret-2");
+    expect(result.log).not.toContain("secret-2");
+    const refused = runSmoke({ BUILD_INFO_HEADERS: "X-Ok: 1\nsecret-token" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::Input build-info-headers is not valid on line 2: one 'Name: value' header a line");
+    expect(refused.stdout).not.toContain("secret-token");
   });
 });

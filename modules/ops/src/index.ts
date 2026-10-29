@@ -29,6 +29,6 @@ export const ops = defineModule({
   options: opsOptionsSchema,
 });
 
-export type { HealthCheckState, HealthReport, HealthStatus } from "./contract.js";
+export type { BuildInfo, HealthCheckState, HealthReport, HealthStatus } from "./contract.js";
 export { opsMessages, type OpsMessages } from "./messages/index.js";
 export type { OpsOptions, OpsOptionsInput } from "./options.js";

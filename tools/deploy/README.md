@@ -372,6 +372,56 @@ PASS    -       origin    203.0.113.7:443 no answer within 10000 ms (dropped)
 verify: 2 routes at https://example.com, 1 passed, 1 failed; certificate passed; origin passed
 ```
 
+## `softure-deploy smoke`
+
+```bash
+softure-deploy smoke https://example.com --tag=v1.4.0 --commit=<the tag's commit> --deployed-at=2026-10-29T15:00:00Z
+```
+
+Proves that production runs the release just deployed. The health route and `verify` pass for any build that
+answers, so a stale container, a failed pull or a rolled-back compose project still looks green. `smoke` reads the
+app's build info (the route of [`@softure-ai/ops`](../../modules/ops/README.md#build-info), default path
+`/api/health/build`) with one `GET` and fails when:
+
+- `release` is not `--tag` (or is `null`: the container has no `SOFTURE_RELEASE`, which init's compose file sets to
+  the tag);
+- `commit` is not `--commit` (a short build commit of 7 or more hex digits counts when it starts the tag's commit; a
+  `null` commit fails, since the build did not set `SOFTURE_BUILD_COMMIT`);
+- `startedAt` is older than `--deployed-at` minus `--tolerance-seconds` (default 60, for clock drift between the
+  runner and the server): a deploy starts a fresh container, so an older process is not this release.
+
+`--commit` and `--deployed-at` are optional; without them that check is not run. `--headers-file=<file>` sends one
+`Name: value` header a line (an access proxy's service token), read from a file so no value is on the command line;
+a bad line is named by its number. A redirect is not followed and anything but `200` with build info JSON fails.
+`--timeout=<ms>` (default 10000) bounds the request. The output is a table like `verify`'s; exit code 1 names the
+failed checks.
+
+```text
+Build info of https://example.com/api/health/build
+Result  Check    Detail
+PASS    release  release v1.4.0
+FAIL    commit   commit 9f8e7d6, expected 0123456789abcdef0123456789abcdef01234567
+FAIL    started  started 2026-10-28T09:00:00.000Z, before the deploy at 2026-10-29T15:00:00.000Z (tolerance 60 s): an old container answers
+```
+
+The deploy workflow and action run it after `verify` when `build-info-path` is set (**Deploy workflow**, below).
+
+## `softure-deploy changelog`
+
+```bash
+softure-deploy changelog --out=lib/changelog.json   # before `next build`
+```
+
+Writes the finished items of the open roadmap (`context/foundation/roadmap.md`) and the newest archived ones
+(`context/foundation/archive/<date>-roadmap.md`), `--roadmaps=<n>` files in all (default 2), as JSON: per roadmap its
+path and the `done` and `done_code` rows of its `## At a glance` table (`done kodowo` counts as `done_code`), with the
+item id, change id and status only, since the build info route is public. Without `--out` it prints the JSON. The app
+passes the file to the build info route as its `changelog` provider, so production answers which items it carries.
+
+```json
+[{ "roadmap": "context/foundation/roadmap.md", "items": [{ "id": "AB-1", "changeId": "ab-login", "status": "done_code" }] }]
+```
+
 ## Deploy workflow
 
 `SOFTURE/AI/.github/workflows/deploy-app.yml` is a reusable workflow that releases one app to its VPS. The app's
@@ -399,6 +449,12 @@ flags the expression that builds it. For the release tag, between them:
    `deploy-config` read from the tag (only that file is checked out). A missing or invalid file fails the run;
    `deploy-config: ""` keeps the health route only. With the `origin-address` secret or `origin-address-var`, verify gets `--origin` too.
    With `verify-env`, verify gets those variables (below), and only verify does.
+   With `build-info-path`, `softure-deploy smoke` then reads the app's build info and fails the run when production
+   answers another release than the tag, another commit than the tag's (read from a checkout of the tag), or a
+   process started before the deploy job sent the release (its `sent-at`). It writes `Smoke check: passed` or
+   `Smoke check: failed` and the CLI's table to the job summary. The build job passes the tag's commit as the build
+   argument `SOFTURE_BUILD_COMMIT` (so does `deploy-release-image.yml`, with its `ref`), which init's Dockerfile
+   declares before `npm run build`; a caller's own `SOFTURE_BUILD_COMMIT` in `build-args` is refused.
 5. whatever happened, uploads the run's facts as the artifact `deploy-report` (`summary` job, no permissions): each
    job's result, the image and its digest, and the server's `step|…`/`result|…` lines (`init`'s `deploy.sh` puts the
    backup's file name and the row counts on them).
@@ -418,6 +474,7 @@ flags the expression that builds it. For the release tag, between them:
 | `remote-command` | `deploy` | first word for the forced command |
 | `ssh-port` | `22` | |
 | `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | the health wait before verify |
+| `build-info-path` | none | the app's build info route (`@softure-ai/ops`, e.g. `/api/health/build`): after verify, the smoke check (step 4); empty skips it |
 | `deploy-config` | `deploy.json` | the routes `verify` checks, also shipped to the server; empty for the health route only |
 | `deploy-cli-version` | this package's version | the CLI run from npm (`env render`, `verify`) |
 | `release-branch` | the caller's default branch | the branch the tag's commit must be on |
@@ -495,13 +552,17 @@ verify` with the tag's `deploy-config`, then the `deploy-report` artifact and th
 | `verify-env` | none | the JSON object for verify only, e.g. `secrets.DEPLOY_VERIFY_ENV`, checked by the rules above |
 | `health-status` | `200` | the status the health wait counts as up; the first answer counts (a redirect is not followed), so `302` passes a host whose access proxy sends every request to its sign-in |
 | `health-headers` | none | request headers of the health wait only, one `Name: value` line each (e.g. `CF-Access-Client-Id` and `CF-Access-Client-Secret` of a Cloudflare Access service token from secrets); each value is masked and curl reads them from a file only the runner's user can read. A line that is not `Name: value` is refused by its number |
+| `build-info-path` | none | the app's build info route: after verify, `softure-deploy smoke` with the tag, the tag's commit and the deploy time (step 4 above); empty skips it |
+| `build-info-headers` | none | request headers of the smoke check only, in the form and with the masking of `health-headers` (the CLI reads them from a file) |
+| `deployed-at` | this step's send | when the release was sent (ISO 8601), e.g. `needs.deploy.outputs.sent-at` of a job that sent it; with neither, the start time is not checked |
 | `send`, `verify`, `report` | `true` | each part on its own; `report: false` for every environment but one, since a run holds one `deploy-report` artifact |
 | `preflight` | `false` | `true` (with `send`, `verify` and `report` all `false`, else refused) checks the deploy's prerequisites and stops: the SSH values, and `.env.prod` rendered from the step's secrets (the required names, `secret-min-lengths`, the `build-args` agreement), then deleted (**Fail fast**, below) |
 
 Before every send, and in a preflight, the step "Check the SSH secrets" names each SSH input that is empty, a host or
 user that is not one, a key `ssh-keygen -y` cannot read without a passphrase, and known hosts with no line for the host
 (`[host]:port` off port 22). It never connects, since the server's forced command would deploy, and never prints a
-value.
+value. The action's outputs are `server-lines` (the server's step lines) and `sent-at` (when the send started, UTC),
+which a later job passes back as `deployed-at`.
 | `image`, `digest` | none | the build job's outputs, for the report |
 
 `deploy-report.yml` then runs after the environment that reports, as in the example. Pin the workflow and the action
@@ -830,6 +891,10 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   ${DATABASE_URL:?}`) or creates its app role under another name, name that role with `--report-role=<role>`: it
   wins over the compose file's role and the default, also with `--force`, and a drift test that renders
   `planInitFiles` with the same answers (`reportRole`) gets the same `deploy.sh`. Nothing is read from `softure.config`.
+- **Build info:** the `app` service gets `SOFTURE_RELEASE: ${TAG}` (the release tag `deploy.sh` sets), and the
+  Dockerfile declares `ARG SOFTURE_BUILD_COMMIT` right before `npm run build`, which the deploy workflow fills with the
+  tag's commit. With `withBuildInfo` in `next.config` and the build info route of `@softure-ai/ops`, the workflow's
+  `build-info-path` then checks that production runs the tag ([`softure-deploy smoke`](#softure-deploy-smoke)).
 - **Values are narrow:** the domain, image, name, paths, e-mail, env names, tables and report role are checked against patterns
   before anything is written, so no value can break out of YAML, bash or a Traefik rule.
 - **Secrets:** the compose file's required variables are the list the workflow renders: `POSTGRES_PASSWORD`,
@@ -1395,7 +1460,7 @@ runs, content sync and cron jobs become hooks.
 ## Exit codes
 
 `run` and `report` end with the status of what ran on the server (above). Every other command: `0` done · `1` the command refused (missing names, unknown ref, unreadable or invalid file, a failed dump, a guard
-problem, lost rows, a failed verify check, invalid init answers) · `2` a wrong command line. `integration run` and
+problem, lost rows, a failed verify or smoke check, invalid init answers) · `2` a wrong command line. `integration run` and
 `integration lookup` add `3` and `75` ([Integration run](#integration-run)).
 
 ## Limitations

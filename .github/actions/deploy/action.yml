@@ -76,6 +76,15 @@ inputs:
   health-headers:
     description: "Request headers of the health wait only, one 'Name: value' line each, masked; e.g. an access proxy's service token"
     default: ""
+  build-info-path:
+    description: "The app's build info route (@softure-ai/ops), e.g. /api/health/build: after verify, softure-deploy smoke fails the run when it answers another release, another commit or a start before the deploy. Empty skips the smoke check"
+    default: ""
+  build-info-headers:
+    description: "Request headers of the smoke check only, one 'Name: value' line each, masked; e.g. an access proxy's service token"
+    default: ""
+  deployed-at:
+    description: "When the release was sent, ISO 8601 (the send's sent-at output); empty takes this run's own send, and without one the smoke check skips the start time"
+    default: ""
   verify-env:
     description: JSON object of text values by name exported for softure-deploy verify only, masked (e.g. a Web Bot Auth key)
     default: ""
@@ -105,6 +114,9 @@ outputs:
   server-lines:
     description: The server's step and result lines (never a value of .env.prod)
     value: ${{ steps.server-lines.outputs.lines }}
+  sent-at:
+    description: When the release was sent to the server, ISO 8601 in UTC (the smoke check's deployed-at)
+    value: ${{ steps.send.outputs.sent-at }}
 
 runs:
   using: composite
@@ -214,7 +226,7 @@ runs:
         persist-credentials: false
         sparse-checkout: ${{ steps.release.outputs.server-files }}
         sparse-checkout-cone-mode: false
-    - if: inputs.send == 'true' || inputs.preflight == 'true' || (inputs.verify == 'true' && steps.release.outputs.deploy-config != '')
+    - if: inputs.send == 'true' || inputs.preflight == 'true' || (inputs.verify == 'true' && (steps.release.outputs.deploy-config != '' || inputs.build-info-path != ''))
       uses: actions/setup-node@v7
       with:
         node-version: ${{ steps.release.outputs.node-version }}
@@ -433,6 +445,8 @@ runs:
         # The server prints `step|…` lines and ends with `result|ok` (init's deploy.sh, DF-9): an exit status alone
         # could come from a session cut halfway, so only that line counts as a release.
         output="$RUNNER_TEMP/deploy-output.txt"
+        # Right before the send: the container the server starts must be younger (the smoke check's deployed-at).
+        echo "sent-at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
         set -o pipefail
         ssh -i "$key" -p "$SSH_PORT" \
           -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 \
@@ -577,6 +591,86 @@ runs:
         else
           env -u VERIFY_ENV "${variables[@]}" npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy verify "$APP_URL" --config="$DEPLOY_CONFIG" "${origin[@]}"
         fi
+    # The smoke check (issue #878): the app's build info against the release just sent. A stale container, a failed
+    # pull or a rolled-back stack passes the health route, but answers another release, another commit or a start
+    # before the deploy. The tag's commit comes from a checkout of the tag holding only the compose file, which is also
+    # the folder npx runs in, so no .npmrc of the app steers it.
+    - if: inputs.verify == 'true' && inputs.build-info-path != ''
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ steps.release.outputs.tag }}
+        path: .softure-ai-smoke
+        persist-credentials: false
+        sparse-checkout: /${{ steps.release.outputs.compose-file }}
+        sparse-checkout-cone-mode: false
+    - id: smoke
+      name: Check the build info
+      if: inputs.verify == 'true' && inputs.build-info-path != ''
+      shell: bash
+      working-directory: .softure-ai-smoke
+      env:
+        APP_URL: ${{ steps.release.outputs.app-url }}
+        TAG: ${{ steps.release.outputs.tag }}
+        BUILD_INFO_PATH: ${{ inputs.build-info-path }}
+        BUILD_INFO_HEADERS: ${{ inputs.build-info-headers }}
+        DEPLOYED_AT: ${{ inputs.deployed-at || steps.send.outputs.sent-at }}
+        DEPLOY_CLI_VERSION: ${{ steps.release.outputs.deploy-cli-version }}
+        DEPLOY_CLI: ${{ inputs.deploy-cli }}
+        NODE_EXTRA_CA_CERTS: ${{ inputs.ca-file }}
+      run: |
+        if [ -n "${NODE_EXTRA_CA_CERTS:-}" ]; then export NODE_EXTRA_CA_CERTS; else unset NODE_EXTRA_CA_CERTS; fi
+        if [[ ! "$BUILD_INFO_PATH" =~ ^/[A-Za-z0-9/._~-]*$ ]]; then
+          echo "::error::Input build-info-path is not valid: a path starting with /"
+          exit 1
+        fi
+        commit="$(git rev-parse HEAD)"
+        args=(smoke "$APP_URL" "--tag=$TAG" "--commit=$commit" "--path=$BUILD_INFO_PATH")
+        if [ -n "${DEPLOYED_AT:-}" ]; then
+          args+=("--deployed-at=$DEPLOYED_AT")
+        else
+          echo "smoke: no deploy time (deployed-at), so the start time is not checked."
+        fi
+        # The headers reach the CLI through a file only the runner's user reads, never its command line; each value is
+        # masked before anything could print it, and a line is named by its number, never by its text.
+        header_file="$RUNNER_TEMP/build-info-headers"
+        output="$RUNNER_TEMP/smoke-output.txt"
+        trap 'rm -f "$header_file" "$output"' EXIT
+        if [ -n "${BUILD_INFO_HEADERS:-}" ]; then
+          (umask 077 && : > "$header_file")
+          header_line='^[A-Za-z0-9-]+: [^[:cntrl:]]+$'
+          number=0
+          while IFS= read -r line || [ -n "$line" ]; do
+            number=$((number + 1))
+            line="${line%$'\r'}"
+            if [ -z "$line" ]; then continue; fi
+            if [[ ! "$line" =~ $header_line ]]; then
+              echo "::error::Input build-info-headers is not valid on line $number: one 'Name: value' header a line"
+              exit 1
+            fi
+            echo "::add-mask::${line#*: }"
+            printf '%s\n' "$line" >> "$header_file"
+          done <<< "$BUILD_INFO_HEADERS"
+          args+=("--headers-file=$header_file")
+        fi
+        status=0
+        if [ -n "${DEPLOY_CLI:-}" ]; then
+          node "$DEPLOY_CLI" "${args[@]}" > "$output" 2>&1 || status=$?
+        else
+          npx --yes "--package=@softure-ai/deploy@$DEPLOY_CLI_VERSION" softure-deploy "${args[@]}" > "$output" 2>&1 || status=$?
+        fi
+        cat "$output"
+        if [ "$status" = "0" ]; then result=passed; else result=failed; fi
+        {
+          echo "Smoke check: $result"
+          echo ""
+          echo '```text'
+          cat "$output"
+          echo '```'
+        } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+        if [ "$status" != "0" ]; then
+          echo "::error::Smoke check: failed. Production does not answer the build of $TAG (see the table above)."
+        fi
+        exit "$status"
     # The facts of this deploy for the release report (deploy-report.yml, DF-10), whatever happened: the results, the
     # image and its digest, and the server's step lines. deploy-app.yml's own summary job writes the same file for its
     # callers. A step that did not run reports skipped.
@@ -592,7 +686,7 @@ runs:
         CHECK_RESULT: ${{ inputs.check-result }}
         BUILD_RESULT: ${{ inputs.build-result }}
         DEPLOY_RESULT: ${{ inputs.send != 'true' && 'skipped' || steps.send.outcome == 'success' && 'success' || 'failure' }}
-        VERIFY_RESULT: ${{ inputs.verify != 'true' && 'skipped' || steps.health.outcome == 'skipped' && 'skipped' || steps.health.outcome == 'success' && steps.routes.outcome != 'failure' && 'success' || 'failure' }}
+        VERIFY_RESULT: ${{ inputs.verify != 'true' && 'skipped' || steps.health.outcome == 'skipped' && 'skipped' || steps.health.outcome == 'success' && steps.routes.outcome != 'failure' && steps.smoke.outcome != 'failure' && 'success' || 'failure' }}
         SERVER_LINES: ${{ steps.server-lines.outputs.lines }}
       run: |
         mkdir -p "$RUNNER_TEMP/deploy-report"
