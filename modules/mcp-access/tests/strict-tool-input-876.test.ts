@@ -266,12 +266,12 @@ describe("withStrictToolInput: registration", () => {
   it("answers through the app's dictionary", async () => {
     const { server } = createStrictServer(z.object({ note: z.string() }), {
       renamedFields: { notes: "note" },
-      messages: { unknownFields: "Nieznane: {fields}; dozwolone: {accepted}.", noFields: "brak", fieldRenamed: "input.field_renamed {field}→{renamed}" },
+      messages: { unknownFields: "Unexpected: {fields}; allowed: {accepted}.", noFields: "nothing", fieldRenamed: "input.field_renamed {field}→{renamed}" },
     });
 
     const answer = await callTool(server, "save", { notes: "x", color: "red" });
 
-    expect(answer.text).toContain('input.field_renamed notes→note Nieznane: "color"; dozwolone: "note".');
+    expect(answer.text).toContain('input.field_renamed notes→note Unexpected: "color"; allowed: "note".');
   });
 
   it("passes a schema that is not zod through unchanged", () => {

@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-strict-tool-input-876
 title: "mcp-access: strict tool input (issue #876)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 876
 branch: claude/project-thread-um4tf6
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent

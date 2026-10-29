@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-strict-tool-input-876
-status: in_progress
+status: archived
 ---
 
 # Plan: strict tool input (issue #876)
@@ -46,6 +46,6 @@ Files: `modules/mcp-access/src/server/strict-input.ts` (new), `src/server/index.
 
 ## Progress
 
-- [ ] Phase 1: strict schema and registration wrapper
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: strict schema and registration wrapper, 18b7206
+- [x] Phase 2: docs, 18b7206
+- [x] Implementation review: approved
