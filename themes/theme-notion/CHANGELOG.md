@@ -14,6 +14,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   an ellipsis there wraps the text in `<span className="min-w-0 truncate">`. A badge whose text fits looks as before.
   An app drops its `max-w-full` on `Badge`/`Status` and its own truncating span inside `Status`; a selector that read
   `Status`'s text still finds it, now inside `status-label`.
+- `SheetMenu`, `SheetMenuItem` and `SheetMenuButton` (#858): navigation rows for a side `Sheet` (a phone's drawer)
+  that need no `SidebarProvider`. A row is full width, icon and label left-aligned in `foreground` (`text-ui`), 44 px
+  tall on a phone and 34 px from `md`, hovered, pressed and active in `accent` like the sidebar's rows, `disabled`
+  dimmed; `asChild` renders a link, `SheetClose asChild` around it closes the drawer. The README shows the drawer
+  recipe: `showCloseButton={false}`, a ghost close `Button` in the `SheetHeader` row, the foot rows in a `SheetFooter`
+  with `border-t`. An app that laid out ghost `Button`s as rows (`size="lg" className="min-h-touch-target w-full
+  justify-start text-ui text-foreground"`) wraps them in `SheetMenu` / `SheetMenuItem`, swaps each `Button` for
+  `SheetMenuButton` and drops those classes.
 
 ## 0.8.0
 
