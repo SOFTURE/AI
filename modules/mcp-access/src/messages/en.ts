@@ -85,6 +85,11 @@ export const en = {
     nothingGranted: "No access was granted.",
     backToApp: "Back to the app ({target})",
   },
+  toolInput: {
+    unknownFields: "Unknown fields: {fields}. Accepted fields: {accepted}.",
+    noFields: "none",
+    fieldRenamed: "input.field_renamed: the field \"{field}\" is now \"{renamed}\". Send it as \"{renamed}\".",
+  },
   errors: {
     "mcp-access": {
       name_required: "Give the token a name, so you can tell it from the others.",

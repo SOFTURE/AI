@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Strict tool input (#876): `withStrictToolInput(server, { renamedFields?, coerceTextScalars?, messages? })`
+  (`/server`), or `strictToolInput` on `createMcpServerFactory`, rewrites every input schema at registration. Unknown
+  fields are refused at every level with the fields the object accepts, a field under its old name is refused as
+  `input.field_renamed` with the new name, and boolean and number fields also take their exact text. Texts live in
+  `mcpAccessMessages.en.toolInput`. The listed schemas gain `additionalProperties: false`, so the tool-list version of
+  a server that opts in changes once. Migrate: an app that wraps `registerTool` itself replaces it with the option.
 - A server version that follows the tool list (#877): `createMcpServerFactory({ name, release?, version?, title?,
   serverOptions?, registerTools(server, identity) })` (`/server`) returns an `McpServerFactory` whose servers answer
   `initialize` with `<release>-tools-<12 hex>`, a fingerprint of every tool as `tools/list` serves it, measured once
