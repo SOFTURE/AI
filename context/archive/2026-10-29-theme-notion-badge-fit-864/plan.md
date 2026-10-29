@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-badge-fit-864
-status: in_progress
+status: done
 ---
 
 # Plan: Badge and Status fit a narrow container (issue #864)
@@ -40,12 +40,16 @@ Patch `Badge` and `Status` in the published bundle and the bundle.css classes; r
   (documented).
 - `Status` sets `title` for string and number words so the full text is reachable on hover; a `title` prop overrides.
 - `data-slot="status-label"` on the span, so apps and tests can address the word.
+- `Badge` also gets `justify-center-safe` (found while render-checking): a clipped `justify-center` text was cut on both
+  sides; the safe alignment falls back to the start only when the content overflows, so a fitting badge is unchanged.
 - No version bump: the coordinator releases.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
-- [ ] Phase 4
-- [ ] Implementation review
+- [x] Phase 1: classes and markup, 7f74a9a; `justify-center-safe` added in 37ceb72 (see Decisions)
+- [x] Phase 2: browser geometry spec `visual/fit.spec.ts`, 7f74a9a, 37ceb72 (fails on master, passes with the fix)
+- [x] Phase 3: README and CHANGELOG, 7f74a9a, 37ceb72
+- [x] Phase 4: design system artifact, NOTION · Design System versions 39-40 (bundle patched in place, bundle.css
+  `.max-w-full` and `.justify-center-safe`, `index.d.ts`, Badge and Status READMEs; render-checked light and dark: a
+  long Status word ends in an ellipsis inside a 120 px card, its icon stays 16 px)
+- [x] Implementation review: approved

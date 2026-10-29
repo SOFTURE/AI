@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-badge-fit-864
 title: "theme-notion: Badge and Status fit a narrow container, Status ends in an ellipsis (issue #864)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 864
 branch: claude/project-thread-6001oe
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent
