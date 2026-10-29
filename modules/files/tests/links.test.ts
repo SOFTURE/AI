@@ -293,7 +293,7 @@ describe("file links", () => {
   });
 
   it("serves a link under the app's own route", async () => {
-    test = await createTestFiles({ files: { routes: { links: "/media/" } } });
+    test = await createTestFiles({ files: { routes: { links: "/media///" } } });
     const url = await link(await save());
 
     expect(new URL(url).pathname.startsWith("/media/")).toBe(true);

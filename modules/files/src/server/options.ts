@@ -23,5 +23,12 @@ export function getLinksRoute(config: SoftureConfig): string {
   const { links } = getFilesModule(config).routes;
   // The manifest declares it, so a missing one means a broken module definition.
   if (links === undefined) throw new Error("@softure-ai/files: the links route is missing from the module manifest");
-  return links.replace(/\/+$/, "");
+  return trimTrailingSlashes(links);
+}
+
+/** The path without trailing slashes; a loop, not `/\/+$/`, which backtracks quadratically on a run of slashes. */
+function trimTrailingSlashes(path: string): string {
+  let end = path.length;
+  while (end > 0 && path[end - 1] === "/") end -= 1;
+  return path.slice(0, end);
 }
