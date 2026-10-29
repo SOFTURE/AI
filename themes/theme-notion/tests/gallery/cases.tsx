@@ -120,6 +120,7 @@ import {
   KbdGroup,
   Label,
   MarkPopover,
+  MiniProgress,
   PageFrame,
   PageHeader,
   Popover,
@@ -1365,6 +1366,23 @@ const NOTION_CASES: readonly GalleryCase[] = [
         <span role="listitem">Payment overdue</span>
         <span role="listitem">Tickets to buy</span>
       </MarkPopover>
+    ),
+  },
+  {
+    name: "MiniProgress",
+    component: "MiniProgress",
+    root: '[data-slot="mini-progress"]',
+    render: () => (
+      <div className="flex w-80 flex-col gap-2">
+        <MiniProgress value={0} aria-label="Empty" />
+        <MiniProgress value={3} label="< 0.01 USD" aria-label="Cost share" />
+        <MiniProgress value={50} aria-label="Half" />
+        <MiniProgress value={100} aria-label="Full" />
+        <MiniProgress value={82} tone="warning" aria-label="Budget used" />
+        <div className="w-24">
+          <MiniProgress value={37} label="1,234.56 USD of 3,000 USD" aria-label="Cost share" />
+        </div>
+      </div>
     ),
   },
   {
