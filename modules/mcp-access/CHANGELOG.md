@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- A `get_server_info` tool (#885): `serverInfoTool: { buildInfo, changelog?, description? }` on
+  `createMcpServerFactory` (`/server`) adds a read-only tool with no input fields for every token that answers the
+  build info (pass `readBuildInfo` of `@softure-ai/ops/server`), the optional changelog and the served name and
+  version, so an assistant checks which build answers in one call. `registerServerInfoTool(server, { buildInfo,
+  server: { name, version } })` registers it on a hand-built server. Its description is
+  `mcpAccessMessages.en.serverInfoTool.description`. Migrate: nothing; opt in to use it.
 - Strict tool input (#876): `withStrictToolInput(server, { renamedFields?, coerceTextScalars?, messages? })`
   (`/server`), or `strictToolInput` on `createMcpServerFactory`, rewrites every input schema at registration. Unknown
   fields are refused at every level with the fields the object accepts, a field under its old name is refused as

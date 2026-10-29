@@ -12,6 +12,7 @@ import { McpServer, type McpServerOptions } from "@modelcontextprotocol/server";
 import type { McpServerIdentity } from "../contract.js";
 import type { McpServerFactory } from "./endpoint.js";
 import { withStrictToolInput, type StrictToolInputOptions } from "./strict-input.js";
+import { registerServerInfoTool, type ServerInfoToolOptions } from "./server-info.js";
 import { measureToolList, type ToolListMeasurement } from "./tool-list.js";
 
 export interface McpServerFactoryOptions {
@@ -31,13 +32,23 @@ export interface McpServerFactoryOptions {
   readonly registerTools: (server: McpServer, identity: McpServerIdentity) => unknown;
   /** Every tool's input is strict (`withStrictToolInput`), on the served and the measured server alike. */
   readonly strictToolInput?: boolean | StrictToolInputOptions;
+  /**
+   * Adds the read-only `get_server_info` tool for every access level: the build info (pass `readBuildInfo` of
+   * `@softure-ai/ops/server`) with the served name and version. Off by default.
+   */
+  readonly serverInfoTool?: ServerInfoToolOptions;
 }
 
 /** An `McpServerFactory` whose servers carry the tool list's version for the identity's access level. */
 export function createMcpServerFactory(options: McpServerFactoryOptions): McpServerFactory {
   const strictOptions = options.strictToolInput === true ? {} : options.strictToolInput === false ? undefined : options.strictToolInput;
-  const registerTools = (server: McpServer, identity: McpServerIdentity): unknown =>
-    options.registerTools(strictOptions === undefined ? server : withStrictToolInput(server, strictOptions), identity);
+  // The served version reaches `get_server_info` here; the recording server registers it with a placeholder, since
+  // its handler never runs there and the version is not part of the listed tool.
+  const registerTools = async (server: McpServer, identity: McpServerIdentity, version = ""): Promise<void> => {
+    const target = strictOptions === undefined ? server : withStrictToolInput(server, strictOptions);
+    await options.registerTools(target, identity);
+    if (options.serverInfoTool !== undefined) registerServerInfoTool(target, { ...options.serverInfoTool, server: { name: options.name, version } });
+  };
   const measurements = new Map<boolean, Promise<ToolListMeasurement>>();
 
   // The promise is cached, so parallel first requests measure once; a failed measurement is dropped so
@@ -61,7 +72,7 @@ export function createMcpServerFactory(options: McpServerFactoryOptions): McpSer
       { name: options.name, version, ...(options.title === undefined ? {} : { title: options.title }) },
       options.serverOptions,
     );
-    await registerTools(server, identity);
+    await registerTools(server, identity, version);
     return server;
   };
 }

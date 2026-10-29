@@ -45,7 +45,8 @@ limit check made race-free.
 - For the app's own server: tool result helpers with a safe error boundary and server actions as write tools
   (`/server`), a server factory whose version follows the tool list, so clients drop a stale cached `tools/list`
   (`createMcpServerFactory`, `measureToolList`, `/server`), strict tool input that refuses unknown and renamed
-  fields (`withStrictToolInput`, `/server`), a stdio entry for local assistants (`/stdio`), a catalog parity check (`/testing`), a gate before a
+  fields (`withStrictToolInput`, `/server`), an opt-in `get_server_info` tool that tells which build answers
+  (`serverInfoTool`, `/server`), a stdio entry for local assistants (`/stdio`), a catalog parity check (`/testing`), a gate before a
   token is issued (`issueToken`, `/next`) and the `softure-mcp prune` command for a daily cleanup (§4, §5).
 
 ## 2. Installation
@@ -210,6 +211,39 @@ const server = withStrictToolInput(new McpServer({ name: "acme", version }), {
 - The SDK validates before the handler runs, so a refused call saves nothing. A raw shape is wrapped in
   `z.object` first; a schema that is not zod passes unchanged. `toStrictToolInput(schema, options?)` gives the
   strict schema on its own.
+
+### Which build answers: `get_server_info`
+
+An assistant checks a "done" against production in one call. `serverInfoTool` on `createMcpServerFactory` adds a
+read-only `get_server_info` tool for every token, with no input fields, that answers the build info of
+`@softure-ai/ops` (the same public facts as its build info route) and the name and version the server answered at
+`initialize`, which follows the tool list:
+
+```ts
+import { readBuildInfo } from "@softure-ai/ops/server";
+
+export const createServer = createMcpServerFactory({
+  name: "acme",
+  registerTools: (server, identity) => registerNoteTools(server, identity),
+  serverInfoTool: {
+    buildInfo: () => readBuildInfo(), // the route's options, when it has any
+    changelog: () => changelog, // optional: the provider the build info route gets
+  },
+});
+```
+
+```json
+{ "server": { "name": "acme", "version": "1.0.0-tools-3f9a0c41d2e7" }, "release": "v1.4.0", "commit": "abc1234",
+  "builtAt": "2026-10-29T10:00:00.000Z", "startedAt": "2026-10-29T10:05:00.000Z", "changelog": [] }
+```
+
+- The app passes the reader, so `/server` never loads `@softure-ai/ops`; `McpBuildInfo` is its `BuildInfo` by shape.
+- `changelog` appears only with a provider; a provider that fails answers `changelog: null` and logs the error
+  class, as the route does. A failing `buildInfo` answers a tool error.
+- The tool is part of the measured list, so turning it on changes the version once. The description comes from
+  `serverInfoTool.description` of the dictionary, or `description` in the options.
+- A hand-built server registers it with `registerServerInfoTool(server, { buildInfo, server: { name, version } })`,
+  passing the name and version it serves.
 
 ### Writing tools
 
