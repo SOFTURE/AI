@@ -52,4 +52,16 @@ describe("Badge", () => {
       expect(html).toContain("bg-red-tag text-red-tag-foreground");
     },
   );
+
+  it.each(["default", "secondary", "destructive", "outline", "ghost", "link", "tag"] as const)(
+    "caps the %s badge at its container's width, on one line, a cut text keeping its start",
+    (variant) => {
+      const html = renderToStaticMarkup(<Badge variant={variant}>Observation, day 1 of 30</Badge>);
+
+      expect(html).toMatch(/class="[^"]*\bmax-w-full\b/);
+      expect(html).toMatch(/class="[^"]*\bjustify-center-safe\b/);
+      expect(html).toMatch(/class="[^"]*\bw-fit\b/);
+      expect(html).toMatch(/class="[^"]*\bwhitespace-nowrap\b/);
+    },
+  );
 });
