@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-sheet-menu-858
 title: "theme-notion: menu rows for a side Sheet, a phone's navigation drawer (issue #858)"
-status: open
+status: archived
 roadmap_item: null
 issue: 858
 branch: claude/project-thread-3lx8h0
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent

@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-sheet-menu-858
-status: open
+status: archived
 ---
 
 # Plan: menu rows for a side Sheet (issue #858)
@@ -44,5 +44,6 @@ NOTION · Design System: a `SheetMenu` card (README + preview) and the three par
 ## Progress
 
 - [x] Phase 1: SheetMenu parts, 3aa3f6b
-- [ ] Phase 2: docs
-- [ ] Phase 3: design system artifact
+- [x] Phase 2: docs, dce9adc
+- [x] Phase 3: design system artifact, NOTION · Design System versions 36-37
+- [x] Implementation review: approved
