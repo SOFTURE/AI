@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-tool-list-version-877
 title: "mcp-access: server version that follows the tool list (issue #877)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 877
 branch: claude/project-thread-5dqqgr
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent

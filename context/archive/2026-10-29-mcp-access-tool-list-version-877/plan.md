@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-tool-list-version-877
-status: in_progress
+status: archived
 ---
 
 # Plan: server version that follows the tool list (issue #877)
@@ -44,6 +44,6 @@ Files: `modules/mcp-access/src/server/tool-list.ts` (new), `src/server/server-fa
 
 ## Progress
 
-- [ ] Phase 1: measurement and factory
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: measurement and factory, 282c78c
+- [x] Phase 2: docs, 282c78c
+- [x] Implementation review: approved
