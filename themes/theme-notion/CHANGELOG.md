@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `UpdatePrompt` (#872): the offer to reload into a new build, for an installed app on `@softure-ai/pwa`. A floating
+  `Alert` at the bottom of the screen inside the safe-area insets, with a reload `Button` at the touch height (`md:h-7`
+  on a desktop); a polite `status`, drawn only while `open`. The copy is props, keyed like `pwaMessages.en.update`:
+  `<UpdatePrompt open={isUpdateReady} onReload={activate} {...messages.update} />`.
+
 ## 0.9.0
 
 - `Badge` and `Status` in a narrow container (#864): a badge is capped at its container's width (`max-w-full`), so a

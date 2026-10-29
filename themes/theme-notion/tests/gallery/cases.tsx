@@ -213,6 +213,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  UpdatePrompt,
   Code,
   CodeBlock,
 } from "../../src/index.js";
@@ -1585,6 +1586,22 @@ const NOTION_CASES: readonly GalleryCase[] = [
           { key: "files", label: "Files", href: "#files", count: 0 },
           { key: "trash", label: "Trash", href: "#trash" },
         ]}
+      />
+    ),
+  },
+  {
+    name: "UpdatePrompt",
+    component: "UpdatePrompt",
+    root: '[data-slot="update-prompt"]',
+    // Fixed to the bottom of the screen, so it is drawn on a page of its own.
+    isIsolated: true,
+    render: () => (
+      <UpdatePrompt
+        open
+        title="A new version is ready"
+        description="Reload to use it. Anything you have not saved on this page will be lost."
+        reload="Reload"
+        onReload={() => undefined}
       />
     ),
   },

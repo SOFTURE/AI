@@ -217,6 +217,8 @@ export function serviceWorker(scope: WorkerScope, config: ServiceWorkerConfig): 
   scope.addEventListener("fetch", (event) => {
     const request = event.request;
     if (request.method !== "GET") return;
+    // Chrome's devtools send this pair, and fetching it from a worker throws.
+    if (request.cache === "only-if-cached" && request.mode !== "same-origin") return;
     const url = new URL(request.url);
     const extra = config.extraOrigins.find((candidate) => candidate.origin === url.origin);
     if (extra !== undefined) {

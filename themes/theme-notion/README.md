@@ -357,6 +357,17 @@ plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-bloc
 <CodeBlock label="Build log" wrap>{log}</CodeBlock>
 ```
 
+**`UpdatePrompt`.** The offer to reload into a new build, for an installed app on `@softure-ai/pwa`: a floating
+`Alert` at the bottom of the screen (`shadow-menu`, at most `max-w-md`), padded by the safe-area insets so it clears a
+phone's home indicator and notch, with a reload `Button` at the touch height (`md:h-7` on a desktop). It is a polite
+`status`, not an `alert`, so it never interrupts a screen reader. It draws nothing until `open`. The copy is props,
+keyed like `pwaMessages.en.update`; `data-slot="update-prompt"` marks the root.
+
+```tsx
+const { isUpdateReady, activate } = useServiceWorkerUpdate(); // @softure-ai/pwa/react
+<UpdatePrompt open={isUpdateReady} onReload={activate} {...messages.update} />
+```
+
 **`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and
 `@dnd-kit/sortable`. On a touch screen a long press (`holdDelay`, 500 ms) lifts a row; moving more than `tolerance`
 (8 px) before that scrolls instead, and a tap still activates the row. A mouse drags the same way; from the keyboard

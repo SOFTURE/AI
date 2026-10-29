@@ -275,6 +275,14 @@ describe("the service worker's other requests", () => {
     expect(scope.dispatchFetch(navigation("/login")).response).not.toBeNull();
   });
 
+  it("leaves an only-if-cached request outside same-origin mode to the browser", async () => {
+    const scope = await installWorker();
+    const request = new Request(`${ORIGIN}/_next/static/css/app.css`);
+    Object.defineProperty(request, "cache", { value: "only-if-cached" });
+
+    expect(scope.dispatchFetch(request).response).toBeNull();
+  });
+
   it("leaves other methods and other origins to the browser", async () => {
     const scope = await installWorker();
 
