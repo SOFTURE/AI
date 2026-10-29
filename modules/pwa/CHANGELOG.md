@@ -6,6 +6,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- The install offer for phones (#873), in `@softure-ai/pwa/react`: `installPromptStore` keeps Chromium's
+  `beforeinstallprompt` from the moment the module loads (`preventDefault()` stops the mini bar, `appinstalled` forgets
+  it), `openInstallPrompt()` uses it once; `pickInstallOffer` (`ios_steps`, `browser_prompt`, `none`; never on a
+  desktop or in the installed app); `isIosDevice` (an iPad with a Mac user agent too), `isPhoneDevice`,
+  `isInstalledApp`; the closed flag per device under `<app>:pwa-install-closed` (`getInstallOfferKey`,
+  `isInstallOfferClosed`, `rememberInstallOfferClosed`), safe with a blocked storage; `useInstallOffer({ app })` →
+  `{ offer, install, close }`. Copy `pwaMessages.en.install`; the bar is theme-notion's `InstallBar`.
 - First version (#872): an installable app that works offline. One public prefix `/pwa/` for what a phone's installer
   fetches without cookies; the web app manifest from the theme's token values and the app's copy
   (`createManifestRoute`); the icon registry (`icon-32`, `apple-icon-180`, `icon-192`, `icon-512`,
