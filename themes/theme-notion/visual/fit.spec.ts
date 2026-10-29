@@ -66,3 +66,62 @@ for (const slot of ["status", "badge"] as const) {
     }
   });
 }
+
+const CELL_WIDTH = 96;
+const LONG_LABEL = "1,234.56 USD of 3,000 USD";
+
+interface Box {
+  readonly left: number;
+  readonly right: number;
+}
+
+interface LabelFit {
+  readonly box: Box;
+  readonly isCut: boolean;
+  readonly overflow: string;
+}
+
+// A MiniProgress with a label longer than a table cell stays in the cell, and both label copies end in an ellipsis
+// inside the bar instead of running into the next column (#871). Geometry, no baseline.
+test(`a mini progress with a long label stays within a ${CELL_WIDTH} px cell`, async ({ page }) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+
+  const fit = await page.evaluate(
+    ({ label, width }): { cell: Box; bar: Box; labels: LabelFit[] } => {
+      const source = document.querySelector('[data-slot="mini-progress"]');
+      if (source === null) throw new Error('no [data-slot="mini-progress"] in the gallery');
+      const cell = document.createElement("div");
+      cell.style.width = `${width}px`;
+      const bar = source.cloneNode(true) as HTMLElement;
+      const texts = [...bar.querySelectorAll<HTMLElement>('[data-slot="mini-progress-label"] > span')];
+      for (const text of texts) text.textContent = label;
+      cell.append(bar);
+      document.body.append(cell);
+
+      const toBox = (element: Element): Box => {
+        const box = element.getBoundingClientRect();
+        return { left: box.left, right: box.right };
+      };
+      return {
+        cell: toBox(cell),
+        bar: toBox(bar),
+        labels: texts.map((text) => ({
+          box: toBox(text),
+          isCut: text.scrollWidth > text.clientWidth,
+          overflow: getComputedStyle(text).textOverflow,
+        })),
+      };
+    },
+    { label: LONG_LABEL, width: CELL_WIDTH },
+  );
+
+  expect(fit.bar).toEqual(fit.cell);
+  expect(fit.labels).toHaveLength(2);
+  for (const label of fit.labels) {
+    expect(label.box.left).toBeGreaterThanOrEqual(fit.bar.left);
+    expect(label.box.right).toBeLessThanOrEqual(fit.bar.right);
+    expect(label.isCut).toBe(true);
+    expect(label.overflow).toBe("ellipsis");
+  }
+});

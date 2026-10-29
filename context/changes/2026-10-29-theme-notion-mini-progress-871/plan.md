@@ -45,6 +45,13 @@ render-check light and dark.
 - The label copies sit in their own `truncate` span inside an absolute flex row, as the issue proposes, so both cut at
   the same place.
 - A node label (not a string) leaves `aria-valuetext` to Radix's default percent; apps pass `aria-label` for the name.
+- Each label copy carries `data-slot="mini-progress-label"`, so apps and tests can address it.
+- axe's `color-contrast` flags the copy on the fill, since axe ignores `clip-path` and measures it against the track;
+  it is listed in `visual/gallery.spec.ts`'s known violations with that reason, and `tests/contrast.test.ts` pins the
+  real pair (background on each fill) at AA.
+- The gallery case sits among the compositions (after `MarkPopover`), not next to `Progress` in the ui cases; the
+  gallery's full-page baselines grow by the new case (208 px) and are otherwise unchanged (checked pixel by pixel
+  after the shift).
 - No version bump: the coordinator releases (theme-notion minor).
 
 ## Progress

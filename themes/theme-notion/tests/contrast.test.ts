@@ -119,6 +119,10 @@ const NON_TEXT_PAIRS: readonly Pair[] = [
   ...PROGRESS_FILLS.flatMap((fill) =>
     CONTROL_SURFACES.map((on) => ({ ...fill, on: [...on, "primary/20"] })),
   ),
+  // The MiniProgress fill against its quieter `primary/12` track.
+  ...PROGRESS_FILLS.flatMap((fill) =>
+    CONTROL_SURFACES.map((on) => ({ ...fill, on: [...on, "primary/12"] })),
+  ),
   // The selected tab of the default Tabs variant: its `input` border, painted over the list (`bg-clip-padding`),
   // against the list (and the unselected tabs on it) and against the pill's own fill.
   ...SELECTED_TAB_FILLS.flatMap(({ fill, schemes }) => [
@@ -163,6 +167,11 @@ const PAIRS: readonly Pair[] = [
   // Badges in a palette colour.
   ...PALETTE_COLORS.map((color) => ({ text: `${color}-tag-foreground`, on: [`${color}-tag`], min: TEXT_MIN })),
   { text: "default-tag-foreground", on: ["default-tag"], min: TEXT_MIN },
+  // MiniProgress: its label in the text colour on the track, and in the page background on each fill.
+  ...CONTROL_SURFACES.map((on) => ({ text: "foreground", on: [...on, "primary/12"], min: TEXT_MIN })),
+  ...PROGRESS_FILLS.flatMap(({ text: fill, schemes }) =>
+    CONTROL_SURFACES.map((on) => ({ text: "background", on: [...on, fill], min: TEXT_MIN, ...(schemes === undefined ? {} : { schemes }) })),
+  ),
   // The focus ring against the page.
   ...[["background"], ["card"], ["popover"]].map((on) => ({ text: "ring", on, min: NON_TEXT_MIN })),
   ...NON_TEXT_PAIRS,

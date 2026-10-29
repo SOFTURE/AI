@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `MiniProgress` (#871): a compact bar with its figure inside, for a table cell or a tile. A 20 px `primary/12` track
+  that takes the cell's width (at least 64 px), filled in `primary` (`link` in dark) or a `tone`'s colour; `value`
+  0–100 clamped, `label` (default: the rounded percent) drawn in `foreground` on the track and in `background` clipped
+  to the fill, AA on both in both schemes, truncated with an ellipsis in a narrow cell. A string label is the bar's
+  `aria-valuetext`. An app that put a figure in a fixed-width span next to `Progress` (`flex gap-2` + `w-16` +
+  `Progress`) swaps the pair for one `MiniProgress` and drops the widths.
+
 ## 0.9.0
 
 - `Badge` and `Status` in a narrow container (#864): a badge is capped at its container's width (`max-w-full`), so a
