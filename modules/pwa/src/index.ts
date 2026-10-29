@@ -37,7 +37,7 @@ export const MODULE_ID = "pwa";
 export const pwa = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.0.0",
+    version: "0.1.0",
     dependsOn: {},
     dbSchema: null,
     tables: [],
