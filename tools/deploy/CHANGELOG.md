@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **Smoke check after a deploy (#878):** `softure-deploy smoke <url> --tag=<tag> [--commit] [--deployed-at]
+  [--path=/api/health/build] [--headers-file]` reads the app's build info (`@softure-ai/ops`) and fails when it
+  answers another release, another commit or a process started before the deploy. `deploy-app.yml` takes
+  `build-info-path` and runs it after verify; the deploy action takes `build-info-path`, `build-info-headers` and
+  `deployed-at` and has a new output `sent-at`. The job summary gets `Smoke check: passed` or `failed`, and a failed
+  smoke check is a failed verify in the release report. Empty `build-info-path` (the default) changes nothing.
+- The build jobs of `deploy-app.yml` and `deploy-release-image.yml` pass the commit as the build argument
+  `SOFTURE_BUILD_COMMIT`; a caller's own `SOFTURE_BUILD_COMMIT` in `build-args` is refused. A Dockerfile without the
+  `ARG` ignores it.
+- `init` writes `SOFTURE_RELEASE: ${TAG}` on the app service of the compose file and `ARG SOFTURE_BUILD_COMMIT` before
+  `npm run build` in the Dockerfile. An app generated earlier adds both lines (or re-runs `init --force`).
+- `softure-deploy changelog [--roadmaps=2] [--out=<file>]` writes the newest roadmaps' `done` and `done_code` items
+  (id, change id, status) as JSON, for the build info route's changelog.
+
 ## 0.4.7
 
 - **A release cuts and reports on a self-hosted runner without the GitHub CLI (#686):** the jobs that call `gh`

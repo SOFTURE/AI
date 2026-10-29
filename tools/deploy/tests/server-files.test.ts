@@ -1503,6 +1503,7 @@ describe("the send step of deploy-app.yml", () => {
       env: {
         PATH: `${stubBin}:${process.env.PATH ?? ""}`,
         RUNNER_TEMP: root,
+        GITHUB_OUTPUT: join(root, "github-output"),
         SSH_HOST: "203.0.113.7",
         SSH_USER: "deploy",
         SSH_PRIVATE_KEY: "key",
@@ -1521,6 +1522,16 @@ describe("the send step of deploy-app.yml", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toBe("step|archive|ok\nresult|ok\n");
     expect(readFileSync(join(root, "deploy-output.txt"), "utf8")).toBe("step|archive|ok\nresult|ok\n");
+  });
+
+  it("records when it sent the release, in UTC, for the smoke check (issue #878)", () => {
+    const before = Math.floor(Date.now() / 1000) * 1000;
+    expect(send("result|ok\n").status).toBe(0);
+    const output = readFileSync(join(root, "github-output"), "utf8");
+    const sentAt = /^sent-at=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)$/m.exec(output)?.[1];
+    expect(sentAt).toBeDefined();
+    expect(Date.parse(sentAt ?? "")).toBeGreaterThanOrEqual(before);
+    expect(Date.parse(sentAt ?? "")).toBeLessThanOrEqual(Date.now());
   });
 
   it("fails when the session ends without result|ok, even with exit status 0", () => {

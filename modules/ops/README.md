@@ -6,8 +6,9 @@
 
 The operational basics of a SOFTURE app: `GET /api/health` that checks the database and every
 enabled module, a container recipe that runs `softure migrate` once before the app starts under
-least-privilege database roles, and a helper for safe ops scripts (dry run by default, `--commit`
-writes, one transaction, a guard test).
+least-privilege database roles, a helper for safe ops scripts (dry run by default, `--commit`
+writes, one transaction, a guard test), and a build info route that tells which release, commit and process answer
+(section "Build info" below).
 
 ## 2. Installation
 
@@ -146,6 +147,8 @@ The module reads none. The container recipe uses these on the containers:
 | `SOFTURE_LEDGER_SCHEMAS` | postgres (first start) | schemas whose tables the app role reads but never writes; default `softure,drizzle` |
 | `SOFTURE_APP_SCHEMAS` | `existing-database.sql` | schemas left to the app's own migration role; default `public,drizzle` |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | build | same value for every build when instances come from different builds (docs/02 §8) |
+| `SOFTURE_RELEASE` | app | the release tag the build info route answers, read on every request; `softure-deploy init`'s compose file sets it to `${TAG}` |
+| `SOFTURE_BUILD_COMMIT` | build | the commit `withBuildInfo` inlines; else `GITHUB_SHA`, else `git rev-parse HEAD`. The deploy workflow passes the tag's commit as a build argument |
 
 ## 7. Switches
 
@@ -183,6 +186,53 @@ their `before` and `after` return, so a script that touches personal data return
 - The read-only ledgers rest on an event trigger, which needs a superuser to install (the postgres
   image's `POSTGRES_USER` is one). A managed Postgres without event triggers keeps the app role's
   write privileges on ledgers created later; revoke them by hand after each new ledger table.
+
+## Build info
+
+A deploy that only waits for `GET /api/health` cannot tell a fresh container from a stale one: a failed pull or a
+rolled-back stack answers 200 too. The build info route answers which build runs, so the deploy's smoke check
+(`softure-deploy smoke`, `build-info-path` of `@softure-ai/deploy`'s workflow) can compare it with the tag it just
+deployed, and an assistant can check a "done" against production in one request.
+
+```ts
+// next.config.ts: the commit and the build time, inlined at build (the image has no git)
+import { withBuildInfo } from "@softure-ai/ops/next-config";
+export default withBuildInfo(nextConfig);
+
+// app/api/health/build/route.ts
+import { createBuildInfoRoute } from "@softure-ai/ops/next";
+export const GET = createBuildInfoRoute();
+```
+
+```json
+{
+  "release": "v1.4.0",
+  "commit": "0123456789abcdef0123456789abcdef01234567",
+  "builtAt": "2026-10-29T14:30:00.000Z",
+  "startedAt": "2026-10-29T15:01:12.345Z"
+}
+```
+
+- `release`: `SOFTURE_RELEASE` of the container's environment, read on every request (init's compose file sets it to
+  the deployed tag). `commit` and `builtAt`: `SOFTURE_BUILD_COMMIT` and `SOFTURE_BUILD_TIME`, which `withBuildInfo` puts
+  into the config's `env` at build and Next inlines wherever code reads them as `process.env.<NAME>`. `startedAt`: the
+  process start; a deploy starts a fresh container, so it is the deploy's time. An unset value is `null`.
+- `withBuildInfo(config, { commit?, builtAt?, cwd?, env? })` keeps the app's own `env` entries. The commit is the
+  option, else `SOFTURE_BUILD_COMMIT` of the build's environment (the deploy workflow's build argument; declare
+  `ARG SOFTURE_BUILD_COMMIT` before `npm run build`, as init's Dockerfile does), else `GITHUB_SHA`, else
+  `git rev-parse HEAD`; a value that is not 7 to 64 hex digits is skipped with a warning, and none leaves it empty.
+- The route is public and carries only the build, never user data, with `cache-control: no-store`; it calls
+  `connection()`, so it is never prerendered. Mount it under a prefix the app's access proxy lets through (the health
+  prefix, as above), or give the smoke check the proxy's headers (`build-info-headers`).
+- `createBuildInfoRoute({ release, commit, builtAt, changelog })` takes explicit values over the environment (an app
+  that lists `@softure-ai/ops` in `serverExternalPackages`, where Next does not inline, passes
+  `commit: process.env.SOFTURE_BUILD_COMMIT` and `builtAt: process.env.SOFTURE_BUILD_TIME` from its route file).
+  `changelog` is a function whose result the route answers as `changelog`, e.g. the JSON
+  `softure-deploy changelog --out=lib/changelog.json` writes before the build (the newest roadmaps' finished items):
+  `createBuildInfoRoute({ changelog: () => changelog })` with `import changelog from "@/lib/changelog.json"`. A
+  provider that throws answers `changelog: null` and logs the error class; the build info still answers.
+- Without Next: `readBuildInfo(options)` and `createBuildInfoResponse(options)` from `@softure-ai/ops/server`; the type
+  is `BuildInfo` from `@softure-ai/ops`.
 
 ## Container recipe
 

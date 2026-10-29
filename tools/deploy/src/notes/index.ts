@@ -1,3 +1,12 @@
+export {
+  DEFAULT_CHANGELOG_ROADMAPS,
+  listChangelogRoadmaps,
+  readChangelog,
+  selectChangelogItems,
+  type ChangelogItem,
+  type ChangelogRoadmap,
+  type ChangelogStatus,
+} from "./changelog.js";
 export { GIT_LOG_FORMAT, parseGitLog, type GitCommit } from "./git-log.js";
 export { toReleaseEntries, type ReleaseEntry } from "./release-entries.js";
 export { formatReleaseNotes, type ReleaseNotesOptions } from "./release-notes.js";

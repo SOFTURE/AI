@@ -25,6 +25,9 @@ ENV BUILD_STANDALONE=1
 # Server action IDs change with every build unless this key is the same for every build. An app that runs
 # instances from different builds passes it as a build secret:
 #   RUN --mount=type=secret,id=actions_key,env=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY npm run build
+# The commit for the build info (@softure-ai/ops withBuildInfo): deploy-app.yml passes the tag's, since the image
+# has no git. Declared right before the build, so a new commit rebuilds only from here.
+ARG SOFTURE_BUILD_COMMIT
 RUN npm run build
 {{#database}}
 

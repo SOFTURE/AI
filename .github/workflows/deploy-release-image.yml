@@ -130,7 +130,10 @@ jobs:
           file: ${{ inputs.dockerfile }}
           push: true
           tags: ${{ steps.ref.outputs.tagged }}
-          build-args: ${{ inputs.build-args }}
+          # The commit for the build info (@softure-ai/ops withBuildInfo); a Dockerfile without the ARG ignores it.
+          build-args: |
+            ${{ inputs.build-args }}
+            SOFTURE_BUILD_COMMIT=${{ inputs.ref }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ inputs.ref }}
