@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Touch sizes (#859): the controls a phone view taps most reach the `touch-target` token (44 px). `Button` gains the
+  sizes `touch` (`h-touch-target px-3`, the icon side padded like `lg`) and `icon-touch` (`size-touch-target`);
+  `SelectTrigger` gains `size="touch"` (`h-touch-target`); `SelectContent` and `SelectItem` gain `size` (`"default"` or
+  `"touch"`): a touch list draws every item at least 44 px high (`min-h-touch-target`), and an item's own `size` wins
+  over its list's. The heights are plain classes, so a caller's breakpoint class (`md:h-7`, `md:size-7`,
+  `md:min-h-7`) brings the pointer size back on a desktop. Existing sizes are unchanged. An app that used the
+  workaround `min-h-touch-target min-w-touch-target` on a `Button`, `SelectTrigger` or `SelectItem` replaces it with
+  the size (`size="touch"`, `size="icon-touch"`, or `size="touch"` on the `SelectContent`).
+
 ## 0.8.0
 
 - Safe-area insets (#851): with `viewport-fit=cover` (an app installed on a phone's home screen), the parts at a
