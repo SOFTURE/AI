@@ -1,7 +1,9 @@
-// A logout button for the app's own pages: a plain form posting to `logoutAction`, so it works
-// without JavaScript. Server component. `next` rides along as a hidden field.
+// A logout button for the app's own pages: `LogoutForm` posting to `logoutAction`, so it works without JavaScript.
+// Server component. `next` rides along as a hidden field. To clear the device before the sign-out, render
+// `LogoutForm` of `@softure-ai/auth/ui` with `beforeSignOut` from a client component instead.
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { Button, type ButtonVariant } from "@softure-ai/ui";
+import type { ButtonVariant } from "@softure-ai/ui";
+import { LogoutForm } from "../ui/logout-form.js";
 import { logoutAction } from "./actions.js";
 import { getAuthMessages } from "./messages.js";
 
@@ -13,13 +15,5 @@ export interface LogoutButtonProps {
 }
 
 export function LogoutButton({ variant = "secondary", className, next }: LogoutButtonProps) {
-  const messages = getAuthMessages(getSoftureConfig());
-  return (
-    <form action={logoutAction} className={className}>
-      {next === undefined ? null : <input type="hidden" name="next" value={next} />}
-      <Button type="submit" variant={variant}>
-        {messages.logout.submit}
-      </Button>
-    </form>
-  );
+  return <LogoutForm action={logoutAction} messages={getAuthMessages(getSoftureConfig())} next={next} variant={variant} className={className} />;
 }

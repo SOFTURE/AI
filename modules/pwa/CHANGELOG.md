@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Clearing the device on sign-out (#874): `registerDeviceData({ caches, indexedDb, storageKeys })` for the app and its
+  modules, and `clearDeviceData()`, which clears every registered part and the worker's kept pages, tries every part
+  even when another fails, skips a missing API and returns the failed part names. `LogoutForm` of
+  `@softure-ai/auth/ui` runs it as `beforeSignOut`.
 - First version (#872): an installable app that works offline. One public prefix `/pwa/` for what a phone's installer
   fetches without cookies; the web app manifest from the theme's token values and the app's copy
   (`createManifestRoute`); the icon registry (`icon-32`, `apple-icon-180`, `icon-192`, `icon-512`,
