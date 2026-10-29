@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The lefthook preset has a third `pre-push` speed (#868): a push that only merges the already-tested main branch
+  into the branch runs typecheck, ESLint, the language gate and the tests related to the files the branch changes
+  (`vitest related`), not the full suite. The new bin `softure-merge-push-scope` decides it. An incoming migration,
+  dependency manifest or lockfile, test setup or tool config (a built-in list plus `fullSuiteOn` globs in the app's
+  `package.json` under `"@softure-ai/config"`), new code of the branch, no upstream or a git error run the full suite,
+  as before. `softure-context-only-push` is unchanged.
+- Migration for an app that extends the preset: nothing to do; the `test` job gains a second `skip` entry
+  (`npx softure-merge-push-scope is-merge`) and a new job `test-related` follows it. An app that runs its tests through
+  another command than `vitest` sets `test-related`'s `run` to
+  `npx softure-merge-push-scope related -- <its related-test command>` in its `lefthook.app.yml`. An app that wants the
+  full suite on every push sets `test`'s `skip` back to `npx softure-context-only-push` alone and `test-related` to
+  `skip: true` (README, "A push that only merges the main branch in"). An app whose main branch is not `main`,
+  `master` or the remote's `HEAD` names it as `mainBranch` in `context/workflow.json`.
+
 ## 0.1.4
 
 - The lefthook preset skips typecheck, ESLint and the tests on `pre-push` when the push changes only files under

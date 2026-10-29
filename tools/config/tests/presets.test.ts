@@ -16,7 +16,7 @@ interface LefthookJob {
   name: string;
   run: string;
   glob?: string;
-  skip?: { run: string }[];
+  skip?: { run: string }[] | boolean;
 }
 
 type Lefthook = Record<string, { parallel?: boolean; piped?: boolean; jobs: LefthookJob[] }>;
@@ -116,7 +116,7 @@ describe("the lefthook preset", () => {
       const prePush = structuredClone(hooks["pre-push"]);
       for (const job of prePush?.jobs ?? []) {
         job.run = `echo ran-${job.name}`;
-        for (const condition of job.skip ?? []) {
+        for (const condition of Array.isArray(job.skip) ? job.skip : []) {
           const answer = answers[condition.run];
           if (answer === undefined) throw new Error(`no answer for the skip condition ${condition.run}`);
           condition.run = answer ? "true" : "false";
@@ -189,6 +189,15 @@ describe("the lefthook preset", () => {
       expect(getMergedRuns(merged, "pre-push")).toEqual({ ...getRuns("pre-push"), typecheck: NEXT_TYPECHECK });
       expect(merged["pre-push"]?.jobs.map((job) => job.name)).toEqual(["typecheck", "lint", "language", "test", "test-related"]);
       expect(merged["pre-push"]?.piped).toBe(true);
+    });
+
+    it("drops the merge-only speed with the opt-out the README shows", () => {
+      writeFileSync(join(appDir, "lefthook.yml"), `extends:\n  - ${PRESET}\n  - lefthook.app.yml\n`);
+      const optOut = "pre-push:\n  jobs:\n    - name: test\n      skip:\n        - run: npx softure-context-only-push\n    - name: test-related\n      skip: true\n";
+      writeFileSync(join(appDir, "lefthook.app.yml"), optOut);
+      const skips = Object.fromEntries((dumpMerged()["pre-push"]?.jobs ?? []).map((job) => [job.name, job.skip]));
+      expect(skips.test).toEqual([{ run: "npx softure-context-only-push" }]);
+      expect(skips["test-related"]).toBe(true);
     });
 
     it("keeps the preset's run for a job the app redefines in its own lefthook.yml, as the README warns", () => {

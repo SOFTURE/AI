@@ -81,7 +81,7 @@ extends:
 |---|---|
 | `pre-commit` | `tsc --noEmit`, ESLint on the staged files, the language gate on the staged files (in parallel; a Markdown-only commit skips the first two) |
 | `commit-msg` | the language gate on the message |
-| `pre-push` | `tsc --noEmit`, `eslint .`, the language gate on every tracked file, `npm test` (stops at the first failure); a push that changes only `context/` runs the language gate alone |
+| `pre-push` | `tsc --noEmit`, `eslint .`, the language gate on every tracked file, `npm test` (stops at the first failure); a push that changes only `context/` runs the language gate alone; a push that only merges the tested main branch in runs `vitest related` for the branch's files instead of `npm test` |
 
 A push of workflow artifacts alone (roadmap or change state under `context/`) skips typecheck, ESLint and the tests:
 their `skip` condition is `npx softure-context-only-push`, which exits 0 only when every file the push of the current
@@ -89,6 +89,61 @@ branch changes (`git diff @{push} HEAD`, so a merge that brings in code counts) 
 upstream, nothing to push, or a git error runs everything. ESLint runs without `--cache` on purpose: the rules are
 type-aware, and the cache keys a file by its own content, so a type change in one file would leave stale results for
 the files that use it.
+
+### A push that only merges the main branch in
+
+Right before a change branch is merged, the main branch has often moved, and the branch pushes nothing but that merge.
+The incoming code is tested on the main branch and the branch's own code was tested at its last push, so the full
+suite would only repeat both. For such a push the `test` job is skipped (`npx softure-merge-push-scope is-merge`) and
+the `test-related` job runs `npx vitest related --run --passWithNoTests <files the branch changes>` instead
+(`git diff --name-only <merge base with the main branch> HEAD`, deletions left out). Typecheck, ESLint and the language
+gate run as on any push. CI and the release gate keep running the full suite.
+
+`softure-merge-push-scope` calls a push a merge only when every new commit of `@{push}..HEAD` that is not already on
+the upstream main branch either touches only `context/` or is a merge whose other parents are on the upstream main
+branch, and at least one such merge is there. The full suite runs instead when:
+
+- the branch pushes code of its own, merges another branch, or merges main-branch commits not yet on the remote;
+- the merge brings in (`git diff @{push} HEAD`) a migration (`migrations/`, `*.sql`, `prisma/`, `drizzle/`), a
+  dependency manifest, lockfile or runtime pin (`package.json`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`,
+  `bun.lock`, `.npmrc`, `.nvmrc`, …), a test setup (`vitest.config.*`, `vite.config.*`, `playwright.config.*`,
+  `*.setup.ts`, `setup-tests.ts`, …) or a tool config (`tsconfig*.json`, `eslint.config.*`, `lefthook*.yml`,
+  `next.config.*`, `.env*`, …);
+- the merge brings in a file the app lists in its `package.json`:
+
+  ```json
+  { "@softure-ai/config": { "fullSuiteOn": ["db/**", "scripts/seed.ts"] } }
+  ```
+
+  (`**` any folders, `*` within one name, `?` one character, matched against the path from the repository root);
+- the branch has no upstream, nothing new is pushed, no main branch is found, or git fails.
+
+The main branch is `mainBranch` of `context/workflow.json` when the app has one, else the remote's `HEAD`, else
+`main`, else `master`, on the remote the branch pushes to. A failing bin never skips the full suite: `is-merge` then
+exits non-zero, so `test` runs (at worst `test-related` runs too).
+
+An app whose tests run through another command gives it to `test-related` after `--`; the files are appended:
+
+```yaml
+# lefthook.app.yml
+pre-push:
+  jobs:
+    - name: test-related
+      run: npx softure-merge-push-scope related -- npx vitest related --run --passWithNoTests --project unit
+```
+
+An app that wants the full suite on every push drops the third speed in the same file:
+
+```yaml
+# lefthook.app.yml
+pre-push:
+  jobs:
+    - name: test
+      skip:
+        - run: npx softure-context-only-push
+    - name: test-related
+      skip: true
+```
 
 Install the hooks from `prepare`, skipped when `CI` is set (lefthook 2 installs unconditionally, and a CI checkout
 has no use for hooks):
