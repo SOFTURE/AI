@@ -44,7 +44,8 @@ limit check made race-free.
 - Server functions for scripts and other hosts, and a health check for `GET /api/health`.
 - For the app's own server: tool result helpers with a safe error boundary and server actions as write tools
   (`/server`), a server factory whose version follows the tool list, so clients drop a stale cached `tools/list`
-  (`createMcpServerFactory`, `measureToolList`, `/server`), a stdio entry for local assistants (`/stdio`), a catalog parity check (`/testing`), a gate before a
+  (`createMcpServerFactory`, `measureToolList`, `/server`), strict tool input that refuses unknown and renamed
+  fields (`withStrictToolInput`, `/server`), a stdio entry for local assistants (`/stdio`), a catalog parity check (`/testing`), a gate before a
   token is issued (`issueToken`, `/next`) and the `softure-mcp prune` command for a daily cleanup (§4, §5).
 
 ## 2. Installation
@@ -179,6 +180,36 @@ export const createServer = createMcpServerFactory({
 - In the app's tests, `measureServedToolLists(createServer)` (`/testing`) gives `{ read, write }` with the version
   and count of each level, for an inline snapshot next to the catalog check: a schema change that forgets to update
   the snapshot fails the test.
+
+### Strict tool input
+
+zod objects strip unknown keys, so a call with a misspelt field (`notes` for `note`) or a field of a newer tool list
+answers as a write that worked while the value was dropped. `withStrictToolInput(server, options?)` rewrites every
+input schema registered on the server from then on, or pass `strictToolInput: true | options` to
+`createMcpServerFactory` (the version is then measured on the strict listing):
+
+```ts
+const server = withStrictToolInput(new McpServer({ name: "acme", version }), {
+  renamedFields: { notes: "note" }, // old name → new name
+  coerceTextScalars: true, // default
+  messages: getMcpAccessMessages(config).toolInput, // default: the English dictionary
+});
+```
+
+- **Unknown fields** are refused at every level: nested objects, arrays, records, tuples, optionals, defaults,
+  unions, discriminated unions, intersections (a field either side knows is accepted), `z.lazy`, and the input side
+  of a transform. The answer names the field and the fields its object accepts, e.g.
+  `items.1: Unknown fields: "size". Accepted fields: "title".` An object with its own catchall (`z.looseObject`,
+  `.catchall(x)`) keeps it; refinements and the object's own error messages stay.
+- **Renamed fields:** a field sent under an old name where the object accepts the new one is refused with the
+  stable code `input.field_renamed` and the new name, so a session on an older tool list learns it in one call.
+- **Text scalars:** a client on an older tool list sends a field it does not know as text, so a boolean field also
+  takes the exact text `"true"`/`"false"` and a number field a JSON number written as text, converted before the
+  field's own rules (`"-1"` still fails `min(0)`). Any other text is refused. The listed JSON Schema keeps `boolean`
+  and `number` and gains `additionalProperties: false`.
+- The SDK validates before the handler runs, so a refused call saves nothing. A raw shape is wrapped in
+  `z.object` first; a schema that is not zod passes unchanged. `toStrictToolInput(schema, options?)` gives the
+  strict schema on its own.
 
 ### Writing tools
 
@@ -544,7 +575,9 @@ None. `allowWrites` is configuration, not a runtime switch: changing who may wri
 (placeholders `{serverName}` and `{command}`), `list`, `grants` (connected apps), `consent` (the
 consent page and its errors), and `errors` for the codes
 `mcp-access.name_required`, `name_too_long`, `token_limit_reached`, `token_not_found`, `grant_not_found`,
-`auth.unauthenticated`, `core.database_failed` and `core.unexpected`. Tool descriptions come from
+`auth.unauthenticated`, `core.database_failed` and `core.unexpected`; `toolInput` for strict tool input
+(`unknownFields` with `{fields}` and `{accepted}`, `noFields`, `fieldRenamed` with `{field}` and `{renamed}`).
+Tool descriptions come from
 the `tools` option, per locale.
 
 ## 10. Hooks
