@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Touch sizes for menus, tabs, accordion and dialog close (#880), the rest of #859. `DropdownMenuContent` gains
+  `size` (`"default"` or `"touch"`) and so do `DropdownMenuItem`, `DropdownMenuCheckboxItem`, `DropdownMenuRadioItem`
+  and `DropdownMenuSubTrigger`: a touch menu draws every row at least 44 px high (`min-h-touch-target`), and a row's
+  own `size` wins over its menu's. `TabsList` (and `tabsListVariants`) gains `size`: a touch list drops its fixed
+  36 px height and its triggers are at least 44 × 44 (`min-h-touch-target min-w-touch-target`); `TabsTrigger size`
+  wins over the list's. `AccordionTrigger` gains `size="touch"` (`min-h-touch-target`). `DialogContent` gains
+  `closeButtonSize="touch"`: the close button is 44 × 44 (`size-touch-target`) around the same icon. Defaults render
+  as before. An app that wrote `min-h-touch-target min-w-touch-target` on these controls replaces it with the size.
 - `MiniProgress` (#871): a compact bar with its figure inside, for a table cell or a tile. A 20 px `primary/12` track
   that takes the cell's width (at least 64 px), filled in `primary` (`link` in dark) or a `tone`'s colour; `value`
   0–100 clamped, `label` (default: the rounded percent) drawn in `foreground` on the track and in `background` clipped
