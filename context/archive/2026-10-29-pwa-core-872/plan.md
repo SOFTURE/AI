@@ -1,6 +1,6 @@
 ---
 change_id: pwa-core-872
-status: in_progress
+status: archived
 ---
 
 # Plan: the pwa package (issue #872)
@@ -58,14 +58,18 @@ Package README (access-proxy bypass of `/pwa/`, Traefik notes, the offline page,
 - A failed `registration.update()` on return to the foreground is ignored on purpose (offline is the usual cause);
   a failed registration goes to `onError`.
 - The prompt lives in theme-notion; the pwa package ships its English copy.
+- The package defines `pwa` with `defineModule` (no options): the release tooling bumps an inline manifest in every
+  module's `src/index.ts`.
+- Package version 0.0.0 with `## Unreleased`: the batch release sets its first version.
 - No version bump: the coordinator releases the batch.
 
 ## Progress
 
-- [ ] Phase 1: package skeleton
-- [ ] Phase 2: manifest, icons, build version
-- [ ] Phase 3: the service worker
-- [ ] Phase 4: the page side
-- [ ] Phase 5: theme-notion UpdatePrompt
-- [ ] Phase 6: docs
-- [ ] Implementation review
+- [x] Phase 1: package skeleton, 02d9a08
+- [x] Phase 2: manifest, icons, build version, 02d9a08
+- [x] Phase 3: the service worker, 02d9a08
+- [x] Phase 4: the page side, 02d9a08
+- [x] Phase 5: theme-notion UpdatePrompt, 7f4eb98 (an isolated gallery case: no shared file with #879 beyond the
+  export list, CHANGELOG and fixture)
+- [x] Phase 6: docs, 02d9a08
+- [x] Implementation review: approved

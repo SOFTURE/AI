@@ -1,12 +1,13 @@
 ---
 change_id: pwa-core-872
 title: "pwa: a new package for installable apps: manifest, icons, service worker, new-build update flow (issue #872)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 872
 branch: claude/project-thread-ipzblo
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent
