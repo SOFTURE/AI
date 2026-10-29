@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `SheetMenu`, `SheetMenuItem` and `SheetMenuButton` (#858): navigation rows for a side `Sheet` (a phone's drawer)
+  that need no `SidebarProvider`. A row is full width, icon and label left-aligned in `foreground` (`text-ui`), 44 px
+  tall on a phone and 34 px from `md`, hovered, pressed and active in `accent` like the sidebar's rows, `disabled`
+  dimmed; `asChild` renders a link, `SheetClose asChild` around it closes the drawer. The README shows the drawer
+  recipe: `showCloseButton={false}`, a ghost close `Button` in the `SheetHeader` row, the foot rows in a `SheetFooter`
+  with `border-t`. An app that laid out ghost `Button`s as rows (`size="lg" className="min-h-touch-target w-full
+  justify-start text-ui text-foreground"`) wraps them in `SheetMenu` / `SheetMenuItem`, swaps each `Button` for
+  `SheetMenuButton` and drops those classes.
+
 ## 0.8.0
 
 - Safe-area insets (#851): with `viewport-fit=cover` (an app installed on a phone's home screen), the parts at a
