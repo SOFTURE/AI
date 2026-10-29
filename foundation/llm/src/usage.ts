@@ -27,23 +27,38 @@ export function getCostUsd(pricing: ModelPricing, model: string, usage: LlmUsage
   return costPerMillion / TOKENS_PER_MILLION;
 }
 
-/** The USD the provider reported it billed for the call, or `null` when it reported none (or nothing usable). */
+/**
+ * The USD the provider reported it billed for the call, or `null` when it reported none (or nothing usable): OpenRouter's
+ * fee plus the upstream cost a BYOK call is charged by the model's provider. A part that is not a non-negative number is skipped.
+ */
 export function readProviderCostUsd(providerMetadata: unknown): number | null {
-  const cost = readPath(providerMetadata, ["openrouter", "usage", "cost"]);
-  if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0) return null;
-  return cost;
+  const parts = [
+    readPath(providerMetadata, ["openrouter", "usage", "cost"]),
+    readPath(providerMetadata, ["openrouter", "usage", "costDetails", "upstreamInferenceCost"]),
+  ].filter(isCostUsd);
+  if (parts.length === 0) return null;
+  return parts.reduce((total, part) => total + part, 0);
 }
 
-/** The call's cost and where it came from: the provider's figure first, then the price table. */
+/**
+ * The call's cost and where it came from: a provider figure above 0 first, then the price table. A provider total of 0
+ * counts as not reported when the model has a price, and stays the cost of a model without one (a free model).
+ */
 export function resolveCost(input: {
   readonly pricing: ModelPricing;
   readonly model: string;
   readonly usage: LlmUsage | undefined;
   readonly providerCostUsd: number | null;
 }): { readonly costUsd: number | null; readonly costSource: CostSource | null } {
-  if (input.providerCostUsd !== null) return { costUsd: input.providerCostUsd, costSource: "provider" };
+  if (input.providerCostUsd !== null && input.providerCostUsd > 0) return { costUsd: input.providerCostUsd, costSource: "provider" };
   const costUsd = input.usage === undefined ? null : getCostUsd(input.pricing, input.model, input.usage);
-  return { costUsd, costSource: costUsd === null ? null : "price_table" };
+  if (costUsd !== null) return { costUsd, costSource: "price_table" };
+  if (input.providerCostUsd === 0) return { costUsd: 0, costSource: "provider" };
+  return { costUsd: null, costSource: null };
+}
+
+function isCostUsd(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 function readPath(value: unknown, path: readonly string[]): unknown {
