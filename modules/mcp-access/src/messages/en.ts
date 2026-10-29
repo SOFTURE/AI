@@ -90,6 +90,10 @@ export const en = {
     noFields: "none",
     fieldRenamed: "input.field_renamed: the field \"{field}\" is now \"{renamed}\". Send it as \"{renamed}\".",
   },
+  serverInfoTool: {
+    description:
+      "Tells which build of this server answers: its name and version (the version changes whenever a tool changes), the release, the commit, when it was built and started, and the changelog when the app publishes one. Use it to check that a change is live.",
+  },
   errors: {
     "mcp-access": {
       name_required: "Give the token a name, so you can tell it from the others.",

@@ -103,6 +103,15 @@ export {
   type VerifiedAccessToken,
 } from "./tokens.js";
 export { createMcpServerFactory, type McpServerFactoryOptions } from "./server-factory.js";
+export {
+  registerServerInfoTool,
+  SERVER_INFO_TOOL_NAME,
+  type McpBuildInfo,
+  type RegisterServerInfoToolOptions,
+  type ServedServerInfo,
+  type ServerInfoAnswer,
+  type ServerInfoToolOptions,
+} from "./server-info.js";
 export { toStrictToolInput, withStrictToolInput, type StrictToolInputMessages, type StrictToolInputOptions } from "./strict-input.js";
 export {
   DEFAULT_TOOL_LIST_RELEASE,
