@@ -2,6 +2,18 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
+## Unreleased
+
+- Manifest icons (#854): `drawAppIcon` takes `shape: "maskable"` (full bleed, the glyph at half the side, inside the
+  W3C safe zone of 80 %), `glyphScale` (the glyph's share of the side; 0.625 by default, 0.5 for `maskable`) and
+  `strokeWidth` (an icon-data glyph's stroke, 2 by default). An out-of-range option throws; a maskable glyph above
+  `MASKABLE_SAFE_ZONE / √2` (≈ 0.566) is refused, since a launcher would cut it. `renderIconSvg(icon, color, {
+  strokeWidth })` takes the stroke too. New constants `MANIFEST_ICON_SIZE` (192 × 192), `MANIFEST_LARGE_ICON_SIZE`
+  (512 × 512) and `MASKABLE_SAFE_ZONE`. Defaults are unchanged, so existing icons draw the same. An app that draws its
+  manifest icons itself can replace that code with the README's `app/manifest.ts` and `app/icons/[variant]/route.ts`
+  examples; pass `glyphScale` (e.g. `0.68`) and `strokeWidth` (e.g. the theme's `ICON_STROKE_WIDTH + 0.5`) to keep
+  its own proportions.
+
 ## 0.1.5
 
 - App icon (#839): `@softure-ai/theme-kit/next` exports `drawAppIcon({ theme, icon, size, tone, scheme, shape })`, the

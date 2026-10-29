@@ -46,7 +46,7 @@ ThemeDefinition (data)  ──defineTheme──▶  theme (checked)  ──build
 | `getThemeColor(theme, name, scheme)` | A colour's value in one scheme (`light` by default), aliases followed, for code drawing outside the page |
 | `createCn(options)`, `createThemeCn(definition)` | shadcn/ui's `cn`, with tailwind-merge told the theme's named text styles and shadows (`text-body` and `text-muted-foreground` both stay) |
 | `useIsMobile()`, `MOBILE_BREAKPOINT` (`/react`) | The sidebar's breakpoint (768 px), on `useSyncExternalStore`; the server renders the desktop layout |
-| `drawAppIcon(options)`, `APP_ICON_SIZE`, `APPLE_ICON_SIZE` (`/next`) | The app's tab and home screen icon in the theme's colours, as a `next/og` image (below) |
+| `drawAppIcon(options)`, `APP_ICON_SIZE`, `APPLE_ICON_SIZE`, `MANIFEST_ICON_SIZE`, `MANIFEST_LARGE_ICON_SIZE` (`/next`) | The app's tab, home screen and web app manifest icons in the theme's colours, as a `next/og` image (below) |
 | `preflight.css` | Tailwind's preflight scoped to `[data-slot]` elements, in `@layer base` with zero specificity, plus `prefers-reduced-motion` |
 | `base.css` | The page base: `body` without the browser's margin, on the theme's `background`, `foreground` and sans font (Radix portals on `body` inherit it); a `border` without a colour class in the theme's `border` and outlines in a half-transparent `ring`, as shadcn/ui's `globals.css` does, where Tailwind's preflight leaves `currentColor`; all in `@layer base` |
 | `maplibre.css` | The theme's sans font on MapLibre maps (`body .maplibregl-map`, unlayered, so it beats `maplibre-gl.css` in any load order) |
@@ -97,7 +97,65 @@ export default function AppleIcon() {
 | `size` | `APP_ICON_SIZE` (32 × 32) | The image size; pass the same constant as the file's `size` export |
 | `tone` | `primary` | The pair of contract roles: `primary`, `secondary`, `accent` (each on its `-foreground`), `inverse` (`background` on `foreground`) |
 | `scheme` | `light` | The scheme the colours come from: a favicon is one image for both |
-| `shape` | `rounded` | `rounded` (corners at 22 % of the side) or `square` (full bleed) |
+| `shape` | `rounded` | `rounded` (corners at 22 % of the side), `square` (full bleed) or `maskable` (full bleed, the glyph inside the safe zone) |
+| `glyphScale` | `0.625`; `0.5` for `maskable` | The glyph's side as a share of the icon's side, above 0 and at most 1; for `maskable` at most `MASKABLE_SAFE_ZONE / √2` (≈ 0.566), so its corners stay inside the safe zone circle |
+| `strokeWidth` | `2` (lucide's) | The stroke of an icon-data glyph in its 24-unit grid, e.g. a theme's own icon stroke plus `0.5` for a heavier line at tab size; `{ svg }` markup draws its own stroke and refuses it |
+
+An option out of range throws, naming the value and the limit: it is a bug in the icon file, found at build time.
+
+### Manifest icons
+
+An installable app lists its icons in `app/manifest.ts`: `192` and `512` for launchers, and a maskable `512`, which
+Android crops to a circle or squircle. A maskable icon has no corners of its own and keeps the glyph inside the
+centred circle of 80 % of its side (`MASKABLE_SAFE_ZONE`). These are not Next metadata files, so one route handler
+serves them; `drawAppIcon` returns a `Response`.
+
+```ts
+// app/manifest.ts
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Example",
+    start_url: "/",
+    display: "standalone",
+    icons: [
+      { src: "/icons/192", sizes: "192x192", type: "image/png" },
+      { src: "/icons/512", sizes: "512x512", type: "image/png" },
+      { src: "/icons/maskable", sizes: "512x512", type: "image/png", purpose: "maskable" },
+    ],
+  };
+}
+```
+
+```tsx
+// app/icons/[variant]/route.ts
+import { drawAppIcon, MANIFEST_ICON_SIZE, MANIFEST_LARGE_ICON_SIZE, type AppIconOptions } from "@softure-ai/theme-kit/next";
+import { theme } from "@softure-ai/theme-notion";
+import { Wallet } from "lucide";
+
+const VARIANTS = {
+  "192": { size: MANIFEST_ICON_SIZE, shape: "square" },
+  "512": { size: MANIFEST_LARGE_ICON_SIZE, shape: "square" },
+  maskable: { size: MANIFEST_LARGE_ICON_SIZE, shape: "maskable" },
+} satisfies Record<string, Pick<AppIconOptions, "size" | "shape">>;
+
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return Object.keys(VARIANTS).map((variant) => ({ variant }));
+}
+
+function isVariant(variant: string): variant is keyof typeof VARIANTS {
+  return Object.hasOwn(VARIANTS, variant);
+}
+
+export async function GET(_request: Request, { params }: { params: Promise<{ variant: string }> }) {
+  const { variant } = await params;
+  if (!isVariant(variant)) return new Response(null, { status: 404 });
+  return drawAppIcon({ theme, icon: Wallet, ...VARIANTS[variant] });
+}
+```
 
 The glyph is data, not a component. A metadata route renders on the server, and lucide-react's icons are client
 modules that call `useContext`: `next/og` runs no hooks, and Next refuses `react-dom/server` in app code. lucide's
