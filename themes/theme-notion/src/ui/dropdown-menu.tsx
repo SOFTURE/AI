@@ -5,6 +5,18 @@ import { cn } from "../lib/utils.js"
 import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
+type DropdownMenuItemSize = "default" | "touch"
+
+// The items render in a portal, so a menu's size reaches them through context, not the DOM.
+const DropdownMenuItemSizeContext =
+  React.createContext<DropdownMenuItemSize>("default")
+
+// One height or the other: `cn` does not merge `min-h-7` with the theme's `touch-target` spacing.
+function useItemHeight(size: DropdownMenuItemSize | undefined) {
+  const menuSize = React.useContext(DropdownMenuItemSizeContext)
+  return (size ?? menuSize) === "touch" ? "min-h-touch-target" : "min-h-7"
+}
+
 function DropdownMenu({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
@@ -33,19 +45,24 @@ function DropdownMenuTrigger({
 function DropdownMenuContent({
   className,
   sideOffset = 4,
+  size = "default",
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Content> & {
+  size?: DropdownMenuItemSize
+}) {
   return (
     <DropdownMenuPrimitive.Portal>
-      <DropdownMenuPrimitive.Content
-        data-slot="dropdown-menu-content"
-        sideOffset={sideOffset}
-        className={cn(
-          "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-1 text-popover-foreground shadow-menu data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
-          className
-        )}
-        {...props}
-      />
+      <DropdownMenuItemSizeContext.Provider value={size}>
+        <DropdownMenuPrimitive.Content
+          data-slot="dropdown-menu-content"
+          sideOffset={sideOffset}
+          className={cn(
+            "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-1 text-popover-foreground shadow-menu data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+            className
+          )}
+          {...props}
+        />
+      </DropdownMenuItemSizeContext.Provider>
     </DropdownMenuPrimitive.Portal>
   )
 }
@@ -62,18 +79,23 @@ function DropdownMenuItem({
   className,
   inset,
   variant = "default",
+  size,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
   inset?: boolean
   variant?: "default" | "destructive"
+  size?: DropdownMenuItemSize
 }) {
+  const height = useItemHeight(size)
+
   return (
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md min-h-7 px-2 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/10 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!",
+        "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/10 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!",
+        height,
         className
       )}
       {...props}
@@ -85,13 +107,19 @@ function DropdownMenuCheckboxItem({
   className,
   children,
   checked,
+  size,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem> & {
+  size?: DropdownMenuItemSize
+}) {
+  const height = useItemHeight(size)
+
   return (
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md min-h-7 py-1 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative flex cursor-default items-center gap-2 rounded-md py-1 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        height,
         className
       )}
       checked={checked}
@@ -121,13 +149,19 @@ function DropdownMenuRadioGroup({
 function DropdownMenuRadioItem({
   className,
   children,
+  size,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem> & {
+  size?: DropdownMenuItemSize
+}) {
+  const height = useItemHeight(size)
+
   return (
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md min-h-7 py-1 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative flex cursor-default items-center gap-2 rounded-md py-1 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        height,
         className
       )}
       {...props}
@@ -201,16 +235,21 @@ function DropdownMenuSubTrigger({
   className,
   inset,
   children,
+  size,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {
   inset?: boolean
+  size?: DropdownMenuItemSize
 }) {
+  const height = useItemHeight(size)
+
   return (
     <DropdownMenuPrimitive.SubTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "flex cursor-default items-center gap-2 rounded-md min-h-7 px-2 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[inset]:pl-8 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
+        "flex cursor-default items-center gap-2 rounded-md px-2 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[inset]:pl-8 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
+        height,
         className
       )}
       {...props}

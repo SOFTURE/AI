@@ -34,6 +34,7 @@ modules/             feature modules (each one works on its own on top of the fo
   agent-ready/       agent discovery: catalogs, MCP/A2A cards, auth.md, Agent Skills, Web Bot Auth, DNS-AID, WebMCP
   jobs/              background jobs in Postgres: queue, leases, retry with backoff, worker process
   connections/       connected accounts: OAuth 2.0 client, encrypted tokens and API keys, refresh under a lease
+  pwa/               installable app: manifest, icons, service worker from a route, new-build update flow, online state
   files/             stored files: content hash, quota, expiry, local disk or S3, signed public links with ranges
 tools/
   marketing-kit/     materials generator: video, screenshots, OG images from JSON and a brand

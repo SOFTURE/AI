@@ -17,6 +17,16 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "          \"flex flex-1 items-start justify-between gap-4 rounded-md py-4 text-left text-sm font-medium transition-all outline-none hover:underline focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&[data-state=open]>svg]:rotate-180\",",
       ours: "          \"flex flex-1 items-start justify-between gap-4 rounded-md py-4 text-left text-sm font-medium transition-all outline-none hover:underline focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&[data-state=open]>svg]:rotate-180\",",
     },
+    {
+      reason: "accordion: the touch size at the `touch-target` token, 44 px (#880)",
+      upstream: "  ...props\n}: React.ComponentProps<typeof AccordionPrimitive.Trigger>) {",
+      ours: "  size = \"default\",\n  ...props\n}: React.ComponentProps<typeof AccordionPrimitive.Trigger> & {\n  size?: \"default\" | \"touch\"\n}) {",
+    },
+    {
+      reason: "accordion: the touch size at the `touch-target` token, 44 px (#880)",
+      upstream: "          \"flex flex-1 items-start justify-between gap-4 rounded-md py-4 text-left text-sm font-medium transition-all outline-none hover:underline focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&[data-state=open]>svg]:rotate-180\",\n          className",
+      ours: "          \"flex flex-1 items-start justify-between gap-4 rounded-md py-4 text-left text-sm font-medium transition-all outline-none hover:underline focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&[data-state=open]>svg]:rotate-180\",\n          size === \"touch\" && \"min-h-touch-target\",\n          className",
+    },
   ],
   "alert-dialog": [
     {
@@ -311,6 +321,21 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "            <span className=\"sr-only\">Close</span>",
       ours: "            <span className=\"sr-only\">{closeLabel}</span>",
     },
+    {
+      reason: "dialog: the close button's touch size, 44 x 44 around the same icon (#880)",
+      upstream: "  closeLabel = messages.dialog.close,\n  ...props",
+      ours: "  closeLabel = messages.dialog.close,\n  closeButtonSize = \"default\",\n  ...props",
+    },
+    {
+      reason: "dialog: the close button's touch size, 44 x 44 around the same icon (#880)",
+      upstream: "  closeLabel?: string\n}) {",
+      ours: "  closeLabel?: string\n  // `touch` draws the close button 44 x 44, centred on the same icon.\n  closeButtonSize?: \"default\" | \"touch\"\n}) {",
+    },
+    {
+      reason: "dialog: the close button's touch size, 44 x 44 around the same icon (#880)",
+      upstream: "            className=\"absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\"",
+      ours: "            className={cn(\n              \"absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",\n              closeButtonSize === \"touch\" &&\n                \"top-0.5 right-0.5 inline-flex size-touch-target items-center justify-center rounded-md\"\n            )}",
+    },
   ],
   "dropdown-menu": [
     {
@@ -324,19 +349,19 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "          \"z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-1 text-popover-foreground shadow-menu data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",",
     },
     {
-      reason: "menu item: radius 6, at least 28 px high; a focused destructive item in dark is tinted `destructive/10` (WCAG AA contrast)",
+      reason: "menu item: radius 6, at least 28 px high, 44 px at the touch size (#880); a focused destructive item in dark is tinted `destructive/10` (WCAG AA contrast)",
       upstream: "        \"relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!\",",
-      ours: "        \"relative flex cursor-default items-center gap-2 rounded-md min-h-7 px-2 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/10 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!\",",
+      ours: "        \"relative flex cursor-default items-center gap-2 rounded-md px-2 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/10 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!\",\n        height,",
     },
     {
-      reason: "menu item: radius 6, at least 28 px high",
+      reason: "menu item: radius 6, at least 28 px high, 44 px at the touch size (#880)",
       upstream: "      data-slot=\"dropdown-menu-checkbox-item\"\n      className={cn(\n        \"relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",",
-      ours: "      data-slot=\"dropdown-menu-checkbox-item\"\n      className={cn(\n        \"relative flex cursor-default items-center gap-2 rounded-md min-h-7 py-1 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",",
+      ours: "      data-slot=\"dropdown-menu-checkbox-item\"\n      className={cn(\n        \"relative flex cursor-default items-center gap-2 rounded-md py-1 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",\n        height,",
     },
     {
-      reason: "menu item: radius 6, at least 28 px high",
+      reason: "menu item: radius 6, at least 28 px high, 44 px at the touch size (#880)",
       upstream: "      data-slot=\"dropdown-menu-radio-item\"\n      className={cn(\n        \"relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",",
-      ours: "      data-slot=\"dropdown-menu-radio-item\"\n      className={cn(\n        \"relative flex cursor-default items-center gap-2 rounded-md min-h-7 py-1 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",",
+      ours: "      data-slot=\"dropdown-menu-radio-item\"\n      className={cn(\n        \"relative flex cursor-default items-center gap-2 rounded-md py-1 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",\n        height,",
     },
     {
       reason: "menu shortcut: small muted text",
@@ -344,14 +369,54 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "        \"px-2 py-1.5 text-xs font-medium text-muted-foreground data-[inset]:pl-8\",",
     },
     {
-      reason: "menu item: radius 6, at least 28 px high",
+      reason: "menu item: radius 6, at least 28 px high, 44 px at the touch size (#880)",
       upstream: "        \"flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[inset]:pl-8 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground\",",
-      ours: "        \"flex cursor-default items-center gap-2 rounded-md min-h-7 px-2 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[inset]:pl-8 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground\",",
+      ours: "        \"flex cursor-default items-center gap-2 rounded-md px-2 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[inset]:pl-8 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground\",\n        height,",
     },
     {
       reason: "menu: radius 10 and `shadow-menu`, no border",
       upstream: "        \"z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",",
       ours: "        \"z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-xl bg-popover p-1 text-popover-foreground shadow-menu data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",",
+    },
+    {
+      reason: "menu: the touch size at the `touch-target` token, 44 px; the items take their menu's size through context (#880)",
+      upstream: "import { DropdownMenu as DropdownMenuPrimitive } from \"radix-ui\"\n",
+      ours: "import { DropdownMenu as DropdownMenuPrimitive } from \"radix-ui\"\n\ntype DropdownMenuItemSize = \"default\" | \"touch\"\n\n// The items render in a portal, so a menu's size reaches them through context, not the DOM.\nconst DropdownMenuItemSizeContext =\n  React.createContext<DropdownMenuItemSize>(\"default\")\n\n// One height or the other: `cn` does not merge `min-h-7` with the theme's `touch-target` spacing.\nfunction useItemHeight(size: DropdownMenuItemSize | undefined) {\n  const menuSize = React.useContext(DropdownMenuItemSizeContext)\n  return (size ?? menuSize) === \"touch\" ? \"min-h-touch-target\" : \"min-h-7\"\n}\n",
+    },
+    {
+      reason: "menu: the touch size at the `touch-target` token, 44 px; the items take their menu's size through context (#880)",
+      upstream: "  ...props\n}: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {\n  return (\n    <DropdownMenuPrimitive.Portal>\n      <DropdownMenuPrimitive.Content\n        data-slot=\"dropdown-menu-content\"\n        sideOffset={sideOffset}\n        className={cn(\n          \"z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-1 text-popover-foreground shadow-menu data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",\n          className\n        )}\n        {...props}\n      />",
+      ours: "  size = \"default\",\n  ...props\n}: React.ComponentProps<typeof DropdownMenuPrimitive.Content> & {\n  size?: DropdownMenuItemSize\n}) {\n  return (\n    <DropdownMenuPrimitive.Portal>\n      <DropdownMenuItemSizeContext.Provider value={size}>\n        <DropdownMenuPrimitive.Content\n          data-slot=\"dropdown-menu-content\"\n          sideOffset={sideOffset}\n          className={cn(\n            \"z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover p-1 text-popover-foreground shadow-menu data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",\n            className\n          )}\n          {...props}\n        />\n      </DropdownMenuItemSizeContext.Provider>",
+    },
+    {
+      reason: "menu: the touch size at the `touch-target` token, 44 px; the items take their menu's size through context (#880)",
+      upstream: "  variant = \"default\",\n  ...props",
+      ours: "  variant = \"default\",\n  size,\n  ...props",
+    },
+    {
+      reason: "menu: the touch size at the `touch-target` token, 44 px; the items take their menu's size through context (#880)",
+      upstream: "  variant?: \"default\" | \"destructive\"\n}) {",
+      ours: "  variant?: \"default\" | \"destructive\"\n  size?: DropdownMenuItemSize\n}) {\n  const height = useItemHeight(size)\n",
+    },
+    {
+      reason: "menu: the touch size at the `touch-target` token, 44 px; the items take their menu's size through context (#880)",
+      upstream: "  ...props\n}: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {",
+      ours: "  size,\n  ...props\n}: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem> & {\n  size?: DropdownMenuItemSize\n}) {\n  const height = useItemHeight(size)\n",
+    },
+    {
+      reason: "menu: the touch size at the `touch-target` token, 44 px; the items take their menu's size through context (#880)",
+      upstream: "  ...props\n}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {",
+      ours: "  size,\n  ...props\n}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem> & {\n  size?: DropdownMenuItemSize\n}) {\n  const height = useItemHeight(size)\n",
+    },
+    {
+      reason: "menu: the touch size at the `touch-target` token, 44 px; the items take their menu's size through context (#880)",
+      upstream: "  children,\n  ...props",
+      ours: "  children,\n  size,\n  ...props",
+    },
+    {
+      reason: "menu: the touch size at the `touch-target` token, 44 px; the items take their menu's size through context (#880)",
+      upstream: "}: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {\n  inset?: boolean\n}) {\n  return (",
+      ours: "}: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {\n  inset?: boolean\n  size?: DropdownMenuItemSize\n}) {\n  const height = useItemHeight(size)\n\n  return (",
     },
   ],
   "empty": [
@@ -884,6 +949,41 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       reason: "tabs: the trigger in `muted-foreground` instead of `foreground/60` (WCAG AA contrast); the theme's focus ring; the active default tab outlined in `input` (`ring` when focused) on `accent/40` in dark (WCAG 1.4.11)",
       upstream: "        \"relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",\n        \"group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent\",\n        \"data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 dark:data-[state=active]:text-foreground\",",
       ours: "        \"relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-muted-foreground transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",\n        \"group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent\",\n        \"bg-clip-padding data-[state=active]:border-input data-[state=active]:bg-background data-[state=active]:text-foreground focus-visible:data-[state=active]:border-ring dark:data-[state=active]:bg-accent/40 dark:data-[state=active]:text-foreground\",",
+    },
+    {
+      reason: "tabs: the touch size at the `touch-target` token, 44 px; the triggers take their list's size through context (#880)",
+      upstream: "import { Tabs as TabsPrimitive } from \"radix-ui\"\n",
+      ours: "import { Tabs as TabsPrimitive } from \"radix-ui\"\n\ntype TabsTriggerSize = \"default\" | \"touch\"\n\n// A list's size reaches its triggers through context, so a trigger's own size can win over it.\nconst TabsTriggerSizeContext = React.createContext<TabsTriggerSize>(\"default\")\n",
+    },
+    {
+      reason: "tabs: the touch size at the `touch-target` token, 44 px; the triggers take their list's size through context (#880)",
+      upstream: "      },\n    },",
+      ours: "      },\n      size: {\n        default: \"\",\n        // The triggers set the height: a fixed one would cap them at 35 px.\n        touch: \"group-data-[orientation=horizontal]/tabs:h-auto\",\n      },\n    },",
+    },
+    {
+      reason: "tabs: the touch size at the `touch-target` token, 44 px; the triggers take their list's size through context (#880)",
+      upstream: "      variant: \"line\",\n    },",
+      ours: "      variant: \"line\",\n      size: \"default\",\n    },",
+    },
+    {
+      reason: "tabs: the touch size at the `touch-target` token, 44 px; the triggers take their list's size through context (#880)",
+      upstream: "  variant = \"line\",\n  ...props",
+      ours: "  variant = \"line\",\n  size = \"default\",\n  ...props",
+    },
+    {
+      reason: "tabs: the touch size at the `touch-target` token, 44 px; the triggers take their list's size through context (#880)",
+      upstream: "    <TabsPrimitive.List\n      data-slot=\"tabs-list\"\n      data-variant={variant}\n      className={cn(tabsListVariants({ variant }), className)}\n      {...props}\n    />",
+      ours: "    <TabsTriggerSizeContext.Provider value={size ?? \"default\"}>\n      <TabsPrimitive.List\n        data-slot=\"tabs-list\"\n        data-variant={variant}\n        className={cn(tabsListVariants({ variant, size }), className)}\n        {...props}\n      />\n    </TabsTriggerSizeContext.Provider>",
+    },
+    {
+      reason: "tabs: the touch size at the `touch-target` token, 44 px; the triggers take their list's size through context (#880)",
+      upstream: "  ...props\n}: React.ComponentProps<typeof TabsPrimitive.Trigger>) {",
+      ours: "  size,\n  ...props\n}: React.ComponentProps<typeof TabsPrimitive.Trigger> & {\n  size?: TabsTriggerSize\n}) {\n  const listSize = React.useContext(TabsTriggerSizeContext)\n",
+    },
+    {
+      reason: "tabs: the touch size at the `touch-target` token, 44 px; the triggers take their list's size through context (#880)",
+      upstream: "        \"after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100\",\n        className",
+      ours: "        \"after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100\",\n        (size ?? listSize) === \"touch\" && \"min-h-touch-target min-w-touch-target\",\n        className",
     },
   ],
   "textarea": [

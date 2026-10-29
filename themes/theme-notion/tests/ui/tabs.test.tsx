@@ -44,4 +44,49 @@ describe("Tabs", () => {
 
     expect(html).toContain(" group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent");
   });
+
+  it("keeps the 36 px list and its triggers without a touch height by default", () => {
+    const html = renderToStaticMarkup(
+      <Tabs defaultValue="all">
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+
+    expect(html).toContain("group-data-[orientation=horizontal]/tabs:h-9");
+    expect(html).not.toContain("touch-target");
+  });
+
+  it("raises every trigger of a touch list to 44 x 44 and lets the list grow to them", () => {
+    const html = renderToStaticMarkup(
+      <Tabs defaultValue="all">
+        <TabsList size="touch">
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="mine" size="default">Mine</TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+    const list = /data-slot="tabs-list"[^>]*class="([^"]*)"/.exec(html)?.[1]?.split(" ") ?? [];
+    const all = /class="([^"]*)"[^>]*>All</.exec(html)?.[1]?.split(" ") ?? [];
+    const mine = /class="([^"]*)"[^>]*>Mine</.exec(html)?.[1]?.split(" ") ?? [];
+
+    expect(list).toContain("group-data-[orientation=horizontal]/tabs:h-auto");
+    expect(list).not.toContain("group-data-[orientation=horizontal]/tabs:h-9");
+    expect(all).toEqual(expect.arrayContaining(["min-h-touch-target", "min-w-touch-target"]));
+    expect(mine).not.toContain("min-h-touch-target");
+  });
+
+  it("raises a single trigger with its own touch size and keeps a caller's breakpoint class", () => {
+    const html = renderToStaticMarkup(
+      <Tabs defaultValue="all">
+        <TabsList>
+          <TabsTrigger value="all" size="touch" className="md:min-h-0">All</TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+    const all = /class="([^"]*)"[^>]*>All</.exec(html)?.[1]?.split(" ") ?? [];
+
+    expect(all).toEqual(expect.arrayContaining(["min-h-touch-target", "min-w-touch-target", "md:min-h-0"]));
+  });
 });
