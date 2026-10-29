@@ -5,13 +5,15 @@ import { join } from "node:path";
 
 import { afterAll, describe, expect, it } from "vitest";
 
-import { prepareFixture } from "../examples/fixture/prepare.js";
+import { prepareFixture, prepareFootageFixture } from "../examples/fixture/prepare.js";
+import { probeFile } from "../src/footage/probe.js";
 
 /**
  * The whole pipeline on the fixture film: start the fixture app, record it frame by frame, compose
  * and render a draft MP4 with hyperframes, write the post copy; then record the film's JSON twin
  * (beat actions instead of the scene module) and compare the two recording logs; then record and render the same
- * scene as a desktop film in a browser window (16:9).
+ * scene as a desktop film in a browser window (16:9); and the fixture footage film from generated phone clips, rehearsed
+ * with --placeholder after a dry run that pays nothing.
  *
  * Opt-in (`MARKETING_KIT_RENDER=1`): it needs ffmpeg, a Chromium for Playwright
  * (`PLAYWRIGHT_CHROMIUM_PATH` or Playwright's own) and a Chrome for hyperframes
@@ -103,6 +105,44 @@ describe.runIf(isEnabled)("softure-marketing all on the fixture film", () => {
       expect(real.stderr).toContain("the recording was made on the placeholder voiceover");
     } finally {
       rmSync(rehearsal, { recursive: true, force: true });
+    }
+  }, 600_000);
+
+  it("cuts the fixture footage film from phone clips on placeholder transcripts and renders it", () => {
+    const footage = mkdtempSync(join(tmpdir(), "marketing-kit-footage-"));
+    try {
+      const { config } = prepareFixture(footage);
+      prepareFootageFixture(footage);
+      // The generated clips are what a phone writes: a rotation in the display matrix, and HLG HDR.
+      const talk = probeFile(join(footage, "footage", "talk.mp4"));
+      const sunset = probeFile(join(footage, "footage", "sunset.mp4"));
+      expect(talk.ok && [talk.probe.rotation, talk.probe.displayWidth, talk.probe.displayHeight]).toEqual([90, 540, 960]);
+      expect(sunset.ok && sunset.probe.hdr).toBe("hlg");
+      const main = join(PACKAGE_DIR, "src", "cli", "main.ts");
+
+      // Without --commit and without a cached transcript, the run only prints what it would pay for.
+      const dry = spawnSync(TSX, [main, "footage", "fixture-footage", `--config=${config}`], { encoding: "utf8" });
+      expect(dry.status, `${dry.stdout}\n${dry.stderr}`).toBe(0);
+      expect(dry.stdout).toContain("speech to text (elevenlabs) for clip talk: 7.0 s");
+      expect(dry.stdout).toContain("footage DRY RUN: nothing was sent.");
+      expect(existsSync(join(footage, "voiceover", "fixture-footage"))).toBe(false);
+
+      const result = spawnSync(TSX, [main, "footage", "fixture-footage", "--placeholder", `--config=${config}`, "--quality=draft"], { encoding: "utf8" });
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      const video = join(footage, "out", "fixture-footage", "fixture-footage.placeholder.mp4");
+      const rendered = probe(video);
+      const stream = rendered.streams.find((entry) => entry.codec_type === "video");
+      expect([stream?.width, stream?.height]).toEqual([1080, 1920]);
+      expect(rendered.streams.some((entry) => entry.codec_type === "audio")).toBe(true);
+      const printed = Number(/\((\d+(?:\.\d+)?) s, 9:16\)/.exec(result.stdout)?.[1]);
+      expect(Math.abs(Number(rendered.format.duration) - printed)).toBeLessThan(0.5);
+      // The filler is cut: the talking clip comes back in two segments, joined by a punch-in.
+      const edl = JSON.parse(readFileSync(join(footage, "build", "fixture-footage", "edl.placeholder.json"), "utf8")) as { segments: { clip: string; transition: string }[] };
+      expect(edl.segments.map((segment) => `${segment.clip}:${segment.transition}`)).toEqual(["talk:cut", "talk:zoom", "street:whoosh", "sunset:whoosh"]);
+      expect(readFileSync(join(footage, "out", "fixture-footage", "posts.md"), "utf8")).toContain("Filmed on a phone, cut by its transcript.");
+      expect(existsSync(join(footage, "voiceover", "fixture-footage"))).toBe(false);
+    } finally {
+      rmSync(footage, { recursive: true, force: true });
     }
   }, 600_000);
 });

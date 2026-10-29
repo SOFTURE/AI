@@ -3,6 +3,8 @@ import { dirname, resolve } from "node:path";
 
 import { getLayoutName } from "../compose/timeline.js";
 import type { Device, FilmScript } from "../film.js";
+import { DEFAULT_MUSIC_VOLUME, getDefaultFillers, type FootageFilm, type MusicSource } from "../footage/film.js";
+import type { LayoutOverride } from "../compose/timeline.js";
 import { getMarketingMessages, type MarketingMessages } from "../messages/index.js";
 import { DEFAULT_LINK_IN_BIO, PLATFORMS, type Platform } from "../platforms.js";
 import type { PlaceholderPace } from "../voice/placeholder.js";
@@ -74,6 +76,16 @@ export interface VideoConfig extends FilmScript {
   today: string | null;
 }
 
+/** A footage film from `marketing.json` (`footage[]`), paths absolute, defaults applied. */
+export interface FootageConfig extends FootageFilm {
+  /** The entry's position in `footage`, for errors about it. */
+  index: number;
+  /** The project's override of this format's caption box and end card (`marketing.json` `layout`). */
+  layout: LayoutOverride;
+  /** The post copy, or null when `social.posts` has no entry for this film. */
+  post: VideoPost | null;
+}
+
 export interface MarketingConfig {
   /** Absolute path of the config file and the folder every path resolves against. */
   file: string;
@@ -99,6 +111,7 @@ export interface MarketingConfig {
   };
   voice: { provider: "elevenlabs"; cacheDir: string; minIntervalSeconds: number; placeholder: PlaceholderPace };
   videos: VideoConfig[];
+  footage: FootageConfig[];
   social: { linkTemplate: string } | null;
   screenshots: MarketingJson["screenshots"];
   /** How `shots` signs in for `signedIn` entries; null without a `signIn` block. */
@@ -180,6 +193,62 @@ function resolveVideos(data: MarketingJson, at: (relative: string) => string): V
   });
 }
 
+function resolveMusicSource(music: NonNullable<MarketingJson["footage"][number]["music"]>, at: (relative: string) => string): MusicSource {
+  if (music.file !== undefined) return { kind: "file", path: at(music.file) };
+  if (music.prompt !== undefined) return { kind: "prompt", prompt: music.prompt };
+  // The schema requires exactly one of the three sources.
+  const fromVideo = music.fromVideo ?? { description: "", tags: [] };
+  return { kind: "video", description: fromVideo.description, tags: fromVideo.tags };
+}
+
+function resolveFootage(data: MarketingJson, at: (relative: string) => string): FootageConfig[] {
+  const posts = new Map((data.social?.posts ?? []).map((post) => [post.video, post]));
+  const platforms = data.social?.platforms ?? {};
+  return data.footage.map((film, index) => {
+    const language = film.language ?? data.voice.language;
+    const post = posts.get(film.id);
+    return {
+      index,
+      id: film.id,
+      title: film.title,
+      format: film.format,
+      language,
+      layout: data.layout?.[film.format] ?? {},
+      clips: film.clips.map((clip) => ({
+        id: clip.id,
+        source: /^https?:\/\//i.test(clip.source) ? clip.source : at(clip.source),
+        role: clip.role,
+        fit: clip.fit,
+        trim: { start: clip.trim.start, end: clip.trim.end ?? null },
+        script: clip.script ?? null,
+      })),
+      isolateVoice: film.isolateVoice,
+      cut: { fillers: film.fillers ?? getDefaultFillers(language), pauseSeconds: film.pauseSeconds, padSeconds: film.padSeconds, maxSeconds: film.maxSeconds ?? null },
+      transitions: film.transitions,
+      music:
+        film.music === undefined
+          ? { source: { kind: "none" }, ...DEFAULT_MUSIC_VOLUME }
+          : { source: resolveMusicSource(film.music, at), volume: film.music.volume, duckedVolume: film.music.duckedVolume },
+      captions: film.captions,
+      endCard: film.endCard ?? null,
+      post:
+        post === undefined
+          ? null
+          : {
+              caption: post.caption,
+              // The disclosure speaks of a persona and an AI voice, which a filmed person is not.
+              disclosure: null,
+              hashtags: post.hashtags,
+              channels: PLATFORMS.flatMap((platform) => {
+                const channel = platforms[platform];
+                if (channel === undefined) return [];
+                return [{ platform, code: post.codes?.[platform] ?? channel.code, linkInBio: channel.linkInBio ?? DEFAULT_LINK_IN_BIO[platform] }];
+              }),
+            },
+    };
+  });
+}
+
 /** Reads and validates `marketing.json`; every problem comes back at once, by JSON path. */
 export function loadMarketingConfig(path: string): LoadConfigResult {
   const file = resolve(path);
@@ -226,6 +295,7 @@ export function loadMarketingConfig(path: string): LoadConfigResult {
       },
       voice: { provider: data.voice.provider, cacheDir: at(data.voice.cacheDir), minIntervalSeconds: data.voice.minIntervalSeconds, placeholder: data.voice.placeholder },
       videos: resolveVideos(data, at),
+      footage: resolveFootage(data, at),
       social: data.social === undefined ? null : { linkTemplate: data.social.linkTemplate },
       screenshots: data.screenshots,
       signIn: data.signIn ?? null,
@@ -251,6 +321,33 @@ export function findMissingFiles(config: MarketingConfig, video: VideoConfig, is
     if (!existsSync(file)) issues.push({ path, message: `no file at ${file}` });
   };
   if (video.sceneSource.kind === "module") check(["videos", video.index, "sceneModule"], video.sceneSource.path);
+  if (!isRendering) return issues;
+  if (config.brand.logo !== null) check(["brand", "logo", "svg"], config.brand.logo);
+  for (const kind of ["heading", "body"] as const) {
+    config.brand.fonts[kind]?.files.forEach((font, index) => check(["brand", "fonts", kind, "files", index, "path"], font.path));
+  }
+  for (const event of SFX_EVENTS) {
+    const sound = config.sfx[event];
+    if (sound !== undefined) check(["sfx", event], sound);
+  }
+  return issues;
+}
+
+/** Finds a footage film by id; null when the config has none. */
+export function findFootage(config: MarketingConfig, id: string): FootageConfig | null {
+  return config.footage.find((film) => film.id === id) ?? null;
+}
+
+/** Files a footage film reads, checked before anything slow starts: local clips and music, and the brand's files when it renders. */
+export function findMissingFootageFiles(config: MarketingConfig, film: FootageConfig, isRendering: boolean): ConfigIssue[] {
+  const issues: ConfigIssue[] = [];
+  const check = (path: PropertyKey[], file: string) => {
+    if (!existsSync(file)) issues.push({ path, message: `no file at ${file}` });
+  };
+  film.clips.forEach((clip, index) => {
+    if (!/^https?:\/\//i.test(clip.source)) check(["footage", film.index, "clips", index, "source"], clip.source);
+  });
+  if (film.music.source.kind === "file") check(["footage", film.index, "music", "file"], film.music.source.path);
   if (!isRendering) return issues;
   if (config.brand.logo !== null) check(["brand", "logo", "svg"], config.brand.logo);
   for (const kind of ["heading", "body"] as const) {

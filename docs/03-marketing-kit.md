@@ -35,6 +35,12 @@ tools/marketing-kit/
 ```
 
 CLI: `softure-marketing <all|voice|record|render|preview|shots|og|posts> [--film id] [--commit] [--quality draft|standard|high]`.
+
+A second film kind, the **footage film** (#886), is cut from filmed clips instead of a screen recording:
+`src/footage/` probes and normalizes the clips, transcribes them (ElevenLabs Scribe), cuts fillers and pauses into an
+editable EDL, captions the cut, ducks music under the voice and renders with the same hyperframes pipeline
+(`softure-marketing footage <film>`, or `renderFootageFilm` from code). See the
+[package README](../tools/marketing-kit/README.md#footage-films).
 The FIRE rule stays: **paid steps (TTS) run only with `--commit`**, and the voiceover cache is
 committed to the project repository.
 

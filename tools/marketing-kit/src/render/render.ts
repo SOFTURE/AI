@@ -47,7 +47,7 @@ function run(command: string, args: string[]): void {
 }
 
 /** Copies each font file as `<n>.<ext>`: two files with one name cannot overwrite each other, and the name is safe inside url("…"). */
-function copyFonts(fonts: RenderInput["fonts"], dir: string): { heading: ComposeFont | null; body: ComposeFont | null } {
+export function copyFonts(fonts: RenderInput["fonts"], dir: string): { heading: ComposeFont | null; body: ComposeFont | null } {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   let count = 0;

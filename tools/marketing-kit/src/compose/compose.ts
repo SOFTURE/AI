@@ -3,6 +3,7 @@ import type { SfxEvent } from "../config/schema.js";
 import type { Film } from "../film.js";
 import { formatMessage, type MarketingMessages } from "../messages/index.js";
 import type { RecordingLog } from "../record/record.js";
+import { escapeHtml, fontFaces, fontStack } from "./html.js";
 import { BROWSER_BAR_HEIGHT, cameraPose, captionChunks, getTransitionSeconds, widePose, type CameraPose, type Geometry } from "./timeline.js";
 import type { BeatVoice } from "../voice/voiceover.js";
 
@@ -126,27 +127,6 @@ function getHookBeat(film: Film): Film["beats"][number] {
   return beat;
 }
 
-function escapeHtml(text: string): string {
-  return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-}
-
-const FONT_FORMATS: Record<string, string> = { woff2: "woff2", woff: "woff", ttf: "truetype", otf: "opentype" };
-
-function getFontFormat(src: string): string {
-  const extension = src.split(".").at(-1)?.toLowerCase() ?? "";
-  const format = FONT_FORMATS[extension];
-  if (format === undefined) throw new Error(`Font ${src}: expected a .woff2, .woff, .ttf or .otf file.`);
-  return format;
-}
-
-function fontFaces(font: ComposeFont | null): string[] {
-  if (font === null) return [];
-  return font.faces.map((face) => {
-    const range = face.unicodeRange === null ? "" : `;unicode-range:${face.unicodeRange}`;
-    return `@font-face{font-family:"${font.family}";src:url("${face.src}") format("${getFontFormat(face.src)}");font-weight:${face.weight};font-style:${face.style}${range}}`;
-  });
-}
-
 /** The CSS and the opening markup of what stands around the screen: a phone's bezel or a browser window. */
 function getWindowParts(geometry: Geometry, colors: BrandColors, address: string): { css: string; open: string } {
   const { screen, screenHeight } = geometry;
@@ -168,10 +148,6 @@ function getWindowParts(geometry: Geometry, colors: BrandColors, address: string
     open: `<div class="window">
       <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="address">${escapeHtml(address)}</span></div>`,
   };
-}
-
-function fontStack(font: ComposeFont | null, fallback: string): string {
-  return font === null ? fallback : `"${font.family}",${font.fallback}`;
 }
 
 /** The film's timeline derived from the recording and the voiceover: one place for every time. */

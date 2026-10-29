@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **Footage films (#886):** a second film kind, cut from filmed clips (a person talking to camera, b-roll) by their
+  transcript. `footage[]` in `marketing.json` and `softure-marketing footage <film> [--step=transcribe|cut|render]
+  [--commit] [--placeholder]`; see the README, "Footage films".
+  - Clips (files or URLs) are probed (rotation, HDR, sound) and normalized: the film's frame at 30 fps, upright, HDR
+    tone-mapped to SDR, `crop` or `blur` fill.
+  - ElevenLabs Scribe transcribes with word times; Voice Isolator (optional), Music (prompt) and Video to Music
+    (scored to the cut) are the other paid steps, each behind `--commit`, cached by content in `voice.cacheDir`.
+  - The cut is an editable EDL (`edl.json`): fillers (per language) and long pauses cut, padding, maximum length;
+    `cut`, `fade`, `zoom` and `whoosh` transitions, a slow zoom on b-roll; captions remapped through the cut; music
+    ducked under speech.
+  - Every step is a library export, and `renderFootageFilm(film, options)` builds a film without `marketing.json`.
+- `videos` may be empty when `footage` has a film; ids are unique across both, and `social.posts` may name either.
+
 ## 0.2.0
 
 - **Breaking (#446):** the `pl` dictionary is gone, with `MARKETING_LOCALES` and `MarketingLocale`. `brand.locale` takes

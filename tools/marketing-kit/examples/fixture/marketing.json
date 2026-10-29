@@ -116,6 +116,21 @@
       "sceneModule": "films/fixture-tour.ts"
     }
   ],
+  "footage": [
+    {
+      "id": "fixture-footage",
+      "title": "The fixture filmed on a phone",
+      "language": "en",
+      "clips": [
+        { "id": "talk", "source": "footage/talk.mp4", "script": "Hello, this is um our calculator. Count your own date today." },
+        { "id": "street", "source": "footage/street.mp4", "role": "broll" },
+        { "id": "sunset", "source": "footage/sunset.mp4", "role": "broll", "fit": "crop", "trim": { "start": 0.5 } }
+      ],
+      "music": { "file": "footage/bed.mp3" },
+      "transitions": { "clip": "whoosh" },
+      "endCard": { "headline": "Count your date", "url": "example.com/calculator", "note": "Free, no account" }
+    }
+  ],
   "social": {
     "linkTemplate": "https://example.com/calculator?z={code}",
     "platforms": {
@@ -123,7 +138,10 @@
       "facebook": { "code": "fb-01" },
       "tiktok": { "code": "tiktok-01" }
     },
-    "posts": [{ "video": "fixture-tour", "caption": "Robin is 36 and can stop working at 49.", "hashtags": ["fire", "#money"] }],
+    "posts": [
+      { "video": "fixture-tour", "caption": "Robin is 36 and can stop working at 49.", "hashtags": ["fire", "#money"] },
+      { "video": "fixture-footage", "caption": "Filmed on a phone, cut by its transcript." }
+    ],
     "disclosure": "{persona} is an example persona and this is not financial advice. The voice is AI-generated."
   },
   "layout": { "9:16": { "caption": { "fontSize": 56 } } },

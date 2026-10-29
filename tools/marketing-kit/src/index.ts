@@ -1,7 +1,8 @@
 // Public API of @softure-ai/marketing-kit: the `marketing.json` contract (schema, loading, brand
 // colours), the film model a project's scene modules are typed with, the declarative scene actions,
 // and the pure building blocks of the pipeline (TTS providers, voiceover cache, timeline, composition,
-// posts, OG images, screenshots). OG images also have their own entry, `@softure-ai/marketing-kit/og`,
+// posts, OG images, screenshots), and the footage film's blocks (probe, normalize, speech to text, EDL,
+// ducked music, composition, `renderFootageFilm`). OG images also have their own entry, `@softure-ai/marketing-kit/og`,
 // for routes that must not load Playwright. The `softure-marketing` CLI
 // (`src/cli/main.ts`) runs the whole pipeline from `marketing.json`.
 export {
@@ -30,8 +31,11 @@ export {
   type TextMatch,
 } from "./config/actions-schema.js";
 export {
+  findFootage,
   findMissingFiles,
+  findMissingFootageFiles,
   findVideo,
+  type FootageConfig,
   loadMarketingConfig,
   type BrandFont,
   type FontFile,
@@ -169,6 +173,110 @@ export {
 export { MIN_FAILING_STATUS, SCREENSHOT_GATES, findScrollFailure, findSizeFailure, findStatusFailure, type ScreenshotGate } from "./screenshot/gates.js";
 export { findStorageStateProblem } from "./screenshot/storage-state.js";
 export { getScreenshotNames, getScreenshotShots, type ScreenshotNaming, type ScreenshotShot } from "./config/screenshot-names.js";
+export {
+  CLIP_FITS,
+  CLIP_ROLES,
+  CUT_TRANSITIONS,
+  DEFAULT_CUT,
+  DEFAULT_FILLERS,
+  DEFAULT_MUSIC_VOLUME,
+  DEFAULT_TRANSITIONS,
+  getDefaultFillers,
+  type ClipFit,
+  type ClipRole,
+  type CutOptions,
+  type CutTransition,
+  type FootageClip,
+  type FootageFilm,
+  type FootageMusic,
+  type FootageTransitions,
+  type MusicSource,
+} from "./footage/film.js";
+export {
+  MIN_CLIP_SECONDS,
+  describeProbe,
+  findFootageProblems,
+  getTrimmedDuration,
+  normalizeRotation,
+  probeFile,
+  probeFootage,
+  readFootageProbe,
+  type FootageProbe,
+  type HdrKind,
+  type ProbeResult,
+  type ProbedClip,
+} from "./footage/probe.js";
+export { FOOTAGE_FPS, FOOTAGE_SAMPLE_RATE, buildNormalizeArgs, buildVideoFilter, normalizeFootage, resolveFit, toneMapFilter, type Frame, type NormalizeInput } from "./footage/normalize.js";
+export {
+  describePaidSteps,
+  type FootageProviders,
+  type IsolationProvider,
+  type MusicProvider,
+  type PaidStep,
+  type SttInput,
+  type SttProvider,
+  type SttTranscript,
+} from "./footage/providers.js";
+export {
+  ELEVENLABS_MUSIC_MODEL,
+  ELEVENLABS_STT_MODEL,
+  createElevenLabsFootageProviders,
+  createElevenLabsIsolationProvider,
+  createElevenLabsMusicProvider,
+  createElevenLabsSttProvider,
+  getMusicLengthMs,
+  readScribeResponse,
+  type ElevenLabsFootageOptions,
+} from "./footage/elevenlabs.js";
+export {
+  createFakeIsolationProvider,
+  createFakeMusicProvider,
+  createFakeSttProvider,
+  makePlaceholderTranscript,
+  type FakeIsolationProvider,
+  type FakeMusicProvider,
+  type FakeSttOptions,
+  type FakeSttProvider,
+} from "./footage/fake.js";
+export { footageCacheKey, getFootageCachePath, hashFile, readCachedTranscript, type FootageCacheKind } from "./footage/cache.js";
+export {
+  MIN_SEGMENT_SECONDS,
+  SEGMENT_MOTIONS,
+  buildEdl,
+  edlSchema,
+  findEdlProblems,
+  getEdlDuration,
+  getSegmentStarts,
+  isFiller,
+  normalizeWord,
+  readEdl,
+  remapWords,
+  type Edl,
+  type EdlClip,
+  type EdlSegment,
+  type SegmentMotion,
+} from "./footage/edl.js";
+export { duckingKeyframes, getSpeechSpans, volumeExpression, type DuckingOptions, type VolumeKeyframe } from "./footage/music.js";
+export { END_CARD_SECONDS, FADE_SECONDS, composeFootage, getFootageFilmSeconds, getSegmentScales, type FootageComposeAssets, type FootageComposeInput } from "./footage/compose.js";
+export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs } from "./footage/render.js";
+export {
+  cutFootage,
+  getEdlPath,
+  getFrame,
+  prepareFootage,
+  readEdlFile,
+  renderFootage,
+  renderFootageFilm,
+  transcribeFootage,
+  type FootageBrand,
+  type FootageResult,
+  type FootageRunOptions,
+  type PreparedClip,
+  type RenderFootageFilmOptions,
+  type RenderFootageOptions,
+  type RenderedFootage,
+  type TranscribeOutcome,
+} from "./footage/pipeline.js";
 export {
   formatMessage,
   getMarketingMessages,

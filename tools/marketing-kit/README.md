@@ -1,6 +1,6 @@
 # @softure-ai/marketing-kit
 
-A CLI and a library that turn a project's **real app** into a vertical film (1080×1920, one file for
+A CLI and a library that turn a project's **real app** (or [filmed clips](#footage-films)) into a vertical film (1080×1920, one file for
 Instagram Reels, TikTok and Facebook Reels) plus ready post copy for each platform.
 
 The film is not an animation that imitates the app. Playwright walks through the real page on a phone
@@ -37,6 +37,7 @@ softure-marketing posts <video>                   # post copy only
 softure-marketing og [image]                      # OG images (PNG) of every ogImages entry, or of one
 softure-marketing shots [<id>] [--url=...]        # the screenshots entries (or one), each behind its gates
 softure-marketing shots --page=<url> --out=<file.png> --expect=<phrase> [...]   # one page anywhere, same gates
+softure-marketing footage <film> [--step=transcribe|cut|render] [--commit] [--placeholder]   # a film from filmed clips
 ```
 
 Every command takes `--config=<path>` (default `./marketing.json`). Exit codes: `0` done, `1` failed, `2`
@@ -564,6 +565,104 @@ format, so its paid recordings are reused as they are, with no re-keying and no 
 - A disclosure pasted into every caption moves to `social.disclosure` with `{persona}` for the name; delete it from
   the captions, or the posts carry it twice.
 
+## Footage films
+
+A footage film is cut from **filmed clips** instead of a screen recording: someone talking to camera, shot on a
+phone, plus b-roll. The transcript decides the cut: filler words and long pauses go, captions follow the words,
+music sits under the voice and ducks while someone speaks. The only running cost is the provider's credits.
+
+```bash
+softure-marketing footage <film>                     # probe -> normalize -> transcribe -> cut -> render -> posts
+softure-marketing footage <film> --commit            # the same, paying for the transcript (and isolation, music)
+softure-marketing footage <film> --placeholder       # a free rehearsal on each clip's script
+softure-marketing footage <film> --step=transcribe   # the transcripts only
+softure-marketing footage <film> --step=cut          # the EDL again from the transcripts (overwrites edl.json)
+softure-marketing footage <film> --step=render       # the EDL as it is, maybe edited by hand
+```
+
+```jsonc
+"footage": [
+  {
+    "id": "founder-intro",
+    "title": "Why we built it",
+    "language": "pl",
+    "clips": [
+      { "id": "talk", "source": "clips/IMG_0412.MOV", "trim": { "start": 1.2 } },
+      { "id": "desk", "source": "https://example.com/b-roll/desk.mp4", "role": "broll", "fit": "blur" }
+    ],
+    "isolateVoice": true,
+    "pauseSeconds": 0.6,
+    "maxSeconds": 45,
+    "music": { "prompt": "warm acoustic guitar, calm", "duckedVolume": 0.08 },
+    "transitions": { "jump": "zoom", "clip": "fade" },
+    "endCard": { "headline": "Try it free", "url": "example.com" }
+  }
+]
+```
+
+- **Clips** are local files (relative to `marketing.json`) or `http(s)` URLs, downloaded once into the build
+  folder. `role: talk` (the default) is cut by its words; `role: broll` is kept whole with a slow zoom. `fit` fills
+  a frame of another aspect with a `crop` or a `blur` (the whole picture over a blurred copy); `auto` crops within
+  15 % of the frame's aspect. `trim` picks the part of the clip. `script` is only for `--placeholder`.
+- **Probe and normalize:** every clip is probed first (all problems reported before anything is paid for), then
+  made into one intermediate format: the film's frame (`format`: 9:16 1080×1920, 1:1 or 16:9) at 30 fps, upright
+  (a phone's rotation applied), SDR BT.709 (HDR from PQ, HLG or Dolby Vision tone-mapped with zscale, so an iPhone clip
+  is not washed out), 48 kHz stereo sound (silence for a clip without). A clip is normalized again only when it or
+  its settings change.
+- **Transcript:** ElevenLabs Scribe (`scribe_v2`) with a time for every word, in `language` (default
+  `voice.language`). With `isolateVoice`, ElevenLabs Voice Isolator cleans the voice first and the film speaks with
+  the cleaned voice. Both are paid, keyed by the clip's bytes, trim and settings, and cached in
+  `<voice.cacheDir>/<film>/` (`<key>.transcript.json`, `<key>.isolated.mp3`): commit them, a re-render never pays twice.
+- **Cut (EDL):** `fillers` (default per language: Polish `yyy`, `eee`, `yhm` and more; English `um`, `uh` and more,
+  compared without case, punctuation and repeated letters) are cut out, a silence longer than `pauseSeconds` is cut,
+  `padSeconds` stays around every cut, `maxSeconds` caps the length. The result is
+  `<output.buildDir>/<film>/edl.json`: segments `{ clip, start, end, transition, motion }` in order. Check or edit it
+  (drop a segment, move a cut, change a `transition` to `cut`, `fade`, `zoom` or `whoosh`) and render with
+  `--step=render`; a plain `footage` run keeps an EDL that is there, `--step=cut` writes it afresh.
+- **Transitions:** `jump` (a cut inside one talking clip, default `zoom`: a punch-in, back out on the next) and `clip`
+  (between clips, default `fade`); `whoosh` is a cut with the `sfx.whoosh` sound. B-roll gets a slow zoom.
+- **Music:** `file` (local), `prompt` (ElevenLabs Music, instrumental, the film's length) or `fromVideo` (ElevenLabs
+  Video to Music, scored to the cut itself, with `description` and `tags`). Generated music is paid and cached the same
+  way. It plays at `volume` and ducks to `duckedVolume` while someone speaks, from the word times, with a fade in and out.
+- **Captions** (`captions`, default true) are the transcript's words in film time, highlighted word by word in the
+  brand's caption colours; `layout` moves their box per format. The **end card** follows the cut over its last
+  frame. `social.posts` may name a footage film; its `posts.md` carries no persona disclosure.
+- **Paying:** without `--commit` a run that needs a paid call prints each one (speech to text, isolation, music) with
+  the seconds billed and stops; nothing is sent. `--placeholder` rehearses without any paid call: a transcript from
+  each talking clip's `script` (its words spread evenly over the clip), no isolation, no generated music (a local
+  music file still plays). It writes `edl.placeholder.json` and `<film>.placeholder.mp4`, never the real film's files.
+
+### Footage films from code
+
+Every step is a library export, so an application (an MCP tool, a queue worker) builds a film without a
+`marketing.json`, from a `FootageFilm` object:
+
+```ts
+import { createElevenLabsFootageProviders, getDefaultFillers, renderFootageFilm, type FootageFilm } from "@softure-ai/marketing-kit";
+
+const film: FootageFilm = {
+  id: "intro", title: "Intro", format: "9:16", language: "pl",
+  clips: [{ id: "talk", source: "/uploads/talk.mov", role: "talk", fit: "auto", trim: { start: 0, end: null }, script: null }],
+  isolateVoice: false,
+  cut: { fillers: getDefaultFillers("pl"), pauseSeconds: 0.6, padSeconds: 0.12, maxSeconds: 60 },
+  transitions: { jump: "zoom", clip: "fade" },
+  music: { source: { kind: "none" }, volume: 0.35, duckedVolume: 0.1 },
+  captions: true,
+  endCard: null,
+};
+const result = await renderFootageFilm(film, {
+  buildDir: "/tmp/intro", cacheDir: "/data/footage-cache", output: "/tmp/intro.mp4",
+  providers: createElevenLabsFootageProviders(process.env), isCommit: true, isPlaceholder: false,
+  brand: { name: "Acme", locale: "pl-PL", colors, fonts: { heading: null, body: null }, logo: null },
+  sfx: {}, quality: "standard", log: console.log,
+});
+```
+
+The blocks run alone too: `probeFootage`, `normalizeFootage`, `transcribeFootage` (or a provider's `transcribe`),
+`buildEdl` / `readEdl` / `remapWords`, `duckingKeyframes`, `composeFootage`, `renderFootage`. Results are values
+(`{ ok, value } | { ok, error }`), and a dry run is `{ kind: "dry-run", steps }`. `createFakeSttProvider`,
+`createFakeIsolationProvider` and `createFakeMusicProvider` stand in for ElevenLabs in tests.
+
 ## OG images
 
 `softure-marketing og` renders each `ogImages` entry with [Satori](https://github.com/vercel/satori)
@@ -668,6 +767,9 @@ renders without a `marketing.json` at all. For a carousel, pass `slide` (1-based
   scene can record both when the app is responsive. Camera scales are relative to the screen, so an element as wide
   as a desktop page needs a lower scale (about 1.2) than on a phone, or the zoom crops it.
 - ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
+- Footage films: the cut works from the transcript and each clip's role only, never from the picture (no "best take"
+  detection); the footage estimate is in seconds billed, since the providers' reference pages give no per-call price.
+- Footage films need an ffmpeg with `zscale` (libzimg) for HDR clips; the static builds and Homebrew's have it.
 - Two OG templates.
 
 ## Development
@@ -682,7 +784,9 @@ PLAYWRIGHT_CHROMIUM_PATH=... HYPERFRAMES_BROWSER_PATH=... \
 
 The render test copies [examples/fixture/](examples/fixture/) into a temporary folder, generates a tone
 as its voiceover and tones as its sound effects with ffmpeg, runs `softure-marketing all` and checks the
-MP4 with ffprobe. `MARKETING_KIT_KEEP=1` keeps the folder. CI runs it on every push in the `render` job of
+MP4 with ffprobe. For the footage film it also generates three clips with ffmpeg's test sources (a portrait clip
+with a display rotation and sound, landscape b-roll, an HLG HDR clip; ours, CC0, nothing binary in the repository),
+checks the dry run pays nothing and renders `footage --placeholder`. `MARKETING_KIT_KEEP=1` keeps the folder. CI runs it on every push in the `render` job of
 [ci.yml](../../.github/workflows/ci.yml), with hyperframes on its own chrome-headless-shell and ffmpeg from a
 pinned static build.
 
