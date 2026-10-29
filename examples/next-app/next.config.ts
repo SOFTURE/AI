@@ -1,3 +1,4 @@
+import { withBuildInfo } from "@softure-ai/ops/next-config";
 import { buildHtmlLimitedBots } from "@softure-ai/seo";
 import type { NextConfig } from "next";
 
@@ -20,4 +21,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// The commit and the build time for GET /api/health/build (e2e/ops.spec.ts).
+export default withBuildInfo(nextConfig);

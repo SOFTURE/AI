@@ -23,6 +23,9 @@ ENV BUILD_STANDALONE=1
 # (docs/02-module-standard.md §8). An app that builds per container or runs instances from different
 # builds passes it as a build secret; one build run as several containers shares the IDs anyway.
 #   RUN --mount=type=secret,id=actions_key,env=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY npm run build
+# The commit for the build info (@softure-ai/ops withBuildInfo): deploy-app.yml passes the tag's, since the image
+# has no git. Declared right before the build, so a new commit rebuilds only from here.
+ARG SOFTURE_BUILD_COMMIT
 RUN npm run build
 
 # The migrate runner: module SQL files copied out of the packages (a bundle cannot find package

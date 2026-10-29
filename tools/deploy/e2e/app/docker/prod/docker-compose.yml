@@ -34,6 +34,8 @@ services:
     restart: unless-stopped
     environment:
       APP_ORIGIN: https://deploy-e2e.example.com
+      # The release tag for the build info route (@softure-ai/ops): the deploy's smoke check compares it with the tag.
+      SOFTURE_RELEASE: ${TAG}
       DATABASE_URL: postgresql://softure_app:${SOFTURE_APP_PASSWORD:?}@postgres:5432/softure_example
       AUTH_SECRET: ${AUTH_SECRET:?}
     depends_on:

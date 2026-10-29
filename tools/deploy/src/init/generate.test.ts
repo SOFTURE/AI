@@ -120,6 +120,7 @@ describe("planInitFiles", () => {
     expect(compose.services.app?.image).toBe("ghcr.io/acme/app:${TAG}");
     expect(compose.services.app?.environment).toEqual({
       APP_ORIGIN: "https://example.com",
+      SOFTURE_RELEASE: "${TAG}",
       DATABASE_URL: "postgresql://softure_app:${SOFTURE_APP_PASSWORD:?}@postgres:5432/acme_app",
       AUTH_SECRET: "${AUTH_SECRET:?}",
     });
@@ -137,7 +138,7 @@ describe("planInitFiles", () => {
     expect([...files.keys()]).not.toContain("scripts/migrate.ts");
     const compose = parse(textOf(files, "docker/prod/docker-compose.yml")) as { services: Record<string, { environment?: unknown; depends_on?: unknown }> };
     expect(Object.keys(compose.services)).toEqual(["traefik", "app"]);
-    expect(compose.services.app?.environment).toEqual({ APP_ORIGIN: "https://example.com" });
+    expect(compose.services.app?.environment).toEqual({ APP_ORIGIN: "https://example.com", SOFTURE_RELEASE: "${TAG}" });
     expect(compose.services.app?.depends_on).toBeUndefined();
     expect(textOf(files, ".github/workflows/deploy.yml")).toContain("The compose file requires no secret, so none reaches .env.prod");
     const script = textOf(files, "docker/server/deploy.sh");
