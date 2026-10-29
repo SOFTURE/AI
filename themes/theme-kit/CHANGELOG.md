@@ -2,6 +2,15 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
+## Unreleased
+
+- `cn` and spacing tokens (#860): `createThemeCn(definition)` registers the theme's `sizes` names (`row-height`,
+  `control-height`, `touch-target`, …) as tailwind-merge spacing values, so `cn("size-7", "size-touch-target")` gives
+  `"size-touch-target"` instead of keeping both classes and letting stylesheet order decide. `createCn` takes the same
+  names as a `sizes` option. A theme's `cn` (`createThemeCn(theme)`) gets the fix with the kit's patch alone; an app
+  needs no change, and can drop any workaround that removed the numeric class by hand. A definition without `sizes`
+  still works.
+
 ## 0.1.6
 
 - Manifest icons (#854): `drawAppIcon` takes `shape: "maskable"` (full bleed, the glyph at half the side, inside the

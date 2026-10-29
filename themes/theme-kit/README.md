@@ -44,7 +44,7 @@ ThemeDefinition (data)  ──defineTheme──▶  theme (checked)  ──build
 | `extendTheme(base, overrides)` | A checked variant of a theme: a new name, per group only the tokens that change |
 | `buildThemeCss(definition)` | The theme's tokens as CSS for Tailwind CSS v4 (below) |
 | `getThemeColor(theme, name, scheme)` | A colour's value in one scheme (`light` by default), aliases followed, for code drawing outside the page |
-| `createCn(options)`, `createThemeCn(definition)` | shadcn/ui's `cn`, with tailwind-merge told the theme's named text styles and shadows (`text-body` and `text-muted-foreground` both stay) |
+| `createCn(options)`, `createThemeCn(definition)` | shadcn/ui's `cn`, with tailwind-merge told the theme's named text styles, shadows and sizes (`text-body` and `text-muted-foreground` both stay; a later `size-touch-target` replaces `size-7`) |
 | `useIsMobile()`, `MOBILE_BREAKPOINT` (`/react`) | The sidebar's breakpoint (768 px), on `useSyncExternalStore`; the server renders the desktop layout |
 | `drawAppIcon(options)`, `APP_ICON_SIZE`, `APPLE_ICON_SIZE`, `MANIFEST_ICON_SIZE`, `MANIFEST_LARGE_ICON_SIZE` (`/next`) | The app's tab, home screen and web app manifest icons in the theme's colours, as a `next/og` image (below) |
 | `preflight.css` | Tailwind's preflight scoped to `[data-slot]` elements, in `@layer base` with zero specificity, plus `prefers-reduced-motion` |
@@ -238,7 +238,7 @@ a colour the theme does not define.
   writeFileSync("app/brand-theme.css", buildThemeCss(brand));
   ```
 
-  `cn` stays the theme's while the variant adds no text styles or shadows; otherwise use `createThemeCn(brand)`.
+  `cn` stays the theme's while the variant adds no text styles, shadows or sizes; otherwise use `createThemeCn(brand)`.
 
 ## Adding a theme
 
