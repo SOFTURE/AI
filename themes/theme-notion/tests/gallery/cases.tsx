@@ -255,7 +255,7 @@ export const CVA_AXES: Readonly<Record<string, { readonly component: string; rea
     component: "Button",
     axes: {
       variant: ["default", "destructive", "outline", "secondary", "ghost", "link", "floating"],
-      size: ["default", "xs", "sm", "lg", "icon", "icon-xs", "icon-sm", "icon-lg"],
+      size: ["default", "xs", "sm", "lg", "icon", "icon-xs", "icon-sm", "icon-lg", "touch", "icon-touch"],
     },
   },
   emptyMediaVariants: { component: "EmptyMedia", axes: { variant: ["default", "icon"] } },
@@ -885,7 +885,7 @@ const UI_CASES: readonly GalleryCase[] = [
       </ScrollArea>
     ),
   },
-  ...(["default", "sm"] as const).map(
+  ...(["default", "sm", "touch"] as const).map(
     (size): GalleryCase => ({
       name: `SelectTrigger[size=${size}]`,
       component: "SelectTrigger",
@@ -928,6 +928,23 @@ const UI_CASES: readonly GalleryCase[] = [
           <SelectSeparator />
           <SelectItem value="calendar">Calendar</SelectItem>
           <SelectScrollDownButton />
+        </SelectContent>
+      </Select>
+    ),
+  },
+  {
+    name: "Select[size=touch]",
+    component: "Select",
+    root: '[data-slot="select-content"]',
+    isIsolated: true,
+    render: () => (
+      <Select defaultValue="table" defaultOpen>
+        <SelectTrigger aria-label="View" size="touch" className="w-48">
+          <SelectValue placeholder="View" />
+        </SelectTrigger>
+        <SelectContent position="popper" size="touch">
+          <SelectItem value="table">Table</SelectItem>
+          <SelectItem value="board">Board</SelectItem>
         </SelectContent>
       </Select>
     ),

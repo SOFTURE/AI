@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `Badge` and `Status` in a narrow container (#864): a badge is capped at its container's width (`max-w-full`), so a
+  long word no longer runs past a card's edge. `Status` puts its word in a `<span data-slot="status-label"
+  class="min-w-0 truncate">`: the word, not the icon, shrinks and ends in an ellipsis, and the badge's `title` is the
+  full word when it is a string or a number (a new optional `title` prop sets it for any other node or overrides it).
+  A plain `Badge` clips its text at the end (`justify-center-safe`, so a cut text keeps its start); an app that wants
+  an ellipsis there wraps the text in `<span className="min-w-0 truncate">`. A badge whose text fits looks as before.
+  An app drops its `max-w-full` on `Badge`/`Status` and its own truncating span inside `Status`; a selector that read
+  `Status`'s text still finds it, now inside `status-label`.
 - `SheetMenu`, `SheetMenuItem` and `SheetMenuButton` (#858): navigation rows for a side `Sheet` (a phone's drawer)
   that need no `SidebarProvider`. A row is full width, icon and label left-aligned in `foreground` (`text-ui`), 44 px
   tall on a phone and 34 px from `md`, hovered, pressed and active in `accent` like the sidebar's rows, `disabled`
@@ -14,6 +22,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   with `border-t`. An app that laid out ghost `Button`s as rows (`size="lg" className="min-h-touch-target w-full
   justify-start text-ui text-foreground"`) wraps them in `SheetMenu` / `SheetMenuItem`, swaps each `Button` for
   `SheetMenuButton` and drops those classes.
+- Touch sizes (#859): the controls a phone view taps most reach the `touch-target` token (44 px). `Button` gains the
+  sizes `touch` (`h-touch-target px-3`, the icon side padded like `lg`) and `icon-touch` (`size-touch-target`);
+  `SelectTrigger` gains `size="touch"` (`h-touch-target`); `SelectContent` and `SelectItem` gain `size` (`"default"` or
+  `"touch"`): a touch list draws every item at least 44 px high (`min-h-touch-target`), and an item's own `size` wins
+  over its list's. The heights are plain classes, so a caller's breakpoint class (`md:h-7`, `md:size-7`,
+  `md:min-h-7`) brings the pointer size back on a desktop. Existing sizes are unchanged. An app that used the
+  workaround `min-h-touch-target min-w-touch-target` on a `Button`, `SelectTrigger` or `SelectItem` replaces it with
+  the size (`size="touch"`, `size="icon-touch"`, or `size="touch"` on the `SelectContent`).
 
 ## 0.8.0
 
