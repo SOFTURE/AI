@@ -12,6 +12,7 @@ const PARENT_WIDTH = 120;
 interface Fit {
   readonly parent: { readonly left: number; readonly right: number };
   readonly badge: { readonly left: number; readonly right: number };
+  readonly textLeft: number;
   readonly iconWidth: number | null;
   readonly isLabelCut: boolean | null;
   readonly labelOverflow: string | null;
@@ -40,9 +41,12 @@ for (const slot of ["status", "badge"] as const) {
         const parentBox = parent.getBoundingClientRect();
         const badgeBox = badge.getBoundingClientRect();
         const icon = badge.querySelector("svg");
+        const text = document.createRange();
+        text.selectNodeContents(label ?? badge);
         return {
           parent: { left: parentBox.left, right: parentBox.right },
           badge: { left: badgeBox.left, right: badgeBox.right },
+          textLeft: text.getBoundingClientRect().left,
           iconWidth: icon === null ? null : icon.getBoundingClientRect().width,
           isLabelCut: label === null ? null : label.scrollWidth > label.clientWidth,
           labelOverflow: label === null ? null : getComputedStyle(label).textOverflow,
@@ -53,6 +57,8 @@ for (const slot of ["status", "badge"] as const) {
 
     expect(fit.badge.left).toBeGreaterThanOrEqual(fit.parent.left);
     expect(fit.badge.right).toBeLessThanOrEqual(fit.parent.right);
+    // The cut falls at the end: the text starts inside the badge, not centred past its left edge.
+    expect(fit.textLeft).toBeGreaterThanOrEqual(fit.badge.left);
     if (slot === "status") {
       expect(fit.iconWidth).toBe(16);
       expect(fit.isLabelCut).toBe(true);

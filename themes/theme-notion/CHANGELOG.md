@@ -10,10 +10,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   long word no longer runs past a card's edge. `Status` puts its word in a `<span data-slot="status-label"
   class="min-w-0 truncate">`: the word, not the icon, shrinks and ends in an ellipsis, and the badge's `title` is the
   full word when it is a string or a number (a new optional `title` prop sets it for any other node or overrides it).
-  A plain `Badge` clips its text; an app that wants an ellipsis there wraps the text in
-  `<span className="min-w-0 truncate">`. A badge whose text fits looks as before. An app drops its `max-w-full` on
-  `Badge`/`Status` and its own truncating span inside `Status`; a selector that read `Status`'s text still finds it,
-  now inside `status-label`.
+  A plain `Badge` clips its text at the end (`justify-center-safe`, so a cut text keeps its start); an app that wants
+  an ellipsis there wraps the text in `<span className="min-w-0 truncate">`. A badge whose text fits looks as before.
+  An app drops its `max-w-full` on `Badge`/`Status` and its own truncating span inside `Status`; a selector that read
+  `Status`'s text still finds it, now inside `status-label`.
 
 ## 0.8.0
 
