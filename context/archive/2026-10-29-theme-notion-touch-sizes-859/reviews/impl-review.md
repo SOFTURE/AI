@@ -19,6 +19,6 @@ Reviewed the diff of 07adda5 and 45e0df4 against plan.md and master (a5301e4).
   only the new cases and the moved `min-h-7`; every new class generates CSS (`tailwind-classes.test.ts`).
 - Compatibility: only new union members and optional props; no exports removed.
 - Follow-up outside this change: the kit's `cn` does not merge the theme's spacing names (a caller's `h-touch-target`
-  on a default `Button` keeps `h-7` too); filed as its own issue.
+  on a default `Button` keeps `h-7` too); tracked in #860, running in parallel.
 
 Verdict: approved.
