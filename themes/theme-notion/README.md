@@ -137,13 +137,18 @@ and count, the shown tab in the address; `Tabs` keeps it in client state), `Mark
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
-`MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below).
+`MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
+`UpdatePrompt` (the offer to reload into a new build, for an installed app, below).
 
 **Touch sizes.** The controls a phone view taps most reach the `touch-target` token (44 px, Apple's HIG and WCAG
 2.5.5): `Button` sizes `touch` (44 px high, padded like `lg`) and `icon-touch` (44 × 44), `SelectTrigger`
 `size="touch"`, and `SelectItem` at least 44 px high, for a whole list (`SelectContent size="touch"`) or one item
-(`SelectItem size="touch"`; an item's own `size` wins over its list's). Each sets its height with a plain class, so
-one breakpoint class brings the pointer size back on a desktop.
+(`SelectItem size="touch"`; an item's own `size` wins over its list's). The same rule holds for the dropdown menu
+(`DropdownMenuContent size="touch"`, or `size="touch"` on a `DropdownMenuItem`, `DropdownMenuCheckboxItem`,
+`DropdownMenuRadioItem` or `DropdownMenuSubTrigger`) and the tabs (`TabsList size="touch"` grows to its triggers,
+each at least 44 × 44, or `TabsTrigger size="touch"`). `AccordionTrigger size="touch"` is at least 44 px high
+whatever its padding, and `DialogContent closeButtonSize="touch"` draws the close button 44 × 44 around the same
+icon. Each sets its height with a plain class, so one breakpoint class brings the pointer size back on a desktop.
 
 ```tsx
 <Button size="touch" className="md:h-7 md:px-2.5">Save</Button>
@@ -154,6 +159,12 @@ one breakpoint class brings the pointer size back on a desktop.
     <SelectItem value="table" className="md:min-h-7">Table</SelectItem>
   </SelectContent>
 </Select>
+<DropdownMenuContent size="touch">
+  <DropdownMenuItem className="md:min-h-7">Rename</DropdownMenuItem>
+</DropdownMenuContent>
+<TabsList size="touch">
+  <TabsTrigger value="all" className="md:min-h-0 md:min-w-0">All</TabsTrigger>
+</TabsList>
 ```
 
 **`FoldRow`.** An item as one list row in a native `<details>`: a chevron, the title, short facts and badges on the
@@ -376,6 +387,17 @@ plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-bloc
 ```tsx
 <p>Run <Code>npm ci</Code> first.</p>
 <CodeBlock label="Build log" wrap>{log}</CodeBlock>
+```
+
+**`UpdatePrompt`.** The offer to reload into a new build, for an installed app on `@softure-ai/pwa`: a floating
+`Alert` at the bottom of the screen (`shadow-menu`, at most `max-w-md`), padded by the safe-area insets so it clears a
+phone's home indicator and notch, with a reload `Button` at the touch height (`md:h-7` on a desktop). It is a polite
+`status`, not an `alert`, so it never interrupts a screen reader. It draws nothing until `open`. The copy is props,
+keyed like `pwaMessages.en.update`; `data-slot="update-prompt"` marks the root.
+
+```tsx
+const { isUpdateReady, activate } = useServiceWorkerUpdate(); // @softure-ai/pwa/react
+<UpdatePrompt open={isUpdateReady} onReload={activate} {...messages.update} />
 ```
 
 **`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and

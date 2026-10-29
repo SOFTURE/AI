@@ -1,0 +1,17 @@
+{
+  "id": "pwa",
+  "version": "0.0.0",
+  "dependsOn": {},
+  "dbSchema": null,
+  "tables": [],
+  "env": [],
+  "switches": [],
+  "routes": { "manifest": "/pwa/manifest.webmanifest", "icons": "/pwa/icons", "version": "/pwa/version", "serviceWorker": "/sw.js" },
+  "mount": [
+    { "kind": "route-handler", "path": "app/pwa/manifest.webmanifest/route.ts", "export": "createManifestRoute" },
+    { "kind": "route-handler", "path": "app/pwa/icons/[name]/route.ts", "export": "createIconRoute" },
+    { "kind": "route-handler", "path": "app/pwa/version/route.ts", "export": "createVersionRoute" },
+    { "kind": "route-handler", "path": "app/sw.js/route.ts", "export": "createServiceWorkerRoute" }
+  ],
+  "privacy": { "exports": false, "deletes": false }
+}

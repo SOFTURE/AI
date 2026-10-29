@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`testing@x.y.z`).
 
+## Unreleased
+
+- Installed app and phone checks in `@softure-ai/testing/playwright` (#875): `emulateInstalledApp` (iOS
+  `navigator.standalone` and `display-mode: standalone` in `matchMedia` and same-origin style sheets),
+  `emulateSafeAreaInsets` with `IPHONE_SAFE_AREA` and `expectClearOfSafeAreaInsets` (light and dark),
+  `throttleLikePhone` with `PHONE_NETWORK_PROFILES` (`FAST_4G`, `SLOW_4G`) and `PHONE_CPU_SLOWDOWN`, `expectLoadWithin`,
+  `expectWorksOffline`, and `expectTouchTargets` with `TOUCH_TARGET_PX` and `TAPPABLE_SELECTOR`. The CDP helpers are
+  Chromium only. Additive: nothing to migrate.
+
 ## 0.3.0
 
 - `fakeFetch` records form bodies (#676): a call whose body is URL-encoded or multipart (a `URLSearchParams` or

@@ -1,0 +1,65 @@
+{
+  "name": "@softure-ai/pwa",
+  "version": "0.0.0",
+  "description": "SOFTURE AI pwa module: an installable app that works offline. The web app manifest from the theme's token values, the icon registry and its route, a service worker served from a route and generated from one testable function, the new-build update flow, the build version and useIsOnline.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "modules/pwa"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "module.json"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    },
+    "./worker": {
+      "@softure-ai/source": "./src/worker/index.ts",
+      "types": "./dist/worker/index.d.ts",
+      "default": "./dist/worker/index.js"
+    },
+    "./react": {
+      "@softure-ai/source": "./src/react/index.ts",
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@softure-ai/core": "^0.2.7"
+  },
+  "peerDependencies": {
+    "@softure-ai/theme-kit": "^0.1.7",
+    "next": "^16.0.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@softure-ai/theme-kit": "^0.1.7",
+    "lucide": "^1.61.0"
+  }
+}

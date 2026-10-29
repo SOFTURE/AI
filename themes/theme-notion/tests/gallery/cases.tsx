@@ -214,6 +214,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  UpdatePrompt,
   Code,
   CodeBlock,
 } from "../../src/index.js";
@@ -266,7 +267,7 @@ export const CVA_AXES: Readonly<Record<string, { readonly component: string; rea
   itemVariants: { component: "Item", axes: { variant: ["default", "outline", "muted"], size: ["default", "sm"] } },
   itemMediaVariants: { component: "ItemMedia", axes: { variant: ["default", "icon", "image"] } },
   sidebarMenuButtonVariants: { component: "SidebarMenuButton", axes: { variant: ["default", "outline"], size: ["default", "sm", "lg"] } },
-  tabsListVariants: { component: "TabsList", axes: { variant: ["default", "line"] } },
+  tabsListVariants: { component: "TabsList", axes: { variant: ["default", "line"], size: ["default", "touch"] } },
 };
 
 type Options = Readonly<Record<string, string>>;
@@ -401,6 +402,19 @@ const UI_CASES: readonly GalleryCase[] = [
         <AccordionItem value="two">
           <AccordionTrigger>Who can see it?</AccordionTrigger>
           <AccordionContent>Its members.</AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    ),
+  },
+  {
+    name: "AccordionTrigger[size=touch]",
+    component: "AccordionTrigger",
+    root: '[data-slot="accordion"]',
+    render: () => (
+      <Accordion type="single" collapsible className="w-80">
+        <AccordionItem value="one">
+          <AccordionTrigger size="touch" className="py-2">What is a workspace?</AccordionTrigger>
+          <AccordionContent>A shared space for pages and databases.</AccordionContent>
         </AccordionItem>
       </Accordion>
     ),
@@ -641,6 +655,22 @@ const UI_CASES: readonly GalleryCase[] = [
     ),
   },
   {
+    name: "Dialog[closeButtonSize=touch]",
+    component: "Dialog",
+    root: '[data-slot="dialog-content"]',
+    isIsolated: true,
+    render: () => (
+      <Dialog defaultOpen>
+        <DialogContent closeButtonSize="touch">
+          <DialogHeader>
+            <DialogTitle>Share the page</DialogTitle>
+            <DialogDescription>Anyone with the link can view it.</DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+    ),
+  },
+  {
     name: "DialogClose",
     component: "DialogClose",
     root: '[data-slot="dialog-close"]',
@@ -691,6 +721,34 @@ const UI_CASES: readonly GalleryCase[] = [
               <DropdownMenuItem>PDF</DropdownMenuItem>
               <DropdownMenuItem>Markdown</DropdownMenuItem>
             </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ),
+  },
+  {
+    name: "DropdownMenu[size=touch]",
+    component: "DropdownMenu",
+    root: '[data-slot="dropdown-menu-content"]',
+    isIsolated: true,
+    render: () => (
+      <DropdownMenu defaultOpen modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="touch">Options</Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent size="touch" className="w-56">
+          <DropdownMenuItem>
+            <FileText />
+            Duplicate
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive">Delete</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem checked>Full width</DropdownMenuCheckboxItem>
+          <DropdownMenuRadioGroup value="small">
+            <DropdownMenuRadioItem value="small">Small text</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Export</DropdownMenuSubTrigger>
           </DropdownMenuSub>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -1163,6 +1221,15 @@ const UI_CASES: readonly GalleryCase[] = [
       </Table>
     ),
   },
+  ...axis("tabsListVariants", "size", '[data-slot="tabs"]', (size) => (
+    <Tabs defaultValue="pages" className="w-96">
+      <TabsList size={size as "default"}>
+        <TabsTrigger value="pages">Pages</TabsTrigger>
+        <TabsTrigger value="files">Files</TabsTrigger>
+      </TabsList>
+      <TabsContent value="pages">Twelve pages.</TabsContent>
+    </Tabs>
+  )),
   ...axis("tabsListVariants", "variant", '[data-slot="tabs"]', (variant) => (
     <Tabs defaultValue="pages" className="w-96">
       <TabsList variant={variant as "default"}>
@@ -1603,6 +1670,22 @@ const NOTION_CASES: readonly GalleryCase[] = [
           { key: "files", label: "Files", href: "#files", count: 0 },
           { key: "trash", label: "Trash", href: "#trash" },
         ]}
+      />
+    ),
+  },
+  {
+    name: "UpdatePrompt",
+    component: "UpdatePrompt",
+    root: '[data-slot="update-prompt"]',
+    // Fixed to the bottom of the screen, so it is drawn on a page of its own.
+    isIsolated: true,
+    render: () => (
+      <UpdatePrompt
+        open
+        title="A new version is ready"
+        description="Reload to use it. Anything you have not saved on this page will be lost."
+        reload="Reload"
+        onReload={() => undefined}
       />
     ),
   },
