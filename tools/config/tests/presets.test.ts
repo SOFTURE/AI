@@ -16,7 +16,7 @@ interface LefthookJob {
   name: string;
   run: string;
   glob?: string;
-  skip?: { run: string }[];
+  skip?: { run: string }[] | boolean;
 }
 
 type Lefthook = Record<string, { parallel?: boolean; piped?: boolean; jobs: LefthookJob[] }>;
@@ -80,14 +80,83 @@ describe("the lefthook preset", () => {
 
   it("runs typecheck, lint, the language gate and the tests before a push, stopping at the first failure", () => {
     expect(hooks["pre-push"]?.piped).toBe(true);
-    expect(hooks["pre-push"]?.jobs.map((job) => job.name)).toEqual(["typecheck", "lint", "language", "test"]);
+    expect(hooks["pre-push"]?.jobs.map((job) => job.name)).toEqual(["typecheck", "lint", "language", "test", "test-related"]);
     expect(getRuns("pre-push").test).toBe("npm test");
+    expect(getRuns("pre-push")["test-related"]).toBe("npx softure-merge-push-scope related");
   });
 
   it("skips typecheck, lint and tests, not the language gate, for a push that changes only context/", () => {
     const skips = Object.fromEntries((hooks["pre-push"]?.jobs ?? []).map((job) => [job.name, job.skip]));
-    const contextOnly = [{ run: "npx softure-context-only-push" }];
-    expect(skips).toEqual({ typecheck: contextOnly, lint: contextOnly, language: undefined, test: contextOnly });
+    const contextOnly = { run: "npx softure-context-only-push" };
+    expect(skips).toEqual({
+      typecheck: [contextOnly],
+      lint: [contextOnly],
+      language: undefined,
+      test: [contextOnly, { run: "npx softure-merge-push-scope is-merge" }],
+      "test-related": [{ run: "npx softure-merge-push-scope is-full" }],
+    });
+  });
+
+  describe("run by lefthook for each kind of push", () => {
+    // The preset with every command replaced: a job prints its name, a skip condition answers as the case says.
+    // This pins lefthook's own semantics: one passing skip entry skips the job, a failing one does not.
+    const cacheDir = join(REPO_ROOT, "node_modules/.cache");
+    mkdirSync(cacheDir, { recursive: true });
+    const appDir = mkdtempSync(join(cacheDir, "softure-config-lefthook-run-"));
+    const git = (...args: string[]): string => execFileSync("git", args, { cwd: appDir, encoding: "utf8" });
+    git("init", "-q");
+    writeFileSync(join(appDir, "index.ts"), "export const one = 1;\n");
+    git("add", "index.ts");
+    git("-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-q", "-m", "start");
+    // What git writes to a pre-push hook's stdin for a new branch; without it lefthook sees no pushed files and skips.
+    const pushLine = `refs/heads/feature ${git("rev-parse", "HEAD").trim()} refs/heads/feature ${"0".repeat(40)}\n`;
+    afterAll(() => rmSync(appDir, { recursive: true, force: true }));
+
+    const runPrePush = (answers: Record<string, boolean>): string[] => {
+      const prePush = structuredClone(hooks["pre-push"]);
+      for (const job of prePush?.jobs ?? []) {
+        job.run = `echo ran-${job.name}`;
+        for (const condition of Array.isArray(job.skip) ? job.skip : []) {
+          const answer = answers[condition.run];
+          if (answer === undefined) throw new Error(`no answer for the skip condition ${condition.run}`);
+          condition.run = answer ? "true" : "false";
+        }
+      }
+      writeFileSync(join(appDir, "lefthook.yml"), JSON.stringify({ "pre-push": prePush }));
+      const lefthook = join(REPO_ROOT, "node_modules/.bin/lefthook");
+      const output = execFileSync(lefthook, ["run", "pre-push", "--no-auto-install"], { cwd: appDir, encoding: "utf8", input: pushLine });
+      return [...output.matchAll(/^ran-([a-z-]+)$/gm)].map((match) => match[1] ?? "");
+    };
+    const CONTEXT_ONLY = "npx softure-context-only-push";
+    const IS_MERGE = "npx softure-merge-push-scope is-merge";
+    const IS_FULL = "npx softure-merge-push-scope is-full";
+
+    it("runs every gate and the whole suite for a push of new code", () => {
+      expect(runPrePush({ [CONTEXT_ONLY]: false, [IS_MERGE]: false, [IS_FULL]: true })).toEqual(["typecheck", "lint", "language", "test"]);
+    });
+
+    it("runs every gate and only the related tests for a push that only merges the main branch in", () => {
+      expect(runPrePush({ [CONTEXT_ONLY]: false, [IS_MERGE]: true, [IS_FULL]: false })).toEqual([
+        "typecheck",
+        "lint",
+        "language",
+        "test-related",
+      ]);
+    });
+
+    it("runs the language gate alone for a push that changes only context/", () => {
+      expect(runPrePush({ [CONTEXT_ONLY]: true, [IS_MERGE]: false, [IS_FULL]: true })).toEqual(["language"]);
+    });
+
+    it("runs the whole suite when the scope bin fails on both questions", () => {
+      expect(runPrePush({ [CONTEXT_ONLY]: false, [IS_MERGE]: false, [IS_FULL]: false })).toEqual([
+        "typecheck",
+        "lint",
+        "language",
+        "test",
+        "test-related",
+      ]);
+    });
   });
 
   describe("with one job changed by an app", () => {
@@ -118,8 +187,17 @@ describe("the lefthook preset", () => {
       const merged = dumpMerged();
       expect(getMergedRuns(merged, "pre-commit")).toEqual({ ...getRuns("pre-commit"), typecheck: NEXT_TYPECHECK });
       expect(getMergedRuns(merged, "pre-push")).toEqual({ ...getRuns("pre-push"), typecheck: NEXT_TYPECHECK });
-      expect(merged["pre-push"]?.jobs.map((job) => job.name)).toEqual(["typecheck", "lint", "language", "test"]);
+      expect(merged["pre-push"]?.jobs.map((job) => job.name)).toEqual(["typecheck", "lint", "language", "test", "test-related"]);
       expect(merged["pre-push"]?.piped).toBe(true);
+    });
+
+    it("drops the merge-only speed with the opt-out the README shows", () => {
+      writeFileSync(join(appDir, "lefthook.yml"), `extends:\n  - ${PRESET}\n  - lefthook.app.yml\n`);
+      const optOut = "pre-push:\n  jobs:\n    - name: test\n      skip:\n        - run: npx softure-context-only-push\n    - name: test-related\n      skip: true\n";
+      writeFileSync(join(appDir, "lefthook.app.yml"), optOut);
+      const skips = Object.fromEntries((dumpMerged()["pre-push"]?.jobs ?? []).map((job) => [job.name, job.skip]));
+      expect(skips.test).toEqual([{ run: "npx softure-context-only-push" }]);
+      expect(skips["test-related"]).toBe(true);
     });
 
     it("keeps the preset's run for a job the app redefines in its own lefthook.yml, as the README warns", () => {
@@ -131,6 +209,6 @@ describe("the lefthook preset", () => {
 
   it("calls the bin the package ships", () => {
     const manifest = readJson<{ bin: Record<string, string> }>(join(PACKAGE_DIR, "package.json"));
-    expect(Object.keys(manifest.bin)).toEqual(["softure-check-language", "softure-context-only-push"]);
+    expect(Object.keys(manifest.bin)).toEqual(["softure-check-language", "softure-context-only-push", "softure-merge-push-scope"]);
   });
 });
