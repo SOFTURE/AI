@@ -215,9 +215,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
   UpdatePrompt,
+  InstallBar,
   Code,
   CodeBlock,
 } from "../../src/index.js";
+
+// The install bar's copy, as `pwaMessages.en.install` in `@softure-ai/pwa` has it.
+const INSTALL_COPY = {
+  title: "Install the app",
+  description: "Open it from your home screen, full screen, even offline.",
+  install: "Install",
+  shareStep: "Tap Share in the browser's toolbar",
+  addStep: "Choose Add to Home Screen",
+  close: "Close",
+};
 
 /** One rendering of the gallery: a component, a variant or a composition, as an app would use it. */
 export interface GalleryCase {
@@ -1622,6 +1633,21 @@ const NOTION_CASES: readonly GalleryCase[] = [
         onReload={() => undefined}
       />
     ),
+  },
+  {
+    name: "InstallBar",
+    component: "InstallBar",
+    root: '[data-slot="install-bar"]',
+    // Fixed to the bottom of the screen, so it is drawn on a page of its own.
+    isIsolated: true,
+    render: () => <InstallBar offer="browser_prompt" {...INSTALL_COPY} onInstall={() => undefined} onClose={() => undefined} />,
+  },
+  {
+    name: "InstallBar[ios_steps]",
+    component: "InstallBar",
+    root: '[data-slot="install-bar"]',
+    isIsolated: true,
+    render: () => <InstallBar offer="ios_steps" {...INSTALL_COPY} onInstall={() => undefined} onClose={() => undefined} />,
   },
 ];
 

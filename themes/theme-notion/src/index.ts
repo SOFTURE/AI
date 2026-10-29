@@ -48,6 +48,7 @@ export { Code, CodeBlock, type CodeBlockProps } from "./notion/Code.js";
 export { DetailTable, type DetailRow, type DetailTableProps } from "./notion/DetailTable.js";
 export { FilterChip, FilterChipAdd, type FilterChipAddProps, type FilterChipProps } from "./notion/FilterChip.js";
 export { FoldRow, type FoldRowBadge, type FoldRowProps } from "./notion/FoldRow.js";
+export { InstallBar, type InstallBarOffer, type InstallBarProps } from "./notion/InstallBar.js";
 export { PALETTE_COLORS, type PaletteColor } from "./notion/palette.js";
 export { MarkPopover, type MarkPopoverProps } from "./notion/MarkPopover.js";
 export { MiniProgress, type MiniProgressProps } from "./notion/MiniProgress.js";
