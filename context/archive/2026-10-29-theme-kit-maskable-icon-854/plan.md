@@ -1,6 +1,6 @@
 ---
 change_id: theme-kit-maskable-icon-854
-status: in_progress
+status: archived
 ---
 
 # Plan: maskable app icons in theme-kit (issue #854)
@@ -40,3 +40,5 @@ Files: `themes/theme-kit/src/next/draw-app-icon.tsx`, `src/next/index.ts`, `test
 ## Progress
 
 - [x] Phase 1: shape, scale and stroke, e67404f
+- [x] Phase 2: docs, b27b908
+- [x] Implementation review: approved

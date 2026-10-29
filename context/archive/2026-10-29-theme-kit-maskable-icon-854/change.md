@@ -1,12 +1,13 @@
 ---
 change_id: theme-kit-maskable-icon-854
 title: "theme-kit: maskable app icons, glyph scale and stroke width for PWA manifests (issue #854)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 854
 branch: claude/project-thread-g8z0qq
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent
