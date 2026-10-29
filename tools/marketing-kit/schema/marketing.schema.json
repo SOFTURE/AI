@@ -598,7 +598,6 @@
       "description": "The voiceover: provider, voice, language and the paid cache."
     },
     "videos": {
-      "minItems": 1,
       "type": "array",
       "items": {
         "type": "object",
@@ -2606,7 +2605,260 @@
         ],
         "additionalProperties": false
       },
-      "description": "The films, at least one."
+      "description": "The screen films recorded from the app (may be empty when footage has a film); videos and footage hold at least one film between them."
+    },
+    "footage": {
+      "default": [],
+      "description": "Footage films cut from filmed clips (softure-marketing footage).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "The film's id: its folder under output.dir, unique across videos and footage; social.posts may name it."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The film's title: the heading of its posts.md and the composition's <title>."
+          },
+          "format": {
+            "default": "9:16",
+            "description": "The film's aspect ratio: 9:16 (1080×1920), 1:1 or 16:9; every clip is fitted to it.",
+            "type": "string",
+            "enum": [
+              "9:16",
+              "1:1",
+              "16:9"
+            ]
+          },
+          "language": {
+            "description": "ISO 639 code the clips speak (pl, en): the transcript's language and the default fillers; without it, voice.language.",
+            "type": "string",
+            "pattern": "^[a-z]{2,3}$"
+          },
+          "clips": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "The clip's id, unique within the film; the EDL names clips by it."
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The clip: a path relative to the folder of marketing.json, or an https:// URL downloaded once into the build folder."
+                },
+                "role": {
+                  "default": "talk",
+                  "description": "talk: someone speaks, the cut follows the words; broll: pictures without speech, kept whole with a slow zoom.",
+                  "type": "string",
+                  "enum": [
+                    "talk",
+                    "broll"
+                  ]
+                },
+                "fit": {
+                  "default": "auto",
+                  "description": "How a clip of another aspect fills the frame: crop (cover, edges cut), blur (the whole picture over a blurred copy) or auto (crop within 15 % of the frame's aspect, else blur).",
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "crop",
+                    "blur"
+                  ]
+                },
+                "trim": {
+                  "description": "The part of the clip the film uses.",
+                  "default": {},
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "default": 0,
+                      "description": "Seconds cut from the clip's start.",
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "end": {
+                      "description": "The second the clip ends at; without it, its own end.",
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "script": {
+                  "description": "What the clip says, for --placeholder only: its words spread evenly over the clip as a free stand-in transcript.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "source"
+              ],
+              "additionalProperties": false
+            },
+            "description": "The filmed clips in the film's order."
+          },
+          "isolateVoice": {
+            "default": false,
+            "description": "Clean the talking clips' voice of background noise (ElevenLabs Voice Isolator, paid with --commit) before transcribing.",
+            "type": "boolean"
+          },
+          "fillers": {
+            "description": "Filler words cut out of the talking clips, compared without case, punctuation and repeated letters; without it, the language's defaults (pl: yyy, eee, yhm and more; en: um, uh and more).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pauseSeconds": {
+            "default": 0.6,
+            "description": "A silence between two words longer than this is cut (0.1-10 s, default 0.6).",
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 10
+          },
+          "padSeconds": {
+            "default": 0.12,
+            "description": "Seconds kept around every cut (0-1, default 0.12).",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "maxSeconds": {
+            "description": "The cut's longest length in seconds; later segments are shortened or dropped.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 600
+          },
+          "transitions": {
+            "description": "Default transitions by kind of cut; each segment of the EDL can name its own.",
+            "default": {},
+            "type": "object",
+            "properties": {
+              "jump": {
+                "default": "zoom",
+                "description": "A cut inside one talking clip: cut, fade, zoom (a punch-in, the default) or whoosh.",
+                "type": "string",
+                "enum": [
+                  "cut",
+                  "fade",
+                  "zoom",
+                  "whoosh"
+                ]
+              },
+              "clip": {
+                "default": "fade",
+                "description": "A cut from one clip to the next: cut, fade (the default), zoom or whoosh.",
+                "type": "string",
+                "enum": [
+                  "cut",
+                  "fade",
+                  "zoom",
+                  "whoosh"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "music": {
+            "description": "Music under the film, ducked while someone speaks; without it, none.",
+            "type": "object",
+            "properties": {
+              "file": {
+                "description": "A local music file, relative to the folder of marketing.json.",
+                "type": "string",
+                "minLength": 1
+              },
+              "prompt": {
+                "description": "A prompt for ElevenLabs Music (instrumental, paid with --commit, cached).",
+                "type": "string"
+              },
+              "fromVideo": {
+                "description": "ElevenLabs Video to Music scored to the cut itself (paid with --commit, cached).",
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "default": "",
+                    "description": "What the music should be like (up to 4100 characters).",
+                    "type": "string",
+                    "maxLength": 4100
+                  },
+                  "tags": {
+                    "default": [],
+                    "description": "Style tags such as upbeat or cinematic (up to 10).",
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "volume": {
+                "default": 0.35,
+                "description": "The music's volume between sentences (0-1, default 0.35).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "duckedVolume": {
+                "default": 0.1,
+                "description": "The music's volume under speech (0-1, default 0.1).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "captions": {
+            "default": true,
+            "description": "Word-by-word captions from the transcript (default true).",
+            "type": "boolean"
+          },
+          "endCard": {
+            "description": "The closing card after the last segment; without it, the film ends with its last segment.",
+            "type": "object",
+            "properties": {
+              "headline": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The end card's headline."
+              },
+              "url": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The address shown in the end card's link pill, as written (e.g. example.com)."
+              },
+              "note": {
+                "default": "",
+                "description": "A small line under the link; empty: none.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "headline",
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "clips"
+        ],
+        "additionalProperties": false
+      }
     },
     "social": {
       "description": "Post copy for the films: the link, the platforms and their channel codes.",

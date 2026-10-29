@@ -194,3 +194,30 @@ describe("readOptions with --placeholder", () => {
     expect(!result.ok && result.error).toBe(message);
   });
 });
+
+describe("readOptions for footage", () => {
+  it("runs every step by default, without paying", () => {
+    expect(readOptions(["footage", "street"])).toEqual({
+      ok: true,
+      options: { command: "footage", filmId: "street", step: "all", isCommit: false, isPlaceholder: false, quality: undefined, configPath: "marketing.json" },
+    });
+  });
+
+  it("reads a step, --commit and the quality", () => {
+    expect(readOptions(["footage", "street", "--step=cut", "--commit", "--quality=draft"])).toEqual({
+      ok: true,
+      options: { command: "footage", filmId: "street", step: "cut", isCommit: true, isPlaceholder: false, quality: "draft", configPath: "marketing.json" },
+    });
+  });
+
+  it.each([
+    [["footage"], "name the footage film, e.g. softure-marketing footage <film>."],
+    [["footage", "a", "b"], "one footage film at a time, got a, b."],
+    [["footage", "street", "--step=mix"], "--step=mix: expected transcribe | cut | render."],
+    [["footage", "street", "--commit", "--placeholder"], "--commit and --placeholder exclude each other: a rehearsal never pays."],
+    [["footage", "street", "--today=2026-01-01"], "--today does not apply to footage. Known: --step, --commit, --placeholder, --quality, --config."],
+    [["footage", "street", "--placeholder=yes"], '--placeholder takes no value (got "yes").'],
+  ])("refuses %j", (argv, error) => {
+    expect(readOptions(argv)).toEqual({ ok: false, error });
+  });
+});

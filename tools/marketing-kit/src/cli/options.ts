@@ -8,7 +8,7 @@ import { DEFAULT_CONFIG_FILE, QUALITIES, screenshotSchema, type MarketingJson, t
  * instead of from the given day.
  */
 
-export const COMMANDS = ["all", "voice", "record", "render", "preview", "posts", "og", "shots"] as const;
+export const COMMANDS = ["all", "voice", "record", "render", "preview", "posts", "og", "shots", "footage"] as const;
 
 export type Command = (typeof COMMANDS)[number];
 
@@ -19,13 +19,19 @@ const PLACEHOLDER_COMMANDS: readonly Command[] = ["all", "record", "render"];
 const SHOTS_FLAGS = ["url", "config"];
 /** `shots --page`: one page anywhere, its settings as flags; the same names as the entry's fields where they fit. */
 const PAGE_FLAGS = ["page", "out", "expect", "width", "height", "scale", "full", "scroll", "wait", "motion", "scheme", "auth", "minbytes", "config"];
-const KNOWN_FLAGS = [...new Set([...FILM_FLAGS, ...SHOTS_FLAGS, ...PAGE_FLAGS])];
+/** `footage <film>`: the footage film's steps, paid only with --commit, rehearsed with --placeholder. */
+const FOOTAGE_FLAGS = ["step", "commit", "placeholder", "quality", "config"];
+const KNOWN_FLAGS = [...new Set([...FILM_FLAGS, ...SHOTS_FLAGS, ...PAGE_FLAGS, ...FOOTAGE_FLAGS])];
+/** The steps of `footage` that run alone; `all` (no --step) runs them in order. */
+export const FOOTAGE_STEPS = ["transcribe", "cut", "render"] as const;
+
+export type FootageStep = (typeof FOOTAGE_STEPS)[number] | "all";
 /** The viewport of an ad-hoc shot without --width/--height: a common laptop screen (FIRE's screenshot script). */
 export const PAGE_SHOT_VIEWPORT = { width: 1440, height: 900 } as const;
 const FILM_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export interface FilmOptions {
-  command: Exclude<Command, "og" | "shots">;
+  command: Exclude<Command, "og" | "shots" | "footage">;
   /** The first film named; the only one for every command but `voice`. */
   filmId: string;
   /** Every film named, in order; `voice` takes several, the other commands one. */
@@ -79,7 +85,20 @@ export interface PageShotsOptions {
 
 export type ShotsOptions = EntryShotsOptions | PageShotsOptions;
 
-export type CliOptions = FilmOptions | OgOptions | ShotsOptions;
+/** `footage <film> [--step=transcribe|cut|render] [--commit] [--placeholder] [--quality=...]`. */
+export interface FootageOptions {
+  command: "footage";
+  filmId: string;
+  step: FootageStep;
+  /** Only `--commit` lets the speech-to-text, voice isolation and music providers spend money. */
+  isCommit: boolean;
+  /** A free stand-in transcript from each clip's script, no isolation, no generated music. */
+  isPlaceholder: boolean;
+  quality?: Quality;
+  configPath: string;
+}
+
+export type CliOptions = FilmOptions | OgOptions | ShotsOptions | FootageOptions;
 
 export type ReadOptionsResult = { ok: true; options: CliOptions } | { ok: false; error: string };
 
@@ -97,6 +116,8 @@ export const USAGE = [
   "  shots [<id>] [--url=...]        the screenshots entries (or one), each behind its quality gates",
   "  shots --page=<url> --out=<file.png> --expect=<phrase> [--width --height --scale --full --scroll --wait",
   "        --motion --scheme --auth --minbytes]   one page anywhere, behind the same gates; the app is not started",
+  "  footage <film> [--step=transcribe|cut|render] [--commit] [--placeholder] [--quality=draft|standard|high]",
+  "        a footage film from filmed clips; paid steps only with --commit, --placeholder rehearses for free",
 ].join("\n");
 
 function isCommand(value: string | undefined): value is Command {
@@ -131,6 +152,7 @@ export function readOptions(argv: string[]): ReadOptionsResult {
   if (configPath === "true" || configPath.length === 0) return { ok: false, error: `--config needs a path, e.g. --config=${DEFAULT_CONFIG_FILE}.` };
   if (command === "og") return readOgOptions(positional, flags, configPath);
   if (command === "shots") return readShotsOptions(positional, flags, configPath);
+  if (command === "footage") return readFootageOptions(positional, flags, configPath);
   const notForFilms = [...flags.keys()].find((flag) => !FILM_FLAGS.includes(flag));
   if (notForFilms !== undefined) return { ok: false, error: `--${notForFilms} applies to shots only, not to ${command}.` };
   const filmId = positional[0];
@@ -160,6 +182,31 @@ export function readOptions(argv: string[]): ReadOptionsResult {
     ok: true,
     options: { command, filmId, filmIds: positional, isCommit: commit === "true", isPlaceholder: placeholder === "true", today, url, quality, configPath },
   };
+}
+
+function isFootageStep(value: string): value is (typeof FOOTAGE_STEPS)[number] {
+  return FOOTAGE_STEPS.some((step) => step === value);
+}
+
+function readFootageOptions(positional: string[], flags: Map<string, string>, configPath: string): ReadOptionsResult {
+  const unknown = [...flags.keys()].find((flag) => !FOOTAGE_FLAGS.includes(flag));
+  if (unknown !== undefined) return { ok: false, error: `--${unknown} does not apply to footage. Known: ${FOOTAGE_FLAGS.map((flag) => `--${flag}`).join(", ")}.` };
+  const [filmId, ...extra] = positional;
+  if (filmId === undefined) return { ok: false, error: "name the footage film, e.g. softure-marketing footage <film>." };
+  if (extra.length > 0) return { ok: false, error: `one footage film at a time, got ${positional.join(", ")}.` };
+  if (!FILM_ID.test(filmId)) return { ok: false, error: `film name "${filmId}": lowercase letters, digits and hyphens only.` };
+  const stepFlag = flags.get("step");
+  if (stepFlag !== undefined && !isFootageStep(stepFlag)) return { ok: false, error: `--step=${stepFlag}: expected ${FOOTAGE_STEPS.join(" | ")}.` };
+  for (const name of ["commit", "placeholder"]) {
+    const value = flags.get(name);
+    if (value !== undefined && value !== "true") return { ok: false, error: `--${name} takes no value (got "${value}").` };
+  }
+  const isCommit = flags.get("commit") === "true";
+  const isPlaceholder = flags.get("placeholder") === "true";
+  if (isCommit && isPlaceholder) return { ok: false, error: "--commit and --placeholder exclude each other: a rehearsal never pays." };
+  const quality = flags.get("quality");
+  if (quality !== undefined && !isQuality(quality)) return { ok: false, error: `--quality=${quality}: expected ${QUALITIES.join(" | ")}.` };
+  return { ok: true, options: { command: "footage", filmId, step: stepFlag ?? "all", isCommit, isPlaceholder, quality, configPath } };
 }
 
 function readOgOptions(positional: string[], flags: Map<string, string>, configPath: string): ReadOptionsResult {
