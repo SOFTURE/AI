@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-touch-sizes-880
-status: active
+status: archived
 ---
 
 # Plan: touch sizes for menus, tabs, accordion and dialog close (issue #880)
@@ -39,6 +39,6 @@ Files: `themes/theme-notion/src/ui/dropdown-menu.tsx`, `src/ui/tabs.tsx`, `src/u
 
 ## Progress
 
-- [ ] Phase 1: sizes
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: sizes, 8c354cd
+- [x] Phase 2: docs, 3d7c355 (baselines 709d8da)
+- [x] Implementation review: approved

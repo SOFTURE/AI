@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-touch-sizes-880
 title: "theme-notion: touch sizes for DropdownMenu items, Tabs, AccordionTrigger and Dialog's close button (issue #880)"
-status: active
+status: archived
 roadmap_item: null
 issue: 880
 branch: claude/project-thread-2p9wv8
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent
