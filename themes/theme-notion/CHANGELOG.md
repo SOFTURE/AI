@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.9.0
 
 - `Badge` and `Status` in a narrow container (#864): a badge is capped at its container's width (`max-w-full`), so a
   long word no longer runs past a card's edge. `Status` puts its word in a `<span data-slot="status-label"
