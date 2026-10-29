@@ -38,3 +38,5 @@ Files: `themes/theme-kit/src/next/draw-app-icon.tsx`, `src/next/index.ts`, `test
 - No version bump: the coordinator releases (theme-kit patch).
 
 ## Progress
+
+- [x] Phase 1: shape, scale and stroke, e67404f
