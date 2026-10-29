@@ -53,11 +53,14 @@ function DialogContent({
   children,
   showCloseButton = true,
   closeLabel = messages.dialog.close,
+  closeButtonSize = "default",
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
   // The close button's hidden text, from the app's message layer.
   closeLabel?: string
+  // `touch` draws the close button 44 x 44, centred on the same icon.
+  closeButtonSize?: "default" | "touch"
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -74,7 +77,11 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className={cn(
+              "absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+              closeButtonSize === "touch" &&
+                "top-0.5 right-0.5 inline-flex size-touch-target items-center justify-center rounded-md"
+            )}
           >
             <XIcon />
             <span className="sr-only">{closeLabel}</span>
