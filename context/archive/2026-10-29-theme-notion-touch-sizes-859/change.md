@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-touch-sizes-859
 title: "theme-notion: 44 px touch sizes for Button, SelectTrigger and SelectItem (issue #859)"
-status: open
+status: archived
 roadmap_item: null
 issue: 859
 branch: claude/project-thread-m4v8sy
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent

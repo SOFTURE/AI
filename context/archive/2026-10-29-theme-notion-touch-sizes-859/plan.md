@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-touch-sizes-859
-status: open
+status: archived
 ---
 
 # Plan: touch sizes in theme-notion (issue #859)
