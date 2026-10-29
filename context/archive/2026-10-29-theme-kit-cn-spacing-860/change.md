@@ -1,12 +1,13 @@
 ---
 change_id: theme-kit-cn-spacing-860
 title: "theme-kit: createThemeCn merges the theme's named spacing tokens (issue #860)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 860
 branch: claude/project-thread-yoxmu9
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent

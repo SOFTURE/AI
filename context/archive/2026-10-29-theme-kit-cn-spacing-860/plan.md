@@ -1,6 +1,6 @@
 ---
 change_id: theme-kit-cn-spacing-860
-status: in_progress
+status: archived
 ---
 
 # Plan: spacing tokens in createThemeCn (issue #860)
@@ -31,5 +31,5 @@ Files: `themes/theme-kit/src/create-cn.ts`, `tests/create-cn.test.ts`.
 ## Progress
 
 - [x] Phase 1: sizes as spacing values, 58b2436
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 2: docs, 65db0b2
+- [x] Implementation review: approved
