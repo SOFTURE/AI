@@ -61,4 +61,19 @@ describe("Button", () => {
     expect(classes).toContain("h-8");
     expect(classes).not.toContain("h-7");
   });
+
+  it("reaches the 44 px touch target with the touch sizes, padded like lg", () => {
+    const html = renderToStaticMarkup(<Button size="touch">Save</Button>);
+
+    expect(html).toContain('data-size="touch"');
+    expect(classesOf(html)).toEqual(expect.arrayContaining(["h-touch-target", "px-3"]));
+    expect(classesOf(renderToStaticMarkup(<Button size="icon-touch" aria-label="Add" />))).toContain("size-touch-target");
+  });
+
+  it("keeps a caller's breakpoint size next to the touch size, so a desktop falls back to the pointer size", () => {
+    expect(classesOf(renderToStaticMarkup(<Button size="touch" className="md:h-7">Save</Button>))).toEqual(expect.arrayContaining(["h-touch-target", "md:h-7"]));
+    expect(classesOf(renderToStaticMarkup(<Button size="icon-touch" aria-label="Add" className="md:size-7" />))).toEqual(
+      expect.arrayContaining(["size-touch-target", "md:size-7"]),
+    );
+  });
 });

@@ -206,6 +206,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "        \"icon-sm\": \"size-8\",\n        \"icon-lg\": \"size-10\",",
       ours: "        \"icon-sm\": \"size-6\",\n        \"icon-lg\": \"size-8\",",
     },
+    {
+      reason: "button: the touch sizes at the `touch-target` token, 44 px (#859)",
+      upstream: "        \"icon-lg\": \"size-8\",\n      },",
+      ours: "        \"icon-lg\": \"size-8\",\n        touch:\n          \"h-touch-target px-3 has-[>svg:first-child]:pl-2.5 has-[>svg:last-child]:pr-2.5\",\n        \"icon-touch\": \"size-touch-target\",\n      },",
+    },
   ],
   "card": [
     {
@@ -578,9 +583,19 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
   ],
   "select": [
     {
+      reason: "select: the touch size at the `touch-target` token, 44 px; the items take their list's size through context (#859)",
+      upstream: "import { Select as SelectPrimitive } from \"radix-ui\"\n\nfunction Select({",
+      ours: "import { Select as SelectPrimitive } from \"radix-ui\"\n\ntype SelectItemSize = \"default\" | \"touch\"\n\n// The items render in a portal, so a list's size reaches them through context, not the DOM.\nconst SelectItemSizeContext = React.createContext<SelectItemSize>(\"default\")\n\nfunction Select({",
+    },
+    {
       reason: "imports: relative paths with `.js` under NodeNext, `cn` from the theme",
       upstream: "import { cn } from \"cn\"",
       ours: "import { cn } from \"../lib/utils.js\"",
+    },
+    {
+      reason: "select: the touch size at the `touch-target` token, 44 px; the items take their list's size through context (#859)",
+      upstream: "  size?: \"sm\" | \"default\"\n",
+      ours: "  size?: \"sm\" | \"default\" | \"touch\"\n",
     },
     {
       reason: "field: 28 px high, grey `field` background, no shadow, the theme's focus ring",
@@ -588,14 +603,34 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "        \"flex w-fit items-center justify-between gap-2 rounded-md border border-input bg-field px-2.5 py-1 text-sm whitespace-nowrap transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[placeholder]:text-muted-foreground data-[size=default]:h-7 data-[size=sm]:h-6 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground\",",
     },
     {
+      reason: "select: the touch size at the `touch-target` token, 44 px; the items take their list's size through context (#859)",
+      upstream: "        className\n      )}\n      {...props}\n    >\n      {children}\n      <SelectPrimitive.Icon asChild>",
+      ours: "        size === \"touch\" && \"h-touch-target\",\n        className\n      )}\n      {...props}\n    >\n      {children}\n      <SelectPrimitive.Icon asChild>",
+    },
+    {
+      reason: "select: the touch size at the `touch-target` token, 44 px; the items take their list's size through context (#859)",
+      upstream: "  align = \"center\",\n  ...props\n}: React.ComponentProps<typeof SelectPrimitive.Content>) {",
+      ours: "  align = \"center\",\n  size = \"default\",\n  ...props\n}: React.ComponentProps<typeof SelectPrimitive.Content> & {\n  size?: SelectItemSize\n}) {",
+    },
+    {
       reason: "menu: radius 10 and `shadow-menu`, no border; the popper list clears the safe-area inset on the side it opens towards (#851)",
       upstream: "          \"relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",",
       ours: "          \"relative z-50 max-h-(--radix-select-content-available-height) data-[side=bottom]:max-h-[calc(var(--radix-select-content-available-height)-env(safe-area-inset-bottom))] data-[side=top]:max-h-[calc(var(--radix-select-content-available-height)-env(safe-area-inset-top))] min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl bg-popover text-popover-foreground shadow-menu data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95\",",
     },
     {
-      reason: "menu item: radius 6, at least 28 px high",
+      reason: "select: the touch size at the `touch-target` token, 44 px; the items take their list's size through context (#859)",
+      upstream: "          {children}\n        </SelectPrimitive.Viewport>",
+      ours: "          <SelectItemSizeContext.Provider value={size}>\n            {children}\n          </SelectItemSizeContext.Provider>\n        </SelectPrimitive.Viewport>",
+    },
+    {
+      reason: "select: the touch size at the `touch-target` token, 44 px; the items take their list's size through context (#859)",
+      upstream: "function SelectItem({\n  className,\n  children,\n  ...props\n}: React.ComponentProps<typeof SelectPrimitive.Item>) {\n",
+      ours: "function SelectItem({\n  className,\n  children,\n  size,\n  ...props\n}: React.ComponentProps<typeof SelectPrimitive.Item> & {\n  size?: SelectItemSize\n}) {\n  const listSize = React.useContext(SelectItemSizeContext)\n\n",
+    },
+    {
+      reason: "menu item: radius 6, at least 28 px high, 44 px at the touch size (#859)",
       upstream: "        \"relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2\",",
-      ours: "        \"relative flex w-full cursor-default items-center gap-2 rounded-md py-1 min-h-7 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2\",",
+      ours: "        \"relative flex w-full cursor-default items-center gap-2 rounded-md py-1 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2\",\n        // One height or the other: `cn` does not merge `min-h-7` with the theme's `touch-target` spacing.\n        (size ?? listSize) === \"touch\" ? \"min-h-touch-target\" : \"min-h-7\",",
     },
   ],
   "separator": [
