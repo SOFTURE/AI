@@ -11,6 +11,7 @@
 import { McpServer, type McpServerOptions } from "@modelcontextprotocol/server";
 import type { McpServerIdentity } from "../contract.js";
 import type { McpServerFactory } from "./endpoint.js";
+import { withStrictToolInput, type StrictToolInputOptions } from "./strict-input.js";
 import { measureToolList, type ToolListMeasurement } from "./tool-list.js";
 
 export interface McpServerFactoryOptions {
@@ -28,10 +29,15 @@ export interface McpServerFactoryOptions {
    * measured once per access level. A list that depends on the account needs `measureToolList` per call.
    */
   readonly registerTools: (server: McpServer, identity: McpServerIdentity) => unknown;
+  /** Every tool's input is strict (`withStrictToolInput`), on the served and the measured server alike. */
+  readonly strictToolInput?: boolean | StrictToolInputOptions;
 }
 
 /** An `McpServerFactory` whose servers carry the tool list's version for the identity's access level. */
 export function createMcpServerFactory(options: McpServerFactoryOptions): McpServerFactory {
+  const strictOptions = options.strictToolInput === true ? {} : options.strictToolInput === false ? undefined : options.strictToolInput;
+  const registerTools = (server: McpServer, identity: McpServerIdentity): unknown =>
+    options.registerTools(strictOptions === undefined ? server : withStrictToolInput(server, strictOptions), identity);
   const measurements = new Map<boolean, Promise<ToolListMeasurement>>();
 
   // The promise is cached, so parallel first requests measure once; a failed measurement is dropped so
@@ -39,7 +45,7 @@ export function createMcpServerFactory(options: McpServerFactoryOptions): McpSer
   const measure = (identity: McpServerIdentity): Promise<ToolListMeasurement> => {
     const cached = measurements.get(identity.canWrite);
     if (cached !== undefined) return cached;
-    const measurement = measureToolList((server) => options.registerTools(server, identity), {
+    const measurement = measureToolList((server) => registerTools(server, identity), {
       ...(options.release === undefined ? {} : { release: options.release }),
       name: options.name,
       ...(options.serverOptions === undefined ? {} : { serverOptions: options.serverOptions }),
@@ -55,7 +61,7 @@ export function createMcpServerFactory(options: McpServerFactoryOptions): McpSer
       { name: options.name, version, ...(options.title === undefined ? {} : { title: options.title }) },
       options.serverOptions,
     );
-    await options.registerTools(server, identity);
+    await registerTools(server, identity);
     return server;
   };
 }
