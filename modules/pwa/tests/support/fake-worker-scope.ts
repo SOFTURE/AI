@@ -34,7 +34,10 @@ export class FakeCache {
 
   /** The kept URLs as paths, oldest first. */
   getPaths(): string[] {
-    return [...this.entries.keys()].map((url) => (url.startsWith(ORIGIN) ? url.slice(ORIGIN.length) : url));
+    return [...this.entries.keys()].map((url) => {
+      const parsed = new URL(url);
+      return parsed.origin === ORIGIN ? `${parsed.pathname}${parsed.search}` : url;
+    });
   }
 }
 
