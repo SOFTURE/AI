@@ -133,8 +133,12 @@ not mapped: it propagates, as does an error thrown by `onUsage` or `onCall`.
 reads `0`. `outcome` is `"ok"` or the call's error code (`llm.invalid_output` and `llm.output_truncated`, the
 failures that still record usage). `model` is the id the provider answered with, which is also the key `pricing` is read with.
 
-Cost: when the provider reports what it billed (OpenRouter's `providerMetadata.openrouter.usage.cost`), `costUsd` is
-that figure and `costSource` is `"provider"`, also for a model `pricing` does not list. Otherwise the price table gives
+Cost: when the provider reports what it billed, `costUsd` is that figure and `costSource` is `"provider"`, also for a
+model `pricing` does not list. For OpenRouter the figure is `providerMetadata.openrouter.usage.cost` (OpenRouter's
+fee) plus `usage.costDetails.upstreamInferenceCost` (what the model's provider charged a call on your own key, BYOK);
+a part that is missing or not a non-negative number is skipped. A provider total of 0 counts as not reported when the
+model has a price, so the price table decides; for a model without a price it stays `0` with `costSource:
+"provider"` (a free model). Otherwise the price table gives
 `(input − cached) × inputPerMillion + cached × (cachedInputPerMillion ?? inputPerMillion) + output × outputPerMillion`,
 divided by one million, with `costSource: "price_table"`. Without either, `costUsd` and `costSource` are `null`. The
 result of the call carries the same `costUsd` and `costSource` as the record. `getCostUsd(pricing, model, usage)` is
@@ -203,7 +207,7 @@ expect(model.doGenerateCalls).toHaveLength(0);
 | `{ kind: "hang" }` | never answers until aborted → `llm.timeout` (use fake timers) |
 
 `usage` is `{ inputTokens, outputTokens, cachedInputTokens? }`, default 10 and 5. `providerMetadata` is what the
-provider reports next to the answer, e.g. `{ openrouter: { usage: { cost: 0.0012 } } }` for a billed cost. Each call takes the next response;
+provider reports next to the answer, e.g. `{ openrouter: { usage: { cost: 0.0012 } } }` for a billed cost, or `{ openrouter: { usage: { cost: 0, costDetails: { upstreamInferenceCost: 0.0012 } } } }` for a BYOK call. Each call takes the next response;
 the last one repeats. `model.doGenerateCalls` holds what was sent (prompt, response format, abort signal).
 
 ## Limitations

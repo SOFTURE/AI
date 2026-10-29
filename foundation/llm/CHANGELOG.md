@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The provider's cost of a BYOK call (#857): for OpenRouter `costUsd` is now `usage.cost` plus
+  `usage.costDetails.upstreamInferenceCost`, so a call on the account's own provider key (OpenRouter's fee 0, the
+  model's charge in the upstream cost) records what the model's provider billed instead of 0.
+- A provider total of 0 no longer hides the price table (#857): a model `pricing` lists gets the price table's
+  estimate with `costSource: "price_table"`; a model without a price keeps `costUsd: 0, costSource: "provider"`.
+- Migrate: an app that read the provider's cost in its own model middleware and computed the estimate with
+  `getCostUsd` because `UsageRecord.costUsd` was 0 drops that middleware and takes `costUsd` and `costSource` from
+  `onUsage` / `onCall` (or the call's result) again. Records written before the upgrade with `costUsd: 0,
+  costSource: "provider"` for a priced model stay as they were; recompute them from the stored tokens if a budget
+  needs them.
+
 ## 0.2.0
 
 - The provider's billed cost (#805): when the provider reports what it billed (OpenRouter's

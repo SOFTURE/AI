@@ -32,5 +32,5 @@ Files: `foundation/llm/src/usage.ts`, `foundation/llm/tests/byok-cost-857.test.t
 
 ## Progress
 
-- [ ] Phase 1: the cost rule
+- [x] Phase 1: the cost rule (4c3182e, llm tests green)
 - [ ] Phase 2: docs
