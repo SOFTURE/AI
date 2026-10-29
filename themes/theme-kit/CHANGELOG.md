@@ -2,7 +2,7 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
-## Unreleased
+## 0.1.6
 
 - Manifest icons (#854): `drawAppIcon` takes `shape: "maskable"` (full bleed, the glyph at half the side, inside the
   W3C safe zone of 80 %), `glyphScale` (the glyph's share of the side; 0.625 by default, 0.5 for `maskable`) and
