@@ -136,7 +136,9 @@ and more, a native `<details>`), `PageFrame` (a page outside the app shell, the 
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
-`SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below).
+`SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
+`MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
+`UpdatePrompt` (the offer to reload into a new build, for an installed app, below).
 
 **Touch sizes.** The controls a phone view taps most reach the `touch-target` token (44 px, Apple's HIG and WCAG
 2.5.5): `Button` sizes `touch` (44 px high, padded like `lg`) and `icon-touch` (44 × 44), `SelectTrigger`
@@ -331,6 +333,26 @@ and the body's parts mark the parts.
   ]}
 />
 ```
+
+**`MiniProgress`.** A share with its figure inside the bar, for a table cell or a tile where a figure next to a
+`Progress` would collide with it: a 20 px rounded track (`primary/12`) that takes the cell's width (at least 64 px),
+filled in `primary` (the link blue in dark, as in `Progress`) or in its `tone`'s colour. `value` is 0–100, clamped
+(non-finite reads as 0); `label` is the text inside (default: the rounded percent). The label is drawn twice: in
+`foreground` on the track and in the page `background` clipped to the fill, so it reads at any value, also where the
+fill's edge crosses a letter, and passes AA on the track and on every fill in both schemes. A label wider than the cell
+ends in an ellipsis inside the bar. The bar is Radix's `progressbar`: a string label is its `aria-valuetext` (the amount
+is announced, not only the percent), the drawn copies are `aria-hidden`; give it a name with `aria-label`. Slots:
+`mini-progress` (with `data-tone`), `mini-progress-indicator`, `mini-progress-label`.
+
+```tsx
+<TableCell className="w-24">
+  <MiniProgress value={task.costShare} label={formatUsd(task.costUsd)} aria-label={messages.costShare} />
+</TableCell>
+<MiniProgress value={82} tone="warning" aria-label={messages.budgetUsed} />
+```
+
+An app that set a figure in a fixed-width span next to `Progress` (`flex gap-2` + `w-16` + `Progress`) swaps the
+pair for one `MiniProgress` and drops the widths.
 
 **`MarkPopover`.** A tag in a palette colour with an icon and a count; a click or Enter opens the design system's
 popover listing the entries, Escape or a click outside closes it. It runs on the browser's Popover API (no client
