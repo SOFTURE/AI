@@ -30,6 +30,6 @@ Files: `themes/theme-kit/src/create-cn.ts`, `tests/create-cn.test.ts`.
 
 ## Progress
 
-- [ ] Phase 1: sizes as spacing values
+- [x] Phase 1: sizes as spacing values, 58b2436
 - [ ] Phase 2: docs
 - [ ] Implementation review
