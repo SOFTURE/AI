@@ -1,12 +1,13 @@
 ---
 change_id: pwa-install-offer-873
 title: "pwa: install offer for phones: kept beforeinstallprompt, iOS steps, a closable install bar (issue #873)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 873
 branch: claude/project-thread-gdj3xi
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent

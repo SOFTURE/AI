@@ -1,6 +1,6 @@
 ---
 change_id: pwa-install-offer-873
-status: in_progress
+status: archived
 ---
 
 # Plan: the install offer (issue #873)
@@ -48,8 +48,8 @@ pwa README (§1, §4 mounting, §9 copy, §10, §12) and CHANGELOG.
 
 ## Progress
 
-- [ ] Phase 1: the pure parts
-- [ ] Phase 2: the store and the hook
-- [ ] Phase 3: theme-notion InstallBar
-- [ ] Phase 4: docs
-- [ ] Implementation review
+- [x] Phase 1: the pure parts, d08424c
+- [x] Phase 2: the store and the hook, d08424c
+- [x] Phase 3: theme-notion InstallBar, 4c91820 (two isolated gallery cases: no full-page baseline moves)
+- [x] Phase 4: docs, e3ce85e
+- [x] Implementation review: approved
