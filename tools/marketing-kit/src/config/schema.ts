@@ -14,6 +14,7 @@ import {
 } from "../compose/timeline.js";
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
+import { CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS } from "../footage/film.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
 import { COLOR_ROLES, COLOR_THEMES, isHexColor, type ColorRole } from "./colors.js";
@@ -450,6 +451,106 @@ const videoSchema = z
     });
   });
 
+const endCardSchema = z
+  .strictObject({
+    headline: nonEmpty.describe("The end card's headline."),
+    url: nonEmpty.describe("The address shown in the end card's link pill, as written (e.g. example.com)."),
+    note: z.string().default("").describe("A small line under the link; empty: none."),
+  });
+
+const clipSource = z
+  .string()
+  .min(1)
+  .describe("The clip: a path relative to the folder of marketing.json, or an https:// URL downloaded once into the build folder.");
+
+const volume = z.number().min(0).max(1);
+
+const footageSchema = z
+  .strictObject({
+    id: id.describe("The film's id: its folder under output.dir, unique across videos and footage; social.posts may name it."),
+    title: nonEmpty.describe("The film's title: the heading of its posts.md and the composition's <title>."),
+    format: z.enum(VIDEO_FORMATS).default("9:16").describe("The film's aspect ratio: 9:16 (1080×1920), 1:1 or 16:9; every clip is fitted to it."),
+    language: z
+      .string()
+      .regex(LANGUAGE_PATTERN, "must be an ISO 639 language code such as pl")
+      .optional()
+      .describe("ISO 639 code the clips speak (pl, en): the transcript's language and the default fillers; without it, voice.language."),
+    clips: z
+      .array(
+        z.strictObject({
+          id: id.describe("The clip's id, unique within the film; the EDL names clips by it."),
+          source: clipSource,
+          role: z.enum(CLIP_ROLES).default("talk").describe("talk: someone speaks, the cut follows the words; broll: pictures without speech, kept whole with a slow zoom."),
+          fit: z
+            .enum(CLIP_FITS)
+            .default("auto")
+            .describe("How a clip of another aspect fills the frame: crop (cover, edges cut), blur (the whole picture over a blurred copy) or auto (crop within 15 % of the frame's aspect, else blur)."),
+          trim: z
+            .strictObject({
+              start: z.number().min(0).default(0).describe("Seconds cut from the clip's start."),
+              end: z.number().positive().optional().describe("The second the clip ends at; without it, its own end."),
+            })
+            .prefault({})
+            .describe("The part of the clip the film uses."),
+          script: nonBlank
+            .optional()
+            .describe("What the clip says, for --placeholder only: its words spread evenly over the clip as a free stand-in transcript."),
+        }),
+      )
+      .min(1, "a footage film needs at least one clip")
+      .describe("The filmed clips in the film's order."),
+    isolateVoice: z.boolean().default(false).describe("Clean the talking clips' voice of background noise (ElevenLabs Voice Isolator, paid with --commit) before transcribing."),
+    fillers: z
+      .array(nonBlank)
+      .optional()
+      .describe("Filler words cut out of the talking clips, compared without case, punctuation and repeated letters; without it, the language's defaults (pl: yyy, eee, yhm and more; en: um, uh and more)."),
+    pauseSeconds: z.number().min(0.1).max(10).default(0.6).describe("A silence between two words longer than this is cut (0.1-10 s, default 0.6)."),
+    padSeconds: z.number().min(0).max(1).default(0.12).describe("Seconds kept around every cut (0-1, default 0.12)."),
+    maxSeconds: z.number().min(1).max(600).optional().describe("The cut's longest length in seconds; later segments are shortened or dropped."),
+    transitions: z
+      .strictObject({
+        jump: z.enum(CUT_TRANSITIONS).default("zoom").describe("A cut inside one talking clip: cut, fade, zoom (a punch-in, the default) or whoosh."),
+        clip: z.enum(CUT_TRANSITIONS).default("fade").describe("A cut from one clip to the next: cut, fade (the default), zoom or whoosh."),
+      })
+      .prefault({})
+      .describe("Default transitions by kind of cut; each segment of the EDL can name its own."),
+    music: z
+      .strictObject({
+        file: relativePath.optional().describe("A local music file, relative to the folder of marketing.json."),
+        prompt: nonBlank.optional().describe("A prompt for ElevenLabs Music (instrumental, paid with --commit, cached)."),
+        fromVideo: z
+          .strictObject({
+            description: z.string().max(4100).default("").describe("What the music should be like (up to 4100 characters)."),
+            tags: z.array(nonBlank).max(10).default([]).describe("Style tags such as upbeat or cinematic (up to 10)."),
+          })
+          .optional()
+          .describe("ElevenLabs Video to Music scored to the cut itself (paid with --commit, cached)."),
+        volume: volume.default(0.35).describe("The music's volume between sentences (0-1, default 0.35)."),
+        duckedVolume: volume.default(0.1).describe("The music's volume under speech (0-1, default 0.1)."),
+      })
+      .superRefine((music, context) => {
+        const sources = [music.file, music.prompt, music.fromVideo].filter((source) => source !== undefined).length;
+        if (sources !== 1) context.addIssue({ code: "custom", path: [], message: "needs exactly one of file, prompt or fromVideo" });
+      })
+      .optional()
+      .describe("Music under the film, ducked while someone speaks; without it, none."),
+    captions: z.boolean().default(true).describe("Word-by-word captions from the transcript (default true)."),
+    endCard: endCardSchema.optional().describe("The closing card after the last segment; without it, the film ends with its last segment."),
+  })
+  .superRefine((film, context) => {
+    const seen = new Set<string>();
+    film.clips.forEach((clip, index) => {
+      if (seen.has(clip.id)) context.addIssue({ code: "custom", path: ["clips", index, "id"], message: `"${clip.id}" appears twice` });
+      seen.add(clip.id);
+      if (clip.trim.end !== undefined && clip.trim.end <= clip.trim.start) {
+        context.addIssue({ code: "custom", path: ["clips", index, "trim", "end"], message: "must be after trim.start" });
+      }
+      if (/^[a-z]+:\/\//i.test(clip.source) && !/^https?:\/\//i.test(clip.source)) {
+        context.addIssue({ code: "custom", path: ["clips", index, "source"], message: "a URL must start with https:// or http://" });
+      }
+    });
+  });
+
 const LINK_IN_BIO_DEFAULTS = PLATFORMS.filter((platform) => DEFAULT_LINK_IN_BIO[platform]).join(", ");
 
 const socialSchema = z.strictObject({
@@ -746,7 +847,8 @@ export const marketingSchema = z
     brand: brandSchema.describe("The product's name, language, colours, fonts and logo."),
     app: appSchema.describe("The app the films and screenshots are recorded from."),
     voice: voiceSchema.describe("The voiceover: provider, voice, language and the paid cache."),
-    videos: z.array(videoSchema).min(1, "needs at least one video").describe("The films, at least one."),
+    videos: z.array(videoSchema).describe("The screen films recorded from the app (may be empty when footage has a film); videos and footage hold at least one film between them."),
+    footage: z.array(footageSchema).default([]).describe("Footage films cut from filmed clips (softure-marketing footage)."),
     social: socialSchema.optional().describe("Post copy for the films: the link, the platforms and their channel codes."),
     screenshots: z.array(screenshotSchema).default([]).describe("Screenshots taken by softure-marketing shots."),
     signIn: signInSchema
@@ -767,7 +869,7 @@ export const marketingSchema = z
       .describe("Where the outputs go and at what quality."),
   })
   .superRefine((config, context) => {
-    const checkUnique = (key: "videos" | "screenshots" | "ogImages") => {
+    const checkUnique = (key: "videos" | "footage" | "screenshots" | "ogImages") => {
       const seen = new Set<string>();
       config[key].forEach((entry, index) => {
         if (seen.has(entry.id)) context.addIssue({ code: "custom", path: [key, index, "id"], message: `"${entry.id}" appears twice` });
@@ -775,6 +877,14 @@ export const marketingSchema = z
       });
     };
     checkUnique("videos");
+    checkUnique("footage");
+    if (config.videos.length === 0 && config.footage.length === 0) {
+      context.addIssue({ code: "custom", path: ["videos"], message: "needs at least one video, here or in footage" });
+    }
+    const screenIds = new Set(config.videos.map((video) => video.id));
+    config.footage.forEach((film, index) => {
+      if (screenIds.has(film.id)) context.addIssue({ code: "custom", path: ["footage", index, "id"], message: `"${film.id}" is also a video's id; both would write ${film.id}/` });
+    });
     config.videos.forEach((video, index) => {
       const device = video.device ?? config.app.device;
       if (device.kind === "desktop" && video.format !== "16:9") {
@@ -815,11 +925,11 @@ export const marketingSchema = z
         if (data !== undefined) context.addIssue({ code: "custom", path, message: `{data:${data.key}} needs signIn.prepare, the command that prints the data` });
       }
     }
-    const videoIds = new Set(config.videos.map((video) => video.id));
+    const videoIds = new Set([...config.videos, ...config.footage].map((video) => video.id));
     const posted = new Set<string>();
     config.social?.posts.forEach((post, index) => {
       if (!videoIds.has(post.video)) {
-        context.addIssue({ code: "custom", path: ["social", "posts", index, "video"], message: `no video "${post.video}" in videos` });
+        context.addIssue({ code: "custom", path: ["social", "posts", index, "video"], message: `no video "${post.video}" in videos or footage` });
       }
       if (posted.has(post.video)) context.addIssue({ code: "custom", path: ["social", "posts", index, "video"], message: `"${post.video}" has two posts` });
       posted.add(post.video);

@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-import { findMissingFiles, formatConfigIssues, loadMarketingConfig, type MarketingConfig } from "../config/config.js";
+import { findFootage, findMissingFiles, findVideo, formatConfigIssues, loadMarketingConfig, type MarketingConfig } from "../config/config.js";
 import { getGeometry, getLayoutName } from "../compose/timeline.js";
 import { sceneBeats } from "../film.js";
 import { postsMarkdown } from "../posts/posts.js";
@@ -35,6 +35,7 @@ import { getFilmVoiceover, produceVoiceover, produceVoiceovers, readJson } from 
  *   og [image]
  *   shots [<id>] [--url=...]
  *   shots --page=<url> --out=<file.png> --expect=<phrase> [...]
+ *   footage <film> [--step=transcribe|cut|render] [--commit] [--placeholder]
  */
 
 const getBuildDir = (config: MarketingConfig, film: LoadedFilm) => join(config.output.buildDir, film.id);
@@ -276,6 +277,21 @@ async function main(argv: string[]): Promise<void> {
     if (options.mode === "page") await pageShot(config, options);
     else await shots(config, options);
     return;
+  }
+  if (options.command === "footage") {
+    const { runFootage } = await import("./footage.js");
+    await runFootage(config, options);
+    return;
+  }
+  if (options.command === "posts" && findVideo(config, options.filmId) === null) {
+    const { writeFootagePosts } = await import("./footage.js");
+    const footage = findFootage(config, options.filmId);
+    if (footage !== null) {
+      const path = writeFootagePosts(config, footage);
+      if (path === null) fail(`no post copy for "${footage.id}": add an entry with "video": "${footage.id}" to social.posts in ${config.file}.`);
+      console.log(`✓ ${path}: post copy`);
+      return;
+    }
   }
   if (options.command === "voice") {
     // Every film is loaded before the first paid call, so a typo in the fifth id costs nothing.
