@@ -24,6 +24,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `Alert` at the bottom of the screen inside the safe-area insets, with a reload `Button` at the touch height (`md:h-7`
   on a desktop); a polite `status`, drawn only while `open`. The copy is props, keyed like `pwaMessages.en.update`:
   `<UpdatePrompt open={isUpdateReady} onReload={activate} {...messages.update} />`.
+- `InstallBar` (#873): the offer to install the app on a phone, for an app on `@softure-ai/pwa`. A floating `Alert`
+  like `UpdatePrompt`, with the browser's install button (`offer="browser_prompt"`) or the two iOS steps, Share then
+  Add to Home Screen (`offer="ios_steps"`), and a labelled close button, both at the touch size on a phone; nothing for
+  `offer="none"`. The copy is props, keyed like `pwaMessages.en.install`:
+  `<InstallBar offer={offer} onInstall={() => void install()} onClose={close} {...messages.install} />`.
 
 ## 0.9.0
 
