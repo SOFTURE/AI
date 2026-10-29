@@ -137,7 +137,8 @@ and count, the shown tab in the address; `Tabs` keeps it in client state), `Mark
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
-`MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below).
+`MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
+`UpdatePrompt` (the offer to reload into a new build, for an installed app, below).
 
 **Touch sizes.** The controls a phone view taps most reach the `touch-target` token (44 px, Apple's HIG and WCAG
 2.5.5): `Button` sizes `touch` (44 px high, padded like `lg`) and `icon-touch` (44 × 44), `SelectTrigger`
@@ -376,6 +377,17 @@ plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-bloc
 ```tsx
 <p>Run <Code>npm ci</Code> first.</p>
 <CodeBlock label="Build log" wrap>{log}</CodeBlock>
+```
+
+**`UpdatePrompt`.** The offer to reload into a new build, for an installed app on `@softure-ai/pwa`: a floating
+`Alert` at the bottom of the screen (`shadow-menu`, at most `max-w-md`), padded by the safe-area insets so it clears a
+phone's home indicator and notch, with a reload `Button` at the touch height (`md:h-7` on a desktop). It is a polite
+`status`, not an `alert`, so it never interrupts a screen reader. It draws nothing until `open`. The copy is props,
+keyed like `pwaMessages.en.update`; `data-slot="update-prompt"` marks the root.
+
+```tsx
+const { isUpdateReady, activate } = useServiceWorkerUpdate(); // @softure-ai/pwa/react
+<UpdatePrompt open={isUpdateReady} onReload={activate} {...messages.update} />
 ```
 
 **`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and

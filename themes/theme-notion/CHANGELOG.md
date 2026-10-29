@@ -12,6 +12,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   to the fill, AA on both in both schemes, truncated with an ellipsis in a narrow cell. A string label is the bar's
   `aria-valuetext`. An app that put a figure in a fixed-width span next to `Progress` (`flex gap-2` + `w-16` +
   `Progress`) swaps the pair for one `MiniProgress` and drops the widths.
+- `UpdatePrompt` (#872): the offer to reload into a new build, for an installed app on `@softure-ai/pwa`. A floating
+  `Alert` at the bottom of the screen inside the safe-area insets, with a reload `Button` at the touch height (`md:h-7`
+  on a desktop); a polite `status`, drawn only while `open`. The copy is props, keyed like `pwaMessages.en.update`:
+  `<UpdatePrompt open={isUpdateReady} onReload={activate} {...messages.update} />`.
 
 ## 0.9.0
 
