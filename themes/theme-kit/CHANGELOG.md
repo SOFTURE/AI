@@ -2,7 +2,7 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
-## Unreleased
+## 0.1.7
 
 - `cn` and spacing tokens (#860): `createThemeCn(definition)` registers the theme's `sizes` names (`row-height`,
   `control-height`, `touch-target`, …) as tailwind-merge spacing values, so `cn("size-7", "size-touch-target")` gives
