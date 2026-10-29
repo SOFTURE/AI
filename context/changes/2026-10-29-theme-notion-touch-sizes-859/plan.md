@@ -35,6 +35,6 @@ Files: `themes/theme-notion/src/ui/button.tsx`, `src/ui/select.tsx`, `tests/ui/b
 
 ## Progress
 
-- [ ] Phase 1: sizes
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: sizes, 07adda5
+- [x] Phase 2: docs, 45e0df4
+- [x] Implementation review: approved
