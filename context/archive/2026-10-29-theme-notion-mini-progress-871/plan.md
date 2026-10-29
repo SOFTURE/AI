@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-mini-progress-871
-status: planned
+status: archived
 ---
 
 # Plan: MiniProgress (issue #871)
@@ -53,11 +53,15 @@ render-check light and dark.
   gallery's full-page baselines grow by the new case (208 px) and are otherwise unchanged (checked pixel by pixel
   after the shift).
 - No version bump: the coordinator releases (theme-notion minor).
+- Phase 4 handed over: the NOTION · Design System artifact is not listed for this session (no artifact of the Design
+  System type is reachable), so it cannot be read or republished here. The code change does not depend on it; the
+  coordinator gets the artifact update (`MiniProgress` in the bundle, `bundle.css`, `index.d.ts`, a README card) to
+  run from a session that can open it.
 
 ## Progress
 
-- [ ] Phase 1: MiniProgress
-- [ ] Phase 2: browser checks
-- [ ] Phase 3: docs
-- [ ] Phase 4: design system artifact
-- [ ] Implementation review
+- [x] Phase 1: MiniProgress, c89780f
+- [x] Phase 2: browser checks, c89780f (fit spec, gallery baselines, axe known violation)
+- [x] Phase 3: docs, c89780f
+- [ ] Phase 4: design system artifact, handed to the coordinator (see Decisions)
+- [x] Implementation review: approved

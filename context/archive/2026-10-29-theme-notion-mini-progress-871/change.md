@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-mini-progress-871
 title: "theme-notion: MiniProgress, a compact bar with its value inside (issue #871)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 871
 branch: claude/project-thread-wztaky
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent
