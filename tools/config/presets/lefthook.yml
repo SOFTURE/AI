@@ -12,6 +12,10 @@
 #   pre-push    typecheck, the whole ESLint run, the language gate on every tracked file, then tests.
 #               A push that changes only files under `context/` (workflow artifacts, roadmap state) runs the
 #               language gate alone (`softure-context-only-push`; no upstream or any other file: everything runs).
+#               A push that only merges the already-tested main branch in runs the tests related to the files the
+#               branch changes instead of the whole suite (`softure-merge-push-scope`); an incoming migration,
+#               dependency, test setup or config change, new code of the branch, no upstream or a git error: the
+#               whole suite.
 #
 # `glob` is the "was any code touched" switch: a commit that stages only Markdown skips typecheck
 # and ESLint. The language job has no glob, so it checks Markdown too. `--max-warnings 0`: a warning
@@ -54,7 +58,14 @@ pre-push:
         - run: npx softure-context-only-push
     - name: language
       run: npx softure-check-language --all
+    # Exactly one of `test` and `test-related` runs a suite. A failing or missing bin exits non-zero, so it never
+    # skips `test`; at worst `test-related` runs as well.
     - name: test
       run: npm test
       skip:
         - run: npx softure-context-only-push
+        - run: npx softure-merge-push-scope is-merge
+    - name: test-related
+      run: npx softure-merge-push-scope related
+      skip:
+        - run: npx softure-merge-push-scope is-full
