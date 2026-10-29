@@ -1,11 +1,11 @@
 // Catalog parity: the tools listed in softure.config.ts (the token page shows them, agent docs read
 // them) against the tools the app's MCP server really registers, for a read-only and a write identity.
 // Framework-free: `expectToolCatalogMatchesServer` throws, so it works in any test runner.
-import { createMcpHandler } from "@modelcontextprotocol/server";
 import type { SoftureConfig } from "@softure-ai/core";
 import type { McpServerIdentity } from "../contract.js";
 import type { McpServerFactory } from "../server/endpoint.js";
 import { getMcpAccessOptions } from "../server/options.js";
+import { describeToolList, listServedTools, type ToolListMeasurement } from "../server/tool-list.js";
 
 export interface ToolCatalogDifferences {
   /** Configured tools the server does not register for the identity that should get them. */
@@ -14,6 +14,12 @@ export interface ToolCatalogDifferences {
   readonly unlisted: readonly string[];
   /** Configured write tools the server gives a read-only identity. */
   readonly writeForReaders: readonly string[];
+}
+
+/** What `measureServedToolLists` reports: a read-only and a write identity. */
+export interface ServedToolLists {
+  readonly read: ToolListMeasurement;
+  readonly write: ToolListMeasurement;
 }
 
 const READER: McpServerIdentity = { userId: "00000000-0000-4000-8000-000000000001", canWrite: false, tokenId: "catalog-check" };
@@ -47,28 +53,13 @@ export async function expectToolCatalogMatchesServer(config: SoftureConfig, crea
 
 /** The tool names a fresh server lists for the identity, asked the way the endpoint serves it. */
 async function listServerTools(createServer: McpServerFactory, identity: McpServerIdentity): Promise<string[]> {
-  const handler = createMcpHandler(() => createServer(identity), { responseMode: "json" });
-  const response = await handler.fetch(
-    new Request("http://localhost/api/mcp", {
-      method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
-    }),
-  );
-  const answer = readAnswer(await response.text());
-  if (answer.result?.tools === undefined) {
-    throw new Error(`@softure-ai/mcp-access: listing the server's tools failed: ${typeof answer.error?.message === "string" ? answer.error.message : `HTTP ${String(response.status)}`}`);
-  }
-  return answer.result.tools.map((tool) => (typeof tool.name === "string" ? tool.name : "")).filter((name) => name !== "");
+  return (await listServedTools(() => createServer(identity))).map((tool) => tool.name);
 }
 
-interface ToolsListAnswer {
-  readonly result?: { readonly tools?: readonly { readonly name?: unknown }[] };
-  readonly error?: { readonly message?: unknown };
-}
-
-/** The JSON-RPC answer, sent as JSON or as one SSE `message` event. */
-function readAnswer(body: string): ToolsListAnswer {
-  const data = body.startsWith("event:") ? (body.split("\n").find((line) => line.startsWith("data: "))?.slice("data: ".length) ?? "null") : body;
-  return (JSON.parse(data) ?? {}) as ToolsListAnswer;
+/** The tool list's version and count for each access level, for a snapshot that changes whenever a tool's schema does. */
+export async function measureServedToolLists(createServer: McpServerFactory, release?: string): Promise<ServedToolLists> {
+  return {
+    read: describeToolList(await listServedTools(() => createServer(READER)), release),
+    write: describeToolList(await listServedTools(() => createServer(WRITER)), release),
+  };
 }
