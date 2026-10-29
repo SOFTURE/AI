@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.1
 
 - The provider's cost of a BYOK call (#857): for OpenRouter `costUsd` is now `usage.cost` plus
   `usage.costDetails.upstreamInferenceCost`, so a call on the account's own provider key (OpenRouter's fee 0, the
