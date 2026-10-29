@@ -1,6 +1,6 @@
 ---
 change_id: llm-byok-cost-857
-status: planned
+status: archived
 ---
 
 # Plan: BYOK upstream cost and a provider cost of 0 (issue #857)
@@ -33,4 +33,4 @@ Files: `foundation/llm/src/usage.ts`, `foundation/llm/tests/byok-cost-857.test.t
 ## Progress
 
 - [x] Phase 1: the cost rule (4c3182e, llm tests green)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (9a33ae3)

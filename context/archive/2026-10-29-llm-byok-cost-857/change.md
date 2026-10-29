@@ -1,12 +1,13 @@
 ---
 change_id: llm-byok-cost-857
 title: "llm: count the upstream cost of a BYOK call, and let a provider cost of 0 fall back to the price table (issue #857)"
-status: open
+status: archived
 roadmap_item: null
 issue: 857
 branch: claude/project-thread-o2kg84
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent
