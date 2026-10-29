@@ -955,6 +955,32 @@
     ["mark","inline-flex [anchor-scope:--mark]"],
     ["mark-popover","max-h-[min(24rem,calc(100vh-2rem))] w-[min(22rem,calc(100vw-2rem))] cursor-auto overflow-y-auto rounded-xl bg-popover p-3 text-left text-ui font-normal whitespace-normal text-popover-foreground shadow-menu backdrop:bg-transparent sm:supports-[position-anchor:--mark]:mt-1 sm:supports-[position-anchor:--mark]:mr-0 sm:supports-[position-anchor:--mark]:mb-0 sm:supports-[position-anchor:--mark]:ml-0 sm:supports-[position-anchor:--mark]:[position-anchor:--mark] sm:supports-[position-anchor:--mark]:[position-area:block-end_span-inline-start] sm:supports-[position-anchor:--mark]:[position-try-fallbacks:flip-block,flip-inline]"]
   ],
+  "MiniProgress": [
+    ["mini-progress","relative h-5 w-full min-w-16 overflow-hidden rounded-sm bg-primary/12"],
+    ["mini-progress-indicator","absolute inset-y-0 left-0 transition-[width] bg-primary dark:bg-link"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-foreground"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-background"],
+    ["mini-progress","relative h-5 w-full min-w-16 overflow-hidden rounded-sm bg-primary/12"],
+    ["mini-progress-indicator","absolute inset-y-0 left-0 transition-[width] bg-primary dark:bg-link"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-foreground"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-background"],
+    ["mini-progress","relative h-5 w-full min-w-16 overflow-hidden rounded-sm bg-primary/12"],
+    ["mini-progress-indicator","absolute inset-y-0 left-0 transition-[width] bg-primary dark:bg-link"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-foreground"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-background"],
+    ["mini-progress","relative h-5 w-full min-w-16 overflow-hidden rounded-sm bg-primary/12"],
+    ["mini-progress-indicator","absolute inset-y-0 left-0 transition-[width] bg-primary dark:bg-link"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-foreground"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-background"],
+    ["mini-progress","relative h-5 w-full min-w-16 overflow-hidden rounded-sm bg-primary/12"],
+    ["mini-progress-indicator","absolute inset-y-0 left-0 transition-[width] bg-orange"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-foreground"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-background"],
+    ["mini-progress","relative h-5 w-full min-w-16 overflow-hidden rounded-sm bg-primary/12"],
+    ["mini-progress-indicator","absolute inset-y-0 left-0 transition-[width] bg-primary dark:bg-link"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-foreground"],
+    ["mini-progress-label","absolute inset-0 flex items-center px-2 text-xs font-medium tabular-nums whitespace-nowrap text-background"]
+  ],
   "PageFrame": [
 
   ],

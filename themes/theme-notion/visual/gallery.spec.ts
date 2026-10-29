@@ -17,6 +17,11 @@ const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const KNOWN_VIOLATIONS: readonly { readonly rule: string; readonly target: RegExp; readonly reason: string }[] = [
   { rule: "aria-required-children", target: /^#radix-/, reason: "cmdk wraps its options in a sizer div inside the listbox (library markup)" },
   { rule: "aria-hidden-focus", target: /^#gallery$/, reason: "an open Radix Select hides the page while its trigger stays focusable; Tab closes the list" },
+  {
+    rule: "color-contrast",
+    target: /\.text-background[^ ]*\[data-slot="mini-progress-label"\]/,
+    reason: "axe ignores clip-path: MiniProgress's copy on the fill shows only over the fill, where tests/contrast.test.ts pins it at AA",
+  },
 ];
 
 function isKnown(rule: string, target: string): boolean {
