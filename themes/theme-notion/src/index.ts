@@ -50,6 +50,7 @@ export { FilterChip, FilterChipAdd, type FilterChipAddProps, type FilterChipProp
 export { FoldRow, type FoldRowBadge, type FoldRowProps } from "./notion/FoldRow.js";
 export { PALETTE_COLORS, type PaletteColor } from "./notion/palette.js";
 export { MarkPopover, type MarkPopoverProps } from "./notion/MarkPopover.js";
+export { MiniProgress, type MiniProgressProps } from "./notion/MiniProgress.js";
 export { PageFrame, type PageFrameProps } from "./notion/PageFrame.js";
 export { PageHeader, type PageCrumb, type PageHeaderProps } from "./notion/PageHeader.js";
 export { PropertyList, type Property, type PropertyListProps } from "./notion/PropertyList.js";
