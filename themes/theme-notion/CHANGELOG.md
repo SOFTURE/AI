@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `SheetMenu`, `SheetMenuItem` and `SheetMenuButton` (#858): navigation rows for a side `Sheet` (a phone's drawer)
+  that need no `SidebarProvider`. A row is full width, icon and label left-aligned in `foreground` (`text-ui`), 44 px
+  tall on a phone and 34 px from `md`, hovered, pressed and active in `accent` like the sidebar's rows, `disabled`
+  dimmed; `asChild` renders a link, `SheetClose asChild` around it closes the drawer. The README shows the drawer
+  recipe: `showCloseButton={false}`, a ghost close `Button` in the `SheetHeader` row, the foot rows in a `SheetFooter`
+  with `border-t`. An app that laid out ghost `Button`s as rows (`size="lg" className="min-h-touch-target w-full
+  justify-start text-ui text-foreground"`) wraps them in `SheetMenu` / `SheetMenuItem`, swaps each `Button` for
+  `SheetMenuButton` and drops those classes.
 - Touch sizes (#859): the controls a phone view taps most reach the `touch-target` token (44 px). `Button` gains the
   sizes `touch` (`h-touch-target px-3`, the icon side padded like `lg`) and `icon-touch` (`size-touch-target`);
   `SelectTrigger` gains `size="touch"` (`h-touch-target`); `SelectContent` and `SelectItem` gain `size` (`"default"` or

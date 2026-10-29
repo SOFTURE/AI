@@ -1,4 +1,4 @@
-import { BedDouble, Bell, Calendar, CircleCheck, CircleDashed, FileText, Folder, Inbox, Plane, Plus, Search, Settings, TrainFront, TriangleAlert } from "lucide-react";
+import { BedDouble, Bell, Calendar, CircleCheck, CircleDashed, FileText, Folder, House, Inbox, LogOut, Plane, Plus, Search, Settings, TrainFront, TriangleAlert, X } from "lucide-react";
 import type { ReactElement } from "react";
 
 import {
@@ -152,6 +152,9 @@ import {
   SheetDescription,
   SheetFooter,
   SheetHeader,
+  SheetMenu,
+  SheetMenuButton,
+  SheetMenuItem,
   SheetTitle,
   SheetTrigger,
   SidePanel,
@@ -987,6 +990,61 @@ const UI_CASES: readonly GalleryCase[] = [
       ),
     }),
   ),
+  {
+    name: "SheetMenu",
+    component: "SheetMenu",
+    root: '[data-slot="sheet-menu"]',
+    isIsolated: true,
+    render: () => (
+      <Sheet defaultOpen>
+        <SheetTrigger asChild>
+          <Button variant="outline">Menu</Button>
+        </SheetTrigger>
+        <SheetContent side="right" showCloseButton={false} className="gap-0">
+          <SheetHeader className="flex-row items-center justify-between gap-2 border-b py-2 pr-2 pl-4">
+            <SheetTitle>Workspace</SheetTitle>
+            <SheetClose asChild>
+              <Button variant="ghost" size="icon" aria-label="Close">
+                <X aria-hidden="true" />
+              </Button>
+            </SheetClose>
+          </SheetHeader>
+          <nav aria-label="Main" className="p-2">
+            <SheetMenu>
+              <SheetMenuItem>
+                <SheetMenuButton isActive>
+                  <House aria-hidden="true" />
+                  <span>Home</span>
+                </SheetMenuButton>
+              </SheetMenuItem>
+              <SheetMenuItem>
+                <SheetMenuButton>
+                  <Inbox aria-hidden="true" />
+                  <span>Inbox</span>
+                </SheetMenuButton>
+              </SheetMenuItem>
+              <SheetMenuItem>
+                <SheetMenuButton disabled>
+                  <Settings aria-hidden="true" />
+                  <span>Settings</span>
+                </SheetMenuButton>
+              </SheetMenuItem>
+            </SheetMenu>
+          </nav>
+          <SheetFooter className="border-t px-2 py-2">
+            <SheetMenu>
+              <SheetMenuItem>
+                <SheetMenuButton>
+                  <LogOut aria-hidden="true" />
+                  <span>Sign out</span>
+                </SheetMenuButton>
+              </SheetMenuItem>
+            </SheetMenu>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    ),
+  },
   ...(["offcanvas", "icon", "none"] as const).map(
     (collapsible): GalleryCase => ({
       name: `Sidebar[collapsible=${collapsible}]`,
