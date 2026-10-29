@@ -1,12 +1,13 @@
 ---
 change_id: config-merge-push-scope-868
 title: "config: a pre-push that only merges the tested main branch runs the related tests, not the full suite (issue #868)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 868
 branch: claude/project-thread-bijkkf
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent

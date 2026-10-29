@@ -1,6 +1,6 @@
 ---
 change_id: config-merge-push-scope-868
-status: in_progress
+status: archived
 ---
 
 # Plan: merge-only pre-push runs the related tests (issue #868)
@@ -46,7 +46,7 @@ Files: `tools/config/src/cli/merge-push-scope-command.ts`, `tools/config/src/cli
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
-- [ ] Implementation review
+- [x] Phase 1: softure-merge-push-scope bin, b4ba20e
+- [x] Phase 2: preset and lefthook run tests, d0e851e
+- [x] Phase 3: README and CHANGELOG, 3c7fe09
+- [x] Implementation review: approved
