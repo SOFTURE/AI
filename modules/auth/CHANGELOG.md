@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- `LogoutForm` in `@softure-ai/auth/ui` (#874): the sign-out form as a client component taking the logout action, with
+  an optional `beforeSignOut` awaited before the sign-out (e.g. `clearDeviceData` of `@softure-ai/pwa`); its failure
+  is logged by kind and the sign-out goes on. `LogoutButton` renders it, with the same props and markup as before.
+
 ## 0.2.10
 
 - The GitHub sign-in example and the `clientIdEnv`/`clientSecretEnv` hints name `GH_AUTH_CLIENT_ID` and

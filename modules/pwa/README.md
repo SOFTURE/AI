@@ -49,6 +49,9 @@ mark.
   `localStorage` under `<app>:pwa-install-closed`; a blocked storage shows the offer, a refused write closes it for the
   open page only. The bar is a theme component (`InstallBar` in `@softure-ai/theme-notion`).
 - **`useIsOnline()`** over `navigator.onLine` (the server render counts as online).
+- **Clearing the device on sign-out**: a registry of what the device keeps for the signed-in user
+  (`registerDeviceData`, for the app and its modules) and `clearDeviceData()`, which clears every part and the pages
+  the worker kept (§10).
 
 ## 2. Installation
 
@@ -205,12 +208,47 @@ accessible name), the install bar's copy. The manifest's `name`,
   the window and the storage as arguments, the browser's own by default.
 - `extraOrigins`: the worker's extension point for another origin with its own cache.
 - A page sends the worker `{ type: "clear-pages" }` to drop the kept pages (e.g. on sign-out).
+- `registerDeviceData({ caches?, indexedDb?, storageKeys? })`: what the device keeps for the signed-in user. `caches`
+  are Cache Storage names (deleted whole), `indexedDb` entries `{ database, store? }` (the whole database, or one store
+  emptied), `storageKeys` `localStorage` keys. Call it once per owner, at module load of a client file; it returns
+  `unregister()`. The parts of every registration are cleared together, each once.
+- `clearDeviceData(dependencies?)` → `{ failed }`: clears every registered part and sends the controlling worker
+  `clear-pages`. Every part is tried even when another fails, a part that throws at once included; `failed` names the
+  parts left (`cache:<name>`, `indexedDb:<database>`, `indexedDb:<database>/<store>`, `storage:<key>`,
+  `worker:clear-pages`). It never rejects. A missing API (no Cache Storage, no IndexedDB, no `localStorage`, no
+  controlling worker) is skipped. A database another tab holds open counts as failed instead of holding the
+  sign-out (the browser deletes it once that tab closes it). The browser APIs are injectable for tests.
+- On sign-out, `LogoutForm` of `@softure-ai/auth/ui` takes it as `beforeSignOut`:
+
+  ```tsx
+  "use client";
+  import { logoutAction } from "@softure-ai/auth/next";
+  import { LogoutForm } from "@softure-ai/auth/ui";
+  import type { AuthMessages } from "@softure-ai/auth";
+  import { clearDeviceData, registerDeviceData } from "@softure-ai/pwa";
+
+  registerDeviceData({ caches: ["fire-tiles"], indexedDb: [{ database: "fire" }], storageKeys: ["fire-draft"] });
+
+  async function clearDevice(): Promise<void> {
+    const { failed } = await clearDeviceData();
+    if (failed.length > 0) console.error(`sign-out: device data left: ${failed.join(", ")}`);
+  }
+
+  export function SignOut({ messages }: { messages: AuthMessages }) {
+    return <LogoutForm action={logoutAction} messages={messages} beforeSignOut={clearDevice} />;
+  }
+  ```
 
 ## 11. GDPR
 
 The worker keeps copies of pages the user opened, in the browser, under this build's `<app>-pages-<build>` cache.
-They leave with the next build's activate, or at once with the `clear-pages` message. Clearing everything the device
-keeps on sign-out is a follow-up (#874).
+They leave with the next build's activate, or at once with the `clear-pages` message.
+
+What the device keeps for a user (kept pages, an offline snapshot in IndexedDB, cached files, `localStorage` keys) is
+personal data on a device that may be shared. Register every such part with `registerDeviceData` and clear it with
+`clearDeviceData()` before the sign-out (§10); the failed parts are returned so the app logs them, and the sign-out
+goes on. A part that was not registered stays on the device. Cookies are the auth package's: its logout clears the
+session cookie.
 
 ## 12. Limitations
 
@@ -225,8 +263,10 @@ keeps on sign-out is a follow-up (#874).
 - An excluded prefix is untouched: those pages show the browser's own offline error.
 - The install offer covers Chromium's prompt and iOS Safari's steps. Other browsers (Firefox on Android, Samsung
   Internet without the prompt) get no offer; their own menu still installs the app.
-- Not in this package (filed): clearing the device on sign-out (#874), Playwright helpers for installed-app checks
-  (#875).
+- `clearDeviceData` clears only what was registered and the current build's kept pages; a database another tab holds
+  open is reported as failed and deleted by the browser once that tab closes it. A sign-out on another device or in
+  another browser clears nothing here.
+- Not in this package (filed): Playwright helpers for installed-app checks (#875).
 
 ## Build
 

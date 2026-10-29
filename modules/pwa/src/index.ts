@@ -1,11 +1,20 @@
-// Public API of @softure-ai/pwa: the paths under the public `/pwa/` prefix, the icon registry, the manifest builder
-// and the update prompt's copy. The routes an app mounts are in `@softure-ai/pwa/next`, the service worker in
-// `@softure-ai/pwa/worker`, the page side (update flow, online state) in `@softure-ai/pwa/react`.
+// Public API of @softure-ai/pwa: the paths under the public `/pwa/` prefix, the icon registry, the manifest builder,
+// the update prompt's copy, and the device-data registry cleared on sign-out. The routes an app mounts are in
+// `@softure-ai/pwa/next`, the service worker in `@softure-ai/pwa/worker`, the page side (update flow, online state) in
+// `@softure-ai/pwa/react`.
 import { defineModule } from "@softure-ai/core";
 
 import { pwaMessages } from "./messages/index.js";
 import { ICONS_PATH, MANIFEST_PATH, SERVICE_WORKER_PATH, VERSION_PATH } from "./paths.js";
 
+export {
+  clearDeviceData,
+  registerDeviceData,
+  type DeviceDataClearing,
+  type DeviceDataDependencies,
+  type DeviceDataParts,
+  type IndexedDbPart,
+} from "./device-data.js";
 export { findPwaIcon, getIconMetadata, getIconPath, getIconSizes, PWA_ICONS, type IconLink, type PwaIcon, type PwaIconShape } from "./icons.js";
 export {
   buildManifest,

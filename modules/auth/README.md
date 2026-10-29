@@ -328,6 +328,28 @@ ends the session and goes to that path instead of `afterLogout`, e.g. a consent 
 someone else" returning to the same authorization request after the new login. The path is checked
 like login's `next`: anything but a path on this app falls back to `afterLogout`.
 
+To clear what the device keeps before the sign-out (an installed app's offline copy), render `LogoutForm` from
+`@softure-ai/auth/ui` in a client component with `beforeSignOut`. It is the same plain form (it works without
+JavaScript); with JavaScript the first submit is held while `beforeSignOut()` runs, then the action runs whatever it
+did. A throw or rejection is logged by its kind only and the sign-out goes on. With `@softure-ai/pwa`:
+
+```tsx
+"use client";
+import { logoutAction } from "@softure-ai/auth/next";
+import { LogoutForm } from "@softure-ai/auth/ui";
+import type { AuthMessages } from "@softure-ai/auth";
+import { clearDeviceData } from "@softure-ai/pwa";
+
+async function clearDevice(): Promise<void> {
+  const { failed } = await clearDeviceData();
+  if (failed.length > 0) console.error(`sign-out: device data left: ${failed.join(", ")}`);
+}
+
+export function SignOut({ messages }: { messages: AuthMessages }) {
+  return <LogoutForm action={logoutAction} messages={messages} beforeSignOut={clearDevice} />;
+}
+```
+
 `requireUser({ next: "/account" })` brings the user back after login; `getCurrentUser()` returns
 the user or `null`. Both read the session once per request. The redirect to login goes through the
 app's `rewriteRedirect` (options table); a page outside the proxy's guard passes its own search
@@ -816,6 +838,9 @@ plugs `@softure-ai/mailing` in here. With `passwordReset.enqueue`, it runs in th
 
 `passwordReset.enqueue(ctx, userId)`: where a reset request is answered, for an existing account, instead of the
 sender. `enqueuePasswordReset` from `@softure-ai/auth/jobs` plugs `@softure-ai/jobs` in here.
+
+`beforeSignOut()` on `LogoutForm` (`/ui`): awaited in the browser before the logout action, e.g. `clearDeviceData` of
+`@softure-ai/pwa` (section 4). Its failure is logged by kind and never stops the sign-out.
 
 ## 11. GDPR
 

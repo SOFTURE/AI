@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Clearing the device on sign-out (#874): `registerDeviceData({ caches, indexedDb, storageKeys })` for the app and its
+  modules, and `clearDeviceData()`, which clears every registered part and the worker's kept pages, tries every part
+  even when another fails, skips a missing API and returns the failed part names. `LogoutForm` of
+  `@softure-ai/auth/ui` runs it as `beforeSignOut`.
 - The install offer for phones (#873), in `@softure-ai/pwa/react`: `installPromptStore` keeps Chromium's
   `beforeinstallprompt` from the moment the module loads (`preventDefault()` stops the mini bar, `appinstalled` forgets
   it), `openInstallPrompt()` uses it once; `pickInstallOffer` (`ios_steps`, `browser_prompt`, `none`; never on a
