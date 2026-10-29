@@ -5,6 +5,11 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../lib/utils.js"
 import { Tabs as TabsPrimitive } from "radix-ui"
 
+type TabsTriggerSize = "default" | "touch"
+
+// A list's size reaches its triggers through context, so a trigger's own size can win over it.
+const TabsTriggerSizeContext = React.createContext<TabsTriggerSize>("default")
+
 function Tabs({
   className,
   orientation = "horizontal",
@@ -32,9 +37,15 @@ const tabsListVariants = cva(
         default: "bg-muted",
         line: "gap-1 bg-transparent",
       },
+      size: {
+        default: "",
+        // The triggers set the height: a fixed one would cap them at 35 px.
+        touch: "group-data-[orientation=horizontal]/tabs:h-auto",
+      },
     },
     defaultVariants: {
       variant: "line",
+      size: "default",
     },
   }
 )
@@ -42,23 +53,31 @@ const tabsListVariants = cva(
 function TabsList({
   className,
   variant = "line",
+  size = "default",
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List> &
   VariantProps<typeof tabsListVariants>) {
   return (
-    <TabsPrimitive.List
-      data-slot="tabs-list"
-      data-variant={variant}
-      className={cn(tabsListVariants({ variant }), className)}
-      {...props}
-    />
+    <TabsTriggerSizeContext.Provider value={size ?? "default"}>
+      <TabsPrimitive.List
+        data-slot="tabs-list"
+        data-variant={variant}
+        className={cn(tabsListVariants({ variant, size }), className)}
+        {...props}
+      />
+    </TabsTriggerSizeContext.Provider>
   )
 }
 
 function TabsTrigger({
   className,
+  size,
   ...props
-}: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+}: React.ComponentProps<typeof TabsPrimitive.Trigger> & {
+  size?: TabsTriggerSize
+}) {
+  const listSize = React.useContext(TabsTriggerSizeContext)
+
   return (
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
@@ -67,6 +86,7 @@ function TabsTrigger({
         "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent",
         "bg-clip-padding data-[state=active]:border-input data-[state=active]:bg-background data-[state=active]:text-foreground focus-visible:data-[state=active]:border-ring dark:data-[state=active]:bg-accent/40 dark:data-[state=active]:text-foreground",
         "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100",
+        (size ?? listSize) === "touch" && "min-h-touch-target min-w-touch-target",
         className
       )}
       {...props}
