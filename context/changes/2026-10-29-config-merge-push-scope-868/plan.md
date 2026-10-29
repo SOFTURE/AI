@@ -18,7 +18,7 @@ Files: `tools/config/src/cli/merge-push-scope-command.ts`, `tools/config/src/cli
 - Full-suite list: migrations (`migrations/`, `migration/`, `*.sql`, `prisma/`, `drizzle/`), manifests and lockfiles
   (`package.json`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`,
   `bun.lock`, `bun.lockb`, `.npmrc`, `.nvmrc`, `.node-version`), test setup (`vitest.*`, `vite.config.*`,
-  `jest.config.*`, `playwright.config.*`, setup files), tool config (`tsconfig*.json`, `eslint.config.*`,
+  `playwright.config.*`, setup files), tool config (`tsconfig*.json`, `eslint.config.*`,
   `.eslintrc*`, `lefthook*.yml`, `next.config.*`, `babel.config.*`, `.babelrc*`, `postcss.config.*`,
   `tailwind.config.*`, `.env*`). App patterns: `package.json` → `"@softure-ai/config": { "fullSuiteOn": [globs] }`.
 - CLI: `is-merge` (exit 0 for merge), `is-full` (exit 0 for full), `related [-- <command…>]` (runs
