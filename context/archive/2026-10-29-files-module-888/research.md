@@ -1,6 +1,6 @@
 ---
 change_id: files-module-888
-status: in_progress
+status: archived
 ---
 
 # Research: files module (issue #888)

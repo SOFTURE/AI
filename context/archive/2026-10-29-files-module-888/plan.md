@@ -1,6 +1,6 @@
 ---
 change_id: files-module-888
-status: in_progress
+status: archived
 ---
 
 # Plan: @softure-ai/files (issue #888)
@@ -68,8 +68,8 @@ jobs adapter, testing entry, docs). Package copied from `templates/package/`, sh
 
 ## Progress
 
-- [ ] Phase 1: package, options, schema, migration
-- [ ] Phase 2: storage drivers
-- [ ] Phase 3: server functions
-- [ ] Phase 4: adapters, testing entry, docs
-- [ ] Gates: typecheck, lint, test, build
+- [x] Phase 1: package, options, schema, migration
+- [x] Phase 2: storage drivers
+- [x] Phase 3: server functions
+- [x] Phase 4: adapters, testing entry, docs; module tests (148)
+- [x] Gates: typecheck, lint, test, build

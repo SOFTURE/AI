@@ -1,12 +1,13 @@
 ---
 change_id: files-module-888
 title: "New module @softure-ai/files: stored files with hash, quota and expiry, and signed public links (issue #888)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 888
 branch: claude/project-thread-1rruim
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent
