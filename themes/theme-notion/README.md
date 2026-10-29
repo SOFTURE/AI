@@ -127,7 +127,8 @@ sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, t
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
-`SidePanel` (a non-modal panel at a side of a canvas, below), `TabBar` (a screen's tabs as links with an optional icon
+`SidePanel` (a non-modal panel at a side of a canvas, below), `SheetMenu`, `SheetMenuItem` and `SheetMenuButton`
+(navigation rows in a side `Sheet`, a phone's drawer, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
@@ -183,6 +184,60 @@ Escape inside or the close button calls `onClose`, and the caller moves focus ba
   </SidePanel>
 </div>
 ```
+
+**`SheetMenu`.** A phone's navigation drawer: a `Sheet` from the right with a heading and a ghost close button,
+navigation rows at the top and one row at the foot, the way a desktop `Sidebar` ends with its foot menu.
+`SheetMenu` (`ul`), `SheetMenuItem` (`li`) and `SheetMenuButton` (the row) mirror `SidebarMenu`, `SidebarMenuItem`
+and `SidebarMenuButton`, but need no `SidebarProvider`. A row is full width, its icon and label left-aligned in the
+`foreground` colour (`text-ui`, icons 16 px), 44 px tall on a phone (`min-h-touch-target`) and a 34 px list row from
+`md` (`min-h-row-height`); hover, press and the active row (`isActive`, `data-active`) take `accent`, focus the
+`ring`; `disabled` (or `aria-disabled` on a link) dims it to 50 % and drops its clicks. `asChild` renders a link with
+the row's look (add `aria-current="page"` on the active one); wrap a row in `SheetClose asChild` to close the drawer
+on a click. The heading and the foot are a recipe from the existing parts: `showCloseButton={false}` on
+`SheetContent`, the close as a ghost icon `Button` in a `SheetHeader` row, and the foot rows in a `SheetFooter`
+(already pushed to the panel's foot by `mt-auto`) with `border-t`.
+
+```tsx
+<Sheet open={isOpen} onOpenChange={setOpen}>
+  <SheetContent side="right" showCloseButton={false} className="gap-0">
+    <SheetHeader className="flex-row items-center justify-between gap-2 border-b py-2 pr-2 pl-4">
+      <SheetTitle>Workspace</SheetTitle>
+      <SheetClose asChild>
+        <Button variant="ghost" size="icon" aria-label={t("menu.close")}>
+          <X aria-hidden="true" strokeWidth={ICON_STROKE_WIDTH} />
+        </Button>
+      </SheetClose>
+    </SheetHeader>
+    <nav aria-label={t("menu.label")} className="p-2">
+      <SheetMenu>
+        <SheetMenuItem>
+          <SheetClose asChild>
+            <SheetMenuButton asChild isActive>
+              <Link href="/" aria-current="page">
+                <House aria-hidden="true" strokeWidth={ICON_STROKE_WIDTH} />
+                <span>{t("menu.home")}</span>
+              </Link>
+            </SheetMenuButton>
+          </SheetClose>
+        </SheetMenuItem>
+      </SheetMenu>
+    </nav>
+    <SheetFooter className="border-t p-2">
+      <SheetMenu>
+        <SheetMenuItem>
+          <SheetMenuButton onClick={signOut}>
+            <LogOut aria-hidden="true" strokeWidth={ICON_STROKE_WIDTH} />
+            <span>{t("menu.signOut")}</span>
+          </SheetMenuButton>
+        </SheetMenuItem>
+      </SheetMenu>
+    </SheetFooter>
+  </SheetContent>
+</Sheet>
+```
+
+An app that laid out ghost `Button`s itself (`size="lg" className="min-h-touch-target w-full justify-start text-ui
+text-foreground"`) moves each row to `SheetMenuButton` and drops those classes.
 
 A screen's summary figures: `StatsFold` (figures folded under a heading, closed by default, on native `<details>`),
 `StatCards` (a wrapping row of figure cards: label, figure in its tone, optional `progress` bar under the figure,

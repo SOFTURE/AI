@@ -984,15 +984,15 @@ const UI_CASES: readonly GalleryCase[] = [
           <Button variant="outline">Menu</Button>
         </SheetTrigger>
         <SheetContent side="right" showCloseButton={false} className="gap-0">
-          <SheetHeader className="flex-row items-center justify-between gap-2 py-2 pr-2 pl-4">
+          <SheetHeader className="flex-row items-center justify-between gap-2 border-b py-2 pr-2 pl-4">
             <SheetTitle>Workspace</SheetTitle>
             <SheetClose asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Close">
+              <Button variant="ghost" size="icon" aria-label="Close">
                 <X aria-hidden="true" />
               </Button>
             </SheetClose>
           </SheetHeader>
-          <nav aria-label="Main" className="px-2">
+          <nav aria-label="Main" className="p-2">
             <SheetMenu>
               <SheetMenuItem>
                 <SheetMenuButton isActive>

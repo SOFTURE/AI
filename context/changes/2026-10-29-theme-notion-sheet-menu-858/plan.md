@@ -43,6 +43,6 @@ NOTION · Design System: a `SheetMenu` card (README + preview) and the three par
 
 ## Progress
 
-- [ ] Phase 1: SheetMenu parts
+- [x] Phase 1: SheetMenu parts, 3aa3f6b
 - [ ] Phase 2: docs
 - [ ] Phase 3: design system artifact
