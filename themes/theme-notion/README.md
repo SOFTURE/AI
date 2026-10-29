@@ -98,6 +98,10 @@ name outside a `CommandDialog`; without it the field has none), `SortableList in
   (button, field, menu item), `lg` 8 (callout, card), `xl` 10 (menu, select, dialog), `full` (switch).
 - Icons: lucide at `ICON_STROKE_WIDTH` (1.75), 16 px in text; they inherit the text colour. No emoji in the interface.
 - Statuses always carry a word and an icon, so states read apart without telling green from red.
+- A badge never leaves its container (`max-w-full`). In a narrow one (a grid card, a table cell) a `Status` word that
+  does not fit ends in an ellipsis while the icon keeps its size, and the full word is the badge's `title` when it is
+  a string or a number (pass `title` for any other node). A plain `Badge` clips its text; wrap the text in
+  `<span className="min-w-0 truncate">` for an ellipsis.
 - Installed on a phone's home screen (`viewport-fit=cover`), the parts at a screen edge pad by the screen's
   safe-area insets on the edges they touch: `SheetContent` (every `side`, its close button too), the `Sidebar` on a
   phone, the popper `SelectContent` (its height stops short of the inset it opens towards) and `PageFrame`. The insets
