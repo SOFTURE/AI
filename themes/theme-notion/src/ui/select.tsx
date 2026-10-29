@@ -5,6 +5,11 @@ import { cn } from "../lib/utils.js"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 
+type SelectItemSize = "default" | "touch"
+
+// The items render in a portal, so a list's size reaches them through context, not the DOM.
+const SelectItemSizeContext = React.createContext<SelectItemSize>("default")
+
 function Select({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
@@ -29,7 +34,7 @@ function SelectTrigger({
   children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
-  size?: "sm" | "default"
+  size?: "sm" | "default" | "touch"
 }) {
   return (
     <SelectPrimitive.Trigger
@@ -37,6 +42,7 @@ function SelectTrigger({
       data-size={size}
       className={cn(
         "flex w-fit items-center justify-between gap-2 rounded-md border border-input bg-field px-2.5 py-1 text-sm whitespace-nowrap transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[placeholder]:text-muted-foreground data-[size=default]:h-7 data-[size=sm]:h-6 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
+        size === "touch" && "h-touch-target",
         className
       )}
       {...props}
@@ -54,8 +60,11 @@ function SelectContent({
   children,
   position = "item-aligned",
   align = "center",
+  size = "default",
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Content>) {
+}: React.ComponentProps<typeof SelectPrimitive.Content> & {
+  size?: SelectItemSize
+}) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -78,7 +87,9 @@ function SelectContent({
               "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
           )}
         >
-          {children}
+          <SelectItemSizeContext.Provider value={size}>
+            {children}
+          </SelectItemSizeContext.Provider>
         </SelectPrimitive.Viewport>
         <SelectScrollDownButton />
       </SelectPrimitive.Content>
@@ -102,13 +113,20 @@ function SelectLabel({
 function SelectItem({
   className,
   children,
+  size,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+}: React.ComponentProps<typeof SelectPrimitive.Item> & {
+  size?: SelectItemSize
+}) {
+  const listSize = React.useContext(SelectItemSizeContext)
+
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 rounded-md py-1 min-h-7 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex w-full cursor-default items-center gap-2 rounded-md py-1 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        // One height or the other: `cn` does not merge `min-h-7` with the theme's `touch-target` spacing.
+        (size ?? listSize) === "touch" ? "min-h-touch-target" : "min-h-7",
         className
       )}
       {...props}
