@@ -27,6 +27,10 @@ jobs:
   static:
     name: typecheck + lint + language
     runs-on: ubuntu-latest
+    # Typed ESLint and tsc over the whole tree outgrew Node's default heap (about 4 GB, an OOM in eslint
+    # once the files package joined); the runner has 16 GB.
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

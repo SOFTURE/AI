@@ -1,0 +1,24 @@
+{
+  "id": "files",
+  "version": "0.0.0",
+  "dependsOn": { "jobs": "^0.1.6?" },
+  "dbSchema": "files",
+  "tables": ["files"],
+  "env": [
+    {
+      "name": "SOFTURE_FILES_LINK_KEYS",
+      "required": false,
+      "description": "Signing keyring for public file links: <id>:<base64 32 bytes>[,<id>:<key>...], the first one signs; needed only by createFileLink and the link route"
+    }
+  ],
+  "switches": [],
+  "routes": { "links": "/f" },
+  "mount": [
+    {
+      "kind": "route-handler",
+      "path": "app/f/[...link]/route.ts",
+      "export": "serveFileLinkRoute"
+    }
+  ],
+  "privacy": { "exports": true, "deletes": true }
+}

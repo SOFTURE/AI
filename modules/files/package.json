@@ -1,0 +1,74 @@
+{
+  "name": "@softure-ai/files",
+  "version": "0.0.0",
+  "description": "SOFTURE AI files module: an app's stored files (content hash, size, type, owner, kind, expiry, a per-owner quota, opt-in dedupe) on a storage driver (local disk with atomic writes, S3-compatible with SigV4 and multipart uploads, in memory for tests), streamed and never buffered, public links that expire (HMAC-signed, checked before any database read, revocable per file, a rotating keyring) served by a Next.js route with byte ranges and one 404 for every dead link, a prune job, a privacy contributor and a health check.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "modules/files"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "migrations",
+    "module.json"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "@softure-ai/source": "./src/server/index.ts",
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    },
+    "./jobs": {
+      "@softure-ai/source": "./src/jobs/index.ts",
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./dist/jobs/index.js"
+    },
+    "./testing": {
+      "@softure-ai/source": "./src/testing/index.ts",
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@softure-ai/core": "^0.2.7",
+    "@softure-ai/db": "^0.1.14",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@softure-ai/jobs": "^0.1.6",
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@softure-ai/jobs": {
+      "optional": true
+    }
+  }
+}
