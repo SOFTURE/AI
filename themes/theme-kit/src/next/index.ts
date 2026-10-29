@@ -3,6 +3,9 @@ export {
   APPLE_ICON_SIZE,
   buildAppIconElement,
   drawAppIcon,
+  MANIFEST_ICON_SIZE,
+  MANIFEST_LARGE_ICON_SIZE,
+  MASKABLE_SAFE_ZONE,
   renderIconSvg,
   type AppIconGlyph,
   type AppIconOptions,
@@ -10,4 +13,5 @@ export {
   type AppIconTone,
   type IconNode,
   type IconNodeElement,
+  type IconSvgOptions,
 } from "./draw-app-icon.js";

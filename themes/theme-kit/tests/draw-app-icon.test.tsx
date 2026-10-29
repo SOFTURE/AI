@@ -2,7 +2,17 @@ import { Wallet } from "lucide";
 import { isValidElement, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { APP_ICON_SIZE, APPLE_ICON_SIZE, buildAppIconElement, drawAppIcon, renderIconSvg, type IconNode } from "../src/next/index.js";
+import {
+  APP_ICON_SIZE,
+  APPLE_ICON_SIZE,
+  buildAppIconElement,
+  drawAppIcon,
+  MANIFEST_ICON_SIZE,
+  MANIFEST_LARGE_ICON_SIZE,
+  MASKABLE_SAFE_ZONE,
+  renderIconSvg,
+  type IconNode,
+} from "../src/next/index.js";
 import { createCompleteTheme } from "./support/complete-theme.js";
 
 const VALUE_THEME = (() => {
@@ -96,6 +106,22 @@ describe("renderIconSvg", () => {
     );
   });
 
+  it("draws icon data with the given stroke width", () => {
+    expect(renderIconSvg(Wallet, "#ffffff", { strokeWidth: 2.25 })).toContain(' stroke-width="2.25" ');
+  });
+
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])("refuses the stroke width %s", (strokeWidth) => {
+    expect(() => renderIconSvg(Wallet, "#ffffff", { strokeWidth })).toThrow(
+      `renderIconSvg: strokeWidth must be a positive number, got ${strokeWidth}`,
+    );
+  });
+
+  it("refuses a stroke width for svg markup, which draws its own stroke", () => {
+    expect(() => renderIconSvg({ svg: '<svg viewBox="0 0 2 2"></svg>' }, "#000000", { strokeWidth: 3 })).toThrow(
+      "renderIconSvg: strokeWidth applies only to icon data; the icon's svg markup draws its own stroke",
+    );
+  });
+
   it("refuses markup that is not one svg element", () => {
     expect(() => renderIconSvg({ svg: "<span>W</span>" }, "#000000")).toThrow(
       "renderIconSvg: the icon's svg must be one <svg> element, got <span>W</span>",
@@ -144,6 +170,39 @@ describe("buildAppIconElement", () => {
     expect(glyph.width).toBe(113);
     expect(glyph.height).toBe(113);
   });
+
+  it("draws full bleed with the maskable shape, the glyph at half the side", () => {
+    const { box, glyph } = readIcon(buildAppIconElement({ theme: VALUE_THEME, icon: Wallet, size: MANIFEST_LARGE_ICON_SIZE, shape: "maskable" }));
+    expect(box.borderRadius).toBe(0);
+    expect(glyph.width).toBe(256);
+    expect(glyph.height).toBe(256);
+  });
+
+  it.each([
+    ["rounded", 0.68, 22],
+    ["square", 1, 32],
+    ["maskable", MASKABLE_SAFE_ZONE / Math.SQRT2, 18],
+  ] as const)("draws the %s shape at the given glyph scale %s", (shape, glyphScale, glyphSide) => {
+    const { glyph } = readIcon(buildAppIconElement({ theme: VALUE_THEME, icon: Wallet, shape, glyphScale }));
+    expect(glyph.width).toBe(glyphSide);
+    expect(glyph.height).toBe(glyphSide);
+  });
+
+  it.each([
+    ["rounded", 0, "at most 1"],
+    ["square", 1.01, "at most 1"],
+    ["rounded", Number.NaN, "at most 1"],
+    ["maskable", 0.6, "at most 0.566 (inside the maskable safe zone)"],
+  ] as const)("refuses the %s shape at the glyph scale %s", (shape, glyphScale, range) => {
+    expect(() => buildAppIconElement({ theme: VALUE_THEME, icon: Wallet, shape, glyphScale })).toThrow(
+      `buildAppIconElement: glyphScale must be above 0 and ${range} for the ${shape} shape, got ${glyphScale}`,
+    );
+  });
+
+  it("passes the stroke width to the glyph", () => {
+    const { glyph } = readIcon(buildAppIconElement({ theme: VALUE_THEME, icon: Wallet, strokeWidth: 2.5 }));
+    expect(decodeSvg(glyph.src)).toContain(' stroke-width="2.5" ');
+  });
 });
 
 function readPngSize(bytes: Uint8Array): { width: number; height: number } {
@@ -163,5 +222,13 @@ describe("drawAppIcon", () => {
   it("draws the apple icon size", async () => {
     const response = drawAppIcon({ theme: VALUE_THEME, icon: Wallet, size: APPLE_ICON_SIZE, shape: "square" });
     expect(readPngSize(new Uint8Array(await response.arrayBuffer()))).toEqual({ width: 180, height: 180 });
+  });
+
+  it.each([
+    ["standard manifest", MANIFEST_ICON_SIZE, "square", { width: 192, height: 192 }],
+    ["maskable manifest", MANIFEST_LARGE_ICON_SIZE, "maskable", { width: 512, height: 512 }],
+  ] as const)("draws the %s icon size", async (_name, size, shape, expected) => {
+    const response = drawAppIcon({ theme: VALUE_THEME, icon: Wallet, size, shape });
+    expect(readPngSize(new Uint8Array(await response.arrayBuffer()))).toEqual(expected);
   });
 });
