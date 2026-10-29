@@ -22,7 +22,6 @@ Reviewed the diff from 90e8bad against plan.md.
 - `Progress` and every other part are untouched.
 - Gates: typecheck, lint and the language gate green in the pre-commit hook; 942 theme-notion unit tests and 104 visual
   tests pass.
-- Phase 4 (the NOTION · Design System artifact) could not run: the artifact is not reachable from this session; it is
-  handed to the coordinator (Decisions).
+- Phase 4 (the NOTION · Design System artifact): updated by the owner; the change carries the code only.
 
 Verdict: approved, no changes.

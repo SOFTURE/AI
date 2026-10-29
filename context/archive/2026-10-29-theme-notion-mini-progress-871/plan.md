@@ -53,15 +53,12 @@ render-check light and dark.
   gallery's full-page baselines grow by the new case (208 px) and are otherwise unchanged (checked pixel by pixel
   after the shift).
 - No version bump: the coordinator releases (theme-notion minor).
-- Phase 4 handed over: the NOTION · Design System artifact is not listed for this session (no artifact of the Design
-  System type is reachable), so it cannot be read or republished here. The code change does not depend on it; the
-  coordinator gets the artifact update (`MiniProgress` in the bundle, `bundle.css`, `index.d.ts`, a README card) to
-  run from a session that can open it.
+- Phase 4: the owner updated the NOTION · Design System artifact (2026-10-29); this change carries the code only.
 
 ## Progress
 
 - [x] Phase 1: MiniProgress, c89780f
 - [x] Phase 2: browser checks, c89780f (fit spec, gallery baselines, axe known violation)
 - [x] Phase 3: docs, c89780f
-- [ ] Phase 4: design system artifact, handed to the coordinator (see Decisions)
+- [x] Phase 4: design system artifact, updated by the owner (see Decisions)
 - [x] Implementation review: approved
