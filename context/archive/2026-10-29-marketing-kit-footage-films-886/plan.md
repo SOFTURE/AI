@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-footage-films-886
-status: in_progress
+status: archived
 ---
 
 # Plan: footage films (issue #886)

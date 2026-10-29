@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-footage-films-886
 title: "marketing-kit: footage films from phone clips as reusable blocks (issue #886)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 886
 branch: claude/project-thread-v31t9f
 created: 2026-10-29
 updated: 2026-10-29
+archived_at: 2026-10-29
 ---
 
 ## Intent
