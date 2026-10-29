@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.4.8
 
 - **Smoke check after a deploy (#878):** `softure-deploy smoke <url> --tag=<tag> [--commit] [--deployed-at]
   [--path=/api/health/build] [--headers-file]` reads the app's build info (`@softure-ai/ops`) and fails when it
