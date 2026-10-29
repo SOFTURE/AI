@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.5
 
 - The lefthook preset has a third `pre-push` speed (#868): a push that only merges the already-tested main branch
   into the branch runs typecheck, ESLint, the language gate and the tests related to the files the branch changes
