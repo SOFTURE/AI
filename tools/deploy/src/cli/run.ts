@@ -1,3 +1,4 @@
+import { runChangelog } from "./changelog-command.js";
 import { runBackup, runRowCounts, runSchemaGuard } from "./db-commands.js";
 import { runEnvRender } from "./env-command.js";
 import { CliFailure, USAGE_EXIT_CODE } from "./failure.js";
@@ -8,6 +9,7 @@ import { runReleaseNotes } from "./release-notes-command.js";
 import { runReleaseReport } from "./release-report-command.js";
 import { runRemoteReport, runRemoteScript } from "./remote-command.js";
 import { runServerSettings } from "./server-settings-command.js";
+import { runSmokeCommand } from "./smoke-command.js";
 import { runVerifyCommand } from "./verify-command.js";
 
 export const USAGE = [
@@ -44,6 +46,13 @@ export const USAGE = [
   "      init's deploy.sh reads, one file each",
   "  verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurrency=4] [--origin=<host>[:<port>]]",
   "      checks every route of deploy.json against <url>; exits 1 when a check fails",
+  "  smoke <url> --tag=<tag> [--commit=<sha>] [--deployed-at=<iso>] [--path=/api/health/build]",
+  "       [--headers-file=<file>] [--timeout=<ms>] [--tolerance-seconds=60]",
+  "      reads the app's build info (@softure-ai/ops); exits 1 when its release is not --tag, its commit is not",
+  "      --commit, or it started before --deployed-at",
+  "  changelog [--roadmaps=2] [--out=<file>]",
+  "      the done and done_code items (id, change id, status) of the open and the newest archived roadmaps as JSON,",
+  "      for the build info route",
   "  init --domain=<host> --image=<registry/name> [--dir=.] [--name=<slug>] [--paths=/] [--www] [--acme-email=<email>]",
   "       [--env=NAME,...] [--tables=a,b.c] [--workflows-ref=<sha>] [--cdn=cloudflare] [--report-role=<role>]",
   "       [--edge=<network>] [--force]",
@@ -83,6 +92,8 @@ const COMMANDS: Record<string, Command> = {
   "row-counts": runRowCounts,
   "server-settings": runServerSettings,
   verify: runVerifyCommand,
+  smoke: runSmokeCommand,
+  changelog: runChangelog,
   init: runInit,
   "integration run": runIntegrationRun,
   "integration lookup": runIntegrationLookup,

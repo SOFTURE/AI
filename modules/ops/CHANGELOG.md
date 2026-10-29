@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ops@x.y.z`).
 
+## Unreleased
+
+- **Build info (#878):** `createBuildInfoRoute()` from `@softure-ai/ops/next` answers the release
+  (`SOFTURE_RELEASE`, read per request), the commit and build time (`SOFTURE_BUILD_COMMIT`, `SOFTURE_BUILD_TIME`) and
+  the process start as public JSON, never cached; `withBuildInfo(nextConfig)` from the new entry
+  `@softure-ai/ops/next-config` inlines the commit and the build time at `next build`. An optional `changelog` provider
+  adds the app's changelog. Without Next: `readBuildInfo()` and `createBuildInfoResponse()` from
+  `@softure-ai/ops/server`, type `BuildInfo`. README "Build info".
+- Migration: nothing to do. To use it, wrap the config with `withBuildInfo`, mount
+  `app/api/health/build/route.ts` with `export const GET = createBuildInfoRoute()`, set `SOFTURE_RELEASE: ${TAG}` on the
+  app service and `ARG SOFTURE_BUILD_COMMIT` before `npm run build` in the Dockerfile (both written by
+  `softure-deploy init` from the next `@softure-ai/deploy`), then set `build-info-path` in the deploy workflow.
+
 ## 0.2.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for

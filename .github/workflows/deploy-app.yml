@@ -23,6 +23,12 @@
 # route only. With the `origin-address` secret (or the app-vars entry `origin-address-var` names), verify also fails
 # when the server accepts a direct connection (DF-13): only the CDN may reach it.
 #
+# Smoke check (issue #878): with `build-info-path` (the app's build info route of @softure-ai/ops), verify then runs
+# `softure-deploy smoke`, which fails the run when production answers another release than the tag, another commit
+# than the tag's, or a process started before the deploy job sent the release, and writes `Smoke check: passed` or
+# `failed` to the job summary. The build job passes the tag's commit to the image as the build argument
+# SOFTURE_BUILD_COMMIT, which the Dockerfile declares before `npm run build` (init's does).
+#
 # Release guards (DF-11): the `check` job refuses a tag whose commit is not on the release branch (the caller's default
 # branch unless `release-branch` names another). `build-args` are baked into the image (public values only: they are
 # readable in the image's history), and a build argument whose name `.env.prod` also holds must carry the same value
@@ -147,6 +153,10 @@ on:
         description: How long verify waits for the health route to answer 200
         type: number
         default: 300
+      build-info-path:
+        description: "The app's build info route (@softure-ai/ops), e.g. /api/health/build; verify fails when it answers another release, commit or a start before the deploy. Empty skips the smoke check"
+        type: string
+        default: ""
       deploy-config:
         description: The app's deploy.json in the tag, verified and shipped to the server; empty means the health route only
         type: string
@@ -289,6 +299,7 @@ jobs:
           SSH_PORT: ${{ inputs.ssh-port }}
           HEALTH_PATH: ${{ inputs.health-path }}
           VERIFY_TIMEOUT: ${{ inputs.verify-timeout-seconds }}
+          BUILD_INFO_PATH: ${{ inputs.build-info-path }}
           DEPLOY_CONFIG: ${{ inputs.deploy-config }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
           NODE_VERSION: ${{ inputs.node-version }}
@@ -347,6 +358,7 @@ jobs:
           if [[ ! "$SSH_PORT" =~ ^[1-9][0-9]{0,4}$ ]] || (( SSH_PORT > 65535 )); then reject ssh-port "1 to 65535"; fi
           expect health-path "$HEALTH_PATH" '^/[A-Za-z0-9/._~-]*$' "a path starting with /"
           expect verify-timeout-seconds "$VERIFY_TIMEOUT" '^[1-9][0-9]{1,3}$' "10 to 9999 seconds"
+          if [ -n "${BUILD_INFO_PATH:-}" ]; then expect build-info-path "$BUILD_INFO_PATH" '^/[A-Za-z0-9/._~-]*$' "a path starting with /"; fi
           if [ -n "$DEPLOY_CONFIG" ]; then expect_path deploy-config "$DEPLOY_CONFIG"; fi
           # Secrets by name. With deploy: false the caller's job passes them to the deploy action, so this workflow
           # takes none. secrets-from-environment, which read the whole secrets context, is gone (0.4.0, issue #476).
@@ -422,6 +434,7 @@ jobs:
             fi
             name="${BASH_REMATCH[1]}"
             if [[ "$build_arg_names" == *$'\n'"$name"$'\n'* ]]; then reject build-args "each name once ($name repeats)"; fi
+            if [ "$name" = "SOFTURE_BUILD_COMMIT" ]; then reject build-args "without SOFTURE_BUILD_COMMIT (the build sets it to the tag's commit)"; fi
             build_arg_names+="$name"$'\n'
           done <<< "${BUILD_ARGS:-}"
           # The test path builds the CLI from a full checkout of the tag; only this repository's tags are trusted so.
@@ -548,7 +561,10 @@ jobs:
           # The end-to-end test hands the image to the deploy job as a `docker load` archive instead.
           outputs: ${{ inputs.e2e && format('type=docker,dest={0}/deploy-e2e-image.tar', runner.temp) || '' }}
           tags: ${{ steps.ref.outputs.image }}
-          build-args: ${{ inputs.build-args }}
+          # The tag's commit for the build info (@softure-ai/ops withBuildInfo); a Dockerfile without the ARG ignores it.
+          build-args: |
+            ${{ inputs.build-args }}
+            SOFTURE_BUILD_COMMIT=${{ needs.check.outputs.sha }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ inputs.tag }}
@@ -594,6 +610,7 @@ jobs:
       packages: read
     outputs:
       server-lines: ${{ steps.send.outputs.server-lines }}
+      sent-at: ${{ steps.send.outputs.sent-at }}
     environment: ${{ inputs.environment }}
     # One deploy at a time per app and environment; a running deploy is never cancelled halfway. End-to-end runs deploy
     # to their own server, so each has its own group and none waits for or replaces another.
@@ -693,6 +710,8 @@ jobs:
           report: false
           deploy-cli: ${{ format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) }}
           ca-file: ${{ steps.e2e-server.outputs.ca-file }}
+          build-info-path: ${{ inputs.build-info-path }}
+          deployed-at: ${{ steps.send.outputs.sent-at }}
       - name: Show the server's log and the stack (end-to-end test)
         if: always() && inputs.e2e
         run: |
@@ -731,7 +750,7 @@ jobs:
           sparse-checkout-cone-mode: false
       # The origin address from the secret, or from the app-vars entry origin-address-var names (the check job made
       # sure it exists, holds an address and never comes with the secret). The secret verify-env: a JSON object of
-      # variables for the CLI only.
+      # variables for the CLI only. The smoke check compares the process start with the deploy job's send.
       - uses: ./.softure-ai-deploy/.github/actions/deploy
         with:
           release: ${{ needs.check.outputs.release }}
@@ -740,6 +759,8 @@ jobs:
           report: false
           origin-address: ${{ inputs.origin-address-var != '' && fromJSON(inputs.app-vars)[inputs.origin-address-var] || secrets.origin-address }}
           verify-env: ${{ secrets.verify-env }}
+          build-info-path: ${{ inputs.build-info-path }}
+          deployed-at: ${{ needs.deploy.outputs.sent-at }}
 
   # The facts of this run for the release report (deploy-report.yml, DF-10), whatever happened: each job's result, the
   # image and its digest, and the server's step lines. It writes nothing anywhere but the run's artifact
