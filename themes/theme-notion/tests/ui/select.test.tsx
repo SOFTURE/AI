@@ -52,4 +52,75 @@ describe("Select", () => {
 
     expect(readClasses(screen.getByRole("option", { name: "Alpha" }))).toContain("[&_svg:not([class*='text-'])]:text-muted-foreground");
   });
+
+  it("draws a touch trigger at 44 px with a plain class a caller's breakpoint class can override", () => {
+    render(
+      <Select value="a">
+        <SelectTrigger aria-label="Status" size="touch" className="md:h-7">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="a">Alpha</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    const trigger = screen.getByRole("combobox", { name: "Status" });
+
+    expect(trigger.getAttribute("data-size")).toBe("touch");
+    expect(readClasses(trigger)).toEqual(expect.arrayContaining(["h-touch-target", "md:h-7"]));
+  });
+
+  it("keeps the 28 px trigger and items by default", () => {
+    render(
+      <Select open value="a">
+        <SelectTrigger aria-label="Status">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="a">Alpha</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+
+    // The open list hides the trigger from the accessibility tree.
+    expect(readClasses(document.querySelector('[data-slot="select-trigger"]'))).not.toContain("h-touch-target");
+    expect(readClasses(screen.getByRole("option", { name: "Alpha" }))).toContain("min-h-7");
+    expect(readClasses(screen.getByRole("option", { name: "Alpha" }))).not.toContain("min-h-touch-target");
+  });
+
+  it("raises every item of a touch list to 44 px, and an item's own size wins over the list's", () => {
+    render(
+      <Select open value="a">
+        <SelectTrigger aria-label="Status" size="touch">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent size="touch" position="popper">
+          <SelectItem value="a">Alpha</SelectItem>
+          <SelectItem value="b" size="default">Beta</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    const alpha = readClasses(screen.getByRole("option", { name: "Alpha" }));
+    const beta = readClasses(screen.getByRole("option", { name: "Beta" }));
+
+    expect(alpha).toContain("min-h-touch-target");
+    expect(alpha).not.toContain("min-h-7");
+    expect(beta).toContain("min-h-7");
+    expect(beta).not.toContain("min-h-touch-target");
+  });
+
+  it("raises a single item with its own touch size", () => {
+    render(
+      <Select open value="a">
+        <SelectTrigger aria-label="Status">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="a" size="touch" className="md:min-h-7">Alpha</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+
+    expect(readClasses(screen.getByRole("option", { name: "Alpha" }))).toEqual(expect.arrayContaining(["min-h-touch-target", "md:min-h-7"]));
+  });
 });

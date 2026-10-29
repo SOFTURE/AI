@@ -134,6 +134,23 @@ list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filte
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below).
 
+**Touch sizes.** The controls a phone view taps most reach the `touch-target` token (44 px, Apple's HIG and WCAG
+2.5.5): `Button` sizes `touch` (44 px high, padded like `lg`) and `icon-touch` (44 × 44), `SelectTrigger`
+`size="touch"`, and `SelectItem` at least 44 px high, for a whole list (`SelectContent size="touch"`) or one item
+(`SelectItem size="touch"`; an item's own `size` wins over its list's). Each sets its height with a plain class, so
+one breakpoint class brings the pointer size back on a desktop.
+
+```tsx
+<Button size="touch" className="md:h-7 md:px-2.5">Save</Button>
+<Button size="icon-touch" aria-label="Add" className="md:size-7"><Plus /></Button>
+<Select>
+  <SelectTrigger size="touch" className="md:h-7" aria-label="View"><SelectValue /></SelectTrigger>
+  <SelectContent size="touch" position="popper">
+    <SelectItem value="table" className="md:min-h-7">Table</SelectItem>
+  </SelectContent>
+</Select>
+```
+
 **`FoldRow`.** An item as one list row in a native `<details>`: a chevron, the title, short facts and badges on the
 right; opened, it shows a `DetailTable` and its `children`. The opened content is padded 12 px on all four sides
 (`p-3`), so a table sits centred under the row; `isInset` indents it under the title instead (24 px on the left) and
