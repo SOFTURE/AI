@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- A server version that follows the tool list (#877): `createMcpServerFactory({ name, release?, version?, title?,
+  serverOptions?, registerTools(server, identity) })` (`/server`) returns an `McpServerFactory` whose servers answer
+  `initialize` with `<release>-tools-<12 hex>`, a fingerprint of every tool as `tools/list` serves it, measured once
+  per access level, so MCP clients drop a cached tool list whenever a release changes a tool.
+  `measureToolList(registerTools, { release?, name?, serverOptions? })` → `{ toolListVersion, toolCount }` measures a
+  list by hand; `measureServedToolLists(createServer)` (`/testing`) reports both levels for a snapshot. Migrate: an
+  app that derives the version itself on a recording server replaces it with the factory, or with `measureToolList`
+  when its tool list depends on the account.
+- The catalog check treats a server with no tools as an empty list instead of failing to list it.
+
 ## 0.2.6
 
 - A hook around each tool call (#804): `withToolErrors` and `actionTool` take optional `onToolCall`, `caller`
