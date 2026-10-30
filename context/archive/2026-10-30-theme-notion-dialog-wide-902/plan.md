@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-dialog-wide-902
-status: in_progress
+status: archived
 ---
 
 # Plan: wide dialog and footer close label (issues #902, #903)
@@ -33,6 +33,6 @@ Files: `themes/theme-notion/src/ui/dialog.tsx`, `tests/ui/dialog.test.tsx`, `tes
 
 ## Progress
 
-- [ ] Phase 1: props
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: props, de518e8
+- [x] Phase 2: docs and baselines, 7741160
+- [x] Implementation review: approved

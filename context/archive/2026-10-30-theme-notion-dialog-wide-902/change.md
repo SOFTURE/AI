@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-dialog-wide-902
 title: "theme-notion: a wide DialogContent and a translatable DialogFooter close label (issues #902, #903)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: [902, 903]
 branch: claude/project-thread-m7utty
 created: 2026-10-30
 updated: 2026-10-30
+archived_at: 2026-10-30
 ---
 
 ## Intent
