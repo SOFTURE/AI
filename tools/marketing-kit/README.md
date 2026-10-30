@@ -699,7 +699,7 @@ const result = await renderFootageFilm(film, {
   a worker image ships the browser instead.
 
 **Container recipe.** [`docker/footage-worker.Dockerfile`](docker/footage-worker.Dockerfile) is a worker base image:
-`node:22-bookworm-slim`, Debian's ffmpeg (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and
+`node:22-trixie-slim`, Debian's ffmpeg 7.1 (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and
 fonts Chrome needs, and the chrome-headless-shell hyperframes 0.8.85 pins, named by `HYPERFRAMES_BROWSER_PATH`. CI
 builds it and renders the fixture footage film inside it (job `footage-image`). The package ships it, so an app
 builds it (`docker build -t footage-worker -f node_modules/@softure-ai/marketing-kit/docker/footage-worker.Dockerfile .`)

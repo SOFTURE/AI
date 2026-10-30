@@ -1,15 +1,16 @@
-# A worker image for the footage blocks of @softure-ai/marketing-kit: Node 22, Debian's ffmpeg (built with libzimg, so
-# it decodes HEVC and has the zscale and tonemap filters HDR phone clips need), the libraries and fonts
+# A worker image for the footage blocks of @softure-ai/marketing-kit: Node 22, Debian 13's ffmpeg 7.1 (built with
+# libzimg, so it decodes HEVC and has the zscale and tonemap filters HDR phone clips need; Debian 12's ffmpeg 5.1 is too
+# old for the fixture's `-display_rotation`), the libraries and fonts
 # chrome-headless-shell needs, and the chrome-headless-shell hyperframes renders with. CI renders the fixture footage
 # film inside it (`.github/workflows/ci.yml`, job `footage-image`); an app copies it and adds its own code on top.
 #
 #   docker build -t footage-worker -f footage-worker.Dockerfile .
-FROM node:22-bookworm-slim
+FROM node:22-trixie-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates curl unzip ffmpeg \
-    libasound2 libatk-bridge2.0-0 libatk1.0-0 libcups2 libdrm2 libgbm1 libnss3 libpangocairo-1.0-0 \
+    libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libcups2t64 libdrm2 libgbm1 libnss3 libpangocairo-1.0-0 \
     libxcomposite1 libxdamage1 libxfixes3 libxkbcommon0 libxrandr2 libxshmfence1 \
     fontconfig fonts-dejavu-core fonts-liberation fonts-noto-color-emoji fonts-noto-core \
   && rm -rf /var/lib/apt/lists/* \

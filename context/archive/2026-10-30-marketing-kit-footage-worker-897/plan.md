@@ -56,6 +56,8 @@ Files: `pipeline.ts`, `providers.ts`, `elevenlabs.ts`, `paid.ts` (new).
 - The CI render of the container recipe is its own job (`footage-image`), so the screen film keeps the runner's Chrome.
 - The Dockerfile downloads chrome-headless-shell from Chrome for Testing directly (no `hyperframes browser ensure`,
   which never exits after a download in 0.8.85), and is shipped in the package (`files`).
+- The worker image is Debian 13 (`node:22-trixie-slim`, ffmpeg 7.1): CI showed Debian 12's ffmpeg 5.1 lacks
+  `-display_rotation`, which the fixture's phone clip needs.
 - hyperframes' per-frame progress lines are logged once per tenth of the render.
 
 ## Progress
