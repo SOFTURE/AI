@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/files",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SOFTURE AI files module: an app's stored files (content hash, size, type, owner, kind, expiry, a per-owner quota, opt-in dedupe) on a storage driver (local disk with atomic writes, S3-compatible with SigV4 and multipart uploads, in memory for tests), streamed and never buffered, public links that expire (HMAC-signed, checked before any database read, revocable per file, a rotating keyring) served by a Next.js route with byte ranges and one 404 for every dead link, a prune job, a privacy contributor and a health check.",
   "license": "MIT",
   "type": "module",

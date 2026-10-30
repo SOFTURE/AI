@@ -16,7 +16,7 @@ export const MODULE_ID = "files";
 export const files = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.1",
+    version: "0.1.2",
     dependsOn: { jobs: "^0.1.6?" },
     dbSchema: "files",
     tables: ["files"],
