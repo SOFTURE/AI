@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## Unreleased
+## 0.2.8
 
 - The content of 0.2.7, which was never published: its release stopped at the gates (ESLint ran out of memory in
   `release.yml`) before publishing, and a tag is never moved.
