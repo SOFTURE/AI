@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-timeline-fold-907
-status: in_progress
+status: archived
 ---
 
 # Plan: folding timeline entry and FoldRow touch size (issue #907)
@@ -35,6 +35,6 @@ README (`FoldRow` and `Timeline` paragraphs), CHANGELOG `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: components
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: components, 8fa4692
+- [x] Phase 2: docs, 8fa4692
+- [x] Implementation review: approved

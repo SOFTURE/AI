@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-scrollable-tabs-908
-status: in_progress
+status: archived
 ---
 
 # Plan: scrollable tabs and a horizontal scroll bar (issue #908)
@@ -37,6 +37,6 @@ README component notes (`tabs`, `scroll-area`), CHANGELOG `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: components
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: components, 59bd30d
+- [x] Phase 2: docs, 59bd30d
+- [x] Implementation review: approved

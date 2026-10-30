@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-scrollable-tabs-908
 title: "theme-notion: a scrollable TabsList and ScrollArea's horizontal bar (issue #908)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 908
 branch: claude/project-thread-m7utty
 created: 2026-10-30
 updated: 2026-10-30
+archived_at: 2026-10-30
 ---
 
 ## Intent

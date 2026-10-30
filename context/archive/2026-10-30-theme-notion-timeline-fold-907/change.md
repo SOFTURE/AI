@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-timeline-fold-907
 title: "theme-notion: a folding Timeline entry and FoldRow's touch size (issue #907)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 907
 branch: claude/project-thread-m7utty
 created: 2026-10-30
 updated: 2026-10-30
+archived_at: 2026-10-30
 ---
 
 ## Intent
