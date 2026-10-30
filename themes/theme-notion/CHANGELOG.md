@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- A wide dialog (#902): `DialogContent` gains `size` (`"default"` or `"wide"`). `wide` is half the viewport from
+  `lg` (`lg:max-w-1/2`), `max-w-lg` between `sm` and `lg`, and keeps the 1 rem gutter on phones. Default dialogs
+  render the same classes.
+- `DialogFooter showCloseButton` takes its text from the message layer (#903): `closeLabel`, defaulting to
+  `notionMessages.en.dialog.close`, replaces the literal "Close".
+
 ## 0.10.1
 
 - The content of 0.10.0, which was never published: its release stopped at the gates (ESLint ran out of memory in
