@@ -336,6 +336,36 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "            className=\"absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\"",
       ours: "            className={cn(\n              \"absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",\n              closeButtonSize === \"touch\" &&\n                \"top-0.5 right-0.5 inline-flex size-touch-target items-center justify-center rounded-md\"\n            )}",
     },
+    {
+      reason: "dialog: a wide size, half the viewport from `lg` (#902)",
+      upstream: "  closeButtonSize = \"default\",\n  ...props",
+      ours: "  closeButtonSize = \"default\",\n  size = \"default\",\n  ...props",
+    },
+    {
+      reason: "dialog: a wide size, half the viewport from `lg` (#902)",
+      upstream: "  closeButtonSize?: \"default\" | \"touch\"\n}) {",
+      ours: "  closeButtonSize?: \"default\" | \"touch\"\n  // `wide` is half the viewport from `lg`, `max-w-lg` below it.\n  size?: \"default\" | \"wide\"\n}) {",
+    },
+    {
+      reason: "dialog: a wide size, half the viewport from `lg` (#902)",
+      upstream: "zoom-in-95 sm:max-w-lg\",\n          className",
+      ours: "zoom-in-95 sm:max-w-lg\",\n          size === \"wide\" && \"lg:max-w-1/2\",\n          className",
+    },
+    {
+      reason: "copy: built-in English text from the message layer, overridable by a prop (#903)",
+      upstream: "  showCloseButton = false,\n  children,",
+      ours: "  showCloseButton = false,\n  closeLabel = messages.dialog.close,\n  children,",
+    },
+    {
+      reason: "copy: built-in English text from the message layer, overridable by a prop (#903)",
+      upstream: "}: React.ComponentProps<\"div\"> & {\n  showCloseButton?: boolean\n}) {",
+      ours: "}: React.ComponentProps<\"div\"> & {\n  showCloseButton?: boolean\n  // The close button's text, from the app's message layer.\n  closeLabel?: string\n}) {",
+    },
+    {
+      reason: "copy: built-in English text from the message layer, overridable by a prop (#903)",
+      upstream: "<Button variant=\"outline\">Close</Button>",
+      ours: "<Button variant=\"outline\">{closeLabel}</Button>",
+    },
   ],
   "dropdown-menu": [
     {

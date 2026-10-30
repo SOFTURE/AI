@@ -682,6 +682,26 @@ const UI_CASES: readonly GalleryCase[] = [
     ),
   },
   {
+    name: "Dialog[size=wide]",
+    component: "Dialog",
+    root: '[data-slot="dialog-content"]',
+    isIsolated: true,
+    render: () => (
+      <Dialog defaultOpen>
+        <DialogContent size="wide">
+          <DialogHeader>
+            <DialogTitle>Add a note</DialogTitle>
+            <DialogDescription>The note goes under the list.</DialogDescription>
+          </DialogHeader>
+          <Textarea aria-label="Note" defaultValue="Call the supplier on Monday." />
+          <DialogFooter showCloseButton closeLabel="Cancel">
+            <Button>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    ),
+  },
+  {
     name: "DialogClose",
     component: "DialogClose",
     root: '[data-slot="dialog-close"]',

@@ -5,7 +5,7 @@
   "dbSchema": "mcp",
   "tables": ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants", "oauth_registration_window"],
   "env": [],
-  "switches": [],
+  "switches": ["mcp-access.writes_enabled"],
   "routes": {
     "page": "/account/mcp",
     "endpoint": "/api/mcp",

@@ -23,8 +23,8 @@
 # gets the same forced command in authorized_keys. Neither prints step or result lines: the output is the script's or
 # psql's, and the exit status is theirs (0 done, 1 refused or failed, 2 usage) or 1 and 2 from the checks here.
 #
-# The release archive is a gzip tar of the tag's docker/prod/ (docker-compose.yml, traefik.yml unless the app joins an
-# edge network, and, with a database, initdb/), this script, deploy.json and the rendered .env.prod. It is unpacked
+# The release archive is a gzip tar of the tag's docker/prod/ (docker-compose.yml, traefik.yml when the stack runs its
+# own Traefik, and, with a database, initdb/), this script, deploy.json and the rendered .env.prod. It is unpacked
 # into releases/<tag>/ and its files are installed next to this script in /srv/softure-example/, so only the first setup
 # copies this script there by hand. A new copy of this script is installed by a rename, and a release runs the copy it
 # ships: when the archive's deploy.sh differs from the running one and takes the hand-off (it reads
@@ -51,7 +51,7 @@
 # (pull), start Postgres (postgres), back up the database (backup), guard the schema against the new image's migrations
 # and, with database.appMigrations, its app journal against the app ledger (schema), count rows (row-counts-before),
 # run the pre-migrate hooks, switch (switch: the migrate service runs before the app), recreate Traefik when its rules
-# changed (traefik, not with an edge network), compare the row counts (row-counts-after), record the tag (tag), install
+# changed (traefik, only with its own Traefik), compare the row counts (row-counts-after), record the tag (tag), install
 # the cron (cron), run the post-up hooks. The tables counted are database.rowCountTables of the deploy.json this
 # release shipped; without that file or key the counts are skipped. A changed postgres service takes effect at the
 # postgres step, before the switch.

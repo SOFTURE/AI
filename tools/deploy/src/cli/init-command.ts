@@ -83,9 +83,9 @@ function listWorkflowsRefWarnings(options: { written: string[]; workflowsRef: st
   ];
 }
 
-/** A second stack on a server with `--edge`: its Postgres takes the same loopback port as the first one's. */
+/** A second stack on a server (`--edge`, or `--tunnel` next to another app): its Postgres takes the first one's loopback port. */
 function listEdgeWarnings(facts: AppFacts, answers: InitAnswers): string[] {
-  if (answers.edge === undefined || !facts.hasDatabase) return [];
+  if ((answers.edge === undefined && answers.tunnel !== true) || !facts.hasDatabase) return [];
   return [
     `${COMPOSE_FILE} publishes Postgres on 127.0.0.1:5432, which another stack on this server may hold already; change the host port, or drop it and set database.access to compose-exec in deploy.json`,
   ];
@@ -97,6 +97,16 @@ function listCdnSteps(answers: InitAnswers): string[] {
   return [
     `as root on the server, install docker/server/cloudflare-only.sh and its two units (the steps are in its header); the firewall lets only Cloudflare reach ports 80 and 443`,
     `set the DEPLOY_ORIGIN_IP secret to the server's own address, so verify checks that a direct connection gets no answer`,
+  ];
+}
+
+/** What init cannot do itself for `--tunnel`: the tunnel in Cloudflare, its token, and the headers Traefik sent. */
+function listTunnelSteps(answers: InitAnswers): string[] {
+  if (answers.tunnel !== true) return [];
+  return [
+    `in Cloudflare Zero Trust, create a remotely managed tunnel and give it the public hostname ${answers.domain} with the service http://app:3000`,
+    "set the CLOUDFLARE_TUNNEL_TOKEN secret (the production environment) to the tunnel's token",
+    "send the security headers from the app (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy): no Traefik adds them; the README's Cloudflare Tunnel section has a next.config snippet",
   ];
 }
 
@@ -119,6 +129,7 @@ export function runInit(args: string[], io: CliIo): void {
     cdn: { type: "string" },
     "report-role": { type: "string" },
     edge: { type: "string" },
+    tunnel: { type: "boolean", default: false },
     force: { type: "boolean", default: false },
   });
   const missing = (["domain", "image"] as const).filter((name) => flags[name] === undefined);
@@ -142,6 +153,7 @@ export function runInit(args: string[], io: CliIo): void {
     cdn: flags.cdn,
     reportRole: flags["report-role"],
     edge: flags.edge,
+    tunnel: flags.tunnel,
   });
   if (!answersResult.ok) fail(`init: nothing written; ${answersResult.problems.join("; ")}.`);
   const cliVersion = readCliVersion();
@@ -161,6 +173,7 @@ export function runInit(args: string[], io: CliIo): void {
     ...result.skipped.map((path) => `kept    ${path} (exists; --force overwrites it)`),
     ...warnings.map((warning) => `warning ${warning}`),
     ...listCdnSteps(answersResult.answers).map((step) => `next    ${step}`),
+    ...listTunnelSteps(answersResult.answers).map((step) => `next    ${step}`),
     `init: ${result.written.length} written, ${result.skipped.length} kept, database part ${facts.hasDatabase ? "on" : "off"} (@softure-ai/db ${facts.hasDatabase ? "found" : "not found"} in package.json)${hasWorker(facts) ? ", worker part on (@softure-ai/jobs found)" : ""}.`,
   ];
   io.stdout(`${lines.join("\n")}\n`);

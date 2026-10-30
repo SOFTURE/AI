@@ -199,11 +199,17 @@ describe("the consent form", () => {
     ["state", "s-1"],
   ] as const;
 
-  function renderForm(isWriteOffered: boolean) {
+  function renderForm(isWriteOffered: boolean, redirectTarget = "claude.ai") {
     const { container } = render(
-      <ConsentForm action="/api/oauth/authorize" params={PARAMS} clientName="Claude" redirectTarget="claude.ai" accountEmail="alice@example.com" isWriteOffered={isWriteOffered} messages={en} />,
+      <ConsentForm action="/api/oauth/authorize" params={PARAMS} clientName="Claude" redirectTarget={redirectTarget} accountEmail="alice@example.com" isWriteOffered={isWriteOffered} messages={en} />,
     );
     return container;
+  }
+
+  /** The `dd` values of the details row its `dt` names. */
+  function readRow(container: HTMLElement, term: string): string[] {
+    const row = [...container.querySelectorAll("dl > div")].find((div) => div.querySelector("dt")?.textContent === term);
+    return [...(row?.querySelectorAll("dd") ?? [])].map((value) => value.textContent);
   }
 
   it("posts the request's parameters to the decision route with the person's choice", () => {
@@ -217,11 +223,37 @@ describe("the consent form", () => {
     expect(screen.getByRole("button", { name: en.consent.deny }).getAttribute("value")).toBe("deny");
   });
 
-  it("names the app, where it returns and the account", () => {
-    renderForm(false);
-    expect(screen.getByText("alice@example.com")).toBeDefined();
-    expect(screen.getByText("(returns to claude.ai)")).toBeDefined();
-    expect(screen.getByText(en.consent.readAccess)).toBeDefined();
+  it("names the app, the account and the access", () => {
+    const container = renderForm(false);
+    expect(readRow(container, en.consent.app)).toEqual(["Claude"]);
+    expect(readRow(container, en.consent.account)).toEqual(["alice@example.com"]);
+    expect(readRow(container, en.consent.access)).toEqual([en.consent.readAccess]);
+  });
+
+  it.each([
+    ["an https host", "claude.ai"],
+    ["a native scheme URI", "com.example.app:/oauth/callback"],
+  ])("shows where the code goes in a row of its own, in monospace, for %s (#906)", (_case, target) => {
+    const container = renderForm(false, target);
+    expect(readRow(container, en.consent.redirectLabel)).toEqual([target, en.consent.redirectHint]);
+    expect(screen.getByText(target).className).toContain("sft:font-mono");
+    expect(readRow(container, en.consent.app).join(" ")).not.toContain(target);
+  });
+
+  it("restyles the target row through classNames", () => {
+    render(
+      <ConsentForm
+        action="/api/oauth/authorize"
+        params={PARAMS}
+        clientName="Claude"
+        redirectTarget="claude.ai"
+        accountEmail="alice@example.com"
+        isWriteOffered={false}
+        messages={en}
+        classNames={{ target: "app-target" }}
+      />,
+    );
+    expect(screen.getByText("claude.ai").className).toContain("app-target");
   });
 
   it("offers the change checkbox only when writes are on offer", () => {

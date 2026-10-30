@@ -849,15 +849,15 @@ named in the output, and only `--force` overwrites it.
 ```bash
 softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--name=<slug>] [--paths=/] [--www] \
   [--acme-email=<email>] [--env=AUTH_SECRET,...] [--tables=users,billing.subscriptions] [--workflows-ref=<sha>] \
-  [--cdn=cloudflare] [--report-role=<role>] [--edge=<network>] [--force]
+  [--cdn=cloudflare] [--report-role=<role>] [--edge=<network> | --tunnel] [--force]
 ```
 
 | File | What it holds |
 | --- | --- |
 | `Dockerfile` | the `@softure-ai/ops` container recipe: a Next standalone build, a non-root user, `HEALTHCHECK` in the image and, with a database, `migrate.mjs`, the ops scripts and the exported migrations (bundled for plain Node, below) |
 | `.dockerignore` | local state and secrets out of the build context |
-| `docker/prod/docker-compose.yml` | Traefik (not with `--edge`) and the app; with a database also Postgres (port on `127.0.0.1` only) and the one-off `migrate` service the app waits for |
-| `docker/prod/traefik.yml` | without `--edge`: the apex router (`Host` and, unless `--paths=/`, `/`, `/_next/`, the health route and the given prefixes), security headers, the optional `www` redirect |
+| `docker/prod/docker-compose.yml` | Traefik (not with `--edge` or `--tunnel`), `cloudflared` (with `--tunnel`) and the app; with a database also Postgres (port on `127.0.0.1` only) and the one-off `migrate` service the app waits for |
+| `docker/prod/traefik.yml` | without `--edge` or `--tunnel`: the apex router (`Host` and, unless `--paths=/`, `/`, `/_next/`, the health route and the given prefixes), security headers, the optional `www` redirect |
 | `docker/prod/initdb/01-roles.sql` | with a database: the migrator and app roles of the ops recipe |
 | `docker/prod/hooks/lib.sh` | helpers for the app's own hooks (below), shipped with every release |
 | `docker/server/deploy.sh` | the server's forced command for `deploy-app.yml` (below) |
@@ -878,7 +878,9 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   `master` and a warning prints the command that gives the release commit) and `--cdn=cloudflare` (the origin lock
   below; `cloudflare` is the only value) and `--report-role` (with a database, the Postgres role `deploy.sh`'s
   `report` reads as, ahead of the one read from a kept compose file; see below) and `--edge=<network>` (an app that
-  joins another stack's Traefik, below; not with `--cdn` or `--acme-email`, which belong to that stack).
+  joins another stack's Traefik, below; not with `--cdn` or `--acme-email`, which belong to that stack) and `--tunnel`
+  (an app that a Cloudflare Tunnel publishes, below; not with `--edge`, `--cdn`, `--acme-email`, `--www` or a
+  `--paths` other than `/`, which all configure a Traefik).
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
   `/api/health` route (else `/`), `@softure-ai/jobs` (with `@softure-ai/db`) the job worker, a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
   and so is, with a database, one whose `serverExternalPackages` does not name `@softure-ai/db` (without it
@@ -986,6 +988,52 @@ database, init warns that Postgres is published on `127.0.0.1:5432`, which the f
 the host port in the compose file, or drop it and set `database.access` to `compose-exec` in `deploy.json`. The
 Cloudflare origin lock is host-wide and stays with the stack that installed it.
 
+**Cloudflare Tunnel** (`--tunnel`, issue #905). For an app behind Cloudflare whose origin must answer nothing that
+does not come through the owner's own zone. A shared Traefik that admits Cloudflare's ranges admits every Cloudflare
+customer: a request proxied by another account (its own zone or a Worker) with the right `Host` reaches the origin
+around Cloudflare Access, and Authenticated Origin Pulls needs a Traefik TLS option that Docker labels cannot declare.
+A tunnel touches no shared proxy:
+
+- the compose file has no `traefik` service, no `letsencrypt` volume and no published port but Postgres's loopback one;
+- `cloudflared` (`cloudflare/cloudflared:2026.10.1`, pinned; bump it there) runs `tunnel --no-autoupdate run` with
+  `TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?}`, `read_only`, `cap_drop: [ALL]` and `no-new-privileges`, on the
+  project's network `tunnel` only, so it reaches the app but not Postgres;
+- the `app` service joins `tunnel` and `default`, carries `traefik.enable=false` (so a host Traefik that exposes
+  containers by default leaves it alone) and `depends_on` `cloudflared`, so `deploy.sh`'s switch (`app` and the
+  worker) starts the tunnel too; there is no `traefik` step;
+- `CLOUDFLARE_TUNNEL_TOKEN` is a required secret like the passwords, so the generated `deploy.yml` passes it by name.
+
+The steps init prints as `next` lines, once per app:
+
+1. In Cloudflare Zero Trust (Networks → Tunnels), create a remotely managed tunnel ("Cloudflared" connector) and copy
+   its token.
+2. Give it the public hostname `<domain>` with the service `http://app:3000`. Path restrictions (`--paths`) and the
+   `www` redirect (`--www`) are Traefik rules, so with a tunnel they live in Cloudflare: a path on the public hostname,
+   a redirect rule from `www` to the apex. Put Cloudflare Access on the hostname as before.
+3. Set the secret `CLOUDFLARE_TUNNEL_TOKEN` in the `production` environment.
+4. Send the security headers the Traefik middleware used to add from the app. `deploy.json` checks HSTS; in
+   `next.config.ts`:
+
+```ts
+const SECURITY_HEADERS = [
+  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+];
+
+const nextConfig: NextConfig = {
+  output: "standalone",
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+  },
+};
+```
+
+Once the tunnel serves the domain, remove the app's old router from the shared Traefik and its DNS record pointing at
+the server; `verify --origin` (`DEPLOY_ORIGIN_IP`) keeps checking that a direct connection gets no answer. With a
+database, init warns about Postgres's loopback port as with `--edge`.
+
 **Guard the compose file** (issue #600). Names are global on a shared Traefik and the neighbour's stack owns the
 network, so a test of the app's own keeps its production compose file in line; the release checks run it with the
 rest of the app's tests. `checkSharedHostCompose` from `@softure-ai/deploy/testing` returns the violations as values,
@@ -1013,6 +1061,18 @@ it("keeps the production compose file safe next to the edge stack", () => {
 | `bypass-path-blocked` | a router that serves a bypass path (or part of it) carries a `basicAuth`, `digestAuth`, `forwardAuth`, `ipAllowList` or `ipWhiteList` middleware, also inside a `chain` |
 | `bypass-path-claimed` | a router that serves a bypass path has no `Host` matcher, so it takes the path on every host of the edge proxy |
 | `compose-unreadable` | the file is not YAML or not a mapping |
+
+With `ingress: "tunnel"` (an app that [Cloudflare Tunnel](#softure-deploy-init) publishes) the edge rules turn
+around: `edge-network-missing`, `edge-network-not-external`, `edge-network-changed`, the Traefik name and network rules
+and the bypass rules are not checked, `host-ports` and `host-network` still are, and two rules take their place:
+
+| Rule | Breach |
+| --- | --- |
+| `edge-network-joined` | a top-level network names `edgeNetwork` (joined as external or declared) |
+| `traefik-routing` | a service carries a `traefik.*` label other than `traefik.enable=false` |
+
+`init --tunnel` writes a file that passes with `ingress: "tunnel"`, except for the Postgres port of an app with a
+database. `ingress: "edge"` is the default.
 
 Labels are read as a map or a `key=value` list, on the service and under `deploy.labels`. A router serves a bypass
 path when one of its `Path`, `PathPrefix` or `PathRegexp` matchers reaches under it, or it has none, unless a negated

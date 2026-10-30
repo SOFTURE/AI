@@ -41,6 +41,26 @@ describe("parseInitAnswers", () => {
     });
   });
 
+  it("takes tunnel alone of every Traefik answer, each refusal naming where it goes instead (issue #905)", () => {
+    expect(parseInitAnswers({ ...VALID, tunnel: true })).toEqual({ ok: true, answers: { ...VALID, tunnel: true } });
+    expect(parseInitAnswers({ ...VALID, tunnel: false, edge: "proxy" })).toEqual({ ok: true, answers: { ...VALID, tunnel: false, edge: "proxy" } });
+    const answers = { ...VALID, tunnel: true, edge: "proxy", cdn: "cloudflare", acmeEmail: "ops@example.com", www: true, paths: ["/blog"] };
+    expect(parseInitAnswers(answers)).toEqual({
+      ok: false,
+      problems: [
+        "tunnel: --edge publishes the app through a Traefik; drop it with --tunnel",
+        "tunnel: --cdn locks the ports of a Traefik a tunnel stack does not run; drop it with --tunnel",
+        "tunnel: --acme-email configures Traefik's certificates; Cloudflare holds them with --tunnel",
+        "tunnel: --www is a Traefik redirect; with --tunnel add a Cloudflare redirect rule from www to the apex",
+        "tunnel: --paths is a Traefik rule; with --tunnel pass / and restrict the paths on the tunnel's public hostname",
+      ],
+    });
+  });
+
+  it("refuses the tunnel token as an app env name, since the tunnel's compose file sets it", () => {
+    expect(parseInitAnswers({ ...VALID, env: ["CLOUDFLARE_TUNNEL_TOKEN"] })).toEqual({ ok: false, problems: ["env.0: already set by the templates"] });
+  });
+
   it("refuses values that would break out of YAML, bash or a Traefik rule, one line per field", () => {
     const result = parseInitAnswers({
       ...VALID,

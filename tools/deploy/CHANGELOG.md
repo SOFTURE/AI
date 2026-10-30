@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **Cloudflare Tunnel (#905):** `init --tunnel` publishes the app through a Cloudflare Tunnel of its own compose project
+  instead of a Traefik: a pinned `cloudflared` (`read_only`, `cap_drop: ALL`, `no-new-privileges`) on its own network
+  `tunnel`, the token as the required secret `CLOUDFLARE_TUNNEL_TOKEN`, the app with `traefik.enable=false` and
+  `depends_on` the tunnel, no Traefik service, rules file or port. init prints the steps it leaves to the owner (the
+  tunnel and its public hostname `http://app:3000`, the secret, the security headers the app now sends itself); the
+  README has them with a `next.config` headers snippet. `--tunnel` refuses `--edge`, `--cdn`, `--acme-email`, `--www`
+  and `--paths` other than `/`. `CLOUDFLARE_TUNNEL_TOKEN` is no longer accepted in `--env`.
+- `checkSharedHostCompose` (`@softure-ai/deploy/testing`) takes `ingress: "tunnel"`: no `edge-network-missing`; instead
+  `edge-network-joined` (a network names the edge one) and `traefik-routing` (any `traefik.*` label but
+  `traefik.enable=false`). The default `ingress: "edge"` checks as before.
+- The comments of the generated `deploy.sh` name the Traefik step as "only with its own Traefik". Nothing to do for an
+  app generated earlier.
+
 ## 0.4.9
 
 - The content of 0.4.8, which was never published: its release stopped at the gates (ESLint ran out of memory in

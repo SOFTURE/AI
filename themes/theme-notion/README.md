@@ -74,7 +74,7 @@ import { CircleCheck } from "lucide-react";
 
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
-`DialogContent closeLabel`, `SheetContent closeLabel`, `SidePanel closeLabel`, `Steps stateLabels`,
+`DialogContent closeLabel`, `DialogFooter closeLabel` (the `showCloseButton` button's text), `SheetContent closeLabel`, `SidePanel closeLabel`, `Steps stateLabels`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
 `CommandDialog title description` (`title` also names its search field), `Command label` (the search field's
 name outside a `CommandDialog`; without it the field has none), `SortableList instructions announcements`, `SortableHandle label`.
@@ -498,7 +498,9 @@ Deltas from stock shadcn:
   </CommandDialog>
   ```
 
-- `dialog`, `alert-dialog`: radius 10, `shadow-dialog`, no border. `card`: `shadow-card` instead of a border.
+- `dialog`, `alert-dialog`: radius 10, `shadow-dialog`, no border. `DialogContent size="wide"` is half the
+  viewport wide from `lg` (`lg:max-w-1/2`) and `max-w-lg` between `sm` and `lg`, for a form with a list above its
+  fields; the default stays `max-w-lg`. `card`: `shadow-card` instead of a border.
 - `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
   (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,
   `tabs` default to the `line` variant, `progress` 6 px.

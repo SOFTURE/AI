@@ -1,7 +1,9 @@
 // A guard over the production compose file of an app that shares a host's edge proxy with another app (issue #600):
 // the edge network is joined, never declared or changed; no service takes a host port or the host network; every
 // Traefik name carries the app's prefix, because names are global on a shared Traefik; and no router blocks or
-// claims the paths an access-proxy bypass must keep open. Pure: the compose text in, the violations out.
+// claims the paths an access-proxy bypass must keep open. An app published by a Cloudflare Tunnel instead (issue #905)
+// is held to the opposite: it never joins the edge network and carries no Traefik routing. Pure: the compose text in,
+// the violations out.
 import { parse } from "yaml";
 
 export type ComposeRule =
@@ -9,6 +11,8 @@ export type ComposeRule =
   | "edge-network-missing"
   | "edge-network-not-external"
   | "edge-network-changed"
+  | "edge-network-joined"
+  | "traefik-routing"
   | "host-ports"
   | "host-network"
   | "traefik-name-prefix"
@@ -31,6 +35,11 @@ export interface SharedHostComposeOptions {
   readonly namePrefix: string;
   /** Paths the access proxy lets through without a sign-in (`/mcp`, `/oauth`), each starting with `/`. */
   readonly bypassPaths?: readonly string[];
+  /**
+   * How requests reach the app: `edge` (the default) through the shared Traefik, `tunnel` through a Cloudflare Tunnel
+   * of the app's own, so the edge network and Traefik routing are breaches instead of requirements.
+   */
+  readonly ingress?: "edge" | "tunnel";
 }
 
 /** Middleware types that answer a request themselves instead of passing it to the app. */
@@ -51,6 +60,12 @@ export function checkSharedHostCompose(composeYaml: string, options: SharedHostC
   }
   if (!isRecord(document)) return [topLevel("compose-unreadable", "the compose file is not a mapping")];
   const services = isRecord(document.services) ? document.services : {};
+  if (options.ingress === "tunnel") {
+    return [
+      ...checkNoEdgeNetwork(document.networks, options.edgeNetwork),
+      ...Object.entries(services).flatMap(([name, service]) => checkTunnelService(name, isRecord(service) ? service : {})),
+    ];
+  }
   return [
     ...checkEdgeNetwork(document.networks, options.edgeNetwork),
     ...Object.entries(services).flatMap(([name, service]) => checkService(name, isRecord(service) ? service : {}, options)),
@@ -65,6 +80,13 @@ function assertOptions(options: SharedHostComposeOptions): void {
   }
 }
 
+/** The name Docker gives a top-level network: the legacy `external: { name }`, else `name`, else its key. */
+function readNetworkName(key: string, network: Record<string, unknown>): string {
+  const external = network.external;
+  const legacyName = isRecord(external) && typeof external.name === "string" ? external.name : undefined;
+  return legacyName ?? (typeof network.name === "string" ? network.name : key);
+}
+
 function checkEdgeNetwork(networks: unknown, edgeNetwork: string): ComposeViolation[] {
   const declared = isRecord(networks) ? Object.entries(networks) : [];
   const violations: ComposeViolation[] = [];
@@ -72,9 +94,7 @@ function checkEdgeNetwork(networks: unknown, edgeNetwork: string): ComposeViolat
   for (const [key, value] of declared) {
     const network = isRecord(value) ? value : {};
     const external = network.external;
-    const legacyName = isRecord(external) && typeof external.name === "string" ? external.name : undefined;
-    const name = legacyName ?? (typeof network.name === "string" ? network.name : key);
-    if (name !== edgeNetwork) continue;
+    if (readNetworkName(key, network) !== edgeNetwork) continue;
     if (external !== true && !isRecord(external)) {
       violations.push(topLevel("edge-network-not-external", `network "${key}" declares ${edgeNetwork} instead of joining it as external: true`));
       continue;
@@ -91,15 +111,40 @@ function checkEdgeNetwork(networks: unknown, edgeNetwork: string): ComposeViolat
   return violations;
 }
 
-function checkService(service: string, definition: Record<string, unknown>, options: SharedHostComposeOptions): ComposeViolation[] {
+/** A tunnel app declares no network named like the edge one, joined or not: either way it is on the shared proxy's path. */
+function checkNoEdgeNetwork(networks: unknown, edgeNetwork: string): ComposeViolation[] {
+  const declared = isRecord(networks) ? Object.entries(networks) : [];
+  return declared
+    .filter(([key, value]) => readNetworkName(key, isRecord(value) ? value : {}) === edgeNetwork)
+    .map(([key]) => topLevel("edge-network-joined", `network "${key}" puts the app on ${edgeNetwork}, which a tunnel app never joins`));
+}
+
+/** Host ports and the host network stay breaches; any Traefik label but `traefik.enable=false` is routing. */
+function checkTunnelService(service: string, definition: Record<string, unknown>): ComposeViolation[] {
+  const violations = checkHostAccess(service, definition);
+  const routing = [...readLabels(definition)]
+    .filter(([key, value]) => key.startsWith("traefik.") && !(key === "traefik.enable" && value.toLowerCase() === "false"))
+    .map(([key]) => key);
+  if (routing.length > 0) {
+    violations.push({ rule: "traefik-routing", service, message: `carries Traefik routing labels (${routing.join(", ")}) next to a tunnel` });
+  }
+  return violations;
+}
+
+function checkHostAccess(service: string, definition: Record<string, unknown>): ComposeViolation[] {
   const violations: ComposeViolation[] = [];
+  if (Array.isArray(definition.ports) && definition.ports.length > 0) {
+    violations.push({ rule: "host-ports", service, message: `publishes host ports (${definition.ports.map(formatPort).join(", ")})` });
+  }
+  if (definition.network_mode === "host") violations.push({ rule: "host-network", service, message: "uses network_mode: host" });
+  return violations;
+}
+
+function checkService(service: string, definition: Record<string, unknown>, options: SharedHostComposeOptions): ComposeViolation[] {
+  const violations = checkHostAccess(service, definition);
   const at = (rule: ComposeRule, message: string): void => {
     violations.push({ rule, service, message });
   };
-  if (Array.isArray(definition.ports) && definition.ports.length > 0) {
-    at("host-ports", `publishes host ports (${definition.ports.map(formatPort).join(", ")})`);
-  }
-  if (definition.network_mode === "host") at("host-network", "uses network_mode: host");
 
   const labels = readLabels(definition);
   const dockerNetwork = labels.get("traefik.docker.network");

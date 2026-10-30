@@ -144,7 +144,7 @@ describe("planInitFiles", () => {
     const script = textOf(files, "docker/server/deploy.sh");
     expect(script).not.toContain("deploy_cli backup");
     expect(script).not.toContain("postgresql");
-    expect(script).toContain("# an edge network), record the tag (tag), install the cron (cron), run the post-up hooks.");
+    expect(script).toContain("# its own Traefik), record the tag (tag), install the cron (cron), run the post-up hooks.");
     expect(script).toContain('TOOLS_IMAGE="softure-deploy-tools:9.9.9"');
     expect(script).not.toContain("BACKUP_DIR=");
   });
@@ -443,6 +443,87 @@ describe("planInitFiles with edge, an app behind another stack's Traefik (issue 
     const compose = composeOf(plan());
     expect(compose).not.toHaveProperty("networks");
     expect(compose.services.app).not.toHaveProperty("labels");
+  });
+});
+
+describe("planInitFiles with tunnel, an app published by a Cloudflare Tunnel (issue #905)", () => {
+  interface TunnelService {
+    image?: string;
+    command?: string[];
+    environment?: Record<string, string>;
+    networks?: string[];
+    labels?: string[];
+    ports?: string[];
+    depends_on?: Record<string, { condition: string }>;
+    read_only?: boolean;
+    cap_drop?: string[];
+    security_opt?: string[];
+  }
+  interface TunnelCompose {
+    services: Record<string, TunnelService>;
+    networks?: Record<string, unknown>;
+    volumes?: Record<string, unknown>;
+  }
+
+  const composeOf = (files: Map<string, PlannedFile>): TunnelCompose => parse(textOf(files, "docker/prod/docker-compose.yml")) as TunnelCompose;
+
+  it("writes no Traefik, no rules file and no certificate volume, with or without a database", () => {
+    for (const facts of [FACTS, NO_DATABASE]) {
+      const files = plan({ tunnel: true }, facts);
+      expect([...files.keys()]).not.toContain("docker/prod/traefik.yml");
+      const compose = composeOf(files);
+      expect(Object.keys(compose.services)).not.toContain("traefik");
+      for (const file of files.values()) expect(file.text, file.path).not.toMatch(/\{\{[#^/]?[a-zA-Z]+\}\}/);
+    }
+    expect(composeOf(plan({ tunnel: true })).volumes).toEqual({ "postgres-data": null });
+    expect(composeOf(plan({ tunnel: true }, NO_DATABASE))).not.toHaveProperty("volumes");
+  });
+
+  it("runs a pinned, read-only cloudflared without capabilities on its own network, with the token as a required secret", () => {
+    const compose = composeOf(plan({ tunnel: true }));
+    expect(compose.services.cloudflared).toEqual({
+      image: "cloudflare/cloudflared:2026.10.1",
+      restart: "unless-stopped",
+      command: ["tunnel", "--no-autoupdate", "run"],
+      environment: { TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:?}" },
+      read_only: true,
+      cap_drop: ["ALL"],
+      security_opt: ["no-new-privileges:true"],
+      networks: ["tunnel"],
+    });
+    expect(compose.networks).toEqual({ tunnel: {} });
+    expect(findRequiredNames(textOf(plan({ tunnel: true }, NO_DATABASE), "docker/prod/docker-compose.yml")).map((variable) => variable.name)).toEqual([
+      "AUTH_SECRET",
+      "CLOUDFLARE_TUNNEL_TOKEN",
+    ]);
+  });
+
+  it("puts the app on the tunnel network and its own, out of Traefik, after the tunnel and the migrations", () => {
+    const app = composeOf(plan({ tunnel: true })).services.app;
+    expect(app?.networks).toEqual(["tunnel", "default"]);
+    expect(app?.labels).toEqual(["traefik.enable=false"]);
+    expect(app?.ports).toBeUndefined();
+    expect(app?.depends_on).toEqual({
+      migrate: { condition: "service_completed_successfully" },
+      cloudflared: { condition: "service_started" },
+    });
+    expect(composeOf(plan({ tunnel: true }, NO_DATABASE)).services.app?.depends_on).toEqual({ cloudflared: { condition: "service_started" } });
+    // Postgres and the migrate service stay on the project's own network, out of cloudflared's reach.
+    expect(composeOf(plan({ tunnel: true })).services.postgres?.networks).toBeUndefined();
+  });
+
+  it("switches the app (cloudflared through depends_on) in deploy.sh, with no Traefik step", () => {
+    const script = textOf(plan({ tunnel: true }), "docker/server/deploy.sh");
+    expect(script).toContain("compose up --detach --wait --remove-orphans app ||");
+    expect(script).not.toContain("begin_step traefik");
+    expect(script).not.toContain("rules_changed");
+  });
+
+  it("leaves the files without tunnel as they were", () => {
+    for (const answers of [{}, { edge: "proxy" }]) {
+      expect(plan({ ...answers, tunnel: false })).toEqual(plan(answers));
+      expect(textOf(plan(answers), "docker/prod/docker-compose.yml")).not.toContain("cloudflared");
+    }
   });
 });
 
