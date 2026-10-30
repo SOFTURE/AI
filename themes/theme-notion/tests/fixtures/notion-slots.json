@@ -806,7 +806,7 @@
   ],
   "FoldRow": [
     ["fold-row","group/fold-row border-b border-border"],
-    ["fold-row-summary","flex min-h-row-height cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"],
+    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-row-height"],
     ["fold-row-heading","flex min-w-0 items-center gap-2"],
     ["fold-row-fact","text-ui text-muted-foreground"],
     ["fold-row-fact","text-ui text-muted-foreground"],
@@ -819,7 +819,7 @@
   ],
   "FoldRow[inset]": [
     ["fold-row","group/fold-row border-b border-border"],
-    ["fold-row-summary","flex min-h-row-height cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"],
+    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-row-height"],
     ["fold-row-heading","flex min-w-0 items-center gap-2"],
     ["fold-row-fact","text-ui text-muted-foreground"],
     ["fold-row-badges","ml-auto inline-flex flex-wrap gap-1"],
@@ -827,9 +827,18 @@
     ["fold-row-content","flex flex-col gap-2 py-2 pr-1 pl-6 empty:hidden"],
     ["detail-table","w-full border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"]
   ],
+  "FoldRow[size=touch]": [
+    ["fold-row","group/fold-row border-b border-border"],
+    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-touch-target"],
+    ["fold-row-heading","flex min-w-0 items-center gap-2"],
+    ["fold-row-fact","text-ui text-muted-foreground"],
+    ["fold-row-badges","ml-auto inline-flex flex-wrap gap-1"],
+    ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-green-tag text-green-tag-foreground"],
+    ["fold-row-content","flex flex-col gap-2 p-3 empty:hidden"]
+  ],
   "FoldRow[summary]": [
     ["fold-row","group/fold-row border-b border-border"],
-    ["fold-row-summary","flex min-h-row-height cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"],
+    ["fold-row-summary","flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden min-h-row-height"],
     ["fold-row-summary-slot","flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1"],
     ["fold-row-content","flex flex-col gap-2 p-3 empty:hidden"]
   ],
@@ -1667,6 +1676,28 @@
   ],
   "Textarea": [
     ["textarea","flex field-sizing-content min-h-16 rounded-md border border-input bg-field px-2.5 py-1.5 text-base transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 md:text-sm dark:aria-invalid:ring-destructive/40 w-80"]
+  ],
+  "Timeline[fold]": [
+    ["timeline","flex flex-col"],
+    ["timeline-item","group/timeline-item relative grid grid-cols-[1.5rem_minmax(0,1fr)_auto] gap-x-1 pb-2"],
+    ["timeline-rail","absolute top-0 bottom-0 left-3 -translate-x-1/2 border-l-2 border-border group-first/timeline-item:top-4 group-last/timeline-item:bottom-auto group-last/timeline-item:h-4 group-only/timeline-item:hidden border-solid"],
+    ["timeline-marker","relative mt-1 flex size-6 items-center justify-center justify-self-center rounded-full [&>svg]:size-3.5 bg-green-tag text-green-tag-foreground"],
+    ["collapsible","flex min-w-0 flex-col"],
+    ["timeline-item-body","flex min-w-0 flex-col gap-0.5 rounded-md px-2 py-1 text-start cursor-pointer text-foreground transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none group/timeline-fold relative min-h-touch-target pr-7"],
+    ["timeline-item-time","text-small text-muted-foreground tabular-nums"],
+    ["timeline-item-title","text-ui-medium [overflow-wrap:anywhere]"],
+    ["timeline-item-badges","flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5"],
+    ["status","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe overflow-hidden rounded-full border border-transparent py-0.5 whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [a&]:hover:bg-accent [a&]:hover:text-accent-foreground gap-1.5 px-0 text-sm font-normal [&>svg]:size-4 [&>svg]:shrink-0 text-green"],
+    ["status-label","min-w-0 truncate"],
+    ["timeline-item-content","px-2 pb-1"],
+    ["timeline-item","group/timeline-item relative grid grid-cols-[1.5rem_minmax(0,1fr)_auto] gap-x-1 pb-2"],
+    ["timeline-rail","absolute top-0 bottom-0 left-3 -translate-x-1/2 border-l-2 border-border group-first/timeline-item:top-4 group-last/timeline-item:bottom-auto group-last/timeline-item:h-4 group-only/timeline-item:hidden border-solid"],
+    ["timeline-marker","relative mt-1 flex size-6 items-center justify-center justify-self-center rounded-full [&>svg]:size-3.5 bg-blue-tag text-blue-tag-foreground"],
+    ["collapsible","flex min-w-0 flex-col"],
+    ["timeline-item-body","flex min-w-0 flex-col gap-0.5 rounded-md px-2 py-1 text-start cursor-pointer text-foreground transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none group/timeline-fold relative min-h-touch-target pr-7"],
+    ["timeline-item-time","text-small text-muted-foreground tabular-nums"],
+    ["timeline-item-title","text-ui-medium [overflow-wrap:anywhere]"],
+    ["timeline-item-content","px-2 pb-1"]
   ],
   "Timeline[size=compact]": [
     ["timeline","flex flex-col"],

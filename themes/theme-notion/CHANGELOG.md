@@ -11,6 +11,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   render the same classes.
 - `DialogFooter showCloseButton` takes its text from the message layer (#903): `closeLabel`, defaulting to
   `notionMessages.en.dialog.close`, replaces the literal "Close".
+- A folding timeline entry (#907): `TimelineItem` gains `fold` (`{ isOpen?, isOpenInitially?, onOpenChange? }`, type
+  `TimelineItemFold`). The body becomes a disclosure button (`aria-expanded`, `aria-controls`, a turning chevron), at
+  least the touch target high, that shows and hides the entry's `children`; `fold` and `onSelect` exclude each other.
+  `FoldRow` gains `size="touch"`: the summary is at least 44 px high (`min-h-touch-target`). Defaults render the
+  same classes (`min-h-row-height` moves to the end of the summary's class list).
 
 ## 0.10.1
 

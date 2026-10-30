@@ -1456,6 +1456,16 @@ const NOTION_CASES: readonly GalleryCase[] = [
     ),
   },
   {
+    name: "FoldRow[size=touch]",
+    component: "FoldRow",
+    root: '[data-slot="fold-row"]',
+    render: () => (
+      <FoldRow title="Website redesign" facts={["12 pages"]} badges={[{ key: "paid", text: "Paid", tone: "success" }]} size="touch">
+        <p>Pages, owners and deadlines.</p>
+      </FoldRow>
+    ),
+  },
+  {
     name: "MarkPopover",
     component: "MarkPopover",
     root: '[data-slot="mark-popover"]',
@@ -1625,6 +1635,33 @@ const NOTION_CASES: readonly GalleryCase[] = [
       ),
     }),
   ),
+  {
+    name: "Timeline[fold]",
+    component: "Timeline",
+    root: '[data-slot="timeline"]',
+    render: () => (
+      <Timeline
+        label="Trip"
+        items={[
+          {
+            key: "hanoi",
+            icon: BedDouble,
+            color: "green",
+            time: "8–9 Dec · 2 nights",
+            title: "Hanoi",
+            badges: (
+              <Status color="green" icon={CircleCheck}>
+                Booked
+              </Status>
+            ),
+            fold: { isOpenInitially: true },
+            children: <p className="text-small text-muted-foreground">Hotel by the lake, check-in from 14:00.</p>,
+          },
+          { key: "sapa", icon: TrainFront, color: "blue", time: "10 Dec, 22:00", title: "Train to Sa Pa", fold: {}, children: <p>Car 4, berth 12.</p> },
+        ]}
+      />
+    ),
+  },
   ...(["default", "compact"] as const).map(
     (size): GalleryCase => ({
       name: `Timeline[size=${size}]`,

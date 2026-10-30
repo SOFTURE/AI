@@ -173,7 +173,8 @@ right; opened, it shows a `DetailTable` and its `children`. The opened content i
 (`p-3`), so a table sits centred under the row; `isInset` indents it under the title instead (24 px on the left) and
 sets `data-inset` on the content, like `StatsFold`. A row with a summary of its own (icons, a status) passes `summary`,
 drawn after the chevron in place of `title`, `facts` and `badges`; `details` and `detailsLabel` are optional together,
-so the content can be several tables or a list.
+so the content can be several tables or a list. `size="touch"` makes the summary at least the `touch-target` height
+(44 px) instead of the row height, for a phone list.
 
 ```tsx
 <FoldRow title="Dentist" facts={["12.01.2027"]} badges={[]} detailsLabel="Visit details" details={rows} />
@@ -324,7 +325,11 @@ tag fill, the time above the title); `compact` is a minor entry between two majo
 colour on the page, the time after the title, the description and badges on one wrapping line). `line: "dashed"` dashes the rail through an entry for something
 missing. With `onSelect` the body is a button; `actionLabel` is read before its visible text ("Show on the map"), so
 the button's name says what it does and still contains every word it shows; `aside` sits at the right edge outside that
-button, so a mark with its own popover never nests in it. The colour never carries a meaning alone: put the state in
+button, so a mark with its own popover never nests in it. With `fold` the entry folds open and closed instead: the body is
+a disclosure button (`aria-expanded`, `aria-controls`, a chevron that turns when open) at least the `touch-target`
+height, and `children` show only while it is open; `fold: {}` keeps its own state (closed, or open with
+`isOpenInitially`), `fold: { isOpen, onOpenChange }` lets the app keep it. `fold` and `onSelect` exclude each other.
+The colour never carries a meaning alone: put the state in
 words in `badges`. `data` sets an app's own `data-*` attributes on the item. `data-slot="timeline"`,
 `timeline-item` (with `data-item`, `data-size`, `data-line`), `timeline-rail`, `timeline-marker`, `timeline-item-body`
 and the body's parts mark the parts.
@@ -341,6 +346,8 @@ and the body's parts mark the parts.
     },
     { key: "sapa", icon: CircleDashed, color: "yellow", line: "dashed", time: "11–12 Dec", title: "Sa Pa",
       badges: <Status color="yellow" icon={CircleDashed}>No stay</Status> },
+    { key: "train", icon: TrainFront, color: "blue", time: "10 Dec, 22:00", title: "Train to Sa Pa",
+      fold: {}, children: <p>Car 4, berth 12.</p> },
   ]}
 />
 ```
