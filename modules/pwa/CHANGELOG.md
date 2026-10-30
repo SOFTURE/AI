@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.0
 
 - Clearing the device on sign-out (#874): `registerDeviceData({ caches, indexedDb, storageKeys })` for the app and its
   modules, and `clearDeviceData()`, which clears every registered part and the worker's kept pages, tries every part

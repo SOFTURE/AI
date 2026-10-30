@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.10.0
 
 - Touch sizes for menus, tabs, accordion and dialog close (#880), the rest of #859. `DropdownMenuContent` gains
   `size` (`"default"` or `"touch"`) and so do `DropdownMenuItem`, `DropdownMenuCheckboxItem`, `DropdownMenuRadioItem`

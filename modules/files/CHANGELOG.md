@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.0
 
 - First version (#888): the module `files` with the table `files.files` (owner, SHA-256, size, content type,
   sanitised name, kind, expiry, soft delete, link generation); `saveFile` from a stream or a path, hashed and counted
