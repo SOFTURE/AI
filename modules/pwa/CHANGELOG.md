@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.3
 
 - A launch screen's counter (#911): `buildLaunchProgressScript(options)` writes the inline script that moves
   theme-notion's `LaunchScreen` from the first paint, the page's finished scripts and stylesheets (Resource Timing) and
