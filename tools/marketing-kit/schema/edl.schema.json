@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 2,
+      "description": "The EDL format: 2."
+    },
+    "film": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The footage film's id."
+    },
+    "segments": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$",
+            "description": "The segment's id, unique in the cut: s<n> for a sentence, r<n> for b-roll."
+          },
+          "clip": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The clip's id: the picture, and the sound unless audio says otherwise."
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Seconds in the trimmed clip where the segment starts."
+          },
+          "end": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Seconds in the trimmed clip where the segment ends."
+          },
+          "transition": {
+            "type": "string",
+            "enum": [
+              "cut",
+              "fade",
+              "zoom",
+              "whoosh"
+            ],
+            "description": "How the segment starts: cut, fade (a cross-fade from the segment before), zoom (a punch-in) or whoosh."
+          },
+          "motion": {
+            "type": "string",
+            "enum": [
+              "none",
+              "kenburns"
+            ],
+            "description": "kenburns: a slow zoom over the segment; none: still."
+          },
+          "audio": {
+            "description": "Sound from another clip or span: a J- or L-cut, or b-roll over speech. Without it, the segment plays its own sound.",
+            "type": "object",
+            "properties": {
+              "clip": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The clip the sound comes from."
+              },
+              "start": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Seconds in that trimmed clip where the sound starts."
+              },
+              "end": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Seconds in that trimmed clip where the sound ends; end - start equals the segment's length."
+              },
+              "ownVolume": {
+                "default": 0,
+                "description": "The picture clip's own sound under it (0-1, default 0: muted).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "clip",
+              "start",
+              "end"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "clip",
+          "start",
+          "end",
+          "transition",
+          "motion"
+        ],
+        "additionalProperties": false
+      },
+      "description": "The kept parts of the clips, in film order."
+    }
+  },
+  "required": [
+    "version",
+    "film",
+    "segments"
+  ],
+  "additionalProperties": false,
+  "description": "The edit decision list of a footage film (edl.json).",
+  "title": "edl.json of a footage film (@softure-ai/marketing-kit)"
+}

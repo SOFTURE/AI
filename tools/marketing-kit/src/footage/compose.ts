@@ -4,23 +4,26 @@ import type { ComposeFont } from "../compose/compose.js";
 import { escapeHtml, fontFaces, fontStack } from "../compose/html.js";
 import { captionChunks, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
+import { phraseChunks } from "./captions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
-import type { FootageFilm } from "./film.js";
+import { DEFAULT_EDIT, getFootageEdit, type FootageFilm } from "./film.js";
+import { FOOTAGE_FPS } from "./normalize.js";
+
+const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
 
 /**
  * The HyperFrames composition of a footage film (the same 0.8.85 contract as `composeFilm`): one `<video>` clip per
  * EDL segment over the normalized clip with its media start, the transitions (`fade` cross-fades from the segment
- * before, `zoom` punches in on alternate jump cuts, `whoosh` plays the whoosh sound), a slow zoom on b-roll, the
- * word-by-word captions, the end card over the cut's last frame, the cut speech track and the ducked music.
+ * before over `fadeFrames`, `zoom` punches in by `zoomPercent` on alternate jump cuts, `whoosh` plays the whoosh
+ * sound), a slow zoom on `kenburns` segments, the captions (plain phrases, or the word-highlight pill), the end card
+ * over the cut's last frame (its whoosh only with `isEndCardWhoosh`), the cut speech track and the ducked music.
  */
 
 const COMPOSITION_ID = "film";
-/** A cross-fade's length; the outgoing segment plays on under the incoming one for this long. */
-export const FADE_SECONDS = 0.35;
-/** The punch-in of a `zoom` cut. */
-const ZOOM_SCALE = 1.12;
-/** How far a b-roll segment zooms over its length. */
-const KEN_BURNS_SCALE = 1.08;
+/** The default cross-fade's length (`DEFAULT_EDIT.fadeFrames` at 30 fps); the outgoing segment plays on under the incoming one for this long. */
+export const FADE_SECONDS = r3(DEFAULT_EDIT.fadeFrames / FOOTAGE_FPS);
+/** How far a segment marked `kenburns` zooms when the film's `kenBurnsPercent` is 0 (a hand edit asked for it). */
+const HAND_KEN_BURNS_PERCENT = 4;
 /** The end card's length after the cut. */
 export const END_CARD_SECONDS = 3;
 
@@ -53,19 +56,17 @@ export interface FootageComposeInput {
   locale: string;
 }
 
-const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
-
 /** The film's length: the cut plus the end card. */
 export function getFootageFilmSeconds(film: Pick<FootageFilm, "endCard">, edl: Edl): number {
   return r3(getEdlDuration(edl) + (film.endCard === null ? 0 : END_CARD_SECONDS));
 }
 
-/** The picture scale each segment starts at: `zoom` cuts alternate between punched in and back out. */
-export function getSegmentScales(edl: Edl): number[] {
+/** The picture scale each segment starts at: `zoom` cuts alternate between punched in (`zoomPercent`) and back out. */
+export function getSegmentScales(edl: Edl, zoomPercent = DEFAULT_EDIT.zoomPercent): number[] {
   const scales: number[] = [];
   edl.segments.forEach((segment, index) => {
     const previous = scales[index - 1] ?? 1;
-    scales.push(segment.transition === "zoom" && index > 0 ? (previous === 1 ? ZOOM_SCALE : 1) : 1);
+    scales.push(segment.transition === "zoom" && index > 0 ? (previous === 1 ? zoomPercent / 100 : 1) : 1);
   });
   return scales;
 }
@@ -75,13 +76,16 @@ export function composeFootage(input: FootageComposeInput): string {
   const starts = getSegmentStarts(edl);
   const cutEnd = getEdlDuration(edl);
   const end = getFootageFilmSeconds(film, edl);
-  const scales = getSegmentScales(edl);
+  const edit = getFootageEdit(film);
+  const scales = getSegmentScales(edl, edit.zoomPercent);
+  const fadeSeconds = r3(edit.fadeFrames / FOOTAGE_FPS);
+  const kenBurnsScale = 1 + (edit.kenBurnsPercent > 0 ? edit.kenBurnsPercent : HAND_KEN_BURNS_PERCENT) / 100;
 
   const segments = edl.segments.map((segment, index) => {
     const src = assets.clips[segment.clip];
     if (src === undefined) throw new Error(`The EDL names clip "${segment.clip}", which the film has no file for.`);
     const next = edl.segments[index + 1];
-    const tail = next?.transition === "fade" ? FADE_SECONDS : 0;
+    const tail = next?.transition === "fade" ? fadeSeconds : 0;
     const start = starts[index] as number;
     const duration = r3(segment.end - segment.start + tail);
     const scale = scales[index] as number;
@@ -93,25 +97,28 @@ export function composeFootage(input: FootageComposeInput): string {
   edl.segments.forEach((segment, index) => {
     const start = starts[index] as number;
     if (segment.transition === "fade" && index > 0) {
-      tweens.push(`tl.fromTo("#seg${index}", { opacity: 0 }, { opacity: 1, duration: ${FADE_SECONDS}, ease: "none", immediateRender: false }, ${start});`);
+      tweens.push(`tl.fromTo("#seg${index}", { opacity: 0 }, { opacity: 1, duration: ${fadeSeconds}, ease: "none", immediateRender: false }, ${start});`);
     }
     if (segment.motion === "kenburns") {
       const from = scales[index] as number;
       tweens.push(
-        `tl.fromTo("#seg${index}", { scale: ${from} }, { scale: ${r3(from * KEN_BURNS_SCALE)}, duration: ${r3(segment.end - segment.start)}, ease: "none", immediateRender: false }, ${start});`,
+        `tl.fromTo("#seg${index}", { scale: ${from} }, { scale: ${r3(from * kenBurnsScale)}, duration: ${r3(segment.end - segment.start)}, ease: "none", immediateRender: false }, ${start});`,
       );
     }
   });
 
-  // --- Captions ---
-  const caption = input.film.captions ? captionChunks(words) : [];
+  // --- Captions: plain phrases, or the pill that lights each word ---
+  const isHighlight = film.captionStyle === "highlight";
+  const caption = !film.captions ? [] : isHighlight ? captionChunks(words) : phraseChunks(words);
   const captionHtml = caption
     .map((chunk, i) => {
       const next = caption[i + 1];
       const start = r3(chunk.start - 0.05);
       const stop = Math.min(chunk.end + 0.35, next === undefined ? cutEnd : next.start - 0.06);
-      const spans = chunk.words.map((w, j) => `<span id="cw${i}_${j}">${escapeHtml(w.text)}</span>`).join(" ");
-      return `<div id="cap${i}" class="clip caption" data-start="${start}" data-duration="${r3(Math.max(0.1, stop - start))}"><p class="pill">${spans}</p></div>`;
+      const box = isHighlight
+        ? `<p class="pill">${chunk.words.map((w, j) => `<span id="cw${i}_${j}">${escapeHtml(w.text)}</span>`).join(" ")}</p>`
+        : `<p class="phrase">${escapeHtml(chunk.words.map((w) => w.text).join(" "))}</p>`;
+      return `<div id="cap${i}" class="clip caption" data-start="${start}" data-duration="${r3(Math.max(0.1, stop - start))}">${box}</div>`;
     })
     .join("\n  ");
 
@@ -124,7 +131,7 @@ export function composeFootage(input: FootageComposeInput): string {
   edl.segments.forEach((segment, index) => {
     if (segment.transition === "whoosh" && index > 0) play("whoosh", (starts[index] as number) - 0.1, 0.45, 0.57);
   });
-  if (film.endCard !== null) {
+  if (film.endCard !== null && edit.isEndCardWhoosh) {
     play("whoosh", cutEnd, 0.3, 0.57);
     play("pop", r3(cutEnd + 0.9), 0.35, 0.72);
   }
@@ -179,6 +186,7 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
 .caption{position:absolute;left:${captionBox.left}px;right:${captionBox.right}px;top:${captionBox.top}px;display:flex;justify-content:center}
 .pill{font-weight:650;font-size:${captionBox.fontSize}px;line-height:1.18;letter-spacing:-.01em;text-align:center;padding:16px 28px;border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
 .pill span{display:inline-block}
+.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:1.18;letter-spacing:-.01em;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
 .endcard{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 80px;text-align:center}
 .brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:${headingFont};font-size:46px}
 .logo{height:60px;width:auto}
@@ -197,7 +205,7 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
 <script>
 const tl = gsap.timeline({ paused: true });
 ${tweens.join("\n")}
-const captions = ${JSON.stringify(caption.map((chunk) => chunk.words.map((w) => w.start)))};
+const captions = ${JSON.stringify(isHighlight ? caption.map((chunk) => chunk.words.map((w) => w.start)) : [])};
 captions.forEach((words, i) => {
   tl.fromTo("#cap" + i + " .pill", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.16, ease: "power3.out" }, Math.max(0, words[0] - 0.05));
   words.forEach((t, j) => tl.fromTo("#cw" + i + "_" + j, { color: "${c.captionText}" }, { color: "${c.captionHighlight}", duration: 0.06, immediateRender: false }, t).to("#cw" + i + "_" + j, { color: "${c.captionText}", duration: 0.2 }, t + 0.32));

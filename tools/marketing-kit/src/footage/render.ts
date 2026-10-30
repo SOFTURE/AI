@@ -1,4 +1,4 @@
-import type { Edl } from "./edl.js";
+import { getSoundSpan, type Edl } from "./edl.js";
 import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
 import { volumeExpression, type VolumeKeyframe } from "./music.js";
 
@@ -11,19 +11,38 @@ const MUSIC_FADE_OUT = 1.5;
 
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
 
-/** The speech track: every segment's audio cut from its clip's sound (or cleaned voice) and joined in order. */
+/**
+ * The speech track: every segment's sound cut from its sound span (its own clip's, or `audio`'s: a J/L-cut or b-roll
+ * over speech) and joined in order; `audio.ownVolume` keeps the picture clip's own sound under it.
+ */
 export function buildSpeechArgs(edl: Edl, sources: Record<string, string>, output: string): string[] {
   const inputs: string[] = [];
   const parts: string[] = [];
+  const getSource = (clip: string): string => {
+    const source = sources[clip];
+    if (source === undefined) throw new Error(`No audio for clip "${clip}" of the EDL.`);
+    return source;
+  };
+  const cut = (input: number, span: { start: number; end: number }, duration: number): string =>
+    `[${input}:a]atrim=start=${span.start}:end=${span.end},asetpts=PTS-STARTPTS,aformat=sample_rates=${FOOTAGE_SAMPLE_RATE}:channel_layouts=stereo,apad=whole_dur=${duration}`;
   edl.segments.forEach((segment, index) => {
-    const source = sources[segment.clip];
-    if (source === undefined) throw new Error(`No audio for clip "${segment.clip}" of the EDL.`);
-    inputs.push("-i", source);
+    const sound = getSoundSpan(segment);
     const duration = r3(segment.end - segment.start);
-    parts.push(
-      `[${index}:a]atrim=start=${segment.start}:end=${segment.end},asetpts=PTS-STARTPTS,aformat=sample_rates=${FOOTAGE_SAMPLE_RATE}:channel_layouts=stereo,` +
-        `apad=whole_dur=${duration},afade=t=in:d=${CUT_FADE_SECONDS},afade=t=out:st=${r3(Math.max(0, duration - CUT_FADE_SECONDS))}:d=${CUT_FADE_SECONDS}[a${index}]`,
-    );
+    const fades = `afade=t=in:d=${CUT_FADE_SECONDS},afade=t=out:st=${r3(Math.max(0, duration - CUT_FADE_SECONDS))}:d=${CUT_FADE_SECONDS}`;
+    const input = inputs.length / 2;
+    inputs.push("-i", getSource(sound.clip));
+    const own = segment.audio?.ownVolume ?? 0;
+    // A borrowed span may be a few milliseconds longer than the picture: it is cut to the picture's length.
+    const fit = segment.audio === undefined ? "" : `,atrim=end=${duration}`;
+    if (own <= 0) {
+      parts.push(`${cut(input, sound, duration)}${fit},${fades}[a${index}]`);
+      return;
+    }
+    const ownInput = inputs.length / 2;
+    inputs.push("-i", getSource(segment.clip));
+    parts.push(`${cut(input, sound, duration)},atrim=end=${duration}[s${index}]`);
+    parts.push(`${cut(ownInput, segment, duration)},atrim=end=${duration},volume=${own}[o${index}]`);
+    parts.push(`[s${index}][o${index}]amix=inputs=2:duration=first:normalize=0,${fades}[a${index}]`);
   });
   const joined = edl.segments.map((_, index) => `[a${index}]`).join("");
   const graph = `${parts.join(";")};${joined}concat=n=${edl.segments.length}:v=0:a=1[speech]`;

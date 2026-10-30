@@ -32,14 +32,14 @@ const film: FootageFilm = {
 };
 
 const edl: Edl = {
-  version: 1,
+  version: 2,
   film: "street",
   segments: [
-    { clip: "talk", start: 0.5, end: 2.5, transition: "cut", motion: "none" },
-    { clip: "talk", start: 3, end: 4, transition: "zoom", motion: "none" },
-    { clip: "talk", start: 5, end: 6, transition: "zoom", motion: "none" },
-    { clip: "street", start: 0, end: 3, transition: "fade", motion: "kenburns" },
-    { clip: "talk", start: 7, end: 8, transition: "whoosh", motion: "none" },
+    { id: "g1", clip: "talk", start: 0.5, end: 2.5, transition: "cut", motion: "none" },
+    { id: "g2", clip: "talk", start: 3, end: 4, transition: "zoom", motion: "none" },
+    { id: "g3", clip: "talk", start: 5, end: 6, transition: "zoom", motion: "none" },
+    { id: "g4", clip: "street", start: 0, end: 3, transition: "fade", motion: "kenburns" },
+    { id: "g5", clip: "talk", start: 7, end: 8, transition: "whoosh", motion: "none" },
   ],
 };
 
@@ -72,20 +72,29 @@ describe("composeFootage", () => {
   });
 
   it("plays the segment before a fade on under the incoming one and fades that one in", () => {
-    expect(html).toContain('id="seg2" class="clip shot" src="clips/talk.mp4" data-start="3" data-media-start="5" data-duration="1.35"');
-    expect(html).toContain('tl.fromTo("#seg3", { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "none", immediateRender: false }, 4);');
+    expect(html).toContain('id="seg2" class="clip shot" src="clips/talk.mp4" data-start="3" data-media-start="5" data-duration="1.333"');
+    expect(html).toContain('tl.fromTo("#seg3", { opacity: 0 }, { opacity: 1, duration: 0.333, ease: "none", immediateRender: false }, 4);');
+    const slow = composeFootage(input({ film: { ...film, edit: { fadeFrames: 15 } } }));
+    expect(slow).toContain('{ opacity: 1, duration: 0.5, ease: "none", immediateRender: false }, 4);');
   });
 
-  it("punches in and back out on alternate jump cuts and zooms slowly over b-roll", () => {
-    expect(getSegmentScales(edl)).toEqual([1, 1.12, 1, 1, 1]);
-    expect(html).toContain('data-duration="1" style="transform:scale(1.12)"');
-    expect(html).toContain('tl.fromTo("#seg3", { scale: 1 }, { scale: 1.08, duration: 3, ease: "none", immediateRender: false }, 4);');
+  it("punches in by zoomPercent and back out on alternate jump cuts, and zooms slowly over a kenburns segment", () => {
+    expect(getSegmentScales(edl)).toEqual([1, 1.08, 1, 1, 1]);
+    expect(getSegmentScales(edl, 110)).toEqual([1, 1.1, 1, 1, 1]);
+    expect(html).toContain('data-duration="1" style="transform:scale(1.08)"');
+    // A segment marked by hand zooms 4 % when the film sets no Ken Burns; the film's own percentage wins.
+    expect(html).toContain('tl.fromTo("#seg3", { scale: 1 }, { scale: 1.04, duration: 3, ease: "none", immediateRender: false }, 4);');
+    const wide = composeFootage(input({ film: { ...film, edit: { kenBurnsPercent: 2 } } }));
+    expect(wide).toContain('{ scale: 1.02, duration: 3, ease: "none", immediateRender: false }, 4);');
   });
 
-  it("plays the whoosh on a whoosh cut and at the end card, and the pop after it", () => {
+  it("plays the whoosh on a whoosh cut, and at the end card only when the film asks for it", () => {
     expect(html).toContain('src="assets/sfx/whoosh.mp3" data-start="6.9"');
-    expect(html).toContain('src="assets/sfx/whoosh.mp3" data-start="8"');
-    expect(html).toContain('src="assets/sfx/pop.mp3" data-start="8.9"');
+    expect(html).not.toContain('src="assets/sfx/whoosh.mp3" data-start="8"');
+    expect(html).not.toContain("assets/sfx/pop.mp3");
+    const loud = composeFootage(input({ film: { ...film, edit: { isEndCardWhoosh: true } } }));
+    expect(loud).toContain('src="assets/sfx/whoosh.mp3" data-start="8"');
+    expect(loud).toContain('src="assets/sfx/pop.mp3" data-start="8.9"');
   });
 
   it("lays the cut speech and the ducked music under the film and lasts the cut plus the end card", () => {
@@ -101,9 +110,14 @@ describe("composeFootage", () => {
     expect(html).not.toContain('id="ec-note"');
   });
 
-  it("captions the words with the highlight", () => {
-    expect(html).toContain('<p class="pill"><span id="cw0_0">Hello,</span></p>');
-    expect(html).toContain('const captions = [[0.1],[0.6]];');
+  it("captions the words as plain phrases by default, and with the highlight on request", () => {
+    // A one-word phrase joins the phrase before it.
+    expect(html).toContain('<p class="phrase">Hello, to</p>');
+    expect(html).not.toContain('class="pill"');
+    expect(html).toContain("const captions = [];");
+    const highlight = composeFootage(input({ film: { ...film, captionStyle: "highlight" } }));
+    expect(highlight).toContain('<p class="pill"><span id="cw0_0">Hello,</span></p>');
+    expect(highlight).toContain("const captions = [[0.1],[0.6]];");
   });
 
   it("drops captions, music and the end card when the film has none", () => {

@@ -12,9 +12,10 @@ import { err, ok, type TtsResult } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
-import { buildEdl, findEdlProblems, readEdl, remapWords, type Edl } from "./edl.js";
+import { findMissingCaptionGlyphs, getCaptionPresetLayout } from "./captions.js";
+import { buildEdl, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
-import type { FootageClip, FootageFilm } from "./film.js";
+import { getFootageEdit, type FootageClip, type FootageFilm } from "./film.js";
 import { DEFAULT_LOUDNESS, normalizeLoudness } from "./loudness.js";
 import { duckingKeyframes } from "./music.js";
 import { normalizeFootage, type Frame } from "./normalize.js";
@@ -31,6 +32,7 @@ import {
   type CacheEntry,
 } from "./paid.js";
 import { runFfmpeg, runProcess } from "./process.js";
+import { splitFilmSentences, type Sentence } from "./sentences.js";
 import {
   buildCoverArgs,
   buildFinishArgs,
@@ -347,13 +349,19 @@ export async function transcribeFootage(film: FootageFilm, clips: PreparedClip[]
   return ok({ kind: "ready", words, speech });
 }
 
-/** The cut from the transcripts, written to the EDL file (replacing what is there). */
-export function cutFootage(film: FootageFilm, clips: PreparedClip[], words: Record<string, TimedWord[]>, edlPath: string): Edl {
+/** The talking clips' sentences with their ids (`s1`…), as `buildEdl` names them, for choosing what to keep. */
+export function getFootageSentences(clips: PreparedClip[], words: Record<string, TimedWord[]>): Sentence[] {
+  return splitFilmSentences(clips.map((clip) => ({ id: clip.clip.id, role: clip.clip.role, words: words[clip.clip.id] ?? [] })));
+}
+
+/** The cut from the transcripts, written to the EDL file (replacing what is there); `keepSentences` keeps only those sentences. */
+export function cutFootage(film: FootageFilm, clips: PreparedClip[], words: Record<string, TimedWord[]>, edlPath: string, options: { keepSentences?: readonly string[] } = {}): Edl {
   const edl = buildEdl(
     film.id,
     clips.map((clip) => ({ id: clip.clip.id, role: clip.clip.role, duration: clip.duration, words: words[clip.clip.id] ?? [] })),
     film.cut,
     film.transitions,
+    { isKenBurns: getFootageEdit(film).kenBurnsPercent > 0, ...(options.keepSentences === undefined ? {} : { keepSentences: options.keepSentences }) },
   );
   mkdirSync(dirname(edlPath), { recursive: true });
   writeFileSync(edlPath, `${JSON.stringify(edl, null, 2)}\n`);
@@ -370,7 +378,7 @@ export function readEdlFile(film: FootageFilm, clips: PreparedClip[], edlPath: s
   }
   const read = readEdl(json);
   if (!read.ok) return err(`${edlPath}: ${read.error}`);
-  const problems = findEdlProblems(read.edl, clips.map((clip) => ({ id: clip.clip.id, duration: clip.duration })), film.id);
+  const problems = validateEdl(read.edl, clips.map((clip) => ({ id: clip.clip.id, duration: clip.duration })), film.id);
   return problems.length > 0 ? err(`${edlPath}: ${problems.join("; ")}`) : ok(read.edl);
 }
 
@@ -509,7 +517,19 @@ export async function renderFootage(
     sfx[event] = `assets/sfx/${name}`;
   }
   cpSync(require.resolve("gsap/dist/gsap.min.js"), join(assetsDir, "gsap.min.js"));
-  const layout = resolveLayout(film.format, options.layout ?? {});
+  const base = resolveLayout(film.format, options.layout ?? {});
+  // A caption preset places the 9:16 box in a platform's safe zone; the project's own caption override still wins.
+  const preset = film.captionPreset === undefined || film.format !== "9:16" ? null : getCaptionPresetLayout(film.captionPreset, base.caption.fontSize);
+  const layout = preset === null || options.layout?.caption !== undefined ? base : { ...base, caption: preset };
+  const missing = findMissingCaptionGlyphs({
+    fonts: options.brand.fonts,
+    captions: film.captions ? words.map((word) => word.text) : [],
+    endCard: film.endCard,
+    brandName: options.brand.name,
+  });
+  if (missing.length > 0) {
+    return err(`the brand fonts cannot draw every letter of the film: ${missing.map((entry) => `${entry.font} lacks ${entry.characters.join(" ")}`).join("; ")}. Add a font file that covers them (brand.fonts).`);
+  }
   const html = composeFootage({
     film,
     edl,
@@ -637,6 +657,8 @@ async function runHyperframesRender(options: RenderFootageOptions, output: strin
 export interface RenderFootageFilmOptions extends RenderFootageOptions {
   /** Build the EDL again even when the build folder holds one (by default a present EDL, maybe edited by hand, is used). */
   isRecut?: boolean;
+  /** When the EDL is built: the sentence ids to keep (`getFootageSentences`, `findRetakes`); absent keeps all. */
+  keepSentences?: readonly string[];
 }
 
 /**
@@ -657,7 +679,7 @@ export async function renderFootageFilm(film: FootageFilm, options: RenderFootag
     edl = read.value;
     options.log(`cut: ${edlPath} (${edl.segments.length} segments), as it is; softure-marketing footage --step=cut builds it again.`);
   } else {
-    edl = cutFootage(film, clips.value, transcript.value.words, edlPath);
+    edl = cutFootage(film, clips.value, transcript.value.words, edlPath, options.keepSentences === undefined ? {} : { keepSentences: options.keepSentences });
     options.log(`cut: ${edl.segments.length} segments written to ${edlPath}.`);
   }
   return renderFootage(film, clips.value, transcript.value, edl, options);

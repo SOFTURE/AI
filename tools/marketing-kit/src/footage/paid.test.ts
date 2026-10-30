@@ -81,11 +81,13 @@ describe("findCachedStep", () => {
 
     const scored = film({ music: { source: { kind: "video", description: "", tags: [] }, volume: 0.3, duckedVolume: 0.1 } });
     expect(await findCachedStep(scored, "music", "film", options())).toBe(false);
-    const edl = { version: 1 as const, film: "street", segments: [{ clip: "talk", start: 0, end: 2, transition: "cut" as const, motion: "none" as const }] };
+    // A version 1 file (no ids) and the same cut with ids share the key: music bought for it is not bought again.
+    const file = { version: 1, film: "street", segments: [{ clip: "talk", start: 0, end: 2, transition: "cut", motion: "none" }] };
     mkdirSync(join(dir, "build"), { recursive: true });
-    writeFileSync(getEdlPath(join(dir, "build"), false), JSON.stringify(edl));
+    writeFileSync(getEdlPath(join(dir, "build"), false), JSON.stringify(file));
     const clip = scored.clips[0];
     if (clip === undefined) throw new Error("no clip");
+    const edl = { version: 2 as const, film: "street", segments: [{ id: "s1", clip: "talk", start: 0, end: 2, transition: "cut" as const, motion: "none" as const }] };
     const { path } = getVideoMusicCache(scored, edl, { talk: await getClipCacheKey(clip.source, clip) }, options());
     writeFileSync(path, "music");
     expect(await findCachedStep(scored, "music", "film", options())).toBe(true);

@@ -4,11 +4,11 @@ import type { Edl } from "./edl.js";
 import { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs } from "./render.js";
 
 const edl: Edl = {
-  version: 1,
+  version: 2,
   film: "film",
   segments: [
-    { clip: "talk", start: 0.5, end: 2, transition: "cut", motion: "none" },
-    { clip: "street", start: 0, end: 3, transition: "fade", motion: "kenburns" },
+    { id: "g1", clip: "talk", start: 0.5, end: 2, transition: "cut", motion: "none" },
+    { id: "g2", clip: "street", start: 0, end: 3, transition: "fade", motion: "kenburns" },
   ],
 };
 
@@ -24,6 +24,25 @@ describe("buildSpeechArgs", () => {
 
   it("refuses a segment of a clip without audio", () => {
     expect(() => buildSpeechArgs(edl, { talk: "/a.mp3" }, "/out.mp3")).toThrow('No audio for clip "street" of the EDL.');
+  });
+});
+
+describe("buildSpeechArgs with borrowed sound", () => {
+  it("cuts the sound from the other clip's span and mixes the picture clip's own sound under it", () => {
+    const cut: Edl = {
+      version: 2,
+      film: "film",
+      segments: [
+        { id: "s1", clip: "talk", start: 0.5, end: 2, transition: "cut", motion: "none" },
+        { id: "r1", clip: "street", start: 0, end: 2, transition: "cut", motion: "none", audio: { clip: "talk", start: 3, end: 5, ownVolume: 0.2 } },
+      ],
+    };
+    const args = buildSpeechArgs(cut, { talk: "/a/talk.mp3", street: "clips/street.mp4" }, "/out/speech.mp3");
+    expect(args.slice(3, 9)).toEqual(["-i", "/a/talk.mp3", "-i", "/a/talk.mp3", "-i", "clips/street.mp4"]);
+    const graph = args[args.indexOf("-filter_complex") + 1] ?? "";
+    expect(graph).toContain("[1:a]atrim=start=3:end=5,asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,apad=whole_dur=2,atrim=end=2[s1]");
+    expect(graph).toContain("[2:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,apad=whole_dur=2,atrim=end=2,volume=0.2[o1]");
+    expect(graph).toContain("[s1][o1]amix=inputs=2:duration=first:normalize=0,afade=t=in:d=0.02,afade=t=out:st=1.98:d=0.02[a1]");
   });
 });
 

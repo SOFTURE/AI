@@ -2744,8 +2744,8 @@
             "type": "object",
             "properties": {
               "jump": {
-                "default": "zoom",
-                "description": "A cut inside one talking clip: cut, fade, zoom (a punch-in, the default) or whoosh.",
+                "default": "cut",
+                "description": "A cut inside one talking clip: cut (the default), fade, zoom (a punch-in) or whoosh.",
                 "type": "string",
                 "enum": [
                   "cut",
@@ -2755,8 +2755,8 @@
                 ]
               },
               "clip": {
-                "default": "fade",
-                "description": "A cut from one clip to the next: cut, fade (the default), zoom or whoosh.",
+                "default": "cut",
+                "description": "A cut from one clip to the next: cut (the default), fade, zoom or whoosh.",
                 "type": "string",
                 "enum": [
                   "cut",
@@ -2822,8 +2822,61 @@
           },
           "captions": {
             "default": true,
-            "description": "Word-by-word captions from the transcript (default true).",
+            "description": "Captions from the transcript (default true).",
             "type": "boolean"
+          },
+          "captionStyle": {
+            "default": "phrase",
+            "description": "phrase (the default): 2-6 words of plain text with a soft shadow; highlight: a pill that lights each word as it is said.",
+            "type": "string",
+            "enum": [
+              "phrase",
+              "highlight"
+            ]
+          },
+          "captionPreset": {
+            "description": "Keeps a 9:16 film's captions inside a platform's safe zone: reels, shorts, tiktok or all; without it, layout decides.",
+            "type": "string",
+            "enum": [
+              "reels",
+              "shorts",
+              "tiktok",
+              "all"
+            ]
+          },
+          "edit": {
+            "description": "The cut's look; the defaults read as an ordinary phone video.",
+            "default": {},
+            "type": "object",
+            "properties": {
+              "zoomPercent": {
+                "default": 108,
+                "description": "How far a zoom cut punches in (105-110 %, default 108).",
+                "type": "number",
+                "minimum": 105,
+                "maximum": 110
+              },
+              "fadeFrames": {
+                "default": 10,
+                "description": "A fade cut's length in frames at 30 fps (1-30, default 10).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 30
+              },
+              "kenBurnsPercent": {
+                "default": 0,
+                "description": "How far b-roll zooms over its length (0-5 %, default 0: still).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 5
+              },
+              "endCardWhoosh": {
+                "default": false,
+                "description": "Play the whoosh and pop as the end card comes in (default false).",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
           },
           "endCard": {
             "description": "The closing card after the last segment; without it, the film ends with its last segment.",

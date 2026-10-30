@@ -85,7 +85,9 @@ export function getVideoMusicCache(film: FootageFilm, edl: Edl, clipKeys: Record
   const { music } = options.providers;
   const description = source.kind === "video" ? source.description : "";
   const tags = source.kind === "video" ? source.tags : [];
-  const key = footageCacheKey("music", { segments: edl.segments, clips: clipKeys, description, tags, provider: music.id, model: music.model });
+  // The music is scored to the picture alone: ids and sound spans stay out, so an EDL from before ids keeps its key.
+  const segments = edl.segments.map(({ clip, start, end, transition, motion }) => ({ clip, start, end, transition, motion }));
+  const key = footageCacheKey("music", { segments, clips: clipKeys, description, tags, provider: music.id, model: music.model });
   return { key, path: getFootageCachePath(options.cacheDir, film.id, "music", key) };
 }
 

@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { renderMarketingJsonSchema, SCHEMA_FILE } from "../scripts/write-schema.js";
+import { EDL_SCHEMA_FILE, renderEdlJsonSchema, renderMarketingJsonSchema, SCHEMA_FILE } from "../scripts/write-schema.js";
 import { loadMarketingConfig } from "../src/config/config.js";
 import { MARKETING_SCHEMA_URL } from "../src/config/schema.js";
 
@@ -51,6 +51,14 @@ describe("schema/marketing.schema.json", () => {
   it("describes the file and every key a project writes", () => {
     const schema = readSchemaFile();
     expect(hasDescription(schema)).toBe(true);
+    expect(findUndescribedKeys(schema)).toEqual([]);
+  });
+});
+
+describe("schema/edl.schema.json", () => {
+  it("matches the EDL's zod schema and describes every key an agent edits", () => {
+    expect(readFileSync(EDL_SCHEMA_FILE, "utf8")).toBe(renderEdlJsonSchema());
+    const schema = JSON.parse(readFileSync(EDL_SCHEMA_FILE, "utf8")) as Record<string, unknown>;
     expect(findUndescribedKeys(schema)).toEqual([]);
   });
 });

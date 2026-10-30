@@ -88,8 +88,14 @@ export interface FootageFilm {
   cut: CutOptions;
   transitions: FootageTransitions;
   music: FootageMusic;
-  /** Word-by-word captions from the transcript. */
+  /** Captions from the transcript. */
   captions: boolean;
+  /** `phrase` (the default): 2-6 words of plain text with a soft shadow; `highlight`: a pill that lights each word as it is said. */
+  captionStyle?: CaptionStyle;
+  /** Places the 9:16 caption box inside a platform's safe zone (`CAPTION_SAFE_ZONES`); absent: the layout as it is. */
+  captionPreset?: CaptionPreset;
+  /** The cut's look: zoom size, fade length, Ken Burns, the end card's whoosh. Absent fields take `DEFAULT_EDIT`. */
+  edit?: Partial<FootageEdit>;
   /** The closing card after the last segment; null: the film ends with its last segment. */
   endCard: EndCard | null;
   /** The speech track's loudness, normalized before the music is mixed under it. Absent: −14 LUFS, −1 dBTP; null: left as filmed. */
@@ -114,6 +120,33 @@ export function getDefaultFillers(language: string): string[] {
 
 export const DEFAULT_CUT: Omit<CutOptions, "fillers"> = { pauseSeconds: 0.6, padSeconds: 0.12, maxSeconds: null };
 
-export const DEFAULT_TRANSITIONS: FootageTransitions = { jump: "zoom", clip: "fade" };
+/** Hard cuts everywhere: an ordinary phone video, not a promo. */
+export const DEFAULT_TRANSITIONS: FootageTransitions = { jump: "cut", clip: "cut" };
+
+export const CAPTION_STYLES = ["phrase", "highlight"] as const;
+
+export type CaptionStyle = (typeof CAPTION_STYLES)[number];
+
+export const CAPTION_PRESETS = ["reels", "shorts", "tiktok", "all"] as const;
+
+export type CaptionPreset = (typeof CAPTION_PRESETS)[number];
+
+export interface FootageEdit {
+  /** How far a `zoom` cut punches in, in percent of the frame (105-110). */
+  zoomPercent: number;
+  /** A `fade` cut's length in frames at 30 fps (1-30). */
+  fadeFrames: number;
+  /** How far b-roll zooms over its length (0-5 %); 0 keeps b-roll still and `buildEdl` marks none `kenburns`. */
+  kenBurnsPercent: number;
+  /** Play the whoosh (and pop) as the end card comes in. */
+  isEndCardWhoosh: boolean;
+}
+
+export const DEFAULT_EDIT: FootageEdit = { zoomPercent: 108, fadeFrames: 10, kenBurnsPercent: 0, isEndCardWhoosh: false };
+
+/** The film's edit settings with the defaults filled in. */
+export function getFootageEdit(film: Pick<FootageFilm, "edit">): FootageEdit {
+  return { ...DEFAULT_EDIT, ...film.edit };
+}
 
 export const DEFAULT_MUSIC_VOLUME = { volume: 0.35, duckedVolume: 0.1 } as const;

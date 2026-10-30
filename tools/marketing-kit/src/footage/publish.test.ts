@@ -141,11 +141,11 @@ describe("findFinishProblems", () => {
 
 describe("the cover", () => {
   const edl: Edl = {
-    version: 1,
+    version: 2,
     film: "film",
     segments: [
-      { clip: "street", start: 0, end: 3, transition: "cut", motion: "kenburns" },
-      { clip: "talk", start: 1, end: 5, transition: "fade", motion: "none" },
+      { id: "g1", clip: "street", start: 0, end: 3, transition: "cut", motion: "kenburns" },
+      { id: "g2", clip: "talk", start: 1, end: 5, transition: "fade", motion: "none" },
     ],
   };
 

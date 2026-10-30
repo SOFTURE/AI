@@ -230,6 +230,9 @@ function resolveFootage(data: MarketingJson, at: (relative: string) => string): 
           ? { source: { kind: "none" }, ...DEFAULT_MUSIC_VOLUME }
           : { source: resolveMusicSource(film.music, at), volume: film.music.volume, duckedVolume: film.music.duckedVolume },
       captions: film.captions,
+      captionStyle: film.captionStyle,
+      ...(film.captionPreset === undefined ? {} : { captionPreset: film.captionPreset }),
+      edit: { zoomPercent: film.edit.zoomPercent, fadeFrames: film.edit.fadeFrames, kenBurnsPercent: film.edit.kenBurnsPercent, isEndCardWhoosh: film.edit.endCardWhoosh },
       endCard: film.endCard ?? null,
       loudness: film.loudness === false ? null : film.loudness,
       cover: film.cover === false ? null : film.cover,
