@@ -6,14 +6,22 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { prepareFixture, prepareFootageFixture } from "../examples/fixture/prepare.js";
+import { findFootage, loadMarketingConfig } from "../src/config/config.js";
+import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProvider } from "../src/footage/fake.js";
+import { estimateFootageFilm, findCachedStep } from "../src/footage/paid.js";
+import { renderFootageFilm, type RenderFootageFilmOptions } from "../src/footage/pipeline.js";
 import { probeFile } from "../src/footage/probe.js";
+import type { FootageCharge, FootageProgress } from "../src/footage/providers.js";
+import { checkFootageTools } from "../src/footage/tools.js";
 
 /**
  * The whole pipeline on the fixture film: start the fixture app, record it frame by frame, compose
  * and render a draft MP4 with hyperframes, write the post copy; then record the film's JSON twin
  * (beat actions instead of the scene module) and compare the two recording logs; then record and render the same
- * scene as a desktop film in a browser window (16:9); and the fixture footage film from generated phone clips, rehearsed
- * with --placeholder after a dry run that pays nothing.
+ * scene as a desktop film in a browser window (16:9). Apart from those, the fixture footage film from generated phone
+ * clips: rehearsed with --placeholder after a dry run that pays nothing, then run as a jobs worker would (estimate in
+ * credits, fake paid providers, progress, charges, an aborted render). The worker image's CI job runs only the footage
+ * films (`-t "fixture footage film"`).
  *
  * Opt-in (`MARKETING_KIT_RENDER=1`): it needs ffmpeg, a Chromium for Playwright
  * (`PLAYWRIGHT_CHROMIUM_PATH` or Playwright's own) and a Chrome for hyperframes
@@ -107,15 +115,17 @@ describe.runIf(isEnabled)("softure-marketing all on the fixture film", () => {
       rmSync(rehearsal, { recursive: true, force: true });
     }
   }, 600_000);
+});
 
-  it("cuts the fixture footage film from phone clips on placeholder transcripts and renders it", () => {
+describe.runIf(isEnabled)("the fixture footage film", () => {
+  it("cuts the fixture footage film from phone clips on placeholder transcripts and renders it", async () => {
     const footage = mkdtempSync(join(tmpdir(), "marketing-kit-footage-"));
     try {
       const { config } = prepareFixture(footage);
       prepareFootageFixture(footage);
       // The generated clips are what a phone writes: a rotation in the display matrix, and HLG HDR.
-      const talk = probeFile(join(footage, "footage", "talk.mp4"));
-      const sunset = probeFile(join(footage, "footage", "sunset.mp4"));
+      const talk = await probeFile(join(footage, "footage", "talk.mp4"));
+      const sunset = await probeFile(join(footage, "footage", "sunset.mp4"));
       expect(talk.ok && [talk.probe.rotation, talk.probe.displayWidth, talk.probe.displayHeight]).toEqual([90, 540, 960]);
       expect(sunset.ok && sunset.probe.hdr).toBe("hlg");
       const main = join(PACKAGE_DIR, "src", "cli", "main.ts");
@@ -141,6 +151,77 @@ describe.runIf(isEnabled)("softure-marketing all on the fixture film", () => {
       expect(edl.segments.map((segment) => `${segment.clip}:${segment.transition}`)).toEqual(["talk:cut", "talk:zoom", "street:whoosh", "sunset:whoosh"]);
       expect(readFileSync(join(footage, "out", "fixture-footage", "posts.md"), "utf8")).toContain("Filmed on a phone, cut by its transcript.");
       expect(existsSync(join(footage, "voiceover", "fixture-footage"))).toBe(false);
+    } finally {
+      rmSync(footage, { recursive: true, force: true });
+    }
+  }, 600_000);
+
+  it("runs the fixture footage film as a jobs worker would: estimate, progress, charges, abort", async () => {
+    const footage = mkdtempSync(join(tmpdir(), "marketing-kit-worker-"));
+    try {
+      expect(await checkFootageTools()).toEqual([]);
+      const { config } = prepareFixture(footage);
+      prepareFootageFixture(footage);
+      const loaded = loadMarketingConfig(config);
+      if (!loaded.ok) throw new Error("the fixture config does not load");
+      const film = findFootage(loaded.config, "fixture-footage");
+      if (film === null) throw new Error("no fixture footage film");
+      const providers = {
+        stt: createFakeSttProvider({ transcripts: { talk: [{ text: "Hello", start: 0.5, end: 1 }, { text: "today.", start: 1.2, end: 1.8 }] }, credits: 42 }),
+        isolation: createFakeIsolationProvider(),
+        music: createFakeMusicProvider(),
+      };
+      const cacheDir = join(footage, "cache");
+      const buildDir = join(footage, "build", "worker");
+      const rates = { transcribe: 2, isolate: 1, music: 5 };
+
+      // Before anything runs: probes only, nothing normalized, nothing paid.
+      const estimate = await estimateFootageFilm(film, { cacheDir, providers, rates, buildDir });
+      expect(estimate).toEqual({
+        ok: true,
+        value: { items: [{ step: "transcribe", item: "talk", provider: "fake", units: 7, unit: "seconds", credits: 14, cached: false }], totalCredits: 14 },
+      });
+      expect(existsSync(join(buildDir, "clips"))).toBe(false);
+
+      const progress: FootageProgress[] = [];
+      const charges: FootageCharge[] = [];
+      const controller = new AbortController();
+      const run: RenderFootageFilmOptions = {
+        buildDir,
+        cacheDir,
+        providers,
+        isCommit: true,
+        isPlaceholder: false,
+        log: () => undefined,
+        signal: controller.signal,
+        onProgress: (entry) => {
+          progress.push(entry);
+          // Stops the film once hyperframes has started: the render must end at once and leave no partial MP4.
+          if (entry.step === "render" && entry.done === 0) controller.abort();
+        },
+        onCharge: (charge) => charges.push(charge),
+        brand: { name: "Fixture", locale: "en-US", colors: loaded.config.brand.colors, fonts: loaded.config.brand.fonts, logo: loaded.config.brand.logo },
+        sfx: loaded.config.sfx,
+        quality: "draft",
+        output: join(footage, "out", "worker.mp4"),
+      };
+      await expect(renderFootageFilm(film, run)).rejects.toThrow(/abort/i);
+      expect(existsSync(run.output)).toBe(false);
+      expect(charges).toEqual([{ step: "transcribe", item: "talk", provider: "fake", units: 7, credits: 42, cacheKey: expect.stringMatching(/^[0-9a-f]{16}$/) as string }]);
+      const normalized = progress.filter((entry) => entry.step === "normalize");
+      expect(normalized.at(-1)).toEqual({ step: "normalize", item: "sunset", itemIndex: 3, itemCount: 3, done: 12.5, total: 12.5 });
+      expect(new Set(progress.map((entry) => entry.step))).toEqual(new Set(["normalize", "transcribe", "assets", "render"]));
+      expect(await findCachedStep(film, "transcribe", "talk", { cacheDir, providers, buildDir })).toBe(true);
+
+      // The paid step is cached now: the estimate costs nothing, and the second run renders without paying again.
+      const cached = await estimateFootageFilm(film, { cacheDir, providers, rates, buildDir });
+      expect(cached.ok && cached.value.totalCredits).toBe(0);
+      const rendered = await renderFootageFilm(film, { ...run, signal: new AbortController().signal, onProgress: (entry) => progress.push(entry) });
+      expect(rendered.ok && rendered.value.kind).toBe("rendered");
+      expect(charges).toHaveLength(1);
+      expect(progress.filter((entry) => entry.step === "render").at(-1)).toMatchObject({ itemIndex: 1, itemCount: 1 });
+      const video = probe(run.output);
+      expect(video.streams.find((entry) => entry.codec_type === "video")).toMatchObject({ width: 1080, height: 1920 });
     } finally {
       rmSync(footage, { recursive: true, force: true });
     }

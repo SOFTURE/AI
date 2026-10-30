@@ -1,7 +1,6 @@
-import { spawnSync } from "node:child_process";
-
 import type { ClipFit, FootageClip } from "./film.js";
 import { getTrimmedDuration, type FootageProbe, type HdrKind } from "./probe.js";
+import { runFfmpeg, type FfmpegRunOptions } from "./process.js";
 
 /**
  * One intermediate format for every clip, so the composition can cut between them freely: the film's frame at
@@ -123,11 +122,10 @@ export function buildNormalizeArgs(input: NormalizeInput): string[] {
   ];
 }
 
-/** Runs ffmpeg for one clip; throws with the clip's id when it fails (a broken file is not an expected outcome here). */
-export function normalizeFootage(input: NormalizeInput): void {
-  const result = spawnSync("ffmpeg", buildNormalizeArgs(input), { stdio: ["ignore", "inherit", "inherit"] });
-  if (result.error !== undefined) throw new Error(`Normalizing clip ${input.clip.id}: ffmpeg did not start (${result.error.message}).`);
-  if (result.status !== 0) {
-    throw new Error(`Normalizing clip ${input.clip.id} (${input.file}): ffmpeg ended with code ${String(result.status)} (signal ${result.signal ?? "-"}).`);
-  }
+/**
+ * Runs ffmpeg for one clip without blocking; throws with the clip's id when it fails (a broken file is not an expected
+ * outcome here). An abort removes the partial output and rejects with the signal's reason.
+ */
+export async function normalizeFootage(input: NormalizeInput, options: Omit<FfmpegRunOptions, "output"> = {}): Promise<void> {
+  await runFfmpeg(`Normalizing clip ${input.clip.id} (${input.file})`, buildNormalizeArgs(input), { ...options, output: input.output });
 }

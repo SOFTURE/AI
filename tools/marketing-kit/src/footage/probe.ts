@@ -1,8 +1,7 @@
-import { spawnSync } from "node:child_process";
-
 import { z } from "zod";
 
 import type { FootageClip } from "./film.js";
+import { runProcess } from "./process.js";
 
 /**
  * What ffprobe says about a clip, reduced to what the footage pipeline needs: its length, its picture as it is
@@ -102,11 +101,11 @@ export function readFootageProbe(json: unknown): ProbeResult {
   };
 }
 
-/** Runs ffprobe on one file; an error names the file and the reason. */
-export function probeFile(path: string): ProbeResult {
-  const result = spawnSync("ffprobe", ["-v", "error", "-show_streams", "-show_format", "-of", "json", path], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
-  if (result.error !== undefined) return { ok: false, error: `ffprobe did not start for ${path}: ${result.error.message}` };
-  if (result.status !== 0) return { ok: false, error: `ffprobe cannot read ${path}: ${result.stderr.trim() || `code ${String(result.status)}`}` };
+/** Runs ffprobe on one file (or URL) without blocking; an error names the file and the reason. Rejects only on abort. */
+export async function probeFile(path: string, options: { signal?: AbortSignal } = {}): Promise<ProbeResult> {
+  const result = await runProcess({ command: "ffprobe", args: ["-v", "error", "-show_streams", "-show_format", "-of", "json", path], ...options });
+  if (result.kind === "not-started") return { ok: false, error: `ffprobe did not start for ${path}: ${result.error}` };
+  if (result.code !== 0) return { ok: false, error: `ffprobe cannot read ${path}: ${result.stderr.trim() || `code ${String(result.code)}`}` };
   let json: unknown;
   try {
     json = JSON.parse(result.stdout);
@@ -146,12 +145,16 @@ export interface ProbedClip {
  * Probes every clip and reports every problem at once, before anything is paid for. `files` maps a clip id to its
  * local file (a URL's downloaded copy).
  */
-export function probeFootage(clips: FootageClip[], files: Record<string, string>): { ok: true; clips: ProbedClip[] } | { ok: false; errors: string[] } {
+export async function probeFootage(
+  clips: FootageClip[],
+  files: Record<string, string>,
+  options: { signal?: AbortSignal } = {},
+): Promise<{ ok: true; clips: ProbedClip[] } | { ok: false; errors: string[] }> {
   const probed: ProbedClip[] = [];
   const errors: string[] = [];
   for (const clip of clips) {
     const file = files[clip.id] ?? clip.source;
-    const result = probeFile(file);
+    const result = await probeFile(file, options);
     if (!result.ok) {
       errors.push(`clip "${clip.id}": ${result.error}`);
       continue;
