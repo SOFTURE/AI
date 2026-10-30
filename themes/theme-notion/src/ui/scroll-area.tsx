@@ -8,9 +8,12 @@ function ScrollArea({
   className,
   children,
   viewportProps,
+  scrollbars = "vertical",
   ...props
 }: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
   viewportProps?: React.ComponentProps<typeof ScrollAreaPrimitive.Viewport>
+  // Which bars it draws: `horizontal` for a strip wider than its box, `both` for a table.
+  scrollbars?: "vertical" | "horizontal" | "both"
 }) {
   return (
     <ScrollAreaPrimitive.Root
@@ -30,7 +33,8 @@ function ScrollArea({
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
+      {scrollbars !== "horizontal" && <ScrollBar />}
+      {scrollbars !== "vertical" && <ScrollBar orientation="horizontal" />}
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   )

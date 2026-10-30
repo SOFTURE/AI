@@ -278,7 +278,7 @@ export const CVA_AXES: Readonly<Record<string, { readonly component: string; rea
   itemVariants: { component: "Item", axes: { variant: ["default", "outline", "muted"], size: ["default", "sm"] } },
   itemMediaVariants: { component: "ItemMedia", axes: { variant: ["default", "icon", "image"] } },
   sidebarMenuButtonVariants: { component: "SidebarMenuButton", axes: { variant: ["default", "outline"], size: ["default", "sm", "lg"] } },
-  tabsListVariants: { component: "TabsList", axes: { variant: ["default", "line"], size: ["default", "touch"] } },
+  tabsListVariants: { component: "TabsList", axes: { variant: ["default", "line"], size: ["default", "touch"], scrollable: ["false", "true"] } },
 };
 
 type Options = Readonly<Record<string, string>>;
@@ -975,6 +975,22 @@ const UI_CASES: readonly GalleryCase[] = [
       </ScrollArea>
     ),
   },
+  {
+    name: "ScrollArea[scrollbars=horizontal]",
+    component: "ScrollArea",
+    root: '[data-slot="scroll-area"]',
+    render: () => (
+      <ScrollArea scrollbars="horizontal" className="w-64 rounded-md border">
+        <div className="flex w-max gap-2 p-3">
+          {Array.from({ length: 8 }, (_, card) => (
+            <div key={card} className="w-24 shrink-0 rounded-md bg-muted p-2 text-ui">
+              Card {card + 1}
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+    ),
+  },
   ...(["default", "sm", "touch"] as const).map(
     (size): GalleryCase => ({
       name: `SelectTrigger[size=${size}]`,
@@ -1273,6 +1289,21 @@ const UI_CASES: readonly GalleryCase[] = [
       <TabsContent value="pages">Twelve pages.</TabsContent>
       <TabsContent value="files">Three files.</TabsContent>
     </Tabs>
+  )),
+  // The scrollable list has more tabs than fit its 288 px grid cell and scrolls; the plain one has as many as fit.
+  ...axis("tabsListVariants", "scrollable", '[data-slot="tabs"]', (scrollable) => (
+    <div className="grid w-72">
+      <Tabs defaultValue="invoices">
+        <TabsList scrollable={scrollable === "true"}>
+          {(scrollable === "true" ? ["Overview", "Projects", "Tasks", "Documents", "Invoices", "Settings"] : ["Tasks", "Invoices"]).map((tab) => (
+            <TabsTrigger key={tab} value={tab.toLowerCase()}>
+              {tab}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent value="invoices">Four invoices.</TabsContent>
+      </Tabs>
+    </div>
   )),
   {
     name: "Tabs[orientation=vertical]",

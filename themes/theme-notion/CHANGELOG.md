@@ -16,6 +16,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   least the touch target high, that shows and hides the entry's `children`; `fold` and `onSelect` exclude each other.
   `FoldRow` gains `size="touch"`: the summary is at least 44 px high (`min-h-touch-target`). Defaults render the
   same classes (`min-h-row-height` moves to the end of the summary's class list).
+- A scrollable tab strip (#908): `TabsList` (and `tabsListVariants`) gains `scrollable`. The list keeps to its
+  container's width, scrolls sideways, keeps each trigger at its own width (and room under the line variant's
+  underline), and scrolls the active tab into the middle when it changes; the `Tabs` root takes
+  `has-data-[scrollable=true]:min-w-0`, so a grid or flex parent no longer widens to the tabs. `ScrollArea` gains
+  `scrollbars` (`"vertical"`, `"horizontal"` or `"both"`).
 
 ## 0.10.1
 

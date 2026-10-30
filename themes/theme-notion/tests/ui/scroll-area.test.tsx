@@ -19,3 +19,27 @@ describe("ScrollArea", () => {
     expect(html).not.toContain('tabindex="0"');
   });
 });
+
+describe("ScrollArea scrollbars", () => {
+  // Radix mounts a scrollbar only once it measures an overflow; `type="always"` keeps it mounted in the test DOM.
+  function readBars(scrollbars?: "vertical" | "horizontal" | "both"): string[] {
+    const html = renderToStaticMarkup(
+      <ScrollArea type="always" {...(scrollbars === undefined ? {} : { scrollbars })}>
+        Text
+      </ScrollArea>,
+    );
+    return [...html.matchAll(/data-orientation="(\w+)"[^>]*data-slot="scroll-area-scrollbar"|data-slot="scroll-area-scrollbar"[^>]*data-orientation="(\w+)"/g)].map((match) => match[1] ?? match[2] ?? "");
+  }
+
+  it("draws a vertical bar by default", () => {
+    expect(readBars()).toEqual(["vertical"]);
+  });
+
+  it("draws a horizontal bar for a strip wider than its box", () => {
+    expect(readBars("horizontal")).toEqual(["horizontal"]);
+  });
+
+  it("draws both bars for content that scrolls both ways", () => {
+    expect(readBars("both")).toEqual(["vertical", "horizontal"]);
+  });
+});

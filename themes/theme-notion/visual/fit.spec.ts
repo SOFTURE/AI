@@ -125,3 +125,44 @@ test(`a mini progress with a long label stays within a ${CELL_WIDTH} px cell`, a
     expect(label.overflow).toBe("ellipsis");
   }
 });
+
+interface TabsFit {
+  readonly cell: Box;
+  readonly list: Box;
+  readonly active: Box;
+  readonly root: Box;
+  readonly isScrolled: boolean;
+}
+
+// Geometry, not pixels (#908): a scrollable tab strip with more tabs than fit keeps to its grid cell, so neither the
+// `Tabs` root nor the page around it widens, and the active tab (the fifth of six) is scrolled into view.
+test("a scrollable tab strip keeps to its cell and shows its active tab", async ({ page }) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+
+  const fit = await page.evaluate((): TabsFit => {
+    const list = document.querySelector<HTMLElement>('[data-slot="tabs-list"][data-scrollable="true"]');
+    const root = list?.closest('[data-slot="tabs"]');
+    const cell = root?.parentElement;
+    const active = list?.querySelector<HTMLElement>('[data-state="active"]');
+    if (list == null || root == null || cell == null || active == null) throw new Error("no scrollable tabs case in the gallery");
+    const box = (element: Element): Box => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right };
+    };
+    return {
+      cell: box(cell),
+      list: box(list),
+      active: box(active),
+      root: box(root),
+      isScrolled: list.scrollWidth > list.clientWidth && list.scrollLeft > 0,
+    };
+  });
+
+  expect(fit.list.left).toBeGreaterThanOrEqual(fit.cell.left);
+  expect(fit.list.right).toBeLessThanOrEqual(fit.cell.right);
+  expect(fit.isScrolled).toBe(true);
+  expect(fit.active.left).toBeGreaterThanOrEqual(fit.list.left);
+  expect(fit.active.right).toBeLessThanOrEqual(fit.list.right);
+  expect(fit.root.right).toBeLessThanOrEqual(fit.cell.right);
+});
