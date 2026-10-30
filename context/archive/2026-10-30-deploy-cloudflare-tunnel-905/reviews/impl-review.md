@@ -17,6 +17,6 @@ Reviewed the branch diff against plan.md.
 - Guard: `ingress: "tunnel"` swaps the edge rules for `edge-network-joined` and `traefik-routing`, keeps host
   ports and host network; `init --tunnel` output passes it.
 - Docs: README section with the steps and a headers snippet, the guard table, CHANGELOG `Unreleased`.
-- Gates: typecheck, ESLint, language gate and `npm test` green locally.
+- Gates: typecheck, ESLint, language gate and `npm test` green locally (ssh-keygen needed by the repository deploy tests).
 
 Verdict: approved.

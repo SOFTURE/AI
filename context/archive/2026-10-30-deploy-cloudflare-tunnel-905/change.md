@@ -1,12 +1,13 @@
 ---
 change_id: deploy-cloudflare-tunnel-905
 title: "deploy: a Cloudflare Tunnel mode for an app whose origin must not be reachable through the shared edge proxy (issue #905)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 905
 branch: claude/project-thread-f7b9yc
 created: 2026-10-30
 updated: 2026-10-30
+archived_at: 2026-10-30
 ---
 
 ## Intent
