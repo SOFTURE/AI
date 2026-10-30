@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- A launch screen's counter (#911): `buildLaunchProgressScript(options)` writes the inline script that moves
+  theme-notion's `LaunchScreen` from the first paint, the page's finished scripts and stylesheets (Resource Timing) and
+  elapsed time, capped at 99%, never falling; the shares and timing are options. `pwaMessages.en.launch.label` names
+  its progress bar.
+- The worker no longer keeps a navigation page whose streamed HTML ends in a sign-in redirect (Next's
+  `<meta http-equiv="refresh">`) or a failed boundary (React's `$RX`): it is served, and the earlier kept copy stays.
+
 ## 0.1.2
 
 - No code change: the first release through the package's npm trusted publisher (OIDC), without `NPM_TOKEN`.

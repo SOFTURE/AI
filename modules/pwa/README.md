@@ -25,7 +25,8 @@ mark.
   - a navigation goes to the network first, with a 5 s timeout, then to the kept copy of the page, then to the offline
     page; at most 60 pages are kept, the least recently kept dropped first;
   - only whole same-origin answers are kept: 200, fetched by the browser itself (`basic`), not redirected, HTML for a
-    page;
+    page; a page whose streamed HTML ends in a sign-in redirect (Next's `<meta http-equiv="refresh">`) or a failed
+    boundary (React's `$RX`) is served but not kept, so an expired session never overwrites the kept copy;
   - Next's hashed files (`/_next/static/`) and the icons are served from the shell first and kept on first use;
   - excluded prefixes are never touched: `/api/`, `/oauth/`, `/.well-known/`, `/cdn-cgi/`, the sign-in and account
     pages, the worker itself;
@@ -48,6 +49,9 @@ mark.
   `isInstalledApp` (`display-mode: standalone` or iOS `navigator.standalone`). Closing it is remembered per device in
   `localStorage` under `<app>:pwa-install-closed`; a blocked storage shows the offer, a refused write closes it for the
   open page only. The bar is a theme component (`InstallBar` in `@softure-ai/theme-notion`).
+- **The launch screen's counter**: `buildLaunchProgressScript(options)` is the text of the inline script inside
+  theme-notion's `LaunchScreen`, which an app streams from `app/loading.tsx` so an installed app shows its icon, name
+  and progress from the first byte instead of a blank screen (§4).
 - **`useIsOnline()`** over `navigator.onLine` (the server render counts as online).
 - **Clearing the device on sign-out**: a registry of what the device keeps for the signed-in user
   (`registerDeviceData`, for the app and its modules) and `clearDeviceData()`, which clears every part and the pages
@@ -155,6 +159,29 @@ and icon its HTML names; if it answers anything but a 200 HTML page, the install
 
 Without React, `watchServiceWorker({ onUpdateReady, onError })` runs the same flow and returns `{ activate, stop }`.
 
+The launch screen, in the root `app/loading.tsx`, so every route streams it at once:
+
+```tsx
+import { buildLaunchProgressScript, ICONS_PATH } from "@softure-ai/pwa";
+import { LaunchScreen } from "@softure-ai/theme-notion";
+import { messages } from "@/messages/en";
+
+const SCRIPT = buildLaunchProgressScript(); // or { paintShare, assetsShare, timeShare, timeConstantMs, intervalMs }
+
+export default function Loading() {
+  return <LaunchScreen name={messages.app.name} iconSrc={`${ICONS_PATH}/icon-192.png`} label={messages.pwa.launch.label} script={SCRIPT} />;
+}
+```
+
+The counter runs while the browser parses the fallback, before hydration (a client component would often never run:
+the page replaces the fallback first). Each 100 ms it adds `paintShare` (10) once the first frame is painted,
+`assetsShare` (60) in proportion to the page's `script[src]` and stylesheets the browser has received (Resource
+Timing), and `timeShare` (29) as `1 - e^(-t / timeConstantMs)` of the time since the navigation started (4 s). The
+shares add up to at most 100; the counter shows at most 99%, never falls, and stops once the page replaced the screen.
+It finds its screen from `document.currentScript` and moves `data-slot="progress"` (`aria-valuenow`, `aria-valuetext`,
+`data-value`), `progress-indicator` (its transform) and `launch-screen-percent` (the text). `launchProgress(page,
+config)` is the function itself, testable with a fake page.
+
 The install offer, in the same kind of client component (`app` is the same id as the service worker route's):
 
 ```tsx
@@ -189,13 +216,13 @@ None.
 
 The package draws nothing on the page. The icons take the theme's colours (`tone`, `primary` by default, through
 theme-kit's `drawAppIcon`), the manifest the theme's `background` value. The update prompt is the theme's
-`UpdatePrompt`, the install bar its `InstallBar`.
+`UpdatePrompt`, the install bar its `InstallBar`, the launch screen its `LaunchScreen`.
 
 ## 9. Copy
 
 `pwaMessages.en.update`: `title`, `description`, `reload`, the update prompt's copy. `pwaMessages.en.install`: `title`,
 `description`, `install` (the prompt button), `shareStep` and `addStep` (the iOS steps), `close` (the close button's
-accessible name), the install bar's copy. The manifest's `name`,
+accessible name), the install bar's copy. `pwaMessages.en.launch`: `label`, the launch screen's progress bar name. The manifest's `name`,
 `shortName` and `description` are the app's own copy, passed to `createManifestRoute`.
 
 ## 10. Hooks
@@ -266,6 +293,10 @@ session cookie.
 - `clearDeviceData` clears only what was registered and the current build's kept pages; a database another tab holds
   open is reported as failed and deleted by the browser once that tab closes it. A sign-out on another device or in
   another browser clears nothing here.
+- The launch screen covers the time from the first byte. Before it, iOS shows the manifest's background: the package
+  draws no `apple-touch-startup-image` (one image per device size and orientation).
+- On a client-side navigation React inserts the launch screen without running its script, so the bar stays at 0%;
+  the counter moves on a page load (the app's launch, a reload).
 - Not in this package (filed): Playwright helpers for installed-app checks (#875).
 
 ## Build

@@ -1,7 +1,7 @@
 // Public API of @softure-ai/pwa: the paths under the public `/pwa/` prefix, the icon registry, the manifest builder,
-// the update prompt's copy, and the device-data registry cleared on sign-out. The routes an app mounts are in
-// `@softure-ai/pwa/next`, the service worker in `@softure-ai/pwa/worker`, the page side (update flow, online state) in
-// `@softure-ai/pwa/react`.
+// the launch screen's counter script, the copy, and the device-data registry cleared on sign-out. The routes an app
+// mounts are in `@softure-ai/pwa/next`, the service worker in `@softure-ai/pwa/worker`, the page side (update flow,
+// online state) in `@softure-ai/pwa/react`.
 import { defineModule } from "@softure-ai/core";
 
 import { pwaMessages } from "./messages/index.js";
@@ -24,6 +24,13 @@ export {
   type ManifestOptions,
   type WebAppManifest,
 } from "./manifest.js";
+export { launchProgress, type LaunchProgressConfig, type LaunchProgressPage } from "./launch/launch-progress.js";
+export {
+  buildLaunchProgressScript,
+  DEFAULT_LAUNCH_PROGRESS,
+  resolveLaunchProgressConfig,
+  type LaunchProgressOptions,
+} from "./launch/script.js";
 export { pwaMessages, type PwaMessages } from "./messages/index.js";
 export { ICONS_PATH, MANIFEST_PATH, PWA_PREFIX, SERVICE_WORKER_PATH, VERSION_PATH } from "./paths.js";
 

@@ -1,7 +1,8 @@
 ---
 change_id: pwa-launch-screen-911
 title: "pwa: a launch screen with the app icon and a progress counter, and no kept streamed redirects (issue #911)"
-status: in_progress
+status: archived
+archived_at: 2026-10-30
 roadmap_item: null
 issue: [911]
 branch: claude/project-thread-ozwq4p

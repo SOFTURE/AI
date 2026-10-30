@@ -11,6 +11,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   render the same classes.
 - `DialogFooter showCloseButton` takes its text from the message layer (#903): `closeLabel`, defaulting to
   `notionMessages.en.dialog.close`, replaces the literal "Close".
+- `LaunchScreen` (#911): an installed app's icon, name, progress bar and percentage on the theme's background while
+  its first page loads, streamed from `app/loading.tsx`; `@softure-ai/pwa`'s `buildLaunchProgressScript()` moves it.
 
 ## 0.10.1
 

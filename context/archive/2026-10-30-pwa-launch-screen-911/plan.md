@@ -1,6 +1,6 @@
 ---
 change_id: pwa-launch-screen-911
-status: in_progress
+status: archived
 ---
 
 # Plan: PWA launch screen (issue #911)
@@ -51,8 +51,8 @@ README, both `CHANGELOG.md` `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: worker rule
-- [ ] Phase 2: counter script and copy
-- [ ] Phase 3: LaunchScreen
-- [ ] Phase 4: docs
-- [ ] Implementation review
+- [x] Phase 1: worker rule
+- [x] Phase 2: counter script and copy
+- [x] Phase 3: LaunchScreen
+- [x] Phase 4: docs
+- [x] Implementation review
