@@ -118,6 +118,24 @@ describe("softure-deploy init", () => {
     expect(err.join("")).toContain("edge: --cdn belongs to the stack that owns the edge Traefik; drop it with --edge");
   });
 
+  it("publishes the app through a Cloudflare Tunnel with --tunnel and names the steps it leaves to the owner (issue #905)", async () => {
+    writeApp({ name: "shop", dependencies: { "@softure-ai/db": "^0.1.2" } });
+    expect(await runCli(["init", ...REQUIRED, "--tunnel", `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+    expect(err).toEqual([]);
+    const text = out.join("");
+    expect(existsSync(join(dir, "docker/prod/traefik.yml"))).toBe(false);
+    expect(readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8")).toContain("      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?}\n");
+    expect(readFileSync(join(dir, ".github/workflows/deploy.yml"), "utf8")).toContain("CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}");
+    expect(text).toContain("warning docker/prod/docker-compose.yml publishes Postgres on 127.0.0.1:5432");
+    expect(text).toContain(
+      "next    in Cloudflare Zero Trust, create a remotely managed tunnel and give it the public hostname example.com with the service http://app:3000\n",
+    );
+    expect(text).toContain("next    set the CLOUDFLARE_TUNNEL_TOKEN secret (the production environment) to the tunnel's token\n");
+    expect(text).toContain("next    send the security headers from the app (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy)");
+    expect(await runCli(["init", ...REQUIRED, "--tunnel", "--www"], makeIo())).toBe(1);
+    expect(err.join("")).toContain("tunnel: --www is a Traefik redirect; with --tunnel add a Cloudflare redirect rule from www to the apex");
+  });
+
   it("gives no Postgres port warning with --edge for an app without a database", async () => {
     writeApp({ name: "shop" });
     expect(await runCli(["init", ...REQUIRED, "--edge=proxy", `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
