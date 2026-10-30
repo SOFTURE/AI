@@ -25,6 +25,7 @@ import { resolveMcpOrigins } from "./origins.js";
 import { isClientRegistrationOpen } from "./registration-window.js";
 import { isValidCodeChallenge, PKCE_METHOD } from "./pkce.js";
 import type { McpAccessContext } from "./tokens.js";
+import { isWritingEnabled } from "./writes-switch.js";
 
 /** The security bucket OAuth registration and token requests count in. */
 export const MCP_OAUTH_RATE_LIMIT_BUCKET = "mcp-oauth";
@@ -175,10 +176,11 @@ export function isWriteScopeRequested(scope: string | null): boolean {
 
 /**
  * Whether the request asks to write, where a missing or blank `scope` is the server's default
- * (RFC 6749 §3.3): both scopes while the app allows writes, `mcp:read` otherwise.
+ * (RFC 6749 §3.3): both scopes while the app allows writes (`allowWrites` and the writes switch),
+ * `mcp:read` otherwise.
  */
-function isWriteRequestedOrDefault(config: SoftureConfig, scope: string | null): boolean {
-  if (scope === null || scope.trim() === "") return getMcpAccessOptions(config).allowWrites;
+function isWriteRequestedOrDefault(isWriteAllowed: boolean, scope: string | null): boolean {
+  if (scope === null || scope.trim() === "") return isWriteAllowed;
   return isWriteScopeRequested(scope);
 }
 
@@ -399,6 +401,11 @@ export interface AuthorizationRequest {
   readonly codeChallenge: string;
   /** The client asked for `mcp:write`. */
   readonly isWriteRequested: boolean;
+  /**
+   * Writes are on offer: the client asked for them (or sent no scope while writes are allowed) and the
+   * app allows writes right now (`allowWrites` and the `mcp-access.writes_enabled` switch).
+   */
+  readonly isWriteOffered: boolean;
 }
 
 /** Why the consent page shows an error instead of sending one back: the client is not confirmed. */
@@ -467,7 +474,9 @@ export async function validateAuthorizationRequest(
     return back("invalid_request", "PKCE is required: code_challenge with code_challenge_method S256.");
   }
   if (!isAcceptableResource(ctx.config, params.get("resource"), origins)) return back("invalid_target", "The resource parameter does not name this MCP server.");
-  return { kind: "valid", request: { client, redirectUri, state, codeChallenge, isWriteRequested: isWriteRequestedOrDefault(ctx.config, params.get("scope")) } };
+  const isWriteAllowed = await isWritingEnabled(ctx);
+  const isWriteRequested = isWriteRequestedOrDefault(isWriteAllowed, params.get("scope"));
+  return { kind: "valid", request: { client, redirectUri, state, codeChallenge, isWriteRequested, isWriteOffered: isWriteRequested && isWriteAllowed } };
 }
 
 /** The consent page with the request's parameters: where the decision sends the person back. */
@@ -531,7 +540,7 @@ export async function handleAuthorizationDecision(ctx: McpAccessContext, request
     if (outcome.kind === "show-error") return seeOther(consent);
     if (outcome.kind === "redirect-error") return seeOther(outcome.location);
 
-    const { client, redirectUri, state, codeChallenge, isWriteRequested } = outcome.request;
+    const { client, redirectUri, state, codeChallenge, isWriteOffered } = outcome.request;
     if (form.get("decision") !== "allow") {
       return seeOther(buildClientRedirect(ctx.config, redirectUri, { error: "access_denied", error_description: "The person denied access.", state }, origins));
     }
@@ -540,8 +549,8 @@ export async function handleAuthorizationDecision(ctx: McpAccessContext, request
       userId,
       redirectUri,
       codeChallenge,
-      // Writes need the client's request, the app's allowWrites and the person's tick.
-      canWrite: isWriteRequested && getMcpAccessOptions(ctx.config).allowWrites && form.get("canWrite") !== null,
+      // Writes need the client's request, the app's allowWrites, the writes switch and the person's tick.
+      canWrite: isWriteOffered && form.get("canWrite") !== null,
     });
     return seeOther(buildClientRedirect(ctx.config, redirectUri, { code, state }, origins));
   } catch (error) {
