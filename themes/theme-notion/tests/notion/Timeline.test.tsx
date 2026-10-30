@@ -158,6 +158,53 @@ describe("Timeline", () => {
     expect(html).not.toContain("data-status");
   });
 
+  it("folds an entry's content open and closed from its body button, exposing aria-expanded", () => {
+    const { getByRole, queryByText } = render(
+      <Timeline label="Trip" items={[{ key: "stay", title: "Hanoi", time: "8 Dec", fold: {}, children: <p>Hotel by the lake</p> }]} />,
+    );
+    const body = getByRole("button", { name: /Hanoi/ });
+
+    expect(body.getAttribute("aria-expanded")).toBe("false");
+    expect(queryByText("Hotel by the lake")).toBeNull();
+
+    fireEvent.click(body);
+    const content = queryByText("Hotel by the lake")?.closest('[data-slot="timeline-item-content"]');
+
+    expect(body.getAttribute("aria-expanded")).toBe("true");
+    expect(content?.id).toBe(body.getAttribute("aria-controls"));
+
+    fireEvent.click(body);
+
+    expect(body.getAttribute("aria-expanded")).toBe("false");
+    expect(queryByText("Hotel by the lake")).toBeNull();
+  });
+
+  it("starts a folding entry open with isOpenInitially", () => {
+    const { getByRole } = render(<Timeline label="Trip" items={[{ key: "stay", title: "Hanoi", fold: { isOpenInitially: true }, children: "Notes" }]} />);
+
+    expect(getByRole("button", { name: /Hanoi/ }).getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("follows the app's isOpen and reports the wanted state to onOpenChange", () => {
+    const onOpenChange = vi.fn();
+    const { getByRole } = render(<Timeline label="Trip" items={[{ key: "stay", title: "Hanoi", fold: { isOpen: true, onOpenChange }, children: "Notes" }]} />);
+    const body = getByRole("button", { name: /Hanoi/ });
+
+    fireEvent.click(body);
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(body.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("makes a folding body at least the touch target high, named by its action and its text", () => {
+    const { getByRole } = render(
+      <Timeline label="Trip" items={[{ key: "stay", title: "Hanoi", time: "8 Dec", fold: {}, actionLabel: "Show details", children: "Notes" }]} />,
+    );
+    const body = getByRole("button", { name: /^Show details: 8 Dec ?Hanoi$/ });
+
+    expect(body.getAttribute("class")?.split(" ")).toContain("min-h-touch-target");
+  });
+
   it("adds the app's classes to the list", () => {
     expect(renderToStaticMarkup(<Timeline label="Trip" items={[]} className="pb-4" />)).toBe('<ol aria-label="Trip" data-slot="timeline" class="flex flex-col pb-4"></ol>');
   });

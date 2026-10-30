@@ -21,7 +21,7 @@ function Tabs({
       data-orientation={orientation}
       orientation={orientation}
       className={cn(
-        "group/tabs flex gap-2 data-[orientation=horizontal]:flex-col",
+        "group/tabs flex gap-2 data-[orientation=horizontal]:flex-col has-data-[scrollable=true]:min-w-0",
         className
       )}
       {...props}
@@ -42,27 +42,65 @@ const tabsListVariants = cva(
         // The triggers set the height: a fixed one would cap them at 35 px.
         touch: "group-data-[orientation=horizontal]/tabs:h-auto",
       },
+      // Keeps to its container's width and scrolls sideways; the line variant keeps room for the active underline.
+      scrollable: {
+        false: "",
+        true: "relative w-full max-w-full min-w-0 justify-start overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:thin] group-data-[orientation=horizontal]/tabs:h-auto data-[variant=line]:pb-1.5 *:flex-none",
+      },
     },
     defaultVariants: {
       variant: "line",
       size: "default",
+      scrollable: false,
     },
   }
 )
+
+// Scrolls a scrollable list so its active trigger sits in the middle, now and whenever the active tab changes.
+function useCentredActiveTrigger(list: React.RefObject<HTMLDivElement | null>, isScrollable: boolean) {
+  React.useEffect(() => {
+    const element = list.current
+    if (!isScrollable || element === null) return
+    const centreActiveTrigger = () => {
+      const active = element.querySelector<HTMLElement>('[data-slot="tabs-trigger"][data-state="active"]')
+      if (active === null) return
+      element.scrollLeft = active.offsetLeft - (element.clientWidth - active.offsetWidth) / 2
+    }
+    centreActiveTrigger()
+    const observer = new MutationObserver(centreActiveTrigger)
+    observer.observe(element, { subtree: true, attributeFilter: ["data-state"] })
+    return () => observer.disconnect()
+  }, [list, isScrollable])
+}
 
 function TabsList({
   className,
   variant = "line",
   size = "default",
+  scrollable = false,
+  ref,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List> &
   VariantProps<typeof tabsListVariants>) {
+  const listRef = React.useRef<HTMLDivElement | null>(null)
+  const setListRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      listRef.current = node
+      if (typeof ref === "function") ref(node)
+      else if (ref) ref.current = node
+    },
+    [ref]
+  )
+  useCentredActiveTrigger(listRef, scrollable === true)
+
   return (
     <TabsTriggerSizeContext.Provider value={size ?? "default"}>
       <TabsPrimitive.List
         data-slot="tabs-list"
         data-variant={variant}
-        className={cn(tabsListVariants({ variant, size }), className)}
+        data-scrollable={scrollable === true ? "true" : undefined}
+        ref={setListRef}
+        className={cn(tabsListVariants({ variant, size, scrollable }), className)}
         {...props}
       />
     </TabsTriggerSizeContext.Provider>
