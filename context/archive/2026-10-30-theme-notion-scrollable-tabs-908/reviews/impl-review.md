@@ -5,7 +5,7 @@ verdict: approved
 
 # Implementation review
 
-Reviewed the diff of 59bd30d against plan.md and master (01cf45f).
+Reviewed the diff of 6adfc91 against plan.md and master (a29959c).
 
 - Acceptance of #908: the fit spec renders six tabs in a 288 px grid cell at 390 and 1440 px: the list stays inside
   the cell, the `Tabs` root does not widen, the list is scrolled and the fifth (active) tab is fully visible.

@@ -37,6 +37,6 @@ README component notes (`tabs`, `scroll-area`), CHANGELOG `## Unreleased`.
 
 ## Progress
 
-- [x] Phase 1: components, 59bd30d
-- [x] Phase 2: docs, 59bd30d
+- [x] Phase 1: components, 6adfc91
+- [x] Phase 2: docs, 6adfc91
 - [x] Implementation review: approved

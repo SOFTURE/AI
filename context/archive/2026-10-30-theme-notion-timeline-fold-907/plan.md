@@ -35,6 +35,6 @@ README (`FoldRow` and `Timeline` paragraphs), CHANGELOG `## Unreleased`.
 
 ## Progress
 
-- [x] Phase 1: components, 8fa4692
-- [x] Phase 2: docs, 8fa4692
+- [x] Phase 1: components, 3fc8a9e
+- [x] Phase 2: docs, 3fc8a9e
 - [x] Implementation review: approved

@@ -5,7 +5,7 @@ verdict: approved
 
 # Implementation review
 
-Reviewed the diff of 8fa4692 against plan.md and master (01cf45f).
+Reviewed the diff of 3fc8a9e against plan.md and master (a29959c).
 
 - Acceptance of #907: a `fold` entry's body is the theme's `CollapsibleTrigger`, a native button (pointer, Enter,
   Space) with `aria-expanded` and `aria-controls`; tests cover toggling, starting open, the controlled state with

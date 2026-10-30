@@ -5,7 +5,7 @@ verdict: approved
 
 # Plan review
 
-Reviewed against change.md, research.md and master (01cf45f).
+Reviewed against change.md, research.md and master (a29959c).
 
 - Acceptance of #907: a timeline entry folds by pointer and keyboard (a native button) with `aria-expanded`; its
   summary is at least the touch target high; documented in the README and the parity fixture. Phases 1 and 2.
