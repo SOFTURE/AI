@@ -216,3 +216,71 @@ describe("checkSharedHostCompose", () => {
     expect(() => checkSharedHostCompose("", { ...OPTIONS, bypassPaths: ["mcp"] })).toThrow('bypass path "mcp" does not start with /');
   });
 });
+
+describe("checkSharedHostCompose with ingress tunnel (issue #905)", () => {
+  const TUNNEL: SharedHostComposeOptions = { edgeNetwork: "proxy", namePrefix: "acme", ingress: "tunnel" };
+
+  it("passes the compose file init --tunnel writes for an app without a database", () => {
+    const files = planInitFiles({
+      answers: { domain: "acme.example", image: "ghcr.io/acme/app", name: "acme", paths: ["/"], www: false, env: [], tables: [], tunnel: true },
+      facts: { packageName: "acme", hasDatabase: false, hasHealthRoute: true, hasPublicDir: false, nextConfigFile: "next.config.ts", isStandalone: true },
+      cliVersion: "9.9.9",
+    });
+    const compose = files.find((file) => file.path === "docker/prod/docker-compose.yml")?.text ?? "";
+    expect(checkSharedHostCompose(compose, TUNNEL)).toEqual([]);
+  });
+
+  it("reports the edge network, joined or declared, instead of requiring it", () => {
+    expect(checkSharedHostCompose(composeWith(["traefik.enable=false"]), TUNNEL)).toEqual([
+      { rule: "edge-network-joined", service: null, message: 'network "edge" puts the app on proxy, which a tunnel app never joins' },
+    ]);
+    expect(checkSharedHostCompose("services:\n  app:\n    image: a\nnetworks:\n  proxy: {}\n", TUNNEL).map((violation) => violation.rule)).toEqual([
+      "edge-network-joined",
+    ]);
+    expect(checkSharedHostCompose("services:\n  app:\n    image: a\nnetworks:\n  tunnel: {}\n", TUNNEL)).toEqual([]);
+  });
+
+  it("reports every Traefik label but traefik.enable=false, in list and map form, on each service", () => {
+    const compose = [
+      "services:",
+      "  app:",
+      "    image: a",
+      "    labels: [traefik.enable=true, traefik.http.routers.acme.rule=Host(`acme.example`)]",
+      "  worker:",
+      "    image: a",
+      "    deploy:",
+      "      labels:",
+      '        traefik.enable: "False"',
+      "        traefik.http.services.acme.loadbalancer.server.port: 3000",
+      "  cloudflared:",
+      "    image: cloudflare/cloudflared:2026.10.1",
+      "    labels: [traefik.enable=false, com.example.team=web]",
+      "",
+    ].join("\n");
+    expect(checkSharedHostCompose(compose, TUNNEL)).toEqual([
+      {
+        rule: "traefik-routing",
+        service: "app",
+        message: "carries Traefik routing labels (traefik.enable, traefik.http.routers.acme.rule) next to a tunnel",
+      },
+      {
+        rule: "traefik-routing",
+        service: "worker",
+        message: "carries Traefik routing labels (traefik.http.services.acme.loadbalancer.server.port) next to a tunnel",
+      },
+    ]);
+  });
+
+  it("keeps the host port and host network rules", () => {
+    const compose = 'services:\n  app:\n    image: a\n    ports: ["127.0.0.1:3000:3000"]\n  cloudflared:\n    image: b\n    network_mode: host\n';
+    expect(checkSharedHostCompose(compose, TUNNEL).map((violation) => [violation.rule, violation.service])).toEqual([
+      ["host-ports", "app"],
+      ["host-network", "cloudflared"],
+    ]);
+  });
+
+  it("checks the edge rules when ingress is edge, as without the option", () => {
+    const compose = composeWith(APP_LABELS);
+    expect(checkSharedHostCompose(compose, { ...OPTIONS, ingress: "edge" })).toEqual(checkSharedHostCompose(compose, OPTIONS));
+  });
+});

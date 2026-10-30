@@ -35,6 +35,7 @@ const RESERVED_ENV_NAME = /^(PATH|HOME|NODE_.*|NPM_CONFIG_.*)$/;
 /** Names the templates already set on the app service, from the domain or the database part. */
 export const TEMPLATE_ENV_NAMES = [
   "APP_ORIGIN",
+  "CLOUDFLARE_TUNNEL_TOKEN",
   "DATABASE_URL",
   "HOSTNAME",
   "PORT",
@@ -79,8 +80,14 @@ export const initAnswersSchema = z
       .string()
       .regex(NETWORK, "a Docker network name: letters, digits, _ . -, starting with a letter or digit, at most 63")
       .optional(),
+    /** `--tunnel`: the app is published by a Cloudflare Tunnel of its own compose project, with no Traefik (issue #905). */
+    tunnel: z.boolean().optional(),
   })
   .superRefine((answers, context) => {
+    if (answers.tunnel === true) {
+      for (const problem of listTunnelConflicts(answers)) context.addIssue({ code: "custom", path: ["tunnel"], message: problem });
+      return;
+    }
     if (answers.edge === undefined) return;
     // Both configure the Traefik and the host of the stack that owns the edge, not this app's.
     for (const [flag, value] of [["--cdn", answers.cdn], ["--acme-email", answers.acmeEmail]] as const) {
@@ -88,6 +95,25 @@ export const initAnswersSchema = z
       context.addIssue({ code: "custom", path: ["edge"], message: `${flag} belongs to the stack that owns the edge Traefik; drop it with --edge` });
     }
   });
+
+/** What a tunnel cannot take: each of these configures a Traefik, which a tunnel stack does not run. */
+function listTunnelConflicts(answers: {
+  edge?: string | undefined;
+  cdn?: string | undefined;
+  acmeEmail?: string | undefined;
+  www: boolean;
+  paths: string[];
+}): string[] {
+  const problems: string[] = [];
+  if (answers.edge !== undefined) problems.push("--edge publishes the app through a Traefik; drop it with --tunnel");
+  if (answers.cdn !== undefined) problems.push("--cdn locks the ports of a Traefik a tunnel stack does not run; drop it with --tunnel");
+  if (answers.acmeEmail !== undefined) problems.push("--acme-email configures Traefik's certificates; Cloudflare holds them with --tunnel");
+  if (answers.www) problems.push("--www is a Traefik redirect; with --tunnel add a Cloudflare redirect rule from www to the apex");
+  if (!answers.paths.includes("/")) {
+    problems.push("--paths is a Traefik rule; with --tunnel pass / and restrict the paths on the tunnel's public hostname");
+  }
+  return problems;
+}
 
 export type InitAnswers = z.infer<typeof initAnswersSchema>;
 
