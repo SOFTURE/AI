@@ -1,10 +1,12 @@
-import type { LucideIcon } from "lucide-react";
+import { ChevronRight, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "../lib/utils.js";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible.js";
 
 import { ICON_STROKE_WIDTH } from "./icon-stroke.js";
 import type { PaletteColor } from "./palette.js";
+
 
 // `default`: a major entry with a filled round marker; `compact`: a minor entry between two major ones.
 export type TimelineItemSize = "default" | "compact";
@@ -12,7 +14,15 @@ export type TimelineItemSize = "default" | "compact";
 // The rail through an entry: `dashed` for something missing (a gap).
 export type TimelineLine = "solid" | "dashed";
 
-export interface TimelineItem {
+export interface TimelineItemFold {
+  // The open state when the app keeps it; left out, the entry keeps its own.
+  readonly isOpen?: boolean;
+  // Whether an entry that keeps its own state starts open; closed by default.
+  readonly isOpenInitially?: boolean;
+  readonly onOpenChange?: (isOpen: boolean) => void;
+}
+
+interface TimelineItemBase {
   // Unique within the timeline; kept on the item as `data-item`.
   readonly key: string;
   readonly title: ReactNode;
@@ -32,13 +42,20 @@ export interface TimelineItem {
   readonly color?: PaletteColor;
   readonly size?: TimelineItemSize;
   readonly line?: TimelineLine;
-  // Makes the body a button; `actionLabel` is read before its visible text ("Show on the map"), so the button's name
-  // starts with what it does and still contains every word it shows.
-  readonly onSelect?: () => void;
+  // Read before the body button's visible text ("Show on the map"), so the button's name starts with what it does and
+  // still contains every word it shows.
   readonly actionLabel?: string;
   // `data-*` attributes set on the item, for an app's own hooks.
   readonly data?: Readonly<Record<`data-${string}`, string | undefined>>;
 }
+
+// What the body does: nothing, call `onSelect` as a button, or fold `children` open and closed as a disclosure button
+// (`aria-expanded`), at least the touch target high.
+export type TimelineItem = TimelineItemBase &
+  (
+    | { readonly onSelect?: () => void; readonly fold?: never }
+    | { readonly fold: TimelineItemFold; readonly onSelect?: never }
+  );
 
 export interface TimelineProps {
   // The list's accessible name.
@@ -105,6 +122,11 @@ const BODY_CLASS: Readonly<Record<TimelineItemSize, string>> = {
 const BUTTON_CLASS =
   "cursor-pointer text-foreground transition-colors duration-120 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
+// A folding body is at least the touch target high and leaves room for the chevron at its right edge.
+const FOLD_BODY_CLASS = "group/timeline-fold relative min-h-touch-target pr-7";
+const FOLD_CHEVRON_CLASS =
+  "absolute top-2 right-1.5 size-4 text-muted-foreground transition-transform duration-150 group-data-[state=open]/timeline-fold:rotate-90";
+
 const ITEM_PADDING: Readonly<Record<TimelineItemSize, string>> = {
   default: "pb-2",
   compact: "pb-1",
@@ -132,11 +154,17 @@ function TimelineEntry({ item }: { readonly item: TimelineItem }) {
       <span aria-hidden="true" data-slot="timeline-rail" className={cn(RAIL_CLASS, RAIL_LINE[line])} />
       <TimelineMarker icon={item.icon} color={color} size={size} />
       <div className={cn("flex min-w-0 flex-col", item.aside === undefined && "col-span-2")}>
-        <TimelineBody item={item} size={size} />
-        {item.children === undefined ? null : (
-          <div data-slot="timeline-item-content" className="px-2 pb-1">
-            {item.children}
-          </div>
+        {item.fold === undefined ? (
+          <>
+            <TimelineBody item={item} size={size} />
+            {item.children === undefined ? null : (
+              <div data-slot="timeline-item-content" className="px-2 pb-1">
+                {item.children}
+              </div>
+            )}
+          </>
+        ) : (
+          <TimelineFold item={item} fold={item.fold} size={size} />
         )}
       </div>
       {item.aside === undefined ? null : (
@@ -161,7 +189,7 @@ function TimelineMarker({ icon: Icon, color, size }: { readonly icon?: LucideIco
   );
 }
 
-function TimelineBody({ item, size }: { readonly item: TimelineItem; readonly size: TimelineItemSize }) {
+function TimelineBodyContent({ item, size }: { readonly item: TimelineItem; readonly size: TimelineItemSize }) {
   const time =
     item.time === undefined ? null : (
       <span data-slot="timeline-item-time" className="text-small text-muted-foreground tabular-nums">
@@ -180,7 +208,7 @@ function TimelineBody({ item, size }: { readonly item: TimelineItem; readonly si
         {item.badges}
       </span>
     );
-  const content = (
+  return (
     <>
       {size === "default" ? (
         <>
@@ -213,6 +241,10 @@ function TimelineBody({ item, size }: { readonly item: TimelineItem; readonly si
       )}
     </>
   );
+}
+
+function TimelineBody({ item, size }: { readonly item: TimelineItem; readonly size: TimelineItemSize }) {
+  const content = <TimelineBodyContent item={item} size={size} />;
   if (item.onSelect === undefined) {
     return (
       <div data-slot="timeline-item-body" className={BODY_CLASS[size]}>
@@ -225,5 +257,26 @@ function TimelineBody({ item, size }: { readonly item: TimelineItem; readonly si
       {item.actionLabel === undefined ? null : <span className="sr-only">{`${item.actionLabel}: `}</span>}
       {content}
     </button>
+  );
+}
+
+// The body as a disclosure button (`aria-expanded`, `aria-controls`) that folds the entry's content open and closed.
+function TimelineFold({ item, fold, size }: { readonly item: TimelineItem; readonly fold: TimelineItemFold; readonly size: TimelineItemSize }) {
+  return (
+    <Collapsible
+      {...(fold.isOpen === undefined ? {} : { open: fold.isOpen })}
+      defaultOpen={fold.isOpenInitially ?? false}
+      {...(fold.onOpenChange === undefined ? {} : { onOpenChange: fold.onOpenChange })}
+      className="flex min-w-0 flex-col"
+    >
+      <CollapsibleTrigger data-slot="timeline-item-body" className={cn(BODY_CLASS[size], BUTTON_CLASS, FOLD_BODY_CLASS)}>
+        {item.actionLabel === undefined ? null : <span className="sr-only">{`${item.actionLabel}: `}</span>}
+        <TimelineBodyContent item={item} size={size} />
+        <ChevronRight aria-hidden="true" strokeWidth={ICON_STROKE_WIDTH} className={FOLD_CHEVRON_CLASS} />
+      </CollapsibleTrigger>
+      <CollapsibleContent data-slot="timeline-item-content" className="px-2 pb-1">
+        {item.children}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

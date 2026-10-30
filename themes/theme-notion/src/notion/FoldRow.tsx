@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { cn } from "../lib/utils.js";
 import { Badge } from "../ui/badge.js";
 
 import { DetailTable, type DetailRow } from "./DetailTable.js";
@@ -48,6 +49,8 @@ export type FoldRowProps = FoldRowSummaryProps &
   FoldRowDetailsProps & {
     /** Indents the opened content to line up with the title after the chevron; by default it is padded equally. */
     readonly isInset?: boolean;
+    /** `touch` makes the summary at least the touch target high (44 px) instead of the row height. */
+    readonly size?: "default" | "touch";
     /** More content under the table when opened. */
     readonly children?: ReactNode;
   };
@@ -111,12 +114,15 @@ function FoldRowChevron() {
 
 // An item as one folding list row: a native `<details>` that opens in place to its details, with no client state.
 export function FoldRow(props: FoldRowProps) {
-  const { isInset = false, children } = props;
+  const { isInset = false, size = "default", children } = props;
   return (
     <details data-slot="fold-row" className="group/fold-row border-b border-border">
       <summary
         data-slot="fold-row-summary"
-        className="flex min-h-row-height cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+        className={cn(
+          "flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden",
+          size === "touch" ? "min-h-touch-target" : "min-h-row-height",
+        )}
       >
         {props.summary === undefined ? (
           <FoldRowFixedSummary title={props.title} facts={props.facts} badges={props.badges ?? []} />

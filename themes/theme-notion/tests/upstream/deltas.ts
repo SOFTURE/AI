@@ -675,6 +675,21 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "        className=\"size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1\"",
       ours: "        {...viewportProps}\n        className={cn(\n          \"size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-1\",\n          viewportProps?.className\n        )}",
     },
+    {
+      reason: "scroll area: `scrollbars` draws a horizontal bar, or both (#908)",
+      upstream: "  viewportProps,",
+      ours: "  viewportProps,\n  scrollbars = \"vertical\",",
+    },
+    {
+      reason: "scroll area: `scrollbars` draws a horizontal bar, or both (#908)",
+      upstream: "  viewportProps?: React.ComponentProps<typeof ScrollAreaPrimitive.Viewport>",
+      ours: "  viewportProps?: React.ComponentProps<typeof ScrollAreaPrimitive.Viewport>\n  // Which bars it draws: `horizontal` for a strip wider than its box, `both` for a table.\n  scrollbars?: \"vertical\" | \"horizontal\" | \"both\"",
+    },
+    {
+      reason: "scroll area: `scrollbars` draws a horizontal bar, or both (#908)",
+      upstream: "      <ScrollBar />",
+      ours: "      {scrollbars !== \"horizontal\" && <ScrollBar />}\n      {scrollbars !== \"vertical\" && <ScrollBar orientation=\"horizontal\" />}",
+    },
   ],
   "select": [
     {
@@ -1014,6 +1029,41 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       reason: "tabs: the touch size at the `touch-target` token, 44 px; the triggers take their list's size through context (#880)",
       upstream: "        \"after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100\",\n        className",
       ours: "        \"after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100\",\n        (size ?? listSize) === \"touch\" && \"min-h-touch-target min-w-touch-target\",\n        className",
+    },
+    {
+      reason: "tabs: a scrollable list that keeps to its container and centres the active tab (#908)",
+      upstream: "        \"group/tabs flex gap-2 data-[orientation=horizontal]:flex-col\",",
+      ours: "        \"group/tabs flex gap-2 data-[orientation=horizontal]:flex-col has-data-[scrollable=true]:min-w-0\",",
+    },
+    {
+      reason: "tabs: a scrollable list that keeps to its container and centres the active tab (#908)",
+      upstream: "      },\n    },",
+      ours: "      },\n      // Keeps to its container's width and scrolls sideways; the line variant keeps room for the active underline.\n      scrollable: {\n        false: \"\",\n        true: \"relative w-full max-w-full min-w-0 justify-start overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:thin] group-data-[orientation=horizontal]/tabs:h-auto data-[variant=line]:pb-1.5 *:flex-none\",\n      },\n    },",
+    },
+    {
+      reason: "tabs: a scrollable list that keeps to its container and centres the active tab (#908)",
+      upstream: "      size: \"default\",",
+      ours: "      size: \"default\",\n      scrollable: false,",
+    },
+    {
+      reason: "tabs: a scrollable list that keeps to its container and centres the active tab (#908)",
+      upstream: "  }\n)\n",
+      ours: "  }\n)\n\n// Scrolls a scrollable list so its active trigger sits in the middle, now and whenever the active tab changes.\nfunction useCentredActiveTrigger(list: React.RefObject<HTMLDivElement | null>, isScrollable: boolean) {\n  React.useEffect(() => {\n    const element = list.current\n    if (!isScrollable || element === null) return\n    const centreActiveTrigger = () => {\n      const active = element.querySelector<HTMLElement>('[data-slot=\"tabs-trigger\"][data-state=\"active\"]')\n      if (active === null) return\n      element.scrollLeft = active.offsetLeft - (element.clientWidth - active.offsetWidth) / 2\n    }\n    centreActiveTrigger()\n    const observer = new MutationObserver(centreActiveTrigger)\n    observer.observe(element, { subtree: true, attributeFilter: [\"data-state\"] })\n    return () => observer.disconnect()\n  }, [list, isScrollable])\n}\n",
+    },
+    {
+      reason: "tabs: a scrollable list that keeps to its container and centres the active tab (#908)",
+      upstream: "  size = \"default\",",
+      ours: "  size = \"default\",\n  scrollable = false,\n  ref,",
+    },
+    {
+      reason: "tabs: a scrollable list that keeps to its container and centres the active tab (#908)",
+      upstream: "  VariantProps<typeof tabsListVariants>) {",
+      ours: "  VariantProps<typeof tabsListVariants>) {\n  const listRef = React.useRef<HTMLDivElement | null>(null)\n  const setListRef = React.useCallback(\n    (node: HTMLDivElement | null) => {\n      listRef.current = node\n      if (typeof ref === \"function\") ref(node)\n      else if (ref) ref.current = node\n    },\n    [ref]\n  )\n  useCentredActiveTrigger(listRef, scrollable === true)\n",
+    },
+    {
+      reason: "tabs: a scrollable list that keeps to its container and centres the active tab (#908)",
+      upstream: "        className={cn(tabsListVariants({ variant, size }), className)}",
+      ours: "        data-scrollable={scrollable === true ? \"true\" : undefined}\n        ref={setListRef}\n        className={cn(tabsListVariants({ variant, size, scrollable }), className)}",
     },
   ],
   "textarea": [

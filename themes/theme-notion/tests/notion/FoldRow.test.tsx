@@ -122,3 +122,23 @@ describe("FoldRow", () => {
     expect(readTextNodes(html)).toEqual(["Invoice 12/2026", "Line"]);
   });
 });
+
+describe("FoldRow size", () => {
+  function readSummaryClasses(html: string): string[] {
+    return (/<summary data-slot="fold-row-summary" class="([^"]+)"/.exec(html)?.[1] ?? "").split(" ");
+  }
+
+  it("keeps the summary at the row height by default", () => {
+    const classes = readSummaryClasses(renderToStaticMarkup(<FoldRow title="Dentist" badges={[]} />));
+
+    expect(classes).toContain("min-h-row-height");
+    expect(classes).not.toContain("min-h-touch-target");
+  });
+
+  it("makes the summary at least the touch target high at the touch size", () => {
+    const classes = readSummaryClasses(renderToStaticMarkup(<FoldRow title="Dentist" badges={[]} size="touch" />));
+
+    expect(classes).toContain("min-h-touch-target");
+    expect(classes).not.toContain("min-h-row-height");
+  });
+});
