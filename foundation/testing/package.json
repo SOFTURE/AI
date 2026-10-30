@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/testing",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "SOFTURE AI test tools: a Vitest preset and setup file that pins the test time zone and shifts the test clock to TEST_TODAY, Playwright helpers, a per-test client address and installed-app and phone checks (standalone, safe-area insets, phone network, offline, touch targets) for black-box tests of an app, a scripted fake fetch, and source guards for architecture tests.",
   "license": "MIT",
   "type": "module",
