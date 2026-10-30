@@ -4,6 +4,24 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **Footage blocks for a server worker (#897).** **Breaking:** `probeFile`, `probeFootage` and `normalizeFootage` are
+  async (they spawn without blocking the event loop), and `runFfmpeg` moved to `footage/process.ts`, async.
+  - `FootageRunOptions` takes `signal` (an abort kills ffmpeg, ffprobe or hyperframes, removes the partial file and
+    rejects with the signal's reason), `onProgress({ step, item, itemIndex, itemCount, done, total })` (seconds of
+    media per stage, from ffmpeg's `-progress` and hyperframes' percentage) and `onCharge({ step, item, provider,
+    units, credits?, cacheKey })` after each paid call; `renderFootageFilm` passes them through.
+  - `estimateFootageFilm(film, { cacheDir, providers, rates })`: probes only, answers each paid step in seconds and
+    in the caller's credits (`rates`), a cached step at 0. `findCachedStep(film, step, item, options)` checks the
+    cache without network.
+  - Providers take an optional `signal`; a transcript may carry `credits`, and isolation and music may return
+    `{ audio, credits }` (a plain `Buffer` still works). ElevenLabs passes on its `character-cost` header.
+  - `checkFootageTools()`: ffmpeg and ffprobe, the hevc decoder, the zscale and tonemap filters, hyperframes and its
+    browser; the CLI runs it before `footage`. hyperframes' output now goes to `log`.
+  - `docker/footage-worker.Dockerfile`: a worker image (Debian ffmpeg with libzimg, Chrome libraries, fonts,
+    chrome-headless-shell), built and rendered in by CI; README "Footage films in a worker".
+
 ## 0.3.1
 
 - The content of 0.3.0, which was never published: its release stopped at the gates (ESLint ran out of memory in

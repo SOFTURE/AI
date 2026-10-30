@@ -40,7 +40,9 @@ A second film kind, the **footage film** (#886), is cut from filmed clips instea
 `src/footage/` probes and normalizes the clips, transcribes them (ElevenLabs Scribe), cuts fillers and pauses into an
 editable EDL, captions the cut, ducks music under the voice and renders with the same hyperframes pipeline
 (`softure-marketing footage <film>`, or `renderFootageFilm` from code). See the
-[package README](../tools/marketing-kit/README.md#footage-films).
+[package README](../tools/marketing-kit/README.md#footage-films). Its blocks also run in a jobs worker (#897):
+asynchronous, with an abort signal, progress, an estimate in the app's credits, a charge hook, a tool preflight and a
+container recipe ([README](../tools/marketing-kit/README.md#footage-films-in-a-worker)).
 The FIRE rule stays: **paid steps (TTS) run only with `--commit`**, and the voiceover cache is
 committed to the project repository.
 

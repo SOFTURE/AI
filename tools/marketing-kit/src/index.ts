@@ -209,10 +209,17 @@ export {
 export { FOOTAGE_FPS, FOOTAGE_SAMPLE_RATE, buildNormalizeArgs, buildVideoFilter, normalizeFootage, resolveFit, toneMapFilter, type Frame, type NormalizeInput } from "./footage/normalize.js";
 export {
   describePaidSteps,
+  toPaidAudio,
+  type FootageCharge,
+  type FootageProgress,
   type FootageProviders,
+  type FootageRates,
+  type FootageStage,
   type IsolationProvider,
   type MusicProvider,
+  type PaidAudio,
   type PaidStep,
+  type PaidStepKind,
   type SttInput,
   type SttProvider,
   type SttTranscript,
@@ -225,6 +232,7 @@ export {
   createElevenLabsMusicProvider,
   createElevenLabsSttProvider,
   getMusicLengthMs,
+  readReportedCredits,
   readScribeResponse,
   type ElevenLabsFootageOptions,
 } from "./footage/elevenlabs.js";
@@ -259,12 +267,24 @@ export {
 export { duckingKeyframes, getSpeechSpans, volumeExpression, type DuckingOptions, type VolumeKeyframe } from "./footage/music.js";
 export { END_CARD_SECONDS, FADE_SECONDS, composeFootage, getFootageFilmSeconds, getSegmentScales, type FootageComposeAssets, type FootageComposeInput } from "./footage/compose.js";
 export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs } from "./footage/render.js";
+export { readFfmpegProgressSeconds, runFfmpeg, runProcess, type FfmpegRunOptions, type ProcessOptions, type ProcessOutcome } from "./footage/process.js";
+export {
+  estimateFootageFilm,
+  findCachedStep,
+  getDownloadPath,
+  type EstimateFootageOptions,
+  type FootageCacheOptions,
+  type FootageEstimate,
+  type FootageEstimateItem,
+} from "./footage/paid.js";
+export { REQUIRED_DECODERS, REQUIRED_FILTERS, checkFootageTools, findBrowserProblem, readFfmpegListing, type FootageToolsOptions } from "./footage/tools.js";
 export {
   cutFootage,
   getEdlPath,
   getFrame,
   prepareFootage,
   readEdlFile,
+  readRenderPercent,
   renderFootage,
   renderFootageFilm,
   transcribeFootage,

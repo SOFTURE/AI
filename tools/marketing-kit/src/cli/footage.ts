@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { findFootage, findMissingFootageFiles, formatConfigIssues, type FootageConfig, type MarketingConfig } from "../config/config.js";
 import { createElevenLabsFootageProviders } from "../footage/elevenlabs.js";
 import { cutFootage, getEdlPath, prepareFootage, readEdlFile, renderFootage, transcribeFootage, type RenderFootageOptions } from "../footage/pipeline.js";
+import { checkFootageTools } from "../footage/tools.js";
 import { postsMarkdown } from "../posts/posts.js";
-import { findMachineProblem } from "../render/preflight.js";
 import { fail } from "./failure.js";
 import type { FootageOptions } from "./options.js";
 
@@ -47,8 +47,9 @@ export async function runFootage(config: MarketingConfig, options: FootageOption
   const film = findFootage(config, options.filmId);
   if (film === null) fail(`no footage film "${options.filmId}" in ${config.file}. Available: ${config.footage.map((entry) => entry.id).join(", ") || "none"}.`);
   const needsRender = options.step === "all" || options.step === "render";
-  const problem = findMachineProblem({ needsRender, cwd: config.root });
-  if (problem !== null) fail(problem);
+  // On a developer's machine hyperframes' first render downloads its browser; a worker image is checked without that.
+  const problems = await checkFootageTools({ needsRender, isBrowserDownloadAllowed: true });
+  if (problems.length > 0) fail(problems.join("\n"));
   const missing = findMissingFootageFiles(config, film, needsRender);
   if (missing.length > 0) fail(formatConfigIssues(config, missing));
   const run = getRunOptions(config, film, options);

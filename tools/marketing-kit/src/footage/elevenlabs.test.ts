@@ -70,9 +70,23 @@ describe("ElevenLabs footage providers", () => {
   it("returns the cleaned voice of the isolator", async () => {
     const { sent, fetch } = fakeFetch(() => new Response("clean audio"));
     const result = await createElevenLabsIsolationProvider({ apiKey: "key", fetch }).isolate({ audio });
-    expect(result).toEqual({ ok: true, value: Buffer.from("clean audio") });
+    expect(result).toEqual({ ok: true, value: { audio: Buffer.from("clean audio") } });
     expect(sent[0]?.url).toBe("https://api.elevenlabs.io/v1/audio-isolation");
     expect(form(sent[0]).get("audio")).not.toBeNull();
+  });
+
+  it("passes on the charge a response reports and the caller's signal", async () => {
+    const charged = () => Response.json({ words: [] }, { headers: { "character-cost": "120" } });
+    const { sent, fetch } = fakeFetch(charged);
+    const controller = new AbortController();
+    const result = await createElevenLabsSttProvider({ apiKey: "key", fetch }).transcribe({ audio, language: "en", signal: controller.signal });
+    expect(result).toEqual({ ok: true, value: { language: "en", words: [], credits: 120 } });
+    expect(sent[0]?.init?.signal).toBe(controller.signal);
+    const music = fakeFetch(() => new Response("music", { headers: { "character-cost": "80" } }));
+    expect(await createElevenLabsMusicProvider({ apiKey: "key", fetch: music.fetch }).compose({ prompt: "calm", seconds: 5 })).toEqual({
+      ok: true,
+      value: { audio: Buffer.from("music"), credits: 80 },
+    });
   });
 
   it("asks Music for an instrumental of the film's length", async () => {

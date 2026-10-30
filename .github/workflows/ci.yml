@@ -166,6 +166,28 @@ jobs:
         env:
           MARKETING_KIT_RENDER: "1"
 
+  footage-image:
+    name: marketing-kit footage film in the worker image
+    runs-on: ubuntu-latest
+    # The image build downloads Debian packages and Chrome; a hung download must not hold a runner for hours.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The container recipe of the README, built as an app would build it; the footage films then run inside it with
+      # the repository mounted, so the image's own ffmpeg, fonts and chrome-headless-shell do the work.
+      - name: Build the footage worker image
+        timeout-minutes: 12
+        run: docker build -t footage-worker -f tools/marketing-kit/docker/footage-worker.Dockerfile tools/marketing-kit/docker
+      - name: Render the fixture footage film in the image
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo -e MARKETING_KIT_RENDER=1 footage-worker \
+            npx vitest run tools/marketing-kit/tests/render.test.ts -t "the fixture footage film" --reporter=verbose
+
   workflows:
     name: actionlint
     runs-on: ubuntu-latest
