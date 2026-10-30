@@ -14,10 +14,17 @@
 # server runs (init --edge), and its labels publish it there. That Traefik needs the Docker provider
 # (exposedByDefault=false), the entry point websecure and the certificate resolver letsencrypt.
 {{/edge}}
+{{#tunnel}}
+#
+# This stack runs no Traefik and publishes no port: a Cloudflare Tunnel (init --tunnel) carries every request from
+# Cloudflare to the app, so the origin answers nothing that does not come through the owner's tunnel. The tunnel is
+# remotely managed: its public hostname {{domain}} points at http://app:3000, and the secret CLOUDFLARE_TUNNEL_TOKEN
+# is its token. Without Traefik the app sends its own security headers (HSTS, nosniff, frame and referrer policy).
+{{/tunnel}}
 name: {{name}}
 
 services:
-{{^edge}}
+{{#ownTraefik}}
   traefik:
     image: traefik:{{traefikVersion}}
     restart: unless-stopped
@@ -47,7 +54,7 @@ services:
       - ./traefik.yml:/etc/traefik/rules.yml:ro
       - letsencrypt:/letsencrypt
 
-{{/edge}}
+{{/ownTraefik}}
   app:
     image: {{image}}:${TAG}
     restart: unless-stopped
@@ -61,11 +68,40 @@ services:
 {{#hasAppEnv}}
 {{appEnvLines}}
 {{/hasAppEnv}}
-{{#database}}
+{{#appDependsOn}}
     depends_on:
+{{/appDependsOn}}
+{{#database}}
       migrate:
         condition: service_completed_successfully
 {{/database}}
+{{#tunnel}}
+      cloudflared:
+        condition: service_started
+    # The tunnel network to cloudflared, the project's own for Postgres. No Traefik may route to the app, a host's
+    # included: traefik.enable=false keeps it out of a Docker provider that exposes containers by default.
+    networks:
+      - tunnel
+      - default
+    labels:
+      - "traefik.enable=false"
+
+  # The Cloudflare Tunnel connector: an outbound connection to Cloudflare, nothing published. It joins only the tunnel
+  # network, so it reaches the app but not Postgres; it runs read-only, with no capability and no privilege gain.
+  cloudflared:
+    image: cloudflare/cloudflared:{{cloudflaredVersion}}
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?}
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - tunnel
+{{/tunnel}}
 {{#edge}}
     # The edge network for Traefik, the project's own for Postgres; names are prefixed with {{name}}, so they never
     # clash with the other stack's routers.
@@ -174,23 +210,31 @@ services:
       timeout: 5s
       retries: 30
 {{/database}}
-{{^edge}}
+{{#ownTraefik}}
 
 volumes:
   letsencrypt:
 {{#database}}
   postgres-data:
 {{/database}}
-{{/edge}}
-{{#edge}}
+{{/ownTraefik}}
+{{^ownTraefik}}
 {{#database}}
 
 volumes:
   postgres-data:
 {{/database}}
+{{/ownTraefik}}
+{{#edge}}
 
 networks:
   edge:
     name: {{edgeNetwork}}
     external: true
 {{/edge}}
+{{#tunnel}}
+
+networks:
+  # cloudflared's way out to Cloudflare and in to the app.
+  tunnel: {}
+{{/tunnel}}

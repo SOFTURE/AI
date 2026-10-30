@@ -24,6 +24,7 @@ export const TEMPLATE_VERSIONS = {
   traefik: "v3.5",
   postgres: "16",
   esbuild: "0.28.2",
+  cloudflared: "2026.10.1",
 } as const;
 
 const EXECUTABLE_MODE = 0o755;
@@ -41,9 +42,14 @@ interface TemplateFile {
 
 const always = (): boolean => true;
 const withDatabase = (facts: AppFacts): boolean => facts.hasDatabase;
-/** Without `--edge` the stack runs its own Traefik, configured by the rules file. */
-const withOwnTraefik = (_facts: AppFacts, answers: InitAnswers): boolean => answers.edge === undefined;
+/** Without `--edge` or `--tunnel` the stack runs its own Traefik, configured by the rules file. */
+const withOwnTraefik = (_facts: AppFacts, answers: InitAnswers): boolean => hasOwnTraefik(answers);
 const withCloudflare = (_facts: AppFacts, answers: InitAnswers): boolean => answers.cdn === "cloudflare";
+
+/** Whether the stack runs a Traefik of its own: not when it joins another stack's edge or a tunnel publishes it. */
+export function hasOwnTraefik(answers: InitAnswers): boolean {
+  return answers.edge === undefined && answers.tunnel !== true;
+}
 
 /** The worker container: `@softure-ai/jobs` needs a database, so it is part of the database part. */
 export function hasWorker(facts: AppFacts): boolean {
@@ -135,11 +141,11 @@ export function buildAppRule(answers: InitAnswers, facts: AppFacts): string {
 }
 
 /**
- * The services deploy.sh's switch starts: Traefik unless the app joins an edge network, the app (with `migrate`
- * through `depends_on`) and the worker, which no other service depends on.
+ * The services deploy.sh's switch starts: the stack's own Traefik, the app (with `migrate` and the tunnel through
+ * `depends_on`) and the worker, which no other service depends on.
  */
 export function getSwitchServices(answers: InitAnswers, facts: AppFacts): string {
-  const services = [answers.edge === undefined ? "traefik" : null, "app", hasWorker(facts) ? "worker" : null];
+  const services = [hasOwnTraefik(answers) ? "traefik" : null, "app", hasWorker(facts) ? "worker" : null];
   return services.filter((service) => service !== null).join(" ");
 }
 
@@ -192,6 +198,10 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     esbuildVersion: TEMPLATE_VERSIONS.esbuild,
     cloudflare: answers.cdn === "cloudflare",
     edge: answers.edge !== undefined,
+    tunnel: answers.tunnel === true,
+    ownTraefik: hasOwnTraefik(answers),
+    appDependsOn: facts.hasDatabase || answers.tunnel === true,
+    cloudflaredVersion: TEMPLATE_VERSIONS.cloudflared,
     edgeNetwork: answers.edge ?? "",
     switchServices: getSwitchServices(answers, facts),
     cloudflareRanges: CLOUDFLARE_RANGES.join(","),
