@@ -6,6 +6,21 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Natural editing for footage films (#898).** **Changed defaults:** cuts are hard cuts (`transitions: { jump:
+  "cut", clip: "cut" }`), b-roll stays still, captions are plain phrases, and the end card plays no whoosh; set
+  `transitions`, `edit.kenBurnsPercent`, `captionStyle: "highlight"` and `edit.endCardWhoosh` for the 0.3 look.
+  - Sentences and retakes: `splitSentences` / `splitFilmSentences` (ids `s1`…), `findRetakes` (retake, false start,
+    cut-off, with a reason; suggestions only), `buildEdl`'s and `renderFootageFilm`'s `keepSentences`,
+    `getFootageSentences`. The CLI prints the suggestions after `--step=cut`.
+  - EDL version 2: segment `id`, `audio: { clip, start, end, ownVolume }` (J/L-cuts, b-roll over speech; captions and
+    ducking follow the sound), `validateEdl` (`findEdlProblems` stays as its alias), `diffEdl`, `getEdlJsonSchema()` and
+    `schema/edl.schema.json`. Version 1 files are read and upgraded; the scored music's cache key ignores ids, so
+    nothing is bought again.
+  - `edit: { zoomPercent, fadeFrames, kenBurnsPercent, endCardWhoosh }` and `captionStyle` on the film;
+    `phraseChunks`.
+  - `extractFrames(file, { count } | { everySeconds }, { outDir, width })`: a contact sheet of a clip.
+  - `captionPreset` and `CAPTION_SAFE_ZONES` (Reels, Shorts, TikTok, all); `findMissingCaptionGlyphs` runs on the
+    caption and end-card fonts before the render and stops it on a missing letter.
 - **Publishable footage films (#899).**
   - Loudness: the speech track is measured and normalized in two passes of `loudnorm` (default −14 LUFS, −1 dBTP)
     before the music goes under it; `loudness: { target, truePeak } | null` on `FootageFilm` (`false` in

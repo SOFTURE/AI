@@ -148,9 +148,9 @@ describe.runIf(isEnabled)("the fixture footage film", () => {
       expect(rendered.streams.some((entry) => entry.codec_type === "audio")).toBe(true);
       const printed = Number(/\((\d+(?:\.\d+)?) s, 9:16\)/.exec(result.stdout)?.[1]);
       expect(Math.abs(Number(rendered.format.duration) - printed)).toBeLessThan(0.5);
-      // The filler is cut: the talking clip comes back in two segments, joined by a punch-in.
-      const edl = JSON.parse(readFileSync(join(footage, "build", "fixture-footage", "edl.placeholder.json"), "utf8")) as { segments: { clip: string; transition: string }[] };
-      expect(edl.segments.map((segment) => `${segment.clip}:${segment.transition}`)).toEqual(["talk:cut", "talk:zoom", "street:whoosh", "sunset:whoosh"]);
+      // The filler is cut: the talking clip comes back in two segments of its one sentence, joined by a hard cut.
+      const edl = JSON.parse(readFileSync(join(footage, "build", "fixture-footage", "edl.placeholder.json"), "utf8")) as { segments: { id: string; clip: string; transition: string }[] };
+      expect(edl.segments.map((segment) => `${segment.id}:${segment.clip}:${segment.transition}`)).toEqual(["s1:talk:cut", "s1.2:talk:cut", "r1:street:whoosh", "r2:sunset:whoosh"]);
       expect(readFileSync(join(footage, "out", "fixture-footage", "posts.md"), "utf8")).toContain("Filmed on a phone, cut by its transcript.");
       expect(existsSync(join(footage, "voiceover", "fixture-footage"))).toBe(false);
       // Publishable: H.264 High, AAC 48 kHz stereo, fast start, a cover next to it, the speech at the loudness target.

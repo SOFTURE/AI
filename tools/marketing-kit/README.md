@@ -594,7 +594,9 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
     "pauseSeconds": 0.6,
     "maxSeconds": 45,
     "music": { "prompt": "warm acoustic guitar, calm", "duckedVolume": 0.08 },
-    "transitions": { "jump": "zoom", "clip": "fade" },
+    "transitions": { "jump": "cut", "clip": "fade" },
+    "edit": { "fadeFrames": 8, "kenBurnsPercent": 3 },
+    "captionPreset": "all",
     "endCard": { "headline": "Try it free", "url": "example.com" },
     "loudness": { "target": -14, "truePeak": -1 },
     "cover": { "at": 2.5 }
@@ -603,7 +605,7 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
 ```
 
 - **Clips** are local files (relative to `marketing.json`) or `http(s)` URLs, downloaded once into the build
-  folder. `role: talk` (the default) is cut by its words; `role: broll` is kept whole with a slow zoom. `fit` fills
+  folder. `role: talk` (the default) is cut by its words; `role: broll` is kept whole. `fit` fills
   a frame of another aspect with a `crop` or a `blur` (the whole picture over a blurred copy); `auto` crops within
   15 % of the frame's aspect. `trim` picks the part of the clip. `script` is only for `--placeholder`.
 - **Probe and normalize:** every clip is probed first (all problems reported before anything is paid for), then
@@ -618,16 +620,27 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
 - **Cut (EDL):** `fillers` (default per language: Polish `yyy`, `eee`, `yhm` and more; English `um`, `uh` and more,
   compared without case, punctuation and repeated letters) are cut out, a silence longer than `pauseSeconds` is cut,
   `padSeconds` stays around every cut, `maxSeconds` caps the length. The result is
-  `<output.buildDir>/<film>/edl.json`: segments `{ clip, start, end, transition, motion }` in order. Check or edit it
-  (drop a segment, move a cut, change a `transition` to `cut`, `fade`, `zoom` or `whoosh`) and render with
-  `--step=render`; a plain `footage` run keeps an EDL that is there, `--step=cut` writes it afresh.
-- **Transitions:** `jump` (a cut inside one talking clip, default `zoom`: a punch-in, back out on the next) and `clip`
-  (between clips, default `fade`); `whoosh` is a cut with the `sfx.whoosh` sound. B-roll gets a slow zoom.
+  `<output.buildDir>/<film>/edl.json` ([JSON Schema](schema/edl.schema.json), version 2): segments
+  `{ id, clip, start, end, transition, motion, audio? }` in order. A talking segment's `id` is the sentence it starts
+  with (`s4`, `s4.2` for its second part), b-roll is `r1`, `r2`… Check or edit it (drop a segment, move one, change a
+  `transition` to `cut`, `fade`, `zoom` or `whoosh`, give a segment `audio: { clip, start, end, ownVolume }` to play
+  another span's sound under its picture: a J- or L-cut, or b-roll over speech with its own sound muted or at
+  `ownVolume`) and render with `--step=render`; a plain `footage` run keeps an EDL that is there, `--step=cut` writes
+  it afresh and prints the sentences it would suggest dropping (retakes, false starts, cut-off sentences). A version 1
+  file is still read, with generated ids.
+- **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
+  default; `zoom` punches in by `edit.zoomPercent` (105-110, default 108) and back out on the next, `fade` lasts
+  `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless
+  `edit.kenBurnsPercent` (up to 5) zooms it; the end card plays its whoosh only with `edit.endCardWhoosh`.
 - **Music:** `file` (local), `prompt` (ElevenLabs Music, instrumental, the film's length) or `fromVideo` (ElevenLabs
   Video to Music, scored to the cut itself, with `description` and `tags`). Generated music is paid and cached the same
   way. It plays at `volume` and ducks to `duckedVolume` while someone speaks, from the word times, with a fade in and out.
-- **Captions** (`captions`, default true) are the transcript's words in film time, highlighted word by word in the
-  brand's caption colours; `layout` moves their box per format. The **end card** follows the cut over its last
+- **Captions** (`captions`, default true) are the transcript's words in film time: `captionStyle: "phrase"` (the
+  default) shows 2-6 words of plain text with a soft shadow, `"highlight"` the pill that lights each word in the
+  brand's caption colours. `layout` moves their box per format; `captionPreset` (`reels`, `shorts`, `tiktok` or `all`)
+  keeps a 9:16 film's captions inside that platform's safe zone (`CAPTION_SAFE_ZONES`, the margins its own buttons and
+  text cover). Before the render the caption and end-card fonts are checked against the film's words: a letter no
+  file of the brand font draws (an accented letter outside a Latin-only subset) stops the run with the letters it lacks. The **end card** follows the cut over its last
   frame. `social.posts` may name a footage film; its `posts.md` carries no persona disclosure.
 - **Paying:** without `--commit` a run that needs a paid call prints each one (speech to text, isolation, music) with
   the seconds billed and stops; nothing is sent. `--placeholder` rehearses without any paid call: a transcript from
@@ -655,7 +668,7 @@ const film: FootageFilm = {
   clips: [{ id: "talk", source: "/uploads/talk.mov", role: "talk", fit: "auto", trim: { start: 0, end: null }, script: null }],
   isolateVoice: false,
   cut: { fillers: getDefaultFillers("pl"), pauseSeconds: 0.6, padSeconds: 0.12, maxSeconds: 60 },
-  transitions: { jump: "zoom", clip: "fade" },
+  transitions: { jump: "cut", clip: "cut" },
   music: { source: { kind: "none" }, volume: 0.35, duckedVolume: 0.1 },
   captions: true,
   endCard: null,
@@ -672,6 +685,21 @@ A rendered result is `{ kind: "rendered", output, seconds, edlPath, bytes, width
 `seconds` is the planned length, the rest is read with ffprobe from the written file (`cover` is the JPG's path, or
 null with `cover: null`). `loudness` and `cover` are optional on `FootageFilm`: absent means the defaults, null turns
 them off.
+
+**Editing with an agent.** The kit holds no language model; the editorial choices stay with the caller, who gets
+the means to make them:
+
+```ts
+import { diffEdl, extractFrames, findRetakes, getEdlJsonSchema, getFootageSentences, readEdlFile, renderFootageFilm, validateEdl } from "@softure-ai/marketing-kit";
+
+const sentences = getFootageSentences(clips, transcript.words); // [{ id: "s1", clip, start, end, text, isComplete }]
+const drop = findRetakes(sentences); // [{ sentence: "s3", kind: "retake", of: "s5", reason }], never applied by itself
+await renderFootageFilm(film, { ...options, isRecut: true, keepSentences: sentences.map((s) => s.id).filter((id) => !drop.some((d) => d.sentence === id)) });
+
+const sheet = await extractFrames("/build/intro/clips/desk.mp4", { count: 6 }, { outDir: "/tmp/sheet", width: 360 }); // JPGs to look at
+const problems = validateEdl(editedEdl, clips.map((c) => ({ id: c.clip.id, duration: c.duration })), film.id);
+const changes = diffEdl(previousEdl, editedEdl); // ["moved s7 to the start", "dropped s3", "r1 over s4"]
+```
 
 The blocks run alone too: `probeFootage`, `normalizeFootage`, `transcribeFootage` (or a provider's `transcribe`),
 `buildEdl` / `readEdl` / `remapWords`, `duckingKeyframes`, `composeFootage`, `renderFootage`. Results are values

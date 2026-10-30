@@ -3,7 +3,8 @@ import { join } from "node:path";
 
 import { findFootage, findMissingFootageFiles, formatConfigIssues, type FootageConfig, type MarketingConfig } from "../config/config.js";
 import { createElevenLabsFootageProviders } from "../footage/elevenlabs.js";
-import { cutFootage, getEdlPath, prepareFootage, readEdlFile, renderFootage, transcribeFootage, type RenderFootageOptions } from "../footage/pipeline.js";
+import { findRetakes } from "../footage/sentences.js";
+import { cutFootage, getEdlPath, getFootageSentences, prepareFootage, readEdlFile, renderFootage, transcribeFootage, type RenderFootageOptions } from "../footage/pipeline.js";
 import { checkFootageTools } from "../footage/tools.js";
 import { postsMarkdown } from "../posts/posts.js";
 import { fail } from "./failure.js";
@@ -70,6 +71,10 @@ export async function runFootage(config: MarketingConfig, options: FootageOption
   if (isRecut) {
     edl = cutFootage(film, clips.value, transcript.value.words, edlPath);
     console.log(`cut: ${edl.segments.length} segments written to ${edlPath}; check or edit it, then softure-marketing footage ${film.id} --step=render.`);
+    // Suggestions only: the EDL keeps every sentence until someone drops one.
+    for (const suggestion of findRetakes(getFootageSentences(clips.value, transcript.value.words))) {
+      console.log(`  maybe drop ${suggestion.sentence} (${suggestion.kind}): ${suggestion.reason}`);
+    }
     if (options.step === "cut") return;
   } else {
     if (!existsSync(edlPath)) fail(`no EDL at ${edlPath}: run softure-marketing footage ${film.id} --step=cut first.`);

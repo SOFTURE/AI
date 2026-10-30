@@ -14,7 +14,7 @@ import {
 } from "../compose/timeline.js";
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
-import { CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS } from "../footage/film.js";
+import { CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS } from "../footage/film.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
 import { COLOR_ROLES, COLOR_THEMES, isHexColor, type ColorRole } from "./colors.js";
@@ -509,8 +509,8 @@ const footageSchema = z
     maxSeconds: z.number().min(1).max(600).optional().describe("The cut's longest length in seconds; later segments are shortened or dropped."),
     transitions: z
       .strictObject({
-        jump: z.enum(CUT_TRANSITIONS).default("zoom").describe("A cut inside one talking clip: cut, fade, zoom (a punch-in, the default) or whoosh."),
-        clip: z.enum(CUT_TRANSITIONS).default("fade").describe("A cut from one clip to the next: cut, fade (the default), zoom or whoosh."),
+        jump: z.enum(CUT_TRANSITIONS).default("cut").describe("A cut inside one talking clip: cut (the default), fade, zoom (a punch-in) or whoosh."),
+        clip: z.enum(CUT_TRANSITIONS).default("cut").describe("A cut from one clip to the next: cut (the default), fade, zoom or whoosh."),
       })
       .prefault({})
       .describe("Default transitions by kind of cut; each segment of the EDL can name its own."),
@@ -534,7 +534,24 @@ const footageSchema = z
       })
       .optional()
       .describe("Music under the film, ducked while someone speaks; without it, none."),
-    captions: z.boolean().default(true).describe("Word-by-word captions from the transcript (default true)."),
+    captions: z.boolean().default(true).describe("Captions from the transcript (default true)."),
+    captionStyle: z
+      .enum(CAPTION_STYLES)
+      .default("phrase")
+      .describe("phrase (the default): 2-6 words of plain text with a soft shadow; highlight: a pill that lights each word as it is said."),
+    captionPreset: z
+      .enum(CAPTION_PRESETS)
+      .optional()
+      .describe("Keeps a 9:16 film's captions inside a platform's safe zone: reels, shorts, tiktok or all; without it, layout decides."),
+    edit: z
+      .strictObject({
+        zoomPercent: z.number().min(105).max(110).default(108).describe("How far a zoom cut punches in (105-110 %, default 108)."),
+        fadeFrames: z.number().int().min(1).max(30).default(10).describe("A fade cut's length in frames at 30 fps (1-30, default 10)."),
+        kenBurnsPercent: z.number().min(0).max(5).default(0).describe("How far b-roll zooms over its length (0-5 %, default 0: still)."),
+        endCardWhoosh: z.boolean().default(false).describe("Play the whoosh and pop as the end card comes in (default false)."),
+      })
+      .prefault({})
+      .describe("The cut's look; the defaults read as an ordinary phone video."),
     endCard: endCardSchema.optional().describe("The closing card after the last segment; without it, the film ends with its last segment."),
     loudness: z
       .union([
