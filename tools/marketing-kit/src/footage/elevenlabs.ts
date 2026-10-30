@@ -6,12 +6,13 @@ import { z } from "zod";
 import { ELEVENLABS_API_KEY_ENV } from "../voice/elevenlabs.js";
 import { err, ok, type TtsResult } from "../voice/provider.js";
 import { ELEVENLABS_API_URL, type TimedWord } from "../voice/voiceover.js";
-import type { IsolationProvider, MusicProvider, SttProvider, SttTranscript } from "./providers.js";
+import type { IsolationProvider, MusicProvider, PaidAudio, SttProvider, SttTranscript } from "./providers.js";
 
 /**
  * ElevenLabs behind the footage providers (API reference checked 2026-10-29): Scribe speech to text
  * (`/v1/speech-to-text`, word timestamps), Voice Isolator (`/v1/audio-isolation`), Music (`/v1/music`) and Video to
- * Music (`/v1/music/video-to-music`). Each takes an injected `fetch`, so tests reach no network.
+ * Music (`/v1/music/video-to-music`). Each takes an injected `fetch`, so tests reach no network, and passes the
+ * caller's `signal` to it. A `character-cost` header, when a response carries one, becomes the call's `credits`.
  */
 
 export const ELEVENLABS_STT_MODEL = "scribe_v2";
@@ -71,10 +72,20 @@ async function send(options: ElevenLabsFootageOptions, label: string, path: stri
   return ok(response);
 }
 
-async function readAudio(label: string, response: Response): Promise<TtsResult<Buffer>> {
+/** The charge a response reports in its `character-cost` header; undefined when it reports none. */
+export function readReportedCredits(response: Response): number | undefined {
+  const header = response.headers.get("character-cost");
+  if (header === null || header.trim().length === 0) return undefined;
+  const credits = Number(header);
+  return Number.isFinite(credits) ? credits : undefined;
+}
+
+const withCredits = <T extends object>(value: T, credits: number | undefined): T & { credits?: number } => (credits === undefined ? value : { ...value, credits });
+
+async function readAudio(label: string, response: Response): Promise<TtsResult<PaidAudio>> {
   try {
     const audio = Buffer.from(await response.arrayBuffer());
-    return audio.length > 0 ? ok(audio) : err(`ElevenLabs ${label}: the response has no audio.`);
+    return audio.length > 0 ? ok(withCredits({ audio }, readReportedCredits(response))) : err(`ElevenLabs ${label}: the response has no audio.`);
   } catch (error) {
     return err(`ElevenLabs ${label}: reading the audio failed (${String(error)}).`);
   }
@@ -92,7 +103,7 @@ export function createElevenLabsSttProvider(options: ElevenLabsFootageOptions): 
       form.append("language_code", input.language);
       form.append("timestamps_granularity", "word");
       form.append("tag_audio_events", "false");
-      const response = await send(options, "speech to text", "/v1/speech-to-text", { method: "POST", body: form });
+      const response = await send(options, "speech to text", "/v1/speech-to-text", { method: "POST", body: form, signal: input.signal ?? null });
       if (!response.ok) return response;
       let body: unknown;
       try {
@@ -100,7 +111,8 @@ export function createElevenLabsSttProvider(options: ElevenLabsFootageOptions): 
       } catch (error) {
         return err(`ElevenLabs speech to text: the response is not JSON (${String(error)}).`);
       }
-      return readScribeResponse(body, input.language);
+      const transcript = readScribeResponse(body, input.language);
+      return transcript.ok ? ok(withCredits(transcript.value, readReportedCredits(response.value))) : transcript;
     },
   };
 }
@@ -111,7 +123,7 @@ export function createElevenLabsIsolationProvider(options: ElevenLabsFootageOpti
     async isolate(input) {
       const form = new FormData();
       form.append("audio", fileBlob(input.audio), basename(input.audio));
-      const response = await send(options, "voice isolation", "/v1/audio-isolation", { method: "POST", body: form });
+      const response = await send(options, "voice isolation", "/v1/audio-isolation", { method: "POST", body: form, signal: input.signal ?? null });
       return response.ok ? readAudio("voice isolation", response.value) : response;
     },
   };
@@ -133,6 +145,7 @@ export function createElevenLabsMusicProvider(options: ElevenLabsFootageOptions)
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: input.signal ?? null,
       });
       return response.ok ? readAudio("music", response.value) : response;
     },
@@ -141,7 +154,7 @@ export function createElevenLabsMusicProvider(options: ElevenLabsFootageOptions)
       form.append("videos", fileBlob(input.video), basename(input.video));
       if (input.description.length > 0) form.append("description", input.description);
       for (const tag of input.tags) form.append("tags", tag);
-      const response = await send(options, "video to music", "/v1/music/video-to-music?output_format=mp3_44100_128", { method: "POST", body: form });
+      const response = await send(options, "video to music", "/v1/music/video-to-music?output_format=mp3_44100_128", { method: "POST", body: form, signal: input.signal ?? null });
       return response.ok ? readAudio("video to music", response.value) : response;
     },
   };

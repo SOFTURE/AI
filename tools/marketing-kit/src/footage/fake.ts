@@ -12,6 +12,8 @@ export interface FakeSttOptions {
   transcripts?: Record<string, TimedWord[]>;
   /** Makes every call fail with this message. */
   failWith?: string;
+  /** The charge every call reports, as a provider whose API returns one. */
+  credits?: number;
 }
 
 export interface FakeSttProvider extends SttProvider {
@@ -28,7 +30,8 @@ export function createFakeSttProvider(options: FakeSttOptions = {}): FakeSttProv
       calls.push(input);
       if (options.failWith !== undefined) return Promise.resolve({ ok: false, error: options.failWith });
       const name = basename(input.audio).split(".")[0] ?? "";
-      return Promise.resolve(ok({ words: options.transcripts?.[name] ?? [], language: input.language }));
+      const transcript = { words: options.transcripts?.[name] ?? [], language: input.language };
+      return Promise.resolve(ok(options.credits === undefined ? transcript : { ...transcript, credits: options.credits }));
     },
   };
 }

@@ -78,6 +78,16 @@ describe("ci.yml", () => {
     expect(install?.env?.FFPROBE_SHA256).toMatch(/^[0-9a-f]{64}$/);
     expect(install?.["timeout-minutes"]).toBeLessThan(render?.["timeout-minutes"] ?? 0);
   });
+
+  // The README's container recipe for a footage worker is the file CI builds and renders in, so a copied recipe works.
+  it("renders the footage films in the worker image built from the README's recipe, the build within its own timeout", () => {
+    const job = readWorkflow("ci.yml").jobs["footage-image"];
+    const build = job?.steps?.find((step) => step.name === "Build the footage worker image");
+    expect(build?.run).toContain("-f tools/marketing-kit/docker/footage-worker.Dockerfile");
+    expect(build?.["timeout-minutes"]).toBeLessThan(job?.["timeout-minutes"] ?? 0);
+    expect(job?.steps?.find((step) => step.name === "Render the fixture footage film in the image")?.run).toContain('-t "the fixture footage film"');
+    expect(readFileSync(join(REPO_ROOT, "tools/marketing-kit/README.md"), "utf8")).toContain("docker/footage-worker.Dockerfile");
+  });
 });
 
 describe("e2e.yml", () => {

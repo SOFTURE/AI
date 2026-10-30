@@ -18,6 +18,7 @@
     "CHANGELOG.md",
     "src",
     "schema",
+    "docker",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx"
   ],

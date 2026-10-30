@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProvider } from "./fake.js";
 import { DEFAULT_TRANSITIONS, type FootageClip, type FootageFilm } from "./film.js";
-import { cutFootage, getEdlPath, getMusicPaidStep, readEdlFile, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
+import { cutFootage, getEdlPath, getMusicPaidStep, readEdlFile, readRenderPercent, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
 import type { FootageProbe } from "./probe.js";
 
 const PROBE: FootageProbe = { duration: 6, width: 1080, height: 1920, rotation: 0, displayWidth: 1080, displayHeight: 1920, codec: "h264", pixelFormat: "yuv420p", colorTransfer: null, hdr: null, hasAudio: true };
@@ -106,5 +106,14 @@ describe("the footage pipeline without ffmpeg", () => {
     writeFileSync(path, JSON.stringify({ ...edited, segments: [{ clip: "gone", start: 0, end: 1, transition: "cut", motion: "none" }] }));
     expect(readEdlFile(film(), clips, path)).toEqual({ ok: false, error: `${path}: segments[0].clip: no clip "gone" in the film` });
     expect(getEdlPath("/b", true)).toBe("/b/edl.placeholder.json");
+  });
+});
+
+describe("readRenderPercent", () => {
+  it("reads the last percentage of a hyperframes line, and nothing from other lines", () => {
+    expect(readRenderPercent("Capturing frames  42%")).toBe(42);
+    expect(readRenderPercent("[3/4] encoding 12.5 % done, 87.5%")).toBe(87.5);
+    expect(readRenderPercent("Rendered 90 frames")).toBeNull();
+    expect(readRenderPercent("150%")).toBeNull();
   });
 });

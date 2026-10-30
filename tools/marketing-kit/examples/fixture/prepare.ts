@@ -67,9 +67,11 @@ export function prepareFootageFixture(target: string): void {
   ffmpeg(["-display_rotation", "90", "-i", upright, "-c", "copy", join(dir, "talk.mp4")]);
   rmSync(upright);
   ffmpeg(["-f", "lavfi", "-i", "smptehdbars=size=960x540:rate=30:duration=3", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", join(dir, "street.mp4")]);
+  // The HDR tags go into the HEVC stream itself too (x265's VUI): Debian's ffmpeg 7.1 left them out of the stream
+  // when given only as output options, and the probe read the clip as SDR.
   ffmpeg([
     "-f", "lavfi", "-i", "gradients=size=640x360:rate=30:duration=3:speed=0.02",
-    "-c:v", "libx265", "-preset", "fast", "-x265-params", "log-level=error", "-pix_fmt", "yuv420p10le",
+    "-c:v", "libx265", "-preset", "fast", "-x265-params", "log-level=error:colorprim=bt2020:transfer=arib-std-b67:colormatrix=bt2020nc", "-pix_fmt", "yuv420p10le",
     "-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc", "-tag:v", "hvc1",
     join(dir, "sunset.mp4"),
   ]);

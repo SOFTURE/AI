@@ -663,6 +663,57 @@ The blocks run alone too: `probeFootage`, `normalizeFootage`, `transcribeFootage
 (`{ ok, value } | { ok, error }`), and a dry run is `{ kind: "dry-run", steps }`. `createFakeSttProvider`,
 `createFakeIsolationProvider` and `createFakeMusicProvider` stand in for ElevenLabs in tests.
 
+### Footage films in a worker
+
+The blocks spawn ffmpeg, ffprobe and hyperframes asynchronously, so a jobs worker (`@softure-ai/jobs`) keeps its
+event loop and lease heartbeat through a long normalize or render. For a job that pays, ask first, then run with the
+job's signal and report back:
+
+```ts
+import { checkFootageTools, estimateFootageFilm, findCachedStep, renderFootageFilm } from "@softure-ai/marketing-kit";
+
+const problems = await checkFootageTools(); // ffmpeg + ffprobe, hevc decoder, zscale + tonemap, hyperframes' browser
+if (problems.length > 0) throw new Error(problems.join("\n"));
+
+// Probes only: no normalize, no provider call. Rates are the app's own credits per second for each paid step.
+const estimate = await estimateFootageFilm(film, { cacheDir, buildDir, providers, rates: { transcribe: 0.5, isolate: 1, music: 4 } });
+// estimate.value: { items: [{ step, item, provider, units, unit: "seconds", credits, cached }], totalCredits }
+
+const result = await renderFootageFilm(film, {
+  ...options,
+  signal: job.signal, // an abort kills ffmpeg or hyperframes, removes the partial file, rejects with the reason
+  onProgress: ({ step, item, itemIndex, itemCount, done, total }) => job.progress(`${step} ${item} (${itemIndex}/${itemCount})`, done / total),
+  onCharge: ({ step, item, provider, units, credits, cacheKey }) => ledger.record({ step, item, provider, units, credits, cacheKey }),
+});
+```
+
+- `onProgress` reports the stages `normalize`, `isolate`, `transcribe`, `music`, `assets` and `render`; `done` and
+  `total` are seconds of media across the stage (ffmpeg's `-progress`, hyperframes' percentage), `itemIndex` of
+  `itemCount` names the clip ("normalizing clip 2 of 4").
+- `onCharge` fires after each paid call, with the provider's reported charge in `credits` when its API returns one
+  (ElevenLabs' `character-cost` header) and the paid cache's key of the result.
+- `findCachedStep(film, step, item, { cacheDir, providers, buildDir })` answers whether a paid step (`transcribe` or
+  `isolate` for a clip id, `music` for `film`) is already cached, without network. A cached step costs 0 in the
+  estimate. Video-scored music depends on the cut, so it counts as cached only once `edl.json` is in `buildDir`.
+- The CLI runs `checkFootageTools` before `footage`, letting hyperframes download its browser on the first render;
+  a worker image ships the browser instead.
+
+**Container recipe.** [`docker/footage-worker.Dockerfile`](docker/footage-worker.Dockerfile) is a worker base image:
+`node:22-trixie-slim`, Debian's ffmpeg 7.1 (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and
+fonts Chrome needs, and the chrome-headless-shell hyperframes 0.8.85 pins, named by `HYPERFRAMES_BROWSER_PATH`. CI
+builds it and renders the fixture footage film inside it (job `footage-image`). The package ships it, so an app
+builds it (`docker build -t footage-worker -f node_modules/@softure-ai/marketing-kit/docker/footage-worker.Dockerfile .`)
+or copies it, and adds its own code on top:
+
+```Dockerfile
+FROM footage-worker
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY . .
+CMD ["node", "dist/worker.js"]
+```
+
 ## OG images
 
 `softure-marketing og` renders each `ogImages` entry with [Satori](https://github.com/vercel/satori)
@@ -768,8 +819,11 @@ renders without a `marketing.json` at all. For a carousel, pass `slide` (1-based
   as a desktop page needs a lower scale (about 1.2) than on a phone, or the zoom crops it.
 - ElevenLabs is the only real voice provider; the estimate is an upper bound in credits, not money.
 - Footage films: the cut works from the transcript and each clip's role only, never from the picture (no "best take"
-  detection); the footage estimate is in seconds billed, since the providers' reference pages give no per-call price.
-- Footage films need an ffmpeg with `zscale` (libzimg) for HDR clips; the static builds and Homebrew's have it.
+  detection); `estimateFootageFilm` prices seconds billed at the caller's rates, since the providers' reference pages
+  give no per-call price.
+- Footage films need an ffmpeg with `zscale` (libzimg) for HDR clips; the static builds, Homebrew's and Debian's have
+  it, and `checkFootageTools` says when it is missing.
+- The worker image is linux/amd64 only: Chrome for Testing publishes no linux arm64 chrome-headless-shell.
 - Two OG templates.
 
 ## Development

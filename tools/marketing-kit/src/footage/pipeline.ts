@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, extname, join, resolve } from "node:path";
@@ -7,11 +6,11 @@ import { LAYOUTS, resolveLayout, type LayoutOverride } from "../compose/timeline
 import type { BrandColors } from "../config/colors.js";
 import type { BrandFont } from "../config/config.js";
 import type { SfxEvent } from "../config/schema.js";
-import { runHyperframes } from "../render/hyperframes.js";
+import { getHyperframesBin, getHyperframesEnv } from "../render/hyperframes.js";
 import { copyFonts } from "../render/render.js";
 import { err, ok, type TtsResult } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { footageCacheKey, getFootageCachePath, hashFile, readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
+import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
 import { buildEdl, findEdlProblems, readEdl, remapWords, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
@@ -19,8 +18,22 @@ import type { FootageClip, FootageFilm } from "./film.js";
 import { duckingKeyframes } from "./music.js";
 import { normalizeFootage, type Frame } from "./normalize.js";
 import { describeProbe, getTrimmedDuration, probeFootage, type FootageProbe } from "./probe.js";
-import { describePaidSteps, type FootageProviders, type PaidStep } from "./providers.js";
-import { buildAudioArgs, buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs, runFfmpeg } from "./render.js";
+import {
+  getClipCacheKey,
+  getDownloadPath,
+  getEdlPath,
+  getIsolatedCache,
+  getPromptMusicCache,
+  getTranscriptCache,
+  getVideoMusicCache,
+  isUrl,
+  type CacheEntry,
+} from "./paid.js";
+import { runFfmpeg, runProcess } from "./process.js";
+import { describePaidSteps, toPaidAudio, type FootageCharge, type FootageProgress, type FootageProviders, type FootageStage, type PaidAudio, type PaidStep } from "./providers.js";
+import { buildAudioArgs, buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs } from "./render.js";
+
+export { getEdlPath } from "./paid.js";
 
 /**
  * The footage film end to end, as standalone steps (`prepareFootage` → `transcribeFootage` → `cutFootage` →
@@ -31,6 +44,11 @@ import { buildAudioArgs, buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs
  *
  * Build folder layout: `sources/` (downloaded URLs), `clips/<id>.mp4` (normalized), `audio/<id>.mp3`, `edl.json`
  * (`edl.placeholder.json`), `assets/`, `index.html`.
+ *
+ * Every step spawns ffmpeg, ffprobe and hyperframes asynchronously, so a jobs worker's event loop (and its lease
+ * heartbeat) keeps running. `signal` stops a run: the child process is killed, its partial file removed, and the
+ * step rejects with the signal's reason. `onProgress` reports each stage in seconds of media, `onCharge` each paid
+ * call made.
  */
 
 const require = createRequire(import.meta.url);
@@ -58,6 +76,11 @@ export interface FootageRunOptions {
   log: (line: string) => void;
   /** Downloads clip URLs; injected in tests. */
   fetch?: typeof globalThis.fetch;
+  /** Stops the run: the running child process is killed and the step rejects with the signal's reason. */
+  signal?: AbortSignal;
+  onProgress?: (progress: FootageProgress) => void;
+  /** Called after each paid call, for the app's own spend ledger. */
+  onCharge?: (charge: FootageCharge) => void;
 }
 
 export interface PreparedClip {
@@ -87,22 +110,36 @@ export function getFrame(film: Pick<FootageFilm, "format">): Frame {
   return LAYOUTS[film.format].frame;
 }
 
-export function getEdlPath(buildDir: string, isPlaceholder: boolean): string {
-  return join(buildDir, isPlaceholder ? "edl.placeholder.json" : "edl.json");
+/** Reports one stage's progress over its items, each `seconds` long; the reporter takes an item's index and its seconds done. */
+function createStageProgress(
+  onProgress: FootageRunOptions["onProgress"],
+  step: FootageStage,
+  items: { item: string; seconds: number }[],
+): (index: number, seconds: number) => void {
+  const total = items.reduce((sum, item) => sum + item.seconds, 0);
+  const offsets = items.map((_, index) => items.slice(0, index).reduce((sum, item) => sum + item.seconds, 0));
+  return (index, seconds) => {
+    const entry = items[index];
+    if (onProgress === undefined || entry === undefined) return;
+    const done = (offsets[index] ?? 0) + Math.min(Math.max(seconds, 0), entry.seconds);
+    onProgress({ step, item: entry.item, itemIndex: index + 1, itemCount: items.length, done: Math.round(done * 1000) / 1000, total: Math.round(total * 1000) / 1000 });
+  };
 }
 
-const isUrl = (source: string): boolean => /^https?:\/\//i.test(source);
+/** Rejects with the signal's reason once the run was aborted (before a paid call, which the provider may not stop). */
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  signal?.throwIfAborted();
+}
 
-async function download(url: string, dir: string, fetch: typeof globalThis.fetch, log: (line: string) => void): Promise<FootageResult<string>> {
-  const name = createHash("sha256").update(url).digest("hex").slice(0, 16);
-  const extension = extname(new URL(url).pathname).toLowerCase() || ".mp4";
-  const file = join(dir, `${name}${extension}`);
+async function download(url: string, dir: string, options: Pick<FootageRunOptions, "fetch" | "log" | "signal">): Promise<FootageResult<string>> {
+  const file = getDownloadPath(url, dir);
   if (existsSync(file)) return ok(file);
-  log(`download: ${url}`);
+  options.log(`download: ${url}`);
   let response: Response;
   try {
-    response = await fetch(url);
+    response = await (options.fetch ?? globalThis.fetch)(url, { signal: options.signal ?? null });
   } catch (error) {
+    throwIfAborted(options.signal);
     return err(`downloading ${url} failed: ${String(error)}`);
   }
   if (!response.ok) return err(`downloading ${url}: the server answered ${response.status}`);
@@ -120,8 +157,11 @@ function getNormalizeStamp(clip: FootageClip, source: string, frame: Frame): str
 }
 
 /** Downloads URL clips, probes every clip (all problems at once), normalizes each one that changed. */
-export async function prepareFootage(film: FootageFilm, options: Pick<FootageRunOptions, "buildDir" | "log" | "fetch">): Promise<FootageResult<PreparedClip[]>> {
-  const { buildDir, log } = options;
+export async function prepareFootage(
+  film: FootageFilm,
+  options: Pick<FootageRunOptions, "buildDir" | "log" | "fetch" | "signal" | "onProgress">,
+): Promise<FootageResult<PreparedClip[]>> {
+  const { buildDir, log, signal } = options;
   if (film.clips.length === 0) return err(`footage film ${film.id} has no clips.`);
   const sources: Record<string, string> = {};
   for (const clip of film.clips) {
@@ -130,39 +170,50 @@ export async function prepareFootage(film: FootageFilm, options: Pick<FootageRun
       sources[clip.id] = clip.source;
       continue;
     }
-    const downloaded = await download(clip.source, join(buildDir, "sources"), options.fetch ?? globalThis.fetch, log);
+    const downloaded = await download(clip.source, join(buildDir, "sources"), options);
     if (!downloaded.ok) return err(`clip "${clip.id}": ${downloaded.error}`);
     sources[clip.id] = downloaded.value;
   }
-  const probed = probeFootage(film.clips, sources);
+  const probed = await probeFootage(film.clips, sources, signal === undefined ? {} : { signal });
   if (!probed.ok) return err(probed.errors.join("\n"));
   const frame = getFrame(film);
   const clipsDir = join(buildDir, "clips");
   mkdirSync(clipsDir, { recursive: true });
   const prepared: PreparedClip[] = [];
+  const stale: { clip: PreparedClip; stamp: string; stampPath: string }[] = [];
   for (const { clip, file: source, probe } of probed.clips) {
     log(describeProbe(clip, probe));
     const file = join(clipsDir, `${clip.id}.mp4`);
     const stampPath = join(clipsDir, `${clip.id}.json`);
     const stamp = getNormalizeStamp(clip, source, frame);
-    if (!existsSync(file) || !existsSync(stampPath) || readFileSync(stampPath, "utf8") !== stamp) {
-      normalizeFootage({ clip, file: source, probe, frame, output: file });
-      writeFileSync(stampPath, stamp);
-    }
-    prepared.push({ clip, source, probe, file, duration: getTrimmedDuration(clip, probe) });
+    const entry: PreparedClip = { clip, source, probe, file, duration: getTrimmedDuration(clip, probe) };
+    if (!existsSync(file) || !existsSync(stampPath) || readFileSync(stampPath, "utf8") !== stamp) stale.push({ clip: entry, stamp, stampPath });
+    prepared.push(entry);
+  }
+  const progress = createStageProgress(options.onProgress, "normalize", stale.map(({ clip }) => ({ item: clip.clip.id, seconds: clip.duration })));
+  for (const [index, { clip, stamp, stampPath }] of stale.entries()) {
+    progress(index, 0);
+    // The stamp goes first, so a normalize stopped half-way never leaves a stamp that vouches for a partial clip.
+    rmSync(stampPath, { force: true });
+    await normalizeFootage(
+      { clip: clip.clip, file: clip.source, probe: clip.probe, frame, output: clip.file },
+      { ...(signal === undefined ? {} : { signal }), onSeconds: (seconds) => progress(index, seconds) },
+    );
+    writeFileSync(stampPath, stamp);
+    progress(index, clip.duration);
   }
   return ok(prepared);
 }
 
 /** The cache identity of a clip's source part: its bytes and its trim. */
-async function getClipKey(clip: PreparedClip): Promise<string> {
-  return footageCacheKey("transcript", { source: await hashFile(clip.source), trim: clip.clip.trim });
+function getClipKey(clip: PreparedClip): Promise<string> {
+  return getClipCacheKey(clip.source, clip.clip);
 }
 
-function extractAudio(clip: PreparedClip, buildDir: string): string {
+async function extractAudio(clip: PreparedClip, buildDir: string, signal: AbortSignal | undefined): Promise<string> {
   const audio = join(buildDir, "audio", `${clip.clip.id}.mp3`);
   mkdirSync(dirname(audio), { recursive: true });
-  runFfmpeg(`Extracting the sound of clip ${clip.clip.id}`, buildAudioArgs(clip.file, audio));
+  await runFfmpeg(`Extracting the sound of clip ${clip.clip.id}`, buildAudioArgs(clip.file, audio), { ...(signal === undefined ? {} : { signal }), output: audio });
   return audio;
 }
 
@@ -182,15 +233,8 @@ function transcribePlaceholder(film: FootageFilm, clips: PreparedClip[], buildDi
 export function getMusicPaidStep(film: FootageFilm, options: Pick<FootageRunOptions, "cacheDir" | "providers">, seconds: number): PaidStep | null {
   const source = film.music.source;
   if (source.kind === "none" || source.kind === "file") return null;
-  if (source.kind === "prompt" && existsSync(getPromptMusicPath(film, options))) return null;
+  if (source.kind === "prompt" && existsSync(getPromptMusicCache(film, options).path)) return null;
   return { kind: "music", item: "film", provider: options.providers.music.id, seconds };
-}
-
-function getPromptMusicPath(film: FootageFilm, options: Pick<FootageRunOptions, "cacheDir" | "providers">): string {
-  const source = film.music.source;
-  const prompt = source.kind === "prompt" ? source.prompt : "";
-  const key = footageCacheKey("music", { prompt, provider: options.providers.music.id, model: options.providers.music.model });
-  return getFootageCachePath(options.cacheDir, film.id, "music", key);
 }
 
 /**
@@ -199,18 +243,17 @@ function getPromptMusicPath(film: FootageFilm, options: Pick<FootageRunOptions, 
  * call the film still needs, music included, with its length.
  */
 export async function transcribeFootage(film: FootageFilm, clips: PreparedClip[], options: FootageRunOptions): Promise<FootageResult<TranscribeOutcome>> {
-  const { buildDir, cacheDir, providers, log } = options;
+  const { buildDir, providers, log, signal } = options;
   if (options.isPlaceholder) return ok(transcribePlaceholder(film, clips, buildDir));
-  const plan: { clip: PreparedClip; isolated: string | null; transcript: string }[] = [];
+  const plan: { clip: PreparedClip; isolated: CacheEntry | null; transcript: CacheEntry }[] = [];
   const steps: PaidStep[] = [];
   for (const clip of clips) {
     if (clip.clip.role !== "talk") continue;
     const clipKey = await getClipKey(clip);
-    const isolated = film.isolateVoice ? getFootageCachePath(cacheDir, film.id, "isolated", footageCacheKey("isolated", { clip: clipKey, provider: providers.isolation.id })) : null;
-    const transcriptKey = footageCacheKey("transcript", { clip: clipKey, isolated: isolated !== null, provider: providers.stt.id, model: providers.stt.model, language: film.language });
-    const transcript = getFootageCachePath(cacheDir, film.id, "transcript", transcriptKey);
-    if (isolated !== null && !existsSync(isolated)) steps.push({ kind: "isolate", item: `clip ${clip.clip.id}`, provider: providers.isolation.id, seconds: clip.duration });
-    if (!existsSync(transcript)) steps.push({ kind: "transcribe", item: `clip ${clip.clip.id}`, provider: providers.stt.id, seconds: clip.duration });
+    const isolated = getIsolatedCache(film, clipKey, options);
+    const transcript = getTranscriptCache(film, clipKey, options);
+    if (isolated !== null && !existsSync(isolated.path)) steps.push({ kind: "isolate", item: `clip ${clip.clip.id}`, provider: providers.isolation.id, seconds: clip.duration });
+    if (!existsSync(transcript.path)) steps.push({ kind: "transcribe", item: `clip ${clip.clip.id}`, provider: providers.stt.id, seconds: clip.duration });
     plan.push({ clip, isolated, transcript });
   }
   if (steps.length > 0 && !options.isCommit) {
@@ -227,23 +270,36 @@ export async function transcribeFootage(film: FootageFilm, clips: PreparedClip[]
     words[clip.clip.id] = [];
     speech[clip.clip.id] = clip.file;
   }
-  for (const { clip, isolated, transcript } of plan) {
+  const isolating = plan.filter(({ isolated }) => isolated !== null && !existsSync(isolated.path));
+  const transcribing = plan.filter(({ transcript }) => !existsSync(transcript.path));
+  const isolateProgress = createStageProgress(options.onProgress, "isolate", isolating.map(({ clip }) => ({ item: clip.clip.id, seconds: clip.duration })));
+  const transcribeProgress = createStageProgress(options.onProgress, "transcribe", transcribing.map(({ clip }) => ({ item: clip.clip.id, seconds: clip.duration })));
+  for (const entry of plan) {
+    const { clip, isolated, transcript } = entry;
     const id = clip.clip.id;
-    let audio: string | null = null;
-    const getAudio = (): string => (audio ??= extractAudio(clip, buildDir));
+    let audio: Promise<string> | null = null;
+    const getAudio = (): Promise<string> => (audio ??= extractAudio(clip, buildDir, signal));
     let sttInput: string | null = null;
     if (isolated !== null) {
-      if (!existsSync(isolated)) {
+      if (!existsSync(isolated.path)) {
+        const index = isolating.indexOf(entry);
+        isolateProgress(index, 0);
+        const input = await getAudio();
+        throwIfAborted(signal);
         log(`voice isolation (${providers.isolation.id}): clip ${id}, ${clip.duration.toFixed(1)} s.`);
-        const cleaned = await providers.isolation.isolate({ audio: getAudio() });
+        const cleaned = await providers.isolation.isolate({ audio: input, ...(signal === undefined ? {} : { signal }) });
+        throwIfAborted(signal);
         if (!cleaned.ok) return err(`clip "${id}": ${cleaned.error}`);
-        writeCacheFile(isolated, cleaned.value);
-        log(`voice isolation: saved ${isolated} (commit it).`);
+        const paid = toPaidAudio(cleaned.value);
+        writeCacheFile(isolated.path, paid.audio);
+        options.onCharge?.({ step: "isolate", item: id, provider: providers.isolation.id, units: clip.duration, ...(paid.credits === undefined ? {} : { credits: paid.credits }), cacheKey: isolated.key });
+        log(`voice isolation: saved ${isolated.path} (commit it).`);
+        isolateProgress(index, clip.duration);
       }
-      speech[id] = isolated;
-      sttInput = isolated;
+      speech[id] = isolated.path;
+      sttInput = isolated.path;
     }
-    const cached = readCachedTranscript(transcript);
+    const cached = readCachedTranscript(transcript.path);
     if (!cached.ok) return err(cached.error);
     if (cached.words !== null) {
       log(`transcript: clip ${id} from the cache, nothing spent.`);
@@ -252,15 +308,24 @@ export async function transcribeFootage(film: FootageFilm, clips: PreparedClip[]
     }
     if (sttInput !== null) {
       // The provider sees the clip's id as the file name, as it does for the plain sound.
+      const cleaned = sttInput;
       sttInput = join(buildDir, "audio", `${id}.isolated.mp3`);
       mkdirSync(dirname(sttInput), { recursive: true });
-      copyFileSync(isolated as string, sttInput);
+      copyFileSync(cleaned, sttInput);
     }
+    const index = transcribing.indexOf(entry);
+    transcribeProgress(index, 0);
+    const input = sttInput ?? (await getAudio());
+    throwIfAborted(signal);
     log(`speech to text (${providers.stt.id}): clip ${id}, ${clip.duration.toFixed(1)} s.`);
-    const result = await providers.stt.transcribe({ audio: sttInput ?? getAudio(), language: film.language });
+    const result = await providers.stt.transcribe({ audio: input, language: film.language, ...(signal === undefined ? {} : { signal }) });
+    throwIfAborted(signal);
     if (!result.ok) return err(`clip "${id}": ${result.error}`);
-    writeTranscript(transcript, result.value.words);
-    log(`transcript: clip ${id}, ${result.value.words.length} words, saved ${transcript} (commit it).`);
+    writeTranscript(transcript.path, result.value.words);
+    const { credits } = result.value;
+    options.onCharge?.({ step: "transcribe", item: id, provider: providers.stt.id, units: clip.duration, ...(credits === undefined ? {} : { credits }), cacheKey: transcript.key });
+    log(`transcript: clip ${id}, ${result.value.words.length} words, saved ${transcript.path} (commit it).`);
+    transcribeProgress(index, clip.duration);
     words[id] = result.value.words;
   }
   return ok({ kind: "ready", words, speech });
@@ -303,34 +368,45 @@ async function getMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[], seco
   if (source.kind === "none") return ok(null);
   if (source.kind === "file") return existsSync(source.path) ? ok(source.path) : err(`music: no file at ${source.path}`);
   if (options.isPlaceholder) return ok(null);
-  const { providers, log } = options;
-  let path: string;
+  const { providers, log, signal } = options;
+  let cache: CacheEntry;
   if (source.kind === "prompt") {
-    path = getPromptMusicPath(film, options);
+    cache = getPromptMusicCache(film, options);
   } else {
     const clipKeys: Record<string, string> = {};
     for (const clip of clips) clipKeys[clip.clip.id] = await getClipKey(clip);
-    const key = footageCacheKey("music", { segments: edl.segments, clips: clipKeys, description: source.description, tags: source.tags, provider: providers.music.id, model: providers.music.model });
-    path = getFootageCachePath(options.cacheDir, film.id, "music", key);
+    cache = getVideoMusicCache(film, edl, clipKeys, options);
   }
+  const { path } = cache;
   if (existsSync(path)) {
     log(`music: from the cache ${path}, nothing spent.`);
     return ok(path);
   }
   const step: PaidStep = { kind: "music", item: "film", provider: providers.music.id, seconds };
   if (!options.isCommit) return ok(step);
-  log(`music (${providers.music.id}): ${seconds.toFixed(1)} s.`);
-  let bought: TtsResult<Buffer>;
+  const progress = createStageProgress(options.onProgress, "music", [{ item: "film", seconds }]);
+  progress(0, 0);
+  const aborting = signal === undefined ? {} : { signal };
+  let bought: TtsResult<Buffer | PaidAudio>;
   if (source.kind === "prompt") {
-    bought = await providers.music.compose({ prompt: source.prompt, seconds });
+    throwIfAborted(signal);
+    log(`music (${providers.music.id}): ${seconds.toFixed(1)} s.`);
+    bought = await providers.music.compose({ prompt: source.prompt, seconds, ...aborting });
   } else {
     const preview = join(options.buildDir, "cut-preview.mp4");
-    runFfmpeg("The cut preview for Video to Music", buildCutPreviewArgs(edl, Object.fromEntries(clips.map((clip) => [clip.clip.id, clip.file])), preview));
-    bought = await providers.music.scoreVideo({ video: preview, description: source.description, tags: source.tags });
+    const clipFiles = Object.fromEntries(clips.map((clip) => [clip.clip.id, clip.file]));
+    await runFfmpeg("The cut preview for Video to Music", buildCutPreviewArgs(edl, clipFiles, preview), { ...aborting, output: preview });
+    throwIfAborted(signal);
+    log(`music (${providers.music.id}): ${seconds.toFixed(1)} s.`);
+    bought = await providers.music.scoreVideo({ video: preview, description: source.description, tags: source.tags, ...aborting });
   }
+  throwIfAborted(signal);
   if (!bought.ok) return err(`music: ${bought.error}`);
-  writeCacheFile(path, bought.value);
+  const paid = toPaidAudio(bought.value);
+  writeCacheFile(path, paid.audio);
+  options.onCharge?.({ step: "music", item: "film", provider: providers.music.id, units: seconds, ...(paid.credits === undefined ? {} : { credits: paid.credits }), cacheKey: cache.key });
   log(`music: saved ${path} (commit it).`);
+  progress(0, seconds);
   return ok(path);
 }
 
@@ -355,7 +431,7 @@ export async function renderFootage(
   edl: Edl,
   options: RenderFootageOptions,
 ): Promise<FootageResult<RenderedFootage>> {
-  const { buildDir, log } = options;
+  const { buildDir, log, signal } = options;
   const seconds = getFootageFilmSeconds(film, edl);
   const words = remapWords(edl, transcript.words, film.cut.fillers);
   const music = await getMusic(film, edl, clips, seconds, options);
@@ -369,14 +445,24 @@ export async function renderFootage(
   rmSync(assetsDir, { recursive: true, force: true });
   mkdirSync(assetsDir, { recursive: true });
   const clipFiles = Object.fromEntries(clips.map((clip) => [clip.clip.id, clip.file]));
-  runFfmpeg("The speech track", buildSpeechArgs(edl, transcript.speech, join(assetsDir, "speech.mp3")));
-  let musicAsset: string | null = null;
-  if (typeof music.value === "string") {
+  const musicFile = typeof music.value === "string" ? music.value : null;
+  const tracks: { item: string; seconds: number; output: string; args: () => string[] }[] = [
+    { item: "speech", seconds, output: join(assetsDir, "speech.mp3"), args: () => buildSpeechArgs(edl, transcript.speech, join(assetsDir, "speech.mp3")) },
+  ];
+  if (musicFile !== null) {
     const keyframes = duckingKeyframes(words, { volume: film.music.volume, duckedVolume: film.music.duckedVolume });
-    runFfmpeg("The music track", buildMusicArgs({ input: music.value, seconds, keyframes, output: join(assetsDir, "music.mp3") }));
-    musicAsset = "assets/music.mp3";
+    tracks.push({ item: "music", seconds, output: join(assetsDir, "music.mp3"), args: () => buildMusicArgs({ input: musicFile, seconds, keyframes, output: join(assetsDir, "music.mp3") }) });
   }
-  runFfmpeg("The end card's backdrop", buildLastFrameArgs(edl, clipFiles, join(assetsDir, "last.jpg")));
+  // A single frame: counted as a moment of work so the stage's bar still ends at its total.
+  tracks.push({ item: "last frame", seconds: 0.1, output: join(assetsDir, "last.jpg"), args: () => buildLastFrameArgs(edl, clipFiles, join(assetsDir, "last.jpg")) });
+  const assetProgress = createStageProgress(options.onProgress, "assets", tracks);
+  const labels: Record<string, string> = { speech: "The speech track", music: "The music track", "last frame": "The end card's backdrop" };
+  for (const [index, track] of tracks.entries()) {
+    assetProgress(index, 0);
+    await runFfmpeg(labels[track.item] ?? track.item, track.args(), { ...(signal === undefined ? {} : { signal }), output: track.output, onSeconds: (done) => assetProgress(index, done) });
+    assetProgress(index, track.seconds);
+  }
+  const musicAsset = musicFile === null ? null : "assets/music.mp3";
   const fonts = copyFonts(options.brand.fonts, join(assetsDir, "fonts"));
   if (options.brand.logo !== null) cpSync(options.brand.logo, join(assetsDir, "logo.svg"));
   const sfx: Partial<Record<SfxEvent, string>> = {};
@@ -411,10 +497,54 @@ export async function renderFootage(
   writeFileSync(join(buildDir, "index.html"), html);
   mkdirSync(dirname(options.output), { recursive: true });
   log(`render: ${edl.segments.length} segments, ${seconds.toFixed(1)} s.`);
-  const result = runHyperframes(["render", "--quality", options.quality, "-o", options.output], { cwd: buildDir, stdio: "inherit" });
-  if (result.error !== undefined) return err(`hyperframes render did not start: ${result.error.message}.`);
-  if (result.status !== 0) return err(`hyperframes render ended with code ${String(result.status)} (signal ${result.signal ?? "-"}).`);
+  const rendered = await runHyperframesRender(options, seconds);
+  if (!rendered.ok) return rendered;
   return ok({ kind: "rendered", output: options.output, seconds, edlPath: getEdlPath(buildDir, options.isPlaceholder) });
+}
+
+/** hyperframes' progress lines carry a percentage (`… 42%`); the last one on a line counts. */
+export function readRenderPercent(line: string): number | null {
+  const matches = [...line.matchAll(/(\d{1,3}(?:\.\d+)?)\s?%/g)];
+  const last = matches.at(-1)?.[1];
+  if (last === undefined) return null;
+  const percent = Number(last);
+  return percent >= 0 && percent <= 100 ? percent : null;
+}
+
+/** The hyperframes render as a child process: its lines go to the log (progress every 10 %), its percentages to `onProgress`. */
+async function runHyperframesRender(options: RenderFootageOptions, seconds: number): Promise<FootageResult<null>> {
+  const progress = createStageProgress(options.onProgress, "render", [{ item: "film", seconds }]);
+  progress(0, 0);
+  let loggedTenth = -1;
+  const onLine = (line: string): void => {
+    if (line.trim().length === 0) return;
+    const percent = readRenderPercent(line);
+    if (percent === null) {
+      options.log(line.trim());
+      return;
+    }
+    progress(0, (percent / 100) * seconds);
+    // A progress line per frame would flood the log: one line per tenth of the render is kept.
+    const tenth = Math.floor(percent / 10);
+    if (tenth > loggedTenth) {
+      loggedTenth = tenth;
+      options.log(line.trim());
+    }
+  };
+  const result = await runProcess({
+    command: process.execPath,
+    args: [getHyperframesBin(), "render", "--quality", options.quality, "-o", options.output],
+    cwd: options.buildDir,
+    env: getHyperframesEnv(),
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+    removeOnAbort: [options.output],
+    onStdoutLine: onLine,
+    onStderrLine: onLine,
+  });
+  if (result.kind === "not-started") return err(`hyperframes render did not start: ${result.error}.`);
+  if (result.code !== 0) return err(`hyperframes render ended with code ${String(result.code)} (signal ${result.signal ?? "-"}).`);
+  progress(0, seconds);
+  return ok(null);
 }
 
 export interface RenderFootageFilmOptions extends RenderFootageOptions {

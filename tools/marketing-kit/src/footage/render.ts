@@ -1,10 +1,8 @@
-import { spawnSync } from "node:child_process";
-
 import type { Edl } from "./edl.js";
 import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
 import { volumeExpression, type VolumeKeyframe } from "./music.js";
 
-/** ffmpeg steps of the footage render: pure argument builders (tested without ffmpeg) and one runner. */
+/** ffmpeg steps of the footage render: pure argument builders, tested without ffmpeg (`runFfmpeg` in `process.ts` runs them). */
 
 /** A short fade at every cut of the speech track, so a cut never clicks. */
 const CUT_FADE_SECONDS = 0.02;
@@ -72,11 +70,4 @@ export function buildLastFrameArgs(edl: Edl, clips: Record<string, string>, outp
 /** Audio extracted from a normalized clip, for the providers and the speech track. */
 export function buildAudioArgs(clip: string, output: string): string[] {
   return ["-v", "error", "-y", "-i", clip, "-vn", "-c:a", "libmp3lame", "-q:a", "2", output];
-}
-
-/** Runs ffmpeg; throws naming the step (a failure here is a broken input or machine, not an expected outcome). */
-export function runFfmpeg(step: string, args: string[]): void {
-  const result = spawnSync("ffmpeg", args, { stdio: ["ignore", "inherit", "inherit"] });
-  if (result.error !== undefined) throw new Error(`${step}: ffmpeg did not start (${result.error.message}).`);
-  if (result.status !== 0) throw new Error(`${step}: ffmpeg ended with code ${String(result.status)} (signal ${result.signal ?? "-"}).`);
 }
