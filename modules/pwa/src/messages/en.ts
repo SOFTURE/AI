@@ -12,4 +12,7 @@ export const en = {
     addStep: "Choose Add to Home Screen",
     close: "Close",
   },
+  launch: {
+    label: "Loading",
+  },
 };

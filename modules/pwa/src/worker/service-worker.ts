@@ -144,10 +144,20 @@ export function serviceWorker(scope: WorkerScope, config: ServiceWorkerConfig): 
     await Promise.all(keys.slice(0, Math.max(0, keys.length - maxEntries)).map((key) => cache.delete(key)));
   }
 
+  // A streamed page answers 200 before it knows how it ends: a sign-in redirect in the page arrives as Next's
+  // `<meta http-equiv="refresh">`, a failed boundary as React's client-render instruction (`$RX`). Keeping either
+  // would replace the good copy, e.g. an expired session would overwrite the offline page with a redirect.
+  function isCompletePage(html: string): boolean {
+    if (/\$RX\s*=\s*function\s*\(|\$RX\(/.test(html)) return false;
+    return !/<meta\b[^>]*\shttp-equiv\s*=\s*["']?refresh["'\s/>]/i.test(html);
+  }
+
   async function keepPage(url: string, response: Response): Promise<void> {
+    const html = await response.text();
+    if (!isCompletePage(html)) return;
     const pages = await scope.caches.open(pagesCacheName);
     await pages.delete(url);
-    await pages.put(url, response);
+    await pages.put(url, new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers }));
     await trimCache(pages, config.maxPages);
   }
 
