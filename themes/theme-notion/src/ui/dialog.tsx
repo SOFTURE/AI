@@ -54,6 +54,7 @@ function DialogContent({
   showCloseButton = true,
   closeLabel = messages.dialog.close,
   closeButtonSize = "default",
+  size = "default",
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -61,6 +62,8 @@ function DialogContent({
   closeLabel?: string
   // `touch` draws the close button 44 x 44, centred on the same icon.
   closeButtonSize?: "default" | "touch"
+  // `wide` is half the viewport from `lg`, `max-w-lg` below it.
+  size?: "default" | "wide"
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -69,6 +72,7 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl bg-background p-6 shadow-dialog duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+          size === "wide" && "lg:max-w-1/2",
           className
         )}
         {...props}
@@ -105,10 +109,13 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
 function DialogFooter({
   className,
   showCloseButton = false,
+  closeLabel = messages.dialog.close,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
   showCloseButton?: boolean
+  // The close button's text, from the app's message layer.
+  closeLabel?: string
 }) {
   return (
     <div
@@ -122,7 +129,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close asChild>
-          <Button variant="outline">Close</Button>
+          <Button variant="outline">{closeLabel}</Button>
         </DialogPrimitive.Close>
       )}
     </div>
