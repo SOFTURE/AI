@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-write-switch-consent-host-904-906
 title: "mcp-access: runtime kill switch for writes and the redirect host as its own consent row (issues #904, #906)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: [904, 906]
 branch: claude/project-thread-kp0yir
 created: 2026-10-30
 updated: 2026-10-30
+archived_at: 2026-10-30
 ---
 
 ## Intent

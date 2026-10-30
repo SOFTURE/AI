@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-write-switch-consent-host-904-906
-status: in_progress
+status: archived
 ---
 
 # Plan: write kill switch and the redirect host row (issues #904, #906)
