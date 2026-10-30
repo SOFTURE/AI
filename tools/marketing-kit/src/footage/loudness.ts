@@ -55,9 +55,12 @@ export function buildLoudnessMeasureArgs(input: string, target: LoudnessTarget):
 
 /** The measurement from the first pass's stderr (its last JSON block); null when there is none or it is incomplete. */
 export function readLoudnessMeasurement(stderr: string): LoudnessMeasurement | null {
-  const match = /\{[^{}]*"input_i"[^{}]*\}/g;
-  const block = [...stderr.matchAll(match)].at(-1)?.[0];
-  if (block === undefined) return null;
+  // The block around the last `"input_i"`, found by position (a regex over ffmpeg's whole stderr could backtrack).
+  const key = stderr.lastIndexOf('"input_i"');
+  const open = key === -1 ? -1 : stderr.lastIndexOf("{", key);
+  const close = key === -1 ? -1 : stderr.indexOf("}", key);
+  if (open === -1 || close === -1) return null;
+  const block = stderr.slice(open, close + 1);
   let json: unknown;
   try {
     json = JSON.parse(block);

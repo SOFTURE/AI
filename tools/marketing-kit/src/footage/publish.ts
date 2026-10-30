@@ -1,4 +1,5 @@
 import { closeSync, openSync, readSync, statSync } from "node:fs";
+import { extname } from "node:path";
 
 import { z } from "zod";
 
@@ -174,5 +175,6 @@ export function buildCoverArgs(film: string, seconds: number, output: string): s
 
 /** The cover's path next to the film: its name with `.jpg`. */
 export function getCoverPath(film: string): string {
-  return `${film.replace(/\.[^./\\]+$/, "")}.jpg`;
+  const extension = extname(film);
+  return `${extension.length > 0 ? film.slice(0, -extension.length) : film}.jpg`;
 }
