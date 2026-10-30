@@ -267,6 +267,32 @@ export {
 export { duckingKeyframes, getSpeechSpans, volumeExpression, type DuckingOptions, type VolumeKeyframe } from "./footage/music.js";
 export { END_CARD_SECONDS, FADE_SECONDS, composeFootage, getFootageFilmSeconds, getSegmentScales, type FootageComposeAssets, type FootageComposeInput } from "./footage/compose.js";
 export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs } from "./footage/render.js";
+export {
+  DEFAULT_LOUDNESS,
+  buildLoudnessArgs,
+  buildLoudnessMeasureArgs,
+  isSilent,
+  normalizeLoudness,
+  readLoudnessMeasurement,
+  type LoudnessMeasurement,
+  type LoudnessOutcome,
+  type LoudnessTarget,
+} from "./footage/loudness.js";
+export {
+  buildCoverArgs,
+  buildFinishArgs,
+  clampCoverSeconds,
+  findFinishProblems,
+  getCoverPath,
+  getDefaultCoverSeconds,
+  isFastStart,
+  isPublishableAudio,
+  isPublishableVideo,
+  probeFilmFacts,
+  readFilmFacts,
+  readTopLevelBoxes,
+  type FilmFacts,
+} from "./footage/publish.js";
 export { readFfmpegProgressSeconds, runFfmpeg, runProcess, type FfmpegRunOptions, type ProcessOptions, type ProcessOutcome } from "./footage/process.js";
 export {
   estimateFootageFilm,
@@ -288,6 +314,7 @@ export {
   renderFootage,
   renderFootageFilm,
   transcribeFootage,
+  type FinishedFootage,
   type FootageBrand,
   type FootageResult,
   type FootageRunOptions,

@@ -105,7 +105,7 @@ export interface FootageCharge {
 }
 
 /** A stage of a footage run that reports progress. */
-export type FootageStage = "normalize" | PaidStepKind | "assets" | "render";
+export type FootageStage = "normalize" | PaidStepKind | "assets" | "render" | "finish";
 
 /**
  * Progress of a footage run. `done` and `total` are seconds of media across the whole stage (a bar per stage);

@@ -536,6 +536,25 @@ const footageSchema = z
       .describe("Music under the film, ducked while someone speaks; without it, none."),
     captions: z.boolean().default(true).describe("Word-by-word captions from the transcript (default true)."),
     endCard: endCardSchema.optional().describe("The closing card after the last segment; without it, the film ends with its last segment."),
+    loudness: z
+      .union([
+        z.literal(false),
+        z.strictObject({
+          target: z.number().min(-40).max(-5).default(-14).describe("Integrated loudness in LUFS (-40 to -5, default -14)."),
+          truePeak: z.number().min(-9).max(0).default(-1).describe("The highest true peak in dBTP (-9 to 0, default -1)."),
+        }),
+      ])
+      .default({ target: -14, truePeak: -1 })
+      .describe("The speech track's loudness, measured and normalized in two passes before the music goes under it; false leaves it as filmed. Default -14 LUFS, -1 dBTP."),
+    cover: z
+      .union([
+        z.literal(false),
+        z.strictObject({
+          at: z.number().min(0).optional().describe("The second of the film the cover is taken at; without it, the middle of the first talking segment."),
+        }),
+      ])
+      .default({})
+      .describe("The cover JPG written next to the film (its name with .jpg); false writes none."),
   })
   .superRefine((film, context) => {
     const seen = new Set<string>();

@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8,10 +8,12 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prepareFixture, prepareFootageFixture } from "../examples/fixture/prepare.js";
 import { findFootage, loadMarketingConfig } from "../src/config/config.js";
 import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProvider } from "../src/footage/fake.js";
+import { buildLoudnessMeasureArgs, DEFAULT_LOUDNESS, readLoudnessMeasurement } from "../src/footage/loudness.js";
 import { estimateFootageFilm, findCachedStep } from "../src/footage/paid.js";
 import { renderFootageFilm, type RenderFootageFilmOptions } from "../src/footage/pipeline.js";
 import { probeFile } from "../src/footage/probe.js";
 import type { FootageCharge, FootageProgress } from "../src/footage/providers.js";
+import { findFinishProblems, probeFilmFacts, readTopLevelBoxes } from "../src/footage/publish.js";
 import { checkFootageTools } from "../src/footage/tools.js";
 
 /**
@@ -151,6 +153,17 @@ describe.runIf(isEnabled)("the fixture footage film", () => {
       expect(edl.segments.map((segment) => `${segment.clip}:${segment.transition}`)).toEqual(["talk:cut", "talk:zoom", "street:whoosh", "sunset:whoosh"]);
       expect(readFileSync(join(footage, "out", "fixture-footage", "posts.md"), "utf8")).toContain("Filmed on a phone, cut by its transcript.");
       expect(existsSync(join(footage, "voiceover", "fixture-footage"))).toBe(false);
+      // Publishable: H.264 High, AAC 48 kHz stereo, fast start, a cover next to it, the speech at the loudness target.
+      const facts = await probeFilmFacts(video);
+      if (!facts.ok) throw new Error(facts.error);
+      expect(facts.facts.video).toEqual({ codec: "h264", profile: "High", pixelFormat: "yuv420p" });
+      expect(facts.facts.audio).toEqual({ codec: "aac", sampleRate: 48000, channels: 2 });
+      expect(findFinishProblems(facts.facts, readTopLevelBoxes(video))).toEqual([]);
+      expect(existsSync(join(footage, "out", "fixture-footage", "fixture-footage.placeholder.jpg"))).toBe(true);
+      expect(result.stdout).toContain("fixture-footage.placeholder.jpg: cover");
+      const speech = spawnSync("ffmpeg", buildLoudnessMeasureArgs(join(footage, "build", "fixture-footage", "assets", "speech.mp3"), DEFAULT_LOUDNESS), { encoding: "utf8" });
+      const loudness = readLoudnessMeasurement(speech.stderr);
+      expect(Math.abs((loudness?.inputI ?? 0) - DEFAULT_LOUDNESS.target)).toBeLessThan(1);
     } finally {
       rmSync(footage, { recursive: true, force: true });
     }
@@ -217,11 +230,18 @@ describe.runIf(isEnabled)("the fixture footage film", () => {
       const cached = await estimateFootageFilm(film, { cacheDir, providers, rates, buildDir });
       expect(cached.ok && cached.value.totalCredits).toBe(0);
       const rendered = await renderFootageFilm(film, { ...run, signal: new AbortController().signal, onProgress: (entry) => progress.push(entry) });
-      expect(rendered.ok && rendered.value.kind).toBe("rendered");
+      if (!rendered.ok || rendered.value.kind !== "rendered") throw new Error("the film did not render");
       expect(charges).toHaveLength(1);
       expect(progress.filter((entry) => entry.step === "render").at(-1)).toMatchObject({ itemIndex: 1, itemCount: 1 });
+      expect(progress.filter((entry) => entry.step === "finish").at(-1)).toMatchObject({ item: "film", itemIndex: 1, itemCount: 1 });
       const video = probe(run.output);
       expect(video.streams.find((entry) => entry.codec_type === "video")).toMatchObject({ width: 1080, height: 1920 });
+      // The facts come from the written file; the cover sits next to it.
+      const { bytes, width, height, durationSeconds, cover } = rendered.value;
+      expect([bytes, width, height]).toEqual([statSync(run.output).size, 1080, 1920]);
+      expect(Math.abs(durationSeconds - Number(video.format.duration))).toBeLessThan(0.01);
+      expect(cover).toBe(join(footage, "out", "worker.jpg"));
+      expect(existsSync(join(buildDir, "render.mp4"))).toBe(false);
     } finally {
       rmSync(footage, { recursive: true, force: true });
     }
