@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The content of 0.10.0, which was never published: its release stopped at the gates (ESLint ran out of memory in
+  `release.yml`) before publishing, and a tag is never moved.
+
 ## 0.10.0
 
 - Touch sizes for menus, tabs, accordion and dialog close (#880), the rest of #859. `DropdownMenuContent` gains
