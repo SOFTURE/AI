@@ -231,6 +231,8 @@ function resolveFootage(data: MarketingJson, at: (relative: string) => string): 
           : { source: resolveMusicSource(film.music, at), volume: film.music.volume, duckedVolume: film.music.duckedVolume },
       captions: film.captions,
       endCard: film.endCard ?? null,
+      loudness: film.loudness === false ? null : film.loudness,
+      cover: film.cover === false ? null : film.cover,
       post:
         post === undefined
           ? null

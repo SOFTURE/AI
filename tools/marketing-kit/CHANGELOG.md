@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Publishable footage films (#899).**
+  - Loudness: the speech track is measured and normalized in two passes of `loudnorm` (default −14 LUFS, −1 dBTP)
+    before the music goes under it; `loudness: { target, truePeak } | null` on `FootageFilm` (`false` in
+    `marketing.json`). `normalizeLoudness` and its argument builders are exported.
+  - A final pass over hyperframes' render: H.264 High, yuv420p, AAC 48 kHz stereo, `+faststart`, streams copied
+    when they already match, checked with ffprobe (`findFinishProblems`, `readTopLevelBoxes`); progress stage `finish`.
+  - A cover JPG next to the film, at `cover.at` or the middle of the first talking segment; `cover: null` (`false`
+    in `marketing.json`) writes none.
+  - `RenderedFootage` gains `bytes`, `width`, `height`, `durationSeconds` and `cover`, read from the written file;
+    the CLI prints them.
 - **Footage blocks for a server worker (#897).** **Breaking:** `probeFile`, `probeFootage` and `normalizeFootage` are
   async (they spawn without blocking the event loop), and `runFfmpeg` moved to `footage/process.ts`, async.
   - `FootageRunOptions` takes `signal` (an abort kills ffmpeg, ffprobe or hyperframes, removes the partial file and

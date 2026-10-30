@@ -15,6 +15,7 @@ import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds } from "./compo
 import { buildEdl, findEdlProblems, readEdl, remapWords, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
 import type { FootageClip, FootageFilm } from "./film.js";
+import { DEFAULT_LOUDNESS, normalizeLoudness } from "./loudness.js";
 import { duckingKeyframes } from "./music.js";
 import { normalizeFootage, type Frame } from "./normalize.js";
 import { describeProbe, getTrimmedDuration, probeFootage, type FootageProbe } from "./probe.js";
@@ -30,6 +31,18 @@ import {
   type CacheEntry,
 } from "./paid.js";
 import { runFfmpeg, runProcess } from "./process.js";
+import {
+  buildCoverArgs,
+  buildFinishArgs,
+  clampCoverSeconds,
+  findFinishProblems,
+  getCoverPath,
+  getDefaultCoverSeconds,
+  isPublishableAudio,
+  isPublishableVideo,
+  probeFilmFacts,
+  readTopLevelBoxes,
+} from "./publish.js";
 import { describePaidSteps, toPaidAudio, type FootageCharge, type FootageProgress, type FootageProviders, type FootageStage, type PaidAudio, type PaidStep } from "./providers.js";
 import { buildAudioArgs, buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs } from "./render.js";
 
@@ -43,7 +56,10 @@ export { getEdlPath } from "./paid.js";
  * film's (`placeholder/` in the build folder, its own EDL).
  *
  * Build folder layout: `sources/` (downloaded URLs), `clips/<id>.mp4` (normalized), `audio/<id>.mp3`, `edl.json`
- * (`edl.placeholder.json`), `assets/`, `index.html`.
+ * (`edl.placeholder.json`), `assets/`, `index.html`, `render.mp4` (hyperframes' output until the final pass).
+ *
+ * The finished film is publishable: the speech track normalized to a loudness target before the music goes under it,
+ * H.264 High, AAC 48 kHz stereo, fast start, a cover JPG next to it, and its facts read back from the written file.
  *
  * Every step spawns ffmpeg, ffprobe and hyperframes asynchronously, so a jobs worker's event loop (and its lease
  * heartbeat) keeps running. `signal` stops a run: the child process is killed, its partial file removed, and the
@@ -421,9 +437,9 @@ export interface RenderFootageOptions extends FootageRunOptions {
   layout?: LayoutOverride;
 }
 
-export type RenderedFootage = { kind: "dry-run"; steps: PaidStep[] } | { kind: "rendered"; output: string; seconds: number; edlPath: string };
+export type RenderedFootage = { kind: "dry-run"; steps: PaidStep[] } | ({ kind: "rendered"; output: string; seconds: number; edlPath: string } & FinishedFootage);
 
-/** Composes the cut and renders it: speech track, ducked music, end card backdrop, assets, hyperframes. */
+/** Composes the cut and renders it: speech track (loudness-normalized), ducked music, end card backdrop, assets, hyperframes, final pass, cover. */
 export async function renderFootage(
   film: FootageFilm,
   clips: PreparedClip[],
@@ -446,20 +462,40 @@ export async function renderFootage(
   mkdirSync(assetsDir, { recursive: true });
   const clipFiles = Object.fromEntries(clips.map((clip) => [clip.clip.id, clip.file]));
   const musicFile = typeof music.value === "string" ? music.value : null;
-  const tracks: { item: string; seconds: number; output: string; args: () => string[] }[] = [
-    { item: "speech", seconds, output: join(assetsDir, "speech.mp3"), args: () => buildSpeechArgs(edl, transcript.speech, join(assetsDir, "speech.mp3")) },
+  const aborting = signal === undefined ? {} : { signal };
+  const loudness = film.loudness === undefined ? DEFAULT_LOUDNESS : film.loudness;
+  const speechFile = join(assetsDir, "speech.mp3");
+  const rawSpeechFile = loudness === null ? speechFile : join(assetsDir, "speech.raw.mp3");
+  const ffmpegTrack = (label: string, output: string, args: () => string[]) => (onSeconds: (done: number) => void) => runFfmpeg(label, args(), { ...aborting, output, onSeconds });
+  const tracks: { item: string; seconds: number; run: (onSeconds: (done: number) => void) => Promise<void> }[] = [
+    { item: "speech", seconds, run: ffmpegTrack("The speech track", rawSpeechFile, () => buildSpeechArgs(edl, transcript.speech, rawSpeechFile)) },
   ];
+  if (loudness !== null) {
+    tracks.push({
+      item: "loudness",
+      seconds,
+      run: async (onSeconds) => {
+        const outcome = await normalizeLoudness(rawSpeechFile, speechFile, loudness, { ...aborting, onSeconds });
+        log(
+          outcome.kind === "silent"
+            ? "loudness: the speech track is silent, left as it is."
+            : `loudness: the speech track measured ${outcome.measured.toFixed(1)} LUFS, normalized to ${loudness.target} LUFS (true peak ${loudness.truePeak} dBTP).`,
+        );
+      },
+    });
+  }
   if (musicFile !== null) {
     const keyframes = duckingKeyframes(words, { volume: film.music.volume, duckedVolume: film.music.duckedVolume });
-    tracks.push({ item: "music", seconds, output: join(assetsDir, "music.mp3"), args: () => buildMusicArgs({ input: musicFile, seconds, keyframes, output: join(assetsDir, "music.mp3") }) });
+    const output = join(assetsDir, "music.mp3");
+    tracks.push({ item: "music", seconds, run: ffmpegTrack("The music track", output, () => buildMusicArgs({ input: musicFile, seconds, keyframes, output })) });
   }
   // A single frame: counted as a moment of work so the stage's bar still ends at its total.
-  tracks.push({ item: "last frame", seconds: 0.1, output: join(assetsDir, "last.jpg"), args: () => buildLastFrameArgs(edl, clipFiles, join(assetsDir, "last.jpg")) });
+  const lastFrame = join(assetsDir, "last.jpg");
+  tracks.push({ item: "last frame", seconds: 0.1, run: ffmpegTrack("The end card's backdrop", lastFrame, () => buildLastFrameArgs(edl, clipFiles, lastFrame)) });
   const assetProgress = createStageProgress(options.onProgress, "assets", tracks);
-  const labels: Record<string, string> = { speech: "The speech track", music: "The music track", "last frame": "The end card's backdrop" };
   for (const [index, track] of tracks.entries()) {
     assetProgress(index, 0);
-    await runFfmpeg(labels[track.item] ?? track.item, track.args(), { ...(signal === undefined ? {} : { signal }), output: track.output, onSeconds: (done) => assetProgress(index, done) });
+    await track.run((done) => assetProgress(index, done));
     assetProgress(index, track.seconds);
   }
   const musicAsset = musicFile === null ? null : "assets/music.mp3";
@@ -497,9 +533,60 @@ export async function renderFootage(
   writeFileSync(join(buildDir, "index.html"), html);
   mkdirSync(dirname(options.output), { recursive: true });
   log(`render: ${edl.segments.length} segments, ${seconds.toFixed(1)} s.`);
-  const rendered = await runHyperframesRender(options, seconds);
+  const renderFile = resolve(buildDir, "render.mp4");
+  const rendered = await runHyperframesRender(options, renderFile, seconds);
   if (!rendered.ok) return rendered;
-  return ok({ kind: "rendered", output: options.output, seconds, edlPath: getEdlPath(buildDir, options.isPlaceholder) });
+  const roles = Object.fromEntries(clips.map((clip) => [clip.clip.id, clip.clip.role]));
+  const finished = await finishFootage(film, { renderFile, seconds, coverAt: film.cover?.at ?? getDefaultCoverSeconds(edl, roles) }, options);
+  if (!finished.ok) return finished;
+  return ok({ kind: "rendered", output: options.output, seconds, edlPath: getEdlPath(buildDir, options.isPlaceholder), ...finished.value });
+}
+
+/** What `renderFootage` reads from the written film. */
+export interface FinishedFootage {
+  bytes: number;
+  width: number;
+  height: number;
+  /** The written file's real length, which may differ from the planned `seconds` by a frame or two. */
+  durationSeconds: number;
+  /** The cover JPG, or null when the film has none. */
+  cover: string | null;
+}
+
+/**
+ * The final pass over hyperframes' render: publishable codecs and fast start (stream copy where the render already
+ * matches), checked with ffprobe, then the cover and the file's facts.
+ */
+async function finishFootage(
+  film: FootageFilm,
+  input: { renderFile: string; seconds: number; coverAt: number },
+  options: RenderFootageOptions,
+): Promise<FootageResult<FinishedFootage>> {
+  const { log, signal, output } = options;
+  const aborting = signal === undefined ? {} : { signal };
+  const progress = createStageProgress(options.onProgress, "finish", [{ item: "film", seconds: input.seconds }]);
+  progress(0, 0);
+  const rendered = await probeFilmFacts(input.renderFile, aborting);
+  if (!rendered.ok) return err(`the rendered film: ${rendered.error}`);
+  const isCopied = isPublishableVideo(rendered.facts.video) && (rendered.facts.audio === null || isPublishableAudio(rendered.facts.audio));
+  await runFfmpeg("The film's final pass", buildFinishArgs(input.renderFile, rendered.facts, output), { ...aborting, output, onSeconds: (done) => progress(0, done) });
+  rmSync(input.renderFile, { force: true });
+  const finished = await probeFilmFacts(output, aborting);
+  if (!finished.ok) return err(`the finished film: ${finished.error}`);
+  const problems = findFinishProblems(finished.facts, readTopLevelBoxes(output));
+  if (problems.length > 0) return err(`the finished film ${output} is not publishable: ${problems.join("; ")}.`);
+  progress(0, input.seconds);
+  const { bytes, width, height, durationSeconds } = finished.facts;
+  log(`finish: ${isCopied ? "streams copied" : "re-encoded"} to H.264 High, AAC 48 kHz stereo, fast start; ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${bytes} bytes.`);
+  let cover: string | null = null;
+  if (film.cover !== null) {
+    cover = getCoverPath(output);
+    const at = clampCoverSeconds(input.coverAt, durationSeconds);
+    if (at !== input.coverAt) log(`cover: ${input.coverAt} s is past the film's end, the frame at ${at} s is used.`);
+    await runFfmpeg("The cover frame", buildCoverArgs(output, at, cover), { ...aborting, output: cover });
+    log(`cover: ${cover} (at ${at} s).`);
+  }
+  return ok({ bytes, width, height, durationSeconds, cover });
 }
 
 /** hyperframes' progress lines carry a percentage (`… 42%`); the last one on a line counts. */
@@ -512,7 +599,7 @@ export function readRenderPercent(line: string): number | null {
 }
 
 /** The hyperframes render as a child process: its lines go to the log (progress every 10 %), its percentages to `onProgress`. */
-async function runHyperframesRender(options: RenderFootageOptions, seconds: number): Promise<FootageResult<null>> {
+async function runHyperframesRender(options: RenderFootageOptions, output: string, seconds: number): Promise<FootageResult<null>> {
   const progress = createStageProgress(options.onProgress, "render", [{ item: "film", seconds }]);
   progress(0, 0);
   let loggedTenth = -1;
@@ -533,11 +620,11 @@ async function runHyperframesRender(options: RenderFootageOptions, seconds: numb
   };
   const result = await runProcess({
     command: process.execPath,
-    args: [getHyperframesBin(), "render", "--quality", options.quality, "-o", options.output],
+    args: [getHyperframesBin(), "render", "--quality", options.quality, "-o", output],
     cwd: options.buildDir,
     env: getHyperframesEnv(),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
-    removeOnAbort: [options.output],
+    removeOnAbort: [output],
     onStdoutLine: onLine,
     onStderrLine: onLine,
   });

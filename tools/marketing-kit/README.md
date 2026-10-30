@@ -595,7 +595,9 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
     "maxSeconds": 45,
     "music": { "prompt": "warm acoustic guitar, calm", "duckedVolume": 0.08 },
     "transitions": { "jump": "zoom", "clip": "fade" },
-    "endCard": { "headline": "Try it free", "url": "example.com" }
+    "endCard": { "headline": "Try it free", "url": "example.com" },
+    "loudness": { "target": -14, "truePeak": -1 },
+    "cover": { "at": 2.5 }
   }
 ]
 ```
@@ -631,6 +633,14 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   the seconds billed and stops; nothing is sent. `--placeholder` rehearses without any paid call: a transcript from
   each talking clip's `script` (its words spread evenly over the clip), no isolation, no generated music (a local
   music file still plays). It writes `edl.placeholder.json` and `<film>.placeholder.mp4`, never the real film's files.
+- **Publishable output:** the speech track is measured and normalized to `loudness` (default −14 LUFS integrated,
+  −1 dBTP true peak; two-pass `loudnorm`, one linear gain) before the music goes under it, so a quiet phone clip is
+  not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. hyperframes' render then gets
+  a final pass: H.264 High, yuv420p, AAC 48 kHz stereo, `+faststart` (the `moov` box first, so a platform or a
+  scheduler streaming the URL starts at once), each stream copied when the render already matches; ffprobe checks
+  the result, and a film that does not match fails the run. A **cover** JPG is written next to the film
+  (`<film>.jpg`) from the second `cover.at`, by default the middle of the first talking segment; `"cover": false`
+  writes none.
 
 ### Footage films from code
 
@@ -657,6 +667,11 @@ const result = await renderFootageFilm(film, {
   sfx: {}, quality: "standard", log: console.log,
 });
 ```
+
+A rendered result is `{ kind: "rendered", output, seconds, edlPath, bytes, width, height, durationSeconds, cover }`:
+`seconds` is the planned length, the rest is read with ffprobe from the written file (`cover` is the JPG's path, or
+null with `cover: null`). `loudness` and `cover` are optional on `FootageFilm`: absent means the defaults, null turns
+them off.
 
 The blocks run alone too: `probeFootage`, `normalizeFootage`, `transcribeFootage` (or a provider's `transcribe`),
 `buildEdl` / `readEdl` / `remapWords`, `duckingKeyframes`, `composeFootage`, `renderFootage`. Results are values
@@ -687,7 +702,7 @@ const result = await renderFootageFilm(film, {
 });
 ```
 
-- `onProgress` reports the stages `normalize`, `isolate`, `transcribe`, `music`, `assets` and `render`; `done` and
+- `onProgress` reports the stages `normalize`, `isolate`, `transcribe`, `music`, `assets`, `render` and `finish`; `done` and
   `total` are seconds of media across the stage (ffmpeg's `-progress`, hyperframes' percentage), `itemIndex` of
   `itemCount` names the clip ("normalizing clip 2 of 4").
 - `onCharge` fires after each paid call, with the provider's reported charge in `credits` when its API returns one

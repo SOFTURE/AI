@@ -2850,6 +2850,60 @@
               "url"
             ],
             "additionalProperties": false
+          },
+          "loudness": {
+            "default": {
+              "target": -14,
+              "truePeak": -1
+            },
+            "description": "The speech track's loudness, measured and normalized in two passes before the music goes under it; false leaves it as filmed. Default -14 LUFS, -1 dBTP.",
+            "anyOf": [
+              {
+                "type": "boolean",
+                "const": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "target": {
+                    "default": -14,
+                    "description": "Integrated loudness in LUFS (-40 to -5, default -14).",
+                    "type": "number",
+                    "minimum": -40,
+                    "maximum": -5
+                  },
+                  "truePeak": {
+                    "default": -1,
+                    "description": "The highest true peak in dBTP (-9 to 0, default -1).",
+                    "type": "number",
+                    "minimum": -9,
+                    "maximum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "cover": {
+            "default": {},
+            "description": "The cover JPG written next to the film (its name with .jpg); false writes none.",
+            "anyOf": [
+              {
+                "type": "boolean",
+                "const": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "at": {
+                    "description": "The second of the film the cover is taken at; without it, the middle of the first talking segment.",
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [

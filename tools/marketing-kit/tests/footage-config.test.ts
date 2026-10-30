@@ -72,8 +72,17 @@ describe("footage films in marketing.json", () => {
       music: { source: { kind: "none" }, volume: 0.35, duckedVolume: 0.1 },
       captions: true,
       endCard: null,
+      loudness: { target: -14, truePeak: -1 },
+      cover: {},
       post: null,
     });
+  });
+
+  it("turns the loudness pass and the cover off with false, and keeps a cover time and a loudness target", () => {
+    const off = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], loudness: false, cover: false }])), "a");
+    expect([off?.loudness, off?.cover]).toEqual([null, null]);
+    const set = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], loudness: { target: -16 }, cover: { at: 2.5 } }])), "a");
+    expect([set?.loudness, set?.cover]).toEqual([{ target: -16, truePeak: -1 }, { at: 2.5 }]);
   });
 
   it("keeps a URL clip as it is and resolves a music file", () => {
@@ -110,6 +119,7 @@ describe("footage films in marketing.json", () => {
     [makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "ftp://host/c.mov" }] }]), "  footage[0].clips[0].source: a URL must start with https:// or http://"],
     [makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], music: { file: "a.mp3", prompt: "b" } }]), "  footage[0].music: needs exactly one of file, prompt or fromVideo"],
     [makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov", role: "vlog" }] }]), "  footage[0].clips[0].role:"],
+    [makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], loudness: { target: 0 } }]), "  footage[0].loudness"],
   ])("refuses a broken footage entry (%#)", (config, message) => {
     expect(loadError(config)).toContain(message);
   });

@@ -1,5 +1,6 @@
 import type { VideoFormat } from "../compose/timeline.js";
 import type { EndCard } from "../film.js";
+import type { LoudnessTarget } from "./loudness.js";
 
 /**
  * A footage film: filmed clips (a person talking to camera, b-roll) cut by their transcript into a captioned
@@ -91,6 +92,13 @@ export interface FootageFilm {
   captions: boolean;
   /** The closing card after the last segment; null: the film ends with its last segment. */
   endCard: EndCard | null;
+  /** The speech track's loudness, normalized before the music is mixed under it. Absent: −14 LUFS, −1 dBTP; null: left as filmed. */
+  loudness?: LoudnessTarget | null;
+  /**
+   * The cover JPG written next to the film. Absent or without `at`: the middle of the first talking segment; `at`:
+   * that second of the film; null: no cover.
+   */
+  cover?: { at?: number } | null;
 }
 
 /** Filler words per language, written with repeated letters collapsed (`yyy` and `yyyy` are both `y`). */
