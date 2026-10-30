@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.4.10
 
 - **Cloudflare Tunnel (#905):** `init --tunnel` publishes the app through a Cloudflare Tunnel of its own compose project
   instead of a Traefik: a pinned `cloudflared` (`read_only`, `cap_drop: ALL`, `no-new-privileges`) on its own network

@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## Unreleased
+## 0.2.9
 
 - A runtime kill switch for writes (#904): the manifest switch `mcp-access.writes_enabled` (`WRITES_ENABLED_SWITCH`)
   is read through `readSwitch` on every request. Writes need `allowWrites`, the token's write access and the switch;
