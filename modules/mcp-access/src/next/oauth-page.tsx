@@ -7,23 +7,27 @@
 import { requireUser } from "@softure-ai/auth/next";
 import { formatMessage } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { Card } from "@softure-ai/ui";
+import { Card, type ClassNames } from "@softure-ai/ui";
 import { notFound } from "next/navigation";
 import { getConsentPath, isOAuthEnabled, readAuthorizationParams, validateAuthorizationRequest } from "../server/oauth-http.js";
 import { describeRedirectUri } from "../server/oauth-validation.js";
-import { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes } from "../server/options.js";
-import { ConsentError, ConsentForm } from "../ui/consent-form.js";
+import { getMcpAccessMessages, getMcpAccessRoutes } from "../server/options.js";
+import { ConsentError, ConsentForm, type ConsentFormSlot } from "../ui/consent-form.js";
 import { getMcpAccessContext, getRequestOrigins } from "./context.js";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export interface OAuthConsentPageProps {
   readonly searchParams?: SearchParams;
+  /** Restyles the form or the error, passed to `ConsentForm` and `ConsentError`. */
+  readonly classNames?: ClassNames<ConsentFormSlot>;
+  readonly unstyled?: boolean;
 }
 
 const LAYOUT_CLASS = "sft:mx-auto sft:box-border sft:w-full sft:sm:max-w-md sft:px-4 sft:py-4";
 
-export async function OAuthConsentPage({ searchParams }: OAuthConsentPageProps) {
+export async function OAuthConsentPage({ searchParams, classNames, unstyled }: OAuthConsentPageProps) {
+  const styling = { ...(classNames === undefined ? {} : { classNames }), ...(unstyled === undefined ? {} : { unstyled }) };
   const config = getSoftureConfig();
   if (!isOAuthEnabled(config)) notFound();
   const query = (await searchParams) ?? {};
@@ -43,13 +47,14 @@ export async function OAuthConsentPage({ searchParams }: OAuthConsentPageProps) 
             message={message}
             {...(outcome.kind === "redirect-error" ? { backLocation: outcome.location, backTarget: describeRedirectUri(outcome.redirectUri) } : {})}
             messages={messages}
+            {...styling}
           />
         </Card>
       </main>
     );
   }
 
-  const { client, redirectUri, isWriteRequested } = outcome.request;
+  const { client, redirectUri, isWriteOffered } = outcome.request;
   return (
     <main className={LAYOUT_CLASS}>
       <Card title={formatMessage(messages.consent.title, { client: client.clientName })} subtitle={messages.consent.lead}>
@@ -59,8 +64,9 @@ export async function OAuthConsentPage({ searchParams }: OAuthConsentPageProps) 
           clientName={client.clientName}
           redirectTarget={describeRedirectUri(redirectUri)}
           accountEmail={user.email}
-          isWriteOffered={isWriteRequested && getMcpAccessOptions(config).allowWrites}
+          isWriteOffered={isWriteOffered}
           messages={messages}
+          {...styling}
         />
       </Card>
     </main>

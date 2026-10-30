@@ -8,11 +8,11 @@
 import type { Transport } from "@modelcontextprotocol/server";
 import { serveStdio, StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { resolveOnlyAccount } from "@softure-ai/auth/server";
-import { errorLogLabel, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
+import { errorLogLabel, systemClock, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
 import { openCommandDatabase, type CommandDatabase } from "@softure-ai/db";
 import type { McpServerIdentity } from "../contract.js";
 import type { McpServerFactory } from "../server/endpoint.js";
-import { getMcpAccessOptions } from "../server/options.js";
+import { isWritingEnabled } from "../server/writes-switch.js";
 
 /** The variable naming the account to serve, unless the entry is told another one. */
 export const DEFAULT_MCP_USER_ID_ENV = "MCP_USER_ID";
@@ -72,11 +72,9 @@ export async function serveMcpStdio(options: ServeMcpStdioOptions): Promise<McpS
     return { ok: false, error: userId };
   }
 
-  const identity: McpServerIdentity = {
-    userId,
-    canWrite: (options.allowWrites ?? false) && getMcpAccessOptions(config).allowWrites,
-    tokenId: STDIO_TOKEN_ID,
-  };
+  // The writes switch is read once, at start: a stdio server serves one local session.
+  const canWrite = (options.allowWrites ?? false) && (await isWritingEnabled({ db: database.handle.db, clock: systemClock, config }));
+  const identity: McpServerIdentity = { userId, canWrite, tokenId: STDIO_TOKEN_ID };
   let closed = false;
   const closeDatabase = async () => {
     if (closed) return;

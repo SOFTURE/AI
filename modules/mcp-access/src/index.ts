@@ -13,6 +13,13 @@ import { mcpAccessPrivacyContributor } from "./server/privacy.js";
 export const MODULE_ID = "mcp-access";
 
 /**
+ * Name of the runtime switch that turns writes off without a deploy. Defined in
+ * `@softure-ai/feature-switches`, writes need it on as well as `allowWrites` and the token's write access;
+ * not defined, `allowWrites` alone decides.
+ */
+export const WRITES_ENABLED_SWITCH = "mcp-access.writes_enabled";
+
+/**
  * The rate limit bucket of `POST /api/mcp`, to spread into `security({ buckets })`: requests per
  * client address, counted before the token is verified. Every request counts, so the limit is for
  * the traffic behind one address (several assistants share it), not for one token.
@@ -39,7 +46,7 @@ export const mcpAccess = defineModule({
     dbSchema: "mcp",
     tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants", "oauth_registration_window"],
     env: [],
-    switches: [],
+    switches: [WRITES_ENABLED_SWITCH],
     routes: { ...DEFAULT_MCP_ACCESS_ROUTES },
     mount: [
       { kind: "page", path: "app/account/mcp/page.tsx", export: "McpAccessPage" },

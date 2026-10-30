@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- A runtime kill switch for writes (#904): the manifest switch `mcp-access.writes_enabled` (`WRITES_ENABLED_SWITCH`)
+  is read through `readSwitch` on every request. Writes need `allowWrites`, the token's write access and the switch;
+  off, write tools are not served, the `WWW-Authenticate` challenge and the default OAuth scope name only `mcp:read`,
+  the consent page offers no write tick and a decision grants read only. `isWritingEnabled(ctx)` (`/server`) answers
+  the app's side, and `AuthorizationRequest.isWriteOffered` the consent page's. Migrate: nothing; an app that does
+  not define the switch behaves as before. To use it, define it in `@softure-ai/feature-switches` (README §7
+  recommends `failMode: "closed"`, `override: "towards-fail-mode"`) and drop an app-level write switch.
+- The consent page shows where the access code goes as a row of its own (#906): `consent.redirectLabel` and the
+  host (or the whole native-scheme URI) in monospace, with the hint `consent.redirectHint` that the app name is
+  self-declared and the address is not. `ConsentForm` gains the `target` slot; `note` now styles the hint.
+  `OAuthConsentPage` takes `classNames` and `unstyled` and passes them to `ConsentForm` and `ConsentError`.
+  Migrate: `consent.returnsTo` is gone; an app that overrides it moves its text to `consent.redirectLabel`, and an
+  app that recomposed the page to show the host can mount `OAuthConsentPage` again.
+
 ## 0.2.8
 
 - The content of 0.2.7, which was never published: its release stopped at the gates (ESLint ran out of memory in
