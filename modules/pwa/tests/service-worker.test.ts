@@ -204,6 +204,37 @@ describe("the service worker's navigations", () => {
     expect(await scope.caches.has("fire-pages-b1")).toBe(false);
   });
 
+  it.each([
+    {
+      name: "a streamed sign-in redirect",
+      html: '<html><body><div hidden>loading</div><meta id="__next-page-redirect" http-equiv="refresh" content="1;url=/login"/></body></html>',
+    },
+    { name: "a failed boundary", html: '<html><body><!--$!--><template data-dgst="1"></template><script>$RX=function(b,c,d,e){};$RX("B:0","1")</script></body></html>' },
+    { name: "a failed boundary of the external runtime", html: '<html><body><script>$RX("B:0","1","","")</script></body></html>' },
+  ])("serves $name but keeps the earlier copy", async ({ html }) => {
+    const scope = await installWorker();
+    scope.route("/tasks", answer("<p>kept</p>"));
+    await scope.dispatchFetch(navigation("/tasks")).settled();
+    scope.route("/tasks", answer(html));
+
+    const dispatched = scope.dispatchFetch(navigation("/tasks"));
+
+    expect(await readBody(dispatched.response)).toBe(html);
+    await dispatched.settled();
+    scope.routes.clear();
+    expect(await readBody(scope.dispatchFetch(navigation("/tasks")).response)).toBe("<p>kept</p>");
+  });
+
+  it("keeps a page that only mentions a refresh or $RX in its text", async () => {
+    const scope = await installWorker();
+    const html = '<html><head><meta name="description" content="refresh"></head><body><p>Use $RX for ratios</p></body></html>';
+    scope.route("/notes", answer(html));
+
+    await scope.dispatchFetch(navigation("/notes")).settled();
+
+    expect(await (await scope.caches.get("fire-pages-b1").match(`${ORIGIN}/notes`))?.text()).toBe(html);
+  });
+
   it("keeps at most maxPages, dropping the least recently kept", async () => {
     const scope = await installWorker({ maxPages: 2 });
     for (const path of ["/a", "/b", "/a", "/c"]) {

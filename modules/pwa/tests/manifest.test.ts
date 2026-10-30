@@ -88,4 +88,8 @@ describe("pwa messages", () => {
       reload: "Reload",
     });
   });
+
+  it("name the launch screen's progress bar", () => {
+    expect(pwaMessages.en.launch).toEqual({ label: "Loading" });
+  });
 });

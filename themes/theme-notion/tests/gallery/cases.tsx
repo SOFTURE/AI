@@ -216,6 +216,7 @@ import {
   TooltipTrigger,
   UpdatePrompt,
   InstallBar,
+  LaunchScreen,
   Code,
   CodeBlock,
 } from "../../src/index.js";
@@ -229,6 +230,9 @@ const INSTALL_COPY = {
   addStep: "Choose Add to Home Screen",
   close: "Close",
 };
+
+// The launch screen's icon: a rounded mark, inline so the gallery needs no icon route.
+const LAUNCH_ICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2383e2"/><path d="M20 32h24M32 20v24" stroke="#fff" stroke-width="6" stroke-linecap="round"/></svg>')}`;
 
 /** One rendering of the gallery: a component, a variant or a composition, as an app would use it. */
 export interface GalleryCase {
@@ -1802,6 +1806,14 @@ const NOTION_CASES: readonly GalleryCase[] = [
     root: '[data-slot="install-bar"]',
     isIsolated: true,
     render: () => <InstallBar offer="ios_steps" {...INSTALL_COPY} onInstall={() => undefined} onClose={() => undefined} />,
+  },
+  {
+    name: "LaunchScreen",
+    component: "LaunchScreen",
+    root: '[data-slot="launch-screen"]',
+    // Full screen, so it is drawn on a page of its own.
+    isIsolated: true,
+    render: () => <LaunchScreen name="Fire" iconSrc={LAUNCH_ICON} label="Loading" />,
   },
 ];
 

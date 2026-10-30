@@ -21,6 +21,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   underline), and scrolls the active tab into the middle when it changes; the `Tabs` root takes
   `has-data-[scrollable=true]:min-w-0`, so a grid or flex parent no longer widens to the tabs. `ScrollArea` gains
   `scrollbars` (`"vertical"`, `"horizontal"` or `"both"`).
+- `LaunchScreen` (#911): an installed app's icon, name, progress bar and percentage on the theme's background while
+  its first page loads, streamed from `app/loading.tsx`; `@softure-ai/pwa`'s `buildLaunchProgressScript()` moves it.
 
 ## 0.10.1
 

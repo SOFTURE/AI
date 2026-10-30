@@ -139,7 +139,8 @@ stages with a state, below), `Timeline` (dated entries on a vertical rail, below
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
 `MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
 `UpdatePrompt` (the offer to reload into a new build, for an installed app, below),
-`InstallBar` (the offer to install the app on a phone, below).
+`InstallBar` (the offer to install the app on a phone, below),
+`LaunchScreen` (an installed app's icon, name and progress while its first page loads, below).
 
 **Touch sizes.** The controls a phone view taps most reach the `touch-target` token (44 px, Apple's HIG and WCAG
 2.5.5): `Button` sizes `touch` (44 px high, padded like `lg`) and `icon-touch` (44 × 44), `SelectTrigger`
@@ -417,6 +418,23 @@ is a polite `status` and draws nothing for `offer="none"`. The copy is props, ke
 ```tsx
 const { offer, install, close } = useInstallOffer({ app: "fire" }); // @softure-ai/pwa/react
 <InstallBar offer={offer} onInstall={() => void install()} onClose={close} {...messages.install} />
+```
+
+**`LaunchScreen`.** What an installed app on `@softure-ai/pwa` shows from its first byte until the page arrives,
+streamed at once from the root `app/loading.tsx`: full screen on the theme's `background` (light and dark), the app's
+icon (`size-16`, `rounded-2xl`, decorative), its name, a `Progress` (`w-48`) named by `label`, and the percentage
+(hidden from screen readers: the bar reports the value). It renders at 0; the inline `script`
+(`buildLaunchProgressScript()` from `@softure-ai/pwa`) moves the bar's value, its indicator and the percentage through
+`data-slot="progress"`, `progress-indicator` and `launch-screen-percent`, and stops once the page replaced the screen:
+
+```tsx
+// app/loading.tsx
+import { buildLaunchProgressScript, ICONS_PATH } from "@softure-ai/pwa";
+const ICON = `${ICONS_PATH}/icon-192.png`; // the manifest's icon, drawn by the icon route
+const SCRIPT = buildLaunchProgressScript();
+export default function Loading() {
+  return <LaunchScreen name={messages.app.name} iconSrc={ICON} label={messages.pwa.launch.label} script={SCRIPT} />;
+}
 ```
 
 **`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and
