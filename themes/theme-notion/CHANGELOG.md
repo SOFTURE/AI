@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.10.2
 
 - A wide dialog (#902): `DialogContent` gains `size` (`"default"` or `"wide"`). `wide` is half the viewport from
   `lg` (`lg:max-w-1/2`), `max-w-lg` between `sm` and `lg`, and keeps the 1 rem gutter on phones. Default dialogs
