@@ -2,13 +2,13 @@ import { formatMessage } from "@softure-ai/core";
 import { Button, Checkbox, type ClassNames, createSlotClassGetter } from "@softure-ai/ui";
 import type { McpAccessMessages } from "../messages/index.js";
 
-// The OAuth consent screen's body: which app (its registered name and where the code goes, which
-// the app cannot fake), which account (two accounts in one browser happen) and what access (read
+// The OAuth consent screen's body: which app (its self-declared name), where the code goes (its own
+// row: the one part the app cannot fake), which account (two accounts in one browser happen) and what access (read
 // always, change only when the client asked, the app allows it and the person ticks it). A plain
 // HTML form posting to the decision route, so the `303` to the client works without JavaScript and
 // with native app schemes. Server-safe: no hooks.
 
-export type ConsentFormSlot = "root" | "details" | "term" | "value" | "note" | "actions" | "text" | "link";
+export type ConsentFormSlot = "root" | "details" | "term" | "value" | "target" | "note" | "actions" | "text" | "link";
 
 export interface ConsentFormProps {
   /** The decision route the form posts to. */
@@ -19,7 +19,7 @@ export interface ConsentFormProps {
   /** Where the code goes: the host for http(s), the whole URI for a native scheme. */
   readonly redirectTarget: string;
   readonly accountEmail: string;
-  /** Offer the change checkbox: the client asked for `mcp:write` and the app allows writes. */
+  /** Offer the change checkbox: the client asked for `mcp:write` and the app allows writes right now. */
   readonly isWriteOffered: boolean;
   readonly messages: McpAccessMessages;
   readonly classNames?: ClassNames<ConsentFormSlot>;
@@ -31,7 +31,8 @@ const DEFAULT_CLASSES: Readonly<Record<ConsentFormSlot, string>> = {
   details: "sft:m-0 sft:flex sft:flex-col sft:gap-3 sft:text-sm",
   term: "sft:text-muted",
   value: "sft:m-0 sft:font-medium sft:text-foreground",
-  note: "sft:font-normal sft:text-muted",
+  target: "sft:m-0 sft:font-mono sft:font-medium sft:text-foreground sft:break-words",
+  note: "sft:m-0 sft:mt-1 sft:text-xs sft:font-normal sft:text-muted",
   actions: "sft:flex sft:flex-col sft:gap-3",
   text: "sft:m-0 sft:text-sm sft:text-muted",
   link: "sft:font-medium sft:text-accent",
@@ -48,9 +49,12 @@ export function ConsentForm({ action, params, clientName, redirectTarget, accoun
       <dl className={slot("details")}>
         <div>
           <dt className={slot("term")}>{copy.app}</dt>
-          <dd className={slot("value")}>
-            {clientName} <span className={slot("note")}>({formatMessage(copy.returnsTo, { target: redirectTarget })})</span>
-          </dd>
+          <dd className={slot("value")}>{clientName}</dd>
+        </div>
+        <div>
+          <dt className={slot("term")}>{copy.redirectLabel}</dt>
+          <dd className={slot("target")}>{redirectTarget}</dd>
+          <dd className={slot("note")}>{copy.redirectHint}</dd>
         </div>
         <div>
           <dt className={slot("term")}>{copy.account}</dt>

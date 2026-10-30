@@ -15,10 +15,11 @@ limit check made race-free.
   `Authorization: Bearer` token, then hands the request to a **fresh server from the app's factory**
   with `{ userId, canWrite, tokenId }`. Unknown, revoked, expired and malformed tokens all get the
   same `401 invalid_token` with a `WWW-Authenticate: Bearer` challenge. The challenge's `scope` is
-  `mcp:read mcp:write` while `allowWrites` is on and `mcp:read` otherwise, so an OAuth client asks
+  `mcp:read mcp:write` while the app allows writes and `mcp:read` otherwise, so an OAuth client asks
   for what it may get.
-- **Writes need two consents:** the app's `allowWrites` option and a token issued with write
-  access. `canWrite` is decided on every request, so turning `allowWrites` off makes every token
+- **Writes need the app and the token:** the app's `allowWrites` option, the runtime switch
+  `mcp-access.writes_enabled` when the app defines it (§7), and a token issued with write access.
+  `canWrite` is decided on every request, so turning `allowWrites` or the switch off makes every token
   read-only at once.
 - A token page for the signed-in user: the app's tool catalog, an issue form, the new token with its
   setup (a prompt for Claude Code and a `claude-cli://` link, the `claude mcp add` command, an
@@ -30,9 +31,10 @@ limit check made race-free.
   - dynamic client registration (RFC 7591, `POST /api/oauth/register`), public or confidential;
     open to anyone, or closed outside a window an ops script opens (`oauth.registration`);
   - `/oauth/authorize`: authorization code with PKCE `S256` only, on a consent page that shows the
-    app, where the code goes, the signed-in account and the access; writes need the `mcp:write`
-    scope, `allowWrites` and the person's tick. A request without `scope` gets the default scope:
-    both scopes while `allowWrites` is on, `mcp:read` otherwise;
+    app's self-declared name, where the code goes (a row of its own, in monospace: the one part a
+    client cannot fake), the signed-in account and the access; writes need the `mcp:write` scope, the
+    app allowing writes (`allowWrites` and the switch) and the person's tick. A request without `scope`
+    gets the default scope: both scopes while the app allows writes, `mcp:read` otherwise;
   - `POST /api/oauth/token`: `authorization_code` and `refresh_token`. Refresh tokens rotate on
     every use; presenting a rotated one again (`previous_refresh_token_hash`) revokes the whole
     grant, and so does reusing a code (RFC 6749 §4.1.2). `resource` (RFC 8707) must name the
@@ -595,12 +597,41 @@ None of its own. The endpoint URL comes from `appOrigin` in `softure.config.ts`.
 
 ## 7. Switches
 
-None. `allowWrites` is configuration, not a runtime switch: changing who may write is a deploy.
+`mcp-access.writes_enabled` (`WRITES_ENABLED_SWITCH`): a kill switch for writes, read through `readSwitch` of
+`@softure-ai/core` on every MCP request, consent page and decision. `allowWrites` stays the configuration (no
+writes at all without it); the switch takes writes away at once, without a deploy, when a token or a connected
+assistant is suspected of misuse. Off, write tools are not served (the factory gets `canWrite: false`), the
+challenge and the default OAuth scope name only `mcp:read`, and the consent page offers no write tick. Stored
+tokens and grants keep their write access, so turning the switch back on restores it without new consent.
+
+The app defines it in `@softure-ai/feature-switches`. Recommended: on by default, `failMode: "closed"` and
+`override: "towards-fail-mode"`, so the environment variable `SOFTURE_SWITCH_MCP_ACCESS_WRITES_ENABLED=false`
+can pull writes off but never push them back on:
+
+```ts
+featureSwitches({
+  switches: [
+    {
+      name: "mcp-access.writes_enabled",
+      label: { en: "Assistant writes" },
+      description: { en: "Lets AI assistants with write access change data. Off, every assistant reads only." },
+      default: true,
+      failMode: "closed",
+      override: "towards-fail-mode",
+    },
+  ],
+});
+```
+
+An app that does not define it (or has no feature-switches) keeps `allowWrites` alone. A switch read that throws
+counts as off and is logged by the switch's name. The stdio entry reads the switch once, when it starts.
 
 ## 8. Appearance
 
 `TokenManager` slots: `root`, `section`, `heading`, `text`, `list`, `item`, `itemHeader`, `badge`,
-`details`, `snippet`, `code`; `unstyled` renders structure only. Styling comes from
+`details`, `snippet`, `code`; `unstyled` renders structure only. `ConsentForm` and `ConsentError` slots: `root`,
+`details`, `term`, `value`, `target` (where the code goes), `note` (the hint under it), `actions`, `text`, `link`;
+`OAuthConsentPage` takes `classNames` and `unstyled` and passes them to both. Styling comes from
 `@softure-ai/ui` classes on the `--sft-*` tokens; the module ships no CSS of its own.
 
 ## 9. Copy

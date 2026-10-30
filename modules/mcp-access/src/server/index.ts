@@ -12,6 +12,7 @@ export {
 } from "./endpoint.js";
 export { actionTool, toFormData, type ActionToolOptions, type FormActionHandler } from "./action-tool.js";
 export { createMcpAccessContext } from "./context.js";
+export { isWritingEnabled } from "./writes-switch.js";
 export { checkAccessTokensTable } from "./health.js";
 export {
   closeClientRegistration,
