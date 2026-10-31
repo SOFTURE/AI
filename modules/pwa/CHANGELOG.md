@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- An installed app starts offline on a silent network and after a deploy (#924): a navigation with no kept page waits
+  for the network at most `navigationMaxWaitMs` (12 s), then answers the offline page, and the late page is still kept
+  (the wait was unbounded, so a connection that opens and never answers held the app's start for ever); a file not kept,
+  from the shell or an extra origin, fails after `assetTimeoutMs` (10 s) instead of hanging. The new `startPath`
+  option (the manifest's `start_url`) is kept at install in the new build's pages with the files it names, best effort,
+  so the first cold start after a deploy, whose activation drops the old build's pages, still opens offline. A
+  navigation's page is kept through a `waitUntil` registered while the event is open.
+
 ## 0.1.3
 
 - A launch screen's counter (#911): `buildLaunchProgressScript(options)` writes the inline script that moves

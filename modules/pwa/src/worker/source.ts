@@ -19,6 +19,10 @@ export const DEFAULT_STATIC_PREFIXES: readonly string[] = ["/_next/static/", "/p
 
 export const DEFAULT_NAVIGATION_TIMEOUT_MS = 5_000;
 
+export const DEFAULT_NAVIGATION_MAX_WAIT_MS = 12_000;
+
+export const DEFAULT_ASSET_TIMEOUT_MS = 10_000;
+
 export const DEFAULT_MAX_PAGES = 60;
 
 const APP_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -39,8 +43,17 @@ export interface ServiceWorkerOptions {
   readonly excludedPrefixes?: readonly string[];
   /** Replaces `DEFAULT_STATIC_PREFIXES`. */
   readonly staticPrefixes?: readonly string[];
+  /**
+   * The installed app's start page (the manifest's `start_url`, e.g. `/`): kept at install in the new build's pages, so
+   * the first cold start after a deploy opens offline. None by default.
+   */
+  readonly startPath?: string;
   /** 5 s by default. */
   readonly navigationTimeoutMs?: number;
+  /** With no kept page, the longest wait before the offline page: 12 s by default, at least `navigationTimeoutMs`. */
+  readonly navigationMaxWaitMs?: number;
+  /** The longest wait for a file not kept before it fails: 10 s by default. */
+  readonly assetTimeoutMs?: number;
   /** 60 by default. */
   readonly maxPages?: number;
   /** Other origins kept in their own cache (map tiles); none by default. */
@@ -82,6 +95,14 @@ export function resolveServiceWorkerConfig(options: ServiceWorkerOptions, build:
   if (!options.offlinePath.startsWith("/")) {
     throw new Error(`resolveServiceWorkerConfig: offlinePath ${JSON.stringify(options.offlinePath)} must start with /`);
   }
+  if (options.startPath !== undefined && !options.startPath.startsWith("/")) {
+    throw new Error(`resolveServiceWorkerConfig: startPath ${JSON.stringify(options.startPath)} must start with /`);
+  }
+  const navigationTimeoutMs = checkPositiveInteger("navigationTimeoutMs", options.navigationTimeoutMs ?? DEFAULT_NAVIGATION_TIMEOUT_MS);
+  const navigationMaxWaitMs = checkPositiveInteger("navigationMaxWaitMs", options.navigationMaxWaitMs ?? Math.max(DEFAULT_NAVIGATION_MAX_WAIT_MS, navigationTimeoutMs));
+  if (navigationMaxWaitMs < navigationTimeoutMs) {
+    throw new Error(`resolveServiceWorkerConfig: navigationMaxWaitMs ${navigationMaxWaitMs} must be at least navigationTimeoutMs ${navigationTimeoutMs}`);
+  }
   const excludedPrefixes = options.excludedPrefixes ?? DEFAULT_EXCLUDED_PREFIXES;
   return {
     app: options.app,
@@ -89,7 +110,10 @@ export function resolveServiceWorkerConfig(options: ServiceWorkerOptions, build:
     offlinePath: options.offlinePath,
     excludedPrefixes: excludedPrefixes.includes(SERVICE_WORKER_PATH) ? [...excludedPrefixes] : [...excludedPrefixes, SERVICE_WORKER_PATH],
     staticPrefixes: [...(options.staticPrefixes ?? DEFAULT_STATIC_PREFIXES)],
-    navigationTimeoutMs: checkPositiveInteger("navigationTimeoutMs", options.navigationTimeoutMs ?? DEFAULT_NAVIGATION_TIMEOUT_MS),
+    navigationTimeoutMs,
+    navigationMaxWaitMs,
+    assetTimeoutMs: checkPositiveInteger("assetTimeoutMs", options.assetTimeoutMs ?? DEFAULT_ASSET_TIMEOUT_MS),
+    startPath: options.startPath ?? null,
     maxPages: checkPositiveInteger("maxPages", options.maxPages ?? DEFAULT_MAX_PAGES),
     extraOrigins: (options.extraOrigins ?? []).map(resolveExtraOrigin),
   };

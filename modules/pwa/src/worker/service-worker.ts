@@ -26,6 +26,18 @@ export interface ServiceWorkerConfig {
   readonly staticPrefixes: readonly string[];
   /** How long a navigation waits for the network before a kept page is shown, in milliseconds. */
   readonly navigationTimeoutMs: number;
+  /**
+   * The longest a navigation with no kept page waits for the network before the offline page answers, in milliseconds.
+   * A network that connects but never answers (no signal, a captive Wi-Fi) is never waited for without limit.
+   */
+  readonly navigationMaxWaitMs: number;
+  /** The longest a file not kept (the shell's or an extra origin's) waits for the network before it fails. */
+  readonly assetTimeoutMs: number;
+  /**
+   * The installed app's start page (the manifest's `start_url`), kept at install in this build's pages with the files
+   * it names, so the first cold start after a deploy opens offline; `null` keeps none.
+   */
+  readonly startPath: string | null;
   /** The most pages kept for offline use; the least recently kept goes first. */
   readonly maxPages: number;
   readonly extraOrigins: readonly ExtraOrigin[];
@@ -127,6 +139,29 @@ export function serviceWorker(scope: WorkerScope, config: ServiceWorkerConfig): 
         if (isWholeAnswer(asset, false)) await shell.put(url, asset);
       }),
     );
+    if (config.startPath !== null) await keepStartPage(shell, new URL(config.startPath, origin).href);
+  }
+
+  // The start page in this build's pages and the files it names in its shell: a new build drops the old build's pages,
+  // and the first cold start after a deploy must still open offline. Best effort: signed out (a redirect), an error or
+  // an incomplete page keeps nothing and never fails the install, which would leave the device on the old build.
+  async function keepStartPage(shell: Cache, url: string): Promise<void> {
+    try {
+      const page = await scope.fetch(new Request(url, { cache: "reload", credentials: "same-origin" }));
+      if (!isWholeAnswer(page, true)) return;
+      const html = await page.clone().text();
+      if (!isCompletePage(html)) return;
+      await Promise.all(
+        findPageAssets(html).map(async (asset) => {
+          if (await shell.match(asset)) return;
+          const response = await scope.fetch(new Request(asset, { cache: "reload" }));
+          if (isWholeAnswer(response, false)) await shell.put(asset, response);
+        }),
+      );
+      await keepPage(url, page);
+    } catch {
+      // The next navigation that the network answers keeps the page instead.
+    }
   }
 
   async function dropOtherBuilds(): Promise<void> {
@@ -166,29 +201,61 @@ export function serviceWorker(scope: WorkerScope, config: ServiceWorkerConfig): 
     return (await shell.match(offlineUrl)) ?? Response.error();
   }
 
-  // Network first with a timeout, then the kept copy of the page, then the offline page.
+  // Resolves `null` after `ms`; `cancel` clears the timer once the race is decided.
+  function startTimer(ms: number): { readonly elapsed: Promise<null>; readonly cancel: () => void } {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const elapsed = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), ms);
+    });
+    return { elapsed, cancel: () => clearTimeout(timer) };
+  }
+
+  // The network's answer, or `null` when it fails or stays silent for `ms`.
+  async function raceNetwork(network: Promise<Response | null>, ms: number): Promise<Response | null> {
+    const timer = startTimer(ms);
+    try {
+      return await Promise.race([network, timer.elapsed]);
+    } finally {
+      timer.cancel();
+    }
+  }
+
+  // Network first with a timeout, then the kept copy of the page, then, after at most `navigationMaxWaitMs`, the offline
+  // page: a network that connects and never answers never holds the app's start.
   async function navigate(event: WorkerFetchEvent): Promise<Response> {
     const url = event.request.url;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const network = scope.fetch(event.request).then((response) => {
-      if (isWholeAnswer(response, true)) event.waitUntil(keepPage(url, response.clone()));
-      return response;
-    });
+    const network = scope.fetch(event.request);
     const networkOrNull = network.then(
       (response) => response,
       () => null,
     );
-    const timeout = new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), config.navigationTimeoutMs);
-    });
-    const first = await Promise.race([networkOrNull, timeout]);
-    clearTimeout(timer);
+    // Registered now, while the event is open: the page is kept even when it arrives after another answer was served.
+    event.waitUntil(networkOrNull.then((response) => (response !== null && isWholeAnswer(response, true) ? keepPage(url, response.clone()) : undefined)));
+    const first = await raceNetwork(networkOrNull, config.navigationTimeoutMs);
     if (first !== null) return first;
     const pages = await scope.caches.open(pagesCacheName);
     const kept = await pages.match(url);
     if (kept !== undefined) return kept;
-    // Nothing kept: a slow network is still better than the offline page.
-    return (await networkOrNull) ?? findOfflinePage();
+    // Nothing kept: a slow network is still better than the offline page, up to the bound.
+    const late = await raceNetwork(networkOrNull, config.navigationMaxWaitMs - config.navigationTimeoutMs);
+    return late ?? findOfflinePage();
+  }
+
+  // A file not kept: the network for at most `assetTimeoutMs`, else a network error the page's own handling sees.
+  async function fetchBounded(request: Request, keep: (response: Response) => Promise<void>): Promise<Response> {
+    const network = scope.fetch(request).then(async (response) => {
+      await keep(response);
+      return response;
+    });
+    const timer = startTimer(config.assetTimeoutMs);
+    try {
+      const first = await Promise.race([network, timer.elapsed]);
+      if (first !== null) return first;
+    } finally {
+      timer.cancel();
+    }
+    network.catch(() => undefined);
+    return Response.error();
   }
 
   // Same-origin files: the shell's copy first; immutable files (`/_next/static/`) are kept on the way.
@@ -196,23 +263,23 @@ export function serviceWorker(scope: WorkerScope, config: ServiceWorkerConfig): 
     const shell = await scope.caches.open(shellCacheName);
     const kept = await shell.match(request);
     if (kept !== undefined) return kept;
-    const response = await scope.fetch(request);
-    if (isStatic(new URL(request.url).pathname) && isWholeAnswer(response, false)) {
-      await shell.put(request, response.clone());
-    }
-    return response;
+    return fetchBounded(request, async (response) => {
+      if (isStatic(new URL(request.url).pathname) && isWholeAnswer(response, false)) {
+        await shell.put(request, response.clone());
+      }
+    });
   }
 
   async function fromExtraOrigin(request: Request, extra: ExtraOrigin): Promise<Response> {
     const cache = await scope.caches.open(`${config.app}-${extra.cache}`);
     const kept = await cache.match(request);
     if (kept !== undefined) return kept;
-    const response = await scope.fetch(request);
-    if (response.ok) {
-      await cache.put(request, response.clone());
-      if (extra.maxEntries !== null) await trimCache(cache, extra.maxEntries);
-    }
-    return response;
+    return fetchBounded(request, async (response) => {
+      if (response.ok) {
+        await cache.put(request, response.clone());
+        if (extra.maxEntries !== null) await trimCache(cache, extra.maxEntries);
+      }
+    });
   }
 
   scope.addEventListener("install", (event) => {
