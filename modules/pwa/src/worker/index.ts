@@ -12,8 +12,10 @@ export {
 } from "./service-worker.js";
 export {
   buildServiceWorkerSource,
+  DEFAULT_ASSET_TIMEOUT_MS,
   DEFAULT_EXCLUDED_PREFIXES,
   DEFAULT_MAX_PAGES,
+  DEFAULT_NAVIGATION_MAX_WAIT_MS,
   DEFAULT_NAVIGATION_TIMEOUT_MS,
   DEFAULT_STATIC_PREFIXES,
   resolveServiceWorkerConfig,

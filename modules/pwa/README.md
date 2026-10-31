@@ -96,7 +96,10 @@ interface ServiceWorkerOptions {
   offlinePath: string; // e.g. "/offline"
   excludedPrefixes?: readonly string[]; // replaces DEFAULT_EXCLUDED_PREFIXES; /sw.js is always excluded
   staticPrefixes?: readonly string[]; // ["/_next/static/", "/pwa/icons/"]
-  navigationTimeoutMs?: number; // 5000
+  startPath?: string; // the manifest's start_url, kept at install by every build; none by default
+  navigationTimeoutMs?: number; // 5000: the network's head start before a kept page answers
+  navigationMaxWaitMs?: number; // 12000: with no kept page, the longest wait before the offline page
+  assetTimeoutMs?: number; // 10000: the longest wait for a file not kept before it fails
   maxPages?: number; // 60
   extraOrigins?: readonly { origin: string; cache: string; maxEntries?: number }[];
 }
@@ -156,6 +159,15 @@ export function AppUpdate({ messages }: { messages: PwaMessages }) {
 **The offline page** (`offlinePath`) is the app's own: a static page that renders without a session and without data
 (no `cookies()`, no database), with the app's look. The install fetches it and keeps every same-origin script, style
 and icon its HTML names; if it answers anything but a 200 HTML page, the install fails and the running worker stays.
+
+**The start page** (`startPath`, set it to the manifest's `start_url`): the kept pages belong to a build, and a new
+build's activation drops the old build's, so without it the first cold start after every deploy finds no page kept.
+The install keeps it in the new build's pages with the files its HTML names, best effort: a redirect (signed out), an
+error or an incomplete page keeps nothing and never fails the install.
+
+**A silent network** (no signal, a captive Wi-Fi: the connection opens and nothing answers) is never waited for
+without limit: a navigation gets its kept page after `navigationTimeoutMs`, else the offline page after
+`navigationMaxWaitMs` (the late answer is still kept), and a file not kept fails after `assetTimeoutMs`.
 
 Without React, `watchServiceWorker({ onUpdateReady, onError })` runs the same flow and returns `{ activate, stop }`.
 

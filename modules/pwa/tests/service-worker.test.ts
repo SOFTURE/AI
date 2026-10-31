@@ -10,7 +10,7 @@ import {
 } from "@softure-ai/pwa/worker";
 import { describe, expect, it } from "vitest";
 
-import { answer, FakeWorkerScope, navigation, ORIGIN } from "./support/fake-worker-scope.js";
+import { answer, FakeWorkerScope, navigation, ORIGIN, type FetchHandler } from "./support/fake-worker-scope.js";
 
 const OFFLINE_HTML = `<!doctype html><html><head>
 <link rel="stylesheet" href="/_next/static/css/app.css">
@@ -246,6 +246,186 @@ describe("the service worker's navigations", () => {
   });
 });
 
+/** A network that opens the connection and never answers: no signal, a captive Wi-Fi. */
+function silence(): Promise<Response> {
+  return new Promise(() => undefined);
+}
+
+const SILENT_OPTIONS: Partial<ServiceWorkerOptions> = { navigationTimeoutMs: 20, navigationMaxWaitMs: 80, assetTimeoutMs: 40 };
+
+describe("the service worker on a silent network (#924)", () => {
+  it("answers the offline page at navigationMaxWaitMs when no page is kept", async () => {
+    const scope = await installWorker(SILENT_OPTIONS);
+    scope.route("/tasks", silence);
+    const startedAt = Date.now();
+
+    expect(await readBody(scope.dispatchFetch(navigation("/tasks")).response)).toBe(OFFLINE_HTML);
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(75);
+  });
+
+  it("answers the kept page at navigationTimeoutMs", async () => {
+    const scope = await installWorker(SILENT_OPTIONS);
+    scope.route("/tasks", answer("<p>kept</p>"));
+    await scope.dispatchFetch(navigation("/tasks")).settled();
+    scope.route("/tasks", silence);
+
+    expect(await readBody(scope.dispatchFetch(navigation("/tasks")).response)).toBe("<p>kept</p>");
+  });
+
+  it("still waits for a slow network within the bound", async () => {
+    const scope = await installWorker(SILENT_OPTIONS);
+    scope.route("/tasks", async () => {
+      await delay(40);
+      return answer("<p>slow</p>");
+    });
+
+    expect(await readBody(scope.dispatchFetch(navigation("/tasks")).response)).toBe("<p>slow</p>");
+  });
+
+  it("keeps the page that arrives after the offline page answered", async () => {
+    const scope = await installWorker(SILENT_OPTIONS);
+    scope.route("/tasks", async () => {
+      await delay(150);
+      return answer("<p>late</p>");
+    });
+
+    const dispatched = scope.dispatchFetch(navigation("/tasks"));
+
+    expect(await readBody(dispatched.response)).toBe(OFFLINE_HTML);
+    await dispatched.settled();
+    expect(await (await scope.caches.get("fire-pages-b1").match(`${ORIGIN}/tasks`))?.text()).toBe("<p>late</p>");
+  });
+
+  it("fails a shell file that is not kept at assetTimeoutMs", async () => {
+    const scope = await installWorker(SILENT_OPTIONS);
+    scope.route("/_next/static/chunks/lazy.js", silence);
+
+    expect((await scope.dispatchFetch(new Request(`${ORIGIN}/_next/static/chunks/lazy.js`)).response)?.type).toBe("error");
+  });
+
+  it("keeps a shell file that arrives within the bound", async () => {
+    const scope = await installWorker(SILENT_OPTIONS);
+    scope.route("/_next/static/chunks/slow.js", async () => {
+      await delay(20);
+      return answer("slow", { contentType: "text/javascript" });
+    });
+
+    expect(await readBody(scope.dispatchFetch(new Request(`${ORIGIN}/_next/static/chunks/slow.js`)).response)).toBe("slow");
+    expect(scope.caches.get("fire-shell-b1").getPaths()).toContain("/_next/static/chunks/slow.js");
+  });
+
+  it("serves a kept shell file without waiting on the silent network", async () => {
+    const scope = await installWorker(SILENT_OPTIONS);
+    scope.route("/_next/static/css/app.css", silence);
+
+    expect(await readBody(scope.dispatchFetch(new Request(`${ORIGIN}/_next/static/css/app.css`)).response)).toBe("/* /_next/static/css/app.css */");
+  });
+
+  it("fails an extra origin's file that is not kept at assetTimeoutMs", async () => {
+    const scope = await installWorker({ ...SILENT_OPTIONS, extraOrigins: [{ origin: "https://tiles.example.com", cache: "tiles" }] });
+    scope.route("https://tiles.example.com/1/2/3.pbf", silence);
+
+    expect((await scope.dispatchFetch(new Request("https://tiles.example.com/1/2/3.pbf")).response)?.type).toBe("error");
+  });
+});
+
+const START_HTML =
+  '<html><head><script src="/_next/static/chunks/start.js"></script><link rel="stylesheet" href="/_next/static/css/app.css"></head>' +
+  "<body><p>start</p></body></html>";
+
+async function installWithStart(start: Response | FetchHandler | null, build = "b1"): Promise<FakeWorkerScope> {
+  const scope = startWorker({ startPath: "/" }, build);
+  routeShell(scope);
+  if (start !== null) scope.route("/", start);
+  scope.route("/_next/static/chunks/start.js", answer("start chunk", { contentType: "text/javascript" }));
+  await scope.dispatchLifecycle("install");
+  return scope;
+}
+
+describe("the service worker's start page (#924)", () => {
+  it("keeps the start page in this build's pages and the files it names in its shell", async () => {
+    const scope = await installWithStart(answer(START_HTML));
+
+    expect(scope.caches.get("fire-pages-b1").getPaths()).toEqual(["/"]);
+    expect(scope.caches.get("fire-shell-b1").getPaths()).toContain("/_next/static/chunks/start.js");
+  });
+
+  it("fetches the start page past the HTTP cache, with the session's cookies", async () => {
+    const seen: Request[] = [];
+    const scope = await installWithStart((request) => {
+      seen.push(request);
+      return Promise.resolve(answer(START_HTML));
+    });
+
+    expect(scope.caches.get("fire-pages-b1").getPaths()).toEqual(["/"]);
+    expect(seen.map((request) => [request.cache, request.credentials])).toEqual([["reload", "same-origin"]]);
+  });
+
+  it("opens the start page offline on the first cold start after a deploy", async () => {
+    const old = await installWithStart(answer(START_HTML), "b1");
+    const scope = new FakeWorkerScope();
+    for (const [name, cache] of old.caches.caches) scope.caches.caches.set(name, cache);
+    serviceWorker(scope.asScope(), resolveServiceWorkerConfig({ ...OPTIONS, startPath: "/" }, "b2"));
+    routeShell(scope);
+    scope.route("/", answer(START_HTML));
+    scope.route("/_next/static/chunks/start.js", answer("start chunk", { contentType: "text/javascript" }));
+    await scope.dispatchLifecycle("install");
+    await scope.dispatchLifecycle("activate");
+    scope.routes.clear();
+
+    expect(await scope.caches.has("fire-pages-b1")).toBe(false);
+    expect(await readBody(scope.dispatchFetch(navigation("/")).response)).toBe(START_HTML);
+    expect(await readBody(scope.dispatchFetch(new Request(`${ORIGIN}/_next/static/chunks/start.js`)).response)).toBe("start chunk");
+  });
+
+  it.each([
+    { name: "a redirect (signed out)", page: answer("<p>login</p>", { redirected: true }) },
+    { name: "an opaque redirect", page: answer("", { type: "opaqueredirect", status: 200 }) },
+    { name: "an error page", page: answer("<p>error</p>", { status: 500 }) },
+    { name: "a non-HTML answer", page: answer("{}", { contentType: "application/json" }) },
+    { name: "a streamed sign-in redirect", page: answer('<html><body><meta http-equiv="refresh" content="1;url=/login"/></body></html>') },
+    { name: "a failed boundary", page: answer('<html><body><script>$RX("B:0","1")</script></body></html>') },
+  ])("keeps no start page from $name and still installs", async ({ page }) => {
+    const scope = await installWithStart(page);
+
+    expect(await scope.caches.has("fire-pages-b1")).toBe(false);
+    expect(scope.caches.get("fire-shell-b1").getPaths()).toContain("/offline");
+    expect(scope.caches.get("fire-shell-b1").getPaths()).not.toContain("/_next/static/chunks/start.js");
+  });
+
+  it("still installs when the start page cannot be fetched", async () => {
+    const scope = await installWithStart(null);
+
+    expect(await scope.caches.has("fire-pages-b1")).toBe(false);
+    expect(scope.caches.get("fire-shell-b1").getPaths()).toContain("/offline");
+  });
+
+  it("keeps no start page without startPath", async () => {
+    const scope = await installWorker();
+    scope.route("/", answer(START_HTML));
+
+    expect(scope.fetched).not.toContain(`${ORIGIN}/`);
+    expect(await scope.caches.has("fire-pages-b1")).toBe(false);
+  });
+
+  it("still fails the install on a failed offline page", async () => {
+    const scope = startWorker({ startPath: "/" });
+    scope.route("/offline", answer("<p>error</p>", { status: 500 }));
+    scope.route("/", answer(START_HTML));
+
+    await expect(scope.dispatchLifecycle("install")).rejects.toThrow("the offline page /offline answered 500");
+    expect(await scope.caches.has("fire-pages-b1")).toBe(false);
+  });
+
+  it("drops the start page on clear-pages", async () => {
+    const scope = await installWithStart(answer(START_HTML));
+
+    await scope.dispatchMessage({ type: "clear-pages" });
+
+    expect(await scope.caches.has("fire-pages-b1")).toBe(false);
+  });
+});
+
 describe("the service worker's other requests", () => {
   it("serves a kept file from the shell without the network", async () => {
     const scope = await installWorker();
@@ -415,9 +595,18 @@ describe("resolveServiceWorkerConfig", () => {
       excludedPrefixes: [...DEFAULT_EXCLUDED_PREFIXES, "/sw.js"],
       staticPrefixes: ["/_next/static/", "/pwa/icons/"],
       navigationTimeoutMs: 5000,
+      navigationMaxWaitMs: 12000,
+      assetTimeoutMs: 10000,
+      startPath: null,
       maxPages: 60,
       extraOrigins: [],
     });
+  });
+
+  it("takes a start page and the bounds, and never lets the longest wait fall below the first", () => {
+    const config = resolveServiceWorkerConfig({ ...OPTIONS, startPath: "/", navigationTimeoutMs: 20_000, assetTimeoutMs: 3000 }, "b1");
+
+    expect(config).toMatchObject({ startPath: "/", navigationTimeoutMs: 20_000, navigationMaxWaitMs: 20_000, assetTimeoutMs: 3000 });
   });
 
   it("normalizes an extra origin and leaves it uncapped by default", () => {
@@ -431,6 +620,13 @@ describe("resolveServiceWorkerConfig", () => {
     { name: "a relative offline path", options: { offlinePath: "offline" }, message: 'offlinePath "offline" must start with /' },
     { name: "a zero timeout", options: { navigationTimeoutMs: 0 }, message: "navigationTimeoutMs must be a positive integer, got 0" },
     { name: "a fractional page cap", options: { maxPages: 1.5 }, message: "maxPages must be a positive integer, got 1.5" },
+    { name: "a relative start page", options: { startPath: "home" }, message: 'startPath "home" must start with /' },
+    { name: "a zero asset timeout", options: { assetTimeoutMs: 0 }, message: "assetTimeoutMs must be a positive integer, got 0" },
+    {
+      name: "a longest wait shorter than the first",
+      options: { navigationTimeoutMs: 50, navigationMaxWaitMs: 40 },
+      message: "navigationMaxWaitMs 40 must be at least navigationTimeoutMs 50",
+    },
     {
       name: "an extra cache named like a build cache",
       options: { extraOrigins: [{ origin: "https://tiles.example.com", cache: "pages-map" }] },

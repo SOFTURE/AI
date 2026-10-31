@@ -39,6 +39,10 @@ describe("the built worker", () => {
       excludedPrefixes: ["/sw.js"],
       staticPrefixes: ["/_next/static/"],
       navigationTimeoutMs: 20,
+      navigationMaxWaitMs: 80,
+      assetTimeoutMs: 40,
+      // The start page kept at install runs from the text too (#924).
+      startPath: "/tasks",
       maxPages: 60,
       extraOrigins: [],
     };
@@ -53,6 +57,7 @@ describe("the built worker", () => {
     ) => void;
     run(scope.asScope(), config);
     await scope.dispatchLifecycle("install");
+    expect(scope.caches.get("fire-pages-b1").getPaths()).toEqual(["/tasks"]);
     const dispatched = scope.dispatchFetch(navigation("/tasks"));
 
     expect(await (await dispatched.response)?.text()).toBe("<p>tasks</p>");
