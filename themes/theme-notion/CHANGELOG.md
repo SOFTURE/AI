@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.10.3
+
+- Dialog sizes for a popup: `DialogContent size` gains `"lg"` and `"sm"`. `lg` is the standard popup, centred with a
+  quarter of the viewport free on every side from `lg` (`lg:max-w-1/2 lg:h-1/2 lg:min-h-96`), three quarters of it
+  from `sm` and the 1 rem gutter on a phone, a fixed height whose content scrolls in a column. `sm` is a small popup
+  for little data: `max-w-md`, its height by content up to `calc(100dvh-2rem)`, then scrolling. `default` and
+  `wide` render the same classes.
+
 ## 0.10.2
 
 - A wide dialog (#902): `DialogContent` gains `size` (`"default"` or `"wide"`). `wide` is half the viewport from

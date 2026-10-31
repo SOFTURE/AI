@@ -337,19 +337,19 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "            className={cn(\n              \"absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4\",\n              closeButtonSize === \"touch\" &&\n                \"top-0.5 right-0.5 inline-flex size-touch-target items-center justify-center rounded-md\"\n            )}",
     },
     {
-      reason: "dialog: a wide size, half the viewport from `lg` (#902)",
+      reason: "dialog: sizes: wide, half the viewport from `lg` (#902); lg, a centred popup; sm, a small one",
       upstream: "  closeButtonSize = \"default\",\n  ...props",
       ours: "  closeButtonSize = \"default\",\n  size = \"default\",\n  ...props",
     },
     {
-      reason: "dialog: a wide size, half the viewport from `lg` (#902)",
+      reason: "dialog: sizes: wide, half the viewport from `lg` (#902); lg, a centred popup; sm, a small one",
       upstream: "  closeButtonSize?: \"default\" | \"touch\"\n}) {",
-      ours: "  closeButtonSize?: \"default\" | \"touch\"\n  // `wide` is half the viewport from `lg`, `max-w-lg` below it.\n  size?: \"default\" | \"wide\"\n}) {",
+      ours: "  closeButtonSize?: \"default\" | \"touch\"\n  // `wide` is half the viewport from `lg`, `max-w-lg` below it.\n  // `lg` is the standard popup: a quarter of the viewport free on every side from `lg`, its content scrolling.\n  // `sm` is a small popup for little data, narrower than the default.\n  size?: \"sm\" | \"default\" | \"wide\" | \"lg\"\n}) {",
     },
     {
-      reason: "dialog: a wide size, half the viewport from `lg` (#902)",
+      reason: "dialog: sizes: wide, half the viewport from `lg` (#902); lg, a centred popup; sm, a small one",
       upstream: "zoom-in-95 sm:max-w-lg\",\n          className",
-      ours: "zoom-in-95 sm:max-w-lg\",\n          size === \"wide\" && \"lg:max-w-1/2\",\n          className",
+      ours: "zoom-in-95 sm:max-w-lg\",\n          size === \"wide\" && \"lg:max-w-1/2\",\n          size === \"lg\" &&\n            \"flex h-[calc(100dvh-2rem)] flex-col overflow-y-auto sm:h-3/4 sm:max-w-3/4 lg:h-1/2 lg:min-h-96 lg:max-w-1/2\",\n          size === \"sm\" && \"max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md\",\n          className",
     },
     {
       reason: "copy: built-in English text from the message layer, overridable by a prop (#903)",
