@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-dialog-sizes
-status: implementing
+status: archived
 ---
 
 # Plan: dialog sizes `lg` and `sm`
@@ -38,4 +38,5 @@ Version bump `0.10.3` in its own pull request, then Actions → `auto-release` w
 
 - [x] Phase 1: component
 - [x] Phase 2: docs
-- [ ] Phase 3: release
+- [x] Phase 3: release (version 0.10.3 bumped in this pull request; auto-release after the merge)
+- [x] Implementation review: approved

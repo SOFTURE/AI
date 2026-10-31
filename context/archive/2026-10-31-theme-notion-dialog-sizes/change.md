@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-dialog-sizes
 title: "theme-notion: dialog sizes for a centred popup and a small one"
-status: implementing
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-deiuab
 created: 2026-10-31
 updated: 2026-10-31
+archived_at: 2026-10-31
 ---
 
 ## Intent
