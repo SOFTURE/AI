@@ -39,7 +39,7 @@ describe("DialogContent", () => {
   });
 });
 
-function renderSizedDialog(size?: "default" | "wide") {
+function renderSizedDialog(size?: "sm" | "default" | "wide" | "lg") {
   render(
     <Dialog open>
       <DialogContent {...(size === undefined ? {} : { size })}>
@@ -63,6 +63,61 @@ describe("DialogContent size", () => {
     const classes = renderSizedDialog("wide");
 
     expect(classes).toEqual(expect.arrayContaining(["max-w-[calc(100%-2rem)]", "sm:max-w-lg", "lg:max-w-1/2"]));
+  });
+
+  it("keeps the default and wide dialogs' height by content, with no height class", () => {
+    for (const size of [undefined, "wide"] as const) {
+      const classes = renderSizedDialog(size);
+
+      expect(classes.filter((name) => /(^|:)(min-|max-)?h-/.test(name))).toEqual([]);
+      expect(classes).toContain("grid");
+      cleanup();
+    }
+  });
+
+  it("centres a large popup with a quarter of the viewport free on every side from lg", () => {
+    const classes = renderSizedDialog("lg");
+
+    expect(classes).toEqual(expect.arrayContaining(["lg:max-w-1/2", "lg:h-1/2", "lg:min-h-96", "top-[50%]", "left-[50%]"]));
+  });
+
+  it("draws a large popup three quarters of the viewport from sm and inside the phone gutter below", () => {
+    const classes = renderSizedDialog("lg");
+
+    expect(classes).toEqual(expect.arrayContaining(["max-w-[calc(100%-2rem)]", "h-[calc(100dvh-2rem)]", "sm:max-w-3/4", "sm:h-3/4"]));
+    expect(classes).not.toContain("sm:max-w-lg");
+  });
+
+  it("stacks a large popup's content in a column that scrolls inside its fixed height", () => {
+    const classes = renderSizedDialog("lg");
+
+    expect(classes).toEqual(expect.arrayContaining(["flex", "flex-col", "overflow-y-auto"]));
+    expect(classes).not.toContain("grid");
+  });
+
+  it("draws a small popup narrower than the default, its height by content up to the viewport's gutter", () => {
+    const classes = renderSizedDialog("sm");
+
+    expect(classes).toEqual(expect.arrayContaining(["max-w-[calc(100%-2rem)]", "sm:max-w-md", "max-h-[calc(100dvh-2rem)]", "overflow-y-auto"]));
+    expect(classes).not.toContain("sm:max-w-lg");
+    expect(classes).not.toContain("lg:max-w-1/2");
+    expect(classes.filter((name) => /(^|:)h-/.test(name))).toEqual([]);
+  });
+
+  it("lets the app's className override a size's class", () => {
+    render(
+      <Dialog open>
+        <DialogContent size="lg" className="gap-0 p-0">
+          <DialogTitle>Edit</DialogTitle>
+          <DialogDescription>Change the fields.</DialogDescription>
+        </DialogContent>
+      </Dialog>,
+    );
+    const classes = readClasses(document.querySelector('[data-slot="dialog-content"]'));
+
+    expect(classes).toEqual(expect.arrayContaining(["gap-0", "p-0", "lg:h-1/2"]));
+    expect(classes).not.toContain("p-6");
+    expect(classes).not.toContain("gap-4");
   });
 });
 

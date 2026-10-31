@@ -63,7 +63,9 @@ function DialogContent({
   // `touch` draws the close button 44 x 44, centred on the same icon.
   closeButtonSize?: "default" | "touch"
   // `wide` is half the viewport from `lg`, `max-w-lg` below it.
-  size?: "default" | "wide"
+  // `lg` is the standard popup: a quarter of the viewport free on every side from `lg`, its content scrolling.
+  // `sm` is a small popup for little data, narrower than the default.
+  size?: "sm" | "default" | "wide" | "lg"
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -73,6 +75,9 @@ function DialogContent({
         className={cn(
           "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl bg-background p-6 shadow-dialog duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
           size === "wide" && "lg:max-w-1/2",
+          size === "lg" &&
+            "flex h-[calc(100dvh-2rem)] flex-col overflow-y-auto sm:h-3/4 sm:max-w-3/4 lg:h-1/2 lg:min-h-96 lg:max-w-1/2",
+          size === "sm" && "max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md",
           className
         )}
         {...props}

@@ -525,7 +525,12 @@ Deltas from stock shadcn:
 
 - `dialog`, `alert-dialog`: radius 10, `shadow-dialog`, no border. `DialogContent size="wide"` is half the
   viewport wide from `lg` (`lg:max-w-1/2`) and `max-w-lg` between `sm` and `lg`, for a form with a list above its
-  fields; the default stays `max-w-lg`. `card`: `shadow-card` instead of a border.
+  fields; the default stays `max-w-lg`. `size="lg"` is the standard popup for a form or a list: centred with a
+  quarter of the viewport free on every side from `lg` (`lg:max-w-1/2 lg:h-1/2`, at least `min-h-96`), three
+  quarters of it from `sm`, the 1 rem gutter on a phone; its height is fixed and its content scrolls in a column
+  (an app with a fixed header and footer sets `p-0 gap-0` and scrolls its own body with
+  `min-h-0 flex-1 overflow-y-auto`). `size="sm"` is a small popup for little data: `max-w-md`, its height by
+  content up to the viewport's gutter, then scrolling. `card`: `shadow-card` instead of a border.
 - `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
   (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,
   `tabs` default to the `line` variant, `progress` 6 px.
