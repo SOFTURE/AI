@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.4
 
 - An installed app starts offline on a silent network and after a deploy (#924): a navigation with no kept page waits
   for the network at most `navigationMaxWaitMs` (12 s), then answers the offline page, and the late page is still kept
