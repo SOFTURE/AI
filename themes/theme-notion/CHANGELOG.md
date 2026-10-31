@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.10.3
 
 - Dialog sizes for a popup: `DialogContent size` gains `"lg"` and `"sm"`. `lg` is the standard popup, centred with a
   quarter of the viewport free on every side from `lg` (`lg:max-w-1/2 lg:h-1/2 lg:min-h-96`), three quarters of it
