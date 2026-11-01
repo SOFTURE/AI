@@ -30,7 +30,9 @@ mark.
   - Next's hashed files (`/_next/static/`) and the icons are served from the shell first and kept on first use;
   - excluded prefixes are never touched: `/api/`, `/oauth/`, `/.well-known/`, `/cdn-cgi/`, the sign-in and account
     pages, the worker itself;
-  - extra origins (e.g. a map's tile host) are kept in their own cache, `<app>-<cache>`, which survives a new build;
+  - extra origins (e.g. a map's tile host) are kept in their own cache, `<app>-<cache>`, which survives a new build:
+    cache first or network first with a timeout, per path, under the URL or a normalized key, stored by the worker or
+    only by the page (an area downloaded ahead);
   - messages `{ type: "skip-waiting" }` and `{ type: "clear-pages" }`.
 - **The new-build update flow** on the page: registration with `updateViaCache: "none"`; a worker that installs while
   another controls the page waits (no `skipWaiting` at install); the page offers a reload, and reloads only after the
@@ -76,6 +78,8 @@ interface ManifestOptions {
   copy: { name: string; shortName: string; description: string }; // from the app's messages
   lang: string;
   startUrl?: string; // "/"
+  id?: string; // startUrl: the installed app's identity; keep the old one when start_url moves
+  dir?: "ltr" | "rtl" | "auto"; // left out by default
   scope?: string; // "/"
   display?: "standalone" | "fullscreen" | "minimal-ui" | "browser"; // "standalone"
   backgroundRole?: string; // "background": the splash screen
@@ -88,6 +92,9 @@ interface IconRouteOptions {
   icon: AppIconGlyph; // `Wallet` from `lucide`, or { svg: "<svg …>" }
   tone?: "primary" | "secondary" | "accent" | "inverse"; // "primary"
   strokeWidth?: number; // 2
+  // The kit's 0.625 (0.5 maskable) by default. A number sets the rounded and square icons (the maskable one keeps the
+  // safe zone); { rounded?, square?, maskable? } sets each shape.
+  glyphScale?: number | { rounded?: number; square?: number; maskable?: number };
 }
 
 // createServiceWorkerRoute(options: ServiceWorkerOptions)
@@ -101,9 +108,36 @@ interface ServiceWorkerOptions {
   navigationMaxWaitMs?: number; // 12000: with no kept page, the longest wait before the offline page
   assetTimeoutMs?: number; // 10000: the longest wait for a file not kept before it fails
   maxPages?: number; // 60
-  extraOrigins?: readonly { origin: string; cache: string; maxEntries?: number }[];
+  extraOrigins?: readonly ExtraOriginOptions[];
+}
+
+interface ExtraOriginOptions {
+  origin: string;
+  pathPrefixes?: readonly string[]; // every path; several entries may name one origin, the first match wins
+  cache: string; // the cache `<app>-<cache>`, kept across builds
+  maxEntries?: number; // no cap
+  strategy?: "cache-first" | "network-first"; // "cache-first"
+  timeoutMs?: number; // network-first only: 5000, then the kept copy; with none, the network up to assetTimeoutMs
+  cacheKey?: { pattern: string; replacement: string }; // path.replace(new RegExp(pattern), replacement); the URL by default
+  store?: boolean; // true; false keeps only what the page put in the cache
 }
 ```
+
+An offline map on one tile host: the style files network first, the tiles from an area the page downloads ahead under
+keys without the host's build segment, and nothing stored while browsing.
+
+```ts
+const tileKey = { pattern: "^/planet/[^/]+/", replacement: "/planet/" };
+extraOrigins: [
+  { origin: "https://tiles.example.com", pathPrefixes: ["/planet/"], cache: "map", cacheKey: tileKey, store: false },
+  { origin: "https://tiles.example.com", pathPrefixes: ["/styles/", "/planet", "/sprites/", "/fonts/"], cache: "map",
+    strategy: "network-first", timeoutMs: 3000 },
+],
+```
+
+Order matters here: `/planet` covers `/planet/…` too, so the tile entry goes first. The page fills the cache with the
+worker's own rule: `(await caches.open(getExtraOriginCacheName("myapp", "map"))).put(getExtraOriginCacheKey(url,
+tileKey), response)`, both from `@softure-ai/pwa/worker`.
 
 A prefix matches whole path segments: `/login` covers `/login` and `/login/sso`, not `/logins`. To add to the defaults:
 `excludedPrefixes: [...DEFAULT_EXCLUDED_PREFIXES, "/admin"]`. The route checks its options when the module loads, so a

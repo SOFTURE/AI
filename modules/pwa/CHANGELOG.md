@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The manifest keeps an installed app's identity (#920): `buildManifest`'s `id` (default `startUrl`, as before), so an
+  app whose start page moved keeps the `id` its installed copy was created with, and `dir`.
+- `createIconRoute({ glyphScale })` (#920): a number draws the rounded and square icons at that scale (the maskable one
+  keeps the kit's safe-zone default), or `{ rounded, square, maskable }` sets each shape.
+- Extra origins for an offline map (#920): `pathPrefixes` (several entries per origin, the first match wins),
+  `strategy: "network-first"` with `timeoutMs` (5 s, then the kept copy; with none, the network up to `assetTimeoutMs`),
+  `cacheKey: { pattern, replacement }` (a normalized key, e.g. a tile host's build segment dropped) and `store: false`
+  (only what the page put in the cache is kept). `getExtraOriginCacheKey` and `getExtraOriginCacheName` from
+  `@softure-ai/pwa/worker` let the page fill the cache under the worker's keys. Defaults are unchanged.
+
 ## 0.1.4
 
 - An installed app starts offline on a silent network and after a deploy (#924): a navigation with no kept page waits
