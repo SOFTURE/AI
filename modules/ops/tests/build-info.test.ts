@@ -98,6 +98,69 @@ describe("createBuildInfoResponse", () => {
   });
 });
 
+describe("the app's own fields (issue #922)", () => {
+  function captureErrors(): unknown[][] {
+    const errors: unknown[][] = [];
+    vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+      errors.push(args);
+    });
+    return errors;
+  }
+
+  it("answers the fields the provider returns at the top level, sync or async", async () => {
+    const fromSync = await createBuildInfoResponse({ startedAt: STARTED_AT, fields: () => ({ toolListVersion: "a1b2", toolCount: 12 }) });
+    expect(await fromSync.json()).toEqual({
+      toolListVersion: "a1b2",
+      toolCount: 12,
+      release: "v1.4.0",
+      commit: "0123456789abcdef0123456789abcdef01234567",
+      builtAt: "2026-10-29T14:30:00.000Z",
+      startedAt: "2026-10-29T15:00:00.000Z",
+    });
+    const fromAsync = await createBuildInfoResponse({ startedAt: STARTED_AT, fields: () => Promise.resolve({ toolCount: 3 }) });
+    expect(await fromAsync.json()).toMatchObject({ toolCount: 3, release: "v1.4.0" });
+  });
+
+  it("keeps the build facts and the changelog over a field of the same name", async () => {
+    const response = await createBuildInfoResponse({
+      startedAt: STARTED_AT,
+      changelog: () => [],
+      fields: () => ({ release: "v0.0.1", startedAt: "never", changelog: "fake", region: "eu" }),
+    });
+    expect(await response.json()).toEqual({
+      release: "v1.4.0",
+      commit: "0123456789abcdef0123456789abcdef01234567",
+      builtAt: "2026-10-29T14:30:00.000Z",
+      startedAt: "2026-10-29T15:00:00.000Z",
+      changelog: [],
+      region: "eu",
+    });
+  });
+
+  it("adds no field and logs the error class when the provider fails, keeping the build info", async () => {
+    const errors = captureErrors();
+    const response = await createBuildInfoResponse({ startedAt: STARTED_AT, fields: () => Promise.reject(new RangeError("secret detail")) });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      release: "v1.4.0",
+      commit: "0123456789abcdef0123456789abcdef01234567",
+      builtAt: "2026-10-29T14:30:00.000Z",
+      startedAt: "2026-10-29T15:00:00.000Z",
+    });
+    expect(errors).toEqual([["build info: the fields provider failed: RangeError"]]);
+  });
+
+  it("adds no field and logs when the provider returns something other than a plain object", async () => {
+    const errors = captureErrors();
+    for (const value of [null, [1, 2], "text", 7]) {
+      const response = await createBuildInfoResponse({ startedAt: STARTED_AT, fields: () => value as never });
+      expect(Object.keys((await response.json()) as object)).toEqual(["release", "commit", "builtAt", "startedAt"]);
+    }
+    expect(errors).toHaveLength(4);
+    expect(errors[0]).toEqual(["build info: the fields provider returned something other than an object"]);
+  });
+});
+
 describe("createBuildInfoRoute", () => {
   it("opts into dynamic rendering with connection() on every request, then answers the build info", async () => {
     connection.mockClear();
