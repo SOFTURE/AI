@@ -13,13 +13,15 @@ export const buildInfoSchema = z.object({
 
 export type SmokeBuildInfo = z.infer<typeof buildInfoSchema>;
 
-export type SmokeCheckKind = "release" | "commit" | "started";
+export type SmokeCheckKind = "release" | "commit" | "started" | "field";
 
-export interface SmokeCheck {
-  kind: SmokeCheckKind;
-  passed: boolean;
-  detail: string;
-}
+/** One row of the smoke check; a `field` check names the app's own build info field it compared. */
+export type SmokeCheck =
+  | { kind: Exclude<SmokeCheckKind, "field">; passed: boolean; detail: string }
+  | { kind: "field"; field: string; passed: boolean; detail: string };
+
+/** A value an app's own build info field must equal: JSON text, a number, a boolean or null. */
+export type SmokeFieldValue = string | number | boolean | null;
 
 export interface SmokeExpectation {
   /** The release tag that was deployed. */
@@ -30,6 +32,8 @@ export interface SmokeExpectation {
   deployedAt?: Date;
   /** Clock difference between the runner and the server that still passes; default 60 s. */
   toleranceSeconds?: number;
+  /** The app's own build info fields and the values they must equal (issue #922); absent checks none. */
+  fields?: Readonly<Record<string, SmokeFieldValue>>;
 }
 
 export const DEFAULT_TOLERANCE_SECONDS = 60;
@@ -71,19 +75,40 @@ function checkStarted(info: SmokeBuildInfo, deployedAt: Date, toleranceSeconds: 
   };
 }
 
-/** Every check the expectation asks for, in a fixed order: release, commit, start time. */
-export function runSmokeChecks(info: SmokeBuildInfo, expectation: SmokeExpectation): SmokeCheck[] {
+/** Strict equality: the text "3" is not the number 3, so a type mix-up fails and the detail shows both as JSON. */
+function checkField(answer: Readonly<Record<string, unknown>>, field: string, expected: SmokeFieldValue): SmokeCheck {
+  const expectedText = JSON.stringify(expected);
+  if (!Object.hasOwn(answer, field)) {
+    return { kind: "field", field, passed: false, detail: `no ${field} in the build info, expected ${expectedText}` };
+  }
+  const actual = answer[field];
+  const passed = actual === expected;
+  const actualText = JSON.stringify(actual) ?? String(actual);
+  return { kind: "field", field, passed, detail: passed ? `${field} ${actualText}` : `${field} ${actualText}, expected ${expectedText}` };
+}
+
+/**
+ * Every check the expectation asks for, in a fixed order: release, commit, start time, then the app's fields in the
+ * order given. `answer` is the whole JSON object the route answered, where the app's own fields live.
+ */
+export function runSmokeChecks(info: SmokeBuildInfo, expectation: SmokeExpectation, answer: Readonly<Record<string, unknown>> = info): SmokeCheck[] {
   const tolerance = expectation.toleranceSeconds ?? DEFAULT_TOLERANCE_SECONDS;
   return [
     checkRelease(info, expectation.tag),
     ...(expectation.commit === undefined ? [] : [checkCommit(info, expectation.commit)]),
     ...(expectation.deployedAt === undefined ? [] : [checkStarted(info, expectation.deployedAt, tolerance)]),
+    ...Object.entries(expectation.fields ?? {}).map(([field, expected]) => checkField(answer, field, expected)),
   ];
+}
+
+/** The name a check goes by in the report and the failure line: its kind, or the field it compared. */
+export function getSmokeCheckName(check: SmokeCheck): string {
+  return check.kind === "field" ? check.field : check.kind;
 }
 
 /** The checks as a table, the same shape `verify` prints. */
 export function formatSmokeReport(checks: readonly SmokeCheck[], url: string): string {
-  const rows = checks.map((check) => [check.passed ? "PASS" : "FAIL", check.kind, check.detail]);
+  const rows = checks.map((check) => [check.passed ? "PASS" : "FAIL", getSmokeCheckName(check), check.detail]);
   const header = ["Result", "Check", "Detail"];
   const widths = header.map((title, column) => Math.max(title.length, ...rows.map((row) => row[column]?.length ?? 0)));
   const format = (row: readonly string[]) =>
