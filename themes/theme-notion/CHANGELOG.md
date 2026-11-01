@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- A thin top loading bar for wide screens (#923): `TopLoadingBar` is a 2 px, square `Progress` fixed to the top edge
+  on a transparent track, `pointer-events-none`, so the page stays usable while a route loads; driven by the pwa
+  counter (`buildLaunchProgressScript({ rootSlot: "top-loading-bar" })`) or indeterminate. `RouteLoading` streams it
+  with `LaunchScreen` and lets CSS pick: the launch screen below `md` or in an installed app, the bar in a wide browser
+  tab, so `app/loading.tsx` needs no request reading and pages stay static.
+- `Progress` without a `value` is indeterminate: a third of the track slides across it (still, full and half-opaque
+  with reduced motion). Before, it drew an empty track. With a value it draws as before; its indicator carries the
+  indeterminate classes under `data-[state=indeterminate]:`.
+
 ## 0.10.3
 
 - Dialog sizes for a popup: `DialogContent size` gains `"lg"` and `"sm"`. `lg` is the standard popup, centred with a
