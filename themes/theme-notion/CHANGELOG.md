@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `DialogFooter showCloseButton` renders its close button before `children` (#921): with a confirm button in
+  `children`, cancel sits left of confirm from `sm` and below it on a phone (`flex-col-reverse`), the order of
+  `AlertDialogFooter`. Before, the close button came last. The button already had `type="button"` (from Radix
+  `DialogClose`), so in a form dialog it closes the dialog without submitting the form; a test now guards that.
+  An app that wants another order places its own `DialogClose`.
+
 ## 0.10.3
 
 - Dialog sizes for a popup: `DialogContent size` gains `"lg"` and `"sm"`. `lg` is the standard popup, centred with a

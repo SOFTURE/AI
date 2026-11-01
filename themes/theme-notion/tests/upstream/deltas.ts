@@ -366,6 +366,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "<Button variant=\"outline\">Close</Button>",
       ours: "<Button variant=\"outline\">{closeLabel}</Button>",
     },
+    {
+      reason: "dialog: the footer's close button before its children, cancel then confirm (#921)",
+      upstream: "      {children}\n      {showCloseButton && (\n        <DialogPrimitive.Close asChild>\n          <Button variant=\"outline\">{closeLabel}</Button>\n        </DialogPrimitive.Close>\n      )}\n",
+      ours: "      {showCloseButton && (\n        <DialogPrimitive.Close asChild>\n          <Button variant=\"outline\">{closeLabel}</Button>\n        </DialogPrimitive.Close>\n      )}\n      {children}\n",
+    },
   ],
   "dropdown-menu": [
     {

@@ -530,7 +530,10 @@ Deltas from stock shadcn:
   quarters of it from `sm`, the 1 rem gutter on a phone; its height is fixed and its content scrolls in a column
   (an app with a fixed header and footer sets `p-0 gap-0` and scrolls its own body with
   `min-h-0 flex-1 overflow-y-auto`). `size="sm"` is a small popup for little data: `max-w-md`, its height by
-  content up to the viewport's gutter, then scrolling. `card`: `shadow-card` instead of a border.
+  content up to the viewport's gutter, then scrolling. `DialogFooter showCloseButton` puts its close button
+  before `children`, so a form dialog's footer reads cancel then confirm (confirm on top on a phone); the button is
+  `type="button"`, so inside a `<form>` it closes the dialog without submitting. `card`: `shadow-card` instead of a
+  border.
 - `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
   (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,
   `tabs` default to the `line` variant, `progress` 6 px.
