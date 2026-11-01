@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-top-loading-bar-923
-status: open
+status: archived
 ---
 
 # Plan: top loading bar (issue #923)
@@ -42,7 +42,7 @@ Both READMEs and `CHANGELOG.md` `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: counter root slot
-- [ ] Phase 2: theme components
-- [ ] Phase 3: docs
-- [ ] Implementation review
+- [x] Phase 1: counter root slot (c278f5b)
+- [x] Phase 2: theme components (08b5c6d)
+- [x] Phase 3: docs (abe1bd5)
+- [x] Implementation review

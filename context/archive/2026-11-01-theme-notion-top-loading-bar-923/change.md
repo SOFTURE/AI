@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-top-loading-bar-923
 title: "theme-notion + pwa: a thin top loading bar for wide screens next to LaunchScreen (issue #923)"
-status: open
+status: archived
+archived_at: 2026-11-01
 roadmap_item: null
 issue: [923]
 branch: claude/project-thread-gauslc
