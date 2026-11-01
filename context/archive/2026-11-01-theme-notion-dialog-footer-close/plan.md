@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-dialog-footer-close
-status: in_progress
+status: done
 ---
 
 # Plan: the dialog footer's close button never submits a form
@@ -25,10 +25,16 @@ README `dialog` note (the close button's order and type), CHANGELOG `## Unreleas
 - The close button moves before `children` with no `closePosition` option: the cancel-then-confirm order is what a
   form dialog wants, and an app that wants another order places its own `DialogClose` (the simplest fix that meets
   the issue).
+- No explicit `type="button"` on the footer's `Button`: Radix `DialogClose` renders `type: "button"` and `asChild`
+  keeps it on the child (the theme's `Button` passes no `type`), so the submit described in the issue does not
+  reproduce; the new tests (no submit, `type="button"` in the DOM) pass on master and stay as regression guards.
+  An explicit prop would duplicate what the primitive guarantees.
+- The parity fixture `tests/fixtures/notion-slots.json` is regenerated (`UPDATE_FIXTURES=1`): the Dialog cases now
+  list the outline button before the primary one. The design system artifact is synced by its own thread.
 - No version bump: the coordinator releases theme-notion with the next combined release.
 
 ## Progress
 
-- [ ] Phase 1: component
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: component (aae44f3)
+- [x] Phase 2: docs (aae44f3, with phase 1)
+- [x] Implementation review: approved

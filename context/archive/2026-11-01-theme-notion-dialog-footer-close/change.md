@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-dialog-footer-close
 title: "theme-notion: the dialog footer's close button never submits a form (issue #921)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 921
 branch: claude/project-thread-eq7qpx
 created: 2026-11-01
 updated: 2026-11-01
+archived_at: 2026-11-01
 ---
 
 ## Intent
