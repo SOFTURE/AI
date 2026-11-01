@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ops@x.y.z`).
 
+## Unreleased
+
+- **The app's own build info fields (#922):** `createBuildInfoRoute({ fields })` (and `createBuildInfoResponse`) answers
+  the plain object `fields()` returns at the top level next to the build facts, e.g. an MCP server's
+  `toolListVersion` and `toolCount`, for `softure-deploy smoke --expect-file` to compare. The build facts and
+  `changelog` win over a field of the same name; a provider that throws or returns no object adds nothing and logs it.
+  An app with its own build info route moves to `createBuildInfoRoute({ fields: () => ({ ... }) })`; nothing changes
+  for an app that does not pass `fields`.
+
 ## 0.2.2
 
 - The content of 0.2.1, which was never published: its release stopped at the gates (ESLint ran out of memory in
