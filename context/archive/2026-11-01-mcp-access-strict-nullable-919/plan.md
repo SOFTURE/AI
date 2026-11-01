@@ -20,5 +20,5 @@
 - D3 A rename function wins over nothing else: the option is one value, map or function, normalised to a function.
 
 ## Progress
-- [ ] Phase 1: strict-input.ts (steps 1-4)
-- [ ] Phase 2: tests, README, changelog, gates
+- [x] Phase 1: strict-input.ts (steps 1-4) (e3195d0)
+- [x] Phase 2: tests, README, changelog, gates (67afde2)

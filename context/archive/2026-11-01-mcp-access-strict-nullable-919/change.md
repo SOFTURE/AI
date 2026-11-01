@@ -1,7 +1,7 @@
 ---
 change_id: mcp-access-strict-nullable-919
 title: "mcp-access: strict tool input keeps required nullable scalars required (issue #919)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 919
 branch: claude/project-thread-65s1fl
@@ -29,3 +29,11 @@ fixed map only.
 
 ## Notes
 - Framing skipped: the issue carries the reproduction, the cause and the acceptance.
+
+## Done
+- The text step takes the optionality of the schema it wraps and goes around a scalar's whole wrapper chain: a
+  required nullable boolean or number stays in `required`, and a scalar's `default`/`prefault` is listed.
+- A tool registered without an input schema gets the strict empty object; the handler still gets the context only.
+- `renamedFields` takes a map or a rule; `RenamedFields` exported from `/server`.
+- Tests: `tests/strict-tool-input-919.test.ts`; README "Strict tool input"; CHANGELOG `Unreleased`.
+- Release: next batch release (`mcp-access` patch).
