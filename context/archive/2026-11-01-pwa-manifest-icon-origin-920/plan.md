@@ -25,6 +25,6 @@
 - D4 No release in this change: the coordinator releases in a batch.
 
 ## Progress
-- [ ] Phase 1: manifest and icon route
-- [ ] Phase 2: extra-origin strategies
-- [ ] Phase 3: tests, docs, gates
+- [x] Phase 1: manifest and icon route (26ca70d)
+- [x] Phase 2: extra-origin strategies (11f613c)
+- [x] Phase 3: tests, docs, gates (ef75803)

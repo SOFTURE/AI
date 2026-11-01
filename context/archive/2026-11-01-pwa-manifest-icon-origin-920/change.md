@@ -1,7 +1,7 @@
 ---
 change_id: pwa-manifest-icon-origin-920
 title: "pwa: manifest id and dir, icon glyph scale, extra-origin strategies (issue #920)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 920
 branch: claude/project-thread-cglf9s
@@ -29,3 +29,10 @@ theme-kit's `drawAppIcon` already takes `glyphScale` (#854).
 - Framing skipped: the issue names the three gaps, the proposal and the acceptance checks.
 
 ## Done
+- `buildManifest`: `id` (default `startUrl`) and `dir` (written only when set).
+- `createIconRoute({ glyphScale })`: a number for the rounded and square icons, or a per-shape record.
+- Extra origins: `pathPrefixes`, `strategy: "network-first"` with `timeoutMs`, `cacheKey: { pattern, replacement }`,
+  `store: false`; `getExtraOriginCacheKey` and `getExtraOriginCacheName` for the page.
+- Tests: `tests/manifest.test.ts`, `tests/icon-route-glyph-scale.test.ts`, `tests/service-worker.test.ts` ("offline map
+  origin", config checks), `tests/built-worker.test.ts`. README §1 and §3, CHANGELOG (Unreleased).
+- Release: none here; the next batch release carries it.
