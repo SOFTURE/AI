@@ -1,12 +1,13 @@
 ---
 change_id: deploy-smoke-fields-922
 title: "ops, deploy: the smoke check compares the app's own build info fields and hands its result to later jobs (issue #922)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 922
 branch: claude/project-thread-kuni86
 created: 2026-11-01
 updated: 2026-11-01
+archived_at: 2026-11-01
 ---
 
 ## Intent

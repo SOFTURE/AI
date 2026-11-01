@@ -1,6 +1,6 @@
 ---
 change_id: deploy-smoke-fields-922
-status: in_progress
+status: done
 ---
 
 # Plan: app fields in the smoke check, its result, changelog columns (issue #922)
@@ -58,8 +58,8 @@ deploy README (smoke `--expect-file`, `build-info-expect`, `smoke-result`, chang
 
 ## Progress
 
-- [ ] Phase 1: ops fields
-- [ ] Phase 2: deploy CLI
-- [ ] Phase 3: action and workflow
-- [ ] Phase 4: docs
-- [ ] Implementation review
+- [x] Phase 1: ops fields, 586214b
+- [x] Phase 2: deploy CLI, 8d02d44
+- [x] Phase 3: action and workflow, 7119f2e
+- [x] Phase 4: docs, 43bc135
+- [x] Implementation review: approved
