@@ -49,6 +49,15 @@ describe("buildManifest", () => {
     });
   });
 
+  it("keeps an installed app's identity when its start page moves, and writes dir only when set", () => {
+    const manifest = buildManifest({ theme: THEME, copy: COPY, lang: "en", startUrl: "/mobile", id: "/", dir: "ltr" });
+
+    expect(manifest.id).toBe("/");
+    expect(manifest.start_url).toBe("/mobile");
+    expect(manifest.dir).toBe("ltr");
+    expect("dir" in buildManifest({ theme: THEME, copy: COPY, lang: "en" })).toBe(false);
+  });
+
   it("fails on a colour role the theme does not define", () => {
     expect(() => buildManifest({ theme: THEME, copy: COPY, lang: "en", themeRole: "brand" })).toThrow('theme "Test" has no colour "brand"');
   });
