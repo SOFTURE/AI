@@ -19,6 +19,7 @@ foundation/          shared foundations every module depends on
   ui/                @softure-ai/ui: tokens, theme, primitives (Button, Modal, Toast, Select, fields…)
   observability/     @softure-ai/observability: structured logger, OTLP export of traces and logs (Node.js, Next.js)
   llm/               @softure-ai/llm: schema-validated model calls over the AI SDK, timeouts, usage and cost, fake model
+  speech/            @softure-ai/speech: audio transcription (Groq, OpenAI, OpenAI-compatible), ffmpeg chunking, subtitles, cost
 modules/             feature modules (each one works on its own on top of the foundations)
   security/          rate limiting, client IP, safe errors
   auth/              registration, login, sessions, password change and reset, roles

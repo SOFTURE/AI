@@ -95,8 +95,8 @@ an injected runner in CI.
 ### Phase 3: normalizer, transcriber, usage and the fake
 
 #### Automated
-- [ ] 3.1 Normalizer tested with a runner and with real ffmpeg; transcriber tested end to end with a fake provider
-- [ ] 3.2 Gates green (typecheck, lint, test, build)
+- [x] 3.1 Normalizer tested with a runner and with real ffmpeg; transcriber tested end to end with a fake provider — d17a2c0
+- [x] 3.2 Gates green (typecheck, lint, test, build) — d17a2c0
 
 ### Phase 4: docs
 
