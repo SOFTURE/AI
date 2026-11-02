@@ -69,8 +69,9 @@ function readSafeCode(value: unknown): string | null {
 
 /**
  * The first frames of the app (outside `node_modules`, Node's internals and frames without a file; the first frames
- * when there are none), one per line, without the `<name>: <message>` header. `null` when the stack does not start with the error's own
- * header: its message changed after the stack was taken, and the text after it could be part of a message.
+ * when there are none), one per line, without the `<name>: <message>` header. `null` when the stack does not start
+ * with the error's own header: its message changed after the stack was taken, and the text after it could be part of
+ * a message.
  */
 function readAppFrames(error: Error): string | null {
   const stack = error.stack;
