@@ -143,7 +143,7 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
       const free = getQueue(jobsOptions, queue).concurrency - slots.size;
       if (free <= 0 || options.signal.aborted) continue;
       try {
-        const claimed = await claimJobs(ctx, { queue, limit: free, workerId, logger });
+        const claimed = await claimJobs(ctx, { queue, limit: free, workerId, logger, random });
         for (const job of claimed) slots.add(start(job));
       } catch (error) {
         isClaimFailed = true;

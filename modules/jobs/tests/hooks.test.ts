@@ -54,7 +54,7 @@ describe("onJobFailed", () => {
       logger: silentLogger,
     });
 
-    expect(report).toEqual({ succeeded: 0, retried: 0, failed: 1, stale: 0 });
+    expect(report).toEqual({ succeeded: 0, retried: 0, failed: 1, paused: 0, stale: 0 });
     expect(recorder.failedJobs).toEqual([{ queue: "ai.reply", jobId: id, code: "app.upstream_gone", attempts: 1, at: NOW }]);
   });
 
@@ -120,7 +120,7 @@ describe("onJobFailed", () => {
 
     const report = await runDueJobs(test.ctx, { handlers: { "mail.send": handlerReturning(() => Promise.resolve(failJob("app.bounced"))) }, logger });
 
-    expect(report).toEqual({ succeeded: 0, retried: 0, failed: 1, stale: 0 });
+    expect(report).toEqual({ succeeded: 0, retried: 0, failed: 1, paused: 0, stale: 0 });
     expect(await listJobs(test.database.db)).toMatchObject([{ id, status: "failed", lastError: "app.bounced" }]);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({ message: "the onJobFailed hook failed", fields: { queue: "mail.send", jobId: id } });

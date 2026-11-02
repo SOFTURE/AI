@@ -22,6 +22,14 @@ export {
 export type { JobsContext } from "./context.js";
 export { enqueueJob, type EnqueuedJob, type EnqueueJobInput } from "./enqueue.js";
 export { checkScheduleStates, getScheduleHealth, notifyJobFailed, type HookOptions } from "./hooks.js";
+export {
+  getQueuePause,
+  pauseQueue,
+  resumeQueue,
+  type PauseQueueInput,
+  type PauseQueueResult,
+  type ResumeQueueResult,
+} from "./queue-state.js";
 export { consoleJobsLogger, type JobsLogFields, type JobsLogger } from "./logger.js";
 export { getQueueStats, pruneJobs, type QueueStats } from "./maintenance.js";
 export { getJobsOptions, getJobsRoutes } from "./options.js";

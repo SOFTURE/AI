@@ -45,7 +45,7 @@ describe("running jobs", () => {
     };
     const { id } = await enqueueJob(test.ctx, { queue: "ai.reply", payload: { messageId: "m-1" } });
 
-    expect(await run(handlers)).toEqual({ succeeded: 1, retried: 0, failed: 0, stale: 0 });
+    expect(await run(handlers)).toEqual({ succeeded: 1, retried: 0, failed: 0, paused: 0, stale: 0 });
     expect(seen).toEqual(["m-1#1"]);
     expect(await getJob(test.ctx, id)).toMatchObject({ status: "succeeded", attempts: 1, finishedAt: NOW, lockedUntil: null, lockedBy: null, lastError: null });
   });
@@ -53,7 +53,7 @@ describe("running jobs", () => {
   it("leaves jobs that are not due yet", async () => {
     const handlers = { "ai.reply": defineJobHandler({ payload, run: () => Promise.resolve(ok()) }) };
     const { id } = await enqueueJob(test.ctx, { queue: "ai.reply", payload: { messageId: "m-1" }, delaySeconds: 5 });
-    expect(await run(handlers)).toEqual({ succeeded: 0, retried: 0, failed: 0, stale: 0 });
+    expect(await run(handlers)).toEqual({ succeeded: 0, retried: 0, failed: 0, paused: 0, stale: 0 });
     test.clock.advance(5 * SECOND_MS);
     expect(await run(handlers)).toMatchObject({ succeeded: 1 });
     expect(await getJob(test.ctx, id)).toMatchObject({ status: "succeeded" });
@@ -139,7 +139,7 @@ describe("running jobs", () => {
   it("runs only the queues it has handlers for", async () => {
     await enqueueJob(test.ctx, { queue: "mail.send", payload: {} });
     const handlers = { "ai.reply": defineJobHandler({ payload, run: () => Promise.resolve(ok()) }) };
-    expect(await run(handlers)).toEqual({ succeeded: 0, retried: 0, failed: 0, stale: 0 });
+    expect(await run(handlers)).toEqual({ succeeded: 0, retried: 0, failed: 0, paused: 0, stale: 0 });
   });
 });
 

@@ -1,7 +1,7 @@
 // The options an app passes to `jobs({ ... })` in softure.config.ts, parsed at startup.
 import { isTimeZone, type Err, type ErrorCode, type Ok } from "@softure-ai/core";
 import { z } from "zod";
-import type { JobFailedEvent, ScheduleStateChangedEvent } from "./contract.js";
+import type { JobFailedEvent, QueuePausedEvent, ScheduleStateChangedEvent } from "./contract.js";
 import type { JobsContext } from "./server/context.js";
 
 const QUEUE_NAME = /^[a-z][a-z0-9_.-]{0,62}$/;
@@ -10,6 +10,8 @@ const DAY_SECONDS = 24 * 60 * 60;
 
 /** Runs once when a job ends `failed`; a throw is logged and changes nothing. */
 export type OnJobFailedHook = (event: JobFailedEvent, ctx: JobsContext) => Promise<void> | void;
+/** Runs once when the breaker or a handler (`pauseQueueLater`) pauses a queue; a throw is logged and changes nothing. */
+export type OnQueuePausedHook = (event: QueuePausedEvent, ctx: JobsContext) => Promise<void> | void;
 /** Runs once per transition of a schedule between `healthy`, `failing` and `late`; a throw is logged and changes nothing. */
 export type OnScheduleStateChangedHook = (event: ScheduleStateChangedEvent, ctx: JobsContext) => Promise<void> | void;
 
@@ -148,6 +150,51 @@ export interface LocalTimeScheduleOptions {
   readonly payload: Record<string, unknown>;
 }
 
+const MINUTE_MS = 60_000;
+/** What `last_error` holds: a code with a namespace, such as `app.rate_limited`. */
+const ERROR_CODE = /^[^\s.]\S{0,98}\.\S{1,100}$/;
+/** The longest pause the breaker grows to by default: 16 times its first pause, at most a week. */
+const DEFAULT_MAX_PAUSE_FACTOR = 16;
+
+const rateLimitSchema = z.union([
+  z.strictObject({
+    /** The shortest gap between two claims of the queue, across every worker. */
+    minGapMs: z.number().int().min(1).max(DAY_SECONDS * 1000),
+    /** Up to this much is added to each gap at random, so the calls do not tick like a clock. */
+    jitterMs: z.number().int().min(0).max(60 * MINUTE_MS).default(0),
+  }),
+  z.strictObject({
+    /** At most this many claims of the queue per window, across every worker. */
+    max: z.number().int().min(1).max(100_000),
+    /** The window's length; a window starts with its first claim. */
+    perSeconds: z.number().int().min(1).max(DAY_SECONDS),
+  }),
+]);
+
+const breakerSchema = z
+  .strictObject({
+    /** Counted failures in a row that pause the queue. */
+    failures: z.number().int().min(1).max(1000),
+    /** Only failures with these codes count; default every retried or attempt-exhausting failure. */
+    codes: z
+      .array(z.string().regex(ERROR_CODE, { message: "must be error codes such as app.rate_limited" }))
+      .min(1)
+      .refine((codes) => new Set(codes).size === codes.length, { message: "must name each code once" })
+      .optional(),
+    /** The first pause. */
+    pauseSeconds: z.number().int().min(1).max(7 * DAY_SECONDS),
+    /** The longest pause: each failure of the first run after a pause doubles it up to here. Default 16 × pauseSeconds, at most 7 days. */
+    maxPauseSeconds: z.number().int().min(1).max(7 * DAY_SECONDS).optional(),
+  })
+  .refine((breaker) => breaker.maxPauseSeconds === undefined || breaker.maxPauseSeconds >= breaker.pauseSeconds, {
+    message: "maxPauseSeconds must be at least pauseSeconds",
+    path: ["maxPauseSeconds"],
+  })
+  .transform((breaker) => ({
+    ...breaker,
+    maxPauseSeconds: breaker.maxPauseSeconds ?? Math.min(breaker.pauseSeconds * DEFAULT_MAX_PAUSE_FACTOR, 7 * DAY_SECONDS),
+  }));
+
 const queueSchema = z.strictObject({
   /** Attempts before a job is `failed` for good; the first run counts. */
   maxAttempts: z.number().int().min(1).max(1000).default(5),
@@ -160,6 +207,16 @@ const queueSchema = z.strictObject({
   leaseSeconds: z.number().int().min(5).max(DAY_SECONDS).default(300),
   /** Jobs of this queue one worker process runs at the same time. */
   concurrency: z.number().int().min(1).max(100).default(1),
+  /**
+   * Pacing shared by every worker, enforced when jobs are claimed: `{ minGapMs, jitterMs? }` keeps a gap between two
+   * claims, `{ max, perSeconds }` allows at most `max` claims per window. A job held back keeps its attempts.
+   */
+  rateLimit: rateLimitSchema.optional(),
+  /**
+   * Pauses the queue after `failures` counted failures in a row, for `pauseSeconds`; when the first run after a pause
+   * fails again the pause doubles, up to `maxPauseSeconds`; a success resets it. A paused queue claims nothing.
+   */
+  breaker: breakerSchema.optional(),
 });
 
 const retentionSchema = z.strictObject({
@@ -201,6 +258,11 @@ export const jobsOptionsSchema = z
      * schedule that keeps failing alerts once. The worker checks at most once a minute; `runDueJobs` once at its end.
      */
     onScheduleStateChanged: z.custom<OnScheduleStateChangedHook>((value) => typeof value === "function", "must be a function").optional(),
+    /**
+     * Runs once when the breaker or a handler (`pauseQueueLater`) pauses a queue, after the write commits, with
+     * `{ queue, code, until, source }`: e.g. tell the operator a provider started refusing. An operator's pause runs no hook.
+     */
+    onQueuePaused: z.custom<OnQueuePausedHook>((value) => typeof value === "function", "must be a function").optional(),
     /** The auth role that may open the admin page (`JobsPage`) and use its actions. */
     panelRole: z.string().regex(ROLE_NAME_PATTERN, "must be a role name such as admin").default("admin"),
     /**
@@ -234,5 +296,7 @@ export type JobsOptionsInput = z.input<typeof jobsOptionsSchema>;
 export type JobsOptions = z.output<typeof jobsOptionsSchema>;
 export type JobQueueOptions = JobsOptions["queues"][string];
 export type JobScheduleOptions = JobsOptions["schedules"][string];
+export type JobQueueRateLimit = NonNullable<JobQueueOptions["rateLimit"]>;
+export type JobQueueBreaker = NonNullable<JobQueueOptions["breaker"]>;
 /** Schedules as an app or a package writes them, e.g. a package's ready-made prune schedules. */
 export type JobSchedulesInput = NonNullable<JobsOptionsInput["schedules"]>;

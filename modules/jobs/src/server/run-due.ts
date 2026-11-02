@@ -30,6 +30,8 @@ export interface RunDueJobsReport {
   readonly succeeded: number;
   readonly retried: number;
   readonly failed: number;
+  /** Attempts whose handler paused the queue (`pauseQueueLater`). */
+  readonly paused: number;
   /** Attempts whose outcome another claim had already replaced. */
   readonly stale: number;
 }
@@ -41,7 +43,7 @@ export interface RunDueJobsReport {
 export async function runDueJobs(ctx: JobsContext, options: RunDueJobsOptions): Promise<RunDueJobsReport> {
   const queues = checkHandlers(getJobsOptions(ctx.config), options.handlers, options.queues);
   await enqueueDueSchedules(ctx, { queues });
-  const report = { succeeded: 0, retried: 0, failed: 0, stale: 0 };
+  const report = { succeeded: 0, retried: 0, failed: 0, paused: 0, stale: 0 };
   const maxJobs = options.maxJobs ?? DEFAULT_MAX_JOBS;
   const logger = options.logger ?? consoleJobsLogger;
   const runOptions = {
@@ -55,7 +57,7 @@ export async function runDueJobs(ctx: JobsContext, options: RunDueJobsOptions): 
   while (hasClaimed && attempts < maxJobs) {
     hasClaimed = false;
     for (const queue of queues) {
-      const [claimed] = await claimJobs(ctx, { queue, limit: 1, workerId: options.workerId ?? "run-due-jobs", logger });
+      const [claimed] = await claimJobs(ctx, { queue, limit: 1, workerId: options.workerId ?? "run-due-jobs", logger, random: runOptions.random });
       if (claimed === undefined) continue;
       hasClaimed = true;
       attempts += 1;

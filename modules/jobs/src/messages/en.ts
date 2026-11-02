@@ -108,6 +108,7 @@ export const en = {
     not_a_schedule: "This queue has no schedule.",
     sync_item_not_found: "The item is not in the ledger.",
     sync_item_not_retryable: "Only a failed item can be tried again.",
+    unknown_queue: "The app defines no such queue.",
     forbidden: "You do not have access to this.",
     database_failed: "Something went wrong on our side. Try again in a moment.",
     unexpected: "Something went wrong on our side. Try again in a moment.",

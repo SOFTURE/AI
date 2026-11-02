@@ -64,7 +64,7 @@ Files: `src/server/maintenance.ts`, `src/next/actions.ts`, `src/next/pages.tsx`,
 
 ## Progress
 
-- [ ] Phase 1: state, options, pacing and pauses in the claim
-- [ ] Phase 2: the breaker, `pauseQueueLater` and `onQueuePaused`
+- [x] Phase 1: state, options, pacing and pauses in the claim
+- [x] Phase 2: the breaker, `pauseQueueLater` and `onQueuePaused`
 - [ ] Phase 3: stats, admin page and docs
 - [ ] Implementation review
