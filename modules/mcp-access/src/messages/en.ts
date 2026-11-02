@@ -20,6 +20,28 @@ export const en = {
     pending: "Creating…",
     limit: "You can hold up to {max} active tokens.",
   },
+  apiScopes: {
+    title: "What a token for other apps can do",
+    lead: "Tokens for other apps, such as a phone Shortcut, an automation tool or a script, call this app's HTTP routes. Each one gets only the access you tick.",
+    read: "Reads",
+    write: "Changes data",
+    writeUnavailable: "Changes data (turned off in this app)",
+  },
+  apiIssue: {
+    title: "New token for other apps",
+    name: "Name",
+    nameHint: "Where you will use it, e.g. iPhone Shortcut or Make.",
+    scopes: "Access",
+    submit: "Create token",
+    pending: "Creating…",
+  },
+  apiIssued: {
+    title: "Token created: {name}",
+    once: "Copy it now. It is shown only once; after you leave this page, only its name remains.",
+    scopes: "Access: {scopes}.",
+    tokenTitle: "Token",
+    headerTitle: "Authorization header",
+  },
   issued: {
     title: "Token created: {name}",
     once: "Copy it now. It is shown only once; after you leave this page, only its name remains.",
@@ -42,6 +64,8 @@ export const en = {
   },
   list: {
     title: "Your tokens",
+    kindMcp: "AI assistant",
+    kindApi: "Other apps",
     empty: "You have no tokens yet.",
     readOnly: "Read only",
     readWrite: "Read and change",
@@ -91,6 +115,17 @@ export const en = {
     noFields: "none",
     fieldRenamed: "input.field_renamed: the field \"{field}\" is now \"{renamed}\". Send it as \"{renamed}\".",
   },
+  confirmation: {
+    ask: "Nothing was done yet. Show the person this estimate and ask whether to go ahead. Only after they agree in the chat, call the tool again with the same arguments and \"confirmation\" set to the value above, before {expiresAt}.",
+    fieldDescription: "Leave it out on the first call. Set it only to the confirmation the first call answered, after the person agreed to its estimate.",
+    invalid: "input.confirmation_invalid: this is not a confirmation this tool issued. Call the tool again without \"confirmation\" for a new estimate.",
+    otherTool: "input.confirmation_other_tool: the confirmation was issued for another tool. Call this tool without \"confirmation\" for its own estimate.",
+    otherAccount: "input.confirmation_other_account: the confirmation was issued to another account or access token. Call the tool again without \"confirmation\" for a new estimate.",
+    expired: "input.confirmation_expired: the confirmation has expired. Call the tool again without \"confirmation\" for a new estimate and ask the person again.",
+    argumentsChanged: "input.confirmation_arguments_changed: the arguments differ from the ones the person agreed to. Call the tool again without \"confirmation\" for an estimate of these arguments and ask the person again.",
+    estimateChanged: "input.confirmation_estimate_changed: the estimate has changed since the person agreed. Call the tool again without \"confirmation\" for the new estimate and ask the person again.",
+    used: "input.confirmation_used: the confirmation was used already; nothing was done again. Call the tool again without \"confirmation\" if the person wants it done once more.",
+  },
   serverInfoTool: {
     description:
       "Tells which build of this server answers: its name and version (the version changes whenever a tool changes), the release, the commit, when it was built and started, and the changelog when the app publishes one. Use it to check that a change is live.",
@@ -118,6 +153,9 @@ export const en = {
       grant_not_found: "This app is no longer connected.",
       issue_refused: "Your account cannot create tokens right now.",
       write_refused: "Your account cannot create tokens with write access. Create a read-only token instead.",
+      api_disabled: "This app does not offer tokens for other apps.",
+      scope_required: "Tick at least one kind of access.",
+      scope_unknown: "This app does not offer that access. Reload the page and try again.",
     },
     auth: {
       unauthenticated: "Your session has ended. Log in again.",

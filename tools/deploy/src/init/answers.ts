@@ -29,6 +29,21 @@ const NETWORK = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/;
 
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
 
+/** A relative path of plain segments in the app's repository (`docker/worker.Dockerfile`); never `..`. */
+const RELATIVE_FILE = /^(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9_.][A-Za-z0-9_.-]*(?:\/[A-Za-z0-9_.-]+)*$/;
+
+/** An absolute folder of plain segments inside the container (`/app/data`), not the root. */
+const MOUNT_PATH = /^(?!.*\/\.\.?(?:\/|$))(?:\/[A-Za-z0-9_.-]+)+$/;
+
+/** Folders a data volume must not cover: the image's own code, or a folder the system needs. */
+const RESERVED_MOUNT_PATHS = ["/app", "/bin", "/dev", "/etc", "/lib", "/proc", "/sbin", "/sys", "/tmp", "/usr", "/var"];
+
+/** Docker's `cpus`: a positive number of CPUs (`0.5`, `2`). */
+const CPUS = /^(?:[1-9][0-9]{0,2}(?:\.[0-9]{1,2})?|0\.(?:[1-9][0-9]?|0[1-9]))$/;
+
+/** A size Docker reads for `mem_limit` and a tmpfs (`512m`, `2g`). */
+const SIZE = /^[1-9][0-9]{0,5}[kmg]$/;
+
 /** Names that steer the runner itself; `deploy-app.yml` refuses them in `app-secrets`. */
 const RESERVED_ENV_NAME = /^(PATH|HOME|NODE_.*|NPM_CONFIG_.*)$/;
 
@@ -82,6 +97,23 @@ export const initAnswersSchema = z
       .optional(),
     /** `--tunnel`: the app is published by a Cloudflare Tunnel of its own compose project, with no Traefik (issue #905). */
     tunnel: z.boolean().optional(),
+    /** `--worker-dockerfile=<path>`: the worker service runs `<image>-worker`, built from this file (issue #948). */
+    workerDockerfile: z.string().regex(RELATIVE_FILE, "a relative path in the app, such as docker/worker.Dockerfile").optional(),
+    /** `--data-volume=<mount path>`: one named volume mounted at this path in the app and the worker (issue #948). */
+    dataVolume: z
+      .string()
+      .regex(MOUNT_PATH, "an absolute folder of plain segments, such as /app/data")
+      .refine(
+        (path) => !RESERVED_MOUNT_PATHS.some((reserved) => path === reserved || (reserved !== "/app" && path.startsWith(`${reserved}/`))),
+        `a folder of its own, not ${RESERVED_MOUNT_PATHS.join(", ")} or below a system folder`,
+      )
+      .optional(),
+    /** `--worker-cpus`: the worker's CPU limit (compose `cpus`). */
+    workerCpus: z.string().regex(CPUS, "a number of CPUs such as 0.5 or 2").optional(),
+    /** `--worker-memory`: the worker's memory limit (compose `mem_limit`). */
+    workerMemory: z.string().regex(SIZE, "a size such as 512m or 2g").optional(),
+    /** `--worker-tmpfs`: the worker's /tmp in memory, of at most this size. */
+    workerTmpfs: z.string().regex(SIZE, "a size such as 512m or 2g").optional(),
   })
   .superRefine((answers, context) => {
     if (answers.tunnel === true) {

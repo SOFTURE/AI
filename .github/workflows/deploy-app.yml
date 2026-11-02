@@ -111,6 +111,10 @@ on:
         description: Dockerfile path in the app's repository
         type: string
         default: Dockerfile
+      worker-dockerfile:
+        description: "The Dockerfile of the job worker's own image in the app's repository (init --worker-dockerfile): built from the same context and pushed as <image>-worker with the release tag. Empty builds the app image only. Not with prebuilt-image or e2e"
+        type: string
+        default: ""
       compose-file:
         description: Production compose file whose required variables (${NAME:?}) name the secrets to render; its folder ships to the server
         type: string
@@ -244,6 +248,12 @@ on:
       digest:
         description: The pushed image digest
         value: ${{ jobs.build.outputs.digest }}
+      worker-image:
+        description: The pushed worker image reference with its tag; empty without worker-dockerfile
+        value: ${{ jobs.build.outputs.worker-image }}
+      worker-digest:
+        description: The pushed worker image digest; empty without worker-dockerfile
+        value: ${{ jobs.build.outputs.worker-digest }}
       smoke-result:
         description: "The smoke check's result for a later job to gate on: passed, failed, or skipped when it did not run (no build-info-path, deploy false, or an earlier step failed)"
         value: ${{ jobs.verify.outputs.smoke-result || jobs.deploy.outputs.smoke-result || 'skipped' }}
@@ -301,6 +311,7 @@ jobs:
           PREBUILT_IMAGE: ${{ inputs.prebuilt-image }}
           BUILD_CONTEXT: ${{ inputs.context }}
           DOCKERFILE: ${{ inputs.dockerfile }}
+          WORKER_DOCKERFILE: ${{ inputs.worker-dockerfile }}
           COMPOSE_FILE: ${{ inputs.compose-file }}
           SERVER_SCRIPT: ${{ inputs.server-script }}
           DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
@@ -359,6 +370,12 @@ jobs:
           expect app-url "$APP_URL" '^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/?$' "https://<host>[:port] with no path"
           expect_path context "$BUILD_CONTEXT"
           expect_path dockerfile "$DOCKERFILE"
+          if [ -n "${WORKER_DOCKERFILE:-}" ]; then
+            expect_path worker-dockerfile "$WORKER_DOCKERFILE"
+            # The re-tag copies one tested image, and the test path hands the deploy job one image archive.
+            if [ -n "${PREBUILT_IMAGE:-}" ]; then reject worker-dockerfile "empty with prebuilt-image (only the app image is tagged, nothing is built)"; fi
+            if [ "$E2E" = "true" ]; then reject worker-dockerfile "empty with e2e (the end-to-end test deploys one image)"; fi
+          fi
           expect_path compose-file "$COMPOSE_FILE"
           # The compose file's folder ships to the server; at the root it would be the whole tag.
           if [[ "$COMPOSE_FILE" != */* ]]; then reject compose-file "a file inside a folder (the folder ships to the server)"; fi
@@ -541,6 +558,8 @@ jobs:
     outputs:
       image: ${{ steps.ref.outputs.image }}
       digest: ${{ steps.push.outputs.digest || steps.retag.outputs.digest }}
+      worker-image: ${{ steps.worker-ref.outputs.image }}
+      worker-digest: ${{ steps.worker-push.outputs.digest }}
     steps:
       - *check-runner
       - *empty-workspace
@@ -586,6 +605,31 @@ jobs:
             org.opencontainers.image.version=${{ inputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The worker's own image (issue #948): <image>-worker with the same tag, from the same context and build arguments,
+      # with a cache of its own so the two builds never evict each other.
+      - id: worker-ref
+        name: Worker image reference
+        if: inputs.worker-dockerfile != ''
+        env:
+          IMAGE: ${{ needs.check.outputs.image }}
+          TAG: ${{ inputs.tag }}
+        run: echo "image=$IMAGE-worker:$TAG" >> "$GITHUB_OUTPUT"
+      - id: worker-push
+        if: inputs.worker-dockerfile != ''
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.worker-dockerfile }}
+          push: true
+          tags: ${{ steps.worker-ref.outputs.image }}
+          build-args: |
+            ${{ inputs.build-args }}
+            SOFTURE_BUILD_COMMIT=${{ needs.check.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ inputs.tag }}
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
       # The tested image gets the release tag; with one source, imagetools copies its manifest unchanged, so the tag's
       # digest must be the one the caller passed.
       - id: retag

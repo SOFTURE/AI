@@ -7,7 +7,7 @@ const ICONS = Object.entries(icons).filter(([name]) => name.endsWith("Icon"));
 
 describe("icons", () => {
   it("has a set to check", () => {
-    expect(ICONS.length).toBe(36);
+    expect(ICONS.length).toBe(38);
   });
 
   it("draws every icon on one frame: 24 grid, 2-unit stroke, currentColor, hidden", () => {

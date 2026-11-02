@@ -42,6 +42,9 @@ limit check made race-free.
   - one grant per account and client, listed on the token page as "connected apps"; revoking it
     deletes its access tokens at once (`grant_id`, `ON DELETE CASCADE`). OAuth access tokens do not
     count against `maxTokensPerUser` and are not listed with the hand-issued ones.
+- **Tokens for the app's own HTTP routes** (`apiTokens`, off by default): personal tokens with the app's prefix and
+  scopes (`recipes:write`) for a phone Shortcut, an automation tool or a script, checked in a route handler with
+  `requireApiToken` from `@softure-ai/mcp-access/tokens`, an entry that loads no MCP SDK (§4 "Tokens for HTTP routes").
 - Tokens an app issued before adopting the module keep working through `legacyTokenPattern`.
 - Server functions for scripts and other hosts, and a health check for `GET /api/health`.
 - For the app's own server: tool result helpers with a safe error boundary and server actions as write tools
@@ -344,6 +347,53 @@ export async function createServer(identity: McpServerIdentity) {
 - `getOperation` and `cancelOperation` are the same reads as functions; the texts are under `operations` in the
   module dictionary, and `name`/`description` rename a tool.
 
+### Confirmed calls
+
+A tool that spends money (a paid provider call) or cannot be undone follows the `--commit` rule over MCP:
+`withConfirmation` (`/server`) makes the first call estimate only, the person agrees in the chat, and only a second
+call with the same input does the work. The assistant cannot agree on its own: the token comes only from an estimate,
+is single use and bound to that exact input.
+
+```ts
+import { confirmationInput, withConfirmation } from "@softure-ai/mcp-access/server";
+
+server.registerTool(
+  "render_film",
+  { inputSchema: { scene: z.string(), seconds: z.number(), confirmation: confirmationInput } },
+  withConfirmation((args) => renderFilm(ctx, userId, args), {
+    ctx, // the module context, as for the app's queries
+    identity, // the factory's McpServerIdentity: the token is bound to its userId and tokenId
+    tool: "render_film",
+    estimate: (args) => estimateFilm(ctx, userId, args), // { total: 12, currency: "credits", ... }
+    runWithoutConfirmationWhen: (estimate) => estimate.total === 0, // everything was cached
+  }),
+);
+```
+
+- **First call** (no `confirmation`): runs `estimate(args)` only and answers
+  `{ needsConfirmation: true, estimate, confirmation, expiresAt, message }`; `message` is the fixed sentence
+  `confirmation.ask` of the dictionary, which tells the assistant to show the estimate and get the person's yes.
+  `estimate` returns an object with a finite numeric `total`; every other field reaches the assistant as it is.
+  When `runWithoutConfirmationWhen(estimate)` is true the handler runs at once instead.
+- **The token** is an HMAC-SHA256 signed with `MCP_CONFIRMATION_SECRET` (§6, or the `secret` option) over the tool
+  name, a digest of the canonical JSON of the arguments without `confirmation` (`toCanonicalJson`: keys sorted,
+  `undefined` left out), a digest of the account and the access token, the estimate's total and the expiry
+  (`ttlSeconds`, default 900).
+- **Second call** (same arguments and `confirmation`): the estimate runs again, then the checks, each refused with its
+  own code and the text of `confirmation.*` in the dictionary (an app's `hints` replace them):
+  `input.confirmation_invalid` (not signed by this secret, malformed), `input.confirmation_other_tool`,
+  `input.confirmation_other_account` (another account or access token), `input.confirmation_expired`,
+  `input.confirmation_arguments_changed`, `input.confirmation_estimate_changed` (the total changed after the yes)
+  and `input.confirmation_used`. Only when all pass is the token stored by its hash and the handler run with the
+  arguments without `confirmation`; two parallel calls with one token run once. A refused call never uses up a valid
+  token; a handler that fails after the check needs a new estimate.
+- **The record**: `onToolCall` records gain `confirmed`: `true` for a call that ran on a valid confirmation, `false`
+  for an estimate, a refusal or a call run through `runWithoutConfirmationWhen`, `null` for tools without
+  confirmation. `argumentNames` leave `confirmation` out.
+- `confirmationInput` is the field for the input schema (an optional string), so a strict server lists and accepts
+  it. Without `MCP_CONFIRMATION_SECRET` the call fails as a bug, with one log line naming the variable: it never runs
+  without asking.
+
 ### Stdio
 
 A local assistant on the machine that holds the database can run the same factory over stdio, without a token:
@@ -539,6 +589,67 @@ An app that composes its own routes from `/server` builds the context with
 resolves origins with `resolveMcpOrigins(config, request)` and passes them to the URL builders,
 whose last argument they are; `OAuthClientRow` is exported from the package root.
 
+### Tokens for HTTP routes
+
+A person who calls the app from outside the browser (an iPhone Shortcut, Make or Zapier, a script) gets a personal
+token for the app's plain HTTP routes. Declare the scopes the routes ask for, and the buckets:
+
+```ts
+// softure.config.ts
+security({ buckets: { ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...API_TOKEN_RATE_LIMIT_BUCKETS } }),
+mcpAccess({
+  serverName: "acme",
+  allowWrites: true,
+  apiTokens: {
+    prefix: "acme_", // default "sftapi_"; never one of the module's own sftmc* prefixes
+    scopes: [
+      { name: "recipes:read", access: "read", description: { en: "Reads your recipes." } },
+      { name: "recipes:write", access: "write", description: { en: "Adds and changes recipes." } },
+    ],
+    // Shown once with a new token; {token} and {appOrigin} are filled in.
+    examples: [{ title: { en: "curl" }, text: { en: "curl -H 'Authorization: Bearer {token}' {appOrigin}/api/recipes" } }],
+  },
+}),
+```
+
+```ts
+// app/api/recipes/route.ts
+import { getSoftureConfig } from "@softure-ai/core/next";
+import { apiTokenErrorResponse, createMcpAccessContext, requireApiToken } from "@softure-ai/mcp-access/tokens";
+
+export async function POST(request: Request): Promise<Response> {
+  const ctx = await createMcpAccessContext(getSoftureConfig());
+  const caller = await requireApiToken(ctx, request, { scopes: ["recipes:write"] });
+  if (!caller.ok) return apiTokenErrorResponse(caller);
+  // caller.value: { userId, tokenId, scopes }; scope every query to userId.
+  return Response.json(await addRecipe(caller.value.userId, await request.json()));
+}
+```
+
+- **The two kinds stay apart.** An API token (`kind = 'api'`, the app's prefix) never opens `POST /api/mcp`, and an
+  MCP token (`sftmcp_`, `mcp:read`/`mcp:write`) never passes `requireApiToken`. Both share the table, the hashing,
+  `tokenLifetimeDays`, `maxTokensPerUser` (one count for both), the revoke action, privacy and prune.
+- **Order of the check:** the client address is counted in `api` before any lookup, the `Authorization: Bearer`
+  token is verified (expiry in the query, last use recorded), the token is counted in `api-token`, then the scopes.
+- **Refusals are values** for `apiTokenErrorResponse`: `400 client_unidentified`; `401 api_token_missing` and
+  `api_token_invalid` (unknown, revoked, expired, an MCP token) with `WWW-Authenticate: Bearer`; `403
+  api_scope_missing` with `missingScopes` and `error="insufficient_scope"`; `403 api_writes_disabled` when the token
+  holds the write scope but writing is off; `429 rate_limited` with `Retry-After`; `503 api_unavailable` (logged)
+  when the count or the lookup fails. A scope the app does not declare, or missing buckets, throws: a setup bug.
+- **Writes:** a `write` scope is granted at issue only with `allowWrites`, and counts on a request only while
+  writing is enabled (`allowWrites` and the `mcp-access.writes_enabled` switch, §7).
+- **The token page** lists the app's scopes and offers a second form, "New token for other apps", that posts to the
+  same issue action with `kind=api` and a `scope:<name>` checkbox per offered scope. The new token is shown once
+  with its header and the app's `examples`; the action answers `{ status: "api-ok", issued }`
+  (`IssuedApiTokenView`), so an app reading `status === "ok"` for MCP tokens is unchanged. The list names each
+  token's kind ("AI assistant", "Other apps") and an API token's scopes. A `beforeIssue` gate gets `kind` and
+  `scopes`, with `canWrite` true when a write scope is asked.
+- **Without MCP:** an app that has no MCP server enables `mcpAccess` with `apiTokens`, mounts only the token page
+  and its routes, and imports `@softure-ai/mcp-access/tokens` (which loads no `@modelcontextprotocol/*` module). The
+  npm peer list still names the SDK.
+- Server functions: `issueApiToken`, `verifyApiToken`, `requireApiToken`, `apiTokenErrorResponse`,
+  `isApiTokenShape`, plus `listAccessTokens`, `revokeAccessToken`, `pruneAccessTokens` (`/tokens`, also in `/server`).
+
 ### Closed registration
 
 Registration is public by default: claude.ai and ChatGPT register a client before anyone signs in, and a client
@@ -594,9 +705,19 @@ expired (with their access tokens) and clients registered over a day ago that ho
 (`id = 1`) with `opened_at` and `open_until` (`open_until > opened_at`), the window of "Closed registration" (§4). It
 holds no personal data.
 
+`migrations/0004_create_used_confirmations.sql` creates `mcp.used_confirmations`: the sha256 of each confirmation
+token that has been used (`token_hash`, the primary key), `used_at` and the token's `expires_at`, which makes a
+confirmation single use ("Confirmed calls", §4). It holds no personal data; `pruneUsedConfirmations(ctx)` deletes the
+rows past `expires_at`.
+
+`migrations/0005_add_api_tokens.sql` adds `access_tokens.kind` (`mcp` or `api`, default `mcp`) and
+`access_tokens.scopes` (`text[]`, default empty), with one check: an `mcp` row has no scopes, an `api` row has 1 to
+32 scopes and no grant. Existing rows become MCP tokens through the defaults. An API token's `token_hash` is the
+sha256 of its random part after the prefix (the prefix is checked by shape before any lookup). Rollback: in the migration header.
+
 ### Scheduled pruning
 
-`pruneMcpAccess(ctx)` (`/server`) runs both prunes and counts what each removed. The `softure-mcp prune` command
+`pruneMcpAccess(ctx)` (`/server`) runs the prunes of tokens, OAuth records and used confirmations and counts what each removed. The `softure-mcp prune` command
 runs it with the app's config (loaded like `softure migrate`, or from an app script through `runMcpAccessCli` from
 `/cli`) and prints one line. Run it daily, e.g. as a `maintain` hook of `@softure-ai/deploy`:
 
@@ -641,7 +762,11 @@ migrations after the baseline.
 
 ## 6. Environment variables
 
-None of its own. The endpoint URL comes from `appOrigin` in `softure.config.ts`.
+The endpoint URL comes from `appOrigin` in `softure.config.ts`.
+
+| Variable | Required | Meaning |
+| --- | --- | --- |
+| `MCP_CONFIRMATION_SECRET` | only for confirmed calls | Signs and verifies the tokens of `withConfirmation` (§4), at least 32 characters, read on every call. Changing it voids the tokens in flight (the person is asked again). |
 
 ## 7. Switches
 
@@ -711,8 +836,8 @@ The MCP server factory passed to `createMcpRoute` (and to `serveMcpStdio`) and t
 The rows hold no personal data beyond the owner's id and the token names. The module contributes
 to `@softure-ai/privacy` (`privacy` flags on):
 
-- **Export** (`exportMcpAccessUserData`): `accessTokens`, each hand-issued token's name, write
-  flag and created, expiry and last-use dates, and `connectedApps`, each grant's client name, write
+- **Export** (`exportMcpAccessUserData`): `accessTokens`, each hand-issued token's name, kind
+  (`mcp` or `api`), scopes, write flag and created, expiry and last-use dates, and `connectedApps`, each grant's client name, write
   flag, created and last-use dates. Never a hash.
 - **Deletion** (`deleteMcpAccessUserData`): the user's authorization codes, grants and tokens,
   before auth deletes the account (the foreign keys' cascade would remove them too). Registered
@@ -725,7 +850,8 @@ to `@softure-ai/privacy` (`privacy` flags on):
   app that wants `jwks_uri` adds it through `oauth.metadata` and serves the empty set itself).
 - Only `S256` PKCE and the `authorization_code` and `refresh_token` grants.
 - Write access is per token, not per tool; finer scopes would be a new option.
-- The rate limit is per client address, not per token.
+- The MCP endpoint's rate limit is per client address, not per token (API tokens are counted per token as well).
+- One API token kind per app (one prefix); the `kind` column takes more kinds without a migration of the rows.
 - `responseMode: "json"` drops mid-call notifications; a streaming tool would need a different mode. Long work is an
   operation instead (start, `get_operation`, `cancel_operation`).
 - Long operations answer through polling tools only; MCP Tasks (spec 2025-11-25, experimental) is not used yet.

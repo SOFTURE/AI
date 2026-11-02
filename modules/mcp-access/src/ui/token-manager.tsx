@@ -3,12 +3,13 @@
 import { formatMessage, type Locale } from "@softure-ai/core";
 import { Button, ButtonLink, Checkbox, type ClassNames, createSlotClassGetter, FormError, TextField } from "@softure-ai/ui";
 import { useActionState, useEffect, useRef, useState } from "react";
-import type { IssuedToken, IssueTokenFormState, RevokeGrantFormState, RevokeTokenFormState } from "../contract.js";
+import type { IssuedApiTokenView, IssuedToken, IssueTokenFormState, RevokeGrantFormState, RevokeTokenFormState } from "../contract.js";
 import { getTokenErrorMessage, type McpAccessMessages } from "../messages/index.js";
 import { MAX_TOKEN_NAME_LENGTH } from "../options.js";
 
 // The token page's client part: the tool catalog, the issue form, the token just issued with its
-// setup snippets, the owner's tokens with a revoke button each, and, with OAuth on, the apps
+// setup snippets, (with API scopes) the app's scopes and a second form for tokens for other apps,
+// the owner's tokens of both kinds with a revoke button each, and, with OAuth on, the apps
 // connected through OAuth with a disconnect button each. Both forms submit to their
 // server actions through `useActionState`. The plaintext lives only in the issue form's state:
 // "Done" or leaving the page drops it. Focus follows the one-time token: its heading takes focus
@@ -29,11 +30,23 @@ export interface TokenManagerTool {
   readonly accessText: string;
 }
 
+/** One scope the app declares for API tokens, prepared on the server. */
+export interface TokenManagerApiScope {
+  readonly name: string;
+  readonly description: string;
+  /** "Reads", "Changes data", or that writes are off, already in the app's copy. */
+  readonly accessText: string;
+  /** Offered on the form: a read scope, or a write scope while the app allows writes. */
+  readonly isOffered: boolean;
+}
+
 /** One of the owner's tokens, prepared on the server. */
 export interface TokenManagerRow {
   readonly id: string;
   readonly name: string;
-  /** Read only, or read and change, already in the app's copy. */
+  /** "AI assistant" or "Other apps", while the app offers both kinds. */
+  readonly kindText?: string;
+  /** Read only, or read and change, already in the app's copy; an API token's scopes. */
   readonly scopeText: string;
   /** Active, expiring in n days, or expired. */
   readonly statusText: string;
@@ -65,6 +78,11 @@ export interface TokenManagerProps {
   readonly grants?: readonly TokenManagerGrant[];
   /** Disconnects one app; needed with `grants`. */
   readonly revokeGrantAction?: RevokeGrantAction;
+  /**
+   * The app's API scopes (`apiTokens`); with them the page lists them and offers a second form for tokens
+   * for other apps, submitted to `issueAction` with `kind=api`. Leave out, and the page offers MCP tokens only.
+   */
+  readonly apiScopes?: readonly TokenManagerApiScope[];
   readonly messages: McpAccessMessages;
   /** Locale of the built-in copy of the ui primitives. */
   readonly locale?: Locale;
@@ -211,6 +229,103 @@ function IssueForm({
   );
 }
 
+function IssuedApiTokenPanel({
+  issued,
+  onDone,
+  messages,
+  slot,
+  unstyled,
+}: {
+  issued: IssuedApiTokenView;
+  onDone: () => void;
+  messages: McpAccessMessages;
+  slot: Slot;
+  unstyled: boolean | undefined;
+}) {
+  const snippet = (title: string, value: string) => <Snippet key={title} title={title} value={value} messages={messages} slot={slot} unstyled={unstyled} />;
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [issued.id]);
+  return (
+    <section className={slot("section")}>
+      <h3 ref={headingRef} tabIndex={-1} className={slot("heading")}>{formatMessage(messages.apiIssued.title, { name: issued.name })}</h3>
+      <p className={slot("text")}>{messages.apiIssued.once}</p>
+      <p className={slot("text")}>
+        {issued.expiresText} {formatMessage(messages.apiIssued.scopes, { scopes: issued.scopes.join(", ") })}
+      </p>
+      {snippet(messages.apiIssued.tokenTitle, issued.token)}
+      {snippet(messages.apiIssued.headerTitle, `Authorization: ${issued.authorizationHeader}`)}
+      {issued.examples.map((example) => snippet(example.title, example.text))}
+      <Button variant="primary" onClick={onDone} unstyled={unstyled}>
+        {messages.issued.done}
+      </Button>
+    </section>
+  );
+}
+
+function ApiIssueForm({
+  action,
+  scopes,
+  maxTokens,
+  messages,
+  locale,
+  slot,
+  unstyled,
+}: {
+  action: IssueTokenAction;
+  scopes: readonly TokenManagerApiScope[];
+  maxTokens: number;
+  messages: McpAccessMessages;
+  locale: Locale | undefined;
+  slot: Slot;
+  unstyled: boolean | undefined;
+}) {
+  const [state, formAction, isPending] = useActionState(action, { status: "idle" });
+  const [dismissedId, setDismissedId] = useState<string | null>(null);
+  const issued = state.status === "api-ok" && state.issued.id !== dismissedId ? state.issued : null;
+  const formRef = useRef<HTMLFormElement>(null);
+  function dismiss(id: string) {
+    setDismissedId(id);
+    requestAnimationFrame(() => {
+      const field = formRef.current?.elements.namedItem("name");
+      if (field instanceof HTMLInputElement) field.focus();
+    });
+  }
+  return (
+    <>
+      <section className={slot("section")}>
+        <h2 className={slot("heading")}>{messages.apiIssue.title}</h2>
+        <form ref={formRef} action={formAction} className={slot("list")}>
+          <input type="hidden" name="kind" value="api" />
+          <TextField
+            name="name"
+            label={messages.apiIssue.name}
+            hint={messages.apiIssue.nameHint}
+            maxLength={MAX_TOKEN_NAME_LENGTH}
+            required
+            autoComplete="off"
+            locale={locale}
+            unstyled={unstyled}
+          />
+          <p className={slot("heading")}>{messages.apiIssue.scopes}</p>
+          {scopes
+            .filter((scope) => scope.isOffered)
+            .map((scope) => (
+              <Checkbox key={scope.name} name={`scope:${scope.name}`} label={scope.name} description={scope.description} unstyled={unstyled} />
+            ))}
+          <p className={slot("text")}>{formatMessage(messages.issue.limit, { max: maxTokens })}</p>
+          <FormError message={state.status === "error" ? (state.message ?? getTokenErrorMessage(messages, state.error)) : undefined} unstyled={unstyled} />
+          <Button type="submit" variant="primary" pending={isPending} unstyled={unstyled}>
+            {isPending ? messages.apiIssue.pending : messages.apiIssue.submit}
+          </Button>
+        </form>
+      </section>
+      {issued === null ? null : <IssuedApiTokenPanel issued={issued} onDone={() => dismiss(issued.id)} messages={messages} slot={slot} unstyled={unstyled} />}
+    </>
+  );
+}
+
 function TokenItem({
   row,
   action,
@@ -237,6 +352,7 @@ function TokenItem({
         </form>
       </div>
       <p className={row.isExpired ? slot("details") : slot("badge")}>
+        {row.kindText === undefined ? null : `${row.kindText} · `}
         {row.statusText} · {row.scopeText}
       </p>
       <p className={slot("details")}>{row.details.join(" · ")}</p>
@@ -286,6 +402,7 @@ export function TokenManager({
   revokeAction,
   grants,
   revokeGrantAction,
+  apiScopes,
   messages,
   locale,
   classNames,
@@ -313,6 +430,26 @@ export function TokenManager({
         )}
       </section>
       <IssueForm action={issueAction} allowWrites={allowWrites} maxTokens={maxTokens} messages={messages} locale={locale} slot={slot} unstyled={unstyled} />
+      {apiScopes === undefined ? null : (
+        <>
+          <section className={slot("section")}>
+            <h2 className={slot("heading")}>{messages.apiScopes.title}</h2>
+            <p className={slot("text")}>{messages.apiScopes.lead}</p>
+            <ul className={slot("list")}>
+              {apiScopes.map((scope) => (
+                <li key={scope.name} className={slot("item")}>
+                  <div className={slot("itemHeader")}>
+                    <code className={slot("heading")}>{scope.name}</code>
+                    <span className={slot("badge")}>{scope.accessText}</span>
+                  </div>
+                  <p className={slot("text")}>{scope.description}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <ApiIssueForm action={issueAction} scopes={apiScopes} maxTokens={maxTokens} messages={messages} locale={locale} slot={slot} unstyled={unstyled} />
+        </>
+      )}
       <section className={slot("section")}>
         <h2 className={slot("heading")}>{messages.list.title}</h2>
         {tokens.length === 0 ? (

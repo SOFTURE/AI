@@ -5,8 +5,8 @@ import { defineSoftureConfig, err, ok, type SoftureConfig } from "@softure-ai/co
 import { clearSoftureConfig, registerSoftureConfig } from "@softure-ai/core/next";
 import { closeConfiguredDatabases, createPgliteHandle } from "@softure-ai/db";
 import { defineJobHandler, failSyncItem, jobs, type JobsFormState, type JobsOptionsInput, type JobsPanelGuard } from "@softure-ai/jobs";
-import { cancelJobAction, JobsPage, readSyncFilter, retryJobAction, retrySyncItemAction, runScheduleNowAction } from "@softure-ai/jobs/next";
-import { enqueueJob, processSyncItem } from "@softure-ai/jobs/server";
+import { cancelJobAction, JobsPage, pauseQueueAction, readSyncFilter, resumeQueueAction, retryJobAction, retrySyncItemAction, runScheduleNowAction } from "@softure-ai/jobs/next";
+import { enqueueJob, getQueuePause, processSyncItem } from "@softure-ai/jobs/server";
 import { listJobs, runDueJobs } from "@softure-ai/jobs/testing";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -126,6 +126,17 @@ describe("the Next adapter", () => {
     expect(await retrySyncItemAction(IDLE, createForm({}))).toEqual({ status: "error", error: "jobs.sync_item_not_found" });
   });
 
+  it("pauses a queue until resumed and resumes it, and refuses a queue the app does not define", async () => {
+    await start();
+    expect(await pauseQueueAction(IDLE, createForm({ queue: "ai.reply" }))).toEqual({ status: "ok" });
+    expect(await getQueuePause(test.ctx, "ai.reply")).toEqual({ source: "operator", reason: "jobs.operator_pause", until: null });
+    expect(await resumeQueueAction(IDLE, createForm({ queue: "ai.reply" }))).toEqual({ status: "ok" });
+    expect(await getQueuePause(test.ctx, "ai.reply")).toBeNull();
+    expect(scope.revalidated).toEqual(["/admin/jobs", "/admin/jobs"]);
+    expect(await pauseQueueAction(IDLE, createForm({ queue: "nobody.here" }))).toEqual({ status: "error", error: "jobs.unknown_queue" });
+    expect(await resumeQueueAction(IDLE, new FormData())).toEqual({ status: "error", error: "jobs.unknown_queue" });
+  });
+
   it("refuses every action to a caller without the panel role, before touching anything", async () => {
     await start({ schedules: SCHEDULES, panelGuard: guard, panelRole: "operator" });
     const failed = await failMail();
@@ -135,7 +146,10 @@ describe("the Next adapter", () => {
     expect(await retryJobAction(IDLE, createForm({ id: failed }))).toEqual(forbidden);
     expect(await cancelJobAction(IDLE, createForm({ id: failed }))).toEqual(forbidden);
     expect(await retrySyncItemAction(IDLE, createForm({ source: "gmail.inbox", itemId: "m-1" }))).toEqual(forbidden);
-    expect(scope.checkedRoles).toEqual(["operator", "operator", "operator", "operator"]);
+    expect(await pauseQueueAction(IDLE, createForm({ queue: "ai.reply" }))).toEqual(forbidden);
+    expect(await resumeQueueAction(IDLE, createForm({ queue: "ai.reply" }))).toEqual(forbidden);
+    expect(scope.checkedRoles).toEqual(["operator", "operator", "operator", "operator", "operator", "operator"]);
+    expect(await getQueuePause(test.ctx, "ai.reply")).toBeNull();
     expect((await listJobs(test.database.db)).map((job) => job.status)).toEqual(["failed"]);
     expect(scope.revalidated).toEqual([]);
   });

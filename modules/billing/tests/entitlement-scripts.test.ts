@@ -64,8 +64,8 @@ describe("the entitlement scripts", () => {
         value: {
           committed: false,
           report: {
-            before: { accounts: 2, trial: 1, paid: 0, lifetime: 0, readOnly: 1 },
-            after: { accounts: 2, trial: 0, paid: 1, lifetime: 1, readOnly: 0 },
+            before: { accounts: 2, trial: 1, paid: 0, lifetime: 0, free: 0, readOnly: 1 },
+            after: { accounts: 2, trial: 0, paid: 1, lifetime: 1, free: 0, readOnly: 0 },
           },
         },
       });

@@ -1,0 +1,12 @@
+{
+  "id": "alerts",
+  "version": "0.0.0",
+  "dependsOn": { "jobs": "^0.1.6", "mailing": "^0.2.5?" },
+  "dbSchema": "alerts",
+  "tables": ["alerts"],
+  "env": [],
+  "switches": [],
+  "routes": { "panel": "/admin/alerts" },
+  "mount": [{ "kind": "page", "path": "app/admin/alerts/page.tsx", "export": "AlertsPage" }],
+  "privacy": { "exports": false, "deletes": false }
+}

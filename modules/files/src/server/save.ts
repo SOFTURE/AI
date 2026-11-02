@@ -123,27 +123,41 @@ export async function saveFile(ctx: FilesContext, input: SaveFileInput): Promise
   return stored.ok ? ok(stored.value.row) : stored;
 }
 
-interface ValidFields {
-  readonly originalName: string;
-  readonly contentType: string;
-  readonly kind: string;
+interface ValidFields extends FileDescription {
   readonly expiresAt: Date | null;
 }
 
 function validateFields(input: SaveFileInput, now: Date, defaultTtlSeconds: number | null): Ok<ValidFields> | Err<"files.invalid_input"> {
+  const described = validateFileDescription(input);
+  if (!described.ok) return described;
+  const expiresAt = resolveExpiry(input, now, defaultTtlSeconds);
+  if (expiresAt === false) return err("files.invalid_input");
+  return ok({ ...described.value, expiresAt });
+}
+
+/** What describes a file before its bytes, as a caller gives it. */
+export interface FileDescriptionInput {
+  readonly ownerId: string;
+  readonly name: string;
+  readonly contentType?: string;
+  readonly kind?: string;
+}
+
+/** The description made safe to store: the owner checked, the name sanitised, the media type normalised. */
+export interface FileDescription {
+  readonly originalName: string;
+  readonly contentType: string;
+  readonly kind: string;
+}
+
+/** Checks the owner, kind and media type of a file to save or upload, and sanitises its name. */
+export function validateFileDescription(input: FileDescriptionInput): Ok<FileDescription> | Err<"files.invalid_input"> {
   if (input.ownerId.length === 0 || input.ownerId.length > MAX_OWNER_ID_LENGTH) return err("files.invalid_input");
   const kind = input.kind ?? DEFAULT_FILE_KIND;
   if (!FILE_KIND_PATTERN.test(kind)) return err("files.invalid_input");
   const contentType = normalizeContentType(input.contentType ?? DEFAULT_CONTENT_TYPE);
   if (contentType === null) return err("files.invalid_input");
-  const expiresAt = resolveExpiry(input, now, defaultTtlSeconds);
-  if (expiresAt === false) return err("files.invalid_input");
-  return ok({
-    originalName: sanitizeFileName(input.name),
-    contentType,
-    kind,
-    expiresAt,
-  });
+  return ok({ originalName: sanitizeFileName(input.name), contentType, kind });
 }
 
 /** The expiry from `expiresAt`, `ttlSeconds` or the default; false when the input is contradictory or in the past. */

@@ -7,6 +7,7 @@ import { formatMessage, type ModuleContext } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import type { OutgoingMail } from "@softure-ai/mailing";
 import { runDeliveries, type Delivery, type DeliveryOutcome, type DeliveryRunSummary, type RunDeliveriesOptions } from "@softure-ai/mailing/server";
+import type { AccessFallback } from "../contract.js";
 import type { BillingMessages } from "../messages/index.js";
 import { getAccessReminderScope, type AccessReminderKind } from "../reminder.js";
 import { getBillingMessages, getBillingRoutes } from "../server/options.js";
@@ -22,6 +23,8 @@ export interface AccessReminderMailInput {
   readonly lastDay: string;
   /** The payment page's absolute URL. */
   readonly link: string;
+  /** What the account has after the end: the free tier's copy says it keeps writing. Read-only when absent. */
+  readonly afterEnd?: AccessFallback;
 }
 
 /** The subject and bodies of a reminder mail, without the recipient. */
@@ -95,6 +98,14 @@ const COPY_KEYS = {
   "paid-ended": "paidEnded",
 } as const satisfies Record<AccessReminderKind, keyof BillingMessages["reminderMail"]>;
 
+/** The copy of each kind when the account falls back to the free tier. */
+const FREE_COPY_KEYS = {
+  "trial-ending": "trialEndingFree",
+  "paid-ending": "paidEndingFree",
+  "trial-ended": "trialEndedFree",
+  "paid-ended": "paidEndedFree",
+} as const satisfies Record<AccessReminderKind, keyof BillingMessages["reminderMail"]>;
+
 const HTML_ESCAPES: Readonly<Record<string, string>> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 
 function escapeHtml(value: string): string {
@@ -106,7 +117,7 @@ function escapeHtml(value: string): string {
  * with the notice's link text and the bare link, and an HTML body with the link as an anchor.
  */
 export function renderAccessReminderMail(messages: BillingMessages, input: AccessReminderMailInput): AccessReminderMail {
-  const copy = messages.reminderMail[COPY_KEYS[input.kind]];
+  const copy = messages.reminderMail[(input.afterEnd === "free" ? FREE_COPY_KEYS : COPY_KEYS)[input.kind]];
   const action = input.kind.startsWith("trial-") ? messages.notice.choosePlan : messages.notice.renew;
   const values = { date: input.lastDay };
   const subject = formatMessage(copy.subject, values);
@@ -139,7 +150,7 @@ export async function sendAccessReminders(ctx: ModuleContext<Queryable>, options
   let built: AccessReminderDelivery | null = null;
   const build = async (reminder: AccessReminderDue): Promise<Delivery | null> => {
     const lastDay = formatLastDay(reminder.endsAt, ctx.config.locale, ctx.config.timezone);
-    const defaultMail = renderAccessReminderMail(messages, { kind: reminder.kind, lastDay, link });
+    const defaultMail = renderAccessReminderMail(messages, { kind: reminder.kind, lastDay, link, ...(reminder.afterEnd === undefined ? {} : { afterEnd: reminder.afterEnd }) });
     const mail = buildMail === undefined ? defaultMail : await buildMail({ reminder, lastDay, link, mail: defaultMail, ctx });
     if (mail === null) return null;
     const scope = getScope(reminder);

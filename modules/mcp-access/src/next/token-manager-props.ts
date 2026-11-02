@@ -10,12 +10,12 @@ import { getLocalizedText, getMcpAccessMessages, getMcpAccessOptions } from "../
 import { listOAuthGrants } from "../server/oauth.js";
 import { listAccessTokens } from "../server/tokens.js";
 import { getAccessTokenStatus } from "../token-status.js";
-import type { TokenManagerGrant, TokenManagerProps, TokenManagerRow, TokenManagerTool } from "../ui/token-manager.js";
+import type { TokenManagerApiScope, TokenManagerGrant, TokenManagerProps, TokenManagerRow, TokenManagerTool } from "../ui/token-manager.js";
 import { getMcpAccessContext } from "./context.js";
 import { formatDate, formatDateTime } from "./format.js";
 
 /** Every prop of `TokenManager` but the actions and the styling. */
-export type TokenManagerData = Pick<TokenManagerProps, "tools" | "tokens" | "grants" | "allowWrites" | "maxTokens" | "messages" | "locale">;
+export type TokenManagerData = Pick<TokenManagerProps, "tools" | "tokens" | "grants" | "apiScopes" | "allowWrites" | "maxTokens" | "messages" | "locale">;
 
 export interface TokenManagerPropsInput {
   /** The signed-in user's id, from the app's session check: only this user's tokens and apps are listed. */
@@ -44,10 +44,13 @@ function toRow(token: AccessTokenView, now: Date, config: SoftureConfig, options
   const isExpired = status.kind === "expired";
   const expiry = formatMessage(isExpired ? messages.list.expiredOn : messages.list.expiresOn, { date: formatDate(config, token.expiresAt) });
   const lastUse = token.lastUsedAt === null ? messages.list.neverUsed : formatMessage(messages.list.lastUsed, { date: formatDateTime(config, token.lastUsedAt) });
+  const mcpScopeText = token.canWrite && options.allowWrites ? messages.list.readWrite : messages.list.readOnly;
   return {
     id: token.id,
     name: token.name,
-    scopeText: token.canWrite && options.allowWrites ? messages.list.readWrite : messages.list.readOnly,
+    scopeText: token.kind === "api" ? token.scopes.join(", ") : mcpScopeText,
+    // Named only while the app offers both kinds; an MCP-only page stays as it was.
+    ...(options.apiTokens === undefined ? {} : { kindText: token.kind === "api" ? messages.list.kindApi : messages.list.kindMcp }),
     statusText: describeStatus(status, messages),
     isExpired,
     details: [formatMessage(messages.list.createdOn, { date: formatDate(config, token.createdAt) }), expiry, lastUse],
@@ -69,8 +72,15 @@ function toTool(tool: McpAccessOptions["tools"][number], config: SoftureConfig, 
   return { name: tool.name, description: getLocalizedText(tool.description, config.locale), accessText };
 }
 
+function toApiScope(scope: NonNullable<McpAccessOptions["apiTokens"]>["scopes"][number], config: SoftureConfig, options: McpAccessOptions, messages: McpAccessMessages): TokenManagerApiScope {
+  const isOffered = scope.access === "read" || options.allowWrites;
+  const accessText = scope.access === "read" ? messages.apiScopes.read : isOffered ? messages.apiScopes.write : messages.apiScopes.writeUnavailable;
+  return { name: scope.name, description: getLocalizedText(scope.description, config.locale), accessText, isOffered };
+}
+
 /**
- * The tools, the user's tokens and (while OAuth is on) connected apps, and the page settings, ready to
+ * The tools, the user's tokens of both kinds, (while OAuth is on) connected apps, (with `apiTokens`) the
+ * app's API scopes, and the page settings, ready to
  * spread into `TokenManager` next to the actions. Reads the database; it checks no session itself.
  */
 export async function getTokenManagerProps({ userId, config = getSoftureConfig(), now }: TokenManagerPropsInput): Promise<TokenManagerData> {
@@ -84,6 +94,7 @@ export async function getTokenManagerProps({ userId, config = getSoftureConfig()
     tools: options.tools.map((tool) => toTool(tool, config, options, messages)),
     tokens: tokens.map((token) => toRow(token, at, config, options, messages)),
     ...(grants === null ? {} : { grants: grants.map((grant) => toGrant(grant, config, options, messages)) }),
+    ...(options.apiTokens === undefined ? {} : { apiScopes: options.apiTokens.scopes.map((scope) => toApiScope(scope, config, options, messages)) }),
     allowWrites: options.allowWrites,
     maxTokens: options.maxTokensPerUser,
     messages,

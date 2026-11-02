@@ -52,6 +52,11 @@
       "types": "./dist/ui/index.d.ts",
       "default": "./dist/ui/index.js"
     },
+    "./react": {
+      "@softure-ai/source": "./src/react/index.ts",
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
+    },
     "./testing": {
       "@softure-ai/source": "./src/testing/index.ts",
       "types": "./dist/testing/index.d.ts",

@@ -2,7 +2,16 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseInitAnswers, toAppName, type InitAnswers } from "../init/answers.js";
 import { COMPOSE_FILE, readAppFacts, type AppFacts } from "../init/app-facts.js";
-import { DEFAULT_APP_ROLE, hasWorker, hasWorkerHeartbeat, JOBS_HEARTBEAT_VERSION, planInitFiles, TEMPLATE_VERSIONS, writeInitFiles } from "../init/generate.js";
+import {
+  DEFAULT_APP_ROLE,
+  hasWorker,
+  hasWorkerHeartbeat,
+  JOBS_HEARTBEAT_VERSION,
+  planInitFiles,
+  TEMPLATE_FILES,
+  TEMPLATE_VERSIONS,
+  writeInitFiles,
+} from "../init/generate.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { readFlags } from "./options.js";
@@ -110,6 +119,37 @@ function listTunnelSteps(answers: InitAnswers): string[] {
   ];
 }
 
+/** The worker flags, which need the worker part (`@softure-ai/jobs` and `@softure-ai/db`). */
+const WORKER_FLAGS = [
+  ["workerDockerfile", "--worker-dockerfile"],
+  ["workerCpus", "--worker-cpus"],
+  ["workerMemory", "--worker-memory"],
+  ["workerTmpfs", "--worker-tmpfs"],
+] as const;
+
+/** What the worker flags cannot do: configure a worker init does not write, or write over another file of init. */
+function listWorkerFlagProblems(facts: AppFacts, answers: InitAnswers): string[] {
+  const problems: string[] = [];
+  if (!hasWorker(facts)) {
+    for (const [key, flag] of WORKER_FLAGS) {
+      if (answers[key] !== undefined) problems.push(`${flag} configures the worker service, which needs @softure-ai/jobs and @softure-ai/db`);
+    }
+  }
+  const dockerfile = answers.workerDockerfile;
+  if (dockerfile !== undefined && TEMPLATE_FILES.some((file) => file.target === dockerfile)) {
+    problems.push(`--worker-dockerfile ${dockerfile} is a file init writes itself; name a file of its own, such as docker/worker.Dockerfile`);
+  }
+  return problems;
+}
+
+/** What init cannot do itself for `--worker-dockerfile`: the base image with the worker's tools. */
+function listWorkerImageSteps(facts: AppFacts, answers: InitAnswers): string[] {
+  if (!hasWorker(facts) || answers.workerDockerfile === undefined) return [];
+  return [
+    `set WORKER_BASE_IMAGE in ${answers.workerDockerfile} (or as a build argument) to the image with the worker's tools, e.g. one built from @softure-ai/marketing-kit's docker/footage-worker.Dockerfile; the default node:22-trixie-slim has none`,
+  ];
+}
+
 /**
  * `softure-deploy init --domain=<host> --image=<registry/name> […]`: writes the app's deploy files once. An existing
  * file is kept and named unless `--force`.
@@ -130,6 +170,11 @@ export function runInit(args: string[], io: CliIo): void {
     "report-role": { type: "string" },
     edge: { type: "string" },
     tunnel: { type: "boolean", default: false },
+    "worker-dockerfile": { type: "string" },
+    "data-volume": { type: "string" },
+    "worker-cpus": { type: "string" },
+    "worker-memory": { type: "string" },
+    "worker-tmpfs": { type: "string" },
     force: { type: "boolean", default: false },
   });
   const missing = (["domain", "image"] as const).filter((name) => flags[name] === undefined);
@@ -154,8 +199,15 @@ export function runInit(args: string[], io: CliIo): void {
     reportRole: flags["report-role"],
     edge: flags.edge,
     tunnel: flags.tunnel,
+    workerDockerfile: flags["worker-dockerfile"],
+    dataVolume: flags["data-volume"],
+    workerCpus: flags["worker-cpus"],
+    workerMemory: flags["worker-memory"],
+    workerTmpfs: flags["worker-tmpfs"],
   });
   if (!answersResult.ok) fail(`init: nothing written; ${answersResult.problems.join("; ")}.`);
+  const workerProblems = listWorkerFlagProblems(facts, answersResult.answers);
+  if (workerProblems.length > 0) fail(`init: nothing written; ${workerProblems.join("; ")}.`);
   const cliVersion = readCliVersion();
   const replacesCompose = flags.force && Boolean(facts.compose);
   const files = planInitFiles({ answers: answersResult.answers, facts, cliVersion, replacesCompose });
@@ -174,6 +226,7 @@ export function runInit(args: string[], io: CliIo): void {
     ...warnings.map((warning) => `warning ${warning}`),
     ...listCdnSteps(answersResult.answers).map((step) => `next    ${step}`),
     ...listTunnelSteps(answersResult.answers).map((step) => `next    ${step}`),
+    ...listWorkerImageSteps(facts, answersResult.answers).map((step) => `next    ${step}`),
     `init: ${result.written.length} written, ${result.skipped.length} kept, database part ${facts.hasDatabase ? "on" : "off"} (@softure-ai/db ${facts.hasDatabase ? "found" : "not found"} in package.json)${hasWorker(facts) ? ", worker part on (@softure-ai/jobs found)" : ""}.`,
   ];
   io.stdout(`${lines.join("\n")}\n`);

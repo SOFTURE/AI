@@ -273,3 +273,58 @@ describe("the consent form", () => {
     expect(screen.getByRole("link", { name: "Back to the app (claude.ai)" }).getAttribute("href")).toBe("https://claude.ai/cb?error=invalid_request");
   });
 });
+
+describe("TokenManager with API scopes (#961)", () => {
+  const API_TOKEN = `acme_${"B".repeat(43)}`;
+  const API_ISSUED: IssueTokenFormState = {
+    status: "api-ok",
+    issued: {
+      id: "44444444-2222-4333-8444-555555555555",
+      name: "Shortcut",
+      scopes: ["recipes:read"],
+      expiresText: "Works until December 14, 2026.",
+      expiresAt: "2026-12-14T12:00:00.000Z",
+      token: API_TOKEN,
+      authorizationHeader: `Bearer ${API_TOKEN}`,
+      examples: [{ title: "curl", text: `curl -H 'Authorization: Bearer ${API_TOKEN}' http://localhost:3000/api/recipes` }],
+    },
+  };
+  const apiScopes = [
+    { name: "recipes:read", description: "Reads your recipes.", accessText: en.apiScopes.read, isOffered: true },
+    { name: "recipes:write", description: "Adds recipes.", accessText: en.apiScopes.writeUnavailable, isOffered: false },
+  ];
+
+  it("shows no API part without apiScopes", () => {
+    renderManager();
+    expect(screen.queryByText(en.apiIssue.title)).toBeNull();
+  });
+
+  it("lists the app's scopes and offers only the offered ones on the second form", () => {
+    renderManager({ apiScopes });
+    expect(screen.getByText(en.apiScopes.title)).toBeDefined();
+    expect(screen.getAllByText(en.apiScopes.writeUnavailable)).toHaveLength(2);
+    expect(screen.getByRole("checkbox", { name: /recipes:read/ })).toBeDefined();
+    expect(screen.queryByRole("checkbox", { name: /recipes:write/ })).toBeNull();
+  });
+
+  it("sends kind=api with the ticked scopes and reveals the token once with the examples", async () => {
+    const issueAction = vi.fn<IssueTokenAction>(() => Promise.resolve(API_ISSUED));
+    renderManager({ apiScopes, issueAction });
+    const nameFields = screen.getAllByRole("textbox", { name: en.apiIssue.name });
+    fireEvent.change(nameFields[nameFields.length - 1] as HTMLElement, { target: { value: "Shortcut" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /recipes:read/ }));
+    const buttons = screen.getAllByRole("button", { name: en.apiIssue.submit });
+    await submit(buttons[buttons.length - 1] as HTMLElement);
+    const sent = issueAction.mock.calls[0]?.[1];
+    expect([sent?.get("kind"), sent?.get("name"), sent?.get("scope:recipes:read")]).toEqual(["api", "Shortcut", "on"]);
+    expect(screen.getByText(API_TOKEN)).toBeDefined();
+    expect(screen.getByText(API_ISSUED.status === "api-ok" ? API_ISSUED.issued.examples[0]?.text ?? "" : "")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: en.issued.done }));
+    expect(document.body.textContent).not.toContain(API_TOKEN);
+  });
+
+  it("names each token's kind when the row carries it", () => {
+    renderManager({ apiScopes, tokens: [{ ...LAPTOP, kindText: en.list.kindMcp }] });
+    expect(document.body.textContent).toContain(`${en.list.kindMcp} · ${en.list.active}`);
+  });
+});

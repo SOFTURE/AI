@@ -18,6 +18,8 @@ const HANDLER_THREW = "jobs.handler_threw";
 const MAX_ERROR_LENGTH = 200;
 /** At most one progress write per job in this window. */
 const PROGRESS_INTERVAL_MS = 1000;
+/** A result reference: an identifier of the app's row, never free text. */
+const RESULT_REF = /^[A-Za-z0-9_.:/-]{1,200}$/;
 
 export interface RunClaimedJobOptions {
   readonly handlers: JobHandlers;
@@ -43,7 +45,7 @@ export async function runClaimedJob(ctx: JobsContext, claimed: ClaimedJob, optio
     // Paths only: the values are the app's data.
     const paths = payload.error.issues.map((issue) => issue.path.map(String).join(".") || "(root)").join(", ");
     options.logger.warn("job payload does not match its handler's schema; failed without running", { ...fields, paths });
-    return record(ctx, claimed, { kind: "failed", error: INVALID_PAYLOAD }, { logger: options.logger, startedAt });
+    return record(ctx, claimed, { kind: "failed", error: INVALID_PAYLOAD, isPermanent: true }, { logger: options.logger, startedAt });
   }
 
   // The handler's own signal: follows the caller's, and also aborts when a progress write sees a cancel request.
@@ -137,14 +139,18 @@ function createProgressReporter(
 
 function decide(ctx: JobsContext, claimed: ClaimedJob, result: unknown, options: RunClaimedJobOptions): Completion {
   const { job } = claimed;
-  if (isOk(result)) return { kind: "succeeded", summary: readSummary(result, claimed, options) };
+  if (isOk(result)) return { kind: "succeeded", summary: readSummary(result, claimed, options), resultRef: readResultRef(result, claimed, options) };
   const failure = readFailure(result);
   if (failure === null) {
     options.logger.error("job handler returned neither ok() nor an error; treated as a throw", { queue: job.queue, jobId: job.id });
   }
   const error = failure?.error ?? HANDLER_THREW;
-  const isRetryable = failure?.retry !== false && job.attempts < job.maxAttempts;
-  if (!isRetryable) return { kind: "failed", error };
+  if (failure?.pauseQueueSeconds !== undefined) {
+    const seconds = clampRetrySeconds(failure.pauseQueueSeconds);
+    return { kind: "paused", error, seconds, runAt: new Date(ctx.clock.now().getTime() + Math.round(seconds * 1000)) };
+  }
+  if (failure?.retry === false) return { kind: "failed", error, isPermanent: true };
+  if (job.attempts >= job.maxAttempts) return { kind: "failed", error };
   const queue = getQueue(getJobsOptions(ctx.config), job.queue);
   const delaySeconds =
     failure?.retryAfterSeconds === undefined
@@ -179,6 +185,10 @@ async function record(ctx: JobsContext, claimed: ClaimedJob, requested: Completi
     logRunEnd(logger, logRuns, { ...base, outcome: "retried", code: completion.error, runAt: completion.runAt });
     return { kind: "retried", error: completion.error, runAt: completion.runAt };
   }
+  if (completion.kind === "paused") {
+    logRunEnd(logger, logRuns, { ...base, outcome: "retried", code: completion.error, runAt: completion.runAt });
+    return { kind: "paused", error: completion.error, runAt: completion.runAt };
+  }
   if (completion.kind === "cancelled") {
     logRunEnd(logger, logRuns, { ...base, outcome: "cancelled" });
     return { kind: "cancelled" };
@@ -201,6 +211,20 @@ function readSummary(result: unknown, claimed: ClaimedJob, options: RunClaimedJo
   return null;
 }
 
+/**
+ * The checked result reference of `ok({ resultRef })`; null without one. One that is not an identifier is dropped with
+ * a warning, never logged itself: the job did its work and stays succeeded.
+ */
+function readResultRef(result: unknown, claimed: ClaimedJob, options: RunClaimedJobOptions): string | null {
+  const value = (result as { value?: unknown }).value;
+  if (typeof value !== "object" || value === null || !Object.hasOwn(value, "resultRef")) return null;
+  const resultRef = (value as { resultRef: unknown }).resultRef;
+  if (resultRef === undefined || resultRef === null) return null;
+  if (typeof resultRef === "string" && RESULT_REF.test(resultRef)) return resultRef;
+  options.logger.warn("job result reference is not an identifier; recorded without it", { queue: claimed.job.queue, jobId: claimed.job.id });
+  return null;
+}
+
 /** Throws on a queue without a handler: the caller claims only queues it has handlers for. */
 function getHandler(handlers: JobHandlers, queue: string): AnyJobHandler {
   const handler = Object.hasOwn(handlers, queue) ? handlers[queue] : undefined;
@@ -216,18 +240,24 @@ interface ReadFailure {
   readonly error: string;
   readonly retry?: boolean;
   readonly retryAfterSeconds?: number;
+  readonly pauseQueueSeconds?: number;
 }
 
 /** The failure a handler returned, with a code fit for `last_error`; null when the value is not a failure at all. */
 function readFailure(result: unknown): ReadFailure | null {
   if (typeof result !== "object" || result === null) return null;
-  const candidate = result as { ok?: unknown; error?: unknown; retry?: unknown; retryAfterSeconds?: unknown };
+  const candidate = result as { ok?: unknown; error?: unknown; retry?: unknown; retryAfterSeconds?: unknown; pauseQueueSeconds?: unknown };
   if (candidate.ok !== false || typeof candidate.error !== "string") return null;
   return {
     error: toErrorCode(candidate.error),
     retry: candidate.retry === false ? false : undefined,
-    retryAfterSeconds: typeof candidate.retryAfterSeconds === "number" && Number.isFinite(candidate.retryAfterSeconds) ? candidate.retryAfterSeconds : undefined,
+    retryAfterSeconds: readSeconds(candidate.retryAfterSeconds),
+    pauseQueueSeconds: readSeconds(candidate.pauseQueueSeconds),
   };
+}
+
+function readSeconds(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function toErrorCode(error: string): ErrorCode {

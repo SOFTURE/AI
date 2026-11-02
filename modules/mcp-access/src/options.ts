@@ -122,6 +122,60 @@ const oauthSchema = z.strictObject({
     .prefault({}),
 });
 
+/** An app scope of an API token: `recipes:write`, `orders`, `files:read` (segments of a-z, 0-9, `_` and `-`). */
+export const API_SCOPE_PATTERN = /^[a-z][a-z0-9_-]{0,31}(?::[a-z][a-z0-9_-]{0,31}){0,3}$/;
+
+/** The prefix of an API token: lowercase letters and digits ending in `_`, e.g. `sftapi_` or `acme_`. */
+export const API_TOKEN_PREFIX_PATTERN = /^[a-z][a-z0-9]{1,14}_$/;
+
+/** The module's own secrets start with this (`sftmcp_`, the OAuth `sftmc*_` prefixes): an API prefix may not. */
+const RESERVED_PREFIX_START = "sftmc";
+
+/** The most scopes one API token holds (`access_tokens.scopes`). */
+export const MAX_API_TOKEN_SCOPES = 32;
+
+const apiScopeSchema = z.strictObject({
+  /** The scope a route asks for in `requireApiToken`, e.g. `recipes:write`. `mcp:` scopes belong to the MCP endpoint. */
+  name: z
+    .string()
+    .regex(API_SCOPE_PATTERN, "must be lowercase segments joined by ':', e.g. recipes:write")
+    .refine((name) => name !== "mcp" && !name.startsWith("mcp:"), "mcp scopes belong to the MCP endpoint"),
+  /** `write` scopes are granted only with `allowWrites` and work only while the writes switch is on. */
+  access: z.enum(["read", "write"]),
+  /** What the scope lets a token do, for the owner choosing scopes on the token page. */
+  description: localizedTextSchema.refine((text) => text.en !== undefined, "needs at least an en text"),
+});
+
+const apiExampleSchema = z.strictObject({
+  /** The snippet's title, e.g. "iPhone Shortcut" or "curl". */
+  title: localizedTextSchema.refine((text) => text.en !== undefined, "needs at least an en text"),
+  /** The snippet; `{token}` and `{appOrigin}` are filled in when the token is revealed. */
+  text: z
+    .record(z.string().refine(isLocale, "must be a BCP 47 language tag"), z.string().trim().min(1).max(4000))
+    .refine((text) => text.en !== undefined, "needs at least an en text"),
+});
+
+const apiTokensSchema = z
+  .strictObject({
+    /** Marks the app's API tokens for people and secret scanners. MCP tokens keep `sftmcp_`. */
+    prefix: z
+      .string()
+      .regex(API_TOKEN_PREFIX_PATTERN, "must be 2 to 15 lowercase letters or digits followed by _, e.g. acme_")
+      .refine((prefix) => !prefix.startsWith(RESERVED_PREFIX_START), `must not start with ${RESERVED_PREFIX_START}, the module's own prefixes`)
+      .default("sftapi_"),
+    /** The scopes the app's HTTP routes ask for; the token page offers them. */
+    scopes: z.array(apiScopeSchema).min(1, "needs at least one scope").max(MAX_API_TOKEN_SCOPES),
+    /** Ready-made recipes shown once with a new token (a phone Shortcut, a curl call). */
+    examples: z.array(apiExampleSchema).max(8).default([]),
+  })
+  .superRefine((options, context) => {
+    const names = new Set<string>();
+    options.scopes.forEach((scope, index) => {
+      if (names.has(scope.name)) context.addIssue({ code: "custom", path: ["scopes", index, "name"], message: `"${scope.name}" is listed twice` });
+      names.add(scope.name);
+    });
+  });
+
 /** A pattern for tokens an app issued before adopting the module: anchored, and stateless. */
 const legacyTokenPatternSchema = z
   .instanceof(RegExp, { message: "must be a RegExp" })
@@ -170,6 +224,11 @@ export const mcpAccessOptionsSchema = z
     resourceOrigins: z.array(originSchema).max(16, "takes at most 16 origins").default([]),
     /** OAuth 2.1 for MCP clients that connect without a pasted token (claude.ai, ChatGPT). */
     oauth: oauthSchema.prefault({}),
+    /**
+     * Personal tokens for the app's plain HTTP routes (a phone Shortcut, Make, a script), checked with
+     * `requireApiToken` from `@softure-ai/mcp-access/tokens`. Unset, the token page issues MCP tokens only.
+     */
+    apiTokens: apiTokensSchema.optional(),
   })
   .superRefine((options, context) => {
     const names = new Set<string>();
@@ -187,3 +246,6 @@ export type McpToolDefinitionInput = z.input<typeof toolSchema>;
 export type McpToolDefinition = z.output<typeof toolSchema>;
 export type McpToolAccess = McpToolDefinition["access"];
 export type McpOAuthOptions = z.output<typeof oauthSchema>;
+export type ApiTokenOptions = z.output<typeof apiTokensSchema>;
+export type ApiTokenOptionsInput = z.input<typeof apiTokensSchema>;
+export type ApiScopeDefinition = z.output<typeof apiScopeSchema>;

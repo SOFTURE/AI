@@ -1,6 +1,6 @@
 // A compact label of where an account stands: "Trial · 5 days left", "Paid · until November 30,
 // 2026", "Lifetime access", "Unlimited access" (an end so far away it does not matter, when the app
-// sets `unlimitedAfterDays`) or "Read-only". Server-safe: it renders from props, so a server
+// sets `unlimitedAfterDays`), "Free" (the free tier) or "Read-only". Server-safe: it renders from props, so a server
 // component passes the entitlement it read (`CurrentAccessBadge` in `/next` does). An app words
 // any kind itself (`texts`), shows a short form (`variant`), prefixes a screen-reader label
 // (`srPrefix`) and colours the whole pill (`toneScope`); the root carries `data-kind` and `data-tone`.
@@ -13,7 +13,7 @@ import { formatDayCount, formatDaysLeft, formatLastDay, formatShortLastDay } fro
 export type AccessBadgeSlot = "root" | "status" | "detail" | "full" | "short" | "prefix";
 
 /** What the badge shows, one tone each. */
-export type AccessBadgeKind = "trial" | "trial-ending" | "paid" | "paid-ending" | "lifetime" | "unlimited" | "read-only";
+export type AccessBadgeKind = "trial" | "trial-ending" | "paid" | "paid-ending" | "lifetime" | "unlimited" | "free" | "read-only";
 
 export type AccessTone = "neutral" | "success" | "warning" | "danger";
 
@@ -29,9 +29,9 @@ export interface AccessBadgeText {
 export interface AccessBadgeTextInput {
   readonly kind: AccessBadgeKind;
   readonly entitlement: Entitlement;
-  /** Whole days of access left; null for lifetime and read-only access. */
+  /** Whole days of access left; null for lifetime access, the free tier and read-only access. */
   readonly daysLeft: number | null;
-  /** The first instant without access; null for lifetime and read-only access. */
+  /** The first instant without access; null for lifetime access, the free tier and read-only access. */
   readonly endsAt: Date | null;
   /** The badge's own text for this kind. */
   readonly text: AccessBadgeText;
@@ -79,6 +79,7 @@ const DEFAULT_TONES: Readonly<Record<AccessBadgeKind, AccessTone>> = {
   "paid-ending": "warning",
   lifetime: "success",
   unlimited: "success",
+  free: "neutral",
   "read-only": "danger",
 };
 
@@ -102,6 +103,8 @@ export function getAccessBadgeKind(entitlement: Entitlement, options: AccessBadg
       if (entitlement.endsAt === null) return "lifetime";
       if (unlimitedAfterDays !== undefined && entitlement.daysLeft !== null && entitlement.daysLeft > unlimitedAfterDays) return "unlimited";
       return entitlement.isEnding ? "paid-ending" : "paid";
+    case "free":
+      return "free";
     case "read_only":
       return "read-only";
   }
@@ -129,13 +132,15 @@ function describe({ entitlement, kind, messages, locale, timezone, isCompact }: 
       const date = isCompact ? formatShortLastDay(entitlement.endsAt, locale, timezone) : formatLastDay(entitlement.endsAt, locale, timezone);
       return { status: messages.badge.paid, detail: formatMessage(messages.badge.until, { date }) };
     }
+    case "free":
+      return { status: messages.badge.free };
     case "read_only":
       return { status: messages.badge.readOnly };
   }
 }
 
 function getEnd(entitlement: Entitlement): Pick<AccessBadgeTextInput, "daysLeft" | "endsAt"> {
-  if (entitlement.status === "read_only") return { daysLeft: null, endsAt: null };
+  if (entitlement.status === "free" || entitlement.status === "read_only") return { daysLeft: null, endsAt: null };
   return { daysLeft: entitlement.daysLeft, endsAt: entitlement.endsAt };
 }
 

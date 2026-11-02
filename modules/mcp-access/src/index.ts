@@ -35,6 +35,16 @@ export const MCP_RATE_LIMIT_BUCKETS = {
 } as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
+ * The rate limit buckets of `requireApiToken`, to spread into `security({ buckets })` when the app sets
+ * `apiTokens`: `api` counts requests per client address before the token is looked up (guessing),
+ * `api-token` counts requests per verified token (one script or Shortcut cannot flood a route).
+ */
+export const API_TOKEN_RATE_LIMIT_BUCKETS = {
+  api: { limit: 300, windowMinutes: 15, key: "ip" },
+  "api-token": { limit: 120, windowMinutes: 15, key: "subject" },
+} as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
+
+/**
  * Enables MCP access in `softure.config.ts` (after `security` and `auth`):
  * `mcpAccess({ serverName: "acme", tools: [{ name: "list_orders", access: "read", description: { en: "Lists your orders." } }] })`.
  */
@@ -44,8 +54,14 @@ export const mcpAccess = defineModule({
     version: "0.2.9",
     dependsOn: { security: "^0.2.0", auth: "^0.2.0", jobs: "^0.1.1?", ops: "^0.2.0?" },
     dbSchema: "mcp",
-    tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants", "oauth_registration_window"],
-    env: [],
+    tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants", "oauth_registration_window", "used_confirmations"],
+    env: [
+      {
+        name: "MCP_CONFIRMATION_SECRET",
+        required: false,
+        description: "Signs and verifies the confirmation tokens of confirmed tool calls (withConfirmation), at least 32 characters; required only by an app that confirms tool calls. Changing it voids the tokens in flight.",
+      },
+    ],
     switches: [WRITES_ENABLED_SWITCH],
     routes: { ...DEFAULT_MCP_ACCESS_ROUTES },
     mount: [
@@ -78,8 +94,14 @@ export {
   type McpClientSetupInput,
 } from "./client-setup.js";
 export type {
+  AccessTokenKind,
   AccessTokenStatus,
   AccessTokenView,
+  ApiTokenErrorCode,
+  ApiTokenExample,
+  ApiTokenIdentity,
+  ApiTokenRefusal,
+  IssuedApiTokenView,
   IssuedToken,
   IssueTokenFormState,
   McpAccessErrorCode,
@@ -94,12 +116,18 @@ export type {
 } from "./contract.js";
 export { getTokenErrorMessage, mcpAccessMessages, type McpAccessMessages } from "./messages/index.js";
 export {
+  API_SCOPE_PATTERN,
+  API_TOKEN_PREFIX_PATTERN,
+  MAX_API_TOKEN_SCOPES,
   MAX_PRESENTED_TOKEN_LENGTH,
   MAX_TOKEN_NAME_LENGTH,
   SERVER_NAME_PATTERN,
   TOOL_NAME_PATTERN,
   GENERATED_AUTHORIZATION_SERVER_KEYS,
   GENERATED_PROTECTED_RESOURCE_KEYS,
+  type ApiScopeDefinition,
+  type ApiTokenOptions,
+  type ApiTokenOptionsInput,
   type McpAccessOptions,
   type McpAccessOptionsInput,
   type McpAppOriginResolver,

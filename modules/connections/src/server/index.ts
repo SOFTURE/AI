@@ -25,6 +25,7 @@ export {
   saveCredential,
   type CredentialHeader,
   type CredentialInput,
+  type DisconnectInput,
   type DisconnectResult,
   type GetCredentialHeaderResult,
   type GetCredentialResult,
