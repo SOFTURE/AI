@@ -1,7 +1,7 @@
 ---
 change_id: blog-linked-terms-without-blocks-937
 title: "blog: findArticlesLinkingTerm reads linked terms without rendering (issue #937)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: 937
 branch: claude/project-thread-y4c3hc
@@ -26,3 +26,11 @@ included, on every glossary term page, only to read `linkedTerms`. An adopting a
 
 ## Notes
 - Framing skipped: the issue names the cause and the fix.
+
+## Done
+- `findLinkedTerms(markdown, options)` (`/server`, render): the renderer's `linkedTerms` from a parse alone; block
+  plugins stay registered for the tokens, their `render` never runs.
+- `findArticlesLinkingTerm` uses it through options shared with `renderPageBody` (`getRenderOptions`).
+- Tests: `tests/render-glossary.test.ts` ("findLinkedTerms (#937)"), `tests/pages/body.test.ts`
+  ("findArticlesLinkingTerm (#937)"). README and changelog (Unreleased).
+- Release: next blog release (batched by the coordinator).

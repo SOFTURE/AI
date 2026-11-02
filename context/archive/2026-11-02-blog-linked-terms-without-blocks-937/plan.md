@@ -14,4 +14,4 @@
 - D2 `findLinkedTerms` is exported from `/render` too: an app that calls `renderPageBody` for the links can switch.
 
 ## Progress
-- [ ] Phase 1: findLinkedTerms, findArticlesLinkingTerm, tests, docs
+- [x] Phase 1: findLinkedTerms, findArticlesLinkingTerm, tests, docs (201b1fc)
