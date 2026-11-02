@@ -83,6 +83,16 @@ describe("alert", () => {
     expectMessage((await listDeliveries(test))[1]!.message, { kind: "repeated", severity: "critical", repeats: 1 });
   });
 
+  it("keeps the highest severity while firing, so a flapping severity sends once", async () => {
+    const test = await setup();
+    await alert(test.ctx, INPUT);
+    await alert(test.ctx, { ...INPUT, severity: "critical" });
+    expect(await alert(test.ctx, INPUT)).toEqual({ ok: true, value: "counted" });
+    expect(await alert(test.ctx, { ...INPUT, severity: "critical" })).toEqual({ ok: true, value: "counted" });
+    expect(await listDeliveries(test)).toHaveLength(2);
+    expect((await listRecentAlerts(test.ctx))[0]?.severity).toBe("critical");
+  });
+
   it("skips channels whose minimum severity the alert does not reach", async () => {
     const test = await setup({ channels: { ops: recordingChannel().channel, pager: recordingChannel({ minSeverity: "critical" }).channel } });
     await alert(test.ctx, INPUT);

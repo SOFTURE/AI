@@ -79,29 +79,29 @@ Done when the README has the twelve sections and the gates pass.
 ### Phase 1: Package, contract, options, schema, channels
 
 #### Automated
-- [ ] 1.1 Options, migration and channel request tests pass
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Options, migration and channel request tests pass — 58ae41c
+- [x] 1.2 Gates green (typecheck, lint, test) — 58ae41c
 
 ### Phase 2: Server: alert, resolve, flush, list, health adapter
 
 #### Automated
-- [ ] 2.1 Deduplication, repeat, flush, resolve, quiet hours and race tests pass
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 Deduplication, repeat, flush, resolve, quiet hours and race tests pass — 50a1be0
+- [x] 2.2 Gates green (typecheck, lint, test) — 50a1be0
 
 ### Phase 3: Jobs entry
 
 #### Automated
-- [ ] 3.1 Delivery handler and jobs adapter tests pass
-- [ ] 3.2 Gates green (typecheck, lint, test)
+- [x] 3.1 Delivery handler and jobs adapter tests pass — 3f969b8
+- [x] 3.2 Gates green (typecheck, lint, test) — 3f969b8
 
 ### Phase 4: Mail channel, CLI, admin list
 
 #### Automated
-- [ ] 4.1 Mail channel, CLI and page tests pass
-- [ ] 4.2 Gates green (typecheck, lint, test)
+- [x] 4.1 Mail channel, CLI and page tests pass — 41e10cb
+- [x] 4.2 Gates green (typecheck, lint, test) — 41e10cb
 
 ### Phase 5: Docs
 
 #### Automated
-- [ ] 5.1 README with twelve sections; links test green
-- [ ] 5.2 Gates green (typecheck, lint, test, build)
+- [x] 5.1 README with twelve sections; links test green — fa63424
+- [x] 5.2 Gates green (typecheck, lint, test, build) — fa63424

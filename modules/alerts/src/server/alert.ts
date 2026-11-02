@@ -85,13 +85,15 @@ export async function alert(ctx: AlertsContext, input: AlertInput): Promise<Resu
     const occurrences = row.occurrences + 1;
     const isWindowOver = now.getTime() >= row.lastNotifiedAt.getTime() + windowMs;
     const isEscalation = !isAtLeast(row.severity, severity);
+    // While a key fires it keeps its highest severity, so a flapping severity cannot send a message per rise.
+    const latest = { ...fields, severity: isEscalation ? severity : row.severity };
     if (isWindowOver || isEscalation) {
-      const next = { ...fields, occurrences, pendingRepeats: 0, lastSeenAt: now, lastNotifiedAt: now };
+      const next = { ...latest, occurrences, pendingRepeats: 0, lastSeenAt: now, lastNotifiedAt: now };
       await tx.update(alerts).set(next).where(eq(alerts.key, key));
       await enqueueDeliveries(txCtx, toMessage("repeated", key, { ...next, pendingRepeats: row.pendingRepeats + 1 }, now));
       return "repeated";
     }
-    await tx.update(alerts).set({ ...fields, occurrences, pendingRepeats: row.pendingRepeats + 1, lastSeenAt: now }).where(eq(alerts.key, key));
+    await tx.update(alerts).set({ ...latest, occurrences, pendingRepeats: row.pendingRepeats + 1, lastSeenAt: now }).where(eq(alerts.key, key));
     return "counted";
   });
   return ok(outcome);

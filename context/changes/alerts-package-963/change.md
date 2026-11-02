@@ -1,7 +1,7 @@
 ---
 change_id: alerts-package-963
 title: "alerts: a new package with one channel to tell the operator: mail and chat webhooks, deduplication, quiet repeats, jobs and health adapters (issue #963)"
-status: plan_reviewed
+status: impl_reviewed
 roadmap_item: null
 issue: 963
 branch: claude/project-thread-nep58u
