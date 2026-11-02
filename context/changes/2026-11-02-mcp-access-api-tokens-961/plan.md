@@ -40,5 +40,5 @@
 - D5 Both kinds share `maxTokensPerUser`: one place for the owner, one number on the page.
 
 ## Progress
-- [ ] Phase 1: options, migration, schema, token layer, `requireApiToken`, `/tokens` entry (+ tests)
+- [x] Phase 1: options, migration, schema, token layer, `requireApiToken`, `/tokens` entry (+ tests) (a19695d)
 - [ ] Phase 2: token page, privacy, README, changelog, gates

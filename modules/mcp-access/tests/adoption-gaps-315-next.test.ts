@@ -59,7 +59,7 @@ describe("issuing a token behind the app's gate", () => {
   it("asks the gate with the owner and the requested access, then issues", async () => {
     const beforeIssue = vi.fn(() => Promise.resolve(ok()));
     const state = await issueToken({ status: "idle" }, form({ name: "Laptop", canWrite: "on" }), { beforeIssue });
-    expect(beforeIssue).toHaveBeenCalledExactlyOnceWith({ userId: alice, canWrite: true });
+    expect(beforeIssue).toHaveBeenCalledExactlyOnceWith({ userId: alice, canWrite: true, kind: "mcp", scopes: [] });
     expect(state.status).toBe("ok");
     expect((await listAccessTokens(test.ctx, alice)).map((token) => token.name)).toEqual(["Laptop"]);
   });
