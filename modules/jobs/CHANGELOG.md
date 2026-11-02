@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- A sync item failure that waits (#939): a `processSyncItem` callback returns `waitSyncItem(code)` (a `SyncItemFailure`
+  with `retry: "wait"`) for a cause outside the item that only an operator clears, such as a connection that needs a
+  reconnect (`connections.reconnect_required`, `connections.not_connected`). The callback's writes roll back, the item
+  stays `pending` with its attempts unchanged and its `error_code` set, and the outcome is the new
+  `{ kind: "waiting", error, item }`, so `maxAttempts` is never reached through such failures; an ordinary failure still
+  counts. `listSyncItems` takes `errorCode`, so `{ status: "pending", errorCode }` lists the items waiting on a code.
+  New in `@softure-ai/jobs`: `waitSyncItem`.
+  - Migrate: an app that gives the attempt back itself with an `UPDATE` of `jobs.sync_items` after `processSyncItem`
+    returns `waitSyncItem(code)` from the callback instead and drops the `UPDATE`. An app with an exhaustive `switch`
+    over `SyncItemOutcome["kind"]` adds the `waiting` case.
+
 ## 0.1.6
 
 - Run history (#803): every recorded attempt leaves a row in the new `jobs.runs` table with the job id, queue,

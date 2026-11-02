@@ -396,7 +396,10 @@ await advanceSyncCursor(ctx, { source: "gmail.inbox", from, to: batch.nextCursor
   acknowledge" needs no code of the app's. `ok()` or `ok({ status: "done", resultRef })` → `handled`, item `done`;
   `skipSyncItem(reason?)` → `handled`, item `skipped`; an `Err` → the writes roll back, the attempt counts, the item
   stays `pending` (`retrying`) until `maxAttempts` (default 5) runs failed, then `failed`; `failSyncItem(code)` fails
-  it at once. A throw is recorded as a failed attempt with `jobs.sync_item_threw` and rethrown, so a poison item still
+  it at once; `waitSyncItem(code)` → the writes roll back but the attempt does not count: the item stays `pending`
+  (`waiting`) with the code set, for a cause outside the item that only an operator clears (a connection that needs a
+  reconnect, `connections.reconnect_required`). The next run that meets it tries again with the same attempt number,
+  so the queue's backoff cannot use up its attempts. A throw is recorded as a failed attempt with `jobs.sync_item_threw` and rethrown, so a poison item still
   ends `failed`.
 - A call outside the database (an API) is not rolled back: a crash after it and before the commit repeats it on the
   next run. Keep it idempotent where the source allows, and keep each item short: its transaction stays open while
@@ -426,8 +429,10 @@ await advanceSyncCursor(ctx, { source: "gmail.inbox", from, to: batch.nextCursor
 - `getSyncCursor(ctx, source)` returns the cursor or `null`. `advanceSyncCursor(ctx, { source, from, to })` is a
   compare-and-set: refused with `jobs.sync_cursor_moved` when the stored cursor is no longer `from`, so a slower
   worker cannot move it back; re-read and go on. Pass a transaction as `ctx.db` to move it with the batch's last write.
-- `listSyncItems(ctx, { source?, status?, since?, limit? })` lists the ledger, most recently changed first (default
-  100, at most 1000): what passed, what failed and with which code, for an overview page or an MCP tool.
+- `listSyncItems(ctx, { source?, status?, errorCode?, since?, limit? })` lists the ledger, most recently changed first
+  (default 100, at most 1000): what passed, what failed and with which code, for an overview page or an MCP tool.
+  `{ status: "pending", errorCode: "connections.reconnect_required" }` lists the items waiting on a reconnect, e.g. to
+  enqueue the sync once the account is connected again.
 - `reopenSyncItem(ctx, { source, itemId })` puts a `done`, `skipped` or `failed` item back to `pending` as never
   tried (attempts, code, result reference and finish time cleared), so the next `processSyncItem` runs it again; a
   `pending` item is returned as it is; `jobs.sync_item_not_found`. It breaks "at most once" for that item on purpose:
