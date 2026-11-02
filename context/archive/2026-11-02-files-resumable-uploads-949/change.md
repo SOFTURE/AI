@@ -1,12 +1,13 @@
 ---
 change_id: files-resumable-uploads-949
 title: "files: resumable uploads through signed URLs and MCP upload tools (issue #949)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 949
 branch: claude/project-thread-4343nf
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent

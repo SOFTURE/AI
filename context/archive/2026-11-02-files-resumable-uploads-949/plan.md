@@ -1,6 +1,6 @@
 ---
 change_id: files-resumable-uploads-949
-status: in_progress
+status: done
 ---
 
 # Plan: resumable uploads (issue #949)
@@ -75,7 +75,7 @@ table, MCP usage, limitations), CHANGELOG `## Unreleased`, the package descripti
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
-- [ ] Phase 4
+- [x] Phase 1: `ca418e5` (tests in tests/uploads.test.ts written with the code; module defaults test updated)
+- [x] Phase 2: `e75b823` (tests/upload-route.test.ts)
+- [x] Phase 3: `fb973d4` (prune and privacy tests updated for the new report fields; tests/mcp.test.ts)
+- [x] Phase 4: `32f9c27` (README §1, §3, §4.1, §4.2, §5, §6, §8, §9, §11, §12; CHANGELOG Unreleased)
