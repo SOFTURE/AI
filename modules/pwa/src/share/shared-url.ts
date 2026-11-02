@@ -2,18 +2,27 @@
 // are searched, `url` first.
 
 const URL_CANDIDATE = /https?:\/\/[^\s<>"'`]+/gi;
-const TRAILING_PUNCTUATION = /[.,;:!?'"\]}>]+$/;
+const TRAILING_PUNCTUATION = new Set([".", ",", ";", ":", "!", "?", "'", '"', "]", "}", ">"]);
 
-/** Drops sentence punctuation after a link, and a closing parenthesis the link did not open. */
+/**
+ * Drops sentence punctuation after a link, and a closing parenthesis the link did not open. One pass from the end with
+ * the parentheses counted once, so it stays linear on any input.
+ */
 function trimCandidate(candidate: string): string {
-  let value = candidate;
+  let opens = 0;
+  let closes = 0;
+  for (const character of candidate) {
+    if (character === "(") opens += 1;
+    if (character === ")") closes += 1;
+  }
+  let end = candidate.length;
   for (;;) {
-    const trimmed = value.replace(TRAILING_PUNCTUATION, "");
-    const opens = trimmed.split("(").length - 1;
-    const closes = trimmed.split(")").length - 1;
-    const next = trimmed.endsWith(")") && closes > opens ? trimmed.slice(0, -1) : trimmed;
-    if (next === value) return value;
-    value = next;
+    const last = candidate.charAt(end - 1);
+    if (end > 0 && TRAILING_PUNCTUATION.has(last)) end -= 1;
+    else if (end > 0 && last === ")" && closes > opens) {
+      end -= 1;
+      closes -= 1;
+    } else return candidate.slice(0, end);
   }
 }
 

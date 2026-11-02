@@ -107,6 +107,9 @@ describe("findSharedUrl", () => {
     [{ url: null, text: "no link at all" }, null],
     [{ url: null, text: null }, null],
     [{ url: "https://", text: null }, null],
+    [{ url: null, text: `https://a.example/x${"!".repeat(50_000)}y!!!` }, `https://a.example/x${"!".repeat(50_000)}y`],
+    [{ url: null, text: `https://a.example/x${")".repeat(50_000)}` }, "https://a.example/x"],
+    [{ url: null, text: "(https://a.example/a_(b)).)" }, "https://a.example/a_(b)"],
   ])("%j finds %j", (share, expected) => {
     expect(findSharedUrl(share)).toBe(expected);
   });
