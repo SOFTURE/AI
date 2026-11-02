@@ -648,7 +648,7 @@ from `/server`, `toJobsPanelData(source, messages, config)` and `getJobsMessages
 Schema `jobs`, five tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
 `migrations/0003_add_schedule_failures.sql`, `migrations/0004_create_sync_state.sql`,
 `migrations/0005_add_schedule_reported_state.sql`, `migrations/0006_create_runs.sql`,
-`migrations/0007_add_progress_and_cancel.sql` and `migrations/0008_add_owner_and_result_ref.sql`:
+`migrations/0007_add_progress_and_cancel.sql` and `migrations/0009_add_owner_and_result_ref.sql`:
 
 `jobs.jobs`: `id` (bigint identity; a string in the API), `queue`, `payload` (jsonb), `status` (`pending`, `running`,
 `succeeded`, `failed`, `cancelled`), `attempts`, `max_attempts`, `run_at`, `locked_until`, `locked_by` (the worker,

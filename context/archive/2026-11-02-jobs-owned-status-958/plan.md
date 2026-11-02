@@ -9,7 +9,7 @@ Input: change.md, research.md. Complexity: medium (one migration, server API, a 
 
 ## Phase 1: owner, result reference, owner reads, retention
 
-Files: `migrations/0008_add_owner_and_result_ref.sql` (new), `src/schema.ts`, `src/contract.ts`, `src/options.ts`,
+Files: `migrations/0009_add_owner_and_result_ref.sql` (new), `src/schema.ts`, `src/contract.ts`, `src/options.ts`,
 `src/server/{enqueue,job-row,claim,process,admin,maintenance,index}.ts`, `src/server/own-jobs.ts` (new),
 `tests/own-jobs.test.ts` (new).
 
@@ -60,8 +60,8 @@ Files: `README.md`, `CHANGELOG.md` (`## Unreleased`).
   `online` itself instead of depending on pwa.
 - `DELETE` is off unless `allowCancel: true`: cancelling is a product decision of the app.
 - No version bump: the coordinator releases.
-- Migration number: 0008 on the branch, not 0009 as first agreed: the migrator refuses a gap in the sequence. The
-  change that merges second renumbers.
+- Migration number: 0008 on the branch while #955 was open (the migrator refuses a gap in the sequence), renumbered
+  to 0009 once #955 merged its 0008.
 - The hook's error is a closed union (`JOB_STATUS_ROUTE_ERRORS` plus `network`), shared with the route through
   `contract.ts`, so an app can switch over it.
 

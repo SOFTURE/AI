@@ -22,8 +22,7 @@ Reviewed the diff of bb91953, 674b7f3, a395cec and 034c672 against plan.md and i
   pauses in a hidden tab; polls at once on `visibilitychange` and `online`; `cancel()` with DELETE. Covered with fake
   timers and a stubbed `fetch`.
 - Proposal 5 (retention): `retention.ownedDays` (default 1) as a floor in `pruneJobs`; tests for both directions.
-- Migration 0008 is additive with a written rollback; it may become 0009 at merge time if #955 lands first (the
-  migrator refuses gaps, so the branch cannot carry 0009 alone).
+- Migration 0009 (0008 until #955 merged its own 0008) is additive with a written rollback.
 - Gates: typecheck and lint green (pre-commit), jobs suite and repository tests green (the deploy workflow test needed
   `ssh-keygen`, installed in the container).
 - Language: English only; no copy inline; the route and the hook carry codes only.

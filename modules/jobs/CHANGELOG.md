@@ -17,7 +17,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   intervalMs?, maxIntervalMs?, stopOn? })`: polling with backoff that stops when the job ends, pauses in a hidden tab
   and resumes on `online`. New option `retention.ownedDays` (default 1): an owned job stays readable that long after
   it ends, whatever its status retention. `Job` gains `ownerId` and `resultRef`.
-  - Migrate: run `migrations/0008_add_owner_and_result_ref.sql` with the app's other migrations (adds
+  - Migrate: run `migrations/0009_add_owner_and_result_ref.sql` with the app's other migrations (adds
     `jobs.jobs.owner_id`, `result_ref` and the index `jobs_owner_idx`). An app that kept its own owner column, status
     route and polling hook for a waiting screen can drop them: enqueue with `ownerId`, mount the route, use the hook.
     Code that compares a whole `Job` or the parsed `retention` exactly adds the new fields.
