@@ -65,6 +65,7 @@ export {
   INITIAL_PAYMENT_FORM_STATE,
   INITIAL_TRIAL_FORM_STATE,
   PERIOD_UNITS,
+  type AccessFallback,
   type AdminActionErrorCode,
   type AdminActionState,
   type AdminErrorCode,
@@ -151,6 +152,7 @@ export {
   type AccessReminderKind,
 } from "./reminder.js";
 export {
+  findUpgradePlanIds,
   getDeclaredMeters,
   getUsagePeriod,
   getUsageState,

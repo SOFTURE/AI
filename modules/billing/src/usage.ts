@@ -7,7 +7,7 @@ import type { BillingOptions } from "./options.js";
 
 /** Every meter some limits block of the config names, sorted. */
 export function getDeclaredMeters(options: BillingOptions): readonly string[] {
-  const blocks = [options.trial.limits, options.paid.limits, options.readOnly.limits, ...options.plans.map((plan) => plan.limits)];
+  const blocks = [options.trial.limits, options.paid.limits, options.free?.limits ?? {}, options.readOnly.limits, ...options.plans.map((plan) => plan.limits)];
   return [...new Set(blocks.flatMap((limits) => Object.keys(limits)))].sort();
 }
 
@@ -28,13 +28,16 @@ function readLimit(limits: UsageLimits, meter: string): number | null {
 }
 
 /**
- * The limit of `meter` for an account in `subject`'s state: the trial's or the read-only block's,
- * and for paid access the plan's, else `paid.limits`. A meter the block leaves out has limit 0.
+ * The limit of `meter` for an account in `subject`'s state: the trial's, the free tier's or the
+ * read-only block's, and for paid access the plan's, else `paid.limits`. A meter the block leaves
+ * out has limit 0.
  */
 export function resolveLimit(options: BillingOptions, subject: LimitSubject, meter: string): number | null {
   switch (subject.status) {
     case "trial":
       return readLimit(options.trial.limits, meter);
+    case "free":
+      return readLimit(options.free?.limits ?? {}, meter);
     case "read_only":
       return readLimit(options.readOnly.limits, meter);
     case "paid": {
@@ -42,6 +45,20 @@ export function resolveLimit(options: BillingOptions, subject: LimitSubject, met
       return plan !== undefined && Object.hasOwn(plan.limits, meter) ? readLimit(plan.limits, meter) : readLimit(options.paid.limits, meter);
     }
   }
+}
+
+/** Whether limit `candidate` allows more than `current` (null: no limit). */
+function isHigherLimit(candidate: number | null, current: number | null): boolean {
+  if (current === null) return false;
+  return candidate === null || candidate > current;
+}
+
+/**
+ * The declared plans that would raise `meter` above `limit` (null: no limit), in the config's
+ * order: what an upgrade prompt offers once a quota is spent. Empty when no plan raises it.
+ */
+export function findUpgradePlanIds(options: BillingOptions, meter: string, limit: number | null): readonly string[] {
+  return options.plans.filter((plan) => isHigherLimit(resolveLimit(options, { status: "paid", planId: plan.id }, meter), limit)).map((plan) => plan.id);
 }
 
 /** Every declared meter with its limit for `subject`. */

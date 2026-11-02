@@ -6,6 +6,20 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Personal tokens for the app's plain HTTP routes (#961): the option `apiTokens` (`prefix`, default `sftapi_`;
+  `scopes` with `read`/`write` access and a description; `examples` for the one-time reveal) turns on a second token
+  kind. `requireApiToken(ctx, request, { scopes })` checks a route's request: client address counted (bucket `api`),
+  Bearer token verified, token counted (bucket `api-token`), scopes and the write switch checked; refusals are values
+  that `apiTokenErrorResponse` answers (400/401/403/429/503). The new entry `@softure-ai/mcp-access/tokens` exports
+  it with `issueApiToken`, `verifyApiToken`, list, revoke and prune, and loads no MCP SDK. An API token never opens
+  the MCP endpoint and an MCP token never passes the check. The token page lists the app's scopes, adds the form
+  "New token for other apps" (`kind=api`, `scope:<name>` fields), shows the token once with the app's examples
+  (form state `api-ok`, `IssuedApiTokenView`) and names each token's kind. `AccessTokenView` gains `kind` and
+  `scopes`; the gate input `kind` and `scopes`; the privacy export `kind` and `scopes`. Both kinds share
+  `maxTokensPerUser`. Migration `0005_add_api_tokens.sql` adds `kind` and `scopes` (existing rows stay MCP tokens).
+  Migrate: nothing for an app without `apiTokens`, apart from running the migration; an app that compares
+  `listAccessTokens` or the privacy export field by field gains the two fields. To use it, add `apiTokens`, spread
+  `API_TOKEN_RATE_LIMIT_BUCKETS` into `security({ buckets })` and call `requireApiToken` in the routes.
 - Confirmed tool calls (#953): `withConfirmation(handler, { ctx, identity, tool, estimate, ttlSeconds?,
   runWithoutConfirmationWhen?, secret? })` (`/server`) makes a priced or irreversible tool estimate first and answer
   `{ needsConfirmation: true, estimate, confirmation, expiresAt, message }`; the second call with the same arguments

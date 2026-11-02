@@ -2,7 +2,7 @@
 // once the limit is used up, limits that follow the account's state and plan, and a consumption that
 // rolls back with the app's own transaction.
 import { type BillingOptionsInput } from "@softure-ai/billing";
-import { consumeUsage, getUsage, grantPlanManually } from "@softure-ai/billing/server";
+import { checkWriteAccess, consumeUsage, getUsage, grantPlanManually } from "@softure-ai/billing/server";
 import { err, ok } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAccount, createTestBilling, NOW, type TestBilling } from "./support.js";
@@ -24,6 +24,24 @@ function aiCalls(used: number, limit: number | null, periodStart = OCTOBER, rese
   return { meter: "ai-calls", period: "month", used, limit, remaining: limit === null ? null : Math.max(0, limit - used), periodStart, resetsAt };
 }
 
+describe("consumeUsage on the free tier", () => {
+  let test: TestBilling;
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  it("lets an account whose trial ended keep consuming up to the free limit, then names the plans that raise it", async () => {
+    test = await createTestBilling({ ...OPTIONS, free: { limits: { "ai-calls": 2 } } });
+    const adaId = await createAccount(test, "ada@example.com");
+    test.clock.set(TRIAL_END);
+    expect(await checkWriteAccess(test.ctx, adaId)).toEqual(ok({ status: "free", since: TRIAL_END, reason: "trial_ended" }));
+    expect(await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls", amount: 2 })).toEqual(ok(aiCalls(2, 2)));
+    expect(await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls" })).toEqual({ ...err("billing.quota_exhausted"), usage: aiCalls(2, 2), upgradePlanIds: ["pro"] });
+    // The free tier leaves exports out (0); paid.limits has no limit for it, so the plan raises it too.
+    expect(await consumeUsage(test.ctx, { userId: adaId, meter: "exports" })).toMatchObject({ error: "billing.quota_exhausted", upgradePlanIds: ["pro"] });
+  });
+});
+
 describe("consumeUsage", () => {
   let test: TestBilling;
   let adaId: string;
@@ -40,15 +58,15 @@ describe("consumeUsage", () => {
   it("counts consumptions until the limit and refuses the one that would pass it, consuming nothing", async () => {
     expect(await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls" })).toEqual(ok(aiCalls(1, 3)));
     expect(await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls", amount: 2 })).toEqual(ok(aiCalls(3, 3)));
-    expect(await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls" })).toEqual({ ...err("billing.quota_exhausted"), usage: aiCalls(3, 3) });
+    expect(await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls" })).toEqual({ ...err("billing.quota_exhausted"), usage: aiCalls(3, 3), upgradePlanIds: ["pro"] });
     expect(await getUsage(test.ctx, { userId: adaId, meter: "ai-calls" })).toEqual(ok(aiCalls(3, 3)));
   });
 
   it("refuses an amount larger than what is left, and a first one larger than the limit", async () => {
     await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls", amount: 2 });
-    expect(await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls", amount: 2 })).toEqual({ ...err("billing.quota_exhausted"), usage: aiCalls(2, 3) });
+    expect(await consumeUsage(test.ctx, { userId: adaId, meter: "ai-calls", amount: 2 })).toEqual({ ...err("billing.quota_exhausted"), usage: aiCalls(2, 3), upgradePlanIds: ["pro"] });
     const eveId = await createAccount(test, "eve@example.com");
-    expect(await consumeUsage(test.ctx, { userId: eveId, meter: "ai-calls", amount: 4 })).toEqual({ ...err("billing.quota_exhausted"), usage: aiCalls(0, 3) });
+    expect(await consumeUsage(test.ctx, { userId: eveId, meter: "ai-calls", amount: 4 })).toEqual({ ...err("billing.quota_exhausted"), usage: aiCalls(0, 3), upgradePlanIds: ["pro"] });
     expect(await test.database.client.query("SELECT 1 FROM billing.usage WHERE user_id = $1", [eveId])).toMatchObject({ rows: [] });
   });
 

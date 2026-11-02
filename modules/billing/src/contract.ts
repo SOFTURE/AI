@@ -22,7 +22,7 @@ export type TrialExtensionErrorCode =
 /** Every code a guarded write can show: the guard's own and the generic ones. */
 export type BillingFormErrorCode = BillingErrorCode | CoreErrorCode;
 
-export const ENTITLEMENT_STATUSES = ["trial", "paid", "read_only"] as const;
+export const ENTITLEMENT_STATUSES = ["trial", "paid", "free", "read_only"] as const;
 
 export type EntitlementStatus = (typeof ENTITLEMENT_STATUSES)[number];
 
@@ -39,6 +39,12 @@ export interface EntitlementRecord {
   readonly isLifetime: boolean;
 }
 
+/**
+ * What an account falls back to when its trial or paid access ends: the free tier when the app declares
+ * `billing({ free })`, read-only otherwise.
+ */
+export type AccessFallback = "free" | "read_only";
+
 /** Where an account stands at one instant: the state machine's answer. */
 export type Entitlement =
   | {
@@ -48,6 +54,8 @@ export type Entitlement =
       readonly daysLeft: number;
       /** Inside the trial reminder window: time to show the notice. */
       readonly isEnding: boolean;
+      /** What the account has once the trial ends (and nothing paid follows): `free` with a free tier; absent means read-only. */
+      readonly afterEnd?: AccessFallback;
     }
   | {
       readonly status: "paid";
@@ -57,6 +65,19 @@ export type Entitlement =
       readonly daysLeft: number | null;
       /** Inside the paid reminder window; never for lifetime access. */
       readonly isEnding: boolean;
+      /** What the account has once paid access ends: `free` with a free tier; absent means read-only. */
+      readonly afterEnd?: AccessFallback;
+    }
+  | {
+      /**
+       * The free tier (`billing({ free })`): no paid access and no trial left, write access without an end, held only
+       * by the free usage limits.
+       */
+      readonly status: "free";
+      /** When the trial or paid access ended; the account's start when it never had a trial. */
+      readonly since: Date;
+      /** Which access ended last. */
+      readonly reason: "trial_ended" | "paid_ended";
     }
   | {
       readonly status: "read_only";
@@ -262,7 +283,7 @@ export type UsageErrorCode =
 /** The limits an account has now (`getLimits`). */
 export interface AccountLimits {
   readonly status: EntitlementStatus;
-  /** The plan paying for today; null on a trial, read-only, or paid access no recorded grant explains. */
+  /** The plan paying for today; null on a trial, the free tier, read-only, or paid access no recorded grant explains. */
   readonly planId: string | null;
   /** Every meter the config declares, with this account's limit (null: no limit). */
   readonly limits: UsageLimits;

@@ -8,7 +8,7 @@
 import { users } from "@softure-ai/auth";
 import { and, asc, eq, gte, isNull, lt, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { getDayNumber, getStartOfDay } from "../calendar.js";
-import type { EntitlementRecord } from "../contract.js";
+import type { AccessFallback, EntitlementRecord } from "../contract.js";
 import { DEFAULT_CATCH_UP_DAYS, getAccessReminder, MAX_CATCH_UP_DAYS, type AccessReminder, type AccessReminderKind } from "../reminder.js";
 import { entitlements } from "../schema.js";
 import { getDefaultRecord, getTrialFloorDay, type BillingContext } from "./entitlements.js";
@@ -25,6 +25,8 @@ export interface AccessReminderDue {
   readonly kind: AccessReminderKind;
   /** The first instant without the access the mail is about. */
   readonly endsAt: Date;
+  /** `free` when the account keeps the free tier (`billing({ free })`) after that end; absent means read-only. */
+  readonly afterEnd?: AccessFallback;
   /**
    * `endsAt` exactly as stored: microseconds since the Unix epoch, as a decimal string. It equals
    * `(extract(epoch from <column>) * 1000000)::bigint::text` on the column the end comes from (Postgres 14 or

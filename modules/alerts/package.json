@@ -1,0 +1,103 @@
+{
+  "name": "@softure-ai/alerts",
+  "version": "0.0.0",
+  "description": "SOFTURE AI alerts module: one channel to tell the operator. alert() with deduplication by key, repeats counted and summarized, a recovery message on resolveAlert, delivery through a jobs queue to mail (through @softure-ai/mailing) and Slack, Discord, Telegram or generic JSON webhooks, quiet hours per channel, adapters for jobs hooks and health reports, a softure-alerts test command and an admin list of recent alerts.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "modules/alerts"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "migrations",
+    "module.json"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "bin": {
+    "softure-alerts": "./dist/cli/bin.js"
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "@softure-ai/source": "./src/server/index.ts",
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./jobs": {
+      "@softure-ai/source": "./src/jobs/index.ts",
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./dist/jobs/index.js"
+    },
+    "./mailing": {
+      "@softure-ai/source": "./src/mailing/index.ts",
+      "types": "./dist/mailing/index.d.ts",
+      "default": "./dist/mailing/index.js"
+    },
+    "./cli": {
+      "@softure-ai/source": "./src/cli/index.ts",
+      "types": "./dist/cli/index.d.ts",
+      "default": "./dist/cli/index.js"
+    },
+    "./next": {
+      "@softure-ai/source": "./src/next/index.ts",
+      "types": "./dist/next/index.d.ts",
+      "default": "./dist/next/index.js"
+    },
+    "./ui": {
+      "@softure-ai/source": "./src/ui/index.ts",
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@softure-ai/core": "^0.2.7",
+    "@softure-ai/db": "^0.1.14",
+    "@softure-ai/jobs": "^0.1.6",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@softure-ai/mailing": "^0.2.5",
+    "@softure-ai/ui": "^0.3.5",
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.0.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@softure-ai/mailing": "^0.2.5",
+    "@softure-ai/ui": "^0.3.5"
+  },
+  "peerDependenciesMeta": {
+    "@softure-ai/mailing": {
+      "optional": true
+    },
+    "@softure-ai/ui": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  }
+}

@@ -25,7 +25,7 @@ export interface EntitlementStatusScriptArgs {
 /** Where an account stands, as the status script reports it. */
 export interface EntitlementStatusReport {
   readonly userId: string;
-  readonly state: "trial" | "paid" | "lifetime" | "read_only";
+  readonly state: "trial" | "paid" | "lifetime" | "free" | "read_only";
   /** The trial's last day, `YYYY-MM-DD` in the app's time zone. */
   readonly trialLastDay: string;
   /** The last day of dated paid access, `YYYY-MM-DD` in the app's time zone; null when none was ever bought. */

@@ -74,6 +74,19 @@ describe("setTestEntitlementState", () => {
     expect(await getEntitlement(test.ctx, adaId)).toEqual({ status: "read_only", since: new Date(NOW.getTime() - 3 * DAY_MS), reason: "paid_ended" });
   });
 
+  it("puts the account on the free tier after its trial or its paid access, under a config with one", async () => {
+    const free = await createTestBilling({ free: { limits: { "ai-calls": 5 } } });
+    try {
+      const id = await createAccount(free, "eve@example.com");
+      await setTestEntitlementState(free.ctx, { userId: id, state: { status: "free" } });
+      expect(await getEntitlement(free.ctx, id)).toEqual({ status: "free", since: new Date(NOW.getTime() - DAY_MS), reason: "trial_ended" });
+      await setTestEntitlementState(free.ctx, { userId: id, state: { status: "free", reason: "paid_ended", days: 2 } });
+      expect(await getEntitlement(free.ctx, id)).toEqual({ status: "free", since: new Date(NOW.getTime() - 2 * DAY_MS), reason: "paid_ended" });
+    } finally {
+      await free.database.close();
+    }
+  });
+
   it("counts from the given instant with a bare database", async () => {
     const later = new Date(NOW.getTime() + 40 * DAY_MS);
     await setTestEntitlementState(test.database.db, { userId: adaId, state: { status: "trial", days: 1 }, now: later });

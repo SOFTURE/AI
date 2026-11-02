@@ -4,7 +4,7 @@
 // adopted. Every row keeps working: a legacy token, a connected app and its legacy refresh token.
 import { readFileSync } from "node:fs";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
-import { adoptModule, createPgliteHandle, describeProblem } from "@softure-ai/db";
+import { adoptModule, createPgliteHandle, describeProblem, migrate } from "@softure-ai/db";
 import { findOAuthClient, hashAccessToken, refreshMcpGrant, verifyAccessToken } from "@softure-ai/mcp-access/server";
 import { createTestClock } from "@softure-ai/core";
 import { afterEach, describe, expect, it } from "vitest";
@@ -124,6 +124,9 @@ describe("adopting an app's own MCP token and OAuth tables", () => {
       [1, "create_access_tokens"],
       [2, "create_oauth_grants"],
     ]);
+    // The app's next deploy applies the module's later files (0003 onwards) as usual.
+    const later = await migrate(handle, { modules: config.modules });
+    expect(later.ok ? null : later.problems.map(describeProblem)).toBeNull();
     const clock = createTestClock(new Date(NOW.getTime() + DAY_MS));
     const ctx = { db: seeded.db, clock, config };
     expect(await verifyAccessToken(ctx, LEGACY_ISSUED_VALUE)).toMatchObject({ userId, canWrite: true, grantId: null });

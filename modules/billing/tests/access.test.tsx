@@ -22,6 +22,7 @@ const PAID_ENDING: Entitlement = { status: "paid", endsAt: PAID_END, daysLeft: 7
 const LIFETIME: Entitlement = { status: "paid", endsAt: null, daysLeft: null, isEnding: false };
 const TRIAL_ENDED: Entitlement = { status: "read_only", since: TRIAL_END, reason: "trial_ended" };
 const PAID_ENDED: Entitlement = { status: "read_only", since: PAID_END, reason: "paid_ended" };
+const FREE: Entitlement = { status: "free", since: TRIAL_END, reason: "trial_ended" };
 
 function renderBadge(entitlement: Entitlement, locale = "en", messages: BillingMessages = en) {
   return render(<AccessBadge entitlement={entitlement} messages={messages} locale={locale} timezone={TIMEZONE} />);
@@ -38,6 +39,7 @@ describe("AccessBadge", () => {
     ["paid access, its last day in Warsaw", PAID, "Paiduntil November 30, 2026", "paid"],
     ["lifetime access", LIFETIME, "Lifetime access", "paid"],
     ["a read-only account", TRIAL_ENDED, "Read-only", "read_only"],
+    ["the free tier", FREE, "Free", "free"],
   ] as const)("reads %s", (_case, entitlement, text, status) => {
     const { container } = renderBadge(entitlement);
     const root = container.firstElementChild;
@@ -121,6 +123,7 @@ describe("AccessBadge options", () => {
     [PAID_ENDING, "paid-ending"],
     [LIFETIME, "lifetime"],
     [TRIAL_ENDED, "read-only"],
+    [FREE, "free"],
     [LONG_TRIAL, "unlimited"],
   ] as const)("names the kind of %o as %s", (entitlement, kind) => {
     expect(getAccessBadgeKind(entitlement, { unlimitedAfterDays: 1826 })).toBe(kind);
@@ -199,6 +202,7 @@ describe("AccessBadge texts, short form, prefix and tone (#426)", () => {
     [PAID_ENDING, "paid-ending", "warning"],
     [LIFETIME, "lifetime", "success"],
     [PAID_ENDED, "read-only", "danger"],
+    [FREE, "free", "neutral"],
   ] as const)("sets data-kind and data-tone on the root of %o", (entitlement, kind, tone) => {
     const root = renderBadge(entitlement).container.firstElementChild;
     expect(root?.getAttribute("data-kind")).toBe(kind);
@@ -234,10 +238,29 @@ describe("AccessNotice", () => {
     ["ending paid access", PAID_ENDING, "Your access ends on November 30, 2026. Renew it to keep writing after that.", en.notice.renew],
     ["an ended trial", TRIAL_ENDED, en.notice.trialEnded, en.notice.choosePlan],
     ["ended paid access", PAID_ENDED, en.notice.paidEnded, en.notice.renew],
+    ["the free tier", FREE, "You are on the free plan. Choose a plan for higher limits.", en.notice.choosePlan],
+    [
+      "an ending trial that falls back to the free tier",
+      { ...TRIAL_ENDING, afterEnd: "free" },
+      "Your trial ends on October 16, 2026. You keep the free plan after that; choose a plan for higher limits.",
+      en.notice.choosePlan,
+    ],
+    [
+      "ending paid access that falls back to the free tier",
+      { ...PAID_ENDING, afterEnd: "free" },
+      "Your access ends on November 30, 2026. You keep the free plan after that; renew it to keep your plan's limits.",
+      en.notice.renew,
+    ],
   ] as const)("tells about %s and links to the payment page", (_case, entitlement, text, action) => {
     renderNotice(entitlement);
     expect(screen.getByRole("status").textContent).toBe(`${text}${action}`);
     expect(screen.getByRole("link", { name: action }).getAttribute("href")).toBe("/payment");
+  });
+
+  it("frames the free tier's notice as neutral, not as a lost access", () => {
+    renderNotice(FREE);
+    expect(screen.getByRole("status").className).toContain("sft:border-border-strong");
+    expect(screen.getByRole("status").getAttribute("data-status")).toBe("free");
   });
 
   it("frames an ending and an ended notice in the app's tones", () => {
