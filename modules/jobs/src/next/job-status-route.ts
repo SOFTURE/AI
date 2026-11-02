@@ -1,5 +1,5 @@
 // The status route of a job its owner follows, mounted with one line in `app/api/jobs/[id]/route.ts`:
-// `export const { GET, DELETE } = createJobStatusRoute({ getOwnerId: async () => (await getSession())?.userId ?? null });`
+// `export const { GET, DELETE } = createJobStatusRoute({ getOwnerId: async () => (await getCurrentUser())?.id ?? null });`
 // The session check is the app's (jobs does not depend on auth); the owner check is the module's. `GET` answers the
 // job's `OwnJobStatus`, `DELETE` asks it to stop when `allowCancel` is on. Every answer is `no-store`: a cached status
 // would freeze the waiting screen.

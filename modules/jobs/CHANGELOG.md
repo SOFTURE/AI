@@ -6,6 +6,22 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- A signed-in user follows their own job (#958). `enqueueJob({ ownerId })` stores the user on the job;
+  `getOwnJob(ctx, { id, ownerId })` and `requestOwnJobCancel(ctx, { id, ownerId })` in `/server` answer only that
+  owner (`jobs.not_found` for anyone else) with an `OwnJob`: status, progress, `resultRef`, `failureCode` (a code,
+  never an error's text), cancel request and times, never the payload; `toOwnJobStatus` gives its JSON form
+  (`OwnJobStatus`). A handler returns `ok({ resultRef })` to keep an identifier of its result on the succeeded job
+  (an invalid one is dropped with a warning). `createJobStatusRoute({ getOwnerId, allowCancel?, getContext? })` in
+  `/next` gives `GET` (status) and `DELETE` (cancel, off by default) for `app/api/jobs/[id]/route.ts`, `no-store`,
+  codes only (`JOB_STATUS_ROUTE_ERRORS`). The new entry `@softure-ai/jobs/react` has `useJobStatus(id, { url?,
+  intervalMs?, maxIntervalMs?, stopOn? })`: polling with backoff that stops when the job ends, pauses in a hidden tab
+  and resumes on `online`. New option `retention.ownedDays` (default 1): an owned job stays readable that long after
+  it ends, whatever its status retention. `Job` gains `ownerId` and `resultRef`.
+  - Migrate: run `migrations/0008_add_owner_and_result_ref.sql` with the app's other migrations (adds
+    `jobs.jobs.owner_id`, `result_ref` and the index `jobs_owner_idx`). An app that kept its own owner column, status
+    route and polling hook for a waiting screen can drop them: enqueue with `ownerId`, mount the route, use the hook.
+    Code that compares a whole `Job` or the parsed `retention` exactly adds the new fields.
+
 - Progress from a running handler and cancelling a running job (#951). A handler calls
   `context.reportProgress({ step, done?, total?, code? })`: a code-only progress, checked like the run summary
   (`jobProgressSchema`, `JobProgress`), written at most once a second per job and fenced by the claim; `Job` gains
