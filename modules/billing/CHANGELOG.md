@@ -4,6 +4,44 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- **A free tier without an end (freemium)** (#962): `billing({ free: { limits } })`. An account without paid access is
+  in a new state `free` once its trial ends (at once with `trial.days: 0`): it keeps write access (`requireWriteAccess`
+  and `checkWriteAccess` pass) and is held only by `free.limits`. `Entitlement` gains `{ status: "free", since, reason
+  }`, `ENTITLEMENT_STATUSES` and `EntitlementStatus` gain `free`, and with a free tier the `trial` and `paid` states
+  carry `afterEnd: "free"` (type `AccessFallback`). Without `free` nothing changes: the same states, objects, copy and
+  SQL answers as before. With `free` declared no account reaches read-only (billing has no operator restriction).
+- **A spent quota names the plans that raise it** (#962): `consumeUsage`'s `billing.quota_exhausted` result carries
+  `upgradePlanIds`, the declared plans whose limit for the meter is higher than the account's now, in the config's
+  order (empty when none); `findUpgradePlanIds(options, meter, limit)` from the root entry is the same rule. Additive.
+- **The UI, reminders and scripts know `free`** (#962): `AccessBadge` kind `free` ("Free", neutral tone),
+  `AccessNotice` a neutral free-plan notice with the plan link, and the ending notices and reminder mails of an account
+  that falls back to the free tier say it keeps the free plan (copy `notice.trialEndingFree`, `notice.paidEndingFree`,
+  `notice.free`, `reminderMail.{trialEnding,paidEnding,trialEnded,paidEnded}Free`, `badge.free`). `AccessReminder` and
+  `AccessReminderDue` carry `afterEnd: "free"`; `renderAccessReminderMail` takes `afterEnd`. `entitlement-status`
+  reports state `free`, `import-entitlements` counts `free` in its summary, and `setTestEntitlementState` takes
+  `{ status: "free", reason?, days? }`.
+- **Migration `0013`**: `billing.entitlement_states` and `billing.entitlement_state` take a last parameter
+  `has_free_tier boolean DEFAULT false` and append the columns `free_since` and `free_reason`; status `free` only when
+  it is true. A call written for `0012` answers as before; `getEntitlementStatesSql(ctx)` passes the config's free
+  tier. The migration drops and re-creates both functions, so a view of the app over them must be dropped before
+  migrating and re-created after.
+
+  Breaking only for TypeScript that switches over every status: an exhaustive `switch (entitlement.status)` (or over
+  `AccessBadgeKind`) needs a `free` case, which only occurs when the app declares `free`.
+
+  Migration for an app that emulates freemium with `readOnly.limits` and unguarded routes:
+  1. Move the free limits from `readOnly.limits` to `free: { limits }` and remove `readOnly.limits` (no account reaches
+     read-only any more).
+  2. Put `requireWriteAccess` back on the routes it skipped: a free account passes it.
+  3. Drop the app's own badge, notice and reminder texts that worked around "read-only" for free accounts; the
+     package's copy now says "Free" and "you keep the free plan". Override `messages` if the wording should differ.
+  4. Where the app shows an upgrade prompt after `billing.quota_exhausted`, read `upgradePlanIds` instead of comparing
+     plan limits itself.
+  5. App SQL that counts `status = 'read_only'` accounts as free users: read `status = 'free'` from
+     `getEntitlementStatesSql(ctx)` (which passes the free tier), or pass `true` as the fifth argument in plain SQL.
+
 ## 0.10.0
 
 - **A hook on access changes** (#696): `billing({ onAccessChanged(event, ctx) })` is called after a grant, a refund (or
