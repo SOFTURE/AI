@@ -1,8 +1,8 @@
-// Reading and steering jobs: look one up, list the recent ones, cancel one that has not started, run a failed one
-// again.
+// Reading and steering jobs: look one up, list the recent ones, cancel one that has not started or ask a running one
+// to stop, run a failed one again.
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { isConstraintViolation } from "@softure-ai/db";
-import { and, desc, eq, inArray, isNotNull, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import type { Job, JobStatus } from "../contract.js";
 import { jobs } from "../schema.js";
 import type { JobsContext } from "./context.js";
@@ -56,7 +56,10 @@ export async function listRecentJobs(ctx: JobsContext, input: ListRecentJobsInpu
   return rows.map(toJob);
 }
 
-/** Cancels a pending job (also one waiting for a retry). A running job cannot be cancelled: its handler has the work. */
+/**
+ * Cancels a pending job (also one waiting for a retry). A running job cannot be cancelled here: its handler has the
+ * work; `requestJobCancel` asks it to stop.
+ */
 export async function cancelJob(ctx: JobsContext, id: string): Promise<CancelJobResult> {
   const jobId = parseJobId(id);
   if (jobId === null) return err("jobs.not_found");
@@ -71,6 +74,31 @@ export async function cancelJob(ctx: JobsContext, id: string): Promise<CancelJob
 }
 
 /**
+ * Cancels a pending job like `cancelJob`, or asks a running one to stop: `cancel_requested_at` is set (a repeated
+ * request keeps the first time) and the job is returned still `running`. Its worker sees the request on the next
+ * heartbeat (or progress write), aborts the handler's `signal` with a `JobCancelledError`, and the job ends `cancelled`
+ * once the handler returns, not retried. A job that finishes before its worker sees the request keeps its outcome,
+ * unless that outcome is a retry. `jobs.not_cancellable` for a finished job.
+ */
+export async function requestJobCancel(ctx: JobsContext, id: string): Promise<CancelJobResult> {
+  const cancelled = await cancelJob(ctx, id);
+  if (cancelled.ok || cancelled.error === "jobs.not_found") return cancelled;
+  const jobId = parseJobId(id);
+  if (jobId === null) return err("jobs.not_found");
+  const now = ctx.clock.now();
+  const [row] = await ctx.db
+    .update(jobs)
+    .set({ cancelRequestedAt: sql`coalesce(${jobs.cancelRequestedAt}, ${now.toISOString()}::timestamptz)` })
+    .where(and(eq(jobs.id, jobId), eq(jobs.status, "running")))
+    .returning();
+  if (row !== undefined) return ok(toJob(row));
+  // The job left `running` between the two statements: pending again (a retry) is cancelled now.
+  const job = await getJob(ctx, id);
+  if (job?.status === "pending") return cancelJob(ctx, id);
+  return job === null ? err("jobs.not_found") : err("jobs.not_cancellable");
+}
+
+/**
  * Runs a failed or cancelled job again from scratch: pending, due now, attempts back to 0. Refused with
  * `jobs.dedup_key_taken` while another live job of its queue has the same dedup key.
  */
@@ -81,7 +109,7 @@ export async function retryJob(ctx: JobsContext, id: string): Promise<RetryJobRe
   try {
     const [row] = await ctx.db
       .update(jobs)
-      .set({ status: "pending", attempts: 0, runAt: now, finishedAt: null, updatedAt: now })
+      .set({ status: "pending", attempts: 0, runAt: now, finishedAt: null, progress: null, progressAt: null, cancelRequestedAt: null, updatedAt: now })
       .where(and(eq(jobs.id, jobId), inArray(jobs.status, ["failed", "cancelled"])))
       .returning();
     if (row !== undefined) return ok(toJob(row));

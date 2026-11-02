@@ -43,6 +43,10 @@ jobs:
       health-path: {{healthPath}}
       environment: production
       deploy: false
+{{#workerImage}}
+      # The worker's own image ({{workerImageName}}, the same tag), built and pushed next to the app's.
+      worker-dockerfile: {{workerDockerfile}}
+{{/workerImage}}
       # Public values baked into the image, one NAME=value per line. A name .env.prod also holds must carry the same
       # value there, or the release stops before it reaches the server:
       # build-args: |

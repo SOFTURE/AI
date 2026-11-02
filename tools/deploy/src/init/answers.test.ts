@@ -21,6 +21,19 @@ describe("parseInitAnswers", () => {
     expect(parseInitAnswers(answers)).toEqual({ ok: true, answers });
   });
 
+  it("takes a worker Dockerfile, a data volume and worker limits in narrow forms (issue #948)", () => {
+    const answers = { ...VALID, workerDockerfile: "docker/worker.Dockerfile", dataVolume: "/app/data", workerCpus: "0.5", workerMemory: "2g", workerTmpfs: "512m" };
+    expect(parseInitAnswers(answers)).toEqual({ ok: true, answers });
+    for (const workerDockerfile of ["../worker.Dockerfile", "docker/../x", "/abs/Dockerfile", "a b"]) {
+      expect(parseInitAnswers({ ...VALID, workerDockerfile }).ok, workerDockerfile).toBe(false);
+    }
+    for (const dataVolume of ["/", "app/data", "/app", "/tmp/files", "/var/lib/x", "/app/../etc", "/app/data/", "/a b"]) {
+      expect(parseInitAnswers({ ...VALID, dataVolume }).ok, dataVolume).toBe(false);
+    }
+    for (const workerCpus of ["0", "0.0", "-1", "1.234", "two"]) expect(parseInitAnswers({ ...VALID, workerCpus }).ok, workerCpus).toBe(false);
+    for (const workerMemory of ["0m", "2G", "2gb", "512", "1.5g"]) expect(parseInitAnswers({ ...VALID, workerMemory }).ok, workerMemory).toBe(false);
+  });
+
   it("takes cloudflare as the only cdn", () => {
     expect(parseInitAnswers({ ...VALID, cdn: "cloudflare" })).toEqual({ ok: true, answers: { ...VALID, cdn: "cloudflare" } });
     expect(parseInitAnswers({ ...VALID, cdn: "fastly" })).toEqual({ ok: false, problems: ["cdn: cloudflare, the only CDN init knows"] });

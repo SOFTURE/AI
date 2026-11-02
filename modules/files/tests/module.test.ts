@@ -26,6 +26,7 @@ describe("the files module", () => {
       dedupe: false,
       defaultTtlSeconds: null,
       links: { maxTtlSeconds: 7 * 24 * 60 * 60, disposition: "attachment" },
+      uploads: { chunkBytes: 64 * 1024 * 1024, ttlSeconds: 24 * 60 * 60, maxOpenPerOwner: 5, contentTypes: null },
       health: { minFreeBytes: 1024 * 1024 * 1024 },
     });
   });
@@ -34,6 +35,8 @@ describe("the files module", () => {
     expect(() => files()).toThrow(/storage/);
     expect(() => files({ storage: { kind: "fake", put: () => undefined } as never })).toThrow(/storage driver/);
     expect(() => files({ storage: createMemoryStorage(), maxFileBytes: 0 })).toThrow(/maxFileBytes/);
+    expect(() => files({ storage: createMemoryStorage(), uploads: { contentTypes: ["video"] } })).toThrow(/contentTypes/);
+    expect(() => files({ storage: createMemoryStorage(), uploads: { chunkBytes: 100 } })).toThrow(/chunkBytes/);
   });
 
   it("translates every code and falls back to the generic message", () => {

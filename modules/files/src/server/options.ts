@@ -26,6 +26,14 @@ export function getLinksRoute(config: SoftureConfig): string {
   return trimTrailingSlashes(links);
 }
 
+/** The path prefix of upload URLs after the app's override (`files({ routes: { uploads } })`), without a trailing slash. */
+export function getUploadsRoute(config: SoftureConfig): string {
+  const { uploads } = getFilesModule(config).routes;
+  // The manifest declares it, so a missing one means a broken module definition.
+  if (uploads === undefined) throw new Error("@softure-ai/files: the uploads route is missing from the module manifest");
+  return trimTrailingSlashes(uploads);
+}
+
 /** The path without trailing slashes; a loop, not `/\/+$/`, which backtracks quadratically on a run of slashes. */
 function trimTrailingSlashes(path: string): string {
   let end = path.length;

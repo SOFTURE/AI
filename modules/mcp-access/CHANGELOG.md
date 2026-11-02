@@ -6,6 +6,17 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Confirmed tool calls (#953): `withConfirmation(handler, { ctx, identity, tool, estimate, ttlSeconds?,
+  runWithoutConfirmationWhen?, secret? })` (`/server`) makes a priced or irreversible tool estimate first and answer
+  `{ needsConfirmation: true, estimate, confirmation, expiresAt, message }`; the second call with the same arguments
+  and the token does the work. The token is an HMAC bound to the tool, the canonical arguments, the account and access
+  token, the estimate's total and the expiry, single use (stored by hash in the new `mcp.used_confirmations`), and a
+  mismatch is refused as `input.confirmation_invalid`, `_other_tool`, `_other_account`, `_expired`,
+  `_arguments_changed`, `_estimate_changed` or `_used`. `confirmationInput` is the schema field. `ToolCallRecord`
+  gains `confirmed: boolean | null` (`null` for other tools), and `pruneMcpAccess` counts `usedConfirmations`.
+  Migrate: run `softure migrate` (file 4). To confirm a tool, set `MCP_CONFIRMATION_SECRET` (32+ characters), add
+  `confirmation: confirmationInput` to its input schema and wrap its callback; drop an app-level `confirm: true`
+  boolean the assistant could set itself. A test that builds a `ToolCallRecord` by hand adds `confirmed: null`.
 - Strict tool input lists a required nullable scalar as required (#919): a `z.number().nullable()` or
   `z.boolean().nullable()` field that the parse requires is in `required` of the listed schema again, and a scalar
   field's `default` (or `prefault`) is listed. The parse rules are unchanged. Migrate: an app that copied the inner

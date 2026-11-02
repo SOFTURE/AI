@@ -15,6 +15,7 @@
  * - Dialog entrances, for the `Modal` / `StandingPanel` look maps: `veil-enter` (the veil's colour from transparent),
  *   `dialog-enter` (a bottom sheet rising on a phone, a fade up 0.75rem from 40rem) and `side-panel-enter` (from the
  *   right). No scale (it would change measured control heights) and no exit animation.
+ * - `prompt-enter`: a floating prompt (ui's `UpdatePrompt`, `InstallBar`) fades up 0.75rem into place.
  */
 :root,
 .light,
@@ -136,6 +137,10 @@
 
 .side-panel-enter {
   animation: flat-paint-side-in var(--duration-slow) var(--ease-out-soft) backwards;
+}
+
+.prompt-enter {
+  animation: flat-paint-rise-in var(--duration-base) var(--ease-out-soft) backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -30,6 +30,11 @@ export interface RunDueJobsReport {
   readonly succeeded: number;
   readonly retried: number;
   readonly failed: number;
+  /**
+   * Attempts an operator cancelled while they ran (`requestJobCancel`). Present only when there was one, so a report
+   * of a run without cancels keeps its earlier shape.
+   */
+  readonly cancelled?: number;
   /** Attempts whose outcome another claim had already replaced. */
   readonly stale: number;
 }
@@ -41,7 +46,7 @@ export interface RunDueJobsReport {
 export async function runDueJobs(ctx: JobsContext, options: RunDueJobsOptions): Promise<RunDueJobsReport> {
   const queues = checkHandlers(getJobsOptions(ctx.config), options.handlers, options.queues);
   await enqueueDueSchedules(ctx, { queues });
-  const report = { succeeded: 0, retried: 0, failed: 0, stale: 0 };
+  const report: { succeeded: number; retried: number; failed: number; cancelled?: number; stale: number } = { succeeded: 0, retried: 0, failed: 0, stale: 0 };
   const maxJobs = options.maxJobs ?? DEFAULT_MAX_JOBS;
   const logger = options.logger ?? consoleJobsLogger;
   const runOptions = {
@@ -60,7 +65,7 @@ export async function runDueJobs(ctx: JobsContext, options: RunDueJobsOptions): 
       hasClaimed = true;
       attempts += 1;
       const outcome = await runClaimedJob(ctx, claimed, runOptions);
-      report[outcome.kind] += 1;
+      report[outcome.kind] = (report[outcome.kind] ?? 0) + 1;
       if (attempts >= maxJobs) break;
     }
   }

@@ -284,3 +284,66 @@ describe("checkSharedHostCompose with ingress tunnel (issue #905)", () => {
     expect(checkSharedHostCompose(compose, { ...OPTIONS, ingress: "edge" })).toEqual(checkSharedHostCompose(compose, OPTIONS));
   });
 });
+
+describe("checkSharedHostCompose with a data volume (issue #948)", () => {
+  const DATA = { ...OPTIONS, dataVolume: { mountPath: "/app/data" } };
+
+  function composeOf(services: Record<string, readonly string[]>, volumes = ["app-data"]): string {
+    const lines = ["services:"];
+    for (const [name, mounts] of Object.entries(services)) {
+      lines.push(`  ${name}:`, `    image: ghcr.io/acme/${name}:v1`);
+      if (mounts.length > 0) lines.push("    volumes:", ...mounts.map((mount) => `      - ${mount}`));
+    }
+    lines.push("networks:", "  edge:", "    name: proxy", "    external: true");
+    if (volumes.length > 0) lines.push("volumes:", ...volumes.map((volume) => `  ${volume}:`));
+    return `${lines.join("\n")}\n`;
+  }
+
+  it("passes the compose file init --edge --data-volume writes", () => {
+    const files = planInitFiles({
+      answers: { domain: "acme.example", image: "ghcr.io/acme/app", name: "acme", paths: ["/"], www: false, env: [], tables: [], edge: "proxy", dataVolume: "/app/data" },
+      facts: { packageName: "acme", hasDatabase: false, hasHealthRoute: true, hasPublicDir: false, nextConfigFile: "next.config.ts", isStandalone: true },
+      cliVersion: "9.9.9",
+    });
+    const compose = files.find((file) => file.path === "docker/prod/docker-compose.yml")?.text ?? "";
+    expect(checkSharedHostCompose(compose, DATA)).toEqual([]);
+  });
+
+  it("passes the app and the worker on one named volume, short or long syntax", () => {
+    expect(checkSharedHostCompose(composeOf({ app: ["app-data:/app/data"], worker: ["app-data:/app/data/"] }), DATA)).toEqual([]);
+    const long = composeOf({ app: ["app-data:/app/data"], worker: ["{ type: volume, source: app-data, target: /app/data }"] });
+    expect(checkSharedHostCompose(long, DATA)).toEqual([]);
+  });
+
+  it("names a service that mounts nothing there, or only an anonymous volume", () => {
+    expect(checkSharedHostCompose(composeOf({ app: [], worker: ["/app/data"] }), DATA)).toEqual([
+      { rule: "data-volume-missing", service: "app", message: "mounts no named volume at /app/data" },
+      { rule: "data-volume-missing", service: "worker", message: "mounts no named volume at /app/data" },
+    ]);
+    expect(checkSharedHostCompose(composeOf({ web: ["app-data:/app/data"] }), DATA)).toEqual([
+      { rule: "data-volume-missing", service: null, message: "no app service mounts the data volume at /app/data" },
+    ]);
+  });
+
+  it("refuses a host folder at the mount path, a relative one or an undeclared name included", () => {
+    const compose = composeOf({ app: ["./data:/app/data"], worker: ["/srv/acme:/app/data"] }, []);
+    expect(checkSharedHostCompose(compose, DATA)).toEqual([
+      { rule: "data-volume-bind", service: "app", message: "mounts the host folder ./data at /app/data instead of a named volume" },
+      { rule: "data-volume-bind", service: "worker", message: "mounts the host folder /srv/acme at /app/data instead of a named volume" },
+    ]);
+  });
+
+  it("refuses the app and the worker on different volumes", () => {
+    const compose = composeOf({ app: ["app-data:/app/data"], worker: ["worker-data:/app/data"] }, ["app-data", "worker-data"]);
+    expect(checkSharedHostCompose(compose, DATA)).toEqual([
+      { rule: "data-volume-split", service: null, message: "the app and the worker mount different volumes at /app/data (app app-data, worker worker-data)" },
+    ]);
+  });
+
+  it("checks nothing about volumes without the option, and refuses a relative mount path", () => {
+    expect(checkSharedHostCompose(composeOf({ app: ["./data:/app/data"] }), OPTIONS)).toEqual([]);
+    expect(() => checkSharedHostCompose(composeOf({ app: [] }), { ...OPTIONS, dataVolume: { mountPath: "data" } })).toThrow(
+      'checkSharedHostCompose: data volume mount path "data" does not start with /',
+    );
+  });
+});
