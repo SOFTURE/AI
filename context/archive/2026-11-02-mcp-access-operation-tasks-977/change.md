@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-operation-tasks-977
 title: "mcp-access: long operations answered as MCP Tasks when the client declares the extension (issue #977)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 977
 branch: claude/project-thread-gepwjl
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent

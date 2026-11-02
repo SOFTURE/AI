@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-operation-tasks-977
-status: in_progress
+status: archived
 ---
 
 # Plan: long operations as MCP Tasks (issue #977)
@@ -41,4 +41,4 @@ Files: `modules/mcp-access/README.md`, `modules/mcp-access/CHANGELOG.md`.
 ## Progress
 
 - [x] Phase 1: task store and handlers (4ea0e21, mcp-access tests incl. 16 new)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (a58f8bc)
