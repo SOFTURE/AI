@@ -7,7 +7,7 @@
 import { drawAppIcon, type AppIconGlyph, type AppIconTone } from "@softure-ai/theme-kit/next";
 import type { ThemeDefinition } from "@softure-ai/theme-kit";
 
-import { findPwaIcon, PWA_ICONS } from "../icons.js";
+import { findPwaIcon, PWA_ICONS, type PwaIconShape } from "../icons.js";
 import { buildManifest, type ManifestOptions } from "../manifest.js";
 import { buildServiceWorkerSource, resolveServiceWorkerConfig, type ServiceWorkerOptions } from "../worker/source.js";
 import { DEV_BUILD_VERSION, getBuildVersion } from "./build-version.js";
@@ -29,6 +29,17 @@ export interface IconRouteOptions {
   readonly tone?: AppIconTone;
   /** The stroke width of an icon given as data: lucide's 2 by default. */
   readonly strokeWidth?: number;
+  /**
+   * The glyph's side as a share of the icon's side, the kit's scale by default (0.625, 0.5 for `maskable`). A number
+   * applies to the `rounded` and `square` icons, and the maskable one keeps the safe zone; a record sets it per shape.
+   */
+  readonly glyphScale?: number | Partial<Readonly<Record<PwaIconShape, number>>>;
+}
+
+/** The glyph scale for one shape, or `undefined` for the kit's default. */
+function getGlyphScale(glyphScale: IconRouteOptions["glyphScale"], shape: PwaIconShape): number | undefined {
+  if (typeof glyphScale === "number") return shape === "maskable" ? undefined : glyphScale;
+  return glyphScale?.[shape];
 }
 
 export interface IconRouteContext {
@@ -42,13 +53,13 @@ export interface IconRoute {
   readonly generateStaticParams: () => { name: string }[];
 }
 
-export function createIconRoute({ theme, icon, tone, strokeWidth }: IconRouteOptions): IconRoute {
+export function createIconRoute({ theme, icon, tone, strokeWidth, glyphScale }: IconRouteOptions): IconRoute {
   return {
     async GET(_request, { params }) {
       const entry = findPwaIcon((await params).name);
       if (entry === null) return new Response(null, { status: 404 });
       const size = { width: entry.size, height: entry.size };
-      return drawAppIcon({ theme, icon, tone, strokeWidth, size, shape: entry.shape });
+      return drawAppIcon({ theme, icon, tone, strokeWidth, size, shape: entry.shape, glyphScale: getGlyphScale(glyphScale, entry.shape) });
     },
     generateStaticParams: () => PWA_ICONS.map((entry) => ({ name: entry.name })),
   };

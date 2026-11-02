@@ -12,6 +12,9 @@ export interface ManifestCopy {
 
 export type ManifestDisplay = "standalone" | "fullscreen" | "minimal-ui" | "browser";
 
+/** The base direction of the manifest's text fields. */
+export type ManifestDirection = "ltr" | "rtl" | "auto";
+
 export interface ManifestOptions {
   /** Any theme that meets the contract (`theme` from `@softure-ai/theme-<name>`). */
   readonly theme: Pick<ThemeDefinition, "name" | "colors">;
@@ -20,6 +23,13 @@ export interface ManifestOptions {
   readonly lang: string;
   /** `/` by default. */
   readonly startUrl?: string;
+  /**
+   * The installed app's identity: `startUrl` by default. A changed `id` is a new app to the launcher, so an app whose
+   * installed copy was created with another `id` (e.g. `/` while `start_url` is now `/mobile`) keeps that one here.
+   */
+  readonly id?: string;
+  /** The text direction of the name and description; left out of the manifest by default. */
+  readonly dir?: ManifestDirection;
   /** `/` by default. */
   readonly scope?: string;
   /** `standalone` by default. */
@@ -44,6 +54,7 @@ export interface WebAppManifest {
   readonly short_name: string;
   readonly description: string;
   readonly lang: string;
+  readonly dir?: ManifestDirection;
   readonly start_url: string;
   readonly scope: string;
   readonly display: ManifestDisplay;
@@ -61,17 +72,20 @@ export function buildManifest({
   copy,
   lang,
   startUrl = "/",
+  id = startUrl,
+  dir,
   scope = "/",
   display = "standalone",
   backgroundRole = "background",
   themeRole = "background",
 }: ManifestOptions): WebAppManifest {
   return {
-    id: startUrl,
+    id,
     name: copy.name,
     short_name: copy.shortName,
     description: copy.description,
     lang,
+    ...(dir === undefined ? {} : { dir }),
     start_url: startUrl,
     scope,
     display,
