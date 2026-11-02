@@ -31,8 +31,12 @@ export type SyncItemCompletion =
   | { readonly status: "done"; readonly resultRef?: string }
   | { readonly status: "skipped"; readonly reason?: ErrorCode };
 
-/** A callback's failure: tried again on the next run unless `retry` is false or the attempts are used up. */
-export type SyncItemFailure = Err<ErrorCode> & { readonly retry?: boolean };
+/**
+ * A callback's failure. `retry` omitted or `true`: the attempt counts and the next run tries again until the attempts
+ * are used up; `false`: the item is `failed` at once; `"wait"`: the cause is outside the item (a connection that needs
+ * a reconnect), so the attempt does not count and the item stays `pending` with this code until a run passes.
+ */
+export type SyncItemFailure = Err<ErrorCode> & { readonly retry?: boolean | "wait" };
 
 /** What a `processSyncItem` callback returns. */
 export type SyncItemRunResult = Ok<SyncItemCompletion | undefined> | SyncItemFailure;
@@ -43,6 +47,8 @@ export type SyncItemOutcome =
   | { readonly kind: "handled"; readonly item: SyncItem }
   /** The callback failed; the item stays `pending` and the next run tries it again. */
   | { readonly kind: "retrying"; readonly error: string; readonly item: SyncItem }
+  /** The callback failed with `waitSyncItem`: the item stays `pending`, its attempts unchanged, with the code set. */
+  | { readonly kind: "waiting"; readonly error: string; readonly item: SyncItem }
   /** The callback failed for good (attempts used up, or `failSyncItem`); the item is `failed`. */
   | { readonly kind: "failed"; readonly error: string; readonly item: SyncItem }
   /** The callback did not run: the item was already `done`, `skipped` or `failed` (see `item.status`). */
@@ -56,4 +62,14 @@ export function skipSyncItem(reason?: ErrorCode): Ok<SyncItemCompletion> {
 /** A failure that is not retried: the item is `failed` at once with this code. */
 export function failSyncItem<E extends ErrorCode>(error: E): SyncItemFailure {
   return { ok: false, error, retry: false };
+}
+
+/**
+ * A failure that waits for something outside the item (an operator reconnecting an account): the callback's writes
+ * roll back, the item stays `pending` with this code and its attempts unchanged, so `maxAttempts` is never reached
+ * through it. The next run that meets the item tries it again; list the waiting items with
+ * `listSyncItems(ctx, { status: "pending", errorCode })`.
+ */
+export function waitSyncItem<E extends ErrorCode>(error: E): SyncItemFailure {
+  return { ok: false, error, retry: "wait" };
 }
