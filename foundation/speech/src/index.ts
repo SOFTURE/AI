@@ -11,3 +11,11 @@ export type {
 } from "./contract.js";
 export { toParagraphs, toSrt, toVtt } from "./subtitles.js";
 export type { ParagraphOptions } from "./subtitles.js";
+export { groqProvider, openAiCompatibleProvider, openAiProvider } from "./providers.js";
+export type {
+  HostedProviderOptions,
+  OpenAiCompatibleProviderOptions,
+  ProviderChunk,
+  ProviderTranscript,
+  SpeechProvider,
+} from "./providers.js";
