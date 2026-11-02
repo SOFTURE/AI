@@ -119,17 +119,19 @@ or a comment throw.
 | Group | Components and helpers |
 | --- | --- |
 | Actions | `Button` (`primary`, `secondary`, `ghost`, `danger`, `ink`, `ink-outline`; `sm`, `md`, `lg`; `pending`, `pendingLabel`), `ButtonLink`, `ButtonAnchor`, `IconButton` (a toggle with `aria-pressed="true"` shows the pressed look: accent fill and an inset ring), `getButtonClass` |
-| Icons | `ArrowLeftIcon` … `ChatIcon`, `ChildIcon`, `LoanIcon`, `EyeIcon` / `EyeOffIcon` for a show / hide toggle (36, decorative, `size` and `className`; `IconProps` for an app's own icon) |
+| Icons | `ArrowLeftIcon` … `ChatIcon`, `ChildIcon`, `LoanIcon`, `EyeIcon` / `EyeOffIcon` for a show / hide toggle, `ShareIcon` and `SquarePlusIcon` for the iOS install steps (38, decorative, `size` and `className`; `IconProps` for an app's own icon) |
 | Surfaces | `Card` (`boxed`, `lead`, `flat`; `step`, `done`, `accent`, `headingLevel`, `headingSize`, `collapsible`), `CardDisclosure`, `CollapsibleSection`, `Stat`, `EmptyState`, `Hint`, `FormError`, `Checklist` (onboarding items), `DeferredRender` (stream a slow part) |
 | Fields | `Field`, `FieldGroup`, `TextField`, `PasswordField`, `MoneyField`, `SuggestedAmountField`, `ColorField` + `normalizeHexColor`, `SelectField`, `CheckboxField` (`required`, `requiredMessage`), `INPUT_CLASS`, `NUMBER_INPUT_CLASS` |
 | Controls | `Select` (ARIA listbox), `Switch`, `SwitchControl`, `Checkbox`, `SegmentedControl`, `SEGMENTED_GROUP_CLASS` + `SEGMENT_ACTIVE_CLASS` / `SEGMENT_IDLE_CLASS` (an app's own segments), `CopyButton` |
 | Navigation | `AppHeaderBar`, `AccountMenu`, `MobileMenu` (the app shell), `Stepper` (multi-step forms), `Tabs` (ARIA tabs, roving focus), `TabPanels` (panels for a tab bar of links), `SegmentedNav` (links drawn as segments, `aria-current`), `getQueryHref`, `QuerySegmentedNav` (in `@softure-ai/ui/next`), `DisclosureMenu` + `useDisclosure` (a panel of links), `ExternalLink`, `ServerExternalLink` |
 | Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`; `motion`), `useModalClose`, `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ConfirmActionButton`, `ActionFormModal`, `ModalTrigger`, `ToastHost` + `announceToast`, `useDismissed` (dismiss a banner for N days) |
+| Progress and app states | `ProgressBar` (`track`, `hairline`; indeterminate without a value), `MiniProgress` (a share with its figure inside), `LaunchScreen`, `TopLoadingBar`, `RouteLoading`, `UpdatePrompt`, `InstallBar` (the screens `@softure-ai/pwa` names) |
 | Forms | `ActionForm` (server action, value replay, field errors, success toast), `ActionResult`, `MessageActionResult` |
 | Locale | `UiLocaleProvider`, `useUiLocale` |
 | Money and decimals | `parseAmount`, `formatAmountInput`, `normalizeAmountInput`, `getAmountErrorMessage`, `parseDecimal`, `formatDecimal`, `normalizeDecimalInput` |
 
 Server-safe (no `"use client"`): `Button`, `ButtonLink`, `ButtonAnchor`, `IconButton`, icons, `Card`, `Stat`,
+`ProgressBar`, `MiniProgress`, `LaunchScreen`, `TopLoadingBar`, `RouteLoading`, `UpdatePrompt`, `InstallBar`,
 `EmptyState`, `FormError`, `Field`, `FieldGroup`, `TabPanels`, `SegmentedNav`, `AppHeaderBar`, `DeferredRender`,
 `getQueryHref`, the class constants. The rest are client components
 (`Card` and `Field` render their hint and collapsing through small client components).
@@ -431,6 +433,39 @@ if (old !== null && !/^\d{4}-\d{2}-\d{2}$/.test(old) && !Number.isNaN(Date.parse
   localStorage.setItem("banner.trial", getDismissalDate(new Date(old)));
 }
 ```
+
+### Progress, loading screens and app prompts
+
+```tsx
+<ProgressBar value={40} label="Upload" />                      {/* 0–100, clamped; no value: a third slides across */}
+<ProgressBar label="Loading" size="hairline" />                 {/* 2 px, square, no track */}
+<MiniProgress value={62} label="6,200" tone="success" aria-label="Saved: Car" />   {/* a share in a table cell */}
+```
+
+`ProgressBar` is a `role="progressbar"` on 0–100 with `data-state` `indeterminate`, `loading` or `complete`; the
+indicator is full width and moves by `translateX`. Without a value a third of the track slides across it; with reduced
+motion it stands still, full and faint. `MiniProgress` (slots `root`, `indicator`, `label`, `labelOnFill`) is a 20 px
+track that carries its figure: the label is drawn in the text colour and again, clipped to the fill, in the fill's
+text colour (`on-accent` on the accent, the page background on `success`, `warning`, `danger`), so it reads at any
+value. A string label is the bar's value text; both drawn copies are hidden from screen readers.
+
+The screens `@softure-ai/pwa` names (its README shows the wiring), with the props of theme-notion's components one to
+one, plus `classNames` and `unstyled`:
+
+- `LaunchScreen` (`root`, `icon`, `name`, `bar`, `indicator`, `percent`): full screen on the background, the app's
+  icon and name, a bar at 0% and the percentage, plus the counter's inline `script`.
+- `TopLoadingBar` (`root`, `bar`, `indicator`): a hairline along the top edge, indeterminate until the counter's first
+  value; it never takes the pointer.
+- `RouteLoading` (`classNames.launchScreen`, `classNames.topLoadingBar`): both, streamed; CSS shows the launch screen
+  below `md` or in an installed app and the top bar in a wide browser tab. That choice stays under `unstyled`; a class
+  of the app's that sets `display` on a screen's root would override it.
+- `UpdatePrompt` and `InstallBar` (`root`, `panel`, `icon`, `title`, `body`, `description`, `action`; the bar adds
+  `steps`, `step`, `close`): a polite status floating at the bottom inside the safe-area insets, the action a
+  `primary` button at least 44 px tall below `md`, the close button a 44 px `IconButton`. The iOS offer shows the
+  Share and Add to Home Screen steps instead of the button.
+
+The counter of `@softure-ai/pwa` drives them through their `data-slot`s (`launch-screen`, `top-loading-bar`,
+`progress`, `progress-indicator`, `launch-screen-percent`); a repository test runs it on this markup.
 
 ### App shell, steps and checklists
 
