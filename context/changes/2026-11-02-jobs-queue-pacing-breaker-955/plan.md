@@ -1,6 +1,6 @@
 ---
 change_id: jobs-queue-pacing-breaker-955
-status: open
+status: archived
 ---
 
 # Plan: queue pacing and a circuit breaker (issue #955)
@@ -66,5 +66,5 @@ Files: `src/server/maintenance.ts`, `src/next/actions.ts`, `src/next/pages.tsx`,
 
 - [x] Phase 1: state, options, pacing and pauses in the claim
 - [x] Phase 2: the breaker, `pauseQueueLater` and `onQueuePaused`
-- [ ] Phase 3: stats, admin page and docs
-- [ ] Implementation review
+- [x] Phase 3: stats, admin page and docs
+- [x] Implementation review (`runDueJobs` keeps its report shape)

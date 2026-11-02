@@ -278,7 +278,7 @@ describe("pauseQueueLater", () => {
     test = await createTestJobs({ queues: queueOptions({}), ...recorder.options });
     const [id] = await enqueueMany(test, 2);
 
-    expect(await runDueJobs(test.ctx, { handlers: scriptedHandler([pauseQueueLater("app.captcha", 300)]), logger: silentLogger })).toMatchObject({ paused: 1, succeeded: 0 });
+    expect(await runDueJobs(test.ctx, { handlers: scriptedHandler([pauseQueueLater("app.captcha", 300)]), logger: silentLogger })).toMatchObject({ retried: 1, succeeded: 0 });
 
     const until = new Date(NOW.getTime() + 300 * SECOND_MS);
     expect((await listJobs(test.database.db)).map((job) => [job.id, job.status, job.attempts, job.lastError, job.runAt])).toEqual([
@@ -318,7 +318,7 @@ describe("pauseQueueLater", () => {
       },
     });
     await enqueueMany(test, 1);
-    expect(await runDueJobs(test.ctx, { handlers: scriptedHandler([pauseQueueLater("app.captcha", 60)]), logger })).toMatchObject({ paused: 1 });
+    expect(await runDueJobs(test.ctx, { handlers: scriptedHandler([pauseQueueLater("app.captcha", 60)]), logger })).toMatchObject({ retried: 1 });
     expect(errors).toEqual(["the onQueuePaused hook failed"]);
     expect(await getQueuePause(test.ctx, QUEUE)).toMatchObject({ source: "handler" });
   });

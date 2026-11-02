@@ -1,7 +1,7 @@
 // The admin page, ready to mount with one line: `export { JobsPage as default } from "@softure-ai/jobs/next"`.
 // A server component: anyone without the panel role, signed in or not, gets Next's "not found", and so does everyone
 // while the app has not passed `panelGuard`. It renders its own `<main>` and title; an app with its own page shell
-// composes the same parts (README): the reads, `toJobsPanelData`, `JobsPanel` and the four actions.
+// composes the same parts (README): the reads, `toJobsPanelData`, `JobsPanel` and the six actions.
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { Card } from "@softure-ai/ui";
 import { notFound } from "next/navigation";
@@ -12,7 +12,7 @@ import { getJobsOptions, getJobsRoutes } from "../server/options.js";
 import { listJobRuns } from "../server/runs.js";
 import { listSyncItems } from "../server/sync-items.js";
 import { JobsPanel, type JobsPanelFilterLink } from "../ui/jobs-panel.js";
-import { cancelJobAction, retryJobAction, retrySyncItemAction, runScheduleNowAction } from "./actions.js";
+import { cancelJobAction, pauseQueueAction, resumeQueueAction, retryJobAction, retrySyncItemAction, runScheduleNowAction } from "./actions.js";
 import { getJobsContext } from "./context.js";
 import { getJobsMessages } from "./messages.js";
 import { toJobsPanelData } from "./panel-rows.js";
@@ -64,7 +64,14 @@ export async function JobsPage({ searchParams }: JobsPageProps = {}) {
         <JobsPanel
           {...data}
           syncFilter={syncFilter}
-          actions={{ runNow: runScheduleNowAction, retryJob: retryJobAction, cancelJob: cancelJobAction, retrySyncItem: retrySyncItemAction }}
+          actions={{
+            runNow: runScheduleNowAction,
+            retryJob: retryJobAction,
+            cancelJob: cancelJobAction,
+            retrySyncItem: retrySyncItemAction,
+            pauseQueue: pauseQueueAction,
+            resumeQueue: resumeQueueAction,
+          }}
           messages={messages}
         />
       </Card>

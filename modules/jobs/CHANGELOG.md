@@ -4,6 +4,31 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Queue pacing and a circuit breaker (#955). New queue options `rateLimit: { minGapMs, jitterMs? } | { max,
+  perSeconds }`, enforced when jobs are claimed and shared by every worker through the new `jobs.queue_state` row of
+  the queue, and `breaker: { failures, codes?, pauseSeconds, maxPauseSeconds? }`, which pauses the queue after
+  `failures` counted failures in a row, doubles the pause when the first run after it fails again (up to
+  `maxPauseSeconds`, default 16 × `pauseSeconds`) and resets after a success. A handler returns
+  `pauseQueueLater(code, seconds)` to pause the queue at once and keep the job's attempt. An operator calls
+  `pauseQueue(ctx, queue, { until?, reason })` / `resumeQueue(ctx, queue)` from `/server`, or uses **Pause** /
+  **Resume** on the admin page. A paused or paced queue claims nothing, so its jobs keep their attempts. New hook
+  `onQueuePaused({ queue, code, until, source, at })` for pauses by the breaker or a handler. `getQueueStats` adds
+  `pause` and `consecutiveFailures`; `runDueJobs` counts a `pauseQueueLater` attempt as `retried`; `JobOutcome` and
+  `Completion` gain a `paused` kind; `recordJobHooks()` records `pausedQueues`. New in `@softure-ai/jobs`: `pauseQueueLater`, `QueuePause`,
+  `QueuePausedEvent`, `QueuePauseSource`, `JobQueueRateLimit`, `JobQueueBreaker`, `OnQueuePausedHook`; in `/server`:
+  `pauseQueue`, `resumeQueue`, `getQueuePause`, `PauseQueueInput`, `PauseQueueResult`, `ResumeQueueResult`; in
+  `/next`: `pauseQueueAction`, `resumeQueueAction`, `PANEL_PAUSE_REASON`; in `/ui`: optional `pauseQueue` /
+  `resumeQueue` actions and `isPaused` on `JobsPanelQueue`. New code `jobs.unknown_queue`.
+  - Migrate: run `migrations/0007_create_queue_state.sql` with the app's other migrations. A handler that slept or
+    returned `retryJobLater` to keep a gap between calls drops that and sets `rateLimit` on its queue; one that kept
+    its own "N refusals in a row" state returns an `Err` (or `pauseQueueLater` for a refusal it recognizes) and sets
+    `breaker`. An app that composes `JobsPanel` itself passes `pauseQueueAction` and `resumeQueueAction` to get the
+    buttons. An app with an exhaustive `switch` over `JobOutcome["kind"]` or `Completion["kind"]` adds `paused`. An app with its own full dictionary for another
+    locale adds `queues.paused.{breaker,handler,operator}`, `queues.pausedUntilResumed`, `queues.failuresInRow`,
+    `queues.pause`, `queues.pausing`, `queues.resume`, `queues.resuming` and `errors.unknown_queue`.
+
 ## 0.1.6
 
 - Run history (#803): every recorded attempt leaves a row in the new `jobs.runs` table with the job id, queue,

@@ -24,6 +24,17 @@ export const en = {
     running: "Enqueueing…",
     runEnqueued: "A run is enqueued.",
     runJoined: "A run was already waiting or running; this joins it.",
+    paused: {
+      breaker: "Paused by the circuit breaker until {date} ({reason})",
+      handler: "Paused by a handler until {date} ({reason})",
+      operator: "Paused by an operator until {date} ({reason})",
+    },
+    pausedUntilResumed: "Paused by an operator until resumed ({reason})",
+    failuresInRow: "Failures in a row: {count}",
+    pause: "Pause",
+    pausing: "Pausing…",
+    resume: "Resume",
+    resuming: "Resuming…",
   },
   jobs: {
     title: "Recent problems",

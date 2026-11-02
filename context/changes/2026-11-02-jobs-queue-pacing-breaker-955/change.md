@@ -1,7 +1,8 @@
 ---
 change_id: jobs-queue-pacing-breaker-955
 title: "jobs: a rate limit per queue and a circuit breaker that pauses a queue (issue #955)"
-status: open
+status: archived
+archived_at: 2026-11-02
 roadmap_item: null
 issue: 955
 branch: claude/project-thread-vask3f
