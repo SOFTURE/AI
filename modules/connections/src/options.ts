@@ -3,7 +3,7 @@
 // `next build` runs without it.
 import { isLocale, type FetchFunction, type ModuleContext } from "@softure-ai/core";
 import { z } from "zod";
-import type { ReconnectRequiredEvent } from "./contract.js";
+import type { ConnectionChangedEvent, ReconnectRequiredEvent } from "./contract.js";
 
 /** A provider id: kebab-case, at most 64 characters (`google`, `google-calendar`). */
 export const PROVIDER_ID_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -120,6 +120,9 @@ const providerSchema = z.discriminatedUnion("kind", [oauthProviderSchema, apiKey
 /** Runs after `connections.reconnect_required` is stored for a connection that was connected, once per transition. */
 export type OnReconnectRequiredHook = (event: ReconnectRequiredEvent, context: ModuleContext) => void | Promise<void>;
 
+/** Runs after a connection is connected, reconnected or disconnected, or an OAuth callback failed (section 10). */
+export type OnConnectionChangedHook = (event: ConnectionChangedEvent, context: ModuleContext) => void | Promise<void>;
+
 const RESERVED_AUTHORIZE_PARAMS = new Set(["response_type", "client_id", "redirect_uri", "scope", "state", "code_challenge", "code_challenge_method"]);
 
 export const connectionsOptionsSchema = z
@@ -142,6 +145,7 @@ export const connectionsOptionsSchema = z
     /** The timeout of a token, exchange or revoke call. */
     httpTimeoutMs: z.number().int().min(100).max(120_000).default(10_000),
     onReconnectRequired: z.custom<OnReconnectRequiredHook>((value) => typeof value === "function", "must be a function").optional(),
+    onConnectionChanged: z.custom<OnConnectionChangedHook>((value) => typeof value === "function", "must be a function").optional(),
     /** The `fetch` the token client uses; tests pass a fake provider's. */
     fetch: z.custom<FetchFunction>((value) => typeof value === "function", "must be a function").optional(),
   })

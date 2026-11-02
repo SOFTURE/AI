@@ -365,10 +365,31 @@ const hooksSchema = z
   })
   .describe("App steps deploy.sh runs at named points of a deploy and of maintenance, in the listed order.");
 
+/** A folder of the data volume, relative to its mount path: plain segments, never `..` or `.`. */
+const DATA_FOLDER = /^(?!.*(?:^|\/)\.\.?(?:\/|$))[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/;
+
+const dataSchema = z
+  .strictObject({
+    backupPaths: z
+      .array(z.string().regex(DATA_FOLDER, "a folder of the data volume relative to its mount path, e.g. cache/paid (no .., no leading /)"))
+      .min(1)
+      .superRefine((paths, context) => {
+        const duplicates = new Set(paths.filter((path, index) => paths.indexOf(path) !== index));
+        for (const path of duplicates) context.addIssue({ code: "custom", message: `${path} is listed twice` });
+      })
+      .meta({ uniqueItems: true })
+      .optional()
+      .describe(
+        "Folders of the data volume (init --data-volume) archived next to every database backup, with the same retention, e.g. a cache of paid results; rebuildable files stay out. Needs the database part.",
+      ),
+  })
+  .describe("The data volume shared by the app and the worker (init --data-volume).");
+
 export const deploySchema = z
   .strictObject({
     $schema: z.string().optional().describe("JSON Schema of this file, for editor completion."),
     database: databaseSchema.optional(),
+    data: dataSchema.optional(),
     hooks: hooksSchema.optional(),
     verify: verifySchema.optional(),
   })

@@ -1,7 +1,7 @@
 // Sync state of polling integrations: the cursor moves only by compare-and-set, the ledger runs an item's callback at
 // most once to success, bounds its failed attempts and commits the caller's writes together with the outcome.
 import { err, ok } from "@softure-ai/core";
-import { failSyncItem, skipSyncItem, type SyncItemRunResult } from "@softure-ai/jobs";
+import { failSyncItem, skipSyncItem, waitSyncItem, type SyncItemRunResult } from "@softure-ai/jobs";
 import {
   advanceSyncCursor,
   getSyncCursor,
@@ -168,6 +168,68 @@ describe("processSyncItem", () => {
     expect(outcome).toMatchObject({ kind: "failed", error: "app.not_supported", item: { status: "failed", attempts: 1 } });
   });
 
+  it("keeps a waiting item pending with its attempts unchanged and its code set, and rolls back the callback's write", async () => {
+    const waiting = createTask("m1", waitSyncItem("connections.reconnect_required"));
+    expect(await processSyncItem(test.ctx, { source: SOURCE, itemId: "m1", maxAttempts: 3 }, waiting.run)).toEqual({
+      kind: "waiting",
+      error: "connections.reconnect_required",
+      item: {
+        source: SOURCE,
+        itemId: "m1",
+        status: "pending",
+        errorCode: "connections.reconnect_required",
+        attempts: 0,
+        resultRef: null,
+        firstSeenAt: NOW,
+        lastSeenAt: NOW,
+        updatedAt: NOW,
+        finishedAt: null,
+      },
+    });
+    expect(await listTasks()).toEqual([]);
+  });
+
+  it("never fails an item through waiting failures, and the next run gets the same attempt number", async () => {
+    const waiting = createTask("m1", waitSyncItem("connections.not_connected"));
+    for (let run = 0; run < 5; run += 1) {
+      test.clock.advance(SECOND_MS);
+      expect(await processSyncItem(test.ctx, { source: SOURCE, itemId: "m1", maxAttempts: 2 }, waiting.run)).toMatchObject({
+        kind: "waiting",
+        item: { status: "pending", attempts: 0 },
+      });
+    }
+    expect(waiting.attempts).toEqual([1, 1, 1, 1, 1]);
+
+    const passing = createTask("m1");
+    expect(await processSyncItem(test.ctx, { source: SOURCE, itemId: "m1", maxAttempts: 2 }, passing.run)).toMatchObject({
+      kind: "handled",
+      item: { status: "done", attempts: 1, errorCode: null },
+    });
+    expect(passing.attempts).toEqual([1]);
+    expect(await listTasks()).toEqual(["m1"]);
+  });
+
+  it("keeps an item at maxAttempts - 1 pending when it waits, and an ordinary failure still uses its last attempt", async () => {
+    const failing = createTask("m1", err("app.provider_down"));
+    await processSyncItem(test.ctx, { source: SOURCE, itemId: "m1", maxAttempts: 3 }, failing.run);
+    await processSyncItem(test.ctx, { source: SOURCE, itemId: "m1", maxAttempts: 3 }, failing.run);
+
+    const waiting = createTask("m1", waitSyncItem("connections.reconnect_required"));
+    expect(await processSyncItem(test.ctx, { source: SOURCE, itemId: "m1", maxAttempts: 3 }, waiting.run)).toMatchObject({
+      kind: "waiting",
+      error: "connections.reconnect_required",
+      item: { status: "pending", attempts: 2, errorCode: "connections.reconnect_required", finishedAt: null },
+    });
+    expect(waiting.attempts).toEqual([3]);
+
+    expect(await processSyncItem(test.ctx, { source: SOURCE, itemId: "m1", maxAttempts: 3 }, failing.run)).toMatchObject({
+      kind: "failed",
+      error: "app.provider_down",
+      item: { status: "failed", attempts: 3, errorCode: "app.provider_down" },
+    });
+    expect(failing.attempts).toEqual([1, 2, 3]);
+  });
+
   it("fails without running an item whose attempts a lowered maxAttempts already used up", async () => {
     const failing = createTask("m1", err("app.provider_down"));
     await processSyncItem(test.ctx, { source: SOURCE, itemId: "m1", maxAttempts: 5 }, failing.run);
@@ -283,6 +345,18 @@ describe("listSyncItems and pruneSyncItems", () => {
     expect(ids(await listSyncItems(test.ctx, { since: new Date(NOW.getTime() + SECOND_MS) }))).toEqual(["t1", "m2"]);
     expect(ids(await listSyncItems(test.ctx, { limit: 1 }))).toEqual(["t1"]);
     expect(await listSyncItems(test.ctx, { source: "unknown.source" })).toEqual([]);
+  });
+
+  it("lists the items waiting on one error code", async () => {
+    await seed();
+    test.clock.advance(SECOND_MS);
+    await processSyncItem(test.ctx, { source: SOURCE, itemId: "m3" }, () => Promise.resolve(waitSyncItem("connections.reconnect_required")));
+    await processSyncItem(test.ctx, { source: SOURCE, itemId: "m4" }, () => Promise.resolve(waitSyncItem("connections.not_connected")));
+    const ids = (items: { itemId: string }[]) => items.map((item) => item.itemId);
+
+    expect(ids(await listSyncItems(test.ctx, { status: "pending", errorCode: "connections.reconnect_required" }))).toEqual(["m3"]);
+    expect(ids(await listSyncItems(test.ctx, { errorCode: "app.provider_down" }))).toEqual(["m2"]);
+    expect(await listSyncItems(test.ctx, { status: "failed", errorCode: "connections.reconnect_required" })).toEqual([]);
   });
 
   it("refuses an invalid filter", async () => {
