@@ -11,24 +11,31 @@ export interface EntitlementPolicy {
   readonly trialReminderDays: number;
   /** From how many days left paid access counts as ending; 0 never. */
   readonly paidReminderDays: number;
+  /** The app declares a free tier (`billing({ free })`): an account whose access ended is `free`, not read-only. Default false. */
+  readonly hasFreeTier?: boolean;
 }
 
 /**
  * The status of `record` at `now`. Paid access wins over the trial; access covers instants before
- * its end, so at the end itself the account is read-only.
+ * its end, so at the end itself the account falls back: to the free tier when the policy has one,
+ * else to read-only.
  */
 export function resolveEntitlement(record: EntitlementRecord, now: Date, policy: EntitlementPolicy): Entitlement {
-  if (record.isLifetime) return { status: "paid", endsAt: null, daysLeft: null, isEnding: false };
+  const hasFreeTier = policy.hasFreeTier === true;
+  // `afterEnd` is set only with a free tier, so an app without one sees the same objects as before.
+  const fallback = hasFreeTier ? { afterEnd: "free" as const } : {};
+  if (record.isLifetime) return { status: "paid", endsAt: null, daysLeft: null, isEnding: false, ...fallback };
   if (record.paidUntil !== null && now < record.paidUntil) {
     const daysLeft = getDaysLeft(record.paidUntil, now, policy.timezone);
-    return { status: "paid", endsAt: record.paidUntil, daysLeft, isEnding: daysLeft <= policy.paidReminderDays };
+    return { status: "paid", endsAt: record.paidUntil, daysLeft, isEnding: daysLeft <= policy.paidReminderDays, ...fallback };
   }
   if (now < record.trialEndsAt) {
     const daysLeft = getDaysLeft(record.trialEndsAt, now, policy.timezone);
-    return { status: "trial", endsAt: record.trialEndsAt, daysLeft, isEnding: daysLeft <= policy.trialReminderDays };
+    return { status: "trial", endsAt: record.trialEndsAt, daysLeft, isEnding: daysLeft <= policy.trialReminderDays, ...fallback };
   }
-  if (record.paidUntil !== null && record.paidUntil > record.trialEndsAt) return { status: "read_only", since: record.paidUntil, reason: "paid_ended" };
-  return { status: "read_only", since: record.trialEndsAt, reason: "trial_ended" };
+  const status = hasFreeTier ? "free" : "read_only";
+  if (record.paidUntil !== null && record.paidUntil > record.trialEndsAt) return { status, since: record.paidUntil, reason: "paid_ended" };
+  return { status, since: record.trialEndsAt, reason: "trial_ended" };
 }
 
 /** Whether an account in this state may write. */
