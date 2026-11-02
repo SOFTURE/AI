@@ -2,7 +2,7 @@
 import { completeAuthorization, startAuthorization } from "@softure-ai/connections/server";
 import { ADMIN, type TestConnections } from "./support.js";
 
-export async function connectFake(test: TestConnections, accountId?: string): Promise<void> {
+export async function connectFake(test: Pick<TestConnections, "ctx" | "fake">, accountId?: string): Promise<void> {
   const started = await startAuthorization(test.ctx, { provider: test.fake.definition.id, ...(accountId === undefined ? {} : { accountId }), actorId: ADMIN });
   if (!started.ok) throw new Error(`test: start failed with ${started.error}`);
   const callback = test.fake.consent(started.value.url);
