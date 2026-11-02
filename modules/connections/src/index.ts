@@ -45,6 +45,8 @@ export const connections = defineModule({
 
 export type {
   AccessToken,
+  ConnectionChange,
+  ConnectionChangedEvent,
   ConnectionFormState,
   ConnectionKind,
   ConnectionStatus,
@@ -71,6 +73,7 @@ export {
   type CredentialHeaderPlacement,
   type KeyProviderDefinition,
   type OAuthProviderDefinition,
+  type OnConnectionChangedHook,
   type OnReconnectRequiredHook,
   type ProviderDefinition,
   type ProviderDefinitionInput,

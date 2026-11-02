@@ -68,6 +68,7 @@ describe("the Next adapter", () => {
     scope.cookies.clear();
     scope.revalidated.length = 0;
     vi.useRealTimers();
+    vi.restoreAllMocks();
     for (const name of Object.keys(process.env)) if (!(name in envBefore)) delete process.env[name];
     clearSoftureConfig();
     // The configured handle wraps the test PGlite, so closing it closes the test database too.
@@ -131,7 +132,9 @@ describe("the Next adapter", () => {
   });
 
   it("saves a key, reads it back for request code, and disconnects, revalidating the page each time", async () => {
-    await signIn("grace@example.com", "admin");
+    const adminId = await signIn("grace@example.com", "admin");
+    const lines: string[] = [];
+    vi.spyOn(console, "info").mockImplementation((line: string) => void lines.push(line));
     expect(await saveCredentialAction(IDLE, createForm({ provider: "raindrop", kind: "api_key", apiKey: "rd-key" }))).toEqual({ status: "ok" });
     expect(await getCredential({ provider: "raindrop" })).toEqual({ ok: true, value: { kind: "api_key", apiKey: "rd-key" } });
     expect(await getCredentialHeader({ provider: "raindrop" })).toEqual({ ok: true, value: { name: "authorization", value: "Bearer rd-key" } });
@@ -140,6 +143,12 @@ describe("the Next adapter", () => {
     expect(await disconnectAction(IDLE, createForm({ provider: "raindrop" }))).toEqual({ status: "ok" });
     expect(await disconnectAction(IDLE, createForm({ provider: "raindrop" }))).toEqual({ status: "error", error: "connections.not_connected" });
     expect(scope.revalidated).toEqual(["/admin/connections", "/admin/connections", "/admin/connections"]);
+    // The actions pass the signed-in admin as the actor of every change (#945).
+    expect(lines).toEqual([
+      `@softure-ai/connections: connection connected provider=raindrop account_id=default kind=api_key actor_id=${adminId}`,
+      `@softure-ai/connections: connection connected provider=toggl account_id=work kind=basic actor_id=${adminId}`,
+      `@softure-ai/connections: connection disconnected provider=raindrop account_id=default kind=api_key actor_id=${adminId} revoked=false`,
+    ]);
     expect(await listRows(test.database)).toEqual(["toggl/work connected basic test"]);
     scope.cookies.clear();
     expect(await saveCredentialAction(IDLE, createForm({ provider: "raindrop", kind: "api_key", apiKey: "x" }))).toEqual({ status: "error", error: "auth.forbidden" });

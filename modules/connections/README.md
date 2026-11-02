@@ -31,6 +31,8 @@ server for clients that call the app.
   **`getAuthorizationHeader`** for either.
 - **`onReconnectRequired`**, a hook that runs once when a connection needs reconnecting, so the app can alert the
   owner (e.g. by mail through `@softure-ai/mailing`).
+- **`onConnectionChanged`** and one info log line for every connect, reconnect, disconnect and failed OAuth callback,
+  for an audit trail of admin actions.
 - A **privacy contributor**, a **health check**, the **`softure-connections`** command (`key`, `rotate-keys`) and a
   **fake OAuth provider** for tests (`@softure-ai/connections/testing`).
 
@@ -88,6 +90,9 @@ connections({
   onReconnectRequired: async (event, ctx) => {
     // e.g. sendMail(ctx, { to: owner, subject: `Reconnect ${event.provider}` ... })
   },
+  onConnectionChanged: async (event, ctx) => {
+    // e.g. an audit record: who connected, reconnected or disconnected which service, and how it ended
+  },
 }),
 ```
 
@@ -119,6 +124,7 @@ connections({
 | `stateTtlMinutes` | `number` | `10` | How long an authorization may take, button to callback. |
 | `httpTimeoutMs` | `number` | `10000` | Timeout of a token, exchange or revoke call. |
 | `onReconnectRequired` | `(event, ctx) => void \| Promise<void>` | none | Section 10. |
+| `onConnectionChanged` | `(event, ctx) => void \| Promise<void>` | none | Section 10. |
 | `fetch` | `FetchFunction` | global `fetch` | The token client's `fetch`; tests pass the fake provider's. |
 | `routes` | `{ page, callback }` | `/admin/connections`, `/api/connections/callback` | Where the page and the callback are mounted. |
 | `messages` | partial dictionaries per locale | built in | Copy overrides (section 9). |
@@ -297,6 +303,31 @@ once per transition (the next calls answer the code without running it again). `
 
 A hook that throws is logged by error kind and never fails the call; the state is stored either way. A new connect
 (or a new key) brings the connection back to `connected`.
+
+`onConnectionChanged(event, ctx)` runs after an admin's change is stored: the OAuth callback (`completeAuthorization`,
+`completeConnectionRoute`), a saved key (`saveCredential`, `saveCredentialAction`) and a disconnect (`disconnect`,
+`disconnectAction`). `event` is `{ change, provider, accountId, kind, actorId, at }` (`actorId` is the admin's auth
+user id, null for a script) with `change`:
+
+- `connected`: a new connection;
+- `reconnected`: a connection that existed (connected or `reconnect_required`) was replaced;
+- `disconnected`, with `revoked`: whether the provider accepted the revocation of the grant;
+- `connect_failed`, with `code`: the OAuth callback failed after its authorization was found (`consent_denied`,
+  `exchange_failed`, `client_rejected`, ...), so the provider and account are those the admin started with.
+
+A callback without a valid authorization (`connections.state_invalid`) and a key the form refuses change nothing and
+report nothing. The event never carries a credential, a code or a state. A hook that throws is logged by error kind,
+like `onReconnectRequired`.
+
+Every change also writes one `console.info` line, with or without the hook; a non-plain actor id is JSON-quoted:
+
+```text
+@softure-ai/connections: connection connected provider=google account_id=default kind=oauth actor_id=<user id>
+@softure-ai/connections: connection disconnected provider=raindrop account_id=default kind=api_key actor_id=<user id> revoked=false
+@softure-ai/connections: connection connect_failed provider=google account_id=default kind=oauth actor_id=<user id> code=connections.consent_denied
+```
+
+`disconnect(ctx, { provider, accountId?, actorId? })` takes the actor for these; without it the event says `null`.
 
 ## 11. GDPR
 
