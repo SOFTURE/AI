@@ -49,11 +49,13 @@ export {
 } from "./contract.js";
 export { getJobsErrorMessage, jobsMessages, type JobsMessages } from "./messages/index.js";
 export {
+  JOBS_RUN_LOG_LEVELS,
   jobsOptionsSchema,
   type DayOfMonth,
   type JobQueueOptions,
   type JobScheduleOptions,
   type JobsPanelGuard,
+  type JobsRunLogLevel,
   type JobSchedulesInput,
   type JobsOptions,
   type JobsOptionsInput,

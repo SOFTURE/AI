@@ -61,6 +61,7 @@ export default defineSoftureConfig({
 | `pollIntervalMs` | `1000` | how often an idle worker looks for due jobs |
 | `shutdownGraceMs` | `20000` | how long a stopping worker waits for running handlers before releasing their jobs |
 | `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30 }` | how long finished jobs, sync ledger items no run met, and the run history (§3, "Run history") are kept; the worker prunes once an hour |
+| `logRuns` | `"all"` | which ends of a run the worker logs, one line each (§10): `"all"` (succeeded, retried, failed), `"failures"` (retried and failed) or `"none"` |
 | `onJobFailed` | none | `(event, ctx)`, run once when a job ends `failed` (§3, "Alert hooks") |
 | `onScheduleStateChanged` | none | `(event, ctx)`, run once per transition of a schedule between `healthy`, `failing` and `late` (§3, "Alert hooks") |
 | `panelRole` | `"admin"` | the auth role that may open the admin page and use its actions (§4) |
@@ -565,7 +566,16 @@ failures); `getJobsErrorMessage(messages, code)` picks one. An app overrides any
 
 The handlers (§3) are the app's code. `logger` (`info`, `warn`, `error`; `@softure-ai/observability`'s `Logger` fits)
 receives the worker's lines: started, stopped, a scheduled run enqueued, a thrown handler with its error, a lost lease,
-a release, pruning, a failed alert hook. `onJobFailed` and `onScheduleStateChanged` are the app's alert hooks (§3,
+a release, pruning, a failed alert hook, and one line per recorded attempt (`logRuns` picks which, default all):
+
+| Outcome | Level and message | Fields |
+|---|---|---|
+| succeeded | `info` `job run succeeded` | `queue`, `jobId`, `attempt`, `origin`, `durationMs`, and the summary's `code` and `items` when the handler returned them |
+| retried | `warn` `job run failed; retrying` | `queue`, `jobId`, `attempt`, `code`, `runAt` (ISO time of the next attempt) |
+| failed | `error` `job run failed` | `queue`, `jobId`, `attempt`, `code` (an expired lease with no attempts left is `jobs.lease_expired`) |
+
+Codes and ids only, never a payload or an error's text. An attempt whose write is refused (another worker took the
+job over) leaves no line. `onJobFailed` and `onScheduleStateChanged` are the app's alert hooks (§3,
 "Alert hooks").
 
 ## 11. GDPR

@@ -8,6 +8,8 @@ import { notifyJobFailed, type HookOptions } from "./hooks.js";
 import { toJob } from "./job-row.js";
 import { getJobsOptions, getQueue } from "./options.js";
 import { recordRuns, type RunRecord } from "./runs.js";
+import { consoleJobsLogger } from "./logger.js";
+import { logRunEnd } from "./run-log.js";
 import { recordScheduleFailure, recordScheduleSuccess } from "./schedules.js";
 import type { JobRunSummary } from "../summary.js";
 
@@ -47,6 +49,10 @@ export async function claimJobs(ctx: JobsContext, input: ClaimJobsInput): Promis
   if (input.limit < 1) return [];
   const now = ctx.clock.now();
   const expired = await failExhaustedLeases(ctx, input.queue, now);
+  const { logRuns } = getJobsOptions(ctx.config);
+  for (const event of expired) {
+    logRunEnd(input.logger ?? consoleJobsLogger, logRuns, { outcome: "failed", queue: event.queue, jobId: event.jobId, attempt: event.attempts, code: event.code });
+  }
   await notifyJobFailed(ctx, expired, { logger: input.logger });
 
   const due = ctx.db

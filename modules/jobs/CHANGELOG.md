@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Run-end log lines (#934): every recorded attempt now leaves one line in the worker's logger, codes and ids only:
+  `info("job run succeeded", { queue, jobId, attempt, origin, durationMs, code?, items? })`,
+  `warn("job run failed; retrying", { queue, jobId, attempt, code, runAt })` and
+  `error("job run failed", { queue, jobId, attempt, code })`, the last also for a job failed by an expired lease
+  (`jobs.lease_expired`). Before, a handler that returned an error was retried or failed without any line, and a
+  success left none. New option `logRuns: "all" | "failures" | "none"` (default `"all"`); new exports
+  `JOBS_RUN_LOG_LEVELS` and `JobsRunLogLevel`.
+  - Migrate: nothing to change. An app that logged the outcome itself from `onJobFailed` may drop that line; an app
+    with very frequent queues that does not want a line per success sets `jobs({ logRuns: "failures" })`.
+
 ## 0.1.6
 
 - Run history (#803): every recorded attempt leaves a row in the new `jobs.runs` table with the job id, queue,
