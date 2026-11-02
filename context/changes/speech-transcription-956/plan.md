@@ -83,14 +83,14 @@ an injected runner in CI.
 ### Phase 1: package, contract, output helpers and stitching
 
 #### Automated
-- [ ] 1.1 Helpers and stitching tested (empty, long timestamps, overlap cut)
-- [ ] 1.2 Gates green (typecheck, lint, test)
+- [x] 1.1 Helpers and stitching tested (empty, long timestamps, overlap cut) — 539cb10
+- [x] 1.2 Gates green (typecheck, lint, test) — 539cb10
 
 ### Phase 2: provider adapters
 
 #### Automated
-- [ ] 2.1 Request shape and every failure mapping tested with a fake fetch
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 Request shape and every failure mapping tested with a fake fetch — 41fbb05
+- [x] 2.2 Gates green (typecheck, lint, test) — 41fbb05
 
 ### Phase 3: normalizer, transcriber, usage and the fake
 

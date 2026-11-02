@@ -19,3 +19,16 @@ export type {
   ProviderTranscript,
   SpeechProvider,
 } from "./providers.js";
+export { createTranscriber } from "./create-transcriber.js";
+export type { TranscribeRequest, Transcriber, TranscriberOptions } from "./create-transcriber.js";
+export { createFfmpegNormalizer } from "./ffmpeg.js";
+export type {
+  AudioChunk,
+  AudioFile,
+  AudioInput,
+  AudioNormalizer,
+  CommandRunner,
+  FfmpegNormalizerOptions,
+  NormalizedAudio,
+  NormalizeOptions,
+} from "./ffmpeg.js";
