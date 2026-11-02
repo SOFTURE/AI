@@ -10,6 +10,10 @@ import { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants } from
 export interface McpAccessUserData {
   readonly accessTokens: readonly {
     readonly name: string;
+    /** `mcp` for an assistant, `api` for the app's HTTP routes. */
+    readonly kind: "mcp" | "api";
+    /** The app scopes of an API token; empty for an MCP token. */
+    readonly scopes: readonly string[];
     readonly canWrite: boolean;
     readonly createdAt: Date;
     readonly expiresAt: Date;
@@ -33,6 +37,8 @@ export async function exportMcpAccessUserData(context: ModuleContext, userId: st
   const tokens = await db
     .select({
       name: accessTokens.name,
+      kind: accessTokens.kind,
+      scopes: accessTokens.scopes,
       canWrite: accessTokens.canWrite,
       createdAt: accessTokens.createdAt,
       expiresAt: accessTokens.expiresAt,

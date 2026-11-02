@@ -3,6 +3,7 @@
 export { ConsentError, ConsentForm, type ConsentErrorProps, type ConsentFormProps, type ConsentFormSlot } from "./consent-form.js";
 export {
   TokenManager,
+  type TokenManagerApiScope,
   type RevokeGrantAction,
   type TokenManagerGrant,
   type IssueTokenAction,

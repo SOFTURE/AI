@@ -44,6 +44,11 @@
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
     },
+    "./tokens": {
+      "@softure-ai/source": "./src/tokens/index.ts",
+      "types": "./dist/tokens/index.d.ts",
+      "default": "./dist/tokens/index.js"
+    },
     "./jobs": {
       "@softure-ai/source": "./src/jobs/index.ts",
       "types": "./dist/jobs/index.d.ts",

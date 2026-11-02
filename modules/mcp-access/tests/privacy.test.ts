@@ -31,7 +31,7 @@ describe("the mcp-access privacy contributor", () => {
     const result = await exportMcpAccessUserData(test.ctx, ada);
     expect(result).toEqual({
       ok: true,
-      value: { accessTokens: [{ name: "Laptop", canWrite: true, createdAt: NOW, expiresAt: expect.any(Date) as Date, lastUsedAt: null }], connectedApps: [] },
+      value: { accessTokens: [{ name: "Laptop", kind: "mcp", scopes: [], canWrite: true, createdAt: NOW, expiresAt: expect.any(Date) as Date, lastUsedAt: null }], connectedApps: [] },
     });
     expect(JSON.stringify(result)).not.toMatch(/[0-9a-f]{64}/);
     expect(await exportMcpAccessUserData(test.ctx, "not-a-uuid")).toEqual({ ok: true, value: { accessTokens: [], connectedApps: [] } });

@@ -118,6 +118,21 @@ export {
   type RevokeAccessTokenInput,
   type VerifiedAccessToken,
 } from "./tokens.js";
+export {
+  API_RATE_LIMIT_BUCKET,
+  API_TOKEN_RATE_LIMIT_BUCKET,
+  apiTokenErrorResponse,
+  getApiTokenOptions,
+  isApiTokenShape,
+  issueApiToken,
+  requireApiToken,
+  verifyApiToken,
+  type IssueApiTokenInput,
+  type IssueApiTokenResult,
+  type IssuedApiToken,
+  type RequireApiTokenOptions,
+  type VerifiedApiToken,
+} from "./api-tokens.js";
 export { createMcpServerFactory, type McpServerFactoryOptions } from "./server-factory.js";
 export {
   registerServerInfoTool,

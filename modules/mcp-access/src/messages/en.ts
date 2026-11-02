@@ -20,6 +20,28 @@ export const en = {
     pending: "Creating…",
     limit: "You can hold up to {max} active tokens.",
   },
+  apiScopes: {
+    title: "What a token for other apps can do",
+    lead: "Tokens for other apps, such as a phone Shortcut, an automation tool or a script, call this app's HTTP routes. Each one gets only the access you tick.",
+    read: "Reads",
+    write: "Changes data",
+    writeUnavailable: "Changes data (turned off in this app)",
+  },
+  apiIssue: {
+    title: "New token for other apps",
+    name: "Name",
+    nameHint: "Where you will use it, e.g. iPhone Shortcut or Make.",
+    scopes: "Access",
+    submit: "Create token",
+    pending: "Creating…",
+  },
+  apiIssued: {
+    title: "Token created: {name}",
+    once: "Copy it now. It is shown only once; after you leave this page, only its name remains.",
+    scopes: "Access: {scopes}.",
+    tokenTitle: "Token",
+    headerTitle: "Authorization header",
+  },
   issued: {
     title: "Token created: {name}",
     once: "Copy it now. It is shown only once; after you leave this page, only its name remains.",
@@ -42,6 +64,8 @@ export const en = {
   },
   list: {
     title: "Your tokens",
+    kindMcp: "AI assistant",
+    kindApi: "Other apps",
     empty: "You have no tokens yet.",
     readOnly: "Read only",
     readWrite: "Read and change",
@@ -115,6 +139,9 @@ export const en = {
       grant_not_found: "This app is no longer connected.",
       issue_refused: "Your account cannot create tokens right now.",
       write_refused: "Your account cannot create tokens with write access. Create a read-only token instead.",
+      api_disabled: "This app does not offer tokens for other apps.",
+      scope_required: "Tick at least one kind of access.",
+      scope_unknown: "This app does not offer that access. Reload the page and try again.",
     },
     auth: {
       unauthenticated: "Your session has ended. Log in again.",
