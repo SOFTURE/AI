@@ -1,9 +1,9 @@
 // Which reminder mail an account is due, as a pure rule: the four states the in-app notice shows
 // (trial or paid access ending, trial or paid access ended), decided from the account's record by
-// the state machine. An ended mail is due only for a few days after the end, so turning reminders
+// the state machine, with what the account falls back to (the free tier or read-only). An ended mail is due only for a few days after the end, so turning reminders
 // on never mails every account that lapsed long ago.
 import { getDayNumber } from "./calendar.js";
-import type { EntitlementRecord } from "./contract.js";
+import type { AccessFallback, EntitlementRecord } from "./contract.js";
 import { resolveEntitlement, type EntitlementPolicy } from "./entitlement.js";
 
 export const ACCESS_REMINDER_KINDS = ["trial-ending", "paid-ending", "trial-ended", "paid-ended"] as const;
@@ -18,6 +18,8 @@ export interface AccessReminder {
   readonly kind: AccessReminderKind;
   /** The first instant without the access the mail is about. */
   readonly endsAt: Date;
+  /** `free` when the account keeps the free tier (`billing({ free })`) after that end; absent means read-only. */
+  readonly afterEnd?: AccessFallback;
 }
 
 export interface AccessReminderInput {
@@ -34,13 +36,15 @@ export interface AccessReminderInput {
 export function getAccessReminder(input: AccessReminderInput): AccessReminder | null {
   const { record, accountCreatedAt, now, policy, catchUpDays } = input;
   const entitlement = resolveEntitlement(record, now, policy);
-  if (entitlement.status !== "read_only") {
+  if (entitlement.status === "trial" || entitlement.status === "paid") {
     if (!entitlement.isEnding || entitlement.endsAt === null) return null;
-    return { kind: entitlement.status === "trial" ? "trial-ending" : "paid-ending", endsAt: entitlement.endsAt };
+    const kind = entitlement.status === "trial" ? "trial-ending" : "paid-ending";
+    return { kind, endsAt: entitlement.endsAt, ...(entitlement.afterEnd === "free" ? { afterEnd: "free" } : {}) };
   }
   if (getDayNumber(now, policy.timezone) - getDayNumber(entitlement.since, policy.timezone) > catchUpDays) return null;
-  if (entitlement.reason === "paid_ended") return { kind: "paid-ended", endsAt: entitlement.since };
-  return entitlement.since > accountCreatedAt ? { kind: "trial-ended", endsAt: entitlement.since } : null;
+  const fallback = entitlement.status === "free" ? { afterEnd: "free" as const } : {};
+  if (entitlement.reason === "paid_ended") return { kind: "paid-ended", endsAt: entitlement.since, ...fallback };
+  return entitlement.since > accountCreatedAt ? { kind: "trial-ended", endsAt: entitlement.since, ...fallback } : null;
 }
 
 /**

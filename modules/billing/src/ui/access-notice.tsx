@@ -1,5 +1,5 @@
-// The notice an account sees when its access is about to end or has ended, with a link to pay.
-// It renders nothing while access is not in its reminder window. Server-safe and framework-free:
+// The notice an account sees when its access is about to end or has ended, or while it is on the
+// free tier, with a link to pay. It renders nothing while access is not in its reminder window. Server-safe and framework-free:
 // the link goes through an injected `LinkComponent` (Next's `Link` in `/next`).
 import { formatMessage, type Locale } from "@softure-ai/core";
 import { ButtonLink, type ClassNames, createSlotClassGetter, type LinkComponentType } from "@softure-ai/ui";
@@ -47,12 +47,19 @@ interface NoticeCopy {
 function getNoticeCopy(entitlement: Entitlement, messages: BillingMessages, locale: Locale, timezone: string): NoticeCopy | null {
   const copy = messages.notice;
   switch (entitlement.status) {
-    case "trial":
+    case "trial": {
       if (!entitlement.isEnding) return null;
-      return { text: formatMessage(copy.trialEnding, { date: formatLastDay(entitlement.endsAt, locale, timezone) }), action: copy.choosePlan, isEnded: false };
-    case "paid":
+      const text = entitlement.afterEnd === "free" ? copy.trialEndingFree : copy.trialEnding;
+      return { text: formatMessage(text, { date: formatLastDay(entitlement.endsAt, locale, timezone) }), action: copy.choosePlan, isEnded: false };
+    }
+    case "paid": {
       if (!entitlement.isEnding || entitlement.endsAt === null) return null;
-      return { text: formatMessage(copy.paidEnding, { date: formatLastDay(entitlement.endsAt, locale, timezone) }), action: copy.renew, isEnded: false };
+      const text = entitlement.afterEnd === "free" ? copy.paidEndingFree : copy.paidEnding;
+      return { text: formatMessage(text, { date: formatLastDay(entitlement.endsAt, locale, timezone) }), action: copy.renew, isEnded: false };
+    }
+    case "free":
+      // The free tier writes: the notice offers more, it does not warn.
+      return { text: copy.free, action: copy.choosePlan, isEnded: false };
     case "read_only":
       return entitlement.reason === "trial_ended"
         ? { text: copy.trialEnded, action: copy.choosePlan, isEnded: true }

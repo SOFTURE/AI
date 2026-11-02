@@ -64,7 +64,12 @@ export type TestEntitlementState =
   /** On lifetime access; the trial is over. */
   | { readonly status: "lifetime" }
   /** Read-only since `days` (default 1) before now, after the trial (the default) or after paid access. */
-  | { readonly status: "read_only"; readonly reason?: "trial_ended" | "paid_ended"; readonly days?: number };
+  | { readonly status: "read_only"; readonly reason?: "trial_ended" | "paid_ended"; readonly days?: number }
+  /**
+   * On the free tier since `days` (default 1) before now, after the trial (the default) or after paid access. The
+   * record is read-only's: the account is `free` under a config with `billing({ free })`, read-only without one.
+   */
+  | { readonly status: "free"; readonly reason?: "trial_ended" | "paid_ended"; readonly days?: number };
 
 export interface TestEntitlementStateInput {
   readonly userId: string;
@@ -82,6 +87,7 @@ function getStateRecord(state: TestEntitlementState, now: Date): EntitlementReco
       return { trialEndsAt: now, paidUntil: at(state.days ?? 30), isLifetime: false };
     case "lifetime":
       return { trialEndsAt: now, paidUntil: null, isLifetime: true };
+    case "free":
     case "read_only": {
       const days = state.days ?? 1;
       if (state.reason === "paid_ended") return { trialEndsAt: at(-days - 1), paidUntil: at(-days), isLifetime: false };
