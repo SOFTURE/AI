@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-confirmed-calls-953
-status: in_progress
+status: archived
 ---
 
 # Plan: confirmed tool calls (issue #953)
@@ -55,6 +55,6 @@ README ("Confirmed calls" under §4, §5 table, §6 variable, §10 hooks), `CHAN
 
 ## Progress
 
-- [ ] Phase 1: token, table, wrapper
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: token, table, wrapper (89923f0)
+- [x] Phase 2: docs (6704ddb)
+- [x] Implementation review

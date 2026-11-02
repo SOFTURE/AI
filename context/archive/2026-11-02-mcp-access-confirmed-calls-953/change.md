@@ -1,7 +1,8 @@
 ---
 change_id: mcp-access-confirmed-calls-953
 title: "mcp-access: in-chat confirmation for a priced or irreversible tool call (issue #953)"
-status: in_progress
+status: archived
+archived_at: 2026-11-02
 roadmap_item: null
 issue: [953]
 branch: claude/project-thread-t5a3k4
