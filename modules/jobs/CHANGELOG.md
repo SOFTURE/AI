@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- A short database outage is logged below warning (#933): a failure caused by an unavailable database (SQLSTATE 57P01
+  to 57P03 or class 08, a refused, reset or closed connection) in any database call of the worker (claims, schedule
+  enqueue and check, prunes, lease extension, outcome recording, release on stop) is logged as `info` with `outageMs`
+  for the first `databaseOutageToleranceMs` of the outage (new option of `runJobWorker` and `runJobWorkerProcess`,
+  default 60 000; `0` keeps every line `error`), as `error` after that; the first call that succeeds again logs
+  `info: database reachable again`. A round stops claiming at the first such failure instead of trying every queue.
+  Other failures keep their `error` line. New in `/server`: `isDatabaseUnavailableError(error)`.
+  - Migrate: nothing to change. An app that wraps the worker's `logger` to turn these errors into info for the first
+    minute of an outage drops the wrapper (or passes its tolerance as `databaseOutageToleranceMs`).
+
 ## 0.1.6
 
 - Run history (#803): every recorded attempt leaves a row in the new `jobs.runs` table with the job id, queue,

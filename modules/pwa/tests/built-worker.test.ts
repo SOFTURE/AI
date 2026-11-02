@@ -44,7 +44,18 @@ describe("the built worker", () => {
       // The start page kept at install runs from the text too (#924).
       startPath: "/tasks",
       maxPages: 60,
-      extraOrigins: [],
+      // The extra origin's key rule and strategy run from the text too (#920).
+      extraOrigins: [
+        {
+          origin: "https://tiles.example.com",
+          pathPrefixes: ["/planet/"],
+          cache: "map",
+          maxEntries: null,
+          strategy: { kind: "network-first", timeoutMs: 20 },
+          cacheKey: { pattern: "^/planet/[^/]+/", replacement: "/planet/" },
+          store: true,
+        },
+      ],
     };
     const scope = new FakeWorkerScope();
     scope.route("/offline", answer("<html>offline</html>"));
@@ -63,5 +74,9 @@ describe("the built worker", () => {
     expect(await (await dispatched.response)?.text()).toBe("<p>tasks</p>");
     await dispatched.settled();
     expect(scope.caches.get("fire-pages-b1").getPaths()).toEqual(["/tasks"]);
+
+    scope.route("https://tiles.example.com/planet/b7/1/2/3.pbf", answer("tile", { type: "cors" }));
+    expect(await (await scope.dispatchFetch(new Request("https://tiles.example.com/planet/b7/1/2/3.pbf")).response)?.text()).toBe("tile");
+    expect(scope.caches.get("fire-map").getPaths()).toEqual(["https://tiles.example.com/planet/1/2/3.pbf"]);
   });
 });

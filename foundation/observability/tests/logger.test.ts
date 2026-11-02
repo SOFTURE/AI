@@ -159,17 +159,92 @@ describe("errors", () => {
     expect(record?.attributes["exception.stacktrace"]).toEqual(expect.stringContaining("TypeError: bad input"));
   });
 
-  it("records only the error label and no stack in label mode", () => {
+  it("records the error label and the top app frames, never the message, in label mode", () => {
     const exporter = installLogExporter();
     configureLogging({ errorDetails: "label" });
 
-    createLogger("orders").error("save failed", { error: new TypeError("bad input for user@example.com") });
+    const createInputError = (): TypeError => new TypeError("bad input for user@example.com");
 
-    expect(calls.error).toEqual(["error orders: save failed error=TypeError"]);
+    createLogger("orders").error("save failed", { error: createInputError() });
+
+    expect(calls.error[0]).toBe("error orders: save failed error=TypeError");
+    expect(calls.error.join("\n")).not.toContain("user@example.com");
     const [record] = exporter.getFinishedLogRecords();
     expect(record?.attributes["exception.type"]).toBe("TypeError");
     expect(record?.attributes["exception.message"]).toBe("TypeError");
-    expect(record?.attributes["exception.stacktrace"]).toBeUndefined();
+    const stacktrace = record?.attributes["exception.stacktrace"];
+    expect(typeof stacktrace).toBe("string");
+    const frames = (stacktrace as string).split("\n");
+    expect(frames).toHaveLength(2);
+    expect(frames[0]).toMatch(/^at createInputError \(.*logger\.test\.ts:\d+:\d+\)$/);
+    expect(frames[1]).toMatch(/logger\.test\.ts:\d+:\d+\)?$/);
+    expect(JSON.stringify(record?.attributes)).not.toContain("user@example.com");
+  });
+
+  it("logs a database error's frame location and nothing of its query in label mode", () => {
+    const exporter = installLogExporter();
+    configureLogging({ errorDetails: "label" });
+    const error = new Error('Failed query: select * from "users" where email = $1\nparams: secret@x.pl');
+
+    createLogger("next").error("request failed", { error });
+
+    const [record] = exporter.getFinishedLogRecords();
+    expect(record?.attributes["exception.message"]).toBe("Error");
+    expect(record?.attributes["exception.stacktrace"]).toEqual(expect.stringMatching(/^at .*logger\.test\.ts:\d+/));
+    expect(JSON.stringify(record?.attributes)).not.toMatch(/secret@x\.pl|Failed query|select/);
+    expect(calls.error.join("\n")).not.toMatch(/secret@x\.pl|Failed query/);
+  });
+
+  it("names the kinds and safe codes of the cause chain in label mode", () => {
+    const exporter = installLogExporter();
+    configureLogging({ errorDetails: "label" });
+    const error = new Error("timeout", { cause: Object.assign(new Error("x"), { code: "ETIMEDOUT" }) });
+
+    createLogger("next").error("request failed", { error });
+
+    expect(calls.error[0]).toBe("error next: request failed error=Error cause=Error code=ETIMEDOUT");
+    expect(exporter.getFinishedLogRecords()[0]?.attributes["exception.message"]).toBe("Error cause=Error code=ETIMEDOUT");
+  });
+
+  it("keeps a code of the error itself and a SQLSTATE deeper in the chain, and drops free-text codes", () => {
+    const exporter = installLogExporter();
+    configureLogging({ errorDetails: "label" });
+    const driverError = Object.assign(new Error("terminating connection"), { name: "DatabaseError", code: "57P01" });
+    const wrapped = new Error("Failed query", { cause: Object.assign(new Error("y"), { code: "user@x.pl", cause: driverError }) });
+    const error = Object.assign(new TypeError("fetch failed", { cause: wrapped }), { code: "UND_ERR_CONNECT_TIMEOUT" });
+
+    createLogger("db").error("query failed", { error });
+
+    expect(exporter.getFinishedLogRecords()[0]?.attributes["exception.message"]).toBe(
+      "TypeError code=UND_ERR_CONNECT_TIMEOUT cause=Error cause=Error cause=DatabaseError code=57P01",
+    );
+  });
+
+  it("describes a cause that is not an Error by its type and stops after three causes", () => {
+    const exporter = installLogExporter();
+    configureLogging({ errorDetails: "label" });
+    const loop = new Error("a");
+    loop.cause = loop;
+    const plain = new Error("b", { cause: "secret text" });
+
+    createLogger("x").error("one", { error: loop });
+    createLogger("x").error("two", { error: plain });
+
+    const [first, second] = exporter.getFinishedLogRecords();
+    expect(first?.attributes["exception.message"]).toBe("Error cause=Error cause=Error cause=Error");
+    expect(second?.attributes["exception.message"]).toBe("Error cause=string");
+  });
+
+  it("records no frames when the message changed after the stack was taken", () => {
+    const exporter = installLogExporter();
+    configureLogging({ errorDetails: "label" });
+    const error = new Error("first");
+    expect(error.stack).toContain("first"); // V8 formats the stack on first read; a later message is not in it.
+    error.message = "second";
+
+    createLogger("x").error("failed", { error });
+
+    expect(exporter.getFinishedLogRecords()[0]?.attributes["exception.stacktrace"]).toBeUndefined();
   });
 
   it("describes a thrown value that is not an Error by its type", () => {
