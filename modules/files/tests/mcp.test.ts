@@ -1,7 +1,7 @@
 // The MCP upload tools: registered for writers only, create_upload answers a URL and a curl loop, finalize_upload
 // stores the file and answers codes as sentences.
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CallToolResult } from "@modelcontextprotocol/server";
@@ -107,7 +107,7 @@ describe("the MCP upload tools", () => {
         .replace(/\ncurl -sS "\$URL"$/, "");
       const log = join(dir, "log");
       execFileSync("bash", ["-c", script], { env: { ...process.env, LOG: log } });
-      expect(execFileSync("cat", [log]).toString()).toBe("bytes 0-3/10=0123\nbytes 4-7/10=4567\nbytes 8-9/10=89\n");
+      expect(readFileSync(log, "utf8")).toBe("bytes 0-3/10=0123\nbytes 4-7/10=4567\nbytes 8-9/10=89\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
