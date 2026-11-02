@@ -1,7 +1,7 @@
 ---
 change_id: metering-spend-ledger-954
 title: "metering: a spend ledger and budgets for paid providers in any unit (issue #954)"
-status: new
+status: plan_reviewed
 roadmap_item: null
 issue: [954]
 branch: claude/project-thread-uw0c58
