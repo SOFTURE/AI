@@ -33,7 +33,8 @@ export function getVerifyTables(database: DeployConfig["database"]): string | un
  * The files `server-settings` writes: `access`, `app-journal`, `app-ledger`, `exclude-table-data` (comma list),
  * `verify-backup` (weekly, daily or never), `verify-tables` (comma list of `getVerifyTables`), one
  * `hooks-<point>` per point (records of `toHookRecord`; a scheduled maintain hook is left out), `cron` (name and
- * schedule of each scheduled maintain hook, NUL-separated) and `scheduled-<name>` (that hook's record). Each value ends
+ * schedule of each scheduled maintain hook, NUL-separated), `scheduled-<name>` (that hook's record) and
+ * `data-backup-paths` (the data volume's folders to archive, one per line). Each value ends
  * in a newline or a NUL, or the file is empty.
  */
 export function planServerSettings(config: DeployConfig): ServerSettingsFiles {
@@ -52,6 +53,7 @@ export function planServerSettings(config: DeployConfig): ServerSettingsFiles {
     "hooks-pre-migrate": (hooks["pre-migrate"] ?? []).map(toHookRecord).join(""),
     "hooks-post-up": (hooks["post-up"] ?? []).map(toHookRecord).join(""),
     "hooks-maintain": maintain.filter((hook) => hook.schedule === undefined).map(toHookRecord).join(""),
+    "data-backup-paths": (config.data?.backupPaths ?? []).map((path) => `${path}\n`).join(""),
     cron: scheduled.map((hook) => `${hook.name}\0${hook.schedule ?? ""}\0`).join(""),
     ...Object.fromEntries(scheduled.map((hook) => [`scheduled-${hook.name}`, toHookRecord(hook)])),
   };

@@ -21,7 +21,7 @@ import {
   type RequestJsonWriteOptions,
 } from "@softure-ai/core";
 import type { z } from "zod";
-import type { ConnectionsTokenErrorCode } from "../contract.js";
+import type { ConnectionsTokenFailure } from "../contract.js";
 import { DEFAULT_ACCOUNT_ID } from "../options.js";
 import {
   formatCredentialHeader,
@@ -36,7 +36,7 @@ import type { ConnectionsContext } from "./store.js";
 import { getAccessToken, replaceRejectedToken } from "./tokens.js";
 
 /** The credential could not be read, refreshed, or was rejected; the call was not made or not retried. */
-export type ConnectionRequestFailure = Err<ConnectionsTokenErrorCode>;
+export type ConnectionRequestFailure = ConnectionsTokenFailure;
 
 /** The calls without `readHeaders`, whose value is the body itself. */
 interface WithoutReadHeaders {

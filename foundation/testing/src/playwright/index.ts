@@ -41,5 +41,6 @@ export {
   type ThrottleLikePhoneOptions,
 } from "./phone.js";
 export { expectWorksOffline, type ExpectWorksOfflineOptions } from "./offline.js";
+export { shareToApp, type ShareAnswer, type SharedTestFile, type ShareToAppOptions } from "./share.js";
 export { expectTouchTargets, TAPPABLE_SELECTOR, TOUCH_TARGET_PX, type ExpectTouchTargetsOptions } from "./touch-targets.js";
 export { expect, test, type ClientAddressFixtures } from "./test.js";

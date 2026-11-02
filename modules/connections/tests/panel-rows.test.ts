@@ -24,6 +24,8 @@ const BASE: ConnectionView = {
   refreshedAt: null,
   lastError: null,
   lastErrorAt: null,
+  lastErrorHttpStatus: null,
+  lastErrorOAuthError: null,
 };
 
 describe("toConnectionPanelRows", () => {
@@ -59,6 +61,22 @@ describe("toConnectionPanelRows", () => {
       "No scopes granted",
     ]);
     expect(row?.lastError).toBe("Last problem on Oct 21, 2026, 2:00 PM: Refreshing the access failed. It will be retried.");
+  });
+
+  it("shows what the token endpoint answered beside the last problem", () => {
+    const failed = { ...BASE, lastError: "connections.refresh_failed", lastErrorAt: NOW };
+    const rows = toConnectionPanelRows(
+      [
+        { ...failed, lastErrorHttpStatus: 400, lastErrorOAuthError: "invalid_request" },
+        { ...failed, accountId: "work", lastErrorHttpStatus: 503 },
+      ],
+      en,
+      config,
+    );
+    expect(rows.map((row) => row.lastError)).toEqual([
+      "Last problem on Oct 21, 2026, 2:00 PM: Refreshing the access failed. It will be retried. (HTTP 400, provider code invalid_request)",
+      "Last problem on Oct 21, 2026, 2:00 PM: Refreshing the access failed. It will be retried. (HTTP 503)",
+    ]);
   });
 
   it("gives a key provider its hint and no details before it is connected", () => {

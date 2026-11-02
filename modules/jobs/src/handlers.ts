@@ -4,6 +4,7 @@ import type { Clock, ErrorCode, Ok, SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import type { z } from "zod";
 import type { Job, JobFailure } from "./contract.js";
+import type { JobProgress } from "./progress.js";
 
 /** What a handler receives besides its payload. */
 export interface JobHandlerContext {
@@ -14,11 +15,19 @@ export interface JobHandlerContext {
   /** The job as claimed: `attempts` is this attempt's number, starting at 1. */
   readonly job: Job;
   /**
-   * Aborted when the job is taken away from this handler: the worker stops and its grace period ended, or the lease
-   * could not be extended. Pass it to `fetch` and other cancellable calls; whatever the handler returns afterwards is
-   * not recorded.
+   * Aborted when the job is taken away from this handler: the worker stops and its grace period ended, the lease could
+   * not be extended, or an operator cancelled the job (`requestJobCancel`; then `signal.reason` is a
+   * `JobCancelledError` and `isJobCancelled(signal)` is true). Pass it to `fetch` and other cancellable calls. After a
+   * lost lease or a shutdown whatever the handler returns is not recorded; after a cancel the job ends `cancelled`.
    */
   readonly signal: AbortSignal;
+  /**
+   * Stores how far the attempt got, code-only: `reportProgress({ step: "render.encode", done: 3, total: 10 })`. At most
+   * one write per second per job (a report inside that second is kept and written by the next report after it); an
+   * invalid progress is dropped with a warning; a failed write is logged, never thrown. `getJob` and `listRecentJobs`
+   * return it. Also where a cancel request is noticed between heartbeats.
+   */
+  readonly reportProgress: (progress: JobProgress) => Promise<void>;
 }
 
 /**

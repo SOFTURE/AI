@@ -6,6 +6,23 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **A worker image of its own, a data volume and worker limits (#948):** `init --worker-dockerfile=<path>` runs the
+  `worker` service from `<image>-worker:${TAG}` and writes a starter Dockerfile there (a glibc builder that bundles
+  `worker.mjs`, a runtime `FROM ${WORKER_BASE_IMAGE}`, uid 1001); `deploy-app.yml` takes it as the input
+  `worker-dockerfile`, builds and pushes that image next to the app's with the release tag (outputs `worker-image`,
+  `worker-digest`; refused with `prebuilt-image` and `e2e`), and `deploy.sh` pulls both and cleans up both in
+  `maintain`. `init --data-volume=<mount path>` mounts one named volume `app-data` at that path in `app` and `worker`,
+  created owned by uid 1001 in both images (the root for `@softure-ai/files`' `createLocalStorage`).
+  `--worker-cpus`, `--worker-memory` and `--worker-tmpfs` set the worker's `cpus`, `mem_limit` and a `/tmp` tmpfs.
+- **Data backup:** `deploy.json` `data.backupPaths` lists folders of the data volume that `deploy.sh` archives right
+  after each database backup (`backups/data-<stamp>.tar.gz`, `0600`, the same retention; step `backup-data`).
+- **`checkSharedHostCompose` `dataVolume: { mountPath }`:** `app` and `worker` mount one named volume there
+  (`data-volume-missing`, `data-volume-bind`, `data-volume-split`).
+- An app with a heavy worker or files on disk re-runs `init --force` with the new flags (or copies the worker service,
+  the volume lines and the Dockerfile `mkdir`/`chown` line from a fresh `init` in a scratch folder), sets
+  `WORKER_BASE_IMAGE` in its worker Dockerfile, adds `worker-dockerfile` to its `deploy.yml` build job when it copied by
+  hand, points `createLocalStorage({ root })` below the mount path, and lists what must survive in
+  `data.backupPaths`. Nothing changes for an app that sets none of them.
 - **The app's own build info fields in the smoke check (#922):** `softure-deploy smoke --expect-file=<json>` compares
   each field the JSON object names (text, number, boolean or null, strict equality) with the build info the app
   answers (`@softure-ai/ops`'s `fields` option), one row per field; a missing field or another value fails. The deploy
