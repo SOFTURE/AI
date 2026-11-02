@@ -1,9 +1,10 @@
 // The worker loop on a real clock with short intervals: it runs due jobs up to each queue's concurrency, keeps
 // leases alive, stops claiming on abort and releases what the grace period did not let finish.
+import type { Queryable } from "@softure-ai/db";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { err, ok, systemClock, type SoftureConfig } from "@softure-ai/core";
-import { defineJobHandler, type JobsOptionsInput } from "@softure-ai/jobs";
-import { enqueueJob, getJob, listSyncItems, type JobsContext, type JobsLogger } from "@softure-ai/jobs/server";
+import { defineJobHandler, isJobCancelled, type JobsOptionsInput } from "@softure-ai/jobs";
+import { enqueueJob, getJob, listJobRuns, listSyncItems, requestJobCancel, type JobsContext, type JobsLogFields, type JobsLogger } from "@softure-ai/jobs/server";
 import { runJobWorker, runJobWorkerProcess } from "@softure-ai/jobs/worker";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -175,6 +176,37 @@ describe("runJobWorker", () => {
     expect(logger.lines).toContain("info: job released for another worker");
   });
 
+  it("aborts a cancelled job's handler on the next heartbeat and ends the job cancelled", async () => {
+    await setUp();
+    const controller = new AbortController();
+    let handlerSignal: AbortSignal | undefined;
+    const handlers = {
+      "ai.reply": defineJobHandler({
+        payload: z.object({}),
+        run: async (_payload, { signal }) => {
+          handlerSignal = signal;
+          await new Promise((resolve) => signal.addEventListener("abort", resolve));
+          return ok();
+        },
+      }),
+    };
+    const logger = createRecordingLogger();
+    const { id } = await enqueueJob(ctx, { queue: "ai.reply", payload: {} });
+    const worker = runJobWorker({ db: database.db, config, handlers, signal: controller.signal, logger, heartbeatMs: 40 });
+    await waitFor(() => Promise.resolve(handlerSignal !== undefined));
+
+    const requested = await requestJobCancel(ctx, id);
+    expect(requested).toMatchObject({ ok: true, value: { status: "running" } });
+    await waitFor(async () => (await getJob(ctx, id))?.status === "cancelled");
+    controller.abort();
+    await worker;
+
+    expect(handlerSignal !== undefined && isJobCancelled(handlerSignal)).toBe(true);
+    expect(await getJob(ctx, id)).toMatchObject({ status: "cancelled", attempts: 1, lockedBy: null, lastError: null });
+    expect(await listJobRuns(ctx)).toMatchObject([{ jobId: id, outcome: "cancelled", errorCode: "jobs.cancelled" }]);
+    expect(logger.lines).toContain("info: job cancelled by an operator; its handler is aborted");
+  });
+
   it("refuses to start without a handler for any configured queue", async () => {
     await setUp();
     await expect(runJobWorker({ db: database.db, config, handlers: {}, signal: new AbortController().signal, logger: silentLogger })).rejects.toThrow(
@@ -190,6 +222,121 @@ describe("runJobWorker", () => {
     const handlers = { "ai.reply": defineJobHandler({ payload: z.object({}), run: () => Promise.resolve(ok()) }) };
     await runJobWorker({ db: database.db, config, handlers, signal: controller.signal, logger });
     expect(logger.lines).toEqual(["warn: configured queues without a handler are not run by this worker", "info: worker started", "info: worker stopped"]);
+  });
+});
+
+interface LoggedLine {
+  readonly level: "info" | "warn" | "error";
+  readonly message: string;
+  readonly fields: JobsLogFields | undefined;
+}
+
+function createFieldLogger(): JobsLogger & { lines: LoggedLine[] } {
+  const lines: LoggedLine[] = [];
+  const write = (level: LoggedLine["level"]) => (message: string, fields?: JobsLogFields) => lines.push({ level, message, fields });
+  return { lines, info: write("info"), warn: write("warn"), error: write("error") };
+}
+
+/** The database handle with a switch: while `failure` is set, every call on it throws that error. */
+function createSwitchableDatabase(db: Queryable): { db: Queryable; fail: (error: Error | undefined) => void } {
+  let failure: Error | undefined;
+  const proxy = new Proxy(db, {
+    get(target, property) {
+      const value: unknown = Reflect.get(target, property, target);
+      if (typeof value !== "function") return value;
+      return (...args: unknown[]): unknown => {
+        if (failure !== undefined) throw failure;
+        return Reflect.apply(value, target, args);
+      };
+    },
+  });
+  return { db: proxy, fail: (error) => (failure = error) };
+}
+
+function sqlError(code: string): Error {
+  return Object.assign(new Error("terminating connection due to administrator command"), { code });
+}
+
+describe("runJobWorker during a database outage", () => {
+  let database: TestDatabase;
+  let config: SoftureConfig;
+
+  const handlers = {
+    "ai.reply": defineJobHandler({ payload: z.object({}), run: () => Promise.resolve(ok()) }),
+    "mail.send": defineJobHandler({ payload: z.object({}), run: () => Promise.resolve(ok()) }),
+  };
+
+  afterEach(async () => {
+    await database.close();
+  });
+
+  async function runOutage(options: { error: Error; outageMs: number; databaseOutageToleranceMs?: number }): Promise<LoggedLine[]> {
+    config = createConfig(FAST);
+    database = await createTestDatabase(config.modules);
+    const switchable = createSwitchableDatabase(database.db);
+    const logger = createFieldLogger();
+    const controller = new AbortController();
+    switchable.fail(options.error);
+    const worker = runJobWorker({
+      db: switchable.db,
+      config,
+      handlers,
+      signal: controller.signal,
+      logger,
+      workerId: "test",
+      ...(options.databaseOutageToleranceMs === undefined ? {} : { databaseOutageToleranceMs: options.databaseOutageToleranceMs }),
+    });
+    await delay(options.outageMs);
+    switchable.fail(undefined);
+    await delay(200);
+    controller.abort();
+    await worker;
+    return logger.lines;
+  }
+
+  function claimFailures(lines: readonly LoggedLine[]): LoggedLine[] {
+    return lines.filter((line) => line.message === "could not claim jobs");
+  }
+
+  it("logs a short outage as info, claims once per round and says when the database is back", async () => {
+    const lines = await runOutage({ error: sqlError("57P01"), outageMs: 300 });
+
+    expect(lines.filter((line) => line.level !== "info")).toEqual([]);
+    const failures = claimFailures(lines);
+    expect(failures.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(failures.map((line) => line.fields?.queue))).toEqual(new Set(["ai.reply"]));
+    expect(failures[0]?.fields?.outageMs).toBe(0);
+    const recovered = lines.filter((line) => line.message === "database reachable again");
+    expect(recovered).toHaveLength(1);
+    expect(recovered[0]?.fields?.outageMs).toBeGreaterThanOrEqual(250);
+    expect(lines.findIndex((line) => line.message === "database reachable again")).toBeGreaterThan(lines.indexOf(failures.at(-1) as LoggedLine));
+  });
+
+  it("logs an outage that outlasts the tolerance as error", async () => {
+    const lines = await runOutage({ error: sqlError("57P03"), outageMs: 400, databaseOutageToleranceMs: 150 });
+
+    const failures = claimFailures(lines);
+    expect(failures.some((line) => line.level === "info")).toBe(true);
+    const errors = failures.filter((line) => line.level === "error");
+    expect(errors.length).toBeGreaterThanOrEqual(1);
+    expect(errors.every((line) => typeof line.fields?.outageMs === "number" && line.fields.outageMs >= 150)).toBe(true);
+  });
+
+  it("logs every outage failure as error with a tolerance of 0", async () => {
+    const lines = await runOutage({ error: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }), outageMs: 150, databaseOutageToleranceMs: 0 });
+
+    const failures = claimFailures(lines);
+    expect(failures.length).toBeGreaterThanOrEqual(1);
+    expect(failures.every((line) => line.level === "error")).toBe(true);
+  });
+
+  it("logs any other database failure as error and still tries every queue", async () => {
+    const lines = await runOutage({ error: sqlError("42P01"), outageMs: 150 });
+
+    const failures = claimFailures(lines);
+    expect(failures.every((line) => line.level === "error")).toBe(true);
+    expect(new Set(failures.map((line) => line.fields?.queue))).toEqual(new Set(["ai.reply", "mail.send"]));
+    expect(lines.some((line) => line.message === "database reachable again")).toBe(false);
   });
 });
 

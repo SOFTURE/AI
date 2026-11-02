@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Look maps for the screens `@softure-ai/pwa` names, now components of `@softure-ai/ui` (#960): `UPDATE_PROMPT_LOOK`
+  and `INSTALL_BAR_LOOK` (flat panel rising in with `prompt-enter`, title on `subsection`, `accent` icon, the primary
+  action without a border), `LAUNCH_SCREEN_LOOK` and `ROUTE_LOADING_LOOK` (name on `band`, bar on a `border` track,
+  percentage as a `num`; the thin bars keep `accent`, never lime) and `MINI_PROGRESS_LOOK` (flag radius, a caption
+  `num`). `page.css` adds `prompt-enter`. Needs `@softure-ai/ui` with these components (the next release).
+
 ## 0.2.0
 
 - Needs `@softure-ai/theme-kit` `^0.1.4` (was `^0.1.2`): the version whose `softure-theme-css` writes `preflight.css`

@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+- The screens `@softure-ai/pwa` names, for every theme on ui (#960): `LaunchScreen`, `TopLoadingBar`, `RouteLoading`,
+  `UpdatePrompt` and `InstallBar`, with theme-notion's props one to one plus `classNames` per slot and `unstyled`, and
+  the `data-slot`s the pwa launch counter drives. Server-safe.
+- `ProgressBar` (0–100, `track` or `hairline`, indeterminate without a value, still under reduced motion) and
+  `MiniProgress` (a 20 px share with its figure inside, by tone).
+- `ShareIcon` and `SquarePlusIcon`. `styles.css` adds the `sft-indeterminate` keyframes.
+
 ## 0.3.5
 
 - `DisclosureMenu` (and so `AccountMenu` and `MobileMenu`): the panel's link rules no longer restyle a `ButtonLink`
