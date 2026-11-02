@@ -1,0 +1,12 @@
+{
+  "id": "metering",
+  "version": "0.1.0",
+  "dependsOn": {},
+  "dbSchema": "metering",
+  "tables": ["charges"],
+  "env": [],
+  "switches": [],
+  "routes": {},
+  "mount": [],
+  "privacy": { "exports": true, "deletes": true }
+}
