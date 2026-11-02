@@ -37,6 +37,8 @@ export interface SyncItemContext extends JobsContext {
 export interface ListSyncItemsInput {
   readonly source?: string;
   readonly status?: SyncItemStatus;
+  /** Only items with this error code, e.g. with `status: "pending"` the items waiting on it (`waitSyncItem`). */
+  readonly errorCode?: string;
   /** Only items whose status, attempts or error changed at or after this time. */
   readonly since?: Date;
   /** Default 100, at most 1000. */
@@ -73,9 +75,10 @@ type Settled = { readonly outcome: SyncItemOutcome; readonly thrown?: undefined 
  * `skipped` or `failed` (then `skipped`, the callback untouched). `run` gets the item's transaction as `context.db`:
  * write the item's effect through it and it commits together with the ledger's `done`. A returned failure rolls those
  * writes back, counts the attempt and leaves the item `pending` for the next run, or `failed` once `maxAttempts` runs
- * failed (or at once with `failSyncItem`). A throw is recorded the same way with `jobs.sync_item_threw` and then
- * rethrown. A call outside the database (an API) is not rolled back: a crash between it and the commit repeats it on
- * the next run, so keep it idempotent where the source allows. Throws on invalid input; database failures propagate.
+ * failed (or at once with `failSyncItem`); `waitSyncItem` rolls them back without counting the attempt. A throw is
+ * recorded the same way with `jobs.sync_item_threw` and then rethrown. A call outside the database (an API) is not
+ * rolled back: a crash between it and the commit repeats it on the next run, so keep it idempotent where the source
+ * allows. Throws on invalid input; database failures propagate.
  */
 export async function processSyncItem(
   ctx: JobsContext,
@@ -153,6 +156,8 @@ async function record(
   // A callback that returned neither ok() nor an error (a JavaScript caller) counts as a throw.
   const failure = result as Partial<SyncItemFailure> | null | undefined;
   const error = toErrorCode(typeof failure?.error === "string" ? failure.error : SYNC_ITEM_THREW);
+  // Before the maxAttempts rule: a waiting failure never uses up the item's attempts.
+  if (failure?.retry === "wait") return { kind: "waiting", error, item: await finish({ errorCode: error }) };
   if (failure?.retry === false || attempt >= context.maxAttempts) {
     return { kind: "failed", error, item: await finish({ status: "failed", attempts: attempt, errorCode: error, finishedAt: now }) };
   }
@@ -174,6 +179,7 @@ export async function listSyncItems(ctx: JobsContext, input: ListSyncItemsInput 
   const filters: SQL[] = [];
   if (input.source !== undefined) filters.push(eq(syncItems.source, input.source));
   if (input.status !== undefined) filters.push(eq(syncItems.status, input.status));
+  if (input.errorCode !== undefined) filters.push(eq(syncItems.errorCode, input.errorCode));
   if (input.since !== undefined) filters.push(gte(syncItems.updatedAt, input.since));
   const rows = await ctx.db
     .select()

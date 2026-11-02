@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- A sync item failure that waits (#939): a `processSyncItem` callback returns `waitSyncItem(code)` (a `SyncItemFailure`
+  with `retry: "wait"`) for a cause outside the item that only an operator clears, such as a connection that needs a
+  reconnect (`connections.reconnect_required`, `connections.not_connected`). The callback's writes roll back, the item
+  stays `pending` with its attempts unchanged and its `error_code` set, and the outcome is the new
+  `{ kind: "waiting", error, item }`, so `maxAttempts` is never reached through such failures; an ordinary failure still
+  counts. `listSyncItems` takes `errorCode`, so `{ status: "pending", errorCode }` lists the items waiting on a code.
+  New in `@softure-ai/jobs`: `waitSyncItem`.
+  - Migrate: an app that gives the attempt back itself with an `UPDATE` of `jobs.sync_items` after `processSyncItem`
+    returns `waitSyncItem(code)` from the callback instead and drops the `UPDATE`. An app with an exhaustive `switch`
+    over `SyncItemOutcome["kind"]` adds the `waiting` case.
 - Progress from a running handler and cancelling a running job (#951). A handler calls
   `context.reportProgress({ step, done?, total?, code? })`: a code-only progress, checked like the run summary
   (`jobProgressSchema`, `JobProgress`), written at most once a second per job and fenced by the claim; `Job` gains

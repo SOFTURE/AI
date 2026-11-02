@@ -78,4 +78,5 @@ export {
   type SyncItemOutcome,
   type SyncItemRunResult,
   type SyncItemStatus,
+  waitSyncItem,
 } from "./sync.js";
