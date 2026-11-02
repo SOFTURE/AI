@@ -1,7 +1,7 @@
 ---
 change_id: speech-transcription-956
 title: "speech: a new package that turns audio into text through a provider, with normalization, chunking, subtitles and cost (issue #956)"
-status: implementing
+status: impl_reviewed
 roadmap_item: null
 issue: 956
 branch: claude/project-thread-m66igp

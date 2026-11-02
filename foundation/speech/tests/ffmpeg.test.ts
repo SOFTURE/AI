@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -100,7 +100,7 @@ describe("createFfmpegNormalizer with a runner", () => {
 
   it("throws naming the path when the ffmpeg binary is missing, and leaves no files", async () => {
     const normalizer = createFfmpegNormalizer({ ffmpegPath: join(tempDir, "no-ffmpeg"), tempDir: join(tempDir, "work") });
-    execFileSync("mkdir", [join(tempDir, "work")]);
+    mkdirSync(join(tempDir, "work"));
 
     await expect(normalizer.normalize({ kind: "file", path: "a.mp3" }, options)).rejects.toThrow(
       `ffmpeg was not found at "${join(tempDir, "no-ffmpeg")}"`,

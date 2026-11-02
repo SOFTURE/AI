@@ -101,4 +101,4 @@ an injected runner in CI.
 ### Phase 4: docs
 
 #### Automated
-- [ ] 4.1 README, CHANGELOG and root layout line; markdown link test green
+- [x] 4.1 README, CHANGELOG and root layout line; markdown link test green — ec99b6b
