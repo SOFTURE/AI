@@ -1,12 +1,13 @@
 ---
 change_id: connections-token-state-outside-tx-935
 title: "connections: a token refresh survives the rollback of the caller's transaction (issue #935)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 935
 branch: claude/project-thread-p6vpni
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent
