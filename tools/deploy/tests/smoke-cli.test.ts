@@ -102,6 +102,50 @@ describe("softure-deploy smoke", () => {
     expect(err.join("")).toBe(`smoke: ${baseUrl}/api/health/build: its JSON is not build info (release, commit and startedAt).\n`);
   });
 
+  it("compares the app's own fields the expect file names, and names the failed ones (issue #922)", async () => {
+    answerInfo({ release: "v1.4.0", commit: SHA, startedAt: "2026-10-29T15:01:00.000Z", toolListVersion: "old", toolCount: 12 });
+    writeFileSync(join(dir, "expect.json"), JSON.stringify({ toolCount: 12, toolListVersion: "new" }));
+    const status = await runCli(["smoke", baseUrl, "--tag=v1.4.0", "--expect-file=expect.json"], makeIo());
+    expect(status).toBe(1);
+    expect(out.join("")).toBe(
+      [
+        `Build info of ${baseUrl}/api/health/build`,
+        "Result  Check            Detail",
+        "PASS    release          release v1.4.0",
+        "PASS    toolCount        toolCount 12",
+        'FAIL    toolListVersion  toolListVersion "old", expected "new"',
+        "",
+      ].join("\n"),
+    );
+    expect(err.join("")).toBe("smoke: production does not run v1.4.0: the toolListVersion check failed.\n");
+    writeFileSync(join(dir, "expect.json"), JSON.stringify({ toolListVersion: "old" }));
+    err = [];
+    expect(await runCli(["smoke", baseUrl, "--tag=v1.4.0", "--expect-file=expect.json"], makeIo())).toBe(0);
+    expect(err.join("")).toBe("");
+  });
+
+  it("refuses an expect file that is not an object of named text, number, boolean or null values", async () => {
+    const cases: [string, string][] = [
+      ["{", "smoke: --expect-file expect.json is not JSON.\n"],
+      ["[1]", "smoke: --expect-file expect.json is not a JSON object of build info fields and their expected values.\n"],
+      ['{"tool list": 1}', 'smoke: --expect-file field "tool list" is not a name (a letter or _, then letters, digits, _ or -; at most 64).\n'],
+      ['{"release": "v1"}', "smoke: --expect-file field release is checked by --tag; leave it out of the file.\n"],
+      ['{"startedAt": "x"}', "smoke: --expect-file field startedAt is checked by --deployed-at; leave it out of the file.\n"],
+      ['{"tools": ["a"]}', "smoke: --expect-file field tools must be text, a number, true, false or null.\n"],
+      [JSON.stringify(Object.fromEntries(Array.from({ length: 51 }, (_, index) => [`f${index}`, index]))), "smoke: --expect-file expect.json names more than 50 fields.\n"],
+    ];
+    for (const [text, message] of cases) {
+      writeFileSync(join(dir, "expect.json"), text);
+      err = [];
+      expect(await runCli(["smoke", baseUrl, "--tag=v1", "--expect-file=expect.json"], makeIo()), text).toBe(2);
+      expect(err.join(""), text).toBe(message);
+    }
+    err = [];
+    expect(await runCli(["smoke", baseUrl, "--tag=v1", "--expect-file=missing.json"], makeIo())).toBe(1);
+    expect(err.join("")).toBe("smoke: cannot read --expect-file missing.json (ENOENT).\n");
+    expect(requests).toEqual([]);
+  });
+
   it("refuses a wrong command line before any request", async () => {
     const cases: [string[], string][] = [
       [["smoke", "--tag=v1"], "smoke: pass exactly one URL, for example softure-deploy smoke https://example.com --tag=v1.2.0\n"],
@@ -134,6 +178,32 @@ describe("softure-deploy changelog", () => {
     expect(await runCli(["changelog", "--out=changelog.json", "--roadmaps=1"], makeIo())).toBe(0);
     expect(out.join("")).toBe("changelog: 1 finished items of 1 roadmaps written to changelog.json.\n");
     expect(JSON.parse(readFileSync(join(dir, "changelog.json"), "utf8"))).toEqual(expected);
+  });
+
+  it("copies the roadmap columns --fields names into each item (issue #922)", async () => {
+    mkdirSync(join(dir, "context", "foundation"), { recursive: true });
+    writeFileSync(
+      join(dir, "context", "foundation", "roadmap.md"),
+      "## At a glance\n\n| ID | Change | Outcome | Findings | Status |\n| --- | --- | --- | --- | --- |\n| AB-1 | ab-1 | One | F-2 | done |\n",
+    );
+    expect(await runCli(["changelog", "--fields=Findings, Area"], makeIo())).toBe(0);
+    expect(JSON.parse(out.join(""))).toEqual([
+      { roadmap: "context/foundation/roadmap.md", items: [{ id: "AB-1", changeId: "ab-1", status: "done", fields: { Findings: "F-2" } }] },
+    ]);
+  });
+
+  it("refuses --fields that are not column names, repeat one or name more than 10", async () => {
+    const cases: [string, string][] = [
+      ["--fields=", 'changelog: --fields "" is not a column name (letters, digits, space, _ . -; at most 40).\n'],
+      ["--fields=a|b", 'changelog: --fields "a|b" is not a column name (letters, digits, space, _ . -; at most 40).\n'],
+      ["--fields=Area,area", "changelog: --fields names a column twice.\n"],
+      [`--fields=${Array.from({ length: 11 }, (_, index) => `c${index}`).join(",")}`, "changelog: --fields names at most 10 columns.\n"],
+    ];
+    for (const [flag, message] of cases) {
+      err = [];
+      expect(await runCli(["changelog", flag], makeIo()), flag).toBe(2);
+      expect(err.join(""), flag).toBe(message);
+    }
   });
 
   it("refuses a --roadmaps that is not 1 to 50", async () => {

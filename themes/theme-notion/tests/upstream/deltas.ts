@@ -366,6 +366,11 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "<Button variant=\"outline\">Close</Button>",
       ours: "<Button variant=\"outline\">{closeLabel}</Button>",
     },
+    {
+      reason: "dialog: the footer's close button before its children, cancel then confirm (#921)",
+      upstream: "      {children}\n      {showCloseButton && (\n        <DialogPrimitive.Close asChild>\n          <Button variant=\"outline\">{closeLabel}</Button>\n        </DialogPrimitive.Close>\n      )}\n",
+      ours: "      {showCloseButton && (\n        <DialogPrimitive.Close asChild>\n          <Button variant=\"outline\">{closeLabel}</Button>\n        </DialogPrimitive.Close>\n      )}\n      {children}\n",
+    },
   ],
   "dropdown-menu": [
     {
@@ -602,9 +607,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { cn } from \"../lib/utils.js\"",
     },
     {
-      reason: "imports: relative paths with `.js`; a caller's fill class is detected",
+      reason: "imports: relative paths with `.js`; a caller's fill class is detected; the indeterminate fill's classes",
       upstream: "import { Progress as ProgressPrimitive } from \"radix-ui\"\n",
-      ours: "import { Progress as ProgressPrimitive } from \"radix-ui\"\n\nconst FILL_CLASS = /(^|\\s)bg-/\n\nfunction hasFillClass(className: string | undefined): boolean {\n  return className !== undefined && FILL_CLASS.test(className)\n}\n",
+      ours: "import { Progress as ProgressPrimitive } from \"radix-ui\"\n\nconst FILL_CLASS = /(^|\\s)bg-/\n\n// Without a value the fill is a third of the track sliding across it for ever (tw-animate-css's exit slide, which\n// adds to the `translate` that parks it left of the track); with reduced motion it stands still, full and faint.\nconst INDETERMINATE_CLASS = [\n  \"data-[state=indeterminate]:w-1/3\",\n  \"data-[state=indeterminate]:-translate-x-full\",\n  \"data-[state=indeterminate]:animate-out\",\n  \"data-[state=indeterminate]:slide-out-to-right-[400%]\",\n  \"data-[state=indeterminate]:repeat-infinite\",\n  \"data-[state=indeterminate]:duration-1500\",\n  \"data-[state=indeterminate]:ease-in-out\",\n  \"motion-reduce:data-[state=indeterminate]:animate-none\",\n  \"motion-reduce:data-[state=indeterminate]:w-full\",\n  \"motion-reduce:data-[state=indeterminate]:translate-x-0\",\n  \"motion-reduce:data-[state=indeterminate]:opacity-50\",\n].join(\" \")\n\nfunction hasFillClass(className: string | undefined): boolean {\n  return className !== undefined && FILL_CLASS.test(className)\n}\n",
     },
     {
       reason: "progress: `indicatorClassName` styles the fill",
@@ -627,9 +632,14 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "        \"relative h-1.5 w-full overflow-hidden rounded-full bg-primary/20\",",
     },
     {
-      reason: "progress: `indicatorClassName` styles the fill; in dark the default fill is `link` (WCAG 1.4.11 non-text contrast)",
+      reason: "progress: `indicatorClassName` styles the fill; in dark the default fill is `link` (WCAG 1.4.11 non-text contrast); the indeterminate fill",
       upstream: "        className=\"h-full w-full flex-1 bg-primary transition-all\"",
-      ours: "        className={cn(\n          \"h-full w-full flex-1 bg-primary transition-all\",\n          // In dark the default fill is the lighter link blue, so it reaches 3:1 against its track; a fill colour of\n          // the caller's own replaces both.\n          !hasFillClass(indicatorClassName) && \"dark:bg-link\",\n          indicatorClassName\n        )}",
+      ours: "        className={cn(\n          \"h-full w-full flex-1 bg-primary transition-all\",\n          INDETERMINATE_CLASS,\n          // In dark the default fill is the lighter link blue, so it reaches 3:1 against its track; a fill colour of\n          // the caller's own replaces both.\n          !hasFillClass(indicatorClassName) && \"dark:bg-link\",\n          indicatorClassName\n        )}",
+    },
+    {
+      reason: "progress: without a value no parked transform, so the indeterminate fill can slide",
+      upstream: "        style={{ transform: `translateX(-${100 - (value || 0)}%)` }}",
+      ours: "        style={value == null ? undefined : { transform: `translateX(-${100 - value}%)` }}",
     },
   ],
   "radio-group": [

@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `DialogFooter showCloseButton` renders its close button before `children` (#921): with a confirm button in
+  `children`, cancel sits left of confirm from `sm` and below it on a phone (`flex-col-reverse`), the order of
+  `AlertDialogFooter`. Before, the close button came last. The button already had `type="button"` (from Radix
+  `DialogClose`), so in a form dialog it closes the dialog without submitting the form; a test now guards that.
+  An app that wants another order places its own `DialogClose`.
+- A thin top loading bar for wide screens (#923): `TopLoadingBar` is a 2 px, square `Progress` fixed to the top edge
+  on a transparent track, `pointer-events-none`, so the page stays usable while a route loads; driven by the pwa
+  counter (`buildLaunchProgressScript({ rootSlot: "top-loading-bar" })`) or indeterminate. `RouteLoading` streams it
+  with `LaunchScreen` and lets CSS pick: the launch screen below `md` or in an installed app, the bar in a wide browser
+  tab, so `app/loading.tsx` needs no request reading and pages stay static.
+- `Progress` without a `value` is indeterminate: a third of the track slides across it (still, full and half-opaque
+  with reduced motion). Before, it drew an empty track. With a value it draws as before; its indicator carries the
+  indeterminate classes under `data-[state=indeterminate]:`.
+
 ## 0.10.3
 
 - Dialog sizes for a popup: `DialogContent size` gains `"lg"` and `"sm"`. `lg` is the standard popup, centred with a

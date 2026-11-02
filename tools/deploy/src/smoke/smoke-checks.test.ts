@@ -54,6 +54,39 @@ describe("runSmokeChecks", () => {
   });
 });
 
+describe("runSmokeChecks with the app's own fields (issue #922)", () => {
+  const ANSWER = { ...INFO, toolListVersion: "a1b2c3", toolCount: 12, beta: false, region: null, nested: { a: 1 } };
+
+  it("passes every field that equals its expected value, after the build facts, in the order given", () => {
+    const checks = runSmokeChecks(INFO, { tag: "v1.4.0", fields: { toolCount: 12, toolListVersion: "a1b2c3", beta: false, region: null } }, ANSWER);
+    expect(checks).toEqual([
+      { kind: "release", passed: true, detail: "release v1.4.0" },
+      { kind: "field", field: "toolCount", passed: true, detail: "toolCount 12" },
+      { kind: "field", field: "toolListVersion", passed: true, detail: 'toolListVersion "a1b2c3"' },
+      { kind: "field", field: "beta", passed: true, detail: "beta false" },
+      { kind: "field", field: "region", passed: true, detail: "region null" },
+    ]);
+  });
+
+  it("fails another value, another type, an object and a missing field, showing both sides as JSON", () => {
+    const field = (name: string, expected: string | number | boolean | null) =>
+      runSmokeChecks(INFO, { tag: "v1.4.0", fields: { [name]: expected } }, ANSWER)[1];
+    expect(field("toolListVersion", "d4e5f6")).toEqual({
+      kind: "field",
+      field: "toolListVersion",
+      passed: false,
+      detail: 'toolListVersion "a1b2c3", expected "d4e5f6"',
+    });
+    expect(field("toolCount", "12")?.detail).toBe('toolCount 12, expected "12"');
+    expect(field("nested", 1)?.detail).toBe('nested {"a":1}, expected 1');
+    expect(field("toolNames", "x")).toEqual({ kind: "field", field: "toolNames", passed: false, detail: 'no toolNames in the build info, expected "x"' });
+  });
+
+  it("reads fields from the build info itself when no whole answer is passed", () => {
+    expect(runSmokeChecks(INFO, { tag: "v1.4.0", fields: { builtAt: "2026-10-29T14:30:00.000Z" } })[1]?.passed).toBe(true);
+  });
+});
+
 describe("formatSmokeReport", () => {
   it("prints one row per check under the URL", () => {
     const checks = runSmokeChecks(INFO, { tag: "v1.5.0", commit: SHA });
@@ -63,6 +96,19 @@ describe("formatSmokeReport", () => {
         "Result  Check    Detail",
         "FAIL    release  release v1.4.0, expected v1.5.0",
         `PASS    commit   commit ${SHA}`,
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("names a field check after its field", () => {
+    const checks = runSmokeChecks(INFO, { tag: "v1.4.0", fields: { toolListVersion: "b" } }, { ...INFO, toolListVersion: "a" });
+    expect(formatSmokeReport(checks, "https://example.com/b")).toBe(
+      [
+        "Build info of https://example.com/b",
+        "Result  Check            Detail",
+        "PASS    release          release v1.4.0",
+        'FAIL    toolListVersion  toolListVersion "a", expected "b"',
         "",
       ].join("\n"),
     );

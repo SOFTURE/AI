@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { Button } from "../../src/ui/button.js";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "../../src/ui/dialog.js";
 
 afterEach(cleanup);
@@ -144,5 +146,52 @@ describe("DialogFooter close button", () => {
     renderFooter();
 
     expect(screen.getByRole("button").textContent).toBe("Close");
+  });
+});
+
+function FormDialog({ onSubmit }: { onSubmit: () => void }) {
+  const [isOpen, setIsOpen] = useState(true);
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent showCloseButton={false}>
+        <DialogTitle>Rename</DialogTitle>
+        <DialogDescription>Pick a new name.</DialogDescription>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+        >
+          <DialogFooter showCloseButton closeLabel="Cancel">
+            <Button type="submit">Save</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+describe("DialogFooter close button in a form", () => {
+  it("closes the dialog without submitting the form", () => {
+    const onSubmit = vi.fn();
+    render(<FormDialog onSubmit={onSubmit} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("is a plain button, not a submit button", () => {
+    render(<FormDialog onSubmit={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Cancel" }).getAttribute("type")).toBe("button");
+  });
+
+  it("comes before the footer's children, cancel then confirm", () => {
+    render(<FormDialog onSubmit={vi.fn()} />);
+    const footer = document.querySelector('[data-slot="dialog-footer"]');
+
+    expect(Array.from(footer?.children ?? [], (child) => child.textContent)).toEqual(["Cancel", "Save"]);
   });
 });

@@ -140,7 +140,9 @@ stages with a state, below), `Timeline` (dated entries on a vertical rail, below
 `MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
 `UpdatePrompt` (the offer to reload into a new build, for an installed app, below),
 `InstallBar` (the offer to install the app on a phone, below),
-`LaunchScreen` (an installed app's icon, name and progress while its first page loads, below).
+`LaunchScreen` (an installed app's icon, name and progress while its first page loads, below),
+`TopLoadingBar` (a thin bar at the top while a route loads on a wide screen, below),
+`RouteLoading` (the launch screen or the top bar, picked by the browser, below).
 
 **Touch sizes.** The controls a phone view taps most reach the `touch-target` token (44 px, Apple's HIG and WCAG
 2.5.5): `Button` sizes `touch` (44 px high, padded like `lg`) and `icon-touch` (44 × 44), `SelectTrigger`
@@ -437,6 +439,41 @@ export default function Loading() {
 }
 ```
 
+**`TopLoadingBar`.** The wide-screen counterpart of `LaunchScreen`: a `Progress` fixed to the top edge (`inset-x-0
+top-0 z-50`), 2 px high, square, on a transparent track and `pointer-events-none`, so the page under it stays usable
+while a route loads. Named by `label`; `value` (0–100) when the app knows the progress, otherwise it is indeterminate:
+a third of the track sliding across it for ever (still, full and half-opaque with reduced motion). The inline `script`
+(`buildLaunchProgressScript({ rootSlot: "top-loading-bar" })` from `@softure-ai/pwa`) gives it the launch counter's
+values where the browser runs it, a streamed first load; its first value makes the bar determinate. A client-side
+navigation never runs a script React inserts, so there the bar keeps sliding. Any `Progress` without a `value` is
+indeterminate the same way.
+
+**`RouteLoading`.** The loading state for the root `app/loading.tsx`, picked in the browser, so reading the request
+(which makes static pages dynamic) is not needed: it streams both `LaunchScreen` and `TopLoadingBar` and CSS shows
+the launch screen below `md` or in an installed app (`display-mode: standalone`), the top bar on a wide screen in a
+browser tab (`md` and `display-mode: browser`). Each takes its own counter script:
+
+```tsx
+// app/loading.tsx
+import { buildLaunchProgressScript, ICONS_PATH } from "@softure-ai/pwa";
+const LAUNCH_SCRIPT = buildLaunchProgressScript();
+const BAR_SCRIPT = buildLaunchProgressScript({ rootSlot: "top-loading-bar" });
+export default function Loading() {
+  return (
+    <RouteLoading
+      name={messages.app.name}
+      iconSrc={`${ICONS_PATH}/icon-192.png`}
+      label={messages.pwa.launch.label}
+      launchScript={LAUNCH_SCRIPT}
+      barScript={BAR_SCRIPT}
+    />
+  );
+}
+```
+
+An app with a local top bar and a stand-in script object for `launchProgress` drops both for `RouteLoading` (or
+`TopLoadingBar` with `rootSlot`).
+
 **`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and
 `@dnd-kit/sortable`. On a touch screen a long press (`holdDelay`, 500 ms) lifts a row; moving more than `tolerance`
 (8 px) before that scrolls instead, and a tap still activates the row. A mouse drags the same way; from the keyboard
@@ -530,7 +567,10 @@ Deltas from stock shadcn:
   quarters of it from `sm`, the 1 rem gutter on a phone; its height is fixed and its content scrolls in a column
   (an app with a fixed header and footer sets `p-0 gap-0` and scrolls its own body with
   `min-h-0 flex-1 overflow-y-auto`). `size="sm"` is a small popup for little data: `max-w-md`, its height by
-  content up to the viewport's gutter, then scrolling. `card`: `shadow-card` instead of a border.
+  content up to the viewport's gutter, then scrolling. `DialogFooter showCloseButton` puts its close button
+  before `children`, so a form dialog's footer reads cancel then confirm (confirm on top on a phone); the button is
+  `type="button"`, so inside a `<form>` it closes the dialog without submitting. `card`: `shadow-card` instead of a
+  border.
 - `checkbox` 16 px with a 1.5 px border, `radio-group` drawn the same (round, a `primary` dot), `switch` 26 × 16
   (thumb shadow in `SWITCH_THUMB_SHADOW_CLASS`, for a native switch drawn the same), `tooltip` dark without an arrow,
   `tabs` default to the `line` variant, `progress` 6 px.
