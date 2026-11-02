@@ -88,5 +88,18 @@ export { Steps, type StepItem, type StepState, type StepsLayout, type StepsProps
 export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
 export { Timeline, type TimelineItem, type TimelineItemFold, type TimelineItemSize, type TimelineLine, type TimelineProps } from "./notion/Timeline.js";
 export { TopLoadingBar, type TopLoadingBarProps } from "./notion/TopLoadingBar.js";
+export {
+  UploadField,
+  UploadItem,
+  UploadList,
+  formatFileSize,
+  type UploadFieldProps,
+  type UploadFileItem,
+  type UploadItemProps,
+  type UploadListProps,
+  type UploadMessages,
+  type UploadMessagesOverride,
+  type UploadState,
+} from "./notion/Upload.js";
 export { UpdatePrompt, type UpdatePromptProps } from "./notion/UpdatePrompt.js";
 export { TONES, TONE_COLORS, TONE_EDGE, TONE_FILL, TONE_TEXT, type Tone } from "./notion/tones.js";

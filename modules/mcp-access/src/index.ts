@@ -54,8 +54,14 @@ export const mcpAccess = defineModule({
     version: "0.2.9",
     dependsOn: { security: "^0.2.0", auth: "^0.2.0", jobs: "^0.1.1?", ops: "^0.2.0?" },
     dbSchema: "mcp",
-    tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants", "oauth_registration_window"],
-    env: [],
+    tables: ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants", "oauth_registration_window", "used_confirmations"],
+    env: [
+      {
+        name: "MCP_CONFIRMATION_SECRET",
+        required: false,
+        description: "Signs and verifies the confirmation tokens of confirmed tool calls (withConfirmation), at least 32 characters; required only by an app that confirms tool calls. Changing it voids the tokens in flight.",
+      },
+    ],
     switches: [WRITES_ENABLED_SWITCH],
     routes: { ...DEFAULT_MCP_ACCESS_ROUTES },
     mount: [

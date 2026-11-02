@@ -4,7 +4,7 @@
 -- `mcp` tokens with no scopes through the defaults.
 -- Rollback: DELETE FROM mcp.access_tokens WHERE kind = 'api';
 --   ALTER TABLE mcp.access_tokens DROP CONSTRAINT access_tokens_kind_scopes_check, DROP COLUMN scopes, DROP COLUMN kind;
---   DELETE FROM softure.migrations WHERE module = 'mcp-access' AND version = 4;
+--   DELETE FROM softure.migrations WHERE module = 'mcp-access' AND version = 5;
 ALTER TABLE access_tokens
   ADD COLUMN kind text NOT NULL DEFAULT 'mcp',
   ADD COLUMN scopes text[] NOT NULL DEFAULT '{}';

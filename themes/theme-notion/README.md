@@ -142,7 +142,9 @@ stages with a state, below), `Timeline` (dated entries on a vertical rail, below
 `InstallBar` (the offer to install the app on a phone, below),
 `LaunchScreen` (an installed app's icon, name and progress while its first page loads, below),
 `TopLoadingBar` (a thin bar at the top while a route loads on a wide screen, below),
-`RouteLoading` (the launch screen or the top bar, picked by the browser, below).
+`RouteLoading` (the launch screen or the top bar, picked by the browser, below),
+`UploadField`, `UploadList` and `UploadItem` (pick or drop files, one row per file with progress, retry and remove,
+below).
 
 **Touch sizes.** The controls a phone view taps most reach the `touch-target` token (44 px, Apple's HIG and WCAG
 2.5.5): `Button` sizes `touch` (44 px high, padded like `lg`) and `icon-touch` (44 × 44), `SelectTrigger`
@@ -473,6 +475,30 @@ export default function Loading() {
 
 An app with a local top bar and a stand-in script object for `launchProgress` drops both for `RouteLoading` (or
 `TopLoadingBar` with `rootSlot`).
+
+**`UploadField`, `UploadList`, `UploadItem`.** A file upload control that holds no files and sends nothing: the app,
+or its transport (e.g. `@softure-ai/files`), keeps the list and does the uploading. `UploadField` is a `Field` with a
+`label` (and optional `description` and `error`) around a dashed area: a touch-sized `Button` opens the native
+`<input type="file">` (`accept`, `multiple` and `capture` passed through, so a phone offers its files, photos and
+camera), and from `md` up files can also be dropped on the area, which highlights while they are dragged over it. Each
+pick or drop goes to `onFilesSelected(files)`: only the files matching `accept` (the picker enforces it, a drop is
+checked by extension and MIME type), the first one without `multiple`; dropped files that do not match go to
+`onFilesRejected`. `UploadList` is the named `ul`; `UploadItem` draws one `UploadFileItem` (`{ id, name, size, state,
+progress?, error? }`): the name, the size by `locale` (`formatFileSize`, decimal steps, e.g. "52.4 MB"), the state as
+a `Status` word (`queued` gray, `uploading` blue, `paused` orange, `done` green, `failed` red), a determinate
+`Progress` while uploading or paused, and under a failed row its `error`. Buttons show with their callbacks, each
+called with the item: Retry on a failed row (`onRetry`), Pause while uploading (`onPause`), Resume when paused
+(`onResume`) and Remove in every state (`onRemove`). Copy is `notionMessages.en.upload` (`{name}` is the file's
+name); `messages` replaces any of it.
+
+```tsx
+<UploadField label="Videos" accept="video/*" multiple onFilesSelected={(files) => uploads.add(files)} />
+<UploadList label="Files">
+  {uploads.items.map((item) => (
+    <UploadItem key={item.id} item={item} onRetry={uploads.retry} onPause={uploads.pause} onResume={uploads.resume} onRemove={uploads.remove} />
+  ))}
+</UploadList>
+```
 
 **`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and
 `@dnd-kit/sortable`. On a touch screen a long press (`holdDelay`, 500 ms) lifts a row; moving more than `tolerance`

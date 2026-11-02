@@ -3,8 +3,8 @@
 import type { Queryable } from "@softure-ai/db";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
 import { err, ok, systemClock, type SoftureConfig } from "@softure-ai/core";
-import { defineJobHandler, type JobsOptionsInput } from "@softure-ai/jobs";
-import { enqueueJob, getJob, listSyncItems, type JobsContext, type JobsLogFields, type JobsLogger } from "@softure-ai/jobs/server";
+import { defineJobHandler, isJobCancelled, type JobsOptionsInput } from "@softure-ai/jobs";
+import { enqueueJob, getJob, listJobRuns, listSyncItems, requestJobCancel, type JobsContext, type JobsLogFields, type JobsLogger } from "@softure-ai/jobs/server";
 import { runJobWorker, runJobWorkerProcess } from "@softure-ai/jobs/worker";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -174,6 +174,37 @@ describe("runJobWorker", () => {
     expect(handlerSignal?.aborted).toBe(true);
     expect(await getJob(ctx, id)).toMatchObject({ status: "pending", attempts: 0, lockedBy: null, lastError: null });
     expect(logger.lines).toContain("info: job released for another worker");
+  });
+
+  it("aborts a cancelled job's handler on the next heartbeat and ends the job cancelled", async () => {
+    await setUp();
+    const controller = new AbortController();
+    let handlerSignal: AbortSignal | undefined;
+    const handlers = {
+      "ai.reply": defineJobHandler({
+        payload: z.object({}),
+        run: async (_payload, { signal }) => {
+          handlerSignal = signal;
+          await new Promise((resolve) => signal.addEventListener("abort", resolve));
+          return ok();
+        },
+      }),
+    };
+    const logger = createRecordingLogger();
+    const { id } = await enqueueJob(ctx, { queue: "ai.reply", payload: {} });
+    const worker = runJobWorker({ db: database.db, config, handlers, signal: controller.signal, logger, heartbeatMs: 40 });
+    await waitFor(() => Promise.resolve(handlerSignal !== undefined));
+
+    const requested = await requestJobCancel(ctx, id);
+    expect(requested).toMatchObject({ ok: true, value: { status: "running" } });
+    await waitFor(async () => (await getJob(ctx, id))?.status === "cancelled");
+    controller.abort();
+    await worker;
+
+    expect(handlerSignal !== undefined && isJobCancelled(handlerSignal)).toBe(true);
+    expect(await getJob(ctx, id)).toMatchObject({ status: "cancelled", attempts: 1, lockedBy: null, lastError: null });
+    expect(await listJobRuns(ctx)).toMatchObject([{ jobId: id, outcome: "cancelled", errorCode: "jobs.cancelled" }]);
+    expect(logger.lines).toContain("info: job cancelled by an operator; its handler is aborted");
   });
 
   it("refuses to start without a handler for any configured queue", async () => {

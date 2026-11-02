@@ -1,4 +1,5 @@
-// Public API of @softure-ai/pwa: the paths under the public `/pwa/` prefix, the icon registry, the manifest builder,
+// Public API of @softure-ai/pwa: the paths under the public `/pwa/` prefix, the icon registry, the manifest builder
+// (with the share target and its streaming multipart reader),
 // the launch screen's counter script, the copy, and the device-data registry cleared on sign-out. The routes an app
 // mounts are in `@softure-ai/pwa/next`, the service worker in `@softure-ai/pwa/worker`, the page side (update flow,
 // online state) in `@softure-ai/pwa/react`.
@@ -33,6 +34,27 @@ export {
   type LaunchProgressOptions,
 } from "./launch/script.js";
 export { pwaMessages, type PwaMessages } from "./messages/index.js";
+export {
+  getMultipartBoundary,
+  MultipartError,
+  readMultipart,
+  readTextPart,
+  type MultipartErrorCode,
+  type MultipartPart,
+  type ReadMultipartOptions,
+} from "./share/multipart.js";
+export {
+  buildManifestShareTarget,
+  isAcceptedFile,
+  isSameOriginPath,
+  resolveShareTarget,
+  type ManifestShareTarget,
+  type ResolvedShareTarget,
+  type ShareTargetFiles,
+  type ShareTargetOptions,
+  type ShareTargetParams,
+} from "./share/share-target.js";
+export { findSharedUrl } from "./share/shared-url.js";
 export { ICONS_PATH, MANIFEST_PATH, PWA_PREFIX, SERVICE_WORKER_PATH, VERSION_PATH } from "./paths.js";
 
 export const MODULE_ID = "pwa";

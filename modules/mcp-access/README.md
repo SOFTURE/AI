@@ -305,6 +305,53 @@ export async function createServer({ userId, canWrite, tokenId }: McpServerIdent
 }
 ```
 
+### Confirmed calls
+
+A tool that spends money (a paid provider call) or cannot be undone follows the `--commit` rule over MCP:
+`withConfirmation` (`/server`) makes the first call estimate only, the person agrees in the chat, and only a second
+call with the same input does the work. The assistant cannot agree on its own: the token comes only from an estimate,
+is single use and bound to that exact input.
+
+```ts
+import { confirmationInput, withConfirmation } from "@softure-ai/mcp-access/server";
+
+server.registerTool(
+  "render_film",
+  { inputSchema: { scene: z.string(), seconds: z.number(), confirmation: confirmationInput } },
+  withConfirmation((args) => renderFilm(ctx, userId, args), {
+    ctx, // the module context, as for the app's queries
+    identity, // the factory's McpServerIdentity: the token is bound to its userId and tokenId
+    tool: "render_film",
+    estimate: (args) => estimateFilm(ctx, userId, args), // { total: 12, currency: "credits", ... }
+    runWithoutConfirmationWhen: (estimate) => estimate.total === 0, // everything was cached
+  }),
+);
+```
+
+- **First call** (no `confirmation`): runs `estimate(args)` only and answers
+  `{ needsConfirmation: true, estimate, confirmation, expiresAt, message }`; `message` is the fixed sentence
+  `confirmation.ask` of the dictionary, which tells the assistant to show the estimate and get the person's yes.
+  `estimate` returns an object with a finite numeric `total`; every other field reaches the assistant as it is.
+  When `runWithoutConfirmationWhen(estimate)` is true the handler runs at once instead.
+- **The token** is an HMAC-SHA256 signed with `MCP_CONFIRMATION_SECRET` (§6, or the `secret` option) over the tool
+  name, a digest of the canonical JSON of the arguments without `confirmation` (`toCanonicalJson`: keys sorted,
+  `undefined` left out), a digest of the account and the access token, the estimate's total and the expiry
+  (`ttlSeconds`, default 900).
+- **Second call** (same arguments and `confirmation`): the estimate runs again, then the checks, each refused with its
+  own code and the text of `confirmation.*` in the dictionary (an app's `hints` replace them):
+  `input.confirmation_invalid` (not signed by this secret, malformed), `input.confirmation_other_tool`,
+  `input.confirmation_other_account` (another account or access token), `input.confirmation_expired`,
+  `input.confirmation_arguments_changed`, `input.confirmation_estimate_changed` (the total changed after the yes)
+  and `input.confirmation_used`. Only when all pass is the token stored by its hash and the handler run with the
+  arguments without `confirmation`; two parallel calls with one token run once. A refused call never uses up a valid
+  token; a handler that fails after the check needs a new estimate.
+- **The record**: `onToolCall` records gain `confirmed`: `true` for a call that ran on a valid confirmation, `false`
+  for an estimate, a refusal or a call run through `runWithoutConfirmationWhen`, `null` for tools without
+  confirmation. `argumentNames` leave `confirmation` out.
+- `confirmationInput` is the field for the input schema (an optional string), so a strict server lists and accepts
+  it. Without `MCP_CONFIRMATION_SECRET` the call fails as a bug, with one log line naming the variable: it never runs
+  without asking.
+
 ### Stdio
 
 A local assistant on the machine that holds the database can run the same factory over stdio, without a token:
@@ -616,14 +663,19 @@ expired (with their access tokens) and clients registered over a day ago that ho
 (`id = 1`) with `opened_at` and `open_until` (`open_until > opened_at`), the window of "Closed registration" (§4). It
 holds no personal data.
 
-`migrations/0004_add_api_tokens.sql` adds `access_tokens.kind` (`mcp` or `api`, default `mcp`) and
+`migrations/0004_create_used_confirmations.sql` creates `mcp.used_confirmations`: the sha256 of each confirmation
+token that has been used (`token_hash`, the primary key), `used_at` and the token's `expires_at`, which makes a
+confirmation single use ("Confirmed calls", §4). It holds no personal data; `pruneUsedConfirmations(ctx)` deletes the
+rows past `expires_at`.
+
+`migrations/0005_add_api_tokens.sql` adds `access_tokens.kind` (`mcp` or `api`, default `mcp`) and
 `access_tokens.scopes` (`text[]`, default empty), with one check: an `mcp` row has no scopes, an `api` row has 1 to
 32 scopes and no grant. Existing rows become MCP tokens through the defaults. An API token's `token_hash` is the
 sha256 of its random part after the prefix (the prefix is checked by shape before any lookup). Rollback: in the migration header.
 
 ### Scheduled pruning
 
-`pruneMcpAccess(ctx)` (`/server`) runs both prunes and counts what each removed. The `softure-mcp prune` command
+`pruneMcpAccess(ctx)` (`/server`) runs the prunes of tokens, OAuth records and used confirmations and counts what each removed. The `softure-mcp prune` command
 runs it with the app's config (loaded like `softure migrate`, or from an app script through `runMcpAccessCli` from
 `/cli`) and prints one line. Run it daily, e.g. as a `maintain` hook of `@softure-ai/deploy`:
 
@@ -668,7 +720,11 @@ migrations after the baseline.
 
 ## 6. Environment variables
 
-None of its own. The endpoint URL comes from `appOrigin` in `softure.config.ts`.
+The endpoint URL comes from `appOrigin` in `softure.config.ts`.
+
+| Variable | Required | Meaning |
+| --- | --- | --- |
+| `MCP_CONFIRMATION_SECRET` | only for confirmed calls | Signs and verifies the tokens of `withConfirmation` (§4), at least 32 characters, read on every call. Changing it voids the tokens in flight (the person is asked again). |
 
 ## 7. Switches
 

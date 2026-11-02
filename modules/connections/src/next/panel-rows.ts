@@ -39,8 +39,17 @@ export function toConnectionPanelRows(views: readonly ConnectionView[], messages
       lastError:
         view.lastError === null || view.lastErrorAt === null
           ? null
-          : formatMessage(messages.details.lastError, { date: date(view.lastErrorAt), error: getConnectionsErrorMessage(messages, view.lastError) }),
+          : formatLastError(view, { date: date(view.lastErrorAt), error: getConnectionsErrorMessage(messages, view.lastError) }, messages),
       hint: hint === "" ? null : hint,
     };
   });
+}
+
+/** The last failure in the app's copy, with what the token endpoint answered when the row keeps it. */
+function formatLastError(view: ConnectionView, line: { readonly date: string; readonly error: string }, messages: ConnectionsMessages): string {
+  const parts: string[] = [];
+  if (view.lastErrorHttpStatus !== null) parts.push(formatMessage(messages.details.httpStatus, { status: String(view.lastErrorHttpStatus) }));
+  if (view.lastErrorOAuthError !== null) parts.push(formatMessage(messages.details.oauthError, { code: view.lastErrorOAuthError }));
+  if (parts.length === 0) return formatMessage(messages.details.lastError, line);
+  return formatMessage(messages.details.lastErrorDetail, { ...line, detail: parts.join(", ") });
 }

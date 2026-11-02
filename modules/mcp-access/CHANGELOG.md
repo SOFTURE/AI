@@ -16,10 +16,21 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   "New token for other apps" (`kind=api`, `scope:<name>` fields), shows the token once with the app's examples
   (form state `api-ok`, `IssuedApiTokenView`) and names each token's kind. `AccessTokenView` gains `kind` and
   `scopes`; the gate input `kind` and `scopes`; the privacy export `kind` and `scopes`. Both kinds share
-  `maxTokensPerUser`. Migration `0004_add_api_tokens.sql` adds `kind` and `scopes` (existing rows stay MCP tokens).
+  `maxTokensPerUser`. Migration `0005_add_api_tokens.sql` adds `kind` and `scopes` (existing rows stay MCP tokens).
   Migrate: nothing for an app without `apiTokens`, apart from running the migration; an app that compares
   `listAccessTokens` or the privacy export field by field gains the two fields. To use it, add `apiTokens`, spread
   `API_TOKEN_RATE_LIMIT_BUCKETS` into `security({ buckets })` and call `requireApiToken` in the routes.
+- Confirmed tool calls (#953): `withConfirmation(handler, { ctx, identity, tool, estimate, ttlSeconds?,
+  runWithoutConfirmationWhen?, secret? })` (`/server`) makes a priced or irreversible tool estimate first and answer
+  `{ needsConfirmation: true, estimate, confirmation, expiresAt, message }`; the second call with the same arguments
+  and the token does the work. The token is an HMAC bound to the tool, the canonical arguments, the account and access
+  token, the estimate's total and the expiry, single use (stored by hash in the new `mcp.used_confirmations`), and a
+  mismatch is refused as `input.confirmation_invalid`, `_other_tool`, `_other_account`, `_expired`,
+  `_arguments_changed`, `_estimate_changed` or `_used`. `confirmationInput` is the schema field. `ToolCallRecord`
+  gains `confirmed: boolean | null` (`null` for other tools), and `pruneMcpAccess` counts `usedConfirmations`.
+  Migrate: run `softure migrate` (file 4). To confirm a tool, set `MCP_CONFIRMATION_SECRET` (32+ characters), add
+  `confirmation: confirmationInput` to its input schema and wrap its callback; drop an app-level `confirm: true`
+  boolean the assistant could set itself. A test that builds a `ToolCallRecord` by hand adds `confirmed: null`.
 - Strict tool input lists a required nullable scalar as required (#919): a `z.number().nullable()` or
   `z.boolean().nullable()` field that the parse requires is in `required` of the listed schema again, and a scalar
   field's `default` (or `prefault`) is listed. The parse rules are unchanged. Migrate: an app that copied the inner

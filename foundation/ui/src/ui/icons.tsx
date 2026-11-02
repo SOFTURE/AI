@@ -233,6 +233,26 @@ export function DownloadIcon(props: IconProps) {
   );
 }
 
+export function ShareIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M12 3v12" />
+      <path d="m8 7 4-4 4 4" />
+      <path d="M8 10H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2" />
+    </IconFrame>
+  );
+}
+
+export function SquarePlusIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M12 8v8" />
+      <path d="M8 12h8" />
+    </IconFrame>
+  );
+}
+
 export function CopyIcon(props: IconProps) {
   return (
     <IconFrame {...props}>

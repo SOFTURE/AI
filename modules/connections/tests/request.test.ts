@@ -96,7 +96,12 @@ describe("requestWithConnection", () => {
       await connectFake(test);
       test.fake.rejectAccessTokens();
       test.fake.failNext("unavailable");
-      expect(await requestWithConnection(test.ctx, { provider: "fake" }, { url: test.fake.apiUrl, fetch: test.fake.fetch })).toEqual({ ok: false, error: "connections.refresh_failed" });
+      expect(await requestWithConnection(test.ctx, { provider: "fake" }, { url: test.fake.apiUrl, fetch: test.fake.fetch })).toEqual({
+        ok: false,
+        error: "connections.refresh_failed",
+        httpStatus: 503,
+        oauthError: null,
+      });
       expect(await readRawRow(test.database, "fake")).toMatchObject({ status: "connected" });
       expect(events).toEqual([]);
       // The next call refreshes and succeeds.

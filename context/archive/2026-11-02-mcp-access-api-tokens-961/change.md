@@ -32,7 +32,7 @@ the write switch, both kinds on the token page, and privacy and prune as today.
 - Framing skipped: the issue names the problem, the options and the acceptance points.
 
 ## Done
-- `apiTokens` option (prefix, scopes, examples); migration 0004 (`kind`, `scopes`, one check); shared insert and
+- `apiTokens` option (prefix, scopes, examples); migration 0005 (`kind`, `scopes`, one check; 0004 went to #953 first); shared insert and
   lookup by kind; `issueApiToken`, `verifyApiToken`, `requireApiToken`, `apiTokenErrorResponse`;
   `API_TOKEN_RATE_LIMIT_BUCKETS` (`api` per address, `api-token` per token); entry `@softure-ai/mcp-access/tokens`
   without the MCP SDK (tested by walking its import graph).
