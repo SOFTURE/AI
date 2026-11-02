@@ -44,15 +44,25 @@ function toQueue(stats: QueueStats, messages: JobsMessages, config: SoftureConfi
     formatMessage(messages.queues.counts, { ...stats.counts }),
     stats.oldestDueAt === null ? messages.queues.noneDue : formatMessage(messages.queues.oldestDue, { due: stats.due, date: date(stats.oldestDueAt) }),
   ];
+  const { pause } = stats;
+  if (pause !== null) {
+    details.push(
+      pause.until === null
+        ? formatMessage(messages.queues.pausedUntilResumed, { reason: pause.reason })
+        : formatMessage(messages.queues.paused[pause.source], { date: date(pause.until), reason: pause.reason }),
+    );
+  }
+  if (stats.consecutiveFailures > 0) details.push(formatMessage(messages.queues.failuresInRow, { count: stats.consecutiveFailures }));
+  const isPaused = pause !== null;
   const schedule = Object.hasOwn(getJobsOptions(config).schedules, stats.queue) ? getJobsOptions(config).schedules[stats.queue] : undefined;
-  if (schedule === undefined || stats.schedule === null) return { queue: stats.queue, details, health: null, healthLabel: null, isScheduled: false };
+  if (schedule === undefined || stats.schedule === null) return { queue: stats.queue, details, health: null, healthLabel: null, isScheduled: false, isPaused };
   const state = stats.schedule;
   details.push("every" in schedule ? formatMessage(messages.queues.every, { every: schedule.every }) : formatMessage(messages.queues.at, { times: schedule.at.join(", "), timeZone: schedule.timeZone }));
   if (state.lastEnqueuedAt === null) details.push(messages.queues.neverEnqueued);
   details.push(state.lastSucceededAt === null ? messages.queues.neverSucceeded : formatMessage(messages.queues.lastSucceeded, { date: date(state.lastSucceededAt) }));
   if (state.lastFailedAt !== null) details.push(formatMessage(messages.queues.lastFailed, { date: date(state.lastFailedAt), code: state.lastFailureCode ?? "" }));
   const health = getScheduleHealth(state);
-  return { queue: stats.queue, details, health, healthLabel: messages.queues.health[health], isScheduled: true };
+  return { queue: stats.queue, details, health, healthLabel: messages.queues.health[health], isScheduled: true, isPaused };
 }
 
 function toJob(job: Job, messages: JobsMessages, date: (value: Date) => string): JobsPanelJob {

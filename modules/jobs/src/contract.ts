@@ -17,7 +17,8 @@ export type JobsErrorCode =
   | "jobs.sync_item_threw"
   | "jobs.not_a_schedule"
   | "jobs.sync_item_not_found"
-  | "jobs.sync_item_not_retryable";
+  | "jobs.sync_item_not_retryable"
+  | "jobs.unknown_queue";
 
 export const JOB_STATUSES = ["pending", "running", "succeeded", "failed", "cancelled"] as const;
 
@@ -86,6 +87,11 @@ export interface JobRun {
 export type JobFailure = Err<ErrorCode> & {
   readonly retry?: boolean;
   readonly retryAfterSeconds?: number;
+  /**
+   * `pauseQueueLater`: the service refused; the queue pauses for this many seconds and the job gets its attempt back,
+   * due when the pause ends.
+   */
+  readonly pauseQueueSeconds?: number;
 };
 
 /** What happened to a job after one attempt. */
@@ -93,6 +99,8 @@ export type JobOutcome =
   | { readonly kind: "succeeded" }
   | { readonly kind: "retried"; readonly error: string; readonly runAt: Date }
   | { readonly kind: "failed"; readonly error: string }
+  /** The handler returned `pauseQueueLater`: the queue paused and the job, its attempt given back, is due at `runAt`. */
+  | { readonly kind: "paused"; readonly error: string; readonly runAt: Date }
   /** An operator cancelled the running job; it is `cancelled` and not retried. */
   | { readonly kind: "cancelled" }
   /** The job was taken over (lease ended) or released before the attempt finished; nothing was recorded. */
@@ -106,6 +114,28 @@ export interface JobFailedEvent {
   readonly code: string;
   /** Attempts the job used. */
   readonly attempts: number;
+  readonly at: Date;
+}
+
+/** Who paused a queue: its circuit breaker, a handler (`pauseQueueLater`) or an operator (`pauseQueue`). */
+export type QueuePauseSource = "breaker" | "handler" | "operator";
+
+/** A queue's active pause: a paused queue claims nothing, and its jobs keep their attempts. */
+export interface QueuePause {
+  readonly source: QueuePauseSource;
+  /** The failure's code, or the operator's reason. */
+  readonly reason: string;
+  /** When the queue runs again; null for an operator's pause until `resumeQueue`. */
+  readonly until: Date | null;
+}
+
+/** What `onQueuePaused` receives, once per pause by the breaker or a handler. */
+export interface QueuePausedEvent {
+  readonly queue: string;
+  /** The code of the failure that paused the queue. */
+  readonly code: string;
+  readonly until: Date;
+  readonly source: "breaker" | "handler";
   readonly at: Date;
 }
 

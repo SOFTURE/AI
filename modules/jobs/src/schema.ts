@@ -79,3 +79,19 @@ export const syncItems = jobsSchema.table(
 );
 
 export type SyncItemRow = typeof syncItems.$inferSelect;
+
+export const queueState = jobsSchema.table("queue_state", {
+  queue: text("queue").primaryKey(),
+  nextAllowedAt: timestamp("next_allowed_at", { withTimezone: true }),
+  windowStartedAt: timestamp("window_started_at", { withTimezone: true }),
+  windowCount: integer("window_count").notNull().default(0),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  lastPauseSeconds: integer("last_pause_seconds"),
+  pauseSource: text("pause_source", { enum: ["breaker", "handler", "operator"] }),
+  pauseReason: text("pause_reason"),
+  pausedUntil: timestamp("paused_until", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
+
+export type QueueStateRow = typeof queueState.$inferSelect;
