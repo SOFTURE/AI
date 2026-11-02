@@ -291,6 +291,61 @@ describe("the check job's validation of prebuilt-image", () => {
   });
 });
 
+describe("the check job's validation of worker-dockerfile (issue #948)", () => {
+  function check(env: Record<string, string>): Result {
+    return bash(CHECK_SCRIPT, {
+      cwd: root,
+      env: {
+        GITHUB_OUTPUT: join(root, "output"),
+        TAG: "v1.2.3",
+        APP_URL: "https://example.com",
+        IMAGE: "",
+        BUILD_CONTEXT: ".",
+        DOCKERFILE: "Dockerfile",
+        COMPOSE_FILE: "docker/prod/docker-compose.yml",
+        SERVER_SCRIPT: "docker/server/deploy.sh",
+        DEPLOY_ENVIRONMENT: "",
+        REMOTE_COMMAND: "deploy",
+        SSH_PORT: "22",
+        HEALTH_PATH: "/api/health",
+        VERIFY_TIMEOUT: "300",
+        DEPLOY_CONFIG: "deploy.json",
+        DEPLOY_CLI_VERSION: "0.1.3",
+        REPOSITORY: "acme/app",
+        E2E: "false",
+        PASSED_SECRETS: PASSED_NAMED_SECRETS,
+        ...env,
+      },
+    });
+  }
+
+  it("accepts an empty worker-dockerfile and a relative path", () => {
+    expect(check({ WORKER_DOCKERFILE: "" }).status).toBe(0);
+    const result = check({ WORKER_DOCKERFILE: "docker/worker.Dockerfile" });
+    expect(result.status, result.stdout).toBe(0);
+  });
+
+  it.each([
+    ["an absolute path", "/etc/Dockerfile", "a relative path"],
+    ["a path out of the repository", "docker/../../Dockerfile", "a path without .. segments"],
+  ])("refuses %s", (_label, path, reason) => {
+    const result = check({ WORKER_DOCKERFILE: path });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe(`::error::Input worker-dockerfile is not valid: ${reason}\n`);
+  });
+
+  it("refuses it with a prebuilt image and with the end-to-end test", () => {
+    const prebuilt = check({ WORKER_DOCKERFILE: "docker/worker.Dockerfile", PREBUILT_IMAGE: `ghcr.io/acme/app@sha256:${"ab".repeat(32)}` });
+    expect(prebuilt.status).toBe(1);
+    expect(prebuilt.stdout).toBe(
+      "::error::Input worker-dockerfile is not valid: empty with prebuilt-image (only the app image is tagged, nothing is built)\n",
+    );
+    const e2e = check({ REPOSITORY: "SOFTURE/AI", WORKER_DOCKERFILE: "docker/worker.Dockerfile", E2E: "true" });
+    expect(e2e.status).toBe(1);
+    expect(e2e.stdout).toBe("::error::Input worker-dockerfile is not valid: empty with e2e (the end-to-end test deploys one image)\n");
+  });
+});
+
 describe("the re-tag step of the build job", () => {
   const DIGEST = `sha256:${"cd".repeat(32)}`;
 

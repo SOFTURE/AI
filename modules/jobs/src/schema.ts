@@ -21,6 +21,9 @@ export const jobs = jobsSchema.table("jobs", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
+  progress: jsonb("progress"),
+  progressAt: timestamp("progress_at", { withTimezone: true }),
+  cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
 });
 
 export type JobRow = typeof jobs.$inferSelect;
@@ -31,7 +34,7 @@ export const runs = jobsSchema.table("runs", {
   queue: text("queue").notNull(),
   origin: text("origin").notNull(),
   attempt: integer("attempt").notNull(),
-  outcome: text("outcome", { enum: ["succeeded", "retried", "failed"] }).notNull(),
+  outcome: text("outcome", { enum: ["succeeded", "retried", "failed", "cancelled"] }).notNull(),
   errorCode: text("error_code"),
   summary: jsonb("summary"),
   startedAt: timestamp("started_at", { withTimezone: true }),

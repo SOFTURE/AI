@@ -56,6 +56,19 @@ export function hasWorker(facts: AppFacts): boolean {
   return facts.hasDatabase && facts.hasJobs === true;
 }
 
+/** Whether the worker service runs an image of its own (`init --worker-dockerfile`), `<image>-worker`. */
+export function hasWorkerImage(facts: AppFacts, answers: InitAnswers): boolean {
+  return hasWorker(facts) && answers.workerDockerfile !== undefined;
+}
+
+/** The repository of the worker image: the app image's with `-worker`, tagged like it (issue #948). */
+export function getWorkerImage(image: string): string {
+  return `${image}-worker`;
+}
+
+/** The template of the worker image's Dockerfile, written at `--worker-dockerfile` when that file is missing. */
+export const WORKER_DOCKERFILE_TEMPLATE = "worker.Dockerfile.tmpl";
+
 /** The first `@softure-ai/jobs` version whose worker writes a heartbeat file and answers `--health`. */
 export const JOBS_HEARTBEAT_VERSION = "0.1.3";
 
@@ -163,9 +176,20 @@ export function getReportRole(options: { answers: InitAnswers; facts: AppFacts; 
   return options.answers.reportRole ?? composeRole ?? DEFAULT_APP_ROLE;
 }
 
+/** The compose lines of the worker's limits (`--worker-cpus`, `--worker-memory`, `--worker-tmpfs`), in that order. */
+function buildWorkerLimitLines(answers: InitAnswers): string[] {
+  return [
+    answers.workerCpus === undefined ? null : `    cpus: ${answers.workerCpus}`,
+    answers.workerMemory === undefined ? null : `    mem_limit: ${answers.workerMemory}`,
+    answers.workerTmpfs === undefined ? null : `    tmpfs:\n      - /tmp:size=${answers.workerTmpfs}`,
+  ].filter((line) => line !== null);
+}
+
 function buildValues(options: PlanInitFilesOptions): Record<string, string | boolean> {
   const { answers, facts, cliVersion } = options;
   const isEveryPath = answers.paths.includes("/");
+  const workerLimitLines = hasWorker(facts) ? buildWorkerLimitLines(answers) : [];
+  const workerImage = hasWorkerImage(facts, answers);
   return {
     name: answers.name,
     domain: answers.domain,
@@ -176,6 +200,15 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     worker: hasWorker(facts),
     workerHeartbeat: hasWorkerHeartbeat(facts),
     workerHealthFile: WORKER_HEALTH_FILE,
+    workerImage,
+    workerImageName: getWorkerImage(answers.image),
+    workerDockerfile: answers.workerDockerfile ?? "",
+    workerServiceImage: workerImage ? getWorkerImage(answers.image) : answers.image,
+    hasWorkerLimits: workerLimitLines.length > 0,
+    workerLimitLines: workerLimitLines.join("\n"),
+    dataVolume: answers.dataVolume !== undefined,
+    dataPath: answers.dataVolume ?? "",
+    namedVolumes: hasOwnTraefik(answers) || facts.hasDatabase || answers.dataVolume !== undefined,
     databaseName: answers.name.replaceAll("-", "_"),
     publicDir: facts.hasPublicDir,
     healthPath: getHealthPath(facts),
@@ -224,11 +257,19 @@ export function planInitFiles(options: PlanInitFilesOptions): PlannedFile[] {
     secretNameList: required.join(" "),
     secretEnvLines: required.map((name) => `          ${name}: \${{ secrets.${name} }}`).join("\n"),
   };
-  return included.map((file) => ({
+  const planned = included.map((file) => ({
     path: file.target,
     text: file === compose ? composeText : renderTemplate(readTemplate(file.template), values),
     mode: file.mode,
   }));
+  if (!hasWorkerImage(options.facts, options.answers) || options.answers.workerDockerfile === undefined) return planned;
+  // Right after the app's Dockerfile, at the path the caller workflow builds it from.
+  const workerDockerfile = {
+    path: options.answers.workerDockerfile,
+    text: renderTemplate(readTemplate(WORKER_DOCKERFILE_TEMPLATE), values),
+    mode: FILE_MODE,
+  };
+  return [...planned.slice(0, 1), workerDockerfile, ...planned.slice(1)];
 }
 
 function exists(path: string): boolean {

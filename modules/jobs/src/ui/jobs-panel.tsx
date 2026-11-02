@@ -58,7 +58,7 @@ export interface JobsPanelQueue {
   readonly isPaused?: boolean;
 }
 
-/** One failed, cancelled or retrying job. */
+/** One running, failed, cancelled or retrying job. */
 export interface JobsPanelJob {
   readonly id: string;
   readonly queue: string;
@@ -156,6 +156,7 @@ const RUN_TONES: Readonly<Record<JobRunOutcome, string>> = {
   succeeded: "sft:text-success",
   retried: "sft:text-warning",
   failed: "sft:text-danger",
+  cancelled: "sft:text-muted",
 };
 
 const SYNC_TONES: Readonly<Record<SyncItemStatus, string>> = {

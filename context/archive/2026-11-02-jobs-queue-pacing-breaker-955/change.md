@@ -29,7 +29,7 @@ alerts the app. Jobs held back by a pause or the pacing keep their attempts.
 ## Constraints
 
 - No version bump: the coordinator releases the batch. CHANGELOG under `## Unreleased`.
-- One forward-only migration (`0007_create_queue_state.sql`) with its rollback.
+- One forward-only migration (`0008_create_queue_state.sql`) with its rollback.
 - A queue without `rateLimit` or `breaker` keeps today's claim path; its only new cost is one read of the pause row.
 - The adopting app is not changed here; the CHANGELOG says what it can drop.
 

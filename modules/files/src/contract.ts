@@ -24,7 +24,18 @@ export type FilesLookupErrorCode =
   /** The asked range starts at or after the end of the file. */
   | "files.range_not_satisfiable";
 
-export type FilesErrorCode = FilesKeyErrorCode | FilesSaveErrorCode | FilesLookupErrorCode;
+/** Why an upload session could not be created or finalized. */
+export type FilesUploadErrorCode =
+  /** The declared media type is not in `uploads.contentTypes`. */
+  | "files.content_type_not_allowed"
+  /** The owner already has `uploads.maxOpenPerOwner` open sessions. */
+  | "files.too_many_uploads"
+  /** Not every chunk has arrived yet. */
+  | "files.upload_incomplete"
+  /** The bytes that arrived do not match the declared SHA-256. */
+  | "files.checksum_mismatch";
+
+export type FilesErrorCode = FilesKeyErrorCode | FilesSaveErrorCode | FilesLookupErrorCode | FilesUploadErrorCode;
 
 /** A stored file as the app sees it. Never carries the storage key. */
 export interface StoredFile {
@@ -55,5 +66,38 @@ export interface FileLink {
   readonly url: string;
   /** The path part, `/f/<id>/<expiry>/<signature>/<name>`. */
   readonly path: string;
+  readonly expiresAt: Date;
+}
+
+/** Where an upload session stands: `open` (chunks missing), `complete` (every chunk arrived), `finalized`, `expired`. */
+export type UploadState = "open" | "complete" | "finalized" | "expired";
+
+/** A new upload session, as `createUpload` answers it. */
+export interface CreatedUpload {
+  readonly uploadId: string;
+  /** The absolute URL the client sends the chunks to; it is the only secret the client needs. */
+  readonly uploadUrl: string;
+  /** The bytes of every chunk but the last. */
+  readonly chunkSize: number;
+  readonly chunkCount: number;
+  readonly expiresAt: Date;
+}
+
+/** An upload session as its owner and the upload route see it. */
+export interface UploadStatus {
+  readonly uploadId: string;
+  readonly name: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly chunkSize: number;
+  readonly chunkCount: number;
+  /** The byte ranges that arrived, merged and in order. */
+  readonly received: readonly ByteRange[];
+  readonly receivedBytes: number;
+  /** The indices of the chunks still to send, in order. */
+  readonly missingChunks: readonly number[];
+  readonly state: UploadState;
+  /** The stored file, once finalized. */
+  readonly fileId: string | null;
   readonly expiresAt: Date;
 }

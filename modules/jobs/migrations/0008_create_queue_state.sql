@@ -1,7 +1,7 @@
 -- Per-queue state shared by every worker: the pacing budget (`rateLimit`), the circuit breaker's counter and a pause
 -- (breaker, handler or operator). A queue gets its row the first time it needs one.
 -- Rollback: DROP TABLE jobs.queue_state; then
---   DELETE FROM softure.migrations WHERE module = 'jobs' AND version = 7;
+--   DELETE FROM softure.migrations WHERE module = 'jobs' AND version = 8;
 CREATE TABLE queue_state (
   queue text PRIMARY KEY CHECK (queue ~ '^[a-z][a-z0-9_.-]{0,62}$'),
   -- `rateLimit: { minGapMs }`: the earliest moment the next job may be claimed.

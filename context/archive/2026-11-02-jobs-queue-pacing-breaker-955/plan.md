@@ -10,7 +10,7 @@ hook, panel, docs).
 
 ## Phase 1: state, options, pacing and pauses in the claim (TDD)
 
-Files: `migrations/0007_create_queue_state.sql`, `src/schema.ts`, `src/options.ts`, `src/contract.ts`, `src/index.ts`,
+Files: `migrations/0008_create_queue_state.sql`, `src/schema.ts`, `src/options.ts`, `src/contract.ts`, `src/index.ts`,
 `src/server/queue-state.ts` (new), `src/server/claim.ts`, `src/server/index.ts`, `tests/queue-state.test.ts` (new).
 
 - Table `queue_state(queue pk, next_allowed_at, window_started_at, window_count, consecutive_failures, pause_source

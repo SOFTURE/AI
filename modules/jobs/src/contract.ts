@@ -1,6 +1,7 @@
 // Result types and error codes of the jobs module. No user-facing copy here: the UI translates codes through
 // `messages` (docs/02-module-standard.md §6).
 import type { CoreErrorCode, Err, ErrorCode } from "@softure-ai/core";
+import type { JobProgress } from "./progress.js";
 import type { JobRunSummary } from "./summary.js";
 
 export type JobsErrorCode =
@@ -9,6 +10,7 @@ export type JobsErrorCode =
   | "jobs.lease_expired"
   | "jobs.not_found"
   | "jobs.not_cancellable"
+  | "jobs.cancelled"
   | "jobs.not_retryable"
   | "jobs.dedup_key_taken"
   | "jobs.sync_cursor_moved"
@@ -43,11 +45,20 @@ export interface Job {
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly finishedAt: Date | null;
+  /** The newest progress the running attempt reported (`context.reportProgress`); a new attempt starts without one. */
+  readonly progress: JobProgress | null;
+  /** When `progress` was written. */
+  readonly progressAt: Date | null;
+  /** When an operator asked the running job to stop (`requestJobCancel`); kept once the job is `cancelled`. */
+  readonly cancelRequestedAt: Date | null;
 }
 
-export const JOB_RUN_OUTCOMES = ["succeeded", "retried", "failed"] as const;
+export const JOB_RUN_OUTCOMES = ["succeeded", "retried", "failed", "cancelled"] as const;
 
-/** How a recorded attempt ended: `retried` is a failed attempt with attempts left. */
+/**
+ * How a recorded attempt ended: `retried` is a failed attempt with attempts left; `cancelled` an attempt an operator
+ * stopped (`requestJobCancel`).
+ */
 export type JobRunOutcome = (typeof JOB_RUN_OUTCOMES)[number];
 
 /** One recorded attempt of a job, kept for `retention.runsDays` whatever happens to the job. */
@@ -90,6 +101,8 @@ export type JobOutcome =
   | { readonly kind: "failed"; readonly error: string }
   /** The handler returned `pauseQueueLater`: the queue paused and the job, its attempt given back, is due at `runAt`. */
   | { readonly kind: "paused"; readonly error: string; readonly runAt: Date }
+  /** An operator cancelled the running job; it is `cancelled` and not retried. */
+  | { readonly kind: "cancelled" }
   /** The job was taken over (lease ended) or released before the attempt finished; nothing was recorded. */
   | { readonly kind: "stale" };
 

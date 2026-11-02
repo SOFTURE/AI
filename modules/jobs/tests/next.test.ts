@@ -99,6 +99,25 @@ describe("the Next adapter", () => {
     expect((await listJobs(test.database.db)).map((job) => job.status)).toEqual(["cancelled"]);
   });
 
+  it("asks a running job to stop through the same Cancel action", async () => {
+    await start();
+    const results: JobsFormState[] = [];
+    const handlers = {
+      "ai.reply": defineJobHandler({
+        payload: z.object({}),
+        run: async (_payload, { job, signal, reportProgress }) => {
+          results.push(await cancelJobAction(IDLE, createForm({ id: job.id })));
+          await reportProgress({ step: "render" });
+          return signal.aborted ? ok() : err("app.not_aborted");
+        },
+      }),
+    };
+    await enqueueJob(test.ctx, { queue: "ai.reply", payload: {} });
+    await runDueJobs(test.ctx, { handlers });
+    expect(results).toEqual([{ status: "ok" }]);
+    expect((await listJobs(test.database.db)).map((job) => job.status)).toEqual(["cancelled"]);
+  });
+
   it("puts a failed sync item back to pending", async () => {
     await start();
     await processSyncItem(test.ctx, { source: "gmail.inbox", itemId: "m-1" }, () => Promise.resolve(failSyncItem("app.unparseable")));

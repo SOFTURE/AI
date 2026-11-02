@@ -13,8 +13,9 @@ graceful shutdown, recurring schedules that run once per period however many wor
 for tests and cron-driven apps. For queues that call a service with a request budget: pacing shared by every worker
 and a circuit breaker that pauses the queue (§3, "Pacing and the circuit breaker"). For jobs that poll a third-party source: a cursor per source and a processed-item
 ledger, so a second run never acts twice on the same item (§3, "Sync state for polling"). For the operator: an admin
-page with the queues, schedule health, pauses, recent failures and the sync ledger, with Run now, Pause, Resume,
-Retry and Cancel (§4).
+page with the queues, schedule health, pauses, running jobs with their progress, recent failures and the sync ledger,
+with Run now, Pause, Resume, Retry and Cancel (§4). A running handler reports its progress, and an operator can stop a
+running job (§3, "Progress and cancelling").
 
 ## 2. Installation
 
@@ -65,6 +66,7 @@ export default defineSoftureConfig({
 | `pollIntervalMs` | `1000` | how often an idle worker looks for due jobs |
 | `shutdownGraceMs` | `20000` | how long a stopping worker waits for running handlers before releasing their jobs |
 | `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30 }` | how long finished jobs, sync ledger items no run met, and the run history (§3, "Run history") are kept; the worker prunes once an hour |
+| `logRuns` | `"all"` | which ends of a run the worker logs, one line each (§10): `"all"` (succeeded, retried, failed), `"failures"` (retried and failed) or `"none"` |
 | `onJobFailed` | none | `(event, ctx)`, run once when a job ends `failed` (§3, "Alert hooks") |
 | `onQueuePaused` | none | `(event, ctx)`, run once when the breaker or a handler pauses a queue (§3, "Pacing and the circuit breaker") |
 | `onScheduleStateChanged` | none | `(event, ctx)`, run once per transition of a schedule between `healthy`, `failing` and `late` (§3, "Alert hooks") |
@@ -118,9 +120,10 @@ export const handlers: JobHandlers = {
 stopping worker releases unfinished jobs: the job then runs again. Make handlers idempotent (check whether the reply
 was already saved, pass an idempotency key to the provider).
 
-`context.signal` aborts when the job is taken from the handler: the worker's grace period ended on shutdown, or its
-lease could not be extended. Pass it to `fetch` and other cancellable calls; anything the handler returns afterwards
-is not recorded. `context.db` is the worker's pool, not a transaction; `context.job.attempts` is this attempt's number.
+`context.signal` aborts when the job is taken from the handler: the worker's grace period ended on shutdown, its lease
+could not be extended, or an operator cancelled the job (§3, "Progress and cancelling"). Pass it to `fetch` and other
+cancellable calls. After a shutdown or a lost lease anything the handler returns afterwards is not recorded; after a
+cancel the job ends `cancelled`. `context.db` is the worker's pool, not a transaction; `context.job.attempts` is this attempt's number.
 
 ### Enqueueing
 
@@ -391,7 +394,7 @@ jobs({
 ### Run history
 
 Every recorded attempt leaves one row in `jobs.runs`: the job id, queue, `origin`, attempt number, outcome
-(`succeeded`, `retried`, `failed`), the error code of a failure, the handler's summary, and when it started and
+(`succeeded`, `retried`, `failed`, `cancelled`), the error code of a failure, the handler's summary, and when it started and
 finished. Rows are written in the transaction that records the outcome, so an attempt another claim replaced leaves
 none, and a lease that ended with no attempts left leaves a `failed` row with `jobs.lease_expired` and no start. They
 are kept for `retention.runsDays` (30), whatever happens to the job: a succeeded job is still pruned after
@@ -419,6 +422,47 @@ and `ok(value)` without a `summary` key record no summary. A failure has no summ
 - In tests, `listRunHistory(db)` from `/testing` returns every run, oldest first.
 - `runScheduleNow(ctx, queue, { origin })` names its origin (default `manual`); a call that joins a waiting run keeps
   that run's origin.
+
+### Progress and cancelling
+
+A long handler (a render, an import, a report) reports how far it got with `context.reportProgress`, codes and counts
+only:
+
+```ts
+run: async ({ videoId }, { reportProgress, signal }) => {
+  await reportProgress({ step: "render.fetch" });
+  for (const [index, scene] of scenes.entries()) {
+    await renderScene(scene, { signal });
+    await reportProgress({ step: "render.encode", done: index + 1, total: scenes.length });
+  }
+  return ok();
+},
+```
+
+- `step` and the optional `code` are lowercase codes (`^[a-z][a-z0-9_.-]{0,62}$`), `done` and `total` non-negative
+  integers. The progress is checked with `jobProgressSchema` (exported with the `JobProgress` type); one that does
+  not match is dropped with a warning naming its paths, never its values. A failed write is logged as a warning; the
+  call never throws into the handler.
+- At most one write per second per job: a report inside that second is held and written when the second ends or the
+  handler returns, replaced by any newer report. Every write is fenced by the claim, like the outcome.
+- `getJob` and `listRecentJobs` return it as `progress` with `progressAt`. A new attempt starts without one; a
+  finished job keeps its last attempt's progress. The run summary (§3, "Run history") stays the record of what a run
+  did.
+
+`requestJobCancel(ctx, id)` from `/server` stops a job: a pending one is `cancelled` at once (as `cancelJob`), a
+running one gets `cancelRequestedAt` and is returned still `running`. Its worker sees the request on its next
+heartbeat (a third of the lease) or progress write, and aborts `context.signal` with a `JobCancelledError` (named
+`AbortError`, `code: "jobs.cancelled"`; `isJobCancelled(signal)` tells it from a shutdown or a lost lease). Once the
+handler returns, whatever it returns, the job is `cancelled`: not retried, no `onJobFailed`, the schedule's health
+untouched, and a run with the outcome `cancelled` and the code `jobs.cancelled`. A requested job whose worker died is
+`cancelled` when its lease ends instead of running again; one its stopping worker releases is `cancelled` too. A job
+that finishes before its worker sees the request keeps its outcome, except a retry, which becomes `cancelled`. A
+repeated request keeps the first time; a finished job answers `jobs.not_cancellable`. `cancelJob` keeps its meaning
+(pending jobs only). `retryJob` on a cancelled job clears the request and the progress.
+
+A worker of your own built on `claimJobs` uses `heartbeatJob(ctx, claimed)` (`held`, `cancel_requested` or `lost`)
+in place of `extendJobLease` to see requests. `runDueJobs` has no heartbeat: it sees a request at the handler's next
+progress write.
 
 ### Without a worker
 
@@ -457,7 +501,10 @@ await advanceSyncCursor(ctx, { source: "gmail.inbox", from, to: batch.nextCursor
   acknowledge" needs no code of the app's. `ok()` or `ok({ status: "done", resultRef })` → `handled`, item `done`;
   `skipSyncItem(reason?)` → `handled`, item `skipped`; an `Err` → the writes roll back, the attempt counts, the item
   stays `pending` (`retrying`) until `maxAttempts` (default 5) runs failed, then `failed`; `failSyncItem(code)` fails
-  it at once. A throw is recorded as a failed attempt with `jobs.sync_item_threw` and rethrown, so a poison item still
+  it at once; `waitSyncItem(code)` → the writes roll back but the attempt does not count: the item stays `pending`
+  (`waiting`) with the code set, for a cause outside the item that only an operator clears (a connection that needs a
+  reconnect, `connections.reconnect_required`). The next run that meets it tries again with the same attempt number,
+  so the queue's backoff cannot use up its attempts. A throw is recorded as a failed attempt with `jobs.sync_item_threw` and rethrown, so a poison item still
   ends `failed`.
 - A call outside the database (an API) is not rolled back: a crash after it and before the commit repeats it on the
   next run. Keep it idempotent where the source allows, and keep each item short: its transaction stays open while
@@ -487,8 +534,10 @@ await advanceSyncCursor(ctx, { source: "gmail.inbox", from, to: batch.nextCursor
 - `getSyncCursor(ctx, source)` returns the cursor or `null`. `advanceSyncCursor(ctx, { source, from, to })` is a
   compare-and-set: refused with `jobs.sync_cursor_moved` when the stored cursor is no longer `from`, so a slower
   worker cannot move it back; re-read and go on. Pass a transaction as `ctx.db` to move it with the batch's last write.
-- `listSyncItems(ctx, { source?, status?, since?, limit? })` lists the ledger, most recently changed first (default
-  100, at most 1000): what passed, what failed and with which code, for an overview page or an MCP tool.
+- `listSyncItems(ctx, { source?, status?, errorCode?, since?, limit? })` lists the ledger, most recently changed first
+  (default 100, at most 1000): what passed, what failed and with which code, for an overview page or an MCP tool.
+  `{ status: "pending", errorCode: "connections.reconnect_required" }` lists the items waiting on a reconnect, e.g. to
+  enqueue the sync once the account is connected again.
 - `reopenSyncItem(ctx, { source, itemId })` puts a `done`, `skipped` or `failed` item back to `pending` as never
   tried (attempts, code, result reference and finish time cleared), so the next `processSyncItem` runs it again; a
   `pending` item is returned as it is; `jobs.sync_item_not_found`. It breaks "at most once" for that item on purpose:
@@ -519,6 +568,7 @@ From `@softure-ai/jobs/server`, each on `ctx = { db, clock, config }`:
 | --- | --- |
 | `getJob(ctx, id)` | the `Job` or `null` |
 | `cancelJob(ctx, id)` | a pending job becomes `cancelled`; `jobs.not_cancellable` for a running or finished one, `jobs.not_found` |
+| `requestJobCancel(ctx, id)` | a pending job becomes `cancelled`; a running one is asked to stop and ends `cancelled` (§3, "Progress and cancelling"); `jobs.not_cancellable` for a finished one, `jobs.not_found` |
 | `retryJob(ctx, id)` | a failed or cancelled job runs again from scratch (attempts 0, due now); `jobs.not_retryable`, `jobs.dedup_key_taken` while a live job has its key, `jobs.not_found` |
 | `listRecentJobs(ctx, { statuses, queue?, limit? })` | jobs in any of `statuses` (a job status or `retrying`: pending after a failed attempt), most recently changed first, up to `limit` (default 50, at most 500) |
 | `runScheduleNow(ctx, queue, { origin? })` | enqueues a run of the schedule now with its payload and dedup key (origin `manual` unless named), joining a pending run (`isDuplicate: true`); the schedule's own period is left alone; `jobs.not_a_schedule` |
@@ -534,7 +584,7 @@ From `@softure-ai/jobs/server`, each on `ctx = { db, clock, config }`:
 
 `getQueueStats` suits an app health check of its own, `ops({ checks: { "app.jobs": … } })`, e.g. unavailable when the
 oldest due job of a queue waited more than ten minutes (no worker is running). An ops script (`@softure-ai/ops/scripts`)
-can wrap `retryJob` and `cancelJob` for the operator.
+can wrap `retryJob` and `requestJobCancel` for the operator.
 
 ## 4. Mounting
 
@@ -558,8 +608,9 @@ The page shows, per queue, the counts per status and the oldest due job, and for
 success, last failure with its code, its health (`healthy`, `failing`, `late`) and **Run now**, and for every queue
 its pause (who, why, until when) and the breaker's failures in a row, with **Pause** (until resumed, reason
 `jobs.operator_pause`) or **Resume**; then the 50 most
-recent failed, cancelled and retrying jobs with code and attempts, with **Retry** (failed, cancelled) and **Cancel**
-(pending); then the 50 most recent runs with what started them, outcome, attempt, the summary's code, item counts
+recently changed running, failed, cancelled and retrying jobs with code and attempts, a running job's progress (step,
+counts, state code, when reported) and a requested cancel, with **Retry** (failed, cancelled) and **Cancel** (pending,
+and running until a cancel was requested: `requestJobCancel`); then the 50 most recent runs with what started them, outcome, attempt, the summary's code, item counts
 and steps, or the failure's code; then the 100 most recently changed sync ledger items per source with status, code, attempts and last
 sighting, a status filter (`?sync=failed`) and **Retry item** on a failed item. Payloads and error texts never reach
 the page: rows are built field by field and failures are codes. Anyone without `panelRole` gets Next's "not found";
@@ -575,18 +626,20 @@ show only when passed) from `/next`.
 
 Schema `jobs`, six tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
 `migrations/0003_add_schedule_failures.sql`, `migrations/0004_create_sync_state.sql`,
-`migrations/0005_add_schedule_reported_state.sql`, `migrations/0006_create_runs.sql` and
-`migrations/0007_create_queue_state.sql`:
+`migrations/0005_add_schedule_reported_state.sql`, `migrations/0006_create_runs.sql`,
+`migrations/0007_add_progress_and_cancel.sql` and `migrations/0008_create_queue_state.sql`:
 
 `jobs.jobs`: `id` (bigint identity; a string in the API), `queue`, `payload` (jsonb), `status` (`pending`, `running`,
 `succeeded`, `failed`, `cancelled`), `attempts`, `max_attempts`, `run_at`, `locked_until`, `locked_by` (the worker,
 `<hostname>:<pid>`), `claim_token`, `dedup_key`, `origin` (default `app`), `last_error` (an error code, never a
 message), `created_at`,
-`updated_at`, `finished_at`. Checks keep the lease columns set exactly while `running` and `finished_at` set exactly
+`updated_at`, `finished_at`, `progress` (jsonb, code-only, checked by the module), `progress_at`,
+`cancel_requested_at` (set only while `running` or once `cancelled`). Checks keep the lease columns set exactly while `running` and `finished_at` set exactly
 for finished jobs; a partial unique index allows one live job per queue and dedup key.
 
 `jobs.runs`: `id` (bigint identity), `job_id` (no foreign key: runs outlive pruned jobs), `queue`, `origin`,
-`attempt`, `outcome` (`succeeded`, `retried`, `failed`), `error_code` (set exactly for a failure), `summary` (jsonb,
+`attempt`, `outcome` (`succeeded`, `retried`, `failed`, `cancelled`), `error_code` (set exactly when the outcome is
+not `succeeded`), `summary` (jsonb,
 successes only, checked by the module), `started_at` (null when unknown), `finished_at`.
 
 `jobs.schedules`: `name` (the schedule's queue, primary key), `last_slot_at` (the start of the latest period a run
@@ -629,7 +682,7 @@ None.
 ## 9. Copy
 
 `src/messages/en.ts`: the page (`page`, `queues`, `jobs`, `sync`) and `errors.*`, one key per error code's name
-(`invalid_payload`, `handler_threw`, `lease_expired`, `not_found`, `not_cancellable`, `not_retryable`,
+(`invalid_payload`, `handler_threw`, `lease_expired`, `not_found`, `not_cancellable`, `cancelled`, `not_retryable`,
 `dedup_key_taken`, `sync_cursor_moved`, `sync_item_threw`, `not_a_schedule`, `sync_item_not_found`,
 `sync_item_not_retryable`, `unknown_queue`, and `forbidden`, `database_failed`, `unexpected` for `auth.forbidden` and the `core.*`
 failures); `getJobsErrorMessage(messages, code)` picks one. An app overrides any of it with
@@ -639,8 +692,18 @@ failures); `getJobsErrorMessage(messages, code)` picks one. An app overrides any
 
 The handlers (§3) are the app's code. `logger` (`info`, `warn`, `error`; `@softure-ai/observability`'s `Logger` fits)
 receives the worker's lines: started, stopped, a scheduled run enqueued, a thrown handler with its error, a lost lease,
-a release, pruning, a failed alert hook. `onJobFailed`, `onQueuePaused` and `onScheduleStateChanged` are the app's
-alert hooks (§3, "Alert hooks", "Pacing and the circuit breaker").
+a release, a job cancelled by an operator, an invalid or unstored progress, pruning, a failed alert hook, and one line per recorded attempt (`logRuns` picks which, default all):
+
+| Outcome | Level and message | Fields |
+|---|---|---|
+| succeeded | `info` `job run succeeded` | `queue`, `jobId`, `attempt`, `origin`, `durationMs`, and the summary's `code` and `items` when the handler returned them |
+| retried | `warn` `job run failed; retrying` | `queue`, `jobId`, `attempt`, `code`, `runAt` (ISO time of the next attempt) |
+| failed | `error` `job run failed` | `queue`, `jobId`, `attempt`, `code` (an expired lease with no attempts left is `jobs.lease_expired`) |
+| cancelled (`all` only) | `info` `job run cancelled` | `queue`, `jobId`, `attempt`, `code` (`jobs.cancelled`) |
+
+Codes and ids only, never a payload or an error's text. An attempt whose write is refused (another worker took the
+job over) leaves no line. `onJobFailed`, `onQueuePaused` and `onScheduleStateChanged` are the app's alert hooks
+(§3, "Alert hooks", "Pacing and the circuit breaker"). A `pauseQueueLater` attempt logs as `retried`.
 
 ## 11. GDPR
 

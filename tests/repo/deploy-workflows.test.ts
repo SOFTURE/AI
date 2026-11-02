@@ -38,6 +38,7 @@ interface Step {
 
 interface Job {
   permissions?: unknown;
+  outputs?: Record<string, unknown>;
   steps?: Step[];
   uses?: string;
   with?: Record<string, unknown>;
@@ -545,6 +546,48 @@ describe("the release guards of deploy-app.yml (DF-11)", () => {
     expect(inputs["build-args"]).toMatchObject({ type: "string", default: "" });
     // Then the tag's commit for the build info (issue #878).
     expect(build?.with?.["build-args"]).toBe("${{ inputs.build-args }}\nSOFTURE_BUILD_COMMIT=${{ needs.check.outputs.sha }}\n");
+  });
+});
+
+describe("the worker image of deploy-app.yml (issue #948)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const call = getWorkflowCall(workflow);
+  const steps = workflow.jobs.build?.steps ?? [];
+  const app = steps.find((step) => step.id === "push");
+  const worker = steps.find((step) => step.id === "worker-push");
+  const reference = steps.find((step) => step.id === "worker-ref");
+
+  it("is off unless the caller names its Dockerfile", () => {
+    expect(call.inputs?.["worker-dockerfile"]).toMatchObject({ type: "string", default: "" });
+    expect(reference?.if).toBe("inputs.worker-dockerfile != ''");
+    expect(worker?.if).toBe("inputs.worker-dockerfile != ''");
+  });
+
+  it("pushes <image>-worker with the release tag, from the app image's context and build arguments, with a cache of its own", () => {
+    expect(reference?.env).toEqual({ IMAGE: "${{ needs.check.outputs.image }}", TAG: "${{ inputs.tag }}" });
+    expect(reference?.run).toBe('echo "image=$IMAGE-worker:$TAG" >> "$GITHUB_OUTPUT"');
+    expect(worker?.uses).toBe(app?.uses);
+    expect(worker?.with).toMatchObject({
+      context: app?.with?.context,
+      file: "${{ inputs.worker-dockerfile }}",
+      push: true,
+      tags: "${{ steps.worker-ref.outputs.image }}",
+      "build-args": app?.with?.["build-args"],
+      labels: app?.with?.labels,
+      "cache-from": "type=gha,scope=worker",
+      "cache-to": "type=gha,mode=max,scope=worker",
+    });
+  });
+
+  it("hands out the worker image and its digest", () => {
+    expect(workflow.jobs.build?.outputs).toMatchObject({
+      "worker-image": "${{ steps.worker-ref.outputs.image }}",
+      "worker-digest": "${{ steps.worker-push.outputs.digest }}",
+    });
+    expect(call.outputs).toMatchObject({
+      "worker-image": { value: "${{ jobs.build.outputs.worker-image }}" },
+      "worker-digest": { value: "${{ jobs.build.outputs.worker-digest }}" },
+    });
   });
 });
 

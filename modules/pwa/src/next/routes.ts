@@ -14,8 +14,10 @@ import { DEV_BUILD_VERSION, getBuildVersion } from "./build-version.js";
 
 /** `GET /pwa/manifest.webmanifest`: the manifest as `application/manifest+json`. */
 export function createManifestRoute(options: ManifestOptions): () => Response {
+  // Built when the route module loads, so a wrong option (a share target's) fails the build.
+  const body = JSON.stringify(buildManifest(options));
   return () =>
-    new Response(JSON.stringify(buildManifest(options)), {
+    new Response(body, {
       headers: { "content-type": "application/manifest+json; charset=utf-8", "cache-control": "no-cache" },
     });
 }

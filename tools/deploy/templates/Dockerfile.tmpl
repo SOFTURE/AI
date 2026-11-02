@@ -93,6 +93,11 @@ COPY --from=builder /app/ops ./ops
 COPY --from=builder /app/worker.mjs ./worker.mjs
 {{/worker}}
 {{/database}}
+{{#dataVolume}}
+# The data volume's folder (init --data-volume), owned by the app user: a new named volume takes this owner on its
+# first mount, so the app (and the worker) can write there.
+RUN mkdir -p {{dataPath}} && chown nextjs:nodejs {{dataPath}}
+{{/dataVolume}}
 
 USER nextjs
 EXPOSE 3000

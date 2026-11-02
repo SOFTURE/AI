@@ -22,7 +22,7 @@ Reviewed the change against plan.md and issue #955.
   Pause / Resume (actions, panel and rows tests); (5) `onQueuePaused`, a throwing hook logged; (6) paused and paced
   jobs keep their attempts (asserted after each hold).
 - README §1, §3 "Pacing and the circuit breaker", steering table, §4, §5, §9, §10, §12; CHANGELOG `Unreleased` with
-  the migration. Migration `0007_create_queue_state.sql` with its rollback; manifest and `module.json` list the table.
+  the migration. Migration `0008_create_queue_state.sql` with its rollback; manifest and `module.json` list the table.
 - Gates: typecheck, ESLint, language gate green; jobs tests 258/258.
 
 Verdict: approved.

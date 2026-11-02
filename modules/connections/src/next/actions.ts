@@ -93,7 +93,7 @@ export async function disconnectAction(_previous: ConnectionFormState, formData:
   if (!admin.ok) return { status: "error", error: admin.error };
   let result: Awaited<ReturnType<typeof disconnect>>;
   try {
-    result = await disconnect(await getConnectionsContext(config), readTarget(formData));
+    result = await disconnect(await getConnectionsContext(config), { ...readTarget(formData), actorId: admin.value.id });
   } catch (error) {
     return fail("disconnecting", error);
   }

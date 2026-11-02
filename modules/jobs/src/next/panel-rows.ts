@@ -67,6 +67,8 @@ function toQueue(stats: QueueStats, messages: JobsMessages, config: SoftureConfi
 
 function toJob(job: Job, messages: JobsMessages, date: (value: Date) => string): JobsPanelJob {
   const details = [formatMessage(messages.jobs.attempts, { attempts: job.attempts, maxAttempts: job.maxAttempts })];
+  if (job.progress !== null && job.status === "running") details.push(...toProgressLines(job, messages, date));
+  if (job.cancelRequestedAt !== null && job.status === "running") details.push(formatMessage(messages.jobs.cancelRequested, { date: date(job.cancelRequestedAt) }));
   if (job.lastError !== null) details.push(formatMessage(messages.jobs.code, { code: job.lastError }));
   details.push(job.status === "pending" ? formatMessage(messages.jobs.nextAttempt, { date: date(job.runAt) }) : formatMessage(messages.jobs.updated, { date: date(job.updatedAt) }));
   return {
@@ -77,8 +79,25 @@ function toJob(job: Job, messages: JobsMessages, date: (value: Date) => string):
     statusLabel: messages.jobs.status[job.status],
     details,
     canRetry: job.status === "failed" || job.status === "cancelled",
-    canCancel: job.status === "pending",
+    canCancel: job.status === "pending" || (job.status === "running" && job.cancelRequestedAt === null),
   };
+}
+
+/** A running job's progress: its step with the counts it has, its state code, and when it was reported. */
+function toProgressLines(job: Job, messages: JobsMessages, date: (value: Date) => string): string[] {
+  const { progress } = job;
+  if (progress === null) return [];
+  const { step, done, total } = progress;
+  const lines = [
+    done !== undefined && total !== undefined
+      ? formatMessage(messages.jobs.progressCount, { step, done, total })
+      : done === undefined
+        ? formatMessage(messages.jobs.progressStep, { step })
+        : formatMessage(messages.jobs.progressDone, { step, done }),
+  ];
+  if (progress.code !== undefined) lines.push(formatMessage(messages.jobs.progressCode, { code: progress.code }));
+  if (job.progressAt !== null) lines.push(formatMessage(messages.jobs.progressAt, { date: date(job.progressAt) }));
+  return lines;
 }
 
 function toRun(run: JobRun, messages: JobsMessages, date: (value: Date) => string): JobsPanelRun {

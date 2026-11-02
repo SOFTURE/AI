@@ -18,7 +18,10 @@ export type ComposeRule =
   | "traefik-name-prefix"
   | "traefik-network"
   | "bypass-path-blocked"
-  | "bypass-path-claimed";
+  | "bypass-path-claimed"
+  | "data-volume-missing"
+  | "data-volume-bind"
+  | "data-volume-split";
 
 /** One breach of the guard. */
 export interface ComposeViolation {
@@ -40,7 +43,16 @@ export interface SharedHostComposeOptions {
    * of the app's own, so the edge network and Traefik routing are breaches instead of requirements.
    */
   readonly ingress?: "edge" | "tunnel";
+  /**
+   * The data volume shared by the app and the worker (init --data-volume, issue #948): `app` and, when the file has
+   * one, `worker` mount one named volume at `mountPath`; a host folder there would put the files outside Docker's
+   * volumes, on the shared host's own disk.
+   */
+  readonly dataVolume?: { readonly mountPath: string };
 }
+
+/** The services that share the data volume. */
+const DATA_VOLUME_SERVICES = ["app", "worker"];
 
 /** Middleware types that answer a request themselves instead of passing it to the app. */
 const BLOCKING_MIDDLEWARES = new Set(["basicauth", "digestauth", "forwardauth", "ipallowlist", "ipwhitelist"]);
@@ -60,16 +72,73 @@ export function checkSharedHostCompose(composeYaml: string, options: SharedHostC
   }
   if (!isRecord(document)) return [topLevel("compose-unreadable", "the compose file is not a mapping")];
   const services = isRecord(document.services) ? document.services : {};
+  const dataVolume = options.dataVolume === undefined ? [] : checkDataVolume(services, document.volumes, options.dataVolume.mountPath);
   if (options.ingress === "tunnel") {
     return [
       ...checkNoEdgeNetwork(document.networks, options.edgeNetwork),
       ...Object.entries(services).flatMap(([name, service]) => checkTunnelService(name, isRecord(service) ? service : {})),
+      ...dataVolume,
     ];
   }
   return [
     ...checkEdgeNetwork(document.networks, options.edgeNetwork),
     ...Object.entries(services).flatMap(([name, service]) => checkService(name, isRecord(service) ? service : {}, options)),
+    ...dataVolume,
   ];
+}
+
+/** What a service mounts at a container path: a named volume, a host folder (bind), or nothing. */
+type Mount = { readonly kind: "volume"; readonly name: string } | { readonly kind: "bind"; readonly source: string } | null;
+
+function readMount(definition: Record<string, unknown>, mountPath: string, declared: ReadonlySet<string>): Mount {
+  const volumes = Array.isArray(definition.volumes) ? (definition.volumes as unknown[]) : [];
+  for (const entry of volumes) {
+    let source: string | undefined;
+    let target: string | undefined;
+    let type: string | undefined;
+    if (typeof entry === "string") {
+      const [first, second] = entry.split(":");
+      [source, target] = second === undefined ? [undefined, first] : [first, second];
+    } else if (isRecord(entry)) {
+      source = typeof entry.source === "string" ? entry.source : undefined;
+      target = typeof entry.target === "string" ? entry.target : undefined;
+      type = typeof entry.type === "string" ? entry.type : undefined;
+    }
+    if (target?.replace(/\/+$/, "") !== mountPath) continue;
+    if (source === undefined || source === "") return { kind: "volume", name: "" };
+    const isBind = type === "bind" || source.startsWith("/") || source.startsWith(".") || source.startsWith("~");
+    if (isBind || (type === undefined && !declared.has(source))) return { kind: "bind", source };
+    return { kind: "volume", name: source };
+  }
+  return null;
+}
+
+function checkDataVolume(services: Record<string, unknown>, volumes: unknown, mountPath: string): ComposeViolation[] {
+  if (!mountPath.startsWith("/")) throw new Error(`checkSharedHostCompose: data volume mount path "${mountPath}" does not start with /`);
+  const declared = new Set(isRecord(volumes) ? Object.keys(volumes) : []);
+  const violations: ComposeViolation[] = [];
+  const names = new Map<string, string>();
+  for (const service of DATA_VOLUME_SERVICES) {
+    const definition = services[service];
+    if (!isRecord(definition)) {
+      if (service === "app") violations.push(topLevel("data-volume-missing", `no app service mounts the data volume at ${mountPath}`));
+      continue;
+    }
+    const mount = readMount(definition, mountPath, declared);
+    if (mount === null || (mount.kind === "volume" && mount.name === "")) {
+      violations.push({ rule: "data-volume-missing", service, message: `mounts no named volume at ${mountPath}` });
+    } else if (mount.kind === "bind") {
+      violations.push({ rule: "data-volume-bind", service, message: `mounts the host folder ${mount.source} at ${mountPath} instead of a named volume` });
+    } else {
+      names.set(service, mount.name);
+    }
+  }
+  const distinct = new Set(names.values());
+  if (distinct.size > 1) {
+    const list = [...names].map(([service, name]) => `${service} ${name}`).join(", ");
+    violations.push(topLevel("data-volume-split", `the app and the worker mount different volumes at ${mountPath} (${list})`));
+  }
+  return violations;
 }
 
 function assertOptions(options: SharedHostComposeOptions): void {

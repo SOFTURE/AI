@@ -4,6 +4,11 @@ import { z } from "zod";
 import type { JobFailedEvent, QueuePausedEvent, ScheduleStateChangedEvent } from "./contract.js";
 import type { JobsContext } from "./server/context.js";
 
+/** Which ends of a run the worker logs: every one, failures and retries only, or none. */
+export const JOBS_RUN_LOG_LEVELS = ["all", "failures", "none"] as const;
+
+export type JobsRunLogLevel = (typeof JOBS_RUN_LOG_LEVELS)[number];
+
 const QUEUE_NAME = /^[a-z][a-z0-9_.-]{0,62}$/;
 const QUEUE_NAME_HINT = "is not a queue name: lowercase letters, digits, _ . and -, starting with a letter";
 const DAY_SECONDS = 24 * 60 * 60;
@@ -248,6 +253,11 @@ export const jobsOptionsSchema = z
     shutdownGraceMs: z.number().int().min(0).max(10 * 60_000).default(20_000),
     /** How long finished jobs, unseen sync ledger items and the run history are kept; the worker prunes once an hour. */
     retention: retentionSchema.default({ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30 }),
+    /**
+     * Which ends of a run the worker logs, one line each: `all` (succeeded, retried, failed), `failures` (retried and
+     * failed) or `none`, for an app with very frequent queues.
+     */
+    logRuns: z.enum(JOBS_RUN_LOG_LEVELS).default("all"),
     /**
      * Runs once when a job ends `failed` (attempts used up, `failJob`, invalid payload, lease lost with no attempts
      * left), after the write commits: e.g. mail the operator.
