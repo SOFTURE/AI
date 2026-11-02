@@ -1,12 +1,13 @@
 ---
 change_id: deploy-worker-image-data-volume-948
 title: "deploy: a job worker on its own image and a data volume shared by the app and the worker (issue #948)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: 948
 branch: claude/project-thread-6df7uf
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent

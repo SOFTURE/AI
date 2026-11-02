@@ -1,6 +1,6 @@
 ---
 change_id: deploy-worker-image-data-volume-948
-status: in_progress
+status: done
 ---
 
 # Plan: worker image, data volume, worker limits, data backup (issue #948)
@@ -59,7 +59,7 @@ README (worker image with marketing-kit's `footage-worker.Dockerfile` as the bas
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
-- [ ] Phase 4
+- [x] Phase 1: `b20750e`
+- [x] Phase 2: `30989fa`
+- [x] Phase 3: `b4496d7`
+- [x] Phase 4: `e7afb79` (plus the review fix: `traefik.enable=false` on the one-off tar container)
