@@ -19,7 +19,7 @@ export const files = defineModule({
     version: "0.1.2",
     dependsOn: { jobs: "^0.1.6?" },
     dbSchema: "files",
-    tables: ["files"],
+    tables: ["files", "uploads"],
     env: [
       {
         name: "SOFTURE_FILES_LINK_KEYS",
@@ -29,12 +29,17 @@ export const files = defineModule({
       },
     ],
     switches: [],
-    routes: { links: "/f" },
+    routes: { links: "/f", uploads: "/u" },
     mount: [
       {
         kind: "route-handler",
         path: "app/f/[...link]/route.ts",
         export: "serveFileLinkRoute",
+      },
+      {
+        kind: "route-handler",
+        path: "app/u/[...upload]/route.ts",
+        export: "serveUploadRoute",
       },
     ],
     privacy: { exports: true, deletes: true },
@@ -46,7 +51,19 @@ export const files = defineModule({
   health: checkFilesHealth,
 });
 
-export type { ByteRange, FileLink, FilesErrorCode, FilesKeyErrorCode, FilesLookupErrorCode, FilesSaveErrorCode, StoredFile } from "./contract.js";
+export type {
+  ByteRange,
+  CreatedUpload,
+  FileLink,
+  FilesErrorCode,
+  FilesKeyErrorCode,
+  FilesLookupErrorCode,
+  FilesSaveErrorCode,
+  FilesUploadErrorCode,
+  StoredFile,
+  UploadState,
+  UploadStatus,
+} from "./contract.js";
 export { filesMessages, getFilesErrorMessage, type FilesMessages } from "./messages/index.js";
 export { DEFAULT_FILE_KIND, FILE_KIND_PATTERN, type FilesOptions, type FilesOptionsInput } from "./options.js";
 export { files as filesTable } from "./schema.js";

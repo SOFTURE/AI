@@ -3,7 +3,7 @@
   "version": "0.1.2",
   "dependsOn": { "jobs": "^0.1.6?" },
   "dbSchema": "files",
-  "tables": ["files"],
+  "tables": ["files", "uploads"],
   "env": [
     {
       "name": "SOFTURE_FILES_LINK_KEYS",
@@ -12,12 +12,17 @@
     }
   ],
   "switches": [],
-  "routes": { "links": "/f" },
+  "routes": { "links": "/f", "uploads": "/u" },
   "mount": [
     {
       "kind": "route-handler",
       "path": "app/f/[...link]/route.ts",
       "export": "serveFileLinkRoute"
+    },
+    {
+      "kind": "route-handler",
+      "path": "app/u/[...upload]/route.ts",
+      "export": "serveUploadRoute"
     }
   ],
   "privacy": { "exports": true, "deletes": true }
