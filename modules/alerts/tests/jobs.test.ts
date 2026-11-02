@@ -2,6 +2,7 @@
 // flush schedule, and alertsFromJobs turning jobs events into alerts without alerting its own queues.
 import { alertsFromJobs, alertsJobHandlers } from "@softure-ai/alerts/jobs";
 import { alert, listRecentAlerts } from "@softure-ai/alerts/server";
+import { jobs } from "@softure-ai/jobs";
 import { listJobs, runDueJobs } from "@softure-ai/jobs/testing";
 import type { JobsLogger } from "@softure-ai/jobs/server";
 import { afterEach, describe, expect, it } from "vitest";
@@ -119,6 +120,11 @@ describe("the flush schedule", () => {
 
 describe("alertsFromJobs", () => {
   const AT = NOW;
+
+  it("plugs into jobs' own hooks, onQueuePaused included", () => {
+    const module = jobs({ queues: { "app.sync": {} }, ...alertsFromJobs() });
+    expect(typeof module.options.onQueuePaused).toBe("function");
+  });
 
   it("alerts a failed job once per queue and counts the next ones", async () => {
     const test = (current = await createTestAlerts({ channels: { ops: recordingChannel().channel } }));
