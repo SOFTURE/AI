@@ -68,6 +68,12 @@ services:
 {{#hasAppEnv}}
 {{appEnvLines}}
 {{/hasAppEnv}}
+{{#dataVolume}}
+    # The data volume (init --data-volume): the same named volume in the app and the worker, owned by the image's
+    # non-root user, e.g. the root of @softure-ai/files' createLocalStorage.
+    volumes:
+      - app-data:{{dataPath}}
+{{/dataVolume}}
 {{#appDependsOn}}
     depends_on:
 {{/appDependsOn}}
@@ -148,8 +154,12 @@ services:
   # SIGTERM, lets running jobs finish for the module's shutdownGraceMs (20 s by default) and releases the rest; the
   # stop grace period below leaves it that time before Docker kills it.
 {{/workerHeartbeat}}
+{{#workerImage}}
+  # It runs an image of its own (init --worker-dockerfile): {{workerImageName}}, built from {{workerDockerfile}} with
+  # the release tag next to the app's, for the tools the app image should not carry (ffmpeg, a browser).
+{{/workerImage}}
   worker:
-    image: {{image}}:${TAG}
+    image: {{workerServiceImage}}:${TAG}
     restart: unless-stopped
     command: ["node", "worker.mjs"]
     environment:
@@ -158,6 +168,14 @@ services:
 {{#hasAppEnv}}
 {{appEnvLines}}
 {{/hasAppEnv}}
+{{#dataVolume}}
+    volumes:
+      - app-data:{{dataPath}}
+{{/dataVolume}}
+{{#hasWorkerLimits}}
+    # Limits (init --worker-cpus, --worker-memory, --worker-tmpfs): a long job cannot starve the app or a neighbour.
+{{workerLimitLines}}
+{{/hasWorkerLimits}}
     healthcheck:
 {{#workerHeartbeat}}
       test: ["CMD", "node", "worker.mjs", "--health"]
@@ -210,21 +228,19 @@ services:
       timeout: 5s
       retries: 30
 {{/database}}
+{{#namedVolumes}}
+
+volumes:
 {{#ownTraefik}}
-
-volumes:
   letsencrypt:
+{{/ownTraefik}}
 {{#database}}
   postgres-data:
 {{/database}}
-{{/ownTraefik}}
-{{^ownTraefik}}
-{{#database}}
-
-volumes:
-  postgres-data:
-{{/database}}
-{{/ownTraefik}}
+{{#dataVolume}}
+  app-data:
+{{/dataVolume}}
+{{/namedVolumes}}
 {{#edge}}
 
 networks:

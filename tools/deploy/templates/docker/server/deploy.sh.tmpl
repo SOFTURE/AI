@@ -113,6 +113,10 @@ else
   APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
 IMAGE="{{image}}"
+{{#workerImage}}
+# The worker's own image (init --worker-dockerfile), pulled and cleaned up with the app's under the same tag.
+WORKER_IMAGE="{{workerImageName}}"
+{{/workerImage}}
 DEPLOY_CLI="@softure-ai/deploy@{{cliVersion}}"
 {{#database}}
 TOOLS_IMAGE="softure-deploy-tools:{{cliVersion}}-pg{{postgresVersion}}"
@@ -698,6 +702,14 @@ if [ "$command_name" = "maintain" ]; then
     if [[ ! "$image_tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] || [ -d "$RELEASES_DIR/$image_tag" ]; then continue; fi
     if docker image rm "$IMAGE:$image_tag" > /dev/null 2>&1; then removed=$((removed + 1)); fi
   done <<< "$image_tags"
+{{#workerImage}}
+  image_tags="$(docker image ls "$WORKER_IMAGE" --format '{{.Tag}}')" || fail "cannot list the images of $WORKER_IMAGE."
+  while IFS= read -r image_tag; do
+    if [ -z "$image_tag" ] || [ "$image_tag" = "<none>" ] || [ "$image_tag" = "$TAG" ]; then continue; fi
+    if [[ ! "$image_tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] || [ -d "$RELEASES_DIR/$image_tag" ]; then continue; fi
+    if docker image rm "$WORKER_IMAGE:$image_tag" > /dev/null 2>&1; then removed=$((removed + 1)); fi
+  done <<< "$image_tags"
+{{/workerImage}}
   docker image prune --force > /dev/null || fail "cannot remove the dangling images."
   step_ok "removed $removed"
 
@@ -851,8 +863,14 @@ if [ -n "$registry_token" ]; then
   DOCKER_CONFIG="$work/docker-config" docker login "$registry" --username softure-deploy --password-stdin \
     < "$registry_token" > /dev/null || fail "cannot log in to $registry with the release's registry token."
   DOCKER_CONFIG="$work/docker-config" docker pull --quiet "$IMAGE:$TAG" > /dev/null || fail "cannot pull $IMAGE:$TAG."
+{{#workerImage}}
+  DOCKER_CONFIG="$work/docker-config" docker pull --quiet "$WORKER_IMAGE:$TAG" > /dev/null || fail "cannot pull $WORKER_IMAGE:$TAG."
+{{/workerImage}}
 else
   docker pull --quiet "$IMAGE:$TAG" > /dev/null || fail "cannot pull $IMAGE:$TAG."
+{{#workerImage}}
+  docker pull --quiet "$WORKER_IMAGE:$TAG" > /dev/null || fail "cannot pull $WORKER_IMAGE:$TAG."
+{{/workerImage}}
 fi
 step_ok
 {{#database}}
