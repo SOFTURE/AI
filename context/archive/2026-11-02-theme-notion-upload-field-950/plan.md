@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-upload-field-950
-status: in_progress
+status: archived
 ---
 
 # Plan: upload field (issue #950)
@@ -33,9 +33,11 @@ README section and the component list, `CHANGELOG.md` `## Unreleased`.
 - Pause and Resume buttons are optional callbacks, since #949 makes uploads resumable.
 - Decimal size steps (kB, MB, GB), the unit names `Intl` writes.
 - No version bump: the coordinator releases the batch.
+- Sizes below 1000 bytes are written with the long unit ("820 bytes"): the short English form is the bare word "byte".
+- The state words are flat keys of `upload` (`upload.failed`), so the message-layer test covers each one like the rest.
 
 ## Progress
 
-- [ ] Phase 1: components and tests
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: components and tests (39e3115)
+- [x] Phase 2: docs (4b9acd8)
+- [x] Implementation review

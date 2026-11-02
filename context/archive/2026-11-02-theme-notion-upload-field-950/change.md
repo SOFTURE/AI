@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-upload-field-950
 title: "theme-notion: an upload field with pick or drop, per-file progress and retry (issue #950)"
-status: open
+status: archived
+archived_at: 2026-11-02
 roadmap_item: null
 issue: [950]
 branch: claude/project-thread-vhxdaw
