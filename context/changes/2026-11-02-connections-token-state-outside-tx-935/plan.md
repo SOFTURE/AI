@@ -1,6 +1,6 @@
 ---
 change_id: connections-token-state-outside-tx-935
-status: in_progress
+status: done
 ---
 
 # Plan: token state outside the caller's transaction (issue #935)
@@ -41,5 +41,5 @@ Files: `modules/connections/src/server/state-database.ts` (new), `src/server/tok
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 1: `50de4e9` (tests red on Postgres 16 first: 3 of 4 failed; then green)
+- [x] Phase 2: `50de4e9` (README section 4 and 10, CHANGELOG Unreleased)

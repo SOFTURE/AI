@@ -242,6 +242,58 @@ transaction. Three consequences:
   transaction and rolled back with it. With the outer `ctx.db` inside an open transaction the one-connection test
   database rejects the read with `PoolInsideTransactionError` instead of waiting forever.
 
+## 5. Migrations and tables
+
+Schema `connections`, one migration (`0001_create_accounts_and_states.sql`):
+
+- `accounts`: one row per provider account: `kind`, `status` (`connected` or `reconnect_required`), `key_id`,
+  `credentials` (the sealed payload), `token_type`, `scopes`, `has_refresh_token`, `expires_at`,
+  `refresh_expires_at`, `connected_at`, `connected_by` (auth user id, no foreign key), `refreshed_at`, `last_error`
+  (a code) and `last_error_at`, and the refresh lease (`lease_id`, `lease_until`). Unique on
+  `(provider, account_id)`; checks on every enum, id shape and pair of columns.
+- `oauth_states`: authorizations in flight: the state's sha256 (never the state), the sealed PKCE verifier, the
+  admin who started it and an expiry. One-time; expired rows go when a new authorization starts.
+
+`softure migrate` applies it with the other modules (after auth).
+
+## 6. Environment variables
+
+| Variable | Required | What it does |
+| --- | --- | --- |
+| `SOFTURE_CONNECTIONS_KEYS` | yes, at runtime | The keyring: `<id>:<base64 of 32 bytes>[,<id>:<key>…]`. The first key seals; every listed key opens. |
+| the providers' `clientIdEnv` / `clientSecretEnv` | for each OAuth provider | Read when a flow or a refresh needs them; a missing one shows on the page as `connections.provider_not_configured`. |
+
+None of them is read at build time, so `next build` runs without them.
+
+**Make a key:** `npx softure-connections key 2026q4` prints `2026q4:<key>`; store it as a secret.
+
+**Rotate a key:** put the new entry first (`new:<key>,old:<key>`), deploy, run
+`npx softure-connections rotate-keys` (a dry run that counts) and then `rotate-keys --commit`, which re-seals every
+connection under the new key and drops authorizations in flight. When it reports nothing left, remove the old
+entry. A connection whose key is no longer in the keyring answers `connections.key_unknown` and needs a reconnect.
+Apps whose config Node cannot load directly use `runConnectionsCli` from `@softure-ai/connections/cli` in a script,
+like `softure-mcp`.
+
+## 7. Switches
+
+None.
+
+## 8. Appearance
+
+`ConnectionsPanel` (`@softure-ai/connections/ui`) takes `classNames` for the slots `root`, `notice`, `list`, `item`,
+`header`, `title`, `status`, `details`, `detail`, `hint`, `actions` and `empty`, and `unstyled`. It is built from
+`@softure-ai/ui` (`Button`, `TextField`, `PasswordField`, `FormError`, and `Card` on the page) and uses only its
+`--sft-*` tokens: the status reads `success` when connected, `warning` when expiring, `danger` when it needs a
+reconnect. The module ships no CSS of its own; import `@softure-ai/ui/styles.css` as for every module.
+
+## 9. Copy
+
+`src/messages/en.ts`: `page` (title, lead, empty, connected notice), `status` (one label per status), `details`
+(the lines under each account), `actions`, `fields`, and `errors` per code (`errors.connections.*`, `auth.forbidden`,
+`core.*`). Override keys per locale with `connections({ messages: { en: { page: { title: "Accounts" } } } })`, or
+pass a whole translation under another locale. `getConnectionsErrorMessage(messages, code)` gives the copy for a
+code, the generic failure for an unknown one.
+
 ## 10. Hooks
 
 `onReconnectRequired(event, ctx)` runs after `reconnect_required` is stored for a connection that was connected,

@@ -67,7 +67,9 @@ export async function createPostgresConnections(options: CreatePostgresConnectio
       fake,
       handle,
       close: async () => {
+        // Closes the pool when a call resolved it through `database.handle`; a test that never did closes it here.
         await closeConfiguredDatabases();
+        if (!handle.pool.ended) await handle.close();
         await drop();
       },
     };
