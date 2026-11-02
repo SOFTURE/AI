@@ -6,6 +6,25 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Progress from a running handler and cancelling a running job (#951). A handler calls
+  `context.reportProgress({ step, done?, total?, code? })`: a code-only progress, checked like the run summary
+  (`jobProgressSchema`, `JobProgress`), written at most once a second per job and fenced by the claim; `Job` gains
+  `progress`, `progressAt` and `cancelRequestedAt`, returned by `getJob` and `listRecentJobs`. `requestJobCancel(ctx,
+  id)` in `/server` cancels a pending job or asks a running one to stop: the worker sees the request on its heartbeat
+  (or the handler's next progress write) and aborts `context.signal` with a `JobCancelledError` (`AbortError`, code
+  `jobs.cancelled`; `isJobCancelled(signal)`); the job ends `cancelled`, not retried, without `onJobFailed`, with a run
+  of the new outcome `cancelled` and, with `logRuns: "all"`, an `info` line `job run cancelled`. `cancelJob` keeps
+  its meaning. New in `@softure-ai/jobs`: `JobProgress`,
+  `jobProgressSchema`, `JobCancelledError`, `isJobCancelled`, `JOB_CANCELLED_CODE`; in `/server`: `requestJobCancel`,
+  `heartbeatJob`, `JobHeartbeat`. `JOB_RUN_OUTCOMES`, `JobOutcome` and `Completion` gain `cancelled`;
+  `RunDueJobsReport` gains an optional `cancelled`, present only when an attempt was cancelled. The admin page lists running jobs with their progress, and its Cancel (`cancelJobAction`) now uses
+  `requestJobCancel`.
+  - Migrate: run `migrations/0007_add_progress_and_cancel.sql` with the app's other migrations (adds
+    `jobs.jobs.progress`, `progress_at`, `cancel_requested_at`, and the run outcome `cancelled`). A test that builds a
+    `JobHandlerContext` by hand adds `reportProgress: async () => {}`; code that switches over `JobOutcome`, `JobRunOutcome` or `Completion` handles
+    `cancelled`. An app with its own full dictionary for another locale adds `jobs.progressStep`, `progressCount`,
+    `progressDone`, `progressCode`, `progressAt`, `cancelRequested`, `runs.outcome.cancelled` and `errors.cancelled`
+    (see `messages/en.ts`).
 - Run-end log lines (#934): every recorded attempt now leaves one line in the worker's logger, codes and ids only:
   `info("job run succeeded", { queue, jobId, attempt, origin, durationMs, code?, items? })`,
   `warn("job run failed; retrying", { queue, jobId, attempt, code, runAt })` and
