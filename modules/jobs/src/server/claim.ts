@@ -37,8 +37,11 @@ export interface ClaimJobsInput {
 
 /** What a finished attempt records. */
 export type Completion =
-  /** `summary`: the handler's checked run summary, kept in the run history. */
-  | { readonly kind: "succeeded"; readonly summary?: JobRunSummary | null }
+  /**
+   * `summary`: the handler's checked run summary, kept in the run history. `resultRef`: the checked result reference,
+   * kept on the job for its owner (`getOwnJob`).
+   */
+  | { readonly kind: "succeeded"; readonly summary?: JobRunSummary | null; readonly resultRef?: string | null }
   | { readonly kind: "retry"; readonly error: string; readonly runAt: Date }
   /** `isPermanent`: the job's own fault (`failJob`, an invalid payload), which the queue's breaker does not count. */
   | { readonly kind: "failed"; readonly error: string; readonly isPermanent?: boolean }
@@ -233,7 +236,7 @@ function toCompletionSet(completion: Completion, now: Date) {
   const unlocked = { lockedUntil: null, lockedBy: null, claimToken: null, updatedAt: now };
   switch (completion.kind) {
     case "succeeded":
-      return { ...unlocked, cancelRequestedAt: null, status: "succeeded" as const, finishedAt: now, lastError: null };
+      return { ...unlocked, cancelRequestedAt: null, status: "succeeded" as const, finishedAt: now, lastError: null, resultRef: completion.resultRef ?? null };
     case "retry":
       return { ...unlocked, cancelRequestedAt: null, status: "pending" as const, runAt: completion.runAt, lastError: completion.error };
     case "paused":

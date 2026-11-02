@@ -6,6 +6,7 @@ import type { JobsContext } from "./context.js";
 import { getJobsOptions, getQueue } from "./options.js";
 
 const MAX_DEDUP_KEY_LENGTH = 200;
+const MAX_OWNER_ID_LENGTH = 200;
 /** The shape of a queue name: `app`, `schedule`, `manual`, `webhook.stripe`. */
 const ORIGIN = /^[a-z][a-z0-9_.-]{0,62}$/;
 const DEFAULT_ORIGIN = "app";
@@ -37,6 +38,12 @@ export interface EnqueueJobInput {
    * `runScheduleNow`'s `manual`; an app names its own (`webhook.stripe`). Lowercase, the shape of a queue name.
    */
   readonly origin?: string;
+  /**
+   * The user the job belongs to, e.g. the signed-in user's id: that user can then follow it with `getOwnJob` and the
+   * status route (`createJobStatusRoute`). 1 to 200 characters. A `dedupKey` matches across owners: put the owner in
+   * the key when two owners must never share a job.
+   */
+  readonly ownerId?: string;
 }
 
 export interface EnqueuedJob {
@@ -69,6 +76,7 @@ export async function enqueueJob(ctx: JobsContext, input: EnqueueJobInput): Prom
     runAt,
     dedupKey: input.dedupKey ?? null,
     origin: input.origin ?? DEFAULT_ORIGIN,
+    ownerId: input.ownerId ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -117,6 +125,9 @@ function checkInput(input: EnqueueJobInput): void {
   }
   if (input.origin !== undefined && !ORIGIN.test(input.origin)) {
     throw new RangeError("@softure-ai/jobs: enqueueJob origin must be lowercase letters, digits, '_', '.' or '-', starting with a letter, at most 63 characters");
+  }
+  if (input.ownerId !== undefined && (input.ownerId.length === 0 || input.ownerId.length > MAX_OWNER_ID_LENGTH)) {
+    throw new RangeError(`@softure-ai/jobs: enqueueJob ownerId must have 1 to ${String(MAX_OWNER_ID_LENGTH)} characters`);
   }
   if (input.payload === undefined || input.payload === null) {
     throw new Error("@softure-ai/jobs: enqueueJob needs a payload; pass {} for a job without data");

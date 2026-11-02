@@ -109,7 +109,7 @@ export async function retryJob(ctx: JobsContext, id: string): Promise<RetryJobRe
   try {
     const [row] = await ctx.db
       .update(jobs)
-      .set({ status: "pending", attempts: 0, runAt: now, finishedAt: null, progress: null, progressAt: null, cancelRequestedAt: null, updatedAt: now })
+      .set({ status: "pending", attempts: 0, runAt: now, finishedAt: null, progress: null, progressAt: null, cancelRequestedAt: null, resultRef: null, updatedAt: now })
       .where(and(eq(jobs.id, jobId), inArray(jobs.status, ["failed", "cancelled"])))
       .returning();
     if (row !== undefined) return ok(toJob(row));

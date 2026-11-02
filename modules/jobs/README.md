@@ -15,7 +15,8 @@ and a circuit breaker that pauses the queue (§3, "Pacing and the circuit breake
 ledger, so a second run never acts twice on the same item (§3, "Sync state for polling"). For the operator: an admin
 page with the queues, schedule health, pauses, running jobs with their progress, recent failures and the sync ledger,
 with Run now, Pause, Resume, Retry and Cancel (§4). A running handler reports its progress, and an operator can stop a
-running job (§3, "Progress and cancelling").
+running job (§3, "Progress and cancelling"). For the user who started a job: an owner on the job, a status route and a
+polling hook for the waiting screen (§3, "A user follows their own job").
 
 ## 2. Installation
 
@@ -65,7 +66,7 @@ export default defineSoftureConfig({
 | `schedules.<queue>.payload` | `{}` | the payload of every scheduled run |
 | `pollIntervalMs` | `1000` | how often an idle worker looks for due jobs |
 | `shutdownGraceMs` | `20000` | how long a stopping worker waits for running handlers before releasing their jobs |
-| `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30 }` | how long finished jobs, sync ledger items no run met, and the run history (§3, "Run history") are kept; the worker prunes once an hour |
+| `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30, ownedDays: 1 }` | how long finished jobs, sync ledger items no run met, and the run history (§3, "Run history") are kept, and the floor for a job a user follows (§3, "A user follows their own job"); the worker prunes once an hour |
 | `logRuns` | `"all"` | which ends of a run the worker logs, one line each (§10): `"all"` (succeeded, retried, failed), `"failures"` (retried and failed) or `"none"` |
 | `onJobFailed` | none | `(event, ctx)`, run once when a job ends `failed` (§3, "Alert hooks") |
 | `onQueuePaused` | none | `(event, ctx)`, run once when the breaker or a handler pauses a queue (§3, "Pacing and the circuit breaker") |
@@ -464,6 +465,81 @@ A worker of your own built on `claimJobs` uses `heartbeatJob(ctx, claimed)` (`he
 in place of `extendJobLease` to see requests. `runDueJobs` has no heartbeat: it sees a request at the handler's next
 progress write.
 
+### A user follows their own job
+
+A feature that runs in the background while its user waits (a link to summarize, a file to convert) stores the user
+on the job and lets that user, and only that user, follow it:
+
+```ts
+// The request that starts the work.
+const { id } = await enqueueJob(ctx, { queue: "ai.summarize", payload: { articleId }, ownerId: user.id });
+
+// The handler names the row that holds the result: an id, never the result itself.
+run: async ({ articleId }, { db }) => {
+  const summary = await summarize(db, articleId);
+  return ok({ resultRef: `summary:${summary.id}` });
+},
+```
+
+- `ownerId` (1 to 200 characters) is stored on the job (`owner_id`, indexed). A `dedupKey` matches across owners: put
+  the owner in the key when two owners must never share a job.
+- `ok({ resultRef })` (with or without `summary`) keeps an identifier of the app's result on a succeeded job:
+  letters, digits and `_ . : / -`, at most 200 characters. Anything else is dropped with a warning that does not
+  repeat it; the job stays succeeded. `Job` gains `ownerId` and `resultRef`.
+- `getOwnJob(ctx, { id, ownerId })` from `/server` answers `OwnJob`: `id`, `queue`, `status`, `progress`,
+  `progressAt`, `resultRef`, `failureCode` (the failed job's error code, `jobs.cancelled` for a cancelled one,
+  otherwise null), `cancelRequestedAt`, `createdAt`, `updatedAt`, `finishedAt`. Never the payload or an error's text.
+  A job of someone else, one without an owner, a pruned one and an id that cannot be one all answer
+  `jobs.not_found`, so a user cannot probe for jobs. `requestOwnJobCancel(ctx, { id, ownerId })` is
+  `requestJobCancel` for the owner (the owner is in every statement). `toOwnJobStatus(job)` gives the JSON form
+  (`OwnJobStatus`, times as ISO strings).
+- `retention.ownedDays` (default 1) keeps an owned job readable after it ends, even when its status retention is
+  shorter (`succeededDays: 0`), so a reload after the result still shows it. A longer status retention wins.
+
+The route, one file; the session lookup is the app's (jobs does not depend on auth):
+
+```ts
+// app/api/jobs/[id]/route.ts
+import { getCurrentUser } from "@softure-ai/auth/next";
+import { createJobStatusRoute } from "@softure-ai/jobs/next";
+
+export const { GET, DELETE } = createJobStatusRoute({
+  getOwnerId: async () => (await getCurrentUser())?.id ?? null,
+  allowCancel: true,
+});
+```
+
+`GET` answers `200` with the `OwnJobStatus`, `401 { error: "auth.unauthorized" }` when `getOwnerId` gives null and
+`404 { error: "jobs.not_found" }` otherwise. `DELETE` answers `405 { error: "jobs.cancel_not_allowed" }` unless
+`allowCancel` is on; then `200` with the status (a pending job `cancelled`, a running one asked to stop), `404`, or
+`409 { error: "jobs.not_cancellable" }` for a finished job. A database that cannot be opened is `503
+jobs.unavailable`, any other failure `500 jobs.failed`, logged by kind only. Every answer is `Cache-Control:
+no-store`. `getContext` replaces the registered config's database (a test database).
+
+The waiting screen, in a client component, with `useJobStatus` from `@softure-ai/jobs/react` (React only, no
+`@softure-ai/ui`):
+
+```tsx
+"use client";
+import { useJobStatus } from "@softure-ai/jobs/react";
+
+export function SummaryProgress({ jobId }: { jobId: string }) {
+  const { job, error, cancel } = useJobStatus(jobId);
+  if (error === "jobs.not_found") return <NotFound />;
+  if (job?.status === "succeeded") return <SummaryLink resultRef={job.resultRef} />;
+  if (job?.status === "failed" || job?.status === "cancelled") return <Failure code={job.failureCode} />;
+  return <Progress step={job?.progress?.step} done={job?.progress?.done} total={job?.progress?.total} onCancel={cancel} />;
+}
+```
+
+`useJobStatus(id, { url?, intervalMs?, maxIntervalMs?, stopOn? })` polls `url(id)` (default `/api/jobs/<id>`) every
+`intervalMs` (1000); while nothing changes the interval grows by half up to `maxIntervalMs` (15 000), a change resets
+it, a failed poll doubles it. It stops on `succeeded`, `failed` and `cancelled` (or `stopOn`) and on a 401 or 404,
+pauses while the tab is hidden, and polls at once when the tab shows again or the browser comes back `online`. It
+returns `{ job, error, isPolling, cancel }`: `error` is the route's code or `network`, and clears with the next good
+answer; a body that is not a job status is `jobs.failed`. `cancel()` sends `DELETE` and returns `{ ok, value }` or
+`{ ok: false, error }`. Pass `null` as the id while there is no job yet.
+
 ### Without a worker
 
 `runDueJobs(ctx, { handlers })` (from `@softure-ai/jobs/server` or `/testing`) enqueues the due runs of the schedules
@@ -569,6 +645,8 @@ From `@softure-ai/jobs/server`, each on `ctx = { db, clock, config }`:
 | `getJob(ctx, id)` | the `Job` or `null` |
 | `cancelJob(ctx, id)` | a pending job becomes `cancelled`; `jobs.not_cancellable` for a running or finished one, `jobs.not_found` |
 | `requestJobCancel(ctx, id)` | a pending job becomes `cancelled`; a running one is asked to stop and ends `cancelled` (§3, "Progress and cancelling"); `jobs.not_cancellable` for a finished one, `jobs.not_found` |
+| `getOwnJob(ctx, { id, ownerId })` | the `OwnJob` its owner sees; `jobs.not_found` for anyone else (§3, "A user follows their own job") |
+| `requestOwnJobCancel(ctx, { id, ownerId })` | `requestJobCancel` for the job's owner; `jobs.not_found` for anyone else |
 | `retryJob(ctx, id)` | a failed or cancelled job runs again from scratch (attempts 0, due now); `jobs.not_retryable`, `jobs.dedup_key_taken` while a live job has its key, `jobs.not_found` |
 | `listRecentJobs(ctx, { statuses, queue?, limit? })` | jobs in any of `statuses` (a job status or `retrying`: pending after a failed attempt), most recently changed first, up to `limit` (default 50, at most 500) |
 | `runScheduleNow(ctx, queue, { origin? })` | enqueues a run of the schedule now with its payload and dedup key (origin `manual` unless named), joining a pending run (`isDuplicate: true`); the schedule's own period is left alone; `jobs.not_a_schedule` |
@@ -627,14 +705,16 @@ show only when passed) from `/next`.
 Schema `jobs`, six tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
 `migrations/0003_add_schedule_failures.sql`, `migrations/0004_create_sync_state.sql`,
 `migrations/0005_add_schedule_reported_state.sql`, `migrations/0006_create_runs.sql`,
-`migrations/0007_add_progress_and_cancel.sql` and `migrations/0008_create_queue_state.sql`:
+`migrations/0007_add_progress_and_cancel.sql`, `migrations/0008_create_queue_state.sql` and
+`migrations/0009_add_owner_and_result_ref.sql`:
 
 `jobs.jobs`: `id` (bigint identity; a string in the API), `queue`, `payload` (jsonb), `status` (`pending`, `running`,
 `succeeded`, `failed`, `cancelled`), `attempts`, `max_attempts`, `run_at`, `locked_until`, `locked_by` (the worker,
 `<hostname>:<pid>`), `claim_token`, `dedup_key`, `origin` (default `app`), `last_error` (an error code, never a
 message), `created_at`,
 `updated_at`, `finished_at`, `progress` (jsonb, code-only, checked by the module), `progress_at`,
-`cancel_requested_at` (set only while `running` or once `cancelled`). Checks keep the lease columns set exactly while `running` and `finished_at` set exactly
+`cancel_requested_at` (set only while `running` or once `cancelled`), `owner_id` (the user who follows the job,
+indexed with `created_at`), `result_ref` (succeeded jobs only). Checks keep the lease columns set exactly while `running` and `finished_at` set exactly
 for finished jobs; a partial unique index allows one live job per queue and dedup key.
 
 `jobs.runs`: `id` (bigint identity), `job_id` (no foreign key: runs outlive pruned jobs), `queue`, `origin`,
@@ -711,6 +791,8 @@ No export or deletion contributor: jobs are transient and pruned (§3, `retentio
 payloads (ids only); then a deleted account leaves nothing personal in `jobs.jobs`. `last_error` holds codes, and the
 logger gets payload paths, never values, for a payload that does not match its schema. The sync ledger holds the
 source's item ids, not their content; if an id is personal (an e-mail address), the app hashes it before passing it.
+`owner_id` links a job to its user by the user's id, never a name or an e-mail address; an owned job is pruned like
+any other once `retention.ownedDays` has also passed.
 
 ## 12. Limitations
 

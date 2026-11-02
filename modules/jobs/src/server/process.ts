@@ -18,6 +18,8 @@ const HANDLER_THREW = "jobs.handler_threw";
 const MAX_ERROR_LENGTH = 200;
 /** At most one progress write per job in this window. */
 const PROGRESS_INTERVAL_MS = 1000;
+/** A result reference: an identifier of the app's row, never free text. */
+const RESULT_REF = /^[A-Za-z0-9_.:/-]{1,200}$/;
 
 export interface RunClaimedJobOptions {
   readonly handlers: JobHandlers;
@@ -137,7 +139,7 @@ function createProgressReporter(
 
 function decide(ctx: JobsContext, claimed: ClaimedJob, result: unknown, options: RunClaimedJobOptions): Completion {
   const { job } = claimed;
-  if (isOk(result)) return { kind: "succeeded", summary: readSummary(result, claimed, options) };
+  if (isOk(result)) return { kind: "succeeded", summary: readSummary(result, claimed, options), resultRef: readResultRef(result, claimed, options) };
   const failure = readFailure(result);
   if (failure === null) {
     options.logger.error("job handler returned neither ok() nor an error; treated as a throw", { queue: job.queue, jobId: job.id });
@@ -206,6 +208,20 @@ function readSummary(result: unknown, claimed: ClaimedJob, options: RunClaimedJo
   if (parsed.success) return parsed.data;
   const paths = parsed.error.issues.map((issue) => issue.path.map(String).join(".") || "(root)").join(", ");
   options.logger.warn("job summary does not match the summary schema; recorded without it", { queue: claimed.job.queue, jobId: claimed.job.id, paths });
+  return null;
+}
+
+/**
+ * The checked result reference of `ok({ resultRef })`; null without one. One that is not an identifier is dropped with
+ * a warning, never logged itself: the job did its work and stays succeeded.
+ */
+function readResultRef(result: unknown, claimed: ClaimedJob, options: RunClaimedJobOptions): string | null {
+  const value = (result as { value?: unknown }).value;
+  if (typeof value !== "object" || value === null || !Object.hasOwn(value, "resultRef")) return null;
+  const resultRef = (value as { resultRef: unknown }).resultRef;
+  if (resultRef === undefined || resultRef === null) return null;
+  if (typeof resultRef === "string" && RESULT_REF.test(resultRef)) return resultRef;
+  options.logger.warn("job result reference is not an identifier; recorded without it", { queue: claimed.job.queue, jobId: claimed.job.id });
   return null;
 }
 

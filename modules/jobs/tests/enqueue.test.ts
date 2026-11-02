@@ -36,6 +36,8 @@ describe("enqueueJob", () => {
       progress: null,
       progressAt: null,
       cancelRequestedAt: null,
+      ownerId: null,
+      resultRef: null,
     });
   });
 

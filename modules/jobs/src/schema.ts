@@ -24,6 +24,8 @@ export const jobs = jobsSchema.table("jobs", {
   progress: jsonb("progress"),
   progressAt: timestamp("progress_at", { withTimezone: true }),
   cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
+  ownerId: text("owner_id"),
+  resultRef: text("result_ref"),
 });
 
 export type JobRow = typeof jobs.$inferSelect;
