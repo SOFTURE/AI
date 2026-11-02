@@ -237,6 +237,79 @@ describe("planInitFiles", () => {
     expect(hasWorkerHeartbeat({ ...FACTS, hasDatabase: false, hasJobs: true, jobsVersion: "0.1.3" })).toBe(false);
   });
 
+  describe("a worker image, a data volume and worker limits (issue #948)", () => {
+    type Service = Record<string, unknown>;
+    type Compose = { services: Record<string, Service>; volumes?: Record<string, unknown> };
+    const composeOf = (files: Map<string, PlannedFile>) => parse(textOf(files, "docker/prod/docker-compose.yml")) as Compose;
+    const WORKER_IMAGE: Partial<InitAnswers> = { workerDockerfile: "docker/worker.Dockerfile" };
+
+    it("runs the worker from <image>-worker, writes its Dockerfile after the app's and builds it in the caller workflow", () => {
+      const files = plan(WORKER_IMAGE, { hasJobs: true, jobsVersion: "0.1.6" });
+      expect([...files.keys()].slice(0, 3)).toEqual(["Dockerfile", "docker/worker.Dockerfile", ".dockerignore"]);
+      expect(composeOf(files).services.worker?.image).toBe("ghcr.io/acme/app-worker:${TAG}");
+      expect(composeOf(files).services.app?.image).toBe("ghcr.io/acme/app:${TAG}");
+      const deploy = parse(textOf(files, ".github/workflows/deploy.yml")) as { jobs: { build: { with: Record<string, unknown> } } };
+      expect(deploy.jobs.build.with["worker-dockerfile"]).toBe("docker/worker.Dockerfile");
+      const worker = textOf(files, "docker/worker.Dockerfile");
+      expect(worker).toContain("ARG WORKER_BASE_IMAGE=node:22-trixie-slim");
+      expect(worker).toContain("FROM ${WORKER_BASE_IMAGE} AS runner");
+      expect(worker).toContain("scripts/worker.ts --bundle --platform=node --format=esm --target=node22");
+      expect(worker).toContain("USER 1001");
+      expect(worker).not.toContain("/app/data");
+      expect(files.get("docker/worker.Dockerfile")?.mode).toBe(0o644);
+      for (const file of files.values()) expect(file.text, file.path).not.toMatch(/\{\{[#^/]?[a-zA-Z]+\}\}/);
+    });
+
+    it("pulls the worker image with the app's and cleans up its old tags in maintain", () => {
+      const script = textOf(plan(WORKER_IMAGE, { hasJobs: true }), "docker/server/deploy.sh");
+      expect(script).toContain('WORKER_IMAGE="ghcr.io/acme/app-worker"');
+      expect(script).toContain('DOCKER_CONFIG="$work/docker-config" docker pull --quiet "$WORKER_IMAGE:$TAG" > /dev/null || fail "cannot pull $WORKER_IMAGE:$TAG."');
+      expect(script).toContain('  docker pull --quiet "$WORKER_IMAGE:$TAG" > /dev/null || fail "cannot pull $WORKER_IMAGE:$TAG."');
+      expect(script).toContain('if docker image rm "$WORKER_IMAGE:$image_tag" > /dev/null 2>&1; then removed=$((removed + 1)); fi');
+    });
+
+    it("changes nothing without the flags, and no worker image without the worker part", () => {
+      for (const facts of [{ hasJobs: true }, {}]) {
+        const files = plan({}, facts);
+        expect(textOf(files, "docker/server/deploy.sh")).not.toContain("WORKER_IMAGE");
+        expect(textOf(files, ".github/workflows/deploy.yml")).not.toContain("worker-dockerfile");
+        expect(textOf(files, "docker/prod/docker-compose.yml")).not.toContain("app-data");
+        expect(textOf(files, "Dockerfile")).not.toContain("chown");
+      }
+      const noWorker = plan({ ...WORKER_IMAGE, workerCpus: "1", workerMemory: "1g" });
+      expect([...noWorker.keys()]).not.toContain("docker/worker.Dockerfile");
+      expect(textOf(noWorker, "docker/server/deploy.sh")).not.toContain("WORKER_IMAGE");
+      expect(textOf(noWorker, "docker/prod/docker-compose.yml")).not.toContain("mem_limit");
+    });
+
+    it("mounts one named volume at the data path in the app and the worker, owned by the images' user", () => {
+      const files = plan({ ...WORKER_IMAGE, dataVolume: "/app/data" }, { hasJobs: true });
+      const compose = composeOf(files);
+      expect(compose.services.app?.volumes).toEqual(["app-data:/app/data"]);
+      expect(compose.services.worker?.volumes).toEqual(["app-data:/app/data"]);
+      expect(compose.volumes).toEqual({ letsencrypt: null, "postgres-data": null, "app-data": null });
+      expect(textOf(files, "Dockerfile")).toContain("RUN mkdir -p /app/data && chown nextjs:nodejs /app/data\n\nUSER nextjs");
+      expect(textOf(files, "docker/worker.Dockerfile")).toContain("RUN mkdir -p /app/data && chown 1001:1001 /app/data\n\nUSER 1001");
+    });
+
+    it("declares the data volume for an app without a database or its own Traefik too", () => {
+      const compose = composeOf(plan({ dataVolume: "/data", tunnel: true }, NO_DATABASE));
+      expect(compose.services.app?.volumes).toEqual(["app-data:/data"]);
+      expect(compose.volumes).toEqual({ "app-data": null });
+      expect(composeOf(plan({ tunnel: true }, NO_DATABASE)).volumes).toBeUndefined();
+    });
+
+    it("limits the worker's CPUs, memory and /tmp, each only when asked", () => {
+      const limited = composeOf(plan({ workerCpus: "1.5", workerMemory: "2g", workerTmpfs: "512m" }, { hasJobs: true })).services.worker;
+      expect(limited).toMatchObject({ cpus: 1.5, mem_limit: "2g", tmpfs: ["/tmp:size=512m"] });
+      const memoryOnly = composeOf(plan({ workerMemory: "768m" }, { hasJobs: true })).services.worker;
+      expect(memoryOnly).toMatchObject({ mem_limit: "768m" });
+      expect(memoryOnly).not.toHaveProperty("cpus");
+      expect(memoryOnly).not.toHaveProperty("tmpfs");
+      expect(composeOf(plan({ workerCpus: "2" }, { hasJobs: true })).services.app).not.toHaveProperty("cpus");
+    });
+  });
+
   it("writes hooks/lib.sh for every app and the Cloudflare files only with cdn cloudflare", () => {
     const cloudflareFiles = [
       "docker/prod/hooks/cloudflare-ranges.sh",
