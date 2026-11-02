@@ -64,6 +64,8 @@ interface ImportSummary {
   readonly trial: number;
   readonly paid: number;
   readonly lifetime: number;
+  /** Accounts on the free tier (`billing({ free })`). */
+  readonly free: number;
   readonly readOnly: number;
 }
 
@@ -114,12 +116,13 @@ function findRepeatedRows(rows: readonly ImportRow[]): number[] {
 }
 
 async function summarize(ctx: BillingContext, userIds: readonly string[]): Promise<ImportSummary> {
-  const summary = { accounts: userIds.length, trial: 0, paid: 0, lifetime: 0, readOnly: 0 };
+  const summary = { accounts: userIds.length, trial: 0, paid: 0, lifetime: 0, free: 0, readOnly: 0 };
   for (const userId of userIds) {
     const entitlement = await getEntitlement(ctx, userId);
     // The accounts were found under the script's transaction; one erased meanwhile counts as none.
     if (entitlement === null) continue;
     if (entitlement.status === "read_only") summary.readOnly += 1;
+    else if (entitlement.status === "free") summary.free += 1;
     else if (entitlement.status === "trial") summary.trial += 1;
     else if (entitlement.endsAt === null) summary.lifetime += 1;
     else summary.paid += 1;

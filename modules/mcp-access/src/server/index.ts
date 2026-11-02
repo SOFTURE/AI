@@ -11,6 +11,21 @@ export {
   type McpServerFactory,
 } from "./endpoint.js";
 export { actionTool, toFormData, type ActionToolOptions, type FormActionHandler } from "./action-tool.js";
+export {
+  CONFIRMATION_FIELD,
+  CONFIRMATION_SECRET_ENV,
+  confirmationInput,
+  DEFAULT_CONFIRMATION_TTL_SECONDS,
+  MIN_CONFIRMATION_SECRET_LENGTH,
+  pruneUsedConfirmations,
+  toCanonicalJson,
+  withConfirmation,
+  type ConfirmationErrorCode,
+  type ConfirmationEstimate,
+  type ConfirmationRequest,
+  type ConfirmedToolArgs,
+  type WithConfirmationOptions,
+} from "./confirmation.js";
 export { createMcpAccessContext } from "./context.js";
 export { isWritingEnabled } from "./writes-switch.js";
 export { checkAccessTokensTable } from "./health.js";
@@ -103,6 +118,21 @@ export {
   type RevokeAccessTokenInput,
   type VerifiedAccessToken,
 } from "./tokens.js";
+export {
+  API_RATE_LIMIT_BUCKET,
+  API_TOKEN_RATE_LIMIT_BUCKET,
+  apiTokenErrorResponse,
+  getApiTokenOptions,
+  isApiTokenShape,
+  issueApiToken,
+  requireApiToken,
+  verifyApiToken,
+  type IssueApiTokenInput,
+  type IssueApiTokenResult,
+  type IssuedApiToken,
+  type RequireApiTokenOptions,
+  type VerifiedApiToken,
+} from "./api-tokens.js";
 export { createMcpServerFactory, type McpServerFactoryOptions } from "./server-factory.js";
 export {
   registerServerInfoTool,

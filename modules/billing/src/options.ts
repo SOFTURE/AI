@@ -104,9 +104,19 @@ export const billingOptionsSchema = z.strictObject({
       limits: limitsSchema,
     })
     .prefault({}),
+  /**
+   * A free tier without an end (freemium): an account without paid access, once its trial (if any) ends, keeps write
+   * access and is held only by these usage limits, instead of turning read-only. Absent: no free tier.
+   */
+  free: z
+    .strictObject({
+      /** Usage limits of the free tier. */
+      limits: limitsSchema,
+    })
+    .optional(),
   readOnly: z
     .strictObject({
-      /** Usage limits of a read-only account. */
+      /** Usage limits of a read-only account (never reached when `free` is set). */
       limits: limitsSchema,
     })
     .prefault({}),

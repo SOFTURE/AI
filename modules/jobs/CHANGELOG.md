@@ -6,6 +6,45 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- A signed-in user follows their own job (#958). `enqueueJob({ ownerId })` stores the user on the job;
+  `getOwnJob(ctx, { id, ownerId })` and `requestOwnJobCancel(ctx, { id, ownerId })` in `/server` answer only that
+  owner (`jobs.not_found` for anyone else) with an `OwnJob`: status, progress, `resultRef`, `failureCode` (a code,
+  never an error's text), cancel request and times, never the payload; `toOwnJobStatus` gives its JSON form
+  (`OwnJobStatus`). A handler returns `ok({ resultRef })` to keep an identifier of its result on the succeeded job
+  (an invalid one is dropped with a warning). `createJobStatusRoute({ getOwnerId, allowCancel?, getContext? })` in
+  `/next` gives `GET` (status) and `DELETE` (cancel, off by default) for `app/api/jobs/[id]/route.ts`, `no-store`,
+  codes only (`JOB_STATUS_ROUTE_ERRORS`). The new entry `@softure-ai/jobs/react` has `useJobStatus(id, { url?,
+  intervalMs?, maxIntervalMs?, stopOn? })`: polling with backoff that stops when the job ends, pauses in a hidden tab
+  and resumes on `online`. New option `retention.ownedDays` (default 1): an owned job stays readable that long after
+  it ends, whatever its status retention. `Job` gains `ownerId` and `resultRef`.
+  - Migrate: run `migrations/0009_add_owner_and_result_ref.sql` with the app's other migrations (adds
+    `jobs.jobs.owner_id`, `result_ref` and the index `jobs_owner_idx`). An app that kept its own owner column, status
+    route and polling hook for a waiting screen can drop them: enqueue with `ownerId`, mount the route, use the hook.
+    Code that compares a whole `Job` or the parsed `retention` exactly adds the new fields.
+
+- Queue pacing and a circuit breaker (#955). New queue options `rateLimit: { minGapMs, jitterMs? } | { max,
+  perSeconds }`, enforced when jobs are claimed and shared by every worker through the new `jobs.queue_state` row of
+  the queue, and `breaker: { failures, codes?, pauseSeconds, maxPauseSeconds? }`, which pauses the queue after
+  `failures` counted failures in a row, doubles the pause when the first run after it fails again (up to
+  `maxPauseSeconds`, default 16 × `pauseSeconds`) and resets after a success. A handler returns
+  `pauseQueueLater(code, seconds)` to pause the queue at once and keep the job's attempt. An operator calls
+  `pauseQueue(ctx, queue, { until?, reason })` / `resumeQueue(ctx, queue)` from `/server`, or uses **Pause** /
+  **Resume** on the admin page. A paused or paced queue claims nothing, so its jobs keep their attempts. New hook
+  `onQueuePaused({ queue, code, until, source, at })` for pauses by the breaker or a handler. `getQueueStats` adds
+  `pause` and `consecutiveFailures`; `runDueJobs` counts a `pauseQueueLater` attempt as `retried`; `JobOutcome` and
+  `Completion` gain a `paused` kind; `recordJobHooks()` records `pausedQueues`. New in `@softure-ai/jobs`: `pauseQueueLater`, `QueuePause`,
+  `QueuePausedEvent`, `QueuePauseSource`, `JobQueueRateLimit`, `JobQueueBreaker`, `OnQueuePausedHook`; in `/server`:
+  `pauseQueue`, `resumeQueue`, `getQueuePause`, `PauseQueueInput`, `PauseQueueResult`, `ResumeQueueResult`; in
+  `/next`: `pauseQueueAction`, `resumeQueueAction`, `PANEL_PAUSE_REASON`; in `/ui`: optional `pauseQueue` /
+  `resumeQueue` actions and `isPaused` on `JobsPanelQueue`. New code `jobs.unknown_queue`.
+  - Migrate: run `migrations/0008_create_queue_state.sql` with the app's other migrations. A handler that slept or
+    returned `retryJobLater` to keep a gap between calls drops that and sets `rateLimit` on its queue; one that kept
+    its own "N refusals in a row" state returns an `Err` (or `pauseQueueLater` for a refusal it recognizes) and sets
+    `breaker`. An app that composes `JobsPanel` itself passes `pauseQueueAction` and `resumeQueueAction` to get the
+    buttons. An app with an exhaustive `switch` over `JobOutcome["kind"]` or `Completion["kind"]` adds `paused`. An app with its own full dictionary for another
+    locale adds `queues.paused.{breaker,handler,operator}`, `queues.pausedUntilResumed`, `queues.failuresInRow`,
+    `queues.pause`, `queues.pausing`, `queues.resume`, `queues.resuming` and `errors.unknown_queue`.
+
 - A sync item failure that waits (#939): a `processSyncItem` callback returns `waitSyncItem(code)` (a `SyncItemFailure`
   with `retry: "wait"`) for a cause outside the item that only an operator clears, such as a connection that needs a
   reconnect (`connections.reconnect_required`, `connections.not_connected`). The callback's writes roll back, the item
@@ -16,6 +55,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   - Migrate: an app that gives the attempt back itself with an `UPDATE` of `jobs.sync_items` after `processSyncItem`
     returns `waitSyncItem(code)` from the callback instead and drops the `UPDATE`. An app with an exhaustive `switch`
     over `SyncItemOutcome["kind"]` adds the `waiting` case.
+
 - Progress from a running handler and cancelling a running job (#951). A handler calls
   `context.reportProgress({ step, done?, total?, code? })`: a code-only progress, checked like the run summary
   (`jobProgressSchema`, `JobProgress`), written at most once a second per job and fenced by the claim; `Job` gains

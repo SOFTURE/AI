@@ -37,6 +37,7 @@ modules/             feature modules (each one works on its own on top of the fo
   connections/       connected accounts: OAuth 2.0 client, encrypted tokens and API keys, refresh under a lease
   pwa/               installable app: manifest, icons, service worker from a route, new-build update flow, online state
   files/             stored files: content hash, quota, expiry, local disk or S3, signed public links with ranges
+  metering/          spend ledger of paid provider calls in any unit, budgets per day or month, reservations under a lock
 tools/
   marketing-kit/     materials generator: video, screenshots, OG images from JSON and a brand
   deploy/            one-VPS deploy CLI: .env.prod from secrets, release notes, verify from deploy.json

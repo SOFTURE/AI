@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
@@ -25,6 +25,10 @@ import {
   Spinner,
   Steps,
   type StepState,
+  UploadField,
+  UploadItem,
+  type UploadFileItem,
+  type UploadState,
 } from "../../src/index.js";
 import { installDomShims } from "../gallery/dom.js";
 
@@ -44,6 +48,8 @@ const attributeOf = (selector: string, name: string) => () => document.querySele
 function labelled(text: string | undefined): { "aria-label"?: string } {
   return text === undefined ? {} : { "aria-label": text };
 }
+
+const UPLOAD_ITEM: UploadFileItem = { id: "file", name: "{name}", size: 1000, state: "queued" };
 
 const CASES: Readonly<Record<string, MessageCase>> = {
   "breadcrumb.label": { render: (text) => <Breadcrumb {...labelled(text)} />, read: attributeOf('[data-slot="breadcrumb"]', "aria-label") },
@@ -122,6 +128,68 @@ const CASES: Readonly<Record<string, MessageCase>> = {
     ),
     read: attributeOf('[data-slot="sortable-handle"]', "aria-label"),
   },
+  // The upload field's button and drop hint, with one file and with several.
+  ...Object.fromEntries(
+    ([
+      ["choose", true, '[data-slot="button"]'],
+      ["chooseOne", false, '[data-slot="button"]'],
+      ["drop", true, '[data-slot="upload-drop-hint"]'],
+      ["dropOne", false, '[data-slot="upload-drop-hint"]'],
+    ] as const).map(([key, multiple, selector]) => [
+      `upload.${key}`,
+      {
+        render: (text: string | undefined) => (
+          <UploadField label="Files" multiple={multiple} messages={text === undefined ? undefined : { [key]: text }} onFilesSelected={() => undefined} />
+        ),
+        read: textOf(selector),
+      },
+    ]),
+  ),
+  "upload.dropping": {
+    render: (text) => <UploadField label="Files" messages={text === undefined ? undefined : { dropping: text }} onFilesSelected={() => undefined} />,
+    // Dragged over first, so the hint reads "drop to add".
+    read: () => {
+      const area = document.querySelector('[data-slot="upload-drop-area"]');
+      if (area !== null) fireEvent.dragOver(area, { dataTransfer: { files: [], dropEffect: "none" } });
+      return document.querySelector('[data-slot="upload-drop-hint"]')?.textContent;
+    },
+  },
+  // A file named "{name}", so the filled-in text reads as the template itself.
+  ...Object.fromEntries(
+    ([
+      ["retry", "failed", () => document.querySelector('[data-slot="upload-item-actions"] [data-slot="button"]')?.textContent],
+      ["pause", "uploading", attributeOf('[data-slot="upload-item-actions"] [data-slot="button"]', "aria-label")],
+      ["resume", "paused", attributeOf('[data-slot="upload-item-actions"] [data-slot="button"]', "aria-label")],
+      ["progress", "uploading", attributeOf('[data-slot="progress"]', "aria-label")],
+    ] as const).map(([key, state, read]) => [
+      `upload.${key}`,
+      {
+        render: (text: string | undefined) => (
+          <UploadItem
+            item={{ ...UPLOAD_ITEM, state }}
+            messages={text === undefined ? undefined : { [key]: text }}
+            onRetry={() => undefined}
+            onPause={() => undefined}
+            onResume={() => undefined}
+          />
+        ),
+        read,
+      },
+    ]),
+  ),
+  "upload.remove": {
+    render: (text) => <UploadItem item={UPLOAD_ITEM} messages={text === undefined ? undefined : { remove: text }} onRemove={() => undefined} />,
+    read: attributeOf('[data-slot="upload-item-actions"] [data-slot="button"]', "aria-label"),
+  },
+  ...Object.fromEntries(
+    (["queued", "uploading", "paused", "done", "failed"] as const satisfies readonly UploadState[]).map((state) => [
+      `upload.${state}`,
+      {
+        render: (text: string | undefined) => <UploadItem item={{ ...UPLOAD_ITEM, state }} messages={text === undefined ? undefined : { [state]: text }} />,
+        read: textOf('[data-slot="status-label"]'),
+      },
+    ]),
+  ),
   "spinner.label": { render: (text) => <Spinner {...labelled(text)} />, read: attributeOf('[role="status"]', "aria-label") },
   "command.title": { render: (text) => <CommandDialog open title={text} />, read: textOf('[data-slot="dialog-title"]') },
   "command.description": { render: (text) => <CommandDialog open description={text} />, read: textOf('[data-slot="dialog-description"]') },

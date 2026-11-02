@@ -9,7 +9,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { UsagePeriod, UsageState } from "../contract.js";
 import { resolveEntitlement } from "../entitlement.js";
 import { MAX_USAGE_LIMIT } from "../options.js";
-import { getUsagePeriod, getUsageState, isDeclaredMeter, resolveLimit, type UsagePeriodBounds } from "../usage.js";
+import { findUpgradePlanIds, getUsagePeriod, getUsageState, isDeclaredMeter, resolveLimit, type UsagePeriodBounds } from "../usage.js";
 import { usage } from "../schema.js";
 import { findEntitlementRecord, type BillingContext } from "./entitlements.js";
 import { findCurrentPlanId } from "./limits.js";
@@ -32,12 +32,17 @@ export interface ConsumeUsageInput extends GetUsageInput {
 /** A refused consumption, with the meter's state as it stands (nothing was consumed). */
 export interface QuotaExhausted extends Err<"billing.quota_exhausted"> {
   readonly usage: UsageState;
+  /**
+   * The plans whose limit for this meter is higher than the account's now, in the config's order: a
+   * plan would raise it (an upgrade prompt). Empty when none does.
+   */
+  readonly upgradePlanIds: readonly string[];
 }
 
 /** Refuses a meter the config does not declare: calling with one is a bug in the app. */
 function assertDeclaredMeter(ctx: Pick<BillingContext, "config">, meter: string): void {
   if (!isDeclaredMeter(getBillingOptions(ctx.config), meter)) {
-    throw new Error(`@softure-ai/billing: the meter "${meter}" is in no limits block of billing({ ... }); declare it in trial, paid, readOnly or a plan`);
+    throw new Error(`@softure-ai/billing: the meter "${meter}" is in no limits block of billing({ ... }); declare it in trial, paid, free, readOnly or a plan`);
   }
 }
 
@@ -107,7 +112,11 @@ export async function consumeUsage(ctx: BillingContext, input: ConsumeUsageInput
     const limit = await findMeterLimit(txCtx, userId, meter, now);
     if (limit === undefined) return err("billing.account_unknown");
     const key = { userId, meter, period, bounds: getUsagePeriod(now, ctx.config.timezone, period) };
-    const refuse = async (): Promise<QuotaExhausted> => ({ ...err("billing.quota_exhausted"), usage: getUsageState({ ...key, used: await readUsed(txCtx, key), limit }) });
+    const refuse = async (): Promise<QuotaExhausted> => ({
+      ...err("billing.quota_exhausted"),
+      usage: getUsageState({ ...key, used: await readUsed(txCtx, key), limit }),
+      upgradePlanIds: findUpgradePlanIds(getBillingOptions(ctx.config), meter, limit),
+    });
     if (limit !== null && amount > limit) return refuse();
     // On a conflict the row is locked and the condition reads its latest version, so two consumers
     // of the last unit cannot both pass.

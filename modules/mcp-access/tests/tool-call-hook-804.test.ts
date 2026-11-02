@@ -59,6 +59,7 @@ describe("onToolCall in withToolErrors", () => {
         tokenId: CALLER.tokenId,
         clientName: "Laptop",
         argumentNames: ["status", "email"],
+        confirmed: null,
         outcome: { kind: "succeeded", itemCount: 3 },
         startedAt: STARTED_AT,
         durationMs: 250,

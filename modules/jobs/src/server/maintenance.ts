@@ -1,9 +1,10 @@
 // Upkeep and overview: delete finished jobs past their retention, count jobs per queue and status.
-import { and, eq, inArray, lt, min, or, sql } from "drizzle-orm";
-import { JOB_STATUSES, type JobStatus } from "../contract.js";
+import { and, eq, inArray, isNull, lt, min, or, sql } from "drizzle-orm";
+import { JOB_STATUSES, type JobStatus, type QueuePause } from "../contract.js";
 import { jobs } from "../schema.js";
 import type { JobsContext } from "./context.js";
 import { getJobsOptions } from "./options.js";
+import { getQueueStateSummaries } from "./queue-state.js";
 import { getScheduleStates, type ScheduleState } from "./schedules.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -11,17 +12,20 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const PRUNE_BATCH = 1000;
 
 /**
- * Deletes succeeded, failed and cancelled jobs older (by `finished_at`) than their retention, in batches. Returns the
- * number of deleted jobs. The worker calls it once an hour; an app without a worker may call it from a cron.
+ * Deletes succeeded, failed and cancelled jobs older (by `finished_at`) than their retention, in batches; an owned job
+ * also waits for `retention.ownedDays`. Returns the number of deleted jobs. The worker calls it once an hour; an app without a worker may call it from a cron.
  */
 export async function pruneJobs(ctx: JobsContext): Promise<number> {
   const { retention } = getJobsOptions(ctx.config);
   const now = ctx.clock.now().getTime();
   const before = (days: number) => new Date(now - days * DAY_MS);
-  const isExpired = or(
-    and(eq(jobs.status, "succeeded"), lt(jobs.finishedAt, before(retention.succeededDays))),
-    and(eq(jobs.status, "failed"), lt(jobs.finishedAt, before(retention.failedDays))),
-    and(eq(jobs.status, "cancelled"), lt(jobs.finishedAt, before(retention.cancelledDays))),
+  const isExpired = and(
+    or(
+      and(eq(jobs.status, "succeeded"), lt(jobs.finishedAt, before(retention.succeededDays))),
+      and(eq(jobs.status, "failed"), lt(jobs.finishedAt, before(retention.failedDays))),
+      and(eq(jobs.status, "cancelled"), lt(jobs.finishedAt, before(retention.cancelledDays))),
+    ),
+    or(isNull(jobs.ownerId), lt(jobs.finishedAt, before(retention.ownedDays))),
   );
   let deleted = 0;
   for (;;) {
@@ -42,11 +46,15 @@ export interface QueueStats {
   readonly oldestDueAt: Date | null;
   /** The queue's schedule, when `schedules` names it: when it last ran and whether it is late. */
   readonly schedule: ScheduleState | null;
+  /** The queue's active pause (breaker, `pauseQueueLater` or an operator), or null: a paused queue claims nothing. */
+  readonly pause: QueuePause | null;
+  /** Failures the queue's breaker counted since the last success. */
+  readonly consecutiveFailures: number;
 }
 
 /**
  * Counts per queue: every configured queue, plus any queue that still has rows in the table, with the state of its
- * schedule. For a dashboard, an ops script or a health check of the app's own (`ops({ checks })`).
+ * schedule, its pause and its breaker's counter. For a dashboard, an ops script or a health check of the app's own (`ops({ checks })`).
  */
 export async function getQueueStats(ctx: JobsContext): Promise<QueueStats[]> {
   const now = ctx.clock.now();
@@ -60,12 +68,22 @@ export async function getQueueStats(ctx: JobsContext): Promise<QueueStats[]> {
     .where(and(eq(jobs.status, "pending"), sql`${jobs.runAt} <= ${now}`))
     .groupBy(jobs.queue);
   const scheduleStates = await getScheduleStates(ctx);
+  const queueStates = await getQueueStateSummaries(ctx);
 
   const names = new Set([...Object.keys(getJobsOptions(ctx.config).queues), ...counted.map((row) => row.queue)]);
   return [...names].map((queue) => {
     const counts = Object.fromEntries(JOB_STATUSES.map((status) => [status, 0])) as Record<JobStatus, number>;
     for (const row of counted.filter((candidate) => candidate.queue === queue)) counts[row.status] = row.count;
     const due = backlog.find((row) => row.queue === queue);
-    return { queue, counts, due: due?.due ?? 0, oldestDueAt: due?.oldestDueAt ?? null, schedule: scheduleStates.get(queue) ?? null };
+    const state = queueStates.get(queue);
+    return {
+      queue,
+      counts,
+      due: due?.due ?? 0,
+      oldestDueAt: due?.oldestDueAt ?? null,
+      schedule: scheduleStates.get(queue) ?? null,
+      pause: state?.pause ?? null,
+      consecutiveFailures: state?.consecutiveFailures ?? 0,
+    };
   });
 }

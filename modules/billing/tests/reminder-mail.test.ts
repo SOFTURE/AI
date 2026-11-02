@@ -74,6 +74,19 @@ describe("renderAccessReminderMail", () => {
     expect(mail.text.endsWith("Renew access: https://app.example.com/payment")).toBe(true);
   });
 
+  it("promises no loss of access when the account keeps the free tier", () => {
+    const ending = renderAccessReminderMail(billingMessages.en, { kind: "trial-ending", lastDay: "October 16, 2026", link: PAYMENT_LINK, afterEnd: "free" });
+    expect(ending.subject).toBe("Your trial ends on October 16, 2026");
+    expect(ending.text).toBe(
+      "Your trial ends on October 16, 2026. You keep the free plan after that, with its limits; choose a plan for higher limits.\n\nChoose a plan: https://app.example.com/payment",
+    );
+    const ended = renderAccessReminderMail(billingMessages.en, { kind: "paid-ended", lastDay: "November 30, 2026", link: PAYMENT_LINK, afterEnd: "free" });
+    expect(ended.text).toBe(
+      "Your access has ended. You are on the free plan now and can keep working within its limits; renew it for your plan's limits.\n\nRenew access: https://app.example.com/payment",
+    );
+    expect(renderAccessReminderMail(billingMessages.en, { kind: "trial-ending", lastDay: "x", link: PAYMENT_LINK, afterEnd: "read_only" }).subject).toBe("Your trial ends on x");
+  });
+
   it("escapes the copy and the link in the HTML body", () => {
     const messages = { ...billingMessages.en, reminderMail: { ...billingMessages.en.reminderMail, trialEnded: { subject: "Ended", body: "<b>Tom & Jerry</b>" } } };
     const mail = renderAccessReminderMail(messages, { kind: "trial-ended", lastDay: "x", link: 'https://app.example.com/pay?a=1&b="2"' });

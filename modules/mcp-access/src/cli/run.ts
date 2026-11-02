@@ -32,7 +32,7 @@ export const EXIT_FAILED = 1;
 export const EXIT_USAGE = 2;
 
 export const MCP_ACCESS_USAGE = `Usage:
-  softure-mcp prune    deletes expired access tokens, authorization codes, grants and abandoned clients`;
+  softure-mcp prune    deletes expired access tokens, authorization codes, grants, abandoned clients and used confirmations`;
 
 const consoleOutput: CliOutput = {
   log: (line) => console.log(line),
@@ -66,7 +66,7 @@ async function prune(options: RunMcpAccessCliOptions, output: CliOutput): Promis
     opened = await (options.openDatabase ?? ((settings) => openCommandDatabase(settings, { max: 1 })))(database);
     const removed = await pruneMcpAccess({ db: opened.handle.db, clock: options.clock ?? systemClock, config: options.config });
     output.log(
-      `softure-mcp prune: removed ${String(removed.accessTokens)} access tokens, ${String(removed.codes)} authorization codes, ${String(removed.grants)} grants, ${String(removed.clients)} clients`,
+      `softure-mcp prune: removed ${String(removed.accessTokens)} access tokens, ${String(removed.codes)} authorization codes, ${String(removed.grants)} grants, ${String(removed.clients)} clients, ${String(removed.usedConfirmations)} used confirmations`,
     );
     return EXIT_OK;
   } catch (error) {

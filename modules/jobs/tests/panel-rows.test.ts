@@ -1,7 +1,7 @@
 // The panel's rows from the module's reads: every line in the app's copy, dates in its zone, no payload.
 import { defineJobHandler, failJob, failSyncItem, jobsMessages } from "@softure-ai/jobs";
 import { toJobsPanelData } from "@softure-ai/jobs/next";
-import { enqueueJob, getQueueStats, listJobRuns, listRecentJobs, listSyncItems, processSyncItem, requestJobCancel } from "@softure-ai/jobs/server";
+import { enqueueJob, getQueueStats, listJobRuns, listRecentJobs, listSyncItems, pauseQueue, processSyncItem, requestJobCancel } from "@softure-ai/jobs/server";
 import { runDueJobs } from "@softure-ai/jobs/testing";
 import { err, ok } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -44,6 +44,7 @@ describe("toJobsPanelData", () => {
       health: null,
       healthLabel: null,
       isScheduled: false,
+      isPaused: false,
     });
     expect(queues.find((queue) => queue.queue === "reports.daily")).toEqual({
       queue: "reports.daily",
@@ -57,8 +58,32 @@ describe("toJobsPanelData", () => {
       health: "late",
       healthLabel: "Late",
       isScheduled: true,
+      isPaused: false,
     });
     expect(queues.find((queue) => queue.queue === "reports.hourly")?.details.slice(2)).toEqual(["Runs every 1h (UTC periods)", "Last success on Sep 15, 2026, 2:00 PM"]);
+  });
+
+  it("shows a queue's pause with its reason and end, an operator's pause until resumed, and the breaker's counter", async () => {
+    await pauseQueue(test.ctx, "ai.reply", { reason: "app.rate_limited", until: new Date(test.clock.now().getTime() + 60 * SECOND_MS) });
+    await pauseQueue(test.ctx, "mail.send", { reason: "jobs.operator_pause" });
+    const { queues } = await read();
+    expect(queues.find((queue) => queue.queue === "ai.reply")).toMatchObject({
+      isPaused: true,
+      details: expect.arrayContaining(["Paused by an operator until Sep 15, 2026, 2:01 PM (app.rate_limited)"]) as unknown,
+    });
+    expect(queues.find((queue) => queue.queue === "mail.send")).toMatchObject({
+      isPaused: true,
+      details: expect.arrayContaining(["Paused by an operator until resumed (jobs.operator_pause)"]) as unknown,
+    });
+  });
+
+  it("counts the breaker's failures in a row", async () => {
+    await test.database.close();
+    test = await createTestJobs({ queues: { "ai.reply": { maxAttempts: 5, breaker: { failures: 5, pauseSeconds: 60 } } } });
+    await enqueueJob(test.ctx, { queue: "ai.reply", payload: {} });
+    await runDueJobs(test.ctx, { handlers: { "ai.reply": defineJobHandler({ payload: z.object({}), run: () => Promise.resolve(err("app.rate_limited")) }) }, random: () => 0 });
+    const queue = (await read()).queues.find((candidate) => candidate.queue === "ai.reply");
+    expect(queue).toMatchObject({ isPaused: false, details: expect.arrayContaining(["Failures in a row: 1"]) as unknown });
   });
 
   it("shows a failing schedule's last failure with its code", async () => {

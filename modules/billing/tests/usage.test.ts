@@ -1,6 +1,6 @@
 // Usage limits, pure: the limits options, which meters the config declares, the limit per access
 // state and plan, and the calendar month a consumption counts in.
-import { billing, type BillingOptions, type BillingOptionsInput, getDeclaredMeters, getUsagePeriod, getUsageState, isDeclaredMeter, resolveLimit, resolveLimits } from "@softure-ai/billing";
+import { billing, type BillingOptions, type BillingOptionsInput, findUpgradePlanIds, getDeclaredMeters, getUsagePeriod, getUsageState, isDeclaredMeter, resolveLimit, resolveLimits } from "@softure-ai/billing";
 import { describe, expect, it } from "vitest";
 
 const TIMEZONE = "Europe/Warsaw";
@@ -13,6 +13,7 @@ function parseOptions(input: BillingOptionsInput): BillingOptions {
 const OPTIONS = parseOptions({
   trial: { limits: { "ai-calls": 10, uploads: null } },
   paid: { limits: { "ai-calls": 100, exports: 5, uploads: null } },
+  free: { limits: { "ai-calls": 5, uploads: 2, imports: 1 } },
   readOnly: { limits: { exports: 1 } },
   plans: [
     { id: "pro", name: { en: "Pro" }, price: { amount: 4900, currency: "PLN" }, period: "month", limits: { "ai-calls": 1000, exports: null } },
@@ -25,6 +26,12 @@ describe("limits options", () => {
     const options = parseOptions({ plans: [{ id: "monthly", name: { en: "Monthly" }, price: { amount: 2900, currency: "PLN" }, period: "month" }] });
     expect([options.trial.limits, options.paid.limits, options.readOnly.limits, options.plans[0]?.limits]).toEqual([{}, {}, {}, {}]);
     expect(getDeclaredMeters(options)).toEqual([]);
+    expect(options.free).toBeUndefined();
+  });
+
+  it("parse a free tier without limits as an empty block", () => {
+    expect(parseOptions({ free: {} }).free).toEqual({ limits: {} });
+    expect(() => billing({ free: { limits: { "ai-calls": -1 } } })).toThrow("- options.free.limits");
   });
 
   it.each([
@@ -44,7 +51,8 @@ describe("limits options", () => {
 
 describe("getDeclaredMeters", () => {
   it("lists every meter some block names, once, sorted", () => {
-    expect(getDeclaredMeters(OPTIONS)).toEqual(["ai-calls", "exports", "uploads"]);
+    expect(getDeclaredMeters(OPTIONS)).toEqual(["ai-calls", "exports", "imports", "uploads"]);
+    expect(isDeclaredMeter(OPTIONS, "imports")).toBe(true);
     expect(isDeclaredMeter(OPTIONS, "exports")).toBe(true);
     expect(isDeclaredMeter(OPTIONS, "downloads")).toBe(false);
   });
@@ -63,17 +71,41 @@ describe("resolveLimit", () => {
     ["paid.limits for a plan the config no longer has", { status: "paid", planId: "retired" }, "ai-calls", 100],
     ["paid.limits' null as no limit for a plan that leaves the meter out", { status: "paid", planId: "basic" }, "uploads", null],
     ["the trial's null as no limit", { status: "trial", planId: null }, "uploads", null],
+    ["the free tier's limit", { status: "free", planId: null }, "ai-calls", 5],
+    ["0 for a meter the free tier leaves out", { status: "free", planId: null }, "exports", 0],
   ] as const)("gives %s", (_name, subject, meter, limit) => {
     expect(resolveLimit(OPTIONS, subject, meter)).toBe(limit);
   });
 
   it("gives every declared meter at once", () => {
-    expect(resolveLimits(OPTIONS, { status: "paid", planId: "pro" })).toEqual({ "ai-calls": 1000, exports: null, uploads: null });
-    expect(resolveLimits(OPTIONS, { status: "trial", planId: null })).toEqual({ "ai-calls": 10, exports: 0, uploads: null });
+    expect(resolveLimits(OPTIONS, { status: "paid", planId: "pro" })).toEqual({ "ai-calls": 1000, exports: null, imports: 0, uploads: null });
+    expect(resolveLimits(OPTIONS, { status: "trial", planId: null })).toEqual({ "ai-calls": 10, exports: 0, imports: 0, uploads: null });
+    expect(resolveLimits(OPTIONS, { status: "free", planId: null })).toEqual({ "ai-calls": 5, exports: 0, imports: 1, uploads: 2 });
+  });
+
+  it("gives 0 for the free tier of a config without one", () => {
+    expect(resolveLimit(parseOptions({ paid: { limits: { "ai-calls": 1 } } }), { status: "free", planId: null }, "ai-calls")).toBe(0);
   });
 
   it("does not read a meter from the object's prototype", () => {
     expect(resolveLimit(OPTIONS, { status: "trial", planId: null }, "constructor")).toBe(0);
+  });
+});
+
+describe("findUpgradePlanIds", () => {
+  it("lists the plans whose limit is higher, in the config's order, a null limit counting as higher", () => {
+    // pro: 1000, basic: paid.limits' 100.
+    expect(findUpgradePlanIds(OPTIONS, "ai-calls", 5)).toEqual(["pro", "basic"]);
+    expect(findUpgradePlanIds(OPTIONS, "ai-calls", 100)).toEqual(["pro"]);
+    // pro: null, basic: paid.limits' 5.
+    expect(findUpgradePlanIds(OPTIONS, "exports", 5)).toEqual(["pro"]);
+  });
+
+  it("is empty when no plan raises the limit, or when there is none", () => {
+    expect(findUpgradePlanIds(OPTIONS, "ai-calls", 1000)).toEqual([]);
+    expect(findUpgradePlanIds(OPTIONS, "uploads", null)).toEqual([]);
+    // Every plan leaves imports out and paid.limits too: 0, not above the free tier's 1.
+    expect(findUpgradePlanIds(OPTIONS, "imports", 1)).toEqual([]);
   });
 });
 
