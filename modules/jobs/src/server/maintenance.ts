@@ -1,5 +1,5 @@
 // Upkeep and overview: delete finished jobs past their retention, count jobs per queue and status.
-import { and, eq, inArray, lt, min, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, min, or, sql } from "drizzle-orm";
 import { JOB_STATUSES, type JobStatus } from "../contract.js";
 import { jobs } from "../schema.js";
 import type { JobsContext } from "./context.js";
@@ -11,17 +11,20 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const PRUNE_BATCH = 1000;
 
 /**
- * Deletes succeeded, failed and cancelled jobs older (by `finished_at`) than their retention, in batches. Returns the
- * number of deleted jobs. The worker calls it once an hour; an app without a worker may call it from a cron.
+ * Deletes succeeded, failed and cancelled jobs older (by `finished_at`) than their retention, in batches; an owned job
+ * also waits for `retention.ownedDays`. Returns the number of deleted jobs. The worker calls it once an hour; an app without a worker may call it from a cron.
  */
 export async function pruneJobs(ctx: JobsContext): Promise<number> {
   const { retention } = getJobsOptions(ctx.config);
   const now = ctx.clock.now().getTime();
   const before = (days: number) => new Date(now - days * DAY_MS);
-  const isExpired = or(
-    and(eq(jobs.status, "succeeded"), lt(jobs.finishedAt, before(retention.succeededDays))),
-    and(eq(jobs.status, "failed"), lt(jobs.finishedAt, before(retention.failedDays))),
-    and(eq(jobs.status, "cancelled"), lt(jobs.finishedAt, before(retention.cancelledDays))),
+  const isExpired = and(
+    or(
+      and(eq(jobs.status, "succeeded"), lt(jobs.finishedAt, before(retention.succeededDays))),
+      and(eq(jobs.status, "failed"), lt(jobs.finishedAt, before(retention.failedDays))),
+      and(eq(jobs.status, "cancelled"), lt(jobs.finishedAt, before(retention.cancelledDays))),
+    ),
+    or(isNull(jobs.ownerId), lt(jobs.finishedAt, before(retention.ownedDays))),
   );
   let deleted = 0;
   for (;;) {

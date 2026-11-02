@@ -21,8 +21,9 @@ backoff, and a retention floor so an owned job stays readable for a while after 
 ## Context
 
 Labels: `enhancement`, `pkg: jobs`, `status: in progress`. Builds on #951 (progress and `requestJobCancel`, merged in
-35b8fae). Jobs migration numbers: 0007 is on master, 0008 belongs to #955 (PR #969), 0009 is this change's
-(agreed with the coordinator). No release in this change: the coordinator releases.
+35b8fae). Jobs migration numbers: 0007 is on master; #955 (PR #969) also adds
+one. The migrator refuses a gap, so this branch carries 0008; whichever change merges second renumbers its file to
+0009 (agreed with the coordinator). No release in this change: the coordinator releases.
 
 ## Constraints
 

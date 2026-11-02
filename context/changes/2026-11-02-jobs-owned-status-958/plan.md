@@ -9,11 +9,11 @@ Input: change.md, research.md. Complexity: medium (one migration, server API, a 
 
 ## Phase 1: owner, result reference, owner reads, retention
 
-Files: `migrations/0009_add_owner_and_result_ref.sql` (new), `src/schema.ts`, `src/contract.ts`, `src/options.ts`,
+Files: `migrations/0008_add_owner_and_result_ref.sql` (new), `src/schema.ts`, `src/contract.ts`, `src/options.ts`,
 `src/server/{enqueue,job-row,claim,process,admin,maintenance,index}.ts`, `src/server/own-jobs.ts` (new),
 `tests/own-jobs.test.ts` (new).
 
-1. Migration 0009: `owner_id text` (1 to 200 characters), `result_ref text` (1 to 200, only on a succeeded job), an
+1. Migration 0008 (0009 if #955 merges first): `owner_id text` (1 to 200 characters), `result_ref text` (1 to 200, only on a succeeded job), an
    index `(owner_id, created_at)` where `owner_id IS NOT NULL`.
 2. `enqueueJob({ ..., ownerId })`: checked 1 to 200 characters; stored. `Job` gains `ownerId` and `resultRef`.
 3. A handler returns `ok({ resultRef })` (with or without `summary`): an identifier (letters, digits, `_ . : / -`, at

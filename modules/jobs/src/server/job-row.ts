@@ -27,6 +27,8 @@ export function toJob(row: JobRow): Job {
     progress: readProgress(row.progress),
     progressAt: row.progressAt,
     cancelRequestedAt: row.cancelRequestedAt,
+    ownerId: row.ownerId,
+    resultRef: row.resultRef,
   };
 }
 

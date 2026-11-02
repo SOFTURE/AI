@@ -178,6 +178,11 @@ const retentionSchema = z.strictObject({
   syncItemsDays: z.number().int().min(1).max(3650).default(90),
   /** Days a row of the run history is kept after its attempt finished, whatever happened to its job. */
   runsDays: z.number().int().min(1).max(3650).default(30),
+  /**
+   * Days an owned job (`enqueueJob({ ownerId })`) stays readable for its owner after it ends, whatever its status
+   * retention says: a reload after the result still shows it. A floor: a longer status retention wins.
+   */
+  ownedDays: z.number().int().min(0).max(3650).default(1),
 });
 
 export const jobsOptionsSchema = z
@@ -195,7 +200,7 @@ export const jobsOptionsSchema = z
     /** How long a stopping worker waits for running handlers before it releases their jobs. */
     shutdownGraceMs: z.number().int().min(0).max(10 * 60_000).default(20_000),
     /** How long finished jobs, unseen sync ledger items and the run history are kept; the worker prunes once an hour. */
-    retention: retentionSchema.default({ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30 }),
+    retention: retentionSchema.default({ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30, ownedDays: 1 }),
     /**
      * Which ends of a run the worker logs, one line each: `all` (succeeded, retried, failed), `failures` (retried and
      * failed) or `none`, for an app with very frequent queues.

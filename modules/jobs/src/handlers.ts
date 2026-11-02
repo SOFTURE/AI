@@ -32,7 +32,8 @@ export interface JobHandlerContext {
 
 /**
  * What a handler returns: `ok()` when the work is done, or `ok({ summary })` with a code-only `JobRunSummary` the run
- * history keeps; an `Err` to try again with the queue's backoff (until the attempts are used up); `failJob(code)` to
+ * history keeps, and/or `ok({ resultRef })` with an id of the app's row that holds the result, kept on the job for its
+ * owner (`getOwnJob`; letters, digits and `_ . : / -`, at most 200 characters); an `Err` to try again with the queue's backoff (until the attempts are used up); `failJob(code)` to
  * fail for good; `retryJobLater(code, seconds)` to try again after a delay the handler chooses. A throw is retried
  * like an `Err` with the code `jobs.handler_threw` and logged.
  */

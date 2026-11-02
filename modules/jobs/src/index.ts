@@ -44,6 +44,8 @@ export {
   type JobsFormErrorCode,
   type JobsFormState,
   type JobStatus,
+  type OwnJob,
+  type OwnJobStatus,
   type ScheduleHealth,
   type ScheduleStateChangedEvent,
 } from "./contract.js";

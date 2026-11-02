@@ -50,6 +50,44 @@ export interface Job {
   readonly progressAt: Date | null;
   /** When an operator asked the running job to stop (`requestJobCancel`); kept once the job is `cancelled`. */
   readonly cancelRequestedAt: Date | null;
+  /** The user the job belongs to (`enqueueJob({ ownerId })`); null for a job nobody follows. */
+  readonly ownerId: string | null;
+  /** What a succeeded handler returned as `ok({ resultRef })`: an id of the app's row that holds the result. */
+  readonly resultRef: string | null;
+}
+
+/**
+ * A job as its owner sees it (`getOwnJob`): state, progress and the result reference, never the payload or an error's
+ * text. `failureCode` is the failed job's last error code, `jobs.cancelled` for a cancelled job, otherwise null.
+ */
+export interface OwnJob {
+  readonly id: string;
+  readonly queue: string;
+  readonly status: JobStatus;
+  readonly progress: JobProgress | null;
+  readonly progressAt: Date | null;
+  readonly resultRef: string | null;
+  readonly failureCode: string | null;
+  readonly cancelRequestedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+  readonly finishedAt: Date | null;
+}
+
+/** `OwnJob` as JSON, the body of the status route (`createJobStatusRoute`) and what `useJobStatus` holds. */
+export interface OwnJobStatus {
+  readonly id: string;
+  readonly queue: string;
+  readonly status: JobStatus;
+  readonly progress: JobProgress | null;
+  /** ISO time. */
+  readonly progressAt: string | null;
+  readonly resultRef: string | null;
+  readonly failureCode: string | null;
+  readonly cancelRequestedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly finishedAt: string | null;
 }
 
 export const JOB_RUN_OUTCOMES = ["succeeded", "retried", "failed", "cancelled"] as const;
