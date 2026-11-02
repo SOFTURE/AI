@@ -33,7 +33,16 @@ export interface FakeOAuthProviderOptions {
 }
 
 /** A failure the next token or revoke calls answer with, in order. */
-export type FakeFailure = "unreachable" | "unavailable" | "rate_limited" | "invalid_client" | "malformed" | "redirect" | "error_with_200";
+export type FakeFailure =
+  | "unreachable"
+  | "unavailable"
+  | "unavailable_without_body"
+  | "rate_limited"
+  | "invalid_client"
+  | "invalid_request"
+  | "malformed"
+  | "redirect"
+  | "error_with_200";
 
 export interface FakeOAuthProvider {
   /** The provider entry for `connections({ providers: [fake.definition] })`. */
@@ -132,10 +141,14 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
         throw new TypeError(`fetch failed: ${urls.token}`);
       case "unavailable":
         return json(503, { error: "temporarily_unavailable" });
+      case "unavailable_without_body":
+        return new Response(null, { status: 503 });
       case "rate_limited":
         return new Response("slow down", { status: 429 });
       case "invalid_client":
         return json(401, { error: "invalid_client" });
+      case "invalid_request":
+        return json(400, { error: "invalid_request", error_description: "The refresh token rt-secret is malformed." });
       case "malformed":
         return new Response("<html>oops</html>", { status: 200 });
       case "redirect":

@@ -6,7 +6,8 @@ import type { JobRunOutcome, JobsFormState, JobStatus, ScheduleHealth } from "..
 import { getJobsErrorMessage, type JobsMessages } from "../messages/index.js";
 import type { SyncItemStatus } from "../sync.js";
 
-// The jobs admin panel: the queues with their counts and schedule health and a Run now action for a scheduled one;
+// The jobs admin panel: the queues with their counts, pause and schedule health, a Run now action for a scheduled
+// one and Pause or Resume when those actions are passed;
 // the recent failed, cancelled and retrying jobs with Retry or Cancel; the recent runs (when passed); the sync ledger per source with a status filter
 // and Retry item. Every action is a form posting to a server action through `useActionState`, with its error shown in
 // place. Rows come prepared from the server (`toJobsPanelData`): codes only, never a payload or an error text. Copy
@@ -19,6 +20,10 @@ export interface JobsPanelActions {
   readonly retryJob: JobsPanelAction;
   readonly cancelJob: JobsPanelAction;
   readonly retrySyncItem: JobsPanelAction;
+  /** Pauses a queue (`queue` field) until resumed; the button shows on every running queue when passed. */
+  readonly pauseQueue?: JobsPanelAction;
+  /** Resumes a paused queue (`queue` field); the button shows on every paused queue when passed. */
+  readonly resumeQueue?: JobsPanelAction;
 }
 
 export type JobsPanelSlot =
@@ -49,9 +54,11 @@ export interface JobsPanelQueue {
   readonly healthLabel: string | null;
   /** A scheduled queue gets Run now. */
   readonly isScheduled: boolean;
+  /** A paused queue gets Resume, a running one Pause (when the actions are passed). */
+  readonly isPaused?: boolean;
 }
 
-/** One failed, cancelled or retrying job. */
+/** One running, failed, cancelled or retrying job. */
 export interface JobsPanelJob {
   readonly id: string;
   readonly queue: string;
@@ -149,6 +156,7 @@ const RUN_TONES: Readonly<Record<JobRunOutcome, string>> = {
   succeeded: "sft:text-success",
   retried: "sft:text-warning",
   failed: "sft:text-danger",
+  cancelled: "sft:text-muted",
 };
 
 const SYNC_TONES: Readonly<Record<SyncItemStatus, string>> = {
@@ -242,11 +250,17 @@ export function JobsPanel({ queues, jobs, runs, syncSources, syncFilter = [], ac
         ) : (
           <ul className={slot("list")}>
             {queues.map((queue) => (
-              <li key={queue.queue} className={slot("item")} data-health={queue.health ?? undefined}>
+              <li key={queue.queue} className={slot("item")} data-health={queue.health ?? undefined} data-paused={queue.isPaused === true ? "" : undefined}>
                 <Header title={queue.queue} status={queue.healthLabel} tone={queue.health === null ? "" : HEALTH_TONES[queue.health]} slot={slot} unstyled={unstyled} />
                 <Details lines={queue.details} slot={slot} />
                 {queue.isScheduled && (
                   <ActionForm action={actions.runNow} fields={{ queue: queue.queue }} label={messages.queues.runNow} pendingLabel={messages.queues.running} {...form} />
+                )}
+                {queue.isPaused !== true && actions.pauseQueue !== undefined && (
+                  <ActionForm action={actions.pauseQueue} fields={{ queue: queue.queue }} label={messages.queues.pause} pendingLabel={messages.queues.pausing} {...form} />
+                )}
+                {queue.isPaused === true && actions.resumeQueue !== undefined && (
+                  <ActionForm action={actions.resumeQueue} fields={{ queue: queue.queue }} label={messages.queues.resume} pendingLabel={messages.queues.resuming} {...form} />
                 )}
               </li>
             ))}

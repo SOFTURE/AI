@@ -4,6 +4,7 @@ import type { Clock, ErrorCode, Ok, SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import type { z } from "zod";
 import type { Job, JobFailure } from "./contract.js";
+import type { JobProgress } from "./progress.js";
 
 /** What a handler receives besides its payload. */
 export interface JobHandlerContext {
@@ -14,17 +15,26 @@ export interface JobHandlerContext {
   /** The job as claimed: `attempts` is this attempt's number, starting at 1. */
   readonly job: Job;
   /**
-   * Aborted when the job is taken away from this handler: the worker stops and its grace period ended, or the lease
-   * could not be extended. Pass it to `fetch` and other cancellable calls; whatever the handler returns afterwards is
-   * not recorded.
+   * Aborted when the job is taken away from this handler: the worker stops and its grace period ended, the lease could
+   * not be extended, or an operator cancelled the job (`requestJobCancel`; then `signal.reason` is a
+   * `JobCancelledError` and `isJobCancelled(signal)` is true). Pass it to `fetch` and other cancellable calls. After a
+   * lost lease or a shutdown whatever the handler returns is not recorded; after a cancel the job ends `cancelled`.
    */
   readonly signal: AbortSignal;
+  /**
+   * Stores how far the attempt got, code-only: `reportProgress({ step: "render.encode", done: 3, total: 10 })`. At most
+   * one write per second per job (a report inside that second is kept and written by the next report after it); an
+   * invalid progress is dropped with a warning; a failed write is logged, never thrown. `getJob` and `listRecentJobs`
+   * return it. Also where a cancel request is noticed between heartbeats.
+   */
+  readonly reportProgress: (progress: JobProgress) => Promise<void>;
 }
 
 /**
  * What a handler returns: `ok()` when the work is done, or `ok({ summary })` with a code-only `JobRunSummary` the run
  * history keeps; an `Err` to try again with the queue's backoff (until the attempts are used up); `failJob(code)` to
- * fail for good; `retryJobLater(code, seconds)` to try again after a delay the handler chooses. A throw is retried
+ * fail for good; `retryJobLater(code, seconds)` to try again after a delay the handler chooses; `pauseQueueLater(code,
+ * seconds)` when the service refused, to pause the whole queue and keep the attempt. A throw is retried
  * like an `Err` with the code `jobs.handler_threw` and logged.
  */
 export type JobRunResult = Ok<unknown> | JobFailure;
@@ -79,4 +89,16 @@ export function retryJobLater<E extends ErrorCode>(error: E, seconds: number): J
     throw new RangeError(`retryJobLater: seconds must be a finite number >= 0, got ${String(seconds)}`);
   }
   return { ok: false, error, retryAfterSeconds: seconds };
+}
+
+/**
+ * The service refused (HTTP 429, a login wall, a captcha page): pauses the whole queue for `seconds` (never shortening a
+ * longer pause, never replacing an operator's) and gives this job its attempt back, due when the pause ends. The app's
+ * `onQueuePaused` hook runs. Use it for a refusal the handler recognizes at once; the queue's `breaker` catches the rest.
+ */
+export function pauseQueueLater<E extends ErrorCode>(error: E, seconds: number): JobFailure {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new RangeError(`pauseQueueLater: seconds must be a finite number > 0, got ${String(seconds)}`);
+  }
+  return { ok: false, error, pauseQueueSeconds: seconds };
 }

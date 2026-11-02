@@ -1,4 +1,4 @@
-import { createServer, type Server, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { chromium, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -12,6 +12,7 @@ import {
   IPHONE_SAFE_AREA,
   PHONE_CPU_SLOWDOWN,
   PHONE_NETWORK_PROFILES,
+  shareToApp,
   throttleLikePhone,
 } from "@softure-ai/testing/playwright";
 import { CHROMIUM_PATH, hasChromium } from "./chromium.js";
@@ -77,6 +78,31 @@ const TOUCH_PAGE = `<style>button, a { display: inline-block; box-sizing: border
 <section id="bad"><button style="width: 44px; height: 44px">Big</button><button style="width: 24px; height: 24px" aria-label="Close">x</button>
 <a href="/y" style="width: 120px; height: 20px">Small link</a><button style="display: none">Hidden</button><input type="hidden" name="token"></section>`;
 
+/** The share route of the tiny app: a summary of what arrived (method, cookie, fields, file names and sizes), then 303. */
+function answerShare(request: IncomingMessage, response: ServerResponse, url: URL): void {
+  if (request.method === "GET") {
+    const summary = `GET ${url.searchParams.get("text") ?? ""}`;
+    response.writeHead(303, { location: `/received?summary=${encodeURIComponent(summary)}` });
+    response.end();
+    return;
+  }
+  const chunks: Buffer[] = [];
+  request.on("data", (chunk: Buffer) => chunks.push(chunk));
+  request.on("end", () => {
+    const body = Buffer.concat(chunks).toString("latin1");
+    const isMultipart = (request.headers["content-type"] ?? "").startsWith("multipart/form-data; boundary=");
+    const names = [...body.matchAll(/name="([^"]+)"(?:; filename="([^"]+)")?/g)].map((match) => match[2] ?? match[1]).join(",");
+    const summary = `POST ${String(isMultipart)} ${request.headers.cookie ?? "no-cookie"} ${names} ${String(body.includes("PNGDATA"))}`;
+    if (body.includes("refuse")) {
+      response.writeHead(413);
+      response.end();
+      return;
+    }
+    response.writeHead(303, { location: `/received?summary=${encodeURIComponent(summary)}` });
+    response.end();
+  });
+}
+
 let server: Server;
 let baseURL: string;
 let browser: Browser;
@@ -116,6 +142,10 @@ beforeAll(async () => {
         return send(response, 200, "text/javascript", renderWorker(false));
       case "/touch":
         return sendHtml(response, TOUCH_PAGE);
+      case "/share":
+        return answerShare(request, response, url);
+      case "/received":
+        return sendHtml(response, `<h1>Received</h1><p id="summary">${url.searchParams.get("summary") ?? ""}</p>`);
       default:
         return send(response, 404, "text/html", "<h1>Not found</h1>");
     }
@@ -267,6 +297,44 @@ describe.skipIf(!hasChromium)("PWA helpers in a browser", () => {
       expect(failure).not.toContain("Big");
       expect(failure).not.toContain("Hidden");
       await expectTouchTargets(page.locator("#bad"), { minSize: 20, controls: page.locator("#bad a") });
+    });
+  });
+  it("shares text with a GET like the share sheet and lands where the route redirected", async () => {
+    await withPage(async (page) => {
+      const answer = await shareToApp(page, { action: "/share", fields: { text: "see https://a.example/" } });
+      expect(answer).toEqual({ status: 303, location: `${baseURL}/received?summary=${encodeURIComponent("GET see https://a.example/")}` });
+      await expect.poll(() => page.locator("#summary").textContent()).toBe("GET see https://a.example/");
+    });
+  });
+
+  it("shares files with a multipart POST carrying the page's cookies, fields first, then opens the redirect", async () => {
+    await withPage(async (page, context) => {
+      await context.addCookies([{ name: "session", value: "s1", url: baseURL }]);
+      const answer = await shareToApp(page, {
+        action: "/share",
+        fields: { title: "Photo", text: "look" },
+        files: [{ field: "media", name: "a.png", mimeType: "image/png", buffer: Buffer.from("PNGDATA") }],
+      });
+      expect(answer.status).toBe(303);
+      expect(page.url()).toBe(answer.location);
+      await expect.poll(() => page.locator("#summary").textContent()).toBe("POST true session=s1 title,text,a.png true");
+    });
+  });
+
+  it("answers the route's status without navigating when it does not redirect", async () => {
+    await withPage(async (page) => {
+      await page.goto("/no-worker");
+      const answer = await shareToApp(page, { action: "/share", method: "POST", fields: { text: "refuse" } });
+      expect(answer).toEqual({ status: 413, location: null });
+      expect(page.url()).toBe(`${baseURL}/no-worker`);
+    });
+  });
+
+  it("refuses files in a GET share", async () => {
+    await withPage(async (page) => {
+      await expect(
+        shareToApp(page, { action: "/share", method: "GET", files: [{ field: "media", name: "a.png", mimeType: "image/png", buffer: "x" }] }),
+      ).rejects.toThrow("shareToApp: a GET share carries no files; use method POST");
     });
   });
 });

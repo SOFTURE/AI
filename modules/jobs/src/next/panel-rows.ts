@@ -44,19 +44,31 @@ function toQueue(stats: QueueStats, messages: JobsMessages, config: SoftureConfi
     formatMessage(messages.queues.counts, { ...stats.counts }),
     stats.oldestDueAt === null ? messages.queues.noneDue : formatMessage(messages.queues.oldestDue, { due: stats.due, date: date(stats.oldestDueAt) }),
   ];
+  const { pause } = stats;
+  if (pause !== null) {
+    details.push(
+      pause.until === null
+        ? formatMessage(messages.queues.pausedUntilResumed, { reason: pause.reason })
+        : formatMessage(messages.queues.paused[pause.source], { date: date(pause.until), reason: pause.reason }),
+    );
+  }
+  if (stats.consecutiveFailures > 0) details.push(formatMessage(messages.queues.failuresInRow, { count: stats.consecutiveFailures }));
+  const isPaused = pause !== null;
   const schedule = Object.hasOwn(getJobsOptions(config).schedules, stats.queue) ? getJobsOptions(config).schedules[stats.queue] : undefined;
-  if (schedule === undefined || stats.schedule === null) return { queue: stats.queue, details, health: null, healthLabel: null, isScheduled: false };
+  if (schedule === undefined || stats.schedule === null) return { queue: stats.queue, details, health: null, healthLabel: null, isScheduled: false, isPaused };
   const state = stats.schedule;
   details.push("every" in schedule ? formatMessage(messages.queues.every, { every: schedule.every }) : formatMessage(messages.queues.at, { times: schedule.at.join(", "), timeZone: schedule.timeZone }));
   if (state.lastEnqueuedAt === null) details.push(messages.queues.neverEnqueued);
   details.push(state.lastSucceededAt === null ? messages.queues.neverSucceeded : formatMessage(messages.queues.lastSucceeded, { date: date(state.lastSucceededAt) }));
   if (state.lastFailedAt !== null) details.push(formatMessage(messages.queues.lastFailed, { date: date(state.lastFailedAt), code: state.lastFailureCode ?? "" }));
   const health = getScheduleHealth(state);
-  return { queue: stats.queue, details, health, healthLabel: messages.queues.health[health], isScheduled: true };
+  return { queue: stats.queue, details, health, healthLabel: messages.queues.health[health], isScheduled: true, isPaused };
 }
 
 function toJob(job: Job, messages: JobsMessages, date: (value: Date) => string): JobsPanelJob {
   const details = [formatMessage(messages.jobs.attempts, { attempts: job.attempts, maxAttempts: job.maxAttempts })];
+  if (job.progress !== null && job.status === "running") details.push(...toProgressLines(job, messages, date));
+  if (job.cancelRequestedAt !== null && job.status === "running") details.push(formatMessage(messages.jobs.cancelRequested, { date: date(job.cancelRequestedAt) }));
   if (job.lastError !== null) details.push(formatMessage(messages.jobs.code, { code: job.lastError }));
   details.push(job.status === "pending" ? formatMessage(messages.jobs.nextAttempt, { date: date(job.runAt) }) : formatMessage(messages.jobs.updated, { date: date(job.updatedAt) }));
   return {
@@ -67,8 +79,25 @@ function toJob(job: Job, messages: JobsMessages, date: (value: Date) => string):
     statusLabel: messages.jobs.status[job.status],
     details,
     canRetry: job.status === "failed" || job.status === "cancelled",
-    canCancel: job.status === "pending",
+    canCancel: job.status === "pending" || (job.status === "running" && job.cancelRequestedAt === null),
   };
+}
+
+/** A running job's progress: its step with the counts it has, its state code, and when it was reported. */
+function toProgressLines(job: Job, messages: JobsMessages, date: (value: Date) => string): string[] {
+  const { progress } = job;
+  if (progress === null) return [];
+  const { step, done, total } = progress;
+  const lines = [
+    done !== undefined && total !== undefined
+      ? formatMessage(messages.jobs.progressCount, { step, done, total })
+      : done === undefined
+        ? formatMessage(messages.jobs.progressStep, { step })
+        : formatMessage(messages.jobs.progressDone, { step, done }),
+  ];
+  if (progress.code !== undefined) lines.push(formatMessage(messages.jobs.progressCode, { code: progress.code }));
+  if (job.progressAt !== null) lines.push(formatMessage(messages.jobs.progressAt, { date: date(job.progressAt) }));
+  return lines;
 }
 
 function toRun(run: JobRun, messages: JobsMessages, date: (value: Date) => string): JobsPanelRun {

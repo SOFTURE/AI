@@ -69,6 +69,23 @@
       "additionalProperties": false,
       "description": "Settings of the database steps of softure-deploy."
     },
+    "data": {
+      "type": "object",
+      "properties": {
+        "backupPaths": {
+          "description": "Folders of the data volume (init --data-volume) archived next to every database backup, with the same retention, e.g. a cache of paid results; rebuildable files stay out. Needs the database part.",
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))[A-Za-z0-9_.-]+(?:\\/[A-Za-z0-9_.-]+)*$"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false,
+      "description": "The data volume shared by the app and the worker (init --data-volume)."
+    },
     "hooks": {
       "type": "object",
       "properties": {

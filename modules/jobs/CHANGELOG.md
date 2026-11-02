@@ -6,6 +6,66 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Queue pacing and a circuit breaker (#955). New queue options `rateLimit: { minGapMs, jitterMs? } | { max,
+  perSeconds }`, enforced when jobs are claimed and shared by every worker through the new `jobs.queue_state` row of
+  the queue, and `breaker: { failures, codes?, pauseSeconds, maxPauseSeconds? }`, which pauses the queue after
+  `failures` counted failures in a row, doubles the pause when the first run after it fails again (up to
+  `maxPauseSeconds`, default 16 × `pauseSeconds`) and resets after a success. A handler returns
+  `pauseQueueLater(code, seconds)` to pause the queue at once and keep the job's attempt. An operator calls
+  `pauseQueue(ctx, queue, { until?, reason })` / `resumeQueue(ctx, queue)` from `/server`, or uses **Pause** /
+  **Resume** on the admin page. A paused or paced queue claims nothing, so its jobs keep their attempts. New hook
+  `onQueuePaused({ queue, code, until, source, at })` for pauses by the breaker or a handler. `getQueueStats` adds
+  `pause` and `consecutiveFailures`; `runDueJobs` counts a `pauseQueueLater` attempt as `retried`; `JobOutcome` and
+  `Completion` gain a `paused` kind; `recordJobHooks()` records `pausedQueues`. New in `@softure-ai/jobs`: `pauseQueueLater`, `QueuePause`,
+  `QueuePausedEvent`, `QueuePauseSource`, `JobQueueRateLimit`, `JobQueueBreaker`, `OnQueuePausedHook`; in `/server`:
+  `pauseQueue`, `resumeQueue`, `getQueuePause`, `PauseQueueInput`, `PauseQueueResult`, `ResumeQueueResult`; in
+  `/next`: `pauseQueueAction`, `resumeQueueAction`, `PANEL_PAUSE_REASON`; in `/ui`: optional `pauseQueue` /
+  `resumeQueue` actions and `isPaused` on `JobsPanelQueue`. New code `jobs.unknown_queue`.
+  - Migrate: run `migrations/0008_create_queue_state.sql` with the app's other migrations. A handler that slept or
+    returned `retryJobLater` to keep a gap between calls drops that and sets `rateLimit` on its queue; one that kept
+    its own "N refusals in a row" state returns an `Err` (or `pauseQueueLater` for a refusal it recognizes) and sets
+    `breaker`. An app that composes `JobsPanel` itself passes `pauseQueueAction` and `resumeQueueAction` to get the
+    buttons. An app with an exhaustive `switch` over `JobOutcome["kind"]` or `Completion["kind"]` adds `paused`. An app with its own full dictionary for another
+    locale adds `queues.paused.{breaker,handler,operator}`, `queues.pausedUntilResumed`, `queues.failuresInRow`,
+    `queues.pause`, `queues.pausing`, `queues.resume`, `queues.resuming` and `errors.unknown_queue`.
+- A sync item failure that waits (#939): a `processSyncItem` callback returns `waitSyncItem(code)` (a `SyncItemFailure`
+  with `retry: "wait"`) for a cause outside the item that only an operator clears, such as a connection that needs a
+  reconnect (`connections.reconnect_required`, `connections.not_connected`). The callback's writes roll back, the item
+  stays `pending` with its attempts unchanged and its `error_code` set, and the outcome is the new
+  `{ kind: "waiting", error, item }`, so `maxAttempts` is never reached through such failures; an ordinary failure still
+  counts. `listSyncItems` takes `errorCode`, so `{ status: "pending", errorCode }` lists the items waiting on a code.
+  New in `@softure-ai/jobs`: `waitSyncItem`.
+  - Migrate: an app that gives the attempt back itself with an `UPDATE` of `jobs.sync_items` after `processSyncItem`
+    returns `waitSyncItem(code)` from the callback instead and drops the `UPDATE`. An app with an exhaustive `switch`
+    over `SyncItemOutcome["kind"]` adds the `waiting` case.
+- Progress from a running handler and cancelling a running job (#951). A handler calls
+  `context.reportProgress({ step, done?, total?, code? })`: a code-only progress, checked like the run summary
+  (`jobProgressSchema`, `JobProgress`), written at most once a second per job and fenced by the claim; `Job` gains
+  `progress`, `progressAt` and `cancelRequestedAt`, returned by `getJob` and `listRecentJobs`. `requestJobCancel(ctx,
+  id)` in `/server` cancels a pending job or asks a running one to stop: the worker sees the request on its heartbeat
+  (or the handler's next progress write) and aborts `context.signal` with a `JobCancelledError` (`AbortError`, code
+  `jobs.cancelled`; `isJobCancelled(signal)`); the job ends `cancelled`, not retried, without `onJobFailed`, with a run
+  of the new outcome `cancelled` and, with `logRuns: "all"`, an `info` line `job run cancelled`. `cancelJob` keeps
+  its meaning. New in `@softure-ai/jobs`: `JobProgress`,
+  `jobProgressSchema`, `JobCancelledError`, `isJobCancelled`, `JOB_CANCELLED_CODE`; in `/server`: `requestJobCancel`,
+  `heartbeatJob`, `JobHeartbeat`. `JOB_RUN_OUTCOMES`, `JobOutcome` and `Completion` gain `cancelled`;
+  `RunDueJobsReport` gains an optional `cancelled`, present only when an attempt was cancelled. The admin page lists running jobs with their progress, and its Cancel (`cancelJobAction`) now uses
+  `requestJobCancel`.
+  - Migrate: run `migrations/0007_add_progress_and_cancel.sql` with the app's other migrations (adds
+    `jobs.jobs.progress`, `progress_at`, `cancel_requested_at`, and the run outcome `cancelled`). A test that builds a
+    `JobHandlerContext` by hand adds `reportProgress: async () => {}`; code that switches over `JobOutcome`, `JobRunOutcome` or `Completion` handles
+    `cancelled`. An app with its own full dictionary for another locale adds `jobs.progressStep`, `progressCount`,
+    `progressDone`, `progressCode`, `progressAt`, `cancelRequested`, `runs.outcome.cancelled` and `errors.cancelled`
+    (see `messages/en.ts`).
+- Run-end log lines (#934): every recorded attempt now leaves one line in the worker's logger, codes and ids only:
+  `info("job run succeeded", { queue, jobId, attempt, origin, durationMs, code?, items? })`,
+  `warn("job run failed; retrying", { queue, jobId, attempt, code, runAt })` and
+  `error("job run failed", { queue, jobId, attempt, code })`, the last also for a job failed by an expired lease
+  (`jobs.lease_expired`). Before, a handler that returned an error was retried or failed without any line, and a
+  success left none. New option `logRuns: "all" | "failures" | "none"` (default `"all"`); new exports
+  `JOBS_RUN_LOG_LEVELS` and `JobsRunLogLevel`.
+  - Migrate: nothing to change. An app that logged the outcome itself from `onJobFailed` may drop that line; an app
+    with very frequent queues that does not want a line per success sets `jobs({ logRuns: "failures" })`.
 - A short database outage is logged below warning (#933): a failure caused by an unavailable database (SQLSTATE 57P01
   to 57P03 or class 08, a refused, reset or closed connection) in any database call of the worker (claims, schedule
   enqueue and check, prunes, lease extension, outcome recording, release on stop) is logged as `info` with `outageMs`

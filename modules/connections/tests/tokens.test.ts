@@ -121,9 +121,11 @@ describe("getAccessToken", () => {
   it("keeps the connection on retryable failures, records the last one and retries on the next call", async () => {
     await setUp();
     test.clock.advance(HOUR);
-    for (const failure of ["unavailable", "rate_limited", "unreachable", "malformed", "redirect"] as const) {
+    // A 5xx or 429 body is never read as an OAuth error; a network failure has no status.
+    const statuses = { unavailable: 503, rate_limited: 429, unreachable: null, malformed: 200, redirect: 302 } as const;
+    for (const [failure, httpStatus] of Object.entries(statuses) as [keyof typeof statuses, number | null][]) {
       test.fake.failNext(failure);
-      expect(await getAccessToken(test.ctx, { provider: "fake" }), failure).toEqual({ ok: false, error: "connections.refresh_failed" });
+      expect(await getAccessToken(test.ctx, { provider: "fake" }), failure).toEqual({ ok: false, error: "connections.refresh_failed", httpStatus, oauthError: null });
     }
     expect(await readRawRow(test.database, "fake")).toMatchObject({ status: "connected", last_error: "connections.refresh_failed", lease_id: null });
     expect((await getAccessToken(test.ctx, { provider: "fake" })).ok).toBe(true);
@@ -135,7 +137,7 @@ describe("getAccessToken", () => {
     await setUp();
     test.clock.advance(HOUR);
     test.fake.failNext("invalid_client");
-    expect(await getAccessToken(test.ctx, { provider: "fake" })).toEqual({ ok: false, error: "connections.client_rejected" });
+    expect(await getAccessToken(test.ctx, { provider: "fake" })).toEqual({ ok: false, error: "connections.client_rejected", httpStatus: 401, oauthError: "invalid_client" });
     expect(await readRawRow(test.database, "fake")).toMatchObject({ status: "connected", last_error: "connections.client_rejected" });
   });
 
@@ -210,7 +212,7 @@ describe("getAccessToken", () => {
   it("forceRefresh keeps the connection on a retryable failure", async () => {
     await setUp();
     test.fake.failNext("unavailable");
-    expect(await getAccessToken(test.ctx, { provider: "fake", forceRefresh: true })).toEqual({ ok: false, error: "connections.refresh_failed" });
+    expect(await getAccessToken(test.ctx, { provider: "fake", forceRefresh: true })).toEqual({ ok: false, error: "connections.refresh_failed", httpStatus: 503, oauthError: null });
     expect(await readRawRow(test.database, "fake")).toMatchObject({ status: "connected", last_error: "connections.refresh_failed", lease_id: null });
   });
 

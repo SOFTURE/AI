@@ -1,9 +1,11 @@
-// Retention: files past their expiry and files deleted but not yet out of storage leave storage, then the table.
+// Retention: files past their expiry and files deleted but not yet out of storage leave storage, then the table;
+// upload sessions past their expiry leave with their parts.
 // Run it from the `files.prune` job (`@softure-ai/files/jobs`) or a cron calling `pruneFiles(ctx)`.
 import { asc, isNotNull, lte, or } from "drizzle-orm";
 import { files } from "../schema.js";
 import type { FilesContext } from "./context.js";
 import { removeMarkedFile } from "./files.js";
+import { pruneUploads } from "./uploads.js";
 
 const DEFAULT_BATCH_SIZE = 500;
 
@@ -17,6 +19,10 @@ export interface PruneFilesReport {
   readonly freedBytes: number;
   /** Files whose storage delete failed; they stay for the next run. */
   readonly failedFiles: number;
+  /** Expired upload sessions removed with their parts. */
+  readonly deletedUploads: number;
+  /** Expired upload sessions whose parts could not be deleted; they stay for the next run. */
+  readonly failedUploads: number;
 }
 
 export async function pruneFiles(ctx: FilesContext, options: PruneFilesOptions = {}): Promise<PruneFilesReport> {
@@ -41,6 +47,6 @@ export async function pruneFiles(ctx: FilesContext, options: PruneFilesOptions =
         failedFiles += 1;
       }
     }
-    if (rows.length < batchSize) return { deletedFiles, freedBytes, failedFiles };
+    if (rows.length < batchSize) return { deletedFiles, freedBytes, failedFiles, ...(await pruneUploads(ctx, batchSize)) };
   }
 }

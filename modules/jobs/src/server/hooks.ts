@@ -1,8 +1,8 @@
-// The app's alert hooks: `onJobFailed` after a job ends `failed`, `onScheduleStateChanged` once per transition of a
-// schedule's health. A hook runs after the write that caused it commits; a throw is logged by kind and never reaches
+// The app's alert hooks: `onJobFailed` after a job ends `failed`, `onQueuePaused` when the breaker or a handler pauses
+// a queue, `onScheduleStateChanged` once per transition of a schedule's health. A hook runs after the write that caused it commits; a throw is logged by kind and never reaches
 // the job, the claim or the worker.
 import { and, eq, ne } from "drizzle-orm";
-import type { JobFailedEvent, ScheduleHealth } from "../contract.js";
+import type { JobFailedEvent, QueuePausedEvent, ScheduleHealth } from "../contract.js";
 import { schedules } from "../schema.js";
 import type { JobsContext } from "./context.js";
 import { consoleJobsLogger, type JobsLogger } from "./logger.js";
@@ -21,6 +21,13 @@ export async function notifyJobFailed(ctx: JobsContext, events: readonly JobFail
   for (const event of events) {
     await runHook("onJobFailed", () => hook(event, ctx), { queue: event.queue, jobId: event.jobId }, options.logger);
   }
+}
+
+/** Runs `onQueuePaused` for a pause by the breaker or a handler, when the app set it. */
+export async function notifyQueuePaused(ctx: JobsContext, event: QueuePausedEvent, options: HookOptions = {}): Promise<void> {
+  const hook = getJobsOptions(ctx.config).onQueuePaused;
+  if (hook === undefined) return;
+  await runHook("onQueuePaused", () => hook(event, ctx), { queue: event.queue, code: event.code, source: event.source }, options.logger);
 }
 
 /**
