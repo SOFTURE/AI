@@ -1,7 +1,8 @@
 // Which reminder mail an account is due, as a pure rule: the four states the in-app notice shows
 // (trial or paid access ending, trial or paid access ended), decided from the account's record by
-// the state machine, with what the account falls back to (the free tier or read-only). An ended mail is due only for a few days after the end, so turning reminders
-// on never mails every account that lapsed long ago.
+// the state machine, with what the account falls back to (the free tier or read-only). An ended
+// mail is due only for a few days after the end, so turning reminders on never mails every account
+// that lapsed long ago.
 import { getDayNumber } from "./calendar.js";
 import type { AccessFallback, EntitlementRecord } from "./contract.js";
 import { resolveEntitlement, type EntitlementPolicy } from "./entitlement.js";

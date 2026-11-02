@@ -57,11 +57,13 @@ steps for an app that emulates freemium today.
   account reaches read-only.
 - `upgradePlanIds` (not a boolean): an upgrade prompt can name the plans; empty means no plan raises it.
 - No version bump: the coordinator releases the batch.
+- `afterEnd` is optional and only set with a free tier (found in implementation: a required field changed every
+  entitlement object, which would break apps' exact-match tests without a free tier).
 
 ## Progress
 
-- [ ] Phase 1: the state, limits and the quota refusal
-- [ ] Phase 2: copy, UI, reminders, scripts, testing factories
-- [ ] Phase 3: SQL surface
-- [ ] Phase 4: docs
-- [ ] Implementation review
+- [x] Phase 1: the state, limits and the quota refusal (3326925)
+- [x] Phase 2: copy, UI, reminders, scripts, testing factories (4dc203e)
+- [x] Phase 3: SQL surface (c4a3e03)
+- [x] Phase 4: docs (b09dd4b)
+- [x] Implementation review

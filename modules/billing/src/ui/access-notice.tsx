@@ -1,6 +1,7 @@
 // The notice an account sees when its access is about to end or has ended, or while it is on the
-// free tier, with a link to pay. It renders nothing while access is not in its reminder window. Server-safe and framework-free:
-// the link goes through an injected `LinkComponent` (Next's `Link` in `/next`).
+// free tier, with a link to pay. It renders nothing while access is not in its reminder window.
+// Server-safe and framework-free: the link goes through an injected `LinkComponent` (Next's `Link`
+// in `/next`).
 import { formatMessage, type Locale } from "@softure-ai/core";
 import { ButtonLink, type ClassNames, createSlotClassGetter, type LinkComponentType } from "@softure-ai/ui";
 import type { ReactNode } from "react";

@@ -1,6 +1,6 @@
 // The SQL surface for an app's own queries (migrations 0012 and 0013): `billing.entitlement_states`
-// with the trial policy and the free tier of the running app filled in, so SQL built in TypeScript never copies the
-// configuration that the derived trial depends on.
+// with the trial policy and the free tier of the running app filled in, so SQL built in TypeScript
+// never copies the configuration that the state depends on.
 import { sql, type SQL } from "drizzle-orm";
 import { getBillingOptions } from "./options.js";
 import type { BillingContext } from "./entitlements.js";
