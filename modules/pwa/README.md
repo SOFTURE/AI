@@ -54,6 +54,10 @@ mark.
 - **The launch screen's counter**: `buildLaunchProgressScript(options)` is the text of the inline script inside
   theme-notion's `LaunchScreen`, which an app streams from `app/loading.tsx` so an installed app shows its icon, name
   and progress from the first byte instead of a blank screen (§4).
+- **The share target** (Android's share sheet): `shareTarget` in the manifest and `createShareTargetRoute`, which
+  reads the shared link (from `url`, else from `text`), text and title, streams the shared files part by part and lets
+  the app's `handle` answer where to go; a signed-out user goes to sign-in and comes back with the link and text (§4,
+  "Share target").
 - **`useIsOnline()`** over `navigator.onLine` (the server render counts as online).
 - **Clearing the device on sign-out**: a registry of what the device keeps for the signed-in user
   (`registerDeviceData`, for the app and its modules) and `clearDeviceData()`, which clears every part and the pages
@@ -84,6 +88,7 @@ interface ManifestOptions {
   display?: "standalone" | "fullscreen" | "minimal-ui" | "browser"; // "standalone"
   backgroundRole?: string; // "background": the splash screen
   themeRole?: string; // "background": the system bars
+  shareTarget?: ShareTargetOptions; // the share target (§4, "Share target"); none by default
 }
 
 // createIconRoute(options: IconRouteOptions)
@@ -249,6 +254,77 @@ The kept prompt listens from the moment `@softure-ai/pwa/react` loads: import it
 the root layout, so the module is in the first page's bundle. Without React, `installPromptStore` (`subscribe`,
 `getSnapshot`) and `openInstallPrompt()` give the same prompt, and `pickInstallOffer` with the device facts and
 `isInstallOfferClosed(getInstallOfferKey(app))` the same offer.
+### Share target
+
+An installed app on Android appears in the system share sheet. One options object goes to both the manifest and the
+route, so the manifest's `share_target` and the fields the route reads never disagree:
+
+```ts
+// share-target.ts
+import type { ShareTargetOptions } from "@softure-ai/pwa";
+export const shareTarget: ShareTargetOptions = {
+  action: "/share", // a same-origin path inside the manifest's scope
+  params: { url: "url", text: "text", title: "title" }, // the field names; these are the defaults
+  files: [{ name: "media", accept: ["image/*", "video/*", ".pdf"] }], // optional: with files the share is a POST
+};
+
+// app/pwa/manifest.webmanifest/route.ts
+export const GET = createManifestRoute({ theme, copy: messages.app, lang: "en", shareTarget });
+
+// app/share/route.ts
+import { createShareTargetRoute } from "@softure-ai/pwa/next";
+import { getFilesContext } from "@softure-ai/files/next";
+import { saveFile } from "@softure-ai/files/server";
+import { getCurrentUser } from "@/auth"; // the app's own: the signed-in user from the request's cookies, or null
+
+export const { GET, POST } = createShareTargetRoute({
+  shareTarget,
+  getUser: (request) => getCurrentUser(request),
+  signInPath: "/login", // a signed-out share goes to /login?next=/share?url=…&text=…&title=…
+  async handle({ user }, { url, text, title, files }) {
+    const ctx = await getFilesContext();
+    const fileIds: string[] = [];
+    for await (const file of files) {
+      // Streamed into the file store under its size cap and the owner's quota, never held whole in memory.
+      const saved = await saveFile(ctx, { ownerId: user.id, name: file.name, contentType: file.contentType, body: file.body, kind: "share" });
+      if (saved.ok) fileIds.push(saved.value.id);
+    }
+    const job = await enqueueImport({ userId: user.id, url, text, title, fileIds }); // the app's own action
+    return `/imports/${job.id}`; // a same-origin path: the route answers 303 to it
+  },
+});
+export const dynamic = "force-dynamic";
+```
+
+- **The manifest**: without files, `{ action, method: "GET", params }`; with files,
+  `{ action, method: "POST", enctype: "multipart/form-data", params: { …, files } }`. `accept` takes MIME types
+  (`image/*`, `application/pdf`) or extensions (`.pdf`).
+- **The share**: `url` is the first http(s) link in the `url` field, else in `text` (many apps put "Look at this
+  https://…" in `text` and leave `url` empty), without trailing punctuation, normalized; null when there is none.
+  `text` and `title` come as sent, an empty value as null.
+- **Files** are an async iterable of `{ field, name, contentType, body }`, in the order the system sent them. Each
+  `body` streams from the request: read it (or hand it to `saveFile`) before asking for the next file; a file left
+  unread is skipped, and whatever is left when `handle` returns is dropped with the request. Only declared file fields
+  and accepted types are handed on, at most `maxFiles` (10). `name` is the system's file name, unsanitized
+  (`saveFile` sanitizes it). The text fields are read up to the first file part (Chrome sends them first); a text
+  field after a file is ignored.
+- **Signed out** (`getUser` answers null): 303 to `signInPath` with `next` (`returnParam`) set to the action and the
+  link, text and title as a query; the sign-in page returns there and the route's `GET` resumes the share. Files do
+  not survive the redirect. Without `getUser`, `handle` gets `user: null` and every share runs.
+- **Answers**: 303 to `handle`'s path; 400 for a broken multipart body (also while `handle` reads the files); 413
+  for a `url`, `text` or `title` over `maxFieldBytes` (16 KiB); 415 for a `POST` that is not `multipart/form-data`.
+  A `handle` that answers anything but a same-origin path (`/x`, never `//x`) throws: an open redirect is a bug.
+- **Options** are checked when the route module loads (an action that is not a same-origin path, duplicate or empty
+  field names, an empty or invalid `accept`, a `signInPath` on another origin), so a wrong option fails the build.
+- The parts are reusable without the route: `findSharedUrl({ url, text })`, `isAcceptedFile(accept, file)`,
+  `readMultipart(stream, boundary)` (a streaming `multipart/form-data` reader) and `getMultipartBoundary(contentType)`
+  from `@softure-ai/pwa`. In a Playwright test, `shareToApp` of `@softure-ai/testing/playwright` posts a share the way
+  the system does.
+
+**iOS** has no Web Share Target: Safari ignores `share_target`, so an installed app never appears in the iOS share
+sheet. The fallbacks are a paste button that reads the clipboard (`navigator.clipboard.readText()` after a tap) and
+feeds the same action, or an iOS Shortcut ("Receive URLs and text from the share sheet", then "Get contents of URL"
+with a POST to an app API under a personal token) that the user installs once.
 
 ## 5. Migrations and tables
 
@@ -347,6 +423,11 @@ session cookie.
   draws no `apple-touch-startup-image` (one image per device size and orientation).
 - On a client-side navigation React inserts the launch screen without running its script, so the bar stays at 0%;
   the counter moves on a page load (the app's launch, a reload).
+- **The share target** works where the browser supports it: Chromium on Android for an installed app. Safari (iOS,
+  macOS) has none (see §4, "Share target", for the fallbacks), and desktop Chromium shows it only on some platforms.
+- A share with files that arrives offline is not kept: the worker never touches a `POST`, so the system shows the
+  browser's offline error and the user shares again once online. A signed-out share keeps its link and text across the
+  sign-in, not its files.
 - Not in this package (filed): Playwright helpers for installed-app checks (#875).
 
 ## Build

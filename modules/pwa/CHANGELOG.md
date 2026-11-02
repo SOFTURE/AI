@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Web Share Target (#959): `shareTarget: { action, params?, files? }` in `buildManifest` / `createManifestRoute` writes
+  `share_target` (a `GET` for text only, a `POST` of `multipart/form-data` when files are accepted).
+  `createShareTargetRoute({ shareTarget, handle, getUser?, signInPath?, returnParam?, maxFiles?, maxFieldBytes? })` in
+  `@softure-ai/pwa/next` answers `GET` and `POST`: it finds the first http(s) link in `url`, else in `text`, streams the
+  accepted files part by part (hand `file.body` to `saveFile` of `@softure-ai/files`), and answers 303 to the path
+  `handle` returns. A signed-out share goes to `signInPath?next=<action>?<url,text,title>` and resumes after sign-in
+  (files are not kept). New in `@softure-ai/pwa`: `findSharedUrl`, `isAcceptedFile`, `readMultipart`,
+  `getMultipartBoundary`, `buildManifestShareTarget`, `resolveShareTarget`, `isSameOriginPath`. No migration: the
+  option is new and off by default.
+
 - The manifest keeps an installed app's identity (#920): `buildManifest`'s `id` (default `startUrl`, as before), so an
   app whose start page moved keeps the `id` its installed copy was created with, and `dir`.
 - `createIconRoute({ glyphScale })` (#920): a number draws the rounded and square icons at that scale (the maskable one
