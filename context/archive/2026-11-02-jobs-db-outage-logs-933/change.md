@@ -1,12 +1,13 @@
 ---
 change_id: jobs-db-outage-logs-933
 title: "jobs: a short database outage is logged below warning by the worker, and a round stops claiming after the first such failure (issue #933)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 933
 branch: claude/project-thread-824q3f
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent

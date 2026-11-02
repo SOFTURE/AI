@@ -1,6 +1,6 @@
 ---
 change_id: jobs-db-outage-logs-933
-status: in_progress
+status: done
 ---
 
 # Plan: a short database outage is logged below warning by the worker (issue #933)
@@ -51,3 +51,8 @@ jobs README (worker section: how an outage is logged, the option), CHANGELOG `##
 - No version bump: the coordinator releases.
 
 ## Progress
+
+- [x] Phase 1: f493ac4
+- [x] Phase 2: ab5b26d
+- [x] Phase 3: 2a80c8c
+- [x] Implementation review: approved
