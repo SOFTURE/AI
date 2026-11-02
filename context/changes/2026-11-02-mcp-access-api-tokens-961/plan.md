@@ -20,8 +20,9 @@
    import graph and finds no `@modelcontextprotocol/*`.
 6. **Token page**: when `apiTokens` is set, the form offers the kind (MCP / HTTP API) and, for API, the app's scopes
    as checkboxes; the reveal for an API token shows the token, the header and the app's examples; the list shows each
-   token's kind and scopes; a section lists the app's scopes. `IssuedToken` becomes a union on `kind`; the gate input
-   gets `kind` and `scopes`.
+   token's kind and scopes; a section lists the app's scopes. The issue action answers an API token with a new form
+   state `api-ok` (`IssuedApiTokenView`); `ok` and `IssuedToken` stay the MCP shape. The gate input gets `kind` and
+   `scopes`.
 7. **Privacy and prune**: the export lists `kind` and `scopes`; prune and delete already cover every row (tested).
 8. Tests, README section "Tokens for HTTP routes", CHANGELOG `Unreleased` with the migration notes.
 
@@ -33,8 +34,9 @@
 - D2 One API kind with one app-chosen prefix (not a list of kinds): every acceptance point is met, and kinds can be
   added later without a migration (the column is text).
 - D3 Two buckets: per address before the lookup (guessing), per token after it (the issue's per-token limit).
-- D4 `IssuedToken` becomes a discriminated union: an app that reads `issued.setup` narrows on `kind === "mcp"`
-  (changelog). Minor bump at the next release.
+- D4 A new form state `api-ok` instead of turning `IssuedToken` into a union: apps that read `issued.setup` after
+  `status === "ok"` keep compiling (found while implementing: the union broke the module's own tests and every app
+  composing `TokenManager`). Minor bump at the next release (new options, migration).
 - D5 Both kinds share `maxTokensPerUser`: one place for the owner, one number on the page.
 
 ## Progress

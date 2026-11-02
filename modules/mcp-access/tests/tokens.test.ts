@@ -147,8 +147,8 @@ describe("access tokens", () => {
       const second = await issue(alice, "Second");
       await issue(bob, "Bob's");
       expect(await listAccessTokens(test.ctx, alice)).toEqual([
-        { id: second.id, name: "Second", canWrite: false, createdAt: new Date(NOW.getTime() + 60_000), expiresAt: second.expiresAt, lastUsedAt: null },
-        { id: first.id, name: "First", canWrite: true, createdAt: NOW, expiresAt: first.expiresAt, lastUsedAt: null },
+        { id: second.id, name: "Second", kind: "mcp", scopes: [], canWrite: false, createdAt: new Date(NOW.getTime() + 60_000), expiresAt: second.expiresAt, lastUsedAt: null },
+        { id: first.id, name: "First", kind: "mcp", scopes: [], canWrite: true, createdAt: NOW, expiresAt: first.expiresAt, lastUsedAt: null },
       ]);
     });
 

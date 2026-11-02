@@ -7,7 +7,39 @@ export type McpAccessErrorCode =
   | "mcp-access.name_too_long"
   | "mcp-access.token_limit_reached"
   | "mcp-access.token_not_found"
-  | "mcp-access.grant_not_found";
+  | "mcp-access.grant_not_found"
+  | "mcp-access.api_tokens_disabled"
+  | "mcp-access.scope_required"
+  | "mcp-access.scope_unknown";
+
+/** Which door a token opens: the MCP endpoint, or the app's HTTP routes through `requireApiToken`. */
+export type AccessTokenKind = "mcp" | "api";
+
+/** Why `requireApiToken` refused a request; `apiTokenErrorResponse` turns each into its HTTP answer. */
+export type ApiTokenErrorCode =
+  | "mcp-access.api_token_missing"
+  | "mcp-access.api_token_invalid"
+  | "mcp-access.api_scope_missing"
+  | "mcp-access.api_writes_disabled"
+  | "mcp-access.api_unavailable"
+  | "security.client_unidentified"
+  | "security.rate_limited";
+
+/** A refusal of `requireApiToken`. */
+export type ApiTokenRefusal =
+  | Err<Exclude<ApiTokenErrorCode, "security.rate_limited" | "mcp-access.api_scope_missing" | "mcp-access.api_writes_disabled">>
+  | (Err<"mcp-access.api_scope_missing" | "mcp-access.api_writes_disabled"> & { readonly missingScopes: readonly string[] })
+  | (Err<"security.rate_limited"> & { readonly retryAfterSeconds: number });
+
+/** Who called a route with a valid API token. */
+export interface ApiTokenIdentity {
+  /** The auth user id of the token's owner: scope every query of the route to it. */
+  readonly userId: string;
+  /** The token's id, for the route's own logs. Never the token. */
+  readonly tokenId: string;
+  /** The token's effective scopes: write scopes only while the app allows writes. */
+  readonly scopes: readonly string[];
+}
 
 /** What an app's `beforeIssue` gate may answer instead of letting a token be issued. */
 export type McpIssueRefusalCode = "mcp-access.issue_refused" | "mcp-access.write_refused";
@@ -37,6 +69,9 @@ export interface McpServerIdentity {
 export interface AccessTokenView {
   readonly id: string;
   readonly name: string;
+  readonly kind: AccessTokenKind;
+  /** The app scopes of an API token; empty for an MCP token. */
+  readonly scopes: readonly string[];
   /** Issued with write access (it still writes only while the app allows writes). */
   readonly canWrite: boolean;
   readonly createdAt: Date;
@@ -70,7 +105,7 @@ export interface McpClientSetup {
   readonly authorizationHeader: string;
 }
 
-/** A token right after it was issued: the only moment its plaintext exists outside the client. */
+/** An MCP token right after it was issued: the only moment its plaintext exists outside the client. */
 export interface IssuedToken {
   readonly id: string;
   readonly name: string;
@@ -82,10 +117,33 @@ export interface IssuedToken {
   readonly setup: McpClientSetup;
 }
 
+/** A snippet the app gave for API tokens (`apiTokens.examples`), filled in with the new token. */
+export interface ApiTokenExample {
+  readonly title: string;
+  readonly text: string;
+}
+
+/** An API token right after it was issued, for the one-time reveal. */
+export interface IssuedApiTokenView {
+  readonly id: string;
+  readonly name: string;
+  /** The scopes granted (write scopes only with `allowWrites`). */
+  readonly scopes: readonly string[];
+  readonly expiresText: string;
+  readonly expiresAt: string;
+  /** The plaintext, shown once. */
+  readonly token: string;
+  /** `Bearer <token>`. */
+  readonly authorizationHeader: string;
+  readonly examples: readonly ApiTokenExample[];
+}
+
 /** What the issue action returns to its form (`useActionState`). */
 export type IssueTokenFormState =
   | { readonly status: "idle" }
   | { readonly status: "ok"; readonly issued: IssuedToken }
+  /** An API token was issued (`kind=api` in the form): its one-time reveal. */
+  | { readonly status: "api-ok"; readonly issued: IssuedApiTokenView }
   /** `message`: the app's own refusal text from the `beforeIssue` gate, shown instead of the code's copy. */
   | { readonly status: "error"; readonly error: TokenFormErrorCode; readonly message?: string };
 

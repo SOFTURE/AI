@@ -35,6 +35,16 @@ export const MCP_RATE_LIMIT_BUCKETS = {
 } as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
+ * The rate limit buckets of `requireApiToken`, to spread into `security({ buckets })` when the app sets
+ * `apiTokens`: `api` counts requests per client address before the token is looked up (guessing),
+ * `api-token` counts requests per verified token (one script or Shortcut cannot flood a route).
+ */
+export const API_TOKEN_RATE_LIMIT_BUCKETS = {
+  api: { limit: 300, windowMinutes: 15, key: "ip" },
+  "api-token": { limit: 120, windowMinutes: 15, key: "subject" },
+} as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
+
+/**
  * Enables MCP access in `softure.config.ts` (after `security` and `auth`):
  * `mcpAccess({ serverName: "acme", tools: [{ name: "list_orders", access: "read", description: { en: "Lists your orders." } }] })`.
  */
@@ -78,8 +88,14 @@ export {
   type McpClientSetupInput,
 } from "./client-setup.js";
 export type {
+  AccessTokenKind,
   AccessTokenStatus,
   AccessTokenView,
+  ApiTokenErrorCode,
+  ApiTokenExample,
+  ApiTokenIdentity,
+  ApiTokenRefusal,
+  IssuedApiTokenView,
   IssuedToken,
   IssueTokenFormState,
   McpAccessErrorCode,
@@ -94,12 +110,18 @@ export type {
 } from "./contract.js";
 export { getTokenErrorMessage, mcpAccessMessages, type McpAccessMessages } from "./messages/index.js";
 export {
+  API_SCOPE_PATTERN,
+  API_TOKEN_PREFIX_PATTERN,
+  MAX_API_TOKEN_SCOPES,
   MAX_PRESENTED_TOKEN_LENGTH,
   MAX_TOKEN_NAME_LENGTH,
   SERVER_NAME_PATTERN,
   TOOL_NAME_PATTERN,
   GENERATED_AUTHORIZATION_SERVER_KEYS,
   GENERATED_PROTECTED_RESOURCE_KEYS,
+  type ApiScopeDefinition,
+  type ApiTokenOptions,
+  type ApiTokenOptionsInput,
   type McpAccessOptions,
   type McpAccessOptionsInput,
   type McpAppOriginResolver,
