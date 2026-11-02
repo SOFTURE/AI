@@ -1,12 +1,13 @@
 ---
 change_id: jobs-progress-cancel-951
 title: "jobs: progress reported by a running handler, and cancelling a running job (issue #951)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 951
 branch: claude/project-thread-r7umfc
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent

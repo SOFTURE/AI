@@ -1,6 +1,6 @@
 ---
 change_id: jobs-progress-cancel-951
-status: in_progress
+status: done
 ---
 
 # Plan: jobs progress and cancel (issue #951)
@@ -63,6 +63,6 @@ Files: `src/next/{actions,panel-rows,pages}.tsx`, `src/messages/en.ts`, `tests/p
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1: `6c6dadd` (progress, migration 0007; tests in `tests/progress-cancel.test.ts`)
+- [x] Phase 2: `6c6dadd` (requestJobCancel, heartbeatJob, cancelled outcome; worker test on a real clock)
+- [x] Phase 3: `6c6dadd` (page, actions, copy), `09fc99e` (README, CHANGELOG)
