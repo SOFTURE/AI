@@ -16,11 +16,11 @@ export const OPTIONS: MeteringOptionsInput = {
   ],
 };
 
-export function createConfig(options: MeteringOptionsInput = OPTIONS, extra: readonly AnySoftureModule[] = []): SoftureConfig {
+export function createConfig(options: MeteringOptionsInput = OPTIONS, extra: readonly AnySoftureModule[] = [], timezone = "Europe/Warsaw"): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
     locale: "en",
-    timezone: "Europe/Warsaw",
+    timezone,
     appOrigin: "http://localhost:3000",
     modules: [metering(options), ...extra],
   });
