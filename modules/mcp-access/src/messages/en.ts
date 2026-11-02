@@ -128,7 +128,7 @@ export const en = {
       grant_not_found: "This app is no longer connected.",
       issue_refused: "Your account cannot create tokens right now.",
       write_refused: "Your account cannot create tokens with write access. Create a read-only token instead.",
-      api_tokens_disabled: "This app does not offer tokens for other apps.",
+      api_disabled: "This app does not offer tokens for other apps.",
       scope_required: "Tick at least one kind of access.",
       scope_unknown: "This app does not offer that access. Reload the page and try again.",
     },

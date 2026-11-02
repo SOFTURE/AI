@@ -165,7 +165,7 @@ describe("API tokens (#961)", () => {
       expect(await issueApiToken(ctx, { userId: alice, name: " ", scopes: ["recipes:read"] })).toEqual({ ok: false, error: "mcp-access.name_required" });
       await close();
       await setUp(createConfig({ serverName: "acme" }));
-      expect(await issueApiToken(ctx, { userId: alice, name: "x", scopes: ["recipes:read"] })).toEqual({ ok: false, error: "mcp-access.api_tokens_disabled" });
+      expect(await issueApiToken(ctx, { userId: alice, name: "x", scopes: ["recipes:read"] })).toEqual({ ok: false, error: "mcp-access.api_disabled" });
     });
 
     it("leaves write scopes out while the app does not allow writes, and refuses when nothing is left", async () => {

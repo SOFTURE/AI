@@ -117,6 +117,6 @@ describe("API tokens on the token page (#961)", () => {
     const props = await getTokenManagerProps({ userId: alice, config: scope.config });
     expect(props.apiScopes).toBeUndefined();
     expect(props.tokens[0]?.kindText).toBeUndefined();
-    expect(await issueTokenAction({ status: "idle" }, form({ kind: "api", name: "x", "scope:recipes:read": "on" }))).toEqual({ status: "error", error: "mcp-access.api_tokens_disabled" });
+    expect(await issueTokenAction({ status: "idle" }, form({ kind: "api", name: "x", "scope:recipes:read": "on" }))).toEqual({ status: "error", error: "mcp-access.api_disabled" });
   });
 });

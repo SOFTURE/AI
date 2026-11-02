@@ -64,7 +64,7 @@ export type IssueApiTokenResult =
       | "mcp-access.name_required"
       | "mcp-access.name_too_long"
       | "mcp-access.token_limit_reached"
-      | "mcp-access.api_tokens_disabled"
+      | "mcp-access.api_disabled"
       | "mcp-access.scope_required"
       | "mcp-access.scope_unknown"
     >;
@@ -76,7 +76,7 @@ export type IssueApiTokenResult =
  */
 export async function issueApiToken(ctx: McpAccessContext, input: IssueApiTokenInput): Promise<IssueApiTokenResult> {
   const apiOptions = getApiTokenOptions(ctx);
-  if (apiOptions === null) return err("mcp-access.api_tokens_disabled");
+  if (apiOptions === null) return err("mcp-access.api_disabled");
   const asked = new Set(input.scopes);
   const declared = new Set(apiOptions.scopes.map((scope) => scope.name));
   if ([...asked].some((name) => !declared.has(name))) return err("mcp-access.scope_unknown");

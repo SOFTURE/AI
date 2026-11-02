@@ -8,7 +8,7 @@ export type McpAccessErrorCode =
   | "mcp-access.token_limit_reached"
   | "mcp-access.token_not_found"
   | "mcp-access.grant_not_found"
-  | "mcp-access.api_tokens_disabled"
+  | "mcp-access.api_disabled"
   | "mcp-access.scope_required"
   | "mcp-access.scope_unknown";
 
