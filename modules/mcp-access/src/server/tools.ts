@@ -19,6 +19,8 @@ export interface ToolErrorOptions {
   readonly caller?: ToolCaller;
   /** The tool's arguments, for the record: only their names are read, never their values. */
   readonly args?: Readonly<Record<string, unknown>>;
+  /** Whether the call ran on the person's confirmation, for the record (`withConfirmation` sets it). */
+  readonly confirmed?: boolean;
 }
 
 /** The client behind a call: the token's id (`McpServerIdentity.tokenId`) and its name (`findTokenClientName`). */
@@ -44,6 +46,12 @@ export interface ToolCallRecord {
   readonly tokenId: string | null;
   readonly clientName: string | null;
   readonly argumentNames: readonly string[];
+  /**
+   * For a tool wrapped in `withConfirmation`: `true` when the call carried a valid confirmation and did the work,
+   * `false` when it answered an estimate, was refused, or ran without asking (`runWithoutConfirmationWhen`). `null`
+   * for any other tool.
+   */
+  readonly confirmed: boolean | null;
   readonly outcome: ToolCallOutcome;
   readonly startedAt: Date;
   readonly durationMs: number;
@@ -96,6 +104,7 @@ async function reportToolCall(options: ToolErrorOptions, outcome: ToolCallOutcom
     tokenId: options.caller?.tokenId ?? null,
     clientName: options.caller?.clientName ?? null,
     argumentNames: Object.keys(options.args ?? {}),
+    confirmed: options.confirmed ?? null,
     outcome,
     startedAt: new Date(startedAt),
     durationMs: Date.now() - startedAt,
