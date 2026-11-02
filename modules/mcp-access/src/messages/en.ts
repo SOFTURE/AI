@@ -95,6 +95,20 @@ export const en = {
     description:
       "Tells which build of this server answers: its name and version (the version changes whenever a tool changes), the release, the commit, when it was built and started, and the changelog when the app publishes one. Use it to check that a change is live.",
   },
+  operations: {
+    statusToolDescription:
+      "Tells how a long operation started by another tool is going: queued, running (with its progress), succeeded (with its result), failed (with an error code) or cancelled. Call it again after pollAfterSeconds while the operation runs.",
+    cancelToolDescription: "Stops a long operation started by another tool. A queued one ends at once; a running one stops at its next safe point.",
+    started: "The operation has started and runs in the background. Call {tool} with this operationId after pollAfterSeconds to follow it. Do not call the starting tool again.",
+    queued: "The operation is waiting to start. Call {tool} again after pollAfterSeconds.",
+    running: "The operation is running. Call {tool} again after pollAfterSeconds.",
+    cancelRequested: "The operation was asked to stop and will end shortly. Call {tool} again after pollAfterSeconds.",
+    succeeded: "The operation has finished.",
+    failed: "The operation failed. Tell the user; start it again only if they ask.",
+    cancelled: "The operation was cancelled.",
+    notFound: "No operation with this id belongs to this account.",
+    finished: "The operation has already ended, so it cannot be cancelled.",
+  },
   errors: {
     "mcp-access": {
       name_required: "Give the token a name, so you can tell it from the others.",
