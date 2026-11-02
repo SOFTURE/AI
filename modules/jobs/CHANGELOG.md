@@ -13,7 +13,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   id)` in `/server` cancels a pending job or asks a running one to stop: the worker sees the request on its heartbeat
   (or the handler's next progress write) and aborts `context.signal` with a `JobCancelledError` (`AbortError`, code
   `jobs.cancelled`; `isJobCancelled(signal)`); the job ends `cancelled`, not retried, without `onJobFailed`, with a run
-  of the new outcome `cancelled`. `cancelJob` keeps its meaning. New in `@softure-ai/jobs`: `JobProgress`,
+  of the new outcome `cancelled` and, with `logRuns: "all"`, an `info` line `job run cancelled`. `cancelJob` keeps
+  its meaning. New in `@softure-ai/jobs`: `JobProgress`,
   `jobProgressSchema`, `JobCancelledError`, `isJobCancelled`, `JOB_CANCELLED_CODE`; in `/server`: `requestJobCancel`,
   `heartbeatJob`, `JobHeartbeat`. `JOB_RUN_OUTCOMES`, `JobOutcome` and `Completion` gain `cancelled`;
   `RunDueJobsReport` gains an optional `cancelled`, present only when an attempt was cancelled. The admin page lists running jobs with their progress, and its Cancel (`cancelJobAction`) now uses
@@ -24,6 +25,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
     `cancelled`. An app with its own full dictionary for another locale adds `jobs.progressStep`, `progressCount`,
     `progressDone`, `progressCode`, `progressAt`, `cancelRequested`, `runs.outcome.cancelled` and `errors.cancelled`
     (see `messages/en.ts`).
+- Run-end log lines (#934): every recorded attempt now leaves one line in the worker's logger, codes and ids only:
+  `info("job run succeeded", { queue, jobId, attempt, origin, durationMs, code?, items? })`,
+  `warn("job run failed; retrying", { queue, jobId, attempt, code, runAt })` and
+  `error("job run failed", { queue, jobId, attempt, code })`, the last also for a job failed by an expired lease
+  (`jobs.lease_expired`). Before, a handler that returned an error was retried or failed without any line, and a
+  success left none. New option `logRuns: "all" | "failures" | "none"` (default `"all"`); new exports
+  `JOBS_RUN_LOG_LEVELS` and `JobsRunLogLevel`.
+  - Migrate: nothing to change. An app that logged the outcome itself from `onJobFailed` may drop that line; an app
+    with very frequent queues that does not want a line per success sets `jobs({ logRuns: "failures" })`.
 - A short database outage is logged below warning (#933): a failure caused by an unavailable database (SQLSTATE 57P01
   to 57P03 or class 08, a refused, reset or closed connection) in any database call of the worker (claims, schedule
   enqueue and check, prunes, lease extension, outcome recording, release on stop) is logged as `info` with `outageMs`

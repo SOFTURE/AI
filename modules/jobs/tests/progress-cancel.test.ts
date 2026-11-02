@@ -112,6 +112,7 @@ describe("progress", () => {
     expect(logger.lines).toEqual([
       "warn: job progress does not match the progress schema; not stored (step, done)",
       "warn: job progress does not match the progress schema; not stored ((root))",
+      "info: job run succeeded",
     ]);
   });
 
@@ -231,7 +232,8 @@ describe("cancelling a job", () => {
 
     expect(await runDueJobs(test.ctx, { handlers, logger })).toMatchObject({ cancelled: 1 });
     expect(await getJob(test.ctx, id)).toMatchObject({ status: "cancelled" });
-    expect(logger.lines).toEqual([]);
+    // No "job handler threw" line: the throw is the cancel itself.
+    expect(logger.lines).toEqual(["info: job run cancelled"]);
   });
 
   it("ends cancelled instead of retrying when the request came before the attempt failed", async () => {
