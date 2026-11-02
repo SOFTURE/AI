@@ -41,5 +41,5 @@ Files: `modules/mcp-access/README.md`, `modules/mcp-access/CHANGELOG.md`.
 
 ## Progress
 
-- [ ] Phase 1: operations in `/jobs`
+- [x] Phase 1: operations in `/jobs` (22897e4, mcp-access tests 409/409)
 - [ ] Phase 2: docs
