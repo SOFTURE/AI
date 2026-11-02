@@ -1,6 +1,6 @@
 ---
 change_id: metering-spend-ledger-954
-status: plan_reviewed
+status: archived
 ---
 
 # Plan: `@softure-ai/metering` 0.1.0 (issue #954)
@@ -62,7 +62,7 @@ Files: `src/server/{adapters,privacy,prune}.ts`, `src/jobs/index.ts`, `tests/{ad
 
 ## Progress
 
-- [ ] Phase 1: package, table, options
-- [ ] Phase 2: reserve, settle, release, record, read
-- [ ] Phase 3: adapters, privacy, prune job, docs
-- [ ] Implementation review
+- [x] Phase 1: package, table, options (9673780)
+- [x] Phase 2: reserve, settle, release, record, read (ac2e725)
+- [x] Phase 3: adapters, privacy, prune job, docs (c993ed8)
+- [x] Implementation review
