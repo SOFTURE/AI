@@ -84,7 +84,7 @@ export function openAiCompatibleProvider(options: OpenAiCompatibleProviderOption
     throw new RangeError(`${options.name}: maxUploadBytes must be a whole number of 1 or more`);
   }
   if (options.model.trim() === "") throw new RangeError(`${options.name}: model must not be empty`);
-  const url = `${options.baseUrl.replace(/\/+$/, "")}/audio/transcriptions`;
+  const url = `${trimTrailingSlashes(options.baseUrl)}/audio/transcriptions`;
   const readKey = typeof options.apiKey === "function" ? options.apiKey : () => options.apiKey as string | undefined;
   const isJsonOnly = JSON_ONLY_MODEL.test(options.model);
 
@@ -178,4 +178,11 @@ function getClientErrorCode(status: number | null): Exclude<SpeechFailure["error
   if (status === 400 || status === 415) return "speech.unsupported_format";
   if (status !== null && status >= 400 && status < 500) return "speech.provider_refused";
   return "speech.unavailable";
+}
+
+/** The URL without trailing slashes; a loop, since an anchored `/+$` backtracks on long runs of slashes. */
+function trimTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") end -= 1;
+  return url.slice(0, end);
 }
