@@ -4,7 +4,7 @@ import { errorLogLabel, ok, type Err, type ModuleContext, type Ok } from "@softu
 import type { Queryable } from "@softure-ai/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import type { ConnectionKind, ConnectionsKeyErrorCode, ReconnectReason, TokenEndpointAnswer } from "../contract.js";
+import type { ConnectionChangedEvent, ConnectionKind, ConnectionsKeyErrorCode, ReconnectReason, TokenEndpointAnswer } from "../contract.js";
 import { accounts, type AccountRow } from "../schema.js";
 import { getCredentialContext, openSecret, readKeyring, type Env, type Keyring } from "./crypto.js";
 import { getConnectionsOptions } from "./options.js";
@@ -111,6 +111,43 @@ export async function markReconnectRequired(ctx: ConnectionsContext, input: Mark
     }
   }
   return true;
+}
+
+/**
+ * Reports a stored connection change: one info log line (ids and codes only) and the app's `onConnectionChanged`
+ * hook. A hook failure is logged by kind and never thrown: the change is stored either way.
+ */
+export async function notifyConnectionChanged(ctx: ConnectionsContext, event: ConnectionChangedEvent): Promise<void> {
+  console.info(formatConnectionChange(event));
+  const hook = getConnectionsOptions(ctx.config).onConnectionChanged;
+  if (hook === undefined) return;
+  try {
+    await hook(event, ctx);
+  } catch (error) {
+    console.error(`@softure-ai/connections: the onConnectionChanged hook failed: ${errorLogLabel(error)}`);
+  }
+}
+
+const PLAIN_ACTOR_ID = /^[A-Za-z0-9._:@-]{1,200}$/;
+
+/** An auth user id as it is; anything else an operator script passed is JSON-quoted, so it cannot forge a field. */
+function formatActorId(actorId: string | null): string {
+  if (actorId === null) return "null";
+  return PLAIN_ACTOR_ID.test(actorId) ? actorId : JSON.stringify(actorId);
+}
+
+/** The log line of a change. The ids are validated patterns, the rest a kind, a module code or a boolean. */
+export function formatConnectionChange(event: ConnectionChangedEvent): string {
+  const line = `@softure-ai/connections: connection ${event.change} provider=${event.provider} account_id=${event.accountId} kind=${event.kind} actor_id=${formatActorId(event.actorId)}`;
+  switch (event.change) {
+    case "disconnected":
+      return `${line} revoked=${String(event.revoked)}`;
+    case "connect_failed":
+      return `${line} code=${event.code}`;
+    case "connected":
+    case "reconnected":
+      return line;
+  }
 }
 
 /** Clears a refresh lease, only while `leaseId` still holds it. */

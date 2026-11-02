@@ -4,10 +4,10 @@ import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, eq } from "drizzle-orm";
 import type { ConnectionsFlowErrorCode, ConnectionsTokenFailure, StoredCredential } from "../contract.js";
 import { DEFAULT_ACCOUNT_ID, DEFAULT_CREDENTIAL_HEADER, DEFAULT_CREDENTIAL_SCHEME, type CredentialHeaderPlacement, type ProviderDefinition } from "../options.js";
-import { accounts } from "../schema.js";
+import { accounts, type AccountRow } from "../schema.js";
 import { getCredentialContext, sealSecret } from "./crypto.js";
 import { findProvider, getConnectionsOptions, readClientCredentials } from "./options.js";
-import { findAccount, getKeyring, markReconnectRequired, openApiKey, openBasic, openOAuthSecrets, type ConnectionsContext } from "./store.js";
+import { findAccount, getKeyring, markReconnectRequired, notifyConnectionChanged, openApiKey, openBasic, openOAuthSecrets, type ConnectionsContext } from "./store.js";
 import { getStateContext } from "./state-database.js";
 import { revokeToken } from "./token-client.js";
 
@@ -63,10 +63,19 @@ export async function saveCredential(ctx: ConnectionsContext, input: SaveCredent
     leaseId: null,
     leaseUntil: null,
   };
+  const replaced = (await findAccount(ctx, found.value.id, accountId)) !== undefined;
   await ctx.db
     .insert(accounts)
     .values({ provider: found.value.id, accountId, ...values })
     .onConflictDoUpdate({ target: [accounts.provider, accounts.accountId], set: values });
+  await notifyConnectionChanged(ctx, {
+    change: replaced ? "reconnected" : "connected",
+    provider: found.value.id,
+    accountId,
+    kind: credential.kind,
+    actorId: input.actorId,
+    at: now,
+  });
   return ok();
 }
 
@@ -175,6 +184,11 @@ export async function reportCredentialRejected(
   return ok(await markReconnectRequired(ctx, { rowId: row.id, provider: row.provider, accountId, kind: row.kind, reason: "rejected" }));
 }
 
+export interface DisconnectInput extends ProviderAccountInput {
+  /** The auth user id of the admin, for `onConnectionChanged` and the log line; null (the default) for a script. */
+  readonly actorId?: string | null;
+}
+
 export interface DisconnectResult {
   /** Whether a provider revocation endpoint accepted the token; false without one or when it failed. */
   readonly revoked: boolean;
@@ -184,25 +198,32 @@ export interface DisconnectResult {
  * Deletes a connection. For OAuth with a `revokeUrl`, the refresh token (or the access token) is revoked first,
  * best effort: a failed revocation never keeps the connection.
  */
-export async function disconnect(ctx: ConnectionsContext, input: ProviderAccountInput): Promise<Ok<DisconnectResult> | Err<"connections.unknown_provider" | "connections.not_connected">> {
+export async function disconnect(ctx: ConnectionsContext, input: DisconnectInput): Promise<Ok<DisconnectResult> | Err<"connections.unknown_provider" | "connections.not_connected">> {
   const accountId = input.accountId ?? DEFAULT_ACCOUNT_ID;
   const found = findProvider(ctx.config, input.provider, accountId);
   if (!found.ok) return found;
   const provider = found.value;
+  const at = ctx.clock.now();
   const [deleted] = await ctx.db
     .delete(accounts)
     .where(and(eq(accounts.provider, provider.id), eq(accounts.accountId, accountId)))
     .returning();
   if (deleted === undefined) return err("connections.not_connected");
-  if (provider.kind !== "oauth" || provider.revokeUrl === undefined) return ok({ revoked: false });
+  const revoked = await revokeDeleted(ctx, provider, deleted);
+  await notifyConnectionChanged(ctx, { change: "disconnected", provider: provider.id, accountId, kind: deleted.kind, actorId: input.actorId ?? null, revoked, at });
+  return ok({ revoked });
+}
 
+/** Revokes a deleted OAuth grant at the provider, best effort; false without a `revokeUrl` or when it failed. */
+async function revokeDeleted(ctx: ConnectionsContext, provider: ProviderDefinition, deleted: AccountRow): Promise<boolean> {
+  if (provider.kind !== "oauth" || provider.revokeUrl === undefined) return false;
   const keyring = getKeyring(ctx);
   const client = readClientCredentials(provider, ctx.env);
   const secrets = keyring.ok ? openOAuthSecrets(keyring.value, deleted) : keyring;
-  if (!client.ok || !secrets.ok) return ok({ revoked: false });
+  if (!client.ok || !secrets.ok) return false;
   const options = getConnectionsOptions(ctx.config);
   const token = secrets.value.refreshToken ?? secrets.value.accessToken;
-  const revoked = await revokeToken({
+  return revokeToken({
     provider,
     revokeUrl: provider.revokeUrl,
     client: client.value,
@@ -210,5 +231,4 @@ export async function disconnect(ctx: ConnectionsContext, input: ProviderAccount
     fetch: options.fetch ?? globalThis.fetch,
     timeoutMs: options.httpTimeoutMs,
   });
-  return ok({ revoked });
 }

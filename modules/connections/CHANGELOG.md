@@ -6,6 +6,19 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 
 ## Unreleased
 
+- `onConnectionChanged(event, ctx)` (#945), a hook beside `onReconnectRequired`, runs after a connection is
+  `connected`, `reconnected` or `disconnected` (with `revoked`), and after an OAuth callback that failed once its
+  authorization was found (`connect_failed` with `code`, the provider taken from the pending authorization).
+  `event` carries `provider`, `accountId`, `kind`, `actorId` and `at`, never a credential. A hook that throws is
+  logged by kind. Every such change also writes one `console.info` line (`@softure-ai/connections: connection
+  <change> provider=… account_id=… kind=… actor_id=…`). Types `ConnectionChangedEvent`, `ConnectionChange`,
+  `OnConnectionChangedHook`.
+- `disconnect(ctx, { provider, accountId?, actorId? })` takes the actor (null when omitted); `disconnectAction`
+  passes the signed-in admin.
+  - Migrate: optional. An app that wraps `completeConnectionRoute`, `saveCredentialAction` or `disconnectAction` to
+    record admin actions drops the wrappers and sets `onConnectionChanged` (or reads the log line). No database
+    migration.
+
 - A failed token refresh says what the provider answered (#936). `connections.refresh_failed` and
   `connections.client_rejected` from `getAccessToken`, `replaceRejectedToken`, `getCredentialHeader`,
   `requestWithConnection` and `downloadWithConnection` are now a `ConnectionsRefreshFailure` with `httpStatus`
