@@ -1,6 +1,6 @@
 // Result types and error codes of the connections module. No user-facing copy here: the UI translates codes
 // through `messages` (docs/02-module-standard.md §6).
-import type { CoreErrorCode } from "@softure-ai/core";
+import type { CoreErrorCode, Err } from "@softure-ai/core";
 
 /** The keyring cannot seal or open a secret: a configuration problem, never fixed by retrying. */
 export type ConnectionsKeyErrorCode =
@@ -52,6 +52,23 @@ export type ConnectionsFlowErrorCode =
   | "connections.credential_invalid"
   | "connections.not_connected";
 
+/** What the token endpoint answered to a failed refresh. Never its body or error description. */
+export interface TokenEndpointAnswer {
+  /**
+   * The token endpoint's HTTP status (any 2xx reads as 200); null when no answer came: a network failure or a
+   * timeout. Named apart from the `status` of a `core.http_*` failure, which is the provider API's own answer.
+   */
+  readonly httpStatus: number | null;
+  /** The OAuth `error` code (`invalid_request`, `temporarily_unavailable`); null when the answer had none. */
+  readonly oauthError: string | null;
+}
+
+/** A refresh the token endpoint failed, with what it answered. */
+export interface ConnectionsRefreshFailure extends Err<"connections.refresh_failed" | "connections.client_rejected">, TokenEndpointAnswer {}
+
+/** A token failure: a refresh failure carries the token endpoint's answer, every other code is bare. */
+export type ConnectionsTokenFailure = Err<Exclude<ConnectionsTokenErrorCode, ConnectionsRefreshFailure["error"]>> | ConnectionsRefreshFailure;
+
 export type ConnectionsErrorCode = ConnectionsTokenErrorCode | ConnectionsFlowErrorCode;
 
 /** Every code the page can show: the module's own, the role refusal and the generic ones. */
@@ -85,6 +102,10 @@ export interface ConnectionView {
   readonly refreshedAt: Date | null;
   readonly lastError: string | null;
   readonly lastErrorAt: Date | null;
+  /** The token endpoint's HTTP status for the last failed refresh; null when no answer came or nothing failed. */
+  readonly lastErrorHttpStatus: number | null;
+  /** The OAuth `error` code the token endpoint answered (`invalid_request`); null when it gave none. */
+  readonly lastErrorOAuthError: string | null;
 }
 
 /** An access token ready for an `Authorization` header. */

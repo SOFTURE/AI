@@ -47,8 +47,9 @@ export async function registerObservability(options: ObservabilityOptions = {}):
 }
 
 /**
- * An `onRequestError` for `instrumentation.ts`: one error record per failed request with the method, path, route
- * and route type. Request headers and the query string are never logged.
+ * An `onRequestError` for `instrumentation.ts`: one error record per failed request with the method, path, route,
+ * route type, render source and the error's digest (the one the error page shows). Request headers and the query
+ * string are never logged.
  */
 export function createOnRequestError(logger: Logger): NextRequestErrorHandler {
   return (error, request, context) => {
@@ -60,8 +61,25 @@ export function createOnRequestError(logger: Logger): NextRequestErrorHandler {
       "next.route": context.routePath,
       "next.route_type": context.routeType,
       "next.router_kind": context.routerKind,
+      "next.render_source": context.renderSource,
+      "next.digest": readHashDigest(error),
     });
   };
+}
+
+/**
+ * Next's digest of an error when it is a hash (`<hash>` or `<hash>@E<n>`, also read as `E<n>@<hash>`), else
+ * `undefined`. A `NEXT_*` digest is control flow and can carry a URL, so it is never returned.
+ */
+function readHashDigest(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("digest" in error)) {
+    return undefined;
+  }
+
+  const digest = error.digest;
+  return typeof digest === "string" && /^(?:[0-9]{1,32}(?:@E[0-9]{1,8})?|E[0-9]{1,8}@[0-9]{1,32})$/.test(digest)
+    ? digest
+    : undefined;
 }
 
 /**

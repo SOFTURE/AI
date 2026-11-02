@@ -111,7 +111,7 @@ describe("running jobs", () => {
     expect(await run({ "ai.reply": defineJobHandler({ payload, run: runHandler }) })).toMatchObject({ failed: 1 });
     expect(runHandler).not.toHaveBeenCalled();
     expect(await getJob(test.ctx, id)).toMatchObject({ status: "failed", attempts: 1, lastError: "jobs.invalid_payload" });
-    expect(logger.lines).toEqual(["warn: job payload does not match its handler's schema; failed without running"]);
+    expect(logger.lines).toEqual(["warn: job payload does not match its handler's schema; failed without running", "error: job run failed"]);
   });
 
   it("retries a handler that throws under jobs.handler_threw and logs it", async () => {
@@ -120,7 +120,7 @@ describe("running jobs", () => {
 
     expect(await run(handlers)).toMatchObject({ retried: 1 });
     expect(await getJob(test.ctx, id)).toMatchObject({ status: "pending", lastError: "jobs.handler_threw" });
-    expect(logger.lines).toEqual(["error: job handler threw"]);
+    expect(logger.lines).toEqual(["error: job handler threw", "warn: job run failed; retrying"]);
   });
 
   it("treats a handler that returns no result like a throw", async () => {

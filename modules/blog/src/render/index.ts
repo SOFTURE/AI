@@ -15,6 +15,7 @@ export { toArticleMarkdown, type ArticleMarkdownInput, type ArticleMarkdownOptio
 export { DEFAULT_WORDS_PER_MINUTE, getReadingMinutes } from "./reading-time.js";
 export {
   findArticleBlocks,
+  findLinkedTerms,
   parseDirectiveAttributes,
   parseDirectiveLine,
   EXTERNAL_LINK_MARKERS,

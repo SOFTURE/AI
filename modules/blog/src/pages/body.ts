@@ -5,7 +5,7 @@ import type { BlogArticle } from "../contract.js";
 import type { BlogMessages } from "../messages/index.js";
 import type { BlogOptions } from "../options.js";
 import type { GlossaryTerm } from "../render/glossary.js";
-import { renderArticle, type BlockPlugin, type RenderedArticle } from "../render/render-article.js";
+import { findLinkedTerms, renderArticle, type BlockPlugin, type RenderArticleOptions, type RenderedArticle } from "../render/render-article.js";
 import { getTermPath, type BlogRoutes } from "./paths.js";
 
 export interface RenderPageBodyOptions {
@@ -17,8 +17,9 @@ export interface RenderPageBodyOptions {
   readonly messages: BlogMessages;
 }
 
-export function renderPageBody<TNode = unknown>(text: BlogArticle, input: RenderPageBodyOptions): RenderedArticle<TNode> {
-  return renderArticle<TNode>(text.bodyMarkdown, {
+/** The renderer's options for a text's page body: shared by the render and the link search, so they never drift. */
+function getRenderOptions<TNode>(text: BlogArticle, input: RenderPageBodyOptions): RenderArticleOptions<TNode> {
+  return {
     glossary: input.glossary,
     ...(text.kind === "term" ? { selfSlug: text.slug } : {}),
     termHref: (slug) => getTermPath(input.routes, slug),
@@ -30,10 +31,17 @@ export function renderPageBody<TNode = unknown>(text: BlogArticle, input: Render
     article: { currentAsOf: text.currentAsOf, fields: text.fields },
     ...(input.options.externalLinkMarker === undefined ? {} : { externalMarker: input.options.externalLinkMarker }),
     messages: input.messages.render,
-  });
+  };
 }
 
-/** Published articles whose body links the term, by hand or by its first mention: the same rule as the links. */
+export function renderPageBody<TNode = unknown>(text: BlogArticle, input: RenderPageBodyOptions): RenderedArticle<TNode> {
+  return renderArticle<TNode>(text.bodyMarkdown, getRenderOptions<TNode>(text, input));
+}
+
+/**
+ * Published articles whose body links the term, by hand or by its first mention: the same rule as the links.
+ * Reads the links without rendering, so no block plugin runs.
+ */
 export function findArticlesLinkingTerm(articles: readonly BlogArticle[], termSlug: string, input: RenderPageBodyOptions): BlogArticle[] {
-  return articles.filter((article) => renderPageBody(article, input).linkedTerms.includes(termSlug));
+  return articles.filter((article) => findLinkedTerms(article.bodyMarkdown, getRenderOptions(article, input)).includes(termSlug));
 }

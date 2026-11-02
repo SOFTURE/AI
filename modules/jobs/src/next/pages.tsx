@@ -48,7 +48,7 @@ export async function JobsPage({ searchParams }: JobsPageProps = {}) {
   const filter = readSyncFilter(await searchParams);
   const [stats, jobs, runs, syncItems] = await Promise.all([
     getQueueStats(ctx),
-    listRecentJobs(ctx, { statuses: ["failed", "cancelled", "retrying"], limit: RECENT_JOBS_LIMIT }),
+    listRecentJobs(ctx, { statuses: ["running", "failed", "cancelled", "retrying"], limit: RECENT_JOBS_LIMIT }),
     listJobRuns(ctx, { limit: RECENT_RUNS_LIMIT }),
     listSyncItems(ctx, { ...(filter === null ? {} : { status: filter }), limit: SYNC_ITEMS_LIMIT }),
   ]);

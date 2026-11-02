@@ -1,7 +1,7 @@
 // Glossary links in the renderer and the term matcher (FIRE_TRACKER `src/lib/blog-markdown.test.ts`,
 // glossary part, and `src/lib/blog-glossary.test.ts`, in English).
 import type { BlogArticle } from "@softure-ai/blog";
-import { createTermMatcher, findTermFormConflicts, renderArticle, toGlossary } from "@softure-ai/blog/server";
+import { createTermMatcher, findLinkedTerms, findTermFormConflicts, renderArticle, toGlossary, type BlockPlugin } from "@softure-ai/blog/server";
 import { describe, expect, it } from "vitest";
 
 const glossary = [
@@ -167,5 +167,52 @@ describe("findTermFormConflicts", () => {
   it("returns conflicts sorted by form", () => {
     const terms = [{ slug: "a", forms: ["zeta", "alpha"] }, { slug: "b", forms: ["zeta", "alpha"] }];
     expect(findTermFormConflicts(terms).map((conflict) => conflict.form)).toEqual(["alpha", "zeta"]);
+  });
+});
+
+describe("findLinkedTerms (#937)", () => {
+  const throwingBlocks: BlockPlugin[] = [
+    {
+      type: "chart",
+      render: () => {
+        throw new Error("findLinkedTerms must not render a block");
+      },
+    },
+    {
+      type: "calc",
+      syntax: "directive",
+      render: () => {
+        throw new Error("findLinkedTerms must not render a block");
+      },
+    },
+  ];
+  const quietBlocks: BlockPlugin[] = throwingBlocks.map((plugin) => ({ ...plugin, render: () => ({ kind: "html", html: "" }) }));
+  const cases: readonly [string, string][] = [
+    ["first mention", "Pay into an ISA. Then the ISA again."],
+    ["manual link with a query, then a mention", "[SIPP](/en/glossary/sipp?ref=1#top) then ISA."],
+    ["heading and footnote skipped", "## What is an ISA?\n\nText[^a].\n\n[^a]: The SIPP rules."],
+    ["fence block text not linked", "```chart\nISA SIPP\n```\n\nThen a SIPP."],
+    ["directive block text not linked", "::calc{label=\"ISA\"}\n\nThen a SIPP."],
+    ["plain code fence not linked", "```\nISA\n```"],
+  ];
+
+  it.each(cases)("gives the renderer's linked terms: %s", (_name, markdown) => {
+    const termHref = (slug: string): string => `/en/glossary/${slug}`;
+    const rendered = renderArticle(markdown, { glossary, termHref, blocks: quietBlocks }).linkedTerms;
+
+    expect(findLinkedTerms(markdown, { glossary, termHref, blocks: throwingBlocks })).toEqual(rendered);
+  });
+
+  it("keeps the expected terms for blocks and prose", () => {
+    expect(findLinkedTerms("```chart\nISA\n```\n\n::calc{label=\"ISA\"}\n\nThen a SIPP.", { glossary, blocks: throwingBlocks })).toEqual(["sipp"]);
+  });
+
+  it("leaves out the term itself (selfSlug)", () => {
+    expect(findLinkedTerms("ISA and SIPP.", { glossary, selfSlug: "isa" })).toEqual(["sipp"]);
+  });
+
+  it("finds nothing in an empty text or without a glossary", () => {
+    expect(findLinkedTerms("", { glossary })).toEqual([]);
+    expect(findLinkedTerms("ISA and SIPP.")).toEqual([]);
   });
 });
