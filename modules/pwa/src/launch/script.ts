@@ -11,6 +11,11 @@ export interface LaunchProgressOptions {
   readonly timeConstantMs?: number;
   /** 100 ms by default. */
   readonly intervalMs?: number;
+  /**
+   * The `data-slot` of the element the script sits in and drives: `launch-screen` by default, `top-loading-bar` for
+   * theme-notion's `TopLoadingBar`. Its percentage, if any, is `<rootSlot>-percent`.
+   */
+  readonly rootSlot?: string;
 }
 
 export const DEFAULT_LAUNCH_PROGRESS: LaunchProgressConfig = {
@@ -23,6 +28,13 @@ export const DEFAULT_LAUNCH_PROGRESS: LaunchProgressConfig = {
 
 function checkShare(name: string, value: number): number {
   if (!Number.isFinite(value) || value < 0) throw new Error(`resolveLaunchProgressConfig: ${name} must be a number of 0 or more, got ${value}`);
+  return value;
+}
+
+const SLOT_NAME = /^[a-z][a-z0-9-]*$/;
+
+function checkSlot(value: string): string {
+  if (!SLOT_NAME.test(value)) throw new Error(`resolveLaunchProgressConfig: rootSlot must be a data-slot name (a-z, 0-9, -), got ${JSON.stringify(value)}`);
   return value;
 }
 
@@ -39,6 +51,7 @@ export function resolveLaunchProgressConfig(options: LaunchProgressOptions = {})
     timeShare: checkShare("timeShare", options.timeShare ?? DEFAULT_LAUNCH_PROGRESS.timeShare),
     timeConstantMs: checkDuration("timeConstantMs", options.timeConstantMs ?? DEFAULT_LAUNCH_PROGRESS.timeConstantMs),
     intervalMs: checkDuration("intervalMs", options.intervalMs ?? DEFAULT_LAUNCH_PROGRESS.intervalMs),
+    rootSlot: checkSlot(options.rootSlot ?? "launch-screen"),
   };
   const total = config.paintShare + config.assetsShare + config.timeShare;
   if (total > 100) throw new Error(`resolveLaunchProgressConfig: the shares add up to ${total}, more than 100`);
@@ -47,7 +60,8 @@ export function resolveLaunchProgressConfig(options: LaunchProgressOptions = {})
 
 /**
  * The text of the launch screen's inline `<script>`: the counter function called with the page's globals and the
- * config. Put it inside the launch screen (`LaunchScreen`'s `script` prop), which it finds from `document.currentScript`.
+ * config. Put it inside the element it drives (`LaunchScreen`'s or `TopLoadingBar`'s `script` prop, with the matching
+ * `rootSlot`), which it finds from `document.currentScript`.
  */
 export function buildLaunchProgressScript(options: LaunchProgressOptions = {}): string {
   const config = resolveLaunchProgressConfig(options);
