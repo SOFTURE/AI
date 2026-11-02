@@ -27,4 +27,4 @@ Files: `modules/jobs/src/options.ts`, `modules/jobs/src/server/process.ts`, `mod
 
 ## Progress
 
-- [ ] Phase 1: run-end lines and `logRuns`
+- [x] Phase 1: run-end lines and `logRuns` (08e2348, jobs tests 246/246)
