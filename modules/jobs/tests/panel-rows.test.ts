@@ -1,7 +1,7 @@
 // The panel's rows from the module's reads: every line in the app's copy, dates in its zone, no payload.
 import { defineJobHandler, failJob, failSyncItem, jobsMessages } from "@softure-ai/jobs";
 import { toJobsPanelData } from "@softure-ai/jobs/next";
-import { enqueueJob, getQueueStats, listJobRuns, listRecentJobs, listSyncItems, processSyncItem } from "@softure-ai/jobs/server";
+import { enqueueJob, getQueueStats, listJobRuns, listRecentJobs, listSyncItems, processSyncItem, requestJobCancel } from "@softure-ai/jobs/server";
 import { runDueJobs } from "@softure-ai/jobs/testing";
 import { err, ok } from "@softure-ai/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -88,6 +88,49 @@ describe("toJobsPanelData", () => {
       },
     ]);
     expect(JSON.stringify(jobs)).not.toContain("grace@example.com");
+  });
+
+  it("shows a running job's progress with Cancel, and the request once made, without Cancel", async () => {
+    const running = async () => {
+      const jobs = await listRecentJobs(test.ctx, { statuses: ["running"] });
+      return toJobsPanelData({ stats: [], jobs, syncItems: [] }, en, test.ctx.config).jobs;
+    };
+    const seen: Awaited<ReturnType<typeof running>>[] = [];
+    const handlers = {
+      "ai.reply": defineJobHandler({
+        payload: z.object({}),
+        run: async (_payload, { job, reportProgress }) => {
+          await reportProgress({ step: "render.encode", done: 3, total: 10, code: "render.gpu" });
+          seen.push(await running());
+          await requestJobCancel(test.ctx, job.id);
+          seen.push(await running());
+          return ok();
+        },
+      }),
+    };
+    const { id } = await enqueueJob(test.ctx, { queue: "ai.reply", payload: {} });
+    await runDueJobs(test.ctx, { handlers, random: () => 0 });
+
+    const progress = ["Step: render.encode, 3 of 10", "State: render.gpu", "Progress reported on Sep 15, 2026, 2:00 PM"];
+    expect(seen[0]).toEqual([
+      {
+        id,
+        queue: "ai.reply",
+        heading: `ai.reply · job ${id}`,
+        status: "running",
+        statusLabel: "Running",
+        details: ["Attempts: 1 of 3", ...progress, "Changed on Sep 15, 2026, 2:00 PM"],
+        canRetry: false,
+        canCancel: true,
+      },
+    ]);
+    expect(seen[1]?.[0]?.details).toEqual([
+      "Attempts: 1 of 3",
+      ...progress,
+      "Cancel requested on Sep 15, 2026, 2:00 PM; the job stops at its next check",
+      "Changed on Sep 15, 2026, 2:00 PM",
+    ]);
+    expect(seen[1]?.[0]?.canCancel).toBe(false);
   });
 
   it("leaves the runs out when the source has none, so an app's own composition is unchanged", async () => {
