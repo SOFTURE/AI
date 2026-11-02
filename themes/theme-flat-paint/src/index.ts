@@ -5,6 +5,17 @@ export { FLAT_PAINT_THEME, theme } from "./tokens.js";
 export { cn } from "./lib/utils.js";
 
 export {
+  INSTALL_BAR_LOOK,
+  LAUNCH_SCREEN_LOOK,
+  MINI_PROGRESS_LOOK,
+  ROUTE_LOADING_LOOK,
+  UPDATE_PROMPT_LOOK,
+  type AppPromptSlot,
+  type InstallBarSlot,
+  type LaunchScreenSlot,
+  type MiniProgressSlot,
+} from "./look/app.js";
+export {
   BUTTON_VARIANT_LOOK,
   ICON_BUTTON_SIZE_LOOK,
   ICON_BUTTON_TONE_LOOK,

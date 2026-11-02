@@ -10,7 +10,7 @@ import { DEFAULT_ACCOUNT_ID, type OAuthProviderDefinition } from "../options.js"
 import { accounts, oauthStates } from "../schema.js";
 import { getCredentialContext, getVerifierContext, openSecret, sealSecret, type Keyring } from "./crypto.js";
 import { findProvider, getConnectionsOptions, getRedirectUri, readClientCredentials } from "./options.js";
-import { getKeyring, parseScopes, type ConnectionsContext } from "./store.js";
+import { findAccount, getKeyring, notifyConnectionChanged, parseScopes, type ConnectionsContext } from "./store.js";
 import { requestTokens, type TokenResponse } from "./token-client.js";
 
 const RANDOM_BYTES = 32;
@@ -101,6 +101,27 @@ export async function completeAuthorization(ctx: ConnectionsContext, input: Comp
     .where(and(eq(oauthStates.stateHash, stateHash), eq(oauthStates.createdBy, input.actorId), gt(oauthStates.expiresAt, now)))
     .returning();
   if (pending === undefined) return err("connections.state_invalid");
+  // From here the provider is known: a failure is reported as `connect_failed`, a success as (re)connected.
+  const result = await exchangeCode(ctx, { pending, stateHash, code, error, actorId: input.actorId });
+  const base = { provider: pending.provider, accountId: pending.accountId, kind: "oauth" as const, actorId: input.actorId, at: now };
+  await notifyConnectionChanged(
+    ctx,
+    result.ok ? { ...base, change: result.value.replaced ? "reconnected" : "connected" } : { ...base, change: "connect_failed", code: result.error },
+  );
+  return result.ok ? ok({ provider: pending.provider, accountId: pending.accountId }) : result;
+}
+
+interface ExchangeCodeInput {
+  readonly pending: typeof oauthStates.$inferSelect;
+  readonly stateHash: string;
+  readonly code: string | null;
+  readonly error: string | null;
+  readonly actorId: string;
+}
+
+/** Exchanges the code of a consumed authorization and stores the grant; answers whether it replaced a connection. */
+async function exchangeCode(ctx: ConnectionsContext, input: ExchangeCodeInput): Promise<Ok<{ readonly replaced: boolean }> | Err<ConnectionsFlowErrorCode>> {
+  const { pending, stateHash, code, error } = input;
   if (error !== null) return err(error === "access_denied" ? "connections.consent_denied" : "connections.authorization_failed");
   if (code === null || code === "" || code.length > 4096) return err("connections.authorization_failed");
 
@@ -132,8 +153,9 @@ export async function completeAuthorization(ctx: ConnectionsContext, input: Comp
   }
   if (answer.kind === "failed") return err("connections.exchange_failed");
 
+  const replaced = (await findAccount(ctx, provider.id, pending.accountId)) !== undefined;
   await storeGrant(ctx, keyring.value, { provider, accountId: pending.accountId, tokens: answer.tokens, actorId: input.actorId });
-  return ok({ provider: provider.id, accountId: pending.accountId });
+  return ok({ replaced });
 }
 
 interface StoreGrantInput {
@@ -167,6 +189,8 @@ async function storeGrant(ctx: ConnectionsContext, keyring: Keyring, input: Stor
     refreshedAt: null,
     lastError: null,
     lastErrorAt: null,
+    lastErrorHttpStatus: null,
+    lastErrorOAuthError: null,
     updatedAt: now,
     leaseId: null,
     leaseUntil: null,

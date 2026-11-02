@@ -38,7 +38,8 @@ mark.
   another controls the page waits (no `skipWaiting` at install); the page offers a reload, and reloads only after the
   user's `activate()` once the new worker controls it, never on the first install; `registration.update()` on every
   return to the foreground; no worker under `next dev`; a failed registration is reported and the app keeps working.
-  The prompt is a theme component (`UpdatePrompt` in `@softure-ai/theme-notion`).
+  The prompt is a theme component (`UpdatePrompt` in `@softure-ai/theme-notion`, or in `@softure-ai/ui` for a theme on
+  ui such as theme-flat-paint).
 - **The build version**: `.next/BUILD_ID`, read once per process, `dev` without a build.
 - **The install offer for phones** (`useInstallOffer({ app })`): Chromium's `beforeinstallprompt` is kept from the
   moment `@softure-ai/pwa/react` loads (it often fires before hydration), with `preventDefault()` to stop the
@@ -50,9 +51,9 @@ mark.
   `isIosDevice`, `isPhoneDevice` (`navigator.userAgentData.mobile` where present, else `Mobi|Android`) and
   `isInstalledApp` (`display-mode: standalone` or iOS `navigator.standalone`). Closing it is remembered per device in
   `localStorage` under `<app>:pwa-install-closed`; a blocked storage shows the offer, a refused write closes it for the
-  open page only. The bar is a theme component (`InstallBar` in `@softure-ai/theme-notion`).
+  open page only. The bar is a theme component (`InstallBar` in `@softure-ai/theme-notion` or `@softure-ai/ui`).
 - **The launch screen's counter**: `buildLaunchProgressScript(options)` is the text of the inline script inside
-  theme-notion's `LaunchScreen`, which an app streams from `app/loading.tsx` so an installed app shows its icon, name
+  the theme's `LaunchScreen` (theme-notion's or ui's), which an app streams from `app/loading.tsx` so an installed app shows its icon, name
   and progress from the first byte instead of a blank screen (§4).
 - **The share target** (Android's share sheet): `shareTarget` in the manifest and `createShareTargetRoute`, which
   reads the shared link (from `url`, else from `text`), text and title, streams the shared files part by part and lets
@@ -195,6 +196,16 @@ export function AppUpdate({ messages }: { messages: PwaMessages }) {
 }
 ```
 
+On a theme built on `@softure-ai/ui` (theme-flat-paint), every component below comes from ui with the same props and
+the theme's look map as `classNames`; only the imports change:
+
+```tsx
+import { InstallBar, LaunchScreen, RouteLoading, TopLoadingBar, UpdatePrompt } from "@softure-ai/ui";
+import { INSTALL_BAR_LOOK, LAUNCH_SCREEN_LOOK, ROUTE_LOADING_LOOK, UPDATE_PROMPT_LOOK } from "@softure-ai/theme-flat-paint";
+
+<UpdatePrompt open={isUpdateReady} onReload={activate} classNames={UPDATE_PROMPT_LOOK} {...messages.update} />
+```
+
 **The offline page** (`offlinePath`) is the app's own: a static page that renders without a session and without data
 (no `cookies()`, no database), with the app's look. The install fetches it and keeps every same-origin script, style
 and icon its HTML names; if it answers anything but a 200 HTML page, the install fails and the running worker stays.
@@ -232,7 +243,7 @@ shares add up to at most 100; the counter shows at most 99%, never falls, and st
 It finds its root from `document.currentScript` and moves `data-slot="progress"` (`aria-valuenow`, `aria-valuetext`,
 `data-value`, `data-state="loading"`), `progress-indicator` (its transform and `data-state`) and `<rootSlot>-percent`
 (the text, when there is one). `rootSlot` names the root's `data-slot`: `launch-screen` by default, `top-loading-bar`
-for theme-notion's thin bar on wide screens (`TopLoadingBar`, or both through `RouteLoading`, which shows the launch
+for the theme's thin bar on wide screens (`TopLoadingBar`, or both through `RouteLoading`, which shows the launch
 screen on a phone or in an installed app and the bar in a wide browser tab). The bar starts indeterminate; the
 counter's first value makes it determinate. `launchProgress(page, config)` is the function itself, testable with a
 fake page.
@@ -342,7 +353,8 @@ None.
 
 The package draws nothing on the page. The icons take the theme's colours (`tone`, `primary` by default, through
 theme-kit's `drawAppIcon`), the manifest the theme's `background` value. The update prompt is the theme's
-`UpdatePrompt`, the install bar its `InstallBar`, the launch screen its `LaunchScreen`.
+`UpdatePrompt`, the install bar its `InstallBar`, the launch screen its `LaunchScreen`: theme-notion's own, or
+`@softure-ai/ui`'s with the theme's look maps on a theme built on ui (theme-flat-paint).
 
 ## 9. Copy
 

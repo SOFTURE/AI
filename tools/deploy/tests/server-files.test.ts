@@ -105,6 +105,7 @@ case " $* " in
   *" ps --all "*) printf 'traefik:Up 2 hours\\napp:Up 2 hours (healthy)\\n' ;;
   *" inspect "*) echo healthy ;;
   *" create "*) echo c0ffee ;;
+  *" run --rm --no-deps -T --label traefik.enable=false --entrypoint tar app "*) printf 'TAR-stub' ;;
   *" exec -T postgres pg_dump "*) printf 'PGDMP-stub' ;;
   *" exec -T postgres psql "*) printf '{"softure":[],"app":null}\\n' ;;
 esac
@@ -168,8 +169,15 @@ function write(path: string, text: string, mode = 0o644): void {
   chmodSync(path, mode);
 }
 
-function writeCheckout(options: { facts?: AppFacts; tables?: string[]; envProd?: string; edge?: string } = {}): void {
-  const answers = { ...ANSWERS, tables: options.tables ?? [], ...(options.edge === undefined ? {} : { edge: options.edge }) };
+function writeCheckout(
+  options: { facts?: AppFacts; tables?: string[]; envProd?: string; edge?: string; answers?: Partial<InitAnswers> } = {},
+): void {
+  const answers = {
+    ...ANSWERS,
+    tables: options.tables ?? [],
+    ...(options.edge === undefined ? {} : { edge: options.edge }),
+    ...options.answers,
+  };
   const files = planInitFiles({ answers, facts: options.facts ?? NO_DATABASE, cliVersion: "9.9.9" });
   for (const file of files) write(join(checkout, file.path), file.text, file.mode);
   writeFileSync(join(checkout, ".env.prod"), options.envProd ?? ENV_PROD);
@@ -670,6 +678,102 @@ exit "\${HOOK_EXIT:-0}"
     writeFileSync(path, JSON.stringify(config));
     expect(deployWithHooks("v1").status).toBe(0);
     expect(existsSync(npxLog)).toBe(false);
+  });
+});
+
+describe("deploy.sh with a worker image and a data volume (issue #948)", () => {
+  const WORKER_APP: AppFacts = { ...NO_DATABASE, hasDatabase: true, hasJobs: true, jobsVersion: "0.1.6" };
+  const DATABASE_ENV = "POSTGRES_PASSWORD='pw'\nSOFTURE_MIGRATOR_PASSWORD='m'\nSOFTURE_APP_PASSWORD='a'\n";
+
+  function setUp(answers: Partial<InitAnswers>, backupPaths?: string[]): void {
+    writeCheckout({ facts: WORKER_APP, envProd: DATABASE_ENV, answers });
+    if (backupPaths !== undefined) {
+      const path = join(checkout, "deploy.json");
+      const config = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+      writeFileSync(path, JSON.stringify({ ...config, data: { backupPaths } }));
+    }
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+  }
+
+  function listDataBackups(): string[] {
+    return readdirSync(join(server, "backups")).filter((name) => name.startsWith("data-") || name.startsWith(".incoming")).sort();
+  }
+
+  it("pulls the worker image with the app's, through the release's registry login too, and starts the worker", () => {
+    setUp({ workerDockerfile: "docker/worker.Dockerfile" });
+    const result = deploy("v1", packArchive());
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    const log = readDockerLog();
+    expect(log).toContain("pull --quiet ghcr.io/acme/app:v1");
+    expect(log).toContain("pull --quiet ghcr.io/acme/app-worker:v1");
+    expect(log.indexOf("pull --quiet ghcr.io/acme/app-worker:v1")).toBe(log.indexOf("pull --quiet ghcr.io/acme/app:v1") + 1);
+    expect(log).toContain("compose --env-file .env.prod --file docker-compose.yml up --detach --wait --remove-orphans traefik app worker");
+    expect(readFileSync(join(server, "docker-compose.yml"), "utf8")).toContain("image: ghcr.io/acme/app-worker:${TAG}");
+  });
+
+  it("removes the worker image's tags without a release folder in maintain, like the app's", () => {
+    setUp({ workerDockerfile: "docker/worker.Dockerfile" });
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog);
+    const result = runServer("maintain", "", { DOCKER_IMAGE_TAGS: "v0\nv1\n" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("step|images|ok|removed 2\n");
+    expect(readDockerLog()).toEqual(
+      expect.arrayContaining([
+        "image ls ghcr.io/acme/app --format {{.Tag}}",
+        "image rm ghcr.io/acme/app:v0",
+        "image ls ghcr.io/acme/app-worker --format {{.Tag}}",
+        "image rm ghcr.io/acme/app-worker:v0",
+      ]),
+    );
+  });
+
+  it("archives the listed folders of the data volume after the database backup, with the newest seven kept", () => {
+    setUp({ dataVolume: "/app/data" }, ["cache/paid", "exports"]);
+    mkdirSync(join(server, "backups"), { recursive: true });
+    for (let day = 1; day <= 8; day += 1) writeFileSync(join(server, "backups", `data-202610${String(day).padStart(2, "0")}-030000.tar.gz`), "old");
+    const result = deploy("v1", packArchive());
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    const steps = readLines(result.stdout, "step");
+    const archive = steps.find((line) => line.startsWith("step|backup-data|ok|"))?.split("|")[3] ?? "";
+    expect(archive).toMatch(/^data-[0-9]{8}-[0-9]{6}\.tar\.gz$/);
+    expect(steps.indexOf(`step|backup-data|ok|${archive}`)).toBe(steps.indexOf("step|backup|ok|db-20261006-120000.dump") + 1);
+    expect(readFileSync(join(server, "backups", archive), "utf8")).toBe("TAR-stub");
+    expect(statSync(join(server, "backups", archive)).mode & 0o777).toBe(0o600);
+    expect(readDockerLog()).toContain(
+      "compose --env-file .env.prod --file docker-compose.yml run --rm --no-deps -T --label traefik.enable=false --entrypoint tar app -czf - -C /app/data ./cache/paid ./exports",
+    );
+    const kept = listDataBackups();
+    expect(kept).toHaveLength(7);
+    expect(kept).toContain(archive);
+    expect(kept).not.toContain("data-20261001-030000.tar.gz");
+    expect(kept).not.toContain("data-20261002-030000.tar.gz");
+  });
+
+  it("archives them in maintain too, and writes no archive without backupPaths", () => {
+    setUp({ dataVolume: "/app/data" }, ["cache/paid"]);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    const result = runServer("maintain", "");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/step\|backup\|ok\|db-20261006-120000\.dump\nstep\|backup-data\|ok\|data-[0-9-]+\.tar\.gz\nstep\|verify-backup/);
+
+    setUp({ dataVolume: "/app/data" });
+    rmSync(join(server, "backups"), { recursive: true, force: true });
+    const plain = deploy("v2", packArchive());
+    expect(plain.status).toBe(0);
+    expect(plain.stdout).not.toContain("backup-data");
+    expect(readDockerLog().filter((line) => line.includes("--entrypoint tar"))).toHaveLength(2);
+  });
+
+  it("stops the release before anything restarts when tar fails, and keeps no partial archive", () => {
+    setUp({ dataVolume: "/app/data" }, ["cache/paid"]);
+    const result = deploy("v1", packArchive(), { FAIL_DOCKER_ON: "--entrypoint tar" });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|backup-data|the backup of the data folders failed.");
+    expect(listDataBackups()).toEqual([]);
+    expect(readDockerLog().filter((line) => line.includes(" up --detach --wait --remove-orphans"))).toEqual([]);
   });
 });
 
