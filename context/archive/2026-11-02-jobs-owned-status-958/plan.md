@@ -1,6 +1,6 @@
 ---
 change_id: jobs-owned-status-958
-status: in_progress
+status: done
 ---
 
 # Plan: owned jobs and their status (issue #958)
@@ -60,10 +60,14 @@ Files: `README.md`, `CHANGELOG.md` (`## Unreleased`).
   `online` itself instead of depending on pwa.
 - `DELETE` is off unless `allowCancel: true`: cancelling is a product decision of the app.
 - No version bump: the coordinator releases.
+- Migration number: 0008 on the branch, not 0009 as first agreed: the migrator refuses a gap in the sequence. The
+  change that merges second renumbers.
+- The hook's error is a closed union (`JOB_STATUS_ROUTE_ERRORS` plus `network`), shared with the route through
+  `contract.ts`, so an app can switch over it.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
-- [ ] Phase 4
+- [x] Phase 1: `bb91953` (owner, `getOwnJob`, `requestOwnJobCancel`, `resultRef`, `ownedDays`, migration 0008)
+- [x] Phase 2: `674b7f3` (`createJobStatusRoute`)
+- [x] Phase 3: `a395cec` (`useJobStatus`, `./react` entry, `JOB_STATUS_ROUTE_ERRORS`)
+- [x] Phase 4: `034c672` (README, CHANGELOG)

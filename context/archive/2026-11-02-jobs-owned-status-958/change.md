@@ -1,7 +1,8 @@
 ---
 change_id: jobs-owned-status-958
 title: "jobs: a signed-in user follows their own job (issue #958)"
-status: in_progress
+status: archived
+archived_at: 2026-11-02
 roadmap_item: null
 issue: 958
 branch: claude/project-thread-p0qdjg
