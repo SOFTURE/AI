@@ -29,7 +29,7 @@ export {
 } from "./links.js";
 export { createLocalStorage, type LocalStorageOptions } from "./local-storage.js";
 export { DEFAULT_CONTENT_TYPE, formatContentDisposition, normalizeContentType, sanitizeFileName } from "./names.js";
-export { getFilesModule, getFilesOptions, getLinksRoute } from "./options.js";
+export { getFilesModule, getFilesOptions, getLinksRoute, getUploadsRoute } from "./options.js";
 export { deleteFilesUserData, exportFilesUserData, filesPrivacyContributor, type FilesDeletionReport, type FilesUserData } from "./privacy.js";
 export { pruneFiles, type PruneFilesOptions, type PruneFilesReport } from "./prune.js";
 export {
@@ -40,6 +40,24 @@ export {
   splitIntoParts,
   type S3StorageOptions,
 } from "./s3-storage.js";
-export { saveFile, type SaveFileInput, type SaveFileResult } from "./save.js";
+export { saveFile, validateFileDescription, type FileDescription, type FileDescriptionInput, type SaveFileInput, type SaveFileResult } from "./save.js";
+export {
+  countChunks,
+  createUpload,
+  finalizeUpload,
+  getPartKey,
+  getUpload,
+  writeUploadChunk,
+  type CreateUploadInput,
+  type CreateUploadResult,
+  type FinalizeUploadResult,
+  type UploadChunkErrorCode,
+  type UploadLookupOptions,
+  type WriteUploadChunkInput,
+  type WriteUploadChunkResult,
+} from "./uploads.js";
+export { signUploadPath, verifyUploadPath } from "./upload-tokens.js";
+export { FILES_UPLOAD_RATE_LIMIT_BUCKET, serveUpload } from "./serve-upload.js";
+export { renderUploadPage } from "./upload-page.js";
 export { parseRangeHeader, serveFileLink } from "./serve.js";
 export { EMPTY_PAYLOAD_SHA256, encodeRfc3986, signRequest, type SigV4Credentials, type SignRequestInput } from "./sigv4.js";
