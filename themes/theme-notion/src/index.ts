@@ -56,6 +56,7 @@ export { MiniProgress, type MiniProgressProps } from "./notion/MiniProgress.js";
 export { PageFrame, type PageFrameProps } from "./notion/PageFrame.js";
 export { PageHeader, type PageCrumb, type PageHeaderProps } from "./notion/PageHeader.js";
 export { PropertyList, type Property, type PropertyListProps } from "./notion/PropertyList.js";
+export { RouteLoading, type RouteLoadingProps } from "./notion/RouteLoading.js";
 export { SheetMenu, SheetMenuButton, SheetMenuItem, type SheetMenuButtonProps } from "./notion/SheetMenu.js";
 export { SidePanel, type SidePanelLayout, type SidePanelProps } from "./notion/SidePanel.js";
 export {
@@ -86,5 +87,6 @@ export { Status, type StatusProps } from "./notion/Status.js";
 export { Steps, type StepItem, type StepState, type StepsLayout, type StepsProps } from "./notion/Steps.js";
 export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
 export { Timeline, type TimelineItem, type TimelineItemFold, type TimelineItemSize, type TimelineLine, type TimelineProps } from "./notion/Timeline.js";
+export { TopLoadingBar, type TopLoadingBarProps } from "./notion/TopLoadingBar.js";
 export { UpdatePrompt, type UpdatePromptProps } from "./notion/UpdatePrompt.js";
 export { TONES, TONE_COLORS, TONE_EDGE, TONE_FILL, TONE_TEXT, type Tone } from "./notion/tones.js";
