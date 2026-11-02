@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- A failed token refresh says what the provider answered (#936). `connections.refresh_failed` and
+  `connections.client_rejected` from `getAccessToken`, `replaceRejectedToken`, `getCredentialHeader`,
+  `requestWithConnection` and `downloadWithConnection` are now a `ConnectionsRefreshFailure` with `httpStatus`
+  (null for a network failure or timeout) and `oauthError` (the OAuth `error` code, null when there was none). Every
+  failed refresh, `invalid_grant` included, logs one warn line (`provider`, `account_id`, `http_status`,
+  `oauth_error`, `code`) and stores the status and code in the new columns `last_error_http_status` and
+  `last_error_oauth_error`; the connections page shows them beside the last problem (new copy keys
+  `details.lastErrorDetail`, `details.httpStatus`, `details.oauthError`). `ConnectionView` gains
+  `lastErrorHttpStatus` and `lastErrorOAuthError`. The fake provider of `/testing` gains the failures
+  `invalid_request` and `unavailable_without_body`. Never a response body, error description or token.
+  - Migrate: run `softure migrate` (migration `0002_add_last_error_detail.sql`, nullable columns only). Code that
+    reads only `result.error` needs no change; to log or show the cause, narrow on the code and read `httpStatus`
+    and `oauthError`. An app with its own translation adds the three copy keys (the English ones apply until then).
+
 ## 0.3.2
 
 - `downloadWithConnection(ctx, { provider, accountId? }, options)` in `/server` and `downloadWithConnection({ provider,

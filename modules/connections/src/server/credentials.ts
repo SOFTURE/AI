@@ -2,7 +2,7 @@
 // credential was refused, and disconnecting any connection (with a best-effort revocation for OAuth).
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, eq } from "drizzle-orm";
-import type { ConnectionsFlowErrorCode, ConnectionsTokenErrorCode, StoredCredential } from "../contract.js";
+import type { ConnectionsFlowErrorCode, ConnectionsTokenFailure, StoredCredential } from "../contract.js";
 import { DEFAULT_ACCOUNT_ID, DEFAULT_CREDENTIAL_HEADER, DEFAULT_CREDENTIAL_SCHEME, type CredentialHeaderPlacement, type ProviderDefinition } from "../options.js";
 import { accounts } from "../schema.js";
 import { getCredentialContext, sealSecret } from "./crypto.js";
@@ -56,6 +56,8 @@ export async function saveCredential(ctx: ConnectionsContext, input: SaveCredent
     refreshedAt: null,
     lastError: null,
     lastErrorAt: null,
+    lastErrorHttpStatus: null,
+    lastErrorOAuthError: null,
     updatedAt: now,
     leaseId: null,
     leaseUntil: null,
@@ -82,7 +84,7 @@ function isCredentialValid(credential: CredentialInput): boolean {
   );
 }
 
-export type GetCredentialResult = Ok<StoredCredential> | Err<ConnectionsTokenErrorCode>;
+export type GetCredentialResult = Ok<StoredCredential> | ConnectionsTokenFailure;
 
 /** The stored API key or Basic credential of a provider account. */
 export async function getCredential(ctx: ConnectionsContext, input: ProviderAccountInput): Promise<GetCredentialResult> {
@@ -144,7 +146,7 @@ export function formatCredentialHeader(
   return { name: placement.name, value: placement.scheme === null ? credential.apiKey : `${placement.scheme} ${credential.apiKey}` };
 }
 
-export type GetCredentialHeaderResult = Ok<CredentialHeader> | Err<ConnectionsTokenErrorCode>;
+export type GetCredentialHeaderResult = Ok<CredentialHeader> | ConnectionsTokenFailure;
 
 /** The stored API key or Basic credential of a provider account as the header the provider reads it from. */
 export async function getCredentialHeader(ctx: ConnectionsContext, input: ProviderAccountInput): Promise<GetCredentialHeaderResult> {
