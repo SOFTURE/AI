@@ -1,6 +1,6 @@
 ---
 change_id: observability-error-label-932
-status: in_progress
+status: archived
 ---
 
 # Plan: identifiable errors in label mode (issue #932)
@@ -37,6 +37,6 @@ README "Errors and personal data" and "Next.js" (the trace gap on the RSC payloa
 
 ## Progress
 
-- [ ] Phase 1: label, frames, digest
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: label, frames, digest (6abb1f2)
+- [x] Phase 2: docs (6178bd0)
+- [x] Implementation review

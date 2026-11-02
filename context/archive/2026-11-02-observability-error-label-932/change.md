@@ -1,7 +1,8 @@
 ---
 change_id: observability-error-label-932
 title: "observability: a failed request is identifiable in label mode (issue #932)"
-status: in_progress
+status: archived
+archived_at: 2026-11-02
 roadmap_item: null
 issue: [932]
 branch: claude/project-thread-co3etq
