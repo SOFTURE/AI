@@ -464,7 +464,8 @@ back_up_database() {
 
 {{#dataVolume}}
 # The data volume's folders deploy.json lists (data.backupPaths), archived next to the database dump: a gzip tar of
-# them, written by tar in a one-off app container (the volume is mounted there) into a hidden file first and renamed
+# them, written by tar in a one-off app container (the volume is mounted there; traefik.enable=false keeps an edge
+# Traefik from routing to it) into a hidden file first and renamed
 # only once tar succeeded, with the database's retention (the newest BACKUP_KEEP, none older than BACKUP_MAX_AGE_DAYS).
 # Prints its step line only when deploy.json lists a folder.
 back_up_data() {
@@ -481,7 +482,8 @@ back_up_data() {
   mkdir -p "$BACKUP_DIR"
   stamp="$(date -u +%Y%m%d-%H%M%S)"
   incoming="$BACKUP_DIR/.incoming-$$.tar.gz"
-  if ! compose run --rm --no-deps -T --entrypoint tar app -czf - -C "$DATA_PATH" "${paths[@]}" > "$incoming"; then
+  # Readable by its owner only, like the database dumps.
+  if ! (umask 077 && compose run --rm --no-deps -T --label traefik.enable=false --entrypoint tar app -czf - -C "$DATA_PATH" "${paths[@]}" > "$incoming"); then
     rm -f "$incoming"
     fail "the backup of the data folders failed."
   fi

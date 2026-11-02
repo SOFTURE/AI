@@ -105,7 +105,7 @@ case " $* " in
   *" ps --all "*) printf 'traefik:Up 2 hours\\napp:Up 2 hours (healthy)\\n' ;;
   *" inspect "*) echo healthy ;;
   *" create "*) echo c0ffee ;;
-  *" run --rm --no-deps -T --entrypoint tar app "*) printf 'TAR-stub' ;;
+  *" run --rm --no-deps -T --label traefik.enable=false --entrypoint tar app "*) printf 'TAR-stub' ;;
   *" exec -T postgres pg_dump "*) printf 'PGDMP-stub' ;;
   *" exec -T postgres psql "*) printf '{"softure":[],"app":null}\\n' ;;
 esac
@@ -741,8 +741,9 @@ describe("deploy.sh with a worker image and a data volume (issue #948)", () => {
     expect(archive).toMatch(/^data-[0-9]{8}-[0-9]{6}\.tar\.gz$/);
     expect(steps.indexOf(`step|backup-data|ok|${archive}`)).toBe(steps.indexOf("step|backup|ok|db-20261006-120000.dump") + 1);
     expect(readFileSync(join(server, "backups", archive), "utf8")).toBe("TAR-stub");
+    expect(statSync(join(server, "backups", archive)).mode & 0o777).toBe(0o600);
     expect(readDockerLog()).toContain(
-      "compose --env-file .env.prod --file docker-compose.yml run --rm --no-deps -T --entrypoint tar app -czf - -C /app/data ./cache/paid ./exports",
+      "compose --env-file .env.prod --file docker-compose.yml run --rm --no-deps -T --label traefik.enable=false --entrypoint tar app -czf - -C /app/data ./cache/paid ./exports",
     );
     const kept = listDataBackups();
     expect(kept).toHaveLength(7);
