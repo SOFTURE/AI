@@ -1,5 +1,17 @@
 // Upload sessions: createUpload with its limits, chunks written in any order and resumed, finalize into a stored file.
-import { createUpload, finalizeUpload, getPartKey, getUpload, openFile, saveFile, writeUploadChunk, type FilesContext } from "@softure-ai/files/server";
+import {
+  createUpload,
+  deleteFilesUserData,
+  exportFilesUserData,
+  finalizeUpload,
+  getPartKey,
+  getUpload,
+  openFile,
+  pruneFiles,
+  saveFile,
+  writeUploadChunk,
+  type FilesContext,
+} from "@softure-ai/files/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { ALICE, BOB, chunked, closeTestFiles, createTestFiles, HOUR_MS, readText, sha256, type TestFiles } from "./support.js";
 
@@ -166,5 +178,39 @@ describe("upload sessions", () => {
     const [first, second] = await Promise.all([finalizeUpload(ctx, id), finalizeUpload(ctx, id)]);
     expect(first.ok && second.ok && first.value.id === second.value.id).toBe(true);
     expect((await test.database.client.query("SELECT 1 FROM files.files")).rows).toHaveLength(1);
+  });
+});
+
+describe("upload sessions in prune and privacy", () => {
+  afterEach(closeTestFiles);
+
+  async function openWithPart(test: TestFiles, ownerId: string): Promise<string> {
+    const created = await createUpload(test.ctx, { ownerId, name: "clip.mp4", size: CONTENT.length });
+    if (!created.ok) throw new Error(`setup: ${created.error}`);
+    await writeUploadChunk(test.ctx, created.value.uploadId, chunkOf(CONTENT, 0));
+    return created.value.uploadId;
+  }
+
+  it("prunes expired sessions with their parts and keeps live ones", async () => {
+    const test = await createTestFiles({ files: { uploads: { chunkBytes: CHUNK } } });
+    const old = await openWithPart(test, ALICE);
+    test.clock.advance(23 * HOUR_MS);
+    const live = await openWithPart(test, ALICE);
+    test.clock.advance(HOUR_MS);
+    expect(await pruneFiles(test.ctx)).toEqual({ deletedFiles: 0, freedBytes: 0, failedFiles: 0, deletedUploads: 1, failedUploads: 0 });
+    expect([...test.storage.objects().keys()]).toEqual([getPartKey(live, 0)]);
+    expect((await test.database.client.query<{ id: string }>("SELECT id FROM files.uploads")).rows.map((row) => row.id)).toEqual([live]);
+    expect(old).not.toBe(live);
+  });
+
+  it("exports open sessions and deletes all of the owner's sessions with their parts", async () => {
+    const test = await createTestFiles({ files: { uploads: { chunkBytes: CHUNK } } });
+    const alice = await openWithPart(test, ALICE);
+    await openWithPart(test, BOB);
+    const exported = await exportFilesUserData(test.ctx, ALICE);
+    expect(exported.value.uploads.map((upload) => [upload.uploadId, upload.name, upload.receivedBytes])).toEqual([[alice, "clip.mp4", CHUNK]]);
+    expect(await deleteFilesUserData(test.ctx, ALICE)).toEqual({ ok: true, value: { deletedFiles: 0, pendingFiles: 0, deletedUploads: 1, pendingUploads: 0 } });
+    expect(test.storage.objects().size).toBe(1);
+    expect((await exportFilesUserData(test.ctx, ALICE)).value.uploads).toEqual([]);
   });
 });

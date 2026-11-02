@@ -47,6 +47,11 @@
       "types": "./dist/jobs/index.d.ts",
       "default": "./dist/jobs/index.js"
     },
+    "./mcp": {
+      "@softure-ai/source": "./src/mcp/index.ts",
+      "types": "./dist/mcp/index.d.ts",
+      "default": "./dist/mcp/index.js"
+    },
     "./testing": {
       "@softure-ai/source": "./src/testing/index.ts",
       "types": "./dist/testing/index.d.ts",
@@ -63,11 +68,15 @@
     "zod": "^4.6.5"
   },
   "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
     "@softure-ai/jobs": "^0.1.6",
     "drizzle-orm": "^0.45.2",
     "next": "^16.0.0"
   },
   "peerDependenciesMeta": {
+    "@modelcontextprotocol/server": {
+      "optional": true
+    },
     "@softure-ai/jobs": {
       "optional": true
     }
