@@ -6,6 +6,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Run-end log lines (#934): every recorded attempt now leaves one line in the worker's logger, codes and ids only:
+  `info("job run succeeded", { queue, jobId, attempt, origin, durationMs, code?, items? })`,
+  `warn("job run failed; retrying", { queue, jobId, attempt, code, runAt })` and
+  `error("job run failed", { queue, jobId, attempt, code })`, the last also for a job failed by an expired lease
+  (`jobs.lease_expired`). Before, a handler that returned an error was retried or failed without any line, and a
+  success left none. New option `logRuns: "all" | "failures" | "none"` (default `"all"`); new exports
+  `JOBS_RUN_LOG_LEVELS` and `JobsRunLogLevel`.
+  - Migrate: nothing to change. An app that logged the outcome itself from `onJobFailed` may drop that line; an app
+    with very frequent queues that does not want a line per success sets `jobs({ logRuns: "failures" })`.
 - A short database outage is logged below warning (#933): a failure caused by an unavailable database (SQLSTATE 57P01
   to 57P03 or class 08, a refused, reset or closed connection) in any database call of the worker (claims, schedule
   enqueue and check, prunes, lease extension, outcome recording, release on stop) is logged as `info` with `outageMs`
