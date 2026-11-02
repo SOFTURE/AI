@@ -1,13 +1,13 @@
 ---
 change_id: alerts-package-963
 title: "alerts: a new package with one channel to tell the operator: mail and chat webhooks, deduplication, quiet repeats, jobs and health adapters (issue #963)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 963
 branch: claude/project-thread-nep58u
 created: 2026-11-02
 updated: 2026-11-02
-archived_at: null
+archived_at: 2026-11-02
 ---
 
 ## Intent
@@ -36,3 +36,5 @@ No release in this change: the coordinator publishes the first version (NPM_TOKE
 ## Notes
 
 - Framing: skipped. The issue names the problem and the API.
+- Before the next release: `@softure-ai/alerts` is a new package at 0.0.0; its first publication goes through
+  `NPM_TOKEN`, then the trusted publisher is set for it.
