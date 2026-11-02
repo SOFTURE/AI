@@ -2,8 +2,8 @@
 // `@softure-ai/db/testing`), read the tables back (the run history too) and record the alert hooks' calls.
 import type { Queryable } from "@softure-ai/db";
 import { asc } from "drizzle-orm";
-import type { Job, JobFailedEvent, JobRun, ScheduleStateChangedEvent } from "../contract.js";
-import type { OnJobFailedHook, OnScheduleStateChangedHook } from "../options.js";
+import type { Job, JobFailedEvent, JobRun, QueuePausedEvent, ScheduleStateChangedEvent } from "../contract.js";
+import type { OnJobFailedHook, OnQueuePausedHook, OnScheduleStateChangedHook } from "../options.js";
 import { jobs, runs, syncCursors, syncItems } from "../schema.js";
 import { toJob } from "../server/job-row.js";
 import { toJobRun } from "../server/runs.js";
@@ -40,9 +40,15 @@ export async function listSyncState(db: Queryable): Promise<SyncState> {
 
 export interface JobHookRecorder {
   /** Spread into `jobs({ ... })` of the test's config: `jobs({ queues, ...recorder.options })`. */
-  readonly options: { readonly onJobFailed: OnJobFailedHook; readonly onScheduleStateChanged: OnScheduleStateChangedHook };
+  readonly options: {
+    readonly onJobFailed: OnJobFailedHook;
+    readonly onQueuePaused: OnQueuePausedHook;
+    readonly onScheduleStateChanged: OnScheduleStateChangedHook;
+  };
   /** Every `onJobFailed` call, in order. */
   readonly failedJobs: JobFailedEvent[];
+  /** Every `onQueuePaused` call, in order. */
+  readonly pausedQueues: QueuePausedEvent[];
   /** Every `onScheduleStateChanged` call, in order. */
   readonly scheduleStateChanges: ScheduleStateChangedEvent[];
 }
@@ -51,16 +57,21 @@ export interface JobHookRecorder {
 export function recordJobHooks(): JobHookRecorder {
   const failedJobs: JobFailedEvent[] = [];
   const scheduleStateChanges: ScheduleStateChangedEvent[] = [];
+  const pausedQueues: QueuePausedEvent[] = [];
   return {
     options: {
       onJobFailed: (event) => {
         failedJobs.push(event);
+      },
+      onQueuePaused: (event) => {
+        pausedQueues.push(event);
       },
       onScheduleStateChanged: (event) => {
         scheduleStateChanges.push(event);
       },
     },
     failedJobs,
+    pausedQueues,
     scheduleStateChanges,
   };
 }

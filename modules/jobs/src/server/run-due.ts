@@ -28,6 +28,7 @@ export interface RunDueJobsOptions {
 
 export interface RunDueJobsReport {
   readonly succeeded: number;
+  /** Failed attempts with attempts left, and `pauseQueueLater` attempts (their run row is `retried` too). */
   readonly retried: number;
   readonly failed: number;
   /**
@@ -60,12 +61,13 @@ export async function runDueJobs(ctx: JobsContext, options: RunDueJobsOptions): 
   while (hasClaimed && attempts < maxJobs) {
     hasClaimed = false;
     for (const queue of queues) {
-      const [claimed] = await claimJobs(ctx, { queue, limit: 1, workerId: options.workerId ?? "run-due-jobs", logger });
+      const [claimed] = await claimJobs(ctx, { queue, limit: 1, workerId: options.workerId ?? "run-due-jobs", logger, random: runOptions.random });
       if (claimed === undefined) continue;
       hasClaimed = true;
       attempts += 1;
       const outcome = await runClaimedJob(ctx, claimed, runOptions);
-      report[outcome.kind] = (report[outcome.kind] ?? 0) + 1;
+      const kind = outcome.kind === "paused" ? "retried" : outcome.kind;
+      report[kind] = (report[kind] ?? 0) + 1;
       if (attempts >= maxJobs) break;
     }
   }

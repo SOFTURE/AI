@@ -5,6 +5,7 @@ export const en = {
     trial: "Trial",
     paid: "Paid",
     lifetime: "Lifetime access",
+    free: "Free",
     readOnly: "Read-only",
     unlimited: "Unlimited access",
     daysLeft: { one: "{count} day left", few: "{count} days left", many: "{count} days left", other: "{count} days left" },
@@ -15,6 +16,9 @@ export const en = {
     paidEnding: "Your access ends on {date}. Renew it to keep writing after that.",
     trialEnded: "Your trial has ended. Your data is safe and you can still read it; choose a plan to write again.",
     paidEnded: "Your access has ended. Your data is safe and you can still read it; renew it to write again.",
+    trialEndingFree: "Your trial ends on {date}. You keep the free plan after that; choose a plan for higher limits.",
+    paidEndingFree: "Your access ends on {date}. You keep the free plan after that; renew it to keep your plan's limits.",
+    free: "You are on the free plan. Choose a plan for higher limits.",
     choosePlan: "Choose a plan",
     renew: "Renew access",
   },
@@ -34,6 +38,22 @@ export const en = {
     paidEnded: {
       subject: "Your access has ended",
       body: "Your access has ended. Your data is safe and you can still read it; renew it to write again.",
+    },
+    trialEndingFree: {
+      subject: "Your trial ends on {date}",
+      body: "Your trial ends on {date}. You keep the free plan after that, with its limits; choose a plan for higher limits.",
+    },
+    paidEndingFree: {
+      subject: "Your access ends on {date}",
+      body: "Your access ends on {date}. You keep the free plan after that, with its limits; renew it to keep your plan's limits.",
+    },
+    trialEndedFree: {
+      subject: "Your trial has ended",
+      body: "Your trial has ended. You are on the free plan now and can keep working within its limits; choose a plan for higher limits.",
+    },
+    paidEndedFree: {
+      subject: "Your access has ended",
+      body: "Your access has ended. You are on the free plan now and can keep working within its limits; renew it for your plan's limits.",
     },
   },
   pricing: {
