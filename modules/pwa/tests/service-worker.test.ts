@@ -3,7 +3,10 @@ import { runInThisContext } from "node:vm";
 import {
   buildServiceWorkerSource,
   DEFAULT_EXCLUDED_PREFIXES,
+  getExtraOriginCacheKey,
+  getExtraOriginCacheName,
   resolveServiceWorkerConfig,
+  type ExtraOriginOptions,
   serviceWorker,
   type ServiceWorkerOptions,
   type WorkerScope,
@@ -535,6 +538,81 @@ describe("the service worker's extra origins", () => {
   });
 });
 
+describe("the service worker's offline map origin (#920)", () => {
+  const TILE_HOST = "https://tiles.example.com";
+  const KEY = { pattern: "^/planet/[^/]+/", replacement: "/planet/" };
+  const MAP: ExtraOriginOptions[] = [
+    { origin: TILE_HOST, pathPrefixes: ["/styles/", "/planet.json", "/sprites/", "/fonts/"], cache: "map", strategy: "network-first", timeoutMs: 20 },
+    { origin: TILE_HOST, pathPrefixes: ["/planet/"], cache: "map", cacheKey: KEY, store: false },
+  ];
+
+  async function keepAhead(scope: FakeWorkerScope, url: string, body: string): Promise<void> {
+    const cache = await scope.caches.open(getExtraOriginCacheName("fire", "map"));
+    await cache.put(getExtraOriginCacheKey(url, KEY), new Response(body));
+  }
+
+  it("answers a newer build's tile URL from the area the page kept under the normalized key", async () => {
+    const scope = await installWorker({ extraOrigins: MAP });
+    await keepAhead(scope, `${TILE_HOST}/planet/20261025_001/14/8800/5300.pbf`, "kept tile");
+    scope.route(`${TILE_HOST}/planet/20261101_001/14/8800/5300.pbf`, () => Promise.reject(new TypeError("offline")));
+
+    expect(await readBody(scope.dispatchFetch(new Request(`${TILE_HOST}/planet/20261101_001/14/8800/5300.pbf`)).response)).toBe("kept tile");
+    expect(scope.caches.get("fire-map").getPaths()).toEqual([`${TILE_HOST}/planet/14/8800/5300.pbf`]);
+  });
+
+  it("never stores a tile seen while browsing", async () => {
+    const scope = await installWorker({ extraOrigins: MAP });
+    scope.route(`${TILE_HOST}/planet/20261101_001/1/1/1.pbf`, answer("fresh", { type: "cors" }));
+
+    expect(await readBody(scope.dispatchFetch(new Request(`${TILE_HOST}/planet/20261101_001/1/1/1.pbf`)).response)).toBe("fresh");
+    expect(scope.caches.get("fire-map").getPaths()).toEqual([]);
+  });
+
+  it("serves the style from the network within the timeout and keeps it", async () => {
+    const scope = await installWorker({ extraOrigins: MAP });
+    scope.route(`${TILE_HOST}/styles/liberty`, answer("style v2", { type: "cors", contentType: "application/json" }));
+
+    expect(await readBody(scope.dispatchFetch(new Request(`${TILE_HOST}/styles/liberty`)).response)).toBe("style v2");
+    expect(await (await scope.caches.get("fire-map").match(`${TILE_HOST}/styles/liberty`))?.text()).toBe("style v2");
+  });
+
+  it("falls back to the kept style when the network is silent past the timeout, or fails", async () => {
+    const scope = await installWorker({ extraOrigins: MAP });
+    const cache = await scope.caches.open("fire-map");
+    await cache.put(`${TILE_HOST}/styles/liberty`, new Response("style v1"));
+    await cache.put(`${TILE_HOST}/fonts/a.pbf`, new Response("font v1"));
+    scope.route(`${TILE_HOST}/styles/liberty`, silence);
+    scope.route(`${TILE_HOST}/fonts/a.pbf`, answer("", { status: 503, type: "cors" }));
+
+    expect(await readBody(scope.dispatchFetch(new Request(`${TILE_HOST}/styles/liberty`)).response)).toBe("style v1");
+    expect(await readBody(scope.dispatchFetch(new Request(`${TILE_HOST}/fonts/a.pbf`)).response)).toBe("font v1");
+  });
+
+  it("waits for a slow network when nothing is kept, up to assetTimeoutMs", async () => {
+    const scope = await installWorker({ extraOrigins: MAP, assetTimeoutMs: 80 });
+    scope.route(`${TILE_HOST}/sprites/a.json`, async () => {
+      await delay(40);
+      return answer("sprite", { type: "cors" });
+    });
+    scope.route(`${TILE_HOST}/sprites/b.json`, silence);
+
+    expect(await readBody(scope.dispatchFetch(new Request(`${TILE_HOST}/sprites/a.json`)).response)).toBe("sprite");
+    expect((await scope.dispatchFetch(new Request(`${TILE_HOST}/sprites/b.json`)).response)?.type).toBe("error");
+  });
+
+  it("leaves a path no entry names to the browser", async () => {
+    const scope = await installWorker({ extraOrigins: MAP });
+
+    expect(scope.dispatchFetch(new Request(`${TILE_HOST}/other/file`)).response).toBeNull();
+  });
+
+  it("builds the page's key with the worker's rule, and the URL itself without one", () => {
+    expect(getExtraOriginCacheKey(`${TILE_HOST}/planet/20261101_001/3/4/5.pbf?v=1`, KEY)).toBe(`${TILE_HOST}/planet/3/4/5.pbf?v=1`);
+    expect(getExtraOriginCacheKey(`${TILE_HOST}/styles/liberty`)).toBe(`${TILE_HOST}/styles/liberty`);
+    expect(getExtraOriginCacheName("fire", "map")).toBe("fire-map");
+  });
+});
+
 describe("the service worker's messages", () => {
   it("skips waiting on skip-waiting", async () => {
     const scope = await installWorker();
@@ -612,7 +690,35 @@ describe("resolveServiceWorkerConfig", () => {
   it("normalizes an extra origin and leaves it uncapped by default", () => {
     const config = resolveServiceWorkerConfig({ ...OPTIONS, extraOrigins: [{ origin: "https://tiles.example.com/z/", cache: "tiles" }] }, "b1");
 
-    expect(config.extraOrigins).toEqual([{ origin: "https://tiles.example.com", cache: "tiles", maxEntries: null }]);
+    expect(config.extraOrigins).toEqual([
+      {
+        origin: "https://tiles.example.com",
+        pathPrefixes: null,
+        cache: "tiles",
+        maxEntries: null,
+        strategy: { kind: "cache-first" },
+        cacheKey: null,
+        store: true,
+      },
+    ]);
+  });
+
+  it("resolves a network-first extra origin with its timeout, paths, key rule and store switch", () => {
+    const config = resolveServiceWorkerConfig(
+      {
+        ...OPTIONS,
+        extraOrigins: [
+          { origin: "https://tiles.example.com", pathPrefixes: ["/styles/"], cache: "map", strategy: "network-first", store: false },
+          { origin: "https://tiles.example.com", cache: "map", strategy: "network-first", timeoutMs: 800, cacheKey: { pattern: "^/v\\d+/", replacement: "/" } },
+        ],
+      },
+      "b1",
+    );
+
+    expect(config.extraOrigins.map(({ pathPrefixes, strategy, cacheKey, store }) => ({ pathPrefixes, strategy, cacheKey, store }))).toEqual([
+      { pathPrefixes: ["/styles/"], strategy: { kind: "network-first", timeoutMs: 5000 }, cacheKey: null, store: false },
+      { pathPrefixes: null, strategy: { kind: "network-first", timeoutMs: 800 }, cacheKey: { pattern: "^/v\\d+/", replacement: "/" }, store: true },
+    ]);
   });
 
   it.each([
@@ -631,6 +737,36 @@ describe("resolveServiceWorkerConfig", () => {
       name: "an extra cache named like a build cache",
       options: { extraOrigins: [{ origin: "https://tiles.example.com", cache: "pages-map" }] },
       message: 'extra origin cache "pages-map" must not start with "shell" or "pages"',
+    },
+    {
+      name: "a timeout on a cache-first extra origin",
+      options: { extraOrigins: [{ origin: "https://tiles.example.com", cache: "tiles", timeoutMs: 100 }] },
+      message: "extraOrigins[].timeoutMs applies only to the network-first strategy",
+    },
+    {
+      name: "an unknown extra origin strategy",
+      options: { extraOrigins: [{ origin: "https://tiles.example.com", cache: "tiles", strategy: "stale" } as unknown as ExtraOriginOptions] },
+      message: 'extra origin strategy "stale" must be "cache-first" or "network-first"',
+    },
+    {
+      name: "a zero network-first timeout",
+      options: { extraOrigins: [{ origin: "https://tiles.example.com", cache: "tiles", strategy: "network-first", timeoutMs: 0 } as const] },
+      message: "extraOrigins[].timeoutMs must be a positive integer, got 0",
+    },
+    {
+      name: "a cache key pattern that is not a regular expression",
+      options: { extraOrigins: [{ origin: "https://tiles.example.com", cache: "tiles", cacheKey: { pattern: "(", replacement: "" } }] },
+      message: 'extra origin cacheKey pattern "(" is not a regular expression',
+    },
+    {
+      name: "a relative extra origin path",
+      options: { extraOrigins: [{ origin: "https://tiles.example.com", cache: "tiles", pathPrefixes: ["styles/"] }] },
+      message: 'extra origin path prefix "styles/" must start with /',
+    },
+    {
+      name: "an empty extra origin path list",
+      options: { extraOrigins: [{ origin: "https://tiles.example.com", cache: "tiles", pathPrefixes: [] }] },
+      message: "extraOrigins[].pathPrefixes must name at least one path",
     },
     {
       name: "an extra origin that is not a URL",

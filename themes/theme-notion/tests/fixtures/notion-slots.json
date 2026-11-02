@@ -655,8 +655,8 @@
     ["dialog-description","text-sm text-muted-foreground"],
     ["input","h-7 w-full min-w-0 rounded-md border border-input bg-field px-2.5 py-1 text-base transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40"],
     ["dialog-footer","flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"],
-    ["button","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-primary-hover h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2"],
     ["button","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border border-border bg-background hover:bg-linear-to-r hover:from-accent hover:to-accent hover:text-accent-foreground h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2"],
+    ["button","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-primary-hover h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2"],
     ["dialog-close","absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"]
   ],
   "DialogClose": [
@@ -682,8 +682,8 @@
     ["dialog-description","text-sm text-muted-foreground"],
     ["textarea","flex field-sizing-content min-h-16 w-full rounded-md border border-input bg-field px-2.5 py-1.5 text-base transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 md:text-sm dark:aria-invalid:ring-destructive/40"],
     ["dialog-footer","flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"],
-    ["button","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-primary-hover h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2"],
     ["button","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border border-border bg-background hover:bg-linear-to-r hover:from-accent hover:to-accent hover:text-accent-foreground h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2"],
+    ["button","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-primary-hover h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2"],
     ["dialog-close","absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"]
   ],
   "DropdownMenu": [
@@ -1018,7 +1018,7 @@
     ["launch-screen-icon","size-16 rounded-2xl"],
     ["launch-screen-name","text-lg font-semibold"],
     ["progress","relative h-1.5 overflow-hidden rounded-full bg-primary/20 w-48"],
-    ["progress-indicator","h-full w-full flex-1 bg-primary transition-all dark:bg-link"],
+    ["progress-indicator","h-full w-full flex-1 bg-primary transition-all data-[state=indeterminate]:w-1/3 data-[state=indeterminate]:-translate-x-full data-[state=indeterminate]:animate-out data-[state=indeterminate]:slide-out-to-right-[400%] data-[state=indeterminate]:repeat-infinite data-[state=indeterminate]:duration-1500 data-[state=indeterminate]:ease-in-out motion-reduce:data-[state=indeterminate]:animate-none motion-reduce:data-[state=indeterminate]:w-full motion-reduce:data-[state=indeterminate]:translate-x-0 motion-reduce:data-[state=indeterminate]:opacity-50 dark:bg-link"],
     ["launch-screen-percent","text-sm text-muted-foreground tabular-nums"]
   ],
   "MarkPopover": [
@@ -1077,7 +1077,7 @@
   ],
   "Progress": [
     ["progress","relative h-1.5 overflow-hidden rounded-full bg-primary/20 w-80"],
-    ["progress-indicator","h-full w-full flex-1 bg-primary transition-all dark:bg-link"]
+    ["progress-indicator","h-full w-full flex-1 bg-primary transition-all data-[state=indeterminate]:w-1/3 data-[state=indeterminate]:-translate-x-full data-[state=indeterminate]:animate-out data-[state=indeterminate]:slide-out-to-right-[400%] data-[state=indeterminate]:repeat-infinite data-[state=indeterminate]:duration-1500 data-[state=indeterminate]:ease-in-out motion-reduce:data-[state=indeterminate]:animate-none motion-reduce:data-[state=indeterminate]:w-full motion-reduce:data-[state=indeterminate]:translate-x-0 motion-reduce:data-[state=indeterminate]:opacity-50 dark:bg-link"]
   ],
   "PropertyList": [
     ["property-list","group/field-group @container/field-group flex flex-col data-[slot=checkbox-group]:gap-3 [&>[data-slot=field-group]]:gap-4 gap-0.5 w-96"],
@@ -1098,6 +1098,18 @@
     ["label","flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50"],
     ["radio-group-item","aspect-square size-4 shrink-0 rounded-full border-[1.5px] border-muted-foreground text-primary transition-shadow outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary dark:aria-invalid:ring-destructive/40"],
     ["label","flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50"]
+  ],
+  "RouteLoading": [
+    ["route-loading","contents"],
+    ["launch-screen","fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background p-6 text-foreground md:[@media(display-mode:browser)]:hidden"],
+    ["launch-screen-icon","size-16 rounded-2xl"],
+    ["launch-screen-name","text-lg font-semibold"],
+    ["progress","relative h-1.5 overflow-hidden rounded-full bg-primary/20 w-48"],
+    ["progress-indicator","h-full w-full flex-1 bg-primary transition-all data-[state=indeterminate]:w-1/3 data-[state=indeterminate]:-translate-x-full data-[state=indeterminate]:animate-out data-[state=indeterminate]:slide-out-to-right-[400%] data-[state=indeterminate]:repeat-infinite data-[state=indeterminate]:duration-1500 data-[state=indeterminate]:ease-in-out motion-reduce:data-[state=indeterminate]:animate-none motion-reduce:data-[state=indeterminate]:w-full motion-reduce:data-[state=indeterminate]:translate-x-0 motion-reduce:data-[state=indeterminate]:opacity-50 dark:bg-link"],
+    ["launch-screen-percent","text-sm text-muted-foreground tabular-nums"],
+    ["top-loading-bar","pointer-events-none fixed inset-x-0 top-0 z-50 hidden md:[@media(display-mode:browser)]:block"],
+    ["progress","relative w-full overflow-hidden h-0.5 rounded-none bg-transparent"],
+    ["progress-indicator","h-full w-full flex-1 bg-primary transition-all data-[state=indeterminate]:w-1/3 data-[state=indeterminate]:-translate-x-full data-[state=indeterminate]:animate-out data-[state=indeterminate]:slide-out-to-right-[400%] data-[state=indeterminate]:repeat-infinite data-[state=indeterminate]:duration-1500 data-[state=indeterminate]:ease-in-out motion-reduce:data-[state=indeterminate]:animate-none motion-reduce:data-[state=indeterminate]:w-full motion-reduce:data-[state=indeterminate]:translate-x-0 motion-reduce:data-[state=indeterminate]:opacity-50 dark:bg-link"]
   ],
   "ScrollArea": [
     ["scroll-area","relative h-24 w-64 rounded-md border"],
@@ -1811,6 +1823,11 @@
   "Tooltip": [
     ["tooltip-trigger","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 text-muted-foreground hover:bg-accent hover:text-foreground size-7"],
     ["tooltip-content","z-50 w-fit origin-(--radix-tooltip-content-transform-origin) animate-in rounded-sm bg-tooltip px-2 py-1 text-xs font-medium text-balance text-tooltip-foreground fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"]
+  ],
+  "TopLoadingBar": [
+    ["top-loading-bar","pointer-events-none fixed inset-x-0 top-0 z-50"],
+    ["progress","relative w-full overflow-hidden h-0.5 rounded-none bg-transparent"],
+    ["progress-indicator","h-full w-full flex-1 bg-primary transition-all data-[state=indeterminate]:w-1/3 data-[state=indeterminate]:-translate-x-full data-[state=indeterminate]:animate-out data-[state=indeterminate]:slide-out-to-right-[400%] data-[state=indeterminate]:repeat-infinite data-[state=indeterminate]:duration-1500 data-[state=indeterminate]:ease-in-out motion-reduce:data-[state=indeterminate]:animate-none motion-reduce:data-[state=indeterminate]:w-full motion-reduce:data-[state=indeterminate]:translate-x-0 motion-reduce:data-[state=indeterminate]:opacity-50 dark:bg-link"]
   ],
   "UpdatePrompt": [
     ["update-prompt","pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pt-4 pr-[calc(--spacing(4)+env(safe-area-inset-right))] pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] pl-[calc(--spacing(4)+env(safe-area-inset-left))]"],

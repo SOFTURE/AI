@@ -2,7 +2,14 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { fetchBuildInfo } from "../smoke/fetch-build-info.js";
-import { DEFAULT_TOLERANCE_SECONDS, formatSmokeReport, runSmokeChecks, type SmokeExpectation } from "../smoke/smoke-checks.js";
+import {
+  DEFAULT_TOLERANCE_SECONDS,
+  formatSmokeReport,
+  getSmokeCheckName,
+  runSmokeChecks,
+  type SmokeExpectation,
+  type SmokeFieldValue,
+} from "../smoke/smoke-checks.js";
 import { joinUrl, trimTrailingSlashes } from "../verify/checks.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
@@ -18,6 +25,10 @@ const PATH = /^\/[A-Za-z0-9/._~-]*$/;
 const HEADER_LINE = /^([A-Za-z0-9-]+): (\P{Cc}+)$/u;
 // An ISO 8601 time in UTC or with an offset, as `date -u +%Y-%m-%dT%H:%M:%SZ` writes it.
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
+const FIELD_NAME = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/;
+const MAX_FIELDS = 50;
+// Checked by their own flags (--tag, --commit, --deployed-at), never by the expect file.
+const OWN_FLAG_FIELDS: Readonly<Record<string, string>> = { release: "--tag", commit: "--commit", startedAt: "--deployed-at" };
 
 function readSmokeArgs(args: string[]) {
   try {
@@ -31,6 +42,7 @@ function readSmokeArgs(args: string[]) {
         "headers-file": { type: "string" },
         timeout: { type: "string" },
         "tolerance-seconds": { type: "string" },
+        "expect-file": { type: "string" },
       },
       strict: true,
       allowPositionals: true,
@@ -95,7 +107,44 @@ function readHeaders(path: string | undefined, cwd: string): Record<string, stri
   return headers;
 }
 
-function readExpectation(values: ReturnType<typeof readSmokeArgs>["values"]): SmokeExpectation {
+function isFieldValue(value: unknown): value is SmokeFieldValue {
+  return value === null || typeof value === "string" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value));
+}
+
+/** A JSON object of the app's own build info fields and the values they must equal (issue #922). */
+function readExpectFile(path: string | undefined, cwd: string): Record<string, SmokeFieldValue> | undefined {
+  if (path === undefined) return undefined;
+  let text: string;
+  try {
+    text = readFileSync(resolve(cwd, path), "utf8");
+  } catch (error) {
+    return fail(`smoke: cannot read --expect-file ${path} (${(error as NodeJS.ErrnoException).code ?? "unknown error"}).`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return fail(`smoke: --expect-file ${path} is not JSON.`, USAGE_EXIT_CODE);
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return fail(`smoke: --expect-file ${path} is not a JSON object of build info fields and their expected values.`, USAGE_EXIT_CODE);
+  }
+  const entries = Object.entries(parsed);
+  if (entries.length > MAX_FIELDS) fail(`smoke: --expect-file ${path} names more than ${MAX_FIELDS} fields.`, USAGE_EXIT_CODE);
+  const fields: Record<string, SmokeFieldValue> = {};
+  for (const [name, value] of entries) {
+    if (!FIELD_NAME.test(name)) {
+      fail(`smoke: --expect-file field ${JSON.stringify(name)} is not a name (a letter or _, then letters, digits, _ or -; at most 64).`, USAGE_EXIT_CODE);
+    }
+    const flag = OWN_FLAG_FIELDS[name];
+    if (flag !== undefined) fail(`smoke: --expect-file field ${name} is checked by ${flag}; leave it out of the file.`, USAGE_EXIT_CODE);
+    if (!isFieldValue(value)) fail(`smoke: --expect-file field ${name} must be text, a number, true, false or null.`, USAGE_EXIT_CODE);
+    fields[name] = value;
+  }
+  return fields;
+}
+
+function readExpectation(values: ReturnType<typeof readSmokeArgs>["values"], cwd: string): SmokeExpectation {
   const tag = values.tag;
   if (tag === undefined || !TAG.test(tag)) fail("smoke: pass --tag=<the deployed release tag>.", USAGE_EXIT_CODE);
   if (values.commit !== undefined && !COMMIT.test(values.commit)) {
@@ -103,18 +152,21 @@ function readExpectation(values: ReturnType<typeof readSmokeArgs>["values"]): Sm
   }
   const deployedAt = readDeployedAt(values["deployed-at"]);
   const toleranceSeconds = readInteger("tolerance-seconds", values["tolerance-seconds"], TOLERANCE_RANGE);
+  const fields = readExpectFile(values["expect-file"], cwd);
   return {
     tag,
     ...(values.commit === undefined ? {} : { commit: values.commit }),
     ...(deployedAt === undefined ? {} : { deployedAt }),
     toleranceSeconds: toleranceSeconds ?? DEFAULT_TOLERANCE_SECONDS,
+    ...(fields === undefined ? {} : { fields }),
   };
 }
 
 /**
  * `softure-deploy smoke <url> --tag=<tag> [--commit=<sha>] [--deployed-at=<iso>] [--path=/api/health/build]
- * [--headers-file=<file>] [--timeout=<ms>] [--tolerance-seconds=60]`: reads the build info the app answers and fails
- * when the release is not the tag, the commit is not the tag's, or the process started before the deploy.
+ * [--headers-file=<file>] [--timeout=<ms>] [--tolerance-seconds=60] [--expect-file=<json>]`: reads the build info the
+ * app answers and fails when the release is not the tag, the commit is not the tag's, the process started before the
+ * deploy, or one of the app's own fields the expect file names does not equal its value.
  */
 export async function runSmokeCommand(args: string[], io: CliIo): Promise<void> {
   const { values, positionals } = readSmokeArgs(args);
@@ -123,14 +175,14 @@ export async function runSmokeCommand(args: string[], io: CliIo): Promise<void> 
   }
   const baseUrl = readBaseUrl(positionals[0]);
   if (!PATH.test(values.path)) fail(`smoke: --path ${JSON.stringify(values.path)} is not a path starting with /.`, USAGE_EXIT_CODE);
-  const expectation = readExpectation(values);
+  const expectation = readExpectation(values, io.cwd);
   const timeoutMs = readInteger("timeout", values.timeout, TIMEOUT_RANGE) ?? DEFAULT_TIMEOUT_MS;
   const headers = readHeaders(values["headers-file"], io.cwd);
   const url = joinUrl(baseUrl, values.path);
   const result = await fetchBuildInfo({ url, headers, timeoutMs });
   if (!result.ok) fail(`smoke: ${url}: ${result.reason}.`);
-  const checks = runSmokeChecks(result.info, expectation);
+  const checks = runSmokeChecks(result.info, expectation, result.answer);
   io.stdout(formatSmokeReport(checks, url));
-  const failed = checks.filter((check) => !check.passed).map((check) => check.kind);
+  const failed = checks.filter((check) => !check.passed).map(getSmokeCheckName);
   if (failed.length > 0) fail(`smoke: production does not run ${expectation.tag}: the ${failed.join(", ")} ${failed.length > 1 ? "checks" : "check"} failed.`);
 }

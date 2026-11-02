@@ -226,11 +226,21 @@ The server functions in `/server` take `{ db, clock, config, env? }`; `env` defa
 and the client secrets), so a worker outside Next builds the context the same way as `getConnectionsContext` does.
 
 **Inside a transaction** (a jobs `processSyncItem` callback, the app's own `db.transaction`), pass the transaction as
-`db`: `requestWithConnection({ ...ctx, db: tx }, ...)`. The credential is then read, and a refresh written, in that
-transaction: a refresh is rolled back with it when the transaction fails, and another call for the same account
-waits on the account's row until it ends. With the outer `ctx.db` the read takes a second connection on Postgres, and
-on the one-connection test database (`@softure-ai/db/testing`) it rejects with `PoolInsideTransactionError` instead
-of waiting forever.
+`db`: `requestWithConnection({ ...ctx, db: tx }, ...)`. The token state is kept outside that transaction anyway: a
+refreshed token, the refresh lease, `reconnect_required` and the `onReconnectRequired` hook go through the app's
+configured database (`database.handle`, or the pool for a `postgres://` `database.url`, the handle the adapters use),
+because the provider has already spent the old refresh token and a rollback cannot undo that. A failed item therefore
+keeps the rotated refresh token and a terminal `invalid_grant` (#935). This applies to `getAccessToken`,
+`replaceRejectedToken`, `reportCredentialRejected` and the two request helpers; the app's own writes stay in its
+transaction. Three consequences:
+
+- such a call takes a second pool connection while the caller holds one for its transaction, so the pool needs at
+  least one connection more than the transactions that call it at the same time (a jobs worker's concurrency);
+- a transaction that itself changed the account's row (`saveCredential`, `disconnect`) and then asks for its token
+  waits on its own row lock: commit the change first;
+- PGlite has one connection, so there (`pglite://`, `@softure-ai/db/testing`) the state is written in the caller's
+  transaction and rolled back with it. With the outer `ctx.db` inside an open transaction the one-connection test
+  database rejects the read with `PoolInsideTransactionError` instead of waiting forever.
 
 ## 5. Migrations and tables
 
@@ -295,7 +305,9 @@ once per transition (the next calls answer the code without running it again). `
 - `expired`: the access token expired and there is no refresh token;
 - `rejected`: the app called `reportCredentialRejected` (a 401 from the API).
 
-A hook that throws is logged by error kind and never fails the call; the state is stored either way. A new connect
+A hook that throws is logged by error kind and never fails the call; the state is stored either way. Called from
+inside a transaction, the hook's `ctx.db` is the configured database, not that transaction (section 4), so what the
+hook writes (an alert job, a mail) is kept when the caller's transaction rolls back. A new connect
 (or a new key) brings the connection back to `connected`.
 
 ## 11. GDPR

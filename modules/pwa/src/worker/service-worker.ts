@@ -3,14 +3,38 @@
 // worker's globals (`URL`, `Request`, `Response`, `setTimeout`): no imports, no helpers outside its body. Tests call
 // it in Node with a fake scope.
 
+/**
+ * How the worker answers an extra origin's file: its kept copy first (`cache-first`), or the network first for at most
+ * `timeoutMs`, then the kept copy (`network-first`, for files that change, like a map's style).
+ */
+export type ExtraOriginStrategy = { readonly kind: "cache-first" } | { readonly kind: "network-first"; readonly timeoutMs: number };
+
+/**
+ * The cache key of an extra origin's file: `origin + path.replace(new RegExp(pattern), replacement) + search`, e.g. a
+ * tile host's weekly build segment dropped, so a tile kept last week answers this week's URL.
+ */
+export interface ExtraOriginCacheKey {
+  /** A regular expression (its source text) matched against the URL's path. */
+  readonly pattern: string;
+  /** The replacement, with `$1`-style groups, as `String.prototype.replace` takes it. */
+  readonly replacement: string;
+}
+
 /** One extra origin the worker keeps in its own cache, e.g. a map's tile host. */
 export interface ExtraOrigin {
   /** The origin, e.g. `https://tiles.example.com`. */
   readonly origin: string;
+  /** The paths this entry serves (whole segments, as `excludedPrefixes`), or `null` for every path. The first match wins. */
+  readonly pathPrefixes: readonly string[] | null;
   /** The cache's name after the app's prefix (`<app>-<cache>`). It carries no build, so it survives a new build. */
   readonly cache: string;
   /** The most entries kept (oldest dropped first), or `null` for no cap. */
   readonly maxEntries: number | null;
+  readonly strategy: ExtraOriginStrategy;
+  /** The rule that turns a request URL into the cache key, or `null` for the URL itself. */
+  readonly cacheKey: ExtraOriginCacheKey | null;
+  /** Whether the worker stores what it fetches; `false` leaves the cache to the page (an area downloaded ahead). */
+  readonly store: boolean;
 }
 
 export interface ServiceWorkerConfig {
@@ -270,16 +294,60 @@ export function serviceWorker(scope: WorkerScope, config: ServiceWorkerConfig): 
     });
   }
 
+  // Compiled once: the patterns were checked when the route module loaded.
+  const extraKeyPatterns = new Map(
+    config.extraOrigins.flatMap((extra) => (extra.cacheKey === null ? [] : [[extra, new RegExp(extra.cacheKey.pattern)] as const])),
+  );
+
+  function findExtraOrigin(url: URL): ExtraOrigin | undefined {
+    return config.extraOrigins.find(
+      (candidate) =>
+        candidate.origin === url.origin &&
+        (candidate.pathPrefixes === null || candidate.pathPrefixes.some((prefix) => matchesPrefix(url.pathname, prefix))),
+    );
+  }
+
+  // The same rule as `getExtraOriginCacheKey`, which the page uses to fill the cache.
+  function getExtraKey(request: Request, extra: ExtraOrigin): string {
+    const pattern = extraKeyPatterns.get(extra);
+    if (extra.cacheKey === null || pattern === undefined) return request.url;
+    const url = new URL(request.url);
+    return `${url.origin}${url.pathname.replace(pattern, extra.cacheKey.replacement)}${url.search}`;
+  }
+
+  async function keepExtra(cache: Cache, key: string, extra: ExtraOrigin, response: Response): Promise<void> {
+    if (!extra.store || !response.ok) return;
+    await cache.delete(key);
+    await cache.put(key, response.clone());
+    if (extra.maxEntries !== null) await trimCache(cache, extra.maxEntries);
+  }
+
   async function fromExtraOrigin(request: Request, extra: ExtraOrigin): Promise<Response> {
     const cache = await scope.caches.open(`${config.app}-${extra.cache}`);
-    const kept = await cache.match(request);
+    const key = getExtraKey(request, extra);
+    if (extra.strategy.kind === "network-first") return fromExtraNetworkFirst(request, extra, extra.strategy.timeoutMs, cache, key);
+    const kept = await cache.match(key);
     if (kept !== undefined) return kept;
-    return fetchBounded(request, async (response) => {
-      if (response.ok) {
-        await cache.put(request, response.clone());
-        if (extra.maxEntries !== null) await trimCache(cache, extra.maxEntries);
-      }
-    });
+    return fetchBounded(request, (response) => keepExtra(cache, key, extra, response));
+  }
+
+  // The network within `timeoutMs`, else the kept copy, else the network up to `assetTimeoutMs` in all. A failed answer
+  // yields to a kept copy, and with none it is still served.
+  async function fromExtraNetworkFirst(request: Request, extra: ExtraOrigin, timeoutMs: number, cache: Cache, key: string): Promise<Response> {
+    const networkOrNull = scope.fetch(request).then(
+      async (response) => {
+        await keepExtra(cache, key, extra, response);
+        return response;
+      },
+      () => null,
+    );
+    const first = await raceNetwork(networkOrNull, Math.min(timeoutMs, config.assetTimeoutMs));
+    if (first?.ok === true) return first;
+    const kept = await cache.match(key);
+    if (kept !== undefined) return kept;
+    if (first !== null) return first;
+    const late = await raceNetwork(networkOrNull, Math.max(0, config.assetTimeoutMs - timeoutMs));
+    return late ?? Response.error();
   }
 
   scope.addEventListener("install", (event) => {
@@ -297,7 +365,7 @@ export function serviceWorker(scope: WorkerScope, config: ServiceWorkerConfig): 
     // Chrome's devtools send this pair, and fetching it from a worker throws.
     if (request.cache === "only-if-cached" && request.mode !== "same-origin") return;
     const url = new URL(request.url);
-    const extra = config.extraOrigins.find((candidate) => candidate.origin === url.origin);
+    const extra = findExtraOrigin(url);
     if (extra !== undefined) {
       event.respondWith(fromExtraOrigin(request, extra));
       return;

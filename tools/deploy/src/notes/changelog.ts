@@ -1,8 +1,9 @@
 // The changelog a build embeds and the build info route answers: the finished items of the newest roadmaps, read from
-// the working tree before `next build`. Ids, change ids and status only: the route is public.
+// the working tree before `next build`. Ids, change ids and status by default: the route is public, so another column
+// is added only when the app names it.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseRoadmapItems } from "./roadmap-items.js";
+import { readCellText, readRoadmapTable } from "./roadmap-items.js";
 import { isArchivedRoadmap, MAIN_ROADMAP, ROADMAP_ARCHIVE, sortArchivedRoadmaps } from "./roadmap-files.js";
 
 export type ChangelogStatus = "done" | "done_code";
@@ -11,6 +12,8 @@ export interface ChangelogItem {
   id: string;
   changeId: string;
   status: ChangelogStatus;
+  /** The roadmap columns the app named (issue #922), by the name it gave; a column the table lacks is left out. */
+  fields?: Record<string, string>;
 }
 
 export interface ChangelogRoadmap {
@@ -42,20 +45,33 @@ export function listChangelogRoadmaps(cwd: string, limit: number): string[] {
   return [...paths, ...sortArchivedRoadmaps(archived).reverse()].slice(0, limit);
 }
 
-/** The finished items (`done`, `done_code`) of one roadmap's At a glance table, in table order. */
-export function selectChangelogItems(markdown: string): ChangelogItem[] {
+/**
+ * The finished items (`done`, `done_code`) of one roadmap's At a glance table, in table order. `fields` names more
+ * columns to copy (header names, any case); without it an item carries no `fields`.
+ */
+export function selectChangelogItems(markdown: string, fields: readonly string[] = []): ChangelogItem[] {
+  const table = readRoadmapTable(markdown);
+  const header = table.header.map((name) => name.toLowerCase());
+  const columns = fields.map((name) => ({ name, index: header.indexOf(name.toLowerCase()) }));
   const items: ChangelogItem[] = [];
-  for (const item of parseRoadmapItems(markdown)) {
-    const status = toChangelogStatus(item.status);
-    if (status !== null) items.push({ id: item.id, changeId: item.changeId, status });
+  for (const cells of table.rows) {
+    const status = toChangelogStatus(readCellText(cells.at(-1) ?? ""));
+    if (status === null) continue;
+    const item: ChangelogItem = { id: readCellText(cells[0] ?? ""), changeId: readCellText(cells[1] ?? ""), status };
+    if (fields.length > 0) {
+      item.fields = Object.fromEntries(
+        columns.filter(({ index }) => index !== -1 && index < cells.length).map(({ name, index }) => [name, readCellText(cells[index] ?? "")]),
+      );
+    }
+    items.push(item);
   }
   return items;
 }
 
-/** The changelog of the newest `limit` roadmaps under `cwd`; none is an empty list. */
-export function readChangelog(cwd: string, limit = DEFAULT_CHANGELOG_ROADMAPS): ChangelogRoadmap[] {
+/** The changelog of the newest `limit` roadmaps under `cwd`, with the named extra columns; none is an empty list. */
+export function readChangelog(cwd: string, limit = DEFAULT_CHANGELOG_ROADMAPS, fields: readonly string[] = []): ChangelogRoadmap[] {
   return listChangelogRoadmaps(cwd, limit).map((roadmap) => ({
     roadmap,
-    items: selectChangelogItems(readFileSync(join(cwd, roadmap), "utf8")),
+    items: selectChangelogItems(readFileSync(join(cwd, roadmap), "utf8"), fields),
   }));
 }

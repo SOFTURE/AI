@@ -2,6 +2,7 @@
 // A refresh runs under the row's lease (a conditional update, never a row lock held across the network call),
 // so two workers never spend one refresh token twice; the other callers wait for the new token and read it.
 // `invalid_grant` is terminal (`reconnect_required`, the app's hook runs once); everything else is retryable.
+// The state is kept outside the caller's transaction, so a rollback there never undoes a refresh (state-database.ts).
 import { randomUUID } from "node:crypto";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, eq, isNull, lte, or } from "drizzle-orm";
@@ -12,6 +13,7 @@ import { getCredentialContext, sealSecret, type Keyring } from "./crypto.js";
 import { addSeconds, getRefreshExpiry } from "./flow.js";
 import { findProvider, getConnectionsOptions, readClientCredentials } from "./options.js";
 import { findAccount, getKeyring, markReconnectRequired, openOAuthSecrets, parseScopes, releaseLease, type ConnectionsContext } from "./store.js";
+import { getStateContext } from "./state-database.js";
 import { requestTokens } from "./token-client.js";
 
 export interface GetAccessTokenInput {
@@ -52,7 +54,9 @@ interface ForceRefresh {
   readonly rejectedToken: string | null;
 }
 
-async function readAccessToken(ctx: ConnectionsContext, input: ProviderAccount, force: ForceRefresh | null): Promise<GetAccessTokenResult> {
+async function readAccessToken(callerCtx: ConnectionsContext, input: ProviderAccount, force: ForceRefresh | null): Promise<GetAccessTokenResult> {
+  // Every read and write below runs outside the caller's transaction (state-database.ts).
+  const ctx = await getStateContext(callerCtx);
   const accountId = input.accountId ?? DEFAULT_ACCOUNT_ID;
   const found = findProvider(ctx.config, input.provider, accountId);
   if (!found.ok) return found;

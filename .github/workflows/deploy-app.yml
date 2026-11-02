@@ -26,7 +26,9 @@
 # Smoke check (issue #878): with `build-info-path` (the app's build info route of @softure-ai/ops), verify then runs
 # `softure-deploy smoke`, which fails the run when production answers another release than the tag, another commit
 # than the tag's, or a process started before the deploy job sent the release, and writes `Smoke check: passed` or
-# `failed` to the job summary. The build job passes the tag's commit to the image as the build argument
+# `failed` to the job summary. `build-info-expect` (a JSON object, e.g. from an earlier job's output) adds the app's own
+# build info fields and their expected values (issue #922), and the workflow's output `smoke-result` (passed, failed,
+# skipped) lets a later job of the caller gate on the smoke check. The build job passes the tag's commit to the image as the build argument
 # SOFTURE_BUILD_COMMIT, which the Dockerfile declares before `npm run build` (init's does).
 #
 # Release guards (DF-11): the `check` job refuses a tag whose commit is not on the release branch (the caller's default
@@ -157,6 +159,10 @@ on:
         description: "The app's build info route (@softure-ai/ops), e.g. /api/health/build; verify fails when it answers another release, commit or a start before the deploy. Empty skips the smoke check"
         type: string
         default: ""
+      build-info-expect:
+        description: "The app's own build info fields and the values they must equal, as a JSON object (text, number, boolean or null values), e.g. {\"toolListVersion\": \"a1b2\"}; the smoke check fails on another value or a missing field. Needs build-info-path; empty checks none"
+        type: string
+        default: ""
       deploy-config:
         description: The app's deploy.json in the tag, verified and shipped to the server; empty means the health route only
         type: string
@@ -238,6 +244,9 @@ on:
       digest:
         description: The pushed image digest
         value: ${{ jobs.build.outputs.digest }}
+      smoke-result:
+        description: "The smoke check's result for a later job to gate on: passed, failed, or skipped when it did not run (no build-info-path, deploy false, or an earlier step failed)"
+        value: ${{ jobs.verify.outputs.smoke-result || jobs.deploy.outputs.smoke-result || 'skipped' }}
 
 permissions:
   contents: read
@@ -300,6 +309,7 @@ jobs:
           HEALTH_PATH: ${{ inputs.health-path }}
           VERIFY_TIMEOUT: ${{ inputs.verify-timeout-seconds }}
           BUILD_INFO_PATH: ${{ inputs.build-info-path }}
+          BUILD_INFO_EXPECT: ${{ inputs.build-info-expect }}
           DEPLOY_CONFIG: ${{ inputs.deploy-config }}
           DEPLOY_CLI_VERSION: ${{ inputs.deploy-cli-version }}
           NODE_VERSION: ${{ inputs.node-version }}
@@ -359,6 +369,12 @@ jobs:
           expect health-path "$HEALTH_PATH" '^/[A-Za-z0-9/._~-]*$' "a path starting with /"
           expect verify-timeout-seconds "$VERIFY_TIMEOUT" '^[1-9][0-9]{1,3}$' "10 to 9999 seconds"
           if [ -n "${BUILD_INFO_PATH:-}" ]; then expect build-info-path "$BUILD_INFO_PATH" '^/[A-Za-z0-9/._~-]*$' "a path starting with /"; fi
+          if [ -n "${BUILD_INFO_EXPECT:-}" ]; then
+            if [ -z "${BUILD_INFO_PATH:-}" ]; then reject build-info-expect "empty without build-info-path (the smoke check reads the fields there)"; fi
+            if ! printf '%s' "$BUILD_INFO_EXPECT" | jq -e 'type == "object" and all(.[]; type == "string" or type == "number" or type == "boolean" or type == "null")' > /dev/null 2>&1; then
+              reject build-info-expect "a JSON object of build info fields and their expected values (text, number, boolean or null)"
+            fi
+          fi
           if [ -n "$DEPLOY_CONFIG" ]; then expect_path deploy-config "$DEPLOY_CONFIG"; fi
           # Secrets by name. With deploy: false the caller's job passes them to the deploy action, so this workflow
           # takes none. secrets-from-environment, which read the whole secrets context, is gone (0.4.0, issue #476).
@@ -611,6 +627,7 @@ jobs:
     outputs:
       server-lines: ${{ steps.send.outputs.server-lines }}
       sent-at: ${{ steps.send.outputs.sent-at }}
+      smoke-result: ${{ steps.e2e-verify.outputs.smoke-result }}
     environment: ${{ inputs.environment }}
     # One deploy at a time per app and environment; a running deploy is never cancelled halfway. End-to-end runs deploy
     # to their own server, so each has its own group and none waits for or replaces another.
@@ -701,7 +718,8 @@ jobs:
           retention-days: 7
       # The verify job's steps (the deploy action's verify), here because the end-to-end stack runs on this runner. The
       # runner trusts the run's CA (curl); Node takes it from ca-file.
-      - if: inputs.e2e
+      - id: e2e-verify
+        if: inputs.e2e
         uses: ./.softure-ai-deploy/.github/actions/deploy
         with:
           release: ${{ needs.check.outputs.release }}
@@ -711,6 +729,7 @@ jobs:
           deploy-cli: ${{ format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) }}
           ca-file: ${{ steps.e2e-server.outputs.ca-file }}
           build-info-path: ${{ inputs.build-info-path }}
+          build-info-expect: ${{ inputs.build-info-expect }}
           deployed-at: ${{ steps.send.outputs.sent-at }}
       - name: Show the server's log and the stack (end-to-end test)
         if: always() && inputs.e2e
@@ -737,6 +756,8 @@ jobs:
     timeout-minutes: 180
     permissions:
       contents: read
+    outputs:
+      smoke-result: ${{ steps.verify.outputs.smoke-result }}
     steps:
       - *check-runner
       - *empty-workspace
@@ -751,7 +772,8 @@ jobs:
       # The origin address from the secret, or from the app-vars entry origin-address-var names (the check job made
       # sure it exists, holds an address and never comes with the secret). The secret verify-env: a JSON object of
       # variables for the CLI only. The smoke check compares the process start with the deploy job's send.
-      - uses: ./.softure-ai-deploy/.github/actions/deploy
+      - id: verify
+        uses: ./.softure-ai-deploy/.github/actions/deploy
         with:
           release: ${{ needs.check.outputs.release }}
           send: false
@@ -760,6 +782,7 @@ jobs:
           origin-address: ${{ inputs.origin-address-var != '' && fromJSON(inputs.app-vars)[inputs.origin-address-var] || secrets.origin-address }}
           verify-env: ${{ secrets.verify-env }}
           build-info-path: ${{ inputs.build-info-path }}
+          build-info-expect: ${{ inputs.build-info-expect }}
           deployed-at: ${{ needs.deploy.outputs.sent-at }}
 
   # The facts of this run for the release report (deploy-report.yml, DF-10), whatever happened: each job's result, the

@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The token state survives the rollback of the caller's transaction (#935). `getAccessToken`, `replaceRejectedToken`,
+  `reportCredentialRejected`, `requestWithConnection` and `downloadWithConnection` called with a transaction as
+  `ctx.db` (a jobs `processSyncItem` item) now read and write the account outside it, on the app's configured
+  database: a refreshed (rotated) token, the refresh lease, `reconnect_required` and the `onReconnectRequired` hook
+  (whose `ctx.db` is then the configured database). Before, a failed item rolled them back although the provider had
+  already spent the old refresh token, so the next refresh replayed it and the provider revoked the grant, and an
+  `invalid_grant` never reached `reconnect_required` or the hook. No change in the app is needed; an app that
+  refreshed every token on the job's own context before each item to avoid this can drop that. The pool needs one
+  connection more than the transactions that call these at once (README section 4). PGlite, which has one
+  connection, keeps writing in the caller's transaction.
+
 ## 0.3.2
 
 - `downloadWithConnection(ctx, { provider, accountId? }, options)` in `/server` and `downloadWithConnection({ provider,

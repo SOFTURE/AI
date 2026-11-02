@@ -217,6 +217,8 @@ import {
   UpdatePrompt,
   InstallBar,
   LaunchScreen,
+  RouteLoading,
+  TopLoadingBar,
   Code,
   CodeBlock,
 } from "../../src/index.js";
@@ -1814,6 +1816,22 @@ const NOTION_CASES: readonly GalleryCase[] = [
     // Full screen, so it is drawn on a page of its own.
     isIsolated: true,
     render: () => <LaunchScreen name="Fire" iconSrc={LAUNCH_ICON} label="Loading" />,
+  },
+  {
+    name: "TopLoadingBar",
+    component: "TopLoadingBar",
+    root: '[data-slot="top-loading-bar"]',
+    // Fixed to the top edge, so it is drawn on a page of its own.
+    isIsolated: true,
+    render: () => <TopLoadingBar label="Loading" value={40} />,
+  },
+  {
+    name: "RouteLoading",
+    component: "RouteLoading",
+    root: '[data-slot="route-loading"]',
+    // The launch screen on a phone, the top bar (sliding, so its first frame is empty) on a desktop.
+    isIsolated: true,
+    render: () => <RouteLoading name="Fire" iconSrc={LAUNCH_ICON} label="Loading" />,
   },
 ];
 
