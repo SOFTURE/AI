@@ -21,7 +21,8 @@ server for clients that call the app.
   under the row's lease (two workers never spend one refresh token twice; the others wait and read the new token).
   `invalid_grant` becomes the terminal `connections.reconnect_required`; network failures, 429, 5xx and odd answers
   are the retryable `connections.refresh_failed`. `forceRefresh: true` refreshes now, under the same lease, for a
-  token the provider refused before its expiry.
+  token the provider refused before its expiry. A failed refresh says what the token endpoint answered: see
+  "Failed refreshes" below.
 - **`requestWithConnection(ctx, { provider, accountId? }, options)`**: one API call with the stored credential of any
   kind, through `requestJson`. On a 401 with OAuth it refreshes once and retries once; only a second 401 (or the
   first for a key) reports the credential rejected.
@@ -180,6 +181,30 @@ the `requestJson` result unchanged, with these exceptions:
 - a second 401, a 401 with an API key or Basic credential, or a 401 with an OAuth connection without a refresh token:
   `reportCredentialRejected` (the hook runs once) and `connections.reconnect_required`.
 
+### Failed refreshes
+
+`connections.refresh_failed` and `connections.client_rejected` (a `ConnectionsRefreshFailure`) carry what the token
+endpoint answered, never its body, error description or a token:
+
+```ts
+const token = await getAccessToken(ctx, { provider: "google" });
+if (!token.ok && token.error === "connections.refresh_failed") {
+  token.httpStatus; // 400, 503, 429…; null when no answer came (network failure, timeout); any 2xx reads as 200
+  token.oauthError; // "invalid_request", "temporarily_unavailable"…; null when the answer had none (never read from a 429 or 5xx)
+}
+```
+
+`requestWithConnection` and `downloadWithConnection` pass the same failure on. The field is `httpStatus`, not
+`status`, so it is never mistaken for the provider API's own status on a `core.http_*` failure.
+
+Every failed refresh (`invalid_grant` included) logs one warn line, and the row keeps the same detail in
+`last_error_http_status` and `last_error_oauth_error` (the page shows it beside the last problem; `ConnectionView`
+has `lastErrorHttpStatus` and `lastErrorOAuthError`):
+
+```text
+@softure-ai/connections: token refresh failed provider=google account_id=default http_status=400 oauth_error="invalid_request" code=connections.refresh_failed
+```
+
 A `form` (a `URLSearchParams` or a `FormData` with files) is sent as it is, and sent again on the retry after a
 refresh. A 403 is a permission problem, not a dead credential: it comes back as `core.http_refused` and reports nothing.
 
@@ -244,12 +269,13 @@ transaction. Three consequences:
 
 ## 5. Migrations and tables
 
-Schema `connections`, one migration (`0001_create_accounts_and_states.sql`):
+Schema `connections`, two migrations (`0001_create_accounts_and_states.sql`, `0002_add_last_error_detail.sql`):
 
 - `accounts`: one row per provider account: `kind`, `status` (`connected` or `reconnect_required`), `key_id`,
   `credentials` (the sealed payload), `token_type`, `scopes`, `has_refresh_token`, `expires_at`,
   `refresh_expires_at`, `connected_at`, `connected_by` (auth user id, no foreign key), `refreshed_at`, `last_error`
-  (a code) and `last_error_at`, and the refresh lease (`lease_id`, `lease_until`). Unique on
+  (a code), `last_error_at`, `last_error_http_status` and `last_error_oauth_error` (what the token endpoint answered
+  to the last failed refresh, both nullable), and the refresh lease (`lease_id`, `lease_until`). Unique on
   `(provider, account_id)`; checks on every enum, id shape and pair of columns.
 - `oauth_states`: authorizations in flight: the state's sha256 (never the state), the sealed PKCE verifier, the
   admin who started it and an expiry. One-time; expired rows go when a new authorization starts.

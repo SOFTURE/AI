@@ -42,6 +42,8 @@ describe("listConnections", () => {
       refreshedAt: null,
       lastError: null,
       lastErrorAt: null,
+      lastErrorHttpStatus: null,
+      lastErrorOAuthError: null,
     });
     expect(raindrop?.status).toBe("connected");
     test.clock.advance(28 * 3600_000 + 1);

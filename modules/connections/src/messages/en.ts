@@ -21,6 +21,9 @@ export const en = {
     scopes: "Granted scopes: {scopes}",
     noScopes: "No scopes granted",
     lastError: "Last problem on {date}: {error}",
+    lastErrorDetail: "Last problem on {date}: {error} ({detail})",
+    httpStatus: "HTTP {status}",
+    oauthError: "provider code {code}",
   },
   actions: {
     connect: "Connect",

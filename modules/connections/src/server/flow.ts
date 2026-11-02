@@ -167,6 +167,8 @@ async function storeGrant(ctx: ConnectionsContext, keyring: Keyring, input: Stor
     refreshedAt: null,
     lastError: null,
     lastErrorAt: null,
+    lastErrorHttpStatus: null,
+    lastErrorOAuthError: null,
     updatedAt: now,
     leaseId: null,
     leaseUntil: null,
