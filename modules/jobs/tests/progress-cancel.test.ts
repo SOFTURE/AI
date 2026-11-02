@@ -208,7 +208,7 @@ describe("cancelling a job", () => {
     };
     const { id } = await enqueueJob(test.ctx, { queue: "ai.reply", payload: {} });
 
-    expect(await runDueJobs(test.ctx, { handlers, logger })).toEqual({ succeeded: 0, retried: 0, failed: 0, cancelled: 1, stale: 0 });
+    expect(await runDueJobs(test.ctx, { handlers, logger })).toEqual({ succeeded: 0, retried: 0, failed: 0, stale: 0, cancelled: 1 });
     expect(reason).toBeInstanceOf(JobCancelledError);
     expect(reason).toMatchObject({ name: "AbortError", code: "jobs.cancelled" });
     expect(await getJob(test.ctx, id)).toMatchObject({ status: "cancelled", finishedAt: NOW, lockedBy: null, cancelRequestedAt: NOW, lastError: null });

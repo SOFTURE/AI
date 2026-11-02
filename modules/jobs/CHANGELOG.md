@@ -15,13 +15,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `jobs.cancelled`; `isJobCancelled(signal)`); the job ends `cancelled`, not retried, without `onJobFailed`, with a run
   of the new outcome `cancelled`. `cancelJob` keeps its meaning. New in `@softure-ai/jobs`: `JobProgress`,
   `jobProgressSchema`, `JobCancelledError`, `isJobCancelled`, `JOB_CANCELLED_CODE`; in `/server`: `requestJobCancel`,
-  `heartbeatJob`, `JobHeartbeat`. `JOB_RUN_OUTCOMES`, `JobOutcome`, `Completion` and `RunDueJobsReport` gain
-  `cancelled`. The admin page lists running jobs with their progress, and its Cancel (`cancelJobAction`) now uses
+  `heartbeatJob`, `JobHeartbeat`. `JOB_RUN_OUTCOMES`, `JobOutcome` and `Completion` gain `cancelled`;
+  `RunDueJobsReport` gains an optional `cancelled`, present only when an attempt was cancelled. The admin page lists running jobs with their progress, and its Cancel (`cancelJobAction`) now uses
   `requestJobCancel`.
   - Migrate: run `migrations/0007_add_progress_and_cancel.sql` with the app's other migrations (adds
     `jobs.jobs.progress`, `progress_at`, `cancel_requested_at`, and the run outcome `cancelled`). A test that builds a
-    `JobHandlerContext` by hand adds `reportProgress: async () => {}`; a test that compares a `runDueJobs` report
-    exactly adds `cancelled: 0`; code that switches over `JobOutcome`, `JobRunOutcome` or `Completion` handles
+    `JobHandlerContext` by hand adds `reportProgress: async () => {}`; code that switches over `JobOutcome`, `JobRunOutcome` or `Completion` handles
     `cancelled`. An app with its own full dictionary for another locale adds `jobs.progressStep`, `progressCount`,
     `progressDone`, `progressCode`, `progressAt`, `cancelRequested`, `runs.outcome.cancelled` and `errors.cancelled`
     (see `messages/en.ts`).

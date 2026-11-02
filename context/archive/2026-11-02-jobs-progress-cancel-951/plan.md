@@ -58,7 +58,8 @@ Files: `src/next/{actions,panel-rows,pages}.tsx`, `src/messages/en.ts`, `tests/p
   `cancelled`.
 - Throttled reports are not flushed by a timer: the newest one is written by the next report after the window. The
   run summary is the final word on what a run did.
-- `RunDueJobsReport` gains `cancelled` (a new required field): honest counts over hiding cancels under `stale`.
+- `RunDueJobsReport` gains `cancelled` as an optional field, present only when an attempt was cancelled: the first
+  push showed ten dependent packages (and so adopting apps) compare reports exactly; a required field broke them all.
 - No version bump: the coordinator releases.
 
 ## Progress
