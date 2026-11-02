@@ -1,7 +1,8 @@
 ---
 change_id: billing-free-tier-962
 title: "billing: a free tier without an end (issue #962)"
-status: planned
+status: archived
+archived_at: 2026-11-02
 roadmap_item: null
 issue: [962]
 branch: claude/project-thread-ke6mjk

@@ -1,6 +1,6 @@
 ---
 change_id: billing-free-tier-962
-status: planned
+status: archived
 ---
 
 # Plan: a free tier without an end (issue #962)
