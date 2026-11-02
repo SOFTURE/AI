@@ -52,11 +52,14 @@ export type {
   ConnectionsFlowErrorCode,
   ConnectionsFormErrorCode,
   ConnectionsKeyErrorCode,
+  ConnectionsRefreshFailure,
   ConnectionsTokenErrorCode,
+  ConnectionsTokenFailure,
   ConnectionView,
   ReconnectReason,
   ReconnectRequiredEvent,
   StoredCredential,
+  TokenEndpointAnswer,
 } from "./contract.js";
 export { connectionsMessages, getConnectionsErrorMessage, type ConnectionsMessages } from "./messages/index.js";
 export {

@@ -2,12 +2,13 @@
 // credential was refused, and disconnecting any connection (with a best-effort revocation for OAuth).
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, eq } from "drizzle-orm";
-import type { ConnectionsFlowErrorCode, ConnectionsTokenErrorCode, StoredCredential } from "../contract.js";
+import type { ConnectionsFlowErrorCode, ConnectionsTokenFailure, StoredCredential } from "../contract.js";
 import { DEFAULT_ACCOUNT_ID, DEFAULT_CREDENTIAL_HEADER, DEFAULT_CREDENTIAL_SCHEME, type CredentialHeaderPlacement, type ProviderDefinition } from "../options.js";
 import { accounts } from "../schema.js";
 import { getCredentialContext, sealSecret } from "./crypto.js";
 import { findProvider, getConnectionsOptions, readClientCredentials } from "./options.js";
 import { findAccount, getKeyring, markReconnectRequired, openApiKey, openBasic, openOAuthSecrets, type ConnectionsContext } from "./store.js";
+import { getStateContext } from "./state-database.js";
 import { revokeToken } from "./token-client.js";
 
 /** The longest key, username or password the form takes. */
@@ -56,6 +57,8 @@ export async function saveCredential(ctx: ConnectionsContext, input: SaveCredent
     refreshedAt: null,
     lastError: null,
     lastErrorAt: null,
+    lastErrorHttpStatus: null,
+    lastErrorOAuthError: null,
     updatedAt: now,
     leaseId: null,
     leaseUntil: null,
@@ -82,7 +85,7 @@ function isCredentialValid(credential: CredentialInput): boolean {
   );
 }
 
-export type GetCredentialResult = Ok<StoredCredential> | Err<ConnectionsTokenErrorCode>;
+export type GetCredentialResult = Ok<StoredCredential> | ConnectionsTokenFailure;
 
 /** The stored API key or Basic credential of a provider account. */
 export async function getCredential(ctx: ConnectionsContext, input: ProviderAccountInput): Promise<GetCredentialResult> {
@@ -144,7 +147,7 @@ export function formatCredentialHeader(
   return { name: placement.name, value: placement.scheme === null ? credential.apiKey : `${placement.scheme} ${credential.apiKey}` };
 }
 
-export type GetCredentialHeaderResult = Ok<CredentialHeader> | Err<ConnectionsTokenErrorCode>;
+export type GetCredentialHeaderResult = Ok<CredentialHeader> | ConnectionsTokenFailure;
 
 /** The stored API key or Basic credential of a provider account as the header the provider reads it from. */
 export async function getCredentialHeader(ctx: ConnectionsContext, input: ProviderAccountInput): Promise<GetCredentialHeaderResult> {
@@ -156,9 +159,14 @@ export async function getCredentialHeader(ctx: ConnectionsContext, input: Provid
 
 /**
  * The app saw the provider refuse a stored credential (a 401 with a key, or with a token that should have
- * been valid): marks the connection `reconnect_required` and runs the hook once. Answers whether it changed.
+ * been valid): marks the connection `reconnect_required` and runs the hook once. Answers whether it changed. Both
+ * happen outside the caller's transaction, so its rollback keeps them (state-database.ts).
  */
-export async function reportCredentialRejected(ctx: ConnectionsContext, input: ProviderAccountInput): Promise<Ok<boolean> | Err<"connections.unknown_provider" | "connections.not_connected">> {
+export async function reportCredentialRejected(
+  callerCtx: ConnectionsContext,
+  input: ProviderAccountInput,
+): Promise<Ok<boolean> | Err<"connections.unknown_provider" | "connections.not_connected">> {
+  const ctx = await getStateContext(callerCtx);
   const accountId = input.accountId ?? DEFAULT_ACCOUNT_ID;
   const found = findProvider(ctx.config, input.provider, accountId);
   if (!found.ok) return found;

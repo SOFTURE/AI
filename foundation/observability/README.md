@@ -226,7 +226,16 @@ What you get:
   A stable key the span already has is kept. Before an app runs a version with this, query `http.status_code`
   (e.g. `span.http.status_code >= 500` in Tempo). `traces: { stableHttpAttributes: false }` turns it off.
 - `onRequestError` logs one error record per failed request with `http.request.method`, `url.path` (without the
-  query string, which can carry tokens), `next.route`, `next.route_type` and the error. Request headers are never logged.
+  query string, which can carry tokens), `next.route`, `next.route_type`, `next.render_source` (when Next.js passes
+  it) and the error. Request headers are never logged.
+- `next.digest` is the digest the error page shows the user (`<hash>` or `<hash>@E<n>`), so a user's report matches
+  the log line and repeats of one error group. A `NEXT_*` digest (a redirect, `notFound`) is never logged: it can
+  carry a URL.
+- Trace ids: the record carries `trace_id` and `span_id` only when Next.js calls `onRequestError` inside the request's
+  span. On the RSC payload path (client navigation, `next.render_source=react-server-components-payload`) Next.js
+  16 reports the error while the response stream is read, outside the request's context, and passes no span: that
+  record has no trace id, and the trace has no error span either. Nothing in the app can recover them; find the
+  trace by route and time, and the error by `next.digest`.
 
 ## Verifying the export
 
@@ -286,8 +295,17 @@ try {
 
 By default an error is recorded as `exception.type`, `exception.message` and `exception.stacktrace`. Error messages
 can carry personal data (a database error holds the failed query and its parameters). An app that cannot allow that
-anywhere sets `errorDetails: "label"` (or `configureLogging({ errorDetails: "label" })`): the message becomes
-`errorLogLabel(error)` of `@softure-ai/core` (the class name and SQLSTATE) and the stack is dropped.
+anywhere sets `errorDetails: "label"` (or `configureLogging({ errorDetails: "label" })`). No message is logged, of the
+error or of its causes; what is logged identifies the error without its text:
+
+- `exception.message` is the label: the class name and a safe code of the error, then up to three causes
+  (`error.cause` and theirs) the same way, e.g. `Error cause=Error code=ETIMEDOUT` or
+  `Error cause=DatabaseError code=23505`. A safe code is a SQLSTATE, a Node system code (`ECONNREFUSED`), an undici
+  code (`UND_ERR_CONNECT_TIMEOUT`) or an integer; any other code is left out, since it could be free text. A cause
+  that is not an `Error` is its type (`cause=string`).
+- `exception.stacktrace` holds the first two frames of the app (`at loadOrders (/app/.next/server/…:12:7)`), without
+  the message line. Frames in `node_modules` and Node's internals are skipped, unless there are no others. When the
+  error's message was changed after its stack was taken, no frames are logged.
 
 ## Limitations
 

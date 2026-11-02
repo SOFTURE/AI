@@ -45,6 +45,8 @@ function toView(ctx: ConnectionsContext, provider: ProviderDefinition, accountId
     refreshedAt: row?.refreshedAt ?? null,
     lastError: row?.lastError ?? null,
     lastErrorAt: row?.lastErrorAt ?? null,
+    lastErrorHttpStatus: row?.lastErrorHttpStatus ?? null,
+    lastErrorOAuthError: row?.lastErrorOAuthError ?? null,
   };
 }
 
