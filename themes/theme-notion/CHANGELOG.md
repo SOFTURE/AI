@@ -11,6 +11,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `AlertDialogFooter`. Before, the close button came last. The button already had `type="button"` (from Radix
   `DialogClose`), so in a form dialog it closes the dialog without submitting the form; a test now guards that.
   An app that wants another order places its own `DialogClose`.
+- A thin top loading bar for wide screens (#923): `TopLoadingBar` is a 2 px, square `Progress` fixed to the top edge
+  on a transparent track, `pointer-events-none`, so the page stays usable while a route loads; driven by the pwa
+  counter (`buildLaunchProgressScript({ rootSlot: "top-loading-bar" })`) or indeterminate. `RouteLoading` streams it
+  with `LaunchScreen` and lets CSS pick: the launch screen below `md` or in an installed app, the bar in a wide browser
+  tab, so `app/loading.tsx` needs no request reading and pages stay static.
+- `Progress` without a `value` is indeterminate: a third of the track slides across it (still, full and half-opaque
+  with reduced motion). Before, it drew an empty track. With a value it draws as before; its indicator carries the
+  indeterminate classes under `data-[state=indeterminate]:`.
 
 ## 0.10.3
 

@@ -190,9 +190,13 @@ the page replaces the fallback first). Each 100 ms it adds `paintShare` (10) onc
 `assetsShare` (60) in proportion to the page's `script[src]` and stylesheets the browser has received (Resource
 Timing), and `timeShare` (29) as `1 - e^(-t / timeConstantMs)` of the time since the navigation started (4 s). The
 shares add up to at most 100; the counter shows at most 99%, never falls, and stops once the page replaced the screen.
-It finds its screen from `document.currentScript` and moves `data-slot="progress"` (`aria-valuenow`, `aria-valuetext`,
-`data-value`), `progress-indicator` (its transform) and `launch-screen-percent` (the text). `launchProgress(page,
-config)` is the function itself, testable with a fake page.
+It finds its root from `document.currentScript` and moves `data-slot="progress"` (`aria-valuenow`, `aria-valuetext`,
+`data-value`, `data-state="loading"`), `progress-indicator` (its transform and `data-state`) and `<rootSlot>-percent`
+(the text, when there is one). `rootSlot` names the root's `data-slot`: `launch-screen` by default, `top-loading-bar`
+for theme-notion's thin bar on wide screens (`TopLoadingBar`, or both through `RouteLoading`, which shows the launch
+screen on a phone or in an installed app and the bar in a wide browser tab). The bar starts indeterminate; the
+counter's first value makes it determinate. `launchProgress(page, config)` is the function itself, testable with a
+fake page.
 
 The install offer, in the same kind of client component (`app` is the same id as the service worker route's):
 
