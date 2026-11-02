@@ -219,6 +219,9 @@ import {
   LaunchScreen,
   RouteLoading,
   TopLoadingBar,
+  UploadField,
+  UploadItem,
+  UploadList,
   Code,
   CodeBlock,
 } from "../../src/index.js";
@@ -1672,6 +1675,34 @@ const NOTION_CASES: readonly GalleryCase[] = [
       ),
     }),
   ),
+  {
+    name: "UploadField",
+    component: "UploadField",
+    root: '[data-slot="upload-field"]',
+    render: () => (
+      <UploadField id="gallery-upload" label="Videos" description="Up to 2 GB each" accept="video/*" multiple onFilesSelected={() => undefined} className="w-96 max-w-full" />
+    ),
+  },
+  {
+    name: "UploadField[error]",
+    component: "UploadField",
+    root: '[data-slot="upload-field"][data-invalid="true"]',
+    render: () => <UploadField id="gallery-upload-error" label="Contract" error="Choose a file" onFilesSelected={() => undefined} className="w-96 max-w-full" />,
+  },
+  {
+    name: "UploadList",
+    component: "UploadList",
+    root: '[data-slot="upload-list"]',
+    render: () => (
+      <UploadList label="Files" className="w-96 max-w-full">
+        <UploadItem item={{ id: "a", name: "notes.pdf", size: 820, state: "queued" }} onRemove={() => undefined} />
+        <UploadItem item={{ id: "b", name: "holiday-video.mp4", size: 52_400_000, state: "uploading", progress: 40 }} onPause={() => undefined} onRemove={() => undefined} />
+        <UploadItem item={{ id: "c", name: "interview.mov", size: 1_250_000_000, state: "paused", progress: 65 }} onResume={() => undefined} onRemove={() => undefined} />
+        <UploadItem item={{ id: "d", name: "contract-signed.pdf", size: 240_000, state: "done" }} onRemove={() => undefined} />
+        <UploadItem item={{ id: "e", name: "scan.jpg", size: 3_100_000, state: "failed", error: "The connection dropped." }} onRetry={() => undefined} onRemove={() => undefined} />
+      </UploadList>
+    ),
+  },
   {
     name: "Timeline[fold]",
     component: "Timeline",

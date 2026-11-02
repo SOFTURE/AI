@@ -4,6 +4,7 @@ export {
   cancelJob,
   getJob,
   listRecentJobs,
+  requestJobCancel,
   retryJob,
   type CancelJobResult,
   type ListRecentJobsInput,
@@ -14,8 +15,10 @@ export {
   claimJobs,
   completeJob,
   extendJobLease,
+  heartbeatJob,
   releaseJob,
   type ClaimedJob,
+  type JobHeartbeat,
   type ClaimJobsInput,
   type Completion,
 } from "./claim.js";
@@ -23,6 +26,14 @@ export type { JobsContext } from "./context.js";
 export { isDatabaseUnavailableError } from "./database-unavailable.js";
 export { enqueueJob, type EnqueuedJob, type EnqueueJobInput } from "./enqueue.js";
 export { checkScheduleStates, getScheduleHealth, notifyJobFailed, type HookOptions } from "./hooks.js";
+export {
+  getQueuePause,
+  pauseQueue,
+  resumeQueue,
+  type PauseQueueInput,
+  type PauseQueueResult,
+  type ResumeQueueResult,
+} from "./queue-state.js";
 export { consoleJobsLogger, type JobsLogFields, type JobsLogger } from "./logger.js";
 export { getQueueStats, pruneJobs, type QueueStats } from "./maintenance.js";
 export { getJobsOptions, getJobsRoutes } from "./options.js";

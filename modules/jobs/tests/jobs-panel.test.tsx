@@ -73,6 +73,25 @@ describe("JobsPanel", () => {
     expect(screen.getByRole("status").textContent).toBe(en.queues.runJoined);
   });
 
+  it("offers Pause on a running queue and Resume on a paused one only when those actions are passed", async () => {
+    const pauseQueue = answering({ status: "ok" });
+    const resumeQueue = answering({ status: "ok" });
+    const paused: JobsPanelQueue = { ...MAIL, details: ["Paused by the circuit breaker until Sep 15, 2026, 2:01 PM (app.rate_limited)"], isPaused: true };
+    const { rerender } = render(<JobsPanel queues={[DAILY, paused]} jobs={[]} syncSources={[]} actions={createActions({ pauseQueue, resumeQueue })} messages={en} />);
+    expect(within(getItem("mail.send")).queryByRole("button", { name: "Pause" })).toBeNull();
+    expect(within(getItem("reports.daily")).queryByRole("button", { name: "Resume" })).toBeNull();
+    expect(getItem("mail.send").hasAttribute("data-paused")).toBe(true);
+
+    await submit(within(getItem("reports.daily")).getByRole("button", { name: "Pause" }));
+    expect(pauseQueue.mock.calls[0]?.[1].get("queue")).toBe("reports.daily");
+    await submit(within(getItem("mail.send")).getByRole("button", { name: "Resume" }));
+    expect(resumeQueue.mock.calls[0]?.[1].get("queue")).toBe("mail.send");
+
+    rerender(<JobsPanel queues={[DAILY, paused]} jobs={[]} syncSources={[]} actions={createActions()} messages={en} />);
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
+  });
+
   it("offers Retry for a failed job and Cancel for a retrying one, posting the job id", async () => {
     const retryJob = answering({ status: "ok" });
     const cancelJob = answering({ status: "error", error: "jobs.not_cancellable" });

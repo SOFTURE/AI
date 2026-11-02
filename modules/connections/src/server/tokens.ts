@@ -2,11 +2,12 @@
 // A refresh runs under the row's lease (a conditional update, never a row lock held across the network call),
 // so two workers never spend one refresh token twice; the other callers wait for the new token and read it.
 // `invalid_grant` is terminal (`reconnect_required`, the app's hook runs once); everything else is retryable.
+// Every failed refresh logs one warn line and stores what the token endpoint answered (HTTP status, OAuth code).
 // The state is kept outside the caller's transaction, so a rollback there never undoes a refresh (state-database.ts).
 import { randomUUID } from "node:crypto";
-import { err, ok, type Err, type Ok } from "@softure-ai/core";
+import { err, ok, type Ok } from "@softure-ai/core";
 import { and, eq, isNull, lte, or } from "drizzle-orm";
-import type { AccessToken, ConnectionsTokenErrorCode } from "../contract.js";
+import type { AccessToken, ConnectionsRefreshFailure, ConnectionsTokenFailure, TokenEndpointAnswer } from "../contract.js";
 import { DEFAULT_ACCOUNT_ID, type OAuthProviderDefinition } from "../options.js";
 import { accounts, type AccountRow } from "../schema.js";
 import { getCredentialContext, sealSecret, type Keyring } from "./crypto.js";
@@ -14,7 +15,7 @@ import { addSeconds, getRefreshExpiry } from "./flow.js";
 import { findProvider, getConnectionsOptions, readClientCredentials } from "./options.js";
 import { findAccount, getKeyring, markReconnectRequired, openOAuthSecrets, parseScopes, releaseLease, type ConnectionsContext } from "./store.js";
 import { getStateContext } from "./state-database.js";
-import { requestTokens } from "./token-client.js";
+import { requestTokens, type TokenCallResult } from "./token-client.js";
 
 export interface GetAccessTokenInput {
   readonly provider: string;
@@ -27,7 +28,11 @@ export interface GetAccessTokenInput {
   readonly forceRefresh?: boolean;
 }
 
-export type GetAccessTokenResult = Ok<AccessToken> | Err<ConnectionsTokenErrorCode>;
+/**
+ * The token, or why not. `connections.refresh_failed` and `connections.client_rejected` also carry what the token
+ * endpoint answered (`httpStatus`, `oauthError`).
+ */
+export type GetAccessTokenResult = Ok<AccessToken> | ConnectionsTokenFailure;
 
 /** A usable access token for the provider account, refreshed when it expires within `refreshSkewSeconds`. */
 export async function getAccessToken(ctx: ConnectionsContext, input: GetAccessTokenInput): Promise<GetAccessTokenResult> {
@@ -146,14 +151,26 @@ async function refreshUnderLease(
     timeoutMs: options.httpTimeoutMs,
   });
 
-  if (answer.kind === "oauth_error" && answer.error === "invalid_grant") {
-    await markReconnectRequired(ctx, { rowId: row.id, provider: row.provider, accountId: row.accountId, kind: "oauth", reason: "invalid_grant", leaseId });
-    return err("connections.reconnect_required");
-  }
   if (answer.kind !== "tokens") {
+    const endpoint = readEndpointAnswer(answer);
+    if (answer.kind === "oauth_error" && answer.error === "invalid_grant") {
+      logRefreshFailure(row, endpoint, "connections.reconnect_required");
+      await markReconnectRequired(ctx, {
+        rowId: row.id,
+        provider: row.provider,
+        accountId: row.accountId,
+        kind: "oauth",
+        reason: "invalid_grant",
+        leaseId,
+        answer: endpoint,
+      });
+      return err("connections.reconnect_required");
+    }
     const code = answer.kind === "oauth_error" && (answer.error === "invalid_client" || answer.error === "unauthorized_client") ? "connections.client_rejected" : "connections.refresh_failed";
-    await recordFailure(ctx, row.id, leaseId, code);
-    return err(code);
+    const failure: ConnectionsRefreshFailure = { ok: false, error: code, ...endpoint };
+    logRefreshFailure(row, endpoint, code);
+    await recordFailure(ctx, row.id, leaseId, failure);
+    return failure;
   }
 
   const now = ctx.clock.now();
@@ -173,6 +190,8 @@ async function refreshUnderLease(
     refreshedAt: now,
     lastError: null,
     lastErrorAt: null,
+    lastErrorHttpStatus: null,
+    lastErrorOAuthError: null,
     updatedAt: now,
     leaseId: null,
     leaseUntil: null,
@@ -208,11 +227,35 @@ async function waitForRefresh(ctx: ConnectionsContext, input: ResolveInput): Pro
   return err("connections.refresh_in_progress");
 }
 
-async function recordFailure(ctx: ConnectionsContext, rowId: string, leaseId: string, code: ConnectionsTokenErrorCode): Promise<void> {
+/** What the token endpoint answered to a failed call: its status and OAuth code, nothing of the body. */
+function readEndpointAnswer(answer: Exclude<TokenCallResult, { readonly kind: "tokens" }>): TokenEndpointAnswer {
+  return answer.kind === "oauth_error" ? { httpStatus: answer.status, oauthError: answer.error } : { httpStatus: answer.status, oauthError: null };
+}
+
+/**
+ * One warn line per failed refresh. The OAuth code is JSON-quoted (it may hold spaces), so it cannot forge another
+ * field; no token, body or error description reaches the log.
+ */
+function logRefreshFailure(row: AccountRow, answer: TokenEndpointAnswer, code: string): void {
+  const oauthError = answer.oauthError === null ? "null" : JSON.stringify(answer.oauthError);
+  console.warn(
+    `@softure-ai/connections: token refresh failed provider=${row.provider} account_id=${row.accountId} http_status=${answer.httpStatus ?? "null"} oauth_error=${oauthError} code=${code}`,
+  );
+}
+
+async function recordFailure(ctx: ConnectionsContext, rowId: string, leaseId: string, failure: ConnectionsRefreshFailure): Promise<void> {
   const now = ctx.clock.now();
   await ctx.db
     .update(accounts)
-    .set({ lastError: code, lastErrorAt: now, updatedAt: now, leaseId: null, leaseUntil: null })
+    .set({
+      lastError: failure.error,
+      lastErrorAt: now,
+      lastErrorHttpStatus: failure.httpStatus,
+      lastErrorOAuthError: failure.oauthError,
+      updatedAt: now,
+      leaseId: null,
+      leaseUntil: null,
+    })
     .where(and(eq(accounts.id, rowId), eq(accounts.leaseId, leaseId)));
 }
 

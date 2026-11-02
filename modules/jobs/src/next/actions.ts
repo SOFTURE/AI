@@ -8,8 +8,9 @@ import { getSoftureConfig } from "@softure-ai/core/next";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { JobsFormState } from "../contract.js";
-import { cancelJob, retryJob } from "../server/admin.js";
+import { requestJobCancel, retryJob } from "../server/admin.js";
 import { getJobsOptions, getJobsRoutes } from "../server/options.js";
+import { pauseQueue, resumeQueue } from "../server/queue-state.js";
 import { runScheduleNow } from "../server/schedules.js";
 import { retrySyncItem } from "../server/sync-items.js";
 import { getJobsContext } from "./context.js";
@@ -64,10 +65,29 @@ export async function retryJobAction(_previous: JobsFormState, formData: FormDat
   });
 }
 
-/** Cancels a pending job (one waiting for its retry included). */
+/** Cancels a pending job (one waiting for its retry included) or asks a running one to stop (`requestJobCancel`). */
 export async function cancelJobAction(_previous: JobsFormState, formData: FormData): Promise<JobsFormState> {
   return steer("cancelling a job", async (config) => {
-    const result = await cancelJob(await getJobsContext(config), field.parse(formData.get("id")));
+    const result = await requestJobCancel(await getJobsContext(config), field.parse(formData.get("id")));
+    return result.ok ? { status: "ok" } : { status: "error", error: result.error };
+  });
+}
+
+/** The reason an operator's pause from the admin page carries. */
+export const PANEL_PAUSE_REASON = "jobs.operator_pause";
+
+/** Pauses a queue until an operator resumes it. */
+export async function pauseQueueAction(_previous: JobsFormState, formData: FormData): Promise<JobsFormState> {
+  return steer("pausing a queue", async (config) => {
+    const result = await pauseQueue(await getJobsContext(config), field.parse(formData.get("queue")), { reason: PANEL_PAUSE_REASON });
+    return result.ok ? { status: "ok" } : { status: "error", error: result.error };
+  });
+}
+
+/** Resumes a paused queue and resets its breaker. */
+export async function resumeQueueAction(_previous: JobsFormState, formData: FormData): Promise<JobsFormState> {
+  return steer("resuming a queue", async (config) => {
+    const result = await resumeQueue(await getJobsContext(config), field.parse(formData.get("queue")));
     return result.ok ? { status: "ok" } : { status: "error", error: result.error };
   });
 }

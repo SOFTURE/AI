@@ -21,7 +21,8 @@ server for clients that call the app.
   under the row's lease (two workers never spend one refresh token twice; the others wait and read the new token).
   `invalid_grant` becomes the terminal `connections.reconnect_required`; network failures, 429, 5xx and odd answers
   are the retryable `connections.refresh_failed`. `forceRefresh: true` refreshes now, under the same lease, for a
-  token the provider refused before its expiry.
+  token the provider refused before its expiry. A failed refresh says what the token endpoint answered: see
+  "Failed refreshes" below.
 - **`requestWithConnection(ctx, { provider, accountId? }, options)`**: one API call with the stored credential of any
   kind, through `requestJson`. On a 401 with OAuth it refreshes once and retries once; only a second 401 (or the
   first for a key) reports the credential rejected.
@@ -31,6 +32,8 @@ server for clients that call the app.
   **`getAuthorizationHeader`** for either.
 - **`onReconnectRequired`**, a hook that runs once when a connection needs reconnecting, so the app can alert the
   owner (e.g. by mail through `@softure-ai/mailing`).
+- **`onConnectionChanged`** and one info log line for every connect, reconnect, disconnect and failed OAuth callback,
+  for an audit trail of admin actions.
 - A **privacy contributor**, a **health check**, the **`softure-connections`** command (`key`, `rotate-keys`) and a
   **fake OAuth provider** for tests (`@softure-ai/connections/testing`).
 
@@ -88,6 +91,9 @@ connections({
   onReconnectRequired: async (event, ctx) => {
     // e.g. sendMail(ctx, { to: owner, subject: `Reconnect ${event.provider}` ... })
   },
+  onConnectionChanged: async (event, ctx) => {
+    // e.g. an audit record: who connected, reconnected or disconnected which service, and how it ended
+  },
 }),
 ```
 
@@ -119,6 +125,7 @@ connections({
 | `stateTtlMinutes` | `number` | `10` | How long an authorization may take, button to callback. |
 | `httpTimeoutMs` | `number` | `10000` | Timeout of a token, exchange or revoke call. |
 | `onReconnectRequired` | `(event, ctx) => void \| Promise<void>` | none | Section 10. |
+| `onConnectionChanged` | `(event, ctx) => void \| Promise<void>` | none | Section 10. |
 | `fetch` | `FetchFunction` | global `fetch` | The token client's `fetch`; tests pass the fake provider's. |
 | `routes` | `{ page, callback }` | `/admin/connections`, `/api/connections/callback` | Where the page and the callback are mounted. |
 | `messages` | partial dictionaries per locale | built in | Copy overrides (section 9). |
@@ -179,6 +186,30 @@ the `requestJson` result unchanged, with these exceptions:
   the retryable `connections.refresh_failed`);
 - a second 401, a 401 with an API key or Basic credential, or a 401 with an OAuth connection without a refresh token:
   `reportCredentialRejected` (the hook runs once) and `connections.reconnect_required`.
+
+### Failed refreshes
+
+`connections.refresh_failed` and `connections.client_rejected` (a `ConnectionsRefreshFailure`) carry what the token
+endpoint answered, never its body, error description or a token:
+
+```ts
+const token = await getAccessToken(ctx, { provider: "google" });
+if (!token.ok && token.error === "connections.refresh_failed") {
+  token.httpStatus; // 400, 503, 429…; null when no answer came (network failure, timeout); any 2xx reads as 200
+  token.oauthError; // "invalid_request", "temporarily_unavailable"…; null when the answer had none (never read from a 429 or 5xx)
+}
+```
+
+`requestWithConnection` and `downloadWithConnection` pass the same failure on. The field is `httpStatus`, not
+`status`, so it is never mistaken for the provider API's own status on a `core.http_*` failure.
+
+Every failed refresh (`invalid_grant` included) logs one warn line, and the row keeps the same detail in
+`last_error_http_status` and `last_error_oauth_error` (the page shows it beside the last problem; `ConnectionView`
+has `lastErrorHttpStatus` and `lastErrorOAuthError`):
+
+```text
+@softure-ai/connections: token refresh failed provider=google account_id=default http_status=400 oauth_error="invalid_request" code=connections.refresh_failed
+```
 
 A `form` (a `URLSearchParams` or a `FormData` with files) is sent as it is, and sent again on the retry after a
 refresh. A 403 is a permission problem, not a dead credential: it comes back as `core.http_refused` and reports nothing.
@@ -244,12 +275,13 @@ transaction. Three consequences:
 
 ## 5. Migrations and tables
 
-Schema `connections`, one migration (`0001_create_accounts_and_states.sql`):
+Schema `connections`, two migrations (`0001_create_accounts_and_states.sql`, `0002_add_last_error_detail.sql`):
 
 - `accounts`: one row per provider account: `kind`, `status` (`connected` or `reconnect_required`), `key_id`,
   `credentials` (the sealed payload), `token_type`, `scopes`, `has_refresh_token`, `expires_at`,
   `refresh_expires_at`, `connected_at`, `connected_by` (auth user id, no foreign key), `refreshed_at`, `last_error`
-  (a code) and `last_error_at`, and the refresh lease (`lease_id`, `lease_until`). Unique on
+  (a code), `last_error_at`, `last_error_http_status` and `last_error_oauth_error` (what the token endpoint answered
+  to the last failed refresh, both nullable), and the refresh lease (`lease_id`, `lease_until`). Unique on
   `(provider, account_id)`; checks on every enum, id shape and pair of columns.
 - `oauth_states`: authorizations in flight: the state's sha256 (never the state), the sealed PKCE verifier, the
   admin who started it and an expiry. One-time; expired rows go when a new authorization starts.
@@ -309,6 +341,31 @@ A hook that throws is logged by error kind and never fails the call; the state i
 inside a transaction, the hook's `ctx.db` is the configured database, not that transaction (section 4), so what the
 hook writes (an alert job, a mail) is kept when the caller's transaction rolls back. A new connect
 (or a new key) brings the connection back to `connected`.
+
+`onConnectionChanged(event, ctx)` runs after an admin's change is stored: the OAuth callback (`completeAuthorization`,
+`completeConnectionRoute`), a saved key (`saveCredential`, `saveCredentialAction`) and a disconnect (`disconnect`,
+`disconnectAction`). `event` is `{ change, provider, accountId, kind, actorId, at }` (`actorId` is the admin's auth
+user id, null for a script) with `change`:
+
+- `connected`: a new connection;
+- `reconnected`: a connection that existed (connected or `reconnect_required`) was replaced;
+- `disconnected`, with `revoked`: whether the provider accepted the revocation of the grant;
+- `connect_failed`, with `code`: the OAuth callback failed after its authorization was found (`consent_denied`,
+  `exchange_failed`, `client_rejected`, ...), so the provider and account are those the admin started with.
+
+A callback without a valid authorization (`connections.state_invalid`) and a key the form refuses change nothing and
+report nothing. The event never carries a credential, a code or a state. A hook that throws is logged by error kind,
+like `onReconnectRequired`.
+
+Every change also writes one `console.info` line, with or without the hook; a non-plain actor id is JSON-quoted:
+
+```text
+@softure-ai/connections: connection connected provider=google account_id=default kind=oauth actor_id=<user id>
+@softure-ai/connections: connection disconnected provider=raindrop account_id=default kind=api_key actor_id=<user id> revoked=false
+@softure-ai/connections: connection connect_failed provider=google account_id=default kind=oauth actor_id=<user id> code=connections.consent_denied
+```
+
+`disconnect(ctx, { provider, accountId?, actorId? })` takes the actor for these; without it the event says `null`.
 
 ## 11. GDPR
 
