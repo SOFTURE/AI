@@ -1,6 +1,6 @@
 ---
 change_id: connections-change-hook-945
-status: in_progress
+status: done
 ---
 
 # Plan: a hook and a log line per connection change (issue #945)
@@ -48,6 +48,6 @@ README (option table, section 10 hooks with the event shape and the log line), C
 
 ## Progress
 
-- [ ] Phase 1: the event, the hook and the log line
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: the event, the hook and the log line, 55cf60b
+- [x] Phase 2: docs, 55cf60b
+- [x] Implementation review: approved

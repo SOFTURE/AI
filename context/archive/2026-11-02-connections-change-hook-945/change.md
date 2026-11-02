@@ -1,12 +1,13 @@
 ---
 change_id: connections-change-hook-945
 title: "connections: a hook and a log line when an admin connects or disconnects an account (issue #945)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 945
 branch: claude/project-thread-ze1y3m
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent
