@@ -52,7 +52,8 @@ limit check made race-free.
   (`createMcpServerFactory`, `measureToolList`, `/server`), strict tool input that refuses unknown and renamed
   fields (`withStrictToolInput`, `/server`), an opt-in `get_server_info` tool that tells which build answers
   (`serverInfoTool`, `/server`), a stdio entry for local assistants (`/stdio`), a catalog parity check (`/testing`), a gate before a
-  token is issued (`issueToken`, `/next`) and the `softure-mcp prune` command for a daily cleanup (§4, §5).
+  token is issued (`issueToken`, `/next`), long operations as tools over `@softure-ai/jobs` (`startOperation`,
+  `get_operation`, `cancel_operation`, `/jobs`) and the `softure-mcp prune` command for a daily cleanup (§4, §5).
 
 ## 2. Installation
 
@@ -304,6 +305,47 @@ export async function createServer({ userId, canWrite, tokenId }: McpServerIdent
   // actionTool(handler, { label: "place_order", caller, onToolCall }) passes its arguments itself.
 }
 ```
+
+### Long operations: start, status, cancel
+
+A tool whose work takes minutes (a render, an import) cannot hold the call open: the endpoint answers in JSON mode
+and drops mid-call notifications, a proxy may cut a long response (Cloudflare at 100 seconds), and assistants time out
+tool calls. `@softure-ai/mcp-access/jobs` turns such work into an operation on top of `@softure-ai/jobs`: the tool
+starts a job and answers an id at once, the assistant asks `get_operation` until it ends, and may stop it with
+`cancel_operation`.
+
+```ts
+import { registerOperationCancelTool, registerOperationStatusTool, startOperation } from "@softure-ai/mcp-access/jobs";
+
+export async function createServer(identity: McpServerIdentity) {
+  server.registerTool("render_video", { inputSchema: z.object({ videoId: z.string() }) }, (args) =>
+    withToolErrors(() => startOperation(ctx, identity, { queue: "video.render", payload: args, dedupKey: `video:${args.videoId}` })),
+  );
+  registerOperationStatusTool(server, { ctx, identity, readResult: (job) => findRenderUrl(db, job.id) });
+  registerOperationCancelTool(server, { ctx, identity }); // registers nothing without identity.canWrite
+}
+```
+
+- `startOperation(ctx, identity, { queue, payload, dedupKey?, statusToolName?, poll? })` enqueues the job and answers
+  `{ operationId, status: "queued", progress: null, pollAfterSeconds, message }`; the message tells the assistant to
+  call the status tool and not to start again. With a `dedupKey` (at most 150 characters), starting again while the
+  account's operation of that queue runs joins it: the answer carries its id and status.
+- `get_operation` (`registerOperationStatusTool`, read only) answers `{ operationId, status, progress,
+  pollAfterSeconds?, cancelRequested?, result?, errorCode?, message }`. `status` is `queued`, `running` (also while a
+  failed attempt waits for its retry), `succeeded`, `failed` or `cancelled`; `progress` is what the handler reports
+  with `context.reportProgress` (codes and counts only); `pollAfterSeconds` is there while the operation runs and
+  grows with its age (a quarter of its seconds, between `poll.minSeconds` 2 and `poll.maxSeconds` 30); `result` is
+  what `readResult(job)` reads from the app's tables once it succeeded (jobs stores no result); `errorCode` is the
+  failure's code (`jobs.cancelled` for a cancelled one).
+- `cancel_operation` (`registerOperationCancelTool`, a write) ends a queued operation at once and asks a running one
+  to stop (`requestJobCancel`: the handler's `signal` aborts on its next heartbeat); the answer says
+  `cancelRequested: true` until it has ended. An ended one answers "already ended" as a tool error.
+- Scoped to the account: an operation's job has origin `mcp` and the dedup key `mcp:<userId>:<key>` (a random key
+  without `dedupKey`). Another account's operation, a job that is not an operation and a malformed id all answer
+  "No operation with this id belongs to this account." No table of its own: an operation lives as long as its job
+  (`retention` of jobs).
+- `getOperation` and `cancelOperation` are the same reads as functions; the texts are under `operations` in the
+  module dictionary, and `name`/`description` rename a tool.
 
 ### Confirmed calls
 
@@ -810,4 +852,6 @@ to `@softure-ai/privacy` (`privacy` flags on):
 - Write access is per token, not per tool; finer scopes would be a new option.
 - The MCP endpoint's rate limit is per client address, not per token (API tokens are counted per token as well).
 - One API token kind per app (one prefix); the `kind` column takes more kinds without a migration of the rows.
-- `responseMode: "json"` drops mid-call notifications; a streaming tool would need a different mode.
+- `responseMode: "json"` drops mid-call notifications; a streaming tool would need a different mode. Long work is an
+  operation instead (start, `get_operation`, `cancel_operation`).
+- Long operations answer through polling tools only; MCP Tasks (spec 2025-11-25, experimental) is not used yet.

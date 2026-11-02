@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Long operations as tools (#952), in `@softure-ai/mcp-access/jobs` on top of `@softure-ai/jobs` (with the progress
+  and running-job cancel of jobs #951): `startOperation(ctx, identity, { queue, payload, dedupKey? })` enqueues and
+  answers `{ operationId, status: "queued", pollAfterSeconds, message }` at once; `registerOperationStatusTool`
+  (`get_operation`) answers the status, the handler's progress, a growing `pollAfterSeconds`, the app's `result`
+  (`readResult`) and the `errorCode`; `registerOperationCancelTool` (`cancel_operation`, write access only) cancels a
+  queued operation and asks a running one to stop. Operations are scoped to the caller's account; no migration.
+  Migrate: an app with its own "start returns an id" and "status" tools can replace them with these (README "Long
+  operations").
 - Personal tokens for the app's plain HTTP routes (#961): the option `apiTokens` (`prefix`, default `sftapi_`;
   `scopes` with `read`/`write` access and a description; `examples` for the one-time reveal) turns on a second token
   kind. `requireApiToken(ctx, request, { scopes })` checks a route's request: client address counted (bucket `api`),
