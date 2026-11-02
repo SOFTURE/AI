@@ -78,20 +78,21 @@ export type IssueAccessTokenResult =
 export async function issueAccessToken(ctx: McpAccessContext, input: IssueAccessTokenInput): Promise<IssueAccessTokenResult> {
   const options = getMcpAccessOptions(ctx.config);
   const canWrite = input.canWrite && options.allowWrites;
-  const result = await insertToken(ctx, { userId: input.userId, name: input.name, kind: "mcp", canWrite, scopes: [], prefix: ACCESS_TOKEN_PREFIX });
+  const result = await insertToken(ctx, { userId: input.userId, name: input.name, kind: "mcp", canWrite, scopes: [], secret: createSecret(ACCESS_TOKEN_PREFIX) });
   if (!result.ok) return result;
   const { id, token, name, expiresAt } = result.value;
   return ok({ id, token, name, canWrite, expiresAt });
 }
 
-/** What `insertToken` stores: the kind's prefix, write access and scopes are already decided. */
+/** What `insertToken` stores: the new secret with its hash, write access and scopes are already decided. */
 export interface TokenInsert {
   readonly userId: string;
   readonly name: string;
   readonly kind: AccessTokenKind;
   readonly canWrite: boolean;
   readonly scopes: readonly string[];
-  readonly prefix: string;
+  /** The plaintext and the hash the lookup will find it by (`createSecret`, or the API token's own). */
+  readonly secret: { readonly secret: string; readonly secretHash: string };
 }
 
 export type InsertTokenResult =
@@ -118,7 +119,7 @@ export async function insertToken(ctx: McpAccessContext, input: TokenInsert): Pr
       .where(and(eq(accessTokens.userId, input.userId), isNull(accessTokens.grantId)));
     if ((held?.total ?? 0) >= options.maxTokensPerUser) return err("mcp-access.token_limit_reached");
 
-    const { secret: token, secretHash: tokenHash } = createSecret(input.prefix);
+    const { secret: token, secretHash: tokenHash } = input.secret;
     const [row] = await tx
       .insert(accessTokens)
       .values({ userId: input.userId, name, tokenHash, canWrite: input.canWrite, createdAt: now, expiresAt, kind: input.kind, scopes: [...input.scopes] })
@@ -203,7 +204,7 @@ export async function findTokenClientName(ctx: McpAccessContext, tokenId: string
 export async function verifyAccessToken(ctx: McpAccessContext, token: string): Promise<VerifiedAccessToken | null> {
   const options = getMcpAccessOptions(ctx.config);
   if (!isAcceptedTokenShape(options, token)) return null;
-  const row = await findValidToken(ctx, token, "mcp");
+  const row = await findValidToken(ctx, hashAccessToken(token), "mcp");
   if (row === null) return null;
   return {
     tokenId: row.id,
@@ -225,10 +226,10 @@ export interface ValidTokenRow {
 }
 
 /**
- * The unexpired token of `kind` with this plaintext, or null, after recording its use. The caller
+ * The unexpired token of `kind` stored under this hash, or null, after recording its use. The caller
  * checks the shape first, so no lookup runs for a value that cannot be a token.
  */
-export async function findValidToken(ctx: McpAccessContext, token: string, kind: AccessTokenKind): Promise<ValidTokenRow | null> {
+export async function findValidToken(ctx: McpAccessContext, tokenHash: string, kind: AccessTokenKind): Promise<ValidTokenRow | null> {
   const now = ctx.clock.now();
   const [row] = await ctx.db
     .select({
@@ -240,7 +241,7 @@ export async function findValidToken(ctx: McpAccessContext, token: string, kind:
       scopes: accessTokens.scopes,
     })
     .from(accessTokens)
-    .where(and(eq(accessTokens.tokenHash, hashAccessToken(token)), eq(accessTokens.kind, kind), gt(accessTokens.expiresAt, now)));
+    .where(and(eq(accessTokens.tokenHash, tokenHash), eq(accessTokens.kind, kind), gt(accessTokens.expiresAt, now)));
   if (row === undefined) return null;
   await recordUse(ctx, row, now);
   return row;

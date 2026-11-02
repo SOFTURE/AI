@@ -4,11 +4,12 @@
 // column keeps the two doors apart. Nothing here imports the MCP SDK: `@softure-ai/mcp-access/tokens`
 // is for an app that has no MCP server.
 import { err, errorLogLabel, getModule, ok, type Err, type Ok } from "@softure-ai/core";
-import { consumeRateLimit, identifyClient, subjectKey } from "@softure-ai/security/server";
+import { randomBytes } from "node:crypto";
+import { consumeRateLimit, identifyClient } from "@softure-ai/security/server";
 import type { ApiTokenIdentity, ApiTokenRefusal } from "../contract.js";
 import { MAX_PRESENTED_TOKEN_LENGTH, type ApiTokenOptions } from "../options.js";
 import { getMcpAccessOptions } from "./options.js";
-import { findValidToken, insertToken, type McpAccessContext } from "./tokens.js";
+import { findValidToken, hashAccessToken, insertToken, type McpAccessContext } from "./tokens.js";
 import { isWritingEnabled } from "./writes-switch.js";
 
 /** The bucket counted per client address before the token is looked up. */
@@ -28,6 +29,15 @@ export function getApiTokenOptions(ctx: Pick<McpAccessContext, "config">): ApiTo
 export function isApiTokenShape(options: ApiTokenOptions, token: string): boolean {
   if (token.length > MAX_PRESENTED_TOKEN_LENGTH || !token.startsWith(options.prefix)) return false;
   return /^[A-Za-z0-9_-]{43}$/.test(token.slice(options.prefix.length));
+}
+
+/**
+ * A new API token: the app's prefix and 32 random bytes. The stored sha256 covers the random part
+ * alone (the secret); the prefix is a label that the shape check requires before any lookup.
+ */
+function createApiSecret(prefix: string): { readonly secret: string; readonly secretHash: string } {
+  const random = randomBytes(32).toString("base64url");
+  return { secret: `${prefix}${random}`, secretHash: hashAccessToken(random) };
 }
 
 export interface IssueApiTokenInput {
@@ -77,7 +87,7 @@ export async function issueApiToken(ctx: McpAccessContext, input: IssueApiTokenI
 
   const scopes = granted.map((scope) => scope.name);
   const canWrite = granted.some((scope) => scope.access === "write");
-  const result = await insertToken(ctx, { userId: input.userId, name: input.name, kind: "api", canWrite, scopes, prefix: apiOptions.prefix });
+  const result = await insertToken(ctx, { userId: input.userId, name: input.name, kind: "api", canWrite, scopes, secret: createApiSecret(apiOptions.prefix) });
   if (!result.ok) return result;
   const { id, token, name, expiresAt } = result.value;
   return ok({ id, token, name, scopes, expiresAt });
@@ -101,7 +111,7 @@ export async function verifyApiToken(ctx: McpAccessContext, token: string): Prom
 async function checkApiToken(ctx: McpAccessContext, token: string): Promise<{ verified: VerifiedApiToken; withheld: readonly string[] } | null> {
   const apiOptions = getApiTokenOptions(ctx);
   if (apiOptions === null || !isApiTokenShape(apiOptions, token)) return null;
-  const row = await findValidToken(ctx, token, "api");
+  const row = await findValidToken(ctx, hashAccessToken(token.slice(apiOptions.prefix.length)), "api");
   if (row === null) return null;
   const isWriteAllowed = await isWritingEnabled(ctx);
   const writeScopes = new Set(apiOptions.scopes.filter((scope) => scope.access === "write").map((scope) => scope.name));
@@ -149,7 +159,7 @@ export async function requireApiToken(
     if (checked === null) return err("mcp-access.api_token_invalid");
     const { verified, withheld } = checked;
 
-    const byToken = await consumeRateLimit(ctx, { bucket: API_TOKEN_RATE_LIMIT_BUCKET, key: subjectKey(verified.tokenId) });
+    const byToken = await consumeRateLimit(ctx, { bucket: API_TOKEN_RATE_LIMIT_BUCKET, key: `token:${verified.tokenId}` });
     if (!byToken.ok) return { ...err("security.rate_limited"), retryAfterSeconds: byToken.retryAfterSeconds };
 
     const missingScopes = required.filter((scope) => !verified.scopes.includes(scope));

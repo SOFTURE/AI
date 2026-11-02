@@ -618,7 +618,8 @@ holds no personal data.
 
 `migrations/0004_add_api_tokens.sql` adds `access_tokens.kind` (`mcp` or `api`, default `mcp`) and
 `access_tokens.scopes` (`text[]`, default empty), with one check: an `mcp` row has no scopes, an `api` row has 1 to
-32 scopes and no grant. Existing rows become MCP tokens through the defaults. Rollback: in the migration header.
+32 scopes and no grant. Existing rows become MCP tokens through the defaults. An API token's `token_hash` is the
+sha256 of its random part after the prefix (the prefix is checked by shape before any lookup). Rollback: in the migration header.
 
 ### Scheduled pruning
 
