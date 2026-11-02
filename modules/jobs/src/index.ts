@@ -33,6 +33,7 @@ export const jobs = defineModule({
 
 export {
   JOB_RUN_OUTCOMES,
+  JOB_STATUS_ROUTE_ERRORS,
   JOB_STATUSES,
   type Job,
   type JobFailedEvent,
@@ -44,6 +45,7 @@ export {
   type JobsFormErrorCode,
   type JobsFormState,
   type JobStatus,
+  type JobStatusRouteErrorCode,
   type OwnJob,
   type OwnJobStatus,
   type ScheduleHealth,

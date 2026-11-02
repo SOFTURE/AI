@@ -90,6 +90,18 @@ export interface OwnJobStatus {
   readonly finishedAt: string | null;
 }
 
+/** The error code the status route answers with (`{ error }`): never a message. */
+export const JOB_STATUS_ROUTE_ERRORS = [
+  "auth.unauthorized",
+  "jobs.not_found",
+  "jobs.not_cancellable",
+  "jobs.cancel_not_allowed",
+  "jobs.unavailable",
+  "jobs.failed",
+] as const;
+
+export type JobStatusRouteErrorCode = (typeof JOB_STATUS_ROUTE_ERRORS)[number];
+
 export const JOB_RUN_OUTCOMES = ["succeeded", "retried", "failed", "cancelled"] as const;
 
 /**

@@ -4,7 +4,7 @@
 // job's `OwnJobStatus`, `DELETE` asks it to stop when `allowCancel` is on. Every answer is `no-store`: a cached status
 // would freeze the waiting screen.
 import { errorLogLabel } from "@softure-ai/core";
-import type { OwnJobStatus } from "../contract.js";
+import type { JobStatusRouteErrorCode, OwnJobStatus } from "../contract.js";
 import type { JobsContext } from "../server/context.js";
 import { getOwnJob, requestOwnJobCancel, toOwnJobStatus } from "../server/own-jobs.js";
 import { getJobsContext } from "./context.js";
@@ -35,7 +35,7 @@ export interface JobStatusRouteOptions {
 
 /** The error body of the route: a code, never a message. */
 export interface JobStatusRouteError {
-  readonly error: "auth.unauthorized" | "jobs.not_found" | "jobs.not_cancellable" | "jobs.cancel_not_allowed" | "jobs.unavailable" | "jobs.failed";
+  readonly error: JobStatusRouteErrorCode;
 }
 
 const NO_STORE = { "cache-control": "no-store" } as const;
