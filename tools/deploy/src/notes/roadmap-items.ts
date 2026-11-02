@@ -37,24 +37,43 @@ function findAtAGlance(markdown: string): string | null {
   return lines.slice(start + 1, end === -1 ? undefined : end).join("\n");
 }
 
-/** Every item row of the At a glance table; the header, the separator and other tables are skipped. */
-export function parseRoadmapItems(markdown: string): RoadmapItem[] {
+/** The At a glance table: its header cells (markup stripped) and the cells of every item row, in table order. */
+export interface RoadmapTable {
+  header: string[];
+  rows: string[][];
+}
+
+/** The header and the item rows of the At a glance table; the separator and other tables are skipped. */
+export function readRoadmapTable(markdown: string): RoadmapTable {
   const section = findAtAGlance(markdown);
-  if (section === null) return [];
-  const items: RoadmapItem[] = [];
+  const table: RoadmapTable = { header: [], rows: [] };
+  if (section === null) return table;
   for (const line of section.split("\n")) {
     if (!line.trim().startsWith("|")) continue;
     const cells = splitRow(line);
     const id = stripMarkup(cells[0] ?? "");
-    if (!ITEM_ID.test(id) || cells.length < 3) continue;
-    items.push({
-      id,
-      changeId: stripMarkup(cells[1] ?? ""),
-      outcome: cells[2] ?? "",
-      status: stripMarkup(cells.at(-1) ?? ""),
-    });
+    if (ITEM_ID.test(id)) {
+      if (cells.length >= 3) table.rows.push(cells);
+    } else if (table.header.length === 0 && table.rows.length === 0 && !cells.every((cell) => /^:?-+:?$/.test(cell))) {
+      table.header = cells.map(stripMarkup);
+    }
   }
-  return items;
+  return table;
+}
+
+/** One cell's text as plain text: markup stripped, an escaped `\|` back to `|`. */
+export function readCellText(cell: string): string {
+  return stripMarkup(cell).replace(/\\\|/g, "|");
+}
+
+/** Every item row of the At a glance table; the header, the separator and other tables are skipped. */
+export function parseRoadmapItems(markdown: string): RoadmapItem[] {
+  return readRoadmapTable(markdown).rows.map((cells) => ({
+    id: stripMarkup(cells[0] ?? ""),
+    changeId: stripMarkup(cells[1] ?? ""),
+    outcome: cells[2] ?? "",
+    status: stripMarkup(cells.at(-1) ?? ""),
+  }));
 }
 
 /** The items this release ships: `done_code`, not `done` (already released) nor anything still in progress. */

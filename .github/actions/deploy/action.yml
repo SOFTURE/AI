@@ -82,6 +82,9 @@ inputs:
   build-info-headers:
     description: "Request headers of the smoke check only, one 'Name: value' line each, masked; e.g. an access proxy's service token"
     default: ""
+  build-info-expect:
+    description: "The app's own build info fields and the values they must equal, as a JSON object (text, number, boolean or null values), e.g. {\"toolListVersion\": \"a1b2\"}; the smoke check fails on another value or a missing field. Needs build-info-path; empty checks none"
+    default: ""
   deployed-at:
     description: "When the release was sent, ISO 8601 (the send's sent-at output); empty takes this run's own send, and without one the smoke check skips the start time"
     default: ""
@@ -117,6 +120,9 @@ outputs:
   sent-at:
     description: When the release was sent to the server, ISO 8601 in UTC (the smoke check's deployed-at)
     value: ${{ steps.send.outputs.sent-at }}
+  smoke-result:
+    description: "The smoke check's result for a later job to gate on: passed, failed, or skipped when it did not run (no build-info-path, verify off, or an earlier step failed)"
+    value: ${{ steps.smoke.outputs.result || 'skipped' }}
 
 runs:
   using: composite
@@ -134,6 +140,8 @@ runs:
         SEND: ${{ inputs.send }}
         VERIFY: ${{ inputs.verify }}
         REPORT: ${{ inputs.report }}
+        BUILD_INFO_PATH: ${{ inputs.build-info-path }}
+        BUILD_INFO_EXPECT: ${{ inputs.build-info-expect }}
       run: |
         keys='tag app-url image environment compose-file server-script deploy-config remote-command ssh-port health-path verify-timeout-seconds deploy-cli-version node-version build-args secret-min-lengths registry-token server-files'
         if ! printf '%s' "${RELEASE:-}" | jq -e 'type == "object"' > /dev/null 2>&1; then
@@ -142,6 +150,10 @@ runs:
         fi
         if [ "${PREFLIGHT:-false}" = "true" ] && { [ "${SEND:-true}" != "false" ] || [ "${VERIFY:-true}" != "false" ] || [ "${REPORT:-true}" != "false" ]; }; then
           echo "::error::Input preflight is not valid: true only with send, verify and report false (a preflight checks, it never deploys)."
+          exit 1
+        fi
+        if [ "${VERIFY:-true}" = "true" ] && [ -n "${BUILD_INFO_EXPECT:-}" ] && [ -z "${BUILD_INFO_PATH:-}" ]; then
+          echo "::error::Input build-info-expect is not valid: it needs build-info-path (the smoke check reads the fields there)."
           exit 1
         fi
         if [ -n "${APP_URL_INPUT:-}" ] && [[ ! "$APP_URL_INPUT" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/?$ ]]; then
@@ -593,7 +605,8 @@ runs:
         fi
     # The smoke check (issue #878): the app's build info against the release just sent. A stale container, a failed
     # pull or a rolled-back stack passes the health route, but answers another release, another commit or a start
-    # before the deploy. The tag's commit comes from a checkout of the tag holding only the compose file, which is also
+    # before the deploy. build-info-expect adds the app's own fields (issue #922); the step's result output feeds the
+    # action's smoke-result, failed until the CLI passes. The tag's commit comes from a checkout of the tag holding only the compose file, which is also
     # the folder npx runs in, so no .npmrc of the app steers it.
     - if: inputs.verify == 'true' && inputs.build-info-path != ''
       uses: actions/checkout@v7
@@ -613,11 +626,13 @@ runs:
         TAG: ${{ steps.release.outputs.tag }}
         BUILD_INFO_PATH: ${{ inputs.build-info-path }}
         BUILD_INFO_HEADERS: ${{ inputs.build-info-headers }}
+        BUILD_INFO_EXPECT: ${{ inputs.build-info-expect }}
         DEPLOYED_AT: ${{ inputs.deployed-at || steps.send.outputs.sent-at }}
         DEPLOY_CLI_VERSION: ${{ steps.release.outputs.deploy-cli-version }}
         DEPLOY_CLI: ${{ inputs.deploy-cli }}
         NODE_EXTRA_CA_CERTS: ${{ inputs.ca-file }}
       run: |
+        echo "result=failed" >> "$GITHUB_OUTPUT"
         if [ -n "${NODE_EXTRA_CA_CERTS:-}" ]; then export NODE_EXTRA_CA_CERTS; else unset NODE_EXTRA_CA_CERTS; fi
         if [[ ! "$BUILD_INFO_PATH" =~ ^/[A-Za-z0-9/._~-]*$ ]]; then
           echo "::error::Input build-info-path is not valid: a path starting with /"
@@ -634,7 +649,17 @@ runs:
         # masked before anything could print it, and a line is named by its number, never by its text.
         header_file="$RUNNER_TEMP/build-info-headers"
         output="$RUNNER_TEMP/smoke-output.txt"
-        trap 'rm -f "$header_file" "$output"' EXIT
+        expect_file="$RUNNER_TEMP/build-info-expect.json"
+        trap 'rm -f "$header_file" "$output" "$expect_file"' EXIT
+        # The expected fields reach the CLI as a file; the CLI checks the names and the values.
+        if [ -n "${BUILD_INFO_EXPECT:-}" ]; then
+          if ! printf '%s' "$BUILD_INFO_EXPECT" | jq -e 'type == "object"' > /dev/null 2>&1; then
+            echo "::error::Input build-info-expect is not valid: a JSON object of build info fields and their expected values"
+            exit 1
+          fi
+          printf '%s' "$BUILD_INFO_EXPECT" > "$expect_file"
+          args+=("--expect-file=$expect_file")
+        fi
         if [ -n "${BUILD_INFO_HEADERS:-}" ]; then
           (umask 077 && : > "$header_file")
           header_line='^[A-Za-z0-9-]+: [^[:cntrl:]]+$'
@@ -669,6 +694,8 @@ runs:
         } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
         if [ "$status" != "0" ]; then
           echo "::error::Smoke check: failed. Production does not answer the build of $TAG (see the table above)."
+        else
+          echo "result=passed" >> "$GITHUB_OUTPUT"
         fi
         exit "$status"
     # The facts of this deploy for the release report (deploy-report.yml, DF-10), whatever happened: the results, the

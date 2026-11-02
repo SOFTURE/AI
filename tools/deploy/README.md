@@ -396,6 +396,18 @@ a bad line is named by its number. A redirect is not followed and anything but `
 `--timeout=<ms>` (default 10000) bounds the request. The output is a table like `verify`'s; exit code 1 names the
 failed checks.
 
+`--expect-file=<json>` adds the app's own build info fields (the route's `fields` option): a JSON object of field
+names and the values they must equal, each text, a number, `true`, `false` or `null` (at most 50; names are a letter
+or `_`, then letters, digits, `_` or `-`). Each field is one more row, named after it, after the build facts; it fails
+when the field is missing or holds another value. Equality is strict, so the text `"12"` is not the number `12`.
+`release`, `commit` and `startedAt` are refused in the file, since `--tag`, `--commit` and `--deployed-at` check
+them. An app whose MCP tool list must match the tag's passes the version its build measured:
+
+```bash
+echo '{"toolListVersion": "a1b2c3", "toolCount": 12}' > expect.json
+softure-deploy smoke https://example.com --tag=v1.4.0 --expect-file=expect.json
+```
+
 ```text
 Build info of https://example.com/api/health/build
 Result  Check    Detail
@@ -404,7 +416,8 @@ FAIL    commit   commit 9f8e7d6, expected 0123456789abcdef0123456789abcdef012345
 FAIL    started  started 2026-10-28T09:00:00.000Z, before the deploy at 2026-10-29T15:00:00.000Z (tolerance 60 s): an old container answers
 ```
 
-The deploy workflow and action run it after `verify` when `build-info-path` is set (**Deploy workflow**, below).
+The deploy workflow and action run it after `verify` when `build-info-path` is set, with `build-info-expect` as the
+expect file, and answer its result as the output `smoke-result` (**Deploy workflow**, below).
 
 ## `softure-deploy changelog`
 
@@ -420,6 +433,15 @@ passes the file to the build info route as its `changelog` provider, so producti
 
 ```json
 [{ "roadmap": "context/foundation/roadmap.md", "items": [{ "id": "AB-1", "changeId": "ab-login", "status": "done_code" }] }]
+```
+
+`--fields=<column>,...` copies more columns of the table into each item's `fields`, by the name given (header names
+match in any case; at most 10, letters, digits, space, `_ . -`). The cell's text comes without markup; a roadmap whose
+table lacks a column leaves that name out of its items. Only name columns that may be public.
+
+```bash
+softure-deploy changelog --fields=Findings --out=lib/changelog.json
+# [{ "roadmap": "…", "items": [{ "id": "AB-1", "changeId": "ab-login", "status": "done", "fields": { "Findings": "F-3, F-7" } }] }]
 ```
 
 ## Deploy workflow
@@ -452,7 +474,11 @@ flags the expression that builds it. For the release tag, between them:
    With `build-info-path`, `softure-deploy smoke` then reads the app's build info and fails the run when production
    answers another release than the tag, another commit than the tag's (read from a checkout of the tag), or a
    process started before the deploy job sent the release (its `sent-at`). It writes `Smoke check: passed` or
-   `Smoke check: failed` and the CLI's table to the job summary. The build job passes the tag's commit as the build
+   `Smoke check: failed` and the CLI's table to the job summary. `build-info-expect` (a JSON object of the app's own
+   fields and their values, e.g. from an earlier job's output) is checked too (`--expect-file`). The workflow's output
+   `smoke-result` is `passed`, `failed`, or `skipped` when the smoke check did not run (no `build-info-path`,
+   `deploy: false`, or an earlier step failed), so a later job can gate on it:
+   `if: needs.deploy.outputs.smoke-result == 'passed'`. The build job passes the tag's commit as the build
    argument `SOFTURE_BUILD_COMMIT` (so does `deploy-release-image.yml`, with its `ref`), which init's Dockerfile
    declares before `npm run build`; a caller's own `SOFTURE_BUILD_COMMIT` in `build-args` is refused.
 5. whatever happened, uploads the run's facts as the artifact `deploy-report` (`summary` job, no permissions): each
@@ -475,6 +501,7 @@ flags the expression that builds it. For the release tag, between them:
 | `ssh-port` | `22` | |
 | `health-path`, `verify-timeout-seconds` | `/api/health`, `300` | the health wait before verify |
 | `build-info-path` | none | the app's build info route (`@softure-ai/ops`, e.g. `/api/health/build`): after verify, the smoke check (step 4); empty skips it |
+| `build-info-expect` | none | the app's own build info fields and the values they must equal, a JSON object of text, number, boolean or null values (step 4); needs `build-info-path` |
 | `deploy-config` | `deploy.json` | the routes `verify` checks, also shipped to the server; empty for the health route only |
 | `deploy-cli-version` | this package's version | the CLI run from npm (`env render`, `verify`) |
 | `release-branch` | the caller's default branch | the branch the tag's commit must be on |
@@ -554,6 +581,7 @@ verify` with the tag's `deploy-config`, then the `deploy-report` artifact and th
 | `health-headers` | none | request headers of the health wait only, one `Name: value` line each (e.g. `CF-Access-Client-Id` and `CF-Access-Client-Secret` of a Cloudflare Access service token from secrets); each value is masked and curl reads them from a file only the runner's user can read. A line that is not `Name: value` is refused by its number |
 | `build-info-path` | none | the app's build info route: after verify, `softure-deploy smoke` with the tag, the tag's commit and the deploy time (step 4 above); empty skips it |
 | `build-info-headers` | none | request headers of the smoke check only, in the form and with the masking of `health-headers` (the CLI reads them from a file) |
+| `build-info-expect` | none | the app's own build info fields and their expected values as a JSON object, handed to the CLI as `--expect-file`; refused without `build-info-path` |
 | `deployed-at` | this step's send | when the release was sent (ISO 8601), e.g. `needs.deploy.outputs.sent-at` of a job that sent it; with neither, the start time is not checked |
 | `send`, `verify`, `report` | `true` | each part on its own; `report: false` for every environment but one, since a run holds one `deploy-report` artifact |
 | `preflight` | `false` | `true` (with `send`, `verify` and `report` all `false`, else refused) checks the deploy's prerequisites and stops: the SSH values, and `.env.prod` rendered from the step's secrets (the required names, `secret-min-lengths`, the `build-args` agreement), then deleted (**Fail fast**, below) |
@@ -561,8 +589,9 @@ verify` with the tag's `deploy-config`, then the `deploy-report` artifact and th
 Before every send, and in a preflight, the step "Check the SSH secrets" names each SSH input that is empty, a host or
 user that is not one, a key `ssh-keygen -y` cannot read without a passphrase, and known hosts with no line for the host
 (`[host]:port` off port 22). It never connects, since the server's forced command would deploy, and never prints a
-value. The action's outputs are `server-lines` (the server's step lines) and `sent-at` (when the send started, UTC),
-which a later job passes back as `deployed-at`.
+value. The action's outputs are `server-lines` (the server's step lines), `sent-at` (when the send started, UTC),
+which a later job passes back as `deployed-at`, and `smoke-result` (`passed`, `failed`, or `skipped` when the smoke
+check did not run), which a later step or job gates on.
 | `image`, `digest` | none | the build job's outputs, for the report |
 
 `deploy-report.yml` then runs after the environment that reports, as in the example. Pin the workflow and the action

@@ -45,6 +45,23 @@ describe("selectChangelogItems", () => {
     ]);
   });
 
+  it("copies the named columns into fields, by the name given, any case, plain text (issue #922)", () => {
+    const table = [
+      "## At a glance",
+      "",
+      "| ID | Change | Outcome | **Findings** | Status |",
+      "| --- | --- | --- | --- | --- |",
+      "| **AB-1** | `ab-login` | Login | `F-3`, F-7 \\| F-9 | done |",
+      "| **AB-2** | `ab-reset` | Reset |  | done_code |",
+      "| **AB-3** | `ab-mail` | Mail | F-1 | in_progress |",
+    ].join("\n");
+    expect(selectChangelogItems(table, ["findings", "Owner"])).toEqual([
+      { id: "AB-1", changeId: "ab-login", status: "done", fields: { findings: "F-3, F-7 | F-9" } },
+      { id: "AB-2", changeId: "ab-reset", status: "done_code", fields: { findings: "" } },
+    ]);
+    expect(selectChangelogItems(TABLE, ["Findings"])[0]).toEqual({ id: "AB-1", changeId: "ab-login", status: "done", fields: {} });
+  });
+
   it("answers no items for a roadmap without the table", () => {
     expect(selectChangelogItems("# Roadmap\n")).toEqual([]);
   });

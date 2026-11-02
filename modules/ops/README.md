@@ -231,6 +231,13 @@ export const GET = createBuildInfoRoute();
   `softure-deploy changelog --out=lib/changelog.json` writes before the build (the newest roadmaps' finished items):
   `createBuildInfoRoute({ changelog: () => changelog })` with `import changelog from "@/lib/changelog.json"`. A
   provider that throws answers `changelog: null` and logs the error class; the build info still answers.
+- `fields` is a function whose result, a plain object, the route answers at the top level next to the build facts:
+  the app's own facts a deploy should check, e.g. `createBuildInfoRoute({ fields: () => ({ toolListVersion,
+  toolCount }) })` for an MCP server's tool list. The deploy's smoke check compares them with expected values
+  (`softure-deploy smoke --expect-file`, `build-info-expect`), so a stale container that answers the right release but
+  an old tool list fails. `release`, `commit`, `builtAt`, `startedAt` and `changelog` win over a field of the same
+  name. A provider that throws or returns something other than an object adds no field and logs it; the build info
+  still answers, and a smoke check that expects a field names it as missing. Answer only public values.
 - Without Next: `readBuildInfo(options)` and `createBuildInfoResponse(options)` from `@softure-ai/ops/server`; the type
   is `BuildInfo` from `@softure-ai/ops`.
 
