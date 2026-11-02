@@ -48,5 +48,10 @@ export function getBillingRoutes(config: SoftureConfig): BillingRoutes {
 /** The state machine's policy from the options and the app's time zone. */
 export function getEntitlementPolicy(config: SoftureConfig): EntitlementPolicy {
   const options = getBillingOptions(config);
-  return { timezone: config.timezone, trialReminderDays: options.trial.reminderDays, paidReminderDays: options.paid.reminderDays };
+  return {
+    timezone: config.timezone,
+    trialReminderDays: options.trial.reminderDays,
+    paidReminderDays: options.paid.reminderDays,
+    hasFreeTier: options.free !== undefined,
+  };
 }

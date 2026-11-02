@@ -53,6 +53,17 @@ describe("getLimits", () => {
     expect(await getLimits(test.ctx, adaId)).toEqual({ status: "read_only", planId: null, limits: { "ai-calls": 0, exports: 1 } });
   });
 
+  it("gives the free tier's limits once the trial ended, when the config has one", async () => {
+    const free = await createTestBilling({ ...OPTIONS, free: { limits: { "ai-calls": 5 } } });
+    try {
+      const id = await createAccount(free, "eve@example.com");
+      free.clock.set(TRIAL_END);
+      expect(await getLimits(free.ctx, id)).toEqual({ status: "free", planId: null, limits: { "ai-calls": 5, exports: 0 } });
+    } finally {
+      await free.database.close();
+    }
+  });
+
   it("gives the paid plan's limits from the payment, also while the bought month waits for the trial to end", async () => {
     await pay("pro", "cs_pro");
     expect(await getLimits(test.ctx, adaId)).toEqual({ status: "paid", planId: "pro", limits: { "ai-calls": 1000, exports: null } });

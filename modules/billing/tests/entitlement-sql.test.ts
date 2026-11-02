@@ -1,6 +1,7 @@
-// The SQL surface of migration 0012 against the state machine: `billing.entitlement_states` and
+// The SQL surface of migrations 0012 and 0013 against the state machine: `billing.entitlement_states` and
 // `billing.entitlement_state` must answer what `getEntitlement` answers, for accounts with and
-// without a row, at random instants and at every end itself, under several trial policies.
+// without a row, at random instants and at every end itself, under several trial policies, with and
+// without a free tier.
 import { getEntitlement, getEntitlementStatesSql, type BillingContext } from "@softure-ai/billing/server";
 import { createTestEntitlement } from "@softure-ai/billing/testing";
 import type { Entitlement } from "@softure-ai/billing";
@@ -23,6 +24,8 @@ interface StateRow {
   read_only_since: Date | null;
   read_only_reason: string | null;
   is_stored: boolean;
+  free_since: Date | null;
+  free_reason: string | null;
 }
 
 /** A small seeded generator (mulberry32), so a failure reproduces. */
@@ -41,9 +44,11 @@ function toRow(entitlement: Entitlement): Omit<StateRow, "user_id" | "is_stored"
   switch (entitlement.status) {
     case "trial":
     case "paid":
-      return { status: entitlement.status, ends_at: entitlement.endsAt, read_only_since: null, read_only_reason: null };
+      return { status: entitlement.status, ends_at: entitlement.endsAt, read_only_since: null, read_only_reason: null, free_since: null, free_reason: null };
+    case "free":
+      return { status: "free", ends_at: null, read_only_since: null, read_only_reason: null, free_since: entitlement.since, free_reason: entitlement.reason };
     case "read_only":
-      return { status: "read_only", ends_at: null, read_only_since: entitlement.since, read_only_reason: entitlement.reason };
+      return { status: "read_only", ends_at: null, read_only_since: entitlement.since, read_only_reason: entitlement.reason, free_since: null, free_reason: null };
   }
 }
 
@@ -60,15 +65,15 @@ async function createSqlBilling(options: BillingInput, timezone: string): Promis
 
 async function readStates(test: SqlBilling, asOf: Date): Promise<Map<string, StateRow>> {
   const result = await test.database.client.query<StateRow>(
-    "SELECT user_id, status, ends_at, read_only_since, read_only_reason, is_stored FROM billing.entitlement_states($1, $2, $3, $4)",
+    "SELECT user_id, status, ends_at, read_only_since, read_only_reason, is_stored, free_since, free_reason FROM billing.entitlement_states($1, $2, $3, $4, $5)",
     [asOf.toISOString(), ...getPolicyArguments(test)],
   );
   return new Map(result.rows.map((row) => [row.user_id, row]));
 }
 
-function getPolicyArguments(test: SqlBilling): [number, string, string | null] {
-  const options = test.ctx.config.modules.find((module) => module.id === "billing")?.options as { trial: { days: number; startsAt?: string } };
-  return [options.trial.days, test.ctx.config.timezone, options.trial.startsAt ?? null];
+function getPolicyArguments(test: SqlBilling): [number, string, string | null, boolean] {
+  const options = test.ctx.config.modules.find((module) => module.id === "billing")?.options as { trial: { days: number; startsAt?: string }; free?: unknown };
+  return [options.trial.days, test.ctx.config.timezone, options.trial.startsAt ?? null, options.free !== undefined];
 }
 
 const POLICIES: readonly { readonly name: string; readonly options: BillingInput; readonly timezone: string }[] = [
@@ -76,6 +81,8 @@ const POLICIES: readonly { readonly name: string; readonly options: BillingInput
   { name: "a 10-day trial from trial.startsAt in New York", options: { trial: { days: 10, startsAt: "2026-11-01" } }, timezone: "America/New_York" },
   { name: "a 3-day trial where midnight is skipped (Santiago)", options: { trial: { days: 3 } }, timezone: "America/Santiago" },
   { name: "no trial in Kiritimati", options: { trial: { days: 0 } }, timezone: "Pacific/Kiritimati" },
+  { name: "a 14-day trial and a free tier in Warsaw", options: { free: { limits: { "ai-calls": 5 } } }, timezone: "Europe/Warsaw" },
+  { name: "a free tier without a trial in New York", options: { trial: { days: 0 }, free: {} }, timezone: "America/New_York" },
 ];
 
 describe("billing.entitlement_states", () => {
@@ -169,5 +176,30 @@ describe("getEntitlementStatesSql", () => {
     const trialEnd = new Date("2026-11-11T05:00:00Z");
     expect(await query()).toEqual([{ user_id: id, status: "trial", ends_at: trialEnd }]);
     expect(await query(trialEnd)).toEqual([{ user_id: id, status: "read_only", ends_at: null }]);
+  });
+
+  it("passes the free tier, so an ended trial reads free", async () => {
+    test = await createSqlBilling({ trial: { days: 10, startsAt: "2026-11-01" }, free: { limits: { "ai-calls": 5 } } }, "America/New_York");
+    const id = await createAccount(test, "ada@example.com");
+    const trialEnd = new Date("2026-11-11T05:00:00Z");
+    const result = await test.ctx.db.execute<{ user_id: string; status: string; free_reason: string | null }>(
+      sql`select s.user_id, s.status, s.free_reason from ${getEntitlementStatesSql(test.ctx, trialEnd)} s`,
+    );
+    expect(result.rows).toEqual([{ user_id: id, status: "free", free_reason: "trial_ended" }]);
+  });
+});
+
+describe("the 0012 call shape", () => {
+  let test: SqlBilling;
+  afterEach(() => test.database.close());
+
+  it("answers read-only for an ended trial when a query passes no free tier", async () => {
+    test = await createSqlBilling({}, "Europe/Warsaw");
+    const id = await createAccount(test, "ada@example.com");
+    const later = new Date(NOW.getTime() + 30 * DAY_MS).toISOString();
+    const four = await test.database.client.query("SELECT status FROM billing.entitlement_states($1, $2, $3, $4) WHERE user_id = $5", [later, 14, "Europe/Warsaw", null, id]);
+    const three = await test.database.client.query("SELECT status, free_since FROM billing.entitlement_state($1, $2, $3, $4)", [id, later, 14, "Europe/Warsaw"]);
+    expect(four.rows).toEqual([{ status: "read_only" }]);
+    expect(three.rows).toEqual([{ status: "read_only", free_since: null }]);
   });
 });

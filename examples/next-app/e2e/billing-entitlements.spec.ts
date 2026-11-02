@@ -178,7 +178,7 @@ test("an account older than its trial is read-only until import-entitlements giv
     await writeFile(file, JSON.stringify([{ email, paidUntil }]));
     const dryRun = runBillingScript("import-entitlements", [`--file=${file}`]);
     expect(dryRun.status, dryRun.output).toBe(0);
-    expect(dryRun.output).toContain('after:  {"accounts":1,"trial":0,"paid":1,"lifetime":0,"readOnly":0}');
+    expect(dryRun.output).toContain('after:  {"accounts":1,"trial":0,"paid":1,"lifetime":0,"free":0,"readOnly":0}');
     await page.reload();
     await expect(page.locator("[data-status]").first()).toHaveText(copy.badge.readOnly);
 

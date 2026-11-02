@@ -77,6 +77,16 @@ describe("getAccessReminder", () => {
     expect(decide(PAID, "2026-11-30T22:59:59Z", { policy })).toBeNull();
     expect(decide(TRIAL, "2026-10-17T12:00:00Z", { policy })).toEqual({ kind: "trial-ended", endsAt: TRIAL_END });
   });
+
+  it("says the account keeps the free tier, in the same windows", () => {
+    const policy = { ...POLICY, hasFreeTier: true };
+    expect(decide(TRIAL, "2026-10-13T21:59:59Z", { policy })).toBeNull();
+    expect(decide(TRIAL, "2026-10-13T22:00:00Z", { policy })).toEqual({ kind: "trial-ending", endsAt: TRIAL_END, afterEnd: "free" });
+    expect(decide(TRIAL, "2026-10-16T22:00:00Z", { policy })).toEqual({ kind: "trial-ended", endsAt: TRIAL_END, afterEnd: "free" });
+    expect(decide(TRIAL, "2026-10-20T22:00:00Z", { policy })).toBeNull();
+    expect(decide(PAID, "2026-11-23T23:00:00Z", { policy })).toEqual({ kind: "paid-ending", endsAt: PAID_END, afterEnd: "free" });
+    expect(decide(PAID, "2026-12-01T12:00:00Z", { policy })).toEqual({ kind: "paid-ended", endsAt: PAID_END, afterEnd: "free" });
+  });
 });
 
 describe("getAccessReminderScope", () => {

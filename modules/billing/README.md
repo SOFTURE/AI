@@ -4,7 +4,8 @@
 `@softure-ai/billing/jobs`).
 
 Decides whether an account may still write: a trial every account starts with, paid access (dated
-or lifetime) and a read-only state once both end. It replaces FIRE_TRACKER's access logic
+or lifetime) and a read-only state once both end, or a free tier without an end (`free`, for a
+freemium product) held only by its usage limits. It replaces FIRE_TRACKER's access logic
 (`src/lib/access.ts`, `src/db/access.ts`, `src/components/{access-badge,access-notice*}.tsx`), with
 the `paid_until` and `trial_ends_at` columns moved off the users table into `billing.entitlements`
 and the hand-written guard replaced by a pure state machine. FIRE's hard-coded prices and its access
@@ -16,7 +17,7 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
 ## 1. What it provides
 
 - **A pure state machine** (`resolveEntitlement`, `applyEntitlementEvent` from the root entry): a
-  record (trial end, paid until, lifetime) and an instant give `trial | paid | read_only`, with the
+  record (trial end, paid until, lifetime) and an instant give `trial | paid | free | read_only`, with the
   days left and whether the reminder window is open; an event (`grant`, `grant_lifetime`, `revoke`,
   `shorten`, `end_lifetime`, `extend_trial`, `import`) gives the next record. No database and no clock.
 - **`billing.entitlements`**, at most one row per account, apart from `auth.users`. An account
@@ -71,10 +72,12 @@ import of what the old system knew (`import-entitlements`) and a pin step for de
   (`pinDerivedTrials()`) writes every derived trial into a row before a config change would move it
   (see "Existing accounts" in §4).
 - **Usage limits** for a metered resource (AI calls a month, exports a month): limits per meter in
-  `trial.limits`, `paid.limits`, `readOnly.limits` and each plan's `limits`; **`getLimits()`** answers
+  `trial.limits`, `paid.limits`, `free.limits`, `readOnly.limits` and each plan's `limits`; **`getLimits()`** answers
   an account's state, the plan paying for today and its limits; **`consumeUsage()`** counts usage per
-  calendar month in `billing.usage` and refuses atomically once the limit is used up (see "Usage
-  limits" in §4).
+  calendar month in `billing.usage` and refuses atomically once the limit is used up, naming the plans
+  that would raise it (see "Usage limits" in §4).
+- **A free tier** (`free: { limits }`): an account without paid access, once its trial ends, keeps
+  writing in state `free` under the free limits instead of turning read-only (see "Free tier" in §4).
 - **Entitlement state in SQL** (migration `0012`): `billing.entitlement_states(...)` and
   `billing.entitlement_state(user_id, ...)` answer what `getEntitlement()` answers, for an app's own SQL
   (recipient selection, reports); `getEntitlementStatesSql(ctx)` (`/server`) fills in the app's trial policy (see
@@ -122,6 +125,7 @@ billing({
 | `trial.reminderDays` | integer 0 to 365 | `3` | From how many days left the trial counts as ending (badge tone, notice). `0`: never. |
 | `paid.reminderDays` | integer 0 to 365 | `7` | The same for dated paid access. Lifetime access never ends. |
 | `trial.limits`, `paid.limits`, `readOnly.limits` | `{ [meter]: integer 0 to 1e9 or null }`, at most 20 meters | `{}` | Usage limits per calendar month during the trial, of paid access (a meter its plan leaves out, or a paid account no recorded grant explains), and of a read-only account. `null`: no limit. See "Usage limits" in §4. |
+| `free` | `{ limits? }` | — | A free tier without an end: an account without paid access is `free` once its trial ends (at once with `trial.days: 0`), keeps write access and is held only by `free.limits` (same shape as the other blocks). Absent: no free tier, an ended account is read-only. See "Free tier" in §4. |
 | `plans` | array, at most 12 | `[]` | The plans, in the order the tiles show them (see below). |
 | `payment` | `PaymentProvider` | — | The adapter the payment page uses: `stripe()` or `manual({ onRequest })`. The payment page throws without one. |
 | `partialRefunds` | `"pro_rata"` or `"keep_access"` | `"pro_rata"` | What a partial provider refund does to access (see "Refunds" in §4): `pro_rata` takes back the refunded share of the payment's unused days, `keep_access` nothing until the whole payment is refunded. |
@@ -187,7 +191,7 @@ Stripe checks them at Checkout (`billing.payment_failed` and a log line).
 **Days and time zones.** Trials end at the start of a local day in `config.timezone`: a 14-day
 trial begun at any hour of 3 October ends when 17 October begins there, so 16 October is its last
 day. Days left count local calendar days, today included (1 on the last day). Access covers every
-instant before its end; at the end itself the account is read-only. Paid access wins over a trial;
+instant before its end; at the end itself the account is read-only (`free` with a free tier). Paid access wins over a trial;
 a trial that outlasts paid access takes over again when the payment ends.
 The root's `getDayNumber`, `getStartOfDay` and `parseDay` serve billing's periods; day arithmetic
 elsewhere uses `addCalendarDays`, `addCalendarMonths` and `calendarDaysBetween` from `@softure-ai/core`,
@@ -611,7 +615,7 @@ process.exitCode = await runOpsScript({ script: createExtendTrialScript(config),
 - `entitlement-status --email=…|--user=<account id>` shows where one account stands and writes nothing, with or
   without `--commit` (the runner's dry-run lines still print; `before` and `after` are the same reading):
   `{ userId, state, trialLastDay, paidLastDay, isLifetime, access }`, `state` one of `trial`, `paid`, `lifetime`,
-  `read_only`, the last days `YYYY-MM-DD` in the app's time zone (`paidLastDay` null when no dated paid access was
+  `free`, `read_only`, the last days `YYYY-MM-DD` in the app's time zone (`paidLastDay` null when no dated paid access was
   ever bought). Never the email; an unknown email or id is refused. `createEntitlementStatusScript(config, { clock?
   })`.
 
@@ -629,8 +633,9 @@ billing({
 });
 ```
 
-- **Which limit applies.** The trial's block during the trial, `readOnly.limits` once the account
-  is read-only, and for paid access the plan's `limits`, else `paid.limits`. A declared meter a
+- **Which limit applies.** The trial's block during the trial, `free.limits` on the free tier,
+  `readOnly.limits` once the account is read-only, and for paid access the plan's `limits`, else
+  `paid.limits`. A declared meter a
   block leaves out has limit 0 there: deny by default, `null` when a state is unlimited.
 - **The plan paying for today** is read from the grants billing records, never stored apart: a
   lifetime payment still paid for or an active lifetime grant wins, else the earliest provider
@@ -643,8 +648,11 @@ billing({
 - **`consumeUsage(ctx, { userId, meter, amount?, period? })`** adds `amount` (1 by default) to the
   account's count for the current month and returns `Ok({ meter, period, used, limit, remaining,
   periodStart, resetsAt })`; when the amount would pass the limit it consumes nothing and returns
-  `billing.quota_exhausted` with the same state in `usage` (copy:
-  `messages.errors.billing.quota_exhausted`). It is one conditional upsert on the account's row for
+  `billing.quota_exhausted` with the same state in `usage` and `upgradePlanIds`, the plans whose limit
+  for the meter is higher than the account's now (a `null` limit counts as higher), in the config's
+  order, for an upgrade prompt; empty when no plan raises it (copy:
+  `messages.errors.billing.quota_exhausted`). `findUpgradePlanIds(options, meter, limit)` (root) is the
+  same rule, pure. It is one conditional upsert on the account's row for
   the meter and month, so concurrent consumers never pass the limit together. An undeclared meter
   or an amount that is not a whole number from 1 throws: that is a bug in the app.
 - **With the app's write.** Pass a transaction's context and the quota commits or rolls back with
@@ -857,6 +865,27 @@ scan those tables; every billing foreign key now has an index that starts with i
 | `used` | What the account used of the meter in that period (CHECK: from 0). |
 | `updated_at` | The last consumption. |
 
+**Free tier.** For a freemium product ("5 a month for free, more with a plan"), declare `free`:
+
+```ts
+billing({
+  trial: { days: 0 }, // or a trial first: the account is free once it ends
+  free: { limits: { "ai-calls": 5 } },
+  plans: [{ id: "pro", name: { en: "Pro" }, price: { amount: 4900, currency: "PLN" }, period: "month", limits: { "ai-calls": 500 } }],
+});
+```
+
+- An account without paid access is in state `free` once its trial ends (`{ status: "free", since, reason }`, `reason`
+  `trial_ended` or `paid_ended`; without a trial, `since` is the account's start). `free` writes: `requireWriteAccess`
+  and `checkWriteAccess` pass, so every route keeps its guard and only `consumeUsage` holds the account.
+- A trial and paid access say what follows them: `afterEnd: "free"` (absent without a free tier). The ending notices
+  and mails then say the account keeps the free plan instead of promising a loss of access; the ended mails tell the
+  account it is on the free plan now.
+- `AccessBadge` reads "Free" (kind `free`, tone `neutral`); `AccessNotice` shows a neutral "You are on the free plan"
+  with the plan link (render it only where an upgrade offer belongs); the admin page shows the badge.
+- With `free` declared no account reaches read-only, and `readOnly.limits` does not apply: billing has no operator
+  restriction. Remove `free` to go back to read-only after the trial.
+
 The primary key is `(user_id, meter, period, period_start)`, which also serves the account's
 foreign key.
 
@@ -865,24 +894,26 @@ the entitlement, then their row (a conditional update), the order of a refund.
 
 **Entitlement state in SQL.** `migrations/0012_create_entitlement_state_functions.sql` creates two functions, the
 stable contract for an app's own SQL: a change to the package's rules or tables keeps their names and columns, so
-an app never re-implements the state machine over `billing.entitlements`.
+an app never re-implements the state machine over `billing.entitlements`. `0013` adds the free tier: a last
+parameter and two columns at the end, so a query written for `0012` answers as before.
 
 - `billing.entitlement_states(as_of timestamptz, trial_days integer, time_zone text, trial_starts_on date DEFAULT
-  NULL)`: one row per account in `auth.users`.
-- `billing.entitlement_state(user_id uuid, as_of, trial_days, time_zone, trial_starts_on)`: the same columns
-  without `user_id` for one account; no row when no account has this id.
+  NULL, has_free_tier boolean DEFAULT false)`: one row per account in `auth.users`.
+- `billing.entitlement_state(user_id uuid, as_of, trial_days, time_zone, trial_starts_on, has_free_tier)`: the same
+  columns without `user_id` for one account; no row when no account has this id.
 
 | Column | Meaning |
 | --- | --- |
 | `user_id` | The account (`entitlement_states` only). |
-| `status` | `trial`, `paid` or `read_only`, as `getEntitlement()` answers at `as_of`. |
-| `ends_at` | When the trial or dated paid access ends; NULL for lifetime access and when read-only. |
+| `status` | `trial`, `paid`, `free` (only with `has_free_tier`) or `read_only`, as `getEntitlement()` answers at `as_of`. |
+| `ends_at` | When the trial or dated paid access ends; NULL for lifetime access, the free tier and read-only. |
 | `read_only_since`, `read_only_reason` | When write access ended and why (`trial_ended` or `paid_ended`); NULL unless read-only. |
 | `trial_ends_at`, `paid_until`, `is_lifetime` | The record the state comes from: the stored row, or the derived trial. |
 | `is_stored` | Whether the account has a row in `billing.entitlements`. |
+| `free_since`, `free_reason` | When the trial or paid access ended and which (`trial_ended` or `paid_ended`); NULL unless free. |
 
-The trial of an account without a row depends on `trial.days`, `trial.startsAt` and `config.timezone`, which the
-database does not know, so they are arguments. In TypeScript, `getEntitlementStatesSql(ctx, asOf?)` (`/server`)
+The trial of an account without a row depends on `trial.days`, `trial.startsAt` and `config.timezone`, and the
+fallback on whether `free` is declared, which the database does not know, so they are arguments. In TypeScript, `getEntitlementStatesSql(ctx, asOf?)` (`/server`)
 fills them from the config (and `as_of` from the clock), so nothing is copied:
 
 ```ts
@@ -921,8 +952,9 @@ await setTestEntitlementState(ctx, { userId, state: { status: "read_only", reaso
   account's derived trial with a context, or its creation (no trial left) with a bare database; `now` (the clock or
   the wall clock) is `created_at` and `updated_at`.
 - `setTestEntitlementState(target, { userId, state, now? })`: `state` is `{ status: "trial", days? }` (default 7),
-  `{ status: "paid", days? }` (default 30), `{ status: "lifetime" }` or `{ status: "read_only", reason?, days? }`
-  (default `trial_ended`, 1 day ago); days are 24-hour days from `now`.
+  `{ status: "paid", days? }` (default 30), `{ status: "lifetime" }`, `{ status: "read_only", reason?, days? }`
+  (default `trial_ended`, 1 day ago) or `{ status: "free", reason?, days? }` (the same record: `free` under a config
+  with `billing({ free })`, read-only without one); days are 24-hour days from `now`.
 
 An app no longer needs a row at registration to keep its fixtures and SQL simple: reads derive the trial, the SQL
 functions derive it the same way, and fixtures write rows through these helpers.
@@ -942,7 +974,7 @@ None.
 
 `AccessBadge` takes `classNames` for its slots `root`, `status`, `detail`, `full`, `short` and `prefix`; the status colour
 follows the state (`--sft-color-foreground` for a trial, `success` when paid, `warning` in a
-reminder window, `danger` when read-only; `tones` overrides any of them). It sets `data-status`, in a
+reminder window, `neutral` on the free tier, `danger` when read-only; `tones` overrides any of them). It sets `data-status`, in a
 reminder window `data-ending="true"` and for effectively unlimited access `data-unlimited="true"` for
 app styles, and always `data-kind` (the kind, e.g. `paid-ending`) and `data-tone` (the tone after `tones`), for
 end-to-end tests and an app's own tint of the whole pill (a `[data-tone="warning"]` selector, or the
@@ -958,9 +990,11 @@ tile gets `--sft-border-strong` and a shadow, and sets `data-plan`, `data-featur
 ## 9. Copy
 
 `billingMessages` (English, the only built-in language): `dayCount` (plural forms of a bare day count), `badge` (status names, `daysLeft` plural forms, `until`), `notice`
-(the four notices and their two link texts), `pricing` (period plural forms per unit, `lifetime`,
+(the four notices, `trialEndingFree` and `paidEndingFree` for an account that keeps the free tier, `free` for the
+free tier's notice, and their two link texts), `pricing` (period plural forms per unit, `lifetime`,
 `featured`, `choose`, `empty`), `reminderMail` (`subject` and `body` of `trialEnding`,
-`paidEnding`, `trialEnded` and `paidEnded`; the link text is the notice's), `payment` (the payment page and its `heading`, the invoice form and the notices after a
+`paidEnding`, `trialEnded` and `paidEnded`, and their `*Free` forms for an account that falls back to the free
+tier; the link text is the notice's), `payment` (the payment page and its `heading`, the invoice form and the notices after a
 hosted checkout, `checkoutSuccess` and `checkoutCancelled`), `admin` (the page's `heading`, the
 grant form, `trial` for the trial form, `requests`, `history`) and `errors`. Plan names, descriptions and features come from the config, per locale. `{date}` is the last day of access in
 the app's locale and time zone, `{count}` the days left. Override them with
@@ -1093,6 +1127,8 @@ billing({
 - The admin page lists up to 50 open requests and 100 entries of each source in a history; there
   is no paging.
 - The write guard is per action: a read-only account can still call a write the app did not guard.
+- There is no operator restriction: with `free` declared no account is read-only, and a misbehaving free account is
+  held only by its limits.
 - Reminder mail is plain text with a minimal HTML body unless the app passes `buildMail`, and it
   uses the app's locale (accounts have none of their own).
 - No history of entitlement changes beyond grants: a row holds the current state; provider

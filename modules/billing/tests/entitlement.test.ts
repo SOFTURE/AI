@@ -1,6 +1,6 @@
 // The state machine: every status an entitlement record can resolve to, and every transition an
 // event makes, at exact instants in Warsaw time (the tests themselves run in New York time).
-import { applyEntitlementEvent, resolveEntitlement, type EntitlementPolicy, type EntitlementRecord } from "@softure-ai/billing";
+import { applyEntitlementEvent, hasWriteAccess, resolveEntitlement, type EntitlementPolicy, type EntitlementRecord } from "@softure-ai/billing";
 import { describe, expect, it } from "vitest";
 
 const POLICY: EntitlementPolicy = { timezone: "Europe/Warsaw", trialReminderDays: 3, paidReminderDays: 7 };
@@ -61,6 +61,31 @@ describe("resolveEntitlement", () => {
     const silent = { ...POLICY, trialReminderDays: 0, paidReminderDays: 0 };
     expect(resolveEntitlement(TRIAL, at("2026-10-16T21:00:00Z"), silent)).toMatchObject({ daysLeft: 1, isEnding: false });
     expect(resolveEntitlement(PAID, at("2026-11-30T22:00:00Z"), silent)).toMatchObject({ daysLeft: 1, isEnding: false });
+  });
+});
+
+describe("resolveEntitlement with a free tier", () => {
+  const FREE_POLICY: EntitlementPolicy = { ...POLICY, hasFreeTier: true };
+
+  it("puts the account on the free tier at the trial end itself, which writes", () => {
+    const entitlement = resolveEntitlement(TRIAL, TRIAL_END, FREE_POLICY);
+    expect(entitlement).toEqual({ status: "free", since: TRIAL_END, reason: "trial_ended" });
+    expect(hasWriteAccess(entitlement)).toBe(true);
+  });
+
+  it("puts the account on the free tier when paid access ends after the trial", () => {
+    expect(resolveEntitlement(PAID, PAID_END, FREE_POLICY)).toEqual({ status: "free", since: PAID_END, reason: "paid_ended" });
+  });
+
+  it("says what a trial and paid access fall back to", () => {
+    expect(resolveEntitlement(TRIAL, NOW, FREE_POLICY)).toEqual({ status: "trial", endsAt: TRIAL_END, daysLeft: 14, isEnding: false, afterEnd: "free" });
+    expect(resolveEntitlement(LIFETIME, NOW, FREE_POLICY)).toEqual({ status: "paid", endsAt: null, daysLeft: null, isEnding: false, afterEnd: "free" });
+  });
+
+  it("is free from the account's start without a trial, and read-only without the free tier", () => {
+    const noTrial: EntitlementRecord = { trialEndsAt: NOW, paidUntil: null, isLifetime: false };
+    expect(resolveEntitlement(noTrial, NOW, FREE_POLICY)).toEqual({ status: "free", since: NOW, reason: "trial_ended" });
+    expect(resolveEntitlement(noTrial, NOW, { ...POLICY, hasFreeTier: false })).toEqual({ status: "read_only", since: NOW, reason: "trial_ended" });
   });
 });
 
