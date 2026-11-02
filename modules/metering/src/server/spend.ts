@@ -1,0 +1,279 @@
+// The spend ledger: reservations that hold budget while a paid call runs, settled charges, and the spend of a
+// period. Budget checks run in SQL `numeric`, so decimal amounts compare exactly, inside one transaction under the
+// provider's advisory lock, so two reservations started together cannot both pass the same remaining amount.
+import { err, ok, type ModuleContext, type Ok, type Err } from "@softure-ai/core";
+import type { Queryable } from "@softure-ai/db";
+import { and, eq, sql, type SQL } from "drizzle-orm";
+import type { BudgetExceeded, BudgetPeriod, BudgetScope, BudgetState, SpendReservation, SpendSummary } from "../contract.js";
+import type { BudgetDefinition, ProviderDefinition } from "../options.js";
+import { charges } from "../schema.js";
+import { getMeteringOptions, getProviderDefinition } from "./options.js";
+import { getPeriodBounds } from "./periods.js";
+
+export type MeteringContext = ModuleContext<Queryable>;
+
+/** The app's own string attributes stored with a charge, e.g. `{ jobId }`. */
+export type ChargeAttributes = Readonly<Record<string, string>>;
+
+/** `numeric(24, 8)` holds up to 16 digits before the point. */
+const MAX_AMOUNT = 1e15;
+const MAX_STEP_LENGTH = 100;
+const MAX_ACCOUNT_ID_LENGTH = 200;
+
+export interface SpendInput {
+  /** A provider declared in `metering({ providers })`. */
+  readonly provider: string;
+  /** In the provider's unit; at least 0. */
+  readonly amount: number;
+  /** What the call is for, e.g. `transcribe` or a model id. */
+  readonly step?: string;
+  /** The account the spend belongs to; required when the provider has a per-account budget. */
+  readonly accountId?: string;
+  readonly attributes?: ChargeAttributes;
+}
+
+export interface ChargeInput extends SpendInput {
+  /** When the call was billed; the clock's now by default. */
+  readonly at?: Date;
+}
+
+export interface SpendQuery {
+  readonly provider: string;
+  readonly period: BudgetPeriod;
+  /** The account's spend and its per-account budget; without it, the whole provider's. */
+  readonly accountId?: string;
+}
+
+/**
+ * Holds `amount` of every budget that applies (the provider's, and the account's when `accountId` is given) until
+ * `settleSpend` or `releaseSpend`, or until it expires. Refuses with `metering.budget_exceeded` and the first budget
+ * the amount does not fit. Throws for an undeclared provider, an invalid amount, or a per-account budget without
+ * `accountId`: those are bugs.
+ */
+export async function reserveSpend(ctx: MeteringContext, input: SpendInput): Promise<Ok<SpendReservation> | BudgetExceeded> {
+  const provider = getProviderDefinition(ctx.config, input.provider);
+  assertSpendInput("reserveSpend", provider, input);
+  const budgets = getApplyingBudgets("reserveSpend", provider, input.accountId);
+  const now = ctx.clock.now();
+  const expiresAt = new Date(now.getTime() + getMeteringOptions(ctx.config).reservationTtlSeconds * 1000);
+
+  return ctx.db.transaction(async (tx: Queryable): Promise<Ok<SpendReservation> | BudgetExceeded> => {
+    if (budgets.length > 0) await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`metering:${provider.id}`}, 0))`);
+    for (const budget of budgets) {
+      const state = await readBudgetState(tx, { provider, budget, accountId: input.accountId, now, timeZone: ctx.config.timezone, adding: input.amount });
+      if (state.isOver) return { ...err("metering.budget_exceeded"), budget: state.budget, requested: input.amount };
+    }
+    const [row] = await tx
+      .insert(charges)
+      .values({
+        provider: provider.id,
+        step: input.step ?? null,
+        unit: provider.unit,
+        amount: String(input.amount),
+        accountId: input.accountId ?? null,
+        attributes: { ...input.attributes },
+        status: "reserved",
+        createdAt: now,
+        expiresAt,
+      })
+      .returning({ id: charges.id, amount: charges.amount });
+    // An insert with returning yields its row.
+    if (row === undefined) throw new Error("reserveSpend: the reservation insert returned no row");
+    return ok({ id: row.id, provider: provider.id, unit: provider.unit, amount: Number(row.amount), accountId: input.accountId ?? null, createdAt: now, expiresAt });
+  });
+}
+
+/**
+ * Turns a reservation into the charge the provider billed, `actual` in the provider's unit (above the reserved
+ * amount too: the ledger records what was billed). `metering.reservation_not_found` when it was already settled,
+ * released, or pruned after expiring.
+ */
+export async function settleSpend(
+  ctx: MeteringContext,
+  reservation: Pick<SpendReservation, "id">,
+  actual: number,
+): Promise<Ok<undefined> | Err<"metering.reservation_not_found">> {
+  assertAmount("settleSpend", actual);
+  const settled = await ctx.db
+    .update(charges)
+    .set({ status: "settled", amount: String(actual), expiresAt: null, settledAt: ctx.clock.now() })
+    .where(and(eq(charges.id, reservation.id), eq(charges.status, "reserved")))
+    .returning({ id: charges.id });
+  return settled.length === 0 ? err("metering.reservation_not_found") : ok();
+}
+
+/** Gives a reservation's budget back after a call that was not billed (it failed before the provider charged). */
+export async function releaseSpend(
+  ctx: MeteringContext,
+  reservation: Pick<SpendReservation, "id">,
+): Promise<Ok<undefined> | Err<"metering.reservation_not_found">> {
+  const released = await ctx.db
+    .delete(charges)
+    .where(and(eq(charges.id, reservation.id), eq(charges.status, "reserved")))
+    .returning({ id: charges.id });
+  return released.length === 0 ? err("metering.reservation_not_found") : ok();
+}
+
+/**
+ * Records a charge billed without a reservation (reported after the call, e.g. by a usage hook). It is never refused:
+ * it already happened. Throws for an undeclared provider or an invalid amount.
+ */
+export async function recordCharge(ctx: MeteringContext, input: ChargeInput): Promise<Ok<{ readonly id: string }>> {
+  const provider = getProviderDefinition(ctx.config, input.provider);
+  assertSpendInput("recordCharge", provider, input);
+  const now = ctx.clock.now();
+  const [row] = await ctx.db
+    .insert(charges)
+    .values({
+      provider: provider.id,
+      step: input.step ?? null,
+      unit: provider.unit,
+      amount: String(input.amount),
+      accountId: input.accountId ?? null,
+      attributes: { ...input.attributes },
+      status: "settled",
+      createdAt: input.at ?? now,
+      settledAt: now,
+    })
+    .returning({ id: charges.id });
+  // An insert with returning yields its row.
+  if (row === undefined) throw new Error("recordCharge: the charge insert returned no row");
+  return ok({ id: row.id });
+}
+
+/** The provider's (or the account's) spend in the current day or month and the budget that limits it, if any. */
+export async function getSpend(ctx: MeteringContext, query: SpendQuery): Promise<Ok<SpendSummary>> {
+  const provider = getProviderDefinition(ctx.config, query.provider);
+  if (query.accountId !== undefined) assertAccountId("getSpend", query.accountId);
+  const now = ctx.clock.now();
+  const bounds = getPeriodBounds(query.period, now, ctx.config.timezone);
+  const budget = provider.budgets.find((candidate) => candidate.period === query.period && candidate.perAccount === (query.accountId !== undefined));
+  const totals = await sumSpend(ctx.db, { providerId: provider.id, accountId: query.accountId, from: bounds.from, to: bounds.resetsAt, now, limit: budget?.limit ?? null, adding: 0 });
+  return ok({
+    provider: provider.id,
+    unit: provider.unit,
+    period: query.period,
+    accountId: query.accountId ?? null,
+    from: bounds.from,
+    resetsAt: bounds.resetsAt,
+    settled: totals.settled,
+    reserved: totals.reserved,
+    spent: totals.spent,
+    limit: budget?.limit ?? null,
+    remaining: totals.remaining,
+  });
+}
+
+interface BudgetCheck {
+  readonly provider: ProviderDefinition;
+  readonly budget: BudgetDefinition;
+  readonly accountId: string | undefined;
+  readonly now: Date;
+  readonly timeZone: string;
+  readonly adding: number;
+}
+
+async function readBudgetState(tx: Queryable, check: BudgetCheck): Promise<{ readonly budget: BudgetState; readonly isOver: boolean }> {
+  const bounds = getPeriodBounds(check.budget.period, check.now, check.timeZone);
+  const accountId = check.budget.perAccount ? check.accountId : undefined;
+  const totals = await sumSpend(tx, { providerId: check.provider.id, accountId, from: bounds.from, to: bounds.resetsAt, now: check.now, limit: check.budget.limit, adding: check.adding });
+  const scope: BudgetScope = accountId === undefined ? { kind: "provider" } : { kind: "account", accountId };
+  return {
+    isOver: totals.isOver,
+    budget: {
+      provider: check.provider.id,
+      unit: check.provider.unit,
+      period: check.budget.period,
+      scope,
+      limit: check.budget.limit,
+      spent: totals.spent,
+      remaining: totals.remaining ?? 0,
+      resetsAt: bounds.resetsAt,
+    },
+  };
+}
+
+interface SpendSum {
+  readonly providerId: string;
+  readonly accountId: string | undefined;
+  readonly from: Date;
+  readonly to: Date;
+  readonly now: Date;
+  readonly limit: number | null;
+  /** The amount a reservation would add; the check is `spent + adding > limit`. */
+  readonly adding: number;
+}
+
+interface SpendTotals {
+  readonly settled: number;
+  readonly reserved: number;
+  readonly spent: number;
+  readonly remaining: number | null;
+  readonly isOver: boolean;
+}
+
+async function sumSpend(db: Queryable, input: SpendSum): Promise<SpendTotals> {
+  const conditions: SQL[] = [
+    sql`provider = ${input.providerId}`,
+    sql`created_at >= ${input.from.toISOString()}::timestamptz`,
+    sql`created_at < ${input.to.toISOString()}::timestamptz`,
+    sql`(status = 'settled' or expires_at > ${input.now.toISOString()}::timestamptz)`,
+  ];
+  if (input.accountId !== undefined) conditions.push(sql`account_id = ${input.accountId}`);
+  const limit = input.limit === null ? sql`null::numeric` : sql`${String(input.limit)}::numeric`;
+  // `greatest` skips nulls, so without a limit the remaining amount is null explicitly.
+  const remaining = input.limit === null ? sql`null::text` : sql`greatest(${limit} - (settled + reserved), 0)::text`;
+  const result = await db.execute<{ settled: string; reserved: string; spent: string; remaining: string | null; is_over: boolean | null }>(sql`
+    with totals as (
+      select
+        coalesce(sum(amount) filter (where status = 'settled'), 0) as settled,
+        coalesce(sum(amount) filter (where status = 'reserved'), 0) as reserved
+      from metering.charges
+      where ${sql.join(conditions, sql` and `)}
+    )
+    select
+      settled::text as settled,
+      reserved::text as reserved,
+      (settled + reserved)::text as spent,
+      ${remaining} as remaining,
+      (settled + reserved + ${String(input.adding)}::numeric) > ${limit} as is_over
+    from totals`);
+  const [row] = result.rows;
+  // An aggregate without group by always yields one row.
+  if (row === undefined) throw new Error("sumSpend: the spend query returned no row");
+  return {
+    settled: Number(row.settled),
+    reserved: Number(row.reserved),
+    spent: Number(row.spent),
+    remaining: row.remaining === null ? null : Number(row.remaining),
+    isOver: row.is_over === true,
+  };
+}
+
+function getApplyingBudgets(operation: string, provider: ProviderDefinition, accountId: string | undefined): readonly BudgetDefinition[] {
+  const perAccount = provider.budgets.filter((budget) => budget.perAccount);
+  if (perAccount.length > 0 && accountId === undefined) {
+    throw new Error(`${operation}: provider "${provider.id}" has a per-account budget, so every reservation names its accountId`);
+  }
+  return provider.budgets;
+}
+
+function assertSpendInput(operation: string, provider: ProviderDefinition, input: SpendInput): void {
+  assertAmount(operation, input.amount);
+  if (input.step !== undefined && (input.step.length === 0 || input.step.length > MAX_STEP_LENGTH)) {
+    throw new RangeError(`${operation}: step of provider "${provider.id}" must be 1 to ${String(MAX_STEP_LENGTH)} characters`);
+  }
+  if (input.accountId !== undefined) assertAccountId(operation, input.accountId);
+}
+
+function assertAmount(operation: string, amount: number): void {
+  if (!Number.isFinite(amount) || amount < 0 || amount > MAX_AMOUNT) {
+    throw new RangeError(`${operation}: amount must be a finite number from 0 to ${String(MAX_AMOUNT)}, got ${String(amount)}`);
+  }
+}
+
+function assertAccountId(operation: string, accountId: string): void {
+  if (accountId.length === 0 || accountId.length > MAX_ACCOUNT_ID_LENGTH) {
+    throw new RangeError(`${operation}: accountId must be 1 to ${String(MAX_ACCOUNT_ID_LENGTH)} characters`);
+  }
+}
