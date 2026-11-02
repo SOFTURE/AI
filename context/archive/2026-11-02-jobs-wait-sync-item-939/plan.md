@@ -1,6 +1,6 @@
 ---
 change_id: jobs-wait-sync-item-939
-status: open
+status: archived
 ---
 
 # Plan: a sync item failure that waits (issue #939)
@@ -26,4 +26,4 @@ Files: `modules/jobs/src/sync.ts`, `modules/jobs/src/index.ts`, `modules/jobs/sr
 
 ## Progress
 
-- [ ] Phase 1: waiting failures
+- [x] Phase 1: waiting failures (c040f3c, jobs tests 241/241)

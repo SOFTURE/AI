@@ -1,12 +1,13 @@
 ---
 change_id: jobs-wait-sync-item-939
 title: "jobs: a sync item failure that waits for an operator keeps the item's attempts (issue #939)"
-status: open
+status: archived
 roadmap_item: null
 issue: 939
 branch: claude/project-thread-bfdwte
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent
