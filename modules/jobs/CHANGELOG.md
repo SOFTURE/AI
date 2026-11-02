@@ -4,6 +4,56 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- A sync item failure that waits (#939): a `processSyncItem` callback returns `waitSyncItem(code)` (a `SyncItemFailure`
+  with `retry: "wait"`) for a cause outside the item that only an operator clears, such as a connection that needs a
+  reconnect (`connections.reconnect_required`, `connections.not_connected`). The callback's writes roll back, the item
+  stays `pending` with its attempts unchanged and its `error_code` set, and the outcome is the new
+  `{ kind: "waiting", error, item }`, so `maxAttempts` is never reached through such failures; an ordinary failure still
+  counts. `listSyncItems` takes `errorCode`, so `{ status: "pending", errorCode }` lists the items waiting on a code.
+  New in `@softure-ai/jobs`: `waitSyncItem`.
+  - Migrate: an app that gives the attempt back itself with an `UPDATE` of `jobs.sync_items` after `processSyncItem`
+    returns `waitSyncItem(code)` from the callback instead and drops the `UPDATE`. An app with an exhaustive `switch`
+    over `SyncItemOutcome["kind"]` adds the `waiting` case.
+- Progress from a running handler and cancelling a running job (#951). A handler calls
+  `context.reportProgress({ step, done?, total?, code? })`: a code-only progress, checked like the run summary
+  (`jobProgressSchema`, `JobProgress`), written at most once a second per job and fenced by the claim; `Job` gains
+  `progress`, `progressAt` and `cancelRequestedAt`, returned by `getJob` and `listRecentJobs`. `requestJobCancel(ctx,
+  id)` in `/server` cancels a pending job or asks a running one to stop: the worker sees the request on its heartbeat
+  (or the handler's next progress write) and aborts `context.signal` with a `JobCancelledError` (`AbortError`, code
+  `jobs.cancelled`; `isJobCancelled(signal)`); the job ends `cancelled`, not retried, without `onJobFailed`, with a run
+  of the new outcome `cancelled` and, with `logRuns: "all"`, an `info` line `job run cancelled`. `cancelJob` keeps
+  its meaning. New in `@softure-ai/jobs`: `JobProgress`,
+  `jobProgressSchema`, `JobCancelledError`, `isJobCancelled`, `JOB_CANCELLED_CODE`; in `/server`: `requestJobCancel`,
+  `heartbeatJob`, `JobHeartbeat`. `JOB_RUN_OUTCOMES`, `JobOutcome` and `Completion` gain `cancelled`;
+  `RunDueJobsReport` gains an optional `cancelled`, present only when an attempt was cancelled. The admin page lists running jobs with their progress, and its Cancel (`cancelJobAction`) now uses
+  `requestJobCancel`.
+  - Migrate: run `migrations/0007_add_progress_and_cancel.sql` with the app's other migrations (adds
+    `jobs.jobs.progress`, `progress_at`, `cancel_requested_at`, and the run outcome `cancelled`). A test that builds a
+    `JobHandlerContext` by hand adds `reportProgress: async () => {}`; code that switches over `JobOutcome`, `JobRunOutcome` or `Completion` handles
+    `cancelled`. An app with its own full dictionary for another locale adds `jobs.progressStep`, `progressCount`,
+    `progressDone`, `progressCode`, `progressAt`, `cancelRequested`, `runs.outcome.cancelled` and `errors.cancelled`
+    (see `messages/en.ts`).
+- Run-end log lines (#934): every recorded attempt now leaves one line in the worker's logger, codes and ids only:
+  `info("job run succeeded", { queue, jobId, attempt, origin, durationMs, code?, items? })`,
+  `warn("job run failed; retrying", { queue, jobId, attempt, code, runAt })` and
+  `error("job run failed", { queue, jobId, attempt, code })`, the last also for a job failed by an expired lease
+  (`jobs.lease_expired`). Before, a handler that returned an error was retried or failed without any line, and a
+  success left none. New option `logRuns: "all" | "failures" | "none"` (default `"all"`); new exports
+  `JOBS_RUN_LOG_LEVELS` and `JobsRunLogLevel`.
+  - Migrate: nothing to change. An app that logged the outcome itself from `onJobFailed` may drop that line; an app
+    with very frequent queues that does not want a line per success sets `jobs({ logRuns: "failures" })`.
+- A short database outage is logged below warning (#933): a failure caused by an unavailable database (SQLSTATE 57P01
+  to 57P03 or class 08, a refused, reset or closed connection) in any database call of the worker (claims, schedule
+  enqueue and check, prunes, lease extension, outcome recording, release on stop) is logged as `info` with `outageMs`
+  for the first `databaseOutageToleranceMs` of the outage (new option of `runJobWorker` and `runJobWorkerProcess`,
+  default 60 000; `0` keeps every line `error`), as `error` after that; the first call that succeeds again logs
+  `info: database reachable again`. A round stops claiming at the first such failure instead of trying every queue.
+  Other failures keep their `error` line. New in `/server`: `isDatabaseUnavailableError(error)`.
+  - Migrate: nothing to change. An app that wraps the worker's `logger` to turn these errors into info for the first
+    minute of an outage drops the wrapper (or passes its tolerance as `databaseOutageToleranceMs`).
+
 ## 0.1.6
 
 - Run history (#803): every recorded attempt leaves a row in the new `jobs.runs` table with the job id, queue,

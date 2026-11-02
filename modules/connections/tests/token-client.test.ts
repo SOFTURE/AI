@@ -44,7 +44,7 @@ describe("the token client", () => {
     test.clock.advance(3600_000);
     const failing: FetchFunction = () => Promise.resolve(Response.json({ error: "invalid_grant" }, { status }));
     const config = { ...test.config, modules: test.config.modules.map((module) => (module.id === "connections" ? { ...module, options: { ...(module.options as object), fetch: failing } } : module)) };
-    expect(await getAccessToken({ ...test.ctx, config }, { provider: "fake" })).toEqual({ ok: false, error: "connections.refresh_failed" });
+    expect(await getAccessToken({ ...test.ctx, config }, { provider: "fake" })).toEqual({ ok: false, error: "connections.refresh_failed", httpStatus: status, oauthError: null });
     expect((await getAccessToken(test.ctx, { provider: "fake" })).ok).toBe(true);
   });
 
@@ -65,7 +65,7 @@ describe("the token client", () => {
     test.clock.advance(3600_000);
     test.fake.failNext("unreachable");
     const failed = await getAccessToken(test.ctx, { provider: "fake" });
-    expect(failed).toEqual({ ok: false, error: "connections.refresh_failed" });
+    expect(failed).toEqual({ ok: false, error: "connections.refresh_failed", httpStatus: null, oauthError: null });
     expect(JSON.stringify(failed)).not.toContain("fake-oauth.test");
 
     test.fake.setDelay(500);
@@ -74,6 +74,6 @@ describe("the token client", () => {
         init.signal?.addEventListener("abort", () => reject(new Error(`aborted ${String(input)}`)));
       });
     const config = { ...test.config, modules: test.config.modules.map((module) => (module.id === "connections" ? { ...module, options: { ...(module.options as object), fetch: hung } } : module)) };
-    expect(await getAccessToken({ ...test.ctx, config }, { provider: "fake" })).toEqual({ ok: false, error: "connections.refresh_failed" });
+    expect(await getAccessToken({ ...test.ctx, config }, { provider: "fake" })).toEqual({ ok: false, error: "connections.refresh_failed", httpStatus: null, oauthError: null });
   });
 });

@@ -1,6 +1,6 @@
-// Drizzle view of the module's tables (migrations/0001_create_accounts_and_states.sql). The migration is the
-// source of truth; this file only types the queries.
-import { boolean, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
+// Drizzle view of the module's tables (migrations/). The migrations are the source of truth; this file only types
+// the queries.
+import { boolean, integer, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const connectionsSchema = pgSchema("connections");
 
@@ -22,6 +22,8 @@ export const accounts = connectionsSchema.table("accounts", {
   refreshedAt: timestamp("refreshed_at", { withTimezone: true }),
   lastError: text("last_error"),
   lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+  lastErrorHttpStatus: integer("last_error_http_status"),
+  lastErrorOAuthError: text("last_error_oauth_error"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   leaseId: uuid("lease_id"),
   leaseUntil: timestamp("lease_until", { withTimezone: true }),

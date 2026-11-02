@@ -122,7 +122,7 @@ describe("onJobFailed", () => {
 
     expect(report).toEqual({ succeeded: 0, retried: 0, failed: 1, stale: 0 });
     expect(await listJobs(test.database.db)).toMatchObject([{ id, status: "failed", lastError: "app.bounced" }]);
-    expect(errors).toHaveLength(1);
+    expect(errors.map((line) => line.message)).toEqual(["the onJobFailed hook failed", "job run failed"]);
     expect(errors[0]).toMatchObject({ message: "the onJobFailed hook failed", fields: { queue: "mail.send", jobId: id } });
   });
 });
@@ -219,7 +219,10 @@ describe("onScheduleStateChanged", () => {
     const report = await runDueJobs(test.ctx, { handlers: { "app.sync": handlerReturning(() => Promise.resolve(failJob("app.down"))) }, logger });
 
     expect(report.failed).toBe(1);
-    expect(errors).toEqual([{ message: "the onScheduleStateChanged hook failed", fields: expect.objectContaining({ queue: "app.sync", state: "failing" }) as unknown }]);
+    expect(errors).toEqual([
+      { message: "job run failed", fields: expect.objectContaining({ queue: "app.sync", code: "app.down" }) as unknown },
+      { message: "the onScheduleStateChanged hook failed", fields: expect.objectContaining({ queue: "app.sync", state: "failing" }) as unknown },
+    ]);
     expect(await checkScheduleStates(test.ctx, { logger })).toEqual([]);
   });
 

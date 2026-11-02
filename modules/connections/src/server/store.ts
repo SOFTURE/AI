@@ -4,7 +4,7 @@ import { errorLogLabel, ok, type Err, type ModuleContext, type Ok } from "@softu
 import type { Queryable } from "@softure-ai/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import type { ConnectionChangedEvent, ConnectionKind, ConnectionsKeyErrorCode, ReconnectReason } from "../contract.js";
+import type { ConnectionChangedEvent, ConnectionKind, ConnectionsKeyErrorCode, ReconnectReason, TokenEndpointAnswer } from "../contract.js";
 import { accounts, type AccountRow } from "../schema.js";
 import { getCredentialContext, openSecret, readKeyring, type Env, type Keyring } from "./crypto.js";
 import { getConnectionsOptions } from "./options.js";
@@ -77,6 +77,8 @@ export interface MarkReconnectInput {
   readonly reason: ReconnectReason;
   /** Releases this refresh lease afterwards. */
   readonly leaseId?: string;
+  /** What the token endpoint answered, stored beside the code; absent when no token call failed. */
+  readonly answer?: TokenEndpointAnswer;
 }
 
 /**
@@ -88,7 +90,14 @@ export async function markReconnectRequired(ctx: ConnectionsContext, input: Mark
   const now = ctx.clock.now();
   const changed = await ctx.db
     .update(accounts)
-    .set({ status: "reconnect_required", lastError: "connections.reconnect_required", lastErrorAt: now, updatedAt: now })
+    .set({
+      status: "reconnect_required",
+      lastError: "connections.reconnect_required",
+      lastErrorAt: now,
+      lastErrorHttpStatus: input.answer?.httpStatus ?? null,
+      lastErrorOAuthError: input.answer?.oauthError ?? null,
+      updatedAt: now,
+    })
     .where(and(eq(accounts.id, input.rowId), eq(accounts.status, "connected")))
     .returning({ id: accounts.id });
   if (input.leaseId !== undefined) await releaseLease(ctx, input.rowId, input.leaseId);
