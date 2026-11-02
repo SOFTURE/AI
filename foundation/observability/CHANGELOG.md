@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `errorDetails: "label"` now tells errors apart without logging any message (#932). The label names the cause chain
+  with safe codes, which may be Node system and undici codes as well as SQLSTATEs (`Error cause=Error
+  code=ETIMEDOUT`), and `exception.stacktrace` holds the first two frames of the app without the message line (it
+  was left out before). An `Error("Failed query: … params: …")` logs where it was thrown and nothing of its text.
+- `createOnRequestError` adds `next.digest` when Next's digest is a hash (`<hash>` or `<hash>@E<n>`), the one the
+  error page shows, and `next.render_source`. A `NEXT_*` digest is never logged.
+- The README says why a record of Next.js's RSC payload path carries no trace id: Next.js 16 reports the error
+  outside the request's context and passes no span.
+- `@softure-ai/core` is no longer a dependency.
+- Migration: none needed. A log query on the old label of an error whose direct cause has a SQLSTATE
+  (`Error code=23505`) now matches `Error cause=DatabaseError code=23505`; query `code=23505` to match both. A
+  console in label mode now prints the frames on the lines after the error line.
+
 ## 0.4.1
 
 - `lifetime: "short"` for a process that does one job and ends (a migration, an ops script, a cron run) (#814): no
