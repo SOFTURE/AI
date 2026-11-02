@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-operations-952
 title: "mcp-access: long operations as tools (start, status with progress, cancel) on top of jobs (issue #952)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 952
 branch: claude/project-thread-vdrg81
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent
@@ -51,4 +52,4 @@ call open, so every app invents its own "start returns an id" and "status" tools
   ended.
 - `result` comes from the app's `readResult(job)` on success (jobs stores no result); without it there is none.
 - MCP Tasks (item 4, optional and experimental in the spec): left out; the polling tools work with every client. A
-  follow-up issue tracks it.
+  follow-up issue tracks it (#977).

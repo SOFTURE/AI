@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-operations-952
-status: in_progress
+status: archived
 ---
 
 # Plan: long operations as MCP tools (issue #952)
@@ -42,4 +42,4 @@ Files: `modules/mcp-access/README.md`, `modules/mcp-access/CHANGELOG.md`.
 ## Progress
 
 - [x] Phase 1: operations in `/jobs` (22897e4, mcp-access tests 409/409)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (c5f71c1)
