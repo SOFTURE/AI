@@ -4,6 +4,25 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Resumable uploads from clients (#949): table `files.uploads` (migration 0002), `createUpload` (a signed upload URL
+  under the link keyring, limits `uploads.chunkBytes` 64 MiB, `uploads.ttlSeconds`, `uploads.maxOpenPerOwner`,
+  `uploads.contentTypes`, `maxFileBytes` and the quota checked up front), `getUpload`, `writeUploadChunk` and
+  `finalizeUpload` (every chunk, size and optional SHA-256 checked, saved like `saveFile`, idempotent).
+- The upload route `serveUploadRoute` (`app/u/[...upload]/route.ts`, `GET`, `HEAD`, `PUT`): chunked with
+  `Content-Range`, resumable through `HEAD` and the JSON status, streamed with a cap, a browser upload page, and the
+  `files-upload` rate limit bucket (`FILES_RATE_LIMIT_BUCKETS`) when the security module is on. Keep `/u` outside the
+  sign-in guard and add an edge bypass for it, as for `/f`.
+- `@softure-ai/files/mcp`: `registerFileUploadTools` (`create_upload` with a ready `curl` loop, `finalize_upload`),
+  `FILE_UPLOAD_MCP_TOOLS` for the catalog, `buildCurlUploadScript`. `@modelcontextprotocol/server` is a new optional
+  peer.
+- `pruneFiles` also removes expired upload sessions with their chunks (`deletedUploads`, `failedUploads` in its
+  report); the privacy export lists open sessions (`uploads`), the deletion removes them (`deletedUploads`,
+  `pendingUploads`).
+- New dependency `@softure-ai/security` (the rate limit), new error codes `files.content_type_not_allowed`,
+  `files.too_many_uploads`, `files.upload_incomplete`, `files.checksum_mismatch` with their messages.
+
 ## 0.1.2
 
 - No code change: the first release through the package's npm trusted publisher (OIDC), without `NPM_TOKEN`.
