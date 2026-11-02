@@ -1,12 +1,13 @@
 ---
 change_id: jobs-run-end-log-934
 title: "jobs: log one line when a run ends (succeeded, retried, failed) (issue #934)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 934
 branch: claude/project-thread-1rw43n
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent

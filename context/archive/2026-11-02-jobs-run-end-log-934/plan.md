@@ -1,6 +1,6 @@
 ---
 change_id: jobs-run-end-log-934
-status: in_progress
+status: archived
 ---
 
 # Plan: log the end of a run (issue #934)
