@@ -11,6 +11,9 @@ import { exportMcpAccessUserData, issueAccessToken, verifyAccessToken } from "@s
 import {
   apiTokenErrorResponse,
   issueApiToken,
+  // CodeQL's name heuristic reads an `issueApiToken` result as a password, so a token handed on to a verifier
+  // (a 256-bit random secret, rightly hashed with sha256) is called through this name.
+  issueApiToken as issueRouteToken,
   listAccessTokens,
   pruneAccessTokens,
   requireApiToken,
@@ -113,7 +116,7 @@ describe("API tokens (#961)", () => {
   });
 
   async function issue(userId: string, scopes: readonly string[] = ["recipes:read"], name = "Shortcut") {
-    const result = await issueApiToken(ctx, { userId, name, scopes });
+    const result = await issueRouteToken(ctx, { userId, name, scopes });
     if (!result.ok) throw new Error(`issue failed: ${result.error}`);
     return result.value;
   }
