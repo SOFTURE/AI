@@ -112,6 +112,50 @@ describe("launchProgress", () => {
   });
 });
 
+describe("launchProgress on another root", () => {
+  const TOP_BAR_HTML = `
+<div data-slot="top-loading-bar">
+  <div data-slot="progress" role="progressbar" data-state="indeterminate">
+    <div data-slot="progress-indicator" data-state="indeterminate"></div>
+  </div>
+  <script data-testid="counter"></script>
+</div>`;
+
+  it("drives the element its rootSlot names, and turns an indeterminate bar determinate with its first value", () => {
+    document.body.innerHTML = TOP_BAR_HTML;
+    const page = new FakeLaunchPage();
+    page.isPainted = true;
+
+    launchProgress(page.asPage(), { ...CONFIG, rootSlot: "top-loading-bar" });
+
+    const bar = document.querySelector('[data-slot="progress"]');
+    expect(readLaunchScreen()).toEqual({ valueNow: "10", valueText: "10%", transform: "translateX(-90%)", percent: null });
+    expect(bar?.getAttribute("data-state")).toBe("loading");
+    expect(document.querySelector('[data-slot="progress-indicator"]')?.getAttribute("data-state")).toBe("loading");
+  });
+
+  it("stays indeterminate while nothing has moved yet", () => {
+    document.body.innerHTML = TOP_BAR_HTML;
+    const page = new FakeLaunchPage();
+
+    launchProgress(page.asPage(), { ...CONFIG, rootSlot: "top-loading-bar" });
+
+    expect(document.querySelector('[data-slot="progress"]')?.getAttribute("data-state")).toBe("indeterminate");
+    expect(page.intervals.size).toBe(1);
+  });
+
+  it("finds only the launch screen without a rootSlot", () => {
+    document.body.innerHTML = TOP_BAR_HTML;
+    const page = new FakeLaunchPage();
+    page.isPainted = true;
+
+    launchProgress(page.asPage(), CONFIG);
+
+    expect(page.intervals.size).toBe(0);
+    expect(document.querySelector('[data-slot="progress"]')?.getAttribute("aria-valuenow")).toBeNull();
+  });
+});
+
 describe("buildLaunchProgressScript", () => {
   it("runs as served: the function's text called with the page's globals and the JSON config", () => {
     const page = new FakeLaunchPage();
@@ -131,6 +175,23 @@ describe("buildLaunchProgressScript", () => {
     expect(page.intervals.size).toBe(1);
   });
 
+  it("carries the rootSlot into the served config", () => {
+    document.body.innerHTML = '<div data-slot="top-loading-bar"><div data-slot="progress"></div><script data-testid="counter"></script></div>';
+    const page = new FakeLaunchPage();
+    page.isPainted = true;
+    const fake = page.asPage();
+    const source = buildLaunchProgressScript({ rootSlot: "top-loading-bar" });
+
+    const run = runInThisContext(`(function (document, performance, window) { ${source} })`) as (
+      document: object,
+      performance: LaunchProgressPage["performance"],
+      window: LaunchProgressPage["timers"],
+    ) => void;
+    run({ currentScript: fake.script, querySelectorAll: document.querySelectorAll.bind(document), baseURI: document.baseURI }, fake.performance, fake.timers);
+
+    expect(document.querySelector('[data-slot="progress"]')?.getAttribute("aria-valuenow")).toBe("10");
+  });
+
   it("never closes its own script element", () => {
     expect(buildLaunchProgressScript()).not.toContain("</");
   });
@@ -138,7 +199,7 @@ describe("buildLaunchProgressScript", () => {
 
 describe("resolveLaunchProgressConfig", () => {
   it("fills the defaults", () => {
-    expect(resolveLaunchProgressConfig()).toEqual({ paintShare: 10, assetsShare: 60, timeShare: 29, timeConstantMs: 4_000, intervalMs: 100 });
+    expect(resolveLaunchProgressConfig()).toEqual({ paintShare: 10, assetsShare: 60, timeShare: 29, timeConstantMs: 4_000, intervalMs: 100, rootSlot: "launch-screen" });
   });
 
   it("takes the app's shares", () => {
@@ -151,6 +212,8 @@ describe("resolveLaunchProgressConfig", () => {
     [{ timeShare: 40 }, "resolveLaunchProgressConfig: the shares add up to 110, more than 100"],
     [{ timeConstantMs: 0 }, "resolveLaunchProgressConfig: timeConstantMs must be a positive number, got 0"],
     [{ intervalMs: Number.POSITIVE_INFINITY }, "resolveLaunchProgressConfig: intervalMs must be a positive number, got Infinity"],
+    [{ rootSlot: 'bar"]' }, 'resolveLaunchProgressConfig: rootSlot must be a data-slot name (a-z, 0-9, -), got "bar\\"]"'],
+    [{ rootSlot: "" }, 'resolveLaunchProgressConfig: rootSlot must be a data-slot name (a-z, 0-9, -), got ""'],
   ])("refuses %o", (options, message) => {
     expect(() => resolveLaunchProgressConfig(options)).toThrow(message);
   });
