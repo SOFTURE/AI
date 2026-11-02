@@ -19,6 +19,7 @@ export { findPwaIcon, getIconMetadata, getIconPath, getIconSizes, PWA_ICONS, typ
 export {
   buildManifest,
   type ManifestCopy,
+  type ManifestDirection,
   type ManifestDisplay,
   type ManifestIcon,
   type ManifestOptions,

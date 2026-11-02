@@ -638,6 +638,17 @@ export function renderArticle<TNode = unknown>(markdown: string, options: Render
   };
 }
 
+/**
+ * The slugs of the terms a text links, the same as `renderArticle(markdown, options).linkedTerms`, without
+ * rendering it: links come from text, so no block plugin's `render` runs. For the articles that link a term.
+ */
+export function findLinkedTerms<TNode = unknown>(markdown: string, options: RenderArticleOptions<TNode> = {}): readonly string[] {
+  const state: RenderState = { headings: [], linkedTerms: [] };
+  // The plugins stay registered: without them a directive line would be a paragraph whose text could link a term.
+  createMarkdown(options, getPluginsByType(options.blocks ?? []), state).parse(markdown, {});
+  return state.linkedTerms;
+}
+
 /** The plugin blocks a text uses, without rendering it: for the quality gate (BL-6). */
 export function findArticleBlocks(markdown: string, plugins: readonly BlockPlugin[]): FoundBlock[] {
   const byType = getPluginsByType(plugins);
