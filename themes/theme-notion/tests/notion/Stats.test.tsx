@@ -172,13 +172,12 @@ describe("StatCards progress", () => {
   });
 
   it("fills the bar in primary without a tone and in the tone's colour with one", () => {
-    expect(renderCard({ progress: 50 })).toContain('data-slot="progress-indicator" class="h-full w-full flex-1 bg-primary transition-all dark:bg-link"');
-    expect(renderCard({ progress: 50, tone: "warning" })).toContain(
-      'data-slot="progress-indicator" class="h-full w-full flex-1 transition-all bg-orange"',
-    );
-    expect(renderCard({ progress: 50, tone: "default" })).toContain(
-      'data-slot="progress-indicator" class="h-full w-full flex-1 transition-all bg-gray"',
-    );
+    const fillOf = (html: string): string[] =>
+      (/data-slot="progress-indicator" class="([^"]*)"/.exec(html)?.[1]?.split(" ") ?? []).filter((name) => /^(dark:)?bg-/.test(name));
+
+    expect(fillOf(renderCard({ progress: 50 }))).toEqual(["bg-primary", "dark:bg-link"]);
+    expect(fillOf(renderCard({ progress: 50, tone: "warning" }))).toEqual(["bg-orange"]);
+    expect(fillOf(renderCard({ progress: 50, tone: "default" }))).toEqual(["bg-gray"]);
   });
 
   it.each([

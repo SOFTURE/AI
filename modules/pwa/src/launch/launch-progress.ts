@@ -14,11 +14,13 @@ export interface LaunchProgressConfig {
   readonly timeConstantMs: number;
   /** How often the counter moves, in milliseconds. */
   readonly intervalMs: number;
+  /** The `data-slot` of the element the counter drives, found from its script; `launch-screen` when left out. */
+  readonly rootSlot?: string;
 }
 
 /** The page parts the counter reads: the running script, the document, Resource Timing and the timers. */
 export interface LaunchProgressPage {
-  /** `document.currentScript`: the counter finds its launch screen from it. */
+  /** `document.currentScript`: the counter finds its root (the launch screen, the top bar) from it. */
   readonly script: Element | null;
   readonly document: Pick<Document, "querySelectorAll" | "baseURI">;
   readonly performance: Pick<Performance, "now" | "getEntriesByType" | "getEntriesByName">;
@@ -31,11 +33,12 @@ export interface LaunchProgressPage {
 export function launchProgress(page: LaunchProgressPage, config: LaunchProgressConfig): void {
   // The highest value the counter shows: 100% is the page itself.
   const maxValue = 99;
-  const root = page.script?.closest('[data-slot="launch-screen"]') ?? null;
+  const rootSlot = config.rootSlot ?? "launch-screen";
+  const root = page.script?.closest(`[data-slot="${rootSlot}"]`) ?? null;
   if (root === null) return;
   const bar = root.querySelector('[data-slot="progress"]');
   const indicator = root.querySelector<HTMLElement>('[data-slot="progress-indicator"]');
-  const percent = root.querySelector('[data-slot="launch-screen-percent"]');
+  const percent = root.querySelector(`[data-slot="${rootSlot}-percent"]`);
   let value = 0;
   let isPainted = false;
   let timer: number | null = null;
@@ -61,6 +64,9 @@ export function launchProgress(page: LaunchProgressPage, config: LaunchProgressC
     bar?.setAttribute("aria-valuenow", String(next));
     bar?.setAttribute("aria-valuetext", text);
     bar?.setAttribute("data-value", String(next));
+    // A bar drawn without a value slides indeterminately; the counter's first value makes it determinate.
+    bar?.setAttribute("data-state", "loading");
+    indicator?.setAttribute("data-state", "loading");
     if (indicator !== null) indicator.style.transform = `translateX(-${100 - next}%)`;
     if (percent !== null) percent.textContent = text;
   }
