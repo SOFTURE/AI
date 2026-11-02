@@ -193,7 +193,7 @@ input schema registered on the server from then on, or pass `strictToolInput: tr
 
 ```ts
 const server = withStrictToolInput(new McpServer({ name: "acme", version }), {
-  renamedFields: { notes: "note" }, // old name → new name
+  renamedFields: { notes: "note" }, // old name → new name, or a rule: (field) => newName | undefined
   coerceTextScalars: true, // default
   messages: getMcpAccessMessages(config).toolInput, // default: the English dictionary
 });
@@ -206,10 +206,16 @@ const server = withStrictToolInput(new McpServer({ name: "acme", version }), {
   `.catchall(x)`) keeps it; refinements and the object's own error messages stay.
 - **Renamed fields:** a field sent under an old name where the object accepts the new one is refused with the
   stable code `input.field_renamed` and the new name, so a session on an older tool list learns it in one call.
+  `renamedFields` is a map or a rule, e.g. `(field) => field.includes("Pln") ? field.replace("Pln", "Home") :
+  undefined` for a rename across many fields; a name the rule leaves alone is an unknown field.
 - **Text scalars:** a client on an older tool list sends a field it does not know as text, so a boolean field also
   takes the exact text `"true"`/`"false"` and a number field a JSON number written as text, converted before the
   field's own rules (`"-1"` still fails `min(0)`). Any other text is refused. The listed JSON Schema keeps `boolean`
-  and `number` and gains `additionalProperties: false`.
+  and `number`, the fields' `required` and the `default` of a scalar field, and gains `additionalProperties: false`.
+  A required `z.number().nullable()` stays required. (zod lists no `default` on an object or array that holds a
+  scalar field, since its input is transformed.)
+- **No input schema:** a tool registered without one gets the strict empty object, so `tools/call` with any argument
+  is refused; its handler is still called with the request context only.
 - The SDK validates before the handler runs, so a refused call saves nothing. A raw shape is wrapped in
   `z.object` first; a schema that is not zod passes unchanged. `toStrictToolInput(schema, options?)` gives the
   strict schema on its own.

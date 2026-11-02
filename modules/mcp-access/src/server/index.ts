@@ -113,7 +113,7 @@ export {
   type ServerInfoAnswer,
   type ServerInfoToolOptions,
 } from "./server-info.js";
-export { toStrictToolInput, withStrictToolInput, type StrictToolInputMessages, type StrictToolInputOptions } from "./strict-input.js";
+export { toStrictToolInput, withStrictToolInput, type RenamedFields, type StrictToolInputMessages, type StrictToolInputOptions } from "./strict-input.js";
 export {
   DEFAULT_TOOL_LIST_RELEASE,
   describeToolList,

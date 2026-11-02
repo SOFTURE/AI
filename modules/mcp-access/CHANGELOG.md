@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- Strict tool input lists a required nullable scalar as required (#919): a `z.number().nullable()` or
+  `z.boolean().nullable()` field that the parse requires is in `required` of the listed schema again, and a scalar
+  field's `default` (or `prefault`) is listed. The parse rules are unchanged. Migrate: an app that copied the inner
+  schema's `optin` onto its own text step, or put a `default` inside it, can drop that wrapper.
+- A tool registered without an input schema on a strict server gets the strict empty object (#919): `tools/call`
+  with any argument is refused with the unknown-fields text, and the handler is still called with the context only.
+  The listing gains `additionalProperties: false`, so the measured tool list version changes once.
+- `renamedFields` also takes a rule `(field) => newName | undefined` (#919), e.g. for a rename by pattern across many
+  fields. `RenamedFields` is exported from `/server`.
+
 ## 0.2.9
 
 - A runtime kill switch for writes (#904): the manifest switch `mcp-access.writes_enabled` (`WRITES_ENABLED_SWITCH`)
