@@ -133,6 +133,12 @@ BACKUP_KEEP=7
 BACKUP_MAX_AGE_DAYS=30
 # The throwaway database verify-backup restores into; dropped again after every restore.
 VERIFY_DATABASE=softure_verify_backup
+{{#dataVolume}}
+# The data volume's mount path in the app container (init --data-volume) and the name of its folders' archives.
+DATA_PATH="{{dataPath}}"
+DATA_BACKUP_PREFIX=data
+DATA_FOLDER_PATTERN='^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$'
+{{/dataVolume}}
 {{/database}}
 TAG_FILE="$APP_DIR/.deployed-tag"
 RELEASES_DIR="$APP_DIR/releases"
@@ -456,6 +462,37 @@ back_up_database() {
   backup_file="${backup_file##*/}"
 }
 
+{{#dataVolume}}
+# The data volume's folders deploy.json lists (data.backupPaths), archived next to the database dump: a gzip tar of
+# them, written by tar in a one-off app container (the volume is mounted there) into a hidden file first and renamed
+# only once tar succeeded, with the database's retention (the newest BACKUP_KEEP, none older than BACKUP_MAX_AGE_DAYS).
+# Prints its step line only when deploy.json lists a folder.
+back_up_data() {
+  local list="$settings_dir/data-backup-paths" path incoming stamp name
+  local paths=()
+  if [ -z "$settings_dir" ] || [ ! -s "$list" ]; then return 0; fi
+  begin_step backup-data
+  while IFS= read -r path; do
+    if [[ ! "$path" =~ $DATA_FOLDER_PATTERN ]] || [[ "/$path/" == */../* ]] || [[ "/$path/" == */./* ]]; then
+      fail "the data folder $path is not a plain relative path."
+    fi
+    paths+=("./$path")
+  done < "$list"
+  mkdir -p "$BACKUP_DIR"
+  stamp="$(date -u +%Y%m%d-%H%M%S)"
+  incoming="$BACKUP_DIR/.incoming-$$.tar.gz"
+  if ! compose run --rm --no-deps -T --entrypoint tar app -czf - -C "$DATA_PATH" "${paths[@]}" > "$incoming"; then
+    rm -f "$incoming"
+    fail "the backup of the data folders failed."
+  fi
+  mv "$incoming" "$BACKUP_DIR/$DATA_BACKUP_PREFIX-$stamp.tar.gz"
+  find "$BACKUP_DIR" -maxdepth 1 -type f -name "$DATA_BACKUP_PREFIX-*.tar.gz" -mtime "+$BACKUP_MAX_AGE_DAYS" -exec rm -f {} +
+  ls -1 "$BACKUP_DIR" | grep -E "^$DATA_BACKUP_PREFIX-[0-9]{8}-[0-9]{6}\.tar\.gz\$" | sort -r | tail -n "+$((BACKUP_KEEP + 1))" \
+    | while IFS= read -r name; do rm -f "$BACKUP_DIR/$name"; done || true
+  step_ok "$DATA_BACKUP_PREFIX-$stamp.tar.gz"
+}
+
+{{/dataVolume}}
 # The guard over the image's exported migrations (and its app journal, when deploy.json names one) in $work.
 guard_schema() {
   local guard=(--migrations-dir="$work/migrations")
@@ -681,6 +718,9 @@ if [ "$command_name" = "maintain" ]; then
   fi
   back_up_database || fail "the backup failed."
   step_ok "$backup_file"
+{{#dataVolume}}
+  back_up_data
+{{/dataVolume}}
 
   begin_step verify-backup
   if [ -z "$verifies" ]; then
@@ -884,6 +924,9 @@ step_ok
 begin_step backup
 back_up_database || fail "the backup failed; nothing was restarted."
 step_ok "$backup_file"
+{{#dataVolume}}
+back_up_data
+{{/dataVolume}}
 
 begin_step schema
 container="$(docker create "$IMAGE:$TAG")"
