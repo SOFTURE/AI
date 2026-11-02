@@ -1,6 +1,6 @@
 ---
 change_id: ui-app-components-960
-status: in_progress
+status: archived
 ---
 
 # Plan: app components in ui, Flat Paint look maps (issue #960)
@@ -52,10 +52,12 @@ Paint import next to the Notion one).
   by what they are and a `Progress` export would read as a type.
 - The touch height comes from `min-h-11` below `md`, so it never fights the button's own `h-*` in one layer.
 - No version bump: the coordinator releases the batch.
+- `TOP_LOADING_BAR_LOOK` dropped during implementation: ui's top bar already paints with `accent` on no track, so a
+  map would hold nothing that differs; `ROUTE_LOADING_LOOK` carries the launch screen's map only.
 
 ## Progress
 
-- [ ] Phase 1: ui components
-- [ ] Phase 2: Flat Paint look maps
-- [ ] Phase 3: docs
-- [ ] Implementation review
+- [x] Phase 1: ui components (e7b9100)
+- [x] Phase 2: Flat Paint look maps (77e2ede)
+- [x] Phase 3: docs (abaa205)
+- [x] Implementation review

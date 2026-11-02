@@ -1,7 +1,8 @@
 ---
 change_id: ui-app-components-960
 title: "ui + theme-flat-paint: the app components pwa names (issue #960)"
-status: in_progress
+status: archived
+archived_at: 2026-11-02
 roadmap_item: null
 issue: [960]
 branch: claude/project-thread-sy62rx
