@@ -3,8 +3,8 @@
 // `withStrictToolInput` rewrites every input schema once, at registration: each object refuses a field
 // it does not know and names the ones it accepts, a field sent under its old name is refused with the
 // stable code `input.field_renamed`, and boolean and number fields also take their exact text (a client
-// on an older tool list sends a field it does not know as text). The SDK validates before the handler
-// runs, so a refused call saves nothing.
+// on an older tool list sends a field it does not know as text). A tool registered without an input schema
+// gets the strict empty object. The SDK validates before the handler runs, so a refused call saves nothing.
 //
 //   const server = withStrictToolInput(new McpServer({ name: "acme", version }), { renamedFields: { notes: "note" } });
 import type { McpServer } from "@modelcontextprotocol/server";
@@ -16,9 +16,12 @@ import { en } from "../messages/en.js";
 /** The texts of a refused field: `toolInput` of the module dictionary (`getMcpAccessMessages(config).toolInput`). */
 export type StrictToolInputMessages = typeof en.toolInput;
 
+/** Old field name → new field name, as a map or a rule (`undefined`: not renamed). */
+export type RenamedFields = Readonly<Record<string, string>> | ((field: string) => string | undefined);
+
 export interface StrictToolInputOptions {
   /** Old field name → new field name, refused as `input.field_renamed` wherever an object accepts the new name. */
-  readonly renamedFields?: Readonly<Record<string, string>>;
+  readonly renamedFields?: RenamedFields;
   /** Boolean fields also take `"true"`/`"false"` and number fields a number written as text. Default: `true`. */
   readonly coerceTextScalars?: boolean;
   /** Default: the module's English dictionary. */
@@ -32,14 +35,20 @@ const strictServers = new WeakSet<McpServer>();
 
 type ToolConfig = Readonly<Record<string, unknown>> & { readonly inputSchema?: unknown };
 type RegisterTool = (name: string, config: ToolConfig, callback: unknown) => unknown;
+type ContextCallback = (ctx: unknown) => unknown;
 
 /** Makes every tool registered on the server from now on strict; wrapping a server twice changes nothing. */
 export function withStrictToolInput<Server extends McpServer>(server: Server, options: StrictToolInputOptions = {}): Server {
   if (strictServers.has(server)) return server;
   // The SDK's overloads only differ in how the schema is typed; at runtime it is one method.
   const register = server.registerTool.bind(server) as unknown as RegisterTool;
-  const registerStrict: RegisterTool = (name, config, callback) =>
-    register(name, config.inputSchema === undefined ? config : { ...config, inputSchema: toStrictToolInput(config.inputSchema, options) }, callback);
+  const registerStrict: RegisterTool = (name, config, callback) => {
+    if (config.inputSchema !== undefined) return register(name, { ...config, inputSchema: toStrictToolInput(config.inputSchema, options) }, callback);
+    // Without a schema the SDK skips validation and calls `callback(ctx)`; with the strict empty object it calls
+    // `callback(args, ctx)`, so the callback keeps receiving the context only.
+    const contextCallback = callback as ContextCallback;
+    return register(name, { ...config, inputSchema: toStrictToolInput(z.object({}), options) }, (_args: unknown, ctx: unknown) => contextCallback(ctx));
+  };
   Object.defineProperty(server, "registerTool", { value: registerStrict, configurable: true, writable: true });
   strictServers.add(server);
   return server;
@@ -50,7 +59,7 @@ export function toStrictToolInput(schema: unknown, options: StrictToolInputOptio
   const zodSchema = isZodSchema(schema) ? schema : isRawShape(schema) ? z.object(schema) : null;
   if (zodSchema === null) return schema;
   const rewriter = new StrictRewriter({
-    renamedFields: options.renamedFields ?? {},
+    renameField: toRenameRule(options.renamedFields ?? {}),
     coerceTextScalars: options.coerceTextScalars ?? true,
     messages: options.messages ?? en.toolInput,
   });
@@ -66,7 +75,19 @@ function isRawShape(value: unknown): value is Record<string, core.$ZodType> {
   return Object.values(value).every(isZodSchema);
 }
 
-type RewriteSettings = Required<StrictToolInputOptions>;
+function toRenameRule(renamedFields: RenamedFields): (field: string) => string | undefined {
+  if (typeof renamedFields === "function") return renamedFields;
+  return (field) => (Object.hasOwn(renamedFields, field) ? renamedFields[field] : undefined);
+}
+
+interface RewriteSettings {
+  readonly renameField: (field: string) => string | undefined;
+  readonly coerceTextScalars: boolean;
+  readonly messages: StrictToolInputMessages;
+}
+
+/** Wrappers that keep the value's kind: a chain of them around a scalar takes the text step around the whole chain. */
+const WRAPPER_TYPES = new Set(["optional", "nullable", "default", "prefault", "nonoptional", "readonly", "catch"]);
 
 /** A schema node as the rewriter reads it: its kind and the parts it rewrites. */
 type AnyDef = core.$ZodTypeDef & Record<string, unknown>;
@@ -98,8 +119,13 @@ class StrictRewriter {
       case "prefault":
       case "nonoptional":
       case "readonly":
-      case "catch":
+      case "catch": {
+        // Outside the chain, zod still lists its `default` (it drops one on a transforming node) and the field's
+        // optionality is the chain's own; the step passes `undefined` and `null` through to it.
+        const reader = this.findTextReader(schema);
+        if (reader !== undefined) return withTextStep(reader, schema);
         return this.cloneWith(schema, { innerType: this.rewrite(def.innerType as core.$ZodType) });
+      }
       case "union":
         return this.cloneWith(schema, { options: (def.options as core.$ZodType[]).map((option) => this.rewrite(option)) });
       case "intersection":
@@ -118,12 +144,24 @@ class StrictRewriter {
         return this.cloneWith(schema, { getter: () => this.rewrite(getter()) });
       }
       case "boolean":
-        return this.settings.coerceTextScalars && def.coerce !== true ? z.preprocess(readBooleanText, schema) : schema;
-      case "number":
-        return this.settings.coerceTextScalars && def.coerce !== true ? z.preprocess(readNumberText, schema) : schema;
+      case "number": {
+        const reader = this.findTextReader(schema);
+        return reader === undefined ? schema : withTextStep(reader, schema);
+      }
       default:
         return schema;
     }
+  }
+
+  /** The text reader for a boolean or number, seen through its wrapper chain; none when text is not taken. */
+  private findTextReader(schema: core.$ZodType): ((value: unknown) => unknown) | undefined {
+    if (!this.settings.coerceTextScalars) return undefined;
+    let def = schema._zod.def as AnyDef;
+    while (WRAPPER_TYPES.has(def.type)) def = (def.innerType as core.$ZodType)._zod.def as AnyDef;
+    if (def.coerce === true) return undefined;
+    if (def.type === "boolean") return readBooleanText;
+    if (def.type === "number") return readNumberText;
+    return undefined;
   }
 
   /** Only the input side: `in`, or `out` after a preprocess (whose `in` is the transform). */
@@ -162,11 +200,11 @@ class StrictRewriter {
 /** The text for an object's unknown fields: renamed ones first, then the rest with the fields it accepts. */
 function describeUnknownFields(issue: core.$ZodRawIssue, accepted: readonly string[], settings: RewriteSettings): string | undefined {
   if (issue.code !== "unrecognized_keys") return undefined;
-  const { messages, renamedFields } = settings;
+  const { messages, renameField } = settings;
   const renamed: string[] = [];
   const unknown: string[] = [];
   for (const field of issue.keys) {
-    const newName = Object.hasOwn(renamedFields, field) ? renamedFields[field] : undefined;
+    const newName = renameField(field);
     if (newName !== undefined && accepted.includes(newName)) renamed.push(formatMessage(messages.fieldRenamed, { field, renamed: newName }));
     else unknown.push(field);
   }
@@ -178,6 +216,17 @@ function describeUnknownFields(issue: core.$ZodRawIssue, accepted: readonly stri
 
 function quoteAll(names: readonly string[]): string {
   return names.map((name) => JSON.stringify(name)).join(", ");
+}
+
+/**
+ * `schema` behind a text step. zod gives every transform an optional input, so a step would make a required field
+ * look optional in the listed JSON Schema inside `nullable` or a union; it takes the optionality of the schema it
+ * wraps instead. That changes no parse: the step passes `undefined` on, and the schema refuses it as before.
+ */
+function withTextStep(reader: (value: unknown) => unknown, schema: core.$ZodType): core.$ZodType {
+  const step = z.preprocess(reader, schema as z.ZodType);
+  Object.defineProperty(step._zod, "optin", { value: schema._zod.optin, configurable: true, writable: true });
+  return step;
 }
 
 function readBooleanText(value: unknown): unknown {

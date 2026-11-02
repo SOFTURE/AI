@@ -125,6 +125,43 @@ describe("createOnRequestError", () => {
     expect(output.join("\n")).not.toContain("secret-cookie");
   });
 
+  it("logs Next's hashed digest and the render source, so the line matches the error page", () => {
+    const exporter = new InMemoryLogRecordExporter();
+    logs.setGlobalLoggerProvider(new LoggerProvider({ processors: [new SimpleLogRecordProcessor({ exporter })] }));
+    const onRequestError = createOnRequestError(createLogger("next"));
+    const context = {
+      routerKind: "App Router",
+      routePath: "/orders",
+      routeType: "render",
+      renderSource: "react-server-components-payload",
+    };
+
+    onRequestError(Object.assign(new Error("a"), { digest: "2915047134" }), { path: "/orders", method: "GET", headers: {} }, context);
+    onRequestError(Object.assign(new Error("b"), { digest: "123@E394" }), { path: "/orders", method: "GET", headers: {} }, context);
+
+    const [first, second] = exporter.getFinishedLogRecords();
+    expect(first?.attributes["next.digest"]).toBe("2915047134");
+    expect(first?.attributes["next.render_source"]).toBe("react-server-components-payload");
+    expect(second?.attributes["next.digest"]).toBe("123@E394");
+  });
+
+  it("never logs a NEXT_ digest, which can carry a URL", () => {
+    const exporter = new InMemoryLogRecordExporter();
+    logs.setGlobalLoggerProvider(new LoggerProvider({ processors: [new SimpleLogRecordProcessor({ exporter })] }));
+    const onRequestError = createOnRequestError(createLogger("next"));
+
+    onRequestError(
+      Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;replace;/reset?token=secret-token;307;" }),
+      { path: "/orders", method: "GET", headers: {} },
+      { routerKind: "App Router", routePath: "/orders", routeType: "render" },
+    );
+
+    const [record] = exporter.getFinishedLogRecords();
+    expect(record?.attributes).not.toHaveProperty("next.digest");
+    expect(record?.attributes).not.toHaveProperty("next.render_source");
+    expect(output.join("\n")).not.toContain("secret-token");
+  });
+
   it("logs the path without its query string, which can carry tokens", () => {
     const exporter = new InMemoryLogRecordExporter();
     logs.setGlobalLoggerProvider(new LoggerProvider({ processors: [new SimpleLogRecordProcessor({ exporter })] }));
