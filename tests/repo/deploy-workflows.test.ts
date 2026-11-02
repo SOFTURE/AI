@@ -53,6 +53,7 @@ interface Workflow {
 interface WorkflowCall {
   inputs?: Record<string, WorkflowInput>;
   secrets?: Record<string, { required?: boolean }>;
+  outputs?: Record<string, { value?: string }>;
 }
 
 // Every job of a reusable workflow opens with the runner check (issue #670), every one that checks out then empties
@@ -183,6 +184,8 @@ describe("the deploy action (issue #468)", () => {
       SEND: "${{ inputs.send }}",
       VERIFY: "${{ inputs.verify }}",
       REPORT: "${{ inputs.report }}",
+      BUILD_INFO_PATH: "${{ inputs.build-info-path }}",
+      BUILD_INFO_EXPECT: "${{ inputs.build-info-expect }}",
     });
     expect(action.inputs.release?.required).toBe(true);
   });
@@ -420,6 +423,7 @@ describe("the deploy and verify jobs of deploy-app.yml run the deploy action of 
     expect(deployJob.outputs).toEqual({
       "server-lines": "${{ steps.send.outputs.server-lines }}",
       "sent-at": "${{ steps.send.outputs.sent-at }}",
+      "smoke-result": "${{ steps.e2e-verify.outputs.smoke-result }}",
     });
     const send = deployJob.steps?.find((step) => step.id === "send");
     expect(send?.uses).toBe("./.softure-ai-deploy/.github/actions/deploy");
@@ -446,6 +450,7 @@ describe("the deploy and verify jobs of deploy-app.yml run the deploy action of 
       "origin-address": "${{ inputs.origin-address-var != '' && fromJSON(inputs.app-vars)[inputs.origin-address-var] || secrets.origin-address }}",
       "verify-env": "${{ secrets.verify-env }}",
       "build-info-path": "${{ inputs.build-info-path }}",
+      "build-info-expect": "${{ inputs.build-info-expect }}",
       "deployed-at": "${{ needs.deploy.outputs.sent-at }}",
     });
     expect(inputs["deploy-config"]?.default).toBe("deploy.json");
@@ -802,6 +807,7 @@ describe("the end-to-end test path of deploy-app.yml (DF-3)", () => {
       "deploy-cli": "${{ format('{0}/.softure-ai-cli/tools/deploy/dist/cli/main.js', github.workspace) }}",
       "ca-file": "${{ steps.e2e-server.outputs.ca-file }}",
       "build-info-path": "${{ inputs.build-info-path }}",
+      "build-info-expect": "${{ inputs.build-info-expect }}",
       "deployed-at": "${{ steps.send.outputs.sent-at }}",
     });
     const verify = readAction().runs.steps.find((step) => step.name === "Verify the routes in deploy.json");
@@ -2373,7 +2379,10 @@ describe("the smoke check of deploy-app.yml and the deploy action (issue #878)",
   const STUB_NPX = `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$SMOKE_LOG"
 for arg in "$@"; do
-  case "$arg" in --headers-file=*) cat "\${arg#--headers-file=}" > "$SMOKE_LOG.headers" ;; esac
+  case "$arg" in
+    --headers-file=*) cat "\${arg#--headers-file=}" > "$SMOKE_LOG.headers" ;;
+    --expect-file=*) cat "\${arg#--expect-file=}" > "$SMOKE_LOG.expect" ;;
+  esac
 done
 printf '%s\\n' "$SMOKE_OUTPUT"
 exit "\${SMOKE_EXIT:-0}"
@@ -2401,6 +2410,7 @@ exit "\${SMOKE_EXIT:-0}"
       TAG: "v1.2.3",
       BUILD_INFO_PATH: "/api/health/build",
       BUILD_INFO_HEADERS: "",
+      BUILD_INFO_EXPECT: "",
       DEPLOYED_AT: "2026-10-29T15:00:00Z",
       DEPLOY_CLI_VERSION: "0.4.8",
       DEPLOY_CLI: "",
@@ -2411,7 +2421,8 @@ exit "\${SMOKE_EXIT:-0}"
     }, { cwd: repo, bin: { npx: STUB_NPX } });
     const log = existsSync(join(repo, "smoke.log")) ? readFileSync(join(repo, "smoke.log"), "utf8") : "";
     const headers = existsSync(join(repo, "smoke.log.headers")) ? readFileSync(join(repo, "smoke.log.headers"), "utf8") : null;
-    return { ...result, log, headers };
+    const expected = existsSync(join(repo, "smoke.log.expect")) ? readFileSync(join(repo, "smoke.log.expect"), "utf8") : null;
+    return { ...result, log, headers, expected };
   }
 
   it("takes build-info-path as an optional input, validated by the check job", () => {
@@ -2496,5 +2507,54 @@ exit "\${SMOKE_EXIT:-0}"
     expect(refused.status).toBe(1);
     expect(refused.stdout).toContain("::error::Input build-info-headers is not valid on line 2: one 'Name: value' header a line");
     expect(refused.stdout).not.toContain("secret-token");
+  });
+
+  it("hands build-info-expect to the CLI as a file and refuses one that is not a JSON object (issue #922)", () => {
+    const result = runSmoke({ BUILD_INFO_EXPECT: '{"toolListVersion":"a1b2","toolCount":12}' });
+    expect(result.status, result.stdout).toBe(0);
+    expect(result.expected).toBe('{"toolListVersion":"a1b2","toolCount":12}');
+    expect(result.log).toMatch(/ --expect-file=\S+build-info-expect\.json$/m);
+    const refused = runSmoke({ BUILD_INFO_EXPECT: '["a"]' });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::Input build-info-expect is not valid: a JSON object of build info fields and their expected values");
+    // The log holds the first run only: the refused one never called the CLI.
+    expect(refused.log).toBe(result.log);
+    expect(action.inputs["build-info-expect"]?.default).toBe("");
+    expect(smoke?.env).toMatchObject({ BUILD_INFO_EXPECT: "${{ inputs.build-info-expect }}" });
+  });
+
+  it("writes the result output, failed until the CLI passes, and the action answers smoke-result (issue #922)", () => {
+    expect(runSmoke({}).output).toBe("result=failed\nresult=passed\n");
+    expect(runSmoke({ SMOKE_EXIT: "1" }).output).toBe("result=failed\n");
+    expect(runSmoke({ BUILD_INFO_PATH: "build" }).output).toBe("result=failed\n");
+    expect(action.outputs["smoke-result"]?.value).toBe("${{ steps.smoke.outputs.result || 'skipped' }}");
+  });
+
+  it("refuses build-info-expect without build-info-path in the action's release step while verify runs", () => {
+    const release = action.runs.steps[0]?.run ?? "";
+    const refused = runScript(release, { RELEASE: "{}", VERIFY: "true", BUILD_INFO_EXPECT: '{"a":1}', BUILD_INFO_PATH: "" });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::Input build-info-expect is not valid: it needs build-info-path (the smoke check reads the fields there).");
+  });
+
+  it("takes build-info-expect in deploy-app.yml, validated by the check job, and answers smoke-result", () => {
+    expect(inputs["build-info-expect"]).toMatchObject({ type: "string", default: "" });
+    expect(checkStep?.env).toMatchObject({ BUILD_INFO_EXPECT: "${{ inputs.build-info-expect }}" });
+    const withPath = { ...ENV, BUILD_INFO_PATH: "/api/health/build" };
+    expect(runScript(checkStep?.run ?? "", { ...withPath, BUILD_INFO_EXPECT: '{"toolListVersion":"a1","toolCount":3,"beta":false,"x":null}' }).status).toBe(0);
+    for (const [env, message] of [
+      [{ ...ENV, BUILD_INFO_EXPECT: '{"a":1}' }, "::error::Input build-info-expect is not valid: empty without build-info-path (the smoke check reads the fields there)"],
+      [{ ...withPath, BUILD_INFO_EXPECT: '{"a":[1]}' }, "::error::Input build-info-expect is not valid: a JSON object of build info fields and their expected values (text, number, boolean or null)"],
+      [{ ...withPath, BUILD_INFO_EXPECT: "not json" }, "::error::Input build-info-expect is not valid: a JSON object of build info fields and their expected values (text, number, boolean or null)"],
+    ] as const) {
+      const refused = runScript(checkStep?.run ?? "", env);
+      expect(refused.status).toBe(1);
+      expect(refused.stdout).toContain(message);
+    }
+    const outputs = getWorkflowCall(workflow).outputs;
+    expect(outputs?.["smoke-result"]?.value).toBe("${{ jobs.verify.outputs.smoke-result || jobs.deploy.outputs.smoke-result || 'skipped' }}");
+    expect((workflow.jobs.verify as Job & { outputs?: Record<string, string> }).outputs).toEqual({
+      "smoke-result": "${{ steps.verify.outputs.smoke-result }}",
+    });
   });
 });

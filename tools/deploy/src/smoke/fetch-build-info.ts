@@ -1,6 +1,9 @@
 import { buildInfoSchema, type SmokeBuildInfo } from "./smoke-checks.js";
 
-export type FetchBuildInfoResult = { ok: true; info: SmokeBuildInfo } | { ok: false; reason: string };
+/** `answer` is the whole JSON object the route answered: the build facts and the app's own fields. */
+export type FetchBuildInfoResult =
+  | { ok: true; info: SmokeBuildInfo; answer: Readonly<Record<string, unknown>> }
+  | { ok: false; reason: string };
 
 export interface FetchBuildInfoOptions {
   url: string;
@@ -42,5 +45,6 @@ export async function fetchBuildInfo(options: FetchBuildInfoOptions): Promise<Fe
   if (!parsed.success) {
     return { ok: false, reason: "its JSON is not build info (release, commit and startedAt)" };
   }
-  return { ok: true, info: parsed.data };
+  // The schema parsed an object, so the body is one.
+  return { ok: true, info: parsed.data, answer: body as Readonly<Record<string, unknown>> };
 }

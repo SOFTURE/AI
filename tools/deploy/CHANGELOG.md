@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **The app's own build info fields in the smoke check (#922):** `softure-deploy smoke --expect-file=<json>` compares
+  each field the JSON object names (text, number, boolean or null, strict equality) with the build info the app
+  answers (`@softure-ai/ops`'s `fields` option), one row per field; a missing field or another value fails. The deploy
+  action and `deploy-app.yml` take it as the input `build-info-expect` (a JSON object, validated; needs
+  `build-info-path`).
+- **`smoke-result` output:** the deploy action and `deploy-app.yml` answer `passed`, `failed` or `skipped`, so a later
+  job (e.g. one that moves the release's items from `done_code` to `done`) can gate on
+  `needs.<job>.outputs.smoke-result == 'passed'`.
+- **`softure-deploy changelog --fields=<column>,...`** copies the named roadmap columns into each item's `fields`
+  (e.g. the finding numbers an item closes). Without it the JSON is unchanged.
+- An app with its own smoke check moves to `build-info-path` + `build-info-expect` with the values its build measures
+  (an earlier job's output), gates its later jobs on `smoke-result`, and passes `--fields` to `changelog` for extra
+  columns. Nothing changes for a caller that sets none of them.
+
 ## 0.4.10
 
 - **Cloudflare Tunnel (#905):** `init --tunnel` publishes the app through a Cloudflare Tunnel of its own compose project
