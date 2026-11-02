@@ -1,6 +1,7 @@
 // The table row as the module's `Job`: ids leave as strings (a bigint does not survive JSON), the claim token stays
-// inside the package.
+// inside the package, a stored progress is checked again.
 import type { Job } from "../contract.js";
+import { jobProgressSchema } from "../progress.js";
 import type { JobRow } from "../schema.js";
 
 const JOB_ID = /^[1-9][0-9]{0,18}$/;
@@ -23,7 +24,17 @@ export function toJob(row: JobRow): Job {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     finishedAt: row.finishedAt,
+    progress: readProgress(row.progress),
+    progressAt: row.progressAt,
+    cancelRequestedAt: row.cancelRequestedAt,
   };
+}
+
+/** A stored progress, checked again on the way out; null when there is none or it does not match. */
+function readProgress(value: unknown): Job["progress"] {
+  if (value === null) return null;
+  const parsed = jobProgressSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 /** The bigint id of a job id string, or null when the string cannot be one (then no job has it). */

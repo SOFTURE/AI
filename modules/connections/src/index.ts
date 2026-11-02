@@ -45,6 +45,8 @@ export const connections = defineModule({
 
 export type {
   AccessToken,
+  ConnectionChange,
+  ConnectionChangedEvent,
   ConnectionFormState,
   ConnectionKind,
   ConnectionStatus,
@@ -52,11 +54,14 @@ export type {
   ConnectionsFlowErrorCode,
   ConnectionsFormErrorCode,
   ConnectionsKeyErrorCode,
+  ConnectionsRefreshFailure,
   ConnectionsTokenErrorCode,
+  ConnectionsTokenFailure,
   ConnectionView,
   ReconnectReason,
   ReconnectRequiredEvent,
   StoredCredential,
+  TokenEndpointAnswer,
 } from "./contract.js";
 export { connectionsMessages, getConnectionsErrorMessage, type ConnectionsMessages } from "./messages/index.js";
 export {
@@ -71,6 +76,7 @@ export {
   type CredentialHeaderPlacement,
   type KeyProviderDefinition,
   type OAuthProviderDefinition,
+  type OnConnectionChangedHook,
   type OnReconnectRequiredHook,
   type ProviderDefinition,
   type ProviderDefinitionInput,

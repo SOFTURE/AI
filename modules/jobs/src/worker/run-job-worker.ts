@@ -7,7 +7,8 @@ import { hostname } from "node:os";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import type { JobHandlers } from "../handlers.js";
-import { claimJobs, extendJobLease, releaseJob, type ClaimedJob } from "../server/claim.js";
+import { JobCancelledError } from "../progress.js";
+import { claimJobs, heartbeatJob, releaseJob, type ClaimedJob } from "../server/claim.js";
 import type { JobsContext } from "../server/context.js";
 import { checkHandlers } from "../server/handler-check.js";
 import { checkScheduleStates } from "../server/hooks.js";
@@ -107,13 +108,17 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
     const controller = new AbortController();
     const heartbeatMs = options.heartbeatMs ?? (getQueue(jobsOptions, claimed.job.queue).leaseSeconds * 1000) / HEARTBEATS_PER_LEASE;
     const heartbeat = setInterval(() => {
-      extendJobLease(ctx, claimed).then(
-        (isHeld) => {
+      heartbeatJob(ctx, claimed).then(
+        (state) => {
           outage.recover();
-          if (!isHeld && !controller.signal.aborted) {
-            logger.warn("job lease lost; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
-            controller.abort();
+          if (controller.signal.aborted || state === "held") return;
+          if (state === "cancel_requested") {
+            logger.info("job cancelled by an operator; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
+            controller.abort(new JobCancelledError());
+            return;
           }
+          logger.warn("job lease lost; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
+          controller.abort();
         },
         (error: unknown) => {
           outage.fail("could not extend a job lease", { queue: claimed.job.queue, jobId: claimed.job.id, error });

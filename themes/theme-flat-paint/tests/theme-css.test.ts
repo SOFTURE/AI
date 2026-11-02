@@ -18,13 +18,17 @@ import {
   DATA_TABLE_LOOK,
   FLAT_PAINT_THEME,
   HINT_LOOK,
+  INSTALL_BAR_LOOK,
+  LAUNCH_SCREEN_LOOK,
   MENU_PANEL_LOOK,
+  MINI_PROGRESS_LOOK,
   MODAL_LOOK,
   RADIO_LOOK,
   SEGMENT_ACTIVE_LOOK,
   SEGMENTED_CONTROL_LOOK,
   STEPPER_LOOK,
   SWITCH_TRACK_LOOK,
+  UPDATE_PROMPT_LOOK,
 } from "../src/index.js";
 
 const PACKAGE_DIR = fileURLToPath(new URL("..", import.meta.url));
@@ -152,6 +156,18 @@ describe("theme.css in an app's Tailwind", () => {
     expect(compiled).toMatch(/@media \(width >= 40rem\) \{\s*\.dialog-enter \{\s*animation-name: flat-paint-rise-in;/);
     expect(compiled).toMatch(/\.side-panel-enter \{\s*animation: flat-paint-side-in var\(--duration-slow\) var\(--ease-out-soft\) backwards;/);
     expect(compiled).not.toMatch(/@keyframes flat-paint-[a-z-]+ \{[^@]*scale/);
+  });
+
+  it("generates the app component look maps and rises a prompt in on the motion tokens", () => {
+    const looks = [UPDATE_PROMPT_LOOK, INSTALL_BAR_LOOK, LAUNCH_SCREEN_LOOK, MINI_PROGRESS_LOOK];
+    const utilities = looks.flatMap((look) => Object.values(look).flatMap((classes) => classes.split(" ")));
+    // `prompt-enter` and `num` are classes of page.css, not utilities.
+    for (const utility of utilities.filter((name) => name !== "prompt-enter" && name !== "num")) {
+      const selector = `.${utility.replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character}`)}`;
+      expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
+    }
+    expect(compiled).toMatch(/\.prompt-enter \{\s*animation: flat-paint-rise-in var\(--duration-base\) var\(--ease-out-soft\) backwards;/);
+    expect(compiled).toMatch(/\.text-subsection \{\s*font-size: 1\.125rem;/);
   });
 
   it("generates the type scale with its line height, weight and tracking", () => {
