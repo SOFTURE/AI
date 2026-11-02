@@ -16,7 +16,7 @@ export const metering = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.1.0",
-    dependsOn: {},
+    dependsOn: { jobs: "^0.1.6?" },
     dbSchema: "metering",
     tables: ["charges"],
     env: [],
