@@ -452,7 +452,7 @@ const explainedIn = findArticlesLinkingTermFor(config, { articles, termSlug: ter
 
 `getBodyOptions(config, terms)` is the `RenderPageBodyOptions` of the pages (the glossary, routes, blog options,
 `appOrigin` and the canonical site origin, the copy); `findArticlesLinkingTermFor` is `findArticlesLinkingTerm`
-(`/server`) over it.
+(`/server`) over it. It reads the links without rendering the articles, so no block plugin runs on a term page.
 
 What the builders write, so an app moving published pages onto them can match its old output:
 
@@ -813,6 +813,9 @@ const body = renderArticle(article.bodyMarkdown, {
 // body.html (null when a block returned a node), body.segments, body.headings, body.toc,
 // body.linkedTerms, body.readingMinutes
 ```
+
+`findLinkedTerms(markdown, options)` takes the same options and returns `linkedTerms` alone, without rendering: no
+block plugin's `render` runs, so an app that only needs the links should call it instead of `renderArticle`.
 
 - **Allowlist by construction:** raw HTML in the text is escaped, so the output holds only the
   elements Markdown produces. Links keep `http(s)`, `mailto`, relative and `#` targets; any other
