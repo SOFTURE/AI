@@ -41,4 +41,4 @@
 
 ## Progress
 - [x] Phase 1: options, migration, schema, token layer, `requireApiToken`, `/tokens` entry (+ tests) (a19695d)
-- [ ] Phase 2: token page, privacy, README, changelog, gates
+- [x] Phase 2: token page, privacy, README, changelog, gates (8440b65)

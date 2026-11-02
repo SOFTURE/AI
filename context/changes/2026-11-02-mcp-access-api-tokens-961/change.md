@@ -1,7 +1,7 @@
 ---
 change_id: mcp-access-api-tokens-961
 title: "mcp-access: personal access tokens for plain HTTP routes, with app scopes, expiry and a rate limit (issue #961)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 961
 branch: claude/project-thread-ddug1r
@@ -30,3 +30,14 @@ the write switch, both kinds on the token page, and privacy and prune as today.
 
 ## Notes
 - Framing skipped: the issue names the problem, the options and the acceptance points.
+
+## Done
+- `apiTokens` option (prefix, scopes, examples); migration 0004 (`kind`, `scopes`, one check); shared insert and
+  lookup by kind; `issueApiToken`, `verifyApiToken`, `requireApiToken`, `apiTokenErrorResponse`;
+  `API_TOKEN_RATE_LIMIT_BUCKETS` (`api` per address, `api-token` per token); entry `@softure-ai/mcp-access/tokens`
+  without the MCP SDK (tested by walking its import graph).
+- Token page: the app's scopes, the form "New token for other apps", one-time reveal with the app's examples
+  (`api-ok`), the kind on each row; gate input `kind` and `scopes`; privacy export `kind` and `scopes`.
+- Tests: `tests/api-tokens-961.test.ts`, `tests/api-tokens-961-next.test.ts`, `token-manager.test.tsx`; README
+  "Tokens for HTTP routes", §5, §11, §12; CHANGELOG `Unreleased`.
+- Release: next batch release (`mcp-access` minor: new option, migration, entry point).
