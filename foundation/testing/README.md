@@ -307,6 +307,7 @@ import {
   expectTouchTargets,
   expectWorksOffline,
   IPHONE_SAFE_AREA,
+  shareToApp,
   test,
   throttleLikePhone,
 } from "@softure-ai/testing/playwright";
@@ -330,6 +331,12 @@ test("the start page loads within 3 s on a slow phone", async ({ context, page }
   await expectLoadWithin(page, "/", 3000);
 });
 
+test("a link shared from another app opens its import", async ({ page }) => {
+  const { status } = await shareToApp(page, { action: "/share", fields: { text: "Look https://youtu.be/x1" } });
+  expect(status).toBe(303);
+  await expect(page.getByRole("heading", { name: "Importing" })).toBeVisible();
+});
+
 test("the app opens offline", async ({ page }) => {
   await expectWorksOffline(page, { path: "/", answer: page.getByRole("heading", { name: "Today" }) });
   await expectWorksOffline(page, { path: "/", offlinePath: "/never-visited", answer: page.getByText("You are offline") });
@@ -345,6 +352,7 @@ test("the app opens offline", async ({ page }) => {
 | `PHONE_NETWORK_PROFILES`, `PHONE_CPU_SLOWDOWN` | Chrome DevTools' "Fast 4G" and "Slow 4G" presets, and Lighthouse's mid-range phone CPU slowdown (4). |
 | `expectLoadWithin(page, path, budgetMs, { event? })` | Opens `path` and asserts navigation timing reached `load` (or `domcontentloaded`) within the budget; returns the measured ms. |
 | `expectWorksOffline(page, { path, answer, offlinePath?, timeout? })` | Opens `path`, waits until a service worker controls the page (reloading once for a worker that does not claim its first page), goes offline, reloads (or opens `offlinePath`) and expects `answer` visible; back online whatever happens. |
+| `shareToApp(page, { action, fields?, files?, method? })` | Shares to the app the way Android's share sheet does (Web Share Target): a `GET` opens `action` with `fields` as its query; with `files` (`{ field, name, mimeType, buffer }`) a `POST` of `multipart/form-data`, fields first, with the page's cookies, then the page opens where the route redirected. Resolves `{ status, location }`: the route's own status (303 when it redirects) and where it sent the page (null without a redirect). |
 | `expectTouchTargets(scope, { minSize?, controls? })`, `TOUCH_TARGET_PX`, `TAPPABLE_SELECTOR` | Every visible tappable control (links, buttons, form controls, their ARIA roles) in a page or locator is at least 44 × 44 px, the themes' touch target; `controls` checks a locator of your own. The failure lists each control with its size. |
 
 ## Source guards
