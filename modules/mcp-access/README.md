@@ -717,7 +717,7 @@ sha256 of its random part after the prefix (the prefix is checked by shape befor
 
 ### Scheduled pruning
 
-`pruneMcpAccess(ctx)` (`/server`) runs the prunes of tokens, OAuth records and used confirmations and counts what each removed. The `softure-mcp prune` command
+`pruneMcpAccess(ctx)` (`/server`) runs the prunes of tokens, OAuth records, used confirmations and operation tasks and counts what each removed. The `softure-mcp prune` command
 runs it with the app's config (loaded like `softure migrate`, or from an app script through `runMcpAccessCli` from
 `/cli`) and prints one line. Run it daily, e.g. as a `maintain` hook of `@softure-ai/deploy`:
 

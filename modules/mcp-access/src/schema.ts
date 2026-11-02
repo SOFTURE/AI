@@ -1,8 +1,8 @@
 // Drizzle view of the module's tables (migrations/0001_create_access_tokens.sql,
-// 0002_create_oauth_grants.sql, 0003_create_oauth_registration_window.sql, 0004_create_used_confirmations.sql and
-// 0005_add_api_tokens.sql). The migrations are the source of truth; this file only types the queries.
+// 0002_create_oauth_grants.sql, 0003_create_oauth_registration_window.sql, 0004_create_used_confirmations.sql,
+// 0005_add_api_tokens.sql and 0006_create_operation_tasks.sql). The migrations are the source of truth; this file only types the queries.
 import { users } from "@softure-ai/auth";
-import { boolean, jsonb, pgSchema, smallint, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { bigint, boolean, jsonb, pgSchema, smallint, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const mcpSchema = pgSchema("mcp");
 
@@ -75,6 +75,17 @@ export const oauthRegistrationWindow = mcpSchema.table("oauth_registration_windo
 export const usedConfirmations = mcpSchema.table("used_confirmations", {
   tokenHash: text("token_hash").primaryKey(),
   usedAt: timestamp("used_at", { withTimezone: true }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
+/** MCP Tasks over long operations (#977): a random task id per account and job, until `expiresAt`. */
+export const operationTasks = mcpSchema.table("operation_tasks", {
+  taskId: text("task_id").primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  jobId: bigint("job_id", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 

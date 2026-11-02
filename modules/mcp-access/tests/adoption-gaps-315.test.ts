@@ -309,8 +309,8 @@ describe("scheduled pruning", () => {
   afterEach(() => test.database.close());
 
   it("prunes expired tokens and OAuth records in one call", async () => {
-    expect(await pruneMcpAccess(test.ctx)).toEqual({ accessTokens: 2, codes: 0, grants: 0, clients: 0, usedConfirmations: 0 });
-    expect(await pruneMcpAccess(test.ctx)).toEqual({ accessTokens: 0, codes: 0, grants: 0, clients: 0, usedConfirmations: 0 });
+    expect(await pruneMcpAccess(test.ctx)).toEqual({ accessTokens: 2, codes: 0, grants: 0, clients: 0, usedConfirmations: 0, operationTasks: 0 });
+    expect(await pruneMcpAccess(test.ctx)).toEqual({ accessTokens: 0, codes: 0, grants: 0, clients: 0, usedConfirmations: 0, operationTasks: 0 });
   });
 
   async function run(argv: string[], config = test.config) {
@@ -333,7 +333,7 @@ describe("scheduled pruning", () => {
   it("runs as softure-mcp prune for a deploy maintain hook, then closes the connection", async () => {
     expect(await run(["prune"])).toEqual({
       code: EXIT_OK,
-      lines: ["softure-mcp prune: removed 2 access tokens, 0 authorization codes, 0 grants, 0 clients, 0 used confirmations"],
+      lines: ["softure-mcp prune: removed 2 access tokens, 0 authorization codes, 0 grants, 0 clients, 0 used confirmations, 0 operation tasks"],
       errors: [],
     });
     expect(closed).toBe(1);
