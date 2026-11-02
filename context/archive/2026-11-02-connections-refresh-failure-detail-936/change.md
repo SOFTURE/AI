@@ -1,12 +1,13 @@
 ---
 change_id: connections-refresh-failure-detail-936
 title: "connections: a failed token refresh carries the HTTP status and the OAuth error code (issue #936)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 936
 branch: claude/project-thread-mnowyt
 created: 2026-11-02
 updated: 2026-11-02
+archived_at: 2026-11-02
 ---
 
 ## Intent

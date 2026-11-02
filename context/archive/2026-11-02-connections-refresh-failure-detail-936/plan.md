@@ -1,6 +1,6 @@
 ---
 change_id: connections-refresh-failure-detail-936
-status: in_progress
+status: done
 ---
 
 # Plan: the HTTP status and OAuth error code of a failed refresh (issue #936)
@@ -43,5 +43,11 @@ Files: `migrations/0002_add_last_error_detail.sql`, `src/schema.ts`, `src/contra
   logs and stores its detail.
 - The OAuth code is logged JSON-quoted (it may contain spaces); the status as a number or `null`.
 - Log level `warn` (a retryable failure), as the issue asks.
+- The fields are `httpStatus` and `oauthError` (the issue said `status`): `requestWithConnection` returns token
+  failures and `core.http_*` failures in one union, where `status` already means the provider API's own answer.
 
 ## Progress
+
+- [x] Phase 1: result, log and storage, 247ddc3
+- [x] Phase 2: the page and docs, 247ddc3
+- [x] Implementation review: approved
