@@ -60,6 +60,8 @@ describe("createShareTargetRoute: GET", () => {
     const handle = vi.fn(() => Promise.resolve("/"));
     const { GET } = createShareTargetRoute({ shareTarget: { action: "/share" }, handle, maxFieldBytes: 10 });
     expect((await GET(new Request(`${ORIGIN}/share?text=${"a".repeat(11)}`))).status).toBe(413);
+    // Bytes, not characters: six two-byte characters are 12 bytes.
+    expect((await GET(new Request(`${ORIGIN}/share?text=${encodeURIComponent("é".repeat(6))}`))).status).toBe(413);
     expect(handle).not.toHaveBeenCalled();
   });
 

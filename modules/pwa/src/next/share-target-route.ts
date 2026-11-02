@@ -77,6 +77,7 @@ const DEFAULT_MAX_FILES = 10;
 const DEFAULT_MAX_FIELD_BYTES = 16 * 1024;
 const OCTET_STREAM = "application/octet-stream";
 const ROLES = ["url", "text", "title"] as const;
+const ENCODER = new TextEncoder();
 
 function answer(status: number): Response {
   return new Response(null, { status, headers: { "cache-control": "no-store" } });
@@ -175,6 +176,7 @@ export function createShareTargetRoute<TUser = null>(options: ShareTargetRouteOp
 
   /** The user, or the sign-in redirect for a signed-out share. */
   async function getUserOrRedirect(request: Request, fields: () => Promise<TextFields | null>): Promise<{ user: TUser } | Response> {
+    // Without `getUser` the route is typed with its default `TUser = null`, so null is the user it promises.
     if (options.getUser === undefined) return { user: null as TUser };
     const user = await options.getUser(request);
     if (user !== null) return { user };
@@ -198,7 +200,7 @@ export function createShareTargetRoute<TUser = null>(options: ShareTargetRouteOp
         text: toValue(query.get(target.params.text)),
         title: toValue(query.get(target.params.title)),
       };
-      if (ROLES.some((role) => (fields[role]?.length ?? 0) > maxFieldBytes)) return answer(413);
+      if (ROLES.some((role) => ENCODER.encode(fields[role] ?? "").length > maxFieldBytes)) return answer(413);
       const signedIn = await getUserOrRedirect(request, () => Promise.resolve(fields));
       if (signedIn instanceof Response) return signedIn;
       return runHandle({ user: signedIn.user, request }, { url: findSharedUrl(fields), text: fields.text, title: fields.title, files: NO_FILES });

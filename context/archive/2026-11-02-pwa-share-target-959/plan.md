@@ -62,12 +62,12 @@ Done when a Chromium test shares text and a file to a small server and lands on 
 ### Phase 1: share target, route, docs
 
 #### Automated
-- [ ] 1.1 Manifest `share_target`, option checks, URL extraction, multipart parser, route behaviour tested
-- [ ] 1.2 README and CHANGELOG updated
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 Manifest `share_target`, option checks, URL extraction, multipart parser, route behaviour tested — 4144fcf
+- [x] 1.2 README and CHANGELOG updated — 4144fcf
+- [x] 1.3 Gates green (typecheck, lint, test) — 4144fcf
 
 ### Phase 2: Playwright helper
 
 #### Automated
-- [ ] 2.1 `shareToApp` exported and tested in Chromium
-- [ ] 2.2 Gates green (typecheck, lint, test)
+- [x] 2.1 `shareToApp` exported and tested in Chromium — 8e98e99
+- [x] 2.2 Gates green (typecheck, lint, test) — 8e98e99
