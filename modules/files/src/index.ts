@@ -2,12 +2,22 @@
 // storage drivers and every database function are in `@softure-ai/files/server`, the link route in `/next`, the
 // prune job in `/jobs` and the test helpers (an in-memory driver, link checks) in `/testing`.
 import { defineModule, resolveMigrationsDir } from "@softure-ai/core";
+import type { RateLimitBucketInput } from "@softure-ai/security";
 import { filesMessages } from "./messages/index.js";
 import { filesOptionsSchema } from "./options.js";
 import { checkFilesHealth } from "./server/health.js";
 import { filesPrivacyContributor } from "./server/privacy.js";
 
 export const MODULE_ID = "files";
+
+/**
+ * The rate limit bucket of the upload route, to spread into `security({ buckets })` when the app enables the
+ * security module: requests per upload session. 64 MiB chunks of a 2 GiB file are 32 requests; the rest is room for
+ * resumes and status checks.
+ */
+export const FILES_RATE_LIMIT_BUCKETS = {
+  "files-upload": { limit: 600, windowMinutes: 15, key: "subject" },
+} as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
  * Enables stored files in `softure.config.ts`:
@@ -17,7 +27,7 @@ export const files = defineModule({
   manifest: {
     id: MODULE_ID,
     version: "0.1.2",
-    dependsOn: { jobs: "^0.1.6?" },
+    dependsOn: { jobs: "^0.1.6?", security: "^0.2.5?" },
     dbSchema: "files",
     tables: ["files", "uploads"],
     env: [
