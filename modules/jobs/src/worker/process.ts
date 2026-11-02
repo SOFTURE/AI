@@ -15,7 +15,7 @@ const STOP_SIGNALS = ["SIGTERM", "SIGINT"] as const;
 const HEALTH_FLAG = "--health";
 
 export interface RunJobWorkerProcessOptions
-  extends Partial<Pick<RunJobWorkerOptions, "queues" | "clock" | "workerId" | "random" | "heartbeatMs" | "healthFile">> {
+  extends Partial<Pick<RunJobWorkerOptions, "queues" | "clock" | "workerId" | "random" | "heartbeatMs" | "healthFile" | "databaseOutageToleranceMs">> {
   readonly config: SoftureConfig;
   readonly handlers: JobHandlers;
   readonly logger?: JobsLogger;

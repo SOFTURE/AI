@@ -171,6 +171,15 @@ On SIGTERM the worker stops claiming, waits up to `shutdownGraceMs` for running 
 releases their jobs (pending again, due now, the attempt given back). Database errors while claiming or recording are
 logged and retried on the next round; a database restart does not end the worker.
 
+**A short database outage is not an error.** When the database is unavailable (SQLSTATE 57P01 to 57P03 or class 08, a
+refused, reset or closed connection: `isDatabaseUnavailableError(error)` from `/server`), the worker logs each failed
+call as `info` with `outageMs` (time since the outage's first failure) for the first `databaseOutageToleranceMs`
+(default 60 000), and as `error` after that; the first call that succeeds again logs `info: database reachable again`
+with `outageMs`. A round stops claiming at the first such failure, so a database that went away a moment before
+SIGTERM (a host restart) writes one line per round instead of one per queue. Any other failure stays `error`.
+`databaseOutageToleranceMs: 0` logs every one as `error`. The health file below still turns a worker that stays cut
+off from the database `unhealthy`.
+
 **Health check of the loop.** A process that is alive is not a loop that runs: a hung claim query or a database
 connection the worker never gets back leaves the process up and the jobs untouched. With `healthFile`, the loop
 touches that file after each round in which every claim reached the database (it removes a file left by an earlier
