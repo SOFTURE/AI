@@ -30,6 +30,8 @@ export interface RunDueJobsReport {
   readonly succeeded: number;
   readonly retried: number;
   readonly failed: number;
+  /** Attempts an operator cancelled while they ran (`requestJobCancel`). */
+  readonly cancelled: number;
   /** Attempts whose outcome another claim had already replaced. */
   readonly stale: number;
 }
@@ -41,7 +43,7 @@ export interface RunDueJobsReport {
 export async function runDueJobs(ctx: JobsContext, options: RunDueJobsOptions): Promise<RunDueJobsReport> {
   const queues = checkHandlers(getJobsOptions(ctx.config), options.handlers, options.queues);
   await enqueueDueSchedules(ctx, { queues });
-  const report = { succeeded: 0, retried: 0, failed: 0, stale: 0 };
+  const report = { succeeded: 0, retried: 0, failed: 0, cancelled: 0, stale: 0 };
   const maxJobs = options.maxJobs ?? DEFAULT_MAX_JOBS;
   const logger = options.logger ?? consoleJobsLogger;
   const runOptions = {

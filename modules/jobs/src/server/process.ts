@@ -3,9 +3,10 @@
 import type { ErrorCode } from "@softure-ai/core";
 import type { JobOutcome } from "../contract.js";
 import type { AnyJobHandler, JobHandlers, JobRunResult } from "../handlers.js";
+import { isJobCancelled, JobCancelledError, jobProgressSchema, type JobProgress } from "../progress.js";
 import { jobRunSummarySchema, type JobRunSummary } from "../summary.js";
 import type { ClaimedJob, Completion } from "./claim.js";
-import { completeJob } from "./claim.js";
+import { recordCompletion, writeJobProgress } from "./claim.js";
 import { clampRetrySeconds, getRetryDelaySeconds } from "./backoff.js";
 import type { JobsContext } from "./context.js";
 import type { JobsLogger } from "./logger.js";
@@ -14,11 +15,16 @@ import { getJobsOptions, getQueue } from "./options.js";
 const INVALID_PAYLOAD = "jobs.invalid_payload";
 const HANDLER_THREW = "jobs.handler_threw";
 const MAX_ERROR_LENGTH = 200;
+/** At most one progress write per job in this window. */
+const PROGRESS_INTERVAL_MS = 1000;
 
 export interface RunClaimedJobOptions {
   readonly handlers: JobHandlers;
   readonly logger: JobsLogger;
-  /** Aborted when the job is taken from the handler (shutdown after the grace period, lost lease). */
+  /**
+   * Aborted when the job is taken from the handler (shutdown after the grace period, lost lease), or with a
+   * `JobCancelledError` when an operator cancelled it: the attempt is then recorded `cancelled`.
+   */
   readonly signal: AbortSignal;
   /** In [0, 1): the jitter of the retry delay. */
   readonly random: () => number;
@@ -38,18 +44,93 @@ export async function runClaimedJob(ctx: JobsContext, claimed: ClaimedJob, optio
     return record(ctx, claimed, { kind: "failed", error: INVALID_PAYLOAD }, options.logger);
   }
 
+  // The handler's own signal: follows the caller's, and also aborts when a progress write sees a cancel request.
+  const controller = new AbortController();
+  const follow = () => controller.abort(options.signal.reason);
+  if (options.signal.aborted) follow();
+  else options.signal.addEventListener("abort", follow, { once: true });
+  const progress = createProgressReporter(ctx, claimed, { logger: options.logger, controller });
+
   let result: JobRunResult;
   try {
-    result = await handler.run(payload.data as never, { ...ctx, job, signal: options.signal });
+    result = await handler.run(payload.data as never, { ...ctx, job, signal: controller.signal, reportProgress: progress.report });
   } catch (error) {
-    options.logger.error("job handler threw", { ...fields, error });
+    if (!isJobCancelled(controller.signal)) options.logger.error("job handler threw", { ...fields, error });
     result = { ok: false, error: HANDLER_THREW };
   }
-  if (options.signal.aborted) {
+  await progress.flush();
+  options.signal.removeEventListener("abort", follow);
+  if (isJobCancelled(controller.signal)) {
+    // Whatever the handler returned after the request, the job ends cancelled.
+    return record(ctx, claimed, { kind: "cancelled" }, options.logger);
+  }
+  if (controller.signal.aborted) {
     // The job was released or taken over while the handler ran; the fenced write below would be refused anyway.
     return { kind: "stale" };
   }
   return record(ctx, claimed, decide(ctx, claimed, result, options), options.logger);
+}
+
+interface ProgressReporter {
+  /** `context.reportProgress`. */
+  readonly report: (progress: JobProgress) => Promise<void>;
+  /** Writes a report the throttle still holds and stops its timer; called when the handler returned. */
+  readonly flush: () => Promise<void>;
+}
+
+/**
+ * `context.reportProgress`: checks the progress and writes at most once per `PROGRESS_INTERVAL_MS`; a report inside the
+ * window is held and written when the window ends (or the handler returns), replaced by any newer one. A write that
+ * sees a cancel request aborts the handler. Never throws into the handler: an invalid progress or a failed write is
+ * logged.
+ */
+function createProgressReporter(
+  ctx: JobsContext,
+  claimed: ClaimedJob,
+  options: { readonly logger: JobsLogger; readonly controller: AbortController },
+): ProgressReporter {
+  const fields = { queue: claimed.job.queue, jobId: claimed.job.id };
+  let lastWriteAt = Number.NEGATIVE_INFINITY;
+  let held: JobProgress | undefined;
+  let timer: NodeJS.Timeout | undefined;
+
+  const write = async (progress: JobProgress) => {
+    lastWriteAt = ctx.clock.now().getTime();
+    try {
+      const state = await writeJobProgress(ctx, claimed, progress);
+      if (state === "cancel_requested" && !options.controller.signal.aborted) options.controller.abort(new JobCancelledError());
+    } catch (error) {
+      options.logger.warn("could not store job progress", { ...fields, error });
+    }
+  };
+  const flush = async () => {
+    clearTimeout(timer);
+    timer = undefined;
+    const progress = held;
+    held = undefined;
+    if (progress !== undefined) await write(progress);
+  };
+
+  const report = async (progress: JobProgress) => {
+    const parsed = jobProgressSchema.safeParse(progress);
+    if (!parsed.success) {
+      const paths = parsed.error.issues.map((issue) => issue.path.map(String).join(".") || "(root)").join(", ");
+      options.logger.warn("job progress does not match the progress schema; not stored", { ...fields, paths });
+      return;
+    }
+    const waitMs = lastWriteAt + PROGRESS_INTERVAL_MS - ctx.clock.now().getTime();
+    if (waitMs > 0) {
+      held = parsed.data;
+      // A timer per window, not per report: the newest held report is written when it fires.
+      timer ??= setTimeout(() => void flush(), waitMs);
+      return;
+    }
+    held = undefined;
+    clearTimeout(timer);
+    timer = undefined;
+    await write(parsed.data);
+  };
+  return { report, flush };
 }
 
 function decide(ctx: JobsContext, claimed: ClaimedJob, result: unknown, options: RunClaimedJobOptions): Completion {
@@ -70,11 +151,13 @@ function decide(ctx: JobsContext, claimed: ClaimedJob, result: unknown, options:
   return { kind: "retry", error, runAt: new Date(ctx.clock.now().getTime() + Math.round(delaySeconds * 1000)) };
 }
 
-async function record(ctx: JobsContext, claimed: ClaimedJob, completion: Completion, logger: JobsLogger): Promise<JobOutcome> {
-  const isRecorded = await completeJob(ctx, claimed, completion, { logger });
-  if (!isRecorded) return { kind: "stale" };
+async function record(ctx: JobsContext, claimed: ClaimedJob, requested: Completion, logger: JobsLogger): Promise<JobOutcome> {
+  const recorded = await recordCompletion(ctx, claimed, requested, { logger });
+  if (recorded === null) return { kind: "stale" };
+  const completion = recorded;
   if (completion.kind === "succeeded") return { kind: "succeeded" };
   if (completion.kind === "retry") return { kind: "retried", error: completion.error, runAt: completion.runAt };
+  if (completion.kind === "cancelled") return { kind: "cancelled" };
   return { kind: "failed", error: completion.error };
 }
 

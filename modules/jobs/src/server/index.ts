@@ -4,6 +4,7 @@ export {
   cancelJob,
   getJob,
   listRecentJobs,
+  requestJobCancel,
   retryJob,
   type CancelJobResult,
   type ListRecentJobsInput,
@@ -14,8 +15,10 @@ export {
   claimJobs,
   completeJob,
   extendJobLease,
+  heartbeatJob,
   releaseJob,
   type ClaimedJob,
+  type JobHeartbeat,
   type ClaimJobsInput,
   type Completion,
 } from "./claim.js";

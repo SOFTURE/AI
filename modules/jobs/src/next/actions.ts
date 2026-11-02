@@ -8,7 +8,7 @@ import { getSoftureConfig } from "@softure-ai/core/next";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { JobsFormState } from "../contract.js";
-import { cancelJob, retryJob } from "../server/admin.js";
+import { requestJobCancel, retryJob } from "../server/admin.js";
 import { getJobsOptions, getJobsRoutes } from "../server/options.js";
 import { runScheduleNow } from "../server/schedules.js";
 import { retrySyncItem } from "../server/sync-items.js";
@@ -64,10 +64,10 @@ export async function retryJobAction(_previous: JobsFormState, formData: FormDat
   });
 }
 
-/** Cancels a pending job (one waiting for its retry included). */
+/** Cancels a pending job (one waiting for its retry included) or asks a running one to stop (`requestJobCancel`). */
 export async function cancelJobAction(_previous: JobsFormState, formData: FormData): Promise<JobsFormState> {
   return steer("cancelling a job", async (config) => {
-    const result = await cancelJob(await getJobsContext(config), field.parse(formData.get("id")));
+    const result = await requestJobCancel(await getJobsContext(config), field.parse(formData.get("id")));
     return result.ok ? { status: "ok" } : { status: "error", error: result.error };
   });
 }
