@@ -18,7 +18,7 @@ export const jobs = defineModule({
     version: "0.1.6",
     dependsOn: {},
     dbSchema: "jobs",
-    tables: ["jobs", "runs", "schedules", "sync_cursors", "sync_items"],
+    tables: ["jobs", "queue_state", "runs", "schedules", "sync_cursors", "sync_items"],
     env: [],
     switches: [],
     routes: { panel: "/admin/jobs" },
@@ -48,6 +48,9 @@ export {
   type JobStatusRouteErrorCode,
   type OwnJob,
   type OwnJobStatus,
+  type QueuePause,
+  type QueuePausedEvent,
+  type QueuePauseSource,
   type ScheduleHealth,
   type ScheduleStateChangedEvent,
 } from "./contract.js";
@@ -56,7 +59,9 @@ export {
   JOBS_RUN_LOG_LEVELS,
   jobsOptionsSchema,
   type DayOfMonth,
+  type JobQueueBreaker,
   type JobQueueOptions,
+  type JobQueueRateLimit,
   type JobScheduleOptions,
   type JobsPanelGuard,
   type JobsRunLogLevel,
@@ -65,10 +70,11 @@ export {
   type JobsOptionsInput,
   type LocalTimeScheduleOptions,
   type OnJobFailedHook,
+  type OnQueuePausedHook,
   type OnScheduleStateChangedHook,
   type PeriodScheduleOptions,
 } from "./options.js";
-export { defineJobHandler, failJob, retryJobLater, type JobHandler, type JobHandlerContext, type JobHandlers } from "./handlers.js";
+export { defineJobHandler, failJob, pauseQueueLater, retryJobLater, type JobHandler, type JobHandlerContext, type JobHandlers } from "./handlers.js";
 export { isJobCancelled, JOB_CANCELLED_CODE, JobCancelledError, jobProgressSchema, type JobProgress } from "./progress.js";
 export { JOB_STEP_OUTCOMES, jobRunSummarySchema, type JobRunSummary, type JobStepOutcome } from "./summary.js";
 export { jobs as jobsTable, runs as jobRunsTable, schedules as jobSchedulesTable, syncCursors as jobSyncCursorsTable, syncItems as jobSyncItemsTable } from "./schema.js";

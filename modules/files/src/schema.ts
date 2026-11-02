@@ -1,5 +1,5 @@
-// Drizzle view of the module's table (migrations/0001_create_files.sql). The migration is the source of truth;
-// this file only types the queries.
+// Drizzle view of the module's tables (migrations 0001 and 0002). The migrations are the source of truth; this file
+// only types the queries.
 import { bigint, integer, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const filesSchema = pgSchema("files");
@@ -20,3 +20,21 @@ export const files = filesSchema.table("files", {
 });
 
 export type FileRow = typeof files.$inferSelect;
+
+export const uploads = filesSchema.table("uploads", {
+  id: uuid("id").primaryKey(),
+  ownerId: text("owner_id").notNull(),
+  originalName: text("original_name").notNull(),
+  contentType: text("content_type").notNull(),
+  kind: text("kind").notNull(),
+  size: bigint("size", { mode: "number" }).notNull(),
+  sha256: text("sha256"),
+  chunkSize: integer("chunk_size").notNull(),
+  receivedChunks: integer("received_chunks").array().notNull(),
+  fileId: uuid("file_id"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  finalizedAt: timestamp("finalized_at", { withTimezone: true }),
+});
+
+export type UploadRow = typeof uploads.$inferSelect;

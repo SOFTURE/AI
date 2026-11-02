@@ -37,6 +37,8 @@ describe("pruning files", () => {
       deletedFiles: 2,
       freedBytes: 11,
       failedFiles: 0,
+      deletedUploads: 0,
+      failedUploads: 0,
     });
     expect(await listRows(test.database)).toEqual(["keep file 4", "long file 4"]);
     expect(test.storage.objects().size).toBe(2);
@@ -44,6 +46,8 @@ describe("pruning files", () => {
       deletedFiles: 0,
       freedBytes: 0,
       failedFiles: 0,
+      deletedUploads: 0,
+      failedUploads: 0,
     });
   });
 
@@ -58,12 +62,16 @@ describe("pruning files", () => {
       deletedFiles: 0,
       freedBytes: 0,
       failedFiles: 2,
+      deletedUploads: 0,
+      failedUploads: 0,
     });
     test.storage.setFailing(false);
     expect(await pruneFiles(test.ctx)).toEqual({
       deletedFiles: 2,
       freedBytes: 2,
       failedFiles: 0,
+      deletedUploads: 0,
+      failedUploads: 0,
     });
   });
 

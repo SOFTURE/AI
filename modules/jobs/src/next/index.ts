@@ -1,5 +1,14 @@
-// The Next.js adapter of @softure-ai/jobs: the admin page and its server actions, and the status route of an owned job (docs/02-module-standard.md §8).
-export { cancelJobAction, retryJobAction, retrySyncItemAction, runScheduleNowAction } from "./actions.js";
+// The Next.js adapter of @softure-ai/jobs: the admin page and its server actions, and the status route of an owned job
+// (docs/02-module-standard.md §8).
+export {
+  cancelJobAction,
+  PANEL_PAUSE_REASON,
+  pauseQueueAction,
+  resumeQueueAction,
+  retryJobAction,
+  retrySyncItemAction,
+  runScheduleNowAction,
+} from "./actions.js";
 export { getJobsContext } from "./context.js";
 export {
   createJobStatusRoute,

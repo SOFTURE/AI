@@ -25,6 +25,7 @@ describe("planServerSettings", () => {
       "hooks-pre-migrate": "",
       "hooks-post-up": "",
       "hooks-maintain": "",
+      "data-backup-paths": "",
       cron: "",
     });
   });
@@ -59,6 +60,20 @@ describe("planServerSettings", () => {
 
   it("refuses an unknown verify schedule", () => {
     expect(issuesOf({ database: { verifyBackup: "monthly" } })).not.toEqual([]);
+  });
+
+  it("writes the data volume's folders to archive, one per line (issue #948)", () => {
+    expect(plan({ data: { backupPaths: ["cache/paid", "exports"] } })["data-backup-paths"]).toBe("cache/paid\nexports\n");
+    expect(plan({ data: {} })["data-backup-paths"]).toBe("");
+  });
+
+  it("refuses a data folder that leaves the volume, starts at its root, repeats or is an empty list", () => {
+    for (const path of ["../etc", "cache/../..", "/cache", ".", "cache/./x", "", "a b"]) {
+      expect(issuesOf({ data: { backupPaths: [path] } }), path).not.toEqual([]);
+    }
+    expect(issuesOf({ data: { backupPaths: ["cache", "cache"] } })).toEqual(["data.backupPaths: cache is listed twice"]);
+    expect(issuesOf({ data: { backupPaths: [] } })).not.toEqual([]);
+    expect(issuesOf({ data: { backup: ["cache"] } })).not.toEqual([]);
   });
 });
 

@@ -186,6 +186,61 @@ describe("softure-deploy init", () => {
     expect(existsSync(join(dir, "scripts/worker.ts"))).toBe(false);
   });
 
+  describe("the worker image, the data volume and the worker limits (issue #948)", () => {
+    const WORKER_APP = { name: "shop", dependencies: { "@softure-ai/db": "^0.1.9", "@softure-ai/jobs": "^0.1.6" } };
+
+    it("writes the worker's Dockerfile, mounts the data volume and names the base image as the next step", async () => {
+      writeApp(WORKER_APP);
+      const flags = ["--worker-dockerfile=docker/worker.Dockerfile", "--data-volume=/app/data", "--worker-cpus=1", "--worker-memory=2g", "--worker-tmpfs=256m"];
+      expect(await runCli(["init", ...REQUIRED, `--workflows-ref=${WORKFLOWS_SHA}`, ...flags], makeIo())).toBe(0);
+      const output = out.join("");
+      expect(output).toContain("wrote   Dockerfile\nwrote   docker/worker.Dockerfile\nwrote   .dockerignore\n");
+      expect(output).toContain(
+        "next    set WORKER_BASE_IMAGE in docker/worker.Dockerfile (or as a build argument) to the image with the worker's tools, e.g. one built from @softure-ai/marketing-kit's docker/footage-worker.Dockerfile; the default node:22-trixie-slim has none\n",
+      );
+      expect(output).toContain("init: 15 written, 0 kept");
+      const compose = readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8");
+      expect(compose).toContain("image: ghcr.io/acme/app-worker:${TAG}");
+      expect(compose).toContain("      - app-data:/app/data");
+      expect(compose).toContain("    mem_limit: 2g");
+      expect(err).toEqual([]);
+    });
+
+    it("keeps an existing worker Dockerfile unless --force", async () => {
+      writeApp(WORKER_APP);
+      mkdirSync(join(dir, "docker"), { recursive: true });
+      writeFileSync(join(dir, "docker/worker.Dockerfile"), "FROM own\n");
+      expect(await runCli(["init", ...REQUIRED, "--worker-dockerfile=docker/worker.Dockerfile"], makeIo())).toBe(0);
+      expect(out.join("")).toContain("kept    docker/worker.Dockerfile (exists; --force overwrites it)\n");
+      expect(readFileSync(join(dir, "docker/worker.Dockerfile"), "utf8")).toBe("FROM own\n");
+    });
+
+    it("refuses the worker flags without the worker part and writes nothing", async () => {
+      writeApp({ name: "shop", dependencies: { "@softure-ai/db": "^0.1.9" } });
+      expect(await runCli(["init", ...REQUIRED, "--worker-dockerfile=docker/worker.Dockerfile", "--worker-memory=1g"], makeIo())).toBe(1);
+      expect(err.join("")).toBe(
+        "init: nothing written; --worker-dockerfile configures the worker service, which needs @softure-ai/jobs and @softure-ai/db; --worker-memory configures the worker service, which needs @softure-ai/jobs and @softure-ai/db.\n",
+      );
+      expect(existsSync(join(dir, "Dockerfile"))).toBe(false);
+    });
+
+    it("refuses a worker Dockerfile at a path init writes itself", async () => {
+      writeApp(WORKER_APP);
+      expect(await runCli(["init", ...REQUIRED, "--worker-dockerfile=Dockerfile"], makeIo())).toBe(1);
+      expect(err.join("")).toBe(
+        "init: nothing written; --worker-dockerfile Dockerfile is a file init writes itself; name a file of its own, such as docker/worker.Dockerfile.\n",
+      );
+    });
+
+    it("refuses a data volume over the image's code or a system folder, and sizes Docker cannot read", async () => {
+      writeApp(WORKER_APP);
+      expect(await runCli(["init", ...REQUIRED, "--data-volume=/app", "--worker-cpus=0", "--worker-tmpfs=1GB"], makeIo())).toBe(1);
+      expect(err.join("")).toBe(
+        "init: nothing written; dataVolume: a folder of its own, not /app, /bin, /dev, /etc, /lib, /proc, /sbin, /sys, /tmp, /usr, /var or below a system folder; workerCpus: a number of CPUs such as 0.5 or 2; workerTmpfs: a size such as 512m or 2g.\n",
+      );
+    });
+  });
+
   it("warns when next.config is missing or does not build standalone", async () => {
     writeApp({ name: "shop" }, "export default {};\n");
     expect(await runCli(["init", ...REQUIRED], makeIo())).toBe(0);

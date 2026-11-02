@@ -1,12 +1,15 @@
 // Claiming and the fenced writes of a claimed job. Every write after the claim names the claim token, so a worker
 // whose job was taken over (its lease ended) or released cannot record anything for the newer claim.
+import type { Queryable } from "@softure-ai/db";
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
-import type { Job, JobFailedEvent } from "../contract.js";
-import { jobs } from "../schema.js";
+import type { Job, JobFailedEvent, QueuePausedEvent } from "../contract.js";
+import type { JobQueueOptions } from "../options.js";
+import { jobs, type JobRow } from "../schema.js";
 import type { JobsContext } from "./context.js";
-import { notifyJobFailed, type HookOptions } from "./hooks.js";
+import { notifyJobFailed, notifyQueuePaused, type HookOptions } from "./hooks.js";
 import { toJob } from "./job-row.js";
 import { getJobsOptions, getQueue } from "./options.js";
+import { getQueuePause, lockPacedBudget, pauseQueueForHandler, recordBreakerOutcome, type BreakerOutcome } from "./queue-state.js";
 import { recordRuns, type RunRecord } from "./runs.js";
 import { consoleJobsLogger } from "./logger.js";
 import { logRunEnd } from "./run-log.js";
@@ -28,6 +31,8 @@ export interface ClaimJobsInput {
   readonly workerId: string;
   /** Where a failing `onJobFailed` hook is logged; default the console logger. */
   readonly logger?: HookOptions["logger"];
+  /** In [0, 1): the jitter of a `rateLimit` gap; default `Math.random`. */
+  readonly random?: () => number;
 }
 
 /** What a finished attempt records. */
@@ -38,7 +43,10 @@ export type Completion =
    */
   | { readonly kind: "succeeded"; readonly summary?: JobRunSummary | null; readonly resultRef?: string | null }
   | { readonly kind: "retry"; readonly error: string; readonly runAt: Date }
-  | { readonly kind: "failed"; readonly error: string }
+  /** `isPermanent`: the job's own fault (`failJob`, an invalid payload), which the queue's breaker does not count. */
+  | { readonly kind: "failed"; readonly error: string; readonly isPermanent?: boolean }
+  /** `pauseQueueLater`: the queue pauses for `seconds`; the job gets its attempt back and is due at `runAt`, the pause's end. */
+  | { readonly kind: "paused"; readonly error: string; readonly seconds: number; readonly runAt: Date }
   /** An operator cancelled the job (`requestJobCancel`): `cancelled`, not retried, no `onJobFailed`. */
   | { readonly kind: "cancelled" };
 
@@ -55,7 +63,9 @@ const LEASE_EXPIRED = "jobs.lease_expired";
  * whose lease ended (their worker died). Each claim counts as an attempt. A job whose lease ended with no attempts
  * left is failed with `jobs.lease_expired` instead (and `onJobFailed` runs for it); one an operator asked to stop is
  * `cancelled`. Rows another worker is claiming at the same moment are skipped (`FOR UPDATE SKIP LOCKED`), so workers
- * never wait on each other. A claim clears the progress of the previous attempt.
+ * never wait on each other. A claim clears the progress of the previous attempt. A paused queue claims nothing. A
+ * queue with `rateLimit` claims within its budget, holding its `queue_state` row for the claim, so every worker shares
+ * it. Jobs held back keep their attempts.
  */
 export async function claimJobs(ctx: JobsContext, input: ClaimJobsInput): Promise<ClaimedJob[]> {
   const queue = getQueue(getJobsOptions(ctx.config), input.queue);
@@ -69,7 +79,34 @@ export async function claimJobs(ctx: JobsContext, input: ClaimJobsInput): Promis
   }
   await notifyJobFailed(ctx, expired, { logger: input.logger });
 
-  const due = ctx.db
+  const random = input.random ?? Math.random;
+  let rows: JobRow[];
+  if (queue.rateLimit === undefined) {
+    // An unpaced queue never waits on the state row: one read of the pause.
+    rows = (await getQueuePause(ctx, input.queue)) === null ? await claimDue(ctx.db, { queue: input.queue, options: queue, workerId: input.workerId, now, limit: input.limit }) : [];
+  } else {
+    const { rateLimit } = queue;
+    rows = await ctx.db.transaction(async (tx) => {
+      const budget = await lockPacedBudget(tx, { queue: input.queue, rateLimit, limit: input.limit, now, random });
+      if (budget.allowed === 0) return [];
+      const claimed = await claimDue(tx, { queue: input.queue, options: queue, workerId: input.workerId, now, limit: budget.allowed });
+      await budget.spend(claimed.length);
+      return claimed;
+    });
+  }
+
+  return rows
+    .sort((left, right) => left.runAt.getTime() - right.runAt.getTime() || Number(left.id - right.id))
+    .map((row) => ({ job: toJob(row), claimToken: requireToken(row.claimToken) }));
+}
+
+/** Claims up to `limit` due jobs of one queue in one statement; rows other workers are claiming are skipped. */
+async function claimDue(
+  db: Queryable,
+  input: { readonly queue: string; readonly options: JobQueueOptions; readonly workerId: string; readonly now: Date; readonly limit: number },
+): Promise<JobRow[]> {
+  const { now } = input;
+  const due = db
     .select({ id: jobs.id })
     .from(jobs)
     .where(
@@ -85,12 +122,12 @@ export async function claimJobs(ctx: JobsContext, input: ClaimJobsInput): Promis
     .limit(input.limit)
     .for("update", { skipLocked: true });
 
-  const rows = await ctx.db
+  return db
     .update(jobs)
     .set({
       status: "running",
       attempts: sql`${jobs.attempts} + 1`,
-      lockedUntil: new Date(now.getTime() + queue.leaseSeconds * 1000),
+      lockedUntil: new Date(now.getTime() + input.options.leaseSeconds * 1000),
       lockedBy: input.workerId,
       claimToken: sql`gen_random_uuid()`,
       progress: null,
@@ -99,10 +136,6 @@ export async function claimJobs(ctx: JobsContext, input: ClaimJobsInput): Promis
     })
     .where(inArray(jobs.id, due))
     .returning();
-
-  return rows
-    .sort((left, right) => left.runAt.getTime() - right.runAt.getTime() || Number(left.id - right.id))
-    .map((row) => ({ job: toJob(row), claimToken: requireToken(row.claimToken) }));
 }
 
 /** Pushes the lease of a held job forward. False when the job is no longer this claim's: stop working on it. */
@@ -158,29 +191,46 @@ export async function completeJob(ctx: JobsContext, claimed: ClaimedJob, complet
 /** `completeJob` that returns the completion it recorded (a retry may become `cancelled`), or null when it wrote nothing. */
 export async function recordCompletion(ctx: JobsContext, claimed: ClaimedJob, requested: Completion, options: HookOptions = {}): Promise<Completion | null> {
   const now = ctx.clock.now();
+  const { job } = claimed;
+  const breaker = getQueue(getJobsOptions(ctx.config), job.queue).breaker;
   let completion = requested;
-  const isRecorded = await ctx.db.transaction(async (tx) => {
+  const recorded = await ctx.db.transaction(async (tx) => {
     const [held] = await tx.select({ cancelRequestedAt: jobs.cancelRequestedAt }).from(jobs).where(isHeld(claimed)).for("update");
-    if (held === undefined) return false;
-    if (completion.kind === "retry" && held.cancelRequestedAt !== null) completion = { kind: "cancelled" };
+    if (held === undefined) return null;
+    if ((completion.kind === "retry" || completion.kind === "paused") && held.cancelRequestedAt !== null) completion = { kind: "cancelled" };
     const rows = await tx.update(jobs).set(toCompletionSet(completion, now)).where(isHeld(claimed)).returning();
-    if (rows.length === 0) return false;
+    if (rows.length === 0) return null;
     await recordRuns(tx, [toRunRecord(claimed, completion, now)]);
-    if (completion.kind === "succeeded") await recordScheduleSuccess({ ...ctx, db: tx }, claimed.job.queue);
-    if (completion.kind === "failed") await recordScheduleFailure({ ...ctx, db: tx }, claimed.job.queue, completion.error);
-    return true;
+    if (completion.kind === "succeeded") await recordScheduleSuccess({ ...ctx, db: tx }, job.queue);
+    if (completion.kind === "failed") await recordScheduleFailure({ ...ctx, db: tx }, job.queue, completion.error);
+    let paused: QueuePausedEvent | null = null;
+    if (completion.kind === "paused") {
+      paused = await pauseQueueForHandler(tx, { queue: job.queue, code: completion.error, seconds: completion.seconds, now });
+    }
+    const outcome = toBreakerOutcome(completion);
+    if (breaker !== undefined && outcome !== null) paused = await recordBreakerOutcome(tx, { queue: job.queue, breaker, outcome, now });
+    return { paused };
   });
-  if (!isRecorded) return null;
+  if (recorded === null) return null;
   if (completion.kind === "failed") {
-    const { job } = claimed;
     await notifyJobFailed(ctx, [{ queue: job.queue, jobId: job.id, code: completion.error, attempts: job.attempts, at: now }], options);
   }
+  if (recorded.paused !== null) await notifyQueuePaused(ctx, recorded.paused, options);
   return completion;
+}
+
+/** What the queue's breaker makes of an attempt: retries and attempt-exhausting failures count, a success resets. */
+function toBreakerOutcome(completion: Completion): BreakerOutcome | null {
+  if (completion.kind === "succeeded") return { kind: "success" };
+  if (completion.kind === "retry") return { kind: "failure", code: completion.error };
+  if (completion.kind === "failed" && completion.isPermanent !== true) return { kind: "failure", code: completion.error };
+  return null;
 }
 
 /**
  * The columns a completion writes. An attempt that ended on its own before its worker saw a cancel request drops the
- * request with the lease; a cancelled job keeps the request's time for inspection.
+ * request with the lease; a cancelled job keeps the request's time for inspection. A `pauseQueueLater` attempt gives
+ * its attempt back.
  */
 function toCompletionSet(completion: Completion, now: Date) {
   const unlocked = { lockedUntil: null, lockedBy: null, claimToken: null, updatedAt: now };
@@ -189,6 +239,15 @@ function toCompletionSet(completion: Completion, now: Date) {
       return { ...unlocked, cancelRequestedAt: null, status: "succeeded" as const, finishedAt: now, lastError: null, resultRef: completion.resultRef ?? null };
     case "retry":
       return { ...unlocked, cancelRequestedAt: null, status: "pending" as const, runAt: completion.runAt, lastError: completion.error };
+    case "paused":
+      return {
+        ...unlocked,
+        cancelRequestedAt: null,
+        status: "pending" as const,
+        attempts: sql`${jobs.attempts} - 1`,
+        runAt: completion.runAt,
+        lastError: completion.error,
+      };
     case "failed":
       return { ...unlocked, cancelRequestedAt: null, status: "failed" as const, finishedAt: now, lastError: completion.error };
     case "cancelled":
@@ -296,7 +355,7 @@ function toRunRecord(claimed: ClaimedJob, completion: Completion, now: Date): Ru
   const base = { jobId: job.id, queue: job.queue, origin: job.origin, attempt: job.attempts, startedAt: job.updatedAt, finishedAt: now };
   if (completion.kind === "succeeded") return { ...base, outcome: "succeeded", errorCode: null, summary: completion.summary ?? null };
   if (completion.kind === "cancelled") return { ...base, outcome: "cancelled", errorCode: JOB_CANCELLED_CODE, summary: null };
-  return { ...base, outcome: completion.kind === "retry" ? "retried" : "failed", errorCode: completion.error, summary: null };
+  return { ...base, outcome: completion.kind === "failed" ? "failed" : "retried", errorCode: completion.error, summary: null };
 }
 
 function isHeld(claimed: ClaimedJob) {

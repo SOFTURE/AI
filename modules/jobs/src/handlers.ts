@@ -33,8 +33,10 @@ export interface JobHandlerContext {
 /**
  * What a handler returns: `ok()` when the work is done, or `ok({ summary })` with a code-only `JobRunSummary` the run
  * history keeps, and/or `ok({ resultRef })` with an id of the app's row that holds the result, kept on the job for its
- * owner (`getOwnJob`; letters, digits and `_ . : / -`, at most 200 characters); an `Err` to try again with the queue's backoff (until the attempts are used up); `failJob(code)` to
- * fail for good; `retryJobLater(code, seconds)` to try again after a delay the handler chooses. A throw is retried
+ * owner (`getOwnJob`; letters, digits and `_ . : / -`, at most 200 characters); an `Err` to try again with the queue's
+ * backoff (until the attempts are used up); `failJob(code)` to fail for good; `retryJobLater(code, seconds)` to try
+ * again after a delay the handler chooses; `pauseQueueLater(code, seconds)` when the service refused, to pause the
+ * whole queue and keep the attempt. A throw is retried
  * like an `Err` with the code `jobs.handler_threw` and logged.
  */
 export type JobRunResult = Ok<unknown> | JobFailure;
@@ -89,4 +91,16 @@ export function retryJobLater<E extends ErrorCode>(error: E, seconds: number): J
     throw new RangeError(`retryJobLater: seconds must be a finite number >= 0, got ${String(seconds)}`);
   }
   return { ok: false, error, retryAfterSeconds: seconds };
+}
+
+/**
+ * The service refused (HTTP 429, a login wall, a captcha page): pauses the whole queue for `seconds` (never shortening a
+ * longer pause, never replacing an operator's) and gives this job its attempt back, due when the pause ends. The app's
+ * `onQueuePaused` hook runs. Use it for a refusal the handler recognizes at once; the queue's `breaker` catches the rest.
+ */
+export function pauseQueueLater<E extends ErrorCode>(error: E, seconds: number): JobFailure {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new RangeError(`pauseQueueLater: seconds must be a finite number > 0, got ${String(seconds)}`);
+  }
+  return { ok: false, error, pauseQueueSeconds: seconds };
 }

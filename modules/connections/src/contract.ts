@@ -140,6 +140,31 @@ export interface ReconnectRequiredEvent {
   readonly at: Date;
 }
 
+/** Fields every `onConnectionChanged` event carries. */
+interface ConnectionChangeBase {
+  readonly provider: string;
+  readonly accountId: string;
+  readonly kind: ConnectionKind;
+  /** The auth user id of the admin who acted; null for an operator script. */
+  readonly actorId: string | null;
+  readonly at: Date;
+}
+
+/**
+ * What `onConnectionChanged` receives, after the change is stored. Never carries a credential.
+ * - `connected`: a new connection (OAuth callback or a saved key);
+ * - `reconnected`: a connection that existed (connected or `reconnect_required`) was replaced;
+ * - `disconnected`: the connection was deleted; `revoked` says whether the provider accepted the revocation;
+ * - `connect_failed`: an OAuth callback failed after its authorization was found, so the provider is known.
+ */
+export type ConnectionChangedEvent =
+  | (ConnectionChangeBase & { readonly change: "connected" | "reconnected" })
+  | (ConnectionChangeBase & { readonly change: "disconnected"; readonly revoked: boolean })
+  | (ConnectionChangeBase & { readonly change: "connect_failed"; readonly code: ConnectionsFlowErrorCode });
+
+/** The kinds of change `onConnectionChanged` reports. */
+export type ConnectionChange = ConnectionChangedEvent["change"];
+
 /** What the page's key form and disconnect actions return (`useActionState`). */
 export interface ConnectionFormState {
   readonly status: "idle" | "ok" | "error";

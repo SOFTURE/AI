@@ -124,6 +124,9 @@ state. App-specific motion (a wizard's step stamp) stays in the app.
 | `CHART_ROLE_TONE` | the charts tone (`ChartToneName`) of each role: `accessible`, `locked`, `debt`, `accent`, `muted` |
 | `RADIO_LOOK` | a radio's `box`, `input` (the drawn circle) and `mark` (a 12 px check icon): a lime disc with an `accent` line and a black check when checked, as the checkbox |
 | `CHOICE_ROW_LOOK`, `CHOICE_CARD_LOOK` | a single choice drawn as a list row (lime bar when checked) or a bordered tile: `label`, `control`, `body`, `title`, `description`; markup below |
+| `UPDATE_PROMPT_LOOK`, `INSTALL_BAR_LOOK` | ui's `UpdatePrompt` and `InstallBar` `classNames`: flat panel rising in (`prompt-enter`), title on `subsection`, `accent` icon, borderless primary action |
+| `LAUNCH_SCREEN_LOOK`, `ROUTE_LOADING_LOOK` | ui's `LaunchScreen` and `RouteLoading` `classNames`: name on `band`, bar on a `border` track, percentage as a `num`; `TopLoadingBar` needs none (its line is `accent`) |
+| `MINI_PROGRESS_LOOK` | ui's `MiniProgress` `classNames`: flag radius, track at 8 % of the text colour, figure as a caption `num` |
 
 A data table (ui has no table component): column headers 12 px 500 `muted`, 44 px rows with a `border` hairline,
 amounts right-aligned in `tabular` with the last column bold, an empty cell `—` in `muted`, the selected row on
@@ -161,6 +164,17 @@ const surface = "paper";
 ```
 
 A line or marker in a role's colour takes the role's tone: `tone={CHART_ROLE_TONE.locked}`.
+
+The screens of `@softure-ai/pwa` are ui's components with these maps (the pwa README has the wiring):
+
+```tsx
+import { InstallBar, RouteLoading, UpdatePrompt } from "@softure-ai/ui";
+import { INSTALL_BAR_LOOK, ROUTE_LOADING_LOOK, UPDATE_PROMPT_LOOK } from "@softure-ai/theme-flat-paint";
+
+<UpdatePrompt open={isUpdateReady} onReload={activate} classNames={UPDATE_PROMPT_LOOK} {...messages.update} />
+<InstallBar offer={offer} onInstall={() => void install()} onClose={close} classNames={INSTALL_BAR_LOOK} {...messages.install} />
+<RouteLoading name="Workspace" iconSrc={`${ICONS_PATH}/icon-192.png`} label={messages.launch.label} classNames={ROUTE_LOADING_LOOK} />
+```
 
 A radio choice: a `label` wraps the native radio, so a click on the whole row or tile checks it and the label carries
 the checked (`has-checked:`) and focus (`has-focus-visible:`) states. The card puts `control` after `body`.

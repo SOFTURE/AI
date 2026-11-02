@@ -10,12 +10,13 @@ received message.
 A job queue in one table (`jobs.jobs`) with enqueue inside the caller's transaction and dedup keys, claims with
 `FOR UPDATE SKIP LOCKED` under a lease, fenced completion, retry with exponential backoff, a worker process with
 graceful shutdown, recurring schedules that run once per period however many workers run, and an in-process runner
-for tests and cron-driven apps. For jobs that poll a third-party source: a cursor per source and a processed-item
+for tests and cron-driven apps. For queues that call a service with a request budget: pacing shared by every worker
+and a circuit breaker that pauses the queue (§3, "Pacing and the circuit breaker"). For jobs that poll a third-party source: a cursor per source and a processed-item
 ledger, so a second run never acts twice on the same item (§3, "Sync state for polling"). For the operator: an admin
-page with the queues, schedule health, running jobs with their progress, recent failures and the sync ledger, with Run
-now, Retry and Cancel (§4). A running handler reports its progress, and an operator can stop a running job (§3,
-"Progress and cancelling"). For the user who started a job: an owner on the job, a status route and a polling hook for
-the waiting screen (§3, "A user follows their own job").
+page with the queues, schedule health, pauses, running jobs with their progress, recent failures and the sync ledger,
+with Run now, Pause, Resume, Retry and Cancel (§4). A running handler reports its progress, and an operator can stop a
+running job (§3, "Progress and cancelling"). For the user who started a job: an owner on the job, a status route and a
+polling hook for the waiting screen (§3, "A user follows their own job").
 
 ## 2. Installation
 
@@ -55,6 +56,8 @@ export default defineSoftureConfig({
 | `queues.<name>.backoff` | `{ baseSeconds: 10, maxSeconds: 3600 }` | delay after attempt n is `min(max, base * 2^(n-1))`, shortened by up to 20 % at random |
 | `queues.<name>.leaseSeconds` | `300` | how long a claimed job is reserved; the worker extends it while the handler runs, so it bounds how long a crashed worker's job waits, not how long a handler may take |
 | `queues.<name>.concurrency` | `1` | jobs of the queue one worker process runs at once |
+| `queues.<name>.rateLimit` | none | pacing shared by every worker: `{ minGapMs, jitterMs? }` or `{ max, perSeconds }` (§3, "Pacing and the circuit breaker") |
+| `queues.<name>.breaker` | none | `{ failures, codes?, pauseSeconds, maxPauseSeconds? }`: pauses the queue after `failures` counted failures in a row (§3, "Pacing and the circuit breaker") |
 | `schedules.<queue>.every` | (one of `every`, `at`) | how often the schedule runs: `<n>m`, `<n>h` or `<n>d`, from `1m` to `7d`, aligned to UTC (§3, "Schedules") |
 | `schedules.<queue>.at` | (one of `every`, `at`) | local times of day the schedule runs at, `HH:MM` (`00:00` to `23:59`), each once, up to 48 |
 | `schedules.<queue>.timeZone` | (required with `at`) | the IANA time zone of `at`, such as `Europe/Warsaw` or `UTC` |
@@ -66,6 +69,7 @@ export default defineSoftureConfig({
 | `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30, ownedDays: 1 }` | how long finished jobs, sync ledger items no run met, and the run history (§3, "Run history") are kept, and the floor for a job a user follows (§3, "A user follows their own job"); the worker prunes once an hour |
 | `logRuns` | `"all"` | which ends of a run the worker logs, one line each (§10): `"all"` (succeeded, retried, failed), `"failures"` (retried and failed) or `"none"` |
 | `onJobFailed` | none | `(event, ctx)`, run once when a job ends `failed` (§3, "Alert hooks") |
+| `onQueuePaused` | none | `(event, ctx)`, run once when the breaker or a handler pauses a queue (§3, "Pacing and the circuit breaker") |
 | `onScheduleStateChanged` | none | `(event, ctx)`, run once per transition of a schedule between `healthy`, `failing` and `late` (§3, "Alert hooks") |
 | `panelRole` | `"admin"` | the auth role that may open the admin page and use its actions (§4) |
 | `panelGuard` | none | the page's role check, `{ requireRole, authorizeRole }` from `@softure-ai/auth/next`; without it the page is "not found" for everyone (§4) |
@@ -338,8 +342,55 @@ jobs({
   (`the onJobFailed hook failed`, with the error's kind) and never fails the job, the claim or the worker; the
   transition stays reported. A hook is awaited: keep it short, or enqueue a job (as above) that sends the mail
   (`@softure-ai/mailing`) with its own retries.
-- In tests, `recordJobHooks()` from `@softure-ai/jobs/testing` gives `{ options, failedJobs, scheduleStateChanges }`:
+- In tests, `recordJobHooks()` from `@softure-ai/jobs/testing` gives `{ options, failedJobs, pausedQueues, scheduleStateChanges }`:
   pass `jobs({ queues, ...recorder.options })` and assert the arrays after `runDueJobs`.
+
+### Pacing and the circuit breaker
+
+For a queue that calls a service with an unwritten request budget (a public page fetched without an API, a mail or
+calendar API, a price feed):
+
+```ts
+jobs({
+  queues: {
+    "prices.fetch": {
+      concurrency: 1,
+      rateLimit: { minGapMs: 30_000, jitterMs: 15_000 }, // or { max: 100, perSeconds: 3600 }
+      breaker: { failures: 3, codes: ["app.rate_limited", "app.captcha"], pauseSeconds: 900, maxPauseSeconds: 6 * 3600 },
+    },
+  },
+  onQueuePaused: async ({ queue, code, until, source }, ctx) => {
+    await enqueueJob(ctx, { queue: "ops.alert", payload: { kind: "queue_paused", queue, code, source, until: until.toISOString() } });
+  },
+});
+```
+
+- **Pacing** is enforced when jobs are claimed, in the database, so every worker process (a rolling deploy, a second
+  replica, `runDueJobs`) shares one budget: the claim holds the queue's `jobs.queue_state` row (`FOR UPDATE`) while it
+  takes jobs. `{ minGapMs, jitterMs? }` claims one job, then no other until `minGapMs` plus up to `jitterMs` (at random)
+  have passed since that claim. `{ max, perSeconds }` claims at most `max` jobs per window of `perSeconds`, the window
+  starting with its first claim. The gap runs from the claim, not from the end of the run: keep `concurrency: 1` for
+  one call at a time. A worker looks again after `pollIntervalMs`, so a gap shorter than that is never reached.
+- **The breaker** counts a queue's failed attempts in a row: retried ones and the ones that used up the attempts, not
+  `failJob` and not an invalid payload (the job's own fault). With `codes`, only failures with those codes count, and
+  others leave the count as it is. At `failures` the queue pauses for `pauseSeconds`. When the first run after the
+  pause fails again (counted), the queue pauses again for twice the last pause, up to `maxPauseSeconds` (default 16 ×
+  `pauseSeconds`, at most 7 days). A success resets the count and the growth. Failures of jobs that were already
+  running when the queue paused only count; they do not extend the pause.
+- **A handler that recognizes a refusal** (HTTP 429 with a long `Retry-After`, a login wall, a captcha page) returns
+  `pauseQueueLater(code, seconds)`: the queue pauses for `seconds` at once (never shortening a longer pause, never
+  replacing an operator's) and this job gets its attempt back, due when the pause ends; the run history has a
+  `retried` row with the code. `retryJobLater(code, seconds)` is still the choice when only this job should wait.
+- **An operator** pauses a queue with `pauseQueue(ctx, queue, { until?, reason })` (without `until`, until resumed;
+  replaces any pause) and resumes it with `resumeQueue(ctx, queue)` (which also resets the breaker), from
+  `@softure-ai/jobs/server` or with **Pause** / **Resume** on the admin page (§4). `getQueuePause(ctx, queue)` and
+  `getQueueStats` show the pause (`{ source: "breaker" | "handler" | "operator", reason, until }`) and the breaker's
+  `consecutiveFailures`. Both return `jobs.unknown_queue` for a queue the config does not define.
+- A paused or paced queue claims nothing: its jobs stay `pending` and keep their attempts, so pacing and pauses never
+  push a job towards `failed`. Jobs already running finish normally.
+- `onQueuePaused({ queue, code, until, source, at }, ctx)` runs once per pause the breaker or `pauseQueueLater`
+  starts, after the write commits; an operator's pause runs no hook. A throw is logged and changes nothing, as with
+  the other hooks. `recordJobHooks()` in `/testing` records the calls in `pausedQueues`.
 
 ### Run history
 
@@ -601,7 +652,10 @@ From `@softure-ai/jobs/server`, each on `ctx = { db, clock, config }`:
 | `runScheduleNow(ctx, queue, { origin? })` | enqueues a run of the schedule now with its payload and dedup key (origin `manual` unless named), joining a pending run (`isDuplicate: true`); the schedule's own period is left alone; `jobs.not_a_schedule` |
 | `retrySyncItem(ctx, { source, itemId })` | a `failed` ledger item back to `pending`, attempts and code cleared, so the next `processSyncItem` runs it; `jobs.sync_item_not_retryable`, `jobs.sync_item_not_found` |
 | `reopenSyncItem(ctx, { source, itemId })` | a `done`, `skipped` or `failed` ledger item back to `pending` as never tried, for an explicit "process again"; a `pending` item unchanged; `jobs.sync_item_not_found` |
-| `getQueueStats(ctx)` | per queue: counts per status, the due backlog, the `run_at` of its oldest due job and its `schedule` (or `null`) |
+| `getQueueStats(ctx)` | per queue: counts per status, the due backlog, the `run_at` of its oldest due job, its `schedule` (or `null`), its active `pause` (or `null`) and the breaker's `consecutiveFailures` |
+| `pauseQueue(ctx, queue, { until?, reason })` | pauses the queue for an operator, until `until` or until resumed (§3, "Pacing and the circuit breaker"); `jobs.unknown_queue` |
+| `resumeQueue(ctx, queue)` | ends the queue's pause, whoever set it, and resets its breaker; `jobs.unknown_queue` |
+| `getQueuePause(ctx, queue)` | the queue's active pause or `null` |
 | `pruneJobs(ctx)` | deletes finished jobs past their retention; returns the count |
 | `listJobRuns(ctx, { queue?, origin?, outcomes?, limit? })` | the run history, newest first (§3, "Run history") |
 | `pruneJobRuns(ctx)` | deletes runs past `retention.runsDays`; returns the count |
@@ -629,7 +683,9 @@ jobs({ queues: { … }, panelRole: "admin", panelGuard: { requireRole, authorize
 ```
 
 The page shows, per queue, the counts per status and the oldest due job, and for a scheduled queue its period, last
-success, last failure with its code, its health (`healthy`, `failing`, `late`) and **Run now**; then the 50 most
+success, last failure with its code, its health (`healthy`, `failing`, `late`) and **Run now**, and for every queue
+its pause (who, why, until when) and the breaker's failures in a row, with **Pause** (until resumed, reason
+`jobs.operator_pause`) or **Resume**; then the 50 most
 recently changed running, failed, cancelled and retrying jobs with code and attempts, a running job's progress (step,
 counts, state code, when reported) and a requested cancel, with **Retry** (failed, cancelled) and **Cancel** (pending,
 and running until a cancel was requested: `requestJobCancel`); then the 50 most recent runs with what started them, outcome, attempt, the summary's code, item counts
@@ -641,14 +697,16 @@ every action checks the role again from the session before it reads its form.
 An app with its own page shell composes the same parts: `getQueueStats`, `listRecentJobs`, `listJobRuns` and `listSyncItems`
 from `/server`, `toJobsPanelData(source, messages, config)` and `getJobsMessages(config)` from `/next`, `JobsPanel` from
 `/ui` (`classNames` per slot, `unstyled`; its runs section shows only when `runs` is passed), and the actions `runScheduleNowAction`, `retryJobAction`,
-`cancelJobAction`, `retrySyncItemAction` from `/next`.
+`cancelJobAction`, `retrySyncItemAction`, and the optional `pauseQueueAction`, `resumeQueueAction` (Pause and Resume
+show only when passed) from `/next`.
 
 ## 5. Migrations and tables
 
-Schema `jobs`, five tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
+Schema `jobs`, six tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
 `migrations/0003_add_schedule_failures.sql`, `migrations/0004_create_sync_state.sql`,
 `migrations/0005_add_schedule_reported_state.sql`, `migrations/0006_create_runs.sql`,
-`migrations/0007_add_progress_and_cancel.sql` and `migrations/0009_add_owner_and_result_ref.sql`:
+`migrations/0007_add_progress_and_cancel.sql`, `migrations/0008_create_queue_state.sql` and
+`migrations/0009_add_owner_and_result_ref.sql`:
 
 `jobs.jobs`: `id` (bigint identity; a string in the API), `queue`, `payload` (jsonb), `status` (`pending`, `running`,
 `succeeded`, `failed`, `cancelled`), `attempts`, `max_attempts`, `run_at`, `locked_until`, `locked_by` (the worker,
@@ -669,6 +727,12 @@ was enqueued for), `last_succeeded_at`, `last_failed_at`, `last_failure_code` (a
 `reported_state` (`healthy`, `failing` or `late`: the state `onScheduleStateChanged` last reported; default
 `healthy`), `created_at`, `updated_at`. One row per schedule a worker has seen; a row of
 a schedule removed from the config stays and is ignored.
+
+`jobs.queue_state`: `queue` (primary key), `next_allowed_at` (`minGapMs`), `window_started_at` and `window_count`
+(`{ max, perSeconds }`), `consecutive_failures`, `last_pause_seconds` (the last breaker pause, kept until a success),
+`pause_source` (`breaker`, `handler`, `operator`), `pause_reason` (a code or an operator's short reason),
+`paused_until` (null only for an operator's pause until resumed), `created_at`, `updated_at`. A queue gets its row the
+first time it is paced, paused or counted; a row of a queue removed from the config stays and is ignored.
 
 `jobs.sync_cursors`: `source` (primary key), `cursor` (1 to 2000 characters), `created_at`, `updated_at`.
 
@@ -700,7 +764,7 @@ None.
 `src/messages/en.ts`: the page (`page`, `queues`, `jobs`, `sync`) and `errors.*`, one key per error code's name
 (`invalid_payload`, `handler_threw`, `lease_expired`, `not_found`, `not_cancellable`, `cancelled`, `not_retryable`,
 `dedup_key_taken`, `sync_cursor_moved`, `sync_item_threw`, `not_a_schedule`, `sync_item_not_found`,
-`sync_item_not_retryable`, and `forbidden`, `database_failed`, `unexpected` for `auth.forbidden` and the `core.*`
+`sync_item_not_retryable`, `unknown_queue`, and `forbidden`, `database_failed`, `unexpected` for `auth.forbidden` and the `core.*`
 failures); `getJobsErrorMessage(messages, code)` picks one. An app overrides any of it with
 `jobs({ messages: { en: { page: { title: "Workers" } } } })`.
 
@@ -718,8 +782,8 @@ a release, a job cancelled by an operator, an invalid or unstored progress, prun
 | cancelled (`all` only) | `info` `job run cancelled` | `queue`, `jobId`, `attempt`, `code` (`jobs.cancelled`) |
 
 Codes and ids only, never a payload or an error's text. An attempt whose write is refused (another worker took the
-job over) leaves no line. `onJobFailed` and `onScheduleStateChanged` are the app's alert hooks (§3,
-"Alert hooks").
+job over) leaves no line. `onJobFailed`, `onQueuePaused` and `onScheduleStateChanged` are the app's alert hooks
+(§3, "Alert hooks", "Pacing and the circuit breaker"). A `pauseQueueLater` attempt logs as `retried`.
 
 ## 11. GDPR
 
@@ -735,7 +799,10 @@ any other once `retention.ownedDays` has also passed.
 - Polling, no `LISTEN/NOTIFY`: a job waits up to `pollIntervalMs` when the worker is idle.
 - Schedules take a fixed period aligned to UTC (`every`) or times of day in a time zone (`at`), with
   calendar filters (`daysOfWeek`, `daysOfMonth`) on `at` schedules only; no cron expressions.
-- No priorities within a queue and no rate limits per queue beyond `concurrency`; split work into queues instead.
+- No priorities within a queue; split work into queues instead. A queue's `rateLimit` paces claims, not the calls a
+  handler makes inside one run.
+- The `{ max, perSeconds }` window is fixed, not sliding: up to `2 × max` claims can fall within `perSeconds` across
+  a window's edge.
 - At-least-once delivery (§3, "Handlers run at least once").
 - PGlite has one connection, so tests run claims one after another; concurrent claiming is Postgres behaviour
   (`SKIP LOCKED`) and is not exercised in unit tests.

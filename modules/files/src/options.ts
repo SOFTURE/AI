@@ -9,6 +9,9 @@ const DAY_SECONDS = 24 * 60 * 60;
 
 /** A file kind: lowercase letters, digits, `_` and `-`, starting with a letter, at most 32 characters. */
 export const FILE_KIND_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/;
+/** An allowed upload media type: `type/subtype` or `type/*`, lowercase. */
+const CONTENT_TYPE_RULE_PATTERN = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/(\*|[a-z0-9][a-z0-9!#$&^_.+-]*)$/;
+
 /** The kind of a file saved without one. */
 export const DEFAULT_FILE_KIND = "file";
 
@@ -47,6 +50,31 @@ export const filesOptionsSchema = z.strictObject({
       disposition: z.enum(["attachment", "inline"]).default("attachment"),
     })
     .default({ maxTtlSeconds: 7 * DAY_SECONDS, disposition: "attachment" }),
+  uploads: z
+    .strictObject({
+      /**
+       * The bytes of one upload request: a chunk. Keep it under the edge's body limit (Cloudflare refuses bodies over
+       * 100 MB on Free and Pro plans).
+       */
+      chunkBytes: z
+        .number()
+        .int()
+        .min(1024)
+        .max(1024 * MIB)
+        .default(64 * MIB),
+      /** How long an upload session (and its URL) works; `createUpload` may ask for less. */
+      ttlSeconds: z
+        .number()
+        .int()
+        .min(60)
+        .max(7 * DAY_SECONDS)
+        .default(DAY_SECONDS),
+      /** Sessions one owner may have open at once (not finalized, not expired). */
+      maxOpenPerOwner: z.number().int().min(1).max(1000).default(5),
+      /** The media types an upload may declare (`video/mp4`, `video/*`); null: any. */
+      contentTypes: z.array(z.string().regex(CONTENT_TYPE_RULE_PATTERN, "must be type/subtype or type/*")).min(1).nullable().default(null),
+    })
+    .default({ chunkBytes: 64 * MIB, ttlSeconds: DAY_SECONDS, maxOpenPerOwner: 5, contentTypes: null }),
   health: z
     .strictObject({
       /** Below this many free bytes (when the driver can tell) the health check fails. */

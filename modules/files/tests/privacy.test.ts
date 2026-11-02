@@ -38,6 +38,7 @@ describe("files and privacy", () => {
     expect(JSON.stringify(exported)).not.toContain("storage");
     expect((await exportFilesUserData(test.ctx, "nobody")).value).toEqual({
       files: [],
+      uploads: [],
     });
   });
 
@@ -48,7 +49,7 @@ describe("files and privacy", () => {
 
     expect(await deleteFilesUserData(test.ctx, ALICE)).toEqual({
       ok: true,
-      value: { deletedFiles: 2, pendingFiles: 0 },
+      value: { deletedFiles: 2, pendingFiles: 0, deletedUploads: 0, pendingUploads: 0 },
     });
     expect(await listRows(test.database)).toEqual(["b.txt file 5"]);
     expect(test.storage.objects().size).toBe(1);
@@ -66,11 +67,12 @@ describe("files and privacy", () => {
 
     expect(await deleteFilesUserData(test.ctx, ALICE)).toEqual({
       ok: true,
-      value: { deletedFiles: 0, pendingFiles: 1 },
+      value: { deletedFiles: 0, pendingFiles: 1, deletedUploads: 0, pendingUploads: 0 },
     });
     expect(await listRows(test.database)).toEqual(["a.txt file 5 deleted"]);
     expect((await exportFilesUserData(test.ctx, ALICE)).value).toEqual({
       files: [],
+      uploads: [],
     });
   });
 });

@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- An upload control (#950): `UploadField` (a labelled area whose touch-sized button opens the native file picker,
+  `accept`/`multiple`/`capture` passed through, with dropping on wide screens), `UploadList` and `UploadItem` (one row
+  per file: name, size by locale, a `Status` word for `queued`, `uploading`, `paused`, `done` or `failed`, a
+  determinate `Progress`, the error and Retry, Pause, Resume and Remove buttons by callback), and `formatFileSize`.
+  Controlled and transport-free: the app or its upload transport owns the items. Copy in `notionMessages.en.upload`,
+  replaced through `messages`. New exports only.
 - `DialogFooter showCloseButton` renders its close button before `children` (#921): with a confirm button in
   `children`, cancel sits left of confirm from `sm` and below it on a phone (`flex-col-reverse`), the order of
   `AlertDialogFooter`. Before, the close button came last. The button already had `type="button"` (from Radix

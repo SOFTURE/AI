@@ -492,6 +492,7 @@ flags the expression that builds it. For the release tag, between them:
 | `image` | `ghcr.io/<owner>/<repository>` | image name without a tag |
 | `prebuilt-image` | none | an image already built and tested, `<image>@sha256:<64 hex>` in the `image` repository: not rebuilt, only tagged |
 | `context`, `dockerfile` | `.`, `Dockerfile` | the build |
+| `worker-dockerfile` | none | the job worker's own image (`init --worker-dockerfile`): built from `context` with the same build arguments and pushed as `<image>-worker:<tag>`; not with `prebuilt-image` or `e2e` |
 | `compose-file` | `docker/prod/docker-compose.yml` | names the secrets to render; its folder ships to the server |
 | `server-script` | `docker/server/deploy.sh` | the forced command, installed on the server as `deploy.sh` with each release |
 | `environment` | none | GitHub environment of the deploy job |
@@ -513,7 +514,8 @@ flags the expression that builds it. For the release tag, between them:
 | `deploy` | `true` | `false` stops after the build: no deploy, verify or summary job; the caller's own jobs run the deploy action with the `release` output (below) |
 | `build` | `true` | `false` (with `deploy: false`, without `prebuilt-image`) runs the check job alone: `release` and `sha` within a minute, for a preflight and an image built next to the checks (**Fail fast**, below) |
 
-Outputs: `release` (below), `image` and `digest` (the build's), and `sha`, the full commit SHA of the tag (the check job
+Outputs: `release` (below), `image` and `digest` (the build's), `worker-image` and `worker-digest` (with
+`worker-dockerfile`, else empty), and `sha`, the full commit SHA of the tag (the check job
 resolves it for the branch guard), e.g. `deploy-release-image.yml`'s `ref`.
 
 Secrets, passed by name: `ssh-host`, `ssh-user`, `ssh-private-key`, `ssh-known-hosts` and `app-secrets` (a JSON
@@ -878,12 +880,14 @@ named in the output, and only `--force` overwrites it.
 ```bash
 softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--name=<slug>] [--paths=/] [--www] \
   [--acme-email=<email>] [--env=AUTH_SECRET,...] [--tables=users,billing.subscriptions] [--workflows-ref=<sha>] \
-  [--cdn=cloudflare] [--report-role=<role>] [--edge=<network> | --tunnel] [--force]
+  [--cdn=cloudflare] [--report-role=<role>] [--edge=<network> | --tunnel] [--worker-dockerfile=<path>] \
+  [--data-volume=<mount path>] [--worker-cpus=<n>] [--worker-memory=<size>] [--worker-tmpfs=<size>] [--force]
 ```
 
 | File | What it holds |
 | --- | --- |
 | `Dockerfile` | the `@softure-ai/ops` container recipe: a Next standalone build, a non-root user, `HEALTHCHECK` in the image and, with a database, `migrate.mjs`, the ops scripts and the exported migrations (bundled for plain Node, below) |
+| `<--worker-dockerfile>` | with the job worker and `--worker-dockerfile=<path>`: the worker's own image (below), at that path |
 | `.dockerignore` | local state and secrets out of the build context |
 | `docker/prod/docker-compose.yml` | Traefik (not with `--edge` or `--tunnel`), `cloudflared` (with `--tunnel`) and the app; with a database also Postgres (port on `127.0.0.1` only) and the one-off `migrate` service the app waits for |
 | `docker/prod/traefik.yml` | without `--edge` or `--tunnel`: the apex router (`Host` and, unless `--paths=/`, `/`, `/_next/`, the health route and the given prefixes), security headers, the optional `www` redirect |
@@ -909,7 +913,9 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   `report` reads as, ahead of the one read from a kept compose file; see below) and `--edge=<network>` (an app that
   joins another stack's Traefik, below; not with `--cdn` or `--acme-email`, which belong to that stack) and `--tunnel`
   (an app that a Cloudflare Tunnel publishes, below; not with `--edge`, `--cdn`, `--acme-email`, `--www` or a
-  `--paths` other than `/`, which all configure a Traefik).
+  `--paths` other than `/`, which all configure a Traefik). With the job worker: `--worker-dockerfile=<path>` (its own
+  image), `--worker-cpus=<n>`, `--worker-memory=<size>` and `--worker-tmpfs=<size>` (its limits); and for any app
+  `--data-volume=<mount path>` (below). The worker flags without the worker part are refused.
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
   `/api/health` route (else `/`), `@softure-ai/jobs` (with `@softure-ai/db`) the job worker, a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
   and so is, with a database, one whose `serverExternalPackages` does not name `@softure-ai/db` (without it
@@ -951,6 +957,49 @@ default) and the rest are released for the next worker; `stop_grace_period: 30s`
 it. `scripts/worker.ts` imports `handlers` from `src/jobs/handlers`; point it at the app's own module. An app that ran
 `init` before it depended on `@softure-ai/jobs` re-runs `init --force` or copies the three parts (the file, the
 `worker.mjs` bundle and `COPY` lines of the `Dockerfile`, the `worker` service) from a fresh `init` into a scratch folder.
+
+**Worker image, data volume and limits** (issue #948). Three opt-in parts for a worker that does heavy work; without
+the flags nothing changes.
+
+- **A worker image of its own** (`--worker-dockerfile=docker/worker.Dockerfile`): for tools the web image should not
+  carry (ffmpeg, a headless browser, fonts; several hundred MB, and a Chromium build alpine cannot run). The `worker`
+  service runs `<image>-worker:${TAG}`; the caller workflow passes `worker-dockerfile` to `deploy-app.yml`, which builds
+  it from the same context, tag and build arguments next to the app image and pushes it with the release tag; `deploy.sh`
+  pulls both before anything restarts and `maintain` cleans up the old tags of both. init writes a starter at that path
+  (kept when it exists): a Debian (glibc) builder that bundles `scripts/worker.ts` into `worker.mjs` like the app image
+  does, then a runtime stage `FROM ${WORKER_BASE_IMAGE}` with `node_modules`, `worker.mjs` and the user uid 1001. Set
+  `WORKER_BASE_IMAGE` to the image with the worker's tools, e.g. one built from `@softure-ai/marketing-kit`'s
+  `docker/footage-worker.Dockerfile` (Debian trixie, ffmpeg with libzimg, chrome-headless-shell, fonts) and pushed by
+  digest; the default `node:22-trixie-slim` has none of them. The base needs Node 22 and glibc. `prebuilt-image` and
+  the end-to-end path take no worker image (`deploy-app.yml` refuses the combination).
+- **A data volume** (`--data-volume=/app/data`): one named volume `app-data` mounted at that path in `app` and `worker`,
+  for files both read and write, e.g. `createLocalStorage({ root: "/app/data/files" })` of `@softure-ai/files` (uploads
+  and public links in the app, render output in the worker). Both Dockerfiles create the folder owned by uid 1001
+  before `USER`, so a new volume takes that owner on its first mount and the non-root processes can write it. It lives
+  in Docker's volumes, so `up` keeps it. A path below a system folder or `/app` itself is refused. The volume's free
+  space is checked by `verify` through the health route: `@softure-ai/files`' health check fails below
+  `health.minFreeBytes`, so `/api/health` stops answering `"status":"ok"`, which init's `deploy.json` verifies. Folders
+  of it go into the backup with `data.backupPaths` in `deploy.json` (below); `checkSharedHostCompose` checks it with
+  `dataVolume` ([Edge network](#softure-deploy-init)).
+- **Worker limits** (`--worker-cpus=1.5`, `--worker-memory=2g`, `--worker-tmpfs=512m`): compose's `cpus` and
+  `mem_limit` on the `worker` service and its `/tmp` as a tmpfs of that size, each only when asked, so a long render
+  cannot starve the app or a neighbour app on a shared host. A worker killed at the memory limit restarts
+  (`restart: unless-stopped`) and its job is retried by `@softure-ai/jobs`. Large build folders belong on the data
+  volume, not in the tmpfs, which counts against the memory limit.
+
+**Data backup** (`deploy.json`, with the database part and `--data-volume`):
+
+```json
+{ "data": { "backupPaths": ["cache/paid"] } }
+```
+
+Right after each database backup (the deploy's `backup` step and `maintain`'s), `deploy.sh` archives the listed
+folders of the data volume (relative to its mount path, plain segments, no `..`) with `tar` in a one-off `app`
+container into `backups/data-<UTC yyyymmdd-hhmmss>.tar.gz` (mode `0600`, through a hidden file renamed only when tar
+succeeds), and keeps the database's retention: the newest seven, none older than 30 days. Its step line is
+`step|backup-data|ok|<file>`; a failure stops the release before anything restarts. List only what cannot be rebuilt
+(a cache of paid results); rendered files that can be made again stay out. Without `data.backupPaths` nothing is
+archived.
 
 **Bundled for plain Node.** `migrate.mjs` and `ops/<name>.mjs` are ESM bundles that `node` runs outside Next, from
 code the app shares with its server build. Two esbuild flags make that work: `--alias:server-only=./.esbuild/empty.mjs`
@@ -1102,6 +1151,15 @@ and the bypass rules are not checked, `host-ports` and `host-network` still are,
 
 `init --tunnel` writes a file that passes with `ingress: "tunnel"`, except for the Postgres port of an app with a
 database. `ingress: "edge"` is the default.
+
+With `dataVolume: { mountPath: "/app/data" }` (an app with [`--data-volume`](#softure-deploy-init), either ingress) the
+shared volume is checked too; init's file passes:
+
+| Rule | Breach |
+| --- | --- |
+| `data-volume-missing` | `app`, or `worker` when the file has one, mounts no named volume at `mountPath` (nothing, or an anonymous volume); or there is no `app` service |
+| `data-volume-bind` | a host folder (`./data`, `/srv/...`, or a name no top-level volume declares) is mounted there instead of a named volume |
+| `data-volume-split` | `app` and `worker` mount different volumes there |
 
 Labels are read as a map or a `key=value` list, on the service and under `deploy.labels`. A router serves a bypass
 path when one of its `Path`, `PathPrefix` or `PathRegexp` matchers reaches under it, or it has none, unless a negated

@@ -1,6 +1,7 @@
 import { getThemeColor, type ThemeDefinition } from "@softure-ai/theme-kit";
 
 import { getIconPath, getIconSizes, PWA_ICONS } from "./icons.js";
+import { buildManifestShareTarget, type ManifestShareTarget, type ShareTargetOptions } from "./share/share-target.js";
 
 /** The app's own copy, from its message dictionary. */
 export interface ManifestCopy {
@@ -38,6 +39,8 @@ export interface ManifestOptions {
   readonly backgroundRole?: string;
   /** The colour role of the system bars: `background` by default. */
   readonly themeRole?: string;
+  /** The share target (Android's share sheet): the same options as `createShareTargetRoute`. None by default. */
+  readonly shareTarget?: ShareTargetOptions;
 }
 
 export interface ManifestIcon {
@@ -61,6 +64,7 @@ export interface WebAppManifest {
   readonly background_color: string;
   readonly theme_color: string;
   readonly icons: readonly ManifestIcon[];
+  readonly share_target?: ManifestShareTarget;
 }
 
 /**
@@ -78,6 +82,7 @@ export function buildManifest({
   display = "standalone",
   backgroundRole = "background",
   themeRole = "background",
+  shareTarget,
 }: ManifestOptions): WebAppManifest {
   return {
     id,
@@ -94,5 +99,6 @@ export function buildManifest({
     icons: PWA_ICONS.flatMap((icon) =>
       icon.purpose === null ? [] : [{ src: getIconPath(icon), sizes: getIconSizes(icon), type: "image/png" as const, purpose: icon.purpose }],
     ),
+    ...(shareTarget === undefined ? {} : { share_target: buildManifestShareTarget(shareTarget) }),
   };
 }
