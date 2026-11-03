@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.0
 
 - The mail channel sends an HTML part next to the unchanged text (#1004): one column of at most 600 px with inline
   styles, a severity badge (green for a recovery), the title, the details, the repeats line and a link button, every
