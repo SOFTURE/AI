@@ -31,7 +31,7 @@ export const OPTIONS: McpAccessOptionsInput = {
 };
 
 /** `modules` are listed after mcp-access, e.g. jobs. */
-export function createConfig(options: McpAccessOptionsInput = OPTIONS, locale: "en" | "pl" = "en", modules: readonly AnySoftureModule[] = []): SoftureConfig {
+export function createConfig(options: Parameters<typeof mcpAccess>[0] = OPTIONS, locale: "en" | "pl" = "en", modules: readonly AnySoftureModule[] = []): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
     locale,
