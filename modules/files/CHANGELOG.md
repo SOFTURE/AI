@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.3.0
 
 - `serveStoredFile(ctx, fileId, request, { ownerId, disposition? })` in `/server` and `createStoredFileRoute({ getOwnerId })`
   in `/next` (#993): the signed-in owner gets a stored file with the answer of a link (`GET`, `HEAD`, single byte
