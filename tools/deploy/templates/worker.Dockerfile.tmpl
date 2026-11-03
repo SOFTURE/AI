@@ -16,13 +16,16 @@ WORKDIR /app
 COPY . .
 RUN --mount=type=cache,target=/root/.npm CI=true npm ci --no-audit --no-fund
 # scripts/worker.ts bundled like the app image's worker.mjs; pg and the drizzle driver adapters stay external and come
-# from node_modules below.
+# from node_modules below. @softure-ai/marketing-kit stays external too (#995): its footage blocks pull in native `.node`
+# binaries (@resvg/resvg-js) and playwright's optional imports that esbuild cannot bundle, and the kit resolves
+# hyperframes and gsap at run time through createRequire(import.meta.url), which works only from node_modules.
 RUN mkdir -p .esbuild && printf 'export {};\n' > .esbuild/empty.mjs \
  && npx --yes esbuild@{{esbuildVersion}} scripts/worker.ts --bundle --platform=node --format=esm --target=node22 \
       --alias:server-only=./.esbuild/empty.mjs \
       --banner:js="import { createRequire as __bundleCreateRequire } from 'module'; const require = __bundleCreateRequire(import.meta.url);" \
       --external:pg --external:@electric-sql/pglite \
-      --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --outfile=worker.mjs \
+      --external:drizzle-orm/pglite --external:drizzle-orm/node-postgres --external:@softure-ai/marketing-kit \
+      --outfile=worker.mjs \
  && npm prune --omit=dev --no-audit --no-fund
 
 FROM ${WORKER_BASE_IMAGE} AS runner
