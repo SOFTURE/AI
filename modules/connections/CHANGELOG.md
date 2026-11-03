@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.4.0
 
 - `onConnectionChanged(event, ctx)` (#945), a hook beside `onReconnectRequired`, runs after a connection is
   `connected`, `reconnected` or `disconnected` (with `revoked`), and after an OAuth callback that failed once its

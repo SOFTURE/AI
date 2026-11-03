@@ -16,6 +16,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   stage. An app that summed spend per item from `exportMeteringUserData` or its own query on the table can switch to
   these.
 
+## 0.1.1
+
+- No changes for an app: the first release published through the npm trusted publisher (OIDC) instead of a token.
+
 ## 0.1.0
 
 - First version (#954): the `metering.charges` ledger, budgets per provider and day or month (optionally per account),

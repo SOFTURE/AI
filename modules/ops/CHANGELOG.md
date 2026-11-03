@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Docs: the README's hooks section points to `alertFromHealthReport` of `@softure-ai/alerts` for alerts on failed checks.
+
+## 0.2.3
+
 - **The app's own build info fields (#922):** `createBuildInfoRoute({ fields })` (and `createBuildInfoResponse`) answers
   the plain object `fields()` returns at the top level next to the build facts, e.g. an MCP server's
   `toolListVersion` and `toolCount`, for `softure-deploy smoke --expect-file` to compare. The build facts and

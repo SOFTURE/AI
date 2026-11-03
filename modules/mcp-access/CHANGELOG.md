@@ -4,8 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## Unreleased
+## 0.3.0
 
+- Long operations as MCP Tasks (#977), in `@softure-ai/mcp-access/jobs`: `startOperation` takes `taskRequest` (the
+  tool handler's request context) and `taskTtlSeconds`; when the client declared the Tasks extension
+  (`io.modelcontextprotocol/tasks`, revision 2026-07-28) on that request, the tool answers a task instead of an
+  operation id. `registerOperationTasks(server, { ctx, identity, readResult?, poll? })` declares the extension and
+  serves `tasks/get` (working, completed with the `get_operation` answer, `isError` for a failed operation, cancelled),
+  `tasks/update` and `tasks/cancel` (write access only), scoped to the account. Task ids are random and live in the
+  new table `mcp.operation_tasks` (migration `0006`), pruned past their expiry by `pruneMcpAccess` (which now also
+  counts `operationTasks`, and `softure-mcp prune` prints it) and deleted with the account. Every other client keeps the
+  polling tools. Migrate: run `softure migrate`; to offer tasks, pass the handler's second argument as `taskRequest`
+  and call `registerOperationTasks` on the same server (README "As MCP Tasks").
 - Long operations as tools (#952), in `@softure-ai/mcp-access/jobs` on top of `@softure-ai/jobs` (with the progress
   and running-job cancel of jobs #951): `startOperation(ctx, identity, { queue, payload, dedupKey? })` enqueues and
   answers `{ operationId, status: "queued", pollAfterSeconds, message }` at once; `registerOperationStatusTool`

@@ -270,7 +270,7 @@ describe("withConfirmation (#953)", () => {
 
     expect((await pruneMcpAccess(test.ctx)).usedConfirmations).toBe(0);
     test.clock.advance(60_000);
-    expect(await pruneMcpAccess(test.ctx)).toEqual({ accessTokens: 0, codes: 0, grants: 0, clients: 0, usedConfirmations: 1 });
+    expect(await pruneMcpAccess(test.ctx)).toEqual({ accessTokens: 0, codes: 0, grants: 0, clients: 0, usedConfirmations: 1, operationTasks: 0 });
   });
 
   it("lists confirmation in a strict tool's schema and accepts it over MCP", async () => {

@@ -4,7 +4,7 @@
 import { ok, type ModuleContext, type Ok, type PrivacyContributor } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants } from "../schema.js";
+import { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants, operationTasks } from "../schema.js";
 
 /** What mcp-access holds about one user, as it appears in their export. */
 export interface McpAccessUserData {
@@ -63,6 +63,8 @@ export async function deleteMcpAccessUserData(context: ModuleContext, userId: st
   // A grant's access tokens go with it by cascade; the next line takes the hand-issued ones.
   await db.delete(oauthGrants).where(eq(oauthGrants.userId, userId));
   await db.delete(accessTokens).where(eq(accessTokens.userId, userId));
+  // MCP tasks hold a job id and dates only, so the export leaves them out; they go with the account.
+  await db.delete(operationTasks).where(eq(operationTasks.userId, userId));
   return ok();
 }
 

@@ -14,7 +14,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import semver from "semver";
 import { readReleasePackages } from "./pack.mjs";
-import { checkInternalRanges, findReleasePackage } from "./release-rules.mjs";
+import { checkInternalRanges, findRegistryWorkspaceCopies, findReleasePackage } from "./release-rules.mjs";
 
 const BUMPS = ["patch", "minor", "major", "prepatch", "preminor", "premajor", "prerelease"];
 const VERSION_KEY = /"version"\s*:\s*"[^"]*"/g;
@@ -166,6 +166,14 @@ export function setChangelogVersion(text, version) {
 }
 
 /**
+ * @param {string} path
+ * @returns {unknown}
+ */
+function readLockfile(path) {
+  return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null;
+}
+
+/**
  * @param {string} message
  * @returns {never}
  */
@@ -236,6 +244,9 @@ function runCli() {
   const changelog = setChangelogVersion(readFileSync(changelogPath, "utf8"), version);
   if (!changelog.ok) fail(`Bumping ${pkg.name} (nothing was changed): ${changelog.reason}`);
 
+  const lockPath = join(root, "package-lock.json");
+  const workspaceNames = new Set(packages.map((candidate) => candidate.name));
+  const copiesBefore = new Set(findRegistryWorkspaceCopies(readLockfile(lockPath), workspaceNames));
   try {
     // Updates the workspace's package.json and the root lockfile; no git commit or tag of its own.
     execFileSync("npm", ["version", version, "-w", pkg.dir, "--no-git-tag-version"], { cwd: root, stdio: "inherit" });
@@ -243,6 +254,19 @@ function runCli() {
     // npm printed its error above; the tree was clean, so restoring it loses nothing.
     git(root, ["checkout", "--", "."]);
     fail(`Bumping ${pkg.name} to ${version}: npm version failed (output above); the tree is restored`);
+  }
+
+  // A range the check above cannot see still makes npm fetch a workspace package from the registry
+  // and drop other workspace links; refuse such a lockfile rather than commit it.
+  const newCopies = findRegistryWorkspaceCopies(readLockfile(lockPath), workspaceNames).filter(
+    (key) => !copiesBefore.has(key),
+  );
+  if (newCopies.length > 0) {
+    git(root, ["checkout", "--", "."]);
+    fail(
+      `Bumping ${pkg.name} to ${version}: npm installed workspace packages from the registry instead of linking them:\n- ${newCopies.join("\n- ")}\n` +
+        "A dependent's range rejects the workspace version. The tracked files are restored; run `npm ci` to restore node_modules, widen the range in a commit of its own, then bump again.",
+    );
   }
 
   writeFileSync(changelogPath, changelog.text);

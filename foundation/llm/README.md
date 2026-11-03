@@ -40,6 +40,9 @@ export const llm = createLlm({
 });
 ```
 
+For a spend ledger with budgets, `createLlmUsageRecorder` of `@softure-ai/metering` is a ready `onUsage`
+([metering README](../../modules/metering/README.md), section 10).
+
 ```ts
 import { z } from "zod";
 import { llm } from "@/lib/llm";

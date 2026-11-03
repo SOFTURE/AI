@@ -1,11 +1,17 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readReleasePackages } from "../../scripts/release/pack.mjs";
 import {
   REPOSITORY_URL,
+  checkInternalRanges,
   checkManifest,
   checkPackedFiles,
+  findRegistryWorkspaceCopies,
   findReleasePackage,
   parseReleaseTag,
 } from "../../scripts/release/release-rules.mjs";
+import { REPO_ROOT } from "./repo-files.js";
 
 function buildManifest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -188,6 +194,75 @@ describe("checkManifest", () => {
     expect(checkManifest(buildManifestInput({ manifest, workspaceVersions }))).toEqual([
       expect.stringContaining('"*"'),
     ]);
+  });
+});
+
+describe("checkInternalRanges", () => {
+  it("rejects a devDependencies range the workspace version does not satisfy, since npm then fetches a registry copy", () => {
+    const manifest = buildManifest({ devDependencies: { "@softure-ai/mcp-access": "^0.2.0", vitest: "^4.0.0" } });
+    const workspaceVersions = new Map([["@softure-ai/mcp-access", "0.3.0"]]);
+    expect(checkInternalRanges(manifest, workspaceVersions)).toEqual([
+      "devDependencies.@softure-ai/mcp-access range ^0.2.0 does not accept the workspace version 0.3.0",
+    ]);
+  });
+
+  it("accepts a devDependencies range the workspace version satisfies", () => {
+    const manifest = buildManifest({ devDependencies: { "@softure-ai/mcp-access": "^0.3.0" } });
+    const workspaceVersions = new Map([["@softure-ai/mcp-access", "0.3.1"]]);
+    expect(checkInternalRanges(manifest, workspaceVersions)).toEqual([]);
+  });
+
+  it("accepts every internal range of every workspace in the repository, devDependencies included", () => {
+    const packages = readReleasePackages(REPO_ROOT);
+    const workspaceVersions = new Map(packages.map((pkg) => [pkg.name, String(pkg.manifest.version)]));
+    const problems = packages.flatMap((pkg) =>
+      checkInternalRanges(pkg.manifest, workspaceVersions).map((problem) => `${pkg.dir}: ${problem}`),
+    );
+    expect(problems).toEqual([]);
+  });
+});
+
+describe("findRegistryWorkspaceCopies", () => {
+  const workspaceNames = new Set(["@softure-ai/core", "@softure-ai/deploy"]);
+
+  it("lists nothing when every workspace entry is a link", () => {
+    const lock = {
+      packages: {
+        "": { name: "softure-ai" },
+        "node_modules/@softure-ai/core": { resolved: "foundation/core", link: true },
+        "node_modules/@softure-ai/deploy": { resolved: "tools/deploy", link: true },
+        "node_modules/zod": { version: "4.0.0", resolved: "https://registry.npmjs.org/zod/-/zod-4.0.0.tgz" },
+      },
+    };
+    expect(findRegistryWorkspaceCopies(lock, workspaceNames)).toEqual([]);
+  });
+
+  it("lists a nested registry copy and a top-level entry that is not a link, sorted", () => {
+    const lock = {
+      packages: {
+        "node_modules/@softure-ai/core": { version: "0.1.0", resolved: "https://registry.npmjs.org/core.tgz" },
+        "modules/agent-ready/node_modules/@softure-ai/deploy": {
+          version: "0.4.10",
+          resolved: "https://registry.npmjs.org/@softure-ai/deploy/-/deploy-0.4.10.tgz",
+        },
+        "tools/deploy/node_modules/@softure-ai/other": { version: "1.0.0" },
+      },
+    };
+    expect(findRegistryWorkspaceCopies(lock, workspaceNames)).toEqual([
+      "modules/agent-ready/node_modules/@softure-ai/deploy",
+      "node_modules/@softure-ai/core",
+    ]);
+  });
+
+  it("lists nothing for a lockfile without a packages map", () => {
+    expect(findRegistryWorkspaceCopies({ lockfileVersion: 1 }, workspaceNames)).toEqual([]);
+    expect(findRegistryWorkspaceCopies(null, workspaceNames)).toEqual([]);
+  });
+
+  it("finds no registry copy of a workspace package in the committed lockfile", () => {
+    const lock: unknown = JSON.parse(readFileSync(join(REPO_ROOT, "package-lock.json"), "utf8"));
+    const names = new Set(readReleasePackages(REPO_ROOT).map((pkg) => pkg.name));
+    expect(findRegistryWorkspaceCopies(lock, names)).toEqual([]);
   });
 });
 

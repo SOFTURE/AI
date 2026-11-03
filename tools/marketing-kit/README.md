@@ -734,7 +734,9 @@ const result = await renderFootageFilm(film, {
   `total` are seconds of media across the stage (ffmpeg's `-progress`, hyperframes' percentage), `itemIndex` of
   `itemCount` names the clip ("normalizing clip 2 of 4").
 - `onCharge` fires after each paid call, with the provider's reported charge in `credits` when its API returns one
-  (ElevenLabs' `character-cost` header) and the paid cache's key of the result.
+  (ElevenLabs' `character-cost` header) and the paid cache's key of the result. `createFootageChargeRecorder` of
+  `@softure-ai/metering` turns it into a spend ledger with budgets ([metering README](../../modules/metering/README.md),
+  section 10).
 - `findCachedStep(film, step, item, { cacheDir, providers, buildDir })` answers whether a paid step (`transcribe` or
   `isolate` for a clip id, `music` for `film`) is already cached, without network. A cached step costs 0 in the
   estimate. Video-scored music depends on the cut, so it counts as cached only once `edl.json` is in `buildDir`.

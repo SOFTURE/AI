@@ -325,6 +325,9 @@ jobs({
 });
 ```
 
+`@softure-ai/alerts` ships these hooks, `onQueuePaused` included, ready made: `jobs({ ...alertsFromJobs() })`
+from `@softure-ai/alerts/jobs`, next to its `alertsJobQueues` and `alertsJobSchedules` ([alerts README](../alerts/README.md)).
+
 - `onJobFailed({ queue, jobId, code, attempts, at }, ctx)` runs once when a job ends `failed`: attempts used up,
   `failJob`, a payload that does not match its schema (`jobs.invalid_payload`), or a lease that ended with no attempts
   left (`jobs.lease_expired`). Not for a retried attempt and not for an outcome the claim fence refused. It runs after

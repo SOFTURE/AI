@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- Docs: the README's `onCharge` points to `createFootageChargeRecorder` of `@softure-ai/metering`.
+
 ## 0.4.0
 
 - **Natural editing for footage films (#898).** **Changed defaults:** cuts are hard cuts (`transitions: { jump:
