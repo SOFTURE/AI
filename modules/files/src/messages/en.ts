@@ -12,11 +12,16 @@ export const en = {
       too_many_uploads: "Too many uploads are in progress. Finish or wait for one first.",
       upload_incomplete: "The upload is not complete yet: some parts have not arrived.",
       checksum_mismatch: "The uploaded file does not match its checksum.",
+      upload_expired: "This upload has expired. Start it again.",
+      upload_rejected: "The upload was refused: the file does not match what the upload expects.",
+      network: "The connection dropped. Try again to resume where it stopped.",
+      upload_aborted: "The upload was stopped.",
     },
     core: {
       unexpected: "Something went wrong. Try again.",
     },
-  },  uploadPage: {
+  },
+  uploadPage: {
     title: "Upload a file",
     intro: "Choose the file this upload is waiting for. It is sent in parts, and a broken connection resumes where it stopped.",
     expected: "Expected: {name}, {size}.",
@@ -26,5 +31,6 @@ export const en = {
     done: "Upload complete. Go back to where you started it to finish.",
     wrongSize: "This file has a different size than the upload expects.",
     failed: "The upload stopped. Press Upload again to resume.",
+    expired: "This upload link has expired. Start a new upload where you began this one.",
   },
 };

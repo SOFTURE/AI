@@ -1,9 +1,11 @@
 // The browser fallback for an upload session: a small page on the upload URL itself, for a person on a phone or an
 // assistant that cannot run `curl`. It sends the missing chunks of the chosen file one by one with `fetch`, so a
-// broken connection resumes where it stopped. No framework and no external asset: one inline script and one inline
-// style, allowed by a per-response nonce. The copy comes from the module dictionary (`uploadPage`).
+// broken connection resumes where it stopped. The loop is `sendUpload` of `@softure-ai/files/client`, inlined. No
+// framework and no external asset: one inline script and one inline style, allowed by a per-response nonce. The copy
+// comes from the module dictionary (`uploadPage`).
 import { randomBytes } from "node:crypto";
 import { selectMessages } from "@softure-ai/core";
+import { sendUpload } from "../client/send-upload.js";
 import type { UploadStatus } from "../contract.js";
 import type { FilesMessages } from "../messages/index.js";
 import type { FilesContext } from "./context.js";
@@ -13,38 +15,29 @@ const STYLE = `body{font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:2r
 button,input{font:inherit}button{margin-top:1rem;padding:.5rem 1rem}progress{width:100%;margin-top:1rem}
 p[role=status]{min-height:1.5em}`;
 
-const SCRIPT = `const config = JSON.parse(document.getElementById("upload-config").textContent);
+// The page's script: the client's own `sendUpload`, inlined from its source, then the few lines that wire it to the
+// form. `sendUpload` references nothing outside its body (see `client/send-upload.ts`).
+const SCRIPT = `${sendUpload.toString()}
+const config = JSON.parse(document.getElementById("upload-config").textContent);
 const input = document.getElementById("file");
 const button = document.getElementById("start");
 const bar = document.getElementById("bar");
 const status = document.getElementById("status");
 const megabytes = (bytes) => (bytes / 1048576).toFixed(1) + " MB";
 function show(text) { status.textContent = text; }
+function showProgress(progress) {
+  bar.value = progress.totalBytes === 0 ? 1 : progress.sentBytes / progress.totalBytes;
+  show(config.text.progress.replace("{done}", megabytes(progress.sentBytes)).replace("{total}", megabytes(progress.totalBytes)));
+}
 async function upload() {
   const file = input.files[0];
   if (!file) return;
   if (file.size !== config.size) { show(config.text.wrongSize); return; }
   button.disabled = true;
-  try {
-    const answer = await fetch(location.href, { headers: { accept: "application/json" } });
-    if (!answer.ok) throw new Error("status " + answer.status);
-    const state = await answer.json();
-    let done = state.receivedBytes;
-    for (const index of state.missingChunks) {
-      const start = index * config.chunkSize;
-      const end = Math.min(start + config.chunkSize, config.size) - 1;
-      const sent = await fetch(location.href, { method: "PUT", headers: { "content-range": "bytes " + start + "-" + end + "/" + config.size }, body: file.slice(start, end + 1) });
-      if (!sent.ok) throw new Error("status " + sent.status);
-      done += end - start + 1;
-      bar.value = done / config.size;
-      show(config.text.progress.replace("{done}", megabytes(done)).replace("{total}", megabytes(config.size)));
-    }
-    bar.value = 1;
-    show(config.text.done);
-  } catch {
-    show(config.text.failed);
-    button.disabled = false;
-  }
+  const sent = await sendUpload(file, { uploadUrl: location.href, onProgress: showProgress });
+  if (sent.ok) { bar.value = 1; show(config.text.done); return; }
+  show(sent.error === "files.upload_expired" ? config.text.expired : config.text.failed);
+  button.disabled = sent.error === "files.upload_expired";
 }
 button.addEventListener("click", upload);`;
 
