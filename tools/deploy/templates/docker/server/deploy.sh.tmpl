@@ -467,10 +467,13 @@ back_up_database() {
 # them, written by tar in a one-off app container (the volume is mounted there; traefik.enable=false keeps an edge
 # Traefik from routing to it) into a hidden file first and renamed
 # only once tar succeeded, with the database's retention (the newest BACKUP_KEEP, none older than BACKUP_MAX_AGE_DAYS).
-# Prints its step line only when deploy.json lists a folder.
+# A listed folder that does not exist in the volume yet (a first release on a new volume, issue #1001) holds nothing
+# to lose: a one-off container lists which ones exist first, tar archives only those, and the step line names
+# the rest (`<archive> (skipped <paths>)`, or `skipped <paths>` with no archive when none exists). A failed listing
+# or tar still stops the release. Prints its step line only when deploy.json lists a folder.
 back_up_data() {
-  local list="$settings_dir/data-backup-paths" path incoming stamp name
-  local paths=()
+  local list="$settings_dir/data-backup-paths" path incoming stamp name found
+  local paths=() present=() skipped=()
   if [ -z "$settings_dir" ] || [ ! -s "$list" ]; then return 0; fi
   begin_step backup-data
   while IFS= read -r path; do
@@ -479,11 +482,21 @@ back_up_data() {
     fi
     paths+=("./$path")
   done < "$list"
+  # shellcheck disable=SC2016 # $1 and $@ belong to the container's sh.
+  found="$(compose run --rm --no-deps -T --label traefik.enable=false --entrypoint sh app -c 'cd "$1" || exit 1; shift; for path in "$@"; do if [ -e "$path" ]; then printf "%s\n" "$path"; fi; done' sh "$DATA_PATH" "${paths[@]}")" \
+    || fail "listing the data folders failed."
+  for path in "${paths[@]}"; do
+    if grep -qxF -- "$path" <<< "$found"; then present+=("$path"); else skipped+=("${path#./}"); fi
+  done
+  if [ "${#present[@]}" -eq 0 ]; then
+    step_ok "skipped ${skipped[*]}"
+    return 0
+  fi
   mkdir -p "$BACKUP_DIR"
   stamp="$(date -u +%Y%m%d-%H%M%S)"
   incoming="$BACKUP_DIR/.incoming-$$.tar.gz"
   # Readable by its owner only, like the database dumps.
-  if ! (umask 077 && compose run --rm --no-deps -T --label traefik.enable=false --entrypoint tar app -czf - -C "$DATA_PATH" "${paths[@]}" > "$incoming"); then
+  if ! (umask 077 && compose run --rm --no-deps -T --label traefik.enable=false --entrypoint tar app -czf - -C "$DATA_PATH" "${present[@]}" > "$incoming"); then
     rm -f "$incoming"
     fail "the backup of the data folders failed."
   fi
@@ -491,7 +504,7 @@ back_up_data() {
   find "$BACKUP_DIR" -maxdepth 1 -type f -name "$DATA_BACKUP_PREFIX-*.tar.gz" -mtime "+$BACKUP_MAX_AGE_DAYS" -exec rm -f {} +
   ls -1 "$BACKUP_DIR" | grep -E "^$DATA_BACKUP_PREFIX-[0-9]{8}-[0-9]{6}\.tar\.gz\$" | sort -r | tail -n "+$((BACKUP_KEEP + 1))" \
     | while IFS= read -r name; do rm -f "$BACKUP_DIR/$name"; done || true
-  step_ok "$DATA_BACKUP_PREFIX-$stamp.tar.gz"
+  step_ok "$DATA_BACKUP_PREFIX-$stamp.tar.gz${skipped[0]+ (skipped ${skipped[*]})}"
 }
 
 {{/dataVolume}}
