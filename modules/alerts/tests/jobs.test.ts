@@ -36,6 +36,13 @@ describe("the delivery job", () => {
     expect(ops.deliveries).toHaveLength(1);
     expect(ops.deliveries[0]?.subject).toBe("[Critical] The import stopped");
     expect(ops.deliveries[0]?.text).toBe("[Critical] The import stopped\nSource x answered 500.\nOpen: https://app.example.com/admin");
+    expect(ops.deliveries[0]?.parts).toEqual({
+      tag: "Critical",
+      title: "The import stopped",
+      details: "Source x answered 500.",
+      repeats: null,
+      link: { label: "Open", url: "https://app.example.com/admin" },
+    });
   });
 
   it("writes the repeat count and the recovery", async () => {
@@ -55,6 +62,7 @@ describe("the delivery job", () => {
       "[Resolved] The import stopped",
     ]);
     expect(ops.deliveries[1]?.text).toContain("Happened 2 more times since the last message.");
+    expect(ops.deliveries[1]?.parts?.repeats).toBe("Happened 2 more times since the last message.");
     expect(ops.deliveries[2]?.text).toContain("Happened 1 more time since the last message.");
   });
 

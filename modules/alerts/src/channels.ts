@@ -15,6 +15,24 @@ export interface AlertDelivery {
   readonly subject: string;
   /** The subject, the details, the repeat count and the link, one per line. */
   readonly text: string;
+  /**
+   * The same text in pieces, for a layout of its own (the mail channel's HTML part). `renderAlert` always sets it;
+   * it is optional so a delivery built by hand (an app's channel tests) stays valid, and a channel without it falls
+   * back to the text.
+   */
+  readonly parts?: AlertDeliveryParts;
+}
+
+/** The rendered pieces of a delivery, in the app's copy. */
+export interface AlertDeliveryParts {
+  /** The tag without brackets, e.g. `Critical`, `Warning, still happening`, `Resolved`. */
+  readonly tag: string;
+  readonly title: string;
+  readonly details: string | null;
+  /** The repeats line, e.g. `Happened 37 more times since the last message.`; null without repeats. */
+  readonly repeats: string | null;
+  /** The link with its label (`Open`); null without a link. */
+  readonly link: { readonly label: string; readonly url: string } | null;
 }
 
 export interface AlertChannelContext {

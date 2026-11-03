@@ -42,6 +42,7 @@ export {
   type AlertChannelContext,
   type AlertChannelOptions,
   type AlertDelivery,
+  type AlertDeliveryParts,
   type DeliverAlert,
   type DiscordChannelOptions,
   type SlackChannelOptions,
