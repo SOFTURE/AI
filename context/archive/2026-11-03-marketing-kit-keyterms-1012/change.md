@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-keyterms-1012
 title: "marketing-kit: key terms (Scribe keyterm prompting) for a footage film's transcript (issue #1012)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1012
 branch: claude/project-thread-dljs9h
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent

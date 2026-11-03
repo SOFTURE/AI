@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-keyterms-1012
-status: in_progress
+status: done
 ---
 
 # Plan: key terms for a footage film's transcript (issue #1012)
@@ -37,6 +37,11 @@ README (Transcript bullet, worker example's rates and `onCharge`, the limits not
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1: key terms through the film, the provider and the cache (7c7ce98)
+- [x] Phase 2: marketing.json (62ba363)
+- [x] Phase 3: docs (7e7c792)
+
+## Verification
+
+- `vitest run tools/marketing-kit/src/footage tools/marketing-kit/tests/footage-config.test.ts tools/marketing-kit/tests/schema.test.ts`: green.
+- `npm run typecheck`, ESLint and the language gate green in the pre-commit hook.
