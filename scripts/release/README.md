@@ -39,8 +39,12 @@ git push origin master core@0.2.0         # the command prints the exact line
 ```
 
 `release:version` refuses a dirty tree, private packages and a bump that a dependent's
-`@softure-ai/*` range would no longer accept (widen that range in its own commit first). It runs `npm version` for the workspace
-(its `package.json` and the root lockfile), sets the same version in `module.json` and in the inline
+`@softure-ai/*` range (in `dependencies`, `peerDependencies`, `optionalDependencies` or `devDependencies`) would no
+longer accept (widen that range in its own commit first): npm links a workspace only when the range accepts its
+version, and otherwise fetches a registry copy and drops other workspace links. It runs `npm version` for the workspace
+(its `package.json` and the root lockfile) and, should the lockfile still gain an entry that installs a workspace
+package from the registry instead of linking it, restores the tracked files and stops (run `npm ci` to restore
+`node_modules`); a repository test keeps such an entry out of the committed lockfile. It then sets the same version in `module.json` and in the inline
 manifest of the module's `src/index.ts` (refusing, before any change, a module where it cannot find that one
 `version`), renames the newest `## Unreleased` section of the package's `CHANGELOG.md` to the version (refusing
 a changelog without one, or with an empty one), commits

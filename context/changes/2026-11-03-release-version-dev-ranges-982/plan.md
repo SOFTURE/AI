@@ -37,5 +37,14 @@ Files: `scripts/release/version.mjs`, `scripts/release/README.md`.
 
 ## Progress
 
-- [ ] Phase 1: rules and tests
+- [x] Phase 1: rules and tests (c6be406)
 - [ ] Phase 2: version.mjs and docs
+
+## Verification
+
+- `release:version mcp-access minor` on master in a scratch worktree (agent-ready has
+  `devDependencies["@softure-ai/mcp-access"]: "^0.2.0"`, the issue's first case): refused before any change, naming
+  `modules/agent-ready: devDependencies.@softure-ai/mcp-access`.
+- The same bump with the devDependencies check removed (scratch only, after `npm ci`): `npm version` added registry
+  copies (`modules/*/node_modules/@softure-ai/ui`, `.../ops`, ...); the guard listed them, restored the tracked
+  files and exited 1; `git status` clean afterwards.
