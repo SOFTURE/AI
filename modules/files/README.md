@@ -33,6 +33,9 @@ sandbox, a phone behind a proxy with a body limit) uploads through a signed URL 
   sends the file to `uploadUrl` in chunks under the edge's body limit (64 MiB by default), resumes after a dropped
   connection, and `finalizeUpload(ctx, uploadId)` checks every byte and the optional SHA-256 and saves the file like
   `saveFile` (quota, dedupe). See §4.1.
+- **A browser client** (`@softure-ai/files/client`): `sendUpload(file, { uploadUrl, signal?, onProgress? })` sends a
+  `File` to a session, only the chunks it lacks, and `createUploadQueue({ open, finalize })` keeps an upload list for
+  an upload screen (theme-notion's `UploadItem` takes its items as they are). See §4.3.
 - **MCP upload tools** (`@softure-ai/files/mcp`): `registerFileUploadTools(server, { identity, getContext })` adds
   `create_upload` (a signed URL, a ready `curl` loop and the browser page) and `finalize_upload`, so an assistant hands
   over a video without its bytes going through a tool call. See §4.2.
@@ -179,7 +182,8 @@ The wire protocol on `uploadUrl`:
 | `GET` | the JSON status (`received`, `receivedBytes`, `missingChunks`, `state`, ...); a browser (`Accept: text/html`) gets the upload page instead |
 
 The **upload page** is a small phone-friendly page on the same URL: the person picks the file and it is sent in chunks
-with `fetch`, from the missing ones, so pressing Upload again resumes. Its copy is `filesMessages.en.uploadPage`; it
+with `fetch`, from the missing ones, so pressing Upload again resumes. Its loop is `sendUpload` of the browser client
+(§4.3), inlined. Its copy is `filesMessages.en.uploadPage`; it
 loads nothing external and runs one inline script under a per-response CSP nonce.
 
 **Rate limit**: when the app enables `@softure-ai/security`, every request to the upload route counts in the
@@ -190,6 +194,58 @@ the signature alone.
 Every chunk is its own object in storage (`uploads/<id>/<index>`); `finalizeUpload` streams them in order into
 `saveFile`, which writes the one final object (a multipart upload on S3) and the parts are removed. Storage briefly
 holds the file twice while a finalize runs. Two parallel finalizes keep one file; a second call answers the same file.
+
+### 4.3 The browser client
+
+`@softure-ai/files/client` runs in the browser (no Node built-ins, no server code). An app with its own upload screen
+opens the session on the server and sends the file from the client:
+
+```ts
+"use client";
+import { sendUpload } from "@softure-ai/files/client";
+
+const opened = await openUpload({ name: file.name, size: file.size }); // a server action around createUpload
+if (!opened.ok) return opened;
+const sent = await sendUpload(file, {
+  uploadUrl: opened.value.uploadUrl,
+  signal: controller.signal,
+  onProgress: ({ sentBytes, totalBytes }) => setProgress(sentBytes / totalBytes),
+});
+if (sent.ok) await finishUpload(opened.value.uploadId); // a server action around finalizeUpload
+```
+
+`sendUpload` reads the session's `HEAD`, takes the chunk size from it and sends only the missing chunks, in order;
+calling it again resumes. It reports `{ sentBytes, totalBytes }` once with what already arrived and after every chunk,
+and answers a `Result`: `files.upload_expired` (`404`: expired, finalized for a write, or forged),
+`files.upload_rejected` (another `4xx`, or a file whose size is not the session's), `files.network` (a failed request,
+`429`, `5xx`) or `files.upload_aborted` (the signal). It never throws for these.
+
+For a list of files, `createUploadQueue` does the bookkeeping:
+
+```tsx
+"use client";
+import { createUploadQueue } from "@softure-ai/files/client";
+import { UploadField, UploadItem } from "@softure-ai/theme-notion";
+import { useState, useSyncExternalStore } from "react";
+
+const [queue] = useState(() => createUploadQueue({ open: openUpload, finalize: (session) => finishUpload(session.uploadId) }));
+const items = useSyncExternalStore(queue.subscribe, queue.getItems, queue.getItems);
+
+<UploadField label={copy.files} onFilesSelected={(files) => queue.add(files)} />
+{items.map((item) => (
+  <UploadItem key={item.id} item={item} onRetry={() => queue.retry(item.id)} onPause={() => queue.pause(item.id)}
+    onResume={() => queue.resume(item.id)} onRemove={() => queue.remove(item.id)} />
+))}
+```
+
+- Items are `{ id, name, size, state, progress, error?, errorCode? }`: `queued`, `uploading`, `paused`, `done`,
+  `failed`; `progress` 0–100, 100 only once finalized; `getItems` answers the same array until something changes.
+- `open(file)` and `finalize(session, file)` are the app's (usually server actions) and answer a `Result`; their error
+  codes land in `errorCode` with the copy of `describeError(code)` (the built-in `files` messages by default, so an
+  app passes `(code) => getFilesErrorMessage(myMessages, code)` or its own wording).
+- `concurrency` (1 by default) uploads run at once. `pause` aborts the running send and keeps the session; `resume`
+  and `retry` send only what is missing in the same session, and a session that expired is opened again on the next
+  `retry`. `remove` stops the upload and drops it; the unfinished session expires and `files.prune` removes it.
 
 ### 4.2 MCP upload tools
 
@@ -260,14 +316,15 @@ None.
 ## 8. Appearance
 
 The upload page (§4.1) is plain HTML with a minimal inline style, so it works before any theme loads; an app that
-wants its own look builds a page on `createUpload` and the same wire protocol. A file browser is out of scope.
+wants its own look builds a page on `createUpload` and the browser client (§4.3). A file browser is out of scope.
 
 ## 9. Copy
 
 `filesMessages.en.errors.files.*` has a sentence per error code (`too_large`, `quota_exceeded`, `not_found`, ...);
 `getFilesErrorMessage(messages, code)` picks one, falling back to the generic failure. The link route's `404` body
 is a fixed `Not found` for machines, not copy. `uploadPage.*` is the upload page's copy (`{name}`, `{size}`, `{done}`
-and `{total}` are filled in).
+and `{total}` are filled in). The browser client's codes (`upload_expired`, `upload_rejected`, `network`,
+`upload_aborted`) have their sentences in the same group.
 
 ## 10. Hooks
 
