@@ -26,6 +26,7 @@ export const mcpAccessJobSchedules = {
 export {
   cancelOperation,
   getOperation,
+  getOperationErrorHints,
   getOperationStatus,
   getPollAfterSeconds,
   MAX_OPERATION_DEDUP_KEY_LENGTH,
@@ -44,6 +45,7 @@ export {
   type OperationPollOptions,
   type OperationStatus,
   type OperationStatusToolOptions,
+  type OperationToolContext,
   type ReadOperationResult,
   type StartOperationInput,
 } from "./operations.js";

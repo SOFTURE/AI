@@ -70,14 +70,17 @@ export interface OperationTask {
   readonly result?: CallToolResult;
 }
 
-export interface OperationTasksOptions {
-  /** `{ db, clock, config }` of the request. */
-  readonly ctx: JobsContext;
+/** `ctx`, or `getContext` resolved inside each task request (see `OperationToolContext`). */
+export type OperationTasksOptions = OperationTaskContext & {
   /** The request's identity: a task is found only for its owner, and only a writer may cancel it. */
   readonly identity: McpServerIdentity;
   readonly readResult?: ReadOperationResult;
   readonly poll?: OperationPollOptions;
-}
+};
+
+type OperationTaskContext =
+  | { readonly ctx: JobsContext; readonly getContext?: never }
+  | { readonly ctx?: never; readonly getContext: () => Promise<JobsContext> };
 
 export interface AnswerOperationTaskInput {
   readonly jobId: string;
@@ -133,24 +136,26 @@ export async function getOperationTask(
  * `tasks/cancel` for the request's account. Register it on every server whose tools pass `taskRequest`.
  */
 export function registerOperationTasks(server: McpServer, options: OperationTasksOptions): void {
-  const { ctx, identity } = options;
+  const { identity } = options;
+  const resolveContext = (): Promise<JobsContext> => (options.getContext === undefined ? Promise.resolve(options.ctx) : options.getContext());
   const describeOptions = { ...(options.readResult === undefined ? {} : { readResult: options.readResult }), ...(options.poll === undefined ? {} : { poll: options.poll }) };
   server.server.registerCapabilities({ extensions: { [TASKS_EXTENSION]: {} } });
 
   server.server.setRequestHandler("tasks/get", { params: taskIdParams, result: taskResult }, async ({ taskId }, request) => {
     requireTasksCapability(request);
-    return { ...(await requireTask(ctx, identity, taskId, describeOptions)) };
+    return { ...(await requireTask(await resolveContext(), identity, taskId, describeOptions)) };
   });
 
   // Operations never ask for input, so there is nothing to update; an owned task is acknowledged, as the spec asks.
   server.server.setRequestHandler("tasks/update", { params: taskIdParams, result: taskResult }, async ({ taskId }, request) => {
     requireTasksCapability(request);
-    await requireTask(ctx, identity, taskId, describeOptions);
+    await requireTask(await resolveContext(), identity, taskId, describeOptions);
     return {};
   });
 
   server.server.setRequestHandler("tasks/cancel", { params: taskIdParams, result: taskResult }, async ({ taskId }, request) => {
     requireTasksCapability(request);
+    const ctx = await resolveContext();
     const found = await findTask(ctx, identity, taskId);
     if (found === null) throw new ProtocolError(ProtocolErrorCode.InvalidParams, TASK_NOT_FOUND);
     if (found === "expired") throw new ProtocolError(ProtocolErrorCode.InvalidParams, TASK_EXPIRED);
