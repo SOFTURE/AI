@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Docs: the README's `onQueuePaused` note names jobs 0.1.7, the version the package requires, instead of an older jobs.
+
 ## 0.1.0
 
 - First version (#963): one channel to tell the operator. `alert(ctx, { key, severity, title, details?, link? })`
