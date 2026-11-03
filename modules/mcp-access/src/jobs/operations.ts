@@ -11,13 +11,13 @@
 // keeps after the job ends. Any other job, or another account's, is "not found".
 import { randomUUID } from "node:crypto";
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
-import { err, ok, type Err, type Ok } from "@softure-ai/core";
+import { err, ok, type Err, type Ok, type SoftureConfig } from "@softure-ai/core";
 import { enqueueJob, requestJobCancel, type JobsContext } from "@softure-ai/jobs/server";
 import { z } from "zod";
 import type { McpServerIdentity } from "../contract.js";
-import type { McpAccessMessages } from "../messages/index.js";
+import { mcpAccessMessages, type McpAccessMessages } from "../messages/index.js";
 import { getMcpAccessMessages } from "../server/options.js";
-import { toolResult, withToolErrors, type ToolErrorHints } from "../server/tools.js";
+import { answerValue, toolResult, withToolErrors, type ToolErrorHints } from "../server/tools.js";
 import { answerOperationTask, isTasksRequest, isTaskTtlValid, MAX_TASK_TTL_SECONDS, type OperationTaskRequest } from "./operation-tasks.js";
 import {
   describeOperation,
@@ -76,29 +76,47 @@ export interface StartOperationInput {
   readonly taskTtlSeconds?: number;
 }
 
-interface OperationToolOptions {
-  /** `{ db, clock, config }` of the request. */
-  readonly ctx: JobsContext;
+/**
+ * Where an operation tool finds its `{ db, clock, config }`: the request's context as a value, or a getter resolved
+ * inside each call (for a server factory that opens the database per call, so registering and listing the tools
+ * opens nothing).
+ */
+export type OperationToolContext =
+  | {
+      /** `{ db, clock, config }` of the request. */
+      readonly ctx: JobsContext;
+      readonly getContext?: never;
+      readonly config?: never;
+    }
+  | {
+      readonly ctx?: never;
+      /** Resolves `{ db, clock, config }` inside each call, once per call. */
+      readonly getContext: () => Promise<JobsContext>;
+      /** The app's config for the tool description at registration. Default: the built-in English dictionary. */
+      readonly config?: SoftureConfig;
+    };
+
+type OperationToolOptions = OperationToolContext & {
   /** The request's identity: operations are scoped to `identity.userId`. */
   readonly identity: McpServerIdentity;
   /** Default: the module dictionary's description. */
   readonly description?: string;
-}
+};
 
-export interface OperationStatusToolOptions extends OperationToolOptions {
+export type OperationStatusToolOptions = OperationToolOptions & {
   /** Default `get_operation`. */
   readonly name?: string;
   readonly readResult?: ReadOperationResult;
   readonly poll?: OperationPollOptions;
-}
+};
 
-export interface OperationCancelToolOptions extends OperationToolOptions {
+export type OperationCancelToolOptions = OperationToolOptions & {
   /** Default `cancel_operation`. */
   readonly name?: string;
   /** The status tool the answer points to. Default `get_operation`. */
   readonly statusToolName?: string;
   readonly poll?: OperationPollOptions;
-}
+};
 
 const operationInput = z.object({ operationId: z.string().min(1).max(100) });
 
@@ -171,7 +189,7 @@ export async function cancelOperation(
 /** Registers the read-only status tool (`get_operation`) for the request's account. */
 export function registerOperationStatusTool(server: McpServer, options: OperationStatusToolOptions): void {
   const name = options.name ?? OPERATION_STATUS_TOOL_NAME;
-  const messages = getMcpAccessMessages(options.ctx.config).operations;
+  const messages = getRegistrationMessages(options);
   const getOptions: GetOperationOptions = {
     statusToolName: name,
     ...(options.readResult === undefined ? {} : { readResult: options.readResult }),
@@ -185,7 +203,13 @@ export function registerOperationStatusTool(server: McpServer, options: Operatio
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     ({ operationId }) =>
-      withToolErrors(() => getOperation(options.ctx, options.identity, operationId, getOptions), { hints: getOperationHints(messages), label: name }),
+      withToolErrors(
+        async () => {
+          const ctx = await resolveOperationContext(options);
+          return answerValue(await getOperation(ctx, options.identity, operationId, getOptions), getOperationErrorHints(ctx.config));
+        },
+        { label: name },
+      ),
   );
 }
 
@@ -193,7 +217,7 @@ export function registerOperationStatusTool(server: McpServer, options: Operatio
 export function registerOperationCancelTool(server: McpServer, options: OperationCancelToolOptions): void {
   if (!options.identity.canWrite) return;
   const name = options.name ?? OPERATION_CANCEL_TOOL_NAME;
-  const messages = getMcpAccessMessages(options.ctx.config).operations;
+  const messages = getRegistrationMessages(options);
   const cancelOptions = { statusToolName: options.statusToolName ?? OPERATION_STATUS_TOOL_NAME, ...(options.poll === undefined ? {} : { poll: options.poll }) };
   server.registerTool(
     name,
@@ -203,11 +227,32 @@ export function registerOperationCancelTool(server: McpServer, options: Operatio
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
     ({ operationId }) =>
-      withToolErrors(() => cancelOperation(options.ctx, options.identity, operationId, cancelOptions), { hints: getOperationHints(messages), label: name }),
+      withToolErrors(
+        async () => {
+          const ctx = await resolveOperationContext(options);
+          return answerValue(await cancelOperation(ctx, options.identity, operationId, cancelOptions), getOperationErrorHints(ctx.config));
+        },
+        { label: name },
+      ),
   );
 }
 
-
-function getOperationHints(messages: McpAccessMessages["operations"]): ToolErrorHints {
+/**
+ * The module's sentences for the operation error codes, as `withToolErrors({ hints })` takes them: for an app that
+ * wraps `getOperation` or `cancelOperation` in tools of its own.
+ */
+export function getOperationErrorHints(config: SoftureConfig): ToolErrorHints {
+  const messages = getMcpAccessMessages(config).operations;
   return { "mcp-access.operation_not_found": messages.notFound, "mcp-access.operation_finished": messages.finished };
+}
+
+/** The context of this call: the value given, or the getter resolved now. */
+function resolveOperationContext(source: OperationToolContext): Promise<JobsContext> {
+  return source.getContext === undefined ? Promise.resolve(source.ctx) : source.getContext();
+}
+
+/** The texts a registration needs before any call: from the context or config given, else the English dictionary. */
+function getRegistrationMessages(source: OperationToolContext): McpAccessMessages["operations"] {
+  const config = source.getContext === undefined ? source.ctx.config : source.config;
+  return config === undefined ? mcpAccessMessages.en.operations : getMcpAccessMessages(config).operations;
 }

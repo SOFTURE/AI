@@ -346,7 +346,17 @@ export async function createServer(identity: McpServerIdentity) {
   "No operation with this id belongs to this account." No table of its own: an operation lives as long as its job
   (`retention` of jobs).
 - `getOperation` and `cancelOperation` are the same reads as functions; the texts are under `operations` in the
-  module dictionary, and `name`/`description` rename a tool.
+  module dictionary, and `name`/`description` rename a tool. An app that wraps them in tools of its own answers with
+  the module's sentences through `withToolErrors(work, { hints: getOperationErrorHints(ctx.config) })`.
+- A server factory that resolves its context per call passes `getContext` instead of `ctx` (to
+  `registerOperationStatusTool`, `registerOperationCancelTool` and `registerOperationTasks`): it is called inside each
+  call, once, never at registration, so listing the tools opens no database. The error sentences come from the config
+  the call resolves; the tool description from `config` when given, else the built-in English dictionary.
+
+  ```ts
+  registerOperationStatusTool(server, { getContext: () => getJobsContext(), config, identity, readResult });
+  registerOperationCancelTool(server, { getContext: () => getJobsContext(), config, identity });
+  ```
 
 #### As MCP Tasks
 

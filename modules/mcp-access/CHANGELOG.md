@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- Operation tools with a context getter (#990), in `@softure-ai/mcp-access/jobs`: `registerOperationStatusTool`,
+  `registerOperationCancelTool` and `registerOperationTasks` take `getContext: () => Promise<JobsContext>` instead of
+  `ctx`, resolved inside each call (never at registration, so listing the tools opens no database), with an optional
+  `config` for the tool descriptions (default: the English dictionary). The error sentences now come from the config
+  of the call. `getOperationErrorHints(config)` exports the hints for `mcp-access.operation_not_found` and
+  `mcp-access.operation_finished`, for an app that wraps `getOperation` or `cancelOperation` itself. `{ ctx }` works
+  as before. Migrate: an app that registered its own `get_operation` / `cancel_operation` around a per-call context
+  can drop them and pass `getContext` (README "Long operations").
+
 ## 0.3.0
 
 - Long operations as MCP Tasks (#977), in `@softure-ai/mcp-access/jobs`: `startOperation` takes `taskRequest` (the
