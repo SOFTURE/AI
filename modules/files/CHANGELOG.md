@@ -6,6 +6,13 @@ in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](
 
 ## Unreleased
 
+- `serveStoredFile(ctx, fileId, request, { ownerId, disposition? })` in `/server` and `createStoredFileRoute({ getOwnerId })`
+  in `/next` (#993): the signed-in owner gets a stored file with the answer of a link (`GET`, `HEAD`, single byte
+  ranges, the same headers, one `404` for anything missing or another owner's), `inline` by default, with no link to
+  mint. The route sits behind the app's sign-in guard (README §4.3). `serveFileLink` answers as before.
+- Migration for an app that mints a link for its own viewing, or that rebuilt the answer from `findFile`, `openFile`
+  and `parseRangeHeader`: mount `createStoredFileRoute` under a guarded prefix and point the player or image at
+  `/<prefix>/<file id>`; drop the link minting or the copied answer.
 - `registerFileUploadTools` takes `onFinalized(file, ctx)` (#987): it runs after every successful `finalize_upload`,
   a repeated one included, and its returned fields join the answer; a returned `err(code)` answers that code. Also
   `descriptions` (the served text of both tools, defaults exported as `FILE_UPLOAD_TOOL_DESCRIPTIONS`) and `hints`

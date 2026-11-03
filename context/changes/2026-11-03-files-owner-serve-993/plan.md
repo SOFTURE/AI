@@ -46,8 +46,8 @@ description.
 
 ## Progress
 
-- [ ] Phase 1: server function, tests
-- [ ] Phase 2: Next route
+- [x] Phase 1: server function, tests (ef1dd07)
+- [x] Phase 2: Next route (b5f4fa1)
 - [ ] Phase 3: docs
 
 ## Verification
