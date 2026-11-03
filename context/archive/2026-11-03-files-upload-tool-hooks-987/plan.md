@@ -1,6 +1,6 @@
 ---
 change_id: files-upload-tool-hooks-987
-status: in_progress
+status: done
 ---
 
 # Plan: files MCP upload tools hook and descriptions (issue #987)
@@ -21,8 +21,7 @@ Files: `modules/files/src/mcp/index.ts`, `modules/files/tests/mcp.test.ts`.
   a record is merged under the package's fields (`{ ...extra, ...describeStoredFile(file) }`, the file's fields win);
   a throw goes through `answer()`'s generic failure.
 - `answer()` takes the hints: failure text = `hints[code] ?? files sentence for files.* codes ?? the code itself`,
-  then ` (<code>)`. A non-`files.*` code without a hint answers the code (`assets.quota_exceeded (assets.quota_exceeded)`
-  is noisy, so: the code alone).
+  then ` (<code>)`; a non-`files.*` code without a hint answers the code alone.
 - Tests: default descriptions served and exported; both descriptions replaced; the hook's fields merged and the file's
   fields kept; the hook runs again on a repeated finalize with the same file; a hook `err` with and without a hint; a
   hint replaces a package code's sentence; a thrown hook error answers the generic text; no options = 0.2.0 answer.
@@ -45,5 +44,10 @@ Files: `modules/files/README.md` (§4.2), `modules/files/CHANGELOG.md` (`## Unre
 
 ## Progress
 
-- [ ] Phase 1: options, tests
-- [ ] Phase 2: docs
+- [x] Phase 1: options, tests (bd70e1d)
+- [x] Phase 2: docs (8c235b6)
+
+## Verification
+
+- `vitest run modules/files/tests/mcp.test.ts`: 9 passed; with `src/` stashed the 4 new cases fail (red first).
+- `npm run typecheck`, ESLint and the language gate green in the pre-commit hook; `tests/repo` green.

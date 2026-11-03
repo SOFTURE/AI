@@ -1,12 +1,13 @@
 ---
 change_id: files-upload-tool-hooks-987
 title: "files MCP upload tools: a hook after finalize_upload and app-supplied descriptions (issue #987)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: [987]
 branch: claude/project-thread-232djw
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent
