@@ -21,8 +21,8 @@ const ALLOWED_METHODS = "GET, HEAD";
 
 const NOT_FOUND_BODY = "Not found\n";
 
-/** The one answer for every link that does not lead to a live file. */
-function notFound(): Response {
+/** The one answer for every link or lookup that does not lead to a live file. */
+export function notFound(): Response {
   return new Response(NOT_FOUND_BODY, {
     status: 404,
     headers: {
