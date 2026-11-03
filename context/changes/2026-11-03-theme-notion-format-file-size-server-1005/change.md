@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-format-file-size-server-1005
 title: "theme-notion: formatFileSize can be called from a Server Component (issue #1005)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1005
 branch: claude/project-thread-xoy1mu
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent

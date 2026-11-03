@@ -18,12 +18,12 @@ Files: `themes/theme-notion/src/notion/format-file-size.ts` (new), `themes/theme
 
 ## Decisions (auto)
 
-- `tabsListVariants` stays in the upstream client module, exempted by name in the guard with its reason; a follow-up
-  issue tracks it. Moving it breaks the upstream pin shape, which is outside this issue.
+- `tabsListVariants` stays in the upstream client module, exempted by name in the guard with its reason; follow-up
+  issue #1008 tracks it. Moving it breaks the upstream pin shape, which is outside this issue.
 - Static guard, not a `react-server` runtime check (see #770's research: Node evaluates client modules anyway).
 - UPPER_SNAKE constants count as non-component values (a client reference is not the value on the server either).
 - No version bump: the coordinator releases.
 
 ## Progress
 
-- [ ] Phase 1: the plain module and the guard
+- [x] Phase 1: the plain module and the guard (4bc97fd)
