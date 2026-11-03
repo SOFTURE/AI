@@ -967,7 +967,9 @@ the flags nothing changes.
   it from the same context, tag and build arguments next to the app image and pushes it with the release tag; `deploy.sh`
   pulls both before anything restarts and `maintain` cleans up the old tags of both. init writes a starter at that path
   (kept when it exists): a Debian (glibc) builder that bundles `scripts/worker.ts` into `worker.mjs` like the app image
-  does, then a runtime stage `FROM ${WORKER_BASE_IMAGE}` with `node_modules`, `worker.mjs` and the user uid 1001. Set
+  does (`@softure-ai/marketing-kit` stays external and loads from `node_modules`: its footage blocks carry native
+  binaries and resolve hyperframes at run time), then a runtime stage `FROM ${WORKER_BASE_IMAGE}` with `node_modules`,
+  `worker.mjs` and the user uid 1001. Set
   `WORKER_BASE_IMAGE` to the image with the worker's tools, e.g. one built from `@softure-ai/marketing-kit`'s
   `docker/footage-worker.Dockerfile` (Debian trixie, ffmpeg with libzimg, chrome-headless-shell, fonts) and pushed by
   digest; the default `node:22-trixie-slim` has none of them. The base needs Node 22 and glibc. `prebuilt-image` and
