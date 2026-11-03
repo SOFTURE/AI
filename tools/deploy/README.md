@@ -999,7 +999,9 @@ Right after each database backup (the deploy's `backup` step and `maintain`'s), 
 folders of the data volume (relative to its mount path, plain segments, no `..`) with `tar` in a one-off `app`
 container into `backups/data-<UTC yyyymmdd-hhmmss>.tar.gz` (mode `0600`, through a hidden file renamed only when tar
 succeeds), and keeps the database's retention: the newest seven, none older than 30 days. Its step line is
-`step|backup-data|ok|<file>`; a failure stops the release before anything restarts. List only what cannot be rebuilt
+`step|backup-data|ok|<file>`; a failure stops the release before anything restarts. A listed folder that does not
+exist in the volume yet (the first release on a new volume) is skipped and named in the step line
+(`<file> (skipped <paths>)`, or `skipped <paths>` with no archive when none exists). List only what cannot be rebuilt
 (a cache of paid results); rendered files that can be made again stay out. Without `data.backupPaths` nothing is
 archived.
 

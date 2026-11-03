@@ -106,6 +106,13 @@ case " $* " in
   *" inspect "*) echo healthy ;;
   *" create "*) echo c0ffee ;;
   *" run --rm --no-deps -T --label traefik.enable=false --entrypoint tar app "*) printf 'TAR-stub' ;;
+  # The data folders' listing (issue #1001): its own script runs on the host, over DATA_VOLUME for the mount path.
+  *" run --rm --no-deps -T --label traefik.enable=false --entrypoint sh app "*)
+    while [ "$1" != "app" ]; do shift; done
+    script="$3"
+    shift 5
+    exec sh -c "$script" sh "$DATA_VOLUME" "$@"
+    ;;
   *" exec -T postgres pg_dump "*) printf 'PGDMP-stub' ;;
   *" exec -T postgres psql "*) printf '{"softure":[],"app":null}\\n' ;;
 esac
@@ -210,6 +217,7 @@ function runServer(command: string, input: Buffer | string, env: Record<string, 
       DOCKER_CONFIG_LOG: join(root, "docker-config.log"),
       LOGIN_STDIN: join(root, "login-stdin"),
       EXEC_STDIN: join(root, "exec-stdin"),
+      DATA_VOLUME: join(root, "data-volume"),
       NPX_LOG: npxLog,
       CRONTAB_FILE: crontabFile,
       REAL_NODE: process.execPath,
@@ -685,8 +693,12 @@ describe("deploy.sh with a worker image and a data volume (issue #948)", () => {
   const WORKER_APP: AppFacts = { ...NO_DATABASE, hasDatabase: true, hasJobs: true, jobsVersion: "0.1.6" };
   const DATABASE_ENV = "POSTGRES_PASSWORD='pw'\nSOFTURE_MIGRATOR_PASSWORD='m'\nSOFTURE_APP_PASSWORD='a'\n";
 
-  function setUp(answers: Partial<InitAnswers>, backupPaths?: string[]): void {
+  // The listed folders exist in the data volume unless `existing` names which ones do.
+  function setUp(answers: Partial<InitAnswers>, backupPaths?: string[], existing: string[] | undefined = backupPaths): void {
     writeCheckout({ facts: WORKER_APP, envProd: DATABASE_ENV, answers });
+    rmSync(join(root, "data-volume"), { recursive: true, force: true });
+    mkdirSync(join(root, "data-volume"), { recursive: true });
+    for (const folder of existing ?? []) mkdirSync(join(root, "data-volume", folder), { recursive: true });
     if (backupPaths !== undefined) {
       const path = join(checkout, "deploy.json");
       const config = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
@@ -765,6 +777,46 @@ describe("deploy.sh with a worker image and a data volume (issue #948)", () => {
     expect(plain.status).toBe(0);
     expect(plain.stdout).not.toContain("backup-data");
     expect(readDockerLog().filter((line) => line.includes("--entrypoint tar"))).toHaveLength(2);
+  });
+
+  it("passes the first release on an empty volume, skipping the folders that do not exist yet (issue #1001)", () => {
+    setUp({ dataVolume: "/app/data" }, ["reels/cache", "exports"], []);
+    const result = deploy("v1", packArchive());
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    const steps = readLines(result.stdout, "step");
+    expect(steps.indexOf("step|backup-data|ok|skipped reels/cache exports")).toBe(steps.indexOf("step|backup|ok|db-20261006-120000.dump") + 1);
+    expect(readLines(result.stdout, "result")).toEqual(["result|ok"]);
+    expect(readDockerLog().filter((line) => line.includes("--entrypoint tar"))).toEqual([]);
+    expect(existsSync(join(server, "backups")) ? listDataBackups() : []).toEqual([]);
+  });
+
+  it("archives only the listed folders that exist and names the skipped ones in the step line", () => {
+    setUp({ dataVolume: "/app/data" }, ["reels/cache", "exports"], ["exports"]);
+    const result = deploy("v1", packArchive());
+    expect(result.status).toBe(0);
+    const line = readLines(result.stdout, "step").find((step) => step.startsWith("step|backup-data|ok|")) ?? "";
+    expect(line).toMatch(/^step\|backup-data\|ok\|data-[0-9]{8}-[0-9]{6}\.tar\.gz \(skipped reels\/cache\)$/);
+    expect(readDockerLog()).toContain(
+      "compose --env-file .env.prod --file docker-compose.yml run --rm --no-deps -T --label traefik.enable=false --entrypoint tar app -czf - -C /app/data ./exports",
+    );
+    expect(listDataBackups()).toHaveLength(1);
+  });
+
+  it("skips only a path that does not exist: a file at a listed path still goes to tar", () => {
+    setUp({ dataVolume: "/app/data" }, ["exports"], []);
+    writeFileSync(join(root, "data-volume", "exports"), "not a folder");
+    const result = deploy("v1", packArchive());
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/step\|backup-data\|ok\|data-[0-9-]+\.tar\.gz\n/);
+  });
+
+  it("stops the release when listing the data folders fails", () => {
+    setUp({ dataVolume: "/app/data" }, ["cache/paid"]);
+    const result = deploy("v1", packArchive(), { FAIL_DOCKER_ON: "--entrypoint sh" });
+    expect(result.status).toBe(1);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|failed|backup-data|listing the data folders failed.");
+    expect(readDockerLog().filter((line) => line.includes(" up --detach --wait --remove-orphans"))).toEqual([]);
   });
 
   it("stops the release before anything restarts when tar fails, and keeps no partial archive", () => {
