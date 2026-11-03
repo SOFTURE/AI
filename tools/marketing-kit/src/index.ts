@@ -265,6 +265,7 @@ export {
   type FakeSttOptions,
   type FakeSttProvider,
 } from "./footage/fake.js";
+export { SCRIBE_KEYTERM_LIMITS, getFilmKeyTerms, normalizeKeyTerms, type KeyTermsResult } from "./footage/keyterms.js";
 export { footageCacheKey, getFootageCachePath, hashFile, readCachedTranscript, type FootageCacheKind } from "./footage/cache.js";
 export {
   MIN_SEGMENT_SECONDS,

@@ -11,6 +11,8 @@ export interface SttInput {
   audio: string;
   /** ISO 639 code the speech is in. */
   language: string;
+  /** Key terms the transcript should spell as given (normalized by `normalizeKeyTerms`); absent: none. */
+  keyTerms?: string[];
   /** Aborts the request. */
   signal?: AbortSignal;
 }
@@ -87,8 +89,11 @@ export function describePaidSteps(steps: PaidStep[]): string[] {
   return lines;
 }
 
-/** Credits per second billed, for each paid step; the caller's prices (the kit hard-codes none). */
-export type FootageRates = Record<PaidStepKind, number>;
+/**
+ * Credits per second billed, for each paid step; the caller's prices (the kit hard-codes none). `keyTerms` is the
+ * surcharge per second of speech to text with key terms (keyterm prompting), added to `transcribe`; absent: 0.
+ */
+export type FootageRates = Record<PaidStepKind, number> & { keyTerms?: number };
 
 /** One paid call made, as `onCharge` reports it: what for, how much was billed and where its result is cached. */
 export interface FootageCharge {
@@ -100,6 +105,8 @@ export interface FootageCharge {
   units: number;
   /** The provider's reported charge, when its API returns one. */
   credits?: number;
+  /** How many key terms a speech to text call sent (billed with keyterm prompting's surcharge); absent: none. */
+  keyTerms?: number;
   /** The paid cache's key of the result (the file name's first part under `<cacheDir>/<film id>/`). */
   cacheKey: string;
 }

@@ -17,6 +17,7 @@ import { findMissingCaptionGlyphs, getCaptionPresetLayout } from "./captions.js"
 import { buildEdl, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
 import { getFootageEdit, type FootageClip, type FootageFilm } from "./film.js";
+import { getFilmKeyTerms } from "./keyterms.js";
 import { DEFAULT_LOUDNESS, normalizeLoudness } from "./loudness.js";
 import { duckingKeyframes } from "./music.js";
 import { normalizeFootage, type Frame } from "./normalize.js";
@@ -268,6 +269,9 @@ export function getMusicPaidStep(film: FootageFilm, options: Pick<FootageRunOpti
 export async function transcribeFootage(film: FootageFilm, clips: PreparedClip[], options: FootageRunOptions): Promise<FootageResult<TranscribeOutcome>> {
   const { buildDir, providers, log, signal } = options;
   if (options.isPlaceholder) return ok(transcribePlaceholder(film, clips, buildDir));
+  const keyTerms = getFilmKeyTerms(film);
+  if (!keyTerms.ok) return err(`footage film ${film.id}: ${keyTerms.errors.join(" ")}`);
+  const sttKeyTerms = keyTerms.terms.length === 0 ? {} : { keyTerms: keyTerms.terms };
   const plan: { clip: PreparedClip; isolated: CacheEntry | null; transcript: CacheEntry }[] = [];
   const steps: PaidStep[] = [];
   for (const clip of clips) {
@@ -341,12 +345,12 @@ export async function transcribeFootage(film: FootageFilm, clips: PreparedClip[]
     const input = sttInput ?? (await getAudio());
     throwIfAborted(signal);
     log(`speech to text (${providers.stt.id}): clip ${id}, ${clip.duration.toFixed(1)} s.`);
-    const result = await providers.stt.transcribe({ audio: input, language: film.language, ...(signal === undefined ? {} : { signal }) });
+    const result = await providers.stt.transcribe({ audio: input, language: film.language, ...sttKeyTerms, ...(signal === undefined ? {} : { signal }) });
     throwIfAborted(signal);
     if (!result.ok) return err(`clip "${id}": ${result.error}`);
     writeTranscript(transcript.path, result.value.words);
     const { credits } = result.value;
-    options.onCharge?.({ step: "transcribe", item: id, provider: providers.stt.id, units: clip.duration, ...(credits === undefined ? {} : { credits }), cacheKey: transcript.key });
+    options.onCharge?.({ step: "transcribe", item: id, provider: providers.stt.id, units: clip.duration, ...(credits === undefined ? {} : { credits }), ...(keyTerms.terms.length === 0 ? {} : { keyTerms: keyTerms.terms.length }), cacheKey: transcript.key });
     log(`transcript: clip ${id}, ${result.value.words.length} words, saved ${transcript.path} (commit it).`);
     transcribeProgress(index, clip.duration);
     words[id] = result.value.words;
