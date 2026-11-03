@@ -43,6 +43,6 @@ Dockerfile comment and `ENV TMPDIR` guidance, CHANGELOG `## Unreleased`.
 
 ## Progress
 
-- [x] Phase 1: the disk check (459ff94)
-- [x] Phase 2: the render (6caa22f)
-- [x] Phase 3: docs (7344649)
+- [x] Phase 1: the disk check (bfffd42)
+- [x] Phase 2: the render (1c6faef)
+- [x] Phase 3: docs (20565ac)
