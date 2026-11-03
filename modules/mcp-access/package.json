@@ -102,7 +102,7 @@
   },
   "peerDependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
-    "@softure-ai/jobs": "^0.1.1",
+    "@softure-ai/jobs": "^0.1.7",
     "@softure-ai/ops": "^0.2.0",
     "@softure-ai/ui": "^0.3.0",
     "drizzle-orm": "^0.45.2",
