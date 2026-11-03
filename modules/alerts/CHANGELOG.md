@@ -6,7 +6,8 @@ in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](
 
 ## 0.1.1
 
-- No changes for an app: the first release published through the npm trusted publisher (OIDC) instead of a token.
+- Docs: the README's `onQueuePaused` note names jobs 0.1.7, the version the package requires, instead of an older jobs.
+- The first release published through the npm trusted publisher (OIDC) instead of a token.
 
 ## 0.1.0
 
