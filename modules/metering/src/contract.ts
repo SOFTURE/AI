@@ -65,3 +65,37 @@ export interface SpendSummary {
   /** `limit - spent`, never below 0; `null` without a budget. */
   readonly remaining: number | null;
 }
+
+/** Narrows spend to the charges whose `attributes[attribute]` is `value`, e.g. one item's `{ jobId }`. */
+export interface SpendFilter {
+  readonly attribute: string;
+  readonly value: string;
+}
+
+/** What a breakdown groups charges by: their `step`, or the value of one of their attributes. */
+export type SpendGroupBy = "step" | { readonly attribute: string };
+
+/** One group's spend in a breakdown. Amounts are in the provider's unit. */
+export interface SpendBreakdownRow {
+  /** The step or the attribute's value; `null` gathers the charges without one. */
+  readonly key: string | null;
+  readonly settled: number;
+  /** Unexpired reservations not settled yet. */
+  readonly reserved: number;
+  /** `settled + reserved`. */
+  readonly spent: number;
+}
+
+/** One provider's spend in the current day or month, per step or per attribute value. */
+export interface SpendBreakdown {
+  readonly provider: string;
+  readonly unit: MeteringUnit;
+  readonly period: BudgetPeriod;
+  readonly accountId: string | null;
+  readonly groupBy: SpendGroupBy;
+  readonly filter: SpendFilter | null;
+  readonly from: Date;
+  readonly resetsAt: Date;
+  /** Ordered by `spent`, highest first, then by key; the `null` key last. The rows add up to `getSpend`. */
+  readonly rows: readonly SpendBreakdownRow[];
+}

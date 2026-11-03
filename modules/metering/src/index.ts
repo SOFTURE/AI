@@ -40,6 +40,10 @@ export {
   type BudgetState,
   type MeteringErrorCode,
   type MeteringUnit,
+  type SpendBreakdown,
+  type SpendBreakdownRow,
+  type SpendFilter,
+  type SpendGroupBy,
   type SpendReservation,
   type SpendSummary,
 } from "./contract.js";
