@@ -56,5 +56,5 @@ trimmed by `buildMusicArgs`, ducked by `duckingKeyframes`, `volume` / `duckedVol
 ## Progress
 
 - [x] Phase 1: the audio probe and the type check (2b9b677)
-- [ ] Phase 2: the pipeline gate
+- [x] Phase 2: the pipeline gate (bf617cf)
 - [ ] Phase 3: docs
