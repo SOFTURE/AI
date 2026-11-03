@@ -27,7 +27,7 @@ this change:
 
 Labels: `enhancement`, `pkg: files`. Files: `modules/files/src/server/serve.ts`, `modules/files/src/server/index.ts`,
 a new `modules/files/src/next/stored-file-route.ts`, `modules/files/src/next/index.ts`, tests in
-`modules/files/tests/`, `modules/files/README.md` (§4), `modules/files/CHANGELOG.md`. PR #991 (#988, a browser upload
+`modules/files/tests/`, `modules/files/README.md` (§4.4), `modules/files/CHANGELOG.md`. PR #991 (#988, a browser upload
 client in `files`) may touch `CHANGELOG.md` and `README.md` too; conflicts are resolved at merge time.
 
 ## Constraints

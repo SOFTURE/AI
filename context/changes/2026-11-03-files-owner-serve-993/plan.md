@@ -30,7 +30,7 @@ Files: `modules/files/src/next/stored-file-route.ts`, `modules/files/src/next/in
 
 ## Phase 3: docs
 
-Files: `modules/files/README.md` (§4.3 new), `modules/files/CHANGELOG.md` (`## Unreleased`), the package
+Files: `modules/files/README.md` (§4.4 new), `modules/files/CHANGELOG.md` (`## Unreleased`), the package
 description.
 
 - README: the route mount, behind the sign-in guard (listed in `protect`, no edge bypass), when to use it instead of a

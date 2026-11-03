@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/files",
   "version": "0.2.0",
-  "description": "SOFTURE AI files module: an app's stored files (content hash, size, type, owner, kind, expiry, a per-owner quota, opt-in dedupe) on a storage driver (local disk with atomic writes, S3-compatible with SigV4 and multipart uploads, in memory for tests), streamed and never buffered, public links that expire (HMAC-signed, checked before any database read, revocable per file, a rotating keyring) served by a Next.js route with byte ranges and one 404 for every dead link, the same answer for the signed-in owner by id without a link, resumable chunked uploads through signed URLs (with a browser page and MCP upload tools), a prune job, a privacy contributor and a health check.",
+  "description": "SOFTURE AI files module: an app's stored files (content hash, size, type, owner, kind, expiry, a per-owner quota, opt-in dedupe) on a storage driver (local disk with atomic writes, S3-compatible with SigV4 and multipart uploads, in memory for tests), streamed and never buffered, public links that expire (HMAC-signed, checked before any database read, revocable per file, a rotating keyring) served by a Next.js route with byte ranges and one 404 for every dead link, the same answer for the signed-in owner by id without a link, resumable chunked uploads through signed URLs (with a browser client, an upload list, a browser page and MCP upload tools), a prune job, a privacy contributor and a health check.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -31,6 +31,11 @@
       "@softure-ai/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./client": {
+      "@softure-ai/source": "./src/client/index.ts",
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
     },
     "./server": {
       "@softure-ai/source": "./src/server/index.ts",
