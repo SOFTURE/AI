@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`testing@x.y.z`).
 
-## Unreleased
+## 0.5.0
 
 - `shareToApp(page, { action, fields?, files?, method? })` (#959): shares to the app the way Android's share sheet
   does (a `GET` with the fields as query, or a `POST` of `multipart/form-data` with the files and the page's cookies),
