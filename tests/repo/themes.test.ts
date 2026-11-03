@@ -67,6 +67,44 @@ function findMissingClientDirectives(srcDir: string): string[] {
     .map((file) => file.slice(srcDir.length + 1));
 }
 
+// A client module's export is a client reference in a Server Component: rendering a component works, but calling a
+// helper or reading a value throws (issue #1005). So a client module exports only components (PascalCase) and hooks;
+// helpers and constants live in a plain module.
+const COMPONENT_OR_HOOK = /^(?:[A-Z](?=\w*[a-z])|use[A-Z])\w*$/;
+const DECLARED_EXPORT = /^export\s+(?:async\s+)?(?:function\*?|const|let|var|class)\s+(\w+)/gm;
+const LISTED_EXPORT = /^export\s+\{([^}]*)\}/gm;
+
+// Known exceptions, "<theme dir>/<file>: <name>", each with its reason.
+const CLIENT_VALUE_EXPORTS_ALLOWED = new Set([
+  // The pinned shadcn new-york v4 tabs.tsx exports its cva builder from the client module; tracked in issue #1008.
+  "themes/theme-notion/ui/tabs.tsx: tabsListVariants",
+]);
+
+function listExportedNames(source: string): string[] {
+  const declared = [...source.matchAll(DECLARED_EXPORT)].map((match) => match[1] ?? "");
+  const listed = [...source.matchAll(LISTED_EXPORT)].flatMap((match) =>
+    (match[1] ?? "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part !== "" && !part.startsWith("type "))
+      .map((part) => part.split(/\s+as\s+/).pop() ?? part),
+  );
+  return [...declared, ...listed];
+}
+
+function findClientValueExports(dir: string): string[] {
+  const srcDir = join(REPO_ROOT, dir, "src");
+  return listSourceFiles(srcDir).flatMap((file) => {
+    const source = readFileSync(file, "utf8");
+    if (!hasClientDirective(source)) return [];
+    const relative = file.slice(srcDir.length + 1);
+    return listExportedNames(source)
+      .filter((name) => !COMPONENT_OR_HOOK.test(name))
+      .map((name) => `${dir}/${relative}: ${name}`)
+      .filter((entry) => !CLIENT_VALUE_EXPORTS_ALLOWED.has(entry));
+  });
+}
+
 function readManifest(dir: string): ThemeManifest {
   return JSON.parse(readFileSync(join(REPO_ROOT, dir, "package.json"), "utf8")) as ThemeManifest;
 }
@@ -113,6 +151,10 @@ describe("theme packages", () => {
 
     it("marks every source file with a context or a component hook as a client module", () => {
       expect(findMissingClientDirectives(join(REPO_ROOT, dir, "src"))).toEqual([]);
+    });
+
+    it("exports only components and hooks from its client modules, so helpers work in Server Components", () => {
+      expect(findClientValueExports(dir)).toEqual([]);
     });
 
     it("exports a theme that meets the contract from src/tokens.ts, and theme and cn from its entry", async () => {

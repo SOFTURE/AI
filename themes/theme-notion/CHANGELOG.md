@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `formatFileSize` can be called from a Server Component (#1005): it moved out of the `"use client"` upload module
+  into a plain one, so the root export is the function itself, not a client reference. An app that wrapped it in a
+  client component to render a size can call it directly again. The theme contract now checks that a client module
+  exports only components and hooks.
+
 ## 0.11.0
 
 - An upload control (#950): `UploadField` (a labelled area whose touch-sized button opens the native file picker,
