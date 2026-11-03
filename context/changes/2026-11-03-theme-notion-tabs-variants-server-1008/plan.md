@@ -24,4 +24,9 @@ Files: `themes/theme-notion/src/ui/tabs-variants.ts` (new), `themes/theme-notion
 
 ## Progress
 
-- [ ] Phase 1: the plain module
+- [x] Phase 1: the plain module (f4e4269)
+
+## Notes
+
+- `tests/inventory.test.ts` read cva axes from `ui/*.tsx` only; it now reads `ui/*.ts` too, so the moved builder's
+  axes are still checked against the gallery.
