@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the module. W
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.0
 
 - `getSpendBreakdown(ctx, { provider, period, accountId?, groupBy: "step" | { attribute }, filter? })` (#994): the
   period's spend per step or per attribute value, as rows `{ key, settled, reserved, spent }`; charges without the
