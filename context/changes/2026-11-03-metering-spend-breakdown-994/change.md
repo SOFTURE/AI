@@ -1,7 +1,8 @@
 ---
 change_id: metering-spend-breakdown-994
 title: "metering: spend grouped by step or by a charge attribute (issue #994)"
-status: in_progress
+status: archived
+archived_at: 2026-11-03
 roadmap_item: null
 issue: [994]
 branch: claude/project-thread-i0y4b1

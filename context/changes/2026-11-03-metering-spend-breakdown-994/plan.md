@@ -1,6 +1,6 @@
 ---
 change_id: metering-spend-breakdown-994
-status: in_progress
+status: archived
 ---
 
 # Plan: spend grouped by step or by a charge attribute (issue #994)
@@ -41,6 +41,6 @@ README (API table, a "Spend per item" section, the index), `CHANGELOG.md` `## Un
 
 ## Progress
 
-- [ ] Phase 1: breakdown, filter and index
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: breakdown, filter and index (28a1365)
+- [x] Phase 2: docs (18adc1e)
+- [x] Implementation review
