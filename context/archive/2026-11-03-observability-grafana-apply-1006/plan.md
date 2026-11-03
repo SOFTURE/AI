@@ -1,6 +1,6 @@
 ---
 change_id: observability-grafana-apply-1006
-status: in_progress
+status: done
 ---
 
 # Plan: apply Grafana rules and dashboards as code (issue #1006)
@@ -54,5 +54,12 @@ Files: `src/cli/run.ts`, `tests/cli.test.ts` or `tests/grafana-cli.test.ts`, `RE
 
 ## Progress
 
-- [ ] Phase 1: schema, builders, apply function
-- [ ] Phase 2: CLI, README, CHANGELOG
+- [x] Phase 1: schema, builders, apply function (3bda772)
+- [x] Phase 2: CLI, README, CHANGELOG (5846cd5)
+
+## Verification
+
+- 29 new tests (rules file, builders, apply against an in-memory Grafana, CLI) green; `cli.test.ts` unchanged and
+  green.
+- The built bin: without `GRAFANA_*` it exits 1 naming both variables; against a closed port it exits 1 with
+  "Grafana at <url> is unreachable".

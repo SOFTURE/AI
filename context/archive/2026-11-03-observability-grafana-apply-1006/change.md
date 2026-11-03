@@ -1,12 +1,13 @@
 ---
 change_id: observability-grafana-apply-1006
 title: "observability applies Grafana alert rules and dashboards kept as code in the app (issue #1006)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: [1006]
 branch: claude/project-thread-q52jhj
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent
