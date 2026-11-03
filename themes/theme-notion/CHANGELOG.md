@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.11.0
 
 - An upload control (#950): `UploadField` (a labelled area whose touch-sized button opens the native file picker,
   `accept`/`multiple`/`capture` passed through, with dropping on wide screens), `UploadList` and `UploadItem` (one row
