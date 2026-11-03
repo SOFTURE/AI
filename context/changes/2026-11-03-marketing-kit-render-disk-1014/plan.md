@@ -35,14 +35,14 @@ Dockerfile comment and `ENV TMPDIR` guidance, CHANGELOG `## Unreleased`.
 
 ## Decisions (auto)
 
-- The reader is injected through an internal options field for tests, not a public option: the public surface is
-  `tempDir` only.
+- The free-space reader is an optional `readFreeBytes` option, documented as injected in tests, like `fetch` of the
+  run options: the app-facing option is `tempDir`.
 - The build folder is checked, not the final output's folder: hyperframes writes to `<buildDir>/render.mp4`; the final
   pass is ffmpeg, which has no such limit.
 - The Dockerfile does not set `TMPDIR` itself: the volume is the app's; it documents `ENV TMPDIR=/data/tmp` instead.
 
 ## Progress
 
-- [ ] Phase 1: the disk check
-- [ ] Phase 2: the render
+- [x] Phase 1: the disk check (459ff94)
+- [x] Phase 2: the render (6caa22f)
 - [ ] Phase 3: docs

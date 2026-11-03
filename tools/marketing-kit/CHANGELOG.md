@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **Footage renders check the disk first (#1014).** hyperframes refuses to render with under 1 GiB free in its temp
+  folder or the build folder, which ended a run with `hyperframes render ended with code 1`. Now `renderFootage`
+  checks both folders before the music, speech and assets steps and returns `not enough disk space to render: …`,
+  naming the folder; `checkFootageTools` reports the same with a render (`tempDir` and `buildDir` options).
+  `renderFootage`'s new `tempDir` reaches hyperframes as `TMPDIR` (created when missing). `findLowDiskProblems`,
+  `getFreeBytes`, `getRenderTempDir` and `RENDER_MIN_FREE_BYTES` are exported.
+- Docs: the README and the worker recipe say `TMPDIR` needs a data volume, not a small tmpfs, and name
+  `PRODUCER_MAX_WORKERS` and `HYPERFRAMES_EXTRACT_CACHE_MAX_MB` for a CPU-limited container.
+
 ## 0.5.0
 
 - **Music beds from an upload (#996):** `probeAudio(path, { signal })` reads a music file with ffprobe as `{ duration,
