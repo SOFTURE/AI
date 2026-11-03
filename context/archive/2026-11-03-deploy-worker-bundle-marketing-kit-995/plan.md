@@ -1,6 +1,6 @@
 ---
 change_id: deploy-worker-bundle-marketing-kit-995
-status: in_progress
+status: done
 ---
 
 # Plan: keep marketing-kit external in the worker starter (issue #995)
@@ -28,5 +28,5 @@ section names the external kit.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 1: `004deeb`
+- [x] Phase 2: `004deeb` (docs landed with phase 1)

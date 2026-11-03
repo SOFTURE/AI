@@ -1,12 +1,13 @@
 ---
 change_id: deploy-worker-bundle-marketing-kit-995
 title: "deploy: the worker Dockerfile from init bundles a worker that imports marketing-kit's footage blocks (issue #995)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 995
 branch: claude/project-thread-cug6zn
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent
