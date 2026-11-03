@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-operation-context-getter-990
-status: in_progress
+status: archived
 ---
 
 # Plan: operation tool registrars take a context getter (issue #990)
@@ -31,5 +31,5 @@ Files: `modules/mcp-access/README.md`, `modules/mcp-access/CHANGELOG.md`.
 
 ## Progress
 
-- [ ] Phase 1: context getter and exported hints
-- [ ] Phase 2: docs
+- [x] Phase 1: context getter and exported hints (3053267, 8 new tests)
+- [x] Phase 2: docs (1f9fe7c)

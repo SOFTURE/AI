@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-operation-context-getter-990
 title: "mcp-access: operation tool registrars take a context getter (issue #990)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 990
 branch: claude/project-thread-rcnkz7
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent
