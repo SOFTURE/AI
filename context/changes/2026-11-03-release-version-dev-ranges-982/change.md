@@ -1,12 +1,13 @@
 ---
 change_id: release-version-dev-ranges-982
 title: "release:version checks devDependencies ranges and refuses registry copies of workspaces (issue #982)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: [982]
 branch: claude/project-thread-rtwib0
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent

@@ -1,6 +1,6 @@
 ---
 change_id: release-version-dev-ranges-982
-status: in_progress
+status: done
 ---
 
 # Plan: devDependencies ranges and registry copies in release:version (issue #982)
@@ -38,7 +38,7 @@ Files: `scripts/release/version.mjs`, `scripts/release/README.md`.
 ## Progress
 
 - [x] Phase 1: rules and tests (c6be406)
-- [ ] Phase 2: version.mjs and docs
+- [x] Phase 2: version.mjs and docs (c4f5f4c)
 
 ## Verification
 
