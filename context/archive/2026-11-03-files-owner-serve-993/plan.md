@@ -1,6 +1,6 @@
 ---
 change_id: files-owner-serve-993
-status: in_progress
+status: done
 ---
 
 # Plan: serve a stored file to its owner (issue #993)
@@ -48,6 +48,10 @@ description.
 
 - [x] Phase 1: server function, tests (ef1dd07)
 - [x] Phase 2: Next route (b5f4fa1)
-- [ ] Phase 3: docs
+- [x] Phase 3: docs (3d8054a)
 
 ## Verification
+
+- `vitest run modules/files`: 16 files, 204 tests passed; `owner-serve.test.ts` failed (8 of 8) before `serveStoredFile`
+  existed (red first).
+- `npm run typecheck`, ESLint and the language gate green in the pre-commit hook on every commit.

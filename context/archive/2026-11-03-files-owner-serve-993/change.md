@@ -1,12 +1,13 @@
 ---
 change_id: files-owner-serve-993
 title: "files: serve a stored file to its signed-in owner, with ranges and no public link (issue #993)"
-status: implementing
+status: archived
 roadmap_item: null
 issue: [993]
 branch: claude/project-thread-ybe6jg
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent
