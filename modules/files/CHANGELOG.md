@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `registerFileUploadTools` takes `onFinalized(file, ctx)` (#987): it runs after every successful `finalize_upload`,
+  a repeated one included, and its returned fields join the answer; a returned `err(code)` answers that code. Also
+  `descriptions` (the served text of both tools, defaults exported as `FILE_UPLOAD_TOOL_DESCRIPTIONS`) and `hints`
+  (the text answered for an error code). Without them the tools answer as in 0.2.0.
+- Migration for an app that wraps the server to replace the finalize handler or the descriptions: drop the wrapper and
+  pass `onFinalized` (its step after `finalizeUpload`, made idempotent), `descriptions` and `hints` instead.
+
 ## 0.2.0
 
 - Resumable uploads from clients (#949): table `files.uploads` (migration 0002), `createUpload` (a signed upload URL
