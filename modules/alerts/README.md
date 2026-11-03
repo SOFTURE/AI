@@ -146,8 +146,8 @@ caller's write, and a rolled-back caller sends nothing. `alert` answers `ok("fir
 | `onScheduleStateChanged` | `jobs.schedule:<queue>`: fires on `failing` or `late`, resolves on `healthy` | `critical` (`scheduleSeverity`) |
 | `onQueuePaused` | `jobs.paused:<queue>`, with the code and the end of the pause | `warning` (`queuePausedSeverity`) |
 
-`onQueuePaused` takes jobs' `{ queue, code, until }` (the queue breaker of jobs, #955); with a jobs version that
-predates the breaker, leave it out. The hooks never alert the module's own queues (`alerts.deliver`, `alerts.flush`),
+`onQueuePaused` takes jobs' `{ queue, code, until }` from the queue breaker, added in jobs 0.1.7 (the version this
+package requires). The hooks never alert the module's own queues (`alerts.deliver`, `alerts.flush`),
 so a failing channel cannot raise alerts about itself, nor the queues in `ignoreQueues`. A failure to record an alert
 is logged by kind and never reaches the job.
 

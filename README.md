@@ -17,6 +17,8 @@ foundation/          shared foundations every module depends on
   core/              @softure-ai/core: module contract, configuration, i18n, results, clock/DI
   db/                @softure-ai/db: pg/PGlite client, module migrator, test database
   ui/                @softure-ai/ui: tokens, theme, primitives (Button, Modal, Toast, Select, fields…)
+  charts/            @softure-ai/charts: scales and server-rendered SVG charts (lines, areas, steps, Sankey, bar lists)
+  testing/           @softure-ai/testing: Vitest preset and test clock, Playwright helpers, installed-app checks, source guards
   observability/     @softure-ai/observability: structured logger, OTLP export of traces and logs (Node.js, Next.js)
   llm/               @softure-ai/llm: schema-validated model calls over the AI SDK, timeouts, usage and cost, fake model
   speech/            @softure-ai/speech: audio transcription (Groq, OpenAI, OpenAI-compatible), ffmpeg chunking, subtitles, cost
@@ -33,11 +35,13 @@ modules/             feature modules (each one works on its own on top of the fo
   ops/               health check, migration runner in the image, safe SQL operations pattern
   seo/               robots.txt with AI crawler lists, sitemap, canonical URLs, IndexNow
   agent-ready/       agent discovery: catalogs, MCP/A2A cards, auth.md, Agent Skills, Web Bot Auth, DNS-AID, WebMCP
+  blog/              Markdown articles and glossary, publish command, text quality gate, Next.js pages, RSS, sitemap, IndexNow
   jobs/              background jobs in Postgres: queue, leases, retry with backoff, worker process
   connections/       connected accounts: OAuth 2.0 client, encrypted tokens and API keys, refresh under a lease
   pwa/               installable app: manifest, icons, service worker from a route, new-build update flow, online state
   files/             stored files: content hash, quota, expiry, local disk or S3, signed public links with ranges
   metering/          spend ledger of paid provider calls in any unit, budgets per day or month, reservations under a lock
+  alerts/            operator alerts: deduplication by key, recovery messages, mail and webhooks, quiet hours, jobs adapters
 tools/
   marketing-kit/     materials generator: video, screenshots, OG images from JSON and a brand
   deploy/            one-VPS deploy CLI: .env.prod from secrets, release notes, verify from deploy.json
@@ -45,7 +49,7 @@ tools/
   config/            shared app tooling: ESLint preset, tsconfig base, lefthook hooks, language gate
 themes/              shadcn/ui themes an app installs instead of copying components
   theme-kit/         @softure-ai/theme-kit: the theme contract (defineTheme), CSS generator and build, cn, preflight
-  theme-notion/      @softure-ai/theme-notion: the first theme, Notion (tokens, 36 components, compositions)
+  theme-notion/      @softure-ai/theme-notion: the first theme, Notion (tokens, 37 components, compositions)
   theme-flat-paint/  @softure-ai/theme-flat-paint: Flat Paint (tokens, the ui bridge, page base, look maps for ui components)
   theme-<name>/      each further theme, on the kit's contract (themes/theme-kit/README.md)
 docs/                assessment, module standard, plans

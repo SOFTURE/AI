@@ -1,12 +1,13 @@
 ---
 change_id: readme-package-catalog
 title: "Every workspace package is listed in the README layout, and the new packages are cross-linked in the docs"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: []
 branch: claude/project-thread-rchzlk
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent

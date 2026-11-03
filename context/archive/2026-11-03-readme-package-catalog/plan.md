@@ -1,6 +1,6 @@
 ---
 change_id: readme-package-catalog
-status: in_progress
+status: done
 ---
 
 # Plan: README package catalogue and cross-links
@@ -29,5 +29,5 @@ Files: `README.md`, `foundation/llm/README.md`, `modules/jobs/README.md`, `modul
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 1: guard red on master (charts, testing, alerts, blog), green after phase 2
+- [x] Phase 2: README lines, 37 components, four cross-links, alerts note, Unreleased docs lines
