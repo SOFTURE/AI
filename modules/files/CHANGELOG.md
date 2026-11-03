@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.0
 
 - Resumable uploads from clients (#949): table `files.uploads` (migration 0002), `createUpload` (a signed upload URL
   under the link keyring, limits `uploads.chunkBytes` 64 MiB, `uploads.ttlSeconds`, `uploads.maxOpenPerOwner`,

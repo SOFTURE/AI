@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.0
 
 - First version (#963): one channel to tell the operator. `alert(ctx, { key, severity, title, details?, link? })`
   deduplicates by key: the first occurrence goes out, repeats within `repeatWindowSeconds` (default 1 hour) are

@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
-## Unreleased
+## 0.11.0
 
 - **A free tier without an end (freemium)** (#962): `billing({ free: { limits } })`. An account without paid access is
   in a new state `free` once its trial ends (at once with `trial.days: 0`): it keeps write access (`requireWriteAccess`

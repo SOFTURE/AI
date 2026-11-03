@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## Unreleased
+## 0.3.0
 
 - Long operations as MCP Tasks (#977), in `@softure-ai/mcp-access/jobs`: `startOperation` takes `taskRequest` (the
   tool handler's request context) and `taskTtlSeconds`; when the client declared the Tasks extension

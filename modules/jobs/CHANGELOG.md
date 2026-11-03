@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.7
 
 - A signed-in user follows their own job (#958). `enqueueJob({ ownerId })` stores the user on the job;
   `getOwnJob(ctx, { id, ownerId })` and `requestOwnJobCancel(ctx, { id, ownerId })` in `/server` answer only that
