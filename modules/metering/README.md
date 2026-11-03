@@ -10,7 +10,8 @@ A ledger of paid provider calls in the provider's own unit, and budgets that ref
 - `reserveSpend` before a paid call, `settleSpend` with the billed amount after it, `releaseSpend` when it failed
   unbilled. A reservation runs in one transaction under the provider's lock, so two jobs reserving at once cannot both
   pass the same remaining amount. Amounts compare as Postgres `numeric`, so `0.1 + 0.2` fills a `0.3` budget exactly.
-- `recordCharge` for spend reported after the fact, `getSpend` for a status tool or page.
+- `recordCharge` for spend reported after the fact, `getSpend` for a status tool or page, `getSpendBreakdown` for
+  spend per step or per item (any attribute), and an attribute `filter` for one item's cost.
 - Adapters for `@softure-ai/llm`'s `onUsage` and `@softure-ai/marketing-kit`'s footage `onCharge`, a GDPR contributor
   and a prune job for `@softure-ai/jobs`.
 
@@ -71,20 +72,41 @@ try {
 | `settleSpend(ctx, reservation, actual)` | `ok()` or `metering.reservation_not_found` (settled, released or pruned). An actual above the reservation is recorded as billed. |
 | `releaseSpend(ctx, reservation)` | `ok()` or `metering.reservation_not_found`. |
 | `recordCharge(ctx, { provider, amount, step?, accountId?, attributes?, at? })` | `ok({ id })`; never refused, the spend already happened. |
-| `getSpend(ctx, { provider, period, accountId? })` | `ok(SpendSummary)`: `settled`, `reserved`, `spent`, `limit`, `remaining`, `from`, `resetsAt`. With `accountId`: that account's spend and its per-account budget. |
+| `getSpend(ctx, { provider, period, accountId?, filter? })` | `ok(SpendSummary)`: `settled`, `reserved`, `spent`, `limit`, `remaining`, `from`, `resetsAt`. With `accountId`: that account's spend and its per-account budget. With `filter: { attribute, value }`: only the charges with that attribute value; `limit` and `remaining` stay the scope's budget. |
+| `getSpendBreakdown(ctx, { provider, period, accountId?, groupBy, filter? })` | `ok(SpendBreakdown)`: `rows` of `{ key, settled, reserved, spent }` per `step` (`groupBy: "step"`) or per attribute value (`groupBy: { attribute }`), highest spend first. `key: null` gathers charges without the step or attribute, so the rows add up to `getSpend`. |
 
 `BudgetExceeded.budget` names the first budget the amount did not fit: `scope` (`{ kind: "provider" }` or
 `{ kind: "account", accountId }`), `period`, `limit`, `spent`, `remaining` and `resetsAt`. An undeclared provider, an
 amount that is negative, not finite or above `1e15`, and a reservation without `accountId` for a provider with a
-per-account budget throw: they are bugs, not expected failures.
+per-account budget throw: they are bugs, not expected failures. So does an attribute name that is empty or longer
+than 100 characters, and a filter value that is empty or longer than 500.
+
+### Spend per step and per item
+
+```ts
+import { getSpend, getSpendBreakdown } from "@softure-ai/metering/server";
+
+// This month per item (charges recorded with attributes: { jobId }) and per step.
+const perItem = await getSpendBreakdown(ctx, { provider: "elevenlabs", period: "month", groupBy: { attribute: "jobId" } });
+const perStep = await getSpendBreakdown(ctx, { provider: "elevenlabs", period: "month", groupBy: "step" });
+// One item: its total, and its steps.
+const item = await getSpend(ctx, { provider: "elevenlabs", period: "month", filter: { attribute: "jobId", value: jobId } });
+const itemSteps = await getSpendBreakdown(ctx, { provider: "elevenlabs", period: "month", groupBy: "step", filter: { attribute: "jobId", value: jobId } });
+```
+
+The period bounds and the rule for what counts (settled charges and unexpired reservations) are the same as
+`getSpend`'s. A filter matches the attribute's value exactly, through `attributes @> {attribute: value}`, which the
+`charges_attributes_idx` GIN index serves for any attribute name, so one item's spend stays an index lookup on a page
+of a few hundred items. Grouping reads one provider's period through the `(provider, created_at)` index.
 
 ## 4. Mounting
 
-Nothing to mount. A status page or tool reads `getSpend`.
+Nothing to mount. A status page or tool reads `getSpend` and `getSpendBreakdown`.
 
 ## 5. Migrations and tables
 
-Schema `metering`, migration `0001_create_charges.sql`, table `charges`:
+Schema `metering`, migrations `0001_create_charges.sql` and `0002_index_charge_attributes.sql` (a GIN index on
+`attributes` for filters), table `charges`:
 
 | Column | Meaning |
 | --- | --- |
@@ -153,7 +175,7 @@ an app that runs its own deletion transaction.
 - Spend over a budget is possible through `recordCharge` and a settle above the reservation: the ledger records what
   was billed. `remaining` is then 0.
 - No currency conversion: a budget is in its provider's unit only, and `usd` is the only money unit.
-- No UI or route: the app builds its own status page on `getSpend`.
+- No UI or route: the app builds its own status page on `getSpend` and `getSpendBreakdown`.
 
 ## Build
 
