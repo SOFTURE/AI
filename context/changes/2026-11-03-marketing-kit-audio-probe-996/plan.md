@@ -32,9 +32,9 @@ Files: `tools/marketing-kit/src/footage/probe.ts`, `src/footage/audio.ts`, `src/
 
 Files: `src/footage/pipeline.ts`.
 
-- `getMusic` for a `file` source: the type check on the path, then `probeAudio`; a failure ends the run with
-  `music: <error>` before the render; success logs `describeAudioProbe`. Same in placeholder runs (the file still
-  plays).
+- `prepareFootage`, right after the clips are probed and before anything is normalized or paid for: for a `file`
+  source, the type check on the path, then `probeAudio`; a failure ends the run with `music: <error>`; success logs
+  `describeAudioProbe`. Same in placeholder runs (the file still plays). `getMusic` keeps its existence check.
 
 ## Phase 3: docs
 
@@ -49,10 +49,12 @@ trimmed by `buildMusicArgs`, ducked by `duckingKeyframes`, `volume` / `duckedVol
   one the render accepts (issue ask 2). A file with an unlisted extension now stops the run with a clear message;
   the CHANGELOG says so.
 - `.mp4` is not a music type: the issue names audio files; an mp4 bed can be remuxed to `.m4a` without re-encoding.
+- The gate sits in `prepareFootage`, not `getMusic`: `getMusic` runs after the transcripts were bought, and the
+  footage probe's rule is "every problem before anything is paid for".
 - `bitRate` is `null` when ffprobe reports none (Opus, FLAC), not omitted: a stable shape for storing with the asset.
 
 ## Progress
 
-- [ ] Phase 1: the audio probe and the type check
+- [x] Phase 1: the audio probe and the type check (2b9b677)
 - [ ] Phase 2: the pipeline gate
 - [ ] Phase 3: docs
