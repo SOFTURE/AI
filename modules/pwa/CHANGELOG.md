@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.0
 
 - Web Share Target (#959): `shareTarget: { action, params?, files? }` in `buildManifest` / `createManifestRoute` writes
   `share_target` (a `GET` for text only, a `POST` of `multipart/form-data` when files are accepted).

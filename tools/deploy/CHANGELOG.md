@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.5.0
 
 - **A worker image of its own, a data volume and worker limits (#948):** `init --worker-dockerfile=<path>` runs the
   `worker` service from `<image>-worker:${TAG}` and writes a starter Dockerfile there (a glibc builder that bundles

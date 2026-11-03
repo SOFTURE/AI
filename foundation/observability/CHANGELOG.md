@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.5.0
 
 - `errorDetails: "label"` now tells errors apart without logging any message (#932). The label names the cause chain
   with safe codes, which may be Node system and undici codes as well as SQLSTATEs (`Error cause=Error

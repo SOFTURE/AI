@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.0
 
 - The first version (#956): `createTranscriber` turns any audio or video into a transcript with segments, through a
   Groq, OpenAI or OpenAI-compatible Whisper provider. ffmpeg normalizes the input to mono 16 kHz and cuts long inputs
