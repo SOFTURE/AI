@@ -1,13 +1,13 @@
 ---
 change_id: files-browser-upload-client-988
 title: "files: a browser client that sends a File to an upload session, with a queue for upload lists (issue #988)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 988
 branch: claude/project-thread-mfa92k
 created: 2026-11-03
 updated: 2026-11-03
-archived_at: null
+archived_at: 2026-11-03
 ---
 
 ## Intent

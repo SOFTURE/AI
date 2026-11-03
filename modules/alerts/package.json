@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/alerts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SOFTURE AI alerts module: one channel to tell the operator. alert() with deduplication by key, repeats counted and summarized, a recovery message on resolveAlert, delivery through a jobs queue to mail (through @softure-ai/mailing) and Slack, Discord, Telegram or generic JSON webhooks, quiet hours per channel, adapters for jobs hooks and health reports, a softure-alerts test command and an admin list of recent alerts.",
   "license": "MIT",
   "type": "module",

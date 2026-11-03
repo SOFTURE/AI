@@ -11,8 +11,11 @@
 //     registerTools: (server, identity) => registerFileUploadTools(server, { identity, getContext: () => getFilesContext() }),
 //   });
 //   mcpAccess({ serverName: "acme", tools: [...FILE_UPLOAD_MCP_TOOLS] });
+//
+// An app that turns the stored file into its own record passes `onFinalized` (its fields join the answer), its own
+// tool texts in `descriptions`, and `hints` for the error codes it answers.
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
-import { errorLogLabel } from "@softure-ai/core";
+import { errorLogLabel, type Err, type ErrorCode } from "@softure-ai/core";
 import { z } from "zod";
 import type { CreatedUpload, StoredFile } from "../contract.js";
 import { filesMessages, getFilesErrorMessage } from "../messages/index.js";
@@ -22,14 +25,17 @@ import { createUpload, finalizeUpload } from "../server/uploads.js";
 export const CREATE_UPLOAD_TOOL_NAME = "create_upload";
 export const FINALIZE_UPLOAD_TOOL_NAME = "finalize_upload";
 
-const CREATE_UPLOAD_DESCRIPTION =
-  "Starts an upload of a file from your own environment (for a file too large for a tool call, such as a video). " +
+/** The served tool descriptions by default; an app prefixes or replaces them through `descriptions`. */
+export const FILE_UPLOAD_TOOL_DESCRIPTIONS = {
+  create_upload:
+    "Starts an upload of a file from your own environment (for a file too large for a tool call, such as a video). " +
   "The file's bytes never go through this tool: it answers a one-time upload URL and a ready curl loop that sends the " +
   "file in chunks; run it where the file is, then call finalize_upload with the upload_id. A person can open the " +
-  "same URL in a browser to upload the file there instead.";
-const FINALIZE_UPLOAD_DESCRIPTION =
-  "Finishes an upload started with create_upload once every chunk is sent: checks the bytes and stores the file. " +
-  "Answers the stored file's id. Calling it again answers the same file.";
+    "same URL in a browser to upload the file there instead.",
+  finalize_upload:
+    "Finishes an upload started with create_upload once every chunk is sent: checks the bytes and stores the file. " +
+    "Answers the stored file's id. Calling it again answers the same file.",
+} as const;
 
 /** The catalog entries for `mcpAccess({ tools })`, so the token page and the catalog check know both tools. */
 export const FILE_UPLOAD_MCP_TOOLS = [
@@ -51,7 +57,23 @@ export interface FileUploadToolsOptions {
   readonly getOwnerId?: (identity: FileUploadToolIdentity) => string;
   /** The kind of the stored files; `file` by default. */
   readonly kind?: string;
+  /**
+   * Runs after every successful `finalize_upload`, a repeated one for the same file included (so keep it idempotent,
+   * e.g. an upsert by `file.id`). Returned fields join the answer (the file's own fields win a name clash); a returned
+   * `err(code)` answers that code as a failure; a thrown error answers the generic failure and is logged.
+   */
+  readonly onFinalized?: (file: StoredFile, ctx: FilesContext) => Promise<FileFinalizedAnswer>;
+  /** The served descriptions; a missing one keeps `FILE_UPLOAD_TOOL_DESCRIPTIONS`. */
+  readonly descriptions?: { readonly create_upload?: string; readonly finalize_upload?: string };
+  /**
+   * The text answered for an error code, the hook's codes and the package's `files.*` codes alike, followed by the code.
+   * Without a hint a `files.*` code answers its English sentence and any other code answers the code alone.
+   */
+  readonly hints?: Readonly<Record<string, string>>;
 }
+
+/** What `onFinalized` answers: extra fields for the tool's answer, nothing, or a failure. */
+export type FileFinalizedAnswer = Readonly<Record<string, unknown>> | Err<ErrorCode> | undefined | void;
 
 const createUploadInput = z.object({
   name: z.string().min(1).max(255).describe("The file's name, e.g. promo.mp4."),
@@ -76,12 +98,12 @@ export function registerFileUploadTools(server: Pick<McpServer, "registerTool">,
   server.registerTool(
     CREATE_UPLOAD_TOOL_NAME,
     {
-      description: CREATE_UPLOAD_DESCRIPTION,
+      description: options.descriptions?.create_upload ?? FILE_UPLOAD_TOOL_DESCRIPTIONS.create_upload,
       inputSchema: createUploadInput,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     (args) =>
-      answer(CREATE_UPLOAD_TOOL_NAME, async () => {
+      answer(CREATE_UPLOAD_TOOL_NAME, options.hints, async () => {
         const ctx = await options.getContext();
         const created = await createUpload(ctx, {
           ownerId,
@@ -98,15 +120,18 @@ export function registerFileUploadTools(server: Pick<McpServer, "registerTool">,
   server.registerTool(
     FINALIZE_UPLOAD_TOOL_NAME,
     {
-      description: FINALIZE_UPLOAD_DESCRIPTION,
+      description: options.descriptions?.finalize_upload ?? FILE_UPLOAD_TOOL_DESCRIPTIONS.finalize_upload,
       inputSchema: finalizeUploadInput,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     (args) =>
-      answer(FINALIZE_UPLOAD_TOOL_NAME, async () => {
+      answer(FINALIZE_UPLOAD_TOOL_NAME, options.hints, async () => {
         const ctx = await options.getContext();
         const finalized = await finalizeUpload(ctx, args.upload_id, { ownerId });
-        return finalized.ok ? describeStoredFile(finalized.value) : finalized;
+        if (!finalized.ok) return finalized;
+        const extra = options.onFinalized === undefined ? undefined : await options.onFinalized(finalized.value, ctx);
+        if (isFailure(extra)) return extra;
+        return { ...extra, ...describeStoredFile(finalized.value) };
       }),
   );
 }
@@ -148,16 +173,28 @@ function describeStoredFile(file: StoredFile) {
   return { file_id: file.id, name: file.name, size: file.size, content_type: file.contentType, sha256: file.sha256 };
 }
 
-/** The tool's answer: a value as JSON text, an error code as its English sentence, a thrown error as a fixed text. */
-async function answer(tool: string, work: () => Promise<unknown>): Promise<CallToolResult> {
+/** The tool's answer: a value as JSON text, an error code as its hint or sentence, a thrown error as a fixed text. */
+async function answer(
+  tool: string,
+  hints: Readonly<Record<string, string>> | undefined,
+  work: () => Promise<unknown>,
+): Promise<CallToolResult> {
   try {
     const value = await work();
-    if (isFailure(value)) return failure(`${getFilesErrorMessage(filesMessages.en, value.error)} (${value.error})`);
+    if (isFailure(value)) return failure(describeErrorCode(value.error, hints));
     return { content: [{ type: "text", text: JSON.stringify(value) }] };
   } catch (error) {
     console.error(`@softure-ai/files: tool ${tool} failed: ${errorLogLabel(error)}`);
     return failure(filesMessages.en.errors.core.unexpected);
   }
+}
+
+/** `<hint or files sentence> (<code>)`, or the code alone for another module's code without a hint. */
+function describeErrorCode(code: string, hints: Readonly<Record<string, string>> | undefined): string {
+  const hint = hints !== undefined && Object.hasOwn(hints, code) ? hints[code] : undefined;
+  if (hint !== undefined) return `${hint} (${code})`;
+  if (code.startsWith("files.")) return `${getFilesErrorMessage(filesMessages.en, code)} (${code})`;
+  return code;
 }
 
 function failure(text: string): CallToolResult {

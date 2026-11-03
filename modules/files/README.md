@@ -277,6 +277,31 @@ export const createServer = createMcpServerFactory({
 - Both are write tools: registered only when `identity.canWrite` (mcp-access's write switch). The uploads belong to the
   token's user (`getOwnerId` changes that). The app's tools then take the `file_id`.
 
+An app that turns the uploaded file into its own record in the same call, or that words its tool texts its own way,
+passes three more options:
+
+```ts
+registerFileUploadTools(server, {
+  identity,
+  getContext: () => getFilesContext(),
+  // After every successful finalize, a repeated one for the same file included: keep it idempotent.
+  onFinalized: async (file) => {
+    const asset = await upsertAssetForFile(file.id); // the app's own step, e.g. a row plus a background job
+    return asset.ok ? { asset_id: asset.value.id } : asset; // fields join the answer; err(code) answers a failure
+  },
+  descriptions: { finalize_upload: `Acme: ${FILE_UPLOAD_TOOL_DESCRIPTIONS.finalize_upload}` },
+  hints: { "assets.quota_exceeded": "The plan holds no more assets." },
+});
+```
+
+- `onFinalized(file, ctx)`: its returned fields are merged into the `finalize_upload` answer (the file's own fields
+  win a name clash); a returned `err(code)` answers that code as a failure; a thrown error answers the generic failure
+  and is logged.
+- `descriptions`: the served text of `create_upload` and `finalize_upload`; the defaults are exported as
+  `FILE_UPLOAD_TOOL_DESCRIPTIONS`. The catalog entries in `FILE_UPLOAD_MCP_TOOLS` stay as they are.
+- `hints`: the text answered for an error code, followed by the code: the hook's codes and the package's `files.*`
+  codes alike. Without a hint a `files.*` code answers its sentence and any other code answers the code alone.
+
 ## 5. Migrations and tables
 
 Schema `files`, migration `0001_create_files.sql`, table `files`:

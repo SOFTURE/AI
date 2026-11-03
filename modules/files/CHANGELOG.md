@@ -14,6 +14,12 @@ in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](
   `remove`, `getItems` and `subscribe` (for `useSyncExternalStore`). An app that carries its own chunk loop can drop it.
 - The upload page runs the same `sendUpload` (inlined) and says when its link has expired (`uploadPage.expired`).
 - New messages for the client's codes: `errors.files.upload_expired`, `upload_rejected`, `network`, `upload_aborted`.
+- `registerFileUploadTools` takes `onFinalized(file, ctx)` (#987): it runs after every successful `finalize_upload`,
+  a repeated one included, and its returned fields join the answer; a returned `err(code)` answers that code. Also
+  `descriptions` (the served text of both tools, defaults exported as `FILE_UPLOAD_TOOL_DESCRIPTIONS`) and `hints`
+  (the text answered for an error code). Without them the tools answer as in 0.2.0.
+- Migration for an app that wraps the server to replace the finalize handler or the descriptions: drop the wrapper and
+  pass `onFinalized` (its step after `finalizeUpload`, made idempotent), `descriptions` and `hints` instead.
 
 ## 0.2.0
 
