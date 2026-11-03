@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProvider } from "./fake.js";
 import { DEFAULT_TRANSITIONS, type FootageClip, type FootageFilm } from "./film.js";
-import { cutFootage, getEdlPath, getMusicPaidStep, readEdlFile, readRenderPercent, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
+import { cutFootage, getEdlPath, getMusicPaidStep, prepareFootage, readEdlFile, readRenderPercent, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
 import type { FootageProbe } from "./probe.js";
 
 const PROBE: FootageProbe = { duration: 6, width: 1080, height: 1920, rotation: 0, displayWidth: 1080, displayHeight: 1920, codec: "h264", pixelFormat: "yuv420p", colorTransfer: null, hdr: null, hasAudio: true };
@@ -115,5 +116,66 @@ describe("readRenderPercent", () => {
     expect(readRenderPercent("[3/4] encoding 12.5 % done, 87.5%")).toBe(87.5);
     expect(readRenderPercent("Rendered 90 frames")).toBeNull();
     expect(readRenderPercent("150%")).toBeNull();
+  });
+});
+
+const hasFfmpeg = spawnSync("ffprobe", ["-version"]).status === 0 && spawnSync("ffmpeg", ["-version"]).status === 0;
+
+describe.runIf(hasFfmpeg)("prepareFootage with a local music file (issue #996)", () => {
+  let dir: string;
+  let lines: string[];
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "footage-music-"));
+    lines = [];
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function make(name: string, args: string[]): string {
+    const file = join(dir, name);
+    const result = spawnSync("ffmpeg", ["-v", "error", "-y", ...args, file], { encoding: "utf8" });
+    if (result.status !== 0) throw new Error(`ffmpeg could not make ${name}: ${result.stderr}`);
+    return file;
+  }
+
+  function filmWithMusic(path: string): FootageFilm {
+    const source = make("talk.mp4", ["-f", "lavfi", "-i", "color=c=black:s=64x64:d=1", "-pix_fmt", "yuv420p"]);
+    return {
+      id: "street",
+      title: "Street",
+      format: "9:16",
+      language: "en",
+      clips: [{ id: "talk", source, role: "talk", fit: "auto", trim: { start: 0, end: null }, script: null }],
+      isolateVoice: false,
+      cut: { fillers: [], pauseSeconds: 0.6, padSeconds: 0.1, maxSeconds: null },
+      transitions: DEFAULT_TRANSITIONS,
+      music: { source: { kind: "file", path }, volume: 0.35, duckedVolume: 0.1 },
+      captions: false,
+      endCard: { headline: "Try", url: "example.com", note: "" },
+    };
+  }
+
+  const run = () => ({ buildDir: join(dir, "build"), log: (line: string) => lines.push(line) });
+
+  it("stops before normalizing when the music file has no audio", async () => {
+    const music = make("bed.mp3", ["-f", "lavfi", "-i", "color=c=black:s=64x64:d=1", "-f", "mp4", "-pix_fmt", "yuv420p"]);
+    expect(await prepareFootage(filmWithMusic(music), run())).toEqual({ ok: false, error: `music: ${music}: no audio stream` });
+    expect(existsSync(join(dir, "build", "clips", "talk.mp4"))).toBe(false);
+  });
+
+  it("stops on a music file of a type the render does not take", async () => {
+    const music = make("bed.mp4", ["-f", "lavfi", "-i", "sine=duration=1"]);
+    const result = await prepareFootage(filmWithMusic(music), run());
+    expect(result).toEqual({ ok: false, error: `music: ${music}: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac)` });
+  });
+
+  it("logs the probed music and goes on", async () => {
+    const music = make("bed.wav", ["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2", "-ac", "2"]);
+    const result = await prepareFootage(filmWithMusic(music), run());
+    expect(result.ok).toBe(true);
+    expect(lines).toContain(`music: ${music} (pcm_s16le, 2.0 s, 48000 Hz, 2 channels, 1536 kb/s).`);
   });
 });

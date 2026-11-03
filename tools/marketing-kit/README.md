@@ -635,6 +635,8 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
 - **Music:** `file` (local), `prompt` (ElevenLabs Music, instrumental, the film's length) or `fromVideo` (ElevenLabs
   Video to Music, scored to the cut itself, with `description` and `tags`). Generated music is paid and cached the same
   way. It plays at `volume` and ducks to `duckedVolume` while someone speaks, from the word times, with a fade in and out.
+  A `file` must be one of `MUSIC_FILE_TYPES` (`.mp3`, `.m4a`, `.aac`, `.wav`, `.ogg`, `.oga`, `.opus`, `.flac`) and
+  hold an audio stream: the run probes it right after the clips and stops before anything is paid for when it does not.
 - **Captions** (`captions`, default true) are the transcript's words in film time: `captionStyle: "phrase"` (the
   default) shows 2-6 words of plain text with a soft shadow, `"highlight"` the pill that lights each word in the
   brand's caption colours. `layout` moves their box per format; `captionPreset` (`reels`, `shorts`, `tiktok` or `all`)
@@ -701,7 +703,27 @@ const problems = validateEdl(editedEdl, clips.map((c) => ({ id: c.clip.id, durat
 const changes = diffEdl(previousEdl, editedEdl); // ["moved s7 to the start", "dropped s3", "r1 over s4"]
 ```
 
-The blocks run alone too: `probeFootage`, `normalizeFootage`, `transcribeFootage` (or a provider's `transcribe`),
+**Music beds from an upload.** An app that lets the owner upload a music file checks it with the same rules the run
+applies to `music.file`, and stores the probe with the asset:
+
+```ts
+import { checkMusicFileType, probeAudio } from "@softure-ai/marketing-kit";
+
+const type = checkMusicFileType({ fileName: upload.name, contentType: upload.type }); // before accepting the upload
+if (!type.ok) return reject(type.error); // "bed.mp4: not a music file (accepted: .mp3, .m4a, …)"
+const probed = await probeAudio(storedPath); // ffprobe, asynchronous
+if (!probed.ok) return reject(probed.error); // probed.reason: "no-audio-stream" | "no-duration" | "unreadable" | "unexpected-output"
+await saveAsset({ ...probed.probe }); // { duration, codec, sampleRate, channels, bitRate (null when unknown) }
+```
+
+Under the cut the bed needs no fitting by the app: the render resamples it to 48 kHz stereo, loops it when it is
+shorter than the film and trims it when it is longer (`buildMusicArgs`: `-stream_loop -1`, `-t <film seconds>`),
+fades it in over 1 s and out over 1.5 s, and ducks it under the voice by the film's word times (`duckingKeyframes`:
+`volume` between sentences, `duckedVolume` under speech, 0.25 s down before the first word, 0.5 s back up after the
+last). Comparing `probe.duration` with the film's length tells the app whether the bed will loop; a bed of a third of
+the film or less repeats audibly, so a longer one is worth asking for.
+
+The blocks run alone too: `probeFootage`, `probeAudio`, `normalizeFootage`, `transcribeFootage` (or a provider's `transcribe`),
 `buildEdl` / `readEdl` / `remapWords`, `duckingKeyframes`, `composeFootage`, `renderFootage`. Results are values
 (`{ ok, value } | { ok, error }`), and a dry run is `{ kind: "dry-run", steps }`. `createFakeSttProvider`,
 `createFakeIsolationProvider` and `createFakeMusicProvider` stand in for ElevenLabs in tests.

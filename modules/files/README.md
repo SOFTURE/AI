@@ -28,6 +28,9 @@ sandbox, a phone behind a proxy with a body limit) uploads through a signed URL 
   `Content-Length`, `Accept-Ranges`, `206` for a range, `416` past the end, `Content-Disposition`, and
   `Cache-Control: private, no-store` (no CDN keeps a copy), and the same `404` for an expired, revoked, deleted or
   forged link. `revokeFileLinks(ctx, fileId)` stops every link made so far.
+- **The owner's own view**: `serveStoredFile(ctx, fileId, request, { ownerId })` and the Next route
+  `createStoredFileRoute({ getOwnerId })` give the signed-in owner the same answer (ranges, headers, one `404`) for a
+  player or an image in the app's own page, with no public link. See §4.4.
 - **Resumable uploads** (`files.uploads`): `createUpload(ctx, { ownerId, name, contentType?, size, sha256?, kind?,
   ttlSeconds? })` opens a session and answers `{ uploadId, uploadUrl, chunkSize, chunkCount, expiresAt }`. The client
   sends the file to `uploadUrl` in chunks under the edge's body limit (64 MiB by default), resumes after a dropped
@@ -301,6 +304,45 @@ registerFileUploadTools(server, {
   `FILE_UPLOAD_TOOL_DESCRIPTIONS`. The catalog entries in `FILE_UPLOAD_MCP_TOOLS` stay as they are.
 - `hints`: the text answered for an error code, followed by the code: the hook's codes and the package's `files.*`
   codes alike. Without a hint a `files.*` code answers its sentence and any other code answers the code alone.
+
+### 4.4 Showing a file to its signed-in owner
+
+A link is for someone outside the app (a scheduler, a recipient). To play a stored video or show an image to the
+signed-in owner inside the app's own page, serve it by id through the owner route instead: no link is minted (no
+write), and the file stays unreachable without a session.
+
+```ts
+// app/media/[id]/route.ts
+import { getCurrentUser } from "@softure-ai/auth/next";
+import { createStoredFileRoute } from "@softure-ai/files/next";
+
+export const { GET, HEAD } = createStoredFileRoute({
+  getOwnerId: async () => (await getCurrentUser())?.id ?? null,
+});
+```
+
+```tsx
+<video src={`/media/${file.id}`} controls />
+```
+
+The route answers like a link (`GET` and `HEAD`, single byte ranges for seeking, `206`, `416`,
+`Cache-Control: private, no-store`, `nosniff`, the sandboxing CSP) under the file's stored name, `inline` by default
+(`disposition: "attachment"` for a download). Without a session, and for a file that is missing, expired, deleted or
+another owner's, it answers the same `404`, so it never tells whether a file exists. files does not depend on auth:
+the session lookup is the app's `getOwnerId`.
+
+**Unlike `/f` and `/u`, this route sits behind the app's sign-in guard**: list its prefix in
+`createAuthGuard(config, { protect: [...] })` and add no edge bypass for it.
+
+A route of the app's own (another path shape, an extra permission check) calls the server function with the owner it
+has checked:
+
+```ts
+import { getFilesContext } from "@softure-ai/files/next";
+import { serveStoredFile } from "@softure-ai/files/server";
+
+return serveStoredFile(await getFilesContext(), fileId, request, { ownerId: user.id });
+```
 
 ## 5. Migrations and tables
 
