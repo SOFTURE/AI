@@ -53,7 +53,8 @@ limit check made race-free.
   fields (`withStrictToolInput`, `/server`), an opt-in `get_server_info` tool that tells which build answers
   (`serverInfoTool`, `/server`), a stdio entry for local assistants (`/stdio`), a catalog parity check (`/testing`), a gate before a
   token is issued (`issueToken`, `/next`), long operations as tools over `@softure-ai/jobs` (`startOperation`,
-  `get_operation`, `cancel_operation`, `/jobs`) and the `softure-mcp prune` command for a daily cleanup (§4, §5).
+  `get_operation`, `cancel_operation`, `/jobs`) or as MCP Tasks for clients that declare them (`registerOperationTasks`)
+  and the `softure-mcp prune` command for a daily cleanup (§4, §5).
 
 ## 2. Installation
 
@@ -346,6 +347,40 @@ export async function createServer(identity: McpServerIdentity) {
   (`retention` of jobs).
 - `getOperation` and `cancelOperation` are the same reads as functions; the texts are under `operations` in the
   module dictionary, and `name`/`description` rename a tool.
+
+#### As MCP Tasks
+
+A client that speaks the Tasks extension (`io.modelcontextprotocol/tasks`, protocol revision 2026-07-28) can follow an
+operation as a task instead of calling `get_operation`. It is opt-in per tool and needs two things on the same server:
+pass the tool handler's request context as `taskRequest`, and register the task handlers.
+
+```ts
+import { registerOperationTasks, startOperation } from "@softure-ai/mcp-access/jobs";
+
+server.registerTool("render_video", { inputSchema: z.object({ videoId: z.string() }) }, (args, request) =>
+  withToolErrors(() => startOperation(ctx, identity, { queue: "video.render", payload: args, taskRequest: request })),
+);
+registerOperationStatusTool(server, { ctx, identity, readResult }); // still there for every other client
+registerOperationTasks(server, { ctx, identity, readResult });
+```
+
+- Only a request whose client declared the extension in its per-request capabilities gets a task (`resultType:
+  "task"`, `status: "working"`, `ttlMs`, `pollIntervalMs`). A client that did not, including every 2025-era client,
+  gets the operation id exactly as above, so the polling tools stay the default.
+- `registerOperationTasks(server, { ctx, identity, readResult?, poll? })` declares the extension in `server/discover`
+  and answers `tasks/get`, `tasks/update` and `tasks/cancel` for the request's account:
+  - `tasks/get`: `working` while the operation is queued or running (`statusMessage` says which, or that a stop was
+    asked; `pollIntervalMs` is `pollAfterSeconds` in milliseconds); `completed` once it ended with a `result` that is
+    the `get_operation` answer as a tool result (with the app's `readResult`), marked `isError: true` when the
+    operation failed (the spec keeps the `failed` status for protocol errors); `cancelled` when it was cancelled.
+  - `tasks/cancel`: like `cancel_operation`, a write: a read-only token gets `-32600`. An operation that has ended is
+    acknowledged all the same (cancelling is cooperative in the spec).
+  - `tasks/update`: operations never ask for input, so an owned task is acknowledged.
+  - An unknown task, another account's, or one whose job is gone is `-32602` "Task not found"; an expired one `-32602`
+    "Task has expired"; a request without the declared extension `-32021`.
+- A task id is random (32 bytes, base64url) and stored in `mcp.operation_tasks` (§5) with its owner, its job and an
+  expiry: `taskTtlSeconds` on `startOperation`, a minute to thirty days, default a day. The same account starting the
+  same running operation again (same `dedupKey`) gets the same task. Progress counts stay with `get_operation`.
 
 ### Confirmed calls
 
@@ -715,9 +750,15 @@ rows past `expires_at`.
 32 scopes and no grant. Existing rows become MCP tokens through the defaults. An API token's `token_hash` is the
 sha256 of its random part after the prefix (the prefix is checked by shape before any lookup). Rollback: in the migration header.
 
+`migrations/0006_create_operation_tasks.sql` creates `mcp.operation_tasks` for long operations as MCP Tasks (§4):
+`task_id` (random, 43 base64url characters, the primary key), `user_id` (`REFERENCES auth.users ON DELETE CASCADE`),
+`job_id` (the operation's job in `@softure-ai/jobs`, no foreign key since jobs is optional), `created_at` and
+`expires_at`, unique per account and job. `pruneOperationTasks(ctx)` (`/server`) deletes the rows past `expires_at`;
+the jobs themselves follow the `retention` of jobs.
+
 ### Scheduled pruning
 
-`pruneMcpAccess(ctx)` (`/server`) runs the prunes of tokens, OAuth records and used confirmations and counts what each removed. The `softure-mcp prune` command
+`pruneMcpAccess(ctx)` (`/server`) runs the prunes of tokens, OAuth records, used confirmations and operation tasks and counts what each removed. The `softure-mcp prune` command
 runs it with the app's config (loaded like `softure migrate`, or from an app script through `runMcpAccessCli` from
 `/cli`) and prints one line. Run it daily, e.g. as a `maintain` hook of `@softure-ai/deploy`:
 
@@ -839,8 +880,9 @@ to `@softure-ai/privacy` (`privacy` flags on):
 - **Export** (`exportMcpAccessUserData`): `accessTokens`, each hand-issued token's name, kind
   (`mcp` or `api`), scopes, write flag and created, expiry and last-use dates, and `connectedApps`, each grant's client name, write
   flag, created and last-use dates. Never a hash.
-- **Deletion** (`deleteMcpAccessUserData`): the user's authorization codes, grants and tokens,
-  before auth deletes the account (the foreign keys' cascade would remove them too). Registered
+- **Deletion** (`deleteMcpAccessUserData`): the user's authorization codes, grants, tokens and MCP tasks,
+  before auth deletes the account (the foreign keys' cascade would remove them too). Tasks hold a job id and dates
+  only, so the export leaves them out. Registered
   clients hold no personal data and are pruned when unused.
 
 ## 12. Limitations / known gaps
@@ -854,4 +896,6 @@ to `@softure-ai/privacy` (`privacy` flags on):
 - One API token kind per app (one prefix); the `kind` column takes more kinds without a migration of the rows.
 - `responseMode: "json"` drops mid-call notifications; a streaming tool would need a different mode. Long work is an
   operation instead (start, `get_operation`, `cancel_operation`).
-- Long operations answer through polling tools only; MCP Tasks (spec 2025-11-25, experimental) is not used yet.
+- MCP Tasks follow the extension of revision 2026-07-28 only; the 2025-11-25 core Tasks (task-augmented requests,
+  `tasks/result`, `tasks/list`) are not served, and those clients use the polling tools. Tasks carry no input
+  requests and no `notifications/tasks`.

@@ -66,7 +66,7 @@ async function prune(options: RunMcpAccessCliOptions, output: CliOutput): Promis
     opened = await (options.openDatabase ?? ((settings) => openCommandDatabase(settings, { max: 1 })))(database);
     const removed = await pruneMcpAccess({ db: opened.handle.db, clock: options.clock ?? systemClock, config: options.config });
     output.log(
-      `softure-mcp prune: removed ${String(removed.accessTokens)} access tokens, ${String(removed.codes)} authorization codes, ${String(removed.grants)} grants, ${String(removed.clients)} clients, ${String(removed.usedConfirmations)} used confirmations`,
+      `softure-mcp prune: removed ${String(removed.accessTokens)} access tokens, ${String(removed.codes)} authorization codes, ${String(removed.grants)} grants, ${String(removed.clients)} clients, ${String(removed.usedConfirmations)} used confirmations, ${String(removed.operationTasks)} operation tasks`,
     );
     return EXIT_OK;
   } catch (error) {
