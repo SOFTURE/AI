@@ -1,12 +1,13 @@
 ---
 change_id: deploy-backup-data-missing-folder-1001
 title: "deploy: backup-data skips a data.backupPaths folder that does not exist yet (issue #1001)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1001
 branch: claude/project-thread-me5ndz
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent
