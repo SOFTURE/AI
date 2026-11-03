@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.3.0
 
 - Look maps for the screens `@softure-ai/pwa` names, now components of `@softure-ai/ui` (#960): `UPDATE_PROMPT_LOOK`
   and `INSTALL_BAR_LOOK` (flat panel rising in with `prompt-enter`, title on `subsection`, `accent` icon, the primary
