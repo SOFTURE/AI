@@ -5,9 +5,10 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import type { BrandColors } from "../config/colors.js";
 import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProvider } from "./fake.js";
 import { DEFAULT_TRANSITIONS, type FootageClip, type FootageFilm } from "./film.js";
-import { cutFootage, getEdlPath, getMusicPaidStep, prepareFootage, readEdlFile, readRenderPercent, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
+import { cutFootage, getEdlPath, getMusicPaidStep, prepareFootage, readEdlFile, readRenderPercent, renderFootage, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
 import type { FootageProbe } from "./probe.js";
 
 const PROBE: FootageProbe = { duration: 6, width: 1080, height: 1920, rotation: 0, displayWidth: 1080, displayHeight: 1920, codec: "h264", pixelFormat: "yuv420p", colorTransfer: null, hdr: null, hasAudio: true };
@@ -107,6 +108,30 @@ describe("the footage pipeline without ffmpeg", () => {
     writeFileSync(path, JSON.stringify({ ...edited, segments: [{ id: "s1", clip: "gone", start: 0, end: 1, transition: "cut", motion: "none" }] }));
     expect(readEdlFile(film(), clips, path)).toEqual({ ok: false, error: `${path}: segments[0].clip: no clip "gone" in the film` });
     expect(getEdlPath("/b", true)).toBe("/b/edl.placeholder.json");
+  });
+
+  it("ends a render on a full temp folder with a sentence, before the music is bought or any step runs", async () => {
+    const { run, providers } = options({ isCommit: true });
+    const clips = [clip("talk", "talk", null)];
+    const edl = cutFootage(film(), clips, { talk: [{ text: "Hej", start: 1, end: 1.5 }] }, getEdlPath(run.buildDir, false));
+    lines.length = 0;
+    const tempDir = join(dir, "small-tmp");
+    const result = await renderFootage(film(), clips, { kind: "ready", words: { talk: [{ text: "Hej", start: 1, end: 1.5 }] }, speech: { talk: join(dir, "talk.mp3") } }, edl, {
+      ...run,
+      brand: { name: "Brand", locale: "pl-PL", colors: {} as BrandColors, fonts: { heading: null, body: null }, logo: null },
+      sfx: {},
+      quality: "draft",
+      output: join(dir, "out", "film.mp4"),
+      tempDir,
+      readFreeBytes: (folder) => (folder === tempDir ? 300 * 1024 ** 2 : 50 * 1024 ** 3),
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: `not enough disk space to render: the temp folder ${tempDir} has 0.3 GiB free and a hyperframes render needs 1.0 GiB; hyperframes extracts the clips' frames there (hundreds of MB per minute of film): point TMPDIR (or renderFootage's tempDir) at a data volume, not a small tmpfs.`,
+    });
+    expect(providers.music.calls).toEqual([]);
+    expect(lines).toEqual([]);
+    expect(existsSync(join(run.buildDir, "assets"))).toBe(false);
   });
 });
 
