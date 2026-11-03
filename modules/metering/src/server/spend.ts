@@ -4,7 +4,18 @@
 import { err, ok, type ModuleContext, type Ok, type Err } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { and, eq, sql, type SQL } from "drizzle-orm";
-import type { BudgetExceeded, BudgetPeriod, BudgetScope, BudgetState, SpendReservation, SpendSummary } from "../contract.js";
+import type {
+  BudgetExceeded,
+  BudgetPeriod,
+  BudgetScope,
+  BudgetState,
+  SpendBreakdown,
+  SpendBreakdownRow,
+  SpendFilter,
+  SpendGroupBy,
+  SpendReservation,
+  SpendSummary,
+} from "../contract.js";
 import type { BudgetDefinition, ProviderDefinition } from "../options.js";
 import { charges } from "../schema.js";
 import { getMeteringOptions, getProviderDefinition } from "./options.js";
@@ -19,6 +30,8 @@ export type ChargeAttributes = Readonly<Record<string, string>>;
 const MAX_AMOUNT = 1e15;
 const MAX_STEP_LENGTH = 100;
 const MAX_ACCOUNT_ID_LENGTH = 200;
+const MAX_ATTRIBUTE_LENGTH = 100;
+const MAX_ATTRIBUTE_VALUE_LENGTH = 500;
 
 export interface SpendInput {
   /** A provider declared in `metering({ providers })`. */
@@ -42,6 +55,13 @@ export interface SpendQuery {
   readonly period: BudgetPeriod;
   /** The account's spend and its per-account budget; without it, the whole provider's. */
   readonly accountId?: string;
+  /** Only the charges whose attribute has this value, e.g. one item's spend. The budget fields stay the scope's. */
+  readonly filter?: SpendFilter;
+}
+
+export interface SpendBreakdownQuery extends SpendQuery {
+  /** Rows per `step`, or per value of one attribute. */
+  readonly groupBy: SpendGroupBy;
 }
 
 /**
@@ -143,25 +163,75 @@ export async function recordCharge(ctx: MeteringContext, input: ChargeInput): Pr
 
 /** The provider's (or the account's) spend in the current day or month and the budget that limits it, if any. */
 export async function getSpend(ctx: MeteringContext, query: SpendQuery): Promise<Ok<SpendSummary>> {
-  const provider = getProviderDefinition(ctx.config, query.provider);
-  if (query.accountId !== undefined) assertAccountId("getSpend", query.accountId);
-  const now = ctx.clock.now();
-  const bounds = getPeriodBounds(query.period, now, ctx.config.timezone);
-  const budget = provider.budgets.find((candidate) => candidate.period === query.period && candidate.perAccount === (query.accountId !== undefined));
-  const totals = await sumSpend(ctx.db, { providerId: provider.id, accountId: query.accountId, from: bounds.from, to: bounds.resetsAt, now, limit: budget?.limit ?? null, adding: 0 });
+  const scope = resolveSpendScope(ctx, "getSpend", query);
+  const budget = scope.provider.budgets.find((candidate) => candidate.period === query.period && candidate.perAccount === (query.accountId !== undefined));
+  const totals = await sumSpend(ctx.db, { ...scope.sum, limit: budget?.limit ?? null, adding: 0 });
   return ok({
-    provider: provider.id,
-    unit: provider.unit,
+    provider: scope.provider.id,
+    unit: scope.provider.unit,
     period: query.period,
     accountId: query.accountId ?? null,
-    from: bounds.from,
-    resetsAt: bounds.resetsAt,
+    from: scope.sum.from,
+    resetsAt: scope.sum.to,
     settled: totals.settled,
     reserved: totals.reserved,
     spent: totals.spent,
     limit: budget?.limit ?? null,
     remaining: totals.remaining,
   });
+}
+
+/**
+ * The provider's (or the account's) spend in the current day or month per step or per value of one attribute, e.g.
+ * `groupBy: { attribute: "jobId" }` for the cost of each item. Charges without the step or the attribute form the row
+ * with `key: null`, so the rows add up to `getSpend` of the same query. Throws for an undeclared provider or an
+ * invalid attribute name or value: those are bugs.
+ */
+export async function getSpendBreakdown(ctx: MeteringContext, query: SpendBreakdownQuery): Promise<Ok<SpendBreakdown>> {
+  const scope = resolveSpendScope(ctx, "getSpendBreakdown", query);
+  if (query.groupBy !== "step") assertAttributeName("getSpendBreakdown", query.groupBy.attribute);
+  const key = query.groupBy === "step" ? sql`step` : sql`attributes ->> ${query.groupBy.attribute}`;
+  const result = await ctx.db.execute<{ key: string | null; settled: string; reserved: string; spent: string }>(sql`
+    with totals as (
+      select
+        ${key} as key,
+        coalesce(sum(amount) filter (where status = 'settled'), 0) as settled,
+        coalesce(sum(amount) filter (where status = 'reserved'), 0) as reserved
+      from metering.charges
+      where ${getSpendConditions(scope.sum)}
+      group by 1
+    )
+    select key, settled::text as settled, reserved::text as reserved, (settled + reserved)::text as spent
+    from totals
+    order by settled + reserved desc, key asc nulls last`);
+  const rows = result.rows.map(
+    (row): SpendBreakdownRow => ({ key: row.key, settled: Number(row.settled), reserved: Number(row.reserved), spent: Number(row.spent) }),
+  );
+  return ok({
+    provider: scope.provider.id,
+    unit: scope.provider.unit,
+    period: query.period,
+    accountId: query.accountId ?? null,
+    groupBy: query.groupBy,
+    filter: query.filter ?? null,
+    from: scope.sum.from,
+    resetsAt: scope.sum.to,
+    rows,
+  });
+}
+
+interface SpendScope {
+  readonly provider: ProviderDefinition;
+  readonly sum: Omit<SpendSum, "limit" | "adding">;
+}
+
+function resolveSpendScope(ctx: MeteringContext, operation: string, query: SpendQuery): SpendScope {
+  const provider = getProviderDefinition(ctx.config, query.provider);
+  if (query.accountId !== undefined) assertAccountId(operation, query.accountId);
+  if (query.filter !== undefined) assertFilter(operation, query.filter);
+  const now = ctx.clock.now();
+  const bounds = getPeriodBounds(query.period, now, ctx.config.timezone);
+  return { provider, sum: { providerId: provider.id, accountId: query.accountId, filter: query.filter, from: bounds.from, to: bounds.resetsAt, now } };
 }
 
 interface BudgetCheck {
@@ -196,6 +266,7 @@ async function readBudgetState(tx: Queryable, check: BudgetCheck): Promise<{ rea
 interface SpendSum {
   readonly providerId: string;
   readonly accountId: string | undefined;
+  readonly filter?: SpendFilter | undefined;
   readonly from: Date;
   readonly to: Date;
   readonly now: Date;
@@ -212,7 +283,8 @@ interface SpendTotals {
   readonly isOver: boolean;
 }
 
-async function sumSpend(db: Queryable, input: SpendSum): Promise<SpendTotals> {
+/** The charges that count in a period: settled ones and unexpired reservations of the provider (and account). */
+function getSpendConditions(input: Omit<SpendSum, "limit" | "adding">): SQL {
   const conditions: SQL[] = [
     sql`provider = ${input.providerId}`,
     sql`created_at >= ${input.from.toISOString()}::timestamptz`,
@@ -220,6 +292,12 @@ async function sumSpend(db: Queryable, input: SpendSum): Promise<SpendTotals> {
     sql`(status = 'settled' or expires_at > ${input.now.toISOString()}::timestamptz)`,
   ];
   if (input.accountId !== undefined) conditions.push(sql`account_id = ${input.accountId}`);
+  // Containment, not `->>` equality, so the GIN index of migration 0002 serves it for any attribute.
+  if (input.filter !== undefined) conditions.push(sql`attributes @> jsonb_build_object(${input.filter.attribute}::text, ${input.filter.value}::text)`);
+  return sql.join(conditions, sql` and `);
+}
+
+async function sumSpend(db: Queryable, input: SpendSum): Promise<SpendTotals> {
   const limit = input.limit === null ? sql`null::numeric` : sql`${String(input.limit)}::numeric`;
   // `greatest` skips nulls, so without a limit the remaining amount is null explicitly.
   const remaining = input.limit === null ? sql`null::text` : sql`greatest(${limit} - (settled + reserved), 0)::text`;
@@ -229,7 +307,7 @@ async function sumSpend(db: Queryable, input: SpendSum): Promise<SpendTotals> {
         coalesce(sum(amount) filter (where status = 'settled'), 0) as settled,
         coalesce(sum(amount) filter (where status = 'reserved'), 0) as reserved
       from metering.charges
-      where ${sql.join(conditions, sql` and `)}
+      where ${getSpendConditions(input)}
     )
     select
       settled::text as settled,
@@ -275,5 +353,18 @@ function assertAmount(operation: string, amount: number): void {
 function assertAccountId(operation: string, accountId: string): void {
   if (accountId.length === 0 || accountId.length > MAX_ACCOUNT_ID_LENGTH) {
     throw new RangeError(`${operation}: accountId must be 1 to ${String(MAX_ACCOUNT_ID_LENGTH)} characters`);
+  }
+}
+
+function assertFilter(operation: string, filter: SpendFilter): void {
+  assertAttributeName(operation, filter.attribute);
+  if (filter.value.length === 0 || filter.value.length > MAX_ATTRIBUTE_VALUE_LENGTH) {
+    throw new RangeError(`${operation}: the value of attribute "${filter.attribute}" must be 1 to ${String(MAX_ATTRIBUTE_VALUE_LENGTH)} characters`);
+  }
+}
+
+function assertAttributeName(operation: string, attribute: string): void {
+  if (attribute.length === 0 || attribute.length > MAX_ATTRIBUTE_LENGTH) {
+    throw new RangeError(`${operation}: attribute must be 1 to ${String(MAX_ATTRIBUTE_LENGTH)} characters`);
   }
 }
