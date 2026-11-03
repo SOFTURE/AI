@@ -1,12 +1,13 @@
 ---
 change_id: alerts-mail-html-1004
 title: "alerts: mailChannel sends an HTML part next to the text (issue #1004)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1004
 branch: claude/project-thread-b5rov2
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent

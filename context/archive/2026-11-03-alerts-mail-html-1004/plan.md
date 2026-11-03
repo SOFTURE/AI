@@ -1,6 +1,6 @@
 ---
 change_id: alerts-mail-html-1004
-status: in_progress
+status: done
 ---
 
 # Plan: mailChannel sends an HTML part next to the text (issue #1004)
@@ -35,5 +35,5 @@ part on by default; what an app with its own HTML channel can drop).
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 1: `f20f809`
+- [x] Phase 2: `f20f809` (docs landed with phase 1)
