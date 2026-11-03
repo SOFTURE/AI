@@ -140,7 +140,7 @@ export function buildRuleGroupBody(rules: GrafanaRulesFile, paused: boolean): Re
 }
 
 function createClient(options: ApplyGrafanaOptions): GrafanaClient {
-  const baseUrl = options.url.replace(/\/+$/, "");
+  const baseUrl = trimTrailingSlashes(options.url);
   const fetchImpl = options.fetch ?? fetch;
   return {
     async request(method, path, body) {
@@ -220,6 +220,14 @@ function describeFailure(method: string, path: string, response: GrafanaResponse
 
 function failed(steps: string[], problem: string): GrafanaApplyResult {
   return { kind: "failed", steps, problem };
+}
+
+function trimTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") {
+    end -= 1;
+  }
+  return url.slice(0, end);
 }
 
 function parseJson(text: string): unknown {
