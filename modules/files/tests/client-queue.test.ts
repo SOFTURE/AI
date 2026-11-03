@@ -125,6 +125,38 @@ describe("createUploadQueue", () => {
     expect(puts).toHaveLength(3);
   });
 
+  it("keeps a session opened while the item was paused, so the resume opens no second one", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let markOpened: () => void = () => undefined;
+    const openedSession = new Promise<void>((resolve) => {
+      markOpened = resolve;
+    });
+    const queue = await setup({
+      open: async (file) => {
+        opened += 1;
+        await gate;
+        const created = await createUpload(ctx, { ownerId: ALICE, name: file.name, contentType: "video/mp4", size: file.size });
+        markOpened();
+        return created;
+      },
+    });
+    const [id = ""] = queue.add([new File([CONTENT], "clip.mp4")]);
+    queue.pause(id);
+    release();
+    await openedSession;
+    // The queue takes the answer on the next turn of the event loop.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(queue.getItems()[0]?.state).toBe("paused");
+
+    queue.resume(id);
+    await settle(queue);
+    expect(queue.getItems()[0]?.state).toBe("done");
+    expect(opened).toBe(1);
+  });
+
   it("removes an upload: it is stopped, dropped from the list and never finalized", async () => {
     const queue = await setup();
     const [first = "", second = ""] = queue.add([new File([CONTENT], "one.mp4"), new File([CONTENT], "two.mp4")]);

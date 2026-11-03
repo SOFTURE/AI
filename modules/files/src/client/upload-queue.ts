@@ -127,10 +127,11 @@ export function createUploadQueue<TSession extends UploadQueueSession>(options: 
       let session = entry.session;
       if (session === null) {
         const opened = await options.open(entry.file);
+        // A session opened while the item was paused is kept, so the resume does not open a second one.
+        if (opened.ok) entry.session = opened.value;
         if (!isCurrent()) return;
         if (!opened.ok) return fail(entry, opened.error);
         session = opened.value;
-        entry.session = session;
       }
       const sent = await sendUpload(entry.file, {
         uploadUrl: session.uploadUrl,

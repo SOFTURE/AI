@@ -65,13 +65,13 @@ Done when the tests and every gate pass.
 ### Phase 1: the sender and the page
 
 #### Automated
-- [ ] 1.1 `sendUpload` tests pass against the real route
-- [ ] 1.2 The page runs the inlined sender
-- [ ] 1.3 Gates green (typecheck, lint, test)
+- [x] 1.1 `sendUpload` tests pass against the real route — a9349ec
+- [x] 1.2 The page runs the inlined sender — a9349ec
+- [x] 1.3 Gates green (typecheck, lint, test) — a9349ec
 
 ### Phase 2: the queue and the docs
 
 #### Automated
-- [ ] 2.1 Queue tests pass
-- [ ] 2.2 README and CHANGELOG describe the client
-- [ ] 2.3 Gates green (typecheck, lint, test, build)
+- [x] 2.1 Queue tests pass — bd90407
+- [x] 2.2 README and CHANGELOG describe the client — bd90407
+- [x] 2.3 Gates green (typecheck, lint, test, build) — bd90407
