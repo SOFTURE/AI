@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-render-disk-1014
 title: "marketing-kit: footage renders fail with code 1 when hyperframes' temp folder has under 1 GiB free (issue #1014)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1014
 branch: claude/project-thread-nyfwiw
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent

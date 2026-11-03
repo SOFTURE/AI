@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-render-disk-1014
-status: in_progress
+status: done
 ---
 
 # Plan: footage renders need 1 GiB free in the temp and build folders (issue #1014)
@@ -45,4 +45,4 @@ Dockerfile comment and `ENV TMPDIR` guidance, CHANGELOG `## Unreleased`.
 
 - [x] Phase 1: the disk check (459ff94)
 - [x] Phase 2: the render (6caa22f)
-- [ ] Phase 3: docs
+- [x] Phase 3: docs (7344649)
