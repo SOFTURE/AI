@@ -59,5 +59,5 @@ export {
 export { signUploadPath, verifyUploadPath } from "./upload-tokens.js";
 export { FILES_UPLOAD_RATE_LIMIT_BUCKET, serveUpload } from "./serve-upload.js";
 export { renderUploadPage } from "./upload-page.js";
-export { parseRangeHeader, serveFileLink } from "./serve.js";
+export { parseRangeHeader, serveFileLink, serveStoredFile, type ServeStoredFileOptions } from "./serve.js";
 export { EMPTY_PAYLOAD_SHA256, encodeRfc3986, signRequest, type SigV4Credentials, type SignRequestInput } from "./sigv4.js";

@@ -8,11 +8,11 @@ import { clearSoftureConfig, registerSoftureConfig } from "@softure-ai/core/next
 import { closeConfiguredDatabases, createPgliteHandle } from "@softure-ai/db";
 import { createTestDatabase } from "@softure-ai/db/testing";
 import { files } from "@softure-ai/files";
-import { getFilesContext, serveFileLinkRoute } from "@softure-ai/files/next";
+import { createStoredFileRoute, getFilesContext, serveFileLinkRoute } from "@softure-ai/files/next";
 import { createFileLink, createLocalStorage, saveFile } from "@softure-ai/files/server";
 import { createTestLinkKeys } from "@softure-ai/files/testing";
 import { afterEach, describe, expect, it } from "vitest";
-import { ALICE, chunked } from "./support.js";
+import { ALICE, BOB, chunked } from "./support.js";
 
 describe("the Next adapter", () => {
   const envBefore = { ...process.env };
@@ -63,6 +63,48 @@ describe("the Next adapter", () => {
     const head = await serveFileLinkRoute(new Request(link.value.url, { method: "HEAD" }));
     expect([head.status, head.headers.get("content-length")]).toEqual([200, "11"]);
     expect((await serveFileLinkRoute(new Request(`${link.value.url}x`))).status).toBe(404);
+  });
+
+  it("serves a stored file to its signed-in owner and the one 404 to anyone else", async () => {
+    dir = mkdtempSync(join(tmpdir(), "softure-files-next-"));
+    const modules = [files({ storage: createLocalStorage({ dir }) })];
+    const database = await createTestDatabase(modules);
+    const client = database.client;
+    registerSoftureConfig(
+      defineSoftureConfig({
+        locale: "en",
+        timezone: "Europe/Warsaw",
+        appOrigin: "https://app.example.com",
+        modules,
+        database: { url: "pglite://", handle: () => createPgliteHandle(client) },
+      }),
+    );
+    const saved = await saveFile(await getFilesContext(), {
+      ownerId: ALICE,
+      body: chunked("video bytes"),
+      name: "clip.mp4",
+      contentType: "video/mp4",
+    });
+    if (!saved.ok) throw new Error(`setup: ${saved.error}`);
+    let signedIn: string | null = ALICE;
+    const route = createStoredFileRoute({ getOwnerId: () => Promise.resolve(signedIn) });
+    const url = `https://app.example.com/media/${saved.value.id}`;
+    const params = { params: Promise.resolve({ id: saved.value.id }) };
+
+    const get = await route.GET(new Request(url, { headers: { range: "bytes=6-" } }), params);
+    expect([get.status, get.headers.get("content-disposition"), await get.text()]).toEqual([
+      206,
+      `inline; filename="clip.mp4"; filename*=UTF-8''clip.mp4`,
+      "bytes",
+    ]);
+    const head = await route.HEAD(new Request(url, { method: "HEAD" }), params);
+    expect([head.status, head.headers.get("content-length")]).toEqual([200, "11"]);
+
+    signedIn = BOB;
+    expect((await route.GET(new Request(url), params)).status).toBe(404);
+    signedIn = null;
+    const anonymous = await route.GET(new Request(url), params);
+    expect([anonymous.status, anonymous.headers.get("cache-control"), await anonymous.text()]).toEqual([404, "private, no-store", "Not found\n"]);
   });
 
   it("refuses an app without a database", async () => {
