@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-audio-probe-996
 title: "marketing-kit: probe audio-only files (duration, codec) for music beds (issue #996)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 996
 branch: claude/project-thread-x6qmua
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent

@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-audio-probe-996
-status: in_progress
+status: done
 ---
 
 # Plan: probe audio-only files for music beds (issue #996)
@@ -57,4 +57,10 @@ trimmed by `buildMusicArgs`, ducked by `duckingKeyframes`, `volume` / `duckedVol
 
 - [x] Phase 1: the audio probe and the type check (2b9b677)
 - [x] Phase 2: the pipeline gate (bf617cf)
-- [ ] Phase 3: docs
+- [x] Phase 3: docs (72dd6e3)
+
+## Verification
+
+- `vitest run tools/marketing-kit tests/repo`: green (1400+ passed); the 3 new pipeline cases fail with `pipeline.ts`
+  reverted.
+- `npm run typecheck`, ESLint and the language gate green in the pre-commit hook.
