@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-mix-loudness-1031
 title: "marketing-kit: the footage film's final mix at a loudness target, and the music's ducking attack/release (issue #1031)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1031
 branch: claude/project-thread-wg8mj2
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent

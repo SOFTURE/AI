@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-mix-loudness-1031
-status: in_progress
+status: done
 ---
 
 # Plan: the footage film's mix loudness and the ducking timing (issue #1031)
@@ -51,6 +51,6 @@ README (the finished film's loudness, the ducking timing), CHANGELOG `## Unrelea
 
 ## Progress
 
-- [ ] Phase 1: loudness of the finished film
-- [ ] Phase 2: the ducking timing and the config
-- [ ] Phase 3: docs
+- [x] Phase 1: loudness of the finished film (ca3caba; the ducking options on `FootageMusic` and `getDuckingOptions` landed here too)
+- [x] Phase 2: the ducking timing and the config (0234b5b)
+- [x] Phase 3: docs (6c01d91)
