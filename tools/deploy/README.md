@@ -967,7 +967,9 @@ the flags nothing changes.
   it from the same context, tag and build arguments next to the app image and pushes it with the release tag; `deploy.sh`
   pulls both before anything restarts and `maintain` cleans up the old tags of both. init writes a starter at that path
   (kept when it exists): a Debian (glibc) builder that bundles `scripts/worker.ts` into `worker.mjs` like the app image
-  does, then a runtime stage `FROM ${WORKER_BASE_IMAGE}` with `node_modules`, `worker.mjs` and the user uid 1001. Set
+  does (`@softure-ai/marketing-kit` stays external and loads from `node_modules`: its footage blocks carry native
+  binaries and resolve hyperframes at run time), then a runtime stage `FROM ${WORKER_BASE_IMAGE}` with `node_modules`,
+  `worker.mjs` and the user uid 1001. Set
   `WORKER_BASE_IMAGE` to the image with the worker's tools, e.g. one built from `@softure-ai/marketing-kit`'s
   `docker/footage-worker.Dockerfile` (Debian trixie, ffmpeg with libzimg, chrome-headless-shell, fonts) and pushed by
   digest; the default `node:22-trixie-slim` has none of them. The base needs Node 22 and glibc. `prebuilt-image` and
@@ -997,7 +999,9 @@ Right after each database backup (the deploy's `backup` step and `maintain`'s), 
 folders of the data volume (relative to its mount path, plain segments, no `..`) with `tar` in a one-off `app`
 container into `backups/data-<UTC yyyymmdd-hhmmss>.tar.gz` (mode `0600`, through a hidden file renamed only when tar
 succeeds), and keeps the database's retention: the newest seven, none older than 30 days. Its step line is
-`step|backup-data|ok|<file>`; a failure stops the release before anything restarts. List only what cannot be rebuilt
+`step|backup-data|ok|<file>`; a failure stops the release before anything restarts. A listed folder that does not
+exist in the volume yet (the first release on a new volume) is skipped and named in the step line
+(`<file> (skipped <paths>)`, or `skipped <paths>` with no archive when none exists). List only what cannot be rebuilt
 (a cache of paid results); rendered files that can be made again stay out. Without `data.backupPaths` nothing is
 archived.
 

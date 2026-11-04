@@ -6,6 +6,24 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 
 ## Unreleased
 
+- `softure-observability grafana apply --rules <file> [--dashboard <file>] [--commit] [--paused]` and
+  `applyGrafanaResources()` in `/node` apply Grafana alert rules and a dashboard kept as code in the app (#1006),
+  with `GRAFANA_URL` and `GRAFANA_TOKEN` from the environment. Dry run by default; `--commit` creates the folder when
+  missing, refuses when the contact point does not exist (it is never created), replaces the rule group in one `PUT`
+  with `X-Disable-Provenance` and `notification_settings.receiver` on every rule, and upserts the dashboard.
+  `--paused` applies every rule paused.
+- `grafanaRulesFileSchema` / `parseGrafanaRulesFile` (and `grafanaDashboardSchema` / `parseGrafanaDashboard`) for the
+  app's tests; builders `buildServiceSilentRule` and `buildLogProblemsRule` for the common rules, keyed on
+  `service_namespace`, `service_name` and `deployment_environment`.
+- New dependency: `zod`.
+- Migration: an app with its own apply script moves its rules into the file shape of the README (folder, receiver,
+  group, intervalSeconds, rules), drops `folderUID`, `ruleGroup` and `notification_settings` from each rule (the
+  command sets them), runs the dry run, compares, then replaces its script with `grafana apply --commit`. Rules can
+  keep their uids; a rule replaced by a builder gets the builder's uid, so Grafana deletes the old rule and creates
+  the new one (its alert state starts over).
+
+## 0.5.0
+
 - `errorDetails: "label"` now tells errors apart without logging any message (#932). The label names the cause chain
   with safe codes, which may be Node system and undici codes as well as SQLSTATEs (`Error cause=Error
   code=ETIMEDOUT`), and `exception.stacktrace` holds the first two frames of the app without the message line (it

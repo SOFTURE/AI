@@ -9,7 +9,10 @@ export const REPOSITORY_URL = "git+https://github.com/SOFTURE/AI.git";
 
 const TAG_PATTERN = /^([a-z0-9][a-z0-9-]*)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
 const TAG_FORM = "<package>@x.y.z (e.g. core@0.1.0)";
-const DEPENDENCY_FIELDS = ["dependencies", "peerDependencies", "optionalDependencies"];
+// devDependencies count too: every workspace installs them, and npm links one only when its range
+// accepts the workspace version; otherwise it fetches a registry copy and reshuffles the links (#982).
+const DEPENDENCY_FIELDS = ["dependencies", "peerDependencies", "optionalDependencies", "devDependencies"];
+const NODE_MODULES_SEGMENT = "node_modules/";
 // Sources and their compiled output: `x.test.ts`, `x.test.js`, `x.test.d.ts`, `x.test.jsx`, ….
 const TEST_FILE_PATTERN = /(^|\/)tests\/|\.test\.(d\.)?[cm]?[jt]sx?$/;
 
@@ -123,6 +126,27 @@ export function checkInternalRanges(manifest, workspaceVersions) {
       return [];
     });
   });
+}
+
+/**
+ * Lockfile entries that install a workspace package as something other than a link to the
+ * workspace, such as `modules/x/node_modules/@softure-ai/core` resolved from the registry. Code that
+ * imports such a copy runs against a published version instead of the workspace sources.
+ * @param {unknown} lock the parsed `package-lock.json`
+ * @param {Set<string>} workspaceNames
+ * @returns {string[]} the entry keys, sorted
+ */
+export function findRegistryWorkspaceCopies(lock, workspaceNames) {
+  const packages = isRecord(lock) ? lock.packages : undefined;
+  if (!isRecord(packages)) return [];
+  return Object.entries(packages)
+    .filter(([key, entry]) => {
+      const index = key.lastIndexOf(NODE_MODULES_SEGMENT);
+      if (index === -1 || !workspaceNames.has(key.slice(index + NODE_MODULES_SEGMENT.length))) return false;
+      return !isRecord(entry) || entry.link !== true;
+    })
+    .map(([key]) => key)
+    .sort();
 }
 
 /**

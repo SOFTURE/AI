@@ -167,6 +167,9 @@ No components. The dictionaries name the check states for an admin view.
 - `health` on any module's `defineModule` (section 3).
 - `checks` in `ops({ checks })` for the app's own.
 
+To tell the operator when a check fails, a scheduled job runs the same checks and passes the report to
+`alertFromHealthReport` of `@softure-ai/alerts` ([alerts README](../alerts/README.md), "Health checks").
+
 ## 11. GDPR
 
 Stores and exports nothing. The health answer carries no personal data; ops scripts print what

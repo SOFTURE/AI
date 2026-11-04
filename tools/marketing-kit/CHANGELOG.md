@@ -15,6 +15,20 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `getCaptionSpans` and `getFootageCaptionLayout` are shared by the render and the draft; progress gains the `draft`
   stage; `runFfmpeg` takes `cwd`.
 
+## 0.5.0
+
+- **Music beds from an upload (#996):** `probeAudio(path, { signal })` reads a music file with ffprobe as `{ duration,
+  codec, sampleRate, channels, bitRate }` (`bitRate` null when the container reports none); a failure is
+  `{ ok: false, reason, error }` with `reason` `no-audio-stream`, `no-duration`, `unreadable` or `unexpected-output`.
+  `readAudioProbe(json)` is the pure reader. `checkMusicFileType({ fileName, contentType })` checks an upload against
+  `MUSIC_FILE_TYPES` (`.mp3`, `.m4a`, `.aac`, `.wav`, `.ogg`, `.oga`, `.opus`, `.flac` and their content types).
+  `runFfprobe` is the shared ffprobe call. The README shows the upload check and how the bed is looped, trimmed and
+  ducked under the cut.
+- **Changed:** a footage film's `music.file` is now checked by the same rules in `prepareFootage`, right after the
+  clips are probed: a file of another type (e.g. `.mp4`) or without an audio stream stops the run before anything is
+  normalized or paid for. An app with such a bed converts it, e.g. `ffmpeg -i bed.mp4 -vn -c:a copy bed.m4a`.
+- Docs: the README's `onCharge` points to `createFootageChargeRecorder` of `@softure-ai/metering`.
+
 ## 0.4.0
 
 - **Natural editing for footage films (#898).** **Changed defaults:** cuts are hard cuts (`transitions: { jump:

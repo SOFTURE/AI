@@ -93,12 +93,26 @@ at once with `alerts.channel_unconfigured`.
 | `discordChannel({ url })` | a webhook: `{ "content": ... }`, at most 2000 characters, mentions disabled |
 | `telegramChannel({ botToken, chatId, apiOrigin? })` | the bot's `sendMessage` as plain text, at most 4096 characters |
 | `webhookChannel({ url, headers? })` | a JSON POST of the message's fields (`kind`, `key`, `severity`, `title`, `details`, `link`, `repeats`, `occurrences`, `at`) plus `channel`, `subject` and `text` |
-| `mailChannel({ to, sender? })` (`@softure-ai/alerts/mailing`) | a transactional mail through `@softure-ai/mailing`, from the named sender of `mailing({ senders })`, with an idempotency key per delivery |
+| `mailChannel({ to, sender?, html? })` (`@softure-ai/alerts/mailing`) | a transactional mail through `@softure-ai/mailing`, from the named sender of `mailing({ senders })`, with a text and an HTML part and an idempotency key per delivery |
 | `defineAlertChannel({ kind, deliver })` | the app's own: `deliver(delivery, { config })` resolves `ok()` or a `ChannelFailure` |
 
 The webhook channels take `fetch` (tests) and `timeoutMs` (default 10 000). A rate limit (`429`) waits its
 `Retry-After`; `5xx` and network failures retry with the queue's backoff; a refusal (`401`, `403`, a redirect, `404`
 for a deleted webhook, any other `4xx`) fails the delivery at once.
+
+The mail channel's HTML part (default `renderAlertMailHtml`) is one column of at most 600 px with inline styles: a
+severity badge (green for a recovery), the title, the details, the repeats line and a button for the link, every value
+escaped. In `details`, lines that start with `- ` become a list and the lines indented under one (a space or a tab)
+its sub-lines, so one string reads well in the text part and in the HTML part:
+
+```ts
+await alert(ctx, { key: "app.sync", severity: "warning", title: "3 records changed", details: "- Record 12\n  price 10 → 12\n- Record 14" });
+```
+
+`html: (delivery) => string | undefined` replaces the layout (`delivery.parts` holds the tag, title, details, repeats
+line and link in the app's copy); `html: () => undefined` sends text only. An app's own mail channel
+(`defineAlertChannel`) can reuse `getAlertIdempotencyKey(delivery)` and `toMailChannelResult(code, retryAfterSeconds)`
+from `@softure-ai/alerts/mailing` instead of copying them.
 
 ### Quiet hours
 
@@ -146,8 +160,8 @@ caller's write, and a rolled-back caller sends nothing. `alert` answers `ok("fir
 | `onScheduleStateChanged` | `jobs.schedule:<queue>`: fires on `failing` or `late`, resolves on `healthy` | `critical` (`scheduleSeverity`) |
 | `onQueuePaused` | `jobs.paused:<queue>`, with the code and the end of the pause | `warning` (`queuePausedSeverity`) |
 
-`onQueuePaused` takes jobs' `{ queue, code, until }` (the queue breaker of jobs, #955); with a jobs version that
-predates the breaker, leave it out. The hooks never alert the module's own queues (`alerts.deliver`, `alerts.flush`),
+`onQueuePaused` takes jobs' `{ queue, code, until }` from the queue breaker, added in jobs 0.1.7 (the version this
+package requires). The hooks never alert the module's own queues (`alerts.deliver`, `alerts.flush`),
 so a failing channel cannot raise alerts about itself, nor the queues in `ignoreQueues`. A failure to record an alert
 is logged by kind and never reaches the job.
 

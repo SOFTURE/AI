@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
-## Unreleased
+## 0.5.0
 
 - **A term page no longer renders every article (#937):** `findArticlesLinkingTerm` (and `findArticlesLinkingTermFor`,
   the ready-made term page) reads the links with the new `findLinkedTerms(markdown, options)`, which parses the text

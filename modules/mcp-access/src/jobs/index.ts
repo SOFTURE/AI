@@ -1,6 +1,6 @@
 // The jobs adapter of @softure-ai/mcp-access: its daily cleanup as a `@softure-ai/jobs` handler and schedule, and long
-// operations as MCP tools (`startOperation`, `get_operation`, `cancel_operation`). Jobs is an optional peer dependency;
-// only apps that import this entry need it.
+// operations as MCP tools (`startOperation`, `get_operation`, `cancel_operation`) or as MCP Tasks
+// (`registerOperationTasks`). Jobs is an optional peer dependency; only apps that import this entry need it.
 import { ok } from "@softure-ai/core";
 import { defineJobHandler, type JobHandlers, type JobSchedulesInput } from "@softure-ai/jobs";
 import { z } from "zod";
@@ -26,6 +26,7 @@ export const mcpAccessJobSchedules = {
 export {
   cancelOperation,
   getOperation,
+  getOperationErrorHints,
   getOperationStatus,
   getPollAfterSeconds,
   MAX_OPERATION_DEDUP_KEY_LENGTH,
@@ -44,6 +45,20 @@ export {
   type OperationPollOptions,
   type OperationStatus,
   type OperationStatusToolOptions,
+  type OperationToolContext,
   type ReadOperationResult,
   type StartOperationInput,
 } from "./operations.js";
+export {
+  DEFAULT_TASK_TTL_SECONDS,
+  getOperationTask,
+  isTasksRequest,
+  MAX_TASK_TTL_SECONDS,
+  MIN_TASK_TTL_SECONDS,
+  registerOperationTasks,
+  TASKS_EXTENSION,
+  type OperationTask,
+  type OperationTaskRequest,
+  type OperationTasksOptions,
+  type OperationTaskStatus,
+} from "./operation-tasks.js";

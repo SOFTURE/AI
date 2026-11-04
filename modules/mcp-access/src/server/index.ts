@@ -94,7 +94,7 @@ export type { OAuthClientRow, OAuthTokenEndpointAuthMethod } from "../schema.js"
 export { describeRedirectUri, isAllowedRedirectUri, MAX_CLIENT_NAME_LENGTH, parseClientRegistration, type ClientRegistrationResult, type RegistrationError } from "./oauth-validation.js";
 export { getCodeChallenge, isPkceVerifierValid, isValidCodeChallenge, PKCE_METHOD } from "./pkce.js";
 export { getMcpAccessMessages, getMcpAccessOptions, getMcpAccessRoutes, getMcpEndpointUrl, type McpAccessRoutes } from "./options.js";
-export { pruneMcpAccess, type PrunedMcpAccessRecords } from "./prune.js";
+export { pruneMcpAccess, pruneOperationTasks, type PrunedMcpAccessRecords } from "./prune.js";
 export {
   deleteMcpAccessUserData,
   exportMcpAccessUserData,

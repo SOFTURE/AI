@@ -10,6 +10,7 @@ import { getHyperframesBin, getHyperframesEnv } from "../render/hyperframes.js";
 import { copyFonts } from "../render/render.js";
 import { err, ok, type TtsResult } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
+import { checkMusicFileType, describeAudioProbe, probeAudio } from "./audio.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
 import { findMissingCaptionGlyphs, getFootageCaptionLayout } from "./captions.js";
@@ -174,7 +175,7 @@ function getNormalizeStamp(clip: FootageClip, source: string, frame: Frame): str
   return JSON.stringify({ version: NORMALIZE_VERSION, source: resolve(source), size: stat.size, mtime: stat.mtimeMs, trim: clip.trim, fit: clip.fit, frame });
 }
 
-/** Downloads URL clips, probes every clip (all problems at once), normalizes each one that changed. */
+/** Downloads URL clips, probes every clip (all problems at once) and a local music file, normalizes each clip that changed. */
 export async function prepareFootage(
   film: FootageFilm,
   options: Pick<FootageRunOptions, "buildDir" | "log" | "fetch" | "signal" | "onProgress">,
@@ -194,6 +195,10 @@ export async function prepareFootage(
   }
   const probed = await probeFootage(film.clips, sources, signal === undefined ? {} : { signal });
   if (!probed.ok) return err(probed.errors.join("\n"));
+  if (film.music.source.kind === "file") {
+    const music = await checkMusicFile(film.music.source.path, options);
+    if (!music.ok) return err(music.error);
+  }
   const frame = getFrame(film);
   const clipsDir = join(buildDir, "clips");
   mkdirSync(clipsDir, { recursive: true });
@@ -380,6 +385,17 @@ export function readEdlFile(film: FootageFilm, clips: PreparedClip[], edlPath: s
   if (!read.ok) return err(`${edlPath}: ${read.error}`);
   const problems = validateEdl(read.edl, clips.map((clip) => ({ id: clip.clip.id, duration: clip.duration })), film.id);
   return problems.length > 0 ? err(`${edlPath}: ${problems.join("; ")}`) : ok(read.edl);
+}
+
+/** A local music file checked like an app's upload: an accepted type, then readable audio (`probeAudio`). */
+async function checkMusicFile(path: string, options: Pick<FootageRunOptions, "log" | "signal">): Promise<FootageResult<string>> {
+  if (!existsSync(path)) return err(`music: no file at ${path}`);
+  const type = checkMusicFileType({ fileName: path });
+  if (!type.ok) return err(`music: ${type.error}`);
+  const probe = await probeAudio(path, options.signal === undefined ? {} : { signal: options.signal });
+  if (!probe.ok) return err(`music: ${probe.error}`);
+  options.log(`music: ${path} (${describeAudioProbe(probe.probe)}).`);
+  return ok(path);
 }
 
 /**

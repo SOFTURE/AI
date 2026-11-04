@@ -208,11 +208,23 @@ export {
   probeFile,
   probeFootage,
   readFootageProbe,
+  runFfprobe,
   type FootageProbe,
   type HdrKind,
   type ProbeResult,
   type ProbedClip,
 } from "./footage/probe.js";
+export {
+  MUSIC_FILE_TYPES,
+  checkMusicFileType,
+  describeAudioProbe,
+  probeAudio,
+  readAudioProbe,
+  type AudioProbe,
+  type AudioProbeFailure,
+  type AudioProbeResult,
+  type MusicFileTypeCheck,
+} from "./footage/audio.js";
 export { FOOTAGE_FPS, FOOTAGE_SAMPLE_RATE, buildNormalizeArgs, buildVideoFilter, normalizeFootage, resolveFit, toneMapFilter, type Frame, type NormalizeInput } from "./footage/normalize.js";
 export {
   describePaidSteps,

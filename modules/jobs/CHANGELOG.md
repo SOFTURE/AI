@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- Docs: the README's alert hooks point to `alertsFromJobs` of `@softure-ai/alerts`.
+
+## 0.1.7
+
 - A signed-in user follows their own job (#958). `enqueueJob({ ownerId })` stores the user on the job;
   `getOwnJob(ctx, { id, ownerId })` and `requestOwnJobCancel(ctx, { id, ownerId })` in `/server` answer only that
   owner (`jobs.not_found` for anyone else) with an `OwnJob`: status, progress, `resultRef`, `failureCode` (a code,

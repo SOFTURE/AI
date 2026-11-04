@@ -25,6 +25,7 @@ export {
 export { MIN_KEEP_DAYS, pruneCharges, type PruneChargesInput, type PruneChargesReport } from "./prune.js";
 export {
   getSpend,
+  getSpendBreakdown,
   recordCharge,
   releaseSpend,
   reserveSpend,
@@ -32,6 +33,7 @@ export {
   type ChargeAttributes,
   type ChargeInput,
   type MeteringContext,
+  type SpendBreakdownQuery,
   type SpendInput,
   type SpendQuery,
 } from "./spend.js";

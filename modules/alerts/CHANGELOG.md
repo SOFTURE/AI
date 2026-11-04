@@ -4,7 +4,24 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.0
+
+- The mail channel sends an HTML part next to the unchanged text (#1004): one column of at most 600 px with inline
+  styles, a severity badge (green for a recovery), the title, the details, the repeats line and a link button, every
+  value escaped. `details` lines starting with `- ` render as a list, with the indented lines under one as its
+  sub-lines. `mailChannel({ html })` replaces the layout or, with `html: () => undefined`, keeps mail text only.
+- `AlertDelivery.parts` carries the rendered tag, title, details, repeats line and link in the app's copy, for a
+  layout of the app's own. It is optional, so a delivery built by hand stays valid (and mails text only).
+- New exports from `@softure-ai/alerts/mailing`: `renderAlertMailHtml`, `parseAlertDetails`, `getAlertIdempotencyKey`
+  and `toMailChannelResult`. An app that wrote its own mail channel only to add HTML can go back to `mailChannel`;
+  one that keeps its channel can drop its copies of the idempotency key and the mailing error mapping.
+
+## 0.1.1
+
+- Docs: the README's `onQueuePaused` note names jobs 0.1.7, the version the package requires, instead of an older jobs.
+- The first release published through the npm trusted publisher (OIDC) instead of a token.
+
+## 0.1.0
 
 - First version (#963): one channel to tell the operator. `alert(ctx, { key, severity, title, details?, link? })`
   deduplicates by key: the first occurrence goes out, repeats within `repeatWindowSeconds` (default 1 hour) are

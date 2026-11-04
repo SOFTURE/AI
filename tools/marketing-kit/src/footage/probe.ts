@@ -101,18 +101,23 @@ export function readFootageProbe(json: unknown): ProbeResult {
   };
 }
 
-/** Runs ffprobe on one file (or URL) without blocking; an error names the file and the reason. Rejects only on abort. */
-export async function probeFile(path: string, options: { signal?: AbortSignal } = {}): Promise<ProbeResult> {
+/** Runs ffprobe (`-show_streams -show_format -of json`) on one file or URL and parses its JSON; an error names the file. Rejects only on abort. */
+export async function runFfprobe(path: string, options: { signal?: AbortSignal } = {}): Promise<{ ok: true; json: unknown } | { ok: false; error: string }> {
   const result = await runProcess({ command: "ffprobe", args: ["-v", "error", "-show_streams", "-show_format", "-of", "json", path], ...options });
   if (result.kind === "not-started") return { ok: false, error: `ffprobe did not start for ${path}: ${result.error}` };
   if (result.code !== 0) return { ok: false, error: `ffprobe cannot read ${path}: ${result.stderr.trim() || `code ${String(result.code)}`}` };
-  let json: unknown;
   try {
-    json = JSON.parse(result.stdout);
+    return { ok: true, json: JSON.parse(result.stdout) as unknown };
   } catch (error) {
     return { ok: false, error: `ffprobe printed no JSON for ${path}: ${String(error)}` };
   }
-  const read = readFootageProbe(json);
+}
+
+/** Runs ffprobe on one file (or URL) without blocking; an error names the file and the reason. Rejects only on abort. */
+export async function probeFile(path: string, options: { signal?: AbortSignal } = {}): Promise<ProbeResult> {
+  const output = await runFfprobe(path, options);
+  if (!output.ok) return output;
+  const read = readFootageProbe(output.json);
   return read.ok ? read : { ok: false, error: `${path}: ${read.error}` };
 }
 

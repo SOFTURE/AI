@@ -1,9 +1,11 @@
-// The public link answer, framework-free: `GET` and `HEAD` with `Content-Length`, `Accept-Ranges`, single byte
-// ranges (`206`, `416`), `Content-Disposition`, and `Cache-Control: private, no-store` so no CDN keeps a copy. Every
-// dead link (forged, expired, revoked, deleted, missing from storage) gets the same `404`. A stored file is user
+// The answer for a stored file, framework-free, behind a public link (`serveFileLink`) or for its signed-in owner
+// (`serveStoredFile`): `GET` and `HEAD` with `Content-Length`, `Accept-Ranges`, single byte ranges (`206`, `416`),
+// `Content-Disposition`, and `Cache-Control: private, no-store` so no CDN keeps a copy. Every dead link or lookup
+// (forged, expired, revoked, deleted, another owner's, missing from storage) gets the same `404`. A stored file is user
 // content on the app's origin, so it is sent with `nosniff` and a sandboxing CSP: an HTML or SVG file never runs.
 import { errorLogLabel } from "@softure-ai/core";
 import type { ByteRange } from "../contract.js";
+import type { FileRow } from "../schema.js";
 import type { FilesContext } from "./context.js";
 import { findLiveRow } from "./files.js";
 import { verifyFileLink } from "./links.js";
@@ -19,8 +21,8 @@ const ALLOWED_METHODS = "GET, HEAD";
 
 const NOT_FOUND_BODY = "Not found\n";
 
-/** The one answer for every link that does not lead to a live file. */
-function notFound(): Response {
+/** The one answer for every link or lookup that does not lead to a live file. */
+export function notFound(): Response {
   return new Response(NOT_FOUND_BODY, {
     status: 404,
     headers: {
@@ -33,12 +35,7 @@ function notFound(): Response {
 
 /** Answers a request for a public link (`GET` or `HEAD`). */
 export async function serveFileLink(ctx: FilesContext, request: Request): Promise<Response> {
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    return new Response(null, {
-      status: 405,
-      headers: { ...BASE_HEADERS, allow: ALLOWED_METHODS },
-    });
-  }
+  if (!isReadMethod(request)) return methodNotAllowed();
   const link = verifyFileLink(ctx, new URL(request.url).pathname);
   if (!link.ok) {
     if (link.error !== "files.not_found") console.error(`@softure-ai/files: a link could not be checked: ${link.error}`);
@@ -46,13 +43,53 @@ export async function serveFileLink(ctx: FilesContext, request: Request): Promis
   }
   const row = await findLiveRow(ctx, link.value.fileId);
   if (row?.linkGeneration !== link.value.generation) return notFound();
+  const disposition = getFilesOptions(ctx.config).links.disposition;
+  return answerStoredFile(ctx, request, row, { name: link.value.name, disposition });
+}
 
-  const options = getFilesOptions(ctx.config);
+export interface ServeStoredFileOptions {
+  /** The signed-in user the app's session names; another owner's file reads as missing. */
+  readonly ownerId: string;
+  /** `inline` (the default: shown in the app's own page, a player or an image) or `attachment` (a download). */
+  readonly disposition?: "attachment" | "inline";
+}
+
+/**
+ * Answers a request (`GET` or `HEAD`) for a stored file on behalf of its signed-in owner: the answer of a public link
+ * (single byte ranges, `private, no-store`, `nosniff`, the sandboxing CSP) under the file's stored name, with no link
+ * to mint or verify. The caller has already checked the session; a file that is missing, expired, deleted or another
+ * owner's gets the same `404`.
+ */
+export async function serveStoredFile(ctx: FilesContext, fileId: string, request: Request, options: ServeStoredFileOptions): Promise<Response> {
+  if (!isReadMethod(request)) return methodNotAllowed();
+  const row = await findLiveRow(ctx, fileId, { ownerId: options.ownerId });
+  if (row === undefined) return notFound();
+  return answerStoredFile(ctx, request, row, { name: row.originalName, disposition: options.disposition ?? "inline" });
+}
+
+function isReadMethod(request: Request): boolean {
+  return request.method === "GET" || request.method === "HEAD";
+}
+
+function methodNotAllowed(): Response {
+  return new Response(null, {
+    status: 405,
+    headers: { ...BASE_HEADERS, allow: ALLOWED_METHODS },
+  });
+}
+
+interface StoredFileAnswerOptions {
+  readonly name: string;
+  readonly disposition: "attachment" | "inline";
+}
+
+/** The bytes of a live row as the answer to a `GET` or `HEAD`, honouring a single byte range. */
+async function answerStoredFile(ctx: FilesContext, request: Request, row: FileRow, options: StoredFileAnswerOptions): Promise<Response> {
   const headers: Record<string, string> = {
     ...BASE_HEADERS,
     "content-type": row.contentType,
     "accept-ranges": "bytes",
-    "content-disposition": formatContentDisposition(options.links.disposition, link.value.name),
+    "content-disposition": formatContentDisposition(options.disposition, options.name),
     "content-security-policy": "sandbox; default-src 'none'",
   };
   const range = parseRangeHeader(request.headers.get("range"), row.size);
@@ -69,7 +106,7 @@ export async function serveFileLink(ctx: FilesContext, request: Request): Promis
 
   let body: ReadableStream<Uint8Array> | null;
   try {
-    body = await options.storage.get(row.storageKey, range ?? undefined);
+    body = await getFilesOptions(ctx.config).storage.get(row.storageKey, range ?? undefined);
   } catch (error) {
     console.error(`@softure-ai/files: reading file ${row.id} from storage failed: ${errorLogLabel(error)}`);
     throw error;

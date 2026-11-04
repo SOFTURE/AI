@@ -484,7 +484,7 @@ camera), and from `md` up files can also be dropped on the area, which highlight
 pick or drop goes to `onFilesSelected(files)`: only the files matching `accept` (the picker enforces it, a drop is
 checked by extension and MIME type), the first one without `multiple`; dropped files that do not match go to
 `onFilesRejected`. `UploadList` is the named `ul`; `UploadItem` draws one `UploadFileItem` (`{ id, name, size, state,
-progress?, error? }`): the name, the size by `locale` (`formatFileSize`, decimal steps, e.g. "52.4 MB"), the state as
+progress?, error? }`): the name, the size by `locale` (`formatFileSize`, decimal steps, e.g. "52.4 MB"; a plain function, safe to call in a Server Component), the state as
 a `Status` word (`queued` gray, `uploading` blue, `paused` orange, `done` green, `failed` red), a determinate
 `Progress` while uploading or paused, and under a failed row its `error`. Buttons show with their callbacks, each
 called with the item: Retry on a failed row (`onRetry`), Pause while uploading (`onPause`), Resume when paused
@@ -604,7 +604,8 @@ Deltas from stock shadcn:
   (`w-full min-w-0`, and the `Tabs` root gets `min-w-0`, so a grid or flex parent does not widen to the tabs), scrolls
   sideways by touch, wheel and the arrow keys (focus moves to the next tab), keeps every trigger at its own width and
   scrolls the active tab into the middle whenever it changes; it combines with `size="touch"`. Sets
-  `data-scrollable="true"` on the list.
+  `data-scrollable="true"` on the list. `tabsListVariants` (the list's class builder) lives in a plain module, so a
+  Server Component can call it to style its own list.
 
   ```tsx
   <Tabs value={tab} onValueChange={setTab}>

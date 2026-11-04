@@ -143,6 +143,10 @@ export const en = {
     cancelled: "The operation was cancelled.",
     notFound: "No operation with this id belongs to this account.",
     finished: "The operation has already ended, so it cannot be cancelled.",
+    /** The `statusMessage` of an MCP task (#977) while its operation has not ended. */
+    taskQueued: "The operation is waiting to start.",
+    taskRunning: "The operation is running.",
+    taskCancelRequested: "The operation was asked to stop and will end shortly.",
   },
   errors: {
     "mcp-access": {
