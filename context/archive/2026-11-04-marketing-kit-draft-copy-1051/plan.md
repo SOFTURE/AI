@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-draft-copy-1051
-status: active
+status: done
 ---
 
 # Plan: the draft film's picture copied in the final pass (issue #1051)
@@ -29,5 +29,12 @@ CHANGELOG `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: the publishable profiles
-- [ ] Phase 2: docs
+- [x] Phase 1: the publishable profiles (6ec57a8)
+- [x] Phase 2: docs (76f9230)
+
+## Verification
+
+- `vitest run tools/marketing-kit/src/footage/`: 335 tests green; the five new or changed ones (Constrained Baseline
+  and Main copied, the draft film passing the check, the problem message, the ffmpeg `ultrafast` render copied)
+  failed before the change.
+- `npm run typecheck` and ESLint on the changed files green; the language gate green in the hooks.

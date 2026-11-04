@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-draft-copy-1051
 title: "marketing-kit: a draft render with crf keeps its picture in the final pass (issue #1051)"
-status: active
+status: archived
 roadmap_item: null
 issue: 1051
 branch: claude/project-thread-1yj955
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
