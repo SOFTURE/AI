@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { TimedWord } from "../voice/voiceover.js";
-import { duckingKeyframes, getSpeechSpans, volumeExpression } from "./music.js";
+import { duckingKeyframes, getDuckingOptions, getSpeechSpans, volumeExpression } from "./music.js";
 
 const w = (start: number, end: number): TimedWord => ({ text: "word", start, end });
 
@@ -62,5 +62,23 @@ describe("volumeExpression", () => {
 
   it("is full volume without keyframes", () => {
     expect(volumeExpression([])).toBe("1");
+  });
+});
+
+describe("getDuckingOptions", () => {
+  it("passes a film's attack and release to the ducking (issue #1031)", () => {
+    const options = getDuckingOptions({ volume: 0.4, duckedVolume: 0.1, attack: 1, release: 2 });
+    expect(options).toEqual({ volume: 0.4, duckedVolume: 0.1, attack: 1, release: 2 });
+    expect(duckingKeyframes([w(3, 4)], options)).toEqual([
+      { t: 0, volume: 0.4 },
+      { t: 2, volume: 0.4 },
+      { t: 3, volume: 0.1 },
+      { t: 4, volume: 0.1 },
+      { t: 6, volume: 0.4 },
+    ]);
+  });
+
+  it("leaves the default timing to the ducking when the film sets none", () => {
+    expect(getDuckingOptions({ volume: 0.35, duckedVolume: 0.1 })).toEqual({ volume: 0.35, duckedVolume: 0.1 });
   });
 });

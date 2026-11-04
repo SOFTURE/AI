@@ -75,6 +75,7 @@ describe("footage films in marketing.json", () => {
       edit: { zoomPercent: 108, fadeFrames: 10, kenBurnsPercent: 0, isEndCardWhoosh: false },
       endCard: null,
       loudness: { target: -14, truePeak: -1 },
+      mixLoudness: { target: -14, truePeak: -1 },
       cover: {},
       post: null,
     });
@@ -85,6 +86,20 @@ describe("footage films in marketing.json", () => {
     expect([off?.loudness, off?.cover]).toEqual([null, null]);
     const set = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], loudness: { target: -16 }, cover: { at: 2.5 } }])), "a");
     expect([set?.loudness, set?.cover]).toEqual([{ target: -16, truePeak: -1 }, { at: 2.5 }]);
+  });
+
+  it("normalizes the finished mix by default, turns it off with false and keeps a target (issue #1031)", () => {
+    const off = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: false }])), "a");
+    expect(off?.mixLoudness).toBeNull();
+    const set = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { target: -16, truePeak: -2 } }])), "a");
+    expect(set?.mixLoudness).toEqual({ target: -16, truePeak: -2 });
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { truePeak: 1 } }]))).toContain("footage[0].mixLoudness");
+  });
+
+  it("keeps the music's ducking attack and release, and refuses them outside 0-5 s (issue #1031)", () => {
+    const film = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], music: { prompt: "calm", attack: 0.1, release: 1.5 } }])), "a");
+    expect(film?.music).toEqual({ source: { kind: "prompt", prompt: "calm" }, volume: 0.35, duckedVolume: 0.1, attack: 0.1, release: 1.5 });
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], music: { prompt: "calm", release: 6 } }]))).toContain("footage[0].music.release");
   });
 
   it("keeps a caption line limit of 1-4 and refuses one outside it", () => {
