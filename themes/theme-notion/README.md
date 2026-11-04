@@ -484,7 +484,7 @@ camera), and from `md` up files can also be dropped on the area, which highlight
 pick or drop goes to `onFilesSelected(files)`: only the files matching `accept` (the picker enforces it, a drop is
 checked by extension and MIME type), the first one without `multiple`; dropped files that do not match go to
 `onFilesRejected`. `UploadList` is the named `ul`; `UploadItem` draws one `UploadFileItem` (`{ id, name, size, state,
-progress?, error? }`): the name, the size by `locale` (`formatFileSize`, decimal steps, e.g. "52.4 MB"), the state as
+progress?, error? }`): the name, the size by `locale` (`formatFileSize`, decimal steps, e.g. "52.4 MB"; a plain function, safe to call in a Server Component), the state as
 a `Status` word (`queued` gray, `uploading` blue, `paused` orange, `done` green, `failed` red), a determinate
 `Progress` while uploading or paused, and under a failed row its `error`. Buttons show with their callbacks, each
 called with the item: Retry on a failed row (`onRetry`), Pause while uploading (`onPause`), Resume when paused
