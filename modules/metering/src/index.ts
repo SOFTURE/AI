@@ -18,7 +18,7 @@ export const metering = defineModule({
     version: "0.2.0",
     dependsOn: { jobs: "^0.1.6?" },
     dbSchema: "metering",
-    tables: ["charges"],
+    tables: ["charges", "budget_limits"],
     env: [],
     switches: [],
     routes: {},
@@ -35,6 +35,8 @@ export const metering = defineModule({
 export {
   METERING_UNITS,
   type BudgetExceeded,
+  type BudgetKey,
+  type BudgetLimit,
   type BudgetPeriod,
   type BudgetScope,
   type BudgetState,
@@ -57,4 +59,4 @@ export {
   type ProviderDefinition,
   type ProviderDefinitionInput,
 } from "./options.js";
-export { charges } from "./schema.js";
+export { budgetLimits, charges } from "./schema.js";

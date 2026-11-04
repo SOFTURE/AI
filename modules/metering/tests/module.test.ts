@@ -70,6 +70,7 @@ describe("the metering module", () => {
     expect(Object.keys(meteringMessages)).toEqual(["en"]);
     expect(getMeteringErrorMessage("metering.budget_exceeded")).toBe("The spending limit for this service is reached. Try again after it resets.");
     expect(getMeteringErrorMessage("metering.reservation_not_found")).toBe("This charge was already settled or released.");
+    expect(getMeteringErrorMessage("metering.invalid_budget_limit")).toBe("Enter a limit of 0 or more.");
   });
 });
 
@@ -114,5 +115,41 @@ describe("the charges table", () => {
 
   it("answers the health check once migrated", async () => {
     await expect(checkChargesTable(test.ctx)).resolves.toEqual({ ok: true, value: undefined });
+  });
+});
+
+describe("the budget limits table", () => {
+  let test: TestMetering;
+
+  beforeEach(async () => {
+    test = await createTestMetering();
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  const insert = (columns: Record<string, unknown>) => {
+    const row = { provider: "speech", period: "day", per_account: false, limit: "10", updated_at: NOW, updated_by: null, ...columns };
+    const names = Object.keys(row);
+    return test.database.client.query(
+      `INSERT INTO metering.budget_limits (${names.map((name) => `"${name}"`).join(", ")}) VALUES (${names.map((_, index) => `$${String(index + 1)}`).join(", ")})`,
+      Object.values(row),
+    );
+  };
+
+  it("accepts a limit of 0 and one row per provider, period and scope", async () => {
+    await expect(insert({ limit: "0" })).resolves.toBeDefined();
+    await expect(insert({ per_account: true, updated_by: "user-1" })).resolves.toBeDefined();
+    await expect(insert({})).rejects.toThrow();
+  });
+
+  it.each([
+    ["an uppercase provider", { provider: "Speech" }],
+    ["an unknown period", { period: "week" }],
+    ["a negative limit", { limit: "-1" }],
+    ["an empty updater", { updated_by: "" }],
+    ["no update time", { updated_at: null }],
+  ])("refuses %s", async (_name, columns) => {
+    await expect(insert(columns)).rejects.toThrow();
   });
 });
