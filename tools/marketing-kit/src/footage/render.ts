@@ -61,15 +61,17 @@ export function buildMusicArgs(options: { input: string; seconds: number; keyfra
   return ["-v", "error", "-y", "-stream_loop", "-1", "-i", options.input, "-t", String(seconds), "-af", filters.join(","), "-c:a", "libmp3lame", "-q:a", "2", options.output];
 }
 
-/** A small silent copy of the cut, what Video to Music scores. */
+/** A small silent copy of the cut, what Video to Music scores: each segment read from its own seek into its clip. */
 export function buildCutPreviewArgs(edl: Edl, clips: Record<string, string>, output: string): string[] {
   const inputs: string[] = [];
   const parts: string[] = [];
   edl.segments.forEach((segment, index) => {
     const clip = clips[segment.clip];
     if (clip === undefined) throw new Error(`No file for clip "${segment.clip}" of the EDL.`);
-    inputs.push("-i", clip);
-    parts.push(`[${index}:v]trim=start=${segment.start}:end=${segment.end},setpts=PTS-STARTPTS,scale=540:-2,setsar=1[v${index}]`);
+    // Seeking the input (accurate while transcoding; normalized clips have a keyframe every half second) instead of
+    // trim, which decodes the clip from its start for every segment.
+    inputs.push("-ss", String(r3(segment.start)), "-t", String(r3(segment.end - segment.start)), "-i", clip);
+    parts.push(`[${index}:v]setpts=PTS-STARTPTS,scale=540:-2,setsar=1[v${index}]`);
   });
   const joined = edl.segments.map((_, index) => `[v${index}]`).join("");
   const graph = `${parts.join(";")};${joined}concat=n=${edl.segments.length}:v=1:a=0[cut]`;

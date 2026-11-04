@@ -47,19 +47,45 @@ export function toneMapFilter(hdr: HdrKind | null, transfer: string | null): str
   ];
 }
 
-/** The video filter graph from input 0's picture to `[v]`. */
+/**
+ * The video filter graph from input 0's picture to `[v]`. Every stage runs on as little as it can: frames are
+ * dropped to 30 fps first, then the picture is scaled to the frame (crop: covered and cropped to it; blur: fitted
+ * inside it), and only then tone-mapped, so the float stages of an HDR clip work on frame-sized pictures instead of
+ * the source's (a 4K phone clip has 4x the pixels of a 1080x1920 frame). The blur's background is made from the
+ * fitted picture.
+ */
 export function buildVideoFilter(options: { fit: "crop" | "blur"; frame: Frame; hdr: HdrKind | null; transfer: string | null }): string {
   const { width, height } = options.frame;
-  const head = [...toneMapFilter(options.hdr, options.transfer), `fps=${FOOTAGE_FPS}`].join(",");
-  const cover = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
+  const toneMap = toneMapFilter(options.hdr, options.transfer);
   const tail = "setsar=1,format=yuv420p";
-  if (options.fit === "crop") return `[0:v]${head},${cover},${tail}[v]`;
+  if (options.fit === "crop") {
+    const cover = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
+    return `[0:v]${[`fps=${FOOTAGE_FPS}`, cover, ...toneMap, tail].join(",")}[v]`;
+  }
+  // Even sizes: zscale refuses odd ones in 4:2:0.
+  const fitted = `scale=${width}:${height}:force_original_aspect_ratio=decrease:force_divisible_by=2`;
+  const backWidth = Math.round(width / 4);
+  const backHeight = Math.round(height / 4);
   return [
-    `[0:v]${head},split=2[bg][fg]`,
-    `[bg]scale=${Math.round(width / 4)}:${Math.round(height / 4)}:force_original_aspect_ratio=increase,crop=${Math.round(width / 4)}:${Math.round(height / 4)},boxblur=20:2,scale=${width}:${height},eq=brightness=-0.06[back]`,
-    `[fg]scale=${width}:${height}:force_original_aspect_ratio=decrease[front]`,
-    `[back][front]overlay=(W-w)/2:(H-h)/2,${tail}[v]`,
+    `[0:v]${[`fps=${FOOTAGE_FPS}`, fitted, ...toneMap, "split=2[bg][fg]"].join(",")}`,
+    `[bg]scale=${backWidth}:${backHeight}:force_original_aspect_ratio=increase,crop=${backWidth}:${backHeight},boxblur=20:2,scale=${width}:${height},eq=brightness=-0.06[back]`,
+    `[back][fg]overlay=(W-w)/2:(H-h)/2,${tail}[v]`,
   ].join(";");
+}
+
+/** x264's presets, fastest first. */
+export const X264_PRESETS = ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"] as const;
+export type X264Preset = (typeof X264_PRESETS)[number];
+const DEFAULT_NORMALIZE_PRESET: X264Preset = "veryfast";
+
+/**
+ * How the intermediate clips are encoded. A small worker can trade file size for speed: `preset` (default
+ * `veryfast`; `superfast` or `ultrafast` encode faster into bigger files), `threads` (ffmpeg's encoder and filter
+ * threads; by default ffmpeg's own choice, which follows the host's cores, not a container's CPU quota).
+ */
+export interface NormalizeEncoder {
+  preset?: X264Preset;
+  threads?: number;
 }
 
 export interface NormalizeInput {
@@ -69,19 +95,29 @@ export interface NormalizeInput {
   probe: FootageProbe;
   frame: Frame;
   output: string;
+  encoder?: NormalizeEncoder;
 }
 
-/** ffmpeg's arguments for one clip; pure, so the graph is tested without ffmpeg. */
+/** The thread arguments: global filter threads (before the inputs) and encoder threads (before the output). */
+function getThreadArgs(threads: number | undefined): { global: string[]; output: string[] } {
+  if (threads === undefined) return { global: [], output: [] };
+  if (!Number.isInteger(threads) || threads < 1) throw new Error(`normalize.threads must be a positive whole number, got ${threads}.`);
+  return { global: ["-filter_complex_threads", String(threads)], output: ["-threads", String(threads)] };
+}
+
+/** ffmpeg's arguments for one clip; pure, so the graph is tested without ffmpeg. Throws on an invalid `encoder.threads`. */
 export function buildNormalizeArgs(input: NormalizeInput): string[] {
   const { clip, file, probe, frame, output } = input;
   const duration = getTrimmedDuration(clip, probe);
   const fit = resolveFit(clip.fit, probe, frame);
   const seek = clip.trim.start > 0 ? ["-ss", String(clip.trim.start)] : [];
+  const threads = getThreadArgs(input.encoder?.threads);
   const silence = probe.hasAudio ? [] : ["-f", "lavfi", "-i", `anullsrc=r=${FOOTAGE_SAMPLE_RATE}:cl=stereo`];
   return [
     "-v",
     "error",
     "-y",
+    ...threads.global,
     ...seek,
     "-i",
     file,
@@ -97,7 +133,7 @@ export function buildNormalizeArgs(input: NormalizeInput): string[] {
     "-c:v",
     "libx264",
     "-preset",
-    "veryfast",
+    input.encoder?.preset ?? DEFAULT_NORMALIZE_PRESET,
     "-crf",
     "18",
     "-g",
@@ -118,6 +154,7 @@ export function buildNormalizeArgs(input: NormalizeInput): string[] {
     "2",
     "-movflags",
     "+faststart",
+    ...threads.output,
     output,
   ];
 }
