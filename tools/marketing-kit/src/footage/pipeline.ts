@@ -14,6 +14,7 @@ import { checkMusicFileType, describeAudioProbe, probeAudio } from "./audio.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
 import { findMissingCaptionGlyphs, getCaptionPresetLayout } from "./captions.js";
+import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
 import { buildEdl, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
 import { getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
@@ -473,11 +474,22 @@ export interface RenderFootageOptions extends FootageRunOptions {
   output: string;
   /** A project's override of the format's caption box (`marketing.json` `layout`). */
   layout?: LayoutOverride;
+  /**
+   * hyperframes' temp folder, passed to it as `TMPDIR` (created when missing): the clips' frames are extracted there,
+   * so it needs room (a data volume, not a small tmpfs). By default the `TMPDIR` the process already has.
+   */
+  tempDir?: string;
+  /** Reads a folder's free bytes for the disk check; injected in tests. */
+  readFreeBytes?: FreeBytesReader;
 }
 
 export type RenderedFootage = { kind: "dry-run"; steps: PaidStep[] } | ({ kind: "rendered"; output: string; seconds: number; edlPath: string } & FinishedFootage);
 
-/** Composes the cut and renders it: speech track (loudness-normalized), ducked music, end card backdrop, assets, hyperframes, final pass, cover. */
+/**
+ * Composes the cut and renders it: speech track (loudness-normalized), ducked music, end card backdrop, assets,
+ * hyperframes, final pass, cover. First of all it checks that hyperframes' temp folder and the build folder have the
+ * 1 GiB free hyperframes requires, so a full disk ends the run with a sentence before anything is bought or built.
+ */
 export async function renderFootage(
   film: FootageFilm,
   clips: PreparedClip[],
@@ -486,6 +498,8 @@ export async function renderFootage(
   options: RenderFootageOptions,
 ): Promise<FootageResult<RenderedFootage>> {
   const { buildDir, log, signal } = options;
+  const lowDisk = findLowDiskProblems({ temp: getRenderTempDir(process.env, options.tempDir), build: buildDir }, options.readFreeBytes ?? getFreeBytes);
+  if (lowDisk.length > 0) return err(`not enough disk space to render: ${lowDisk.join(" ")}`);
   const seconds = getFootageFilmSeconds(film, edl);
   const words = remapWords(edl, transcript.words, film.cut.fillers);
   const music = await getMusic(film, edl, clips, seconds, options);
@@ -668,11 +682,17 @@ async function runHyperframesRender(options: RenderFootageOptions, output: strin
       options.log(line.trim());
     }
   };
+  const env = getHyperframesEnv();
+  if (options.tempDir !== undefined && options.tempDir.length > 0) {
+    const tempDir = resolve(options.tempDir);
+    mkdirSync(tempDir, { recursive: true });
+    env.TMPDIR = tempDir;
+  }
   const result = await runProcess({
     command: process.execPath,
     args: [getHyperframesBin(), "render", "--quality", options.quality, "-o", output],
     cwd: options.buildDir,
-    env: getHyperframesEnv(),
+    env,
     ...(options.signal === undefined ? {} : { signal: options.signal }),
     removeOnAbort: [output],
     onStdoutLine: onLine,

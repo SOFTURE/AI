@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { getHyperframesBin, getHyperframesEnv, HYPERFRAMES_VERSION } from "../render/hyperframes.js";
+import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
 import { runProcess } from "./process.js";
 
 /**
@@ -18,9 +19,15 @@ export interface FootageToolsOptions {
    * worker image ships the browser, so the default is false.
    */
   isBrowserDownloadAllowed?: boolean;
-  /** The environment the run sees (`HYPERFRAMES_BROWSER_PATH`, `PRODUCER_HEADLESS_SHELL_PATH`, `HOME`). */
+  /** The environment the run sees (`HYPERFRAMES_BROWSER_PATH`, `PRODUCER_HEADLESS_SHELL_PATH`, `HOME`, `TMPDIR`). */
   env?: NodeJS.ProcessEnv;
+  /** The render's temp folder, as passed to `renderFootage`; by default `TMPDIR` of `env`, else `os.tmpdir()`. */
+  tempDir?: string;
+  /** The film's build folder, where hyperframes writes its render; checked for free space when given. */
+  buildDir?: string;
   signal?: AbortSignal;
+  /** Reads a folder's free bytes; injected in tests. */
+  readFreeBytes?: FreeBytesReader;
 }
 
 /** What the footage blocks need from ffmpeg: decoders and filters, by the name ffmpeg lists them under. */
@@ -83,7 +90,8 @@ export function findBrowserProblem(env: NodeJS.ProcessEnv): string | null {
 
 /**
  * Checks the machine for a footage run: ffmpeg and ffprobe run, ffmpeg decodes HEVC and H.264 and has `zscale` and
- * `tonemap` (HDR clips), and, for a render, hyperframes runs and has its browser. Returns every problem found; an
+ * `tonemap` (HDR clips), and, for a render, hyperframes runs and has its browser, and its temp folder (and the build
+ * folder, when given) has the 1 GiB free hyperframes requires. Returns every problem found; an
  * empty list means the machine is ready.
  */
 export async function checkFootageTools(options: FootageToolsOptions = {}): Promise<string[]> {
@@ -115,5 +123,7 @@ export async function checkFootageTools(options: FootageToolsOptions = {}): Prom
     const browser = findBrowserProblem(env);
     if (browser !== null) problems.push(browser);
   }
+  const temp = getRenderTempDir(env, options.tempDir);
+  problems.push(...findLowDiskProblems(options.buildDir === undefined ? { temp } : { temp, build: options.buildDir }, options.readFreeBytes ?? getFreeBytes));
   return problems;
 }
