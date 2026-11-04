@@ -6,7 +6,7 @@ import { CAPTION_LINE_HEIGHT, captionChunks, getCaptionPillCss, getCaptionPositi
 import type { TimedWord } from "../voice/voiceover.js";
 import { getCaptionSpans, phraseChunks, type CaptionSpan } from "./captions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
-import { DEFAULT_EDIT, getFootageEdit, type FootageFilm } from "./film.js";
+import { CAPTION_MIN_FONT_SCALE, DEFAULT_EDIT, getFootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS } from "./normalize.js";
 
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
@@ -121,6 +121,8 @@ export function composeFootage(input: FootageComposeInput): string {
     })
     .join("\n  ");
 
+  const captionFit = film.captions && film.captionMaxLines !== undefined ? getCaptionFitScript(film.captionMaxLines, Math.round(captionBox.fontSize * CAPTION_MIN_FONT_SCALE)) : "";
+
   // --- Sound ---
   const sfx: { src: string; t: number; volume: number; dur: number }[] = [];
   const play = (event: SfxEvent, t: number, volume: number, dur: number) => {
@@ -201,7 +203,7 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
   ${captionHtml}
   ${audio}
 </div>
-<script>
+${captionFit}<script>
 const tl = gsap.timeline({ paused: true });
 ${tweens.join("\n")}
 const captions = ${JSON.stringify(isHighlight ? caption.map((chunk) => chunk.words.map((w) => w.start)) : [])};
@@ -216,5 +218,33 @@ window.__timelines["${COMPOSITION_ID}"] = tl;
 </script>
 </body>
 </html>
+`;
+}
+
+/**
+ * A page script that shrinks each caption's font in 1 px steps until its text takes at most `maxLines` lines, or the
+ * font reaches `minFontSize`. Only the browser knows how the font wraps, so it measures there: once at load and again
+ * when the fonts are ready (hyperframes waits for them before the first frame). Hidden clips keep their layout.
+ */
+function getCaptionFitScript(maxLines: number, minFontSize: number): string {
+  return `<script>
+(() => {
+  const captionMaxLines = ${maxLines}, captionMinFontSize = ${minFontSize};
+  const countLines = (el) => {
+    const style = getComputedStyle(el);
+    return Math.round((el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)) / parseFloat(style.lineHeight));
+  };
+  const fit = () => document.querySelectorAll(".caption > p").forEach((el) => {
+    el.style.fontSize = "";
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while (countLines(el) > captionMaxLines && size > captionMinFontSize) {
+      size -= 1;
+      el.style.fontSize = size + "px";
+    }
+  });
+  fit();
+  if (document.fonts) document.fonts.ready.then(fit);
+})();
+</script>
 `;
 }

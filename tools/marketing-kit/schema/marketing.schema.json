@@ -2851,6 +2851,12 @@
               "all"
             ]
           },
+          "captionMaxLines": {
+            "description": "The most lines a caption card may take (1-4): the render shrinks a longer card's font, to 70 % at most; without it, no limit.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
           "edit": {
             "description": "The cut's look; the defaults read as an ordinary phone video.",
             "default": {},
@@ -7306,6 +7312,12 @@
                   "minimum": 0,
                   "maximum": 1920
                 },
+                "bottom": {
+                  "description": "The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
                 "left": {
                   "description": "The caption's left margin, in px from the frame's left edge. Default 60.",
                   "type": "integer",
@@ -7428,6 +7440,12 @@
               "properties": {
                 "top": {
                   "description": "The caption's top edge, in px from the frame's top. Default 830.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "bottom": {
+                  "description": "The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none.",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 1080
@@ -7558,6 +7576,12 @@
                   "minimum": 0,
                   "maximum": 1080
                 },
+                "bottom": {
+                  "description": "The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
                 "left": {
                   "description": "The caption's left margin, in px from the frame's left edge. Default 1100.",
                   "type": "integer",
@@ -7680,6 +7704,12 @@
               "properties": {
                 "top": {
                   "description": "The caption's top edge, in px from the frame's top. Default 890.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "bottom": {
+                  "description": "The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none.",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 1080

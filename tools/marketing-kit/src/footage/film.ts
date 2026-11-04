@@ -109,6 +109,11 @@ export interface FootageFilm {
   captionStyle?: CaptionStyle;
   /** Places the 9:16 caption box inside a platform's safe zone (`CAPTION_SAFE_ZONES`); absent: the layout as it is. */
   captionPreset?: CaptionPreset;
+  /**
+   * The most lines a caption card may take: the render shrinks a longer card's font (to at most
+   * `CAPTION_MIN_FONT_SCALE` of the box's size) until it fits. Absent: no limit. The draft keeps its font size.
+   */
+  captionMaxLines?: number;
   /** The cut's look: zoom size, fade length, Ken Burns, the end card's whoosh. Absent fields take `DEFAULT_EDIT`. */
   edit?: Partial<FootageEdit>;
   /** The closing card after the last segment; null: the film ends with its last segment. */
@@ -141,6 +146,9 @@ export const DEFAULT_TRANSITIONS: FootageTransitions = { jump: "cut", clip: "cut
 export const CAPTION_STYLES = ["phrase", "highlight"] as const;
 
 export type CaptionStyle = (typeof CAPTION_STYLES)[number];
+
+/** The smallest a caption line limit shrinks a card's font to, as a share of the caption box's size. */
+export const CAPTION_MIN_FONT_SCALE = 0.7;
 
 export const CAPTION_PRESETS = ["reels", "shorts", "tiktok", "all"] as const;
 

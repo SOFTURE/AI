@@ -87,6 +87,12 @@ describe("footage films in marketing.json", () => {
     expect([set?.loudness, set?.cover]).toEqual([{ target: -16, truePeak: -1 }, { at: 2.5 }]);
   });
 
+  it("keeps a caption line limit of 1-4 and refuses one outside it", () => {
+    const film = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionStyle: "highlight", captionMaxLines: 2 }])), "a");
+    expect(film?.captionMaxLines).toBe(2);
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionMaxLines: 5 }]))).toContain("footage[0].captionMaxLines");
+  });
+
   it("reads key terms trimmed, deduplicated and sorted, and leaves an empty list out", () => {
     const named = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], keyTerms: ["Zakopane", " Acme  Cloud ", "Zakopane"] }])), "a");
     expect(named?.keyTerms).toEqual(["Acme Cloud", "Zakopane"]);

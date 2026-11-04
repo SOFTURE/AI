@@ -554,6 +554,13 @@ const footageSchema = z
       .enum(CAPTION_PRESETS)
       .optional()
       .describe("Keeps a 9:16 film's captions inside a platform's safe zone: reels, shorts, tiktok or all; without it, layout decides."),
+    captionMaxLines: z
+      .number()
+      .int()
+      .min(1)
+      .max(4)
+      .optional()
+      .describe("The most lines a caption card may take (1-4): the render shrinks a longer card's font, to 70 % at most; without it, no limit."),
     edit: z
       .strictObject({
         zoomPercent: z.number().min(105).max(110).default(108).describe("How far a zoom cut punches in (105-110 %, default 108)."),
