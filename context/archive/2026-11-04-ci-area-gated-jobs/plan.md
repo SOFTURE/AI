@@ -17,4 +17,4 @@
 
 ## Progress
 
-- [ ] p1
+- [x] p1 e7662a2: `scripts/ci/affected.mjs`, `changes` job in `ci.yml` and `e2e.yml`, area conditions, `tests/repo/ci-affected.test.ts`, `AGENTS.md`; repository tests 839 passed.

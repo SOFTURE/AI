@@ -1,12 +1,13 @@
 ---
 change_id: ci-area-gated-jobs
 title: "ci: the slow area jobs of ci.yml and e2e.yml run only when the change reaches their area"
-status: plan_approved
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-y5szj5
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
