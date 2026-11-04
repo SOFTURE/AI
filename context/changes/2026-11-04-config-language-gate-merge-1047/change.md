@@ -1,12 +1,13 @@
 ---
 change_id: config-language-gate-merge-1047
 title: "config: the language gate checks only the lines a merge commit brings in itself (issue #1047)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1047
 branch: claude/project-thread-1oojpe
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent

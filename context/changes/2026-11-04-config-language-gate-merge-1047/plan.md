@@ -1,6 +1,6 @@
 ---
 change_id: config-language-gate-merge-1047
-status: open
+status: archived
 ---
 
 # Plan: the language gate on a merge commit (issue #1047)
@@ -35,5 +35,5 @@ Files: `tools/config/src/cli/check-language-command.ts`, `tools/config/src/cli/c
 ## Progress
 
 - [x] Phase 1: merge-aware file check, 2ae6958
-- [ ] Phase 2: README and CHANGELOG
-- [ ] Implementation review
+- [x] Phase 2: README and CHANGELOG, e2db1f4
+- [x] Implementation review: approved
