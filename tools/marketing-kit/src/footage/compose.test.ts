@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { LAYOUTS } from "../compose/timeline.js";
-import { composeFootage, getFootageFilmSeconds, getSegmentScales, type FootageComposeInput } from "./compose.js";
+import { composeFootage, getFootageFilmSeconds, getSegmentScales, getSegmentZoomEases, type FootageComposeInput } from "./compose.js";
 import type { Edl } from "./edl.js";
 import { DEFAULT_TRANSITIONS, type FootageFilm } from "./film.js";
 
@@ -86,6 +86,32 @@ describe("composeFootage", () => {
     expect(html).toContain('tl.fromTo("#seg3", { scale: 1 }, { scale: 1.04, duration: 3, ease: "none", immediateRender: false }, 4);');
     const wide = composeFootage(input({ film: { ...film, edit: { kenBurnsPercent: 2 } } }));
     expect(wide).toContain('{ scale: 1.02, duration: 3, ease: "none", immediateRender: false }, 4);');
+  });
+
+  it("steps straight to a zoom cut's scale by default", () => {
+    expect(getSegmentZoomEases(edl, { zoomPercent: 108, zoomEaseFrames: 0 })).toEqual([0, 0, 0, 0, 0]);
+    expect(html).not.toContain("power1.out");
+  });
+
+  it("eases a zoom cut in and back out over zoomEaseFrames, from the scale on screen before the cut", () => {
+    const eased = composeFootage(input({ film: { ...film, edit: { zoomEaseFrames: 4 } } }));
+    expect(getSegmentZoomEases(edl, { zoomPercent: 108, zoomEaseFrames: 4 })).toEqual([0, 4, 4, 0, 0]);
+    expect(eased).toContain('tl.fromTo("#seg1", { scale: 1 }, { scale: 1.08, duration: 0.133, ease: "power1.out", immediateRender: false }, 2);');
+    expect(eased).toContain('tl.fromTo("#seg2", { scale: 1.08 }, { scale: 1, duration: 0.133, ease: "power1.out", immediateRender: false }, 3);');
+    // The segment rests at its scale once the ease is over.
+    expect(eased).toContain('data-duration="1" style="transform:scale(1.08)"');
+  });
+
+  it("never eases longer than the segment, nor a kenburns segment, nor the first one", () => {
+    const short: Edl = {
+      ...edl,
+      segments: [
+        { id: "g1", clip: "talk", start: 0, end: 1, transition: "zoom", motion: "none" },
+        { id: "g2", clip: "talk", start: 1, end: 1.1, transition: "zoom", motion: "none" },
+        { id: "g3", clip: "talk", start: 2, end: 3, transition: "zoom", motion: "kenburns" },
+      ],
+    };
+    expect(getSegmentZoomEases(short, { zoomPercent: 112, zoomEaseFrames: 5 })).toEqual([0, 3, 0]);
   });
 
   it("plays the whoosh on a whoosh cut, and at the end card only when the film asks for it", () => {

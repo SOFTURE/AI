@@ -556,10 +556,22 @@ const footageSchema = z
       .describe("Keeps a 9:16 film's captions inside a platform's safe zone: reels, shorts, tiktok or all; without it, layout decides."),
     edit: z
       .strictObject({
-        zoomPercent: z.number().min(105).max(110).default(108).describe("How far a zoom cut punches in (105-110 %, default 108)."),
+        zoomPercent: z.number().min(105).max(112).default(108).describe("How far a zoom cut punches in (105-112 %, default 108)."),
+        zoomEaseFrames: z
+          .number()
+          .int()
+          .min(0)
+          .max(15)
+          .default(0)
+          .describe("Frames at 30 fps a zoom cut eases into its scale over (0-15, default 0: a step; 3-5 reads as a smooth punch-in)."),
         fadeFrames: z.number().int().min(1).max(30).default(10).describe("A fade cut's length in frames at 30 fps (1-30, default 10)."),
         kenBurnsPercent: z.number().min(0).max(5).default(0).describe("How far b-roll zooms over its length (0-5 %, default 0: still)."),
         endCardWhoosh: z.boolean().default(false).describe("Play the whoosh and pop as the end card comes in (default false)."),
+        cutAudioFadeMs: z.number().int().min(10).max(100).default(20).describe("The speech track's fade at every cut in milliseconds (10-100, default 20)."),
+        cutAudioCrossfade: z
+          .boolean()
+          .default(false)
+          .describe("Cross-fade the sound of the two sides of every cut over cutAudioFadeMs, centred on the cut, instead of a short dip to silence (default false)."),
       })
       .prefault({})
       .describe("The cut's look; the defaults read as an ordinary phone video."),

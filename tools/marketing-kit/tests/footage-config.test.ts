@@ -72,12 +72,21 @@ describe("footage films in marketing.json", () => {
       music: { source: { kind: "none" }, volume: 0.35, duckedVolume: 0.1 },
       captions: true,
       captionStyle: "phrase",
-      edit: { zoomPercent: 108, fadeFrames: 10, kenBurnsPercent: 0, isEndCardWhoosh: false },
+      edit: { zoomPercent: 108, zoomEaseFrames: 0, fadeFrames: 10, kenBurnsPercent: 0, isEndCardWhoosh: false, cutAudioFadeMs: 20, isCutAudioCrossfade: false },
       endCard: null,
       loudness: { target: -14, truePeak: -1 },
       cover: {},
       post: null,
     });
+  });
+
+  it("reads the smooth-cut edit options and refuses a punch-in past 112 %", () => {
+    const smooth = findFootage(
+      load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], edit: { zoomPercent: 112, zoomEaseFrames: 4, cutAudioFadeMs: 40, cutAudioCrossfade: true } }])),
+      "a",
+    );
+    expect(smooth?.edit).toMatchObject({ zoomPercent: 112, zoomEaseFrames: 4, cutAudioFadeMs: 40, isCutAudioCrossfade: true });
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], edit: { zoomPercent: 113 } }]))).toContain("zoomPercent");
   });
 
   it("turns the loudness pass and the cover off with false, and keeps a cover time and a loudness target", () => {
