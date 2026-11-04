@@ -3,7 +3,8 @@
 #
 #   pre-commit  typecheck, lint and language, in parallel. Seconds.
 #   commit-msg  language, on the commit message.
-#   pre-push    the full `npm test`.
+#   pre-push    `npm run test:changed`: the tests related to the branch's changes and the repository tests;
+#               the full suite when a manifest, lockfile, migration, test setup or tool config changed.
 #
 # `glob` is the "was any code touched" switch: a commit that stages only Markdown skips typecheck
 # and lint (lefthook skips a job when no staged file matches). The language job has no glob, so
@@ -33,9 +34,9 @@ commit-msg:
     - name: language
       run: npx tsx tools/config/src/cli/check-language.ts --commit-msg {1}
 
-# No glob: the suite also checks Markdown (roadmap contract, links, language), and it takes
-# seconds, unlike FIRE_TRACKER's.
+# No glob: the repository tests also check Markdown (roadmap contract, links, language). The full
+# suite (about 25 minutes) runs in CI on every pull request, in shards (scripts/test-changed.mjs).
 pre-push:
   jobs:
     - name: test
-      run: npm test
+      run: npm run test:changed

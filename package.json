@@ -50,6 +50,7 @@
     "lint": "npm run lint:code && npm run lint:language",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:changed": "tsx scripts/test-changed.mjs",
     "lint:code": "eslint . --max-warnings 0",
     "lint:language": "tsx tools/config/src/cli/check-language.ts --all",
     "build": "node scripts/build-workspaces.mjs",

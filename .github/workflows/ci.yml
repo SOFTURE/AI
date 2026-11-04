@@ -64,9 +64,15 @@ jobs:
       # ESLint over the whole tree, then the language gate over every tracked file.
       - run: npm run lint
 
+  # The suite takes about 2600 s of test time, 25 minutes on one 4-core runner; four shards run it in parallel, each
+  # with its own Postgres. A shard that fails does not stop the others, so one run names every red file.
   test:
-    name: unit and repository tests
+    name: unit and repository tests (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     # @softure-ai/db runs its migrator tests on PGlite and on a real Postgres; without this
     # server its Postgres cases would fail (foundation/db/tests/postgres-env.test.ts).
     services:
@@ -96,7 +102,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm test -- --shard=${{ matrix.shard }}/4
 
   render:
     name: marketing-kit fixture film render
