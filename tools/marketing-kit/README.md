@@ -637,9 +637,28 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   it afresh and prints the sentences it would suggest dropping (retakes, false starts, cut-off sentences). A version 1
   file is still read, with generated ids.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
-  default; `zoom` punches in by `edit.zoomPercent` (105-110, default 108) and back out on the next, `fade` lasts
+  default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless
   `edit.kenBurnsPercent` (up to 5) zooms it; the end card plays its whoosh only with `edit.endCardWhoosh`.
+- **Smooth cuts on handheld footage:** three options for cuts that do not jump, all off by default.
+  - `edit.zoomEaseFrames` (0-15, 3-5 reads naturally) eases a `zoom` cut into its scale over that many frames, from
+    the scale on screen before the cut (in and back out), in the render (a `power1.out` tween) and the draft alike.
+    A `kenburns` segment keeps its own slow zoom and is not eased.
+  - `edit.cutAudioFadeMs` (10-100, default 20) is the speech track's fade at every cut; `edit.cutAudioCrossfade`
+    turns the dip to silence into a cross-fade of that length centred on the cut: each side plays on half the fade
+    into its source (silence where the source ends), so the track keeps the cut's length and every word stays under
+    its picture.
+  - `transitions.jump: "auto"` looks at each jump cut when the cut is built: the last frame before it and the first
+    after it, from the normalized clips, are shrunk to a 48×48 gray thumbnail and compared (the mean absolute
+    difference, 0-1). Below `transitions.autoThreshold` (default 0.08) the cut gets a `zoom` (the same shot, a
+    removed pause), from it up a `fade` (the camera moved). `--step=cut` prints each cut's measure and writes them to
+    `cuts.json` next to the EDL; the EDL holds the chosen transitions, so a hand edit stays as set and a render never
+    measures again. Cuts between clips keep `transitions.clip`. For a short dissolve set `edit.fadeFrames` to 4-6.
+
+  ```json
+  "transitions": { "jump": "auto", "clip": "fade" },
+  "edit": { "zoomPercent": 110, "zoomEaseFrames": 4, "fadeFrames": 5, "cutAudioFadeMs": 40, "cutAudioCrossfade": true }
+  ```
 - **Music:** `file` (local), `prompt` (ElevenLabs Music, instrumental, the film's length) or `fromVideo` (ElevenLabs
   Video to Music, scored to the cut itself, with `description` and `tags`). Generated music is paid and cached the same
   way. It plays at `volume` and ducks to `duckedVolume` while someone speaks, from the word times, with a fade in and out.
@@ -693,6 +712,12 @@ const result = await renderFootageFilm(film, {
   sfx: {}, quality: "standard", log: console.log,
 });
 ```
+
+`cutFootage` (sync) builds and writes the EDL as it is; `cutFootageFilm` (async, what `renderFootageFilm` and the CLI
+run) does the same and resolves `transitions.jump: "auto"` from the frames, answering `{ edl, cuts }` where `cuts`
+lists each measured cut (`{ segment, difference, transition }`, `describeCutMeasures` for log lines). The measuring
+step alone is `chooseCutTransitions(edl, clipFiles, { workDir, threshold? })`, with the pure `measureFrameDifference`
+and `chooseCutTransition` under it.
 
 A rendered result is `{ kind: "rendered", output, seconds, edlPath, bytes, width, height, durationSeconds, cover }`:
 `seconds` is the planned length, the rest is read with ffprobe from the written file (`cover` is the JPG's path, or
