@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **A fast ffmpeg draft of a footage film (#1018).** `renderFootageDraft(film, clips, transcript, edl, { buildDir,
+  output, width?, layout?, log, signal?, onProgress? })` writes a small (540 wide by default) fast-start H.264/AAC
+  draft with the film's phrase captions, zoom cuts, cross-fades, Ken Burns b-roll and speech track, without hyperframes.
+  Pure builders `buildFootageDraftArgs`, `buildFootageDraftCaptions`, `planFootageDraft`, `getFootageDraftFrame`; the
+  shipped caption font `FOOTAGE_DRAFT_FONT` (`fonts/`, DejaVu Sans Bold subset with every Polish letter).
+  `checkFootageTools({ needsDraft: true })` reports a missing `ass`, `xfade` or `zoompan` filter (`DRAFT_FILTERS`).
+  `getCaptionSpans` and `getFootageCaptionLayout` are shared by the render and the draft; progress gains the `draft`
+  stage; `runFfmpeg` takes `cwd`.
+
 ## 0.4.0
 
 - **Natural editing for footage films (#898).** **Changed defaults:** cuts are hard cuts (`transitions: { jump:

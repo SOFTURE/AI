@@ -19,6 +19,7 @@
     "src",
     "schema",
     "docker",
+    "fonts",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx"
   ],

@@ -18,6 +18,8 @@ export interface FootageToolsOptions {
    * worker image ships the browser, so the default is false.
    */
   isBrowserDownloadAllowed?: boolean;
+  /** Check the filters the fast draft draws with (`renderFootageDraft`): `ass` (libass and libfreetype), `xfade`, `zoompan`. */
+  needsDraft?: boolean;
   /** The environment the run sees (`HYPERFRAMES_BROWSER_PATH`, `PRODUCER_HEADLESS_SHELL_PATH`, `HOME`). */
   env?: NodeJS.ProcessEnv;
   signal?: AbortSignal;
@@ -26,7 +28,10 @@ export interface FootageToolsOptions {
 /** What the footage blocks need from ffmpeg: decoders and filters, by the name ffmpeg lists them under. */
 export const REQUIRED_DECODERS = ["hevc", "h264"] as const;
 export const REQUIRED_FILTERS = ["zscale", "tonemap"] as const;
+/** What the fast draft needs on top: libass (with libfreetype) for the captions, `xfade` for fades, `zoompan` for Ken Burns. */
+export const DRAFT_FILTERS = ["ass", "xfade", "zoompan"] as const;
 
+const DRAFT_INSTALL_HINT = "install an ffmpeg built with libass and libfreetype (macOS: brew install ffmpeg, Debian/Ubuntu: apt install ffmpeg)";
 const INSTALL_HINT = "install an ffmpeg built with libzimg (macOS: brew install ffmpeg, Debian/Ubuntu: apt install ffmpeg)";
 
 /** The names in `ffmpeg -decoders` or `-filters` output: the second column of each listing line. */
@@ -83,7 +88,7 @@ export function findBrowserProblem(env: NodeJS.ProcessEnv): string | null {
 
 /**
  * Checks the machine for a footage run: ffmpeg and ffprobe run, ffmpeg decodes HEVC and H.264 and has `zscale` and
- * `tonemap` (HDR clips), and, for a render, hyperframes runs and has its browser. Returns every problem found; an
+ * `tonemap` (HDR clips), for a draft (`needsDraft`) `ass`, `xfade` and `zoompan`, and, for a render, hyperframes runs and has its browser. Returns every problem found; an
  * empty list means the machine is ready.
  */
 export async function checkFootageTools(options: FootageToolsOptions = {}): Promise<string[]> {
@@ -99,6 +104,11 @@ export async function checkFootageTools(options: FootageToolsOptions = {}): Prom
     for (const decoder of REQUIRED_DECODERS) if (!decoders.has(decoder)) problems.push(`ffmpeg has no ${decoder} decoder: ${INSTALL_HINT}.`);
     for (const filter of REQUIRED_FILTERS) {
       if (filters?.has(filter) !== true) problems.push(`ffmpeg has no ${filter} filter (HDR clips need it): ${INSTALL_HINT}.`);
+    }
+    if (options.needsDraft === true) {
+      for (const filter of DRAFT_FILTERS) {
+        if (filters?.has(filter) !== true) problems.push(`ffmpeg has no ${filter} filter (the draft needs it): ${DRAFT_INSTALL_HINT}.`);
+      }
     }
   }
   if (!(await isRunnable("ffprobe", ["-version"], aborting))) problems.push(`no ffprobe in PATH: it comes with ffmpeg; ${INSTALL_HINT}.`);

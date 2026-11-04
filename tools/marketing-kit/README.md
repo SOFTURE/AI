@@ -757,6 +757,30 @@ COPY . .
 CMD ["node", "dist/worker.js"]
 ```
 
+### A fast draft before the render
+
+`renderFootageDraft` makes a free draft of a cut film with ffmpeg alone (no hyperframes, no browser), so an app can
+show the owner what the paid render will look like in seconds instead of minutes: the cut at a small width (540×960
+for 9:16 by default), the film's captions burned in as plain phrases (placed like the render's, the caption preset
+included), zoom cuts, cross-fades and Ken Burns b-roll as the render draws them, and the speech track. No loudness
+pass, music, end card or cover. It takes the same clips, transcript and EDL as `renderFootage` and spends nothing:
+
+```ts
+import { checkFootageTools, cutFootage, prepareFootage, renderFootageDraft, transcribeFootage } from "@softure-ai/marketing-kit";
+
+const problems = await checkFootageTools({ needsRender: false, needsDraft: true }); // ass (libass + libfreetype), xfade, zoompan
+const draft = await renderFootageDraft(film, clips, transcript, edl, { buildDir, output: "draft.mp4", width: 540, log, signal: job.signal, onProgress });
+// draft.value: { output, seconds, width, height, bytes }: H.264 yuv420p and AAC with fast start, exactly the cut's length
+```
+
+- A prototype-sized check: a 4.5 s 9:16 cut with a fade, a zoom cut, Ken Burns and captions drafts in about a second on
+  4 cores; the work grows with the film's length, not with a browser capture.
+- The captions are drawn with DejaVu Sans Bold subset to Latin with every Polish letter, shipped in
+  [`fonts/`](fonts/README.md) (`FOOTAGE_DRAFT_FONT`); a highlight-style film is drafted with plain phrases.
+- `buildFootageDraftArgs`, `buildFootageDraftCaptions` (an ASS file) and `planFootageDraft` are the pure builders, for an
+  app that runs ffmpeg its own way. ffmpeg runs in `<buildDir>/draft/`, so the captions and font paths are relative.
+- `onProgress` reports the stage `draft` (the speech track, then the film).
+
 ## OG images
 
 `softure-marketing og` renders each `ogImages` entry with [Satori](https://github.com/vercel/satori)

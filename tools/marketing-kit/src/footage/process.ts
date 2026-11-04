@@ -109,6 +109,8 @@ export interface FfmpegRunOptions {
   output?: string;
   /** Seconds of output written so far, as ffmpeg reports them. */
   onSeconds?: (seconds: number) => void;
+  /** The folder ffmpeg runs in, so relative names in the arguments and the filter graph resolve there. */
+  cwd?: string;
 }
 
 /** Runs ffmpeg with its progress on stdout; throws naming the step when it fails (a broken input or machine). */
@@ -118,6 +120,7 @@ export async function runFfmpeg(step: string, args: string[], options: FfmpegRun
     command: "ffmpeg",
     args: ["-progress", "pipe:1", "-nostats", ...args],
     ...(options.signal === undefined ? {} : { signal: options.signal }),
+    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
     removeOnAbort: options.output === undefined ? [] : [options.output],
     onStdoutLine: (line) => {
       const seconds = readFfmpegProgressSeconds(line);

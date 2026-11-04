@@ -12,7 +12,7 @@ import { err, ok, type TtsResult } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
-import { findMissingCaptionGlyphs, getCaptionPresetLayout } from "./captions.js";
+import { findMissingCaptionGlyphs, getFootageCaptionLayout } from "./captions.js";
 import { buildEdl, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
 import { getFootageEdit, type FootageClip, type FootageFilm } from "./film.js";
@@ -519,8 +519,7 @@ export async function renderFootage(
   cpSync(require.resolve("gsap/dist/gsap.min.js"), join(assetsDir, "gsap.min.js"));
   const base = resolveLayout(film.format, options.layout ?? {});
   // A caption preset places the 9:16 box in a platform's safe zone; the project's own caption override still wins.
-  const preset = film.captionPreset === undefined || film.format !== "9:16" ? null : getCaptionPresetLayout(film.captionPreset, base.caption.fontSize);
-  const layout = preset === null || options.layout?.caption !== undefined ? base : { ...base, caption: preset };
+  const layout = { ...base, caption: getFootageCaptionLayout(film, options.layout ?? {}) };
   const missing = findMissingCaptionGlyphs({
     fonts: options.brand.fonts,
     captions: film.captions ? words.map((word) => word.text) : [],
