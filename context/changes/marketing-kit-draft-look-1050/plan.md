@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-draft-look-1050
-status: in_progress
+status: done
 ---
 
 # Plan: the draft looks and sounds like the render (issue #1050)
@@ -40,6 +40,16 @@ README "Footage draft" (what it matches, what it leaves out), CHANGELOG `## Unre
 
 ## Progress
 
-- [ ] Phase 1: brand font and caption styles
-- [ ] Phase 2: music from the cache
-- [ ] Phase 3: docs
+- [x] Phase 1: brand font and caption styles (b142ae9, one commit with phase 2)
+- [x] Phase 2: music from the cache (b142ae9)
+- [x] Phase 3: docs (5c8bb45)
+
+## Verification
+
+- `vitest run tools/marketing-kit`: 68 files, 1002 tests green (4 skipped as before), the draft's real-ffmpeg tests
+  included: a `highlight` film with a brand font whose CSS family differs from the file's and cached prompt music
+  drafts with music, zero music provider calls; uncached music and a draft without `cacheDir` draft without music and
+  log why; a gone music file is an error.
+- A 1080x1920 highlight draft frame checked by eye: the box in `captionBackground`, the lit word in
+  `captionHighlight`, Polish letters drawn.
+- typecheck, ESLint and the language gate green in the pre-commit hook.
