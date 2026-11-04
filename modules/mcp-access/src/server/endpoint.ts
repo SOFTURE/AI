@@ -19,6 +19,14 @@ import { getProtectedResourceMetadataUrl, isOAuthEnabled } from "./oauth-http.js
 import { resolveMcpOrigins } from "./origins.js";
 import { MCP_READ_SCOPE, MCP_WRITE_SCOPE } from "./scopes.js";
 import { verifyAccessToken, type McpAccessContext } from "./tokens.js";
+import {
+  createSessionRenewalResponse,
+  createToolListSessionId,
+  isInitializeRequest,
+  isToolListSessionCurrent,
+  MCP_SESSION_ID_HEADER,
+  rewriteInitializeAnswer,
+} from "./tool-list-session.js";
 import { isWritingEnabled } from "./writes-switch.js";
 
 export { MCP_READ_SCOPE, MCP_WRITE_SCOPE };
@@ -37,8 +45,21 @@ const NO_STORE = { "cache-control": "no-store" };
 /** The app's MCP server for one request. It registers write tools only when `canWrite` is true. */
 export type McpServerFactory = (identity: McpServerIdentity) => McpServer | Server | Promise<McpServer | Server>;
 
+/** Reads the tool list version the factory's servers answer at `initialize` for the identity. */
+export type ToolListVersionReader = (identity: McpServerIdentity) => Promise<string>;
+
+/** A factory that can tell its tool list version without building a server; `createMcpServerFactory` returns one. */
+export interface VersionedMcpServerFactory extends McpServerFactory {
+  readonly toolListVersion: ToolListVersionReader;
+}
+
 export interface McpEndpointOptions {
-  readonly createServer: McpServerFactory;
+  readonly createServer: McpServerFactory | VersionedMcpServerFactory;
+  /**
+   * The tool list version per identity, for sessions tied to it (#1055). Default: the factory's own
+   * `toolListVersion` (`createMcpServerFactory`). Without either, the endpoint issues no session id.
+   */
+  readonly toolListVersion?: ToolListVersionReader;
 }
 
 /** Serves one request to the MCP endpoint. */
@@ -50,7 +71,8 @@ export type McpEndpoint = (ctx: McpAccessContext, request: Request) => Promise<R
  * (`responseMode: "json"`): a stream would add proxy buffering and timeouts for no tool that needs
  * it, and mid-call notifications are dropped.
  */
-export function createMcpEndpoint({ createServer }: McpEndpointOptions): McpEndpoint {
+export function createMcpEndpoint({ createServer, toolListVersion }: McpEndpointOptions): McpEndpoint {
+  const readToolListVersion = toolListVersion ?? getFactoryToolListVersion(createServer);
   const handler = createMcpHandler(
     (requestContext) => createServer(readIdentity(requestContext.authInfo)),
     {
@@ -83,8 +105,40 @@ export function createMcpEndpoint({ createServer }: McpEndpointOptions): McpEndp
 
     const authInfo = await authenticate(ctx, request);
     if (authInfo instanceof Response) return authInfo;
-    return handler.fetch(request, { authInfo });
+    return serveInSession(request, authInfo);
   };
+
+  /**
+   * Sessions tied to the tool list version (#1055): a session from another version (a release changed a tool, or the
+   * access level changed) answers 404, so the client initializes again and lists the tools again; `initialize` gets a
+   * new session id. A request without a session id is served as it always was.
+   */
+  async function serveInSession(request: Request, authInfo: AuthInfo): Promise<Response> {
+    const sessionId = request.headers.get(MCP_SESSION_ID_HEADER);
+    const isInitialize = sessionId === null && (await isInitializeRequest(request, MAX_MCP_REQUEST_BYTES));
+    if (readToolListVersion === undefined || (sessionId === null && !isInitialize)) {
+      const response = await handler.fetch(request, { authInfo });
+      return isInitialize ? rewriteInitializeAnswer(response, null) : response;
+    }
+    let version;
+    try {
+      version = await readToolListVersion(readIdentity(authInfo));
+    } catch (error) {
+      // Without the version no session can be checked or issued: serve the request statelessly, as before #1055.
+      console.error(`@softure-ai/mcp-access: reading the tool list version failed: ${errorLogLabel(error)}`);
+      const response = await handler.fetch(request, { authInfo });
+      return isInitialize ? rewriteInitializeAnswer(response, null) : response;
+    }
+    if (sessionId !== null) {
+      return isToolListSessionCurrent(sessionId, version) ? handler.fetch(request, { authInfo }) : createSessionRenewalResponse();
+    }
+    return rewriteInitializeAnswer(await handler.fetch(request, { authInfo }), createToolListSessionId(version));
+  }
+}
+
+/** The factory's own version reader, when it has one (`createMcpServerFactory`). */
+function getFactoryToolListVersion(factory: McpServerFactory | VersionedMcpServerFactory): ToolListVersionReader | undefined {
+  return "toolListVersion" in factory && typeof factory.toolListVersion === "function" ? factory.toolListVersion : undefined;
 }
 
 /**

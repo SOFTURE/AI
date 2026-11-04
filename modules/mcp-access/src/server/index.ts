@@ -9,6 +9,8 @@ export {
   type McpEndpoint,
   type McpEndpointOptions,
   type McpServerFactory,
+  type ToolListVersionReader,
+  type VersionedMcpServerFactory,
 } from "./endpoint.js";
 export { actionTool, toFormData, type ActionToolOptions, type FormActionHandler } from "./action-tool.js";
 export {
@@ -155,6 +157,12 @@ export {
   type ServedTool,
   type ToolListMeasurement,
 } from "./tool-list.js";
+export {
+  createToolListSessionId,
+  isToolListSessionCurrent,
+  MCP_SESSION_ID_HEADER,
+  readToolListSessionVersion,
+} from "./tool-list-session.js";
 export {
   toolError,
   toolResult,

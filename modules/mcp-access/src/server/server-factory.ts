@@ -10,7 +10,7 @@
 //   });
 import { McpServer, type McpServerOptions } from "@modelcontextprotocol/server";
 import type { McpServerIdentity } from "../contract.js";
-import type { McpServerFactory } from "./endpoint.js";
+import type { VersionedMcpServerFactory } from "./endpoint.js";
 import { withStrictToolInput, type StrictToolInputOptions } from "./strict-input.js";
 import { registerServerInfoTool, type ServerInfoToolOptions } from "./server-info.js";
 import { measureToolList, type ToolListMeasurement } from "./tool-list.js";
@@ -39,8 +39,12 @@ export interface McpServerFactoryOptions {
   readonly serverInfoTool?: ServerInfoToolOptions;
 }
 
-/** An `McpServerFactory` whose servers carry the tool list's version for the identity's access level. */
-export function createMcpServerFactory(options: McpServerFactoryOptions): McpServerFactory {
+/**
+ * An `McpServerFactory` whose servers carry the tool list's version for the identity's access level. Its
+ * `toolListVersion(identity)` reads that version without building a server, so `createMcpEndpoint` ties each session
+ * to it (#1055).
+ */
+export function createMcpServerFactory(options: McpServerFactoryOptions): VersionedMcpServerFactory {
   const strictOptions = options.strictToolInput === true ? {} : options.strictToolInput === false ? undefined : options.strictToolInput;
   // The served version reaches `get_server_info` here; the recording server registers it with a placeholder, since
   // its handler never runs there and the version is not part of the listed tool.
@@ -66,8 +70,9 @@ export function createMcpServerFactory(options: McpServerFactoryOptions): McpSer
     return measurement;
   };
 
-  return async (identity) => {
-    const version = options.version ?? (await measure(identity)).toolListVersion;
+  const toolListVersion = async (identity: McpServerIdentity): Promise<string> => options.version ?? (await measure(identity)).toolListVersion;
+  const factory = async (identity: McpServerIdentity): Promise<McpServer> => {
+    const version = await toolListVersion(identity);
     const server = new McpServer(
       { name: options.name, version, ...(options.title === undefined ? {} : { title: options.title }) },
       options.serverOptions,
@@ -75,4 +80,5 @@ export function createMcpServerFactory(options: McpServerFactoryOptions): McpSer
     await registerTools(server, identity, version);
     return server;
   };
+  return Object.assign(factory, { toolListVersion });
 }
