@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-tool-list-session-1055
-status: open
+status: archived
 ---
 
 # Plan: sessions tied to the tool list version (issue #1055)
@@ -37,5 +37,5 @@ Files: `src/testing/catalog.ts` (or a new `src/testing/sessions.ts`), `src/testi
 
 ## Progress
 
-- [x] Phase 1: sessions in the endpoint (f40a10f, 16 new tests; helper in `src/testing/sessions.ts`)
-- [ ] Phase 2: testing helper and docs
+- [x] Phase 1: sessions in the endpoint (f40a10f, 17 new tests; helper in `src/testing/sessions.ts`)
+- [x] Phase 2: testing helper and docs (e7b6279)

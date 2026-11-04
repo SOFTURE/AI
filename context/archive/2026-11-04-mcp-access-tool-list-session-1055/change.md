@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-tool-list-session-1055
 title: "mcp-access: a session tied to the tool list version makes a connected client re-list tools (issue #1055)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1055
 branch: claude/project-thread-ot9pgn
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
