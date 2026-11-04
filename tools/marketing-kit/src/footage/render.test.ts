@@ -60,8 +60,14 @@ describe("buildCutPreviewArgs and buildLastFrameArgs", () => {
   it("joins the segments' pictures small and silent", () => {
     const args = buildCutPreviewArgs(edl, { talk: "clips/talk.mp4", street: "clips/street.mp4" }, "/cut.mp4");
     expect(args[args.indexOf("-filter_complex") + 1]).toBe(
-      "[0:v]trim=start=0.5:end=2,setpts=PTS-STARTPTS,scale=540:-2,setsar=1[v0];[1:v]trim=start=0:end=3,setpts=PTS-STARTPTS,scale=540:-2,setsar=1[v1];[v0][v1]concat=n=2:v=1:a=0[cut]",
+      "[0:v]setpts=PTS-STARTPTS,scale=540:-2,setsar=1[v0];[1:v]setpts=PTS-STARTPTS,scale=540:-2,setsar=1[v1];[v0][v1]concat=n=2:v=1:a=0[cut]",
     );
+  });
+
+  it("seeks each segment's input instead of decoding its clip from the start", () => {
+    const args = buildCutPreviewArgs(edl, { talk: "clips/talk.mp4", street: "clips/street.mp4" }, "/cut.mp4");
+    expect(args.slice(3, args.indexOf("-filter_complex"))).toEqual(["-ss", "0.5", "-t", "1.5", "-i", "clips/talk.mp4", "-ss", "0", "-t", "3", "-i", "clips/street.mp4"]);
+    expect(args[args.indexOf("-filter_complex") + 1]).not.toContain("trim");
   });
 
   it("takes the frame just before the last segment ends", () => {
