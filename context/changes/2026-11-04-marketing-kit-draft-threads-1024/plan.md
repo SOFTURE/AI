@@ -25,7 +25,7 @@ README (draft section: the `threads` option), CHANGELOG `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: the draft's thread option
+- [x] Phase 1: the draft's thread option (9182819)
 - [ ] Phase 2: docs
 
 ## Verification

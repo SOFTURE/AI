@@ -837,6 +837,10 @@ const draft = await renderFootageDraft(film, clips, transcript, edl, { buildDir,
 - `buildFootageDraftArgs`, `buildFootageDraftCaptions` (an ASS file) and `planFootageDraft` are the pure builders, for an
   app that runs ffmpeg its own way. ffmpeg runs in `<buildDir>/draft/`, so the captions and font paths are relative.
 - `onProgress` reports the stage `draft` (the speech track, then the film).
+- `threads` sets ffmpeg's threads for every segment's decoder, the filter graph and the encoder. ffmpeg otherwise
+  follows the host's cores, not a container's CPU quota, and the draft opens one decoder per segment: pass the
+  worker's CPU limit (`threads: 1` on a 1-CPU worker), as with `normalize.threads`. The extra threads buy no speed
+  under a quota but multiply the memory (a 20-segment draft on 4 visible cores: 1119 MB, 433 MB with `threads: 1`).
 
 ## OG images
 

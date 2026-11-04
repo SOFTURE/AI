@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **Thread count for the footage draft (#1024):** `renderFootageDraft` and `buildFootageDraftArgs` take
+  `threads`, passed as `-threads N` to every segment's decoder and to the encoder, and as `-filter_complex_threads N`
+  to the filter graph. By default ffmpeg still picks its own threads, which follow the host's cores, not a
+  container's CPU quota; a 1-CPU worker passes `threads: 1`. A value that is not a positive whole number throws, as
+  `normalize.threads` does. On 4 visible cores a 40 s draft of 20 segments peaks at 433 MB with `threads: 1` instead of
+  1119 MB.
+
 ## 0.6.0
 
 - **Music files without an extension, and video beds (#1020):** the footage film's music file source takes the stored
