@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-render-crf-1036
 title: "marketing-kit: renderFootage passes hyperframes an encoder CRF (issue #1036)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1036
 branch: claude/project-thread-uddpzb
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent

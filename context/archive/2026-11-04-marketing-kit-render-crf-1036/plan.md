@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-render-crf-1036
-status: in_progress
+status: done
 ---
 
 # Plan: an encoder CRF for the footage render (issue #1036)
@@ -28,4 +28,12 @@ numbers), CHANGELOG `## Unreleased`.
 ## Progress
 
 - [x] Phase 1: the option and its argument (2fa38c7)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (bc970b2)
+
+## Verification
+
+- `vitest run tools/marketing-kit/src/footage/pipeline.test.ts`: 22 tests green (two new: the `--crf` argument and
+  its validation; both failed before the change).
+- hyperframes 0.8.85's CLI takes `--crf` and applies it as `job.config.crf ?? preset.quality` (research); the issue's
+  render with `--quality draft --crf 18` is the measurement of this exact argument list.
+- typecheck, ESLint and the language gate green in the pre-commit hook.
