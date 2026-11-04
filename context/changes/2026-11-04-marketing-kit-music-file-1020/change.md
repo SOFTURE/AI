@@ -19,13 +19,13 @@ a bed in 0.4.0 and is refused now. After this change:
 
 1. the film's file source carries optional `fileName` and `contentType` (from the stored file), used by the type check;
 2. with neither given and no extension on the path, the type check is skipped and `probeAudio` decides;
-3. a video file with an audio stream is an accepted bed: the music track reads only its audio (`-vn`);
+3. a video file with an audio stream is an accepted bed: the music track already reads only its audio;
 4. tests cover an extensionless `.m4a` and an extensionless `.mp4` with sound.
 
 ## Context
 
 Labels: `bug`, `pkg: marketing-kit`. Files: `tools/marketing-kit/src/footage/film.ts`, `audio.ts`, `pipeline.ts`,
-`render.ts` with tests, README, CHANGELOG. Open PRs #1017 and #1019 touch `pipeline.ts` and `render.ts` in other
+`render.test.ts`, README, CHANGELOG. Open PRs #1017 and #1019 touch `pipeline.ts` and `render.ts` in other
 functions; master is merged in before the merge.
 
 ## Constraints
