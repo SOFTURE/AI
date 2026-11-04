@@ -1,6 +1,9 @@
+import { dirname, resolve } from "node:path";
+
 import type { ClipFit, FootageClip } from "./film.js";
 import { getTrimmedDuration, type FootageProbe, type HdrKind } from "./probe.js";
 import { runFfmpeg, type FfmpegRunOptions } from "./process.js";
+import { ensureToneMapLut, getToneMapTransfer, HABLE_STAGES } from "./tonemap-lut.js";
 
 /**
  * One intermediate format for every clip, so the composition can cut between them freely: the film's frame at
@@ -27,20 +30,21 @@ export function resolveFit(fit: ClipFit, probe: Pick<FootageProbe, "displayWidth
   return Math.abs(clipAspect - frameAspect) / frameAspect <= CROP_ASPECT_TOLERANCE ? "crop" : "blur";
 }
 
-const TRANSFER_INPUT: Record<HdrKind, string> = { pq: "smpte2084", hlg: "arib-std-b67", "dolby-vision": "arib-std-b67" };
-
 /**
- * HDR to SDR BT.709 on the CPU: to linear light (zscale), Hable tone curve, back to BT.709. A Dolby Vision phone
- * clip is read through its HLG base layer.
+ * HDR to SDR BT.709 on the CPU. A Dolby Vision phone clip is read through its HLG base layer. With `lut` (the file
+ * name of the transfer's tone map LUT, `ensureToneMapLut`, in the folder ffmpeg runs in): to 16-bit R'G'B', the LUT
+ * to linear BT.709 light, the BT.709 transfer and matrix, about half the cost; colours outside BT.709 are clipped per
+ * RGB channel. Without it: to linear light (zscale), the Hable curve in float, back to BT.709, the same curve the LUT
+ * is made from; colours outside BT.709 are clamped in YUV.
  */
-export function toneMapFilter(hdr: HdrKind | null, transfer: string | null): string[] {
+export function toneMapFilter(hdr: HdrKind | null, transfer: string | null, lut?: string): string[] {
   if (hdr === null) return [];
-  const input = transfer === "smpte2084" || transfer === "arib-std-b67" ? transfer : TRANSFER_INPUT[hdr];
+  if (lut !== undefined) {
+    return ["zscale=min=bt2020nc:m=gbr:r=full", "format=gbrp16le", `lut3d=file=${lut}:interp=tetrahedral`, "zscale=tin=linear:pin=bt709:t=bt709:p=bt709:m=bt709:r=tv", "format=yuv420p"];
+  }
   return [
-    `zscale=tin=${input}:pin=bt2020:min=bt2020nc:t=linear:npl=100`,
-    "format=gbrpf32le",
-    "zscale=p=bt709",
-    "tonemap=tonemap=hable:desat=0",
+    `zscale=tin=${getToneMapTransfer(hdr, transfer)}:pin=bt2020:min=bt2020nc:t=linear:npl=100`,
+    ...HABLE_STAGES,
     "zscale=t=bt709:m=bt709:r=tv",
     // Back to 8-bit before scaling: the blur fill on float frames crashed ffmpeg 6.1.
     "format=yuv420p",
@@ -50,13 +54,13 @@ export function toneMapFilter(hdr: HdrKind | null, transfer: string | null): str
 /**
  * The video filter graph from input 0's picture to `[v]`. Every stage runs on as little as it can: frames are
  * dropped to 30 fps first, then the picture is scaled to the frame (crop: covered and cropped to it; blur: fitted
- * inside it), and only then tone-mapped, so the float stages of an HDR clip work on frame-sized pictures instead of
+ * inside it), and only then tone-mapped, so the tone map of an HDR clip works on frame-sized pictures instead of
  * the source's (a 4K phone clip has 4x the pixels of a 1080x1920 frame). The blur's background is made from the
- * fitted picture.
+ * fitted picture. `toneMapLut` as in `toneMapFilter`.
  */
-export function buildVideoFilter(options: { fit: "crop" | "blur"; frame: Frame; hdr: HdrKind | null; transfer: string | null }): string {
+export function buildVideoFilter(options: { fit: "crop" | "blur"; frame: Frame; hdr: HdrKind | null; transfer: string | null; toneMapLut?: string }): string {
   const { width, height } = options.frame;
-  const toneMap = toneMapFilter(options.hdr, options.transfer);
+  const toneMap = toneMapFilter(options.hdr, options.transfer, options.toneMapLut);
   const tail = "setsar=1,format=yuv420p";
   if (options.fit === "crop") {
     const cover = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
@@ -96,6 +100,11 @@ export interface NormalizeInput {
   frame: Frame;
   output: string;
   encoder?: NormalizeEncoder;
+  /**
+   * The tone map LUT's file name for an HDR clip, resolved in the folder ffmpeg runs in (`toneMapFilter`). Without it
+   * `buildNormalizeArgs` uses the float chain; `normalizeFootage` makes the LUT next to the output and uses it.
+   */
+  toneMapLut?: string;
 }
 
 /**
@@ -129,7 +138,7 @@ export function buildNormalizeArgs(input: NormalizeInput): string[] {
     "-t",
     duration.toFixed(3),
     "-filter_complex",
-    buildVideoFilter({ fit, frame, hdr: probe.hdr, transfer: probe.colorTransfer }),
+    buildVideoFilter({ fit, frame, hdr: probe.hdr, transfer: probe.colorTransfer, ...(input.toneMapLut === undefined ? {} : { toneMapLut: input.toneMapLut }) }),
     "-map",
     "[v]",
     "-map",
@@ -165,8 +174,20 @@ export function buildNormalizeArgs(input: NormalizeInput): string[] {
 
 /**
  * Runs ffmpeg for one clip without blocking; throws with the clip's id when it fails (a broken file is not an expected
- * outcome here). An abort removes the partial output and rejects with the signal's reason.
+ * outcome here). An HDR clip without `toneMapLut` gets its transfer's LUT made once in the output's folder, and ffmpeg
+ * runs there so the graph names the LUT without a path. An abort removes the partial output and rejects with the
+ * signal's reason.
  */
-export async function normalizeFootage(input: NormalizeInput, options: Omit<FfmpegRunOptions, "output"> = {}): Promise<void> {
-  await runFfmpeg(`Normalizing clip ${input.clip.id} (${input.file})`, buildNormalizeArgs(input), { ...options, output: input.output });
+export async function normalizeFootage(input: NormalizeInput, options: Omit<FfmpegRunOptions, "output" | "cwd"> = {}): Promise<void> {
+  const step = `Normalizing clip ${input.clip.id} (${input.file})`;
+  const output = resolve(input.output);
+  const { hdr, colorTransfer } = input.probe;
+  if (hdr === null || input.toneMapLut !== undefined) {
+    await runFfmpeg(step, buildNormalizeArgs(input), { ...options, output });
+    return;
+  }
+  const dir = dirname(output);
+  const toneMapLut = await ensureToneMapLut(getToneMapTransfer(hdr, colorTransfer), dir, options.signal === undefined ? {} : { signal: options.signal });
+  const args = buildNormalizeArgs({ ...input, file: resolve(input.file), output, toneMapLut });
+  await runFfmpeg(step, args, { ...options, output, cwd: dir });
 }

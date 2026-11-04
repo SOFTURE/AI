@@ -246,6 +246,7 @@ export {
   type NormalizeInput,
   type X264Preset,
 } from "./footage/normalize.js";
+export { ensureToneMapLut, getToneMapLutName, getToneMapTransfer, TONE_MAP_LUT_SIZE, type ToneMapTransfer } from "./footage/tonemap-lut.js";
 export {
   describePaidSteps,
   toPaidAudio,
