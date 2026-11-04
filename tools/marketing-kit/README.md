@@ -691,8 +691,8 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. hyperframes' render then gets
   a final pass: the whole mix (speech, music, sound effects) is measured and normalized to `mixLoudness` (default
   −14 LUFS, −1 dBTP, the same two-pass `loudnorm`; a silent mix is left as it is; `"mixLoudness": false` keeps the
-  mix as rendered), so the published file plays at the platforms' level whatever the music adds; H.264 High, yuv420p,
-  AAC 48 kHz stereo, `+faststart` (the `moov` box first, so a platform or a scheduler streaming the URL starts at
+  mix as rendered), so the published file plays at the platforms' level whatever the music adds; H.264 yuv420p in
+  Constrained Baseline, Main or High (another picture is re-encoded to High), AAC 48 kHz stereo, `+faststart` (the `moov` box first, so a platform or a scheduler streaming the URL starts at
   once), the picture copied when the render already matches (the sound too when no loudness pass changes it); ffprobe checks
   the result, and a film that does not match fails the run. A **cover** JPG is written next to the film
   (`<film>.jpg`) from the second `cover.at`, by default the middle of the first talking segment; `"cover": false`
@@ -870,8 +870,10 @@ const result = await renderFootageFilm(film, {
   | `quality: "draft", crf: 18` | 393 s | 6.9 s | 173 MB |
 
   Against `medium` CRF 18 the fast film scores PSNR 44.3 dB and SSIM 0.99; it is about twice as big (24 Mbit/s),
-  far under the platforms' upload limits, and they encode it again. The final pass copies the picture, so nothing
-  else changes.
+  far under the platforms' upload limits, and they encode it again. `ultrafast` writes H.264 Constrained Baseline,
+  which the final pass copies like High (#1051), so the whole run gains the encoder's time: in the issue's run
+  `renderFootage` took 858 s with the fast tier when that pass still re-encoded the picture at `medium` (about 320 s),
+  against 835 s for `standard`; with the copy the fast run takes about 540 s.
 
 **Container recipe.** [`docker/footage-worker.Dockerfile`](docker/footage-worker.Dockerfile) is a worker base image:
 `node:22-trixie-slim`, Debian's ffmpeg 7.1 (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and

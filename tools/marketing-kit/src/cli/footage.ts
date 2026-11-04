@@ -90,7 +90,7 @@ export async function runFootage(config: MarketingConfig, options: FootageOption
   if (rendered.value.kind === "dry-run") return;
   const { output, seconds, bytes, width, height, durationSeconds, cover } = rendered.value;
   console.log(`\n✓ ${output} (${seconds.toFixed(1)} s, ${film.format})`);
-  console.log(`  ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${(bytes / 1_000_000).toFixed(1)} MB, H.264 High, AAC 48 kHz stereo, fast start`);
+  console.log(`  ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${(bytes / 1_000_000).toFixed(1)} MB, H.264, AAC 48 kHz stereo, fast start`);
   if (cover !== null) console.log(`✓ ${cover}: cover`);
   const posts = writeFootagePosts(config, film);
   console.log(posts === null ? `no post copy: social.posts has no entry for "${film.id}" in ${config.file}.` : `✓ ${posts}: post copy`);

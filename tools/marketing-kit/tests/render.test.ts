@@ -153,10 +153,11 @@ describe.runIf(isEnabled)("the fixture footage film", () => {
       expect(edl.segments.map((segment) => `${segment.id}:${segment.clip}:${segment.transition}`)).toEqual(["s1:talk:cut", "s1.2:talk:cut", "r1:street:whoosh", "r2:sunset:whoosh"]);
       expect(readFileSync(join(footage, "out", "fixture-footage", "posts.md"), "utf8")).toContain("Filmed on a phone, cut by its transcript.");
       expect(existsSync(join(footage, "voiceover", "fixture-footage"))).toBe(false);
-      // Publishable: H.264 High, AAC 48 kHz stereo, fast start, a cover next to it, the speech at the loudness target.
+      // Publishable: H.264 yuv420p, AAC 48 kHz stereo, fast start, a cover next to it, the speech at the loudness target.
+      // The draft tier's picture (libx264 ultrafast, Constrained Baseline) is copied, not encoded again (issue #1051).
       const facts = await probeFilmFacts(video);
       if (!facts.ok) throw new Error(facts.error);
-      expect(facts.facts.video).toEqual({ codec: "h264", profile: "High", pixelFormat: "yuv420p" });
+      expect(facts.facts.video).toEqual({ codec: "h264", profile: "Constrained Baseline", pixelFormat: "yuv420p" });
       expect(facts.facts.audio).toEqual({ codec: "aac", sampleRate: 48000, channels: 2 });
       expect(findFinishProblems(facts.facts, readTopLevelBoxes(video))).toEqual([]);
       expect(existsSync(join(footage, "out", "fixture-footage", "fixture-footage.placeholder.jpg"))).toBe(true);

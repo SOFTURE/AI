@@ -74,8 +74,24 @@ describe("buildFinishArgs", () => {
     ]);
   });
 
-  it("re-encodes a picture outside H.264 High yuv420p and sound outside AAC 48 kHz stereo", () => {
-    const args = buildFinishArgs("/r.mp4", { video: { codec: "h264", profile: "Main", pixelFormat: "yuv420p" }, audio: { codec: "aac", sampleRate: 44100, channels: 2 } }, "/f.mp4").join(" ");
+  it.each(["Constrained Baseline", "Main", "High"])("copies an H.264 %s yuv420p picture (issue #1051)", (profile) => {
+    const args = buildFinishArgs("/r.mp4", { ...PUBLISHABLE, video: { codec: "h264", profile, pixelFormat: "yuv420p" } }, "/f.mp4").join(" ");
+    expect(args).toContain("-c:v copy");
+    expect(args).not.toContain("libx264");
+  });
+
+  it.each([
+    { codec: "h264", profile: "Baseline", pixelFormat: "yuv420p" },
+    { codec: "h264", profile: "High 10", pixelFormat: "yuv420p10le" },
+    { codec: "h264", profile: "High 4:2:2", pixelFormat: "yuv422p" },
+    { codec: "h264", profile: null, pixelFormat: "yuv420p" },
+    { codec: "hevc", profile: "Main", pixelFormat: "yuv420p" },
+  ])("re-encodes an $codec $profile $pixelFormat picture to H.264 High", (video) => {
+    expect(buildFinishArgs("/r.mp4", { ...PUBLISHABLE, video }, "/f.mp4").join(" ")).toContain("-c:v libx264 -profile:v high -pix_fmt yuv420p -preset medium -crf 18");
+  });
+
+  it("re-encodes a picture outside H.264 yuv420p and sound outside AAC 48 kHz stereo", () => {
+    const args = buildFinishArgs("/r.mp4", { video: { codec: "h264", profile: "High", pixelFormat: "yuv444p" }, audio: { codec: "aac", sampleRate: 44100, channels: 2 } }, "/f.mp4").join(" ");
     expect(args).toContain("-c:v libx264 -profile:v high -pix_fmt yuv420p -preset medium -crf 18");
     expect(args).toContain("-map 0:a:0 -c:a aac -b:a 192k -ar 48000 -ac 2");
   });
@@ -138,10 +154,15 @@ describe("findFinishProblems", () => {
     expect(findFinishProblems(PUBLISHABLE, ["ftyp", "moov", "mdat"])).toEqual([]);
   });
 
+  it("passes a copied draft film in H.264 Constrained Baseline (issue #1051)", () => {
+    const facts: FilmFacts = { ...PUBLISHABLE, video: { codec: "h264", profile: "Constrained Baseline", pixelFormat: "yuv420p" } };
+    expect(findFinishProblems(facts, ["ftyp", "moov", "mdat"])).toEqual([]);
+  });
+
   it("names every problem", () => {
     const facts: FilmFacts = { ...PUBLISHABLE, video: { codec: "hevc", profile: "Main 10", pixelFormat: "yuv420p10le" }, audio: { codec: "mp3", sampleRate: 44100, channels: 1 } };
     expect(findFinishProblems(facts, ["ftyp", "mdat", "moov"])).toEqual([
-      "the picture is hevc Main 10 yuv420p10le, not h264 High yuv420p",
+      "the picture is hevc Main 10 yuv420p10le, not h264 (Constrained Baseline, Main or High) yuv420p",
       "the sound is mp3 44100 Hz 1 channels, not aac 48000 Hz stereo",
       "the moov box is not before the media (no fast start)",
     ]);
