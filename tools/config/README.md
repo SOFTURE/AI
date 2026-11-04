@@ -212,6 +212,12 @@ lockfiles are skipped. A hit prints `path:line: reason` and the command exits wi
 A diacritic always counts; a Polish word counts only on its own, not inside a path, slug or identifier, and Markdown
 code spans are skipped.
 
+During a merge (`MERGE_HEAD` present, so the pre-commit hook of a merge commit), a file hit counts only when its line
+is in no parent's version of the file: text that came unchanged from the merged branch or from the branch itself was
+checked where it was written, so Polish text already on the main branch no longer refuses every merge of it. A line
+typed while resolving a conflict is new to every parent and still fails. When git cannot read a parent's version, the
+file is checked in full. `--all` and `--commit-msg` check every line, as before.
+
 A Markdown file can quote someone verbatim in their own language (the owner's words in a PRD or shape notes under
 `context/`): mark the quote and the gate skips it, while the rest of the file stays checked. The markers are HTML
 comments, so they do not show in the rendered page; they work on one line or around several lines, and a marker shown

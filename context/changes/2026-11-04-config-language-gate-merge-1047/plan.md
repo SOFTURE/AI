@@ -34,6 +34,6 @@ Files: `tools/config/src/cli/check-language-command.ts`, `tools/config/src/cli/c
 
 ## Progress
 
-- [ ] Phase 1: merge-aware file check
+- [x] Phase 1: merge-aware file check, 2ae6958
 - [ ] Phase 2: README and CHANGELOG
 - [ ] Implementation review
