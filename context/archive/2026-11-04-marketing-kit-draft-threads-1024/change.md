@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-draft-threads-1024
 title: "marketing-kit: ffmpeg thread count for the footage draft (issue #1024)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1024
 branch: claude/project-thread-hfcs2p
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent

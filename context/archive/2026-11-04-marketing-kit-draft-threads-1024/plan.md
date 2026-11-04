@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-draft-threads-1024
-status: in_progress
+status: done
 ---
 
 # Plan: ffmpeg thread count for the footage draft (issue #1024)
@@ -26,6 +26,12 @@ README (draft section: the `threads` option), CHANGELOG `## Unreleased`.
 ## Progress
 
 - [x] Phase 1: the draft's thread option (9182819)
-- [ ] Phase 2: docs
+- [x] Phase 2: docs (e508087)
 
 ## Verification
+
+- `vitest run tools/marketing-kit/src/footage`: 21 files, 248 tests green.
+- The kit's own `buildFootageDraftArgs` run through real ffmpeg 6.1 (`taskset`), a 40 s draft of 20 segments from a
+  60 s 1080x1920 clip, no captions: on 1 core 14.9 s CPU and 433 MB peak by default; on 4 cores 23.5 s CPU and
+  1119 MB by default, 15.9 s CPU and 433 MB with `threads: 1`. Both drafts are 1200 frames of 540x960.
+- typecheck, ESLint and the language gate green in the pre-commit hook.
