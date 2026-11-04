@@ -310,4 +310,16 @@ describe("getHyperframesRenderArgs", () => {
     expect(() => getHyperframesRenderArgs({ quality: "standard", workers: 0 }, "r.mp4")).toThrow("workers must be a positive whole number, got 0.");
     expect(() => getHyperframesRenderArgs({ quality: "standard", workers: 1.5 }, "r.mp4")).toThrow("workers must be a positive whole number, got 1.5.");
   });
+
+  it("passes the encoder's CRF right after the quality when set", () => {
+    expect(getHyperframesRenderArgs({ quality: "draft", crf: 18 }, "r.mp4")).toEqual(["render", "--quality", "draft", "--crf", "18", "-o", "r.mp4"]);
+    expect(getHyperframesRenderArgs({ quality: "standard", crf: 0, workers: 1 }, "r.mp4")).toEqual(["render", "--quality", "standard", "--crf", "0", "--workers", "1", "-o", "r.mp4"]);
+    expect(getHyperframesRenderArgs({ quality: "high", crf: 51 }, "r.mp4")).toEqual(["render", "--quality", "high", "--crf", "51", "-o", "r.mp4"]);
+  });
+
+  it("throws on a CRF that is not a whole number from 0 to 51", () => {
+    expect(() => getHyperframesRenderArgs({ quality: "draft", crf: -1 }, "r.mp4")).toThrow("crf must be a whole number from 0 to 51, got -1.");
+    expect(() => getHyperframesRenderArgs({ quality: "draft", crf: 52 }, "r.mp4")).toThrow("crf must be a whole number from 0 to 51, got 52.");
+    expect(() => getHyperframesRenderArgs({ quality: "draft", crf: 18.5 }, "r.mp4")).toThrow("crf must be a whole number from 0 to 51, got 18.5.");
+  });
 });

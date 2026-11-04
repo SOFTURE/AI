@@ -857,6 +857,22 @@ const result = await renderFootageFilm(film, {
   hyperframes' `--workers` and `--low-memory-mode` / `--no-low-memory-mode` (by default hyperframes turns its
   low-memory profile on by itself at 8 GB or less, reading a cgroup v2 limit).
 
+- **Encoder speed.** hyperframes encodes while it captures, with libx264 at the quality tier's preset and CRF:
+  `draft` `ultrafast` CRF 28, `standard` `medium` CRF 18, `high` `slow` CRF 15. On one CPU the `medium` encode
+  shares the core with Chrome and takes about half the capture. `crf` (a whole number from 0 to 51) passes
+  hyperframes' `--crf`, which overrides the tier's CRF but not its preset, so `quality: "draft", crf: 18` encodes
+  with `ultrafast` at the published CRF. `draft` also captures its screenshots as JPEG 80 instead of 95. Measured
+  on a 56.7 s 1080×1920 film at one CPU (#1036):
+
+  | Encoder | hyperframes total | Per second of film | Film |
+  | --- | --- | --- | --- |
+  | `quality: "standard"` | 664 s | 11.7 s | 94 MB |
+  | `quality: "draft", crf: 18` | 393 s | 6.9 s | 173 MB |
+
+  Against `medium` CRF 18 the fast film scores PSNR 44.3 dB and SSIM 0.99; it is about twice as big (24 Mbit/s),
+  far under the platforms' upload limits, and they encode it again. The final pass copies the picture, so nothing
+  else changes.
+
 **Container recipe.** [`docker/footage-worker.Dockerfile`](docker/footage-worker.Dockerfile) is a worker base image:
 `node:22-trixie-slim`, Debian's ffmpeg 7.1 (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and
 fonts Chrome needs, and the chrome-headless-shell hyperframes 0.8.85 pins, named by `HYPERFRAMES_BROWSER_PATH`. CI
