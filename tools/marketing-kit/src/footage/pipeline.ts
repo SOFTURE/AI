@@ -393,19 +393,18 @@ export function readEdlFile(film: FootageFilm, clips: PreparedClip[], edlPath: s
 
 /**
  * A local music file checked like an app's upload: an accepted type, then readable audio (`probeAudio`). The type comes
- * from the source's declared name and content type, else the path's extension; a stored file with neither (a storage
- * key) skips the type check and the probe alone decides.
+ * from the source's declared name (else the path) and content type; with no extension and no content type (a storage
+ * key) the type check is skipped and the probe alone decides.
  */
 async function checkMusicFile(source: Extract<MusicSource, { kind: "file" }>, options: Pick<FootageRunOptions, "log" | "signal">): Promise<FootageResult<string>> {
   const { path, fileName, contentType } = source;
   if (!existsSync(path)) return err(`music: no file at ${path}`);
-  const hasDeclared = fileName !== undefined || contentType !== undefined;
-  if (hasDeclared || extname(path) !== "") {
-    const declared = { ...(fileName === undefined ? {} : { fileName }), ...(contentType === undefined ? {} : { contentType }) };
-    const type = checkMusicFileType(hasDeclared ? declared : { fileName: path });
-    if (!type.ok) return err(`music: ${type.error}`);
-  } else {
+  const name = fileName ?? path;
+  if (extname(name) === "" && contentType === undefined) {
     options.log(`music: ${path} has no extension and no declared name or content type; the probe checks it.`);
+  } else {
+    const type = checkMusicFileType(contentType === undefined ? { fileName: name } : { fileName: name, contentType });
+    if (!type.ok) return err(`music: ${type.error}`);
   }
   const probe = await probeAudio(path, options.signal === undefined ? {} : { signal: options.signal });
   if (!probe.ok) return err(`music: ${probe.error}`);

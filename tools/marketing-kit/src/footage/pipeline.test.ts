@@ -237,6 +237,11 @@ describe.runIf(hasFfmpeg)("prepareFootage with a local music file (issue #996)",
     expect(lines.some((line) => line.startsWith(`music: ${music} (aac, 2.0 s`))).toBe(true);
   });
 
+  it("lets the probe decide when the declared name has no extension either", async () => {
+    const music = storeWithoutExtension(make("bed.m4a", ["-f", "lavfi", "-i", "sine=duration=1", "-c:a", "aac"]));
+    expect((await prepareFootage(filmWithMusic(music, { fileName: "Calm bed" }), run())).ok).toBe(true);
+  });
+
   it("still stops on a stored file without audio", async () => {
     const music = storeWithoutExtension(make("silent.mp4", ["-f", "lavfi", "-i", "color=c=black:s=64x64:d=1", "-pix_fmt", "yuv420p"]));
     expect(await prepareFootage(filmWithMusic(music), run())).toEqual({ ok: false, error: `music: ${music}: no audio stream` });
@@ -246,6 +251,8 @@ describe.runIf(hasFfmpeg)("prepareFootage with a local music file (issue #996)",
     const music = storeWithoutExtension(make("bed.m4a", ["-f", "lavfi", "-i", "sine=duration=1", "-c:a", "aac"]));
     const named = await prepareFootage(filmWithMusic(music, { fileName: "notes.pdf" }), run());
     expect(named).toEqual({ ok: false, error: `music: notes.pdf: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)` });
+    const mismatched = await prepareFootage(filmWithMusic(music, { fileName: "bed.mp3", contentType: "audio/wav" }), run());
+    expect(mismatched).toEqual({ ok: false, error: "music: bed.mp3: content type audio/wav does not match .mp3 (expected audio/mpeg or audio/mp3)" });
     const typed = await prepareFootage(filmWithMusic(music, { contentType: "application/pdf" }), run());
     expect(typed).toEqual({ ok: false, error: `music: content type application/pdf is not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)` });
   });
