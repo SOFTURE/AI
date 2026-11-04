@@ -20,4 +20,4 @@
 
 ## Progress
 
-- [ ] p1
+- [x] p1 c97bf1f: `macos.yml` with a paths filter, weekly schedule and dispatch; the job removed from `ci.yml`; `AGENTS.md`; repository tests 810 passed.

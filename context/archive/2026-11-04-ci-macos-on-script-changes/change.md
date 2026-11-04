@@ -1,12 +1,13 @@
 ---
 change_id: ci-macos-on-script-changes
 title: "ci: the macOS shell script tests run only when the shell scripts change"
-status: plan_approved
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-y5szj5
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
