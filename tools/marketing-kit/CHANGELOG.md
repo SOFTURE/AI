@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **Drafts and renders with a `fade` work on ffmpeg 7.1 (#1057):** ffmpeg 7.1's `setpts` leaves a stream's frame
+  rate unknown (1/0) and `xfade` refused it, so every `renderFootageDraft` and `renderFootage` whose cut has a
+  `fade` failed (the footage worker recipe installs 7.1). Every stream into `xfade` now ends with `fps=30` (the
+  draft's segments and `concat` joins, both streams of a picture piece); on ffmpeg 6.1 it passes the frames through.
+  A fade right after a zoomed segment also failed on every ffmpeg: the zoomed tail came back a pixel or two narrower
+  than the clip (1078x1920). It is now scaled back to the clip's frame. `buildPicturePieceArgs` takes a new required
+  `frame` (the normalized clips' frame, `getFrame(film)`); an app that calls it directly passes it. Nothing to change
+  for an app that only calls `renderFootage` or `renderFootageDraft`.
+
 ## 0.9.0
 
 - **A draft render with `crf` keeps its picture (#1051):** the final pass of `renderFootage` copies an H.264 yuv420p
