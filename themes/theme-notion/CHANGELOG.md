@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.11.1
 
 - `tabsListVariants` can be called from a Server Component (#1008): the class builder of `TabsList` moved out of the
   `"use client"` tabs module into the plain `ui/tabs-variants.ts`, so the root export is the function itself, not a
