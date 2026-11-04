@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-smooth-cuts-1025
 title: "marketing-kit: footage cuts that do not jump on handheld footage (issue #1025)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1025
 branch: claude/project-thread-5v784j
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent

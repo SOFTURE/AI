@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-smooth-cuts-1025
-status: in_progress
+status: done
 ---
 
 # Plan: smooth cuts on handheld footage (issue #1025)
@@ -44,7 +44,16 @@ README (edit options, auto transitions, the speech crossfade), CHANGELOG `## Unr
 
 ## Progress
 
-- [ ] Phase 1: eased punch-in
-- [ ] Phase 2: cut audio fade and crossfade
-- [ ] Phase 3: transition chosen from the frames
-- [ ] Phase 4: docs
+- [x] Phase 1: eased punch-in (bdb7f9f)
+- [x] Phase 2: cut audio fade and crossfade (7eaf169)
+- [x] Phase 3: transition chosen from the frames (6bf01f3)
+- [x] Phase 4: docs (849212a)
+
+## Verification
+
+- `vitest run tools/marketing-kit`: 63 files, all green (the regenerated `schema/marketing.schema.json` included).
+- Real ffmpeg: the draft test renders an eased zoom cut and a cross-faded speech track; a cross-faded track of three
+  segments (one starting 10 ms into its source) written as WAV is exactly 3.49 s, the cut's length; the auto choice
+  on a clip that changes its picture at 2 s measured 0 for the cut inside the first shot (`zoom`) and 0.338 across
+  the change (`fade`).
+- typecheck, ESLint and the language gate green in the pre-commit hook.
