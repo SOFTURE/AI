@@ -15,14 +15,15 @@ import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.j
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
 import { findMissingCaptionGlyphs, getFootageCaptionLayout } from "./captions.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
-import { buildEdl, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
+import { buildEdl, getEdlDuration, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
 import { chooseCutTransitions, type CutMeasure } from "./cuts.js";
 import { DEFAULT_AUTO_THRESHOLD, getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
 import { getFilmKeyTerms } from "./keyterms.js";
-import { DEFAULT_LOUDNESS, normalizeLoudness } from "./loudness.js";
-import { duckingKeyframes } from "./music.js";
-import { normalizeFootage, type Frame, type NormalizeEncoder } from "./normalize.js";
+import { DEFAULT_LOUDNESS, getLoudnessFilter, measureLoudness, normalizeLoudness } from "./loudness.js";
+import { duckingKeyframes, getDuckingOptions } from "./music.js";
+import { FOOTAGE_FPS, normalizeFootage, type Frame, type NormalizeEncoder } from "./normalize.js";
+import { buildPictureConcatArgs, buildPictureList, buildPicturePieceArgs, getPictureFrames, planFootagePicture } from "./picture.js";
 import { describeProbe, getTrimmedDuration, probeFootage, type FootageProbe } from "./probe.js";
 import {
   getClipCacheKey,
@@ -544,6 +545,16 @@ export interface RenderFootageOptions extends FootageRunOptions {
   tempDir?: string;
   /** Reads a folder's free bytes for the disk check; injected in tests. */
   readFreeBytes?: FreeBytesReader;
+  /**
+   * hyperframes' capture workers (`--workers`), each a Chrome of its own; by default hyperframes' choice (one in its
+   * low-memory profile). A positive whole number.
+   */
+  workers?: number;
+  /**
+   * hyperframes' low-memory profile (`--low-memory-mode`: one worker, screenshot capture): true forces it on, false
+   * off; by default hyperframes turns it on by itself on a machine (or cgroup) of 8 GB or less.
+   */
+  lowMemory?: boolean;
 }
 
 export type RenderedFootage = { kind: "dry-run"; steps: PaidStep[] } | ({ kind: "rendered"; output: string; seconds: number; edlPath: string } & FinishedFootage);
@@ -600,13 +611,21 @@ export async function renderFootage(
     });
   }
   if (musicFile !== null) {
-    const keyframes = duckingKeyframes(words, { volume: film.music.volume, duckedVolume: film.music.duckedVolume });
+    const keyframes = duckingKeyframes(words, getDuckingOptions(film.music));
     const output = join(assetsDir, "music.mp3");
     tracks.push({ item: "music", seconds, run: ffmpegTrack("The music track", output, () => buildMusicArgs({ input: musicFile, seconds, keyframes, output })) });
   }
   // A single frame: counted as a moment of work so the stage's bar still ends at its total.
   const lastFrame = join(assetsDir, "last.jpg");
   tracks.push({ item: "last frame", seconds: 0.1, run: ffmpegTrack("The end card's backdrop", lastFrame, () => buildLastFrameArgs(edl, clipFiles, lastFrame)) });
+  // The cut's picture in film time, one segment after the other: the composition plays it as one <video> (#1030).
+  const pictureFile = join(assetsDir, "picture.mp4");
+  const pictureSeconds = getEdlDuration(edl);
+  tracks.push({
+    item: "picture",
+    seconds: pictureSeconds,
+    run: (onSeconds) => buildPicture({ film, edl, clips: clipFiles, output: pictureFile, ...(options.normalize === undefined ? {} : { encoder: options.normalize }), ...aborting, onSeconds }),
+  });
   const assetProgress = createStageProgress(options.onProgress, "assets", tracks);
   for (const [index, track] of tracks.entries()) {
     assetProgress(index, 0);
@@ -647,6 +666,7 @@ export async function renderFootage(
     fonts,
     assets: {
       clips: Object.fromEntries(clips.map((clip) => [clip.clip.id, `clips/${clip.clip.id}.mp4`])),
+      picture: "assets/picture.mp4",
       speech: "assets/speech.mp3",
       music: musicAsset,
       lastFrame: "assets/last.jpg",
@@ -680,13 +700,14 @@ export interface FinishedFootage {
 }
 
 /**
- * The final pass over hyperframes' render: publishable codecs and fast start (stream copy where the render already
- * matches), checked with ffprobe, then the cover and the file's facts.
+ * The final pass over hyperframes' render: the mix normalized to `film.mixLoudness` (measured on the render, one
+ * linear gain; the picture still copied), publishable codecs and fast start (stream copy where the render already
+ * matches), checked with ffprobe, then the cover and the file's facts. Exported for tests only.
  */
-async function finishFootage(
-  film: FootageFilm,
+export async function finishFootage(
+  film: Pick<FootageFilm, "mixLoudness" | "cover">,
   input: { renderFile: string; seconds: number; coverAt: number },
-  options: RenderFootageOptions,
+  options: Pick<RenderFootageOptions, "log" | "signal" | "output" | "onProgress">,
 ): Promise<FootageResult<FinishedFootage>> {
   const { log, signal, output } = options;
   const aborting = signal === undefined ? {} : { signal };
@@ -694,8 +715,21 @@ async function finishFootage(
   progress(0, 0);
   const rendered = await probeFilmFacts(input.renderFile, aborting);
   if (!rendered.ok) return err(`the rendered film: ${rendered.error}`);
-  const isCopied = isPublishableVideo(rendered.facts.video) && (rendered.facts.audio === null || isPublishableAudio(rendered.facts.audio));
-  await runFfmpeg("The film's final pass", buildFinishArgs(input.renderFile, rendered.facts, output), { ...aborting, output, onSeconds: (done) => progress(0, done) });
+  const mixLoudness = film.mixLoudness === undefined ? DEFAULT_LOUDNESS : film.mixLoudness;
+  let audioFilter: string | undefined;
+  if (mixLoudness !== null && rendered.facts.audio !== null) {
+    const measured = await measureLoudness(input.renderFile, mixLoudness, { label: "the film's mix", ...aborting });
+    if (measured.kind === "silent") {
+      log("loudness: the film's mix is silent, left as it is.");
+    } else {
+      audioFilter = getLoudnessFilter(measured.measurement, mixLoudness);
+      log(`loudness: the film's mix measured ${measured.measurement.inputI.toFixed(1)} LUFS, normalized to ${mixLoudness.target} LUFS (true peak ${mixLoudness.truePeak} dBTP).`);
+    }
+  }
+  const isVideoCopied = isPublishableVideo(rendered.facts.video);
+  const isAudioCopied = audioFilter === undefined && (rendered.facts.audio === null || isPublishableAudio(rendered.facts.audio));
+  const finishArgs = buildFinishArgs(input.renderFile, rendered.facts, output, audioFilter === undefined ? {} : { audioFilter });
+  await runFfmpeg("The film's final pass", finishArgs, { ...aborting, output, onSeconds: (done) => progress(0, done) });
   rmSync(input.renderFile, { force: true });
   const finished = await probeFilmFacts(output, aborting);
   if (!finished.ok) return err(`the finished film: ${finished.error}`);
@@ -703,7 +737,8 @@ async function finishFootage(
   if (problems.length > 0) return err(`the finished film ${output} is not publishable: ${problems.join("; ")}.`);
   progress(0, input.seconds);
   const { bytes, width, height, durationSeconds } = finished.facts;
-  log(`finish: ${isCopied ? "streams copied" : "re-encoded"} to H.264 High, AAC 48 kHz stereo, fast start; ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${bytes} bytes.`);
+  const streams = isVideoCopied && isAudioCopied ? "streams copied" : isVideoCopied ? "picture copied, sound re-encoded" : "re-encoded";
+  log(`finish: ${streams} to H.264 High, AAC 48 kHz stereo, fast start; ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${bytes} bytes.`);
   let cover: string | null = null;
   if (film.cover !== null) {
     cover = getCoverPath(output);
@@ -722,6 +757,52 @@ export function readRenderPercent(line: string): number | null {
   if (last === undefined) return null;
   const percent = Number(last);
   return percent >= 0 && percent <= 100 ? percent : null;
+}
+
+/** hyperframes' render arguments: the quality, the output and the memory settings the caller set. Throws on invalid `workers`. */
+export function getHyperframesRenderArgs(options: Pick<RenderFootageOptions, "quality" | "workers" | "lowMemory">, output: string): string[] {
+  const args = ["render", "--quality", options.quality];
+  if (options.workers !== undefined) {
+    if (!Number.isInteger(options.workers) || options.workers < 1) throw new Error(`workers must be a positive whole number, got ${options.workers}.`);
+    args.push("--workers", String(options.workers));
+  }
+  if (options.lowMemory !== undefined) args.push(options.lowMemory ? "--low-memory-mode" : "--no-low-memory-mode");
+  return [...args, "-o", output];
+}
+
+interface BuildPictureInput {
+  film: FootageFilm;
+  edl: Edl;
+  clips: Record<string, string>;
+  output: string;
+  encoder?: NormalizeEncoder;
+  signal?: AbortSignal;
+  onSeconds: (done: number) => void;
+}
+
+/** Renders the picture piece by piece (one ffmpeg at a time) and joins the pieces; the pieces are removed after the join. */
+async function buildPicture(input: BuildPictureInput): Promise<void> {
+  const pieces = planFootagePicture(input.film, input.edl);
+  const dir = join(dirname(input.output), "picture");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const aborting = input.signal === undefined ? {} : { signal: input.signal };
+  const files: string[] = [];
+  for (const [index, piece] of pieces.entries()) {
+    const file = join(dir, `${String(index).padStart(3, "0")}.mp4`);
+    const done = piece.frame / FOOTAGE_FPS;
+    await runFfmpeg(`The picture of segment ${index + 1}`, buildPicturePieceArgs({ piece, clips: input.clips, output: file, ...(input.encoder === undefined ? {} : { encoder: input.encoder }) }), {
+      ...aborting,
+      output: file,
+      onSeconds: (seconds) => input.onSeconds(done + seconds),
+    });
+    files.push(file);
+  }
+  const list = join(dir, "pieces.txt");
+  writeFileSync(list, buildPictureList(files));
+  await runFfmpeg("The picture's join", buildPictureConcatArgs(list, input.output), { ...aborting, output: input.output });
+  rmSync(dir, { recursive: true, force: true });
+  input.onSeconds(getPictureFrames(pieces) / FOOTAGE_FPS);
 }
 
 /** The hyperframes render as a child process: its lines go to the log (progress every 10 %), its percentages to `onProgress`. */
@@ -752,7 +833,7 @@ async function runHyperframesRender(options: RenderFootageOptions, output: strin
   }
   const result = await runProcess({
     command: process.execPath,
-    args: [getHyperframesBin(), "render", "--quality", options.quality, "-o", output],
+    args: [getHyperframesBin(), ...getHyperframesRenderArgs(options, output)],
     cwd: options.buildDir,
     env,
     ...(options.signal === undefined ? {} : { signal: options.signal }),

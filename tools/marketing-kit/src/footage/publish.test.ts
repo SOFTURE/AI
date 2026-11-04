@@ -80,6 +80,15 @@ describe("buildFinishArgs", () => {
     expect(args).toContain("-map 0:a:0 -c:a aac -b:a 192k -ar 48000 -ac 2");
   });
 
+  it("re-encodes publishable sound through the mix's loudness filter and still copies the picture (issue #1031)", () => {
+    const args = buildFinishArgs("/r.mp4", PUBLISHABLE, "/f.mp4", { audioFilter: "loudnorm=I=-14" }).join(" ");
+    expect(args).toContain("-c:v copy -map 0:a:0 -af loudnorm=I=-14 -c:a aac -b:a 192k -ar 48000 -ac 2");
+  });
+
+  it("ignores the loudness filter on a film without sound", () => {
+    expect(buildFinishArgs("/r.mp4", { video: PUBLISHABLE.video, audio: null }, "/f.mp4", { audioFilter: "loudnorm=I=-14" })).not.toContain("-af");
+  });
+
   it("adds no sound to a film without any", () => {
     expect(buildFinishArgs("/r.mp4", { video: PUBLISHABLE.video, audio: null }, "/f.mp4")).not.toContain("0:a:0");
   });

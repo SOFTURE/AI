@@ -2830,6 +2830,18 @@
                 "type": "number",
                 "minimum": 0,
                 "maximum": 1
+              },
+              "attack": {
+                "description": "Seconds the music takes to go down before speech (0-5, default 0.25).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 5
+              },
+              "release": {
+                "description": "Seconds the music takes to come back up after speech (0-5, default 0.5).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 5
               }
             },
             "additionalProperties": false
@@ -2949,6 +2961,39 @@
               "truePeak": -1
             },
             "description": "The speech track's loudness, measured and normalized in two passes before the music goes under it; false leaves it as filmed. Default -14 LUFS, -1 dBTP.",
+            "anyOf": [
+              {
+                "type": "boolean",
+                "const": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "target": {
+                    "default": -14,
+                    "description": "Integrated loudness in LUFS (-40 to -5, default -14).",
+                    "type": "number",
+                    "minimum": -40,
+                    "maximum": -5
+                  },
+                  "truePeak": {
+                    "default": -1,
+                    "description": "The highest true peak in dBTP (-9 to 0, default -1).",
+                    "type": "number",
+                    "minimum": -9,
+                    "maximum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "mixLoudness": {
+            "default": {
+              "target": -14,
+              "truePeak": -1
+            },
+            "description": "The finished film's mix (speech and music), measured after the render and normalized in two passes; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP.",
             "anyOf": [
               {
                 "type": "boolean",

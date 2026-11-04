@@ -661,7 +661,9 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   ```
 - **Music:** `file` (local), `prompt` (ElevenLabs Music, instrumental, the film's length) or `fromVideo` (ElevenLabs
   Video to Music, scored to the cut itself, with `description` and `tags`). Generated music is paid and cached the same
-  way. It plays at `volume` and ducks to `duckedVolume` while someone speaks, from the word times, with a fade in and out.
+  way. It plays at `volume` and ducks to `duckedVolume` while someone speaks, from the word times, with a fade in and out;
+  `attack` (default 0.25 s) and `release` (default 0.5 s, both 0-5 s) set how long it takes to go down before speech
+  and to come back up after it.
   A `file` must be one of `MUSIC_FILE_TYPES` (`.mp3`, `.m4a`, `.aac`, `.wav`, `.ogg`, `.oga`, `.opus`, `.flac`, and
   the video containers `.mp4`, `.m4v`, `.mov`, `.webm`, whose sound becomes the bed) and hold an audio stream: the run
   probes it right after the clips and stops before anything is paid for when it does not. A file stored without an
@@ -684,8 +686,11 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
 - **Publishable output:** the speech track is measured and normalized to `loudness` (default −14 LUFS integrated,
   −1 dBTP true peak; two-pass `loudnorm`, one linear gain) before the music goes under it, so a quiet phone clip is
   not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. hyperframes' render then gets
-  a final pass: H.264 High, yuv420p, AAC 48 kHz stereo, `+faststart` (the `moov` box first, so a platform or a
-  scheduler streaming the URL starts at once), each stream copied when the render already matches; ffprobe checks
+  a final pass: the whole mix (speech, music, sound effects) is measured and normalized to `mixLoudness` (default
+  −14 LUFS, −1 dBTP, the same two-pass `loudnorm`; a silent mix is left as it is; `"mixLoudness": false` keeps the
+  mix as rendered), so the published file plays at the platforms' level whatever the music adds; H.264 High, yuv420p,
+  AAC 48 kHz stereo, `+faststart` (the `moov` box first, so a platform or a scheduler streaming the URL starts at
+  once), the picture copied when the render already matches (the sound too when no loudness pass changes it); ffprobe checks
   the result, and a film that does not match fails the run. A **cover** JPG is written next to the film
   (`<film>.jpg`) from the second `cover.at`, by default the middle of the first talking segment; `"cover": false`
   writes none.
@@ -763,8 +768,8 @@ A clip with sound (`.mp4`, `.mov`) is a bed as it is: the music track reads only
 Under the cut the bed needs no fitting by the app: the render resamples it to 48 kHz stereo, loops it when it is
 shorter than the film and trims it when it is longer (`buildMusicArgs`: `-stream_loop -1`, `-t <film seconds>`),
 fades it in over 1 s and out over 1.5 s, and ducks it under the voice by the film's word times (`duckingKeyframes`:
-`volume` between sentences, `duckedVolume` under speech, 0.25 s down before the first word, 0.5 s back up after the
-last). Comparing `probe.duration` with the film's length tells the app whether the bed will loop; a bed of a third of
+`volume` between sentences, `duckedVolume` under speech, `attack` seconds down before the first word, by default
+0.25, and `release` seconds back up after the last, by default 0.5). Comparing `probe.duration` with the film's length tells the app whether the bed will loop; a bed of a third of
 the film or less repeats audibly, so a longer one is worth asking for.
 
 The blocks run alone too: `probeFootage`, `probeAudio`, `normalizeFootage`, `transcribeFootage` (or a provider's `transcribe`),
@@ -825,6 +830,25 @@ const result = await renderFootageFilm(film, {
 - **A CPU-limited container.** hyperframes picks its capture workers from the host's cores, not the container's CPU
   quota: set `PRODUCER_MAX_WORKERS` to the quota. `HYPERFRAMES_EXTRACT_CACHE_MAX_MB` caps the extraction cache
   (default 2048).
+
+- **Memory.** The render plays the cut's picture as one `<video>`: in the `assets` stage `renderFootage` renders it
+  in film time (`assets/picture.mp4`, one short ffmpeg per segment, one after the other, cross-fades drawn in, the
+  same encoder as `normalize`), so hyperframes extracts the film's frames with one ffmpeg and its Chrome holds one
+  video instead of one per segment. Measured on a 45 s 1080×1920 film of 12 segments with captions, one CPU,
+  hyperframes' low-memory profile (cgroup `rss + shmem`, peak per stage):
+
+  | Stage | One `<video>` per segment (0.6.0) | One `<video>` (now) |
+  | --- | --- | --- |
+  | `video_extract` | 970 MiB (12 ffmpeg at once) | 222 MiB |
+  | `capture_streaming` | 1716 MiB | 1209 MiB |
+
+  What is left is hyperframes' own: Chrome's renderer starts at about 0.75 GiB and grows by about 0.3 MB per
+  captured frame (about 9 MB per second of film at 30 fps), with libx264 about 400 MB beside it (`quality: "draft"`
+  encodes faster and peaks about 150 MB lower). A 1.5 GiB worker renders about a minute of film; budget about
+  0.75 GiB plus 10 MB per second of film. The picture costs one extra encode of the cut (about 75 s for 45 s of film
+  at one CPU with `veryfast`; the render itself takes about 18 s per second of film). `workers` and `lowMemory` pass
+  hyperframes' `--workers` and `--low-memory-mode` / `--no-low-memory-mode` (by default hyperframes turns its
+  low-memory profile on by itself at 8 GB or less, reading a cgroup v2 limit).
 
 **Container recipe.** [`docker/footage-worker.Dockerfile`](docker/footage-worker.Dockerfile) is a worker base image:
 `node:22-trixie-slim`, Debian's ffmpeg 7.1 (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and

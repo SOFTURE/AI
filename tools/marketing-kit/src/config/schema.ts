@@ -549,6 +549,8 @@ const footageSchema = z
           .describe("ElevenLabs Video to Music scored to the cut itself (paid with --commit, cached)."),
         volume: volume.default(0.35).describe("The music's volume between sentences (0-1, default 0.35)."),
         duckedVolume: volume.default(0.1).describe("The music's volume under speech (0-1, default 0.1)."),
+        attack: z.number().min(0).max(5).optional().describe("Seconds the music takes to go down before speech (0-5, default 0.25)."),
+        release: z.number().min(0).max(5).optional().describe("Seconds the music takes to come back up after speech (0-5, default 0.5)."),
       })
       .superRefine((music, context) => {
         const sources = [music.file, music.prompt, music.fromVideo].filter((source) => source !== undefined).length;
@@ -604,6 +606,16 @@ const footageSchema = z
       ])
       .default({ target: -14, truePeak: -1 })
       .describe("The speech track's loudness, measured and normalized in two passes before the music goes under it; false leaves it as filmed. Default -14 LUFS, -1 dBTP."),
+    mixLoudness: z
+      .union([
+        z.literal(false),
+        z.strictObject({
+          target: z.number().min(-40).max(-5).default(-14).describe("Integrated loudness in LUFS (-40 to -5, default -14)."),
+          truePeak: z.number().min(-9).max(0).default(-1).describe("The highest true peak in dBTP (-9 to 0, default -1)."),
+        }),
+      ])
+      .default({ target: -14, truePeak: -1 })
+      .describe("The finished film's mix (speech and music), measured after the render and normalized in two passes; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP."),
     cover: z
       .union([
         z.literal(false),

@@ -334,7 +334,7 @@ export {
   type CutMeasure,
 } from "./footage/cuts.js";
 export { MAX_FRAMES, buildFrameArgs, extractFrames, getFrameTimes, type ExtractFramesOptions, type ExtractedFrame, type FrameSpacing } from "./footage/frames.js";
-export { duckingKeyframes, getSpeechSpans, volumeExpression, type DuckingOptions, type VolumeKeyframe } from "./footage/music.js";
+export { duckingKeyframes, getDuckingOptions, getSpeechSpans, volumeExpression, type DuckingOptions, type VolumeKeyframe } from "./footage/music.js";
 export { END_CARD_SECONDS, FADE_SECONDS, composeFootage, getFootageFilmSeconds, getSegmentScales, type FootageComposeAssets, type FootageComposeInput } from "./footage/compose.js";
 export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs, getSpeechCutOptions, type SpeechCutOptions } from "./footage/render.js";
 export {
@@ -352,12 +352,25 @@ export {
   type RenderFootageDraftOptions,
 } from "./footage/draft.js";
 export {
+  buildPictureConcatArgs,
+  buildPictureList,
+  buildPicturePieceArgs,
+  getPictureFrames,
+  planFootagePicture,
+  type PictureFadeTail,
+  type PicturePiece,
+  type PicturePieceArgsInput,
+} from "./footage/picture.js";
+export {
   DEFAULT_LOUDNESS,
   buildLoudnessArgs,
   buildLoudnessMeasureArgs,
+  getLoudnessFilter,
   isSilent,
+  measureLoudness,
   normalizeLoudness,
   readLoudnessMeasurement,
+  type LoudnessMeasureOutcome,
   type LoudnessMeasurement,
   type LoudnessOutcome,
   type LoudnessTarget,

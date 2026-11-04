@@ -236,7 +236,13 @@ function resolveFootage(data: MarketingJson, at: (relative: string) => string): 
       music:
         film.music === undefined
           ? { source: { kind: "none" }, ...DEFAULT_MUSIC_VOLUME }
-          : { source: resolveMusicSource(film.music, at), volume: film.music.volume, duckedVolume: film.music.duckedVolume },
+          : {
+              source: resolveMusicSource(film.music, at),
+              volume: film.music.volume,
+              duckedVolume: film.music.duckedVolume,
+              ...(film.music.attack === undefined ? {} : { attack: film.music.attack }),
+              ...(film.music.release === undefined ? {} : { release: film.music.release }),
+            },
       captions: film.captions,
       captionStyle: film.captionStyle,
       ...(film.captionPreset === undefined ? {} : { captionPreset: film.captionPreset }),
@@ -252,6 +258,7 @@ function resolveFootage(data: MarketingJson, at: (relative: string) => string): 
       },
       endCard: film.endCard ?? null,
       loudness: film.loudness === false ? null : film.loudness,
+      mixLoudness: film.mixLoudness === false ? null : film.mixLoudness,
       cover: film.cover === false ? null : film.cover,
       post:
         post === undefined

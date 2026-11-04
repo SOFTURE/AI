@@ -8,7 +8,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 - **Smooth cuts on handheld footage (#1025):** three options, all off by default, so existing films render as before.
   `edit.zoomEaseFrames` (0-15) eases a `zoom` cut into its scale (and back out) from the scale on screen before the
-  cut, in `composeFootage` (a `power1.out` tween) and in the draft (`zoompan`); `getSegmentZoomEases` gives each
+  cut, in `composeFootage` (a `power1.out` tween, on the one picture video too) and in the draft (`zoompan`); `getSegmentZoomEases` gives each
   segment's frames, and `DraftSegmentPlan` gained `startScale` and `easeFrames`. `edit.zoomPercent` now allows up to
   112. `edit.cutAudioFadeMs` (10-100, default 20) sets the speech track's fade at every cut, and
   `edit.cutAudioCrossfade` makes it a cross-fade centred on the cut that keeps the track exactly the cut's length;
@@ -19,6 +19,30 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `measureFrameDifference`, `chooseCutTransition`, `findAutoCuts` and `buildCutFrameArgs` are exported. The sync
   `cutFootage` is unchanged and leaves auto jump cuts as plain cuts. `FootageTransitions.jump` is now a
   `JumpTransition` (`CutTransition` or `"auto"`).
+
+- **The footage render fits a small worker (#1030):** `renderFootage` renders the cut's picture in film time
+  (`assets/picture.mp4`: one short ffmpeg per segment, one after the other, cross-fades drawn in, encoded with the
+  `normalize` encoder's preset and threads) and composes one `<video>` over it; zoom cuts and Ken Burns stay tweens on
+  that video. hyperframes then extracts the film's frames with one ffmpeg instead of one per segment at once, and its
+  Chrome holds one video. On a 45 s 1080×1920 film of 12 segments at one CPU the extraction peak falls from 970 to
+  222 MiB and the capture's from 1716 to 1209 MiB; the render takes one extra encode of the cut (about 75 s here).
+  During a cross-fade the outgoing tail now follows the incoming segment's Ken Burns (a few tenths of a percent).
+  `composeFootage` takes the picture as `assets.picture`; without it the composition is as before. New options
+  `workers` and `lowMemory` pass hyperframes' `--workers` and `--low-memory-mode`. New exports: `planFootagePicture`,
+  `buildPicturePieceArgs`, `buildPictureConcatArgs`, `buildPictureList`, `getPictureFrames`. README "Footage films in a worker" states the
+  memory a render needs.
+
+- **The finished film's loudness, and the ducking's timing (#1031):** a footage film's final pass now measures the
+  whole mix after the render and normalizes it in two passes of `loudnorm` (one linear gain; the picture is still
+  copied, only the sound re-encoded) to `FootageFilm.mixLoudness` (`marketing.json` `mixLoudness`), by default −14 LUFS
+  integrated and −1 dBTP true peak, so a film comes out at the platforms' level instead of whatever the speech plus the
+  music summed to (−25 LUFS measured on a 50 s film before). A silent mix is left as it is; `mixLoudness: null`
+  (`false` in `marketing.json`) keeps the mix as rendered. The log names the measured and the target loudness.
+  `FootageMusic` takes optional `attack` and `release` (seconds, `marketing.json` 0-5) for the ducking, absent keeping
+  0.25 / 0.5 (`getDuckingOptions`). New exports: `measureLoudness`, `getLoudnessFilter`, `LoudnessMeasureOutcome`;
+  `buildFinishArgs` takes `{ audioFilter }`. A fully silent track no longer fails the loudness measurement (ffmpeg
+  prints its offset as `inf`). Upgrading: films get louder by default; set `mixLoudness: null` to keep the old output.
+
 - **Captions anchored by their foot and fitted to a line limit (#1026):** a caption box can be anchored by its bottom
   edge (`bottom` in `CaptionLayout` and in the `layout` override, px from the frame's bottom; it wins over `top`), so a
   card of more lines grows upwards and its foot stays put; the screen-recording film, the footage film and the footage

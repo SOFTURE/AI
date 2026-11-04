@@ -10,7 +10,7 @@ import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProv
 import { DEFAULT_TRANSITIONS, type FootageClip, type FootageFilm } from "./film.js";
 import { getClipCacheKey, getIsolatedCache } from "./paid.js";
 import type { FootageCharge } from "./providers.js";
-import { cutFootage, getEdlPath, getMusicPaidStep, prepareFootage, readEdlFile, readRenderPercent, renderFootage, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
+import { cutFootage, getEdlPath, getHyperframesRenderArgs, getMusicPaidStep, prepareFootage, readEdlFile, readRenderPercent, renderFootage, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
 import type { FootageProbe } from "./probe.js";
 import { buildMusicArgs } from "./render.js";
 
@@ -296,5 +296,18 @@ describe.runIf(hasFfmpeg)("prepareFootage with a local music file (issue #996)",
     const result = await prepareFootage(filmWithMusic(music), run());
     expect(result.ok).toBe(true);
     expect(lines).toContain(`music: ${music} (pcm_s16le, 2.0 s, 48000 Hz, 2 channels, 1536 kb/s).`);
+  });
+});
+
+describe("getHyperframesRenderArgs", () => {
+  it("passes the quality and the output, and hyperframes' memory settings only when set", () => {
+    expect(getHyperframesRenderArgs({ quality: "standard" }, "/b/render.mp4")).toEqual(["render", "--quality", "standard", "-o", "/b/render.mp4"]);
+    expect(getHyperframesRenderArgs({ quality: "draft", workers: 1, lowMemory: true }, "r.mp4")).toEqual(["render", "--quality", "draft", "--workers", "1", "--low-memory-mode", "-o", "r.mp4"]);
+    expect(getHyperframesRenderArgs({ quality: "high", lowMemory: false }, "r.mp4")).toEqual(["render", "--quality", "high", "--no-low-memory-mode", "-o", "r.mp4"]);
+  });
+
+  it("throws on workers that are not a positive whole number", () => {
+    expect(() => getHyperframesRenderArgs({ quality: "standard", workers: 0 }, "r.mp4")).toThrow("workers must be a positive whole number, got 0.");
+    expect(() => getHyperframesRenderArgs({ quality: "standard", workers: 1.5 }, "r.mp4")).toThrow("workers must be a positive whole number, got 1.5.");
   });
 });

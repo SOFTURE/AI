@@ -28,8 +28,14 @@ const HAND_KEN_BURNS_PERCENT = 4;
 export const END_CARD_SECONDS = 3;
 
 export interface FootageComposeAssets {
-  /** The normalized clips by id. */
+  /** The normalized clips by id (read when there is no `picture`). */
   clips: Record<string, string>;
+  /**
+   * The cut's picture in film time (`planFootagePicture`, cross-fades drawn in): the composition then plays it as one
+   * `<video>` and zooms that one element, instead of one `<video>` per segment. One video keeps hyperframes' frame
+   * extraction to one ffmpeg and its Chrome renderer lean (issue #1030). Absent: one `<video>` per segment.
+   */
+  picture?: string;
   /** The cut speech track (as long as the cut). */
   speech: string;
   /** The ducked music track, or null for none. */
@@ -94,35 +100,42 @@ export function composeFootage(input: FootageComposeInput): string {
   const fadeSeconds = r3(edit.fadeFrames / FOOTAGE_FPS);
   const kenBurnsScale = 1 + (edit.kenBurnsPercent > 0 ? edit.kenBurnsPercent : HAND_KEN_BURNS_PERCENT) / 100;
 
-  const segments = edl.segments.map((segment, index) => {
-    const src = assets.clips[segment.clip];
-    if (src === undefined) throw new Error(`The EDL names clip "${segment.clip}", which the film has no file for.`);
-    const next = edl.segments[index + 1];
-    const tail = next?.transition === "fade" ? fadeSeconds : 0;
-    const start = starts[index] as number;
-    const duration = r3(segment.end - segment.start + tail);
-    const scale = scales[index] as number;
-    const style = scale === 1 ? "" : ` style="transform:scale(${scale})"`;
-    return `<video id="seg${index}" class="clip shot" src="${escapeHtml(src)}" data-start="${start}" data-media-start="${segment.start}" data-duration="${duration}"${style} muted playsinline></video>`;
-  });
+  const picture = assets.picture;
+  const segments =
+    picture === undefined
+      ? edl.segments.map((segment, index) => {
+          const src = assets.clips[segment.clip];
+          if (src === undefined) throw new Error(`The EDL names clip "${segment.clip}", which the film has no file for.`);
+          const next = edl.segments[index + 1];
+          const tail = next?.transition === "fade" ? fadeSeconds : 0;
+          const start = starts[index] as number;
+          const duration = r3(segment.end - segment.start + tail);
+          const scale = scales[index] as number;
+          const style = scale === 1 ? "" : ` style="transform:scale(${scale})"`;
+          return `<video id="seg${index}" class="clip shot" src="${escapeHtml(src)}" data-start="${start}" data-media-start="${segment.start}" data-duration="${duration}"${style} muted playsinline></video>`;
+        })
+      : [`<video id="picture" class="clip shot" src="${escapeHtml(picture)}" data-start="0" data-media-start="0" data-duration="${cutEnd}" muted playsinline></video>`];
 
   const tweens: string[] = [];
   edl.segments.forEach((segment, index) => {
     const start = starts[index] as number;
-    if (segment.transition === "fade" && index > 0) {
-      tweens.push(`tl.fromTo("#seg${index}", { opacity: 0 }, { opacity: 1, duration: ${fadeSeconds}, ease: "none", immediateRender: false }, ${start});`);
+    const scale = scales[index] as number;
+    const target = picture === undefined ? `#seg${index}` : "#picture";
+    // One video carries every segment: each one sets the zoom it starts at (a fade is already in the picture).
+    if (picture !== undefined) tweens.push(`tl.set("#picture", { scale: ${scale} }, ${start});`);
+    if (picture === undefined && segment.transition === "fade" && index > 0) {
+      tweens.push(`tl.fromTo("${target}", { opacity: 0 }, { opacity: 1, duration: ${fadeSeconds}, ease: "none", immediateRender: false }, ${start});`);
     }
     const ease = eases[index] as number;
     if (ease > 0) {
       // Eases from the scale on screen before the cut, so the punch-in (or back out) reads as one move of the camera.
       tweens.push(
-        `tl.fromTo("#seg${index}", { scale: ${scales[index - 1] as number} }, { scale: ${scales[index] as number}, duration: ${r3(ease / FOOTAGE_FPS)}, ease: "power1.out", immediateRender: false }, ${start});`,
+        `tl.fromTo("${target}", { scale: ${scales[index - 1] as number} }, { scale: ${scales[index] as number}, duration: ${r3(ease / FOOTAGE_FPS)}, ease: "power1.out", immediateRender: false }, ${start});`,
       );
     }
     if (segment.motion === "kenburns") {
-      const from = scales[index] as number;
       tweens.push(
-        `tl.fromTo("#seg${index}", { scale: ${from} }, { scale: ${r3(from * kenBurnsScale)}, duration: ${r3(segment.end - segment.start)}, ease: "none", immediateRender: false }, ${start});`,
+        `tl.fromTo("${target}", { scale: ${scale} }, { scale: ${r3(scale * kenBurnsScale)}, duration: ${r3(segment.end - segment.start)}, ease: "none", immediateRender: false }, ${start});`,
       );
     }
   });
