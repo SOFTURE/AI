@@ -18,6 +18,7 @@ import type {
 } from "../contract.js";
 import type { BudgetDefinition, ProviderDefinition } from "../options.js";
 import { charges } from "../schema.js";
+import { getEffectiveLimit, lockProviderBudgets, readStoredBudgetLimits } from "./limits.js";
 import { getMeteringOptions, getProviderDefinition } from "./options.js";
 import { getPeriodBounds } from "./periods.js";
 
@@ -78,10 +79,15 @@ export async function reserveSpend(ctx: MeteringContext, input: SpendInput): Pro
   const expiresAt = new Date(now.getTime() + getMeteringOptions(ctx.config).reservationTtlSeconds * 1000);
 
   return ctx.db.transaction(async (tx: Queryable): Promise<Ok<SpendReservation> | BudgetExceeded> => {
-    if (budgets.length > 0) await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`metering:${provider.id}`}, 0))`);
-    for (const budget of budgets) {
-      const state = await readBudgetState(tx, { provider, budget, accountId: input.accountId, now, timeZone: ctx.config.timezone, adding: input.amount });
-      if (state.isOver) return { ...err("metering.budget_exceeded"), budget: state.budget, requested: input.amount };
+    if (budgets.length > 0) {
+      await lockProviderBudgets(tx, provider.id);
+      // Read after the lock, so a limit changed by setBudgetLimit applies to every check of this reservation or none.
+      const stored = await readStoredBudgetLimits(tx, provider.id);
+      for (const budget of budgets) {
+        const limit = getEffectiveLimit(budget, stored);
+        const state = await readBudgetState(tx, { provider, budget, limit, accountId: input.accountId, now, timeZone: ctx.config.timezone, adding: input.amount });
+        if (state.isOver) return { ...err("metering.budget_exceeded"), budget: state.budget, requested: input.amount };
+      }
     }
     const [row] = await tx
       .insert(charges)
@@ -161,11 +167,15 @@ export async function recordCharge(ctx: MeteringContext, input: ChargeInput): Pr
   return ok({ id: row.id });
 }
 
-/** The provider's (or the account's) spend in the current day or month and the budget that limits it, if any. */
+/**
+ * The provider's (or the account's) spend in the current day or month and the budget that limits it, if any: the
+ * limit stored by `setBudgetLimit`, or the configured one.
+ */
 export async function getSpend(ctx: MeteringContext, query: SpendQuery): Promise<Ok<SpendSummary>> {
   const scope = resolveSpendScope(ctx, "getSpend", query);
   const budget = scope.provider.budgets.find((candidate) => candidate.period === query.period && candidate.perAccount === (query.accountId !== undefined));
-  const totals = await sumSpend(ctx.db, { ...scope.sum, limit: budget?.limit ?? null, adding: 0 });
+  const limit = budget === undefined ? null : getEffectiveLimit(budget, await readStoredBudgetLimits(ctx.db, scope.provider.id));
+  const totals = await sumSpend(ctx.db, { ...scope.sum, limit, adding: 0 });
   return ok({
     provider: scope.provider.id,
     unit: scope.provider.unit,
@@ -176,7 +186,7 @@ export async function getSpend(ctx: MeteringContext, query: SpendQuery): Promise
     settled: totals.settled,
     reserved: totals.reserved,
     spent: totals.spent,
-    limit: budget?.limit ?? null,
+    limit,
     remaining: totals.remaining,
   });
 }
@@ -237,6 +247,8 @@ function resolveSpendScope(ctx: MeteringContext, operation: string, query: Spend
 interface BudgetCheck {
   readonly provider: ProviderDefinition;
   readonly budget: BudgetDefinition;
+  /** The limit in force: stored at runtime or configured. */
+  readonly limit: number;
   readonly accountId: string | undefined;
   readonly now: Date;
   readonly timeZone: string;
@@ -246,7 +258,7 @@ interface BudgetCheck {
 async function readBudgetState(tx: Queryable, check: BudgetCheck): Promise<{ readonly budget: BudgetState; readonly isOver: boolean }> {
   const bounds = getPeriodBounds(check.budget.period, check.now, check.timeZone);
   const accountId = check.budget.perAccount ? check.accountId : undefined;
-  const totals = await sumSpend(tx, { providerId: check.provider.id, accountId, from: bounds.from, to: bounds.resetsAt, now: check.now, limit: check.budget.limit, adding: check.adding });
+  const totals = await sumSpend(tx, { providerId: check.provider.id, accountId, from: bounds.from, to: bounds.resetsAt, now: check.now, limit: check.limit, adding: check.adding });
   const scope: BudgetScope = accountId === undefined ? { kind: "provider" } : { kind: "account", accountId };
   return {
     isOver: totals.isOver,
@@ -255,7 +267,7 @@ async function readBudgetState(tx: Queryable, check: BudgetCheck): Promise<{ rea
       unit: check.provider.unit,
       period: check.budget.period,
       scope,
-      limit: check.budget.limit,
+      limit: check.limit,
       spent: totals.spent,
       remaining: totals.remaining ?? 0,
       resetsAt: bounds.resetsAt,

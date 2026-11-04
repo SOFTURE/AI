@@ -11,12 +11,14 @@ export {
   type LlmUsageLike,
 } from "./adapters.js";
 export { checkChargesTable } from "./health.js";
+export { clearBudgetLimit, getBudgetLimits, setBudgetLimit, type SetBudgetLimitInput } from "./limits.js";
 export { getMeteringOptions, getProviderDefinition } from "./options.js";
 export { getPeriodBounds, type PeriodBounds } from "./periods.js";
 export {
   deleteMeteringUserData,
   exportMeteringUserData,
   meteringPrivacyContributor,
+  type ExportedBudgetLimit,
   type ExportedCharge,
   type MeteringDeletionReport,
   type MeteringPrivacyContext,
