@@ -6,6 +6,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- `tabsListVariants` can be called from a Server Component (#1008): the class builder of `TabsList` moved out of the
+  `"use client"` tabs module into the plain `ui/tabs-variants.ts`, so the root export is the function itself, not a
+  client reference. Same API and classes. The theme contract no longer exempts it.
 - `formatFileSize` can be called from a Server Component (#1005): it moved out of the `"use client"` upload module
   into a plain one, so the root export is the function itself, not a client reference. An app that wrapped it in a
   client component to render a size can call it directly again. The theme contract now checks that a client module

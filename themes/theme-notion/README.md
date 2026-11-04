@@ -604,7 +604,8 @@ Deltas from stock shadcn:
   (`w-full min-w-0`, and the `Tabs` root gets `min-w-0`, so a grid or flex parent does not widen to the tabs), scrolls
   sideways by touch, wheel and the arrow keys (focus moves to the next tab), keeps every trigger at its own width and
   scrolls the active tab into the middle whenever it changes; it combines with `size="touch"`. Sets
-  `data-scrollable="true"` on the list.
+  `data-scrollable="true"` on the list. `tabsListVariants` (the list's class builder) lives in a plain module, so a
+  Server Component can call it to style its own list.
 
   ```tsx
   <Tabs value={tab} onValueChange={setTab}>

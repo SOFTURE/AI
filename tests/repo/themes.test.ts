@@ -75,10 +75,7 @@ const DECLARED_EXPORT = /^export\s+(?:async\s+)?(?:function\*?|const|let|var|cla
 const LISTED_EXPORT = /^export\s+\{([^}]*)\}/gm;
 
 // Known exceptions, "<theme dir>/<file>: <name>", each with its reason.
-const CLIENT_VALUE_EXPORTS_ALLOWED = new Set([
-  // The pinned shadcn new-york v4 tabs.tsx exports its cva builder from the client module; tracked in issue #1008.
-  "themes/theme-notion/ui/tabs.tsx: tabsListVariants",
-]);
+const CLIENT_VALUE_EXPORTS_ALLOWED = new Set<string>([]);
 
 function listExportedNames(source: string): string[] {
   const declared = [...source.matchAll(DECLARED_EXPORT)].map((match) => match[1] ?? "");

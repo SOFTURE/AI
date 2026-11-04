@@ -40,6 +40,7 @@ export * from "./ui/switch.js";
 export { SWITCH_THUMB_SHADOW_CLASS } from "./ui/switch-thumb.js";
 export * from "./ui/table.js";
 export * from "./ui/tabs.js";
+export { tabsListVariants } from "./ui/tabs-variants.js";
 export * from "./ui/textarea.js";
 export * from "./ui/tooltip.js";
 
