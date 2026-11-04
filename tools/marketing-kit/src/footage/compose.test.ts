@@ -88,6 +88,22 @@ describe("composeFootage", () => {
     expect(wide).toContain('{ scale: 1.02, duration: 3, ease: "none", immediateRender: false }, 4);');
   });
 
+  it("plays a picture in film time as one video, zooming it per segment, with no fade tweens", () => {
+    const one = composeFootage(input({ assets: { ...input().assets, picture: "assets/picture.mp4" } }));
+    expect(one.match(/<video /g)).toHaveLength(1);
+    expect(one).toContain('<video id="picture" class="clip shot" src="assets/picture.mp4" data-start="0" data-media-start="0" data-duration="8" muted playsinline></video>');
+    expect(one).not.toContain('id="seg0"');
+    expect(one).not.toContain("opacity: 0 }, { opacity: 1");
+    // Each segment sets the zoom it starts at; Ken Burns tweens the same video.
+    expect(one).toContain('tl.set("#picture", { scale: 1 }, 0);');
+    expect(one).toContain('tl.set("#picture", { scale: 1.08 }, 2);');
+    expect(one).toContain('tl.set("#picture", { scale: 1 }, 3);');
+    expect(one).toContain('tl.fromTo("#picture", { scale: 1 }, { scale: 1.04, duration: 3, ease: "none", immediateRender: false }, 4);');
+    // The sound and the end card do not change.
+    expect(one).toContain('<audio id="speech" src="assets/speech.mp3" data-start="0" data-duration="8" data-volume="1"></audio>');
+    expect(one).toContain('<img id="last" class="clip shot" src="assets/last.jpg" data-start="8" data-duration="3" />');
+  });
+
   it("plays the whoosh on a whoosh cut, and at the end card only when the film asks for it", () => {
     expect(html).toContain('src="assets/sfx/whoosh.mp3" data-start="6.9"');
     expect(html).not.toContain('src="assets/sfx/whoosh.mp3" data-start="8"');

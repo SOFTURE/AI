@@ -15,13 +15,14 @@ import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.j
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
 import { findMissingCaptionGlyphs, getFootageCaptionLayout } from "./captions.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
-import { buildEdl, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
+import { buildEdl, getEdlDuration, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
 import { getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
 import { getFilmKeyTerms } from "./keyterms.js";
 import { DEFAULT_LOUDNESS, getLoudnessFilter, measureLoudness, normalizeLoudness } from "./loudness.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
-import { normalizeFootage, type Frame, type NormalizeEncoder } from "./normalize.js";
+import { FOOTAGE_FPS, normalizeFootage, type Frame, type NormalizeEncoder } from "./normalize.js";
+import { buildPictureConcatArgs, buildPictureList, buildPicturePieceArgs, getPictureFrames, planFootagePicture } from "./picture.js";
 import { describeProbe, getTrimmedDuration, probeFootage, type FootageProbe } from "./probe.js";
 import {
   getClipCacheKey,
@@ -486,6 +487,16 @@ export interface RenderFootageOptions extends FootageRunOptions {
   tempDir?: string;
   /** Reads a folder's free bytes for the disk check; injected in tests. */
   readFreeBytes?: FreeBytesReader;
+  /**
+   * hyperframes' capture workers (`--workers`), each a Chrome of its own; by default hyperframes' choice (one in its
+   * low-memory profile). A positive whole number.
+   */
+  workers?: number;
+  /**
+   * hyperframes' low-memory profile (`--low-memory-mode`: one worker, screenshot capture): true forces it on, false
+   * off; by default hyperframes turns it on by itself on a machine (or cgroup) of 8 GB or less.
+   */
+  lowMemory?: boolean;
 }
 
 export type RenderedFootage = { kind: "dry-run"; steps: PaidStep[] } | ({ kind: "rendered"; output: string; seconds: number; edlPath: string } & FinishedFootage);
@@ -549,6 +560,14 @@ export async function renderFootage(
   // A single frame: counted as a moment of work so the stage's bar still ends at its total.
   const lastFrame = join(assetsDir, "last.jpg");
   tracks.push({ item: "last frame", seconds: 0.1, run: ffmpegTrack("The end card's backdrop", lastFrame, () => buildLastFrameArgs(edl, clipFiles, lastFrame)) });
+  // The cut's picture in film time, one segment after the other: the composition plays it as one <video> (#1030).
+  const pictureFile = join(assetsDir, "picture.mp4");
+  const pictureSeconds = getEdlDuration(edl);
+  tracks.push({
+    item: "picture",
+    seconds: pictureSeconds,
+    run: (onSeconds) => buildPicture({ film, edl, clips: clipFiles, output: pictureFile, ...(options.normalize === undefined ? {} : { encoder: options.normalize }), ...aborting, onSeconds }),
+  });
   const assetProgress = createStageProgress(options.onProgress, "assets", tracks);
   for (const [index, track] of tracks.entries()) {
     assetProgress(index, 0);
@@ -589,6 +608,7 @@ export async function renderFootage(
     fonts,
     assets: {
       clips: Object.fromEntries(clips.map((clip) => [clip.clip.id, `clips/${clip.clip.id}.mp4`])),
+      picture: "assets/picture.mp4",
       speech: "assets/speech.mp3",
       music: musicAsset,
       lastFrame: "assets/last.jpg",
@@ -681,6 +701,52 @@ export function readRenderPercent(line: string): number | null {
   return percent >= 0 && percent <= 100 ? percent : null;
 }
 
+/** hyperframes' render arguments: the quality, the output and the memory settings the caller set. Throws on invalid `workers`. */
+export function getHyperframesRenderArgs(options: Pick<RenderFootageOptions, "quality" | "workers" | "lowMemory">, output: string): string[] {
+  const args = ["render", "--quality", options.quality];
+  if (options.workers !== undefined) {
+    if (!Number.isInteger(options.workers) || options.workers < 1) throw new Error(`workers must be a positive whole number, got ${options.workers}.`);
+    args.push("--workers", String(options.workers));
+  }
+  if (options.lowMemory !== undefined) args.push(options.lowMemory ? "--low-memory-mode" : "--no-low-memory-mode");
+  return [...args, "-o", output];
+}
+
+interface BuildPictureInput {
+  film: FootageFilm;
+  edl: Edl;
+  clips: Record<string, string>;
+  output: string;
+  encoder?: NormalizeEncoder;
+  signal?: AbortSignal;
+  onSeconds: (done: number) => void;
+}
+
+/** Renders the picture piece by piece (one ffmpeg at a time) and joins the pieces; the pieces are removed after the join. */
+async function buildPicture(input: BuildPictureInput): Promise<void> {
+  const pieces = planFootagePicture(input.film, input.edl);
+  const dir = join(dirname(input.output), "picture");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const aborting = input.signal === undefined ? {} : { signal: input.signal };
+  const files: string[] = [];
+  for (const [index, piece] of pieces.entries()) {
+    const file = join(dir, `${String(index).padStart(3, "0")}.mp4`);
+    const done = piece.frame / FOOTAGE_FPS;
+    await runFfmpeg(`The picture of segment ${index + 1}`, buildPicturePieceArgs({ piece, clips: input.clips, output: file, ...(input.encoder === undefined ? {} : { encoder: input.encoder }) }), {
+      ...aborting,
+      output: file,
+      onSeconds: (seconds) => input.onSeconds(done + seconds),
+    });
+    files.push(file);
+  }
+  const list = join(dir, "pieces.txt");
+  writeFileSync(list, buildPictureList(files));
+  await runFfmpeg("The picture's join", buildPictureConcatArgs(list, input.output), { ...aborting, output: input.output });
+  rmSync(dir, { recursive: true, force: true });
+  input.onSeconds(getPictureFrames(pieces) / FOOTAGE_FPS);
+}
+
 /** The hyperframes render as a child process: its lines go to the log (progress every 10 %), its percentages to `onProgress`. */
 async function runHyperframesRender(options: RenderFootageOptions, output: string, seconds: number): Promise<FootageResult<null>> {
   const progress = createStageProgress(options.onProgress, "render", [{ item: "film", seconds }]);
@@ -709,7 +775,7 @@ async function runHyperframesRender(options: RenderFootageOptions, output: strin
   }
   const result = await runProcess({
     command: process.execPath,
-    args: [getHyperframesBin(), "render", "--quality", options.quality, "-o", output],
+    args: [getHyperframesBin(), ...getHyperframesRenderArgs(options, output)],
     cwd: options.buildDir,
     env,
     ...(options.signal === undefined ? {} : { signal: options.signal }),
