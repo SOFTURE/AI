@@ -1,12 +1,13 @@
 ---
 change_id: theme-kit-text-size-adjust-1056
 title: "theme-kit: base.css sets text-size-adjust: 100% on html (issue #1056)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1056
 branch: claude/project-thread-kgel3t
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
@@ -31,3 +32,9 @@ releases the batch.
 ## Notes
 
 - Framing: skipped. The issue names the problem, the cause and the fix.
+
+## Done
+
+`base.css` sets `-webkit-text-size-adjust: 100%` and `text-size-adjust: 100%` on `html` in `@layer base`; test in
+`themes/theme-kit/tests/stylesheets.test.ts`; README row and CHANGELOG `## Unreleased`. Ships with the next
+theme-kit release (every theme re-exports `base.css`).

@@ -1,6 +1,6 @@
 ---
 change_id: theme-kit-text-size-adjust-1056
-status: planned
+status: archived
 ---
 
 # Plan: text-size-adjust on html (issue #1056)
@@ -29,6 +29,6 @@ migration (an app drops its own rule, or keeps it: same value).
 
 ## Progress
 
-- [ ] Phase 1: the html rule
-- [ ] Phase 2: README and CHANGELOG
-- [ ] Implementation review
+- [x] Phase 1: the html rule, 0051753
+- [x] Phase 2: README and CHANGELOG, c28b67a
+- [x] Implementation review: approved
