@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 
-import type { CaptionLayout } from "../compose/timeline.js";
+import { resolveLayout, type CaptionLayout, type LayoutOverride } from "../compose/timeline.js";
 import type { BrandFont } from "../config/config.js";
 import { readCharacterMap, type CharacterMap } from "../og/character-map.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import type { CaptionPreset } from "./film.js";
+import type { CaptionPreset, FootageFilm } from "./film.js";
 
 /**
  * The footage film's captions: plain phrases (the default style), the 9:16 caption box inside a platform's safe zone,
@@ -55,6 +55,32 @@ export function phraseChunks(words: TimedWord[]): PhraseChunk[] {
   return merged.map((group) => ({ words: group, start: (group[0] as TimedWord).start, end: (group[group.length - 1] as TimedWord).end }));
 }
 
+/** When a caption chunk is on screen, in film seconds. */
+export interface CaptionSpan {
+  start: number;
+  end: number;
+}
+
+const CAPTION_LEAD_SECONDS = 0.05;
+const CAPTION_HOLD_SECONDS = 0.35;
+const CAPTION_GAP_SECONDS = 0.06;
+const MIN_CAPTION_SECONDS = 0.1;
+
+const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
+
+/**
+ * The span each caption chunk is shown for: from just before its first word to a moment after its last, never into
+ * the next chunk, the last one never past the cut's end; at least 0.1 s. The render and the draft time captions alike.
+ */
+export function getCaptionSpans(chunks: readonly { start: number; end: number }[], cutEnd: number): CaptionSpan[] {
+  return chunks.map((chunk, index) => {
+    const next = chunks[index + 1];
+    const start = r3(chunk.start - CAPTION_LEAD_SECONDS);
+    const stop = Math.min(chunk.end + CAPTION_HOLD_SECONDS, next === undefined ? cutEnd : next.start - CAPTION_GAP_SECONDS);
+    return { start, end: r3(start + r3(Math.max(MIN_CAPTION_SECONDS, stop - start))) };
+  });
+}
+
 /** Margins of a 1080×1920 frame that a platform's own buttons and text cover. */
 export interface SafeZone {
   top: number;
@@ -85,6 +111,17 @@ export function getCaptionPresetLayout(preset: CaptionPreset, fontSize: number):
   const side = Math.max(zone.left, zone.right);
   const top = Math.round(FRAME_HEIGHT - zone.bottom - CAPTION_LINES_HEIGHT * fontSize - CAPTION_PADDING);
   return { top, left: side, right: side, fontSize };
+}
+
+/**
+ * The caption box a footage film's captions are drawn in: the format's layout, with a 9:16 film's box placed by its
+ * caption preset unless the project overrides the caption box (`marketing.json` `layout`). The render and the draft
+ * share it.
+ */
+export function getFootageCaptionLayout(film: Pick<FootageFilm, "format" | "captionPreset">, override: LayoutOverride = {}): CaptionLayout {
+  const base = resolveLayout(film.format, override);
+  if (film.captionPreset === undefined || film.format !== "9:16" || override.caption !== undefined) return base.caption;
+  return getCaptionPresetLayout(film.captionPreset, base.caption.fontSize);
 }
 
 /** A character a font is asked to draw and does not have. */

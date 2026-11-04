@@ -308,7 +308,10 @@ export {
   CAPTION_SAFE_ZONES,
   findMissingCaptionGlyphs,
   getCaptionPresetLayout,
+  getCaptionSpans,
+  getFootageCaptionLayout,
   phraseChunks,
+  type CaptionSpan,
   type MissingCaptionGlyphs,
   type PhraseChunk,
   type SafeZone,
@@ -317,6 +320,20 @@ export { MAX_FRAMES, buildFrameArgs, extractFrames, getFrameTimes, type ExtractF
 export { duckingKeyframes, getSpeechSpans, volumeExpression, type DuckingOptions, type VolumeKeyframe } from "./footage/music.js";
 export { END_CARD_SECONDS, FADE_SECONDS, composeFootage, getFootageFilmSeconds, getSegmentScales, type FootageComposeAssets, type FootageComposeInput } from "./footage/compose.js";
 export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs } from "./footage/render.js";
+export {
+  FOOTAGE_DRAFT_FONT,
+  FOOTAGE_DRAFT_WIDTH,
+  buildFootageDraftArgs,
+  buildFootageDraftCaptions,
+  getFootageDraftFrame,
+  planFootageDraft,
+  renderFootageDraft,
+  type DraftSegmentPlan,
+  type FootageDraft,
+  type FootageDraftArgsInput,
+  type FootageDraftCaptionsInput,
+  type RenderFootageDraftOptions,
+} from "./footage/draft.js";
 export {
   DEFAULT_LOUDNESS,
   buildLoudnessArgs,
@@ -354,7 +371,7 @@ export {
   type FootageEstimateItem,
 } from "./footage/paid.js";
 export { RENDER_MIN_FREE_BYTES, findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./footage/disk.js";
-export { REQUIRED_DECODERS, REQUIRED_FILTERS, checkFootageTools, findBrowserProblem, readFfmpegListing, type FootageToolsOptions } from "./footage/tools.js";
+export { DRAFT_FILTERS, REQUIRED_DECODERS, REQUIRED_FILTERS, checkFootageTools, findBrowserProblem, readFfmpegListing, type FootageToolsOptions } from "./footage/tools.js";
 export {
   cutFootage,
   getEdlPath,
