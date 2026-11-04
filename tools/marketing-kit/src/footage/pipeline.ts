@@ -497,6 +497,12 @@ export interface RenderFootageOptions extends FootageRunOptions {
    * off; by default hyperframes turns it on by itself on a machine (or cgroup) of 8 GB or less.
    */
   lowMemory?: boolean;
+  /**
+   * The encoder's constant rate factor (hyperframes' `--crf`, a whole number from 0 to 51), overriding the quality
+   * tier's CRF (`draft` 28, `standard` 18, `high` 15); the x264 preset stays the tier's (`ultrafast`, `medium`,
+   * `slow`). `quality: "draft"` with `crf: 18` encodes fast at the published quality. By default the tier's CRF.
+   */
+  crf?: number;
 }
 
 export type RenderedFootage = { kind: "dry-run"; steps: PaidStep[] } | ({ kind: "rendered"; output: string; seconds: number; edlPath: string } & FinishedFootage);
@@ -701,9 +707,16 @@ export function readRenderPercent(line: string): number | null {
   return percent >= 0 && percent <= 100 ? percent : null;
 }
 
-/** hyperframes' render arguments: the quality, the output and the memory settings the caller set. Throws on invalid `workers`. */
-export function getHyperframesRenderArgs(options: Pick<RenderFootageOptions, "quality" | "workers" | "lowMemory">, output: string): string[] {
+/**
+ * hyperframes' render arguments: the quality, the encoder's CRF, the output and the memory settings the caller set.
+ * Throws on invalid `workers` or `crf`.
+ */
+export function getHyperframesRenderArgs(options: Pick<RenderFootageOptions, "quality" | "workers" | "lowMemory" | "crf">, output: string): string[] {
   const args = ["render", "--quality", options.quality];
+  if (options.crf !== undefined) {
+    if (!Number.isInteger(options.crf) || options.crf < 0 || options.crf > 51) throw new Error(`crf must be a whole number from 0 to 51, got ${options.crf}.`);
+    args.push("--crf", String(options.crf));
+  }
   if (options.workers !== undefined) {
     if (!Number.isInteger(options.workers) || options.workers < 1) throw new Error(`workers must be a positive whole number, got ${options.workers}.`);
     args.push("--workers", String(options.workers));

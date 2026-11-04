@@ -7,7 +7,8 @@ verdict: approved
 
 - Covers the issue's ask: `RenderFootageOptions` takes the CRF and passes it as `--crf`. The preset half is out of
   reach through hyperframes' CLI, recorded under Decisions with the evidence.
-- Validation mirrors hyperframes' own `[0, 51]` check, so a bad value fails before anything is bought or built.
+- Validation mirrors hyperframes' own `[0, 51]` check and throws with the value, like `workers` (a programming
+  error, so it is not a result value).
 - Compatibility: optional option; arguments unchanged without it.
 - The README note on `draft`'s JPEG 80 capture keeps the recommendation honest.
 - Approved without changes.
