@@ -129,6 +129,21 @@ describe("buildFootageDraftArgs", () => {
     expect(graph[3]).toContain("zoompan=z='1+0.04*min(on/90,1)':x='(iw-iw/zoom)*0.5':y='(ih-ih/zoom)*0.42':d=1:s=540x960:fps=30");
   });
 
+  it("eases a zoom cut over zoomEaseFrames with zoompan, as the render's power1.out", () => {
+    const eased = argsInput({ film: { edit: { zoomEaseFrames: 4 } } });
+    const plans = planFootageDraft(eased.film, edl);
+    expect(plans.map((plan) => [plan.startScale, plan.scale, plan.easeFrames])).toEqual([
+      [1, 1, 0],
+      [1, 1.08, 4],
+      [1.08, 1, 4],
+      [1, 1, 0],
+      [1, 1, 0],
+    ]);
+    const graph = getGraph(buildFootageDraftArgs(eased));
+    expect(graph[1]).toContain("[1:v]setpts=PTS-STARTPTS,zoompan=z='1+(0.08)*(1-pow(1-min(on/4,1),2))':x='(iw-iw/zoom)*0.5':y='(ih-ih/zoom)*0.42':d=1:s=540x960:fps=30,setsar=1");
+    expect(graph[2]).toContain("[2:v]setpts=PTS-STARTPTS,zoompan=z='1.08+(-0.08)*(1-pow(1-min(on/4,1),2))'");
+  });
+
   it("joins a fade with xfade at the segment's start and every other cut with concat", () => {
     const graph = getGraph(buildFootageDraftArgs(argsInput()));
     expect(graph.slice(5, 9)).toEqual([
@@ -307,7 +322,8 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     };
     const progress: number[] = [];
     const drafted = await renderFootageDraft(
-      film,
+      // An eased zoom cut and a cross-faded speech track, so real ffmpeg reads both graphs.
+      { ...film, edit: { zoomEaseFrames: 4, cutAudioFadeMs: 40, isCutAudioCrossfade: true } },
       [clip("talk", talk, "talk"), clip("street", street, "broll")],
       { kind: "ready", words: { talk: [{ text: String.fromCodePoint(0x5a, 0x61, 0x17c, 0xf3, 0x142, 0x107), start: 0.6, end: 1 }, { text: "draft.", start: 1.05, end: 1.4 }] }, speech: { talk, street } },
       cut,

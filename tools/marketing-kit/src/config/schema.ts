@@ -14,7 +14,7 @@ import {
 } from "../compose/timeline.js";
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
-import { CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS } from "../footage/film.js";
+import { CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS, JUMP_TRANSITIONS } from "../footage/film.js";
 import { normalizeKeyTerms } from "../footage/keyterms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
@@ -520,8 +520,19 @@ const footageSchema = z
     maxSeconds: z.number().min(1).max(600).optional().describe("The cut's longest length in seconds; later segments are shortened or dropped."),
     transitions: z
       .strictObject({
-        jump: z.enum(CUT_TRANSITIONS).default("cut").describe("A cut inside one talking clip: cut (the default), fade, zoom (a punch-in) or whoosh."),
+        jump: z
+          .enum(JUMP_TRANSITIONS)
+          .default("cut")
+          .describe(
+            "A cut inside one talking clip: cut (the default), fade, zoom (a punch-in), whoosh, or auto (zoom when the frames on both sides look alike, fade when the camera moved; measured when the cut is built).",
+          ),
         clip: z.enum(CUT_TRANSITIONS).default("cut").describe("A cut from one clip to the next: cut (the default), fade, zoom or whoosh."),
+        autoThreshold: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe("With jump auto: the frame difference (0-1) from which a jump cut fades instead of zooming (default 0.08)."),
       })
       .prefault({})
       .describe("Default transitions by kind of cut; each segment of the EDL can name its own."),
@@ -565,10 +576,22 @@ const footageSchema = z
       .describe("The most lines a caption card may take (1-4): the render shrinks a longer card's font, to 70 % at most; without it, no limit."),
     edit: z
       .strictObject({
-        zoomPercent: z.number().min(105).max(110).default(108).describe("How far a zoom cut punches in (105-110 %, default 108)."),
+        zoomPercent: z.number().min(105).max(112).default(108).describe("How far a zoom cut punches in (105-112 %, default 108)."),
+        zoomEaseFrames: z
+          .number()
+          .int()
+          .min(0)
+          .max(15)
+          .default(0)
+          .describe("Frames at 30 fps a zoom cut eases into its scale over (0-15, default 0: a step; 3-5 reads as a smooth punch-in)."),
         fadeFrames: z.number().int().min(1).max(30).default(10).describe("A fade cut's length in frames at 30 fps (1-30, default 10)."),
         kenBurnsPercent: z.number().min(0).max(5).default(0).describe("How far b-roll zooms over its length (0-5 %, default 0: still)."),
         endCardWhoosh: z.boolean().default(false).describe("Play the whoosh and pop as the end card comes in (default false)."),
+        cutAudioFadeMs: z.number().int().min(10).max(100).default(20).describe("The speech track's fade at every cut in milliseconds (10-100, default 20)."),
+        cutAudioCrossfade: z
+          .boolean()
+          .default(false)
+          .describe("Cross-fade the sound of the two sides of every cut over cutAudioFadeMs, centred on the cut, instead of a short dip to silence (default false)."),
       })
       .prefault({})
       .describe("The cut's look; the defaults read as an ordinary phone video."),

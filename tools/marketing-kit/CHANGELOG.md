@@ -6,6 +6,20 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Smooth cuts on handheld footage (#1025):** three options, all off by default, so existing films render as before.
+  `edit.zoomEaseFrames` (0-15) eases a `zoom` cut into its scale (and back out) from the scale on screen before the
+  cut, in `composeFootage` (a `power1.out` tween, on the one picture video too) and in the draft (`zoompan`); `getSegmentZoomEases` gives each
+  segment's frames, and `DraftSegmentPlan` gained `startScale` and `easeFrames`. `edit.zoomPercent` now allows up to
+  112. `edit.cutAudioFadeMs` (10-100, default 20) sets the speech track's fade at every cut, and
+  `edit.cutAudioCrossfade` makes it a cross-fade centred on the cut that keeps the track exactly the cut's length;
+  `buildSpeechArgs` takes them as a fourth argument (`getSpeechCutOptions(edit)`). `transitions.jump: "auto"`
+  compares the frames around each jump cut when the cut is built and gives it `zoom` below `transitions.autoThreshold`
+  (default 0.08) and `fade` from it up; the new async `cutFootageFilm` (used by `renderFootageFilm` and the CLI) does
+  this and returns and writes (`cuts.json`) what each cut measured, and `chooseCutTransitions`,
+  `measureFrameDifference`, `chooseCutTransition`, `findAutoCuts` and `buildCutFrameArgs` are exported. The sync
+  `cutFootage` is unchanged and leaves auto jump cuts as plain cuts. `FootageTransitions.jump` is now a
+  `JumpTransition` (`CutTransition` or `"auto"`).
+
 - **The footage render fits a small worker (#1030):** `renderFootage` renders the cut's picture in film time
   (`assets/picture.mp4`: one short ffmpeg per segment, one after the other, cross-fades drawn in, encoded with the
   `normalize` encoder's preset and threads) and composes one `<video>` over it; zoom cuts and Ken Burns stay tweens on

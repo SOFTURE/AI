@@ -6,7 +6,7 @@ import { CAPTION_LINE_HEIGHT, captionChunks, getCaptionPillCss, getCaptionPositi
 import type { TimedWord } from "../voice/voiceover.js";
 import { getCaptionSpans, phraseChunks, type CaptionSpan } from "./captions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
-import { CAPTION_MIN_FONT_SCALE, DEFAULT_EDIT, getFootageEdit, type FootageFilm } from "./film.js";
+import { CAPTION_MIN_FONT_SCALE, DEFAULT_EDIT, getFootageEdit, type FootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS } from "./normalize.js";
 
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
@@ -14,7 +14,7 @@ const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
 /**
  * The HyperFrames composition of a footage film (the same 0.8.85 contract as `composeFilm`): one `<video>` clip per
  * EDL segment over the normalized clip with its media start, the transitions (`fade` cross-fades from the segment
- * before over `fadeFrames`, `zoom` punches in by `zoomPercent` on alternate jump cuts, `whoosh` plays the whoosh
+ * before over `fadeFrames`, `zoom` punches in by `zoomPercent` on alternate jump cuts, eased over `zoomEaseFrames`, `whoosh` plays the whoosh
  * sound), a slow zoom on `kenburns` segments, the captions (plain phrases, or the word-highlight pill), the end card
  * over the cut's last frame (its whoosh only with `isEndCardWhoosh`), the cut speech track and the ducked music.
  */
@@ -77,6 +77,18 @@ export function getSegmentScales(edl: Edl, zoomPercent = DEFAULT_EDIT.zoomPercen
   return scales;
 }
 
+/**
+ * The frames each segment's zoom eases over (`zoomEaseFrames`, at most the segment's own frames): a `zoom` cut after
+ * the first segment that changes the scale and is not `kenburns` (its slow zoom owns the scale); 0 for every other.
+ */
+export function getSegmentZoomEases(edl: Edl, edit: Pick<FootageEdit, "zoomPercent" | "zoomEaseFrames">): number[] {
+  const scales = getSegmentScales(edl, edit.zoomPercent);
+  return edl.segments.map((segment, index) => {
+    const isEased = edit.zoomEaseFrames > 0 && index > 0 && segment.transition === "zoom" && segment.motion !== "kenburns" && scales[index - 1] !== scales[index];
+    return isEased ? Math.max(1, Math.min(edit.zoomEaseFrames, Math.floor((segment.end - segment.start) * FOOTAGE_FPS))) : 0;
+  });
+}
+
 export function composeFootage(input: FootageComposeInput): string {
   const { film, edl, words, frame, colors: c, fonts, assets, caption: captionBox } = input;
   const starts = getSegmentStarts(edl);
@@ -84,6 +96,7 @@ export function composeFootage(input: FootageComposeInput): string {
   const end = getFootageFilmSeconds(film, edl);
   const edit = getFootageEdit(film);
   const scales = getSegmentScales(edl, edit.zoomPercent);
+  const eases = getSegmentZoomEases(edl, edit);
   const fadeSeconds = r3(edit.fadeFrames / FOOTAGE_FPS);
   const kenBurnsScale = 1 + (edit.kenBurnsPercent > 0 ? edit.kenBurnsPercent : HAND_KEN_BURNS_PERCENT) / 100;
 
@@ -112,6 +125,13 @@ export function composeFootage(input: FootageComposeInput): string {
     if (picture !== undefined) tweens.push(`tl.set("#picture", { scale: ${scale} }, ${start});`);
     if (picture === undefined && segment.transition === "fade" && index > 0) {
       tweens.push(`tl.fromTo("${target}", { opacity: 0 }, { opacity: 1, duration: ${fadeSeconds}, ease: "none", immediateRender: false }, ${start});`);
+    }
+    const ease = eases[index] as number;
+    if (ease > 0) {
+      // Eases from the scale on screen before the cut, so the punch-in (or back out) reads as one move of the camera.
+      tweens.push(
+        `tl.fromTo("${target}", { scale: ${scales[index - 1] as number} }, { scale: ${scales[index] as number}, duration: ${r3(ease / FOOTAGE_FPS)}, ease: "power1.out", immediateRender: false }, ${start});`,
+      );
     }
     if (segment.motion === "kenburns") {
       tweens.push(

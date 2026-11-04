@@ -82,13 +82,26 @@ export interface CutOptions {
   maxSeconds: number | null;
 }
 
+/** A jump cut's default: a transition, or `auto` to choose `zoom` or `fade` from the frames around each cut. */
+export const JUMP_TRANSITIONS = [...CUT_TRANSITIONS, "auto"] as const;
+
+export type JumpTransition = (typeof JUMP_TRANSITIONS)[number];
+
 /** Default transitions by kind of cut; a segment of the EDL may name its own. */
 export interface FootageTransitions {
-  /** A cut inside one talking clip (a removed filler or pause). */
-  jump: CutTransition;
+  /**
+   * A cut inside one talking clip (a removed filler or pause). `auto`: when the cut is built, the frames on both sides
+   * are compared (`chooseCutTransitions`): a small difference gets a `zoom`, a large one (the camera moved) a `fade`.
+   */
+  jump: JumpTransition;
   /** A cut from one clip to another. */
   clip: CutTransition;
+  /** With `jump: "auto"`, the frame difference (0-1) from which a jump cut fades instead of zooming; default 0.08. */
+  autoThreshold?: number;
 }
+
+/** The frame difference (0-1) from which an `auto` jump cut fades instead of zooming. */
+export const DEFAULT_AUTO_THRESHOLD = 0.08;
 
 export interface FootageFilm {
   id: string;
@@ -165,17 +178,29 @@ export const CAPTION_PRESETS = ["reels", "shorts", "tiktok", "all"] as const;
 export type CaptionPreset = (typeof CAPTION_PRESETS)[number];
 
 export interface FootageEdit {
-  /** How far a `zoom` cut punches in, in percent of the frame (105-110). */
+  /** How far a `zoom` cut punches in, in percent of the frame (105-112). */
   zoomPercent: number;
+  /**
+   * Frames at 30 fps a `zoom` cut eases into its scale over, from the scale on screen before the cut (0-15); 0 steps
+   * straight to it. A `kenburns` segment keeps its own slow zoom and is not eased.
+   */
+  zoomEaseFrames: number;
   /** A `fade` cut's length in frames at 30 fps (1-30). */
   fadeFrames: number;
   /** How far b-roll zooms over its length (0-5 %); 0 keeps b-roll still and `buildEdl` marks none `kenburns`. */
   kenBurnsPercent: number;
   /** Play the whoosh (and pop) as the end card comes in. */
   isEndCardWhoosh: boolean;
+  /** The speech track's fade at every cut, in milliseconds (10-100). */
+  cutAudioFadeMs: number;
+  /**
+   * Cross-fade the two sides of every cut over `cutAudioFadeMs`, centred on the cut, instead of fading each side out
+   * and in (a short dip). The speech stays where the picture is.
+   */
+  isCutAudioCrossfade: boolean;
 }
 
-export const DEFAULT_EDIT: FootageEdit = { zoomPercent: 108, fadeFrames: 10, kenBurnsPercent: 0, isEndCardWhoosh: false };
+export const DEFAULT_EDIT: FootageEdit = { zoomPercent: 108, zoomEaseFrames: 0, fadeFrames: 10, kenBurnsPercent: 0, isEndCardWhoosh: false, cutAudioFadeMs: 20, isCutAudioCrossfade: false };
 
 /** The film's edit settings with the defaults filled in. */
 export function getFootageEdit(film: Pick<FootageFilm, "edit">): FootageEdit {
