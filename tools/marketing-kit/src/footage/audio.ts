@@ -8,7 +8,10 @@ import { runFfprobe } from "./probe.js";
  * same way by an app's upload and by the footage pipeline's `music.file`, and an ffprobe reading of what is inside.
  */
 
-/** Accepted music file extensions and the content types a browser or a storage reports for each. */
+/**
+ * Accepted music file extensions and the content types a browser or a storage reports for each. The video containers
+ * at the end are accepted for their sound (a clip's own audio as the bed); `probeAudio` still requires an audio stream.
+ */
 export const MUSIC_FILE_TYPES: Readonly<Record<string, readonly string[]>> = {
   ".mp3": ["audio/mpeg", "audio/mp3"],
   ".m4a": ["audio/mp4", "audio/x-m4a", "audio/m4a"],
@@ -18,6 +21,10 @@ export const MUSIC_FILE_TYPES: Readonly<Record<string, readonly string[]>> = {
   ".oga": ["audio/ogg"],
   ".opus": ["audio/opus", "audio/ogg"],
   ".flac": ["audio/flac", "audio/x-flac"],
+  ".mp4": ["video/mp4", "audio/mp4"],
+  ".m4v": ["video/x-m4v", "video/mp4"],
+  ".mov": ["video/quicktime"],
+  ".webm": ["video/webm", "audio/webm"],
 };
 
 export type MusicFileTypeCheck = { ok: true; extension: string | null; contentType: string | null } | { ok: false; error: string };
@@ -32,12 +39,18 @@ function getAcceptedTypes(extension: string): readonly string[] | null {
   return Object.hasOwn(MUSIC_FILE_TYPES, extension) ? (MUSIC_FILE_TYPES[extension] ?? null) : null;
 }
 
+function getExtension(fileName: string | undefined): string | null {
+  const extension = fileName === undefined ? "" : extname(fileName).toLowerCase();
+  return extension === "" ? null : extension;
+}
+
 /**
  * Whether a file is an accepted music bed by its name (or path) and its content type. Give either or both; with both,
- * the content type must be one of the extension's. Parameters (`; codecs=…`) and letter case are ignored.
+ * the content type must be one of the extension's. Parameters (`; codecs=…`) and letter case are ignored. A name
+ * without an extension (a storage key) counts as no name.
  */
 export function checkMusicFileType(input: { fileName?: string; contentType?: string }): MusicFileTypeCheck {
-  const extension = input.fileName === undefined ? null : extname(input.fileName).toLowerCase();
+  const extension = getExtension(input.fileName);
   const contentType = input.contentType === undefined ? null : normalizeContentType(input.contentType);
   if (extension === null && contentType === null) return { ok: false, error: "a music file needs a file name or a content type to check" };
   if (extension !== null) {
