@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-xfade-ffmpeg71-1057
 title: "marketing-kit: footage drafts and renders with a fade work on ffmpeg 7.1 (issue #1057)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1057
 branch: claude/project-thread-p4tlfr
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
@@ -28,3 +29,10 @@ Labels: bug, pkg: marketing-kit (found in an adopting app on marketing-kit 0.8.0
 ## Notes
 
 - Framing: skipped. The issue names both causes and a fix verified on 7.1.5 and 6.1.1.
+
+## Done
+
+Every stream into `xfade` ends with `fps=30` (draft segments and joins, picture pieces) and a zoomed fade tail is
+scaled back to the clip's frame (`buildPicturePieceArgs` takes `frame`); ffmpeg test in
+`tools/marketing-kit/src/footage/picture.test.ts`; CHANGELOG `## Unreleased`. Ships with the next marketing-kit
+release.

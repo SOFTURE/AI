@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-xfade-ffmpeg71-1057
-status: open
+status: archived
 ---
 
 # Plan: fades on ffmpeg 7.1 (issue #1057)
@@ -31,6 +31,6 @@ Files: `tools/marketing-kit/src/footage/picture.ts`, `draft.ts`, `pipeline.ts`, 
 
 ## Progress
 
-- [ ] Phase 1: the graphs
-- [ ] Phase 2: CHANGELOG
-- [ ] Implementation review
+- [x] Phase 1: the graphs, 825335b
+- [x] Phase 2: CHANGELOG, f55c07e
+- [x] Implementation review: approved
