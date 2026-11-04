@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-footage-speed-1015
-status: in_progress
+status: done
 ---
 
 # Plan: faster footage normalize and cut preview (issue #1015)
@@ -34,6 +34,15 @@ README (normalize section: order and the `normalize` option), CHANGELOG `## Unre
 
 ## Progress
 
-- [ ] Phase 1: the normalize graph and the encoder options
-- [ ] Phase 2: the cut preview seek
-- [ ] Phase 3: docs
+- [x] Phase 1: the normalize graph and the encoder options (d350a1a)
+- [x] Phase 2: the cut preview seek (02ec4e4)
+- [x] Phase 3: docs (7bdf3aa)
+
+## Verification
+
+- `vitest run tools/marketing-kit/src/footage`: 18 files, 193 tests green.
+- The kit's own builders run through real ffmpeg 6.1 on one core (`taskset -c 0`): `buildNormalizeArgs` of a 4 s
+  3840x2160 HLG clip with `encoder: { threads: 1 }`, crop 18.2 s and blur 13.4 s (37.9 s and 39.5 s before), both
+  120 frames of 1080x1920 BT.709; `buildCutPreviewArgs` of 20 segments from a 100 s clip 23.5 s (124.2 s before),
+  1500 frames of 540x960.
+- typecheck, ESLint and the language gate green in the pre-commit hook.

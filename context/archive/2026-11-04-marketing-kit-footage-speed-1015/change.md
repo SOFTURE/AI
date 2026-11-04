@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-footage-speed-1015
 title: "marketing-kit: faster footage normalize and cut preview on a small shared worker (issue #1015)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1015
 branch: claude/project-thread-14fjez
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
