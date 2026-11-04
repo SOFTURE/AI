@@ -89,7 +89,9 @@ describe("findAutoCuts and buildCutFrameArgs", () => {
   });
 });
 
-describe("the auto choice with ffmpeg", () => {
+const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
+
+describe.runIf(hasFfmpeg)("the auto choice with ffmpeg", () => {
   let dir = "";
 
   afterEach(() => {

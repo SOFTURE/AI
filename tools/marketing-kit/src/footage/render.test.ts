@@ -70,6 +70,20 @@ describe("buildSpeechArgs at the cuts", () => {
   it("refuses a fade of 0 seconds", () => {
     expect(() => buildSpeechArgs(three, { talk: "/a.mp3" }, "/o.mp3", { fadeSeconds: 0 })).toThrow("The speech track's cut fade must be above 0 seconds, got 0.");
   });
+});
+
+const hasFfmpeg = spawnSync("ffprobe", ["-version"]).status === 0 && spawnSync("ffmpeg", ["-version"]).status === 0;
+
+describe.runIf(hasFfmpeg)("buildSpeechArgs with ffmpeg", () => {
+  const three: Edl = {
+    version: 2,
+    film: "film",
+    segments: [
+      { id: "s1", clip: "talk", start: 0.5, end: 2, transition: "cut", motion: "none" },
+      { id: "s2", clip: "talk", start: 2.5, end: 3.5, transition: "cut", motion: "none" },
+      { id: "s3", clip: "talk", start: 0.01, end: 1, transition: "cut", motion: "none" },
+    ],
+  };
 
   it("writes a cross-faded track exactly as long as the cut with real ffmpeg", () => {
     const dir = mkdtempSync(join(tmpdir(), "footage-speech-"));
