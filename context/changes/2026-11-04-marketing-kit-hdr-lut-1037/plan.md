@@ -19,8 +19,8 @@ Files: `src/footage/tonemap-lut.ts` (new), `src/footage/tonemap-lut.test.ts`, `s
   folder, removed after; the `.cube` written to a temporary name and renamed, so a stopped run never leaves half a
   LUT) and returns its name.
 - `toneMapFilter(hdr, transfer, lut?)`: with a LUT name, `zscale=min=bt2020nc:m=gbr:r=full` →
-  `format=gbrp16le` → `lut3d=file=<name>:interp=tetrahedral` → `zscale=m=bt709:r=tv` → `format=yuv420p`; without,
-  the float chain as today.
+  `format=gbrp16le` → `lut3d=file=<name>:interp=tetrahedral` →
+  `zscale=tin=linear:pin=bt709:t=bt709:p=bt709:m=bt709:r=tv` → `format=yuv420p`; without, the float chain as today.
 - `buildVideoFilter` and `buildNormalizeArgs` take the optional LUT name (`NormalizeInput.toneMapLut`).
 - `normalizeFootage`: for an HDR clip with no `toneMapLut`, ensures the LUT in the output's folder and runs ffmpeg
   there (`cwd`), so the file name resolves.
@@ -37,8 +37,8 @@ output with the float chain (PSNR).
 
 ## Progress
 
-- [ ] Phase 1: the LUT and the graph
-- [ ] Phase 2: docs and a real measurement
+- [x] Phase 1: the LUT and the graph (7bc3cef)
+- [x] Phase 2: docs and a real measurement (see the commit `docs(marketing-kit-hdr-lut-1037)`)
 
 ## Decisions (auto)
 
@@ -47,5 +47,16 @@ output with the float chain (PSNR).
 - The LUT is generated at run time by the installed ffmpeg, not shipped: the same zscale and tonemap that defined
   the look define the LUT, and no binary asset enters the package.
 - Gamut: the LUT path clips out-of-BT.709 colours per RGB channel instead of in YUV; stated in the CHANGELOG.
+- The LUT ends in unclamped linear BT.709 light and the transfer is applied after it (research, "final design"):
+  an R'G'B' output clipped at the lattice points was 4 to 8 dB off on saturated pictures.
+- `toneMapLut` passed by a caller is used as given, with no `cwd`: a caller that builds the arguments itself names a
+  path ffmpeg can open.
 - `NORMALIZE_VERSION` stays: in-gamut output is the same, so cached clips are not redone.
 - The float chain stays for `buildNormalizeArgs` callers that pass no LUT (public API).
+
+## Verification
+
+- `vitest run tools/marketing-kit`: green (967 tests, 4 skipped), including the ffmpeg tests of the LUT (made once,
+  no temporary files left, abort cleans up) and of `normalizeFootage` on a generated HLG clip (LUT next to the
+  output, relative source, PSNR above 45 dB against the float chain).
+- Measured with the kit's arguments: research, "Measured with the kit".

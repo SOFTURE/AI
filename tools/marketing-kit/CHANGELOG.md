@@ -6,6 +6,18 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **A faster HDR tone map in footage normalize (#1037):** `normalizeFootage` (and so `prepareFootage`) tone-maps an
+  HDR clip through a 3D LUT made from the same Hable curve instead of in float: the first HDR clip of a transfer runs
+  the float chain once over a 65-point lattice and writes `tonemap-v1-<transfer>.cube` next to the normalized clip
+  (about 7 MB, 0.2 s), and every clip then goes to 16-bit R'G'B', through `lut3d` (tetrahedral) to linear BT.709 and
+  back to YUV. At one CPU with `ultrafast` a 1080×1920 HEVC 10-bit HLG clip normalizes in about 1.2 s per footage
+  second instead of 1.6 s. The look is the float chain's (about 50 to 70 dB PSNR on in-gamut pictures); colours outside
+  BT.709 are now clipped per RGB channel instead of in YUV, which keeps their hue. Clips already normalized are not
+  made again. `buildNormalizeArgs` takes `toneMapLut` (the LUT's file name, resolved where ffmpeg runs) and keeps the
+  float chain without it. `checkFootageTools` also requires `lut3d`. New exports: `ensureToneMapLut`,
+  `getToneMapLutName`, `getToneMapTransfer`, `TONE_MAP_LUT_SIZE`, `ToneMapTransfer`. README: normalize time per
+  footage second, and two CPUs for 4K HDR footage.
+
 - **The footage render fits a small worker (#1030):** `renderFootage` renders the cut's picture in film time
   (`assets/picture.mp4`: one short ffmpeg per segment, one after the other, cross-fades drawn in, encoded with the
   `normalize` encoder's preset and threads) and composes one `<video>` over it; zoom cuts and Ken Burns stay tweens on

@@ -46,7 +46,7 @@ so about 0.7 s there.
   0.2 s per clip.
 - Checked per colour: the RGB chain gives the same linear, tone-mapped and BT.709 values as the YUV chain (to 1e-4).
 
-## Accuracy (PSNR of the LUT path against the float chain, 30 frames, 1080x1920)
+## Accuracy, first prototype (LUT to BT.709 R'G'B', PSNR against the float chain, 30 frames, 1080x1920)
 
 | Clip | float chain today | float chain, clipped in RGB before YUV |
 | --- | --- | --- |
@@ -59,6 +59,26 @@ In gamut the LUT path is the float chain (above 70 dB). The one difference is co
 chain carries negative or above-one RGB into the final YUV conversion and lets the 8-bit YUV clamp cut them, which
 shifts hue; the LUT path clips each RGB channel to the BT.709 gamut, as a player does. That is the float chain plus a
 gamut clip (56 to 65 dB), not a change of curve.
+
+## Accuracy, final design
+
+Smaller saturated test patterns (270x480 testsrc2, SMPTE bars) showed the first prototype 4 to 8 dB off the float
+chain. The cause: lattice points whose BT.709 values are negative were clipped to 0 in the `rgb48le` output before
+interpolation, and the BT.709 transfer's steep start and the gamut edge do not interpolate. The final LUT therefore
+ends in linear BT.709 light, stored as unclamped floats (read from `gbrpf32le`), and the BT.709 transfer and matrix
+are applied after `lut3d` in one zscale (`tin=linear:pin=bt709:t=bt709:p=bt709:m=bt709:r=tv`). Against the float
+chain with an RGB gamut clip it is 55 to 60 dB on every pattern (against the float chain as is, 42 to 46 dB on the
+saturated patterns, the YUV-versus-RGB clip, and about 52 dB on smooth gradients after the x264 encode). Its cost is
+the same within noise (8.6 s against 8.3 s for 10 s of 1080x1920).
+
+## Measured with the kit (`buildNormalizeArgs`, one CPU, threads 1, 20 s 1080x1920 HEVC 10-bit HLG, best of two)
+
+| Preset | float chain | LUT | per footage second |
+| --- | --- | --- | --- |
+| `ultrafast` | 32.6 s | 23.5 s | 1.63 s to 1.17 s |
+| `veryfast` | 41.7 s | 31.2 s | 2.09 s to 1.56 s |
+
+The float chain's 1.63 s matches the issue's own measurement.
 
 ## Risks
 

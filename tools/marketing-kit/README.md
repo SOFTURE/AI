@@ -613,7 +613,10 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   (a phone's rotation applied), SDR BT.709 (HDR from PQ, HLG or Dolby Vision tone-mapped with zscale, so an iPhone clip
   is not washed out), 48 kHz stereo sound (silence for a clip without). A clip is normalized again only when it or
   its settings change. Frames are dropped to 30 fps and scaled to the frame (covered and cropped, or fitted for the
-  blur) before the HDR tone map, so the slow float stages of a 4K phone clip run on frame-sized pictures.
+  blur) before the HDR tone map, so it runs on frame-sized pictures. The tone map is the Hable curve applied through
+  a 3D LUT (`lut3d`, 65 points, 16-bit): the first HDR clip of a transfer makes the LUT once in the build's `clips/`
+  folder (`tonemap-v1-<transfer>.cube`, about 7 MB, 0.2 s) by running the float chain over every lattice point.
+  Colours outside BT.709 are clipped per RGB channel.
 - **Transcript:** ElevenLabs Scribe (`scribe_v2`) with a time for every word, in `language` (default
   `voice.language`). With `isolateVoice`, ElevenLabs Voice Isolator cleans the voice first and the film speaks with
   the cleaned voice. Both are paid, keyed by the clip's bytes, trim and settings, and cached in
@@ -761,7 +764,7 @@ job's signal and report back:
 ```ts
 import { checkFootageTools, estimateFootageFilm, findCachedStep, renderFootageFilm } from "@softure-ai/marketing-kit";
 
-const problems = await checkFootageTools({ tempDir, buildDir }); // ffmpeg + ffprobe, hevc decoder, zscale + tonemap, hyperframes' browser, 1 GiB free
+const problems = await checkFootageTools({ tempDir, buildDir }); // ffmpeg + ffprobe, hevc decoder, zscale + tonemap + lut3d, hyperframes' browser, 1 GiB free
 if (problems.length > 0) throw new Error(problems.join("\n"));
 
 // Probes only: no normalize, no provider call. Rates are the app's own credits per second for each paid step;
@@ -791,7 +794,11 @@ const result = await renderFootageFilm(film, {
 - `normalize: { preset, threads }` tunes the intermediate clips' encoding for a small worker: `preset` is an x264
   preset (`X264_PRESETS`, default `veryfast`; `superfast` encodes faster into bigger files), `threads` sets ffmpeg's
   encoder and filter threads (ffmpeg otherwise follows the host's cores, not a container's CPU quota). Neither makes
-  clips already normalized be made again.
+  clips already normalized be made again. Measured at one CPU with `ultrafast` and `threads: 1` (ffmpeg 6.1, 20 s
+  generated clips, normalize time per second of footage): 1080×1920 H.264 SDR about 0.7 s, 1080×1920 HEVC 10-bit HLG
+  about 1.2 s (1.6 s with the float tone map before #1037). A 4K HEVC 10-bit HDR clip spends about 1.8 s per second
+  on decoding alone, which the software decoder cannot do at a lower resolution: give a worker that takes 4K HDR
+  phone footage two CPUs (and `threads: 2`).
 - The CLI runs `checkFootageTools` before `footage`, letting hyperframes download its browser on the first render;
   a worker image ships the browser instead.
 - **Disk room.** hyperframes refuses to render when its temp folder or the build folder has under 1 GiB free
