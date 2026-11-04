@@ -835,7 +835,7 @@ async function buildPicture(input: BuildPictureInput): Promise<void> {
   for (const [index, piece] of pieces.entries()) {
     const file = join(dir, `${String(index).padStart(3, "0")}.mp4`);
     const done = piece.frame / FOOTAGE_FPS;
-    await runFfmpeg(`The picture of segment ${index + 1}`, buildPicturePieceArgs({ piece, clips: input.clips, output: file, ...(input.encoder === undefined ? {} : { encoder: input.encoder }) }), {
+    await runFfmpeg(`The picture of segment ${index + 1}`, buildPicturePieceArgs({ piece, clips: input.clips, frame: getFrame(input.film), output: file, ...(input.encoder === undefined ? {} : { encoder: input.encoder }) }), {
       ...aborting,
       output: file,
       onSeconds: (seconds) => input.onSeconds(done + seconds),

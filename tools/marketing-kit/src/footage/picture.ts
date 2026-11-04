@@ -1,7 +1,7 @@
 import { getSegmentScales } from "./compose.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
 import { getFootageEdit, type FootageFilm } from "./film.js";
-import { FOOTAGE_FPS, getThreadArgs, type NormalizeEncoder } from "./normalize.js";
+import { FOOTAGE_FPS, getThreadArgs, type Frame, type NormalizeEncoder } from "./normalize.js";
 
 /**
  * The cut's picture in film time, which the render's composition plays as one `<video>`: one short ffmpeg per segment
@@ -81,7 +81,11 @@ export function getPictureFrames(pieces: readonly PicturePiece[]): number {
   return pieces.reduce((sum, piece) => sum + piece.frames, 0);
 }
 
-/** Filters that bring a stream to the film's rate and pixel format and exactly `frames` long (a short clip holds its last frame). */
+/**
+ * Filters that bring a stream to the film's rate and pixel format and exactly `frames` long (a short clip holds its
+ * last frame). The closing `fps` states the frame rate again: ffmpeg 7.1's `setpts` leaves it unknown (1/0), which
+ * `xfade` refuses (issue #1057); on a stream already at the film's rate it passes every frame through.
+ */
 function fitStream(frames: number): string[] {
   const seconds = r3(frames / FOOTAGE_FPS);
   return [
@@ -93,19 +97,25 @@ function fitStream(frames: number): string[] {
     `trim=end_frame=${frames}`,
     "setpts=PTS-STARTPTS",
     `settb=1/${FOOTAGE_FPS}`,
+    `fps=${FOOTAGE_FPS}`,
   ];
 }
 
-/** A crop to `scale` about the zoom origin and back to the clip's size; nothing at scale 1. */
-function zoomFilters(scale: number): string[] {
+/**
+ * A crop to `scale` about the zoom origin and back to the clip's `frame`; nothing at scale 1. The crop rounds, so
+ * scaling it by the factor could come back a pixel or two short of the incoming clip, which `xfade` refuses (#1057).
+ */
+function zoomFilters(scale: number, frame: Frame): string[] {
   if (scale === 1) return [];
-  return [`crop=iw/${scale}:ih/${scale}:(iw-iw/${scale})*${ZOOM_ORIGIN.x}:(ih-ih/${scale})*${ZOOM_ORIGIN.y}`, `scale=iw*${scale}:ih*${scale}`];
+  return [`crop=iw/${scale}:ih/${scale}:(iw-iw/${scale})*${ZOOM_ORIGIN.x}:(ih-ih/${scale})*${ZOOM_ORIGIN.y}`, `scale=${frame.width}:${frame.height}`];
 }
 
 export interface PicturePieceArgsInput {
   piece: PicturePiece;
   /** The normalized clips by id. */
   clips: Record<string, string>;
+  /** The normalized clips' frame (the film's, `getFrame`): a zoomed fade tail is scaled back to it. */
+  frame: Frame;
   output: string;
   /** The intermediate clips' encoder (`RenderFootageOptions.normalize`): its preset and threads encode the piece too. */
   encoder?: NormalizeEncoder;
@@ -126,7 +136,7 @@ export function buildPicturePieceArgs(input: PicturePieceArgsInput): string[] {
   if (piece.fade !== null) {
     const { fade } = piece;
     inputs.push(...threads.output, "-ss", String(fade.start), "-t", seconds(fade.frames), "-i", getClip(fade.clip));
-    const tail = [...zoomFilters(fade.scale), ...fitStream(fade.frames)];
+    const tail = [...zoomFilters(fade.scale, input.frame), ...fitStream(fade.frames)];
     graph = [
       `[0:v]${fitStream(piece.frames).join(",")}[incoming]`,
       `[1:v]${tail.join(",")}[outgoing]`,

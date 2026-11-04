@@ -123,7 +123,7 @@ describe("buildFootageDraftArgs", () => {
 
   it("crops a zoom cut around the render's zoom origin and scales every segment to the draft", () => {
     const graph = getGraph(buildFootageDraftArgs(argsInput()));
-    expect(graph[0]).toBe("[0:v]setpts=PTS-STARTPTS,scale=540:960,setsar=1,fps=30,format=yuv420p,tpad=stop_mode=clone:stop_duration=2,trim=duration=2,setpts=PTS-STARTPTS,settb=1/30[v0]");
+    expect(graph[0]).toBe("[0:v]setpts=PTS-STARTPTS,scale=540:960,setsar=1,fps=30,format=yuv420p,tpad=stop_mode=clone:stop_duration=2,trim=duration=2,setpts=PTS-STARTPTS,settb=1/30,fps=30[v0]");
     expect(graph[1]).toContain("[1:v]setpts=PTS-STARTPTS,crop=iw/1.08:ih/1.08:(iw-iw/1.08)*0.5:(ih-ih/1.08)*0.42,scale=540:960,");
     expect(graph[2]).toContain("[2:v]setpts=PTS-STARTPTS,scale=540:960,");
   });
@@ -151,10 +151,10 @@ describe("buildFootageDraftArgs", () => {
   it("joins a fade with xfade at the segment's start and every other cut with concat", () => {
     const graph = getGraph(buildFootageDraftArgs(argsInput()));
     expect(graph.slice(5, 9)).toEqual([
-      "[v0][v1]concat=n=2:v=1:a=0,settb=1/30[j1]",
-      "[j1][v2]concat=n=2:v=1:a=0,settb=1/30[j2]",
+      "[v0][v1]concat=n=2:v=1:a=0,settb=1/30,fps=30[j1]",
+      "[j1][v2]concat=n=2:v=1:a=0,settb=1/30,fps=30[j2]",
       "[j2][v3]xfade=transition=fade:duration=0.333:offset=4[j3]",
-      "[j3][v4]concat=n=2:v=1:a=0,settb=1/30[j4]",
+      "[j3][v4]concat=n=2:v=1:a=0,settb=1/30,fps=30[j4]",
     ]);
   });
 

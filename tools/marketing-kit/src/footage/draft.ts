@@ -332,6 +332,8 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
       `trim=duration=${plan.seconds}`,
       "setpts=PTS-STARTPTS",
       `settb=1/${FOOTAGE_FPS}`,
+      // ffmpeg 7.1's setpts leaves the frame rate unknown (1/0), which xfade refuses (#1057); fps states it again.
+      `fps=${FOOTAGE_FPS}`,
     ];
     parts.push(`[${index}:v]${filters.join(",")}[v${index}]`);
   });
@@ -343,7 +345,7 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
       plan.fade > 0
         ? `[${joined}][v${index}]xfade=transition=fade:duration=${plan.fade}:offset=${plan.start}[${label}]`
         : // concat changes the time base; xfade needs both of its inputs on the segments' own.
-          `[${joined}][v${index}]concat=n=2:v=1:a=0,settb=1/${FOOTAGE_FPS}[${label}]`,
+          `[${joined}][v${index}]concat=n=2:v=1:a=0,settb=1/${FOOTAGE_FPS},fps=${FOOTAGE_FPS}[${label}]`,
     );
     joined = label;
   });
