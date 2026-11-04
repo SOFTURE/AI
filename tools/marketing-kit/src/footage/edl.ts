@@ -185,7 +185,8 @@ function claimId(base: string, used: Set<string>): string {
  * The cut from the transcripts. A talking clip keeps its runs of words: fillers are cut out, a pause longer than
  * `pauseSeconds` is cut, `padSeconds` stays around each cut, and with `keepSentences` only those sentences stay. A
  * talking clip without words, and every b-roll clip, is kept whole. The first segment starts with a cut; later ones
- * with `transitions.jump` inside one clip and `transitions.clip` between clips. Each segment's id names the sentence
+ * with `transitions.jump` inside one clip (a plain cut for `auto`, chosen later from the frames by
+ * `chooseCutTransitions`) and `transitions.clip` between clips. Each segment's id names the sentence
  * it starts with (`s4`), or the b-roll (`r1`) or wordless clip (`w1`) it shows.
  */
 export function buildEdl(filmId: string, clips: EdlClip[], options: CutOptions, transitions: FootageTransitions, edit: BuildEdlOptions = {}): Edl {
@@ -204,7 +205,9 @@ export function buildEdl(filmId: string, clips: EdlClip[], options: CutOptions, 
     // A talking clip whose sentences were all dropped (or cut to nothing) leaves the film.
     for (const span of spans) {
       const previous = segments.at(-1);
-      const transition = previous === undefined ? "cut" : previous.clip === clip.id ? transitions.jump : transitions.clip;
+      // An auto jump cut starts as a plain cut; `chooseCutTransitions` sets it from the frames.
+      const jump = transitions.jump === "auto" ? "cut" : transitions.jump;
+      const transition = previous === undefined ? "cut" : previous.clip === clip.id ? jump : transitions.clip;
       const base = span.sentence ?? (clip.role === "broll" ? `r${++broll}` : `w${++wordless}`);
       const motion = clip.role === "broll" && edit.isKenBurns === true ? "kenburns" : "none";
       segments.push({ id: claimId(base, used), clip: clip.id, start: r3(span.start), end: r3(span.end), transition, motion });

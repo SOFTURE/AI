@@ -78,13 +78,26 @@ export interface CutOptions {
   maxSeconds: number | null;
 }
 
+/** A jump cut's default: a transition, or `auto` to choose `zoom` or `fade` from the frames around each cut. */
+export const JUMP_TRANSITIONS = [...CUT_TRANSITIONS, "auto"] as const;
+
+export type JumpTransition = (typeof JUMP_TRANSITIONS)[number];
+
 /** Default transitions by kind of cut; a segment of the EDL may name its own. */
 export interface FootageTransitions {
-  /** A cut inside one talking clip (a removed filler or pause). */
-  jump: CutTransition;
+  /**
+   * A cut inside one talking clip (a removed filler or pause). `auto`: when the cut is built, the frames on both sides
+   * are compared (`chooseCutTransitions`): a small difference gets a `zoom`, a large one (the camera moved) a `fade`.
+   */
+  jump: JumpTransition;
   /** A cut from one clip to another. */
   clip: CutTransition;
+  /** With `jump: "auto"`, the frame difference (0-1) from which a jump cut fades instead of zooming; default 0.08. */
+  autoThreshold?: number;
 }
+
+/** The frame difference (0-1) from which an `auto` jump cut fades instead of zooming. */
+export const DEFAULT_AUTO_THRESHOLD = 0.08;
 
 export interface FootageFilm {
   id: string;

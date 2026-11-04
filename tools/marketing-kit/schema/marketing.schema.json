@@ -2752,13 +2752,14 @@
             "properties": {
               "jump": {
                 "default": "cut",
-                "description": "A cut inside one talking clip: cut (the default), fade, zoom (a punch-in) or whoosh.",
+                "description": "A cut inside one talking clip: cut (the default), fade, zoom (a punch-in), whoosh, or auto (zoom when the frames on both sides look alike, fade when the camera moved; measured when the cut is built).",
                 "type": "string",
                 "enum": [
                   "cut",
                   "fade",
                   "zoom",
-                  "whoosh"
+                  "whoosh",
+                  "auto"
                 ]
               },
               "clip": {
@@ -2771,6 +2772,12 @@
                   "zoom",
                   "whoosh"
                 ]
+              },
+              "autoThreshold": {
+                "description": "With jump auto: the frame difference (0-1) from which a jump cut fades instead of zooming (default 0.08).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
               }
             },
             "additionalProperties": false
@@ -2858,10 +2865,17 @@
             "properties": {
               "zoomPercent": {
                 "default": 108,
-                "description": "How far a zoom cut punches in (105-110 %, default 108).",
+                "description": "How far a zoom cut punches in (105-112 %, default 108).",
                 "type": "number",
                 "minimum": 105,
-                "maximum": 110
+                "maximum": 112
+              },
+              "zoomEaseFrames": {
+                "default": 0,
+                "description": "Frames at 30 fps a zoom cut eases into its scale over (0-15, default 0: a step; 3-5 reads as a smooth punch-in).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
               },
               "fadeFrames": {
                 "default": 10,
@@ -2880,6 +2894,18 @@
               "endCardWhoosh": {
                 "default": false,
                 "description": "Play the whoosh and pop as the end card comes in (default false).",
+                "type": "boolean"
+              },
+              "cutAudioFadeMs": {
+                "default": 20,
+                "description": "The speech track's fade at every cut in milliseconds (10-100, default 20).",
+                "type": "integer",
+                "minimum": 10,
+                "maximum": 100
+              },
+              "cutAudioCrossfade": {
+                "default": false,
+                "description": "Cross-fade the sound of the two sides of every cut over cutAudioFadeMs, centred on the cut, instead of a short dip to silence (default false).",
                 "type": "boolean"
               }
             },

@@ -17,7 +17,8 @@ import { findMissingCaptionGlyphs, getFootageCaptionLayout } from "./captions.js
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
 import { buildEdl, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
-import { getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
+import { chooseCutTransitions, type CutMeasure } from "./cuts.js";
+import { DEFAULT_AUTO_THRESHOLD, getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
 import { getFilmKeyTerms } from "./keyterms.js";
 import { DEFAULT_LOUDNESS, normalizeLoudness } from "./loudness.js";
 import { duckingKeyframes } from "./music.js";
@@ -369,18 +370,75 @@ export function getFootageSentences(clips: PreparedClip[], words: Record<string,
   return splitFilmSentences(clips.map((clip) => ({ id: clip.clip.id, role: clip.clip.role, words: words[clip.clip.id] ?? [] })));
 }
 
-/** The cut from the transcripts, written to the EDL file (replacing what is there); `keepSentences` keeps only those sentences. */
-export function cutFootage(film: FootageFilm, clips: PreparedClip[], words: Record<string, TimedWord[]>, edlPath: string, options: { keepSentences?: readonly string[] } = {}): Edl {
-  const edl = buildEdl(
+function buildFilmEdl(film: FootageFilm, clips: PreparedClip[], words: Record<string, TimedWord[]>, keepSentences: readonly string[] | undefined): Edl {
+  return buildEdl(
     film.id,
     clips.map((clip) => ({ id: clip.clip.id, role: clip.clip.role, duration: clip.duration, words: words[clip.clip.id] ?? [] })),
     film.cut,
     film.transitions,
-    { isKenBurns: getFootageEdit(film).kenBurnsPercent > 0, ...(options.keepSentences === undefined ? {} : { keepSentences: options.keepSentences }) },
+    { isKenBurns: getFootageEdit(film).kenBurnsPercent > 0, ...(keepSentences === undefined ? {} : { keepSentences }) },
   );
+}
+
+function writeEdl(edl: Edl, edlPath: string): void {
   mkdirSync(dirname(edlPath), { recursive: true });
   writeFileSync(edlPath, `${JSON.stringify(edl, null, 2)}\n`);
+}
+
+/**
+ * The cut from the transcripts, written to the EDL file (replacing what is there); `keepSentences` keeps only those
+ * sentences. Sync, so it never looks at the frames: with `transitions.jump: "auto"` the jump cuts stay plain cuts, and
+ * `cutFootageFilm` is the step that chooses them.
+ */
+export function cutFootage(film: FootageFilm, clips: PreparedClip[], words: Record<string, TimedWord[]>, edlPath: string, options: { keepSentences?: readonly string[] } = {}): Edl {
+  const edl = buildFilmEdl(film, clips, words, options.keepSentences);
+  writeEdl(edl, edlPath);
   return edl;
+}
+
+export interface CutFootageFilmOptions {
+  /** The sentence ids to keep; absent keeps all. */
+  keepSentences?: readonly string[];
+  signal?: AbortSignal;
+}
+
+/** The file next to the EDL that records what the auto transitions measured. */
+export const CUTS_FILE = "cuts.json";
+
+/**
+ * The cut as `cutFootage` builds it, with `transitions.jump: "auto"` resolved from the frames of the normalized clips
+ * (`chooseCutTransitions`): each jump cut gets `zoom` or `fade`, and what it measured is answered and written to
+ * `cuts.json` next to the EDL, so an app or an agent sees why. Otherwise the same as `cutFootage`, and `cuts` is empty.
+ */
+export async function cutFootageFilm(
+  film: FootageFilm,
+  clips: PreparedClip[],
+  words: Record<string, TimedWord[]>,
+  edlPath: string,
+  options: CutFootageFilmOptions = {},
+): Promise<{ edl: Edl; cuts: CutMeasure[] }> {
+  let edl = buildFilmEdl(film, clips, words, options.keepSentences);
+  let cuts: CutMeasure[] = [];
+  const cutsPath = join(dirname(edlPath), CUTS_FILE);
+  rmSync(cutsPath, { force: true });
+  if (film.transitions.jump === "auto") {
+    const chosen = await chooseCutTransitions(edl, Object.fromEntries(clips.map((clip) => [clip.clip.id, clip.file])), {
+      workDir: join(dirname(edlPath), "cut-frames"),
+      ...(film.transitions.autoThreshold === undefined ? {} : { threshold: film.transitions.autoThreshold }),
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+    edl = chosen.edl;
+    cuts = chosen.cuts;
+    mkdirSync(dirname(cutsPath), { recursive: true });
+    writeFileSync(cutsPath, `${JSON.stringify({ threshold: film.transitions.autoThreshold ?? DEFAULT_AUTO_THRESHOLD, cuts }, null, 2)}\n`);
+  }
+  writeEdl(edl, edlPath);
+  return { edl, cuts };
+}
+
+/** One line per auto-chosen cut, for a log: `s4: zoom (difference 0.031)`. */
+export function describeCutMeasures(cuts: CutMeasure[]): string[] {
+  return cuts.map((cut) => `${cut.segment}: ${cut.transition} (difference ${cut.difference.toFixed(3)})`);
 }
 
 /** The EDL file as written by `cutFootage` or edited by hand, checked against the clips. */
@@ -733,8 +791,13 @@ export async function renderFootageFilm(film: FootageFilm, options: RenderFootag
     edl = read.value;
     options.log(`cut: ${edlPath} (${edl.segments.length} segments), as it is; softure-marketing footage --step=cut builds it again.`);
   } else {
-    edl = cutFootage(film, clips.value, transcript.value.words, edlPath, options.keepSentences === undefined ? {} : { keepSentences: options.keepSentences });
+    const cut = await cutFootageFilm(film, clips.value, transcript.value.words, edlPath, {
+      ...(options.keepSentences === undefined ? {} : { keepSentences: options.keepSentences }),
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+    edl = cut.edl;
     options.log(`cut: ${edl.segments.length} segments written to ${edlPath}.`);
+    for (const line of describeCutMeasures(cut.cuts)) options.log(`  auto transition ${line}`);
   }
   return renderFootage(film, clips.value, transcript.value, edl, options);
 }

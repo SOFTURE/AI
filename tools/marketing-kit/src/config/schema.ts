@@ -14,7 +14,7 @@ import {
 } from "../compose/timeline.js";
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
-import { CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS } from "../footage/film.js";
+import { CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS, JUMP_TRANSITIONS } from "../footage/film.js";
 import { normalizeKeyTerms } from "../footage/keyterms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
@@ -520,8 +520,19 @@ const footageSchema = z
     maxSeconds: z.number().min(1).max(600).optional().describe("The cut's longest length in seconds; later segments are shortened or dropped."),
     transitions: z
       .strictObject({
-        jump: z.enum(CUT_TRANSITIONS).default("cut").describe("A cut inside one talking clip: cut (the default), fade, zoom (a punch-in) or whoosh."),
+        jump: z
+          .enum(JUMP_TRANSITIONS)
+          .default("cut")
+          .describe(
+            "A cut inside one talking clip: cut (the default), fade, zoom (a punch-in), whoosh, or auto (zoom when the frames on both sides look alike, fade when the camera moved; measured when the cut is built).",
+          ),
         clip: z.enum(CUT_TRANSITIONS).default("cut").describe("A cut from one clip to the next: cut (the default), fade, zoom or whoosh."),
+        autoThreshold: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe("With jump auto: the frame difference (0-1) from which a jump cut fades instead of zooming (default 0.08)."),
       })
       .prefault({})
       .describe("Default transitions by kind of cut; each segment of the EDL can name its own."),

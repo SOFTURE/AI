@@ -177,6 +177,8 @@ export {
   CLIP_FITS,
   CLIP_ROLES,
   CUT_TRANSITIONS,
+  DEFAULT_AUTO_THRESHOLD,
+  JUMP_TRANSITIONS,
   DEFAULT_CUT,
   DEFAULT_FILLERS,
   DEFAULT_MUSIC_VOLUME,
@@ -193,6 +195,7 @@ export {
   type ClipRole,
   type CutOptions,
   type CutTransition,
+  type JumpTransition,
   type FootageClip,
   type FootageFilm,
   type FootageMusic,
@@ -316,6 +319,16 @@ export {
   type PhraseChunk,
   type SafeZone,
 } from "./footage/captions.js";
+export {
+  CUT_THUMBNAIL,
+  buildCutFrameArgs,
+  chooseCutTransition,
+  chooseCutTransitions,
+  findAutoCuts,
+  measureFrameDifference,
+  type ChooseCutTransitionsOptions,
+  type CutMeasure,
+} from "./footage/cuts.js";
 export { MAX_FRAMES, buildFrameArgs, extractFrames, getFrameTimes, type ExtractFramesOptions, type ExtractedFrame, type FrameSpacing } from "./footage/frames.js";
 export { duckingKeyframes, getSpeechSpans, volumeExpression, type DuckingOptions, type VolumeKeyframe } from "./footage/music.js";
 export { END_CARD_SECONDS, FADE_SECONDS, composeFootage, getFootageFilmSeconds, getSegmentScales, type FootageComposeAssets, type FootageComposeInput } from "./footage/compose.js";
@@ -373,7 +386,10 @@ export {
 export { RENDER_MIN_FREE_BYTES, findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./footage/disk.js";
 export { DRAFT_FILTERS, REQUIRED_DECODERS, REQUIRED_FILTERS, checkFootageTools, findBrowserProblem, readFfmpegListing, type FootageToolsOptions } from "./footage/tools.js";
 export {
+  CUTS_FILE,
   cutFootage,
+  cutFootageFilm,
+  describeCutMeasures,
   getEdlPath,
   getFrame,
   prepareFootage,
@@ -388,6 +404,7 @@ export {
   type FootageResult,
   type FootageRunOptions,
   type PreparedClip,
+  type CutFootageFilmOptions,
   type RenderFootageFilmOptions,
   type RenderFootageOptions,
   type RenderedFootage,

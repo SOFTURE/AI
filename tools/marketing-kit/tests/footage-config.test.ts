@@ -89,6 +89,12 @@ describe("footage films in marketing.json", () => {
     expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], edit: { zoomPercent: 113 } }]))).toContain("zoomPercent");
   });
 
+  it("reads auto jump transitions with their threshold", () => {
+    const auto = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], transitions: { jump: "auto", autoThreshold: 0.12 } }])), "a");
+    expect(auto?.transitions).toEqual({ jump: "auto", clip: "cut", autoThreshold: 0.12 });
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], transitions: { clip: "auto" } }]))).toContain("clip");
+  });
+
   it("turns the loudness pass and the cover off with false, and keeps a cover time and a loudness target", () => {
     const off = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], loudness: false, cover: false }])), "a");
     expect([off?.loudness, off?.cover]).toEqual([null, null]);
