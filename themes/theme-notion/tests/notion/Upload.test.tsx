@@ -4,7 +4,8 @@ import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { notionMessages } from "../../src/messages/index.js";
-import { formatFileSize, UploadField, UploadItem, UploadList, type UploadFileItem } from "../../src/notion/Upload.js";
+import { formatFileSize } from "../../src/notion/format-file-size.js";
+import { UploadField, UploadItem, UploadList, type UploadFileItem } from "../../src/notion/Upload.js";
 
 afterEach(cleanup);
 

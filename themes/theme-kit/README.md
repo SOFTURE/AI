@@ -195,7 +195,9 @@ Every `themes/theme-<name>` package (named `@softure-ai/theme-<name>` by its fol
 
 4. A component file that creates a React context or calls a hook starts with `"use client"` (as does any source file
    that calls `createContext`), so the package root stays importable from a Server Component. Plain `.ts` modules that
-   only define a hook (`useIsMobile`) need no directive.
+   only define a hook (`useIsMobile`) need no directive. A `"use client"` module exports only components and hooks:
+   in a Server Component its exports are client references, so a helper or a constant from it throws when called or
+   read. Helpers live in a plain module (theme-notion's `formatFileSize`).
 
 `theme.css` is then `@import` lines, `@source` lines and the generated tokens, in that order.
 

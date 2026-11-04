@@ -40,6 +40,7 @@ export * from "./ui/switch.js";
 export { SWITCH_THUMB_SHADOW_CLASS } from "./ui/switch-thumb.js";
 export * from "./ui/table.js";
 export * from "./ui/tabs.js";
+export { tabsListVariants } from "./ui/tabs-variants.js";
 export * from "./ui/textarea.js";
 export * from "./ui/tooltip.js";
 
@@ -92,7 +93,6 @@ export {
   UploadField,
   UploadItem,
   UploadList,
-  formatFileSize,
   type UploadFieldProps,
   type UploadFileItem,
   type UploadItemProps,
@@ -101,5 +101,6 @@ export {
   type UploadMessagesOverride,
   type UploadState,
 } from "./notion/Upload.js";
+export { formatFileSize } from "./notion/format-file-size.js";
 export { UpdatePrompt, type UpdatePromptProps } from "./notion/UpdatePrompt.js";
 export { TONES, TONE_COLORS, TONE_EDGE, TONE_FILL, TONE_TEXT, type Tone } from "./notion/tones.js";

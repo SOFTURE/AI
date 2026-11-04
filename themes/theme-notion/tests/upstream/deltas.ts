@@ -1075,6 +1075,21 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       upstream: "        className={cn(tabsListVariants({ variant, size }), className)}",
       ours: "        data-scrollable={scrollable === true ? \"true\" : undefined}\n        ref={setListRef}\n        className={cn(tabsListVariants({ variant, size, scrollable }), className)}",
     },
+    {
+      reason: "tabs: the class builder lives in the plain module `tabs-variants.ts`, so a Server Component can call it (#1008)",
+      upstream: "import { cva, type VariantProps } from \"class-variance-authority\"\nimport { cn } from \"../lib/utils.js\"\n",
+      ours: "import type { VariantProps } from \"class-variance-authority\"\nimport { cn } from \"../lib/utils.js\"\nimport { tabsListVariants } from \"./tabs-variants.js\"\n",
+    },
+    {
+      reason: "tabs: the class builder lives in the plain module `tabs-variants.ts`, so a Server Component can call it (#1008)",
+      upstream: "const tabsListVariants = cva(\n  \"group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-[orientation=horizontal]/tabs:h-9 group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col data-[variant=line]:rounded-none\",\n  {\n    variants: {\n      variant: {\n        default: \"bg-muted\",\n        line: \"gap-1 bg-transparent\",\n      },\n      size: {\n        default: \"\",\n        // The triggers set the height: a fixed one would cap them at 35 px.\n        touch: \"group-data-[orientation=horizontal]/tabs:h-auto\",\n      },\n      // Keeps to its container's width and scrolls sideways; the line variant keeps room for the active underline.\n      scrollable: {\n        false: \"\",\n        true: \"relative w-full max-w-full min-w-0 justify-start overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:thin] group-data-[orientation=horizontal]/tabs:h-auto data-[variant=line]:pb-1.5 *:flex-none\",\n      },\n    },\n    defaultVariants: {\n      variant: \"line\",\n      size: \"default\",\n      scrollable: false,\n    },\n  }\n)\n\n",
+      ours: "",
+    },
+    {
+      reason: "tabs: the class builder lives in the plain module `tabs-variants.ts`, so a Server Component can call it (#1008)",
+      upstream: "export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }",
+      ours: "export { Tabs, TabsList, TabsTrigger, TabsContent }",
+    },
   ],
   "textarea": [
     {

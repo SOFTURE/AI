@@ -86,7 +86,9 @@ describe("the package inventory", () => {
   });
 
   it("draws every option of every cva in the gallery", () => {
-    const declared = Object.assign({}, ...UI_FILES.map((file) => readCvaAxes(readFileSync(new URL(`ui/${file}.tsx`, SRC), "utf8"), file))) as Record<string, unknown>;
+    // The components (.tsx) and the plain modules beside them (.ts, e.g. a class builder a Server Component calls, #1008).
+    const uiSources = readdirSync(new URL("ui/", SRC)).filter((name) => /\.tsx?$/.test(name)).sort();
+    const declared = Object.assign({}, ...uiSources.map((file) => readCvaAxes(readFileSync(new URL(`ui/${file}`, SRC), "utf8"), file))) as Record<string, unknown>;
     expect(Object.fromEntries(Object.entries(CVA_AXES).map(([name, { axes }]) => [name, axes]))).toEqual(declared);
 
     for (const { component, axes } of Object.values(CVA_AXES)) {
