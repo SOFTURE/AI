@@ -95,8 +95,9 @@ export function findBrowserProblem(env: NodeJS.ProcessEnv): string | null {
 
 /**
  * Checks the machine for a footage run: ffmpeg and ffprobe run, ffmpeg decodes HEVC and H.264 and has `zscale` and
- * `tonemap` (HDR clips), for a draft (`needsDraft`) `ass`, `xfade` and `zoompan`, and, for a render, hyperframes runs and has its browser. Returns every problem found; an
- * empty list means the machine is ready.
+ * `tonemap` (HDR clips), for a draft (`needsDraft`) `ass`, `xfade` and `zoompan`, and, for a render, hyperframes runs
+ * and has its browser, and its temp folder (and the build folder, when given) has the 1 GiB free hyperframes requires.
+ * Returns every problem found; an empty list means the machine is ready.
  */
 export async function checkFootageTools(options: FootageToolsOptions = {}): Promise<string[]> {
   const { signal } = options;
