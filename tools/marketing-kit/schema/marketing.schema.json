@@ -2711,6 +2711,13 @@
             "description": "Clean the talking clips' voice of background noise (ElevenLabs Voice Isolator, paid with --commit) before transcribing.",
             "type": "boolean"
           },
+          "keyTerms": {
+            "description": "Names and brand words the transcript should spell as given (ElevenLabs Scribe keyterm prompting, billed on top of the transcription): up to 1000 terms of at most 50 characters and 5 words each; trimmed, deduplicated and sorted.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "fillers": {
             "description": "Filler words cut out of the talking clips, compared without case, punctuation and repeated letters; without it, the language's defaults (pl: yyy, eee, yhm and more; en: um, uh and more).",
             "type": "array",
