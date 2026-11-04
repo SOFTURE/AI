@@ -75,8 +75,8 @@ export interface FootageDraftCaptionsInput {
 
 /**
  * The draft's captions as an ASS subtitle file: the film's phrases (`phraseChunks`) shown for the render's spans
- * (`getCaptionSpans`), white bold text with a dark outline and shadow, centred in the caption box from its top. Null
- * when the film has no captions or nothing is said.
+ * (`getCaptionSpans`), white bold text with a dark outline and shadow, centred in the caption box from its top (or
+ * from its foot, with `bottom`). Null when the film has no captions or nothing is said.
  */
 export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): string | null {
   if (!input.film.captions) return null;
@@ -106,10 +106,11 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     1,
     outline,
     shadow,
-    8,
+    // ASS alignment 2 hangs the text from MarginV above the bottom, 8 from MarginV below the top.
+    caption.bottom === undefined ? 8 : 2,
     Math.round(caption.left),
     Math.round(caption.right),
-    Math.round(caption.top),
+    Math.round(caption.bottom ?? caption.top),
     1,
   ].join(",");
   const events = chunks.map((chunk, index) => {

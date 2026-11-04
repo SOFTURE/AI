@@ -24,9 +24,9 @@ describe("phraseChunks", () => {
 });
 
 describe("getCaptionPresetLayout", () => {
-  it("keeps two caption lines above the platform's bottom margin, centred between equal sides", () => {
-    expect(getCaptionPresetLayout("tiktok", 50)).toEqual({ top: 1275, left: 150, right: 150, fontSize: 50 });
-    expect(getCaptionPresetLayout("reels", 50).top).toBe(1335);
+  it("anchors the caption box's foot at the platform's bottom margin, centred between equal sides", () => {
+    expect(getCaptionPresetLayout("tiktok", 50)).toEqual({ top: 1275, bottom: 480, left: 150, right: 150, fontSize: 50 });
+    expect(getCaptionPresetLayout("reels", 50)).toMatchObject({ top: 1335, bottom: 420 });
   });
 
   it("makes all the zone that is safe everywhere", () => {

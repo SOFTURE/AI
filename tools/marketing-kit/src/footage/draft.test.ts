@@ -236,11 +236,16 @@ describe("buildFootageDraftCaptions", () => {
     expect(ass).toContain("Style: Caption,DejaVu Sans,50,&H00FFFFFF,&H00FFFFFF,&H8C000000,&H8C000000,-1,0,0,0,100,100,0,0,1,3,2,8,60,80,1470,1\n");
   });
 
+  it("anchors the captions by their foot when the caption box has a bottom edge", () => {
+    const ass = buildFootageDraftCaptions({ film, edl, words, caption: { top: 1470, bottom: 400, left: 60, right: 80, fontSize: 50 }, frame: FRAME }) ?? "";
+    expect(ass).toContain(",1,3,2,2,60,80,400,1\n");
+  });
+
   it("places a 9:16 film's captions by its caption preset", () => {
     const preset = getFootageCaptionLayout({ ...film, captionPreset: "tiktok" });
     const ass = buildFootageDraftCaptions({ film, edl, words, caption: preset, frame: FRAME }) ?? "";
     expect(preset).not.toEqual(LAYOUTS["9:16"].caption);
-    expect(ass).toContain(`,8,${preset.left},${preset.right},${preset.top},1\n`);
+    expect(ass).toContain(`,2,${preset.left},${preset.right},${preset.bottom},1\n`);
   });
 
   it("is null for a film without captions or without words", () => {

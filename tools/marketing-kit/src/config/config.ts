@@ -240,6 +240,7 @@ function resolveFootage(data: MarketingJson, at: (relative: string) => string): 
       captions: film.captions,
       captionStyle: film.captionStyle,
       ...(film.captionPreset === undefined ? {} : { captionPreset: film.captionPreset }),
+      ...(film.captionMaxLines === undefined ? {} : { captionMaxLines: film.captionMaxLines }),
       edit: { zoomPercent: film.edit.zoomPercent, fadeFrames: film.edit.fadeFrames, kenBurnsPercent: film.edit.kenBurnsPercent, isEndCardWhoosh: film.edit.endCardWhoosh },
       endCard: film.endCard ?? null,
       loudness: film.loudness === false ? null : film.loudness,

@@ -2,11 +2,11 @@ import type { BrandColors } from "../config/colors.js";
 import type { SfxEvent } from "../config/schema.js";
 import type { ComposeFont } from "../compose/compose.js";
 import { escapeHtml, fontFaces, fontStack } from "../compose/html.js";
-import { captionChunks, type CaptionLayout } from "../compose/timeline.js";
+import { CAPTION_LINE_HEIGHT, captionChunks, getCaptionPillCss, getCaptionPositionCss, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { getCaptionSpans, phraseChunks, type CaptionSpan } from "./captions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
-import { DEFAULT_EDIT, getFootageEdit, type FootageFilm } from "./film.js";
+import { CAPTION_MIN_FONT_SCALE, DEFAULT_EDIT, getFootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS } from "./normalize.js";
 
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
@@ -121,6 +121,8 @@ export function composeFootage(input: FootageComposeInput): string {
     })
     .join("\n  ");
 
+  const captionFit = film.captions && film.captionMaxLines !== undefined ? getCaptionFitScript(film.captionMaxLines, Math.round(captionBox.fontSize * CAPTION_MIN_FONT_SCALE)) : "";
+
   // --- Sound ---
   const sfx: { src: string; t: number; volume: number; dur: number }[] = [];
   const play = (event: SfxEvent, t: number, volume: number, dur: number) => {
@@ -182,10 +184,10 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
 #root{position:relative;width:${frame.width}px;height:${frame.height}px;overflow:hidden;background:#000;font-family:${bodyFont};color:${c.foreground}}
 .shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:50% 42%}
 .shade{position:absolute;inset:0;background:${c.background};opacity:0}
-.caption{position:absolute;left:${captionBox.left}px;right:${captionBox.right}px;top:${captionBox.top}px;display:flex;justify-content:center}
-.pill{font-weight:650;font-size:${captionBox.fontSize}px;line-height:1.18;letter-spacing:-.01em;text-align:center;padding:16px 28px;border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
+.caption{position:absolute;left:${captionBox.left}px;right:${captionBox.right}px;${getCaptionPositionCss(captionBox)};display:flex;justify-content:center}
+.pill{${getCaptionPillCss(captionBox.fontSize)};border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
 .pill span{display:inline-block}
-.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:1.18;letter-spacing:-.01em;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
+.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:-.01em;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
 .endcard{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 80px;text-align:center}
 .brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:${headingFont};font-size:46px}
 .logo{height:60px;width:auto}
@@ -201,7 +203,7 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
   ${captionHtml}
   ${audio}
 </div>
-<script>
+${captionFit}<script>
 const tl = gsap.timeline({ paused: true });
 ${tweens.join("\n")}
 const captions = ${JSON.stringify(isHighlight ? caption.map((chunk) => chunk.words.map((w) => w.start)) : [])};
@@ -216,5 +218,33 @@ window.__timelines["${COMPOSITION_ID}"] = tl;
 </script>
 </body>
 </html>
+`;
+}
+
+/**
+ * A page script that shrinks each caption's font in 1 px steps until its text takes at most `maxLines` lines, or the
+ * font reaches `minFontSize`. Only the browser knows how the font wraps, so it measures there: once at load and again
+ * when the fonts are ready (hyperframes waits for them before the first frame). Hidden clips keep their layout.
+ */
+function getCaptionFitScript(maxLines: number, minFontSize: number): string {
+  return `<script>
+(() => {
+  const captionMaxLines = ${maxLines}, captionMinFontSize = ${minFontSize};
+  const countLines = (el) => {
+    const style = getComputedStyle(el);
+    return Math.round((el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)) / parseFloat(style.lineHeight));
+  };
+  const fit = () => document.querySelectorAll(".caption > p").forEach((el) => {
+    el.style.fontSize = "";
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while (countLines(el) > captionMaxLines && size > captionMinFontSize) {
+      size -= 1;
+      el.style.fontSize = size + "px";
+    }
+  });
+  fit();
+  if (document.fonts) document.fonts.ready.then(fit);
+})();
+</script>
 `;
 }
