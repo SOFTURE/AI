@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- A panel slid in from the right of the app shell (#1044): `AsidePanelProvider` (replaces `SidebarProvider`, keeps
+  one side panel open at a time: the left sidebar folds while the panel is open on a wide screen), `AsidePanelToggle`
+  (fixed top-right, `aria-expanded`/`aria-controls`, `outline` closed and `secondary` open), `AsidePanel` (an `aside`
+  beside the content at two fifths or half the shell, a width switch, Escape and focus; a right `Sheet` on a phone,
+  opened for the page only), `AsidePanelSidebarOpener` (brings the sidebar back and closes the panel),
+  `useAsidePanel` and `isOverlayOpen(root)`. Kept state through `initialState` and `save(state)`; a failed save keeps
+  the choice and reaches `onSaveError`; `isHidden` for screens with no panel. Copy in `notionMessages.en.asidePanel`.
+  New exports only.
+
 ## 0.11.1
 
 - `tabsListVariants` can be called from a Server Component (#1008): the class builder of `TabsList` moved out of the
