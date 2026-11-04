@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.12.0
 
 - A panel slid in from the right of the app shell (#1044): `AsidePanelProvider` (replaces `SidebarProvider`, keeps
   one side panel open at a time: the left sidebar folds while the panel is open on a wide screen), `AsidePanelToggle`
