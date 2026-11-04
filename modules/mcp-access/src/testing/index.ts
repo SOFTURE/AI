@@ -6,3 +6,4 @@ export {
   type ServedToolLists,
   type ToolCatalogDifferences,
 } from "./catalog.js";
+export { expectToolListSessionRenewed } from "./sessions.js";
