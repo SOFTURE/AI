@@ -612,7 +612,8 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   made into one intermediate format: the film's frame (`format`: 9:16 1080×1920, 1:1 or 16:9) at 30 fps, upright
   (a phone's rotation applied), SDR BT.709 (HDR from PQ, HLG or Dolby Vision tone-mapped with zscale, so an iPhone clip
   is not washed out), 48 kHz stereo sound (silence for a clip without). A clip is normalized again only when it or
-  its settings change.
+  its settings change. Frames are dropped to 30 fps and scaled to the frame (covered and cropped, or fitted for the
+  blur) before the HDR tone map, so the slow float stages of a 4K phone clip run on frame-sized pictures.
 - **Transcript:** ElevenLabs Scribe (`scribe_v2`) with a time for every word, in `language` (default
   `voice.language`). With `isolateVoice`, ElevenLabs Voice Isolator cleans the voice first and the film speaks with
   the cleaned voice. Both are paid, keyed by the clip's bytes, trim and settings, and cached in
@@ -762,6 +763,10 @@ const result = await renderFootageFilm(film, {
 - `findCachedStep(film, step, item, { cacheDir, providers, buildDir })` answers whether a paid step (`transcribe` or
   `isolate` for a clip id, `music` for `film`) is already cached, without network. A cached step costs 0 in the
   estimate. Video-scored music depends on the cut, so it counts as cached only once `edl.json` is in `buildDir`.
+- `normalize: { preset, threads }` tunes the intermediate clips' encoding for a small worker: `preset` is an x264
+  preset (`X264_PRESETS`, default `veryfast`; `superfast` encodes faster into bigger files), `threads` sets ffmpeg's
+  encoder and filter threads (ffmpeg otherwise follows the host's cores, not a container's CPU quota). Neither makes
+  clips already normalized be made again.
 - The CLI runs `checkFootageTools` before `footage`, letting hyperframes download its browser on the first render;
   a worker image ships the browser instead.
 

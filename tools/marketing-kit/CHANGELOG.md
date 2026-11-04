@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **Faster footage normalize and cut preview on a small worker (#1015).** `buildVideoFilter` now drops frames to
+  30 fps and scales to the frame (crop: covered and cropped; blur: fitted, the blurred background made from the fitted
+  picture) before the HDR tone map, so its float stages run on frame-sized pictures: a 4K HLG clip normalizes about
+  2x faster with the crop fit and 3x with the blur fit on one core. `buildCutPreviewArgs` seeks each segment's input
+  (`-ss`/`-t`) instead of trimming from the clip's start: the same frames, about 5x faster for 20 segments of one
+  100 s clip. The normalized format changed slightly, so clips normalized by an earlier version are made once more.
+  New `normalize: { preset, threads }` on the run options (`NormalizeEncoder`, `X264_PRESETS`) trades the
+  intermediate's file size for speed.
+
 ## 0.5.0
 
 - **Music beds from an upload (#996):** `probeAudio(path, { signal })` reads a music file with ffprobe as `{ duration,
