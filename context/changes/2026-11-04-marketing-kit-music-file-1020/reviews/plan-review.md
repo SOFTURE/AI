@@ -8,8 +8,8 @@ verdict: approved
 - Covers the four asks: declared name / type on the source, a skipped check for an extensionless path, video beds,
   tests for an extensionless `.m4a` and `.mp4` with sound.
 - Compatibility: the new fields are optional; every 0.5.0 film keeps its behaviour except that `.mp4`, `.m4v`, `.mov`
-  and `.webm` beds now pass (a widening the issue asks for). `-vn` changes the music track only by dropping a video
-  stream the mp3 output could not hold anyway (or held as cover art nobody hears).
+  and `.webm` beds now pass (a widening the issue asks for). The render is unchanged: research measured that the
+  music track already turns a video bed into an audio-only mp3; a test pins it.
 - Safety: skipping the type check does not let junk through, since `probeAudio` refuses a file without an audio
   stream or a duration with a named reason, before anything is paid for.
 - `checkMusicFileType` with an extensionless name alone now answers "needs a file name or a content type" instead of

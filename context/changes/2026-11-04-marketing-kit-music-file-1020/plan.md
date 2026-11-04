@@ -19,16 +19,15 @@ Files: `src/footage/film.ts`, `src/footage/audio.ts`, `src/footage/audio.test.ts
 - Tests: extensionless name + content type accepted; extensionless name alone refused (nothing to check); `.mp4`
   and `.mov` accepted with and without their content types.
 
-## Phase 2: the pipeline and the render
+## Phase 2: the pipeline
 
-Files: `src/footage/pipeline.ts`, `src/footage/pipeline.test.ts`, `src/footage/render.ts`, `render.test.ts`.
+Files: `src/footage/pipeline.ts`, `src/footage/pipeline.test.ts`.
 
 - `checkMusicFile(source)`: with `fileName` or `contentType` on the source, the type check uses them; else with an
   extension on the path, the path; else the check is skipped (logged) and `probeAudio` decides.
-- `buildMusicArgs`: `-vn` after the input, so the music track is audio only (video beds, cover art).
 - Tests (real ffmpeg, like the existing ones): an extensionless `.m4a` goes on; an extensionless `.mp4` with sound
   goes on; an extensionless file with no audio still stops with `no audio stream`; a declared `fileName` of an
-  unlisted type stops; an `.mkv` path stops by type; the music track renders from an `.mp4` with sound.
+  unlisted type stops; an `.mkv` path stops by type; `buildMusicArgs` renders the music track from an `.mp4` with sound.
 
 ## Phase 3: docs
 
@@ -36,8 +35,8 @@ README (music file source fields, accepted types, the upload example), CHANGELOG
 
 ## Decisions (auto)
 
-- Video files with an audio stream are accepted beds (issue ask 3, as in 0.4.0); `-vn` in the music track instead of
-  an extraction step (research option 2 rejected: a copy per run for nothing).
+- Video files with an audio stream are accepted beds (issue ask 3, as in 0.4.0); no extraction step (research option 2
+  rejected: the music track already reads only the audio of a video bed).
 - The video types join the one shared list, so an app's upload check and the run agree (the point of #996).
 - An extensionless path with no declared name or type skips only the type check; the probe still requires an audio
   stream and a duration, which is the precise reason the type check stood in for.
@@ -46,5 +45,5 @@ README (music file source fields, accepted types, the upload example), CHANGELOG
 ## Progress
 
 - [ ] Phase 1: the type check and the source
-- [ ] Phase 2: the pipeline and the render
+- [ ] Phase 2: the pipeline
 - [ ] Phase 3: docs
