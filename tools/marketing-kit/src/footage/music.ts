@@ -1,4 +1,5 @@
 import type { TimedWord } from "../voice/voiceover.js";
+import type { FootageMusic } from "./film.js";
 
 /**
  * Music under the voice: loud between sentences, ducked while someone speaks. The envelope is a list of keyframes
@@ -20,6 +21,12 @@ export interface DuckingOptions {
   release?: number;
   /** Two words closer than this stay one stretch of speech. */
   gap?: number;
+}
+
+/** A film's music settings as ducking options: its volumes, and its attack and release when it sets them. */
+export function getDuckingOptions(music: Pick<FootageMusic, "volume" | "duckedVolume" | "attack" | "release">): DuckingOptions {
+  const { volume, duckedVolume, attack, release } = music;
+  return { volume, duckedVolume, ...(attack === undefined ? {} : { attack }), ...(release === undefined ? {} : { release }) };
 }
 
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;

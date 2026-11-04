@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildLoudnessArgs, buildLoudnessMeasureArgs, DEFAULT_LOUDNESS, isSilent, readLoudnessMeasurement } from "./loudness.js";
+import { buildLoudnessArgs, buildLoudnessMeasureArgs, DEFAULT_LOUDNESS, getLoudnessFilter, isSilent, readLoudnessMeasurement } from "./loudness.js";
 
 const STDERR = [
   "Input #0, mp3, from 'speech.mp3':",
@@ -20,12 +20,13 @@ const STDERR = [
 ].join("\n");
 
 describe("buildLoudnessMeasureArgs", () => {
-  it("measures the track against the target and writes nothing", () => {
+  it("measures the sound against the target, skips any picture and writes nothing", () => {
     expect(buildLoudnessMeasureArgs("/a/speech.raw.mp3", DEFAULT_LOUDNESS)).toEqual([
       "-hide_banner",
       "-nostats",
       "-i",
       "/a/speech.raw.mp3",
+      "-vn",
       "-af",
       "loudnorm=I=-14:TP=-1:LRA=11:print_format=json",
       "-f",
@@ -43,6 +44,12 @@ describe("readLoudnessMeasurement", () => {
   it("reads silence as minus infinity", () => {
     const silent = readLoudnessMeasurement(STDERR.replace('"-31.25"', '"-inf"').replace('"-12.52"', '"-inf"'));
     expect(silent?.inputI).toBe(-Infinity);
+    expect(silent !== null && isSilent(silent)).toBe(true);
+  });
+
+  it("reads a silent track's infinite offset, as ffmpeg prints it for digital silence", () => {
+    const silent = readLoudnessMeasurement(STDERR.replace('"-31.25"', '"-inf"').replace('"-12.52"', '"-inf"').replace('"0.05"', '"inf"'));
+    expect(silent?.targetOffset).toBe(Infinity);
     expect(silent !== null && isSilent(silent)).toBe(true);
   });
 
@@ -72,5 +79,14 @@ describe("buildLoudnessArgs", () => {
     expect(args.slice(args.indexOf("-ar"), args.indexOf("-ar") + 2)).toEqual(["-ar", "48000"]);
     expect(args.slice(3, 5)).toEqual(["-i", "/a/raw.mp3"]);
     expect(args.at(-1)).toBe("/a/speech.mp3");
+  });
+});
+
+describe("getLoudnessFilter", () => {
+  it("is the second pass's linear gain, resampled to 48 kHz", () => {
+    const measurement = { inputI: -25.4, inputTp: -1.6, inputLra: 4.2, inputThresh: -35.9, targetOffset: -0.2 };
+    expect(getLoudnessFilter(measurement, DEFAULT_LOUDNESS)).toBe(
+      "loudnorm=I=-14:TP=-1:LRA=11:measured_I=-25.4:measured_TP=-1.6:measured_LRA=4.2:measured_thresh=-35.9:offset=-0.2:linear=true,aresample=48000",
+    );
   });
 });

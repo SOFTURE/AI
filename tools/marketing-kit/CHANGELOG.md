@@ -18,6 +18,17 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `buildPicturePieceArgs`, `buildPictureConcatArgs`, `buildPictureList`, `getPictureFrames`. README "Footage films in a worker" states the
   memory a render needs.
 
+- **The finished film's loudness, and the ducking's timing (#1031):** a footage film's final pass now measures the
+  whole mix after the render and normalizes it in two passes of `loudnorm` (one linear gain; the picture is still
+  copied, only the sound re-encoded) to `FootageFilm.mixLoudness` (`marketing.json` `mixLoudness`), by default −14 LUFS
+  integrated and −1 dBTP true peak, so a film comes out at the platforms' level instead of whatever the speech plus the
+  music summed to (−25 LUFS measured on a 50 s film before). A silent mix is left as it is; `mixLoudness: null`
+  (`false` in `marketing.json`) keeps the mix as rendered. The log names the measured and the target loudness.
+  `FootageMusic` takes optional `attack` and `release` (seconds, `marketing.json` 0-5) for the ducking, absent keeping
+  0.25 / 0.5 (`getDuckingOptions`). New exports: `measureLoudness`, `getLoudnessFilter`, `LoudnessMeasureOutcome`;
+  `buildFinishArgs` takes `{ audioFilter }`. A fully silent track no longer fails the loudness measurement (ffmpeg
+  prints its offset as `inf`). Upgrading: films get louder by default; set `mixLoudness: null` to keep the old output.
+
 - **Captions anchored by their foot and fitted to a line limit (#1026):** a caption box can be anchored by its bottom
   edge (`bottom` in `CaptionLayout` and in the `layout` override, px from the frame's bottom; it wins over `top`), so a
   card of more lines grows upwards and its foot stays put; the screen-recording film, the footage film and the footage

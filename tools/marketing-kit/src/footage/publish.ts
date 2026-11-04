@@ -98,18 +98,21 @@ export function isPublishableAudio(audio: NonNullable<FilmFacts["audio"]>): bool
 
 /**
  * The final pass: each stream that is already publishable is copied, the other re-encoded, and the `moov` box moved
- * to the front. A film without sound keeps none.
+ * to the front. A film without sound keeps none. `audioFilter` (the mix's loudness pass) re-encodes the sound through it.
  */
-export function buildFinishArgs(input: string, facts: Pick<FilmFacts, "video" | "audio">, output: string): string[] {
+export function buildFinishArgs(input: string, facts: Pick<FilmFacts, "video" | "audio">, output: string, options: { audioFilter?: string } = {}): string[] {
   const video = isPublishableVideo(facts.video)
     ? ["-c:v", "copy"]
     : ["-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", String(VIDEO_CRF)];
+  const encodeAudio = ["-c:a", "aac", "-b:a", AUDIO_BITRATE, "-ar", String(FOOTAGE_SAMPLE_RATE), "-ac", "2"];
   const audio =
     facts.audio === null
       ? []
-      : isPublishableAudio(facts.audio)
-        ? ["-map", "0:a:0", "-c:a", "copy"]
-        : ["-map", "0:a:0", "-c:a", "aac", "-b:a", AUDIO_BITRATE, "-ar", String(FOOTAGE_SAMPLE_RATE), "-ac", "2"];
+      : options.audioFilter !== undefined
+        ? ["-map", "0:a:0", "-af", options.audioFilter, ...encodeAudio]
+        : isPublishableAudio(facts.audio)
+          ? ["-map", "0:a:0", "-c:a", "copy"]
+          : ["-map", "0:a:0", ...encodeAudio];
   return ["-v", "error", "-y", "-i", input, "-map", "0:v:0", ...video, ...audio, "-movflags", "+faststart", output];
 }
 
