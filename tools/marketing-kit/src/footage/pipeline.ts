@@ -17,7 +17,7 @@ import { findMissingCaptionGlyphs, getFootageCaptionLayout } from "./captions.js
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
 import { buildEdl, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
-import { getFootageEdit, type FootageClip, type FootageFilm } from "./film.js";
+import { getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
 import { getFilmKeyTerms } from "./keyterms.js";
 import { DEFAULT_LOUDNESS, normalizeLoudness } from "./loudness.js";
 import { duckingKeyframes } from "./music.js";
@@ -203,7 +203,7 @@ export async function prepareFootage(
   const probed = await probeFootage(film.clips, sources, signal === undefined ? {} : { signal });
   if (!probed.ok) return err(probed.errors.join("\n"));
   if (film.music.source.kind === "file") {
-    const music = await checkMusicFile(film.music.source.path, options);
+    const music = await checkMusicFile(film.music.source, options);
     if (!music.ok) return err(music.error);
   }
   const frame = getFrame(film);
@@ -397,11 +397,21 @@ export function readEdlFile(film: FootageFilm, clips: PreparedClip[], edlPath: s
   return problems.length > 0 ? err(`${edlPath}: ${problems.join("; ")}`) : ok(read.edl);
 }
 
-/** A local music file checked like an app's upload: an accepted type, then readable audio (`probeAudio`). */
-async function checkMusicFile(path: string, options: Pick<FootageRunOptions, "log" | "signal">): Promise<FootageResult<string>> {
+/**
+ * A local music file checked like an app's upload: an accepted type, then readable audio (`probeAudio`). The type comes
+ * from the source's declared name (else the path) and content type; with no extension and no content type (a storage
+ * key) the type check is skipped and the probe alone decides.
+ */
+async function checkMusicFile(source: Extract<MusicSource, { kind: "file" }>, options: Pick<FootageRunOptions, "log" | "signal">): Promise<FootageResult<string>> {
+  const { path, fileName, contentType } = source;
   if (!existsSync(path)) return err(`music: no file at ${path}`);
-  const type = checkMusicFileType({ fileName: path });
-  if (!type.ok) return err(`music: ${type.error}`);
+  const name = fileName ?? path;
+  if (extname(name) === "" && contentType === undefined) {
+    options.log(`music: ${path} has no extension and no declared name or content type; the probe checks it.`);
+  } else {
+    const type = checkMusicFileType(contentType === undefined ? { fileName: name } : { fileName: name, contentType });
+    if (!type.ok) return err(`music: ${type.error}`);
+  }
   const probe = await probeAudio(path, options.signal === undefined ? {} : { signal: options.signal });
   if (!probe.ok) return err(`music: ${probe.error}`);
   options.log(`music: ${path} (${describeAudioProbe(probe.probe)}).`);

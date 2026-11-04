@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -12,6 +12,7 @@ import { getClipCacheKey, getIsolatedCache } from "./paid.js";
 import type { FootageCharge } from "./providers.js";
 import { cutFootage, getEdlPath, getMusicPaidStep, prepareFootage, readEdlFile, readRenderPercent, renderFootage, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
 import type { FootageProbe } from "./probe.js";
+import { buildMusicArgs } from "./render.js";
 
 const PROBE: FootageProbe = { duration: 6, width: 1080, height: 1920, rotation: 0, displayWidth: 1080, displayHeight: 1920, codec: "h264", pixelFormat: "yuv420p", colorTransfer: null, hdr: null, hasAudio: true };
 
@@ -206,7 +207,7 @@ describe.runIf(hasFfmpeg)("prepareFootage with a local music file (issue #996)",
     return file;
   }
 
-  function filmWithMusic(path: string): FootageFilm {
+  function filmWithMusic(path: string, declared: { fileName?: string; contentType?: string } = {}): FootageFilm {
     const source = make("talk.mp4", ["-f", "lavfi", "-i", "color=c=black:s=64x64:d=1", "-pix_fmt", "yuv420p"]);
     return {
       id: "street",
@@ -217,7 +218,7 @@ describe.runIf(hasFfmpeg)("prepareFootage with a local music file (issue #996)",
       isolateVoice: false,
       cut: { fillers: [], pauseSeconds: 0.6, padSeconds: 0.1, maxSeconds: null },
       transitions: DEFAULT_TRANSITIONS,
-      music: { source: { kind: "file", path }, volume: 0.35, duckedVolume: 0.1 },
+      music: { source: { kind: "file", path, ...declared }, volume: 0.35, duckedVolume: 0.1 },
       captions: false,
       endCard: { headline: "Try", url: "example.com", note: "" },
     };
@@ -232,9 +233,62 @@ describe.runIf(hasFfmpeg)("prepareFootage with a local music file (issue #996)",
   });
 
   it("stops on a music file of a type the render does not take", async () => {
-    const music = make("bed.mp4", ["-f", "lavfi", "-i", "sine=duration=1"]);
+    const music = make("bed.mkv", ["-f", "lavfi", "-i", "sine=duration=1"]);
     const result = await prepareFootage(filmWithMusic(music), run());
-    expect(result).toEqual({ ok: false, error: `music: ${music}: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac)` });
+    expect(result).toEqual({ ok: false, error: `music: ${music}: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)` });
+  });
+
+  /** A copy of a file under an extensionless name, the way `@softure-ai/files` stores an upload. */
+  function storeWithoutExtension(file: string): string {
+    const key = join(dir, "ab", "cd", "0f5e3a1c-2b9d-4c1e-9a7f-1d2e3f4a5b6c");
+    mkdirSync(dirname(key), { recursive: true });
+    copyFileSync(file, key);
+    return key;
+  }
+
+  it("goes on with a music file stored without an extension, probing it (issue #1020)", async () => {
+    const music = storeWithoutExtension(make("bed.m4a", ["-f", "lavfi", "-i", "sine=duration=2", "-c:a", "aac"]));
+    const result = await prepareFootage(filmWithMusic(music), run());
+    expect(result.ok).toBe(true);
+    expect(lines).toContain(`music: ${music} has no extension and no declared name or content type; the probe checks it.`);
+    expect(lines.some((line) => line.startsWith(`music: ${music} (aac, 2.0 s`))).toBe(true);
+  });
+
+  it("goes on with a stored video whose sound is the bed (issue #1020)", async () => {
+    const clip = make("clip.mp4", ["-f", "lavfi", "-i", "color=c=black:s=64x64:d=2", "-f", "lavfi", "-i", "sine=duration=2", "-shortest", "-pix_fmt", "yuv420p", "-c:a", "aac"]);
+    const music = storeWithoutExtension(clip);
+    const result = await prepareFootage(filmWithMusic(music, { fileName: "street.mp4", contentType: "video/mp4" }), run());
+    expect(result.ok).toBe(true);
+    expect(lines.some((line) => line.startsWith(`music: ${music} (aac, 2.0 s`))).toBe(true);
+  });
+
+  it("lets the probe decide when the declared name has no extension either", async () => {
+    const music = storeWithoutExtension(make("bed.m4a", ["-f", "lavfi", "-i", "sine=duration=1", "-c:a", "aac"]));
+    expect((await prepareFootage(filmWithMusic(music, { fileName: "Calm bed" }), run())).ok).toBe(true);
+  });
+
+  it("still stops on a stored file without audio", async () => {
+    const music = storeWithoutExtension(make("silent.mp4", ["-f", "lavfi", "-i", "color=c=black:s=64x64:d=1", "-pix_fmt", "yuv420p"]));
+    expect(await prepareFootage(filmWithMusic(music), run())).toEqual({ ok: false, error: `music: ${music}: no audio stream` });
+  });
+
+  it("checks the declared name and content type of a stored file", async () => {
+    const music = storeWithoutExtension(make("bed.m4a", ["-f", "lavfi", "-i", "sine=duration=1", "-c:a", "aac"]));
+    const named = await prepareFootage(filmWithMusic(music, { fileName: "notes.pdf" }), run());
+    expect(named).toEqual({ ok: false, error: `music: notes.pdf: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)` });
+    const mismatched = await prepareFootage(filmWithMusic(music, { fileName: "bed.mp3", contentType: "audio/wav" }), run());
+    expect(mismatched).toEqual({ ok: false, error: "music: bed.mp3: content type audio/wav does not match .mp3 (expected audio/mpeg or audio/mp3)" });
+    const typed = await prepareFootage(filmWithMusic(music, { contentType: "application/pdf" }), run());
+    expect(typed).toEqual({ ok: false, error: `music: content type application/pdf is not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)` });
+  });
+
+  it("renders the music track of a video bed as audio only", () => {
+    const clip = make("clip.mp4", ["-f", "lavfi", "-i", "color=c=black:s=64x64:d=1", "-f", "lavfi", "-i", "sine=duration=1", "-shortest", "-pix_fmt", "yuv420p", "-c:a", "aac"]);
+    const output = join(dir, "music.mp3");
+    const render = spawnSync("ffmpeg", buildMusicArgs({ input: clip, seconds: 2, keyframes: [{ t: 0, volume: 0.35 }], output }), { encoding: "utf8" });
+    expect(render.status).toBe(0);
+    const streams = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type", "-of", "csv=p=0", output], { encoding: "utf8" });
+    expect(streams.stdout.trim()).toBe("audio");
   });
 
   it("logs the probed music and goes on", async () => {

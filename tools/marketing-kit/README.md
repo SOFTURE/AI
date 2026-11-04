@@ -643,8 +643,11 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
 - **Music:** `file` (local), `prompt` (ElevenLabs Music, instrumental, the film's length) or `fromVideo` (ElevenLabs
   Video to Music, scored to the cut itself, with `description` and `tags`). Generated music is paid and cached the same
   way. It plays at `volume` and ducks to `duckedVolume` while someone speaks, from the word times, with a fade in and out.
-  A `file` must be one of `MUSIC_FILE_TYPES` (`.mp3`, `.m4a`, `.aac`, `.wav`, `.ogg`, `.oga`, `.opus`, `.flac`) and
-  hold an audio stream: the run probes it right after the clips and stops before anything is paid for when it does not.
+  A `file` must be one of `MUSIC_FILE_TYPES` (`.mp3`, `.m4a`, `.aac`, `.wav`, `.ogg`, `.oga`, `.opus`, `.flac`, and
+  the video containers `.mp4`, `.m4v`, `.mov`, `.webm`, whose sound becomes the bed) and hold an audio stream: the run
+  probes it right after the clips and stops before anything is paid for when it does not. A file stored without an
+  extension (a `@softure-ai/files` storage key) takes its original name and content type on the film's source,
+  `{ kind: "file", path, fileName, contentType }`; with neither, the type check is skipped and the probe alone decides.
 - **Captions** (`captions`, default true) are the transcript's words in film time: `captionStyle: "phrase"` (the
   default) shows 2-6 words of plain text with a soft shadow, `"highlight"` the pill that lights each word in the
   brand's caption colours. `layout` moves their box per format; `captionPreset` (`reels`, `shorts`, `tiktok` or `all`)
@@ -718,11 +721,16 @@ applies to `music.file`, and stores the probe with the asset:
 import { checkMusicFileType, probeAudio } from "@softure-ai/marketing-kit";
 
 const type = checkMusicFileType({ fileName: upload.name, contentType: upload.type }); // before accepting the upload
-if (!type.ok) return reject(type.error); // "bed.mp4: not a music file (accepted: .mp3, .m4a, …)"
+if (!type.ok) return reject(type.error); // "bed.mkv: not a music file (accepted: .mp3, .m4a, …)"
 const probed = await probeAudio(storedPath); // ffprobe, asynchronous
 if (!probed.ok) return reject(probed.error); // probed.reason: "no-audio-stream" | "no-duration" | "unreadable" | "unexpected-output"
 await saveAsset({ ...probed.probe }); // { duration, codec, sampleRate, channels, bitRate (null when unknown) }
+
+// Later, the stored file as the film's bed: the key has no extension, so pass what the upload said.
+const music = { source: { kind: "file", path: join(filesDir, getStorageKey(file.id)), fileName: file.name, contentType: file.contentType }, volume: 0.35, duckedVolume: 0.1 };
 ```
+
+A clip with sound (`.mp4`, `.mov`) is a bed as it is: the music track reads only its audio, so nothing needs extracting.
 
 Under the cut the bed needs no fitting by the app: the render resamples it to 48 kHz stereo, loops it when it is
 shorter than the film and trims it when it is longer (`buildMusicArgs`: `-stream_loop -1`, `-t <film seconds>`),

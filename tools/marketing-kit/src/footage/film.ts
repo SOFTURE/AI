@@ -44,7 +44,17 @@ export interface FootageClip {
 /** Where the music under the film comes from. `prompt` and `video` are paid (ElevenLabs Music, Video to Music). */
 export type MusicSource =
   | { kind: "none" }
-  | { kind: "file"; path: string }
+  | {
+      kind: "file";
+      /** A local audio file, or a video whose sound is the bed. */
+      path: string;
+      /**
+       * The file's original name and content type, for the type check when the path has no extension (a storage key
+       * such as `@softure-ai/files`' `getStorageKey`). Without them and without an extension, only the probe checks it.
+       */
+      fileName?: string;
+      contentType?: string;
+    }
   | { kind: "prompt"; prompt: string }
   | { kind: "video"; description: string; tags: string[] };
 

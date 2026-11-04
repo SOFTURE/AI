@@ -6,6 +6,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Music files without an extension, and video beds (#1020):** the footage film's music file source takes the stored
+  file's original name and content type (`{ kind: "file", path, fileName?, contentType? }`), so a file stored under an
+  extensionless key (`@softure-ai/files`' `getStorageKey`) passes the type check that 0.5.0 added. With neither and no
+  extension on the path, the type check is skipped and `probeAudio` decides (an audio stream and a duration).
+  `MUSIC_FILE_TYPES` accepts the video containers `.mp4`, `.m4v`, `.mov` and `.webm` again, as 0.4.0 did: their sound
+  is the bed, and the music track reads only the audio. `checkMusicFileType` treats a name without an extension as no
+  name, so a storage key with a content type is checked by the content type.
 - **A fast ffmpeg draft of a footage film (#1018).** `renderFootageDraft(film, clips, transcript, edl, { buildDir,
   output, width?, layout?, log, signal?, onProgress? })` writes a small (540 wide by default) fast-start H.264/AAC
   draft with the film's phrase captions, zoom cuts, cross-fades, Ken Burns b-roll and speech track, without hyperframes.

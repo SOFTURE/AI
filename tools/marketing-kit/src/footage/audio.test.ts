@@ -69,13 +69,20 @@ describe("checkMusicFileType", () => {
     expect(checkMusicFileType({ fileName: "bed.mp3", contentType: "audio/wav" })).toEqual({ ok: false, error: "bed.mp3: content type audio/wav does not match .mp3 (expected audio/mpeg or audio/mp3)" });
   });
 
-  it("rejects a video file and a name without an extension", () => {
-    expect(checkMusicFileType({ fileName: "clip.mp4" })).toEqual({ ok: false, error: "clip.mp4: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac)" });
-    expect(checkMusicFileType({ fileName: "bed" }).ok).toBe(false);
+  it("accepts a video file whose sound can be the bed, by name and by content type", () => {
+    expect(checkMusicFileType({ fileName: "clip.mp4", contentType: "video/mp4" })).toEqual({ ok: true, extension: ".mp4", contentType: "video/mp4" });
+    expect(checkMusicFileType({ fileName: "clip.MOV" })).toEqual({ ok: true, extension: ".mov", contentType: null });
+    expect(checkMusicFileType({ contentType: "video/quicktime" })).toEqual({ ok: true, extension: null, contentType: "video/quicktime" });
   });
 
-  it("rejects a content type that is not music", () => {
-    expect(checkMusicFileType({ contentType: "video/mp4" })).toEqual({ ok: false, error: "content type video/mp4 is not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac)" });
+  it("rejects a file type that is neither music nor a video with sound", () => {
+    expect(checkMusicFileType({ fileName: "clip.mkv" })).toEqual({ ok: false, error: "clip.mkv: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)" });
+    expect(checkMusicFileType({ contentType: "image/png" })).toEqual({ ok: false, error: "content type image/png is not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)" });
+  });
+
+  it("treats a name without an extension as no name (a storage key)", () => {
+    expect(checkMusicFileType({ fileName: "ab/cd/0f5e3a1c-2b9d-4c1e-9a7f-1d2e3f4a5b6c", contentType: "audio/mp4" })).toEqual({ ok: true, extension: null, contentType: "audio/mp4" });
+    expect(checkMusicFileType({ fileName: "bed" })).toEqual({ ok: false, error: "a music file needs a file name or a content type to check" });
   });
 
   it("rejects a prototype key as an extension", () => {
