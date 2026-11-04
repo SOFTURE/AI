@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.8.0
 
 - **A faster HDR tone map in footage normalize (#1037):** `normalizeFootage` (and so `prepareFootage`) tone-maps an
   HDR clip through a 3D LUT made from the same Hable curve instead of in float: the first HDR clip of a transfer runs
