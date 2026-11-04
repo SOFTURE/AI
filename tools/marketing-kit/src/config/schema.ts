@@ -565,6 +565,13 @@ const footageSchema = z
       .enum(CAPTION_PRESETS)
       .optional()
       .describe("Keeps a 9:16 film's captions inside a platform's safe zone: reels, shorts, tiktok or all; without it, layout decides."),
+    captionMaxLines: z
+      .number()
+      .int()
+      .min(1)
+      .max(4)
+      .optional()
+      .describe("The most lines a caption card may take (1-4): the render shrinks a longer card's font, to 70 % at most; without it, no limit."),
     edit: z
       .strictObject({
         zoomPercent: z.number().min(105).max(112).default(108).describe("How far a zoom cut punches in (105-112 %, default 108)."),
@@ -853,6 +860,13 @@ function layoutOverrideSchema(name: LayoutName) {
       caption: z
         .strictObject({
           top: y("The caption's top edge, in px from the frame's top.", caption.top),
+          bottom: z
+            .number()
+            .int()
+            .min(0)
+            .max(frame.height)
+            .optional()
+            .describe("The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none."),
           left: x("The caption's left margin, in px from the frame's left edge.", caption.left),
           right: x("The caption's right margin, in px from the frame's right edge.", caption.right),
           fontSize: z.number().int().min(16).max(200).optional().describe(`The caption's font size in px (16-200). Default ${caption.fontSize}.`),

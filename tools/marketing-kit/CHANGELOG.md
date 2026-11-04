@@ -19,6 +19,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `measureFrameDifference`, `chooseCutTransition`, `findAutoCuts` and `buildCutFrameArgs` are exported. The sync
   `cutFootage` is unchanged and leaves auto jump cuts as plain cuts. `FootageTransitions.jump` is now a
   `JumpTransition` (`CutTransition` or `"auto"`).
+- **Captions anchored by their foot and fitted to a line limit (#1026):** a caption box can be anchored by its bottom
+  edge (`bottom` in `CaptionLayout` and in the `layout` override, px from the frame's bottom; it wins over `top`), so a
+  card of more lines grows upwards and its foot stays put; the screen-recording film, the footage film and the footage
+  draft all follow it (`getCaptionPositionCss`). The 9:16 caption presets now anchor the box this way at the zone's
+  bottom margin: a one-line card sits at the zone's edge instead of about a line above it, and a three-line card no
+  longer reaches into the platform's interface. A footage film's `captionMaxLines` (1-4) shrinks a longer card's font
+  in the render, to 70 % of the box's size at most (`CAPTION_MIN_FONT_SCALE`); the draft keeps its size. The caption
+  metrics are exported: `CAPTION_LINE_HEIGHT` (1.18) and `CAPTION_PILL_PADDING` (`{ y: 16, x: 28 }`).
+
 - **Thread count for the footage draft (#1024):** `renderFootageDraft` and `buildFootageDraftArgs` take
   `threads`, passed as `-threads N` to every segment's decoder and to the encoder, and as `-filter_complex_threads N`
   to the filter graph. By default ffmpeg still picks its own threads, which follow the host's cores, not a

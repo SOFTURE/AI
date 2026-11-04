@@ -278,6 +278,12 @@ describe("loadMarketingConfig", () => {
     expect(loaded.videos.map((entry) => entry.layout)).toEqual([{}, { caption: { fontSize: 44 }, endCard: { phone: { center: { x: 560 } } } }]);
   });
 
+  it("loads a caption box anchored by its bottom edge and refuses one below the frame", () => {
+    const loaded = load({ ...makeConfig(), layout: { "9:16": { caption: { bottom: 420 } } } });
+    expect(loaded.videos[0]?.layout).toEqual({ caption: { bottom: 420 } });
+    expect(loadError({ ...makeConfig(), layout: { "9:16": { caption: { bottom: 1921 } } } })).toContain("layout.9:16.caption.bottom");
+  });
+
   describe("a desktop device", () => {
     // A fresh object per use: tests change it in place.
     const makeDesktop = (): { kind: "desktop"; viewport: [number, number]; scale: number } => ({ kind: "desktop", viewport: [1280, 800], scale: 1.5 });

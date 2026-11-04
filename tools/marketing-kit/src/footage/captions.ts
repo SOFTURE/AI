@@ -105,12 +105,16 @@ const FRAME_HEIGHT = 1920;
 const CAPTION_LINES_HEIGHT = 2.5;
 const CAPTION_PADDING = 40;
 
-/** The caption box of a 9:16 film with its bottom line kept above the preset's bottom margin, centred between equal sides. */
+/**
+ * The caption box of a 9:16 film anchored by its foot at the preset's bottom margin, so a card of any number of lines
+ * grows upwards and never into the platform's interface; centred between equal sides. `top` is where a two-line box
+ * would start, for readers of it.
+ */
 export function getCaptionPresetLayout(preset: CaptionPreset, fontSize: number): CaptionLayout {
   const zone = CAPTION_SAFE_ZONES[preset];
   const side = Math.max(zone.left, zone.right);
   const top = Math.round(FRAME_HEIGHT - zone.bottom - CAPTION_LINES_HEIGHT * fontSize - CAPTION_PADDING);
-  return { top, left: side, right: side, fontSize };
+  return { top, bottom: zone.bottom, left: side, right: side, fontSize };
 }
 
 /**

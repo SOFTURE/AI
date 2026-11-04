@@ -158,3 +158,14 @@ describe("composeFootage", () => {
     expect(() => composeFootage(input({ assets: { ...input().assets, clips: {} } }))).toThrow('The EDL names clip "talk", which the film has no file for.');
   });
 });
+
+describe("composeFootage with a caption line limit", () => {
+  it("fits no caption without a limit", () => {
+    expect(composeFootage(input())).not.toContain("captionMaxLines");
+  });
+
+  it("shrinks each caption's font to the limit, down to 70 % of the box's size", () => {
+    const html = composeFootage(input({ film: { ...film, captionMaxLines: 2 } }));
+    expect(html).toContain("const captionMaxLines = 2, captionMinFontSize = 35;");
+  });
+});

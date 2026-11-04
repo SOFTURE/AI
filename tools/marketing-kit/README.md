@@ -336,7 +336,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`), `scale` (`1`), `colorSchemes`, `scrollTo`, `waitMs` (`0`), `storageState`, `signedIn` (`false`), `steps` (`[]`), `crop`, `hide` (`[]`) | for `softure-marketing shots`, see [Screenshots](#screenshots) |
 | `signIn` | `prepare`, `path`, `steps`, `expect` | how `shots` signs in for `signedIn` entries, see [Signed-in screens](#signed-in-screens) |
 | `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`, `big-number`, `carousel`), `size` (`"landscape"`, `"portrait"`, `"square"`, `"story"` or `[width, height]`; `landscape` for the headline cards, `portrait` for the others), `data` | for `softure-marketing og`, see [OG images](#og-images) |
-| `layout` | per layout (`9:16`, `1:1`, `16:9` for phone films; `desktop` for desktop films): `caption` (`top`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the layout's geometry table for every film of that layout, in frame px (`endCard.phone` is the browser window's pose in `desktop`); a missing key keeps the table's value. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the screen box and the camera target are fixed |
+| `layout` | per layout (`9:16`, `1:1`, `16:9` for phone films; `desktop` for desktop films): `caption` (`top` or `bottom`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the layout's geometry table for every film of that layout, in frame px (`endCard.phone` is the browser window's pose in `desktop`); a missing key keeps the table's value. A caption `bottom` (px from the frame's bottom) anchors the box by its foot, so a card of more lines grows upwards, and wins over `top`. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the screen box and the camera target are fixed |
 | `sfx` | `tap`, `key`, `whoosh`, `sparkle`, `pop` | sound effects; a missing one is silent |
 | `output` | `dir` (`marketing/out`), `buildDir` (`marketing/build`), `quality` (`standard`) | where films go; `--quality` wins |
 
@@ -671,7 +671,10 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   default) shows 2-6 words of plain text with a soft shadow, `"highlight"` the pill that lights each word in the
   brand's caption colours. `layout` moves their box per format; `captionPreset` (`reels`, `shorts`, `tiktok` or `all`)
   keeps a 9:16 film's captions inside that platform's safe zone (`CAPTION_SAFE_ZONES`, the margins its own buttons and
-  text cover). Before the render the caption and end-card fonts are checked against the film's words: a letter no
+  text cover): the box is anchored by its foot at the zone's bottom margin and grows upwards. `captionMaxLines` (1-4)
+  shrinks a longer card's font in the render, to 70 % of the box's size at most (`CAPTION_MIN_FONT_SCALE`), until it
+  fits; the draft keeps its size. The caption text metrics are exported (`CAPTION_LINE_HEIGHT`,
+  `CAPTION_PILL_PADDING`) for an app that sizes the box itself. Before the render the caption and end-card fonts are checked against the film's words: a letter no
   file of the brand font draws (an accented letter outside a Latin-only subset) stops the run with the letters it lacks. The **end card** follows the cut over its last
   frame. `social.posts` may name a footage film; its `posts.md` carries no persona disclosure.
 - **Paying:** without `--commit` a run that needs a paid call prints each one (speech to text, isolation, music) with

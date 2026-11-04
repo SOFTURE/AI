@@ -10,6 +10,7 @@ import {
   crossfadeArgs,
   fitScale,
   fitsFrame,
+  getCaptionPositionCss,
   getGeometry,
   getLayoutName,
   getTransitionSeconds,
@@ -69,6 +70,12 @@ describe("resolveLayout", () => {
     expect({ ...layout, caption: LAYOUTS["16:9"].caption }).toEqual(LAYOUTS["16:9"]);
   });
 
+  it("anchors the caption box by its foot when the override gives a bottom edge", () => {
+    const layout = resolveLayout("9:16", { caption: { bottom: 420 } });
+    expect(layout.caption).toEqual({ top: 1470, bottom: 420, left: 60, right: 60, fontSize: 50 });
+    expect(resolveLayout("9:16", {}).caption).not.toHaveProperty("bottom");
+  });
+
   it("moves the end-card phone's centre on one axis and keeps the other and the scale", () => {
     const layout = resolveLayout("9:16", { endCard: { phone: { center: { x: 500 } } } });
     expect(layout.endCard.phone).toEqual({ scale: 0.58, center: { x: 500, y: 640 } });
@@ -84,6 +91,13 @@ describe("resolveLayout", () => {
     const before = structuredClone(LAYOUTS);
     resolveLayout("9:16", { caption: { top: 1400 }, persona: { right: 20 }, endCard: { top: 1100, phone: { scale: 0.5 } } });
     expect(LAYOUTS).toEqual(before);
+  });
+});
+
+describe("getCaptionPositionCss", () => {
+  it("places the box by its top edge, or by its foot when it has a bottom edge", () => {
+    expect(getCaptionPositionCss({ top: 1470, left: 60, right: 60, fontSize: 50 })).toBe("top:1470px");
+    expect(getCaptionPositionCss({ top: 1470, bottom: 420, left: 60, right: 60, fontSize: 50 })).toBe("bottom:420px");
   });
 });
 

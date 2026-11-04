@@ -94,6 +94,8 @@ export { describeVoiceoverBatch, produceVoiceovers, type VoiceoverBatchItem, typ
 export { getPlaceholderKey, isPlaceholderKey, makePlaceholderWords, writePlaceholderVoiceover, type PlaceholderPace, type WritePlaceholderOptions } from "./voice/placeholder.js";
 export {
   BROWSER_BAR_HEIGHT,
+  CAPTION_LINE_HEIGHT,
+  CAPTION_PILL_PADDING,
   DEVICE_KINDS,
   LAYOUTS,
   LAYOUT_NAMES,
@@ -105,6 +107,7 @@ export {
   crossfadeArgs,
   fitScale,
   fitsFrame,
+  getCaptionPositionCss,
   getGeometry,
   getLayoutName,
   getTransitionSeconds,
@@ -183,6 +186,7 @@ export {
   DEFAULT_FILLERS,
   DEFAULT_MUSIC_VOLUME,
   DEFAULT_TRANSITIONS,
+  CAPTION_MIN_FONT_SCALE,
   CAPTION_PRESETS,
   CAPTION_STYLES,
   DEFAULT_EDIT,
