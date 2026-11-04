@@ -19,7 +19,7 @@ import { makePlaceholderTranscript } from "./fake.js";
 import { getFootageEdit, type FootageClip, type FootageFilm } from "./film.js";
 import { DEFAULT_LOUDNESS, normalizeLoudness } from "./loudness.js";
 import { duckingKeyframes } from "./music.js";
-import { normalizeFootage, type Frame } from "./normalize.js";
+import { normalizeFootage, type Frame, type NormalizeEncoder } from "./normalize.js";
 import { describeProbe, getTrimmedDuration, probeFootage, type FootageProbe } from "./probe.js";
 import {
   getClipCacheKey,
@@ -72,7 +72,7 @@ export { getEdlPath } from "./paid.js";
 
 const require = createRequire(import.meta.url);
 /** Bumped when the normalized format changes, so older normalized clips are made again. */
-const NORMALIZE_VERSION = 1;
+const NORMALIZE_VERSION = 2;
 
 export interface FootageBrand {
   name: string;
@@ -100,6 +100,11 @@ export interface FootageRunOptions {
   onProgress?: (progress: FootageProgress) => void;
   /** Called after each paid call, for the app's own spend ledger. */
   onCharge?: (charge: FootageCharge) => void;
+  /**
+   * How the normalized clips are encoded (`preset`, `threads`): a small worker trades file size for speed. Not part of
+   * the normalize stamp, so changing it does not normalize clips already made again.
+   */
+  normalize?: NormalizeEncoder;
 }
 
 export interface PreparedClip {
@@ -178,7 +183,7 @@ function getNormalizeStamp(clip: FootageClip, source: string, frame: Frame): str
 /** Downloads URL clips, probes every clip (all problems at once) and a local music file, normalizes each clip that changed. */
 export async function prepareFootage(
   film: FootageFilm,
-  options: Pick<FootageRunOptions, "buildDir" | "log" | "fetch" | "signal" | "onProgress">,
+  options: Pick<FootageRunOptions, "buildDir" | "log" | "fetch" | "signal" | "onProgress" | "normalize">,
 ): Promise<FootageResult<PreparedClip[]>> {
   const { buildDir, log, signal } = options;
   if (film.clips.length === 0) return err(`footage film ${film.id} has no clips.`);
@@ -219,7 +224,7 @@ export async function prepareFootage(
     // The stamp goes first, so a normalize stopped half-way never leaves a stamp that vouches for a partial clip.
     rmSync(stampPath, { force: true });
     await normalizeFootage(
-      { clip: clip.clip, file: clip.source, probe: clip.probe, frame, output: clip.file },
+      { clip: clip.clip, file: clip.source, probe: clip.probe, frame, output: clip.file, ...(options.normalize === undefined ? {} : { encoder: options.normalize }) },
       { ...(signal === undefined ? {} : { signal }), onSeconds: (seconds) => progress(index, seconds) },
     );
     writeFileSync(stampPath, stamp);

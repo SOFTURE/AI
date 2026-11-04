@@ -225,7 +225,20 @@ export {
   type AudioProbeResult,
   type MusicFileTypeCheck,
 } from "./footage/audio.js";
-export { FOOTAGE_FPS, FOOTAGE_SAMPLE_RATE, buildNormalizeArgs, buildVideoFilter, normalizeFootage, resolveFit, toneMapFilter, type Frame, type NormalizeInput } from "./footage/normalize.js";
+export {
+  FOOTAGE_FPS,
+  FOOTAGE_SAMPLE_RATE,
+  X264_PRESETS,
+  buildNormalizeArgs,
+  buildVideoFilter,
+  normalizeFootage,
+  resolveFit,
+  toneMapFilter,
+  type Frame,
+  type NormalizeEncoder,
+  type NormalizeInput,
+  type X264Preset,
+} from "./footage/normalize.js";
 export {
   describePaidSteps,
   toPaidAudio,
