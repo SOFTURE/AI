@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.6
 
 - The language gate checks only a merge's own lines (#1047): during a merge (`MERGE_HEAD` present),
   `softure-check-language <file>...` drops a hit whose line is in the version of the file in `HEAD` or in a merged
