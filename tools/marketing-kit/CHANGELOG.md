@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **The footage render's encoder CRF (#1036):** `RenderFootageOptions.crf` (a whole number from 0 to 51) passes
+  hyperframes' `--crf`, overriding the quality tier's CRF; the x264 preset stays the tier's. A one-CPU worker renders
+  with `quality: "draft", crf: 18` (`ultrafast` at the published CRF) in about 6.9 s per second of film instead of
+  11.7 s with `standard`. hyperframes 0.8.85 has no flag for the preset on its own. README "Footage films in a
+  worker" lists the tiers and the trade-off (`draft` also captures JPEG 80).
+
 - **The footage render fits a small worker (#1030):** `renderFootage` renders the cut's picture in film time
   (`assets/picture.mp4`: one short ffmpeg per segment, one after the other, cross-fades drawn in, encoded with the
   `normalize` encoder's preset and threads) and composes one `<video>` over it; zoom cuts and Ken Burns stay tweens on

@@ -27,5 +27,5 @@ numbers), CHANGELOG `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: the option and its argument
+- [x] Phase 1: the option and its argument (2fa38c7)
 - [ ] Phase 2: docs
