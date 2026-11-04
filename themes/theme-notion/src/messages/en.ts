@@ -3,6 +3,13 @@
  * replace it with the app's own wording from its message layer.
  */
 export const en = {
+  asidePanel: {
+    show: "Show the panel",
+    hide: "Hide the panel",
+    widen: "Widen the panel",
+    narrow: "Narrow the panel",
+    showSidebar: "Show the menu and hide the panel",
+  },
   breadcrumb: { label: "breadcrumb", more: "More" },
   dialog: { close: "Close" },
   filterChip: { add: "Add filter" },
