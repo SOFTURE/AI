@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The language gate checks only a merge's own lines (#1047): during a merge (`MERGE_HEAD` present),
+  `softure-check-language <file>...` drops a hit whose line is in the version of the file in `HEAD` or in a merged
+  head, so a merge of the main branch is no longer refused for Polish text the main branch already carries. A line
+  written while resolving the merge still fails; a git error checks the file in full; `--all` and `--commit-msg` are
+  unchanged.
+- Migration for an app: nothing to do. The `<!-- language: pl -->` markers added inside a merge commit only to get it
+  through the gate can be removed.
+
 ## 0.1.5
 
 - The lefthook preset has a third `pre-push` speed (#868): a push that only merges the already-tested main branch
