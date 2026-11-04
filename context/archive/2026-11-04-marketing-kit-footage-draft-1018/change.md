@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-footage-draft-1018
 title: "marketing-kit: a fast ffmpeg draft of a footage film with its captions and transitions (issue #1018)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 1018
 branch: claude/project-thread-vbzl1a
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent

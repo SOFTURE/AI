@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-footage-draft-1018
-status: planned
+status: archived
 ---
 
 # Plan: a fast ffmpeg draft of a footage film (issue #1018)
@@ -54,6 +54,6 @@ Files: `src/footage/draft.ts`, `src/footage/process.ts` (`cwd` for `runFfmpeg`),
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1 (7dce584)
+- [x] Phase 2 (7dce584)
+- [x] Phase 3 (7dce584)
