@@ -893,25 +893,40 @@ CMD ["node", "dist/worker.js"]
 
 `renderFootageDraft` makes a free draft of a cut film with ffmpeg alone (no hyperframes, no browser), so an app can
 show the owner what the paid render will look like in seconds instead of minutes: the cut at a small width (540×960
-for 9:16 by default), the film's captions burned in as plain phrases (placed like the render's, the caption preset
-included), zoom cuts, cross-fades and Ken Burns b-roll as the render draws them, and the speech track. No loudness
-pass, music, end card or cover. It takes the same clips, transcript and EDL as `renderFootage` and spends nothing:
+for 9:16 by default), the film's captions burned in (placed like the render's, the caption preset included), zoom
+cuts, cross-fades and Ken Burns b-roll as the render draws them, the speech track and the film's music when it costs
+nothing. It takes the same clips, transcript and EDL as `renderFootage` and spends nothing:
 
 ```ts
 import { checkFootageTools, cutFootage, prepareFootage, renderFootageDraft, transcribeFootage } from "@softure-ai/marketing-kit";
 
 const problems = await checkFootageTools({ needsRender: false, needsDraft: true }); // ass (libass + libfreetype), xfade, zoompan
-const draft = await renderFootageDraft(film, clips, transcript, edl, { buildDir, output: "draft.mp4", width: 540, log, signal: job.signal, onProgress });
-// draft.value: { output, seconds, width, height, bytes }: H.264 yuv420p and AAC with fast start, exactly the cut's length
+const draft = await renderFootageDraft(film, clips, transcript, edl, { buildDir, output: "draft.mp4", width: 540, brand, cacheDir, providers, log, signal: job.signal, onProgress });
+// draft.value: { output, music, captionFont, seconds, width, height, bytes }: H.264 yuv420p and AAC with fast start, exactly the cut's length
 ```
 
-- A prototype-sized check: a 4.5 s 9:16 cut with a fade, a zoom cut, Ken Burns and captions drafts in about a second on
-  4 cores; the work grows with the film's length, not with a browser capture.
-- The captions are drawn with DejaVu Sans Bold subset to Latin with every Polish letter, shipped in
-  [`fonts/`](fonts/README.md) (`FOOTAGE_DRAFT_FONT`); a highlight-style film is drafted with plain phrases.
+What the draft matches and what it leaves out:
+
+- **Captions follow `captionStyle`.** `phrase`: the render's phrases in white with a dark outline and shadow.
+  `highlight`: the render's chunks of up to four words on an opaque box of the brand's `captionBackground` (its alpha
+  kept), in `captionText`, each word in `captionHighlight` for the 0.32 s the render lights it. libass draws a square
+  box per line: no rounded corners, no drop shadow, no pop-in, and the colour switches instead of fading back.
+- **The brand's body font** (`brand`, the value `renderFootage` takes): the TrueType or OpenType file of
+  `brand.fonts.body` closest to the captions' weight (650, normal style first) is copied to the draft's `fonts/`
+  and named by the family the file itself declares (libass matches that, not the CSS family). A body font shipped only
+  as WOFF or WOFF2, or no `brand`, draws in DejaVu Sans Bold subset to Latin with every Polish letter, shipped in
+  [`fonts/`](fonts/README.md) (`FOOTAGE_DRAFT_FONT`), and the log says so. Without `brand` a highlight film uses
+  `FOOTAGE_DRAFT_CAPTION_COLORS`. `captionMaxLines` is not applied: the draft wraps at the caption box.
+- **Music without spending** (`cacheDir`, `providers`, as `renderFootage` takes them): a `file` source plays as is;
+  a `prompt` or `video` source plays only when its paid cache entry exists (`findFootageMusic`, the render's lookup).
+  It is ducked under the speech, looped and faded to the cut's length exactly as in the render. No provider is ever
+  called: music that is not cached yet (or a draft without `cacheDir` and `providers`) gives a draft without music,
+  `music: "not_cached"` in the result and a log line; `"none"` when the film has none, `"played"` otherwise.
+- **Left out:** the loudness pass (speech and music are mixed as they are), the end card, the cover and the sound
+  effects (whoosh, pop).
 - `buildFootageDraftArgs`, `buildFootageDraftCaptions` (an ASS file) and `planFootageDraft` are the pure builders, for an
   app that runs ffmpeg its own way. ffmpeg runs in `<buildDir>/draft/`, so the captions and font paths are relative.
-- `onProgress` reports the stage `draft` (the speech track, then the film).
+- `onProgress` reports the stage `draft` (the speech track, the music track when it plays, then the film).
 - `threads` sets ffmpeg's threads for every segment's decoder, the filter graph and the encoder. ffmpeg otherwise
   follows the host's cores, not a container's CPU quota, and the draft opens one decoder per segment: pass the
   worker's CPU limit (`threads: 1` on a 1-CPU worker), as with `normalize.threads`. The extra threads buy no speed
