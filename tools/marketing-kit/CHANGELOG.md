@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.9.1
 
 - **A draft render with `crf` keeps its picture (#1051):** the final pass of `renderFootage` copies an H.264 yuv420p
   picture in Constrained Baseline, Main or High (was High only). `quality: "draft"` encodes with libx264
