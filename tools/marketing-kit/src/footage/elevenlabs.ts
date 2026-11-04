@@ -103,6 +103,7 @@ export function createElevenLabsSttProvider(options: ElevenLabsFootageOptions): 
       form.append("language_code", input.language);
       form.append("timestamps_granularity", "word");
       form.append("tag_audio_events", "false");
+      for (const term of input.keyTerms ?? []) form.append("keyterms", term);
       const response = await send(options, "speech to text", "/v1/speech-to-text", { method: "POST", body: form, signal: input.signal ?? null });
       if (!response.ok) return response;
       let body: unknown;

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { BrandColors } from "../config/colors.js";
 import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProvider } from "./fake.js";
 import { DEFAULT_TRANSITIONS, type FootageClip, type FootageFilm } from "./film.js";
+import { getClipCacheKey, getIsolatedCache } from "./paid.js";
+import type { FootageCharge } from "./providers.js";
 import { cutFootage, getEdlPath, getMusicPaidStep, prepareFootage, readEdlFile, readRenderPercent, renderFootage, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
 import type { FootageProbe } from "./probe.js";
 
@@ -74,6 +76,44 @@ describe("the footage pipeline without ffmpeg", () => {
     expect(providers.music.calls).toHaveLength(0);
     expect(lines.at(-2)).toBe("footage estimate: 3 paid calls, 27.0 s of audio or music billed by the providers' per-minute rates.");
     expect(existsSync(join(dir, "cache"))).toBe(false);
+  });
+
+  async function seedIsolatedVoice(entry: FootageFilm, prepared: PreparedClip, run: FootageRunOptions): Promise<void> {
+    const isolated = getIsolatedCache(entry, await getClipCacheKey(prepared.source, prepared.clip), run);
+    if (isolated === null) throw new Error("the film isolates the voice");
+    mkdirSync(join(isolated.path, ".."), { recursive: true });
+    writeFileSync(isolated.path, "cleaned voice");
+  }
+
+  it("sends the film's key terms to speech to text and counts them on the charge", async () => {
+    const charges: FootageCharge[] = [];
+    const { run, providers } = options({ isCommit: true, onCharge: (charge) => charges.push(charge) });
+    const named = film({ keyTerms: ["Zakopane", " Acme ", "Acme"] });
+    const talk = clip("talk", "talk", null);
+    await seedIsolatedVoice(named, talk, run);
+    const result = await transcribeFootage(named, [talk], run);
+    expect(result.ok && result.value.kind).toBe("ready");
+    expect(providers.stt.calls.map((call) => call.keyTerms)).toEqual([["Acme", "Zakopane"]]);
+    expect(charges).toEqual([expect.objectContaining({ step: "transcribe", item: "talk", keyTerms: 2 })]);
+  });
+
+  it("sends no key terms and counts none for a film without them", async () => {
+    const charges: FootageCharge[] = [];
+    const { run, providers } = options({ isCommit: true, onCharge: (charge) => charges.push(charge) });
+    const talk = clip("talk", "talk", null);
+    await seedIsolatedVoice(film(), talk, run);
+    await transcribeFootage(film({ keyTerms: [] }), [talk], run);
+    expect(providers.stt.calls).toHaveLength(1);
+    expect("keyTerms" in (providers.stt.calls[0] ?? {})).toBe(false);
+    expect("keyTerms" in (charges[0] ?? {})).toBe(false);
+  });
+
+  it("refuses key terms over Scribe's limits before any paid call", async () => {
+    const { run, providers } = options({ isCommit: true });
+    const result = await transcribeFootage(film({ keyTerms: ["x".repeat(51)] }), [clip("talk", "talk", null)], run);
+    expect(result).toEqual({ ok: false, error: `footage film street: key term "${"x".repeat(51)}": 51 characters, at most 50.` });
+    expect(providers.stt.calls).toHaveLength(0);
+    expect(providers.isolation.calls).toHaveLength(0);
   });
 
   it("rehearses on each clip's script, writing nothing into the paid cache", async () => {

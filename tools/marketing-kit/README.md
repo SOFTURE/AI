@@ -617,6 +617,13 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   `voice.language`). With `isolateVoice`, ElevenLabs Voice Isolator cleans the voice first and the film speaks with
   the cleaned voice. Both are paid, keyed by the clip's bytes, trim and settings, and cached in
   `<voice.cacheDir>/<film>/` (`<key>.transcript.json`, `<key>.isolated.mp3`): commit them, a re-render never pays twice.
+- **Key terms:** `keyTerms` (e.g. `["Acme Cloud", "Zakopane"]`) lists names and brand words Scribe should spell as
+  given (keyterm prompting, sent as one `keyterms` field per term). Scribe v2 takes up to 1000 terms of at most 50
+  characters and 5 words each (`SCRIBE_KEYTERM_LIMITS`); the list is trimmed, deduplicated and sorted
+  (`normalizeKeyTerms`), and a term over a limit stops the run before anything is paid for. Key terms are part of the
+  transcript's cache key only when there are any, so adding them buys the transcript once more and a film without
+  them keeps its cache. Keyterm prompting is billed on top of the transcription: ElevenLabs lists Scribe at $0.22 per
+  hour and keyterm prompting at $0.05 per hour more (API pricing page, checked 2026-11-03).
 - **Cut (EDL):** `fillers` (default per language: Polish `yyy`, `eee`, `yhm` and more; English `um`, `uh` and more,
   compared without case, punctuation and repeated letters) are cut out, a silence longer than `pauseSeconds` is cut,
   `padSeconds` stays around every cut, `maxSeconds` caps the length. The result is
@@ -740,8 +747,9 @@ import { checkFootageTools, estimateFootageFilm, findCachedStep, renderFootageFi
 const problems = await checkFootageTools({ tempDir, buildDir }); // ffmpeg + ffprobe, hevc decoder, zscale + tonemap, hyperframes' browser, 1 GiB free
 if (problems.length > 0) throw new Error(problems.join("\n"));
 
-// Probes only: no normalize, no provider call. Rates are the app's own credits per second for each paid step.
-const estimate = await estimateFootageFilm(film, { cacheDir, buildDir, providers, rates: { transcribe: 0.5, isolate: 1, music: 4 } });
+// Probes only: no normalize, no provider call. Rates are the app's own credits per second for each paid step;
+// `keyTerms` is added to `transcribe` for a film with key terms (keyterm prompting's surcharge).
+const estimate = await estimateFootageFilm(film, { cacheDir, buildDir, providers, rates: { transcribe: 0.5, isolate: 1, music: 4, keyTerms: 0.12 } });
 // estimate.value: { items: [{ step, item, provider, units, unit: "seconds", credits, cached }], totalCredits }
 
 const result = await renderFootageFilm(film, {
@@ -756,8 +764,9 @@ const result = await renderFootageFilm(film, {
   `total` are seconds of media across the stage (ffmpeg's `-progress`, hyperframes' percentage), `itemIndex` of
   `itemCount` names the clip ("normalizing clip 2 of 4").
 - `onCharge` fires after each paid call, with the provider's reported charge in `credits` when its API returns one
-  (ElevenLabs' `character-cost` header) and the paid cache's key of the result. `createFootageChargeRecorder` of
-  `@softure-ai/metering` turns it into a spend ledger with budgets ([metering README](../../modules/metering/README.md),
+  (ElevenLabs' `character-cost` header), the paid cache's key of the result and, for speech to text with key terms,
+  `keyTerms`: how many terms the call sent, so a ledger that prices by the second can add the surcharge.
+  `createFootageChargeRecorder` of `@softure-ai/metering` turns it into a spend ledger with budgets ([metering README](../../modules/metering/README.md),
   section 10).
 - `findCachedStep(film, step, item, { cacheDir, providers, buildDir })` answers whether a paid step (`transcribe` or
   `isolate` for a clip id, `music` for `film`) is already cached, without network. A cached step costs 0 in the

@@ -65,6 +65,13 @@ describe("ElevenLabs footage providers", () => {
     const body = form(sent[0]);
     expect([body.get("model_id"), body.get("language_code"), body.get("timestamps_granularity"), body.get("tag_audio_events")]).toEqual(["scribe_v2", "pl", "word", "false"]);
     expect((body.get("file") as File).name).toBe("talk.mp3");
+    expect(body.getAll("keyterms")).toEqual([]);
+  });
+
+  it("sends one keyterms field per key term", async () => {
+    const { sent, fetch } = fakeFetch(() => Response.json({ words: [] }));
+    await createElevenLabsSttProvider({ apiKey: "key", fetch }).transcribe({ audio, language: "pl", keyTerms: ["Acme Cloud", "Zakopane"] });
+    expect(form(sent[0]).getAll("keyterms")).toEqual(["Acme Cloud", "Zakopane"]);
   });
 
   it("returns the cleaned voice of the isolator", async () => {

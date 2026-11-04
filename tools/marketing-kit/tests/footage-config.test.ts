@@ -87,6 +87,19 @@ describe("footage films in marketing.json", () => {
     expect([set?.loudness, set?.cover]).toEqual([{ target: -16, truePeak: -1 }, { at: 2.5 }]);
   });
 
+  it("reads key terms trimmed, deduplicated and sorted, and leaves an empty list out", () => {
+    const named = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], keyTerms: ["Zakopane", " Acme  Cloud ", "Zakopane"] }])), "a");
+    expect(named?.keyTerms).toEqual(["Acme Cloud", "Zakopane"]);
+    const empty = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], keyTerms: [] }])), "a");
+    expect(empty?.keyTerms).toBeUndefined();
+    expect(Object.keys(empty ?? {})).not.toContain("keyTerms");
+  });
+
+  it("refuses key terms over Scribe's limits, naming the term", () => {
+    const error = loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], keyTerms: ["one two three four five six"] }]));
+    expect(error).toContain('key term "one two three four five six": 6 words, at most 5.');
+  });
+
   it("keeps a URL clip as it is and resolves a music file", () => {
     const film = findFootage(
       load(makeConfig([{ id: "street", title: "Street", language: "en", clips: [{ id: "talk", source: "https://example.com/talk.mov", trim: { start: 1, end: 5 } }], music: { file: "music/bed.mp3", volume: 0.5 } }])),

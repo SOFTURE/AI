@@ -6,6 +6,7 @@ import { err, ok, type TtsResult } from "../voice/provider.js";
 import { footageCacheKey, getFootageCachePath, hashFile } from "./cache.js";
 import { END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
 import { readEdl, type Edl } from "./edl.js";
+import { getFilmKeyTerms } from "./keyterms.js";
 import type { FootageClip, FootageFilm } from "./film.js";
 import { getTrimmedDuration, probeFootage } from "./probe.js";
 import type { FootageProviders, FootageRates, PaidStepKind } from "./providers.js";
@@ -66,7 +67,10 @@ export function getIsolatedCache(film: FootageFilm, clipKey: string, options: Pi
 
 export function getTranscriptCache(film: FootageFilm, clipKey: string, options: Pick<FootageCacheOptions, "cacheDir" | "providers">): CacheEntry {
   const { stt } = options.providers;
-  const key = footageCacheKey("transcript", { clip: clipKey, isolated: film.isolateVoice, provider: stt.id, model: stt.model, language: film.language });
+  const keyTerms = getFilmKeyTerms(film);
+  // Key terms join the key only when there are any, so a transcript bought without them keeps its key.
+  const withKeyTerms = keyTerms.ok && keyTerms.terms.length > 0 ? { keyTerms: keyTerms.terms } : {};
+  const key = footageCacheKey("transcript", { clip: clipKey, isolated: film.isolateVoice, provider: stt.id, model: stt.model, language: film.language, ...withKeyTerms });
   return { key, path: getFootageCachePath(options.cacheDir, film.id, "transcript", key) };
 }
 
@@ -175,10 +179,15 @@ const round = (value: number, digits: number): number => {
  * What a footage film will cost in the caller's credits, before anything runs: every clip probed (a URL clip not yet
  * downloaded is probed at its URL), nothing normalized, no provider called. Talking clips need speech to text (and
  * isolation when the film cleans the voice); generated music lasts the cut's length when the cut is known, else the
- * clips' length plus the end card. A cached step costs 0.
+ * clips' length plus the end card. A cached step costs 0. With key terms, transcription costs `rates.transcribe` plus
+ * the keyterm surcharge `rates.keyTerms`; invalid key terms fail the estimate.
  */
 export async function estimateFootageFilm(film: FootageFilm, options: EstimateFootageOptions): Promise<TtsResult<FootageEstimate>> {
   if (film.clips.length === 0) return err(`footage film ${film.id} has no clips.`);
+  const keyTerms = getFilmKeyTerms(film);
+  if (!keyTerms.ok) return err(`footage film ${film.id}: ${keyTerms.errors.join(" ")}`);
+  const surcharge = keyTerms.terms.length === 0 ? 0 : (options.rates.keyTerms ?? 0);
+  const rates: Record<PaidStepKind, number> = { ...options.rates, transcribe: options.rates.transcribe + surcharge };
   const files: Record<string, string> = {};
   for (const clip of film.clips) {
     const local = findLocalSource(clip, options.buildDir);
@@ -189,7 +198,7 @@ export async function estimateFootageFilm(film: FootageFilm, options: EstimateFo
   if (!probed.ok) return err(probed.errors.join("\n"));
   const items: FootageEstimateItem[] = [];
   const add = (step: PaidStepKind, item: string, provider: string, units: number, cached: boolean): void => {
-    items.push({ step, item, provider, units: round(units, 3), unit: "seconds", credits: cached ? 0 : round(units * options.rates[step], 2), cached });
+    items.push({ step, item, provider, units: round(units, 3), unit: "seconds", credits: cached ? 0 : round(units * rates[step], 2), cached });
   };
   let clipSeconds = 0;
   for (const { clip, probe } of probed.clips) {

@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { tabsListVariants as rootTabsListVariants } from "../../src/index.js";
+import { tabsListVariants } from "../../src/ui/tabs-variants.js";
 import { Tabs, TabsList, TabsTrigger } from "../../src/ui/tabs.js";
 
 describe("Tabs", () => {
@@ -88,5 +90,15 @@ describe("Tabs", () => {
     const all = /class="([^"]*)"[^>]*>All</.exec(html)?.[1]?.split(" ") ?? [];
 
     expect(all).toEqual(expect.arrayContaining(["min-h-touch-target", "min-w-touch-target", "md:min-h-0"]));
+  });
+
+  it("exports the list's class builder from a plain module, the one the root re-exports (#1008)", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const source = await readFile(new URL("../../src/ui/tabs-variants.ts", import.meta.url), "utf8");
+
+    expect(source).not.toMatch(/^["']use client["']/m);
+    expect(rootTabsListVariants).toBe(tabsListVariants);
+    expect(tabsListVariants()).toContain("gap-1 bg-transparent");
+    expect(tabsListVariants({ variant: "default" })).toContain("bg-muted");
   });
 });

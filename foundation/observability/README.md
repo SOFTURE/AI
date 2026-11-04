@@ -10,7 +10,9 @@ Logs, traces and metrics for Node.js processes and Next.js apps, shipped to any 
   [Next.js](#nextjs));
 - an `onRequestError` for Next.js that logs every failed request with its route ([Next.js](#nextjs));
 - a probe that proves the backend accepts a span and a log record, as a function and as the
-  `softure-observability ping` command ([Verifying the export](#verifying-the-export)).
+  `softure-observability ping` command ([Verifying the export](#verifying-the-export));
+- Grafana alert rules and a dashboard kept as code in the app, applied by `softure-observability grafana apply`, with
+  builders for the common rules ([Grafana alert rules and dashboards](#grafana-alert-rules-and-dashboards)).
 
 The package carries no project, service or vendor names: the app passes them. With no endpoint configured nothing is
 exported and the loggers write to the console only.
@@ -264,6 +266,79 @@ From code, `probeObservability(options)` of `/node` takes the options of `startO
 returns the outcome per signal. It uses providers of its own, so calling it in a running app leaves the app's export
 alone.
 
+## Grafana alert rules and dashboards
+
+An app that exports to Grafana keeps its alert rules (and a dashboard) as JSON in its repository and applies them
+with the package, instead of an apply script of its own:
+
+```bash
+# GRAFANA_URL and GRAFANA_TOKEN (a service account token) from the environment.
+npx softure-observability grafana apply --rules ops/grafana/rules.json --dashboard ops/grafana/dashboard.json
+npx softure-observability grafana apply --rules ops/grafana/rules.json --dashboard ops/grafana/dashboard.json --commit
+```
+
+```text
+folder "Shop alerts" (shop-alerts): will be created
+rule group "shop": will be replaced (add silent-1f0c…; update logs-9a2e…; remove made-in-ui), 3 rules active, notifying "owner-mail"
+dashboard "Shop overview" (shop-overview): will be updated
+dry run: nothing was changed; pass --commit to apply
+```
+
+- Without `--commit` the command only reads Grafana and prints what a commit would do.
+- `--commit` creates the folder when it is missing, replaces the rule group in one `PUT` (with
+  `X-Disable-Provenance`, so the rules stay editable in the UI), and upserts the dashboard into the same folder.
+  **The group is replaced as a whole**: a rule added to it in the UI is removed; the dry run names it first.
+- The contact point named by `receiver` must exist: it holds a personal address, so the command never creates it and
+  refuses (exit `1`) when it is missing. Notification policies are not touched: every rule carries
+  `notification_settings: { receiver }`.
+- `--paused` applies every rule paused, e.g. before the first release that sends telemetry, so the silence rules do
+  not mail at once. Applying again without it resumes them; a rule with `"isPaused": true` in the file stays paused.
+- Exit code `0` when applied or planned; `1` when refused, when Grafana answers with an error (the call and its HTTP
+  status are printed, the token never), when a variable is missing or a file is invalid; `2` on a usage error.
+
+The rules file:
+
+```json
+{
+  "folder": { "uid": "shop-alerts", "title": "Shop alerts" },
+  "receiver": "owner-mail",
+  "group": "shop",
+  "intervalSeconds": 60,
+  "rules": [{ "uid": "…", "title": "…", "condition": "C", "data": [], "for": "0s", "noDataState": "OK" }]
+}
+```
+
+Each rule is a Grafana provisioning rule: `uid`, `title`, `condition` and `data` are checked, every other field is
+passed on as written. `intervalSeconds` defaults to 60 and is a multiple of 10. The dashboard file is a dashboard JSON
+model with a `uid` and a `title`.
+
+From code, `/node` exports `applyGrafanaResources({ url, token, rules, dashboard, commit, paused })` (it returns the
+steps and `applied`, `planned`, `refused` or `failed`), `grafanaRulesFileSchema` and `parseGrafanaRulesFile` (and the
+same for a dashboard), and builders for the common rules, keyed on the labels this package's export writes
+(`service_namespace`, `service_name`, `deployment_environment`):
+
+- `buildServiceSilentRule({ service, datasourceUid })`: no `target_info` sample from the service for
+  `windowMinutes` (default 10). Build one for the app and one for its worker.
+- `buildLogProblemsRule({ service, datasourceUid })`: the service logged `WARN` or `ERROR` (`severity_text` in Loki)
+  in the last `windowMinutes` (default 5); `severities` changes the levels.
+
+`service` is `{ namespace, name, environment }`, the values the app passes to `startObservability` /
+`registerObservability`. The uid is derived from the service, so it stays the same between runs. A test can hold the
+file to the names:
+
+```ts
+import { buildServiceSilentRule, parseGrafanaRulesFile } from "@softure-ai/observability/node";
+import rulesJson from "../ops/grafana/rules.json";
+
+const parsed = parseGrafanaRulesFile(rulesJson);
+expect(parsed.isValid && parsed.value.rules).toContainEqual(
+  buildServiceSilentRule({
+    service: { namespace: "shop", name: "worker", environment: "production" },
+    datasourceUid: "grafanacloud-prom",
+  }),
+);
+```
+
 ## Logger
 
 ```ts
@@ -313,4 +388,5 @@ error or of its causes; what is logged identifies the error without its text:
 - No framework instrumentation (Express, Fastify): server spans and metrics carry no route.
 - The probe (`softure-observability ping`) checks traces and logs only, not metrics.
 - OTLP/HTTP protobuf only (no gRPC, no JSON).
+- `grafana apply` speaks to Grafana only, and creates neither contact points nor notification policies.
 - Batches are sent every few seconds; a process killed without `shutdown()` (or `handleSignals`) can lose the last one.
