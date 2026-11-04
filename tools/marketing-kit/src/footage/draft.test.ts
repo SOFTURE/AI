@@ -172,6 +172,36 @@ describe("buildFootageDraftArgs", () => {
     expect(args[args.indexOf("/draft/speech.mp3") - 1]).toBe("-i");
   });
 
+  it("leaves the thread counts to ffmpeg by default", () => {
+    const args = buildFootageDraftArgs(argsInput());
+    expect(args).not.toContain("-threads");
+    expect(args).not.toContain("-filter_complex_threads");
+  });
+
+  it("caps the filter graph, every segment's decoder and the encoder at the given threads", () => {
+    const args = buildFootageDraftArgs(argsInput({ threads: 1 }));
+    expect(args.slice(3, 5)).toEqual(["-filter_complex_threads", "1"]);
+    const threadIndexes = args.flatMap((arg, index) => (arg === "-threads" ? [index] : []));
+    expect(threadIndexes.map((index) => args[index + 1])).toEqual(["1", "1", "1", "1", "1", "1"]);
+    expect(threadIndexes.slice(0, 5).map((index) => [args[index + 2], args[index + 7]])).toEqual([
+      ["-ss", "/clips/talk.mp4"],
+      ["-ss", "/clips/talk.mp4"],
+      ["-ss", "/clips/talk.mp4"],
+      ["-ss", "/clips/street.mp4"],
+      ["-ss", "/clips/talk.mp4"],
+    ]);
+    expect(args[args.indexOf("/draft/speech.mp3") - 3]).not.toBe("-threads");
+    const encoderThreads = threadIndexes.at(-1) as number;
+    expect(encoderThreads).toBeGreaterThan(args.indexOf("-filter_complex"));
+    expect(args.at(-1)).toBe("/out/draft.mp4");
+  });
+
+  it("rejects a thread count that is not a positive whole number", () => {
+    for (const threads of [0, -1, 1.5, Number.NaN]) {
+      expect(() => buildFootageDraftArgs(argsInput({ threads }))).toThrow(`draft.threads must be a positive whole number, got ${threads}.`);
+    }
+  });
+
   it("names a clip the EDL needs and has no file for", () => {
     expect(() => buildFootageDraftArgs(argsInput({ clips: { talk: "/clips/talk.mp4" } }))).toThrow('No file for clip "street" of the EDL.');
   });
