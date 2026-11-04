@@ -744,7 +744,7 @@ job's signal and report back:
 ```ts
 import { checkFootageTools, estimateFootageFilm, findCachedStep, renderFootageFilm } from "@softure-ai/marketing-kit";
 
-const problems = await checkFootageTools(); // ffmpeg + ffprobe, hevc decoder, zscale + tonemap, hyperframes' browser
+const problems = await checkFootageTools({ tempDir, buildDir }); // ffmpeg + ffprobe, hevc decoder, zscale + tonemap, hyperframes' browser, 1 GiB free
 if (problems.length > 0) throw new Error(problems.join("\n"));
 
 // Probes only: no normalize, no provider call. Rates are the app's own credits per second for each paid step;
@@ -773,6 +773,17 @@ const result = await renderFootageFilm(film, {
   estimate. Video-scored music depends on the cut, so it counts as cached only once `edl.json` is in `buildDir`.
 - The CLI runs `checkFootageTools` before `footage`, letting hyperframes download its browser on the first render;
   a worker image ships the browser instead.
+- **Disk room.** hyperframes refuses to render when its temp folder or the build folder has under 1 GiB free
+  (`RENDER_MIN_FREE_BYTES`), and it extracts the clips' frames into the temp folder
+  (`hyperframes-extract-cache-<uid>`, about 750 MB for a 36 s 1080×1920 film, kept afterwards up to 2 GiB). Point
+  `TMPDIR` at a data volume, not a small tmpfs (a container's 256 MB `/tmp` fails every render), or pass
+  `renderFootage`'s `tempDir`, which reaches hyperframes as `TMPDIR`. `checkFootageTools({ tempDir, buildDir })` reports
+  a folder that is too small, and `renderFootage` checks both folders before anything is bought or built, ending with
+  `not enough disk space to render: …` instead of hyperframes' exit code. `findLowDiskProblems` is the check on its
+  own.
+- **A CPU-limited container.** hyperframes picks its capture workers from the host's cores, not the container's CPU
+  quota: set `PRODUCER_MAX_WORKERS` to the quota. `HYPERFRAMES_EXTRACT_CACHE_MAX_MB` caps the extraction cache
+  (default 2048).
 
 **Container recipe.** [`docker/footage-worker.Dockerfile`](docker/footage-worker.Dockerfile) is a worker base image:
 `node:22-trixie-slim`, Debian's ffmpeg 7.1 (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and
