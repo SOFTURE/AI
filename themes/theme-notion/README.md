@@ -74,7 +74,8 @@ import { CircleCheck } from "lucide-react";
 
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
-`DialogContent closeLabel`, `DialogFooter closeLabel` (the `showCloseButton` button's text), `SheetContent closeLabel`, `SidePanel closeLabel`, `Steps stateLabels`,
+`DialogContent closeLabel`, `DialogFooter closeLabel` (the `showCloseButton` button's text), `SheetContent closeLabel`, `SidePanel closeLabel`, `AsidePanelToggle showLabel hideLabel`,
+`AsidePanel widenLabel narrowLabel closeLabel`, `AsidePanelSidebarOpener label`, `Steps stateLabels`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
 `CommandDialog title description` (`title` also names its search field), `Command label` (the search field's
 name outside a `CommandDialog`; without it the field has none), `SortableList instructions announcements`, `SortableHandle label`.
@@ -131,7 +132,8 @@ sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, t
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
-`SidePanel` (a non-modal panel at a side of a canvas, below), `SheetMenu`, `SheetMenuItem` and `SheetMenuButton`
+`SidePanel` (a non-modal panel at a side of a canvas, below), `AsidePanelProvider`, `AsidePanelToggle`,
+`AsidePanel` and `AsidePanelSidebarOpener` (a panel slid in from the right of the app shell, beside the content, below), `SheetMenu`, `SheetMenuItem` and `SheetMenuButton`
 (navigation rows in a side `Sheet`, a phone's drawer, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
@@ -223,6 +225,45 @@ Escape inside or the close button calls `onClose`, and the caller moves focus ba
     {/* switches */}
   </SidePanel>
 </div>
+```
+
+**`AsidePanel`.** A column of the app shell that slides in from the right, beside `SidebarInset`: the content
+narrows next to it and stays usable (`SidePanel` is a panel over a canvas instead). `AsidePanelProvider` replaces
+`SidebarProvider` (every other prop passes through) and keeps one side panel open at a time: while the panel is open
+on a wide screen the left `Sidebar` (offcanvas) is folded, and opening the sidebar any way (its trigger, Ctrl+B,
+`AsidePanelSidebarOpener`) closes the panel; closing the panel brings the sidebar back unless the user folded it.
+
+- `AsidePanelToggle`: one icon button fixed at the top-right edge, in the same place open or closed, with
+  `aria-expanded`, `aria-controls` and a label that switches between show and hide; `outline` while closed,
+  `secondary` while open. Opening from it moves focus to the panel's heading (`tabIndex=-1`).
+- `AsidePanel title`: an `aside` (`sticky top-0 h-dvh`, `border-l`) with a header holding the heading and a ghost
+  width switch: `standard` (two fifths) or `half` (the shell split half and half). Escape closes it and returns focus
+  to the toggle unless a dialog, menu, listbox or popover is open (`isOverlayOpen(document)`: Radix
+  `data-state="open"`, `:popover-open` or `dialog[open]`; a closed popover left in the page does not count).
+  Below `MOBILE_BREAKPOINT` it is a right `Sheet`, opened for that page only: the kept state never opens it there.
+  Its children render only while it is open, so pass a lazily loaded body (`next/dynamic` with `ssr: false`) and
+  screens that never open it never load its code.
+- `AsidePanelSidebarOpener`: an icon button fixed at the top-left edge, shown only while the sidebar is folded on a
+  wide screen; it brings the sidebar back and closes the panel.
+- Kept state: `initialState` (`{ isOpen, width }`) and `save(state)`, called after each change on a wide screen; keep
+  it per signed-in user (the app's database), so the panel opens the same way across screens, reloads and devices. A
+  failed save keeps the choice on the page and reaches `onSaveError`. `isHidden` marks a screen that offers no panel:
+  no toggle, no panel, and the sidebar stays open whatever the kept state says. `useAsidePanel()` reads the state.
+
+```tsx
+const MapPanel = dynamic(() => import("./map-panel"), { ssr: false });
+
+<AsidePanelProvider initialState={panelState} save={savePanelState} isHidden={!offersMap}>
+  <AppSidebar />
+  <SidebarInset>
+    <AsidePanelSidebarOpener />
+    <AsidePanelToggle />
+    {children}
+  </SidebarInset>
+  <AsidePanel title="Map">
+    <MapPanel />
+  </AsidePanel>
+</AsidePanelProvider>
 ```
 
 **`SheetMenu`.** A phone's navigation drawer: a `Sheet` from the right with a heading and a ghost close button,

@@ -19,6 +19,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   AlertTitle,
+  AsidePanel,
+  AsidePanelProvider,
+  AsidePanelSidebarOpener,
+  AsidePanelToggle,
+  type AsidePanelState,
   Avatar,
   AvatarBadge,
   AvatarFallback,
@@ -334,6 +339,42 @@ const PALETTE = ["gray", "brown", "orange", "yellow", "green", "blue", "purple",
 
 // A 1 × 1 transparent PNG: an avatar image that loads offline.
 const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
+function AsidePanelDemo({ initialState }: { initialState: AsidePanelState }) {
+  return (
+    <AsidePanelProvider initialState={initialState}>
+      <Sidebar collapsible="offcanvas">
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton isActive>
+                    <Plane />
+                    <span>Trips</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+      </Sidebar>
+      <SidebarInset className="gap-2 p-4 pt-12">
+        <AsidePanelSidebarOpener />
+        <AsidePanelToggle />
+        <h1 className="text-heading-2">Lisbon</h1>
+        <p className="text-ui text-muted-foreground">Three nights, two stops.</p>
+      </SidebarInset>
+      <AsidePanel title="Map">
+        <div className="grid gap-2 p-4">
+          <p className="text-ui">Alfama</p>
+          <p className="text-ui">Belém</p>
+        </div>
+      </AsidePanel>
+    </AsidePanelProvider>
+  );
+}
 
 function SidebarDemo({ collapsible, side, variant }: { collapsible?: "offcanvas" | "icon" | "none"; side?: "left" | "right"; variant?: "sidebar" | "floating" | "inset" }) {
   return (
@@ -1371,6 +1412,32 @@ function FilterRow({ isActive }: { isActive: boolean }) {
 }
 
 const NOTION_CASES: readonly GalleryCase[] = [
+  {
+    name: "AsidePanel[closed]",
+    component: "AsidePanelToggle",
+    root: '[data-slot="aside-panel-toggle"][aria-expanded="false"]',
+    isIsolated: true,
+    render: () => <AsidePanelDemo initialState={{ isOpen: false, width: "standard" }} />,
+  },
+  ...(["standard", "half"] as const).map(
+    (width): GalleryCase => ({
+      name: `AsidePanel[width=${width}]`,
+      component: "AsidePanel",
+      // On a phone the kept state never opens the panel, so the page shows the closed shell there.
+      root: `[data-slot="aside-panel"][data-width="${width}"], [data-slot="aside-panel-toggle"]`,
+      isIsolated: true,
+      render: () => <AsidePanelDemo initialState={{ isOpen: true, width }} />,
+    }),
+  ),
+  {
+    name: "AsidePanel[sheet]",
+    component: "AsidePanelProvider",
+    // A click on the toggle opens the sheet on a phone and the panel on a wide screen.
+    root: '[data-slot="aside-panel-sheet"], [data-slot="aside-panel-toggle"]',
+    isIsolated: true,
+    clickToOpen: '[data-slot="aside-panel-toggle"]',
+    render: () => <AsidePanelDemo initialState={{ isOpen: false, width: "standard" }} />,
+  },
   {
     name: "Code",
     component: "Code",

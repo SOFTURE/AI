@@ -45,6 +45,20 @@ export * from "./ui/textarea.js";
 export * from "./ui/tooltip.js";
 
 export { ICON_STROKE_WIDTH } from "./notion/icon-stroke.js";
+export {
+  AsidePanel,
+  AsidePanelProvider,
+  AsidePanelSidebarOpener,
+  AsidePanelToggle,
+  useAsidePanel,
+  type AsidePanelProps,
+  type AsidePanelProviderProps,
+  type AsidePanelSidebarOpenerProps,
+  type AsidePanelState,
+  type AsidePanelToggleProps,
+  type AsidePanelWidth,
+} from "./notion/AsidePanel.js";
+export { isOverlayOpen } from "./notion/overlay-open.js";
 export { Code, CodeBlock, type CodeBlockProps } from "./notion/Code.js";
 export { DetailTable, type DetailRow, type DetailTableProps } from "./notion/DetailTable.js";
 export { FilterChip, FilterChipAdd, type FilterChipAddProps, type FilterChipProps } from "./notion/FilterChip.js";

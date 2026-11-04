@@ -4,6 +4,10 @@ import type { ReactElement } from "react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  AsidePanel,
+  AsidePanelProvider,
+  AsidePanelSidebarOpener,
+  AsidePanelToggle,
   Breadcrumb,
   BreadcrumbEllipsis,
   CommandDialog,
@@ -52,6 +56,46 @@ function labelled(text: string | undefined): { "aria-label"?: string } {
 const UPLOAD_ITEM: UploadFileItem = { id: "file", name: "{name}", size: 1000, state: "queued" };
 
 const CASES: Readonly<Record<string, MessageCase>> = {
+  ...Object.fromEntries(
+    (
+      [
+        ["show", false, '[data-slot="aside-panel-toggle"]'],
+        ["hide", true, '[data-slot="aside-panel-toggle"]'],
+        ["showSidebar", true, '[data-slot="aside-panel-sidebar-opener"]'],
+      ] as const
+    ).map(([key, isOpen, selector]): [string, MessageCase] => [
+      `asidePanel.${key}`,
+      {
+        render: (text) => (
+          <AsidePanelProvider initialState={{ isOpen, width: "standard" }}>
+            <AsidePanelToggle {...(key === "show" ? { showLabel: text } : { hideLabel: text })} />
+            <AsidePanelSidebarOpener label={text} />
+          </AsidePanelProvider>
+        ),
+        read: attributeOf(selector, "aria-label"),
+      },
+    ]),
+  ),
+  ...Object.fromEntries(
+    (
+      [
+        ["widen", "standard"],
+        ["narrow", "half"],
+      ] as const
+    ).map(([key, width]): [string, MessageCase] => [
+      `asidePanel.${key}`,
+      {
+        render: (text) => (
+          <AsidePanelProvider initialState={{ isOpen: true, width }}>
+            <AsidePanel title="Map" {...(key === "widen" ? { widenLabel: text } : { narrowLabel: text })}>
+              Body
+            </AsidePanel>
+          </AsidePanelProvider>
+        ),
+        read: attributeOf('[data-slot="aside-panel-header"] [data-slot="button"]', "aria-label"),
+      },
+    ]),
+  ),
   "breadcrumb.label": { render: (text) => <Breadcrumb {...labelled(text)} />, read: attributeOf('[data-slot="breadcrumb"]', "aria-label") },
   "breadcrumb.more": { render: (text) => <BreadcrumbEllipsis label={text} />, read: textOf('[data-slot="breadcrumb-ellipsis"] .sr-only') },
   "dialog.close": {
