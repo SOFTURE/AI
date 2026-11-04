@@ -336,7 +336,7 @@ folder of `marketing.json`. A complete example: [examples/fixture/marketing.json
 | `screenshots[]` | `id`, `path`, `width`, `height`, `full` (`false`), `expect`, `motion` (`reduce`), `minBytes` (`40000`), `scale` (`1`), `colorSchemes`, `scrollTo`, `waitMs` (`0`), `storageState`, `signedIn` (`false`), `steps` (`[]`), `crop`, `hide` (`[]`) | for `softure-marketing shots`, see [Screenshots](#screenshots) |
 | `signIn` | `prepare`, `path`, `steps`, `expect` | how `shots` signs in for `signedIn` entries, see [Signed-in screens](#signed-in-screens) |
 | `ogImages[]` | `id`, `template` (`headline-cta`, `headline-chart`, `big-number`, `carousel`), `size` (`"landscape"`, `"portrait"`, `"square"`, `"story"` or `[width, height]`; `landscape` for the headline cards, `portrait` for the others), `data` | for `softure-marketing og`, see [OG images](#og-images) |
-| `layout` | per layout (`9:16`, `1:1`, `16:9` for phone films; `desktop` for desktop films): `caption` (`top`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the layout's geometry table for every film of that layout, in frame px (`endCard.phone` is the browser window's pose in `desktop`); a missing key keeps the table's value. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the screen box and the camera target are fixed |
+| `layout` | per layout (`9:16`, `1:1`, `16:9` for phone films; `desktop` for desktop films): `caption` (`top` or `bottom`, `left`, `right`, `fontSize`), `persona` (`top`, `left`, `right`), `endCard` (`top`, `left`, `right`, `headlineSize`, `phone.scale`, `phone.center`) | overrides of the layout's geometry table for every film of that layout, in frame px (`endCard.phone` is the browser window's pose in `desktop`); a missing key keeps the table's value. A caption `bottom` (px from the frame's bottom) anchors the box by its foot, so a card of more lines grows upwards, and wins over `top`. Values must fit the frame and each box's margins must leave at least 200 px for its text. The frame, the screen box and the camera target are fixed |
 | `sfx` | `tap`, `key`, `whoosh`, `sparkle`, `pop` | sound effects; a missing one is silent |
 | `output` | `dir` (`marketing/out`), `buildDir` (`marketing/build`), `quality` (`standard`) | where films go; `--quality` wins |
 
@@ -637,12 +637,33 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   it afresh and prints the sentences it would suggest dropping (retakes, false starts, cut-off sentences). A version 1
   file is still read, with generated ids.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
-  default; `zoom` punches in by `edit.zoomPercent` (105-110, default 108) and back out on the next, `fade` lasts
+  default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless
   `edit.kenBurnsPercent` (up to 5) zooms it; the end card plays its whoosh only with `edit.endCardWhoosh`.
+- **Smooth cuts on handheld footage:** three options for cuts that do not jump, all off by default.
+  - `edit.zoomEaseFrames` (0-15, 3-5 reads naturally) eases a `zoom` cut into its scale over that many frames, from
+    the scale on screen before the cut (in and back out), in the render (a `power1.out` tween) and the draft alike.
+    A `kenburns` segment keeps its own slow zoom and is not eased.
+  - `edit.cutAudioFadeMs` (10-100, default 20) is the speech track's fade at every cut; `edit.cutAudioCrossfade`
+    turns the dip to silence into a cross-fade of that length centred on the cut: each side plays on half the fade
+    into its source (silence where the source ends), so the track keeps the cut's length and every word stays under
+    its picture.
+  - `transitions.jump: "auto"` looks at each jump cut when the cut is built: the last frame before it and the first
+    after it, from the normalized clips, are shrunk to a 48×48 gray thumbnail and compared (the mean absolute
+    difference, 0-1). Below `transitions.autoThreshold` (default 0.08) the cut gets a `zoom` (the same shot, a
+    removed pause), from it up a `fade` (the camera moved). `--step=cut` prints each cut's measure and writes them to
+    `cuts.json` next to the EDL; the EDL holds the chosen transitions, so a hand edit stays as set and a render never
+    measures again. Cuts between clips keep `transitions.clip`. For a short dissolve set `edit.fadeFrames` to 4-6.
+
+  ```json
+  "transitions": { "jump": "auto", "clip": "fade" },
+  "edit": { "zoomPercent": 110, "zoomEaseFrames": 4, "fadeFrames": 5, "cutAudioFadeMs": 40, "cutAudioCrossfade": true }
+  ```
 - **Music:** `file` (local), `prompt` (ElevenLabs Music, instrumental, the film's length) or `fromVideo` (ElevenLabs
   Video to Music, scored to the cut itself, with `description` and `tags`). Generated music is paid and cached the same
-  way. It plays at `volume` and ducks to `duckedVolume` while someone speaks, from the word times, with a fade in and out.
+  way. It plays at `volume` and ducks to `duckedVolume` while someone speaks, from the word times, with a fade in and out;
+  `attack` (default 0.25 s) and `release` (default 0.5 s, both 0-5 s) set how long it takes to go down before speech
+  and to come back up after it.
   A `file` must be one of `MUSIC_FILE_TYPES` (`.mp3`, `.m4a`, `.aac`, `.wav`, `.ogg`, `.oga`, `.opus`, `.flac`, and
   the video containers `.mp4`, `.m4v`, `.mov`, `.webm`, whose sound becomes the bed) and hold an audio stream: the run
   probes it right after the clips and stops before anything is paid for when it does not. A file stored without an
@@ -652,7 +673,10 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   default) shows 2-6 words of plain text with a soft shadow, `"highlight"` the pill that lights each word in the
   brand's caption colours. `layout` moves their box per format; `captionPreset` (`reels`, `shorts`, `tiktok` or `all`)
   keeps a 9:16 film's captions inside that platform's safe zone (`CAPTION_SAFE_ZONES`, the margins its own buttons and
-  text cover). Before the render the caption and end-card fonts are checked against the film's words: a letter no
+  text cover): the box is anchored by its foot at the zone's bottom margin and grows upwards. `captionMaxLines` (1-4)
+  shrinks a longer card's font in the render, to 70 % of the box's size at most (`CAPTION_MIN_FONT_SCALE`), until it
+  fits; the draft keeps its size. The caption text metrics are exported (`CAPTION_LINE_HEIGHT`,
+  `CAPTION_PILL_PADDING`) for an app that sizes the box itself. Before the render the caption and end-card fonts are checked against the film's words: a letter no
   file of the brand font draws (an accented letter outside a Latin-only subset) stops the run with the letters it lacks. The **end card** follows the cut over its last
   frame. `social.posts` may name a footage film; its `posts.md` carries no persona disclosure.
 - **Paying:** without `--commit` a run that needs a paid call prints each one (speech to text, isolation, music) with
@@ -662,8 +686,11 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
 - **Publishable output:** the speech track is measured and normalized to `loudness` (default −14 LUFS integrated,
   −1 dBTP true peak; two-pass `loudnorm`, one linear gain) before the music goes under it, so a quiet phone clip is
   not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. hyperframes' render then gets
-  a final pass: H.264 High, yuv420p, AAC 48 kHz stereo, `+faststart` (the `moov` box first, so a platform or a
-  scheduler streaming the URL starts at once), each stream copied when the render already matches; ffprobe checks
+  a final pass: the whole mix (speech, music, sound effects) is measured and normalized to `mixLoudness` (default
+  −14 LUFS, −1 dBTP, the same two-pass `loudnorm`; a silent mix is left as it is; `"mixLoudness": false` keeps the
+  mix as rendered), so the published file plays at the platforms' level whatever the music adds; H.264 High, yuv420p,
+  AAC 48 kHz stereo, `+faststart` (the `moov` box first, so a platform or a scheduler streaming the URL starts at
+  once), the picture copied when the render already matches (the sound too when no loudness pass changes it); ffprobe checks
   the result, and a film that does not match fails the run. A **cover** JPG is written next to the film
   (`<film>.jpg`) from the second `cover.at`, by default the middle of the first talking segment; `"cover": false`
   writes none.
@@ -693,6 +720,12 @@ const result = await renderFootageFilm(film, {
   sfx: {}, quality: "standard", log: console.log,
 });
 ```
+
+`cutFootage` (sync) builds and writes the EDL as it is; `cutFootageFilm` (async, what `renderFootageFilm` and the CLI
+run) does the same and resolves `transitions.jump: "auto"` from the frames, answering `{ edl, cuts }` where `cuts`
+lists each measured cut (`{ segment, difference, transition }`, `describeCutMeasures` for log lines). The measuring
+step alone is `chooseCutTransitions(edl, clipFiles, { workDir, threshold? })`, with the pure `measureFrameDifference`
+and `chooseCutTransition` under it.
 
 A rendered result is `{ kind: "rendered", output, seconds, edlPath, bytes, width, height, durationSeconds, cover }`:
 `seconds` is the planned length, the rest is read with ffprobe from the written file (`cover` is the JPG's path, or
@@ -735,8 +768,8 @@ A clip with sound (`.mp4`, `.mov`) is a bed as it is: the music track reads only
 Under the cut the bed needs no fitting by the app: the render resamples it to 48 kHz stereo, loops it when it is
 shorter than the film and trims it when it is longer (`buildMusicArgs`: `-stream_loop -1`, `-t <film seconds>`),
 fades it in over 1 s and out over 1.5 s, and ducks it under the voice by the film's word times (`duckingKeyframes`:
-`volume` between sentences, `duckedVolume` under speech, 0.25 s down before the first word, 0.5 s back up after the
-last). Comparing `probe.duration` with the film's length tells the app whether the bed will loop; a bed of a third of
+`volume` between sentences, `duckedVolume` under speech, `attack` seconds down before the first word, by default
+0.25, and `release` seconds back up after the last, by default 0.5). Comparing `probe.duration` with the film's length tells the app whether the bed will loop; a bed of a third of
 the film or less repeats audibly, so a longer one is worth asking for.
 
 The blocks run alone too: `probeFootage`, `probeAudio`, `normalizeFootage`, `transcribeFootage` (or a provider's `transcribe`),
@@ -797,6 +830,25 @@ const result = await renderFootageFilm(film, {
 - **A CPU-limited container.** hyperframes picks its capture workers from the host's cores, not the container's CPU
   quota: set `PRODUCER_MAX_WORKERS` to the quota. `HYPERFRAMES_EXTRACT_CACHE_MAX_MB` caps the extraction cache
   (default 2048).
+
+- **Memory.** The render plays the cut's picture as one `<video>`: in the `assets` stage `renderFootage` renders it
+  in film time (`assets/picture.mp4`, one short ffmpeg per segment, one after the other, cross-fades drawn in, the
+  same encoder as `normalize`), so hyperframes extracts the film's frames with one ffmpeg and its Chrome holds one
+  video instead of one per segment. Measured on a 45 s 1080×1920 film of 12 segments with captions, one CPU,
+  hyperframes' low-memory profile (cgroup `rss + shmem`, peak per stage):
+
+  | Stage | One `<video>` per segment (0.6.0) | One `<video>` (now) |
+  | --- | --- | --- |
+  | `video_extract` | 970 MiB (12 ffmpeg at once) | 222 MiB |
+  | `capture_streaming` | 1716 MiB | 1209 MiB |
+
+  What is left is hyperframes' own: Chrome's renderer starts at about 0.75 GiB and grows by about 0.3 MB per
+  captured frame (about 9 MB per second of film at 30 fps), with libx264 about 400 MB beside it (`quality: "draft"`
+  encodes faster and peaks about 150 MB lower). A 1.5 GiB worker renders about a minute of film; budget about
+  0.75 GiB plus 10 MB per second of film. The picture costs one extra encode of the cut (about 75 s for 45 s of film
+  at one CPU with `veryfast`; the render itself takes about 18 s per second of film). `workers` and `lowMemory` pass
+  hyperframes' `--workers` and `--low-memory-mode` / `--no-low-memory-mode` (by default hyperframes turns its
+  low-memory profile on by itself at 8 GB or less, reading a cgroup v2 limit).
 
 **Container recipe.** [`docker/footage-worker.Dockerfile`](docker/footage-worker.Dockerfile) is a worker base image:
 `node:22-trixie-slim`, Debian's ffmpeg 7.1 (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and

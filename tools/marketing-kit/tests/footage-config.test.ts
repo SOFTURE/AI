@@ -72,12 +72,28 @@ describe("footage films in marketing.json", () => {
       music: { source: { kind: "none" }, volume: 0.35, duckedVolume: 0.1 },
       captions: true,
       captionStyle: "phrase",
-      edit: { zoomPercent: 108, fadeFrames: 10, kenBurnsPercent: 0, isEndCardWhoosh: false },
+      edit: { zoomPercent: 108, zoomEaseFrames: 0, fadeFrames: 10, kenBurnsPercent: 0, isEndCardWhoosh: false, cutAudioFadeMs: 20, isCutAudioCrossfade: false },
       endCard: null,
       loudness: { target: -14, truePeak: -1 },
+      mixLoudness: { target: -14, truePeak: -1 },
       cover: {},
       post: null,
     });
+  });
+
+  it("reads the smooth-cut edit options and refuses a punch-in past 112 %", () => {
+    const smooth = findFootage(
+      load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], edit: { zoomPercent: 112, zoomEaseFrames: 4, cutAudioFadeMs: 40, cutAudioCrossfade: true } }])),
+      "a",
+    );
+    expect(smooth?.edit).toMatchObject({ zoomPercent: 112, zoomEaseFrames: 4, cutAudioFadeMs: 40, isCutAudioCrossfade: true });
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], edit: { zoomPercent: 113 } }]))).toContain("zoomPercent");
+  });
+
+  it("reads auto jump transitions with their threshold", () => {
+    const auto = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], transitions: { jump: "auto", autoThreshold: 0.12 } }])), "a");
+    expect(auto?.transitions).toEqual({ jump: "auto", clip: "cut", autoThreshold: 0.12 });
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], transitions: { clip: "auto" } }]))).toContain("clip");
   });
 
   it("turns the loudness pass and the cover off with false, and keeps a cover time and a loudness target", () => {
@@ -85,6 +101,26 @@ describe("footage films in marketing.json", () => {
     expect([off?.loudness, off?.cover]).toEqual([null, null]);
     const set = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], loudness: { target: -16 }, cover: { at: 2.5 } }])), "a");
     expect([set?.loudness, set?.cover]).toEqual([{ target: -16, truePeak: -1 }, { at: 2.5 }]);
+  });
+
+  it("normalizes the finished mix by default, turns it off with false and keeps a target (issue #1031)", () => {
+    const off = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: false }])), "a");
+    expect(off?.mixLoudness).toBeNull();
+    const set = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { target: -16, truePeak: -2 } }])), "a");
+    expect(set?.mixLoudness).toEqual({ target: -16, truePeak: -2 });
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { truePeak: 1 } }]))).toContain("footage[0].mixLoudness");
+  });
+
+  it("keeps the music's ducking attack and release, and refuses them outside 0-5 s (issue #1031)", () => {
+    const film = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], music: { prompt: "calm", attack: 0.1, release: 1.5 } }])), "a");
+    expect(film?.music).toEqual({ source: { kind: "prompt", prompt: "calm" }, volume: 0.35, duckedVolume: 0.1, attack: 0.1, release: 1.5 });
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], music: { prompt: "calm", release: 6 } }]))).toContain("footage[0].music.release");
+  });
+
+  it("keeps a caption line limit of 1-4 and refuses one outside it", () => {
+    const film = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionStyle: "highlight", captionMaxLines: 2 }])), "a");
+    expect(film?.captionMaxLines).toBe(2);
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionMaxLines: 5 }]))).toContain("footage[0].captionMaxLines");
   });
 
   it("reads key terms trimmed, deduplicated and sorted, and leaves an empty list out", () => {

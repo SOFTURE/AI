@@ -2752,13 +2752,14 @@
             "properties": {
               "jump": {
                 "default": "cut",
-                "description": "A cut inside one talking clip: cut (the default), fade, zoom (a punch-in) or whoosh.",
+                "description": "A cut inside one talking clip: cut (the default), fade, zoom (a punch-in), whoosh, or auto (zoom when the frames on both sides look alike, fade when the camera moved; measured when the cut is built).",
                 "type": "string",
                 "enum": [
                   "cut",
                   "fade",
                   "zoom",
-                  "whoosh"
+                  "whoosh",
+                  "auto"
                 ]
               },
               "clip": {
@@ -2771,6 +2772,12 @@
                   "zoom",
                   "whoosh"
                 ]
+              },
+              "autoThreshold": {
+                "description": "With jump auto: the frame difference (0-1) from which a jump cut fades instead of zooming (default 0.08).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
               }
             },
             "additionalProperties": false
@@ -2823,6 +2830,18 @@
                 "type": "number",
                 "minimum": 0,
                 "maximum": 1
+              },
+              "attack": {
+                "description": "Seconds the music takes to go down before speech (0-5, default 0.25).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 5
+              },
+              "release": {
+                "description": "Seconds the music takes to come back up after speech (0-5, default 0.5).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 5
               }
             },
             "additionalProperties": false
@@ -2851,6 +2870,12 @@
               "all"
             ]
           },
+          "captionMaxLines": {
+            "description": "The most lines a caption card may take (1-4): the render shrinks a longer card's font, to 70 % at most; without it, no limit.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
           "edit": {
             "description": "The cut's look; the defaults read as an ordinary phone video.",
             "default": {},
@@ -2858,10 +2883,17 @@
             "properties": {
               "zoomPercent": {
                 "default": 108,
-                "description": "How far a zoom cut punches in (105-110 %, default 108).",
+                "description": "How far a zoom cut punches in (105-112 %, default 108).",
                 "type": "number",
                 "minimum": 105,
-                "maximum": 110
+                "maximum": 112
+              },
+              "zoomEaseFrames": {
+                "default": 0,
+                "description": "Frames at 30 fps a zoom cut eases into its scale over (0-15, default 0: a step; 3-5 reads as a smooth punch-in).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
               },
               "fadeFrames": {
                 "default": 10,
@@ -2880,6 +2912,18 @@
               "endCardWhoosh": {
                 "default": false,
                 "description": "Play the whoosh and pop as the end card comes in (default false).",
+                "type": "boolean"
+              },
+              "cutAudioFadeMs": {
+                "default": 20,
+                "description": "The speech track's fade at every cut in milliseconds (10-100, default 20).",
+                "type": "integer",
+                "minimum": 10,
+                "maximum": 100
+              },
+              "cutAudioCrossfade": {
+                "default": false,
+                "description": "Cross-fade the sound of the two sides of every cut over cutAudioFadeMs, centred on the cut, instead of a short dip to silence (default false).",
                 "type": "boolean"
               }
             },
@@ -2917,6 +2961,39 @@
               "truePeak": -1
             },
             "description": "The speech track's loudness, measured and normalized in two passes before the music goes under it; false leaves it as filmed. Default -14 LUFS, -1 dBTP.",
+            "anyOf": [
+              {
+                "type": "boolean",
+                "const": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "target": {
+                    "default": -14,
+                    "description": "Integrated loudness in LUFS (-40 to -5, default -14).",
+                    "type": "number",
+                    "minimum": -40,
+                    "maximum": -5
+                  },
+                  "truePeak": {
+                    "default": -1,
+                    "description": "The highest true peak in dBTP (-9 to 0, default -1).",
+                    "type": "number",
+                    "minimum": -9,
+                    "maximum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "mixLoudness": {
+            "default": {
+              "target": -14,
+              "truePeak": -1
+            },
+            "description": "The finished film's mix (speech and music), measured after the render and normalized in two passes; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP.",
             "anyOf": [
               {
                 "type": "boolean",
@@ -7306,6 +7383,12 @@
                   "minimum": 0,
                   "maximum": 1920
                 },
+                "bottom": {
+                  "description": "The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1920
+                },
                 "left": {
                   "description": "The caption's left margin, in px from the frame's left edge. Default 60.",
                   "type": "integer",
@@ -7428,6 +7511,12 @@
               "properties": {
                 "top": {
                   "description": "The caption's top edge, in px from the frame's top. Default 830.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "bottom": {
+                  "description": "The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none.",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 1080
@@ -7558,6 +7647,12 @@
                   "minimum": 0,
                   "maximum": 1080
                 },
+                "bottom": {
+                  "description": "The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
                 "left": {
                   "description": "The caption's left margin, in px from the frame's left edge. Default 1100.",
                   "type": "integer",
@@ -7680,6 +7775,12 @@
               "properties": {
                 "top": {
                   "description": "The caption's top edge, in px from the frame's top. Default 890.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1080
+                },
+                "bottom": {
+                  "description": "The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none.",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 1080

@@ -94,6 +94,8 @@ export { describeVoiceoverBatch, produceVoiceovers, type VoiceoverBatchItem, typ
 export { getPlaceholderKey, isPlaceholderKey, makePlaceholderWords, writePlaceholderVoiceover, type PlaceholderPace, type WritePlaceholderOptions } from "./voice/placeholder.js";
 export {
   BROWSER_BAR_HEIGHT,
+  CAPTION_LINE_HEIGHT,
+  CAPTION_PILL_PADDING,
   DEVICE_KINDS,
   LAYOUTS,
   LAYOUT_NAMES,
@@ -105,6 +107,7 @@ export {
   crossfadeArgs,
   fitScale,
   fitsFrame,
+  getCaptionPositionCss,
   getGeometry,
   getLayoutName,
   getTransitionSeconds,
@@ -177,10 +180,13 @@ export {
   CLIP_FITS,
   CLIP_ROLES,
   CUT_TRANSITIONS,
+  DEFAULT_AUTO_THRESHOLD,
+  JUMP_TRANSITIONS,
   DEFAULT_CUT,
   DEFAULT_FILLERS,
   DEFAULT_MUSIC_VOLUME,
   DEFAULT_TRANSITIONS,
+  CAPTION_MIN_FONT_SCALE,
   CAPTION_PRESETS,
   CAPTION_STYLES,
   DEFAULT_EDIT,
@@ -193,6 +199,7 @@ export {
   type ClipRole,
   type CutOptions,
   type CutTransition,
+  type JumpTransition,
   type FootageClip,
   type FootageFilm,
   type FootageMusic,
@@ -316,10 +323,20 @@ export {
   type PhraseChunk,
   type SafeZone,
 } from "./footage/captions.js";
+export {
+  CUT_THUMBNAIL,
+  buildCutFrameArgs,
+  chooseCutTransition,
+  chooseCutTransitions,
+  findAutoCuts,
+  measureFrameDifference,
+  type ChooseCutTransitionsOptions,
+  type CutMeasure,
+} from "./footage/cuts.js";
 export { MAX_FRAMES, buildFrameArgs, extractFrames, getFrameTimes, type ExtractFramesOptions, type ExtractedFrame, type FrameSpacing } from "./footage/frames.js";
-export { duckingKeyframes, getSpeechSpans, volumeExpression, type DuckingOptions, type VolumeKeyframe } from "./footage/music.js";
+export { duckingKeyframes, getDuckingOptions, getSpeechSpans, volumeExpression, type DuckingOptions, type VolumeKeyframe } from "./footage/music.js";
 export { END_CARD_SECONDS, FADE_SECONDS, composeFootage, getFootageFilmSeconds, getSegmentScales, type FootageComposeAssets, type FootageComposeInput } from "./footage/compose.js";
-export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs } from "./footage/render.js";
+export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs, getSpeechCutOptions, type SpeechCutOptions } from "./footage/render.js";
 export {
   FOOTAGE_DRAFT_FONT,
   FOOTAGE_DRAFT_WIDTH,
@@ -335,12 +352,25 @@ export {
   type RenderFootageDraftOptions,
 } from "./footage/draft.js";
 export {
+  buildPictureConcatArgs,
+  buildPictureList,
+  buildPicturePieceArgs,
+  getPictureFrames,
+  planFootagePicture,
+  type PictureFadeTail,
+  type PicturePiece,
+  type PicturePieceArgsInput,
+} from "./footage/picture.js";
+export {
   DEFAULT_LOUDNESS,
   buildLoudnessArgs,
   buildLoudnessMeasureArgs,
+  getLoudnessFilter,
   isSilent,
+  measureLoudness,
   normalizeLoudness,
   readLoudnessMeasurement,
+  type LoudnessMeasureOutcome,
   type LoudnessMeasurement,
   type LoudnessOutcome,
   type LoudnessTarget,
@@ -373,7 +403,10 @@ export {
 export { RENDER_MIN_FREE_BYTES, findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./footage/disk.js";
 export { DRAFT_FILTERS, REQUIRED_DECODERS, REQUIRED_FILTERS, checkFootageTools, findBrowserProblem, readFfmpegListing, type FootageToolsOptions } from "./footage/tools.js";
 export {
+  CUTS_FILE,
   cutFootage,
+  cutFootageFilm,
+  describeCutMeasures,
   getEdlPath,
   getFrame,
   prepareFootage,
@@ -388,6 +421,7 @@ export {
   type FootageResult,
   type FootageRunOptions,
   type PreparedClip,
+  type CutFootageFilmOptions,
   type RenderFootageFilmOptions,
   type RenderFootageOptions,
   type RenderedFootage,

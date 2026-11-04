@@ -6,7 +6,8 @@ A ledger of paid provider calls in the provider's own unit, and budgets that ref
 
 - `metering.charges`: every paid call an app makes (speech and audio credits, images, search requests, model dollars),
   with provider, step, unit, amount, account and the app's attributes.
-- Budgets per provider and day or month, for the whole provider or per account, in the provider's unit.
+- Budgets per provider and day or month, for the whole provider or per account, in the provider's unit. Their limits
+  come from the configuration and can be changed at runtime (stored in `metering.budget_limits`), without a deploy.
 - `reserveSpend` before a paid call, `settleSpend` with the billed amount after it, `releaseSpend` when it failed
   unbilled. A reservation runs in one transaction under the provider's lock, so two jobs reserving at once cannot both
   pass the same remaining amount. Amounts compare as Postgres `numeric`, so `0.1 + 0.2` fills a `0.3` budget exactly.
@@ -81,6 +82,35 @@ amount that is negative, not finite or above `1e15`, and a reservation without `
 per-account budget throw: they are bugs, not expected failures. So does an attribute name that is empty or longer
 than 100 characters, and a filter value that is empty or longer than 500.
 
+### Budget limits at runtime
+
+The configuration declares which budgets exist and their default limit. An operator can change a limit without a
+deploy: the stored value applies to every process (app and worker) from the next reservation on, until it is cleared.
+
+```ts
+import { clearBudgetLimit, getBudgetLimits, setBudgetLimit } from "@softure-ai/metering/server";
+
+// A settings form: each declared budget with its default, the stored value and who changed it.
+const limits = await getBudgetLimits(ctx, { provider: "elevenlabs" });
+// Save (after the app checked that the session may change budgets).
+const saved = await setBudgetLimit(ctx, { provider: "elevenlabs", period: "month", limit: 50_000, updatedBy: session.userId });
+if (!saved.ok) return saved; // metering.invalid_budget_limit: negative, not finite or above 1e15
+// Back to the configured limit.
+await clearBudgetLimit(ctx, { provider: "elevenlabs", period: "month" });
+```
+
+| Function | Returns |
+| --- | --- |
+| `getBudgetLimits(ctx, { provider })` | `ok(BudgetLimit[])` in configuration order: `period`, `perAccount`, `configuredLimit`, `storedLimit` (`null` without one), `limit` (the one in force), `updatedAt`, `updatedBy`. |
+| `setBudgetLimit(ctx, { provider, period, perAccount?, limit, updatedBy? })` | `ok(BudgetLimit)` or `metering.invalid_budget_limit`. A limit may be `0`: the provider is stopped (only amounts of 0 fit). |
+| `clearBudgetLimit(ctx, { provider, period, perAccount? })` | `ok(BudgetLimit)` with the configured limit in force again. |
+
+`reserveSpend` reads the stored limits after it takes the provider's lock, and `setBudgetLimit` / `clearBudgetLimit`
+take the same lock, so a change and a reservation never interleave. `BudgetExceeded.budget.limit` and
+`SpendSummary.limit` report the limit in force. A budget the configuration does not declare (provider, period and
+`perAccount`) throws: build the form from `getBudgetLimits`. A stored row of a budget later removed from the
+configuration is ignored. The module has no route: the app authorizes who may change budgets.
+
 ### Spend per step and per item
 
 ```ts
@@ -101,12 +131,15 @@ of a few hundred items. Grouping reads one provider's period through the `(provi
 
 ## 4. Mounting
 
-Nothing to mount. A status page or tool reads `getSpend` and `getSpendBreakdown`.
+Nothing to mount. A status page or tool reads `getSpend` and `getSpendBreakdown`; a settings form reads
+`getBudgetLimits` and writes `setBudgetLimit`.
 
 ## 5. Migrations and tables
 
-Schema `metering`, migrations `0001_create_charges.sql` and `0002_index_charge_attributes.sql` (a GIN index on
-`attributes` for filters), table `charges`:
+Schema `metering`, migrations `0001_create_charges.sql`, `0002_index_charge_attributes.sql` (a GIN index on
+`attributes` for filters) and `0003_create_budget_limits.sql`, tables `charges` and `budget_limits`.
+
+`charges`:
 
 | Column | Meaning |
 | --- | --- |
@@ -118,6 +151,14 @@ Schema `metering`, migrations `0001_create_charges.sql` and `0002_index_charge_a
 | `attributes` | the app's string attributes, a JSON object |
 | `status` | `reserved` (with `expires_at`) or `settled` (with `settled_at`) |
 | `created_at` | when the spend was reserved or recorded: the period it counts in |
+
+`budget_limits` (primary key `provider`, `period`, `per_account`):
+
+| Column | Meaning |
+| --- | --- |
+| `provider`, `period`, `per_account` | the declared budget the row overrides |
+| `limit` | `numeric(24, 8)`, at least 0 |
+| `updated_at`, `updated_by` | when and by which account id (nullable) the limit was set |
 
 ## 6. Environment variables
 
@@ -133,7 +174,8 @@ No UI.
 
 ## 9. Copy
 
-`src/messages/en.ts` holds `errors["metering.budget_exceeded"]` and `errors["metering.reservation_not_found"]`;
+`src/messages/en.ts` holds `errors["metering.budget_exceeded"]`, `errors["metering.invalid_budget_limit"]` and
+`errors["metering.reservation_not_found"]`;
 `getMeteringErrorMessage(code, messages?)` reads them, and an app passes its own dictionary for other languages.
 
 ## 10. Hooks
@@ -164,7 +206,8 @@ Adapters (`@softure-ai/metering/server`) read the other packages' records by sha
 The module contributes to `@softure-ai/privacy` through `account_id`: an app that meters per user passes the user id
 as `accountId`. The export lists the user's charges (provider, step, unit, amount, status, attributes, time). A
 deletion clears `account_id` and `attributes` and keeps the amounts, so budgets and spend totals stay true; the
-charges are the app's records of what it paid. `exportMeteringUserData` and `deleteMeteringUserData` take `{ db }` for
+charges are the app's records of what it paid. A budget limit the user set names them in `updated_by`: the export
+lists those limits, and a deletion clears `updated_by` and keeps the limit. `exportMeteringUserData` and `deleteMeteringUserData` take `{ db }` for
 an app that runs its own deletion transaction.
 
 ## 12. Limitations
@@ -175,7 +218,9 @@ an app that runs its own deletion transaction.
 - Spend over a budget is possible through `recordCharge` and a settle above the reservation: the ledger records what
   was billed. `remaining` is then 0.
 - No currency conversion: a budget is in its provider's unit only, and `usd` is the only money unit.
-- No UI or route: the app builds its own status page on `getSpend` and `getSpendBreakdown`.
+- No UI or route: the app builds its own status page on `getSpend` and `getSpendBreakdown`, and its own settings
+  form on `getBudgetLimits` and `setBudgetLimit`, with its own authorization.
+- Which budgets exist (provider, period, scope) is still configuration: only their limits change at runtime.
 
 ## Build
 

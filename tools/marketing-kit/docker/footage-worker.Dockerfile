@@ -33,3 +33,4 @@ ENV HYPERFRAMES_BROWSER_PATH=/opt/chrome-headless-shell-linux64/chrome-headless-
 #   ENV TMPDIR=/data/tmp
 # (or renderFootage's tempDir). In a CPU-limited container set PRODUCER_MAX_WORKERS to the CPU quota; hyperframes
 # otherwise starts a capture worker per host core. HYPERFRAMES_EXTRACT_CACHE_MAX_MB caps the extraction cache (2048).
+# Memory: a render needs about 0.75 GiB plus 10 MB per second of film (README, "Footage films in a worker").

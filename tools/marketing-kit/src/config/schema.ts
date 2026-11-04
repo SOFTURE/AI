@@ -14,7 +14,7 @@ import {
 } from "../compose/timeline.js";
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
-import { CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS } from "../footage/film.js";
+import { CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS, JUMP_TRANSITIONS } from "../footage/film.js";
 import { normalizeKeyTerms } from "../footage/keyterms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
@@ -520,8 +520,19 @@ const footageSchema = z
     maxSeconds: z.number().min(1).max(600).optional().describe("The cut's longest length in seconds; later segments are shortened or dropped."),
     transitions: z
       .strictObject({
-        jump: z.enum(CUT_TRANSITIONS).default("cut").describe("A cut inside one talking clip: cut (the default), fade, zoom (a punch-in) or whoosh."),
+        jump: z
+          .enum(JUMP_TRANSITIONS)
+          .default("cut")
+          .describe(
+            "A cut inside one talking clip: cut (the default), fade, zoom (a punch-in), whoosh, or auto (zoom when the frames on both sides look alike, fade when the camera moved; measured when the cut is built).",
+          ),
         clip: z.enum(CUT_TRANSITIONS).default("cut").describe("A cut from one clip to the next: cut (the default), fade, zoom or whoosh."),
+        autoThreshold: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe("With jump auto: the frame difference (0-1) from which a jump cut fades instead of zooming (default 0.08)."),
       })
       .prefault({})
       .describe("Default transitions by kind of cut; each segment of the EDL can name its own."),
@@ -538,6 +549,8 @@ const footageSchema = z
           .describe("ElevenLabs Video to Music scored to the cut itself (paid with --commit, cached)."),
         volume: volume.default(0.35).describe("The music's volume between sentences (0-1, default 0.35)."),
         duckedVolume: volume.default(0.1).describe("The music's volume under speech (0-1, default 0.1)."),
+        attack: z.number().min(0).max(5).optional().describe("Seconds the music takes to go down before speech (0-5, default 0.25)."),
+        release: z.number().min(0).max(5).optional().describe("Seconds the music takes to come back up after speech (0-5, default 0.5)."),
       })
       .superRefine((music, context) => {
         const sources = [music.file, music.prompt, music.fromVideo].filter((source) => source !== undefined).length;
@@ -554,12 +567,31 @@ const footageSchema = z
       .enum(CAPTION_PRESETS)
       .optional()
       .describe("Keeps a 9:16 film's captions inside a platform's safe zone: reels, shorts, tiktok or all; without it, layout decides."),
+    captionMaxLines: z
+      .number()
+      .int()
+      .min(1)
+      .max(4)
+      .optional()
+      .describe("The most lines a caption card may take (1-4): the render shrinks a longer card's font, to 70 % at most; without it, no limit."),
     edit: z
       .strictObject({
-        zoomPercent: z.number().min(105).max(110).default(108).describe("How far a zoom cut punches in (105-110 %, default 108)."),
+        zoomPercent: z.number().min(105).max(112).default(108).describe("How far a zoom cut punches in (105-112 %, default 108)."),
+        zoomEaseFrames: z
+          .number()
+          .int()
+          .min(0)
+          .max(15)
+          .default(0)
+          .describe("Frames at 30 fps a zoom cut eases into its scale over (0-15, default 0: a step; 3-5 reads as a smooth punch-in)."),
         fadeFrames: z.number().int().min(1).max(30).default(10).describe("A fade cut's length in frames at 30 fps (1-30, default 10)."),
         kenBurnsPercent: z.number().min(0).max(5).default(0).describe("How far b-roll zooms over its length (0-5 %, default 0: still)."),
         endCardWhoosh: z.boolean().default(false).describe("Play the whoosh and pop as the end card comes in (default false)."),
+        cutAudioFadeMs: z.number().int().min(10).max(100).default(20).describe("The speech track's fade at every cut in milliseconds (10-100, default 20)."),
+        cutAudioCrossfade: z
+          .boolean()
+          .default(false)
+          .describe("Cross-fade the sound of the two sides of every cut over cutAudioFadeMs, centred on the cut, instead of a short dip to silence (default false)."),
       })
       .prefault({})
       .describe("The cut's look; the defaults read as an ordinary phone video."),
@@ -574,6 +606,16 @@ const footageSchema = z
       ])
       .default({ target: -14, truePeak: -1 })
       .describe("The speech track's loudness, measured and normalized in two passes before the music goes under it; false leaves it as filmed. Default -14 LUFS, -1 dBTP."),
+    mixLoudness: z
+      .union([
+        z.literal(false),
+        z.strictObject({
+          target: z.number().min(-40).max(-5).default(-14).describe("Integrated loudness in LUFS (-40 to -5, default -14)."),
+          truePeak: z.number().min(-9).max(0).default(-1).describe("The highest true peak in dBTP (-9 to 0, default -1)."),
+        }),
+      ])
+      .default({ target: -14, truePeak: -1 })
+      .describe("The finished film's mix (speech and music), measured after the render and normalized in two passes; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP."),
     cover: z
       .union([
         z.literal(false),
@@ -830,6 +872,13 @@ function layoutOverrideSchema(name: LayoutName) {
       caption: z
         .strictObject({
           top: y("The caption's top edge, in px from the frame's top.", caption.top),
+          bottom: z
+            .number()
+            .int()
+            .min(0)
+            .max(frame.height)
+            .optional()
+            .describe("The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none."),
           left: x("The caption's left margin, in px from the frame's left edge.", caption.left),
           right: x("The caption's right margin, in px from the frame's right edge.", caption.right),
           fontSize: z.number().int().min(16).max(200).optional().describe(`The caption's font size in px (16-200). Default ${caption.fontSize}.`),

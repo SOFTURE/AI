@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { findFootage, findMissingFootageFiles, formatConfigIssues, type FootageConfig, type MarketingConfig } from "../config/config.js";
 import { createElevenLabsFootageProviders } from "../footage/elevenlabs.js";
 import { findRetakes } from "../footage/sentences.js";
-import { cutFootage, getEdlPath, getFootageSentences, prepareFootage, readEdlFile, renderFootage, transcribeFootage, type RenderFootageOptions } from "../footage/pipeline.js";
+import { cutFootageFilm, describeCutMeasures, getEdlPath, getFootageSentences, prepareFootage, readEdlFile, renderFootage, transcribeFootage, type RenderFootageOptions } from "../footage/pipeline.js";
 import { checkFootageTools } from "../footage/tools.js";
 import { postsMarkdown } from "../posts/posts.js";
 import { fail } from "./failure.js";
@@ -69,8 +69,10 @@ export async function runFootage(config: MarketingConfig, options: FootageOption
   const isRecut = options.step === "cut" || (options.step === "all" && !existsSync(edlPath));
   let edl;
   if (isRecut) {
-    edl = cutFootage(film, clips.value, transcript.value.words, edlPath);
+    const cut = await cutFootageFilm(film, clips.value, transcript.value.words, edlPath);
+    edl = cut.edl;
     console.log(`cut: ${edl.segments.length} segments written to ${edlPath}; check or edit it, then softure-marketing footage ${film.id} --step=render.`);
+    for (const line of describeCutMeasures(cut.cuts)) console.log(`  auto transition ${line}`);
     // Suggestions only: the EDL keeps every sentence until someone drops one.
     for (const suggestion of findRetakes(getFootageSentences(clips.value, transcript.value.words))) {
       console.log(`  maybe drop ${suggestion.sentence} (${suggestion.kind}): ${suggestion.reason}`);

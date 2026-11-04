@@ -6,17 +6,17 @@ import type { CaptionLayout, LayoutOverride } from "../compose/timeline.js";
 import { ok } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { getCaptionSpans, getFootageCaptionLayout, phraseChunks } from "./captions.js";
-import { getSegmentScales } from "./compose.js";
+import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
 import { getFootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS, getThreadArgs, type Frame } from "./normalize.js";
 import { getFrame, type FootageResult, type FootageRunOptions, type PreparedClip, type TranscribeOutcome } from "./pipeline.js";
 import { runFfmpeg } from "./process.js";
-import { buildSpeechArgs } from "./render.js";
+import { buildSpeechArgs, getSpeechCutOptions } from "./render.js";
 
 /**
  * A fast draft of a footage film, ffmpeg only (no hyperframes, no browser): the cut at a small width with the film's
- * phrase captions burned in, its zoom cuts, cross-fades and Ken Burns b-roll drawn as the full render draws them, and
+ * phrase captions burned in, its zoom cuts (eased as in the render), cross-fades and Ken Burns b-roll drawn as the full render draws them, and
  * the speech track. No loudness pass, music, end card or cover. What an app shows the owner before the paid render.
  */
 
@@ -75,8 +75,8 @@ export interface FootageDraftCaptionsInput {
 
 /**
  * The draft's captions as an ASS subtitle file: the film's phrases (`phraseChunks`) shown for the render's spans
- * (`getCaptionSpans`), white bold text with a dark outline and shadow, centred in the caption box from its top. Null
- * when the film has no captions or nothing is said.
+ * (`getCaptionSpans`), white bold text with a dark outline and shadow, centred in the caption box from its top (or
+ * from its foot, with `bottom`). Null when the film has no captions or nothing is said.
  */
 export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): string | null {
   if (!input.film.captions) return null;
@@ -106,10 +106,11 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     1,
     outline,
     shadow,
-    8,
+    // ASS alignment 2 hangs the text from MarginV above the bottom, 8 from MarginV below the top.
+    caption.bottom === undefined ? 8 : 2,
     Math.round(caption.left),
     Math.round(caption.right),
-    Math.round(caption.top),
+    Math.round(caption.bottom ?? caption.top),
     1,
   ].join(",");
   const events = chunks.map((chunk, index) => {
@@ -173,6 +174,10 @@ export interface DraftSegmentPlan {
   scale: number;
   /** The zoom it ends at: above `scale` for a `kenburns` segment, `scale` otherwise. */
   endScale: number;
+  /** The zoom on screen before an eased `zoom` cut, which the segment eases from to `scale`; `scale` otherwise. */
+  startScale: number;
+  /** The frames the zoom eases over (`getSegmentZoomEases`); 0: the segment starts at `scale`. */
+  easeFrames: number;
 }
 
 /**
@@ -184,6 +189,7 @@ export function planFootageDraft(film: Pick<FootageFilm, "edit">, edl: Edl): Dra
   const fadeSeconds = r3(edit.fadeFrames / FOOTAGE_FPS);
   const kenBurnsScale = 1 + (edit.kenBurnsPercent > 0 ? edit.kenBurnsPercent : HAND_KEN_BURNS_PERCENT) / 100;
   const scales = getSegmentScales(edl, edit.zoomPercent);
+  const eases = getSegmentZoomEases(edl, edit);
   const starts = getSegmentStarts(edl);
   const fades = edl.segments.map((segment, index) => (segment.transition === "fade" && index > 0 ? r3(Math.min(fadeSeconds, segment.end - segment.start)) : 0));
   return edl.segments.map((segment, index) => {
@@ -195,20 +201,28 @@ export function planFootageDraft(film: Pick<FootageFilm, "edit">, edl: Edl): Dra
       fade: fades[index] as number,
       scale,
       endScale: segment.motion === "kenburns" ? r4(scale * kenBurnsScale) : scale,
+      startScale: (eases[index] as number) > 0 ? (scales[index - 1] as number) : scale,
+      easeFrames: eases[index] as number,
     };
   });
 }
 
-/** The filters that zoom a segment's picture and scale it to the draft: a crop for a still zoom, `zoompan` for Ken Burns. */
+/**
+ * The filters that zoom a segment's picture and scale it to the draft: a crop for a still zoom, `zoompan` for Ken Burns
+ * and for an eased zoom cut (the render's `power1.out`: `1 - (1 - t)^2`).
+ */
 function buildPictureFilters(plan: DraftSegmentPlan, draft: Frame): string[] {
   const size = `${draft.width}:${draft.height}`;
+  const zoompan = (zoom: string): string =>
+    `zoompan=z='${zoom}':x='(iw-iw/zoom)*${ZOOM_ORIGIN.x}':y='(ih-ih/zoom)*${ZOOM_ORIGIN.y}':d=1:s=${draft.width}x${draft.height}:fps=${FOOTAGE_FPS}`;
+  if (plan.easeFrames > 0) {
+    return [zoompan(`${plan.startScale}+(${r4(plan.scale - plan.startScale)})*(1-pow(1-min(on/${plan.easeFrames},1),2))`)];
+  }
   if (plan.endScale !== plan.scale) {
     // The zoom runs over the segment's own length, as the render's tween does, and holds through a fade's tail.
     const frames = Math.max(1, Math.round(plan.length * FOOTAGE_FPS));
     const zoom = `${plan.scale}+${r4(plan.endScale - plan.scale)}*min(on/${frames},1)`;
-    return [
-      `zoompan=z='${zoom}':x='(iw-iw/zoom)*${ZOOM_ORIGIN.x}':y='(ih-ih/zoom)*${ZOOM_ORIGIN.y}':d=1:s=${draft.width}x${draft.height}:fps=${FOOTAGE_FPS}`,
-    ];
+    return [zoompan(zoom)];
   }
   if (plan.scale !== 1) {
     return [`crop=iw/${plan.scale}:ih/${plan.scale}:(iw-iw/${plan.scale})*${ZOOM_ORIGIN.x}:(ih-ih/${plan.scale})*${ZOOM_ORIGIN.y}`, `scale=${size}`];
@@ -357,7 +371,7 @@ export async function renderFootageDraft(
   const output = resolve(options.output);
   mkdirSync(dirname(output), { recursive: true });
   report("speech", 1, 0);
-  await runFfmpeg("The draft's speech track", buildSpeechArgs(edl, transcript.speech, speech), { ...aborting, output: speech, onSeconds: (done) => report("speech", 1, done) });
+  await runFfmpeg("The draft's speech track", buildSpeechArgs(edl, transcript.speech, speech, getSpeechCutOptions(getFootageEdit(film))), { ...aborting, output: speech, onSeconds: (done) => report("speech", 1, done) });
   report("film", 2, 0);
   // Run in the draft folder: the captions file and the font folder are relative names, so no path needs escaping in the filter graph.
   const args = buildFootageDraftArgs({
