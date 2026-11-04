@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-draft-look-1050
 title: "marketing-kit: the footage draft follows the film's caption style, brand and music (issue #1050)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1050
 branch: claude/project-thread-v6vc96
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
