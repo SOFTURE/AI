@@ -1,12 +1,13 @@
 ---
 change_id: ci-test-shards-prepush
 title: "ci: the unit and repository tests run in four shards; pre-push runs only the tests a branch can break"
-status: plan_approved
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-y5szj5
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent

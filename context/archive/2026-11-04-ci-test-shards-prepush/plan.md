@@ -15,4 +15,4 @@
 
 ## Progress
 
-- [ ] p1
+- [x] p1 1c4259c: 4-shard test matrix in `ci.yml`, `scripts/test-changed.mjs` as the pre-push gate, `AGENTS.md`, `tests/repo/test-gates.test.ts`; repository tests 850 passed.
