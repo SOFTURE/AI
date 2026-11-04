@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-hdr-lut-1037
-status: in_progress
+status: done
 ---
 
 # Plan: footage normalize tone-maps HDR through a 3D LUT (issue #1037)
@@ -38,7 +38,7 @@ output with the float chain (PSNR).
 ## Progress
 
 - [x] Phase 1: the LUT and the graph (7bc3cef)
-- [x] Phase 2: docs and a real measurement (see the commit `docs(marketing-kit-hdr-lut-1037)`)
+- [x] Phase 2: docs and a real measurement (e47ff29)
 
 ## Decisions (auto)
 

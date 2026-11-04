@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-hdr-lut-1037
 title: "marketing-kit: footage normalize tone-maps HDR through a 3D LUT (issue #1037)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1037
 branch: claude/project-thread-b6axnq
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
