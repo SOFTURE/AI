@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-aside-panel-1044
-status: open
+status: archived
 ---
 
 # Plan: AsidePanel (issue #1044)
@@ -45,6 +45,6 @@ README section and component list, `CHANGELOG.md` `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: components and tests
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: components and tests (70aa088)
+- [x] Phase 2: docs (9569cbe)
+- [x] Implementation review

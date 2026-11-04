@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-aside-panel-1044
 title: "theme-notion: AsidePanel, a content panel slid in from the right of the app shell (issue #1044)"
-status: open
+status: archived
+archived_at: 2026-11-04
 roadmap_item: null
 issue: [1044]
 branch: claude/project-thread-tmx18r
