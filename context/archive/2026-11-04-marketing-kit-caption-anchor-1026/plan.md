@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-caption-anchor-1026
-status: in_progress
+status: done
 ---
 
 # Plan: captions anchored by their foot and fitted to a line limit (issue #1026)
@@ -37,6 +37,21 @@ README (caption box, presets, `captionMaxLines`), CHANGELOG `## Unreleased`, reg
 
 ## Progress
 
-- [ ] Phase 1: the bottom anchor
-- [ ] Phase 2: the line limit
-- [ ] Phase 3: docs
+- [x] Phase 1: the bottom anchor (342c3fe)
+- [x] Phase 2: the line limit (7b890a8)
+- [x] Phase 3: docs (62cbcdc)
+
+## Decisions (auto)
+
+- `bottom?: number` on `CaptionLayout` rather than an `anchor` enum: `top` keeps its meaning, one new key in the
+  override, absent from every table so existing layouts render as before.
+- The presets anchor by their foot at the zone's edge (`top` kept as the two-line value for readers of it).
+- `captionMaxLines` applies to both caption styles; absent means no limit, so nothing changes by default.
+- `captionChunks` bounds as film options are not taken: the anchor and the limit hold the foot in place.
+
+## Verification
+
+- `vitest run tools/marketing-kit`: 63 files, 924 tests green (4 skipped need hyperframes/ffmpeg tools).
+- `tests/caption-fit.test.ts` in Chromium: a four-word card at 58 px in a 780 px box wraps to 3 lines without a limit
+  and fits 2 with `captionMaxLines: 2` (font between 41 and 57 px); its foot stays at y 1500 both times.
+- typecheck, ESLint and the language gate green in the pre-commit hook; `schema/marketing.schema.json` regenerated.

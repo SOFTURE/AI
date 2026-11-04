@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-caption-anchor-1026
 title: "marketing-kit: captions anchored by their foot and fitted to a line limit (issue #1026)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1026
 branch: claude/project-thread-5xu4l6
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
