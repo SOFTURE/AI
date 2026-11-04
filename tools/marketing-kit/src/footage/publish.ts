@@ -9,7 +9,7 @@ import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
 import { runProcess } from "./process.js";
 
 /**
- * The finished film as a platform or a scheduler takes it: H.264 High in yuv420p, AAC 48 kHz stereo, the `moov` box
+ * The finished film as a platform or a scheduler takes it: H.264 (Constrained Baseline, Main or High) in yuv420p, AAC 48 kHz stereo, the `moov` box
  * before the media (`+faststart`, so a streamed URL plays before it is whole), a cover frame, and the facts an app
  * records (bytes, picture, real duration), all read from the written file.
  */
@@ -86,9 +86,16 @@ export async function probeFilmFacts(path: string, options: { signal?: AbortSign
   return read.ok ? read : { ok: false, error: `${path}: ${read.error}` };
 }
 
-/** True when the picture is already what platforms take: H.264 High, yuv420p. */
+/**
+ * The H.264 profiles (as ffprobe names them) that every platform takes and every phone and browser decodes. libx264's
+ * `ultrafast` (hyperframes' `draft` tier) writes Constrained Baseline; the platforms encode every upload again, so
+ * High buys nothing in what viewers get (issue #1051).
+ */
+export const PUBLISHABLE_H264_PROFILES: readonly string[] = ["Constrained Baseline", "Main", "High"];
+
+/** True when the picture is already what platforms take: H.264 Constrained Baseline, Main or High, yuv420p. */
 export function isPublishableVideo(video: FilmFacts["video"]): boolean {
-  return video.codec === "h264" && video.profile === "High" && video.pixelFormat === "yuv420p";
+  return video.codec === "h264" && video.profile !== null && PUBLISHABLE_H264_PROFILES.includes(video.profile) && video.pixelFormat === "yuv420p";
 }
 
 /** True when the sound is already what platforms take: AAC at 48 kHz, stereo. */
@@ -97,8 +104,9 @@ export function isPublishableAudio(audio: NonNullable<FilmFacts["audio"]>): bool
 }
 
 /**
- * The final pass: each stream that is already publishable is copied, the other re-encoded, and the `moov` box moved
- * to the front. A film without sound keeps none. `audioFilter` (the mix's loudness pass) re-encodes the sound through it.
+ * The final pass: each stream that is already publishable is copied, the other re-encoded (the picture to H.264 High),
+ * and the `moov` box moved to the front. A film without sound keeps none. `audioFilter` (the mix's loudness pass)
+ * re-encodes the sound through it.
  */
 export function buildFinishArgs(input: string, facts: Pick<FilmFacts, "video" | "audio">, output: string, options: { audioFilter?: string } = {}): string[] {
   const video = isPublishableVideo(facts.video)
@@ -151,7 +159,7 @@ export function isFastStart(boxes: string[]): boolean {
 export function findFinishProblems(facts: FilmFacts, boxes: string[]): string[] {
   const problems: string[] = [];
   const { video, audio } = facts;
-  if (!isPublishableVideo(video)) problems.push(`the picture is ${video.codec} ${video.profile ?? "-"} ${video.pixelFormat ?? "-"}, not h264 High yuv420p`);
+  if (!isPublishableVideo(video)) problems.push(`the picture is ${video.codec} ${video.profile ?? "-"} ${video.pixelFormat ?? "-"}, not h264 (Constrained Baseline, Main or High) yuv420p`);
   if (audio !== null && !isPublishableAudio(audio)) problems.push(`the sound is ${audio.codec} ${audio.sampleRate} Hz ${audio.channels} channels, not aac 48000 Hz stereo`);
   if (!isFastStart(boxes)) problems.push("the moov box is not before the media (no fast start)");
   return problems;

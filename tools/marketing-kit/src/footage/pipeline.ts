@@ -66,7 +66,8 @@ export { getEdlPath } from "./paid.js";
  * (`edl.placeholder.json`), `assets/`, `index.html`, `render.mp4` (hyperframes' output until the final pass).
  *
  * The finished film is publishable: the speech track normalized to a loudness target before the music goes under it,
- * H.264 High, AAC 48 kHz stereo, fast start, a cover JPG next to it, and its facts read back from the written file.
+ * H.264 (Constrained Baseline, Main or High), AAC 48 kHz stereo, fast start, a cover JPG next to it, and its facts
+ * read back from the written file.
  *
  * Every step spawns ffmpeg, ffprobe and hyperframes asynchronously, so a jobs worker's event loop (and its lease
  * heartbeat) keeps running. `signal` stops a run: the child process is killed, its partial file removed, and the
@@ -774,7 +775,7 @@ export async function finishFootage(
   progress(0, input.seconds);
   const { bytes, width, height, durationSeconds } = finished.facts;
   const streams = isVideoCopied && isAudioCopied ? "streams copied" : isVideoCopied ? "picture copied, sound re-encoded" : "re-encoded";
-  log(`finish: ${streams} to H.264 High, AAC 48 kHz stereo, fast start; ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${bytes} bytes.`);
+  log(`finish: ${streams} to H.264 ${finished.facts.video.profile ?? ""}, AAC 48 kHz stereo, fast start; ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${bytes} bytes.`);
   let cover: string | null = null;
   if (film.cover !== null) {
     cover = getCoverPath(output);

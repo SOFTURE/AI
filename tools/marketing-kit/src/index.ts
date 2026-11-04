@@ -391,6 +391,7 @@ export {
   isFastStart,
   isPublishableAudio,
   isPublishableVideo,
+  PUBLISHABLE_H264_PROFILES,
   probeFilmFacts,
   readFilmFacts,
   readTopLevelBoxes,

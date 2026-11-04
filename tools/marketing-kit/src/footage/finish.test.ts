@@ -37,7 +37,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
   });
 
   /** A 6 s H.264 + AAC render like hyperframes' output: a quiet voice-like tone that pauses, over a quiet noise bed. */
-  function makeRender(audio: string): string {
+  function makeRender(audio: string, video: { preset: string } = { preset: "medium" }): string {
     const file = join(dir, "render.mp4");
     const made = spawnSync("ffmpeg", [
       "-v",
@@ -57,8 +57,9 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
       "1:a",
       "-c:v",
       "libx264",
-      "-profile:v",
-      "high",
+      ...(video.preset === "ultrafast" ? [] : ["-profile:v", "high"]),
+      "-preset",
+      video.preset,
       "-pix_fmt",
       "yuv420p",
       "-c:a",
@@ -95,6 +96,13 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(getCodecs(output)).toEqual(["h264", "aac"]);
     expect(lines).toContain(`loudness: the film's mix measured ${before.toFixed(1)} LUFS, normalized to -14 LUFS (true peak -1 dBTP).`);
     expect(lines.some((line) => line.startsWith("finish: picture copied, sound re-encoded"))).toBe(true);
+  });
+
+  it("copies a draft render's Constrained Baseline picture instead of encoding it again (issue #1051)", async () => {
+    const renderFile = makeRender("anullsrc=r=48000:cl=stereo:d=6", { preset: "ultrafast" });
+    const { result } = await finish(renderFile);
+    expect(result.ok).toBe(true);
+    expect(lines.some((line) => line.startsWith("finish: streams copied to H.264 Constrained Baseline,"))).toBe(true);
   });
 
   it("leaves a silent mix as it is", async () => {
