@@ -14,4 +14,4 @@
 
 ## Progress
 
-- [ ] p1
+- [x] p1 efe7beb: skills ^0.15.0 (installer refreshed the managed block), project section "Merging: master only on a conflict"; repository tests 806 passed.

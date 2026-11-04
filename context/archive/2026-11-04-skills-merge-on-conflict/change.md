@@ -1,12 +1,13 @@
 ---
 change_id: skills-merge-on-conflict
 title: "rules: merge master into a branch only on a conflict; @softure-ai/skills 0.15.0"
-status: open
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-7loxh1
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
