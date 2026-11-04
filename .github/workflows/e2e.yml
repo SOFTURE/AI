@@ -6,7 +6,8 @@ name: e2e
 
 # Triggers as in ci.yml (pull requests, master, on demand), and a documents-only change skips the run: the
 # example app never reads docs/, context/ or README files. Markdown the app does read (its blog content under
-# examples/) is not ignored.
+# examples/) is not ignored. Each job runs only when the change reaches the example app or the deploy CLI (the
+# `changes` job, scripts/ci/affected.mjs).
 on:
   push:
     branches: [master]
@@ -33,8 +34,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which slow areas the change reaches (scripts/ci/affected.mjs): the jobs below that need it run only for their
+  # area. A shared root file, a manual run or a failure to list the files runs every area.
+  changes:
+    name: changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      example-app: ${{ steps.areas.outputs.example-app }}
+      deploy: ${{ steps.areas.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: areas
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/affected.mjs
+
   e2e:
     name: example app e2e
+    needs: changes
+    if: needs.changes.outputs.example-app == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -97,6 +119,8 @@ jobs:
 
   stripe-sandbox:
     name: Stripe sandbox payment
+    needs: changes
+    if: needs.changes.outputs.example-app == 'true'
     runs-on: ubuntu-latest
     # A payment on Stripe's hosted Checkout whose webhook Stripe itself delivers, through `stripe listen`
     # (examples/next-app/e2e/billing-checkout.stripe-sandbox.spec.ts). Runs with the repository's
@@ -229,6 +253,8 @@ jobs:
 
   container:
     name: example app container (ops recipe)
+    needs: changes
+    if: needs.changes.outputs.example-app == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -241,6 +267,8 @@ jobs:
 
   deploy-init:
     name: deploy init image (softure-deploy init)
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
