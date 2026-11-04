@@ -1,0 +1,57 @@
+# The tests that run the repository's shell scripts (the deploy workflow's steps, deploy.sh, the deploy e2e scripts),
+# on a Mac with its own bash 3.2 and BSD tools: `npm test` is the pre-push hook there too (issue #177). The image puts
+# Homebrew's bash 5 and GNU tools first in PATH, so the system folders go ahead of them. The database tests need the
+# Postgres service, which runs on Linux runners only, and run no shell scripts.
+#
+# Not part of ci.yml: when GitHub has no macOS runner free the job waits about 15 minutes and is cancelled, which
+# turned unrelated pull requests red. It runs only when a file its tests execute or read changes, on demand, and once
+# a week so a new macOS runner image is caught too. The same tests run on Linux in ci.yml on every pull request.
+
+name: macos
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "tools/deploy/**"
+      - ".github/workflows/**"
+      - ".github/actions/**"
+      - "tests/repo/deploy-workflows.test.ts"
+      - "tests/repo/repo-files.ts"
+  pull_request:
+    paths:
+      - "tools/deploy/**"
+      - ".github/workflows/**"
+      - ".github/actions/**"
+      - "tests/repo/deploy-workflows.test.ts"
+      - "tests/repo/repo-files.ts"
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per pull request (or per branch), the newest wins.
+concurrency:
+  group: macos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: shell script tests on macOS
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run the shell script tests with the system tools
+        run: |
+          export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+          bash --version | head -n 1
+          tar --version | head -n 1
+          npx vitest run tools/deploy/tests tests/repo/deploy-workflows.test.ts

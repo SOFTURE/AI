@@ -90,6 +90,44 @@ describe("ci.yml", () => {
   });
 });
 
+// With no macOS runner free the job waited about 15 minutes and was cancelled, which turned unrelated pull requests
+// red, so the shell script tests on macOS run in a workflow of their own, only when what they test changes.
+describe("macos.yml", () => {
+  const workflow = readWorkflow("macos.yml");
+  const command = workflow.jobs.macos?.steps?.find((step) => step.run?.includes("npx vitest run"))?.run ?? "";
+  const targets = /npx vitest run (.+)/.exec(command)?.[1]?.trim().split(/\s+/) ?? [];
+  const paths = workflow.on.pull_request?.paths ?? [];
+
+  function isCovered(path: string): boolean {
+    return paths.some((pattern) =>
+      pattern.endsWith("/**") ? path === pattern.slice(0, -3) || path.startsWith(pattern.slice(0, -2)) : path === pattern,
+    );
+  }
+
+  it("is the only workflow with a macOS job; ci.yml runs none", () => {
+    expect(JSON.stringify(readWorkflow("ci.yml").jobs)).not.toContain("macos");
+    expect(workflow.jobs.macos?.["timeout-minutes"]).toBeGreaterThan(0);
+  });
+
+  it("runs on pull requests and master with the same paths filter, on demand and on a schedule", () => {
+    expect(Object.keys(workflow.on).sort()).toEqual(["pull_request", "push", "schedule", "workflow_dispatch"]);
+    expect(workflow.on.push?.branches).toEqual(["master"]);
+    expect(workflow.on.push?.paths).toEqual(paths);
+  });
+
+  it("filters on every path its tests run and on the workflows and actions they read", () => {
+    expect(targets).toEqual(["tools/deploy/tests", "tests/repo/deploy-workflows.test.ts"]);
+    for (const path of [...targets, "tests/repo/repo-files.ts", ".github/workflows/deploy-app.yml", ".github/actions/deploy/action.yml"]) {
+      expect(isCovered(path), path).toBe(true);
+    }
+  });
+
+  it("folds runs of one pull request together and cancels the superseded one", () => {
+    expect(workflow.concurrency?.group).toContain("github.event.pull_request.number || github.ref");
+    expect(workflow.concurrency?.["cancel-in-progress"]).toBe(true);
+  });
+});
+
 describe("e2e.yml", () => {
   const workflow = readWorkflow("e2e.yml");
 
