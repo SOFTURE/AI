@@ -6,6 +6,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **A draft render with `crf` keeps its picture (#1051):** the final pass of `renderFootage` copies an H.264 yuv420p
+  picture in Constrained Baseline, Main or High (was High only). `quality: "draft"` encodes with libx264
+  `ultrafast`, which writes Constrained Baseline, so a `draft` + `crf: 18` render was encoded a second time at
+  `medium` and ended slower than `standard`; now it is copied (about 540 s instead of 858 s for the issue's 56.7 s
+  film at one CPU). A picture outside those profiles is still re-encoded to High. `findFinishProblems` and the
+  finish log line name the profile; new export `PUBLISHABLE_H264_PROFILES`.
 - **The footage draft looks and sounds like the render (#1050):** `renderFootageDraft` follows the film's
   `captionStyle`: a `highlight` film gets the render's chunks of up to four words on an opaque box of
   `captionBackground`, in `captionText`, the word being said in `captionHighlight` for 0.32 s. New options `brand`
