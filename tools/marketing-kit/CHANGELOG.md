@@ -13,6 +13,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `MUSIC_FILE_TYPES` accepts the video containers `.mp4`, `.m4v`, `.mov` and `.webm` again, as 0.4.0 did: their sound
   is the bed, and the music track reads only the audio. `checkMusicFileType` treats a name without an extension as no
   name, so a storage key with a content type is checked by the content type.
+- **A fast ffmpeg draft of a footage film (#1018).** `renderFootageDraft(film, clips, transcript, edl, { buildDir,
+  output, width?, layout?, log, signal?, onProgress? })` writes a small (540 wide by default) fast-start H.264/AAC
+  draft with the film's phrase captions, zoom cuts, cross-fades, Ken Burns b-roll and speech track, without hyperframes.
+  Pure builders `buildFootageDraftArgs`, `buildFootageDraftCaptions`, `planFootageDraft`, `getFootageDraftFrame`; the
+  shipped caption font `FOOTAGE_DRAFT_FONT` (`fonts/`, DejaVu Sans Bold subset with every Polish letter).
+  `checkFootageTools({ needsDraft: true })` reports a missing `ass`, `xfade` or `zoompan` filter (`DRAFT_FILTERS`).
+  `getCaptionSpans` and `getFootageCaptionLayout` are shared by the render and the draft; progress gains the `draft`
+  stage; `runFfmpeg` takes `cwd`.
 - **Faster footage normalize and cut preview on a small worker (#1015).** `buildVideoFilter` now drops frames to
   30 fps and scales to the frame (crop: covered and cropped; blur: fitted, the blurred background made from the fitted
   picture) before the HDR tone map, so its float stages run on frame-sized pictures: a 4K HLG clip normalizes about

@@ -4,7 +4,7 @@ import type { ComposeFont } from "../compose/compose.js";
 import { escapeHtml, fontFaces, fontStack } from "../compose/html.js";
 import { captionChunks, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { phraseChunks } from "./captions.js";
+import { getCaptionSpans, phraseChunks, type CaptionSpan } from "./captions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
 import { DEFAULT_EDIT, getFootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS } from "./normalize.js";
@@ -110,15 +110,14 @@ export function composeFootage(input: FootageComposeInput): string {
   // --- Captions: plain phrases, or the pill that lights each word ---
   const isHighlight = film.captionStyle === "highlight";
   const caption = !film.captions ? [] : isHighlight ? captionChunks(words) : phraseChunks(words);
+  const spans = getCaptionSpans(caption, cutEnd);
   const captionHtml = caption
     .map((chunk, i) => {
-      const next = caption[i + 1];
-      const start = r3(chunk.start - 0.05);
-      const stop = Math.min(chunk.end + 0.35, next === undefined ? cutEnd : next.start - 0.06);
+      const { start, end: stop } = spans[i] as CaptionSpan;
       const box = isHighlight
         ? `<p class="pill">${chunk.words.map((w, j) => `<span id="cw${i}_${j}">${escapeHtml(w.text)}</span>`).join(" ")}</p>`
         : `<p class="phrase">${escapeHtml(chunk.words.map((w) => w.text).join(" "))}</p>`;
-      return `<div id="cap${i}" class="clip caption" data-start="${start}" data-duration="${r3(Math.max(0.1, stop - start))}">${box}</div>`;
+      return `<div id="cap${i}" class="clip caption" data-start="${start}" data-duration="${r3(stop - start)}">${box}</div>`;
     })
     .join("\n  ");
 
