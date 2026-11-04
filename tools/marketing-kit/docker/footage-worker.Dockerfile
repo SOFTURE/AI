@@ -27,3 +27,9 @@ RUN curl -sSfL --retry 3 -o /tmp/chrome.zip \
 
 ENV HYPERFRAMES_BROWSER_PATH=/opt/chrome-headless-shell-linux64/chrome-headless-shell \
   HYPERFRAMES_NO_TELEMETRY=1
+
+# hyperframes needs 1 GiB free in its temp folder and extracts the clips' frames there (hundreds of MB per minute of
+# film), so TMPDIR must be on a data volume, not a small tmpfs. The volume is the app's; in its image, for example:
+#   ENV TMPDIR=/data/tmp
+# (or renderFootage's tempDir). In a CPU-limited container set PRODUCER_MAX_WORKERS to the CPU quota; hyperframes
+# otherwise starts a capture worker per host core. HYPERFRAMES_EXTRACT_CACHE_MAX_MB caps the extraction cache (2048).

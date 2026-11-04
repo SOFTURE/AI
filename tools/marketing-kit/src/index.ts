@@ -340,6 +340,7 @@ export {
   type FootageEstimate,
   type FootageEstimateItem,
 } from "./footage/paid.js";
+export { RENDER_MIN_FREE_BYTES, findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./footage/disk.js";
 export { REQUIRED_DECODERS, REQUIRED_FILTERS, checkFootageTools, findBrowserProblem, readFfmpegListing, type FootageToolsOptions } from "./footage/tools.js";
 export {
   cutFootage,
