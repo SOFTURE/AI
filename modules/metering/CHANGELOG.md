@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the module. W
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.3.0
 
 - Budget limits editable at runtime, stored in the database (#1032): `setBudgetLimit(ctx, { provider, period,
   perAccount?, limit, updatedBy? })` overrides a declared budget's configured limit (`0` stops the provider),
