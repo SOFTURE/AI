@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-music-file-1020
-status: in_progress
+status: done
 ---
 
 # Plan: music files without an extension, video beds (issue #1020)
@@ -44,6 +44,6 @@ README (music file source fields, accepted types, the upload example), CHANGELOG
 
 ## Progress
 
-- [ ] Phase 1: the type check and the source
-- [ ] Phase 2: the pipeline
-- [ ] Phase 3: docs
+- [x] Phase 1: the type check and the source (6da6b62)
+- [x] Phase 2: the pipeline (130ee5c; review fix ffbc67a)
+- [x] Phase 3: docs (19a0d7a)

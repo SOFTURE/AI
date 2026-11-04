@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-music-file-1020
 title: "marketing-kit: accept a music file stored without an extension, and a video with sound as a bed (issue #1020)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1020
 branch: claude/project-thread-aoc2d1
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent
