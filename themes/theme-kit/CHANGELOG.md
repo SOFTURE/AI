@@ -2,6 +2,13 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
+## Unreleased
+
+- Text size on mobile Safari (#1056): `base.css` sets `-webkit-text-size-adjust: 100%` and `text-size-adjust: 100%`
+  on `html`, as Tailwind's full preflight does and the scoped `preflight.css` does not. Without it, iOS Safari
+  enlarged the text of a block wider than the viewport, such as a `Table` that scrolls sideways (cells at about 1.6x
+  the token size). An app gets the fix through its theme's `base.css`; one that set the rule itself can drop it.
+
 ## 0.1.7
 
 - `cn` and spacing tokens (#860): `createThemeCn(definition)` registers the theme's `sizes` names (`row-height`,

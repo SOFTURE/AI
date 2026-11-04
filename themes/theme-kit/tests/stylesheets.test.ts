@@ -15,10 +15,11 @@ function readVariables(rules: string): string[] {
 describe("base.css", () => {
   const rules = readRules("base.css");
 
-  it("styles only the universal selector and body, in the base layer, so every component and utility overrides it", () => {
+  it("styles only the universal selector, html and body, in the base layer, so every component and utility overrides it", () => {
     expect(rules.startsWith("@layer base {")).toBe(true);
     expect([...rules.matchAll(/^\s*([^@\s{}][^{}]*)\{/gm)].map((match) => (match[1] ?? "").replace(/\s+/g, " ").trim())).toEqual([
       "*, ::before, ::after, ::backdrop",
+      "html",
       "body",
     ]);
   });
@@ -27,6 +28,10 @@ describe("base.css", () => {
     expect(rules).toContain(
       "  *,\n  ::before,\n  ::after,\n  ::backdrop {\n    border-color: var(--border);\n    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);\n  }",
     );
+  });
+
+  it("keeps mobile Safari from enlarging the text of blocks wider than the viewport, as Tailwind's full preflight does", () => {
+    expect(rules).toContain("  html {\n    -webkit-text-size-adjust: 100%;\n    text-size-adjust: 100%;\n  }");
   });
 
   it("clears the browser's margin and reads only contract colours and the theme's sans font", () => {

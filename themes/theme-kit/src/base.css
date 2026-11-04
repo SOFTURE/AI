@@ -3,8 +3,10 @@
  * page keeps the browser's 8 px margin, serif font, black text and white background, and Radix portals mounted on
  * `body` (select lists, menus, sheets) inherit them. Borders and outlines: Tailwind's preflight leaves `border-color`
  * at `currentColor`, so a `border` without a colour class draws in the text colour; shadcn/ui's `globals.css` makes it
- * the theme's `border` grey and the focus outline a half-transparent `ring`, and so does this file. In `@layer base`,
- * after Tailwind's preflight, so every component and utility overrides it.
+ * the theme's `border` grey and the focus outline a half-transparent `ring`, and so does this file. `html`: Tailwind's
+ * full preflight sets `text-size-adjust: 100%`, which the scoped one leaves out, so mobile Safari would enlarge the
+ * text of any block wider than the viewport (a table that scrolls sideways). In `@layer base`, after Tailwind's
+ * preflight, so every component and utility overrides it.
  *
  * Reads `--background`, `--foreground`, `--border` and `--ring` (colour roles every theme defines) and the theme's
  * `--font-sans`. Import it after the theme's `theme.css`, through the app's Tailwind (it reads the font with
@@ -17,6 +19,11 @@
   ::backdrop {
     border-color: var(--border);
     outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
