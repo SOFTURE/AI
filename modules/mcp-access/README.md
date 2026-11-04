@@ -189,6 +189,27 @@ export const createServer = createMcpServerFactory({
   and count of each level, for an inline snapshot next to the catalog check: a schema change that forgets to update
   the snapshot fails the test.
 
+### Sessions that follow the tool list
+
+A hosted client can keep its cached `tools/list` for as long as its connection lives, even after the version moved,
+and the endpoint has no stream to send `notifications/tools/list_changed` on. So `createMcpEndpoint` ties a session to
+the tool list (#1055):
+
+- `initialize` answers with an `Mcp-Session-Id` that carries the tool list version of the identity's access level
+  (`<base64url(version)>.<random>`). Nothing is stored, so every instance can check it.
+- A request whose session carries another version (a release changed a tool, or the token's access level changed)
+  answers `404 Not Found` (`-32001 Session not found`). Streamable HTTP defines that as "start a new session": the
+  client initializes again, reads the new version and lists the tools again, without the user reconnecting.
+- A client that sends no session id is served as before. `initialize` declares `tools.listChanged: false`, since the
+  endpoint never sends the notification.
+- The version comes from the factory: `createMcpServerFactory` returns a factory with `toolListVersion(identity)`. A
+  hand-written factory issues no session id unless the endpoint gets `toolListVersion` itself:
+  `createMcpEndpoint({ createServer, toolListVersion: async (identity) => ... })`. A failing reader logs and serves
+  the request without a session.
+- In the app's tests, `expectToolListSessionRenewed(before, after)` (`/testing`) takes the previous and the new
+  factory and throws unless a session opened under `before` is renewed for every access level whose list changed (and
+  kept for the others).
+
 ### Strict tool input
 
 zod objects strip unknown keys, so a call with a misspelt field (`notes` for `note`) or a field of a newer tool list

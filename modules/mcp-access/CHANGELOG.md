@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- Sessions that follow the tool list (#1055): `createMcpEndpoint` answers `initialize` with an `Mcp-Session-Id` that
+  carries the tool list version of the identity's access level, and answers `404 Not Found` to a request whose session
+  carries another version, so a connected client initializes again and re-lists the tools after a release that
+  changed one, without reconnecting the connector. Stateless: nothing is stored. A request without a session id is
+  served as before. `initialize` now declares `tools.listChanged: false`, since the endpoint never sends the
+  notification. `createMcpServerFactory` returns a factory with `toolListVersion(identity)`; a hand-written factory
+  passes `toolListVersion` to `createMcpEndpoint` to get sessions. `/testing` adds
+  `expectToolListSessionRenewed(before, after)`. Migrate: nothing for an app on `createMcpServerFactory`.
+
 ## 0.4.0
 
 - Operation tools with a context getter (#990), in `@softure-ai/mcp-access/jobs`: `registerOperationStatusTool`,

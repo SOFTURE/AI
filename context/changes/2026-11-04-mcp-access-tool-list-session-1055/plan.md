@@ -37,5 +37,5 @@ Files: `src/testing/catalog.ts` (or a new `src/testing/sessions.ts`), `src/testi
 
 ## Progress
 
-- [ ] Phase 1: sessions in the endpoint
+- [x] Phase 1: sessions in the endpoint (f40a10f, 16 new tests; helper in `src/testing/sessions.ts`)
 - [ ] Phase 2: testing helper and docs
