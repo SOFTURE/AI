@@ -5,7 +5,7 @@ version: 1
 status: waiting
 prd_version: 1
 created: 2026-10-03
-updated: 2026-10-06
+updated: 2026-11-04
 backlog: context/backlog/roadmap-later/
 trigger: "the owner step each item waits on (secrets, accounts) is done; the owner promotes it or takes single items"
 ---
@@ -43,19 +43,48 @@ trigger: "the owner step each item waits on (secrets, accounts) is done; the own
 > - Parallelism: up to 4 at once (`workflow.json` → `worktree.maxParallel`).
 > - Release: each item that changes a published package bumps it; the coordinator cuts one combined release
 >   once the roadmap's items are done.
-> - Owner at the keyboard: none left. MK-8, EN-9, MO-6, BL-8 and DP-8 are done: the release pipeline publishes to
+> - Owner at the keyboard: LT-4 (turn on Dependabot alerts and security updates) and LT-5 (the
+>   `SECURITY_ALERTS_TOKEN` secret). MK-8, EN-9, MO-6, BL-8 and DP-8 are done: the release pipeline publishes to
 >   npm directly since 0.1.5 (owner, 2026-10-06).
 
 ## At a glance
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
+| **LT-4** | `dependabot-config` | `.github/dependabot.yml`: grouped weekly npm and GitHub Actions updates, monthly Docker updates; Dependabot alerts on | — | autonomous | blocked (owner turns on Dependabot alerts and security updates) |
+| **LT-5** | `security-alerts-sync` | Open code scanning, Dependabot and secret scanning alerts become `security` issues hourly, closed when the alert is | LT-4 | autonomous | blocked (owner adds the `SECURITY_ALERTS_TOKEN` secret; waits for LT-4) |
 
 ## Order
 
-No item is waiting: LT-2 and LT-3 are done (2026-10-06).
+LT-4 first, then LT-5 (it reads the Dependabot alerts LT-4 turns on). LT-2 and LT-3 are done (2026-10-06).
 
 ## Items
+
+### LT-4: Dependabot configuration
+- **Change ID:** `dependabot-config`
+- **Status:** blocked (owner turns on Dependabot alerts and security updates)
+- **Input:** [`dependabot-config`](../../backlog/roadmap-later/dependabot-config/change.md)
+- **Source:** the owner (2026-11-04): the repository has no `dependabot.yml`, and alerts are only seen when someone
+  opens the Security tab.
+- **Outcome:** `.github/dependabot.yml` for npm (root workspace), GitHub Actions (workflows and composite actions)
+  and the two real Dockerfiles, grouped and limited so the CI load stays at a few runs a week; a repository test
+  keeps it valid; `AGENTS.md` says how a Dependabot pull request is merged.
+- **Prerequisites:** the owner at the keyboard turns on Dependabot alerts and Dependabot security updates, and
+  checks secret scanning and push protection (Settings → Code security).
+- **Risk:** low (configuration only; every Dependabot pull request runs the normal gates).
+
+### LT-5: Security alerts as issues
+- **Change ID:** `security-alerts-sync`
+- **Status:** blocked (owner adds the `SECURITY_ALERTS_TOKEN` secret; waits for LT-4)
+- **Input:** [`security-alerts-sync`](../../backlog/roadmap-later/security-alerts-sync/change.md)
+- **Source:** the owner (2026-11-04): the agent sessions cannot read code scanning, Dependabot or secret scanning
+  alerts, so new alerts are not caught as they appear.
+- **Outcome:** an hourly workflow opens one `security` issue per open alert (no duplicates on re-runs) and closes it
+  when the alert is fixed or dismissed, so the coordinator's hourly issue check handles alerts like any other issue.
+- **Prerequisites:** LT-4 on the main branch; the owner creates a fine-grained token with read access to Dependabot,
+  secret scanning and code scanning alerts and saves it as the repository secret `SECURITY_ALERTS_TOKEN`.
+- **Unknowns:** whether the issue should carry the `pkg: <name>` label for alerts outside `packages/` paths.
+- **Risk:** low (read-only towards the alerts; issues only).
 
 ## Owner decisions and checks
 
@@ -95,6 +124,13 @@ Carried over from deploy with its item:
 - [ ] The SSH gateway (`gateway.sh`, forced command) and the Cloudflare-only firewall from FIRE_TRACKER `docker/prod/`
   and `docker/server/`: add them to `softure.vps_foundation` (outside this repository) when convenient.
 
+Added on 2026-11-04 (security alerts):
+
+- [ ] **LT-4**: in Settings → Code security of SOFTURE/AI, turn on Dependabot alerts and Dependabot security updates;
+  check that secret scanning and push protection are on.
+- [ ] **LT-5**: create a fine-grained personal access token for SOFTURE/AI with read access to Dependabot alerts,
+  secret scanning alerts and code scanning alerts, and save it as the repository secret `SECURITY_ALERTS_TOKEN`.
+
 ## Done
 
 - **LT-2** `release-version-inline-manifest` (2026-10-06): `release:version` also sets the inline manifest version
@@ -118,6 +154,11 @@ Carried over from deploy with its item:
   ([`archive/2026-10-06-testing-browser-hook-timeout/`](../../archive/2026-10-06-testing-browser-hook-timeout/change.md)).
 
 ## Decisions (auto)
+
+- LT-4 and LT-5 added on the owner's word (2026-11-04). → Both wait on the owner at the keyboard (a repository
+  setting, a token), which is what this roadmap holds. Alerts become issues instead of giving the sessions new
+  access, because the coordinator already checks issues every hour; the workflow's own `GITHUB_TOKEN` cannot read
+  Dependabot or secret scanning alerts, hence the secret.
 
 - LT-3 added from `release-0-1-5` (2026-10-06). → A gap found in the release, filed here instead of fixed on the
   spot (owner, 2026-10-03); it waits on nothing, so it is `ready`.
