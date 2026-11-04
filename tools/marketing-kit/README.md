@@ -801,6 +801,25 @@ const result = await renderFootageFilm(film, {
   quota: set `PRODUCER_MAX_WORKERS` to the quota. `HYPERFRAMES_EXTRACT_CACHE_MAX_MB` caps the extraction cache
   (default 2048).
 
+- **Memory.** The render plays the cut's picture as one `<video>`: in the `assets` stage `renderFootage` renders it
+  in film time (`assets/picture.mp4`, one short ffmpeg per segment, one after the other, cross-fades drawn in, the
+  same encoder as `normalize`), so hyperframes extracts the film's frames with one ffmpeg and its Chrome holds one
+  video instead of one per segment. Measured on a 45 s 1080×1920 film of 12 segments with captions, one CPU,
+  hyperframes' low-memory profile (cgroup `rss + shmem`, peak per stage):
+
+  | Stage | One `<video>` per segment (0.6.0) | One `<video>` (now) |
+  | --- | --- | --- |
+  | `video_extract` | 970 MiB (12 ffmpeg at once) | 222 MiB |
+  | `capture_streaming` | 1716 MiB | 1209 MiB |
+
+  What is left is hyperframes' own: Chrome's renderer starts at about 0.75 GiB and grows by about 0.3 MB per
+  captured frame (about 9 MB per second of film at 30 fps), with libx264 about 400 MB beside it (`quality: "draft"`
+  encodes faster and peaks about 150 MB lower). A 1.5 GiB worker renders about a minute of film; budget about
+  0.75 GiB plus 10 MB per second of film. The picture costs one extra encode of the cut (about 75 s for 45 s of film
+  at one CPU with `veryfast`; the render itself takes about 18 s per second of film). `workers` and `lowMemory` pass
+  hyperframes' `--workers` and `--low-memory-mode` / `--no-low-memory-mode` (by default hyperframes turns its
+  low-memory profile on by itself at 8 GB or less, reading a cgroup v2 limit).
+
 **Container recipe.** [`docker/footage-worker.Dockerfile`](docker/footage-worker.Dockerfile) is a worker base image:
 `node:22-trixie-slim`, Debian's ffmpeg 7.1 (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and
 fonts Chrome needs, and the chrome-headless-shell hyperframes 0.8.85 pins, named by `HYPERFRAMES_BROWSER_PATH`. CI

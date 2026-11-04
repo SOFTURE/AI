@@ -339,6 +339,16 @@ export {
   type RenderFootageDraftOptions,
 } from "./footage/draft.js";
 export {
+  buildPictureConcatArgs,
+  buildPictureList,
+  buildPicturePieceArgs,
+  getPictureFrames,
+  planFootagePicture,
+  type PictureFadeTail,
+  type PicturePiece,
+  type PicturePieceArgsInput,
+} from "./footage/picture.js";
+export {
   DEFAULT_LOUDNESS,
   buildLoudnessArgs,
   buildLoudnessMeasureArgs,
