@@ -85,6 +85,11 @@ export interface FootageFilm {
   clips: FootageClip[];
   /** Clean the talking clips' voice (ElevenLabs Voice Isolator, paid) before transcribing them. */
   isolateVoice: boolean;
+  /**
+   * Names and brand words the transcript should spell as given (Scribe keyterm prompting, billed on top of the
+   * transcription). Checked against `SCRIBE_KEYTERM_LIMITS`; absent or empty: none.
+   */
+  keyTerms?: string[];
   cut: CutOptions;
   transitions: FootageTransitions;
   music: FootageMusic;

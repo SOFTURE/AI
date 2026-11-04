@@ -618,6 +618,13 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   `voice.language`). With `isolateVoice`, ElevenLabs Voice Isolator cleans the voice first and the film speaks with
   the cleaned voice. Both are paid, keyed by the clip's bytes, trim and settings, and cached in
   `<voice.cacheDir>/<film>/` (`<key>.transcript.json`, `<key>.isolated.mp3`): commit them, a re-render never pays twice.
+- **Key terms:** `keyTerms` (e.g. `["Acme Cloud", "Zakopane"]`) lists names and brand words Scribe should spell as
+  given (keyterm prompting, sent as one `keyterms` field per term). Scribe v2 takes up to 1000 terms of at most 50
+  characters and 5 words each (`SCRIBE_KEYTERM_LIMITS`); the list is trimmed, deduplicated and sorted
+  (`normalizeKeyTerms`), and a term over a limit stops the run before anything is paid for. Key terms are part of the
+  transcript's cache key only when there are any, so adding them buys the transcript once more and a film without
+  them keeps its cache. Keyterm prompting is billed on top of the transcription: ElevenLabs lists Scribe at $0.22 per
+  hour and keyterm prompting at $0.05 per hour more (API pricing page, checked 2026-11-03).
 - **Cut (EDL):** `fillers` (default per language: Polish `yyy`, `eee`, `yhm` and more; English `um`, `uh` and more,
   compared without case, punctuation and repeated letters) are cut out, a silence longer than `pauseSeconds` is cut,
   `padSeconds` stays around every cut, `maxSeconds` caps the length. The result is
@@ -738,11 +745,12 @@ job's signal and report back:
 ```ts
 import { checkFootageTools, estimateFootageFilm, findCachedStep, renderFootageFilm } from "@softure-ai/marketing-kit";
 
-const problems = await checkFootageTools(); // ffmpeg + ffprobe, hevc decoder, zscale + tonemap, hyperframes' browser
+const problems = await checkFootageTools({ tempDir, buildDir }); // ffmpeg + ffprobe, hevc decoder, zscale + tonemap, hyperframes' browser, 1 GiB free
 if (problems.length > 0) throw new Error(problems.join("\n"));
 
-// Probes only: no normalize, no provider call. Rates are the app's own credits per second for each paid step.
-const estimate = await estimateFootageFilm(film, { cacheDir, buildDir, providers, rates: { transcribe: 0.5, isolate: 1, music: 4 } });
+// Probes only: no normalize, no provider call. Rates are the app's own credits per second for each paid step;
+// `keyTerms` is added to `transcribe` for a film with key terms (keyterm prompting's surcharge).
+const estimate = await estimateFootageFilm(film, { cacheDir, buildDir, providers, rates: { transcribe: 0.5, isolate: 1, music: 4, keyTerms: 0.12 } });
 // estimate.value: { items: [{ step, item, provider, units, unit: "seconds", credits, cached }], totalCredits }
 
 const result = await renderFootageFilm(film, {
@@ -757,8 +765,9 @@ const result = await renderFootageFilm(film, {
   `total` are seconds of media across the stage (ffmpeg's `-progress`, hyperframes' percentage), `itemIndex` of
   `itemCount` names the clip ("normalizing clip 2 of 4").
 - `onCharge` fires after each paid call, with the provider's reported charge in `credits` when its API returns one
-  (ElevenLabs' `character-cost` header) and the paid cache's key of the result. `createFootageChargeRecorder` of
-  `@softure-ai/metering` turns it into a spend ledger with budgets ([metering README](../../modules/metering/README.md),
+  (ElevenLabs' `character-cost` header), the paid cache's key of the result and, for speech to text with key terms,
+  `keyTerms`: how many terms the call sent, so a ledger that prices by the second can add the surcharge.
+  `createFootageChargeRecorder` of `@softure-ai/metering` turns it into a spend ledger with budgets ([metering README](../../modules/metering/README.md),
   section 10).
 - `findCachedStep(film, step, item, { cacheDir, providers, buildDir })` answers whether a paid step (`transcribe` or
   `isolate` for a clip id, `music` for `film`) is already cached, without network. A cached step costs 0 in the
@@ -769,6 +778,17 @@ const result = await renderFootageFilm(film, {
   clips already normalized be made again.
 - The CLI runs `checkFootageTools` before `footage`, letting hyperframes download its browser on the first render;
   a worker image ships the browser instead.
+- **Disk room.** hyperframes refuses to render when its temp folder or the build folder has under 1 GiB free
+  (`RENDER_MIN_FREE_BYTES`), and it extracts the clips' frames into the temp folder
+  (`hyperframes-extract-cache-<uid>`, about 750 MB for a 36 s 1080×1920 film, kept afterwards up to 2 GiB). Point
+  `TMPDIR` at a data volume, not a small tmpfs (a container's 256 MB `/tmp` fails every render), or pass
+  `renderFootage`'s `tempDir`, which reaches hyperframes as `TMPDIR`. `checkFootageTools({ tempDir, buildDir })` reports
+  a folder that is too small, and `renderFootage` checks both folders before anything is bought or built, ending with
+  `not enough disk space to render: …` instead of hyperframes' exit code. `findLowDiskProblems` is the check on its
+  own.
+- **A CPU-limited container.** hyperframes picks its capture workers from the host's cores, not the container's CPU
+  quota: set `PRODUCER_MAX_WORKERS` to the quota. `HYPERFRAMES_EXTRACT_CACHE_MAX_MB` caps the extraction cache
+  (default 2048).
 
 **Container recipe.** [`docker/footage-worker.Dockerfile`](docker/footage-worker.Dockerfile) is a worker base image:
 `node:22-trixie-slim`, Debian's ffmpeg 7.1 (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and

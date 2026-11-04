@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProvider } from "./fake.js";
 import { DEFAULT_TRANSITIONS, type FootageFilm } from "./film.js";
-import { findCachedStep, getClipCacheKey, getDownloadPath, getEdlPath, getPromptMusicCache, getTranscriptCache, getVideoMusicCache } from "./paid.js";
+import { estimateFootageFilm, findCachedStep, getClipCacheKey, getDownloadPath, getEdlPath, getPromptMusicCache, getTranscriptCache, getVideoMusicCache } from "./paid.js";
 import { toPaidAudio } from "./providers.js";
 
 describe("findCachedStep", () => {
@@ -57,6 +58,22 @@ describe("findCachedStep", () => {
     expect(await findCachedStep(film({ language: "pl" }), "transcribe", "talk", options())).toBe(false);
   });
 
+  it("keys a transcript with key terms apart, and one without them as before", async () => {
+    const clip = film().clips[0];
+    if (clip === undefined) throw new Error("no clip");
+    const clipKey = await getClipCacheKey(clip.source, clip);
+    const plain = getTranscriptCache(film(), clipKey, options()).key;
+    expect(getTranscriptCache(film({ keyTerms: [] }), clipKey, options()).key).toBe(plain);
+    expect(getTranscriptCache(film({ keyTerms: [" ", ""] }), clipKey, options()).key).toBe(plain);
+    const named = getTranscriptCache(film({ keyTerms: ["Zakopane", "Acme"] }), clipKey, options()).key;
+    expect(named).not.toBe(plain);
+    // The same terms in another order, spaced or repeated, are the same transcript.
+    expect(getTranscriptCache(film({ keyTerms: [" Acme", "Zakopane", "Acme"] }), clipKey, options()).key).toBe(named);
+    expect(getTranscriptCache(film({ keyTerms: ["Acme"] }), clipKey, options()).key).not.toBe(named);
+    await cacheTranscript(film());
+    expect(await findCachedStep(film({ keyTerms: ["Acme"] }), "transcribe", "talk", options())).toBe(false);
+  });
+
   it("answers false for an unknown clip, a step the film skips and a URL clip not downloaded yet", async () => {
     await cacheTranscript(film());
     expect(await findCachedStep(film(), "transcribe", "gone", options())).toBe(false);
@@ -99,5 +116,59 @@ describe("toPaidAudio", () => {
     const audio = Buffer.from("mp3");
     expect(toPaidAudio(audio)).toEqual({ audio });
     expect(toPaidAudio({ audio, credits: 12 })).toEqual({ audio, credits: 12 });
+  });
+});
+
+describe("estimateFootageFilm with key terms", () => {
+  let dir: string;
+  const providers = { stt: createFakeSttProvider(), isolation: createFakeIsolationProvider(), music: createFakeMusicProvider() };
+  const rates = { transcribe: 2, isolate: 1, music: 5, keyTerms: 0.5 };
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "footage-estimate-"));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function film(source: string, changes: Partial<FootageFilm> = {}): FootageFilm {
+    return {
+      id: "street",
+      title: "Street",
+      format: "9:16",
+      language: "en",
+      clips: [{ id: "talk", source, role: "talk", fit: "auto", trim: { start: 0, end: null }, script: null }],
+      isolateVoice: false,
+      cut: { fillers: [], pauseSeconds: 0.6, padSeconds: 0.1, maxSeconds: null },
+      transitions: DEFAULT_TRANSITIONS,
+      music: { source: { kind: "none" }, volume: 0.35, duckedVolume: 0.1 },
+      captions: true,
+      endCard: null,
+      ...changes,
+    };
+  }
+
+  it("fails on key terms over Scribe's limits before probing anything", async () => {
+    const result = await estimateFootageFilm(film(join(dir, "missing.mov"), { keyTerms: ["one two three four five six"] }), { cacheDir: join(dir, "cache"), providers, rates });
+    expect(result).toEqual({ ok: false, error: 'footage film street: key term "one two three four five six": 6 words, at most 5.' });
+  });
+
+  const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0 && spawnSync("ffprobe", ["-version"]).status === 0;
+
+  it.runIf(hasFfmpeg)("adds the keyterm surcharge to transcription only when the film has key terms", async () => {
+    const source = join(dir, "talk.mp4");
+    const made = spawnSync("ffmpeg", ["-v", "error", "-f", "lavfi", "-i", "color=c=black:s=108x192:d=2", "-f", "lavfi", "-i", "sine=d=2", "-shortest", "-pix_fmt", "yuv420p", source]);
+    expect(made.status).toBe(0);
+    const options = { cacheDir: join(dir, "cache"), providers, rates };
+    const plain = await estimateFootageFilm(film(source), options);
+    const named = await estimateFootageFilm(film(source, { keyTerms: ["Acme"] }), options);
+    if (!plain.ok || !named.ok) throw new Error("expected estimates");
+    const units = plain.value.items[0]?.units ?? 0;
+    expect(plain.value.totalCredits).toBe(Math.round(units * 2 * 100) / 100);
+    expect(named.value.totalCredits).toBe(Math.round(units * 2.5 * 100) / 100);
+    const withoutSurcharge = { transcribe: rates.transcribe, isolate: rates.isolate, music: rates.music };
+    const unpriced = await estimateFootageFilm(film(source, { keyTerms: ["Acme"] }), { ...options, rates: withoutSurcharge });
+    expect(unpriced.ok && unpriced.value.totalCredits).toBe(plain.value.totalCredits);
   });
 });

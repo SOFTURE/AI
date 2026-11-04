@@ -15,6 +15,7 @@ import {
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
 import { CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS } from "../footage/film.js";
+import { normalizeKeyTerms } from "../footage/keyterms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
 import { COLOR_ROLES, COLOR_THEMES, isHexColor, type ColorRole } from "./colors.js";
@@ -500,6 +501,16 @@ const footageSchema = z
       .min(1, "a footage film needs at least one clip")
       .describe("The filmed clips in the film's order."),
     isolateVoice: z.boolean().default(false).describe("Clean the talking clips' voice of background noise (ElevenLabs Voice Isolator, paid with --commit) before transcribing."),
+    keyTerms: z
+      .array(z.string())
+      .superRefine((terms, context) => {
+        const normalized = normalizeKeyTerms(terms);
+        if (!normalized.ok) for (const message of normalized.errors) context.addIssue({ code: "custom", message });
+      })
+      .optional()
+      .describe(
+        "Names and brand words the transcript should spell as given (ElevenLabs Scribe keyterm prompting, billed on top of the transcription): up to 1000 terms of at most 50 characters and 5 words each; trimmed, deduplicated and sorted.",
+      ),
     fillers: z
       .array(nonBlank)
       .optional()

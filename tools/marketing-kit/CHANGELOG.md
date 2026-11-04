@@ -14,6 +14,23 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   100 s clip. The normalized format changed slightly, so clips normalized by an earlier version are made once more.
   New `normalize: { preset, threads }` on the run options (`NormalizeEncoder`, `X264_PRESETS`) trades the
   intermediate's file size for speed.
+- **Footage renders check the disk first (#1014).** hyperframes refuses to render with under 1 GiB free in its temp
+  folder or the build folder, which ended a run with `hyperframes render ended with code 1`. Now `renderFootage`
+  checks both folders before the music, speech and assets steps and returns `not enough disk space to render: …`,
+  naming the folder; `checkFootageTools` reports the same with a render (`tempDir` and `buildDir` options).
+  `renderFootage`'s new `tempDir` reaches hyperframes as `TMPDIR` (created when missing). `findLowDiskProblems`,
+  `getFreeBytes`, `getRenderTempDir` and `RENDER_MIN_FREE_BYTES` are exported.
+- Docs: the README and the worker recipe say `TMPDIR` needs a data volume, not a small tmpfs, and name
+  `PRODUCER_MAX_WORKERS` and `HYPERFRAMES_EXTRACT_CACHE_MAX_MB` for a CPU-limited container.
+- **Key terms for a footage film's transcript (#1012):** `FootageFilm.keyTerms` and `footage[].keyTerms` in
+  `marketing.json` pass names and brand words to ElevenLabs Scribe (keyterm prompting, one `keyterms` form field per
+  term), checked against Scribe v2's limits (`SCRIBE_KEYTERM_LIMITS`: 1000 terms, 50 characters, 5 words),
+  trimmed, deduplicated and sorted (`normalizeKeyTerms`, `getFilmKeyTerms`). `SttInput.keyTerms` carries them to any
+  STT provider, and the fake STT records them in `calls`. The transcript's cache key includes the key terms only when
+  there are any: existing cached transcripts keep their keys. `FootageRates.keyTerms` (optional) is the surcharge per
+  second that `estimateFootageFilm` adds to transcription for a film with key terms, and `FootageCharge.keyTerms`
+  counts the terms a speech to text call sent. Invalid key terms fail `transcribeFootage` and `estimateFootageFilm`
+  before anything is probed or paid for.
 
 ## 0.5.0
 
