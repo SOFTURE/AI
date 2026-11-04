@@ -19,8 +19,8 @@ import { buildEdl, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
 import { getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
 import { getFilmKeyTerms } from "./keyterms.js";
-import { DEFAULT_LOUDNESS, normalizeLoudness } from "./loudness.js";
-import { duckingKeyframes } from "./music.js";
+import { DEFAULT_LOUDNESS, getLoudnessFilter, measureLoudness, normalizeLoudness } from "./loudness.js";
+import { duckingKeyframes, getDuckingOptions } from "./music.js";
 import { normalizeFootage, type Frame, type NormalizeEncoder } from "./normalize.js";
 import { describeProbe, getTrimmedDuration, probeFootage, type FootageProbe } from "./probe.js";
 import {
@@ -542,7 +542,7 @@ export async function renderFootage(
     });
   }
   if (musicFile !== null) {
-    const keyframes = duckingKeyframes(words, { volume: film.music.volume, duckedVolume: film.music.duckedVolume });
+    const keyframes = duckingKeyframes(words, getDuckingOptions(film.music));
     const output = join(assetsDir, "music.mp3");
     tracks.push({ item: "music", seconds, run: ffmpegTrack("The music track", output, () => buildMusicArgs({ input: musicFile, seconds, keyframes, output })) });
   }
@@ -622,13 +622,14 @@ export interface FinishedFootage {
 }
 
 /**
- * The final pass over hyperframes' render: publishable codecs and fast start (stream copy where the render already
- * matches), checked with ffprobe, then the cover and the file's facts.
+ * The final pass over hyperframes' render: the mix normalized to `film.mixLoudness` (measured on the render, one
+ * linear gain; the picture still copied), publishable codecs and fast start (stream copy where the render already
+ * matches), checked with ffprobe, then the cover and the file's facts. Exported for tests only.
  */
-async function finishFootage(
-  film: FootageFilm,
+export async function finishFootage(
+  film: Pick<FootageFilm, "mixLoudness" | "cover">,
   input: { renderFile: string; seconds: number; coverAt: number },
-  options: RenderFootageOptions,
+  options: Pick<RenderFootageOptions, "log" | "signal" | "output" | "onProgress">,
 ): Promise<FootageResult<FinishedFootage>> {
   const { log, signal, output } = options;
   const aborting = signal === undefined ? {} : { signal };
@@ -636,8 +637,21 @@ async function finishFootage(
   progress(0, 0);
   const rendered = await probeFilmFacts(input.renderFile, aborting);
   if (!rendered.ok) return err(`the rendered film: ${rendered.error}`);
-  const isCopied = isPublishableVideo(rendered.facts.video) && (rendered.facts.audio === null || isPublishableAudio(rendered.facts.audio));
-  await runFfmpeg("The film's final pass", buildFinishArgs(input.renderFile, rendered.facts, output), { ...aborting, output, onSeconds: (done) => progress(0, done) });
+  const mixLoudness = film.mixLoudness === undefined ? DEFAULT_LOUDNESS : film.mixLoudness;
+  let audioFilter: string | undefined;
+  if (mixLoudness !== null && rendered.facts.audio !== null) {
+    const measured = await measureLoudness(input.renderFile, mixLoudness, { label: "the film's mix", ...aborting });
+    if (measured.kind === "silent") {
+      log("loudness: the film's mix is silent, left as it is.");
+    } else {
+      audioFilter = getLoudnessFilter(measured.measurement, mixLoudness);
+      log(`loudness: the film's mix measured ${measured.measurement.inputI.toFixed(1)} LUFS, normalized to ${mixLoudness.target} LUFS (true peak ${mixLoudness.truePeak} dBTP).`);
+    }
+  }
+  const isVideoCopied = isPublishableVideo(rendered.facts.video);
+  const isAudioCopied = audioFilter === undefined && (rendered.facts.audio === null || isPublishableAudio(rendered.facts.audio));
+  const finishArgs = buildFinishArgs(input.renderFile, rendered.facts, output, audioFilter === undefined ? {} : { audioFilter });
+  await runFfmpeg("The film's final pass", finishArgs, { ...aborting, output, onSeconds: (done) => progress(0, done) });
   rmSync(input.renderFile, { force: true });
   const finished = await probeFilmFacts(output, aborting);
   if (!finished.ok) return err(`the finished film: ${finished.error}`);
@@ -645,7 +659,8 @@ async function finishFootage(
   if (problems.length > 0) return err(`the finished film ${output} is not publishable: ${problems.join("; ")}.`);
   progress(0, input.seconds);
   const { bytes, width, height, durationSeconds } = finished.facts;
-  log(`finish: ${isCopied ? "streams copied" : "re-encoded"} to H.264 High, AAC 48 kHz stereo, fast start; ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${bytes} bytes.`);
+  const streams = isVideoCopied && isAudioCopied ? "streams copied" : isVideoCopied ? "picture copied, sound re-encoded" : "re-encoded";
+  log(`finish: ${streams} to H.264 High, AAC 48 kHz stereo, fast start; ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${bytes} bytes.`);
   let cover: string | null = null;
   if (film.cover !== null) {
     cover = getCoverPath(output);
