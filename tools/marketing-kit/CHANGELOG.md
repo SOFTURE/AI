@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.6.0
 
 - **Music files without an extension, and video beds (#1020):** the footage film's music file source takes the stored
   file's original name and content type (`{ kind: "file", path, fileName?, contentType? }`), so a file stored under an

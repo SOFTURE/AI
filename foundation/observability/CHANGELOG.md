@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.6.0
 
 - `softure-observability grafana apply --rules <file> [--dashboard <file>] [--commit] [--paused]` and
   `applyGrafanaResources()` in `/node` apply Grafana alert rules and a dashboard kept as code in the app (#1006),
