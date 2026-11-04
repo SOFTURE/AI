@@ -36,7 +36,9 @@ npm run build          # tsc builds of every workspace package, in dependency or
   workflow runs those tests with the system tools first in `PATH` whenever the scripts, the workflows or their
   tests change, and once a week.
 - `.github/workflows/ci.yml` runs the same gates (static, test, build) on every pull request, every push to
-  master and on demand; `e2e.yml` the same, skipping documents-only changes. Not on every pushed branch:
+  master and on demand; `e2e.yml` the same, skipping documents-only changes. Their slow area jobs (the
+  marketing-kit films, the host playbooks, the example app and deploy init image) run only when the change reaches
+  that area through `scripts/ci/affected.mjs`; a shared root file runs them all. Not on every pushed branch:
   with a pull request open, that would run each suite twice.
 - The repository tests guard the docs too: the roadmap contract (WORKFLOW §5), relative links in
   every `*.md`, and the shape of every workspace package. Start a package by copying

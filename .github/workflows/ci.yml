@@ -6,7 +6,8 @@
 # Not on every pushed branch: a branch with a pull request would run everything twice (the push and the
 # pull request have different refs, so `concurrency` cannot fold them), and the hooks already run these
 # gates before each commit and push. A branch without a pull request runs them on demand (workflow_dispatch).
-# No paths filter: the repository tests guard the Markdown too (links, roadmap contract, language gate).
+# No paths filter: the repository tests guard the Markdown too (links, roadmap contract, language gate). The slow jobs
+# of one area (the marketing-kit films, the host playbooks) run only when the change reaches it (the `changes` job).
 
 name: ci
 
@@ -25,6 +26,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which slow areas the change reaches (scripts/ci/affected.mjs): the jobs below that need it run only for their
+  # area. A shared root file, a manual run or a failure to list the files runs every area.
+  changes:
+    name: changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      marketing-kit: ${{ steps.areas.outputs.marketing-kit }}
+      host: ${{ steps.areas.outputs.host }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: areas
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/affected.mjs
+
   static:
     name: typecheck + lint + language
     runs-on: ubuntu-latest
@@ -80,6 +100,8 @@ jobs:
 
   render:
     name: marketing-kit fixture film render
+    needs: changes
+    if: needs.changes.outputs.marketing-kit == 'true'
     runs-on: ubuntu-latest
     # The test allows 10 minutes; a hung download must not hold a runner for hours.
     timeout-minutes: 15
@@ -147,6 +169,8 @@ jobs:
 
   footage-image:
     name: marketing-kit footage film in the worker image
+    needs: changes
+    if: needs.changes.outputs.marketing-kit == 'true'
     runs-on: ubuntu-latest
     # The image build downloads Debian packages and Chrome; a hung download must not hold a runner for hours.
     timeout-minutes: 20
@@ -209,6 +233,8 @@ jobs:
   # the key the CLI issues running deploy.sh through its forced command (tools/host/e2e/converge.sh).
   host-ansible:
     name: host playbooks converge
+    needs: changes
+    if: needs.changes.outputs.host == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
