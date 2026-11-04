@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -10,16 +10,20 @@ import { readCharacterMap } from "../og/character-map.js";
 import { getCaptionSpans, getFootageCaptionLayout, phraseChunks } from "./captions.js";
 import { getSegmentScales } from "./compose.js";
 import {
+  FOOTAGE_DRAFT_CAPTION_COLORS,
   FOOTAGE_DRAFT_FONT,
   buildFootageDraftArgs,
   buildFootageDraftCaptions,
   getFootageDraftFrame,
   planFootageDraft,
   renderFootageDraft,
+  toAssColor,
   type FootageDraftArgsInput,
 } from "./draft.js";
 import { getEdlDuration, type Edl } from "./edl.js";
+import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProvider } from "./fake.js";
 import { DEFAULT_TRANSITIONS, type FootageFilm } from "./film.js";
+import { getPromptMusicCache } from "./paid.js";
 import type { PreparedClip } from "./pipeline.js";
 import type { FootageProbe } from "./probe.js";
 import { DRAFT_FILTERS, checkFootageTools, readFfmpegListing } from "./tools.js";
@@ -187,6 +191,14 @@ describe("buildFootageDraftArgs", () => {
     expect(args[args.indexOf("/draft/speech.mp3") - 1]).toBe("-i");
   });
 
+  it("mixes the music track under the speech, summed as the render plays them", () => {
+    const args = buildFootageDraftArgs(argsInput({ music: "music.mp3" }));
+    expect(args.slice(args.indexOf("/draft/speech.mp3") - 1, args.indexOf("/draft/speech.mp3") + 3)).toEqual(["-i", "/draft/speech.mp3", "-i", "music.mp3"]);
+    expect(getGraph(args).at(-1)).toBe("[5:a][6:a]amix=inputs=2:duration=first:normalize=0[sound]");
+    expect(args.slice(args.indexOf("-map"), args.indexOf("-map") + 4)).toEqual(["-map", "[draft]", "-map", "[sound]"]);
+    expect(buildFootageDraftArgs(argsInput({ music: null }))).toEqual(buildFootageDraftArgs(argsInput()));
+  });
+
   it("leaves the thread counts to ffmpeg by default", () => {
     const args = buildFootageDraftArgs(argsInput());
     expect(args).not.toContain("-threads");
@@ -263,9 +275,57 @@ describe("buildFootageDraftCaptions", () => {
     expect(ass).toContain(`,2,${preset.left},${preset.right},${preset.bottom},1\n`);
   });
 
+  it("draws a highlight film's chunks of up to four words on the brand's box, lighting each word for 0.32 s", () => {
+    const colors = { captionBackground: "#0a0b0ccc", captionText: "#fff", captionHighlight: "#ff8800" };
+    const highlight = { ...film, captionStyle: "highlight" as const };
+    const ass = buildFootageDraftCaptions({ film: highlight, edl, words, caption: { top: 1470, left: 60, right: 80, fontSize: 50 }, frame: FRAME, fontFamily: "Brand Sans", colors }) ?? "";
+    expect(ass).toContain("Style: Caption,Brand Sans,50,&H00FFFFFF,&H00FFFFFF,&H330C0B0A,&H330C0B0A,-1,0,0,0,100,100,0,0,3,16,0,8,60,80,1470,1\n");
+    const lit = (word: string): string => `{\\1c&H0088FF&}${word}{\\1c&HFFFFFF&}`;
+    expect(ass.split("\n").filter((line) => line.startsWith("Dialogue:"))).toEqual([
+      "Dialogue: 0,0:00:00.05,0:00:00.10,Caption,,0,0,0,,Hello,",
+      `Dialogue: 0,0:00:00.10,0:00:00.42,Caption,,0,0,0,,${lit("Hello,")}`,
+      "Dialogue: 0,0:00:00.42,0:00:00.54,Caption,,0,0,0,,Hello,",
+      "Dialogue: 0,0:00:00.55,0:00:00.60,Caption,,0,0,0,,this is (the) draft.",
+      `Dialogue: 0,0:00:00.60,0:00:00.85,Caption,,0,0,0,,${lit("this")} is (the) draft.`,
+      `Dialogue: 0,0:00:00.85,0:00:00.92,Caption,,0,0,0,,${lit("this")} ${lit("is")} (the) draft.`,
+      `Dialogue: 0,0:00:00.92,0:00:01.05,Caption,,0,0,0,,this ${lit("is")} (the) draft.`,
+      `Dialogue: 0,0:00:01.05,0:00:01.17,Caption,,0,0,0,,this ${lit("is")} ${lit("(the)")} draft.`,
+      `Dialogue: 0,0:00:01.17,0:00:01.37,Caption,,0,0,0,,this is ${lit("(the)")} draft.`,
+      "Dialogue: 0,0:00:01.37,0:00:01.45,Caption,,0,0,0,,this is (the) draft.",
+      `Dialogue: 0,0:00:01.45,0:00:01.77,Caption,,0,0,0,,this is (the) ${lit("draft.")}`,
+      "Dialogue: 0,0:00:01.77,0:00:02.25,Caption,,0,0,0,,this is (the) draft.",
+    ]);
+  });
+
+  it("paints a highlight film without a brand in the draft's own caption colours", () => {
+    const ass = buildFootageDraftCaptions({ film: { ...film, captionStyle: "highlight" }, edl, words, caption, frame: FRAME }) ?? "";
+    expect(ass).toContain(`,${FOOTAGE_DRAFT_FONT.family},${caption.fontSize},&H00FFFFFF,&H00FFFFFF,&H00111111,&H00111111,-1,`);
+    expect(ass).toContain("{\\1c&H00D4FF&}Hello,{\\1c&HFFFFFF&}");
+    expect(FOOTAGE_DRAFT_CAPTION_COLORS.captionHighlight).toBe("#ffd400");
+  });
+
+  it("keeps a phrase film's white captions whatever the brand's colours, in the brand's font", () => {
+    const branded = buildFootageDraftCaptions({ film, edl, words, caption, frame: FRAME, colors: { captionBackground: "#123456", captionText: "#000000", captionHighlight: "#ff0000" } });
+    expect(branded).toBe(buildFootageDraftCaptions({ film, edl, words, caption, frame: FRAME }));
+    expect(buildFootageDraftCaptions({ film, edl, words, caption, frame: FRAME, fontFamily: "Brand, Sans" })).toContain("Style: Caption,Brand  Sans,");
+  });
+
   it("is null for a film without captions or without words", () => {
     expect(buildFootageDraftCaptions({ film: { captions: false }, edl, words, caption, frame: FRAME })).toBeNull();
     expect(buildFootageDraftCaptions({ film, edl, words: [], caption, frame: FRAME })).toBeNull();
+  });
+});
+
+describe("toAssColor", () => {
+  it("writes blue first and an inverted alpha", () => {
+    expect(toAssColor("#ff8800")).toBe("&H000088FF");
+    expect(toAssColor("#F80")).toBe("&H000088FF");
+    expect(toAssColor("#0a0b0ccc")).toBe("&H330C0B0A");
+    expect(toAssColor("#0000")).toBe("&HFF000000");
+  });
+
+  it("names a value that is not a hex colour", () => {
+    expect(() => toAssColor("red")).toThrow('Not a hex colour: "red".');
   });
 });
 
@@ -342,5 +402,92 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     const head = readFileSync(drafted.value.output).subarray(0, 4096).toString("latin1");
     expect(head.indexOf("moov")).toBeGreaterThan(-1);
     expect(head.indexOf("moov")).toBeLessThan(head.indexOf("mdat") === -1 ? Infinity : head.indexOf("mdat"));
+    expect(drafted.value).toMatchObject({ music: "none", captionFont: "DejaVu Sans" });
+  }, 60_000);
+
+  const highlightFilm: FootageFilm = { ...film, captionStyle: "highlight", music: { source: { kind: "prompt", prompt: "calm piano" }, volume: 0.35, duckedVolume: 0.1 } };
+  const brand = {
+    colors: { captionBackground: "#0a0b0ccc", captionText: "#ffffff", captionHighlight: "#ff8800" },
+    // The CSS family differs from the file's own: libass needs the file's.
+    fonts: { heading: null, body: { family: "Brand Sans", fallback: "sans-serif", files: [{ path: FOOTAGE_DRAFT_FONT.file, weight: "700", style: "normal" as const, unicodeRange: null }] } },
+  };
+  const shortCut: Edl = { version: 2, film: "street", segments: [{ id: "s1", clip: "talk", start: 0, end: 2, transition: "cut", motion: "none" }] };
+
+  function draftInputs(): { clips: PreparedClip[]; transcript: { kind: "ready"; words: Record<string, { text: string; start: number; end: number }[]>; speech: Record<string, string> } } {
+    const talk = makeClip("talk", "testsrc2");
+    const prepared: PreparedClip = { clip: { id: "talk", source: talk, role: "talk", fit: "auto", trim: { start: 0, end: null }, script: null }, source: talk, probe: {} as FootageProbe, file: talk, duration: 4 };
+    return { clips: [prepared], transcript: { kind: "ready", words: { talk: [{ text: "Hello", start: 0.2, end: 0.6 }, { text: "draft.", start: 0.7, end: 1.2 }] }, speech: { talk } } };
+  }
+
+  function readStreamCodecs(file: string): string[] {
+    const probed = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name", "-of", "csv=p=0", file], { encoding: "utf8" });
+    return probed.stdout.trim().split("\n");
+  }
+
+  it("draws a highlight film in the brand's font and colours and plays its cached music ducked, with no provider call", async () => {
+    dir = mkdtempSync(join(tmpdir(), "footage-draft-"));
+    const { clips, transcript } = draftInputs();
+    const providers = { stt: createFakeSttProvider(), isolation: createFakeIsolationProvider(), music: createFakeMusicProvider() };
+    const cacheDir = join(dir, "cache");
+    const cached = getPromptMusicCache(highlightFilm, { cacheDir, providers }).path;
+    mkdirSync(dirname(cached), { recursive: true });
+    const made = spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "sine=f=220:d=1", "-c:a", "libmp3lame", cached]);
+    if (made.status !== 0) throw new Error(`making the cached music failed: ${made.stderr.toString()}`);
+    const lines: string[] = [];
+    const progress: { item: string; done: number; total: number }[] = [];
+    const drafted = await renderFootageDraft(highlightFilm, clips, transcript, shortCut, {
+      buildDir: join(dir, "build"),
+      output: join(dir, "draft.mp4"),
+      brand,
+      cacheDir,
+      providers,
+      log: (line) => lines.push(line),
+      onProgress: (step) => progress.push({ item: step.item, done: step.done, total: step.total }),
+    });
+    if (!drafted.ok) throw new Error(drafted.error);
+    expect(drafted.value).toMatchObject({ music: "played", captionFont: "DejaVu Sans", seconds: 2 });
+    expect(providers.music.calls).toEqual([]);
+    expect([...new Set(progress.map((step) => step.item))]).toEqual(["speech", "music", "film"]);
+    expect(progress.at(-1)).toEqual({ item: "film", done: 6, total: 6 });
+    const ass = readFileSync(join(dir, "build", "draft", "captions.ass"), "utf8");
+    expect(ass).toContain("Style: Caption,DejaVu Sans,");
+    expect(ass).toContain(",&H00FFFFFF,&H00FFFFFF,&H330C0B0A,&H330C0B0A,-1,0,0,0,100,100,0,0,3,16,0,");
+    expect(ass).toContain("{\\1c&H0088FF&}Hello{\\1c&HFFFFFF&}");
+    expect(existsSync(join(dir, "build", "draft", "music.mp3"))).toBe(true);
+    expect(readStreamCodecs(drafted.value.output)).toEqual(["h264", "aac"]);
+    expect(lines.at(-1)).toContain("captions in DejaVu Sans, music.");
+  }, 60_000);
+
+  it("drafts a film whose generated music is not cached without music, and says so", async () => {
+    dir = mkdtempSync(join(tmpdir(), "footage-draft-"));
+    const { clips, transcript } = draftInputs();
+    const providers = { stt: createFakeSttProvider(), isolation: createFakeIsolationProvider(), music: createFakeMusicProvider() };
+    const lines: string[] = [];
+    const run = { buildDir: join(dir, "build"), output: join(dir, "draft.mp4"), log: (line: string) => lines.push(line) };
+    const missing = await renderFootageDraft(highlightFilm, clips, transcript, shortCut, { ...run, cacheDir: join(dir, "cache"), providers });
+    if (!missing.ok) throw new Error(missing.error);
+    expect(missing.value.music).toBe("not_cached");
+    expect(providers.music.calls).toEqual([]);
+    expect(lines.some((line) => line.startsWith("draft: no music, the film's generated music is not in the cache yet ("))).toBe(true);
+    expect(lines.at(-1)).toContain("music not cached.");
+    lines.length = 0;
+    const unasked = await renderFootageDraft(highlightFilm, clips, transcript, shortCut, run);
+    if (!unasked.ok) throw new Error(unasked.error);
+    expect(unasked.value.music).toBe("not_cached");
+    expect(lines).toContain("draft: no music, the film's music is generated and the draft was given no cacheDir and providers to find it in the cache.");
+  }, 60_000);
+
+  it("plays a film's own music file and names one that is gone", async () => {
+    dir = mkdtempSync(join(tmpdir(), "footage-draft-"));
+    const { clips, transcript } = draftInputs();
+    const song = join(dir, "song.mp3");
+    spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "sine=f=330:d=1", "-c:a", "libmp3lame", song]);
+    const withFile = (path: string): FootageFilm => ({ ...film, music: { source: { kind: "file", path }, volume: 0.35, duckedVolume: 0.1 } });
+    const run = { buildDir: join(dir, "build"), output: join(dir, "draft.mp4"), log: () => undefined };
+    const played = await renderFootageDraft(withFile(song), clips, transcript, shortCut, run);
+    if (!played.ok) throw new Error(played.error);
+    expect(played.value.music).toBe("played");
+    const gone = await renderFootageDraft(withFile(join(dir, "gone.mp3")), clips, transcript, shortCut, run);
+    expect(gone).toEqual({ ok: false, error: `music: no file at ${join(dir, "gone.mp3")}` });
   }, 60_000);
 });

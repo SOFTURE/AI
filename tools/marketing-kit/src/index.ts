@@ -339,6 +339,7 @@ export { duckingKeyframes, getDuckingOptions, getSpeechSpans, volumeExpression, 
 export { END_CARD_SECONDS, FADE_SECONDS, composeFootage, getFootageFilmSeconds, getSegmentScales, type FootageComposeAssets, type FootageComposeInput } from "./footage/compose.js";
 export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs, getSpeechCutOptions, type SpeechCutOptions } from "./footage/render.js";
 export {
+  FOOTAGE_DRAFT_CAPTION_COLORS,
   FOOTAGE_DRAFT_FONT,
   FOOTAGE_DRAFT_WIDTH,
   buildFootageDraftArgs,
@@ -346,12 +347,16 @@ export {
   getFootageDraftFrame,
   planFootageDraft,
   renderFootageDraft,
+  toAssColor,
   type DraftSegmentPlan,
   type FootageDraft,
   type FootageDraftArgsInput,
+  type FootageDraftCaptionColors,
   type FootageDraftCaptionsInput,
+  type FootageDraftMusic,
   type RenderFootageDraftOptions,
 } from "./footage/draft.js";
+export { chooseFootageDraftFont, readFontFamilyName, type FootageDraftFontChoice } from "./footage/draft-font.js";
 export {
   buildPictureConcatArgs,
   buildPictureList,
@@ -408,6 +413,7 @@ export {
   cutFootage,
   cutFootageFilm,
   describeCutMeasures,
+  findFootageMusic,
   getEdlPath,
   getFrame,
   prepareFootage,
@@ -419,6 +425,7 @@ export {
   transcribeFootage,
   type FinishedFootage,
   type FootageBrand,
+  type FootageMusicLookup,
   type FootageResult,
   type FootageRunOptions,
   type PreparedClip,

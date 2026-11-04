@@ -477,17 +477,27 @@ async function checkMusicFile(source: Extract<MusicSource, { kind: "file" }>, op
   return ok(path);
 }
 
+/** Where a film's music comes from, found without spending: none, a local file, or the paid cache's entry (made or not). */
+export type FootageMusicLookup =
+  | { kind: "none" }
+  | { kind: "file"; path: string }
+  | { kind: "cached"; cache: CacheEntry }
+  | { kind: "missing"; cache: CacheEntry };
+
 /**
- * The music file for the cut: a local file as it is, generated music from the cache, or (with `isCommit`) bought
- * from the music provider and cached. Null when the film has none or the rehearsal skips generated music; a paid
- * step when it must be bought and `isCommit` is false.
+ * The film's music as the render reads it, without a paid call: a `file` source as it is (an error when the file is
+ * gone), a `prompt` or `video` source's cache entry and whether it exists. The render and the draft share it, so they
+ * look up the same cache key.
  */
-async function getMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[], seconds: number, options: FootageRunOptions): Promise<FootageResult<string | PaidStep | null>> {
+export async function findFootageMusic(
+  film: FootageFilm,
+  edl: Edl,
+  clips: PreparedClip[],
+  options: Pick<FootageRunOptions, "cacheDir" | "providers">,
+): Promise<FootageResult<FootageMusicLookup>> {
   const source = film.music.source;
-  if (source.kind === "none") return ok(null);
-  if (source.kind === "file") return existsSync(source.path) ? ok(source.path) : err(`music: no file at ${source.path}`);
-  if (options.isPlaceholder) return ok(null);
-  const { providers, log, signal } = options;
+  if (source.kind === "none") return ok({ kind: "none" });
+  if (source.kind === "file") return existsSync(source.path) ? ok({ kind: "file", path: source.path }) : err(`music: no file at ${source.path}`);
   let cache: CacheEntry;
   if (source.kind === "prompt") {
     cache = getPromptMusicCache(film, options);
@@ -496,8 +506,26 @@ async function getMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[], seco
     for (const clip of clips) clipKeys[clip.clip.id] = await getClipKey(clip);
     cache = getVideoMusicCache(film, edl, clipKeys, options);
   }
+  return ok(existsSync(cache.path) ? { kind: "cached", cache } : { kind: "missing", cache });
+}
+
+/**
+ * The music file for the cut: a local file as it is, generated music from the cache, or (with `isCommit`) bought
+ * from the music provider and cached. Null when the film has none or the rehearsal skips generated music; a paid
+ * step when it must be bought and `isCommit` is false.
+ */
+async function getMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[], seconds: number, options: FootageRunOptions): Promise<FootageResult<string | PaidStep | null>> {
+  const source = film.music.source;
+  if (options.isPlaceholder && (source.kind === "prompt" || source.kind === "video")) return ok(null);
+  const found = await findFootageMusic(film, edl, clips, options);
+  if (!found.ok) return found;
+  const music = found.value;
+  if (music.kind === "none") return ok(null);
+  if (music.kind === "file") return ok(music.path);
+  const { providers, log, signal } = options;
+  const { cache } = music;
   const { path } = cache;
-  if (existsSync(path)) {
+  if (music.kind === "cached") {
     log(`music: from the cache ${path}, nothing spent.`);
     return ok(path);
   }
@@ -511,13 +539,15 @@ async function getMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[], seco
     throwIfAborted(signal);
     log(`music (${providers.music.id}): ${seconds.toFixed(1)} s.`);
     bought = await providers.music.compose({ prompt: source.prompt, seconds, ...aborting });
-  } else {
+  } else if (source.kind === "video") {
     const preview = join(options.buildDir, "cut-preview.mp4");
     const clipFiles = Object.fromEntries(clips.map((clip) => [clip.clip.id, clip.file]));
     await runFfmpeg("The cut preview for Video to Music", buildCutPreviewArgs(edl, clipFiles, preview), { ...aborting, output: preview });
     throwIfAborted(signal);
     log(`music (${providers.music.id}): ${seconds.toFixed(1)} s.`);
     bought = await providers.music.scoreVideo({ video: preview, description: source.description, tags: source.tags, ...aborting });
+  } else {
+    return ok(null);
   }
   throwIfAborted(signal);
   if (!bought.ok) return err(`music: ${bought.error}`);

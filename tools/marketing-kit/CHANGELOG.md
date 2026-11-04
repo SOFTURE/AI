@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **The footage draft looks and sounds like the render (#1050):** `renderFootageDraft` follows the film's
+  `captionStyle`: a `highlight` film gets the render's chunks of up to four words on an opaque box of
+  `captionBackground`, in `captionText`, the word being said in `captionHighlight` for 0.32 s. New options `brand`
+  (the `FootageBrand` the render takes: the body font's TrueType or OpenType file, named by its own family, and the
+  caption colours; DejaVu Sans when the font has no such file) and `cacheDir` / `providers`: a `file` music source, or
+  generated music already in the paid cache, plays ducked, looped and faded as in the render. The draft never calls a
+  provider; the result gains `music` (`"none"`, `"played"`, `"not_cached"`) and `captionFont`, and the log says why
+  there is no music. `buildFootageDraftCaptions` takes `film.captionStyle` and `colors`, `buildFootageDraftArgs` takes
+  `music`. New exports: `findFootageMusic` (the render's music lookup, now shared), `chooseFootageDraftFont`,
+  `readFontFamilyName`, `toAssColor`, `FOOTAGE_DRAFT_CAPTION_COLORS`, `FootageDraftMusic`, `FootageMusicLookup`.
+  A call without the new options draws a `phrase` film exactly as before. README "A fast draft before the render":
+  what the draft matches and what it leaves out.
+
 ## 0.8.0
 
 - **A faster HDR tone map in footage normalize (#1037):** `normalizeFootage` (and so `prepareFootage`) tone-maps an
