@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-tabs-variants-server-1008
 title: "theme-notion: tabsListVariants can be called from a Server Component (issue #1008)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1008
 branch: claude/project-thread-oyueil
 created: 2026-11-03
 updated: 2026-11-03
+archived_at: 2026-11-03
 ---
 
 ## Intent
