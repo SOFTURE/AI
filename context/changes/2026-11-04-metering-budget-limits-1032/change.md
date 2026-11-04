@@ -1,12 +1,13 @@
 ---
 change_id: metering-budget-limits-1032
 title: "metering: budget limits editable at runtime, stored in the database (issue #1032)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1032
 branch: claude/project-thread-ln4pyn
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent

@@ -1,6 +1,6 @@
 ---
 change_id: metering-budget-limits-1032
-status: in_progress
+status: done
 ---
 
 # Plan: runtime budget limits (issue #1032)
@@ -48,6 +48,9 @@ Files: `src/server/privacy.ts`, `tests/privacy.test.ts`, README, CHANGELOG.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1: table and limit functions (9cff05b)
+- [x] Phase 2: effective limits in spend (9cff05b)
+- [x] Phase 3: privacy and docs (9cff05b)
+
+The three phases landed in one commit: the spend change and its tests depend on the table of phase 1, and the export
+test on both.
