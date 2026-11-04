@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Music files without an extension, and video beds (#1020):** the footage film's music file source takes the stored
+  file's original name and content type (`{ kind: "file", path, fileName?, contentType? }`), so a file stored under an
+  extensionless key (`@softure-ai/files`' `getStorageKey`) passes the type check that 0.5.0 added. With neither and no
+  extension on the path, the type check is skipped and `probeAudio` decides (an audio stream and a duration).
+  `MUSIC_FILE_TYPES` accepts the video containers `.mp4`, `.m4v`, `.mov` and `.webm` again, as 0.4.0 did: their sound
+  is the bed, and the music track reads only the audio. `checkMusicFileType` treats a name without an extension as no
+  name, so a storage key with a content type is checked by the content type.
+
 - **Key terms for a footage film's transcript (#1012):** `FootageFilm.keyTerms` and `footage[].keyTerms` in
   `marketing.json` pass names and brand words to ElevenLabs Scribe (keyterm prompting, one `keyterms` form field per
   term), checked against Scribe v2's limits (`SCRIBE_KEYTERM_LIMITS`: 1000 terms, 50 characters, 5 words),
