@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-render-memory-1030
 title: "marketing-kit: renderFootage memory on a small worker (issue #1030)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1030
 branch: claude/project-thread-gy3pjm
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04
 ---
 
 ## Intent

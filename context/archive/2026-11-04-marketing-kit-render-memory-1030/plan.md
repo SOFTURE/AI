@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-render-memory-1030
-status: in_progress
+status: done
 ---
 
 # Plan: renderFootage memory on a small worker (issue #1030)
@@ -42,9 +42,9 @@ Render the fixture footage film (`MARKETING_KIT_RENDER=1`) and the 45 s measurem
 
 ## Progress
 
-- [ ] Phase 1: the picture in film time
-- [ ] Phase 2: one `<video>` and the render options
-- [ ] Phase 3: docs and a real render
+- [x] Phase 1: the picture in film time (4f8dbe7)
+- [x] Phase 2: one `<video>` and the render options (a8f17db)
+- [x] Phase 3: docs and a real render (8be1f3b)
 
 ## Decisions (auto)
 
@@ -54,3 +54,15 @@ Render the fixture footage film (`MARKETING_KIT_RENDER=1`) and the 45 s measurem
 - The normalize encoder settings (`normalize.preset`, `normalize.threads`) also encode the picture: one knob for
   the kit's intermediate files.
 - The per-segment composition stays for callers of `composeFootage` without `picture` (public API).
+
+## Verification
+
+- `vitest run tools/marketing-kit tests/repo`: green (1490 tests, 73 skipped need render tools or secrets), with
+  `openssh-client` installed for the deploy test.
+- The fixture footage film through the CLI (`MARKETING_KIT_RENDER=1`, `-t "the fixture footage film"`): green,
+  including the aborted render and the jobs-worker run.
+- The 45 s measurement film through `planFootagePicture` and `composeFootage` with `assets.picture`, hyperframes at one
+  CPU in a cgroup: peak 1209 MiB (`video_extract` 222, `capture_streaming` 1209) against 1716 before; the picture took
+  75 s. Frame by frame against the per-segment render: mean PSNR 37.6 dB on synthetic noise footage (re-encode); the
+  lowest frames sit at segment boundaries (a one-frame difference in where a sub-frame start rounds) and the fades
+  look the same.
