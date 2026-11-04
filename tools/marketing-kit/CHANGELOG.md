@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Faster footage normalize and cut preview on a small worker (#1015).** `buildVideoFilter` now drops frames to
+  30 fps and scales to the frame (crop: covered and cropped; blur: fitted, the blurred background made from the fitted
+  picture) before the HDR tone map, so its float stages run on frame-sized pictures: a 4K HLG clip normalizes about
+  2x faster with the crop fit and 3x with the blur fit on one core. `buildCutPreviewArgs` seeks each segment's input
+  (`-ss`/`-t`) instead of trimming from the clip's start: the same frames, about 5x faster for 20 segments of one
+  100 s clip. The normalized format changed slightly, so clips normalized by an earlier version are made once more.
+  New `normalize: { preset, threads }` on the run options (`NormalizeEncoder`, `X264_PRESETS`) trades the
+  intermediate's file size for speed.
 - **Footage renders check the disk first (#1014).** hyperframes refuses to render with under 1 GiB free in its temp
   folder or the build folder, which ended a run with `hyperframes render ended with code 1`. Now `renderFootage`
   checks both folders before the music, speech and assets steps and returns `not enough disk space to render: …`,
