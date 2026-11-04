@@ -9,7 +9,7 @@ import { getCaptionSpans, getFootageCaptionLayout, phraseChunks } from "./captio
 import { getSegmentScales } from "./compose.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
 import { getFootageEdit, type FootageFilm } from "./film.js";
-import { FOOTAGE_FPS, type Frame } from "./normalize.js";
+import { FOOTAGE_FPS, getThreadArgs, type Frame } from "./normalize.js";
 import { getFrame, type FootageResult, type FootageRunOptions, type PreparedClip, type TranscribeOutcome } from "./pipeline.js";
 import { runFfmpeg } from "./process.js";
 import { buildSpeechArgs } from "./render.js";
@@ -152,6 +152,11 @@ export interface FootageDraftArgsInput {
   /** The folder libass loads the captions' font from, or null for the system's fonts. */
   fontsDir: string | null;
   output: string;
+  /**
+   * ffmpeg's threads for every segment's decoder, the filter graph and the encoder; by default ffmpeg's own choice,
+   * which follows the host's cores, not a container's CPU quota. A positive whole number.
+   */
+  threads?: number;
 }
 
 /** A segment's picture as the draft plays it: how long its stream runs and the fade it starts with. */
@@ -220,13 +225,15 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
   const { edl } = input;
   const draft = getFootageDraftFrame(input.frame, input.width);
   const plans = planFootageDraft(input.film, edl);
+  const threads = getThreadArgs(input.threads, "draft.threads");
   const inputs: string[] = [];
   const parts: string[] = [];
   edl.segments.forEach((segment, index) => {
     const clip = input.clips[segment.clip];
     if (clip === undefined) throw new Error(`No file for clip "${segment.clip}" of the EDL.`);
     const plan = plans[index] as DraftSegmentPlan;
-    inputs.push("-ss", String(r3(segment.start)), "-t", String(plan.seconds), "-i", clip);
+    // Before an input, -threads sizes that input's decoder: one decoder runs per segment.
+    inputs.push(...threads.output, "-ss", String(r3(segment.start)), "-t", String(plan.seconds), "-i", clip);
     const filters = [
       "setpts=PTS-STARTPTS",
       ...buildPictureFilters(plan, draft),
@@ -264,6 +271,7 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
     "-v",
     "error",
     "-y",
+    ...threads.global,
     ...inputs,
     "-i",
     input.speech,
@@ -289,6 +297,7 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
     DRAFT_AUDIO_BITRATE,
     "-movflags",
     "+faststart",
+    ...threads.output,
     input.output,
   ];
 }
@@ -300,6 +309,11 @@ export interface RenderFootageDraftOptions extends Pick<FootageRunOptions, "buil
   width?: number;
   /** A project's override of the format's caption box (`marketing.json` `layout`), as the render takes it. */
   layout?: LayoutOverride;
+  /**
+   * ffmpeg's threads for the draft's decoders, filter graph and encoder (`buildFootageDraftArgs`); by default ffmpeg's
+   * own choice, which follows the host's cores. Set it from a CPU-limited container's quota.
+   */
+  threads?: number;
 }
 
 export interface FootageDraft {
@@ -353,6 +367,7 @@ export async function renderFootageDraft(
     speech,
     frame,
     ...(options.width === undefined ? {} : { width: options.width }),
+    ...(options.threads === undefined ? {} : { threads: options.threads }),
     captions: captions === null ? null : "captions.ass",
     fontsDir: captions === null ? null : "fonts",
     output,

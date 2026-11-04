@@ -98,10 +98,14 @@ export interface NormalizeInput {
   encoder?: NormalizeEncoder;
 }
 
-/** The thread arguments: global filter threads (before the inputs) and encoder threads (before the output). */
-function getThreadArgs(threads: number | undefined): { global: string[]; output: string[] } {
+/**
+ * The thread arguments: global filter threads (before the inputs) and encoder threads (before the output; the same
+ * flag before an input sets that input's decoder threads). Throws, naming `option`, when `threads` is not a positive
+ * whole number.
+ */
+export function getThreadArgs(threads: number | undefined, option: string): { global: string[]; output: string[] } {
   if (threads === undefined) return { global: [], output: [] };
-  if (!Number.isInteger(threads) || threads < 1) throw new Error(`normalize.threads must be a positive whole number, got ${threads}.`);
+  if (!Number.isInteger(threads) || threads < 1) throw new Error(`${option} must be a positive whole number, got ${threads}.`);
   return { global: ["-filter_complex_threads", String(threads)], output: ["-threads", String(threads)] };
 }
 
@@ -111,7 +115,7 @@ export function buildNormalizeArgs(input: NormalizeInput): string[] {
   const duration = getTrimmedDuration(clip, probe);
   const fit = resolveFit(clip.fit, probe, frame);
   const seek = clip.trim.start > 0 ? ["-ss", String(clip.trim.start)] : [];
-  const threads = getThreadArgs(input.encoder?.threads);
+  const threads = getThreadArgs(input.encoder?.threads, "normalize.threads");
   const silence = probe.hasAudio ? [] : ["-f", "lavfi", "-i", `anullsrc=r=${FOOTAGE_SAMPLE_RATE}:cl=stereo`];
   return [
     "-v",
