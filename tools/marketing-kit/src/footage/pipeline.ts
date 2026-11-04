@@ -49,7 +49,7 @@ import {
   readTopLevelBoxes,
 } from "./publish.js";
 import { describePaidSteps, toPaidAudio, type FootageCharge, type FootageProgress, type FootageProviders, type FootageStage, type PaidAudio, type PaidStep } from "./providers.js";
-import { buildAudioArgs, buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs } from "./render.js";
+import { buildAudioArgs, buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs, getSpeechCutOptions } from "./render.js";
 
 export { getEdlPath } from "./paid.js";
 
@@ -525,7 +525,7 @@ export async function renderFootage(
   const rawSpeechFile = loudness === null ? speechFile : join(assetsDir, "speech.raw.mp3");
   const ffmpegTrack = (label: string, output: string, args: () => string[]) => (onSeconds: (done: number) => void) => runFfmpeg(label, args(), { ...aborting, output, onSeconds });
   const tracks: { item: string; seconds: number; run: (onSeconds: (done: number) => void) => Promise<void> }[] = [
-    { item: "speech", seconds, run: ffmpegTrack("The speech track", rawSpeechFile, () => buildSpeechArgs(edl, transcript.speech, rawSpeechFile)) },
+    { item: "speech", seconds, run: ffmpegTrack("The speech track", rawSpeechFile, () => buildSpeechArgs(edl, transcript.speech, rawSpeechFile, getSpeechCutOptions(getFootageEdit(film)))) },
   ];
   if (loudness !== null) {
     tracks.push({

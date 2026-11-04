@@ -319,7 +319,7 @@ export {
 export { MAX_FRAMES, buildFrameArgs, extractFrames, getFrameTimes, type ExtractFramesOptions, type ExtractedFrame, type FrameSpacing } from "./footage/frames.js";
 export { duckingKeyframes, getSpeechSpans, volumeExpression, type DuckingOptions, type VolumeKeyframe } from "./footage/music.js";
 export { END_CARD_SECONDS, FADE_SECONDS, composeFootage, getFootageFilmSeconds, getSegmentScales, type FootageComposeAssets, type FootageComposeInput } from "./footage/compose.js";
-export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs } from "./footage/render.js";
+export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs, getSpeechCutOptions, type SpeechCutOptions } from "./footage/render.js";
 export {
   FOOTAGE_DRAFT_FONT,
   FOOTAGE_DRAFT_WIDTH,

@@ -12,7 +12,7 @@ import { getFootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS, getThreadArgs, type Frame } from "./normalize.js";
 import { getFrame, type FootageResult, type FootageRunOptions, type PreparedClip, type TranscribeOutcome } from "./pipeline.js";
 import { runFfmpeg } from "./process.js";
-import { buildSpeechArgs } from "./render.js";
+import { buildSpeechArgs, getSpeechCutOptions } from "./render.js";
 
 /**
  * A fast draft of a footage film, ffmpeg only (no hyperframes, no browser): the cut at a small width with the film's
@@ -370,7 +370,7 @@ export async function renderFootageDraft(
   const output = resolve(options.output);
   mkdirSync(dirname(output), { recursive: true });
   report("speech", 1, 0);
-  await runFfmpeg("The draft's speech track", buildSpeechArgs(edl, transcript.speech, speech), { ...aborting, output: speech, onSeconds: (done) => report("speech", 1, done) });
+  await runFfmpeg("The draft's speech track", buildSpeechArgs(edl, transcript.speech, speech, getSpeechCutOptions(getFootageEdit(film))), { ...aborting, output: speech, onSeconds: (done) => report("speech", 1, done) });
   report("film", 2, 0);
   // Run in the draft folder: the captions file and the font folder are relative names, so no path needs escaping in the filter graph.
   const args = buildFootageDraftArgs({
