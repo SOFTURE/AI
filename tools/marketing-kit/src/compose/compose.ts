@@ -4,7 +4,17 @@ import type { Film } from "../film.js";
 import { formatMessage, type MarketingMessages } from "../messages/index.js";
 import type { RecordingLog } from "../record/record.js";
 import { escapeHtml, fontFaces, fontStack } from "./html.js";
-import { BROWSER_BAR_HEIGHT, cameraPose, captionChunks, getTransitionSeconds, widePose, type CameraPose, type Geometry } from "./timeline.js";
+import {
+  BROWSER_BAR_HEIGHT,
+  cameraPose,
+  captionChunks,
+  getCaptionPillCss,
+  getCaptionPositionCss,
+  getTransitionSeconds,
+  widePose,
+  type CameraPose,
+  type Geometry,
+} from "./timeline.js";
 import type { BeatVoice } from "../voice/voiceover.js";
 
 /**
@@ -323,8 +333,8 @@ ${windowParts.css}
 .touch{position:absolute;width:0;height:0}
 .touch .dot{position:absolute;left:-34px;top:-34px;width:68px;height:68px;border-radius:50%;background:rgba(232,238,245,.34);border:2px solid rgba(232,238,245,.75);opacity:0}
 .touch .ring{position:absolute;left:-34px;top:-34px;width:68px;height:68px;border-radius:50%;border:3px solid ${c.accent};opacity:0}
-.caption{position:absolute;left:${captionBox.left}px;right:${captionBox.right}px;top:${captionBox.top}px;display:flex;justify-content:center}
-.pill{font-weight:650;font-size:${captionBox.fontSize}px;line-height:1.18;letter-spacing:-.01em;text-align:center;padding:16px 28px;border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
+.caption{position:absolute;left:${captionBox.left}px;right:${captionBox.right}px;${getCaptionPositionCss(captionBox)};display:flex;justify-content:center}
+.pill{${getCaptionPillCss(captionBox.fontSize)};border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
 .pill span{display:inline-block}
 .persona{position:absolute;left:${px(persona.left)};right:${px(persona.right)};top:${persona.top}px;display:flex;justify-content:center}
 .persona .card{display:flex;align-items:center;gap:20px;padding:14px 30px 14px 14px;border-radius:999px;background:rgba(19,26,35,.9);border:1px solid rgba(130,150,173,.28)}

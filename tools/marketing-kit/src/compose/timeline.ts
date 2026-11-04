@@ -52,6 +52,27 @@ export interface TextBox {
 
 export interface CaptionLayout extends TextBox {
   fontSize: number;
+  /**
+   * The box's bottom edge, in px from the frame's bottom. When set, the box is anchored by its foot and grows upwards
+   * with its lines, and `top` is ignored; absent: the box hangs from `top` and grows downwards.
+   */
+  bottom?: number;
+}
+
+/** The caption text's line height, in font sizes (the pill and the phrase alike). */
+export const CAPTION_LINE_HEIGHT = 1.18;
+
+/** The highlight pill's padding around its text, in px. */
+export const CAPTION_PILL_PADDING = { y: 16, x: 28 } as const;
+
+/** The CSS that places a caption box: by its foot (`bottom`) when the layout gives one, else by its top edge. */
+export function getCaptionPositionCss(caption: CaptionLayout): string {
+  return caption.bottom === undefined ? `top:${caption.top}px` : `bottom:${caption.bottom}px`;
+}
+
+/** The highlight pill's text CSS: weight, size, line height and padding (the colours are the caller's). */
+export function getCaptionPillCss(fontSize: number): string {
+  return `font-weight:650;font-size:${fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:-.01em;text-align:center;padding:${CAPTION_PILL_PADDING.y}px ${CAPTION_PILL_PADDING.x}px`;
 }
 
 export interface EndCardLayout extends TextBox {
@@ -144,6 +165,11 @@ function mergeTextBox(base: TextBox, override: Partial<TextBox> = {}): TextBox {
   return { top: override.top ?? base.top, left: override.left ?? base.left, right: override.right ?? base.right };
 }
 
+function resolveCaption(base: CaptionLayout, override: Partial<CaptionLayout> = {}): CaptionLayout {
+  const bottom = override.bottom ?? base.bottom;
+  return { ...mergeTextBox(base, override), ...(bottom === undefined ? {} : { bottom }), fontSize: override.fontSize ?? base.fontSize };
+}
+
 /** A layout with a project's override merged in, key by key; always fresh objects, never the table's. */
 export function resolveLayout(name: LayoutName, override: LayoutOverride = {}): Layout {
   const base = LAYOUTS[name];
@@ -155,7 +181,7 @@ export function resolveLayout(name: LayoutName, override: LayoutOverride = {}): 
     frame: { ...base.frame },
     screenBox: { ...base.screenBox },
     cameraTarget: { ...base.cameraTarget },
-    caption: { ...mergeTextBox(base.caption, override.caption), fontSize: override.caption?.fontSize ?? base.caption.fontSize },
+    caption: resolveCaption(base.caption, override.caption),
     persona: mergeTextBox(base.persona, override.persona),
     endCard: {
       ...mergeTextBox(base.endCard, endCard),

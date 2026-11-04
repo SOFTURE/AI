@@ -262,6 +262,13 @@ describe("composeFilm", () => {
     expect(html).toContain("font-size:72px;letter-spacing");
   });
 
+  it("anchors the caption box by its foot when the layout gives a bottom edge", () => {
+    const geometry = getGeometry({ width: 390, height: 844 }, "9:16", { caption: { bottom: 420 } });
+    const html = composeFilm({ ...input, geometry });
+    expect(html).toContain(".caption{position:absolute;left:60px;right:60px;bottom:420px;display:flex;justify-content:center}");
+    expect(html).toContain("line-height:1.18;letter-spacing:-.01em;text-align:center;padding:16px 28px;");
+  });
+
   it("puts the 16:9 copy in a column right of the phone", () => {
     const html = composeFilm({ ...input, geometry: getGeometry({ width: 390, height: 844 }, "16:9") });
     expect(html).toContain('data-width="1920" data-height="1080"');

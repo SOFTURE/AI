@@ -830,6 +830,13 @@ function layoutOverrideSchema(name: LayoutName) {
       caption: z
         .strictObject({
           top: y("The caption's top edge, in px from the frame's top.", caption.top),
+          bottom: z
+            .number()
+            .int()
+            .min(0)
+            .max(frame.height)
+            .optional()
+            .describe("The caption's bottom edge, in px from the frame's bottom: the box grows upwards from it and top is ignored. Default none."),
           left: x("The caption's left margin, in px from the frame's left edge.", caption.left),
           right: x("The caption's right margin, in px from the frame's right edge.", caption.right),
           fontSize: z.number().int().min(16).max(200).optional().describe(`The caption's font size in px (16-200). Default ${caption.fontSize}.`),

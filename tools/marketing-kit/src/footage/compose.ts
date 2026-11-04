@@ -2,7 +2,7 @@ import type { BrandColors } from "../config/colors.js";
 import type { SfxEvent } from "../config/schema.js";
 import type { ComposeFont } from "../compose/compose.js";
 import { escapeHtml, fontFaces, fontStack } from "../compose/html.js";
-import { captionChunks, type CaptionLayout } from "../compose/timeline.js";
+import { CAPTION_LINE_HEIGHT, captionChunks, getCaptionPillCss, getCaptionPositionCss, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { getCaptionSpans, phraseChunks, type CaptionSpan } from "./captions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
@@ -182,10 +182,10 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
 #root{position:relative;width:${frame.width}px;height:${frame.height}px;overflow:hidden;background:#000;font-family:${bodyFont};color:${c.foreground}}
 .shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:50% 42%}
 .shade{position:absolute;inset:0;background:${c.background};opacity:0}
-.caption{position:absolute;left:${captionBox.left}px;right:${captionBox.right}px;top:${captionBox.top}px;display:flex;justify-content:center}
-.pill{font-weight:650;font-size:${captionBox.fontSize}px;line-height:1.18;letter-spacing:-.01em;text-align:center;padding:16px 28px;border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
+.caption{position:absolute;left:${captionBox.left}px;right:${captionBox.right}px;${getCaptionPositionCss(captionBox)};display:flex;justify-content:center}
+.pill{${getCaptionPillCss(captionBox.fontSize)};border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
 .pill span{display:inline-block}
-.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:1.18;letter-spacing:-.01em;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
+.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:-.01em;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
 .endcard{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 80px;text-align:center}
 .brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:${headingFont};font-size:46px}
 .logo{height:60px;width:auto}
