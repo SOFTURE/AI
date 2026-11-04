@@ -14,6 +14,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `checkFootageTools({ needsDraft: true })` reports a missing `ass`, `xfade` or `zoompan` filter (`DRAFT_FILTERS`).
   `getCaptionSpans` and `getFootageCaptionLayout` are shared by the render and the draft; progress gains the `draft`
   stage; `runFfmpeg` takes `cwd`.
+- **Key terms for a footage film's transcript (#1012):** `FootageFilm.keyTerms` and `footage[].keyTerms` in
+  `marketing.json` pass names and brand words to ElevenLabs Scribe (keyterm prompting, one `keyterms` form field per
+  term), checked against Scribe v2's limits (`SCRIBE_KEYTERM_LIMITS`: 1000 terms, 50 characters, 5 words),
+  trimmed, deduplicated and sorted (`normalizeKeyTerms`, `getFilmKeyTerms`). `SttInput.keyTerms` carries them to any
+  STT provider, and the fake STT records them in `calls`. The transcript's cache key includes the key terms only when
+  there are any: existing cached transcripts keep their keys. `FootageRates.keyTerms` (optional) is the surcharge per
+  second that `estimateFootageFilm` adds to transcription for a film with key terms, and `FootageCharge.keyTerms`
+  counts the terms a speech to text call sent. Invalid key terms fail `transcribeFootage` and `estimateFootageFilm`
+  before anything is probed or paid for.
 
 ## 0.5.0
 

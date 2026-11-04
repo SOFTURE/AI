@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { getLayoutName } from "../compose/timeline.js";
 import type { Device, FilmScript } from "../film.js";
 import { DEFAULT_MUSIC_VOLUME, getDefaultFillers, type FootageFilm, type MusicSource } from "../footage/film.js";
+import { normalizeKeyTerms } from "../footage/keyterms.js";
 import type { LayoutOverride } from "../compose/timeline.js";
 import { getMarketingMessages, type MarketingMessages } from "../messages/index.js";
 import { DEFAULT_LINK_IN_BIO, PLATFORMS, type Platform } from "../platforms.js";
@@ -201,6 +202,12 @@ function resolveMusicSource(music: NonNullable<MarketingJson["footage"][number][
   return { kind: "video", description: fromVideo.description, tags: fromVideo.tags };
 }
 
+/** The film's key terms, normalized (the schema has checked them); none when absent or empty. */
+function resolveKeyTerms(terms: string[] | undefined): { keyTerms?: string[] } {
+  const normalized = normalizeKeyTerms(terms ?? []);
+  return normalized.ok && normalized.terms.length > 0 ? { keyTerms: normalized.terms } : {};
+}
+
 function resolveFootage(data: MarketingJson, at: (relative: string) => string): FootageConfig[] {
   const posts = new Map((data.social?.posts ?? []).map((post) => [post.video, post]));
   const platforms = data.social?.platforms ?? {};
@@ -223,6 +230,7 @@ function resolveFootage(data: MarketingJson, at: (relative: string) => string): 
         script: clip.script ?? null,
       })),
       isolateVoice: film.isolateVoice,
+      ...resolveKeyTerms(film.keyTerms),
       cut: { fillers: film.fillers ?? getDefaultFillers(language), pauseSeconds: film.pauseSeconds, padSeconds: film.padSeconds, maxSeconds: film.maxSeconds ?? null },
       transitions: film.transitions,
       music:
