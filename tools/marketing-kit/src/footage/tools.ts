@@ -34,7 +34,7 @@ export interface FootageToolsOptions {
 
 /** What the footage blocks need from ffmpeg: decoders and filters, by the name ffmpeg lists them under. */
 export const REQUIRED_DECODERS = ["hevc", "h264"] as const;
-export const REQUIRED_FILTERS = ["zscale", "tonemap"] as const;
+export const REQUIRED_FILTERS = ["zscale", "tonemap", "lut3d"] as const;
 /** What the fast draft needs on top: libass (with libfreetype) for the captions, `xfade` for fades, `zoompan` for Ken Burns. */
 export const DRAFT_FILTERS = ["ass", "xfade", "zoompan"] as const;
 
@@ -94,9 +94,9 @@ export function findBrowserProblem(env: NodeJS.ProcessEnv): string | null {
 }
 
 /**
- * Checks the machine for a footage run: ffmpeg and ffprobe run, ffmpeg decodes HEVC and H.264 and has `zscale` and
- * `tonemap` (HDR clips), for a draft (`needsDraft`) `ass`, `xfade` and `zoompan`, and, for a render, hyperframes runs
- * and has its browser, and its temp folder (and the build folder, when given) has the 1 GiB free hyperframes requires.
+ * Checks the machine for a footage run: ffmpeg and ffprobe run, ffmpeg decodes HEVC and H.264 and has `zscale`,
+ * `tonemap` and `lut3d` (HDR clips), for a draft (`needsDraft`) `ass`, `xfade` and `zoompan`, and, for a render,
+ * hyperframes runs and has its browser, and its temp folder (and the build folder, when given) has the 1 GiB free hyperframes requires.
  * Returns every problem found; an empty list means the machine is ready.
  */
 export async function checkFootageTools(options: FootageToolsOptions = {}): Promise<string[]> {
