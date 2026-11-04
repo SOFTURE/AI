@@ -8,7 +8,8 @@ import { runFfmpeg, runProcess } from "./process.js";
 /**
  * The speech track's loudness, measured and normalized in two passes of ffmpeg's `loudnorm` (EBU R128): the first
  * pass measures, the second applies one linear gain from that measurement, so a quiet phone clip is not left quiet
- * and a loud one does not clip. It runs before the music is mixed under the speech.
+ * and a loud one does not clip. It runs on the speech track before the music is mixed under it, and on the finished
+ * film's mix (`FootageFilm.mixLoudness`), so the published file plays at the target whatever the music adds.
  */
 
 export interface LoudnessTarget {
@@ -48,9 +49,9 @@ function getLoudnormFilter(target: LoudnessTarget): string {
   return `loudnorm=I=${target.target}:TP=${target.truePeak}:LRA=${LOUDNESS_RANGE}`;
 }
 
-/** The first pass: decodes the track, prints the measurement on stderr, writes nothing. */
+/** The first pass: decodes the sound only (a film's picture is skipped), prints the measurement on stderr, writes nothing. */
 export function buildLoudnessMeasureArgs(input: string, target: LoudnessTarget): string[] {
-  return ["-hide_banner", "-nostats", "-i", input, "-af", `${getLoudnormFilter(target)}:print_format=json`, "-f", "null", "-"];
+  return ["-hide_banner", "-nostats", "-i", input, "-vn", "-af", `${getLoudnormFilter(target)}:print_format=json`, "-f", "null", "-"];
 }
 
 /** The measurement from the first pass's stderr (its last JSON block); null when there is none or it is incomplete. */
@@ -70,8 +71,12 @@ export function readLoudnessMeasurement(stderr: string): LoudnessMeasurement | n
   const parsed = measurementSchema.safeParse(json);
   if (!parsed.success) return null;
   const value = parsed.data;
-  // `-inf` (silence) reads as -Infinity, which `isSilent` tells apart.
-  const read = (text: string): number => (text.trim() === "-inf" ? -Infinity : Number(text));
+  // Silence prints `-inf` loudness and an `inf` offset; both read as infinities, which `isSilent` tells apart.
+  const read = (text: string): number => {
+    const trimmed = text.trim();
+    if (trimmed === "-inf") return -Infinity;
+    return trimmed === "inf" || trimmed === "+inf" ? Infinity : Number(trimmed);
+  };
   const measurement = {
     inputI: read(value.input_i),
     inputTp: read(value.input_tp),
@@ -87,11 +92,10 @@ export function isSilent(measurement: LoudnessMeasurement): boolean {
   return !Number.isFinite(measurement.inputI) || measurement.inputI < SILENCE_LUFS || !Number.isFinite(measurement.inputThresh);
 }
 
-/** The second pass: one linear gain from the measurement, resampled back to the film's rate (`loudnorm` runs at 192 kHz). */
-export function buildLoudnessArgs(options: { input: string; measurement: LoudnessMeasurement; target: LoudnessTarget; output: string }): string[] {
-  const { measurement } = options;
+/** The second pass's filter: one linear gain from the measurement, resampled back to the film's rate (`loudnorm` runs at 192 kHz). */
+export function getLoudnessFilter(measurement: LoudnessMeasurement, target: LoudnessTarget): string {
   const filter = [
-    getLoudnormFilter(options.target),
+    getLoudnormFilter(target),
     `measured_I=${measurement.inputI}`,
     `measured_TP=${measurement.inputTp}`,
     `measured_LRA=${measurement.inputLra}`,
@@ -99,6 +103,11 @@ export function buildLoudnessArgs(options: { input: string; measurement: Loudnes
     `offset=${measurement.targetOffset}`,
     "linear=true",
   ].join(":");
+  return `${filter},aresample=${FOOTAGE_SAMPLE_RATE}`;
+}
+
+/** The speech track's second pass, written as an mp3 at the film's rate. */
+export function buildLoudnessArgs(options: { input: string; measurement: LoudnessMeasurement; target: LoudnessTarget; output: string }): string[] {
   return [
     "-v",
     "error",
@@ -106,7 +115,7 @@ export function buildLoudnessArgs(options: { input: string; measurement: Loudnes
     "-i",
     options.input,
     "-af",
-    `${filter},aresample=${FOOTAGE_SAMPLE_RATE}`,
+    getLoudnessFilter(options.measurement, options.target),
     "-ar",
     String(FOOTAGE_SAMPLE_RATE),
     "-c:a",
@@ -117,6 +126,22 @@ export function buildLoudnessArgs(options: { input: string; measurement: Loudnes
   ];
 }
 
+export type LoudnessMeasureOutcome = { kind: "measured"; measurement: LoudnessMeasurement } | { kind: "silent" };
+
+/**
+ * The first pass over `input`: its measurement, or silent when no gain can bring it to the target. Throws naming
+ * `label` (what is measured) when ffmpeg fails, rejects with the signal's reason on abort.
+ */
+export async function measureLoudness(input: string, target: LoudnessTarget, options: { label: string; signal?: AbortSignal }): Promise<LoudnessMeasureOutcome> {
+  const step = `Measuring ${options.label}'s loudness`;
+  const measured = await runProcess({ command: "ffmpeg", args: buildLoudnessMeasureArgs(input, target), ...(options.signal === undefined ? {} : { signal: options.signal }) });
+  if (measured.kind === "not-started") throw new Error(`${step}: ffmpeg did not start (${measured.error}).`);
+  if (measured.code !== 0) throw new Error(`${step}: ffmpeg ended with code ${String(measured.code)}: ${measured.stderr.trim().split("\n").slice(-3).join(" | ")}.`);
+  const measurement = readLoudnessMeasurement(measured.stderr);
+  if (measurement === null) throw new Error(`${step}: ffmpeg printed no loudnorm measurement for ${input}.`);
+  return isSilent(measurement) ? { kind: "silent" } : { kind: "measured", measurement };
+}
+
 export type LoudnessOutcome = { kind: "normalized"; measured: number } | { kind: "silent" };
 
 /**
@@ -125,15 +150,12 @@ export type LoudnessOutcome = { kind: "normalized"; measured: number } | { kind:
  */
 export async function normalizeLoudness(input: string, output: string, target: LoudnessTarget, options: { signal?: AbortSignal; onSeconds?: (seconds: number) => void } = {}): Promise<LoudnessOutcome> {
   const signal = options.signal === undefined ? {} : { signal: options.signal };
-  const measured = await runProcess({ command: "ffmpeg", args: buildLoudnessMeasureArgs(input, target), ...signal });
-  if (measured.kind === "not-started") throw new Error(`Measuring the speech track's loudness: ffmpeg did not start (${measured.error}).`);
-  if (measured.code !== 0) throw new Error(`Measuring the speech track's loudness: ffmpeg ended with code ${String(measured.code)}: ${measured.stderr.trim().split("\n").slice(-3).join(" | ")}.`);
-  const measurement = readLoudnessMeasurement(measured.stderr);
-  if (measurement === null) throw new Error(`Measuring the speech track's loudness: ffmpeg printed no loudnorm measurement for ${input}.`);
-  if (isSilent(measurement)) {
+  const measured = await measureLoudness(input, target, { label: "the speech track", ...signal });
+  if (measured.kind === "silent") {
     copyFileSync(input, output);
     return { kind: "silent" };
   }
+  const { measurement } = measured;
   await runFfmpeg("Normalizing the speech track's loudness", buildLoudnessArgs({ input, measurement, target, output }), {
     ...signal,
     output,

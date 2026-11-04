@@ -64,6 +64,10 @@ export interface FootageMusic {
   volume: number;
   /** The music's volume under speech (0-1). */
   duckedVolume: number;
+  /** Seconds the music takes to go down before a stretch of speech. Absent: 0.25. */
+  attack?: number;
+  /** Seconds the music takes to come back up after a stretch of speech. Absent: 0.5. */
+  release?: number;
 }
 
 /** How the transcript turns into the cut (`buildEdl`). */
@@ -120,6 +124,12 @@ export interface FootageFilm {
   endCard: EndCard | null;
   /** The speech track's loudness, normalized before the music is mixed under it. Absent: −14 LUFS, −1 dBTP; null: left as filmed. */
   loudness?: LoudnessTarget | null;
+  /**
+   * The finished film's mix (speech, music, sound effects), measured after the render and normalized in two passes of
+   * `loudnorm` (one linear gain; the picture is copied, only the sound re-encoded), so the published file plays at the
+   * target. A silent mix is left as it is. Absent: −14 LUFS, −1 dBTP; null: the mix as rendered.
+   */
+  mixLoudness?: LoudnessTarget | null;
   /**
    * The cover JPG written next to the film. Absent or without `at`: the middle of the first talking segment; `at`:
    * that second of the film; null: no cover.
