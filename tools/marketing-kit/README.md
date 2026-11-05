@@ -633,11 +633,12 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   compared without case, punctuation and repeated letters) are cut out, a silence longer than `pauseSeconds` is cut,
   `padSeconds` stays around every cut, `maxSeconds` caps the length. The result is
   `<output.buildDir>/<film>/edl.json` ([JSON Schema](schema/edl.schema.json), version 2): segments
-  `{ id, clip, start, end, transition, motion, audio? }` in order. A talking segment's `id` is the sentence it starts
+  `{ id, clip, start, end, transition, motion, audio?, caption? }` in order. A talking segment's `id` is the sentence it starts
   with (`s4`, `s4.2` for its second part), b-roll is `r1`, `r2`… Check or edit it (drop a segment, move one, change a
   `transition` to `cut`, `fade`, `zoom` or `whoosh`, give a segment `audio: { clip, start, end, ownVolume }` to play
   another span's sound under its picture: a J- or L-cut, or b-roll over speech with its own sound muted or at
-  `ownVolume`) and render with `--step=render`; a plain `footage` run keeps an EDL that is there, `--step=cut` writes
+  `ownVolume`, give a segment `caption: { bottom }` or `caption: { top }` (px of the film's frame) to move the caption
+  box for the captions that start in it, so they clear what the frame shows low down) and render with `--step=render`; a plain `footage` run keeps an EDL that is there, `--step=cut` writes
   it afresh and prints the sentences it would suggest dropping (retakes, false starts, cut-off sentences). A version 1
   file is still read, with generated ids.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
@@ -761,8 +762,15 @@ await renderFootageFilm(film, { ...options, isRecut: true, keepSentences: senten
 
 const sheet = await extractFrames("/build/intro/clips/desk.mp4", { count: 6 }, { outDir: "/tmp/sheet", width: 360 }); // JPGs to look at
 const problems = validateEdl(editedEdl, clips.map((c) => ({ id: c.clip.id, duration: c.duration })), film.id);
-const changes = diffEdl(previousEdl, editedEdl); // ["moved s7 to the start", "dropped s3", "r1 over s4"]
+const changes = diffEdl(previousEdl, editedEdl); // ["moved s7 to the start", "dropped s3", "r1 over s4", "s4 captions moved"]
 ```
+
+A segment's `caption` is merged over the film's caption box (after `captionPreset` and the project's `layout`):
+`bottom` anchors the box by its foot and wins, `top` alone hangs it from that top. A caption chunk that spans a cut
+keeps the box of the segment its first word starts in, in the render and the draft alike. `readEdlFile` refuses an
+edge past the frame's height less one caption card (`validateEdl`'s fourth argument, `getCaptionBounds`), and
+`getSegmentCaptionLayout(film, edl, index, layout?)` and `getCaptionChunkLayouts(chunks, edl, filmBox)` tell an app
+which box a segment or a chunk is drawn in without rendering.
 
 **Music beds from an upload.** An app that lets the owner upload a music file checks it with the same rules the run
 applies to `music.file`, and stores the probe with the asset:

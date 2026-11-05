@@ -149,6 +149,9 @@ describe("the footage pipeline without ffmpeg", () => {
     writeFileSync(path, JSON.stringify({ ...edited, segments: [{ id: "s1", clip: "gone", start: 0, end: 1, transition: "cut", motion: "none" }] }));
     expect(readEdlFile(film(), clips, path)).toEqual({ ok: false, error: `${path}: segments[0].clip: no clip "gone" in the film` });
     expect(getEdlPath("/b", true)).toBe("/b/edl.placeholder.json");
+    writeFileSync(path, JSON.stringify({ ...edited, segments: [{ id: "s1", clip: "talk", start: 0, end: 1, transition: "cut", motion: "none", caption: { bottom: 1900 } }] }));
+    const outside = readEdlFile(film(), clips, path);
+    expect(outside.ok ? "" : outside.error).toContain("segments[0].caption.bottom: 1900 px leaves no room for a caption card");
   });
 
   it("ends a render on a full temp folder with a sentence, before the music is bought or any step runs", async () => {

@@ -80,7 +80,7 @@ export async function runFootage(config: MarketingConfig, options: FootageOption
     if (options.step === "cut") return;
   } else {
     if (!existsSync(edlPath)) fail(`no EDL at ${edlPath}: run softure-marketing footage ${film.id} --step=cut first.`);
-    const read = readEdlFile(film, clips.value, edlPath);
+    const read = readEdlFile(film, clips.value, edlPath, run.layout);
     if (!read.ok) fail(read.error);
     edl = read.value;
     console.log(`cut: ${edlPath} (${edl.segments.length} segments), as it is; --step=cut builds it again.`);
