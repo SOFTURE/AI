@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-finish-video-1068
-status: in_progress
+status: archived
 ---
 
 # Plan: finishVideo (issue #1068)
@@ -41,7 +41,7 @@ CHANGELOG `## Unreleased`; README "Encoder speed": the option, the issue's measu
 
 ## Progress
 
-- [ ] Phase 1: arguments and validation
-- [ ] Phase 2: the pipeline
-- [ ] Phase 3: CHANGELOG and README
-- [ ] Implementation review
+- [x] Phase 1: arguments and validation, af3208e
+- [x] Phase 2: the pipeline, af3208e
+- [x] Phase 3: CHANGELOG and README, af3208e
+- [x] Implementation review: approved

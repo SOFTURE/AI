@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-finish-video-1068
 title: "marketing-kit: the final pass can re-encode the picture to H.264 High at a chosen preset and CRF (issue #1068)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1068
 branch: claude/project-thread-0ou4cg
 created: 2026-11-05
 updated: 2026-11-05
+archived_at: 2026-11-05
 ---
 
 ## Intent
@@ -38,3 +39,11 @@ Labels: pkg: marketing-kit (found in an adopting app). Follows #1051 (the copy o
 ## Notes
 
 - Framing: skipped. The issue states the problem, the measure, the option's shape and the acceptance.
+
+## Done
+
+`finishVideo: { preset, crf, maxBitrate? }` on `renderFootage` and `renderFootageFilm` re-encodes the final pass's
+picture to H.264 High yuv420p at that x264 preset and CRF (`-maxrate`/`-bufsize` twice the cap when set); invalid
+values end the run before anything runs; default unchanged. Tests in `tools/marketing-kit/src/footage/publish.test.ts`,
+`finish.test.ts`, `pipeline.test.ts`; CHANGELOG `## Unreleased`, README "Encoder speed". Ships with the next
+marketing-kit release.
