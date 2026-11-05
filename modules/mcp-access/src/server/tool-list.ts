@@ -42,9 +42,14 @@ export interface MeasureToolListOptions {
 export async function measureToolList(registerTools: RegisterTools, options: MeasureToolListOptions = {}): Promise<ToolListMeasurement> {
   const release = options.release ?? DEFAULT_TOOL_LIST_RELEASE;
   assertRelease(release);
-  const server = new McpServer({ name: options.name ?? "tool-list", version: release }, options.serverOptions);
+  return describeToolList(await listRecordedTools(registerTools, options), release);
+}
+
+/** The tools as `tools/list` answers them, registered on a recording server shaped like the served one. */
+export async function listRecordedTools(registerTools: RegisterTools, options: MeasureToolListOptions = {}): Promise<ServedTool[]> {
+  const server = new McpServer({ name: options.name ?? "tool-list", version: options.release ?? DEFAULT_TOOL_LIST_RELEASE }, options.serverOptions);
   await registerTools(server);
-  return describeToolList(await listServedTools(() => server), release);
+  return listServedTools(() => server);
 }
 
 /** The version and count for a listed tool set. */

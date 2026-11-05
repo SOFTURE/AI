@@ -129,6 +129,12 @@ export const en = {
   serverInfoTool: {
     description:
       "Tells which build of this server answers: its name and version (the version changes whenever a tool changes), the release, the commit, when it was built and started, and the changelog when the app publishes one. Use it to check that a change is live.",
+    descriptionWithTools:
+      "Tells which build of this server answers (its name and version, the release, the commit, when it was built and started, the changelog when the app publishes one) and the current description and input schema of every tool it serves you. Use it to check that a change is live, and read a tool's contract here when a call is refused or your copy may be out of date.",
+    nameInputDescription: "Optional: one tool's name, to answer only that tool's current description and input schema.",
+    toolsHint:
+      "If your copy of a tool's schema or description differs from `tools` here, the server's is current: build calls from it.",
+    unknownToolHint: "No served tool has that name; `toolNames` lists every tool this server serves to you.",
   },
   operations: {
     statusToolDescription:
