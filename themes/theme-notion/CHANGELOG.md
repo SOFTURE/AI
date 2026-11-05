@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.13.0
+
+- `AsidePanel` follow-ups (#1075): `AsidePanelToggle icon` (a `LucideIcon` drawn in both states, for a panel that
+  holds one tool its users know by its icon); the wide-screen `aside` carries `max-md:hidden`, so a phone served the
+  server HTML with a kept open panel no longer paints it until hydration swaps in the sheet (an app's
+  `contents max-md:hidden` wrapper can go); the toggle, the width switch and the sidebar opener set `title` from
+  their labels, so they show a hover hint; `AsidePanel description` adds one line under the phone sheet's title.
+  New optional props only.
+
 ## 0.12.0
 
 - A panel slid in from the right of the app shell (#1044): `AsidePanelProvider` (replaces `SidebarProvider`, keeps

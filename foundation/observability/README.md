@@ -230,6 +230,13 @@ What you get:
 - `onRequestError` logs one error record per failed request with `http.request.method`, `url.path` (without the
   query string, which can carry tokens), `next.route`, `next.route_type`, `next.render_source` (when Next.js passes
   it) and the error. Request headers are never logged.
+- A client's aborted request (a page change, a refresh or a lost connection before the response finished) is not a
+  failure: React's `The destination stream closed early.`, Node's `ERR_STREAM_PREMATURE_CLOSE`, Next.js's
+  `ResponseAborted` and Node's request `aborted` (`ECONNRESET`) are logged as one `info` record `request aborted by
+  the client` with the same request fields, `outcome: "client_aborted"` and no exception, so an alert that counts
+  `ERROR` records does not fire. Messages match exactly; every other error stays `error`. `createOnRequestError(logger,
+  { isClientAbort })` replaces the check: compose with the exported `isClientAbortError` to recognise more, or pass
+  `() => false` to log every abort as an error.
 - `next.digest` is the digest the error page shows the user (`<hash>` or `<hash>@E<n>`), so a user's report matches
   the log line and repeats of one error group. A `NEXT_*` digest (a redirect, `notFound`) is never logged: it can
   carry a URL.

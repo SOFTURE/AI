@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_LOUDNESS, readLoudnessMeasurement, type LoudnessMeasurement, type LoudnessTarget } from "./loudness.js";
 import { finishFootage } from "./pipeline.js";
+import type { FinishVideo } from "./publish.js";
 
 const hasFfmpeg = spawnSync("ffprobe", ["-version"]).status === 0 && spawnSync("ffmpeg", ["-version"]).status === 0;
 
@@ -21,6 +22,11 @@ function measure(file: string): LoudnessMeasurement {
 function getCodecs(file: string): string[] {
   const result = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name", "-of", "csv=p=0", file], { encoding: "utf8" });
   return result.stdout.trim().split("\n");
+}
+
+function getPicture(file: string): string[] {
+  const result = spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name,profile,pix_fmt", "-of", "csv=p=0", file], { encoding: "utf8" });
+  return result.stdout.trim().split(",");
 }
 
 describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
@@ -78,9 +84,13 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
   const SPEECH_AND_MUSIC =
     "sine=f=220:d=6:r=48000,volume='if(lt(mod(t,2),1.4),0.06,0)':eval=frame[voice];anoisesrc=d=6:r=48000:a=0.01[bed];[voice][bed]amix=inputs=2,aformat=channel_layouts=stereo";
 
-  async function finish(renderFile: string, mixLoudness?: LoudnessTarget | null) {
+  async function finish(renderFile: string, mixLoudness?: LoudnessTarget | null, finishVideo?: FinishVideo) {
     const output = join(dir, "film.mp4");
-    const result = await finishFootage({ cover: null, ...(mixLoudness === undefined ? {} : { mixLoudness }) }, { renderFile, seconds: 6, coverAt: 0 }, { output, log: (line) => lines.push(line) });
+    const result = await finishFootage(
+      { cover: null, ...(mixLoudness === undefined ? {} : { mixLoudness }) },
+      { renderFile, seconds: 6, coverAt: 0 },
+      { output, log: (line) => lines.push(line), ...(finishVideo === undefined ? {} : { finishVideo }) },
+    );
     return { output, result };
   }
 
@@ -105,6 +115,14 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     const { result } = await finish(renderFile);
     expect(result.ok).toBe(true);
     expect(lines.some((line) => line.startsWith("finish: streams copied to H.264 Constrained Baseline,"))).toBe(true);
+  });
+
+  it("re-encodes a draft render's picture to H.264 High yuv420p with finishVideo (issue #1068)", async () => {
+    const renderFile = makeRender("anullsrc=r=48000:cl=stereo:d=6", { preset: "ultrafast" });
+    const { output, result } = await finish(renderFile, undefined, { preset: "veryfast", crf: 20, maxBitrate: "2M" });
+    expect(result.ok).toBe(true);
+    expect(getPicture(output)).toEqual(["h264", "High", "yuv420p"]);
+    expect(lines.some((line) => line.startsWith("finish: picture re-encoded (veryfast CRF 20, max 2M), sound copied to H.264 High,"))).toBe(true);
   });
 
   it("leaves a silent mix as it is", async () => {

@@ -163,6 +163,7 @@ export {
   MCP_SESSION_ID_HEADER,
   readToolListSessionVersion,
 } from "./tool-list-session.js";
+export { type McpRequestDiagnostic, type McpRequestDiagnostics, type McpSessionState } from "./request-diagnostics.js";
 export {
   toolError,
   toolResult,

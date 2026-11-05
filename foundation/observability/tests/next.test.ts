@@ -6,7 +6,7 @@ import { InMemoryLogRecordExporter, LoggerProvider, SimpleLogRecordProcessor } f
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createLogger } from "../src/index.js";
-import { createOnRequestError, registerObservability } from "../src/next/index.js";
+import { createOnRequestError, isClientAbortError, registerObservability } from "../src/next/index.js";
 import { resetObservabilityForTests } from "../src/node/start.js";
 import { startOtlpReceiver, type OtlpReceiver } from "./otlp-receiver.js";
 
@@ -101,6 +101,105 @@ describe("registerObservability: defaults", () => {
 });
 
 describe("createOnRequestError", () => {
+  describe("a client's aborted request (#1071)", () => {
+    const request = { path: "/orders?token=secret-token", method: "POST", headers: {} };
+    const context = {
+      routerKind: "App Router",
+      routePath: "/orders",
+      routeType: "action",
+      renderSource: "react-server-components-payload",
+    };
+
+    function captureRecords() {
+      const exporter = new InMemoryLogRecordExporter();
+      logs.setGlobalLoggerProvider(new LoggerProvider({ processors: [new SimpleLogRecordProcessor({ exporter })] }));
+      return exporter;
+    }
+
+    const abortShapes: [string, unknown][] = [
+      ["React's closed destination stream", Object.assign(new Error("The destination stream closed early."), { digest: "4120385542" })],
+      ["Node's premature close", Object.assign(new Error("Premature close"), { code: "ERR_STREAM_PREMATURE_CLOSE" })],
+      ["Next's ResponseAborted", Object.assign(new Error("Response aborted"), { name: "ResponseAborted" })],
+      ["Node's aborted request", Object.assign(new Error("aborted"), { code: "ECONNRESET" })],
+    ];
+
+    it.each(abortShapes)("logs %s as one info record with the request fields and no exception", (_label, error) => {
+      const exporter = captureRecords();
+
+      createOnRequestError(createLogger("next"))(error, request, context);
+
+      const records = exporter.getFinishedLogRecords();
+      expect(records).toHaveLength(1);
+      expect(records[0]?.severityText).toBe("INFO");
+      expect(records[0]?.body).toBe("request aborted by the client");
+      expect(records[0]?.attributes).toMatchObject({
+        outcome: "client_aborted",
+        "http.request.method": "POST",
+        "url.path": "/orders",
+        "next.route": "/orders",
+        "next.route_type": "action",
+        "next.router_kind": "App Router",
+        "next.render_source": "react-server-components-payload",
+      });
+      expect(Object.keys(records[0]?.attributes ?? {}).filter((key) => key.startsWith("exception."))).toEqual([]);
+      expect(output.join("\n")).not.toContain("secret-token");
+    });
+
+    it("keeps the digest on the abort record, so it groups with the error page", () => {
+      const exporter = captureRecords();
+
+      createOnRequestError(createLogger("next"))(abortShapes[0]?.[1], request, context);
+
+      expect(exporter.getFinishedLogRecords()[0]?.attributes["next.digest"]).toBe("4120385542");
+    });
+
+    it("keeps an error that only mentions the phrase or shares the digest as an error with its stack", () => {
+      const exporter = captureRecords();
+      const onRequestError = createOnRequestError(createLogger("next"));
+
+      onRequestError(new Error("Upload failed: The destination stream closed early."), request, context);
+      onRequestError(Object.assign(new Error("render failed"), { digest: "4120385542" }), request, context);
+      onRequestError(Object.assign(new Error("connect failed"), { code: "ECONNRESET" }), request, context);
+
+      const records = exporter.getFinishedLogRecords();
+      expect(records.map((record) => [record.severityText, record.body])).toEqual([
+        ["ERROR", "request failed"],
+        ["ERROR", "request failed"],
+        ["ERROR", "request failed"],
+      ]);
+      expect(records[1]?.attributes["exception.stacktrace"]).toContain("render failed");
+    });
+
+    it("recognises only error-like objects", () => {
+      expect(isClientAbortError(undefined)).toBe(false);
+      expect(isClientAbortError("The destination stream closed early.")).toBe(false);
+      expect(isClientAbortError({ message: "The destination stream closed early." })).toBe(true);
+    });
+
+    it("lets an app extend the recognition with its own predicate", () => {
+      const exporter = captureRecords();
+      const onRequestError = createOnRequestError(createLogger("next"), {
+        isClientAbort: (error) => isClientAbortError(error) || (error instanceof Error && error.name === "AbortError"),
+      });
+
+      onRequestError(Object.assign(new Error("This operation was aborted"), { name: "AbortError" }), request, context);
+      onRequestError(new Error("The destination stream closed early."), request, context);
+
+      expect(exporter.getFinishedLogRecords().map((record) => record.severityText)).toEqual(["INFO", "INFO"]);
+    });
+
+    it("logs every abort as an error when the app turns the recognition off", () => {
+      const exporter = captureRecords();
+      const onRequestError = createOnRequestError(createLogger("next"), { isClientAbort: () => false });
+
+      onRequestError(new Error("The destination stream closed early."), request, context);
+
+      const [record] = exporter.getFinishedLogRecords();
+      expect(record?.severityText).toBe("ERROR");
+      expect(record?.body).toBe("request failed");
+    });
+  });
+
   it("logs one error record with the route attributes and no headers", () => {
     const exporter = new InMemoryLogRecordExporter();
     logs.setGlobalLoggerProvider(new LoggerProvider({ processors: [new SimpleLogRecordProcessor({ exporter })] }));

@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.7.0
+
+- `createOnRequestError` logs a client's aborted request (React's `The destination stream closed early.`,
+  `ERR_STREAM_PREMATURE_CLOSE`, Next.js's `ResponseAborted`, Node's `aborted` with `ECONNRESET`) as `info` "request
+  aborted by the client" with `outcome: "client_aborted"` and no exception, instead of `error` "request failed"
+  (#1071). Every other error is logged as before. A second argument `{ isClientAbort }` replaces the check; the
+  default is exported as `isClientAbortError`.
+- Migration: an app that wraps the logger to downgrade these aborts can drop the wrapper. An alert or query on
+  `request failed` no longer sees them; query `outcome="client_aborted"` to count them.
+
 ## 0.6.0
 
 - `softure-observability grafana apply --rules <file> [--dashboard <file>] [--commit] [--paused]` and

@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { getSegmentStarts, type Edl } from "./edl.js";
 import type { ClipRole } from "./film.js";
-import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
+import { FOOTAGE_SAMPLE_RATE, X264_PRESETS, type X264Preset } from "./normalize.js";
 import { runProcess } from "./process.js";
 
 /**
@@ -104,14 +104,63 @@ export function isPublishableAudio(audio: NonNullable<FilmFacts["audio"]>): bool
 }
 
 /**
+ * How the final pass encodes the picture when an app asks for it (issue #1068): H.264 High, yuv420p, at this x264
+ * `preset` and `crf` (a whole number from 0 to 51), optionally capped at `maxBitrate` (an ffmpeg rate such as `"12M"`
+ * or `"12000k"`; the encoder's buffer is twice the cap). A `quality: "draft"` render plus `{ preset: "veryfast",
+ * crf: 20 }` publishes High at a controlled size for about a quarter of what hyperframes' `standard` tier costs.
+ */
+export interface FinishVideo {
+  preset: X264Preset;
+  crf: number;
+  maxBitrate?: string;
+}
+
+/** A rate ffmpeg reads: a positive number with an optional `k` or `M` suffix. */
+const BITRATE_PATTERN = /^(\d+(?:\.\d+)?)([kM]?)$/;
+
+/** What makes a `FinishVideo` unusable, one sentence per value; empty when nothing does. */
+export function findFinishVideoProblems(video: FinishVideo): string[] {
+  const problems: string[] = [];
+  if (!(X264_PRESETS as readonly string[]).includes(video.preset)) problems.push(`finishVideo.preset must be one of ${X264_PRESETS.join(", ")}, got ${String(video.preset)}.`);
+  if (!Number.isInteger(video.crf) || video.crf < 0 || video.crf > 51) problems.push(`finishVideo.crf must be a whole number from 0 to 51, got ${String(video.crf)}.`);
+  if (video.maxBitrate !== undefined) {
+    const match = BITRATE_PATTERN.exec(video.maxBitrate);
+    if (match === null || Number(match[1]) <= 0) problems.push(`finishVideo.maxBitrate must be a positive rate such as "12M" or "12000k", got "${video.maxBitrate}".`);
+  }
+  return problems;
+}
+
+/** The encoder's buffer for a rate cap: twice the cap, in the cap's unit. */
+function getBufferSize(maxBitrate: string): string {
+  const match = BITRATE_PATTERN.exec(maxBitrate);
+  if (match === null) throw new Error(`finishVideo.maxBitrate "${maxBitrate}" is not a rate; check it with findFinishVideoProblems first.`);
+  return `${String(Number(match[1]) * 2)}${match[2] ?? ""}`;
+}
+
+/** The picture's encoder arguments: H.264 High yuv420p at the given preset and CRF, capped when asked. */
+function getVideoEncodeArgs(video: FinishVideo): string[] {
+  const cap = video.maxBitrate === undefined ? [] : ["-maxrate", video.maxBitrate, "-bufsize", getBufferSize(video.maxBitrate)];
+  return ["-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p", "-preset", video.preset, "-crf", String(video.crf), ...cap];
+}
+
+/**
  * The final pass: each stream that is already publishable is copied, the other re-encoded (the picture to H.264 High),
  * and the `moov` box moved to the front. A film without sound keeps none. `audioFile` (the mix's finished sound, AAC
  * encoded on its own) replaces the render's sound, copied as it is; `audioFilter` re-encodes the sound through it.
+ * `video` re-encodes the picture whatever it is, at its preset and CRF (issue #1068).
  */
-export function buildFinishArgs(input: string, facts: Pick<FilmFacts, "video" | "audio">, output: string, options: { audioFilter?: string; audioFile?: string } = {}): string[] {
-  const video = isPublishableVideo(facts.video)
-    ? ["-c:v", "copy"]
-    : ["-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", String(VIDEO_CRF)];
+export function buildFinishArgs(
+  input: string,
+  facts: Pick<FilmFacts, "video" | "audio">,
+  output: string,
+  options: { audioFilter?: string; audioFile?: string; video?: FinishVideo } = {},
+): string[] {
+  const video =
+    options.video !== undefined
+      ? getVideoEncodeArgs(options.video)
+      : isPublishableVideo(facts.video)
+        ? ["-c:v", "copy"]
+        : getVideoEncodeArgs({ preset: "medium", crf: VIDEO_CRF });
   const encodeAudio = ["-c:a", "aac", "-b:a", FINISHED_AUDIO_BITRATE, "-ar", String(FOOTAGE_SAMPLE_RATE), "-ac", "2"];
   const inputs = options.audioFile === undefined ? ["-i", input] : ["-i", input, "-i", options.audioFile];
   const audio =

@@ -903,6 +903,21 @@ const result = await renderFootageFilm(film, {
   `renderFootage` took 858 s with the fast tier when that pass still re-encoded the picture at `medium` (about 320 s),
   against 835 s for `standard`; with the copy the fast run takes about 540 s.
 
+  The copy keeps the draft's Constrained Baseline at about 21 Mbit/s. To publish H.264 High at a chosen size, pass
+  `finishVideo: { preset, crf, maxBitrate? }` (#1068): the final pass then re-encodes the picture to High yuv420p at
+  that x264 preset and CRF, capped at `maxBitrate` (an ffmpeg rate such as `"12M"`; the buffer is twice the cap).
+  Measured on a 20 s 1080×1920 grainy test pattern at one CPU:
+
+  | Encode | Time | Profile |
+  | --- | --- | --- |
+  | `ultrafast` CRF 18 (hyperframes `draft`) | 34 s | Constrained Baseline |
+  | `medium` CRF 18 (hyperframes `standard`) | 148 s | High |
+  | re-encode of the `ultrafast` file, `veryfast` CRF 20 | 37 s | High |
+  | re-encode of the `ultrafast` file, `veryfast` CRF 22 | 31 s | High |
+
+  So `quality: "draft", crf: 18, finishVideo: { preset: "veryfast", crf: 20 }` stays well under the `standard` tier's
+  time and publishes High.
+
 **Container recipe.** [`docker/footage-worker.Dockerfile`](docker/footage-worker.Dockerfile) is a worker base image:
 `node:22-trixie-slim`, Debian's ffmpeg 7.1 (libzimg, so `zscale` and `tonemap`, and the HEVC decoder), the libraries and
 fonts Chrome needs, and the chrome-headless-shell hyperframes 0.8.85 pins, named by `HYPERFRAMES_BROWSER_PATH`. CI
