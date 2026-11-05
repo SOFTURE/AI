@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.0
 
 - **`transcribe` takes an abort signal (#1100):** `request.signal` (e.g. a job's `context.signal`) stops the call
   before normalization, after it, before each chunk, and cancels the provider request in flight; the call returns the
