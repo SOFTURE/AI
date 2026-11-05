@@ -32,5 +32,5 @@
       "../API/.github/workflows/"
     ]
   },
-  "autonomy": {"source": "issues", "merge": "pr", "reports": {"every": 60, "hours": null}}
+  "autonomy": {"source": "issues", "merge": "pr", "remergeMain": "on-conflict", "reports": {"every": 60, "hours": null}}
 }

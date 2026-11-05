@@ -16,7 +16,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@modelcontextprotocol/server": "^2.3.0",
-    "@softure-ai/skills": "^0.15.0",
+    "@softure-ai/skills": "^0.17.0",
     "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/node": "^4.3.3",
     "@testing-library/dom": "^10.4.2",

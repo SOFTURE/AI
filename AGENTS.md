@@ -58,9 +58,10 @@ says a production deploy waits for the owner.
 The owner's order (2026-11-04): a pull request is merged as it is, on the checks that were green at READY, unless
 the forge reports a conflict with master (not mergeable). Only then is master merged into the branch, the conflict
 resolved and the gates re-run. An incoming migration, dependency change or a file the branch also changes is no
-reason on its own; `wt-merge-check.py` may print `remerge` for those, and this rule wins. The coordinator's go
-never asks for an "Update branch". Master has no branch protection that requires an up-to-date branch. This
-overrides "Merge the main branch in only when needed" in the managed block below.
+reason on its own. Since skills 0.17.0 the package carries this rule as `autonomy.remergeMain: "on-conflict"`,
+set in `context/workflow.json`, so `wt-merge-check.py` prints `merge-as-is` for those (pass `--not-mergeable` when the
+forge reports a conflict). The coordinator's go never asks for an "Update branch". Master has no branch protection
+that requires an up-to-date branch.
 
 <!-- softure-skills:begin (managed by @softure-ai/skills, do not edit) -->
 # SOFTURE workflow and conventions
@@ -140,6 +141,22 @@ irreversible action nobody asked for, a secret or access only the owner has, sco
 `change.md`, a measurement that refutes the item's premise, or an idea for a new product or package
 (tell the owner in the project chat to plan it together; file nothing).
 
+**Verify, never leave checks for the owner.** Never leave items for the owner's manual verification:
+they come back to the agent anyway. The run verifies them itself, closes them, archives and
+releases. A plan criterion is *Manual* only when no agent-runnable evidence can settle it; otherwise
+the plan names the evidence (a test, a script or local check, a screenshot or frame grab the agent
+looks at, the pipeline run and health check, CI logs, a schema or `ffprobe` check), the run produces
+it and records it on the Progress item (command and result, SHA, link). No item ends `waiting: owner
+check`, and `## Owner decisions and checks` holds no checks the run could do. Only four things are
+genuinely the owner's: a paid provider call that needs the owner's yes, a secret, account or
+connector only the owner has, a release or production deploy (Releases), and a taste judgement the
+owner reserved for themselves in `change.md` or the PRD. Each becomes a tracked item with the exact
+step and its reason (an `Owner step:` handoff line that `wt-roadmap.py done` writes to the roadmap,
+or an issue), never a free-floating checkbox list. After an owner-approved deploy the run performs
+the checks it can reach (pipeline run, health endpoint, logs) and closes the item; only a check the
+container truly cannot reach becomes a tracked item naming why. A report never lists manual checks as
+the owner's to-do.
+
 **Know your role.** Work in parallel has one coordinator and its threads:
 - **Coordinator**: the session in the project's main chat (the channel the owner talks to), or
   `softure-worktree-manager` locally. It plans, briefs, starts threads, gives the go to merge, and is
@@ -212,6 +229,10 @@ Only a "stop" or "pause" from the owner, recorded in memory, holds it back.
 - Nudges stalled threads (waiting on CI, stopped by a usage limit) on every report: every working
   thread silent for 45 minutes or more gets a nudge in that firing.
 - A new question about the roadmap goes to a new thread; the old one is closed.
+- **Open owner checks are work, not a to-do for the owner.** When the roadmap still holds open check
+  entries (under `## Owner decisions and checks`, or rows `done_code (…; waiting: owner check …)`),
+  start a thread that verifies them, closes the entries and rows, archives and, when code changed
+  and the owner's release word exists, releases. Never list them in a report for the owner.
 
 **Thread duties:**
 - Run the whole chain for its change (`softure-worktree`), deciding by the rules above.
@@ -239,15 +260,21 @@ Only a "stop" or "pause" from the owner, recorded in memory, holds it back.
 - **The roadmap state lives on the main branch, never on a change branch.** Branches do not edit
   `roadmap.md`: `wt-roadmap.py` writes every stage on the main branch (`open`, `stage`, `ready`), and
   the thread runs `wt-roadmap.py done <change-id>` right after its merge; it takes the `## Done`,
-  owner-check and release lines from the archived `change.md` (`softure-archive --handoff`). Only
-  `worktree.cloudState: "branch"` keeps the old flow, where the branch carries its own row.
+  owner-step and release lines from the archived `change.md` (`softure-archive --handoff`). In this
+  mode it refuses `Owner check:` lines and `waiting: owner check`: verify them, then re-run it with
+  `--verified "<evidence>"`. Only `worktree.cloudState: "branch"` keeps the old flow, where the
+  branch carries its own row.
 - **Merge the main branch in only when needed** (`autonomy.remergeMain: "when-needed"`, the default).
   After the go, run `softure-worktree/scripts/wt-merge-check.py`. `merge-as-is` (the forge reports the
   pull request mergeable, and since the branch last merged it the main branch brought no migration, no
   dependency change and no file the branch also changes): merge the pull request as it is; its checks
   were green at READY. `remerge`: merge the fresh main branch in, resolve conflicts yourself, run the
   `RUN` lines it prints, push. The main branch is the source of truth: what it has and the branch lacks
-  is pulled in and wired. `"always"`: merge the main branch in before every merge.
+  is pulled in and wired. `"on-conflict"`: `merge-as-is` unless the merge would conflict (the forge
+  reports the pull request not mergeable: pass `--not-mergeable`; or the script's trial merge
+  conflicts); overlap, migrations and dependency changes alone do not force a merge of the main
+  branch, so the merged result is first tested on the main branch and in the release gate.
+  `"always"`: merge the main branch in before every merge.
 - **A merge of the main branch re-runs only what it can break:** every gate except the test gate, plus
   `autonomy.relatedTests` for the files the branch changes. The full suite runs again only when the
   incoming changes add a migration or touch dependencies, test setup or config (`wt-merge-check.py`
@@ -258,7 +285,8 @@ Only a "stop" or "pause" from the owner, recorded in memory, holds it back.
   green checks, merge it on the forge; the forge deletes the head branch. `"push"`: `git merge --no-ff`
   locally, then push the main branch through the pre-push hook.
 - When one thread has had to chase the main branch several times, the coordinator tells the others
-  to hold their merges until it lands.
+  to hold their merges until it lands. Under `remergeMain: "on-conflict"` the go never asks for
+  "Update branch" or a merge of the main branch: the thread merges on `wt-merge-check.py`'s verdict.
 - Hooks stay on: never `--no-verify`, never force-push, never disable or loosen a test to get green.
   Long hooks run in the background with the longest timeout; a hung one is killed by its PID and
   re-run.
