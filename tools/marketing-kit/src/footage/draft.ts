@@ -80,9 +80,18 @@ export function toAssColor(hex: string): string {
   return `&H${alpha}${pair(4)}${pair(2)}${pair(0)}`;
 }
 
-/** Caption text as ASS dialogue: override braces and backslashes would be read as tags, line breaks end the line. */
+/**
+ * Caption text as ASS dialogue: override braces and backslashes would be read as tags, line breaks end the line. A
+ * no-break space (U+00A0) becomes ASS's hard space `\h`, which libass never breaks a line at, as the render's HTML.
+ */
 function toAssText(text: string): string {
-  return text.replace(/\\/g, "/").replace(/\{/g, "(").replace(/\}/g, ")").replace(/\s+/g, " ").trim();
+  return text
+    .replace(/\\/g, "/")
+    .replace(/\{/g, "(")
+    .replace(/\}/g, ")")
+    .replace(/[^\S\u00a0]+/g, " ")
+    .replace(/^ +| +$/g, "")
+    .replace(/\u00a0/g, "\\h");
 }
 
 /** The caption colours the draft paints with (`BrandColors`). */

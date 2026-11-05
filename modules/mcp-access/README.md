@@ -258,6 +258,11 @@ still parsed) so a stale schema degrades instead of failing. Renaming the server
 entry, at the cost of every user reconnecting, so it is a last resort. Tell users after a release that changed a tool
 schema: start a new conversation, and if the old tools are still shown, remove and re-add the connector.
 
+What the app can rely on: with `serverInfoTool: { tools: true }` the model can always read the current contract
+in-band, since a tool result is never cached. `get_server_info` answers every served tool's description and input
+schema with a hint that the server's copy wins, so a model on a stale list can build its calls from it without the
+user doing anything.
+
 ### Strict tool input
 
 zod objects strip unknown keys, so a call with a misspelt field (`notes` for `note`) or a field of a newer tool list
@@ -326,6 +331,28 @@ export const createServer = createMcpServerFactory({
   `serverInfoTool.description` of the dictionary, or `description` in the options.
 - A hand-built server registers it with `registerServerInfoTool(server, { buildInfo, server: { name, version } })`,
   passing the name and version it serves.
+
+#### The served tool contract: `tools: true`
+
+A hosted client can keep a stale tool list for good (see "What hosted clients do with a changed tool list"), but it
+never caches a tool result. `serverInfoTool: { buildInfo, tools: true }` makes `get_server_info` answer the contract the
+caller's `tools/list` answers right now, so the model reads the current schemas in-band:
+
+```json
+{ "server": { "name": "acme", "version": "1.0.0-tools-3f9a0c41d2e7" }, "release": "v1.4.0", "...": "...",
+  "toolsHint": "If your copy of a tool's schema or description differs from `tools` here, the server's is current: build calls from it.",
+  "tools": [{ "name": "search_notes", "description": "Finds notes.", "inputSchema": { "type": "object", "...": "..." } }] }
+```
+
+- `tools` lists each served tool's `name`, `description` and `inputSchema` for the caller's access level, taken from
+  the same measured listing the version is computed from (strict input included), so the two never disagree.
+- An optional `name` input narrows the answer to one tool; a name no served tool has answers `tools: []` with
+  `toolNames`. A call with no input still works.
+- The hint is in the answer, not only in the description, since a stale copy carries the old description too.
+- No token, identity or user data is in the answer: only what `tools/list` already shows the caller.
+- Turning it on changes the tool's input schema and default description, so the version changes once.
+- A hand-built server passes `tools: true` with `servedTools: () => listServedTools(createServer)` for the caller's
+  access level.
 
 ### Writing tools
 
@@ -972,7 +999,8 @@ to `@softure-ai/privacy` (`privacy` flags on):
 - Only `S256` PKCE and the `authorization_code` and `refresh_token` grants.
 - Write access is per token, not per tool; finer scopes would be a new option.
 - A hosted client's own tool list cache cannot be refreshed from the server (see "What hosted clients do with a
-  changed tool list"); the version and the session renewal help only clients that re-list.
+  changed tool list"); the version and the session renewal help only clients that re-list. `get_server_info` with
+  `tools: true` gives the model the current contract in-band instead.
 - The MCP endpoint's rate limit is per client address, not per token (API tokens are counted per token as well).
 - One API token kind per app (one prefix); the `kind` column takes more kinds without a migration of the rows.
 - `responseMode: "json"` drops mid-call notifications; a streaming tool would need a different mode. Long work is an
