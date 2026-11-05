@@ -174,6 +174,28 @@ describe("the footage pipeline without ffmpeg", () => {
     expect(lines).toEqual([]);
     expect(existsSync(join(run.buildDir, "assets"))).toBe(false);
   });
+
+  it("ends a render with an invalid finishVideo with a sentence, before the music is bought or any step runs (issue #1068)", async () => {
+    const { run, providers } = options({ isCommit: true });
+    const clips = [clip("talk", "talk", null)];
+    const edl = cutFootage(film(), clips, { talk: [{ text: "Hej", start: 1, end: 1.5 }] }, getEdlPath(run.buildDir, false));
+    lines.length = 0;
+    const result = await renderFootage(film(), clips, { kind: "ready", words: { talk: [{ text: "Hej", start: 1, end: 1.5 }] }, speech: { talk: join(dir, "talk.mp3") } }, edl, {
+      ...run,
+      brand: { name: "Brand", locale: "pl-PL", colors: {} as BrandColors, fonts: { heading: null, body: null }, logo: null },
+      sfx: {},
+      quality: "draft",
+      output: join(dir, "out", "film.mp4"),
+      finishVideo: { preset: "veryfast", crf: 60, maxBitrate: "12G" },
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: 'finishVideo.crf must be a whole number from 0 to 51, got 60. finishVideo.maxBitrate must be a positive rate such as "12M" or "12000k", got "12G".',
+    });
+    expect(providers.music.calls).toEqual([]);
+    expect(lines).toEqual([]);
+    expect(existsSync(join(run.buildDir, "assets"))).toBe(false);
+  });
 });
 
 describe("readRenderPercent", () => {

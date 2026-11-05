@@ -386,6 +386,7 @@ export {
   buildFinishArgs,
   clampCoverSeconds,
   findFinishProblems,
+  findFinishVideoProblems,
   getCoverPath,
   getDefaultCoverSeconds,
   isFastStart,
@@ -396,6 +397,7 @@ export {
   readFilmFacts,
   readTopLevelBoxes,
   type FilmFacts,
+  type FinishVideo,
 } from "./footage/publish.js";
 export {
   readFfmpegProgressSeconds,

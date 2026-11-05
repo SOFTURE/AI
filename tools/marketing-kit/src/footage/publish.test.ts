@@ -5,11 +5,13 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { Edl } from "./edl.js";
+import type { X264Preset } from "./normalize.js";
 import {
   buildCoverArgs,
   buildFinishArgs,
   clampCoverSeconds,
   findFinishProblems,
+  findFinishVideoProblems,
   getCoverPath,
   getDefaultCoverSeconds,
   isFastStart,
@@ -105,6 +107,50 @@ describe("buildFinishArgs", () => {
     expect(buildFinishArgs("/r.mp4", { video: PUBLISHABLE.video, audio: null }, "/f.mp4", { audioFilter: "loudnorm=I=-14" })).not.toContain("-af");
   });
 
+  it("re-encodes even a publishable picture to H.264 High at the asked preset and CRF (issue #1068)", () => {
+    expect(buildFinishArgs("/r.mp4", PUBLISHABLE, "/f.mp4", { video: { preset: "veryfast", crf: 20 } })).toEqual([
+      "-v",
+      "error",
+      "-y",
+      "-i",
+      "/r.mp4",
+      "-map",
+      "0:v:0",
+      "-c:v",
+      "libx264",
+      "-profile:v",
+      "high",
+      "-pix_fmt",
+      "yuv420p",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "20",
+      "-map",
+      "0:a:0",
+      "-c:a",
+      "copy",
+      "-movflags",
+      "+faststart",
+      "/f.mp4",
+    ]);
+  });
+
+  it.each([
+    { maxBitrate: "12M", bufsize: "24M" },
+    { maxBitrate: "12000k", bufsize: "24000k" },
+    { maxBitrate: "12.5M", bufsize: "25M" },
+    { maxBitrate: "8000000", bufsize: "16000000" },
+  ])("caps the re-encode at $maxBitrate with a $bufsize buffer", ({ maxBitrate, bufsize }) => {
+    const args = buildFinishArgs("/r.mp4", PUBLISHABLE, "/f.mp4", { video: { preset: "veryfast", crf: 20, maxBitrate } }).join(" ");
+    expect(args).toContain(`-preset veryfast -crf 20 -maxrate ${maxBitrate} -bufsize ${bufsize} -map 0:a:0`);
+  });
+
+  it("keeps the loudness pass beside the asked picture encode", () => {
+    const args = buildFinishArgs("/r.mp4", PUBLISHABLE, "/f.mp4", { audioFilter: "loudnorm=I=-14", video: { preset: "faster", crf: 22 } }).join(" ");
+    expect(args).toContain("-c:v libx264 -profile:v high -pix_fmt yuv420p -preset faster -crf 22 -map 0:a:0 -af loudnorm=I=-14 -c:a aac");
+  });
+
   it("adds no sound to a film without any", () => {
     expect(buildFinishArgs("/r.mp4", { video: PUBLISHABLE.video, audio: null }, "/f.mp4")).not.toContain("0:a:0");
   });
@@ -196,5 +242,27 @@ describe("the cover", () => {
   it("is one JPG frame next to the film", () => {
     expect(getCoverPath("/out/film/film.placeholder.mp4")).toBe("/out/film/film.placeholder.jpg");
     expect(buildCoverArgs("/out/f.mp4", 2.5, "/out/f.jpg")).toEqual(["-v", "error", "-y", "-ss", "2.5", "-i", "/out/f.mp4", "-frames:v", "1", "-q:v", "2", "/out/f.jpg"]);
+  });
+});
+
+describe("findFinishVideoProblems (issue #1068)", () => {
+  it("accepts a preset, a CRF and an optional cap", () => {
+    expect(findFinishVideoProblems({ preset: "veryfast", crf: 20 })).toEqual([]);
+    expect(findFinishVideoProblems({ preset: "ultrafast", crf: 0, maxBitrate: "12M" })).toEqual([]);
+    expect(findFinishVideoProblems({ preset: "veryslow", crf: 51, maxBitrate: "12000k" })).toEqual([]);
+  });
+
+  it("names an unknown preset", () => {
+    expect(findFinishVideoProblems({ preset: "turbo" as X264Preset, crf: 20 })).toEqual([
+      "finishVideo.preset must be one of ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow, got turbo.",
+    ]);
+  });
+
+  it.each([-1, 52, 20.5, Number.NaN])("names a CRF of %s", (crf) => {
+    expect(findFinishVideoProblems({ preset: "veryfast", crf })).toEqual([`finishVideo.crf must be a whole number from 0 to 51, got ${String(crf)}.`]);
+  });
+
+  it.each(["", "12 M", "12G", "0M", "-3M", "fast"])("names a cap of %j", (maxBitrate) => {
+    expect(findFinishVideoProblems({ preset: "veryfast", crf: 20, maxBitrate })).toEqual([`finishVideo.maxBitrate must be a positive rate such as "12M" or "12000k", got "${maxBitrate}".`]);
   });
 });

@@ -43,12 +43,14 @@ import {
   buildFinishArgs,
   clampCoverSeconds,
   findFinishProblems,
+  findFinishVideoProblems,
   getCoverPath,
   getDefaultCoverSeconds,
   isPublishableAudio,
   isPublishableVideo,
   probeFilmFacts,
   readTopLevelBoxes,
+  type FinishVideo,
 } from "./publish.js";
 import { describePaidSteps, toPaidAudio, type FootageCharge, type FootageProgress, type FootageProviders, type FootageStage, type PaidAudio, type PaidStep } from "./providers.js";
 import { buildAudioArgs, buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs, getSpeechCutOptions } from "./render.js";
@@ -620,6 +622,12 @@ export interface RenderFootageOptions extends FootageRunOptions {
    * `slow`). `quality: "draft"` with `crf: 18` encodes fast at the published quality. By default the tier's CRF.
    */
   crf?: number;
+  /**
+   * Re-encode the picture in the final pass instead of copying it: H.264 High, yuv420p, at this x264 preset and CRF,
+   * optionally capped at `maxBitrate` (issue #1068). `quality: "draft", crf: 18` plus `{ preset: "veryfast", crf: 20 }`
+   * publishes High at a controlled size. By default the picture is copied when publishable.
+   */
+  finishVideo?: FinishVideo;
 }
 
 export type RenderedFootage = { kind: "dry-run"; steps: PaidStep[] } | ({ kind: "rendered"; output: string; seconds: number; edlPath: string } & FinishedFootage);
@@ -642,6 +650,8 @@ async function runRenderFootage(
   options: RenderFootageOptions,
 ): Promise<FootageResult<RenderedFootage>> {
   const { buildDir, log, signal } = options;
+  const finishVideoProblems = options.finishVideo === undefined ? [] : findFinishVideoProblems(options.finishVideo);
+  if (finishVideoProblems.length > 0) return err(finishVideoProblems.join(" "));
   const lowDisk = findLowDiskProblems({ temp: getRenderTempDir(process.env, options.tempDir), build: buildDir }, options.readFreeBytes ?? getFreeBytes);
   if (lowDisk.length > 0) return err(`not enough disk space to render: ${lowDisk.join(" ")}`);
   const seconds = getFootageFilmSeconds(film, edl);
@@ -772,12 +782,12 @@ export interface FinishedFootage {
 /**
  * The final pass over hyperframes' render: the mix normalized to `film.mixLoudness` (measured on the render, one
  * linear gain; the picture still copied), publishable codecs and fast start (stream copy where the render already
- * matches), checked with ffprobe, then the cover and the file's facts. Exported for tests only.
+ * matches; `finishVideo` re-encodes the picture to H.264 High at its preset and CRF), checked with ffprobe, then the cover and the file's facts. Exported for tests only.
  */
 export async function finishFootage(
   film: Pick<FootageFilm, "mixLoudness" | "cover">,
   input: { renderFile: string; seconds: number; coverAt: number },
-  options: Pick<RenderFootageOptions, "log" | "signal" | "output" | "onProgress">,
+  options: Pick<RenderFootageOptions, "log" | "signal" | "output" | "onProgress" | "finishVideo">,
 ): Promise<FootageResult<FinishedFootage>> {
   const { log, signal, output } = options;
   const aborting = signal === undefined ? {} : { signal };
@@ -796,9 +806,10 @@ export async function finishFootage(
       log(`loudness: the film's mix measured ${measured.measurement.inputI.toFixed(1)} LUFS, normalized to ${mixLoudness.target} LUFS (true peak ${mixLoudness.truePeak} dBTP).`);
     }
   }
-  const isVideoCopied = isPublishableVideo(rendered.facts.video);
+  const { finishVideo } = options;
+  const isVideoCopied = finishVideo === undefined && isPublishableVideo(rendered.facts.video);
   const isAudioCopied = audioFilter === undefined && (rendered.facts.audio === null || isPublishableAudio(rendered.facts.audio));
-  const finishArgs = buildFinishArgs(input.renderFile, rendered.facts, output, audioFilter === undefined ? {} : { audioFilter });
+  const finishArgs = buildFinishArgs(input.renderFile, rendered.facts, output, { ...(audioFilter === undefined ? {} : { audioFilter }), ...(finishVideo === undefined ? {} : { video: finishVideo }) });
   await runFfmpeg("The film's final pass", finishArgs, { ...aborting, output, onSeconds: (done) => progress(0, done) });
   rmSync(input.renderFile, { force: true });
   const finished = await probeFilmFacts(output, aborting);
@@ -807,7 +818,7 @@ export async function finishFootage(
   if (problems.length > 0) return err(`the finished film ${output} is not publishable: ${problems.join("; ")}.`);
   progress(0, input.seconds);
   const { bytes, width, height, durationSeconds } = finished.facts;
-  const streams = isVideoCopied && isAudioCopied ? "streams copied" : isVideoCopied ? "picture copied, sound re-encoded" : "re-encoded";
+  const streams = describeFinishStreams({ isVideoCopied, isAudioCopied, hasAudio: rendered.facts.audio !== null, ...(finishVideo === undefined ? {} : { finishVideo }) });
   log(`finish: ${streams} to H.264 ${finished.facts.video.profile ?? ""}, AAC 48 kHz stereo, fast start; ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${bytes} bytes.`);
   let cover: string | null = null;
   if (film.cover !== null) {
@@ -818,6 +829,15 @@ export async function finishFootage(
     log(`cover: ${cover} (at ${at} s).`);
   }
   return ok({ bytes, width, height, durationSeconds, cover });
+}
+
+/** What the final pass did to each stream, for its log line. */
+function describeFinishStreams(pass: { isVideoCopied: boolean; isAudioCopied: boolean; hasAudio: boolean; finishVideo?: FinishVideo }): string {
+  if (pass.finishVideo === undefined) return pass.isVideoCopied && pass.isAudioCopied ? "streams copied" : pass.isVideoCopied ? "picture copied, sound re-encoded" : "re-encoded";
+  const { preset, crf, maxBitrate } = pass.finishVideo;
+  const picture = `picture re-encoded (${preset} CRF ${crf}${maxBitrate === undefined ? "" : `, max ${maxBitrate}`})`;
+  if (!pass.hasAudio) return picture;
+  return `${picture}, sound ${pass.isAudioCopied ? "copied" : "re-encoded"}`;
 }
 
 /** hyperframes' progress lines carry a percentage (`… 42%`); the last one on a line counts. */
