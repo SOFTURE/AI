@@ -18,7 +18,8 @@ import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesRead
 import { buildEdl, getEdlDuration, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
 import { chooseCutTransitions, type CutMeasure } from "./cuts.js";
-import { DEFAULT_AUTO_THRESHOLD, getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
+import { declickSpeech, describeDeclick, type DeclickReport } from "./declick.js";
+import { DEFAULT_AUTO_THRESHOLD, getDeclickLevel, getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
 import { getFilmKeyTerms } from "./keyterms.js";
 import {
   buildMixArgs,
@@ -605,6 +606,17 @@ async function getMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[], seco
   return ok(path);
 }
 
+/**
+ * The speech chain's files: the cut speech, the declicked track and the final `speech.mp3`. The last stage that runs
+ * writes `speech.mp3`; the declicked track is float WAV when the loudness pass follows (one lossy encode fewer).
+ */
+export function getSpeechChainFiles(assetsDir: string, stages: { isDeclick: boolean; isLoudness: boolean }): { rawSpeechFile: string; declickedFile: string; speechFile: string } {
+  const speechFile = join(assetsDir, "speech.mp3");
+  const rawSpeechFile = stages.isDeclick || stages.isLoudness ? join(assetsDir, "speech.raw.mp3") : speechFile;
+  const declickedFile = !stages.isDeclick ? rawSpeechFile : stages.isLoudness ? join(assetsDir, "speech.declicked.wav") : speechFile;
+  return { rawSpeechFile, declickedFile, speechFile };
+}
+
 export interface RenderFootageOptions extends FootageRunOptions {
   brand: FootageBrand;
   sfx: Partial<Record<SfxEvent, string>>;
@@ -645,7 +657,16 @@ export interface RenderFootageOptions extends FootageRunOptions {
   finishVideo?: FinishVideo;
 }
 
-export type RenderedFootage = { kind: "dry-run"; steps: PaidStep[] } | ({ kind: "rendered"; output: string; seconds: number; edlPath: string } & FinishedFootage);
+export type RenderedFootage =
+  | { kind: "dry-run"; steps: PaidStep[] }
+  | ({
+      kind: "rendered";
+      output: string;
+      seconds: number;
+      edlPath: string;
+      /** What the speech track's declick stage did (`FootageFilm.speech.declick`); null when it is off. */
+      declick: DeclickReport | null;
+    } & FinishedFootage);
 
 /**
  * Composes the cut and renders it: speech track (loudness-normalized), ducked music, end card backdrop, assets,
@@ -685,18 +706,29 @@ async function runRenderFootage(
   const musicFile = typeof music.value === "string" ? music.value : null;
   const aborting = signal === undefined ? {} : { signal };
   const loudness = film.loudness === undefined ? DEFAULT_LOUDNESS : film.loudness;
-  const speechFile = join(assetsDir, "speech.mp3");
-  const rawSpeechFile = loudness === null ? speechFile : join(assetsDir, "speech.raw.mp3");
+  const declickLevel = getDeclickLevel(film);
+  const { speechFile, rawSpeechFile, declickedFile } = getSpeechChainFiles(assetsDir, { isDeclick: declickLevel !== "off", isLoudness: loudness !== null });
   const ffmpegTrack = (label: string, output: string, args: () => string[]) => (onSeconds: (done: number) => void) => runFfmpeg(label, args(), { ...aborting, output, onSeconds });
   const tracks: { item: string; seconds: number; run: (onSeconds: (done: number) => void) => Promise<void> }[] = [
     { item: "speech", seconds, run: ffmpegTrack("The speech track", rawSpeechFile, () => buildSpeechArgs(edl, transcript.speech, rawSpeechFile, getSpeechCutOptions(getFootageEdit(film)))) },
   ];
+  let declick: DeclickReport | null = null;
+  if (declickLevel !== "off") {
+    tracks.push({
+      item: "declick",
+      seconds,
+      run: async (onSeconds) => {
+        declick = await declickSpeech({ input: rawSpeechFile, output: declickedFile, words, level: declickLevel, seconds, ...aborting, onSeconds });
+        log(describeDeclick(declick));
+      },
+    });
+  }
   if (loudness !== null) {
     tracks.push({
       item: "loudness",
       seconds,
       run: async (onSeconds) => {
-        const outcome = await normalizeLoudness(rawSpeechFile, speechFile, loudness, { ...aborting, onSeconds });
+        const outcome = await normalizeLoudness(declickedFile, speechFile, loudness, { ...aborting, onSeconds });
         log(
           outcome.kind === "silent"
             ? "loudness: the speech track is silent, left as it is."
@@ -780,7 +812,7 @@ async function runRenderFootage(
   const roles = Object.fromEntries(clips.map((clip) => [clip.clip.id, clip.clip.role]));
   const finished = await finishFootage(film, { renderFile, seconds, coverAt: film.cover?.at ?? getDefaultCoverSeconds(edl, roles) }, options);
   if (!finished.ok) return finished;
-  return ok({ kind: "rendered", output: options.output, seconds, edlPath: getEdlPath(buildDir, options.isPlaceholder), ...finished.value });
+  return ok({ kind: "rendered", output: options.output, seconds, edlPath: getEdlPath(buildDir, options.isPlaceholder), declick, ...finished.value });
 }
 
 /** What `renderFootage` reads from the written film. */

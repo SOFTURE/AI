@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **A declick stage in the footage speech chain (#1084):** a footage film's `speech: { declick: "off" | "gentle" |
+  "strong" }` (`marketing.json` `speech.declick`, default `off`) cleans mouth clicks and lip smacks between words in
+  `renderFootage` and `renderFootageDraft`, between the cut speech track and its loudness pass. A gate lowers the speech
+  outside each word's window (± 40 ms, 20 ms fade outside it) by 15 or 20 dB, and impulses under 30 ms outside the
+  words (a jump in the 2-8 kHz band above its running median, 15 or 9 dB) are lowered by 30 dB with a 5 or 8 ms
+  crossfade. The rendered result and the draft carry `declick: { level, impulses, gateDb } | null`, and the stage logs
+  the count. `off` (also an absent setting) runs no extra pass, so existing films sound the same. Exported:
+  `declickSpeech`, `declickSamples`, `findImpulses`, `getDeclickGain`, `getGateWindows`, `getRunningMedian`,
+  `buildDeclickDecodeArgs`, `buildDeclickEncodeArgs`, `describeDeclick`, `getDeclickLevel`, `getSpeechChainFiles`,
+  the `DECLICK_*` constants and the `DeclickLevel`, `DeclickReport`, `FootageSpeech` types.
 - **The finished footage film holds its true peak (#1079):** `finishFootage` (and so `renderFootage` and
   `renderFootageFilm`) no longer trusts `loudnorm` before the AAC encode, which added 0.7-1.1 dB of inter-sample
   overshoot (a film with loud music measured up to +0.9 dBTP against a -1 dBTP limit). The mix's last stage is now one

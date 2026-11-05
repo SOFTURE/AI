@@ -1,5 +1,6 @@
 import type { VideoFormat } from "../compose/timeline.js";
 import type { EndCard } from "../film.js";
+import type { DeclickLevel } from "./declick.js";
 import type { LoudnessTarget } from "./loudness.js";
 
 /**
@@ -135,6 +136,8 @@ export interface FootageFilm {
   edit?: Partial<FootageEdit>;
   /** The closing card after the last segment; null: the film ends with its last segment. */
   endCard: EndCard | null;
+  /** The speech track's cleanup before its loudness normalization. Absent: none. */
+  speech?: FootageSpeech;
   /** The speech track's loudness, normalized before the music is mixed under it. Absent: −14 LUFS, −1 dBTP; null: left as filmed. */
   loudness?: LoudnessTarget | null;
   /**
@@ -148,6 +151,20 @@ export interface FootageFilm {
    * that second of the film; null: no cover.
    */
   cover?: { at?: number } | null;
+}
+
+/** Settings of the speech track itself. */
+export interface FootageSpeech {
+  /**
+   * Mouth clicks and lip smacks between words (issue #1084): `gentle` lowers the pauses by 15 dB and removes impulses
+   * that jump 15 dB above the band's median, `strong` by 20 dB and 9 dB. Absent or `off`: no pass, the track unchanged.
+   */
+  declick?: DeclickLevel;
+}
+
+/** The film's declick level; `off` when it sets none. */
+export function getDeclickLevel(film: Pick<FootageFilm, "speech">): DeclickLevel {
+  return film.speech?.declick ?? "off";
 }
 
 /** Filler words per language, written with repeated letters collapsed (`yyy` and `yyyy` are both `y`). */

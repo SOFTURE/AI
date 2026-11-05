@@ -494,6 +494,27 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     expect(lines).toContain("draft: no music, the film's music is generated and the draft was given no cacheDir and providers to find it in the cache.");
   }, 60_000);
 
+  it("declicks the speech track as the render does when the film asks, and runs no extra pass when it is off", async () => {
+    dir = mkdtempSync(join(tmpdir(), "footage-draft-"));
+    const { clips, transcript } = draftInputs();
+    const lines: string[] = [];
+    const items: string[] = [];
+    const run = { buildDir: join(dir, "build"), output: join(dir, "draft.mp4"), log: (line: string) => lines.push(line), onProgress: (step: { item: string }) => items.push(step.item) };
+    const declicked = await renderFootageDraft({ ...film, speech: { declick: "strong" } }, clips, transcript, shortCut, run);
+    if (!declicked.ok) throw new Error(declicked.error);
+    expect(declicked.value.declick).toMatchObject({ level: "strong", gateDb: -20 });
+    expect([...new Set(items)]).toEqual(["speech", "declick", "film"]);
+    expect(existsSync(join(dir, "build", "draft", "speech.declicked.wav"))).toBe(true);
+    expect(lines.some((line) => line.startsWith("declick (strong): "))).toBe(true);
+    expect(readStreamCodecs(declicked.value.output)).toEqual(["h264", "aac"]);
+    items.length = 0;
+    const plain = await renderFootageDraft({ ...film, speech: { declick: "off" } }, clips, transcript, shortCut, run);
+    if (!plain.ok) throw new Error(plain.error);
+    expect(plain.value.declick).toBeNull();
+    expect([...new Set(items)]).toEqual(["speech", "film"]);
+    expect(existsSync(join(dir, "build", "draft", "speech.declicked.wav"))).toBe(false);
+  }, 60_000);
+
   it("hands a failed draft step to onFfmpegFailure, and its kept command.sh fails the same way", async () => {
     dir = mkdtempSync(join(tmpdir(), "footage-draft-"));
     const { clips, transcript } = draftInputs();

@@ -10,7 +10,8 @@ import { getCaptionSpans, getFootageCaptionLayout, phraseChunks } from "./captio
 import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
 import { chooseFootageDraftFont } from "./draft-font.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
-import { getFootageEdit, type FootageFilm } from "./film.js";
+import { declickSpeech, describeDeclick, type DeclickReport } from "./declick.js";
+import { getDeclickLevel, getFootageEdit, type FootageFilm } from "./film.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
 import { FOOTAGE_FPS, getThreadArgs, type Frame } from "./normalize.js";
 import { findFootageMusic, getFfmpegReporting, getFrame, type FootageBrand, type FootageResult, type FootageRunOptions, type PreparedClip, type TranscribeOutcome } from "./pipeline.js";
@@ -436,6 +437,8 @@ export interface FootageDraft {
   width: number;
   height: number;
   bytes: number;
+  /** What the speech track's declick stage did, as the render does it; null when the film's declick is off. */
+  declick: DeclickReport | null;
 }
 
 /** The draft's music track: a file to duck, or why there is none. */
@@ -487,13 +490,16 @@ async function runRenderFootageDraft(
   const draftDir = resolve(options.buildDir, "draft");
   rmSync(draftDir, { recursive: true, force: true });
   mkdirSync(draftDir, { recursive: true });
-  const items = music.value.kind === "file" ? ["speech", "music", "film"] : ["speech", "film"];
+  const declickLevel = getDeclickLevel(film);
+  const items = ["speech", ...(declickLevel === "off" ? [] : ["declick"]), ...(music.value.kind === "file" ? ["music"] : []), "film"];
   const report = (item: string, done: number): void => {
     const itemIndex = items.indexOf(item) + 1;
     options.onProgress?.({ step: "draft", item, itemIndex, itemCount: items.length, done: Math.min(seconds * items.length, (itemIndex - 1) * seconds + done), total: seconds * items.length });
   };
   const clipFiles = Object.fromEntries(clips.map((clip) => [clip.clip.id, resolve(clip.file)]));
-  const speech = join(draftDir, "speech.mp3");
+  const cutSpeech = join(draftDir, "speech.mp3");
+  // The declicked track stays WAV: the draft's one encode is its only lossy step after the cut.
+  const speech = declickLevel === "off" ? cutSpeech : join(draftDir, "speech.declicked.wav");
   const words = remapWords(edl, transcript.words, film.cut.fillers);
   const frame = getFrame(film);
   const brandFont = chooseFootageDraftFont(options.brand?.fonts.body ?? null);
@@ -518,7 +524,13 @@ async function runRenderFootageDraft(
   const output = resolve(options.output);
   mkdirSync(dirname(output), { recursive: true });
   report("speech", 0);
-  await runFfmpeg("The draft's speech track", buildSpeechArgs(edl, transcript.speech, speech, getSpeechCutOptions(getFootageEdit(film))), { ...aborting, output: speech, onSeconds: (done) => report("speech", done) });
+  await runFfmpeg("The draft's speech track", buildSpeechArgs(edl, transcript.speech, cutSpeech, getSpeechCutOptions(getFootageEdit(film))), { ...aborting, output: cutSpeech, onSeconds: (done) => report("speech", done) });
+  let declick: DeclickReport | null = null;
+  if (declickLevel !== "off") {
+    report("declick", 0);
+    declick = await declickSpeech({ input: cutSpeech, output: speech, words, level: declickLevel, seconds, ...aborting, onSeconds: (done) => report("declick", done) });
+    log(describeDeclick(declick));
+  }
   let musicFile: string | null = null;
   if (music.value.kind === "file") {
     musicFile = join(draftDir, "music.mp3");
@@ -551,5 +563,5 @@ async function runRenderFootageDraft(
   const draftMusic: FootageDraftMusic = music.value.kind === "file" ? "played" : music.value.kind;
   const notes = [captions === null ? "no captions" : `captions in ${font.family}`, draftMusic === "played" ? "music" : draftMusic === "none" ? "no music" : "music not cached"];
   log(`draft: ${output}, ${draft.width}×${draft.height}, ${seconds.toFixed(1)} s, ${bytes} bytes, ${notes.join(", ")}.`);
-  return ok({ output, music: draftMusic, captionFont: captions === null ? null : font.family, seconds, width: draft.width, height: draft.height, bytes });
+  return ok({ output, music: draftMusic, captionFont: captions === null ? null : font.family, seconds, width: draft.width, height: draft.height, bytes, declick });
 }

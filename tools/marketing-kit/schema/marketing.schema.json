@@ -2955,6 +2955,24 @@
             ],
             "additionalProperties": false
           },
+          "speech": {
+            "description": "The speech track's cleanup before its loudness normalization.",
+            "default": {},
+            "type": "object",
+            "properties": {
+              "declick": {
+                "default": "off",
+                "description": "Mouth clicks and lip smacks between words, cleaned before the loudness pass: gentle lowers the pauses by 15 dB and removes short clicks, strong by 20 dB with a more sensitive detection; off (the default) leaves the speech track as cut.",
+                "type": "string",
+                "enum": [
+                  "off",
+                  "gentle",
+                  "strong"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
           "loudness": {
             "default": {
               "target": -14,
