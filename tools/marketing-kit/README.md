@@ -598,6 +598,7 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
     "edit": { "fadeFrames": 8, "kenBurnsPercent": 3 },
     "captionPreset": "all",
     "endCard": { "headline": "Try it free", "url": "example.com" },
+    "speech": { "declick": "gentle" },
     "loudness": { "target": -14, "truePeak": -1 },
     "cover": { "at": 2.5 }
   }
@@ -691,6 +692,15 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   the seconds billed and stops; nothing is sent. `--placeholder` rehearses without any paid call: a transcript from
   each talking clip's `script` (its words spread evenly over the clip), no isolation, no generated music (a local
   music file still plays). It writes `edl.placeholder.json` and `<film>.placeholder.mp4`, never the real film's files.
+- **Mouth clicks (`speech.declick`, issue #1084):** `"gentle"` or `"strong"` adds a declick stage between the cut
+  speech track and its loudness pass (the draft runs it too). A gate lowers the speech outside each word's window
+  (start and end ± 40 ms, close words merged) by 15 dB (`gentle`) or 20 dB (`strong`), with a 20 ms fade outside the
+  window, so no onset or tail is touched. Short impulses outside the words' own spans (bursts under 30 ms whose
+  2-8 kHz energy jumps 15 dB, or 9 dB with `strong`, above the band's running median over ±100 ms; 2 ms frames, 1 ms
+  hop) are lowered by 30 dB with a 5 ms or 8 ms crossfade. The gain is applied per sample to the decoded track, and a
+  track without words is not gated. The log and the result's `declick` (`{ level, impulses, gateDb }`, null when
+  off) carry the count. `"off"` (the default) runs no extra pass: the speech track is unchanged. ffmpeg's `adeclick`
+  misses these clicks, which sit well below the speech peaks.
 - **Publishable output:** the speech track is measured and normalized to `loudness` (default −14 LUFS integrated,
   −1 dBTP true peak; two-pass `loudnorm`, one linear gain) before the music goes under it, so a quiet phone clip is
   not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. hyperframes' render then gets
@@ -1013,7 +1023,8 @@ What the draft matches and what it leaves out:
   effects (whoosh, pop).
 - `buildFootageDraftArgs`, `buildFootageDraftCaptions` (an ASS file) and `planFootageDraft` are the pure builders, for an
   app that runs ffmpeg its own way. ffmpeg runs in `<buildDir>/draft/`, so the captions and font paths are relative.
-- `onProgress` reports the stage `draft` (the speech track, the music track when it plays, then the film).
+- `onProgress` reports the stage `draft` (the speech track, its declick when the film sets one, the music track when it
+  plays, then the film).
 - `threads` sets ffmpeg's threads for every segment's decoder, the filter graph and the encoder. ffmpeg otherwise
   follows the host's cores, not a container's CPU quota, and the draft opens one decoder per segment: pass the
   worker's CPU limit (`threads: 1` on a 1-CPU worker), as with `normalize.threads`. The extra threads buy no speed

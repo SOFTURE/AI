@@ -111,6 +111,15 @@ describe("footage films in marketing.json", () => {
     expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { truePeak: 1 } }]))).toContain("footage[0].mixLoudness");
   });
 
+  it("reads the speech declick level, leaves it out when off and refuses an unknown one (issue #1084)", () => {
+    const off = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], speech: { declick: "off" } }])), "a");
+    expect(off).not.toBeNull();
+    expect(off?.speech).toBeUndefined();
+    const gentle = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], speech: { declick: "gentle" } }])), "a");
+    expect(gentle?.speech).toEqual({ declick: "gentle" });
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], speech: { declick: "hard" } }]))).toContain("footage[0].speech.declick");
+  });
+
   it("keeps the speech's level in the finished mix with keep speech and a tolerance, and refuses others (issue #1085)", () => {
     const set = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { keep: "speech", tolerance: 1.5 } }])), "a");
     expect(set?.mixLoudness).toEqual({ target: -14, truePeak: -1, keep: "speech", tolerance: 1.5 });

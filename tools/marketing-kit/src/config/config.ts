@@ -258,6 +258,7 @@ function resolveFootage(data: MarketingJson, at: (relative: string) => string): 
         isCutAudioCrossfade: film.edit.cutAudioCrossfade,
       },
       endCard: film.endCard ?? null,
+      ...(film.speech.declick === "off" ? {} : { speech: { declick: film.speech.declick } }),
       loudness: film.loudness === false ? null : film.loudness,
       mixLoudness: film.mixLoudness === false ? null : film.mixLoudness,
       cover: film.cover === false ? null : film.cover,

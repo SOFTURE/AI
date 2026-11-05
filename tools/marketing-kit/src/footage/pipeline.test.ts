@@ -10,7 +10,7 @@ import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProv
 import { DEFAULT_TRANSITIONS, type FootageClip, type FootageFilm } from "./film.js";
 import { getClipCacheKey, getIsolatedCache } from "./paid.js";
 import type { FootageCharge } from "./providers.js";
-import { cutFootage, getEdlPath, getHyperframesRenderArgs, getMusicPaidStep, prepareFootage, readEdlFile, readRenderPercent, renderFootage, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
+import { cutFootage, getEdlPath, getHyperframesRenderArgs, getMusicPaidStep, getSpeechChainFiles, prepareFootage, readEdlFile, readRenderPercent, renderFootage, transcribeFootage, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
 import type { FootageProbe } from "./probe.js";
 import { buildMusicArgs } from "./render.js";
 
@@ -346,5 +346,14 @@ describe("getHyperframesRenderArgs", () => {
     expect(() => getHyperframesRenderArgs({ quality: "draft", crf: -1 }, "r.mp4")).toThrow("crf must be a whole number from 0 to 51, got -1.");
     expect(() => getHyperframesRenderArgs({ quality: "draft", crf: 52 }, "r.mp4")).toThrow("crf must be a whole number from 0 to 51, got 52.");
     expect(() => getHyperframesRenderArgs({ quality: "draft", crf: 18.5 }, "r.mp4")).toThrow("crf must be a whole number from 0 to 51, got 18.5.");
+  });
+});
+
+describe("getSpeechChainFiles", () => {
+  it("lets the last stage that runs write speech.mp3, and an off declick add no file", () => {
+    expect(getSpeechChainFiles("/a", { isDeclick: false, isLoudness: false })).toEqual({ rawSpeechFile: "/a/speech.mp3", declickedFile: "/a/speech.mp3", speechFile: "/a/speech.mp3" });
+    expect(getSpeechChainFiles("/a", { isDeclick: false, isLoudness: true })).toEqual({ rawSpeechFile: "/a/speech.raw.mp3", declickedFile: "/a/speech.raw.mp3", speechFile: "/a/speech.mp3" });
+    expect(getSpeechChainFiles("/a", { isDeclick: true, isLoudness: false })).toEqual({ rawSpeechFile: "/a/speech.raw.mp3", declickedFile: "/a/speech.mp3", speechFile: "/a/speech.mp3" });
+    expect(getSpeechChainFiles("/a", { isDeclick: true, isLoudness: true })).toEqual({ rawSpeechFile: "/a/speech.raw.mp3", declickedFile: "/a/speech.declicked.wav", speechFile: "/a/speech.mp3" });
   });
 });

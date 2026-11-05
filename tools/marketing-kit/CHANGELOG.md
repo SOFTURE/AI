@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **A declick stage in the footage speech chain (#1084):** a footage film's `speech: { declick: "off" | "gentle" |
+  "strong" }` (`marketing.json` `speech.declick`, default `off`) cleans mouth clicks and lip smacks between words in
+  `renderFootage` and `renderFootageDraft`, between the cut speech track and its loudness pass. A gate lowers the speech
+  outside each word's window (± 40 ms, 20 ms fade outside it) by 15 or 20 dB, and impulses under 30 ms outside the
+  words (a jump in the 2-8 kHz band above its running median, 15 or 9 dB) are lowered by 30 dB with a 5 or 8 ms
+  crossfade. The rendered result and the draft carry `declick: { level, impulses, gateDb } | null`, and the stage logs
+  the count. `off` (also an absent setting) runs no extra pass, so existing films sound the same. Exported:
+  `declickSpeech`, `declickSamples`, `findImpulses`, `getDeclickGain`, `getGateWindows`, `getRunningMedian`,
+  `buildDeclickDecodeArgs`, `buildDeclickEncodeArgs`, `describeDeclick`, `getDeclickLevel`, `getSpeechChainFiles`,
+  the `DECLICK_*` constants and the `DeclickLevel`, `DeclickReport`, `FootageSpeech` types.
 - **Voice isolation per time range (#1087):** `isolateSpeechRanges(film, clips, edl, { buildDir, cacheDir, providers,
   isCommit, margin?, log?, onCharge?, onProgress?, signal?, onFfmpegFailure? })` cleans only the ranges the cut hears
   (each sound span ± `margin`, default 0.25 s, clamped to the clip), caches each by the clip's identity, the range in

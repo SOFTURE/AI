@@ -14,6 +14,7 @@ import {
 } from "../compose/timeline.js";
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
+import { DECLICK_LEVELS } from "../footage/declick.js";
 import { CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS, JUMP_TRANSITIONS } from "../footage/film.js";
 import { normalizeKeyTerms } from "../footage/keyterms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
@@ -601,6 +602,17 @@ const footageSchema = z
       .prefault({})
       .describe("The cut's look; the defaults read as an ordinary phone video."),
     endCard: endCardSchema.optional().describe("The closing card after the last segment; without it, the film ends with its last segment."),
+    speech: z
+      .strictObject({
+        declick: z
+          .enum(DECLICK_LEVELS)
+          .default("off")
+          .describe(
+            "Mouth clicks and lip smacks between words, cleaned before the loudness pass: gentle lowers the pauses by 15 dB and removes short clicks, strong by 20 dB with a more sensitive detection; off (the default) leaves the speech track as cut.",
+          ),
+      })
+      .prefault({})
+      .describe("The speech track's cleanup before its loudness normalization."),
     loudness: z
       .union([
         z.literal(false),
