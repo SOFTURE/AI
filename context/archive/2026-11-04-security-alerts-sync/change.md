@@ -1,12 +1,12 @@
 ---
 change_id: security-alerts-sync
 title: "Open security alerts become GitHub issues, so the hourly issue check picks them up"
-status: backlog
+status: archived
 roadmap_item: LT-5
-branch: null
+branch: claude/project-thread-kq5q4s
 created: 2026-11-04
-updated: 2026-11-04
-archived_at: null
+updated: 2026-11-05
+archived_at: 2026-11-05
 ---
 
 ## Intent
@@ -17,7 +17,7 @@ when the alert is fixed or dismissed.
 
 ## Context
 
-From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **LT-5** (owner, 2026-11-04): the
+From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **LT-5** (owner, 2026-11-04): the
 agent sessions cannot read the Security tab. Their GitHub tools have no access to code scanning, Dependabot or
 secret scanning alerts (checked 2026-11-04), so alerts are only seen when the owner opens the tab. The sessions do
 read issues, and the coordinator checks new issues every hour, so turning alerts into issues closes the gap
@@ -49,5 +49,14 @@ secret scanning alerts, which need a token with those permissions.
 
 - Read-only towards the alerts: the workflow never dismisses an alert; a session that decides an alert is a false
   positive says so in the issue and the owner dismisses it.
-- A missing `SECURITY_ALERTS_TOKEN` fails the run with a clear message naming the secret, and code scanning alerts
-  still sync.
+- A missing `SECURITY_ALERTS_TOKEN` is reported in the run with a warning naming the secret (owner, 2026-11-05: the
+  token comes the next day and the change lands now), and code scanning alerts still sync.
+
+## Notes
+
+- Framing: skipped. The owner named the outcome in the roadmap item.
+
+## Before the next release
+
+- Owner step: create the fine-grained token and save it as the repository secret `SECURITY_ALERTS_TOKEN`
+  (roadmap-later, Owner decisions and checks); until then the workflow syncs code scanning alerts and warns.

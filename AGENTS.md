@@ -63,6 +63,25 @@ set in `context/workflow.json`, so `wt-merge-check.py` prints `merge-as-is` for 
 forge reports a conflict). The coordinator's go never asks for an "Update branch". Master has no branch protection
 that requires an up-to-date branch.
 
+## Dependabot pull requests
+
+`.github/dependabot.yml` opens grouped update pull requests every Monday (npm minor and patch, npm security fixes,
+GitHub Actions) and monthly for the Docker base images. The coordinator treats a Dependabot pull request like any
+other work in the queue, with one shortcut:
+
+- A grouped minor or patch update or a security update whose checks are green is merged as it is, without the
+  change chain: its diff is only manifests and the lockfile, and the gates are the review. Merges follow the order
+  above (merge as is, master only on a conflict).
+- A red check, a major version bump, or an update that needs code changes becomes a change of its own in a thread
+  (`roadmap_item: null`); the thread opens its own pull request with the bump and the fixes, and the Dependabot pull
+  request is closed when it merges. Telling Dependabot to ignore a major version is the owner's word only.
+- Dependabot pull requests run without the repository's Actions secrets, so the Stripe sandbox tests skip there,
+  as they do on a fork.
+
+Open security alerts reach the queue as issues labelled `security` (`.github/workflows/security-alerts.yml`, hourly
+at :17). They are worked like any other issue; the workflow closes them when the alert is fixed or dismissed, so a
+thread does not close one by hand. A false positive is said in the issue, and the owner dismisses the alert.
+
 <!-- softure-skills:begin (managed by @softure-ai/skills, do not edit) -->
 # SOFTURE workflow and conventions
 

@@ -1,0 +1,67 @@
+# Dependabot (LT-4): alerts and security updates are turned on in the repository settings; this file adds the
+# version updates. Grouped and limited, because every pull request runs the full CI (about 24 minutes).
+# tests/repo/dependabot.test.ts keeps every directory real and every Dockerfile and composite action covered.
+# How a Dependabot pull request is merged: AGENTS.md, "Dependabot pull requests".
+
+version: 2
+updates:
+  # The whole npm workspace from the root lockfile. Minor and patch bumps come as one pull request a week,
+  # security fixes as one more; a major bump comes alone and goes through the change chain.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Warsaw
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore(deps)
+    # Workspace packages link to each other in the tree; @softure-ai/skills is bumped by a change of its own, since
+    # its installer rewrites the managed block in AGENTS.md.
+    ignore:
+      - dependency-name: "@softure-ai/*"
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      npm-minor-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+
+  # Actions used by the workflows and by the composite actions, in one pull request a week.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Warsaw
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # The two real Dockerfiles (tools/deploy/templates/*.tmpl are templates). A new Node line is a decision of its
+  # own (engines.node), so major updates are left out; security alerts still report a vulnerable base image.
+  - package-ecosystem: docker
+    directories:
+      - /examples/next-app
+      - /tools/marketing-kit/docker
+    schedule:
+      interval: monthly
+      time: "06:00"
+      timezone: Europe/Warsaw
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: chore(deps)
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+    groups:
+      docker:
+        patterns: ["*"]

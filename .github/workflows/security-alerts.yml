@@ -1,0 +1,50 @@
+# Security alerts as issues (LT-5). The agent sessions cannot read the Security tab, but the coordinator checks new
+# issues every hour (at :39), so this workflow turns every open code scanning, Dependabot and secret scanning alert
+# into one issue labelled `security` (plus `pkg: <name>` when the alert's path is in a package) and closes the issue
+# when the alert is fixed or dismissed. It never changes an alert. Rules: scripts/security/alert-issues.mjs,
+# tested in tests/repo/security-alerts.test.ts.
+#
+# GITHUB_TOKEN writes the issues and reads code scanning alerts. Dependabot and secret scanning alerts need the
+# repository secret SECURITY_ALERTS_TOKEN: a fine-grained token for this repository with read access to
+# "Dependabot alerts", "Secret scanning alerts" and "Code scanning alerts". Without it the run warns and syncs code
+# scanning only; a token that is set but refused fails the run.
+
+name: security-alerts
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Print the issue changes without making them
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+  security-events: read
+
+concurrency:
+  group: security-alerts
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: sync alerts to issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/security
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Sync
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SECURITY_ALERTS_TOKEN: ${{ secrets.SECURITY_ALERTS_TOKEN }}
+          DRY_RUN: ${{ inputs.dry-run == true }}
+        run: node scripts/security/sync-alerts.mjs

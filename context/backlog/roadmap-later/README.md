@@ -24,8 +24,8 @@ closed (2026-10-04), BL-8 when the blog roadmap closed (2026-10-04), and DP-8 wh
 | DP-8 | [`deploy-release`](../../archive/2026-10-04-deploy-release/change.md) | Deploy and testing release (carried over from deploy) | archived 2026-10-06 (live on npm at 0.1.1) | owner |
 | LT-2 | [`release-version-inline-manifest`](../../archive/2026-10-06-release-version-inline-manifest/change.md) | release:version keeps inline manifests in step | archived 2026-10-06 | start |
 | LT-3 | [`testing-browser-hook-timeout`](../../archive/2026-10-06-testing-browser-hook-timeout/change.md) | Testing package browser tests start within a measured hook timeout | archived 2026-10-06 | start |
-| LT-4 | [`dependabot-config`](dependabot-config/change.md) | Dependabot configuration with grouped updates | the owner turns on Dependabot alerts and security updates | owner |
-| LT-5 | [`security-alerts-sync`](security-alerts-sync/change.md) | Open security alerts become GitHub issues hourly | LT-4 done; the owner adds the `SECURITY_ALERTS_TOKEN` secret | owner |
+| LT-4 | [`dependabot-config`](../../archive/2026-11-04-dependabot-config/change.md) | Dependabot configuration with grouped updates | archived 2026-11-05 | owner |
+| LT-5 | [`security-alerts-sync`](../../archive/2026-11-04-security-alerts-sync/change.md) | Open security alerts become GitHub issues hourly | archived 2026-11-05 (the owner adds `SECURITY_ALERTS_TOKEN` for Dependabot and secret scanning alerts) | owner |
 
 Kind: `start` (can be taken as soon as the roadmap is promoted), `dependency` (waits for the listed items on the
 main branch), `owner` (needs an owner decision or the owner at the keyboard).
