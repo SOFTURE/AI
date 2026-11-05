@@ -46,15 +46,26 @@ export async function registerObservability(options: ObservabilityOptions = {}):
   });
 }
 
+export type OnRequestErrorOptions = {
+  /**
+   * Whether an error is a client's aborted request, logged as `info` instead of `error`. Default
+   * `isClientAbortError`; compose with it to recognise more, or pass `() => false` to log every abort as an error.
+   */
+  isClientAbort?: (error: unknown) => boolean;
+};
+
 /**
  * An `onRequestError` for `instrumentation.ts`: one error record per failed request with the method, path, route,
  * route type, render source and the error's digest (the one the error page shows). Request headers and the query
- * string are never logged.
+ * string are never logged. A client's aborted request (a page change or refresh before the response finished) is
+ * one `info` record "request aborted by the client" with the same fields, `outcome: "client_aborted"` and no
+ * exception.
  */
-export function createOnRequestError(logger: Logger): NextRequestErrorHandler {
+export function createOnRequestError(logger: Logger, options: OnRequestErrorOptions = {}): NextRequestErrorHandler {
+  const isClientAbort = options.isClientAbort ?? isClientAbortError;
+
   return (error, request, context) => {
-    logger.error("request failed", {
-      error,
+    const fields = {
       "http.request.method": request.method,
       // Next passes the path with its query string, and a query can carry a reset or unsubscribe token.
       "url.path": request.path.split("?")[0] ?? "",
@@ -63,8 +74,34 @@ export function createOnRequestError(logger: Logger): NextRequestErrorHandler {
       "next.router_kind": context.routerKind,
       "next.render_source": context.renderSource,
       "next.digest": readHashDigest(error),
-    });
+    };
+
+    if (isClientAbort(error)) {
+      logger.info("request aborted by the client", { ...fields, outcome: "client_aborted" });
+      return;
+    }
+
+    logger.error("request failed", { error, ...fields });
   };
+}
+
+/**
+ * Whether an error is a client closing the connection before the response finished: React's
+ * `The destination stream closed early.`, Node's `ERR_STREAM_PREMATURE_CLOSE`, Next.js's `ResponseAborted`, or
+ * Node's request `aborted` with `ECONNRESET`. Messages match exactly, so an error that only mentions one stays an error.
+ */
+export function isClientAbortError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const { message, code, name } = error as { message?: unknown; code?: unknown; name?: unknown };
+  return (
+    message === "The destination stream closed early." ||
+    code === "ERR_STREAM_PREMATURE_CLOSE" ||
+    name === "ResponseAborted" ||
+    (message === "aborted" && code === "ECONNRESET")
+  );
 }
 
 /**
