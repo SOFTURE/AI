@@ -30,5 +30,9 @@
 
 - [x] p1 manifests and lockfile (satori kept at 0.35.1)
 - [x] p2 code ; typecheck, ESLint per directory, language gate green
-- [ ] p3 gates, rebase, pull request
+- [x] p3 rebased onto c0aa67e (#1104), pre-push full suite 788 files passed; PR #1106. CI round 1: hyperframes, ai,
+  lucide, playwright and pglite had been left nested or duplicated by the incremental lockfile updates (the
+  `npx hyperframes` step found no CLI, typecheck saw two PGlite and two playwright-core copies); their entries were
+  rebuilt so each hoists once. hyperframes 0.9 pins undici 7.25.0 (high advisories), so the root `overrides` gain
+  `undici: ^7.30.2`; `npm audit --omit=dev` reports 0. `HYPERFRAMES_VERSION` follows the pin (0.9.5).
 - [ ] p4 close the Dependabot pull requests
