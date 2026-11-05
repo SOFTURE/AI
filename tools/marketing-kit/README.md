@@ -680,7 +680,11 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   keeps a 9:16 film's captions inside that platform's safe zone (`CAPTION_SAFE_ZONES`, the margins its own buttons and
   text cover): the box is anchored by its foot at the zone's bottom margin and grows upwards. `captionMaxLines` (1-4)
   shrinks a longer card's font in the render, to 70 % of the box's size at most (`CAPTION_MIN_FONT_SCALE`), until it
-  fits; the draft keeps its size. The caption text metrics are exported (`CAPTION_LINE_HEIGHT`,
+  fits; the draft keeps its size. A card never ends on a word that keeps with the next: `captionKeepWithNext` (compared
+  lower-case; `[]` keeps numbers only), else the language's `DEFAULT_CAPTION_KEEP_WITH_NEXT` (Polish one-letter words
+  and short prepositions, English articles), and every number; a full card hands that word to the next card, and a
+  pause after it does not end a phrase. The cards are cut in film time, so this holds across a cut too
+  (`getFootageCaptionChunks`). The caption text metrics are exported (`CAPTION_LINE_HEIGHT`,
   `CAPTION_PILL_PADDING`) for an app that sizes the box itself. Before the render the caption and end-card fonts are checked against the film's words: a letter no
   file of the brand font draws (an accented letter outside a Latin-only subset) stops the run with the letters it lacks. The **end card** follows the cut over its last
   frame. `social.posts` may name a footage film; its `posts.md` carries no persona disclosure.
@@ -704,7 +708,10 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   −14 LUFS, −1 dBTP) by one linear gain and a true peak limiter at 4x the film's rate, encoded to AAC on its own and
   measured; while the codec's overshoot breaks the limit the limiter is lowered and the sound encoded again (at most 4
   times). The finished file is measured too: true peak above the limit or integrated loudness outside the target ± 1 LU
-  fails the run, naming both values, and `renderFootage`'s result carries the measurement as `loudness`. A silent mix is
+  fails the run, naming both values, and `renderFootage`'s result carries the measurement as `loudness` (and the
+  render's mix with the gain applied as `mix`). With `"mixLoudness": { "keep": "speech", "tolerance": 1 }` the mix gets
+  no gain while it measures inside `target ± tolerance` and otherwise only the smallest gain to that window, so the
+  speech keeps the level `loudness` gave it whatever the music volume (the limiter and the gate still run). A silent mix is
   left as it is; `"mixLoudness": false` keeps the mix as rendered (still measured, not held to a target). So the
   published file plays at the platforms' level whatever the music adds; H.264 yuv420p in
   Constrained Baseline, Main or High (another picture is re-encoded to High), AAC 48 kHz stereo, `+faststart` (the `moov` box first, so a platform or a scheduler streaming the URL starts at
@@ -970,7 +977,7 @@ const draft = await renderFootageDraft(film, clips, transcript, edl, { buildDir,
 
 What the draft matches and what it leaves out:
 
-- **Captions follow `captionStyle`.** `phrase`: the render's phrases in white with a dark outline and shadow.
+- **Captions follow `captionStyle`.** The cards are the render's (`getFootageCaptionChunks`, kept words included). `phrase`: the render's phrases in white with a dark outline and shadow.
   `highlight`: the render's chunks of up to four words on an opaque box of the brand's `captionBackground` (its alpha
   kept), in `captionText`, each word in `captionHighlight` for the 0.32 s the render lights it. libass draws a square
   box per line: no rounded corners, no drop shadow, no pop-in, and the colour switches instead of fading back.

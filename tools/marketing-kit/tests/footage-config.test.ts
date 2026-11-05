@@ -120,6 +120,13 @@ describe("footage films in marketing.json", () => {
     expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], speech: { declick: "hard" } }]))).toContain("footage[0].speech.declick");
   });
 
+  it("keeps the speech's level in the finished mix with keep speech and a tolerance, and refuses others (issue #1085)", () => {
+    const set = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { keep: "speech", tolerance: 1.5 } }])), "a");
+    expect(set?.mixLoudness).toEqual({ target: -14, truePeak: -1, keep: "speech", tolerance: 1.5 });
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { keep: "music" } }]))).toContain("footage[0].mixLoudness");
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { tolerance: 5 } }]))).toContain("footage[0].mixLoudness");
+  });
+
   it("keeps the music's ducking attack and release, and refuses them outside 0-5 s (issue #1031)", () => {
     const film = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], music: { prompt: "calm", attack: 0.1, release: 1.5 } }])), "a");
     expect(film?.music).toEqual({ source: { kind: "prompt", prompt: "calm" }, volume: 0.35, duckedVolume: 0.1, attack: 0.1, release: 1.5 });

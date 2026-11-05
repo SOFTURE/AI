@@ -1,7 +1,7 @@
 import type { VideoFormat } from "../compose/timeline.js";
 import type { EndCard } from "../film.js";
 import type { DeclickLevel } from "./declick.js";
-import type { LoudnessTarget } from "./loudness.js";
+import type { LoudnessTarget, MixLoudnessTarget } from "./loudness.js";
 
 /**
  * A footage film: filmed clips (a person talking to camera, b-roll) cut by their transcript into a captioned
@@ -132,6 +132,12 @@ export interface FootageFilm {
    * `CAPTION_MIN_FONT_SCALE` of the box's size) until it fits. Absent: no limit. The draft keeps its font size.
    */
   captionMaxLines?: number;
+  /**
+   * Words a caption card must not end on: the card hands them to the next one, so `w` stays with `domu`. Compared
+   * lower-case; a number always keeps with the word after it. Absent: the language's `DEFAULT_CAPTION_KEEP_WITH_NEXT`;
+   * empty: numbers only.
+   */
+  captionKeepWithNext?: string[];
   /** The cut's look: zoom size, fade length, Ken Burns, the end card's whoosh. Absent fields take `DEFAULT_EDIT`. */
   edit?: Partial<FootageEdit>;
   /** The closing card after the last segment; null: the film ends with its last segment. */
@@ -143,9 +149,11 @@ export interface FootageFilm {
   /**
    * The finished film's mix (speech, music, sound effects), measured after the render and normalized in two passes of
    * `loudnorm` (one linear gain; the picture is copied, only the sound re-encoded), so the published file plays at the
-   * target. A silent mix is left as it is. Absent: −14 LUFS, −1 dBTP; null: the mix as rendered.
+   * target. A silent mix is left as it is. Absent: −14 LUFS, −1 dBTP; null: the mix as rendered. `keep: "speech"`
+   * applies no gain while the mix measures inside `target ± tolerance` (default 1 LU), so the speech keeps its level
+   * whatever the music volume (see `MixLoudnessTarget`).
    */
-  mixLoudness?: LoudnessTarget | null;
+  mixLoudness?: MixLoudnessTarget | null;
   /**
    * The cover JPG written next to the film. Absent or without `at`: the middle of the first talking segment; `at`:
    * that second of the film; null: no cover.
@@ -171,6 +179,15 @@ export function getDeclickLevel(film: Pick<FootageFilm, "speech">): DeclickLevel
 export const DEFAULT_FILLERS: Record<string, string[]> = {
   pl: ["y", "e", "yhm", "yh", "ym", "em", "hm", "mhm", "eh", "uh"],
   en: ["um", "uh", "uhm", "er", "erm", "hm", "mhm", "ah"],
+};
+
+/**
+ * Words a caption card does not end on, per language: Polish one-letter words and short prepositions, English
+ * articles. A language without a list keeps numbers only.
+ */
+export const DEFAULT_CAPTION_KEEP_WITH_NEXT: Record<string, string[]> = {
+  pl: ["a", "i", "o", "u", "w", "z", "we", "ze", "na", "do", "od", "po", "za", "ku"],
+  en: ["a", "an", "the"],
 };
 
 /** The default fillers of a language; none for a language without a list. */

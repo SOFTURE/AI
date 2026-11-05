@@ -2,11 +2,11 @@ import { copyFileSync, existsSync, mkdirSync, rmSync, statSync, writeFileSync } 
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { captionChunks, type CaptionLayout, type LayoutOverride } from "../compose/timeline.js";
+import type { CaptionLayout, LayoutOverride } from "../compose/timeline.js";
 import type { BrandColors } from "../config/colors.js";
 import { err, ok } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionLayout, isSameCaptionPlace, phraseChunks } from "./captions.js";
+import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, isSameCaptionPlace, type CaptionWordsFilm } from "./captions.js";
 import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
 import { chooseFootageDraftFont } from "./draft-font.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
@@ -99,7 +99,7 @@ function toAssText(text: string): string {
 export type FootageDraftCaptionColors = Pick<BrandColors, "captionBackground" | "captionText" | "captionHighlight">;
 
 export interface FootageDraftCaptionsInput {
-  film: Pick<FootageFilm, "captions" | "captionStyle">;
+  film: Pick<FootageFilm, "captions" | "captionStyle"> & CaptionWordsFilm;
   edl: Edl;
   /** The film's words in film time (`remapWords`). */
   words: TimedWord[];
@@ -142,12 +142,13 @@ function buildHighlightEvents(chunk: { words: TimedWord[] }, span: { start: numb
  * caption box from its top (or from its foot, with `bottom`). `phrase` (the default): the film's phrases
  * (`phraseChunks`), white bold text with a dark outline and shadow. `highlight`: the render's chunks of up to four
  * words (`captionChunks`) on an opaque box of `captionBackground`, in `captionText`, the word being said in
- * `captionHighlight`. Null when the film has no captions or nothing is said.
+ * `captionHighlight`. Both keep the film's kept words with the next, as the render does. Null when the film has no
+ * captions or nothing is said.
  */
 export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): string | null {
   if (!input.film.captions) return null;
   const isHighlight = input.film.captionStyle === "highlight";
-  const chunks = isHighlight ? captionChunks(input.words) : phraseChunks(input.words);
+  const chunks = getFootageCaptionChunks(input.film, input.words);
   if (chunks.length === 0) return null;
   const spans = getCaptionSpans(chunks, getEdlDuration(input.edl));
   const { caption, frame } = input;

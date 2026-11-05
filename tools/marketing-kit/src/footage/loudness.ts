@@ -171,8 +171,24 @@ export interface MixLoudness {
   truePeak: number;
 }
 
-/** How far from `LoudnessTarget.target` the finished mix may land, in LU. */
+/** How far from `LoudnessTarget.target` the finished mix may land, in LU, unless `MixLoudnessTarget.tolerance` says. */
 export const MIX_LOUDNESS_TOLERANCE = 1;
+
+/**
+ * The finished film's mix target. `keep: "loudness"` (the default) brings the mix to `target` with one gain measured on
+ * it, so the speech moves with whatever the music adds; `keep: "speech"` applies no gain while the mix measures inside
+ * `target ± tolerance` and otherwise only the smallest gain to that window, so the speech (already at the film's
+ * `loudness`) keeps its level whatever the music volume. Either way a true peak limiter is the last step.
+ */
+export interface MixLoudnessTarget extends LoudnessTarget {
+  /** How far from `target` the mix may land, in LU. Absent: `MIX_LOUDNESS_TOLERANCE`. */
+  tolerance?: number;
+  /** What the mix's gain keeps: the mix at the target (absent, `"loudness"`) or the speech's level (`"speech"`). */
+  keep?: "loudness" | "speech";
+}
+
+/** A gain to the window's edge aims this far inside it (at most half the tolerance), so the encode's drift stays in. */
+const MIX_EDGE_MARGIN = 0.2;
 /** The limiter's first ceiling sits this far under the true peak limit: AAC adds inter-sample overshoot after it. */
 export const MIX_ENCODE_HEADROOM = 1;
 /** How many times the mix is encoded and measured before the film fails. */
@@ -195,19 +211,38 @@ function roundTo(value: number, digits: number): number {
   return Math.round(value * scale) / scale;
 }
 
-/** The first try: the gain that brings the measured mix to the target, the ceiling one encode's headroom under the limit. */
-export function getFirstMixAttempt(measurement: Pick<LoudnessMeasurement, "inputI">, target: LoudnessTarget): MixAttempt {
-  return { gainDb: roundTo(target.target - measurement.inputI, 2), ceilingDbtp: Math.max(LIMITER_FLOOR, roundTo(target.truePeak - MIX_ENCODE_HEADROOM, 2)) };
+/** The window's half width around the mix target, in LU. */
+export function getMixTolerance(target: MixLoudnessTarget): number {
+  return target.tolerance ?? MIX_LOUDNESS_TOLERANCE;
+}
+
+/**
+ * The gain a mix measuring `integrated` LUFS needs: to the target in the default mode; with `keep: "speech"` none
+ * inside `target ± tolerance`, else to the nearest edge (aimed a little inside, see `MIX_EDGE_MARGIN`).
+ */
+export function getMixGain(integrated: number, target: MixLoudnessTarget): number {
+  if (target.keep !== "speech") return roundTo(target.target - integrated, 2);
+  const tolerance = getMixTolerance(target);
+  const inside = tolerance - Math.min(MIX_EDGE_MARGIN, tolerance / 2);
+  if (integrated < target.target - tolerance) return roundTo(target.target - inside - integrated, 2);
+  if (integrated > target.target + tolerance) return roundTo(target.target + inside - integrated, 2);
+  return 0;
+}
+
+/** The first try: the gain the measured mix needs (`getMixGain`), the ceiling one encode's headroom under the limit. */
+export function getFirstMixAttempt(measurement: Pick<LoudnessMeasurement, "inputI">, target: MixLoudnessTarget): MixAttempt {
+  return { gainDb: getMixGain(measurement.inputI, target), ceilingDbtp: Math.max(LIMITER_FLOOR, roundTo(target.truePeak - MIX_ENCODE_HEADROOM, 2)) };
 }
 
 /**
  * The next try after an encoded mix measured `measured`: the ceiling lowered by the overshoot plus a margin when the
- * true peak is over (never under the limiter's floor), the gain corrected by what the integrated loudness missed.
+ * true peak is over (never under the limiter's floor), the gain corrected by what the integrated loudness missed (with
+ * `keep: "speech"`, only by what it missed the window by).
  */
-export function getNextMixAttempt(attempt: MixAttempt, measured: MixLoudness, target: LoudnessTarget): MixAttempt {
+export function getNextMixAttempt(attempt: MixAttempt, measured: MixLoudness, target: MixLoudnessTarget): MixAttempt {
   const overshoot = measured.truePeak - target.truePeak;
   const ceilingDbtp = overshoot > 0 ? Math.max(LIMITER_FLOOR, roundTo(attempt.ceilingDbtp - overshoot - MIX_RETRY_MARGIN, 2)) : attempt.ceilingDbtp;
-  return { gainDb: roundTo(attempt.gainDb + target.target - measured.integrated, 2), ceilingDbtp };
+  return { gainDb: roundTo(attempt.gainDb + getMixGain(measured.integrated, target), 2), ceilingDbtp };
 }
 
 /**
@@ -225,11 +260,12 @@ export function buildMixArgs(options: { input: string; filter: string; output: s
 }
 
 /** What keeps a measured mix outside the target, as sentences with both values; empty when it meets it. */
-export function findLoudnessProblems(measured: MixLoudness, target: LoudnessTarget): string[] {
+export function findLoudnessProblems(measured: MixLoudness, target: MixLoudnessTarget): string[] {
   const problems: string[] = [];
+  const tolerance = getMixTolerance(target);
   if (measured.truePeak > target.truePeak) problems.push(`true peak ${formatDb(measured.truePeak)} dBTP, over the ${formatDb(target.truePeak)} dBTP limit`);
-  if (Math.abs(measured.integrated - target.target) > MIX_LOUDNESS_TOLERANCE) {
-    problems.push(`integrated ${formatDb(measured.integrated)} LUFS, outside ${formatDb(target.target)} ± ${MIX_LOUDNESS_TOLERANCE} LUFS`);
+  if (Math.abs(measured.integrated - target.target) > tolerance) {
+    problems.push(`integrated ${formatDb(measured.integrated)} LUFS, outside ${formatDb(target.target)} ± ${tolerance} LUFS`);
   }
   return problems;
 }

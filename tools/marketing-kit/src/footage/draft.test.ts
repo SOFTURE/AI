@@ -259,6 +259,16 @@ describe("buildFootageDraftCaptions", () => {
     ]);
   });
 
+  it("keeps a word the film's language keeps with the next word across a pause", () => {
+    const paused = [
+      { text: "Live", start: 0.1, end: 0.4 },
+      { text: "w", start: 0.5, end: 0.6 },
+      { text: "Lodz.", start: 1.6, end: 2 },
+    ];
+    const lines = (buildFootageDraftCaptions({ film, edl, words: paused, caption, frame: FRAME }) ?? "").split("\n").filter((line) => line.startsWith("Dialogue:"));
+    expect(lines).toEqual(["Dialogue: 0,0:00:00.05,0:00:02.35,Caption,,0,0,0,,Live w Lodz."]);
+  });
+
   it("lays the captions out in the film's frame, in the caption box, with the shipped font", () => {
     const ass = buildFootageDraftCaptions({ film, edl, words, caption: { top: 1470, left: 60, right: 80, fontSize: 50 }, frame: FRAME }) ?? "";
     expect(ass).toContain("PlayResX: 1080\nPlayResY: 1920\n");

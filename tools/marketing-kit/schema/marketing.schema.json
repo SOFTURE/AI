@@ -2876,6 +2876,16 @@
             "minimum": 1,
             "maximum": 4
           },
+          "captionKeepWithNext": {
+            "description": "Words a caption card must not end on (they move to the next card), compared lower-case; a number always keeps with the next word. Without it, the language's default (pl: one-letter words and short prepositions, en: articles); [] keeps numbers only.",
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            }
+          },
           "edit": {
             "description": "The cut's look; the defaults read as an ordinary phone video.",
             "default": {},
@@ -3011,7 +3021,7 @@
               "target": -14,
               "truePeak": -1
             },
-            "description": "The finished film's mix (speech and music), measured after the render and normalized in two passes; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP.",
+            "description": "The finished film's mix (speech and music), measured after the render, brought to the target by one gain and held under the true peak by a limiter; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP.",
             "anyOf": [
               {
                 "type": "boolean",
@@ -3033,6 +3043,20 @@
                     "type": "number",
                     "minimum": -9,
                     "maximum": 0
+                  },
+                  "tolerance": {
+                    "description": "How far from target the mix may land, in LU (0.2 to 3, default 1).",
+                    "type": "number",
+                    "minimum": 0.2,
+                    "maximum": 3
+                  },
+                  "keep": {
+                    "description": "\"loudness\" (default): one gain brings the mix to target; \"speech\": no gain while the mix measures inside target ± tolerance, so the speech keeps its level whatever the music volume.",
+                    "type": "string",
+                    "enum": [
+                      "loudness",
+                      "speech"
+                    ]
                   }
                 },
                 "additionalProperties": false

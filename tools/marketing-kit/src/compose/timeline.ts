@@ -318,25 +318,56 @@ export interface CaptionChunk {
   end: number;
 }
 
+/** How words are cut into caption chunks. */
+export interface CaptionChunkOptions {
+  /** The most words a chunk holds; default 4. */
+  maxWords?: number;
+  /**
+   * Words that must not end a chunk (a one-letter word, a short preposition, a number before its unit): a full chunk
+   * ending on one hands it, with the kept words before it, to the next chunk. A word ending in punctuation still ends
+   * its chunk. Absent: every word may end one.
+   */
+  keepsWithNext?: (word: TimedWord) => boolean;
+}
+
 /**
- * Words → caption chunks: at most `maxWords` words, broken after the end of a sentence and after a
- * comma, so a caption does not glue two thoughts together.
+ * A full chunk cut after its last word that does not keep with the next: the chunk and the words it carries over to
+ * the next one. A chunk of kept words only stays whole.
  */
-export function captionChunks(words: TimedWord[], maxWords = 4): CaptionChunk[] {
+export function splitAfterKept(words: TimedWord[], keepsWithNext: ((word: TimedWord) => boolean) | undefined): { chunk: TimedWord[]; carry: TimedWord[] } {
+  if (keepsWithNext === undefined) return { chunk: words, carry: [] };
+  const lastFree = words.findLastIndex((word) => !keepsWithNext(word));
+  if (lastFree === -1) return { chunk: words, carry: [] };
+  return { chunk: words.slice(0, lastFree + 1), carry: words.slice(lastFree + 1) };
+}
+
+/**
+ * Words → caption chunks: at most `maxWords` words, broken after the end of a sentence and after a comma, so a caption
+ * does not glue two thoughts together; never after a word `keepsWithNext` keeps, unless punctuation ends it or every
+ * word of the chunk is kept. A number as `options` is `maxWords`.
+ */
+export function captionChunks(words: TimedWord[], options: number | CaptionChunkOptions = {}): CaptionChunk[] {
+  const { maxWords = 4, keepsWithNext } = typeof options === "number" ? { maxWords: options } : options;
   const chunks: CaptionChunk[] = [];
   let current: TimedWord[] = [];
-  const flush = () => {
-    const first = current[0];
-    const last = current[current.length - 1];
+  const push = (chunkWords: TimedWord[]) => {
+    const first = chunkWords[0];
+    const last = chunkWords[chunkWords.length - 1];
     if (first === undefined || last === undefined) return;
-    chunks.push({ words: current, start: first.start, end: last.end });
-    current = [];
+    chunks.push({ words: chunkWords, start: first.start, end: last.end });
   };
   for (const word of words) {
     current.push(word);
-    if (/[.,?!:;]$/.test(word.text) || current.length === maxWords) flush();
+    if (/[.,?!:;]$/.test(word.text)) {
+      push(current);
+      current = [];
+    } else if (current.length >= maxWords) {
+      const { chunk, carry } = splitAfterKept(current, keepsWithNext);
+      push(chunk);
+      current = carry;
+    }
   }
-  flush();
+  push(current);
   return chunks;
 }
 
