@@ -22,4 +22,4 @@
 
 ## Progress
 
-- [ ] p1: `dependabot.yml`, repository test, `AGENTS.md` note.
+- [x] p1 3865ea4: `.github/dependabot.yml` (npm, GitHub Actions, Docker), `tests/repo/dependabot.test.ts` (8 passed), `AGENTS.md` "Dependabot pull requests"; typecheck, lint and language green (pre-commit), `tests/repo` 21 files green.

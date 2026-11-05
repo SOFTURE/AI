@@ -27,4 +27,4 @@
 
 ## Progress
 
-- [ ] p1: rules, sync script, workflow, repository test.
+- [x] p1 e7d84f8: `scripts/security/alert-issues.mjs` and `sync-alerts.mjs`, `.github/workflows/security-alerts.yml`, `tests/repo/security-alerts.test.ts` (23 passed); a run with a refused token prints `::error::... 401 Bad credentials` and exits 1 (local check); typecheck, lint and language green (pre-commit), `tests/repo` 21 files green.

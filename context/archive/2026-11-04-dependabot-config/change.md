@@ -1,12 +1,12 @@
 ---
 change_id: dependabot-config
 title: "Dependabot watches the repository's dependencies and opens grouped update pull requests"
-status: in_progress
+status: archived
 roadmap_item: LT-4
 branch: claude/project-thread-kq5q4s
 created: 2026-11-04
 updated: 2026-11-05
-archived_at: null
+archived_at: 2026-11-05
 ---
 
 ## Intent
@@ -53,3 +53,7 @@ The owner at the keyboard, in Settings → Code security of SOFTURE/AI:
 - Every Dependabot pull request runs the full CI (about 24 minutes): grouping and the pull request limit keep that
   to a few runs a week.
 - No automatic merge of a major version bump: it goes through the change chain like any other change.
+
+## Notes
+
+- Framing: skipped. The owner named the outcome in the roadmap item.

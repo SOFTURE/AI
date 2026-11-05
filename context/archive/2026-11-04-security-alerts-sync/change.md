@@ -1,12 +1,12 @@
 ---
 change_id: security-alerts-sync
 title: "Open security alerts become GitHub issues, so the hourly issue check picks them up"
-status: in_progress
+status: archived
 roadmap_item: LT-5
 branch: claude/project-thread-kq5q4s
 created: 2026-11-04
 updated: 2026-11-05
-archived_at: null
+archived_at: 2026-11-05
 ---
 
 ## Intent
@@ -51,3 +51,12 @@ secret scanning alerts, which need a token with those permissions.
   positive says so in the issue and the owner dismisses it.
 - A missing `SECURITY_ALERTS_TOKEN` is reported in the run with a warning naming the secret (owner, 2026-11-05: the
   token comes the next day and the change lands now), and code scanning alerts still sync.
+
+## Notes
+
+- Framing: skipped. The owner named the outcome in the roadmap item.
+
+## Before the next release
+
+- Owner step: create the fine-grained token and save it as the repository secret `SECURITY_ALERTS_TOKEN`
+  (roadmap-later, Owner decisions and checks); until then the workflow syncs code scanning alerts and warns.
