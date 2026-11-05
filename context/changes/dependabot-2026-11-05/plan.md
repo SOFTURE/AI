@@ -20,10 +20,15 @@
 - `~3.0.0` / `~0.300.0` instead of the newest 3.1 / 0.301: the contrib instrumentations (runtime-node, undici) accept
   only `^0.300.0`, so 0.301 would install two copies of `@opentelemetry/instrumentation`.
 - No changeset/version bump here: the changed packages ride the next combined release.
+- satori stays pinned at 0.35.1: `tools/marketing-kit` pins it on purpose (#254), and 0.63 fails the OG render
+  tests. The rest of #1097 lands as proposed.
+- zod 4.6.7 breaks the analytics `channelField` bound message; the security patch (#1104) already fixed it on master,
+  as it did the blog's markdown-it 15.0.3 types. This branch is rebased onto c0aa67e and keeps master's versions of
+  next, zod, markdown-it, happy-dom and vite.
 
 ## Progress
 
-- [ ] p1 manifests and lockfile
-- [ ] p2 code
+- [x] p1 manifests and lockfile (satori kept at 0.35.1)
+- [x] p2 code ; typecheck, ESLint per directory, language gate green
 - [ ] p3 gates, rebase, pull request
 - [ ] p4 close the Dependabot pull requests
