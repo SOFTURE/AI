@@ -20,6 +20,7 @@
 - `~3.0.0` / `~0.300.0` instead of the newest 3.1 / 0.301: the contrib instrumentations (runtime-node, undici) accept
   only `^0.300.0`, so 0.301 would install two copies of `@opentelemetry/instrumentation`.
 - No changeset/version bump here: the changed packages ride the next combined release.
+- typescript-eslint stays on ~8.71: 8.72.1 makes the whole-tree typed lint run out of memory.
 - satori stays pinned at 0.35.1: `tools/marketing-kit` pins it on purpose (#254), and 0.63 fails the OG render
   tests. The rest of #1097 lands as proposed.
 - zod 4.6.7 breaks the analytics `channelField` bound message; the security patch (#1104) already fixed it on master,
@@ -35,4 +36,9 @@
   `npx hyperframes` step found no CLI, typecheck saw two PGlite and two playwright-core copies); their entries were
   rebuilt so each hoists once. hyperframes 0.9 pins undici 7.25.0 (high advisories), so the root `overrides` gain
   `undici: ^7.30.2`; `npm audit --omit=dev` reports 0. `HYPERFRAMES_VERSION` follows the pin (0.9.5).
+- [x] p3b CI round 2: the example app's own lockfile still described observability with OpenTelemetry 2, so its
+  Next.js build resolved api 1.9.1 and failed on `logs`; its @softure-ai/* and @opentelemetry/* entries are rebuilt
+  (`next build` passes). typescript-eslint 8.72.1 pushes the typed lint past CI's 8 GB heap (master at 8.71 passes,
+  this tree with 8.72.1 runs out of memory on `modules/` alone at 6 GB, with 8.71.2 it passes); it is held on
+  `~8.71.0`. `NODE_OPTIONS=--max-old-space-size=8192 npm run lint` green.
 - [ ] p4 close the Dependabot pull requests
