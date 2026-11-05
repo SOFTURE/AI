@@ -256,6 +256,10 @@ function loadHttpModules(): void {
   const require = createRequire(import.meta.url);
   require("node:http");
   require("node:https");
+  // @opentelemetry/instrumentation-http 0.300 loads `forwarded-parse` through a bundler helper that Next.js output
+  // file tracing cannot follow, so a standalone build shipped without it and the app failed at start. Required here
+  // (same pinned version, so npm installs one copy), the tracer sees it.
+  require("forwarded-parse");
 }
 
 /**

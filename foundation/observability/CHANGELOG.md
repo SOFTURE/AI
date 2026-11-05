@@ -11,6 +11,10 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
   `@opentelemetry/api-logs` is no longer a dependency (the logs API is part of `@opentelemetry/api` 1.10).
   `startObservability` registers the same context manager (AsyncLocalStorage), W3C trace context and baggage
   propagation and global providers as before.
+- New dependency `forwarded-parse` (2.1.2, the version `instrumentation-http` pins): instrumentation-http 0.300 loads
+  it through a bundler helper that Next.js output file tracing cannot follow, so a `output: "standalone"` build left
+  it out and the app failed at start ("Cannot find module 'forwarded-parse'"). `startObservability` now requires it
+  where the tracer sees it.
 - Migration: the app's own `@opentelemetry/api` must be 1.10 or newer. Next.js bundles the instrumentation hook
   against the copy at the app's root, so a lockfile that still hoists 1.9 fails the build with "Export logs doesn't
   exist in target module"; refresh the lockfile (or add `@opentelemetry/api@^1.10.0` to the app). An app that imports
