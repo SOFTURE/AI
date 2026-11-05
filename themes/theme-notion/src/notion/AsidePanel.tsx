@@ -1,7 +1,7 @@
 "use client";
 
 import { useIsMobile } from "@softure-ai/theme-kit/react";
-import { ChevronsLeft, ChevronsRight, PanelLeft, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, PanelLeft, PanelRightClose, PanelRightOpen, type LucideIcon } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -18,7 +18,7 @@ import {
 import { cn } from "../lib/utils.js";
 import { en as messages } from "../messages/en.js";
 import { Button } from "../ui/button.js";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet.js";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet.js";
 import { SidebarProvider } from "../ui/sidebar.js";
 
 import { ICON_STROKE_WIDTH } from "./icon-stroke.js";
@@ -179,14 +179,18 @@ export interface AsidePanelToggleProps {
   // The accessible names while closed and while open, from the app's message layer.
   readonly showLabel?: string;
   readonly hideLabel?: string;
+  // The icon drawn in both states, for a panel that holds one tool its users know by its icon (a map, a chat);
+  // `PanelRightOpen` and `PanelRightClose` otherwise.
+  readonly icon?: LucideIcon;
   readonly className?: string;
 }
 
 /** The icon button at the top-right edge that shows and hides the panel; it stays in place either way. */
-export function AsidePanelToggle({ showLabel = messages.asidePanel.show, hideLabel = messages.asidePanel.hide, className }: AsidePanelToggleProps) {
+export function AsidePanelToggle({ showLabel = messages.asidePanel.show, hideLabel = messages.asidePanel.hide, icon, className }: AsidePanelToggleProps) {
   const { panelId, isOpen, isHidden, toggleRef, toggle } = useAsidePanelContext("AsidePanelToggle");
   if (isHidden) return null;
-  const Icon = isOpen ? PanelRightClose : PanelRightOpen;
+  const Icon = icon ?? (isOpen ? PanelRightClose : PanelRightOpen);
+  const label = isOpen ? hideLabel : showLabel;
 
   return (
     <Button
@@ -197,7 +201,8 @@ export function AsidePanelToggle({ showLabel = messages.asidePanel.show, hideLab
       size="icon"
       aria-expanded={isOpen}
       aria-controls={panelId}
-      aria-label={isOpen ? hideLabel : showLabel}
+      aria-label={label}
+      title={label}
       className={cn("fixed top-[calc(--spacing(2)+env(safe-area-inset-top))] right-[calc(--spacing(2)+env(safe-area-inset-right))] z-20", className)}
       onClick={toggle}
     >
@@ -224,6 +229,7 @@ export function AsidePanelSidebarOpener({ label = messages.asidePanel.showSideba
       variant="outline"
       size="icon"
       aria-label={label}
+      title={label}
       className={cn("fixed top-[calc(--spacing(2)+env(safe-area-inset-top))] left-[calc(--spacing(2)+env(safe-area-inset-left))] z-20", className)}
       onClick={openSidebar}
     >
@@ -242,6 +248,8 @@ export interface AsidePanelProps {
   readonly narrowLabel?: string;
   // The phone sheet's close button text.
   readonly closeLabel?: string;
+  // One line under the phone sheet's title, which the sheet is described by.
+  readonly description?: string;
   readonly className?: string;
 }
 
@@ -255,6 +263,7 @@ export function AsidePanel({
   widenLabel = messages.asidePanel.widen,
   narrowLabel = messages.asidePanel.narrow,
   closeLabel,
+  description,
   className,
 }: AsidePanelProps) {
   const { panelId, isOpen, width, isMobile, isHidden, toggleRef, isHeadingFocusRequested, close, setWidth } = useAsidePanelContext("AsidePanel");
@@ -290,7 +299,7 @@ export function AsidePanel({
           id={panelId}
           side="right"
           data-slot="aside-panel-sheet"
-          aria-describedby={undefined}
+          {...(description === undefined ? { "aria-describedby": undefined } : {})}
           closeLabel={closeLabel}
           className={cn("w-full gap-0 sm:max-w-none", className)}
           onOpenAutoFocus={(event) => {
@@ -306,6 +315,7 @@ export function AsidePanel({
             <SheetTitle ref={headingRef} tabIndex={-1} className="outline-none">
               {title}
             </SheetTitle>
+            {description === undefined ? null : <SheetDescription>{description}</SheetDescription>}
           </SheetHeader>
           <div data-slot="aside-panel-content" className="min-h-0 flex-1 overflow-y-auto">
             {isOpen ? children : null}
@@ -318,7 +328,10 @@ export function AsidePanel({
   if (!isOpen) return null;
   const isHalf = width === "half";
   const WidthIcon = isHalf ? ChevronsRight : ChevronsLeft;
+  const widthLabel = isHalf ? narrowLabel : widenLabel;
 
+  // A phone gets this branch in the server HTML (`useIsMobile` is false there) until hydration swaps in the sheet:
+  // `max-md:hidden` keeps it from painting. The `md` breakpoint equals the theme's mobile breakpoint.
   return (
     <aside
       id={panelId}
@@ -326,7 +339,7 @@ export function AsidePanel({
       data-width={width}
       aria-labelledby={headingId}
       className={cn(
-        "sticky top-0 flex h-dvh w-2/5 shrink-0 flex-col border-l border-border bg-background text-foreground data-[width=half]:w-1/2",
+        "sticky top-0 flex h-dvh max-md:hidden w-2/5 shrink-0 flex-col border-l border-border bg-background text-foreground data-[width=half]:w-1/2",
         className,
       )}
     >
@@ -334,7 +347,7 @@ export function AsidePanel({
         <h2 ref={headingRef} id={headingId} tabIndex={-1} className="min-w-0 flex-1 truncate text-heading-3 outline-none">
           {title}
         </h2>
-        <Button type="button" variant="ghost" size="icon" aria-label={isHalf ? narrowLabel : widenLabel} onClick={() => setWidth(isHalf ? "standard" : "half")}>
+        <Button type="button" variant="ghost" size="icon" aria-label={widthLabel} title={widthLabel} onClick={() => setWidth(isHalf ? "standard" : "half")}>
           <WidthIcon aria-hidden="true" strokeWidth={ICON_STROKE_WIDTH} />
         </Button>
       </div>

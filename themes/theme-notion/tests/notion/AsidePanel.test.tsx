@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { Map as MapIcon, type LucideIcon } from "lucide-react";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
@@ -55,13 +57,35 @@ function renderShell({
   save,
   onSaveError,
   isHidden,
+  toggleIcon,
+  description,
 }: {
   initialState?: AsidePanelState;
   save?: (state: AsidePanelState) => void | Promise<void>;
   onSaveError?: (error: unknown) => void;
   isHidden?: boolean;
+  toggleIcon?: LucideIcon;
+  description?: string;
 } = {}) {
-  return render(
+  return render(shell({ initialState, save, onSaveError, isHidden, toggleIcon, description }));
+}
+
+function shell({
+  initialState = CLOSED,
+  save,
+  onSaveError,
+  isHidden,
+  toggleIcon,
+  description,
+}: {
+  initialState?: AsidePanelState;
+  save?: (state: AsidePanelState) => void | Promise<void>;
+  onSaveError?: (error: unknown) => void;
+  isHidden?: boolean;
+  toggleIcon?: LucideIcon;
+  description?: string;
+}) {
+  return (
     <AsidePanelProvider initialState={initialState} save={save} onSaveError={onSaveError} isHidden={isHidden}>
       <Sidebar collapsible="offcanvas">
         <SidebarContent>Menu</SidebarContent>
@@ -69,13 +93,13 @@ function renderShell({
       <SidebarInset>
         <SidebarTrigger />
         <AsidePanelSidebarOpener />
-        <AsidePanelToggle />
+        <AsidePanelToggle icon={toggleIcon} />
         <button type="button">Content action</button>
       </SidebarInset>
-      <AsidePanel title="Map">
+      <AsidePanel title="Map" description={description}>
         <Body />
       </AsidePanel>
-    </AsidePanelProvider>,
+    </AsidePanelProvider>
   );
 }
 
@@ -133,6 +157,33 @@ describe("AsidePanelToggle", () => {
 
     expect(document.activeElement).toBe(document.body);
   });
+
+  it("draws the panel icons by default, the closed one while closed and the open one while open", () => {
+    renderShell();
+    expect(toggle().querySelector("svg")?.getAttribute("class")).toContain("lucide-panel-right-open");
+
+    fireEvent.click(toggle());
+    expect(toggle().querySelector("svg")?.getAttribute("class")).toContain("lucide-panel-right-close");
+  });
+
+  it("draws the app's icon in both states, hidden from assistive technology", () => {
+    renderShell({ toggleIcon: MapIcon });
+    const closedIcon = toggle().querySelector("svg");
+    expect(closedIcon?.getAttribute("class")).toContain("lucide-map");
+    expect(closedIcon?.getAttribute("aria-hidden")).toBe("true");
+
+    fireEvent.click(toggle());
+    expect(toggle().querySelector("svg")?.getAttribute("class")).toContain("lucide-map");
+    expect(toggle().getAttribute("aria-label")).toBe("Hide the panel");
+  });
+
+  it("shows its label as a hover hint that follows the state", () => {
+    renderShell();
+    expect(toggle().title).toBe("Show the panel");
+
+    fireEvent.click(toggle());
+    expect(toggle().title).toBe("Hide the panel");
+  });
 });
 
 describe("AsidePanel", () => {
@@ -152,6 +203,24 @@ describe("AsidePanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Narrow the panel" }));
     expect(screen.getByRole("complementary").dataset["width"]).toBe("standard");
+  });
+
+  it("shows the width switch's label as a hover hint", () => {
+    renderShell({ initialState: OPEN });
+    expect(screen.getByRole("button", { name: "Widen the panel" }).title).toBe("Widen the panel");
+
+    fireEvent.click(screen.getByRole("button", { name: "Widen the panel" }));
+    expect(screen.getByRole("button", { name: "Narrow the panel" }).title).toBe("Narrow the panel");
+  });
+
+  it("hides the wide-screen aside below the md breakpoint, so a phone never paints it from the server HTML", () => {
+    const html = renderToString(shell({ initialState: OPEN }));
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    const aside = container.querySelector("aside");
+
+    expect(aside?.dataset["slot"]).toBe("aside-panel");
+    expect(aside?.className.split(" ")).toContain("max-md:hidden");
   });
 
   it("closes on Escape and returns focus to the toggle", () => {
@@ -206,7 +275,9 @@ describe("the sidebar handover", () => {
     expect(screen.queryByRole("button", { name: "Show the menu and hide the panel" })).toBeNull();
 
     fireEvent.click(toggle());
-    fireEvent.click(screen.getByRole("button", { name: "Show the menu and hide the panel" }));
+    const opener = screen.getByRole("button", { name: "Show the menu and hide the panel" });
+    expect(opener.title).toBe("Show the menu and hide the panel");
+    fireEvent.click(opener);
 
     expect(sidebarState()).toBe("expanded");
     expect(screen.queryByRole("complementary")).toBeNull();
@@ -316,6 +387,25 @@ describe("on a phone", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(toggle());
+  });
+
+  it("describes the sheet with the app's one-line description", () => {
+    setViewport(390);
+    renderShell({ description: "Places of the current trip" });
+    fireEvent.click(toggle());
+
+    const sheet = screen.getByRole("dialog", { name: "Map" });
+    const describedBy = sheet.getAttribute("aria-describedby");
+    expect(describedBy).not.toBeNull();
+    expect(document.getElementById(describedBy ?? "")?.textContent).toBe("Places of the current trip");
+  });
+
+  it("has no description unless the app gives one", () => {
+    setViewport(390);
+    renderShell();
+    fireEvent.click(toggle());
+
+    expect(screen.getByRole("dialog", { name: "Map" }).hasAttribute("aria-describedby")).toBe(false);
   });
 });
 
