@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-draft-nbsp-1080
-status: in_progress
+status: archived
 ---
 
 # Plan: keep no-break spaces in the draft's ASS (issue #1080)
@@ -24,4 +24,4 @@ Files: `tools/marketing-kit/src/footage/draft.ts`, `tools/marketing-kit/src/foot
 ## Progress
 
 - [x] Phase 1: fix and tests
-- [ ] Implementation review
+- [x] Implementation review

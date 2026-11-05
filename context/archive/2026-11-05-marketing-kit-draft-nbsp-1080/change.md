@@ -1,7 +1,8 @@
 ---
 change_id: marketing-kit-draft-nbsp-1080
 title: "marketing-kit: keep no-break spaces in the footage draft's ASS captions (issue #1080)"
-status: in_progress
+status: archived
+archived_at: 2026-11-05
 roadmap_item: null
 issue: [1080]
 branch: claude/project-thread-751r11

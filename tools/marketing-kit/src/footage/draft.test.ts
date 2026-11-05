@@ -279,7 +279,7 @@ describe("buildFootageDraftCaptions", () => {
 
   it("writes a no-break space inside a word as ASS's hard space and collapses other white space", () => {
     const joined = [
-      { text: "pay 35 kg", start: 0.1, end: 0.5 },
+      { text: "pay\u00a035\u00a0kg", start: 0.1, end: 0.5 },
       { text: "now \t\n", start: 0.6, end: 0.8 },
     ];
     const dialogue = (style: "phrase" | "highlight"): string[] =>
@@ -289,7 +289,7 @@ describe("buildFootageDraftCaptions", () => {
         .map((line) => line.split(",,0,0,0,,")[1] as string);
     expect(dialogue("phrase")).toEqual(["pay\\h35\\hkg now"]);
     expect(dialogue("highlight")[0]).toBe("pay\\h35\\hkg now");
-    expect(dialogue("highlight").every((text) => !text.includes(" ") && text.includes("pay\\h35\\hkg"))).toBe(true);
+    expect(dialogue("highlight").every((text) => !text.includes("\u00a0") && text.includes("pay\\h35\\hkg"))).toBe(true);
   });
 
   it("draws a highlight film's chunks of up to four words on the brand's box, lighting each word for 0.32 s", () => {
