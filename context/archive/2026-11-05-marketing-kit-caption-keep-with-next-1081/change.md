@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-caption-keep-with-next-1081
 title: "marketing-kit: a footage film's caption card never ends on a word that keeps with the next (issue #1081)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 1081
 branch: claude/project-thread-o87129
 created: 2026-11-05
 updated: 2026-11-05
+archived_at: 2026-11-05
 ---
 
 ## Intent
@@ -41,3 +42,11 @@ coordinator releases.
 ## Notes
 
 - Framing: skipped. The issue states the problem, the cause and the option's shape.
+
+## Done
+
+A footage film's caption cards (`phrase` and `highlight`, render and draft) no longer end on a word that keeps with
+the next: `captionKeepWithNext`, else the language's `DEFAULT_CAPTION_KEEP_WITH_NEXT`, and every number; cut in film
+time, so it holds across a cut. Tests in `tools/marketing-kit/src/compose/timeline.test.ts`,
+`src/footage/captions.test.ts`, `compose.test.ts`, `draft.test.ts`; CHANGELOG `## Unreleased`, README captions and
+draft sections. Ships with the next marketing-kit release.

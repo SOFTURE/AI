@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-caption-keep-with-next-1081
-status: planned
+status: archived
 ---
 
 # Plan: keep a caption word with the next (issue #1081)
@@ -51,7 +51,7 @@ CHANGELOG `## Unreleased`; README captions paragraph and the draft section.
 
 ## Progress
 
-- [ ] Phase 1: the chunkers
-- [ ] Phase 2: the film option and wiring
-- [ ] Phase 3: CHANGELOG and README
-- [ ] Implementation review
+- [x] Phase 1: the chunkers, 3494ba2
+- [x] Phase 2: the film option and wiring, 3494ba2 (rebuilt on #1077 by merge)
+- [x] Phase 3: CHANGELOG and README, 3494ba2
+- [x] Implementation review: approved
