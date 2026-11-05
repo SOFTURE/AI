@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.11.0
 
 - **The final pass can publish H.264 High from a draft render (#1068):** `finishVideo: { preset, crf, maxBitrate? }`
   on `renderFootage` and `renderFootageFilm` re-encodes the picture in the final pass instead of copying it: H.264
