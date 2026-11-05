@@ -698,7 +698,10 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   −14 LUFS, −1 dBTP) by one linear gain and a true peak limiter at 4x the film's rate, encoded to AAC on its own and
   measured; while the codec's overshoot breaks the limit the limiter is lowered and the sound encoded again (at most 4
   times). The finished file is measured too: true peak above the limit or integrated loudness outside the target ± 1 LU
-  fails the run, naming both values, and `renderFootage`'s result carries the measurement as `loudness`. A silent mix is
+  fails the run, naming both values, and `renderFootage`'s result carries the measurement as `loudness` (and the
+  render's mix with the gain applied as `mix`). With `"mixLoudness": { "keep": "speech", "tolerance": 1 }` the mix gets
+  no gain while it measures inside `target ± tolerance` and otherwise only the smallest gain to that window, so the
+  speech keeps the level `loudness` gave it whatever the music volume (the limiter and the gate still run). A silent mix is
   left as it is; `"mixLoudness": false` keeps the mix as rendered (still measured, not held to a target). So the
   published file plays at the platforms' level whatever the music adds; H.264 yuv420p in
   Constrained Baseline, Main or High (another picture is re-encoded to High), AAC 48 kHz stereo, `+faststart` (the `moov` box first, so a platform or a scheduler streaming the URL starts at

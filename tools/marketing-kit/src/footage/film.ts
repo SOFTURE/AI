@@ -1,6 +1,6 @@
 import type { VideoFormat } from "../compose/timeline.js";
 import type { EndCard } from "../film.js";
-import type { LoudnessTarget } from "./loudness.js";
+import type { LoudnessTarget, MixLoudnessTarget } from "./loudness.js";
 
 /**
  * A footage film: filmed clips (a person talking to camera, b-roll) cut by their transcript into a captioned
@@ -146,9 +146,11 @@ export interface FootageFilm {
   /**
    * The finished film's mix (speech, music, sound effects), measured after the render and normalized in two passes of
    * `loudnorm` (one linear gain; the picture is copied, only the sound re-encoded), so the published file plays at the
-   * target. A silent mix is left as it is. Absent: −14 LUFS, −1 dBTP; null: the mix as rendered.
+   * target. A silent mix is left as it is. Absent: −14 LUFS, −1 dBTP; null: the mix as rendered. `keep: "speech"`
+   * applies no gain while the mix measures inside `target ± tolerance` (default 1 LU), so the speech keeps its level
+   * whatever the music volume (see `MixLoudnessTarget`).
    */
-  mixLoudness?: LoudnessTarget | null;
+  mixLoudness?: MixLoudnessTarget | null;
   /**
    * The cover JPG written next to the film. Absent or without `at`: the middle of the first talking segment; `at`:
    * that second of the film; null: no cover.

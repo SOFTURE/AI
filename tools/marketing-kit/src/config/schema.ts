@@ -617,10 +617,15 @@ const footageSchema = z
         z.strictObject({
           target: z.number().min(-40).max(-5).default(-14).describe("Integrated loudness in LUFS (-40 to -5, default -14)."),
           truePeak: z.number().min(-9).max(0).default(-1).describe("The highest true peak in dBTP (-9 to 0, default -1)."),
+          tolerance: z.number().min(0.2).max(3).optional().describe("How far from target the mix may land, in LU (0.2 to 3, default 1)."),
+          keep: z
+            .enum(["loudness", "speech"])
+            .optional()
+            .describe('"loudness" (default): one gain brings the mix to target; "speech": no gain while the mix measures inside target ± tolerance, so the speech keeps its level whatever the music volume.'),
         }),
       ])
       .default({ target: -14, truePeak: -1 })
-      .describe("The finished film's mix (speech and music), measured after the render and normalized in two passes; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP."),
+      .describe("The finished film's mix (speech and music), measured after the render, brought to the target by one gain and held under the true peak by a limiter; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP."),
     cover: z
       .union([
         z.literal(false),

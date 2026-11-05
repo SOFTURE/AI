@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **The finished mix can keep the speech's level (#1085):** `mixLoudness.keep: "speech"` (`marketing.json` and
+  `FootageFilm.mixLoudness`, with `tolerance` in LU, default 1) applies **no gain** while the render's mix measures
+  inside `target ± tolerance`, and otherwise only the smallest gain to that window (aimed 0.2 LU inside its edge). The
+  speech, already at `loudness`, then keeps one level whatever the music volume, and a music volume step is heard as
+  set; before, the gain to the target followed the music and moved the speech by 0.1-0.6 dB between two music volumes.
+  The #1079 true peak limiter, encode, retries and gate run as before; the gate checks `target ± tolerance` (in both
+  modes; without `tolerance` it stays 1 LU). New `mix: { measured, gainDb, ceilingDbtp, keep } | null` on
+  `FinishedFootage` (so on `renderFootage`'s rendered result): the render's mix as measured and what the last stage
+  applied; the log line names the window (`gain 0.0 dB (speech kept: -14.0 ± 1 LUFS)`). Also exported: `getMixGain`,
+  `getMixTolerance`, `MixLoudnessTarget`, `FinishedMix`. Without the option nothing changes.
 - **An EDL segment can move the caption box for its own captions (#1077):** `EdlSegment.caption: { bottom?, top? }`
   (px of the film's frame, as `CaptionLayout`) is merged over the film's caption box for the captions that start in
   that segment; `bottom` anchors by the foot and wins, `top` alone hangs the box from that top. A chunk that spans a

@@ -5,9 +5,12 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { DEFAULT_LOUDNESS, readLoudnessMeasurement, type LoudnessMeasurement, type LoudnessTarget } from "./loudness.js";
+import { DEFAULT_LOUDNESS, normalizeLoudness, readLoudnessMeasurement, type LoudnessMeasurement, type MixLoudnessTarget } from "./loudness.js";
 import { finishFootage } from "./pipeline.js";
 import type { FinishVideo } from "./publish.js";
+
+/** The #1085 fixtures' length: three 3 s periods of speech and pauses. */
+const TALK_SECONDS = 9;
 
 const hasFfmpeg = spawnSync("ffprobe", ["-version"]).status === 0 && spawnSync("ffmpeg", ["-version"]).status === 0;
 
@@ -84,7 +87,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
   const SPEECH_AND_MUSIC =
     "sine=f=220:d=6:r=48000,volume='if(lt(mod(t,2),1.4),0.06,0)':eval=frame[voice];anoisesrc=d=6:r=48000:a=0.01[bed];[voice][bed]amix=inputs=2,aformat=channel_layouts=stereo";
 
-  async function finish(renderFile: string, mixLoudness?: LoudnessTarget | null, finishVideo?: FinishVideo) {
+  async function finish(renderFile: string, mixLoudness?: MixLoudnessTarget | null, finishVideo?: FinishVideo) {
     const output = join(dir, "film.mp4");
     const result = await finishFootage(
       { cover: null, ...(mixLoudness === undefined ? {} : { mixLoudness }) },
@@ -142,6 +145,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(Math.abs(after.inputI - before)).toBeLessThan(0.1);
     expect(lines.some((line) => line.startsWith("loudness: the film's mix"))).toBe(false);
     expect(result.ok && result.value.loudness).toEqual({ integrated: after.inputI, truePeak: after.inputTp });
+    expect(result.ok && result.value.mix).toBeNull();
   });
 
   /** The issue's fixture: pink noise "speech" in bursts over a percussive square wave "music" bed, both loud. */
@@ -178,5 +182,118 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(existsSync(output)).toBe(false);
     expect(existsSync(join(dir, "mix.m4a"))).toBe(false);
     expect(lines.some((line) => line.startsWith("finish:"))).toBe(false);
+  });
+
+  /**
+   * The issue's fixture for #1085: pink noise "speech" on for `speechOn` s of every 3 s, normalized to -14 LUFS as the
+   * render does, under a percussive "music" bed at `volume`, summed without normalization like the render's mix.
+   */
+  async function makeTalkRender(options: { speechOn: number; volume: number; name: string }): Promise<string> {
+    const raw = join(dir, `${options.name}.speech.wav`);
+    const speech = join(dir, `${options.name}.speech.mp3`);
+    const made = spawnSync("ffmpeg", [
+      "-v",
+      "error",
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      `anoisesrc=d=${TALK_SECONDS}:c=pink:r=48000:a=0.2:seed=1085,volume='if(lt(mod(t,3),${options.speechOn}),1,0.0005)':eval=frame`,
+      raw,
+    ]);
+    expect(made.status).toBe(0);
+    expect((await normalizeLoudness(raw, speech, DEFAULT_LOUDNESS)).kind).toBe("normalized");
+    const music = "0.5*sgn(sin(2*PI*55*t))*exp(-20*mod(t,0.5))+0.2*sin(2*PI*220*t)";
+    const file = join(dir, `${options.name}.render.mp4`);
+    const rendered = spawnSync("ffmpeg", [
+      "-v",
+      "error",
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      `color=c=black:s=180x320:r=30:d=${TALK_SECONDS}`,
+      "-i",
+      speech,
+      "-f",
+      "lavfi",
+      "-i",
+      `aevalsrc='${music}|${music}':d=${TALK_SECONDS}:s=48000`,
+      "-filter_complex",
+      `[1:a]aformat=channel_layouts=stereo[voice];[2:a]volume=${options.volume}[music];[voice][music]amix=inputs=2:normalize=0:duration=first[a]`,
+      "-map",
+      "0:v",
+      "-map",
+      "[a]",
+      "-c:v",
+      "libx264",
+      "-profile:v",
+      "high",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "192k",
+      "-ar",
+      "48000",
+      "-shortest",
+      file,
+    ]);
+    expect(rendered.status).toBe(0);
+    return file;
+  }
+
+  /** The mean level of a moment without speech (2.7-2.95 s of the 3 s period, past the speech of every fixture), in dB. */
+  function getQuietLevel(file: string): number {
+    const result = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", file, "-vn", "-af", "atrim=start=5.7:end=5.95,volumedetect", "-f", "null", "-"], { encoding: "utf8" });
+    const match = /mean_volume: (-?\d+(?:\.\d+)?) dB/.exec(result.stderr);
+    if (match?.[1] === undefined) throw new Error(`no mean volume for ${file}: ${result.stderr}`);
+    return Number(match[1]);
+  }
+
+  const KEEP_SPEECH: MixLoudnessTarget = { ...DEFAULT_LOUDNESS, tolerance: 1, keep: "speech" };
+
+  it.each([
+    { speechOn: 2, volumes: [0.4, 0.5] },
+    { speechOn: 2.6, volumes: [0.32, 0.5] },
+  ])("keeps the speech's level when only the music volume changes ($volumes, speech $speechOn s of 3 s) with keep speech (issue #1085)", async ({ speechOn, volumes }) => {
+    const finished = [];
+    for (const volume of volumes) {
+      const renderFile = await makeTalkRender({ speechOn, volume, name: `v${volume}` });
+      const output = join(dir, `v${volume}.mp4`);
+      const result = await finishFootage({ cover: null, mixLoudness: KEEP_SPEECH }, { renderFile, seconds: TALK_SECONDS, coverAt: 0 }, { output, log: (line) => lines.push(line) });
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.mix?.keep).toBe("speech");
+      const after = measure(output);
+      expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
+      expect(Math.abs(after.inputI - DEFAULT_LOUDNESS.target)).toBeLessThanOrEqual(1);
+      finished.push({ volume, gainDb: result.value.mix?.gainDb ?? Number.NaN, quiet: getQuietLevel(output) });
+    }
+    const [first, second] = finished;
+    if (first === undefined || second === undefined) throw new Error("two renders expected");
+    // The speech stays where `loudness` put it: the same gain on both mixes.
+    expect(Math.abs(second.gainDb - first.gainDb)).toBeLessThanOrEqual(0.1);
+    // A music volume step is heard as set in the moments without speech.
+    expect(Math.abs(second.quiet - first.quiet - 20 * Math.log10(second.volume / first.volume))).toBeLessThanOrEqual(0.5);
+    expect(lines.some((line) => /^loudness: the film's mix measured .+; gain [+-]?\d+\.\d dB \(speech kept: -14\.0 ± 1 LUFS\), limiter at /.test(line))).toBe(true);
+  });
+
+  it("brings a talk with long pauses and quiet music into the window, no further (issue #1085)", async () => {
+    const renderFile = await makeTalkRender({ speechOn: 1, volume: 0.2, name: "pauses" });
+    const { inputI: before, inputTp: peakBefore } = measure(renderFile);
+    expect(before).toBeLessThan(-15);
+    const output = join(dir, "pauses.mp4");
+    const result = await finishFootage({ cover: null, mixLoudness: KEEP_SPEECH }, { renderFile, seconds: TALK_SECONDS, coverAt: 0 }, { output, log: (line) => lines.push(line) });
+    if (!result.ok) throw new Error(result.error);
+    const after = measure(output);
+    expect(Math.abs(after.inputI - DEFAULT_LOUDNESS.target)).toBeLessThanOrEqual(1);
+    expect(after.inputI).toBeLessThan(DEFAULT_LOUDNESS.target - 0.5);
+    expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
+    expect(result.value.mix).toEqual({ measured: { integrated: before, truePeak: peakBefore }, gainDb: expect.any(Number) as number, ceilingDbtp: expect.any(Number) as number, keep: "speech" });
+    // The gain reaches the window's edge (aimed 0.2 LU inside it), plus what a retry adds when the limiter took some back.
+    const edgeGain = DEFAULT_LOUDNESS.target - 0.8 - before;
+    expect(result.value.mix?.gainDb).toBeGreaterThanOrEqual(edgeGain - 0.05);
+    expect(result.value.mix?.gainDb).toBeLessThan(edgeGain + 1);
   });
 });

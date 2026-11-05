@@ -392,6 +392,8 @@ export {
   getFirstMixAttempt,
   getLoudnessFilter,
   getMixFilter,
+  getMixGain,
+  getMixTolerance,
   getNextMixAttempt,
   isSilent,
   measureLoudness,
@@ -406,6 +408,7 @@ export {
   type LoudnessTarget,
   type MixAttempt,
   type MixLoudness,
+  type MixLoudnessTarget,
 } from "./footage/loudness.js";
 export {
   buildCoverArgs,
@@ -465,6 +468,7 @@ export {
   renderFootageFilm,
   transcribeFootage,
   type FinishedFootage,
+  type FinishedMix,
   type FootageBrand,
   type FootageMusicLookup,
   type FootageResult,
