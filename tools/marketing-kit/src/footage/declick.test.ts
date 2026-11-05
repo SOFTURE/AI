@@ -236,7 +236,9 @@ describe("the stage's ffmpeg steps", () => {
   });
 });
 
-describe("declickSpeech", () => {
+const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
+
+describe.runIf(hasFfmpeg)("declickSpeech with ffmpeg", () => {
   let dir = "";
   afterEach(() => {
     if (dir !== "") rmSync(dir, { recursive: true, force: true });
