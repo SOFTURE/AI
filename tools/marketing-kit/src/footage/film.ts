@@ -131,6 +131,12 @@ export interface FootageFilm {
    * `CAPTION_MIN_FONT_SCALE` of the box's size) until it fits. Absent: no limit. The draft keeps its font size.
    */
   captionMaxLines?: number;
+  /**
+   * Words a caption card must not end on: the card hands them to the next one, so `w` stays with `domu`. Compared
+   * lower-case; a number always keeps with the word after it. Absent: the language's `DEFAULT_CAPTION_KEEP_WITH_NEXT`;
+   * empty: numbers only.
+   */
+  captionKeepWithNext?: string[];
   /** The cut's look: zoom size, fade length, Ken Burns, the end card's whoosh. Absent fields take `DEFAULT_EDIT`. */
   edit?: Partial<FootageEdit>;
   /** The closing card after the last segment; null: the film ends with its last segment. */
@@ -154,6 +160,15 @@ export interface FootageFilm {
 export const DEFAULT_FILLERS: Record<string, string[]> = {
   pl: ["y", "e", "yhm", "yh", "ym", "em", "hm", "mhm", "eh", "uh"],
   en: ["um", "uh", "uhm", "er", "erm", "hm", "mhm", "ah"],
+};
+
+/**
+ * Words a caption card does not end on, per language: Polish one-letter words and short prepositions, English
+ * articles. A language without a list keeps numbers only.
+ */
+export const DEFAULT_CAPTION_KEEP_WITH_NEXT: Record<string, string[]> = {
+  pl: ["a", "i", "o", "u", "w", "z", "we", "ze", "na", "do", "od", "po", "za", "ku"],
+  en: ["a", "an", "the"],
 };
 
 /** The default fillers of a language; none for a language without a list. */

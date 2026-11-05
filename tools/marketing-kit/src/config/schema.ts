@@ -574,6 +574,11 @@ const footageSchema = z
       .max(4)
       .optional()
       .describe("The most lines a caption card may take (1-4): the render shrinks a longer card's font, to 70 % at most; without it, no limit."),
+    captionKeepWithNext: z
+      .array(z.string().trim().min(1).max(20))
+      .max(100)
+      .optional()
+      .describe("Words a caption card must not end on (they move to the next card), compared lower-case; a number always keeps with the next word. Without it, the language's default (pl: one-letter words and short prepositions, en: articles); [] keeps numbers only."),
     edit: z
       .strictObject({
         zoomPercent: z.number().min(105).max(112).default(108).describe("How far a zoom cut punches in (105-112 %, default 108)."),
