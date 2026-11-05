@@ -143,6 +143,8 @@ export {
   type RegisterServerInfoToolOptions,
   type ServedServerInfo,
   type ServerInfoAnswer,
+  type ServerInfoToolsAnswer,
+  type ServedToolContract,
   type ServerInfoToolOptions,
 } from "./server-info.js";
 export { toStrictToolInput, withStrictToolInput, type RenamedFields, type StrictToolInputMessages, type StrictToolInputOptions } from "./strict-input.js";
