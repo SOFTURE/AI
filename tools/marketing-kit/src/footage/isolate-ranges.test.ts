@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -43,7 +43,7 @@ function createSilencingProvider(dir: string): IsolationProvider & { calls: stri
       const output = join(dir, `silence-${String(calls.length)}.mp3`);
       const length = probeStream(input.audio).duration;
       spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono", "-t", String(length), "-c:a", "libmp3lame", "-q:a", "2", output]);
-      return Promise.resolve(ok({ audio: Buffer.from(spawnSync("cat", [output]).stdout), credits: 7 }));
+      return Promise.resolve(ok({ audio: readFileSync(output), credits: 7 }));
     },
   };
 }
