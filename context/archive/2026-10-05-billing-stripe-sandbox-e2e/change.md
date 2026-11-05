@@ -22,7 +22,7 @@ Input: [`backlog-input.md`](backlog-input.md) (roadmap item LT-1, taken 2026-10-
 
 ## Context
 
-From [`roadmap-later.md`](../../foundation/roadmap.md), item **LT-1**:
+From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **LT-1**:
 
 > - **Outcome:** A browser payment on Stripe's sandbox Checkout (test card) whose webhook reaches the app (Stripe CLI forwarding or a reachable preview) and turns the trial into paid, run in CI when the Stripe test secrets are set.
 > - **Unknowns:** How the webhook reaches a CI run (`stripe listen` in the job vs. a deployed preview); how stable Stripe's hosted page is for Playwright.

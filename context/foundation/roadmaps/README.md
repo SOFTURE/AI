@@ -5,9 +5,12 @@ and each backlog folder links back here. Only `../roadmap.md` (the main roadmap)
 roadmap becomes the main one only when the owner promotes it (`softure-roadmap --promote <slug>`).
 Finished main roadmaps move to `../archive/<YYYY-MM-DD>-roadmap.md`.
 
-No queued roadmap now. The last one, `later` (`LT-`), was promoted to the main roadmap
-[`../roadmap.md`](../roadmap.md) on 2026-11-05; open GitHub issues stay a work source alongside it.
+| Roadmap | Theme | Prefix | Status |
+| --- | --- | --- | --- |
+| [`roadmap-later.md`](roadmap-later.md) | items parked until an owner step (secrets, accounts, the batch release) is done | `LT-` (MK-8, EN-9, MO-6, BL-8 and DP-8 done 2026-10-06) | waiting |
 
+No main roadmap now: since 2026-10-07 work runs on GitHub Issues until further notice, and no queued roadmap is
+promoted (see [`../roadmap.md`](../roadmap.md)). The last main roadmap, charts-followups (`CF-`), closed on 2026-10-07.
 Archived: [`foundation`](../archive/2026-10-02-roadmap.md),
 [`identity`](../archive/2026-10-03-roadmap.md), [`engagement`](../archive/2026-10-03-2-roadmap.md),
 [`monetization`](../archive/2026-10-03-3-roadmap.md), [`marketing-kit`](../archive/2026-10-03-4-roadmap.md), [`followups`](../archive/2026-10-04-roadmap.md),

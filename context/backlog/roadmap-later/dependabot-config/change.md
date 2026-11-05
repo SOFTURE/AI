@@ -16,7 +16,7 @@ pull requests that run the normal gates, without flooding CI.
 
 ## Context
 
-From [`roadmap.md`](../../foundation/roadmap.md), item **LT-4** (owner, 2026-11-04): the
+From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **LT-4** (owner, 2026-11-04): the
 repository has no `.github/dependabot.yml` and no Dependabot pull requests, so nobody learns of a vulnerable
 dependency until someone looks at the Security tab by hand. The repository is public, so Dependabot alerts,
 security updates and secret scanning cost nothing.

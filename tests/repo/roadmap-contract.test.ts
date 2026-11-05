@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { findChangeLocationProblems, findRoadmapProblems, parseRoadmap } from "./roadmap-contract.js";
@@ -134,8 +134,8 @@ describe("the repository roadmaps", () => {
       .map((name) => `context/foundation/roadmaps/${name}`),
   ];
 
-  it("finds the main roadmap", () => {
-    expect(existsSync(join(REPO_ROOT, "context/foundation/roadmap.md"))).toBe(true);
+  it("finds the main roadmap and the queued ones", () => {
+    expect(roadmapPaths.length).toBeGreaterThan(1);
   });
 
   it.each(roadmapPaths)("%s follows the roadmap contract", (path) => {

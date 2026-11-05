@@ -21,7 +21,7 @@ Input: [`backlog-input.md`](backlog-input.md) (roadmap item LT-2, taken 2026-10-
 
 ## Context
 
-From [`roadmap-later.md`](../../foundation/roadmap.md), item **LT-2**:
+From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **LT-2**:
 
 > - **Outcome:** `release:version` updates (or makes redundant) the inline manifest version of a module, so the
 >   bumped module's "ships a module.json equal to its manifest" test and the release gates stay green.

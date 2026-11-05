@@ -36,7 +36,7 @@ Found while answering:
   before each bump.
 - `npm view` finds none of the packages on npm (only `@softure-ai/skills`, so the scope exists).
 
-The items it unblocks stay in the queued roadmap [`later`](../../foundation/roadmap.md)
+The items it unblocks stay in the queued roadmap [`later`](../../foundation/roadmaps/roadmap-later.md)
 (BL-8, MK-8, EN-9, MO-6): they close once the owner's tags are live.
 
 ## Constraints
