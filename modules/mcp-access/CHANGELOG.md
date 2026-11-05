@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- The served tool contract in `get_server_info` (#1078): `serverInfoTool: { tools: true }` makes the tool answer each
+  served tool's `name`, `description` and `inputSchema` for the caller's access level, exactly as `tools/list` answers
+  them (the measured list the version comes from), with a `toolsHint` that the server's copy is current. An optional
+  `name` input narrows it to one tool; an unknown name answers `toolNames`. A hosted client never caches a tool result,
+  so a model on a stale tool list reads the current one in-band. `registerServerInfoTool` takes `tools` with
+  `servedTools` for a hand-built server. Migrate: nothing (off by default; turning it on changes the version once).
+
 ## 0.6.0
 
 - Request diagnostics (#1066): `createMcpEndpoint({ diagnostics })` (and so `createMcpRoute`), off by default. `true`
