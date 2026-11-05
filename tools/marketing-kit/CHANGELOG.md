@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **The final pass can publish H.264 High from a draft render (#1068):** `finishVideo: { preset, crf, maxBitrate? }`
+  on `renderFootage` and `renderFootageFilm` re-encodes the picture in the final pass instead of copying it: H.264
+  High, yuv420p, at that x264 preset and CRF, capped at `maxBitrate` (`-maxrate`, with a `-bufsize` of twice the cap)
+  when set. `quality: "draft", crf: 18` plus `finishVideo: { preset: "veryfast", crf: 20 }` gives High at a
+  controlled size for about a quarter of the `standard` tier's encode. The loudness pass, fast start and cover stay
+  as they are; the stage's progress follows the re-encode. Invalid values end the run with a sentence before anything
+  is bought or built. New exports: `FinishVideo`, `findFinishVideoProblems`; `buildFinishArgs` takes `video`. Without
+  the option nothing changes.
+
 ## 0.10.0
 
 - **A failed footage ffmpeg step hands over what it ran (#1063):** `onFfmpegFailure` on `prepareFootage`,
