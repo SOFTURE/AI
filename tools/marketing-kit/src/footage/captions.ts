@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 
-import { resolveLayout, type CaptionLayout, type LayoutOverride } from "../compose/timeline.js";
+import { captionChunks, resolveLayout, splitAfterKept, type CaptionLayout, type LayoutOverride } from "../compose/timeline.js";
 import type { BrandFont } from "../config/config.js";
 import { readCharacterMap, type CharacterMap } from "../og/character-map.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import type { CaptionPreset, FootageFilm } from "./film.js";
+import { DEFAULT_CAPTION_KEEP_WITH_NEXT, type CaptionPreset, type FootageFilm } from "./film.js";
 
 /**
  * The footage film's captions: plain phrases (the default style), the 9:16 caption box inside a platform's safe zone,
@@ -23,23 +23,39 @@ const MAX_PHRASE_WORDS = 6;
 /** A silence this long between two words starts a new phrase. */
 const PHRASE_GAP_SECONDS = 0.7;
 
+/** How words are cut into phrases. */
+export interface PhraseChunkOptions {
+  /**
+   * Words that must not end a phrase (`getCaptionKeepsWithNext`): neither a pause nor the six-word limit ends a
+   * phrase on one (a full phrase hands it to the next); punctuation still does. Absent: every word may end one.
+   */
+  keepsWithNext?: (word: TimedWord) => boolean;
+}
+
 /**
- * The words as phrases of 2-6: a phrase ends at punctuation, after six words or at a pause; a single word left alone
+ * The words as phrases of 2-6: a phrase ends at punctuation, after six words or at a pause, never on a word
+ * `keepsWithNext` keeps (unless punctuation ends it or the phrase holds kept words only); a single word left alone
  * joins the phrase before it when that one has room and no pause separates them.
  */
-export function phraseChunks(words: TimedWord[]): PhraseChunk[] {
+export function phraseChunks(words: TimedWord[], options: PhraseChunkOptions = {}): PhraseChunk[] {
+  const { keepsWithNext } = options;
   const groups: TimedWord[][] = [];
   let current: TimedWord[] = [];
   words.forEach((word, index) => {
     const previous = words[index - 1];
-    if (current.length > 0 && previous !== undefined && word.start - previous.end > PHRASE_GAP_SECONDS) {
+    const isPreviousKept = previous !== undefined && keepsWithNext !== undefined && keepsWithNext(previous);
+    if (current.length > 0 && previous !== undefined && !isPreviousKept && word.start - previous.end > PHRASE_GAP_SECONDS) {
       groups.push(current);
       current = [];
     }
     current.push(word);
-    if (/[.,?!:;…]$/u.test(word.text) || current.length === MAX_PHRASE_WORDS) {
+    if (/[.,?!:;…]$/u.test(word.text)) {
       groups.push(current);
       current = [];
+    } else if (current.length === MAX_PHRASE_WORDS) {
+      const { chunk, carry } = splitAfterKept(current, keepsWithNext);
+      groups.push(chunk);
+      current = carry;
     }
   });
   if (current.length > 0) groups.push(current);
@@ -53,6 +69,31 @@ export function phraseChunks(words: TimedWord[]): PhraseChunk[] {
     else merged.push(group);
   }
   return merged.map((group) => ({ words: group, start: (group[0] as TimedWord).start, end: (group[group.length - 1] as TimedWord).end }));
+}
+
+/** What a film's caption cards are cut by; without `language`, no language default applies. */
+export type CaptionWordsFilm = Pick<FootageFilm, "captionKeepWithNext"> & { language?: string };
+
+const NUMBER_PATTERN = /^\d+(?:[.,]\d+)*$/u;
+
+/**
+ * Which of a film's words keep with the next on a caption card: a number, and a word of `captionKeepWithNext` (absent:
+ * the language's `DEFAULT_CAPTION_KEEP_WITH_NEXT`), compared lower-case. The render and the draft cut cards alike.
+ */
+export function getCaptionKeepsWithNext(film: CaptionWordsFilm): (word: TimedWord) => boolean {
+  const defaults = film.language === undefined ? [] : (DEFAULT_CAPTION_KEEP_WITH_NEXT[film.language] ?? []);
+  const words = new Set((film.captionKeepWithNext ?? defaults).map((text) => text.toLowerCase()));
+  return (word) => NUMBER_PATTERN.test(word.text) || words.has(word.text.toLowerCase());
+}
+
+/**
+ * A footage film's caption cards in film time: none without captions, `captionChunks` for `highlight`, `phraseChunks`
+ * otherwise; both keep the film's kept words with the next (`getCaptionKeepsWithNext`). The render and the draft share it.
+ */
+export function getFootageCaptionChunks(film: CaptionWordsFilm & Pick<FootageFilm, "captions" | "captionStyle">, words: TimedWord[]): PhraseChunk[] {
+  if (!film.captions) return [];
+  const keepsWithNext = getCaptionKeepsWithNext(film);
+  return film.captionStyle === "highlight" ? captionChunks(words, { keepsWithNext }) : phraseChunks(words, { keepsWithNext });
 }
 
 /** When a caption chunk is on screen, in film seconds. */

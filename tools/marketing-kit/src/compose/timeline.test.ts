@@ -282,6 +282,31 @@ describe("captionChunks", () => {
   it("returns no chunk for no words", () => {
     expect(captionChunks([])).toEqual([]);
   });
+
+  const texts = (chunks: { words: { text: string }[] }[]) => chunks.map((c) => c.words.map((w) => w.text).join(" "));
+  const keeps = (word: { text: string }) => ["a", "the", "w", "z"].includes(word.text) || /^\d+$/.test(word.text);
+
+  it("takes a number as the word limit, as before", () => {
+    const words = ["a", "b", "c"].map((t, i) => word(t, i));
+    expect(texts(captionChunks(words, 2))).toEqual(["a b", "c"]);
+    expect(texts(captionChunks(words, { maxWords: 2 }))).toEqual(["a b", "c"]);
+  });
+
+  it("hands a kept word at the limit to the next chunk", () => {
+    const words = ["We", "sat", "by", "a", "big", "fire"].map((t, i) => word(t, i));
+    expect(texts(captionChunks(words, { keepsWithNext: keeps }))).toEqual(["We sat by", "a big fire"]);
+    expect(texts(captionChunks(words))).toEqual(["We sat by a", "big fire"]);
+  });
+
+  it("keeps a number with its unit and a chain of kept words with the word after them", () => {
+    expect(texts(captionChunks(["It", "costs", "50", "PLN"].map((t, i) => word(t, i)), { maxWords: 3, keepsWithNext: keeps }))).toEqual(["It costs", "50 PLN"]);
+    expect(texts(captionChunks(["a", "b", "w", "z", "c"].map((t, i) => word(t, i)), { keepsWithNext: keeps }))).toEqual(["a b", "w z c"]);
+  });
+
+  it("ends a chunk of kept words only, and a kept word with punctuation, where they would end", () => {
+    expect(texts(captionChunks(["w", "z", "a", "the", "b"].map((t, i) => word(t, i)), { keepsWithNext: keeps }))).toEqual(["w z a the", "b"]);
+    expect(texts(captionChunks([word("a", 0), word("o,", 1), word("b", 2)], { keepsWithNext: (w) => w.text.startsWith("o") }))).toEqual(["a o,", "b"]);
+  });
 });
 
 describe("rewindFrames", () => {

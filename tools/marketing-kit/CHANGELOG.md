@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **A caption card never ends on a word that keeps with the next (#1081):** a footage film's cards, `phrase` and
+  `highlight` alike, in the render and the draft, no longer end on a one-letter word, a short preposition or a number
+  torn from its unit. The cards are cut in film time (`remapWords`), so the rule also holds where a cut falls between
+  the two words. A full card hands its kept tail to the next card (cards keep their word limit); a pause after a kept
+  word does not end a phrase; punctuation still ends a card. The words come from the film's `captionKeepWithNext`
+  (compared lower-case; `[]` keeps numbers only), else the language's `DEFAULT_CAPTION_KEEP_WITH_NEXT` (`pl`: `a i o u
+  w z we ze na do od po za ku`, `en`: `a an the`); a number always keeps with the next word. `captionChunks(words,
+  { maxWords, keepsWithNext })` and `phraseChunks(words, { keepsWithNext })` take the predicate (a number still means
+  `maxWords`); screen films are unchanged. New exports: `CaptionChunkOptions`, `PhraseChunkOptions`,
+  `CaptionWordsFilm`, `DEFAULT_CAPTION_KEEP_WITH_NEXT`, `getCaptionKeepsWithNext`, `getFootageCaptionChunks`,
+  `splitAfterKept`. A Polish film's cards change where they ended on one of the default words.
+
 ## 0.11.0
 
 - **The final pass can publish H.264 High from a draft render (#1068):** `finishVideo: { preset, crf, maxBitrate? }`

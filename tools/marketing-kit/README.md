@@ -678,7 +678,11 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   keeps a 9:16 film's captions inside that platform's safe zone (`CAPTION_SAFE_ZONES`, the margins its own buttons and
   text cover): the box is anchored by its foot at the zone's bottom margin and grows upwards. `captionMaxLines` (1-4)
   shrinks a longer card's font in the render, to 70 % of the box's size at most (`CAPTION_MIN_FONT_SCALE`), until it
-  fits; the draft keeps its size. The caption text metrics are exported (`CAPTION_LINE_HEIGHT`,
+  fits; the draft keeps its size. A card never ends on a word that keeps with the next: `captionKeepWithNext` (compared
+  lower-case; `[]` keeps numbers only), else the language's `DEFAULT_CAPTION_KEEP_WITH_NEXT` (Polish one-letter words
+  and short prepositions, English articles), and every number; a full card hands that word to the next card, and a
+  pause after it does not end a phrase. The cards are cut in film time, so this holds across a cut too
+  (`getFootageCaptionChunks`). The caption text metrics are exported (`CAPTION_LINE_HEIGHT`,
   `CAPTION_PILL_PADDING`) for an app that sizes the box itself. Before the render the caption and end-card fonts are checked against the film's words: a letter no
   file of the brand font draws (an accented letter outside a Latin-only subset) stops the run with the letters it lacks. The **end card** follows the cut over its last
   frame. `social.posts` may name a footage film; its `posts.md` carries no persona disclosure.
@@ -948,7 +952,7 @@ const draft = await renderFootageDraft(film, clips, transcript, edl, { buildDir,
 
 What the draft matches and what it leaves out:
 
-- **Captions follow `captionStyle`.** `phrase`: the render's phrases in white with a dark outline and shadow.
+- **Captions follow `captionStyle`.** The cards are the render's (`getFootageCaptionChunks`, kept words included). `phrase`: the render's phrases in white with a dark outline and shadow.
   `highlight`: the render's chunks of up to four words on an opaque box of the brand's `captionBackground` (its alpha
   kept), in `captionText`, each word in `captionHighlight` for the 0.32 s the render lights it. libass draws a square
   box per line: no rounded corners, no drop shadow, no pop-in, and the colour switches instead of fading back.
