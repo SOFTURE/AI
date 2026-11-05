@@ -2,10 +2,9 @@ import { createServer, type Server } from "node:http";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import type { AddressInfo } from "node:net";
 
-import { trace } from "@opentelemetry/api";
-import { logs } from "@opentelemetry/api-logs";
+import { logs, trace } from "@opentelemetry/api";
 import { LoggerProvider } from "@opentelemetry/sdk-logs";
-import { BasicTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { TracerProvider } from "@opentelemetry/sdk-trace";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createLogger } from "../src/index.js";
@@ -80,9 +79,8 @@ describe("startObservability without an endpoint", () => {
 
     expect(handle.isExporting).toBe(false);
     // Nothing is registered, so the first registration of a probe provider succeeds.
-    expect(trace.setGlobalTracerProvider(new BasicTracerProvider())).toBe(true);
-    const probeLoggerProvider = new LoggerProvider();
-    expect(logs.setGlobalLoggerProvider(probeLoggerProvider)).toBe(probeLoggerProvider);
+    expect(trace.setGlobalTracerProvider(new TracerProvider())).toBe(true);
+    expect(logs.setGlobalLoggerProvider(new LoggerProvider())).toBe(true);
     expect(output).toContain("observability: export disabled (no OTLP endpoint)");
     expect(output).toContain("info orders: console only");
   });

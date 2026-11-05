@@ -1,5 +1,5 @@
 import { SpanKind } from "@opentelemetry/api";
-import type { Span, SpanProcessor } from "@opentelemetry/sdk-trace-node";
+import type { Span, SpanProcessor } from "@opentelemetry/sdk-trace";
 
 // Legacy HTTP server attribute → its stable name (semantic conventions 1.23+).
 const STABLE_NAMES = [

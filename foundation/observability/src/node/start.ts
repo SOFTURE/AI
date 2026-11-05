@@ -1,7 +1,8 @@
 import { createRequire } from "node:module";
 
-import { context, diag, DiagConsoleLogger, DiagLogLevel, metrics, propagation, trace } from "@opentelemetry/api";
-import { logs } from "@opentelemetry/api-logs";
+import { context, diag, DiagConsoleLogger, DiagLogLevel, logs, metrics, propagation, trace } from "@opentelemetry/api";
+import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
+import { CompositePropagator, W3CBaggagePropagator, W3CTraceContextPropagator } from "@opentelemetry/core";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-proto";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
@@ -12,7 +13,7 @@ import { UndiciInstrumentation } from "@opentelemetry/instrumentation-undici";
 import { defaultResource, resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
 import { MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
-import { BatchSpanProcessor, NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { BatchSpanProcessor, TracerProvider } from "@opentelemetry/sdk-trace";
 
 import { configureLogging } from "../logger.js";
 import { resolveObservabilityConfig, type ObservabilityOptions } from "./config.js";
@@ -99,7 +100,7 @@ function register(options: ObservabilityOptions): Registration {
   // response, never the request headers.
   diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.ERROR);
 
-  const tracerProvider = new NodeTracerProvider({
+  const tracerProvider = new TracerProvider({
     resource,
     ...(sampler === undefined ? {} : { sampler }),
     spanProcessors:
@@ -107,11 +108,13 @@ function register(options: ObservabilityOptions): Registration {
         ? []
         : [
             ...(options.traces?.stableHttpAttributes === true ? [new StableHttpAttributesProcessor()] : []),
-            new BatchSpanProcessor(new OTLPTraceExporter({ url: config.traces.url, headers: config.traces.headers })),
+            new BatchSpanProcessor({
+              exporter: new OTLPTraceExporter({ url: config.traces.url, headers: config.traces.headers }),
+            }),
           ],
   });
   // Registered even without trace export: the context manager is what puts trace ids on log records.
-  tracerProvider.register();
+  registerTracerProvider(tracerProvider);
 
   const loggerProvider =
     config.logs === null
@@ -218,7 +221,7 @@ function register(options: ObservabilityOptions): Registration {
 }
 
 type HttpInstrumentationTarget = {
-  tracerProvider: NodeTracerProvider;
+  tracerProvider: TracerProvider;
   meterProvider: MeterProvider | null;
   isIgnoredPath: (target: string) => boolean;
   isExportRequest: (target: OutgoingRequestTarget) => boolean;
@@ -253,6 +256,18 @@ function loadHttpModules(): void {
   const require = createRequire(import.meta.url);
   require("node:http");
   require("node:https");
+}
+
+/**
+ * What `NodeTracerProvider.register()` did before OpenTelemetry JS 3.0: the AsyncLocalStorage context manager, W3C trace
+ * context and baggage propagation, and the provider as the global one.
+ */
+function registerTracerProvider(tracerProvider: TracerProvider): void {
+  context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
+  propagation.setGlobalPropagator(
+    new CompositePropagator({ propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()] }),
+  );
+  trace.setGlobalTracerProvider(tracerProvider);
 }
 
 function joinWords(words: readonly string[]): string {

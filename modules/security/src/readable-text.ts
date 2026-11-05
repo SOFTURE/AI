@@ -161,7 +161,8 @@ function appendNode(node: Node, parts: string[], isPreformatted: boolean): void 
     return;
   }
   if (tag === "LI") {
-    const marker = node.parentNode?.tagName === "OL" ? `${String(listPosition(node))}. ` : "- ";
+    const list = node.parentNode;
+    const marker = list?.tagName === "OL" ? `${String(listPosition(node, list))}. ` : "- ";
     parts.push(`\n${marker}`);
     appendChildren(node, parts, isPreformatted);
     parts.push("\n");
@@ -185,9 +186,9 @@ function appendChildren(node: HTMLElement, parts: string[], isPreformatted: bool
   }
 }
 
-function listPosition(item: HTMLElement): number {
-  const siblings = item.parentNode.childNodes.filter((child): child is HTMLElement => child instanceof HTMLElement && child.tagName === "LI");
-  const start = Number.parseInt(item.parentNode.getAttribute("start") ?? "1", 10);
+function listPosition(item: HTMLElement, list: HTMLElement): number {
+  const siblings = list.childNodes.filter((child): child is HTMLElement => child instanceof HTMLElement && child.tagName === "LI");
+  const start = Number.parseInt(list.getAttribute("start") ?? "1", 10);
   return (Number.isNaN(start) ? 1 : start) + siblings.indexOf(item);
 }
 

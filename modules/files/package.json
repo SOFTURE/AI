@@ -70,7 +70,7 @@
     "@softure-ai/core": "^0.2.7",
     "@softure-ai/db": "^0.1.14",
     "@softure-ai/security": "^0.2.5",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@modelcontextprotocol/server": "^2.0.0",

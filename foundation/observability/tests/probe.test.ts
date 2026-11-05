@@ -1,5 +1,5 @@
 import { trace } from "@opentelemetry/api";
-import { BasicTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { TracerProvider } from "@opentelemetry/sdk-trace";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { probeObservability } from "../src/node/index.js";
@@ -94,7 +94,7 @@ describe("probeObservability", () => {
 
     await probeObservability({ endpoint: receiver.url }, {});
 
-    expect(trace.setGlobalTracerProvider(new BasicTracerProvider())).toBe(true);
+    expect(trace.setGlobalTracerProvider(new TracerProvider())).toBe(true);
   });
 
   it("never shows credentials of the endpoint URL in the target", async () => {

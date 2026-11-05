@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- OpenTelemetry JS 3.0: `@opentelemetry/api` ^1.10.0, the SDK packages on ~3.0.0 (`sdk-trace` replaces
+  `sdk-trace-node`, plus `context-async-hooks`), the exporters and instrumentations on ~0.300.0;
+  `@opentelemetry/api-logs` is no longer a dependency (the logs API is part of `@opentelemetry/api` 1.10).
+  `startObservability` registers the same context manager (AsyncLocalStorage), W3C trace context and baggage
+  propagation and global providers as before.
+- Migration: none for an app that only calls this package. An app that imports `@opentelemetry/api-logs` or
+  `@opentelemetry/sdk-trace-node` next to it should move to `@opentelemetry/api` and `@opentelemetry/sdk-trace` 3, so
+  one copy of the api is installed.
+
 ## 0.7.0
 
 - `createOnRequestError` logs a client's aborted request (React's `The destination stream closed early.`,

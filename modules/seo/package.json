@@ -53,7 +53,7 @@
   "dependencies": {
     "@softure-ai/core": "^0.2.0",
     "node-html-markdown": "^2.0.0",
-    "node-html-parser": "^6.1.13",
-    "zod": "^4.6.5"
+    "node-html-parser": "^9.0.6",
+    "zod": "^4.6.7"
   }
 }

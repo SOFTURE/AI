@@ -1,11 +1,11 @@
-import { context, trace } from "@opentelemetry/api";
-import { logs, SeverityNumber } from "@opentelemetry/api-logs";
+import { context, logs, SeverityNumber, trace } from "@opentelemetry/api";
+import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import {
   InMemoryLogRecordExporter,
   LoggerProvider,
   SimpleLogRecordProcessor,
 } from "@opentelemetry/sdk-logs";
-import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { TracerProvider } from "@opentelemetry/sdk-trace";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { configureLogging, createLogger, parseLogLevel } from "../src/index.js";
@@ -273,8 +273,8 @@ describe("OpenTelemetry log records", () => {
 
   it("carries the trace and span ids of the active span", () => {
     const exporter = installLogExporter();
-    const tracerProvider = new NodeTracerProvider();
-    tracerProvider.register();
+    context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
+    trace.setGlobalTracerProvider(new TracerProvider());
 
     let spanContext: { traceId: string; spanId: string } | undefined;
     trace.getTracer("test").startActiveSpan("work", (span) => {

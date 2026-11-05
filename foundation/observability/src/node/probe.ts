@@ -9,11 +9,11 @@ import {
   type ReadableLogRecord,
 } from "@opentelemetry/sdk-logs";
 import {
-  BasicTracerProvider,
+  TracerProvider,
   SimpleSpanProcessor,
   type ReadableSpan,
   type SpanExporter,
-} from "@opentelemetry/sdk-trace-node";
+} from "@opentelemetry/sdk-trace";
 
 import { resolveObservabilityConfig, type Environment, type ObservabilityOptions, type SignalExport } from "./config.js";
 
@@ -77,7 +77,7 @@ async function probeTraces(target: SignalExport, resource: Resource, timeoutMill
   const capture = captureFirstExport<ReadableSpan>(
     new OTLPTraceExporter({ url: target.url, headers: target.headers, timeoutMillis }),
   );
-  const provider = new BasicTracerProvider({ resource, spanProcessors: [new SimpleSpanProcessor(capture.exporter)] });
+  const provider = new TracerProvider({ resource, spanProcessors: [new SimpleSpanProcessor({ exporter: capture.exporter })] });
   provider.getTracer(PROBE_NAME).startSpan(PROBE_NAME, { attributes: PROBE_ATTRIBUTES }).end();
   const result = await capture.result;
   await provider.shutdown();

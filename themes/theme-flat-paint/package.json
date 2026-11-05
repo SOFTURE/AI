@@ -60,6 +60,6 @@
   },
   "devDependencies": {
     "@softure-ai/ui": "^0.3.6",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   }
 }
