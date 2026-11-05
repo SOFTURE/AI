@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.12.0
 
 - **A declick stage in the footage speech chain (#1084):** a footage film's `speech: { declick: "off" | "gentle" |
   "strong" }` (`marketing.json` `speech.declick`, default `off`) cleans mouth clicks and lip smacks between words in
