@@ -9,5 +9,4 @@ Verdict: approved.
 - The roadmap contract test asked for queued roadmaps to exist; it now checks only that the main roadmap exists,
   since an empty queue is valid.
 - `context/workflow.json`: `autonomy.reports.hours` is `null`.
-- Gates: language gate and ESLint green; `tests/repo` 594 passed, 69 skipped. `tests/repo/deploy-workflows.test.ts`
-  cannot load in this container (`ssh-keygen` is missing); it runs in CI, and this change touches none of its inputs.
+- Gates: pre-commit (typecheck, ESLint, language) green; pre-push repository tests 849 passed, 69 skipped.
