@@ -1,7 +1,8 @@
 ---
 change_id: marketing-kit-segment-captions-1077
 title: "marketing-kit: per-EDL-segment caption box (issue #1077)"
-status: in_progress
+status: archived
+archived_at: 2026-11-05
 roadmap_item: null
 issue: [1077]
 branch: claude/project-thread-ej7l76
@@ -31,3 +32,9 @@ the same package; whoever merges second resolves the conflict.
 ## Notes
 
 - Framing: skipped. The issue names the field, the rules and the done criteria.
+
+## Done
+
+`EdlSegment.caption { bottom?, top? }` moves the caption box per segment in the render and the draft; validation,
+diff, JSON Schema and helpers (`getSegmentCaptionLayout`, `getCaptionChunkLayouts`) follow. Rides the next combined
+marketing-kit release (CHANGELOG `## Unreleased`).

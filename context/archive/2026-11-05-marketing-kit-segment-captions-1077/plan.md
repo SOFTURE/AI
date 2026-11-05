@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-segment-captions-1077
-status: in_progress
+status: archived
 ---
 
 # Plan: per-EDL-segment caption box (issue #1077)
@@ -41,7 +41,7 @@ README footage EDL section, CHANGELOG `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: EDL field, validation, diff
-- [ ] Phase 2: chunk layouts, render, draft
-- [ ] Phase 3: docs
-- [ ] Implementation review
+- [x] Phase 1: EDL field, validation, diff
+- [x] Phase 2: chunk layouts, render, draft
+- [x] Phase 3: docs
+- [x] Implementation review
