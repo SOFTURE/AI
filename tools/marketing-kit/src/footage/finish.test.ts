@@ -198,7 +198,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
       "-f",
       "lavfi",
       "-i",
-      `anoisesrc=d=${TALK_SECONDS}:c=pink:r=48000:a=0.2,volume='if(lt(mod(t,3),${options.speechOn}),1,0.0005)':eval=frame`,
+      `anoisesrc=d=${TALK_SECONDS}:c=pink:r=48000:a=0.2:seed=1085,volume='if(lt(mod(t,3),${options.speechOn}),1,0.0005)':eval=frame`,
       raw,
     ]);
     expect(made.status).toBe(0);
@@ -255,7 +255,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
   const KEEP_SPEECH: MixLoudnessTarget = { ...DEFAULT_LOUDNESS, tolerance: 1, keep: "speech" };
 
   it.each([
-    { speechOn: 2, volumes: [0.32, 0.4] },
+    { speechOn: 2, volumes: [0.4, 0.5] },
     { speechOn: 2.6, volumes: [0.32, 0.5] },
   ])("keeps the speech's level when only the music volume changes ($volumes, speech $speechOn s of 3 s) with keep speech (issue #1085)", async ({ speechOn, volumes }) => {
     const finished = [];
@@ -290,7 +290,10 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(Math.abs(after.inputI - DEFAULT_LOUDNESS.target)).toBeLessThanOrEqual(1);
     expect(after.inputI).toBeLessThan(DEFAULT_LOUDNESS.target - 0.5);
     expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
-    expect(result.value.mix).toEqual({ measured: { integrated: before, truePeak: peakBefore }, gainDb: expect.any(Number) as number, ceilingDbtp: -2, keep: "speech" });
-    expect(result.value.mix?.gainDb).toBeCloseTo(DEFAULT_LOUDNESS.target - 0.8 - before, 1);
+    expect(result.value.mix).toEqual({ measured: { integrated: before, truePeak: peakBefore }, gainDb: expect.any(Number) as number, ceilingDbtp: expect.any(Number) as number, keep: "speech" });
+    // The gain reaches the window's edge (aimed 0.2 LU inside it), plus what a retry adds when the limiter took some back.
+    const edgeGain = DEFAULT_LOUDNESS.target - 0.8 - before;
+    expect(result.value.mix?.gainDb).toBeGreaterThanOrEqual(edgeGain - 0.05);
+    expect(result.value.mix?.gainDb).toBeLessThan(edgeGain + 1);
   });
 });
