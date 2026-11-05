@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.7.0
 
 - `createOnRequestError` logs a client's aborted request (React's `The destination stream closed early.`,
   `ERR_STREAM_PREMATURE_CLOSE`, Next.js's `ResponseAborted`, Node's `aborted` with `ECONNRESET`) as `info` "request
