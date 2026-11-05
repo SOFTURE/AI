@@ -39,7 +39,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api": "^1.10.0",
     "@softure-ai/core": "^0.2.0"
   },
   "peerDependencies": {
@@ -48,7 +48,7 @@
   },
   "devDependencies": {
     "@opentelemetry/sdk-trace-base": "^2.12.0",
-    "ai": "7.0.122",
+    "ai": "7.0.161",
     "zod": "^4.6.5"
   }
 }
