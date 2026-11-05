@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.9.2
 
 - **Drafts and renders with a `fade` work on ffmpeg 7.1 (#1057):** ffmpeg 7.1's `setpts` leaves a stream's frame
   rate unknown (1/0) and `xfade` refused it, so every `renderFootageDraft` and `renderFootage` whose cut has a
