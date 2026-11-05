@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## Unreleased
+
+- **`markdown-it` 15.0.3 or newer (#1101):** the dependency floor rises from `^15.0.2` to `^15.0.3`, which fixes two
+  quadratic-time denial-of-service advisories (GHSA-vfgh-jcmw-g37q, GHSA-gfr2-rv44-r23c) on article bodies. Migrate:
+  nothing. The same audit found an unauthenticated remote code execution in `next` 16.0.0 to 16.4.0
+  (GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr): the module's peer range stays `^16.0.0`, so update the app's own `next`
+  to 16.4.1 or newer.
+
 ## 0.5.0
 
 - **A term page no longer renders every article (#937):** `findArticlesLinkingTerm` (and `findArticlesLinkingTermFor`,
