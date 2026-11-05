@@ -210,6 +210,54 @@ the tool list (#1055):
   factory and throws unless a session opened under `before` is renewed for every access level whose list changed (and
   kept for the others).
 
+### Request diagnostics
+
+When a client shows a tool list that the server no longer serves, the question is what the client sends. Turn the
+diagnostics on for a test session, for example behind an env flag of the app:
+
+```ts
+// app/api/mcp/route.ts
+export const POST = createMcpRoute({ createServer, diagnostics: process.env.MCP_DIAGNOSTICS === "1" });
+```
+
+- `true` logs one `console.info` line per request, `@softure-ai/mcp-access: mcp request {...}`; a function
+  (`diagnostics: (entry) => ...`) receives each `McpRequestDiagnostic` instead, for the app's own logger.
+- An entry holds `httpMethod`, the JSON-RPC `method` (`"batch"` for an array), the `tool` of a `tools/call`,
+  `session` (`none`, `current`, `stale`, `not_issued` for an id the endpoint never issued, `unchecked` when it was not
+  checked), `sessionVersion` (the version a stale session carries), the served `toolListVersion`, `sessionIssued`,
+  the answer `status`, and on `initialize` the `client` (`clientInfo` name and version) and `protocolVersion`.
+- Never in an entry: the token, the body, argument values, the session id or the user's identity. Client text is
+  cut to 128 characters and stripped of control characters.
+
+Reading a test session: an `initialize` with `sessionIssued: true` followed by `tools/list` in `session: "current"`
+is a client that follows the version. A `stale` 404 followed by no `initialize` is a client that ignores session
+renewal. Only `tools/call` lines after a release, with `session: "none"` and no `tools/list`, is a client that serves the
+model its own cached list.
+
+### What hosted clients do with a changed tool list
+
+Public reports up to 2026-11 show that the Claude apps (claude.ai custom connectors, the desktop and mobile apps)
+keep a tool list cache on their side that nothing the server sends reliably refreshes: not a new server version
+(#877), not session renewal (#1055), not `notifications/tools/list_changed`
+([claude-ai-mcp#137](https://github.com/anthropics/claude-ai-mcp/issues/137),
+[claude-ai-mcp#1182](https://github.com/anthropics/claude-ai-mcp/issues/1182),
+[claude-code#38324](https://github.com/anthropics/claude-code/issues/38324),
+[claude-code#88172](https://github.com/anthropics/claude-code/issues/88172)). The server can re-initialize correctly
+while the model still sees the old schemas. What refreshed it differs by surface and over time:
+
+- claude.ai web: a new conversation; when that is not enough, removing the connector and adding it again.
+- Claude desktop and mobile apps: disconnect and reconnect in Settings → Connectors, otherwise remove and re-add the
+  connector; on the desktop app, quitting and relaunching the app.
+- Claude Code: the cache is keyed by the server name
+  ([claude-code#40025](https://github.com/anthropics/claude-code/issues/40025)); restart, or rename the server
+  entry.
+
+What the server can do: keep #877 and #1055 on (a client that follows the protocol re-initializes and re-lists after the
+404), and accept old input while clients catch up (a new field optional, a removed field
+still parsed) so a stale schema degrades instead of failing. Renaming the server or the connector forces a new cache
+entry, at the cost of every user reconnecting, so it is a last resort. Tell users after a release that changed a tool
+schema: start a new conversation, and if the old tools are still shown, remove and re-add the connector.
+
 ### Strict tool input
 
 zod objects strip unknown keys, so a call with a misspelt field (`notes` for `note`) or a field of a newer tool list
@@ -923,6 +971,8 @@ to `@softure-ai/privacy` (`privacy` flags on):
   app that wants `jwks_uri` adds it through `oauth.metadata` and serves the empty set itself).
 - Only `S256` PKCE and the `authorization_code` and `refresh_token` grants.
 - Write access is per token, not per tool; finer scopes would be a new option.
+- A hosted client's own tool list cache cannot be refreshed from the server (see "What hosted clients do with a
+  changed tool list"); the version and the session renewal help only clients that re-list.
 - The MCP endpoint's rate limit is per client address, not per token (API tokens are counted per token as well).
 - One API token kind per app (one prefix); the `kind` column takes more kinds without a migration of the rows.
 - `responseMode: "json"` drops mid-call notifications; a streaming tool would need a different mode. Long work is an
