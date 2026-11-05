@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **A failed footage ffmpeg step hands over what it ran (#1063):** `onFfmpegFailure` on `prepareFootage`,
+  `transcribeFootage`, `renderFootage`, `renderFootageFilm`, `renderFootageDraft` and `cutFootageFilm` gets an
+  `FfmpegFailure` for every failing ffmpeg step inside them, nested ones included (normalize, tone map LUT, cut
+  frames, cut preview, speech, music, picture, final pass, cover): `step`, the exact `args` (`-progress` included),
+  `cwd`, `code`, `signal`, the whole `stderr` (up to its last 2000 lines) and every `-i` input. The hook runs before
+  the step throws and a returned promise is awaited. New export `writeFfmpegFailure(dir, failure, { signal })` writes
+  `command.sh` (re-runs the command from its folder, the graph read from `filtergraph.txt`), `filtergraph.txt` (one
+  chain per line), `stderr.log` and `inputs.json` (ffprobe of each input). Every failure also writes one `log` line
+  with the step and its full command, with or without the hook. The thrown error text is unchanged. Also exported:
+  `FfmpegFailure`, `FfmpegFailureHook`, `withFfmpegFailureReporting` and `runFfmpeg`'s `onFailure`, for a direct
+  `runFfmpeg` caller; `formatFfmpegCommand`, `splitFilterGraph`, `buildFfmpegFailureScript`, `FFMPEG_FAILURE_FILES`.
+  README "Footage films in a worker" says what to keep. Nothing to change for an app that does not pass the hook.
+
 ## 0.9.2
 
 - **Drafts and renders with a `fade` work on ffmpeg 7.1 (#1057):** ffmpeg 7.1's `setpts` leaves a stream's frame
