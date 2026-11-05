@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- Request diagnostics (#1066): `createMcpEndpoint({ diagnostics })` (and so `createMcpRoute`), off by default. `true`
+  logs one `console.info` line per request, a function receives each `McpRequestDiagnostic` instead: the JSON-RPC
+  method, the tool name of a `tools/call`, the session state (`none`, `current`, `stale` with the version it carries,
+  `not_issued`, `unchecked`), the served tool list version, whether a session id was issued, the status, and on
+  `initialize` the client's `clientInfo` and protocol version. Never a token, body, argument value, session id or
+  user identity. The README says what hosted clients do with a changed tool list. Migrate: nothing.
+
 ## 0.5.0
 
 - Sessions that follow the tool list (#1055): `createMcpEndpoint` answers `initialize` with an `Mcp-Session-Id` that

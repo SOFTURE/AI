@@ -25,9 +25,19 @@ import {
   isInitializeRequest,
   isToolListSessionCurrent,
   MCP_SESSION_ID_HEADER,
+  readToolListSessionVersion,
   rewriteInitializeAnswer,
 } from "./tool-list-session.js";
 import { isWritingEnabled } from "./writes-switch.js";
+import {
+  createDiagnosticsSink,
+  readJsonRpcSummary,
+  sanitizeDiagnosticText,
+  type JsonRpcSummary,
+  type McpRequestDiagnostic,
+  type McpRequestDiagnostics,
+  type McpSessionState,
+} from "./request-diagnostics.js";
 
 export { MCP_READ_SCOPE, MCP_WRITE_SCOPE };
 
@@ -60,6 +70,20 @@ export interface McpEndpointOptions {
    * `toolListVersion` (`createMcpServerFactory`). Without either, the endpoint issues no session id.
    */
   readonly toolListVersion?: ToolListVersionReader;
+  /**
+   * Request diagnostics (#1066), off by default: `true` logs one `console.info` line per request, a function receives
+   * each entry. An entry holds the JSON-RPC method, the tool name, the session state, the served tool list version,
+   * the status and the client's `clientInfo` on `initialize`; never a token, body, argument value or identity.
+   */
+  readonly diagnostics?: McpRequestDiagnostics;
+}
+
+/** What serving a request found out, for the diagnostics. */
+interface SessionTrace {
+  session: McpSessionState;
+  sessionVersion: string | null;
+  toolListVersion: string | null;
+  sessionIssued: boolean;
 }
 
 /** Serves one request to the MCP endpoint. */
@@ -71,8 +95,9 @@ export type McpEndpoint = (ctx: McpAccessContext, request: Request) => Promise<R
  * (`responseMode: "json"`): a stream would add proxy buffering and timeouts for no tool that needs
  * it, and mid-call notifications are dropped.
  */
-export function createMcpEndpoint({ createServer, toolListVersion }: McpEndpointOptions): McpEndpoint {
+export function createMcpEndpoint({ createServer, toolListVersion, diagnostics }: McpEndpointOptions): McpEndpoint {
   const readToolListVersion = toolListVersion ?? getFactoryToolListVersion(createServer);
+  const report = createDiagnosticsSink(diagnostics);
   const handler = createMcpHandler(
     (requestContext) => createServer(readIdentity(requestContext.authInfo)),
     {
@@ -83,6 +108,17 @@ export function createMcpEndpoint({ createServer, toolListVersion }: McpEndpoint
   );
 
   return async (ctx, request) => {
+    if (report === undefined) return serve(ctx, request, null);
+    const trace: SessionTrace = { session: "unchecked", sessionVersion: null, toolListVersion: null, sessionIssued: false };
+    // Read before serving: the SDK consumes the body. Only the method, tool name and clientInfo are kept.
+    const summary = await readJsonRpcSummary(request, MAX_MCP_REQUEST_BYTES);
+    const response = await serve(ctx, request, trace);
+    report(createDiagnostic(request, summary, trace, response.status));
+    return response;
+  };
+
+  async function serve(ctx: McpAccessContext, request: Request, trace: SessionTrace | null): Promise<Response> {
+    if (trace !== null && !request.headers.has(MCP_SESSION_ID_HEADER)) trace.session = "none";
     assertRateLimitBucket(ctx);
     const client = identifyClient(ctx, request.headers);
     if (!client.ok) return Response.json({ error: "client_unidentified" }, { status: 400, headers: NO_STORE });
@@ -105,15 +141,15 @@ export function createMcpEndpoint({ createServer, toolListVersion }: McpEndpoint
 
     const authInfo = await authenticate(ctx, request);
     if (authInfo instanceof Response) return authInfo;
-    return serveInSession(request, authInfo);
-  };
+    return serveInSession(request, authInfo, trace);
+  }
 
   /**
    * Sessions tied to the tool list version (#1055): a session from another version (a release changed a tool, or the
    * access level changed) answers 404, so the client initializes again and lists the tools again; `initialize` gets a
    * new session id. A request without a session id is served as it always was.
    */
-  async function serveInSession(request: Request, authInfo: AuthInfo): Promise<Response> {
+  async function serveInSession(request: Request, authInfo: AuthInfo, trace: SessionTrace | null): Promise<Response> {
     const sessionId = request.headers.get(MCP_SESSION_ID_HEADER);
     const isInitialize = sessionId === null && (await isInitializeRequest(request, MAX_MCP_REQUEST_BYTES));
     if (readToolListVersion === undefined || (sessionId === null && !isInitialize)) {
@@ -129,11 +165,42 @@ export function createMcpEndpoint({ createServer, toolListVersion }: McpEndpoint
       const response = await handler.fetch(request, { authInfo });
       return isInitialize ? rewriteInitializeAnswer(response, null) : response;
     }
+    if (trace !== null) trace.toolListVersion = version;
     if (sessionId !== null) {
-      return isToolListSessionCurrent(sessionId, version) ? handler.fetch(request, { authInfo }) : createSessionRenewalResponse();
+      if (isToolListSessionCurrent(sessionId, version)) {
+        if (trace !== null) trace.session = "current";
+        return handler.fetch(request, { authInfo });
+      }
+      if (trace !== null) recordRenewedSession(trace, sessionId);
+      return createSessionRenewalResponse();
     }
-    return rewriteInitializeAnswer(await handler.fetch(request, { authInfo }), createToolListSessionId(version));
+    const response = await rewriteInitializeAnswer(await handler.fetch(request, { authInfo }), createToolListSessionId(version));
+    if (trace !== null) trace.sessionIssued = response.headers.has(MCP_SESSION_ID_HEADER);
+    return response;
   }
+}
+
+/** A session answered 404: stale when the id carries a version, not issued by the endpoint otherwise. */
+function recordRenewedSession(trace: SessionTrace, sessionId: string): void {
+  const sessionVersion = readToolListSessionVersion(sessionId);
+  trace.session = sessionVersion === null ? "not_issued" : "stale";
+  trace.sessionVersion = sessionVersion === null ? null : sanitizeDiagnosticText(sessionVersion);
+}
+
+/** The diagnostics entry of one served request. */
+function createDiagnostic(request: Request, summary: JsonRpcSummary, trace: SessionTrace, status: number): McpRequestDiagnostic {
+  return {
+    httpMethod: request.method,
+    method: summary.method,
+    tool: summary.tool,
+    session: trace.session,
+    sessionVersion: trace.sessionVersion,
+    toolListVersion: trace.toolListVersion,
+    sessionIssued: trace.sessionIssued,
+    status,
+    client: summary.client,
+    protocolVersion: summary.protocolVersion,
+  };
 }
 
 /** The factory's own version reader, when it has one (`createMcpServerFactory`). */
