@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 
-import { resolveLayout, type CaptionLayout, type LayoutOverride } from "../compose/timeline.js";
+import { CAPTION_LINE_HEIGHT, CAPTION_PILL_PADDING, resolveLayout, type CaptionLayout, type LayoutOverride } from "../compose/timeline.js";
 import type { BrandFont } from "../config/config.js";
 import { readCharacterMap, type CharacterMap } from "../og/character-map.js";
 import type { TimedWord } from "../voice/voiceover.js";
+import { findSegmentAt, type Edl, type EdlCaption, type EdlCaptionBounds } from "./edl.js";
 import type { CaptionPreset, FootageFilm } from "./film.js";
 
 /**
@@ -126,6 +127,39 @@ export function getFootageCaptionLayout(film: Pick<FootageFilm, "format" | "capt
   const base = resolveLayout(film.format, override);
   if (film.captionPreset === undefined || film.format !== "9:16" || override.caption !== undefined) return base.caption;
   return getCaptionPresetLayout(film.captionPreset, base.caption.fontSize);
+}
+
+/**
+ * A caption box moved by a segment's `caption` field: its `bottom` anchors the box by its foot; its `top` alone hangs
+ * the box from that top (the film's `bottom` dropped). Without either, the film's box itself.
+ */
+export function applySegmentCaption(base: CaptionLayout, caption: EdlCaption | undefined): CaptionLayout {
+  if (caption?.bottom !== undefined) return { ...base, top: caption.top ?? base.top, bottom: caption.bottom };
+  if (caption?.top === undefined) return base;
+  return { top: caption.top, left: base.left, right: base.right, fontSize: base.fontSize };
+}
+
+/** The caption box of one segment of the cut: the film's box (`getFootageCaptionLayout`) with the segment's `caption` over it. */
+export function getSegmentCaptionLayout(film: Pick<FootageFilm, "format" | "captionPreset">, edl: Edl, segmentIndex: number, override: LayoutOverride = {}): CaptionLayout {
+  return applySegmentCaption(getFootageCaptionLayout(film, override), edl.segments[segmentIndex]?.caption);
+}
+
+/**
+ * The box each caption chunk is drawn in: the box of the segment where the chunk's first word starts (film time), so
+ * a chunk that spans a cut keeps one box. The render and the draft place chunks alike.
+ */
+export function getCaptionChunkLayouts(chunks: readonly { start: number }[], edl: Edl, base: CaptionLayout): CaptionLayout[] {
+  return chunks.map((chunk) => applySegmentCaption(base, edl.segments[findSegmentAt(edl, chunk.start)]?.caption));
+}
+
+/** Whether two caption boxes sit in the same place (a chunk in the film's box is drawn exactly as before). */
+export function isSameCaptionPlace(a: CaptionLayout, b: CaptionLayout): boolean {
+  return a.bottom === b.bottom && (a.bottom !== undefined || a.top === b.top);
+}
+
+/** The frame a segment's caption box must stay in (`validateEdl`): the frame's height and a one-line card's. */
+export function getCaptionBounds(frameHeight: number, caption: Pick<CaptionLayout, "fontSize">): EdlCaptionBounds {
+  return { frameHeight, cardHeight: Math.ceil(caption.fontSize * CAPTION_LINE_HEIGHT + 2 * CAPTION_PILL_PADDING.y) };
 }
 
 /** A character a font is asked to draw and does not have. */

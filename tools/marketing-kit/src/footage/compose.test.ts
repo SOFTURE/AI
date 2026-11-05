@@ -188,3 +188,42 @@ describe("composeFootage with a caption line limit", () => {
     expect(html).toContain("const captionMaxLines = 2, captionMinFontSize = 35;");
   });
 });
+
+describe("composeFootage with a segment's own caption box", () => {
+  const moved: Edl = { ...edl, segments: edl.segments.map((segment) => (segment.id === "g2" ? { ...segment, caption: { bottom: 1150 } } : segment)) };
+  const words = [
+    { text: "Hello,", start: 0.1, end: 0.5 },
+    { text: "this", start: 2.1, end: 2.3 },
+    { text: "moves.", start: 2.4, end: 2.7 },
+    { text: "Spans", start: 2.8, end: 2.95 },
+    { text: "the", start: 3.05, end: 3.2 },
+    { text: "cut.", start: 3.25, end: 3.5 },
+    { text: "Back.", start: 4.2, end: 4.5 },
+  ];
+  const html = composeFootage(input({ edl: moved, words }));
+  const captionDivs = html.split("\n").filter((line) => line.includes('class="clip caption"'));
+
+  it("draws that segment's chunks at its foot and every other chunk in the film's box", () => {
+    expect(captionDivs).toHaveLength(4);
+    expect(captionDivs[0]).not.toContain("style=");
+    expect(captionDivs[1]).toContain('style="top:auto;bottom:1150px"');
+    expect(captionDivs[3]).not.toContain("style=");
+  });
+
+  it("keeps a chunk that spans a cut in the box of the segment where its first word starts", () => {
+    expect(captionDivs[2]).toContain("Spans");
+    expect(captionDivs[2]).toContain("cut.");
+    expect(captionDivs[2]).toContain('style="top:auto;bottom:1150px"');
+  });
+
+  it("hangs a chunk from a segment's top when it gives only a top", () => {
+    const hung: Edl = { ...edl, segments: edl.segments.map((segment) => (segment.id === "g2" ? { ...segment, caption: { top: 300 } } : segment)) };
+    const footed = composeFootage(input({ edl: hung, words, caption: { ...LAYOUTS["9:16"].caption, bottom: 420 } }));
+    expect(footed).toContain('style="bottom:auto;top:300px"');
+  });
+
+  it("writes the same page for an EDL without the field", () => {
+    expect(composeFootage(input({ edl: { ...edl, segments: edl.segments.map((segment) => ({ ...segment, caption: {} })) }, words }))).toBe(composeFootage(input({ words })));
+    expect(composeFootage(input({ words }))).not.toContain('class="clip caption" data-start="0.05" data-duration="0.45" style=');
+  });
+});

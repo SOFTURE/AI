@@ -89,6 +89,23 @@
               "end"
             ],
             "additionalProperties": false
+          },
+          "caption": {
+            "description": "Moves the caption box for the captions that start in this segment (px of the film's frame). Without it, the film's caption box.",
+            "type": "object",
+            "properties": {
+              "bottom": {
+                "description": "The caption box's foot, in px above the frame's foot; anchors the box by its foot and wins over top.",
+                "type": "number",
+                "minimum": 0
+              },
+              "top": {
+                "description": "The caption box's top, in px below the frame's top; used when bottom is absent.",
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
           }
         },
         "required": [

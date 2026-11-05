@@ -548,3 +548,45 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     expect(gone).toEqual({ ok: false, error: `music: no file at ${join(dir, "gone.mp3")}` });
   }, 60_000);
 });
+
+describe("buildFootageDraftCaptions with a segment's own caption box", () => {
+  const words = [
+    { text: "Hello,", start: 0.1, end: 0.5 },
+    { text: "this", start: 2.1, end: 2.3 },
+    { text: "moves.", start: 2.4, end: 2.7 },
+    { text: "Spans", start: 2.8, end: 2.95 },
+    { text: "the", start: 3.05, end: 3.2 },
+    { text: "cut.", start: 3.25, end: 3.5 },
+    { text: "Back.", start: 4.2, end: 4.5 },
+  ];
+  const caption = { top: 1470, bottom: 400, left: 60, right: 80, fontSize: 50 };
+  const moved: Edl = { ...edl, segments: edl.segments.map((segment) => (segment.id === "g2" ? { ...segment, caption: { bottom: 1150 } } : segment)) };
+  const dialogue = (ass: string): string[] => ass.split("\n").filter((line) => line.startsWith("Dialogue:"));
+
+  it("draws that segment's chunks in a style at its foot and the others in the film's style", () => {
+    const ass = buildFootageDraftCaptions({ film, edl: moved, words, caption, frame: FRAME }) ?? "";
+    expect(ass).toContain(",2,60,80,400,1\nStyle: Caption2,");
+    expect(ass).toContain(",2,60,80,1150,1\n");
+    expect(dialogue(ass).map((line) => line.split(",")[3])).toEqual(["Caption", "Caption2", "Caption2", "Caption"]);
+  });
+
+  it("keeps a chunk that spans a cut in the style of the segment where it starts, highlight chunks alike", () => {
+    const lines = dialogue(buildFootageDraftCaptions({ film: { ...film, captionStyle: "highlight" }, edl: moved, words, caption, frame: FRAME }) ?? "");
+    const spanning = lines.filter((line) => line.includes("Spans"));
+    expect(spanning.length).toBeGreaterThan(0);
+    expect(spanning.every((line) => line.split(",")[3] === "Caption2")).toBe(true);
+    expect(lines.filter((line) => line.includes("Back.")).every((line) => line.split(",")[3] === "Caption")).toBe(true);
+  });
+
+  it("hangs a segment's chunks from its top with a top-aligned style", () => {
+    const hung: Edl = { ...edl, segments: edl.segments.map((segment) => (segment.id === "g2" ? { ...segment, caption: { top: 300 } } : segment)) };
+    const ass = buildFootageDraftCaptions({ film, edl: hung, words, caption, frame: FRAME }) ?? "";
+    expect(ass).toMatch(/Style: Caption2,.*,8,60,80,300,1\n/);
+  });
+
+  it("writes the same file for an EDL without the field", () => {
+    const plain = buildFootageDraftCaptions({ film, edl, words, caption, frame: FRAME });
+    expect(buildFootageDraftCaptions({ film, edl: { ...edl, segments: edl.segments.map((segment) => ({ ...segment, caption: {} })) }, words, caption, frame: FRAME })).toBe(plain);
+    expect(plain).not.toContain("Caption2");
+  });
+});

@@ -27,6 +27,16 @@ export interface EdlAudio {
   ownVolume: number;
 }
 
+/**
+ * A segment's own caption box, merged over the film's (`getFootageCaptionLayout`) for the captions that start in it.
+ * Px of the film's frame, as `CaptionLayout`: `bottom` anchors the box by its foot (above the frame's foot) and wins;
+ * `top` alone hangs the box from that top.
+ */
+export interface EdlCaption {
+  bottom?: number;
+  top?: number;
+}
+
 export interface EdlSegment {
   /** Unique in the cut: `s<n>` (the sentence it starts with), `r<n>` (b-roll), `w<n>` (a talking clip without words). */
   id: string;
@@ -39,6 +49,8 @@ export interface EdlSegment {
   /** `kenburns`: a slow zoom over a segment without speech. */
   motion: SegmentMotion;
   audio?: EdlAudio;
+  /** Moves the caption box for the captions that start in this segment; absent: the film's box. */
+  caption?: EdlCaption;
 }
 
 export interface Edl {
@@ -75,6 +87,13 @@ export const edlSchema = z
             })
             .optional()
             .describe("Sound from another clip or span: a J- or L-cut, or b-roll over speech. Without it, the segment plays its own sound."),
+          caption: z
+            .strictObject({
+              bottom: z.number().min(0).optional().describe("The caption box's foot, in px above the frame's foot; anchors the box by its foot and wins over top."),
+              top: z.number().min(0).optional().describe("The caption box's top, in px below the frame's top; used when bottom is absent."),
+            })
+            .optional()
+            .describe("Moves the caption box for the captions that start in this segment (px of the film's frame). Without it, the film's caption box."),
         }),
       )
       .min(1, "the cut needs at least one segment")
@@ -221,11 +240,18 @@ export function getSoundSpan(segment: EdlSegment): { clip: string; start: number
   return segment.audio ?? { clip: segment.clip, start: segment.start, end: segment.end };
 }
 
+/** The frame a segment's caption box must stay in: its height and the height of a one-line caption card, in px. */
+export interface EdlCaptionBounds {
+  frameHeight: number;
+  cardHeight: number;
+}
+
 /**
  * What makes an EDL (a hand-edited one above all) unusable with these clips; empty when it is fine: another film,
- * an unknown clip, a span past a clip's end, a too short segment, a repeated id, a sound span of another length.
+ * an unknown clip, a span past a clip's end, a too short segment, a repeated id, a sound span of another length, and
+ * (with `captionBounds`) a segment's caption box that would leave the frame.
  */
-export function validateEdl(edl: Edl, clips: Pick<EdlClip, "id" | "duration">[], filmId: string): string[] {
+export function validateEdl(edl: Edl, clips: Pick<EdlClip, "id" | "duration">[], filmId: string, captionBounds?: EdlCaptionBounds): string[] {
   const problems: string[] = [];
   if (edl.film !== filmId) problems.push(`it belongs to film "${edl.film}", not "${filmId}"`);
   const durations = new Map(clips.map((clip) => [clip.id, clip.duration]));
@@ -241,6 +267,7 @@ export function validateEdl(edl: Edl, clips: Pick<EdlClip, "id" | "duration">[],
     seen.add(segment.id);
     checkSpan(at, segment);
     if (segment.end - segment.start < MIN_SEGMENT_SECONDS) problems.push(`${at}: shorter than ${MIN_SEGMENT_SECONDS} s (start ${segment.start}, end ${segment.end})`);
+    if (captionBounds !== undefined) problems.push(...findCaptionProblems(`${at}.caption`, segment.caption, captionBounds));
     const { audio } = segment;
     if (audio === undefined) return;
     checkSpan(`${at}.audio`, audio);
@@ -248,6 +275,19 @@ export function validateEdl(edl: Edl, clips: Pick<EdlClip, "id" | "duration">[],
     const soundLength = r3(audio.end - audio.start);
     if (Math.abs(length - soundLength) > 0.05) problems.push(`${at}.audio: ${soundLength} s of sound for ${length} s of picture (end - start must match)`);
   });
+  return problems;
+}
+
+/** A caption box's edges past the frame: each edge at most the frame's height minus one card, so a card always fits. */
+function findCaptionProblems(at: string, caption: EdlCaption | undefined, bounds: EdlCaptionBounds): string[] {
+  const limit = Math.round(bounds.frameHeight - bounds.cardHeight);
+  const problems: string[] = [];
+  for (const edge of ["bottom", "top"] as const) {
+    const value = caption?.[edge];
+    if (value === undefined) continue;
+    if (value < 0) problems.push(`${at}.${edge}: ${value} px is outside the frame`);
+    else if (value > limit) problems.push(`${at}.${edge}: ${value} px leaves no room for a caption card (at most ${limit} px in a ${bounds.frameHeight} px frame)`);
+  }
   return problems;
 }
 
@@ -327,6 +367,11 @@ export function diffEdl(before: Edl, after: Edl): string[] {
     if (a.motion !== b.motion) lines.push(`${id}: motion ${a.motion} → ${b.motion}`);
   }
   for (const segment of after.segments) {
+    const previous = old.get(segment.id);
+    if (previous === undefined || isSameCaption(previous.caption, segment.caption)) continue;
+    lines.push(isMovedCaption(segment.caption) ? `${segment.id} captions moved` : `${segment.id} captions back in the film's box`);
+  }
+  for (const segment of after.segments) {
     const was = old.get(segment.id)?.audio;
     const { audio } = segment;
     if (audio === undefined) {
@@ -341,8 +386,30 @@ export function diffEdl(before: Edl, after: Edl): string[] {
   return lines;
 }
 
+/** Whether a segment's caption field moves its box (an empty object does not). */
+function isMovedCaption(caption: EdlCaption | undefined): boolean {
+  return caption?.bottom !== undefined || caption?.top !== undefined;
+}
+
+function isSameCaption(a: EdlCaption | undefined, b: EdlCaption | undefined): boolean {
+  return a?.bottom === b?.bottom && a?.top === b?.top;
+}
+
 export function getEdlDuration(edl: Edl): number {
   return r3(edl.segments.reduce((sum, segment) => sum + (segment.end - segment.start), 0));
+}
+
+/**
+ * The index of the segment that plays at `time` (film seconds): the one whose span holds it; a time before the film
+ * gives the first segment, one at or past the cut's end the last.
+ */
+export function findSegmentAt(edl: Edl, time: number): number {
+  const starts = getSegmentStarts(edl);
+  let found = 0;
+  starts.forEach((start, index) => {
+    if (start <= time) found = index;
+  });
+  return found;
 }
 
 /** Where each segment starts in the film, in seconds. */
