@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **The footage draft keeps no-break spaces in its captions (#1080):** a caption word joined with U+00A0 (a number and
+  its unit, a short word and the next) reaches the draft's ASS as the hard space `\h`, so libass never wraps a line
+  there, as the render's caption does not. Other white space still collapses to one space.
+
 ## 0.11.0
 
 - **The final pass can publish H.264 High from a draft render (#1068):** `finishVideo: { preset, crf, maxBitrate? }`
