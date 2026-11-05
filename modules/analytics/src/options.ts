@@ -100,7 +100,7 @@ const wireSchema = z
      * page's; an invalid one, or two values across the fields, is ignored.
      */
     channelField: z
-      .union([fieldNameSchema, z.array(fieldNameSchema).min(1, "needs at least one field").max(MAX_LEGACY_NAMES, `takes at most ${String(MAX_LEGACY_NAMES)} fields`)])
+      .union([fieldNameSchema, z.array(fieldNameSchema).min(1, "needs at least one field")])
       .nullable()
       .default(null),
   })
@@ -108,6 +108,11 @@ const wireSchema = z
     wire.stepFields.forEach((field, index) => {
       if (wire.stepFields.indexOf(field) !== index) context.addIssue({ code: "custom", path: ["stepFields", index], message: `"${field}" is listed twice` });
     });
+    // The upper bound lives here, not on the array: since zod 4.6.6 a failed `.max` aborts the array, so a union
+    // reports only "Invalid input" instead of the message.
+    if (Array.isArray(wire.channelField) && wire.channelField.length > MAX_LEGACY_NAMES) {
+      context.addIssue({ code: "custom", path: ["channelField"], message: `takes at most ${String(MAX_LEGACY_NAMES)} fields` });
+    }
     const channelFields = toFieldList(wire.channelField);
     channelFields.forEach((field, index) => {
       const path = typeof wire.channelField === "string" ? ["channelField"] : ["channelField", index];
