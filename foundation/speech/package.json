@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/speech",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "SOFTURE AI audio transcription: Groq, OpenAI and OpenAI-compatible Whisper providers, ffmpeg normalization and chunking of any audio or video, stable error codes, segments, SRT and WebVTT subtitles, usage and cost records and a fake transcriber for tests.",
   "license": "MIT",
   "type": "module",

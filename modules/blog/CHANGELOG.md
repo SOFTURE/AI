@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
-## Unreleased
+## 0.5.1
 
 - **`markdown-it` 15.0.3 or newer (#1101):** the dependency floor rises from `^15.0.2` to `^15.0.3`, which fixes two
   quadratic-time denial-of-service advisories (GHSA-vfgh-jcmw-g37q, GHSA-gfr2-rv44-r23c) on article bodies. Migrate:

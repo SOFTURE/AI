@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`analytics@x.y.z`).
 
-## Unreleased
+## 0.3.2
 
 - **`funnel.wire.channelField` names the limit again under zod 4.6.6+ (#1101):** with zod 4.6.6 or newer (the fix for
   GHSA-mrhx-c7xc-m3w5), a list of more than 4 fields failed with only `Invalid input`. The check now says `takes at
