@@ -1,7 +1,8 @@
 ---
 change_id: speech-transcribe-abort-1100
 title: "speech: transcribe takes an abort signal (issue #1100)"
-status: in_progress
+status: archived
+archived_at: 2026-11-05
 roadmap_item: null
 issue: [1100]
 branch: claude/project-thread-bn89cw
@@ -29,3 +30,8 @@ Owns `@softure-ai/speech` only (`foundation/speech`) and the backlog line. A par
 ## Notes
 
 - Framing: skipped. The finding names the gap and the wanted behaviour.
+
+## Done
+
+- `transcribe` takes `request.signal`; an abort returns the new code `speech.aborted` (issue #1100). Rides the next
+  combined release of `@softure-ai/speech` (minor: a new error code).

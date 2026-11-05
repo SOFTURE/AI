@@ -1,6 +1,6 @@
 ---
 change_id: speech-transcribe-abort-1100
-status: in_progress
+status: archived
 ---
 
 # Plan: transcribe abort signal (issue #1100)
