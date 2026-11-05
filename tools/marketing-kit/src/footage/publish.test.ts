@@ -245,6 +245,31 @@ describe("the cover", () => {
   });
 });
 
+describe("buildFinishArgs with the mix's finished sound (issue #1079)", () => {
+  it("takes the sound from the mix file, copied as it is, and keeps the picture from the render", () => {
+    expect(buildFinishArgs("/b/render.mp4", PUBLISHABLE, "/out/film.mp4", { audioFile: "/b/mix.m4a" })).toEqual([
+      "-v",
+      "error",
+      "-y",
+      "-i",
+      "/b/render.mp4",
+      "-i",
+      "/b/mix.m4a",
+      "-map",
+      "0:v:0",
+      "-c:v",
+      "copy",
+      "-map",
+      "1:a:0",
+      "-c:a",
+      "copy",
+      "-movflags",
+      "+faststart",
+      "/out/film.mp4",
+    ]);
+  });
+});
+
 describe("findFinishVideoProblems (issue #1068)", () => {
   it("accepts a preset, a CRF and an optional cap", () => {
     expect(findFinishVideoProblems({ preset: "veryfast", crf: 20 })).toEqual([]);

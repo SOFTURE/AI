@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
 import { runFfmpeg, runProcess } from "./process.js";
+import { FINISHED_AUDIO_BITRATE } from "./publish.js";
 
 /**
  * The speech track's loudness, measured and normalized in two passes of ffmpeg's `loudnorm` (EBU R128): the first
@@ -162,4 +163,79 @@ export async function normalizeLoudness(input: string, output: string, target: L
     ...(options.onSeconds === undefined ? {} : { onSeconds: options.onSeconds }),
   });
   return { kind: "normalized", measured: measurement.inputI };
+}
+
+/** The film's mix as measured on an encoded file: integrated loudness in LUFS, true peak in dBTP. */
+export interface MixLoudness {
+  integrated: number;
+  truePeak: number;
+}
+
+/** How far from `LoudnessTarget.target` the finished mix may land, in LU. */
+export const MIX_LOUDNESS_TOLERANCE = 1;
+/** The limiter's first ceiling sits this far under the true peak limit: AAC adds inter-sample overshoot after it. */
+export const MIX_ENCODE_HEADROOM = 1;
+/** How many times the mix is encoded and measured before the film fails. */
+export const MIX_ATTEMPTS = 4;
+/** What a retry lowers the ceiling by on top of the measured overshoot, in dB. */
+const MIX_RETRY_MARGIN = 0.3;
+/** `alimiter`'s lowest ceiling (its `limit` of 0.0625), in dB. */
+const LIMITER_FLOOR = -24;
+/** The limiter runs at 4x the film's rate, so it holds the true peak rather than the sample peak. */
+const LIMITER_RATE = FOOTAGE_SAMPLE_RATE * 4;
+
+/** One try at the mix's last stage: a linear gain, then a true peak limiter at the ceiling. */
+export interface MixAttempt {
+  gainDb: number;
+  ceilingDbtp: number;
+}
+
+function roundTo(value: number, digits: number): number {
+  const scale = 10 ** digits;
+  return Math.round(value * scale) / scale;
+}
+
+/** The first try: the gain that brings the measured mix to the target, the ceiling one encode's headroom under the limit. */
+export function getFirstMixAttempt(measurement: Pick<LoudnessMeasurement, "inputI">, target: LoudnessTarget): MixAttempt {
+  return { gainDb: roundTo(target.target - measurement.inputI, 2), ceilingDbtp: Math.max(LIMITER_FLOOR, roundTo(target.truePeak - MIX_ENCODE_HEADROOM, 2)) };
+}
+
+/**
+ * The next try after an encoded mix measured `measured`: the ceiling lowered by the overshoot plus a margin when the
+ * true peak is over (never under the limiter's floor), the gain corrected by what the integrated loudness missed.
+ */
+export function getNextMixAttempt(attempt: MixAttempt, measured: MixLoudness, target: LoudnessTarget): MixAttempt {
+  const overshoot = measured.truePeak - target.truePeak;
+  const ceilingDbtp = overshoot > 0 ? Math.max(LIMITER_FLOOR, roundTo(attempt.ceilingDbtp - overshoot - MIX_RETRY_MARGIN, 2)) : attempt.ceilingDbtp;
+  return { gainDb: roundTo(attempt.gainDb + target.target - measured.integrated, 2), ceilingDbtp };
+}
+
+/**
+ * The mix's last stage: one linear gain, then a lookahead limiter at 4x the film's rate (its delay compensated, so
+ * the sound stays in sync with the picture; no auto level), back to the film's rate.
+ */
+export function getMixFilter(attempt: MixAttempt): string {
+  const limit = roundTo(10 ** (attempt.ceilingDbtp / 20), 5);
+  return [`volume=${attempt.gainDb}dB`, `aresample=${LIMITER_RATE}`, `alimiter=limit=${limit}:level=false:latency=true`, `aresample=${FOOTAGE_SAMPLE_RATE}`].join(",");
+}
+
+/** The mix's sound on its own through `filter`, encoded as the finished film carries it (AAC 192k, 48 kHz, stereo). */
+export function buildMixArgs(options: { input: string; filter: string; output: string }): string[] {
+  return ["-v", "error", "-y", "-i", options.input, "-vn", "-map", "0:a:0", "-af", options.filter, "-c:a", "aac", "-b:a", FINISHED_AUDIO_BITRATE, "-ar", String(FOOTAGE_SAMPLE_RATE), "-ac", "2", options.output];
+}
+
+/** What keeps a measured mix outside the target, as sentences with both values; empty when it meets it. */
+export function findLoudnessProblems(measured: MixLoudness, target: LoudnessTarget): string[] {
+  const problems: string[] = [];
+  if (measured.truePeak > target.truePeak) problems.push(`true peak ${formatDb(measured.truePeak)} dBTP, over the ${formatDb(target.truePeak)} dBTP limit`);
+  if (Math.abs(measured.integrated - target.target) > MIX_LOUDNESS_TOLERANCE) {
+    problems.push(`integrated ${formatDb(measured.integrated)} LUFS, outside ${formatDb(target.target)} ± ${MIX_LOUDNESS_TOLERANCE} LUFS`);
+  }
+  return problems;
+}
+
+/** A level with one decimal and its sign (`+0.1`, `-14.0`). */
+export function formatDb(value: number): string {
+  const text = value.toFixed(1);
+  return value > 0 && text !== "0.0" ? `+${text}` : text === "-0.0" ? "0.0" : text;
 }
