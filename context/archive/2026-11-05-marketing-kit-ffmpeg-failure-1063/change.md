@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-ffmpeg-failure-1063
 title: "marketing-kit: a failed footage ffmpeg step hands over its command, filter graph and stderr (issue #1063)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1063
 branch: claude/project-thread-axnmbe
 created: 2026-11-05
 updated: 2026-11-05
+archived_at: 2026-11-05
 ---
 
 ## Intent
@@ -36,3 +37,10 @@ worker image to find the failing graph. No version bump: the coordinator release
 ## Notes
 
 - Framing: skipped. The issue states the problem, the shape of the hook and the acceptance.
+
+## Done
+
+`onFfmpegFailure` on the footage entry points hands every failed ffmpeg step over as `FfmpegFailure`;
+`writeFfmpegFailure` keeps `command.sh`, `filtergraph.txt`, `stderr.log`, `inputs.json`; one `log` line per failure
+with the full command; thrown text unchanged. Tests in `tools/marketing-kit/src/footage/ffmpeg-*.test.ts` and
+`draft.test.ts`; CHANGELOG `## Unreleased`, README. Ships with the next marketing-kit release.

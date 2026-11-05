@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-ffmpeg-failure-1063
-status: in_progress
+status: archived
 ---
 
 # Plan: ffmpeg failure diagnostics (issue #1063)
@@ -45,7 +45,7 @@ CHANGELOG `## Unreleased`, README "Footage films in a worker": what to keep when
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
-- [ ] Implementation review
+- [x] Phase 1: the failure and its folder, 042a841
+- [x] Phase 2: entry points, 55b5523
+- [x] Phase 3: CHANGELOG and README, 8d405db
+- [x] Implementation review: approved
