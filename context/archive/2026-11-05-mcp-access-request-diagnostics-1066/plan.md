@@ -1,6 +1,6 @@
 ---
 change_id: mcp-access-request-diagnostics-1066
-status: active
+status: archived
 ---
 
 # Plan: request diagnostics (issue #1066)

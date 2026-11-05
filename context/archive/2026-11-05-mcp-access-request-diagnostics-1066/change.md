@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-request-diagnostics-1066
 title: "mcp-access: opt-in request diagnostics in createMcpEndpoint and a documented answer for stale hosted tool lists (issue #1066)"
-status: active
+status: archived
 roadmap_item: null
 issue: 1066
 branch: claude/project-thread-ra4dxp
 created: 2026-11-05
 updated: 2026-11-05
+archived_at: 2026-11-05
 ---
 
 ## Intent
@@ -39,3 +40,12 @@ Labels: bug, pkg: mcp-access (found in an adopting app). `@softure-ai/mcp-access
 ## Notes
 
 - Framing: skipped. The issue states the problem, the fields and the acceptance.
+
+## Done
+
+`createMcpEndpoint({ diagnostics })` (and `createMcpRoute`), off by default: one entry per request with the JSON-RPC
+method, tool name, session state (and the version a stale session carries), served tool list version, issued session,
+status, and `clientInfo` and protocol version on `initialize`; never a token, body, argument value, session id or
+identity. Tests in `modules/mcp-access/tests/request-diagnostics-1066.test.ts`. README "Request diagnostics" and
+"What hosted clients do with a changed tool list" (from public reports), a Limitations line, CHANGELOG
+`## Unreleased`. Ships with the next mcp-access release.
