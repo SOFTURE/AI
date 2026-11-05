@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { buildLoudnessArgs, buildLoudnessMeasureArgs, DEFAULT_LOUDNESS, getLoudnessFilter, isSilent, readLoudnessMeasurement } from "./loudness.js";
+import {
+  buildLoudnessArgs,
+  buildLoudnessMeasureArgs,
+  buildMixArgs,
+  DEFAULT_LOUDNESS,
+  findLoudnessProblems,
+  formatDb,
+  getFirstMixAttempt,
+  getLoudnessFilter,
+  getMixFilter,
+  getNextMixAttempt,
+  isSilent,
+  MIX_ENCODE_HEADROOM,
+  readLoudnessMeasurement,
+} from "./loudness.js";
 
 const STDERR = [
   "Input #0, mp3, from 'speech.mp3':",
@@ -88,5 +102,73 @@ describe("getLoudnessFilter", () => {
     expect(getLoudnessFilter(measurement, DEFAULT_LOUDNESS)).toBe(
       "loudnorm=I=-14:TP=-1:LRA=11:measured_I=-25.4:measured_TP=-1.6:measured_LRA=4.2:measured_thresh=-35.9:offset=-0.2:linear=true,aresample=48000",
     );
+  });
+});
+
+describe("the mix's last stage (issue #1079)", () => {
+  const TARGET = { target: -14, truePeak: -1 };
+
+  it("starts with the gain to the target and the ceiling one encode's headroom under the limit", () => {
+    expect(getFirstMixAttempt({ inputI: -16.12 }, TARGET)).toEqual({ gainDb: 2.12, ceilingDbtp: -2 });
+    expect(MIX_ENCODE_HEADROOM).toBe(1);
+  });
+
+  it("lowers the ceiling by the overshoot plus a margin and corrects the gain by the integrated miss", () => {
+    expect(getNextMixAttempt({ gainDb: -1.71, ceilingDbtp: -2 }, { integrated: -14.74, truePeak: 0.89 }, TARGET)).toEqual({ gainDb: -0.97, ceilingDbtp: -4.19 });
+  });
+
+  it("keeps the ceiling when only the integrated loudness missed", () => {
+    expect(getNextMixAttempt({ gainDb: 3, ceilingDbtp: -2 }, { integrated: -15.5, truePeak: -1.5 }, TARGET)).toEqual({ gainDb: 4.5, ceilingDbtp: -2 });
+  });
+
+  it("never lowers the ceiling under the limiter's floor of -24 dB", () => {
+    expect(getNextMixAttempt({ gainDb: 0, ceilingDbtp: -23 }, { integrated: -14, truePeak: 5 }, TARGET).ceilingDbtp).toBe(-24);
+    expect(getFirstMixAttempt({ inputI: -14 }, { target: -14, truePeak: -30 }).ceilingDbtp).toBe(-24);
+  });
+
+  it("builds gain, a limiter at 4x the film's rate without auto level and with its delay compensated, then the film's rate", () => {
+    expect(getMixFilter({ gainDb: 1.88, ceilingDbtp: -2 })).toBe("volume=1.88dB,aresample=192000,alimiter=limit=0.79433:level=false:latency=true,aresample=48000");
+  });
+
+  it("encodes the sound alone as the finished film carries it", () => {
+    expect(buildMixArgs({ input: "/b/render.mp4", filter: "volume=1dB", output: "/b/mix.m4a" })).toEqual([
+      "-v",
+      "error",
+      "-y",
+      "-i",
+      "/b/render.mp4",
+      "-vn",
+      "-map",
+      "0:a:0",
+      "-af",
+      "volume=1dB",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "192k",
+      "-ar",
+      "48000",
+      "-ac",
+      "2",
+      "/b/mix.m4a",
+    ]);
+  });
+
+  it("finds a true peak over the limit and an integrated loudness outside one LU, naming both values", () => {
+    expect(findLoudnessProblems({ integrated: -14.8, truePeak: 0.1 }, TARGET)).toEqual(["true peak +0.1 dBTP, over the -1.0 dBTP limit"]);
+    expect(findLoudnessProblems({ integrated: -15.2, truePeak: -1.2 }, TARGET)).toEqual(["integrated -15.2 LUFS, outside -14.0 ± 1 LUFS"]);
+    expect(findLoudnessProblems({ integrated: -16, truePeak: -0.5 }, TARGET)).toHaveLength(2);
+  });
+
+  it("accepts the limit and both edges of the tolerance", () => {
+    expect(findLoudnessProblems({ integrated: -15, truePeak: -1 }, TARGET)).toEqual([]);
+    expect(findLoudnessProblems({ integrated: -13, truePeak: -3 }, TARGET)).toEqual([]);
+  });
+
+  it("formats levels with one decimal and a sign over zero", () => {
+    expect(formatDb(0.1)).toBe("+0.1");
+    expect(formatDb(-14)).toBe("-14.0");
+    expect(formatDb(-0.04)).toBe("0.0");
+    expect(formatDb(0.04)).toBe("0.0");
   });
 });
