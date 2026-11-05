@@ -1,6 +1,6 @@
 ---
 change_id: theme-notion-aside-panel-1075
-status: in_progress
+status: archived
 ---
 
 # Plan: AsidePanel follow-ups (issue #1075)
@@ -32,6 +32,6 @@ README `AsidePanel` section, `CHANGELOG.md` entry, version bump 0.13.0 (released
 
 ## Progress
 
-- [ ] Phase 1: components and tests
-- [ ] Phase 2: docs and release
-- [ ] Implementation review
+- [x] Phase 1: components and tests (2b57ac9)
+- [x] Phase 2: docs and release (1e6dc59)
+- [x] Implementation review

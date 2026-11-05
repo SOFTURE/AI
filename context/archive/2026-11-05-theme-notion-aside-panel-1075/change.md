@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-aside-panel-1075
 title: "theme-notion: AsidePanel toggle icon, phone-safe server render, hover hints, sheet description (issue #1075)"
-status: in_progress
+status: archived
+archived_at: 2026-11-05
 roadmap_item: null
 issue: [1075]
 branch: claude/project-thread-rgv02u
