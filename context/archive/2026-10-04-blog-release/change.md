@@ -15,7 +15,7 @@ archived_at: 2026-10-06
 
 ## Context
 
-From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **BL-8** (carried over on 2026-10-04
+From [`roadmap-later.md`](../../foundation/roadmap.md), item **BL-8** (carried over on 2026-10-04
 from roadmap `blog`, archived in [`2026-10-04-2-roadmap.md`](../../foundation/archive/2026-10-04-2-roadmap.md),
 to the queued roadmap `later`):
 

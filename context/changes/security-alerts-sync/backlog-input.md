@@ -17,7 +17,7 @@ when the alert is fixed or dismissed.
 
 ## Context
 
-From [`roadmap-later.md`](../../../foundation/roadmaps/roadmap-later.md), item **LT-5** (owner, 2026-11-04): the
+From [`roadmap.md`](../../foundation/roadmap.md), item **LT-5** (owner, 2026-11-04): the
 agent sessions cannot read the Security tab. Their GitHub tools have no access to code scanning, Dependabot or
 secret scanning alerts (checked 2026-11-04), so alerts are only seen when the owner opens the tab. The sessions do
 read issues, and the coordinator checks new issues every hour, so turning alerts into issues closes the gap

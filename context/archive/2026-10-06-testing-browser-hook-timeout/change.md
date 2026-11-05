@@ -16,7 +16,7 @@ runner, so `npm test` (CI and the release gates) does not fail on a slow browser
 
 ## Context
 
-From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **LT-3** (prepared entry:
+From [`roadmap-later.md`](../../foundation/roadmap.md), item **LT-3** (prepared entry:
 [`backlog-input.md`](backlog-input.md)):
 
 > - **Outcome:** `foundation/testing/tests/playwright-browser.test.ts` starts its server and Chromium within a hook

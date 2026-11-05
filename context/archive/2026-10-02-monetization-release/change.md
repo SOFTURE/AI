@@ -15,7 +15,7 @@ archived_at: 2026-10-06
 
 ## Context
 
-From [`roadmap-later.md`](../../foundation/roadmaps/roadmap-later.md), item **MO-6** (carried over on 2026-10-03 from roadmap `monetization`,
+From [`roadmap-later.md`](../../foundation/roadmap.md), item **MO-6** (carried over on 2026-10-03 from roadmap `monetization`,
 archived in [`2026-10-03-3-roadmap.md`](../../foundation/archive/2026-10-03-3-roadmap.md), to roadmap `marketing-kit`,
 archived in [`2026-10-03-4-roadmap.md`](../../foundation/archive/2026-10-03-4-roadmap.md), to roadmap `followups`,
 archived in [`2026-10-04-roadmap.md`](../../foundation/archive/2026-10-04-roadmap.md), and on to the queued roadmap `later`):
