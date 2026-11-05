@@ -4,6 +4,24 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **The finished footage film holds its true peak (#1079):** `finishFootage` (and so `renderFootage` and
+  `renderFootageFilm`) no longer trusts `loudnorm` before the AAC encode, which added 0.7-1.1 dB of inter-sample
+  overshoot (a film with loud music measured up to +0.9 dBTP against a -1 dBTP limit). The mix's last stage is now one
+  linear gain and a true peak limiter at 4x the film's rate (`alimiter`, delay compensated), encoded to AAC on its own
+  and measured; while the encoded true peak is over `mixLoudness.truePeak` (or the integrated loudness is outside
+  `mixLoudness.target` ± 1 LU) the ceiling is lowered by the overshoot plus 0.3 dB, the gain corrected, and the sound
+  encoded again, at most 4 times (the first ceiling sits 1 dB under the limit). The final pass muxes it with
+  `-c:a copy`, the picture untouched. The finished MP4 is then measured, and a film that still misses the target fails
+  with `err(...)` naming both values instead of a version. New `loudness: { integrated, truePeak } | null` on
+  `FinishedFootage` (so on `renderFootage`'s rendered result): the finished file's measurement, null without sound or
+  for a silent mix; with `mixLoudness: false` it is reported, not held to a target. The log states the measured values
+  instead of the targets. Also exported: `getMixFilter`, `buildMixArgs`, `getFirstMixAttempt`, `getNextMixAttempt`,
+  `findLoudnessProblems`, `formatDb`, `MIX_ATTEMPTS`, `MIX_ENCODE_HEADROOM`, `MIX_LOUDNESS_TOLERANCE`, `MixAttempt`,
+  `MixLoudness`; `buildFinishArgs` takes `audioFile`. Nothing to change for an app; an app that tests the old log line
+  ("normalized to -14 LUFS") reads the new one.
+
 ## 0.10.0
 
 - **A failed footage ffmpeg step hands over what it ran (#1063):** `onFfmpegFailure` on `prepareFootage`,

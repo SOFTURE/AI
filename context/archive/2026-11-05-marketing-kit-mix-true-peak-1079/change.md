@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-mix-true-peak-1079
 title: "marketing-kit: the finished footage MP4 holds mixLoudness's true peak, measured and gated (issue #1079)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1079
 branch: claude/project-thread-l7iehd
 created: 2026-11-05
 updated: 2026-11-05
+archived_at: 2026-11-05
 ---
 
 ## Intent
@@ -40,3 +41,11 @@ CHANGELOG; the second to merge resolves the conflict.
 ## Notes
 
 - Framing: skipped. The issue states the problem, the measurements and the acceptance.
+
+## Done
+
+The mix's last stage is gain plus a 4x oversampled true peak limiter, encoded to AAC on its own, measured and
+re-encoded with a lower ceiling (at most 4 times) while it misses the target; the final pass muxes it with
+`-c:a copy`. The finished MP4 is measured and gated (`err` naming both values); `FinishedFootage.loudness` carries the
+measurement and the log states it. Tests in `tools/marketing-kit/src/footage/{loudness,publish,finish}.test.ts`;
+CHANGELOG `## Unreleased`, README. Ships with the next marketing-kit release.

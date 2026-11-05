@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-mix-true-peak-1079
-status: in_progress
+status: archived
 ---
 
 # Plan: the finished MP4 holds the true peak (issue #1079)
@@ -43,7 +43,7 @@ CHANGELOG `## Unreleased`, README "Publishable output".
 
 ## Progress
 
-- [ ] Phase 1: the mix stage
-- [ ] Phase 2: finishFootage
-- [ ] Phase 3: CHANGELOG and README
-- [ ] Implementation review
+- [x] Phase 1: the mix stage, 6295116
+- [x] Phase 2: finishFootage, 6295116
+- [x] Phase 3: CHANGELOG and README
+- [x] Implementation review: approved
