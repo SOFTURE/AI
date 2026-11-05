@@ -37,6 +37,7 @@ import {
   type MixAttempt,
   type MixLoudness,
   type MixLoudnessTarget,
+  type MixTry,
 } from "./loudness.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
 import { FOOTAGE_FPS, normalizeFootage, type Frame, type NormalizeEncoder } from "./normalize.js";
@@ -944,6 +945,7 @@ async function finishMix(input: {
   let attempt = getFirstMixAttempt(input.measurement, input.target);
   let misses: string[] = [];
   let measured: MixLoudness = { integrated: input.measurement.inputI, truePeak: input.measurement.inputTp };
+  const done: MixTry[] = [];
   for (let tries = 1; tries <= MIX_ATTEMPTS; tries += 1) {
     await runFfmpeg("The film's mix", buildMixArgs({ input: input.input, filter: getMixFilter(attempt), output: input.output }), { ...aborting, output: input.output });
     const encoded = await measureLoudness(input.output, input.target, { label: "the film's encoded mix", ...aborting });
@@ -951,7 +953,8 @@ async function finishMix(input: {
     measured = { integrated: encoded.measurement.inputI, truePeak: encoded.measurement.inputTp };
     misses = findLoudnessProblems(measured, input.target);
     if (misses.length === 0) return ok({ attempt, tries, measured });
-    if (tries < MIX_ATTEMPTS) attempt = getNextMixAttempt(attempt, measured, input.target);
+    done.push({ attempt, measured });
+    if (tries < MIX_ATTEMPTS) attempt = getNextMixAttempt(done, input.measurement.inputI, input.target);
   }
   return err(
     `the film's mix still measures ${describeMixLoudness(measured)} after ${MIX_ATTEMPTS} encodes (last: gain ${formatDb(attempt.gainDb)} dB, ` +

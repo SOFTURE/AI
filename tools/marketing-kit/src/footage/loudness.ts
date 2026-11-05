@@ -195,6 +195,14 @@ export const MIX_ENCODE_HEADROOM = 1;
 export const MIX_ATTEMPTS = 4;
 /** What a retry lowers the ceiling by on top of the measured overshoot, in dB. */
 const MIX_RETRY_MARGIN = 0.3;
+/** With `keep: "speech"`, a retry aims this far inside the window's edge (at most half the tolerance), in LU. */
+export const MIX_RETRY_EDGE_MARGIN = 0.3;
+/** The limiter's loudness cost per dB of drive (gain minus ceiling) until the tries measure it, in LU per dB. */
+export const MIX_LIMITER_SLOPE = 0.5;
+/** The steepest limiter cost a retry believes: near 1 a gain step would barely move the mix and the gain would run away. */
+export const MIX_LIMITER_SLOPE_MAX = 0.7;
+/** How far apart the tries' drives must spread (their variance, in dB²) before the slope is fitted from them. */
+const MIX_SLOPE_SPREAD = 0.09;
 /** `alimiter`'s lowest ceiling (its `limit` of 0.0625), in dB. */
 const LIMITER_FLOOR = -24;
 /** The limiter runs at 4x the film's rate, so it holds the true peak rather than the sample peak. */
@@ -204,6 +212,12 @@ const LIMITER_RATE = FOOTAGE_SAMPLE_RATE * 4;
 export interface MixAttempt {
   gainDb: number;
   ceilingDbtp: number;
+}
+
+/** One encode of the mix: the attempt and what the encoded file measured. */
+export interface MixTry {
+  attempt: MixAttempt;
+  measured: MixLoudness;
 }
 
 function roundTo(value: number, digits: number): number {
@@ -234,15 +248,59 @@ export function getFirstMixAttempt(measurement: Pick<LoudnessMeasurement, "input
   return { gainDb: getMixGain(measurement.inputI, target), ceilingDbtp: Math.max(LIMITER_FLOOR, roundTo(target.truePeak - MIX_ENCODE_HEADROOM, 2)) };
 }
 
+/** One try as the limiter model sees it: how hard the limiter was driven (gain minus ceiling) and the loudness it took. */
+function getLimiterPoint(entry: MixTry, inputI: number): { drive: number; cost: number } {
+  return { drive: entry.attempt.gainDb - entry.attempt.ceilingDbtp, cost: inputI + entry.attempt.gainDb - entry.measured.integrated };
+}
+
 /**
- * The next try after an encoded mix measured `measured`: the ceiling lowered by the overshoot plus a margin when the
- * true peak is over (never under the limiter's floor), the gain corrected by what the integrated loudness missed (with
- * `keep: "speech"`, only by what it missed the window by).
+ * How much loudness the limiter takes per dB it is driven harder, fitted (least squares) from the tries once their
+ * drives spread, else `MIX_LIMITER_SLOPE`; clamped to 0..`MIX_LIMITER_SLOPE_MAX`. `inputI` is the render's mix as measured.
  */
-export function getNextMixAttempt(attempt: MixAttempt, measured: MixLoudness, target: MixLoudnessTarget): MixAttempt {
-  const overshoot = measured.truePeak - target.truePeak;
-  const ceilingDbtp = overshoot > 0 ? Math.max(LIMITER_FLOOR, roundTo(attempt.ceilingDbtp - overshoot - MIX_RETRY_MARGIN, 2)) : attempt.ceilingDbtp;
-  return { gainDb: roundTo(attempt.gainDb + getMixGain(measured.integrated, target), 2), ceilingDbtp };
+export function getLimiterSlope(tries: readonly MixTry[], inputI: number): number {
+  const points = tries.map((entry) => getLimiterPoint(entry, inputI));
+  const meanDrive = points.reduce((sum, point) => sum + point.drive, 0) / Math.max(1, points.length);
+  const meanCost = points.reduce((sum, point) => sum + point.cost, 0) / Math.max(1, points.length);
+  const spread = points.reduce((sum, point) => sum + (point.drive - meanDrive) ** 2, 0);
+  const slope = points.length >= 2 && spread >= MIX_SLOPE_SPREAD ? points.reduce((sum, point) => sum + (point.drive - meanDrive) * (point.cost - meanCost), 0) / spread : MIX_LIMITER_SLOPE;
+  return roundTo(Math.min(MIX_LIMITER_SLOPE_MAX, Math.max(0, slope)), 3);
+}
+
+/**
+ * Where a retry aims the mix's integrated loudness when it would land at `predicted` LUFS with the gain kept: the
+ * target in the default mode; with `keep: "speech"` nowhere (the gain stays) while `predicted` is inside the window
+ * shrunk by `MIX_RETRY_EDGE_MARGIN`, else that margin inside the edge it would miss.
+ */
+function getRetryAim(predicted: number, target: MixLoudnessTarget): number | null {
+  if (target.keep !== "speech") return target.target;
+  const tolerance = getMixTolerance(target);
+  const inside = tolerance - Math.min(MIX_RETRY_EDGE_MARGIN, tolerance / 2);
+  if (predicted < target.target - inside) return target.target - inside;
+  if (predicted > target.target + inside) return target.target + inside;
+  return null;
+}
+
+/**
+ * The next try after the encodes in `tries` (oldest first; the last one missed `target`). The ceiling is lowered by
+ * the last overshoot plus a margin when its true peak is over (never under the limiter's floor). The gain comes from
+ * a model of the limiter: the loudness it takes grows with how hard it is driven (gain minus ceiling) at the slope
+ * `getLimiterSlope` measures, so the gain is solved for the loudness the mix will have at the new ceiling, not the
+ * one it had at the old one. `inputI` is the render's mix as measured before any try.
+ */
+export function getNextMixAttempt(tries: readonly MixTry[], inputI: number, target: MixLoudnessTarget): MixAttempt {
+  const last = tries.at(-1);
+  if (last === undefined) throw new Error("getNextMixAttempt: no encode of the mix to correct.");
+  const overshoot = last.measured.truePeak - target.truePeak;
+  const ceilingDbtp = overshoot > 0 ? Math.max(LIMITER_FLOOR, roundTo(last.attempt.ceilingDbtp - overshoot - MIX_RETRY_MARGIN, 2)) : last.attempt.ceilingDbtp;
+  const slope = getLimiterSlope(tries, inputI);
+  const { drive, cost } = getLimiterPoint(last, inputI);
+  // The limiter's cost at a gain, at the new ceiling: never below none.
+  const getCost = (gainDb: number): number => Math.max(0, cost + slope * (gainDb - ceilingDbtp - drive));
+  const aim = getRetryAim(inputI + last.attempt.gainDb - getCost(last.attempt.gainDb), target);
+  if (aim === null) return { gainDb: last.attempt.gainDb, ceilingDbtp };
+  const gainDb = (aim - inputI + cost - slope * (ceilingDbtp + drive)) / (1 - slope);
+  // A gain so low that the limiter would take nothing: the mix moves by the gain alone.
+  return { gainDb: roundTo(getCost(gainDb) > 0 ? gainDb : aim - inputI, 2), ceilingDbtp };
 }
 
 /**

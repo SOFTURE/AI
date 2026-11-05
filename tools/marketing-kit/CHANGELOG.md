@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **The mix stage's retries pay back what the limiter takes (#1095):** with `mixLoudness.keep: "speech"` and loud,
+  percussive music, a retry aimed at the window's edge while the same retry lowered the limiter's ceiling, the limiter
+  took part of the gain back, and the mix fell past the edge again until the film failed after 4 encodes (about one
+  such mix in four). A retry now models the limiter: the loudness it takes grows with how hard it is driven (gain
+  minus ceiling), at a slope fitted from the encodes so far (0.5 LU per dB until two encodes spread, at most 0.7), and
+  the gain is solved for the loudness the mix will have at the new ceiling. With `keep: "speech"` the gain stays while
+  that loudness is 0.3 LU inside the window and otherwise aims 0.3 LU inside the edge it would miss. The first encode is
+  unchanged, so a mix that meets the target at once gets the same gain. **Changed export:**
+  `getNextMixAttempt(tries, inputI, target)` now takes every encode so far (`MixTry[]`, oldest first) and the render's
+  measured loudness instead of one attempt and its measurement. New exports: `getLimiterSlope`, `MIX_LIMITER_SLOPE`,
+  `MIX_LIMITER_SLOPE_MAX`, `MIX_RETRY_EDGE_MARGIN` and the `MixTry` type.
+
 ## 0.12.0
 
 - **A declick stage in the footage speech chain (#1084):** a footage film's `speech: { declick: "off" | "gentle" |

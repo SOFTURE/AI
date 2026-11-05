@@ -46,7 +46,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
   });
 
   /** A 6 s H.264 + AAC render like hyperframes' output: a quiet voice-like tone that pauses, over a quiet noise bed. */
-  function makeRender(audio: string, video: { preset: string } = { preset: "medium" }): string {
+  function makeRender(audio: string, video: { preset: string } = { preset: "medium" }, seconds = 6): string {
     const file = join(dir, "render.mp4");
     const made = spawnSync("ffmpeg", [
       "-v",
@@ -55,7 +55,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
       "-f",
       "lavfi",
       "-i",
-      "color=c=black:s=180x320:r=30:d=6",
+      `color=c=black:s=180x320:r=30:d=${seconds}`,
       "-f",
       "lavfi",
       "-i",
@@ -87,11 +87,11 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
   const SPEECH_AND_MUSIC =
     "sine=f=220:d=6:r=48000,volume='if(lt(mod(t,2),1.4),0.06,0)':eval=frame[voice];anoisesrc=d=6:r=48000:a=0.01[bed];[voice][bed]amix=inputs=2,aformat=channel_layouts=stereo";
 
-  async function finish(renderFile: string, mixLoudness?: MixLoudnessTarget | null, finishVideo?: FinishVideo) {
+  async function finish(renderFile: string, mixLoudness?: MixLoudnessTarget | null, finishVideo?: FinishVideo, seconds = 6) {
     const output = join(dir, "film.mp4");
     const result = await finishFootage(
       { cover: null, ...(mixLoudness === undefined ? {} : { mixLoudness }) },
-      { renderFile, seconds: 6, coverAt: 0 },
+      { renderFile, seconds, coverAt: 0 },
       { output, log: (line) => lines.push(line), ...(finishVideo === undefined ? {} : { finishVideo }) },
     );
     return { output, result };
@@ -149,11 +149,12 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
   });
 
   /** The issue's fixture: pink noise "speech" in bursts over a percussive square wave "music" bed, both loud. */
-  function getLoudMusicMix(speech: number, music: number): string {
+  function getLoudMusicMix(speech: number, music: number, noise: { seconds: number; seed?: number } = { seconds: 6 }): string {
     const beat = (phase: string): string => `${music}*sgn(sin(2*PI*55*t${phase}))*exp(-30*mod(t,0.25))`;
+    const seed = noise.seed === undefined ? "" : `:seed=${noise.seed}`;
     return (
-      `anoisesrc=d=6:c=pink:r=48000:a=${speech},volume='if(lt(mod(t,2),1.3),1,0.01)':eval=frame,aformat=channel_layouts=stereo[voice];` +
-      `aevalsrc='${beat("")}|${beat("+1")}':d=6:s=48000[music];[voice][music]amix=inputs=2:normalize=0`
+      `anoisesrc=d=${noise.seconds}:c=pink:r=48000:a=${speech}${seed},volume='if(lt(mod(t,2),1.3),1,0.01)':eval=frame,aformat=channel_layouts=stereo[voice];` +
+      `aevalsrc='${beat("")}|${beat("+1")}':d=${noise.seconds}:s=48000[music];[voice][music]amix=inputs=2:normalize=0`
     );
   }
 
@@ -170,6 +171,30 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(getCodecs(output)).toEqual(["h264", "aac"]);
     expect(result.ok && Math.abs(result.value.durationSeconds - 6)).toBeLessThan(0.1);
   });
+
+  // The issue's 8 s fixtures over several noise seeds: on 0.12.0 a retry aimed at the window's edge and the limiter
+  // took part of the gain back, so about one loud mix in four failed after four encodes with keep speech.
+  it.each([
+    { speech: 0.3, music: 0.6, seeds: [1, 2, 3] },
+    { speech: 0.3, music: 0.9, seeds: [1, 4, 5, 6] },
+    { speech: 0.9, music: 0.9, seeds: [1] },
+  ])(
+    "keeps loud percussive music (speech $speech, music $music) at most -1 dBTP and inside -14 ±1 LUFS with keep speech (issue #1095)",
+    async ({ speech, music, seeds }) => {
+      for (const seed of seeds) {
+        lines = [];
+        const renderFile = makeRender(getLoudMusicMix(speech, music, { seconds: 8, seed }), { preset: "ultrafast" }, 8);
+        const { output, result } = await finish(renderFile, { ...DEFAULT_LOUDNESS, tolerance: 1, keep: "speech" }, undefined, 8);
+        if (!result.ok) throw new Error(`seed ${seed}: ${result.error}`);
+        const after = measure(output);
+        expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
+        expect(Math.abs(after.inputI - DEFAULT_LOUDNESS.target)).toBeLessThanOrEqual(1);
+        expect(result.value.mix?.keep).toBe("speech");
+        expect(lines.some((line) => / \(encode [1-4] of 4\)\.$/.test(line))).toBe(true);
+      }
+    },
+    120_000,
+  );
 
   it("fails the render naming the measurement when no encode of the mix meets the target (issue #1079)", async () => {
     // No mix is -5 LUFS loud with its true peak at -9 dBTP: every encode misses, whatever the limiter does.
@@ -291,9 +316,11 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(after.inputI).toBeLessThan(DEFAULT_LOUDNESS.target - 0.5);
     expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
     expect(result.value.mix).toEqual({ measured: { integrated: before, truePeak: peakBefore }, gainDb: expect.any(Number) as number, ceilingDbtp: expect.any(Number) as number, keep: "speech" });
-    // The gain reaches the window's edge (aimed 0.2 LU inside it), plus what a retry adds when the limiter took some back.
+    // The gain reaches the window's edge (aimed 0.2 LU inside it), plus what a retry adds to pay back what the limiter
+    // took (issue #1095): no more than the limiter's measured cost and a retry's margin.
     const edgeGain = DEFAULT_LOUDNESS.target - 0.8 - before;
-    expect(result.value.mix?.gainDb).toBeGreaterThanOrEqual(edgeGain - 0.05);
-    expect(result.value.mix?.gainDb).toBeLessThan(edgeGain + 1);
+    const gainDb = result.value.mix?.gainDb ?? Number.NaN;
+    expect(gainDb).toBeGreaterThanOrEqual(edgeGain - 0.05);
+    expect(gainDb - edgeGain).toBeLessThanOrEqual(before + gainDb - after.inputI + 0.5);
   });
 });

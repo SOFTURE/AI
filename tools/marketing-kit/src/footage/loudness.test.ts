@@ -11,11 +11,15 @@ import {
   getLoudnessFilter,
   getMixFilter,
   getMixGain,
+  getLimiterSlope,
   getMixTolerance,
   getNextMixAttempt,
   isSilent,
   MIX_ENCODE_HEADROOM,
+  MIX_LIMITER_SLOPE,
+  MIX_LIMITER_SLOPE_MAX,
   MIX_LOUDNESS_TOLERANCE,
+  MIX_RETRY_EDGE_MARGIN,
   readLoudnessMeasurement,
 } from "./loudness.js";
 
@@ -116,16 +120,29 @@ describe("the mix's last stage (issue #1079)", () => {
     expect(MIX_ENCODE_HEADROOM).toBe(1);
   });
 
-  it("lowers the ceiling by the overshoot plus a margin and corrects the gain by the integrated miss", () => {
-    expect(getNextMixAttempt({ gainDb: -1.71, ceilingDbtp: -2 }, { integrated: -14.74, truePeak: 0.89 }, TARGET)).toEqual({ gainDb: -0.97, ceilingDbtp: -4.19 });
+  it("lowers the ceiling by the overshoot plus a margin and solves the gain for what the limiter takes at the new ceiling (issue #1095)", () => {
+    // Driven 0.29 dB, the limiter took 0.74 LU; at -4.19 dBTP it is driven 3.9 dB more and takes about half of that too.
+    const tries = [{ attempt: { gainDb: -1.71, ceilingDbtp: -2 }, measured: { integrated: -14.74, truePeak: 0.89 } }];
+    expect(getNextMixAttempt(tries, -12.29, TARGET)).toEqual({ gainDb: 1.96, ceilingDbtp: -4.19 });
   });
 
-  it("keeps the ceiling when only the integrated loudness missed", () => {
-    expect(getNextMixAttempt({ gainDb: 3, ceilingDbtp: -2 }, { integrated: -15.5, truePeak: -1.5 }, TARGET)).toEqual({ gainDb: 4.5, ceilingDbtp: -2 });
+  it("keeps the ceiling when only the integrated loudness missed, and still pays the limiter's share of the gain", () => {
+    const tries = [{ attempt: { gainDb: 3, ceilingDbtp: -2 }, measured: { integrated: -15.5, truePeak: -1.5 } }];
+    expect(getNextMixAttempt(tries, -17, TARGET)).toEqual({ gainDb: 6, ceilingDbtp: -2 });
+  });
+
+  it("moves the mix by the gain alone when a lower gain would leave the limiter nothing to take", () => {
+    const tries = [{ attempt: { gainDb: 0, ceilingDbtp: -2 }, measured: { integrated: -12.5, truePeak: -3 } }];
+    expect(getNextMixAttempt(tries, -12.5, TARGET)).toEqual({ gainDb: -1.5, ceilingDbtp: -2 });
+  });
+
+  it("fails loudly when there is no encode to correct", () => {
+    expect(() => getNextMixAttempt([], -14, TARGET)).toThrow("getNextMixAttempt: no encode of the mix to correct.");
   });
 
   it("never lowers the ceiling under the limiter's floor of -24 dB", () => {
-    expect(getNextMixAttempt({ gainDb: 0, ceilingDbtp: -23 }, { integrated: -14, truePeak: 5 }, TARGET).ceilingDbtp).toBe(-24);
+    const tries = [{ attempt: { gainDb: 0, ceilingDbtp: -23 }, measured: { integrated: -14, truePeak: 5 } }];
+    expect(getNextMixAttempt(tries, -14, TARGET).ceilingDbtp).toBe(-24);
     expect(getFirstMixAttempt({ inputI: -14 }, { target: -14, truePeak: -30 }).ceilingDbtp).toBe(-24);
   });
 
@@ -155,6 +172,18 @@ describe("the mix's last stage (issue #1079)", () => {
       "2",
       "/b/mix.m4a",
     ]);
+  });
+
+  it("fits the limiter's cost per dB of drive from tries whose drives spread, else assumes half, and clamps it (issue #1095)", () => {
+    // The issue's 0.3/0.6 fixture: 3.31 dB of drive cost 0.34 LU, 4.13 dB cost 0.82 LU.
+    const first = { attempt: { gainDb: 1.31, ceilingDbtp: -2 }, measured: { integrated: -15.14, truePeak: -0.92 } };
+    const lowered = { gainDb: 1.75, ceilingDbtp: -2.38 };
+    expect(getLimiterSlope([first, { attempt: lowered, measured: { integrated: -15.18, truePeak: -1.86 } }], -16.11)).toBe(0.585);
+    expect(getLimiterSlope([first], -16.11)).toBe(MIX_LIMITER_SLOPE);
+    const close = { attempt: { gainDb: 1.5, ceilingDbtp: -2 }, measured: { integrated: -14.6, truePeak: -1 } };
+    expect(getLimiterSlope([first, close], -16.11)).toBe(MIX_LIMITER_SLOPE);
+    expect(getLimiterSlope([first, { attempt: lowered, measured: { integrated: -16, truePeak: -2 } }], -16.11)).toBe(MIX_LIMITER_SLOPE_MAX);
+    expect(getLimiterSlope([first, { attempt: lowered, measured: { integrated: -14.2, truePeak: -2 } }], -16.11)).toBe(0);
   });
 
   it("finds a true peak over the limit and an integrated loudness outside one LU, naming both values", () => {
@@ -199,9 +228,19 @@ describe("the mix's gain that keeps the speech (issue #1085)", () => {
     expect(getMixGain(-14.6, { target: -14, truePeak: -1, keep: "loudness" })).toBe(0.6);
   });
 
-  it("retries without moving the gain while the encoded mix stays inside the window, lowering only the ceiling", () => {
-    expect(getNextMixAttempt({ gainDb: 0, ceilingDbtp: -2 }, { integrated: -14.7, truePeak: -0.4 }, KEEP)).toEqual({ gainDb: 0, ceilingDbtp: -2.9 });
-    expect(getNextMixAttempt({ gainDb: 0.7, ceilingDbtp: -2 }, { integrated: -15.1, truePeak: -1.5 }, KEEP)).toEqual({ gainDb: 1, ceilingDbtp: -2 });
+  it("retries without moving the gain while the mix at the lower ceiling stays 0.3 LU inside the window", () => {
+    // Lowering the ceiling by 0.9 dB costs about 0.45 LU: -14.2 becomes -14.65, still inside -14.7.
+    const tries = [{ attempt: { gainDb: 0, ceilingDbtp: -2 }, measured: { integrated: -14.2, truePeak: -0.4 } }];
+    expect(getNextMixAttempt(tries, -14.2, KEEP)).toEqual({ gainDb: 0, ceilingDbtp: -2.9 });
+  });
+
+  it("aims 0.3 LU inside the edge that the lower ceiling would push the mix past (issue #1095)", () => {
+    // The issue's 0.3/0.6 fixture: -15.13 LUFS at the edge, the true peak just over; 0.12.0 kept the gain and fell out.
+    const tries = [{ attempt: { gainDb: 1.33, ceilingDbtp: -2 }, measured: { integrated: -15.13, truePeak: -0.99 } }];
+    expect(getNextMixAttempt(tries, -16.13, KEEP)).toEqual({ gainDb: 2.5, ceilingDbtp: -2.31 });
+    const above = [{ attempt: { gainDb: 0, ceilingDbtp: -2 }, measured: { integrated: -12.5, truePeak: -3 } }];
+    expect(getNextMixAttempt(above, -12.5, KEEP)).toEqual({ gainDb: -0.8, ceilingDbtp: -2 });
+    expect(MIX_RETRY_EDGE_MARGIN).toBe(0.3);
   });
 
   it("holds the gate to the target's own tolerance", () => {
