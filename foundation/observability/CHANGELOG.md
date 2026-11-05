@@ -11,9 +11,11 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
   `@opentelemetry/api-logs` is no longer a dependency (the logs API is part of `@opentelemetry/api` 1.10).
   `startObservability` registers the same context manager (AsyncLocalStorage), W3C trace context and baggage
   propagation and global providers as before.
-- Migration: none for an app that only calls this package. An app that imports `@opentelemetry/api-logs` or
-  `@opentelemetry/sdk-trace-node` next to it should move to `@opentelemetry/api` and `@opentelemetry/sdk-trace` 3, so
-  one copy of the api is installed.
+- Migration: the app's own `@opentelemetry/api` must be 1.10 or newer. Next.js bundles the instrumentation hook
+  against the copy at the app's root, so a lockfile that still hoists 1.9 fails the build with "Export logs doesn't
+  exist in target module"; refresh the lockfile (or add `@opentelemetry/api@^1.10.0` to the app). An app that imports
+  `@opentelemetry/api-logs` or `@opentelemetry/sdk-trace-node` next to this package moves to `@opentelemetry/api` and
+  `@opentelemetry/sdk-trace` 3.
 
 ## 0.7.0
 
