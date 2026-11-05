@@ -397,7 +397,19 @@ export {
   readTopLevelBoxes,
   type FilmFacts,
 } from "./footage/publish.js";
-export { readFfmpegProgressSeconds, runFfmpeg, runProcess, type FfmpegRunOptions, type ProcessOptions, type ProcessOutcome } from "./footage/process.js";
+export {
+  readFfmpegProgressSeconds,
+  runFfmpeg,
+  runProcess,
+  withFfmpegFailureReporting,
+  type FfmpegFailureHook,
+  type FfmpegFailureReporting,
+  type FfmpegRunOptions,
+  type ProcessOptions,
+  type ProcessOutcome,
+} from "./footage/process.js";
+export { FFMPEG_FAILURE_STDERR_LINES, formatFfmpegCommand, splitFilterGraph, type FfmpegFailure } from "./footage/ffmpeg-command.js";
+export { buildFfmpegFailureScript, FFMPEG_FAILURE_FILES, writeFfmpegFailure, type FfmpegFailureInput } from "./footage/ffmpeg-failure.js";
 export {
   estimateFootageFilm,
   findCachedStep,
