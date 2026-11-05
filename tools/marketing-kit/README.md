@@ -799,6 +799,33 @@ The blocks run alone too: `probeFootage`, `probeAudio`, `normalizeFootage`, `tra
 (`{ ok, value } | { ok, error }`), and a dry run is `{ kind: "dry-run", steps }`. `createFakeSttProvider`,
 `createFakeIsolationProvider` and `createFakeMusicProvider` stand in for ElevenLabs in tests.
 
+### Isolating only the cut's voice
+
+`isolateVoice` cleans whole talking clips before transcribing. To pay the Voice Isolator only for what the cut keeps
+(a 54 s reel from 1.5 min of recording costs about 40 % of the whole clips), transcribe the raw voice
+(`isolateVoice: false`), cut, then isolate the cut's ranges and render with the speech map it answers:
+
+```ts
+import { estimateSpeechRanges, isolateSpeechRanges, renderFootage } from "@softure-ai/marketing-kit";
+
+const estimate = await estimateSpeechRanges(film, { cacheDir, buildDir, providers, rates, edl }); // one item per range, cached at 0
+const isolated = await isolateSpeechRanges(film, clips, edl, { buildDir, cacheDir, providers, isCommit, onCharge, signal });
+if (!isolated.ok) throw new Error(isolated.error);
+await renderFootage(film, clips, { ...transcript, speech: isolated.value.speech }, edl, renderOptions);
+```
+
+- The ranges are every segment's sound span (and the picture clip's own span when `audio.ownVolume` keeps it under)
+  widened by `margin` (default 0.25 s, so a cut's cross-fade reads cleaned sound), clamped to the clip, in whole
+  milliseconds. Ranges are not merged: identical ranges and ranges inside another are dropped, the rest stay apart.
+- Each range is cached as `<cacheDir>/<film>/<key>.isolated.mp3`, keyed by the clip's bytes and trim, the range and the
+  provider: an unchanged segment is never paid twice and a changed cut pays only its new ranges. `onCharge` reports
+  each with step `isolate`, the clip id as `item` and its `range` in seconds.
+- Each clip's cleaned windows are laid over its own sound into `<buildDir>/audio/<clip>.ranges.mp3`, as long as the
+  clip; overlapping ranges switch at the middle of their overlap, and a mono answer goes to both channels at full level.
+- Without `isCommit` only cached ranges are laid (a free draft); `ranges` says which are `cached` and `laid`.
+- `estimateFootageFilm(film, { …, isolate: "segments", margin })` prices isolation on those ranges instead of whole
+  clips; both estimates need the cut (`edl`, or `edl.json` in `buildDir`).
+
 ### Footage films in a worker
 
 The blocks spawn ffmpeg, ffprobe and hyperframes asynchronously, so a jobs worker (`@softure-ai/jobs`) keeps its

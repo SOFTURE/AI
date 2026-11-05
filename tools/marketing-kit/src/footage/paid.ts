@@ -10,6 +10,7 @@ import { getFilmKeyTerms } from "./keyterms.js";
 import type { FootageClip, FootageFilm } from "./film.js";
 import { getTrimmedDuration, probeFootage } from "./probe.js";
 import type { FootageProviders, FootageRates, PaidStepKind } from "./providers.js";
+import { getSpeechRangeCache, planSpeechRanges, type SpeechRangeClip } from "./speech-ranges.js";
 
 /**
  * Where each paid result of a footage film is cached, shared by the pipeline and by the questions an app asks before
@@ -158,6 +159,8 @@ export interface FootageEstimateItem {
   /** `units` × the step's rate; 0 when cached. */
   credits: number;
   cached: boolean;
+  /** The range of the clip an `isolate: "segments"` item prices, in seconds of the trimmed clip; absent: the whole clip. */
+  range?: { start: number; end: number };
 }
 
 export interface FootageEstimate {
@@ -168,6 +171,14 @@ export interface FootageEstimate {
 export interface EstimateFootageOptions extends FootageCacheOptions {
   rates: FootageRates;
   signal?: AbortSignal;
+  /**
+   * What voice isolation is priced on: `clips` (default) the whole talking clips when the film isolates the voice;
+   * `segments` only the ranges the cut hears (`isolateSpeechRanges`), one item per range, whatever `isolateVoice`
+   * says. `segments` needs the cut (`edl`, or `<buildDir>/edl.json`).
+   */
+  isolate?: "clips" | "segments";
+  /** Seconds around each sound span with `isolate: "segments"`; default `DEFAULT_SPEECH_RANGE_MARGIN`. */
+  margin?: number;
 }
 
 const round = (value: number, digits: number): number => {
@@ -200,6 +211,11 @@ export async function estimateFootageFilm(film: FootageFilm, options: EstimateFo
   const add = (step: PaidStepKind, item: string, provider: string, units: number, cached: boolean): void => {
     items.push({ step, item, provider, units: round(units, 3), unit: "seconds", credits: cached ? 0 : round(units * rates[step], 2), cached });
   };
+  const isSegments = options.isolate === "segments";
+  const edl = findEdl(options);
+  if (isSegments && edl === null) return err(`footage film ${film.id}: isolating segments needs the cut (edl, or edl.json in the build folder).`);
+  const clipKeys: Record<string, string | null> = {};
+  const rangeClips: SpeechRangeClip[] = [];
   let clipSeconds = 0;
   for (const { clip, probe } of probed.clips) {
     const seconds = getTrimmedDuration(clip, probe);
@@ -207,16 +223,38 @@ export async function estimateFootageFilm(film: FootageFilm, options: EstimateFo
     if (clip.role !== "talk") continue;
     const source = findLocalSource(clip, options.buildDir);
     const clipKey = source === null ? null : await getClipCacheKey(source, clip);
+    clipKeys[clip.id] = clipKey;
+    rangeClips.push({ id: clip.id, role: clip.role, duration: seconds });
     const isolated = clipKey === null ? null : getIsolatedCache(film, clipKey, options);
-    if (film.isolateVoice) add("isolate", clip.id, options.providers.isolation.id, seconds, isolated !== null && existsSync(isolated.path));
+    if (film.isolateVoice && !isSegments) add("isolate", clip.id, options.providers.isolation.id, seconds, isolated !== null && existsSync(isolated.path));
     const transcript = clipKey === null ? null : getTranscriptCache(film, clipKey, options);
     add("transcribe", clip.id, options.providers.stt.id, seconds, transcript !== null && existsSync(transcript.path));
   }
+  if (isSegments && edl !== null) {
+    const provider = options.providers.isolation.id;
+    for (const range of planSpeechRanges(edl, rangeClips, options.margin === undefined ? {} : { margin: options.margin })) {
+      const clipKey = clipKeys[range.clip] ?? null;
+      const cached = clipKey !== null && existsSync(getSpeechRangeCache(film.id, clipKey, range, { cacheDir: options.cacheDir, provider }).path);
+      add("isolate", range.clip, provider, (range.endMs - range.startMs) / 1000, cached);
+      const item = items.at(-1);
+      if (item !== undefined) item.range = { start: range.startMs / 1000, end: range.endMs / 1000 };
+    }
+  }
   const music = film.music.source;
   if (music.kind === "prompt" || music.kind === "video") {
-    const edl = findEdl(options);
     const seconds = edl === null ? clipSeconds + (film.endCard === null ? 0 : END_CARD_SECONDS) : getFootageFilmSeconds(film, edl);
     add("music", "film", options.providers.music.id, seconds, await isMusicCached(film, options));
   }
+  return ok({ items, totalCredits: round(items.reduce((sum, item) => sum + item.credits, 0), 2) });
+}
+
+/**
+ * What isolating only the cut's ranges will cost (`isolateSpeechRanges`), for a confirmation step: the `isolate` items
+ * of `estimateFootageFilm` with `isolate: "segments"`, one per range, a cached range at 0.
+ */
+export async function estimateSpeechRanges(film: FootageFilm, options: Omit<EstimateFootageOptions, "isolate">): Promise<TtsResult<FootageEstimate>> {
+  const estimate = await estimateFootageFilm(film, { ...options, isolate: "segments" });
+  if (!estimate.ok) return estimate;
+  const items = estimate.value.items.filter((item) => item.step === "isolate");
   return ok({ items, totalCredits: round(items.reduce((sum, item) => sum + item.credits, 0), 2) });
 }
