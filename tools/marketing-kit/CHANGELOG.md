@@ -16,6 +16,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `declickSpeech`, `declickSamples`, `findImpulses`, `getDeclickGain`, `getGateWindows`, `getRunningMedian`,
   `buildDeclickDecodeArgs`, `buildDeclickEncodeArgs`, `describeDeclick`, `getDeclickLevel`, `getSpeechChainFiles`,
   the `DECLICK_*` constants and the `DeclickLevel`, `DeclickReport`, `FootageSpeech` types.
+- **Voice isolation per time range (#1087):** `isolateSpeechRanges(film, clips, edl, { buildDir, cacheDir, providers,
+  isCommit, margin?, log?, onCharge?, onProgress?, signal?, onFfmpegFailure? })` cleans only the ranges the cut hears
+  (each sound span ± `margin`, default 0.25 s, clamped to the clip), caches each by the clip's identity, the range in
+  milliseconds and the provider, and lays the cleaned windows over the clip's own sound into one file per clip (mute
+  inside each window, `adelay` the cleaned range, `amix normalize=0`; overlapping ranges switch at the middle of the
+  overlap; a mono answer goes to both channels at full level). It answers the speech map `renderFootage` takes, and
+  without `isCommit` lays only cached ranges. `estimateSpeechRanges` and `estimateFootageFilm`'s `isolate: "segments"`
+  price the uncached ranges. `FootageCharge.range` and `FootageEstimateItem.range` name a range. New exports:
+  `planSpeechRanges`, `getSpeechRangeWindows`, `getSpeechRangeCache`, `buildRangeAudioArgs`, `buildRangeLayArgs`,
+  `DEFAULT_SPEECH_RANGE_MARGIN` and their types. Whole-clip `isolateVoice` works as before.
 - **The finished mix can keep the speech's level (#1085):** `mixLoudness.keep: "speech"` (`marketing.json` and
   `FootageFilm.mixLoudness`, with `tolerance` in LU, default 1) applies **no gain** while the render's mix measures
   inside `target ± tolerance`, and otherwise only the smallest gain to that window (aimed 0.2 LU inside its edge). The
