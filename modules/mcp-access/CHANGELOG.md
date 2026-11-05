@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## Unreleased
+## 0.7.0
 
 - The served tool contract in `get_server_info` (#1078): `serverInfoTool: { tools: true }` makes the tool answer each
   served tool's `name`, `description` and `inputSchema` for the caller's access level, exactly as `tools/list` answers
