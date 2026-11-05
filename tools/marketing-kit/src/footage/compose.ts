@@ -4,7 +4,7 @@ import type { ComposeFont } from "../compose/compose.js";
 import { escapeHtml, fontFaces, fontStack } from "../compose/html.js";
 import { CAPTION_LINE_HEIGHT, getCaptionPillCss, getCaptionPositionCss, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { getCaptionSpans, getFootageCaptionChunks, type CaptionSpan } from "./captions.js";
+import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, type CaptionSpan } from "./captions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
 import { CAPTION_MIN_FONT_SCALE, DEFAULT_EDIT, getFootageEdit, type FootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS } from "./normalize.js";
@@ -144,13 +144,17 @@ export function composeFootage(input: FootageComposeInput): string {
   const isHighlight = film.captionStyle === "highlight";
   const caption = getFootageCaptionChunks(film, words);
   const spans = getCaptionSpans(caption, cutEnd);
+  const boxes = getCaptionChunkLayouts(caption, edl, captionBox);
   const captionHtml = caption
     .map((chunk, i) => {
       const { start, end: stop } = spans[i] as CaptionSpan;
+      const place = boxes[i] ?? captionBox;
+      // A chunk in a segment's own box overrides the shared rule's anchor; one in the film's box is written as before.
+      const style = isSameCaptionPlace(place, captionBox) ? "" : ` style="${place.bottom === undefined ? `bottom:auto;top:${place.top}px` : `top:auto;bottom:${place.bottom}px`}"`;
       const box = isHighlight
         ? `<p class="pill">${chunk.words.map((w, j) => `<span id="cw${i}_${j}">${escapeHtml(w.text)}</span>`).join(" ")}</p>`
         : `<p class="phrase">${escapeHtml(chunk.words.map((w) => w.text).join(" "))}</p>`;
-      return `<div id="cap${i}" class="clip caption" data-start="${start}" data-duration="${r3(stop - start)}">${box}</div>`;
+      return `<div id="cap${i}" class="clip caption" data-start="${start}" data-duration="${r3(stop - start)}"${style}>${box}</div>`;
     })
     .join("\n  ");
 

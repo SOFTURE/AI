@@ -6,7 +6,7 @@ import type { CaptionLayout, LayoutOverride } from "../compose/timeline.js";
 import type { BrandColors } from "../config/colors.js";
 import { err, ok } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, type CaptionWordsFilm } from "./captions.js";
+import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, isSameCaptionPlace, type CaptionWordsFilm } from "./captions.js";
 import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
 import { chooseFootageDraftFont } from "./draft-font.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
@@ -116,7 +116,7 @@ export interface FootageDraftCaptionsInput {
  * A `highlight` chunk as ASS events: its span cut wherever a word lights up or goes out, each piece showing the chunk
  * with the words lit then in `highlight` (a word stays lit for the render's 0.32 s from its start).
  */
-function buildHighlightEvents(chunk: { words: TimedWord[] }, span: { start: number; end: number }, colors: { text: string; highlight: string }): string[] {
+function buildHighlightEvents(chunk: { words: TimedWord[] }, span: { start: number; end: number }, colors: { text: string; highlight: string }, styleName: string): string[] {
   const cs = (seconds: number): number => Math.round(seconds * 100);
   const [from, to] = [cs(span.start), cs(span.end)];
   const lights = chunk.words.map((word) => ({ on: cs(word.start), off: cs(word.start + HIGHLIGHT_SECONDS) }));
@@ -131,7 +131,7 @@ function buildHighlightEvents(chunk: { words: TimedWord[] }, span: { start: numb
         return light.on <= at && at < light.off ? `{\\1c${colors.highlight}&}${shown}{\\1c${colors.text}&}` : shown;
       })
       .join(" ");
-    events.push(`Dialogue: 0,${toAssTime(at / 100)},${toAssTime(next / 100)},Caption,,0,0,0,,${text}`);
+    events.push(`Dialogue: 0,${toAssTime(at / 100)},${toAssTime(next / 100)},${styleName},,0,0,0,,${text}`);
   });
   return events;
 }
@@ -166,8 +166,8 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
         outline: Math.max(1, Math.round(caption.fontSize / 16)),
         shadow: Math.max(1, Math.round(caption.fontSize / 25)),
       };
-  const style = [
-    "Caption",
+  const toStyle = (name: string, place: CaptionLayout): string => [
+    name,
     family,
     caption.fontSize,
     look.primary,
@@ -186,18 +186,31 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     look.outline,
     look.shadow,
     // ASS alignment 2 hangs the text from MarginV above the bottom, 8 from MarginV below the top.
-    caption.bottom === undefined ? 8 : 2,
-    Math.round(caption.left),
-    Math.round(caption.right),
-    Math.round(caption.bottom ?? caption.top),
+    place.bottom === undefined ? 8 : 2,
+    Math.round(place.left),
+    Math.round(place.right),
+    Math.round(place.bottom ?? place.top),
     1,
   ].join(",");
+  // A chunk in a segment's own box gets a style of that box (Caption2, Caption3, ...); the film's box stays `Caption`.
+  const styles = [toStyle("Caption", caption)];
+  const moved: CaptionLayout[] = [];
+  const styleNames = getCaptionChunkLayouts(chunks, input.edl, caption).map((place) => {
+    if (isSameCaptionPlace(place, caption)) return "Caption";
+    let index = moved.findIndex((other) => isSameCaptionPlace(other, place));
+    if (index === -1) {
+      index = moved.push(place) - 1;
+      styles.push(toStyle(`Caption${index + 2}`, place));
+    }
+    return `Caption${index + 2}`;
+  });
   const highlight = { text: text.replace(/^&H../, "&H"), highlight: toAssColor(colors.captionHighlight).replace(/^&H../, "&H") };
   const events = chunks.flatMap((chunk, index) => {
     const span = spans[index] as { start: number; end: number };
-    if (isHighlight) return buildHighlightEvents(chunk, span, highlight);
+    const styleName = styleNames[index] ?? "Caption";
+    if (isHighlight) return buildHighlightEvents(chunk, span, highlight, styleName);
     const line = toAssText(chunk.words.map((word) => word.text).join(" "));
-    return [`Dialogue: 0,${toAssTime(span.start)},${toAssTime(span.end)},Caption,,0,0,0,,${line}`];
+    return [`Dialogue: 0,${toAssTime(span.start)},${toAssTime(span.end)},${styleName},,0,0,0,,${line}`];
   });
   return [
     "[Script Info]",
@@ -209,7 +222,7 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    `Style: ${style}`,
+    ...styles.map((style) => `Style: ${style}`),
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",

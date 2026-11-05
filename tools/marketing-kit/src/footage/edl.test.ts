@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { TimedWord } from "../voice/voiceover.js";
-import { buildEdl, diffEdl, findEdlProblems, getEdlDuration, getEdlJsonSchema, getSegmentStarts, isFiller, normalizeWord, readEdl, remapWords, validateEdl, type Edl, type EdlClip, type EdlSegment } from "./edl.js";
+import { buildEdl, diffEdl, findEdlProblems, findSegmentAt, getEdlDuration, getEdlJsonSchema, getSegmentStarts, isFiller, normalizeWord, readEdl, remapWords, validateEdl, type Edl, type EdlClip, type EdlSegment } from "./edl.js";
 import { DEFAULT_FILLERS, DEFAULT_TRANSITIONS, type CutOptions } from "./film.js";
 
 const PL = DEFAULT_FILLERS.pl ?? [];
@@ -214,5 +214,49 @@ describe("EDL v2", () => {
     const schema = getEdlJsonSchema() as { properties: { version: { const: number } }; title: string };
     expect(schema.properties.version.const).toBe(2);
     expect(schema.title).toContain("edl.json");
+  });
+});
+
+describe("a segment's caption box", () => {
+  const base: Edl = {
+    version: 2,
+    film: "f",
+    segments: [
+      { id: "s1", clip: "talk", start: 0, end: 2, transition: "cut", motion: "none" },
+      { id: "s4", clip: "talk", start: 3, end: 5, transition: "cut", motion: "none" },
+    ],
+  };
+  const withCaption = (caption: EdlSegment["caption"]): Edl => ({ ...base, segments: [base.segments[0] as EdlSegment, { ...(base.segments[1] as EdlSegment), caption }] });
+  const bounds = { frameHeight: 1920, cardHeight: 108 };
+
+  it("is read from the file, and an EDL without it reads as before", () => {
+    const read = readEdl(withCaption({ bottom: 1150 }));
+    expect(read).toEqual({ ok: true, edl: withCaption({ bottom: 1150 }) });
+    expect(readEdl(base)).toEqual({ ok: true, edl: base });
+    expect(readEdl(withCaption({ left: 3 } as never))).toMatchObject({ ok: false });
+    expect(readEdl(withCaption({ bottom: -1 }))).toMatchObject({ ok: false, error: expect.stringContaining("segments.1.caption.bottom") as unknown });
+  });
+
+  it("is described in the EDL's JSON Schema", () => {
+    expect(JSON.stringify(getEdlJsonSchema())).toContain("Moves the caption box for the captions that start in this segment");
+  });
+
+  it("is refused when it leaves no room for a card in the frame", () => {
+    const clips = [{ id: "talk", duration: 10 }];
+    expect(validateEdl(withCaption({ bottom: 1812, top: 0 }), clips, "f", bounds)).toEqual([]);
+    expect(validateEdl(withCaption({ bottom: 1813 }), clips, "f", bounds)).toEqual(["segments[1].caption.bottom: 1813 px leaves no room for a caption card (at most 1812 px in a 1920 px frame)"]);
+    expect(validateEdl(withCaption({ top: 1900 }), clips, "f", bounds)).toEqual(["segments[1].caption.top: 1900 px leaves no room for a caption card (at most 1812 px in a 1920 px frame)"]);
+    expect(validateEdl(withCaption({ top: 1900 }), clips, "f")).toEqual([]);
+  });
+
+  it("is named by the diff, so a move of captions alone is a change", () => {
+    expect(diffEdl(base, withCaption({ bottom: 1150 }))).toEqual(["s4 captions moved"]);
+    expect(diffEdl(withCaption({ bottom: 1150 }), withCaption({ bottom: 900 }))).toEqual(["s4 captions moved"]);
+    expect(diffEdl(withCaption({ bottom: 1150 }), base)).toEqual(["s4 captions back in the film's box"]);
+    expect(diffEdl(base, withCaption({}))).toEqual([]);
+  });
+
+  it("finds the segment playing at a film time", () => {
+    expect([-1, 0, 1.99, 2, 3.5, 9].map((time) => findSegmentAt(base, time))).toEqual([0, 0, 0, 1, 1, 1]);
   });
 });

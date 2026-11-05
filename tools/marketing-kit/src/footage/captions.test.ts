@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { BrandFont } from "../config/config.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { CAPTION_SAFE_ZONES, findMissingCaptionGlyphs, getCaptionKeepsWithNext, getCaptionPresetLayout, getFootageCaptionChunks, phraseChunks } from "./captions.js";
+import { CAPTION_SAFE_ZONES, applySegmentCaption, findMissingCaptionGlyphs, getCaptionBounds, getCaptionChunkLayouts, getCaptionKeepsWithNext, getCaptionPresetLayout, getFootageCaptionChunks, getFootageCaptionLayout, getSegmentCaptionLayout, phraseChunks } from "./captions.js";
+import type { Edl } from "./edl.js";
 
 const w = (text: string, start: number): TimedWord => ({ text, start, end: start + 0.3 });
 
@@ -119,5 +120,38 @@ describe("findMissingCaptionGlyphs", () => {
   it("checks nothing without a brand font, or with a file it cannot read", () => {
     expect(findMissingCaptionGlyphs({ fonts: { heading: null, body: null }, captions: ["kůň"], endCard: null, brandName: "A" }, read)).toEqual([]);
     expect(findMissingCaptionGlyphs({ fonts: { heading: null, body: font("Body", "/f/broken.woff2") }, captions: ["kůň"], endCard: null, brandName: "A" }, read)).toEqual([]);
+  });
+});
+
+describe("segment caption boxes", () => {
+  const film = { format: "9:16" as const, captionPreset: "reels" as const };
+  const edl: Edl = {
+    version: 2,
+    film: "f",
+    segments: [
+      { id: "s1", clip: "a", start: 0, end: 2, transition: "cut", motion: "none" },
+      { id: "s2", clip: "a", start: 2, end: 4, transition: "cut", motion: "none", caption: { bottom: 1150 } },
+      { id: "s3", clip: "a", start: 4, end: 6, transition: "cut", motion: "none", caption: { top: 300 } },
+    ],
+  };
+  const base = getFootageCaptionLayout(film);
+
+  it("merges a segment's bottom over the film's box and keeps the film's box elsewhere", () => {
+    expect(getSegmentCaptionLayout(film, edl, 0)).toEqual(base);
+    expect(getSegmentCaptionLayout(film, edl, 1)).toEqual({ ...base, bottom: 1150 });
+  });
+
+  it("hangs a box from a segment's top alone, dropping the film's foot", () => {
+    expect(getSegmentCaptionLayout(film, edl, 2)).toEqual({ top: 300, left: base.left, right: base.right, fontSize: base.fontSize });
+    expect(applySegmentCaption(base, { top: 300, bottom: 500 })).toEqual({ ...base, top: 300, bottom: 500 });
+  });
+
+  it("gives each chunk the box of the segment its first word starts in, the cut's edge belonging to the later one", () => {
+    const layouts = getCaptionChunkLayouts([{ start: 0.5 }, { start: 1.9 }, { start: 2 }, { start: 5 }, { start: 9 }], edl, base);
+    expect(layouts.map((layout) => layout.bottom ?? `top ${layout.top}`)).toEqual([base.bottom, base.bottom, 1150, "top 300", "top 300"]);
+  });
+
+  it("bounds a box by the frame less one caption card", () => {
+    expect(getCaptionBounds(1920, { fontSize: 64 })).toEqual({ frameHeight: 1920, cardHeight: 108 });
   });
 });
