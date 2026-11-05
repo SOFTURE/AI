@@ -36,7 +36,7 @@ import {
   isUrl,
   type CacheEntry,
 } from "./paid.js";
-import { runFfmpeg, runProcess } from "./process.js";
+import { runFfmpeg, runProcess, withFfmpegFailureReporting, type FfmpegFailureHook, type FfmpegFailureReporting } from "./process.js";
 import { splitFilmSentences, type Sentence } from "./sentences.js";
 import {
   buildCoverArgs,
@@ -110,6 +110,12 @@ export interface FootageRunOptions {
    * the normalize stamp, so changing it does not normalize clips already made again.
    */
   normalize?: NormalizeEncoder;
+  /**
+   * Called when an ffmpeg step fails, before the run throws, with exactly what ran: the arguments, the folder, the
+   * whole stderr and the inputs (`FfmpegFailure`). A promise is awaited, so `writeFfmpegFailure` can keep it for a
+   * person to run again. Every failure also gets one `log` line with the step and its full command.
+   */
+  onFfmpegFailure?: FfmpegFailureHook;
 }
 
 export interface PreparedClip {
@@ -155,6 +161,11 @@ function createStageProgress(
   };
 }
 
+/** The ffmpeg failure reporting of a footage entry point: its `log` and its `onFfmpegFailure`. */
+export function getFfmpegReporting(options: Pick<FootageRunOptions, "log" | "onFfmpegFailure">): FfmpegFailureReporting {
+  return { log: options.log, ...(options.onFfmpegFailure === undefined ? {} : { onFailure: options.onFfmpegFailure }) };
+}
+
 /** Rejects with the signal's reason once the run was aborted (before a paid call, which the provider may not stop). */
 function throwIfAborted(signal: AbortSignal | undefined): void {
   signal?.throwIfAborted();
@@ -186,7 +197,12 @@ function getNormalizeStamp(clip: FootageClip, source: string, frame: Frame): str
 }
 
 /** Downloads URL clips, probes every clip (all problems at once) and a local music file, normalizes each clip that changed. */
-export async function prepareFootage(
+export function prepareFootage(film: FootageFilm, options: Pick<FootageRunOptions, "buildDir" | "log" | "fetch" | "signal" | "onProgress" | "normalize" | "onFfmpegFailure">): Promise<FootageResult<PreparedClip[]>> {
+  return withFfmpegFailureReporting(getFfmpegReporting(options), () => runPrepareFootage(film, options));
+}
+
+/** The body of `prepareFootage`, inside its ffmpeg failure reporting. */
+async function runPrepareFootage(
   film: FootageFilm,
   options: Pick<FootageRunOptions, "buildDir" | "log" | "fetch" | "signal" | "onProgress" | "normalize">,
 ): Promise<FootageResult<PreparedClip[]>> {
@@ -275,7 +291,12 @@ export function getMusicPaidStep(film: FootageFilm, options: Pick<FootageRunOpti
  * voice cleaned first when the film isolates it. Without `isCommit`, a cache miss returns the dry run: every paid
  * call the film still needs, music included, with its length.
  */
-export async function transcribeFootage(film: FootageFilm, clips: PreparedClip[], options: FootageRunOptions): Promise<FootageResult<TranscribeOutcome>> {
+export function transcribeFootage(film: FootageFilm, clips: PreparedClip[], options: FootageRunOptions): Promise<FootageResult<TranscribeOutcome>> {
+  return withFfmpegFailureReporting(getFfmpegReporting(options), () => runTranscribeFootage(film, clips, options));
+}
+
+/** The body of `transcribeFootage`, inside its ffmpeg failure reporting. */
+async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], options: FootageRunOptions): Promise<FootageResult<TranscribeOutcome>> {
   const { buildDir, providers, log, signal } = options;
   if (options.isPlaceholder) return ok(transcribePlaceholder(film, clips, buildDir));
   const keyTerms = getFilmKeyTerms(film);
@@ -402,6 +423,8 @@ export interface CutFootageFilmOptions {
   /** The sentence ids to keep; absent keeps all. */
   keepSentences?: readonly string[];
   signal?: AbortSignal;
+  /** Called when a cut frame's ffmpeg step fails, before the cut throws (`FootageRunOptions.onFfmpegFailure`). */
+  onFfmpegFailure?: FfmpegFailureHook;
 }
 
 /** The file next to the EDL that records what the auto transitions measured. */
@@ -412,7 +435,12 @@ export const CUTS_FILE = "cuts.json";
  * (`chooseCutTransitions`): each jump cut gets `zoom` or `fade`, and what it measured is answered and written to
  * `cuts.json` next to the EDL, so an app or an agent sees why. Otherwise the same as `cutFootage`, and `cuts` is empty.
  */
-export async function cutFootageFilm(
+export function cutFootageFilm(film: FootageFilm, clips: PreparedClip[], words: Record<string, TimedWord[]>, edlPath: string, options: CutFootageFilmOptions = {}): Promise<{ edl: Edl; cuts: CutMeasure[] }> {
+  return withFfmpegFailureReporting(options.onFfmpegFailure === undefined ? {} : { onFailure: options.onFfmpegFailure }, () => runCutFootageFilm(film, clips, words, edlPath, options));
+}
+
+/** The body of `cutFootageFilm`, inside its ffmpeg failure reporting. */
+async function runCutFootageFilm(
   film: FootageFilm,
   clips: PreparedClip[],
   words: Record<string, TimedWord[]>,
@@ -601,7 +629,12 @@ export type RenderedFootage = { kind: "dry-run"; steps: PaidStep[] } | ({ kind: 
  * hyperframes, final pass, cover. First of all it checks that hyperframes' temp folder and the build folder have the
  * 1 GiB free hyperframes requires, so a full disk ends the run with a sentence before anything is bought or built.
  */
-export async function renderFootage(
+export function renderFootage(film: FootageFilm, clips: PreparedClip[], transcript: Extract<TranscribeOutcome, { kind: "ready" }>, edl: Edl, options: RenderFootageOptions): Promise<FootageResult<RenderedFootage>> {
+  return withFfmpegFailureReporting(getFfmpegReporting(options), () => runRenderFootage(film, clips, transcript, edl, options));
+}
+
+/** The body of `renderFootage`, inside its ffmpeg failure reporting. */
+async function runRenderFootage(
   film: FootageFilm,
   clips: PreparedClip[],
   transcript: Extract<TranscribeOutcome, { kind: "ready" }>,
@@ -902,7 +935,12 @@ export interface RenderFootageFilmOptions extends RenderFootageOptions {
  * The whole footage film from a `FootageFilm` object, no `marketing.json` needed: prepare, transcribe (or the dry
  * run), cut (reusing an EDL already in the build folder unless `isRecut`), render.
  */
-export async function renderFootageFilm(film: FootageFilm, options: RenderFootageFilmOptions): Promise<FootageResult<RenderedFootage>> {
+export function renderFootageFilm(film: FootageFilm, options: RenderFootageFilmOptions): Promise<FootageResult<RenderedFootage>> {
+  return withFfmpegFailureReporting(getFfmpegReporting(options), () => runRenderFootageFilm(film, options));
+}
+
+/** The body of `renderFootageFilm`, inside its ffmpeg failure reporting. */
+async function runRenderFootageFilm(film: FootageFilm, options: RenderFootageFilmOptions): Promise<FootageResult<RenderedFootage>> {
   const clips = await prepareFootage(film, options);
   if (!clips.ok) return clips;
   const transcript = await transcribeFootage(film, clips.value, options);

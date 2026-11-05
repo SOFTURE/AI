@@ -834,6 +834,30 @@ const result = await renderFootageFilm(film, {
   a folder that is too small, and `renderFootage` checks both folders before anything is bought or built, ending with
   `not enough disk space to render: …` instead of hyperframes' exit code. `findLowDiskProblems` is the check on its
   own.
+- **When an ffmpeg step fails.** The thrown error names the step and the last five stderr lines. To keep the whole
+  failure, pass `onFfmpegFailure` to `renderFootageFilm`, `prepareFootage`, `transcribeFootage`, `renderFootage`,
+  `renderFootageDraft` or `cutFootageFilm`: it gets an `FfmpegFailure` (`step`, the exact `args` ffmpeg was spawned
+  with, the `cwd` it ran in, `code`, `signal`, the whole `stderr` and every `-i` input) before the step throws, and
+  a promise it returns is awaited. `writeFfmpegFailure(dir, failure, { signal })` writes it for a person to run again;
+  keep that folder with the job (and the build folder's `clips/` and `draft/`, which the command reads):
+
+  ```ts
+  const result = await renderFootageFilm(film, {
+    ...options,
+    onFfmpegFailure: (failure) => writeFfmpegFailure(join(jobDir, "ffmpeg-failure"), failure, { signal: job.signal }),
+  });
+  ```
+
+  | File | What it holds |
+  | --- | --- |
+  | `command.sh` | the command, run from the folder it ran in (`sh command.sh` fails the same way) |
+  | `filtergraph.txt` | the `-filter_complex` graph, one chain per line, read with `-/filter_complex` on ffmpeg 7.1+ and `-filter_complex_script` before it |
+  | `stderr.log` | the whole stderr |
+  | `inputs.json` | ffprobe's facts of every input (or why it cannot read one) |
+
+  With or without the hook, `log` gets one line: `ffmpeg failed: <step>, in <cwd>: ffmpeg <args>`, so an app that keeps
+  only its log still has the command. A direct `runFfmpeg` caller passes `onFailure`, or wraps the calls in
+  `withFfmpegFailureReporting({ onFailure, log }, run)`.
 - **A CPU-limited container.** hyperframes picks its capture workers from the host's cores, not the container's CPU
   quota: set `PRODUCER_MAX_WORKERS` to the quota. `HYPERFRAMES_EXTRACT_CACHE_MAX_MB` caps the extraction cache
   (default 2048).
