@@ -21,6 +21,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `findLoudnessProblems`, `formatDb`, `MIX_ATTEMPTS`, `MIX_ENCODE_HEADROOM`, `MIX_LOUDNESS_TOLERANCE`, `MixAttempt`,
   `MixLoudness`; `buildFinishArgs` takes `audioFile`. Nothing to change for an app; an app that tests the old log line
   ("normalized to -14 LUFS") reads the new one.
+- **The footage draft keeps no-break spaces in its captions (#1080):** a caption word joined with U+00A0 (a number and
+  its unit, a short word and the next) reaches the draft's ASS as the hard space `\h`, so libass never wraps a line
+  there, as the render's caption does not. Other white space still collapses to one space.
 
 ## 0.11.0
 
