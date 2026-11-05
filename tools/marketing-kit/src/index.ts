@@ -415,6 +415,7 @@ export {
   findLoudnessProblems,
   formatDb,
   getFirstMixAttempt,
+  getLimiterSlope,
   getLoudnessFilter,
   getMixFilter,
   getMixGain,
@@ -424,7 +425,10 @@ export {
   measureLoudness,
   MIX_ATTEMPTS,
   MIX_ENCODE_HEADROOM,
+  MIX_LIMITER_SLOPE,
+  MIX_LIMITER_SLOPE_MAX,
   MIX_LOUDNESS_TOLERANCE,
+  MIX_RETRY_EDGE_MARGIN,
   normalizeLoudness,
   readLoudnessMeasurement,
   type LoudnessMeasureOutcome,
@@ -434,6 +438,7 @@ export {
   type MixAttempt,
   type MixLoudness,
   type MixLoudnessTarget,
+  type MixTry,
 } from "./footage/loudness.js";
 export {
   buildCoverArgs,

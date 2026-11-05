@@ -706,8 +706,9 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. hyperframes' render then gets
   a final pass: the whole mix (speech, music, sound effects) is measured and brought to `mixLoudness` (default
   −14 LUFS, −1 dBTP) by one linear gain and a true peak limiter at 4x the film's rate, encoded to AAC on its own and
-  measured; while the codec's overshoot breaks the limit the limiter is lowered and the sound encoded again (at most 4
-  times). The finished file is measured too: true peak above the limit or integrated loudness outside the target ± 1 LU
+  measured; while the codec's overshoot breaks the limit or the mix misses the window the limiter is lowered, the gain
+  corrected for the loudness the limiter takes at the new ceiling (fitted from the encodes so far), and the sound encoded
+  again (at most 4 times). The finished file is measured too: true peak above the limit or integrated loudness outside the target ± 1 LU
   fails the run, naming both values, and `renderFootage`'s result carries the measurement as `loudness` (and the
   render's mix with the gain applied as `mix`). With `"mixLoudness": { "keep": "speech", "tolerance": 1 }` the mix gets
   no gain while it measures inside `target ± tolerance` and otherwise only the smallest gain to that window, so the
