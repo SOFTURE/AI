@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
-## Unreleased
+## 0.6.0
 
 - Request diagnostics (#1066): `createMcpEndpoint({ diagnostics })` (and so `createMcpRoute`), off by default. `true`
   logs one `console.info` line per request, a function receives each `McpRequestDiagnostic` instead: the JSON-RPC
