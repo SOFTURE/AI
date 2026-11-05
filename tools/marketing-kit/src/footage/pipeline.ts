@@ -20,7 +20,22 @@ import { makePlaceholderTranscript } from "./fake.js";
 import { chooseCutTransitions, type CutMeasure } from "./cuts.js";
 import { DEFAULT_AUTO_THRESHOLD, getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
 import { getFilmKeyTerms } from "./keyterms.js";
-import { DEFAULT_LOUDNESS, getLoudnessFilter, measureLoudness, normalizeLoudness } from "./loudness.js";
+import {
+  buildMixArgs,
+  DEFAULT_LOUDNESS,
+  findLoudnessProblems,
+  formatDb,
+  getFirstMixAttempt,
+  getMixFilter,
+  getNextMixAttempt,
+  measureLoudness,
+  MIX_ATTEMPTS,
+  normalizeLoudness,
+  type LoudnessMeasurement,
+  type LoudnessTarget,
+  type MixAttempt,
+  type MixLoudness,
+} from "./loudness.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
 import { FOOTAGE_FPS, normalizeFootage, type Frame, type NormalizeEncoder } from "./normalize.js";
 import { buildPictureConcatArgs, buildPictureList, buildPicturePieceArgs, getPictureFrames, planFootagePicture } from "./picture.js";
@@ -767,12 +782,16 @@ export interface FinishedFootage {
   durationSeconds: number;
   /** The cover JPG, or null when the film has none. */
   cover: string | null;
+  /** The finished file's sound as measured (EBU R128, true peak oversampled); null for a film without sound or a silent mix. */
+  loudness: MixLoudness | null;
 }
 
 /**
- * The final pass over hyperframes' render: the mix normalized to `film.mixLoudness` (measured on the render, one
- * linear gain; the picture still copied), publishable codecs and fast start (stream copy where the render already
- * matches), checked with ffprobe, then the cover and the file's facts. Exported for tests only.
+ * The final pass over hyperframes' render: the mix brought to `film.mixLoudness` (measured on the render; one linear
+ * gain and a true peak limiter, encoded to AAC on its own and measured, the limiter lowered and encoded again while
+ * the codec's overshoot breaks the limit), muxed with the picture (copied where the render already matches, so are
+ * publishable codecs and fast start), checked with ffprobe, the finished file's sound measured and held to the target,
+ * then the cover and the file's facts. Exported for tests only.
  */
 export async function finishFootage(
   film: Pick<FootageFilm, "mixLoudness" | "cover">,
@@ -786,25 +805,46 @@ export async function finishFootage(
   const rendered = await probeFilmFacts(input.renderFile, aborting);
   if (!rendered.ok) return err(`the rendered film: ${rendered.error}`);
   const mixLoudness = film.mixLoudness === undefined ? DEFAULT_LOUDNESS : film.mixLoudness;
-  let audioFilter: string | undefined;
+  let audioFile: string | undefined;
   if (mixLoudness !== null && rendered.facts.audio !== null) {
     const measured = await measureLoudness(input.renderFile, mixLoudness, { label: "the film's mix", ...aborting });
     if (measured.kind === "silent") {
       log("loudness: the film's mix is silent, left as it is.");
     } else {
-      audioFilter = getLoudnessFilter(measured.measurement, mixLoudness);
-      log(`loudness: the film's mix measured ${measured.measurement.inputI.toFixed(1)} LUFS, normalized to ${mixLoudness.target} LUFS (true peak ${mixLoudness.truePeak} dBTP).`);
+      audioFile = join(dirname(input.renderFile), "mix.m4a");
+      const mixed = await finishMix({ input: input.renderFile, output: audioFile, measurement: measured.measurement, target: mixLoudness, ...aborting });
+      if (!mixed.ok) {
+        rmSync(audioFile, { force: true });
+        return mixed;
+      }
+      const { attempt, tries } = mixed.value;
+      log(
+        `loudness: the film's mix measured ${formatDb(measured.measurement.inputI)} LUFS, true peak ${formatDb(measured.measurement.inputTp)} dBTP; ` +
+          `gain ${formatDb(attempt.gainDb)} dB, limiter at ${formatDb(attempt.ceilingDbtp)} dBTP (encode ${tries} of ${MIX_ATTEMPTS}).`,
+      );
     }
   }
   const isVideoCopied = isPublishableVideo(rendered.facts.video);
-  const isAudioCopied = audioFilter === undefined && (rendered.facts.audio === null || isPublishableAudio(rendered.facts.audio));
-  const finishArgs = buildFinishArgs(input.renderFile, rendered.facts, output, audioFilter === undefined ? {} : { audioFilter });
+  const isAudioCopied = audioFile === undefined && (rendered.facts.audio === null || isPublishableAudio(rendered.facts.audio));
+  const finishArgs = buildFinishArgs(input.renderFile, rendered.facts, output, audioFile === undefined ? {} : { audioFile });
   await runFfmpeg("The film's final pass", finishArgs, { ...aborting, output, onSeconds: (done) => progress(0, done) });
   rmSync(input.renderFile, { force: true });
+  if (audioFile !== undefined) rmSync(audioFile, { force: true });
   const finished = await probeFilmFacts(output, aborting);
   if (!finished.ok) return err(`the finished film: ${finished.error}`);
   const problems = findFinishProblems(finished.facts, readTopLevelBoxes(output));
   if (problems.length > 0) return err(`the finished film ${output} is not publishable: ${problems.join("; ")}.`);
+  let loudness: MixLoudness | null = null;
+  if (finished.facts.audio !== null) {
+    const measured = await measureLoudness(output, mixLoudness ?? DEFAULT_LOUDNESS, { label: "the finished film", ...aborting });
+    if (measured.kind === "measured") {
+      loudness = { integrated: measured.measurement.inputI, truePeak: measured.measurement.inputTp };
+      // A mix left as rendered (`mixLoudness: null`) or silent is reported, not held to a target it was not brought to.
+      const misses = mixLoudness === null || audioFile === undefined ? [] : findLoudnessProblems(loudness, mixLoudness);
+      if (misses.length > 0) return err(`the finished film ${output} measures ${describeMixLoudness(loudness)}: ${misses.join("; ")}.`);
+      log(`loudness: the finished film measures ${formatDb(loudness.integrated)} LUFS, true peak ${formatDb(loudness.truePeak)} dBTP.`);
+    }
+  }
   progress(0, input.seconds);
   const { bytes, width, height, durationSeconds } = finished.facts;
   const streams = isVideoCopied && isAudioCopied ? "streams copied" : isVideoCopied ? "picture copied, sound re-encoded" : "re-encoded";
@@ -817,7 +857,43 @@ export async function finishFootage(
     await runFfmpeg("The cover frame", buildCoverArgs(output, at, cover), { ...aborting, output: cover });
     log(`cover: ${cover} (at ${at} s).`);
   }
-  return ok({ bytes, width, height, durationSeconds, cover });
+  return ok({ bytes, width, height, durationSeconds, cover, loudness });
+}
+
+/**
+ * The mix's sound brought to `target` on its own: gain and limiter, encoded to AAC, measured; while the encoded file
+ * misses the target the gain and the ceiling are corrected and it is encoded again, at most `MIX_ATTEMPTS` times. An
+ * error names the last measurement.
+ */
+async function finishMix(input: {
+  input: string;
+  output: string;
+  measurement: LoudnessMeasurement;
+  target: LoudnessTarget;
+  signal?: AbortSignal;
+}): Promise<FootageResult<{ attempt: MixAttempt; tries: number; measured: MixLoudness }>> {
+  const aborting = input.signal === undefined ? {} : { signal: input.signal };
+  let attempt = getFirstMixAttempt(input.measurement, input.target);
+  let misses: string[] = [];
+  let measured: MixLoudness = { integrated: input.measurement.inputI, truePeak: input.measurement.inputTp };
+  for (let tries = 1; tries <= MIX_ATTEMPTS; tries += 1) {
+    await runFfmpeg("The film's mix", buildMixArgs({ input: input.input, filter: getMixFilter(attempt), output: input.output }), { ...aborting, output: input.output });
+    const encoded = await measureLoudness(input.output, input.target, { label: "the film's encoded mix", ...aborting });
+    if (encoded.kind === "silent") return err("the film's mix measures silent after its gain and limiter.");
+    measured = { integrated: encoded.measurement.inputI, truePeak: encoded.measurement.inputTp };
+    misses = findLoudnessProblems(measured, input.target);
+    if (misses.length === 0) return ok({ attempt, tries, measured });
+    if (tries < MIX_ATTEMPTS) attempt = getNextMixAttempt(attempt, measured, input.target);
+  }
+  return err(
+    `the film's mix still measures ${describeMixLoudness(measured)} after ${MIX_ATTEMPTS} encodes (last: gain ${formatDb(attempt.gainDb)} dB, ` +
+      `limiter at ${formatDb(attempt.ceilingDbtp)} dBTP): ${misses.join("; ")}.`,
+  );
+}
+
+/** Both measurements of a mix, as an error names them. */
+function describeMixLoudness(measured: MixLoudness): string {
+  return `${formatDb(measured.integrated)} LUFS integrated, ${formatDb(measured.truePeak)} dBTP true peak`;
 }
 
 /** hyperframes' progress lines carry a percentage (`… 42%`); the last one on a line counts. */

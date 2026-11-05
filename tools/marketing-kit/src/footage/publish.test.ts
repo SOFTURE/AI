@@ -198,3 +198,28 @@ describe("the cover", () => {
     expect(buildCoverArgs("/out/f.mp4", 2.5, "/out/f.jpg")).toEqual(["-v", "error", "-y", "-ss", "2.5", "-i", "/out/f.mp4", "-frames:v", "1", "-q:v", "2", "/out/f.jpg"]);
   });
 });
+
+describe("buildFinishArgs with the mix's finished sound (issue #1079)", () => {
+  it("takes the sound from the mix file, copied as it is, and keeps the picture from the render", () => {
+    expect(buildFinishArgs("/b/render.mp4", PUBLISHABLE, "/out/film.mp4", { audioFile: "/b/mix.m4a" })).toEqual([
+      "-v",
+      "error",
+      "-y",
+      "-i",
+      "/b/render.mp4",
+      "-i",
+      "/b/mix.m4a",
+      "-map",
+      "0:v:0",
+      "-c:v",
+      "copy",
+      "-map",
+      "1:a:0",
+      "-c:a",
+      "copy",
+      "-movflags",
+      "+faststart",
+      "/out/film.mp4",
+    ]);
+  });
+});

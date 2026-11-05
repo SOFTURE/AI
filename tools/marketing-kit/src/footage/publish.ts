@@ -15,7 +15,7 @@ import { runProcess } from "./process.js";
  */
 
 /** The audio bitrate of a re-encoded track. */
-const AUDIO_BITRATE = "192k";
+export const FINISHED_AUDIO_BITRATE = "192k";
 /** The quality of a re-encoded picture (x264's constant rate factor; 18 is visually lossless). */
 const VIDEO_CRF = 18;
 /** How far before the film's end the latest cover frame is taken, so a frame still exists there. */
@@ -105,23 +105,26 @@ export function isPublishableAudio(audio: NonNullable<FilmFacts["audio"]>): bool
 
 /**
  * The final pass: each stream that is already publishable is copied, the other re-encoded (the picture to H.264 High),
- * and the `moov` box moved to the front. A film without sound keeps none. `audioFilter` (the mix's loudness pass)
- * re-encodes the sound through it.
+ * and the `moov` box moved to the front. A film without sound keeps none. `audioFile` (the mix's finished sound, AAC
+ * encoded on its own) replaces the render's sound, copied as it is; `audioFilter` re-encodes the sound through it.
  */
-export function buildFinishArgs(input: string, facts: Pick<FilmFacts, "video" | "audio">, output: string, options: { audioFilter?: string } = {}): string[] {
+export function buildFinishArgs(input: string, facts: Pick<FilmFacts, "video" | "audio">, output: string, options: { audioFilter?: string; audioFile?: string } = {}): string[] {
   const video = isPublishableVideo(facts.video)
     ? ["-c:v", "copy"]
     : ["-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", String(VIDEO_CRF)];
-  const encodeAudio = ["-c:a", "aac", "-b:a", AUDIO_BITRATE, "-ar", String(FOOTAGE_SAMPLE_RATE), "-ac", "2"];
+  const encodeAudio = ["-c:a", "aac", "-b:a", FINISHED_AUDIO_BITRATE, "-ar", String(FOOTAGE_SAMPLE_RATE), "-ac", "2"];
+  const inputs = options.audioFile === undefined ? ["-i", input] : ["-i", input, "-i", options.audioFile];
   const audio =
     facts.audio === null
       ? []
-      : options.audioFilter !== undefined
-        ? ["-map", "0:a:0", "-af", options.audioFilter, ...encodeAudio]
-        : isPublishableAudio(facts.audio)
-          ? ["-map", "0:a:0", "-c:a", "copy"]
-          : ["-map", "0:a:0", ...encodeAudio];
-  return ["-v", "error", "-y", "-i", input, "-map", "0:v:0", ...video, ...audio, "-movflags", "+faststart", output];
+      : options.audioFile !== undefined
+        ? ["-map", "1:a:0", "-c:a", "copy"]
+        : options.audioFilter !== undefined
+          ? ["-map", "0:a:0", "-af", options.audioFilter, ...encodeAudio]
+          : isPublishableAudio(facts.audio)
+            ? ["-map", "0:a:0", "-c:a", "copy"]
+            : ["-map", "0:a:0", ...encodeAudio];
+  return ["-v", "error", "-y", ...inputs, "-map", "0:v:0", ...video, ...audio, "-movflags", "+faststart", output];
 }
 
 /** The types of an MP4's top-level boxes, in file order (`ftyp`, `moov`, `mdat`, …). */

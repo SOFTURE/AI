@@ -1,11 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { DEFAULT_LOUDNESS, readLoudnessMeasurement, type LoudnessMeasurement } from "./loudness.js";
+import { DEFAULT_LOUDNESS, readLoudnessMeasurement, type LoudnessMeasurement, type LoudnessTarget } from "./loudness.js";
 import { finishFootage } from "./pipeline.js";
 
 const hasFfmpeg = spawnSync("ffprobe", ["-version"]).status === 0 && spawnSync("ffmpeg", ["-version"]).status === 0;
@@ -78,7 +78,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
   const SPEECH_AND_MUSIC =
     "sine=f=220:d=6:r=48000,volume='if(lt(mod(t,2),1.4),0.06,0)':eval=frame[voice];anoisesrc=d=6:r=48000:a=0.01[bed];[voice][bed]amix=inputs=2,aformat=channel_layouts=stereo";
 
-  async function finish(renderFile: string, mixLoudness?: null) {
+  async function finish(renderFile: string, mixLoudness?: LoudnessTarget | null) {
     const output = join(dir, "film.mp4");
     const result = await finishFootage({ cover: null, ...(mixLoudness === undefined ? {} : { mixLoudness }) }, { renderFile, seconds: 6, coverAt: 0 }, { output, log: (line) => lines.push(line) });
     return { output, result };
@@ -94,7 +94,9 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(Math.abs(after.inputI - DEFAULT_LOUDNESS.target)).toBeLessThanOrEqual(1);
     expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
     expect(getCodecs(output)).toEqual(["h264", "aac"]);
-    expect(lines).toContain(`loudness: the film's mix measured ${before.toFixed(1)} LUFS, normalized to -14 LUFS (true peak -1 dBTP).`);
+    expect(lines.some((line) => line.startsWith(`loudness: the film's mix measured ${before.toFixed(1)} LUFS, true peak `))).toBe(true);
+    expect(result.ok && result.value.loudness).toEqual({ integrated: after.inputI, truePeak: after.inputTp });
+    expect(lines).toContain(`loudness: the finished film measures ${after.inputI.toFixed(1)} LUFS, true peak ${after.inputTp.toFixed(1)} dBTP.`);
     expect(lines.some((line) => line.startsWith("finish: picture copied, sound re-encoded"))).toBe(true);
   });
 
@@ -118,7 +120,45 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     const before = measure(renderFile).inputI;
     const { output, result } = await finish(renderFile, null);
     expect(result.ok).toBe(true);
-    expect(Math.abs(measure(output).inputI - before)).toBeLessThan(0.1);
-    expect(lines.some((line) => line.startsWith("loudness:"))).toBe(false);
+    const after = measure(output);
+    expect(Math.abs(after.inputI - before)).toBeLessThan(0.1);
+    expect(lines.some((line) => line.startsWith("loudness: the film's mix"))).toBe(false);
+    expect(result.ok && result.value.loudness).toEqual({ integrated: after.inputI, truePeak: after.inputTp });
+  });
+
+  /** The issue's fixture: pink noise "speech" in bursts over a percussive square wave "music" bed, both loud. */
+  function getLoudMusicMix(speech: number, music: number): string {
+    const beat = (phase: string): string => `${music}*sgn(sin(2*PI*55*t${phase}))*exp(-30*mod(t,0.25))`;
+    return (
+      `anoisesrc=d=6:c=pink:r=48000:a=${speech},volume='if(lt(mod(t,2),1.3),1,0.01)':eval=frame,aformat=channel_layouts=stereo[voice];` +
+      `aevalsrc='${beat("")}|${beat("+1")}':d=6:s=48000[music];[voice][music]amix=inputs=2:normalize=0`
+    );
+  }
+
+  it.each([
+    { speech: 0.3, music: 0.6 },
+    { speech: 0.6, music: 0.95 },
+    { speech: 0.05, music: 0.95 },
+  ])("keeps loud percussive music (speech $speech, music $music) at most -1 dBTP and -14 ±1 LUFS in the finished MP4 (issue #1079)", async ({ speech, music }) => {
+    const { output, result } = await finish(makeRender(getLoudMusicMix(speech, music)));
+    expect(result.ok).toBe(true);
+    const after = measure(output);
+    expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
+    expect(Math.abs(after.inputI - DEFAULT_LOUDNESS.target)).toBeLessThanOrEqual(1);
+    expect(getCodecs(output)).toEqual(["h264", "aac"]);
+    expect(result.ok && Math.abs(result.value.durationSeconds - 6)).toBeLessThan(0.1);
+  });
+
+  it("fails the render naming the measurement when no encode of the mix meets the target (issue #1079)", async () => {
+    // No mix is -5 LUFS loud with its true peak at -9 dBTP: every encode misses, whatever the limiter does.
+    const { output, result } = await finish(makeRender(getLoudMusicMix(0.6, 0.95)), { target: -5, truePeak: -9 });
+    expect(result.ok).toBe(false);
+    const error = result.ok ? "" : result.error;
+    expect(error).toMatch(
+      /^the film's mix still measures -?\d+\.\d LUFS integrated, [+-]?\d+\.\d dBTP true peak after 4 encodes \(last: gain [+-]?\d+\.\d dB, limiter at -\d+\.\d dBTP\): (.+; )?integrated -?\d+\.\d LUFS, outside -5\.0 ± 1 LUFS\.$/,
+    );
+    expect(existsSync(output)).toBe(false);
+    expect(existsSync(join(dir, "mix.m4a"))).toBe(false);
+    expect(lines.some((line) => line.startsWith("finish:"))).toBe(false);
   });
 });
