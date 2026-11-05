@@ -10,9 +10,12 @@ import {
   getFirstMixAttempt,
   getLoudnessFilter,
   getMixFilter,
+  getMixGain,
+  getMixTolerance,
   getNextMixAttempt,
   isSilent,
   MIX_ENCODE_HEADROOM,
+  MIX_LOUDNESS_TOLERANCE,
   readLoudnessMeasurement,
 } from "./loudness.js";
 
@@ -170,5 +173,40 @@ describe("the mix's last stage (issue #1079)", () => {
     expect(formatDb(-14)).toBe("-14.0");
     expect(formatDb(-0.04)).toBe("0.0");
     expect(formatDb(0.04)).toBe("0.0");
+  });
+});
+
+describe("the mix's gain that keeps the speech (issue #1085)", () => {
+  const KEEP = { target: -14, truePeak: -1, keep: "speech" as const };
+
+  it("applies no gain while the mix measures inside the target ± the tolerance, edges included", () => {
+    expect(getMixGain(-14.6, KEEP)).toBe(0);
+    expect(getMixGain(-13.3, KEEP)).toBe(0);
+    expect(getMixGain(-15, KEEP)).toBe(0);
+    expect(getMixGain(-13, KEEP)).toBe(0);
+    expect(getFirstMixAttempt({ inputI: -14.6 }, KEEP)).toEqual({ gainDb: 0, ceilingDbtp: -2 });
+  });
+
+  it("brings a mix outside the window to its nearest edge, aimed 0.2 LU inside", () => {
+    expect(getMixGain(-15.5, KEEP)).toBe(0.7);
+    expect(getMixGain(-11.5, KEEP)).toBe(-1.7);
+    expect(getMixGain(-17, { ...KEEP, tolerance: 2 })).toBe(1.2);
+    expect(getMixGain(-14.5, { ...KEEP, tolerance: 0.3 })).toBe(0.35);
+  });
+
+  it("keeps today's gain to the target without the option", () => {
+    expect(getMixGain(-14.6, { target: -14, truePeak: -1 })).toBe(0.6);
+    expect(getMixGain(-14.6, { target: -14, truePeak: -1, keep: "loudness" })).toBe(0.6);
+  });
+
+  it("retries without moving the gain while the encoded mix stays inside the window, lowering only the ceiling", () => {
+    expect(getNextMixAttempt({ gainDb: 0, ceilingDbtp: -2 }, { integrated: -14.7, truePeak: -0.4 }, KEEP)).toEqual({ gainDb: 0, ceilingDbtp: -2.9 });
+    expect(getNextMixAttempt({ gainDb: 0.7, ceilingDbtp: -2 }, { integrated: -15.1, truePeak: -1.5 }, KEEP)).toEqual({ gainDb: 1, ceilingDbtp: -2 });
+  });
+
+  it("holds the gate to the target's own tolerance", () => {
+    expect(getMixTolerance(KEEP)).toBe(MIX_LOUDNESS_TOLERANCE);
+    expect(findLoudnessProblems({ integrated: -15.5, truePeak: -1.2 }, { ...KEEP, tolerance: 2 })).toEqual([]);
+    expect(findLoudnessProblems({ integrated: -14.6, truePeak: -1.2 }, { ...KEEP, tolerance: 0.5 })).toEqual(["integrated -14.6 LUFS, outside -14.0 ± 0.5 LUFS"]);
   });
 });

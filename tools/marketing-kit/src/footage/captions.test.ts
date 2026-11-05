@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { BrandFont } from "../config/config.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { CAPTION_SAFE_ZONES, applySegmentCaption, findMissingCaptionGlyphs, getCaptionBounds, getCaptionChunkLayouts, getCaptionPresetLayout, getFootageCaptionLayout, getSegmentCaptionLayout, phraseChunks } from "./captions.js";
+import { CAPTION_SAFE_ZONES, applySegmentCaption, findMissingCaptionGlyphs, getCaptionBounds, getCaptionChunkLayouts, getCaptionKeepsWithNext, getCaptionPresetLayout, getFootageCaptionChunks, getFootageCaptionLayout, getSegmentCaptionLayout, phraseChunks } from "./captions.js";
 import type { Edl } from "./edl.js";
 
 const w = (text: string, start: number): TimedWord => ({ text, start, end: start + 0.3 });
@@ -19,8 +19,47 @@ describe("phraseChunks", () => {
     expect(phraseChunks([])).toEqual([]);
   });
 
+  it("ends a phrase on a kept word neither at a pause nor at six words", () => {
+    const keepsWithNext = (word: TimedWord) => word.text === "a";
+    const texts = (chunks: { words: TimedWord[] }[]) => chunks.map((chunk) => chunk.words.map((word) => word.text).join(" "));
+    expect(texts(phraseChunks([w("Buy", 0), w("a", 0.4), w("house.", 2)], { keepsWithNext }))).toEqual(["Buy a house."]);
+    expect(texts(phraseChunks([w("Buy", 0), w("a", 0.4), w("house.", 2)]))).toEqual(["Buy a", "house."]);
+    const six = ["p", "b", "c", "d", "e", "a", "f", "g."].map((text, index) => w(text, index * 0.4));
+    expect(texts(phraseChunks(six, { keepsWithNext }))).toEqual(["p b c d e", "a f g."]);
+    expect(texts(phraseChunks(six))).toEqual(["p b c d e a", "f g."]);
+  });
+
   it("times a phrase from its first word's start to its last word's end", () => {
     expect(phraseChunks([w("Hi", 1), w("there.", 1.4)])[0]).toMatchObject({ start: 1, end: 1.7 });
+  });
+});
+
+describe("getCaptionKeepsWithNext", () => {
+  const kept = (film: Parameters<typeof getCaptionKeepsWithNext>[0], texts: string[]) => texts.filter((text) => getCaptionKeepsWithNext(film)(w(text, 0)));
+
+  it("keeps the language's default words, in any case, and every number", () => {
+    expect(kept({ language: "pl" }, ["W", "z", "na", "dom", "50", "1,5", "2.000", "50,", "x50"])).toEqual(["W", "z", "na", "50", "1,5", "2.000"]);
+    expect(kept({ language: "en" }, ["The", "a", "an", "of", "7"])).toEqual(["The", "a", "an", "7"]);
+    expect(kept({ language: "de" }, ["der", "7"])).toEqual(["7"]);
+  });
+
+  it("keeps the film's own words instead of the default, numbers only for an empty list or no language", () => {
+    expect(kept({ language: "pl", captionKeepWithNext: ["Vom"] }, ["vom", "w", "3"])).toEqual(["vom", "3"]);
+    expect(kept({ language: "pl", captionKeepWithNext: [] }, ["w", "3"])).toEqual(["3"]);
+    expect(kept({}, ["a", "3"])).toEqual(["3"]);
+  });
+});
+
+describe("getFootageCaptionChunks", () => {
+  const words = ["one", "two", "three", "four", "five", "w", "six", "seven."].map((text, index) => w(text, index * 0.4));
+  const texts = (chunks: { words: TimedWord[] }[]) => chunks.map((chunk) => chunk.words.map((word) => word.text).join(" "));
+
+  it("cuts phrases or highlight chunks, keeping the film's kept words with the next, and nothing without captions", () => {
+    const film = { language: "pl", captions: true } as const;
+    expect(texts(getFootageCaptionChunks(film, words))).toEqual(["one two three four five", "w six seven."]);
+    expect(texts(getFootageCaptionChunks({ ...film, captionStyle: "highlight" }, words))).toEqual(["one two three four", "five w six seven."]);
+    expect(texts(getFootageCaptionChunks({ ...film, captionKeepWithNext: [] }, words))).toEqual(["one two three four five w", "six seven."]);
+    expect(getFootageCaptionChunks({ ...film, captions: false }, words)).toEqual([]);
   });
 });
 

@@ -165,6 +165,13 @@ describe("composeFootage", () => {
     expect(highlight).toContain("const captions = [[0.1],[0.6]];");
   });
 
+  it("never ends a highlight card on a word the film's language keeps with the next", () => {
+    const words = ["Here", "we", "live", "w", "Lodz."].map((text, index) => ({ text, start: index / 2, end: index / 2 + 0.3 }));
+    const highlight = composeFootage(input({ film: { ...film, captionStyle: "highlight" }, words }));
+    expect(highlight).toContain("const captions = [[0,0.5,1],[1.5,2]];");
+    expect(highlight).toContain('<p class="pill"><span id="cw1_0">w</span> <span id="cw1_1">Lodz.</span></p>');
+  });
+
   it("drops captions, music and the end card when the film has none", () => {
     const bare = composeFootage(input({ film: { ...film, captions: false, endCard: null }, assets: { ...input().assets, music: null } }));
     expect(bare).not.toContain('class="clip caption"');

@@ -16,6 +16,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   price the uncached ranges. `FootageCharge.range` and `FootageEstimateItem.range` name a range. New exports:
   `planSpeechRanges`, `getSpeechRangeWindows`, `getSpeechRangeCache`, `buildRangeAudioArgs`, `buildRangeLayArgs`,
   `DEFAULT_SPEECH_RANGE_MARGIN` and their types. Whole-clip `isolateVoice` works as before.
+- **The finished mix can keep the speech's level (#1085):** `mixLoudness.keep: "speech"` (`marketing.json` and
+  `FootageFilm.mixLoudness`, with `tolerance` in LU, default 1) applies **no gain** while the render's mix measures
+  inside `target ± tolerance`, and otherwise only the smallest gain to that window (aimed 0.2 LU inside its edge). The
+  speech, already at `loudness`, then keeps one level whatever the music volume, and a music volume step is heard as
+  set; before, the gain to the target followed the music and moved the speech by 0.1-0.6 dB between two music volumes.
+  The #1079 true peak limiter, encode, retries and gate run as before; the gate checks `target ± tolerance` (in both
+  modes; without `tolerance` it stays 1 LU). New `mix: { measured, gainDb, ceilingDbtp, keep } | null` on
+  `FinishedFootage` (so on `renderFootage`'s rendered result): the render's mix as measured and what the last stage
+  applied; the log line names the window (`gain 0.0 dB (speech kept: -14.0 ± 1 LUFS)`). Also exported: `getMixGain`,
+  `getMixTolerance`, `MixLoudnessTarget`, `FinishedMix`. Without the option nothing changes.
 - **An EDL segment can move the caption box for its own captions (#1077):** `EdlSegment.caption: { bottom?, top? }`
   (px of the film's frame, as `CaptionLayout`) is merged over the film's caption box for the captions that start in
   that segment; `bottom` anchors by the foot and wins, `top` alone hangs the box from that top. A chunk that spans a
@@ -43,6 +53,17 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - **The footage draft keeps no-break spaces in its captions (#1080):** a caption word joined with U+00A0 (a number and
   its unit, a short word and the next) reaches the draft's ASS as the hard space `\h`, so libass never wraps a line
   there, as the render's caption does not. Other white space still collapses to one space.
+- **A caption card never ends on a word that keeps with the next (#1081):** a footage film's cards, `phrase` and
+  `highlight` alike, in the render and the draft, no longer end on a one-letter word, a short preposition or a number
+  torn from its unit. The cards are cut in film time (`remapWords`), so the rule also holds where a cut falls between
+  the two words. A full card hands its kept tail to the next card (cards keep their word limit); a pause after a kept
+  word does not end a phrase; punctuation still ends a card. The words come from the film's `captionKeepWithNext`
+  (compared lower-case; `[]` keeps numbers only), else the language's `DEFAULT_CAPTION_KEEP_WITH_NEXT` (`pl`: `a i o u
+  w z we ze na do od po za ku`, `en`: `a an the`); a number always keeps with the next word. `captionChunks(words,
+  { maxWords, keepsWithNext })` and `phraseChunks(words, { keepsWithNext })` take the predicate (a number still means
+  `maxWords`); screen films are unchanged. New exports: `CaptionChunkOptions`, `PhraseChunkOptions`,
+  `CaptionWordsFilm`, `DEFAULT_CAPTION_KEEP_WITH_NEXT`, `getCaptionKeepsWithNext`, `getFootageCaptionChunks`,
+  `splitAfterKept`. A Polish film's cards change where they ended on one of the default words.
 
 ## 0.11.0
 

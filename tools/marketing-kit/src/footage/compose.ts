@@ -2,9 +2,9 @@ import type { BrandColors } from "../config/colors.js";
 import type { SfxEvent } from "../config/schema.js";
 import type { ComposeFont } from "../compose/compose.js";
 import { escapeHtml, fontFaces, fontStack } from "../compose/html.js";
-import { CAPTION_LINE_HEIGHT, captionChunks, getCaptionPillCss, getCaptionPositionCss, type CaptionLayout } from "../compose/timeline.js";
+import { CAPTION_LINE_HEIGHT, getCaptionPillCss, getCaptionPositionCss, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { getCaptionChunkLayouts, getCaptionSpans, isSameCaptionPlace, phraseChunks, type CaptionSpan } from "./captions.js";
+import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, type CaptionSpan } from "./captions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
 import { CAPTION_MIN_FONT_SCALE, DEFAULT_EDIT, getFootageEdit, type FootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS } from "./normalize.js";
@@ -142,7 +142,7 @@ export function composeFootage(input: FootageComposeInput): string {
 
   // --- Captions: plain phrases, or the pill that lights each word ---
   const isHighlight = film.captionStyle === "highlight";
-  const caption = !film.captions ? [] : isHighlight ? captionChunks(words) : phraseChunks(words);
+  const caption = getFootageCaptionChunks(film, words);
   const spans = getCaptionSpans(caption, cutEnd);
   const boxes = getCaptionChunkLayouts(caption, edl, captionBox);
   const captionHtml = caption
