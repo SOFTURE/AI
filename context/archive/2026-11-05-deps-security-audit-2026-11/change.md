@@ -1,12 +1,13 @@
 ---
 change_id: deps-security-audit-2026-11
 title: "deps: patch the vulnerable dependencies npm audit reports on master (next RCE, zod, markdown-it, vite, undici, happy-dom, fflate, minimatch)"
-status: active
+status: archived
 roadmap_item: null
 issue: 1101
 branch: claude/project-thread-bj5w5w
 created: 2026-11-05
 updated: 2026-11-05
+archived_at: 2026-11-05
 ---
 
 ## Intent
@@ -46,3 +47,10 @@ Files: `package.json`, `package-lock.json`, `examples/next-app/package.json`, `e
 ## Notes
 
 - Framing: skipped. The issue names the outcome (an audit with no fixable findings).
+
+## Done
+
+- `npm audit` reports 0 vulnerabilities on the branch (root and `examples/next-app`), commit 9f53ebe.
+- `@softure-ai/blog` and `@softure-ai/analytics` carry `## Unreleased` entries and ride the next combined release.
+- Residual outside this repository: an app installing `@softure-ai/marketing-kit` still gets satori's exact
+  `fflate` 0.7.3 (moderate) until satori lifts its pin.
