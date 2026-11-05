@@ -19,6 +19,8 @@ export interface ProviderChunk {
   readonly prompt?: string;
   /** The time limit of this request. */
   readonly timeoutMs: number;
+  /** The caller's signal: an abort cancels the request and ends it as `speech.aborted`. */
+  readonly signal?: AbortSignal;
 }
 
 /** A provider's transcript of one chunk; times are relative to the chunk. */
@@ -89,6 +91,7 @@ export function openAiCompatibleProvider(options: OpenAiCompatibleProviderOption
   const isJsonOnly = JSON_ONLY_MODEL.test(options.model);
 
   async function transcribeChunk(chunk: ProviderChunk): Promise<Ok<ProviderTranscript> | SpeechFailure> {
+    if (isAborted(chunk.signal)) return { ok: false, error: "speech.aborted" };
     const form = new FormData();
     // A copy into a plain ArrayBuffer: `Blob` takes no view over a shared buffer.
     form.append("file", new Blob([new Uint8Array(chunk.bytes)], { type: chunk.mimeType }), chunk.fileName);
@@ -107,7 +110,9 @@ export function openAiCompatibleProvider(options: OpenAiCompatibleProviderOption
     const fetchFunction = options.fetch ?? globalThis.fetch;
     const trackedFetch: FetchFunction = (input, init) => {
       signal = init.signal;
-      return fetchFunction(input, init);
+      // core's request takes only a time limit; the caller's signal joins it here.
+      if (chunk.signal === undefined || init.signal == null) return fetchFunction(input, init);
+      return fetchFunction(input, { ...init, signal: AbortSignal.any([init.signal, chunk.signal]) });
     };
 
     const answer = await requestJson({
@@ -119,7 +124,10 @@ export function openAiCompatibleProvider(options: OpenAiCompatibleProviderOption
       timeoutMs: chunk.timeoutMs,
       fetch: trackedFetch,
     });
-    if (!answer.ok) return toSpeechFailure(answer, signal?.aborted === true);
+    if (!answer.ok) {
+      if (isAborted(chunk.signal)) return { ok: false, error: "speech.aborted" };
+      return toSpeechFailure(answer, signal?.aborted === true);
+    }
     // A write answered with an empty body: nothing to read.
     if (answer.value === undefined) return { ok: false, error: "speech.unavailable" };
     const { text, language, segments } = answer.value;
@@ -185,4 +193,9 @@ function trimTrailingSlashes(url: string): string {
   let end = url.length;
   while (end > 0 && url[end - 1] === "/") end -= 1;
   return url.slice(0, end);
+}
+
+/** A function, not an inline check: TypeScript would keep `aborted` narrowed to `false` across an await. */
+function isAborted(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted === true;
 }

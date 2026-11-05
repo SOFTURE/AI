@@ -131,6 +131,42 @@ describe("openAiCompatibleProvider", () => {
     expect(await provider.transcribeChunk({ ...chunk, timeoutMs: 20 })).toEqual({ ok: false, error: "speech.timeout" });
   });
 
+  it("cancels the request in flight when the chunk's signal aborts, as speech.aborted", async () => {
+    const controller = new AbortController();
+    let seen: AbortSignal | null | undefined;
+    const hang: FetchFunction = (_input, init) =>
+      new Promise((_resolve, reject) => {
+        seen = init.signal;
+        init.signal?.addEventListener("abort", () => reject(init.signal?.reason as Error), { once: true });
+        controller.abort();
+      });
+    const provider = openAiCompatibleProvider({ name: "o", baseUrl: "https://x.test/v1", model: "m", fetch: hang });
+
+    expect(await provider.transcribeChunk({ ...chunk, signal: controller.signal })).toEqual({ ok: false, error: "speech.aborted" });
+    expect(seen?.aborted).toBe(true);
+  });
+
+  it("sends nothing when the chunk's signal is already aborted", async () => {
+    const { fetch, sent } = answering(() => Response.json({ text: "x" }));
+    const provider = openAiCompatibleProvider({ name: "o", baseUrl: "https://x.test/v1", model: "m", fetch });
+
+    expect(await provider.transcribeChunk({ ...chunk, signal: AbortSignal.abort() })).toEqual({ ok: false, error: "speech.aborted" });
+    expect(sent).toEqual([]);
+  });
+
+  it("still maps the time limit to speech.timeout when the chunk has a signal that did not abort", async () => {
+    const hang: FetchFunction = (_input, init) =>
+      new Promise((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(init.signal?.reason as Error), { once: true });
+      });
+    const provider = openAiCompatibleProvider({ name: "o", baseUrl: "https://x.test/v1", model: "m", fetch: hang });
+
+    expect(await provider.transcribeChunk({ ...chunk, timeoutMs: 20, signal: new AbortController().signal })).toEqual({
+      ok: false,
+      error: "speech.timeout",
+    });
+  });
+
   it("refuses an empty model and a non-positive upload limit", () => {
     expect(() => openAiCompatibleProvider({ name: "o", baseUrl: "https://x.test", model: " " })).toThrow(RangeError);
     expect(() => openAiCompatibleProvider({ name: "o", baseUrl: "https://x.test", model: "m", maxUploadBytes: 0 })).toThrow(

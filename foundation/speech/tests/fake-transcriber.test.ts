@@ -39,4 +39,12 @@ describe("fakeTranscriber", () => {
     expect(await transcriber.transcribe(request)).toEqual({ ok: false, error: "speech.unsupported_format" });
     expect(transcriber.calls).toHaveLength(4);
   });
+
+  it("answers speech.aborted to a request whose signal is aborted, and records it", async () => {
+    const transcriber = fakeTranscriber();
+    const aborted = { ...request, signal: AbortSignal.abort() };
+
+    expect(await transcriber.transcribe(aborted)).toEqual({ ok: false, error: "speech.aborted" });
+    expect(transcriber.calls).toEqual([aborted]);
+  });
 });

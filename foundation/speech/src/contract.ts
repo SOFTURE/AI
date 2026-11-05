@@ -9,6 +9,7 @@ export const SPEECH_ERROR_CODES = [
   "speech.rate_limited",
   "speech.timeout",
   "speech.unavailable",
+  "speech.aborted",
 ] as const;
 
 /**
@@ -17,7 +18,8 @@ export const SPEECH_ERROR_CODES = [
  * - `speech.provider_refused`: the provider refused the request (a wrong key, a model it does not serve);
  * - `speech.rate_limited`: the provider asked to slow down; `retryAfterSeconds` says when to try again, when it said;
  * - `speech.timeout`: a provider request ran past `timeoutMs`;
- * - `speech.unavailable`: the provider failed (network, HTTP 5xx, an answer that could not be read, a missing key).
+ * - `speech.unavailable`: the provider failed (network, HTTP 5xx, an answer that could not be read, a missing key);
+ * - `speech.aborted`: the request's `signal` aborted; nothing more was uploaded after it.
  */
 export type SpeechErrorCode = (typeof SPEECH_ERROR_CODES)[number];
 

@@ -40,6 +40,11 @@ export interface TranscribeRequest {
   readonly purpose: string;
   /** Passed to `onUsage` as given (e.g. `{ accountId }`). */
   readonly attributes?: Readonly<Record<string, string>>;
+  /**
+   * Stops the call (e.g. a job's `context.signal`): checked before and after normalization and before each chunk, and
+   * passed to the provider request in flight. The call then returns `speech.aborted`.
+   */
+  readonly signal?: AbortSignal;
 }
 
 export interface Transcriber {
@@ -69,6 +74,7 @@ export function createTranscriber(options: TranscriberOptions): Transcriber {
 
   async function transcribe(request: TranscribeRequest): Promise<Ok<Transcript> | SpeechFailure> {
     if (request.purpose.trim() === "") throw new RangeError("transcribe: purpose must not be empty");
+    if (isAborted(request.signal)) return refuse("speech.aborted");
     const startedAt = clock.now();
     normalizer ??= createFfmpegNormalizer();
     const normalized = await normalizer.normalize(request.input, { maxDurationSeconds, chunkSeconds, overlapSeconds });
@@ -77,6 +83,8 @@ export function createTranscriber(options: TranscriberOptions): Transcriber {
     const audio = normalized.value;
     let outcome: Awaited<ReturnType<typeof transcribeChunks>>;
     try {
+      // ffmpeg's decode is not interrupted; nothing is uploaded once the signal has aborted.
+      if (isAborted(request.signal)) return refuse("speech.aborted");
       outcome = await transcribeChunks(audio, request);
     } finally {
       await audio.dispose();
@@ -127,6 +135,7 @@ export function createTranscriber(options: TranscriberOptions): Transcriber {
     const done = (failure: SpeechFailure | null) => ({ chunks, billedSeconds, language, failure });
 
     for (const chunk of audio.chunks) {
+      if (isAborted(request.signal)) return done(refuse("speech.aborted"));
       const file = await chunk.read();
       if (file.bytes.byteLength > provider.maxUploadBytes) return done(refuse("speech.too_long"));
       const answer = await provider.transcribeChunk({
@@ -134,8 +143,10 @@ export function createTranscriber(options: TranscriberOptions): Transcriber {
         timeoutMs,
         ...(request.language === undefined ? {} : { language: request.language }),
         ...(request.prompt === undefined ? {} : { prompt: request.prompt }),
+        ...(request.signal === undefined ? {} : { signal: request.signal }),
       });
-      if (!answer.ok) return done(answer);
+      // An app's provider may not know the signal: whatever it answered after the abort, the call was aborted.
+      if (!answer.ok) return done(isAborted(request.signal) ? refuse("speech.aborted") : answer);
       billedSeconds += chunk.end - chunk.start;
       language ??= answer.value.language;
       chunks.push({ start: chunk.start, end: chunk.end, text: answer.value.text, segments: answer.value.segments });
@@ -158,4 +169,9 @@ function refuse(code: Exclude<SpeechErrorCode, "speech.rate_limited">): SpeechFa
 
 function assertPositive(value: number, name: string): void {
   if (!Number.isFinite(value) || value <= 0) throw new RangeError(`createTranscriber: ${name} must be a positive number`);
+}
+
+/** A function, not an inline check: TypeScript would keep `aborted` narrowed to `false` across an await. */
+function isAborted(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted === true;
 }

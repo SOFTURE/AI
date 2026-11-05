@@ -170,6 +170,96 @@ describe("createTranscriber", () => {
     expect(normalizer.disposed).toBe(1);
   });
 
+  it("returns speech.aborted before normalizing when the signal is already aborted", async () => {
+    const records: SpeechUsageRecord[] = [];
+    let normalized = 0;
+    const normalizer = fakeNormalizer(5);
+    const provider = fakeProvider([{ text: "x", language: null, segments: [] }]);
+    const transcriber = createTranscriber({
+      provider,
+      normalizer: { normalize: (...args) => ((normalized += 1), normalizer.normalize(...args)) },
+      onUsage: (record) => void records.push(record),
+    });
+
+    expect(await transcriber.transcribe({ ...request, signal: AbortSignal.abort() })).toEqual({ ok: false, error: "speech.aborted" });
+    expect(normalized).toBe(0);
+    expect(provider.chunks).toEqual([]);
+    expect(records).toEqual([]);
+  });
+
+  it("returns speech.aborted after normalizing, before any upload, and removes the temporary files", async () => {
+    const controller = new AbortController();
+    const normalizer = fakeNormalizer(5);
+    const provider = fakeProvider([{ text: "x", language: null, segments: [] }]);
+    const transcriber = createTranscriber({
+      provider,
+      normalizer: {
+        normalize: async (...args) => {
+          const result = await normalizer.normalize(...args);
+          controller.abort();
+          return result;
+        },
+      },
+    });
+
+    expect(await transcriber.transcribe({ ...request, signal: controller.signal })).toEqual({ ok: false, error: "speech.aborted" });
+    expect(provider.chunks).toEqual([]);
+    expect(normalizer.disposed).toBe(1);
+  });
+
+  it("stops between chunks when the signal aborts and reports the seconds already sent as speech.aborted", async () => {
+    const records: SpeechUsageRecord[] = [];
+    const controller = new AbortController();
+    const normalizer = fakeNormalizer(25);
+    const provider = fakeProvider([{ text: "a", language: null, segments: [] }]);
+    const answer = (chunk: ProviderChunk) => provider.transcribeChunk(chunk);
+    const transcriber = createTranscriber({
+      provider: {
+        ...provider,
+        transcribeChunk: async (chunk) => {
+          const result = await answer(chunk);
+          controller.abort();
+          return result;
+        },
+      },
+      normalizer,
+      onUsage: (record) => void records.push(record),
+      ...OPTIONS,
+    });
+
+    expect(await transcriber.transcribe({ ...request, signal: controller.signal })).toEqual({ ok: false, error: "speech.aborted" });
+    expect(provider.chunks).toHaveLength(1);
+    expect(records.map(({ seconds, outcome }) => ({ seconds, outcome }))).toEqual([{ seconds: 10, outcome: "speech.aborted" }]);
+    expect(normalizer.disposed).toBe(1);
+  });
+
+  it("passes the signal to each provider request and reports a failure during an abort as speech.aborted", async () => {
+    const records: SpeechUsageRecord[] = [];
+    const controller = new AbortController();
+    const chunks: ProviderChunk[] = [];
+    const provider: SpeechProvider = {
+      ...fakeProvider([]),
+      transcribeChunk: (chunk) => {
+        chunks.push(chunk);
+        controller.abort();
+        return Promise.resolve({ ok: false, error: "speech.unavailable" });
+      },
+    };
+    const transcriber = createTranscriber({ provider, normalizer: fakeNormalizer(5), onUsage: (record) => void records.push(record) });
+
+    expect(await transcriber.transcribe({ ...request, signal: controller.signal })).toEqual({ ok: false, error: "speech.aborted" });
+    expect(chunks.map((chunk) => chunk.signal)).toEqual([controller.signal]);
+    expect(records).toEqual([]);
+  });
+
+  it("sends no signal to the provider when the request has none", async () => {
+    const provider = fakeProvider([{ text: "x", language: null, segments: [] }]);
+    await createTranscriber({ provider, normalizer: fakeNormalizer(5) }).transcribe(request);
+
+    expect(provider.chunks).toHaveLength(1);
+    expect("signal" in provider.chunks[0]!).toBe(false);
+  });
+
   it("reports no usage when nothing was transcribed", async () => {
     const records: SpeechUsageRecord[] = [];
     const transcriber = createTranscriber({

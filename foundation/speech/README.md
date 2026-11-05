@@ -58,14 +58,15 @@ const { text, segments, language, durationSeconds, costUsd } = result.value;
 const subtitles = toSrt(segments);
 ```
 
-In a job handler, a rate limit becomes a retry at the time the provider named:
+In a job handler, the job's `signal` stops the transcription when the job is cancelled or taken away, and a rate limit
+becomes a retry at the time the provider named:
 
 ```ts
 "media.transcribe": defineJobHandler({
   payload: z.object({ fileId: z.string() }),
-  run: async ({ fileId }, { db }) => {
+  run: async ({ fileId }, { db, signal }) => {
     const file = await findFile(db, fileId);
-    const result = await transcriber.transcribe({ input: { kind: "file", path: file.path }, purpose: "clip-subtitles" });
+    const result = await transcriber.transcribe({ input: { kind: "file", path: file.path }, purpose: "clip-subtitles", signal });
     if (!result.ok && result.error === "speech.rate_limited") return retryJobLater(result.error, result.retryAfterSeconds ?? 60);
     if (!result.ok && (result.error === "speech.too_long" || result.error === "speech.unsupported_format")) return failJob(result.error);
     if (!result.ok) return result; // retried with the queue's backoff
@@ -92,6 +93,13 @@ In a job handler, a rate limit becomes a retry at the time the provider named:
 Invalid options throw a `RangeError` naming the option. A request needs a non-empty `purpose`.
 
 ### `transcribe(request)` → `Result<Transcript>`
+
+The request: `input` (`{ kind: "file", path }` or `{ kind: "bytes", bytes, fileName? }`), `purpose`, and optionally
+`language`, `prompt`, `attributes` and `signal`. An aborted `signal` stops the call before normalization, right after
+it (ffmpeg's decode itself runs to its end, bounded by `maxDurationSeconds`), before each chunk, and cancels the
+provider request in flight; the call returns `speech.aborted`, and `onUsage` reports the chunks already answered.
+
+The transcript:
 
 | Field | Meaning |
 | --- | --- |
@@ -120,6 +128,7 @@ transcription models) gives one segment per chunk.
 | `speech.rate_limited` | HTTP 429; `retryAfterSeconds` holds the provider's `Retry-After` or `null` | after `retryAfterSeconds` |
 | `speech.timeout` | a provider request ran past `timeoutMs` | yes |
 | `speech.unavailable` | network failure, HTTP 5xx, an answer that could not be read, or a missing API key | yes |
+| `speech.aborted` | the request's `signal` aborted | no, the caller stopped it |
 
 A missing ffmpeg binary is a broken installation, not an input problem: `transcribe` throws an error naming the path.
 
@@ -180,7 +189,8 @@ await importRecipe({ transcriber }); // first call: the transcript; second and l
 expect(transcriber.calls[0]?.purpose).toBe("recipe-import");
 ```
 
-A `transcript` answer without `segments` gets one segment of `durationSeconds` (2) with `text` ("Fake transcript.");
+A request whose `signal` is already aborted gets `speech.aborted` (and is still recorded in `calls`). A `transcript`
+answer without `segments` gets one segment of `durationSeconds` (2) with `text` ("Fake transcript.");
 the last answer repeats, and without answers every call gets the default transcript. For code that builds its own
 transcriber, `createTranscriber` takes a `normalizer` and a provider with a `fetch`, so a test needs neither ffmpeg nor
 the network.
