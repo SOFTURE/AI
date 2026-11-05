@@ -235,12 +235,16 @@ on a wide screen the left `Sidebar` (offcanvas) is folded, and opening the sideb
 
 - `AsidePanelToggle`: one icon button fixed at the top-right edge, in the same place open or closed, with
   `aria-expanded`, `aria-controls` and a label that switches between show and hide; `outline` while closed,
-  `secondary` while open. Opening from it moves focus to the panel's heading (`tabIndex=-1`).
+  `secondary` while open. Opening from it moves focus to the panel's heading (`tabIndex=-1`). `icon` (a
+  `LucideIcon`) replaces the panel icons in both states, for a panel that holds one tool its users know by its icon.
+  The toggle, the width switch and the sidebar opener show their label as a hover hint (`title`) too.
 - `AsidePanel title`: an `aside` (`sticky top-0 h-dvh`, `border-l`) with a header holding the heading and a ghost
   width switch: `standard` (two fifths) or `half` (the shell split half and half). Escape closes it and returns focus
   to the toggle unless a dialog, menu, listbox or popover is open (`isOverlayOpen(document)`: Radix
   `data-state="open"`, `:popover-open` or `dialog[open]`; a closed popover left in the page does not count).
-  Below `MOBILE_BREAKPOINT` it is a right `Sheet`, opened for that page only: the kept state never opens it there.
+  Below `MOBILE_BREAKPOINT` it is a right `Sheet`, opened for that page only: the kept state never opens it there;
+  `description` adds one line under the sheet's title (its `aria-describedby`). The `aside` carries `max-md:hidden`,
+  so a phone served the wide-screen HTML (the server cannot tell the width) never paints it before hydration.
   Its children render only while it is open, so pass a lazily loaded body (`next/dynamic` with `ssr: false`) and
   screens that never open it never load its code.
 - `AsidePanelSidebarOpener`: an icon button fixed at the top-left edge, shown only while the sidebar is folded on a
@@ -257,7 +261,7 @@ const MapPanel = dynamic(() => import("./map-panel"), { ssr: false });
   <AppSidebar />
   <SidebarInset>
     <AsidePanelSidebarOpener />
-    <AsidePanelToggle />
+    <AsidePanelToggle icon={MapIcon} />
     {children}
   </SidebarInset>
   <AsidePanel title="Map">
