@@ -78,6 +78,10 @@ other work in the queue, with one shortcut:
 - Dependabot pull requests run without the repository's Actions secrets, so the Stripe sandbox tests skip there,
   as they do on a fork.
 
+Open security alerts reach the queue as issues labelled `security` (`.github/workflows/security-alerts.yml`, hourly
+at :17). They are worked like any other issue; the workflow closes them when the alert is fixed or dismissed, so a
+thread does not close one by hand. A false positive is said in the issue, and the owner dismisses the alert.
+
 <!-- softure-skills:begin (managed by @softure-ai/skills, do not edit) -->
 # SOFTURE workflow and conventions
 
