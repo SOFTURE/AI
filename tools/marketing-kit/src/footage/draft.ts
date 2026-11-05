@@ -13,8 +13,8 @@ import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js
 import { getFootageEdit, type FootageFilm } from "./film.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
 import { FOOTAGE_FPS, getThreadArgs, type Frame } from "./normalize.js";
-import { findFootageMusic, getFrame, type FootageBrand, type FootageResult, type FootageRunOptions, type PreparedClip, type TranscribeOutcome } from "./pipeline.js";
-import { runFfmpeg } from "./process.js";
+import { findFootageMusic, getFfmpegReporting, getFrame, type FootageBrand, type FootageResult, type FootageRunOptions, type PreparedClip, type TranscribeOutcome } from "./pipeline.js";
+import { runFfmpeg, withFfmpegFailureReporting } from "./process.js";
 import { buildMusicArgs, buildSpeechArgs, getSpeechCutOptions } from "./render.js";
 
 /**
@@ -394,7 +394,7 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
   ];
 }
 
-export interface RenderFootageDraftOptions extends Pick<FootageRunOptions, "buildDir" | "log" | "signal" | "onProgress">, Partial<Pick<FootageRunOptions, "cacheDir" | "providers">> {
+export interface RenderFootageDraftOptions extends Pick<FootageRunOptions, "buildDir" | "log" | "signal" | "onProgress" | "onFfmpegFailure">, Partial<Pick<FootageRunOptions, "cacheDir" | "providers">> {
   /** The draft MP4. */
   output: string;
   /** The draft's width; default 540 (540×960 for a 9:16 film). */
@@ -458,7 +458,12 @@ async function findDraftMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[]
  * and its font in `<buildDir>/draft/`, then one ffmpeg run (`buildFootageDraftArgs`). Spends nothing: no provider is
  * called; takes the same clips, transcript and EDL as `renderFootage`.
  */
-export async function renderFootageDraft(
+export function renderFootageDraft(film: FootageFilm, clips: PreparedClip[], transcript: Extract<TranscribeOutcome, { kind: "ready" }>, edl: Edl, options: RenderFootageDraftOptions): Promise<FootageResult<FootageDraft>> {
+  return withFfmpegFailureReporting(getFfmpegReporting(options), () => runRenderFootageDraft(film, clips, transcript, edl, options));
+}
+
+/** The body of `renderFootageDraft`, inside its ffmpeg failure reporting. */
+async function runRenderFootageDraft(
   film: FootageFilm,
   clips: PreparedClip[],
   transcript: Extract<TranscribeOutcome, { kind: "ready" }>,
