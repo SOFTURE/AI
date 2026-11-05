@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **An EDL segment can move the caption box for its own captions (#1077):** `EdlSegment.caption: { bottom?, top? }`
+  (px of the film's frame, as `CaptionLayout`) is merged over the film's caption box for the captions that start in
+  that segment; `bottom` anchors by the foot and wins, `top` alone hangs the box from that top. A chunk that spans a
+  cut keeps the box of the segment its first word starts in. The render (an inline position on the chunk) and the
+  draft (an ASS style per moved box) draw the same box. `edlSchema`, the JSON Schema and `readEdl` take the field;
+  `validateEdl` takes optional `captionBounds` and `readEdlFile` passes them, refusing an edge past the frame less one
+  card; `diffEdl` names the move (`s4 captions moved`). New exports: `EdlCaption`, `EdlCaptionBounds`,
+  `findSegmentAt`, `applySegmentCaption`, `getSegmentCaptionLayout`, `getCaptionChunkLayouts`, `getCaptionBounds`,
+  `isSameCaptionPlace`; `readEdlFile` takes the project's `layout`. An EDL without the field renders as before.
+
 ## 0.11.0
 
 - **The final pass can publish H.264 High from a draft render (#1068):** `finishVideo: { preset, crf, maxBitrate? }`

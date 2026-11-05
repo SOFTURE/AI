@@ -13,7 +13,7 @@ import type { TimedWord } from "../voice/voiceover.js";
 import { checkMusicFileType, describeAudioProbe, probeAudio } from "./audio.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
-import { findMissingCaptionGlyphs, getFootageCaptionLayout } from "./captions.js";
+import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
 import { buildEdl, getEdlDuration, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
@@ -473,8 +473,11 @@ export function describeCutMeasures(cuts: CutMeasure[]): string[] {
   return cuts.map((cut) => `${cut.segment}: ${cut.transition} (difference ${cut.difference.toFixed(3)})`);
 }
 
-/** The EDL file as written by `cutFootage` or edited by hand, checked against the clips. */
-export function readEdlFile(film: FootageFilm, clips: PreparedClip[], edlPath: string): FootageResult<Edl> {
+/**
+ * The EDL file as written by `cutFootage` or edited by hand, checked against the clips and (a segment's own caption
+ * box) against the film's frame, with the caption size the project's `layout` gives.
+ */
+export function readEdlFile(film: FootageFilm, clips: PreparedClip[], edlPath: string, layout: LayoutOverride = {}): FootageResult<Edl> {
   let json: unknown;
   try {
     json = JSON.parse(readFileSync(edlPath, "utf8")) as unknown;
@@ -483,7 +486,8 @@ export function readEdlFile(film: FootageFilm, clips: PreparedClip[], edlPath: s
   }
   const read = readEdl(json);
   if (!read.ok) return err(`${edlPath}: ${read.error}`);
-  const problems = validateEdl(read.edl, clips.map((clip) => ({ id: clip.clip.id, duration: clip.duration })), film.id);
+  const bounds = getCaptionBounds(getFrame(film).height, getFootageCaptionLayout(film, layout));
+  const problems = validateEdl(read.edl, clips.map((clip) => ({ id: clip.clip.id, duration: clip.duration })), film.id, bounds);
   return problems.length > 0 ? err(`${edlPath}: ${problems.join("; ")}`) : ok(read.edl);
 }
 
@@ -969,7 +973,7 @@ async function runRenderFootageFilm(film: FootageFilm, options: RenderFootageFil
   const edlPath = getEdlPath(options.buildDir, options.isPlaceholder);
   let edl: Edl;
   if (existsSync(edlPath) && options.isRecut !== true) {
-    const read = readEdlFile(film, clips.value, edlPath);
+    const read = readEdlFile(film, clips.value, edlPath, options.layout);
     if (!read.ok) return read;
     edl = read.value;
     options.log(`cut: ${edlPath} (${edl.segments.length} segments), as it is; softure-marketing footage --step=cut builds it again.`);
