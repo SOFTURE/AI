@@ -433,6 +433,7 @@ export { FFMPEG_FAILURE_STDERR_LINES, formatFfmpegCommand, splitFilterGraph, typ
 export { buildFfmpegFailureScript, FFMPEG_FAILURE_FILES, writeFfmpegFailure, type FfmpegFailureInput } from "./footage/ffmpeg-failure.js";
 export {
   estimateFootageFilm,
+  estimateSpeechRanges,
   findCachedStep,
   getDownloadPath,
   type EstimateFootageOptions,
@@ -440,6 +441,19 @@ export {
   type FootageEstimate,
   type FootageEstimateItem,
 } from "./footage/paid.js";
+export {
+  DEFAULT_SPEECH_RANGE_MARGIN,
+  buildRangeAudioArgs,
+  buildRangeLayArgs,
+  getSpeechRangeCache,
+  getSpeechRangeWindows,
+  planSpeechRanges,
+  type LaidRange,
+  type SpeechRange,
+  type SpeechRangeClip,
+  type SpeechRangeWindow,
+} from "./footage/speech-ranges.js";
+export { isolateSpeechRanges, type IsolateSpeechRangesOptions, type IsolatedSpeech, type IsolatedSpeechRange } from "./footage/isolate-ranges.js";
 export { RENDER_MIN_FREE_BYTES, findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./footage/disk.js";
 export { DRAFT_FILTERS, REQUIRED_DECODERS, REQUIRED_FILTERS, checkFootageTools, findBrowserProblem, readFfmpegListing, type FootageToolsOptions } from "./footage/tools.js";
 export {

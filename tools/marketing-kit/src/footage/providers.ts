@@ -109,6 +109,8 @@ export interface FootageCharge {
   keyTerms?: number;
   /** The paid cache's key of the result (the file name's first part under `<cacheDir>/<film id>/`). */
   cacheKey: string;
+  /** The part of the clip a range isolation cleaned (`isolateSpeechRanges`), in seconds of the trimmed clip; absent: the whole clip. */
+  range?: { start: number; end: number };
 }
 
 /** A stage of a footage run that reports progress. */

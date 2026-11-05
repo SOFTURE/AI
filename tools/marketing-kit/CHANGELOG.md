@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Voice isolation per time range (#1087):** `isolateSpeechRanges(film, clips, edl, { buildDir, cacheDir, providers,
+  isCommit, margin?, log?, onCharge?, onProgress?, signal?, onFfmpegFailure? })` cleans only the ranges the cut hears
+  (each sound span ± `margin`, default 0.25 s, clamped to the clip), caches each by the clip's identity, the range in
+  milliseconds and the provider, and lays the cleaned windows over the clip's own sound into one file per clip (mute
+  inside each window, `adelay` the cleaned range, `amix normalize=0`; overlapping ranges switch at the middle of the
+  overlap; a mono answer goes to both channels at full level). It answers the speech map `renderFootage` takes, and
+  without `isCommit` lays only cached ranges. `estimateSpeechRanges` and `estimateFootageFilm`'s `isolate: "segments"`
+  price the uncached ranges. `FootageCharge.range` and `FootageEstimateItem.range` name a range. New exports:
+  `planSpeechRanges`, `getSpeechRangeWindows`, `getSpeechRangeCache`, `buildRangeAudioArgs`, `buildRangeLayArgs`,
+  `DEFAULT_SPEECH_RANGE_MARGIN` and their types. Whole-clip `isolateVoice` works as before.
 - **An EDL segment can move the caption box for its own captions (#1077):** `EdlSegment.caption: { bottom?, top? }`
   (px of the film's frame, as `CaptionLayout`) is merged over the film's caption box for the captions that start in
   that segment; `bottom` anchors by the foot and wins, `top` alone hangs the box from that top. A chunk that spans a
