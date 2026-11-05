@@ -1,12 +1,13 @@
 ---
 change_id: skills-bump-0-17
 title: "rules: @softure-ai/skills 0.17.0; merge policy on-conflict in the config"
-status: open
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-04efpv
 created: 2026-11-05
 updated: 2026-11-05
+archived_at: 2026-11-05
 ---
 
 ## Intent

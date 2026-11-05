@@ -13,4 +13,4 @@
 
 ## Progress
 
-- [ ] p1: skills ^0.17.0, remergeMain on-conflict.
+- [x] p1 fe4c51b: skills ^0.17.0 (installer refreshed the managed block), `remergeMain: "on-conflict"`, project merge section points at it; typecheck green, `tests/repo` 595 passed (deploy-workflows.test.ts fails on the base too: no `ssh-keygen` in the container).
