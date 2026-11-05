@@ -32,7 +32,7 @@ export interface FakeTranscriber extends Transcriber {
 
 /**
  * A transcriber that answers call N with `responses[N]`; the last response repeats. Without responses every call gets
- * the default transcript. `fakeTranscriber({ kind: "failure", code: "speech.rate_limited", retryAfterSeconds: 30 })`.
+ * the default transcript; a request whose `signal` is aborted gets `speech.aborted`. `fakeTranscriber({ kind: "failure", code: "speech.rate_limited", retryAfterSeconds: 30 })`.
  */
 export function fakeTranscriber(...responses: FakeTranscription[]): FakeTranscriber {
   const calls: TranscribeRequest[] = [];
@@ -47,6 +47,7 @@ export function fakeTranscriber(...responses: FakeTranscription[]): FakeTranscri
 }
 
 function answer(response: FakeTranscription, request: TranscribeRequest): Ok<Transcript> | SpeechFailure {
+  if (request.signal?.aborted === true) return { ok: false, error: "speech.aborted" };
   if (response.kind === "failure") {
     if (response.code === "speech.rate_limited") {
       return { ok: false, error: response.code, retryAfterSeconds: response.retryAfterSeconds ?? null };
