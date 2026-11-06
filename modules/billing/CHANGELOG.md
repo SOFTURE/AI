@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
-## Unreleased
+## 0.11.1
 
 - **`stripe({ apiBase })` works with a local test server**: when `apiBase` is a plain-HTTP server on the same
   machine (`http://localhost:<port>`, `127.0.0.1`, `[::1]`), its checkout page may be a plain-HTTP page on the same
