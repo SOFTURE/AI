@@ -1,7 +1,7 @@
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
-import { extname } from "node:path";
 
 import type { TimedWord } from "../voice/voiceover.js";
+import { getAudioCodecArgs } from "./clip-sound.js";
 import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
 import { runFfmpeg } from "./process.js";
 
@@ -295,10 +295,9 @@ export function buildDeclickDecodeArgs(input: string, output: string): string[] 
   return ["-v", "error", "-y", "-i", input, "-vn", "-c:a", "pcm_f32le", ...PCM_FORMAT, output];
 }
 
-/** The declicked PCM encoded: WAV (float) when a loudness pass follows, else mp3 as the speech track is. */
+/** The declicked PCM encoded by the output's extension (`getAudioCodecArgs`: `.wav` lossless float, as the chain writes it). */
 export function buildDeclickEncodeArgs(input: string, output: string): string[] {
-  const codec = extname(output).toLowerCase() === ".wav" ? ["-c:a", "pcm_f32le"] : ["-c:a", "libmp3lame", "-q:a", "2"];
-  return ["-v", "error", "-y", ...PCM_FORMAT, "-i", input, ...codec, output];
+  return ["-v", "error", "-y", ...PCM_FORMAT, "-i", input, ...getAudioCodecArgs(output), output];
 }
 
 /** Raw little-endian float32 bytes as samples (copied, so the view is aligned). */
