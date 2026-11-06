@@ -1,6 +1,6 @@
 ---
 change_id: ci-cache-poisoning-1112
-status: in_progress
+status: archived
 ---
 
 # Plan: close the cache poisoning alerts (issues #1112 to #1115)

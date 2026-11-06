@@ -1,7 +1,8 @@
 ---
 change_id: ci-cache-poisoning-1112
 title: "deploy-release-checks: close the CodeQL cache poisoning alerts (issues #1112, #1113, #1114, #1115)"
-status: impl_reviewed
+status: archived
+archived_at: 2026-11-06
 roadmap_item: null
 issue: [1112, 1113, 1114, 1115]
 branch: claude/project-thread-cfjyr1
@@ -29,3 +30,8 @@ branch's cache scope.
 ## Notes
 
 - Framing: skipped. The alerts name the rule and the lines.
+
+## Done
+
+- `deploy-release-checks.yml`: the checkout revision output is named `revision`; CodeQL's cache poisoning rule
+  returns 0 results (4 on master before). Alerts #52 to #55 close on the next scan of master.
