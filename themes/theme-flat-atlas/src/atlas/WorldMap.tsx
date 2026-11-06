@@ -61,6 +61,18 @@ const FITTED_MAP_LOOK = "m-auto w-[min(100cqw,200cqh)]";
  * On a phone the map keeps 720 px and scrolls sideways inside its own container, never the page. `isFitted` makes it
  * fill a box of a given height instead, for a map that is the whole screen.
  */
+// Planned countries are drawn last: their dashed outline is wider than a neighbour's edge, so a neighbour drawn
+// after one would cover half of its border (China under Mongolia, Russia and India).
+const PAINT_ORDER: Record<TravelStatus | "land", number> = { land: 0, visited: 1, planned: 2 };
+
+type CountryShape = (typeof WORLD_COUNTRY_SHAPES)[number];
+
+function sortByPaintOrder(countries: WorldMapProps["countries"]): { readonly shape: CountryShape; readonly status: TravelStatus | undefined }[] {
+  return WORLD_COUNTRY_SHAPES.map((shape) => ({ shape, status: shape.id === null ? undefined : countries[shape.id] })).sort(
+    (a, b) => PAINT_ORDER[a.status ?? "land"] - PAINT_ORDER[b.status ?? "land"],
+  );
+}
+
 export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPlaceClick, hasGraticule = true, isFitted = false, children, className }: WorldMapProps) {
   return (
     <div
@@ -76,8 +88,7 @@ export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPl
           className="block h-auto w-full bg-map-ocean"
         >
           {hasGraticule ? <path d={WORLD_GRATICULE_PATH} className="fill-none stroke-foreground/7 stroke-[0.5]" /> : null}
-          {WORLD_COUNTRY_SHAPES.map((shape) => {
-            const status = shape.id === null ? undefined : countries[shape.id];
+          {sortByPaintOrder(countries).map(({ shape, status }) => {
             return (
               <path
                 key={`${shape.id ?? "none"}-${shape.name}`}

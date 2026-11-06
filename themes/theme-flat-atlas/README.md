@@ -62,7 +62,8 @@ language and the plural forms.
   text may be stamp ink.
 - **Three meanings on the map, each with a second carrier:** `visited` (the country painted in stamp ink), `place`
   (a marigold pin with a 2 px ink stroke and a white centre: the stroke turns 2.75:1 into 7:1), `planned` (a dashed
-  passport-blue outline, an empty pin: a plan is never painted). Blue and marigold are data colours: never a button or
+  passport-blue outline drawn above its neighbours, and a passport-blue pin with the same ink stroke: a plan is never
+  painted). Blue and marigold are data colours: never a button or
   a card, and marigold is never text on paper.
 - **Flat, no exceptions**: depth is `background` → `surface` → `surface-raised` and one 1 px `border`. No shadows,
   glows, gradients or blur, the map included: the ocean is one colour, pins have no halo. The only "shadow" in the
@@ -100,6 +101,7 @@ language and the plural forms.
 | `MapPinCluster` (`x`, `y`, `count`, `label`) | Dense pins merged on a phone: a 22 px stamp-ink dot with the count |
 | `MapPopover` (`place`, `meta`, `coordinates`, children) | A pin's popover, 260 px on the raised surface; the app positions it |
 | `MapLegend` (`items` of `visited` / `place` / `planned` / `land`) | The map's key, as HTML |
+| `ChipRail` (`label`, `previousLabel`, `nextLabel`) | One row of chips (each in an `<li>`) that scrolls sideways without a scrollbar; a round arrow at each end shows while there is more in that direction and moves the row by most of its width |
 | `MapLegendTooltip` (`label`, `items`, `note`) | The legend folded into one small button over a full-screen map: hover or focus shows the key (and the note, such as the map's source) as a tooltip above it; the button is described by the tooltip |
 | `MapControls` (`label`, `zoomInLabel`, `zoomOutLabel`, `resetLabel`, `onZoomIn`, `onZoomOut`, `onReset`, `isAtMaxZoom`, `isAtMinZoom`, `isAtStart`, `orientation`) | The map's zoom controls: plus, minus and an optional reset as one flat bar on the raised surface (40 px buttons, hairlines between them, the `line-strong` outline round the group), vertical by default; the map owns the zoom and the limits disable the buttons |
 | `Card`, `Photo` | A flat card (surface, one hairline, 24 px inside) and a 4:3 photo frame |

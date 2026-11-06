@@ -15,6 +15,7 @@ export {
 } from "./atlas/button-look.js";
 export { Button, IconButton, type ButtonProps, type IconButtonProps } from "./atlas/Button.js";
 export { Card, Photo, Postcard, PostcardStamp, type PhotoProps, type PostcardProps, type PostcardStampProps } from "./atlas/Card.js";
+export { ChipRail, type ChipRailProps } from "./atlas/ChipRail.js";
 export { CountryChip, type CountryChipProps } from "./atlas/CountryChip.js";
 export { CountryCounter, type CountryCounterPart, type CountryCounterProps } from "./atlas/CountryCounter.js";
 export { ATLAS_ICON_STROKE_WIDTH, ATLAS_ICONS, type AtlasIconName } from "./atlas/icons.js";
