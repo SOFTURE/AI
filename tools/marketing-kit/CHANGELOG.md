@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- Docs: the README's Install section also covers the `undici` 7.25.0 that hyperframes pins (high in `npm audit`) and
+  gives one `overrides` entry for it and `fflate`.
+
 ## 0.13.2
 
 - satori 0.63.2 (was 0.35.1, still pinned exactly, #254). satori 0.36 and later size boxes like CSS's default
