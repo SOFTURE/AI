@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.16.0
 
 - **Provider failures carry structured details (#1141):** a failed answer of a footage provider (`TtsResult` with
   `ok: false`) carries `providerFailure` next to `error`: `{ kind, status, code, message, requestId, isRetryable }`,
