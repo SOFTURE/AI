@@ -101,7 +101,7 @@ function recordStripeErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on("response", (response) => {
     const url = new URL(response.url());
-    if (!url.hostname.endsWith("stripe.com") || response.status() < 400) return;
+    if (!url.hostname.endsWith(".stripe.com") || response.status() < 400) return;
     void response
       .json()
       .then((body: unknown) => {
