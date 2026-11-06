@@ -32,6 +32,10 @@ export default defineConfig([
       globals: globals.node,
       parserOptions: {
         projectService: true,
+        // typescript-eslint 8.72 gives a CLI or CI run ("single run") one Program per tsconfig and keeps them all;
+        // with a tsconfig per workspace package that pushes the whole-tree lint past CI's 8 GB heap. The project
+        // service alone (the 8.71 behaviour) peaks near 6 GB, so automatic single-run inference stays off.
+        disallowAutomaticSingleRunInference: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
