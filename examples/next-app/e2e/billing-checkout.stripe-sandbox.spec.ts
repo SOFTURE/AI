@@ -92,6 +92,27 @@ async function payWithTestCard(page: Page): Promise<void> {
   await page.getByTestId("hosted-payment-submit-button").click();
 }
 
+/**
+ * Waits for Checkout to send the buyer back to `/payment?checkout=success`. When it does not, the error says where the
+ * page stayed and what Stripe showed there (its alerts and field errors), so a run's log names the cause.
+ */
+async function waitForCheckoutReturn(page: Page): Promise<void> {
+  try {
+    await page.waitForURL((url) => url.pathname === "/payment" && url.searchParams.get("checkout") === "success", { timeout: 60_000 });
+  } catch (error) {
+    const shown = await page
+      .locator('[role="alert"], .FieldError, [data-testid*="error"]')
+      .allInnerTexts()
+      .catch(() => []);
+    const messages = shown.map((text) => text.trim()).filter((text) => text !== "");
+    throw new Error(
+      `waitForCheckoutReturn: Checkout did not return to /payment?checkout=success; the page stayed at ${page.url()}` +
+        (messages.length > 0 ? ` and showed: ${messages.join(" | ")}` : " with no alert or field error"),
+      { cause: error },
+    );
+  }
+}
+
 test("a payment on Stripe's sandbox Checkout turns the trial into paid access, and Stripe's refund takes it back", async ({ browser }) => {
   test.setTimeout(180_000);
   if ((process.env.STRIPE_WEBHOOK_SECRET ?? "").trim() === "") throw new Error("STRIPE_WEBHOOK_SECRET is not set: start `stripe listen` and pass its --print-secret");
@@ -104,7 +125,7 @@ test("a payment on Stripe's sandbox Checkout turns the trial into paid access, a
   await page.waitForURL((url) => url.hostname === "checkout.stripe.com", { timeout: 30_000 });
   await payWithTestCard(page);
 
-  await page.waitForURL((url) => url.pathname === "/payment" && url.searchParams.get("checkout") === "success", { timeout: 60_000 });
+  await waitForCheckoutReturn(page);
   await expect(page.getByRole("status").filter({ hasText: copy.payment.checkoutSuccess })).toBeVisible();
   await expect.poll(() => readStatus(page), { timeout: DELIVERY_TIMEOUT_MS, intervals: [1_000, 2_000] }).toBe("paid");
 

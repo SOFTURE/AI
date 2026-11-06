@@ -1,0 +1,27 @@
+---
+change_id: stripe-sandbox-diagnostics
+title: "e2e: a failed Stripe sandbox payment says what Checkout showed, in the job's log"
+status: archived
+roadmap_item: null
+issue: null
+branch: claude/project-thread-xbnpsl
+created: 2026-11-06
+updated: 2026-11-06
+archived_at: 2026-11-06
+---
+
+## Intent
+
+Since about 15:20 UTC on 2026-11-06 the `Stripe sandbox payment` job fails on every run (master included, last green
+15:15 on equivalent code): after paying on Stripe's hosted Checkout the redirect to `/payment?checkout=success` never
+comes. The failure's screenshot and error context sit in an artifact that is not always reachable, so the log says
+only "Timeout 60000ms exceeded". First step of stabilizing the test: make the cause visible in the job's log.
+
+## Notes
+
+- Research and framing: skipped. The change only reports what the page showed; the fix follows from what it reports.
+
+## Done
+
+On a failed run the job prints Playwright's error context (URL and ARIA snapshot of the page Stripe showed) and the
+listener's log; the test's timeout error names the page's URL and Stripe's alerts and field errors.
