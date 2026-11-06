@@ -109,14 +109,18 @@ export function buildSpeechArgs(edl: Edl, sources: Record<string, string>, outpu
   return ["-v", "error", "-y", ...inputs, "-filter_complex", parts.join(";"), "-map", "[speech]", ...getAudioCodecArgs(output), output];
 }
 
-/** The music track: looped to the film's length, ducked by the keyframes, faded in and out. */
-export function buildMusicArgs(options: { input: string; seconds: number; keyframes: VolumeKeyframe[]; output: string }): string[] {
+/**
+ * The music track: looped to the film's length, ducked by the keyframes, faded in and faded out to the film's end over
+ * `fadeOutSeconds` (default 1.5 s; the logo end card fades it over the card's whole length).
+ */
+export function buildMusicArgs(options: { input: string; seconds: number; keyframes: VolumeKeyframe[]; output: string; fadeOutSeconds?: number }): string[] {
   const { seconds } = options;
+  const fadeOut = r3(Math.min(seconds, options.fadeOutSeconds ?? MUSIC_FADE_OUT));
   const filters = [
     `aformat=sample_rates=${FOOTAGE_SAMPLE_RATE}:channel_layouts=stereo`,
     `volume=eval=frame:volume='${volumeExpression(options.keyframes)}'`,
     `afade=t=in:d=${MUSIC_FADE_IN}`,
-    `afade=t=out:st=${r3(Math.max(0, seconds - MUSIC_FADE_OUT))}:d=${MUSIC_FADE_OUT}`,
+    `afade=t=out:st=${r3(Math.max(0, seconds - fadeOut))}:d=${fadeOut}`,
   ];
   return ["-v", "error", "-y", "-stream_loop", "-1", "-i", options.input, "-t", String(seconds), "-af", filters.join(","), "-c:a", "libmp3lame", "-q:a", "2", options.output];
 }

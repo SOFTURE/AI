@@ -4,9 +4,19 @@ import type { ComposeFont } from "../compose/compose.js";
 import { escapeHtml, fontFaces, fontStack } from "../compose/html.js";
 import { CAPTION_LINE_HEIGHT, getCaptionPillCss, getCaptionPositionCss, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, type CaptionSpan } from "./captions.js";
+import { CAPTION_SAFE_ZONES, getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, type CaptionSpan } from "./captions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
-import { CAPTION_MIN_FONT_SCALE, DEFAULT_EDIT, getFootageEdit, type FootageEdit, type FootageFilm } from "./film.js";
+import {
+  CAPTION_MIN_FONT_SCALE,
+  DEFAULT_EDIT,
+  DEFAULT_END_CARD_SECONDS,
+  DEFAULT_LOGO_END_CARD_FADE_SECONDS,
+  getEndCardSeconds,
+  getFootageEdit,
+  type FootageEdit,
+  type FootageFilm,
+  type LogoFootageEndCard,
+} from "./film.js";
 import { FOOTAGE_FPS } from "./normalize.js";
 
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
@@ -16,7 +26,8 @@ const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
  * EDL segment over the normalized clip with its media start, the transitions (`fade` cross-fades from the segment
  * before over `fadeFrames`, `zoom` punches in by `zoomPercent` on alternate jump cuts, eased over `zoomEaseFrames`, `whoosh` plays the whoosh
  * sound), a slow zoom on `kenburns` segments, the captions (plain phrases, or the word-highlight pill), the end card
- * over the cut's last frame (its whoosh only with `isEndCardWhoosh`), the cut speech track and the ducked music.
+ * over the cut's last frame (the full card, or the short logo card; its whoosh only with `isEndCardWhoosh`), the cut
+ * speech track and the ducked music.
  */
 
 const COMPOSITION_ID = "film";
@@ -24,8 +35,12 @@ const COMPOSITION_ID = "film";
 export const FADE_SECONDS = r3(DEFAULT_EDIT.fadeFrames / FOOTAGE_FPS);
 /** How far a segment marked `kenburns` zooms when the film's `kenBurnsPercent` is 0 (a hand edit asked for it). */
 const HAND_KEN_BURNS_PERCENT = 4;
-/** The end card's length after the cut. */
-export const END_CARD_SECONDS = 3;
+/** The full end card's length after the cut when it sets no `seconds` (`DEFAULT_END_CARD_SECONDS`). */
+export const END_CARD_SECONDS = DEFAULT_END_CARD_SECONDS;
+/** The logo card's line, in px. */
+const LOGO_CARD_LINE_SIZE = 64;
+/** The largest box the logo card's logo is drawn in, in px: an SVG fills it, a PNG is never drawn past its own pixels. */
+const LOGO_CARD_MARK = { width: 720, height: 480 };
 
 export interface FootageComposeAssets {
   /** The normalized clips by id (read when there is no `picture`). */
@@ -42,6 +57,7 @@ export interface FootageComposeAssets {
   music: string | null;
   /** The cut's last frame, under the end card. */
   lastFrame: string;
+  /** The end card's logo (the logo card's own, else the brand's), an SVG or a PNG; null for the brand name alone. */
   logo: string | null;
   sfx: Partial<Record<SfxEvent, string>>;
 }
@@ -62,9 +78,9 @@ export interface FootageComposeInput {
   locale: string;
 }
 
-/** The film's length: the cut plus the end card. */
+/** The film's length: the cut plus the end card (`getEndCardSeconds`). */
 export function getFootageFilmSeconds(film: Pick<FootageFilm, "endCard">, edl: Edl): number {
-  return r3(getEdlDuration(edl) + (film.endCard === null ? 0 : END_CARD_SECONDS));
+  return r3(getEdlDuration(edl) + getEndCardSeconds(film.endCard));
 }
 
 /** The picture scale each segment starts at: `zoom` cuts alternate between punched in (`zoomPercent`) and back out. */
@@ -99,7 +115,7 @@ export interface FootageSfxCue {
 
 /**
  * The film's sound effects in film time: a whoosh before every `whoosh` cut, and the end card's whoosh and pop with
- * `isEndCardWhoosh`; an event without a file in `sfx` plays nothing. The composition and the film's mix
+ * `isEndCardWhoosh` (the pop only when it starts before the film's end); an event without a file in `sfx` plays nothing. The composition and the film's mix
  * (`buildFilmMixArgs`) both play these.
  */
 export function getFootageSfxCues(film: FootageFilm, edl: Edl, sfx: Partial<Record<SfxEvent, string>>): FootageSfxCue[] {
@@ -116,7 +132,8 @@ export function getFootageSfxCues(film: FootageFilm, edl: Edl, sfx: Partial<Reco
   });
   if (film.endCard !== null && edit.isEndCardWhoosh) {
     play("whoosh", cutEnd, 0.3, 0.57);
-    play("pop", r3(cutEnd + 0.9), 0.35, 0.72);
+    const pop = r3(cutEnd + 0.9);
+    if (pop < getFootageFilmSeconds(film, edl)) play("pop", pop, 0.35, 0.72);
   }
   return cues;
 }
@@ -202,10 +219,17 @@ export function composeFootage(input: FootageComposeInput): string {
 
   const tail = r3(end - cutEnd);
   const endCard = film.endCard;
+  const lastFrameHtml = `<img id="last" class="clip shot" src="${escapeHtml(assets.lastFrame)}" data-start="${cutEnd}" data-duration="${tail}" />`;
+  // The full card's entrances were timed for 3 s; a shorter card plays them faster, so the last one ends on screen.
+  const pace = endCard === null ? 1 : Math.min(1, getEndCardSeconds(endCard) / DEFAULT_END_CARD_SECONDS);
+  const paced = (seconds: number): number => r3(seconds * pace);
   const endCardHtml =
     endCard === null
       ? ""
-      : `<img id="last" class="clip shot" src="${escapeHtml(assets.lastFrame)}" data-start="${cutEnd}" data-duration="${tail}" />
+      : endCard.layout === "logo"
+        ? `${lastFrameHtml}
+  ${getLogoCardHtml(endCard, assets.logo, input.brandName)}`
+        : `${lastFrameHtml}
   <div class="shade" id="shade"></div>
   <div class="endcard">
     <div class="brand" id="ec-brand">${assets.logo === null ? "" : `<img class="logo" src="${escapeHtml(assets.logo)}" alt="" />`}<span>${escapeHtml(input.brandName)}</span></div>
@@ -216,13 +240,16 @@ export function composeFootage(input: FootageComposeInput): string {
   const endCardTweens =
     endCard === null
       ? []
-      : [
-          `tl.fromTo("#shade", { opacity: 0 }, { opacity: 0.82, duration: 0.45, ease: "power2.out" }, ${cutEnd});`,
-          `tl.fromTo("#ec-brand", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, ${r3(cutEnd + 0.3)});`,
-          `tl.fromTo("#ec-headline", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, ${r3(cutEnd + 0.45)});`,
-          `tl.fromTo("#ec-url", { y: 30, opacity: 0, scale: 0.94 }, { y: 0, opacity: 1, scale: 1, duration: 0.55, ease: "power3.out" }, ${r3(cutEnd + 0.9)});`,
-          ...(endCard.note.length > 0 ? [`tl.fromTo("#ec-note", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, ${r3(cutEnd + 1.3)});`] : []),
-        ];
+      : endCard.layout === "logo"
+        ? [`tl.fromTo("#ec-logo-card", { opacity: 0 }, { opacity: 1, duration: ${r3(endCard.fadeSeconds ?? DEFAULT_LOGO_END_CARD_FADE_SECONDS)}, ease: "none" }, ${cutEnd});`]
+        : [
+            `tl.fromTo("#shade", { opacity: 0 }, { opacity: 0.82, duration: ${paced(0.45)}, ease: "power2.out" }, ${cutEnd});`,
+            `tl.fromTo("#ec-brand", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: ${paced(0.5)}, ease: "power3.out" }, ${r3(cutEnd + paced(0.3))});`,
+            `tl.fromTo("#ec-headline", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: ${paced(0.6)}, ease: "power3.out" }, ${r3(cutEnd + paced(0.45))});`,
+            `tl.fromTo("#ec-url", { y: 30, opacity: 0, scale: 0.94 }, { y: 0, opacity: 1, scale: 1, duration: ${paced(0.55)}, ease: "power3.out" }, ${r3(cutEnd + paced(0.9))});`,
+            ...(endCard.note.length > 0 ? [`tl.fromTo("#ec-note", { opacity: 0 }, { opacity: 1, duration: ${paced(0.5)}, ease: "power2.out" }, ${r3(cutEnd + paced(1.3))});`] : []),
+          ];
+  const logoBox = getLogoCardBox(film, frame);
 
   const bodyFont = fontStack(fonts.body, "sans-serif");
   const headingFont = fonts.heading === null ? bodyFont : fontStack(fonts.heading, "sans-serif");
@@ -252,6 +279,12 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
 .headline{font-family:${headingFont};font-weight:500;font-size:${input.headlineSize}px;letter-spacing:-.025em;line-height:1.02;margin-top:44px}
 .url{display:inline-block;margin-top:40px;padding:20px 38px;border-radius:999px;font-size:44px;font-weight:600;color:${c.onCta};background:${c.cta}}
 .note{margin-top:26px;font-size:30px;color:${c.muted}}
+.logocard{position:absolute;inset:0;background:${c.background};opacity:0}
+.logobox{position:absolute;top:${logoBox.top}px;bottom:${logoBox.bottom}px;left:${logoBox.left}px;right:${logoBox.right}px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:48px;text-align:center}
+.mark{display:block;max-width:min(100%,${LOGO_CARD_MARK.width}px);max-height:${LOGO_CARD_MARK.height}px;width:auto;height:auto}
+.mark.vector{width:min(100%,${LOGO_CARD_MARK.width}px);height:${LOGO_CARD_MARK.height}px;object-fit:contain}
+.markname{font-family:${headingFont};font-weight:600;font-size:96px;letter-spacing:-.02em}
+.logoline{font-family:${headingFont};font-weight:600;font-size:${LOGO_CARD_LINE_SIZE}px;line-height:1.15;letter-spacing:-.01em}
 </style>
 </head>
 <body>
@@ -277,6 +310,28 @@ window.__timelines["${COMPOSITION_ID}"] = tl;
 </body>
 </html>
 `;
+}
+
+/**
+ * The logo card (`layout: "logo"`): the brand's background over the whole frame, the logo (an SVG drawn as a vector to
+ * fill its box, a PNG at most at its own size, so neither is drawn soft) or the brand name, and the optional line.
+ */
+function getLogoCardHtml(card: LogoFootageEndCard, logo: string | null, brandName: string): string {
+  const isVector = logo !== null && /\.svg$/i.test(logo);
+  const mark = logo === null ? `<span class="markname">${escapeHtml(brandName)}</span>` : `<img class="mark${isVector ? " vector" : ""}" src="${escapeHtml(logo)}" alt="" />`;
+  const line = card.line.trim().length > 0 ? `<p class="logoline">${escapeHtml(card.line)}</p>` : "";
+  return `<div class="logocard" id="ec-logo-card"><div class="logobox">${mark}${line}</div></div>`;
+}
+
+/**
+ * Where the logo card's content sits, in px from the frame's edges: a 9:16 film keeps it inside its caption preset's
+ * safe zone (`CAPTION_SAFE_ZONES`, `all` without a preset), centred between equal sides; other frames keep 80 px.
+ */
+export function getLogoCardBox(film: Pick<FootageFilm, "format" | "captionPreset">, frame: { width: number; height: number }): { top: number; bottom: number; left: number; right: number } {
+  if (film.format !== "9:16" || frame.height !== 1920) return { top: 80, bottom: 80, left: 80, right: 80 };
+  const zone = CAPTION_SAFE_ZONES[film.captionPreset ?? "all"];
+  const side = Math.max(zone.left, zone.right);
+  return { top: zone.top, bottom: zone.bottom, left: side, right: side };
 }
 
 /**

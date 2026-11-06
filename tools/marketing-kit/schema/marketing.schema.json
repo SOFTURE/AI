@@ -2940,30 +2940,83 @@
             "additionalProperties": false
           },
           "endCard": {
-            "description": "The closing card after the last segment; without it, the film ends with its last segment.",
-            "type": "object",
-            "properties": {
-              "headline": {
-                "type": "string",
-                "minLength": 1,
-                "description": "The end card's headline."
+            "description": "The closing card after the last segment (\"full\", the default, or the short \"logo\" card); without it, the film ends with its last segment.",
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "layout": {
+                    "description": "\"full\" (the default): the brand row, headline, link pill and note.",
+                    "type": "string",
+                    "const": "full"
+                  },
+                  "headline": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The end card's headline."
+                  },
+                  "url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The address shown in the end card's link pill, as written (e.g. example.com)."
+                  },
+                  "note": {
+                    "default": "",
+                    "description": "A small line under the link; empty: none.",
+                    "type": "string"
+                  },
+                  "seconds": {
+                    "description": "The card's length in seconds after the cut (1-3). Default 3.",
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 3
+                  }
+                },
+                "required": [
+                  "headline",
+                  "url"
+                ],
+                "additionalProperties": false
               },
-              "url": {
-                "type": "string",
-                "minLength": 1,
-                "description": "The address shown in the end card's link pill, as written (e.g. example.com)."
-              },
-              "note": {
-                "default": "",
-                "description": "A small line under the link; empty: none.",
-                "type": "string"
+              {
+                "type": "object",
+                "properties": {
+                  "layout": {
+                    "type": "string",
+                    "const": "logo",
+                    "description": "\"logo\": a short brand card, the logo and one line on the brand background, the music fading out under it."
+                  },
+                  "line": {
+                    "default": "",
+                    "description": "One short line under the logo, e.g. \"Follow for more\"; empty: the logo alone.",
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "logo": {
+                    "description": "The card's logo, an .svg or a .png with alpha, relative to the folder of marketing.json; without it brand.logo, or the brand name.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\.(svg|png)$"
+                  },
+                  "seconds": {
+                    "description": "The card's length in seconds after the cut (1-3). Default 1.5.",
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 3
+                  },
+                  "fadeSeconds": {
+                    "description": "How long the card fades in over the last frame, in seconds (0-1). Default 0.2.",
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "layout"
+                ],
+                "additionalProperties": false
               }
-            },
-            "required": [
-              "headline",
-              "url"
-            ],
-            "additionalProperties": false
+            ]
           },
           "speech": {
             "description": "The speech track's cleanup before its loudness normalization.",

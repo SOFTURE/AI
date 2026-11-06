@@ -131,6 +131,11 @@ describe("buildMusicArgs", () => {
       "aformat=sample_rates=48000:channel_layouts=stereo,volume=eval=frame:volume='lt(t,0)*0.35+gte(t,0)*0.35',afade=t=in:d=1,afade=t=out:st=10.5:d=1.5",
     );
   });
+  it("fades the music out over the length it is given, to the film's end, never longer than the film", () => {
+    const filters = (fadeOutSeconds: number, seconds = 12) => buildMusicArgs({ input: "/m.mp3", seconds, keyframes: [], output: "/o.mp3", fadeOutSeconds }).join(" ");
+    expect(filters(1.2)).toContain("afade=t=out:st=10.8:d=1.2");
+    expect(filters(3, 2)).toContain("afade=t=out:st=0:d=2");
+  });
 });
 
 describe("buildCutPreviewArgs and buildLastFrameArgs", () => {

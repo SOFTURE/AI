@@ -453,12 +453,29 @@ const videoSchema = z
     });
   });
 
-const endCardSchema = z
-  .strictObject({
+const endCardSeconds = (fallback: number) =>
+  z.number().min(1).max(3).optional().describe(`The card's length in seconds after the cut (1-3). Default ${fallback}.`);
+
+/** A footage film's end card: the full card (`layout` absent or "full") or the short logo card (issue #1173). */
+const footageEndCardSchema = z.discriminatedUnion("layout", [
+  z.strictObject({
+    layout: z.literal("full").optional().describe('"full" (the default): the brand row, headline, link pill and note.'),
     headline: nonEmpty.describe("The end card's headline."),
     url: nonEmpty.describe("The address shown in the end card's link pill, as written (e.g. example.com)."),
     note: z.string().default("").describe("A small line under the link; empty: none."),
-  });
+    seconds: endCardSeconds(3),
+  }),
+  z.strictObject({
+    layout: z.literal("logo").describe('"logo": a short brand card, the logo and one line on the brand background, the music fading out under it.'),
+    line: z.string().max(80).default("").describe('One short line under the logo, e.g. "Follow for more"; empty: the logo alone.'),
+    logo: relativePath
+      .regex(/\.(svg|png)$/i, "must be an .svg or a .png file")
+      .optional()
+      .describe("The card's logo, an .svg or a .png with alpha, relative to the folder of marketing.json; without it brand.logo, or the brand name."),
+    seconds: endCardSeconds(1.5),
+    fadeSeconds: z.number().min(0).max(1).optional().describe("How long the card fades in over the last frame, in seconds (0-1). Default 0.2."),
+  }),
+]);
 
 const clipSource = z
   .string()
@@ -601,7 +618,9 @@ const footageSchema = z
       })
       .prefault({})
       .describe("The cut's look; the defaults read as an ordinary phone video."),
-    endCard: endCardSchema.optional().describe("The closing card after the last segment; without it, the film ends with its last segment."),
+    endCard: footageEndCardSchema
+      .optional()
+      .describe('The closing card after the last segment ("full", the default, or the short "logo" card); without it, the film ends with its last segment.'),
     speech: z
       .strictObject({
         declick: z

@@ -140,8 +140,8 @@ export interface FootageFilm {
   captionKeepWithNext?: string[];
   /** The cut's look: zoom size, fade length, Ken Burns, the end card's whoosh. Absent fields take `DEFAULT_EDIT`. */
   edit?: Partial<FootageEdit>;
-  /** The closing card after the last segment; null: the film ends with its last segment. */
-  endCard: EndCard | null;
+  /** The closing card after the last segment (`FootageEndCard`); null: the film ends with its last segment. */
+  endCard: FootageEndCard | null;
   /** The speech track's cleanup before its loudness normalization. Absent: none. */
   speech?: FootageSpeech;
   /** The speech track's loudness, normalized before the music is mixed under it. Absent: −14 LUFS, −1 dBTP; null: left as filmed. */
@@ -159,6 +159,58 @@ export interface FootageFilm {
    * that second of the film; null: no cover.
    */
   cover?: { at?: number } | null;
+}
+
+/**
+ * The closing card after a footage film's last segment, over the cut's last frame. No speech plays under it; the
+ * music plays on. `layout` tells the two shapes apart (`"full"` when absent).
+ */
+export type FootageEndCard = FullFootageEndCard | LogoFootageEndCard;
+
+/** The brand row, the headline, the link pill and the note (`layout` absent or `"full"`). */
+export interface FullFootageEndCard extends EndCard {
+  layout?: "full";
+  /** The card's length in seconds (1-3); absent: `DEFAULT_END_CARD_SECONDS`. The entrances keep pace with it. */
+  seconds?: number;
+}
+
+/**
+ * A short brand card (issue #1173): the logo and one optional line on the brand's background, fading in, inside the
+ * 9:16 platform safe zone; the music fades out under it to the film's end.
+ */
+export interface LogoFootageEndCard {
+  layout: "logo";
+  /** One short line under the logo ("Follow for more"), in the heading font; empty: the logo alone. */
+  line: string;
+  /** The card's logo, a PNG (with alpha) or an SVG file; absent: the brand's logo, or the brand name without one. */
+  logo?: string;
+  /** The card's length in seconds (1-3); absent: `DEFAULT_LOGO_END_CARD_SECONDS`. */
+  seconds?: number;
+  /** How long the card fades in over the last frame, in seconds; absent: `DEFAULT_LOGO_END_CARD_FADE_SECONDS`. */
+  fadeSeconds?: number;
+}
+
+/** The full end card's length when it sets none. */
+export const DEFAULT_END_CARD_SECONDS = 3;
+/** The logo card's length when it sets none. */
+export const DEFAULT_LOGO_END_CARD_SECONDS = 1.5;
+/** The logo card's fade in when it sets none. */
+export const DEFAULT_LOGO_END_CARD_FADE_SECONDS = 0.2;
+
+/** The end card's length in seconds: 0 without a card, else its `seconds` or its layout's default. */
+export function getEndCardSeconds(card: FootageEndCard | null): number {
+  if (card === null) return 0;
+  return card.seconds ?? (card.layout === "logo" ? DEFAULT_LOGO_END_CARD_SECONDS : DEFAULT_END_CARD_SECONDS);
+}
+
+/**
+ * The end card's texts in the shape the glyph check reads (`findMissingCaptionGlyphs`): the logo card's line is drawn
+ * in the heading font, like the full card's headline; it has no url or note.
+ */
+export function getEndCardTexts(card: FootageEndCard | null): { headline: string; url: string; note: string } | null {
+  if (card === null) return null;
+  if (card.layout !== "logo") return { headline: card.headline, url: card.url, note: card.note };
+  return { headline: card.line, url: "", note: "" };
 }
 
 /** Settings of the speech track itself. */

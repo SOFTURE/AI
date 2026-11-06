@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 
 import { getLayoutName } from "../compose/timeline.js";
 import type { Device, FilmScript } from "../film.js";
-import { DEFAULT_MUSIC_VOLUME, getDefaultFillers, type FootageFilm, type MusicSource } from "../footage/film.js";
+import { DEFAULT_MUSIC_VOLUME, getDefaultFillers, type FootageEndCard, type FootageFilm, type MusicSource } from "../footage/film.js";
 import { normalizeKeyTerms } from "../footage/keyterms.js";
 import type { LayoutOverride } from "../compose/timeline.js";
 import { getMarketingMessages, type MarketingMessages } from "../messages/index.js";
@@ -202,6 +202,13 @@ function resolveMusicSource(music: NonNullable<MarketingJson["footage"][number][
   return { kind: "video", description: fromVideo.description, tags: fromVideo.tags };
 }
 
+/** A footage film's end card with its own logo resolved against the folder of marketing.json; null without a card. */
+function resolveFootageEndCard(card: MarketingJson["footage"][number]["endCard"], at: (relative: string) => string): FootageEndCard | null {
+  if (card === undefined) return null;
+  if (card.layout !== "logo") return card;
+  return { ...card, ...(card.logo === undefined ? {} : { logo: at(card.logo) }) };
+}
+
 /** The film's key terms, normalized (the schema has checked them); none when absent or empty. */
 function resolveKeyTerms(terms: string[] | undefined): { keyTerms?: string[] } {
   const normalized = normalizeKeyTerms(terms ?? []);
@@ -257,7 +264,7 @@ function resolveFootage(data: MarketingJson, at: (relative: string) => string): 
         cutAudioFadeMs: film.edit.cutAudioFadeMs,
         isCutAudioCrossfade: film.edit.cutAudioCrossfade,
       },
-      endCard: film.endCard ?? null,
+      endCard: resolveFootageEndCard(film.endCard, at),
       ...(film.speech.declick === "off" ? {} : { speech: { declick: film.speech.declick } }),
       loudness: film.loudness === false ? null : film.loudness,
       mixLoudness: film.mixLoudness === false ? null : film.mixLoudness,
@@ -381,6 +388,7 @@ export function findMissingFootageFiles(config: MarketingConfig, film: FootageCo
   if (film.music.source.kind === "file") check(["footage", film.index, "music", "file"], film.music.source.path);
   if (!isRendering) return issues;
   if (config.brand.logo !== null) check(["brand", "logo", "svg"], config.brand.logo);
+  if (film.endCard?.layout === "logo" && film.endCard.logo !== undefined) check(["footage", film.index, "endCard", "logo"], film.endCard.logo);
   for (const kind of ["heading", "body"] as const) {
     config.brand.fonts[kind]?.files.forEach((font, index) => check(["brand", "fonts", kind, "files", index, "path"], font.path));
   }
