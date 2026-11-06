@@ -254,6 +254,24 @@ jobs:
           echo "::group::stripe listen log"
           tail -n 200 examples/next-app/test-results/stripe-listen.log 2>/dev/null || true
           echo "::endgroup::"
+      - name: Show what Stripe recorded for the failed payment
+        if: failure() && steps.key.outputs.present == 'true'
+        env:
+          STRIPE_API_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        # Only ids, states and Stripe's error codes and messages: never a client secret or a customer's details.
+        run: |
+          echo "::group::latest Checkout Sessions"
+          stripe checkout sessions list --limit 3 --api-key "$STRIPE_API_KEY" \
+            | jq '[.data[] | {id, created, status, payment_status, currency, amount_total, payment_intent}]' || true
+          echo "::endgroup::"
+          echo "::group::latest PaymentIntents"
+          stripe payment_intents list --limit 3 --api-key "$STRIPE_API_KEY" \
+            | jq '[.data[] | {id, created, status, currency, amount, payment_method_types, error: (.last_payment_error // null | if . == null then null else {type, code, decline_code, message} end)}]' || true
+          echo "::endgroup::"
+          echo "::group::latest charges"
+          stripe charges list --limit 3 --api-key "$STRIPE_API_KEY" \
+            | jq '[.data[] | {id, created, status, currency, amount, failure_code, failure_message, outcome: (.outcome // null | if . == null then null else {type, network_status, reason, seller_message, risk_level} end)}]' || true
+          echo "::endgroup::"
       - if: failure() && steps.key.outputs.present == 'true'
         uses: actions/upload-artifact@v7
         with:
