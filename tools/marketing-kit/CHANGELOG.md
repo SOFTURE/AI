@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **The speech pre-gain says what it reached, and can reach the target on peaky speech (#1181):** quiet phone speech
+  with a few short peaks was held by the −3 dBTP ceiling around −26 to −28 LUFS instead of −23, silently.
+  `ClipSound.preGain`, `IsolatedSpeech.speechPreGain` and `TranscribeOutcome.speechPreGain` answer `on_target`,
+  `held_by_peak_ceiling` or `peaks_over_ceiling` with `inputLufs`, `inputTruePeakDbtp`, `reachedLufs` and
+  `truePeakDbtp` (or `silent`, or `shared` for a non-talking clip), and the `log` names every held clip. The opt-in
+  `speechPeaks: "float"` (`FootageRunOptions`, `IsolateSpeechRangesOptions`, `prepareClipSounds({ peaks })`) raises
+  the clip to the target by the same single linear gain and writes its sound as 32-bit float WAV, so the peaks cannot
+  clip; no limiter or gate touches the speech. New: `getSpeechPreGain`, `describeSpeechPreGain`, types
+  `SpeechPreGain`, `MeasuredPreGain`, `SpeechPeaks`. Additive: `gainDb` and `speechGainDb` stay.
+
 ## 0.18.0
 
 - **The speech declick repairs impulses and no longer gates speech (#1170):** `speech.declick` `gentle` and `strong`

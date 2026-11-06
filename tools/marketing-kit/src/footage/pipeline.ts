@@ -12,7 +12,7 @@ import { copyFonts } from "../render/render.js";
 import type { TtsResult } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { checkMusicFileType, describeAudioProbe, probeAudio } from "./audio.js";
-import { prepareClipSounds } from "./clip-sound.js";
+import { prepareClipSounds, type SpeechPeaks, type SpeechPreGain } from "./clip-sound.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
 import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
@@ -145,6 +145,11 @@ export interface FootageRunOptions {
    * person to run again. Every failure also gets one `log` line with the step and its full command.
    */
   onFfmpegFailure?: FfmpegFailureHook;
+  /**
+   * How the clip sound's pre-gain treats a true peak above `SPEECH_PRE_GAIN.peakCeiling` (issue #1181): `ceiling`
+   * (default) stops the gain there; `float` reaches the target and writes the clip sound as 32-bit float.
+   */
+  speechPeaks?: SpeechPeaks;
 }
 
 export interface PreparedClip {
@@ -173,6 +178,11 @@ export type TranscribeOutcome =
        * optional so an app's own `ready` outcome still compiles.
        */
       speechGainDb?: Record<string, number>;
+      /**
+       * What each clip's pre-gain reached (`ClipSound.preGain`, issue #1181): `held_by_peak_ceiling` names a clip the
+       * speech chain hears under the target. Always answered; optional so an app's own `ready` outcome still compiles.
+       */
+      speechPreGain?: Record<string, SpeechPreGain>;
     };
 
 export function getFrame(film: Pick<FootageFilm, "format">): Frame {
@@ -301,20 +311,29 @@ async function decodeIsolatedVoice(cached: string, clipId: string, buildDir: str
   return output;
 }
 
-/** Each clip's lossless, pre-gained sound (`prepareClipSounds`) and its pre-gain in dB, by clip id. */
-async function getClipSoundFiles(clips: PreparedClip[], buildDir: string, signal: AbortSignal | undefined): Promise<{ speech: Record<string, string>; speechGainDb: Record<string, number> }> {
-  const sounds = Object.entries(await prepareClipSounds(clips, { buildDir, ...(signal === undefined ? {} : { signal }) }));
-  return { speech: Object.fromEntries(sounds.map(([id, sound]) => [id, sound.file])), speechGainDb: Object.fromEntries(sounds.map(([id, sound]) => [id, sound.gainDb])) };
+/** Each clip's lossless, pre-gained sound (`prepareClipSounds`), its pre-gain in dB and what it reached, by clip id. */
+async function getClipSoundFiles(
+  clips: PreparedClip[],
+  options: Pick<FootageRunOptions, "buildDir" | "signal" | "speechPeaks" | "log">,
+): Promise<{ speech: Record<string, string>; speechGainDb: Record<string, number>; speechPreGain: Record<string, SpeechPreGain> }> {
+  const { buildDir, signal, speechPeaks, log } = options;
+  const sounds = Object.entries(await prepareClipSounds(clips, { buildDir, log, ...(signal === undefined ? {} : { signal }), ...(speechPeaks === undefined ? {} : { peaks: speechPeaks }) }));
+  return {
+    speech: Object.fromEntries(sounds.map(([id, sound]) => [id, sound.file])),
+    speechGainDb: Object.fromEntries(sounds.map(([id, sound]) => [id, sound.gainDb])),
+    speechPreGain: Object.fromEntries(sounds.map(([id, sound]) => [id, sound.preGain])),
+  };
 }
 
 /** The free transcripts of `--placeholder`, written under `placeholder/` for a look; the speech is each clip's lossless sound. */
-async function transcribePlaceholder(clips: PreparedClip[], buildDir: string, signal: AbortSignal | undefined): Promise<TranscribeOutcome> {
+async function transcribePlaceholder(clips: PreparedClip[], options: FootageRunOptions): Promise<TranscribeOutcome> {
+  const { buildDir } = options;
   const words: Record<string, TimedWord[]> = {};
   for (const clip of clips) {
     words[clip.clip.id] = clip.clip.role === "talk" ? makePlaceholderTranscript(clip.clip.script, clip.duration) : [];
     writeTranscript(join(buildDir, "placeholder", `${clip.clip.id}.transcript.json`), words[clip.clip.id] ?? []);
   }
-  return { kind: "ready", words, ...(await getClipSoundFiles(clips, buildDir, signal)) };
+  return { kind: "ready", words, ...(await getClipSoundFiles(clips, options)) };
 }
 
 /** The paid music step, when the film's music still has to be bought; null when it is cached or free. */
@@ -337,7 +356,7 @@ export function transcribeFootage(film: FootageFilm, clips: PreparedClip[], opti
 /** The body of `transcribeFootage`, inside its ffmpeg failure reporting. */
 async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], options: FootageRunOptions): Promise<FootageResult<TranscribeOutcome>> {
   const { buildDir, providers, log, signal } = options;
-  if (options.isPlaceholder) return ok(await transcribePlaceholder(clips, buildDir, signal));
+  if (options.isPlaceholder) return ok(await transcribePlaceholder(clips, options));
   const keyTerms = getFilmKeyTerms(film);
   if (!keyTerms.ok) return err(`footage film ${film.id}: ${keyTerms.errors.join(" ")}`, { kind: "input" });
   const sttKeyTerms = keyTerms.terms.length === 0 ? {} : { keyTerms: keyTerms.terms };
@@ -363,7 +382,7 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
   const words: Record<string, TimedWord[]> = {};
   for (const clip of clips) words[clip.clip.id] = [];
   // Every clip's sound, lossless and pre-gained: what the isolator, the speech to text and the speech track hear (#1139).
-  const { speech, speechGainDb } = await getClipSoundFiles(clips, buildDir, signal);
+  const { speech, speechGainDb, speechPreGain } = await getClipSoundFiles(clips, options);
   const isolating = plan.filter(({ isolated }) => isolated !== null && !existsSync(isolated.path));
   const transcribing = plan.filter(({ transcript }) => !existsSync(transcript.path));
   const isolateProgress = createStageProgress(options.onProgress, "isolate", isolating.map(({ clip }) => ({ item: clip.clip.id, seconds: clip.duration })));
@@ -416,7 +435,7 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
     transcribeProgress(index, clip.duration);
     words[id] = result.value.words;
   }
-  return ok({ kind: "ready", words, speech, speechGainDb });
+  return ok({ kind: "ready", words, speech, speechGainDb, speechPreGain });
 }
 
 /** The talking clips' sentences with their ids (`s1`…), as `buildEdl` names them, for choosing what to keep. */

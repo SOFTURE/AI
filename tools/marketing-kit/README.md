@@ -738,6 +738,15 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   it (`assets/speech.raw.wav`, `speech.declicked.wav`, `speech.wav`) is float WAV, so quiet speech is never encoded
   lossily at its quiet level and the film's final AAC (`mixLoudness.audioBitrateKbps`, 192 to 512 kbps, default 192,
   48 kHz) is the only lossy encode.
+- **What the pre-gain reached (issue #1181):** quiet speech with a few short peaks (a mouth click, a bump on the
+  microphone) has a crest of about 25 dB, so the −3 dBTP ceiling stops the gain under −23 LUFS. Each `ClipSound`
+  answers `preGain`, and `transcribeFootage` / `isolateSpeechRanges` answer `speechPreGain` by clip id: `on_target`,
+  `held_by_peak_ceiling` or `peaks_over_ceiling` (each with `inputLufs`, `inputTruePeakDbtp`, `reachedLufs`,
+  `truePeakDbtp`), `silent`, or `shared` (a non-talking clip). The `log` gets one line for every clip the ceiling
+  held. `speechPeaks: "float"` (opt-in, in the run options and `isolateSpeechRanges`) raises every talking clip to the
+  target with the same single linear gain and writes the clip sound as 32-bit float WAV, so its rare peaks above the
+  ceiling (or 0 dBFS) do not clip; the film's loudness pass keeps its own true-peak limit. Only the range cut sent to
+  the voice isolator stays 24-bit, so a peak above 0 dBFS is cut there, in what the provider hears, and nowhere else.
 - **Publishable output:** the speech track is measured and normalized to `loudness` (default −14 LUFS integrated,
   −1 dBTP true peak; two-pass `loudnorm`, one linear gain) before the music goes under it, so a quiet phone clip is
   not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. **Before hyperframes renders a

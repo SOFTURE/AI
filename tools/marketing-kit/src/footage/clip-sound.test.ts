@@ -5,7 +5,17 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { buildClipSoundArgs, buildClipSoundMeasureArgs, getAudioCodecArgs, getPreGainDb, prepareClipSounds, SPEECH_PRE_GAIN, type ClipSoundInput } from "./clip-sound.js";
+import {
+  buildClipSoundArgs,
+  buildClipSoundMeasureArgs,
+  describeSpeechPreGain,
+  getAudioCodecArgs,
+  getPreGainDb,
+  getSpeechPreGain,
+  prepareClipSounds,
+  SPEECH_PRE_GAIN,
+  type ClipSoundInput,
+} from "./clip-sound.js";
 import { buildLoudnessArgs, buildLoudnessMeasureArgs, DEFAULT_LOUDNESS, readLoudnessMeasurement, type LoudnessMeasurement } from "./loudness.js";
 import { buildSpeechArgs } from "./render.js";
 
@@ -34,6 +44,47 @@ describe("getPreGainDb", () => {
     expect(getPreGainDb(null)).toBe(0);
     expect(getPreGainDb(measurement(-Infinity, -Infinity))).toBe(0);
     expect(getPreGainDb(measurement(-80, -60))).toBe(0);
+  });
+});
+
+describe("getSpeechPreGain (issue #1181)", () => {
+  it("says a clip reached the target, with its measurement before and after", () => {
+    expect(getSpeechPreGain(measurement(-41.82, -26.31))).toEqual({
+      gainDb: 18.82,
+      preGain: { kind: "on_target", inputLufs: -41.82, inputTruePeakDbtp: -26.31, reachedLufs: -23, truePeakDbtp: -7.49 },
+    });
+  });
+
+  it("says the peak ceiling held a peaky quiet clip under the target, and where it landed", () => {
+    expect(getSpeechPreGain(measurement(-38.73, -15.47))).toEqual({
+      gainDb: 12.47,
+      preGain: { kind: "held_by_peak_ceiling", inputLufs: -38.73, inputTruePeakDbtp: -15.47, reachedLufs: -26.26, truePeakDbtp: -3 },
+    });
+  });
+
+  it("with float peaks raises the peaky clip to the target and says its peak is over the ceiling", () => {
+    expect(getSpeechPreGain(measurement(-38.73, -15.47), { peaks: "float" })).toEqual({
+      gainDb: 15.73,
+      preGain: { kind: "peaks_over_ceiling", inputLufs: -38.73, inputTruePeakDbtp: -15.47, reachedLufs: -23, truePeakDbtp: 0.26 },
+    });
+    expect(getSpeechPreGain(measurement(-41.82, -26.31), { peaks: "float" }).preGain.kind).toBe("on_target");
+  });
+
+  it("answers silence for a clip without sound and for silence", () => {
+    expect(getSpeechPreGain(null)).toEqual({ gainDb: 0, preGain: { kind: "silent" } });
+    expect(getSpeechPreGain(measurement(-80, -60), { peaks: "float" })).toEqual({ gainDb: 0, preGain: { kind: "silent" } });
+  });
+
+  it("logs only a clip the ceiling held, or whose peaks pass it", () => {
+    const held = getSpeechPreGain(measurement(-38.73, -15.47));
+    expect(describeSpeechPreGain("talk", held)).toBe(
+      'speech pre-gain: clip talk held by the -3 dBTP peak ceiling at +12.47 dB: it reaches -26.26 LUFS, not -23 (input -38.73 LUFS, -15.47 dBTP). speechPeaks: "float" reaches the target without clipping.',
+    );
+    expect(describeSpeechPreGain("talk", getSpeechPreGain(measurement(-38.73, -15.47), { peaks: "float" }))).toBe(
+      "speech pre-gain: clip talk raised by +15.73 dB to -23 LUFS (input -38.73 LUFS, -15.47 dBTP); its true peak 0.26 dBTP is over the -3 dBTP ceiling, kept by the 32-bit float sound.",
+    );
+    expect(describeSpeechPreGain("talk", getSpeechPreGain(measurement(-41.82, -26.31)))).toBeNull();
+    expect(describeSpeechPreGain("street", { gainDb: 3, preGain: { kind: "shared" } })).toBeNull();
   });
 });
 
@@ -86,6 +137,11 @@ describe("the clip sound's ffmpeg arguments", () => {
     const silent = buildClipSoundArgs({ ...input({ probe: { hasAudio: false } }), gainDb: 0, output: "/b/audio/talk.wav" });
     expect(silent.slice(3, 9)).toEqual(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", "2.500"]);
     expect(silent).not.toContain("/src/talk.mov");
+  });
+
+  it("writes the sound as 32-bit float with float peaks", () => {
+    const args = buildClipSoundArgs({ ...input(), gainDb: 15.73, output: "/b/audio/talk.wav", peaks: "float" });
+    expect(args.slice(-3)).toEqual(["-c:a", "pcm_f32le", "/b/audio/talk.wav"]);
   });
 
   it("encodes an intermediate file by its extension", () => {
@@ -177,6 +233,36 @@ describe.runIf(hasFfmpeg)("prepareClipSounds and the lossless chain (issue #1139
     // Sample by sample (past the cut's 20 ms edge fades) the chain is the reference: no lossy encode left anything behind.
     expect(getDifferenceDb(chain, reference)).toBeLessThan(-40);
   });
+
+  it("says the ceiling held quiet speech with three 1 ms peaks, and with float peaks reaches -23 LUFS with the peaks and the envelope intact (issue #1181)", async () => {
+    // Speech-like bursts at about -40 LUFS, plus three 1 ms clicks at about -15.5 dBFS (a crest of about 25 dB).
+    const speech = "sine=frequency=220:sample_rate=48000:duration=6,volume=0.02,volume='if(lt(mod(t,1.5),1),1,0)':eval=frame";
+    const clicks = "aevalsrc='0.168*(between(t,0.5,0.501)+between(t,2.2,2.201)+between(t,4.1,4.101))':s=48000:d=6";
+    const source = makeClip("peaky.mov", `${speech}[s];${clicks}[c];[s][c]amix=inputs=2:normalize=0`);
+    const lines: string[] = [];
+    const held = await prepareClipSounds([clip("talk", source, "talk")], { buildDir: join(dir, "held"), log: (line) => lines.push(line) });
+    const heldSound = held.talk;
+    if (heldSound === undefined || heldSound.preGain.kind !== "held_by_peak_ceiling") throw new Error(`expected the ceiling to hold the gain: ${JSON.stringify(heldSound)}`);
+    expect(heldSound.preGain.reachedLufs).toBeLessThan(SPEECH_PRE_GAIN.target - 2);
+    expect(Math.abs(measure(heldSound.file).inputI - heldSound.preGain.reachedLufs)).toBeLessThan(0.5);
+    expect(lines).toEqual([describeSpeechPreGain("talk", heldSound)]);
+
+    const float = await prepareClipSounds([clip("talk", source, "talk")], { buildDir: join(dir, "float"), peaks: "float" });
+    const floatSound = float.talk;
+    if (floatSound === undefined || floatSound.preGain.kind !== "peaks_over_ceiling") throw new Error(`expected the float sound over the ceiling: ${JSON.stringify(floatSound)}`);
+    const reached = measure(floatSound.file);
+    expect(Math.abs(reached.inputI - SPEECH_PRE_GAIN.target)).toBeLessThan(0.5);
+    expect(reached.inputTp).toBeGreaterThan(SPEECH_PRE_GAIN.peakCeiling);
+    expect(getCodec(floatSound.file)).toBe("pcm_f32le");
+    // One linear gain: the float sound is the held one raised by the gains' difference, sample by sample.
+    const raised = join(dir, "raised.wav");
+    ffmpeg(["-v", "error", "-y", "-i", heldSound.file, "-af", `volume=${String(floatSound.gainDb - heldSound.gainDb)}dB`, "-c:a", "pcm_f32le", raised]);
+    expect(getDifferenceDb(floatSound.file, raised)).toBeLessThan(-60);
+  });
+
+  function getCodec(file: string): string {
+    return spawnSync("ffprobe", ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_name", "-of", "csv=p=0", file], { encoding: "utf8" }).stdout.trim();
+  }
 
   /** The RMS of `a - b` (between 0.05 s and 5.95 s) against the RMS of `b`, in dB. */
   function getDifferenceDb(a: string, b: string): number {
