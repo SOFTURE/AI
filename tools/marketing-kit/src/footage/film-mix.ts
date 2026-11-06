@@ -22,8 +22,14 @@ export interface FilmMixInput {
 
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
 
-/** The ffmpeg arguments that write the film's mix. */
+/**
+ * The ffmpeg arguments that write the film's mix. The length is bounded three times (the padding's `whole_dur`, the
+ * trim and the output's `-t`): a mix that once ran unbounded on CI wrote a 90 GB WAV and filled the disk, so no single
+ * filter's end of stream is trusted with it. A film length that is not a positive number is a bug and throws.
+ */
 export function buildFilmMixArgs(input: FilmMixInput): string[] {
+  if (!Number.isFinite(input.seconds) || input.seconds <= 0) throw new Error(`buildFilmMixArgs: the film's length must be a positive number of seconds, got ${String(input.seconds)}.`);
+  const length = String(r3(input.seconds));
   const format = `aresample=${FOOTAGE_SAMPLE_RATE},aformat=sample_fmts=fltp:channel_layouts=stereo`;
   const sources: { file: string; filter: string }[] = [
     { file: input.speech.file, filter: `atrim=duration=${r3(input.speech.seconds)},${format}` },
@@ -36,7 +42,7 @@ export function buildFilmMixArgs(input: FilmMixInput): string[] {
   const chains = sources.map((source, index) => `[${index}:a]${source.filter}[a${index}]`);
   const labels = sources.map((_, index) => `[a${index}]`).join("");
   const mixed = sources.length === 1 ? `[a0]anull` : `${labels}amix=inputs=${sources.length}:duration=longest:normalize=0`;
-  const graph = [...chains, `${mixed},apad,atrim=duration=${r3(input.seconds)}[mix]`].join(";");
+  const graph = [...chains, `${mixed},apad=whole_dur=${length},atrim=duration=${length}[mix]`].join(";");
   return [
     "-v",
     "error",
@@ -46,6 +52,8 @@ export function buildFilmMixArgs(input: FilmMixInput): string[] {
     graph,
     "-map",
     "[mix]",
+    "-t",
+    length,
     "-c:a",
     "pcm_f32le",
     "-ar",

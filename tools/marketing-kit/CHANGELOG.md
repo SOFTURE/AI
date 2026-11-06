@@ -6,6 +6,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.15.0
 
+- **The footage film's mix is bounded:** `buildFilmMixArgs` pads to the film's length (`apad=whole_dur`), trims and
+  caps the output (`-t`), and throws on a length that is not a positive number. A CI run once wrote an unbounded
+  90 GB mix until the disk was full.
 - **Footage failures name their kind (#1126):** a failed `FootageResult` (`renderFootage`, `finishFootage`,
   `renderFootageFilm`, `prepareFootage`, `renderFootageDraft`, …) carries `failure` next to `error`, so an app can
   tell a gate miss from a failure worth retrying without reading the sentence:
