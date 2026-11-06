@@ -105,7 +105,7 @@ function recordStripeErrors(page: Page): string[] {
     void response
       .json()
       .then((body: unknown) => {
-        const error = typeof body === "object" && body !== null && "error" in body ? (body as { error: unknown }).error : null;
+        const error = typeof body === "object" && body !== null && "error" in body ? body.error : null;
         const fields = typeof error === "object" && error !== null ? (error as Record<string, unknown>) : {};
         const detail = ["type", "code", "decline_code", "param", "message"]
           .map((key) => (typeof fields[key] === "string" ? `${key}=${fields[key]}` : null))
