@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## Unreleased
+
+- **The quality gate no longer stalls on a crafted line (#1109, #1110, #1111):** the heading, list item and footnote
+  definition patterns of `splitBlocks` match only the block marker and read the rest of the line by position, so a
+  long whitespace run before a line separator (U+2028, U+2029, a bare CR) no longer takes quadratic time
+  (code-scanning `js/polynomial-redos`). Blocks of ordinary Markdown are unchanged. Migrate: nothing.
+
 ## 0.5.1
 
 - **`markdown-it` 15.0.3 or newer (#1101):** the dependency floor rises from `^15.0.2` to `^15.0.3`, which fixes two
