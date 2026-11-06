@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Where the cover's text and focus landed (#1172):** `PhotoCover` answers `textBox` (the drawn text with its shadow,
+  the box the fit check measured, `{ left, top, right, bottom }` in pixels with right and bottom excluded; null for
+  layout `photo`) and `focusPoint` (`{ x, y }`, the focus point on the cover after the crop). The new
+  `isPointUnderCoverText(cover, point, marginPx = 0)` tells whether a point lies under the text, so an app can warn when
+  the caption covers the photo's subject without re-deriving the kit's layout rules. Types `CoverBox` and `CoverPoint`.
 - **Read an uploaded font file (#1174):** `readFontFileInfo(data)` answers a `.ttf`, `.otf`, `.woff` or `.woff2`
   file's family, format, weight (static, or a variable `wght` range), the CSS weight a `brand.fonts` file takes,
   style, and whether captions, the footage draft and OG images (the photo cover included) can use it, with a reason

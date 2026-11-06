@@ -171,6 +171,7 @@ export {
   readFontFileInfo,
   renderConfiguredOgImage,
   renderOgImage,
+  isPointUnderCoverText,
   renderPhotoCover,
   type ConfiguredOgImageOptions,
   type FontFileFormat,
