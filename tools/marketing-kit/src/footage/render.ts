@@ -1,3 +1,4 @@
+import { getAudioCodecArgs } from "./clip-sound.js";
 import { getSoundSpan, type Edl } from "./edl.js";
 import { DEFAULT_EDIT, type FootageEdit } from "./film.js";
 import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
@@ -105,7 +106,7 @@ export function buildSpeechArgs(edl: Edl, sources: Record<string, string>, outpu
     const joined = edl.segments.map((_, index) => `[a${index}]`).join("");
     parts.push(`${joined}concat=n=${edl.segments.length}:v=0:a=1[speech]`);
   }
-  return ["-v", "error", "-y", ...inputs, "-filter_complex", parts.join(";"), "-map", "[speech]", "-c:a", "libmp3lame", "-q:a", "2", output];
+  return ["-v", "error", "-y", ...inputs, "-filter_complex", parts.join(";"), "-map", "[speech]", ...getAudioCodecArgs(output), output];
 }
 
 /** The music track: looped to the film's length, ducked by the keyframes, faded in and out. */
@@ -147,7 +148,7 @@ export function buildLastFrameArgs(edl: Edl, clips: Record<string, string>, outp
   return ["-v", "error", "-y", "-ss", String(at), "-i", clip, "-frames:v", "1", "-q:v", "2", output];
 }
 
-/** Audio extracted from a normalized clip, for the providers and the speech track. */
+/** A file's sound alone, encoded by the output's extension (`getAudioCodecArgs`: `.wav` lossless). */
 export function buildAudioArgs(clip: string, output: string): string[] {
-  return ["-v", "error", "-y", "-i", clip, "-vn", "-c:a", "libmp3lame", "-q:a", "2", output];
+  return ["-v", "error", "-y", "-i", clip, "-vn", ...getAudioCodecArgs(output), output];
 }

@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { err, ok } from "./failure.js";
 import { probeAudio } from "./audio.js";
+import { prepareClipSounds } from "./clip-sound.js";
 import { writeCacheFile } from "./cache.js";
 import type { Edl } from "./edl.js";
 import type { FootageFilm } from "./film.js";
@@ -14,11 +15,13 @@ import { toPaidAudio, type IsolationProvider, type PaidAudio } from "./providers
 import {
   buildRangeAudioArgs,
   buildRangeLayArgs,
+  getPlanOptions,
   getSpeechRangeCache,
   getSpeechRangeWindows,
   planSpeechRanges,
   DEFAULT_SPEECH_RANGE_FADE_MS,
   type LaidRange,
+  type PlanSpeechRangesOptions,
   type SpeechRange,
   type SpeechRangeCacheResolver,
 } from "./speech-ranges.js";
@@ -29,7 +32,9 @@ import {
  * segment is never paid twice and a changed cut pays only its new ranges. The cleaned ranges are laid back over the
  * clip's own sound into one file as long as the clip: the speech map `renderFootage` takes. A range the provider refuses
  * is asked again, and one refused on every attempt keeps the clip's own sound in its window while the others are laid
- * (issue #1127): only a cancel stops the call.
+ * (issue #1127): only a cancel stops the call. The ranges reach the provider's minimum input (`minSeconds`, issue
+ * #1140): near ranges of a clip are merged, a short one is widened with the clip's own context and only the part the
+ * cut hears is laid; a range that still cannot pass is never sent.
  */
 
 /** How often a refused range is asked again: `attempts` in all (default 3), waiting `delaysMs[n]` before attempt n + 2. */
@@ -48,6 +53,10 @@ export const DEFAULT_SPEECH_RANGE_RETRY_DELAYS_MS: readonly number[] = [1000, 20
 export type IsolateSpeechRangesOptions = Pick<FootageRunOptions, "buildDir" | "cacheDir" | "providers" | "isCommit" | "signal" | "onCharge" | "onProgress" | "onFfmpegFailure"> & {
   /** Seconds added on each side of a sound span; default `DEFAULT_SPEECH_RANGE_MARGIN` (0.25). */
   margin?: number;
+  /** Ranges of a clip at most this many seconds apart are isolated as one; default 2, `null` keeps them apart. */
+  mergeGap?: PlanSpeechRangesOptions["mergeGap"];
+  /** Seconds a range shorter than the provider's minimum is widened past it; default `DEFAULT_SPEECH_RANGE_MIN_PAD` (0.4). */
+  minPad?: number;
   /** Retries of a refused range. */
   retry?: SpeechRangeRetry;
   /** Milliseconds of the linear crossfade at every join; default `DEFAULT_SPEECH_RANGE_FADE_MS` (15), 0 switches at once. */
@@ -67,6 +76,7 @@ export type SpeechRangeOutcome =
   | { kind: "cached" }
   | { kind: "bought"; attempts: number }
   | { kind: "failed"; error: string; attempts: number }
+  | { kind: "skipped"; reason: "too_short"; minSeconds: number }
   | { kind: "not_bought" };
 
 export interface IsolatedSpeechRange extends SpeechRange {
@@ -79,13 +89,14 @@ export interface IsolatedSpeechRange extends SpeechRange {
   laid: boolean;
   /**
    * `cached`; `bought` in this call; `failed` when the provider refused it on every attempt (its window keeps the
-   * clip's own sound); `not_bought` without `isCommit`.
+   * clip's own sound); `skipped` when it is shorter than the provider's minimum even after merging and widening (never
+   * sent, its window keeps the clip's own sound); `not_bought` without `isCommit`.
    */
   outcome: SpeechRangeOutcome;
 }
 
 export interface IsolatedSpeech {
-  /** Every clip's audio for the speech track: its laid file, or the normalized clip when none of its ranges is laid. */
+  /** Every clip's audio for the speech track: its laid file, or its lossless sound when none of its ranges is laid. */
   speech: Record<string, string>;
   ranges: IsolatedSpeechRange[];
 }
@@ -95,7 +106,8 @@ export interface IsolatedSpeech {
  * With `isCommit` every uncached range is bought (`onCharge` step `isolate`, item the clip id, with its `range`);
  * without it only cached ranges are laid, a free draft, and `ranges` names what is still missing. A refused range is
  * retried (`retry`); one refused on every attempt is answered `failed` and the call still succeeds. Each clip with a
- * laid range gets `<buildDir>/audio/<id>.ranges.mp3`, crossfaded at every join (`fadeMs`).
+ * laid range gets `<buildDir>/audio/<id>.ranges.wav`, crossfaded at every join (`fadeMs`). The isolator hears, and the
+ * ranges are laid over, each clip's lossless, pre-gained sound (`prepareClipSounds`, issue #1139).
  */
 export function isolateSpeechRanges(film: FootageFilm, clips: PreparedClip[], edl: Edl, options: IsolateSpeechRangesOptions): Promise<FootageResult<IsolatedSpeech>> {
   const log = options.log ?? ((): void => undefined);
@@ -117,7 +129,7 @@ async function runIsolateSpeechRanges(
   const planned = planSpeechRanges(
     edl,
     clips.map((clip) => ({ id: clip.clip.id, role: clip.clip.role, duration: clip.duration })),
-    options.margin === undefined ? {} : { margin: options.margin },
+    getPlanOptions(options, providers.isolation),
   );
   const byClip = new Map(clips.map((clip) => [clip.clip.id, clip]));
   const clipKeys = new Map<string, string>();
@@ -131,15 +143,27 @@ async function runIsolateSpeechRanges(
       clipKeys.set(range.clip, clipKey);
     }
     const cache = options.rangeCache?.(range, clipKey) ?? getSpeechRangeCache(film.id, clipKey, range, { cacheDir: options.cacheDir, provider: providers.isolation.id });
+    if (range.skip !== undefined) {
+      ranges.push({ ...range, cacheKey: cache.key, path: cache.path, cached: false, laid: false, outcome: { kind: "skipped", ...range.skip } });
+      continue;
+    }
     const cached = existsSync(cache.path);
     ranges.push({ ...range, cacheKey: cache.key, path: cache.path, cached, laid: cached, outcome: cached ? { kind: "cached" } : { kind: "not_bought" } });
   }
-  const buying = options.isCommit ? ranges.filter((range) => !range.cached) : [];
+  const skipped = ranges.filter((range) => range.outcome.kind === "skipped");
+  if (skipped.length > 0) {
+    const minimum = providers.isolation.minSeconds ?? 0;
+    log(`voice isolation: ${String(skipped.length)} range${skipped.length === 1 ? "" : "s"} shorter than ${providers.isolation.id}'s minimum of ${String(minimum)} s even with the clip's whole sound, not sent, laid with the clip's own sound: ${skipped.map(describeRange).join("; ")}.`);
+  }
+  const buying = options.isCommit ? ranges.filter((range) => range.outcome.kind === "not_bought") : [];
   const total = buying.reduce((sum, range) => sum + (range.endMs - range.startMs) / 1000, 0);
   let done = 0;
   const report = (range: SpeechRange, index: number): void => {
     options.onProgress?.({ step: "isolate", item: range.clip, itemIndex: index + 1, itemCount: buying.length, done: Math.round(done * 1000) / 1000, total: Math.round(total * 1000) / 1000 });
   };
+  // Every clip's sound, lossless and pre-gained (#1139): what the isolator hears and what the cleaned ranges are laid over.
+  const sounds = await prepareClipSounds(clips, { buildDir, ...aborting });
+  const getSound = (clip: PreparedClip): string => sounds[clip.clip.id]?.file ?? clip.file;
   const workDir = join(buildDir, "audio", "ranges");
   for (const [index, range] of buying.entries()) {
     const clip = byClip.get(range.clip);
@@ -148,8 +172,8 @@ async function runIsolateSpeechRanges(
     report(range, index);
     mkdirSync(workDir, { recursive: true });
     // The provider sees the clip's id and the range as the file name.
-    const input = join(workDir, `${range.clip}.${String(range.startMs)}-${String(range.endMs)}.mp3`);
-    await runFfmpeg(`Cutting ${describeRange(range)} for voice isolation`, buildRangeAudioArgs(clip.file, range, input), { ...aborting, output: input });
+    const input = join(workDir, `${range.clip}.${String(range.startMs)}-${String(range.endMs)}.wav`);
+    await runFfmpeg(`Cutting ${describeRange(range)} for voice isolation`, buildRangeAudioArgs(getSound(clip), range, input), { ...aborting, output: input });
     signal?.throwIfAborted();
     log(`voice isolation (${providers.isolation.id}): ${describeRange(range)}, ${units.toFixed(1)} s.`);
     const answer = await isolateWithRetries({
@@ -162,6 +186,7 @@ async function runIsolateSpeechRanges(
       },
     });
     if (!answer.ok) {
+      rmSync(input, { force: true });
       range.outcome = { kind: "failed", error: answer.error, attempts: answer.attempts };
       done += units;
       report(range, index);
@@ -194,7 +219,7 @@ async function runIsolateSpeechRanges(
   const speech: Record<string, string> = {};
   for (const clip of clips) {
     const id = clip.clip.id;
-    speech[id] = clip.file;
+    speech[id] = getSound(clip);
     const laidRanges = ranges.filter((range) => range.clip === id && range.laid);
     if (laidRanges.length === 0) continue;
     const laid: LaidRange[] = [];
@@ -205,9 +230,9 @@ async function runIsolateSpeechRanges(
       if (!probed.ok) return err(`${describeRange(window.range)}: the cleaned voice at ${file} does not read (${probed.error}); delete it and run again.`);
       laid.push({ window, file, isMono: probed.probe.channels === 1 });
     }
-    const output = join(buildDir, "audio", `${id}.ranges.mp3`);
+    const output = join(buildDir, "audio", `${id}.ranges.wav`);
     mkdirSync(join(buildDir, "audio"), { recursive: true });
-    await runFfmpeg(`Laying the cleaned voice over clip ${id}`, buildRangeLayArgs(clip.file, laid, output, { fadeMs: options.fadeMs ?? DEFAULT_SPEECH_RANGE_FADE_MS }), { ...aborting, output });
+    await runFfmpeg(`Laying the cleaned voice over clip ${id}`, buildRangeLayArgs(getSound(clip), laid, output, { fadeMs: options.fadeMs ?? DEFAULT_SPEECH_RANGE_FADE_MS }), { ...aborting, output });
     speech[id] = output;
   }
   return ok({ speech, ranges });

@@ -42,6 +42,11 @@ export interface SttProvider {
 /** Removes background noise from speech; returns the cleaned audio (mp3), alone or with the reported charge. */
 export interface IsolationProvider {
   readonly id: string;
+  /**
+   * The shortest input in seconds the provider accepts; absent: no minimum. `planSpeechRanges` merges and widens the
+   * cut's ranges to reach it and never sends a range still shorter.
+   */
+  readonly minSeconds?: number;
   isolate(input: { audio: string; signal?: AbortSignal }): Promise<TtsResult<Buffer | PaidAudio>>;
 }
 

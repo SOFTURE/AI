@@ -716,6 +716,14 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   track without words is not gated. The log and the result's `declick` (`{ level, impulses, gateDb }`, null when
   off) carry the count. `"off"` (the default) runs no extra pass: the speech track is unchanged. ffmpeg's `adeclick`
   misses these clicks, which sit well below the speech peaks.
+- **A lossless speech chain (issue #1139):** each clip's sound is read from its source (with the clip's trim) into
+  `audio/<clip>.wav`, 24-bit 48 kHz stereo, and pre-gained right away by one linear gain to about −23 LUFS, its true
+  peak kept at or under −3 dBTP (`SPEECH_PRE_GAIN`); a b-roll or other non-talking clip takes the mean gain of the
+  talking clips, so its own sound under the speech keeps its level against it. The voice isolator and speech to text
+  hear that WAV; the cleaned voice the provider answers is decoded to `audio/<clip>.isolated.wav`. Every stage after
+  it (`assets/speech.raw.wav`, `speech.declicked.wav`, `speech.wav`) is float WAV, so quiet speech is never encoded
+  lossily at its quiet level and the film's final AAC (`mixLoudness.audioBitrateKbps`, 192 to 512 kbps, default 192,
+  48 kHz) is the only lossy encode.
 - **Publishable output:** the speech track is measured and normalized to `loudness` (default −14 LUFS integrated,
   −1 dBTP true peak; two-pass `loudnorm`, one linear gain) before the music goes under it, so a quiet phone clip is
   not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. **Before hyperframes renders a
@@ -859,7 +867,15 @@ await renderFootage(film, clips, { ...transcript, speech: isolated.value.speech 
 
 - The ranges are every segment's sound span (and the picture clip's own span when `audio.ownVolume` keeps it under)
   widened by `margin` (default 0.25 s, so a cut's cross-fade reads cleaned sound), clamped to the clip, in whole
-  milliseconds. Ranges are not merged: identical ranges and ranges inside another are dropped, the rest stay apart.
+  milliseconds. Identical ranges and ranges inside another are dropped, and ranges of a clip at most `mergeGap`
+  seconds apart (default 2; `null` keeps them apart, `Infinity` isolates each clip's whole used span once) are sent as
+  one range: they are source ranges, not cut segments.
+- The isolation provider names the shortest input it accepts (`IsolationProvider.minSeconds`; 4.6 s for the
+  ElevenLabs Voice Isolator, `ELEVENLABS_ISOLATION_MIN_SECONDS`). A range still shorter is widened symmetrically with
+  the clip's own context to the minimum plus `minPad` (default 0.4 s), inside the clip, and only the part the cut hears
+  (`range.heard`) is laid back. A range that cannot reach the minimum (a clip shorter than it) is never sent: it is
+  marked `skip: { reason: "too_short", minSeconds }`, answered with outcome `skipped`, keeps the clip's own sound and
+  is priced at 0 with `skipped` in the estimate. A provider without `minSeconds` gets every range as it is.
 - Each range is cached as `<cacheDir>/<film>/<key>.isolated.mp3`, keyed by the clip's bytes and trim, the range and the
   provider: an unchanged segment is never paid twice and a changed cut pays only its new ranges. `onCharge` reports
   each with step `isolate`, the clip id as `item` (or `chargeItem(range)`, e.g. the app's segment id, for one ledger
@@ -867,15 +883,21 @@ await renderFootage(film, clips, { ...transcript, speech: isolated.value.speech 
   `rangeCache: (range, clipKey) => ({ key, path })` to both the block and the estimate.
 - A range the provider refuses is asked again (`retry: { attempts, delaysMs, wait }`, default 3 attempts after 1 s and
   2 s, the wait stopped by `signal`). A range refused on every attempt does not fail the call: its window keeps the
-  clip's own sound, the other ranges are laid, and only a cancel throws. Each range carries an `outcome`: `cached`,
-  `bought` (with `attempts`), `failed` (with the last `error` and `attempts`) or `not_bought` (without `isCommit`).
-- Each clip's cleaned windows are laid over its own sound into `<buildDir>/audio/<clip>.ranges.mp3`, as long as the
+  clip's own sound, the other ranges are laid, and only a cancel throws; its cut file under `<buildDir>/audio/ranges/`
+  is removed. Each range carries an `outcome`: `cached`, `bought` (with `attempts`), `failed` (with the last `error`
+  and `attempts`), `skipped` (too short for the provider) or `not_bought` (without `isCommit`).
+- Each range is cut for the isolator from the clip's lossless, pre-gained sound (`<buildDir>/audio/<clip>.wav`, as
+  the speech chain reads it) as WAV. A range cached before this chain (#1139) was cleaned from the un-gained sound; it is reused as
+  it is, so a refused range next to it can differ in level until it is bought again.
+- Each clip's cleaned windows are laid over its lossless sound into `<buildDir>/audio/<clip>.ranges.wav`, as long as the
   clip; overlapping ranges switch at the middle of their overlap, and a mono answer goes to both channels at full level.
   Every join is a linear crossfade of `fadeMs` (default 15; 0 switches at once): centred on a switch between two
   ranges, inside the window at a range's own edge, the clip's sound under one minus the windows' gains.
 - Without `isCommit` only cached ranges are laid (a free draft); `ranges` says which are `cached` and `laid`.
-- `estimateFootageFilm(film, { …, isolate: "segments", margin })` prices isolation on those ranges instead of whole
-  clips; both estimates need the cut (`edl`, or `edl.json` in `buildDir`).
+- `estimateFootageFilm(film, { …, isolate: "segments", margin, mergeGap, minPad })` prices isolation on exactly the
+  ranges the block will send instead of whole clips; both estimates need the cut (`edl`, or `edl.json` in `buildDir`).
+- `createFakeIsolationProvider({ minSeconds })` declares a minimum and refuses a shorter input with
+  `audio_too_short` (its `refused` lists them), for tests of an app's own flow.
 
 ### Footage films in a worker
 
@@ -977,6 +999,25 @@ const result = await renderFootageFilm(film, {
   at one CPU with `veryfast`; the render itself takes about 18 s per second of film). `workers` and `lowMemory` pass
   hyperframes' `--workers` and `--low-memory-mode` / `--no-low-memory-mode` (by default hyperframes turns its
   low-memory profile on by itself at 8 GB or less, reading a cgroup v2 limit).
+
+- **Capture path.** hyperframes' low-memory profile (`lowMemory: true`, or its own default at 8 GB or less) pins
+  screenshot capture, the slower path; Chrome's heap cap, GPU budget and frame caches follow the cgroup limit
+  regardless. Measured on one CPU under a 1536 MiB cgroup (chrome-headless-shell, software GL), a 37.1 s film of 15
+  segments captured in 156.4 s with `lowMemory: true` (screenshot) against 110.3 s with `lowMemory: false`
+  (beginframe), about 30 % slower, at a memory peak of 598 MB against 608 MB. The rendered value's `capture` says
+  which path a render took (#1145), read from hyperframes' summary line; log or alert on it:
+
+  ```ts
+  if (result.ok && result.value.kind === "rendered" && result.value.capture?.path === "screenshot") {
+    logger.warn("footage captured on the screenshot path", { seconds: result.value.capture.seconds, hint: result.value.capture.fallbackHint });
+  }
+  ```
+
+  `capture` is `{ path, gpu, seconds, isEncodeStreamed, fallbackHint }`: `path` `beginframe`, `screenshot` or
+  `drawelement`; `gpu` `software` or `hardware`; `seconds` per stage hyperframes printed (`compile`, `extract`,
+  `audio`, `probe`, `setup`, `capture`, `encode`, `assemble`); `isEncodeStreamed` when the encode ran during the
+  capture; `fallbackHint` hyperframes' `Screenshot capture (slower): …` line. It is null when hyperframes printed no
+  summary. `readHyperframesCapture(lines)` is the parser on its own.
 
 - **Encoder speed.** hyperframes encodes while it captures, with libx264 at the quality tier's preset and CRF:
   `draft` `ultrafast` CRF 28, `standard` `medium` CRF 18, `high` `slow` CRF 15. On one CPU the `medium` encode

@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -162,7 +162,10 @@ describe.runIf(isEnabled)("the fixture footage film", () => {
       expect(findFinishProblems(facts.facts, readTopLevelBoxes(video))).toEqual([]);
       expect(existsSync(join(footage, "out", "fixture-footage", "fixture-footage.placeholder.jpg"))).toBe(true);
       expect(result.stdout).toContain("fixture-footage.placeholder.jpg: cover");
-      const speech = spawnSync("ffmpeg", buildLoudnessMeasureArgs(join(footage, "build", "fixture-footage", "assets", "speech.mp3"), DEFAULT_LOUDNESS), { encoding: "utf8" });
+      // The speech chain is lossless (issue #1139): no MP3 speech file anywhere in the build folder.
+      const build = join(footage, "build", "fixture-footage");
+      expect(readdirSync(build, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".mp3") && !name.includes("music") && !name.includes("sfx"))).toEqual([]);
+      const speech = spawnSync("ffmpeg", buildLoudnessMeasureArgs(join(build, "assets", "speech.wav"), DEFAULT_LOUDNESS), { encoding: "utf8" });
       const loudness = readLoudnessMeasurement(speech.stderr);
       expect(Math.abs((loudness?.inputI ?? 0) - DEFAULT_LOUDNESS.target)).toBeLessThan(1);
     } finally {
@@ -243,6 +246,9 @@ describe.runIf(isEnabled)("the fixture footage film", () => {
       expect(Math.abs(durationSeconds - Number(video.format.duration))).toBeLessThan(0.01);
       expect(cover).toBe(join(footage, "out", "worker.jpg"));
       expect(existsSync(join(buildDir, "render.mp4"))).toBe(false);
+      // hyperframes' summary reaches the result as the capture report (issue #1145).
+      expect(rendered.value.capture?.path).toMatch(/^(beginframe|screenshot|drawelement)$/);
+      expect(rendered.value.capture?.seconds.capture).toBeGreaterThan(0);
     } finally {
       rmSync(footage, { recursive: true, force: true });
     }

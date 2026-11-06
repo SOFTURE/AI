@@ -643,6 +643,13 @@ const footageSchema = z
             .describe(
               "A near-miss band in LU (0.2 to 3, at least tolerance): a mix outside target ± tolerance but inside target ± warnTolerance, under the true peak limit, finishes with a warning instead of failing.",
             ),
+          audioBitrateKbps: z
+            .number()
+            .int()
+            .min(192)
+            .max(512)
+            .optional()
+            .describe("The finished sound's AAC bitrate in kbps (192 to 512, default 192): the film's only lossy audio encode."),
         })
           .refine((mix) => mix.warnTolerance === undefined || mix.warnTolerance >= (mix.tolerance ?? 1), { path: ["warnTolerance"], message: "must be at least tolerance (default 1)" }),
       ])

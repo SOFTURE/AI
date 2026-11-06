@@ -6,6 +6,21 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **A lossless, pre-gained speech chain (#1139):** quiet phone speech is no longer encoded lossily before its gain.
+  `transcribeFootage` (and `--placeholder`) extracts each clip's sound from its source with the normalize step's own
+  seek and length into `audio/<clip>.wav` (24-bit, 48 kHz stereo), pre-gained right away to about -23 LUFS with its
+  true peak at or under -3 dBTP (`prepareClipSounds`, `SPEECH_PRE_GAIN`; a non-talking clip takes the talking clips'
+  mean gain, so a b-roll's own sound keeps its relation to the speech). The Voice Isolator and speech to text get that
+  WAV, on the whole-clip path and in `isolateSpeechRanges` (ranges cut to WAV, laid to `audio/<clip>.ranges.wav`); the
+  cached cleaned voice is decoded to `audio/<clip>.isolated.wav`. The speech chain writes float WAV throughout
+  (`speech.raw.wav`, `speech.declicked.wav`, `speech.wav`; `getSpeechChainFiles`, the composition plays
+  `assets/speech.wav`), so the film's final AAC is the only lossy encode. `buildSpeechArgs`, `buildLoudnessArgs`,
+  `buildRangeLayArgs`, `buildRangeAudioArgs`, `buildAudioArgs` and the declick encode pick the codec by the output's
+  extension (`getAudioCodecArgs`: `.wav` lossless, `.flac`, else MP3), so an app's own `.mp3` names still work. The
+  speech map now points at those WAVs instead of the normalized clips. Cache keys are unchanged: nothing is bought
+  again, and a cleaned voice bought earlier (from the un-gained sound) is reused as it is.
+- **`mixLoudness.audioBitrateKbps`** (192 to 512, default 192): the finished sound's AAC bitrate; `buildMixArgs` takes
+  `bitrateKbps`.
 - **The footage draft plays at the render's loudness (#1143):** `renderFootageDraft` runs the render's sound chain:
   the speech track's loudness pass (`loudness`) after its cut and declick, then the render's mix stage over speech and
   music (`mixLoudness`, its `attempts`, `warnTolerance` and true peak ceiling), whose AAC is copied into the draft. A
@@ -14,6 +29,28 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   misses its target fails the draft with `{ kind: "loudness" }`, as it fails the render. `onProgress` reports the
   items `loudness` and `mix`. `buildFootageDraftArgs` takes `mix` (an encoded mix to copy). The draft's speech files
   take the render's names (`getSpeechChainFiles`).
+- **Speech ranges reach the Voice Isolator's minimum input (#1140):** a range shorter than the provider accepts is no
+  longer sent, refused three times and left uncleaned.
+  - `IsolationProvider.minSeconds`: the shortest input the provider accepts; the ElevenLabs provider declares 4.6 s
+    (`ELEVENLABS_ISOLATION_MIN_SECONDS`).
+  - `planSpeechRanges` plans source ranges: ranges of a clip at most `mergeGap` seconds apart (default 2) are merged
+    into one; with `minSeconds`, a range still shorter is widened symmetrically with the clip's own context to the
+    minimum plus `minPad` (default 0.4 s), and `range.heard` keeps the part the cut hears, which is all that is laid.
+    A range that cannot reach the minimum is marked `skip` and never sent (`outcome: { kind: "skipped" }`).
+  - `isolateSpeechRanges`, `estimateSpeechRanges` and `estimateFootageFilm` (`isolate: "segments"`) plan with the
+    provider's minimum and take `mergeGap` and `minPad`; the estimate prices exactly the ranges sent and marks a
+    skipped one (`skipped`, at 0).
+  - A range refused on every attempt leaves no cut file under `<buildDir>/audio/ranges/`.
+  - `createFakeIsolationProvider({ minSeconds })` refuses a shorter input with `audio_too_short`.
+  - **Cache keys:** merged and widened ranges are new ranges, so ranges an app has already paid for per segment are
+    not found again. Pass `mergeGap: null` to keep the per-segment ranges (short ones are still widened when the
+    provider declares a minimum).
+- **`renderFootage` reports how hyperframes captured the frames (#1145):** the rendered value carries `capture`
+  (`{ path, gpu, seconds, isEncodeStreamed, fallbackHint }`, null when hyperframes printed no summary), read from
+  hyperframes' summary line, so an app can log or alert on a render that took the slower screenshot path.
+  `readHyperframesCapture(lines)` parses hyperframes' output on its own. The README's "Footage films in a worker"
+  says that `lowMemory: true` pins screenshot capture (about 30 % slower on one CPU). Code that builds a
+  `RenderedFootage` itself now needs `capture`.
 - **A video cover from a photo (#1137):** `renderPhotoCover({ photo, size, focus, caption, colors, fonts, quality })`
   draws a vertical video cover (1080×1920 by default) from a JPEG or PNG (path or bytes): scaled to cover and cropped
   around `focus`, EXIF orientation applied, with an optional caption in the brand's heading font over a soft scrim,

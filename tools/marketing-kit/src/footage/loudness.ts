@@ -2,6 +2,7 @@ import { copyFileSync } from "node:fs";
 
 import { z } from "zod";
 
+import { getAudioCodecArgs } from "./clip-sound.js";
 import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
 import { runFfmpeg, runProcess } from "./process.js";
 import { FINISHED_AUDIO_BITRATE } from "./publish.js";
@@ -111,7 +112,7 @@ export function getLoudnessFilter(measurement: LoudnessMeasurement, target: Loud
   return `${filter},aresample=${FOOTAGE_SAMPLE_RATE}`;
 }
 
-/** The speech track's second pass, written as an mp3 at the film's rate. */
+/** The speech track's second pass at the film's rate, encoded by the output's extension (`.wav` lossless float). */
 export function buildLoudnessArgs(options: { input: string; measurement: LoudnessMeasurement; target: LoudnessTarget; output: string }): string[] {
   return [
     "-v",
@@ -123,10 +124,7 @@ export function buildLoudnessArgs(options: { input: string; measurement: Loudnes
     getLoudnessFilter(options.measurement, options.target),
     "-ar",
     String(FOOTAGE_SAMPLE_RATE),
-    "-c:a",
-    "libmp3lame",
-    "-q:a",
-    "2",
+    ...getAudioCodecArgs(options.output),
     options.output,
   ];
 }
@@ -196,7 +194,15 @@ export interface MixLoudnessTarget extends LoudnessTarget {
    * `target ± warnTolerance`, under the true peak limit, finishes with a warning instead of failing. Absent: none.
    */
   warnTolerance?: number;
+  /**
+   * The finished sound's AAC bitrate in kbps (192 to 512), the film's only lossy audio encode (issue #1139). Absent:
+   * `FINISHED_AUDIO_BITRATE` (192).
+   */
+  audioBitrateKbps?: number;
 }
+
+/** The lowest and highest AAC bitrate `MixLoudnessTarget.audioBitrateKbps` takes, in kbps. */
+export const AUDIO_BITRATE_RANGE_KBPS = { min: 192, max: 512 } as const;
 
 /** A gain to the window's edge aims this far inside it (at most half the tolerance), so the encode's drift stays in. */
 const MIX_EDGE_MARGIN = 0.2;
@@ -367,8 +373,11 @@ export function getMixFilter(attempt: MixAttempt): string {
   return [`volume=${attempt.gainDb}dB`, `aresample=${LIMITER_RATE}`, `alimiter=limit=${limit}:level=false:latency=true`, `aresample=${FOOTAGE_SAMPLE_RATE}`, `lowpass=f=${MIX_LOWPASS_HZ}`].join(",");
 }
 
-/** The mix's sound on its own through `filter`, encoded as the finished film carries it (AAC 192k cut at `MIX_LOWPASS_HZ`, 48 kHz, stereo). */
-export function buildMixArgs(options: { input: string; filter: string; output: string }): string[] {
+/**
+ * The mix's sound on its own through `filter`, encoded as the finished film carries it (AAC at `bitrateKbps`, default
+ * `FINISHED_AUDIO_BITRATE`, cut at `MIX_LOWPASS_HZ`, 48 kHz, stereo).
+ */
+export function buildMixArgs(options: { input: string; filter: string; output: string; bitrateKbps?: number }): string[] {
   return [
     "-v",
     "error",
@@ -383,7 +392,7 @@ export function buildMixArgs(options: { input: string; filter: string; output: s
     "-c:a",
     "aac",
     "-b:a",
-    FINISHED_AUDIO_BITRATE,
+    options.bitrateKbps === undefined ? FINISHED_AUDIO_BITRATE : `${String(options.bitrateKbps)}k`,
     "-cutoff",
     String(MIX_LOWPASS_HZ),
     "-ar",

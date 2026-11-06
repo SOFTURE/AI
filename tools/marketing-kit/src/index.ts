@@ -296,6 +296,7 @@ export {
   type SttTranscript,
 } from "./footage/providers.js";
 export {
+  ELEVENLABS_ISOLATION_MIN_SECONDS,
   ELEVENLABS_MUSIC_MODEL,
   ELEVENLABS_STT_MODEL,
   createElevenLabsFootageProviders,
@@ -312,6 +313,7 @@ export {
   createFakeMusicProvider,
   createFakeSttProvider,
   makePlaceholderTranscript,
+  type FakeIsolationOptions,
   type FakeIsolationProvider,
   type FakeMusicProvider,
   type FakeSttOptions,
@@ -422,6 +424,18 @@ export {
   type PicturePieceArgsInput,
 } from "./footage/picture.js";
 export {
+  SPEECH_PRE_GAIN,
+  buildClipSoundArgs,
+  buildClipSoundMeasureArgs,
+  getAudioCodecArgs,
+  getClipSoundPath,
+  getPreGainDb,
+  prepareClipSounds,
+  type ClipSound,
+  type ClipSoundInput,
+} from "./footage/clip-sound.js";
+export {
+  AUDIO_BITRATE_RANGE_KBPS,
   DEFAULT_LOUDNESS,
   buildLoudnessArgs,
   buildLoudnessMeasureArgs,
@@ -506,6 +520,8 @@ export {
 export {
   DEFAULT_SPEECH_RANGE_FADE_MS,
   DEFAULT_SPEECH_RANGE_MARGIN,
+  DEFAULT_SPEECH_RANGE_MERGE_GAP,
+  DEFAULT_SPEECH_RANGE_MIN_PAD,
   buildRangeAudioArgs,
   buildRangeLayArgs,
   getSpeechRangeCache,
@@ -513,10 +529,12 @@ export {
   getSpeechRangeWindows,
   planSpeechRanges,
   type LaidRange,
+  type PlanSpeechRangesOptions,
   type SpeechRange,
   type SpeechRangeCacheResolver,
   type SpeechRangeClip,
   type SpeechRangeFade,
+  type SpeechRangeSkip,
   type SpeechRangeWindow,
 } from "./footage/speech-ranges.js";
 export {
@@ -529,6 +547,14 @@ export {
   type SpeechRangeOutcome,
   type SpeechRangeRetry,
 } from "./footage/isolate-ranges.js";
+export {
+  HYPERFRAMES_CAPTURE_STAGES,
+  readHyperframesCapture,
+  type HyperframesCapture,
+  type HyperframesCapturePath,
+  type HyperframesCaptureStage,
+  type HyperframesGpuMode,
+} from "./footage/hyperframes-capture.js";
 export { RENDER_MIN_FREE_BYTES, findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./footage/disk.js";
 export { DRAFT_FILTERS, REQUIRED_DECODERS, REQUIRED_FILTERS, checkFootageTools, findBrowserProblem, readFfmpegListing, type FootageToolsOptions } from "./footage/tools.js";
 export {

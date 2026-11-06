@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -79,54 +79,12 @@ describe("the footage pipeline without ffmpeg", () => {
     expect(existsSync(join(dir, "cache"))).toBe(false);
   });
 
-  async function seedIsolatedVoice(entry: FootageFilm, prepared: PreparedClip, run: FootageRunOptions): Promise<void> {
-    const isolated = getIsolatedCache(entry, await getClipCacheKey(prepared.source, prepared.clip), run);
-    if (isolated === null) throw new Error("the film isolates the voice");
-    mkdirSync(join(isolated.path, ".."), { recursive: true });
-    writeFileSync(isolated.path, "cleaned voice");
-  }
-
-  it("sends the film's key terms to speech to text and counts them on the charge", async () => {
-    const charges: FootageCharge[] = [];
-    const { run, providers } = options({ isCommit: true, onCharge: (charge) => charges.push(charge) });
-    const named = film({ keyTerms: ["Zakopane", " Acme ", "Acme"] });
-    const talk = clip("talk", "talk", null);
-    await seedIsolatedVoice(named, talk, run);
-    const result = await transcribeFootage(named, [talk], run);
-    expect(result.ok && result.value.kind).toBe("ready");
-    expect(providers.stt.calls.map((call) => call.keyTerms)).toEqual([["Acme", "Zakopane"]]);
-    expect(charges).toEqual([expect.objectContaining({ step: "transcribe", item: "talk", keyTerms: 2 })]);
-  });
-
-  it("sends no key terms and counts none for a film without them", async () => {
-    const charges: FootageCharge[] = [];
-    const { run, providers } = options({ isCommit: true, onCharge: (charge) => charges.push(charge) });
-    const talk = clip("talk", "talk", null);
-    await seedIsolatedVoice(film(), talk, run);
-    await transcribeFootage(film({ keyTerms: [] }), [talk], run);
-    expect(providers.stt.calls).toHaveLength(1);
-    expect("keyTerms" in (providers.stt.calls[0] ?? {})).toBe(false);
-    expect("keyTerms" in (charges[0] ?? {})).toBe(false);
-  });
-
   it("refuses key terms over Scribe's limits before any paid call", async () => {
     const { run, providers } = options({ isCommit: true });
     const result = await transcribeFootage(film({ keyTerms: ["x".repeat(51)] }), [clip("talk", "talk", null)], run);
     expect(result).toEqual({ ok: false, error: `footage film street: key term "${"x".repeat(51)}": 51 characters, at most 50.`, failure: { kind: "input" } });
     expect(providers.stt.calls).toHaveLength(0);
     expect(providers.isolation.calls).toHaveLength(0);
-  });
-
-  it("rehearses on each clip's script, writing nothing into the paid cache", async () => {
-    const { run, providers } = options({ isPlaceholder: true });
-    const result = await transcribeFootage(film(), [clip("talk", "talk", "Raz dwa"), clip("street", "broll", "never read")], run);
-    if (!result.ok || result.value.kind !== "ready") throw new Error("expected transcripts");
-    expect(result.value.words.talk?.map((word) => word.text)).toEqual(["Raz", "dwa"]);
-    expect(result.value.words.street).toEqual([]);
-    expect(result.value.speech.talk).toBe(join(dir, "build", "clips", "talk.mp4"));
-    expect(existsSync(join(dir, "build", "placeholder", "talk.transcript.json"))).toBe(true);
-    expect(existsSync(join(dir, "cache"))).toBe(false);
-    expect(providers.stt.calls).toHaveLength(0);
   });
 
   it("needs no paid music for a local file or none", () => {
@@ -213,6 +171,112 @@ describe("readRenderPercent", () => {
 });
 
 const hasFfmpeg = spawnSync("ffprobe", ["-version"]).status === 0 && spawnSync("ffmpeg", ["-version"]).status === 0;
+
+describe.runIf(hasFfmpeg)("transcribeFootage's speech (issue #1139)", () => {
+  let dir: string;
+  let lines: string[];
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "footage-transcribe-"));
+    lines = [];
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function make(file: string, args: string[]): string {
+    mkdirSync(dirname(file), { recursive: true });
+    const result = spawnSync("ffmpeg", ["-v", "error", "-y", ...args, file], { encoding: "utf8" });
+    if (result.status !== 0) throw new Error(`ffmpeg could not make ${file}: ${result.stderr}`);
+    return file;
+  }
+
+  /** A 6 s clip whose sound is a quiet 440 Hz tone (about -40 LUFS), stored lossless. */
+  function clip(id: string, role: FootageClip["role"], script: string | null): PreparedClip {
+    const tone = "sine=frequency=440:sample_rate=48000:duration=6,volume=0.08";
+    const source = make(join(dir, `${id}.mov`), ["-f", "lavfi", "-i", "color=c=black:s=64x64:d=6", "-f", "lavfi", "-i", tone, "-shortest", "-pix_fmt", "yuv420p", "-c:a", "pcm_s16le"]);
+    return { clip: { id, source, role, fit: "auto", trim: { start: 0, end: null }, script }, source, probe: PROBE, file: join(dir, "build", "clips", `${id}.mp4`), duration: 6 };
+  }
+
+  function film(changes: Partial<FootageFilm> = {}): FootageFilm {
+    return {
+      id: "street",
+      title: "Street",
+      format: "9:16",
+      language: "pl",
+      clips: [],
+      isolateVoice: true,
+      cut: { fillers: ["y"], pauseSeconds: 0.6, padSeconds: 0.1, maxSeconds: null },
+      transitions: DEFAULT_TRANSITIONS,
+      music: { source: { kind: "none" }, volume: 0.35, duckedVolume: 0.1 },
+      captions: true,
+      endCard: null,
+      ...changes,
+    };
+  }
+
+  function options(changes: Partial<FootageRunOptions> = {}) {
+    const providers = { stt: createFakeSttProvider(), isolation: createFakeIsolationProvider(), music: createFakeMusicProvider() };
+    const run: FootageRunOptions = { buildDir: join(dir, "build"), cacheDir: join(dir, "cache"), providers, isCommit: false, isPlaceholder: false, log: (line) => lines.push(line), ...changes };
+    return { run, providers };
+  }
+
+  async function seedIsolatedVoice(entry: FootageFilm, prepared: PreparedClip, run: FootageRunOptions): Promise<void> {
+    const isolated = getIsolatedCache(entry, await getClipCacheKey(prepared.source, prepared.clip), run);
+    if (isolated === null) throw new Error("the film isolates the voice");
+    mkdirSync(join(isolated.path, ".."), { recursive: true });
+    // A real (MP3) answer, as the provider's file is cached.
+    make(isolated.path, ["-f", "lavfi", "-i", "sine=frequency=330:sample_rate=44100:duration=6", "-c:a", "libmp3lame", "-q:a", "2"]);
+  }
+
+  it("sends the film's key terms to speech to text and counts them on the charge", async () => {
+    const charges: FootageCharge[] = [];
+    const { run, providers } = options({ isCommit: true, onCharge: (charge) => charges.push(charge) });
+    const named = film({ keyTerms: ["Zakopane", " Acme ", "Acme"] });
+    const talk = clip("talk", "talk", null);
+    await seedIsolatedVoice(named, talk, run);
+    const result = await transcribeFootage(named, [talk], run);
+    expect(result.ok && result.value.kind).toBe("ready");
+    expect(providers.stt.calls.map((call) => call.keyTerms)).toEqual([["Acme", "Zakopane"]]);
+    expect(charges).toEqual([expect.objectContaining({ step: "transcribe", item: "talk", keyTerms: 2 })]);
+  });
+
+  it("sends no key terms and counts none for a film without them", async () => {
+    const charges: FootageCharge[] = [];
+    const { run, providers } = options({ isCommit: true, onCharge: (charge) => charges.push(charge) });
+    const talk = clip("talk", "talk", null);
+    await seedIsolatedVoice(film(), talk, run);
+    await transcribeFootage(film({ keyTerms: [] }), [talk], run);
+    expect(providers.stt.calls).toHaveLength(1);
+    expect("keyTerms" in (providers.stt.calls[0] ?? {})).toBe(false);
+    expect("keyTerms" in (charges[0] ?? {})).toBe(false);
+  });
+
+  it("rehearses on each clip's script, writing nothing into the paid cache", async () => {
+    const { run, providers } = options({ isPlaceholder: true });
+    const result = await transcribeFootage(film(), [clip("talk", "talk", "Raz dwa"), clip("street", "broll", "never read")], run);
+    if (!result.ok || result.value.kind !== "ready") throw new Error("expected transcripts");
+    expect(result.value.words.talk?.map((word) => word.text)).toEqual(["Raz", "dwa"]);
+    expect(result.value.words.street).toEqual([]);
+    expect(result.value.speech).toEqual({ talk: join(dir, "build", "audio", "talk.wav"), street: join(dir, "build", "audio", "street.wav") });
+    expect(existsSync(join(dir, "build", "placeholder", "talk.transcript.json"))).toBe(true);
+    expect(existsSync(join(dir, "cache"))).toBe(false);
+    expect(providers.stt.calls).toHaveLength(0);
+  });
+
+  it("hands the isolator and the speech to text the clip's lossless, pre-gained sound, and writes no MP3", async () => {
+    const { run, providers } = options({ isCommit: true });
+    const result = await transcribeFootage(film(), [clip("talk", "talk", null), clip("street", "broll", null)], run);
+    if (!result.ok || result.value.kind !== "ready") throw new Error("expected transcripts");
+    expect(providers.isolation.calls).toEqual([join(dir, "build", "audio", "talk.wav")]);
+    expect(providers.stt.calls.map((call) => call.audio)).toEqual([join(dir, "build", "audio", "talk.isolated.wav")]);
+    expect(result.value.speech).toEqual({ talk: join(dir, "build", "audio", "talk.isolated.wav"), street: join(dir, "build", "audio", "street.wav") });
+    expect(readdirSync(join(dir, "build", "audio")).filter((name) => name.endsWith(".mp3"))).toEqual([]);
+    const stream = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name,sample_rate,channels", "-of", "csv=p=0", join(dir, "build", "audio", "talk.wav")], { encoding: "utf8" });
+    expect(stream.stdout.trim()).toBe("pcm_s24le,48000,2");
+  });
+});
 
 describe.runIf(hasFfmpeg)("prepareFootage with a local music file (issue #996)", () => {
   let dir: string;
@@ -352,10 +416,10 @@ describe("getHyperframesRenderArgs", () => {
 });
 
 describe("getSpeechChainFiles", () => {
-  it("lets the last stage that runs write speech.mp3, and an off declick add no file", () => {
-    expect(getSpeechChainFiles("/a", { isDeclick: false, isLoudness: false })).toEqual({ rawSpeechFile: "/a/speech.mp3", declickedFile: "/a/speech.mp3", speechFile: "/a/speech.mp3" });
-    expect(getSpeechChainFiles("/a", { isDeclick: false, isLoudness: true })).toEqual({ rawSpeechFile: "/a/speech.raw.mp3", declickedFile: "/a/speech.raw.mp3", speechFile: "/a/speech.mp3" });
-    expect(getSpeechChainFiles("/a", { isDeclick: true, isLoudness: false })).toEqual({ rawSpeechFile: "/a/speech.raw.mp3", declickedFile: "/a/speech.mp3", speechFile: "/a/speech.mp3" });
-    expect(getSpeechChainFiles("/a", { isDeclick: true, isLoudness: true })).toEqual({ rawSpeechFile: "/a/speech.raw.mp3", declickedFile: "/a/speech.declicked.wav", speechFile: "/a/speech.mp3" });
+  it("lets the last stage that runs write speech.wav, keeps every stage lossless, and an off declick adds no file (issue #1139)", () => {
+    expect(getSpeechChainFiles("/a", { isDeclick: false, isLoudness: false })).toEqual({ rawSpeechFile: "/a/speech.wav", declickedFile: "/a/speech.wav", speechFile: "/a/speech.wav" });
+    expect(getSpeechChainFiles("/a", { isDeclick: false, isLoudness: true })).toEqual({ rawSpeechFile: "/a/speech.raw.wav", declickedFile: "/a/speech.raw.wav", speechFile: "/a/speech.wav" });
+    expect(getSpeechChainFiles("/a", { isDeclick: true, isLoudness: false })).toEqual({ rawSpeechFile: "/a/speech.raw.wav", declickedFile: "/a/speech.wav", speechFile: "/a/speech.wav" });
+    expect(getSpeechChainFiles("/a", { isDeclick: true, isLoudness: true })).toEqual({ rawSpeechFile: "/a/speech.raw.wav", declickedFile: "/a/speech.declicked.wav", speechFile: "/a/speech.wav" });
   });
 });
