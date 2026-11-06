@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the module. W
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.4.0
 
 - Footage charges keep their billed units and whether the amount was reported (#1130):
   `createFootageChargeRecorder` stores the reserved attributes `units` (the seconds billed) and `reported` (`"true"`
