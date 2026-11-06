@@ -124,16 +124,23 @@ describe("readCharacterMap", () => {
       readCharacterMap(mac),
       readCharacterMap(buildSfnt([{ platform: 0, encoding: 3, body: format6 }])),
       readCharacterMap(LATIN.subarray(0, 60)),
-      readCharacterMap(readFileSync(getInterFile(400, "woff2"))),
       readCharacterMap(Buffer.from("not a font")),
     ]).toEqual([
       { ok: false, error: "the font has no cmap table" },
       { ok: false, error: "the font maps no Unicode characters" },
       { ok: false, error: "the font's character map has format 6; Satori reads formats 4 and 12" },
       { ok: false, error: "the font file is truncated or malformed" },
-      { ok: false, error: "WOFF2 is not read" },
-      { ok: false, error: "the file is not a TrueType, OpenType or WOFF font" },
+      { ok: false, error: "the file is not a TrueType, OpenType, WOFF or WOFF2 font" },
     ]);
+  });
+
+  it("reads a WOFF2 file's character map like the WOFF file of the same font", () => {
+    const woff = readCharacterMap(readFileSync(getInterFile(400, "woff")));
+    const woff2 = readCharacterMap(readFileSync(getInterFile(400, "woff2")));
+    if (!woff.ok || !woff2.ok) throw new Error("expected both character maps to read");
+    const codePoints = [0x41, 0x7a, 0xe9, 0x105, 0x142, 0x416];
+    expect(codePoints.map((codePoint) => woff2.value.has(codePoint))).toEqual(codePoints.map((codePoint) => woff.value.has(codePoint)));
+    expect(woff2.value.has(0x41)).toBe(true);
   });
 
   it("reads each buffer once", () => {
@@ -232,7 +239,7 @@ describe("findMissingGlyphs", () => {
   it("returns a font it cannot read as an error", () => {
     expect(findMissingGlyphs(card({ text: "a" }), [font(Buffer.from("not a font"), 400)])).toEqual({
       ok: false,
-      error: 'the font "Inter" 400 normal: the file is not a TrueType, OpenType or WOFF font',
+      error: 'the font "Inter" 400 normal: the file is not a TrueType, OpenType, WOFF or WOFF2 font',
     });
   });
 });

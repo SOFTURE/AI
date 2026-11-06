@@ -6,6 +6,33 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **The speech declick repairs impulses and no longer gates speech (#1170):** `speech.declick` `gentle` and `strong`
+  lowered the pauses between transcript words by 15 or 20 dB; the transcript's boundaries are 20 to 60 ms off the real
+  sound, so the gate lowered decays and onsets and was heard as hoarseness and pumping. Now the stage changes no gain:
+  nothing within ±80 ms of a word is touched, and each single impulse in a longer pause (a burst under 12 ms) is
+  replaced by least-squares AR interpolation with a 3 ms crossfade on each side; every other sample is unchanged. The
+  default stays `off`. Breaking for apps that import the stage's internals:
+  - `DeclickReport` is `{ level, impulses, repairs }` (`repairs`: each repaired impulse's `start` and `end` in
+    seconds); `gateDb` is gone, and the log line lists the repair times;
+  - `getGateWindows`, `getDeclickGain`, `DECLICK_GATE_FADE`, `DECLICK_IMPULSE_DB`, `DECLICK_WORD_WINDOW` and
+    `DeclickSettings.gateDb` / `crossfadeSeconds` are removed; new are `getRepairZones`, `repairSpan`,
+    `getArPolynomial`, `DECLICK_WORD_GUARD`, `DECLICK_CROSSFADE`, `DECLICK_AR_ORDER` and `DECLICK_AR_CONTEXT`;
+  - `DECLICK_MAX_IMPULSE` is 12 ms (was 30 ms).
+
+- **Where the cover's text and focus landed (#1172):** `PhotoCover` answers `textBox` (the drawn text with its shadow,
+  the box the fit check measured, `{ left, top, right, bottom }` in pixels with right and bottom excluded; null for
+  layout `photo`) and `focusPoint` (`{ x, y }`, the focus point on the cover after the crop). The new
+  `isPointUnderCoverText(cover, point, marginPx = 0)` tells whether a point lies under the text, so an app can warn when
+  the caption covers the photo's subject without re-deriving the kit's layout rules. Types `CoverBox` and `CoverPoint`.
+- **Read an uploaded font file (#1174):** `readFontFileInfo(data)` answers a `.ttf`, `.otf`, `.woff` or `.woff2`
+  file's family, format, weight (static, or a variable `wght` range), the CSS weight a `brand.fonts` file takes,
+  style, and whether captions, the footage draft and OG images (the photo cover included) can use it, with a reason
+  code when not. A `.woff2` file says it is not usable for the cover (Satori does not read it), so an app refuses it
+  at upload. `findMissingCharacters(data, characters)` runs the glyph check on a file directly. Both are exported
+  from `.` and `./og` and return error values, never exceptions.
+- `readCharacterMap` reads WOFF2 files too (their tables are Brotli-decompressed), and a file it cannot read says
+  "not a TrueType, OpenType, WOFF or WOFF2 font".
+
 - **A footage end card of any length and a short logo card (#1173):** a footage film's `endCard` takes `seconds`
   (1-3, default 3, so today's films are unchanged); `getFootageFilmSeconds`, the paid-step estimate and the dry run
   follow it, and a shorter full card plays its entrances faster. `endCard.layout: "logo"` draws a short brand card:

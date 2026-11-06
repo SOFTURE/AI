@@ -719,15 +719,17 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   the seconds billed and stops; nothing is sent. `--placeholder` rehearses without any paid call: a transcript from
   each talking clip's `script` (its words spread evenly over the clip), no isolation, no generated music (a local
   music file still plays). It writes `edl.placeholder.json` and `<film>.placeholder.mp4`, never the real film's files.
-- **Mouth clicks (`speech.declick`, issue #1084):** `"gentle"` or `"strong"` adds a declick stage between the cut
-  speech track and its loudness pass (the draft runs it too). A gate lowers the speech outside each word's window
-  (start and end ± 40 ms, close words merged) by 15 dB (`gentle`) or 20 dB (`strong`), with a 20 ms fade outside the
-  window, so no onset or tail is touched. Short impulses outside the words' own spans (bursts under 30 ms whose
-  2-8 kHz energy jumps 15 dB, or 9 dB with `strong`, above the band's running median over ±100 ms; 2 ms frames, 1 ms
-  hop) are lowered by 30 dB with a 5 ms or 8 ms crossfade. The gain is applied per sample to the decoded track, and a
-  track without words is not gated. The log and the result's `declick` (`{ level, impulses, gateDb }`, null when
-  off) carry the count. `"off"` (the default) runs no extra pass: the speech track is unchanged. ffmpeg's `adeclick`
-  misses these clicks, which sit well below the speech peaks.
+- **Mouth clicks (`speech.declick`, issues #1084, #1170):** `"gentle"` or `"strong"` adds a declick stage between
+  the cut speech track and its loudness pass (the draft runs it too). It repairs single impulses and changes no gain:
+  nothing within ±80 ms of a transcript word is touched (`DECLICK_WORD_GUARD`; the speech-to-text boundaries are 20 to
+  60 ms off the real sound), so only pauses longer than 160 ms are searched. An impulse is a burst under 12 ms whose
+  2-8 kHz energy jumps 15 dB (`gentle`) or 9 dB (`strong`) above the band's running median over ±100 ms (2 ms frames,
+  1 ms hop); its samples are replaced by least-squares AR interpolation (order 24, fitted by Burg's method on 10 ms on
+  each side) joined to the original by a 3 ms raised-cosine crossfade on each side. Every other sample leaves the
+  stage as it came in, and a track without words is not repaired. The log and the result's `declick`
+  (`{ level, impulses, repairs }`, each repair's start and end in seconds; null when off) report every intervention.
+  `"off"` (the default) runs no extra pass: the speech track is unchanged. Until 0.17.0 the levels also gated the
+  pauses by 15 or 20 dB, which lowered decays and onsets (heard as hoarseness and pumping); that gate is gone.
 - **A lossless speech chain (issue #1139):** each clip's sound is read from its source (with the clip's trim) into
   `audio/<clip>.wav`, 24-bit 48 kHz stereo, and pre-gained right away by one linear gain to about −23 LUFS, its true
   peak kept at or under −3 dBTP (`SPEECH_PRE_GAIN`); a b-roll or other non-talking clip takes the mean gain of the
@@ -1199,6 +1201,20 @@ every weight the copy uses: a letter only a `latin-ext` file of another weight h
 lighter or heavier than its line, so it is refused like a missing one. Whitespace, format characters
 and variation selectors are not checked; emoji are, and need a font that has them.
 
+**An uploaded font file.** An app that lets its owner upload a brand font reads it with `readFontFileInfo(data)`
+before storing it as a `brand.fonts` file: the `family` (the typographic family, name ID 16, else name ID 1), the
+`format` (`ttf`, `otf`, `woff`, `woff2`), the `weight` (`{ kind: "static", value }` from `OS/2`, or
+`{ kind: "variable", min, max, default }` from a `wght` axis), `cssWeight` (`"400"` or `"100 900"`, as a file's
+`weight` takes it) and the `style`. `usableFor` answers each use, `captions` (the browser render: all four
+formats), `draft` (libass: `.ttf` and `.otf` that name a family) and `cover` (Satori, OG images and the photo
+cover: static `.ttf`, `.otf` and `.woff` at 100-900 in steps of 100), with `{ isUsable: false, reason, detail }`
+where it cannot be used: `reason` is a code (`format`, `variable`, `weight`, `character-map`, `family-name`) the app
+words in its own language, `detail` an English sentence for logs. A `.woff2` file is read but not drawn on the
+cover, so refuse it there at upload, or ask for a `.ttf`, `.otf` or `.woff` next to it.
+`findMissingCharacters(data, characters)` lists the characters the file has no glyph for, unique and in order
+(whitespace skipped), e.g. the Polish letters an app requires. Both return error values for a broken file, never
+exceptions.
+
 **A thin Next route.** The `@softure-ai/marketing-kit/og` entry does not load Playwright, so a route
 can render the same card per request, with live values in place of the configured `data`:
 
@@ -1235,7 +1251,7 @@ renders without a `marketing.json` at all. For a carousel, pass `slide` (1-based
 photo the owner picks, instead of a frame of the film:
 
 ```ts
-import { loadOgFonts, renderPhotoCover } from "@softure-ai/marketing-kit/og";
+import { isPointUnderCoverText, loadOgFonts, renderPhotoCover } from "@softure-ai/marketing-kit/og";
 
 const fonts = loadOgFonts(config.brand.fonts);
 if (!fonts.ok) throw new Error(fonts.error);
@@ -1247,7 +1263,8 @@ const cover = await renderPhotoCover({
   fonts: fonts.value,
 });
 if (!cover.ok) throw new Error(cover.error);
-// cover.value: { jpeg, width: 1080, height: 1920, bytes }
+// cover.value: { jpeg, width: 1080, height: 1920, bytes, textBox, focusPoint }
+if (isPointUnderCoverText(cover.value, cover.value.focusPoint, 40)) console.warn("the caption covers the photo's subject");
 ```
 
 - The photo is scaled to cover `size` (1080×1920 by default) and cropped so the `focus` point (fractions of the
@@ -1276,6 +1293,11 @@ if (!cover.ok) throw new Error(cover.error);
 - The result is a baseline JPEG (`quality` 90 by default) of exactly the size, with its `width`, `height` and
   `bytes`. No network, no system fonts. An ICC profile in the photo (e.g. Display P3) is not converted: its values are
   taken as sRGB.
+- The result also says where things landed, in pixels of the cover: `textBox` (`{ left, top, right, bottom }`, right
+  and bottom excluded) is the drawn text with its shadow, the box the fit check measured (null for layout `photo`), and
+  `focusPoint` (`{ x, y }`) is where the focus point landed after the crop, off-centre when the photo's edge stopped the
+  shift. `isPointUnderCoverText(cover, point, marginPx = 0)` says whether a point lies inside `textBox` grown by the
+  margin on every side, so every app tests "the text covers the subject" the same way.
 
 ## Requirements
 

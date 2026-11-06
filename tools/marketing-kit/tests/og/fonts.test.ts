@@ -80,7 +80,7 @@ describe("loadOgFonts", () => {
     const font = makeFont([{ path: "broken.woff", weight: "400" }]);
     expect(loadOgFonts({ heading: font, body: null }, () => Buffer.from("not a font"))).toEqual({
       ok: false,
-      error: "OG images: brand.fonts.heading.files[0] (broken.woff) has no readable character map: the file is not a TrueType, OpenType or WOFF font.",
+      error: "OG images: brand.fonts.heading.files[0] (broken.woff) has no readable character map: the file is not a TrueType, OpenType, WOFF or WOFF2 font.",
     });
   });
 

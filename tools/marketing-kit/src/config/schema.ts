@@ -627,7 +627,7 @@ const footageSchema = z
           .enum(DECLICK_LEVELS)
           .default("off")
           .describe(
-            "Mouth clicks and lip smacks between words, cleaned before the loudness pass: gentle lowers the pauses by 15 dB and removes short clicks, strong by 20 dB with a more sensitive detection; off (the default) leaves the speech track as cut.",
+            "Mouth clicks and lip smacks in the pauses, repaired before the loudness pass: each single impulse in a pause is replaced by AR interpolation with a 3 ms crossfade, nothing within 80 ms of a word is touched and no gain changes; gentle detects strong impulses only, strong is more sensitive; off (the default) leaves the speech track as cut.",
           ),
       })
       .prefault({})

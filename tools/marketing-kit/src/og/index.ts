@@ -1,6 +1,17 @@
 // `@softure-ai/marketing-kit/og`: OG images from templates and data, for the CLI and for a thin Next
 // route. Nothing here loads Playwright, so a route can import it.
 export { loadCharacterMap, readCharacterMap, type CharacterMap } from "./character-map.js";
+export {
+  FONT_USES,
+  findMissingCharacters,
+  readFontFileInfo,
+  type FontFileInfo,
+  type FontFileWeight,
+  type FontUnusableReason,
+  type FontUse,
+  type FontUseVerdict,
+} from "./font-file.js";
+export type { FontFileFormat } from "./font-tables.js";
 export { describeCharacter, findMissingGlyphs, selectSatoriFont, type MissingGlyphs } from "./glyphs.js";
 export { h, listNodes, type OgChild, type OgNode, type OgStyle } from "./element.js";
 export { OG_FONT_KINDS, OG_FONT_WEIGHTS, loadOgFonts, pickWeight, toFontFamilyCss, type OgFontFamily, type OgFontKind, type OgFontWeight, type OgFonts, type ReadFontFile, type SatoriFont } from "./fonts.js";
@@ -27,8 +38,11 @@ export {
   PHOTO_COVER_SIZE,
   getCoverBand,
   getCoverCaptionSize,
+  isPointUnderCoverText,
   renderPhotoCover,
   type CoverBand,
+  type CoverBox,
+  type CoverPoint,
   type PhotoCover,
   type PhotoCoverInput,
   type PhotoCoverLayout,

@@ -132,12 +132,30 @@ export interface PhotoCoverInput {
   id?: string;
 }
 
+/** A box on the cover, in pixels: `left` and `top` included, `right` and `bottom` excluded. */
+export interface CoverBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** A point on the cover, in pixels from its top left corner. */
+export interface CoverPoint {
+  x: number;
+  y: number;
+}
+
 export interface PhotoCover {
   /** A baseline JPEG of exactly `width` × `height`, without an ICC profile (sRGB). */
   jpeg: Buffer;
   width: number;
   height: number;
   bytes: number;
+  /** The drawn text's bounds on the cover, its shadow included (the box the fit check measured); null for layout `photo`. */
+  textBox: CoverBox | null;
+  /** Where the focus point landed on the cover after the crop; off-centre when the photo's edge stops the shift. */
+  focusPoint: CoverPoint;
 }
 
 /** The text a cover draws, by layout. */
@@ -309,8 +327,8 @@ function checkTextGlyphs(tree: OgNode, fonts: OgFonts, text: CoverText): OgResul
   return err(`${sentences.join("; ")}. Use font files that cover them`);
 }
 
-/** The rows of `pixels` (RGBA, `width` wide) that hold anything drawn, or null when nothing is. */
-function findDrawnBox(pixels: Uint8Array, width: number, height: number): { top: number; bottom: number; left: number; right: number } | null {
+/** The box of `pixels` (RGBA, `width` wide) that holds anything drawn (`right` and `bottom` excluded), or null when nothing is. */
+function findDrawnBox(pixels: Uint8Array, width: number, height: number): CoverBox | null {
   let top = height;
   let bottom = -1;
   let left = width;
@@ -324,11 +342,11 @@ function findDrawnBox(pixels: Uint8Array, width: number, height: number): { top:
       right = Math.max(right, x);
     }
   }
-  return bottom < 0 ? null : { top, bottom, left, right };
+  return bottom < 0 ? null : { left, top, right: right + 1, bottom: bottom + 1 };
 }
 
-/** The text as SVG and the rows it draws, or an error when it does not fit its part of the band. */
-async function layOutText(layout: TextLayout): Promise<OgResult<{ svg: string; top: number; bottom: number }>> {
+/** The text as SVG and the box it draws, or an error when it does not fit its part of the band. */
+async function layOutText(layout: TextLayout): Promise<OgResult<{ svg: string; box: CoverBox }>> {
   const tree = buildTextTree(layout);
   const glyphs = checkTextGlyphs(tree, layout.fonts, layout.text);
   if (!glyphs.ok) return glyphs;
@@ -348,14 +366,17 @@ async function layOutText(layout: TextLayout): Promise<OgResult<{ svg: string; t
   // The text keeps to the part of the band its layout names, so the photo's subject elsewhere stays clear.
   const region = LAYOUT_REGIONS[layout.text.layout];
   const rows = getRegionRows(band, region);
-  const isInside = box.top >= rows.top && box.bottom < rows.bottom && box.left >= band.left && box.right < band.left + band.width;
+  const isInside = box.top >= rows.top && box.bottom <= rows.bottom && box.left >= band.left && box.right <= band.left + band.width;
   if (!isInside) {
     return err(`${name} ${isPlural ? "do" : "does"} not fit the ${region} of the centre 4:5 band (${String(band.width)}×${String(band.height)}); shorten ${isPlural ? "them" : "it"}`);
   }
-  return ok({ svg, top: box.top, bottom: box.bottom });
+  return ok({ svg, box });
 }
 
-/** The scrim behind the text, as SVG: a gradient of the shade that follows the text's position; none for a pill (its box is its scrim). */
+/**
+ * The scrim behind the text, as SVG: a gradient of the shade that follows the text's position; none for a pill (its
+ * box is its scrim). `text.top` is the text's first drawn row and `text.bottom` its last.
+ */
 function buildScrim(input: { size: readonly [number, number]; band: CoverBand; layout: CoverText["layout"]; text: { top: number; bottom: number }; shade: string }): string {
   const [width, height] = input.size;
   const { band, shade } = input;
@@ -418,7 +439,9 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
   const drawn = text.value === null ? null : await layOutText({ size, band, text: text.value, fonts: input.fonts, ink });
   if (drawn !== null && !drawn.ok) return err(`${name}: ${drawn.error}.`);
 
-  const crop = getCoverCrop(getOrientedSize(info.value), size, options.focus);
+  const oriented = getOrientedSize(info.value);
+  const crop = getCoverCrop(oriented, size, options.focus);
+  const focusPoint = { x: crop.x + options.focus.x * oriented.width * crop.scale, y: crop.y + options.focus.y * oriented.height * crop.scale };
   const matrix = getOrientationMatrix(info.value.orientation, info.value.width, info.value.height).join(" ");
   const layers = [
     `<rect width="${String(width)}" height="${String(height)}" fill="${ink.shade}"/>`,
@@ -427,7 +450,7 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
   ];
   if (drawn !== null && text.value !== null) {
     layers.push(
-      buildScrim({ size, band, layout: text.value.layout, text: drawn.value, shade: ink.shade }),
+      buildScrim({ size, band, layout: text.value.layout, text: { top: drawn.value.box.top, bottom: drawn.value.box.bottom - 1 }, shade: ink.shade }),
       `<image href="${toDataUri("image/svg+xml", drawn.value.svg)}" width="${String(width)}" height="${String(height)}"/>`,
     );
   }
@@ -435,8 +458,20 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
   try {
     const image = new Resvg(svg, { fitTo: { mode: "original" }, font: { loadSystemFonts: false } }).render();
     const encoded = jpeg.encode({ data: Buffer.from(image.pixels), width: image.width, height: image.height }, options.quality).data;
-    return ok({ jpeg: encoded, width: image.width, height: image.height, bytes: encoded.length });
+    return ok({ jpeg: encoded, width: image.width, height: image.height, bytes: encoded.length, textBox: drawn === null ? null : { ...drawn.value.box }, focusPoint });
   } catch (error) {
     return err(`${name}: drawing the cover failed: ${error instanceof Error ? error.message : String(error)}.`);
   }
+}
+
+/**
+ * Whether `point` lies under the cover's text: inside its `textBox` grown by `marginPx` on every side (0 by default).
+ * A cover without text (layout `photo`) covers no point. Use it with `focusPoint` to warn when the text hides the
+ * photo's subject.
+ */
+export function isPointUnderCoverText(cover: Pick<PhotoCover, "textBox">, point: CoverPoint, marginPx = 0): boolean {
+  if (!Number.isFinite(marginPx) || marginPx < 0) throw new RangeError(`isPointUnderCoverText: the margin must be a finite number of pixels, 0 or more, not ${String(marginPx)}`);
+  const box = cover.textBox;
+  if (box === null) return false;
+  return point.x >= box.left - marginPx && point.x < box.right + marginPx && point.y >= box.top - marginPx && point.y < box.bottom + marginPx;
 }

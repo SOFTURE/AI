@@ -7,7 +7,7 @@ import { Resvg } from "@resvg/resvg-js";
 import jpeg from "jpeg-js";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { getCoverBand, PHOTO_COVER_LAYOUTS, renderPhotoCover, type PhotoCoverInput, type PhotoCoverLayout } from "../../src/og/photo-cover.js";
+import { getCoverBand, isPointUnderCoverText, PHOTO_COVER_LAYOUTS, renderPhotoCover, type PhotoCover, type PhotoCoverInput, type PhotoCoverLayout } from "../../src/og/photo-cover.js";
 import { getCoverCrop, getOrientationMatrix, getOrientedSize, readPhotoInfo, readTiffOrientation, type PhotoOrientation } from "../../src/og/photo.js";
 import { COLORS, loadInter } from "./helpers.js";
 
@@ -323,6 +323,124 @@ describe("renderPhotoCover: layouts", () => {
   it("refuses an unknown layout or tone", async () => {
     const result = await cover({ layout: "side" as PhotoCoverLayout, tone: "grey" as "light" });
     expect(result.ok ? [] : result.error.split("\n").slice(1).map((line) => line.split(":")[0]?.trim())).toEqual(["layout", "tone"]);
+  });
+});
+
+async function renderCover(changes: Partial<PhotoCoverInput>): Promise<PhotoCover> {
+  const result = await cover(changes);
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
+}
+
+describe("renderPhotoCover: the text box", () => {
+  const band = getCoverBand([1080, 1920]);
+
+  it("answers the drawn caption's box: every lit pixel inside it, the rows above the scrim untouched", async () => {
+    const caption = "Stop working at 49";
+    const captioned = await renderCover({ photo: BLACK_PHOTO, caption });
+    const box = captioned.textBox;
+    if (box === null) throw new Error("the captioned cover has no text box");
+    const decoded = jpeg.decode(captioned.jpeg, { useTArray: true });
+    const lit = findLitBox(decoded);
+    expect(lit.count).toBeGreaterThan(2000);
+    expect([lit.left >= box.left, lit.right < box.right, lit.top >= box.top, lit.bottom < box.bottom]).toEqual([true, true, true, true]);
+    // The box is tight: it holds the glyphs and their shadow, but only a few dozen pixels past the glyphs on any side.
+    expect([lit.left - box.left, box.right - 1 - lit.right, lit.top - box.top, box.bottom - 1 - lit.bottom].every((gap) => gap >= 0 && gap <= 24)).toBe(true);
+    expect([box.top >= band.top + band.height / 2, box.bottom <= band.top + band.height]).toEqual([true, true]);
+
+    const grey = jpeg.decode((await renderCover({ photo: GREY_PHOTO, caption })).jpeg, { useTArray: true });
+    const plain = jpeg.decode((await renderCover({ photo: GREY_PHOTO, layout: "photo" })).jpeg, { useTArray: true });
+    // The scrim fades in a fifth of the band above the text; whole 16-row JPEG blocks above it are the photo alone.
+    const untouchedRows = Math.floor((box.top - Math.round(band.height / 5)) / 16) * 16;
+    expect(untouchedRows).toBeGreaterThan(900);
+    const rowBytes = untouchedRows * 1080 * 4;
+    expect(Buffer.from(grey.data.subarray(0, rowBytes)).equals(Buffer.from(plain.data.subarray(0, rowBytes)))).toBe(true);
+  });
+
+  it.each(["title-center", "title-top", "kicker-title", "pill"] as const)("answers a box that holds every lit pixel of %s", async (layout) => {
+    const texts = { "title-center": { caption: "Hi there" }, "title-top": { caption: "Hi there" }, "kicker-title": { kicker: "Episode 3", caption: "Hi there" }, pill: { caption: "Lisbon" } };
+    const result = await renderCover({ photo: BLACK_PHOTO, layout, ...texts[layout] });
+    const box = result.textBox;
+    if (box === null) throw new Error(`the ${layout} cover has no text box`);
+    const lit = findLitBox(jpeg.decode(result.jpeg, { useTArray: true }));
+    expect([lit.left >= box.left, lit.right < box.right, lit.top >= box.top, lit.bottom < box.bottom]).toEqual([true, true, true, true]);
+  });
+
+  it("answers no text box for the layout photo", async () => {
+    expect((await renderCover({ layout: "photo" })).textBox).toBeNull();
+    expect((await renderCover({})).textBox).toBeNull();
+  });
+});
+
+describe("renderPhotoCover: the focus point", () => {
+  /** The focus mapped by the crop, as the cover answers it. */
+  const expectedFocus = (photo: { width: number; height: number }, focus: { x: number; y: number }) => {
+    const crop = getCoverCrop(photo, [1080, 1920], focus);
+    return { x: crop.x + focus.x * photo.width * crop.scale, y: crop.y + focus.y * photo.height * crop.scale };
+  };
+
+  it("lands a landscape photo's focus at the centre, or off-centre where the photo's edge stops the shift", async () => {
+    const centre = await renderCover({ focus: { x: 0.5, y: 0.5 } });
+    expect(centre.focusPoint).toEqual(expectedFocus({ width: 1600, height: 900 }, { x: 0.5, y: 0.5 }));
+    expect(centre.focusPoint).toEqual({ x: 540, y: 960 });
+    // Near the left edge the photo cannot move further right: the focus lands left of the centre.
+    const edge = await renderCover({ focus: { x: 0.05, y: 0.5 } });
+    expect(edge.focusPoint).toEqual(expectedFocus({ width: 1600, height: 900 }, { x: 0.05, y: 0.5 }));
+    expect(edge.focusPoint.x).toBeCloseTo(0.05 * 1600 * (1920 / 900), 9);
+  });
+
+  it("lands a portrait photo's focus near its top edge where the crop stops", async () => {
+    const result = await renderCover({ photo: PORTRAIT, focus: { x: 0.5, y: 0.1 } });
+    expect(result.focusPoint).toEqual(expectedFocus({ width: 900, height: 2000 }, { x: 0.5, y: 0.1 }));
+    expect(result.focusPoint.x).toBeCloseTo(540, 9);
+    expect(result.focusPoint.y).toBeCloseTo(240, 9);
+  });
+
+  it("maps the focus on the upright photo for an EXIF-rotated one", async () => {
+    const result = await renderCover({ photo: turned(6), focus: { x: 0.5, y: 0.9 } });
+    // Stored 2000×900, upright 900×2000: the crop is the portrait's, and the focus sits on the blue lower half.
+    expect(result.focusPoint).toEqual(expectedFocus({ width: 900, height: 2000 }, { x: 0.5, y: 0.9 }));
+    expect(result.focusPoint.y).toBeCloseTo(1680, 9);
+    const image = jpeg.decode(result.jpeg, { useTArray: true });
+    expect(colourAt(image, Math.round(result.focusPoint.x), Math.round(result.focusPoint.y))).toBe("blue");
+  });
+});
+
+describe("isPointUnderCoverText", () => {
+  const withBox = { textBox: { left: 100, top: 1200, right: 980, bottom: 1400 } };
+
+  it("tells a point inside the box from one outside it, right and bottom excluded", () => {
+    expect([
+      isPointUnderCoverText(withBox, { x: 540, y: 1300 }),
+      isPointUnderCoverText(withBox, { x: 100, y: 1200 }),
+      isPointUnderCoverText(withBox, { x: 980, y: 1300 }),
+      isPointUnderCoverText(withBox, { x: 540, y: 1400 }),
+      isPointUnderCoverText(withBox, { x: 540, y: 960 }),
+    ]).toEqual([true, true, false, false, false]);
+  });
+
+  it("grows the box by the margin on every side", () => {
+    expect([
+      isPointUnderCoverText(withBox, { x: 540, y: 1150 }, 50),
+      isPointUnderCoverText(withBox, { x: 540, y: 1149 }, 50),
+      isPointUnderCoverText(withBox, { x: 1029, y: 1300 }, 50),
+      isPointUnderCoverText(withBox, { x: 1030, y: 1300 }, 50),
+    ]).toEqual([true, false, true, false]);
+  });
+
+  it("never puts a point under a cover without text", () => {
+    expect(isPointUnderCoverText({ textBox: null }, { x: 540, y: 960 }, 2000)).toBe(false);
+  });
+
+  it("throws on a negative or non-finite margin", () => {
+    expect(() => isPointUnderCoverText(withBox, { x: 0, y: 0 }, -1)).toThrow(new RangeError("isPointUnderCoverText: the margin must be a finite number of pixels, 0 or more, not -1"));
+    expect(() => isPointUnderCoverText(withBox, { x: 0, y: 0 }, Number.NaN)).toThrow(RangeError);
+  });
+
+  it("warns when a caption lands on the focus point and not when the focus is clear of it", async () => {
+    const low = await renderCover({ photo: PORTRAIT, focus: { x: 0.5, y: 0.5 }, layout: "title-center", caption: "Stop working at 49" });
+    const high = await renderCover({ photo: PORTRAIT, focus: { x: 0.5, y: 0.5 }, layout: "title-top", caption: "Stop working at 49" });
+    expect([isPointUnderCoverText(low, low.focusPoint, 40), isPointUnderCoverText(high, high.focusPoint, 40)]).toEqual([true, false]);
   });
 });
 
