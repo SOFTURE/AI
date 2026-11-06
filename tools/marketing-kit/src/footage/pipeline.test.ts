@@ -242,6 +242,16 @@ describe.runIf(hasFfmpeg)("transcribeFootage's speech (issue #1139)", () => {
     expect(charges).toEqual([expect.objectContaining({ step: "transcribe", item: "talk", keyTerms: 2 })]);
   });
 
+  it("answers a refused speech to text call as a provider failure that is not retried (issue #1141)", async () => {
+    const { run, providers } = options({ isCommit: true });
+    const refusal = { kind: "refused", status: 400, code: "audio_too_short", message: null, requestId: "req_9", isRetryable: false } as const;
+    const talk = clip("talk", "talk", null);
+    await seedIsolatedVoice(film(), talk, run);
+    providers.stt.transcribe = () => Promise.resolve({ ok: false, error: "ElevenLabs speech to text answered 400: audio_too_short", providerFailure: refusal });
+    const result = await transcribeFootage(film(), [talk], run);
+    expect(result).toEqual({ ok: false, error: 'clip "talk": ElevenLabs speech to text answered 400: audio_too_short', failure: { kind: "provider", provider: refusal } });
+  });
+
   it("sends no key terms and counts none for a film without them", async () => {
     const charges: FootageCharge[] = [];
     const { run, providers } = options({ isCommit: true, onCharge: (charge) => charges.push(charge) });

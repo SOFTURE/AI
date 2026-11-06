@@ -84,6 +84,17 @@ export {
   type TtsRequest,
 } from "./voice/voiceover.js";
 export type { TtsEstimate, TtsInput, TtsProvider, TtsRecording, TtsResult } from "./voice/provider.js";
+export {
+  describeProviderFailure,
+  getConnectionFailure,
+  getLocalRefusal,
+  getProviderFailure,
+  getProviderFailureKind,
+  readProviderErrorBody,
+  PROVIDER_MESSAGE_LENGTH,
+  type ProviderFailure,
+  type ProviderFailureKind,
+} from "./voice/provider-failure.js";
 export { ELEVENLABS_API_KEY_ENV, ELEVENLABS_PROVIDER_ID, createElevenLabsProvider, type ElevenLabsOptions } from "./voice/elevenlabs.js";
 export { createFakeTtsProvider, type FakeTtsOptions, type FakeTtsProvider } from "./voice/fake.js";
 export { createTtsProvider, type CreateTtsProviderOptions, type TtsProviderId } from "./voice/providers.js";
@@ -585,7 +596,7 @@ export {
   type RenderedFootage,
   type TranscribeOutcome,
 } from "./footage/pipeline.js";
-export { isRetryableFootageFailure, type FootageError, type FootageFailure, type FootageFailureKind } from "./footage/failure.js";
+export { getProviderFootageFailure, isRetryableFootageFailure, type FootageError, type FootageFailure, type FootageFailureKind } from "./footage/failure.js";
 export {
   formatMessage,
   getMarketingMessages,
