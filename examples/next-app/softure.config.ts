@@ -197,7 +197,11 @@ const config = defineSoftureConfig({
           features: en.plans.lifetime.features.map((feature) => ({ en: feature })),
         },
       ],
-      payment: process.env.BILLING_PROVIDER === "stripe" ? stripe() : manual({ onRequest: mailInvoiceRequestsTo(EXAMPLE_ADMIN_EMAIL) }),
+      // STRIPE_API_BASE points stripe() at a stand-in for Stripe's API (the e2e's fake Stripe, e2e/fake-stripe-server.mjs).
+      payment:
+        process.env.BILLING_PROVIDER === "stripe"
+          ? stripe(process.env.STRIPE_API_BASE ? { apiBase: process.env.STRIPE_API_BASE } : {})
+          : manual({ onRequest: mailInvoiceRequestsTo(EXAMPLE_ADMIN_EMAIL) }),
     }),
     // robots.txt, sitemap.xml and the IndexNow key file (e2e/seo.spec.ts): the public pages are open,
     // the account, admin and API paths closed to every crawler, AI crawlers named. The blog adds its

@@ -1111,10 +1111,11 @@ billing({
 - A refund of a period moves the dated end back by local days; a `grant { until }` an app applies
   by hand with an end inside the stack is not a period of its own and shifts with it.
 - A payment recorded before migration `0003` has no grant: its refund revokes all paid access.
-- The Stripe adapter is tested against the sandbox's Checkout API and with a browser payment in the
-  sandbox whose webhook Stripe delivers through `stripe listen` (both only when `STRIPE_SECRET_KEY`
-  holds a test key; the example's `e2e/billing-checkout.stripe-sandbox.spec.ts`), and with signed
-  webhook fixtures. Only the card is paid end to end; BLIK and Przelewy24 are not.
+- The Stripe adapter is tested with a stubbed `fetch`, with signed webhook fixtures, and in the example app against a
+  local fake Stripe (checkout, payment, webhook and refund; `e2e/billing-checkout.fake-stripe.spec.ts`) on every
+  change. Stripe's real sandbox (its Checkout API, and a browser payment whose webhook Stripe delivers through
+  `stripe listen`; `e2e/billing-checkout.stripe-sandbox.spec.ts`) is checked every night, only when
+  `STRIPE_SECRET_KEY` holds a test key. Only the card is paid end to end; BLIK and Przelewy24 are not.
 - A grant through `grantPlan` (or a raw `changeEntitlement`, an import) is not recorded: it is not
   in the history and cannot be revoked; the `grant-plan` and `grant-lifetime` scripts record theirs.
 - The owner hears of an open request once: a buyer who corrects the details later changes the

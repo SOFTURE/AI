@@ -184,6 +184,7 @@ describe("stripe()", () => {
   it.each([
     ["an answer without a url", () => Promise.resolve(Response.json({ id: "cs_1" }))],
     ["a url that is not https", () => Promise.resolve(Response.json({ url: "javascript:alert(1)" }))],
+    ["a plain-HTTP url from Stripe's own API", () => Promise.resolve(Response.json({ url: "http://localhost:3190/c/pay/cs_1" }))],
     ["a body that is not JSON", () => Promise.resolve(new Response("<html>", { status: 502 }))],
     ["a network failure", () => Promise.reject(new TypeError("fetch failed"))],
     ["a timeout", () => Promise.reject(new DOMException("timed out", "TimeoutError"))],
@@ -191,6 +192,22 @@ describe("stripe()", () => {
     const { fetch } = createFetch(respond);
     expect(await stripe({ secretKey: "sk_test_123", fetch }).startPayment(ctx, request())).toEqual(err("billing.payment_failed"));
     expect(logged()).toContain('plan "monthly"');
+  });
+
+  describe("stripe() with a test server on this machine", () => {
+    it("takes a plain-HTTP checkout page on this machine when the API base is one", async () => {
+      const { fetch } = createFetch(() => Promise.resolve(Response.json({ url: "http://localhost:3190/c/pay/cs_1" })));
+      const started = await stripe({ secretKey: "sk_test_123", apiBase: "http://localhost:3190", fetch }).startPayment(ctx, request());
+      expect(started).toEqual(ok({ type: "redirect", url: "http://localhost:3190/c/pay/cs_1" }));
+    });
+
+    it.each([
+      ["a page on another host", "http://localhost:3190", "http://pay.example.com/c/pay/cs_1"],
+      ["an API base on another host", "http://stripe-proxy.example.com", "http://localhost:3190/c/pay/cs_1"],
+    ])("refuses a plain-HTTP page for %s", async (_case, apiBase, url) => {
+      const { fetch } = createFetch(() => Promise.resolve(Response.json({ url })));
+      expect(await stripe({ secretKey: "sk_test_123", apiBase, fetch }).startPayment(ctx, request())).toEqual(err("billing.payment_failed"));
+    });
   });
 });
 

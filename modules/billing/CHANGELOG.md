@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`billing@x.y.z`).
 
+## Unreleased
+
+- **`stripe({ apiBase })` works with a local test server**: when `apiBase` is a plain-HTTP server on the same
+  machine (`http://localhost:<port>`, `127.0.0.1`, `[::1]`), its checkout page may be a plain-HTTP page on the same
+  machine too, so an app's e2e can pay through a fake Stripe without Stripe's network. Every other answer still has to
+  name an HTTPS page, as before.
+
 ## 0.11.0
 
 - **A free tier without an end (freemium)** (#962): `billing({ free: { limits } })`. An account without paid access is

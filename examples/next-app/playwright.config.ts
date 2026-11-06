@@ -1,11 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 import { softurePlaywrightUse } from "@softure-ai/testing/playwright";
+import { FAKE_STRIPE_ORIGIN, FAKE_STRIPE_PORT, FAKE_STRIPE_SECRET_KEY, STRIPE_APP_PORT } from "./e2e/fake-stripe.ts";
 import { BLOG_REFRESH_SECRET, MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET } from "./e2e/outbox.ts";
 
 // Black-box tests of the built app (`next build` first). Playwright starts `next start` itself; with
 // E2E_REUSE_SERVER=1 it uses a server already on the port instead (for example `next dev` while
 // writing a test). The database must be migrated: `npm run migrate`.
 const PORT = Number(process.env.E2E_PORT ?? 3100);
+/** The environment both app servers share. */
+const APP_ENV = { MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET, BLOG_REFRESH_SECRET };
 
 export default defineConfig({
   testDir: "./e2e",
@@ -27,19 +30,53 @@ export default defineConfig({
   // state every other spec changes (pin-trials over every account), so they run after the parallel
   // project has finished, one at a time.
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: [/\.serial\.spec\.ts$/, /\.stripe-sandbox\.spec\.ts$/] },
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: [/\.serial\.spec\.ts$/, /\.stripe-sandbox\.spec\.ts$/, /\.fake-stripe\.spec\.ts$/] },
+    // The Stripe payment flow against the fake Stripe (e2e/fake-stripe-server.mjs), on the second app server.
+    {
+      name: "fake-stripe",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${String(STRIPE_APP_PORT)}` },
+      testMatch: /\.fake-stripe\.spec\.ts$/,
+    },
     { name: "serial", use: { ...devices["Desktop Chrome"] }, testMatch: /\.serial\.spec\.ts$/, dependencies: ["chromium"], workers: 1 },
   ],
-  webServer: {
-    command: `npm run start -- --port ${PORT}`,
-    url: `http://localhost:${PORT}`,
-    // Never by default: a stale server left on the port would be tested instead of the fresh build.
-    reuseExistingServer: process.env.E2E_REUSE_SERVER === "1",
-    timeout: 60_000,
-    // The app builds absolute URLs (the auth guard's redirect, reset links) on APP_ORIGIN: the port
-    // under test. Mail from the fake mail provider, reset links included, goes to the outbox file
-    // the e2e reads (softure.config.ts). List mail is signed with a fixed test secret, and so are
-    // the Stripe webhook deliveries the e2e plays, and the blog's cache refresh the e2e's publish calls.
-    env: { APP_ORIGIN: process.env.APP_ORIGIN ?? `http://localhost:${String(PORT)}`, MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET, BLOG_REFRESH_SECRET },
-  },
+  webServer: [
+    {
+      command: `npm run start -- --port ${PORT}`,
+      url: `http://localhost:${PORT}`,
+      // Never by default: a stale server left on the port would be tested instead of the fresh build.
+      reuseExistingServer: process.env.E2E_REUSE_SERVER === "1",
+      timeout: 60_000,
+      // The app builds absolute URLs (the auth guard's redirect, reset links) on APP_ORIGIN: the port
+      // under test. Mail from the fake mail provider, reset links included, goes to the outbox file
+      // the e2e reads (softure.config.ts). List mail is signed with a fixed test secret, and so are
+      // the Stripe webhook deliveries the e2e plays, and the blog's cache refresh the e2e's publish calls.
+      env: { APP_ORIGIN: process.env.APP_ORIGIN ?? `http://localhost:${String(PORT)}`, ...APP_ENV },
+    },
+    // A stand-in for Stripe's API and hosted Checkout, delivering signed events to the second app server.
+    {
+      command: "node e2e/fake-stripe-server.mjs",
+      url: `${FAKE_STRIPE_ORIGIN}/health`,
+      reuseExistingServer: false,
+      timeout: 15_000,
+      env: {
+        FAKE_STRIPE_PORT: String(FAKE_STRIPE_PORT),
+        FAKE_STRIPE_WEBHOOK_URL: `http://localhost:${String(STRIPE_APP_PORT)}/api/billing/webhook`,
+        STRIPE_WEBHOOK_SECRET,
+      },
+    },
+    // The same build paying through stripe(), with Stripe's API at the fake Stripe.
+    {
+      command: `npm run start -- --port ${String(STRIPE_APP_PORT)}`,
+      url: `http://localhost:${String(STRIPE_APP_PORT)}`,
+      reuseExistingServer: process.env.E2E_REUSE_SERVER === "1",
+      timeout: 60_000,
+      env: {
+        APP_ORIGIN: `http://localhost:${String(STRIPE_APP_PORT)}`,
+        ...APP_ENV,
+        BILLING_PROVIDER: "stripe",
+        STRIPE_API_BASE: FAKE_STRIPE_ORIGIN,
+        STRIPE_SECRET_KEY: FAKE_STRIPE_SECRET_KEY,
+      },
+    },
+  ],
 });

@@ -36,11 +36,14 @@ npm run build          # tsc builds of every workspace package, in dependency or
   both BSD and GNU tools accept: no associative arrays, no `${var,,}`, no GNU-only long options. The `macos.yml`
   workflow runs those tests with the system tools first in `PATH` whenever the scripts, the workflows or their
   tests change, and once a week.
-- `.github/workflows/ci.yml` runs the same gates (static, the full test suite in four shards, build) on every pull request, every push to
-  master and on demand; `e2e.yml` the same, skipping documents-only changes. Their slow area jobs (the
-  marketing-kit films, the host playbooks, the example app and deploy init image) run only when the change reaches
-  that area through `scripts/ci/affected.mjs`; a shared root file runs them all. Not on every pushed branch:
-  with a pull request open, that would run each suite twice.
+- `.github/workflows/ci.yml` runs the same gates (static, the test suite in four shards, build) on every pull request, every push to
+  master and on demand; `e2e.yml` the same, skipping documents-only changes. Every package triggers only its own
+  checks and its dependents' (`scripts/ci/affected.mjs`): a pull request runs the unit tests of the packages it
+  reaches plus `tests/`, and the slow area jobs (the marketing-kit films, the host playbooks, the example app and
+  deploy init image) only for the areas it reaches. A change of `package-lock.json` reaches only the packages whose
+  entries changed (a release's version bump: that package and its dependents); a repository tool, a shared root file,
+  a push to master or a manual run runs everything. Not on every pushed branch: with a pull request open, that would
+  run each suite twice.
 - The repository tests guard the docs too: the roadmap contract (WORKFLOW §5), relative links in
   every `*.md`, and the shape of every workspace package. Start a package by copying
   `templates/package/`.
@@ -75,8 +78,8 @@ other work in the queue, with one shortcut:
 - A red check, a major version bump, or an update that needs code changes becomes a change of its own in a thread
   (`roadmap_item: null`); the thread opens its own pull request with the bump and the fixes, and the Dependabot pull
   request is closed when it merges. Telling Dependabot to ignore a major version is the owner's word only.
-- Dependabot pull requests run without the repository's Actions secrets, so the Stripe sandbox tests skip there,
-  as they do on a fork.
+- No pull request talks to Stripe: pull requests pay through a local fake Stripe, and Stripe's real sandbox runs only
+  in `stripe-sandbox.yml` (nightly and on demand), the one workflow that reads the `STRIPE_SECRET_KEY` secret.
 
 Open security alerts reach the queue as issues labelled `security` (`.github/workflows/security-alerts.yml`, hourly
 at :17). They are worked like any other issue; the workflow closes them when the alert is fixed or dismissed, so a

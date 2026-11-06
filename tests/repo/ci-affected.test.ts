@@ -3,11 +3,16 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import {
+  LOCKFILE,
   SHARED_PATHS,
+  ROOT_TEST_PATH,
   findRuntimeWorkspaces,
   getAffectedAreas,
   getAreas,
+  getTestScope,
 } from "../../scripts/ci/affected.mjs";
+import { findWorkspaces } from "../../scripts/build-workspaces.mjs";
+import type { LockfileReach } from "../../scripts/ci/lockfile-changes.mjs";
 import { REPO_ROOT } from "./repo-files.js";
 
 // The slow jobs of ci.yml and e2e.yml run only for the areas a change reaches. A skipped area must never hide a red
@@ -49,38 +54,6 @@ describe("getAffectedAreas", () => {
     ]);
   });
 
-  it("reaches the Stripe sandbox payment only for billing, the app's payment pages and webhook, and the test itself", () => {
-    expect(getReached(["modules/billing/src/index.ts"])).toEqual([
-      "deploy",
-      "example-app",
-      "stripe-sandbox",
-    ]);
-    expect(getReached(["examples/next-app/app/payment/page.tsx"])).toContain(
-      "stripe-sandbox",
-    );
-    expect(
-      getReached(["examples/next-app/app/api/billing/webhook/route.ts"]),
-    ).toContain("stripe-sandbox");
-    expect(
-      getReached([
-        "examples/next-app/e2e/billing-checkout.stripe-sandbox.spec.ts",
-      ]),
-    ).toContain("stripe-sandbox");
-    expect(getReached(["examples/next-app/app/blog/page.tsx"])).toEqual([
-      "deploy",
-      "example-app",
-    ]);
-  });
-
-  it("does not run the Stripe sandbox payment for a shared root file such as the lockfile, only for its own workflow", () => {
-    expect(getReached(["package-lock.json"])).not.toContain("stripe-sandbox");
-    expect(getReached(["tsconfig.base.json"])).not.toContain("stripe-sandbox");
-    expect(getReached(["package-lock.json"])).toContain("example-app");
-    expect(getReached([".github/workflows/e2e.yml"])).toContain(
-      "stripe-sandbox",
-    );
-  });
-
   it("reaches through workspace dependencies: core is under the example app, deploy and host", () => {
     expect(getReached(["foundation/core/src/index.ts"])).toEqual([
       "deploy",
@@ -115,33 +88,42 @@ describe("getAffectedAreas", () => {
   });
 
   it.each([
-    "package-lock.json",
     "package.json",
     "tsconfig.base.json",
     "scripts/ci/affected.mjs",
     ".github/workflows/e2e.yml",
-  ])(
-    "reaches every area for the shared file %s (the Stripe sandbox payment only through its own shared paths)",
-    (file) => {
-      const expected = AREAS.filter((area) =>
-        (area.sharedPaths ?? SHARED_PATHS).some(
-          (path) =>
-            file === path || (path.endsWith("/") && file.startsWith(path)),
-        ),
-      );
-      expect(getReached([file])).toEqual(
-        expected.map((area) => area.name).sort(),
-      );
-      expect(expected.map((area) => area.name)).toEqual(
-        expect.arrayContaining([
-          "deploy",
-          "example-app",
-          "host",
-          "marketing-kit",
-        ]),
-      );
-    },
-  );
+  ])("reaches every area for the shared file %s", (file) => {
+    expect(getReached([file])).toEqual(AREAS.map((area) => area.name).sort());
+  });
+
+  it("reaches only the packages a lockfile change names, and every area when its reach is unknown or total", () => {
+    const lockfileOf = (lockfile: LockfileReach): string[] =>
+      Object.entries(
+        getAffectedAreas({
+          changed: { kind: "files", files: [LOCKFILE], lockfile },
+          areas: AREAS,
+          packages: PACKAGES,
+        }),
+      )
+        .filter(([, value]) => value)
+        .map(([name]) => name)
+        .sort();
+    expect(
+      lockfileOf({ kind: "packages", names: ["@softure-ai/marketing-kit"] }),
+    ).toEqual(["marketing-kit"]);
+    expect(
+      lockfileOf({ kind: "packages", names: ["@softure-ai/llm"] }),
+    ).toEqual([]);
+    expect(
+      lockfileOf({ kind: "packages", names: ["@softure-ai/core"] }),
+    ).toEqual(["deploy", "example-app", "host"]);
+    expect(
+      lockfileOf({ kind: "all", reason: "vitest is a repository tool" }),
+    ).toEqual(AREAS.map((area) => area.name).sort());
+    expect(getReached([LOCKFILE])).toEqual(
+      AREAS.map((area) => area.name).sort(),
+    );
+  });
 
   it("reaches every area when the files are unknown", () => {
     const affected = getAffectedAreas({
@@ -169,9 +151,9 @@ describe.each([
   [
     "ci.yml",
     ["render", "footage-image", "host-ansible"],
-    ["static", "test", "workflows", "build"],
+    ["static", "workflows", "build"],
   ],
-  ["e2e.yml", ["e2e", "stripe-sandbox", "container", "deploy-init"], []],
+  ["e2e.yml", ["e2e", "container", "deploy-init"], []],
 ])("%s", (name, gated, always) => {
   const jobs = (
     parse(readFileSync(join(REPO_ROOT, ".github/workflows", name), "utf8")) as {
@@ -188,7 +170,7 @@ describe.each([
       ),
     ).toBe(true);
     for (const [output, value] of Object.entries(changes?.outputs ?? {})) {
-      expect(names).toContain(output);
+      expect([...names, "test-paths"]).toContain(output);
       expect(value).toBe(`\${{ steps.areas.outputs.${output} }}`);
     }
   });
@@ -207,7 +189,105 @@ describe.each([
     expect(jobs[id]?.needs).toBeUndefined();
   });
 
+  it.runIf(name === "ci.yml")(
+    "always runs the tests, a pull request's only for the packages it reaches",
+    () => {
+      const test = jobs.test as Job & {
+        steps?: { env?: Record<string, string> }[];
+      };
+      expect(test.needs).toBe("changes");
+      expect(test.if).toBeUndefined();
+      expect(changes?.outputs?.["test-paths"]).toBe(
+        "${{ steps.areas.outputs.test-paths }}",
+      );
+      expect(JSON.stringify(test.steps)).toContain(
+        "github.event_name == 'pull_request' && needs.changes.outputs.test-paths || ''",
+      );
+    },
+  );
+
   it("counts the workflow itself as shared", () => {
     expect(SHARED_PATHS).toContain(`.github/workflows/${name}`);
+  });
+});
+
+describe("getTestScope", () => {
+  const WORKSPACES = findWorkspaces(REPO_ROOT);
+
+  function getScope(
+    files: string[],
+    lockfile?: LockfileReach,
+  ): ReturnType<typeof getTestScope> {
+    return getTestScope({
+      changed: {
+        kind: "files",
+        files,
+        ...(lockfile === undefined ? {} : { lockfile }),
+      },
+      packages: WORKSPACES,
+    });
+  }
+
+  it("tests a changed package and the packages that depend on it, with the repository tests", () => {
+    const scope = getScope(["modules/billing/src/stripe.ts"]);
+    expect(scope.kind).toBe("paths");
+    const paths = scope.kind === "paths" ? scope.paths : [];
+    expect(paths[0]).toBe(ROOT_TEST_PATH);
+    expect(paths).toContain("modules/billing/");
+    expect(paths).not.toContain("modules/llm/");
+    expect(paths).not.toContain("tools/marketing-kit/");
+    for (const pkg of WORKSPACES) {
+      if (pkg.dependencyNames.includes("@softure-ai/billing"))
+        expect(paths).toContain(`${pkg.dir}/`);
+    }
+  });
+
+  it("tests only the repository tests for a change outside every package", () => {
+    expect(
+      getScope([
+        "docs/02-module-standard.md",
+        "examples/next-app/app/page.tsx",
+      ]),
+    ).toEqual({
+      kind: "paths",
+      paths: [ROOT_TEST_PATH],
+    });
+  });
+
+  it("tests a release's version bump in the bumped package and its dependents only", () => {
+    const scope = getScope(
+      [
+        "tools/marketing-kit/package.json",
+        "tools/marketing-kit/CHANGELOG.md",
+        LOCKFILE,
+      ],
+      {
+        kind: "packages",
+        names: ["@softure-ai/marketing-kit"],
+      },
+    );
+    const paths = scope.kind === "paths" ? scope.paths : [];
+    expect(paths).toContain("tools/marketing-kit/");
+    // deploy tests its film commands with marketing-kit (a development dependency).
+    expect(paths).toContain("tools/deploy/");
+    expect(paths).not.toContain("modules/billing/");
+    expect(paths).not.toContain("foundation/core/");
+  });
+
+  it("runs the whole suite for a shared root file, a lockfile change of unknown reach, or a run without a file list", () => {
+    expect(getScope(["vitest.config.mts"]).kind).toBe("all");
+    expect(getScope([LOCKFILE]).kind).toBe("all");
+    expect(
+      getScope([LOCKFILE], {
+        kind: "all",
+        reason: "vitest is a repository tool",
+      }).kind,
+    ).toBe("all");
+    expect(
+      getTestScope({
+        changed: { kind: "all", reason: "a push run" },
+        packages: WORKSPACES,
+      }).kind,
+    ).toBe("all");
   });
 });
