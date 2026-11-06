@@ -1236,12 +1236,26 @@ if (!cover.ok) throw new Error(cover.error);
 - The photo is scaled to cover `size` (1080×1920 by default) and cropped so the `focus` point (fractions of the
   upright photo's width and height) sits as near the centre as the photo allows. EXIF orientation (JPEG `APP1`, PNG
   `eXIf`) is applied first.
-- The caption is set in the brand's heading font (the loaded weight nearest 700), centred, in the lighter of the
-  brand's `foreground` and `background`, with a soft shadow and a gradient scrim of the darker one fading in behind
-  it. It sits in the lower half of the centre 4:5 band (1080×1350 of 1080×1920; `getCoverBand(size)`), which the
-  platforms keep when they crop the cover for the profile grid; a long caption wraps. A caption over 80 characters,
-  one whose drawn text reaches outside that half band (measured on the pixels, so it holds for any font), and a
-  character the fonts cannot draw are errors, never drawn. No caption: the cropped photo alone.
+- The text is set in the brand's heading font (the loaded weight nearest 700), centred, in the lighter of the brand's
+  `foreground` and `background`, with a soft shadow and a gradient scrim of the darker one behind it. `tone: "dark"`
+  swaps them (dark text over a light scrim); `tone: "light"` is the default. The text keeps to its part of the centre
+  4:5 band (1080×1350 of 1080×1920; `getCoverBand(size)`), which the platforms keep when they crop the cover for the
+  profile grid; a long caption wraps. A caption over 80 characters, a kicker over 40, a pill label over 32, text whose
+  drawn pixels reach outside its part of the band (measured on the pixels, so it holds for any font) and a character
+  the fonts cannot draw are errors, never drawn or clipped.
+- `layout` picks where the text goes (`PHOTO_COVER_LAYOUTS`). Without it, a caption is `title-bottom` and no caption
+  is `photo`, so a call without `layout` draws what it always drew. A layout that needs a text it was not given, or a
+  text its layout does not draw, is an error.
+
+  | `layout` | Draws | Example |
+  | --- | --- | --- |
+  | `photo` | the cropped photo alone | `{ layout: "photo" }` |
+  | `title-bottom` | the caption in the lower half of the band, the scrim rising from the bottom | `{ layout: "title-bottom", caption: "Stop working at 49" }` |
+  | `title-center` | the caption in the band's middle third, the scrim a soft stripe behind it | `{ layout: "title-center", caption: "One evening, real numbers" }` |
+  | `title-top` | the caption in the upper half of the band, the scrim falling from the top | `{ layout: "title-top", caption: "Retire at 49?" }` |
+  | `kicker-title` | a small kicker line above the caption, in the lower half | `{ layout: "kicker-title", kicker: "Episode 3", caption: "The early retirement plan" }` |
+  | `pill` | the caption as a short label in a rounded box of the dark colour (the box is its scrim), in the lower half | `{ layout: "pill", caption: "Lisbon, Portugal" }` |
+
 - The result is a baseline JPEG (`quality` 90 by default) of exactly the size, with its `width`, `height` and
   `bytes`. No network, no system fonts. An ICC profile in the photo (e.g. Display P3) is not converted: its values are
   taken as sRGB.

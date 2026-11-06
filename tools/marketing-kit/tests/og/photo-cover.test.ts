@@ -7,7 +7,7 @@ import { Resvg } from "@resvg/resvg-js";
 import jpeg from "jpeg-js";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { getCoverBand, renderPhotoCover, type PhotoCoverInput } from "../../src/og/photo-cover.js";
+import { getCoverBand, PHOTO_COVER_LAYOUTS, renderPhotoCover, type PhotoCoverInput, type PhotoCoverLayout } from "../../src/og/photo-cover.js";
 import { getCoverCrop, getOrientationMatrix, getOrientedSize, readPhotoInfo, readTiffOrientation, type PhotoOrientation } from "../../src/og/photo.js";
 import { COLORS, loadInter } from "./helpers.js";
 
@@ -139,28 +139,34 @@ describe("renderPhotoCover: the crop", () => {
   });
 });
 
-describe("renderPhotoCover: the caption", () => {
-  const BLACK_PHOTO = makeJpeg(1080, 1920, () => BLACK);
-
-  /** The box of the pixels the caption lightens on a black photo (the scrim and shadow only darken it). */
-  function findLitBox(image: { width: number; height: number; data: Uint8Array }): { top: number; bottom: number; left: number; right: number; count: number } {
-    let top = image.height;
-    let bottom = -1;
-    let left = image.width;
-    let right = -1;
-    let count = 0;
-    for (let y = 0; y < image.height; y += 1) {
-      for (let x = 0; x < image.width; x += 1) {
-        if ((image.data[(y * image.width + x) * 4] ?? 0) <= 48) continue;
-        count += 1;
-        top = Math.min(top, y);
-        bottom = Math.max(bottom, y);
-        left = Math.min(left, x);
-        right = Math.max(right, x);
-      }
+/** The box of the pixels the text lightens on a black photo (the scrim and shadow only darken it), or those `isLit` picks. */
+function findLitBox(image: { width: number; height: number; data: Uint8Array }, isLit: (red: number) => boolean = (red) => red > 48): { top: number; bottom: number; left: number; right: number; count: number } {
+  let top = image.height;
+  let bottom = -1;
+  let left = image.width;
+  let right = -1;
+  let count = 0;
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      if (!isLit(image.data[(y * image.width + x) * 4] ?? 0)) continue;
+      count += 1;
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y);
+      left = Math.min(left, x);
+      right = Math.max(right, x);
     }
-    return { top, bottom, left, right, count };
   }
+  return { top, bottom, left, right, count };
+}
+
+
+const BLACK_PHOTO = makeJpeg(1080, 1920, () => BLACK);
+const GREY_PHOTO = makeJpeg(1080, 1920, () => [128, 128, 128]);
+
+/** The red channel of the decoded pixel at x, y. */
+const redAt = (image: { width: number; data: Uint8Array }, x: number, y: number) => image.data[(y * image.width + x) * 4] ?? 0;
+
+describe("renderPhotoCover: the caption", () => {
 
   it("keeps the caption inside the lower half of the centre 4:5 band", async () => {
     const band = getCoverBand([1080, 1920]);
@@ -175,10 +181,9 @@ describe("renderPhotoCover: the caption", () => {
   });
 
   it("draws the caption in the brand's light colour over a scrim that darkens the photo's lower part", async () => {
-    const grey = makeJpeg(1080, 1920, () => [128, 128, 128]);
-    const plain = await renderPixels({ photo: grey });
-    const captioned = await renderPixels({ photo: grey, caption: "Hi" });
-    const at = (image: { width: number; data: Uint8Array }, x: number, y: number) => image.data[(y * image.width + x) * 4] ?? 0;
+    const plain = await renderPixels({ photo: GREY_PHOTO });
+    const captioned = await renderPixels({ photo: GREY_PHOTO, caption: "Hi" });
+    const at = redAt;
     // No caption: the photo alone, no scrim.
     expect(Math.abs(at(plain, 540, 1800) - 128)).toBeLessThanOrEqual(4);
     expect(Math.abs(at(plain, 540, 300) - 128)).toBeLessThanOrEqual(4);
@@ -205,6 +210,119 @@ describe("renderPhotoCover: the caption", () => {
   it("returns a character the brand fonts cannot draw as an error, not drawn", async () => {
     const result = await cover({ caption: "Cover 猫", id: "reel-1" });
     expect(result.ok ? "" : result.error).toContain('Photo cover "reel-1": the caption "Cover 猫" has characters none of the loaded fonts can draw at its weight: "猫" (U+732B)');
+  });
+});
+
+describe("renderPhotoCover: layouts", () => {
+  const band = getCoverBand([1080, 1920]);
+  const half = band.height / 2;
+  const third = band.height / 3;
+  /** The rows each layout's text must keep to: [first row, the row after the last]. */
+  const regions: Record<Exclude<PhotoCoverLayout, "photo">, readonly [number, number]> = {
+    "title-bottom": [band.top + half, band.top + band.height],
+    "title-center": [band.top + third, band.top + 2 * third],
+    "title-top": [band.top, band.top + half],
+    "kicker-title": [band.top + half, band.top + band.height],
+    pill: [band.top + half, band.top + band.height],
+  };
+  const texts: Record<Exclude<PhotoCoverLayout, "photo">, Partial<PhotoCoverInput>> = {
+    "title-bottom": { caption: "Stop working at 49" },
+    "title-center": { caption: "Stop working at 49" },
+    "title-top": { caption: "Stop working at 49" },
+    "kicker-title": { kicker: "Episode 3", caption: "Retire early, counted in one evening" },
+    pill: { caption: "Lisbon, Portugal" },
+  };
+
+  it("lists the six layouts", () => {
+    expect(PHOTO_COVER_LAYOUTS).toEqual(["photo", "title-bottom", "title-center", "title-top", "kicker-title", "pill"]);
+  });
+
+  it.each(Object.keys(regions) as Exclude<PhotoCoverLayout, "photo">[])("draws every text pixel of %s inside the 4:5 band, in its named part", async (layout) => {
+    const [top, bottom] = regions[layout];
+    const lit = findLitBox(await renderPixels({ photo: BLACK_PHOTO, layout, ...texts[layout] }));
+    expect(lit.count).toBeGreaterThan(1000);
+    expect([lit.top >= top, lit.bottom < bottom, lit.left >= band.left, lit.right < band.left + band.width]).toEqual([true, true, true, true]);
+  });
+
+  it("draws the kicker above the title", async () => {
+    const titleOnly = findLitBox(await renderPixels({ photo: BLACK_PHOTO, caption: "Retire early, counted in one evening" }));
+    const withKicker = findLitBox(await renderPixels({ photo: BLACK_PHOTO, layout: "kicker-title", ...texts["kicker-title"] }));
+    // The title keeps its foot; the kicker adds lit rows above it.
+    expect(Math.abs(withKicker.bottom - titleOnly.bottom)).toBeLessThanOrEqual(2);
+    expect(withKicker.top).toBeLessThan(titleOnly.top - 30);
+  });
+
+  it("draws nothing over the photo with the layout photo", async () => {
+    const image = await renderPixels({ photo: GREY_PHOTO, layout: "photo" });
+    expect([redAt(image, 540, 300), redAt(image, 540, 960), redAt(image, 20, 1800)].map((value) => Math.abs(value - 128) <= 4)).toEqual([true, true, true]);
+  });
+
+  it("moves the scrim with the text: the top for title-top, a band behind the text for title-center", async () => {
+    const top = await renderPixels({ photo: GREY_PHOTO, layout: "title-top", caption: "Hi" });
+    expect(redAt(top, 20, 100)).toBeLessThan(80);
+    expect(Math.abs(redAt(top, 20, 1800) - 128)).toBeLessThanOrEqual(4);
+    const centre = await renderPixels({ photo: GREY_PHOTO, layout: "title-center", caption: "Hi" });
+    expect(redAt(centre, 20, 960)).toBeLessThan(80);
+    expect([Math.abs(redAt(centre, 20, 300) - 128) <= 4, Math.abs(redAt(centre, 20, 1800) - 128) <= 4]).toEqual([true, true]);
+  });
+
+  it("sets the pill label in a box of the dark colour, with no scrim over the rest of the photo", async () => {
+    const image = await renderPixels({ photo: GREY_PHOTO, layout: "pill", caption: "Lisbon" });
+    const lit = findLitBox(await renderPixels({ photo: BLACK_PHOTO, layout: "pill", caption: "Lisbon" }));
+    // Beside the label, inside the box, the photo is darkened; outside the box it is untouched.
+    expect(redAt(image, lit.left - 10, Math.round((lit.top + lit.bottom) / 2))).toBeLessThan(50);
+    expect([Math.abs(redAt(image, 20, 1800) - 128) <= 4, Math.abs(redAt(image, 20, lit.top) - 128) <= 4]).toEqual([true, true]);
+  });
+
+  it("draws dark text over a light scrim with the tone dark", async () => {
+    const white = makeJpeg(1080, 1920, () => [255, 255, 255]);
+    const dark = findLitBox(await renderPixels({ photo: white, caption: "Stop working at 49", tone: "dark" }), (red) => red < 80);
+    expect(dark.count).toBeGreaterThan(1000);
+    expect([dark.top >= band.top + half, dark.bottom < band.top + band.height]).toEqual([true, true]);
+    const grey = await renderPixels({ photo: GREY_PHOTO, caption: "Hi", tone: "dark" });
+    expect(redAt(grey, 20, 1800)).toBeGreaterThan(170);
+    // The tone light is today's default.
+    const light = await renderPixels({ photo: GREY_PHOTO, caption: "Hi", tone: "light" });
+    const plain = await renderPixels({ photo: GREY_PHOTO, caption: "Hi" });
+    expect(redAt(light, 20, 1800)).toBe(redAt(plain, 20, 1800));
+  });
+
+  it("returns text that does not fit its part of the band as an error, not drawn", async () => {
+    const centre = await cover({ layout: "title-center", caption: "W".repeat(60) });
+    expect(centre.ok ? "" : centre.error).toContain("does not fit the middle third of the centre 4:5 band (1080×1350)");
+    const kicker = await cover({ layout: "kicker-title", kicker: "Episode 3", caption: "W".repeat(64) });
+    expect(kicker.ok ? "" : kicker.error).toContain(`the kicker "Episode 3" and the caption "${"W".repeat(64)}" do not fit the lower half`);
+  });
+
+  it("returns an overlong kicker or pill label as an error", async () => {
+    const kicker = await cover({ layout: "kicker-title", kicker: "k".repeat(41), caption: "Lisbon" });
+    const pill = await cover({ layout: "pill", caption: "p".repeat(33) });
+    expect(kicker.ok ? "" : kicker.error).toContain("kicker: the kicker is longer than 40 characters");
+    expect(pill.ok ? "" : pill.error).toBe(`Photo cover: the pill label "${"p".repeat(33)}" is longer than 32 characters.`);
+  });
+
+  it("returns a kicker or pill character the fonts cannot draw as an error, naming the text", async () => {
+    const kicker = await cover({ layout: "kicker-title", kicker: "Episode 猫", caption: "Lisbon" });
+    const pill = await cover({ layout: "pill", caption: "Tokyo 猫" });
+    expect(kicker.ok ? "" : kicker.error).toBe(
+      'Photo cover: the kicker "Episode 猫" has characters none of the loaded fonts can draw at its weight: "猫" (U+732B). Use font files that cover them.',
+    );
+    expect(pill.ok ? "" : pill.error).toContain('the pill label "Tokyo 猫" has characters none of the loaded fonts can draw');
+  });
+
+  it.each<[Partial<PhotoCoverInput>, string]>([
+    [{ layout: "title-center" }, 'the layout "title-center" needs a caption'],
+    [{ layout: "kicker-title", caption: "Lisbon" }, 'the layout "kicker-title" needs a kicker'],
+    [{ layout: "photo", caption: "Lisbon" }, 'the layout "photo" draws no text; leave the caption out or pick a text layout'],
+    [{ kicker: "Episode 3", caption: "Lisbon" }, 'the kicker is drawn only by the layout "kicker-title", not "title-bottom"; leave it out'],
+  ])("refuses texts the layout does not take: %j", async (changes, message) => {
+    const result = await cover(changes);
+    expect(result).toEqual({ ok: false, error: `Photo cover: ${message}.` });
+  });
+
+  it("refuses an unknown layout or tone", async () => {
+    const result = await cover({ layout: "side" as PhotoCoverLayout, tone: "grey" as "light" });
+    expect(result.ok ? [] : result.error.split("\n").slice(1).map((line) => line.split(":")[0]?.trim())).toEqual(["layout", "tone"]);
   });
 });
 
