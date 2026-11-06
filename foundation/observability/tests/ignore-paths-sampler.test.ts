@@ -1,5 +1,5 @@
 import { context, SpanKind, trace } from "@opentelemetry/api";
-import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-node";
+import { TracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { startObservability } from "../src/node/index.js";
@@ -9,9 +9,9 @@ import { startOtlpReceiver, type OtlpReceiver } from "./otlp-receiver.js";
 
 function createTracer(paths: readonly string[]) {
   const exporter = new InMemorySpanExporter();
-  const provider = new BasicTracerProvider({
+  const provider = new TracerProvider({
     sampler: createIgnorePathsSampler(paths),
-    spanProcessors: [new SimpleSpanProcessor(exporter)],
+    spanProcessors: [new SimpleSpanProcessor({ exporter })],
   });
   return { tracer: provider.getTracer("test"), exporter };
 }

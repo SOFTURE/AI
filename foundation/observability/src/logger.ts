@@ -1,5 +1,4 @@
-import type { AttributeValue } from "@opentelemetry/api";
-import { logs } from "@opentelemetry/api-logs";
+import { logs } from "@opentelemetry/api";
 
 import { describeError, type ErrorDetails } from "./errors.js";
 import { isLevelEnabled, parseLogLevel, SEVERITY_NUMBERS, type LogLevel } from "./levels.js";
@@ -31,6 +30,9 @@ export type LoggingDefaults = {
   /** Default `full`. */
   errorDetails?: ErrorDetails;
 };
+
+// The values this logger writes. OpenTelemetry API 1.10 widened its own `AttributeValue` to `unknown` (any value).
+type AttributeValue = string | number | boolean | string[] | number[] | boolean[];
 
 type Attributes = Record<string, AttributeValue>;
 

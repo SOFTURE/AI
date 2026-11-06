@@ -1,4 +1,4 @@
-import { SeverityNumber } from "@opentelemetry/api-logs";
+import { SeverityNumber } from "@opentelemetry/api";
 
 /** The log levels, from the most to the least verbose. */
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;

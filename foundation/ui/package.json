@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "@softure-ai/core": "^0.2.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "react": "^19.0.0",

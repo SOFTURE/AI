@@ -1,12 +1,11 @@
-import type { Attributes, Context, Link } from "@opentelemetry/api";
-import { SpanKind } from "@opentelemetry/api";
+import { SpanKind, type Attributes, type Context, type Link } from "@opentelemetry/api";
 import {
   AlwaysOnSampler,
   ParentBasedSampler,
   SamplingDecision,
   type Sampler,
   type SamplingResult,
-} from "@opentelemetry/sdk-trace-node";
+} from "@opentelemetry/sdk-trace";
 
 import { getPath } from "./stable-http-attributes.js";
 

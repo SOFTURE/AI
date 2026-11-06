@@ -1,12 +1,12 @@
 import { SpanStatusCode } from "@opentelemetry/api";
-import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { TracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createLlm } from "../src/index.js";
 import { fakeModel } from "../src/testing/index.js";
 
 const exporter = new InMemorySpanExporter();
-const provider = new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+const provider = new TracerProvider({ spanProcessors: [new SimpleSpanProcessor({ exporter })] });
 const tracer = provider.getTracer("test");
 const schema = z.object({ verdict: z.string() });
 
