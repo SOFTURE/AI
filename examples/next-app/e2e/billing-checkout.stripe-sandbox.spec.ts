@@ -80,14 +80,6 @@ async function payWithTestCard(page: Page): Promise<void> {
   const cardItem = page.getByTestId("card-accordion-item-button");
   await expect(cardNumber.or(cardItem).first()).toBeVisible({ timeout: 30_000 });
   if (!(await cardNumber.isVisible()) && (await cardItem.isVisible())) await cardItem.click();
-  // With Adaptive Pricing on, Checkout offers the buyer's local currency (USD on a US runner) next to the plan's own
-  // and preselects the local one; paying the converted amount fails in the sandbox ("There was an error processing
-  // your request", seen from 2026-11-06). Pay in the plan's own currency, as a Polish buyer would.
-  const planCurrency = page.getByRole("group", { name: "Choose currency" }).getByRole("button", { name: /PLN/ });
-  if (await planCurrency.isVisible()) {
-    await planCurrency.click();
-    await expect(planCurrency).toHaveAttribute("aria-pressed", "true");
-  }
   await cardNumber.fill(TEST_CARD.number);
   await page.locator("#cardExpiry").fill(TEST_CARD.expiry);
   await page.locator("#cardCvc").fill(TEST_CARD.cvc);
