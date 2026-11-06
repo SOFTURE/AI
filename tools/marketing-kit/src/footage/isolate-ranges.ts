@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { err, ok } from "../voice/provider.js";
+import { err, ok } from "./failure.js";
 import { probeAudio } from "./audio.js";
 import { writeCacheFile } from "./cache.js";
 import type { Edl } from "./edl.js";

@@ -546,6 +546,7 @@ export {
   type RenderedFootage,
   type TranscribeOutcome,
 } from "./footage/pipeline.js";
+export { isRetryableFootageFailure, type FootageError, type FootageFailure, type FootageFailureKind } from "./footage/failure.js";
 export {
   formatMessage,
   getMarketingMessages,

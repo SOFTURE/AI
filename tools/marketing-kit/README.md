@@ -777,6 +777,19 @@ A rendered result is `{ kind: "rendered", output, seconds, edlPath, bytes, width
 null with `cover: null`). `loudness` and `cover` are optional on `FootageFilm`: absent means the defaults, null turns
 them off.
 
+A failed result is `{ ok: false, error, failure }`: `error` is the sentence for logs, `failure.kind` what the app acts
+on. `loudness` (the mix or the finished film misses `mixLoudness`; `failure.loudness` is the last
+`{ integrated, truePeak }`, null for a mix silent after its limiter), `publishable` (`failure.problems`: container,
+profile, fast start) and `input` (the film, its EDL, fonts, files or settings) fail the same way again;
+`process` (a process that exited, the network, the disk) may not. `isRetryableFootageFailure(failure)` says which,
+so an admin panel offers "render again" only where it can help:
+
+```ts
+if (!result.ok) showError(result.error, { canRetry: isRetryableFootageFailure(result.failure) });
+```
+
+A failed ffmpeg step throws and an abort rejects with the signal's reason, as before; treat a throw as transient.
+
 **Editing with an agent.** The kit holds no language model; the editorial choices stay with the caller, who gets
 the means to make them:
 

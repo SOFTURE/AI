@@ -112,7 +112,7 @@ describe("the footage pipeline without ffmpeg", () => {
   it("refuses key terms over Scribe's limits before any paid call", async () => {
     const { run, providers } = options({ isCommit: true });
     const result = await transcribeFootage(film({ keyTerms: ["x".repeat(51)] }), [clip("talk", "talk", null)], run);
-    expect(result).toEqual({ ok: false, error: `footage film street: key term "${"x".repeat(51)}": 51 characters, at most 50.` });
+    expect(result).toEqual({ ok: false, error: `footage film street: key term "${"x".repeat(51)}": 51 characters, at most 50.`, failure: { kind: "input" } });
     expect(providers.stt.calls).toHaveLength(0);
     expect(providers.isolation.calls).toHaveLength(0);
   });
@@ -147,7 +147,7 @@ describe("the footage pipeline without ffmpeg", () => {
     const read = readEdlFile(film(), clips, path);
     expect(read.ok && read.value.segments[1]?.transition).toBe("whoosh");
     writeFileSync(path, JSON.stringify({ ...edited, segments: [{ id: "s1", clip: "gone", start: 0, end: 1, transition: "cut", motion: "none" }] }));
-    expect(readEdlFile(film(), clips, path)).toEqual({ ok: false, error: `${path}: segments[0].clip: no clip "gone" in the film` });
+    expect(readEdlFile(film(), clips, path)).toEqual({ ok: false, error: `${path}: segments[0].clip: no clip "gone" in the film`, failure: { kind: "input" } });
     expect(getEdlPath("/b", true)).toBe("/b/edl.placeholder.json");
     writeFileSync(path, JSON.stringify({ ...edited, segments: [{ id: "s1", clip: "talk", start: 0, end: 1, transition: "cut", motion: "none", caption: { bottom: 1900 } }] }));
     const outside = readEdlFile(film(), clips, path);
@@ -172,6 +172,7 @@ describe("the footage pipeline without ffmpeg", () => {
     expect(result).toEqual({
       ok: false,
       error: `not enough disk space to render: the temp folder ${tempDir} has 0.3 GiB free and a hyperframes render needs 1.0 GiB; hyperframes extracts the clips' frames there (hundreds of MB per minute of film): point TMPDIR (or renderFootage's tempDir) at a data volume, not a small tmpfs.`,
+      failure: { kind: "process" },
     });
     expect(providers.music.calls).toEqual([]);
     expect(lines).toEqual([]);
@@ -194,6 +195,7 @@ describe("the footage pipeline without ffmpeg", () => {
     expect(result).toEqual({
       ok: false,
       error: 'finishVideo.crf must be a whole number from 0 to 51, got 60. finishVideo.maxBitrate must be a positive rate such as "12M" or "12000k", got "12G".',
+      failure: { kind: "input" },
     });
     expect(providers.music.calls).toEqual([]);
     expect(lines).toEqual([]);
@@ -253,14 +255,14 @@ describe.runIf(hasFfmpeg)("prepareFootage with a local music file (issue #996)",
 
   it("stops before normalizing when the music file has no audio", async () => {
     const music = make("bed.mp3", ["-f", "lavfi", "-i", "color=c=black:s=64x64:d=1", "-f", "mp4", "-pix_fmt", "yuv420p"]);
-    expect(await prepareFootage(filmWithMusic(music), run())).toEqual({ ok: false, error: `music: ${music}: no audio stream` });
+    expect(await prepareFootage(filmWithMusic(music), run())).toEqual({ ok: false, error: `music: ${music}: no audio stream`, failure: { kind: "input" } });
     expect(existsSync(join(dir, "build", "clips", "talk.mp4"))).toBe(false);
   });
 
   it("stops on a music file of a type the render does not take", async () => {
     const music = make("bed.mkv", ["-f", "lavfi", "-i", "sine=duration=1"]);
     const result = await prepareFootage(filmWithMusic(music), run());
-    expect(result).toEqual({ ok: false, error: `music: ${music}: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)` });
+    expect(result).toEqual({ ok: false, error: `music: ${music}: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)`, failure: { kind: "input" } });
   });
 
   /** A copy of a file under an extensionless name, the way `@softure-ai/files` stores an upload. */
@@ -294,17 +296,17 @@ describe.runIf(hasFfmpeg)("prepareFootage with a local music file (issue #996)",
 
   it("still stops on a stored file without audio", async () => {
     const music = storeWithoutExtension(make("silent.mp4", ["-f", "lavfi", "-i", "color=c=black:s=64x64:d=1", "-pix_fmt", "yuv420p"]));
-    expect(await prepareFootage(filmWithMusic(music), run())).toEqual({ ok: false, error: `music: ${music}: no audio stream` });
+    expect(await prepareFootage(filmWithMusic(music), run())).toEqual({ ok: false, error: `music: ${music}: no audio stream`, failure: { kind: "input" } });
   });
 
   it("checks the declared name and content type of a stored file", async () => {
     const music = storeWithoutExtension(make("bed.m4a", ["-f", "lavfi", "-i", "sine=duration=1", "-c:a", "aac"]));
     const named = await prepareFootage(filmWithMusic(music, { fileName: "notes.pdf" }), run());
-    expect(named).toEqual({ ok: false, error: `music: notes.pdf: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)` });
+    expect(named).toEqual({ ok: false, error: `music: notes.pdf: not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)`, failure: { kind: "input" } });
     const mismatched = await prepareFootage(filmWithMusic(music, { fileName: "bed.mp3", contentType: "audio/wav" }), run());
-    expect(mismatched).toEqual({ ok: false, error: "music: bed.mp3: content type audio/wav does not match .mp3 (expected audio/mpeg or audio/mp3)" });
+    expect(mismatched).toEqual({ ok: false, error: "music: bed.mp3: content type audio/wav does not match .mp3 (expected audio/mpeg or audio/mp3)", failure: { kind: "input" } });
     const typed = await prepareFootage(filmWithMusic(music, { contentType: "application/pdf" }), run());
-    expect(typed).toEqual({ ok: false, error: `music: content type application/pdf is not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)` });
+    expect(typed).toEqual({ ok: false, error: `music: content type application/pdf is not a music file (accepted: .mp3, .m4a, .aac, .wav, .ogg, .oga, .opus, .flac, .mp4, .m4v, .mov, .webm)`, failure: { kind: "input" } });
   });
 
   it("renders the music track of a video bed as audio only", () => {

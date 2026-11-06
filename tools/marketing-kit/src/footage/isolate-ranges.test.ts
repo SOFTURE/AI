@@ -172,7 +172,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
   it("fails naming the range when the provider fails, writing nothing to the cache", async () => {
     const failing: IsolationProvider = { id: "broken", isolate: () => Promise.resolve({ ok: false, error: "quota exceeded" }) };
     const result = await isolateSpeechRanges(film, [clip], edl, options(failing));
-    expect(result).toEqual({ ok: false, error: "clip talk 0.800-2.200 s: quota exceeded" });
+    expect(result).toEqual({ ok: false, error: "clip talk 0.800-2.200 s: quota exceeded", failure: { kind: "process" } });
     expect(existsSync(join(dir, "cache"))).toBe(false);
   });
 
