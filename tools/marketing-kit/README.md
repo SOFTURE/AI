@@ -1053,15 +1053,15 @@ CMD ["node", "dist/worker.js"]
 `renderFootageDraft` makes a free draft of a cut film with ffmpeg alone (no hyperframes, no browser), so an app can
 show the owner what the paid render will look like in seconds instead of minutes: the cut at a small width (540×960
 for 9:16 by default), the film's captions burned in (placed like the render's, the caption preset included), zoom
-cuts, cross-fades and Ken Burns b-roll as the render draws them, the speech track and the film's music when it costs
-nothing. It takes the same clips, transcript and EDL as `renderFootage` and spends nothing:
+cuts, cross-fades and Ken Burns b-roll as the render draws them, and the render's sound: the speech track's stages,
+the film's music when it costs nothing, and the mix brought to the film's loudness target. It takes the same clips, transcript and EDL as `renderFootage` and spends nothing:
 
 ```ts
 import { checkFootageTools, cutFootage, prepareFootage, renderFootageDraft, transcribeFootage } from "@softure-ai/marketing-kit";
 
 const problems = await checkFootageTools({ needsRender: false, needsDraft: true }); // ass (libass + libfreetype), xfade, zoompan
 const draft = await renderFootageDraft(film, clips, transcript, edl, { buildDir, output: "draft.mp4", width: 540, brand, cacheDir, providers, log, signal: job.signal, onProgress });
-// draft.value: { output, music, captionFont, seconds, width, height, bytes }: H.264 yuv420p and AAC with fast start, exactly the cut's length
+// draft.value: { output, music, captionFont, seconds, width, height, bytes, declick, loudness, mix }: H.264 yuv420p and AAC with fast start, exactly the cut's length
 ```
 
 What the draft matches and what it leaves out:
@@ -1081,12 +1081,18 @@ What the draft matches and what it leaves out:
   It is ducked under the speech, looped and faded to the cut's length exactly as in the render. No provider is ever
   called: music that is not cached yet (or a draft without `cacheDir` and `providers`) gives a draft without music,
   `music: "not_cached"` in the result and a log line; `"none"` when the film has none, `"played"` otherwise.
-- **Left out:** the loudness pass (speech and music are mixed as they are), the end card, the cover and the sound
-  effects (whoosh, pop).
+- **The render's sound chain:** the speech is cut, declicked and brought to `loudness` with the render's functions and
+  file names (`getSpeechChainFiles`), the music is ducked under it, and the mix goes through the render's mix stage
+  (`mixFootage`: `mixLoudness` with its `attempts`, `warnTolerance` and true peak ceiling). The stage's AAC is copied
+  into the draft, not encoded again, so the draft plays at the render's loudness: quiet speech from a clip-on mic no
+  longer drafts 18 dB under the film. The draft answers as the render does: `loudness` (`integrated`, `truePeak`,
+  `warning` on a near miss) and `mix` (what the stage did); a mix that misses its target fails with
+  `{ kind: "loudness" }`. `loudness: null` and `mixLoudness: null` skip those stages as in the render.
+- **Left out:** the end card, the cover and the sound effects (whoosh, pop); the mix has speech and music only.
 - `buildFootageDraftArgs`, `buildFootageDraftCaptions` (an ASS file) and `planFootageDraft` are the pure builders, for an
   app that runs ffmpeg its own way. ffmpeg runs in `<buildDir>/draft/`, so the captions and font paths are relative.
-- `onProgress` reports the stage `draft` (the speech track, its declick when the film sets one, the music track when it
-  plays, then the film).
+- `onProgress` reports the stage `draft` (the speech track, its declick when the film sets one, its loudness pass, the
+  music track when it plays, the mix, then the film).
 - `threads` sets ffmpeg's threads for every segment's decoder, the filter graph and the encoder. ffmpeg otherwise
   follows the host's cores, not a container's CPU quota, and the draft opens one decoder per segment: pass the
   worker's CPU limit (`threads: 1` on a 1-CPU worker), as with `normalize.threads`. The extra threads buy no speed
