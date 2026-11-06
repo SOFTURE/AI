@@ -26,9 +26,11 @@ export function splitArticleBody(text: string): { readonly body: string; readonl
   return { body: lines.slice(end + 1).join("\n"), bodyStartLine: end + 2 };
 }
 
-const HEADING = /^(#{1,6})\s+(.*)$/;
-const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s+(.*)$/;
-const FOOTNOTE_DEF = /^\[\^([^\]]+)\]:\s*(.*)$/;
+// The patterns match only the block marker and the whitespace after it; the text is the rest of the line. A tail
+// like `\s+(.*)$` backtracks in quadratic time on a long whitespace run before a line separator.
+const HEADING = /^(#{1,6})\s/;
+const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s/;
+const FOOTNOTE_DEF = /^\[\^([^\]]+)\]:/;
 const FENCE = /^\s*(```|~~~)/;
 const CONTINUATION = /^\s{2,}\S/;
 
@@ -77,13 +79,13 @@ export function splitBlocks(body: string, bodyStartLine = 1): Block[] {
     const heading = HEADING.exec(line);
     if (heading !== null) {
       flush();
-      blocks.push({ kind: "heading", text: (heading[2] ?? "").trim(), line: lineNo, level: (heading[1] ?? "#").length });
+      blocks.push({ kind: "heading", text: line.slice(heading[0].length).trim(), line: lineNo, level: (heading[1] ?? "#").length });
       continue;
     }
     const footnote = FOOTNOTE_DEF.exec(line);
     if (footnote !== null) {
       flush();
-      blocks.push({ kind: "footnote", text: (footnote[2] ?? "").trim(), line: lineNo, footnoteId: footnote[1] ?? "" });
+      blocks.push({ kind: "footnote", text: line.slice(footnote[0].length).trim(), line: lineNo, footnoteId: footnote[1] ?? "" });
       continue;
     }
     if (trimmed.startsWith("::")) {
@@ -100,7 +102,7 @@ export function splitBlocks(body: string, bodyStartLine = 1): Block[] {
     const listItem = LIST_ITEM.exec(line);
     if (listItem !== null) {
       flush();
-      blocks.push({ kind: "listItem", text: (listItem[1] ?? "").trim(), line: lineNo });
+      blocks.push({ kind: "listItem", text: line.slice(listItem[0].length).trim(), line: lineNo });
       continue;
     }
     if (trimmed.startsWith(">")) {
