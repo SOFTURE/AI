@@ -711,14 +711,18 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   misses these clicks, which sit well below the speech peaks.
 - **Publishable output:** the speech track is measured and normalized to `loudness` (default −14 LUFS integrated,
   −1 dBTP true peak; two-pass `loudnorm`, one linear gain) before the music goes under it, so a quiet phone clip is
-  not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. hyperframes' render then gets
-  a final pass: the whole mix (speech, music, sound effects) is measured and brought to `mixLoudness` (default
-  −14 LUFS, −1 dBTP) by one linear gain and a true peak limiter at 4x the film's rate, encoded to AAC on its own and
-  measured; while the codec's overshoot breaks the limit or the mix misses the window the limiter is lowered, the gain
-  corrected for the loudness the limiter takes at the new ceiling (fitted from the encodes so far), and the sound encoded
-  again (at most 4 times). The finished file is measured too: true peak above the limit or integrated loudness outside the target ± 1 LU
-  fails the run, naming both values, and `renderFootage`'s result carries the measurement as `loudness` (and the
-  render's mix with the gain applied as `mix`). With `"mixLoudness": { "keep": "speech", "tolerance": 1 }` the mix gets
+  not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. **Before hyperframes renders a
+  frame**, the whole mix (speech, music, sound effects, mixed by ffmpeg as the composition plays them) is measured and
+  brought to `mixLoudness` (default −14 LUFS, −1 dBTP): one linear gain, a true peak limiter at 4x the film's rate with
+  its ceiling 1 dB under the limit, and a 16 kHz low-pass that keeps AAC's overshoot small. The gain is solved at that
+  fixed ceiling on uncompressed passes of the chain (no encode), then the sound is encoded to AAC and measured; when an
+  encode misses, the ceiling is lowered only by its true peak excess and the gain solved again (at most
+  `mixLoudness.attempts` encodes, default 4; most mixes need one). A mix that cannot meet the target fails the run
+  before any frame. The final pass muxes this sound under the picture, and the finished file is measured too: true
+  peak above the limit or integrated loudness outside the target ± 1 LU fails the run, naming both values, unless
+  `mixLoudness.warnTolerance` (in LU, at least the tolerance) covers the miss: then the film finishes and
+  `loudness.warning` names both values (the true peak limit is never relaxed). `renderFootage`'s result carries the
+  measurement as `loudness` (and the mix before the stage, the gain, the ceiling and the encodes as `mix`). With `"mixLoudness": { "keep": "speech", "tolerance": 1 }` the mix gets
   no gain while it measures inside `target ± tolerance` and otherwise only the smallest gain to that window, so the
   speech keeps the level `loudness` gave it whatever the music volume (the limiter and the gate still run). A silent mix is
   left as it is; `"mixLoudness": false` keeps the mix as rendered (still measured, not held to a target). So the

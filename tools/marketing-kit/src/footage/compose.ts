@@ -89,6 +89,38 @@ export function getSegmentZoomEases(edl: Edl, edit: Pick<FootageEdit, "zoomPerce
   });
 }
 
+/** One sound effect the film plays: its file, when it starts, its linear volume and how long it plays, in seconds. */
+export interface FootageSfxCue {
+  src: string;
+  t: number;
+  volume: number;
+  dur: number;
+}
+
+/**
+ * The film's sound effects in film time: a whoosh before every `whoosh` cut, and the end card's whoosh and pop with
+ * `isEndCardWhoosh`; an event without a file in `sfx` plays nothing. The composition and the film's mix
+ * (`buildFilmMixArgs`) both play these.
+ */
+export function getFootageSfxCues(film: FootageFilm, edl: Edl, sfx: Partial<Record<SfxEvent, string>>): FootageSfxCue[] {
+  const starts = getSegmentStarts(edl);
+  const cutEnd = getEdlDuration(edl);
+  const edit = getFootageEdit(film);
+  const cues: FootageSfxCue[] = [];
+  const play = (event: SfxEvent, t: number, volume: number, dur: number) => {
+    const src = sfx[event];
+    if (src !== undefined) cues.push({ src, t: r3(Math.max(0, t)), volume, dur });
+  };
+  edl.segments.forEach((segment, index) => {
+    if (segment.transition === "whoosh" && index > 0) play("whoosh", (starts[index] as number) - 0.1, 0.45, 0.57);
+  });
+  if (film.endCard !== null && edit.isEndCardWhoosh) {
+    play("whoosh", cutEnd, 0.3, 0.57);
+    play("pop", r3(cutEnd + 0.9), 0.35, 0.72);
+  }
+  return cues;
+}
+
 export function composeFootage(input: FootageComposeInput): string {
   const { film, edl, words, frame, colors: c, fonts, assets, caption: captionBox } = input;
   const starts = getSegmentStarts(edl);
@@ -161,18 +193,7 @@ export function composeFootage(input: FootageComposeInput): string {
   const captionFit = film.captions && film.captionMaxLines !== undefined ? getCaptionFitScript(film.captionMaxLines, Math.round(captionBox.fontSize * CAPTION_MIN_FONT_SCALE)) : "";
 
   // --- Sound ---
-  const sfx: { src: string; t: number; volume: number; dur: number }[] = [];
-  const play = (event: SfxEvent, t: number, volume: number, dur: number) => {
-    const src = assets.sfx[event];
-    if (src !== undefined) sfx.push({ src, t: r3(Math.max(0, t)), volume, dur });
-  };
-  edl.segments.forEach((segment, index) => {
-    if (segment.transition === "whoosh" && index > 0) play("whoosh", (starts[index] as number) - 0.1, 0.45, 0.57);
-  });
-  if (film.endCard !== null && edit.isEndCardWhoosh) {
-    play("whoosh", cutEnd, 0.3, 0.57);
-    play("pop", r3(cutEnd + 0.9), 0.35, 0.72);
-  }
+  const sfx = getFootageSfxCues(film, edl, assets.sfx);
   const audio = [
     `<audio id="speech" src="${escapeHtml(assets.speech)}" data-start="0" data-duration="${cutEnd}" data-volume="1"></audio>`,
     ...(assets.music === null ? [] : [`<audio id="music" src="${escapeHtml(assets.music)}" data-start="0" data-duration="${end}" data-volume="1"></audio>`]),

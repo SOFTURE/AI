@@ -634,10 +634,22 @@ const footageSchema = z
             .enum(["loudness", "speech"])
             .optional()
             .describe('"loudness" (default): one gain brings the mix to target; "speech": no gain while the mix measures inside target ± tolerance, so the speech keeps its level whatever the music volume.'),
-        }),
+          attempts: z.number().int().min(1).max(6).optional().describe("How many times the mix is encoded and measured before the film fails (1 to 6, default 4); most mixes need one."),
+          warnTolerance: z
+            .number()
+            .min(0.2)
+            .max(3)
+            .optional()
+            .describe(
+              "A near-miss band in LU (0.2 to 3, at least tolerance): a mix outside target ± tolerance but inside target ± warnTolerance, under the true peak limit, finishes with a warning instead of failing.",
+            ),
+        })
+          .refine((mix) => mix.warnTolerance === undefined || mix.warnTolerance >= (mix.tolerance ?? 1), { path: ["warnTolerance"], message: "must be at least tolerance (default 1)" }),
       ])
       .default({ target: -14, truePeak: -1 })
-      .describe("The finished film's mix (speech and music), measured after the render, brought to the target by one gain and held under the true peak by a limiter; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP."),
+      .describe(
+        "The finished film's mix (speech, music and sound effects), mixed and measured before the frames are rendered, brought to the target by one gain at a fixed true peak ceiling and held under it by a limiter; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP.",
+      ),
     cover: z
       .union([
         z.literal(false),

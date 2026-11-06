@@ -12,7 +12,7 @@ import { err, ok, type TtsResult } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { checkMusicFileType, describeAudioProbe, probeAudio } from "./audio.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
-import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
+import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
 import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
 import { buildEdl, getEdlDuration, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
@@ -21,23 +21,25 @@ import { chooseCutTransitions, type CutMeasure } from "./cuts.js";
 import { declickSpeech, describeDeclick, type DeclickReport } from "./declick.js";
 import { DEFAULT_AUTO_THRESHOLD, getDeclickLevel, getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
 import { getFilmKeyTerms } from "./keyterms.js";
+import { buildFilmMixArgs } from "./film-mix.js";
 import {
   buildMixArgs,
   DEFAULT_LOUDNESS,
-  findLoudnessProblems,
   formatDb,
-  getFirstMixAttempt,
-  getMixTolerance,
+  getFirstMixCeiling,
+  getLoudnessVerdict,
+  getMixAttempts,
   getMixFilter,
-  getNextMixAttempt,
+  getMixGain,
+  getMixTolerance,
+  getNextMixCeiling,
   measureLoudness,
-  MIX_ATTEMPTS,
   normalizeLoudness,
+  solveMixGain,
   type LoudnessMeasurement,
   type MixAttempt,
   type MixLoudness,
   type MixLoudnessTarget,
-  type MixTry,
 } from "./loudness.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
 import { FOOTAGE_FPS, normalizeFootage, type Frame, type NormalizeEncoder } from "./normalize.js";
@@ -748,6 +750,31 @@ async function runRenderFootage(
     const output = join(assetsDir, "music.mp3");
     tracks.push({ item: "music", seconds, run: ffmpegTrack("The music track", output, () => buildMusicArgs({ input: musicFile, seconds, keyframes, output })) });
   }
+  const sfx: Partial<Record<SfxEvent, string>> = {};
+  mkdirSync(join(assetsDir, "sfx"), { recursive: true });
+  for (const [event, source] of Object.entries(options.sfx) as [SfxEvent, string][]) {
+    const name = `${event}${extname(source)}`;
+    cpSync(source, join(assetsDir, "sfx", name));
+    sfx[event] = `assets/sfx/${name}`;
+  }
+  // The film's mix, brought to `mixLoudness` and gated before hyperframes captures a frame (issue #1124).
+  const mixLoudness = getMixLoudnessTarget(film);
+  let mixed: FootageResult<PreparedMix | null> = ok(null);
+  if (mixLoudness !== null) {
+    const mixSource = join(buildDir, "mix.wav");
+    const musicTrack = musicFile === null ? null : { file: join(assetsDir, "music.mp3"), seconds };
+    const cues = getFootageSfxCues(film, edl, sfx).map((cue) => ({ ...cue, src: join(buildDir, cue.src) }));
+    tracks.push({
+      item: "mix",
+      seconds,
+      run: async (onSeconds) => {
+        const args = buildFilmMixArgs({ speech: { file: speechFile, seconds: getEdlDuration(edl) }, music: musicTrack, sfx: cues, seconds, output: mixSource });
+        await runFfmpeg("The film's mix", args, { ...aborting, output: mixSource, onSeconds });
+        mixed = await mixFootage(mixLoudness, { mixSource, output: join(buildDir, "mix.m4a") }, { log, ...aborting });
+        rmSync(mixSource, { force: true });
+      },
+    });
+  }
   // A single frame: counted as a moment of work so the stage's bar still ends at its total.
   const lastFrame = join(assetsDir, "last.jpg");
   tracks.push({ item: "last frame", seconds: 0.1, run: ffmpegTrack("The end card's backdrop", lastFrame, () => buildLastFrameArgs(edl, clipFiles, lastFrame)) });
@@ -765,16 +792,12 @@ async function runRenderFootage(
     await track.run((done) => assetProgress(index, done));
     assetProgress(index, track.seconds);
   }
+  // A mix that misses its target fails here, before any frame is rendered.
+  const prepared = mixed;
+  if (!prepared.ok) return prepared;
   const musicAsset = musicFile === null ? null : "assets/music.mp3";
   const fonts = copyFonts(options.brand.fonts, join(assetsDir, "fonts"));
   if (options.brand.logo !== null) cpSync(options.brand.logo, join(assetsDir, "logo.svg"));
-  const sfx: Partial<Record<SfxEvent, string>> = {};
-  mkdirSync(join(assetsDir, "sfx"), { recursive: true });
-  for (const [event, source] of Object.entries(options.sfx) as [SfxEvent, string][]) {
-    const name = `${event}${extname(source)}`;
-    cpSync(source, join(assetsDir, "sfx", name));
-    sfx[event] = `assets/sfx/${name}`;
-  }
   cpSync(require.resolve("gsap/dist/gsap.min.js"), join(assetsDir, "gsap.min.js"));
   const base = resolveLayout(film.format, options.layout ?? {});
   // A caption preset places the 9:16 box in a platform's safe zone; the project's own caption override still wins.
@@ -816,7 +839,7 @@ async function runRenderFootage(
   const rendered = await runHyperframesRender(options, renderFile, seconds);
   if (!rendered.ok) return rendered;
   const roles = Object.fromEntries(clips.map((clip) => [clip.clip.id, clip.clip.role]));
-  const finished = await finishFootage(film, { renderFile, seconds, coverAt: film.cover?.at ?? getDefaultCoverSeconds(edl, roles) }, options);
+  const finished = await finishFootage(film, { renderFile, seconds, coverAt: film.cover?.at ?? getDefaultCoverSeconds(edl, roles), mix: prepared.value }, options);
   if (!finished.ok) return finished;
   return ok({ kind: "rendered", output: options.output, seconds, edlPath: getEdlPath(buildDir, options.isPlaceholder), declick, ...finished.value });
 }
@@ -831,35 +854,89 @@ export interface FinishedFootage {
   /** The cover JPG, or null when the film has none. */
   cover: string | null;
   /** The finished file's sound as measured (EBU R128, true peak oversampled); null for a film without sound or a silent mix. */
-  loudness: MixLoudness | null;
+  loudness: FinishedLoudness | null;
   /**
-   * What the mix's last stage did: the render's mix as measured, the gain applied (0 when `keep: "speech"` found the
+   * What the mix's last stage did: the film's mix as measured, the gain applied (0 when `keep: "speech"` found the
    * mix inside its window) and the limiter's ceiling; null when no stage ran (no sound, a silent mix, `mixLoudness: null`).
    */
   mix: FinishedMix | null;
 }
 
+/** The finished file's sound in `FinishedFootage`. */
+export interface FinishedLoudness extends MixLoudness {
+  /**
+   * A sentence naming both values when the mix landed in `mixLoudness.warnTolerance`'s near-miss band instead of
+   * inside its tolerance; null otherwise.
+   */
+  warning: string | null;
+}
+
 /** The mix's last stage in `FinishedFootage`. */
 export interface FinishedMix {
-  /** The render's mix before the stage. */
+  /** The film's mix before the stage. */
   measured: MixLoudness;
   gainDb: number;
   ceilingDbtp: number;
   /** What the gain kept (`MixLoudnessTarget.keep`). */
   keep: "loudness" | "speech";
+  /** How many encodes the stage took. */
+  encodes: number;
+}
+
+/** A film's mix brought to its target by `mixFootage`: the encoded sound the final pass muxes, and what the stage did. */
+export interface PreparedMix {
+  audioFile: string;
+  mix: FinishedMix;
+}
+
+/** The film's mix target: `mixLoudness`, the default when absent, null when the film keeps the render's sound. */
+function getMixLoudnessTarget(film: Pick<FootageFilm, "mixLoudness">): MixLoudnessTarget | null {
+  return film.mixLoudness === undefined ? DEFAULT_LOUDNESS : film.mixLoudness;
 }
 
 /**
- * The final pass over hyperframes' render: the mix brought to `film.mixLoudness` (measured on the render; one linear
- * gain and a true peak limiter, encoded to AAC on its own and measured, the limiter lowered and encoded again while
- * the codec's overshoot breaks the limit), muxed with the picture (copied where the render already matches;
- * `finishVideo` re-encodes it to H.264 High at its preset and CRF), publishable codecs and fast start, checked with
- * ffprobe, the finished file's sound measured and held to the target, then the cover and the file's facts. Exported
- * for tests only.
+ * The mix stage over a film's sound (`mixSource`, any file ffmpeg reads): measured, brought to `target` and encoded
+ * to `output` (AAC) by `finishMix`; null when the mix is silent (the final pass then keeps the render's sound). An
+ * error names the last measurement. `renderFootage` runs it before hyperframes renders a frame (issue #1124).
+ */
+export async function mixFootage(
+  target: MixLoudnessTarget,
+  input: { mixSource: string; output: string },
+  options: { log: (line: string) => void; signal?: AbortSignal },
+): Promise<FootageResult<PreparedMix | null>> {
+  const aborting = options.signal === undefined ? {} : { signal: options.signal };
+  const measured = await measureLoudness(input.mixSource, target, { label: "the film's mix", ...aborting });
+  if (measured.kind === "silent") {
+    options.log("loudness: the film's mix is silent, left as it is.");
+    return ok(null);
+  }
+  const mixed = await finishMix({ input: input.mixSource, output: input.output, measurement: measured.measurement, target, ...aborting });
+  if (!mixed.ok) {
+    rmSync(input.output, { force: true });
+    return mixed;
+  }
+  const { attempt, tries, probes } = mixed.value;
+  const keep = target.keep ?? "loudness";
+  const mix = { measured: { integrated: measured.measurement.inputI, truePeak: measured.measurement.inputTp }, gainDb: attempt.gainDb, ceilingDbtp: attempt.ceilingDbtp, keep, encodes: tries };
+  const kept = keep === "speech" ? ` (speech kept: ${formatDb(target.target)} ± ${getMixTolerance(target)} LUFS)` : "";
+  options.log(
+    `loudness: the film's mix measured ${formatDb(measured.measurement.inputI)} LUFS, true peak ${formatDb(measured.measurement.inputTp)} dBTP; ` +
+      `gain ${formatDb(attempt.gainDb)} dB${kept}, limiter at ${formatDb(attempt.ceilingDbtp)} dBTP (encode ${tries} of ${getMixAttempts(target)}, ${probes} uncompressed probes).`,
+  );
+  return ok({ audioFile: input.output, mix });
+}
+
+/**
+ * The final pass over hyperframes' render: the film's mix (`input.mix`, prepared by `mixFootage` before the render;
+ * null keeps the render's sound; absent, the render's own sound goes through `mixFootage` here) muxed with the
+ * picture (copied where the render already matches; `finishVideo` re-encodes it to H.264 High at its preset and CRF),
+ * publishable codecs and fast start, checked with ffprobe, the finished file's sound measured and held to the target
+ * (a near miss inside `warnTolerance` finishes with `loudness.warning`), then the cover and the file's facts.
+ * Exported for tests only.
  */
 export async function finishFootage(
   film: Pick<FootageFilm, "mixLoudness" | "cover">,
-  input: { renderFile: string; seconds: number; coverAt: number },
+  input: { renderFile: string; seconds: number; coverAt: number; mix?: PreparedMix | null },
   options: Pick<RenderFootageOptions, "log" | "signal" | "output" | "onProgress" | "finishVideo">,
 ): Promise<FootageResult<FinishedFootage>> {
   const { log, signal, output } = options;
@@ -868,30 +945,15 @@ export async function finishFootage(
   progress(0, 0);
   const rendered = await probeFilmFacts(input.renderFile, aborting);
   if (!rendered.ok) return err(`the rendered film: ${rendered.error}`);
-  const mixLoudness: MixLoudnessTarget | null = film.mixLoudness === undefined ? DEFAULT_LOUDNESS : film.mixLoudness;
-  let audioFile: string | undefined;
-  let mix: FinishedMix | null = null;
-  if (mixLoudness !== null && rendered.facts.audio !== null) {
-    const measured = await measureLoudness(input.renderFile, mixLoudness, { label: "the film's mix", ...aborting });
-    if (measured.kind === "silent") {
-      log("loudness: the film's mix is silent, left as it is.");
-    } else {
-      audioFile = join(dirname(input.renderFile), "mix.m4a");
-      const mixed = await finishMix({ input: input.renderFile, output: audioFile, measurement: measured.measurement, target: mixLoudness, ...aborting });
-      if (!mixed.ok) {
-        rmSync(audioFile, { force: true });
-        return mixed;
-      }
-      const { attempt, tries } = mixed.value;
-      const keep = mixLoudness.keep ?? "loudness";
-      mix = { measured: { integrated: measured.measurement.inputI, truePeak: measured.measurement.inputTp }, gainDb: attempt.gainDb, ceilingDbtp: attempt.ceilingDbtp, keep };
-      const kept = keep === "speech" ? ` (speech kept: ${formatDb(mixLoudness.target)} ± ${getMixTolerance(mixLoudness)} LUFS)` : "";
-      log(
-        `loudness: the film's mix measured ${formatDb(measured.measurement.inputI)} LUFS, true peak ${formatDb(measured.measurement.inputTp)} dBTP; ` +
-          `gain ${formatDb(attempt.gainDb)} dB${kept}, limiter at ${formatDb(attempt.ceilingDbtp)} dBTP (encode ${tries} of ${MIX_ATTEMPTS}).`,
-      );
-    }
+  const mixLoudness = getMixLoudnessTarget(film);
+  let prepared: PreparedMix | null = input.mix ?? null;
+  if (input.mix === undefined && mixLoudness !== null && rendered.facts.audio !== null) {
+    const mixed = await mixFootage(mixLoudness, { mixSource: input.renderFile, output: join(dirname(input.renderFile), "mix.m4a") }, { log, ...aborting });
+    if (!mixed.ok) return mixed;
+    prepared = mixed.value;
   }
+  const audioFile = prepared?.audioFile;
+  const mix = prepared?.mix ?? null;
   const { finishVideo } = options;
   const isVideoCopied = finishVideo === undefined && isPublishableVideo(rendered.facts.video);
   const isAudioCopied = audioFile === undefined && (rendered.facts.audio === null || isPublishableAudio(rendered.facts.audio));
@@ -903,20 +965,22 @@ export async function finishFootage(
   if (!finished.ok) return err(`the finished film: ${finished.error}`);
   const problems = findFinishProblems(finished.facts, readTopLevelBoxes(output));
   if (problems.length > 0) return err(`the finished film ${output} is not publishable: ${problems.join("; ")}.`);
-  let loudness: MixLoudness | null = null;
+  let loudness: FinishedLoudness | null = null;
   if (finished.facts.audio !== null) {
     const measured = await measureLoudness(output, mixLoudness ?? DEFAULT_LOUDNESS, { label: "the finished film", ...aborting });
     if (measured.kind === "measured") {
-      loudness = { integrated: measured.measurement.inputI, truePeak: measured.measurement.inputTp };
+      const sound = { integrated: measured.measurement.inputI, truePeak: measured.measurement.inputTp };
       // A mix left as rendered (`mixLoudness: null`) or silent is reported, not held to a target it was not brought to.
-      const misses = mixLoudness === null || audioFile === undefined ? [] : findLoudnessProblems(loudness, mixLoudness);
-      if (misses.length > 0) return err(`the finished film ${output} measures ${describeMixLoudness(loudness)}: ${misses.join("; ")}.`);
-      log(`loudness: the finished film measures ${formatDb(loudness.integrated)} LUFS, true peak ${formatDb(loudness.truePeak)} dBTP.`);
+      const verdict = mixLoudness === null || audioFile === undefined ? { kind: "pass" as const } : getLoudnessVerdict(sound, mixLoudness);
+      if (verdict.kind === "fail") return err(`the finished film ${output} measures ${describeMixLoudness(sound)}: ${verdict.problems.join("; ")}.`);
+      loudness = { ...sound, warning: verdict.kind === "warn" ? `the finished film ${output}: ${verdict.warning}` : null };
+      log(`loudness: the finished film measures ${formatDb(sound.integrated)} LUFS, true peak ${formatDb(sound.truePeak)} dBTP.`);
+      if (loudness.warning !== null) log(`loudness warning: ${loudness.warning}`);
     }
   }
   progress(0, input.seconds);
   const { bytes, width, height, durationSeconds } = finished.facts;
-  const streams = describeFinishStreams({ isVideoCopied, isAudioCopied, hasAudio: rendered.facts.audio !== null, ...(finishVideo === undefined ? {} : { finishVideo }) });
+  const streams = describeFinishStreams({ isVideoCopied, isAudioCopied, hasAudio: finished.facts.audio !== null, ...(finishVideo === undefined ? {} : { finishVideo }) });
   log(`finish: ${streams} to H.264 ${finished.facts.video.profile ?? ""}, AAC 48 kHz stereo, fast start; ${width}×${height}, ${durationSeconds.toFixed(2)} s, ${bytes} bytes.`);
   let cover: string | null = null;
   if (film.cover !== null) {
@@ -930,9 +994,11 @@ export async function finishFootage(
 }
 
 /**
- * The mix's sound brought to `target` on its own: gain and limiter, encoded to AAC, measured; while the encoded file
- * misses the target the gain and the ceiling are corrected and it is encoded again, at most `MIX_ATTEMPTS` times. An
- * error names the last measurement.
+ * The mix's sound brought to `target` on its own, at a fixed ceiling (issue #1124): the gain is solved on
+ * uncompressed passes (`solveMixGain`), then the mix is encoded to AAC and measured. While the encode misses, the
+ * ceiling is lowered only by its true peak excess (the codec's overshoot) and the gain solved again at it, shifted by
+ * the codec's measured loudness drift, at most `getMixAttempts` encodes. A last encode inside `warnTolerance` passes
+ * (the finished file's gate names the warning); otherwise an error names the last measurement.
  */
 async function finishMix(input: {
   input: string;
@@ -940,26 +1006,39 @@ async function finishMix(input: {
   measurement: LoudnessMeasurement;
   target: MixLoudnessTarget;
   signal?: AbortSignal;
-}): Promise<FootageResult<{ attempt: MixAttempt; tries: number; measured: MixLoudness }>> {
+}): Promise<FootageResult<{ attempt: MixAttempt; tries: number; probes: number; measured: MixLoudness }>> {
   const aborting = input.signal === undefined ? {} : { signal: input.signal };
-  let attempt = getFirstMixAttempt(input.measurement, input.target);
-  let misses: string[] = [];
-  let measured: MixLoudness = { integrated: input.measurement.inputI, truePeak: input.measurement.inputTp };
-  const done: MixTry[] = [];
-  for (let tries = 1; tries <= MIX_ATTEMPTS; tries += 1) {
+  const attempts = getMixAttempts(input.target);
+  const probe = async (attempt: MixAttempt): Promise<MixLoudness> => {
+    const probed = await measureLoudness(input.input, input.target, { label: "the film's mix through its limiter", filter: getMixFilter(attempt), ...aborting });
+    // A probe through a limiter on a mix that is not silent does not go silent; if it does, the encode reports it.
+    return probed.kind === "silent" ? { integrated: -Infinity, truePeak: -Infinity } : { integrated: probed.measurement.inputI, truePeak: probed.measurement.inputTp };
+  };
+  let ceilingDbtp = getFirstMixCeiling(input.target);
+  let startGainDb = getMixGain(input.measurement.inputI, input.target);
+  let shift = 0;
+  let probes = 0;
+  for (let tries = 1; tries <= attempts; tries += 1) {
+    const solved = await solveMixGain({ ceilingDbtp, startGainDb, target: input.target, shift, measure: probe });
+    probes += solved.probes.length;
+    const attempt = solved.best.attempt;
     await runFfmpeg("The film's mix", buildMixArgs({ input: input.input, filter: getMixFilter(attempt), output: input.output }), { ...aborting, output: input.output });
     const encoded = await measureLoudness(input.output, input.target, { label: "the film's encoded mix", ...aborting });
     if (encoded.kind === "silent") return err("the film's mix measures silent after its gain and limiter.");
-    measured = { integrated: encoded.measurement.inputI, truePeak: encoded.measurement.inputTp };
-    misses = findLoudnessProblems(measured, input.target);
-    if (misses.length === 0) return ok({ attempt, tries, measured });
-    done.push({ attempt, measured });
-    if (tries < MIX_ATTEMPTS) attempt = getNextMixAttempt(done, input.measurement.inputI, input.target);
+    const measured = { integrated: encoded.measurement.inputI, truePeak: encoded.measurement.inputTp };
+    const verdict = getLoudnessVerdict(measured, input.target);
+    if (verdict.kind === "pass" || (verdict.kind === "warn" && tries === attempts)) return ok({ attempt, tries, probes, measured });
+    if (tries === attempts) {
+      return err(
+        `the film's mix still measures ${describeMixLoudness(measured)} after ${attempts} encodes (last: gain ${formatDb(attempt.gainDb)} dB, ` +
+          `limiter at ${formatDb(attempt.ceilingDbtp)} dBTP): ${verdict.kind === "fail" ? verdict.problems.join("; ") : ""}.`,
+      );
+    }
+    shift = Number.isFinite(solved.best.measured.integrated) ? measured.integrated - solved.best.measured.integrated : 0;
+    ceilingDbtp = getNextMixCeiling(attempt.ceilingDbtp, measured, input.target);
+    startGainDb = attempt.gainDb;
   }
-  return err(
-    `the film's mix still measures ${describeMixLoudness(measured)} after ${MIX_ATTEMPTS} encodes (last: gain ${formatDb(attempt.gainDb)} dB, ` +
-      `limiter at ${formatDb(attempt.ceilingDbtp)} dBTP): ${misses.join("; ")}.`,
-  );
+  return err(`the film's mix was not encoded: mixLoudness.attempts is ${attempts}.`);
 }
 
 /** Both measurements of a mix, as an error names them. */
