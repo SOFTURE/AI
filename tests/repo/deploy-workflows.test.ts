@@ -2046,7 +2046,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
     it("checks the caller's own commit and leaves the ref to the checkout without a tag", () => {
       const result = runScript(commitStep.run ?? "", { ...env, TAG: "" });
       expect(result.status).toBe(0);
-      expect(result.output).toBe(`sha=${"f".repeat(40)}\nref=\n`);
+      expect(result.output).toBe(`sha=${"f".repeat(40)}\nrevision=\n`);
       expect(commitStep.env).toMatchObject({ SHA: "${{ github.sha }}", DEFAULT_BRANCH: "${{ github.event.repository.default_branch }}" });
     });
 
@@ -2054,7 +2054,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
       withRepository((repo, onMain) => {
         const result = runScript(commitStep.run ?? "", { ...env, TAG: "v2026.10.12" }, { cwd: repo });
         expect(result.status).toBe(0);
-        expect(result.output).toBe(`sha=${onMain}\nref=${onMain}\n`);
+        expect(result.output).toBe(`sha=${onMain}\nrevision=${onMain}\n`);
       });
     });
 
@@ -2081,7 +2081,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
     for (const id of ["static", "unit"]) {
       const checkout = (jobs[id]?.steps ?? []).find((step) => step.uses?.startsWith("actions/checkout@") === true);
       expect(checkout?.with, id).toMatchObject({
-        ref: "${{ needs.prepare.outputs.ref }}",
+        ref: "${{ needs.prepare.outputs.revision }}",
         "persist-credentials": false,
         "sparse-checkout": "${{ inputs.sparse-checkout }}",
       });
