@@ -1,7 +1,8 @@
 ---
 change_id: ci-per-module-hermetic-stripe
 title: "ci: no pull request depends on live Stripe, and every package triggers only its own checks"
-status: implement
+status: archived
+archived_at: 2026-11-06
 roadmap_item: null
 issue: null
 branch: claude/project-thread-89civn
@@ -33,3 +34,11 @@ requests red:
 - Pull requests run scoped unit tests; a push to master and a manual run keep the whole suite as the safety net.
 - A root tool (a root `devDependencies` entry or anything only the root resolves) or the root lockfile entry still
   reaches everything: it serves every package's checks.
+
+## Done
+
+Pull requests no longer talk to Stripe: the example e2e pays through a local fake Stripe (checkout, payment, signed
+webhook, refund; CI run on c66b7ed: `fake-stripe` passed, 129 passed), and Stripe's real sandbox runs only in
+`stripe-sandbox.yml` (nightly and on demand). A lockfile change reaches only the packages whose entries changed, and a
+pull request's unit tests run only for the packages it reaches plus `tests/`. billing accepts a loopback HTTP test
+server's checkout page (released as a patch).
