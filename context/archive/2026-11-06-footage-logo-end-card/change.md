@@ -1,12 +1,13 @@
 ---
 change_id: footage-logo-end-card
 title: "marketing-kit: a footage end card of any length (1-3 s) and a short logo card with the music fading out under it"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1173
 branch: claude/project-thread-qhumwo
 created: 2026-11-06
 updated: 2026-11-06
+archived_at: 2026-11-06
 ---
 
 ## Intent
@@ -34,3 +35,7 @@ footage end card is a fixed 3 s headline/url/note card.
 
 ## Notes
 - frame skipped: the issue states the problem and the expected behaviour.
+
+## Done
+Next marketing-kit release (batched with #1170, #1172, #1174): `endCard.seconds` for the full card and the
+`layout: "logo"` card with its own PNG or SVG logo, fade in, safe zone and the music fading out under it.
