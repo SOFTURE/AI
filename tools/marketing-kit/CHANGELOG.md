@@ -19,6 +19,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
     `getArPolynomial`, `DECLICK_WORD_GUARD`, `DECLICK_CROSSFADE`, `DECLICK_AR_ORDER` and `DECLICK_AR_CONTEXT`;
   - `DECLICK_MAX_IMPULSE` is 12 ms (was 30 ms).
 
+- **Where the cover's text and focus landed (#1172):** `PhotoCover` answers `textBox` (the drawn text with its shadow,
+  the box the fit check measured, `{ left, top, right, bottom }` in pixels with right and bottom excluded; null for
+  layout `photo`) and `focusPoint` (`{ x, y }`, the focus point on the cover after the crop). The new
+  `isPointUnderCoverText(cover, point, marginPx = 0)` tells whether a point lies under the text, so an app can warn when
+  the caption covers the photo's subject without re-deriving the kit's layout rules. Types `CoverBox` and `CoverPoint`.
+
 ## 0.17.0
 
 - **Cached speech ranges land at the pre-gained level (#1159):** since the speech pre-gain (#1139) `isolateSpeechRanges`

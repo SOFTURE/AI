@@ -168,6 +168,7 @@ export {
   loadOgFonts,
   renderConfiguredOgImage,
   renderOgImage,
+  isPointUnderCoverText,
   renderPhotoCover,
   type ConfiguredOgImageOptions,
   type OgBrand,

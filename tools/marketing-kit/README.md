@@ -1225,7 +1225,7 @@ renders without a `marketing.json` at all. For a carousel, pass `slide` (1-based
 photo the owner picks, instead of a frame of the film:
 
 ```ts
-import { loadOgFonts, renderPhotoCover } from "@softure-ai/marketing-kit/og";
+import { isPointUnderCoverText, loadOgFonts, renderPhotoCover } from "@softure-ai/marketing-kit/og";
 
 const fonts = loadOgFonts(config.brand.fonts);
 if (!fonts.ok) throw new Error(fonts.error);
@@ -1237,7 +1237,8 @@ const cover = await renderPhotoCover({
   fonts: fonts.value,
 });
 if (!cover.ok) throw new Error(cover.error);
-// cover.value: { jpeg, width: 1080, height: 1920, bytes }
+// cover.value: { jpeg, width: 1080, height: 1920, bytes, textBox, focusPoint }
+if (isPointUnderCoverText(cover.value, cover.value.focusPoint, 40)) console.warn("the caption covers the photo's subject");
 ```
 
 - The photo is scaled to cover `size` (1080×1920 by default) and cropped so the `focus` point (fractions of the
@@ -1266,6 +1267,11 @@ if (!cover.ok) throw new Error(cover.error);
 - The result is a baseline JPEG (`quality` 90 by default) of exactly the size, with its `width`, `height` and
   `bytes`. No network, no system fonts. An ICC profile in the photo (e.g. Display P3) is not converted: its values are
   taken as sRGB.
+- The result also says where things landed, in pixels of the cover: `textBox` (`{ left, top, right, bottom }`, right
+  and bottom excluded) is the drawn text with its shadow, the box the fit check measured (null for layout `photo`), and
+  `focusPoint` (`{ x, y }`) is where the focus point landed after the crop, off-centre when the photo's edge stopped the
+  shift. `isPointUnderCoverText(cover, point, marginPx = 0)` says whether a point lies inside `textBox` grown by the
+  margin on every side, so every app tests "the text covers the subject" the same way.
 
 ## Requirements
 
