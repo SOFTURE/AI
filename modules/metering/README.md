@@ -75,6 +75,7 @@ try {
 | `recordCharge(ctx, { provider, amount, step?, accountId?, attributes?, at? })` | `ok({ id })`; never refused, the spend already happened. |
 | `getSpend(ctx, { provider, period, accountId?, filter? })` | `ok(SpendSummary)`: `settled`, `reserved`, `spent`, `limit`, `remaining`, `from`, `resetsAt`. With `accountId`: that account's spend and its per-account budget. With `filter: { attribute, value }`: only the charges with that attribute value; `limit` and `remaining` stay the scope's budget. |
 | `getSpendBreakdown(ctx, { provider, period, accountId?, groupBy, filter? })` | `ok(SpendBreakdown)`: `rows` of `{ key, settled, reserved, spent }` per `step` (`groupBy: "step"`) or per attribute value (`groupBy: { attribute }`), highest spend first. `key: null` gathers charges without the step or attribute, so the rows add up to `getSpend`. |
+| `getChargeRate(ctx, { provider, step, accountId?, latest?, minUnits? })` | `ok(ChargeRate)`: `rate` (`amount / units`), `amount`, `units` and `charges` over the latest `latest` (20 by default, at most 1000) settled charges of the step whose amount the provider reported (attributes `reported: "true"` and `units`, as the footage recorder writes them); `ok(null)` without such charges or when their units add up to 0 or less than `minUnits`. |
 
 `BudgetExceeded.budget` names the first budget the amount did not fit: `scope` (`{ kind: "provider" }` or
 `{ kind: "account", accountId }`), `period`, `limit`, `spent`, `remaining` and `resetsAt`. An undeclared provider, an
@@ -197,6 +198,16 @@ Adapters (`@softure-ai/metering/server`) read the other packages' records by sha
 
   A provider billed in `seconds` records the charge's seconds; one billed in `credits` records the reported credits,
   or `creditsPerSecond` times the seconds when the provider reports none (without a rate that charge fails).
+  Every charge keeps the attributes `item`, `units` (the seconds billed) and `reported` (`"true"` when the amount is
+  the provider's reported credits, `"false"` for a `creditsPerSecond` fallback or a seconds count); they win over app
+  attributes of the same name. `onCharge(charge, attributes?)` takes this charge's own attributes, merged over the
+  recorder's, so one recorder serves a whole run. To estimate a step at the rate the provider really bills, read it
+  from the history:
+
+  ```ts
+  const history = await getChargeRate(ctx, { provider: "elevenlabs", step: "isolate", accountId, latest: 20, minUnits: 60 });
+  const creditsPerSecond = history.value?.rate ?? PUBLISHED_CREDITS_PER_SECOND;
+  ```
 - **Prune job** (`@softure-ai/metering/jobs`): `jobs({ schedules: { ...createMeteringJobSchedules({ keepDays: 400 }) } })`
   and `handlers: { ...meteringJobHandlers }`. Daily, it deletes charges older than `keepDays` (at least 32, so a month
   budget never loses its own period) and expired reservations. `pruneCharges(ctx, { keepDays })` runs it directly.

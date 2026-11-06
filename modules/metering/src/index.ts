@@ -40,6 +40,7 @@ export {
   type BudgetPeriod,
   type BudgetScope,
   type BudgetState,
+  type ChargeRate,
   type MeteringErrorCode,
   type MeteringUnit,
   type SpendBreakdown,

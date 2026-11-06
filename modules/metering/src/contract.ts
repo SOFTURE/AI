@@ -126,3 +126,20 @@ export interface BudgetLimit {
   /** The account that set the stored limit; `null` without one, when none was named, or after its deletion. */
   readonly updatedBy: string | null;
 }
+
+/** A provider's billed amount per unit for one step, from the ledger's latest settled reported charges. */
+export interface ChargeRate {
+  readonly provider: string;
+  /** The provider's unit, which `amount` and `rate` are in. */
+  readonly unit: MeteringUnit;
+  readonly step: string;
+  readonly accountId: string | null;
+  /** `amount / units`: the provider's unit per unit billed, e.g. credits per second. */
+  readonly rate: number;
+  /** The charges' amounts added up. */
+  readonly amount: number;
+  /** The units the charges billed (`attributes.units`), added up. */
+  readonly units: number;
+  /** How many charges the rate is over; at most `latest`. */
+  readonly charges: number;
+}

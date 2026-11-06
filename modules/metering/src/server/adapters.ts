@@ -76,37 +76,43 @@ export interface FootageChargeRecorderOptions {
 }
 
 export interface FootageChargeRecorder {
-  /** Pass as the pipeline's `onCharge`. Starts the write and returns at once. */
-  readonly onCharge: (charge: FootageChargeLike) => void;
+  /**
+   * Pass as the pipeline's `onCharge`. Starts the write and returns at once. `attributes` are this charge's own,
+   * merged over the recorder's; `item`, `units` and `reported` are reserved and always the charge's.
+   */
+  readonly onCharge: (charge: FootageChargeLike, attributes?: Readonly<Record<string, string>>) => void;
   /** Waits for every write started so far; rejects with the first failure. Await it when the run ends. */
   readonly flush: () => Promise<void>;
 }
 
 /**
  * Records each paid footage step: seconds for a provider billed in `seconds`, the reported credits (or
- * `creditsPerSecond` times the seconds) for one billed in `credits`. `onCharge` is synchronous, so the writes run in
- * the background and `flush` reports their outcome.
+ * `creditsPerSecond` times the seconds) for one billed in `credits`. Each charge keeps the attributes `item`, `units`
+ * (the seconds billed) and `reported` (`"true"` when the amount is the provider's reported credits), which
+ * `getChargeRate` reads. `onCharge` is synchronous, so the writes run in the background and `flush` reports their
+ * outcome.
  */
 export function createFootageChargeRecorder(ctx: MeteringContext, options: FootageChargeRecorderOptions = {}): FootageChargeRecorder {
   const pending: Promise<unknown>[] = [];
   const failures: unknown[] = [];
 
-  const record = async (charge: FootageChargeLike): Promise<void> => {
+  const record = async (charge: FootageChargeLike, attributes: Readonly<Record<string, string>> | undefined): Promise<void> => {
     const provider = getProviderDefinition(ctx.config, options.provider ?? charge.provider);
+    const amount = getFootageAmount(provider.id, provider.unit, charge, options.creditsPerSecond);
     await recordCharge(ctx, {
       provider: provider.id,
-      amount: getFootageAmount(provider.id, provider.unit, charge, options.creditsPerSecond),
+      amount: amount.value,
       step: charge.step,
       ...(options.accountId === undefined ? {} : { accountId: options.accountId }),
-      attributes: { ...options.attributes, item: charge.item },
+      attributes: { ...options.attributes, ...attributes, item: charge.item, units: String(charge.units), reported: String(amount.isReported) },
     });
   };
 
   return {
-    onCharge: (charge) => {
+    onCharge: (charge, attributes) => {
       // Kept for flush; the catch stores the failure so it is reported there, never left unhandled.
       pending.push(
-        record(charge).catch((error: unknown) => {
+        record(charge, attributes).catch((error: unknown) => {
           failures.push(error);
         }),
       );
@@ -120,11 +126,17 @@ export function createFootageChargeRecorder(ctx: MeteringContext, options: Foota
   };
 }
 
-function getFootageAmount(providerId: string, unit: string, charge: FootageChargeLike, creditsPerSecond: number | undefined): number {
-  if (unit === "seconds") return charge.units;
+interface FootageAmount {
+  readonly value: number;
+  /** The amount is the provider's reported charge, not the app's rate or a seconds count. */
+  readonly isReported: boolean;
+}
+
+function getFootageAmount(providerId: string, unit: string, charge: FootageChargeLike, creditsPerSecond: number | undefined): FootageAmount {
+  if (unit === "seconds") return { value: charge.units, isReported: false };
   if (unit === "credits") {
-    if (charge.credits !== undefined) return charge.credits;
-    if (creditsPerSecond !== undefined) return charge.units * creditsPerSecond;
+    if (charge.credits !== undefined) return { value: charge.credits, isReported: true };
+    if (creditsPerSecond !== undefined) return { value: charge.units * creditsPerSecond, isReported: false };
     throw new Error(`createFootageChargeRecorder: the ${charge.step} charge of "${providerId}" reports no credits; pass creditsPerSecond`);
   }
   throw new Error(`createFootageChargeRecorder: provider "${providerId}" bills in ${unit}; footage charges are in seconds or credits`);
