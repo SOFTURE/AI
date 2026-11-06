@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
-## Unreleased
+## 0.5.2
 
 - **The quality gate no longer stalls on a crafted line (#1109, #1110, #1111):** the heading, list item and footnote
   definition patterns of `splitBlocks` match only the block marker and read the rest of the line by position, so a
