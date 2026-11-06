@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.14.0
 
 - **The footage mix converges at a fixed ceiling, before the frames (#1124):** on high-crest, transient-rich speech
   (quiet phone speech raised by the speech chain, clicks and plosives) the mix stage moved the gain and the limiter's
