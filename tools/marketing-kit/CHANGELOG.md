@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.15.0
 
 - **The footage film's mix is bounded:** `buildFilmMixArgs` pads to the film's length (`apad=whole_dur`), trims and
   caps the output (`-t`), and throws on a length that is not a positive number. A CI run once wrote an unbounded
