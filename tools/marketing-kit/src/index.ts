@@ -544,6 +544,14 @@ export {
   type SpeechRangeOutcome,
   type SpeechRangeRetry,
 } from "./footage/isolate-ranges.js";
+export {
+  HYPERFRAMES_CAPTURE_STAGES,
+  readHyperframesCapture,
+  type HyperframesCapture,
+  type HyperframesCapturePath,
+  type HyperframesCaptureStage,
+  type HyperframesGpuMode,
+} from "./footage/hyperframes-capture.js";
 export { RENDER_MIN_FREE_BYTES, findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./footage/disk.js";
 export { DRAFT_FILTERS, REQUIRED_DECODERS, REQUIRED_FILTERS, checkFootageTools, findBrowserProblem, readFfmpegListing, type FootageToolsOptions } from "./footage/tools.js";
 export {

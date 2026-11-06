@@ -45,6 +45,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   - **Cache keys:** merged and widened ranges are new ranges, so ranges an app has already paid for per segment are
     not found again. Pass `mergeGap: null` to keep the per-segment ranges (short ones are still widened when the
     provider declares a minimum).
+- **`renderFootage` reports how hyperframes captured the frames (#1145):** the rendered value carries `capture`
+  (`{ path, gpu, seconds, isEncodeStreamed, fallbackHint }`, null when hyperframes printed no summary), read from
+  hyperframes' summary line, so an app can log or alert on a render that took the slower screenshot path.
+  `readHyperframesCapture(lines)` parses hyperframes' output on its own. The README's "Footage films in a worker"
+  says that `lowMemory: true` pins screenshot capture (about 30 % slower on one CPU). Code that builds a
+  `RenderedFootage` itself now needs `capture`.
 
 ## 0.15.0
 
