@@ -1,4 +1,5 @@
-// Writes src/map/world-110m.ts: the Natural Earth 1:110m countries (world-atlas) without Antarctica, projected with
+// Writes src/map/world-110m.ts: the Natural Earth 1:110m countries (world-atlas) without Antarctica, French Guiana split
+// out of France (overseas parts stay unpainted when the mainland is visited), projected with
 // Natural Earth II into a 1000 x 500 viewBox, as SVG path data, plus a 10 degree graticule and the fit the runtime
 // projection reuses for pins. Run after a world-atlas or projection change: `npm run map:build -w @softure-ai/theme-flat-atlas`.
 import { readFileSync, writeFileSync } from "node:fs";
@@ -6,7 +7,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import { geoGraticule10, geoPath, geoProjection } from "d3-geo";
-import type { FeatureCollection, Geometry } from "geojson";
+import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
 import { feature } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 
@@ -16,12 +17,37 @@ const require = createRequire(import.meta.url);
 const WIDTH = 1000;
 const HEIGHT = 500;
 const ANTARCTICA_ID = "010";
+const FRANCE_ID = "250";
+const FRENCH_GUIANA_ID = "254";
+// French Guiana is the only France polygon west of this longitude in the 1:110m data.
+const FRENCH_GUIANA_MAX_LONGITUDE = -30;
 const OUTPUT = fileURLToPath(new URL("../src/map/world-110m.ts", import.meta.url));
 
 type CountriesTopology = Topology<{ countries: GeometryCollection<{ name: string }> }>;
 
 const topology = JSON.parse(readFileSync(require.resolve("world-atlas/countries-110m.json"), "utf8")) as CountriesTopology;
-const countries = feature(topology, topology.objects.countries).features.filter((country) => country.id !== ANTARCTICA_ID);
+type Country = Feature<Geometry, { name: string }>;
+
+function isFrenchGuianaPolygon(polygon: readonly Position[][]): boolean {
+  const longitude = polygon[0]?.[0]?.[0];
+  return longitude !== undefined && longitude < FRENCH_GUIANA_MAX_LONGITUDE;
+}
+
+// Natural Earth keeps French Guiana inside the France multipolygon; it becomes a shape of its own.
+function splitFrenchGuiana(country: Country): Country[] {
+  if (country.id !== FRANCE_ID || country.geometry.type !== "MultiPolygon") return [country];
+  const polygons = country.geometry.coordinates;
+  const guiana = polygons.filter(isFrenchGuianaPolygon);
+  if (guiana.length === 0) throw new Error("build-world-map: no French Guiana polygon found in France (250)");
+  return [
+    { ...country, geometry: { type: "MultiPolygon", coordinates: polygons.filter((polygon) => !isFrenchGuianaPolygon(polygon)) } },
+    { type: "Feature", id: FRENCH_GUIANA_ID, properties: { name: "French Guiana" }, geometry: { type: "MultiPolygon", coordinates: guiana } },
+  ];
+}
+
+const countries = feature(topology, topology.objects.countries)
+  .features.filter((country) => country.id !== ANTARCTICA_ID)
+  .flatMap(splitFrenchGuiana);
 const land: FeatureCollection<Geometry, { name: string }> = { type: "FeatureCollection", features: countries };
 
 const projection = geoProjection(projectNaturalEarth2).fitExtent([[2, 2], [WIDTH - 2, HEIGHT - 2]], land).precision(0.2);

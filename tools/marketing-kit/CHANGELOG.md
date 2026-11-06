@@ -6,6 +6,19 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Provider failures carry structured details (#1141):** a failed answer of a footage provider (`TtsResult` with
+  `ok: false`) carries `providerFailure` next to `error`: `{ kind, status, code, message, requestId, isRetryable }`,
+  `kind` one of `refused` | `rate_limited` | `unavailable` | `timeout` | `connection`. The ElevenLabs speech to text,
+  voice isolation and music providers set it on every failed request (the HTTP status, the provider's code and
+  message from the body's `detail`, truncated, the `request-id` header; a missing key is `refused` with code
+  `missing_api_key`). `isRetryable` is true for 5xx, 408, 429, a timeout and a failed connection. Every field is safe
+  to log; `describeProviderFailure` gives one line. `error` keeps its sentences; `providerFailure` is optional, so a
+  custom provider still compiles.
+  - `isolateSpeechRanges` asks a range again only when its failure is retryable (a 400 `audio_too_short` is asked
+    once), and a `failed` outcome carries `providerFailure` (null when the provider gave none).
+  - `FootageFailure` gets `{ kind: "provider", provider }` for a failed speech to text, voice isolation or music call;
+    `isRetryableFootageFailure` follows `provider.isRetryable`. A provider that gives no details still answers
+    `process`. An exhaustive `switch` on `failure.kind` needs the new case.
 - **A lossless, pre-gained speech chain (#1139):** quiet phone speech is no longer encoded lossily before its gain.
   `transcribeFootage` (and `--placeholder`) extracts each clip's sound from its source with the normalize step's own
   seek and length into `audio/<clip>.wav` (24-bit, 48 kHz stereo), pre-gained right away to about -23 LUFS with its

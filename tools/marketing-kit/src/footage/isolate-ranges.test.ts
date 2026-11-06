@@ -218,7 +218,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     if (!result.ok) throw new Error(result.error);
     expect(result.value.ranges.map(({ startMs, laid, outcome }) => ({ startMs, laid, outcome }))).toEqual([
       { startMs: 300, laid: true, outcome: { kind: "bought", attempts: 1 } },
-      { startMs: 2300, laid: false, outcome: { kind: "failed", error: "voice not detected", attempts: 3 } },
+      { startMs: 2300, laid: false, outcome: { kind: "failed", error: "voice not detected", attempts: 3, providerFailure: null } },
       { startMs: 4300, laid: true, outcome: { kind: "bought", attempts: 1 } },
     ]);
     expect(isolation.calls).toHaveLength(5);
@@ -239,6 +239,47 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     if (!again.ok) throw new Error(again.error);
     expect(again.value.ranges.map(({ outcome }) => outcome.kind)).toEqual(["cached", "bought", "cached"]);
     expect(charges).toHaveLength(3);
+  });
+
+  it("asks a range refused with a 400 audio_too_short once and answers its structured failure (issue #1141)", async () => {
+    const refusal = { kind: "refused", status: 400, code: "audio_too_short", message: "The audio is too short.", requestId: "req_1", isRetryable: false } as const;
+    const calls: string[] = [];
+    const refusing: IsolationProvider = {
+      id: "elevenlabs",
+      isolate: (input) => (calls.push(input.audio), Promise.resolve({ ok: false, error: "ElevenLabs voice isolation answered 400: audio_too_short", providerFailure: refusal })),
+    };
+    const waits: number[] = [];
+    const result = await isolateSpeechRanges(film, [clip], edl, options(refusing, { retry: { wait: (ms) => (waits.push(ms), Promise.resolve()) } }));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.ranges.map(({ outcome }) => outcome)).toEqual([
+      { kind: "failed", error: "ElevenLabs voice isolation answered 400: audio_too_short", attempts: 1, providerFailure: refusal },
+      { kind: "failed", error: "ElevenLabs voice isolation answered 400: audio_too_short", attempts: 1, providerFailure: refusal },
+    ]);
+    expect(calls).toHaveLength(2);
+    expect(waits).toEqual([]);
+    expect(lines).toContain("voice isolation: clip talk 0.800-2.200 s refused (attempt 1): refused, 400, audio_too_short, request req_1: The audio is too short.");
+  });
+
+  it("asks a range answered 503 again until it is bought (issue #1141)", async () => {
+    const silencing = createSilencingProvider(dir);
+    let refusals = 0;
+    const unavailable = { kind: "unavailable", status: 503, code: null, message: "busy", requestId: null, isRetryable: true } as const;
+    const flaky: IsolationProvider = {
+      id: "silence",
+      isolate: (input) => {
+        if (refusals < 2) {
+          refusals += 1;
+          return Promise.resolve({ ok: false, error: "ElevenLabs voice isolation answered 503: busy", providerFailure: unavailable });
+        }
+        return silencing.isolate(input);
+      },
+    };
+    const result = await isolateSpeechRanges(film, [clip], edl, options(flaky, { retry: { wait: () => Promise.resolve() } }));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.ranges.map(({ outcome }) => outcome)).toEqual([
+      { kind: "bought", attempts: 3 },
+      { kind: "bought", attempts: 1 },
+    ]);
   });
 
   it("buys a range the provider refuses once on its second attempt", async () => {

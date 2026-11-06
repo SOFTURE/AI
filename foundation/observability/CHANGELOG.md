@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.8.2
+
+- A logged `error` that is not an `Error` no longer comes out as its bare `typeof` (`exception.message="string"`).
+  In `full` mode it is logged by its text: a string as itself, other primitives as `String(value)`, an object as its
+  JSON capped at 1000 characters (its type and safe code when it cannot be serialized); `exception.type` is its type,
+  or an object's class name. In `label` mode its text stays out and the message says so:
+  `non-Error string (text withheld in label mode)`. The README names the attribute route (`reason_code`, `status`)
+  for a reason that label mode keeps. `Error` values are logged as before.
+
 ## 0.8.1
 
 - OpenTelemetry JS 3.1: the SDK packages on ~3.1.0, the exporters and `instrumentation-http` on ~0.301.0,

@@ -389,6 +389,14 @@ error or of its causes; what is logged identifies the error without its text:
   the message line. Frames in `node_modules` and Node's internals are skipped, unless there are no others. When the
   error's message was changed after its stack was taken, no frames are logged.
 
+A logged `error` that is not an `Error` (a string reason, a result value, a plain object) keeps its type in
+`exception.type` (`string`, `number`, `null`, `object`, or an object's class name). In `full` mode
+`exception.message` is its text: a string as itself, an object as its JSON (or its type and safe code when it
+cannot be serialized), capped at 1000 characters. In `label` mode its text is withheld and the record says so:
+`non-Error string (text withheld in label mode)`, `non-Error object code=ECONNREFUSED (value withheld in label mode)`.
+To log a reason that label mode keeps, pass it as plain attributes that carry no free text, e.g.
+`logger.warn("voice isolation refused", { reason_code: "audio_too_short", status: 400 })`.
+
 ## Limitations
 
 - No browser telemetry: an OTLP token must not reach a client bundle; use the frontend's own error reporting.

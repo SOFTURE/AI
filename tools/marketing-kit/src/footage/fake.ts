@@ -68,7 +68,8 @@ export function createFakeIsolationProvider(options: FakeIsolationOptions = {}):
         if (!probed.ok) return err(`fake voice isolation: ${probed.error}`);
         if (probed.probe.duration < minSeconds) {
           refused.push(input.audio);
-          return err(`fake voice isolation: 400 audio_too_short (${probed.probe.duration.toFixed(3)} s, the minimum is ${String(minSeconds)} s).`);
+          const message = `${probed.probe.duration.toFixed(3)} s, the minimum is ${String(minSeconds)} s`;
+          return err(`fake voice isolation: 400 audio_too_short (${message}).`, { kind: "refused", status: 400, code: "audio_too_short", message, requestId: null, isRetryable: false });
         }
       }
       return ok(readFileSync(input.audio));

@@ -16,7 +16,7 @@ import { prepareClipSounds } from "./clip-sound.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
 import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
-import { err, ok, type FootageResult } from "./failure.js";
+import { err, getProviderFootageFailure, ok, type FootageResult } from "./failure.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
 import { buildEdl, getEdlDuration, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
@@ -375,7 +375,7 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
         log(`voice isolation (${providers.isolation.id}): clip ${id}, ${clip.duration.toFixed(1)} s.`);
         const cleaned = await providers.isolation.isolate({ audio: sound, ...(signal === undefined ? {} : { signal }) });
         throwIfAborted(signal);
-        if (!cleaned.ok) return err(`clip "${id}": ${cleaned.error}`);
+        if (!cleaned.ok) return err(`clip "${id}": ${cleaned.error}`, getProviderFootageFailure(cleaned.providerFailure));
         const paid = toPaidAudio(cleaned.value);
         writeCacheFile(isolated.path, paid.audio);
         options.onCharge?.({ step: "isolate", item: id, provider: providers.isolation.id, units: clip.duration, ...(paid.credits === undefined ? {} : { credits: paid.credits }), cacheKey: isolated.key });
@@ -402,7 +402,7 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
     log(`speech to text (${providers.stt.id}): clip ${id}, ${clip.duration.toFixed(1)} s.`);
     const result = await providers.stt.transcribe({ audio: input, language: film.language, ...sttKeyTerms, ...(signal === undefined ? {} : { signal }) });
     throwIfAborted(signal);
-    if (!result.ok) return err(`clip "${id}": ${result.error}`);
+    if (!result.ok) return err(`clip "${id}": ${result.error}`, getProviderFootageFailure(result.providerFailure));
     writeTranscript(transcript.path, result.value.words);
     const { credits } = result.value;
     options.onCharge?.({ step: "transcribe", item: id, provider: providers.stt.id, units: clip.duration, ...(credits === undefined ? {} : { credits }), ...(keyTerms.terms.length === 0 ? {} : { keyTerms: keyTerms.terms.length }), cacheKey: transcript.key });
@@ -608,7 +608,7 @@ async function getMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[], seco
     return ok(null);
   }
   throwIfAborted(signal);
-  if (!bought.ok) return err(`music: ${bought.error}`);
+  if (!bought.ok) return err(`music: ${bought.error}`, getProviderFootageFailure(bought.providerFailure));
   const paid = toPaidAudio(bought.value);
   writeCacheFile(path, paid.audio);
   options.onCharge?.({ step: "music", item: "film", provider: providers.music.id, units: seconds, ...(paid.credits === undefined ? {} : { credits: paid.credits }), cacheKey: cache.key });

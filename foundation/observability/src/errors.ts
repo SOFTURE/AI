@@ -14,10 +14,11 @@ export type ExceptionAttributes = {
 
 const MAX_CAUSES = 3;
 const MAX_FRAMES = 2;
+const MAX_NON_ERROR_TEXT = 1000;
 
 export function describeError(error: unknown, details: ErrorDetails): ExceptionAttributes {
   if (!(error instanceof Error)) {
-    return { "exception.type": typeof error, "exception.message": typeof error };
+    return describeNonError(error, details);
   }
 
   if (details === "label") {
@@ -30,6 +31,44 @@ export function describeError(error: unknown, details: ErrorDetails): ExceptionA
   return error.stack === undefined
     ? { "exception.type": error.name, "exception.message": error.message }
     : { "exception.type": error.name, "exception.message": error.message, "exception.stacktrace": error.stack };
+}
+
+/**
+ * A logged value that is not an `Error` (a string reason, a result value, a plain object). `full` keeps its text: a
+ * string as itself, a primitive as `String(value)`, an object as its JSON, capped at 1000 characters, or as its kind
+ * and safe code when it cannot be serialized. `label` keeps no text and says so:
+ * `non-Error string (text withheld in label mode)`.
+ */
+function describeNonError(value: unknown, details: ErrorDetails): ExceptionAttributes {
+  const kind = readKind(value);
+  if (details === "label") {
+    const withheld = typeof value === "string" ? "text" : "value";
+    return {
+      "exception.type": kind,
+      "exception.message": `non-Error ${describeKind(value)} (${withheld} withheld in label mode)`,
+    };
+  }
+  return { "exception.type": kind, "exception.message": truncate(describeNonErrorText(value)) };
+}
+
+function describeNonErrorText(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value !== "object" || value === null) {
+    return String(value);
+  }
+  try {
+    const json = JSON.stringify(value);
+    return typeof json === "string" ? json : describeKind(value);
+  } catch {
+    // A circular structure or a BigInt cannot be serialized; the kind and safe code still name the failure.
+    return describeKind(value);
+  }
+}
+
+function truncate(text: string): string {
+  return text.length > MAX_NON_ERROR_TEXT ? `${text.slice(0, MAX_NON_ERROR_TEXT - 1)}…` : text;
 }
 
 /**
@@ -46,9 +85,26 @@ function describeErrorLabel(error: Error): string {
 }
 
 function describeKind(value: unknown): string {
-  const name = value instanceof Error ? value.name : typeof value;
+  const name = value instanceof Error ? value.name : readKind(value);
   const code = readSafeCode(value);
   return code === null ? name : `${name} code=${code}`;
+}
+
+/**
+ * The type of a value that is not an `Error`: `string`, `number`, …, `null`, or for an object the name of its class
+ * when it has one other than `Object` (a class name, like an error's name, carries no free text).
+ */
+function readKind(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value !== "object") {
+    return typeof value;
+  }
+  const constructorName: unknown = (value as { constructor?: { name?: unknown } }).constructor?.name;
+  return typeof constructorName === "string" && constructorName !== "Object" && /^[A-Za-z_$][\w$]{0,63}$/.test(constructorName)
+    ? constructorName
+    : "object";
 }
 
 /**
