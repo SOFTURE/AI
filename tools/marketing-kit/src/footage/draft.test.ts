@@ -522,7 +522,7 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     const run = { buildDir: join(dir, "build"), output: join(dir, "draft.mp4"), log: (line: string) => lines.push(line), onProgress: (step: { item: string }) => items.push(step.item) };
     const declicked = await renderFootageDraft({ ...film, speech: { declick: "strong" } }, clips, transcript, shortCut, run);
     if (!declicked.ok) throw new Error(declicked.error);
-    expect(declicked.value.declick).toMatchObject({ level: "strong", gateDb: -20 });
+    expect(declicked.value.declick).toMatchObject({ level: "strong", impulses: 0, repairs: [] });
     expect([...new Set(items)]).toEqual(["speech", "declick", "loudness", "mix", "film"]);
     expect(existsSync(join(dir, "build", "draft", "speech.declicked.wav"))).toBe(true);
     expect(lines.some((line) => line.startsWith("declick (strong): "))).toBe(true);
