@@ -25,12 +25,19 @@ An app runs the kit through `npx` with a pinned version, not as a dependency:
 never runs it. Bump the pin and the `$schema` URL of `marketing.json` together. A project that imports the library
 API (`@softure-ai/marketing-kit`, `@softure-ai/marketing-kit/og`) installs it as usual.
 
-satori pins `fflate` to 0.7.3, which `npm audit` reports as moderate (GHSA-px8p-9vwx-vf98, an endless loop in
-`unzipSync` on a malformed ZIP64 archive). satori and its font parser only call `inflateSync`, so the kit never
-reaches the flaw, but a project that installs the kit (or audits its lockfile) can lift the copy with an override:
+Two dependencies pin a package that `npm audit` flags, and npm `overrides` in the kit do not reach the project
+that installs it:
+
+- hyperframes pins `undici` 7.25.0 (high; several advisories fixed in 7.30.1). The kit's own calls do not go through
+  it, but hyperframes uses it for its downloads.
+- satori pins `fflate` 0.7.3 (moderate, GHSA-px8p-9vwx-vf98, an endless loop in `unzipSync` on a malformed ZIP64
+  archive). satori and its font parser only call `inflateSync`, so the kit never reaches the flaw.
+
+A project that installs the kit (or audits its lockfile) lifts both with overrides; the kit's tests run against
+these versions:
 
 ```json
-{ "overrides": { "fflate": "^0.7.5" } }
+{ "overrides": { "fflate": "^0.7.5", "undici": "^7.30.2" } }
 ```
 
 ## Commands

@@ -37,6 +37,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `buildFilmMixArgs` are new. `getMixFilter` ends in the low-pass, `buildMixArgs` adds `-cutoff 16000`,
   `buildLoudnessMeasureArgs` and `measureLoudness` take an optional filter, and `buildFinishArgs` maps a given
   `audioFile` even when the render has no sound.
+- Docs: the README's Install section also covers the `undici` 7.25.0 that hyperframes pins (high in `npm audit`) and
+  gives one `overrides` entry for it and `fflate`.
 
 ## 0.13.2
 
