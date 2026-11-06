@@ -716,6 +716,14 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   track without words is not gated. The log and the result's `declick` (`{ level, impulses, gateDb }`, null when
   off) carry the count. `"off"` (the default) runs no extra pass: the speech track is unchanged. ffmpeg's `adeclick`
   misses these clicks, which sit well below the speech peaks.
+- **A lossless speech chain (issue #1139):** each clip's sound is read from its source (with the clip's trim) into
+  `audio/<clip>.wav`, 24-bit 48 kHz stereo, and pre-gained right away by one linear gain to about −23 LUFS, its true
+  peak kept at or under −3 dBTP (`SPEECH_PRE_GAIN`); a b-roll or other non-talking clip takes the mean gain of the
+  talking clips, so its own sound under the speech keeps its level against it. The voice isolator and speech to text
+  hear that WAV; the cleaned voice the provider answers is decoded to `audio/<clip>.isolated.wav`. Every stage after
+  it (`assets/speech.raw.wav`, `speech.declicked.wav`, `speech.wav`) is float WAV, so quiet speech is never encoded
+  lossily at its quiet level and the film's final AAC (`mixLoudness.audioBitrateKbps`, 192 to 512 kbps, default 192,
+  48 kHz) is the only lossy encode.
 - **Publishable output:** the speech track is measured and normalized to `loudness` (default −14 LUFS integrated,
   −1 dBTP true peak; two-pass `loudnorm`, one linear gain) before the music goes under it, so a quiet phone clip is
   not left quiet and a loud one does not clip; `"loudness": false` leaves it as filmed. **Before hyperframes renders a
@@ -869,7 +877,10 @@ await renderFootage(film, clips, { ...transcript, speech: isolated.value.speech 
   2 s, the wait stopped by `signal`). A range refused on every attempt does not fail the call: its window keeps the
   clip's own sound, the other ranges are laid, and only a cancel throws. Each range carries an `outcome`: `cached`,
   `bought` (with `attempts`), `failed` (with the last `error` and `attempts`) or `not_bought` (without `isCommit`).
-- Each clip's cleaned windows are laid over its own sound into `<buildDir>/audio/<clip>.ranges.mp3`, as long as the
+- Each range is cut for the isolator from the clip's lossless, pre-gained sound (`<buildDir>/audio/<clip>.wav`, as
+  the speech chain reads it) as WAV. A range cached before this chain (#1139) was cleaned from the un-gained sound; it is reused as
+  it is, so a refused range next to it can differ in level until it is bought again.
+- Each clip's cleaned windows are laid over its lossless sound into `<buildDir>/audio/<clip>.ranges.wav`, as long as the
   clip; overlapping ranges switch at the middle of their overlap, and a mono answer goes to both channels at full level.
   Every join is a linear crossfade of `fadeMs` (default 15; 0 switches at once): centred on a switch between two
   ranges, inside the window at a range's own edge, the clip's sound under one minus the windows' gains.

@@ -1,4 +1,7 @@
+import { extname } from "node:path";
+
 import { footageCacheKey, getFootageCachePath } from "./cache.js";
+import { getAudioCodecArgs } from "./clip-sound.js";
 import { getSoundSpan, type Edl } from "./edl.js";
 import type { ClipRole } from "./film.js";
 import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
@@ -96,9 +99,13 @@ export type SpeechRangeCacheResolver = (range: SpeechRange, clipKey: string) => 
 
 const seconds = (ms: number): string => (ms / 1000).toFixed(3);
 
-/** One range of a clip's sound (`audio`, read from its start) as mp3, for the isolation provider. */
+/**
+ * One range of a clip's sound (`audio`, read from its start) for the isolation provider: 24-bit PCM for a `.wav`
+ * output (lossless, issue #1139), else as `getAudioCodecArgs` encodes it.
+ */
 export function buildRangeAudioArgs(audio: string, range: Pick<SpeechRange, "startMs" | "endMs">, output: string): string[] {
-  return ["-v", "error", "-y", "-ss", seconds(range.startMs), "-t", seconds(range.endMs - range.startMs), "-i", audio, "-vn", "-c:a", "libmp3lame", "-q:a", "2", output];
+  const codec = extname(output).toLowerCase() === ".wav" ? ["-c:a", "pcm_s24le"] : getAudioCodecArgs(output);
+  return ["-v", "error", "-y", "-ss", seconds(range.startMs), "-t", seconds(range.endMs - range.startMs), "-i", audio, "-vn", ...codec, output];
 }
 
 /** A cleaned range laid back: its file, and whether it is mono (panned to both channels at full level). */
@@ -161,7 +168,7 @@ function buildGainExpression(fade: SpeechRangeFade): string {
  */
 export function buildRangeLayArgs(base: string, laid: readonly LaidRange[], output: string, options: { fadeMs?: number } = {}): string[] {
   const format = `aformat=sample_rates=${FOOTAGE_SAMPLE_RATE}:channel_layouts=stereo`;
-  if (laid.length === 0) return ["-v", "error", "-y", "-i", base, "-vn", "-af", format, "-c:a", "libmp3lame", "-q:a", "2", output];
+  if (laid.length === 0) return ["-v", "error", "-y", "-i", base, "-vn", "-af", format, ...getAudioCodecArgs(output), output];
   const windows = laid.map(({ window }) => window);
   const fades = getSpeechRangeFades(windows, options.fadeMs ?? DEFAULT_SPEECH_RANGE_FADE_MS);
   const byWindow = new Map([...windows].sort((a, b) => a.startMs - b.startMs).map((window, index) => [window, fades[index]]));
@@ -184,5 +191,5 @@ export function buildRangeLayArgs(base: string, laid: readonly LaidRange[], outp
   parts.unshift(`[0:a]${format},aeval='val(ch)*(1-(${gains.join("+")}))':c=same[base]`);
   const mixed = laid.map((_, index) => `[w${String(index)}]`).join("");
   parts.push(`[base]${mixed}amix=inputs=${String(laid.length + 1)}:duration=first:normalize=0[speech]`);
-  return ["-v", "error", "-y", ...inputs, "-filter_complex", parts.join(";"), "-map", "[speech]", "-c:a", "libmp3lame", "-q:a", "2", output];
+  return ["-v", "error", "-y", ...inputs, "-filter_complex", parts.join(";"), "-map", "[speech]", ...getAudioCodecArgs(output), output];
 }

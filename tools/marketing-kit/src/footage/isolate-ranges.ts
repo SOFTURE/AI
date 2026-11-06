@@ -4,6 +4,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import { err, ok } from "./failure.js";
 import { probeAudio } from "./audio.js";
+import { prepareClipSounds } from "./clip-sound.js";
 import { writeCacheFile } from "./cache.js";
 import type { Edl } from "./edl.js";
 import type { FootageFilm } from "./film.js";
@@ -85,7 +86,7 @@ export interface IsolatedSpeechRange extends SpeechRange {
 }
 
 export interface IsolatedSpeech {
-  /** Every clip's audio for the speech track: its laid file, or the normalized clip when none of its ranges is laid. */
+  /** Every clip's audio for the speech track: its laid file, or its lossless sound when none of its ranges is laid. */
   speech: Record<string, string>;
   ranges: IsolatedSpeechRange[];
 }
@@ -95,7 +96,8 @@ export interface IsolatedSpeech {
  * With `isCommit` every uncached range is bought (`onCharge` step `isolate`, item the clip id, with its `range`);
  * without it only cached ranges are laid, a free draft, and `ranges` names what is still missing. A refused range is
  * retried (`retry`); one refused on every attempt is answered `failed` and the call still succeeds. Each clip with a
- * laid range gets `<buildDir>/audio/<id>.ranges.mp3`, crossfaded at every join (`fadeMs`).
+ * laid range gets `<buildDir>/audio/<id>.ranges.wav`, crossfaded at every join (`fadeMs`). The isolator hears, and the
+ * ranges are laid over, each clip's lossless, pre-gained sound (`prepareClipSounds`, issue #1139).
  */
 export function isolateSpeechRanges(film: FootageFilm, clips: PreparedClip[], edl: Edl, options: IsolateSpeechRangesOptions): Promise<FootageResult<IsolatedSpeech>> {
   const log = options.log ?? ((): void => undefined);
@@ -140,6 +142,9 @@ async function runIsolateSpeechRanges(
   const report = (range: SpeechRange, index: number): void => {
     options.onProgress?.({ step: "isolate", item: range.clip, itemIndex: index + 1, itemCount: buying.length, done: Math.round(done * 1000) / 1000, total: Math.round(total * 1000) / 1000 });
   };
+  // Every clip's sound, lossless and pre-gained (#1139): what the isolator hears and what the cleaned ranges are laid over.
+  const sounds = await prepareClipSounds(clips, { buildDir, ...aborting });
+  const getSound = (clip: PreparedClip): string => sounds[clip.clip.id]?.file ?? clip.file;
   const workDir = join(buildDir, "audio", "ranges");
   for (const [index, range] of buying.entries()) {
     const clip = byClip.get(range.clip);
@@ -148,8 +153,8 @@ async function runIsolateSpeechRanges(
     report(range, index);
     mkdirSync(workDir, { recursive: true });
     // The provider sees the clip's id and the range as the file name.
-    const input = join(workDir, `${range.clip}.${String(range.startMs)}-${String(range.endMs)}.mp3`);
-    await runFfmpeg(`Cutting ${describeRange(range)} for voice isolation`, buildRangeAudioArgs(clip.file, range, input), { ...aborting, output: input });
+    const input = join(workDir, `${range.clip}.${String(range.startMs)}-${String(range.endMs)}.wav`);
+    await runFfmpeg(`Cutting ${describeRange(range)} for voice isolation`, buildRangeAudioArgs(getSound(clip), range, input), { ...aborting, output: input });
     signal?.throwIfAborted();
     log(`voice isolation (${providers.isolation.id}): ${describeRange(range)}, ${units.toFixed(1)} s.`);
     const answer = await isolateWithRetries({
@@ -194,7 +199,7 @@ async function runIsolateSpeechRanges(
   const speech: Record<string, string> = {};
   for (const clip of clips) {
     const id = clip.clip.id;
-    speech[id] = clip.file;
+    speech[id] = getSound(clip);
     const laidRanges = ranges.filter((range) => range.clip === id && range.laid);
     if (laidRanges.length === 0) continue;
     const laid: LaidRange[] = [];
@@ -205,9 +210,9 @@ async function runIsolateSpeechRanges(
       if (!probed.ok) return err(`${describeRange(window.range)}: the cleaned voice at ${file} does not read (${probed.error}); delete it and run again.`);
       laid.push({ window, file, isMono: probed.probe.channels === 1 });
     }
-    const output = join(buildDir, "audio", `${id}.ranges.mp3`);
+    const output = join(buildDir, "audio", `${id}.ranges.wav`);
     mkdirSync(join(buildDir, "audio"), { recursive: true });
-    await runFfmpeg(`Laying the cleaned voice over clip ${id}`, buildRangeLayArgs(clip.file, laid, output, { fadeMs: options.fadeMs ?? DEFAULT_SPEECH_RANGE_FADE_MS }), { ...aborting, output });
+    await runFfmpeg(`Laying the cleaned voice over clip ${id}`, buildRangeLayArgs(getSound(clip), laid, output, { fadeMs: options.fadeMs ?? DEFAULT_SPEECH_RANGE_FADE_MS }), { ...aborting, output });
     speech[id] = output;
   }
   return ok({ speech, ranges });

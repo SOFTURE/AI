@@ -4,6 +4,24 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **A lossless, pre-gained speech chain (#1139):** quiet phone speech is no longer encoded lossily before its gain.
+  `transcribeFootage` (and `--placeholder`) extracts each clip's sound from its source with the normalize step's own
+  seek and length into `audio/<clip>.wav` (24-bit, 48 kHz stereo), pre-gained right away to about -23 LUFS with its
+  true peak at or under -3 dBTP (`prepareClipSounds`, `SPEECH_PRE_GAIN`; a non-talking clip takes the talking clips'
+  mean gain, so a b-roll's own sound keeps its relation to the speech). The Voice Isolator and speech to text get that
+  WAV, on the whole-clip path and in `isolateSpeechRanges` (ranges cut to WAV, laid to `audio/<clip>.ranges.wav`); the
+  cached cleaned voice is decoded to `audio/<clip>.isolated.wav`. The speech chain writes float WAV throughout
+  (`speech.raw.wav`, `speech.declicked.wav`, `speech.wav`; `getSpeechChainFiles`, the composition plays
+  `assets/speech.wav`), so the film's final AAC is the only lossy encode. `buildSpeechArgs`, `buildLoudnessArgs`,
+  `buildRangeLayArgs`, `buildRangeAudioArgs`, `buildAudioArgs` and the declick encode pick the codec by the output's
+  extension (`getAudioCodecArgs`: `.wav` lossless, `.flac`, else MP3), so an app's own `.mp3` names still work. The
+  speech map now points at those WAVs instead of the normalized clips. Cache keys are unchanged: nothing is bought
+  again, and a cleaned voice bought earlier (from the un-gained sound) is reused as it is.
+- **`mixLoudness.audioBitrateKbps`** (192 to 512, default 192): the finished sound's AAC bitrate; `buildMixArgs` takes
+  `bitrateKbps`.
+
 ## 0.15.0
 
 - **The footage film's mix is bounded:** `buildFilmMixArgs` pads to the film's length (`apad=whole_dur`), trims and
