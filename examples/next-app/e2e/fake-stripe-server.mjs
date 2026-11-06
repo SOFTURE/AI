@@ -6,8 +6,7 @@
 // (POST /v1/refunds), hosts a minimal checkout page with a Pay button, and delivers the events Stripe would
 // (`checkout.session.completed`, `charge.refunded`) to the app's webhook, signed the way Stripe signs them
 // (`Stripe-Signature: t=<seconds>,v1=<HMAC-SHA256 of "<t>.<payload>">`). It also lists what it recorded
-// (GET /v1/checkout/sessions/<id>), so the test checks the request the app sent. The live sandbox test
-// (billing-checkout.stripe-sandbox.spec.ts) keeps Stripe's own behaviour covered every night.
+// (GET /v1/checkout/sessions/<id>), so the test checks the request the app sent.
 //
 // Environment: FAKE_STRIPE_PORT (default 3190), FAKE_STRIPE_WEBHOOK_URL (the app's /api/billing/webhook),
 // STRIPE_WEBHOOK_SECRET (the secret the app checks).

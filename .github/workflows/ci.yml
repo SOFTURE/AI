@@ -69,8 +69,8 @@ jobs:
   # with its own Postgres. A shard that fails does not stop the others, so one run names every red file.
   # A pull request runs the tests of the packages it reaches and the repository tests (`test-paths` of the `changes`
   # job: a package's folder reaches it and every package that depends on it, the lockfile only the packages whose
-  # entries changed); a shared root file, a push to master and a manual run run the whole suite. Stripe's real sandbox
-  # never runs here: stripe-sandbox.yml checks it every night.
+  # entries changed); a shared root file, a push to master and a manual run run the whole suite. No test calls Stripe:
+  # the example e2e pays through a local fake Stripe.
   test:
     name: unit and repository tests (${{ matrix.shard }}/4)
     needs: changes

@@ -1,8 +1,7 @@
 // The Stripe payment flow end to end without Stripe's network: the app (BILLING_PROVIDER=stripe, STRIPE_API_BASE on
 // the fake Stripe of fake-stripe-server.mjs) creates a Checkout session, the buyer pays on the hosted page, the signed
 // `checkout.session.completed` turns the trial into paid access, and a refund's `charge.refunded` takes it back. It
-// runs in the `fake-stripe` project of playwright.config.ts on every e2e run; Stripe's real sandbox is checked every
-// night (billing-checkout.stripe-sandbox.spec.ts, .github/workflows/stripe-sandbox.yml).
+// runs in the `fake-stripe` project of playwright.config.ts on every e2e run; no test calls Stripe's own service.
 import { expect, test, type Page } from "@playwright/test";
 import { users } from "@softure-ai/auth";
 import { billingMessages, payments } from "@softure-ai/billing";

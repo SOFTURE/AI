@@ -24,13 +24,11 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  // A real Stripe payment needs the sandbox key and `stripe listen`: playwright.stripe-sandbox.config.ts.
-  testIgnore: /\.stripe-sandbox\.spec\.ts$/,
   // `*.serial.spec.ts` files change state every other spec relies on (closing registration) or read
   // state every other spec changes (pin-trials over every account), so they run after the parallel
   // project has finished, one at a time.
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: [/\.serial\.spec\.ts$/, /\.stripe-sandbox\.spec\.ts$/, /\.fake-stripe\.spec\.ts$/] },
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: [/\.serial\.spec\.ts$/, /\.fake-stripe\.spec\.ts$/] },
     // The Stripe payment flow against the fake Stripe (e2e/fake-stripe-server.mjs), on the second app server.
     {
       name: "fake-stripe",

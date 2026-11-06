@@ -35,23 +35,6 @@ Postgres with the roles of `modules/ops/recipes/initdb/`, migrates as the migrat
 role, and checks `GET /api/health`: 200 with every check, the app role refused DDL, then 503 with
 Postgres stopped. CI runs it as the `container` job of `.github/workflows/e2e.yml`.
 
-## Pay in Stripe's sandbox
-
-```bash
-stripe listen --api-key "$STRIPE_SECRET_KEY" --forward-to localhost:3200/api/billing/webhook   # in one terminal
-STRIPE_WEBHOOK_SECRET="$(stripe listen --api-key "$STRIPE_SECRET_KEY" --print-secret)" \
-  npm run e2e:stripe-sandbox   # in examples/next-app, after `npm run e2e` built the app
-```
-
-[`e2e/billing-checkout.stripe-sandbox.spec.ts`](e2e/billing-checkout.stripe-sandbox.spec.ts) pays the
-monthly plan on Stripe's hosted Checkout with the test card, waits for Stripe's own delivery to turn the
-trial into paid access, then refunds through Stripe's API and waits for the access to go. It runs from
-[`playwright.stripe-sandbox.config.ts`](playwright.stripe-sandbox.config.ts) on port 3200 with
-`BILLING_PROVIDER=stripe`, needs a test-mode `STRIPE_SECRET_KEY` (`sk_test_...`) and the Stripe CLI, and
-is skipped without the key. CI runs it every night and on demand as the `stripe-sandbox` job of
-`.github/workflows/stripe-sandbox.yml` when the repository has the `STRIPE_SECRET_KEY` secret, never on a pull
-request. `npm run e2e` does not run it.
-
 ## Pay through a fake Stripe
 
 `npm run e2e` pays through Stripe without Stripe's network: the `fake-stripe` project of
@@ -59,8 +42,7 @@ request. `npm run e2e` does not run it.
 local stand-in for Stripe's API and hosted Checkout, and a second app server with `BILLING_PROVIDER=stripe` and
 `STRIPE_API_BASE` on it. [`e2e/billing-checkout.fake-stripe.spec.ts`](e2e/billing-checkout.fake-stripe.spec.ts) pays
 there: the app creates the Checkout session, the buyer pays, the fake delivers a signed `checkout.session.completed`
-and, after a refund, `charge.refunded`. Pull requests rely on it; the nightly sandbox run checks that Stripe still
-behaves the way the fake assumes.
+and, after a refund, `charge.refunded`. No test calls Stripe's own service.
 
 ## Develop
 

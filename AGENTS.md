@@ -78,8 +78,8 @@ other work in the queue, with one shortcut:
 - A red check, a major version bump, or an update that needs code changes becomes a change of its own in a thread
   (`roadmap_item: null`); the thread opens its own pull request with the bump and the fixes, and the Dependabot pull
   request is closed when it merges. Telling Dependabot to ignore a major version is the owner's word only.
-- No pull request talks to Stripe: pull requests pay through a local fake Stripe, and Stripe's real sandbox runs only
-  in `stripe-sandbox.yml` (nightly and on demand), the one workflow that reads the `STRIPE_SECRET_KEY` secret.
+- No test talks to Stripe or any other external service: the example e2e pays through a local fake Stripe, and no
+  workflow reads a Stripe key.
 
 Open security alerts reach the queue as issues labelled `security` (`.github/workflows/security-alerts.yml`, hourly
 at :17). They are worked like any other issue; the workflow closes them when the alert is fixed or dismissed, so a

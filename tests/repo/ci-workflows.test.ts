@@ -151,7 +151,6 @@ const CHROMIUM_ACTION = "./.github/actions/playwright-chromium";
 describe.each([
   ["themes.yml", "visual"],
   ["e2e.yml", "e2e"],
-  ["stripe-sandbox.yml", "stripe-sandbox"],
 ])("%s → %s installs Chromium", (name, jobId) => {
   const job = readWorkflow(name).jobs[jobId];
   const install = job?.steps?.find((step) => step.name === "Install Chromium");
@@ -225,15 +224,9 @@ describe("the reusable workflows", () => {
   });
 });
 
-describe("stripe-sandbox.yml", () => {
-  const workflow = readWorkflow("stripe-sandbox.yml");
-
-  it("runs only every night and on demand: Stripe's real sandbox never gates a pull request", () => {
-    expect(Object.keys(workflow.on).sort()).toEqual(["schedule", "workflow_dispatch"]);
-  });
-
-  it("is the only workflow that reads the Stripe key", () => {
-    for (const name of readdirSync(WORKFLOWS_DIR).filter((file) => file !== "stripe-sandbox.yml")) {
+describe("Stripe", () => {
+  it("is never called from CI: no workflow reads a Stripe key", () => {
+    for (const name of readdirSync(WORKFLOWS_DIR)) {
       expect(readFileSync(join(WORKFLOWS_DIR, name), "utf8"), name).not.toContain("STRIPE_SECRET_KEY");
     }
   });
