@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.8.1
 
 - OpenTelemetry JS 3.1: the SDK packages on ~3.1.0, the exporters and `instrumentation-http` on ~0.301.0,
   `instrumentation-runtime-node` ~0.38.0, `instrumentation-undici` ~0.35.0.
