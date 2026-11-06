@@ -201,6 +201,16 @@ describe("buildFootageDraftArgs", () => {
     expect(buildFootageDraftArgs(argsInput({ music: null }))).toEqual(buildFootageDraftArgs(argsInput()));
   });
 
+  it("copies a prepared mix as the draft's sound and reads neither the speech nor the music track", () => {
+    const args = buildFootageDraftArgs(argsInput({ music: "/draft/music.mp3", mix: "/draft/mix.m4a" }));
+    const inputs = args.flatMap((arg, index) => (arg === "-i" ? [args[index + 1]] : []));
+    expect(inputs.slice(edl.segments.length)).toEqual(["/draft/mix.m4a"]);
+    expect(getGraph(args).some((part) => part.includes("amix"))).toBe(false);
+    expect(args.slice(args.indexOf("-map", args.indexOf("-map") + 1), args.indexOf("-map", args.indexOf("-map") + 1) + 2)).toEqual(["-map", `${edl.segments.length}:a`]);
+    expect(args.slice(args.indexOf("-c:a"), args.indexOf("-c:a") + 2)).toEqual(["-c:a", "copy"]);
+    expect(args).not.toContain("-b:a");
+  });
+
   it("leaves the thread counts to ffmpeg by default", () => {
     const args = buildFootageDraftArgs(argsInput());
     expect(args).not.toContain("-threads");
@@ -474,8 +484,8 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     if (!drafted.ok) throw new Error(drafted.error);
     expect(drafted.value).toMatchObject({ music: "played", captionFont: "DejaVu Sans", seconds: 2 });
     expect(providers.music.calls).toEqual([]);
-    expect([...new Set(progress.map((step) => step.item))]).toEqual(["speech", "music", "film"]);
-    expect(progress.at(-1)).toEqual({ item: "film", done: 6, total: 6 });
+    expect([...new Set(progress.map((step) => step.item))]).toEqual(["speech", "loudness", "music", "mix", "film"]);
+    expect(progress.at(-1)).toEqual({ item: "film", done: 10, total: 10 });
     const ass = readFileSync(join(dir, "build", "draft", "captions.ass"), "utf8");
     expect(ass).toContain("Style: Caption,DejaVu Sans,");
     expect(ass).toContain(",&H00FFFFFF,&H00FFFFFF,&H330C0B0A,&H330C0B0A,-1,0,0,0,100,100,0,0,3,16,0,");
@@ -513,7 +523,7 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     const declicked = await renderFootageDraft({ ...film, speech: { declick: "strong" } }, clips, transcript, shortCut, run);
     if (!declicked.ok) throw new Error(declicked.error);
     expect(declicked.value.declick).toMatchObject({ level: "strong", gateDb: -20 });
-    expect([...new Set(items)]).toEqual(["speech", "declick", "film"]);
+    expect([...new Set(items)]).toEqual(["speech", "declick", "loudness", "mix", "film"]);
     expect(existsSync(join(dir, "build", "draft", "speech.declicked.wav"))).toBe(true);
     expect(lines.some((line) => line.startsWith("declick (strong): "))).toBe(true);
     expect(readStreamCodecs(declicked.value.output)).toEqual(["h264", "aac"]);
@@ -521,7 +531,7 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     const plain = await renderFootageDraft({ ...film, speech: { declick: "off" } }, clips, transcript, shortCut, run);
     if (!plain.ok) throw new Error(plain.error);
     expect(plain.value.declick).toBeNull();
-    expect([...new Set(items)]).toEqual(["speech", "film"]);
+    expect([...new Set(items)]).toEqual(["speech", "loudness", "mix", "film"]);
     expect(existsSync(join(dir, "build", "draft", "speech.declicked.wav"))).toBe(false);
   }, 60_000);
 
@@ -554,7 +564,7 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     const [failure] = failures;
     if (failure === undefined) throw new Error("no failure was handed over");
     const draftDir = join(dir, "build", "draft");
-    expect(failure).toMatchObject({ step: "The footage draft", cwd: draftDir, signal: null, inputs: [broken, join(draftDir, "speech.mp3")] });
+    expect(failure).toMatchObject({ step: "The footage draft", cwd: draftDir, signal: null, inputs: [broken, join(draftDir, "mix.m4a")] });
     expect(failure.args.slice(0, 3)).toEqual(["-progress", "pipe:1", "-nostats"]);
     expect(failure.args).toContain("-filter_complex");
     expect(failure.args.at(-1)).toBe(join(dir, "draft.mp4"));
@@ -563,6 +573,65 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     const rerun = spawnSync("sh", [join(kept, "command.sh")], { encoding: "utf8" });
     expect(rerun.status).toBe(failure.code);
     expect(withoutPointers(rerun.stderr)).toEqual(withoutPointers(failure.stderr.join("\n")));
+  }, 60_000);
+
+  function makeQuietTalk(): { clips: PreparedClip[]; transcript: { kind: "ready"; words: Record<string, { text: string; start: number; end: number }[]>; speech: Record<string, string> } } {
+    // A clip-on mic's level: a voice-band tone at about -40 LUFS, with pauses.
+    const talk = join(dir, "quiet.mp4");
+    const tone = "sine=f=220:d=4,volume='if(lt(mod(t,1),0.7),0.012,0)':eval=frame";
+    const made = spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=1080x1920:r=30:d=4", "-f", "lavfi", "-i", tone, "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", talk]);
+    if (made.status !== 0) throw new Error(`making the quiet clip failed: ${made.stderr.toString()}`);
+    const prepared: PreparedClip = { clip: { id: "talk", source: talk, role: "talk", fit: "auto", trim: { start: 0, end: null }, script: null }, source: talk, probe: {} as FootageProbe, file: talk, duration: 4 };
+    return { clips: [prepared], transcript: { kind: "ready", words: { talk: [{ text: "Quiet", start: 0.1, end: 0.6 }, { text: "speech.", start: 1.1, end: 1.6 }] }, speech: { talk } } };
+  }
+
+  function readIntegrated(file: string): number {
+    const measured = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", file, "-af", "ebur128", "-f", "null", "-"], { encoding: "utf8" });
+    const match = /Integrated loudness:\s+I:\s+(-?[\d.]+) LUFS/.exec(measured.stderr);
+    if (match === null) throw new Error(`no loudness in ${file}: ${measured.stderr}`);
+    return Number(match[1]);
+  }
+
+  it("brings a draft of quiet speech to the render's mix target under its true peak ceiling, and reports it as the render does", async () => {
+    dir = mkdtempSync(join(tmpdir(), "footage-draft-"));
+    const { clips, transcript } = makeQuietTalk();
+    expect(readIntegrated(clips[0]?.file ?? "")).toBeLessThan(-35);
+    const lines: string[] = [];
+    const cut: Edl = { version: 2, film: "street", segments: [{ id: "s1", clip: "talk", start: 0, end: 4, transition: "cut", motion: "none" }] };
+    const drafted = await renderFootageDraft(film, clips, transcript, cut, { buildDir: join(dir, "build"), output: join(dir, "draft.mp4"), log: (line) => lines.push(line) });
+    if (!drafted.ok) throw new Error(drafted.error);
+    const { loudness, mix } = drafted.value;
+    if (loudness === null || mix === null) throw new Error("the draft reported no loudness or no mix");
+    // The render's default target: -14 LUFS, -1 dBTP, tolerance 1 LU; the mix aims at the target itself.
+    expect(Math.abs(loudness.integrated + 14)).toBeLessThan(0.5);
+    expect(loudness.truePeak).toBeLessThanOrEqual(-1);
+    expect(loudness.warning).toBeNull();
+    expect(mix).toMatchObject({ keep: "loudness" });
+    expect(mix.encodes).toBeGreaterThanOrEqual(1);
+    // Measured independently of the stage's own measure: the copied mix is what plays.
+    expect(Math.abs(readIntegrated(drafted.value.output) + 14)).toBeLessThan(0.5);
+    expect(lines.some((line) => line.startsWith("loudness: the speech track measured "))).toBe(true);
+    expect(lines.some((line) => line.startsWith("loudness: the film's mix measured "))).toBe(true);
+    expect(lines.some((line) => line.startsWith("loudness: the draft measures "))).toBe(true);
+    expect(existsSync(join(dir, "build", "draft", "mix.wav"))).toBe(false);
+  }, 60_000);
+
+  it("keeps a draft's sound as cut when the film turns the loudness pass and the mix stage off, as the render does", async () => {
+    dir = mkdtempSync(join(tmpdir(), "footage-draft-"));
+    const { clips, transcript } = makeQuietTalk();
+    const items: string[] = [];
+    const cut: Edl = { version: 2, film: "street", segments: [{ id: "s1", clip: "talk", start: 0, end: 4, transition: "cut", motion: "none" }] };
+    const drafted = await renderFootageDraft({ ...film, loudness: null, mixLoudness: null }, clips, transcript, cut, {
+      buildDir: join(dir, "build"),
+      output: join(dir, "draft.mp4"),
+      log: () => undefined,
+      onProgress: (step) => items.push(step.item),
+    });
+    if (!drafted.ok) throw new Error(drafted.error);
+    expect([...new Set(items)]).toEqual(["speech", "film"]);
+    expect(drafted.value.mix).toBeNull();
+    expect(drafted.value.loudness?.integrated ?? 0).toBeLessThan(-35);
+    expect(drafted.value.loudness?.warning).toBeNull();
   }, 60_000);
 
   it("plays a film's own music file and names one that is gone", async () => {

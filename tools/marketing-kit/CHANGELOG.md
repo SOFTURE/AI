@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **The footage draft plays at the render's loudness (#1143):** `renderFootageDraft` runs the render's sound chain:
+  the speech track's loudness pass (`loudness`) after its cut and declick, then the render's mix stage over speech and
+  music (`mixLoudness`, its `attempts`, `warnTolerance` and true peak ceiling), whose AAC is copied into the draft. A
+  draft of quiet speech (about -40 LUFS at the source) no longer plays near -32 LUFS against the render's -14.
+  `FootageDraft` gains `loudness` (as measured, `warning` on a near miss) and `mix` (what the stage did); a mix that
+  misses its target fails the draft with `{ kind: "loudness" }`, as it fails the render. `onProgress` reports the
+  items `loudness` and `mix`. `buildFootageDraftArgs` takes `mix` (an encoded mix to copy). The draft's speech files
+  take the render's names (`getSpeechChainFiles`).
 - **`renderFootage` reports how hyperframes captured the frames (#1145):** the rendered value carries `capture`
   (`{ path, gpu, seconds, isEncodeStreamed, fallbackHint }`, null when hyperframes printed no summary), read from
   hyperframes' summary line, so an app can log or alert on a render that took the slower screenshot path.

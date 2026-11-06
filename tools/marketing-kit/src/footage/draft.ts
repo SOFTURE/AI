@@ -12,18 +12,35 @@ import { chooseFootageDraftFont } from "./draft-font.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
 import { declickSpeech, describeDeclick, type DeclickReport } from "./declick.js";
 import { getDeclickLevel, getFootageEdit, type FootageFilm } from "./film.js";
+import { buildFilmMixArgs } from "./film-mix.js";
+import { DEFAULT_LOUDNESS, formatDb, getLoudnessVerdict, measureLoudness, normalizeLoudness, type MixLoudnessTarget } from "./loudness.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
 import { FOOTAGE_FPS, getThreadArgs, type Frame } from "./normalize.js";
-import { findFootageMusic, getFfmpegReporting, getFrame, type FootageBrand, type FootageResult, type FootageRunOptions, type PreparedClip, type TranscribeOutcome } from "./pipeline.js";
+import {
+  findFootageMusic,
+  getFfmpegReporting,
+  getFrame,
+  getSpeechChainFiles,
+  mixFootage,
+  type FinishedLoudness,
+  type FinishedMix,
+  type FootageBrand,
+  type FootageResult,
+  type FootageRunOptions,
+  type PreparedClip,
+  type PreparedMix,
+  type TranscribeOutcome,
+} from "./pipeline.js";
 import { runFfmpeg, withFfmpegFailureReporting } from "./process.js";
 import { buildMusicArgs, buildSpeechArgs, getSpeechCutOptions } from "./render.js";
 
 /**
  * A fast draft of a footage film, ffmpeg only (no hyperframes, no browser): the cut at a small width with the film's
  * captions burned in (its caption style, in the brand's body font and caption colours), its zoom cuts (eased as in the
- * render), cross-fades and Ken Burns b-roll drawn as the full render draws them, the speech track and the ducked music
- * when it costs nothing. No loudness pass, end card, cover or sound effects. What an app shows the owner before the paid
- * render.
+ * render), cross-fades and Ken Burns b-roll drawn as the full render draws them, and the render's sound chain: the
+ * speech track's stages (cut, declick, loudness pass), the ducked music when it costs nothing, and the mix brought to
+ * `mixLoudness` as the render brings it (issue #1143). No end card, cover or sound effects. What an app shows the owner
+ * before the paid render.
  */
 
 /** The draft's default width: 540 makes a 540×960 draft of a 9:16 film. */
@@ -241,6 +258,11 @@ export interface FootageDraftArgsInput {
   speech: string;
   /** The ducked music track (`buildMusicArgs`, as long as the cut), mixed under the speech; null or absent for none. */
   music?: string | null;
+  /**
+   * The film's mix, already brought to its target and encoded to AAC (`mixFootage`): the draft copies it as its sound
+   * and reads neither `speech` nor `music`. Null or absent: the draft mixes `speech` and `music` and encodes them.
+   */
+  mix?: string | null;
   /** The film's full frame (the normalized clips' size). */
   frame: Frame;
   /** The draft's width; default 540. */
@@ -330,7 +352,8 @@ function buildPictureFilters(plan: DraftSegmentPlan, draft: Frame): string[] {
 /**
  * The ffmpeg arguments of the draft: each segment read from its own seek into its clip, zoomed and scaled to the
  * draft's width, joined by `xfade` at `fade` cuts and `concat` at the others, the captions burned in (`ass`), the
- * speech track under it; H.264 yuv420p and AAC with fast start, exactly the cut's length.
+ * film's mix copied under it (or the speech and music tracks mixed and encoded to AAC); H.264 yuv420p with fast start,
+ * exactly the cut's length.
  */
 export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
   const { edl } = input;
@@ -378,10 +401,13 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
   } else {
     parts.push(`[${joined}]null[draft]`);
   }
-  const speechInput = edl.segments.length;
-  const music = input.music ?? null;
-  if (music !== null) parts.push(`[${speechInput}:a][${speechInput + 1}:a]amix=inputs=2:duration=first:normalize=0[sound]`);
+  const soundInput = edl.segments.length;
+  const mix = input.mix ?? null;
+  const music = mix === null ? (input.music ?? null) : null;
+  if (music !== null) parts.push(`[${soundInput}:a][${soundInput + 1}:a]amix=inputs=2:duration=first:normalize=0[sound]`);
   const seconds = getEdlDuration(edl);
+  // A prepared mix is copied: it was measured as encoded, and a second encode would move its loudness and true peak.
+  const audioCodec = mix === null ? ["-c:a", "aac", "-b:a", DRAFT_AUDIO_BITRATE] : ["-c:a", "copy"];
   return [
     "-v",
     "error",
@@ -389,14 +415,14 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
     ...threads.global,
     ...inputs,
     "-i",
-    input.speech,
+    mix ?? input.speech,
     ...(music === null ? [] : ["-i", music]),
     "-filter_complex",
     parts.join(";"),
     "-map",
     "[draft]",
     "-map",
-    music === null ? `${speechInput}:a` : "[sound]",
+    music === null ? `${soundInput}:a` : "[sound]",
     "-t",
     String(seconds),
     "-c:v",
@@ -407,10 +433,7 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
     String(DRAFT_CRF),
     "-pix_fmt",
     "yuv420p",
-    "-c:a",
-    "aac",
-    "-b:a",
-    DRAFT_AUDIO_BITRATE,
+    ...audioCodec,
     "-movflags",
     "+faststart",
     ...threads.output,
@@ -453,6 +476,13 @@ export interface FootageDraft {
   bytes: number;
   /** What the speech track's declick stage did, as the render does it; null when the film's declick is off. */
   declick: DeclickReport | null;
+  /**
+   * The draft's sound as measured, as the render measures its finished film (`warning` on a near miss inside
+   * `mixLoudness.warnTolerance`); null for a silent draft.
+   */
+  loudness: FinishedLoudness | null;
+  /** What the mix stage did, as in the render; null when it did not run (`mixLoudness: null`, a silent mix). */
+  mix: FinishedMix | null;
 }
 
 /** The draft's music track: a file to duck, or why there is none. */
@@ -505,15 +535,24 @@ async function runRenderFootageDraft(
   rmSync(draftDir, { recursive: true, force: true });
   mkdirSync(draftDir, { recursive: true });
   const declickLevel = getDeclickLevel(film);
-  const items = ["speech", ...(declickLevel === "off" ? [] : ["declick"]), ...(music.value.kind === "file" ? ["music"] : []), "film"];
+  const loudness = film.loudness === undefined ? DEFAULT_LOUDNESS : film.loudness;
+  const mixLoudness = film.mixLoudness === undefined ? DEFAULT_LOUDNESS : film.mixLoudness;
+  const hasMusic = music.value.kind === "file";
+  const items = [
+    "speech",
+    ...(declickLevel === "off" ? [] : ["declick"]),
+    ...(loudness === null ? [] : ["loudness"]),
+    ...(hasMusic ? ["music"] : []),
+    ...(mixLoudness === null ? [] : ["mix"]),
+    "film",
+  ];
   const report = (item: string, done: number): void => {
     const itemIndex = items.indexOf(item) + 1;
     options.onProgress?.({ step: "draft", item, itemIndex, itemCount: items.length, done: Math.min(seconds * items.length, (itemIndex - 1) * seconds + done), total: seconds * items.length });
   };
   const clipFiles = Object.fromEntries(clips.map((clip) => [clip.clip.id, resolve(clip.file)]));
-  const cutSpeech = join(draftDir, "speech.mp3");
-  // The declicked track stays WAV: the draft's one encode is its only lossy step after the cut.
-  const speech = declickLevel === "off" ? cutSpeech : join(draftDir, "speech.declicked.wav");
+  // The render's speech chain and its file names, so the draft's sound is made as the render's is.
+  const { rawSpeechFile, declickedFile, speechFile } = getSpeechChainFiles(draftDir, { isDeclick: declickLevel !== "off", isLoudness: loudness !== null });
   const words = remapWords(edl, transcript.words, film.cut.fillers);
   const frame = getFrame(film);
   const brandFont = chooseFootageDraftFont(options.brand?.fonts.body ?? null);
@@ -538,12 +577,21 @@ async function runRenderFootageDraft(
   const output = resolve(options.output);
   mkdirSync(dirname(output), { recursive: true });
   report("speech", 0);
-  await runFfmpeg("The draft's speech track", buildSpeechArgs(edl, transcript.speech, cutSpeech, getSpeechCutOptions(getFootageEdit(film))), { ...aborting, output: cutSpeech, onSeconds: (done) => report("speech", done) });
+  await runFfmpeg("The draft's speech track", buildSpeechArgs(edl, transcript.speech, rawSpeechFile, getSpeechCutOptions(getFootageEdit(film))), { ...aborting, output: rawSpeechFile, onSeconds: (done) => report("speech", done) });
   let declick: DeclickReport | null = null;
   if (declickLevel !== "off") {
     report("declick", 0);
-    declick = await declickSpeech({ input: cutSpeech, output: speech, words, level: declickLevel, seconds, ...aborting, onSeconds: (done) => report("declick", done) });
+    declick = await declickSpeech({ input: rawSpeechFile, output: declickedFile, words, level: declickLevel, seconds, ...aborting, onSeconds: (done) => report("declick", done) });
     log(describeDeclick(declick));
+  }
+  if (loudness !== null) {
+    report("loudness", 0);
+    const outcome = await normalizeLoudness(declickedFile, speechFile, loudness, { ...aborting, onSeconds: (done) => report("loudness", done) });
+    log(
+      outcome.kind === "silent"
+        ? "loudness: the speech track is silent, left as it is."
+        : `loudness: the speech track measured ${outcome.measured.toFixed(1)} LUFS, normalized to ${loudness.target} LUFS (true peak ${loudness.truePeak} dBTP).`,
+    );
   }
   let musicFile: string | null = null;
   if (music.value.kind === "file") {
@@ -555,14 +603,27 @@ async function runRenderFootageDraft(
   } else if (music.value.kind === "not_cached") {
     log(`draft: no music, ${music.value.reason}.`);
   }
+  let prepared: PreparedMix | null = null;
+  if (mixLoudness !== null) {
+    report("mix", 0);
+    // The render's mix stage over the draft's tracks (the draft has no sound effects): the same target, ceiling and attempts.
+    const mixSource = join(draftDir, "mix.wav");
+    const args = buildFilmMixArgs({ speech: { file: speechFile, seconds }, music: musicFile === null ? null : { file: musicFile, seconds }, sfx: [], seconds, output: mixSource });
+    await runFfmpeg("The draft's mix", args, { ...aborting, output: mixSource, onSeconds: (done) => report("mix", done) });
+    const mixed = await mixFootage(mixLoudness, { mixSource, output: join(draftDir, "mix.m4a") }, { log, ...aborting });
+    rmSync(mixSource, { force: true });
+    if (!mixed.ok) return mixed;
+    prepared = mixed.value;
+  }
   report("film", 0);
   // Run in the draft folder: the captions file and the font folder are relative names, so no path needs escaping in the filter graph.
   const args = buildFootageDraftArgs({
     film,
     edl,
     clips: clipFiles,
-    speech,
+    speech: speechFile,
     music: musicFile,
+    mix: prepared?.audioFile ?? null,
     frame,
     ...(options.width === undefined ? {} : { width: options.width }),
     ...(options.threads === undefined ? {} : { threads: options.threads }),
@@ -571,11 +632,51 @@ async function runRenderFootageDraft(
     output,
   });
   await runFfmpeg("The footage draft", args, { ...aborting, output, cwd: draftDir, onSeconds: (done) => report("film", done) });
+  const measured = await measureDraftLoudness(output, mixLoudness, prepared !== null, aborting);
+  if (!measured.ok) return measured;
+  const draftLoudness = measured.value;
+  if (draftLoudness !== null) {
+    log(`loudness: the draft measures ${formatDb(draftLoudness.integrated)} LUFS, true peak ${formatDb(draftLoudness.truePeak)} dBTP.`);
+    if (draftLoudness.warning !== null) log(`loudness warning: ${draftLoudness.warning}`);
+  }
   report("film", seconds);
   const draft = getFootageDraftFrame(frame, options.width);
   const bytes = statSync(output).size;
   const draftMusic: FootageDraftMusic = music.value.kind === "file" ? "played" : music.value.kind;
   const notes = [captions === null ? "no captions" : `captions in ${font.family}`, draftMusic === "played" ? "music" : draftMusic === "none" ? "no music" : "music not cached"];
   log(`draft: ${output}, ${draft.width}×${draft.height}, ${seconds.toFixed(1)} s, ${bytes} bytes, ${notes.join(", ")}.`);
-  return ok({ output, music: draftMusic, captionFont: captions === null ? null : font.family, seconds, width: draft.width, height: draft.height, bytes, declick });
+  return ok({
+    output,
+    music: draftMusic,
+    captionFont: captions === null ? null : font.family,
+    seconds,
+    width: draft.width,
+    height: draft.height,
+    bytes,
+    declick,
+    loudness: draftLoudness,
+    mix: prepared?.mix ?? null,
+  });
 }
+
+/**
+ * The written draft's sound measured as `finishFootage` measures the finished film: held to `mixLoudness` when the mix
+ * stage made it (a miss fails, a near miss inside `warnTolerance` carries `warning`), reported otherwise; null when
+ * the draft is silent.
+ */
+async function measureDraftLoudness(
+  output: string,
+  mixLoudness: MixLoudnessTarget | null,
+  isMixed: boolean,
+  aborting: { signal?: AbortSignal },
+): Promise<FootageResult<FinishedLoudness | null>> {
+  const measured = await measureLoudness(output, mixLoudness ?? DEFAULT_LOUDNESS, { label: "the footage draft", ...aborting });
+  if (measured.kind === "silent") return ok(null);
+  const sound = { integrated: measured.measurement.inputI, truePeak: measured.measurement.inputTp };
+  const verdict = mixLoudness === null || !isMixed ? { kind: "pass" as const } : getLoudnessVerdict(sound, mixLoudness);
+  if (verdict.kind === "fail") {
+    return err(`the footage draft ${output} measures ${formatDb(sound.integrated)} LUFS integrated, ${formatDb(sound.truePeak)} dBTP true peak: ${verdict.problems.join("; ")}.`, { kind: "loudness", loudness: sound });
+  }
+  return ok({ ...sound, warning: verdict.kind === "warn" ? `the footage draft ${output}: ${verdict.warning}` : null });
+}
+
