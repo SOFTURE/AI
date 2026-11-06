@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.17.0
 
 - **Cached speech ranges land at the pre-gained level (#1159):** since the speech pre-gain (#1139) `isolateSpeechRanges`
   lays every cleaned window over the clip's pre-gained sound, but a range cached from the un-gained sound kept its old
