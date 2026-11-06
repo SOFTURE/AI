@@ -8,6 +8,7 @@ import {
   CountryChip,
   CountryCounter,
   IconButton,
+  MapControls,
   MapLegend,
   MapPin,
   MapPinCluster,
@@ -251,5 +252,45 @@ describe("WorldMap", () => {
 describe("ATLAS_ICONS", () => {
   it("holds the thirteen travel icons", () => {
     expect(Object.keys(ATLAS_ICONS)).toEqual(["pin", "globe", "plane", "compass", "calendar", "camera", "pen", "users", "book", "bag", "arrow-right", "menu", "close"]);
+  });
+});
+
+describe("MapControls", () => {
+  const noop = () => undefined;
+
+  it("draws plus and minus as one named group of 40 px buttons, named by their labels", () => {
+    const markup = renderToStaticMarkup(<MapControls label="Map zoom" zoomInLabel="Zoom in" zoomOutLabel="Zoom out" onZoomIn={noop} onZoomOut={noop} />);
+    expect(markup).toContain('role="group"');
+    expect(markup).toContain('aria-label="Map zoom"');
+    expect(markup.match(/<button/g)).toHaveLength(2);
+    expect(markup).toContain('aria-label="Zoom in"');
+    expect(markup).toContain('aria-label="Zoom out"');
+    expect(markup).not.toContain('data-control="reset"');
+    expect(getClasses(markup, "map-controls")).toEqual(expect.arrayContaining(["flex-col", "divide-y", "border-line-strong", "bg-surface-raised", "rounded-control"]));
+    expect(markup).toContain("size-touch");
+  });
+
+  it("adds the reset button only with both its label and its handler", () => {
+    const withReset = renderToStaticMarkup(
+      <MapControls label="Map zoom" zoomInLabel="Zoom in" zoomOutLabel="Zoom out" resetLabel="Back to the world" onZoomIn={noop} onZoomOut={noop} onReset={noop} />,
+    );
+    const labelOnly = renderToStaticMarkup(<MapControls label="Map zoom" zoomInLabel="Zoom in" zoomOutLabel="Zoom out" resetLabel="Back to the world" onZoomIn={noop} onZoomOut={noop} />);
+    expect(withReset).toContain('aria-label="Back to the world"');
+    expect(withReset.match(/<button/g)).toHaveLength(3);
+    expect(labelOnly.match(/<button/g)).toHaveLength(2);
+  });
+
+  it("disables the buttons at the zoom limits and in the first view", () => {
+    const markup = renderToStaticMarkup(
+      <MapControls label="Map zoom" zoomInLabel="Zoom in" zoomOutLabel="Zoom out" resetLabel="Reset" onZoomIn={noop} onZoomOut={noop} onReset={noop} isAtMaxZoom isAtStart />,
+    );
+    expect(markup).toMatch(/data-control="zoom-in"[^>]*disabled=""/);
+    expect(markup).not.toMatch(/data-control="zoom-out"[^>]*disabled=""/);
+    expect(markup).toMatch(/data-control="reset"[^>]*disabled=""/);
+  });
+
+  it("lays the buttons in a row when horizontal", () => {
+    const markup = renderToStaticMarkup(<MapControls label="Map zoom" zoomInLabel="Zoom in" zoomOutLabel="Zoom out" onZoomIn={noop} onZoomOut={noop} orientation="horizontal" />);
+    expect(getClasses(markup, "map-controls")).toEqual(expect.arrayContaining(["flex-row", "divide-x"]));
   });
 });

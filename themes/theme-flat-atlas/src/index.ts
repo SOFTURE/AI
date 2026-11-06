@@ -18,6 +18,7 @@ export { Card, Photo, Postcard, PostcardStamp, type PhotoProps, type PostcardPro
 export { CountryChip, type CountryChipProps } from "./atlas/CountryChip.js";
 export { CountryCounter, type CountryCounterPart, type CountryCounterProps } from "./atlas/CountryCounter.js";
 export { ATLAS_ICON_STROKE_WIDTH, ATLAS_ICONS, type AtlasIconName } from "./atlas/icons.js";
+export { MapControls, type MapControlsOrientation, type MapControlsProps } from "./atlas/MapControls.js";
 export { MapLegend, type MapLegendItem, type MapLegendKind, type MapLegendProps } from "./atlas/MapLegend.js";
 export { MapPin, MapPinCluster, type MapPinClusterProps, type MapPinProps, type MapPinTag } from "./atlas/MapPin.js";
 export { MapPopover, type MapPopoverProps } from "./atlas/MapPopover.js";
