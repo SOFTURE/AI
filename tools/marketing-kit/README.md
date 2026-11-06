@@ -703,6 +703,18 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   `CAPTION_PILL_PADDING`) for an app that sizes the box itself. Before the render the caption and end-card fonts are checked against the film's words: a letter no
   file of the brand font draws (an accented letter outside a Latin-only subset) stops the run with the letters it lacks. The **end card** follows the cut over its last
   frame. `social.posts` may name a footage film; its `posts.md` carries no persona disclosure.
+- **End card (`endCard`, issue #1173):** no speech plays under it; the music plays on. Two layouts:
+  - `"full"` (the default when `layout` is left out): the brand row, `headline`, the `url` pill and the `note`, for
+    `seconds` (1-3, default 3; a shorter card plays its entrances faster, so every line is on screen before the end);
+  - `"logo"`: a short brand card, `{ "layout": "logo", "line": "Follow for more", "logo": "brand/mark.png" }`. The
+    brand's background fades in over the last frame in `fadeSeconds` (default 0.2), with the logo (its own `logo`, an
+    `.svg` or a `.png` with alpha; else `brand.logo`; else the brand name) and the optional `line` in the heading font,
+    inside the 9:16 platform safe zone (the film's `captionPreset`, `all` without one; `getLogoCardBox`). An SVG fills
+    a 720×480 box as a vector; a PNG is never drawn past its own pixels, so give it at least the size it should show at
+    1080×1920. It lasts `seconds` (1-3, default 1.5), and the music fades out over the whole card to the film's end.
+  The film's length is the cut plus `getEndCardSeconds(endCard)` (`getFootageFilmSeconds`), the final loudness pass
+  (`mixLoudness`) covers the card, and the glyph check covers the card's line. The end card's pop plays only when it
+  starts before the film's end.
 - **Paying:** without `--commit` a run that needs a paid call prints each one (speech to text, isolation, music) with
   the seconds billed and stops; nothing is sent. `--placeholder` rehearses without any paid call: a transcript from
   each talking clip's `script` (its words spread evenly over the clip), no isolation, no generated music (a local

@@ -4,10 +4,10 @@ import { extname, join } from "node:path";
 
 import { err, ok, type TtsResult } from "../voice/provider.js";
 import { footageCacheKey, getFootageCachePath, hashFile } from "./cache.js";
-import { END_CARD_SECONDS, getFootageFilmSeconds } from "./compose.js";
+import { getFootageFilmSeconds } from "./compose.js";
 import { readEdl, type Edl } from "./edl.js";
 import { getFilmKeyTerms } from "./keyterms.js";
-import type { FootageClip, FootageFilm } from "./film.js";
+import { getEndCardSeconds, type FootageClip, type FootageFilm } from "./film.js";
 import { getTrimmedDuration, probeFootage } from "./probe.js";
 import type { FootageProviders, FootageRates, PaidStepKind } from "./providers.js";
 import {
@@ -266,7 +266,7 @@ export async function estimateFootageFilm(film: FootageFilm, options: EstimateFo
   }
   const music = film.music.source;
   if (music.kind === "prompt" || music.kind === "video") {
-    const seconds = edl === null ? clipSeconds + (film.endCard === null ? 0 : END_CARD_SECONDS) : getFootageFilmSeconds(film, edl);
+    const seconds = edl === null ? clipSeconds + getEndCardSeconds(film.endCard) : getFootageFilmSeconds(film, edl);
     add("music", "film", options.providers.music.id, seconds, await isMusicCached(film, options));
   }
   return ok({ items, totalCredits: round(items.reduce((sum, item) => sum + item.credits, 0), 2) });

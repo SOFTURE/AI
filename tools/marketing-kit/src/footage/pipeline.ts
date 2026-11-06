@@ -14,7 +14,7 @@ import type { TimedWord } from "../voice/voiceover.js";
 import { checkMusicFileType, describeAudioProbe, probeAudio } from "./audio.js";
 import { prepareClipSounds } from "./clip-sound.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
-import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
+import { composeFootage, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
 import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
 import { err, getProviderFootageFailure, ok, type FootageResult } from "./failure.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
@@ -22,7 +22,7 @@ import { buildEdl, getEdlDuration, readEdl, remapWords, validateEdl, type Edl } 
 import { makePlaceholderTranscript } from "./fake.js";
 import { chooseCutTransitions, type CutMeasure } from "./cuts.js";
 import { declickSpeech, describeDeclick, type DeclickReport } from "./declick.js";
-import { DEFAULT_AUTO_THRESHOLD, getDeclickLevel, getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
+import { DEFAULT_AUTO_THRESHOLD, getDeclickLevel, getEndCardSeconds, getEndCardTexts, getFootageEdit, type FootageClip, type FootageFilm, type MusicSource } from "./film.js";
 import { getFilmKeyTerms } from "./keyterms.js";
 import { buildFilmMixArgs } from "./film-mix.js";
 import {
@@ -353,7 +353,7 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
     plan.push({ clip, isolated, transcript });
   }
   if (steps.length > 0 && !options.isCommit) {
-    const total = clips.reduce((sum, clip) => sum + clip.duration, 0) + (film.endCard === null ? 0 : END_CARD_SECONDS);
+    const total = clips.reduce((sum, clip) => sum + clip.duration, 0) + getEndCardSeconds(film.endCard);
     const music = getMusicPaidStep(film, options, total);
     const all = music === null ? steps : [...steps, music];
     for (const line of describePaidSteps(all)) log(line);
@@ -762,7 +762,9 @@ async function runRenderFootage(
   if (musicFile !== null) {
     const keyframes = duckingKeyframes(words, getDuckingOptions(film.music));
     const output = join(assetsDir, "music.mp3");
-    tracks.push({ item: "music", seconds, run: ffmpegTrack("The music track", output, () => buildMusicArgs({ input: musicFile, seconds, keyframes, output })) });
+    // Under the logo card the music fades out over the card's whole length, to the film's end (issue #1173).
+    const fadeOutSeconds = film.endCard?.layout === "logo" ? { fadeOutSeconds: getEndCardSeconds(film.endCard) } : {};
+    tracks.push({ item: "music", seconds, run: ffmpegTrack("The music track", output, () => buildMusicArgs({ input: musicFile, seconds, keyframes, output, ...fadeOutSeconds })) });
   }
   const sfx: Partial<Record<SfxEvent, string>> = {};
   mkdirSync(join(assetsDir, "sfx"), { recursive: true });
@@ -812,7 +814,10 @@ async function runRenderFootage(
   if (!prepared.ok) return prepared;
   const musicAsset = musicFile === null ? null : "assets/music.mp3";
   const fonts = copyFonts(options.brand.fonts, join(assetsDir, "fonts"));
-  if (options.brand.logo !== null) cpSync(options.brand.logo, join(assetsDir, "logo.svg"));
+  // The logo card's own logo wins over the brand's; it keeps its extension, so a PNG is drawn as a PNG.
+  const logoSource = (film.endCard?.layout === "logo" ? film.endCard.logo : undefined) ?? options.brand.logo;
+  const logoAsset = logoSource === null ? null : `assets/logo${extname(logoSource).toLowerCase() || ".svg"}`;
+  if (logoSource !== null && logoAsset !== null) cpSync(logoSource, join(buildDir, logoAsset));
   cpSync(require.resolve("gsap/dist/gsap.min.js"), join(assetsDir, "gsap.min.js"));
   const base = resolveLayout(film.format, options.layout ?? {});
   // A caption preset places the 9:16 box in a platform's safe zone; the project's own caption override still wins.
@@ -820,7 +825,7 @@ async function runRenderFootage(
   const missing = findMissingCaptionGlyphs({
     fonts: options.brand.fonts,
     captions: film.captions ? words.map((word) => word.text) : [],
-    endCard: film.endCard,
+    endCard: getEndCardTexts(film.endCard),
     brandName: options.brand.name,
   });
   if (missing.length > 0) {
@@ -841,7 +846,7 @@ async function runRenderFootage(
       speech: "assets/speech.wav",
       music: musicAsset,
       lastFrame: "assets/last.jpg",
-      logo: options.brand.logo === null ? null : "assets/logo.svg",
+      logo: logoAsset,
       sfx,
     },
     brandName: options.brand.name,

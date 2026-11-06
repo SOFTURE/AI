@@ -33,6 +33,17 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - `readCharacterMap` reads WOFF2 files too (their tables are Brotli-decompressed), and a file it cannot read says
   "not a TrueType, OpenType, WOFF or WOFF2 font".
 
+- **A footage end card of any length and a short logo card (#1173):** a footage film's `endCard` takes `seconds`
+  (1-3, default 3, so today's films are unchanged); `getFootageFilmSeconds`, the paid-step estimate and the dry run
+  follow it, and a shorter full card plays its entrances faster. `endCard.layout: "logo"` draws a short brand card:
+  the brand's background fading in over `fadeSeconds` (default 0.2), the logo (the card's own `logo`, `.svg` or `.png`
+  with alpha; else `brand.logo`; else the brand name) and an optional `line`, inside the 9:16 platform safe zone, for
+  `seconds` (default 1.5), with the music fading out over the whole card to the film's end (`buildMusicArgs` takes
+  `fadeOutSeconds`). The glyph check covers the line. New exports: `FootageEndCard`, `FullFootageEndCard`,
+  `LogoFootageEndCard`, `getEndCardSeconds`, `getEndCardTexts`, `getLogoCardBox`, `DEFAULT_END_CARD_SECONDS`,
+  `DEFAULT_LOGO_END_CARD_SECONDS`, `DEFAULT_LOGO_END_CARD_FADE_SECONDS`. The footage pipeline now copies the logo with
+  its own extension (`assets/logo.png` for a PNG).
+
 ## 0.17.0
 
 - **Cached speech ranges land at the pre-gained level (#1159):** since the speech pre-gain (#1139) `isolateSpeechRanges`

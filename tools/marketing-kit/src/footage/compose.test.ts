@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { LAYOUTS } from "../compose/timeline.js";
-import { composeFootage, getFootageFilmSeconds, getSegmentScales, getSegmentZoomEases, type FootageComposeInput } from "./compose.js";
+import { composeFootage, getFootageFilmSeconds, getFootageSfxCues, getLogoCardBox, getSegmentScales, getSegmentZoomEases, type FootageComposeInput } from "./compose.js";
 import type { Edl } from "./edl.js";
-import { DEFAULT_TRANSITIONS, type FootageFilm } from "./film.js";
+import { DEFAULT_TRANSITIONS, getEndCardSeconds, getEndCardTexts, type FootageFilm } from "./film.js";
 
 const COLORS = {
   background: "#0c0c0d",
@@ -182,6 +182,69 @@ describe("composeFootage", () => {
 
   it("refuses an EDL that names a clip without a file", () => {
     expect(() => composeFootage(input({ assets: { ...input().assets, clips: {} } }))).toThrow('The EDL names clip "talk", which the film has no file for.');
+  });
+});
+
+describe("composeFootage with the end card's length and the logo card", () => {
+  const logoCard = { layout: "logo" as const, line: "Follow <for> more" };
+
+  it("takes each layout's default length, or the card's own seconds", () => {
+    expect(getEndCardSeconds(null)).toBe(0);
+    expect(getEndCardSeconds({ headline: "H", url: "u", note: "" })).toBe(3);
+    expect(getEndCardSeconds({ headline: "H", url: "u", note: "", seconds: 2 })).toBe(2);
+    expect(getEndCardSeconds(logoCard)).toBe(1.5);
+    expect(getEndCardSeconds({ ...logoCard, seconds: 1 })).toBe(1);
+    expect(getFootageFilmSeconds({ endCard: { ...logoCard, seconds: 1.2 } }, edl)).toBe(9.2);
+  });
+
+  it("plays a shorter full card's entrances faster, so the note is on screen before the end", () => {
+    const short = composeFootage(input({ film: { ...film, endCard: { headline: "Try it", url: "example.com", note: "Free", seconds: 1.5 } } }));
+    expect(short).toContain('data-start="8" data-duration="1.5" />');
+    expect(short).toContain('tl.fromTo("#ec-note", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power2.out" }, 8.65);');
+    expect(short).toContain('tl.fromTo("#shade", { opacity: 0 }, { opacity: 0.82, duration: 0.225, ease: "power2.out" }, 8);');
+  });
+
+  it("draws the logo card over the last frame: the brand background fading in over 0.2 s, the logo and the escaped line", () => {
+    const html = composeFootage(input({ film: { ...film, endCard: logoCard }, assets: { ...input().assets, logo: "assets/logo.png" } }));
+    expect(html).toContain('<img id="last" class="clip shot" src="assets/last.jpg" data-start="8" data-duration="1.5" />');
+    expect(html).toContain('<div class="logocard" id="ec-logo-card"><div class="logobox"><img class="mark" src="assets/logo.png" alt="" /><p class="logoline">Follow &lt;for&gt; more</p></div></div>');
+    expect(html).toContain('tl.fromTo("#ec-logo-card", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "none" }, 8);');
+    expect(html).toContain(".logocard{position:absolute;inset:0;background:#0c0c0d;opacity:0}");
+    expect(html).not.toContain('id="shade"');
+    expect(html).not.toContain('id="ec-headline"');
+    expect(html).toContain('<audio id="speech" src="assets/speech.mp3" data-start="0" data-duration="8" data-volume="1"></audio>');
+    expect(html).toContain('<audio id="music" src="assets/music.mp3" data-start="0" data-duration="9.5" data-volume="1"></audio>');
+  });
+
+  it("fills the logo box with an SVG, names the brand without a logo, drops an empty line and takes its own fade", () => {
+    const svg = composeFootage(input({ film: { ...film, endCard: { layout: "logo", line: " ", fadeSeconds: 0.4 } }, assets: { ...input().assets, logo: "assets/logo.svg" } }));
+    expect(svg).toContain('<div class="logobox"><img class="mark vector" src="assets/logo.svg" alt="" /></div>');
+    expect(svg).toContain("{ opacity: 1, duration: 0.4, ease: \"none\" }");
+    const named = composeFootage(input({ film: { ...film, endCard: logoCard } }));
+    expect(named).toContain('<div class="logobox"><span class="markname">Acme</span><p class="logoline">');
+  });
+
+  it("keeps the logo card inside the 9:16 platform safe zone, the film's caption preset or every platform's", () => {
+    const frame = LAYOUTS["9:16"].frame;
+    expect(getLogoCardBox({ format: "9:16" }, frame)).toEqual({ top: 220, bottom: 480, left: 150, right: 150 });
+    expect(getLogoCardBox({ format: "9:16", captionPreset: "reels" }, frame)).toEqual({ top: 220, bottom: 420, left: 120, right: 120 });
+    expect(getLogoCardBox({ format: "1:1" }, LAYOUTS["1:1"].frame)).toEqual({ top: 80, bottom: 80, left: 80, right: 80 });
+    const html = composeFootage(input({ film: { ...film, endCard: logoCard } }));
+    expect(html).toContain(".logobox{position:absolute;top:220px;bottom:480px;left:150px;right:150px;");
+  });
+
+  it("plays the end card's pop only when it starts before the film's end", () => {
+    const sfx = { whoosh: "w.mp3", pop: "p.mp3" };
+    const loud = (seconds: number) => getFootageSfxCues({ ...film, edit: { isEndCardWhoosh: true }, endCard: { ...logoCard, seconds } }, edl, sfx).map((cue) => `${cue.src}@${cue.t}`);
+    expect(loud(1)).toEqual(["w.mp3@6.9", "w.mp3@8", "p.mp3@8.9"]);
+    // A card set in code shorter than the schema allows still never plays a sound past the film's end.
+    expect(loud(0.8)).toEqual(["w.mp3@6.9", "w.mp3@8"]);
+  });
+
+  it("hands the glyph check the logo card's line as the heading font's text", () => {
+    expect(getEndCardTexts(logoCard)).toEqual({ headline: "Follow <for> more", url: "", note: "" });
+    expect(getEndCardTexts({ headline: "H", url: "u", note: "n", seconds: 2 })).toEqual({ headline: "H", url: "u", note: "n" });
+    expect(getEndCardTexts(null)).toBeNull();
   });
 });
 

@@ -231,4 +231,26 @@ describe("footage films in marketing.json", () => {
     writeFileSync(join(dir, "bed.mp3"), "");
     expect(findMissingFootageFiles(config, film, true)).toEqual([]);
   });
+
+  it("reads the full end card as before, with its own length when it sets one", () => {
+    const film = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "clips/c.mov" }], endCard: { headline: "H", url: "example.com", seconds: 2 } }])), "a");
+    expect(film?.endCard).toEqual({ headline: "H", url: "example.com", note: "", seconds: 2 });
+  });
+
+  it("reads the logo card with its logo resolved against marketing.json, and checks the file when it renders", () => {
+    const config = load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "clips/c.mov" }], endCard: { layout: "logo", line: "Follow for more", logo: "brand/mark.png", seconds: 1.2 } }]));
+    const film = findFootage(config, "a");
+    if (film === null) throw new Error("no film");
+    expect(film.endCard).toEqual({ layout: "logo", line: "Follow for more", logo: join(dir, "brand", "mark.png"), seconds: 1.2 });
+    writeFileSync(join(dir, "clips", "c.mov"), "");
+    expect(findMissingFootageFiles(config, film, false)).toEqual([]);
+    expect(findMissingFootageFiles(config, film, true).map((issue) => issue.path.join("."))).toEqual(["footage.0.endCard.logo"]);
+  });
+
+  it("refuses an end card shorter than 1 s or longer than 3 s, and a logo that is not an SVG or a PNG", () => {
+    const film = (endCard: unknown) => makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "clips/c.mov" }], endCard }]);
+    expect(loadError(film({ headline: "H", url: "example.com", seconds: 0.5 }))).toContain("footage[0].endCard.seconds: ");
+    expect(loadError(film({ layout: "logo", seconds: 4 }))).toContain("footage[0].endCard.seconds: ");
+    expect(loadError(film({ layout: "logo", logo: "brand/mark.jpg" }))).toContain("footage[0].endCard.logo: must be an .svg or a .png file");
+  });
 });
