@@ -10,7 +10,7 @@ import { getFilmKeyTerms } from "./keyterms.js";
 import type { FootageClip, FootageFilm } from "./film.js";
 import { getTrimmedDuration, probeFootage } from "./probe.js";
 import type { FootageProviders, FootageRates, PaidStepKind } from "./providers.js";
-import { getSpeechRangeCache, planSpeechRanges, type SpeechRangeClip } from "./speech-ranges.js";
+import { getSpeechRangeCache, planSpeechRanges, type SpeechRangeCacheResolver, type SpeechRangeClip } from "./speech-ranges.js";
 
 /**
  * Where each paid result of a footage film is cached, shared by the pipeline and by the questions an app asks before
@@ -179,6 +179,8 @@ export interface EstimateFootageOptions extends FootageCacheOptions {
   isolate?: "clips" | "segments";
   /** Seconds around each sound span with `isolate: "segments"`; default `DEFAULT_SPEECH_RANGE_MARGIN`. */
   margin?: number;
+  /** Where a range's cleaned voice is cached with `isolate: "segments"`, as `isolateSpeechRanges` takes it; default `getSpeechRangeCache`. */
+  rangeCache?: SpeechRangeCacheResolver;
 }
 
 const round = (value: number, digits: number): number => {
@@ -234,7 +236,8 @@ export async function estimateFootageFilm(film: FootageFilm, options: EstimateFo
     const provider = options.providers.isolation.id;
     for (const range of planSpeechRanges(edl, rangeClips, options.margin === undefined ? {} : { margin: options.margin })) {
       const clipKey = clipKeys[range.clip] ?? null;
-      const cached = clipKey !== null && existsSync(getSpeechRangeCache(film.id, clipKey, range, { cacheDir: options.cacheDir, provider }).path);
+      const cache = clipKey === null ? null : (options.rangeCache?.(range, clipKey) ?? getSpeechRangeCache(film.id, clipKey, range, { cacheDir: options.cacheDir, provider }));
+      const cached = cache !== null && existsSync(cache.path);
       add("isolate", range.clip, provider, (range.endMs - range.startMs) / 1000, cached);
       const item = items.at(-1);
       if (item !== undefined) item.range = { start: range.startMs / 1000, end: range.endMs / 1000 };

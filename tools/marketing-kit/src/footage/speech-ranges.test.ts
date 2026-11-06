@@ -1,7 +1,23 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import type { Edl, EdlSegment } from "./edl.js";
-import { buildRangeAudioArgs, buildRangeLayArgs, getSpeechRangeCache, getSpeechRangeWindows, planSpeechRanges, type SpeechRange, type SpeechRangeClip } from "./speech-ranges.js";
+import {
+  buildRangeAudioArgs,
+  buildRangeLayArgs,
+  getSpeechRangeCache,
+  getSpeechRangeFades,
+  getSpeechRangeWindows,
+  planSpeechRanges,
+  type SpeechRange,
+  type SpeechRangeClip,
+} from "./speech-ranges.js";
+
+const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
 
 const segment = (id: string, clip: string, start: number, end: number, changes: Partial<EdlSegment> = {}): EdlSegment => ({ id, clip, start, end, transition: "cut", motion: "none", ...changes });
 const edlOf = (...segments: EdlSegment[]): Edl => ({ version: 2, film: "street", segments });
@@ -85,7 +101,7 @@ describe("the range ffmpeg arguments", () => {
     expect(buildRangeAudioArgs("clip.mp4", { startMs: 1250, endMs: 3000 }, "out.mp3")).toEqual(["-v", "error", "-y", "-ss", "1.250", "-t", "1.750", "-i", "clip.mp4", "-vn", "-c:a", "libmp3lame", "-q:a", "2", "out.mp3"]);
   });
 
-  it("mutes every window in the base and delays each cleaned window into place, panning a mono answer", () => {
+  it("crossfades every join: windows trimmed to their fades, faded linearly, delayed in samples, the base under one minus their gains", () => {
     const first = { clip: "a", startMs: 1000, endMs: 3000 };
     const second = { clip: "a", startMs: 2800, endMs: 5000 };
     const args = buildRangeLayArgs(
@@ -99,15 +115,100 @@ describe("the range ffmpeg arguments", () => {
     expect(args.slice(0, 9)).toEqual(["-v", "error", "-y", "-i", "clip.mp4", "-i", "one.mp3", "-i", "two.mp3"]);
     const graph = args[args.indexOf("-filter_complex") + 1];
     expect(graph?.split(";")).toEqual([
-      "[0:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=0:enable='between(t,1.000,2.900)+between(t,2.900,5.000)'[base]",
-      "[1:a]atrim=start=0.000:end=1.900,asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,adelay=1000:all=1[w0]",
-      "[2:a]atrim=start=0.100:end=2.200,asetpts=PTS-STARTPTS,pan=stereo|c0=c0|c1=c0,aformat=sample_rates=48000:channel_layouts=stereo,adelay=2900:all=1[w1]",
+      "[0:a]aformat=sample_rates=48000:channel_layouts=stereo,aeval='val(ch)*(1-(min(clip((t-1.000)/0.015,0,1),clip((2.907-t)/0.014,0,1))+min(clip((t-2.893)/0.014,0,1),clip((5.000-t)/0.015,0,1))))':c=same[base]",
+      "[1:a]atrim=start=0.000:end=1.907,asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,afade=t=in:st=0:d=0.015,afade=t=out:st=1.893:d=0.014,adelay=48000S:all=1[w0]",
+      "[2:a]atrim=start=0.093:end=2.200,asetpts=PTS-STARTPTS,pan=stereo|c0=c0|c1=c0,aformat=sample_rates=48000:channel_layouts=stereo,afade=t=in:st=0:d=0.014,afade=t=out:st=2.092:d=0.015,adelay=138864S:all=1[w1]",
       "[base][w0][w1]amix=inputs=3:duration=first:normalize=0[speech]",
     ]);
     expect(args.slice(-7)).toEqual(["-map", "[speech]", "-c:a", "libmp3lame", "-q:a", "2", "out.mp3"]);
   });
 
+  it("switches at once with fadeMs 0", () => {
+    const range = { clip: "a", startMs: 1000, endMs: 2000 };
+    const args = buildRangeLayArgs("clip.mp4", [{ window: { range, startMs: 1000, endMs: 2000 }, file: "one.mp3", isMono: false }], "out.mp3", { fadeMs: 0 });
+    expect(args[args.indexOf("-filter_complex") + 1]?.split(";")).toEqual([
+      "[0:a]aformat=sample_rates=48000:channel_layouts=stereo,aeval='val(ch)*(1-(min(gte(t,1.000),lt(t,2.000))))':c=same[base]",
+      "[1:a]atrim=start=0.000:end=1.000,asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,adelay=48000S:all=1[w0]",
+      "[base][w0]amix=inputs=2:duration=first:normalize=0[speech]",
+    ]);
+  });
+
   it("copies the base's sound when no window is laid", () => {
     expect(buildRangeLayArgs("clip.mp4", [], "out.mp3")).toEqual(["-v", "error", "-y", "-i", "clip.mp4", "-vn", "-af", "aformat=sample_rates=48000:channel_layouts=stereo", "-c:a", "libmp3lame", "-q:a", "2", "out.mp3"]);
+  });
+});
+
+describe("getSpeechRangeFades", () => {
+  const range = (startMs: number, endMs: number): SpeechRange => ({ clip: "a", startMs, endMs });
+
+  it("fades inside a window at its range's own edges and shares one fade centred on a switch", () => {
+    const windows = getSpeechRangeWindows([range(1000, 3000), range(2800, 5000), range(6000, 6010)]);
+    expect(getSpeechRangeFades(windows, 20)).toEqual([
+      { inStartMs: 1000, inEndMs: 1020, outStartMs: 2890, outEndMs: 2910 },
+      { inStartMs: 2890, inEndMs: 2910, outStartMs: 4980, outEndMs: 5000 },
+      { inStartMs: 6000, inEndMs: 6005, outStartMs: 6005, outEndMs: 6010 },
+    ]);
+  });
+
+  it("keeps a switch's fade inside the overlap, and none at fade 0", () => {
+    const windows = getSpeechRangeWindows([range(1000, 2004), range(2000, 3000)]);
+    expect(getSpeechRangeFades(windows, 20).map(({ outStartMs, outEndMs }) => [outStartMs, outEndMs])).toEqual([
+      [2000, 2004],
+      [2980, 3000],
+    ]);
+    expect(getSpeechRangeFades(windows, 0)).toEqual([
+      { inStartMs: 1000, inEndMs: 1000, outStartMs: 2002, outEndMs: 2002 },
+      { inStartMs: 2002, inEndMs: 2002, outStartMs: 3000, outEndMs: 3000 },
+    ]);
+  });
+});
+
+describe.runIf(hasFfmpeg)("buildRangeLayArgs through ffmpeg (issue #1127)", () => {
+  /** Runs the lay's filter graph on constant-level PCM inputs and answers the left channel's samples. */
+  function layConstant(level: { base: number; windows: number }, laid: Parameters<typeof buildRangeLayArgs>[1], fadeMs?: number): Float32Array {
+    const dir = mkdtempSync(join(tmpdir(), "footage-lay-"));
+    try {
+      const make = (name: string, value: number, seconds: number): string => {
+        const file = join(dir, name);
+        const made = spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", `aevalsrc=${String(value)}:s=48000:c=stereo:d=${String(seconds)}`, "-c:a", "pcm_f32le", file], { encoding: "utf8" });
+        if (made.status !== 0) throw new Error(made.stderr);
+        return file;
+      };
+      const base = make("base.wav", level.base, 3);
+      const files = laid.map(({ window }, index) => make(`w${String(index)}.wav`, level.windows, (window.range.endMs - window.range.startMs) / 1000));
+      const args = buildRangeLayArgs(base, laid.map((item, index) => ({ ...item, file: files[index] ?? "" })), "unused.mp3", fadeMs === undefined ? {} : { fadeMs });
+      const output = join(dir, "out.raw");
+      const graph = args[args.indexOf("-filter_complex") + 1] ?? "";
+      const inputs = args.slice(3, args.indexOf("-filter_complex"));
+      const run = spawnSync("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", graph, "-map", "[speech]", "-f", "f32le", "-c:a", "pcm_f32le", output], { encoding: "utf8" });
+      if (run.status !== 0) throw new Error(run.stderr);
+      const bytes = readFileSync(output);
+      const all = new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
+      return all.filter((_, index) => index % 2 === 0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  const maxStep = (samples: Float32Array): number => samples.reduce((max, value, index) => (index === 0 ? max : Math.max(max, Math.abs(value - (samples[index - 1] ?? value)))), 0);
+  const first = { clip: "a", startMs: 500, endMs: 1500 };
+  const second = { clip: "a", startMs: 1300, endMs: 2500 };
+  const laid = [
+    { window: { range: first, startMs: 500, endMs: 1400 }, file: "", isMono: false },
+    { window: { range: second, startMs: 1400, endMs: 2500 }, file: "", isMono: false },
+  ];
+
+  it("has no sample step above 0.01 at a join of a constant-level clip and a half-level window", () => {
+    const samples = layConstant({ base: 0.8, windows: 0.4 }, laid);
+    expect(samples.length).toBe(144000);
+    expect(maxStep(samples)).toBeLessThan(0.01);
+    expect(samples[24000 - 1000]).toBeCloseTo(0.8, 4);
+    expect(samples[48000]).toBeCloseTo(0.4, 4);
+    expect(samples[67200]).toBeCloseTo(0.4, 4);
+    expect(samples[140000]).toBeCloseTo(0.8, 4);
+  });
+
+  it("steps at once without a fade", () => {
+    expect(maxStep(layConstant({ base: 0.8, windows: 0.4 }, laid, 0))).toBeGreaterThan(0.3);
   });
 });
