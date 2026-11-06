@@ -118,9 +118,16 @@ export function createElevenLabsSttProvider(options: ElevenLabsFootageOptions): 
   };
 }
 
+/**
+ * The shortest input the ElevenLabs Voice Isolator accepts, in seconds: production renders saw every range of 4.18 s
+ * or less refused on every attempt (`audio_too_short`) and every range of 4.64 s or more accepted (issue #1140).
+ */
+export const ELEVENLABS_ISOLATION_MIN_SECONDS = 4.6;
+
 export function createElevenLabsIsolationProvider(options: ElevenLabsFootageOptions): IsolationProvider {
   return {
     id: "elevenlabs",
+    minSeconds: ELEVENLABS_ISOLATION_MIN_SECONDS,
     async isolate(input) {
       const form = new FormData();
       form.append("audio", fileBlob(input.audio), basename(input.audio));

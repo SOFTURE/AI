@@ -10,7 +10,15 @@ import { getFilmKeyTerms } from "./keyterms.js";
 import type { FootageClip, FootageFilm } from "./film.js";
 import { getTrimmedDuration, probeFootage } from "./probe.js";
 import type { FootageProviders, FootageRates, PaidStepKind } from "./providers.js";
-import { getSpeechRangeCache, planSpeechRanges, type SpeechRangeCacheResolver, type SpeechRangeClip } from "./speech-ranges.js";
+import {
+  getPlanOptions,
+  getSpeechRangeCache,
+  planSpeechRanges,
+  type PlanSpeechRangesOptions,
+  type SpeechRangeCacheResolver,
+  type SpeechRangeClip,
+  type SpeechRangeSkip,
+} from "./speech-ranges.js";
 
 /**
  * Where each paid result of a footage film is cached, shared by the pipeline and by the questions an app asks before
@@ -161,6 +169,11 @@ export interface FootageEstimateItem {
   cached: boolean;
   /** The range of the clip an `isolate: "segments"` item prices, in seconds of the trimmed clip; absent: the whole clip. */
   range?: { start: number; end: number };
+  /**
+   * Set on an `isolate: "segments"` range that will not be sent: shorter than the provider's minimum even after
+   * merging and widening (`units` and `credits` 0).
+   */
+  skipped?: SpeechRangeSkip;
 }
 
 export interface FootageEstimate {
@@ -179,6 +192,10 @@ export interface EstimateFootageOptions extends FootageCacheOptions {
   isolate?: "clips" | "segments";
   /** Seconds around each sound span with `isolate: "segments"`; default `DEFAULT_SPEECH_RANGE_MARGIN`. */
   margin?: number;
+  /** Ranges of a clip at most this many seconds apart are priced as one with `isolate: "segments"`, as `isolateSpeechRanges` merges them. */
+  mergeGap?: PlanSpeechRangesOptions["mergeGap"];
+  /** Seconds a range shorter than the provider's minimum is widened past it with `isolate: "segments"`. */
+  minPad?: number;
   /** Where a range's cleaned voice is cached with `isolate: "segments"`, as `isolateSpeechRanges` takes it; default `getSpeechRangeCache`. */
   rangeCache?: SpeechRangeCacheResolver;
 }
@@ -234,7 +251,11 @@ export async function estimateFootageFilm(film: FootageFilm, options: EstimateFo
   }
   if (isSegments && edl !== null) {
     const provider = options.providers.isolation.id;
-    for (const range of planSpeechRanges(edl, rangeClips, options.margin === undefined ? {} : { margin: options.margin })) {
+    for (const range of planSpeechRanges(edl, rangeClips, getPlanOptions(options, options.providers.isolation))) {
+      if (range.skip !== undefined) {
+        items.push({ step: "isolate", item: range.clip, provider, units: 0, unit: "seconds", credits: 0, cached: false, range: { start: range.startMs / 1000, end: range.endMs / 1000 }, skipped: range.skip });
+        continue;
+      }
       const clipKey = clipKeys[range.clip] ?? null;
       const cache = clipKey === null ? null : (options.rangeCache?.(range, clipKey) ?? getSpeechRangeCache(film.id, clipKey, range, { cacheDir: options.cacheDir, provider }));
       const cached = cache !== null && existsSync(cache.path);
@@ -253,7 +274,8 @@ export async function estimateFootageFilm(film: FootageFilm, options: EstimateFo
 
 /**
  * What isolating only the cut's ranges will cost (`isolateSpeechRanges`), for a confirmation step: the `isolate` items
- * of `estimateFootageFilm` with `isolate: "segments"`, one per range, a cached range at 0.
+ * of `estimateFootageFilm` with `isolate: "segments"`, one per range as it will be sent, a cached range at 0, a range
+ * shorter than the provider's minimum marked `skipped` at 0.
  */
 export async function estimateSpeechRanges(film: FootageFilm, options: Omit<EstimateFootageOptions, "isolate">): Promise<TtsResult<FootageEstimate>> {
   const estimate = await estimateFootageFilm(film, { ...options, isolate: "segments" });
