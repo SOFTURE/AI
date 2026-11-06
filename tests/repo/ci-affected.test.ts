@@ -43,10 +43,42 @@ describe("getAffectedAreas", () => {
   });
 
   it("reaches the example app and the deploy init image for a package the example app installs", () => {
-    expect(getReached(["modules/billing/src/index.ts"])).toEqual([
+    expect(getReached(["modules/auth/src/index.ts"])).toEqual([
       "deploy",
       "example-app",
     ]);
+  });
+
+  it("reaches the Stripe sandbox payment only for billing, the app's payment pages and webhook, and the test itself", () => {
+    expect(getReached(["modules/billing/src/index.ts"])).toEqual([
+      "deploy",
+      "example-app",
+      "stripe-sandbox",
+    ]);
+    expect(getReached(["examples/next-app/app/payment/page.tsx"])).toContain(
+      "stripe-sandbox",
+    );
+    expect(
+      getReached(["examples/next-app/app/api/billing/webhook/route.ts"]),
+    ).toContain("stripe-sandbox");
+    expect(
+      getReached([
+        "examples/next-app/e2e/billing-checkout.stripe-sandbox.spec.ts",
+      ]),
+    ).toContain("stripe-sandbox");
+    expect(getReached(["examples/next-app/app/blog/page.tsx"])).toEqual([
+      "deploy",
+      "example-app",
+    ]);
+  });
+
+  it("does not run the Stripe sandbox payment for a shared root file such as the lockfile, only for its own workflow", () => {
+    expect(getReached(["package-lock.json"])).not.toContain("stripe-sandbox");
+    expect(getReached(["tsconfig.base.json"])).not.toContain("stripe-sandbox");
+    expect(getReached(["package-lock.json"])).toContain("example-app");
+    expect(getReached([".github/workflows/e2e.yml"])).toContain(
+      "stripe-sandbox",
+    );
   });
 
   it("reaches through workspace dependencies: core is under the example app, deploy and host", () => {
@@ -88,9 +120,28 @@ describe("getAffectedAreas", () => {
     "tsconfig.base.json",
     "scripts/ci/affected.mjs",
     ".github/workflows/e2e.yml",
-  ])("reaches every area for the shared file %s", (file) => {
-    expect(getReached([file])).toEqual(AREAS.map((area) => area.name).sort());
-  });
+  ])(
+    "reaches every area for the shared file %s (the Stripe sandbox payment only through its own shared paths)",
+    (file) => {
+      const expected = AREAS.filter((area) =>
+        (area.sharedPaths ?? SHARED_PATHS).some(
+          (path) =>
+            file === path || (path.endsWith("/") && file.startsWith(path)),
+        ),
+      );
+      expect(getReached([file])).toEqual(
+        expected.map((area) => area.name).sort(),
+      );
+      expect(expected.map((area) => area.name)).toEqual(
+        expect.arrayContaining([
+          "deploy",
+          "example-app",
+          "host",
+          "marketing-kit",
+        ]),
+      );
+    },
+  );
 
   it("reaches every area when the files are unknown", () => {
     const affected = getAffectedAreas({

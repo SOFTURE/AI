@@ -25,6 +25,10 @@ on:
       - "**/README.md"
       - "LICENSE"
   workflow_dispatch:
+  # Every night every job runs on master (a scheduled run reaches every area): the Stripe sandbox payment, which a
+  # pull request runs only when it changes billing, and anything outside the repository that moved.
+  schedule:
+    - cron: "17 3 * * *"
 
 permissions:
   contents: read
@@ -46,6 +50,7 @@ jobs:
     outputs:
       example-app: ${{ steps.areas.outputs.example-app }}
       deploy: ${{ steps.areas.outputs.deploy }}
+      stripe-sandbox: ${{ steps.areas.outputs.stripe-sandbox }}
     steps:
       - uses: actions/checkout@v7
       - id: areas
@@ -120,7 +125,7 @@ jobs:
   stripe-sandbox:
     name: Stripe sandbox payment
     needs: changes
-    if: needs.changes.outputs.example-app == 'true'
+    if: needs.changes.outputs.stripe-sandbox == 'true'
     runs-on: ubuntu-latest
     # A payment on Stripe's hosted Checkout whose webhook Stripe itself delivers, through `stripe listen`
     # (examples/next-app/e2e/billing-checkout.stripe-sandbox.spec.ts). Runs with the repository's
