@@ -167,6 +167,12 @@ export type TranscribeOutcome =
       words: Record<string, TimedWord[]>;
       /** The audio each clip's speech is cut from (the cleaned voice when isolated). */
       speech: Record<string, string>;
+      /**
+       * Each clip's pre-gain in dB (`prepareClipSounds`, issue #1159): the gain of the sound `speech` is made from. An
+       * app that lays its own cached ranges raises one cut from the clip's un-gained sound by it. Always answered;
+       * optional so an app's own `ready` outcome still compiles.
+       */
+      speechGainDb?: Record<string, number>;
     };
 
 export function getFrame(film: Pick<FootageFilm, "format">): Frame {
@@ -295,10 +301,10 @@ async function decodeIsolatedVoice(cached: string, clipId: string, buildDir: str
   return output;
 }
 
-/** Each clip's lossless, pre-gained sound (`prepareClipSounds`), by clip id. */
-async function getClipSoundFiles(clips: PreparedClip[], buildDir: string, signal: AbortSignal | undefined): Promise<Record<string, string>> {
-  const sounds = await prepareClipSounds(clips, { buildDir, ...(signal === undefined ? {} : { signal }) });
-  return Object.fromEntries(Object.entries(sounds).map(([id, sound]) => [id, sound.file]));
+/** Each clip's lossless, pre-gained sound (`prepareClipSounds`) and its pre-gain in dB, by clip id. */
+async function getClipSoundFiles(clips: PreparedClip[], buildDir: string, signal: AbortSignal | undefined): Promise<{ speech: Record<string, string>; speechGainDb: Record<string, number> }> {
+  const sounds = Object.entries(await prepareClipSounds(clips, { buildDir, ...(signal === undefined ? {} : { signal }) }));
+  return { speech: Object.fromEntries(sounds.map(([id, sound]) => [id, sound.file])), speechGainDb: Object.fromEntries(sounds.map(([id, sound]) => [id, sound.gainDb])) };
 }
 
 /** The free transcripts of `--placeholder`, written under `placeholder/` for a look; the speech is each clip's lossless sound. */
@@ -308,7 +314,7 @@ async function transcribePlaceholder(clips: PreparedClip[], buildDir: string, si
     words[clip.clip.id] = clip.clip.role === "talk" ? makePlaceholderTranscript(clip.clip.script, clip.duration) : [];
     writeTranscript(join(buildDir, "placeholder", `${clip.clip.id}.transcript.json`), words[clip.clip.id] ?? []);
   }
-  return { kind: "ready", words, speech: await getClipSoundFiles(clips, buildDir, signal) };
+  return { kind: "ready", words, ...(await getClipSoundFiles(clips, buildDir, signal)) };
 }
 
 /** The paid music step, when the film's music still has to be bought; null when it is cached or free. */
@@ -357,7 +363,7 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
   const words: Record<string, TimedWord[]> = {};
   for (const clip of clips) words[clip.clip.id] = [];
   // Every clip's sound, lossless and pre-gained: what the isolator, the speech to text and the speech track hear (#1139).
-  const speech = await getClipSoundFiles(clips, buildDir, signal);
+  const { speech, speechGainDb } = await getClipSoundFiles(clips, buildDir, signal);
   const isolating = plan.filter(({ isolated }) => isolated !== null && !existsSync(isolated.path));
   const transcribing = plan.filter(({ transcript }) => !existsSync(transcript.path));
   const isolateProgress = createStageProgress(options.onProgress, "isolate", isolating.map(({ clip }) => ({ item: clip.clip.id, seconds: clip.duration })));
@@ -410,7 +416,7 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
     transcribeProgress(index, clip.duration);
     words[id] = result.value.words;
   }
-  return ok({ kind: "ready", words, speech });
+  return ok({ kind: "ready", words, speech, speechGainDb });
 }
 
 /** The talking clips' sentences with their ids (`s1`…), as `buildEdl` names them, for choosing what to keep. */

@@ -908,8 +908,13 @@ await renderFootage(film, clips, { ...transcript, speech: isolated.value.speech 
   (with the last `error`, `attempts` and `providerFailure`, null when the provider gave none), `skipped` (too short for
   the provider) or `not_bought` (without `isCommit`).
 - Each range is cut for the isolator from the clip's lossless, pre-gained sound (`<buildDir>/audio/<clip>.wav`, as
-  the speech chain reads it) as WAV. A range cached before this chain (#1139) was cleaned from the un-gained sound; it is reused as
-  it is, so a refused range next to it can differ in level until it is bought again.
+  the speech chain reads it) as WAV, and the gain it was cut at is recorded next to its cached file
+  (`<path>.gain.json`, `getSpeechRangeGainPath`; commit it with the file). Every window lands at the level of the
+  clip's pre-gained sound (#1159): a range cached before the pre-gain (#1139) was cleaned from the un-gained sound, so
+  it is raised by the clip's pre-gain. A range without a record is told apart by its loudness against the same range
+  of the clip's sound (`getRangeInputGainDb`: nearer to the clip's gain under it means un-gained). Each range answers
+  the `gainDb` it was raised by, and the outcome answers `speechGainDb`, each clip's pre-gain, as `transcribeFootage`
+  does: an app that lays its own cached ranges over the speech map raises one cut from the un-gained sound by it.
 - Each clip's cleaned windows are laid over its lossless sound into `<buildDir>/audio/<clip>.ranges.wav`, as long as the
   clip; overlapping ranges switch at the middle of their overlap, and a mono answer goes to both channels at full level.
   Every join is a linear crossfade of `fadeMs` (default 15; 0 switches at once): centred on a switch between two

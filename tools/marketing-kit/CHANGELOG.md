@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **Cached speech ranges land at the pre-gained level (#1159):** since the speech pre-gain (#1139) `isolateSpeechRanges`
+  lays every cleaned window over the clip's pre-gained sound, but a range cached from the un-gained sound kept its old
+  level, so the voice dropped by the clip's pre-gain (about 17 dB on a quiet phone clip) inside that window. Now:
+  - a bought range records the gain of the sound it was cut from next to its cached file
+    (`<path>.gain.json`, `{ "inputGainDb": <dB> }`; `getSpeechRangeGainPath`, `formatSpeechRangeGain`,
+    `readSpeechRangeGain`). Commit it with the cached file;
+  - each laid window is raised by the clip's pre-gain minus that gain. A cached range without a record is told apart by
+    its loudness against the same range of the clip's pre-gained sound (`getRangeInputGainDb`, `buildRangeMeasureArgs`),
+    so ranges bought before 0.16.0 and with 0.16.0 both land right. Cache keys are unchanged: nothing is bought again;
+  - each range answers the `gainDb` it was raised by (`LaidRange.gainDb` in `buildRangeLayArgs`), and
+    `IsolatedSpeech.speechGainDb` and `TranscribeOutcome.speechGainDb` (optional in the type, always answered) give each
+    clip's pre-gain in dB, so an app that lays its own cached ranges over the speech map can apply the same correction.
+
 ## 0.16.0
 
 - **Provider failures carry structured details (#1141):** a failed answer of a footage provider (`TtsResult` with
