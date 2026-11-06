@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -14,11 +14,13 @@ import { toPaidAudio, type IsolationProvider, type PaidAudio } from "./providers
 import {
   buildRangeAudioArgs,
   buildRangeLayArgs,
+  getPlanOptions,
   getSpeechRangeCache,
   getSpeechRangeWindows,
   planSpeechRanges,
   DEFAULT_SPEECH_RANGE_FADE_MS,
   type LaidRange,
+  type PlanSpeechRangesOptions,
   type SpeechRange,
   type SpeechRangeCacheResolver,
 } from "./speech-ranges.js";
@@ -29,7 +31,9 @@ import {
  * segment is never paid twice and a changed cut pays only its new ranges. The cleaned ranges are laid back over the
  * clip's own sound into one file as long as the clip: the speech map `renderFootage` takes. A range the provider refuses
  * is asked again, and one refused on every attempt keeps the clip's own sound in its window while the others are laid
- * (issue #1127): only a cancel stops the call.
+ * (issue #1127): only a cancel stops the call. The ranges reach the provider's minimum input (`minSeconds`, issue
+ * #1140): near ranges of a clip are merged, a short one is widened with the clip's own context and only the part the
+ * cut hears is laid; a range that still cannot pass is never sent.
  */
 
 /** How often a refused range is asked again: `attempts` in all (default 3), waiting `delaysMs[n]` before attempt n + 2. */
@@ -48,6 +52,10 @@ export const DEFAULT_SPEECH_RANGE_RETRY_DELAYS_MS: readonly number[] = [1000, 20
 export type IsolateSpeechRangesOptions = Pick<FootageRunOptions, "buildDir" | "cacheDir" | "providers" | "isCommit" | "signal" | "onCharge" | "onProgress" | "onFfmpegFailure"> & {
   /** Seconds added on each side of a sound span; default `DEFAULT_SPEECH_RANGE_MARGIN` (0.25). */
   margin?: number;
+  /** Ranges of a clip at most this many seconds apart are isolated as one; default 2, `null` keeps them apart. */
+  mergeGap?: PlanSpeechRangesOptions["mergeGap"];
+  /** Seconds a range shorter than the provider's minimum is widened past it; default `DEFAULT_SPEECH_RANGE_MIN_PAD` (0.4). */
+  minPad?: number;
   /** Retries of a refused range. */
   retry?: SpeechRangeRetry;
   /** Milliseconds of the linear crossfade at every join; default `DEFAULT_SPEECH_RANGE_FADE_MS` (15), 0 switches at once. */
@@ -67,6 +75,7 @@ export type SpeechRangeOutcome =
   | { kind: "cached" }
   | { kind: "bought"; attempts: number }
   | { kind: "failed"; error: string; attempts: number }
+  | { kind: "skipped"; reason: "too_short"; minSeconds: number }
   | { kind: "not_bought" };
 
 export interface IsolatedSpeechRange extends SpeechRange {
@@ -79,7 +88,8 @@ export interface IsolatedSpeechRange extends SpeechRange {
   laid: boolean;
   /**
    * `cached`; `bought` in this call; `failed` when the provider refused it on every attempt (its window keeps the
-   * clip's own sound); `not_bought` without `isCommit`.
+   * clip's own sound); `skipped` when it is shorter than the provider's minimum even after merging and widening (never
+   * sent, its window keeps the clip's own sound); `not_bought` without `isCommit`.
    */
   outcome: SpeechRangeOutcome;
 }
@@ -117,7 +127,7 @@ async function runIsolateSpeechRanges(
   const planned = planSpeechRanges(
     edl,
     clips.map((clip) => ({ id: clip.clip.id, role: clip.clip.role, duration: clip.duration })),
-    options.margin === undefined ? {} : { margin: options.margin },
+    getPlanOptions(options, providers.isolation),
   );
   const byClip = new Map(clips.map((clip) => [clip.clip.id, clip]));
   const clipKeys = new Map<string, string>();
@@ -131,10 +141,19 @@ async function runIsolateSpeechRanges(
       clipKeys.set(range.clip, clipKey);
     }
     const cache = options.rangeCache?.(range, clipKey) ?? getSpeechRangeCache(film.id, clipKey, range, { cacheDir: options.cacheDir, provider: providers.isolation.id });
+    if (range.skip !== undefined) {
+      ranges.push({ ...range, cacheKey: cache.key, path: cache.path, cached: false, laid: false, outcome: { kind: "skipped", ...range.skip } });
+      continue;
+    }
     const cached = existsSync(cache.path);
     ranges.push({ ...range, cacheKey: cache.key, path: cache.path, cached, laid: cached, outcome: cached ? { kind: "cached" } : { kind: "not_bought" } });
   }
-  const buying = options.isCommit ? ranges.filter((range) => !range.cached) : [];
+  const skipped = ranges.filter((range) => range.outcome.kind === "skipped");
+  if (skipped.length > 0) {
+    const minimum = providers.isolation.minSeconds ?? 0;
+    log(`voice isolation: ${String(skipped.length)} range${skipped.length === 1 ? "" : "s"} shorter than ${providers.isolation.id}'s minimum of ${String(minimum)} s even with the clip's whole sound, not sent, laid with the clip's own sound: ${skipped.map(describeRange).join("; ")}.`);
+  }
+  const buying = options.isCommit ? ranges.filter((range) => range.outcome.kind === "not_bought") : [];
   const total = buying.reduce((sum, range) => sum + (range.endMs - range.startMs) / 1000, 0);
   let done = 0;
   const report = (range: SpeechRange, index: number): void => {
@@ -162,6 +181,7 @@ async function runIsolateSpeechRanges(
       },
     });
     if (!answer.ok) {
+      rmSync(input, { force: true });
       range.outcome = { kind: "failed", error: answer.error, attempts: answer.attempts };
       done += units;
       report(range, index);
