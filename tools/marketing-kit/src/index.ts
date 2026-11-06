@@ -163,6 +163,7 @@ export {
   countOgSlides,
   getDefaultOgSize,
   OG_TEMPLATE_IDS,
+  PHOTO_COVER_LAYOUTS,
   getOgPalette,
   loadOgFonts,
   renderConfiguredOgImage,
@@ -175,6 +176,8 @@ export {
   type OgTemplateId,
   type PhotoCover,
   type PhotoCoverInput,
+  type PhotoCoverLayout,
+  type PhotoCoverTone,
 } from "./og/index.js";
 export { buildPosts, postsMarkdown, type PlatformPost, type PostsInput } from "./posts/posts.js";
 export { createActionScene, getLocator, runAction, type LocatorSource } from "./record/actions.js";

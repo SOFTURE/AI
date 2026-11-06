@@ -20,6 +20,9 @@ export {
 } from "./render.js";
 export {
   MAX_COVER_CAPTION_LENGTH,
+  MAX_COVER_KICKER_LENGTH,
+  MAX_COVER_PILL_LENGTH,
+  PHOTO_COVER_LAYOUTS,
   PHOTO_COVER_QUALITY,
   PHOTO_COVER_SIZE,
   getCoverBand,
@@ -28,6 +31,8 @@ export {
   type CoverBand,
   type PhotoCover,
   type PhotoCoverInput,
+  type PhotoCoverLayout,
+  type PhotoCoverTone,
 } from "./photo-cover.js";
 export {
   getCoverCrop,

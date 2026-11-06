@@ -19,6 +19,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
     `IsolatedSpeech.speechGainDb` and `TranscribeOutcome.speechGainDb` (optional in the type, always answered) give each
     clip's pre-gain in dB, so an app that lays its own cached ranges over the speech map can apply the same correction.
 
+- **Photo cover layouts (#1163):** `renderPhotoCover` takes `layout` (`PHOTO_COVER_LAYOUTS`: `photo`,
+  `title-bottom`, `title-center`, `title-top`, `kicker-title`, `pill`), `kicker` (at most 40 characters, drawn by
+  `kicker-title` above the caption) and `tone` (`light`: light text over a dark scrim, the default; `dark`: dark text
+  over a light scrim). Each layout keeps its text to its part of the centre 4:5 band (the lower half, the middle third
+  or the upper half), measured on the drawn pixels, and refuses text that does not fit. The scrim follows the text
+  (from the bottom, from the top, a stripe behind a centred title); the `pill` label (at most 32 characters) sits in a
+  rounded box of the dark colour instead. An overlong kicker or pill label, a character the fonts cannot draw in either,
+  a layout without the text it needs and a text its layout does not draw are errors. Without `layout` a call draws what
+  it drew in 0.16.0.
+
 ## 0.16.0
 
 - **Provider failures carry structured details (#1141):** a failed answer of a footage provider (`TtsResult` with

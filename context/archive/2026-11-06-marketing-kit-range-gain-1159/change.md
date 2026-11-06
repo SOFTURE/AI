@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-range-gain-1159
 title: "marketing-kit: cached speech ranges land at the pre-gained level (issue #1159)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1159
 branch: claude/project-thread-l357as
 created: 2026-11-06
 updated: 2026-11-06
+archived_at: 2026-11-06
 ---
 
 ## Intent
@@ -30,3 +31,9 @@ npm (another thread releases 0.16.0).
 ## Notes
 
 - Framing: skipped. The issue names the problem and the acceptable fixes.
+
+## Done
+
+A range cached from the un-gained sound is raised by the clip's pre-gain when laid; a bought range records its input
+gain in `<path>.gain.json`, and a range without a record is classified by loudness. `IsolatedSpeech` and
+`TranscribeOutcome` answer `speechGainDb`. PR #1164. Ships in the next combined marketing-kit release (with #1163).

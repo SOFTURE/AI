@@ -25,6 +25,10 @@ on:
       - "**/README.md"
       - "LICENSE"
   workflow_dispatch:
+  # Every night every job runs on master (a scheduled run reaches every area): the Stripe sandbox payment, which a
+  # pull request runs only when it changes billing, and anything outside the repository that moved.
+  schedule:
+    - cron: "17 3 * * *"
 
 permissions:
   contents: read
@@ -46,6 +50,7 @@ jobs:
     outputs:
       example-app: ${{ steps.areas.outputs.example-app }}
       deploy: ${{ steps.areas.outputs.deploy }}
+      stripe-sandbox: ${{ steps.areas.outputs.stripe-sandbox }}
     steps:
       - uses: actions/checkout@v7
       - id: areas
@@ -120,7 +125,7 @@ jobs:
   stripe-sandbox:
     name: Stripe sandbox payment
     needs: changes
-    if: needs.changes.outputs.example-app == 'true'
+    if: needs.changes.outputs.stripe-sandbox == 'true'
     runs-on: ubuntu-latest
     # A payment on Stripe's hosted Checkout whose webhook Stripe itself delivers, through `stripe listen`
     # (examples/next-app/e2e/billing-checkout.stripe-sandbox.spec.ts). Runs with the repository's
@@ -253,6 +258,24 @@ jobs:
           done
           echo "::group::stripe listen log"
           tail -n 200 examples/next-app/test-results/stripe-listen.log 2>/dev/null || true
+          echo "::endgroup::"
+      - name: Show what Stripe recorded for the failed payment
+        if: failure() && steps.key.outputs.present == 'true'
+        env:
+          STRIPE_API_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        # Only ids, states and Stripe's error codes and messages: never a client secret or a customer's details.
+        run: |
+          echo "::group::latest Checkout Sessions"
+          stripe checkout sessions list --limit 3 --api-key "$STRIPE_API_KEY" \
+            | jq '[.data[] | {id, created, status, payment_status, currency, amount_total, payment_intent}]' || true
+          echo "::endgroup::"
+          echo "::group::latest PaymentIntents"
+          stripe payment_intents list --limit 3 --api-key "$STRIPE_API_KEY" \
+            | jq '[.data[] | {id, created, status, currency, amount, payment_method_types, error: (.last_payment_error // null | if . == null then null else {type, code, decline_code, message} end)}]' || true
+          echo "::endgroup::"
+          echo "::group::latest charges"
+          stripe charges list --limit 3 --api-key "$STRIPE_API_KEY" \
+            | jq '[.data[] | {id, created, status, currency, amount, failure_code, failure_message, outcome: (.outcome // null | if . == null then null else {type, network_status, reason, seller_message, risk_level} end)}]' || true
           echo "::endgroup::"
       - if: failure() && steps.key.outputs.present == 'true'
         uses: actions/upload-artifact@v7

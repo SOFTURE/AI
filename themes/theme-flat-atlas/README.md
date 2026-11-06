@@ -100,6 +100,7 @@ language and the plural forms.
 | `MapPinCluster` (`x`, `y`, `count`, `label`) | Dense pins merged on a phone: a 22 px stamp-ink dot with the count |
 | `MapPopover` (`place`, `meta`, `coordinates`, children) | A pin's popover, 260 px on the raised surface; the app positions it |
 | `MapLegend` (`items` of `visited` / `place` / `planned` / `land`) | The map's key, as HTML |
+| `MapLegendTooltip` (`label`, `items`, `note`) | The legend folded into one small button over a full-screen map: hover or focus shows the key (and the note, such as the map's source) as a tooltip above it; the button is described by the tooltip |
 | `MapControls` (`label`, `zoomInLabel`, `zoomOutLabel`, `resetLabel`, `onZoomIn`, `onZoomOut`, `onReset`, `isAtMaxZoom`, `isAtMinZoom`, `isAtStart`, `orientation`) | The map's zoom controls: plus, minus and an optional reset as one flat bar on the raised surface (40 px buttons, hairlines between them, the `line-strong` outline round the group), vertical by default; the map owns the zoom and the limits disable the buttons |
 | `Card`, `Photo` | A flat card (surface, one hairline, 24 px inside) and a 4:3 photo frame |
 | `Postcard` (`title`, `meta`, `photo`, `stamp`, `headingLevel`), `PostcardStamp` (`year`, `code`, `status`) | A trip as a postcard, with the double-ringed postmark turned by -8° as its only ornament |
@@ -112,7 +113,7 @@ A separate entry, so a page without the map does not load its shapes (about 160 
 
 | Export | What it is |
 | --- | --- |
-| `WorldMap` (`label`, `countries`, `places`, `selectedPlaceKey`, `onPlaceClick`, `hasGraticule`, children) | The hero map: a static 1000 × 500 SVG with the countries painted by status, pins as HTML over it in the order given, children as an overlay (the open `MapPopover`). On a phone it keeps 720 px and scrolls sideways inside its own container |
+| `WorldMap` (`label`, `countries`, `places`, `selectedPlaceKey`, `onPlaceClick`, `hasGraticule`, `isFitted`, children) | The hero map: a static 1000 × 500 SVG with the countries painted by status, pins as HTML over it in the order given, children as an overlay (the open `MapPopover`). On a phone it keeps 720 px and scrolls sideways inside its own container. `isFitted` fills a box of a given height (a map that is the whole screen): the map stands in the middle, as large as the whole map fits, never below 720 px |
 | `WORLD_COUNTRY_SHAPES`, `WORLD_GRATICULE_PATH`, `WORLD_MAP_VIEWBOX`, `WORLD_MAP_FIT` | The data: Natural Earth 1:110m countries (`world-atlas`, public domain) without Antarctica, keyed by ISO 3166-1 numeric code (`"616"` Poland, `"620"` Portugal), projected with Natural Earth II at build time |
 | `projectToMapPercent(longitude, latitude)`, `projectNaturalEarth2`, `projectToFit` | The same projection at run time, for pins and a popover's position, without d3 in the bundle |
 

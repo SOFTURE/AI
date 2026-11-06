@@ -30,6 +30,12 @@ export interface WorldMapProps {
   readonly onPlaceClick?: (key: string, event: MouseEvent<HTMLButtonElement>) => void;
   /** Draws the 10 degree graticule; on by default. */
   readonly hasGraticule?: boolean;
+  /**
+   * Fills its box instead of setting its own height: the map stands in the middle, as large as the whole 2:1 map fits
+   * (never below the phone minimum, past which it scrolls). The box needs a height of its own, e.g. the screen under
+   * the header.
+   */
+  readonly isFitted?: boolean;
   /** Overlay content positioned in percent of the map, such as the open popover. */
   readonly children?: ReactNode;
   readonly className?: string;
@@ -42,15 +48,27 @@ const COUNTRY_LOOK: Readonly<Record<TravelStatus | "land", string>> = {
 };
 
 /**
+ * A fitted map's box is a size container, so the map can take the smaller of its width and twice its height. Auto
+ * margins centre the map and drop to zero once it is wider than the box, so it still scrolls from its own corner.
+ */
+const FITTED_BOX_LOOK = "grid h-full [container-type:size]";
+const FITTED_MAP_LOOK = "m-auto w-[min(100cqw,200cqh)]";
+
+/**
  * The hero world map: Natural Earth 1:110m countries without Antarctica in the Natural Earth II projection, projected
  * at build time into a static 1000 x 500 SVG. Water is one colour, land is flat, a visited country is painted in the
  * stamp ink, a planned one keeps the land with a dashed passport-blue outline. Pins and labels are HTML over the SVG.
- * On a phone the map keeps 720 px and scrolls sideways inside its own container, never the page.
+ * On a phone the map keeps 720 px and scrolls sideways inside its own container, never the page. `isFitted` makes it
+ * fill a box of a given height instead, for a map that is the whole screen.
  */
-export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPlaceClick, hasGraticule = true, children, className }: WorldMapProps) {
+export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPlaceClick, hasGraticule = true, isFitted = false, children, className }: WorldMapProps) {
   return (
-    <div data-slot="world-map" className={cn("overflow-x-auto overscroll-x-contain", className)}>
-      <div className="relative min-w-map-min">
+    <div
+      data-slot="world-map"
+      data-fitted={isFitted ? "" : undefined}
+      className={cn("overflow-x-auto overscroll-x-contain", isFitted && FITTED_BOX_LOOK, className)}
+    >
+      <div className={cn("relative min-w-map-min", isFitted && FITTED_MAP_LOOK)}>
         <svg
           viewBox={`0 0 ${String(WORLD_MAP_VIEWBOX.width)} ${String(WORLD_MAP_VIEWBOX.height)}`}
           role="img"

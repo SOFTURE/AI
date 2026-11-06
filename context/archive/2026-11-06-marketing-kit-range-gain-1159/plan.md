@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-range-gain-1159
-status: in_progress
+status: archived
 ---
 
 # Plan: cached ranges at the pre-gained level (issue #1159)
