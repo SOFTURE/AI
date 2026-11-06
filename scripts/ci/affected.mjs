@@ -14,7 +14,9 @@ import { findWorkspaces, getDependencyNames } from "../build-workspaces.mjs";
 
 /**
  * @typedef {import("../build-workspaces.mjs").WorkspacePackage} WorkspacePackage
- * @typedef {{ name: string, packages: string[], paths: string[] }} Area
+ * @typedef {{ name: string, packages: string[], paths: string[], sharedPaths?: string[] }} Area
+ *   `sharedPaths` replaces SHARED_PATHS for an area that must not run on every shared change (the Stripe sandbox
+ *   payment, which pays in a real account: a lockfile or root config change is no reason to).
  * @typedef {{ kind: "files", files: string[] } | { kind: "all", reason: string }} ChangedFiles
  */
 
@@ -113,6 +115,21 @@ export function getAreas(root) {
       packages: ["@softure-ai/host", "@softure-ai/deploy"],
       paths: [],
     },
+    // A real payment in Stripe's sandbox (e2e.yml, Stripe sandbox payment): only the billing module, the app's payment
+    // pages and webhook, and the test itself reach it, not its dependencies or a shared root file such as the
+    // lockfile. The nightly scheduled run covers the rest, and a change in Stripe's sandbox.
+    {
+      name: "stripe-sandbox",
+      packages: [],
+      paths: [
+        "modules/billing/",
+        "examples/next-app/app/payment/",
+        "examples/next-app/app/api/billing/",
+        "examples/next-app/e2e/billing-checkout.stripe-sandbox.spec.ts",
+        "examples/next-app/playwright.stripe-sandbox.config.ts",
+      ],
+      sharedPaths: [".github/workflows/e2e.yml", ".github/actions/"],
+    },
     // The init image packs the example app with the workspace packages it installs.
     {
       name: "deploy",
@@ -160,15 +177,15 @@ export function getDependencyClosure(names, packages) {
  * @returns {Record<string, boolean>}
  */
 export function getAffectedAreas({ changed, areas, packages }) {
-  const reachesAll =
-    changed.kind === "all" ||
-    changed.files.some((file) =>
-      SHARED_PATHS.some((path) => isUnder(file, path)),
-    );
   const files = changed.kind === "files" ? changed.files : [];
   /** @type {Record<string, boolean>} */
   const affected = {};
   for (const area of areas) {
+    const reachesAll =
+      changed.kind === "all" ||
+      files.some((file) =>
+        (area.sharedPaths ?? SHARED_PATHS).some((path) => isUnder(file, path)),
+      );
     const closure = getDependencyClosure(area.packages, packages);
     const dirs = packages
       .filter((pkg) => closure.has(pkg.name))
