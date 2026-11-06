@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## 0.6.0
+## Unreleased
 
 - **Configurable release retention and an on-demand server cleanup (#1171):** `deploy.json` takes `releases.keep`
   (default 5, from 2 to 50), which `init` now writes; a release removes the release folders beyond it once its settings
