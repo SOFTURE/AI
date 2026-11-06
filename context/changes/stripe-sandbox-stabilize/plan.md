@@ -18,4 +18,4 @@
 ## Progress
 
 - [x] 1-3 implemented; 31 area tests pass; ci-workflows test allows e2e.yml's nightly schedule.
-- [ ] 4 root cause.
+- [ ] 4 root cause. Run 128018303179: the Checkout Sessions stay `open` with no PaymentIntent (the last one 15:15 UTC), so Checkout fails before it creates one; next run records the failing api.stripe.com answer.
