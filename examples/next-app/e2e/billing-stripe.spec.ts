@@ -3,8 +3,8 @@
 // checkout turns the account's trial into paid access without the owner, a repeated delivery
 // changes nothing, an unsigned one is refused, and a full refund takes back what that one payment
 // granted: the access of a single payment, or one month of two stacked ones. The payment
-// page shows where a hosted checkout returned. Stripe's own API is covered by the sandbox test in
-// modules/billing/tests/stripe-sandbox.test.ts.
+// page shows where a hosted checkout returned. The whole payment flow through a fake Stripe is
+// billing-checkout.fake-stripe.spec.ts.
 import { randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { users } from "@softure-ai/auth";
