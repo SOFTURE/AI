@@ -4,7 +4,11 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.1
+
+- No code change: the first release through the npm trusted publisher (OIDC, no token).
+
+## 0.1.0
 
 - First version (#1135): the Flat Atlas design system as a theme package on `@softure-ai/theme-kit`. Tokens (passport
   paper light scheme first, passport cover dark scheme, stamp ink, passport blue and marigold, the map roles),
