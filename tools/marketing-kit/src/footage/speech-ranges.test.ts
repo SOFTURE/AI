@@ -9,10 +9,15 @@ import type { Edl, EdlSegment } from "./edl.js";
 import {
   buildRangeAudioArgs,
   buildRangeLayArgs,
+  buildRangeMeasureArgs,
+  formatSpeechRangeGain,
+  getRangeInputGainDb,
   getSpeechRangeCache,
+  getSpeechRangeGainPath,
   getSpeechRangeFades,
   getSpeechRangeWindows,
   planSpeechRanges,
+  readSpeechRangeGain,
   type SpeechRange,
   type SpeechRangeClip,
 } from "./speech-ranges.js";
@@ -176,6 +181,24 @@ describe("the range ffmpeg arguments", () => {
     ]);
   });
 
+  it("raises a window by its gainDb before its fades, and leaves a 0 dB window as it is (issue #1159)", () => {
+    const range = { clip: "a", startMs: 1000, endMs: 2000 };
+    const other = { clip: "a", startMs: 3000, endMs: 4000 };
+    const args = buildRangeLayArgs(
+      "clip.wav",
+      [
+        { window: { range, startMs: 1000, endMs: 2000 }, file: "one.mp3", isMono: false, gainDb: 17.25 },
+        { window: { range: other, startMs: 3000, endMs: 4000 }, file: "two.mp3", isMono: false, gainDb: 0 },
+      ],
+      "out.wav",
+      { fadeMs: 0 },
+    );
+    expect(args[args.indexOf("-filter_complex") + 1]?.split(";").slice(1, 3)).toEqual([
+      "[1:a]atrim=start=0.000:end=1.000,asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,volume=17.25dB,adelay=48000S:all=1[w0]",
+      "[2:a]atrim=start=0.000:end=1.000,asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,adelay=144000S:all=1[w1]",
+    ]);
+  });
+
   it("copies the base's sound when no window is laid", () => {
     expect(buildRangeLayArgs("clip.mp4", [], "out.mp3")).toEqual(["-v", "error", "-y", "-i", "clip.mp4", "-vn", "-af", "aformat=sample_rates=48000:channel_layouts=stereo", "-c:a", "libmp3lame", "-q:a", "2", "out.mp3"]);
   });
@@ -253,5 +276,44 @@ describe.runIf(hasFfmpeg)("buildRangeLayArgs through ffmpeg (issue #1127)", () =
 
   it("steps at once without a fade", () => {
     expect(maxStep(layConstant({ base: 0.8, windows: 0.4 }, laid, 0))).toBeGreaterThan(0.3);
+  });
+});
+
+describe("the input gain of a cached range (issue #1159)", () => {
+  it("records the gain next to the cached file and reads it back", () => {
+    expect(getSpeechRangeGainPath("/cache/street/abc.isolated.mp3")).toBe("/cache/street/abc.isolated.mp3.gain.json");
+    expect(formatSpeechRangeGain(17.3)).toBe('{"inputGainDb":17.3}\n');
+    expect(readSpeechRangeGain(formatSpeechRangeGain(-2.5))).toBe(-2.5);
+    expect(readSpeechRangeGain(formatSpeechRangeGain(0))).toBe(0);
+  });
+
+  it("reads a broken or foreign record as none", () => {
+    expect(readSpeechRangeGain("not json")).toBeNull();
+    expect(readSpeechRangeGain("null")).toBeNull();
+    expect(readSpeechRangeGain('{"inputGainDb":"17"}')).toBeNull();
+    expect(readSpeechRangeGain("{}")).toBeNull();
+  });
+
+  it("tells a range cut from the un-gained sound by a level near the clip's gain under the base", () => {
+    expect(getRangeInputGainDb({ clipGainDb: 17, cleanedLufs: -41.5, baseLufs: -23 })).toBe(0);
+    expect(getRangeInputGainDb({ clipGainDb: 17, cleanedLufs: -25, baseLufs: -23 })).toBe(17);
+    expect(getRangeInputGainDb({ clipGainDb: 17, cleanedLufs: -21, baseLufs: -23 })).toBe(17);
+  });
+
+  it("follows a negative gain the same way", () => {
+    expect(getRangeInputGainDb({ clipGainDb: -6, cleanedLufs: -16.5, baseLufs: -23 })).toBe(0);
+    expect(getRangeInputGainDb({ clipGainDb: -6, cleanedLufs: -23.5, baseLufs: -23 })).toBe(-6);
+  });
+
+  it("keeps the clip's gain when either side is silent or the clip has no gain", () => {
+    expect(getRangeInputGainDb({ clipGainDb: 17, cleanedLufs: null, baseLufs: -23 })).toBe(17);
+    expect(getRangeInputGainDb({ clipGainDb: 17, cleanedLufs: -40, baseLufs: null })).toBe(17);
+    expect(getRangeInputGainDb({ clipGainDb: 0, cleanedLufs: -40, baseLufs: -23 })).toBe(0);
+  });
+
+  it("measures a whole file or only a range of it", () => {
+    const measure = "aformat=sample_rates=48000:channel_layouts=stereo,loudnorm=I=-23:TP=-2:LRA=11:print_format=json";
+    expect(buildRangeMeasureArgs("one.mp3")).toEqual(["-hide_banner", "-nostats", "-i", "one.mp3", "-map", "0:a:0", "-vn", "-af", measure, "-f", "null", "-"]);
+    expect(buildRangeMeasureArgs("clip.wav", { startMs: 800, endMs: 2200 })).toEqual(["-hide_banner", "-nostats", "-ss", "0.800", "-t", "1.400", "-i", "clip.wav", "-map", "0:a:0", "-vn", "-af", measure, "-f", "null", "-"]);
   });
 });

@@ -1,25 +1,31 @@
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { describeProviderFailure, type ProviderFailure } from "../voice/provider-failure.js";
 import { err, ok } from "./failure.js";
 import { probeAudio } from "./audio.js";
-import { prepareClipSounds } from "./clip-sound.js";
+import { prepareClipSounds, type ClipSound } from "./clip-sound.js";
+import { isSilent, readLoudnessMeasurement } from "./loudness.js";
 import { writeCacheFile } from "./cache.js";
 import type { Edl } from "./edl.js";
 import type { FootageFilm } from "./film.js";
 import { getClipCacheKey } from "./paid.js";
 import { getFfmpegReporting, type FootageResult, type FootageRunOptions, type PreparedClip } from "./pipeline.js";
-import { runFfmpeg, withFfmpegFailureReporting } from "./process.js";
+import { runFfmpeg, runProcess, withFfmpegFailureReporting } from "./process.js";
 import { toPaidAudio, type IsolationProvider, type PaidAudio } from "./providers.js";
 import {
   buildRangeAudioArgs,
   buildRangeLayArgs,
+  buildRangeMeasureArgs,
+  formatSpeechRangeGain,
   getPlanOptions,
+  getRangeInputGainDb,
+  getSpeechRangeGainPath,
   getSpeechRangeCache,
   getSpeechRangeWindows,
   planSpeechRanges,
+  readSpeechRangeGain,
   DEFAULT_SPEECH_RANGE_FADE_MS,
   type LaidRange,
   type PlanSpeechRangesOptions,
@@ -36,7 +42,9 @@ import {
  * (issue #1127): only a cancel stops the call. The ranges reach the provider's minimum input (`minSeconds`, issue
  * #1140): near ranges of a clip are merged, a short one is widened with the clip's own context and only the part the
  * cut hears is laid; a range that still cannot pass is never sent. A refusal the provider marks not retryable
- * (`isRetryable: false`, e.g. a 400 `audio_too_short`) is not asked again (issue #1141).
+ * (`isRetryable: false`, e.g. a 400 `audio_too_short`) is not asked again (issue #1141). Every window lands at the
+ * level of the clip's pre-gained sound (issue #1159): a bought range records the gain it was cut at next to its cached
+ * file, and a cached range cut from the un-gained sound (bought before the pre-gain) is raised by the clip's pre-gain.
  */
 
 /**
@@ -104,11 +112,18 @@ export interface IsolatedSpeechRange extends SpeechRange {
    * sent, its window keeps the clip's own sound); `not_bought` without `isCommit`.
    */
   outcome: SpeechRangeOutcome;
+  /**
+   * The dB its cleaned voice was raised by when laid (issue #1159): the clip's pre-gain for a range cut from the
+   * clip's un-gained sound, else 0; 0 when it is not laid.
+   */
+  gainDb: number;
 }
 
 export interface IsolatedSpeech {
   /** Every clip's audio for the speech track: its laid file, or its lossless sound when none of its ranges is laid. */
   speech: Record<string, string>;
+  /** Each clip's pre-gain in dB (`prepareClipSounds`): the gain of the sound its speech file is made from (issue #1159). */
+  speechGainDb: Record<string, number>;
   ranges: IsolatedSpeechRange[];
 }
 
@@ -155,11 +170,11 @@ async function runIsolateSpeechRanges(
     }
     const cache = options.rangeCache?.(range, clipKey) ?? getSpeechRangeCache(film.id, clipKey, range, { cacheDir: options.cacheDir, provider: providers.isolation.id });
     if (range.skip !== undefined) {
-      ranges.push({ ...range, cacheKey: cache.key, path: cache.path, cached: false, laid: false, outcome: { kind: "skipped", ...range.skip } });
+      ranges.push({ ...range, cacheKey: cache.key, path: cache.path, cached: false, laid: false, outcome: { kind: "skipped", ...range.skip }, gainDb: 0 });
       continue;
     }
     const cached = existsSync(cache.path);
-    ranges.push({ ...range, cacheKey: cache.key, path: cache.path, cached, laid: cached, outcome: cached ? { kind: "cached" } : { kind: "not_bought" } });
+    ranges.push({ ...range, cacheKey: cache.key, path: cache.path, cached, laid: cached, outcome: cached ? { kind: "cached" } : { kind: "not_bought" }, gainDb: 0 });
   }
   const skipped = ranges.filter((range) => range.outcome.kind === "skipped");
   if (skipped.length > 0) {
@@ -206,6 +221,8 @@ async function runIsolateSpeechRanges(
     }
     const paid = answer.paid;
     writeCacheFile(range.path, paid.audio);
+    // The gain of the sound it was cut from, so a later call lays it at the level of the clip's sound then (#1159).
+    writeCacheFile(getSpeechRangeGainPath(range.path), formatSpeechRangeGain(sounds[clip.clip.id]?.gainDb ?? 0));
     range.laid = true;
     range.outcome = { kind: "bought", attempts: answer.attempts };
     options.onCharge?.({
@@ -229,25 +246,63 @@ async function runIsolateSpeechRanges(
     log(`voice isolation DRY RUN: ${String(missing.length)} range${missing.length === 1 ? "" : "s"} (${seconds.toFixed(1)} s) not cached, laid with the clip's own sound. Run with --commit to pay.`);
   }
   const speech: Record<string, string> = {};
+  const speechGainDb: Record<string, number> = {};
   for (const clip of clips) {
     const id = clip.clip.id;
     speech[id] = getSound(clip);
+    const clipGainDb = sounds[id]?.gainDb ?? 0;
+    speechGainDb[id] = clipGainDb;
     const laidRanges = ranges.filter((range) => range.clip === id && range.laid);
     if (laidRanges.length === 0) continue;
     const laid: LaidRange[] = [];
     for (const window of getSpeechRangeWindows(laidRanges)) {
-      const file = laidRanges.find((range) => range === window.range)?.path;
-      if (file === undefined) continue;
+      const range = laidRanges.find((candidate) => candidate === window.range);
+      if (range === undefined) continue;
+      const file = range.path;
       const probed = await probeAudio(file, aborting);
-      if (!probed.ok) return err(`${describeRange(window.range)}: the cleaned voice at ${file} does not read (${probed.error}); delete it and run again.`);
-      laid.push({ window, file, isMono: probed.probe.channels === 1 });
+      if (!probed.ok) return err(`${describeRange(range)}: the cleaned voice at ${file} does not read (${probed.error}); delete it and run again.`);
+      const inputGainDb = await getCachedInputGainDb(range, { sound: sounds[id], file, ...aborting });
+      const gainDb = Math.round((clipGainDb - inputGainDb) * 100) / 100 || 0;
+      range.gainDb = gainDb;
+      if (gainDb !== 0) log(`voice isolation: ${describeRange(range)} was cut from the clip's sound at ${String(inputGainDb)} dB, laid over it at ${String(clipGainDb)} dB: raised by ${String(gainDb)} dB.`);
+      laid.push({ window, file, isMono: probed.probe.channels === 1, gainDb });
     }
     const output = join(buildDir, "audio", `${id}.ranges.wav`);
     mkdirSync(join(buildDir, "audio"), { recursive: true });
     await runFfmpeg(`Laying the cleaned voice over clip ${id}`, buildRangeLayArgs(getSound(clip), laid, output, { fadeMs: options.fadeMs ?? DEFAULT_SPEECH_RANGE_FADE_MS }), { ...aborting, output });
     speech[id] = output;
   }
-  return ok({ speech, ranges });
+  return ok({ speech, speechGainDb, ranges });
+}
+
+/**
+ * The gain of the sound a laid range's cleaned voice was cut from (issue #1159): the clip's pre-gain when it was bought
+ * in this call; its record (`getSpeechRangeGainPath`) when there is one; else told from its loudness against the same
+ * range of the clip's pre-gained sound (`getRangeInputGainDb`), for a range cached before the record existed.
+ */
+async function getCachedInputGainDb(range: IsolatedSpeechRange, input: { sound: ClipSound | undefined; file: string; signal?: AbortSignal }): Promise<number> {
+  const clipGainDb = input.sound?.gainDb ?? 0;
+  if (range.outcome.kind === "bought" || input.sound === undefined) return clipGainDb;
+  const record = getSpeechRangeGainPath(input.file);
+  if (existsSync(record)) {
+    const recorded = readSpeechRangeGain(readFileSync(record, "utf8"));
+    if (recorded !== null) return recorded;
+  }
+  if (clipGainDb === 0) return 0;
+  const cleanedLufs = await measureRangeLoudness(`the cleaned voice of ${describeRange(range)}`, buildRangeMeasureArgs(input.file), input.signal);
+  const baseLufs = await measureRangeLoudness(`${describeRange(range)} of the clip's sound`, buildRangeMeasureArgs(input.sound.file, range), input.signal);
+  return getRangeInputGainDb({ clipGainDb, cleanedLufs, baseLufs });
+}
+
+/** Integrated loudness in LUFS of a measuring pass (`buildRangeMeasureArgs`); null for silence. Throws naming `label` when ffmpeg fails. */
+async function measureRangeLoudness(label: string, args: string[], signal: AbortSignal | undefined): Promise<number | null> {
+  const step = `Measuring ${label}`;
+  const measured = await runProcess({ command: "ffmpeg", args, ...(signal === undefined ? {} : { signal }) });
+  if (measured.kind === "not-started") throw new Error(`${step}: ffmpeg did not start (${measured.error}).`);
+  if (measured.code !== 0) throw new Error(`${step}: ffmpeg ended with code ${String(measured.code)}: ${measured.stderr.trim().split("\n").slice(-3).join(" | ")}.`);
+  const measurement = readLoudnessMeasurement(measured.stderr);
+  if (measurement === null) throw new Error(`${step}: ffmpeg printed no loudnorm measurement.`);
+  return isSilent(measurement) ? null : measurement.inputI;
 }
 
 type IsolationAnswer = { ok: true; paid: PaidAudio; attempts: number } | { ok: false; error: string; attempts: number; providerFailure: ProviderFailure | null };

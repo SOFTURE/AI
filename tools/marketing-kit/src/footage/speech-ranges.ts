@@ -214,11 +214,62 @@ export function buildRangeAudioArgs(audio: string, range: Pick<SpeechRange, "sta
   return ["-v", "error", "-y", "-ss", seconds(range.startMs), "-t", seconds(range.endMs - range.startMs), "-i", audio, "-vn", ...codec, output];
 }
 
-/** A cleaned range laid back: its file, and whether it is mono (panned to both channels at full level). */
+/**
+ * A cleaned range laid back: its file, whether it is mono (panned to both channels at full level), and the dB it is
+ * raised by before its fades (`gainDb`, issue #1159: a range cut from the clip's un-gained sound is raised by the
+ * clip's pre-gain; absent or 0 leaves it as it is).
+ */
 export interface LaidRange {
   window: SpeechRangeWindow;
   file: string;
   isMono: boolean;
+  gainDb?: number;
+}
+
+/**
+ * Where the gain of the sound a range's cleaned voice was cut from is recorded (issue #1159): next to its cached file,
+ * as `<path>.gain.json` holding `{ "inputGainDb": <dB> }`. Commit it with the cached file.
+ */
+export function getSpeechRangeGainPath(path: string): string {
+  return `${path}.gain.json`;
+}
+
+/** The record of `getSpeechRangeGainPath`'s file. */
+export function formatSpeechRangeGain(inputGainDb: number): string {
+  return `${JSON.stringify({ inputGainDb })}\n`;
+}
+
+/** The input gain in a record's text; null when the text is not such a record. */
+export function readSpeechRangeGain(text: string): number | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (typeof json !== "object" || json === null) return null;
+  const value = (json as Record<string, unknown>).inputGainDb;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/** A measuring pass (`loudnorm`, nothing written) over `file`, or only over `range` of it, as 48 kHz stereo. */
+export function buildRangeMeasureArgs(file: string, range?: Pick<SpeechRange, "startMs" | "endMs">): string[] {
+  const window = range === undefined ? [] : ["-ss", seconds(range.startMs), "-t", seconds(range.endMs - range.startMs)];
+  const format = `aformat=sample_rates=${String(FOOTAGE_SAMPLE_RATE)}:channel_layouts=stereo`;
+  return ["-hide_banner", "-nostats", ...window, "-i", file, "-map", "0:a:0", "-vn", "-af", `${format},loudnorm=I=-23:TP=-2:LRA=11:print_format=json`, "-f", "null", "-"];
+}
+
+/**
+ * The gain of the sound a cached cleaned range was cut from, told from its loudness (issue #1159): a range cut from
+ * the clip's un-gained sound sits about `clipGainDb` under the same range of the pre-gained sound, one cut from the
+ * pre-gained sound about level with it (the cleaning takes off a few dB at most). The nearer case wins: 0 (un-gained)
+ * or `clipGainDb`. Without a loudness on either side (null: silence) it is `clipGainDb`, so nothing is changed.
+ */
+export function getRangeInputGainDb(options: { clipGainDb: number; cleanedLufs: number | null; baseLufs: number | null }): number {
+  const { clipGainDb, cleanedLufs, baseLufs } = options;
+  if (clipGainDb === 0 || cleanedLufs === null || baseLufs === null) return clipGainDb;
+  const difference = cleanedLufs - baseLufs;
+  return Math.abs(difference + clipGainDb) < Math.abs(difference) ? 0 : clipGainDb;
 }
 
 /** Milliseconds of the linear crossfade at every join between the clip's own sound and a cleaned window. */
@@ -281,17 +332,18 @@ export function buildRangeLayArgs(base: string, laid: readonly LaidRange[], outp
   const inputs = ["-i", base];
   const gains: string[] = [];
   const parts: string[] = [];
-  laid.forEach(({ window, file, isMono }, index) => {
+  laid.forEach(({ window, file, isMono, gainDb }, index) => {
     const fade = byWindow.get(window);
     if (fade === undefined) return;
     inputs.push("-i", file);
     gains.push(buildGainExpression(fade));
     const channels = isMono ? "pan=stereo|c0=c0|c1=c0," : "";
+    const volume = gainDb === undefined || gainDb === 0 ? "" : `,volume=${String(gainDb)}dB`;
     const fadeIn = fade.inEndMs > fade.inStartMs ? `,afade=t=in:st=0:d=${seconds(fade.inEndMs - fade.inStartMs)}` : "";
     const fadeOut = fade.outEndMs > fade.outStartMs ? `,afade=t=out:st=${seconds(fade.outStartMs - fade.inStartMs)}:d=${seconds(fade.outEndMs - fade.outStartMs)}` : "";
     const delay = Math.round((fade.inStartMs * FOOTAGE_SAMPLE_RATE) / 1000);
     parts.push(
-      `[${index + 1}:a]atrim=start=${seconds(fade.inStartMs - window.range.startMs)}:end=${seconds(fade.outEndMs - window.range.startMs)},asetpts=PTS-STARTPTS,${channels}${format}${fadeIn}${fadeOut},adelay=${String(delay)}S:all=1[w${String(index)}]`,
+      `[${index + 1}:a]atrim=start=${seconds(fade.inStartMs - window.range.startMs)}:end=${seconds(fade.outEndMs - window.range.startMs)},asetpts=PTS-STARTPTS,${channels}${format}${volume}${fadeIn}${fadeOut},adelay=${String(delay)}S:all=1[w${String(index)}]`,
     );
   });
   parts.unshift(`[0:a]${format},aeval='val(ch)*(1-(${gains.join("+")}))':c=same[base]`);

@@ -6,6 +6,19 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Cached speech ranges land at the pre-gained level (#1159):** since the speech pre-gain (#1139) `isolateSpeechRanges`
+  lays every cleaned window over the clip's pre-gained sound, but a range cached from the un-gained sound kept its old
+  level, so the voice dropped by the clip's pre-gain (about 17 dB on a quiet phone clip) inside that window. Now:
+  - a bought range records the gain of the sound it was cut from next to its cached file
+    (`<path>.gain.json`, `{ "inputGainDb": <dB> }`; `getSpeechRangeGainPath`, `formatSpeechRangeGain`,
+    `readSpeechRangeGain`). Commit it with the cached file;
+  - each laid window is raised by the clip's pre-gain minus that gain. A cached range without a record is told apart by
+    its loudness against the same range of the clip's pre-gained sound (`getRangeInputGainDb`, `buildRangeMeasureArgs`),
+    so ranges bought before 0.16.0 and with 0.16.0 both land right. Cache keys are unchanged: nothing is bought again;
+  - each range answers the `gainDb` it was raised by (`LaidRange.gainDb` in `buildRangeLayArgs`), and
+    `IsolatedSpeech.speechGainDb` and `TranscribeOutcome.speechGainDb` (optional in the type, always answered) give each
+    clip's pre-gain in dB, so an app that lays its own cached ranges over the speech map can apply the same correction.
+
 - **Photo cover layouts (#1163):** `renderPhotoCover` takes `layout` (`PHOTO_COVER_LAYOUTS`: `photo`,
   `title-bottom`, `title-center`, `title-top`, `kicker-title`, `pill`), `kicker` (at most 40 characters, drawn by
   `kicker-title` above the caption) and `tone` (`light`: light text over a dark scrim, the default; `dark`: dark text

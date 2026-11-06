@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,6 +14,7 @@ import { estimateFootageFilm, estimateSpeechRanges } from "./paid.js";
 import type { PreparedClip } from "./pipeline.js";
 import type { FootageProbe } from "./probe.js";
 import type { FootageCharge, IsolationProvider } from "./providers.js";
+import { formatSpeechRangeGain, getSpeechRangeGainPath } from "./speech-ranges.js";
 
 const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
 const PROBE: FootageProbe = { duration: 6, width: 64, height: 64, rotation: 0, displayWidth: 64, displayHeight: 64, codec: "h264", pixelFormat: "yuv420p", colorTransfer: null, hdr: null, hasAudio: true };
@@ -24,6 +25,14 @@ function getMaxVolume(file: string, start: number, end: number): number {
   const match = /max_volume: (-?[\d.]+|-inf) dB/.exec(result.stderr);
   if (match?.[1] === undefined) throw new Error(`no volume in ${result.stderr}`);
   return match[1] === "-inf" ? -Infinity : Number(match[1]);
+}
+
+/** The mean level (dB) of `file` between `start` and `end` seconds. */
+function getMeanVolume(file: string, start: number, end: number): number {
+  const result = spawnSync("ffmpeg", ["-v", "info", "-ss", String(start), "-t", String(end - start), "-i", file, "-af", "volumedetect", "-f", "null", "-"], { encoding: "utf8" });
+  const match = /mean_volume: (-?[\d.]+) dB/.exec(result.stderr);
+  if (match?.[1] === undefined) throw new Error(`no volume in ${result.stderr}`);
+  return Number(match[1]);
 }
 
 function probeStream(file: string): { duration: number; channels: number } {
@@ -436,6 +445,68 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     if (!answer.ok) expect(answer.error).toMatch(/^fake voice isolation: 400 audio_too_short \(6\.\d{3} s, the minimum is 7 s\)\.$/);
     expect(isolation.refused).toEqual([clip.file]);
     expect((await createFakeIsolationProvider({ minSeconds: 5 }).isolate({ audio: clip.file })).ok).toBe(true);
+  });
+
+  it("lays a range cached from the un-gained sound and one bought from the pre-gained sound at one level (issue #1159)", async () => {
+    // A quiet phone clip: about -41 LUFS, so the pre-gain raises it by about 18 dB.
+    const quiet = join(dir, "quiet.mp4");
+    const made = spawnSync(
+      "ffmpeg",
+      ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=6", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=6", "-af", "volume=-20dB", "-ac", "2", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", quiet],
+      { encoding: "utf8" },
+    );
+    if (made.status !== 0) throw new Error(made.stderr);
+    const quietClip: PreparedClip = { ...clip, clip: { ...clip.clip, source: quiet }, source: quiet, file: quiet };
+    const isolation = createFakeIsolationProvider();
+    const draft = await isolateSpeechRanges(film, [quietClip], edl, options(isolation, { isCommit: false }));
+    if (!draft.ok) throw new Error(draft.error);
+    const [legacy, fresh] = draft.value.ranges;
+    if (legacy === undefined || fresh === undefined) throw new Error("expected two ranges");
+    // Bought before the pre-gain: cut from the clip's un-gained sound, cached without a gain record.
+    mkdirSync(join(dir, "cache", "street"), { recursive: true });
+    const cut = spawnSync("ffmpeg", ["-v", "error", "-y", "-ss", "0.8", "-t", "1.4", "-i", quiet, "-vn", "-ar", "48000", "-ac", "2", "-c:a", "libmp3lame", "-q:a", "2", legacy.path], { encoding: "utf8" });
+    if (cut.status !== 0) throw new Error(cut.stderr);
+
+    const result = await isolateSpeechRanges(film, [quietClip], edl, options(isolation));
+    if (!result.ok) throw new Error(result.error);
+    const clipGainDb = result.value.speechGainDb.talk ?? 0;
+    expect(clipGainDb).toBeGreaterThan(15);
+    expect(result.value.ranges.map(({ outcome, gainDb }) => ({ kind: outcome.kind, gainDb }))).toEqual([
+      { kind: "cached", gainDb: clipGainDb },
+      { kind: "bought", gainDb: 0 },
+    ]);
+    expect(readFileSync(getSpeechRangeGainPath(fresh.path), "utf8")).toBe(formatSpeechRangeGain(clipGainDb));
+    expect(existsSync(getSpeechRangeGainPath(legacy.path))).toBe(false);
+    const speech = result.value.speech.talk ?? "";
+    const before = getMeanVolume(speech, 0.2, 0.6);
+    const cachedWindow = getMeanVolume(speech, 1.1, 1.9);
+    const between = getMeanVolume(speech, 2.6, 3.4);
+    const boughtWindow = getMeanVolume(speech, 4.1, 4.9);
+    expect(Math.abs(cachedWindow - boughtWindow)).toBeLessThanOrEqual(1);
+    expect(Math.abs(cachedWindow - between)).toBeLessThanOrEqual(1);
+    expect(Math.abs(cachedWindow - before)).toBeLessThanOrEqual(1);
+    expect(Math.abs(boughtWindow - between)).toBeLessThanOrEqual(1);
+
+    // The next call reads the bought range's record and still tells the legacy range by its level.
+    const again = await isolateSpeechRanges(film, [quietClip], edl, options(isolation));
+    if (!again.ok) throw new Error(again.error);
+    expect(isolation.calls).toHaveLength(1);
+    expect(again.value.ranges.map(({ outcome, gainDb }) => ({ kind: outcome.kind, gainDb }))).toEqual([
+      { kind: "cached", gainDb: clipGainDb },
+      { kind: "cached", gainDb: 0 },
+    ]);
+  });
+
+  it("raises a cached range by what its gain record says it lacks (issue #1159)", async () => {
+    const isolation = createFakeIsolationProvider();
+    const first = await isolateSpeechRanges(film, [clip], edl, options(isolation));
+    if (!first.ok) throw new Error(first.error);
+    const clipGainDb = first.value.speechGainDb.talk ?? 0;
+    const path = first.value.ranges[0]?.path ?? "";
+    writeFileSync(getSpeechRangeGainPath(path), formatSpeechRangeGain(clipGainDb - 3));
+    const result = await isolateSpeechRanges(film, [clip], edl, options(isolation));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.ranges.map(({ gainDb }) => gainDb)).toEqual([3, 0]);
   });
 
   it("reads a broken cached range as an error naming the file", async () => {

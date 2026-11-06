@@ -270,6 +270,8 @@ describe.runIf(hasFfmpeg)("transcribeFootage's speech (issue #1139)", () => {
     expect(result.value.words.talk?.map((word) => word.text)).toEqual(["Raz", "dwa"]);
     expect(result.value.words.street).toEqual([]);
     expect(result.value.speech).toEqual({ talk: join(dir, "build", "audio", "talk.wav"), street: join(dir, "build", "audio", "street.wav") });
+    expect(Object.keys(result.value.speechGainDb ?? {})).toEqual(["talk", "street"]);
+    expect(result.value.speechGainDb?.street).toBe(result.value.speechGainDb?.talk);
     expect(existsSync(join(dir, "build", "placeholder", "talk.transcript.json"))).toBe(true);
     expect(existsSync(join(dir, "cache"))).toBe(false);
     expect(providers.stt.calls).toHaveLength(0);
@@ -282,6 +284,8 @@ describe.runIf(hasFfmpeg)("transcribeFootage's speech (issue #1139)", () => {
     expect(providers.isolation.calls).toEqual([join(dir, "build", "audio", "talk.wav")]);
     expect(providers.stt.calls.map((call) => call.audio)).toEqual([join(dir, "build", "audio", "talk.isolated.wav")]);
     expect(result.value.speech).toEqual({ talk: join(dir, "build", "audio", "talk.isolated.wav"), street: join(dir, "build", "audio", "street.wav") });
+    expect(typeof result.value.speechGainDb?.talk).toBe("number");
+    expect(result.value.speechGainDb?.street).toBe(result.value.speechGainDb?.talk);
     expect(readdirSync(join(dir, "build", "audio")).filter((name) => name.endsWith(".mp3"))).toEqual([]);
     const stream = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name,sample_rate,channels", "-of", "csv=p=0", join(dir, "build", "audio", "talk.wav")], { encoding: "utf8" });
     expect(stream.stdout.trim()).toBe("pcm_s24le,48000,2");
