@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses the module. W
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.4.0
+
+- Footage charges keep their billed units and whether the amount was reported (#1130):
+  `createFootageChargeRecorder` stores the reserved attributes `units` (the seconds billed) and `reported` (`"true"`
+  when the amount is the provider's reported credits, `"false"` for a `creditsPerSecond` fallback or a seconds count)
+  next to `item`. `onCharge(charge, attributes?)` takes per-charge attributes merged over the recorder's.
+- `getChargeRate(ctx, { provider, step, accountId?, latest?, minUnits? })`: the amount per unit over the latest
+  settled reported charges of a step (`{ rate, amount, units, charges }`), or `null` without them or below
+  `minUnits`, so an app calibrates an estimate from what the provider really bills. Charges recorded before this
+  version lack the attributes and do not count. No migration.
+
 ## 0.3.0
 
 - Budget limits editable at runtime, stored in the database (#1032): `setBudgetLimit(ctx, { provider, period,

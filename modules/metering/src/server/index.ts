@@ -12,6 +12,7 @@ export {
 } from "./adapters.js";
 export { checkChargesTable } from "./health.js";
 export { clearBudgetLimit, getBudgetLimits, setBudgetLimit, type SetBudgetLimitInput } from "./limits.js";
+export { getChargeRate, type ChargeRateQuery } from "./rates.js";
 export { getMeteringOptions, getProviderDefinition } from "./options.js";
 export { getPeriodBounds, type PeriodBounds } from "./periods.js";
 export {

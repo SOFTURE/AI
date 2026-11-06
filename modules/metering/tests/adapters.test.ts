@@ -76,8 +76,8 @@ describe("the footage charge recorder", () => {
     expect((await listRows(test.database)).sort()).toEqual(["elevenlabs settled 300 a isolate", "speech settled 12.5 a transcribe"]);
     const attributes = await test.database.client.query<{ attributes: unknown }>("SELECT attributes FROM metering.charges ORDER BY provider");
     expect(attributes.rows.map((row) => row.attributes)).toEqual([
-      { filmId: "f1", item: "clip-1" },
-      { filmId: "f1", item: "clip-1" },
+      { filmId: "f1", item: "clip-1", units: "12.5", reported: "true" },
+      { filmId: "f1", item: "clip-1", units: "12.5", reported: "false" },
     ]);
     expect((await getSpend(test.ctx, { provider: "speech", period: "day" })).value.spent).toBe(12.5);
     expect(test.clock.now()).toEqual(NOW);
@@ -88,6 +88,16 @@ describe("the footage charge recorder", () => {
     recorder.onCharge({ step: "music", item: "film", provider: "elevenlabs", units: 30 });
     await recorder.flush();
     expect(await listRows(test.database)).toEqual(["elevenlabs settled 600 a music"]);
+    const attributes = await test.database.client.query<{ attributes: unknown }>("SELECT attributes FROM metering.charges");
+    expect(attributes.rows).toEqual([{ attributes: { item: "film", units: "30", reported: "false" } }]);
+  });
+
+  it("merges per-charge attributes over the recorder's, keeping the reserved ones", async () => {
+    const recorder = createFootageChargeRecorder(test.ctx, { accountId: "a", attributes: { filmId: "f1", lane: "x" } });
+    recorder.onCharge({ step: "isolate", item: "clip-2", provider: "elevenlabs", units: 4, credits: 32 }, { lane: "y", item: "other", units: "9", reported: "no" });
+    await recorder.flush();
+    const attributes = await test.database.client.query<{ attributes: unknown }>("SELECT attributes FROM metering.charges");
+    expect(attributes.rows).toEqual([{ attributes: { filmId: "f1", lane: "y", item: "clip-2", units: "4", reported: "true" } }]);
   });
 
   it("reports a failed write on flush, after the other writes finished", async () => {
