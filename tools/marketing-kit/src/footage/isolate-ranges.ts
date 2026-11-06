@@ -2,6 +2,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
+import { describeProviderFailure, type ProviderFailure } from "../voice/provider-failure.js";
 import { err, ok } from "./failure.js";
 import { probeAudio } from "./audio.js";
 import { writeCacheFile } from "./cache.js";
@@ -29,10 +30,14 @@ import {
  * segment is never paid twice and a changed cut pays only its new ranges. The cleaned ranges are laid back over the
  * clip's own sound into one file as long as the clip: the speech map `renderFootage` takes. A range the provider refuses
  * is asked again, and one refused on every attempt keeps the clip's own sound in its window while the others are laid
- * (issue #1127): only a cancel stops the call.
+ * (issue #1127): only a cancel stops the call. A refusal the provider marks not retryable (`isRetryable: false`, e.g. a
+ * 400 `audio_too_short`) is not asked again (issue #1141).
  */
 
-/** How often a refused range is asked again: `attempts` in all (default 3), waiting `delaysMs[n]` before attempt n + 2. */
+/**
+ * How often a refused range is asked again: `attempts` in all (default 3), waiting `delaysMs[n]` before attempt n + 2.
+ * A failure whose `providerFailure.isRetryable` is false ends the range at once.
+ */
 export interface SpeechRangeRetry {
   /** Attempts per range, at least 1; default `DEFAULT_SPEECH_RANGE_ATTEMPTS` (3). */
   attempts?: number;
@@ -66,7 +71,13 @@ export type IsolateSpeechRangesOptions = Pick<FootageRunOptions, "buildDir" | "c
 export type SpeechRangeOutcome =
   | { kind: "cached" }
   | { kind: "bought"; attempts: number }
-  | { kind: "failed"; error: string; attempts: number }
+  | {
+      kind: "failed";
+      error: string;
+      attempts: number;
+      /** The provider's structured failure of the last attempt (safe to log); null when it gave none. */
+      providerFailure: ProviderFailure | null;
+    }
   | { kind: "not_bought" };
 
 export interface IsolatedSpeechRange extends SpeechRange {
@@ -157,12 +168,13 @@ async function runIsolateSpeechRanges(
       isolation: providers.isolation,
       retry: options.retry ?? {},
       ...aborting,
-      onRefused: (error, attempt) => {
-        log(`voice isolation: ${describeRange(range)} refused (attempt ${String(attempt)}): ${error}`);
+      onRefused: (error, attempt, providerFailure) => {
+        const reason = providerFailure === null ? error : describeProviderFailure(providerFailure);
+        log(`voice isolation: ${describeRange(range)} refused (attempt ${String(attempt)}): ${reason}`);
       },
     });
     if (!answer.ok) {
-      range.outcome = { kind: "failed", error: answer.error, attempts: answer.attempts };
+      range.outcome = { kind: "failed", error: answer.error, attempts: answer.attempts, providerFailure: answer.providerFailure };
       done += units;
       report(range, index);
       continue;
@@ -213,21 +225,22 @@ async function runIsolateSpeechRanges(
   return ok({ speech, ranges });
 }
 
-type IsolationAnswer = { ok: true; paid: PaidAudio; attempts: number } | { ok: false; error: string; attempts: number };
+type IsolationAnswer = { ok: true; paid: PaidAudio; attempts: number } | { ok: false; error: string; attempts: number; providerFailure: ProviderFailure | null };
 
-/** Asks the provider for one range's cleaned voice, again after each refusal up to `retry.attempts`; a cancel throws. */
+/** Asks the provider for one range's cleaned voice, again after each retryable refusal up to `retry.attempts`; a cancel throws. */
 async function isolateWithRetries(input: {
   audio: string;
   isolation: IsolationProvider;
   retry: SpeechRangeRetry;
   signal?: AbortSignal;
-  onRefused: (error: string, attempt: number) => void;
+  onRefused: (error: string, attempt: number, providerFailure: ProviderFailure | null) => void;
 }): Promise<IsolationAnswer> {
   const { audio, isolation, retry, signal, onRefused } = input;
   const attempts = Math.max(1, Math.floor(retry.attempts ?? DEFAULT_SPEECH_RANGE_ATTEMPTS));
   const delays = retry.delaysMs ?? DEFAULT_SPEECH_RANGE_RETRY_DELAYS_MS;
   const wait = retry.wait ?? waitFor;
   let error = "";
+  let providerFailure: ProviderFailure | null = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     if (attempt > 1) {
       await wait(delays[Math.min(attempt - 2, delays.length - 1)] ?? 0, signal);
@@ -237,9 +250,11 @@ async function isolateWithRetries(input: {
     signal?.throwIfAborted();
     if (cleaned.ok) return { ok: true, paid: toPaidAudio(cleaned.value), attempts: attempt };
     error = cleaned.error;
-    onRefused(error, attempt);
+    providerFailure = cleaned.providerFailure ?? null;
+    onRefused(error, attempt, providerFailure);
+    if (providerFailure?.isRetryable === false) return { ok: false, error, attempts: attempt, providerFailure };
   }
-  return { ok: false, error, attempts };
+  return { ok: false, error, attempts, providerFailure };
 }
 
 /** Resolves after `ms`, or rejects with the signal's reason when it aborts first. */

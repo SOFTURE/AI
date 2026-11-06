@@ -114,13 +114,44 @@ describe("ElevenLabs footage providers", () => {
   it("fails without a key, before any request", async () => {
     const { sent, fetch } = fakeFetch(() => new Response("never"));
     const { stt } = createElevenLabsFootageProviders({}, fetch);
-    expect(await stt.transcribe({ audio, language: "pl" })).toEqual({ ok: false, error: "no ELEVENLABS_API_KEY in the environment." });
+    expect(await stt.transcribe({ audio, language: "pl" })).toEqual({
+      ok: false,
+      error: "no ELEVENLABS_API_KEY in the environment.",
+      providerFailure: { kind: "refused", status: null, code: "missing_api_key", message: null, requestId: null, isRetryable: false },
+    });
     expect(sent).toHaveLength(0);
   });
 
   it("names the service and the status of a refused call", async () => {
     const { fetch } = fakeFetch(() => new Response("quota exceeded", { status: 401 }));
-    expect(await createElevenLabsIsolationProvider({ apiKey: "key", fetch }).isolate({ audio })).toEqual({ ok: false, error: "ElevenLabs voice isolation answered 401: quota exceeded" });
+    expect(await createElevenLabsIsolationProvider({ apiKey: "key", fetch }).isolate({ audio })).toEqual({
+      ok: false,
+      error: "ElevenLabs voice isolation answered 401: quota exceeded",
+      providerFailure: { kind: "refused", status: 401, code: null, message: "quota exceeded", requestId: null, isRetryable: false },
+    });
+  });
+
+  it("answers a 400 audio_too_short with its code, message, request id and no retry (issue #1141)", async () => {
+    const body = JSON.stringify({ detail: { status: "audio_too_short", message: "The audio is too short to isolate." } });
+    const { fetch } = fakeFetch(() => new Response(body, { status: 400, headers: { "request-id": "req_abc" } }));
+    const result = await createElevenLabsIsolationProvider({ apiKey: "secret-key", fetch }).isolate({ audio });
+    expect(result).toEqual({
+      ok: false,
+      error: `ElevenLabs voice isolation answered 400: ${body}`,
+      providerFailure: { kind: "refused", status: 400, code: "audio_too_short", message: "The audio is too short to isolate.", requestId: "req_abc", isRetryable: false },
+    });
+    expect(JSON.stringify(result)).not.toContain("secret-key");
+    expect(JSON.stringify(result)).not.toContain(audio);
+  });
+
+  it("answers 503 from speech to text, 429 from music and a failed connection as retryable (issue #1141)", async () => {
+    const unavailable = await createElevenLabsSttProvider({ apiKey: "key", fetch: fakeFetch(() => new Response("busy", { status: 503 })).fetch }).transcribe({ audio, language: "pl" });
+    expect(!unavailable.ok && unavailable.providerFailure).toEqual({ kind: "unavailable", status: 503, code: null, message: "busy", requestId: null, isRetryable: true });
+    const limited = await createElevenLabsMusicProvider({ apiKey: "key", fetch: fakeFetch(() => new Response("{}", { status: 429 })).fetch }).compose({ prompt: "calm", seconds: 10 });
+    expect(!limited.ok && limited.providerFailure).toEqual({ kind: "rate_limited", status: 429, code: null, message: null, requestId: null, isRetryable: true });
+    const down: typeof globalThis.fetch = () => Promise.reject(new TypeError("fetch failed"));
+    const failed = await createElevenLabsIsolationProvider({ apiKey: "key", fetch: down }).isolate({ audio });
+    expect(!failed.ok && failed.providerFailure).toEqual({ kind: "connection", status: null, code: null, message: null, requestId: null, isRetryable: true });
   });
 
   it("clamps the music length to 3 s - 10 min", () => {

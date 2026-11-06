@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { ELEVENLABS_API_KEY_ENV } from "../voice/elevenlabs.js";
 import { err, ok, type TtsResult } from "../voice/provider.js";
+import { getConnectionFailure, getLocalRefusal, getProviderFailure } from "../voice/provider-failure.js";
 import { ELEVENLABS_API_URL, type TimedWord } from "../voice/voiceover.js";
 import type { IsolationProvider, MusicProvider, PaidAudio, SttProvider, SttTranscript } from "./providers.js";
 
@@ -57,17 +58,17 @@ function fileBlob(path: string): Blob {
 }
 
 async function send(options: ElevenLabsFootageOptions, label: string, path: string, init: RequestInit): Promise<TtsResult<Response>> {
-  if (options.apiKey === undefined || options.apiKey.length === 0) return err(`no ${ELEVENLABS_API_KEY_ENV} in the environment.`);
+  if (options.apiKey === undefined || options.apiKey.length === 0) return err(`no ${ELEVENLABS_API_KEY_ENV} in the environment.`, getLocalRefusal("missing_api_key"));
   const request = options.fetch ?? globalThis.fetch;
   let response: Response;
   try {
     response = await request(`${ELEVENLABS_API_URL}${path}`, { ...init, headers: { ...init.headers, "xi-api-key": options.apiKey } });
   } catch (error) {
-    return err(`ElevenLabs ${label}: the connection failed (${String(error)}).`);
+    return err(`ElevenLabs ${label}: the connection failed (${String(error)}).`, getConnectionFailure(error));
   }
   if (!response.ok) {
     const detail = await response.text().catch((error: unknown) => `(unreadable body: ${String(error)})`);
-    return err(`ElevenLabs ${label} answered ${response.status}: ${detail.slice(0, ERROR_DETAIL_LENGTH)}`);
+    return err(`ElevenLabs ${label} answered ${response.status}: ${detail.slice(0, ERROR_DETAIL_LENGTH)}`, getProviderFailure(response, detail));
   }
   return ok(response);
 }

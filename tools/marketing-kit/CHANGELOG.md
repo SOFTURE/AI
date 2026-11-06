@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **Provider failures carry structured details (#1141):** a failed answer of a footage provider (`TtsResult` with
+  `ok: false`) carries `providerFailure` next to `error`: `{ kind, status, code, message, requestId, isRetryable }`,
+  `kind` one of `refused` | `rate_limited` | `unavailable` | `timeout` | `connection`. The ElevenLabs speech to text,
+  voice isolation and music providers set it on every failed request (the HTTP status, the provider's code and
+  message from the body's `detail`, truncated, the `request-id` header; a missing key is `refused` with code
+  `missing_api_key`). `isRetryable` is true for 5xx, 408, 429, a timeout and a failed connection. Every field is safe
+  to log; `describeProviderFailure` gives one line. `error` keeps its sentences; `providerFailure` is optional, so a
+  custom provider still compiles.
+  - `isolateSpeechRanges` asks a range again only when its failure is retryable (a 400 `audio_too_short` is asked
+    once), and a `failed` outcome carries `providerFailure` (null when the provider gave none).
+  - `FootageFailure` gets `{ kind: "provider", provider }` for a failed speech to text, voice isolation or music call;
+    `isRetryableFootageFailure` follows `provider.isRetryable`. A provider that gives no details still answers
+    `process`. An exhaustive `switch` on `failure.kind` needs the new case.
+
 ## 0.15.0
 
 - **The footage film's mix is bounded:** `buildFilmMixArgs` pads to the film's length (`apad=whole_dur`), trims and

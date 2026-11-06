@@ -781,14 +781,33 @@ A failed result is `{ ok: false, error, failure }`: `error` is the sentence for 
 on. `loudness` (the mix or the finished film misses `mixLoudness`; `failure.loudness` is the last
 `{ integrated, truePeak }`, null for a mix silent after its limiter), `publishable` (`failure.problems`: container,
 profile, fast start) and `input` (the film, its EDL, fonts, files or settings) fail the same way again;
-`process` (a process that exited, the network, the disk) may not. `isRetryableFootageFailure(failure)` says which,
-so an admin panel offers "render again" only where it can help:
+`process` (a process that exited, the network, the disk) may not. A paid provider's failure (speech to text, voice
+isolation, music) is `provider`, with the provider's structured `failure.provider` (below), retryable only when the
+provider says so. `isRetryableFootageFailure(failure)` says which, so an admin panel offers "render again" only where
+it can help:
 
 ```ts
 if (!result.ok) showError(result.error, { canRetry: isRetryableFootageFailure(result.failure) });
 ```
 
 A failed ffmpeg step throws and an abort rejects with the signal's reason, as before; treat a throw as transient.
+
+A provider's failed answer (`TtsResult` with `ok: false`) carries, next to its `error` sentence, `providerFailure`
+whenever the provider answered or the kit refused before asking (the ElevenLabs providers always set it on a failed
+request; a custom provider may leave it out):
+
+```ts
+type ProviderFailure = {
+  kind: "refused" | "rate_limited" | "unavailable" | "timeout" | "connection";
+  status: number | null; // HTTP status; null without an answer
+  code: string | null; // the provider's error code, e.g. "audio_too_short"; "missing_api_key" without a key
+  message: string | null; // the provider's message, at most 300 characters
+  requestId: string | null; // the `request-id` / `x-request-id` header, or the body's request_id
+  isRetryable: boolean; // 5xx, 408, 429, a timeout, a failed connection
+};
+```
+
+Every field is safe to log: no key, path, transcript or audio. `describeProviderFailure(failure)` gives it in one line.
 
 **Editing with an agent.** The kit holds no language model; the editorial choices stay with the caller, who gets
 the means to make them:
@@ -866,9 +885,11 @@ await renderFootage(film, clips, { ...transcript, speech: isolated.value.speech 
   entry per range) and its `range` in seconds. An app that already holds paid ranges under its own keys passes
   `rangeCache: (range, clipKey) => ({ key, path })` to both the block and the estimate.
 - A range the provider refuses is asked again (`retry: { attempts, delaysMs, wait }`, default 3 attempts after 1 s and
-  2 s, the wait stopped by `signal`). A range refused on every attempt does not fail the call: its window keeps the
-  clip's own sound, the other ranges are laid, and only a cancel throws. Each range carries an `outcome`: `cached`,
-  `bought` (with `attempts`), `failed` (with the last `error` and `attempts`) or `not_bought` (without `isCommit`).
+  2 s, the wait stopped by `signal`), unless its `providerFailure` says `isRetryable: false` (a 400 `audio_too_short`
+  fails the same way every time, so it is asked once). A range refused on every attempt does not fail the call: its
+  window keeps the clip's own sound, the other ranges are laid, and only a cancel throws. Each range carries an
+  `outcome`: `cached`, `bought` (with `attempts`), `failed` (with the last `error`, `attempts` and `providerFailure`,
+  null when the provider gave none) or `not_bought` (without `isCommit`).
 - Each clip's cleaned windows are laid over its own sound into `<buildDir>/audio/<clip>.ranges.mp3`, as long as the
   clip; overlapping ranges switch at the middle of their overlap, and a mono answer goes to both channels at full level.
   Every join is a linear crossfade of `fadeMs` (default 15; 0 switches at once): centred on a switch between two
