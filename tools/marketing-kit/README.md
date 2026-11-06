@@ -978,6 +978,25 @@ const result = await renderFootageFilm(film, {
   hyperframes' `--workers` and `--low-memory-mode` / `--no-low-memory-mode` (by default hyperframes turns its
   low-memory profile on by itself at 8 GB or less, reading a cgroup v2 limit).
 
+- **Capture path.** hyperframes' low-memory profile (`lowMemory: true`, or its own default at 8 GB or less) pins
+  screenshot capture, the slower path; Chrome's heap cap, GPU budget and frame caches follow the cgroup limit
+  regardless. Measured on one CPU under a 1536 MiB cgroup (chrome-headless-shell, software GL), a 37.1 s film of 15
+  segments captured in 156.4 s with `lowMemory: true` (screenshot) against 110.3 s with `lowMemory: false`
+  (beginframe), about 30 % slower, at a memory peak of 598 MB against 608 MB. The rendered value's `capture` says
+  which path a render took (#1145), read from hyperframes' summary line; log or alert on it:
+
+  ```ts
+  if (result.ok && result.value.kind === "rendered" && result.value.capture?.path === "screenshot") {
+    logger.warn("footage captured on the screenshot path", { seconds: result.value.capture.seconds, hint: result.value.capture.fallbackHint });
+  }
+  ```
+
+  `capture` is `{ path, gpu, seconds, isEncodeStreamed, fallbackHint }`: `path` `beginframe`, `screenshot` or
+  `drawelement`; `gpu` `software` or `hardware`; `seconds` per stage hyperframes printed (`compile`, `extract`,
+  `audio`, `probe`, `setup`, `capture`, `encode`, `assemble`); `isEncodeStreamed` when the encode ran during the
+  capture; `fallbackHint` hyperframes' `Screenshot capture (slower): …` line. It is null when hyperframes printed no
+  summary. `readHyperframesCapture(lines)` is the parser on its own.
+
 - **Encoder speed.** hyperframes encodes while it captures, with libx264 at the quality tier's preset and CRF:
   `draft` `ultrafast` CRF 28, `standard` `medium` CRF 18, `high` `slow` CRF 15. On one CPU the `medium` encode
   shares the core with Chrome and takes about half the capture. `crf` (a whole number from 0 to 51) passes

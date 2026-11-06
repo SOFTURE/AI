@@ -7,6 +7,7 @@ import type { BrandColors } from "../config/colors.js";
 import type { BrandFont } from "../config/config.js";
 import type { SfxEvent } from "../config/schema.js";
 import { getHyperframesBin, getHyperframesEnv } from "../render/hyperframes.js";
+import { readHyperframesCapture, type HyperframesCapture } from "./hyperframes-capture.js";
 import { copyFonts } from "../render/render.js";
 import type { TtsResult } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
@@ -676,6 +677,11 @@ export type RenderedFootage =
       edlPath: string;
       /** What the speech track's declick stage did (`FootageFilm.speech.declick`); null when it is off. */
       declick: DeclickReport | null;
+      /**
+       * How hyperframes captured the frames (issue #1145): the capture path (`screenshot` is the slower one), the GPU
+       * mode, each stage's seconds and the screenshot hint, read from hyperframes' summary; null when it printed none.
+       */
+      capture: HyperframesCapture | null;
     } & FinishedFootage);
 
 /**
@@ -844,7 +850,7 @@ async function runRenderFootage(
   const roles = Object.fromEntries(clips.map((clip) => [clip.clip.id, clip.clip.role]));
   const finished = await finishFootage(film, { renderFile, seconds, coverAt: film.cover?.at ?? getDefaultCoverSeconds(edl, roles), mix: prepared.value }, options);
   if (!finished.ok) return finished;
-  return ok({ kind: "rendered", output: options.output, seconds, edlPath: getEdlPath(buildDir, options.isPlaceholder), declick, ...finished.value });
+  return ok({ kind: "rendered", output: options.output, seconds, edlPath: getEdlPath(buildDir, options.isPlaceholder), declick, capture: rendered.value, ...finished.value });
 }
 
 /** What `renderFootage` reads from the written film. */
@@ -1121,15 +1127,20 @@ async function buildPicture(input: BuildPictureInput): Promise<void> {
   input.onSeconds(getPictureFrames(pieces) / FOOTAGE_FPS);
 }
 
-/** The hyperframes render as a child process: its lines go to the log (progress every 10 %), its percentages to `onProgress`. */
-async function runHyperframesRender(options: RenderFootageOptions, output: string, seconds: number): Promise<FootageResult<null>> {
+/**
+ * The hyperframes render as a child process: its lines go to the log (progress every 10 %), its percentages to
+ * `onProgress`; it answers the capture report read from its summary (null when it printed none).
+ */
+async function runHyperframesRender(options: RenderFootageOptions, output: string, seconds: number): Promise<FootageResult<HyperframesCapture | null>> {
   const progress = createStageProgress(options.onProgress, "render", [{ item: "film", seconds }]);
   progress(0, 0);
   let loggedTenth = -1;
+  const lines: string[] = [];
   const onLine = (line: string): void => {
     if (line.trim().length === 0) return;
     const percent = readRenderPercent(line);
     if (percent === null) {
+      lines.push(line);
       options.log(line.trim());
       return;
     }
@@ -1160,7 +1171,7 @@ async function runHyperframesRender(options: RenderFootageOptions, output: strin
   if (result.kind === "not-started") return err(`hyperframes render did not start: ${result.error}.`);
   if (result.code !== 0) return err(`hyperframes render ended with code ${String(result.code)} (signal ${result.signal ?? "-"}).`);
   progress(0, seconds);
-  return ok(null);
+  return ok(readHyperframesCapture(lines));
 }
 
 export interface RenderFootageFilmOptions extends RenderFootageOptions {

@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **`renderFootage` reports how hyperframes captured the frames (#1145):** the rendered value carries `capture`
+  (`{ path, gpu, seconds, isEncodeStreamed, fallbackHint }`, null when hyperframes printed no summary), read from
+  hyperframes' summary line, so an app can log or alert on a render that took the slower screenshot path.
+  `readHyperframesCapture(lines)` parses hyperframes' output on its own. The README's "Footage films in a worker"
+  says that `lowMemory: true` pins screenshot capture (about 30 % slower on one CPU). Code that builds a
+  `RenderedFootage` itself now needs `capture`.
+
 ## 0.15.0
 
 - **The footage film's mix is bounded:** `buildFilmMixArgs` pads to the film's length (`apad=whole_dur`), trims and

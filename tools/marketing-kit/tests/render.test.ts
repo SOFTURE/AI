@@ -243,6 +243,9 @@ describe.runIf(isEnabled)("the fixture footage film", () => {
       expect(Math.abs(durationSeconds - Number(video.format.duration))).toBeLessThan(0.01);
       expect(cover).toBe(join(footage, "out", "worker.jpg"));
       expect(existsSync(join(buildDir, "render.mp4"))).toBe(false);
+      // hyperframes' summary reaches the result as the capture report (issue #1145).
+      expect(rendered.value.capture?.path).toMatch(/^(beginframe|screenshot|drawelement)$/);
+      expect(rendered.value.capture?.seconds.capture).toBeGreaterThan(0);
     } finally {
       rmSync(footage, { recursive: true, force: true });
     }
