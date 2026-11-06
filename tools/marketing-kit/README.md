@@ -862,9 +862,17 @@ await renderFootage(film, clips, { ...transcript, speech: isolated.value.speech 
   milliseconds. Ranges are not merged: identical ranges and ranges inside another are dropped, the rest stay apart.
 - Each range is cached as `<cacheDir>/<film>/<key>.isolated.mp3`, keyed by the clip's bytes and trim, the range and the
   provider: an unchanged segment is never paid twice and a changed cut pays only its new ranges. `onCharge` reports
-  each with step `isolate`, the clip id as `item` and its `range` in seconds.
+  each with step `isolate`, the clip id as `item` (or `chargeItem(range)`, e.g. the app's segment id, for one ledger
+  entry per range) and its `range` in seconds. An app that already holds paid ranges under its own keys passes
+  `rangeCache: (range, clipKey) => ({ key, path })` to both the block and the estimate.
+- A range the provider refuses is asked again (`retry: { attempts, delaysMs, wait }`, default 3 attempts after 1 s and
+  2 s, the wait stopped by `signal`). A range refused on every attempt does not fail the call: its window keeps the
+  clip's own sound, the other ranges are laid, and only a cancel throws. Each range carries an `outcome`: `cached`,
+  `bought` (with `attempts`), `failed` (with the last `error` and `attempts`) or `not_bought` (without `isCommit`).
 - Each clip's cleaned windows are laid over its own sound into `<buildDir>/audio/<clip>.ranges.mp3`, as long as the
   clip; overlapping ranges switch at the middle of their overlap, and a mono answer goes to both channels at full level.
+  Every join is a linear crossfade of `fadeMs` (default 15; 0 switches at once): centred on a switch between two
+  ranges, inside the window at a range's own edge, the clip's sound under one minus the windows' gains.
 - Without `isCommit` only cached ranges are laid (a free draft); `ranges` says which are `cached` and `laid`.
 - `estimateFootageFilm(film, { …, isolate: "segments", margin })` prices isolation on those ranges instead of whole
   clips; both estimates need the cut (`edl`, or `edl.json` in `buildDir`).

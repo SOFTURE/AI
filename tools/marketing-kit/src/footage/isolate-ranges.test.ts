@@ -169,11 +169,108 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     expect(draft.value.speech.talk).not.toBe(clip.file);
   });
 
-  it("fails naming the range when the provider fails, writing nothing to the cache", async () => {
+  /** Refuses every range whose cut file name contains `refused` `times` times, answering silence otherwise. */
+  function createRefusingProvider(refused: string, times: number): IsolationProvider & { calls: string[] } {
+    const silencing = createSilencingProvider(dir);
+    let refusals = 0;
+    return {
+      id: "silence",
+      get calls() {
+        return silencing.calls;
+      },
+      isolate(input) {
+        if (input.audio.includes(refused) && refusals < times) {
+          refusals += 1;
+          silencing.calls.push(input.audio);
+          return Promise.resolve({ ok: false, error: "voice not detected" });
+        }
+        return silencing.isolate(input);
+      },
+    };
+  }
+
+  const three: Edl = {
+    version: 2,
+    film: "street",
+    segments: [
+      { id: "s1", clip: "talk", start: 0.5, end: 1, transition: "cut", motion: "none" },
+      { id: "s2", clip: "talk", start: 2.5, end: 3, transition: "cut", motion: "none" },
+      { id: "s3", clip: "talk", start: 4.5, end: 5, transition: "cut", motion: "none" },
+    ],
+  };
+
+  it("lays the ranges it bought when one is refused on every attempt, keeping the clip's own sound in that window only (issue #1127)", async () => {
+    const isolation = createRefusingProvider("talk.2300-3200", 3);
+    const charges: FootageCharge[] = [];
+    const waits: number[] = [];
+    const result = await isolateSpeechRanges(
+      film,
+      [clip],
+      three,
+      options(isolation, {
+        onCharge: (charge) => charges.push(charge),
+        retry: { wait: (ms) => (waits.push(ms), Promise.resolve()) },
+        chargeItem: (range) => `${range.clip}@${String(range.startMs)}`,
+      }),
+    );
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.ranges.map(({ startMs, laid, outcome }) => ({ startMs, laid, outcome }))).toEqual([
+      { startMs: 300, laid: true, outcome: { kind: "bought", attempts: 1 } },
+      { startMs: 2300, laid: false, outcome: { kind: "failed", error: "voice not detected", attempts: 3 } },
+      { startMs: 4300, laid: true, outcome: { kind: "bought", attempts: 1 } },
+    ]);
+    expect(isolation.calls).toHaveLength(5);
+    expect(waits).toEqual([1000, 2000]);
+    expect(charges.map(({ item, range }) => [item, range])).toEqual([
+      ["talk@300", { start: 0.3, end: 1.2 }],
+      ["talk@4300", { start: 4.3, end: 5.2 }],
+    ]);
+    expect(existsSync(result.value.ranges[1]?.path ?? "")).toBe(false);
+    const speech = result.value.speech.talk ?? "";
+    expect(getMaxVolume(speech, 0.5, 1)).toBeLessThan(-60);
+    expect(getMaxVolume(speech, 4.5, 5)).toBeLessThan(-60);
+    expect(getMaxVolume(speech, 2.4, 3.1)).toBeGreaterThan(-30);
+    expect(lines).toContain("voice isolation: 1 range refused, laid with the clip's own sound: clip talk 2.300-3.200 s.");
+
+    const again = await isolateSpeechRanges(film, [clip], three, options(isolation, { onCharge: (charge) => charges.push(charge), retry: { wait: () => Promise.resolve() } }));
+    if (!again.ok) throw new Error(again.error);
+    expect(again.value.ranges.map(({ outcome }) => outcome.kind)).toEqual(["cached", "bought", "cached"]);
+    expect(charges).toHaveLength(3);
+  });
+
+  it("buys a range the provider refuses once on its second attempt", async () => {
+    const isolation = createRefusingProvider("talk.800-2200", 1);
+    const result = await isolateSpeechRanges(film, [clip], edl, options(isolation, { retry: { attempts: 2, delaysMs: [5], wait: () => Promise.resolve() } }));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.ranges.map(({ outcome }) => outcome)).toEqual([
+      { kind: "bought", attempts: 2 },
+      { kind: "bought", attempts: 1 },
+    ]);
+    expect(lines).toContain("voice isolation: clip talk 0.800-2.200 s refused (attempt 1): voice not detected");
+  });
+
+  it("stops at a cancel while it waits to ask a refused range again, writing nothing to the cache", async () => {
     const failing: IsolationProvider = { id: "broken", isolate: () => Promise.resolve({ ok: false, error: "quota exceeded" }) };
-    const result = await isolateSpeechRanges(film, [clip], edl, options(failing));
-    expect(result).toEqual({ ok: false, error: "clip talk 0.800-2.200 s: quota exceeded", failure: { kind: "process" } });
+    const controller = new AbortController();
+    const run = isolateSpeechRanges(film, [clip], edl, options(failing, { signal: controller.signal, retry: { delaysMs: [60_000] } }));
+    setTimeout(() => controller.abort(new Error("cancelled by the user")), 50);
+    await expect(run).rejects.toThrow("cancelled by the user");
     expect(existsSync(join(dir, "cache"))).toBe(false);
+  });
+
+  it("reads and writes each range at the app's own cache path", async () => {
+    const isolation = createFakeIsolationProvider();
+    const own = join(dir, "own");
+    const rangeCache = (range: { startMs: number }): { key: string; path: string } => ({ key: `seg-${String(range.startMs)}`, path: join(own, `${String(range.startMs)}.mp3`) });
+    const charges: FootageCharge[] = [];
+    const result = await isolateSpeechRanges(film, [clip], edl, options(isolation, { rangeCache, onCharge: (charge) => charges.push(charge) }));
+    if (!result.ok) throw new Error(result.error);
+    expect(charges.map(({ cacheKey }) => cacheKey)).toEqual(["seg-800", "seg-3800"]);
+    expect(existsSync(join(own, "800.mp3"))).toBe(true);
+    const providers = { stt: createFakeSttProvider(), isolation, music: createFakeMusicProvider() };
+    const estimate = await estimateSpeechRanges(film, { cacheDir: join(dir, "cache"), providers, rates: { transcribe: 0, isolate: 1, music: 0 }, edl, margin: 0.2, rangeCache });
+    if (!estimate.ok) throw new Error(estimate.error);
+    expect(estimate.value.totalCredits).toBe(0);
   });
 
   it("estimates the cut's uncached ranges, a cached range at 0", async () => {

@@ -501,18 +501,31 @@ export {
   type FootageEstimateItem,
 } from "./footage/paid.js";
 export {
+  DEFAULT_SPEECH_RANGE_FADE_MS,
   DEFAULT_SPEECH_RANGE_MARGIN,
   buildRangeAudioArgs,
   buildRangeLayArgs,
   getSpeechRangeCache,
+  getSpeechRangeFades,
   getSpeechRangeWindows,
   planSpeechRanges,
   type LaidRange,
   type SpeechRange,
+  type SpeechRangeCacheResolver,
   type SpeechRangeClip,
+  type SpeechRangeFade,
   type SpeechRangeWindow,
 } from "./footage/speech-ranges.js";
-export { isolateSpeechRanges, type IsolateSpeechRangesOptions, type IsolatedSpeech, type IsolatedSpeechRange } from "./footage/isolate-ranges.js";
+export {
+  DEFAULT_SPEECH_RANGE_ATTEMPTS,
+  DEFAULT_SPEECH_RANGE_RETRY_DELAYS_MS,
+  isolateSpeechRanges,
+  type IsolateSpeechRangesOptions,
+  type IsolatedSpeech,
+  type IsolatedSpeechRange,
+  type SpeechRangeOutcome,
+  type SpeechRangeRetry,
+} from "./footage/isolate-ranges.js";
 export { RENDER_MIN_FREE_BYTES, findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./footage/disk.js";
 export { DRAFT_FILTERS, REQUIRED_DECODERS, REQUIRED_FILTERS, checkFootageTools, findBrowserProblem, readFfmpegListing, type FootageToolsOptions } from "./footage/tools.js";
 export {
