@@ -707,15 +707,17 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   the seconds billed and stops; nothing is sent. `--placeholder` rehearses without any paid call: a transcript from
   each talking clip's `script` (its words spread evenly over the clip), no isolation, no generated music (a local
   music file still plays). It writes `edl.placeholder.json` and `<film>.placeholder.mp4`, never the real film's files.
-- **Mouth clicks (`speech.declick`, issue #1084):** `"gentle"` or `"strong"` adds a declick stage between the cut
-  speech track and its loudness pass (the draft runs it too). A gate lowers the speech outside each word's window
-  (start and end ± 40 ms, close words merged) by 15 dB (`gentle`) or 20 dB (`strong`), with a 20 ms fade outside the
-  window, so no onset or tail is touched. Short impulses outside the words' own spans (bursts under 30 ms whose
-  2-8 kHz energy jumps 15 dB, or 9 dB with `strong`, above the band's running median over ±100 ms; 2 ms frames, 1 ms
-  hop) are lowered by 30 dB with a 5 ms or 8 ms crossfade. The gain is applied per sample to the decoded track, and a
-  track without words is not gated. The log and the result's `declick` (`{ level, impulses, gateDb }`, null when
-  off) carry the count. `"off"` (the default) runs no extra pass: the speech track is unchanged. ffmpeg's `adeclick`
-  misses these clicks, which sit well below the speech peaks.
+- **Mouth clicks (`speech.declick`, issues #1084, #1170):** `"gentle"` or `"strong"` adds a declick stage between
+  the cut speech track and its loudness pass (the draft runs it too). It repairs single impulses and changes no gain:
+  nothing within ±80 ms of a transcript word is touched (`DECLICK_WORD_GUARD`; the speech-to-text boundaries are 20 to
+  60 ms off the real sound), so only pauses longer than 160 ms are searched. An impulse is a burst under 12 ms whose
+  2-8 kHz energy jumps 15 dB (`gentle`) or 9 dB (`strong`) above the band's running median over ±100 ms (2 ms frames,
+  1 ms hop); its samples are replaced by least-squares AR interpolation (order 24, fitted by Burg's method on 10 ms on
+  each side) joined to the original by a 3 ms raised-cosine crossfade on each side. Every other sample leaves the
+  stage as it came in, and a track without words is not repaired. The log and the result's `declick`
+  (`{ level, impulses, repairs }`, each repair's start and end in seconds; null when off) report every intervention.
+  `"off"` (the default) runs no extra pass: the speech track is unchanged. Until 0.17.0 the levels also gated the
+  pauses by 15 or 20 dB, which lowered decays and onsets (heard as hoarseness and pumping); that gate is gone.
 - **A lossless speech chain (issue #1139):** each clip's sound is read from its source (with the clip's trim) into
   `audio/<clip>.wav`, 24-bit 48 kHz stereo, and pre-gained right away by one linear gain to about −23 LUFS, its true
   peak kept at or under −3 dBTP (`SPEECH_PRE_GAIN`); a b-roll or other non-talking clip takes the mean gain of the

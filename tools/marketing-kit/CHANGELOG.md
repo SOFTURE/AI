@@ -6,6 +6,19 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **The speech declick repairs impulses and no longer gates speech (#1170):** `speech.declick` `gentle` and `strong`
+  lowered the pauses between transcript words by 15 or 20 dB; the transcript's boundaries are 20 to 60 ms off the real
+  sound, so the gate lowered decays and onsets and was heard as hoarseness and pumping. Now the stage changes no gain:
+  nothing within ±80 ms of a word is touched, and each single impulse in a longer pause (a burst under 12 ms) is
+  replaced by least-squares AR interpolation with a 3 ms crossfade on each side; every other sample is unchanged. The
+  default stays `off`. Breaking for apps that import the stage's internals:
+  - `DeclickReport` is `{ level, impulses, repairs }` (`repairs`: each repaired impulse's `start` and `end` in
+    seconds); `gateDb` is gone, and the log line lists the repair times;
+  - `getGateWindows`, `getDeclickGain`, `DECLICK_GATE_FADE`, `DECLICK_IMPULSE_DB`, `DECLICK_WORD_WINDOW` and
+    `DeclickSettings.gateDb` / `crossfadeSeconds` are removed; new are `getRepairZones`, `repairSpan`,
+    `getArPolynomial`, `DECLICK_WORD_GUARD`, `DECLICK_CROSSFADE`, `DECLICK_AR_ORDER` and `DECLICK_AR_CONTEXT`;
+  - `DECLICK_MAX_IMPULSE` is 12 ms (was 30 ms).
+
 - **Where the cover's text and focus landed (#1172):** `PhotoCover` answers `textBox` (the drawn text with its shadow,
   the box the fit check measured, `{ left, top, right, bottom }` in pixels with right and bottom excluded; null for
   layout `photo`) and `focusPoint` (`{ x, y }`, the focus point on the cover after the crop). The new

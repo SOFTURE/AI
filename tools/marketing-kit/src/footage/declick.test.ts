@@ -6,17 +6,18 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
-  DECLICK_GATE_FADE,
-  DECLICK_SETTINGS,
-  DECLICK_WORD_WINDOW,
+  DECLICK_CROSSFADE,
+  DECLICK_WORD_GUARD,
   buildDeclickDecodeArgs,
   buildDeclickEncodeArgs,
   declickSamples,
   declickSpeech,
   describeDeclick,
   findImpulses,
-  getGateWindows,
+  getArPolynomial,
+  getRepairZones,
   getRunningMedian,
+  repairSpan,
   type ActiveDeclickLevel,
   type TimeSpan,
 } from "./declick.js";
@@ -96,49 +97,31 @@ function buildFixture(): Fixture {
 
 const fixture = buildFixture();
 
-const rms = (samples: Float32Array, from: number, to: number): number => {
-  let sum = 0;
-  for (let index = from; index < to; index++) sum += (samples[index] ?? 0) ** 2;
-  return Math.sqrt(sum / Math.max(1, to - from));
-};
+/** The clicks in the middle of a pause (the stage repairs them) and those within 80 ms of an onset (it leaves them). */
+const isInPause = (click: TimeSpan): boolean => getRepairZones(fixture.words, 8.4).some((zone) => click.start - DECLICK_CROSSFADE - 0.001 >= zone.start && click.end + DECLICK_CROSSFADE + 0.001 <= zone.end);
+const pauseClicks = fixture.clicks.filter(isInPause);
+const onsetClicks = fixture.clicks.filter((click) => !isInPause(click));
 
-const median = (values: number[]): number => {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = sorted.length >> 1;
-  return sorted.length % 2 === 1 ? (sorted[middle] ?? 0) : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
-};
-
-/** 50 ms windows inside the pauses, clear of the gate's windows and fades and of every click. */
-function getPauseWindows(): [number, number][] {
-  const windows = getGateWindows(fixture.words);
-  const blocked = [
-    ...windows.map((window) => ({ start: window.start - DECLICK_GATE_FADE, end: window.end + DECLICK_GATE_FADE })),
-    ...fixture.clicks.map((click) => ({ start: click.start - 0.02, end: click.end + 0.02 })),
-  ];
-  const found: [number, number][] = [];
-  for (let start = 0; start + 0.05 < fixture.samples.length / RATE; start += 0.05) {
-    const end = start + 0.05;
-    if (blocked.every((span) => end <= span.start || start >= span.end)) found.push([Math.round(start * RATE), Math.round(end * RATE)]);
-  }
-  return found;
-}
-
-describe("getGateWindows", () => {
-  it("reaches 40 ms past each word and merges windows whose fades would touch", () => {
-    expect(getGateWindows([])).toEqual([]);
-    const windows = getGateWindows([
-      { start: 1, end: 1.5 },
-      { start: 0.02, end: 0.3 },
-      // 0.07 s after the first word: windows 0.01 s apart, closer than two fades.
-      { start: 1.57, end: 2 },
-      { start: 3, end: 3.2 },
+describe("getRepairZones", () => {
+  it("keeps 80 ms clear of every word, leaves the track's edges open and has no zone without words", () => {
+    expect(getRepairZones([], 5)).toEqual([]);
+    const zones = getRepairZones(
+      [
+        { start: 1, end: 1.5 },
+        { start: 0.05, end: 0.3 },
+        // 150 ms after the first word: the guards meet, no zone between them.
+        { start: 1.65, end: 2 },
+        { start: 3, end: 3.2 },
+      ],
+      4,
+    );
+    expect(zones.map((zone) => ({ start: Number(zone.start.toFixed(3)), end: Number(zone.end.toFixed(3)) }))).toEqual([
+      { start: 0.38, end: 0.92 },
+      { start: 2.08, end: 2.92 },
+      { start: 3.28, end: 4 },
     ]);
-    expect(windows.map((window) => ({ start: Number(window.start.toFixed(3)), end: Number(window.end.toFixed(3)) }))).toEqual([
-      { start: 0, end: 0.34 },
-      { start: 0.96, end: 2.04 },
-      { start: 2.96, end: 3.24 },
-    ]);
-    expect(DECLICK_WORD_WINDOW).toBe(0.04);
+    expect(getRepairZones([{ start: 0.5, end: 1 }], 2)[0]).toEqual({ start: 0, end: 0.42 });
+    expect(DECLICK_WORD_GUARD).toBe(0.08);
   });
 });
 
@@ -150,56 +133,92 @@ describe("getRunningMedian", () => {
 });
 
 describe("findImpulses", () => {
-  it.each<ActiveDeclickLevel>(["gentle", "strong"])("finds every injected click and nothing on the words (%s)", (level) => {
+  it.each<ActiveDeclickLevel>(["gentle", "strong"])("finds every click in the pauses and none within 80 ms of a word (%s)", (level) => {
     const impulses = findImpulses(fixture.samples, RATE, fixture.words, level);
-    expect(impulses).toHaveLength(fixture.clicks.length);
-    for (const click of fixture.clicks) expect(impulses.some((impulse) => impulse.start <= click.start && impulse.end >= click.end)).toBe(true);
-    for (const impulse of impulses) expect(fixture.words.every((word) => impulse.end <= word.start || impulse.start >= word.end)).toBe(true);
+    expect(pauseClicks.length).toBe(10);
+    expect(impulses).toHaveLength(pauseClicks.length);
+    for (const click of pauseClicks) expect(impulses.some((impulse) => impulse.start <= click.start && impulse.end >= click.end)).toBe(true);
+    for (const impulse of impulses) expect(fixture.words.every((word) => impulse.end <= word.start - DECLICK_WORD_GUARD || impulse.start >= word.end + DECLICK_WORD_GUARD)).toBe(true);
   });
 
-  it("finds nothing in room tone alone, nor in digital silence", () => {
+  it("finds nothing without words, in room tone alone, nor in digital silence", () => {
     const random = createRandom(7);
     const room = Float32Array.from({ length: RATE * 2 }, () => (random() * 2 - 1) * 0.003);
+    room[RATE] = 0.3;
     expect(findImpulses(room, RATE, [], "strong")).toEqual([]);
-    expect(findImpulses(new Float32Array(RATE), RATE, [], "strong")).toEqual([]);
+    room[RATE] = 0;
+    expect(findImpulses(room, RATE, [{ start: 0.1, end: 0.2 }], "strong")).toEqual([]);
+    expect(findImpulses(new Float32Array(RATE), RATE, [{ start: 0.1, end: 0.2 }], "strong")).toEqual([]);
   });
 
-  it("leaves a burst longer than 30 ms alone", () => {
+  it("leaves a burst of 12 ms or longer alone", () => {
     const random = createRandom(9);
     const samples = Float32Array.from({ length: RATE }, () => (random() * 2 - 1) * 0.002);
-    for (let index = Math.round(0.5 * RATE); index < Math.round(0.545 * RATE); index++) samples[index] = (random() * 2 - 1) * 0.05;
-    expect(findImpulses(samples, RATE, [], "strong")).toEqual([]);
+    for (let index = Math.round(0.5 * RATE); index < Math.round(0.515 * RATE); index++) samples[index] = (random() * 2 - 1) * 0.05;
+    expect(findImpulses(samples, RATE, [{ start: 0.05, end: 0.1 }], "strong")).toEqual([]);
   });
 });
 
+describe("repairSpan", () => {
+  it("interpolates a tone through a click within -30 dB of the clean tone", () => {
+    const clean = Float64Array.from({ length: RATE / 10 }, (_, index) => 0.1 * Math.sin((2 * Math.PI * 220 * index) / RATE) + 0.05 * Math.sin((2 * Math.PI * 660 * index) / RATE));
+    const channel = Float64Array.from(clean);
+    const from = 2400;
+    const to = 2400 + 384;
+    const random = createRandom(5);
+    for (let index = from + 144; index < to - 144; index++) channel[index] = (random() * 2 - 1) * 0.3;
+    repairSpan({ channel, from, to, crossfade: 144, context: 480 });
+    let error = 0;
+    let power = 0;
+    for (let index = from; index < to; index++) {
+      error += ((channel[index] ?? 0) - (clean[index] ?? 0)) ** 2;
+      power += (clean[index] ?? 0) ** 2;
+    }
+    expect(toDb(Math.sqrt(error / power))).toBeLessThan(-30);
+    expect(Array.from(channel.subarray(0, from))).toEqual(Array.from(clean.subarray(0, from)));
+    expect(Array.from(channel.subarray(to))).toEqual(Array.from(clean.subarray(to)));
+  });
+
+  it("fits no model on a context too short, and a stable one on silence", () => {
+    expect(Array.from(getArPolynomial([new Float64Array(1)], 24))).toEqual([1]);
+    expect(Array.from(getArPolynomial([new Float64Array(100), new Float64Array(3)], 4)).map(Math.abs)).toEqual([1, 0, 0, 0, 0]);
+  });
+});
+
+/** Each sample index the stage changed. */
+function getChangedIndexes(before: Float32Array, after: Float32Array): number[] {
+  const changed: number[] = [];
+  for (let index = 0; index < before.length; index++) if (before[index] !== after[index]) changed.push(index);
+  return changed;
+}
+
 describe("declickSamples", () => {
-  it.each<ActiveDeclickLevel>(["gentle", "strong"])("gates the pauses, lowers the clicks and keeps every onset (%s)", (level) => {
-    const { gateDb } = DECLICK_SETTINGS[level];
+  it.each<ActiveDeclickLevel>(["gentle", "strong"])("repairs the clicks in the pauses, keeps those near the words and changes nothing else (%s)", (level) => {
     const { samples, report } = declickSamples({ samples: fixture.samples, channels: 1, sampleRate: RATE, words: fixture.words, level });
-    expect(report).toEqual({ level, impulses: 20, gateDb });
-    // The pauses' median RMS falls by the gate level within 1 dB.
-    const pauses = getPauseWindows();
-    expect(pauses.length).toBeGreaterThan(20);
-    const before = median(pauses.map(([from, to]) => toDb(rms(fixture.samples, from, to))));
-    const after = median(pauses.map(([from, to]) => toDb(rms(samples, from, to))));
-    expect(Math.abs(after - before - gateDb)).toBeLessThanOrEqual(1);
-    expect(before).toBeCloseTo(-55, 0);
-    // Every click's peak falls by at least 25 dB.
-    fixture.clicks.forEach((click, index) => {
+    expect(report.level).toBe(level);
+    expect(report.impulses).toBe(10);
+    expect(report.repairs).toHaveLength(10);
+    // Every pause click's peak falls by at least 20 dB.
+    for (const click of pauseClicks) {
+      const index = fixture.clicks.indexOf(click);
       const from = Math.round(click.start * RATE);
       const to = Math.round(click.end * RATE);
       const peak = Math.max(...Array.from(samples.subarray(from, to), Math.abs));
-      expect(toDb(fixture.clickPeaks[index] ?? 0) - toDb(peak)).toBeGreaterThanOrEqual(25);
-    });
-    // Every word's first 30 ms keep their energy within 0.5 dB.
-    for (const word of fixture.words) {
-      const from = Math.round(word.start * RATE);
-      const to = Math.round((word.start + 0.03) * RATE);
-      expect(Math.abs(toDb(rms(samples, from, to)) - toDb(rms(fixture.samples, from, to)))).toBeLessThanOrEqual(0.5);
+      expect(toDb(fixture.clickPeaks[index] ?? 0) - toDb(peak)).toBeGreaterThanOrEqual(20);
     }
+    // A click within 80 ms of an onset is left as it is.
+    for (const click of onsetClicks) {
+      const from = Math.round(click.start * RATE);
+      const to = Math.round(click.end * RATE);
+      expect(Array.from(samples.subarray(from, to))).toEqual(Array.from(fixture.samples.subarray(from, to)));
+    }
+    // Only the repairs with their crossfades differ from the input.
+    const crossfade = Math.round(DECLICK_CROSSFADE * RATE);
+    const inRepair = (index: number): boolean => report.repairs.some((repair) => index >= Math.round(repair.start * RATE) - crossfade && index < Math.round(repair.end * RATE) + crossfade);
+    expect(getChangedIndexes(fixture.samples, samples).every(inRepair)).toBe(true);
   });
 
-  it("applies one gain to every channel, and without words gates nothing", () => {
+  it("repairs one span on every channel and leaves a track without words as it is", () => {
     const random = createRandom(3);
     const length = RATE;
     const stereo = new Float32Array(length * 2);
@@ -214,12 +233,17 @@ describe("declickSamples", () => {
       stereo[index * 2] = value;
       stereo[index * 2 + 1] = value;
     }
-    const { samples, report } = declickSamples({ samples: stereo, channels: 2, sampleRate: RATE, words: [], level: "gentle" });
-    expect(report).toEqual({ level: "gentle", impulses: 1, gateDb: null });
+    const plain = declickSamples({ samples: stereo, channels: 2, sampleRate: RATE, words: [], level: "strong" });
+    expect(plain.report).toEqual({ level: "strong", impulses: 0, repairs: [] });
+    expect(Array.from(plain.samples)).toEqual(Array.from(stereo));
+    const { samples, report } = declickSamples({ samples: stereo, channels: 2, sampleRate: RATE, words: [{ start: 0.05, end: 0.1 }], level: "gentle" });
+    expect(report.impulses).toBe(1);
+    const left = Math.abs(samples[(center + 75) * 2] ?? 0);
+    const right = Math.abs(samples[(center + 75) * 2 + 1] ?? 0);
+    expect(toDb(left) - toDb(Math.abs(stereo[(center + 75) * 2] ?? 0))).toBeLessThan(-20);
+    expect(right).toBeLessThan(0.01);
     // Far from the click, the track is untouched.
-    expect(Array.from(samples.subarray(0, 2 * Math.round(0.3 * RATE)))).toEqual(Array.from(stereo.subarray(0, 2 * Math.round(0.3 * RATE))));
-    expect(toDb(Math.abs(samples[(center + 75) * 2] ?? 0)) - toDb(Math.abs(stereo[(center + 75) * 2] ?? 0))).toBeCloseTo(-30, 1);
-    expect(samples[(center + 75) * 2]).toBe(samples[(center + 75) * 2 + 1]);
+    expect(Array.from(samples.subarray(0, 2 * Math.round(0.4 * RATE)))).toEqual(Array.from(stereo.subarray(0, 2 * Math.round(0.4 * RATE))));
   });
 });
 
@@ -230,9 +254,15 @@ describe("the stage's ffmpeg steps", () => {
     expect(buildDeclickEncodeArgs("raw.f32", "out.mp3").slice(-5)).toEqual(["-c:a", "libmp3lame", "-q:a", "2", "out.mp3"]);
   });
 
-  it("logs the count and the gate", () => {
-    expect(describeDeclick({ level: "gentle", impulses: 12, gateDb: -15 })).toBe("declick (gentle): 12 impulses removed, the pauses lowered by 15 dB.");
-    expect(describeDeclick({ level: "strong", impulses: 1, gateDb: null })).toBe("declick (strong): 1 impulse removed, no words, so no gate.");
+  it("logs the count and the first repair times", () => {
+    const repairs = Array.from({ length: 10 }, (_, index) => ({ start: index + 0.25, end: index + 0.254 }));
+    expect(describeDeclick({ level: "gentle", impulses: 10, repairs })).toBe(
+      "declick (gentle): 10 impulses repaired at 0.250 s, 1.250 s, 2.250 s, 3.250 s, 4.250 s, 5.250 s, 6.250 s, 7.250 s, +2 more; no gain change, nothing within 80 ms of a word touched.",
+    );
+    expect(describeDeclick({ level: "strong", impulses: 1, repairs: [{ start: 1.5, end: 1.505 }] })).toBe(
+      "declick (strong): 1 impulse repaired at 1.500 s; no gain change, nothing within 80 ms of a word touched.",
+    );
+    expect(describeDeclick({ level: "strong", impulses: 0, repairs: [] })).toBe("declick (strong): 0 impulses repaired; no gain change, nothing within 80 ms of a word touched.");
   });
 });
 
@@ -259,17 +289,54 @@ describe.runIf(hasFfmpeg)("declickSpeech with ffmpeg", () => {
     const output = join(dir, "speech.declicked.wav");
     const progress: number[] = [];
     const report = await declickSpeech({ input, output, words: fixture.words.map((word) => ({ text: "word", ...word })), level: "strong", seconds: 8.4, onSeconds: (done) => progress.push(done) });
-    expect(report).toEqual({ level: "strong", impulses: 20, gateDb: -20 });
+    expect(report.impulses).toBe(10);
     expect(Math.max(...progress)).toBeLessThanOrEqual(8.4);
     expect(spawnSync("ffmpeg", buildDeclickDecodeArgs(output, pcm)).status).toBe(0);
     const bytes = readFileSync(pcm);
     expect(bytes.length).toBe(stereo.length * 4);
-    // A pause, clear of clicks and fades: 20 dB down.
-    const from = Math.round(0.9 * RATE);
-    const to = Math.round(1 * RATE);
+    // The speech outside the repairs comes back as it went in (float WAV is lossless).
     const read = (index: number): number => bytes.readFloatLE(index * 8);
-    let sum = 0;
-    for (let index = from; index < to; index++) sum += read(index) ** 2;
-    expect(toDb(Math.sqrt(sum / (to - from))) - toDb(rms(fixture.samples, from, to))).toBeCloseTo(-20, 0);
+    for (let index = Math.round(0.4 * RATE); index < Math.round(0.9 * RATE); index++) expect(read(index)).toBe(fixture.samples[index]);
   }, 30_000);
+});
+
+/** Words whose sound starts 30 ms before and decays 60 ms past the transcript span. */
+function buildSpeech(): { samples: Float32Array; words: TimeSpan[] } {
+  const random = createRandom(1170);
+  const samples = Float32Array.from({ length: Math.round(6 * RATE) }, () => (random() * 2 - 1) * 0.003);
+  const words: TimeSpan[] = [];
+  for (let word = 0; word < 8; word++) {
+    const start = 0.4 + word * 0.7;
+    const end = start + 0.25;
+    words.push({ start, end });
+    for (let index = Math.round((start - 0.03) * RATE); index < Math.round((end + 0.06) * RATE); index++) {
+      const t = index / RATE;
+      const envelope = t < start ? (t - start + 0.03) / 0.03 : t > end ? Math.exp(-(t - end) / 0.015) : 1;
+      samples[index] = (samples[index] ?? 0) + 0.1 * envelope * Math.sin(2 * Math.PI * 180 * t);
+    }
+  }
+  return { samples, words };
+}
+
+describe("the declick inside word windows (issue #1170)", () => {
+  it.each<ActiveDeclickLevel>(["gentle", "strong"])("keeps the 5 ms envelope within 1 dB in 99.9 %% of frames (%s)", (level) => {
+    const { samples, words } = buildSpeech();
+    const output = declickSamples({ samples, channels: 1, sampleRate: RATE, words, level }).samples;
+    const frame = Math.round(0.005 * RATE);
+    const db = (values: Float32Array, from: number): number => {
+      let sum = 0;
+      for (let index = from; index < from + frame; index++) sum += (values[index] ?? 0) ** 2;
+      return 10 * Math.log10(Math.max(sum / frame, 1e-20));
+    };
+    let frames = 0;
+    let off = 0;
+    for (const word of words) {
+      for (let from = Math.round((word.start - 0.08) * RATE); from + frame <= Math.round((word.end + 0.08) * RATE); from += frame) {
+        frames++;
+        if (Math.abs(db(output, from) - db(samples, from)) > 1) off++;
+      }
+    }
+    expect(frames).toBeGreaterThan(400);
+    expect(off / frames).toBeLessThanOrEqual(0.001);
+  });
 });
