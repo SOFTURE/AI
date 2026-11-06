@@ -26,9 +26,21 @@ const CITIES: readonly [string, number, number][] = [
 ];
 
 describe("world map data", () => {
-  it("leaves out Antarctica and keeps every other Natural Earth 1:110m country", () => {
+  it("leaves out Antarctica, keeps every other Natural Earth 1:110m country and adds French Guiana", () => {
     expect(WORLD_COUNTRY_SHAPES.some((shape) => shape.id === "010")).toBe(false);
-    expect(WORLD_COUNTRY_SHAPES).toHaveLength(COUNTRIES.length - 1);
+    expect(WORLD_COUNTRY_SHAPES).toHaveLength(COUNTRIES.length);
+  });
+
+  it("draws French Guiana as its own shape, so a visited France leaves it unpainted", () => {
+    const france = WORLD_COUNTRY_SHAPES.find((shape) => shape.id === "250");
+    const guiana = WORLD_COUNTRY_SHAPES.find((shape) => shape.id === "254");
+    const guianaPoint = projectToFit(WORLD_MAP_FIT, -53, 4);
+    const startsOf = (d: string | undefined) => (d ?? "").split("M").filter(Boolean).map((part) => part.split("L")[0]?.split(",").map(Number) ?? []);
+    const isNearGuiana = ([x, y]: number[]) => Math.abs((x ?? 0) - guianaPoint.x) < 15 && Math.abs((y ?? 0) - guianaPoint.y) < 15;
+    expect(guiana?.name).toBe("French Guiana");
+    expect(startsOf(guiana?.d).every(isNearGuiana)).toBe(true);
+    expect(startsOf(france?.d).some(isNearGuiana)).toBe(false);
+    expect(startsOf(france?.d).length).toBeGreaterThan(0);
   });
 
   it("keys countries by ISO 3166-1 numeric code, as world-atlas does", () => {

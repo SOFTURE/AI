@@ -6,7 +6,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.1.1
 
-- No code change: the first release through the npm trusted publisher (OIDC, no token).
+- **French Guiana is its own shape (#1153):** `WORLD_COUNTRY_SHAPES` no longer draws it as part of France (`250`);
+  it is `254`, so a visited France leaves it unpainted. The first release through the npm trusted publisher.
 
 ## 0.1.0
 
