@@ -421,6 +421,18 @@ export {
   type PicturePieceArgsInput,
 } from "./footage/picture.js";
 export {
+  SPEECH_PRE_GAIN,
+  buildClipSoundArgs,
+  buildClipSoundMeasureArgs,
+  getAudioCodecArgs,
+  getClipSoundPath,
+  getPreGainDb,
+  prepareClipSounds,
+  type ClipSound,
+  type ClipSoundInput,
+} from "./footage/clip-sound.js";
+export {
+  AUDIO_BITRATE_RANGE_KBPS,
   DEFAULT_LOUDNESS,
   buildLoudnessArgs,
   buildLoudnessMeasureArgs,

@@ -1,4 +1,4 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, extname, join, resolve } from "node:path";
 
@@ -11,6 +11,7 @@ import { copyFonts } from "../render/render.js";
 import type { TtsResult } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { checkMusicFileType, describeAudioProbe, probeAudio } from "./audio.js";
+import { prepareClipSounds } from "./clip-sound.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
 import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
@@ -24,6 +25,7 @@ import { DEFAULT_AUTO_THRESHOLD, getDeclickLevel, getFootageEdit, type FootageCl
 import { getFilmKeyTerms } from "./keyterms.js";
 import { buildFilmMixArgs } from "./film-mix.js";
 import {
+  AUDIO_BITRATE_RANGE_KBPS,
   buildMixArgs,
   DEFAULT_LOUDNESS,
   formatDb,
@@ -85,7 +87,8 @@ export { getEdlPath } from "./paid.js";
  * (a transcript from each clip's `script`, no isolation, no generated music) and keeps its files apart from the real
  * film's (`placeholder/` in the build folder, its own EDL).
  *
- * Build folder layout: `sources/` (downloaded URLs), `clips/<id>.mp4` (normalized), `audio/<id>.mp3`, `edl.json`
+ * Build folder layout: `sources/` (downloaded URLs), `clips/<id>.mp4` (normalized), `audio/<id>.wav` (the clip's
+ * lossless, pre-gained sound; `audio/<id>.isolated.wav` its cleaned voice), `edl.json`
  * (`edl.placeholder.json`), `assets/`, `index.html`, `render.mp4` (hyperframes' output until the final pass).
  *
  * The finished film is publishable: the speech track normalized to a loudness target before the music goes under it,
@@ -283,23 +286,28 @@ function getClipKey(clip: PreparedClip): Promise<string> {
   return getClipCacheKey(clip.source, clip.clip);
 }
 
-async function extractAudio(clip: PreparedClip, buildDir: string, signal: AbortSignal | undefined): Promise<string> {
-  const audio = join(buildDir, "audio", `${clip.clip.id}.mp3`);
-  mkdirSync(dirname(audio), { recursive: true });
-  await runFfmpeg(`Extracting the sound of clip ${clip.clip.id}`, buildAudioArgs(clip.file, audio), { ...(signal === undefined ? {} : { signal }), output: audio });
-  return audio;
+/** The cached cleaned voice (the provider's file) decoded into the build folder as lossless WAV, named by the clip's id. */
+async function decodeIsolatedVoice(cached: string, clipId: string, buildDir: string, signal: AbortSignal | undefined): Promise<string> {
+  const output = join(buildDir, "audio", `${clipId}.isolated.wav`);
+  mkdirSync(dirname(output), { recursive: true });
+  await runFfmpeg(`Decoding the cleaned voice of clip ${clipId}`, buildAudioArgs(cached, output), { ...(signal === undefined ? {} : { signal }), output });
+  return output;
 }
 
-/** The free transcripts of `--placeholder`, written under `placeholder/` for a look. */
-function transcribePlaceholder(film: FootageFilm, clips: PreparedClip[], buildDir: string): TranscribeOutcome {
+/** Each clip's lossless, pre-gained sound (`prepareClipSounds`), by clip id. */
+async function getClipSoundFiles(clips: PreparedClip[], buildDir: string, signal: AbortSignal | undefined): Promise<Record<string, string>> {
+  const sounds = await prepareClipSounds(clips, { buildDir, ...(signal === undefined ? {} : { signal }) });
+  return Object.fromEntries(Object.entries(sounds).map(([id, sound]) => [id, sound.file]));
+}
+
+/** The free transcripts of `--placeholder`, written under `placeholder/` for a look; the speech is each clip's lossless sound. */
+async function transcribePlaceholder(clips: PreparedClip[], buildDir: string, signal: AbortSignal | undefined): Promise<TranscribeOutcome> {
   const words: Record<string, TimedWord[]> = {};
-  const speech: Record<string, string> = {};
   for (const clip of clips) {
     words[clip.clip.id] = clip.clip.role === "talk" ? makePlaceholderTranscript(clip.clip.script, clip.duration) : [];
     writeTranscript(join(buildDir, "placeholder", `${clip.clip.id}.transcript.json`), words[clip.clip.id] ?? []);
-    speech[clip.clip.id] = clip.file;
   }
-  return { kind: "ready", words, speech };
+  return { kind: "ready", words, speech: await getClipSoundFiles(clips, buildDir, signal) };
 }
 
 /** The paid music step, when the film's music still has to be bought; null when it is cached or free. */
@@ -322,7 +330,7 @@ export function transcribeFootage(film: FootageFilm, clips: PreparedClip[], opti
 /** The body of `transcribeFootage`, inside its ffmpeg failure reporting. */
 async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], options: FootageRunOptions): Promise<FootageResult<TranscribeOutcome>> {
   const { buildDir, providers, log, signal } = options;
-  if (options.isPlaceholder) return ok(transcribePlaceholder(film, clips, buildDir));
+  if (options.isPlaceholder) return ok(await transcribePlaceholder(clips, buildDir, signal));
   const keyTerms = getFilmKeyTerms(film);
   if (!keyTerms.ok) return err(`footage film ${film.id}: ${keyTerms.errors.join(" ")}`, { kind: "input" });
   const sttKeyTerms = keyTerms.terms.length === 0 ? {} : { keyTerms: keyTerms.terms };
@@ -346,11 +354,9 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
     return ok({ kind: "dry-run", steps: all });
   }
   const words: Record<string, TimedWord[]> = {};
-  const speech: Record<string, string> = {};
-  for (const clip of clips) {
-    words[clip.clip.id] = [];
-    speech[clip.clip.id] = clip.file;
-  }
+  for (const clip of clips) words[clip.clip.id] = [];
+  // Every clip's sound, lossless and pre-gained: what the isolator, the speech to text and the speech track hear (#1139).
+  const speech = await getClipSoundFiles(clips, buildDir, signal);
   const isolating = plan.filter(({ isolated }) => isolated !== null && !existsSync(isolated.path));
   const transcribing = plan.filter(({ transcript }) => !existsSync(transcript.path));
   const isolateProgress = createStageProgress(options.onProgress, "isolate", isolating.map(({ clip }) => ({ item: clip.clip.id, seconds: clip.duration })));
@@ -358,17 +364,15 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
   for (const entry of plan) {
     const { clip, isolated, transcript } = entry;
     const id = clip.clip.id;
-    let audio: Promise<string> | null = null;
-    const getAudio = (): Promise<string> => (audio ??= extractAudio(clip, buildDir, signal));
+    const sound = speech[id] ?? clip.file;
     let sttInput: string | null = null;
     if (isolated !== null) {
       if (!existsSync(isolated.path)) {
         const index = isolating.indexOf(entry);
         isolateProgress(index, 0);
-        const input = await getAudio();
         throwIfAborted(signal);
         log(`voice isolation (${providers.isolation.id}): clip ${id}, ${clip.duration.toFixed(1)} s.`);
-        const cleaned = await providers.isolation.isolate({ audio: input, ...(signal === undefined ? {} : { signal }) });
+        const cleaned = await providers.isolation.isolate({ audio: sound, ...(signal === undefined ? {} : { signal }) });
         throwIfAborted(signal);
         if (!cleaned.ok) return err(`clip "${id}": ${cleaned.error}`);
         const paid = toPaidAudio(cleaned.value);
@@ -377,8 +381,10 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
         log(`voice isolation: saved ${isolated.path} (commit it).`);
         isolateProgress(index, clip.duration);
       }
-      speech[id] = isolated.path;
-      sttInput = isolated.path;
+      // The provider's file decoded once: the speech track and the speech to text read it lossless, named by the clip.
+      const decoded = await decodeIsolatedVoice(isolated.path, id, buildDir, signal);
+      speech[id] = decoded;
+      sttInput = decoded;
     }
     const cached = readCachedTranscript(transcript.path);
     if (!cached.ok) return err(cached.error);
@@ -387,16 +393,10 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
       words[id] = cached.words;
       continue;
     }
-    if (sttInput !== null) {
-      // The provider sees the clip's id as the file name, as it does for the plain sound.
-      const cleaned = sttInput;
-      sttInput = join(buildDir, "audio", `${id}.isolated.mp3`);
-      mkdirSync(dirname(sttInput), { recursive: true });
-      copyFileSync(cleaned, sttInput);
-    }
     const index = transcribing.indexOf(entry);
     transcribeProgress(index, 0);
-    const input = sttInput ?? (await getAudio());
+    // The provider sees the clip's id as the file name, for the cleaned voice as for the plain sound.
+    const input = sttInput ?? sound;
     throwIfAborted(signal);
     log(`speech to text (${providers.stt.id}): clip ${id}, ${clip.duration.toFixed(1)} s.`);
     const result = await providers.stt.transcribe({ audio: input, language: film.language, ...sttKeyTerms, ...(signal === undefined ? {} : { signal }) });
@@ -617,12 +617,12 @@ async function getMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[], seco
 }
 
 /**
- * The speech chain's files: the cut speech, the declicked track and the final `speech.mp3`. The last stage that runs
- * writes `speech.mp3`; the declicked track is float WAV when the loudness pass follows (one lossy encode fewer).
+ * The speech chain's files, all lossless float WAV (issue #1139): the cut speech, the declicked track and the final
+ * `speech.wav`, which the last stage that runs writes. The film's final AAC is the chain's only lossy encode.
  */
 export function getSpeechChainFiles(assetsDir: string, stages: { isDeclick: boolean; isLoudness: boolean }): { rawSpeechFile: string; declickedFile: string; speechFile: string } {
-  const speechFile = join(assetsDir, "speech.mp3");
-  const rawSpeechFile = stages.isDeclick || stages.isLoudness ? join(assetsDir, "speech.raw.mp3") : speechFile;
+  const speechFile = join(assetsDir, "speech.wav");
+  const rawSpeechFile = stages.isDeclick || stages.isLoudness ? join(assetsDir, "speech.raw.wav") : speechFile;
   const declickedFile = !stages.isDeclick ? rawSpeechFile : stages.isLoudness ? join(assetsDir, "speech.declicked.wav") : speechFile;
   return { rawSpeechFile, declickedFile, speechFile };
 }
@@ -826,7 +826,7 @@ async function runRenderFootage(
     assets: {
       clips: Object.fromEntries(clips.map((clip) => [clip.clip.id, `clips/${clip.clip.id}.mp4`])),
       picture: "assets/picture.mp4",
-      speech: "assets/speech.mp3",
+      speech: "assets/speech.wav",
       music: musicAsset,
       lastFrame: "assets/last.jpg",
       logo: options.brand.logo === null ? null : "assets/logo.svg",
@@ -1011,6 +1011,10 @@ async function finishMix(input: {
   signal?: AbortSignal;
 }): Promise<FootageResult<{ attempt: MixAttempt; tries: number; probes: number; measured: MixLoudness }>> {
   const aborting = input.signal === undefined ? {} : { signal: input.signal };
+  const bitrate = input.target.audioBitrateKbps;
+  if (bitrate !== undefined && !(Number.isInteger(bitrate) && bitrate >= AUDIO_BITRATE_RANGE_KBPS.min && bitrate <= AUDIO_BITRATE_RANGE_KBPS.max)) {
+    return err(`mixLoudness.audioBitrateKbps must be a whole number from ${String(AUDIO_BITRATE_RANGE_KBPS.min)} to ${String(AUDIO_BITRATE_RANGE_KBPS.max)}, got ${String(bitrate)}.`, { kind: "input" });
+  }
   const attempts = getMixAttempts(input.target);
   const probe = async (attempt: MixAttempt): Promise<MixLoudness> => {
     const probed = await measureLoudness(input.input, input.target, { label: "the film's mix through its limiter", filter: getMixFilter(attempt), ...aborting });
@@ -1025,7 +1029,7 @@ async function finishMix(input: {
     const solved = await solveMixGain({ ceilingDbtp, startGainDb, target: input.target, shift, measure: probe });
     probes += solved.probes.length;
     const attempt = solved.best.attempt;
-    await runFfmpeg("The film's mix", buildMixArgs({ input: input.input, filter: getMixFilter(attempt), output: input.output }), { ...aborting, output: input.output });
+    await runFfmpeg("The film's mix", buildMixArgs({ input: input.input, filter: getMixFilter(attempt), output: input.output, ...(input.target.audioBitrateKbps === undefined ? {} : { bitrateKbps: input.target.audioBitrateKbps }) }), { ...aborting, output: input.output });
     const encoded = await measureLoudness(input.output, input.target, { label: "the film's encoded mix", ...aborting });
     if (encoded.kind === "silent") return err("the film's mix measures silent after its gain and limiter.", { kind: "loudness", loudness: null });
     const measured = { integrated: encoded.measurement.inputI, truePeak: encoded.measurement.inputTp };

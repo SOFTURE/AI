@@ -120,7 +120,8 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
       { step: "isolate", item: "talk", provider: "silence", units: 1.4, credits: 7, cacheKey: result.value.ranges[1]?.cacheKey, range: { start: 3.8, end: 5.2 } },
     ]);
     const speech = result.value.speech.talk ?? "";
-    expect(speech).toBe(join(dir, "build", "audio", "talk.ranges.mp3"));
+    expect(speech).toBe(join(dir, "build", "audio", "talk.ranges.wav"));
+    expect(isolation.calls.every((call) => call.endsWith(".wav"))).toBe(true);
     const stream = probeStream(speech);
     expect(stream.channels).toBe(2);
     expect(Math.abs(stream.duration - 6)).toBeLessThan(0.1);
@@ -154,7 +155,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     const empty = await isolateSpeechRanges(film, [clip], edl, options(isolation, { isCommit: false }));
     if (!empty.ok) throw new Error(empty.error);
     expect(isolation.calls).toEqual([]);
-    expect(empty.value.speech).toEqual({ talk: clip.file });
+    expect(empty.value.speech).toEqual({ talk: join(dir, "build", "audio", "talk.wav") });
     expect(empty.value.ranges.map(({ cached, laid }) => [cached, laid])).toEqual([
       [false, false],
       [false, false],
@@ -167,7 +168,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     expect(isolation.calls).toHaveLength(1);
     expect(draft.value.ranges.map(({ laid }) => laid)).toEqual([true, false]);
     expect(existsSync(draft.value.speech.talk ?? "")).toBe(true);
-    expect(draft.value.speech.talk).not.toBe(clip.file);
+    expect(draft.value.speech.talk).toBe(join(dir, "build", "audio", "talk.ranges.wav"));
   });
 
   /** Refuses every range whose cut file name contains `refused` `times` times, answering silence otherwise. */
@@ -375,7 +376,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     expect(result.value.ranges.map(({ startMs, endMs, laid, outcome }) => ({ startMs, endMs, laid, outcome }))).toEqual([
       { startMs: 0, endMs: 6000, laid: false, outcome: { kind: "skipped", reason: "too_short", minSeconds: 7 } },
     ]);
-    expect(result.value.speech).toEqual({ talk: clip.file });
+    expect(result.value.speech).toEqual({ talk: join(dir, "build", "audio", "talk.wav") });
     expect(existsSync(join(dir, "build", "audio", "ranges"))).toBe(false);
     expect(lines).toContain("voice isolation: 1 range shorter than fake's minimum of 7 s even with the clip's whole sound, not sent, laid with the clip's own sound: clip talk 0.000-6.000 s.");
     const providers = { stt: createFakeSttProvider(), isolation, music: createFakeMusicProvider() };

@@ -3069,6 +3069,12 @@
                     "type": "number",
                     "minimum": 0.2,
                     "maximum": 3
+                  },
+                  "audioBitrateKbps": {
+                    "description": "The finished sound's AAC bitrate in kbps (192 to 512, default 192): the film's only lossy audio encode.",
+                    "type": "integer",
+                    "minimum": 192,
+                    "maximum": 512
                   }
                 },
                 "additionalProperties": false
