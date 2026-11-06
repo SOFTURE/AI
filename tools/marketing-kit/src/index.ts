@@ -156,11 +156,14 @@ export {
   loadOgFonts,
   renderConfiguredOgImage,
   renderOgImage,
+  renderPhotoCover,
   type ConfiguredOgImageOptions,
   type OgBrand,
   type OgImageInput,
   type OgResult,
   type OgTemplateId,
+  type PhotoCover,
+  type PhotoCoverInput,
 } from "./og/index.js";
 export { buildPosts, postsMarkdown, type PlatformPost, type PostsInput } from "./posts/posts.js";
 export { createActionScene, getLocator, runAction, type LocatorSource } from "./record/actions.js";

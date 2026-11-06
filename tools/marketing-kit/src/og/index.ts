@@ -18,6 +18,29 @@ export {
   type OgBrand,
   type OgImageInput,
 } from "./render.js";
+export {
+  MAX_COVER_CAPTION_LENGTH,
+  PHOTO_COVER_QUALITY,
+  PHOTO_COVER_SIZE,
+  getCoverBand,
+  getCoverCaptionSize,
+  renderPhotoCover,
+  type CoverBand,
+  type PhotoCover,
+  type PhotoCoverInput,
+} from "./photo-cover.js";
+export {
+  getCoverCrop,
+  getOrientationMatrix,
+  getOrientedSize,
+  readPhotoInfo,
+  readTiffOrientation,
+  type CoverCrop,
+  type FocusPoint,
+  type PhotoFormat,
+  type PhotoInfo,
+  type PhotoOrientation,
+} from "./photo.js";
 export { OG_TEMPLATE_IDS, OG_TEMPLATES, isOgTemplateId, type OgTemplateId } from "./templates/index.js";
 export { PORTRAIT_BASE, getLayoutScale, type OgLayout, type OgTemplateContext } from "./templates/context.js";
 export {

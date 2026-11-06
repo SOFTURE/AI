@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **A video cover from a photo (#1137):** `renderPhotoCover({ photo, size, focus, caption, colors, fonts, quality })`
+  draws a vertical video cover (1080×1920 by default) from a JPEG or PNG (path or bytes): scaled to cover and cropped
+  around `focus`, EXIF orientation applied, with an optional caption in the brand's heading font over a soft scrim,
+  kept in the lower half of the centre 4:5 band (`getCoverBand`). An overlong caption and a missing glyph are errors.
+  Returns `{ jpeg, width, height, bytes }`. New dependency: `jpeg-js` (pure JavaScript JPEG encoder).
 - **Footage failures name their kind (#1126):** a failed `FootageResult` (`renderFootage`, `finishFootage`,
   `renderFootageFilm`, `prepareFootage`, `renderFootageDraft`, …) carries `failure` next to `error`, so an app can
   tell a gate miss from a failure worth retrying without reading the sentence:
