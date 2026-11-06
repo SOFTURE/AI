@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.18.0
 
 - **The speech declick repairs impulses and no longer gates speech (#1170):** `speech.declick` `gentle` and `strong`
   lowered the pauses between transcript words by 15 or 20 dB; the transcript's boundaries are 20 to 60 ms off the real
