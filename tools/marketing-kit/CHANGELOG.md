@@ -64,6 +64,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `readHyperframesCapture(lines)` parses hyperframes' output on its own. The README's "Footage films in a worker"
   says that `lowMemory: true` pins screenshot capture (about 30 % slower on one CPU). Code that builds a
   `RenderedFootage` itself now needs `capture`.
+- **A video cover from a photo (#1137):** `renderPhotoCover({ photo, size, focus, caption, colors, fonts, quality })`
+  draws a vertical video cover (1080×1920 by default) from a JPEG or PNG (path or bytes): scaled to cover and cropped
+  around `focus`, EXIF orientation applied, with an optional caption in the brand's heading font over a soft scrim,
+  kept in the lower half of the centre 4:5 band (`getCoverBand`). An overlong caption and a missing glyph are errors.
+  Returns `{ jpeg, width, height, bytes }`. New dependency: `jpeg-js` (pure JavaScript JPEG encoder).
 
 ## 0.15.0
 

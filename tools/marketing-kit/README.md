@@ -1212,6 +1212,40 @@ export default async function Image(): Promise<Response> {
 renders without a `marketing.json` at all. For a carousel, pass `slide` (1-based) to either function;
 `countOgSlides(template, data)` says how many there are.
 
+### A video cover from a photo
+
+`renderPhotoCover` (from `@softure-ai/marketing-kit/og` or the root) draws a Reels, Shorts or TikTok cover from a
+photo the owner picks, instead of a frame of the film:
+
+```ts
+import { loadOgFonts, renderPhotoCover } from "@softure-ai/marketing-kit/og";
+
+const fonts = loadOgFonts(config.brand.fonts);
+if (!fonts.ok) throw new Error(fonts.error);
+const cover = await renderPhotoCover({
+  photo: "covers/street.jpg", // a JPEG or PNG path, or its bytes
+  focus: { x: 0.5, y: 0.35 }, // optional, the centre by default
+  caption: "Stop working at 49", // optional
+  colors: config.brand.colors,
+  fonts: fonts.value,
+});
+if (!cover.ok) throw new Error(cover.error);
+// cover.value: { jpeg, width: 1080, height: 1920, bytes }
+```
+
+- The photo is scaled to cover `size` (1080×1920 by default) and cropped so the `focus` point (fractions of the
+  upright photo's width and height) sits as near the centre as the photo allows. EXIF orientation (JPEG `APP1`, PNG
+  `eXIf`) is applied first.
+- The caption is set in the brand's heading font (the loaded weight nearest 700), centred, in the lighter of the
+  brand's `foreground` and `background`, with a soft shadow and a gradient scrim of the darker one fading in behind
+  it. It sits in the lower half of the centre 4:5 band (1080×1350 of 1080×1920; `getCoverBand(size)`), which the
+  platforms keep when they crop the cover for the profile grid; a long caption wraps. A caption over 80 characters,
+  one whose drawn text reaches outside that half band (measured on the pixels, so it holds for any font), and a
+  character the fonts cannot draw are errors, never drawn. No caption: the cropped photo alone.
+- The result is a baseline JPEG (`quality` 90 by default) of exactly the size, with its `width`, `height` and
+  `bytes`. No network, no system fonts. An ICC profile in the photo (e.g. Display P3) is not converted: its values are
+  taken as sRGB.
+
 ## Requirements
 
 - Node 22, **ffmpeg** in PATH.
@@ -1231,6 +1265,7 @@ renders without a `marketing.json` at all. For a carousel, pass `slide` (1-based
 | Sound effects | the project's | not bundled; `sfx` names the files |
 | ElevenLabs | paid API | key from `ELEVENLABS_API_KEY`, only with `--commit` |
 | satori, @resvg/resvg-js | MPL-2.0 | npm dependencies, unmodified; resvg ships a prebuilt native binary per platform |
+| jpeg-js | BSD-3-Clause | npm dependency, unmodified, pure JavaScript (the photo cover's JPEG encoder) |
 
 ## Limitations
 
