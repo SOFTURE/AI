@@ -11,9 +11,11 @@
 //   import { readBuildInfo } from "@softure-ai/ops/server";
 //   createMcpServerFactory({ name: "acme", registerTools, serverInfoTool: { buildInfo: () => readBuildInfo() } });
 import type { McpServer } from "@modelcontextprotocol/server";
-import { errorLogLabel } from "@softure-ai/core";
+import { errorLogLabel, type SoftureConfig } from "@softure-ai/core";
 import { z } from "zod";
 import { en } from "../messages/en.js";
+import type { McpAccessMessages } from "../messages/index.js";
+import { getMcpAccessMessages } from "./options.js";
 import type { ServedTool } from "./tool-list.js";
 import { toolResult } from "./tools.js";
 
@@ -37,9 +39,16 @@ export interface ServerInfoToolOptions {
    * it on changes the tool's input schema, so the version changes once. Default: off.
    */
   readonly tools?: boolean;
-  /** Default: `serverInfoTool.description` of the module dictionary. */
+  /**
+   * The app's config: the tool's texts (`serverInfoTool` of the messages) follow its locale and overrides (#1117).
+   * Default: the built-in English dictionary.
+   */
+  readonly config?: SoftureConfig;
+  /** Default: `serverInfoTool.description` (or `descriptionWithTools`) of the messages. */
   readonly description?: string;
 }
+
+type ServerInfoToolMessages = McpAccessMessages["serverInfoTool"];
 
 /** One served tool's contract, exactly as `tools/list` answers it. */
 export interface ServedToolContract {
@@ -82,7 +91,8 @@ export type ServerInfoAnswer = McpBuildInfo & { readonly server: ServedServerInf
  */
 export function registerServerInfoTool(server: McpServer, options: RegisterServerInfoToolOptions): void {
   const annotations = { readOnlyHint: true, idempotentHint: true, openWorldHint: false };
-  const description = options.description ?? (options.tools === true ? en.serverInfoTool.descriptionWithTools : en.serverInfoTool.description);
+  const messages = options.config === undefined ? en.serverInfoTool : getMcpAccessMessages(options.config).serverInfoTool;
+  const description = options.description ?? (options.tools === true ? messages.descriptionWithTools : messages.description);
   if (options.tools !== true) {
     // An empty object rather than no schema, so strict input refuses a field sent to it.
     server.registerTool(SERVER_INFO_TOOL_NAME, { description, inputSchema: z.object({}), annotations }, async () => toolResult(await readServerInfo(options)));
@@ -94,10 +104,10 @@ export function registerServerInfoTool(server: McpServer, options: RegisterServe
   }
   server.registerTool(
     SERVER_INFO_TOOL_NAME,
-    { description, inputSchema: z.object({ name: z.string().optional().describe(en.serverInfoTool.nameInputDescription) }), annotations },
+    { description, inputSchema: z.object({ name: z.string().optional().describe(messages.nameInputDescription) }), annotations },
     async ({ name }) => {
       const answer = await readServerInfo(options);
-      return toolResult({ ...answer, ...describeToolContract(await readServedTools(), name) });
+      return toolResult({ ...answer, ...describeToolContract(await readServedTools(), name, messages) });
     },
   );
 }
@@ -109,12 +119,12 @@ async function readServerInfo(options: RegisterServerInfoToolOptions): Promise<S
 }
 
 /** The contract of every served tool, or of the one named; an unknown name answers no tool and every name. */
-function describeToolContract(served: readonly ServedTool[], name: string | undefined): ServerInfoToolsAnswer {
+function describeToolContract(served: readonly ServedTool[], name: string | undefined, messages: ServerInfoToolMessages): ServerInfoToolsAnswer {
   const tools = served.map((tool): ServedToolContract => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema }));
-  if (name === undefined) return { toolsHint: en.serverInfoTool.toolsHint, tools };
+  if (name === undefined) return { toolsHint: messages.toolsHint, tools };
   const named = tools.filter((tool) => tool.name === name);
-  if (named.length > 0) return { toolsHint: en.serverInfoTool.toolsHint, tools: named };
-  return { toolsHint: en.serverInfoTool.unknownToolHint, tools: [], toolNames: tools.map((tool) => tool.name).sort() };
+  if (named.length > 0) return { toolsHint: messages.toolsHint, tools: named };
+  return { toolsHint: messages.unknownToolHint, tools: [], toolNames: tools.map((tool) => tool.name).sort() };
 }
 
 /** As the build info route: a failing provider answers `null` and logs the error class, so the build info still answers. */
