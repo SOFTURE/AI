@@ -1,6 +1,6 @@
 ---
 change_id: deploy-release-retention-1171
-status: in_progress
+status: archived
 ---
 
 # Plan: release retention and server cleanup (issue #1171)

@@ -1,12 +1,13 @@
 ---
 change_id: deploy-release-retention-1171
 title: "deploy: configurable release retention and an on-demand server cleanup (issue #1171)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1171
 branch: claude/project-thread-8aha9h
 created: 2026-11-06
 updated: 2026-11-06
+archived_at: 2026-11-06
 ---
 
 ## Intent
@@ -40,3 +41,14 @@ Labels: none (filed from an adopting app's measurements). `@softure-ai/deploy` 0
 ## Notes
 
 - Framing: skipped. The issue states the problem, the measurements and the requested behaviour.
+
+## Done
+
+`deploy.json` takes `releases.keep` (default 5, 2 to 50; `init` writes it, `server-settings` reads it); a release
+prunes its folders with it after the settings step, never the previous tag's. `deploy.sh cleanup [--keep=<n>]
+[--commit]` (dry run by default) removes release folders and this app's image tags beyond the newest N, other
+`softure-deploy-tools` tags, dangling images and build cache older than 24 h, keeps the live tag, the rollback target
+and images a container uses, lists only its own repositories, and reports `df` and `docker system df` before and
+after; `maintain` runs the same steps with commit; `softure-deploy cleanup --host=…` sends it. Tests in
+`tools/deploy/tests/server-files.test.ts`, `tests/schema.test.ts`, `tests/remote-cli.test.ts`,
+`src/cli/server-settings-command.test.ts`; README "Server cleanup", CHANGELOG 0.6.0. Released as deploy 0.6.0.
