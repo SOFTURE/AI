@@ -1,0 +1,75 @@
+{
+  "name": "@softure-ai/theme-flat-atlas",
+  "version": "0.1.0",
+  "description": "SOFTURE AI Flat Atlas theme: passport paper, flat land and one stamp ink for travel sites and anything on a map; the tokens, the page base and the components, a world map projected at build time among them.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "themes/theme-flat-atlas"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./world-map": {
+      "@softure-ai/source": "./src/world-map.ts",
+      "types": "./dist/world-map.d.ts",
+      "default": "./dist/world-map.js"
+    },
+    "./theme.css": "./dist/theme.css",
+    "./page.css": "./dist/page.css",
+    "./preflight.css": "./dist/preflight.css",
+    "./base.css": "./dist/base.css",
+    "./maplibre.css": "./dist/maplibre.css"
+  },
+  "softureTheme": {
+    "sources": [
+      "./atlas"
+    ],
+    "stylesheets": [
+      "page.css"
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && softure-theme-css",
+    "map:build": "tsx scripts/build-world-map.ts"
+  },
+  "dependencies": {
+    "@softure-ai/theme-kit": "^0.1.4",
+    "lucide-react": "^1.66.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "tailwindcss": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/d3-geo": "^3.1.1",
+    "@types/geojson": "^7946.0.16",
+    "@types/topojson-client": "^3.1.5",
+    "@types/topojson-specification": "^1.0.5",
+    "d3-geo": "^3.1.2",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  }
+}
