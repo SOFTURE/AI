@@ -105,7 +105,10 @@ jobs:
       contents: read
     outputs:
       sha: ${{ steps.commit.outputs.sha }}
-      ref: ${{ steps.commit.outputs.ref }}
+      # What static and unit check out: empty (the caller's own commit) or a tag's commit proven on the release
+      # branch, never a ref from a pull request. Not named `ref`: CodeQL's cache poisoning rule takes a checkout ref
+      # whose name holds ref, head, branch, sha or commit for untrusted code (issues #1112 to #1115).
+      revision: ${{ steps.commit.outputs.revision }}
       shards: ${{ steps.inputs.outputs.shards }}
     steps:
       - &check-runner
@@ -224,7 +227,7 @@ jobs:
           if [ -z "$TAG" ]; then
             # The caller's own commit; the other jobs check out their default ref.
             echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-            echo "ref=" >> "$GITHUB_OUTPUT"
+            echo "revision=" >> "$GITHUB_OUTPUT"
             echo "Checking $SHA (no tag)."
             exit 0
           fi
@@ -247,7 +250,7 @@ jobs:
           fi
           # The other jobs check out this commit, not the tag, so a tag moved meanwhile changes nothing.
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "ref=$sha" >> "$GITHUB_OUTPUT"
+          echo "revision=$sha" >> "$GITHUB_OUTPUT"
           echo "The commit $sha of $TAG is on $branch."
 
   static:
@@ -265,7 +268,7 @@ jobs:
       - *check-inputs
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.ref }}
+          ref: ${{ needs.prepare.outputs.revision }}
           persist-credentials: false
           sparse-checkout: ${{ inputs.sparse-checkout }}
           sparse-checkout-cone-mode: false
@@ -309,7 +312,7 @@ jobs:
       - *check-inputs
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.ref }}
+          ref: ${{ needs.prepare.outputs.revision }}
           persist-credentials: false
           sparse-checkout: ${{ inputs.sparse-checkout }}
           sparse-checkout-cone-mode: false
