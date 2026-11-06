@@ -1,23 +1,30 @@
 // @ts-check
-// Which slow CI areas a change reaches: `node scripts/ci/affected.mjs` in the `changes` job of ci.yml and e2e.yml.
+// What a change reaches in CI: `node scripts/ci/affected.mjs` in the `changes` job of ci.yml and e2e.yml.
 //
 // The changed files come from the GitHub API (a pull request's files, or the compare of a push to master). A file in
-// a workspace package reaches that package and every workspace package that depends on it; a shared root file (the
-// lockfile, a root config, a script, a composite action, the workflow itself) reaches every area. A manual or
-// scheduled run, a list the API cut short, or any failure to list the files also reaches every area: a skipped area
-// must never hide a red one. The areas are written to $GITHUB_OUTPUT as `<area>=true|false`.
+// a workspace package reaches that package and every workspace package that depends on it. A change of
+// package-lock.json reaches only the packages whose installed tree changed (scripts/ci/lockfile-changes.mjs): a
+// release's version bump reaches the bumped package and its dependents, not every package. A shared root file (a root
+// config, a script, a composite action, the workflow itself) reaches everything. A manual or scheduled run, a list the
+// API cut short, or any failure to list the files or read the lockfile also reaches everything: a skipped job must
+// never hide a red one.
+//
+// Written to $GITHUB_OUTPUT: the slow areas as `<area>=true|false`, and `test-paths`, the test paths of the packages a
+// pull request reaches (their folders and the repository tests in tests/), empty when the whole suite must run.
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findWorkspaces, getDependencyNames } from "../build-workspaces.mjs";
+import { getLockfileReach } from "./lockfile-changes.mjs";
 
 /**
  * @typedef {import("../build-workspaces.mjs").WorkspacePackage} WorkspacePackage
- * @typedef {{ name: string, packages: string[], paths: string[], sharedPaths?: string[] }} Area
- *   `sharedPaths` replaces SHARED_PATHS for an area that must not run on every shared change (the Stripe sandbox
- *   payment, which pays in a real account: a lockfile or root config change is no reason to).
- * @typedef {{ kind: "files", files: string[] } | { kind: "all", reason: string }} ChangedFiles
+ * @typedef {import("./lockfile-changes.mjs").LockfileReach} LockfileReach
+ * @typedef {{ name: string, packages: string[], paths: string[] }} Area
+ * @typedef {{ kind: "files", files: string[], lockfile?: LockfileReach } | { kind: "all", reason: string }} ChangedFiles
+ *   `lockfile` says which packages a change of package-lock.json reaches; without it such a change reaches everything.
+ * @typedef {{ kind: "all", reason: string } | { kind: "paths", paths: string[] }} TestScope
  */
 
 /** The GitHub API lists at most this many files of a compare; a longer change reaches every area. */
@@ -30,7 +37,6 @@ export const PULL_REQUEST_FILE_LIMIT = 3000;
  */
 export const SHARED_PATHS = [
   "package.json",
-  "package-lock.json",
   ".npmrc",
   "tsconfig.json",
   "tsconfig.base.json",
@@ -41,6 +47,12 @@ export const SHARED_PATHS = [
   ".github/workflows/ci.yml",
   ".github/workflows/e2e.yml",
 ];
+
+/** The root lockfile: it reaches the packages whose entries changed, not every package. */
+export const LOCKFILE = "package-lock.json";
+
+/** The repository tests (tests/repo and the other root tests): they read files across the tree, so they always run. */
+export const ROOT_TEST_PATH = "tests/";
 
 /**
  * The workspace packages with the dependencies they ship (dependencies, peer and optional): what a packed package
@@ -115,21 +127,6 @@ export function getAreas(root) {
       packages: ["@softure-ai/host", "@softure-ai/deploy"],
       paths: [],
     },
-    // A real payment in Stripe's sandbox (e2e.yml, Stripe sandbox payment): only the billing module, the app's payment
-    // pages and webhook, and the test itself reach it, not its dependencies or a shared root file such as the
-    // lockfile. The nightly scheduled run covers the rest, and a change in Stripe's sandbox.
-    {
-      name: "stripe-sandbox",
-      packages: [],
-      paths: [
-        "modules/billing/",
-        "examples/next-app/app/payment/",
-        "examples/next-app/app/api/billing/",
-        "examples/next-app/e2e/billing-checkout.stripe-sandbox.spec.ts",
-        "examples/next-app/playwright.stripe-sandbox.config.ts",
-      ],
-      sharedPaths: [".github/workflows/e2e.yml", ".github/actions/"],
-    },
     // The init image packs the example app with the workspace packages it installs.
     {
       name: "deploy",
@@ -172,46 +169,160 @@ export function getDependencyClosure(names, packages) {
 }
 
 /**
+ * Whether the change reaches everything: a run without a file list, a shared root file, or a lockfile change whose
+ * reach is unknown or total.
+ * @param {ChangedFiles} changed
+ * @returns {boolean}
+ */
+function isReachingAll(changed) {
+  if (changed.kind === "all") return true;
+  if (
+    changed.files.some((file) =>
+      SHARED_PATHS.some((path) => isUnder(file, path)),
+    )
+  )
+    return true;
+  return (
+    changed.files.includes(LOCKFILE) &&
+    (changed.lockfile === undefined || changed.lockfile.kind === "all")
+  );
+}
+
+/**
+ * The workspace packages the lockfile change reaches by name (none when the lockfile did not change).
+ * @param {ChangedFiles} changed
+ * @returns {Set<string>}
+ */
+function getLockfilePackageNames(changed) {
+  return new Set(
+    changed.kind === "files" &&
+      changed.files.includes(LOCKFILE) &&
+      changed.lockfile?.kind === "packages"
+      ? changed.lockfile.names
+      : [],
+  );
+}
+
+/**
+ * Whether any of `names` (workspace packages with their dependencies) changed: a file in its folder, or its lockfile
+ * entries.
+ * @param {{ names: string[], changed: ChangedFiles, packages: WorkspacePackage[], paths?: string[] }} options
+ * @returns {boolean}
+ */
+function isReached({ names, changed, packages, paths = [] }) {
+  const files = changed.kind === "files" ? changed.files : [];
+  const closure = getDependencyClosure(names, packages);
+  const lockfileNames = getLockfilePackageNames(changed);
+  if ([...closure].some((name) => lockfileNames.has(name))) return true;
+  const dirs = packages
+    .filter((pkg) => closure.has(pkg.name))
+    .map((pkg) => `${pkg.dir}/`);
+  return files.some((file) =>
+    [...dirs, ...paths].some((path) => isUnder(file, path)),
+  );
+}
+
+/**
  * Which areas the changed files reach.
  * @param {{ changed: ChangedFiles, areas: Area[], packages: WorkspacePackage[] }} options
  * @returns {Record<string, boolean>}
  */
 export function getAffectedAreas({ changed, areas, packages }) {
-  const files = changed.kind === "files" ? changed.files : [];
+  const reachesAll = isReachingAll(changed);
   /** @type {Record<string, boolean>} */
   const affected = {};
   for (const area of areas) {
-    const reachesAll =
-      changed.kind === "all" ||
-      files.some((file) =>
-        (area.sharedPaths ?? SHARED_PATHS).some((path) => isUnder(file, path)),
-      );
-    const closure = getDependencyClosure(area.packages, packages);
-    const dirs = packages
-      .filter((pkg) => closure.has(pkg.name))
-      .map((pkg) => `${pkg.dir}/`);
     affected[area.name] =
       reachesAll ||
-      files.some((file) =>
-        [...dirs, ...area.paths].some((path) => isUnder(file, path)),
-      );
+      isReached({ names: area.packages, changed, packages, paths: area.paths });
   }
   return affected;
 }
 
 /**
- * Lists the files of the run's change through the GitHub CLI, or says why every area runs.
- * @param {NodeJS.ProcessEnv} env
+ * Which tests a change needs: the folders of the workspace packages it reaches (with every dependency kind, since a
+ * package's tests run its development dependencies too) and the repository tests, or the whole suite.
+ * @param {{ changed: ChangedFiles, packages: WorkspacePackage[] }} options
+ * @returns {TestScope}
+ */
+export function getTestScope({ changed, packages }) {
+  if (changed.kind === "all") return { kind: "all", reason: changed.reason };
+  if (isReachingAll(changed))
+    return {
+      kind: "all",
+      reason: "a shared root file or the repository tools changed",
+    };
+  const dirs = packages
+    .filter((pkg) => isReached({ names: [pkg.name], changed, packages }))
+    .map((pkg) => `${pkg.dir}/`);
+  return { kind: "paths", paths: [ROOT_TEST_PATH, ...dirs] };
+}
+
+/**
+ * Which packages the change of package-lock.json reaches: the lockfile at `base` (read through the GitHub API) against
+ * the checked-out one. Any failure reaches every package.
+ * @param {{ root: string, repository: string, base: string }} options
+ * @returns {LockfileReach}
+ */
+function readLockfileReach({ root, repository, base }) {
+  try {
+    /** @type {unknown} */
+    const before = JSON.parse(
+      execFileSync(
+        "gh",
+        [
+          "api",
+          "-H",
+          "Accept: application/vnd.github.raw+json",
+          `repos/${repository}/contents/${LOCKFILE}?ref=${base}`,
+        ],
+        { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+      ),
+    );
+    /** @type {unknown} */
+    const after = JSON.parse(readFileSync(resolve(root, LOCKFILE), "utf8"));
+    return getLockfileReach({
+      before,
+      after,
+      workspaces: findWorkspaces(root),
+    });
+  } catch (error) {
+    return {
+      kind: "all",
+      reason: `reading the lockfile at ${base} failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+/**
+ * The files of a change and, when it changes package-lock.json, the packages that change reaches.
+ * @param {{ files: string[], root: string, repository: string, base: string }} options
  * @returns {ChangedFiles}
  */
-function listChangedFiles(env) {
+function describeFiles({ files, root, repository, base }) {
+  return files.includes(LOCKFILE)
+    ? {
+        kind: "files",
+        files,
+        lockfile: readLockfileReach({ root, repository, base }),
+      }
+    : { kind: "files", files };
+}
+
+/**
+ * Lists the files of the run's change through the GitHub CLI, or says why every area runs.
+ * @param {NodeJS.ProcessEnv} env
+ * @param {string} root repository root
+ * @returns {ChangedFiles}
+ */
+function listChangedFiles(env, root) {
   const repository = env.GITHUB_REPOSITORY ?? "";
   const gh = (/** @type {string[]} */ args) =>
     execFileSync("gh", ["api", ...args], { encoding: "utf8" })
       .split("\n")
       .filter((line) => line !== "");
   try {
-    /** @type {{ pull_request?: { number?: number }, before?: string, after?: string }} */
+    /** @type {{ pull_request?: { number?: number, base?: { sha?: string } }, before?: string, after?: string }} */
     const event = readManifest("/", env.GITHUB_EVENT_PATH ?? "");
     if (env.GITHUB_EVENT_NAME === "pull_request") {
       const files = gh([
@@ -222,7 +333,12 @@ function listChangedFiles(env) {
       ]);
       return files.length >= PULL_REQUEST_FILE_LIMIT
         ? { kind: "all", reason: `${files.length} files` }
-        : { kind: "files", files };
+        : describeFiles({
+            files,
+            root,
+            repository,
+            base: String(event.pull_request?.base?.sha),
+          });
     }
     if (
       env.GITHUB_EVENT_NAME === "push" &&
@@ -236,7 +352,7 @@ function listChangedFiles(env) {
       ]);
       return files.length >= COMPARE_FILE_LIMIT
         ? { kind: "all", reason: `${files.length} files` }
-        : { kind: "files", files };
+        : describeFiles({ files, root, repository, base: event.before });
     }
     return {
       kind: "all",
@@ -252,20 +368,36 @@ function listChangedFiles(env) {
 
 function runCli() {
   const root = fileURLToPath(new URL("../../", import.meta.url));
-  const changed = listChangedFiles(process.env);
+  const changed = listChangedFiles(process.env, root);
   console.log(
     changed.kind === "all"
-      ? `Every area runs: ${changed.reason}.`
+      ? `Everything runs: ${changed.reason}.`
       : `${changed.files.length} changed files.`,
   );
+  if (changed.kind === "files" && changed.lockfile !== undefined) {
+    console.log(
+      changed.lockfile.kind === "all"
+        ? `The lockfile change reaches every package: ${changed.lockfile.reason}.`
+        : `The lockfile change reaches: ${changed.lockfile.names.join(", ") || "no package"}.`,
+    );
+  }
   const affected = getAffectedAreas({
     changed,
     areas: getAreas(root),
     packages: findRuntimeWorkspaces(root),
   });
-  const lines = Object.entries(affected).map(
-    ([name, value]) => `${name}=${String(value)}`,
+  const scope = getTestScope({ changed, packages: findWorkspaces(root) });
+  console.log(
+    scope.kind === "all"
+      ? `Tests: the whole suite (${scope.reason}).`
+      : `Tests: ${scope.paths.join(" ")}`,
   );
+  const lines = [
+    ...Object.entries(affected).map(
+      ([name, value]) => `${name}=${String(value)}`,
+    ),
+    `test-paths=${scope.kind === "all" ? "" : scope.paths.join(" ")}`,
+  ];
   console.log(lines.join("\n"));
   if (process.env.GITHUB_OUTPUT)
     appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join("\n")}\n`);

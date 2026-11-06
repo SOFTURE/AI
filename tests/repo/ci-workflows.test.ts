@@ -44,8 +44,7 @@ describe.each(["ci.yml", "e2e.yml"])("%s", (name) => {
   const workflow = readWorkflow(name);
 
   it("runs on pull requests, on master and on demand, not on every pushed branch", () => {
-    const nightly = name === "e2e.yml" ? ["schedule"] : [];
-    expect(Object.keys(workflow.on).sort()).toEqual(["pull_request", "push", ...nightly, "workflow_dispatch"]);
+    expect(Object.keys(workflow.on).sort()).toEqual(["pull_request", "push", "workflow_dispatch"]);
     expect(workflow.on.push?.branches).toEqual(["master"]);
   });
 
@@ -152,7 +151,7 @@ const CHROMIUM_ACTION = "./.github/actions/playwright-chromium";
 describe.each([
   ["themes.yml", "visual"],
   ["e2e.yml", "e2e"],
-  ["e2e.yml", "stripe-sandbox"],
+  ["stripe-sandbox.yml", "stripe-sandbox"],
 ])("%s → %s installs Chromium", (name, jobId) => {
   const job = readWorkflow(name).jobs[jobId];
   const install = job?.steps?.find((step) => step.name === "Install Chromium");
@@ -223,5 +222,19 @@ describe("the reusable workflows", () => {
       .flatMap((job) => job.steps ?? [])
       .filter((step) => step.uses?.startsWith("actions/checkout@"));
     expect(checkouts.some((step) => step.with?.["sparse-checkout"] === "${{ inputs.sparse-checkout }}")).toBe(true);
+  });
+});
+
+describe("stripe-sandbox.yml", () => {
+  const workflow = readWorkflow("stripe-sandbox.yml");
+
+  it("runs only every night and on demand: Stripe's real sandbox never gates a pull request", () => {
+    expect(Object.keys(workflow.on).sort()).toEqual(["schedule", "workflow_dispatch"]);
+  });
+
+  it("is the only workflow that reads the Stripe key", () => {
+    for (const name of readdirSync(WORKFLOWS_DIR).filter((file) => file !== "stripe-sandbox.yml")) {
+      expect(readFileSync(join(WORKFLOWS_DIR, name), "utf8"), name).not.toContain("STRIPE_SECRET_KEY");
+    }
   });
 });

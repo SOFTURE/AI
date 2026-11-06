@@ -22,7 +22,10 @@ export interface StripeOptions {
    * read on every payment, so the configuration loads at build time without the secret.
    */
   readonly secretKey?: string;
-  /** Default: `https://api.stripe.com`. For a proxy or a test server. */
+  /**
+   * Default: `https://api.stripe.com`. For a proxy or a test server. A plain-HTTP test server on this machine
+   * (`http://localhost:<port>`) may answer with a checkout page on this machine too; otherwise the page must be HTTPS.
+   */
   readonly apiBase?: string;
   /** Injected in tests; default: the global `fetch`. */
   readonly fetch?: typeof fetch;
@@ -66,11 +69,31 @@ export function getCheckoutSessionParams(ctx: Pick<PaymentContext, "config">, re
   return params;
 }
 
-/** The hosted page's URL from Stripe's answer, or null when the answer has none. */
-function readCheckoutUrl(payload: unknown): string | null {
+/** Hosts a test server for Stripe may serve on plain HTTP: the machine itself. */
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** `value` as a URL, or null when it is not one. */
+function parseUrl(value: string): URL | null {
+  return URL.canParse(value) ? new URL(value) : null;
+}
+
+/** Whether `apiBase` is a test server on this machine (an e2e's fake Stripe), not Stripe or a proxy to it. */
+function isLoopbackHttp(apiBase: string): boolean {
+  const base = parseUrl(apiBase);
+  return base !== null && base.protocol === "http:" && LOOPBACK_HOSTS.has(base.hostname);
+}
+
+/**
+ * The hosted page's URL from Stripe's answer, or null when the answer has none. Only HTTPS, except a page on this
+ * machine when `apiBase` is itself a plain-HTTP test server on this machine.
+ */
+function readCheckoutUrl(payload: unknown, apiBase: string): string | null {
   if (typeof payload !== "object" || payload === null || !Object.hasOwn(payload, "url")) return null;
   const url: unknown = (payload as Record<string, unknown>).url;
-  return typeof url === "string" && url.startsWith("https://") ? url : null;
+  if (typeof url !== "string") return null;
+  if (url.startsWith("https://")) return url;
+  const page = parseUrl(url);
+  return isLoopbackHttp(apiBase) && page !== null && page.protocol === "http:" && LOOPBACK_HOSTS.has(page.hostname) ? url : null;
 }
 
 /** The part of Stripe's error answer the log may show; its `message` can echo the request back. */
@@ -120,7 +143,7 @@ export function stripe(options: StripeOptions = {}): PaymentProvider {
         console.error(`@softure-ai/billing: the Stripe checkout for plan "${request.plan.id}" could not be created: ${answer.error}`);
         return err("billing.payment_failed");
       }
-      const url = answer.ok ? readCheckoutUrl(answer.value) : null;
+      const url = answer.ok ? readCheckoutUrl(answer.value, apiBase) : null;
       if (url === null) {
         const detail = answer.ok ? "no checkout url" : describeStripeError(answer.errorBody);
         console.error(`@softure-ai/billing: Stripe refused the checkout for plan "${request.plan.id}" (HTTP ${answer.ok ? "200" : String(answer.status)}, ${detail})`);

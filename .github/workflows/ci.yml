@@ -38,6 +38,7 @@ jobs:
     outputs:
       marketing-kit: ${{ steps.areas.outputs.marketing-kit }}
       host: ${{ steps.areas.outputs.host }}
+      test-paths: ${{ steps.areas.outputs.test-paths }}
     steps:
       - uses: actions/checkout@v7
       - id: areas
@@ -66,8 +67,13 @@ jobs:
 
   # The suite takes about 2600 s of test time, 25 minutes on one 4-core runner; four shards run it in parallel, each
   # with its own Postgres. A shard that fails does not stop the others, so one run names every red file.
+  # A pull request runs the tests of the packages it reaches and the repository tests (`test-paths` of the `changes`
+  # job: a package's folder reaches it and every package that depends on it, the lockfile only the packages whose
+  # entries changed); a shared root file, a push to master and a manual run run the whole suite. Stripe's real sandbox
+  # never runs here: stripe-sandbox.yml checks it every night.
   test:
     name: unit and repository tests (${{ matrix.shard }}/4)
+    needs: changes
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -89,9 +95,6 @@ jobs:
           --health-retries 10
     env:
       SOFTURE_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
-      # A Stripe test-mode key runs billing's sandbox test (modules/billing/tests/stripe-sandbox.test.ts);
-      # without the secret (forks, a repository that has not set it) that test is skipped.
-      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       # The marketing-kit screenshot tests drive a browser; the runner image ships Google Chrome, so no
       # download (tools/marketing-kit/tests/chromium.ts fails them if this path is missing).
       PLAYWRIGHT_CHROMIUM_PATH: /usr/bin/google-chrome
@@ -102,7 +105,24 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test -- --shard=${{ matrix.shard }}/4
+      - name: Test
+        env:
+          SHARD: ${{ matrix.shard }}/4
+          # Space-separated paths; empty runs the whole suite.
+          TEST_PATHS: ${{ github.event_name == 'pull_request' && needs.changes.outputs.test-paths || '' }}
+        # Vitest takes a path argument as a substring filter ("tests/" would match every package's tests), so the
+        # folders become their test files.
+        run: |
+          if [ -z "$TEST_PATHS" ]; then
+            echo "The whole suite"
+            npm test -- --shard="$SHARD"
+            exit 0
+          fi
+          echo "Tests of: $TEST_PATHS"
+          # shellcheck disable=SC2086 # one pathspec per folder
+          files="$(git ls-files -- $TEST_PATHS | grep -E '\.test\.tsx?$' || true)"
+          # shellcheck disable=SC2086 # one argument per file
+          npm test -- --shard="$SHARD" --passWithNoTests $files
 
   render:
     name: marketing-kit fixture film render

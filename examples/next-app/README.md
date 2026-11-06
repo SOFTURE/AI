@@ -48,8 +48,19 @@ monthly plan on Stripe's hosted Checkout with the test card, waits for Stripe's 
 trial into paid access, then refunds through Stripe's API and waits for the access to go. It runs from
 [`playwright.stripe-sandbox.config.ts`](playwright.stripe-sandbox.config.ts) on port 3200 with
 `BILLING_PROVIDER=stripe`, needs a test-mode `STRIPE_SECRET_KEY` (`sk_test_...`) and the Stripe CLI, and
-is skipped without the key. CI runs it as the `stripe-sandbox` job of `.github/workflows/e2e.yml` when the
-repository has the `STRIPE_SECRET_KEY` secret. `npm run e2e` does not run it.
+is skipped without the key. CI runs it every night and on demand as the `stripe-sandbox` job of
+`.github/workflows/stripe-sandbox.yml` when the repository has the `STRIPE_SECRET_KEY` secret, never on a pull
+request. `npm run e2e` does not run it.
+
+## Pay through a fake Stripe
+
+`npm run e2e` pays through Stripe without Stripe's network: the `fake-stripe` project of
+[`playwright.config.ts`](playwright.config.ts) starts [`e2e/fake-stripe-server.mjs`](e2e/fake-stripe-server.mjs), a
+local stand-in for Stripe's API and hosted Checkout, and a second app server with `BILLING_PROVIDER=stripe` and
+`STRIPE_API_BASE` on it. [`e2e/billing-checkout.fake-stripe.spec.ts`](e2e/billing-checkout.fake-stripe.spec.ts) pays
+there: the app creates the Checkout session, the buyer pays, the fake delivers a signed `checkout.session.completed`
+and, after a refund, `charge.refunded`. Pull requests rely on it; the nightly sandbox run checks that Stripe still
+behaves the way the fake assumes.
 
 ## Develop
 

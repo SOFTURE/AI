@@ -6,13 +6,14 @@ import { FULL_SUITE_PATTERNS } from "../../tools/config/src/cli/merge-push-scope
 import { findFullSuiteFile } from "../../scripts/test-changed.mjs";
 import { REPO_ROOT } from "./repo-files.js";
 
-// Where the test suite runs. CI runs all of it on every pull request, split into parallel shards; the pre-push hook
+// Where the test suite runs. CI runs all of it on master and the reached packages' tests on a pull request, split into
+// parallel shards; the pre-push hook
 // runs only the tests a branch can break, and the full suite when a change can break tests that do not import it.
 
 interface Job {
   name?: string;
   strategy?: { "fail-fast"?: boolean; matrix?: { shard?: number[] } };
-  steps?: { run?: string }[];
+  steps?: { name?: string; run?: string; env?: Record<string, string> }[];
 }
 
 describe("ci.yml → test", () => {
@@ -20,11 +21,13 @@ describe("ci.yml → test", () => {
     .jobs.test;
   const shards = job?.strategy?.matrix?.shard ?? [];
 
-  it("runs the whole suite in shards numbered 1 to N, each one named", () => {
+  it("runs its suite in shards numbered 1 to N, each one named: the whole suite, or a pull request's packages", () => {
     expect(shards.length).toBeGreaterThan(1);
     expect(shards).toEqual(shards.map((_, index) => index + 1));
-    const command = job?.steps?.find((step) => step.run?.startsWith("npm test"))?.run;
-    expect(command).toBe(`npm test -- --shard=\${{ matrix.shard }}/${String(shards.length)}`);
+    const step = job?.steps?.find((candidate) => candidate.name === "Test");
+    expect(step?.env?.SHARD).toBe(`\${{ matrix.shard }}/${String(shards.length)}`);
+    expect(step?.run).toContain('npm test -- --shard="$SHARD"\n');
+    expect(step?.run).toContain('npm test -- --shard="$SHARD" --passWithNoTests $files');
     expect(job?.name).toContain(`\${{ matrix.shard }}/${String(shards.length)}`);
   });
 
