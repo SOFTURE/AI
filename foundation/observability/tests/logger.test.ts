@@ -247,13 +247,74 @@ describe("errors", () => {
     expect(exporter.getFinishedLogRecords()[0]?.attributes["exception.stacktrace"]).toBeUndefined();
   });
 
-  it("describes a thrown value that is not an Error by its type", () => {
+  it("logs a string error by its text in full mode, never by its bare type", () => {
     const exporter = installLogExporter();
 
-    createLogger("orders").error("save failed", { error: "plain string" });
+    createLogger("speech").warn("isolation refused", { error: "voice isolation answered 400: audio too short" });
 
-    expect(calls.error).toEqual(["error orders: save failed error=string"]);
-    expect(exporter.getFinishedLogRecords()[0]?.attributes["exception.type"]).toBe("string");
+    expect(calls.error).toEqual(["warn speech: isolation refused error=voice isolation answered 400: audio too short"]);
+    const [record] = exporter.getFinishedLogRecords();
+    expect(record?.attributes["exception.type"]).toBe("string");
+    expect(record?.attributes["exception.message"]).toBe("voice isolation answered 400: audio too short");
+    expect(record?.attributes["exception.stacktrace"]).toBeUndefined();
+  });
+
+  it("describes other non-Error values by their value or JSON in full mode", () => {
+    const exporter = installLogExporter();
+    class ProviderFailure {
+      readonly status = 429;
+    }
+
+    const logger = createLogger("x");
+    logger.error("number", { error: 42 });
+    logger.error("null", { error: null });
+    logger.error("undefined", { error: undefined });
+    logger.error("object", { error: { code: "quota_exceeded", status: 429 } });
+    logger.error("instance", { error: new ProviderFailure() });
+
+    const records = exporter.getFinishedLogRecords().map((record) => [
+      record.attributes["exception.type"],
+      record.attributes["exception.message"],
+    ]);
+    expect(records).toEqual([
+      ["number", "42"],
+      ["null", "null"],
+      ["undefined", "undefined"],
+      ["object", '{"code":"quota_exceeded","status":429}'],
+      ["ProviderFailure", '{"status":429}'],
+    ]);
+  });
+
+  it("caps a long non-Error description and falls back to its kind when it cannot be serialized", () => {
+    const exporter = installLogExporter();
+    const circular: Record<string, unknown> = { code: "ECONNRESET" };
+    circular.self = circular;
+
+    createLogger("x").error("long", { error: "a".repeat(1500) });
+    createLogger("x").error("circular", { error: circular });
+    createLogger("x").error("bigint", { error: { amount: 10n } });
+
+    const [long, loop, bigint] = exporter.getFinishedLogRecords();
+    expect(long?.attributes["exception.message"]).toBe(`${"a".repeat(999)}…`);
+    expect(loop?.attributes["exception.message"]).toBe("object code=ECONNRESET");
+    expect(bigint?.attributes["exception.message"]).toBe("object");
+  });
+
+  it("marks a non-Error value as withheld in label mode and never logs its text", () => {
+    const exporter = installLogExporter();
+    configureLogging({ errorDetails: "label" });
+
+    createLogger("speech").warn("isolation refused", { error: "refused for user@example.com" });
+    createLogger("db").error("connect failed", { error: { code: "ECONNREFUSED", detail: "host secret.internal" } });
+
+    expect(calls.error[0]).toBe("warn speech: isolation refused error=non-Error string (text withheld in label mode)");
+    const [text, object] = exporter.getFinishedLogRecords();
+    expect(text?.attributes["exception.type"]).toBe("string");
+    expect(text?.attributes["exception.message"]).toBe("non-Error string (text withheld in label mode)");
+    expect(object?.attributes["exception.type"]).toBe("object");
+    expect(object?.attributes["exception.message"]).toBe("non-Error object code=ECONNREFUSED (value withheld in label mode)");
+    const logged = JSON.stringify([text?.attributes, object?.attributes, calls]);
+    expect(logged).not.toMatch(/user@example\.com|secret\.internal/);
   });
 });
 
