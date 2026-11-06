@@ -164,10 +164,10 @@ export function buildFinishArgs(
   const encodeAudio = ["-c:a", "aac", "-b:a", FINISHED_AUDIO_BITRATE, "-ar", String(FOOTAGE_SAMPLE_RATE), "-ac", "2"];
   const inputs = options.audioFile === undefined ? ["-i", input] : ["-i", input, "-i", options.audioFile];
   const audio =
-    facts.audio === null
-      ? []
-      : options.audioFile !== undefined
-        ? ["-map", "1:a:0", "-c:a", "copy"]
+    options.audioFile !== undefined
+      ? ["-map", "1:a:0", "-c:a", "copy"]
+      : facts.audio === null
+        ? []
         : options.audioFilter !== undefined
           ? ["-map", "0:a:0", "-af", options.audioFilter, ...encodeAudio]
           : isPublishableAudio(facts.audio)

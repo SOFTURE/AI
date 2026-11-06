@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_LOUDNESS, normalizeLoudness, readLoudnessMeasurement, type LoudnessMeasurement, type MixLoudnessTarget } from "./loudness.js";
-import { finishFootage } from "./pipeline.js";
+import { finishFootage, mixFootage } from "./pipeline.js";
 import type { FinishVideo } from "./publish.js";
 
 /** The #1085 fixtures' length: three 3 s periods of speech and pauses. */
@@ -108,7 +108,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
     expect(getCodecs(output)).toEqual(["h264", "aac"]);
     expect(lines.some((line) => line.startsWith(`loudness: the film's mix measured ${before.toFixed(1)} LUFS, true peak `))).toBe(true);
-    expect(result.ok && result.value.loudness).toEqual({ integrated: after.inputI, truePeak: after.inputTp });
+    expect(result.ok && result.value.loudness).toEqual({ integrated: after.inputI, truePeak: after.inputTp, warning: null });
     expect(lines).toContain(`loudness: the finished film measures ${after.inputI.toFixed(1)} LUFS, true peak ${after.inputTp.toFixed(1)} dBTP.`);
     expect(lines.some((line) => line.startsWith("finish: picture copied, sound re-encoded"))).toBe(true);
   });
@@ -144,7 +144,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     const after = measure(output);
     expect(Math.abs(after.inputI - before)).toBeLessThan(0.1);
     expect(lines.some((line) => line.startsWith("loudness: the film's mix"))).toBe(false);
-    expect(result.ok && result.value.loudness).toEqual({ integrated: after.inputI, truePeak: after.inputTp });
+    expect(result.ok && result.value.loudness).toEqual({ integrated: after.inputI, truePeak: after.inputTp, warning: null });
     expect(result.ok && result.value.mix).toBeNull();
   });
 
@@ -190,7 +190,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
         expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
         expect(Math.abs(after.inputI - DEFAULT_LOUDNESS.target)).toBeLessThanOrEqual(1);
         expect(result.value.mix?.keep).toBe("speech");
-        expect(lines.some((line) => / \(encode [1-4] of 4\)\.$/.test(line))).toBe(true);
+        expect(lines.some((line) => / \(encode [1-2] of 4, \d+ uncompressed probes\)\.$/.test(line))).toBe(true);
       }
     },
     120_000,
@@ -315,12 +315,85 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(Math.abs(after.inputI - DEFAULT_LOUDNESS.target)).toBeLessThanOrEqual(1);
     expect(after.inputI).toBeLessThan(DEFAULT_LOUDNESS.target - 0.5);
     expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
-    expect(result.value.mix).toEqual({ measured: { integrated: before, truePeak: peakBefore }, gainDb: expect.any(Number) as number, ceilingDbtp: expect.any(Number) as number, keep: "speech" });
-    // The gain reaches the window's edge (aimed 0.2 LU inside it), plus what a retry adds to pay back what the limiter
-    // took (issue #1095): no more than the limiter's measured cost and a retry's margin.
-    const edgeGain = DEFAULT_LOUDNESS.target - 0.8 - before;
-    const gainDb = result.value.mix?.gainDb ?? Number.NaN;
-    expect(gainDb).toBeGreaterThanOrEqual(edgeGain - 0.05);
-    expect(gainDb - edgeGain).toBeLessThanOrEqual(before + gainDb - after.inputI + 0.5);
+    expect(result.value.mix).toEqual({
+      measured: { integrated: before, truePeak: peakBefore },
+      gainDb: expect.any(Number) as number,
+      ceilingDbtp: -2,
+      keep: "speech",
+      encodes: 1,
+    });
+    // The gain lands the mix 0.45 LU inside the window's edge (issue #1124), paying what the limiter takes: no further.
+    expect(after.inputI).toBeLessThanOrEqual(DEFAULT_LOUDNESS.target - 0.2);
+  });
+
+  /**
+   * The #1124 comment's lavfi fixture: band-passed pink noise syllables (4 Hz envelope, 2.2 s talk, 0.8 s pause), 2 kHz
+   * high-passed clicks every 0.15 s inside the talk at `clicks`, a 196 Hz bed at 0.01; AAC 192k in an MP4.
+   */
+  function getClickySpeech(clicks: number, seconds = 12): string {
+    return (
+      `anoisesrc=d=${seconds}:c=pink:r=48000:a=0.5:seed=11,bandpass=f=700:width_type=o:w=2,` +
+      `volume='if(lt(mod(t,3),2.2),0.15+0.85*pow(abs(sin(PI*4*t)),3),0.003)':eval=frame,aformat=channel_layouts=stereo[s];` +
+      `anoisesrc=d=${seconds}:c=white:r=48000:a=1:seed=3,highpass=f=2000,volume='${clicks}*if(lt(mod(t,0.15),0.006)*lt(mod(t,3),2.2),1,0)':eval=frame,aformat=channel_layouts=stereo[p];` +
+      `sine=frequency=196:duration=${seconds}:sample_rate=48000,volume=0.01,aformat=channel_layouts=stereo[m];[s][p][m]amix=inputs=3:normalize=0`
+    );
+  }
+
+  // On 0.12.0 the 0.6 and 1.0 fixtures failed after 4 encodes; on 0.13.0 they took 3 and 4 (the issue's comment).
+  it.each([0.6, 0.75, 1.0])(
+    "lands high-crest clicky speech (clicks %s) inside -14 ± 1 LUFS and under -1 dBTP in at most two encodes with keep speech (issue #1124)",
+    async (clicks) => {
+      const renderFile = makeRender(getClickySpeech(clicks), { preset: "ultrafast" }, 12);
+      const { output, result } = await finish(renderFile, { ...KEEP_SPEECH, attempts: 2 }, undefined, 12);
+      if (!result.ok) throw new Error(`clicks ${clicks}: ${result.error}`);
+      const after = measure(output);
+      expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
+      expect(Math.abs(after.inputI - DEFAULT_LOUDNESS.target)).toBeLessThanOrEqual(1);
+      expect(result.value.mix?.encodes).toBeLessThanOrEqual(2);
+      expect(result.value.loudness?.warning).toBeNull();
+    },
+    120_000,
+  );
+
+  it("finishes a near miss inside warnTolerance with a warning naming both values, and fails it without the band (issue #1124)", async () => {
+    const source = join(dir, "near.wav");
+    expect(spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", getClickySpeech(0.75, 6), "-c:a", "pcm_f32le", source]).status).toBe(0);
+    const finishNear = async (mixLoudness: MixLoudnessTarget) => {
+      // The sound is brought to keep speech's window; the finished film is then held to a stricter target.
+      const prepared = await mixFootage(KEEP_SPEECH, { mixSource: source, output: join(dir, "near.m4a") }, { log: (line) => lines.push(line) });
+      if (!prepared.ok || prepared.value === null) throw new Error(prepared.ok ? "a silent mix" : prepared.error);
+      const renderFile = makeRender("anullsrc=r=48000:cl=stereo:d=6", { preset: "ultrafast" });
+      const output = join(dir, "near.mp4");
+      return finishFootage({ cover: null, mixLoudness }, { renderFile, seconds: 6, coverAt: 0, mix: prepared.value }, { output, log: (line) => lines.push(line) });
+    };
+    const strict: MixLoudnessTarget = { target: -12.5, truePeak: -1, tolerance: 0.2 };
+    const warned = await finishNear({ ...strict, warnTolerance: 3 });
+    if (!warned.ok) throw new Error(warned.error);
+    expect(warned.value.loudness?.warning).toMatch(
+      /^the finished film .+near\.mp4: the mix measures -1[345]\.\d LUFS integrated, -\d+\.\d dBTP true peak: outside -12\.5 ± 0\.2 LUFS, inside the ± 3 LU near-miss band\.$/,
+    );
+    expect(lines).toContain(`loudness warning: ${warned.value.loudness?.warning ?? ""}`);
+    const failed = await finishNear(strict);
+    expect(failed.ok ? "" : failed.error).toMatch(/: integrated -1[345]\.\d LUFS, outside -12\.5 ± 0\.2 LUFS\.$/);
+  });
+
+  it("mixes a film's sound before the frames: a mix that misses fails without a render, one that meets gives the encoded sound (issue #1124)", async () => {
+    const source = join(dir, "mix.wav");
+    expect(spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", getClickySpeech(0.75, 6), "-c:a", "pcm_f32le", source]).status).toBe(0);
+    const failed = await mixFootage({ target: -5, truePeak: -9, attempts: 1 }, { mixSource: source, output: join(dir, "mix.m4a") }, { log: (line) => lines.push(line) });
+    expect(failed.ok).toBe(false);
+    expect(existsSync(join(dir, "mix.m4a"))).toBe(false);
+    const prepared = await mixFootage(KEEP_SPEECH, { mixSource: source, output: join(dir, "mix.m4a") }, { log: (line) => lines.push(line) });
+    if (!prepared.ok || prepared.value === null) throw new Error(prepared.ok ? "a silent mix" : prepared.error);
+    // The final pass muxes the prepared sound under the picture and ignores the render's own.
+    const renderFile = makeRender("anullsrc=r=48000:cl=stereo:d=6", { preset: "ultrafast" });
+    const output = join(dir, "film.mp4");
+    const result = await finishFootage({ cover: null, mixLoudness: KEEP_SPEECH }, { renderFile, seconds: 6, coverAt: 0, mix: prepared.value }, { output, log: (line) => lines.push(line) });
+    if (!result.ok) throw new Error(result.error);
+    const after = measure(output);
+    expect(Math.abs(after.inputI - DEFAULT_LOUDNESS.target)).toBeLessThanOrEqual(1);
+    expect(after.inputTp).toBeLessThanOrEqual(DEFAULT_LOUDNESS.truePeak);
+    expect(result.value.mix).toEqual(prepared.value.mix);
+    expect(lines.some((line) => line.startsWith("finish: picture copied, sound re-encoded"))).toBe(true);
   });
 });

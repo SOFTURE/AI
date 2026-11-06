@@ -268,6 +268,11 @@ describe("buildFinishArgs with the mix's finished sound (issue #1079)", () => {
       "/out/film.mp4",
     ]);
   });
+
+  it("muxes the mix made before the frames under a render that carries no sound of its own (issue #1124)", () => {
+    const args = buildFinishArgs("/b/render.mp4", { ...PUBLISHABLE, audio: null }, "/out/film.mp4", { audioFile: "/b/mix.m4a" });
+    expect(args.slice(args.indexOf("-map", 8))).toEqual(["-map", "1:a:0", "-c:a", "copy", "-movflags", "+faststart", "/out/film.mp4"]);
+  });
 });
 
 describe("findFinishVideoProblems (issue #1068)", () => {

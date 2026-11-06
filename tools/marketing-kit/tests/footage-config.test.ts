@@ -127,6 +127,16 @@ describe("footage films in marketing.json", () => {
     expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { tolerance: 5 } }]))).toContain("footage[0].mixLoudness");
   });
 
+  it("takes the mix's encode budget and near-miss band, and refuses a band under the tolerance (issue #1124)", () => {
+    const set = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], mixLoudness: { keep: "speech", attempts: 2, warnTolerance: 1.5 } }])), "a");
+    expect(set?.mixLoudness).toEqual({ target: -14, truePeak: -1, keep: "speech", attempts: 2, warnTolerance: 1.5 });
+    const clip = { id: "c", source: "c.mov" };
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [clip], mixLoudness: { attempts: 0 } }]))).toContain("footage[0].mixLoudness");
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [clip], mixLoudness: { attempts: 1.5 } }]))).toContain("footage[0].mixLoudness");
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [clip], mixLoudness: { warnTolerance: 0.8 } }]))).toContain("must be at least tolerance");
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [clip], mixLoudness: { tolerance: 2, warnTolerance: 1.5 } }]))).toContain("must be at least tolerance");
+  });
+
   it("keeps the music's ducking attack and release, and refuses them outside 0-5 s (issue #1031)", () => {
     const film = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], music: { prompt: "calm", attack: 0.1, release: 1.5 } }])), "a");
     expect(film?.music).toEqual({ source: { kind: "prompt", prompt: "calm" }, volume: 0.35, duckedVolume: 0.1, attack: 0.1, release: 1.5 });

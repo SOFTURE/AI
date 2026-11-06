@@ -50,9 +50,13 @@ function getLoudnormFilter(target: LoudnessTarget): string {
   return `loudnorm=I=${target.target}:TP=${target.truePeak}:LRA=${LOUDNESS_RANGE}`;
 }
 
-/** The first pass: decodes the sound only (a film's picture is skipped), prints the measurement on stderr, writes nothing. */
-export function buildLoudnessMeasureArgs(input: string, target: LoudnessTarget): string[] {
-  return ["-hide_banner", "-nostats", "-i", input, "-vn", "-af", `${getLoudnormFilter(target)}:print_format=json`, "-f", "null", "-"];
+/**
+ * The first pass: decodes the sound only (a film's picture is skipped), prints the measurement on stderr, writes
+ * nothing. With `filter`, what is measured is the sound through it (the mix stage's uncompressed probes).
+ */
+export function buildLoudnessMeasureArgs(input: string, target: LoudnessTarget, filter?: string): string[] {
+  const measure = `${getLoudnormFilter(target)}:print_format=json`;
+  return ["-hide_banner", "-nostats", "-i", input, "-vn", "-af", filter === undefined ? measure : `${filter},${measure}`, "-f", "null", "-"];
 }
 
 /** The measurement from the first pass's stderr (its last JSON block); null when there is none or it is incomplete. */
@@ -130,12 +134,12 @@ export function buildLoudnessArgs(options: { input: string; measurement: Loudnes
 export type LoudnessMeasureOutcome = { kind: "measured"; measurement: LoudnessMeasurement } | { kind: "silent" };
 
 /**
- * The first pass over `input`: its measurement, or silent when no gain can bring it to the target. Throws naming
+ * The first pass over `input` (through `filter` when given): its measurement, or silent when no gain can bring it to the target. Throws naming
  * `label` (what is measured) when ffmpeg fails, rejects with the signal's reason on abort.
  */
-export async function measureLoudness(input: string, target: LoudnessTarget, options: { label: string; signal?: AbortSignal }): Promise<LoudnessMeasureOutcome> {
+export async function measureLoudness(input: string, target: LoudnessTarget, options: { label: string; signal?: AbortSignal; filter?: string }): Promise<LoudnessMeasureOutcome> {
   const step = `Measuring ${options.label}'s loudness`;
-  const measured = await runProcess({ command: "ffmpeg", args: buildLoudnessMeasureArgs(input, target), ...(options.signal === undefined ? {} : { signal: options.signal }) });
+  const measured = await runProcess({ command: "ffmpeg", args: buildLoudnessMeasureArgs(input, target, options.filter), ...(options.signal === undefined ? {} : { signal: options.signal }) });
   if (measured.kind === "not-started") throw new Error(`${step}: ffmpeg did not start (${measured.error}).`);
   if (measured.code !== 0) throw new Error(`${step}: ffmpeg ended with code ${String(measured.code)}: ${measured.stderr.trim().split("\n").slice(-3).join(" | ")}.`);
   const measurement = readLoudnessMeasurement(measured.stderr);
@@ -185,24 +189,41 @@ export interface MixLoudnessTarget extends LoudnessTarget {
   tolerance?: number;
   /** What the mix's gain keeps: the mix at the target (absent, `"loudness"`) or the speech's level (`"speech"`). */
   keep?: "loudness" | "speech";
+  /** How many times the mix is encoded and measured before the film fails. Absent: `MIX_ATTEMPTS`. */
+  attempts?: number;
+  /**
+   * A near-miss band in LU, at least `tolerance`: a finished mix outside `target ± tolerance` but inside
+   * `target ± warnTolerance`, under the true peak limit, finishes with a warning instead of failing. Absent: none.
+   */
+  warnTolerance?: number;
 }
 
 /** A gain to the window's edge aims this far inside it (at most half the tolerance), so the encode's drift stays in. */
 const MIX_EDGE_MARGIN = 0.2;
-/** The limiter's first ceiling sits this far under the true peak limit: AAC adds inter-sample overshoot after it. */
+/** The limiter's ceiling sits this far under the true peak limit: AAC adds inter-sample overshoot after it. */
 export const MIX_ENCODE_HEADROOM = 1;
-/** How many times the mix is encoded and measured before the film fails. */
+/** How many times the mix is encoded and measured before the film fails, unless `MixLoudnessTarget.attempts` says. */
 export const MIX_ATTEMPTS = 4;
-/** What a retry lowers the ceiling by on top of the measured overshoot, in dB. */
+/** What a retry lowers the ceiling by on top of the measured true peak excess, in dB. */
 const MIX_RETRY_MARGIN = 0.3;
-/** With `keep: "speech"`, a retry aims this far inside the window's edge (at most half the tolerance), in LU. */
-export const MIX_RETRY_EDGE_MARGIN = 0.3;
-/** The limiter's loudness cost per dB of drive (gain minus ceiling) until the tries measure it, in LU per dB. */
-export const MIX_LIMITER_SLOPE = 0.5;
-/** The steepest limiter cost a retry believes: near 1 a gain step would barely move the mix and the gain would run away. */
-export const MIX_LIMITER_SLOPE_MAX = 0.7;
-/** How far apart the tries' drives must spread (their variance, in dB²) before the slope is fitted from them. */
-const MIX_SLOPE_SPREAD = 0.09;
+/** With `keep: "speech"`, a probe inside the window shrunk by this much needs no gain (the encode moves a mix about this much), in LU. */
+const MIX_MET_MARGIN = 0.1;
+/** With `keep: "speech"`, a mix that misses the window is aimed this far inside its edge (at most half the tolerance), in LU. */
+export const MIX_AIM_EDGE_MARGIN = 0.45;
+/** How close to its aim a probe must land, in LU: the plain target's window, and how far inside the edge keep speech aims. */
+export const MIX_GAIN_PRECISION = 0.15;
+/** How many uncompressed passes one solve of the gain may take. */
+export const MIX_GAIN_PROBES = 6;
+/** The largest gain a probe tries, either way, in dB. */
+const MIX_GAIN_LIMIT = 30;
+/** Below this loudness change per dB of gain the slope is not trusted (the limiter takes it back): a probe steps by its miss. */
+const MIX_MIN_SLOPE = 0.2;
+/**
+ * The mix is low-passed here after the limiter, and the AAC encoder cuts here too: the limiter's fast gain moves leave
+ * high frequencies on every transient that AAC turns into inter-sample overshoot (up to 3.4 dB on clicky speech,
+ * issue #1124); without them it stays within about 1 dB.
+ */
+export const MIX_LOWPASS_HZ = 16000;
 /** `alimiter`'s lowest ceiling (its `limit` of 0.0625), in dB. */
 const LIMITER_FLOOR = -24;
 /** The limiter runs at 4x the film's rate, so it holds the true peak rather than the sample peak. */
@@ -214,7 +235,7 @@ export interface MixAttempt {
   ceilingDbtp: number;
 }
 
-/** One encode of the mix: the attempt and what the encoded file measured. */
+/** One measurement of the mix through an attempt: uncompressed (a probe of the gain) or encoded (a try). */
 export interface MixTry {
   attempt: MixAttempt;
   measured: MixLoudness;
@@ -230,9 +251,15 @@ export function getMixTolerance(target: MixLoudnessTarget): number {
   return target.tolerance ?? MIX_LOUDNESS_TOLERANCE;
 }
 
+/** How many encodes the mix stage may take. */
+export function getMixAttempts(target: MixLoudnessTarget): number {
+  return target.attempts ?? MIX_ATTEMPTS;
+}
+
 /**
- * The gain a mix measuring `integrated` LUFS needs: to the target in the default mode; with `keep: "speech"` none
- * inside `target ± tolerance`, else to the nearest edge (aimed a little inside, see `MIX_EDGE_MARGIN`).
+ * The gain a mix measuring `integrated` LUFS needs before any limiter: to the target in the default mode; with
+ * `keep: "speech"` none inside `target ± tolerance`, else to the nearest edge (aimed a little inside, see
+ * `MIX_EDGE_MARGIN`). The first probe of the gain starts here.
  */
 export function getMixGain(integrated: number, target: MixLoudnessTarget): number {
   if (target.keep !== "speech") return roundTo(target.target - integrated, 2);
@@ -243,78 +270,149 @@ export function getMixGain(integrated: number, target: MixLoudnessTarget): numbe
   return 0;
 }
 
-/** The first try: the gain the measured mix needs (`getMixGain`), the ceiling one encode's headroom under the limit. */
-export function getFirstMixAttempt(measurement: Pick<LoudnessMeasurement, "inputI">, target: MixLoudnessTarget): MixAttempt {
-  return { gainDb: getMixGain(measurement.inputI, target), ceilingDbtp: Math.max(LIMITER_FLOOR, roundTo(target.truePeak - MIX_ENCODE_HEADROOM, 2)) };
-}
-
-/** One try as the limiter model sees it: how hard the limiter was driven (gain minus ceiling) and the loudness it took. */
-function getLimiterPoint(entry: MixTry, inputI: number): { drive: number; cost: number } {
-  return { drive: entry.attempt.gainDb - entry.attempt.ceilingDbtp, cost: inputI + entry.attempt.gainDb - entry.measured.integrated };
+/** The first ceiling: one encode's headroom under the true peak limit, never under the limiter's floor. */
+export function getFirstMixCeiling(target: MixLoudnessTarget): number {
+  return Math.max(LIMITER_FLOOR, roundTo(target.truePeak - MIX_ENCODE_HEADROOM, 2));
 }
 
 /**
- * How much loudness the limiter takes per dB it is driven harder, fitted (least squares) from the tries once their
- * drives spread, else `MIX_LIMITER_SLOPE`; clamped to 0..`MIX_LIMITER_SLOPE_MAX`. `inputI` is the render's mix as measured.
+ * The ceiling for the next encode: lowered by the encode's true peak excess plus a margin when it broke the limit,
+ * else kept. The excess is the codec's (the gain does not move it), so the ceiling never moves with the loudness.
  */
-export function getLimiterSlope(tries: readonly MixTry[], inputI: number): number {
-  const points = tries.map((entry) => getLimiterPoint(entry, inputI));
-  const meanDrive = points.reduce((sum, point) => sum + point.drive, 0) / Math.max(1, points.length);
-  const meanCost = points.reduce((sum, point) => sum + point.cost, 0) / Math.max(1, points.length);
-  const spread = points.reduce((sum, point) => sum + (point.drive - meanDrive) ** 2, 0);
-  const slope = points.length >= 2 && spread >= MIX_SLOPE_SPREAD ? points.reduce((sum, point) => sum + (point.drive - meanDrive) * (point.cost - meanCost), 0) / spread : MIX_LIMITER_SLOPE;
-  return roundTo(Math.min(MIX_LIMITER_SLOPE_MAX, Math.max(0, slope)), 3);
+export function getNextMixCeiling(ceilingDbtp: number, measured: MixLoudness, target: MixLoudnessTarget): number {
+  const excess = measured.truePeak - target.truePeak;
+  return excess > 0 ? Math.max(LIMITER_FLOOR, roundTo(ceilingDbtp - excess - MIX_RETRY_MARGIN, 2)) : ceilingDbtp;
+}
+
+/** Where a probe of the gain should land a mix that measures `integrated` LUFS, and whether it already does. */
+export interface MixAim {
+  aim: number;
+  isMet: boolean;
 }
 
 /**
- * Where a retry aims the mix's integrated loudness when it would land at `predicted` LUFS with the gain kept: the
- * target in the default mode; with `keep: "speech"` nowhere (the gain stays) while `predicted` is inside the window
- * shrunk by `MIX_RETRY_EDGE_MARGIN`, else that margin inside the edge it would miss.
+ * The gain's aim for a mix at `integrated` LUFS: in the default mode the target (met within `MIX_GAIN_PRECISION`);
+ * with `keep: "speech"` met (no gain moves it) inside the window shrunk by `MIX_MET_MARGIN`, else
+ * `MIX_AIM_EDGE_MARGIN` inside the edge it misses.
  */
-function getRetryAim(predicted: number, target: MixLoudnessTarget): number | null {
-  if (target.keep !== "speech") return target.target;
+export function getMixAim(integrated: number, target: MixLoudnessTarget): MixAim {
+  if (target.keep !== "speech") return { aim: target.target, isMet: Math.abs(integrated - target.target) <= MIX_GAIN_PRECISION };
   const tolerance = getMixTolerance(target);
-  const inside = tolerance - Math.min(MIX_RETRY_EDGE_MARGIN, tolerance / 2);
-  if (predicted < target.target - inside) return target.target - inside;
-  if (predicted > target.target + inside) return target.target + inside;
-  return null;
+  const met = tolerance - Math.min(MIX_MET_MARGIN, tolerance / 2);
+  const aim = tolerance - Math.min(MIX_AIM_EDGE_MARGIN, tolerance / 2);
+  if (integrated < target.target - met) return { aim: roundTo(target.target - aim, 2), isMet: false };
+  if (integrated > target.target + met) return { aim: roundTo(target.target + aim, 2), isMet: false };
+  return { aim: integrated, isMet: true };
 }
 
 /**
- * The next try after the encodes in `tries` (oldest first; the last one missed `target`). The ceiling is lowered by
- * the last overshoot plus a margin when its true peak is over (never under the limiter's floor). The gain comes from
- * a model of the limiter: the loudness it takes grows with how hard it is driven (gain minus ceiling) at the slope
- * `getLimiterSlope` measures, so the gain is solved for the loudness the mix will have at the new ceiling, not the
- * one it had at the old one. `inputI` is the render's mix as measured before any try.
+ * The next gain to probe at a fixed ceiling, from the probes so far (oldest first) and `shift` (what the encode adds
+ * to a probe's loudness, 0 before the first encode): a secant step through the last two probes, or a step by the
+ * miss when there is one probe or the slope is flat or falling (the limiter takes back what the gain adds, so the
+ * loudness is not monotone in the gain on clicky speech). Null when the last probe meets its aim, or the step would
+ * repeat a gain already probed.
  */
-export function getNextMixAttempt(tries: readonly MixTry[], inputI: number, target: MixLoudnessTarget): MixAttempt {
-  const last = tries.at(-1);
-  if (last === undefined) throw new Error("getNextMixAttempt: no encode of the mix to correct.");
-  const overshoot = last.measured.truePeak - target.truePeak;
-  const ceilingDbtp = overshoot > 0 ? Math.max(LIMITER_FLOOR, roundTo(last.attempt.ceilingDbtp - overshoot - MIX_RETRY_MARGIN, 2)) : last.attempt.ceilingDbtp;
-  const slope = getLimiterSlope(tries, inputI);
-  const { drive, cost } = getLimiterPoint(last, inputI);
-  // The limiter's cost at a gain, at the new ceiling: never below none.
-  const getCost = (gainDb: number): number => Math.max(0, cost + slope * (gainDb - ceilingDbtp - drive));
-  const aim = getRetryAim(inputI + last.attempt.gainDb - getCost(last.attempt.gainDb), target);
-  if (aim === null) return { gainDb: last.attempt.gainDb, ceilingDbtp };
-  const gainDb = (aim - inputI + cost - slope * (ceilingDbtp + drive)) / (1 - slope);
-  // A gain so low that the limiter would take nothing: the mix moves by the gain alone.
-  return { gainDb: roundTo(getCost(gainDb) > 0 ? gainDb : aim - inputI, 2), ceilingDbtp };
+export function getNextGainProbe(probes: readonly MixTry[], target: MixLoudnessTarget, shift = 0): number | null {
+  const last = probes.at(-1);
+  if (last === undefined) throw new Error("getNextGainProbe: no probe of the mix to correct.");
+  const { aim, isMet } = getMixAim(last.measured.integrated + shift, target);
+  if (isMet) return null;
+  const miss = aim - shift - last.measured.integrated;
+  const before = probes.at(-2);
+  const slope = before === undefined || before.attempt.gainDb === last.attempt.gainDb ? 0 : (last.measured.integrated - before.measured.integrated) / (last.attempt.gainDb - before.attempt.gainDb);
+  const step = slope > MIX_MIN_SLOPE ? miss / slope : miss;
+  const gainDb = roundTo(Math.min(MIX_GAIN_LIMIT, Math.max(-MIX_GAIN_LIMIT, last.attempt.gainDb + step)), 2);
+  return probes.some((probe) => probe.attempt.gainDb === gainDb) ? null : gainDb;
+}
+
+/** The probe closest to its aim: the one the encode uses. */
+export function getBestGainProbe(probes: readonly MixTry[], target: MixLoudnessTarget, shift = 0): MixTry {
+  const score = (probe: MixTry): number => {
+    const { aim, isMet } = getMixAim(probe.measured.integrated + shift, target);
+    return isMet ? 0 : Math.abs(aim - shift - probe.measured.integrated);
+  };
+  const first = probes[0];
+  if (first === undefined) throw new Error("getBestGainProbe: no probe of the mix.");
+  return probes.reduce((best, probe) => (score(probe) < score(best) ? probe : best), first);
+}
+
+/**
+ * The gain at `ceilingDbtp` found by measuring the uncompressed chain (`measure`, one decode of the sound, no encode)
+ * from `startGainDb`, at most `MIX_GAIN_PROBES` times: the best probe, with every probe it took.
+ */
+export async function solveMixGain(options: {
+  ceilingDbtp: number;
+  startGainDb: number;
+  target: MixLoudnessTarget;
+  shift: number;
+  measure: (attempt: MixAttempt) => Promise<MixLoudness>;
+}): Promise<{ best: MixTry; probes: MixTry[] }> {
+  const probes: MixTry[] = [];
+  let gainDb: number | null = options.startGainDb;
+  while (gainDb !== null && probes.length < MIX_GAIN_PROBES) {
+    const attempt = { gainDb, ceilingDbtp: options.ceilingDbtp };
+    probes.push({ attempt, measured: await options.measure(attempt) });
+    gainDb = getNextGainProbe(probes, options.target, options.shift);
+  }
+  return { best: getBestGainProbe(probes, options.target, options.shift), probes };
 }
 
 /**
  * The mix's last stage: one linear gain, then a lookahead limiter at 4x the film's rate (its delay compensated, so
- * the sound stays in sync with the picture; no auto level), back to the film's rate.
+ * the sound stays in sync with the picture; no auto level), back to the film's rate, then a low-pass at
+ * `MIX_LOWPASS_HZ` that keeps AAC's overshoot small.
  */
 export function getMixFilter(attempt: MixAttempt): string {
   const limit = roundTo(10 ** (attempt.ceilingDbtp / 20), 5);
-  return [`volume=${attempt.gainDb}dB`, `aresample=${LIMITER_RATE}`, `alimiter=limit=${limit}:level=false:latency=true`, `aresample=${FOOTAGE_SAMPLE_RATE}`].join(",");
+  return [`volume=${attempt.gainDb}dB`, `aresample=${LIMITER_RATE}`, `alimiter=limit=${limit}:level=false:latency=true`, `aresample=${FOOTAGE_SAMPLE_RATE}`, `lowpass=f=${MIX_LOWPASS_HZ}`].join(",");
 }
 
-/** The mix's sound on its own through `filter`, encoded as the finished film carries it (AAC 192k, 48 kHz, stereo). */
+/** The mix's sound on its own through `filter`, encoded as the finished film carries it (AAC 192k cut at `MIX_LOWPASS_HZ`, 48 kHz, stereo). */
 export function buildMixArgs(options: { input: string; filter: string; output: string }): string[] {
-  return ["-v", "error", "-y", "-i", options.input, "-vn", "-map", "0:a:0", "-af", options.filter, "-c:a", "aac", "-b:a", FINISHED_AUDIO_BITRATE, "-ar", String(FOOTAGE_SAMPLE_RATE), "-ac", "2", options.output];
+  return [
+    "-v",
+    "error",
+    "-y",
+    "-i",
+    options.input,
+    "-vn",
+    "-map",
+    "0:a:0",
+    "-af",
+    options.filter,
+    "-c:a",
+    "aac",
+    "-b:a",
+    FINISHED_AUDIO_BITRATE,
+    "-cutoff",
+    String(MIX_LOWPASS_HZ),
+    "-ar",
+    String(FOOTAGE_SAMPLE_RATE),
+    "-ac",
+    "2",
+    options.output,
+  ];
+}
+
+/** How a measured mix stands against its target: inside it, a near miss inside `warnTolerance`, or outside. */
+export type LoudnessVerdict = { kind: "pass" } | { kind: "warn"; warning: string } | { kind: "fail"; problems: string[] };
+
+/**
+ * The verdict on a measured mix: `pass` inside `target ± tolerance` and at most `truePeak`; `warn` (a sentence with
+ * both values) when only the integrated loudness misses, by at most `warnTolerance`; else `fail` with the problems.
+ * The true peak limit has no near-miss band.
+ */
+export function getLoudnessVerdict(measured: MixLoudness, target: MixLoudnessTarget): LoudnessVerdict {
+  const problems = findLoudnessProblems(measured, target);
+  if (problems.length === 0) return { kind: "pass" };
+  const band = target.warnTolerance;
+  if (band !== undefined && measured.truePeak <= target.truePeak && Math.abs(measured.integrated - target.target) <= band) {
+    const warning =
+      `the mix measures ${formatDb(measured.integrated)} LUFS integrated, ${formatDb(measured.truePeak)} dBTP true peak: ` +
+      `outside ${formatDb(target.target)} ± ${getMixTolerance(target)} LUFS, inside the ± ${band} LU near-miss band.`;
+    return { kind: "warn", warning };
+  }
+  return { kind: "fail", problems };
 }
 
 /** What keeps a measured mix outside the target, as sentences with both values; empty when it meets it. */

@@ -6,6 +6,37 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **The footage mix converges at a fixed ceiling, before the frames (#1124):** on high-crest, transient-rich speech
+  (quiet phone speech raised by the speech chain, clicks and plosives) the mix stage moved the gain and the limiter's
+  ceiling together, the limiter took back what the gain added, and the film failed after every frame was rendered.
+  Now:
+  - the ceiling starts 1 dB under `truePeak` and moves only by an encode's measured true peak excess (the codec's
+    overshoot), never with the loudness;
+  - the gain is solved at that ceiling on uncompressed passes of the chain (one decode of the sound, no encode;
+    secant steps, a step by the miss where the limiter makes the loudness fall with the gain, at most 6 passes), so
+    the encode lands where the pass measured, and a retry shifts the aim by the codec's measured drift;
+  - the chain ends in a 16 kHz low-pass and the AAC encoder cuts at 16 kHz: the limiter's fast gain moves left high
+    frequencies on every click that AAC turned into up to 3.4 dB of overshoot, now within about 1 dB;
+  - **the film's sound is mixed by ffmpeg** (speech, music, the whoosh and pop cues, as the composition plays them),
+    brought to the target, encoded and gated **before hyperframes renders a frame**, so a mix that misses fails in
+    seconds; the final pass muxes it under the picture (hyperframes' own sound is no longer used for the finished
+    mix; `mixLoudness: false` still keeps it).
+  On the issue's fixtures master took 2 and 4 encodes or failed after 4; every fixture now finishes in at most 2
+  (most in 1).
+- `mixLoudness.attempts` (1 to 6, default 4): how many encodes the stage may take.
+- `mixLoudness.warnTolerance` (at least `tolerance`): a finished mix outside `target ± tolerance` but inside
+  `target ± warnTolerance`, under the true peak limit, finishes with `loudness.warning` (a sentence naming both values,
+  also logged) instead of failing. The true peak limit has no band.
+- `FinishedFootage.loudness` carries `warning` (null when the mix is inside its tolerance); `mix` carries `encodes`.
+- With `keep: "speech"`, a mix inside the window shrunk by 0.1 LU (through the limiter) gets no gain; a miss is aimed
+  0.45 LU inside the edge (`MIX_AIM_EDGE_MARGIN`).
+- **Changed exports:** `getFirstMixAttempt`, `getNextMixAttempt`, `getLimiterSlope`, `MIX_LIMITER_SLOPE`,
+  `MIX_LIMITER_SLOPE_MAX` and `MIX_RETRY_EDGE_MARGIN` are gone; `getFirstMixCeiling`, `getNextMixCeiling`,
+  `getMixAim`, `getNextGainProbe`, `getBestGainProbe`, `solveMixGain`, `getLoudnessVerdict`, `getMixAttempts`,
+  `MIX_LOWPASS_HZ`, `MIX_GAIN_PRECISION`, `MIX_GAIN_PROBES`, `MIX_AIM_EDGE_MARGIN`, `getFootageSfxCues` and
+  `buildFilmMixArgs` are new. `getMixFilter` ends in the low-pass, `buildMixArgs` adds `-cutoff 16000`,
+  `buildLoudnessMeasureArgs` and `measureLoudness` take an optional filter, and `buildFinishArgs` maps a given
+  `audioFile` even when the render has no sound.
 - Docs: the README's Install section also covers the `undici` 7.25.0 that hyperframes pins (high in `npm audit`) and
   gives one `overrides` entry for it and `fflate`.
 

@@ -3021,7 +3021,7 @@
               "target": -14,
               "truePeak": -1
             },
-            "description": "The finished film's mix (speech and music), measured after the render, brought to the target by one gain and held under the true peak by a limiter; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP.",
+            "description": "The finished film's mix (speech, music and sound effects), mixed and measured before the frames are rendered, brought to the target by one gain at a fixed true peak ceiling and held under it by a limiter; false leaves the mix as rendered. Default -14 LUFS, -1 dBTP.",
             "anyOf": [
               {
                 "type": "boolean",
@@ -3057,6 +3057,18 @@
                       "loudness",
                       "speech"
                     ]
+                  },
+                  "attempts": {
+                    "description": "How many times the mix is encoded and measured before the film fails (1 to 6, default 4); most mixes need one.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 6
+                  },
+                  "warnTolerance": {
+                    "description": "A near-miss band in LU (0.2 to 3, at least tolerance): a mix outside target ± tolerance but inside target ± warnTolerance, under the true peak limit, finishes with a warning instead of failing.",
+                    "type": "number",
+                    "minimum": 0.2,
+                    "maximum": 3
                   }
                 },
                 "additionalProperties": false
