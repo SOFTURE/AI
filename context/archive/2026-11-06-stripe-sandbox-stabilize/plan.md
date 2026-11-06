@@ -18,4 +18,4 @@
 ## Progress
 
 - [x] 1-3 implemented; 31 area tests pass; ci-workflows test allows e2e.yml's nightly schedule.
-- [ ] 4 root cause. Run 128018303179: the Checkout Sessions stay `open` with no PaymentIntent (the last one 15:15 UTC), so Checkout fails before it creates one; next run records the failing api.stripe.com answer.
+- [x] 4 root cause: Stripe's side. Run 128018303179 (16:47): every Checkout Session since 15:20 stayed `open` with no PaymentIntent, so Checkout's own confirm call failed before a payment existed; nothing in billing or the test changed. Run 128026785732 (16:59, head 7e6e35b) on the same billing code paid, got `checkout.session.completed` and the refund: passed in 20.9s. No billing change, so no release. The test keeps the diagnostics (page alerts, Stripe API errors, recorded sessions/PaymentIntents/charges) so a future outage names itself in the log.

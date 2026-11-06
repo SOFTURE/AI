@@ -1,7 +1,8 @@
 ---
 change_id: stripe-sandbox-stabilize
 title: "e2e: the Stripe sandbox payment runs only for billing changes and nightly, and passes again"
-status: implement
+status: archived
+archived_at: 2026-11-06
 roadmap_item: null
 issue: null
 branch: claude/project-thread-89civn
@@ -32,3 +33,15 @@ app, and through the shared lockfile that is almost every pull request (a releas
   Stripe answers, and the nightly run covers it.
 - The nightly schedule runs the whole e2e workflow (a scheduled run reaches every area), which also catches drift in
   other external tools.
+
+## Finding
+
+The failure from about 15:20 to about 16:50 UTC was on Stripe's side: every Checkout Session in that window stayed
+`open` with no PaymentIntent (Checkout's confirm call failed before a payment existed), while billing and the test were
+unchanged. The same code paid at 16:59 (run 128026785732). Billing needs no change and no release.
+
+## Done
+
+The Stripe sandbox payment runs on a pull request only when it changes billing, the example app's payment page or
+billing webhook, the test, its config or its workflow, and every night at 03:17 UTC; the lockfile and root configs no
+longer reach it. A failed run names Stripe's API errors, the page's alerts and what Stripe recorded.
