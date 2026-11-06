@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **Read an uploaded font file (#1174):** `readFontFileInfo(data)` answers a `.ttf`, `.otf`, `.woff` or `.woff2`
+  file's family, format, weight (static, or a variable `wght` range), the CSS weight a `brand.fonts` file takes,
+  style, and whether captions, the footage draft and OG images (the photo cover included) can use it, with a reason
+  code when not. A `.woff2` file says it is not usable for the cover (Satori does not read it), so an app refuses it
+  at upload. `findMissingCharacters(data, characters)` runs the glyph check on a file directly. Both are exported
+  from `.` and `./og` and return error values, never exceptions.
+- `readCharacterMap` reads WOFF2 files too (their tables are Brotli-decompressed), and a file it cannot read says
+  "not a TrueType, OpenType, WOFF or WOFF2 font".
+
 ## 0.17.0
 
 - **Cached speech ranges land at the pre-gained level (#1159):** since the speech pre-gain (#1139) `isolateSpeechRanges`
