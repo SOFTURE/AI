@@ -1187,6 +1187,20 @@ every weight the copy uses: a letter only a `latin-ext` file of another weight h
 lighter or heavier than its line, so it is refused like a missing one. Whitespace, format characters
 and variation selectors are not checked; emoji are, and need a font that has them.
 
+**An uploaded font file.** An app that lets its owner upload a brand font reads it with `readFontFileInfo(data)`
+before storing it as a `brand.fonts` file: the `family` (the typographic family, name ID 16, else name ID 1), the
+`format` (`ttf`, `otf`, `woff`, `woff2`), the `weight` (`{ kind: "static", value }` from `OS/2`, or
+`{ kind: "variable", min, max, default }` from a `wght` axis), `cssWeight` (`"400"` or `"100 900"`, as a file's
+`weight` takes it) and the `style`. `usableFor` answers each use, `captions` (the browser render: all four
+formats), `draft` (libass: `.ttf` and `.otf` that name a family) and `cover` (Satori, OG images and the photo
+cover: static `.ttf`, `.otf` and `.woff` at 100-900 in steps of 100), with `{ isUsable: false, reason, detail }`
+where it cannot be used: `reason` is a code (`format`, `variable`, `weight`, `character-map`, `family-name`) the app
+words in its own language, `detail` an English sentence for logs. A `.woff2` file is read but not drawn on the
+cover, so refuse it there at upload, or ask for a `.ttf`, `.otf` or `.woff` next to it.
+`findMissingCharacters(data, characters)` lists the characters the file has no glyph for, unique and in order
+(whitespace skipped), e.g. the Polish letters an app requires. Both return error values for a broken file, never
+exceptions.
+
 **A thin Next route.** The `@softure-ai/marketing-kit/og` entry does not load Playwright, so a route
 can render the same card per request, with live values in place of the configured `data`:
 

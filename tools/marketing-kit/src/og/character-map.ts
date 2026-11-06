@@ -1,76 +1,23 @@
-import { inflateSync } from "node:zlib";
-
+import { OutOfBounds, readFontTables, readInt16, readUint16, readUint32 } from "./font-tables.js";
 import { err, ok, type OgResult } from "./result.js";
 
 /**
  * The characters a font file maps to a glyph, read from its `cmap` table the way Satori's font
  * parser (opentype.js) reads it: the last Unicode subtable of the table (platform 0 encodings 0-4,
  * platform 3 encodings 0, 1 and 10), in format 4 or 12. Glyph 0 (`.notdef`) means "not in the font".
- * Every read is bounds-checked, so a broken file is an error value, never an exception.
+ * TrueType, OpenType, WOFF and WOFF2 files are read (`readFontTables`), though Satori itself draws no WOFF2. Every read
+ * is bounds-checked, so a broken file is an error value, never an exception.
  */
 export interface CharacterMap {
   has(codePoint: number): boolean;
 }
 
-const SFNT_SIGNATURES = new Set([0x00010000, 0x74727565 /* true */, 0x4f54544f /* OTTO */]);
-const WOFF_SIGNATURE = 0x774f4646; // wOFF
-const WOFF2_SIGNATURE = 0x774f4632; // wOF2
-const COLLECTION_SIGNATURE = 0x74746366; // ttcf
-
-class OutOfBounds extends Error {}
-
-function readUint16(data: Buffer, offset: number): number {
-  if (offset < 0 || offset + 2 > data.length) throw new OutOfBounds();
-  return data.readUInt16BE(offset);
-}
-
-function readInt16(data: Buffer, offset: number): number {
-  if (offset < 0 || offset + 2 > data.length) throw new OutOfBounds();
-  return data.readInt16BE(offset);
-}
-
-function readUint32(data: Buffer, offset: number): number {
-  if (offset < 0 || offset + 4 > data.length) throw new OutOfBounds();
-  return data.readUInt32BE(offset);
-}
-
-function slice(data: Buffer, offset: number, length: number): Buffer {
-  if (offset < 0 || length < 0 || offset + length > data.length) throw new OutOfBounds();
-  return data.subarray(offset, offset + length);
-}
-
-const CMAP_TAG = 0x636d6170; // cmap
-
-/** The raw `cmap` table of an sfnt (`.ttf`, `.otf`) or WOFF file, or a reason it has none. */
+/** The raw `cmap` table of a font file, or a reason it has none. */
 function findCmapTable(data: Buffer): OgResult<Buffer> {
-  const signature = readUint32(data, 0);
-  if (SFNT_SIGNATURES.has(signature)) {
-    const count = readUint16(data, 4);
-    for (let index = 0; index < count; index++) {
-      const record = 12 + index * 16;
-      if (readUint32(data, record) === CMAP_TAG) return ok(slice(data, readUint32(data, record + 8), readUint32(data, record + 12)));
-    }
-    return err("the font has no cmap table");
-  }
-  if (signature === WOFF_SIGNATURE) {
-    const count = readUint16(data, 12);
-    for (let index = 0; index < count; index++) {
-      const entry = 44 + index * 20;
-      if (readUint32(data, entry) !== CMAP_TAG) continue;
-      const stored = slice(data, readUint32(data, entry + 4), readUint32(data, entry + 8));
-      const length = readUint32(data, entry + 12);
-      if (stored.length >= length) return ok(stored);
-      try {
-        return ok(inflateSync(stored));
-      } catch {
-        return err("the font's cmap table does not decompress");
-      }
-    }
-    return err("the font has no cmap table");
-  }
-  if (signature === WOFF2_SIGNATURE) return err("WOFF2 is not read");
-  if (signature === COLLECTION_SIGNATURE) return err("font collections are not read");
-  return err("the file is not a TrueType, OpenType or WOFF font");
+  const tables = readFontTables(data);
+  if (!tables.ok) return tables;
+  const table = tables.value.get("cmap");
+  return table === undefined ? err("the font has no cmap table") : ok(table);
 }
 
 function isUnicodeEncoding(platform: number, encoding: number): boolean {

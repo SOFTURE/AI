@@ -11,6 +11,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   layout `photo`) and `focusPoint` (`{ x, y }`, the focus point on the cover after the crop). The new
   `isPointUnderCoverText(cover, point, marginPx = 0)` tells whether a point lies under the text, so an app can warn when
   the caption covers the photo's subject without re-deriving the kit's layout rules. Types `CoverBox` and `CoverPoint`.
+- **Read an uploaded font file (#1174):** `readFontFileInfo(data)` answers a `.ttf`, `.otf`, `.woff` or `.woff2`
+  file's family, format, weight (static, or a variable `wght` range), the CSS weight a `brand.fonts` file takes,
+  style, and whether captions, the footage draft and OG images (the photo cover included) can use it, with a reason
+  code when not. A `.woff2` file says it is not usable for the cover (Satori does not read it), so an app refuses it
+  at upload. `findMissingCharacters(data, characters)` runs the glyph check on a file directly. Both are exported
+  from `.` and `./og` and return error values, never exceptions.
+- `readCharacterMap` reads WOFF2 files too (their tables are Brotli-decompressed), and a file it cannot read says
+  "not a TrueType, OpenType, WOFF or WOFF2 font".
 
 ## 0.17.0
 
