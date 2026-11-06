@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-provider-failure-1141
 title: "marketing-kit: provider failures carry structured details (issue #1141)"
-status: review_ready
+status: archived
 roadmap_item: null
 issue: 1141
 branch: claude/project-thread-aojd1w
 created: 2026-11-06
 updated: 2026-11-06
+archived_at: 2026-11-06
 ---
 
 ## Intent
@@ -30,3 +31,10 @@ Labels: `pkg: marketing-kit`. Builds on #1126 (`FootageFailure`, PR #1133) and #
 ## Notes
 
 - Framing: skipped. The issue names the need and the shape.
+
+## Done
+
+A failed provider answer carries `providerFailure` (`kind`, `status`, `code`, `message`, `requestId`,
+`isRetryable`); the ElevenLabs STT, isolation and music providers set it; `isolateSpeechRanges` retries only
+retryable failures and its `failed` outcome carries the failure; `FootageFailure` has a `provider` kind. PR #1148.
+Ships in the next combined marketing-kit release.

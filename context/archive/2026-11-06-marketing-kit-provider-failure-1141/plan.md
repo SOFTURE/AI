@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-provider-failure-1141
-status: in_progress
+status: archived
 ---
 
 # Plan: structured provider failures (issue #1141)
