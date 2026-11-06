@@ -2,6 +2,7 @@ import { footageCacheKey, getFootageCachePath } from "./cache.js";
 import { getSoundSpan, type Edl } from "./edl.js";
 import type { ClipRole } from "./film.js";
 import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
+import type { IsolationProvider } from "./providers.js";
 
 /**
  * The parts of each talking clip a cut hears, as ranges in whole milliseconds, and how their cleaned voice is laid
@@ -12,11 +13,31 @@ import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
 /** Seconds added on each side of a sound span, so a cut's cross-fade and fades read cleaned sound. */
 export const DEFAULT_SPEECH_RANGE_MARGIN = 0.25;
 
+/** Seconds of the largest gap between two ranges of a clip that are isolated as one range (`planSpeechRanges`). */
+export const DEFAULT_SPEECH_RANGE_MERGE_GAP = 2;
+
+/** Seconds a range shorter than the provider's minimum is widened past it, so the cut file is safely long enough. */
+export const DEFAULT_SPEECH_RANGE_MIN_PAD = 0.4;
+
+/** Why a planned range is not sent: shorter than the provider's minimum even after merging and widening. */
+export interface SpeechRangeSkip {
+  reason: "too_short";
+  /** The provider's minimum, in seconds. */
+  minSeconds: number;
+}
+
 /** A range of a clip's trimmed sound, in whole milliseconds (the cache key's unit). */
 export interface SpeechRange {
   clip: string;
   startMs: number;
   endMs: number;
+  /**
+   * The part of the range the cut hears, when the range was widened with the clip's own context to reach the
+   * provider's minimum; absent: the whole range. Only this part of the cleaned voice is laid.
+   */
+  heard?: { startMs: number; endMs: number };
+  /** Set when the range cannot pass the provider (the clip itself is shorter than its minimum): it is not sent. */
+  skip?: SpeechRangeSkip;
 }
 
 /** Where a range's cleaned sound is laid in its clip, in milliseconds; inside the range. */
@@ -33,15 +54,35 @@ export interface SpeechRangeClip {
   duration: number;
 }
 
+export interface PlanSpeechRangesOptions {
+  /** Seconds added on each side of a sound span; default `DEFAULT_SPEECH_RANGE_MARGIN` (0.25). */
+  margin?: number;
+  /** The isolation provider's minimum input in seconds (`IsolationProvider.minSeconds`); absent: no minimum. */
+  minSeconds?: number;
+  /**
+   * Ranges of a clip at most this many seconds apart are isolated as one range; default
+   * `DEFAULT_SPEECH_RANGE_MERGE_GAP` (2). `null` keeps every range apart (only identical ranges and ranges inside
+   * another are dropped); `Infinity` isolates each clip's whole used span once.
+   */
+  mergeGap?: number | null;
+  /** Seconds a range shorter than `minSeconds` is widened past it; default `DEFAULT_SPEECH_RANGE_MIN_PAD` (0.4). */
+  minPad?: number;
+}
+
 /**
- * The ranges the cut hears of each talking clip: every segment's sound span (its own clip's or `audio`'s), and the
+ * The source ranges to isolate of each talking clip: every segment's sound span (its own clip's or `audio`'s), and the
  * picture clip's own span when `audio.ownVolume` keeps it under, widened by `margin` seconds on each side, clamped to
- * the clip and rounded out to whole milliseconds. Identical ranges and ranges inside another are dropped (the larger
- * one is laid there anyway); the rest are not merged, so a moved segment changes only its own range. Sorted by clip
- * order, then start.
+ * the clip and rounded out to whole milliseconds. Identical ranges and ranges inside another are dropped; ranges of a
+ * clip at most `mergeGap` seconds apart become one. With `minSeconds`, a range still shorter is widened symmetrically
+ * with the clip's own context to `minSeconds + minPad` (shifted where the clip's edge stops it; `heard` keeps the part
+ * the cut hears), ranges the widening brought within `mergeGap` are merged, and a range still shorter (a clip shorter
+ * than the minimum) is marked `skip`. Sorted by clip order, then start.
  */
-export function planSpeechRanges(edl: Edl, clips: readonly SpeechRangeClip[], options: { margin?: number } = {}): SpeechRange[] {
+export function planSpeechRanges(edl: Edl, clips: readonly SpeechRangeClip[], options: PlanSpeechRangesOptions = {}): SpeechRange[] {
   const margin = Math.max(0, options.margin ?? DEFAULT_SPEECH_RANGE_MARGIN);
+  const mergeGap = options.mergeGap === undefined ? DEFAULT_SPEECH_RANGE_MERGE_GAP : options.mergeGap;
+  const gapMs = mergeGap === null ? null : Math.max(0, mergeGap) * 1000;
+  const minSeconds = options.minSeconds !== undefined && options.minSeconds > 0 ? options.minSeconds : null;
   const byId = new Map(clips.map((clip) => [clip.id, clip]));
   const found = new Map<string, SpeechRange[]>();
   const add = (span: { clip: string; start: number; end: number }): void => {
@@ -62,25 +103,90 @@ export function planSpeechRanges(edl: Edl, clips: readonly SpeechRangeClip[], op
   const ranges: SpeechRange[] = [];
   for (const clip of clips) {
     const list = (found.get(clip.id) ?? []).sort((a, b) => a.startMs - b.startMs || b.endMs - a.endMs);
+    let kept: SpeechRange[] = [];
     for (const range of list) {
-      const isInside = ranges.some((kept) => kept.clip === range.clip && kept.startMs <= range.startMs && kept.endMs >= range.endMs);
-      if (!isInside) ranges.push(range);
+      const isInside = kept.some((other) => other.startMs <= range.startMs && other.endMs >= range.endMs);
+      if (!isInside) kept.push(range);
     }
+    if (gapMs !== null) kept = mergeSpeechRanges(kept, gapMs);
+    if (minSeconds !== null) {
+      const minMs = Math.ceil(minSeconds * 1000);
+      const targetMs = Math.ceil((minSeconds + Math.max(0, options.minPad ?? DEFAULT_SPEECH_RANGE_MIN_PAD)) * 1000);
+      const clipMs = Math.floor(clip.duration * 1000);
+      kept = kept.map((range) => widenSpeechRange(range, { minMs, targetMs, clipMs }));
+      if (gapMs !== null) kept = mergeSpeechRanges(kept, gapMs);
+      kept = kept.map((range) => (range.endMs - range.startMs < minMs ? { ...range, skip: { reason: "too_short", minSeconds } } : range));
+    }
+    ranges.push(...kept);
   }
   return ranges;
 }
 
+/** How `isolateSpeechRanges` and the estimate plan the ranges: the caller's margin and merge gap, the provider's minimum. */
+export function getPlanOptions(options: Pick<PlanSpeechRangesOptions, "margin" | "mergeGap" | "minPad">, isolation: IsolationProvider): PlanSpeechRangesOptions {
+  return {
+    ...(options.margin === undefined ? {} : { margin: options.margin }),
+    ...(options.mergeGap === undefined ? {} : { mergeGap: options.mergeGap }),
+    ...(options.minPad === undefined ? {} : { minPad: options.minPad }),
+    ...(isolation.minSeconds === undefined ? {} : { minSeconds: isolation.minSeconds }),
+  };
+}
+
+/** The part of a range the cut hears. */
+function getHeard(range: SpeechRange): { startMs: number; endMs: number } {
+  return range.heard ?? { startMs: range.startMs, endMs: range.endMs };
+}
+
+/** A range with `heard` set only when it is narrower than the range. */
+function withHeard(range: Pick<SpeechRange, "clip" | "startMs" | "endMs">, heard: { startMs: number; endMs: number }): SpeechRange {
+  const isWhole = heard.startMs <= range.startMs && heard.endMs >= range.endMs;
+  return isWhole ? { clip: range.clip, startMs: range.startMs, endMs: range.endMs } : { clip: range.clip, startMs: range.startMs, endMs: range.endMs, heard };
+}
+
+/** One clip's ranges (sorted by start) with every two at most `gapMs` apart merged into one; the heard parts joined. */
+function mergeSpeechRanges(ranges: readonly SpeechRange[], gapMs: number): SpeechRange[] {
+  const merged: SpeechRange[] = [];
+  for (const range of [...ranges].sort((a, b) => a.startMs - b.startMs)) {
+    const last = merged.at(-1);
+    if (last === undefined || range.startMs - last.endMs > gapMs) {
+      merged.push(range);
+      continue;
+    }
+    const lastHeard = getHeard(last);
+    const heard = getHeard(range);
+    merged[merged.length - 1] = withHeard(
+      { clip: last.clip, startMs: last.startMs, endMs: Math.max(last.endMs, range.endMs) },
+      { startMs: Math.min(lastHeard.startMs, heard.startMs), endMs: Math.max(lastHeard.endMs, heard.endMs) },
+    );
+  }
+  return merged;
+}
+
+/** A range shorter than `minMs` widened symmetrically to `targetMs` with the clip's own context, inside the clip. */
+function widenSpeechRange(range: SpeechRange, limits: { minMs: number; targetMs: number; clipMs: number }): SpeechRange {
+  const length = range.endMs - range.startMs;
+  if (length >= limits.minMs) return range;
+  const target = Math.min(limits.targetMs, limits.clipMs);
+  const endMs = Math.min(limits.clipMs, Math.max(0, range.startMs - Math.floor((target - length) / 2)) + target);
+  const startMs = Math.max(0, endMs - target);
+  return withHeard({ clip: range.clip, startMs, endMs }, getHeard(range));
+}
+
 /**
- * Where each of one clip's ranges is laid: the whole range, except that two overlapping neighbours switch at the
- * middle of their overlap. Takes ranges of one clip, none inside another (as `planSpeechRanges` answers them).
+ * Where each of one clip's ranges is laid: the part the cut hears (`heard`, else the whole range), except that two
+ * overlapping neighbours switch at the middle of their overlap. Takes ranges of one clip, none inside another (as
+ * `planSpeechRanges` answers them).
  */
 export function getSpeechRangeWindows(ranges: readonly SpeechRange[]): SpeechRangeWindow[] {
-  const sorted = [...ranges].sort((a, b) => a.startMs - b.startMs);
+  const sorted = [...ranges].sort((a, b) => getHeard(a).startMs - getHeard(b).startMs);
   return sorted.map((range, index) => {
+    const heard = getHeard(range);
     const before = sorted[index - 1];
     const after = sorted[index + 1];
-    const startMs = before !== undefined && before.endMs > range.startMs ? Math.round((range.startMs + before.endMs) / 2) : range.startMs;
-    const endMs = after !== undefined && after.startMs < range.endMs ? Math.round((after.startMs + range.endMs) / 2) : range.endMs;
+    const beforeEnd = before === undefined ? null : getHeard(before).endMs;
+    const afterStart = after === undefined ? null : getHeard(after).startMs;
+    const startMs = beforeEnd !== null && beforeEnd > heard.startMs ? Math.round((heard.startMs + beforeEnd) / 2) : heard.startMs;
+    const endMs = afterStart !== null && afterStart < heard.endMs ? Math.round((afterStart + heard.endMs) / 2) : heard.endMs;
     return { range, startMs, endMs };
   });
 }

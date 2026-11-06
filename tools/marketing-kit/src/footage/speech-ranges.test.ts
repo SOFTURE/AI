@@ -45,7 +45,7 @@ describe("planSpeechRanges", () => {
   it("takes a borrowed sound span, and the picture clip's own span only when its sound stays under", () => {
     const borrowed = segment("r1", "r", 0, 2, { audio: { clip: "a", start: 4, end: 6, ownVolume: 0 } });
     const underneath = segment("s2", "b", 1, 2, { audio: { clip: "a", start: 7, end: 8, ownVolume: 0.3 } });
-    expect(planSpeechRanges(edlOf(borrowed, underneath), CLIPS, { margin: 0 })).toEqual([
+    expect(planSpeechRanges(edlOf(borrowed, underneath), CLIPS, { margin: 0, mergeGap: null })).toEqual([
       { clip: "a", startMs: 4000, endMs: 6000 },
       { clip: "a", startMs: 7000, endMs: 8000 },
       { clip: "b", startMs: 1000, endMs: 2000 },
@@ -56,11 +56,46 @@ describe("planSpeechRanges", () => {
     expect(planSpeechRanges(edlOf(segment("r1", "r", 0, 2), segment("x", "missing", 0, 1), segment("s1", "a", 10, 10)), CLIPS, { margin: 0 })).toEqual([]);
   });
 
-  it("keeps overlapping ranges apart, dropping only identical ranges and ranges inside another", () => {
-    const ranges = planSpeechRanges(edlOf(segment("s1", "a", 1, 3), segment("s2", "a", 2.8, 5), segment("s3", "a", 1, 3), segment("s4", "a", 3.5, 4.5)), CLIPS, { margin: 0 });
+  it("with mergeGap null keeps overlapping ranges apart, dropping only identical ranges and ranges inside another", () => {
+    const ranges = planSpeechRanges(edlOf(segment("s1", "a", 1, 3), segment("s2", "a", 2.8, 5), segment("s3", "a", 1, 3), segment("s4", "a", 3.5, 4.5)), CLIPS, { margin: 0, mergeGap: null });
     expect(ranges).toEqual([
       { clip: "a", startMs: 1000, endMs: 3000 },
       { clip: "a", startMs: 2800, endMs: 5000 },
+    ]);
+  });
+});
+
+describe("planSpeechRanges to the provider's minimum (issue #1140)", () => {
+  it("merges ranges of a clip at most 2 s apart by default, keeping farther ones apart", () => {
+    const ranges = planSpeechRanges(edlOf(segment("s1", "a", 1, 2), segment("s2", "a", 3.5, 4), segment("s3", "a", 7, 8), segment("s4", "b", 1, 2)), CLIPS, { margin: 0 });
+    expect(ranges).toEqual([
+      { clip: "a", startMs: 1000, endMs: 4000 },
+      { clip: "a", startMs: 7000, endMs: 8000 },
+      { clip: "b", startMs: 1000, endMs: 2000 },
+    ]);
+    expect(planSpeechRanges(edlOf(segment("s1", "a", 1, 2), segment("s3", "a", 7, 8)), CLIPS, { margin: 0, mergeGap: Infinity })).toEqual([{ clip: "a", startMs: 1000, endMs: 8000 }]);
+  });
+
+  it("widens a range shorter than the minimum symmetrically to the minimum plus the pad, shifted at the clip's edges", () => {
+    const ranges = planSpeechRanges(edlOf(segment("s1", "a", 0.2, 1), segment("s2", "a", 4, 5), segment("s3", "a", 9, 9.8)), CLIPS, { margin: 0, mergeGap: null, minSeconds: 4.6 });
+    expect(ranges).toEqual([
+      { clip: "a", startMs: 0, endMs: 5000, heard: { startMs: 200, endMs: 1000 } },
+      { clip: "a", startMs: 2000, endMs: 7000, heard: { startMs: 4000, endMs: 5000 } },
+      { clip: "a", startMs: 5000, endMs: 10000, heard: { startMs: 9000, endMs: 9800 } },
+    ]);
+    expect(planSpeechRanges(edlOf(segment("s1", "a", 4, 5)), CLIPS, { margin: 0, minSeconds: 4.6, minPad: 0 })).toEqual([{ clip: "a", startMs: 2200, endMs: 6800, heard: { startMs: 4000, endMs: 5000 } }]);
+    expect(planSpeechRanges(edlOf(segment("s1", "a", 1, 6)), CLIPS, { margin: 0, minSeconds: 4.6 })).toEqual([{ clip: "a", startMs: 1000, endMs: 6000 }]);
+  });
+
+  it("merges ranges the widening brought within the gap, joining what the cut hears", () => {
+    const ranges = planSpeechRanges(edlOf(segment("s1", "a", 1, 1.5), segment("s2", "a", 5, 5.5)), CLIPS, { margin: 0, minSeconds: 4.6 });
+    expect(ranges).toEqual([{ clip: "a", startMs: 0, endMs: 7750, heard: { startMs: 1000, endMs: 5500 } }]);
+  });
+
+  it("marks a range still shorter than the minimum, its clip being shorter, as skipped", () => {
+    const clips: SpeechRangeClip[] = [{ id: "c", role: "talk", duration: 3 }];
+    expect(planSpeechRanges(edlOf(segment("s1", "c", 0.5, 2)), clips, { margin: 0, minSeconds: 4.6 })).toEqual([
+      { clip: "c", startMs: 0, endMs: 3000, heard: { startMs: 500, endMs: 2000 }, skip: { reason: "too_short", minSeconds: 4.6 } },
     ]);
   });
 });
@@ -70,6 +105,14 @@ describe("getSpeechRangeWindows", () => {
 
   it("lays a range alone whole", () => {
     expect(getSpeechRangeWindows([range(1000, 2000)])).toEqual([{ range: range(1000, 2000), startMs: 1000, endMs: 2000 }]);
+  });
+
+  it("lays only the part of a widened range the cut hears", () => {
+    const widened: SpeechRange = { clip: "a", startMs: 0, endMs: 5000, heard: { startMs: 1000, endMs: 1500 } };
+    expect(getSpeechRangeWindows([widened, range(6000, 7000)])).toEqual([
+      { range: widened, startMs: 1000, endMs: 1500 },
+      { range: range(6000, 7000), startMs: 6000, endMs: 7000 },
+    ]);
   });
 
   it("switches overlapping neighbours at the middle of their overlap, leaving gaps as they are", () => {
