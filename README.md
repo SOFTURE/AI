@@ -51,6 +51,7 @@ themes/              shadcn/ui themes an app installs instead of copying compone
   theme-kit/         @softure-ai/theme-kit: the theme contract (defineTheme), CSS generator and build, cn, preflight
   theme-notion/      @softure-ai/theme-notion: the first theme, Notion (tokens, 37 components, compositions)
   theme-flat-paint/  @softure-ai/theme-flat-paint: Flat Paint (tokens, the ui bridge, page base, look maps for ui components)
+  theme-flat-atlas/  @softure-ai/theme-flat-atlas: Flat Atlas (tokens, page base, travel components, a world map projected at build)
   theme-<name>/      each further theme, on the kit's contract (themes/theme-kit/README.md)
 docs/                assessment, module standard, plans
 ```
