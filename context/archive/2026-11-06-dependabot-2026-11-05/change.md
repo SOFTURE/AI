@@ -53,10 +53,10 @@ Files: `foundation/observability` (src, tests, package.json), `foundation/llm` (
 
 - PR #1106 carries #1097, #1098 and #1099; all CI checks green on 9a447e6 (unit shards, typecheck + lint, build,
   example app e2e and container, deploy-app, film renders, theme-notion visual regression).
-- OpenTelemetry family on one 3.0 / 0.300 line, found 0 vulnerabilities: 0 vulnerabilities.
+- OpenTelemetry family on one 3.0 / 0.300 line; `npm audit --omit=dev`: 0 vulnerabilities.
 - Held back from the group, with the reason in plan.md: satori (0.35.1 pin, #254) and typescript-eslint (~8.71,
   8.72.1 runs the typed lint out of memory).
-- ,  and  carry  entries and ride the
-  next combined release. Adopting apps need  1.10+ at their root (observability changelog).
+- `@softure-ai/observability`, `@softure-ai/security` and `@softure-ai/seo` carry `## Unreleased` entries and ride the
+  next combined release. Adopting apps need `@opentelemetry/api` 1.10+ at their root (observability changelog).
 - After the merge: close #1097, #1098 and #1099 as superseded by #1106.
 

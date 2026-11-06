@@ -41,7 +41,7 @@
   (`next build` passes). typescript-eslint 8.72.1 pushes the typed lint past CI's 8 GB heap (master at 8.71 passes,
   this tree with 8.72.1 runs out of memory on `modules/` alone at 6 GB, with 8.71.2 it passes); it is held on
   `~8.71.0`. `NODE_OPTIONS=--max-old-space-size=8192 npm run lint` green.
-- [x] p3c container image: Next.js standalone tracing dropped  (instrumentation-http 0.300 loads it
-  through a rolldown ); observability depends on and requires it,  guards it.
+- [x] p3c container image: Next.js standalone tracing dropped `forwarded-parse` (instrumentation-http 0.300 loads it
+  through a rolldown `__require`); observability depends on and requires it, `standalone-tracing.test.ts` guards it.
   CI green on 9a447e6.
 - [ ] p4 close the Dependabot pull requests (after the merge)
