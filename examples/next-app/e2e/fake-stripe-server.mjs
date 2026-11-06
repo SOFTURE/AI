@@ -243,7 +243,8 @@ if (WEBHOOK_URL === "" || WEBHOOK_SECRET === "") {
 
 createServer((request, response) => {
   handle(request, response).catch((/** @type {unknown} */ error) => {
-    console.error(`fake-stripe-server: ${request.method ?? "?"} ${request.url ?? "?"} failed:`, error);
+    // The request line goes in as an argument, never as the format string.
+    console.error("fake-stripe-server: %s %s failed:", request.method ?? "?", request.url ?? "?", error);
     if (!response.headersSent) sendError(response, 500, error instanceof Error ? error.message : String(error));
     else response.end();
   });
