@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 
-import { ok, type TtsResult } from "../voice/provider.js";
+import { err, ok, type TtsResult } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
+import { probeAudio } from "./audio.js";
 import type { IsolationProvider, MusicProvider, SttInput, SttProvider, SttTranscript } from "./providers.js";
 
 /** Providers that spend nothing and reach no network, for tests of the footage pipeline and of a project's own flows. */
@@ -36,19 +37,42 @@ export function createFakeSttProvider(options: FakeSttOptions = {}): FakeSttProv
   };
 }
 
+export interface FakeIsolationOptions {
+  /**
+   * The shortest input in seconds the fake accepts, declared as its `minSeconds`: a shorter input (probed with
+   * ffprobe) is refused with `audio_too_short`, as the ElevenLabs Voice Isolator refuses it.
+   */
+  minSeconds?: number;
+}
+
 export interface FakeIsolationProvider extends IsolationProvider {
   readonly calls: string[];
+  /** The inputs refused for being shorter than `minSeconds`. */
+  readonly refused: string[];
 }
 
 /** Returns the input file's bytes unchanged: a valid audio file, so a pipeline with it still renders. */
-export function createFakeIsolationProvider(): FakeIsolationProvider {
+export function createFakeIsolationProvider(options: FakeIsolationOptions = {}): FakeIsolationProvider {
   const calls: string[] = [];
+  const refused: string[] = [];
+  const { minSeconds } = options;
   return {
     id: "fake",
+    ...(minSeconds === undefined ? {} : { minSeconds }),
     calls,
-    isolate(input) {
+    refused,
+    async isolate(input) {
       calls.push(input.audio);
-      return Promise.resolve(ok(readFileSync(input.audio)));
+      if (minSeconds !== undefined) {
+        const probed = await probeAudio(input.audio, input.signal === undefined ? {} : { signal: input.signal });
+        if (!probed.ok) return err(`fake voice isolation: ${probed.error}`);
+        if (probed.probe.duration < minSeconds) {
+          refused.push(input.audio);
+          const message = `${probed.probe.duration.toFixed(3)} s, the minimum is ${String(minSeconds)} s`;
+          return err(`fake voice isolation: 400 audio_too_short (${message}).`, { kind: "refused", status: 400, code: "audio_too_short", message, requestId: null, isRetryable: false });
+        }
+      }
+      return ok(readFileSync(input.audio));
     },
   };
 }

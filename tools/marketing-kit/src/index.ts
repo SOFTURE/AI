@@ -304,6 +304,7 @@ export {
   type SttTranscript,
 } from "./footage/providers.js";
 export {
+  ELEVENLABS_ISOLATION_MIN_SECONDS,
   ELEVENLABS_MUSIC_MODEL,
   ELEVENLABS_STT_MODEL,
   createElevenLabsFootageProviders,
@@ -320,6 +321,7 @@ export {
   createFakeMusicProvider,
   createFakeSttProvider,
   makePlaceholderTranscript,
+  type FakeIsolationOptions,
   type FakeIsolationProvider,
   type FakeMusicProvider,
   type FakeSttOptions,
@@ -514,6 +516,8 @@ export {
 export {
   DEFAULT_SPEECH_RANGE_FADE_MS,
   DEFAULT_SPEECH_RANGE_MARGIN,
+  DEFAULT_SPEECH_RANGE_MERGE_GAP,
+  DEFAULT_SPEECH_RANGE_MIN_PAD,
   buildRangeAudioArgs,
   buildRangeLayArgs,
   getSpeechRangeCache,
@@ -521,10 +525,12 @@ export {
   getSpeechRangeWindows,
   planSpeechRanges,
   type LaidRange,
+  type PlanSpeechRangesOptions,
   type SpeechRange,
   type SpeechRangeCacheResolver,
   type SpeechRangeClip,
   type SpeechRangeFade,
+  type SpeechRangeSkip,
   type SpeechRangeWindow,
 } from "./footage/speech-ranges.js";
 export {

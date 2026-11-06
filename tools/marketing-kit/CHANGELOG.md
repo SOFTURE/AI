@@ -27,6 +27,22 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   misses its target fails the draft with `{ kind: "loudness" }`, as it fails the render. `onProgress` reports the
   items `loudness` and `mix`. `buildFootageDraftArgs` takes `mix` (an encoded mix to copy). The draft's speech files
   take the render's names (`getSpeechChainFiles`).
+- **Speech ranges reach the Voice Isolator's minimum input (#1140):** a range shorter than the provider accepts is no
+  longer sent, refused three times and left uncleaned.
+  - `IsolationProvider.minSeconds`: the shortest input the provider accepts; the ElevenLabs provider declares 4.6 s
+    (`ELEVENLABS_ISOLATION_MIN_SECONDS`).
+  - `planSpeechRanges` plans source ranges: ranges of a clip at most `mergeGap` seconds apart (default 2) are merged
+    into one; with `minSeconds`, a range still shorter is widened symmetrically with the clip's own context to the
+    minimum plus `minPad` (default 0.4 s), and `range.heard` keeps the part the cut hears, which is all that is laid.
+    A range that cannot reach the minimum is marked `skip` and never sent (`outcome: { kind: "skipped" }`).
+  - `isolateSpeechRanges`, `estimateSpeechRanges` and `estimateFootageFilm` (`isolate: "segments"`) plan with the
+    provider's minimum and take `mergeGap` and `minPad`; the estimate prices exactly the ranges sent and marks a
+    skipped one (`skipped`, at 0).
+  - A range refused on every attempt leaves no cut file under `<buildDir>/audio/ranges/`.
+  - `createFakeIsolationProvider({ minSeconds })` refuses a shorter input with `audio_too_short`.
+  - **Cache keys:** merged and widened ranges are new ranges, so ranges an app has already paid for per segment are
+    not found again. Pass `mergeGap: null` to keep the per-segment ranges (short ones are still widened when the
+    provider declares a minimum).
 
 ## 0.15.0
 

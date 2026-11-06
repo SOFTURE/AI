@@ -100,6 +100,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
       providers: { stt: createFakeSttProvider(), isolation, music: createFakeMusicProvider() },
       isCommit: true,
       margin: 0.2,
+      mergeGap: null,
       log: (line) => lines.push(line),
       ...changes,
     };
@@ -226,6 +227,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
       ["talk@4300", { start: 4.3, end: 5.2 }],
     ]);
     expect(existsSync(result.value.ranges[1]?.path ?? "")).toBe(false);
+    expect(existsSync(join(dir, "build", "audio", "ranges", "talk.2300-3200.mp3"))).toBe(false);
     const speech = result.value.speech.talk ?? "";
     expect(getMaxVolume(speech, 0.5, 1)).toBeLessThan(-60);
     expect(getMaxVolume(speech, 4.5, 5)).toBeLessThan(-60);
@@ -309,7 +311,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     expect(charges.map(({ cacheKey }) => cacheKey)).toEqual(["seg-800", "seg-3800"]);
     expect(existsSync(join(own, "800.mp3"))).toBe(true);
     const providers = { stt: createFakeSttProvider(), isolation, music: createFakeMusicProvider() };
-    const estimate = await estimateSpeechRanges(film, { cacheDir: join(dir, "cache"), providers, rates: { transcribe: 0, isolate: 1, music: 0 }, edl, margin: 0.2, rangeCache });
+    const estimate = await estimateSpeechRanges(film, { cacheDir: join(dir, "cache"), providers, rates: { transcribe: 0, isolate: 1, music: 0 }, edl, margin: 0.2, mergeGap: null, rangeCache });
     if (!estimate.ok) throw new Error(estimate.error);
     expect(estimate.value.totalCredits).toBe(0);
   });
@@ -319,7 +321,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     await isolateSpeechRanges(film, [clip], { ...edl, segments: edl.segments.slice(0, 1) }, options(isolation));
     const providers = { stt: createFakeSttProvider(), isolation, music: createFakeMusicProvider() };
     const rates = { transcribe: 0.5, isolate: 2, music: 4 };
-    const estimate = await estimateSpeechRanges(film, { cacheDir: join(dir, "cache"), providers, rates, edl, margin: 0.2 });
+    const estimate = await estimateSpeechRanges(film, { cacheDir: join(dir, "cache"), providers, rates, edl, margin: 0.2, mergeGap: null });
     if (!estimate.ok) throw new Error(estimate.error);
     expect(estimate.value).toEqual({
       items: [
@@ -328,7 +330,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
       ],
       totalCredits: 2.8,
     });
-    const whole = await estimateFootageFilm({ ...film, isolateVoice: true }, { cacheDir: join(dir, "cache"), providers, rates, edl, isolate: "segments", margin: 0.2 });
+    const whole = await estimateFootageFilm({ ...film, isolateVoice: true }, { cacheDir: join(dir, "cache"), providers, rates, edl, isolate: "segments", margin: 0.2, mergeGap: null });
     if (!whole.ok) throw new Error(whole.error);
     expect(whole.value.items.map(({ step, units }) => [step, units])).toEqual([
       ["transcribe", 6],
@@ -337,6 +339,102 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     ]);
     const noCut = await estimateSpeechRanges(film, { cacheDir: join(dir, "cache"), providers, rates });
     expect(noCut).toEqual({ ok: false, error: "footage film street: isolating segments needs the cut (edl, or edl.json in the build folder)." });
+  });
+
+  /** A 64x64 talking clip of a 440 Hz tone, `seconds` long. */
+  function makeClip(id: string, seconds: number): PreparedClip {
+    const file = join(dir, `${id}.mp4`);
+    const made = spawnSync(
+      "ffmpeg",
+      ["-v", "error", "-y", "-f", "lavfi", "-i", `color=c=black:s=64x64:d=${String(seconds)}`, "-f", "lavfi", "-i", `sine=frequency=440:sample_rate=48000:duration=${String(seconds)}`, "-ac", "2", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", file],
+      { encoding: "utf8" },
+    );
+    if (made.status !== 0) throw new Error(made.stderr);
+    return { clip: { id, source: file, role: "talk", fit: "auto", trim: { start: 0, end: null }, script: null }, source: file, probe: { ...PROBE, duration: seconds }, file, duration: seconds };
+  }
+
+  it("isolates the whole of the issue's film shape with a provider that refuses input under 4.6 s, the estimate equal to the seconds sent (issue #1140)", async () => {
+    const long = makeClip("talk", 80);
+    const longFilm: FootageFilm = { ...film, clips: [long.clip] };
+    // One clip, 14 segments, 6 of them shorter than 4.6 s with their margins, 1.2 s apart.
+    const lengths = [5, 3.7, 6, 7, 2.1, 3, 6, 5, 2.1, 7, 6, 5, 1.4, 2.7];
+    let start = 1;
+    const segments = lengths.map((length, index) => {
+      const made = { id: `p${String(index + 1).padStart(2, "0")}`, clip: "talk", start, end: start + length, transition: "cut" as const, motion: "none" as const };
+      start += length + 1.2;
+      return made;
+    });
+    expect(segments.filter((one) => one.end - one.start + 0.5 < 4.6)).toHaveLength(6);
+    const cut: Edl = { version: 2, film: "street", segments };
+    const rates = { transcribe: 0, isolate: 1, music: 0 };
+    for (const mergeGap of [undefined, null] as const) {
+      const isolation = createFakeIsolationProvider({ minSeconds: 4.6 });
+      expect(isolation.minSeconds).toBe(4.6);
+      const charges: FootageCharge[] = [];
+      const cacheDir = join(dir, `cache-${String(mergeGap)}`);
+      const providers = { stt: createFakeSttProvider(), isolation, music: createFakeMusicProvider() };
+      const planning = { margin: 0.25, ...(mergeGap === undefined ? {} : { mergeGap }) };
+      const estimate = await estimateSpeechRanges(longFilm, { cacheDir, providers, rates, edl: cut, ...planning });
+      if (!estimate.ok) throw new Error(estimate.error);
+      const result = await isolateSpeechRanges(longFilm, [long], cut, options(isolation, { cacheDir, ...planning, mergeGap, onCharge: (charge) => charges.push(charge) }));
+      if (!result.ok) throw new Error(result.error);
+      expect(isolation.refused).toEqual([]);
+      expect(result.value.ranges.every((range) => range.outcome.kind === "bought" && range.laid)).toBe(true);
+      expect(result.value.ranges).toHaveLength(mergeGap === null ? 14 : 1);
+      const sent = charges.reduce((sum, charge) => sum + charge.units, 0);
+      const priced = estimate.value.items.reduce((sum, item) => sum + item.units, 0);
+      expect(Math.round(priced * 1000)).toBe(Math.round(sent * 1000));
+      expect(estimate.value.items.some((item) => item.skipped !== undefined)).toBe(false);
+    }
+  });
+
+  it("widens a short range with the clip's own context and lays back only the part the cut hears", async () => {
+    const silencing = createSilencingProvider(dir);
+    const isolation: IsolationProvider & { calls: string[] } = {
+      id: "silence",
+      minSeconds: 4.6,
+      calls: silencing.calls,
+      isolate: (input) => (probeStream(input.audio).duration < 4.6 ? Promise.resolve({ ok: false, error: "400 audio_too_short" }) : silencing.isolate(input)),
+    };
+    const short: Edl = { version: 2, film: "street", segments: [{ id: "s1", clip: "talk", start: 2.5, end: 3, transition: "cut", motion: "none" }] };
+    const result = await isolateSpeechRanges(film, [clip], short, options(isolation, { mergeGap: undefined }));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.ranges.map(({ startMs, endMs, heard, outcome }) => ({ startMs, endMs, heard, outcome }))).toEqual([
+      { startMs: 250, endMs: 5250, heard: { startMs: 2300, endMs: 3200 }, outcome: { kind: "bought", attempts: 1 } },
+    ]);
+    const speech = result.value.speech.talk ?? "";
+    expect(getMaxVolume(speech, 2.4, 3.1)).toBeLessThan(-60);
+    expect(getMaxVolume(speech, 0.4, 2.1)).toBeGreaterThan(-30);
+    expect(getMaxVolume(speech, 3.4, 5.1)).toBeGreaterThan(-30);
+  });
+
+  it("never sends a range the clip is too short to bring to the minimum: marked skipped, unpriced, no work file", async () => {
+    const isolation = createFakeIsolationProvider({ minSeconds: 7 });
+    const result = await isolateSpeechRanges(film, [clip], edl, options(isolation, { mergeGap: undefined }));
+    if (!result.ok) throw new Error(result.error);
+    expect(isolation.calls).toEqual([]);
+    expect(result.value.ranges.map(({ startMs, endMs, laid, outcome }) => ({ startMs, endMs, laid, outcome }))).toEqual([
+      { startMs: 0, endMs: 6000, laid: false, outcome: { kind: "skipped", reason: "too_short", minSeconds: 7 } },
+    ]);
+    expect(result.value.speech).toEqual({ talk: clip.file });
+    expect(existsSync(join(dir, "build", "audio", "ranges"))).toBe(false);
+    expect(lines).toContain("voice isolation: 1 range shorter than fake's minimum of 7 s even with the clip's whole sound, not sent, laid with the clip's own sound: clip talk 0.000-6.000 s.");
+    const providers = { stt: createFakeSttProvider(), isolation, music: createFakeMusicProvider() };
+    const estimate = await estimateSpeechRanges(film, { cacheDir: join(dir, "cache"), providers, rates: { transcribe: 0, isolate: 2, music: 0 }, edl, margin: 0.2 });
+    if (!estimate.ok) throw new Error(estimate.error);
+    expect(estimate.value).toEqual({
+      items: [{ step: "isolate", item: "talk", provider: "fake", units: 0, unit: "seconds", credits: 0, cached: false, range: { start: 0, end: 6 }, skipped: { reason: "too_short", minSeconds: 7 } }],
+      totalCredits: 0,
+    });
+  });
+
+  it("refuses with the fake an input shorter than its minimum", async () => {
+    const isolation = createFakeIsolationProvider({ minSeconds: 7 });
+    const answer = await isolation.isolate({ audio: clip.file });
+    expect(answer.ok).toBe(false);
+    if (!answer.ok) expect(answer.error).toMatch(/^fake voice isolation: 400 audio_too_short \(6\.\d{3} s, the minimum is 7 s\)\.$/);
+    expect(isolation.refused).toEqual([clip.file]);
+    expect((await createFakeIsolationProvider({ minSeconds: 5 }).isolate({ audio: clip.file })).ok).toBe(true);
   });
 
   it("reads a broken cached range as an error naming the file", async () => {

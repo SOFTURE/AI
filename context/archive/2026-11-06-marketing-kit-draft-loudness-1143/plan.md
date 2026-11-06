@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-draft-loudness-1143
-status: implemented
+status: archived
 ---
 
 # Plan: the render's loudness chain in the draft (issue #1143)

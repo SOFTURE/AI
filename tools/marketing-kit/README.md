@@ -878,7 +878,15 @@ await renderFootage(film, clips, { ...transcript, speech: isolated.value.speech 
 
 - The ranges are every segment's sound span (and the picture clip's own span when `audio.ownVolume` keeps it under)
   widened by `margin` (default 0.25 s, so a cut's cross-fade reads cleaned sound), clamped to the clip, in whole
-  milliseconds. Ranges are not merged: identical ranges and ranges inside another are dropped, the rest stay apart.
+  milliseconds. Identical ranges and ranges inside another are dropped, and ranges of a clip at most `mergeGap`
+  seconds apart (default 2; `null` keeps them apart, `Infinity` isolates each clip's whole used span once) are sent as
+  one range: they are source ranges, not cut segments.
+- The isolation provider names the shortest input it accepts (`IsolationProvider.minSeconds`; 4.6 s for the
+  ElevenLabs Voice Isolator, `ELEVENLABS_ISOLATION_MIN_SECONDS`). A range still shorter is widened symmetrically with
+  the clip's own context to the minimum plus `minPad` (default 0.4 s), inside the clip, and only the part the cut hears
+  (`range.heard`) is laid back. A range that cannot reach the minimum (a clip shorter than it) is never sent: it is
+  marked `skip: { reason: "too_short", minSeconds }`, answered with outcome `skipped`, keeps the clip's own sound and
+  is priced at 0 with `skipped` in the estimate. A provider without `minSeconds` gets every range as it is.
 - Each range is cached as `<cacheDir>/<film>/<key>.isolated.mp3`, keyed by the clip's bytes and trim, the range and the
   provider: an unchanged segment is never paid twice and a changed cut pays only its new ranges. `onCharge` reports
   each with step `isolate`, the clip id as `item` (or `chargeItem(range)`, e.g. the app's segment id, for one ledger
@@ -887,16 +895,19 @@ await renderFootage(film, clips, { ...transcript, speech: isolated.value.speech 
 - A range the provider refuses is asked again (`retry: { attempts, delaysMs, wait }`, default 3 attempts after 1 s and
   2 s, the wait stopped by `signal`), unless its `providerFailure` says `isRetryable: false` (a 400 `audio_too_short`
   fails the same way every time, so it is asked once). A range refused on every attempt does not fail the call: its
-  window keeps the clip's own sound, the other ranges are laid, and only a cancel throws. Each range carries an
-  `outcome`: `cached`, `bought` (with `attempts`), `failed` (with the last `error`, `attempts` and `providerFailure`,
-  null when the provider gave none) or `not_bought` (without `isCommit`).
+  window keeps the clip's own sound, the other ranges are laid, and only a cancel throws; its cut file under
+  `<buildDir>/audio/ranges/` is removed. Each range carries an `outcome`: `cached`, `bought` (with `attempts`), `failed`
+  (with the last `error`, `attempts` and `providerFailure`, null when the provider gave none), `skipped` (too short for
+  the provider) or `not_bought` (without `isCommit`).
 - Each clip's cleaned windows are laid over its own sound into `<buildDir>/audio/<clip>.ranges.mp3`, as long as the
   clip; overlapping ranges switch at the middle of their overlap, and a mono answer goes to both channels at full level.
   Every join is a linear crossfade of `fadeMs` (default 15; 0 switches at once): centred on a switch between two
   ranges, inside the window at a range's own edge, the clip's sound under one minus the windows' gains.
 - Without `isCommit` only cached ranges are laid (a free draft); `ranges` says which are `cached` and `laid`.
-- `estimateFootageFilm(film, { …, isolate: "segments", margin })` prices isolation on those ranges instead of whole
-  clips; both estimates need the cut (`edl`, or `edl.json` in `buildDir`).
+- `estimateFootageFilm(film, { …, isolate: "segments", margin, mergeGap, minPad })` prices isolation on exactly the
+  ranges the block will send instead of whole clips; both estimates need the cut (`edl`, or `edl.json` in `buildDir`).
+- `createFakeIsolationProvider({ minSeconds })` declares a minimum and refuses a shorter input with
+  `audio_too_short` (its `refused` lists them), for tests of an app's own flow.
 
 ### Footage films in a worker
 
