@@ -80,6 +80,14 @@ async function payWithTestCard(page: Page): Promise<void> {
   const cardItem = page.getByTestId("card-accordion-item-button");
   await expect(cardNumber.or(cardItem).first()).toBeVisible({ timeout: 30_000 });
   if (!(await cardNumber.isVisible()) && (await cardItem.isVisible())) await cardItem.click();
+  // With Adaptive Pricing on, Checkout offers the buyer's local currency (USD on a US runner) next to the plan's own
+  // and preselects the local one; paying the converted amount fails in the sandbox ("There was an error processing
+  // your request", seen from 2026-11-06). Pay in the plan's own currency, as a Polish buyer would.
+  const planCurrency = page.getByRole("group", { name: "Choose currency" }).getByRole("button", { name: /PLN/ });
+  if (await planCurrency.isVisible()) {
+    await planCurrency.click();
+    await expect(planCurrency).toHaveAttribute("aria-pressed", "true");
+  }
   await cardNumber.fill(TEST_CARD.number);
   await page.locator("#cardExpiry").fill(TEST_CARD.expiry);
   await page.locator("#cardCvc").fill(TEST_CARD.cvc);
@@ -90,6 +98,28 @@ async function payWithTestCard(page: Page): Promise<void> {
   const postalCode = page.locator("#billingPostalCode");
   if (await postalCode.isVisible()) await postalCode.fill("00-001");
   await page.getByTestId("hosted-payment-submit-button").click();
+}
+
+/**
+ * Waits for Checkout to send the buyer back to `/payment?checkout=success`. When it does not, the error says where the
+ * page stayed and what Stripe showed there (its alerts and field errors), so a run's log names the cause.
+ */
+async function waitForCheckoutReturn(page: Page): Promise<void> {
+  try {
+    await page.waitForURL((url) => url.pathname === "/payment" && url.searchParams.get("checkout") === "success", { timeout: 60_000 });
+  } catch (error) {
+    const shown = await page
+      .locator('[role="alert"], .FieldError, [data-testid*="error"]')
+      .or(page.getByText("There was an error processing your request"))
+      .allInnerTexts()
+      .catch(() => []);
+    const messages = shown.map((text) => text.trim()).filter((text) => text !== "");
+    throw new Error(
+      `waitForCheckoutReturn: Checkout did not return to /payment?checkout=success; the page stayed at ${page.url()}` +
+        (messages.length > 0 ? ` and showed: ${messages.join(" | ")}` : " with no alert or field error"),
+      { cause: error },
+    );
+  }
 }
 
 test("a payment on Stripe's sandbox Checkout turns the trial into paid access, and Stripe's refund takes it back", async ({ browser }) => {
@@ -104,7 +134,7 @@ test("a payment on Stripe's sandbox Checkout turns the trial into paid access, a
   await page.waitForURL((url) => url.hostname === "checkout.stripe.com", { timeout: 30_000 });
   await payWithTestCard(page);
 
-  await page.waitForURL((url) => url.pathname === "/payment" && url.searchParams.get("checkout") === "success", { timeout: 60_000 });
+  await waitForCheckoutReturn(page);
   await expect(page.getByRole("status").filter({ hasText: copy.payment.checkoutSuccess })).toBeVisible();
   await expect.poll(() => readStatus(page), { timeout: DELIVERY_TIMEOUT_MS, intervals: [1_000, 2_000] }).toBe("paid");
 
