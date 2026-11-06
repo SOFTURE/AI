@@ -71,6 +71,11 @@ docs/                assessment, module standard, plans
 Everything in this repository is written in English: code, identifiers, comments, commit
 messages and docs. User-facing copy lives only in message dictionaries. See [AGENTS.md](AGENTS.md).
 
+## Security
+
+Report a vulnerability privately through the repository's Security tab, never in a public issue. Supported
+versions, response times and how fixes ship: [SECURITY.md](SECURITY.md).
+
 ## Working on this repository
 
 ```bash
