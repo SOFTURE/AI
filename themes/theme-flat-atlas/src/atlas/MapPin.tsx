@@ -30,13 +30,16 @@ export interface MapPinProps {
 
 /**
  * A place on the map: a 14 px dot (10 px on a phone) in marigold with a 2 px ink stroke and a white centre, inside a
- * 40 px button. A planned place: the page background with a dashed passport-blue stroke and a blue centre. Hover and
- * focus grow the dot to 1.25 in 160 ms and show the stamp-ink flag; nothing bounces, pulses or glows.
+ * 40 px button. A planned place: the same dot in passport blue, as easy to see as a visited one. Hover and focus grow
+ * the dot to 1.25 in 160 ms and show the stamp-ink flag above every other pin; nothing bounces, pulses or glows.
  */
 export function MapPin({ x, y, label, status = "visited", tag, isTagShown = false, isSelected, onClick, className }: MapPinProps) {
   const isPlanned = status === "planned";
   return (
-    <span data-slot="map-pin" data-status={status} className={cn("absolute size-0", className)} style={{ left: `${String(x)}%`, top: `${String(y)}%` }}>
+    <span
+      data-slot="map-pin"
+      data-status={status}
+      className={cn("absolute size-0 focus-within:z-10 hover:z-10", (isTagShown || isSelected === true) && "z-10", className)} style={{ left: `${String(x)}%`, top: `${String(y)}%` }}>
       <button
         type="button"
         aria-label={label}
@@ -47,10 +50,10 @@ export function MapPin({ x, y, label, status = "visited", tag, isTagShown = fals
         <span
           className={cn(
             "flex size-pin-sm items-center justify-center rounded-pill border-2 transition-transform group-hover/pin:scale-125 group-focus-visible/pin:scale-125 group-focus-visible/pin:outline-2 group-focus-visible/pin:outline-offset-2 group-focus-visible/pin:outline-accent md:size-pin",
-            isPlanned ? "border-dashed border-planned bg-background" : "border-pin-stroke bg-place",
+            isPlanned ? "border-pin-stroke bg-planned" : "border-pin-stroke bg-place",
           )}
         >
-          <span className={cn("size-1 rounded-pill", isPlanned ? "bg-planned" : "bg-paper")} />
+          <span className="size-1 rounded-pill bg-paper" />
         </span>
       </button>
       {tag === undefined ? null : (

@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.3.1
+
+- **`ChipRail`:** one row of chips that scrolls sideways without a scrollbar, with a round arrow at each end while
+  there is more in that direction, so a long row ends on a clear edge instead of a chip cut in half.
+- **Planned countries keep their whole outline:** the map draws them after every other country, so a neighbour no
+  longer covers half of the dashed border (China under Mongolia, Russia and India).
+- **Planned pins are as easy to see as visited ones:** a passport-blue dot with the same 2 px ink stroke and white
+  centre, instead of the dashed outline on the page background.
+- **A pin's flag stays above the other pins:** a hovered, focused, selected or always-tagged pin rises over its
+  neighbours, so the place's name is never under another dot.
+
 ## 0.3.0
 
 - **`WorldMap` `isFitted`:** the map fills a box of a given height instead of setting its own, centred and as large as

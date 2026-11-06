@@ -5,6 +5,7 @@ import {
   ATLAS_ICONS,
   Button,
   Card,
+  ChipRail,
   CountryChip,
   CountryCounter,
   IconButton,
@@ -145,11 +146,12 @@ describe("MapPin", () => {
     expect(markup).toContain("bg-place");
   });
 
-  it("shows the flag of a selected pin and draws a planned one dashed", () => {
+  it("shows the flag of a selected pin above the other pins and draws a planned one in passport blue", () => {
     const markup = renderToStaticMarkup(<MapPin x={1} y={2} label="Bangkok, planned" status="planned" tag={{ name: "Bangkok" }} isSelected />);
     expect(markup).toContain('aria-expanded="true"');
     expect(getClasses(markup, "map-pin-tag")).toContain("opacity-100");
-    expect(markup).toContain("border-dashed border-planned bg-background");
+    expect(markup).toContain("border-pin-stroke bg-planned");
+    expect(getClasses(markup, "map-pin")).toContain("z-10");
     expect(markup).not.toContain("<small");
   });
 
@@ -252,9 +254,32 @@ describe("WorldMap", () => {
     expect(markup).not.toContain("data-fitted");
   });
 
+  it("draws planned countries after every other country, so no neighbour covers their outline", () => {
+    const order = renderToStaticMarkup(<WorldMap label="map" countries={{ "156": "planned", "496": "visited" }} />);
+    const ids = [...order.matchAll(/data-id="(\d+)"/g)].map((match) => match[1]);
+    expect(ids.at(-1)).toBe("156");
+    expect(ids.at(-2)).toBe("496");
+    expect(ids).toHaveLength(WORLD_COUNTRY_SHAPES.filter((shape) => shape.id !== null).length);
+  });
+
   it("leaves out the graticule on request", () => {
     const plain = renderToStaticMarkup(<WorldMap label="map" countries={{}} hasGraticule={false} />);
     expect(plain.match(/<path d="M/g)?.length).toBe(WORLD_COUNTRY_SHAPES.length);
+  });
+});
+
+describe("ChipRail", () => {
+  it("names the list and hides both arrows until it knows there is more to scroll", () => {
+    const markup = renderToStaticMarkup(
+      <ChipRail label="Countries" previousLabel="Earlier" nextLabel="Later">
+        <li>PL</li>
+      </ChipRail>,
+    );
+    expect(markup).toContain('<ul aria-label="Countries"');
+    expect(markup).toContain("[scrollbar-width:none]");
+    expect(markup.match(/data-hidden=""/g)).toHaveLength(2);
+    expect(markup).toContain('aria-label="Earlier" aria-hidden="true" tabindex="-1"');
+    expect(markup).toContain('data-direction="next"');
   });
 });
 
