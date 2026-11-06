@@ -112,6 +112,7 @@ const COMPONENT_CLASSES = [
   "rounded-photo",
   "bg-map-ocean",
   "size-postmark",
+  "gap-1.25",
   "-rotate-8",
   "-outline-offset-7",
   "outline-visited",

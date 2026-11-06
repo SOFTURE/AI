@@ -1,5 +1,9 @@
 # Changelog
 
+Newest first. Each version lists what changed for an app that uses the theme. When an app has run a version in
+production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
+"Definition of done").
+
 ## Unreleased
 
 - First version (#1135): the Flat Atlas design system as a theme package on `@softure-ai/theme-kit`. Tokens (passport

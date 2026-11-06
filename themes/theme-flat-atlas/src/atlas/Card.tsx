@@ -48,7 +48,7 @@ export function PostcardStamp({ year, code, status = "visited", className }: Pos
       data-slot="postcard-stamp"
       data-status={status}
       className={cn(
-        "flex size-postmark shrink-0 -rotate-8 flex-col items-center justify-center gap-1 rounded-pill border-[1.5px] text-center font-mono text-postmark uppercase outline -outline-offset-7",
+        "flex size-postmark shrink-0 -rotate-8 flex-col items-center justify-center gap-1.25 rounded-pill border-[1.5px] text-center font-mono text-postmark uppercase outline -outline-offset-7",
         isPlanned ? "border-dashed border-planned text-planned outline-dashed outline-planned" : "border-visited text-muted outline-visited",
         className,
       )}
