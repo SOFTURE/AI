@@ -17,5 +17,5 @@
 
 ## Progress
 
-- [x] 1-3 implemented; 31 tests pass.
+- [x] 1-3 implemented; 31 area tests pass; ci-workflows test allows e2e.yml's nightly schedule.
 - [ ] 4 root cause.

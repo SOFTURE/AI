@@ -44,7 +44,8 @@ describe.each(["ci.yml", "e2e.yml"])("%s", (name) => {
   const workflow = readWorkflow(name);
 
   it("runs on pull requests, on master and on demand, not on every pushed branch", () => {
-    expect(Object.keys(workflow.on).sort()).toEqual(["pull_request", "push", "workflow_dispatch"]);
+    const nightly = name === "e2e.yml" ? ["schedule"] : [];
+    expect(Object.keys(workflow.on).sort()).toEqual(["pull_request", "push", ...nightly, "workflow_dispatch"]);
     expect(workflow.on.push?.branches).toEqual(["master"]);
   });
 
