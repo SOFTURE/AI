@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-lossless-speech-1139
-status: in_progress
+status: archived
 ---
 
 # Plan: a lossless, pre-gained speech chain (issue #1139)

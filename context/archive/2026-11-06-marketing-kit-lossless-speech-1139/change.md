@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-lossless-speech-1139
 title: "marketing-kit: a lossless, pre-gained speech chain (issue #1139)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1139
 branch: claude/project-thread-c9vt2l
 created: 2026-11-06
 updated: 2026-11-06
+archived_at: 2026-11-06
 ---
 
 ## Intent
@@ -33,3 +34,10 @@ of #1139 (the same chain in `renderFootageDraft`) is covered there: the draft ta
 ## Notes
 
 - Framing: skipped. The issue names the cause, the fix and the acceptance checks.
+
+## Done
+
+Each clip's sound is extracted from its source into a 24-bit WAV and pre-gained to about -23 LUFS (true peak at most
+-3 dBTP); the voice isolator (whole clip and per range), speech to text and the speech track read it, every later stage
+is float WAV, and the final AAC is the only lossy encode (`mixLoudness.audioBitrateKbps`, default 192). PR #1152,
+next marketing-kit release.
