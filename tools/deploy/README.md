@@ -359,8 +359,9 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   stays out of the repository. Pass the server's IP, not a name that resolves through the CDN.
 - The schema is in [`schema/deploy.schema.json`](schema/deploy.schema.json) (`npm run schema -w @softure-ai/deploy`
   after changing `src/verify/schema.ts`). The route list is the app's; the package holds only the engine.
-- The same file holds `database.rowCountTables`, the tables `row-counts` compares (see above), and
-  `database.verifyBackup`, how often `maintain` test-restores its backup (`weekly`, `daily` or `never`).
+- The same file holds `database.rowCountTables`, the tables `row-counts` compares (see above),
+  `database.verifyBackup`, how often `maintain` test-restores its backup (`weekly`, `daily` or `never`), and
+  `releases.keep`, how many releases the server keeps ([Server cleanup](#server-cleanup)).
 
 ```text
 Result  Status  Route     Detail
@@ -1182,8 +1183,9 @@ HTTP even with "Always Use HTTPS".
 
 **`deploy.sh` on the server.** Once, by hand: copy `docker/server/deploy.sh` to `/srv/<name>/` (a folder the SSH
 user owns) and bind the deploy key to it in `authorized_keys` (`command="/srv/<name>/deploy.sh",restrict …`). Every
-release then brings the rest. It answers three commands in `SSH_ORIGINAL_COMMAND`, five with a database (anything
-else, or more than one line, exits 2; `maintain` also takes a hook's name, below):
+release then brings the rest. It answers four commands in `SSH_ORIGINAL_COMMAND`, six with a database (anything
+else, or more than one line, exits 2; `maintain` also takes a hook's name, below; `cleanup` is in
+[Server cleanup](#server-cleanup)):
 
 - **`status`**, read only (no lock, nothing written): `status|tag|<tag in .deployed-tag>`, `status|env-tag|<TAG in
   .env.prod>`, `status|containers|<service:status …>` and `status|health|<the app container's health>`, each `none`
@@ -1191,7 +1193,7 @@ else, or more than one line, exits 2; `maintain` also takes a hook's name, below
 - **`deploy <tag>`** with the release archive on stdin:
   1. refuses anything but a Docker tag; reads at most 16 MiB, refuses an archive with anything but files and folders,
      a path outside it or a name the server keeps (`.env.prod.prev`, `.deployed-tag`, `.deploy.lock`, `backups`,
-     `releases`), unpacks it into `releases/<tag>/` (the newest 5 are kept) and checks the compose file with
+     `releases`), unpacks it into `releases/<tag>/` and checks the compose file with
      `docker compose config`. When the archive's `deploy.sh` differs from the running one, the shipped script runs
      the release (issue #621): the running copy hands it the same command and archive from a copy in the run's
      temporary folder, keeps the lock for it and ends with its status, so a release whose script starts a new service
@@ -1202,7 +1204,8 @@ else, or more than one line, exits 2; `maintain` also takes a hook's name, below
      next to itself (in place, so Traefik's bind-mounted rules keep their inode; files 0644, folders 0755), replaces
      itself by a rename, reads the release's `deploy.json` through
      `softure-deploy server-settings` (the `settings` step; an invalid file stops the release before anything
-     restarts) and pulls the image. A `.registry-token` in the
+     restarts), removes the release folders beyond the newest `releases.keep` (default 5; the previous tag's always
+     stays) and pulls the image. A `.registry-token` in the
      archive (non-empty, or the release is refused) is never installed: the pull logs in with it under a
      `DOCKER_CONFIG` in the run's temporary folder, removed with it, so the host's own Docker login is neither used
      nor changed;
@@ -1220,9 +1223,10 @@ else, or more than one line, exits 2; `maintain` also takes a hook's name, below
   5. with a database: `row-counts --compare`;
   6. records the tag in `.deployed-tag`, writes its crontab lines (below) and runs the `post-up` hooks.
 - **`maintain`**, the daily cron's command: with a database a `backup` with the same retention, so no dump outlives
-  30 days between releases either, and its test restore (`verify-backup`, below); then removes this app's image tags whose release folder is gone (the newest 5
-  stay for a quick rollback; Docker refuses one a container uses) and the host's dangling images; then the `maintain`
-  hooks without a schedule. **`maintain <hook>`** runs only that scheduled hook (its own crontab line); a name
+  30 days between releases either, and its test restore (`verify-backup`, below); then the steps of
+  [`cleanup --commit`](#server-cleanup) with `releases.keep` (the release folders and this app's image tags beyond
+  it, the old tools images, dangling images and build cache older than 24 hours); then the `maintain` hooks without a
+  schedule. **`maintain <hook>`** runs only that scheduled hook (its own crontab line); a name
   `deploy.json` does not schedule fails.
 - **`verify-backup`**, a step of `maintain` with a database (issue #561): on the Sunday run by default, maintain counts
   `database.rowCountTables` less `database.excludeTableData` (their rows are not in the dump, so they would restore
@@ -1284,13 +1288,15 @@ previous tag, which the failure message names.
 
 **Output.** One line per finished step on stdout, `step|<name>|ok[|<detail>]` (`archive`, `files`, `pull`,
 `settings`, `postgres`, `backup`, `schema`, `row-counts-before`, `switch`, `traefik`, `row-counts-after`, `tag`, `cron`
-and each hook's name; `restore` after a restore; `backup`, `verify-backup`, `images` and the hooks for `maintain`), and every `deploy` or `maintain` run, refused commands included,
+and each hook's name; `restore` after a restore; `backup`, `verify-backup`, `releases`, `images`, `tools-images`,
+`dangling`, `build-cache` and the hooks for `maintain`; [`cleanup`'s](#server-cleanup) own), and every `deploy`,
+`maintain` or `cleanup` run, refused commands included,
 ends with `result|ok` or `result|failed|<step>|<message>`. Messages for people start with `deploy:`.
 
 **Cron.** Each release rewrites the deploy user's crontab lines marked `# softure-deploy:<name>`: `maintain`
 daily at 03:17 server time, its output to syslog under `<name>-maintain` (`journalctl -t <name>-maintain`), and one
 line per scheduled `maintain` hook. Other
-lines, other apps' marked lines included, stay. `deploy` and `maintain` never run at the same time: both take
+lines, other apps' marked lines included, stay. `deploy`, `maintain` and `cleanup` never run at the same time: all take
 `.deploy.lock` with `flock` and wait up to 10 minutes for it.
 
 Shipping `deploy.sh` widens nothing: whoever holds the deploy key already picks the image and its environment, and
@@ -1413,6 +1419,47 @@ deletes in the same step. The set-up and suite commands see `INTEGRATION_IMAGE`,
 `INTEGRATION_FAIL_ON_FLAKY` (`true` with `fail-on-flaky`, e.g. for Playwright's `--fail-on-flaky-tests`). With
 `fail-on-flaky` the record job also stores red and fails when the report names a flaky test, so a release that
 `needs:` the run stops.
+
+## Server cleanup
+
+A host keeps every release's folder and image until something removes them, and a worker image with ffmpeg and
+Chromium weighs gigabytes. `releases.keep` in `deploy.json` (issue #1171) bounds it: the newest `keep` release folders
+stay (default 5, from 2 to 50), and with them this app's image tags, so a rollback to one of them needs no pull. An app
+with heavy images keeps 2, the live release and one rollback:
+
+```json
+{ "releases": { "keep": 2 } }
+```
+
+`init` writes `"releases": { "keep": 5 }`; an older app adds the key itself (a `deploy.json` without it keeps 5). An
+app without a database and without hooks now reads its `deploy.json` through the CLI too (the host's `npx`, or the
+helper image on a host without Node). A release applies it once its settings are read, and the daily `maintain` with
+everything below; an operator frees the disk on demand through the same forced command:
+
+```bash
+softure-deploy cleanup --host=app-prod                   # dry run: what would go, and about how many bytes
+softure-deploy cleanup --host=app-prod --keep=2 --commit # removes it
+ssh -i <deploy key> <user>@<host> cleanup --keep=2       # the same, without the CLI
+```
+
+`cleanup [--keep=<n>] [--commit]` takes the deploy lock and runs these steps, each a `step|<name>|ok|<detail>` line
+(`removed …` with `--commit`, `would remove …` without), then `result|ok`:
+
+- `plan`: `dry run, keep <n>` or `commit, keep <n>` (`--keep`, else `releases.keep` of the installed `deploy.json`);
+- `disk-before` and `disk-after`: `df` of Docker's root folder (`<folder> <use>% used, <KiB> KiB free`) and
+  `docker system df` per type (size and reclaimable);
+- `releases`: the release folders beyond the newest `<n>`;
+- `images`: this app's image tags (and its worker image's) without a kept release folder, with the bytes they free;
+- `tools-images`: `softure-deploy-tools` tags other than the one this script uses (another app on the host that still
+  uses one rebuilds it on its next database step);
+- `dangling`: dangling images older than 24 hours; `build-cache`: build cache unused for 24 hours.
+
+The live tag, the rollback target (the `TAG` of `.env.prod.prev`) and every image a container uses, running or
+stopped, always stay. Only this app's repositories and `softure-deploy-tools` are listed: another compose project's
+images, containers and volumes on the same host are never touched; dangling images and the build cache are the host's
+own. Sizes are summed once per image id and leave out an id a kept tag shares; layers shared between images make them
+an upper bound. Each removal is named on a `deploy:` line. Host settings outside Docker, such as a journald size limit
+(`SystemMaxUse=` in `journald.conf`), belong to the server's own setup; on a small disk, set one.
 
 ## Ops scripts and reports on the server
 

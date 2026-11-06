@@ -14,8 +14,14 @@ function issuesOf(input: unknown): string[] {
 }
 
 describe("planServerSettings", () => {
+  it("writes releases.keep, 5 when releases is left out or has no keep (issue #1171)", () => {
+    expect(plan({ releases: { keep: 2 } })["release-keep"]).toBe("2\n");
+    expect(plan({ releases: {} })["release-keep"]).toBe("5\n");
+  });
+
   it("writes the defaults for a deploy.json without database settings or hooks", () => {
     expect(plan({})).toEqual({
+      "release-keep": "5\n",
       access: "host\n",
       "app-journal": "",
       "app-ledger": "",

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -98,10 +98,29 @@ if [ "$1" = "compose" ] && [[ " $* " == *" exec "* ]]; then
   echo "exec: done"
   exit "\${EXEC_STATUS:-0}"
 fi
+# Issue #1171: the host's images are DOCKER_IMAGES, one "<repository>:<tag> [<id> [<bytes>]]" per line (the id defaults
+# to one per reference, the size to 1000); containers use the image ids of USED_IMAGE_IDS.
+if [ "$1" = "image" ] && [ "$2" = "ls" ] && [ "$3" != "--quiet" ]; then
+  while read -r ref id size; do
+    if [ -n "$ref" ] && [ "\${ref%:*}" = "$3" ]; then echo "\${ref##*:}"; fi
+  done <<< "\${DOCKER_IMAGES:-}"
+  exit 0
+fi
+if [ "$1" = "image" ] && [ "$2" = "inspect" ] && [ "$3" = "--format" ]; then
+  while read -r ref id size; do
+    if [ -n "$ref" ] && [ "$ref" = "$5" ]; then echo "\${id:-id-$ref} \${size:-1000}"; exit 0; fi
+  done <<< "\${DOCKER_IMAGES:-}"
+  exit 1
+fi
 case " $* " in
+  *" container ls --all --quiet "*) [ -z "\${USED_IMAGE_IDS:-}" ] || printf 'c1\\nc2\\n' ;;
+  *" container inspect --format {{.Image}} "*) printf '%s\\n' \${USED_IMAGE_IDS:-} ;;
+  *" image ls --quiet --filter dangling=true "*) printf 'd1\\nd2\\nd1\\n' ;;
+  *" image prune "* | *" builder prune "*) printf 'Deleted: x\\nTotal reclaimed space: 1.5GB\\n' ;;
+  *" info --format "*) echo "\${DOCKER_ROOT:-/}" ;;
+  *" system df "*) printf 'Images 16.3GB, reclaimable 10.4GB (63%%)\\nBuild Cache 1.6GB, reclaimable 1.6GB\\n' ;;
   *" ps --quiet postgres "*) [ -n "\${NO_POSTGRES:-}" ] || echo beef ;;
   *" ps --quiet app "*) [ -n "\${NO_APP:-}" ] || echo c0ffee ;;
-  *" image ls "*) printf '%s' "\${DOCKER_IMAGE_TAGS:-}" ;;
   *" ps --all "*) printf 'traefik:Up 2 hours\\napp:Up 2 hours (healthy)\\n' ;;
   *" inspect "*) echo healthy ;;
   *" create "*) echo c0ffee ;;
@@ -140,6 +159,15 @@ exec /bin/date "$@"
 const STUB_FLOCK = `#!/usr/bin/env bash
 exit 0
 `;
+
+// The cleanup steps of a maintain run that finds nothing to remove (issue #1171); the stub's prunes reclaim 1.5GB.
+const QUIET_CLEANUP_STEPS = [
+  "step|releases|ok|removed 0, kept the newest 5",
+  "step|images|ok|removed 0, about 0 bytes",
+  "step|tools-images|ok|removed 0, about 0 bytes",
+  "step|dangling|ok|removed those older than 24h, reclaimed 1.5GB",
+  "step|build-cache|ok|pruned what was unused for 24h, reclaimed 1.5GB",
+];
 
 interface Step {
   name?: string;
@@ -630,7 +658,7 @@ exit "\${HOOK_EXIT:-0}"
 
     const daily = runServer("maintain", "", { HOOK_LOG: hookLog });
     expect(daily.status).toBe(0);
-    expect(readLines(daily.stdout, "step")).toEqual(["step|settings|ok", "step|images|ok|removed 0", "step|daily-report|ok"]);
+    expect(readLines(daily.stdout, "step")).toEqual(["step|settings|ok", ...QUIET_CLEANUP_STEPS, "step|daily-report|ok"]);
     expect(readFileSync(hookLog, "utf8")).toBe(`tag=v1 image=ghcr.io/acme/app previous=v1 cwd=${server}\n`);
   });
 
@@ -681,8 +709,9 @@ exit "\${HOOK_EXIT:-0}"
 
   it("does not need the CLI when a release without a database ships no hooks", () => {
     const path = join(checkout, "deploy.json");
-    const config = JSON.parse(readFileSync(path, "utf8")) as { hooks?: unknown };
+    const config = JSON.parse(readFileSync(path, "utf8")) as { hooks?: unknown; releases?: unknown };
     delete config.hooks;
+    delete config.releases;
     writeFileSync(path, JSON.stringify(config));
     expect(deployWithHooks("v1").status).toBe(0);
     expect(existsSync(npxLog)).toBe(false);
@@ -728,9 +757,10 @@ describe("deploy.sh with a worker image and a data volume (issue #948)", () => {
     setUp({ workerDockerfile: "docker/worker.Dockerfile" });
     expect(deploy("v1", packArchive()).status).toBe(0);
     rmSync(dockerLog);
-    const result = runServer("maintain", "", { DOCKER_IMAGE_TAGS: "v0\nv1\n" });
+    const images = ["ghcr.io/acme/app:v0", "ghcr.io/acme/app:v1", "ghcr.io/acme/app-worker:v0", "ghcr.io/acme/app-worker:v1"];
+    const result = runServer("maintain", "", { DOCKER_IMAGES: images.join("\n") });
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("step|images|ok|removed 2\n");
+    expect(result.stdout).toContain("step|images|ok|removed 2, about 2000 bytes\n");
     expect(readDockerLog()).toEqual(
       expect.arrayContaining([
         "image ls ghcr.io/acme/app --format {{.Tag}}",
@@ -1314,15 +1344,24 @@ describe("deploy.sh maintain", () => {
     const archive = packArchive();
     for (const tag of ["v1", "v2", "v3", "v4", "v5", "v6"]) expect(deploy(tag, archive).status).toBe(0);
     rmSync(dockerLog);
-    const result = runServer("maintain", "", { DOCKER_IMAGE_TAGS: "v1\nv2\nv6\n<none>\nlatest\n" });
+    const images = ["v1", "v2", "v6", "<none>", "latest"].map((tag) => `ghcr.io/acme/app:${tag}`);
+    const result = runServer("maintain", "", { DOCKER_IMAGES: images.join("\n") });
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe("step|settings|ok\nstep|images|ok|removed 2\nresult|ok\n");
-    expect(readDockerLog()).toEqual([
+    expect(readLines(result.stdout, "step")).toEqual([
+      "step|settings|ok",
+      "step|releases|ok|removed 0, kept the newest 5",
+      "step|images|ok|removed 2, about 2000 bytes",
+      ...QUIET_CLEANUP_STEPS.slice(2),
+    ]);
+    expect(readDockerLog().filter((line) => !line.startsWith("image inspect"))).toEqual([
+      "container ls --all --quiet",
       "image ls ghcr.io/acme/app --format {{.Tag}}",
       "image rm ghcr.io/acme/app:v1",
       "image rm ghcr.io/acme/app:latest",
-      "image prune --force",
+      "image ls softure-deploy-tools --format {{.Tag}}",
+      "image prune --force --filter until=24h",
+      "builder prune --force --filter until=24h",
     ]);
   });
 
@@ -1334,7 +1373,7 @@ describe("deploy.sh maintain", () => {
     const result = runServer("maintain", "");
     expect(result.status).toBe(0);
     expect(result.stdout).toBe(
-      `step|settings|ok\nbackup: wrote ${server}/backups/db-20261006-120000.dump (2048 bytes)\nstep|backup|ok|db-20261006-120000.dump\nstep|verify-backup|ok|skipped\nstep|images|ok|removed 0\nresult|ok\n`,
+      `step|settings|ok\nbackup: wrote ${server}/backups/db-20261006-120000.dump (2048 bytes)\nstep|backup|ok|db-20261006-120000.dump\nstep|verify-backup|ok|skipped\n${QUIET_CLEANUP_STEPS.join("\n")}\nresult|ok\n`,
     );
     expect(readFileSync(npxLog, "utf8")).toMatch(
       new RegExp(`--yes @softure-ai/deploy@9\\.9\\.9 backup --dir=${server}/backups --prefix=db --keep=7 --max-age-days=30\n$`),
@@ -1345,6 +1384,202 @@ describe("deploy.sh maintain", () => {
     const result = runServer("maintain", "");
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("result|failed|env|nothing is deployed here yet.\n");
+  });
+});
+
+describe("deploy.sh cleanup and the release retention (issue #1171)", () => {
+  // The host: this app's tags v1 to v4 and stable (v4's image), three tools images and another project's image.
+  const IMAGES = [
+    "ghcr.io/acme/app:v1 sha256:a 500",
+    "ghcr.io/acme/app:v2 sha256:b 700",
+    "ghcr.io/acme/app:v3 sha256:c 900",
+    "ghcr.io/acme/app:v4 sha256:d 1100",
+    "ghcr.io/acme/app:stable sha256:d 1100",
+    "softure-deploy-tools:9.9.9 sha256:t1 300",
+    "softure-deploy-tools:9.9.8 sha256:t2 490",
+    "softure-deploy-tools:9.9.7-pg17 sha256:t3 490",
+    "ghcr.io/other/app:v1 sha256:o1 4000",
+  ].join("\n");
+
+  function setKeep(keep: number): void {
+    const path = join(checkout, "deploy.json");
+    const config = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    writeFileSync(path, JSON.stringify({ ...config, releases: { keep } }));
+  }
+
+  // Deploys the tags in order, each release folder a minute newer than the one before.
+  function deployTags(tags: string[]): void {
+    const archive = packArchive();
+    const start = Date.now() / 1000 - 3600;
+    tags.forEach((tag, index) => {
+      expect(deploy(tag, archive).status).toBe(0);
+      utimesSync(join(server, "releases", tag), start + index * 60, start + index * 60);
+    });
+    rmSync(dockerLog);
+  }
+
+  function listReleases(): string[] {
+    return readdirSync(join(server, "releases")).sort();
+  }
+
+  function readRemovals(): string[] {
+    return readDockerLog().filter((line) => /^image rm |prune/.test(line));
+  }
+
+  it("writes releases.keep into the deploy.json init generates", () => {
+    expect(JSON.parse(readFileSync(join(checkout, "deploy.json"), "utf8"))).toMatchObject({ releases: { keep: 5 } });
+  });
+
+  it("names what it would remove and the bytes in a dry run, and removes nothing", () => {
+    deployTags(["v1", "v2", "v3", "v4"]);
+    const result = runServer("cleanup --keep=2", "", { DOCKER_IMAGES: IMAGES });
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    const steps = readLines(result.stdout, "step");
+    expect(steps.filter((line) => !line.startsWith("step|disk-"))).toEqual([
+      "step|settings|ok",
+      "step|plan|ok|dry run, keep 2",
+      "step|releases|ok|would remove 2, kept the newest 2",
+      "step|images|ok|would remove 3, about 1200 bytes",
+      "step|tools-images|ok|would remove 2, about 980 bytes",
+      "step|dangling|ok|would remove those older than 24h, of 2 dangling now",
+      "step|build-cache|ok|would prune what is unused for 24h",
+    ]);
+    expect(result.stdout).toContain("deploy: would remove releases/v2\ndeploy: would remove releases/v1\n");
+    expect(result.stdout).toContain(
+      "deploy: would remove ghcr.io/acme/app:v1\ndeploy: would remove ghcr.io/acme/app:v2\ndeploy: would remove ghcr.io/acme/app:stable\n",
+    );
+    expect(result.stdout).toContain("deploy: a dry run; nothing was removed. cleanup --commit removes it.\nresult|ok\n");
+    expect(listReleases()).toEqual(["v1", "v2", "v3", "v4"]);
+    expect(readRemovals()).toEqual([]);
+  });
+
+  it("reports the disk usage of Docker's root folder and docker system df before and after", () => {
+    deployTags(["v1"]);
+    const result = runServer("cleanup", "", { DOCKER_IMAGES: IMAGES, DOCKER_ROOT: root });
+    const disk = readLines(result.stdout, "step").filter((line) => line.startsWith("step|disk-"));
+    expect(disk).toHaveLength(2);
+    for (const [index, name] of ["disk-before", "disk-after"].entries()) {
+      expect(disk[index]).toMatch(
+        new RegExp(`^step\\|${name}\\|ok\\|${root} [0-9]+% used, [0-9]+ KiB free; Images 16\\.3GB, reclaimable 10\\.4GB \\(63%\\); Build Cache 1\\.6GB, reclaimable 1\\.6GB$`),
+      );
+    }
+  });
+
+  it("with --commit keeps the newest N release folders and their tags, the tools image of this script, and removes the rest", () => {
+    deployTags(["v1", "v2", "v3", "v4"]);
+    const result = runServer("cleanup --commit --keep=2", "", { DOCKER_IMAGES: IMAGES });
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step").filter((line) => !line.startsWith("step|disk-"))).toEqual([
+      "step|settings|ok",
+      "step|plan|ok|commit, keep 2",
+      "step|releases|ok|removed 2, kept the newest 2",
+      "step|images|ok|removed 3, about 1200 bytes",
+      "step|tools-images|ok|removed 2, about 980 bytes",
+      "step|dangling|ok|removed those older than 24h, reclaimed 1.5GB",
+      "step|build-cache|ok|pruned what was unused for 24h, reclaimed 1.5GB",
+    ]);
+    expect(result.stdout.trimEnd().split("\n").at(-1)).toBe("result|ok");
+    expect(listReleases()).toEqual(["v3", "v4"]);
+    expect(readRemovals()).toEqual([
+      "image rm ghcr.io/acme/app:v1",
+      "image rm ghcr.io/acme/app:v2",
+      "image rm ghcr.io/acme/app:stable",
+      "image rm softure-deploy-tools:9.9.8",
+      "image rm softure-deploy-tools:9.9.7-pg17",
+      "image prune --force --filter until=24h",
+      "builder prune --force --filter until=24h",
+    ]);
+  });
+
+  it("never touches another project's images, nor any container or volume", () => {
+    deployTags(["v1", "v2", "v3"]);
+    expect(runServer("cleanup --commit --keep=2", "", { DOCKER_IMAGES: IMAGES }).status).toBe(0);
+    expect(runServer("maintain", "", { DOCKER_IMAGES: IMAGES }).status).toBe(0);
+    const log = readDockerLog();
+    expect(log.filter((line) => line.includes("ghcr.io/other"))).toEqual([]);
+    expect(log.filter((line) => /^(volume|network|system prune|container (rm|prune|stop)|rm |stop )/.test(line))).toEqual([]);
+  });
+
+  it("keeps the live tag, the rollback target and every image a container uses", () => {
+    deployTags(["v1", "v2", "v3"]);
+    // The release before the last switch is an older one: a rollback to v1 must still need no pull.
+    writeFileSync(join(server, ".env.prod.prev"), "AUTH_SECRET='s3cret'\nTAG=v1\n");
+    const result = runServer("cleanup --commit --keep=2", "", { DOCKER_IMAGES: IMAGES, USED_IMAGE_IDS: "sha256:t2 sha256:d" });
+    expect(result.status).toBe(0);
+    expect(listReleases()).toEqual(["v1", "v2", "v3"]);
+    expect(result.stdout).toContain("deploy: keeps ghcr.io/acme/app:v4, a container uses it.\n");
+    expect(result.stdout).toContain("deploy: keeps softure-deploy-tools:9.9.8, a container uses it.\n");
+    expect(readRemovals().filter((line) => line.startsWith("image rm"))).toEqual(["image rm softure-deploy-tools:9.9.7-pg17"]);
+    expect(readLines(result.stdout, "step")).toContain("step|images|ok|removed 0, about 0 bytes");
+  });
+
+  it("takes releases.keep of the installed deploy.json when --keep is not given, and maintain applies it", () => {
+    setKeep(3);
+    deployTags(["v1", "v2", "v3", "v4"]);
+    expect(readLines(runServer("cleanup", "", { DOCKER_IMAGES: IMAGES }).stdout, "step")).toContain("step|plan|ok|dry run, keep 3");
+    rmSync(dockerLog);
+    const result = runServer("maintain", "", { DOCKER_IMAGES: IMAGES });
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toEqual([
+      "step|settings|ok",
+      "step|releases|ok|removed 0, kept the newest 3",
+      "step|images|ok|removed 2, about 500 bytes",
+      "step|tools-images|ok|removed 2, about 980 bytes",
+      ...QUIET_CLEANUP_STEPS.slice(3),
+    ]);
+    expect(readRemovals().filter((line) => line.startsWith("image rm ghcr"))).toEqual(["image rm ghcr.io/acme/app:v1", "image rm ghcr.io/acme/app:stable"]);
+  });
+
+  it("prunes the release folders at a deploy with releases.keep, never the previous tag's", () => {
+    setKeep(2);
+    deployTags(["v1", "v2", "v3", "v4"]);
+    expect(listReleases()).toEqual(["v3", "v4"]);
+  });
+
+  it("refuses a deploy.json whose releases.keep is out of bounds before anything restarts", () => {
+    setKeep(1);
+    const result = deploy("v1", packArchive());
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("result|failed|settings|cannot read the release's deploy.json, or it is not valid; nothing was restarted.");
+    expect(readDockerLog().filter((line) => line.startsWith("pull"))).toEqual([]);
+  });
+
+  it.each([
+    ["cleanup --keep=1", "deploy: --keep is a number from 2 to 50: --keep=1\n"],
+    ["cleanup --keep=51", "deploy: --keep is a number from 2 to 50: --keep=51\n"],
+    ["cleanup --keep=two", "deploy: --keep is a number from 2 to 50: --keep=two\n"],
+    ["cleanup --keep=2 --keep=3", "deploy: cleanup takes --keep once.\n"],
+    ["cleanup --commit --commit", "deploy: cleanup takes --commit once.\n"],
+    ["cleanup --force", "deploy: cleanup takes --keep=<n> and --commit: --force\n"],
+  ])("refuses %j with exit 2 and removes nothing", (command, stderr) => {
+    deployTags(["v1"]);
+    const result = runServer(command, "", { DOCKER_IMAGES: IMAGES });
+    expect(result.status).toBe(2);
+    expect(result.stderr).toBe(stderr);
+    expect(readDockerLog()).toEqual([]);
+  });
+
+  it("refuses more than two arguments, and fails before anything is deployed", () => {
+    expect(runServer("cleanup --keep=2 --commit now", "").status).toBe(2);
+    const result = runServer("cleanup", "");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("result|failed|env|nothing is deployed here yet.\n");
+  });
+
+  it("runs on an app with a database too, with the pg tools image kept", () => {
+    writeCheckout({ facts: { ...NO_DATABASE, hasDatabase: true }, envProd: "POSTGRES_PASSWORD='pw'\n" });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    deployTags(["v1"]);
+    const tools = /^TOOLS_IMAGE="(softure-deploy-tools:9\.9\.9-pg\d+)"$/m.exec(readFileSync(join(server, "deploy.sh"), "utf8"))?.[1] ?? "";
+    expect(tools).not.toBe("");
+    const images = [tools, "softure-deploy-tools:9.9.9", "softure-deploy-tools:9.9.8-pg17"].join("\n");
+    const result = runServer("cleanup --commit", "", { DOCKER_IMAGES: images });
+    expect(result.status).toBe(0);
+    expect(readRemovals().filter((line) => line.startsWith("image rm"))).toEqual([
+      "image rm softure-deploy-tools:9.9.9",
+      "image rm softure-deploy-tools:9.9.8-pg17",
+    ]);
   });
 });
 
@@ -1393,7 +1628,7 @@ describe("deploy.sh maintain test-restores its backup (issue #561)", () => {
       "step|settings|ok",
       `step|backup|ok|${DUMP}`,
       `step|verify-backup|ok|${DUMP}`,
-      "step|images|ok|removed 0",
+      ...QUIET_CLEANUP_STEPS,
     ]);
     expect(lastLine(result)).toBe("result|ok");
     const calls = readNpxCalls().filter((call) => !call.startsWith("server-settings"));
@@ -1574,7 +1809,9 @@ describe("deploy.sh run: an ops script of the live image (issue #247)", () => {
     rmSync(dockerLog);
     const result = runServer("run grant-access", "");
     expect(result.status).toBe(2);
-    expect(result.stdout).toBe('result|failed|command|expected the command "deploy <tag>", "status" or "maintain [<hook>]".\n');
+    expect(result.stdout).toBe(
+      'result|failed|command|expected the command "deploy <tag>", "status", "maintain [<hook>]" or "cleanup [--keep=<n>] [--commit]".\n',
+    );
     expect(readDockerLog()).toEqual([]);
   });
 });

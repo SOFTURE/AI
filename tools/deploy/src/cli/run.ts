@@ -7,7 +7,7 @@ import { runIntegrationLookup, runIntegrationRecord, runIntegrationRun } from ".
 import type { CliIo } from "./io.js";
 import { runReleaseNotes } from "./release-notes-command.js";
 import { runReleaseReport } from "./release-report-command.js";
-import { runRemoteReport, runRemoteScript } from "./remote-command.js";
+import { runRemoteCleanup, runRemoteReport, runRemoteScript } from "./remote-command.js";
 import { runServerSettings } from "./server-settings-command.js";
 import { runSmokeCommand } from "./smoke-command.js";
 import { runVerifyCommand } from "./verify-command.js";
@@ -75,11 +75,14 @@ export const USAGE = [
   "      the same script from <scripts-dir>/<script>.ts on this machine, against DATABASE_URL (or --url-env)",
   "  report --host=<ssh host> [--port=<n>] [--ssh=ssh] <file.sql> [--key=value]...",
   "      the SQL file read only through psql on the server, each --key=value a psql variable",
+  "  cleanup --host=<ssh host> [--port=<n>] [--ssh=ssh] [--keep=<n>] [--commit]",
+  "      frees the server's disk: release folders and this app's image tags beyond the newest <n> (releases.keep),",
+  "      old tools images, dangling images and build cache; a dry run that names what would go unless --commit",
   "  help",
   "",
 ].join("\n");
 
-/** A command returns nothing when done, or the exit status of what it ran (`run`, `report`). */
+/** A command returns nothing when done, or the exit status of what it ran (`run`, `report`, `cleanup`). */
 type Command = (args: string[], io: CliIo) => void | number | Promise<void | number>;
 
 /** Commands by their words. */
@@ -100,6 +103,7 @@ const COMMANDS: Record<string, Command> = {
   "integration record": runIntegrationRecord,
   run: runRemoteScript,
   report: runRemoteReport,
+  cleanup: runRemoteCleanup,
 };
 
 function findCommand(argv: string[]): { command: Command; args: string[] } | null {
