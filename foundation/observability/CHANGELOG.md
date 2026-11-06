@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- OpenTelemetry JS 3.1: the SDK packages on ~3.1.0, the exporters and `instrumentation-http` on ~0.301.0,
+  `instrumentation-runtime-node` ~0.38.0, `instrumentation-undici` ~0.35.0.
+- `forwarded-parse` is no longer a dependency of its own: `instrumentation-http` 0.301 imports it statically (0.300
+  hid it behind a bundler helper), so Next.js output file tracing keeps it in a standalone build without the extra
+  `require` in `startObservability`, and the version is the one `instrumentation-http` pins (2.2.0).
+
 ## 0.8.0
 
 - OpenTelemetry JS 3.0: `@opentelemetry/api` ^1.10.0, the SDK packages on ~3.0.0 (`sdk-trace` replaces

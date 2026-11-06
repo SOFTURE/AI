@@ -52,6 +52,6 @@ describe("satori isolation (#254)", () => {
 
   it("pins satori to one exact version", () => {
     const manifest = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { dependencies: Record<string, string> };
-    expect(manifest.dependencies.satori).toBe("0.35.1");
+    expect(manifest.dependencies.satori).toBe("0.63.2");
   });
 });

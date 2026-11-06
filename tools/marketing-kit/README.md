@@ -25,6 +25,14 @@ An app runs the kit through `npx` with a pinned version, not as a dependency:
 never runs it. Bump the pin and the `$schema` URL of `marketing.json` together. A project that imports the library
 API (`@softure-ai/marketing-kit`, `@softure-ai/marketing-kit/og`) installs it as usual.
 
+satori pins `fflate` to 0.7.3, which `npm audit` reports as moderate (GHSA-px8p-9vwx-vf98, an endless loop in
+`unzipSync` on a malformed ZIP64 archive). satori and its font parser only call `inflateSync`, so the kit never
+reaches the flaw, but a project that installs the kit (or audits its lockfile) can lift the copy with an override:
+
+```json
+{ "overrides": { "fflate": "^0.7.5" } }
+```
+
 ## Commands
 
 ```bash

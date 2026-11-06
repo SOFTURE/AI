@@ -12,11 +12,18 @@ export interface OgNode {
   props: { style?: OgStyle; children?: OgChild | OgChild[]; [attribute: string]: unknown };
 }
 
+/**
+ * Satori 0.36 and later follow CSS and size a box's content (`content-box`): a `width` or `100%` no longer includes the
+ * padding and border. Every template was written for the border box, so it is the default on every element.
+ */
+const BOX_SIZING: OgStyle = { boxSizing: "border-box" };
+
 /** `h("div", { style }, ...children)`: one element; empty children are dropped. */
 export function h(type: string, props: OgNode["props"], ...children: (OgChild | null | false)[]): OgNode {
   const kept = children.filter((child): child is OgChild => child !== null && child !== false);
-  if (kept.length === 0) return { type, props };
-  return { type, props: { ...props, children: kept.length === 1 ? kept[0] : kept } };
+  const sized = { ...props, style: { ...BOX_SIZING, ...props.style } };
+  if (kept.length === 0) return { type, props: sized };
+  return { type, props: { ...sized, children: kept.length === 1 ? kept[0] : kept } };
 }
 
 /** Every node of a tree, the root first. */

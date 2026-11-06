@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `@opentelemetry/sdk-trace` ~3.1.0 (was ~3.0.0), the line `@softure-ai/observability` uses.
+
 ## 0.2.2
 
 - Docs: the README points to `createLlmUsageRecorder` of `@softure-ai/metering` for a spend ledger on `onUsage`.

@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- satori 0.63.2 (was 0.35.1, still pinned exactly, #254). satori 0.36 and later size boxes like CSS's default
+  `content-box`, so a `width` or `100%` no longer included the padding and the OG templates ran past the frame; every
+  element now carries `boxSizing: "border-box"`, and the four snapshots render the same layout (only anti-aliasing
+  differs).
+- Docs: the README's Install section explains the `fflate` 0.7.3 audit finding that comes with satori and the
+  `overrides` entry that lifts it.
+
 ## 0.13.1
 
 - hyperframes 0.9.6 (was 0.9.5): `HYPERFRAMES_VERSION` follows; the fixture and footage film renders pass unchanged.

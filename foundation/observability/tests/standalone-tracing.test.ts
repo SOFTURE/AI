@@ -26,24 +26,27 @@ function findInstalledPackage(name: string): string {
   throw new Error(`findInstalledPackage: ${name} is not installed above ${PACKAGE_ROOT}`);
 }
 
-function findHiddenRequires(): Map<string, string> {
+function findHiddenRequires(): { hidden: Map<string, string>; scanned: number } {
   const hidden = new Map<string, string>();
+  let scanned = 0;
   for (const name of Object.keys(MANIFEST.dependencies).filter((dependency) => dependency.startsWith("@opentelemetry/"))) {
     const distDirectory = join(findInstalledPackage(name), "dist");
     for (const file of listModuleFiles(distDirectory)) {
+      scanned += 1;
       for (const match of readFileSync(file, "utf8").matchAll(HIDDEN_REQUIRE)) {
         hidden.set(match[1] ?? "", name);
       }
     }
   }
-  return hidden;
+  return { hidden, scanned };
 }
 
 describe("standalone output tracing", () => {
   it("requires every module an OpenTelemetry dependency loads through a hidden require", () => {
-    const hidden = findHiddenRequires();
+    // instrumentation-http 0.300 hid `forwarded-parse` this way; 0.301 imports it statically, which tracing follows.
+    const { hidden, scanned } = findHiddenRequires();
 
-    expect([...hidden.keys()]).toContain("forwarded-parse");
+    expect(scanned).toBeGreaterThan(0);
     for (const [module, owner] of hidden) {
       expect(START_SOURCE, `${owner} hides ${module}`).toMatch(new RegExp(`^\\s*require\\("${module}"\\);$`, "m"));
       expect(MANIFEST.dependencies[module], `${module} is a dependency`).toBeDefined();
