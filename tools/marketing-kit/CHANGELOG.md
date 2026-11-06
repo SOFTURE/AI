@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.13.1
+
+- hyperframes 0.9.6 (was 0.9.5): `HYPERFRAMES_VERSION` follows; the fixture and footage film renders pass unchanged.
+
 ## 0.13.0
 
 - **The mix stage's retries pay back what the limiter takes (#1095):** with `mixLoudness.keep: "speech"` and loud,

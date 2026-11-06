@@ -97,7 +97,8 @@ describe("theme.css in an app's Tailwind", () => {
 
   it("lets the line variant and the focus border override the selected tab's boundary", () => {
     const boundary = compiled.indexOf(".data-\\[state\\=active\\]\\:border-input[");
-    const lineOverride = compiled.indexOf(".group-data-\\[variant\\=line\\]\\/tabs-list\\:data-\\[state\\=active\\]\\:border-transparent:");
+    // Tailwind 4.3.4 wraps a group variant's selector in `:is(...)`, so match the class name wherever it sits.
+    const lineOverride = compiled.search(/\.group-data-\\\[variant\\=line\\\]\\\/tabs-list\\:data-\\\[state\\=active\\\]\\:border-transparent[:)]/);
     const focus = compiled.indexOf(".focus-visible\\:data-\\[state\\=active\\]\\:border-ring:");
     expect(boundary).toBeGreaterThan(-1);
     expect(lineOverride).toBeGreaterThan(boundary);
