@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.2.0
+
+- **`MapControls`:** the map's zoom controls (plus, minus, an optional reset to the first view) as one flat bar
+  on the raised surface, vertical or horizontal, every name from props; the limits disable their buttons.
+
 ## 0.1.1
 
 - **French Guiana is its own shape (#1153):** `WORLD_COUNTRY_SHAPES` no longer draws it as part of France (`250`);

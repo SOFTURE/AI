@@ -100,6 +100,7 @@ language and the plural forms.
 | `MapPinCluster` (`x`, `y`, `count`, `label`) | Dense pins merged on a phone: a 22 px stamp-ink dot with the count |
 | `MapPopover` (`place`, `meta`, `coordinates`, children) | A pin's popover, 260 px on the raised surface; the app positions it |
 | `MapLegend` (`items` of `visited` / `place` / `planned` / `land`) | The map's key, as HTML |
+| `MapControls` (`label`, `zoomInLabel`, `zoomOutLabel`, `resetLabel`, `onZoomIn`, `onZoomOut`, `onReset`, `isAtMaxZoom`, `isAtMinZoom`, `isAtStart`, `orientation`) | The map's zoom controls: plus, minus and an optional reset as one flat bar on the raised surface (40 px buttons, hairlines between them, the `line-strong` outline round the group), vertical by default; the map owns the zoom and the limits disable the buttons |
 | `Card`, `Photo` | A flat card (surface, one hairline, 24 px inside) and a 4:3 photo frame |
 | `Postcard` (`title`, `meta`, `photo`, `stamp`, `headingLevel`), `PostcardStamp` (`year`, `code`, `status`) | A trip as a postcard, with the double-ringed postmark turned by -8° as its only ornament |
 | `ATLAS_ICONS`, `ATLAS_ICON_STROKE_WIDTH` | The travel icons (`pin`, `globe`, `plane`, `compass`, `calendar`, `camera`, `pen`, `users`, `book`, `bag`, `arrow-right`, `menu`, `close`), lucide components in the system's 24 grid and 2 px stroke |
