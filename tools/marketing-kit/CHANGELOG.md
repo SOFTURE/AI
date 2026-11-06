@@ -11,6 +11,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   around `focus`, EXIF orientation applied, with an optional caption in the brand's heading font over a soft scrim,
   kept in the lower half of the centre 4:5 band (`getCoverBand`). An overlong caption and a missing glyph are errors.
   Returns `{ jpeg, width, height, bytes }`. New dependency: `jpeg-js` (pure JavaScript JPEG encoder).
+
+## 0.15.0
+
+- **The footage film's mix is bounded:** `buildFilmMixArgs` pads to the film's length (`apad=whole_dur`), trims and
+  caps the output (`-t`), and throws on a length that is not a positive number. A CI run once wrote an unbounded
+  90 GB mix until the disk was full.
 - **Footage failures name their kind (#1126):** a failed `FootageResult` (`renderFootage`, `finishFootage`,
   `renderFootageFilm`, `prepareFootage`, `renderFootageDraft`, …) carries `failure` next to `error`, so an app can
   tell a gate miss from a failure worth retrying without reading the sentence:

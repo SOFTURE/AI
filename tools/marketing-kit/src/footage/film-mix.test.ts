@@ -35,9 +35,11 @@ describe("buildFilmMixArgs (issue #1124)", () => {
       "-filter_complex",
       `[0:a]atrim=duration=7.5,${format}[a0];[1:a]atrim=duration=10.5,${format}[a1];` +
         `[2:a]atrim=duration=0.57,${format},volume=0.45,adelay=delays=3250:all=1[a2];` +
-        "[a0][a1][a2]amix=inputs=3:duration=longest:normalize=0,apad,atrim=duration=10.5[mix]",
+        "[a0][a1][a2]amix=inputs=3:duration=longest:normalize=0,apad=whole_dur=10.5,atrim=duration=10.5[mix]",
       "-map",
       "[mix]",
+      "-t",
+      "10.5",
       "-c:a",
       "pcm_f32le",
       "-ar",
@@ -50,7 +52,15 @@ describe("buildFilmMixArgs (issue #1124)", () => {
 
   it("passes the speech alone through when there is nothing to mix under it", () => {
     const args = buildFilmMixArgs({ speech: { file: "/b/speech.mp3", seconds: 4 }, music: null, sfx: [], seconds: 7, output: "/b/mix.wav" });
-    expect(args[args.indexOf("-filter_complex") + 1]).toBe("[0:a]atrim=duration=4,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a0];[a0]anull,apad,atrim=duration=7[mix]");
+    expect(args[args.indexOf("-filter_complex") + 1]).toBe("[0:a]atrim=duration=4,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a0];[a0]anull,apad=whole_dur=7,atrim=duration=7[mix]");
+  });
+
+  it("refuses a film length that is not a positive number, so the mix can never run unbounded", () => {
+    for (const seconds of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => buildFilmMixArgs({ speech: { file: "/b/speech.mp3", seconds: 4 }, music: null, sfx: [], seconds, output: "/b/mix.wav" })).toThrow(
+        `buildFilmMixArgs: the film's length must be a positive number of seconds, got ${String(seconds)}.`,
+      );
+    }
   });
 });
 
