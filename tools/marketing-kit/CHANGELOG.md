@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **`isolateSpeechRanges` keeps going past a refused range (#1127):** one refused range no longer throws away every
+  range already bought in the call.
+  - A refused range is asked again: `retry: { attempts, delaysMs, wait }` (default 3 attempts after 1 s and 2 s), the
+    wait stopped by `signal`.
+  - A range refused on every attempt keeps the clip's own sound in its window; the others are laid and the call
+    answers `ok`. Only a cancel throws. `IsolatedSpeechRange.outcome`: `cached` | `bought` (`attempts`) | `failed`
+    (`error`, `attempts`) | `not_bought`.
+  - Every join between the clip's sound and a cleaned window is a linear crossfade (`fadeMs`, default 15;
+    `getSpeechRangeFades`): on a constant-level clip under a half-level window no sample steps by more than 0.01.
+    `buildRangeLayArgs` takes `{ fadeMs }`.
+  - `chargeItem(range)` names a range's charge item (default the clip id); `rangeCache(range, clipKey)` points the
+    block and `estimateSpeechRanges` / `estimateFootageFilm` at an app's own cached ranges.
+
 ## 0.14.0
 
 - **The footage mix converges at a fixed ceiling, before the frames (#1124):** on high-crest, transient-rich speech
