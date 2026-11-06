@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.8.2
 
 - A logged `error` that is not an `Error` no longer comes out as its bare `typeof` (`exception.message="string"`).
   In `full` mode it is logged by its text: a string as itself, other primitives as `String(value)`, an object as its
