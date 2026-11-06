@@ -10,6 +10,7 @@ import {
   IconButton,
   MapControls,
   MapLegend,
+  MapLegendTooltip,
   MapPin,
   MapPinCluster,
   MapPopover,
@@ -243,9 +244,41 @@ describe("WorldMap", () => {
     expect(markup).toContain('aria-label="Bangkok, planned" aria-expanded="false"');
   });
 
+  it("fills a box of its own height when fitted, centred and no smaller than the phone minimum", () => {
+    const fitted = renderToStaticMarkup(<WorldMap label="map" countries={{}} isFitted />);
+    expect(fitted).toContain('data-fitted=""');
+    expect(getClasses(fitted, "world-map")).toEqual(expect.arrayContaining(["grid", "h-full", "[container-type:size]"]));
+    expect(fitted).toMatch(/class="relative min-w-map-min m-auto w-\[min\(100cqw,200cqh\)\]"/);
+    expect(markup).not.toContain("data-fitted");
+  });
+
   it("leaves out the graticule on request", () => {
     const plain = renderToStaticMarkup(<WorldMap label="map" countries={{}} hasGraticule={false} />);
     expect(plain.match(/<path d="M/g)?.length).toBe(WORLD_COUNTRY_SHAPES.length);
+  });
+});
+
+describe("MapLegendTooltip", () => {
+  const items = [
+    { kind: "visited", label: "visited" },
+    { kind: "planned", label: "planned" },
+  ] as const;
+
+  it("is one button described by a tooltip that holds the legend and the note", () => {
+    const markup = renderToStaticMarkup(<MapLegendTooltip label="Legend" items={items} note="Natural Earth" />);
+    const describedBy = /aria-describedby="([^"]+)"/.exec(markup)?.[1];
+    expect(describedBy).toBeDefined();
+    expect(markup).toContain(`role="tooltip" id="${describedBy ?? ""}"`);
+    expect(markup).toContain(">Legend</button>");
+    expect(markup.match(/<li /g)?.length).toBe(2);
+    expect(markup).toContain("Natural Earth");
+  });
+
+  it("stays hidden until the button is hovered or focused, and leaves out an empty note", () => {
+    const markup = renderToStaticMarkup(<MapLegendTooltip label="Legend" items={items} />);
+    expect(markup).toMatch(/role="tooltip"[^>]*class="invisible [^"]*group-hover:visible[^"]*"/);
+    expect(markup).toContain("group-focus-within:visible");
+    expect(markup).not.toContain("font-mono");
   });
 });
 

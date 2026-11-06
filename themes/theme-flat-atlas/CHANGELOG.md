@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.3.0
+
+- **`WorldMap` `isFitted`:** the map fills a box of a given height instead of setting its own, centred and as large as
+  the whole 2:1 map fits (never below the 720 px phone minimum, past which it scrolls), for a map that is the whole
+  screen.
+- **`MapLegendTooltip`:** the legend folded into one small button over the map; hover or focus shows the key and an
+  optional note (the map's source) as a tooltip above it.
+
 ## 0.2.0
 
 - **`MapControls`:** the map's zoom controls (plus, minus, an optional reset to the first view) as one flat bar

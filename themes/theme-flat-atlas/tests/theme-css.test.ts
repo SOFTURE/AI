@@ -131,6 +131,12 @@ const COMPONENT_CLASSES = [
   "stroke-[0.6]",
   "[stroke-dasharray:3_2]",
   "stroke-foreground/7",
+  "[container-type:size]",
+  "w-[min(100cqw,200cqh)]",
+  "m-auto",
+  "group-hover:visible",
+  "group-focus-within:opacity-100",
+  "bottom-full",
 ];
 
 describe("theme.css in an app's Tailwind", () => {

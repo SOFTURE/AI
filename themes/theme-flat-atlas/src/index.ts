@@ -20,6 +20,7 @@ export { CountryCounter, type CountryCounterPart, type CountryCounterProps } fro
 export { ATLAS_ICON_STROKE_WIDTH, ATLAS_ICONS, type AtlasIconName } from "./atlas/icons.js";
 export { MapControls, type MapControlsOrientation, type MapControlsProps } from "./atlas/MapControls.js";
 export { MapLegend, type MapLegendItem, type MapLegendKind, type MapLegendProps } from "./atlas/MapLegend.js";
+export { MapLegendTooltip, type MapLegendTooltipProps } from "./atlas/MapLegendTooltip.js";
 export { MapPin, MapPinCluster, type MapPinClusterProps, type MapPinProps, type MapPinTag } from "./atlas/MapPin.js";
 export { MapPopover, type MapPopoverProps } from "./atlas/MapPopover.js";
 export { SiteHeader, Wordmark, type SiteHeaderProps, type SiteHeaderVariant, type WordmarkProps } from "./atlas/SiteHeader.js";
