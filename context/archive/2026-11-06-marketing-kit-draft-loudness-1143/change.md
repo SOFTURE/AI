@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-draft-loudness-1143
 title: "marketing-kit: the footage draft runs the render's loudness pass and mix stage (issue #1143)"
-status: implemented
+status: archived
 roadmap_item: null
 issue: 1143
 branch: claude/project-thread-8dco15
 created: 2026-11-06
 updated: 2026-11-06
+archived_at: 2026-11-06
 ---
 
 ## Intent
@@ -34,3 +35,11 @@ combined marketing-kit release (coordinator).
 ## Notes
 
 - Framing: skipped. The issue measures the gap and names the fix (the render's chain in the draft).
+
+## Done
+
+`renderFootageDraft` runs the render's sound chain: the speech loudness pass, then the render's mix stage
+(`mixFootage`, `mixLoudness` with `attempts`, `warnTolerance` and the true peak ceiling), whose AAC is copied into
+the draft; `FootageDraft` reports `loudness` and `mix`. A quiet fixture (about -40 LUFS) drafts at -14 ± 0.5 LUFS,
+true peak ≤ -1 dBTP (master: the source level). Merged in PR #1146 (62a85ac). Ships in the next combined
+marketing-kit release.
