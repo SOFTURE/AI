@@ -12,6 +12,8 @@
 #   status         read only: the live tag, the tag in .env.prod, the containers and the app's health
 #   maintain       the daily cron's command (below)
 #   maintain <hook>  a maintain hook with its own schedule (below)
+#   cleanup [--keep=<n>] [--commit]
+#                  frees disk on demand (below): a dry run that names what would go unless --commit
 #   run <script> [--key[=value] ...]
 #                  an ops script of the live image (/app/ops/<script>.mjs, @softure-ai/ops/scripts) in the app container,
 #                  with the app's DATABASE_URL: a dry run unless --commit; stdin goes to the script (--<key>-file=-)
@@ -64,7 +66,7 @@
 # IMAGE and PREVIOUS_TAG, prints `step|<name>|ok` when it succeeds, and its own output goes to stderr.
 #
 # Output: one line `step|<name>|ok[|<detail>]` per finished step on stdout (backup: the dump's file name; row counts:
-# `<table>=<rows>,…`), and every deploy or maintain run ends with `result|ok` or `result|failed|<step>|<message>`; the
+# `<table>=<rows>,…`), and every deploy, maintain or cleanup run ends with `result|ok` or `result|failed|<step>|<message>`; the
 # workflow fails a release without `result|ok` and its report (DF-10) reads the details. Messages for people start
 # with "deploy:".
 #
@@ -74,11 +76,24 @@
 # rollback is a redeploy of the previous tag ("Run workflow" in the app's deploy workflow); .env.prod.prev holds the
 # .env.prod of the release before the last switch. Files a release no longer ships stay here.
 #
+# Retention: a release keeps the newest releases.keep release folders of deploy.json (default 5, at least 2) and
+# removes older ones once its settings are read; the live tag's and the rollback target's folder (the TAG of
+# .env.prod.prev) always stay.
+#
 # The cron: each release writes the crontab lines marked "# softure-deploy:softure-example": one runs `maintain` daily (a
 # backup with the release's retention, the newest BACKUP_KEEP and none older than BACKUP_MAX_AGE_DAYS, when there is a
-# database, and its test restore (verify-backup, below), then the removal of this app's images whose release folder is
-# gone and of dangling images, then the maintain hooks without a schedule), and one per scheduled maintain hook runs
-# `maintain <hook>`. deploy and maintain never run at the same time (flock on .deploy.lock).
+# database, and its test restore (verify-backup, below), then the cleanup below with --commit and releases.keep, then
+# the maintain hooks without a schedule), and one per scheduled maintain hook runs `maintain <hook>`. deploy, maintain
+# and cleanup never run at the same time (flock on .deploy.lock).
+#
+# cleanup (issue #1171): steps plan, disk-before (df of Docker's root folder and `docker system df`), releases (the
+# release folders beyond the newest <n>, default releases.keep), images (this app's tags of $IMAGE, and of the worker's
+# image when it has one, without a kept release folder), tools-images (softure-deploy-tools tags other than
+# $TOOLS_IMAGE; another app on the host rebuilds its own on next use), dangling (dangling images older than
+# $CLEANUP_MAX_AGE), build-cache (build cache unused for $CLEANUP_MAX_AGE), disk-after. The live tag, the rollback
+# target and every image a container uses (running or stopped) always stay. Only these repositories are listed:
+# another compose project's images, containers and volumes are never touched. Without --commit nothing is removed
+# and the steps say what would go; sizes are summed once per image id. maintain runs releases to build-cache only.
 #
 # verify-backup: on the Sunday run by default (database.verifyBackup: weekly, daily or never), maintain counts the rows
 # of database.rowCountTables (less excludeTableData, whose rows the dump leaves out) right before the backup, restores
@@ -109,7 +124,14 @@ BACKUP_MAX_AGE_DAYS=30
 VERIFY_DATABASE=softure_verify_backup
 TAG_FILE="$APP_DIR/.deployed-tag"
 RELEASES_DIR="$APP_DIR/releases"
-RELEASE_KEEP=5
+# releases.keep of deploy.json, read by load_settings; the bounds are the schema's.
+DEFAULT_RELEASE_KEEP=5
+MIN_RELEASE_KEEP=2
+MAX_RELEASE_KEEP=50
+TAG_PATTERN='^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
+TOOLS_REPOSITORY=softure-deploy-tools
+# Dangling images and build cache younger than this stay (docker's until filter).
+CLEANUP_MAX_AGE=24h
 MAX_ARCHIVE_BYTES=$((16 * 1024 * 1024))
 LOCK_FILE="$APP_DIR/.deploy.lock"
 # Below the deploy job's timeout, so a release waiting on a long maintain run still reports its result.
@@ -127,6 +149,7 @@ SCHEDULE_PATTERN='^[0-9*/,-]+( [0-9*/,-]+){4}$'
 RESERVED_NAMES=(.env.prod.prev .deployed-tag .deploy.lock backups releases deploy.sh.new)
 
 previous_tag="$(cat "$TAG_FILE" 2>/dev/null || true)"
+release_keep="$DEFAULT_RELEASE_KEEP"
 command_name=""
 current_step="command"
 failure=""
@@ -218,10 +241,10 @@ finish() {
 }
 trap finish EXIT
 
-# Reads one value of .env.prod without sourcing it: `env render` writes NAME=value or NAME='value'.
+# Reads one value of .env.prod (or of the file $2) without sourcing it: `env render` writes NAME=value or NAME='value'.
 read_env() {
   local line
-  line="$(grep -m 1 "^$1=" .env.prod 2> /dev/null || true)"
+  line="$(grep -m 1 "^$1=" "${2:-.env.prod}" 2> /dev/null || true)"
   line="${line#*=}"
   line="${line#\'}"
   printf '%s' "${line%\'}"
@@ -292,6 +315,10 @@ load_settings() {
   mkdir -p "$settings_dir"
   if [ ! -f "$config" ]; then return 0; fi
   deploy_cli server-settings --config="$config" --out-dir="$settings_dir" > /dev/null || return 1
+  if [ -s "$settings_dir/release-keep" ]; then
+    release_keep="$(cat "$settings_dir/release-keep")"
+    if ! is_release_keep "$release_keep"; then return 1; fi
+  fi
   access="$(cat "$settings_dir/access")"
   app_journal="$(cat "$settings_dir/app-journal")"
   app_ledger="$(cat "$settings_dir/app-ledger")"
@@ -299,6 +326,11 @@ load_settings() {
   verify_backup="$(cat "$settings_dir/verify-backup")"
   verify_tables="$(cat "$settings_dir/verify-tables")"
   if [ "$access" != "host" ] && [ "$access" != "compose-exec" ]; then return 1; fi
+}
+
+# Whether $1 is a number of releases to keep: digits within MIN_RELEASE_KEEP and MAX_RELEASE_KEEP.
+is_release_keep() {
+  [[ "$1" =~ ^[0-9]{1,3}$ ]] && [ "$1" -ge "$MIN_RELEASE_KEEP" ] && [ "$1" -le "$MAX_RELEASE_KEEP" ]
 }
 
 # Runs one hook from its record's fields, in this folder, with its output on stderr; prints its step line. Its stdin is
@@ -335,6 +367,183 @@ run_hooks() {
     done
     run_hook "$name" "$kind" "${args[@]}"
   done < "$file"
+}
+
+# ── cleanup (see the header) ──────────────────────────────────────────────────────────────────────────────────────
+# State of one cleanup run: newline lists (bash 3.2 has no associative arrays) and the step's counters.
+commit=""
+verb="would remove"
+rollback_tag=""
+kept_releases=""
+dropped_releases=""
+candidates=""
+used_ids=""
+kept_ids=""
+counted_ids=""
+dropped=0
+dropped_bytes=0
+
+# Whether the newline list $1 holds the line $2.
+has_line() {
+  [ -n "$2" ] && grep -qxF -- "$2" <<< "$1"
+}
+
+# The release folders to keep (kept_releases) and to remove (dropped_releases), newest first: the newest $1, and the
+# live and rollback tags' folders wherever they are. Folder names are tags (TAG_PATTERN), so ls is safe here.
+plan_releases() {
+  local keep="$1" name index=0
+  kept_releases=""
+  dropped_releases=""
+  if [ ! -d "$RELEASES_DIR" ]; then return 0; fi
+  # shellcheck disable=SC2012
+  while IFS= read -r name; do
+    if [ -z "$name" ]; then continue; fi
+    index=$((index + 1))
+    if [ "$index" -le "$keep" ] || [ "$name" = "$TAG" ] || [ "$name" = "$rollback_tag" ]; then
+      kept_releases+="$name"$'\n'
+    else
+      dropped_releases+="$name"$'\n'
+    fi
+  done < <(ls -1t "$RELEASES_DIR")
+}
+
+# Removes the release folders of dropped_releases (with commit), naming each, and leaves their number in dropped.
+drop_releases() {
+  local name
+  dropped=0
+  while IFS= read -r name; do
+    if [ -z "$name" ] || [[ ! "$name" =~ $TAG_PATTERN ]]; then continue; fi
+    if [ -n "$commit" ]; then rm -rf "${RELEASES_DIR:?}/$name" || fail "cannot remove the release folder $name."; fi
+    echo "deploy: $verb releases/$name"
+    dropped=$((dropped + 1))
+  done <<< "$dropped_releases"
+}
+
+# The image ids every container of the host uses, running or stopped; their images always stay.
+list_used_image_ids() {
+  local ids
+  ids="$(docker container ls --all --quiet)" || return 1
+  if [ -z "$ids" ]; then return 0; fi
+  # shellcheck disable=SC2086 # container ids are single hex words
+  docker container inspect --format '{{.Image}}' $ids
+}
+
+# "<id> <bytes>" of an image reference; nothing when it is gone.
+read_image() {
+  docker image inspect --format '{{.Id}} {{.Size}}' "$1" 2> /dev/null || true
+}
+
+# The tags of a repository other than <none>: added to candidates when they may go; otherwise kept, their image ids
+# in kept_ids. select_tags <repository> <newline list of the tags that stay>
+select_tags() {
+  local repository="$1" keep="$2" tags tag info
+  tags="$(docker image ls "$repository" --format '{{.Tag}}')" || fail "cannot list the images of $repository."
+  while IFS= read -r tag; do
+    if [ -z "$tag" ] || [ "$tag" = "<none>" ] || [[ ! "$tag" =~ $TAG_PATTERN ]]; then continue; fi
+    if has_line "$keep" "$tag"; then
+      info="$(read_image "$repository:$tag")"
+      if [ -n "$info" ]; then kept_ids+="${info%% *}"$'\n'; fi
+    else
+      candidates+="$repository:$tag"$'\n'
+    fi
+  done <<< "$tags"
+}
+
+# Removes (with commit) or names one image reference unless a container uses it; its size counts once per image id,
+# and not at all when a kept tag shares the image.
+drop_image() {
+  local ref="$1" info id size
+  info="$(read_image "$ref")"
+  if [ -z "$info" ]; then return 0; fi
+  id="${info%% *}"
+  size="${info##* }"
+  if has_line "$used_ids" "$id"; then
+    echo "deploy: keeps $ref, a container uses it."
+    return 0
+  fi
+  if [ -n "$commit" ] && ! docker image rm "$ref" > /dev/null 2>&1; then
+    echo "deploy: docker refused to remove $ref; it stays."
+    return 0
+  fi
+  echo "deploy: $verb $ref"
+  dropped=$((dropped + 1))
+  if [[ "$size" =~ ^[0-9]+$ ]] && ! has_line "$kept_ids" "$id" && ! has_line "$counted_ids" "$id"; then
+    counted_ids+="$id"$'\n'
+    dropped_bytes=$((dropped_bytes + size))
+  fi
+}
+
+# Drops every reference of candidates (then empties it) and ends the step with the count and the bytes.
+drop_candidates() {
+  local ref
+  dropped=0
+  dropped_bytes=0
+  while IFS= read -r ref; do
+    if [ -n "$ref" ]; then drop_image "$ref"; fi
+  done <<< "$candidates"
+  candidates=""
+  step_ok "$verb $dropped, about $dropped_bytes bytes"
+}
+
+# The text after "Total reclaimed space: " of a docker prune.
+read_reclaimed() {
+  local reclaimed
+  reclaimed="$(sed -n 's/^Total reclaimed space: *//p' <<< "$1" | tail -n 1)"
+  printf '%s' "${reclaimed:-0B}"
+}
+
+# df of Docker's root folder and `docker system df`, one line for the step; neither failing fails the run.
+describe_disk() {
+  local root usage summary
+  root="$(docker info --format '{{.DockerRootDir}}' 2> /dev/null || true)"
+  if [[ ! "$root" =~ ^/[A-Za-z0-9_./-]*$ ]]; then root="/"; fi
+  usage="$(df -Pk "$root" 2> /dev/null | awk 'NR == 2 { print $5 " used, " $4 " KiB free" }' || true)"
+  summary="$(docker system df --format '{{.Type}} {{.Size}}, reclaimable {{.Reclaimable}}' 2> /dev/null | paste -sd ';' - | sed 's/;/; /g' || true)"
+  printf '%s %s; %s' "$root" "${usage:-unknown}" "${summary//|//}"
+}
+
+# The cleanup's steps, shared by cleanup and maintain: clean_up <keep>. commit set removes; otherwise each step names
+# what would go.
+clean_up() {
+  local keep="$1" output count stays
+  verb="would remove"
+  if [ -n "$commit" ]; then verb="removed"; fi
+  rollback_tag="$(read_env TAG .env.prod.prev)"
+
+  begin_step releases
+  plan_releases "$keep"
+  drop_releases
+  step_ok "$verb $dropped, kept the newest $keep"
+
+  begin_step images
+  used_ids="$(list_used_image_ids)" || fail "cannot list the images the containers use."
+  kept_ids=""
+  counted_ids=""
+  stays="$(printf '%s\n%s\n%s' "$TAG" "$rollback_tag" "$kept_releases")"
+  select_tags "$IMAGE" "$stays"
+  drop_candidates
+
+  begin_step tools-images
+  select_tags "$TOOLS_REPOSITORY" "${TOOLS_IMAGE#*:}"
+  drop_candidates
+
+  begin_step dangling
+  if [ -n "$commit" ]; then
+    output="$(docker image prune --force --filter "until=$CLEANUP_MAX_AGE")" || fail "cannot remove the dangling images."
+    step_ok "removed those older than $CLEANUP_MAX_AGE, reclaimed $(read_reclaimed "$output")"
+  else
+    count="$(docker image ls --quiet --filter dangling=true)" || fail "cannot list the dangling images."
+    count="$(sort -u <<< "$count" | grep -c . || true)"
+    step_ok "would remove those older than $CLEANUP_MAX_AGE, of $count dangling now"
+  fi
+
+  begin_step build-cache
+  if [ -n "$commit" ]; then
+    output="$(docker builder prune --force --filter "until=$CLEANUP_MAX_AGE")" || fail "cannot prune the build cache."
+    step_ok "pruned what was unused for $CLEANUP_MAX_AGE, reclaimed $(read_reclaimed "$output")"
+  else
+    step_ok "would prune what is unused for $CLEANUP_MAX_AGE"
+  fi
 }
 
 # node -e <script> [args]: the host's Node, else the helper image's.
@@ -486,20 +695,39 @@ process.stdout.write(Object.entries(counts).map(([table, count]) => table + "=" 
 
 # The forced command: one line, split on blanks without expansion.
 command_line="${SSH_ORIGINAL_COMMAND:-}"
-COMMANDS='"deploy <tag>", "status", "maintain [<hook>]", "run <script> [arguments]" or "report [arguments]"'
+COMMANDS='"deploy <tag>", "status", "maintain [<hook>]", "cleanup [--keep=<n>] [--commit]", "run <script> [arguments]" or "report [arguments]"'
 if [[ "$command_line" == *$'\n'* ]] || [[ "$command_line" == *$'\r'* ]]; then
   refuse_command "expected one command line: $COMMANDS."
 fi
 read -r -a words <<< "$command_line"
 command_name="${words[0]:-}"
 case "$command_name:${#words[@]}" in
-  deploy:2 | status:1 | maintain:1 | maintain:2) ;;
+  deploy:2 | status:1 | maintain:1 | maintain:2 | cleanup:1 | cleanup:2 | cleanup:3) ;;
   run:1) refuse_command "run needs the name of an ops script: run <script> [--key=value ...]." ;;
   run:* | report:*) ;;
   *) refuse_command "expected the command $COMMANDS." ;;
 esac
 if [ "$command_name" = "maintain" ] && [ "${#words[@]}" -eq 2 ] && [[ ! "${words[1]}" =~ $HOOK_NAME_PATTERN ]]; then
   refuse_command "the hook name is not a lower-case word of letters, digits and -."
+fi
+cleanup_keep=""
+if [ "$command_name" = "cleanup" ]; then
+  for word in "${words[@]:1}"; do
+    case "$word" in
+      --commit)
+        if [ -n "$commit" ]; then refuse_command "cleanup takes --commit once."; fi
+        commit="yes"
+        ;;
+      --keep=*)
+        if [ -n "$cleanup_keep" ]; then refuse_command "cleanup takes --keep once."; fi
+        cleanup_keep="${word#--keep=}"
+        if ! is_release_keep "$cleanup_keep"; then
+          refuse_command "--keep is a number from $MIN_RELEASE_KEEP to $MAX_RELEASE_KEEP: $word"
+        fi
+        ;;
+      *) refuse_command "cleanup takes --keep=<n> and --commit: $word" ;;
+    esac
+  done
 fi
 
 cd "$APP_DIR"
@@ -635,20 +863,40 @@ if [ "$command_name" = "maintain" ]; then
     step_ok "$backup_file"
   fi
 
-  # This app's image tags without a release folder go (the newest RELEASE_KEEP stay, so a rollback to them needs no
-  # pull); a tag a container still uses is refused by Docker and stays. Then the dangling images of the host.
-  begin_step images
-  image_tags="$(docker image ls "$IMAGE" --format '{{.Tag}}')" || fail "cannot list the images of $IMAGE."
-  removed=0
-  while IFS= read -r image_tag; do
-    if [ -z "$image_tag" ] || [ "$image_tag" = "<none>" ] || [ "$image_tag" = "$TAG" ]; then continue; fi
-    if [[ ! "$image_tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] || [ -d "$RELEASES_DIR/$image_tag" ]; then continue; fi
-    if docker image rm "$IMAGE:$image_tag" > /dev/null 2>&1; then removed=$((removed + 1)); fi
-  done <<< "$image_tags"
-  docker image prune --force > /dev/null || fail "cannot remove the dangling images."
-  step_ok "removed $removed"
+  # The cleanup with releases.keep (see the header): the release folders beyond it, this app's image tags without a
+  # kept folder (a rollback to a kept one needs no pull), old tools images, dangling images and build cache.
+  commit="yes"
+  clean_up "$release_keep"
 
   run_hooks hooks-maintain
+  exit 0
+fi
+
+# ── cleanup [--keep=<n>] [--commit] ─────────────────────────────────────────────────────────────────────────────────
+if [ "$command_name" = "cleanup" ]; then
+  take_lock
+  begin_step env
+  if [ ! -f .env.prod ]; then fail "nothing is deployed here yet."; fi
+  TAG="$(read_env TAG)"
+  export TAG
+  work="$(mktemp -d)"
+
+  begin_step settings
+  load_settings "$APP_DIR/deploy.json" || fail "cannot read deploy.json, or it is not valid; nothing was removed."
+  step_ok
+
+  begin_step plan
+  keep="${cleanup_keep:-$release_keep}"
+  if [ -n "$commit" ]; then step_ok "commit, keep $keep"; else step_ok "dry run, keep $keep"; fi
+
+  begin_step disk-before
+  step_ok "$(describe_disk)"
+
+  clean_up "$keep"
+
+  begin_step disk-after
+  step_ok "$(describe_disk)"
+  if [ -z "$commit" ]; then echo "deploy: a dry run; nothing was removed. cleanup --commit removes it."; fi
   exit 0
 fi
 
@@ -775,15 +1023,19 @@ rm -f "$release_dir/.env.prod"
 mv -f "$release_dir/.env.prod.tagged" .env.prod
 chmod 0600 .env.prod
 install_release
-# The newest RELEASE_KEEP release folders stay. Their names are tags (the pattern above), so ls is safe here.
-# shellcheck disable=SC2012
-while IFS= read -r old; do rm -rf "${RELEASES_DIR:?}/$old"; done < <(ls -1t "$RELEASES_DIR" | tail -n "+$((RELEASE_KEEP + 1))")
 step_ok
 
 # The release's own deploy.json, validated before anything else changes; a bad file puts the previous files back.
 PREVIOUS_TAG="$previous_tag"
 begin_step settings
 load_settings "$release_dir/deploy.json" || fail "cannot read the release's deploy.json, or it is not valid; nothing was restarted."
+# The newest releases.keep release folders stay, and the previous tag's (the rollback target); the rest go.
+rollback_tag="$previous_tag"
+plan_releases "$release_keep"
+commit="yes"
+verb="removed"
+drop_releases > /dev/null
+commit=""
 step_ok
 
 echo "deploy: $IMAGE:$TAG (previous: ${previous_tag:-none})"

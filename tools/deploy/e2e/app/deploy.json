@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/@softure-ai/deploy/schema/deploy.schema.json",
+  "releases": { "keep": 5 },
   "verify": {
     "headers": { "strict-transport-security": "max-age=", "x-powered-by": null },
     "routes": [

@@ -6,6 +6,20 @@
       "description": "JSON Schema of this file, for editor completion.",
       "type": "string"
     },
+    "releases": {
+      "type": "object",
+      "properties": {
+        "keep": {
+          "default": 5,
+          "description": "How many of the newest release folders deploy.sh keeps, and this app's image tags with them (default 5, at least 2: the live release and one rollback). A deploy, the daily maintain run and cleanup remove the rest.",
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 50
+        }
+      },
+      "additionalProperties": false,
+      "description": "Retention of the releases on the server."
+    },
     "database": {
       "type": "object",
       "properties": {

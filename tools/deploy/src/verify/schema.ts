@@ -303,6 +303,13 @@ export const BUILT_IN_STEP_NAMES = [
   "images",
   "restore",
   "verify-backup",
+  "plan",
+  "disk-before",
+  "releases",
+  "tools-images",
+  "dangling",
+  "build-cache",
+  "disk-after",
 ] as const;
 
 const HOOK_NAME = /^[a-z][a-z0-9-]{0,39}$/;
@@ -385,9 +392,29 @@ const dataSchema = z
   })
   .describe("The data volume shared by the app and the worker (init --data-volume).");
 
+/** How many release folders, and with them image versions, deploy.sh keeps on the host by default. */
+export const DEFAULT_RELEASE_KEEP = 5;
+/** The fewest: the live release and the rollback target. */
+export const MIN_RELEASE_KEEP = 2;
+export const MAX_RELEASE_KEEP = 50;
+
+const releasesSchema = z
+  .strictObject({
+    keep: z
+      .int()
+      .min(MIN_RELEASE_KEEP)
+      .max(MAX_RELEASE_KEEP)
+      .default(DEFAULT_RELEASE_KEEP)
+      .describe(
+        `How many of the newest release folders deploy.sh keeps, and this app's image tags with them (default ${String(DEFAULT_RELEASE_KEEP)}, at least ${String(MIN_RELEASE_KEEP)}: the live release and one rollback). A deploy, the daily maintain run and cleanup remove the rest.`,
+      ),
+  })
+  .describe("Retention of the releases on the server.");
+
 export const deploySchema = z
   .strictObject({
     $schema: z.string().optional().describe("JSON Schema of this file, for editor completion."),
+    releases: releasesSchema.optional(),
     database: databaseSchema.optional(),
     data: dataSchema.optional(),
     hooks: hooksSchema.optional(),

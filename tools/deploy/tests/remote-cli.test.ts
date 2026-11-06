@@ -175,3 +175,39 @@ describe("softure-deploy report", () => {
     expect(() => readFileSync(join(dir, "ssh-args"))).toThrow();
   });
 });
+
+describe("softure-deploy cleanup (issue #1171)", () => {
+  it("sends a dry run by default, with no stdin", async () => {
+    const status = await runCli(["cleanup", "--host=fire-prod", `--ssh=${ssh}`], makeIo({ stdin: "ignored" }));
+    expect(status).toBe(0);
+    expect(sshArgs()).toEqual(["-T", "--", "fire-prod", "cleanup"]);
+    expect(sshStdin()).toBe("");
+    expect(out.join("")).toBe("remote: out\n");
+  });
+
+  it("passes --keep and --commit in a fixed order, and the port", async () => {
+    const status = await runCli(["cleanup", "--commit", "--host=fire-prod", "--port=2222", `--ssh=${ssh}`, "--keep=02"], makeIo());
+    expect(status).toBe(0);
+    expect(sshArgs()).toEqual(["-T", "-p", "2222", "--", "fire-prod", "cleanup --keep=2 --commit"]);
+  });
+
+  it("ends with the remote status", async () => {
+    expect(await runCli(["cleanup", "--host=fire-prod", `--ssh=${ssh}`], makeIo({ status: 1 }))).toBe(1);
+  });
+
+  it.each([
+    [["cleanup"], "cleanup: --host=<ssh host> is required"],
+    [["cleanup", "--host=fire-prod", "--keep=1"], 'cleanup: --keep is a number from 2 to 50: "1"'],
+    [["cleanup", "--host=fire-prod", "--keep=51"], 'cleanup: --keep is a number from 2 to 50: "51"'],
+    [["cleanup", "--host=fire-prod", "--keep=two"], 'cleanup: --keep is a number from 2 to 50: "two"'],
+    [["cleanup", "--host=fire-prod", "--keep=2", "--keep=3"], "cleanup: --keep is given twice"],
+    [["cleanup", "--host=fire-prod", "--commit", "--commit"], "cleanup: --commit is given twice"],
+    [["cleanup", "--host=fire-prod", "--force"], 'cleanup: unknown argument "--force"; it takes --keep=<n> and --commit'],
+    [["cleanup", "--host=a b"], 'cleanup: --host is not an ssh host or alias: "a b"'],
+  ])("refuses %j with exit 2 before connecting", async (argv, message) => {
+    const status = await runCli([...argv, `--ssh=${ssh}`], makeIo());
+    expect(status).toBe(2);
+    expect(err.join("")).toBe(`${message}\n`);
+    expect(() => readFileSync(join(dir, "ssh-args"))).toThrow();
+  });
+});

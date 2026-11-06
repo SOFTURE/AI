@@ -1,5 +1,5 @@
 // `run` and `report`: an ops script of the live image, or a read-only SQL file, on the server through the forced SSH
-// command of `init`'s deploy.sh (issue #247). Nothing is shipped but the SQL of a report: a script runs from the
+// command of `init`'s deploy.sh (issue #247); `cleanup` frees the server's disk the same way (issue #1171). Nothing is shipped but the SQL of a report: a script runs from the
 // image the release built. ssh runs with an argument list, never a shell; the server splits the command line on
 // blanks and evaluates none of it, so a value with a blank cannot pass and is refused here. `run --local` runs the
 // same script on this machine instead (local-command.ts).
@@ -10,6 +10,7 @@ import { runChild } from "./child-process.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { isLocalRun, OPS_SCRIPT_NAME as SCRIPT_NAME, runLocalScript } from "./local-command.js";
+import { MAX_RELEASE_KEEP, MIN_RELEASE_KEEP } from "../verify/schema.js";
 
 const ARGUMENT = /^--[a-z][a-z0-9-]*(?:=\S*)?$/;
 const HOST = /^[A-Za-z0-9_][A-Za-z0-9_.@:-]*$/;
@@ -36,32 +37,44 @@ interface CommandLine {
 
 const CLIENT_FLAG = /^--(host|port|ssh)=(.*)$/s;
 
-/** Client flags come first; the first other word is the script or file, and the rest belongs to it. */
-function parseCommandLine(command: string, args: readonly string[]): CommandLine {
-  const flags: Partial<Record<"host" | "port" | "ssh", string>> = {};
-  let index = 0;
-  for (; index < args.length; index++) {
-    const arg = args[index] ?? "";
-    if (!arg.startsWith("-")) break;
-    const match = CLIENT_FLAG.exec(arg);
-    const name = match?.[1] as "host" | "port" | "ssh" | undefined;
-    if (name === undefined) fail(`${command}: unknown option "${arg}" before the ${command === "run" ? "script" : "file"}`, USAGE_EXIT_CODE);
-    if (flags[name] !== undefined) fail(`${command}: --${name} is given twice`, USAGE_EXIT_CODE);
-    flags[name] = match?.[2] ?? "";
-  }
-  const target = args[index];
+type ClientFlags = Partial<Record<"host" | "port" | "ssh", string>>;
+
+/** Sets one client flag of a `--host=`, `--port=` or `--ssh=` argument; false when the argument is none of them. */
+function readClientFlag(command: string, arg: string, flags: ClientFlags): boolean {
+  const match = CLIENT_FLAG.exec(arg);
+  const name = match?.[1] as "host" | "port" | "ssh" | undefined;
+  if (name === undefined) return false;
+  if (flags[name] !== undefined) fail(`${command}: --${name} is given twice`, USAGE_EXIT_CODE);
+  flags[name] = match?.[2] ?? "";
+  return true;
+}
+
+/** The connection of the client flags, each checked. */
+function toConnection(command: string, flags: ClientFlags): Connection {
   if (flags.host === undefined) fail(`${command}: --host=<ssh host> is required`, USAGE_EXIT_CODE);
   if (!HOST.test(flags.host)) fail(`${command}: --host is not an ssh host or alias: "${flags.host}"`, USAGE_EXIT_CODE);
   if (flags.port !== undefined && !PORT.test(flags.port)) fail(`${command}: --port is not a port: "${flags.port}"`, USAGE_EXIT_CODE);
   if (flags.ssh === "") fail(`${command}: --ssh needs a program`, USAGE_EXIT_CODE);
+  return { host: flags.host, port: flags.port ?? null, ssh: flags.ssh ?? "ssh" };
+}
+
+/** Client flags come first; the first other word is the script or file, and the rest belongs to it. */
+function parseCommandLine(command: string, args: readonly string[]): CommandLine {
+  const flags: ClientFlags = {};
+  let index = 0;
+  for (; index < args.length; index++) {
+    const arg = args[index] ?? "";
+    if (!arg.startsWith("-")) break;
+    if (!readClientFlag(command, arg, flags)) {
+      fail(`${command}: unknown option "${arg}" before the ${command === "run" ? "script" : "file"}`, USAGE_EXIT_CODE);
+    }
+  }
+  const target = args[index];
+  const connection = toConnection(command, flags);
   if (target === undefined) {
     fail(`${command}: ${command === "run" ? "the ops script name" : "the SQL file"} is missing`, USAGE_EXIT_CODE);
   }
-  return {
-    connection: { host: flags.host, port: flags.port ?? null, ssh: flags.ssh ?? "ssh" },
-    target,
-    rest: args.slice(index + 1),
-  };
+  return { connection, target, rest: args.slice(index + 1) };
 }
 
 function checkArguments(command: string, args: readonly string[]): void {
@@ -135,4 +148,37 @@ export async function runRemoteReport(args: string[], io: CliIo): Promise<number
   const sql = await readLocalFile("report", line.target, io);
   if (sql.length === 0) fail(`report: ${line.target} is empty`);
   return runSsh(line.connection, ["report", ...line.rest], Readable.from([sql]), io);
+}
+
+const KEEP_FLAG = /^--keep=(.*)$/s;
+
+/**
+ * `cleanup --host=<ssh host> [--port=<n>] [--ssh=ssh] [--keep=<n>] [--commit]`: the server's cleanup of this app's old
+ * releases and images, the old tools images, dangling images and build cache; a dry run that names what would go and
+ * the bytes it frees unless `--commit`. `--keep` (2 to 50) overrides `releases.keep` of the installed deploy.json.
+ */
+export async function runRemoteCleanup(args: string[], io: CliIo): Promise<number> {
+  const flags: ClientFlags = {};
+  let keep: string | undefined;
+  let isCommit = false;
+  for (const arg of args) {
+    if (readClientFlag("cleanup", arg, flags)) continue;
+    if (arg === "--commit") {
+      if (isCommit) fail("cleanup: --commit is given twice", USAGE_EXIT_CODE);
+      isCommit = true;
+      continue;
+    }
+    const keepValue = KEEP_FLAG.exec(arg)?.[1];
+    if (keepValue === undefined) fail(`cleanup: unknown argument "${arg}"; it takes --keep=<n> and --commit`, USAGE_EXIT_CODE);
+    if (keep !== undefined) fail("cleanup: --keep is given twice", USAGE_EXIT_CODE);
+    const count = /^[0-9]{1,3}$/.test(keepValue) ? Number(keepValue) : Number.NaN;
+    if (!(count >= MIN_RELEASE_KEEP && count <= MAX_RELEASE_KEEP)) {
+      fail(`cleanup: --keep is a number from ${String(MIN_RELEASE_KEEP)} to ${String(MAX_RELEASE_KEEP)}: "${keepValue}"`, USAGE_EXIT_CODE);
+    }
+    keep = String(count);
+  }
+  const connection = toConnection("cleanup", flags);
+  const remote = ["cleanup", ...(keep === undefined ? [] : [`--keep=${keep}`]), ...(isCommit ? ["--commit"] : [])];
+  // Nothing travels on stdin: the server reads none, and ssh gets an empty one rather than the terminal.
+  return runSsh(connection, remote, Readable.from([]), io);
 }

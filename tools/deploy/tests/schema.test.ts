@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { renderDeployJsonSchema, SCHEMA_FILE } from "../scripts/write-schema.js";
-import { DEPLOY_SCHEMA_URL } from "../src/verify/schema.js";
+import { DEFAULT_RELEASE_KEEP, DEPLOY_SCHEMA_URL, parseDeployConfig } from "../src/verify/schema.js";
 
 function isSchemaObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -37,5 +37,32 @@ describe("schema/deploy.schema.json", () => {
 
   it("describes every key an app writes", () => {
     expect(findUndescribedKeys(JSON.parse(readFileSync(SCHEMA_FILE, "utf8")))).toEqual([]);
+  });
+});
+
+describe("releases.keep in deploy.json (issue #1171)", () => {
+  it("defaults to 5 and accepts 2 to 50", () => {
+    expect(DEFAULT_RELEASE_KEEP).toBe(5);
+    const parsed = parseDeployConfig({ releases: {} });
+    expect(parsed.ok && parsed.config.releases?.keep).toBe(5);
+    for (const keep of [2, 5, 50]) {
+      const result = parseDeployConfig({ releases: { keep } });
+      expect(result.ok && result.config.releases?.keep, String(keep)).toBe(keep);
+    }
+  });
+
+  it.each([[1], [0], [-3], [51], [2.5], ["2"], [null]])("refuses keep %j", (keep) => {
+    const parsed = parseDeployConfig({ releases: { keep } });
+    expect(parsed.ok).toBe(false);
+    expect(parsed.ok ? [] : parsed.issues[0]).toMatch(/^releases\.keep: /);
+  });
+
+  it("refuses an unknown key next to keep", () => {
+    expect(parseDeployConfig({ releases: { keep: 2, max: 3 } }).ok).toBe(false);
+  });
+
+  it("is in the published JSON schema with its bounds and default", () => {
+    const schema = JSON.parse(readFileSync(SCHEMA_FILE, "utf8")) as { properties: { releases: { properties: { keep: Record<string, unknown> } } } };
+    expect(schema.properties.releases.properties.keep).toMatchObject({ type: "integer", minimum: 2, maximum: 50, default: 5 });
   });
 });

@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { DEFAULT_APP_LEDGER } from "../db/snapshot-query.js";
-import type { DeployConfig, DeployHook, MaintainHook } from "../verify/schema.js";
+import { DEFAULT_RELEASE_KEEP, type DeployConfig, type DeployHook, type MaintainHook } from "../verify/schema.js";
 import { readDeployConfig } from "./deploy-config.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
@@ -30,7 +30,7 @@ export function getVerifyTables(database: DeployConfig["database"]): string | un
 }
 
 /**
- * The files `server-settings` writes: `access`, `app-journal`, `app-ledger`, `exclude-table-data` (comma list),
+ * The files `server-settings` writes: `release-keep` (releases.keep), `access`, `app-journal`, `app-ledger`, `exclude-table-data` (comma list),
  * `verify-backup` (weekly, daily or never), `verify-tables` (comma list of `getVerifyTables`), one
  * `hooks-<point>` per point (records of `toHookRecord`; a scheduled maintain hook is left out), `cron` (name and
  * schedule of each scheduled maintain hook, NUL-separated), `scheduled-<name>` (that hook's record) and
@@ -44,6 +44,7 @@ export function planServerSettings(config: DeployConfig): ServerSettingsFiles {
   const scheduled = maintain.filter((hook) => hook.schedule !== undefined);
   const line = (value: string | undefined): string => (value === undefined ? "" : `${value}\n`);
   return {
+    "release-keep": line(String(config.releases?.keep ?? DEFAULT_RELEASE_KEEP)),
     access: line(database?.access ?? "host"),
     "app-journal": line(database?.appMigrations?.journal),
     "app-ledger": line(database?.appMigrations === undefined ? undefined : (database.appMigrations.ledger ?? DEFAULT_APP_LEDGER)),
@@ -61,7 +62,7 @@ export function planServerSettings(config: DeployConfig): ServerSettingsFiles {
 
 /**
  * `softure-deploy server-settings --config=<deploy.json> --out-dir=<dir>`: validates the release's deploy.json and
- * writes what init's deploy.sh reads from it (database access, the app ledger, backup exclusions and verification, hooks,
+ * writes what init's deploy.sh reads from it (release retention, database access, the app ledger, backup exclusions and verification, hooks,
  * cron lines).
  */
 export function runServerSettings(args: string[], io: CliIo): void {
@@ -78,5 +79,5 @@ export function runServerSettings(args: string[], io: CliIo): void {
   mkdirSync(dir, { recursive: true });
   for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text);
   const hooks = HOOK_POINTS.map((point) => `${point} ${(config.hooks?.[point] ?? []).length}`).join(", ");
-  io.stdout(`server-settings: access ${config.database?.access ?? "host"}; hooks ${hooks}\n`);
+  io.stdout(`server-settings: keep ${files["release-keep"]?.trim() ?? ""} releases; access ${config.database?.access ?? "host"}; hooks ${hooks}\n`);
 }

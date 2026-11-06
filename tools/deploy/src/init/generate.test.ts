@@ -265,7 +265,7 @@ describe("planInitFiles", () => {
       expect(script).toContain('WORKER_IMAGE="ghcr.io/acme/app-worker"');
       expect(script).toContain('DOCKER_CONFIG="$work/docker-config" docker pull --quiet "$WORKER_IMAGE:$TAG" > /dev/null || fail "cannot pull $WORKER_IMAGE:$TAG."');
       expect(script).toContain('  docker pull --quiet "$WORKER_IMAGE:$TAG" > /dev/null || fail "cannot pull $WORKER_IMAGE:$TAG."');
-      expect(script).toContain('if docker image rm "$WORKER_IMAGE:$image_tag" > /dev/null 2>&1; then removed=$((removed + 1)); fi');
+      expect(script).toContain('  select_tags "$WORKER_IMAGE" "$stays"');
     });
 
     it("changes nothing without the flags, and no worker image without the worker part", () => {

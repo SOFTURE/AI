@@ -4,6 +4,27 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.6.0
+
+- **Configurable release retention and an on-demand server cleanup (#1171):** `deploy.json` takes `releases.keep`
+  (default 5, from 2 to 50), which `init` now writes; a release removes the release folders beyond it once its settings
+  are read (the previous tag's always stays), instead of a fixed 5 before them. The new forced command
+  `cleanup [--keep=<n>] [--commit]`, sent by `softure-deploy cleanup --host=<ssh host>`, is a dry run unless
+  `--commit`: it names and sizes the release folders and this app's (and its worker's) image tags beyond the newest
+  `<n>`, the `softure-deploy-tools` images other than the script's, dangling images and build cache older than 24
+  hours, and reports `df` and `docker system df` before and after (`step|disk-before|…`, `step|disk-after|…`). The live
+  tag, the rollback target and every image a container uses stay; another project's images, containers and volumes
+  are never touched. The daily `maintain` runs the same steps with `--commit`: its `images` step now reads
+  `removed <n>, about <bytes> bytes`, followed by `releases`, `tools-images`, `dangling` and `build-cache` lines, and the
+  dangling images it removes are those older than 24 hours.
+- An existing app re-runs `init --force` for `docker/server/deploy.sh` (or copies it from a fresh `init` in a scratch
+  folder), adds `"releases": { "keep": <n> }` to `deploy.json` when 5 is too many, and commits both; the next release
+  installs the script on the server. Without `releases` in `deploy.json`, nothing changes but the cleanup steps. An app
+  without a database whose `deploy.json` has `releases` but no hooks now runs the CLI at the `settings` step (`npx`,
+  or the helper image on a host without Node).
+- Hook names `plan`, `disk-before`, `releases`, `tools-images`, `dangling`, `build-cache` and `disk-after` are taken by
+  these steps; a `deploy.json` hook with one of them is refused.
+
 ## 0.5.1
 
 - **The first release passes with `data.backupPaths` on a new data volume (#1001):** `deploy.sh` no longer fails the
