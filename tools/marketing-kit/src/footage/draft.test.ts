@@ -576,7 +576,7 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     if (!played.ok) throw new Error(played.error);
     expect(played.value.music).toBe("played");
     const gone = await renderFootageDraft(withFile(join(dir, "gone.mp3")), clips, transcript, shortCut, run);
-    expect(gone).toEqual({ ok: false, error: `music: no file at ${join(dir, "gone.mp3")}` });
+    expect(gone).toEqual({ ok: false, error: `music: no file at ${join(dir, "gone.mp3")}`, failure: { kind: "input" } });
   }, 60_000);
 });
 

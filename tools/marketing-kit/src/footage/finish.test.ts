@@ -204,6 +204,11 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(error).toMatch(
       /^the film's mix still measures -?\d+\.\d LUFS integrated, [+-]?\d+\.\d dBTP true peak after 4 encodes \(last: gain [+-]?\d+\.\d dB, limiter at -\d+\.\d dBTP\): (.+; )?integrated -?\d+\.\d LUFS, outside -5\.0 ± 1 LUFS\.$/,
     );
+    // A gate miss names its kind and the last measurement, so an app offers no retry (issue #1126).
+    const failure = result.ok ? null : result.failure;
+    expect(failure?.kind).toBe("loudness");
+    const measured = failure?.kind === "loudness" ? failure.loudness : null;
+    expect(error).toContain(`still measures ${(measured?.integrated ?? Number.NaN).toFixed(1)} LUFS integrated`);
     expect(existsSync(output)).toBe(false);
     expect(existsSync(join(dir, "mix.m4a"))).toBe(false);
     expect(lines.some((line) => line.startsWith("finish:"))).toBe(false);
@@ -375,6 +380,9 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(lines).toContain(`loudness warning: ${warned.value.loudness?.warning ?? ""}`);
     const failed = await finishNear(strict);
     expect(failed.ok ? "" : failed.error).toMatch(/: integrated -1[345]\.\d LUFS, outside -12\.5 ± 0\.2 LUFS\.$/);
+    const failure = failed.ok ? null : failed.failure;
+    expect(failure?.kind).toBe("loudness");
+    expect(failure?.kind === "loudness" ? failure.loudness?.integrated : null).toBeLessThan(-12.5 - 0.2);
   });
 
   it("mixes a film's sound before the frames: a mix that misses fails without a render, one that meets gives the encoded sound (issue #1124)", async () => {
@@ -382,6 +390,7 @@ describe.runIf(hasFfmpeg)("finishFootage with ffmpeg (issue #1031)", () => {
     expect(spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", getClickySpeech(0.75, 6), "-c:a", "pcm_f32le", source]).status).toBe(0);
     const failed = await mixFootage({ target: -5, truePeak: -9, attempts: 1 }, { mixSource: source, output: join(dir, "mix.m4a") }, { log: (line) => lines.push(line) });
     expect(failed.ok).toBe(false);
+    expect(failed.ok ? null : failed.failure.kind).toBe("loudness");
     expect(existsSync(join(dir, "mix.m4a"))).toBe(false);
     const prepared = await mixFootage(KEEP_SPEECH, { mixSource: source, output: join(dir, "mix.m4a") }, { log: (line) => lines.push(line) });
     if (!prepared.ok || prepared.value === null) throw new Error(prepared.ok ? "a silent mix" : prepared.error);

@@ -8,12 +8,13 @@ import type { BrandFont } from "../config/config.js";
 import type { SfxEvent } from "../config/schema.js";
 import { getHyperframesBin, getHyperframesEnv } from "../render/hyperframes.js";
 import { copyFonts } from "../render/render.js";
-import { err, ok, type TtsResult } from "../voice/provider.js";
+import type { TtsResult } from "../voice/provider.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { checkMusicFileType, describeAudioProbe, probeAudio } from "./audio.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, END_CARD_SECONDS, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
 import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
+import { err, ok, type FootageResult } from "./failure.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
 import { buildEdl, getEdlDuration, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
 import { makePlaceholderTranscript } from "./fake.js";
@@ -101,6 +102,8 @@ const require = createRequire(import.meta.url);
 /** Bumped when the normalized format changes, so older normalized clips are made again. */
 const NORMALIZE_VERSION = 2;
 
+export type { FootageResult } from "./failure.js";
+
 export interface FootageBrand {
   name: string;
   /** BCP 47, e.g. `en-US`. */
@@ -151,7 +154,6 @@ export interface PreparedClip {
   duration: number;
 }
 
-export type FootageResult<T> = TtsResult<T>;
 
 export type TranscribeOutcome =
   | { kind: "dry-run"; steps: PaidStep[] }
@@ -229,23 +231,23 @@ async function runPrepareFootage(
   options: Pick<FootageRunOptions, "buildDir" | "log" | "fetch" | "signal" | "onProgress" | "normalize">,
 ): Promise<FootageResult<PreparedClip[]>> {
   const { buildDir, log, signal } = options;
-  if (film.clips.length === 0) return err(`footage film ${film.id} has no clips.`);
+  if (film.clips.length === 0) return err(`footage film ${film.id} has no clips.`, { kind: "input" });
   const sources: Record<string, string> = {};
   for (const clip of film.clips) {
     if (!isUrl(clip.source)) {
-      if (!existsSync(clip.source)) return err(`clip "${clip.id}": no file at ${clip.source}`);
+      if (!existsSync(clip.source)) return err(`clip "${clip.id}": no file at ${clip.source}`, { kind: "input" });
       sources[clip.id] = clip.source;
       continue;
     }
     const downloaded = await download(clip.source, join(buildDir, "sources"), options);
-    if (!downloaded.ok) return err(`clip "${clip.id}": ${downloaded.error}`);
+    if (!downloaded.ok) return err(`clip "${clip.id}": ${downloaded.error}`, downloaded.failure);
     sources[clip.id] = downloaded.value;
   }
   const probed = await probeFootage(film.clips, sources, signal === undefined ? {} : { signal });
   if (!probed.ok) return err(probed.errors.join("\n"));
   if (film.music.source.kind === "file") {
     const music = await checkMusicFile(film.music.source, options);
-    if (!music.ok) return err(music.error);
+    if (!music.ok) return music;
   }
   const frame = getFrame(film);
   const clipsDir = join(buildDir, "clips");
@@ -322,7 +324,7 @@ async function runTranscribeFootage(film: FootageFilm, clips: PreparedClip[], op
   const { buildDir, providers, log, signal } = options;
   if (options.isPlaceholder) return ok(transcribePlaceholder(film, clips, buildDir));
   const keyTerms = getFilmKeyTerms(film);
-  if (!keyTerms.ok) return err(`footage film ${film.id}: ${keyTerms.errors.join(" ")}`);
+  if (!keyTerms.ok) return err(`footage film ${film.id}: ${keyTerms.errors.join(" ")}`, { kind: "input" });
   const sttKeyTerms = keyTerms.terms.length === 0 ? {} : { keyTerms: keyTerms.terms };
   const plan: { clip: PreparedClip; isolated: CacheEntry | null; transcript: CacheEntry }[] = [];
   const steps: PaidStep[] = [];
@@ -502,13 +504,13 @@ export function readEdlFile(film: FootageFilm, clips: PreparedClip[], edlPath: s
   try {
     json = JSON.parse(readFileSync(edlPath, "utf8")) as unknown;
   } catch (error) {
-    return err(`${edlPath}: not JSON (${String(error)})`);
+    return err(`${edlPath}: not JSON (${String(error)})`, { kind: "input" });
   }
   const read = readEdl(json);
-  if (!read.ok) return err(`${edlPath}: ${read.error}`);
+  if (!read.ok) return err(`${edlPath}: ${read.error}`, { kind: "input" });
   const bounds = getCaptionBounds(getFrame(film).height, getFootageCaptionLayout(film, layout));
   const problems = validateEdl(read.edl, clips.map((clip) => ({ id: clip.clip.id, duration: clip.duration })), film.id, bounds);
-  return problems.length > 0 ? err(`${edlPath}: ${problems.join("; ")}`) : ok(read.edl);
+  return problems.length > 0 ? err(`${edlPath}: ${problems.join("; ")}`, { kind: "input" }) : ok(read.edl);
 }
 
 /**
@@ -518,16 +520,16 @@ export function readEdlFile(film: FootageFilm, clips: PreparedClip[], edlPath: s
  */
 async function checkMusicFile(source: Extract<MusicSource, { kind: "file" }>, options: Pick<FootageRunOptions, "log" | "signal">): Promise<FootageResult<string>> {
   const { path, fileName, contentType } = source;
-  if (!existsSync(path)) return err(`music: no file at ${path}`);
+  if (!existsSync(path)) return err(`music: no file at ${path}`, { kind: "input" });
   const name = fileName ?? path;
   if (extname(name) === "" && contentType === undefined) {
     options.log(`music: ${path} has no extension and no declared name or content type; the probe checks it.`);
   } else {
     const type = checkMusicFileType(contentType === undefined ? { fileName: name } : { fileName: name, contentType });
-    if (!type.ok) return err(`music: ${type.error}`);
+    if (!type.ok) return err(`music: ${type.error}`, { kind: "input" });
   }
   const probe = await probeAudio(path, options.signal === undefined ? {} : { signal: options.signal });
-  if (!probe.ok) return err(`music: ${probe.error}`);
+  if (!probe.ok) return err(`music: ${probe.error}`, { kind: "input" });
   options.log(`music: ${path} (${describeAudioProbe(probe.probe)}).`);
   return ok(path);
 }
@@ -552,7 +554,7 @@ export async function findFootageMusic(
 ): Promise<FootageResult<FootageMusicLookup>> {
   const source = film.music.source;
   if (source.kind === "none") return ok({ kind: "none" });
-  if (source.kind === "file") return existsSync(source.path) ? ok({ kind: "file", path: source.path }) : err(`music: no file at ${source.path}`);
+  if (source.kind === "file") return existsSync(source.path) ? ok({ kind: "file", path: source.path }) : err(`music: no file at ${source.path}`, { kind: "input" });
   let cache: CacheEntry;
   if (source.kind === "prompt") {
     cache = getPromptMusicCache(film, options);
@@ -695,7 +697,7 @@ async function runRenderFootage(
 ): Promise<FootageResult<RenderedFootage>> {
   const { buildDir, log, signal } = options;
   const finishVideoProblems = options.finishVideo === undefined ? [] : findFinishVideoProblems(options.finishVideo);
-  if (finishVideoProblems.length > 0) return err(finishVideoProblems.join(" "));
+  if (finishVideoProblems.length > 0) return err(finishVideoProblems.join(" "), { kind: "input" });
   const lowDisk = findLowDiskProblems({ temp: getRenderTempDir(process.env, options.tempDir), build: buildDir }, options.readFreeBytes ?? getFreeBytes);
   if (lowDisk.length > 0) return err(`not enough disk space to render: ${lowDisk.join(" ")}`);
   const seconds = getFootageFilmSeconds(film, edl);
@@ -759,7 +761,8 @@ async function runRenderFootage(
   }
   // The film's mix, brought to `mixLoudness` and gated before hyperframes captures a frame (issue #1124).
   const mixLoudness = getMixLoudnessTarget(film);
-  let mixed: FootageResult<PreparedMix | null> = ok(null);
+  // Widened: the mix track assigns it inside a closure, which narrowing does not see.
+  let mixed = ok(null) as FootageResult<PreparedMix | null>;
   if (mixLoudness !== null) {
     const mixSource = join(buildDir, "mix.wav");
     const musicTrack = musicFile === null ? null : { file: join(assetsDir, "music.mp3"), seconds };
@@ -809,7 +812,7 @@ async function runRenderFootage(
     brandName: options.brand.name,
   });
   if (missing.length > 0) {
-    return err(`the brand fonts cannot draw every letter of the film: ${missing.map((entry) => `${entry.font} lacks ${entry.characters.join(" ")}`).join("; ")}. Add a font file that covers them (brand.fonts).`);
+    return err(`the brand fonts cannot draw every letter of the film: ${missing.map((entry) => `${entry.font} lacks ${entry.characters.join(" ")}`).join("; ")}. Add a font file that covers them (brand.fonts).`, { kind: "input" });
   }
   const html = composeFootage({
     film,
@@ -964,7 +967,7 @@ export async function finishFootage(
   const finished = await probeFilmFacts(output, aborting);
   if (!finished.ok) return err(`the finished film: ${finished.error}`);
   const problems = findFinishProblems(finished.facts, readTopLevelBoxes(output));
-  if (problems.length > 0) return err(`the finished film ${output} is not publishable: ${problems.join("; ")}.`);
+  if (problems.length > 0) return err(`the finished film ${output} is not publishable: ${problems.join("; ")}.`, { kind: "publishable", problems });
   let loudness: FinishedLoudness | null = null;
   if (finished.facts.audio !== null) {
     const measured = await measureLoudness(output, mixLoudness ?? DEFAULT_LOUDNESS, { label: "the finished film", ...aborting });
@@ -972,7 +975,7 @@ export async function finishFootage(
       const sound = { integrated: measured.measurement.inputI, truePeak: measured.measurement.inputTp };
       // A mix left as rendered (`mixLoudness: null`) or silent is reported, not held to a target it was not brought to.
       const verdict = mixLoudness === null || audioFile === undefined ? { kind: "pass" as const } : getLoudnessVerdict(sound, mixLoudness);
-      if (verdict.kind === "fail") return err(`the finished film ${output} measures ${describeMixLoudness(sound)}: ${verdict.problems.join("; ")}.`);
+      if (verdict.kind === "fail") return err(`the finished film ${output} measures ${describeMixLoudness(sound)}: ${verdict.problems.join("; ")}.`, { kind: "loudness", loudness: sound });
       loudness = { ...sound, warning: verdict.kind === "warn" ? `the finished film ${output}: ${verdict.warning}` : null };
       log(`loudness: the finished film measures ${formatDb(sound.integrated)} LUFS, true peak ${formatDb(sound.truePeak)} dBTP.`);
       if (loudness.warning !== null) log(`loudness warning: ${loudness.warning}`);
@@ -1024,7 +1027,7 @@ async function finishMix(input: {
     const attempt = solved.best.attempt;
     await runFfmpeg("The film's mix", buildMixArgs({ input: input.input, filter: getMixFilter(attempt), output: input.output }), { ...aborting, output: input.output });
     const encoded = await measureLoudness(input.output, input.target, { label: "the film's encoded mix", ...aborting });
-    if (encoded.kind === "silent") return err("the film's mix measures silent after its gain and limiter.");
+    if (encoded.kind === "silent") return err("the film's mix measures silent after its gain and limiter.", { kind: "loudness", loudness: null });
     const measured = { integrated: encoded.measurement.inputI, truePeak: encoded.measurement.inputTp };
     const verdict = getLoudnessVerdict(measured, input.target);
     if (verdict.kind === "pass" || (verdict.kind === "warn" && tries === attempts)) return ok({ attempt, tries, probes, measured });
@@ -1032,13 +1035,14 @@ async function finishMix(input: {
       return err(
         `the film's mix still measures ${describeMixLoudness(measured)} after ${attempts} encodes (last: gain ${formatDb(attempt.gainDb)} dB, ` +
           `limiter at ${formatDb(attempt.ceilingDbtp)} dBTP): ${verdict.kind === "fail" ? verdict.problems.join("; ") : ""}.`,
+        { kind: "loudness", loudness: measured },
       );
     }
     shift = Number.isFinite(solved.best.measured.integrated) ? measured.integrated - solved.best.measured.integrated : 0;
     ceilingDbtp = getNextMixCeiling(attempt.ceilingDbtp, measured, input.target);
     startGainDb = attempt.gainDb;
   }
-  return err(`the film's mix was not encoded: mixLoudness.attempts is ${attempts}.`);
+  return err(`the film's mix was not encoded: mixLoudness.attempts is ${attempts}.`, { kind: "input" });
 }
 
 /** Both measurements of a mix, as an error names them. */

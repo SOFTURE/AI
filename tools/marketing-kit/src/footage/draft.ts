@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import type { CaptionLayout, LayoutOverride } from "../compose/timeline.js";
 import type { BrandColors } from "../config/colors.js";
-import { err, ok } from "../voice/provider.js";
+import { err, ok } from "./failure.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, isSameCaptionPlace, type CaptionWordsFilm } from "./captions.js";
 import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
@@ -465,7 +465,7 @@ type DraftMusicSource = { kind: "file"; path: string } | { kind: "none" } | { ki
 async function findDraftMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[], options: RenderFootageDraftOptions): Promise<FootageResult<DraftMusicSource>> {
   const source = film.music.source;
   if (source.kind === "none") return ok({ kind: "none" });
-  if (source.kind === "file") return existsSync(source.path) ? ok({ kind: "file", path: source.path }) : err(`music: no file at ${source.path}`);
+  if (source.kind === "file") return existsSync(source.path) ? ok({ kind: "file", path: source.path }) : err(`music: no file at ${source.path}`, { kind: "input" });
   const { cacheDir, providers } = options;
   if (cacheDir === undefined || providers === undefined) {
     return ok({ kind: "not_cached", reason: "the film's music is generated and the draft was given no cacheDir and providers to find it in the cache" });

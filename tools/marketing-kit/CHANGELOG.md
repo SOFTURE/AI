@@ -6,6 +6,17 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Footage failures name their kind (#1126):** a failed `FootageResult` (`renderFootage`, `finishFootage`,
+  `renderFootageFilm`, `prepareFootage`, `renderFootageDraft`, …) carries `failure` next to `error`, so an app can
+  tell a gate miss from a failure worth retrying without reading the sentence:
+  - `{ kind: "loudness", loudness }`: the film's mix or the finished film misses `mixLoudness`; `loudness` is the
+    last measurement (`{ integrated, truePeak }`), null when the mix measures silent after its gain and limiter;
+  - `{ kind: "publishable", problems }`: the finished file fails the container, profile or fast start checks;
+  - `{ kind: "input" }`: the film, its EDL, fonts, files or settings cannot be used as given;
+  - `{ kind: "process" }`: anything else (a process that exited, the network, the disk).
+  `isRetryableFootageFailure(failure)` is true for `process` only. `error` keeps its sentences. A failed ffmpeg step
+  still throws and an abort still rejects with the signal's reason. Code that builds a footage failure itself now
+  needs `failure`.
 - **`isolateSpeechRanges` keeps going past a refused range (#1127):** one refused range no longer throws away every
   range already bought in the call.
   - A refused range is asked again: `retry: { attempts, delaysMs, wait }` (default 3 attempts after 1 s and 2 s), the
