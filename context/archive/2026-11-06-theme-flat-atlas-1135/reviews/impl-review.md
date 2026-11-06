@@ -15,3 +15,7 @@ Verdict: approved.
 - Left for later, as the plan decided: count-up and paint-in decorations, an alpha-2 to numeric table, scroll start
   on a region (README says how), a visual regression suite like theme-notion's.
 - Release: nothing published; the README links the first-publish runbook (token once, then the trusted publisher).
+- Second pass (owner asked for an audit before handover): the full suite in the pre-push hook found the release
+  plan's package count (`tests/repo/release-tags.test.ts`, 34 → 35), fixed; `tests/repo/deploy-workflows.test.ts`
+  failed only for a missing `ssh-keygen` in the container, green after installing it. Also aligned the CHANGELOG
+  preamble with the other themes and the postmark's 5 px gap with the component sheet.
