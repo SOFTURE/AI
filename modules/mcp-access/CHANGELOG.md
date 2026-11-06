@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- **`get_server_info` speaks the app's language (#1117):** `serverInfoTool` (and `registerServerInfoTool`) takes
+  `config`, the app's config; the tool description, the `name` input description and the `toolsHint` /
+  `unknownToolHint` answers then come from `serverInfoTool` of the app's messages in its locale, with the app's
+  overrides. Without `config` they stay English, as before. Migrate: to serve the translations, pass
+  `serverInfoTool: { ..., config }`; a translated description changes the tool list version once.
+
 ## 0.7.0
 
 - The served tool contract in `get_server_info` (#1078): `serverInfoTool: { tools: true }` makes the tool answer each
@@ -11,7 +19,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   them (the measured list the version comes from), with a `toolsHint` that the server's copy is current. An optional
   `name` input narrows it to one tool; an unknown name answers `toolNames`. A hosted client never caches a tool result,
   so a model on a stale tool list reads the current one in-band. `registerServerInfoTool` takes `tools` with
-  `servedTools` for a hand-built server. Migrate: nothing (off by default; turning it on changes the version once).
+  `servedTools` for a hand-built server. Migrate: an app whose own dictionary is typed as `McpAccessMessages` adds
+  four keys to `serverInfoTool`: `descriptionWithTools`, `nameInputDescription`, `toolsHint` and `unknownToolHint`
+  (#1117; an app that passes partial overrides gets the English ones). The tool is off by default; turning it on
+  changes the version once.
 
 ## 0.6.0
 

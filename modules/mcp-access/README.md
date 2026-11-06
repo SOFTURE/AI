@@ -327,8 +327,10 @@ export const createServer = createMcpServerFactory({
 - The app passes the reader, so `/server` never loads `@softure-ai/ops`; `McpBuildInfo` is its `BuildInfo` by shape.
 - `changelog` appears only with a provider; a provider that fails answers `changelog: null` and logs the error
   class, as the route does. A failing `buildInfo` answers a tool error.
-- The tool is part of the measured list, so turning it on changes the version once. The description comes from
-  `serverInfoTool.description` of the dictionary, or `description` in the options.
+- The tool is part of the measured list, so turning it on changes the version once. Its texts (the description,
+  with `tools: true` also `descriptionWithTools`, `nameInputDescription`, `toolsHint` and `unknownToolHint`) come
+  from `serverInfoTool` of the messages: pass `config` (the app's config) to use its locale and overrides, otherwise
+  they are English. `description` in the options wins over the dictionary.
 - A hand-built server registers it with `registerServerInfoTool(server, { buildInfo, server: { name, version } })`,
   passing the name and version it serves.
 
