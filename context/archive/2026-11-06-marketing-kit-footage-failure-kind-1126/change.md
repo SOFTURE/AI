@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-footage-failure-kind-1126
 title: "marketing-kit: footage failures carry a machine-readable kind (issue #1126)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1126
 branch: claude/project-thread-vq50wu
 created: 2026-11-06
 updated: 2026-11-06
+archived_at: 2026-11-06
 ---
 
 ## Intent
@@ -36,3 +37,9 @@ changes here). No version bump here: the fix joins the next combined marketing-k
 ## Notes
 
 - Framing: skipped. The issue names the need and the shape.
+
+## Done
+
+A failed footage result carries `failure` (`loudness` with the last measurement, `publishable` with the problems,
+`input`, `process`) next to `error`; `isRetryableFootageFailure` is true for `process` only. PR #1133. Ships in the
+next combined marketing-kit release.

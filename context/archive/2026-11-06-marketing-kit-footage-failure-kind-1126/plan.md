@@ -1,6 +1,6 @@
 ---
 change_id: marketing-kit-footage-failure-kind-1126
-status: done
+status: archived
 ---
 
 # Plan: footage failure kinds (issue #1126)
