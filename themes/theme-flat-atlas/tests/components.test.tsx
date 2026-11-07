@@ -146,11 +146,12 @@ describe("MapPin", () => {
     expect(markup).toContain("bg-place");
   });
 
-  it("shows the flag of a selected pin above the other pins and draws a planned one in passport blue", () => {
+  it("shows the flag of a selected pin above the other pins and draws a planned one as a solid passport-blue dot", () => {
     const markup = renderToStaticMarkup(<MapPin x={1} y={2} label="Bangkok, planned" status="planned" tag={{ name: "Bangkok" }} isSelected />);
     expect(markup).toContain('aria-expanded="true"');
     expect(getClasses(markup, "map-pin-tag")).toContain("opacity-100");
-    expect(markup).toContain("border-pin-stroke bg-planned");
+    expect(markup).toContain("border-planned bg-planned");
+    expect(markup).not.toContain("border-pin-stroke");
     expect(getClasses(markup, "map-pin")).toContain("z-10");
     expect(markup).not.toContain("<small");
   });
@@ -159,6 +160,15 @@ describe("MapPin", () => {
     const markup = renderToStaticMarkup(<MapPinCluster x={50} y={25} count={5} label="5 places in Europe" />);
     expect(markup).toContain('aria-label="5 places in Europe"');
     expect(markup).toContain(">5</span>");
+    expect(markup).toContain("bg-accent-fill");
+    expect(markup).not.toContain("bg-planned");
+  });
+
+  it("paints a cluster of planned places in passport blue", () => {
+    const markup = renderToStaticMarkup(<MapPinCluster x={50} y={25} count={3} label="3 planned places" status="planned" />);
+    expect(markup).toContain('data-status="planned"');
+    expect(markup).toContain("bg-planned");
+    expect(markup).not.toContain("bg-accent-fill");
   });
 });
 
@@ -252,6 +262,11 @@ describe("WorldMap", () => {
     expect(getClasses(fitted, "world-map")).toEqual(expect.arrayContaining(["grid", "h-full", "[container-type:size]"]));
     expect(fitted).toMatch(/class="relative min-w-map-min m-auto w-\[min\(100cqw,200cqh\)\]"/);
     expect(markup).not.toContain("data-fitted");
+  });
+
+  it("fills the box's height as well when fitted to cover, scrolling sideways", () => {
+    const covered = renderToStaticMarkup(<WorldMap label="map" countries={{}} isFitted fit="cover" />);
+    expect(covered).toMatch(/class="relative min-w-map-min m-auto w-\[max\(100cqw,200cqh\)\]"/);
   });
 
   it("draws planned countries after every other country, so no neighbour covers their outline", () => {
