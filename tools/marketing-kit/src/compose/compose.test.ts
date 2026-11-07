@@ -324,3 +324,20 @@ describe("composeFilm", () => {
     expect(() => composeFilm({ ...input, log: { ...log, marks: {} } })).toThrow(/No mark "m"/);
   });
 });
+
+describe("composeFilm with a remote asset", () => {
+  it("refuses a recording given as an https URL, so hyperframes never downloads anything", () => {
+    expect(() => composeFilm({ ...input, assets: { ...assets, screen: "https://cdn.example.com/s.mp4" } })).toThrow(
+      'The composition names a remote file (https://cdn.example.com/s.mp4); every asset must be a local file in the build folder.',
+    );
+  });
+
+  it("refuses a protocol-relative logo", () => {
+    expect(() => composeFilm({ ...input, assets: { ...assets, logo: "//cdn.example.com/logo.svg" } })).toThrow(/remote file \(\/\/cdn\.example\.com\/logo\.svg\)/);
+  });
+
+  it("refuses a font face served from a URL", () => {
+    const fonts: ComposeInput["fonts"] = { heading: { family: "Brand", fallback: "sans-serif", faces: [{ src: "https://fonts.gstatic.com/brand.woff2", weight: "700", style: "normal", unicodeRange: null }] }, body: null };
+    expect(() => composeFilm({ ...input, fonts })).toThrow(/remote file \(https:\/\/fonts\.gstatic\.com\/brand\.woff2\)/);
+  });
+});

@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **A composition never names a remote file (#1191):** `composeFilm` and `composeFootage` throw when an asset is an
+  `http(s)://` or protocol-relative address (`assertLocalReferences`), instead of letting hyperframes download it at
+  render time. hyperframes' download helper is its only use of the `undici` it pins, so the `npm audit` finding on
+  that `undici` stays unreachable. Every composition the kit builds itself is unchanged: its assets were already
+  local. The README's "npm audit" section says why each audit finding does not apply.
+
 ## 0.21.0
 
 - **The photo cover can carry the brand accent (#1188):** `renderPhotoCover({ accent: true })` sets the kicker of

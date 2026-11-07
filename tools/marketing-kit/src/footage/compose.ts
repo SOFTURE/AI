@@ -1,7 +1,7 @@
 import type { BrandColors } from "../config/colors.js";
 import type { SfxEvent } from "../config/schema.js";
 import type { ComposeFont } from "../compose/compose.js";
-import { escapeHtml, fontFaces, fontStack } from "../compose/html.js";
+import { assertLocalReferences, escapeHtml, fontFaces, fontStack } from "../compose/html.js";
 import { CAPTION_LINE_HEIGHT, getCaptionPillCss, getCaptionPositionCss, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { CAPTION_SAFE_ZONES, getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, type CaptionSpan } from "./captions.js";
@@ -255,7 +255,7 @@ export function composeFootage(input: FootageComposeInput): string {
   const headingFont = fonts.heading === null ? bodyFont : fontStack(fonts.heading, "sans-serif");
   const faces = [...fontFaces(fonts.body), ...fontFaces(fonts.heading)];
 
-  return `<!doctype html>
+  return assertLocalReferences(`<!doctype html>
 <html lang="${escapeHtml(input.locale)}">
 <head>
 <meta charset="UTF-8" />
@@ -309,7 +309,7 @@ window.__timelines["${COMPOSITION_ID}"] = tl;
 </script>
 </body>
 </html>
-`;
+`);
 }
 
 /**

@@ -25,20 +25,26 @@ An app runs the kit through `npx` with a pinned version, not as a dependency:
 never runs it. Bump the pin and the `$schema` URL of `marketing.json` together. A project that imports the library
 API (`@softure-ai/marketing-kit`, `@softure-ai/marketing-kit/og`) installs it as usual.
 
-Two dependencies pin a package that `npm audit` flags, and npm `overrides` in the kit do not reach the project
-that installs it:
+### npm audit
 
-- hyperframes pins `undici` 7.25.0 (high; several advisories fixed in 7.30.1). The kit's own calls do not go through
-  it, but hyperframes uses it for its downloads.
-- satori pins `fflate` 0.7.3 (moderate, GHSA-px8p-9vwx-vf98, an endless loop in `unzipSync` on a malformed ZIP64
-  archive). satori and its font parser only call `inflateSync`, so the kit never reaches the flaw.
+Two dependencies pin a package that `npm audit --omit=dev` flags. npm `overrides` in the kit do not reach the project
+that installs it, and no release of either dependency lifts its pin yet (hyperframes 0.9.19 still pins `undici`
+7.25.0; upstream: heygen-com/hyperframes#6695 and vercel/satori#952). Neither finding is reachable from the kit:
 
-A project that installs the kit (or audits its lockfile) lifts both with overrides; the kit's tests run against
-these versions:
+| Finding | Pinned by | Why the kit never reaches it |
+| --- | --- | --- |
+| `undici` 7.25.0, high (about 30 advisories fixed in 7.28.0 to 7.30.1, e.g. GHSA-2m5v-pch6-74hx, GHSA-4w7w-5xrc-9h26, GHSA-p88m-4jfj-68fv) | `hyperframes` 0.9.6 | hyperframes loads undici in one place: the helper that downloads a remote `src`, `href`, CSS `url(...)` or `@import` named in the composition, at render or preview time. The kit's compositions name only files in the build folder (it downloads URL clips itself, with Node's `fetch`), and both composers refuse a remote reference with an error (`assertLocalReferences`), so that helper is never called. The kit itself never imports undici; hyperframes' browser download goes through `@puppeteer/browsers`. |
+| `fflate` 0.7.3, moderate (GHSA-px8p-9vwx-vf98, an endless loop in `unzipSync` on a malformed ZIP64 archive) | `satori` 0.63.2 | satori and its font parser only call `inflateSync`; `unzipSync` is never called. |
+
+The `hyperframes`, `satori` and `@softure-ai/marketing-kit` entries in the report are these two findings counted
+again through the packages that pin them. A project that records accepted risks can cite the table; a project that
+wants a clean report lifts both pins with its own overrides (the kit's tests run against these versions):
 
 ```json
 { "overrides": { "fflate": "^0.7.5", "undici": "^7.30.2" } }
 ```
+
+Running the CLI through `npx` (above) keeps both out of the project's lockfile altogether.
 
 ## Commands
 

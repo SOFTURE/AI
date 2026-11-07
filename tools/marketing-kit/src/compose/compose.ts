@@ -3,7 +3,7 @@ import type { SfxEvent } from "../config/schema.js";
 import type { Film } from "../film.js";
 import { formatMessage, type MarketingMessages } from "../messages/index.js";
 import type { RecordingLog } from "../record/record.js";
-import { escapeHtml, fontFaces, fontStack } from "./html.js";
+import { assertLocalReferences, escapeHtml, fontFaces, fontStack } from "./html.js";
 import {
   BROWSER_BAR_HEIGHT,
   cameraPose,
@@ -312,7 +312,7 @@ export function composeFilm(input: ComposeInput): string {
   // The address bar shows the public URL the end card names, never the recorded (local) one.
   const windowParts = getWindowParts(geometry, c, film.endCard.url);
 
-  return `<!doctype html>
+  return assertLocalReferences(`<!doctype html>
 <html lang="${escapeHtml(locale)}">
 <head>
 <meta charset="UTF-8" />
@@ -407,5 +407,5 @@ window.__timelines["${COMPOSITION_ID}"] = tl;
 </script>
 </body>
 </html>
-`;
+`);
 }
