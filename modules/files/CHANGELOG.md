@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.4.0
 
 - The `files.prune` job logs every run (#1192): one line `files.prune finished` with `removed`, `freedBytes`,
   `failedFiles`, `deletedUploads`, `failedUploads` and, when at most 10 files went, their ids as `fileIds` (also
