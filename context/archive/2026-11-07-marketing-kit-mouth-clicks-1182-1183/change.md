@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-mouth-clicks-1182-1183
 title: "marketing-kit: an exported mouth-click detector with the speech protection zone, and a declick repair level with a minimum pause and limits (issues #1182, #1183)"
-status: open
+status: archived
 roadmap_item: null
 issue: [1182, 1183]
 branch: claude/project-thread-mvljs3
 created: 2026-11-07
 updated: 2026-11-07
+archived_at: 2026-11-07
 ---
 
 ## Intent
@@ -36,3 +37,10 @@ after the merge (0.19.0 already shipped #1181).
 ## Notes
 
 - Framing: skipped. Both issues name the rules, the API and the acceptance tests.
+
+## Done
+
+`findMouthClicks` and `MOUTH_CLICK_RULES` give an app the mouth clicks outside the speech protection zone, each
+word's bound on the real sound and a quiet-stretch check (#1182). The declick level `repair` repairs the same
+impulses only in pauses of 150 ms or more after the guard, outside the zone, within 25 ms per repair, 3 a second and
+1 % of the track, and reports the rest as `skippedLimit` (#1183). PR #1186. Next marketing-kit release.
