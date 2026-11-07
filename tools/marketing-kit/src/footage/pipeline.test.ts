@@ -272,9 +272,18 @@ describe.runIf(hasFfmpeg)("transcribeFootage's speech (issue #1139)", () => {
     expect(result.value.speech).toEqual({ talk: join(dir, "build", "audio", "talk.wav"), street: join(dir, "build", "audio", "street.wav") });
     expect(Object.keys(result.value.speechGainDb ?? {})).toEqual(["talk", "street"]);
     expect(result.value.speechGainDb?.street).toBe(result.value.speechGainDb?.talk);
+    expect(result.value.speechPreGain?.street).toEqual({ kind: "shared" });
     expect(existsSync(join(dir, "build", "placeholder", "talk.transcript.json"))).toBe(true);
     expect(existsSync(join(dir, "cache"))).toBe(false);
     expect(providers.stt.calls).toHaveLength(0);
+  });
+
+  it("writes the clip sound as 32-bit float with speechPeaks float (issue #1181)", async () => {
+    const { run } = options({ isPlaceholder: true, speechPeaks: "float" });
+    const result = await transcribeFootage(film(), [clip("talk", "talk", "Raz dwa")], run);
+    if (!result.ok || result.value.kind !== "ready") throw new Error("expected transcripts");
+    const codec = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name", "-of", "csv=p=0", join(dir, "build", "audio", "talk.wav")], { encoding: "utf8" });
+    expect(codec.stdout.trim()).toBe("pcm_f32le");
   });
 
   it("hands the isolator and the speech to text the clip's lossless, pre-gained sound, and writes no MP3", async () => {
@@ -286,6 +295,8 @@ describe.runIf(hasFfmpeg)("transcribeFootage's speech (issue #1139)", () => {
     expect(result.value.speech).toEqual({ talk: join(dir, "build", "audio", "talk.isolated.wav"), street: join(dir, "build", "audio", "street.wav") });
     expect(typeof result.value.speechGainDb?.talk).toBe("number");
     expect(result.value.speechGainDb?.street).toBe(result.value.speechGainDb?.talk);
+    expect(result.value.speechPreGain?.talk?.kind).toMatch(/^(on_target|held_by_peak_ceiling)$/);
+    expect(result.value.speechPreGain?.street).toEqual({ kind: "shared" });
     expect(readdirSync(join(dir, "build", "audio")).filter((name) => name.endsWith(".mp3"))).toEqual([]);
     const stream = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name,sample_rate,channels", "-of", "csv=p=0", join(dir, "build", "audio", "talk.wav")], { encoding: "utf8" });
     expect(stream.stdout.trim()).toBe("pcm_s24le,48000,2");

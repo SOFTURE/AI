@@ -10,7 +10,8 @@ import type { FootageProbe } from "./probe.js";
 /**
  * Each clip's sound for the speech chain (issue #1139): read from the clip's source with the normalize step's own seek
  * and length (so the EDL's times hold), brought to 48 kHz stereo, raised by one linear pre-gain to about
- * `SPEECH_PRE_GAIN.target` with its true peak kept under `SPEECH_PRE_GAIN.peakCeiling`, and written as 24-bit PCM WAV.
+ * `SPEECH_PRE_GAIN.target` with its true peak kept under `SPEECH_PRE_GAIN.peakCeiling`, and written as 24-bit PCM WAV
+ * (or, with `speechPeaks: "float"`, raised to the target and written as 32-bit float, issue #1181).
  * Quiet phone speech is then never encoded lossily at its quiet level: the voice isolator, the speech to text, the cut,
  * the declick and the loudness pass all work on lossless sound, and the film's final AAC is the only lossy encode.
  */
@@ -31,10 +32,41 @@ export interface ClipSoundInput {
   duration: number;
 }
 
-/** A clip's lossless, pre-gained sound and the gain it got in dB. */
+/**
+ * How the pre-gain treats a talking clip's true peak (issue #1181): `ceiling` (the default) stops the gain where the
+ * peak reaches `SPEECH_PRE_GAIN.peakCeiling` and writes 24-bit PCM; `float` raises it to the target whatever its peaks
+ * and writes 32-bit float PCM, so a peak above the ceiling (or 0 dBFS) cannot clip. Both are one linear gain.
+ */
+export type SpeechPeaks = "ceiling" | "float";
+
+/** A measured talking clip's pre-gain: the measurement before it and what it reached. */
+export interface MeasuredPreGain {
+  /** Integrated loudness and true peak of the clip's sound before the pre-gain. */
+  inputLufs: number;
+  inputTruePeakDbtp: number;
+  /** Integrated loudness and true peak after it (the input plus the gain). */
+  reachedLufs: number;
+  truePeakDbtp: number;
+}
+
+/**
+ * What the pre-gain did to a clip (issue #1181): `on_target` reached `SPEECH_PRE_GAIN.target`; `held_by_peak_ceiling`
+ * stopped at the peak ceiling, under the target; `peaks_over_ceiling` reached the target with `speechPeaks: "float"`,
+ * its true peak above the ceiling (kept by the float file); `silent` a clip without sound, or silence (0 dB);
+ * `shared` a clip that does not talk, gained by the talking clips' mean and not measured.
+ */
+export type SpeechPreGain =
+  | ({ kind: "on_target" } & MeasuredPreGain)
+  | ({ kind: "held_by_peak_ceiling" } & MeasuredPreGain)
+  | ({ kind: "peaks_over_ceiling" } & MeasuredPreGain)
+  | { kind: "silent" }
+  | { kind: "shared" };
+
+/** A clip's lossless, pre-gained sound, the gain it got in dB and what the gain reached. */
 export interface ClipSound {
   file: string;
   gainDb: number;
+  preGain: SpeechPreGain;
 }
 
 const toFormat = `aformat=sample_rates=${String(FOOTAGE_SAMPLE_RATE)}:channel_layouts=stereo`;
@@ -56,15 +88,53 @@ export function buildClipSoundMeasureArgs(input: ClipSoundInput): string[] {
  * its true peak at `SPEECH_PRE_GAIN.peakCeiling`; 0 for silence. Rounded to a hundredth of a dB.
  */
 export function getPreGainDb(measurement: LoudnessMeasurement | null): number {
-  if (measurement === null || isSilent(measurement)) return 0;
-  const toTarget = SPEECH_PRE_GAIN.target - measurement.inputI;
-  const toCeiling = Number.isFinite(measurement.inputTp) ? SPEECH_PRE_GAIN.peakCeiling - measurement.inputTp : toTarget;
-  return Math.round(Math.min(toTarget, toCeiling) * 100) / 100 || 0;
+  return getSpeechPreGain(measurement).gainDb;
 }
 
-/** The trimmed clip's sound, gained by `gainDb`, as a 24-bit 48 kHz stereo WAV; silence as long as the clip when it has none. */
-export function buildClipSoundArgs(input: ClipSoundInput & { gainDb: number; output: string }): string[] {
-  const codec = ["-ar", String(FOOTAGE_SAMPLE_RATE), "-ac", "2", "-c:a", "pcm_s24le", input.output];
+/** Rounds to a hundredth, without a negative zero. */
+function roundDb(value: number): number {
+  return Math.round(value * 100) / 100 || 0;
+}
+
+/**
+ * A measured clip's pre-gain in dB and what it reaches (issue #1181). With `peaks: "ceiling"` (the default) the gain
+ * is `getPreGainDb`'s, and a clip whose true peak stops it under the target is `held_by_peak_ceiling`; with `"float"`
+ * the gain always goes to the target, and a clip whose true peak then passes the ceiling is `peaks_over_ceiling`.
+ */
+export function getSpeechPreGain(measurement: LoudnessMeasurement | null, options: { peaks?: SpeechPeaks } = {}): { gainDb: number; preGain: SpeechPreGain } {
+  if (measurement === null || isSilent(measurement)) return { gainDb: 0, preGain: { kind: "silent" } };
+  const toTarget = SPEECH_PRE_GAIN.target - measurement.inputI;
+  const toCeiling = Number.isFinite(measurement.inputTp) ? SPEECH_PRE_GAIN.peakCeiling - measurement.inputTp : toTarget;
+  const isHeld = toCeiling < toTarget;
+  const gainDb = roundDb(options.peaks === "float" ? toTarget : Math.min(toTarget, toCeiling));
+  const measured: MeasuredPreGain = {
+    inputLufs: roundDb(measurement.inputI),
+    inputTruePeakDbtp: roundDb(measurement.inputTp),
+    reachedLufs: roundDb(measurement.inputI + gainDb),
+    truePeakDbtp: roundDb(measurement.inputTp + gainDb),
+  };
+  if (!isHeld) return { gainDb, preGain: { kind: "on_target", ...measured } };
+  return { gainDb, preGain: { kind: options.peaks === "float" ? "peaks_over_ceiling" : "held_by_peak_ceiling", ...measured } };
+}
+
+/** The log line for a clip whose pre-gain did not simply reach the target; null when it did, or for silence. */
+export function describeSpeechPreGain(clipId: string, sound: Pick<ClipSound, "gainDb" | "preGain">): string | null {
+  const { preGain } = sound;
+  if (preGain.kind !== "held_by_peak_ceiling" && preGain.kind !== "peaks_over_ceiling") return null;
+  const gain = `${sound.gainDb >= 0 ? "+" : ""}${String(sound.gainDb)} dB`;
+  const input = `input ${String(preGain.inputLufs)} LUFS, ${String(preGain.inputTruePeakDbtp)} dBTP`;
+  if (preGain.kind === "peaks_over_ceiling") {
+    return `speech pre-gain: clip ${clipId} raised by ${gain} to ${String(preGain.reachedLufs)} LUFS (${input}); its true peak ${String(preGain.truePeakDbtp)} dBTP is over the ${String(SPEECH_PRE_GAIN.peakCeiling)} dBTP ceiling, kept by the 32-bit float sound.`;
+  }
+  return `speech pre-gain: clip ${clipId} held by the ${String(SPEECH_PRE_GAIN.peakCeiling)} dBTP peak ceiling at ${gain}: it reaches ${String(preGain.reachedLufs)} LUFS, not ${String(SPEECH_PRE_GAIN.target)} (${input}). speechPeaks: "float" reaches the target without clipping.`;
+}
+
+/**
+ * The trimmed clip's sound, gained by `gainDb`, as a 48 kHz stereo WAV (24-bit PCM, or 32-bit float with
+ * `peaks: "float"`); silence as long as the clip when it has none.
+ */
+export function buildClipSoundArgs(input: ClipSoundInput & { gainDb: number; output: string; peaks?: SpeechPeaks }): string[] {
+  const codec = ["-ar", String(FOOTAGE_SAMPLE_RATE), "-ac", "2", "-c:a", input.peaks === "float" ? "pcm_f32le" : "pcm_s24le", input.output];
   const { seek, length } = getTrimArgs(input);
   if (!input.probe.hasAudio) return ["-v", "error", "-y", "-f", "lavfi", "-i", `anullsrc=r=${String(FOOTAGE_SAMPLE_RATE)}:cl=stereo`, ...length, ...codec];
   return ["-v", "error", "-y", ...seek, "-i", input.source, ...length, "-map", "0:a:0", "-vn", "-af", `${toFormat},volume=${String(input.gainDb)}dB`, ...codec];
@@ -90,24 +160,34 @@ async function measureClipSound(input: ClipSoundInput, signal: AbortSignal | und
 /**
  * Every clip's lossless, pre-gained sound under `<buildDir>/audio/<id>.wav`, by clip id. A talking clip is gained by its
  * own measurement (`getPreGainDb`); any other clip by the mean of the talking clips' gains (0 dB without one), so a
- * b-roll's own sound under the speech keeps its relation to it. Throws naming the clip when ffmpeg fails.
+ * b-roll's own sound under the speech keeps its relation to it. Each answers its `preGain` (issue #1181), and `log` gets
+ * a line for every clip the peak ceiling held under the target (or, with `peaks: "float"`, whose peaks pass it).
+ * Throws naming the clip when ffmpeg fails.
  */
-export async function prepareClipSounds(clips: readonly ClipSoundInput[], options: { buildDir: string; signal?: AbortSignal }): Promise<Record<string, ClipSound>> {
+export async function prepareClipSounds(
+  clips: readonly ClipSoundInput[],
+  options: { buildDir: string; signal?: AbortSignal; peaks?: SpeechPeaks; log?: (line: string) => void },
+): Promise<Record<string, ClipSound>> {
   const { signal } = options;
-  const gains = new Map<string, number>();
+  const peaks = options.peaks ?? "ceiling";
+  const measured = new Map<string, { gainDb: number; preGain: SpeechPreGain }>();
   for (const clip of clips) {
     if (clip.clip.role !== "talk") continue;
-    gains.set(clip.clip.id, getPreGainDb(await measureClipSound(clip, signal)));
+    measured.set(clip.clip.id, getSpeechPreGain(await measureClipSound(clip, signal), { peaks }));
   }
-  const talking = [...gains.values()];
+  const talking = [...measured.values()].map((entry) => entry.gainDb);
   const sharedGain = talking.length === 0 ? 0 : Math.round((talking.reduce((sum, gain) => sum + gain, 0) / talking.length) * 100) / 100 || 0;
   const sounds: Record<string, ClipSound> = {};
   for (const clip of clips) {
-    const gainDb = gains.get(clip.clip.id) ?? sharedGain;
+    const shared: { gainDb: number; preGain: SpeechPreGain } = { gainDb: sharedGain, preGain: { kind: "shared" } };
+    const { gainDb, preGain } = measured.get(clip.clip.id) ?? shared;
     const output = getClipSoundPath(options.buildDir, clip.clip.id);
     mkdirSync(dirname(output), { recursive: true });
-    await runFfmpeg(`Extracting the sound of clip ${clip.clip.id}`, buildClipSoundArgs({ ...clip, gainDb, output }), { ...(signal === undefined ? {} : { signal }), output });
-    sounds[clip.clip.id] = { file: output, gainDb };
+    await runFfmpeg(`Extracting the sound of clip ${clip.clip.id}`, buildClipSoundArgs({ ...clip, gainDb, output, peaks }), { ...(signal === undefined ? {} : { signal }), output });
+    const sound: ClipSound = { file: output, gainDb, preGain };
+    sounds[clip.clip.id] = sound;
+    const line = describeSpeechPreGain(clip.clip.id, sound);
+    if (line !== null) options.log?.(line);
   }
   return sounds;
 }

@@ -471,6 +471,7 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     if (!result.ok) throw new Error(result.error);
     const clipGainDb = result.value.speechGainDb.talk ?? 0;
     expect(clipGainDb).toBeGreaterThan(15);
+    expect(result.value.speechPreGain.talk).toMatchObject({ kind: "on_target", reachedLufs: -23 });
     expect(result.value.ranges.map(({ outcome, gainDb }) => ({ kind: outcome.kind, gainDb }))).toEqual([
       { kind: "cached", gainDb: clipGainDb },
       { kind: "bought", gainDb: 0 },

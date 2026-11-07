@@ -464,10 +464,15 @@ export {
   buildClipSoundMeasureArgs,
   getAudioCodecArgs,
   getClipSoundPath,
+  describeSpeechPreGain,
   getPreGainDb,
+  getSpeechPreGain,
   prepareClipSounds,
   type ClipSound,
   type ClipSoundInput,
+  type MeasuredPreGain,
+  type SpeechPeaks,
+  type SpeechPreGain,
 } from "./footage/clip-sound.js";
 export {
   AUDIO_BITRATE_RANGE_KBPS,

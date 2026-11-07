@@ -5,7 +5,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { describeProviderFailure, type ProviderFailure } from "../voice/provider-failure.js";
 import { err, ok } from "./failure.js";
 import { probeAudio } from "./audio.js";
-import { prepareClipSounds, type ClipSound } from "./clip-sound.js";
+import { prepareClipSounds, type ClipSound, type SpeechPeaks, type SpeechPreGain } from "./clip-sound.js";
 import { isSilent, readLoudnessMeasurement } from "./loudness.js";
 import { writeCacheFile } from "./cache.js";
 import type { Edl } from "./edl.js";
@@ -81,6 +81,8 @@ export type IsolateSpeechRangesOptions = Pick<FootageRunOptions, "buildDir" | "c
    * An app that already holds paid ranges under its own keys points the block at them.
    */
   rangeCache?: SpeechRangeCacheResolver;
+  /** How the clip sound's pre-gain treats a true peak above the ceiling (`SpeechPeaks`, issue #1181); default `ceiling`. */
+  speechPeaks?: SpeechPeaks;
   log?: (line: string) => void;
 };
 
@@ -124,6 +126,8 @@ export interface IsolatedSpeech {
   speech: Record<string, string>;
   /** Each clip's pre-gain in dB (`prepareClipSounds`): the gain of the sound its speech file is made from (issue #1159). */
   speechGainDb: Record<string, number>;
+  /** What each clip's pre-gain reached (`ClipSound.preGain`, issue #1181): on target, or held by the peak ceiling. */
+  speechPreGain: Record<string, SpeechPreGain>;
   ranges: IsolatedSpeechRange[];
 }
 
@@ -188,7 +192,7 @@ async function runIsolateSpeechRanges(
     options.onProgress?.({ step: "isolate", item: range.clip, itemIndex: index + 1, itemCount: buying.length, done: Math.round(done * 1000) / 1000, total: Math.round(total * 1000) / 1000 });
   };
   // Every clip's sound, lossless and pre-gained (#1139): what the isolator hears and what the cleaned ranges are laid over.
-  const sounds = await prepareClipSounds(clips, { buildDir, ...aborting });
+  const sounds = await prepareClipSounds(clips, { buildDir, log, ...aborting, ...(options.speechPeaks === undefined ? {} : { peaks: options.speechPeaks }) });
   const getSound = (clip: PreparedClip): string => sounds[clip.clip.id]?.file ?? clip.file;
   const workDir = join(buildDir, "audio", "ranges");
   for (const [index, range] of buying.entries()) {
@@ -247,11 +251,13 @@ async function runIsolateSpeechRanges(
   }
   const speech: Record<string, string> = {};
   const speechGainDb: Record<string, number> = {};
+  const speechPreGain: Record<string, SpeechPreGain> = {};
   for (const clip of clips) {
     const id = clip.clip.id;
     speech[id] = getSound(clip);
     const clipGainDb = sounds[id]?.gainDb ?? 0;
     speechGainDb[id] = clipGainDb;
+    speechPreGain[id] = sounds[id]?.preGain ?? { kind: "silent" };
     const laidRanges = ranges.filter((range) => range.clip === id && range.laid);
     if (laidRanges.length === 0) continue;
     const laid: LaidRange[] = [];
@@ -272,7 +278,7 @@ async function runIsolateSpeechRanges(
     await runFfmpeg(`Laying the cleaned voice over clip ${id}`, buildRangeLayArgs(getSound(clip), laid, output, { fadeMs: options.fadeMs ?? DEFAULT_SPEECH_RANGE_FADE_MS }), { ...aborting, output });
     speech[id] = output;
   }
-  return ok({ speech, speechGainDb, ranges });
+  return ok({ speech, speechGainDb, speechPreGain, ranges });
 }
 
 /**
