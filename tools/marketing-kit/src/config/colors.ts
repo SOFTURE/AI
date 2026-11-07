@@ -26,7 +26,20 @@ export const COLOR_ROLES = [
 
 export type ColorRole = (typeof COLOR_ROLES)[number];
 
-export type BrandColors = Record<ColorRole, string>;
+/**
+ * Colour roles a brand may leave out: only a feature that asks for them needs them, so a brand without them still
+ * resolves (issue #1199).
+ */
+export const OPTIONAL_COLOR_ROLES = [
+  /** The box behind the word being spoken, with `captionHighlightStyle: "box"`. */
+  "captionHighlightBox",
+  /** The text of the word being spoken on its box, with `captionHighlightStyle: "box"`. */
+  "captionHighlightText",
+] as const;
+
+export type OptionalColorRole = (typeof OPTIONAL_COLOR_ROLES)[number];
+
+export type BrandColors = Record<ColorRole, string> & Partial<Record<OptionalColorRole, string>>;
 
 export const COLOR_THEMES = ["light", "dark"] as const;
 
@@ -48,6 +61,30 @@ export function isOpaqueHexColor(value: string): boolean {
 }
 
 /** The token a role reads from a source when the config names none: `onCta` → `on-cta`. */
-export function getDefaultToken(role: ColorRole): string {
+export function getDefaultToken(role: ColorRole | OptionalColorRole): string {
   return role.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+}
+
+/** `#abc`, `#abcd`, `#aabbcc` or `#aabbccdd` as `#aabbcc` (lower case, alpha dropped). */
+function toOpaque(color: string): string {
+  const digits = color.replace(/^#/, "").toLowerCase();
+  const full = digits.length <= 4 ? [...digits].map((digit) => digit + digit).join("") : digits;
+  return `#${full.slice(0, 6)}`;
+}
+
+/** The relative luminance (WCAG 2) of a hex colour, its alpha ignored. */
+export function getRelativeLuminance(color: string): number {
+  if (!isHexColor(color)) throw new Error(`Not a hex colour: "${color}".`);
+  const hex = toOpaque(color);
+  const channel = (offset: number): number => {
+    const value = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return value <= 0.039_28 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+}
+
+/** The WCAG contrast ratio of two hex colours (alpha ignored), from 1 to 21. */
+export function getContrastRatio(first: string, second: string): number {
+  const [lighter, darker] = [getRelativeLuminance(first), getRelativeLuminance(second)].sort((a, b) => b - a) as [number, number];
+  return (lighter + 0.05) / (darker + 0.05);
 }

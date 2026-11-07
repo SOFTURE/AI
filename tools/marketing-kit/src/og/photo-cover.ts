@@ -5,7 +5,7 @@ import jpeg from "jpeg-js";
 import satori from "satori";
 import { z } from "zod";
 
-import type { BrandColors } from "../config/colors.js";
+import { getContrastRatio, getRelativeLuminance, type BrandColors } from "../config/colors.js";
 import { h, type OgNode } from "./element.js";
 import { pickWeight, toFontFamilyCss, type OgFonts } from "./fonts.js";
 import { describeCharacter, findMissingGlyphs } from "./glyphs.js";
@@ -44,6 +44,15 @@ export const PHOTO_COVER_LAYOUTS = ["photo", "title-bottom", "title-center", "ti
 
 export type PhotoCoverLayout = (typeof PHOTO_COVER_LAYOUTS)[number];
 
+/**
+ * How the accent is drawn on `kicker-title` (issue #1199): `text` colours the kicker; `box` sets the kicker on an
+ * opaque accent box in the better-reading of the light and dark colour; `auto` draws text when the accent reads as
+ * text (3:1 against the scrim) and a box when it does not. The `pill` accent is a box whatever the style.
+ */
+export const PHOTO_COVER_ACCENT_STYLES = ["text", "box", "auto"] as const;
+
+export type PhotoCoverAccentStyle = (typeof PHOTO_COVER_ACCENT_STYLES)[number];
+
 /** `light`: light text over a dark scrim. `dark`: dark text over a light scrim. */
 export type PhotoCoverTone = "light" | "dark";
 
@@ -54,6 +63,9 @@ const CAPTION_BOTTOM_PADDING = 120;
 const CAPTION_TOP_PADDING = 120;
 const KICKER_SIZE = 44;
 const KICKER_GAP = 20;
+/** The boxed kicker's padding (vertical, horizontal) and corner radius. */
+const KICKER_BOX_PADDING: readonly [number, number] = [10, 24];
+const KICKER_BOX_RADIUS = 14;
 const PILL_SIZE = 56;
 const PILL_PADDING: readonly [number, number] = [22, 48];
 /** The pill box's opacity: the box is the pill's scrim. */
@@ -107,6 +119,7 @@ const coverOptionsSchema = z.object({
     .optional(),
   tone: z.enum(["light", "dark"]).optional(),
   accent: z.boolean().optional(),
+  accentStyle: z.enum(PHOTO_COVER_ACCENT_STYLES).optional(),
   quality: z.number().int().min(1).max(100).default(PHOTO_COVER_QUALITY),
 });
 
@@ -131,6 +144,8 @@ export interface PhotoCoverInput {
    * accent's contrast against what it stands on is under 3:1. Off by default.
    */
   accent?: boolean;
+  /** How the accent is drawn (`PHOTO_COVER_ACCENT_STYLES`); `text` by default. Needs `accent: true`. */
+  accentStyle?: PhotoCoverAccentStyle;
   /** The light colour is the lighter of `foreground` and `background`, the dark colour the darker. */
   colors: BrandColors;
   /** The brand's fonts (`loadOgFonts`); the text is set in the heading (display) family. */
@@ -165,6 +180,11 @@ export interface PhotoCover {
   textBox: CoverBox | null;
   /** Where the focus point landed on the cover after the crop; off-centre when the photo's edge stops the shift. */
   focusPoint: CoverPoint;
+  /**
+   * How the accent was drawn and the contrast it reads at (the kicker text against the scrim, or the text on the
+   * accent box); null without the accent.
+   */
+  accent: { style: "text" | "box"; contrast: number } | null;
 }
 
 /** The text a cover draws, by layout. */
@@ -193,9 +213,16 @@ function getRegionRows(band: CoverBand, region: CoverRegion): { top: number; bot
 }
 
 /** The text the options ask for, or an error when the layout and the texts do not go together. */
-function resolveCoverText(options: { layout?: PhotoCoverLayout | undefined; caption?: string | undefined; kicker?: string | undefined; accent?: boolean | undefined }): OgResult<CoverText | null> {
+function resolveCoverText(options: {
+  layout?: PhotoCoverLayout | undefined;
+  caption?: string | undefined;
+  kicker?: string | undefined;
+  accent?: boolean | undefined;
+  accentStyle?: PhotoCoverAccentStyle | undefined;
+}): OgResult<CoverText | null> {
   const { caption, kicker } = options;
   const layout = options.layout ?? (caption === undefined ? "photo" : "title-bottom");
+  if (options.accentStyle !== undefined && options.accent !== true) return err("the accentStyle needs accent: true; leave it out or set the accent");
   if (options.accent === true && layout !== "kicker-title" && layout !== "pill") {
     return err(`the accent is drawn only by the layouts "kicker-title" and "pill", not "${layout}"; leave it out`);
   }
@@ -222,22 +249,6 @@ function readPhoto(photo: string | Buffer): OgResult<Buffer> {
   }
 }
 
-/** Relative luminance (WCAG) of an opaque `#rrggbb`. */
-function getLuminance(color: string): number {
-  const hex = toOpaqueHex(color);
-  const channel = (offset: number) => {
-    const value = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
-    return value <= 0.039_28 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-}
-
-/** The WCAG contrast ratio of two opaque colours, 1 to 21. */
-function getContrast(first: string, second: string): number {
-  const [lighter, darker] = [getLuminance(first), getLuminance(second)].sort((a, b) => b - a) as [number, number];
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
 /** A contrast ratio as errors write it, rounded down so a ratio just under the bound never reads as the bound. */
 const describeContrast = (ratio: number) => `${(Math.floor(ratio * 100) / 100).toFixed(2)}:1`;
 
@@ -248,36 +259,50 @@ interface CoverInk {
   /** The scrim and the shadow. */
   shade: string;
   kicker: string;
+  /** The box behind the kicker (a boxed accent); null for none. */
+  kickerBox: string | null;
   pill: { box: string; alpha: number; text: string };
+  /** How the accent was drawn and the contrast it reads at; null without the accent. */
+  accent: { style: "text" | "box"; contrast: number } | null;
 }
 
 /**
  * The cover's colours: the text the brand's light colour and the scrim the dark one, swapped for a `dark` tone; with
  * the accent, the kicker or the pill box in `colors.accent`. An error when the accent reads under 3:1.
  */
-function getCoverInk(colors: BrandColors, options: { tone: PhotoCoverTone; layout: CoverText["layout"] | null; accent: boolean }): OgResult<CoverInk> {
+function getCoverInk(colors: BrandColors, options: { tone: PhotoCoverTone; layout: CoverText["layout"] | null; accent: boolean; accentStyle: PhotoCoverAccentStyle }): OgResult<CoverInk> {
   const foreground = toOpaqueHex(colors.foreground);
   const background = toOpaqueHex(colors.background);
-  const [light, dark] = getLuminance(foreground) >= getLuminance(background) ? [foreground, background] : [background, foreground];
+  const [light, dark] = getRelativeLuminance(foreground) >= getRelativeLuminance(background) ? [foreground, background] : [background, foreground];
   const [text, shade] = options.tone === "light" ? [light, dark] : [dark, light];
-  const plain: CoverInk = { text, shade, kicker: text, pill: { box: shade, alpha: PILL_ALPHA, text } };
+  const plain: CoverInk = { text, shade, kicker: text, kickerBox: null, pill: { box: shade, alpha: PILL_ALPHA, text }, accent: null };
   if (!options.accent) return ok(plain);
   const accent = toOpaqueHex(colors.accent);
+  // The better-reading of the light and dark colour on the accent, for text set on an accent box.
+  const label = getContrastRatio(accent, light) >= getContrastRatio(accent, dark) ? light : dark;
+  const boxRatio = getContrastRatio(accent, label);
   if (options.layout === "kicker-title") {
-    const ratio = getContrast(accent, shade);
-    if (ratio < MIN_COVER_ACCENT_CONTRAST) {
-      return err(`the accent ${accent} has a contrast of ${describeContrast(ratio)} against the scrim ${shade}, under 3:1; pick a ${getLuminance(accent) < getLuminance(shade) ? "darker" : "lighter"} accent or the other tone`);
+    const ratio = getContrastRatio(accent, shade);
+    const style = options.accentStyle === "auto" ? (ratio >= MIN_COVER_ACCENT_CONTRAST ? "text" : "box") : options.accentStyle;
+    if (style === "text") {
+      if (ratio < MIN_COVER_ACCENT_CONTRAST) {
+        return err(
+          `the accent ${accent} has a contrast of ${describeContrast(ratio)} against the scrim ${shade}, under 3:1; pick a ${getRelativeLuminance(accent) < getRelativeLuminance(shade) ? "darker" : "lighter"} accent, the other tone or accentStyle "box"`,
+        );
+      }
+      return ok({ ...plain, kicker: accent, accent: { style: "text", contrast: ratio } });
     }
-    return ok({ ...plain, kicker: accent });
+    if (boxRatio < MIN_COVER_ACCENT_CONTRAST) {
+      return err(`the accent ${accent} as a box has a contrast of ${describeContrast(boxRatio)} against the kicker ${label}, under 3:1; pick an accent that reads with the foreground or the background`);
+    }
+    return ok({ ...plain, kicker: label, kickerBox: accent, accent: { style: "box", contrast: boxRatio } });
   }
   if (options.layout === "pill") {
-    const label = getContrast(accent, light) >= getContrast(accent, dark) ? light : dark;
-    const ratio = getContrast(accent, label);
-    if (ratio < MIN_COVER_ACCENT_CONTRAST) {
-      return err(`the accent ${accent} has a contrast of ${describeContrast(ratio)} against the pill label ${label}, under 3:1; pick an accent that reads with the foreground or the background`);
+    if (boxRatio < MIN_COVER_ACCENT_CONTRAST) {
+      return err(`the accent ${accent} has a contrast of ${describeContrast(boxRatio)} against the pill label ${label}, under 3:1; pick an accent that reads with the foreground or the background`);
     }
     // Opaque, so the contrast checked is the contrast drawn whatever the photo under it.
-    return ok({ ...plain, pill: { box: accent, alpha: 0xff, text: label } });
+    return ok({ ...plain, pill: { box: accent, alpha: 0xff, text: label }, accent: { style: "box", contrast: boxRatio } });
   }
   return ok(plain);
 }
@@ -336,7 +361,31 @@ function buildTextTree(layout: TextLayout): OgNode {
         ]
       : [
           ...(text.layout === "kicker-title"
-            ? [line(text.kicker, { color: ink.kicker, fontSize: Math.round(KICKER_SIZE * scale), lineHeight: 1.2, letterSpacing: Math.round(3 * scale), marginBottom: Math.round(KICKER_GAP * scale), textShadow: shadow })]
+            ? [
+                ink.kickerBox === null
+                  ? line(text.kicker, { color: ink.kicker, fontSize: Math.round(KICKER_SIZE * scale), lineHeight: 1.2, letterSpacing: Math.round(3 * scale), marginBottom: Math.round(KICKER_GAP * scale), textShadow: shadow })
+                  : h(
+                      "div",
+                      {
+                        style: {
+                          display: "flex",
+                          maxWidth: "100%",
+                          padding: `${String(Math.round(KICKER_BOX_PADDING[0] * scale))}px ${String(Math.round(KICKER_BOX_PADDING[1] * scale))}px`,
+                          borderRadius: Math.round(KICKER_BOX_RADIUS * scale),
+                          backgroundColor: ink.kickerBox,
+                          textAlign: "center",
+                          wordBreak: "break-word",
+                          color: ink.kicker,
+                          fontSize: Math.round(KICKER_SIZE * scale),
+                          lineHeight: 1.2,
+                          letterSpacing: Math.round(3 * scale),
+                          marginBottom: Math.round(KICKER_GAP * scale),
+                          ...font,
+                        },
+                      },
+                      text.kicker,
+                    ),
+              ]
             : []),
           line(text.caption, { fontSize: Math.round(getCoverCaptionSize(text.caption) * scale), lineHeight: 1.08, textShadow: shadow }),
         ];
@@ -473,6 +522,7 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
     kicker: input.kicker,
     tone: input.tone,
     accent: input.accent,
+    accentStyle: input.accentStyle,
     quality: input.quality,
   });
   if (!parsed.success) {
@@ -490,7 +540,7 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
   const size = options.size;
   const [width, height] = size;
   const band = getCoverBand(size);
-  const ink = getCoverInk(input.colors, { tone: options.tone ?? "light", layout: text.value?.layout ?? null, accent: options.accent ?? false });
+  const ink = getCoverInk(input.colors, { tone: options.tone ?? "light", layout: text.value?.layout ?? null, accent: options.accent ?? false, accentStyle: options.accentStyle ?? "text" });
   if (!ink.ok) return err(`${name}: ${ink.error}.`);
   const drawn = text.value === null ? null : await layOutText({ size, band, text: text.value, fonts: input.fonts, ink: ink.value });
   if (drawn !== null && !drawn.ok) return err(`${name}: ${drawn.error}.`);
@@ -514,7 +564,7 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
   try {
     const image = new Resvg(svg, { fitTo: { mode: "original" }, font: { loadSystemFonts: false } }).render();
     const encoded = jpeg.encode({ data: Buffer.from(image.pixels), width: image.width, height: image.height }, options.quality).data;
-    return ok({ jpeg: encoded, width: image.width, height: image.height, bytes: encoded.length, textBox: drawn === null ? null : { ...drawn.value.box }, focusPoint });
+    return ok({ jpeg: encoded, width: image.width, height: image.height, bytes: encoded.length, textBox: drawn === null ? null : { ...drawn.value.box }, focusPoint, accent: ink.value.accent });
   } catch (error) {
     return err(`${name}: drawing the cover failed: ${error instanceof Error ? error.message : String(error)}.`);
   }

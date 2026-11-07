@@ -125,6 +125,12 @@ export interface FootageFilm {
   captions: boolean;
   /** `phrase` (the default): 2-6 words of plain text with a soft shadow; `highlight`: a pill that lights each word as it is said. */
   captionStyle?: CaptionStyle;
+  /**
+   * How a `highlight` caption lights the word being said: `text` (the default) colours its text `captionHighlight`;
+   * `box` puts it on a rounded box of `captionHighlightBox` with its text in `captionHighlightText` (both brand colours
+   * then required). Ignored by `phrase` captions.
+   */
+  captionHighlightStyle?: CaptionHighlightStyle;
   /** Places the 9:16 caption box inside a platform's safe zone (`CAPTION_SAFE_ZONES`); absent: the layout as it is. */
   captionPreset?: CaptionPreset;
   /**
@@ -258,6 +264,11 @@ export const DEFAULT_TRANSITIONS: FootageTransitions = { jump: "cut", clip: "cut
 export const CAPTION_STYLES = ["phrase", "highlight"] as const;
 
 export type CaptionStyle = (typeof CAPTION_STYLES)[number];
+
+/** How a `highlight` caption lights the word being said: its text colour, or a box behind it (issue #1199). */
+export const CAPTION_HIGHLIGHT_STYLES = ["text", "box"] as const;
+
+export type CaptionHighlightStyle = (typeof CAPTION_HIGHLIGHT_STYLES)[number];
 
 /** The smallest a caption line limit shrinks a card's font to, as a share of the caption box's size. */
 export const CAPTION_MIN_FONT_SCALE = 0.7;

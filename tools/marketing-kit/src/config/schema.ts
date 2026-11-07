@@ -15,11 +15,11 @@ import {
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
 import { DECLICK_LEVELS } from "../footage/declick.js";
-import { CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS, JUMP_TRANSITIONS } from "../footage/film.js";
+import { CAPTION_HIGHLIGHT_STYLES, CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS, JUMP_TRANSITIONS } from "../footage/film.js";
 import { normalizeKeyTerms } from "../footage/keyterms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
-import { COLOR_ROLES, COLOR_THEMES, isHexColor, type ColorRole } from "./colors.js";
+import { COLOR_ROLES, COLOR_THEMES, OPTIONAL_COLOR_ROLES, isHexColor, type ColorRole, type OptionalColorRole } from "./colors.js";
 import { DAY_PATTERN, isCalendarDay } from "./day.js";
 import { getOgImageNames } from "./og-image-names.js";
 import { findMalformedPlaceholder, findPlaceholders } from "./placeholders.js";
@@ -114,7 +114,7 @@ const fontSchema = z.strictObject({
 });
 
 /** What each colour role paints; the descriptions of `brand.colors` and `brand.tokensFrom.roles`. */
-const COLOR_ROLE_DESCRIPTIONS: Record<ColorRole, string> = {
+const COLOR_ROLE_DESCRIPTIONS: Record<ColorRole | OptionalColorRole, string> = {
   background: "The frame behind the phone and the vignette; #rrggbb, because the vignette appends an alpha.",
   foreground: "Text on the background: the persona card's name, the end card.",
   muted: "Secondary text: the persona card's tagline, the end card's note.",
@@ -124,21 +124,23 @@ const COLOR_ROLE_DESCRIPTIONS: Record<ColorRole, string> = {
   captionBackground: "The caption pill.",
   captionText: "Caption words not spoken yet.",
   captionHighlight: "The word being spoken.",
+  captionHighlightBox: 'The box behind the word being spoken, with captionHighlightStyle "box"; optional otherwise.',
+  captionHighlightText: 'The text of the word being spoken on its box, with captionHighlightStyle "box"; optional otherwise.',
 };
 
 const colorRolesShape = Object.fromEntries(
-  COLOR_ROLES.map((role) => [role, hexColor.optional().describe(`${COLOR_ROLE_DESCRIPTIONS[role]} A hex colour; without it, the colour comes from tokensFrom.`)]),
+  [...COLOR_ROLES, ...OPTIONAL_COLOR_ROLES].map((role) => [role, hexColor.optional().describe(`${COLOR_ROLE_DESCRIPTIONS[role]} A hex colour; without it, the colour comes from tokensFrom.`)]),
 ) as Record<
-  (typeof COLOR_ROLES)[number],
+  ColorRole | OptionalColorRole,
   z.ZodOptional<typeof hexColor>
 >;
 
 const tokenName = z.string().regex(TOKEN_NAME_PATTERN, "must be a token name such as accent-fill");
 
 const roleTokensShape = Object.fromEntries(
-  COLOR_ROLES.map((role) => [role, tokenName.optional().describe(`The source token for the ${role} role (${COLOR_ROLE_DESCRIPTIONS[role]}) Default: the role's name in kebab case.`)]),
+  [...COLOR_ROLES, ...OPTIONAL_COLOR_ROLES].map((role) => [role, tokenName.optional().describe(`The source token for the ${role} role (${COLOR_ROLE_DESCRIPTIONS[role]}) Default: the role's name in kebab case.`)]),
 ) as Record<
-  (typeof COLOR_ROLES)[number],
+  ColorRole | OptionalColorRole,
   z.ZodOptional<typeof tokenName>
 >;
 
@@ -581,6 +583,10 @@ const footageSchema = z
       .enum(CAPTION_STYLES)
       .default("phrase")
       .describe("phrase (the default): 2-6 words of plain text with a soft shadow; highlight: a pill that lights each word as it is said."),
+    captionHighlightStyle: z
+      .enum(CAPTION_HIGHLIGHT_STYLES)
+      .default("text")
+      .describe('How a highlight caption lights the word being said: text (the default) colours it captionHighlight; box puts it on a rounded box of brand.colors.captionHighlightBox with its text in captionHighlightText (both then required).'),
     captionPreset: z
       .enum(CAPTION_PRESETS)
       .optional()

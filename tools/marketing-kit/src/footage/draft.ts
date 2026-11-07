@@ -6,6 +6,7 @@ import type { CaptionLayout, LayoutOverride } from "../compose/timeline.js";
 import type { BrandColors } from "../config/colors.js";
 import { err, ok } from "./failure.js";
 import type { TimedWord } from "../voice/voiceover.js";
+import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_SECONDS, getCaptionHighlight, type CaptionHighlightLook } from "./caption-highlight.js";
 import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, isSameCaptionPlace, type CaptionWordsFilm } from "./captions.js";
 import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
 import { chooseFootageDraftFont } from "./draft-font.js";
@@ -60,9 +61,15 @@ const DRAFT_CRF = 28;
 const DRAFT_AUDIO_BITRATE = "128k";
 
 /** The caption colours of a `highlight` draft made without a brand. */
-export const FOOTAGE_DRAFT_CAPTION_COLORS = { captionBackground: "#111111", captionText: "#ffffff", captionHighlight: "#ffd400" } as const;
+export const FOOTAGE_DRAFT_CAPTION_COLORS = {
+  captionBackground: "#111111",
+  captionText: "#ffffff",
+  captionHighlight: "#ffd400",
+  captionHighlightBox: "#ffd400",
+  captionHighlightText: "#111111",
+} as const;
 /** How long the render keeps a spoken word lit in the `highlight` pill. */
-const HIGHLIGHT_SECONDS = 0.32;
+const HIGHLIGHT_SECONDS = CAPTION_HIGHLIGHT_SECONDS;
 /** The pill's padding around its text (`CAPTION_PILL_PADDING.y`): the opaque box's border in the film's frame. */
 const HIGHLIGHT_BOX_PADDING = 16;
 
@@ -113,10 +120,10 @@ function toAssText(text: string): string {
 }
 
 /** The caption colours the draft paints with (`BrandColors`). */
-export type FootageDraftCaptionColors = Pick<BrandColors, "captionBackground" | "captionText" | "captionHighlight">;
+export type FootageDraftCaptionColors = Pick<BrandColors, "captionBackground" | "captionText" | "captionHighlight" | "captionHighlightBox" | "captionHighlightText">;
 
 export interface FootageDraftCaptionsInput {
-  film: Pick<FootageFilm, "captions" | "captionStyle"> & CaptionWordsFilm;
+  film: Pick<FootageFilm, "captions" | "captionStyle" | "captionHighlightStyle"> & CaptionWordsFilm;
   edl: Edl;
   /** The film's words in film time (`remapWords`). */
   words: TimedWord[];
@@ -130,28 +137,50 @@ export interface FootageDraftCaptionsInput {
   colors?: FootageDraftCaptionColors;
 }
 
+/** The pieces of a `highlight` chunk's span: cut wherever a word lights up or goes out (in centiseconds), with the words lit in each. */
+function getHighlightPieces(chunk: { words: TimedWord[] }, span: { start: number; end: number }): { from: number; to: number; lit: boolean[] }[] {
+  const cs = (seconds: number): number => Math.round(seconds * 100);
+  const [from, to] = [cs(span.start), cs(span.end)];
+  const lights = chunk.words.map((word) => ({ on: cs(word.start), off: cs(word.start + HIGHLIGHT_SECONDS) }));
+  const cuts = [...new Set([from, to, ...lights.flatMap((light) => [light.on, light.off])])].filter((at) => at >= from && at <= to).sort((a, b) => a - b);
+  return cuts.slice(0, -1).map((at, index) => ({ from: at, to: cuts[index + 1] as number, lit: lights.map((light) => light.on <= at && at < light.off) }));
+}
+
 /**
  * A `highlight` chunk as ASS events: its span cut wherever a word lights up or goes out, each piece showing the chunk
  * with the words lit then in `highlight` (a word stays lit for the render's 0.32 s from its start).
  */
 function buildHighlightEvents(chunk: { words: TimedWord[] }, span: { start: number; end: number }, colors: { text: string; highlight: string }, styleName: string): string[] {
-  const cs = (seconds: number): number => Math.round(seconds * 100);
-  const [from, to] = [cs(span.start), cs(span.end)];
-  const lights = chunk.words.map((word) => ({ on: cs(word.start), off: cs(word.start + HIGHLIGHT_SECONDS) }));
-  const cuts = [...new Set([from, to, ...lights.flatMap((light) => [light.on, light.off])])].filter((at) => at >= from && at <= to).sort((a, b) => a - b);
-  const events: string[] = [];
-  cuts.slice(0, -1).forEach((at, index) => {
-    const next = cuts[index + 1] as number;
-    const text = chunk.words
-      .map((word, wordIndex) => {
-        const light = lights[wordIndex] as { on: number; off: number };
-        const shown = toAssText(word.text);
-        return light.on <= at && at < light.off ? `{\\1c${colors.highlight}&}${shown}{\\1c${colors.text}&}` : shown;
-      })
-      .join(" ");
-    events.push(`Dialogue: 0,${toAssTime(at / 100)},${toAssTime(next / 100)},${styleName},,0,0,0,,${text}`);
+  return getHighlightPieces(chunk, span).map((piece) => {
+    const text = chunk.words.map((word, wordIndex) => (piece.lit[wordIndex] === true ? `{\\1c${colors.highlight}&}${toAssText(word.text)}{\\1c${colors.text}&}` : toAssText(word.text))).join(" ");
+    return `Dialogue: 0,${toAssTime(piece.from / 100)},${toAssTime(piece.to / 100)},${styleName},,0,0,0,,${text}`;
   });
-  return events;
+}
+
+/**
+ * A `box` highlight chunk as ASS events (issue #1199), three layers per piece of its span. libass draws a
+ * `BorderStyle 3` box per glyph, in each glyph's own `\3c` and `\3a`, so the layers share one layout: 0 is the pill
+ * (its text hidden), 1 the lit word's box (every other glyph's box transparent, grown by `boxPadding` instead of the
+ * pill's), 2 the text alone (no box) with the lit word in its box text colour.
+ */
+function buildHighlightBoxEvents(chunk: { words: TimedWord[] }, span: { start: number; end: number }, colors: { text: string; box: string; boxText: string }, boxPadding: number, styleName: string): string[] {
+  return getHighlightPieces(chunk, span).flatMap((piece) => {
+    const at = `${toAssTime(piece.from / 100)},${toAssTime(piece.to / 100)},${styleName},,0,0,0,,`;
+    const shown = chunk.words.map((word) => toAssText(word.text));
+    const pill = `{\\1a&HFF&}${shown.join(" ")}`;
+    const box = `{\\1a&HFF&\\bord${boxPadding}\\3a&HFF&}${shown.map((text, index) => (piece.lit[index] === true ? `{\\3c${colors.box}&\\3a&H00&}${text}{\\3a&HFF&}` : text)).join(" ")}`;
+    const text = `{\\3a&HFF&\\4a&HFF&}${shown.map((word, index) => (piece.lit[index] === true ? `{\\1c${colors.boxText}&}${word}{\\1c${colors.text}&}` : word)).join(" ")}`;
+    const isLit = piece.lit.some((lit) => lit);
+    return [`Dialogue: 0,${at}${pill}`, ...(isLit ? [`Dialogue: 1,${at}${box}`] : []), `Dialogue: 2,${at}${text}`];
+  });
+}
+
+/** The highlight look the draft draws: `text` for a `phrase` film; a `box` film without its colours is an input error. */
+function getDraftHighlightLook(film: Pick<FootageFilm, "captionStyle" | "captionHighlightStyle">, colors: FootageDraftCaptionColors): CaptionHighlightLook {
+  if (film.captionStyle !== "highlight") return { style: "text", color: colors.captionHighlight };
+  const highlight = getCaptionHighlight(film, colors);
+  if (!highlight.ok) throw new Error(`buildFootageDraftCaptions: ${highlight.error}`);
+  return highlight.look;
 }
 
 /**
@@ -223,9 +252,13 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     return `Caption${index + 2}`;
   });
   const highlight = { text: text.replace(/^&H../, "&H"), highlight: toAssColor(colors.captionHighlight).replace(/^&H../, "&H") };
+  const lit = getDraftHighlightLook(input.film, colors);
+  const boxColors = lit.style === "box" ? { text: highlight.text, box: toAssColor(lit.box).replace(/^&H../, "&H"), boxText: toAssColor(lit.text).replace(/^&H../, "&H") } : null;
+  const boxPadding = Math.max(1, Math.round(caption.fontSize * CAPTION_HIGHLIGHT_BOX_PADDING_EM));
   const events = chunks.flatMap((chunk, index) => {
     const span = spans[index] as { start: number; end: number };
     const styleName = styleNames[index] ?? "Caption";
+    if (isHighlight && boxColors !== null) return buildHighlightBoxEvents(chunk, span, boxColors, boxPadding, styleName);
     if (isHighlight) return buildHighlightEvents(chunk, span, highlight, styleName);
     const line = toAssText(chunk.words.map((word) => word.text).join(" "));
     return [`Dialogue: 0,${toAssTime(span.start)},${toAssTime(span.end)},${styleName},,0,0,0,,${line}`];
@@ -528,6 +561,8 @@ async function runRenderFootageDraft(
 ): Promise<FootageResult<FootageDraft>> {
   const { log, signal } = options;
   const aborting = signal === undefined ? {} : { signal };
+  const highlight = film.captions && film.captionStyle === "highlight" ? getCaptionHighlight(film, options.brand?.colors ?? FOOTAGE_DRAFT_CAPTION_COLORS) : null;
+  if (highlight !== null && !highlight.ok) return err(`footage film ${film.id}: ${highlight.error}`, { kind: "input" });
   const seconds = getEdlDuration(edl);
   const music = await findDraftMusic(film, edl, clips, options);
   if (!music.ok) return music;

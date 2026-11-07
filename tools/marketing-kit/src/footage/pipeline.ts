@@ -15,6 +15,7 @@ import { checkMusicFileType, describeAudioProbe, probeAudio } from "./audio.js";
 import { prepareClipSounds, type SpeechPeaks, type SpeechPreGain } from "./clip-sound.js";
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
+import { getCaptionHighlight } from "./caption-highlight.js";
 import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
 import { err, getProviderFootageFailure, ok, type FootageResult } from "./failure.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
@@ -729,6 +730,8 @@ async function runRenderFootage(
   const { buildDir, log, signal } = options;
   const finishVideoProblems = options.finishVideo === undefined ? [] : findFinishVideoProblems(options.finishVideo);
   if (finishVideoProblems.length > 0) return err(finishVideoProblems.join(" "), { kind: "input" });
+  const highlight = film.captions && film.captionStyle === "highlight" ? getCaptionHighlight(film, options.brand.colors) : null;
+  if (highlight !== null && !highlight.ok) return err(`footage film ${film.id}: ${highlight.error}`, { kind: "input" });
   const lowDisk = findLowDiskProblems({ temp: getRenderTempDir(process.env, options.tempDir), build: buildDir }, options.readFreeBytes ?? getFreeBytes);
   if (lowDisk.length > 0) return err(`not enough disk space to render: ${lowDisk.join(" ")}`);
   const seconds = getFootageFilmSeconds(film, edl);

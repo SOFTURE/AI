@@ -393,7 +393,49 @@ describe("renderPhotoCover: the accent", () => {
 
   it("refuses a kicker accent under 3:1 against the scrim", async () => {
     const result = await cover({ ...kickerTitle, accent: true, colors: { ...COLORS, accent: "#333333" } });
-    expect(result.ok ? "" : result.error).toMatch(/^Photo cover: the accent #333333 has a contrast of 1\.\d\d:1 against the scrim #0c0c0d, under 3:1; pick a lighter accent or the other tone\.$/);
+    expect(result.ok ? "" : result.error).toMatch(/^Photo cover: the accent #333333 has a contrast of 1\.\d\d:1 against the scrim #0c0c0d, under 3:1; pick a lighter accent, the other tone or accentStyle "box"\.$/);
+  });
+
+  it("sets the kicker on a box of the accent with accentStyle box, its text the colour that reads better on it", async () => {
+    const result = await renderCover({ ...kickerTitle, accent: true, accentStyle: "box" });
+    expect(result.accent).toEqual({ style: "box", contrast: expect.closeTo(15.42, 2) as number });
+    const image = await renderPixels({ ...kickerTitle, accent: true, accentStyle: "box" });
+    const box = findPixelBox(image, isLime);
+    const light = findPixelBox(image, ([red, green, blue]) => red > 200 && green > 200 && blue > 200);
+    // A filled box, not a kicker's glyphs: thousands of lime pixels, all above the title.
+    expect(box.count).toBeGreaterThan(8_000);
+    expect(box.bottom).toBeLessThan(light.top);
+    // The kicker's text on the box is the dark background colour (#0c0c0d), which reads better on lime.
+    let dark = 0;
+    for (let y = box.top; y <= box.bottom; y += 1) {
+      for (let x = box.left; x <= box.right; x += 1) if ((image.data[(y * image.width + x) * 4 + 1] ?? 255) < 60) dark += 1;
+    }
+    expect(dark).toBeGreaterThan(300);
+  });
+
+  it("boxes a kicker accent too weak as text with accentStyle auto, and keeps one that reads as text", async () => {
+    const weak = await renderCover({ ...kickerTitle, accent: true, accentStyle: "auto", colors: { ...COLORS, accent: "#333333" } });
+    expect(weak.accent?.style).toBe("box");
+    expect(weak.accent?.contrast).toBeGreaterThanOrEqual(3);
+    const strong = await renderCover({ ...kickerTitle, accent: true, accentStyle: "auto" });
+    expect(strong.accent).toEqual({ style: "text", contrast: expect.closeTo(15.42, 2) as number });
+    const text = await renderCover({ ...kickerTitle, accent: true });
+    expect(strong.jpeg.equals(text.jpeg)).toBe(true);
+  });
+
+  it("reports the accent it drew, and none without it", async () => {
+    expect((await renderCover({ photo: BLACK_PHOTO, layout: "pill", caption: "Lisbon", accent: true })).accent?.style).toBe("box");
+    expect((await renderCover(kickerTitle)).accent).toBeNull();
+  });
+
+  it("refuses a boxed kicker accent neither text colour reads on at 3:1, with the reason", async () => {
+    const result = await cover({ ...kickerTitle, accent: true, accentStyle: "auto", colors: { ...COLORS, foreground: "#ffffff", background: "#888888", accent: "#bbbbbb" } });
+    expect(result.ok ? "" : result.error).toMatch(/^Photo cover: the accent #bbbbbb as a box has a contrast of \d\.\d\d:1 against the kicker #(?:ffffff|888888), under 3:1; pick an accent that reads with the foreground or the background\.$/);
+  });
+
+  it("refuses an accentStyle without the accent", async () => {
+    const result = await cover({ ...kickerTitle, accentStyle: "box" });
+    expect(result).toEqual({ ok: false, error: "Photo cover: the accentStyle needs accent: true; leave it out or set the accent." });
   });
 
   it("refuses a pill accent neither text colour reads on at 3:1", async () => {

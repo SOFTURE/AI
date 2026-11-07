@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { COLOR_ROLES, getDefaultToken, isOpaqueHexColor, type BrandColors, type ColorsResult } from "./colors.js";
+import { COLOR_ROLES, OPTIONAL_COLOR_ROLES, getDefaultToken, isOpaqueHexColor, type BrandColors, type ColorsResult } from "./colors.js";
 import { readCssColors } from "./css-colors.js";
 import { readDesignJsonColors } from "./design-json.js";
 import type { ConfigIssue } from "./issues.js";
@@ -73,6 +73,25 @@ export function resolveBrandColors(brand: Brand, root: string): BrandColorsResul
       continue;
     }
     colors[role] = value;
+  }
+  // An optional role takes its inline colour, else its token when the source has one; a token the config names and
+  // the source lacks is an issue, a default token it lacks leaves the role unset.
+  for (const role of OPTIONAL_COLOR_ROLES) {
+    const inline = brand.colors[role];
+    if (inline !== undefined) {
+      colors[role] = inline.toLowerCase();
+      continue;
+    }
+    if (reader === null) continue;
+    const named = brand.tokensFrom?.roles[role];
+    const token = named ?? getDefaultToken(role);
+    const read = reader([token]);
+    const value = read.ok ? read.colors[token] : undefined;
+    if (value !== undefined) colors[role] = value;
+    else if (named !== undefined) {
+      const reason = read.ok ? `no colour for "${token}"` : read.error;
+      issues.push({ path: ["brand", "tokensFrom", "roles", role], message: `brand.tokensFrom has no colour for it: ${reason}` });
+    }
   }
   if (colors.background !== undefined && !isOpaqueHexColor(colors.background)) {
     issues.push({ path: ["brand", "colors", "background"], message: `"${colors.background}" must be #rrggbb: the vignette adds its own transparency` });
