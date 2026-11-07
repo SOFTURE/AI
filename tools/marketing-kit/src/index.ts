@@ -47,7 +47,29 @@ export {
   type VideoConfig,
   type VideoPost,
 } from "./config/config.js";
-export { COLOR_ROLES, COLOR_THEMES, type BrandColors, type ColorRole, type ColorTheme, type ColorsResult } from "./config/colors.js";
+export {
+  COLOR_ROLES,
+  COLOR_THEMES,
+  OPTIONAL_COLOR_ROLES,
+  getContrastRatio,
+  getRelativeLuminance,
+  type BrandColors,
+  type ColorRole,
+  type ColorTheme,
+  type ColorsResult,
+  type OptionalColorRole,
+} from "./config/colors.js";
+export {
+  CAPTION_HIGHLIGHT_BOX_PADDING_EM,
+  CAPTION_HIGHLIGHT_BOX_RADIUS,
+  CAPTION_HIGHLIGHT_SECONDS,
+  getCaptionHighlight,
+  getCaptionHighlightContrast,
+  type CaptionHighlightColors,
+  type CaptionHighlightContrast,
+  type CaptionHighlightLook,
+  type CaptionHighlightResult,
+} from "./footage/caption-highlight.js";
 export { resolveBrandColors, type BrandColorsResult } from "./config/brand.js";
 export { readCssColors } from "./config/css-colors.js";
 export { readDesignJsonColors } from "./config/design-json.js";
@@ -219,6 +241,7 @@ export {
   CAPTION_MIN_FONT_SCALE,
   CAPTION_PRESETS,
   CAPTION_STYLES,
+  CAPTION_HIGHLIGHT_STYLES,
   DEFAULT_EDIT,
   DEFAULT_END_CARD_SECONDS,
   DEFAULT_LOGO_END_CARD_FADE_SECONDS,
@@ -230,6 +253,7 @@ export {
   getFootageEdit,
   type CaptionPreset,
   type CaptionStyle,
+  type CaptionHighlightStyle,
   type FootageEdit,
   type ClipFit,
   type ClipRole,

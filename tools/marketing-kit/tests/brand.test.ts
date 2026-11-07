@@ -84,6 +84,39 @@ describe("resolveBrandColors", () => {
     expect(resolveBrandColors(parseBrand({ colors }), dir)).toEqual({ ok: true, colors: { ...colors, background: "#0c0c0d" } });
   });
 
+  it("takes the optional caption box roles from brand.colors, and resolves a brand without them", () => {
+    const colors = {
+      background: "#0c0c0d",
+      foreground: "#f2f3f5",
+      muted: "#a3a6ad",
+      accent: "#cff26b",
+      cta: "#2dd4bf",
+      onCta: "#0c0c0d",
+      captionText: "#0c0c0d",
+      ...CAPTIONS,
+    };
+    expect(resolveBrandColors(parseBrand({ colors: { ...colors, captionHighlightBox: "#FF8A00", captionHighlightText: "#111111" } }), dir)).toEqual({
+      ok: true,
+      colors: { ...colors, captionHighlightBox: "#ff8a00", captionHighlightText: "#111111" },
+    });
+    const without = resolveBrandColors(parseBrand({ colors }), dir);
+    expect(without.ok && "captionHighlightBox" in without.colors).toBe(false);
+  });
+
+  it("reads the optional roles from the source when it has their tokens, and names a mapped token it lacks", () => {
+    writeFileSync(join(dir, "design.json"), JSON.stringify(FIRE_DESIGN));
+    const base = { designJson: "design.json", theme: "dark", roles: { cta: "accessible", onCta: "on-accent", captionText: "background" } };
+    const read = resolveBrandColors(parseBrand({ tokensFrom: { ...base, roles: { ...base.roles, captionHighlightBox: "accent-fill", captionHighlightText: "on-accent" } }, colors: CAPTIONS }), dir);
+    expect(read.ok && [read.colors.captionHighlightBox, read.colors.captionHighlightText]).toEqual(["#cff26b", "#0c0c0d"]);
+    // FIRE's design.json has no caption-highlight-box token: the default token missing leaves the role unset.
+    const unset = resolveBrandColors(parseBrand({ tokensFrom: base, colors: CAPTIONS }), dir);
+    expect(unset.ok && unset.colors.captionHighlightBox).toBeUndefined();
+    const mapped = resolveBrandColors(parseBrand({ tokensFrom: { ...base, roles: { ...base.roles, captionHighlightBox: "missing-token" } }, colors: CAPTIONS }), dir);
+    expect(!mapped.ok && mapped.issues).toEqual([
+      { path: ["brand", "tokensFrom", "roles", "captionHighlightBox"], message: 'brand.tokensFrom has no colour for it: no role "missing-token" in themes.dark.roles' },
+    ]);
+  });
+
   it("names every role left without a colour", () => {
     const result = resolveBrandColors(parseBrand({ colors: { background: "#000000" } }), dir);
     expect(result.ok).toBe(false);

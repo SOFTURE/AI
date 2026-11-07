@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **The lit caption word can sit on its own box (#1199):** a footage film's `captionHighlightStyle: "box"` sets the
+  word being said on a rounded box of the new brand colour `captionHighlightBox`, its text in `captionHighlightText`,
+  with the text highlight's timing, without moving the line; the render and the fast draft draw it alike. The default
+  `"text"` is unchanged. The two colour roles are optional (`OPTIONAL_COLOR_ROLES`), in `brand.colors` and
+  `brand.tokensFrom.roles`; a `box` film without them is an input error. `getCaptionHighlightContrast(colors)` returns
+  the lit text on its box and the box on the pill for the app to warn on; `getContrastRatio` is exported too.
+- **A weak cover accent can be boxed instead of refused (#1199):** `renderPhotoCover({ accent: true, accentStyle })`
+  with `"box"` sets the `kicker-title` kicker on an opaque accent box, and `"auto"` boxes it only when the accent reads
+  under 3:1 as text. The result reports `accent: { style, contrast }`. The text style's refusal now also suggests
+  `accentStyle "box"`.
+
 ## 0.21.2
 
 - **The isolator hears a float clip sound's ranges unclipped (#1193):** with `speechPeaks: "float"`,

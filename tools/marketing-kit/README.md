@@ -373,6 +373,7 @@ lowercase words joined by single dashes or underscores, at most 32 characters.
 | `accent` | the touch ring, the end of the avatar's gradient |
 | `cta`, `onCta` | the end card's link pill and its text; the avatar |
 | `captionBackground`, `captionText`, `captionHighlight` | the caption pill, its words, the word being spoken |
+| `captionHighlightBox`, `captionHighlightText` (optional) | with `captionHighlightStyle: "box"`: the box behind the word being spoken and its text |
 
 A colour in `brand.colors` wins. Otherwise the role reads a token from `brand.tokensFrom`: the app's
 stylesheet (`css`, custom properties in `[data-theme="<theme>"]`, then `:root`, `var()` resolved; a
@@ -697,7 +698,12 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   `{ kind: "file", path, fileName, contentType }`; with neither, the type check is skipped and the probe alone decides.
 - **Captions** (`captions`, default true) are the transcript's words in film time: `captionStyle: "phrase"` (the
   default) shows 2-6 words of plain text with a soft shadow, `"highlight"` the pill that lights each word in the
-  brand's caption colours. `layout` moves their box per format; `captionPreset` (`reels`, `shorts`, `tiktok` or `all`)
+  brand's caption colours. `captionHighlightStyle` picks how the word being said lights up: `"text"` (the default)
+  colours it `captionHighlight`; `"box"` sets it on a rounded box of `captionHighlightBox` (0.15 em past the word on
+  each side, radius 12 px, the line's layout unmoved) with its text in `captionHighlightText`, for the same 0.32 s, in
+  the render and the draft alike. Both box colours are then required (a film without them stops before anything is
+  rendered); `getCaptionHighlightContrast(colors)` returns the lit text's contrast on its box and the box's on the
+  pill, so the app can warn (the kit never changes the colours). `layout` moves their box per format; `captionPreset` (`reels`, `shorts`, `tiktok` or `all`)
   keeps a 9:16 film's captions inside that platform's safe zone (`CAPTION_SAFE_ZONES`, the margins its own buttons and
   text cover): the box is anchored by its foot at the zone's bottom margin and grows upwards. `captionMaxLines` (1-4)
   shrinks a longer card's font in the render, to 70 % of the box's size at most (`CAPTION_MIN_FONT_SCALE`), until it
@@ -1162,7 +1168,9 @@ What the draft matches and what it leaves out:
 - **Captions follow `captionStyle`.** The cards are the render's (`getFootageCaptionChunks`, kept words included). `phrase`: the render's phrases in white with a dark outline and shadow.
   `highlight`: the render's chunks of up to four words on an opaque box of the brand's `captionBackground` (its alpha
   kept), in `captionText`, each word in `captionHighlight` for the 0.32 s the render lights it. libass draws a square
-  box per line: no rounded corners, no drop shadow, no pop-in, and the colour switches instead of fading back.
+  box per line: no rounded corners, no drop shadow, no pop-in, and the colour switches instead of fading back. With
+  `captionHighlightStyle: "box"` the lit word sits on a square box of `captionHighlightBox` in the same place, its
+  text in `captionHighlightText`.
 - **The brand's body font** (`brand`, the value `renderFootage` takes): the TrueType or OpenType file of
   `brand.fonts.body` closest to the captions' weight (650, normal style first) is copied to the draft's `fonts/`
   and named by the family the file itself declares (libass matches that, not the CSS family). A body font shipped only
@@ -1315,6 +1323,12 @@ if (isPointUnderCoverText(cover.value, cover.value.focusPoint, 40)) console.warn
   `background`, whichever reads better on it. Another layout with `accent: true` is an error, and so is an accent
   whose contrast against what it stands on (the scrim colour for the kicker, the label for the pill) is under 3:1,
   the WCAG bound for large text (`MIN_COVER_ACCENT_CONTRAST`); the error names both colours and the ratio.
+- `accentStyle` (with `accent: true`, `PHOTO_COVER_ACCENT_STYLES`) says how the `kicker-title` accent is drawn:
+  `"text"` (the default) as above; `"box"` sets the kicker on an opaque accent box in `foreground` or `background`,
+  whichever reads better on it, so an accent too weak as text still reads; `"auto"` draws text when the accent reads
+  3:1 against the scrim and the box when it does not. A box no text colour reads on at 3:1 is still an error, with the
+  reason. The `pill` accent is a box whatever the style. The result's `accent` says what was drawn
+  (`{ style: "text" | "box", contrast }`, null without the accent).
 - `layout` picks where the text goes (`PHOTO_COVER_LAYOUTS`). Without it, a caption is `title-bottom` and no caption
   is `photo`, so a call without `layout` draws what it always drew. A layout that needs a text it was not given, or a
   text its layout does not draw, is an error.

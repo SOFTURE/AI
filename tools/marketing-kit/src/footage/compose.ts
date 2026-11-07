@@ -4,6 +4,7 @@ import type { ComposeFont } from "../compose/compose.js";
 import { assertLocalReferences, escapeHtml, fontFaces, fontStack } from "../compose/html.js";
 import { CAPTION_LINE_HEIGHT, getCaptionPillCss, getCaptionPositionCss, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
+import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_BOX_RADIUS, CAPTION_HIGHLIGHT_SECONDS, getCaptionHighlight } from "./caption-highlight.js";
 import { CAPTION_SAFE_ZONES, getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, type CaptionSpan } from "./captions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
 import {
@@ -191,6 +192,11 @@ export function composeFootage(input: FootageComposeInput): string {
 
   // --- Captions: plain phrases, or the pill that lights each word ---
   const isHighlight = film.captionStyle === "highlight";
+  const highlight = isHighlight ? getCaptionHighlight(film, c) : ({ ok: true, look: { style: "text", color: c.captionHighlight } } as const);
+  // The pipeline refuses such a film before it composes; reaching here is a bug.
+  if (!highlight.ok) throw new Error(`composeFootage: ${highlight.error}`);
+  const look = highlight.look;
+  const isBox = isHighlight && look.style === "box";
   const caption = getFootageCaptionChunks(film, words);
   const spans = getCaptionSpans(caption, cutEnd);
   const boxes = getCaptionChunkLayouts(caption, edl, captionBox);
@@ -201,7 +207,7 @@ export function composeFootage(input: FootageComposeInput): string {
       // A chunk in a segment's own box overrides the shared rule's anchor; one in the film's box is written as before.
       const style = isSameCaptionPlace(place, captionBox) ? "" : ` style="${place.bottom === undefined ? `bottom:auto;top:${place.top}px` : `top:auto;bottom:${place.bottom}px`}"`;
       const box = isHighlight
-        ? `<p class="pill">${chunk.words.map((w, j) => `<span id="cw${i}_${j}">${escapeHtml(w.text)}</span>`).join(" ")}</p>`
+        ? `<p class="pill">${chunk.words.map((w, j) => `<span id="cw${i}_${j}">${isBox ? `<i class="hl" id="cb${i}_${j}"></i>` : ""}${escapeHtml(w.text)}</span>`).join(" ")}</p>`
         : `<p class="phrase">${escapeHtml(chunk.words.map((w) => w.text).join(" "))}</p>`;
       return `<div id="cap${i}" class="clip caption" data-start="${start}" data-duration="${r3(stop - start)}"${style}>${box}</div>`;
     })
@@ -272,7 +278,10 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
 .caption{position:absolute;left:${captionBox.left}px;right:${captionBox.right}px;${getCaptionPositionCss(captionBox)};display:flex;justify-content:center}
 .pill{${getCaptionPillCss(captionBox.fontSize)};border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
 .pill span{display:inline-block}
-.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:-.01em;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
+${isBox ? `.pill{position:relative;z-index:0}
+.pill span{position:relative}
+.hl{position:absolute;top:0;bottom:0;left:-${CAPTION_HIGHLIGHT_BOX_PADDING_EM}em;right:-${CAPTION_HIGHLIGHT_BOX_PADDING_EM}em;z-index:-1;border-radius:${CAPTION_HIGHLIGHT_BOX_RADIUS}px;background:${look.box};opacity:0}
+` : ""}.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:-.01em;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
 .endcard{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 80px;text-align:center}
 .brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:${headingFont};font-size:46px}
 .logo{height:60px;width:auto}
@@ -300,7 +309,14 @@ ${tweens.join("\n")}
 const captions = ${JSON.stringify(isHighlight ? caption.map((chunk) => chunk.words.map((w) => w.start)) : [])};
 captions.forEach((words, i) => {
   tl.fromTo("#cap" + i + " .pill", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.16, ease: "power3.out" }, Math.max(0, words[0] - 0.05));
-  words.forEach((t, j) => tl.fromTo("#cw" + i + "_" + j, { color: "${c.captionText}" }, { color: "${c.captionHighlight}", duration: 0.06, immediateRender: false }, t).to("#cw" + i + "_" + j, { color: "${c.captionText}", duration: 0.2 }, t + 0.32));
+${
+  look.style === "box"
+    ? `  words.forEach((t, j) => {
+    tl.fromTo("#cb" + i + "_" + j, { opacity: 0 }, { opacity: 1, duration: 0.06, immediateRender: false }, t).to("#cb" + i + "_" + j, { opacity: 0, duration: 0.2 }, t + ${CAPTION_HIGHLIGHT_SECONDS});
+    tl.fromTo("#cw" + i + "_" + j, { color: "${c.captionText}" }, { color: "${look.text}", duration: 0.06, immediateRender: false }, t).to("#cw" + i + "_" + j, { color: "${c.captionText}", duration: 0.2 }, t + ${CAPTION_HIGHLIGHT_SECONDS});
+  });`
+    : `  words.forEach((t, j) => tl.fromTo("#cw" + i + "_" + j, { color: "${c.captionText}" }, { color: "${look.color}", duration: 0.06, immediateRender: false }, t).to("#cw" + i + "_" + j, { color: "${c.captionText}", duration: 0.2 }, t + 0.32));`
+}
 });
 ${endCardTweens.join("\n")}
 tl.set({}, {}, ${end});
