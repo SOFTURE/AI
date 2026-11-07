@@ -119,6 +119,136 @@
         "additionalProperties": false
       },
       "description": "The kept parts of the clips, in film order."
+    },
+    "overlays": {
+      "description": "Small graphics and emphasis zooms placed on a word of the transcript (at_word) or a film second (at), one at a time, each inside one segment: punch_in, keyword, lower_third, list, arrow, highlight. Without it, none.",
+      "maxItems": 40,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "punch_in",
+              "keyword",
+              "lower_third",
+              "list",
+              "arrow",
+              "highlight"
+            ],
+            "description": "punch_in (an emphasis zoom on a word), keyword, lower_third, list, arrow or highlight."
+          },
+          "at_word": {
+            "description": "The transcript word the overlay starts on (its start after the cut); give this or at.",
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The word as the transcript has it; compared without case and punctuation."
+              },
+              "occurrence": {
+                "description": "Which time the film says it (1 the first, the default).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          "at": {
+            "description": "The film second the overlay starts at; give this or at_word.",
+            "type": "number",
+            "minimum": 0
+          },
+          "duration": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 8,
+            "description": "Seconds on screen (1-8)."
+          },
+          "text": {
+            "description": "The keyword (up to 24 characters) or the lower third (up to 40).",
+            "type": "string",
+            "minLength": 1
+          },
+          "items": {
+            "description": "The list's points: 2 to 4, up to 32 characters each.",
+            "minItems": 2,
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            }
+          },
+          "anchor": {
+            "description": "The point an arrow points at, or the rectangle a highlight marks (x, y its top left), in px of the film's frame.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Px from the frame's left edge."
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Px from the frame's top edge."
+              },
+              "width": {
+                "description": "The highlight's width in px.",
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "height": {
+                "description": "The highlight's height in px.",
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "style": {
+            "description": "The overlay's size step and side; colours and fonts are the brand's.",
+            "type": "object",
+            "properties": {
+              "size": {
+                "description": "s, m (the default) or l: the punch-in's zoom (108, 112, 115 %) or the type size.",
+                "type": "string",
+                "enum": [
+                  "s",
+                  "m",
+                  "l"
+                ]
+              },
+              "side": {
+                "description": "The side a keyword, lower third or list sits on.",
+                "type": "string",
+                "enum": [
+                  "left",
+                  "right"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "kind",
+          "duration"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [

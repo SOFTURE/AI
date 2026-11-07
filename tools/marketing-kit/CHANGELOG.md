@@ -6,6 +6,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **Overlays on words in the EDL (#1200):** `edl.json` takes an optional `overlays[]` of `punch_in` (an emphasis zoom
+  on a word), `keyword`, `lower_third`, `list`, `arrow` and `highlight`, each on a transcript word (`at_word`) or a
+  film second (`at`), in the brand's colours and fonts. The render draws them from markup adapted from HyperFrames
+  registry blocks and vendored into the kit (no network); the draft draws them in the same place at the same time.
+  `resolveEdlOverlays` refuses, with a reason each, what cannot be drawn cleanly (a word never said, past the cut or
+  across a cut, two at once, closer than the film's new `overlayMinSpacing`, on the captions or outside the platform
+  safe zone, a punch-in on a Ken Burns segment or inside a zoom ease). An EDL without overlays renders as before.
+- **hyperframes 0.9.20** (was 0.9.6). The kit's render arguments and the capture summary it reads are unchanged.
+
 - **The lit caption word can sit on its own box (#1199):** a footage film's `captionHighlightStyle: "box"` sets the
   word being said on a rounded box of the new brand colour `captionHighlightBox`, its text in `captionHighlightText`,
   with the text highlight's timing, without moving the line; the render and the fast draft draw it alike. The default

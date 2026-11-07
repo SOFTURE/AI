@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
  * with the current Node, never through `npx`.
  */
 
-export const HYPERFRAMES_VERSION = "0.9.6";
+export const HYPERFRAMES_VERSION = "0.9.20";
 
 const require = createRequire(import.meta.url);
 

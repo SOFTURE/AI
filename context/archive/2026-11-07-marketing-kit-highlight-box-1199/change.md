@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-highlight-box-1199
 title: "marketing-kit: the lit caption word on its own box, and a boxed cover accent (issue #1199)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1199
 branch: claude/project-thread-1p9fy6
 created: 2026-11-07
 updated: 2026-11-07
+archived_at: 2026-11-07
 ---
 
 ## Intent
@@ -32,3 +33,10 @@ Labels: `pkg: marketing-kit`. Batched with #1200 into one marketing-kit release 
 ## Notes
 
 - Framing: skipped. The issue names the API, the colours, the geometry and the tests.
+
+## Done
+
+`captionHighlightStyle: "box"` puts the lit caption word on its own box (`captionHighlightBox`, text in
+`captionHighlightText`, both optional brand roles) in the render and the draft; `getCaptionHighlightContrast` returns
+the ratios for the app; `renderPhotoCover({ accentStyle: "box" | "auto" })` boxes a kicker accent too weak as text.
+Merged in PR #1201 (d9eb737). Next marketing-kit release.

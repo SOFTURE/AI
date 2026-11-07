@@ -1,0 +1,11 @@
+@softure-ai/marketing-kit
+Copyright SOFTURE
+
+This package contains code adapted from HyperFrames (https://github.com/heygen-com/hyperframes),
+Copyright HeyGen, licensed under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0):
+
+- src/footage/overlay-html.ts and src/footage/compose.ts (the punch-in): the motion of the registry
+  blocks lt-soft-pill, marker-highlight, hw-arrow and push-in, rewritten for the kit's frame, timeline
+  and brand colours. Changes: the markup, sizes, colours and timing are the kit's own; the blocks'
+  standalone compositions, variables, fonts and CDN script tags are not included.

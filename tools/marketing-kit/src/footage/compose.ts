@@ -19,6 +19,8 @@ import {
   type LogoFootageEndCard,
 } from "./film.js";
 import { FOOTAGE_FPS } from "./normalize.js";
+import { getOverlayMarkup } from "./overlay-html.js";
+import type { ResolvedOverlay } from "./overlays.js";
 
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
 
@@ -77,6 +79,8 @@ export interface FootageComposeInput {
   assets: FootageComposeAssets;
   brandName: string;
   locale: string;
+  /** The EDL's overlays, resolved (`resolveEdlOverlays`); absent or empty: none, and the composition is as without them. */
+  overlays?: ResolvedOverlay[];
 }
 
 /** The film's length: the cut plus the end card (`getEndCardSeconds`). */
@@ -190,6 +194,19 @@ export function composeFootage(input: FootageComposeInput): string {
     }
   });
 
+  // --- Overlays: the punch-in zooms the segment's picture (eased in, held, eased back), the others are clips of their own ---
+  const overlays = input.overlays ?? [];
+  for (const overlay of overlays) {
+    if (overlay.kind !== "punch_in") continue;
+    const target = picture === undefined ? `#seg${overlay.segment}` : "#picture";
+    const base = scales[overlay.segment] as number;
+    const peak = r3(base * overlay.scale);
+    tweens.push(
+      `tl.fromTo("${target}", { scale: ${base} }, { scale: ${peak}, duration: ${overlay.ease}, ease: "sine.inOut", immediateRender: false }, ${overlay.start});`,
+      `tl.fromTo("${target}", { scale: ${peak} }, { scale: ${base}, duration: ${overlay.ease}, ease: "sine.inOut", immediateRender: false }, ${r3(overlay.end - overlay.ease)});`,
+    );
+  }
+
   // --- Captions: plain phrases, or the pill that lights each word ---
   const isHighlight = film.captionStyle === "highlight";
   const highlight = isHighlight ? getCaptionHighlight(film, c) : ({ ok: true, look: { style: "text", color: c.captionHighlight } } as const);
@@ -260,6 +277,7 @@ export function composeFootage(input: FootageComposeInput): string {
   const bodyFont = fontStack(fonts.body, "sans-serif");
   const headingFont = fonts.heading === null ? bodyFont : fontStack(fonts.heading, "sans-serif");
   const faces = [...fontFaces(fonts.body), ...fontFaces(fonts.heading)];
+  const overlayMarkup = getOverlayMarkup(overlays, { colors: c, headingFont, frame });
 
   return assertLocalReferences(`<!doctype html>
 <html lang="${escapeHtml(input.locale)}">
@@ -294,13 +312,13 @@ ${isBox ? `.pill{position:relative;z-index:0}
 .mark.vector{width:min(100%,${LOGO_CARD_MARK.width}px);height:${LOGO_CARD_MARK.height}px;object-fit:contain}
 .markname{font-family:${headingFont};font-weight:600;font-size:96px;letter-spacing:-.02em}
 .logoline{font-family:${headingFont};font-weight:600;font-size:${LOGO_CARD_LINE_SIZE}px;line-height:1.15;letter-spacing:-.01em}
-</style>
+${overlayMarkup.css.map((rule) => `${rule}\n`).join("")}</style>
 </head>
 <body>
 <div id="root" data-composition-id="${COMPOSITION_ID}" data-start="0" data-duration="${end}" data-width="${frame.width}" data-height="${frame.height}">
   ${segments.join("\n  ")}
   ${endCardHtml}
-  ${captionHtml}
+  ${overlayMarkup.html.map((element) => `${element}\n  `).join("")}${captionHtml}
   ${audio}
 </div>
 ${captionFit}<script>
@@ -318,7 +336,7 @@ ${
     : `  words.forEach((t, j) => tl.fromTo("#cw" + i + "_" + j, { color: "${c.captionText}" }, { color: "${look.color}", duration: 0.06, immediateRender: false }, t).to("#cw" + i + "_" + j, { color: "${c.captionText}", duration: 0.2 }, t + 0.32));`
 }
 });
-${endCardTweens.join("\n")}
+${overlayMarkup.tweens.map((tween) => `${tween}\n`).join("")}${endCardTweens.join("\n")}
 tl.set({}, {}, ${end});
 window.__timelines = window.__timelines || {};
 window.__timelines["${COMPOSITION_ID}"] = tl;
