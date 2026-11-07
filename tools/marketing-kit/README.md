@@ -730,6 +730,24 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   (`{ level, impulses, repairs }`, each repair's start and end in seconds; null when off) report every intervention.
   `"off"` (the default) runs no extra pass: the speech track is unchanged. Until 0.17.0 the levels also gated the
   pauses by 15 or 20 dB, which lowered decays and onsets (heard as hoarseness and pumping); that gate is gone.
+- **The `repair` level and the mouth-click detector (issues #1182, #1183):** `"repair"` finds impulses by the rules
+  shared with `findMouthClicks` (`MOUTH_CLICK_RULES`): 1 to 25 ms, 2-10 kHz energy more than 12 dB over the band's
+  ±50 ms median, not periodic (normalized autocorrelation under 0.3 at lags of 2.5 to 15 ms over 30 ms), and over
+  within its length (the 10 ms after it 12 dB under its peak). Protected is each word's bound on the real sound (the
+  wider of the transcript's bound and where the 10 ms energy falls 20 dB under the word's peak) ±80 ms, and every
+  10 ms window above −45 dBFS with the impulses' own samples left out. It repairs only in pauses of at least 150 ms
+  after the guard, at most 25 ms per repair (crossfades included), 3 a second and 1 % of the track; the impulses over
+  a limit stay and are counted in `declick.skippedLimit` (0 for the other levels). To move a segment's cut past a
+  click instead, without touching the sound:
+
+  ```ts
+  import { findMouthClicks } from "@softure-ai/marketing-kit";
+
+  // mono: the pre-gained speech of the stretch, sample 0 playing at `offset` seconds; words in the same time.
+  const { clicks, words: bounds, isQuiet } = findMouthClicks({ mono, sampleRate: 48_000, offset, words });
+  // clicks: impulses outside the protection zone; bounds: each word on the real sound; isQuiet(stretch): no 10 ms
+  // window above -45 dBFS in it once the clicks are left out (the stretch a moved cut drops).
+  ```
 - **A lossless speech chain (issue #1139):** each clip's sound is read from its source (with the clip's trim) into
   `audio/<clip>.wav`, 24-bit 48 kHz stereo, and pre-gained right away by one linear gain to about −23 LUFS, its true
   peak kept at or under −3 dBTP (`SPEECH_PRE_GAIN`); a b-roll or other non-talking clip takes the mean gain of the

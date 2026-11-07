@@ -2,8 +2,12 @@ import { readFileSync, rmSync, writeFileSync } from "node:fs";
 
 import type { TimedWord } from "../voice/voiceover.js";
 import { getAudioCodecArgs } from "./clip-sound.js";
+import { MOUTH_CLICK_RULES, analyzeMouthClicks } from "./mouth-clicks.js";
 import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
 import { runFfmpeg } from "./process.js";
+import { getBand, getFrameEnergies, getRunningMedian, type TimeSpan } from "./sound-analysis.js";
+
+export { getRunningMedian, type TimeSpan };
 
 /**
  * The speech track's declick stage (issues #1084, #1170), between the cut speech track and its loudness normalization:
@@ -17,22 +21,30 @@ import { runFfmpeg } from "./process.js";
  *   samples are replaced by AR (LPC) interpolation from the sound on both sides, joined with a raised-cosine crossfade
  *   of `DECLICK_CROSSFADE` on each side. Every other sample leaves the stage as it came in.
  *
+ * The `repair` level (issue #1183) uses the mouth-click detector shared with moving a cut (`MOUTH_CLICK_RULES`,
+ * issue #1182) instead: impulses of 1 to 25 ms, outside the speech protection zone (word bounds on the real sound
+ * ±80 ms, nothing above -45 dBFS), only in pauses at least 150 ms long after the guard, and within the limits of
+ * `DECLICK_REPAIR_RULES` (the impulses over a limit are left and counted).
+ *
  * Without words the stage repairs nothing: it cannot tell a click from a consonant.
  */
 
-export const DECLICK_LEVELS = ["off", "gentle", "strong"] as const;
+export const DECLICK_LEVELS = ["off", "gentle", "strong", "repair"] as const;
 
 export type DeclickLevel = (typeof DECLICK_LEVELS)[number];
 
 /** A level that runs the stage. */
 export type ActiveDeclickLevel = Exclude<DeclickLevel, "off">;
 
+/** A level that runs the 0.18.0 detector (`findImpulses`, `DECLICK_SETTINGS`). */
+export type DetectorDeclickLevel = Exclude<ActiveDeclickLevel, "repair">;
+
 export interface DeclickSettings {
   /** How far a frame's 2-8 kHz energy must rise above the band's running median to count as an impulse, in dB. */
   jumpDb: number;
 }
 
-export const DECLICK_SETTINGS: Record<ActiveDeclickLevel, DeclickSettings> = {
+export const DECLICK_SETTINGS: Record<DetectorDeclickLevel, DeclickSettings> = {
   gentle: { jumpDb: 15 },
   strong: { jumpDb: 9 },
 };
@@ -43,6 +55,17 @@ export const DECLICK_WORD_GUARD = 0.08;
 export const DECLICK_MAX_IMPULSE = 0.012;
 /** The raised-cosine crossfade between the original and the interpolation on each side of a repair. */
 export const DECLICK_CROSSFADE = 0.003;
+/** The `repair` level's rules (issue #1183); its impulses are `MOUTH_CLICK_RULES`'. */
+export const DECLICK_REPAIR_RULES = {
+  /** The shortest pause that holds a repair once the word guard is taken off both sides, seconds. */
+  minPauseSeconds: 0.15,
+  /** The longest repair, its crossfades included, seconds. */
+  maxRepairSeconds: 0.025,
+  /** The most repairs in any one second. */
+  maxPerSecond: 3,
+  /** The share of the track's length all repairs (crossfades included) may take. */
+  maxShare: 0.01,
+} as const;
 /** The AR model's order. */
 export const DECLICK_AR_ORDER = 24;
 /** Seconds of sound on each side of a repair the AR model is fitted on. */
@@ -61,11 +84,6 @@ const BAND_FLOOR_DB = -90;
 /** Added to Burg's denominator, so a silent context gives a zero model instead of a division by zero. */
 const AR_RIDGE = 1e-9;
 
-export interface TimeSpan {
-  start: number;
-  end: number;
-}
-
 /** What the stage did, in the render's and the draft's ok value. */
 export interface DeclickReport {
   level: ActiveDeclickLevel;
@@ -73,6 +91,8 @@ export interface DeclickReport {
   impulses: number;
   /** Each repaired impulse in the speech track's time, seconds (without its crossfades). */
   repairs: TimeSpan[];
+  /** Impulses the `repair` level left because a limit of `DECLICK_REPAIR_RULES` was reached; 0 for the other levels. */
+  skippedLimit: number;
 }
 
 const sortSpans = (words: readonly TimeSpan[]): TimeSpan[] => [...words].filter((word) => word.end > word.start).sort((a, b) => a.start - b.start);
@@ -99,91 +119,6 @@ export function getRepairZones(words: readonly TimeSpan[], seconds: number): Tim
   return zones;
 }
 
-/** One second-order section (RBJ cookbook), run in place over the samples. */
-function runBiquad(samples: Float64Array, kind: "highpass" | "lowpass", frequency: number, sampleRate: number): void {
-  const w0 = (2 * Math.PI * Math.min(frequency, sampleRate * 0.45)) / sampleRate;
-  const cos = Math.cos(w0);
-  const alpha = Math.sin(w0) / (2 * Math.SQRT1_2);
-  const a0 = 1 + alpha;
-  const b0 = (kind === "lowpass" ? (1 - cos) / 2 : (1 + cos) / 2) / a0;
-  const b1 = (kind === "lowpass" ? 1 - cos : -(1 + cos)) / a0;
-  const b2 = b0;
-  const a1 = (-2 * cos) / a0;
-  const a2 = (1 - alpha) / a0;
-  let x1 = 0;
-  let x2 = 0;
-  let y1 = 0;
-  let y2 = 0;
-  for (let index = 0; index < samples.length; index++) {
-    const x = samples[index] ?? 0;
-    const y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
-    x2 = x1;
-    x1 = x;
-    y2 = y1;
-    y1 = y;
-    samples[index] = y;
-  }
-}
-
-/** The 2-8 kHz band of the signal: two high-pass and two low-pass sections (fourth order on each side). */
-function getBand(mono: Float32Array, sampleRate: number): Float64Array {
-  const band = Float64Array.from(mono);
-  runBiquad(band, "highpass", BAND_LOW_HZ, sampleRate);
-  runBiquad(band, "highpass", BAND_LOW_HZ, sampleRate);
-  runBiquad(band, "lowpass", BAND_HIGH_HZ, sampleRate);
-  runBiquad(band, "lowpass", BAND_HIGH_HZ, sampleRate);
-  return band;
-}
-
-/** Each frame's mean square in dB, frames of `frameLength` samples every `hop` samples. */
-function getFrameEnergies(band: Float64Array, frameLength: number, hop: number): Float64Array {
-  const sums = new Float64Array(band.length + 1);
-  for (let index = 0; index < band.length; index++) {
-    const value = band[index] ?? 0;
-    sums[index + 1] = (sums[index] ?? 0) + value * value;
-  }
-  const count = band.length < frameLength ? 0 : Math.floor((band.length - frameLength) / hop) + 1;
-  const energies = new Float64Array(count);
-  for (let frame = 0; frame < count; frame++) {
-    const from = frame * hop;
-    const power = ((sums[from + frameLength] ?? 0) - (sums[from] ?? 0)) / frameLength;
-    energies[frame] = 10 * Math.log10(Math.max(power, 1e-20));
-  }
-  return energies;
-}
-
-/** The index of the first entry of the sorted list not below `value`. */
-function findInsertIndex(sorted: number[], value: number): number {
-  let low = 0;
-  let high = sorted.length;
-  while (low < high) {
-    const middle = (low + high) >> 1;
-    if ((sorted[middle] ?? 0) < value) low = middle + 1;
-    else high = middle;
-  }
-  return low;
-}
-
-/** The running median of the values over `reach` entries on each side (fewer at the ends). */
-export function getRunningMedian(values: Float64Array, reach: number): Float64Array {
-  const medians = new Float64Array(values.length);
-  const window: number[] = [];
-  let from = 0;
-  let to = 0;
-  for (let index = 0; index < values.length; index++) {
-    const wantedTo = Math.min(values.length, index + reach + 1);
-    for (; to < wantedTo; to++) {
-      const value = values[to] ?? 0;
-      window.splice(findInsertIndex(window, value), 0, value);
-    }
-    const wantedFrom = Math.max(0, index - reach);
-    for (; from < wantedFrom; from++) window.splice(findInsertIndex(window, values[from] ?? 0), 1);
-    const middle = window.length >> 1;
-    medians[index] = window.length % 2 === 1 ? (window[middle] ?? 0) : ((window[middle - 1] ?? 0) + (window[middle] ?? 0)) / 2;
-  }
-  return medians;
-}
-
 /** True when the impulse with its crossfades lies inside one zone. */
 const isRepairable = (span: TimeSpan, zones: readonly TimeSpan[]): boolean =>
   zones.some((zone) => span.start - DECLICK_CROSSFADE >= zone.start && span.end + DECLICK_CROSSFADE <= zone.end);
@@ -193,14 +128,14 @@ const isRepairable = (span: TimeSpan, zones: readonly TimeSpan[]): boolean =>
  * the level's `jumpDb` above the band's running median (±100 ms), shorter than `DECLICK_MAX_IMPULSE`, that lie with
  * their crossfades inside a repair zone (`getRepairZones`). Times in seconds, widened by a millisecond on each side.
  */
-export function findImpulses(mono: Float32Array, sampleRate: number, words: readonly TimeSpan[], level: ActiveDeclickLevel): TimeSpan[] {
+export function findImpulses(mono: Float32Array, sampleRate: number, words: readonly TimeSpan[], level: DetectorDeclickLevel): TimeSpan[] {
   const seconds = mono.length / sampleRate;
   const zones = getRepairZones(words, seconds);
   if (zones.length === 0) return [];
   const { jumpDb } = DECLICK_SETTINGS[level];
   const frameLength = Math.max(1, Math.round(FRAME_SECONDS * sampleRate));
   const hop = Math.max(1, Math.round(HOP_SECONDS * sampleRate));
-  const energies = getFrameEnergies(getBand(mono, sampleRate), frameLength, hop);
+  const energies = getFrameEnergies(getBand({ mono, sampleRate, lowHz: BAND_LOW_HZ, highHz: BAND_HIGH_HZ }), frameLength, hop);
   const medians = getRunningMedian(energies, Math.round(MEDIAN_SECONDS / HOP_SECONDS));
   const impulses: TimeSpan[] = [];
   let runStart = -1;
@@ -220,6 +155,35 @@ export function findImpulses(mono: Float32Array, sampleRate: number, words: read
   }
   if (runStart !== -1) closeRun(energies.length - 1);
   return impulses;
+}
+
+/**
+ * The impulses the `repair` level repairs (issue #1183): `MOUTH_CLICK_RULES` impulses whose repair (with its
+ * crossfades) lies inside a pause at least `minPauseSeconds` long between the words' bounds on the real sound after
+ * the guard, outside the speech protection zone, taken in time order while the limits allow; the others in such a
+ * pause are counted as `skippedLimit`.
+ */
+export function findRepairs(mono: Float32Array, sampleRate: number, words: readonly TimeSpan[]): { repairs: TimeSpan[]; skippedLimit: number } {
+  const seconds = mono.length / sampleRate;
+  const analysis = analyzeMouthClicks(mono, sampleRate, words);
+  const zones = getRepairZones(analysis.bounds, seconds).filter((zone) => zone.end - zone.start >= DECLICK_REPAIR_RULES.minPauseSeconds);
+  const budget = DECLICK_REPAIR_RULES.maxShare * seconds;
+  const repairs: TimeSpan[] = [];
+  let used = 0;
+  let skippedLimit = 0;
+  for (const candidate of analysis.candidates) {
+    const span = { start: candidate.start - DECLICK_CROSSFADE, end: candidate.end + DECLICK_CROSSFADE };
+    if (!zones.some((zone) => span.start >= zone.start && span.end <= zone.end) || analysis.isProtected(span)) continue;
+    const length = span.end - span.start;
+    const inLastSecond = repairs.filter((repair) => repair.start > candidate.start - 1).length;
+    if (length > DECLICK_REPAIR_RULES.maxRepairSeconds || inLastSecond >= DECLICK_REPAIR_RULES.maxPerSecond || used + length > budget) {
+      skippedLimit++;
+      continue;
+    }
+    repairs.push(candidate);
+    used += length;
+  }
+  return { repairs, skippedLimit };
 }
 
 /**
@@ -340,7 +304,8 @@ export function declickSamples(options: { samples: Float32Array; channels: numbe
     for (let channel = 0; channel < channels; channel++) sum += samples[index * channels + channel] ?? 0;
     mono[index] = sum / channels;
   }
-  const impulses = findImpulses(mono, sampleRate, words, level);
+  const found = level === "repair" ? findRepairs(mono, sampleRate, words) : { repairs: findImpulses(mono, sampleRate, words, level), skippedLimit: 0 };
+  const impulses = found.repairs;
   const output = Float32Array.from(samples);
   const crossfade = Math.round(DECLICK_CROSSFADE * sampleRate);
   const context = Math.round(DECLICK_AR_CONTEXT * sampleRate);
@@ -354,7 +319,7 @@ export function declickSamples(options: { samples: Float32Array; channels: numbe
       for (let index = Math.max(0, from); index < Math.min(length, to); index++) output[index * channels + channel] = track[index] ?? 0;
     }
   }
-  return { samples: output, impulses, report: { level, impulses: impulses.length, repairs: impulses.map((impulse) => ({ ...impulse })) } };
+  return { samples: output, impulses, report: { level, impulses: impulses.length, repairs: impulses.map((impulse) => ({ ...impulse })), skippedLimit: found.skippedLimit } };
 }
 
 const CHANNELS = 2;
@@ -423,5 +388,7 @@ export function describeDeclick(report: DeclickReport): string {
   const times = report.repairs.slice(0, LOGGED_REPAIRS).map((repair) => `${repair.start.toFixed(3)} s`);
   const more = report.repairs.length > LOGGED_REPAIRS ? `, +${String(report.repairs.length - LOGGED_REPAIRS)} more` : "";
   const where = times.length === 0 ? "" : ` at ${times.join(", ")}${more}`;
-  return `declick (${report.level}): ${String(report.impulses)} impulse${report.impulses === 1 ? "" : "s"} repaired${where}; no gain change, nothing within ${String(DECLICK_WORD_GUARD * 1000)} ms of a word touched.`;
+  const count = `${String(report.impulses)} impulse${report.impulses === 1 ? "" : "s"} repaired${where}`;
+  if (report.level !== "repair") return `declick (${report.level}): ${count}; no gain change, nothing within ${String(DECLICK_WORD_GUARD * 1000)} ms of a word touched.`;
+  return `declick (repair): ${count}, ${String(report.skippedLimit)} left over the limits; no gain change, nothing within ${String(DECLICK_WORD_GUARD * 1000)} ms of a word's sound or above ${String(MOUTH_CLICK_RULES.loudDbfs)} dBFS touched.`;
 }

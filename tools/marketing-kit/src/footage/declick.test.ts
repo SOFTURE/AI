@@ -18,7 +18,7 @@ import {
   getRepairZones,
   getRunningMedian,
   repairSpan,
-  type ActiveDeclickLevel,
+  type DetectorDeclickLevel,
   type TimeSpan,
 } from "./declick.js";
 
@@ -133,7 +133,7 @@ describe("getRunningMedian", () => {
 });
 
 describe("findImpulses", () => {
-  it.each<ActiveDeclickLevel>(["gentle", "strong"])("finds every click in the pauses and none within 80 ms of a word (%s)", (level) => {
+  it.each<DetectorDeclickLevel>(["gentle", "strong"])("finds every click in the pauses and none within 80 ms of a word (%s)", (level) => {
     const impulses = findImpulses(fixture.samples, RATE, fixture.words, level);
     expect(pauseClicks.length).toBe(10);
     expect(impulses).toHaveLength(pauseClicks.length);
@@ -193,7 +193,7 @@ function getChangedIndexes(before: Float32Array, after: Float32Array): number[] 
 }
 
 describe("declickSamples", () => {
-  it.each<ActiveDeclickLevel>(["gentle", "strong"])("repairs the clicks in the pauses, keeps those near the words and changes nothing else (%s)", (level) => {
+  it.each<DetectorDeclickLevel>(["gentle", "strong"])("repairs the clicks in the pauses, keeps those near the words and changes nothing else (%s)", (level) => {
     const { samples, report } = declickSamples({ samples: fixture.samples, channels: 1, sampleRate: RATE, words: fixture.words, level });
     expect(report.level).toBe(level);
     expect(report.impulses).toBe(10);
@@ -234,7 +234,7 @@ describe("declickSamples", () => {
       stereo[index * 2 + 1] = value;
     }
     const plain = declickSamples({ samples: stereo, channels: 2, sampleRate: RATE, words: [], level: "strong" });
-    expect(plain.report).toEqual({ level: "strong", impulses: 0, repairs: [] });
+    expect(plain.report).toEqual({ level: "strong", impulses: 0, repairs: [], skippedLimit: 0 });
     expect(Array.from(plain.samples)).toEqual(Array.from(stereo));
     const { samples, report } = declickSamples({ samples: stereo, channels: 2, sampleRate: RATE, words: [{ start: 0.05, end: 0.1 }], level: "gentle" });
     expect(report.impulses).toBe(1);
@@ -256,13 +256,13 @@ describe("the stage's ffmpeg steps", () => {
 
   it("logs the count and the first repair times", () => {
     const repairs = Array.from({ length: 10 }, (_, index) => ({ start: index + 0.25, end: index + 0.254 }));
-    expect(describeDeclick({ level: "gentle", impulses: 10, repairs })).toBe(
+    expect(describeDeclick({ level: "gentle", impulses: 10, repairs, skippedLimit: 0 })).toBe(
       "declick (gentle): 10 impulses repaired at 0.250 s, 1.250 s, 2.250 s, 3.250 s, 4.250 s, 5.250 s, 6.250 s, 7.250 s, +2 more; no gain change, nothing within 80 ms of a word touched.",
     );
-    expect(describeDeclick({ level: "strong", impulses: 1, repairs: [{ start: 1.5, end: 1.505 }] })).toBe(
+    expect(describeDeclick({ level: "strong", impulses: 1, repairs: [{ start: 1.5, end: 1.505 }], skippedLimit: 0 })).toBe(
       "declick (strong): 1 impulse repaired at 1.500 s; no gain change, nothing within 80 ms of a word touched.",
     );
-    expect(describeDeclick({ level: "strong", impulses: 0, repairs: [] })).toBe("declick (strong): 0 impulses repaired; no gain change, nothing within 80 ms of a word touched.");
+    expect(describeDeclick({ level: "strong", impulses: 0, repairs: [], skippedLimit: 0 })).toBe("declick (strong): 0 impulses repaired; no gain change, nothing within 80 ms of a word touched.");
   });
 });
 
@@ -319,7 +319,7 @@ function buildSpeech(): { samples: Float32Array; words: TimeSpan[] } {
 }
 
 describe("the declick inside word windows (issue #1170)", () => {
-  it.each<ActiveDeclickLevel>(["gentle", "strong"])("keeps the 5 ms envelope within 1 dB in 99.9 %% of frames (%s)", (level) => {
+  it.each<DetectorDeclickLevel>(["gentle", "strong"])("keeps the 5 ms envelope within 1 dB in 99.9 %% of frames (%s)", (level) => {
     const { samples, words } = buildSpeech();
     const output = declickSamples({ samples, channels: 1, sampleRate: RATE, words, level }).samples;
     const frame = Math.round(0.005 * RATE);

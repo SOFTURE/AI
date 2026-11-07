@@ -216,8 +216,11 @@ export function getEndCardTexts(card: FootageEndCard | null): { headline: string
 /** Settings of the speech track itself. */
 export interface FootageSpeech {
   /**
-   * Mouth clicks and lip smacks between words (issue #1084): `gentle` lowers the pauses by 15 dB and removes impulses
-   * that jump 15 dB above the band's median, `strong` by 20 dB and 9 dB. Absent or `off`: no pass, the track unchanged.
+   * Mouth clicks and lip smacks between words (issues #1084, #1170, #1183): each single impulse in a pause is repaired
+   * by AR interpolation and no gain changes. `gentle` and `strong` repair impulses that jump 15 or 9 dB above the band's
+   * median, nothing within 80 ms of a transcript word; `repair` uses the shared mouth-click rules (`MOUTH_CLICK_RULES`):
+   * word bounds on the real sound, nothing above -45 dBFS, pauses of 150 ms or more, at most 3 repairs a second and
+   * 1 % of the track. Absent or `off`: no pass, the track unchanged.
    */
   declick?: DeclickLevel;
 }
