@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **The photo cover can carry the brand accent (#1188):** `renderPhotoCover({ accent: true })` sets the kicker of
+  `kicker-title` in `colors.accent`, or the `pill` box in the accent (opaque) with the label in `foreground` or
+  `background`, whichever reads better. Off by default: a cover without it is byte for byte the same. Another layout
+  with the accent, or an accent under 3:1 against the scrim (kicker) or the label (pill), is an error
+  (`MIN_COVER_ACCENT_CONTRAST`, from `/og`).
+
 ## 0.20.0
 
 - **The mouth-click detector is exported for moving a cut past a click (#1182):** `findMouthClicks({ mono, sampleRate,
