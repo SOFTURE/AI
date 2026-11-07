@@ -31,7 +31,7 @@ export { createLocalStorage, type LocalStorageOptions } from "./local-storage.js
 export { DEFAULT_CONTENT_TYPE, formatContentDisposition, normalizeContentType, sanitizeFileName } from "./names.js";
 export { getFilesModule, getFilesOptions, getLinksRoute, getUploadsRoute } from "./options.js";
 export { deleteFilesUserData, exportFilesUserData, filesPrivacyContributor, type FilesDeletionReport, type FilesUserData } from "./privacy.js";
-export { pruneFiles, type PruneFilesOptions, type PruneFilesReport } from "./prune.js";
+export { PRUNE_REPORT_MAX_FILE_IDS, pruneFiles, type PruneFilesOptions, type PruneFilesReport } from "./prune.js";
 export {
   createS3Storage,
   S3_ACCESS_KEY_ID_ENV,

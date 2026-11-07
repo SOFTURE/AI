@@ -43,7 +43,10 @@ sandbox, a phone behind a proxy with a body limit) uploads through a signed URL 
   `create_upload` (a signed URL, a ready `curl` loop and the browser page) and `finalize_upload`, so an assistant hands
   over a video without its bytes going through a tool call. See §4.2.
 - **Retention**: `pruneFiles(ctx)` removes expired and deleted files from storage and the table, and expired upload
-  sessions with their chunks; the `files.prune` job (`@softure-ai/files/jobs`) runs it hourly.
+  sessions with their chunks; the `files.prune` job (`@softure-ai/files/jobs`) runs it hourly. Every run logs one line
+  `files.prune finished removed=<n> freedBytes=<b> failedFiles deletedUploads failedUploads`, with the removed ids as
+  `fileIds` when at most 10 went; `createFilesJobHandlers({ logger: createLogger("files") })` sends it through
+  `@softure-ai/observability` instead of the console.
 - **A privacy contributor** (the export lists the owner's files, the deletion removes them) and **a health check**
   (the table answers, storage takes a write, free space above `health.minFreeBytes`).
 - **`/testing`**: an in-memory driver, a fixed link keyring, `fetchFileLink` (status, headers and bytes of a link,
