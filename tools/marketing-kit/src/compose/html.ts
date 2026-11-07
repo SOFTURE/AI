@@ -7,7 +7,7 @@ import type { ComposeFont } from "./compose.js";
  * `http(s)://` or protocol-relative address. Its download helper is the only place hyperframes loads its pinned
  * `undici`, so a composition without one never reaches undici's advisories (README, "npm audit").
  */
-const REMOTE_REFERENCE = /(?:\b(?:src|href)\s*=\s*["']?|\burl\(\s*["']?|@import\s+(?:url\(\s*)?["']?)\s*((?:https?:)?\/\/[^"')\s>]*)/i;
+const REMOTE_REFERENCE = /(?:\b(?:src|href)\s*=\s*["']?|\burl\(\s*["']?|@import\s+(?:url\(\s*)?["']?)((?:https?:)?\/\/[^"')\s>]*)/i;
 
 /** Returns the composition when every file it names is local; throws on the first remote reference. */
 export function assertLocalReferences(html: string): string {
