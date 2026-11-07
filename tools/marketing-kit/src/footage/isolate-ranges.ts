@@ -203,7 +203,7 @@ async function runIsolateSpeechRanges(
     mkdirSync(workDir, { recursive: true });
     // The provider sees the clip's id and the range as the file name.
     const input = join(workDir, `${range.clip}.${String(range.startMs)}-${String(range.endMs)}.wav`);
-    await runFfmpeg(`Cutting ${describeRange(range)} for voice isolation`, buildRangeAudioArgs(getSound(clip), range, input), { ...aborting, output: input });
+    await runFfmpeg(`Cutting ${describeRange(range)} for voice isolation`, buildRangeAudioArgs(getSound(clip), range, input, options.speechPeaks === undefined ? {} : { peaks: options.speechPeaks }), { ...aborting, output: input });
     signal?.throwIfAborted();
     log(`voice isolation (${providers.isolation.id}): ${describeRange(range)}, ${units.toFixed(1)} s.`);
     const answer = await isolateWithRetries({
