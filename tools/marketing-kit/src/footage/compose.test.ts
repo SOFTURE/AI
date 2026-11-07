@@ -297,3 +297,16 @@ describe("composeFootage with a segment's own caption box", () => {
     expect(composeFootage(input({ words }))).not.toContain('class="clip caption" data-start="0.05" data-duration="0.45" style=');
   });
 });
+
+describe("composeFootage with a remote asset", () => {
+  it("refuses a clip given as an https URL, so hyperframes never downloads anything", () => {
+    const remote = input({ assets: { ...input().assets, clips: { talk: "https://cdn.example.com/talk.mp4", street: "clips/street.mp4" } } });
+    expect(() => composeFootage(remote)).toThrow(
+      'The composition names a remote file (https://cdn.example.com/talk.mp4); every asset must be a local file in the build folder.',
+    );
+  });
+
+  it("refuses a logo given as an http URL", () => {
+    expect(() => composeFootage(input({ assets: { ...input().assets, logo: "http://cdn.example.com/logo.png" } }))).toThrow(/remote file \(http:\/\/cdn\.example\.com\/logo\.png\)/);
+  });
+});
