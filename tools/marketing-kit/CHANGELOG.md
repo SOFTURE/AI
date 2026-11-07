@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.20.0
 
 - **The mouth-click detector is exported for moving a cut past a click (#1182):** `findMouthClicks({ mono, sampleRate,
   offset, words })` returns the impulses outside the speech protection zone (`clicks`), each word's bound on the real
