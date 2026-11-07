@@ -62,6 +62,8 @@ const PILL_ALPHA = 0xd9;
 const DRAWN_ALPHA = 16;
 /** The scrim's opacity at the band's lower edge and below it. */
 const SCRIM_ALPHA = 0x8c;
+/** The least contrast the accent keeps against what it stands on: the WCAG bound for large text. */
+export const MIN_COVER_ACCENT_CONTRAST = 3;
 
 /** The centre 4:5 band of a cover, in pixels. */
 export interface CoverBand {
@@ -104,6 +106,7 @@ const coverOptionsSchema = z.object({
     .max(MAX_COVER_KICKER_LENGTH, `the kicker is longer than ${String(MAX_COVER_KICKER_LENGTH)} characters`)
     .optional(),
   tone: z.enum(["light", "dark"]).optional(),
+  accent: z.boolean().optional(),
   quality: z.number().int().min(1).max(100).default(PHOTO_COVER_QUALITY),
 });
 
@@ -122,6 +125,12 @@ export interface PhotoCoverInput {
   kicker?: string;
   /** `light` text over a dark scrim, or `dark` text over a light one; `light` by default. */
   tone?: PhotoCoverTone;
+  /**
+   * Draws the brand's `accent` colour: the kicker of `kicker-title` in it, or the `pill` box in it (opaque) with the
+   * label in `foreground` or `background`, whichever reads better. Refused by the other layouts, and refused when the
+   * accent's contrast against what it stands on is under 3:1. Off by default.
+   */
+  accent?: boolean;
   /** The light colour is the lighter of `foreground` and `background`, the dark colour the darker. */
   colors: BrandColors;
   /** The brand's fonts (`loadOgFonts`); the text is set in the heading (display) family. */
@@ -184,9 +193,12 @@ function getRegionRows(band: CoverBand, region: CoverRegion): { top: number; bot
 }
 
 /** The text the options ask for, or an error when the layout and the texts do not go together. */
-function resolveCoverText(options: { layout?: PhotoCoverLayout | undefined; caption?: string | undefined; kicker?: string | undefined }): OgResult<CoverText | null> {
+function resolveCoverText(options: { layout?: PhotoCoverLayout | undefined; caption?: string | undefined; kicker?: string | undefined; accent?: boolean | undefined }): OgResult<CoverText | null> {
   const { caption, kicker } = options;
   const layout = options.layout ?? (caption === undefined ? "photo" : "title-bottom");
+  if (options.accent === true && layout !== "kicker-title" && layout !== "pill") {
+    return err(`the accent is drawn only by the layouts "kicker-title" and "pill", not "${layout}"; leave it out`);
+  }
   if (kicker !== undefined && layout !== "kicker-title") return err(`the kicker is drawn only by the layout "kicker-title", not "${layout}"; leave it out`);
   if (layout === "photo") return caption === undefined ? ok(null) : err('the layout "photo" draws no text; leave the caption out or pick a text layout');
   if (caption === undefined) return err(`the layout "${layout}" needs a caption`);
@@ -220,12 +232,54 @@ function getLuminance(color: string): number {
   return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
 }
 
-/** The text colour and the scrim (and shadow) colour: the brand's light and dark colour, swapped for a `dark` tone. */
-function getCoverInk(colors: BrandColors, tone: PhotoCoverTone): { text: string; shade: string } {
+/** The WCAG contrast ratio of two opaque colours, 1 to 21. */
+function getContrast(first: string, second: string): number {
+  const [lighter, darker] = [getLuminance(first), getLuminance(second)].sort((a, b) => b - a) as [number, number];
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** A contrast ratio as errors write it, rounded down so a ratio just under the bound never reads as the bound. */
+const describeContrast = (ratio: number) => `${(Math.floor(ratio * 100) / 100).toFixed(2)}:1`;
+
+/** The colours a cover's text is drawn in. */
+interface CoverInk {
+  /** The caption (and the kicker without the accent). */
+  text: string;
+  /** The scrim and the shadow. */
+  shade: string;
+  kicker: string;
+  pill: { box: string; alpha: number; text: string };
+}
+
+/**
+ * The cover's colours: the text the brand's light colour and the scrim the dark one, swapped for a `dark` tone; with
+ * the accent, the kicker or the pill box in `colors.accent`. An error when the accent reads under 3:1.
+ */
+function getCoverInk(colors: BrandColors, options: { tone: PhotoCoverTone; layout: CoverText["layout"] | null; accent: boolean }): OgResult<CoverInk> {
   const foreground = toOpaqueHex(colors.foreground);
   const background = toOpaqueHex(colors.background);
   const [light, dark] = getLuminance(foreground) >= getLuminance(background) ? [foreground, background] : [background, foreground];
-  return tone === "light" ? { text: light, shade: dark } : { text: dark, shade: light };
+  const [text, shade] = options.tone === "light" ? [light, dark] : [dark, light];
+  const plain: CoverInk = { text, shade, kicker: text, pill: { box: shade, alpha: PILL_ALPHA, text } };
+  if (!options.accent) return ok(plain);
+  const accent = toOpaqueHex(colors.accent);
+  if (options.layout === "kicker-title") {
+    const ratio = getContrast(accent, shade);
+    if (ratio < MIN_COVER_ACCENT_CONTRAST) {
+      return err(`the accent ${accent} has a contrast of ${describeContrast(ratio)} against the scrim ${shade}, under 3:1; pick a ${getLuminance(accent) < getLuminance(shade) ? "darker" : "lighter"} accent or the other tone`);
+    }
+    return ok({ ...plain, kicker: accent });
+  }
+  if (options.layout === "pill") {
+    const label = getContrast(accent, light) >= getContrast(accent, dark) ? light : dark;
+    const ratio = getContrast(accent, label);
+    if (ratio < MIN_COVER_ACCENT_CONTRAST) {
+      return err(`the accent ${accent} has a contrast of ${describeContrast(ratio)} against the pill label ${label}, under 3:1; pick an accent that reads with the foreground or the background`);
+    }
+    // Opaque, so the contrast checked is the contrast drawn whatever the photo under it.
+    return ok({ ...plain, pill: { box: accent, alpha: 0xff, text: label } });
+  }
+  return ok(plain);
 }
 
 interface TextLayout {
@@ -233,7 +287,7 @@ interface TextLayout {
   band: CoverBand;
   text: CoverText;
   fonts: OgFonts;
-  ink: { text: string; shade: string };
+  ink: CoverInk;
 }
 
 /** Where the text block sits: its foot above the band's lower edge, its head below the band's top, or centred in the middle third. */
@@ -268,10 +322,10 @@ function buildTextTree(layout: TextLayout): OgNode {
                 maxWidth: "100%",
                 padding: `${String(Math.round(PILL_PADDING[0] * scale))}px ${String(Math.round(PILL_PADDING[1] * scale))}px`,
                 borderRadius: Math.round(PILL_SIZE * scale),
-                backgroundColor: withAlpha(ink.shade, PILL_ALPHA),
+                backgroundColor: withAlpha(ink.pill.box, ink.pill.alpha),
                 textAlign: "center",
                 wordBreak: "break-word",
-                color: ink.text,
+                color: ink.pill.text,
                 fontSize: Math.round(PILL_SIZE * scale),
                 lineHeight: 1.15,
                 ...font,
@@ -282,7 +336,7 @@ function buildTextTree(layout: TextLayout): OgNode {
         ]
       : [
           ...(text.layout === "kicker-title"
-            ? [line(text.kicker, { fontSize: Math.round(KICKER_SIZE * scale), lineHeight: 1.2, letterSpacing: Math.round(3 * scale), marginBottom: Math.round(KICKER_GAP * scale), textShadow: shadow })]
+            ? [line(text.kicker, { color: ink.kicker, fontSize: Math.round(KICKER_SIZE * scale), lineHeight: 1.2, letterSpacing: Math.round(3 * scale), marginBottom: Math.round(KICKER_GAP * scale), textShadow: shadow })]
             : []),
           line(text.caption, { fontSize: Math.round(getCoverCaptionSize(text.caption) * scale), lineHeight: 1.08, textShadow: shadow }),
         ];
@@ -418,6 +472,7 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
     caption: input.caption,
     kicker: input.kicker,
     tone: input.tone,
+    accent: input.accent,
     quality: input.quality,
   });
   if (!parsed.success) {
@@ -435,8 +490,9 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
   const size = options.size;
   const [width, height] = size;
   const band = getCoverBand(size);
-  const ink = getCoverInk(input.colors, options.tone ?? "light");
-  const drawn = text.value === null ? null : await layOutText({ size, band, text: text.value, fonts: input.fonts, ink });
+  const ink = getCoverInk(input.colors, { tone: options.tone ?? "light", layout: text.value?.layout ?? null, accent: options.accent ?? false });
+  if (!ink.ok) return err(`${name}: ${ink.error}.`);
+  const drawn = text.value === null ? null : await layOutText({ size, band, text: text.value, fonts: input.fonts, ink: ink.value });
   if (drawn !== null && !drawn.ok) return err(`${name}: ${drawn.error}.`);
 
   const oriented = getOrientedSize(info.value);
@@ -444,13 +500,13 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
   const focusPoint = { x: crop.x + options.focus.x * oriented.width * crop.scale, y: crop.y + options.focus.y * oriented.height * crop.scale };
   const matrix = getOrientationMatrix(info.value.orientation, info.value.width, info.value.height).join(" ");
   const layers = [
-    `<rect width="${String(width)}" height="${String(height)}" fill="${ink.shade}"/>`,
+    `<rect width="${String(width)}" height="${String(height)}" fill="${ink.value.shade}"/>`,
     `<image href="${toDataUri(`image/${info.value.format}`, bytes.value)}" width="${String(info.value.width)}" height="${String(info.value.height)}" preserveAspectRatio="none" ` +
       `transform="translate(${String(crop.x)} ${String(crop.y)}) scale(${String(crop.scale)}) matrix(${matrix})"/>`,
   ];
   if (drawn !== null && text.value !== null) {
     layers.push(
-      buildScrim({ size, band, layout: text.value.layout, text: { top: drawn.value.box.top, bottom: drawn.value.box.bottom - 1 }, shade: ink.shade }),
+      buildScrim({ size, band, layout: text.value.layout, text: { top: drawn.value.box.top, bottom: drawn.value.box.bottom - 1 }, shade: ink.value.shade }),
       `<image href="${toDataUri("image/svg+xml", drawn.value.svg)}" width="${String(width)}" height="${String(height)}"/>`,
     );
   }

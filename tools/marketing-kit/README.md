@@ -1304,6 +1304,11 @@ if (isPointUnderCoverText(cover.value, cover.value.focusPoint, 40)) console.warn
   profile grid; a long caption wraps. A caption over 80 characters, a kicker over 40, a pill label over 32, text whose
   drawn pixels reach outside its part of the band (measured on the pixels, so it holds for any font) and a character
   the fonts cannot draw are errors, never drawn or clipped.
+- `accent: true` draws the brand's `accent` colour (off by default, so a cover without it is unchanged): with
+  `kicker-title` the kicker is set in it, with `pill` the box is the accent (opaque) and the label is `foreground` or
+  `background`, whichever reads better on it. Another layout with `accent: true` is an error, and so is an accent
+  whose contrast against what it stands on (the scrim colour for the kicker, the label for the pill) is under 3:1,
+  the WCAG bound for large text (`MIN_COVER_ACCENT_CONTRAST`); the error names both colours and the ratio.
 - `layout` picks where the text goes (`PHOTO_COVER_LAYOUTS`). Without it, a caption is `title-bottom` and no caption
   is `photo`, so a call without `layout` draws what it always drew. A layout that needs a text it was not given, or a
   text its layout does not draw, is an error.

@@ -326,6 +326,82 @@ describe("renderPhotoCover: layouts", () => {
   });
 });
 
+/** The box and count of the pixels `isPicked` picks by their red, green and blue. */
+function findPixelBox(image: { width: number; height: number; data: Uint8Array }, isPicked: (pixel: Rgb) => boolean): { top: number; bottom: number; left: number; right: number; count: number } {
+  let top = image.height;
+  let bottom = -1;
+  let left = image.width;
+  let right = -1;
+  let count = 0;
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      const offset = (y * image.width + x) * 4;
+      if (!isPicked([image.data[offset] ?? 0, image.data[offset + 1] ?? 0, image.data[offset + 2] ?? 0])) continue;
+      count += 1;
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y);
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+    }
+  }
+  return { top, bottom, left, right, count };
+}
+
+/** Near the test brand's accent, lime `#cff26b`: the blue channel tells it from the light text and the grey edges. */
+const isLime = ([red, green, blue]: Rgb) => red > 160 && green > 200 && blue < 150;
+
+describe("renderPhotoCover: the accent", () => {
+  const kickerTitle: Partial<PhotoCoverInput> = { photo: BLACK_PHOTO, layout: "kicker-title", kicker: "Episode 3", caption: "Retire early" };
+
+  it("draws the kicker in the brand accent above a title in the light colour", async () => {
+    const image = await renderPixels({ ...kickerTitle, accent: true });
+    const lime = findPixelBox(image, isLime);
+    const light = findPixelBox(image, ([red, green, blue]) => red > 200 && green > 200 && blue > 200);
+    expect(lime.count).toBeGreaterThan(300);
+    expect(light.count).toBeGreaterThan(1000);
+    // The accent is the kicker only: every lime pixel lies above the title's first light row.
+    expect(lime.bottom).toBeLessThan(light.top);
+    // Without the accent the kicker is the light colour: no lime anywhere.
+    expect(findPixelBox(await renderPixels(kickerTitle), isLime).count).toBe(0);
+  });
+
+  it("sets the pill in a box of the brand accent with the label in the colour that reads better on it", async () => {
+    const image = await renderPixels({ photo: BLACK_PHOTO, layout: "pill", caption: "Lisbon", accent: true });
+    const box = findPixelBox(image, isLime);
+    expect(box.count).toBeGreaterThan(20_000);
+    // The label is the dark background (#0c0c0d), which reads better on lime than the light foreground.
+    let dark = 0;
+    for (let y = box.top; y <= box.bottom; y += 1) {
+      for (let x = box.left; x <= box.right; x += 1) if ((image.data[(y * image.width + x) * 4 + 2] ?? 255) < 60) dark += 1;
+    }
+    expect(dark).toBeGreaterThan(500);
+    expect(findPixelBox(image, ([red, green, blue]) => red > 200 && green > 200 && blue > 200).count).toBe(0);
+  });
+
+  it("draws the same cover without the accent as with accent false", async () => {
+    for (const changes of [kickerTitle, { photo: GREY_PHOTO, layout: "pill" as const, caption: "Lisbon" }]) {
+      const plain = await renderCover(changes);
+      const off = await renderCover({ ...changes, accent: false });
+      expect(off.jpeg.equals(plain.jpeg)).toBe(true);
+    }
+  });
+
+  it("refuses the accent on a layout that has no place for it", async () => {
+    const result = await cover({ caption: "Lisbon", accent: true });
+    expect(result).toEqual({ ok: false, error: 'Photo cover: the accent is drawn only by the layouts "kicker-title" and "pill", not "title-bottom"; leave it out.' });
+  });
+
+  it("refuses a kicker accent under 3:1 against the scrim", async () => {
+    const result = await cover({ ...kickerTitle, accent: true, colors: { ...COLORS, accent: "#333333" } });
+    expect(result.ok ? "" : result.error).toMatch(/^Photo cover: the accent #333333 has a contrast of 1\.\d\d:1 against the scrim #0c0c0d, under 3:1; pick a lighter accent or the other tone\.$/);
+  });
+
+  it("refuses a pill accent neither text colour reads on at 3:1", async () => {
+    const result = await cover({ photo: BLACK_PHOTO, layout: "pill", caption: "Lisbon", accent: true, colors: { ...COLORS, foreground: "#ffffff", background: "#888888", accent: "#bbbbbb" } });
+    expect(result.ok ? "" : result.error).toMatch(/^Photo cover: the accent #bbbbbb has a contrast of \d\.\d\d:1 against the pill label #(?:ffffff|888888), under 3:1; pick an accent that reads with the foreground or the background\.$/);
+  });
+});
+
 async function renderCover(changes: Partial<PhotoCoverInput>): Promise<PhotoCover> {
   const result = await cover(changes);
   if (!result.ok) throw new Error(result.error);
