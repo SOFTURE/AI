@@ -70,6 +70,36 @@ export {
   type CaptionHighlightLook,
   type CaptionHighlightResult,
 } from "./footage/caption-highlight.js";
+export {
+  MAX_OVERLAY_KEYWORD_LENGTH,
+  MAX_OVERLAY_LIST_ITEM_LENGTH,
+  MAX_OVERLAY_LOWER_THIRD_LENGTH,
+  MAX_OVERLAY_SECONDS,
+  MIN_OVERLAY_SECONDS,
+  OVERLAY_KINDS,
+  OVERLAY_SIDES,
+  OVERLAY_SIZES,
+  type EdlOverlay,
+  type EdlOverlayAnchor,
+  type EdlOverlayStyle,
+  type EdlOverlayWord,
+  type OverlayKind,
+  type OverlaySide,
+  type OverlaySize,
+} from "./footage/overlay-schema.js";
+export {
+  OVERLAY_FONT_SIZES,
+  PUNCH_IN_EASE_SECONDS,
+  PUNCH_IN_SCALES,
+  getOverlaySafeZone,
+  getOverlayTexts,
+  resolveEdlOverlays,
+  type OverlayBox,
+  type OverlayPoint,
+  type ResolveOverlaysInput,
+  type ResolvedOverlay,
+  type ResolvedOverlaysResult,
+} from "./footage/overlays.js";
 export { resolveBrandColors, type BrandColorsResult } from "./config/brand.js";
 export { readCssColors } from "./config/css-colors.js";
 export { readDesignJsonColors } from "./config/design-json.js";
@@ -459,6 +489,7 @@ export { buildFilmMixArgs, type FilmMixInput } from "./footage/film-mix.js";
 export { buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs, getSpeechCutOptions, type SpeechCutOptions } from "./footage/render.js";
 export {
   FOOTAGE_DRAFT_CAPTION_COLORS,
+  FOOTAGE_DRAFT_OVERLAY_COLORS,
   FOOTAGE_DRAFT_FONT,
   FOOTAGE_DRAFT_WIDTH,
   buildFootageDraftArgs,

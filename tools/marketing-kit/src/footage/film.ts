@@ -144,6 +144,11 @@ export interface FootageFilm {
    * empty: numbers only.
    */
   captionKeepWithNext?: string[];
+  /**
+   * The least time between the starts of two EDL overlays, in seconds (the app's own budget, e.g. 8 for one in about
+   * 8 s); absent: only one overlay at a time.
+   */
+  overlayMinSpacing?: number;
   /** The cut's look: zoom size, fade length, Ken Burns, the end card's whoosh. Absent fields take `DEFAULT_EDIT`. */
   edit?: Partial<FootageEdit>;
   /** The closing card after the last segment (`FootageEndCard`); null: the film ends with its last segment. */

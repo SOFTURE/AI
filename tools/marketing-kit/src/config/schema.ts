@@ -587,6 +587,12 @@ const footageSchema = z
       .enum(CAPTION_HIGHLIGHT_STYLES)
       .default("text")
       .describe('How a highlight caption lights the word being said: text (the default) colours it captionHighlight; box puts it on a rounded box of brand.colors.captionHighlightBox with its text in captionHighlightText (both then required).'),
+    overlayMinSpacing: z
+      .number()
+      .min(0)
+      .max(60)
+      .optional()
+      .describe("The least seconds between the starts of two EDL overlays (the app's budget, e.g. 8); without it, only one overlay at a time."),
     captionPreset: z
       .enum(CAPTION_PRESETS)
       .optional()

@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,6 +7,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { prepareFixture, prepareFootageFixture } from "../examples/fixture/prepare.js";
 import { findFootage, loadMarketingConfig } from "../src/config/config.js";
+import type { Edl } from "../src/footage/edl.js";
 import { createFakeIsolationProvider, createFakeMusicProvider, createFakeSttProvider } from "../src/footage/fake.js";
 import { buildLoudnessMeasureArgs, DEFAULT_LOUDNESS, readLoudnessMeasurement } from "../src/footage/loudness.js";
 import { estimateFootageFilm, findCachedStep } from "../src/footage/paid.js";
@@ -31,6 +32,27 @@ import { checkFootageTools } from "../src/footage/tools.js";
  * `MARKETING_KIT_KEEP=1` keeps the output folder for a look at the frames.
  */
 const isEnabled = process.env.MARKETING_KIT_RENDER === "1";
+
+/** A 1080×1920 video's frame at `seconds` as RGB bytes. */
+function grabFrame(video: string, seconds: number): Buffer {
+  return execFileSync("ffmpeg", ["-v", "error", "-ss", String(seconds), "-i", video, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1080 * 1920 * 3 + 1024 });
+}
+
+/** The mean absolute difference of two frames' channels inside a box of a 1080 px wide frame. */
+function getMeanDifference(a: Buffer, b: Buffer, box: { left: number; top: number; width: number; height: number }): number {
+  let sum = 0;
+  let count = 0;
+  for (let y = box.top; y < box.top + box.height; y += 1) {
+    for (let x = box.left; x < box.left + box.width; x += 1) {
+      for (let channel = 0; channel < 3; channel += 1) {
+        const at = (y * 1080 + x) * 3 + channel;
+        sum += Math.abs((a[at] ?? 0) - (b[at] ?? 0));
+        count += 1;
+      }
+    }
+  }
+  return sum / count;
+}
 const PACKAGE_DIR = join(import.meta.dirname, "..");
 const TSX = join(PACKAGE_DIR, "..", "..", "node_modules", ".bin", "tsx");
 
@@ -168,6 +190,29 @@ describe.runIf(isEnabled)("the fixture footage film", () => {
       const speech = spawnSync("ffmpeg", buildLoudnessMeasureArgs(join(build, "assets", "speech.wav"), DEFAULT_LOUDNESS), { encoding: "utf8" });
       const loudness = readLoudnessMeasurement(speech.stderr);
       expect(Math.abs((loudness?.inputI ?? 0) - DEFAULT_LOUDNESS.target)).toBeLessThan(1);
+
+      // An EDL overlay (issue #1200) is drawn by hyperframes from the kit's own markup: the same cut rendered again with
+      // a keyword over its first second changes the frame in the keyword's box and leaves the rest of the frame alone.
+      const plain = join(footage, "plain.mp4");
+      copyFileSync(video, plain);
+      const edlPath = join(build, "edl.placeholder.json");
+      const cut = JSON.parse(readFileSync(edlPath, "utf8")) as Edl;
+      const first = cut.segments[0];
+      if (first === undefined) throw new Error("the cut has no segment");
+      const duration = Math.min(1.5, first.end - first.start - 0.1);
+      writeFileSync(edlPath, JSON.stringify({ ...cut, overlays: [{ kind: "keyword", at: 0.05, duration, text: "3x" }] }));
+      const withOverlay = spawnSync(TSX, [main, "footage", "fixture-footage", "--placeholder", `--config=${config}`, "--quality=draft"], { encoding: "utf8" });
+      expect(withOverlay.status, `${withOverlay.stdout}\n${withOverlay.stderr}`).toBe(0);
+      const html = readFileSync(join(build, "index.html"), "utf8");
+      expect(html).toContain('class="clip ov ov-keyword right"');
+      const box = /<div id="ov0" [^>]*style="left:(\d+)px;top:(\d+)px;width:(\d+)px;height:(\d+)px/.exec(html);
+      if (box === null) throw new Error("no keyword box in the composition");
+      const [left, top, width, height] = box.slice(1).map(Number) as [number, number, number, number];
+      const at = 0.05 + duration / 2;
+      const [before, after] = [grabFrame(plain, at), grabFrame(video, at)];
+      // The card's right end (the keyword sits on the right) and a patch of the frame well away from it.
+      expect(getMeanDifference(before, after, { left: left + width - 60, top: top + 10, width: 40, height: height - 20 })).toBeGreaterThan(25);
+      expect(getMeanDifference(before, after, { left: 100, top: 300, width: 200, height: 200 })).toBeLessThan(4);
     } finally {
       rmSync(footage, { recursive: true, force: true });
     }

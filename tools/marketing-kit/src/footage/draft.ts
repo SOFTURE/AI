@@ -9,6 +9,10 @@ import type { TimedWord } from "../voice/voiceover.js";
 import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_SECONDS, getCaptionHighlight, type CaptionHighlightLook } from "./caption-highlight.js";
 import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, isSameCaptionPlace, type CaptionWordsFilm } from "./captions.js";
 import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
+import { toAssColor } from "./draft-color.js";
+import { buildDraftOverlayEvents, getDraftOverlayStyles } from "./draft-overlays.js";
+import type { OverlayColors } from "./overlay-html.js";
+import { resolveEdlOverlays, type ResolvedOverlay } from "./overlays.js";
 import { chooseFootageDraftFont } from "./draft-font.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
 import { declickSpeech, describeDeclick, type DeclickReport } from "./declick.js";
@@ -44,6 +48,8 @@ import { buildMusicArgs, buildSpeechArgs, getSpeechCutOptions } from "./render.j
  * before the paid render.
  */
 
+export { toAssColor } from "./draft-color.js";
+
 /** The draft's default width: 540 makes a 540×960 draft of a 9:16 film. */
 export const FOOTAGE_DRAFT_WIDTH = 540;
 
@@ -68,6 +74,8 @@ export const FOOTAGE_DRAFT_CAPTION_COLORS = {
   captionHighlightBox: "#ffd400",
   captionHighlightText: "#111111",
 } as const;
+/** The overlays' colours in a draft made without a brand. */
+export const FOOTAGE_DRAFT_OVERLAY_COLORS: OverlayColors = { background: "#111111", foreground: "#ffffff", accent: "#ffd400" };
 /** How long the render keeps a spoken word lit in the `highlight` pill. */
 const HIGHLIGHT_SECONDS = CAPTION_HIGHLIGHT_SECONDS;
 /** The pill's padding around its text (`CAPTION_PILL_PADDING.y`): the opaque box's border in the film's frame. */
@@ -90,19 +98,6 @@ function toAssTime(seconds: number): string {
   const secs = Math.floor((centiseconds % 6000) / 100);
   const pad = (value: number): string => String(value).padStart(2, "0");
   return `${hours}:${pad(minutes)}:${pad(secs)}.${pad(centiseconds % 100)}`;
-}
-
-/**
- * A hex colour (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`) as an ASS colour, `&HAABBGGRR&`-style without the closing
- * `&`: ASS writes blue first and counts alpha the other way round (00 is opaque).
- */
-export function toAssColor(hex: string): string {
-  const digits = hex.replace(/^#/, "");
-  const full = digits.length <= 4 ? [...digits].map((digit) => digit + digit).join("") : digits;
-  if (!/^(?:[0-9a-f]{6}|[0-9a-f]{8})$/i.test(full)) throw new Error(`Not a hex colour: "${hex}".`);
-  const pair = (index: number): string => full.slice(index, index + 2).toUpperCase();
-  const alpha = full.length === 8 ? (255 - parseInt(full.slice(6, 8), 16)).toString(16).padStart(2, "0").toUpperCase() : "00";
-  return `&H${alpha}${pair(4)}${pair(2)}${pair(0)}`;
 }
 
 /**
@@ -135,6 +130,10 @@ export interface FootageDraftCaptionsInput {
   fontFamily?: string;
   /** The `highlight` pill's colours; default `FOOTAGE_DRAFT_CAPTION_COLORS`. A `phrase` caption is white, as in the render. */
   colors?: FootageDraftCaptionColors;
+  /** The EDL's overlays, resolved (`resolveEdlOverlays`), drawn over the captions' layers; absent: none. */
+  overlays?: ResolvedOverlay[];
+  /** The overlays' card, text and accent colours; default `FOOTAGE_DRAFT_OVERLAY_COLORS`. */
+  overlayColors?: OverlayColors;
 }
 
 /** The pieces of a `highlight` chunk's span: cut wherever a word lights up or goes out (in centiseconds), with the words lit in each. */
@@ -192,10 +191,11 @@ function getDraftHighlightLook(film: Pick<FootageFilm, "captionStyle" | "caption
  * captions or nothing is said.
  */
 export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): string | null {
-  if (!input.film.captions) return null;
+  const overlays = input.overlays ?? [];
   const isHighlight = input.film.captionStyle === "highlight";
-  const chunks = getFootageCaptionChunks(input.film, input.words);
-  if (chunks.length === 0) return null;
+  // No chunks without captions (`getFootageCaptionChunks`): then only the overlays, if any, make the file.
+  const chunks = input.film.captions ? getFootageCaptionChunks(input.film, input.words) : [];
+  if (chunks.length === 0 && overlays.length === 0) return null;
   const spans = getCaptionSpans(chunks, getEdlDuration(input.edl));
   const { caption, frame } = input;
   const family = (input.fontFamily ?? FOOTAGE_DRAFT_FONT.family).replace(/,/g, " ");
@@ -274,10 +274,12 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
     ...styles.map((style) => `Style: ${style}`),
+    ...(overlays.length === 0 ? [] : getDraftOverlayStyles(family, input.overlayColors ?? FOOTAGE_DRAFT_OVERLAY_COLORS)),
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ...events,
+    ...buildDraftOverlayEvents(overlays, input.overlayColors ?? FOOTAGE_DRAFT_OVERLAY_COLORS, input.frame),
     "",
   ].join("\n");
 }
@@ -302,6 +304,8 @@ export interface FootageDraftArgsInput {
   width?: number;
   /** The ASS captions file (`buildFootageDraftCaptions`), or null for none. */
   captions: string | null;
+  /** The EDL's resolved overlays: their `punch_in` zooms are drawn into the picture (the rest is in the ASS file). */
+  overlays?: readonly ResolvedOverlay[];
   /** The folder libass loads the captions' font from, or null for the system's fonts. */
   fontsDir: string | null;
   output: string;
@@ -330,13 +334,18 @@ export interface DraftSegmentPlan {
   startScale: number;
   /** The frames the zoom eases over (`getSegmentZoomEases`); 0: the segment starts at `scale`. */
   easeFrames: number;
+  /**
+   * The EDL's `punch_in` overlays in this segment, in frames from its start: each multiplies the zoom by up to `scale`,
+   * rising over `ease` frames from `from` and falling over the last `ease` of its `frames` (linear, the render eases).
+   */
+  punches: { from: number; frames: number; ease: number; scale: number }[];
 }
 
 /**
  * How each segment plays in the draft. A `fade` cut lasts the film's `fadeFrames` (clamped to the incoming segment, so
  * the cross-fade never outlasts it) and the outgoing segment runs on under it, as in the render.
  */
-export function planFootageDraft(film: Pick<FootageFilm, "edit">, edl: Edl): DraftSegmentPlan[] {
+export function planFootageDraft(film: Pick<FootageFilm, "edit">, edl: Edl, overlays: readonly ResolvedOverlay[] = []): DraftSegmentPlan[] {
   const edit = getFootageEdit(film);
   const fadeSeconds = r3(edit.fadeFrames / FOOTAGE_FPS);
   const kenBurnsScale = 1 + (edit.kenBurnsPercent > 0 ? edit.kenBurnsPercent : HAND_KEN_BURNS_PERCENT) / 100;
@@ -355,6 +364,18 @@ export function planFootageDraft(film: Pick<FootageFilm, "edit">, edl: Edl): Dra
       endScale: segment.motion === "kenburns" ? r4(scale * kenBurnsScale) : scale,
       startScale: (eases[index] as number) > 0 ? (scales[index - 1] as number) : scale,
       easeFrames: eases[index] as number,
+      punches: overlays.flatMap((overlay) =>
+        overlay.kind === "punch_in" && overlay.segment === index
+          ? [
+              {
+                from: Math.round((overlay.start - (starts[index] as number)) * FOOTAGE_FPS),
+                frames: Math.round((overlay.end - overlay.start) * FOOTAGE_FPS),
+                ease: Math.max(1, Math.round(overlay.ease * FOOTAGE_FPS)),
+                scale: overlay.scale,
+              },
+            ]
+          : [],
+      ),
     };
   });
 }
@@ -367,6 +388,18 @@ function buildPictureFilters(plan: DraftSegmentPlan, draft: Frame): string[] {
   const size = `${draft.width}:${draft.height}`;
   const zoompan = (zoom: string): string =>
     `zoompan=z='${zoom}':x='(iw-iw/zoom)*${ZOOM_ORIGIN.x}':y='(ih-ih/zoom)*${ZOOM_ORIGIN.y}':d=1:s=${draft.width}x${draft.height}:fps=${FOOTAGE_FPS}`;
+  if (plan.punches.length > 0) {
+    // The segment's own zoom (an eased cut, Ken Burns or still) times each punch-in's rise, hold and fall.
+    const frames = Math.max(1, Math.round(plan.length * FOOTAGE_FPS));
+    const own =
+      plan.easeFrames > 0
+        ? `${plan.startScale}+(${r4(plan.scale - plan.startScale)})*(1-pow(1-min(on/${plan.easeFrames},1),2))`
+        : plan.endScale !== plan.scale
+          ? `${plan.scale}+${r4(plan.endScale - plan.scale)}*min(on/${frames},1)`
+          : `${plan.scale}`;
+    const lifts = plan.punches.map((punch) => `${r4(punch.scale - 1)}*max(0,min(min(1,(on-${punch.from})/${punch.ease}),(${punch.from + punch.frames}-on)/${punch.ease}))`);
+    return [zoompan(`(${own})*(1+${lifts.join("+")})`)];
+  }
   if (plan.easeFrames > 0) {
     return [zoompan(`${plan.startScale}+(${r4(plan.scale - plan.startScale)})*(1-pow(1-min(on/${plan.easeFrames},1),2))`)];
   }
@@ -391,7 +424,7 @@ function buildPictureFilters(plan: DraftSegmentPlan, draft: Frame): string[] {
 export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
   const { edl } = input;
   const draft = getFootageDraftFrame(input.frame, input.width);
-  const plans = planFootageDraft(input.film, edl);
+  const plans = planFootageDraft(input.film, edl, input.overlays ?? []);
   const threads = getThreadArgs(input.threads, "draft.threads");
   const inputs: string[] = [];
   const parts: string[] = [];
@@ -486,7 +519,7 @@ export interface RenderFootageDraftOptions extends Pick<FootageRunOptions, "buil
    * OpenType file; DejaVu Sans when it has none) and its caption colours. Without it, DejaVu Sans and
    * `FOOTAGE_DRAFT_CAPTION_COLORS`.
    */
-  brand?: { colors: FootageDraftCaptionColors; fonts: Pick<FootageBrand["fonts"], "body"> };
+  brand?: { colors: FootageDraftCaptionColors & Partial<OverlayColors>; fonts: Pick<FootageBrand["fonts"], "body"> };
   /**
    * ffmpeg's threads for the draft's decoders, filter graph and encoder (`buildFootageDraftArgs`); by default ffmpeg's
    * own choice, which follows the host's cores. Set it from a CPU-limited container's quota.
@@ -590,6 +623,14 @@ async function runRenderFootageDraft(
   const { rawSpeechFile, declickedFile, speechFile } = getSpeechChainFiles(draftDir, { isDeclick: declickLevel !== "off", isLoudness: loudness !== null });
   const words = remapWords(edl, transcript.words, film.cut.fillers);
   const frame = getFrame(film);
+  const resolved = resolveEdlOverlays({ film, edl, words, frame, caption: getFootageCaptionLayout(film, options.layout ?? {}) });
+  if (!resolved.ok) return err(`footage film ${film.id}: the EDL's overlays cannot be drawn: ${resolved.problems.join("; ")}`, { kind: "input" });
+  const overlays = resolved.overlays;
+  const brandColors = options.brand?.colors;
+  const overlayColors =
+    brandColors?.background !== undefined && brandColors.foreground !== undefined && brandColors.accent !== undefined
+      ? { background: brandColors.background, foreground: brandColors.foreground, accent: brandColors.accent }
+      : FOOTAGE_DRAFT_OVERLAY_COLORS;
   const brandFont = chooseFootageDraftFont(options.brand?.fonts.body ?? null);
   const font = brandFont ?? FOOTAGE_DRAFT_FONT;
   const captions = buildFootageDraftCaptions({
@@ -600,6 +641,7 @@ async function runRenderFootageDraft(
     frame,
     fontFamily: font.family,
     ...(options.brand === undefined ? {} : { colors: options.brand.colors }),
+    ...(overlays.length === 0 ? {} : { overlays, overlayColors }),
   });
   if (captions !== null) {
     writeFileSync(join(draftDir, "captions.ass"), captions);
@@ -663,6 +705,7 @@ async function runRenderFootageDraft(
     ...(options.width === undefined ? {} : { width: options.width }),
     ...(options.threads === undefined ? {} : { threads: options.threads }),
     captions: captions === null ? null : "captions.ass",
+    ...(overlays.length === 0 ? {} : { overlays }),
     fontsDir: captions === null ? null : "fonts",
     output,
   });

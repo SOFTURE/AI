@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { TimedWord } from "../voice/voiceover.js";
+import { overlaySchema, type EdlOverlay } from "./overlay-schema.js";
 import { CUT_TRANSITIONS, type ClipRole, type CutOptions, type CutTransition, type FootageTransitions } from "./film.js";
 import { splitFilmSentences, type Sentence } from "./sentences.js";
 import { isFiller } from "./words.js";
@@ -57,6 +58,11 @@ export interface Edl {
   version: 2;
   film: string;
   segments: EdlSegment[];
+  /**
+   * Small graphics and emphasis zooms on words of the transcript (`overlays.ts`, issue #1200); absent or empty: none,
+   * and the film is drawn as without the field.
+   */
+  overlays?: EdlOverlay[];
 }
 
 const SEGMENT_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
@@ -98,6 +104,13 @@ export const edlSchema = z
       )
       .min(1, "the cut needs at least one segment")
       .describe("The kept parts of the clips, in film order."),
+    overlays: z
+      .array(overlaySchema)
+      .max(40)
+      .optional()
+      .describe(
+        "Small graphics and emphasis zooms placed on a word of the transcript (at_word) or a film second (at), one at a time, each inside one segment: punch_in, keyword, lower_third, list, arrow, highlight. Without it, none.",
+      ),
   })
   .describe("The edit decision list of a footage film (edl.json).");
 
@@ -370,6 +383,10 @@ export function diffEdl(before: Edl, after: Edl): string[] {
     const previous = old.get(segment.id);
     if (previous === undefined || isSameCaption(previous.caption, segment.caption)) continue;
     lines.push(isMovedCaption(segment.caption) ? `${segment.id} captions moved` : `${segment.id} captions back in the film's box`);
+  }
+  const [overlaysBefore, overlaysAfter] = [before.overlays ?? [], after.overlays ?? []];
+  if (JSON.stringify(overlaysBefore) !== JSON.stringify(overlaysAfter)) {
+    lines.push(`overlays: ${overlaysAfter.map((overlay) => overlay.kind.replace("_", " ")).join(", ") || "none"} (was ${overlaysBefore.length})`);
   }
   for (const segment of after.segments) {
     const was = old.get(segment.id)?.audio;

@@ -2887,6 +2887,12 @@
               "box"
             ]
           },
+          "overlayMinSpacing": {
+            "description": "The least seconds between the starts of two EDL overlays (the app's budget, e.g. 8); without it, only one overlay at a time.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 60
+          },
           "captionPreset": {
             "description": "Keeps a 9:16 film's captions inside a platform's safe zone: reels, shorts, tiktok or all; without it, layout decides.",
             "type": "string",

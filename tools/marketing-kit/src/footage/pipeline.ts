@@ -16,6 +16,7 @@ import { prepareClipSounds, type SpeechPeaks, type SpeechPreGain } from "./clip-
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
 import { getCaptionHighlight } from "./caption-highlight.js";
+import { getOverlayTexts, resolveEdlOverlays } from "./overlays.js";
 import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
 import { err, getProviderFootageFailure, ok, type FootageResult } from "./failure.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
@@ -736,6 +737,8 @@ async function runRenderFootage(
   if (lowDisk.length > 0) return err(`not enough disk space to render: ${lowDisk.join(" ")}`);
   const seconds = getFootageFilmSeconds(film, edl);
   const words = remapWords(edl, transcript.words, film.cut.fillers);
+  const overlays = resolveEdlOverlays({ film, edl, words, frame: getFrame(film), caption: getFootageCaptionLayout(film, options.layout ?? {}) });
+  if (!overlays.ok) return err(`footage film ${film.id}: the EDL's overlays cannot be drawn: ${overlays.problems.join("; ")}`, { kind: "input" });
   const music = await getMusic(film, edl, clips, seconds, options);
   if (!music.ok) return music;
   if (music.value !== null && typeof music.value !== "string") {
@@ -846,7 +849,7 @@ async function runRenderFootage(
   const layout = { ...base, caption: getFootageCaptionLayout(film, options.layout ?? {}) };
   const missing = findMissingCaptionGlyphs({
     fonts: options.brand.fonts,
-    captions: film.captions ? words.map((word) => word.text) : [],
+    captions: [...(film.captions ? words.map((word) => word.text) : []), ...getOverlayTexts(overlays.overlays)],
     endCard: getEndCardTexts(film.endCard),
     brandName: options.brand.name,
   });
@@ -873,6 +876,7 @@ async function runRenderFootage(
     },
     brandName: options.brand.name,
     locale: options.brand.locale,
+    ...(overlays.overlays.length === 0 ? {} : { overlays: overlays.overlays }),
   });
   writeFileSync(join(buildDir, "index.html"), html);
   mkdirSync(dirname(options.output), { recursive: true });

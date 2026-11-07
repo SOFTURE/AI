@@ -33,7 +33,7 @@ that installs it, and no release of either dependency lifts its pin yet (hyperfr
 
 | Finding | Pinned by | Why the kit never reaches it |
 | --- | --- | --- |
-| `undici` 7.25.0, high (about 30 advisories fixed in 7.28.0 to 7.30.1, e.g. GHSA-2m5v-pch6-74hx, GHSA-4w7w-5xrc-9h26, GHSA-p88m-4jfj-68fv) | `hyperframes` 0.9.6 | hyperframes loads undici in one place: the helper that downloads a remote `src`, `href`, CSS `url(...)` or `@import` named in the composition, at render or preview time. The kit's compositions name only files in the build folder (it downloads URL clips itself, with Node's `fetch`), and both composers refuse a remote reference with an error (`assertLocalReferences`), so that helper is never called. The kit itself never imports undici; hyperframes' browser download goes through `@puppeteer/browsers`. |
+| `undici` 7.25.0, high (about 30 advisories fixed in 7.28.0 to 7.30.1, e.g. GHSA-2m5v-pch6-74hx, GHSA-4w7w-5xrc-9h26, GHSA-p88m-4jfj-68fv) | `hyperframes` 0.9.20 | hyperframes loads undici in one place: the helper that downloads a remote `src`, `href`, CSS `url(...)` or `@import` named in the composition, at render or preview time. The kit's compositions name only files in the build folder (it downloads URL clips itself, with Node's `fetch`), and both composers refuse a remote reference with an error (`assertLocalReferences`), so that helper is never called. The kit itself never imports undici; hyperframes' browser download goes through `@puppeteer/browsers`. |
 | `fflate` 0.7.3, moderate (GHSA-px8p-9vwx-vf98, an endless loop in `unzipSync` on a malformed ZIP64 archive) | `satori` 0.63.2 | satori and its font parser only call `inflateSync`; `unzipSync` is never called. |
 
 The `hyperframes`, `satori` and `@softure-ai/marketing-kit` entries in the report are these two findings counted
@@ -663,6 +663,23 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   box for the captions that start in it, so they clear what the frame shows low down) and render with `--step=render`; a plain `footage` run keeps an EDL that is there, `--step=cut` writes
   it afresh and prints the sentences it would suggest dropping (retakes, false starts, cut-off sentences). A version 1
   file is still read, with generated ids.
+- **Overlays on words** (issue #1200): `edl.json` may carry `overlays[]`, small accents of a hand-edited reel placed by
+  the app's editor over the transcript. Each is `{ kind, at_word | at, duration, text?, items?, anchor?, style? }`:
+  `at_word: { text, occurrence? }` names a word of the cut (compared without case and punctuation, the first time it
+  is said unless `occurrence` says otherwise; its start after the cut is the overlay's start), `at` a film second;
+  `duration` is 1-8 s. The kinds: `punch_in` (an emphasis zoom of the picture to 108, 112 or 115 % by `style.size`
+  `s`, `m`, `l`, eased in and back out; not a cut transition), `keyword` (one word or number beside the subject, up
+  to 24 characters), `lower_third` (a place or a name just above the captions, up to 40), `list` (2-4 points of up to
+  32 characters), `arrow` (pointing at `anchor: { x, y }`) and `highlight` (marking `anchor: { x, y, width, height }`),
+  in px of the film's frame. Colours and fonts are the brand's (the card in `background`, its text in `foreground`,
+  the dot, arrow and marker in `accent`; the keyword in the heading font), `style.size` and `style.side` (`left`,
+  `right`) are the only knobs. The render draws them from markup vendored into the kit (no network) and the draft
+  draws them in the same place at the same time (the cards, a straight arrow, the marker's outline, the punch-in
+  zoom). Before anything is rendered, `resolveEdlOverlays` refuses with a reason per overlay: a word the cut never
+  says, an overlay running past the cut or across a cut into the next segment, two on screen at once, two starting
+  closer than the film's `overlayMinSpacing` (the app's budget, e.g. 8), a text overlay that does not fit between the
+  platform safe zone and the captions, an anchor outside the safe zone or on the captions, a `punch_in` on a
+  `kenburns` segment or inside a zoom cut's ease. An EDL without `overlays` renders exactly as before.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless
@@ -1364,7 +1381,7 @@ if (isPointUnderCoverText(cover.value, cover.value.focusPoint, 40)) console.warn
 
 | Asset | Licence | How the package handles it |
 | --- | --- | --- |
-| hyperframes `0.8.85` | Apache-2.0 | npm dependency, pinned, run from `node_modules` |
+| hyperframes `0.9.20` | Apache-2.0 | npm dependency, pinned, run from `node_modules`; the EDL overlays' motion is adapted from its registry blocks (`lt-soft-pill`, `marker-highlight`, `hw-arrow`, `push-in`), credited in [NOTICE](NOTICE) |
 | GSAP | GreenSock's standard "no charge" licence | npm dependency `gsap`; `gsap.min.js` is copied into the project's build folder at render time, never shipped in this package |
 | Fonts | the project's | not bundled; `brand.fonts` names the files, copied next to the composition at render time |
 | Sound effects | the project's | not bundled; `sfx` names the files |
