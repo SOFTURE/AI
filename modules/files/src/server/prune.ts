@@ -9,6 +9,9 @@ import { pruneUploads } from "./uploads.js";
 
 const DEFAULT_BATCH_SIZE = 500;
 
+/** How many removed file ids a prune report keeps (`removedFileIds`). */
+export const PRUNE_REPORT_MAX_FILE_IDS = 10;
+
 export interface PruneFilesOptions {
   /** Rows read per round; rounds repeat until one comes back short. */
   readonly batchSize?: number;
@@ -17,6 +20,8 @@ export interface PruneFilesOptions {
 export interface PruneFilesReport {
   readonly deletedFiles: number;
   readonly freedBytes: number;
+  /** Ids of the first `PRUNE_REPORT_MAX_FILE_IDS` (10) removed files, in removal order; `deletedFiles` has the count. */
+  readonly removedFileIds: readonly string[];
   /** Files whose storage delete failed; they stay for the next run. */
   readonly failedFiles: number;
   /** Expired upload sessions removed with their parts. */
@@ -31,6 +36,7 @@ export async function pruneFiles(ctx: FilesContext, options: PruneFilesOptions =
   let deletedFiles = 0;
   let freedBytes = 0;
   let failedFiles = 0;
+  const removedFileIds: string[] = [];
   for (;;) {
     const rows = await ctx.db
       .select()
@@ -43,10 +49,13 @@ export async function pruneFiles(ctx: FilesContext, options: PruneFilesOptions =
       if (await removeMarkedFile(ctx, row)) {
         deletedFiles += 1;
         freedBytes += row.size;
+        if (removedFileIds.length < PRUNE_REPORT_MAX_FILE_IDS) removedFileIds.push(row.id);
       } else {
         failedFiles += 1;
       }
     }
-    if (rows.length < batchSize) return { deletedFiles, freedBytes, failedFiles, ...(await pruneUploads(ctx, batchSize)) };
+    if (rows.length < batchSize) {
+      return { deletedFiles, freedBytes, removedFileIds, failedFiles, ...(await pruneUploads(ctx, batchSize)) };
+    }
   }
 }

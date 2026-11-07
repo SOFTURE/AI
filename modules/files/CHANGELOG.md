@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The `files.prune` job logs every run (#1192): one line `files.prune finished` with `removed`, `freedBytes`,
+  `failedFiles`, `deletedUploads`, `failedUploads` and, when at most 10 files went, their ids as `fileIds` (also
+  `removed=0 freedBytes=0` for an empty run). `createFilesJobHandlers({ logger })` takes any logger with `info`
+  (`createLogger("files")` from `@softure-ai/observability` as it is); `filesJobHandlers` logs to the console.
+- `PruneFilesReport.removedFileIds`: the ids of the first `PRUNE_REPORT_MAX_FILE_IDS` (10) removed files.
+- Migration: none. A test that compares a whole `pruneFiles` report with `toEqual` adds `removedFileIds`.
+
 ## 0.3.0
 
 - `serveStoredFile(ctx, fileId, request, { ownerId, disposition? })` in `/server` and `createStoredFileRoute({ getOwnerId })`

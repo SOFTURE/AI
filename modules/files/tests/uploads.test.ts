@@ -197,7 +197,7 @@ describe("upload sessions in prune and privacy", () => {
     test.clock.advance(23 * HOUR_MS);
     const live = await openWithPart(test, ALICE);
     test.clock.advance(HOUR_MS);
-    expect(await pruneFiles(test.ctx)).toEqual({ deletedFiles: 0, freedBytes: 0, failedFiles: 0, deletedUploads: 1, failedUploads: 0 });
+    expect(await pruneFiles(test.ctx)).toEqual({ deletedFiles: 0, freedBytes: 0, removedFileIds: [], failedFiles: 0, deletedUploads: 1, failedUploads: 0 });
     expect([...test.storage.objects().keys()]).toEqual([getPartKey(live, 0)]);
     expect((await test.database.client.query<{ id: string }>("SELECT id FROM files.uploads")).rows.map((row) => row.id)).toEqual([live]);
     expect(old).not.toBe(live);
