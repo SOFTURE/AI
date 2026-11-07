@@ -146,6 +146,25 @@ describe.runIf(hasFfmpeg)("isolateSpeechRanges (issue #1087)", () => {
     expect(again.value.ranges.every((range) => range.cached && range.laid)).toBe(true);
   });
 
+  it("hands the provider each range in the clip sound's own format: 32-bit float with speechPeaks float (issue #1193)", async () => {
+    const codecs: string[] = [];
+    const silencing = createSilencingProvider(dir);
+    const isolation: IsolationProvider = {
+      id: "silence",
+      isolate(input) {
+        codecs.push(spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name", "-of", "csv=p=0", input.audio], { encoding: "utf8" }).stdout.trim());
+        return silencing.isolate(input);
+      },
+    };
+    const float = await isolateSpeechRanges(film, [clip], edl, options(isolation, { speechPeaks: "float" }));
+    if (!float.ok) throw new Error(float.error);
+    expect(codecs).toEqual(["pcm_f32le", "pcm_f32le"]);
+    codecs.length = 0;
+    const ceiling = await isolateSpeechRanges(film, [clip], edl, options(isolation, { cacheDir: join(dir, "cache-ceiling") }));
+    if (!ceiling.ok) throw new Error(ceiling.error);
+    expect(codecs).toEqual(["pcm_s24le", "pcm_s24le"]);
+  });
+
   it("pays only a changed cut's new range", async () => {
     const isolation = createFakeIsolationProvider();
     await isolateSpeechRanges(film, [clip], edl, options(isolation));

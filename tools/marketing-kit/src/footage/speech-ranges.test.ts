@@ -149,6 +149,12 @@ describe("the range ffmpeg arguments", () => {
     expect(buildRangeAudioArgs("clip.mp4", { startMs: 1250, endMs: 3000 }, "out.mp3")).toEqual(["-v", "error", "-y", "-ss", "1.250", "-t", "1.750", "-i", "clip.mp4", "-vn", "-c:a", "libmp3lame", "-q:a", "2", "out.mp3"]);
   });
 
+  it("cuts a .wav range as 24-bit PCM, or as 32-bit float from a float clip sound (issue #1193)", () => {
+    expect(buildRangeAudioArgs("talk.wav", { startMs: 2000, endMs: 5000 }, "range.wav").slice(-3)).toEqual(["-c:a", "pcm_s24le", "range.wav"]);
+    expect(buildRangeAudioArgs("talk.wav", { startMs: 2000, endMs: 5000 }, "range.wav", { peaks: "ceiling" }).slice(-3)).toEqual(["-c:a", "pcm_s24le", "range.wav"]);
+    expect(buildRangeAudioArgs("talk.wav", { startMs: 2000, endMs: 5000 }, "range.wav", { peaks: "float" })).toEqual(["-v", "error", "-y", "-ss", "2.000", "-t", "3.000", "-i", "talk.wav", "-vn", "-c:a", "pcm_f32le", "range.wav"]);
+  });
+
   it("crossfades every join: windows trimmed to their fades, faded linearly, delayed in samples, the base under one minus their gains", () => {
     const first = { clip: "a", startMs: 1000, endMs: 3000 };
     const second = { clip: "a", startMs: 2800, endMs: 5000 };
@@ -226,6 +232,43 @@ describe("getSpeechRangeFades", () => {
       { inStartMs: 1000, inEndMs: 1000, outStartMs: 2002, outEndMs: 2002 },
       { inStartMs: 2002, inEndMs: 2002, outStartMs: 3000, outEndMs: 3000 },
     ]);
+  });
+});
+
+describe.runIf(hasFfmpeg)("buildRangeAudioArgs through ffmpeg (issue #1193)", () => {
+  /** Cuts 2-5 s of a stereo float tone at 1.8 (+5.1 dBFS) and answers the range's codec, channels and peak sample. */
+  function cutHotRange(peaks: "ceiling" | "float"): { codec: string; peak: number } {
+    const dir = mkdtempSync(join(tmpdir(), "footage-range-"));
+    try {
+      const hot = join(dir, "hot.wav");
+      const made = spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "aevalsrc=1.8*sin(2*PI*220*t)|1.8*sin(2*PI*220*t):s=48000:c=stereo:d=6", "-c:a", "pcm_f32le", hot], { encoding: "utf8" });
+      if (made.status !== 0) throw new Error(made.stderr);
+      const range = join(dir, "range.wav");
+      const cut = spawnSync("ffmpeg", buildRangeAudioArgs(hot, { startMs: 2000, endMs: 5000 }, range, { peaks }), { encoding: "utf8" });
+      if (cut.status !== 0) throw new Error(cut.stderr);
+      const probe = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_name,channels", "-of", "csv=p=0", range], { encoding: "utf8" });
+      const raw = join(dir, "range.raw");
+      const decoded = spawnSync("ffmpeg", ["-v", "error", "-y", "-i", range, "-f", "f32le", "-c:a", "pcm_f32le", raw], { encoding: "utf8" });
+      if (decoded.status !== 0) throw new Error(decoded.stderr);
+      const bytes = readFileSync(raw);
+      const samples = new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
+      return { codec: probe.stdout.trim(), peak: samples.reduce((max, value) => Math.max(max, Math.abs(value)), 0) };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("hands the provider a float clip sound's peaks above full scale unclipped, at the same level", () => {
+    const range = cutHotRange("float");
+    expect(range.codec).toBe("pcm_f32le,2");
+    expect(range.peak).toBeGreaterThan(1.79);
+    expect(range.peak).toBeLessThanOrEqual(1.8);
+  });
+
+  it("clamps them at full scale in a 24-bit range (the default ceiling sound never exceeds it)", () => {
+    const range = cutHotRange("ceiling");
+    expect(range.codec).toBe("pcm_s24le,2");
+    expect(range.peak).toBeLessThanOrEqual(1);
   });
 });
 

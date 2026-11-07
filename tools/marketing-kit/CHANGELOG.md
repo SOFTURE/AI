@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.21.2
+
+- **The isolator hears a float clip sound's ranges unclipped (#1193):** with `speechPeaks: "float"`,
+  `isolateSpeechRanges` cuts each range for the isolation provider as 32-bit float PCM (`pcm_f32le`), like the clip
+  sound itself, so a peak above full scale reaches the provider instead of being clamped by a 24-bit cut. The
+  whole-clip path already sent the float file. The default (`ceiling`) keeps 24-bit ranges as before. A range keeps
+  the sound's two channels, so its level is the same in both formats and cached ranges stay valid.
+  `buildRangeAudioArgs` takes `{ peaks }` as a fourth argument.
+
 ## 0.21.1
 
 - **A composition never names a remote file (#1191):** `composeFilm` and `composeFootage` throw when an asset is an

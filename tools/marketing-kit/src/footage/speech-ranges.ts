@@ -1,7 +1,7 @@
 import { extname } from "node:path";
 
 import { footageCacheKey, getFootageCachePath } from "./cache.js";
-import { getAudioCodecArgs } from "./clip-sound.js";
+import { getAudioCodecArgs, type SpeechPeaks } from "./clip-sound.js";
 import { getSoundSpan, type Edl } from "./edl.js";
 import type { ClipRole } from "./film.js";
 import { FOOTAGE_SAMPLE_RATE } from "./normalize.js";
@@ -206,11 +206,14 @@ export type SpeechRangeCacheResolver = (range: SpeechRange, clipKey: string) => 
 const seconds = (ms: number): string => (ms / 1000).toFixed(3);
 
 /**
- * One range of a clip's sound (`audio`, read from its start) for the isolation provider: 24-bit PCM for a `.wav`
- * output (lossless, issue #1139), else as `getAudioCodecArgs` encodes it.
+ * One range of a clip's sound (`audio`, read from its start) for the isolation provider. A `.wav` output keeps the
+ * clip sound's own format, lossless (issue #1139): 32-bit float PCM with `peaks: "float"`, so a peak above full scale
+ * reaches the provider unclipped (issue #1193), else 24-bit PCM. Any other output is encoded as `getAudioCodecArgs`
+ * encodes it. The range keeps the sound's channels: no downmix, so no level change between the two formats.
  */
-export function buildRangeAudioArgs(audio: string, range: Pick<SpeechRange, "startMs" | "endMs">, output: string): string[] {
-  const codec = extname(output).toLowerCase() === ".wav" ? ["-c:a", "pcm_s24le"] : getAudioCodecArgs(output);
+export function buildRangeAudioArgs(audio: string, range: Pick<SpeechRange, "startMs" | "endMs">, output: string, options: { peaks?: SpeechPeaks } = {}): string[] {
+  const wavCodec = options.peaks === "float" ? "pcm_f32le" : "pcm_s24le";
+  const codec = extname(output).toLowerCase() === ".wav" ? ["-c:a", wavCodec] : getAudioCodecArgs(output);
   return ["-v", "error", "-y", "-ss", seconds(range.startMs), "-t", seconds(range.endMs - range.startMs), "-i", audio, "-vn", ...codec, output];
 }
 
