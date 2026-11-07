@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.3.2
+
+- **Planned pins are solid passport-blue dots:** the planned dot drops the ink stroke, which next to the blue read as
+  one dark ring on a phone; it keeps the white centre and the visited dot's size.
+- **`MapPinCluster` `status`:** a cluster of planned places only is passport blue instead of stamp ink.
+- **`WorldMap` `fit="cover"`:** a fitted map can fill its box's height too (twice the height wide, scrolling
+  sideways), for a phone where the map is the whole screen. `contain` stays the default.
+
 ## 0.3.1
 
 - **`ChipRail`:** one row of chips that scrolls sideways without a scrollbar, with a round arrow at each end while

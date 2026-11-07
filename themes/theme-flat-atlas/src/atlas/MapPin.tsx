@@ -30,8 +30,9 @@ export interface MapPinProps {
 
 /**
  * A place on the map: a 14 px dot (10 px on a phone) in marigold with a 2 px ink stroke and a white centre, inside a
- * 40 px button. A planned place: the same dot in passport blue, as easy to see as a visited one. Hover and focus grow
- * the dot to 1.25 in 160 ms and show the stamp-ink flag above every other pin; nothing bounces, pulses or glows.
+ * 40 px button. A planned place: a solid passport-blue dot of the same size with the white centre and no ink stroke,
+ * since blue next to ink reads as one dark ring. Hover and focus grow the dot to 1.25 in 160 ms and show the flag above
+ * every other pin; nothing bounces, pulses or glows.
  */
 export function MapPin({ x, y, label, status = "visited", tag, isTagShown = false, isSelected, onClick, className }: MapPinProps) {
   const isPlanned = status === "planned";
@@ -50,7 +51,7 @@ export function MapPin({ x, y, label, status = "visited", tag, isTagShown = fals
         <span
           className={cn(
             "flex size-pin-sm items-center justify-center rounded-pill border-2 transition-transform group-hover/pin:scale-125 group-focus-visible/pin:scale-125 group-focus-visible/pin:outline-2 group-focus-visible/pin:outline-offset-2 group-focus-visible/pin:outline-accent md:size-pin",
-            isPlanned ? "border-pin-stroke bg-planned" : "border-pin-stroke bg-place",
+            isPlanned ? "border-planned bg-planned" : "border-pin-stroke bg-place",
           )}
         >
           <span className="size-1 rounded-pill bg-paper" />
@@ -81,15 +82,20 @@ export interface MapPinClusterProps {
   readonly count: number;
   /** The accessible name ("5 places in Europe"). */
   readonly label: string;
+  /** `planned` when every place in the cluster is planned: the dot is passport blue instead of stamp ink. */
+  readonly status?: TravelStatus;
   readonly isSelected?: boolean;
   readonly onClick?: MouseEventHandler<HTMLButtonElement>;
   readonly className?: string;
 }
 
-/** Dense pins merged on a phone: a 22 px stamp-ink dot with the count; its popover lists the places. */
-export function MapPinCluster({ x, y, count, label, isSelected, onClick, className }: MapPinClusterProps) {
+/**
+ * Dense pins merged on a phone: a 22 px stamp-ink dot with the count (passport blue when every place is planned); its
+ * popover lists the places.
+ */
+export function MapPinCluster({ x, y, count, label, status = "visited", isSelected, onClick, className }: MapPinClusterProps) {
   return (
-    <span data-slot="map-pin-cluster" className={cn("absolute size-0", className)} style={{ left: `${String(x)}%`, top: `${String(y)}%` }}>
+    <span data-slot="map-pin-cluster" data-status={status} className={cn("absolute size-0", className)} style={{ left: `${String(x)}%`, top: `${String(y)}%` }}>
       <button
         type="button"
         aria-label={label}
@@ -97,7 +103,7 @@ export function MapPinCluster({ x, y, count, label, isSelected, onClick, classNa
         onClick={onClick}
         className="group/pin absolute -top-5 -left-5 flex size-touch cursor-pointer items-center justify-center rounded-pill focus-visible:outline-none"
       >
-        <span className="num flex size-pin-cluster items-center justify-center rounded-pill bg-accent-fill text-tag text-on-accent transition-transform group-hover/pin:scale-125 group-focus-visible/pin:scale-125 group-focus-visible/pin:outline-2 group-focus-visible/pin:outline-offset-2 group-focus-visible/pin:outline-accent">
+        <span className={cn("num flex size-pin-cluster items-center justify-center rounded-pill text-tag text-on-accent transition-transform group-hover/pin:scale-125 group-focus-visible/pin:scale-125 group-focus-visible/pin:outline-2 group-focus-visible/pin:outline-offset-2 group-focus-visible/pin:outline-accent", status === "planned" ? "bg-planned" : "bg-accent-fill")}>
           {count}
         </span>
       </button>

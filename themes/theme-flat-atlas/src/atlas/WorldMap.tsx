@@ -36,6 +36,11 @@ export interface WorldMapProps {
    * the header.
    */
   readonly isFitted?: boolean;
+  /**
+   * How a fitted map fills its box: `contain` (the default) shows the whole map; `cover` fills the box's height as well,
+   * as wide as twice the height, and scrolls sideways, for a phone where the map is the whole screen.
+   */
+  readonly fit?: "contain" | "cover";
   /** Overlay content positioned in percent of the map, such as the open popover. */
   readonly children?: ReactNode;
   readonly className?: string;
@@ -52,14 +57,17 @@ const COUNTRY_LOOK: Readonly<Record<TravelStatus | "land", string>> = {
  * margins centre the map and drop to zero once it is wider than the box, so it still scrolls from its own corner.
  */
 const FITTED_BOX_LOOK = "grid h-full [container-type:size]";
-const FITTED_MAP_LOOK = "m-auto w-[min(100cqw,200cqh)]";
+const FITTED_MAP_LOOK: Readonly<Record<NonNullable<WorldMapProps["fit"]>, string>> = {
+  contain: "m-auto w-[min(100cqw,200cqh)]",
+  cover: "m-auto w-[max(100cqw,200cqh)]",
+};
 
 /**
  * The hero world map: Natural Earth 1:110m countries without Antarctica in the Natural Earth II projection, projected
  * at build time into a static 1000 x 500 SVG. Water is one colour, land is flat, a visited country is painted in the
  * stamp ink, a planned one keeps the land with a dashed passport-blue outline. Pins and labels are HTML over the SVG.
  * On a phone the map keeps 720 px and scrolls sideways inside its own container, never the page. `isFitted` makes it
- * fill a box of a given height instead, for a map that is the whole screen.
+ * fill a box of a given height instead, for a map that is the whole screen; `fit="cover"` also fills its height.
  */
 // Planned countries are drawn last: their dashed outline is wider than a neighbour's edge, so a neighbour drawn
 // after one would cover half of its border (China under Mongolia, Russia and India).
@@ -73,14 +81,14 @@ function sortByPaintOrder(countries: WorldMapProps["countries"]): { readonly sha
   );
 }
 
-export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPlaceClick, hasGraticule = true, isFitted = false, children, className }: WorldMapProps) {
+export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPlaceClick, hasGraticule = true, isFitted = false, fit = "contain", children, className }: WorldMapProps) {
   return (
     <div
       data-slot="world-map"
       data-fitted={isFitted ? "" : undefined}
       className={cn("overflow-x-auto overscroll-x-contain", isFitted && FITTED_BOX_LOOK, className)}
     >
-      <div className={cn("relative min-w-map-min", isFitted && FITTED_MAP_LOOK)}>
+      <div className={cn("relative min-w-map-min", isFitted && FITTED_MAP_LOOK[fit])}>
         <svg
           viewBox={`0 0 ${String(WORLD_MAP_VIEWBOX.width)} ${String(WORLD_MAP_VIEWBOX.height)}`}
           role="img"

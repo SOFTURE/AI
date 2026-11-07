@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/theme-flat-atlas",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "SOFTURE AI Flat Atlas theme: passport paper, flat land and one stamp ink for travel sites and anything on a map; the tokens, the page base and the components, a world map projected at build time among them.",
   "license": "MIT",
   "type": "module",
