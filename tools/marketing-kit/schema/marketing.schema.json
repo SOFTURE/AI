@@ -3025,12 +3025,13 @@
             "properties": {
               "declick": {
                 "default": "off",
-                "description": "Mouth clicks and lip smacks in the pauses, repaired before the loudness pass: each single impulse in a pause is replaced by AR interpolation with a 3 ms crossfade, nothing within 80 ms of a word is touched and no gain changes; gentle detects strong impulses only, strong is more sensitive; off (the default) leaves the speech track as cut.",
+                "description": "Mouth clicks and lip smacks in the pauses, repaired before the loudness pass: each single impulse in a pause is replaced by AR interpolation with a 3 ms crossfade, nothing within 80 ms of a word is touched and no gain changes; gentle detects strong impulses only, strong is more sensitive; repair uses the shared mouth-click rules (impulses of 1 to 25 ms, word bounds measured on the sound plus 80 ms, nothing above -45 dBFS, only pauses of 150 ms or more after the guard, at most 25 ms per repair, 3 a second and 1 % of the track, the rest counted as skipped); off (the default) leaves the speech track as cut.",
                 "type": "string",
                 "enum": [
                   "off",
                   "gentle",
-                  "strong"
+                  "strong",
+                  "repair"
                 ]
               }
             },

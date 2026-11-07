@@ -252,6 +252,7 @@ export {
   DECLICK_CROSSFADE,
   DECLICK_LEVELS,
   DECLICK_MAX_IMPULSE,
+  DECLICK_REPAIR_RULES,
   DECLICK_SETTINGS,
   DECLICK_WORD_GUARD,
   buildDeclickDecodeArgs,
@@ -260,6 +261,7 @@ export {
   declickSpeech,
   describeDeclick,
   findImpulses,
+  findRepairs,
   getArPolynomial,
   getRepairZones,
   getRunningMedian,
@@ -269,8 +271,10 @@ export {
   type DeclickReport,
   type DeclickSettings,
   type DeclickSpeechOptions,
+  type DetectorDeclickLevel,
   type TimeSpan as DeclickSpan,
 } from "./footage/declick.js";
+export { MOUTH_CLICK_RULES, findMouthClicks, type MouthClicks } from "./footage/mouth-clicks.js";
 export {
   MIN_CLIP_SECONDS,
   describeProbe,

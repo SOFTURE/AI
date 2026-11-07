@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **The mouth-click detector is exported for moving a cut past a click (#1182):** `findMouthClicks({ mono, sampleRate,
+  offset, words })` returns the impulses outside the speech protection zone (`clicks`), each word's bound on the real
+  sound (`words`: the wider of the transcript's bound and where the 10 ms energy falls 20 dB under the word's peak)
+  and `isQuiet(stretch)` (no 10 ms window above −45 dBFS once the clicks' samples are left out). The rules are in
+  `MOUTH_CLICK_RULES`: 1 to 25 ms, 2-10 kHz energy more than 12 dB over the ±50 ms median, not periodic, over within
+  its length; protected are the word bounds ±80 ms and every stretch above −45 dBFS. No audio is changed.
+- **A `repair` declick level with a minimum pause, the energy protection zone and limits (#1183):** `speech.declick:
+  "repair"` repairs the same impulses only in pauses of at least 150 ms after the guard, outside the protection zone,
+  at most 25 ms per repair (crossfades included), 3 a second and 1 % of the track (`DECLICK_REPAIR_RULES`); the
+  impulses over a limit are left and counted in `DeclickReport.skippedLimit`, which the log line names. `gentle` and
+  `strong` are unchanged (their reports carry `skippedLimit: 0`). New: `findRepairs`, type `DetectorDeclickLevel`;
+  `findImpulses` and `DECLICK_SETTINGS` take `gentle` or `strong` only.
+
 ## 0.19.0
 
 - **The speech pre-gain says what it reached, and can reach the target on peaky speech (#1181):** quiet phone speech
