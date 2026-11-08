@@ -50,11 +50,11 @@
       },
       {
         "name": "paper-line",
-        "value": "#E1E8E1"
+        "value": "#D3DBD4"
       },
       {
         "name": "land-paper",
-        "value": "#D8DFD8"
+        "value": "#C3CCC4"
       },
       {
         "name": "water-paper",
@@ -66,7 +66,7 @@
       },
       {
         "name": "ink-muted",
-        "value": "#5C5556"
+        "value": "#4A4446"
       },
       {
         "name": "night",
@@ -124,7 +124,7 @@
         "name": "line-strong",
         "value": {
           "dark": "#6E7A90",
-          "light": "#848D86"
+          "light": "#6F7871"
         }
       },
       {

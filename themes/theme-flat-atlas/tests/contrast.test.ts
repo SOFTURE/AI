@@ -38,6 +38,19 @@ describe("Flat Atlas contrast", () => {
     });
   });
 
+  it.each([
+    ["muted", "background"],
+    ["muted", "surface"],
+    ["muted", "map-ocean"],
+  ])("light %s on %s reaches the enhanced 7:1", (foreground, background) => {
+    expect(getContrast("light", foreground, background)).toBeGreaterThanOrEqual(7);
+  });
+
+  it("sets light land apart from the sea and from the borders between countries", () => {
+    expect(getContrast("light", "map-land", "map-ocean")).toBeGreaterThanOrEqual(1.35);
+    expect(getContrast("light", "map-land", "map-edge")).toBeGreaterThanOrEqual(1.45);
+  });
+
   it("keeps the planned blue readable as text on passport paper", () => {
     expect(getContrast("light", "planned", "background")).toBeGreaterThanOrEqual(4.5);
   });

@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.3.3
+
+- **Stronger contrast on the light scheme, brand colours unchanged:** muted text is darker (`#4A4446`, 7:1 and more
+  on paper and on the map's sea instead of about 6:1), land on the map is darker (`#C3CCC4`) so continents stand
+  apart from the sea and the white borders between countries show, outlines of controls (`line-strong` `#6F7871`)
+  and hairlines (`border` `#D3DBD4`) are firmer. Stamp, passport blue, marigold and passport paper stay as they were.
+
 ## 0.3.2
 
 - **Planned pins are solid passport-blue dots:** the planned dot drops the ink stroke, which next to the blue read as
