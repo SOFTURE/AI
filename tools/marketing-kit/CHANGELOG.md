@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.22.0
 
 - **Overlays on words in the EDL (#1200):** `edl.json` takes an optional `overlays[]` of `punch_in` (an emphasis zoom
   on a word), `keyword`, `lower_third`, `list`, `arrow` and `highlight`, each on a transcript word (`at_word`) or a
