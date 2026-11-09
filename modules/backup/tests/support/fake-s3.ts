@@ -38,6 +38,15 @@ function escapeXml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/** The access key id of `Credential=<id>/<date>/…`, read without a regular expression over the header. */
+function readCredentialKeyId(authorization: string): string {
+  const start = authorization.indexOf("Credential=");
+  if (start === -1) return "";
+  const from = start + "Credential=".length;
+  const end = authorization.indexOf("/", from);
+  return end === -1 ? "" : authorization.slice(from, end);
+}
+
 export async function startFakeS3(): Promise<FakeS3> {
   const objects = new Map<string, Buffer>();
   const requests: string[] = [];
@@ -46,7 +55,7 @@ export async function startFakeS3(): Promise<FakeS3> {
       const body = await readBody(request);
       const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
       const authorization = request.headers.authorization ?? "";
-      const keyId = /Credential=([^/]+)\//.exec(authorization)?.[1] ?? "";
+      const keyId = readCredentialKeyId(authorization);
       requests.push(`${request.method ?? ""} ${url.pathname}${url.search} ${keyId}`);
       const credential = keyId === WRITER.id ? WRITER : keyId === READER.id ? READER : null;
       const payloadSha256 = String(request.headers["x-amz-content-sha256"] ?? "");

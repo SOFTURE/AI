@@ -39,9 +39,16 @@ export interface S3Options {
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_ERROR_TEXT = 200;
 
+/** `/a/b//` → `/a/b`, by index: a regular expression here would backtrack on a path of many slashes. */
+function trimTrailingSlashes(path: string): string {
+  let end = path.length;
+  while (end > 0 && path.charCodeAt(end - 1) === 47) end -= 1;
+  return path.slice(0, end);
+}
+
 /** The URL of a key (or of the bucket, for a list), path style under the endpoint's own path. */
 export function getObjectUrl(store: StoreConfig, key: string | null): URL {
-  const base = store.endpoint.pathname.replace(/\/+$/, "");
+  const base = trimTrailingSlashes(store.endpoint.pathname);
   const path = key === null ? `${base}/${encodeRfc3986(store.bucket)}` : `${base}/${encodeRfc3986(store.bucket)}/${encodeRfc3986(key, true)}`;
   return new URL(`${store.endpoint.origin}${path}`);
 }

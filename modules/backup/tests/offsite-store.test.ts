@@ -144,7 +144,8 @@ describe.runIf(IT.adminUrl !== undefined && IT.endpoint !== undefined)("the off-
       stdin: identity,
     });
     expect(verified.stderr).toBe("");
-    expect(verified.stdout).toMatch(new RegExp(`^verify: ${app}/${dumpName.replace(/\./g, "\\.")}\\.age \\([\\d.]+ h old\\) restores; schema guard passed; users=250,backup\\.runs=0\\n$`));
+    expect(verified.stdout.startsWith(`verify: ${app}/${dumpName}.age (`)).toBe(true);
+    expect(verified.stdout.endsWith(" h old) restores; schema guard passed; users=250,backup.runs=0\n")).toBe(true);
     expect(await query(urlOf("postgres"), "SELECT datname FROM pg_database WHERE datname LIKE 'softure_offsite_verify_%'")).toEqual([]);
   });
 
