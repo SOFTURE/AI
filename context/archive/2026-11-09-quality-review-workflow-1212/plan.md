@@ -1,6 +1,6 @@
 ---
 change_id: quality-review-workflow-1212
-status: in_progress
+status: done
 ---
 
 # Plan: quality review workflow (issue #1212)
