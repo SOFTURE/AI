@@ -48,7 +48,7 @@
   },
   "devDependencies": {
     "@opentelemetry/sdk-trace": "~3.1.0",
-    "ai": "7.0.161",
+    "ai": "7.0.163",
     "zod": "^4.6.7"
   }
 }
