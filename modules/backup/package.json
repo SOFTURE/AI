@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/backup",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "SOFTURE AI off-site backup: encrypts each nightly dump of @softure-ai/deploy with age to a public key, uploads it to any S3-compatible store with a write-only token, records every run for the app (getLastBackup, OpenTelemetry metrics), and restores or verifies an off-site copy with a private key that never reaches the server.",
   "license": "MIT",
   "type": "module",

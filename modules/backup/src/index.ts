@@ -12,7 +12,7 @@ export const MODULE_ID = "backup";
 export const backup = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.0.0",
+    version: "0.1.0",
     dependsOn: {},
     dbSchema: "backup",
     tables: ["runs"],

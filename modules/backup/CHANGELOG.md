@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the module. W
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.0
 
 - **First version (#1210):** encrypted off-site copies of the nightly backup of `@softure-ai/deploy`. `softure-backup
   upload` encrypts the night's dump (and data archive) with `age` to `BACKUP_AGE_RECIPIENT` and PUTs it to any
