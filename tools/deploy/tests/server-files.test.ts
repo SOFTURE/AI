@@ -43,6 +43,24 @@ const STUB_NPX = `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$NPX_LOG"
 if [ -n "\${FAIL_NPX_ON:-}" ] && [[ " $* " == *"$FAIL_NPX_ON"* ]]; then exit 1; fi
 if [ "\${1:-}" = "--yes" ]; then shift 2; fi
+# The off-site copy (issue #1210): records the settings it got in its environment, writes the status SQL and the
+# summary of OFFSITE_RESULT (ok, failed, crash).
+if [[ " $* " == *" upload "* ]]; then
+  printf '%s|%s|%s\\n' "\${BACKUP_S3_BUCKET:-}" "\${BACKUP_S3_SECRET_ACCESS_KEY:-}" "\${BACKUP_AGE_RECIPIENT:-}" >> "$NPX_LOG.env"
+  summary=/dev/null
+  for arg in "$@"; do
+    case "$arg" in
+      --status-sql=*) printf 'INSERT INTO backup.runs;\\n' > "\${arg#--status-sql=}" ;;
+      --summary=*) summary="\${arg#--summary=}" ;;
+    esac
+  done
+  case "\${OFFSITE_RESULT:-ok}" in
+    ok) echo "ok|2 object(s), 3072 bytes in 0.5 s" > "$summary" ;;
+    failed) echo "failed|upload_denied|the store refused acme-app/db.dump.age: HTTP 403" > "$summary"; exit 1 ;;
+    *) exit 3 ;;
+  esac
+  exit 0
+fi
 # The CLI reads all of a --stdin input; a writer to a pipe nobody drains could die of SIGPIPE.
 if [[ " $* " == *" --stdin "* ]]; then cat > /dev/null; fi
 case " $* " in
@@ -93,6 +111,8 @@ if [ "$1" = "compose" ] && [[ " $* " == *" exec "* ]]; then
       ;;
     *" ls ops "*) for script in \${OPS_SCRIPTS:-grant-access set-password}; do echo "$script.mjs"; done; exit 0 ;;
     *" pg_restore "*) cat > "$EXEC_STDIN.restore"; exit 0 ;;
+    # The off-site status file (issue #1210); STATUS_EXIT fails it like a missing backup.runs table.
+    *" psql "*" -f - "*) cat > "$EXEC_STDIN.status"; exit "\${STATUS_EXIT:-0}" ;;
   esac
   cat > "$EXEC_STDIN"
   echo "exec: done"
@@ -549,13 +569,32 @@ describe("deploy.sh with a database on a host without Node", () => {
     const docker = readDockerLog();
     expect(docker.filter((line) => line.startsWith("build "))).toEqual(["build --quiet --tag softure-deploy-tools:9.9.9-pg16 -"]);
     expect(readFileSync(`${dockerLog}.tools-image`, "utf8")).toBe(
-      "FROM node:22-alpine\nRUN apk add --no-cache postgresql16-client && npm install --global --no-audit --no-fund @softure-ai/deploy@9.9.9\n",
+      "FROM node:22-alpine\nRUN apk add --no-cache postgresql16-client && npm install --global --no-audit --no-fund @softure-ai/deploy@9.9.9 @softure-ai/backup@0.1.0\n",
     );
     const runs = docker.filter((line) => line.startsWith("run "));
     expect(runs.every((line) => line.includes(` --network host --user ${String(process.getuid?.())}:`) && line.includes(`--volume ${server}:${server}`))).toBe(true);
     const commands = readFileSync(npxLog, "utf8").trim().split("\n").map((line) => line.split(" ")[0]);
     expect(commands).toEqual(["server-settings", "backup", "schema-guard", "server-settings", "backup", "schema-guard", "row-counts", "row-counts"]);
     expect(runs.filter((line) => line.includes(" node -e "))).toHaveLength(4);
+  });
+
+  it("runs the off-site copy in the helper image and hands it the settings by name only (issue #1210)", () => {
+    const secret = "wJalrXUtnFEMI-secret-key";
+    writeCheckout({
+      facts: WITH_DATABASE,
+      tables: ["users"],
+      envProd: `${DATABASE_ENV}BACKUP_S3_BUCKET='acme-backups'\nBACKUP_S3_SECRET_ACCESS_KEY='${secret}'\nBACKUP_AGE_RECIPIENT='age1recipient'\n`,
+    });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    write(join(toolsBin, "softure-backup"), STUB_NPX, 0o755);
+    expect(deployWithoutNode("v1").status).toBe(0);
+    const result = runServer("maintain", "", { PATH: `${stubBin}:${HOST_PATH}`, TOOLS_BIN: toolsBin });
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toContain("step|offsite-backup|ok|2 object(s), 3072 bytes in 0.5 s");
+    const upload = readDockerLog().find((line) => line.startsWith("run ") && line.includes(" softure-backup upload "));
+    expect(upload).toContain(" --env BACKUP_S3_BUCKET --env BACKUP_S3_PREFIX --env BACKUP_S3_ACCESS_KEY_ID --env BACKUP_S3_SECRET_ACCESS_KEY ");
+    expect(upload).not.toContain(secret);
+    expect(readFileSync(`${npxLog}.env`, "utf8")).toBe(`acme-backups|${secret}|age1recipient\n`);
   });
 
   it("stops before anything restarts when the helper image cannot be built", () => {
@@ -799,7 +838,7 @@ describe("deploy.sh with a worker image and a data volume (issue #948)", () => {
     expect(deploy("v1", packArchive()).status).toBe(0);
     const result = runServer("maintain", "");
     expect(result.status).toBe(0);
-    expect(result.stdout).toMatch(/step\|backup\|ok\|db-20261006-120000\.dump\nstep\|backup-data\|ok\|data-[0-9-]+\.tar\.gz\nstep\|verify-backup/);
+    expect(result.stdout).toMatch(/step\|backup\|ok\|db-20261006-120000\.dump\nstep\|backup-data\|ok\|data-[0-9-]+\.tar\.gz\nstep\|offsite-backup\|ok\|not configured\nstep\|verify-backup/);
 
     setUp({ dataVolume: "/app/data" });
     rmSync(join(server, "backups"), { recursive: true, force: true });
@@ -1373,7 +1412,7 @@ describe("deploy.sh maintain", () => {
     const result = runServer("maintain", "");
     expect(result.status).toBe(0);
     expect(result.stdout).toBe(
-      `step|settings|ok\nbackup: wrote ${server}/backups/db-20261006-120000.dump (2048 bytes)\nstep|backup|ok|db-20261006-120000.dump\nstep|verify-backup|ok|skipped\n${QUIET_CLEANUP_STEPS.join("\n")}\nresult|ok\n`,
+      `step|settings|ok\nbackup: wrote ${server}/backups/db-20261006-120000.dump (2048 bytes)\nstep|backup|ok|db-20261006-120000.dump\nstep|offsite-backup|ok|not configured\nstep|verify-backup|ok|skipped\n${QUIET_CLEANUP_STEPS.join("\n")}\nresult|ok\n`,
     );
     expect(readFileSync(npxLog, "utf8")).toMatch(
       new RegExp(`--yes @softure-ai/deploy@9\\.9\\.9 backup --dir=${server}/backups --prefix=db --keep=7 --max-age-days=30\n$`),
@@ -1627,6 +1666,7 @@ describe("deploy.sh maintain test-restores its backup (issue #561)", () => {
     expect(readLines(result.stdout, "step")).toEqual([
       "step|settings|ok",
       `step|backup|ok|${DUMP}`,
+      "step|offsite-backup|ok|not configured",
       `step|verify-backup|ok|${DUMP}`,
       ...QUIET_CLEANUP_STEPS,
     ]);
@@ -1722,6 +1762,90 @@ describe("deploy.sh maintain test-restores its backup (issue #561)", () => {
     expect(readLines(result.stdout, "step")).toContain(`step|verify-backup|ok|${DUMP}`);
     expect(readNpxCalls().filter((call) => call.startsWith("row-counts"))).toEqual([]);
     expect(readVerifyCalls()).toHaveLength(4);
+  });
+});
+
+describe("deploy.sh maintain sends an encrypted off-site copy (issue #1210)", () => {
+  const DUMP = "db-20261006-120000.dump";
+  const SECRET = "wJalrXUtnFEMI-secret-key";
+  const OFFSITE_ENV = `POSTGRES_PASSWORD='pw'\nBACKUP_S3_ENDPOINT='https://s3.example.com'\nBACKUP_S3_BUCKET='acme-backups'\nBACKUP_S3_ACCESS_KEY_ID='writer'\nBACKUP_S3_SECRET_ACCESS_KEY='${SECRET}'\nBACKUP_AGE_RECIPIENT='age1recipient'\n`;
+
+  function deployWith(envProd: string): void {
+    writeCheckout({ facts: { ...NO_DATABASE, hasDatabase: true }, tables: ["users"], envProd });
+    write(join(server, "deploy.sh"), readFileSync(join(checkout, "docker/server/deploy.sh"), "utf8"), 0o755);
+    expect(deploy("v1", packArchive()).status).toBe(0);
+    rmSync(dockerLog, { force: true });
+    rmSync(npxLog, { force: true });
+  }
+
+  function readUploadCalls(): string[] {
+    if (!existsSync(npxLog)) return [];
+    return readFileSync(npxLog, "utf8").trim().split("\n").filter((line) => line.includes(" upload "));
+  }
+
+  function lastLine(result: BashResult): string {
+    return result.stdout.trimEnd().split("\n").at(-1) ?? "";
+  }
+
+  it("skips the step without starting the CLI when BACKUP_S3_BUCKET is not set", () => {
+    deployWith("POSTGRES_PASSWORD='pw'\n");
+    const result = runServer("maintain", "");
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toContain("step|offsite-backup|ok|not configured");
+    expect(readUploadCalls()).toEqual([]);
+    expect(existsSync(`${npxLog}.env`)).toBe(false);
+  });
+
+  it("uploads the new dump with the settings in the CLI's environment and records the run through psql", () => {
+    deployWith(OFFSITE_ENV);
+    const result = runServer("maintain", "");
+    expect(result.status).toBe(0);
+    expect(lastLine(result)).toBe("result|ok");
+    expect(readLines(result.stdout, "step")).toContain("step|offsite-backup|ok|2 object(s), 3072 bytes in 0.5 s");
+    const calls = readUploadCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatch(
+      new RegExp(`^--yes @softure-ai/backup@0\\.1\\.0 upload --app=\\S+ --file=${server}/backups/${DUMP} --status-sql=\\S+/offsite-status\\.sql --summary=\\S+/offsite-summary$`),
+    );
+    // The secret reaches the CLI only through its environment: never in an argument, never on stdout or stderr.
+    expect(readFileSync(npxLog, "utf8")).not.toContain(SECRET);
+    expect(result.stdout + result.stderr).not.toContain(SECRET);
+    expect(readFileSync(`${npxLog}.env`, "utf8")).toBe(`acme-backups|${SECRET}|age1recipient\n`);
+    expect(readFileSync(join(root, "exec-stdin.status"), "utf8")).toBe("INSERT INTO backup.runs;\n");
+    expect(readDockerLog().some((line) => line.includes("exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -U postgres -d ") && line.endsWith(" -f -"))).toBe(true);
+  });
+
+  it("runs the steps after a failed upload and fails maintain at the end with the CLI's safe message", () => {
+    deployWith(OFFSITE_ENV);
+    const result = runServer("maintain", "", { OFFSITE_RESULT: "failed" });
+    expect(result.status).toBe(1);
+    const steps = readLines(result.stdout, "step");
+    expect(steps).not.toContain("step|offsite-backup|ok|not configured");
+    expect(steps).toContain("step|verify-backup|ok|skipped");
+    expect(steps).toContain(QUIET_CLEANUP_STEPS[0]);
+    expect(lastLine(result)).toBe(
+      "result|failed|offsite-backup|the off-site backup failed (upload_denied): the store refused acme-app/db.dump.age: HTTP 403",
+    );
+    // The failed run is recorded too.
+    expect(readFileSync(join(root, "exec-stdin.status"), "utf8")).toBe("INSERT INTO backup.runs;\n");
+  });
+
+  it("names the exit status when the CLI dies without a summary", () => {
+    deployWith(OFFSITE_ENV);
+    const result = runServer("maintain", "", { OFFSITE_RESULT: "crash" });
+    expect(result.status).toBe(1);
+    expect(lastLine(result)).toBe(
+      "result|failed|offsite-backup|the off-site backup did not run (exit status 3); see the log of this maintain run",
+    );
+  });
+
+  it("keeps a good upload ok and says so when the app has no backup.runs table", () => {
+    deployWith(OFFSITE_ENV);
+    const result = runServer("maintain", "", { STATUS_EXIT: "1" });
+    expect(result.status).toBe(0);
+    expect(readLines(result.stdout, "step")).toContain(
+      "step|offsite-backup|ok|2 object(s), 3072 bytes in 0.5 s; status not recorded (add @softure-ai/backup to the app and migrate)",
+    );
   });
 });
 

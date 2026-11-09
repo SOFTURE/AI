@@ -22,6 +22,14 @@
 # is its token. Without Traefik the app sends its own security headers (HSTS, nosniff, frame and referrer policy).
 {{/tunnel}}
 name: {{name}}
+{{#database}}
+
+# The off-site copy of the nightly backup (@softure-ai/backup): deploy.sh's maintain reads these names from .env.prod
+# on the host; no container gets them. All are optional: without BACKUP_S3_BUCKET the step is skipped. The access key
+# is a write-only token, BACKUP_AGE_RECIPIENT an age public key; the private key never comes to this server.
+x-offsite-backup:
+{{offsiteEnvLines}}
+{{/database}}
 
 services:
 {{#ownTraefik}}

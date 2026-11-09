@@ -102,6 +102,15 @@
 # compares the restored counts (none may be lower), and drops the database again. A dump that does not restore, or
 # holds fewer rows, fails the maintain run (result|failed|verify-backup|…). The restore needs free disk for a second
 # copy of the database while it runs.
+#
+# offsite-backup (issue #1210): right after the backup (and backup-data), maintain hands the new dump and data archive
+# to @softure-ai/backup ($BACKUP_CLI), which encrypts them with age to BACKUP_AGE_RECIPIENT and uploads them to the
+# S3-compatible store of BACKUP_S3_* with a write-only token. The names come from .env.prod (the compose file's
+# x-offsite-backup block) and reach the CLI in its environment, never as arguments. Without BACKUP_S3_BUCKET the step
+# is `step|offsite-backup|ok|not configured` and no CLI starts. Each run is recorded in the app's table backup.runs
+# (psql in the postgres service as its superuser); an app without that table gets a note in the step line. A failed
+# upload does not stop verify-backup, the cleanup or the hooks: the run ends with
+# result|failed|offsite-backup|<message> once they ran.
 set -euo pipefail
 
 # A copy handed the release by the running script (see the header) runs from a temporary folder and gets the app's.
@@ -113,6 +122,9 @@ else
 fi
 IMAGE="localhost:5000/softure/ai-deploy-e2e"
 DEPLOY_CLI="@softure-ai/deploy@0.0.0"
+BACKUP_CLI="@softure-ai/backup@0.1.0"
+# The off-site copy's settings in .env.prod, handed to the CLI's environment (offsite-backup).
+OFFSITE_ENV_NAMES=(BACKUP_S3_ENDPOINT BACKUP_S3_REGION BACKUP_S3_BUCKET BACKUP_S3_PREFIX BACKUP_S3_ACCESS_KEY_ID BACKUP_S3_SECRET_ACCESS_KEY BACKUP_AGE_RECIPIENT)
 TOOLS_IMAGE="softure-deploy-tools:0.0.0-pg16"
 DATABASE_NAME="softure_example"
 BACKUP_DIR="$APP_DIR/backups"
@@ -167,6 +179,8 @@ db_user=""
 db_name=""
 container=""
 backup_file=""
+data_file=""
+offsite_failure=""
 verify_backup="weekly"
 verify_tables=""
 verify_user=""
@@ -271,7 +285,7 @@ has_host_node() {
 ensure_tools_image() {
   if docker image inspect "$TOOLS_IMAGE" > /dev/null 2>&1; then return 0; fi
   printf '%s\n' "FROM node:22-alpine" \
-    "RUN apk add --no-cache postgresql16-client && npm install --global --no-audit --no-fund $DEPLOY_CLI" \
+    "RUN apk add --no-cache postgresql16-client && npm install --global --no-audit --no-fund $DEPLOY_CLI $BACKUP_CLI" \
     | docker build --quiet --tag "$TOOLS_IMAGE" - > /dev/null
 }
 
@@ -279,6 +293,8 @@ ensure_tools_image() {
 # folder and the run's temporary folder at the same paths. --stdin first hands this script's stdin to the command.
 run_in_tools() {
   local options=(--rm --network host --user "$(id -u):$(id -g)" --env HOME=/tmp --env DATABASE_URL)
+  local name
+  for name in "${OFFSITE_ENV_NAMES[@]}"; do options+=(--env "$name"); done
   if [ "$1" = "--stdin" ]; then
     options+=(--interactive)
     shift
@@ -294,6 +310,15 @@ deploy_cli() {
     npx --yes "$DEPLOY_CLI" "$@"
   else
     run_in_tools softure-deploy "$@"
+  fi
+}
+
+# The off-site backup CLI (@softure-ai/backup), installed in the helper image next to the deploy CLI.
+backup_cli() {
+  if has_host_node; then
+    npx --yes "$BACKUP_CLI" "$@"
+  else
+    run_in_tools softure-backup "$@"
   fi
 }
 
@@ -685,6 +710,43 @@ verify_backup() {
   verify_created=""
 }
 
+# The off-site copy of this run's dump and data archive (see the header). Prints its step line; a failed upload is kept
+# in offsite_failure for the end of maintain, so the steps after it still run.
+back_up_offsite() {
+  local name summary status=0 note=""
+  local files=(--file="$BACKUP_DIR/$backup_file")
+  begin_step offsite-backup
+  if [ -z "$(read_env BACKUP_S3_BUCKET)" ]; then
+    step_ok "not configured"
+    return 0
+  fi
+  if [ -n "$data_file" ]; then files+=(--file="$BACKUP_DIR/$data_file"); fi
+  # In a subshell: the settings, secrets among them, live only in the CLI's environment.
+  (
+    for name in "${OFFSITE_ENV_NAMES[@]}"; do export "$name=$(read_env "$name")"; done
+    backup_cli upload --app=softure-example "${files[@]}" --status-sql="$work/offsite-status.sql" --summary="$work/offsite-summary"
+  ) >&2 || status=$?
+  summary="$(cat "$work/offsite-summary" 2> /dev/null || true)"
+  if [ -s "$work/offsite-status.sql" ]; then
+    compose exec -T postgres psql -X -q -v ON_ERROR_STOP=1 -U "$verify_user" -d "${db_name:-$DATABASE_NAME}" -f - < "$work/offsite-status.sql" > /dev/null 2>&1 \
+      || note="; status not recorded (add @softure-ai/backup to the app and migrate)"
+  fi
+  case "$summary" in
+    ok\|*)
+      if [ "$status" -eq 0 ]; then
+        step_ok "${summary#ok|}$note"
+        return 0
+      fi
+      ;;
+    failed\|*)
+      summary="${summary#failed|}"
+      offsite_failure="the off-site backup failed (${summary%%|*}): ${summary#*|}$note"
+      return 0
+      ;;
+  esac
+  offsite_failure="the off-site backup did not run (exit status $status); see the log of this maintain run$note"
+}
+
 # A row-counts file as `users=3,billing.plans=2` for the step line; table names never hold `,` or `=`.
 summarize_counts() {
   node_eval '
@@ -853,6 +915,7 @@ if [ "$command_name" = "maintain" ]; then
   fi
   back_up_database || fail "the backup failed."
   step_ok "$backup_file"
+  back_up_offsite
 
   begin_step verify-backup
   if [ -z "$verifies" ]; then
@@ -869,6 +932,10 @@ if [ "$command_name" = "maintain" ]; then
   clean_up "$release_keep"
 
   run_hooks hooks-maintain
+  if [ -n "$offsite_failure" ]; then
+    begin_step offsite-backup
+    fail "$offsite_failure"
+  fi
   exit 0
 fi
 
