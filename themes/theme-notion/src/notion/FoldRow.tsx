@@ -54,6 +54,11 @@ export type FoldRowProps = FoldRowSummaryProps &
     /** More content under the table when opened. */
     readonly children?: ReactNode;
     /**
+     * Renders the row open (`<details open>`), for a row the address points at; the reader still folds it. Only the
+     * first render reads it: the native element keeps its own state afterwards.
+     */
+    readonly isOpenInitially?: boolean;
+    /**
      * Controls on the row's right, outside the summary, so clicking them never folds the row (a delete button, a
      * menu). Shown whether the row is open or closed, centred on the summary's first line.
      */
@@ -138,9 +143,9 @@ export function FoldRow(props: FoldRowProps) {
 }
 
 function FoldRowDetails(props: FoldRowProps & { readonly className: string }) {
-  const { isInset = false, size = "default", children, className } = props;
+  const { isInset = false, isOpenInitially = false, size = "default", children, className } = props;
   return (
-    <details data-slot="fold-row" className={cn("group/fold-row", className)}>
+    <details data-slot="fold-row" open={isOpenInitially || undefined} className={cn("group/fold-row", className)}>
       <summary
         data-slot="fold-row-summary"
         className={cn(
