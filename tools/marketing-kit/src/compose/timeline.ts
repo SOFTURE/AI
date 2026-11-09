@@ -328,6 +328,56 @@ export interface CaptionChunkOptions {
    * its chunk. Absent: every word may end one.
    */
   keepsWithNext?: (word: TimedWord) => boolean;
+  /** The fewest words a chunk shows (`balanceCaptionGroups`); default 1: chunks stay as they are cut. */
+  minWords?: number;
+  /** The most characters a short chunk's join may make, words joined by spaces (`balanceCaptionGroups`); absent: no limit. */
+  maxCharacters?: number;
+}
+
+/** How short caption chunks are evened out (`balanceCaptionGroups`). */
+export interface CaptionBalanceOptions {
+  /** The fewest words a chunk shows; 1 leaves the chunks as they are. */
+  minWords: number;
+  /** The words a chunk aims at; a short chunk's join may pass it by one word (a sentence's last word stays with it). */
+  maxWords: number;
+  /** The most characters a join may make, words joined by spaces (what fits the caption's width); absent: no limit. */
+  maxCharacters?: number;
+}
+
+function getGroupText(words: readonly TimedWord[]): string {
+  return words.map((word) => word.text).join(" ");
+}
+
+/**
+ * Caption groups without one shorter than `minWords` where it can be helped (issue: one-word boards): a short group
+ * joins the group before it when the join fits (`maxWords` + 1 words, `maxCharacters`); otherwise words move over from
+ * the end of the group before it, as long as that one keeps `minWords`. A short first group does the same with the
+ * group after it. A text shorter than `minWords` stays as it is. The groups are new arrays; no word changes.
+ */
+export function balanceCaptionGroups(groups: readonly (readonly TimedWord[])[], options: CaptionBalanceOptions): TimedWord[][] {
+  const { minWords, maxWords, maxCharacters } = options;
+  const result = groups.map((group) => [...group]);
+  if (minWords <= 1) return result;
+  const fits = (words: readonly TimedWord[]): boolean => words.length <= maxWords + 1 && (maxCharacters === undefined || getGroupText(words).length <= maxCharacters);
+  const balanced: TimedWord[][] = [];
+  for (const group of result) {
+    const previous = balanced.at(-1);
+    if (group.length < minWords && previous !== undefined) {
+      if (fits([...previous, ...group])) {
+        previous.push(...group);
+        continue;
+      }
+      // `previous` has more than `minWords` words while the loop runs, so `pop` returns a word.
+      while (group.length < minWords && previous.length > minWords) group.unshift(previous.pop() as TimedWord);
+    }
+    balanced.push(group);
+  }
+  const [first, second] = balanced;
+  if (first === undefined || second === undefined || first.length >= minWords) return balanced;
+  if (fits([...first, ...second])) return [[...first, ...second], ...balanced.slice(2)];
+  // `second` has more than `minWords` words while the loop runs, so `shift` returns a word.
+  while (first.length < minWords && second.length > minWords) first.push(second.shift() as TimedWord);
+  return balanced;
 }
 
 /**
@@ -344,31 +394,30 @@ export function splitAfterKept(words: TimedWord[], keepsWithNext: ((word: TimedW
 /**
  * Words → caption chunks: at most `maxWords` words, broken after the end of a sentence and after a comma, so a caption
  * does not glue two thoughts together; never after a word `keepsWithNext` keeps, unless punctuation ends it or every
- * word of the chunk is kept. A number as `options` is `maxWords`.
+ * word of the chunk is kept. With `minWords`, short chunks are evened out (`balanceCaptionGroups`). A number as
+ * `options` is `maxWords`.
  */
 export function captionChunks(words: TimedWord[], options: number | CaptionChunkOptions = {}): CaptionChunk[] {
-  const { maxWords = 4, keepsWithNext } = typeof options === "number" ? { maxWords: options } : options;
-  const chunks: CaptionChunk[] = [];
+  const { maxWords = 4, keepsWithNext, minWords = 1, maxCharacters } = typeof options === "number" ? { maxWords: options } : options;
+  const groups: TimedWord[][] = [];
   let current: TimedWord[] = [];
-  const push = (chunkWords: TimedWord[]) => {
-    const first = chunkWords[0];
-    const last = chunkWords[chunkWords.length - 1];
-    if (first === undefined || last === undefined) return;
-    chunks.push({ words: chunkWords, start: first.start, end: last.end });
-  };
   for (const word of words) {
     current.push(word);
     if (/[.,?!:;]$/.test(word.text)) {
-      push(current);
+      groups.push(current);
       current = [];
     } else if (current.length >= maxWords) {
       const { chunk, carry } = splitAfterKept(current, keepsWithNext);
-      push(chunk);
+      groups.push(chunk);
       current = carry;
     }
   }
-  push(current);
-  return chunks;
+  if (current.length > 0) groups.push(current);
+  return balanceCaptionGroups(groups, { minWords, maxWords, maxCharacters }).map((group) => ({
+    words: group,
+    start: (group[0] as TimedWord).start,
+    end: (group[group.length - 1] as TimedWord).end,
+  }));
 }
 
 /**

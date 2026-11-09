@@ -6,6 +6,7 @@ import {
   LAYOUT_NAMES,
   VIDEO_FORMATS,
   cameraPose,
+  balanceCaptionGroups,
   captionChunks,
   crossfadeArgs,
   fitScale,
@@ -283,6 +284,20 @@ describe("captionChunks", () => {
     expect(captionChunks([])).toEqual([]);
   });
 
+  it("joins a sentence's one-word tail to the card before it when minWords is 2", () => {
+    const words = [word("Travelling", 0), word("there", 1), word("and", 2), word("so", 3), word("on.", 4)];
+    const texts = (chunks: { words: { text: string }[] }[]) => chunks.map((c) => c.words.map((w) => w.text).join(" "));
+    expect(texts(captionChunks(words))).toEqual(["Travelling there and so", "on."]);
+    expect(texts(captionChunks(words, { minWords: 2 }))).toEqual(["Travelling there and so on."]);
+  });
+
+  it("moves a word over from the card before when the join would not fit the width", () => {
+    const words = [word("Travelling", 0), word("there", 1), word("and", 2), word("so", 3), word("on.", 4)];
+    const chunks = captionChunks(words, { minWords: 2, maxCharacters: 20 });
+    expect(chunks.map((c) => c.words.map((w) => w.text).join(" "))).toEqual(["Travelling there and", "so on."]);
+    expect([chunks[1]?.start, chunks[1]?.end]).toEqual([3, 4.3]);
+  });
+
   const texts = (chunks: { words: { text: string }[] }[]) => chunks.map((c) => c.words.map((w) => w.text).join(" "));
   const keeps = (word: { text: string }) => ["a", "the", "w", "z"].includes(word.text) || /^\d+$/.test(word.text);
 
@@ -379,5 +394,40 @@ describe("crossfadeArgs", () => {
 
   it("refuses fewer than two stills", () => {
     expect(() => crossfadeArgs({ inputs: ["a.jpg"], fps: 30, seconds: 0.8, output: "t.mp4" })).toThrow(/two stills/);
+  });
+});
+
+describe("balanceCaptionGroups", () => {
+  const word = (text: string, start: number) => ({ text, start, end: start + 0.3 });
+  const groupsOf = (...texts: string[][]) => texts.map((group, index) => group.map((text, at) => word(text, index * 10 + at)));
+  const texts = (groups: { text: string }[][]) => groups.map((group) => group.map((w) => w.text).join(" "));
+
+  it("leaves the groups as they are with minWords 1", () => {
+    const groups = groupsOf(["mate,"], ["ten,"]);
+    const balanced = balanceCaptionGroups(groups, { minWords: 1, maxWords: 4 });
+    expect(texts(balanced)).toEqual(["mate,", "ten,"]);
+    expect(balanced[0]).not.toBe(groups[0]);
+  });
+
+  it("joins a one-word group to the group before it up to maxWords plus one", () => {
+    expect(texts(balanceCaptionGroups(groupsOf(["a", "b", "c", "d"], ["e."]), { minWords: 2, maxWords: 4 }))).toEqual(["a b c d e."]);
+    expect(texts(balanceCaptionGroups(groupsOf(["a", "b", "c", "d", "e"], ["f."]), { minWords: 2, maxWords: 4 }))).toEqual(["a b c d", "e f."]);
+  });
+
+  it("moves words over only while the group before keeps minWords", () => {
+    expect(texts(balanceCaptionGroups(groupsOf(["one", "two"], ["three."]), { minWords: 2, maxWords: 4, maxCharacters: 8 }))).toEqual(["one two", "three."]);
+    expect(texts(balanceCaptionGroups(groupsOf(["one", "two", "four"], ["five."]), { minWords: 2, maxWords: 4, maxCharacters: 12 }))).toEqual(["one two", "four five."]);
+  });
+
+  it("evens out a short first group with the group after it", () => {
+    expect(texts(balanceCaptionGroups(groupsOf(["Mate,"], ["to", "is", "to."]), { minWords: 2, maxWords: 4 }))).toEqual(["Mate, to is to."]);
+    expect(texts(balanceCaptionGroups(groupsOf(["Mate,"], ["to", "is", "to."]), { minWords: 2, maxWords: 4, maxCharacters: 12 }))).toEqual(["Mate, to", "is to."]);
+    expect(texts(balanceCaptionGroups(groupsOf(["Mate,"], ["to", "to."]), { minWords: 2, maxWords: 4, maxCharacters: 10 }))).toEqual(["Mate,", "to to."]);
+  });
+
+  it("keeps a text shorter than minWords and handles no groups", () => {
+    expect(texts(balanceCaptionGroups(groupsOf(["Yes."]), { minWords: 2, maxWords: 4 }))).toEqual(["Yes."]);
+    expect(balanceCaptionGroups([], { minWords: 2, maxWords: 4 })).toEqual([]);
+    expect(texts(balanceCaptionGroups(groupsOf(["a", "b"], ["c", "d"]), { minWords: 2, maxWords: 4 }))).toEqual(["a b", "c d"]);
   });
 });

@@ -257,6 +257,9 @@ function resolveFootage(data: MarketingJson, at: (relative: string) => string): 
       ...(film.overlayMinSpacing === undefined ? {} : { overlayMinSpacing: film.overlayMinSpacing }),
       ...(film.captionMaxLines === undefined ? {} : { captionMaxLines: film.captionMaxLines }),
       ...(film.captionKeepWithNext === undefined ? {} : { captionKeepWithNext: film.captionKeepWithNext }),
+      ...(film.captionMaxWords === undefined ? {} : { captionMaxWords: film.captionMaxWords }),
+      ...(film.captionMinWords === undefined ? {} : { captionMinWords: film.captionMinWords }),
+      ...(film.captionMaxCharacters === undefined ? {} : { captionMaxCharacters: film.captionMaxCharacters }),
       edit: {
         zoomPercent: film.edit.zoomPercent,
         zoomEaseFrames: film.edit.zoomEaseFrames,

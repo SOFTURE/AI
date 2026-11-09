@@ -61,6 +61,15 @@ describe("getFootageCaptionChunks", () => {
     expect(texts(getFootageCaptionChunks({ ...film, captionKeepWithNext: [] }, words))).toEqual(["one two three four five w", "six seven."]);
     expect(getFootageCaptionChunks({ ...film, captions: false }, words)).toEqual([]);
   });
+
+  it("takes the film's words per card, fewest words and width", () => {
+    const film = { language: "pl", captions: true, captionKeepWithNext: [] as string[] };
+    const tail = ["a", "b,", "c."].map((text, index) => w(text, index * 0.4));
+    expect(texts(getFootageCaptionChunks({ ...film, captionStyle: "highlight" }, tail))).toEqual(["a b,", "c."]);
+    expect(texts(getFootageCaptionChunks({ ...film, captionStyle: "highlight", captionMinWords: 2 }, tail))).toEqual(["a b, c."]);
+    expect(texts(getFootageCaptionChunks({ ...film, captionStyle: "highlight", captionMaxWords: 3 }, words))).toEqual(["one two three", "four five w", "six seven."]);
+    expect(texts(getFootageCaptionChunks({ ...film, captionMaxWords: 7, captionMinWords: 2, captionMaxCharacters: 10 }, words))).toEqual(["one two three four five w", "six seven."]);
+  });
 });
 
 describe("getCaptionPresetLayout", () => {

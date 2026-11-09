@@ -2919,6 +2919,24 @@
               "maxLength": 20
             }
           },
+          "captionMaxWords": {
+            "description": "The words a caption card aims at (1-12, a brand's words per caption); without it, 4 for highlight and 6 for phrase captions.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "captionMinWords": {
+            "description": "The fewest words a caption card shows (1-4; 2 means never a one-word card): a short card joins the one before it or takes words from it; without it, cards stay as cut.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "captionMaxCharacters": {
+            "description": "The most characters a short card's join may make (8-200, what fits the caption's width); without it, no limit.",
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 200
+          },
           "edit": {
             "description": "The cut's look; the defaults read as an ordinary phone video.",
             "default": {},
