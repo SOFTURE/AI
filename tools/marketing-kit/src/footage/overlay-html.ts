@@ -223,13 +223,27 @@ function addCard(overlay: CardOverlay, id: string, context: MarkupContext, out: 
   out.tweens.push(...getTypingTweens(id, overlay, typed));
   if (overlay.kind === "counter") {
     const count = getCounterSeconds(overlay);
-    const format = `new Intl.NumberFormat(${JSON.stringify(context.locale)}, { minimumFractionDigits: ${overlay.decimals}, maximumFractionDigits: ${overlay.decimals} })`;
+    const format = `new Intl.NumberFormat(${toScriptString(getScriptLocale(context.locale))}, { minimumFractionDigits: ${overlay.decimals}, maximumFractionDigits: ${overlay.decimals} })`;
     // The number eases up to its value; the timeline renders it on every seek, so each frame shows its own count.
     out.tweens.push(
       `(function () { const el = document.getElementById("${id}n"); const nf = ${format}; const n = { v: ${overlay.from} }; tl.fromTo(n, { v: ${overlay.from} }, { v: ${overlay.value}, duration: ${count.duration}, ease: "power2.out", immediateRender: false, onUpdate: () => { el.textContent = nf.format(n.v).replace(/[\\u00a0\\u202f]/g, " "); } }, ${count.start}); })();`,
     );
   }
   out.tweens.push(`tl.to("#${id} .ov-card", { y: 10, opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`);
+}
+
+/** The brand's locale as a canonical BCP 47 tag (letters, digits and dashes only), `en-US` when it is not one. */
+export function getScriptLocale(locale: string | undefined): string {
+  try {
+    return Intl.getCanonicalLocales(locale ?? "en-US")[0] ?? "en-US";
+  } catch {
+    return "en-US";
+  }
+}
+
+/** A string as a script literal that cannot close the `<script>` element it sits in. */
+function toScriptString(value: string): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 /** An overlay's clip: shown for its own span. */

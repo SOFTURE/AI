@@ -11,7 +11,7 @@ import { FOOTAGE_DRAFT_FONT, buildFootageDraftCaptions } from "./draft.js";
 import { getGlassDrawing, getPinDrawing, getRoundedRectDrawing } from "./draft-overlays.js";
 import { readEdl, type Edl } from "./edl.js";
 import { DEFAULT_TRANSITIONS, type FootageFilm } from "./film.js";
-import { getCounterSeconds, getOverlayColors, getOverlayMarkup, getTypingTimes } from "./overlay-html.js";
+import { getCounterSeconds, getOverlayColors, getOverlayMarkup, getScriptLocale, getTypingTimes } from "./overlay-html.js";
 import { isTypedOverlay, type EdlOverlay } from "./overlay-schema.js";
 import {
   estimateTextWidth,
@@ -294,6 +294,15 @@ function composeInput(overlays: ResolvedOverlay[], fonts: FootageComposeInput["f
 
 describe("the render's new kinds", () => {
   const face = (family: string, src: string) => ({ family, fallback: "sans-serif", faces: [{ src, weight: "700", style: "normal" as const, unicodeRange: null }] });
+
+  it("writes the counter's locale into its script only as a canonical tag, so a brand's locale cannot close the script", () => {
+    expect(getScriptLocale("pl-pl")).toBe("pl-PL");
+    expect(getScriptLocale(undefined)).toBe("en-US");
+    expect(getScriptLocale('en"});</script><script>alert(1)//')).toBe("en-US");
+    const html = composeFootage({ ...composeInput(resolved([COUNTER]), { heading: null, body: face("Ral", "assets/fonts/1.ttf") }), locale: "pl-pl" });
+    expect(html).toContain('new Intl.NumberFormat("pl-PL", {');
+  });
+
 
   it("draws the hook title with its pin, the search field, the place card, the counter and the stamp in the brand's look", () => {
     const html = composeFootage(composeInput(resolved([HOOK, SEARCH, COUNTER, PLACE, DATE]), { heading: face("Cal", "assets/fonts/0.ttf"), body: face("Ral", "assets/fonts/1.ttf"), interface: face("Ui", "assets/fonts/2.ttf") }));
