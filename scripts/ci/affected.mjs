@@ -127,6 +127,12 @@ export function getAreas(root) {
       packages: ["@softure-ai/host", "@softure-ai/deploy"],
       paths: [],
     },
+    // The off-site backup's run on Postgres 17 and MinIO (e2e.yml backup-integration).
+    {
+      name: "backup",
+      packages: ["@softure-ai/backup"],
+      paths: [],
+    },
     // The init image packs the example app with the workspace packages it installs.
     {
       name: "deploy",

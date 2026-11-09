@@ -1,0 +1,12 @@
+{
+  "id": "backup",
+  "version": "0.0.0",
+  "dependsOn": {},
+  "dbSchema": "backup",
+  "tables": ["runs"],
+  "env": [],
+  "switches": [],
+  "routes": {},
+  "mount": [],
+  "privacy": { "exports": false, "deletes": false }
+}

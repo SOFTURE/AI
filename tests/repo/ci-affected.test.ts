@@ -43,6 +43,10 @@ describe("getAffectedAreas", () => {
     ]);
   });
 
+  it("reaches only the backup area for a backup change", () => {
+    expect(getReached(["modules/backup/src/offsite/upload.ts"])).toEqual(["backup"]);
+  });
+
   it("reaches only the host area for a host change", () => {
     expect(getReached(["tools/host/playbooks/app.yml"])).toEqual(["host"]);
   });
@@ -54,16 +58,18 @@ describe("getAffectedAreas", () => {
     ]);
   });
 
-  it("reaches through workspace dependencies: core is under the example app, deploy and host", () => {
+  it("reaches through workspace dependencies: core is under the example app, deploy, host and backup", () => {
     expect(getReached(["foundation/core/src/index.ts"])).toEqual([
+      "backup",
       "deploy",
       "example-app",
       "host",
     ]);
   });
 
-  it("reaches the deploy and host areas, not the example app's tests, for a deploy CLI change", () => {
+  it("reaches the deploy, host and backup areas, not the example app's tests, for a deploy CLI change", () => {
     expect(getReached(["tools/deploy/src/cli/run.ts"])).toEqual([
+      "backup",
       "deploy",
       "host",
     ]);
@@ -116,7 +122,7 @@ describe("getAffectedAreas", () => {
     ).toEqual([]);
     expect(
       lockfileOf({ kind: "packages", names: ["@softure-ai/core"] }),
-    ).toEqual(["deploy", "example-app", "host"]);
+    ).toEqual(["backup", "deploy", "example-app", "host"]);
     expect(
       lockfileOf({ kind: "all", reason: "vitest is a repository tool" }),
     ).toEqual(AREAS.map((area) => area.name).sort());
@@ -153,7 +159,7 @@ describe.each([
     ["render", "footage-image", "host-ansible"],
     ["static", "workflows", "build"],
   ],
-  ["e2e.yml", ["e2e", "container", "deploy-init"], []],
+  ["e2e.yml", ["e2e", "container", "deploy-init", "backup-integration"], []],
 ])("%s", (name, gated, always) => {
   const jobs = (
     parse(readFileSync(join(REPO_ROOT, ".github/workflows", name), "utf8")) as {

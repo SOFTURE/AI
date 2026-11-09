@@ -1,0 +1,69 @@
+{
+  "name": "@softure-ai/backup",
+  "version": "0.0.0",
+  "description": "SOFTURE AI off-site backup: encrypts each nightly dump of @softure-ai/deploy with age to a public key, uploads it to any S3-compatible store with a write-only token, records every run for the app (getLastBackup, OpenTelemetry metrics), and restores or verifies an off-site copy with a private key that never reaches the server.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "modules/backup"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "migrations",
+    "module.json",
+    "examples"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "bin": {
+    "softure-backup": "./dist/cli/main.js"
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "@softure-ai/source": "./src/server/index.ts",
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./offsite": {
+      "@softure-ai/source": "./src/offsite/index.ts",
+      "types": "./dist/offsite/index.d.ts",
+      "default": "./dist/offsite/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.10.0",
+    "@softure-ai/core": "^0.2.7",
+    "@softure-ai/db": "^0.1.14",
+    "@softure-ai/deploy": "^0.6.0",
+    "@softure-ai/observability": "^0.8.2",
+    "age-encryption": "^0.3.1",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
+  },
+  "peerDependencies": {
+    "drizzle-orm": "^0.45.2"
+  }
+}

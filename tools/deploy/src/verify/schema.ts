@@ -303,6 +303,7 @@ export const BUILT_IN_STEP_NAMES = [
   "images",
   "restore",
   "verify-backup",
+  "offsite-backup",
   "plan",
   "disk-before",
   "releases",
