@@ -29,7 +29,10 @@
 
 ## Progress
 
-- [ ] p1 side-by-side install
-- [ ] p2 typecheck and build under TS 7
-- [ ] p3 guards' peer range and docs
+- [x] p1 side-by-side install: clean `npm ci` (no ERESOLVE, no peer warnings), `npx tsc -v` = 7.0.2, `require("typescript")`
+  = the TS 6 API (2631fae)
+- [x] p2 `npm run typecheck` (tsc 7, 7 s) and `npm run build` (every package) exit 0 with no source change;
+  `NODE_OPTIONS=--max-old-space-size=8192 npm run lint` exit 0 (2631fae)
+- [x] p3 guards' peer range and docs; `vitest run foundation/testing foundation/ui modules/pwa themes/theme-notion`:
+  2222 passed, 30 skipped (2631fae)
 - [ ] p4 gates, PR, merge, release
