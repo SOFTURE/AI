@@ -8,6 +8,18 @@
 # Passwords go into connection URLs as they are: use URL-safe values, e.g. `openssl rand -hex 32`.
 name: softure-example
 
+# The off-site copy of the nightly backup (@softure-ai/backup): deploy.sh's maintain reads these names from .env.prod
+# on the host; no container gets them. All are optional: without BACKUP_S3_BUCKET the step is skipped. The access key
+# is a write-only token, BACKUP_AGE_RECIPIENT an age public key; the private key never comes to this server.
+x-offsite-backup:
+  BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+  BACKUP_S3_REGION: ${BACKUP_S3_REGION:-}
+  BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+  BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-}
+  BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+  BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
+  BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
+
 services:
   traefik:
     image: traefik:v3.5

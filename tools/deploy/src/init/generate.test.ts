@@ -3,11 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { findRequiredNames } from "../env/required-names.js";
+import { findComposeNames, findRequiredNames } from "../env/required-names.js";
 import { parseDeployConfig } from "../verify/schema.js";
 import type { InitAnswers } from "./answers.js";
 import type { AppFacts } from "./app-facts.js";
-import { buildAppRule, hasWorkerHeartbeat, planInitFiles, writeInitFiles, type PlannedFile } from "./generate.js";
+import { buildAppRule, hasWorkerHeartbeat, OFFSITE_BACKUP_ENV_NAMES, planInitFiles, writeInitFiles, type PlannedFile } from "./generate.js";
 
 const REPO_ROOT = join(import.meta.dirname, "../../../..");
 
@@ -357,6 +357,22 @@ describe("planInitFiles", () => {
     });
     const plain = parseDeployConfig(JSON.parse(textOf(plan(), "deploy.json")));
     expect(plain.ok && plain.config.hooks).toBeUndefined();
+  });
+
+  it("lists the off-site backup settings as optional names in compose and deploy.sh, only with a database (issue #1210)", () => {
+    const compose = textOf(plan(), "docker/prod/docker-compose.yml");
+    const parsed = parse(compose) as { "x-offsite-backup"?: Record<string, string> };
+    expect(Object.keys(parsed["x-offsite-backup"] ?? {})).toEqual([...OFFSITE_BACKUP_ENV_NAMES]);
+    expect(findRequiredNames(compose).map((variable) => variable.name)).not.toContain("BACKUP_S3_BUCKET");
+    expect(findComposeNames(compose).optional).toEqual(expect.arrayContaining([...OFFSITE_BACKUP_ENV_NAMES]));
+    const script = textOf(plan(), "docker/server/deploy.sh");
+    expect(script).toContain('BACKUP_CLI="@softure-ai/backup@0.1.0"');
+    expect(script).toContain(`OFFSITE_ENV_NAMES=(${OFFSITE_BACKUP_ENV_NAMES.join(" ")})`);
+    expect(script.indexOf("  back_up_offsite\n")).toBeGreaterThan(script.indexOf('back_up_database || fail "the backup failed."'));
+
+    const plain = plan({ env: [] }, NO_DATABASE);
+    expect(textOf(plain, "docker/prod/docker-compose.yml")).not.toContain("BACKUP_S3");
+    expect(textOf(plain, "docker/server/deploy.sh")).not.toContain("BACKUP_S3");
   });
 
   it("runs the database steps of DP-3 in deploy.sh with this package's version", () => {

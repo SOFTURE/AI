@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **Encrypted off-site copies of the nightly backup (#1210):** with a database, `maintain` runs the new step
+  `offsite-backup` right after `backup` (and `backup-data`): when `.env.prod` sets `BACKUP_S3_BUCKET`, the new dump and
+  data archive are encrypted with age to a public key and uploaded to an S3-compatible bucket with a write-only token by
+  `@softure-ai/backup`'s CLI, and the run is recorded in the app's `backup.runs` table. Without `BACKUP_S3_BUCKET` the
+  step prints `step|offsite-backup|ok|not configured` and starts nothing, so an app that does not adopt it sees one more
+  line and no other change. A failed upload lets the later steps run and fails `maintain` at the end
+  (`result|failed|offsite-backup|<message>`). The helper tools image now installs `@softure-ai/backup` too, and
+  `offsite-backup` is a taken hook name.
+- `init` writes an `x-offsite-backup` block of optional names (`${BACKUP_S3_…:-}`, `${BACKUP_AGE_RECIPIENT:-}`) into the
+  compose file of an app with a database, so `env render` puts them into `.env.prod` when the deploy job has them.
+  An existing app re-runs `init --force` for `docker/server/deploy.sh` and `docker/prod/docker-compose.yml` (or copies
+  the new parts from a fresh `init`), adds `@softure-ai/backup` with its migration, passes the settings to the deploy
+  job (see the backup package's README) and commits; the next release installs the script.
+
 ## 0.6.0
 
 - **Configurable release retention and an on-demand server cleanup (#1171):** `deploy.json` takes `releases.keep`

@@ -25,7 +25,23 @@ export const TEMPLATE_VERSIONS = {
   postgres: "16",
   esbuild: "0.28.2",
   cloudflared: "2026.10.1",
+  /** `@softure-ai/backup`, the off-site copy deploy.sh's maintain runs when BACKUP_S3_BUCKET is set (issue #1210). */
+  backup: "0.1.0",
 } as const;
+
+/**
+ * The host-only settings of the off-site copy: optional names in the compose file's `x-offsite-backup` block, so
+ * `env render` writes them to `.env.prod` when the deploy environment sets them; no container reads them.
+ */
+export const OFFSITE_BACKUP_ENV_NAMES = [
+  "BACKUP_S3_ENDPOINT",
+  "BACKUP_S3_REGION",
+  "BACKUP_S3_BUCKET",
+  "BACKUP_S3_PREFIX",
+  "BACKUP_S3_ACCESS_KEY_ID",
+  "BACKUP_S3_SECRET_ACCESS_KEY",
+  "BACKUP_AGE_RECIPIENT",
+] as const;
 
 const EXECUTABLE_MODE = 0o755;
 const FILE_MODE = 0o644;
@@ -235,6 +251,9 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     ownTraefik: hasOwnTraefik(answers),
     appDependsOn: facts.hasDatabase || answers.tunnel === true,
     cloudflaredVersion: TEMPLATE_VERSIONS.cloudflared,
+    backupCliVersion: TEMPLATE_VERSIONS.backup,
+    offsiteEnvLines: OFFSITE_BACKUP_ENV_NAMES.map((name) => `  ${name}: \${${name}:-}`).join("\n"),
+    offsiteEnvNames: OFFSITE_BACKUP_ENV_NAMES.join(" "),
     edgeNetwork: answers.edge ?? "",
     switchServices: getSwitchServices(answers, facts),
     cloudflareRanges: CLOUDFLARE_RANGES.join(","),

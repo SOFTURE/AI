@@ -1238,6 +1238,19 @@ else, or more than one line, exits 2; `maintain` also takes a hook's name, below
   `result|failed|verify-backup|<message>`; on success `step|verify-backup|ok|<dump file>`, on other days
   `step|verify-backup|ok|skipped`. `database.verifyBackup` in `deploy.json` sets how often: `"weekly"` (default),
   `"daily"` or `"never"`. The restore needs free disk for a second copy of the database while it runs.
+- **`offsite-backup`**, a step of `maintain` with a database (issue #1210), right after `backup` (and `backup-data`):
+  when `.env.prod` sets `BACKUP_S3_BUCKET`, the new dump and data archive are encrypted with age to
+  `BACKUP_AGE_RECIPIENT` (a public key) and uploaded to an S3-compatible store with a write-only token, by
+  [`@softure-ai/backup`](../../modules/backup/README.md)'s CLI (`npx`, or `softure-backup` in the helper image, which
+  installs it next to this CLI). The settings (`BACKUP_S3_ENDPOINT`, `BACKUP_S3_REGION`, `BACKUP_S3_BUCKET`,
+  `BACKUP_S3_PREFIX`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_AGE_RECIPIENT`) reach the CLI
+  only in its environment, never as arguments; `init` lists them, all optional, in the compose file's
+  `x-offsite-backup` block so `env render` writes them into `.env.prod`. Each run is recorded in the app's
+  `backup.runs` table through `psql` as `POSTGRES_USER`; an app without that table (no `@softure-ai/backup` module
+  migrated) gets `; status not recorded …` on the step line and nothing fails. Without `BACKUP_S3_BUCKET` the step is
+  `step|offsite-backup|ok|not configured` and starts nothing. A failed upload does not stop the steps after it: they
+  run, and `maintain` then ends `result|failed|offsite-backup|<message>` with the CLI's safe message. Nothing remote is
+  ever deleted: the bucket's lifecycle rule keeps the copies.
 - **`run <script> [--key[=value] …]`** and **`report [--key=value …]`**, with a database: an ops script of the live
   image, or a read-only SQL file on stdin; see [Ops scripts and reports on the server](#ops-scripts-and-reports-on-the-server).
 
@@ -1288,7 +1301,7 @@ previous tag, which the failure message names.
 
 **Output.** One line per finished step on stdout, `step|<name>|ok[|<detail>]` (`archive`, `files`, `pull`,
 `settings`, `postgres`, `backup`, `schema`, `row-counts-before`, `switch`, `traefik`, `row-counts-after`, `tag`, `cron`
-and each hook's name; `restore` after a restore; `backup`, `verify-backup`, `releases`, `images`, `tools-images`,
+and each hook's name; `restore` after a restore; `backup`, `backup-data`, `offsite-backup`, `verify-backup`, `releases`, `images`, `tools-images`,
 `dangling`, `build-cache` and the hooks for `maintain`; [`cleanup`'s](#server-cleanup) own), and every `deploy`,
 `maintain` or `cleanup` run, refused commands included,
 ends with `result|ok` or `result|failed|<step>|<message>`. Messages for people start with `deploy:`.
