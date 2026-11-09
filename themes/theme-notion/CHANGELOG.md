@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `FoldRow isOpenInitially`: renders the row open (`<details open>`), so a page can open the row its address points at (a
+  `?item=` link, a tab inside the row that lives in the address). Only the first render reads it; the native element
+  keeps its own state afterwards. New optional prop only.
+
 ## 0.15.0
 
 - Form controls that line up: `FileInput`, a compact file picker for a form row (a button at the 28 px height of

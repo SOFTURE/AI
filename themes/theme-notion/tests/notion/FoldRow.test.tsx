@@ -184,4 +184,14 @@ describe("FoldRow actions", () => {
     expect(html.startsWith('<details data-slot="fold-row" class="group/fold-row border-b border-border">')).toBe(true);
     expect(html).not.toContain("fold-row-actions");
   });
+
+  it("renders the row open with isOpenInitially, and closed when it is false", () => {
+    const open = renderToStaticMarkup(<FoldRow title="a" badges={[]} isOpenInitially />);
+    const closed = renderToStaticMarkup(<FoldRow title="a" badges={[]} isOpenInitially={false} />);
+    const withActions = renderToStaticMarkup(<FoldRow title="a" badges={[]} isOpenInitially actions="x" />);
+
+    expect(open.startsWith('<details data-slot="fold-row" open="" class="group/fold-row border-b border-border">')).toBe(true);
+    expect(closed).not.toMatch(/<details[^>]* open/);
+    expect(withActions).toContain('<details data-slot="fold-row" open="" class="group/fold-row min-w-0 flex-1">');
+  });
 });

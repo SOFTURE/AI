@@ -186,7 +186,8 @@ so the content can be several tables or a list. `size="touch"` makes the summary
 (44 px) instead of the row height, for a phone list. `actions` puts controls on the row's right (a delete button,
 a menu), beside the `<details>` rather than inside its `<summary>`, so clicking one never folds the row; they show
 whether the row is open or closed, centred on the summary's first line, and the row's bottom border moves to the
-wrapper (`data-slot="fold-row-with-actions"`).
+wrapper (`data-slot="fold-row-with-actions"`). `isOpenInitially` renders the row open (`<details open>`), for the row the
+address points at; only the first render reads it, and the reader can still fold the row.
 
 ```tsx
 <FoldRow title="Dentist" facts={["12.01.2027"]} badges={[]} detailsLabel="Visit details" details={rows} />
