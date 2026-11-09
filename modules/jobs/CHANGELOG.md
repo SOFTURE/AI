@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## 0.1.9
+## Unreleased
 
 - A per-attempt outcome hook (#1215). New option `onJobAttempt(event, ctx)` runs once per attempt the worker or
   `runDueJobs` recorded, after the write commits, with `JobAttemptEvent` `{ queue, jobId, origin, attempt, maxAttempts,
