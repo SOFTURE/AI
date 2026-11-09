@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.16.0
 
 - `FoldRow isOpenInitially`: renders the row open (`<details open>`), so a page can open the row its address points at (a
   `?item=` link, a tab inside the row that lives in the address). Only the first render reads it; the native element
