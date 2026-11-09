@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/quality-review",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SOFTURE AI quality review: a read-only Claude Agent SDK review of a whole repository against its AGENTS.md, written as a QUALITY-REPORT.md in a fixed format (stable ids, severity, file:line, impact, fix) under a hard cost cap; the CLI behind the reusable quality-review.yml workflow.",
   "license": "MIT",
   "type": "module",
