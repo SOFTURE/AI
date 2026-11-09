@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
+## 0.2.7
+
+- `downloadGuardedFile(url, { timeoutMs, maxBytes, maxRedirects?, accept?, userAgent?, allowedPorts?, requireHttps? },
+  consume, seam?)` in `@softure-ai/security/server`: a file at a URL someone else chose, with the SSRF guard of
+  `fetchGuardedPage` on every hop, streamed to `consume` chunk by chunk (never held in memory), capped at `maxBytes`
+  after decompression (a declared `content-length` over it is refused before `consume` runs), under one time limit.
+  `consume` runs only for a 2xx answer; any other status comes back as `consumed: false`. `requireHttps` refuses a hop
+  that is not `https:`. README "Downloading a file".
+- `fetchGuardedPage` now shares its redirect loop with the download; its behaviour is unchanged.
+- Migrate: nothing required.
+
 ## 0.2.6
 
 - `node-html-parser` ^9.0.6 (was ^6.1.13). `htmlToReadableText` output is unchanged.

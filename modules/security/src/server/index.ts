@@ -37,3 +37,12 @@ export {
   type GuardedPageOptions,
   type GuardedPageResult,
 } from "./guarded-page.js";
+export {
+  downloadGuardedFile,
+  type GuardedDownload,
+  type GuardedDownloadBody,
+  type GuardedDownloadErrorCode,
+  type GuardedDownloadHead,
+  type GuardedDownloadOptions,
+  type GuardedDownloadResult,
+} from "./guarded-download.js";
