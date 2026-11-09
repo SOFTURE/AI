@@ -1,7 +1,7 @@
 // A provider's discovery document (OpenID Connect Discovery 1.0) and its signing keys (JWKS), fetched through
 // core's `requestJson` (timeout, no redirect followed) and cached per app configuration. The document must name the
 // configured issuer (§4.3) and https endpoints, so a document cannot send the client secret to another scheme.
-import { createPublicKey, type JsonWebKey, type KeyObject } from "node:crypto";
+import { createPublicKey, type KeyObject } from "node:crypto";
 import { requestJson, type SoftureConfig } from "@softure-ai/core";
 import { z } from "zod";
 import { isSecureEndpoint, type OpenIdConnectProvider } from "../../options.js";
@@ -118,7 +118,7 @@ export async function findSigningKey(
 function toSigningKey(jwk: z.output<typeof jwkSchema>): SigningKey[] {
   if (jwk.use !== undefined && jwk.use !== "sig") return [];
   try {
-    return [{ kid: jwk.kid, key: createPublicKey({ key: jwk as JsonWebKey, format: "jwk" }) }];
+    return [{ kid: jwk.kid, key: createPublicKey({ key: jwk, format: "jwk" }) }];
   } catch {
     // A key node cannot read (another curve, a broken entry) cannot have signed a token we accept.
     return [];
