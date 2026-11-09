@@ -1,12 +1,13 @@
 ---
 change_id: jobs-attempt-hook-1215
 title: "jobs: a per-attempt outcome hook so an app can count every queue's runs by status (issue #1215)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1215
 branch: claude/project-thread-tts7yp
 created: 2026-11-09
 updated: 2026-11-09
+archived_at: 2026-11-09
 ---
 
 ## Intent
@@ -29,3 +30,10 @@ and schedule health.
 ## Notes
 
 - Framing: skipped. The issue names the problem and two acceptable outcomes.
+
+## Done
+
+`@softure-ai/jobs` 0.1.9 (#1215): new option `onJobAttempt(event, ctx)` runs once per attempt the worker or
+`runDueJobs` recorded, with `{ queue, jobId, origin, attempt, maxAttempts, outcome, code, durationMs, at }` and the
+worker's own classification (`succeeded`, `retried`, `failed`, `paused`, `cancelled`). `recordJobHooks()` records it as
+`attempts`. README §3 "Per-attempt metrics" shows the OpenTelemetry counter and histogram an app sets up with it.

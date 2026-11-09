@@ -1,6 +1,6 @@
 ---
 change_id: jobs-attempt-hook-1215
-status: in_progress
+status: done
 ---
 
 # Plan: jobs per-attempt outcome hook (issue #1215)
@@ -38,5 +38,5 @@ Input: change.md, research.md. Complexity: small.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 1 (05a6ad3)
+- [x] Phase 2 (5b5d1c4; vitest modules/jobs: 355 passed)
