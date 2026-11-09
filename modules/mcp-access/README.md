@@ -663,6 +663,22 @@ export default async function Page() {
 }
 ```
 
+`sections` picks the parts one `TokenManager` shows, for a page that lays them out itself: `"tools"` (the catalog),
+`"issue"` (the MCP token form and the token just issued), `"api"` (the API scopes and their form), `"tokens"` (the
+owner's tokens), `"grants"` (the connected apps). Render one per tab or panel with the sections it holds; the page
+order stays the same whatever order is given, and a section whose data is missing stays hidden. Left out, every
+section shows, as before. `TOKEN_MANAGER_SECTIONS` lists them in the page order. For example, the form, the tokens
+and the connected apps as tabs:
+
+```tsx
+<Tabs defaultValue="issue">
+  <TabsList>{/* … */}</TabsList>
+  <TabsContent value="issue"><TokenManager {...props} sections={["issue"]} {...actions} /></TabsContent>
+  <TabsContent value="tokens"><TokenManager {...props} sections={["tokens"]} {...actions} /></TabsContent>
+  <TabsContent value="grants"><TokenManager {...props} sections={["grants"]} {...actions} /></TabsContent>
+</Tabs>
+```
+
 With `oauth.enabled`, mount the OAuth routes and the consent page too (the paths for the default
 `routes`):
 

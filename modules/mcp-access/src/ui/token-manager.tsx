@@ -20,6 +20,15 @@ export type IssueTokenAction = (previous: IssueTokenFormState, formData: FormDat
 export type RevokeTokenAction = (previous: RevokeTokenFormState, formData: FormData) => Promise<RevokeTokenFormState>;
 export type RevokeGrantAction = (previous: RevokeGrantFormState, formData: FormData) => Promise<RevokeGrantFormState>;
 
+/**
+ * One part of the token page: the tool catalog, the MCP token form (with the token just issued), the API scopes with
+ * their form, the owner's tokens, the apps connected through OAuth.
+ */
+export type TokenManagerSection = "tools" | "issue" | "api" | "tokens" | "grants";
+
+/** Every section, in the order the page shows them. */
+export const TOKEN_MANAGER_SECTIONS: readonly TokenManagerSection[] = ["tools", "issue", "api", "tokens", "grants"];
+
 export type TokenManagerSlot = "root" | "section" | "heading" | "text" | "list" | "item" | "itemHeader" | "badge" | "details" | "snippet" | "code";
 
 /** One tool of the app's catalog, prepared on the server. */
@@ -83,6 +92,12 @@ export interface TokenManagerProps {
    * for other apps, submitted to `issueAction` with `kind=api`. Leave out, and the page offers MCP tokens only.
    */
   readonly apiScopes?: readonly TokenManagerApiScope[];
+  /**
+   * The sections to show, for an app that lays them out itself (tabs, an accordion): render one `TokenManager` per
+   * place with the sections it holds. Leave out for every section. The page keeps its own order whatever the order
+   * given here; a section whose data is missing (`api` without `apiScopes`, `grants` without `grants`) stays hidden.
+   */
+  readonly sections?: readonly TokenManagerSection[];
   readonly messages: McpAccessMessages;
   /** Locale of the built-in copy of the ui primitives. */
   readonly locale?: Locale;
@@ -403,34 +418,40 @@ export function TokenManager({
   grants,
   revokeGrantAction,
   apiScopes,
+  sections = TOKEN_MANAGER_SECTIONS,
   messages,
   locale,
   classNames,
   unstyled,
 }: TokenManagerProps) {
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
+  const isShown = (section: TokenManagerSection) => sections.includes(section);
   return (
     <div className={slot("root")}>
-      <section className={slot("section")}>
-        <h2 className={slot("heading")}>{messages.tools.title}</h2>
-        {tools.length === 0 ? (
-          <p className={slot("text")}>{messages.tools.empty}</p>
-        ) : (
-          <ul className={slot("list")}>
-            {tools.map((tool) => (
-              <li key={tool.name} className={slot("item")}>
-                <div className={slot("itemHeader")}>
-                  <code className={slot("heading")}>{tool.name}</code>
-                  <span className={slot("badge")}>{tool.accessText}</span>
-                </div>
-                <p className={slot("text")}>{tool.description}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <IssueForm action={issueAction} allowWrites={allowWrites} maxTokens={maxTokens} messages={messages} locale={locale} slot={slot} unstyled={unstyled} />
-      {apiScopes === undefined ? null : (
+      {isShown("tools") ? (
+        <section className={slot("section")}>
+          <h2 className={slot("heading")}>{messages.tools.title}</h2>
+          {tools.length === 0 ? (
+            <p className={slot("text")}>{messages.tools.empty}</p>
+          ) : (
+            <ul className={slot("list")}>
+              {tools.map((tool) => (
+                <li key={tool.name} className={slot("item")}>
+                  <div className={slot("itemHeader")}>
+                    <code className={slot("heading")}>{tool.name}</code>
+                    <span className={slot("badge")}>{tool.accessText}</span>
+                  </div>
+                  <p className={slot("text")}>{tool.description}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+      {isShown("issue") ? (
+        <IssueForm action={issueAction} allowWrites={allowWrites} maxTokens={maxTokens} messages={messages} locale={locale} slot={slot} unstyled={unstyled} />
+      ) : null}
+      {apiScopes === undefined || !isShown("api") ? null : (
         <>
           <section className={slot("section")}>
             <h2 className={slot("heading")}>{messages.apiScopes.title}</h2>
@@ -450,19 +471,21 @@ export function TokenManager({
           <ApiIssueForm action={issueAction} scopes={apiScopes} maxTokens={maxTokens} messages={messages} locale={locale} slot={slot} unstyled={unstyled} />
         </>
       )}
-      <section className={slot("section")}>
-        <h2 className={slot("heading")}>{messages.list.title}</h2>
-        {tokens.length === 0 ? (
-          <p className={slot("text")}>{messages.list.empty}</p>
-        ) : (
-          <ul className={slot("list")}>
-            {tokens.map((row) => (
-              <TokenItem key={row.id} row={row} action={revokeAction} messages={messages} slot={slot} unstyled={unstyled} />
-            ))}
-          </ul>
-        )}
-      </section>
-      {grants === undefined || revokeGrantAction === undefined ? null : (
+      {isShown("tokens") ? (
+        <section className={slot("section")}>
+          <h2 className={slot("heading")}>{messages.list.title}</h2>
+          {tokens.length === 0 ? (
+            <p className={slot("text")}>{messages.list.empty}</p>
+          ) : (
+            <ul className={slot("list")}>
+              {tokens.map((row) => (
+                <TokenItem key={row.id} row={row} action={revokeAction} messages={messages} slot={slot} unstyled={unstyled} />
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+      {grants === undefined || revokeGrantAction === undefined || !isShown("grants") ? null : (
         <section className={slot("section")}>
           <h2 className={slot("heading")}>{messages.grants.title}</h2>
           <p className={slot("text")}>{messages.grants.lead}</p>
