@@ -361,6 +361,18 @@ test("the app opens offline", async ({ page }) => {
 checked over the source files. Visible text is read with the TypeScript parser, so `typescript` (an
 optional peer dependency) must be installed.
 
+TypeScript 7.0 ships no compiler API, so the guards need TypeScript 6 (`>=5.0.0 <7.0.0`). An app on TypeScript 7
+keeps `tsc` from 7 and installs the API side by side, as the TypeScript 7.0 announcement recommends:
+
+```json
+{
+  "devDependencies": {
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
+  }
+}
+```
+
 ```ts
 import { join } from "node:path";
 import { collectVisibleTexts, findForbiddenPhrases, findInlineCopy, findRawColors, readSourceFiles } from "@softure-ai/testing/guards";
