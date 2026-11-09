@@ -728,7 +728,10 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   lower-case; `[]` keeps numbers only), else the language's `DEFAULT_CAPTION_KEEP_WITH_NEXT` (Polish one-letter words
   and short prepositions, English articles), and every number; a full card hands that word to the next card, and a
   pause after it does not end a phrase. The cards are cut in film time, so this holds across a cut too
-  (`getFootageCaptionChunks`). The caption text metrics are exported (`CAPTION_LINE_HEIGHT`,
+  (`getFootageCaptionChunks`). `captionMaxWords` sets the words a card aims at (default 4 for `highlight`, 6 for
+  `phrase`); `captionMinWords` (2: never a one-word card) evens out a short card: it joins the card before it when the
+  join holds at most one word over the target and `captionMaxCharacters` (what fits the box's width), otherwise words
+  move over from the card before (`balanceCaptionGroups`); without it, cards stay as cut. The caption text metrics are exported (`CAPTION_LINE_HEIGHT`,
   `CAPTION_PILL_PADDING`) for an app that sizes the box itself. Before the render the caption and end-card fonts are checked against the film's words: a letter no
   file of the brand font draws (an accented letter outside a Latin-only subset) stops the run with the letters it lacks. The **end card** follows the cut over its last
   frame. `social.posts` may name a footage film; its `posts.md` carries no persona disclosure.

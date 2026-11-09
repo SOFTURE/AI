@@ -144,6 +144,15 @@ export interface FootageFilm {
    * empty: numbers only.
    */
   captionKeepWithNext?: string[];
+  /** The words a caption card aims at (a brand's words per caption); absent: 4 for `highlight`, 6 for `phrase`. */
+  captionMaxWords?: number;
+  /**
+   * The fewest words a caption card shows (2: never a one-word card): a short card joins the one before it when the
+   * join fits, otherwise takes words from it (`balanceCaptionGroups`). Absent: cards stay as they are cut.
+   */
+  captionMinWords?: number;
+  /** The most characters a short card's join may make (what fits the caption's width); absent: no limit. */
+  captionMaxCharacters?: number;
   /**
    * The least time between the starts of two EDL overlays, in seconds (the app's own budget, e.g. 8 for one in about
    * 8 s); absent: only one overlay at a time.

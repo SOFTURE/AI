@@ -609,6 +609,21 @@ const footageSchema = z
       .max(100)
       .optional()
       .describe("Words a caption card must not end on (they move to the next card), compared lower-case; a number always keeps with the next word. Without it, the language's default (pl: one-letter words and short prepositions, en: articles); [] keeps numbers only."),
+    captionMaxWords: z.number().int().min(1).max(12).optional().describe("The words a caption card aims at (1-12, a brand's words per caption); without it, 4 for highlight and 6 for phrase captions."),
+    captionMinWords: z
+      .number()
+      .int()
+      .min(1)
+      .max(4)
+      .optional()
+      .describe("The fewest words a caption card shows (1-4; 2 means never a one-word card): a short card joins the one before it or takes words from it; without it, cards stay as cut."),
+    captionMaxCharacters: z
+      .number()
+      .int()
+      .min(8)
+      .max(200)
+      .optional()
+      .describe("The most characters a short card's join may make (8-200, what fits the caption's width); without it, no limit."),
     edit: z
       .strictObject({
         zoomPercent: z.number().min(105).max(112).default(108).describe("How far a zoom cut punches in (105-112 %, default 108)."),

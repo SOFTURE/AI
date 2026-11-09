@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.23.0
+
+- **No one-word caption cards on request:** a footage film's new `captionMinWords` (2: never a one-word card) evens
+  out short cards: a card shorter than it joins the card before it when the join fits (at most one word over the
+  target and the new `captionMaxCharacters`), otherwise words move over from the card before; a short first card does
+  the same with the card after it. `captionMaxWords` sets the words a card aims at (a brand's words per caption;
+  default 4 for `highlight`, 6 for `phrase`). The three are in `marketing.json` too. `captionChunks` and
+  `phraseChunks` take `minWords` and `maxCharacters` (`phraseChunks` also `maxWords`), and `balanceCaptionGroups` is
+  exported. Without them every card is cut as before.
+
 ## 0.22.0
 
 - **Overlays on words in the EDL (#1200):** `edl.json` takes an optional `overlays[]` of `punch_in` (an emphasis zoom
