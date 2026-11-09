@@ -59,7 +59,7 @@
   "dependencies": {
     "@softure-ai/core": "^0.2.0",
     "@softure-ai/db": "^0.1.0",
-    "node-html-parser": "^9.0.6",
+    "node-html-parser": "^9.0.7",
     "zod": "^4.6.7"
   },
   "peerDependencies": {
