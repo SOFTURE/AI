@@ -121,7 +121,7 @@
       "description": "The kept parts of the clips, in film order."
     },
     "overlays": {
-      "description": "Small graphics and emphasis zooms placed on a word of the transcript (at_word) or a film second (at), one at a time, each inside one segment: punch_in, keyword, lower_third, list, arrow, highlight. Without it, none.",
+      "description": "Small graphics and emphasis zooms placed on a word of the transcript (at_word) or a film second (at), one at a time, each inside one segment: punch_in, keyword, lower_third, list, arrow, highlight, search_bar, place_card, counter, date_stamp; and a hook_title at the top, which may stay across cuts beside the others. Without it, none.",
       "maxItems": 40,
       "type": "array",
       "items": {
@@ -135,9 +135,14 @@
               "lower_third",
               "list",
               "arrow",
-              "highlight"
+              "highlight",
+              "hook_title",
+              "search_bar",
+              "place_card",
+              "counter",
+              "date_stamp"
             ],
-            "description": "punch_in (an emphasis zoom on a word), keyword, lower_third, list, arrow or highlight."
+            "description": "punch_in (an emphasis zoom on a word), keyword, lower_third, list, arrow, highlight, hook_title, search_bar, place_card, counter or date_stamp."
           },
           "at_word": {
             "description": "The transcript word the overlay starts on (its start after the cut); give this or at.",
@@ -168,11 +173,11 @@
           "duration": {
             "type": "number",
             "minimum": 1,
-            "maximum": 8,
-            "description": "Seconds on screen (1-8)."
+            "maximum": 180,
+            "description": "Seconds on screen (1-8; a hook_title up to 180)."
           },
           "text": {
-            "description": "The keyword (up to 24 characters) or the lower third (up to 40).",
+            "description": "The text: keyword (up to 24 characters), lower_third (40), hook_title (64, one or two lines), search_bar (40), place_card title (28) or date_stamp (24).",
             "type": "string",
             "minLength": 1
           },
@@ -218,8 +223,38 @@
             ],
             "additionalProperties": false
           },
+          "place": {
+            "description": "A hook_title's place label above it (drawn with a pin) or a date_stamp's place, e.g. \"Hanoi, Vietnam\" (up to 40 characters).",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "subtitle": {
+            "description": "A place_card's one-line subtitle (up to 40 characters).",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "value": {
+            "description": "The number a counter counts up to (at most two decimals).",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "from": {
+            "description": "The number a counter counts from (0 by default), below its value.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "unit": {
+            "description": "A counter's unit after the number, e.g. km (up to 12 characters).",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12
+          },
           "style": {
-            "description": "The overlay's size step and side; colours and fonts are the brand's.",
+            "description": "The overlay's look: size, side, position, entrance, typing speed and colours; fonts are the brand's.",
             "type": "object",
             "properties": {
               "size": {
@@ -232,12 +267,59 @@
                 ]
               },
               "side": {
-                "description": "The side a keyword, lower third or list sits on.",
+                "description": "The side a keyword, lower third, list or date stamp sits on.",
                 "type": "string",
                 "enum": [
                   "left",
                   "right"
                 ]
+              },
+              "position": {
+                "description": "top, middle or bottom of the room above the captions: keyword, search_bar, place_card, counter (any), lower_third (top or bottom), list (top or middle).",
+                "type": "string",
+                "enum": [
+                  "top",
+                  "middle",
+                  "bottom"
+                ]
+              },
+              "entrance": {
+                "description": "fade, slide, type (text typed in letter by letter) or none; without it the kind's own. Never a bounce or a pop.",
+                "type": "string",
+                "enum": [
+                  "fade",
+                  "slide",
+                  "type",
+                  "none"
+                ]
+              },
+              "typing_speed": {
+                "description": "Characters per second of a typed entrance or a search bar (4-40, 14 by default).",
+                "type": "number",
+                "minimum": 4,
+                "maximum": 40
+              },
+              "colors": {
+                "description": "The overlay's own colours in place of the brand's.",
+                "type": "object",
+                "properties": {
+                  "card": {
+                    "description": "The card's colour (#rrggbb); the brand's background without it.",
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "text": {
+                    "description": "The text's colour; the brand's foreground without it.",
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "accent": {
+                    "description": "The accent (dot, pin, magnifier, arrow, marker); the brand's accent without it.",
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "additionalProperties": false

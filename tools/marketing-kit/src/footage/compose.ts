@@ -75,7 +75,8 @@ export interface FootageComposeInput {
   /** The end card's headline size. */
   headlineSize: number;
   colors: BrandColors;
-  fonts: { heading: ComposeFont | null; body: ComposeFont | null };
+  /** The heading font (titles, keywords, numbers), the body font (captions) and the interface font (labels, lists); null falls back to the body font. */
+  fonts: { heading: ComposeFont | null; body: ComposeFont | null; interface?: ComposeFont | null };
   assets: FootageComposeAssets;
   brandName: string;
   locale: string;
@@ -276,8 +277,9 @@ export function composeFootage(input: FootageComposeInput): string {
 
   const bodyFont = fontStack(fonts.body, "sans-serif");
   const headingFont = fonts.heading === null ? bodyFont : fontStack(fonts.heading, "sans-serif");
-  const faces = [...fontFaces(fonts.body), ...fontFaces(fonts.heading)];
-  const overlayMarkup = getOverlayMarkup(overlays, { colors: c, headingFont, frame });
+  const interfaceFont = fonts.interface == null ? bodyFont : fontStack(fonts.interface, "sans-serif");
+  const faces = [...fontFaces(fonts.body), ...fontFaces(fonts.heading), ...fontFaces(fonts.interface ?? null)];
+  const overlayMarkup = getOverlayMarkup(overlays, { colors: c, headingFont, interfaceFont, locale: input.locale, frame });
 
   return assertLocalReferences(`<!doctype html>
 <html lang="${escapeHtml(input.locale)}">

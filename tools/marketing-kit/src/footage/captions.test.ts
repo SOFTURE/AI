@@ -126,6 +126,25 @@ describe("findMissingCaptionGlyphs", () => {
     ]);
   });
 
+  it("checks the overlays' texts against the font of their role: heading, else interface (the body font without one)", () => {
+    const missing = findMissingCaptionGlyphs(
+      {
+        fonts: { heading: font("Head", "/f/heading.ttf"), body: font("Body", "/f/body.ttf"), interface: font("Ui", "/f/body-ext.ttf") },
+        captions: ["abc"],
+        overlays: { heading: ["Kůň"], interface: ["řa"] },
+        endCard: null,
+        brandName: "A",
+      },
+      read,
+    );
+    expect(missing).toEqual([
+      { font: "Head", characters: ["ů", "ň"] },
+      { font: "Ui", characters: ["a"] },
+    ]);
+    const withoutInterface = findMissingCaptionGlyphs({ fonts: { heading: null, body: font("Body", "/f/body.ttf") }, captions: [], overlays: { heading: ["ů"], interface: ["ň"] }, endCard: null, brandName: "A" }, read);
+    expect(withoutInterface).toEqual([{ font: "Body", characters: ["ů", "ň"] }]);
+  });
+
   it("checks nothing without a brand font, or with a file it cannot read", () => {
     expect(findMissingCaptionGlyphs({ fonts: { heading: null, body: null }, captions: ["kůň"], endCard: null, brandName: "A" }, read)).toEqual([]);
     expect(findMissingCaptionGlyphs({ fonts: { heading: null, body: font("Body", "/f/broken.woff2") }, captions: ["kůň"], endCard: null, brandName: "A" }, read)).toEqual([]);

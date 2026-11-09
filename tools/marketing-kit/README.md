@@ -680,6 +680,23 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   closer than the film's `overlayMinSpacing` (the app's budget, e.g. 8), a text overlay that does not fit between the
   platform safe zone and the captions, an anchor outside the safe zone or on the captions, a `punch_in` on a
   `kenburns` segment or inside a zoom cut's ease. An EDL without `overlays` renders exactly as before.
+- **Travel overlays and style knobs** (0.24.0): five more kinds. `hook_title` (the hook's question or title at the
+  top of the frame, up to 64 characters on one or two lines, with an optional `place` label above it drawn with a pin,
+  e.g. "Hanoi, Vietnam"; it may stay up to 180 s and across cuts, does not count against one overlay at a time or
+  `overlayMinSpacing`, but nothing drawn while it shows may sit on it), `search_bar` (a rounded search field with a
+  magnifier whose query, up to 40 characters, types in letter by letter), `place_card` (a big place title, up to 28
+  characters, with an optional one-line `subtitle`), `counter` (a `value` with up to two decimals counting up from
+  `from`, 0 by default, eased, with an optional `unit`, grouped as the brand's locale writes numbers) and
+  `date_stamp` (a day or a date with an optional `place`, small, in a top corner). Every overlay takes optional
+  knobs in `style`, each checked against its kind: `size`; `side` (keyword, lower third, list, date stamp);
+  `position` (`top`, `middle`, `bottom` of the room above the captions: keyword, search bar, place card, counter;
+  `top` or `bottom` for a lower third; `top` or `middle` for a list); `entrance` (`fade`, `slide`, `type` for text
+  kinds, `none`; never a bounce or a pop; without it the kind's own); `typing_speed` (4-40 characters per second, 14
+  by default) for a typed text; `colors: { card, text, accent }` (`#rrggbb`, each in place of the brand's). Missing
+  knobs keep the kinds' defaults, so a stored EDL reads and renders as before. Titles, keywords and numbers are drawn
+  in the brand's heading font, labels, lists, the search query and the stamp in its new optional interface font
+  (`brand.fonts.interface`, the body font without one); the glyph check reads each text against its own font. The
+  draft draws the same cards (a rounded card, the pin, the magnifier, the text typing in, the number stepping up).
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless

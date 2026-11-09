@@ -16,7 +16,7 @@ import { prepareClipSounds, type SpeechPeaks, type SpeechPreGain } from "./clip-
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
 import { getCaptionHighlight } from "./caption-highlight.js";
-import { getOverlayTexts, resolveEdlOverlays } from "./overlays.js";
+import { getOverlayTextsByRole, resolveEdlOverlays } from "./overlays.js";
 import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
 import { err, getProviderFootageFailure, ok, type FootageResult } from "./failure.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
@@ -115,7 +115,11 @@ export interface FootageBrand {
   /** BCP 47, e.g. `en-US`. */
   locale: string;
   colors: BrandColors;
-  fonts: { heading: BrandFont | null; body: BrandFont | null };
+  /**
+   * The heading font (titles, keywords, numbers, the end card), the body font (captions) and the interface font
+   * (labels, lists, the search query, the date stamp); an absent or null interface font falls back to the body font.
+   */
+  fonts: { heading: BrandFont | null; body: BrandFont | null; interface?: BrandFont | null };
   logo: string | null;
 }
 
@@ -849,7 +853,8 @@ async function runRenderFootage(
   const layout = { ...base, caption: getFootageCaptionLayout(film, options.layout ?? {}) };
   const missing = findMissingCaptionGlyphs({
     fonts: options.brand.fonts,
-    captions: [...(film.captions ? words.map((word) => word.text) : []), ...getOverlayTexts(overlays.overlays)],
+    captions: film.captions ? words.map((word) => word.text) : [],
+    overlays: getOverlayTextsByRole(overlays.overlays, options.brand.locale),
     endCard: getEndCardTexts(film.endCard),
     brandName: options.brand.name,
   });

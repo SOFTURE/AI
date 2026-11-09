@@ -47,7 +47,7 @@ function run(command: string, args: string[]): void {
 }
 
 /** Copies each font file as `<n>.<ext>`: two files with one name cannot overwrite each other, and the name is safe inside url("…"). */
-export function copyFonts(fonts: RenderInput["fonts"], dir: string): { heading: ComposeFont | null; body: ComposeFont | null } {
+export function copyFonts(fonts: RenderInput["fonts"] & { interface?: BrandFont | null }, dir: string): { heading: ComposeFont | null; body: ComposeFont | null; interface?: ComposeFont | null } {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   let count = 0;
@@ -64,7 +64,8 @@ export function copyFonts(fonts: RenderInput["fonts"], dir: string): { heading: 
       }),
     };
   };
-  return { body: copy(fonts.body), heading: copy(fonts.heading) };
+  const copied = { body: copy(fonts.body), heading: copy(fonts.heading) };
+  return fonts.interface === undefined ? copied : { ...copied, interface: copy(fonts.interface) };
 }
 
 function getFramePath(dir: string, index: number): string {

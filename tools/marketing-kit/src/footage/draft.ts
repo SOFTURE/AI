@@ -12,7 +12,7 @@ import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
 import { toAssColor } from "./draft-color.js";
 import { buildDraftOverlayEvents, getDraftOverlayStyles } from "./draft-overlays.js";
 import type { OverlayColors } from "./overlay-html.js";
-import { resolveEdlOverlays, type ResolvedOverlay } from "./overlays.js";
+import { resolveEdlOverlays, type OverlayFontRole, type ResolvedOverlay } from "./overlays.js";
 import { chooseFootageDraftFont } from "./draft-font.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
 import { declickSpeech, describeDeclick, type DeclickReport } from "./declick.js";
@@ -134,6 +134,10 @@ export interface FootageDraftCaptionsInput {
   overlays?: ResolvedOverlay[];
   /** The overlays' card, text and accent colours; default `FOOTAGE_DRAFT_OVERLAY_COLORS`. */
   overlayColors?: OverlayColors;
+  /** The overlays' heading and interface font families where they are not `fontFamily` (as the font files name them). */
+  overlayFonts?: Partial<Record<OverlayFontRole, string>>;
+  /** How a counter groups its number (BCP 47); default `en-US`. */
+  locale?: string;
 }
 
 /** The pieces of a `highlight` chunk's span: cut wherever a word lights up or goes out (in centiseconds), with the words lit in each. */
@@ -279,7 +283,10 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ...events,
-    ...buildDraftOverlayEvents(overlays, input.overlayColors ?? FOOTAGE_DRAFT_OVERLAY_COLORS, input.frame),
+    ...buildDraftOverlayEvents(overlays, input.overlayColors ?? FOOTAGE_DRAFT_OVERLAY_COLORS, input.frame, {
+      ...(input.overlayFonts === undefined ? {} : { fonts: input.overlayFonts }),
+      ...(input.locale === undefined ? {} : { locale: input.locale }),
+    }),
     "",
   ].join("\n");
 }
@@ -519,7 +526,7 @@ export interface RenderFootageDraftOptions extends Pick<FootageRunOptions, "buil
    * OpenType file; DejaVu Sans when it has none) and its caption colours. Without it, DejaVu Sans and
    * `FOOTAGE_DRAFT_CAPTION_COLORS`.
    */
-  brand?: { colors: FootageDraftCaptionColors & Partial<OverlayColors>; fonts: Pick<FootageBrand["fonts"], "body"> };
+  brand?: { colors: FootageDraftCaptionColors & Partial<OverlayColors>; fonts: Pick<FootageBrand["fonts"], "body"> & Partial<Pick<FootageBrand["fonts"], "heading" | "interface">>; locale?: string };
   /**
    * ffmpeg's threads for the draft's decoders, filter graph and encoder (`buildFootageDraftArgs`); by default ffmpeg's
    * own choice, which follows the host's cores. Set it from a CPU-limited container's quota.
@@ -633,6 +640,13 @@ async function runRenderFootageDraft(
       : FOOTAGE_DRAFT_OVERLAY_COLORS;
   const brandFont = chooseFootageDraftFont(options.brand?.fonts.body ?? null);
   const font = brandFont ?? FOOTAGE_DRAFT_FONT;
+  // The overlays' heading and interface fonts, where the brand has a TrueType or OpenType file for them.
+  const roleFonts = Object.fromEntries(
+    (["heading", "interface"] as const).flatMap((role) => {
+      const chosen = overlays.length === 0 ? null : chooseFootageDraftFont(options.brand?.fonts[role] ?? null);
+      return chosen === null || chosen.family === font.family ? [] : [[role, chosen]];
+    }),
+  ) as Partial<Record<OverlayFontRole, { family: string; file: string }>>;
   const captions = buildFootageDraftCaptions({
     film,
     edl,
@@ -642,11 +656,13 @@ async function runRenderFootageDraft(
     fontFamily: font.family,
     ...(options.brand === undefined ? {} : { colors: options.brand.colors }),
     ...(overlays.length === 0 ? {} : { overlays, overlayColors }),
+    ...(Object.keys(roleFonts).length === 0 ? {} : { overlayFonts: Object.fromEntries(Object.entries(roleFonts).map(([role, chosen]) => [role, chosen.family])) }),
+    ...(options.brand?.locale === undefined ? {} : { locale: options.brand.locale }),
   });
   if (captions !== null) {
     writeFileSync(join(draftDir, "captions.ass"), captions);
     mkdirSync(join(draftDir, "fonts"));
-    copyFileSync(font.file, join(draftDir, "fonts", basename(font.file)));
+    for (const file of new Set([font.file, ...Object.values(roleFonts).map((chosen) => chosen.file)])) copyFileSync(file, join(draftDir, "fonts", basename(file)));
     if (brandFont === null && options.brand?.fonts.body != null) {
       log(`draft: the brand's body font ${options.brand.fonts.body.family} has no TrueType or OpenType file ffmpeg can read; the captions use ${FOOTAGE_DRAFT_FONT.family}.`);
     }
