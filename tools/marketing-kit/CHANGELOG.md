@@ -4,6 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.24.0
+
+- **Travel overlays (`hook_title`, `search_bar`, `place_card`, `counter`, `date_stamp`) and style knobs on every
+  overlay:** `edl.json` overlays take five more kinds: the hook's title at the top of the frame with an optional place
+  label and a drawn pin (it may stay across cuts and beside another overlay, never under one), a search field whose
+  query types in, a big place card with a subtitle, a number counting up to its value with a unit, and a small date
+  stamp in a top corner. Every overlay takes optional `style` knobs, each checked against its kind: `position` (a
+  lower third may sit at the top), `entrance` (`fade`, `slide`, `type`, `none`), `typing_speed` and its own
+  `colors` (`card`, `text`, `accent`). Without knobs, every kind keeps its look, so stored EDLs render as before.
+  The brand takes an optional interface font (`FootageBrand.fonts.interface`, the body font without one): labels,
+  lists, the search query and the stamp are drawn in it, titles, keywords and numbers in the heading font, and the
+  glyph check reads each overlay text against its own font (a keyword was checked against the body font before).
+  The draft takes `brand.fonts.heading`, `brand.fonts.interface` and `brand.locale` for the overlays.
+  `resolveEdlOverlays` refuses a title of more than two lines, a one-line text too wide for its card and an overlay
+  on a hook title while it shows. New exports: the knobs' enums and bounds, `isTypedOverlay`,
+  `getOverlayTextsByRole`, `getOverlayBounds`, `formatOverlayNumber` and `OVERLAY_FONT_ROLES`.
+
 ## 0.23.0
 
 - **No one-word caption cards on request:** a footage film's new `captionMinWords` (2: never a one-word card) evens

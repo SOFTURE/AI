@@ -109,7 +109,7 @@ export const edlSchema = z
       .max(40)
       .optional()
       .describe(
-        "Small graphics and emphasis zooms placed on a word of the transcript (at_word) or a film second (at), one at a time, each inside one segment: punch_in, keyword, lower_third, list, arrow, highlight. Without it, none.",
+        "Small graphics and emphasis zooms placed on a word of the transcript (at_word) or a film second (at), one at a time, each inside one segment: punch_in, keyword, lower_third, list, arrow, highlight, search_bar, place_card, counter, date_stamp; and a hook_title at the top, which may stay across cuts beside the others. Without it, none.",
       ),
   })
   .describe("The edit decision list of a footage film (edl.json).");

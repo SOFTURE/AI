@@ -258,17 +258,26 @@ function findMissingInFamily(font: BrandFont | null, texts: string[], read: (pat
 
 /**
  * Glyphs the film's fonts lack: the body font against the captions and the end card's url and note, the heading font
- * (the body font without one) against the brand name and the headline. Empty when every letter is drawn.
+ * (the body font without one) against the brand name, the headline and the heading overlays' texts, and the interface
+ * font (the body font without one) against the interface overlays' texts. Empty when every letter is drawn.
  */
 export function findMissingCaptionGlyphs(
-  input: { fonts: { heading: BrandFont | null; body: BrandFont | null }; captions: string[]; endCard: { headline: string; url: string; note: string } | null; brandName: string },
+  input: {
+    fonts: { heading: BrandFont | null; body: BrandFont | null; interface?: BrandFont | null };
+    captions: string[];
+    /** The overlays' texts by the font that draws them (`getOverlayTextsByRole`). */
+    overlays?: { heading: string[]; interface: string[] };
+    endCard: { headline: string; url: string; note: string } | null;
+    brandName: string;
+  },
   read: (path: string) => Buffer = readFileSync,
 ): MissingCaptionGlyphs[] {
   const { fonts, endCard } = input;
   const body = findMissingInFamily(fonts.body, [...input.captions, ...(endCard === null ? [] : [endCard.url, endCard.note])], read);
-  const headingTexts = endCard === null ? [] : [input.brandName, endCard.headline];
+  const headingTexts = [...(endCard === null ? [] : [input.brandName, endCard.headline]), ...(input.overlays?.heading ?? [])];
   const heading = findMissingInFamily(fonts.heading ?? fonts.body, headingTexts, read);
-  const missing = [body, heading].filter((entry): entry is MissingCaptionGlyphs => entry !== null);
+  const ui = findMissingInFamily(fonts.interface ?? fonts.body, input.overlays?.interface ?? [], read);
+  const missing = [body, heading, ui].filter((entry): entry is MissingCaptionGlyphs => entry !== null);
   // One family serving both roles is reported once.
   const merged = new Map<string, Set<string>>();
   for (const entry of missing) merged.set(entry.font, new Set([...(merged.get(entry.font) ?? []), ...entry.characters]));
