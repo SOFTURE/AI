@@ -65,3 +65,12 @@ describe("dedupeFindings", () => {
     expect(dedupeFindings(findings).map((finding) => finding.line)).toEqual([3]);
   });
 });
+
+describe("extractFindings on hostile text", () => {
+  it("stays linear on many unclosed tags and keeps reading after them", () => {
+    const text = "<finding>a".repeat(50000);
+    const started = performance.now();
+    expect(extractFindings(text)).toEqual({ findings: [], rejected: [] });
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+});

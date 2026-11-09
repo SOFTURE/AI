@@ -44,7 +44,22 @@ export interface Finding extends AgentFinding {
   id: string;
 }
 
-const FINDING_BLOCK = /<finding>([\s\S]*?)<\/finding>/g;
+const OPEN_TAG = "<finding>";
+const CLOSE_TAG = "</finding>";
+
+/** The text inside each `<finding>…</finding>` pair, scanned with indexOf (linear, whatever the agent writes). */
+function getFindingBlocks(text: string): string[] {
+  const blocks: string[] = [];
+  let from = 0;
+  for (;;) {
+    const start = text.indexOf(OPEN_TAG, from);
+    if (start === -1) return blocks;
+    const end = text.indexOf(CLOSE_TAG, start + OPEN_TAG.length);
+    if (end === -1) return blocks;
+    blocks.push(text.slice(start + OPEN_TAG.length, end));
+    from = end + CLOSE_TAG.length;
+  }
+}
 
 /**
  * The stable id of a finding: the rule, the file and the symbol it is about, never the line (which moves with every
@@ -70,8 +85,8 @@ export interface ExtractedFindings {
 export function extractFindings(text: string): ExtractedFindings {
   const findings: Finding[] = [];
   const rejected: string[] = [];
-  for (const match of text.matchAll(FINDING_BLOCK)) {
-    const raw = match[1]?.trim() ?? "";
+  for (const block of getFindingBlocks(text)) {
+    const raw = block.trim();
     let json: unknown;
     try {
       json = JSON.parse(raw);

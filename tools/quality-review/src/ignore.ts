@@ -27,7 +27,9 @@ export function parseIgnoreLines(text: string, source: string): IgnoreRules {
   const rules: IgnoreRule[] = [];
   const invalid: string[] = [];
   text.split("\n").forEach((rawLine, index) => {
-    const line = rawLine.replace(/#.*$/, "").replace(/^\s*[-*]\s+/, "").replaceAll("`", "").trim();
+    const hash = rawLine.indexOf("#");
+    const withoutComment = (hash === -1 ? rawLine : rawLine.slice(0, hash)).trim();
+    const line = (/^[-*]\s/.test(withoutComment) ? withoutComment.slice(2) : withoutComment).replaceAll("`", "").trim();
     if (line === "") return;
     const where = `${source}:${String(index + 1)}`;
     const [head = "", ...rest] = line.split(/\s+/);

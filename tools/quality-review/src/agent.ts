@@ -89,10 +89,16 @@ export function getToolRefusal(repo: string, toolName: string, input: Record<str
   for (const key of PATH_KEYS[toolName as (typeof REVIEW_TOOLS)[number]]) {
     const value = input[key];
     if (typeof value !== "string" || value === "") continue;
-    const path = key === "pattern" || key === "glob" ? value.replace(/[*?[{].*$/, "") || "." : value;
+    const path = key === "pattern" || key === "glob" ? getGlobBase(value) : value;
     if (!isInside(root, path)) return `${toolName} may only read inside the repository, not ${value}`;
   }
   return null;
+}
+
+/** The literal folder part of a glob: everything before its first wildcard, or "." when it starts with one. */
+function getGlobBase(glob: string): string {
+  const wildcard = glob.search(/[*?[{]/);
+  return (wildcard === -1 ? glob : glob.slice(0, wildcard)) || ".";
 }
 
 function readToolCall(input: unknown): { toolName: string; toolInput: Record<string, unknown> } | null {
