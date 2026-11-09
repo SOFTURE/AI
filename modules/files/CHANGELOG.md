@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.4.1
 
 - Fix: the browser upload page sends the file again from an app's minified production build. The page inlined
   `sendUpload.toString()` and then called `sendUpload(...)`, but a minifier renames the function (`async function
