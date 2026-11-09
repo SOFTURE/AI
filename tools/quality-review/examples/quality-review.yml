@@ -1,0 +1,27 @@
+# The quality review of this repository, started by hand (Actions → quality-review → Run workflow).
+# Copy to .github/workflows/quality-review.yml. Needs the repository secret ANTHROPIC_API_KEY and, under
+# Settings → Actions → General, "Allow GitHub Actions to create and approve pull requests".
+name: quality-review
+
+on:
+  workflow_dispatch:
+    inputs:
+      max-budget-usd:
+        description: Hard cost cap of this run in USD
+        type: string
+        default: "10"
+
+permissions: {}
+
+jobs:
+  quality-review:
+    uses: SOFTURE/AI/.github/workflows/quality-review.yml@master
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      max-budget-usd: ${{ inputs.max-budget-usd }}
+      # runs-on: '["self-hosted","linux"]'  # a managed runner, as JSON
+      # model: claude-opus-5-5
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
