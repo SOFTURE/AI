@@ -16,8 +16,10 @@ button,input{font:inherit}button{margin-top:1rem;padding:.5rem 1rem}progress{wid
 p[role=status]{min-height:1.5em}`;
 
 // The page's script: the client's own `sendUpload`, inlined from its source, then the few lines that wire it to the
-// form. `sendUpload` references nothing outside its body (see `client/send-upload.ts`).
-const SCRIPT = `${sendUpload.toString()}
+// form. `sendUpload` references nothing outside its body (see `client/send-upload.ts`). The source is bound to a name
+// of its own as an expression: an app's minifier renames the declaration (`async function l(...)`), so the page must
+// never rely on the name `toString()` returns.
+const SCRIPT = `const sendUpload = (${sendUpload.toString()});
 const config = JSON.parse(document.getElementById("upload-config").textContent);
 const input = document.getElementById("file");
 const button = document.getElementById("start");

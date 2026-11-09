@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.4.1
+
+- Fix: the browser upload page sends the file again from an app's minified production build. The page inlined
+  `sendUpload.toString()` and then called `sendUpload(...)`, but a minifier renames the function (`async function
+  l(...)`), so pressing Upload threw `ReferenceError: sendUpload is not defined` and nothing was sent. The page now
+  binds the inlined source to its own name (`const sendUpload = (...)`). Tests bundle and minify the page module with
+  esbuild and run its script in a `vm` context and in Chromium against the upload route.
+- Migration: none; bump the package.
+
 ## 0.4.0
 
 - The `files.prune` job logs every run (#1192): one line `files.prune finished` with `removed`, `freedBytes`,
