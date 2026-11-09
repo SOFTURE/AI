@@ -227,6 +227,8 @@ import {
   UploadField,
   UploadItem,
   UploadList,
+  FileInput,
+  FormGrid,
   Code,
   CodeBlock,
 } from "../../src/index.js";
@@ -1742,6 +1744,75 @@ const NOTION_CASES: readonly GalleryCase[] = [
       ),
     }),
   ),
+  {
+    name: "FileInput",
+    component: "FileInput",
+    root: '[data-slot="file-input"]',
+    render: () => (
+      <Field className="w-96 max-w-full">
+        <FieldLabel htmlFor="gallery-file-input">Logo</FieldLabel>
+        <FileInput id="gallery-file-input" accept="image/svg+xml,image/png" onFilesSelected={() => undefined} />
+      </Field>
+    ),
+  },
+  {
+    name: "FileInput[fileName]",
+    component: "FileInput",
+    root: '[data-slot="file-input"]',
+    render: () => (
+      <Field className="w-96 max-w-full">
+        <FieldLabel htmlFor="gallery-file-input-named">Font</FieldLabel>
+        <FileInput id="gallery-file-input-named" fileName="brand-font-variable.ttf" onFilesSelected={() => undefined} />
+      </Field>
+    ),
+  },
+  {
+    name: "FileInput[disabled]",
+    component: "FileInput",
+    root: '[data-slot="file-input"][data-disabled="true"]',
+    render: () => (
+      <Field className="w-96 max-w-full">
+        <FieldLabel htmlFor="gallery-file-input-disabled">Clips</FieldLabel>
+        <FileInput id="gallery-file-input-disabled" multiple disabled onFilesSelected={() => undefined} />
+      </Field>
+    ),
+  },
+  {
+    name: "FormGrid",
+    component: "FormGrid",
+    root: '[data-slot="form-grid"]',
+    render: () => (
+      <FormGrid className="w-[40rem] max-w-full">
+        <Field>
+          <FieldLabel htmlFor="gallery-form-grid-font">A label long enough to wrap onto a second line in its column</FieldLabel>
+          <Select defaultValue="raleway">
+            <SelectTrigger id="gallery-form-grid-font" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="raleway">Raleway</SelectItem>
+            </SelectContent>
+          </Select>
+          <FieldDescription>Picked from the uploaded fonts.</FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="gallery-form-grid-weight">Weight</FieldLabel>
+          <Input id="gallery-form-grid-weight" type="number" defaultValue={800} />
+          <FieldDescription>From 100 to 900.</FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="gallery-form-grid-logo">Logo</FieldLabel>
+          <FileInput id="gallery-form-grid-logo" onFilesSelected={() => undefined} />
+          <FieldDescription>An SVG or a PNG.</FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="gallery-form-grid-line">Line</FieldLabel>
+          <Input id="gallery-form-grid-line" defaultValue="See you next time" />
+          <FieldDescription>Up to 60 characters, on the end card.</FieldDescription>
+        </Field>
+      </FormGrid>
+    ),
+  },
   {
     name: "UploadField",
     component: "UploadField",

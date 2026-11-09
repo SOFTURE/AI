@@ -11,6 +11,7 @@ import {
   Breadcrumb,
   BreadcrumbEllipsis,
   CommandDialog,
+  FileInput,
   FilterChipAdd,
   Dialog,
   DialogContent,
@@ -172,6 +173,25 @@ const CASES: Readonly<Record<string, MessageCase>> = {
     ),
     read: attributeOf('[data-slot="sortable-handle"]', "aria-label"),
   },
+  // The file input's button with one file and with several, and its empty name.
+  ...Object.fromEntries(
+    ([
+      ["choose", false],
+      ["chooseMany", true],
+    ] as const).map(([key, multiple]) => [
+      `fileInput.${key}`,
+      {
+        render: (text: string | undefined) => (
+          <FileInput multiple={multiple} messages={text === undefined ? undefined : { [key]: text }} onFilesSelected={() => undefined} />
+        ),
+        read: textOf('[data-slot="file-input-button"]'),
+      },
+    ]),
+  ),
+  "fileInput.none": {
+    render: (text) => <FileInput messages={text === undefined ? undefined : { none: text }} onFilesSelected={() => undefined} />,
+    read: textOf('[data-slot="file-input-name"]'),
+  },
   // The upload field's button and drop hint, with one file and with several.
   ...Object.fromEntries(
     ([
@@ -247,8 +267,10 @@ function readMessage(path: string): string {
 
 const MESSAGE_PATHS = Object.entries(notionMessages.en).flatMap(([group, texts]) => Object.keys(texts).map((key) => `${group}.${key}`));
 // Checked elsewhere: the phone sheet's copy where a phone is stubbed (tests/behaviour/sidebar.test.tsx), the drag
-// announcements during a keyboard drag (tests/notion/Sortable.test.tsx).
+// announcements during a keyboard drag (tests/notion/Sortable.test.tsx), the count of several picked files with the
+// number filled in (tests/notion/FileInput.test.tsx).
 const CHECKED_ELSEWHERE = new Set([
+  "fileInput.count",
   "sidebar.mobileTitle",
   "sidebar.mobileDescription",
   "sortable.pickedUp",
