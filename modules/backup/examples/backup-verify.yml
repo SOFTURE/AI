@@ -1,0 +1,84 @@
+# The weekly check of the off-site backup (@softure-ai/backup), for an adopting app's repository: copy this file to
+# .github/workflows/backup-verify.yml. It downloads the newest encrypted dump with the read-only token, restores it into
+# a throwaway Postgres of the server's major version, runs the schema guard against the migrations of the live image
+# and counts the rows of deploy.json's database.rowCountTables, then drops it. A copy older than 26 hours, one that
+# does not decrypt or restore, a missing table or a failed guard fails the run, and GitHub mails the failure.
+#
+# Settings live in the GitHub Environment `backup-verify`, which only this workflow uses (never the deploy's):
+#   variables: BACKUP_S3_ENDPOINT, BACKUP_S3_REGION, BACKUP_S3_BUCKET, BACKUP_S3_PREFIX (the app's prefix)
+#   secrets:   BACKUP_S3_READ_ACCESS_KEY_ID, BACKUP_S3_READ_SECRET_ACCESS_KEY (the read-only token)
+#              BACKUP_AGE_IDENTITY (the age private key, AGE-SECRET-KEY-1…)
+# Keeping the private key here is a trade-off: it lets the check run every week without the owner, and it never reaches
+# the server. An owner who keeps the key offline only runs the same `softure-backup verify` on their own machine
+# instead (modules/backup/README.md, "Restore and verify").
+#
+# Adjust IMAGE (the app's image, with a tag the registry keeps for the live release) and the postgres image's major.
+name: backup verify
+
+on:
+  schedule:
+    # Monday 05:40 UTC, after the night's maintain (03:17 server time) has uploaded.
+    - cron: "40 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    environment: backup-verify
+    timeout-minutes: 60
+    services:
+      postgres:
+        # The server's major version: pg_restore must be at least as new as the pg_dump that wrote the copy.
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      IMAGE: ghcr.io/acme/app:latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # The migrations the live image ships, for the schema guard.
+      - name: Read the migrations of the live image
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          container="$(docker create "$IMAGE")"
+          docker cp "$container:/app/softure-migrations" ./softure-migrations
+          docker rm "$container" > /dev/null
+      # pg_restore of the server's major, from the same image as the throwaway database.
+      - name: PostgreSQL tools
+        run: |
+          {
+            echo '#!/usr/bin/env bash'
+            echo 'exec docker run --rm -i --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE postgres:17 pg_restore "$@"'
+          } > "$RUNNER_TEMP/pg_restore"
+          chmod +x "$RUNNER_TEMP/pg_restore"
+          echo "BACKUP_PG_RESTORE=$RUNNER_TEMP/pg_restore" >> "$GITHUB_ENV"
+      - name: Verify the newest off-site copy
+        env:
+          BACKUP_S3_ENDPOINT: ${{ vars.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_REGION: ${{ vars.BACKUP_S3_REGION }}
+          BACKUP_S3_BUCKET: ${{ vars.BACKUP_S3_BUCKET }}
+          BACKUP_S3_PREFIX: ${{ vars.BACKUP_S3_PREFIX }}
+          BACKUP_S3_READ_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_READ_ACCESS_KEY_ID }}
+          BACKUP_S3_READ_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_READ_SECRET_ACCESS_KEY }}
+          BACKUP_AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+          BACKUP_VERIFY_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        # The key goes in on stdin, never as an argument.
+        run: |
+          printf '%s\n' "$BACKUP_AGE_IDENTITY" \
+            | npx --yes @softure-ai/backup@0.1.0 verify --identity=- --config=deploy.json --migrations-dir=softure-migrations

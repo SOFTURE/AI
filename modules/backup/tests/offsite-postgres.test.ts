@@ -1,6 +1,6 @@
 // dump → encrypt → upload → status → restore → verify against a real Postgres (SOFTURE_TEST_POSTGRES_URL, set in
 // CI; locally the cases skip without it, foundation/db/tests/postgres-env.test.ts) and the local fake S3. The
-// Postgres 17 + MinIO run of the same path is modules/backup/integration/.
+// Postgres 17 run of the same path against a real S3 gateway is offsite-store.test.ts (e2e.yml backup-integration).
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

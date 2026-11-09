@@ -46,6 +46,7 @@ jobs:
     outputs:
       example-app: ${{ steps.areas.outputs.example-app }}
       deploy: ${{ steps.areas.outputs.deploy }}
+      backup: ${{ steps.areas.outputs.backup }}
     steps:
       - uses: actions/checkout@v7
       - id: areas
@@ -147,3 +148,63 @@ jobs:
       # `softure-deploy init` there, validates the generated compose file and deploy.sh (shellcheck comes with the
       # runner image), and builds the generated Dockerfile (tools/deploy/scripts/init-image.mjs).
       - run: npm run e2e:deploy-init
+
+  # The off-site backup end to end (modules/backup/tests/offsite-store.test.ts): pg_dump 17 → age → upload with a
+  # write-only identity of a real S3 gateway (SeaweedFS, scripts/ci/backup-s3.sh) → backup.runs → restore and verify
+  # (schema guard, row counts) with a read-only identity. The PostgreSQL 17 tools run from the service's image, so the
+  # dump format matches the server.
+  backup-integration:
+    name: backup integration (Postgres 17, S3)
+    needs: changes
+    if: needs.changes.outputs.backup == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BACKUP_IT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      BACKUP_IT_S3_ENDPOINT: http://127.0.0.1:8333
+      BACKUP_IT_S3_BUCKET: softure-backups
+      BACKUP_IT_S3_REGION: us-east-1
+      # Throwaway credentials of a container that lives as long as this job.
+      BACKUP_IT_WRITER_ID: backup-writer
+      BACKUP_IT_WRITER_SECRET: backup-writer-secret-1
+      BACKUP_IT_READER_ID: backup-reader
+      BACKUP_IT_READER_SECRET: backup-reader-secret-1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start an S3 gateway with a write-only and a read-only identity
+        run: bash scripts/ci/backup-s3.sh
+      # pg_dump writes its file under /tmp (the test's folder), hence the mount and the runner's own user.
+      - name: PostgreSQL 17 tools from the service image
+        run: |
+          bin="$RUNNER_TEMP/pg17"
+          mkdir -p "$bin"
+          for tool in pg_dump pg_restore; do
+            {
+              echo '#!/usr/bin/env bash'
+              echo 'exec docker run --rm -i --network host --user "$(id -u):$(id -g)" --volume /tmp:/tmp \'
+              echo "  -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE postgres:17 $tool \"\$@\""
+            } > "$bin/$tool"
+            chmod +x "$bin/$tool"
+          done
+          {
+            echo "BACKUP_IT_PG_DUMP=$bin/pg_dump"
+            echo "BACKUP_IT_PG_RESTORE=$bin/pg_restore"
+          } >> "$GITHUB_ENV"
+      - run: npx vitest run modules/backup/tests/offsite-store.test.ts

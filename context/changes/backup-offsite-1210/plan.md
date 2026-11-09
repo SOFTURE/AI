@@ -81,9 +81,9 @@ psql), a failed upload (later steps run, result failed), a missing status table 
 
 ## Phase 4: integration test, docs, release prep
 
-**Files:** `modules/backup/tests/integration/**`, `.github/workflows/e2e.yml`, `scripts/ci/affected.mjs`, READMEs,
+**Files:** `modules/backup/tests/offsite-store.test.ts`, `scripts/ci/backup-s3.sh`, `.github/workflows/e2e.yml`, `scripts/ci/affected.mjs`, READMEs,
 CHANGELOGs, `tests/repo/release-tags.test.ts`.
-Done when the Postgres 17 + MinIO job is green in CI, the README covers bucket, tokens, key, secrets and a
+Done when the Postgres 17 + S3 gateway job is green in CI, the README covers bucket, tokens, key, secrets and a
 server-loss restore, and the gates pass.
 
 ## Risks and rollback
@@ -99,32 +99,42 @@ server-loss restore, and the gates pass.
 - Own SigV4 client, single `PUT` up to 5 GiB (README limitation).
 - One run row holds every object of the run (dump and data archive) as jsonb.
 - The init compose block is written for every app with a database; optional names cost nothing when unset.
+- The integration store is SeaweedFS's S3 gateway (`chrislusf/seaweedfs:4.51`), not MinIO: MinIO no longer publishes
+  images (Docker Hub `minio/minio` and `minio/mc` answer "object not found", measured 2026-11-09). SeaweedFS gives
+  per-identity `Write:<bucket>` and `Read`/`List` actions, so the job proves the write-only and read-only tokens too.
+- The integration test is `modules/backup/tests/offsite-store.test.ts`, skipped without `BACKUP_IT_*` like the
+  repository's other real-Postgres tests, instead of a separate Vitest config; e2e.yml's `backup-integration` job
+  (area `backup` in `scripts/ci/affected.mjs`) sets them.
+- `offsite-backup` joins deploy.json's taken hook names, since it is a step name of `maintain`.
+- The weekly verify ships as `modules/backup/examples/backup-verify.yml` (its own GitHub Environment, PostgreSQL tools
+  from the service image, migrations copied out of the live image for the schema guard).
 
 ## Progress
 
 ### Phase 1: the package core
 
 #### Automated
-- [ ] 1.1 Unit tests for config, objects, SigV4, status SQL, lifecycle, upload (fake S3), status reads
-- [ ] 1.2 Gates green for the package (typecheck, lint, test)
+- [x] 1.1 Unit tests for config, objects, SigV4, status SQL, lifecycle, upload (fake S3), status reads (2a137094; 40 tests)
+- [x] 1.2 Gates green for the package (typecheck, lint, test) (2a137094)
 
 ### Phase 2: restore, verify, fetch and the CLI
 
 #### Automated
-- [ ] 2.1 Local end-to-end with Postgres and the fake S3
-- [ ] 2.2 CLI refusals tested
+- [x] 2.1 Local end-to-end with Postgres and the fake S3 (offsite-postgres.test.ts, 3 passed on local Postgres 16)
+- [x] 2.2 CLI refusals tested (cli.test.ts, offsite-postgres.test.ts)
 
 ### Phase 3: deploy hook
 
 #### Automated
-- [ ] 3.1 server-files and init tests extended, bash 3.2 syntax kept
-- [ ] 3.2 Gates green
+- [x] 3.1 server-files and init tests extended, bash 3.2 syntax kept (5c0133ae; 6 new server-files cases, 1 init case, shellcheck clean)
+- [x] 3.2 Gates green (tools/deploy: 943 tests, typecheck, eslint)
 
 ### Phase 4: integration test, docs, release prep
 
 #### Automated
-- [ ] 4.1 Postgres 17 + MinIO integration job green in CI
-- [ ] 4.2 README, CHANGELOGs, package count test
+- [ ] 4.1 Postgres 17 + S3 gateway integration job green in CI (the test passed locally against Postgres 16 and the fake S3 standing in for the gateway)
+- [x] 4.2 README, CHANGELOGs, package count test, root README catalogue
 
-#### Manual
-- [ ] 4.3 Real provider bucket and tokens (owner only: the owner's provider account and secrets)
+#### Owner
+- [ ] 4.3 Real provider bucket, tokens, age key and GitHub Environment secrets per app (owner only: the owner's
+  provider account and secrets; steps in modules/backup/README.md, "Owner guide")

@@ -42,6 +42,7 @@ modules/             feature modules (each one works on its own on top of the fo
   files/             stored files: content hash, quota, expiry, local disk or S3, signed public links with ranges
   metering/          spend ledger of paid provider calls in any unit, budgets per day or month, reservations under a lock
   alerts/            operator alerts: deduplication by key, recovery messages, mail and webhooks, quiet hours, jobs adapters
+  backup/            encrypted off-site copies of the nightly deploy backup (age, any S3), status, restore and verify
 tools/
   marketing-kit/     materials generator: video, screenshots, OG images from JSON and a brand
   deploy/            one-VPS deploy CLI: .env.prod from secrets, release notes, verify from deploy.json

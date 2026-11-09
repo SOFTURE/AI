@@ -1,7 +1,7 @@
 ---
 change_id: backup-offsite-1210
 title: "backup: encrypted off-site copies of the nightly deploy backup, with status, restore and verify (issue #1210)"
-status: plan_reviewed
+status: implemented
 roadmap_item: null
 issue: 1210
 branch: claude/project-thread-lhasom
@@ -36,7 +36,7 @@ Requested by the owner's coordinator with the owner's standing consent; release.
 - A missing configuration never fails or lengthens `maintain` beyond reading `.env.prod`.
 - Secrets never in argv, logs, step lines or the status. The scripts stay bash 3.2-compatible.
 - No test talks to an external service: unit tests use a local fake S3; the integration test runs Postgres 17 and
-  MinIO in containers.
+  an S3 gateway in containers.
 
 ## Notes
 
