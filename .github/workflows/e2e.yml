@@ -195,14 +195,13 @@ jobs:
         run: |
           bin="$RUNNER_TEMP/pg17"
           mkdir -p "$bin"
-          for tool in pg_dump pg_restore; do
-            {
-              echo '#!/usr/bin/env bash'
-              echo 'exec docker run --rm -i --network host --user "$(id -u):$(id -g)" --volume /tmp:/tmp \'
-              echo "  -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE postgres:17 $tool \"\$@\""
-            } > "$bin/$tool"
-            chmod +x "$bin/$tool"
-          done
+          cat > "$bin/pg_dump" <<'WRAPPER'
+          #!/usr/bin/env bash
+          exec docker run --rm -i --network host --user "$(id -u):$(id -g)" --volume /tmp:/tmp \
+            -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE postgres:17 "$(basename "$0")" "$@"
+          WRAPPER
+          cp "$bin/pg_dump" "$bin/pg_restore"
+          chmod +x "$bin/pg_dump" "$bin/pg_restore"
           {
             echo "BACKUP_IT_PG_DUMP=$bin/pg_dump"
             echo "BACKUP_IT_PG_RESTORE=$bin/pg_restore"

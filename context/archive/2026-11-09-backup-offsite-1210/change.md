@@ -1,13 +1,13 @@
 ---
 change_id: backup-offsite-1210
 title: "backup: encrypted off-site copies of the nightly deploy backup, with status, restore and verify (issue #1210)"
-status: implemented
+status: archived
 roadmap_item: null
 issue: 1210
 branch: claude/project-thread-lhasom
 created: 2026-11-09
 updated: 2026-11-09
-archived_at: null
+archived_at: 2026-11-09
 ---
 
 ## Intent
@@ -41,3 +41,15 @@ Requested by the owner's coordinator with the owner's standing consent; release.
 ## Notes
 
 - Framing: skipped. The issue states the problem, the owner's decision and the deliverables.
+
+## Done
+
+New package `@softure-ai/backup`: `softure-backup upload` encrypts the nightly dump (and data archive) with age to a
+public key and uploads it to any S3-compatible store with a write-only token; every run lands in `backup.runs`, read by
+`getLastBackup()` and exported as OpenTelemetry gauges (age of the last good copy for a 26 h alert); `restore` (new
+database by default, `--overwrite` explicit), `fetch`, `verify` (throwaway database, schema guard, row counts, drop)
+and `lifecycle`. `@softure-ai/deploy`: `maintain` runs the step `offsite-backup` after the backup, skipped without
+`BACKUP_S3_BUCKET`; `init` writes the `x-offsite-backup` compose block (#1210). Released with the next deploy release.
+
+Owner step: per app, a bucket, a write-only and a read-only token, an age key pair and the GitHub Environment secrets
+(modules/backup/README.md, "Owner guide").

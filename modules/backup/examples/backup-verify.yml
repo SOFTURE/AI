@@ -62,10 +62,10 @@ jobs:
       # pg_restore of the server's major, from the same image as the throwaway database.
       - name: PostgreSQL tools
         run: |
-          {
-            echo '#!/usr/bin/env bash'
-            echo 'exec docker run --rm -i --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE postgres:17 pg_restore "$@"'
-          } > "$RUNNER_TEMP/pg_restore"
+          cat > "$RUNNER_TEMP/pg_restore" <<'WRAPPER'
+          #!/usr/bin/env bash
+          exec docker run --rm -i --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE postgres:17 pg_restore "$@"
+          WRAPPER
           chmod +x "$RUNNER_TEMP/pg_restore"
           echo "BACKUP_PG_RESTORE=$RUNNER_TEMP/pg_restore" >> "$GITHUB_ENV"
       - name: Verify the newest off-site copy
