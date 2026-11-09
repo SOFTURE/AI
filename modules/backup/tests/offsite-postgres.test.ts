@@ -15,6 +15,19 @@ import { runBackupCli } from "./support/cli.js";
 /** The verify runs' clock: 4 h 43 min after the dump's time in its name. */
 const NOW = new Date("2026-11-09T08:00:00Z");
 const ADMIN_URL = process.env.SOFTURE_TEST_POSTGRES_URL || undefined;
+
+/**
+ * Whether the local pg_dump and pg_restore are not newer than the server: a newer pg_dump writes settings an older
+ * server refuses (pg_dump 17's `SET transaction_timeout` into Postgres 16), as on a CI runner whose client is newer
+ * than its Postgres service. Production runs the server's own tools, and offsite-store.test.ts runs matching ones.
+ */
+function hasMatchingTools(url: string | undefined): boolean {
+  if (url === undefined) return false;
+  const client = /(\d+)(?:\.\d+)?/.exec(spawnSync("pg_dump", ["--version"], { encoding: "utf8" }).stdout ?? "")?.[1];
+  const server = spawnSync("psql", [url, "-XAtc", "SHOW server_version_num"], { encoding: "utf8" }).stdout?.trim() ?? "";
+  if (client === undefined || !/^\d+$/.test(server)) return false;
+  return Number(client) <= Math.floor(Number(server) / 10000);
+}
 const MIGRATION = readFileSync(join(import.meta.dirname, "../migrations/0001_create_runs.sql"), "utf8");
 
 async function query<Row extends object>(url: string, text: string): Promise<Row[]> {
@@ -33,7 +46,7 @@ function urlOf(database: string): string {
   return url.href;
 }
 
-describe.runIf(ADMIN_URL !== undefined)("the off-site copy against a real Postgres", () => {
+describe.runIf(hasMatchingTools(ADMIN_URL))("the off-site copy against a real Postgres", () => {
   let s3: FakeS3;
   let dir: string;
   let identity: string;
