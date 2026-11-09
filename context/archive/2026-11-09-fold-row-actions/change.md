@@ -1,12 +1,13 @@
 ---
 change_id: fold-row-actions
 title: "theme-notion: FoldRow actions beside the summary"
-status: implementing
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-4v4djk
 created: 2026-11-09
 updated: 2026-11-09
+archived_at: 2026-11-09
 ---
 
 ## Intent
@@ -29,3 +30,9 @@ summary.
 - Research skipped: one component, its source and tests are the whole context; the need comes from an adopting app's
   list (an opened clip with a trash icon in its header).
 - Frame skipped: the problem is concrete (a control inside `<summary>` toggles the row).
+
+## Done
+
+- `FoldRow actions` (theme-notion 0.14.0): controls beside the `<details>`, outside the summary, open or closed;
+  markup unchanged without it. Merged in PR #1221 (merge b56f0a3), released through `auto-release` as
+  theme-notion 0.14.0; adopted by the clips list of an adopting app.
