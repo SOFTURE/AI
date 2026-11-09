@@ -25,7 +25,7 @@ export {
 export type { JobsContext } from "./context.js";
 export { isDatabaseUnavailableError } from "./database-unavailable.js";
 export { enqueueJob, type EnqueuedJob, type EnqueueJobInput } from "./enqueue.js";
-export { checkScheduleStates, getScheduleHealth, notifyJobFailed, type HookOptions } from "./hooks.js";
+export { checkScheduleStates, getScheduleHealth, notifyJobAttempt, notifyJobFailed, type HookOptions } from "./hooks.js";
 export {
   getQueuePause,
   pauseQueue,

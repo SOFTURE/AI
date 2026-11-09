@@ -1,7 +1,7 @@
 // The options an app passes to `jobs({ ... })` in softure.config.ts, parsed at startup.
 import { isTimeZone, type Err, type ErrorCode, type Ok } from "@softure-ai/core";
 import { z } from "zod";
-import type { JobFailedEvent, QueuePausedEvent, ScheduleStateChangedEvent } from "./contract.js";
+import type { JobAttemptEvent, JobFailedEvent, QueuePausedEvent, ScheduleStateChangedEvent } from "./contract.js";
 import type { JobsContext } from "./server/context.js";
 
 /** Which ends of a run the worker logs: every one, failures and retries only, or none. */
@@ -15,6 +15,8 @@ const DAY_SECONDS = 24 * 60 * 60;
 
 /** Runs once when a job ends `failed`; a throw is logged and changes nothing. */
 export type OnJobFailedHook = (event: JobFailedEvent, ctx: JobsContext) => Promise<void> | void;
+/** Runs once per recorded attempt, whatever its outcome; a throw is logged and changes nothing. */
+export type OnJobAttemptHook = (event: JobAttemptEvent, ctx: JobsContext) => Promise<void> | void;
 /** Runs once when the breaker or a handler (`pauseQueueLater`) pauses a queue; a throw is logged and changes nothing. */
 export type OnQueuePausedHook = (event: QueuePausedEvent, ctx: JobsContext) => Promise<void> | void;
 /** Runs once per transition of a schedule between `healthy`, `failing` and `late`; a throw is logged and changes nothing. */
@@ -268,6 +270,12 @@ export const jobsOptionsSchema = z
      * left), after the write commits: e.g. mail the operator.
      */
     onJobFailed: z.custom<OnJobFailedHook>((value) => typeof value === "function", "must be a function").optional(),
+    /**
+     * Runs once per attempt the worker or `runDueJobs` recorded, after the write commits, with `{ queue, jobId, origin,
+     * attempt, maxAttempts, outcome, code, durationMs, at }`: e.g. count every queue's runs by outcome in the app's
+     * metrics. Not for an attempt the claim fence refused (`stale`) or a lease that ended with no attempts left.
+     */
+    onJobAttempt: z.custom<OnJobAttemptHook>((value) => typeof value === "function", "must be a function").optional(),
     /**
      * Runs once per transition of a scheduled queue between `healthy`, `failing` and `late` (recovery included), so a
      * schedule that keeps failing alerts once. The worker checks at most once a minute; `runDueJobs` once at its end.

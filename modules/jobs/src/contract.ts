@@ -167,6 +167,29 @@ export interface JobFailedEvent {
   readonly at: Date;
 }
 
+/** How a recorded attempt ended, as `onJobAttempt` reports it: `paused` is a `pauseQueueLater` that gave the attempt back. */
+export type JobAttemptOutcome = Exclude<JobOutcome["kind"], "stale">;
+
+/**
+ * What `onJobAttempt` receives, once per attempt the worker or `runDueJobs` recorded: codes and ids only, never the
+ * payload or an error's text.
+ */
+export interface JobAttemptEvent {
+  readonly queue: string;
+  readonly jobId: string;
+  /** What enqueued the job: `app`, `schedule`, `manual` or the app's own. */
+  readonly origin: string;
+  /** The attempt's number, starting at 1. */
+  readonly attempt: number;
+  readonly maxAttempts: number;
+  readonly outcome: JobAttemptOutcome;
+  /** The failure's code (`jobs.handler_threw`, `jobs.invalid_payload`, the handler's own); null for a success or a cancel. */
+  readonly code: string | null;
+  /** From the claim's start of the attempt to its recorded end, in milliseconds. */
+  readonly durationMs: number;
+  readonly at: Date;
+}
+
 /** Who paused a queue: its circuit breaker, a handler (`pauseQueueLater`) or an operator (`pauseQueue`). */
 export type QueuePauseSource = "breaker" | "handler" | "operator";
 

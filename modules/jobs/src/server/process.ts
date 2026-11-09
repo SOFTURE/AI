@@ -11,6 +11,7 @@ import { clampRetrySeconds, getRetryDelaySeconds } from "./backoff.js";
 import type { JobsContext } from "./context.js";
 import type { JobsLogger } from "./logger.js";
 import { getJobsOptions, getQueue } from "./options.js";
+import { notifyJobAttempt } from "./hooks.js";
 import { logRunEnd } from "./run-log.js";
 
 const INVALID_PAYLOAD = "jobs.invalid_payload";
@@ -161,13 +162,13 @@ function decide(ctx: JobsContext, claimed: ClaimedJob, result: unknown, options:
 
 interface RecordOptions {
   readonly logger: JobsLogger;
-  /** When the attempt started, for the duration in the success line. */
+  /** When the attempt started, for the duration in the success line and `onJobAttempt`. */
   readonly startedAt: Date;
 }
 
 /**
- * Writes the outcome (fenced by the claim; a retry of a job an operator cancelled becomes `cancelled`) and logs what was
- * recorded; a refused write is `stale` and leaves no line.
+ * Writes the outcome (fenced by the claim; a retry of a job an operator cancelled becomes `cancelled`), logs what was
+ * recorded and runs `onJobAttempt`; a refused write is `stale`, leaves no line and runs no hook.
  */
 async function record(ctx: JobsContext, claimed: ClaimedJob, requested: Completion, options: RecordOptions): Promise<JobOutcome> {
   const { logger } = options;
@@ -176,25 +177,36 @@ async function record(ctx: JobsContext, claimed: ClaimedJob, requested: Completi
   const { job } = claimed;
   const base = { queue: job.queue, jobId: job.id, attempt: job.attempts };
   const { logRuns } = getJobsOptions(ctx.config);
+  const at = ctx.clock.now();
+  const durationMs = Math.max(0, at.getTime() - options.startedAt.getTime());
+  const outcome = toAttemptOutcome(completion);
   if (completion.kind === "succeeded") {
-    const durationMs = ctx.clock.now().getTime() - options.startedAt.getTime();
     logRunEnd(logger, logRuns, { ...base, outcome: "succeeded", origin: job.origin, durationMs, summary: completion.summary ?? null });
-    return { kind: "succeeded" };
-  }
-  if (completion.kind === "retry") {
+  } else if (completion.kind === "retry" || completion.kind === "paused") {
     logRunEnd(logger, logRuns, { ...base, outcome: "retried", code: completion.error, runAt: completion.runAt });
-    return { kind: "retried", error: completion.error, runAt: completion.runAt };
+  } else {
+    logRunEnd(logger, logRuns, completion.kind === "cancelled" ? { ...base, outcome: "cancelled" } : { ...base, outcome: "failed", code: completion.error });
   }
-  if (completion.kind === "paused") {
-    logRunEnd(logger, logRuns, { ...base, outcome: "retried", code: completion.error, runAt: completion.runAt });
-    return { kind: "paused", error: completion.error, runAt: completion.runAt };
+  const code = completion.kind === "succeeded" || completion.kind === "cancelled" ? null : completion.error;
+  const event = { queue: job.queue, jobId: job.id, origin: job.origin, attempt: job.attempts, maxAttempts: job.maxAttempts, outcome: outcome.kind, code, durationMs, at };
+  await notifyJobAttempt(ctx, event, { logger });
+  return outcome;
+}
+
+/** The outcome a recorded completion reports to the caller. */
+function toAttemptOutcome(completion: Completion): Exclude<JobOutcome, { readonly kind: "stale" }> {
+  switch (completion.kind) {
+    case "succeeded":
+      return { kind: "succeeded" };
+    case "retry":
+      return { kind: "retried", error: completion.error, runAt: completion.runAt };
+    case "paused":
+      return { kind: "paused", error: completion.error, runAt: completion.runAt };
+    case "cancelled":
+      return { kind: "cancelled" };
+    case "failed":
+      return { kind: "failed", error: completion.error };
   }
-  if (completion.kind === "cancelled") {
-    logRunEnd(logger, logRuns, { ...base, outcome: "cancelled" });
-    return { kind: "cancelled" };
-  }
-  logRunEnd(logger, logRuns, { ...base, outcome: "failed", code: completion.error });
-  return { kind: "failed", error: completion.error };
 }
 
 /**
