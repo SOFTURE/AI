@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.14.0
+
+- `FoldRow actions`: controls on the row's right (a delete button, a menu), rendered beside the `<details>` instead of
+  inside its `<summary>`, so clicking one never folds the row; shown open or closed, centred on the summary's first
+  line (row height, or the touch target at `size="touch"`). With `actions` the row is wrapped in
+  `data-slot="fold-row-with-actions"`, which carries the bottom border. New optional prop only.
+
 ## 0.13.0
 
 - `AsidePanel` follow-ups (#1075): `AsidePanelToggle icon` (a `LucideIcon` drawn in both states, for a panel that
