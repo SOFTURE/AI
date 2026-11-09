@@ -25,4 +25,4 @@
 
 - [x] p1 `actions` prop: `FoldRow` wraps the details and the actions only when `actions` is given; existing FoldRow tests unchanged and green
 - [x] p2 three markup tests (slot order, outside the summary, size, null); README, CHANGELOG 0.14.0; `npx vitest run themes/theme-notion` 1149 passed; typecheck, eslint, language gate green; screenshot of the adopting app's clips list (open and closed rows) checked
-- [ ] p3 gates, PR, merge, release
+- [x] p3 pre-push full suite 824 files passed; PR #1221 checks green on ab9533e, merged as b56f0a3; `auto-release` started theme-notion@0.14.0
