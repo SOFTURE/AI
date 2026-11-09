@@ -146,7 +146,9 @@ stages with a state, below), `Timeline` (dated entries on a vertical rail, below
 `TopLoadingBar` (a thin bar at the top while a route loads on a wide screen, below),
 `RouteLoading` (the launch screen or the top bar, picked by the browser, below),
 `UploadField`, `UploadList` and `UploadItem` (pick or drop files, one row per file with progress, retry and remove,
-below).
+below),
+`FileInput` (a compact file picker for a form row: a button and the chosen file's name, below),
+`FormGrid` (fields side by side whose label, control and hint line up across columns, below).
 
 **Touch sizes.** The controls a phone view taps most reach the `touch-target` token (44 px, Apple's HIG and WCAG
 2.5.5): `Button` sizes `touch` (44 px high, padded like `lg`) and `icon-touch` (44 × 44), `SelectTrigger`
@@ -547,6 +549,47 @@ name); `messages` replaces any of it.
     <UploadItem key={item.id} item={item} onRetry={uploads.retry} onPause={uploads.pause} onResume={uploads.resume} onRemove={uploads.remove} />
   ))}
 </UploadList>
+```
+
+**`FileInput`.** The file picker of a form row, where `UploadField`'s dropping area is too large (one font, one
+logo). A button at the height of `Input` and the default `SelectTrigger` (28 px) and, beside it, the chosen file's name
+or "No file chosen", all in the app's words: `notionMessages.en.fileInput` (`choose`, `chooseMany` with `multiple`,
+`none`, `count` for several files with `{count}`), replaced through `messages`. The native `<input type="file">` stays
+in the page, visually hidden but focusable: `FieldLabel htmlFor` and the button open it, the keyboard reaches it (the
+button draws its focus ring and its invalid border), and a test uploads to it. `accept`, `multiple`, `disabled`,
+`name`, `aria-invalid` and `aria-describedby` reach the input; `onFilesSelected(files)` gets each pick and the input is
+cleared, so picking the same file again is a change too. `fileName` shows the app's own name instead (e.g. the file
+uploaded last; `null` for none).
+
+```tsx
+<Field>
+  <FieldLabel htmlFor="logo">Logo</FieldLabel>
+  <FileInput id="logo" accept=".svg,.png" fileName={logo?.name ?? null} onFilesSelected={([file]) => upload(file)} />
+  <FieldDescription>An SVG or a PNG.</FieldDescription>
+</Field>
+```
+
+**`FormGrid`.** Fields side by side (`columns` 1, 2 or 3 from `md` up, one column below; 2 by default) whose parts
+line up across the columns: each child `Field` spans `rows` rows of the grid (3 by default: label, control, hint) and a
+vertical field lays its parts out on those shared rows (CSS subgrid), so a label or hint that wraps in one column
+moves the whole row down together. A field with more parts passes more `rows`, or wraps the extra parts (an error, a
+reset button) in one element; a horizontal field (a `Switch` with its label) keeps its own layout in the same area.
+In a form, use the controls at their default size: `Input`, `SelectTrigger` and `FileInput` are all 28 px high
+(`SelectTrigger size="sm"` is 24 px, for toolbars).
+
+```tsx
+<FormGrid>
+  <Field>
+    <FieldLabel htmlFor="font">Font</FieldLabel>
+    <Select>…</Select>
+    <FieldDescription>Picked from the uploaded fonts.</FieldDescription>
+  </Field>
+  <Field>
+    <FieldLabel htmlFor="weight">Weight</FieldLabel>
+    <Input id="weight" type="number" />
+    <FieldDescription>From 100 to 900.</FieldDescription>
+  </Field>
+</FormGrid>
 ```
 
 **`SortableList`.** A list whose rows are reordered by dragging, built on the headless `@dnd-kit/core` and

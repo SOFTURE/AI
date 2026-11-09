@@ -98,6 +98,8 @@ export {
   type StatPillsProps,
   type StatsFoldProps,
 } from "./notion/Stats.js";
+export { FileInput, type FileInputMessages, type FileInputMessagesOverride, type FileInputProps } from "./notion/FileInput.js";
+export { FormGrid, type FormGridColumns, type FormGridProps } from "./notion/FormGrid.js";
 export { Status, type StatusProps } from "./notion/Status.js";
 export { Steps, type StepItem, type StepState, type StepsLayout, type StepsProps } from "./notion/Steps.js";
 export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
