@@ -1,19 +1,10 @@
 // A GET of a page at a URL someone else chose (a saved link, a link preview, a page to summarize), with the
 // same SSRF guard as `sendGuardedRequest` on every redirect hop, one time limit for the whole fetch and a body
 // capped in bytes after decompression.
-import type { ClientRequest, IncomingMessage } from "node:http";
-import { pipeline, type Readable } from "node:stream";
-import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
+import type { IncomingMessage } from "node:http";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
-import {
-  assertPorts,
-  assertTimeout,
-  BlockedAddressError,
-  checkGuardedUrl,
-  openGuardedRequest,
-  type GuardedRequestErrorCode,
-  type GuardedRequestSeam,
-} from "./guarded-request.js";
+import { decodeBody, followGuardedRedirects, GuardedFetchError, parseContentType, type OpenHop } from "./guarded-get.js";
+import { assertPorts, assertTimeout, BlockedAddressError, type GuardedRequestErrorCode, type GuardedRequestSeam } from "./guarded-request.js";
 import { isPublicAddress } from "./public-address.js";
 
 export type GuardedPageErrorCode = GuardedRequestErrorCode | "security.outbound_too_large";
@@ -59,18 +50,9 @@ export const GUARDED_PAGE_DEFAULT_PORTS: readonly number[] = [80, 443];
 export const GUARDED_PAGE_USER_AGENT = "Mozilla/5.0 (compatible; softure-ai-security)";
 const DEFAULT_ACCEPT = "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8";
 const DEFAULT_MAX_REDIRECTS = 5;
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 /** How far into an HTML body a `<meta>` charset is looked for (the HTML spec's prescan window). */
 const CHARSET_PRESCAN_BYTES = 1024;
 const HTML_TYPES = new Set(["text/html", "application/xhtml+xml"]);
-
-/** A failure inside the fetch, carried to the one place that turns it into a code. */
-class PageFetchError extends Error {
-  constructor(readonly code: GuardedPageErrorCode) {
-    super(`fetchGuardedPage: ${code}`);
-    this.name = "PageFetchError";
-  }
-}
 
 /**
  * Fetches a page with GET and returns its body, capped at `maxBytes`. Every URL, the first and each redirect's
@@ -107,7 +89,7 @@ export async function fetchGuardedPage(
 
   // One deadline for every hop and the body: tearing down what is open makes the pending step fail.
   let timedOut = false;
-  let open: { request: ClientRequest; response?: IncomingMessage } | undefined;
+  let open: OpenHop | undefined;
   const timer = setTimeout(() => {
     timedOut = true;
     open?.response?.destroy();
@@ -115,48 +97,26 @@ export async function fetchGuardedPage(
   }, timeoutMs);
 
   try {
-    let checked = checkGuardedUrl(url, allowedPorts, isAllowedAddress);
-    for (let hop = 0; ; hop += 1) {
-      if (!checked.ok) {
-        return checked;
-      }
-      const target = checked.value;
-      let request: ClientRequest;
-      try {
-        request = openGuardedRequest(target, { method: "GET", headers }, seam);
-      } catch {
-        return err("security.outbound_failed");
-      }
-      open = { request };
-      const response = await awaitResponse(request);
-      open.response = response;
-
-      const status = response.statusCode ?? 0;
-      const location = response.headers.location;
-      if (REDIRECT_STATUSES.has(status) && location !== undefined && maxRedirects > 0) {
-        // `agent: false`: the hop's socket is closed here, not kept for the next one.
-        response.destroy();
-        if (hop >= maxRedirects) {
-          return err("security.outbound_failed");
-        }
-        checked = checkGuardedUrl(location, allowedPorts, isAllowedAddress, target);
-        continue;
-      }
-
-      const { body, truncated } = await readCappedBody(response, maxBytes);
-      if (truncated && !allowTruncation) {
-        return err("security.outbound_too_large");
-      }
-      const { contentType, charset } = parseContentType(response.headers["content-type"]);
-      return ok({
-        status,
-        finalUrl: target.toString(),
-        contentType,
-        charset: charset ?? (contentType !== null && HTML_TYPES.has(contentType) ? sniffMetaCharset(body) : null),
-        body,
-        truncated,
-      });
+    const reached = await followGuardedRedirects(url, { headers, allowedPorts, maxRedirects, isAllowedAddress, requireHttps: false }, seam, (hop) => {
+      open = hop;
+    });
+    if (!reached.ok) {
+      return reached;
     }
+    const { target, response, status } = reached.value;
+    const { body, truncated } = await readCappedBody(response, maxBytes);
+    if (truncated && !allowTruncation) {
+      return err("security.outbound_too_large");
+    }
+    const { contentType, charset } = parseContentType(response.headers["content-type"]);
+    return ok({
+      status,
+      finalUrl: target.toString(),
+      contentType,
+      charset: charset ?? (contentType !== null && HTML_TYPES.has(contentType) ? sniffMetaCharset(body) : null),
+      body,
+      truncated,
+    });
   } catch (error) {
     if (timedOut) {
       return err("security.outbound_timeout");
@@ -164,7 +124,7 @@ export async function fetchGuardedPage(
     if (error instanceof BlockedAddressError) {
       return err("security.outbound_blocked");
     }
-    if (error instanceof PageFetchError) {
+    if (error instanceof GuardedFetchError) {
       return err(error.code);
     }
     return err("security.outbound_failed");
@@ -175,17 +135,9 @@ export async function fetchGuardedPage(
   }
 }
 
-function awaitResponse(request: ClientRequest): Promise<IncomingMessage> {
-  return new Promise((resolve, reject) => {
-    request.once("response", resolve);
-    request.once("error", reject);
-    request.end();
-  });
-}
-
 /** Reads the body through its `content-encoding` and stops at `maxBytes` decoded bytes. */
 async function readCappedBody(response: IncomingMessage, maxBytes: number): Promise<{ body: Uint8Array; truncated: boolean }> {
-  const decoded = decode(response);
+  const decoded = decodeBody(response);
   const chunks: Buffer[] = [];
   let length = 0;
   let truncated = false;
@@ -201,40 +153,6 @@ async function readCappedBody(response: IncomingMessage, maxBytes: number): Prom
     length += chunk.length;
   }
   return { body: new Uint8Array(Buffer.concat(chunks, length)), truncated };
-}
-
-function decode(response: IncomingMessage): Readable {
-  const encoding = (response.headers["content-encoding"] ?? "identity").trim().toLowerCase();
-  const decoder =
-    encoding === "gzip" || encoding === "x-gzip"
-      ? createGunzip()
-      : encoding === "deflate"
-        ? createInflate()
-        : encoding === "br"
-          ? createBrotliDecompress()
-          : encoding === "identity" || encoding === ""
-            ? null
-            : undefined;
-  if (decoder === undefined) {
-    // An encoding the fetch did not ask for and cannot undo: the bytes would not be the page.
-    throw new PageFetchError("security.outbound_failed");
-  }
-  if (decoder === null) {
-    return response;
-  }
-  // The pipeline carries an error of either side to the decoder, where the read loop sees it.
-  return pipeline(response, decoder, () => undefined);
-}
-
-function parseContentType(header: string | undefined): { contentType: string | null; charset: string | null } {
-  if (header === undefined) {
-    return { contentType: null, charset: null };
-  }
-  const [type = "", ...parameters] = header.split(";");
-  const contentType = type.trim().toLowerCase();
-  const charsetParameter = parameters.map((parameter) => parameter.trim()).find((parameter) => parameter.toLowerCase().startsWith("charset="));
-  const charset = charsetParameter?.slice("charset=".length).trim().replace(/^"|"$/g, "").toLowerCase();
-  return { contentType: contentType === "" ? null : contentType, charset: charset === undefined || charset === "" ? null : charset };
 }
 
 /** The charset of `<meta charset="…">` or `<meta http-equiv="content-type" content="…; charset=…">` near the start. */

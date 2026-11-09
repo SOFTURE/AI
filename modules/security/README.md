@@ -427,6 +427,40 @@ footer; blocks become paragraphs, list items `- ` or `1. ` lines, `pre` keeps it
 and `links` lists the absolute `http:`/`https:` URLs once each (resolved on `<base>`, else `baseUrl`), without
 `mailto:`, `javascript:` and links to a place on the same page.
 
+### Downloading a file
+
+A video, an image or a document a user links to can be far larger than a page, so `downloadGuardedFile` never holds
+the body in memory: after the same guard as `fetchGuardedPage` on every hop, it hands the body to the caller's
+`consume` as an async iterable of chunks, capped at `maxBytes` after decompression, under one timer for the whole
+download (`consume` included).
+
+```ts
+import { downloadGuardedFile } from "@softure-ai/security/server";
+
+const downloaded = await downloadGuardedFile(
+  sourceUrl,
+  { timeoutMs: 300_000, maxBytes: 4 * 1024 ** 3, allowedPorts: [443], requireHttps: true },
+  ({ body, contentType }) => saveFile(ctx, { ownerId, name, contentType: contentType ?? undefined, body }),
+);
+if (!downloaded.ok) return refuse(downloaded.error);
+if (!downloaded.value.consumed) return refuse(`http_${String(downloaded.value.status)}`);
+const saved = downloaded.value.value;
+```
+
+| Function (`@softure-ai/security/server`) | Returns |
+| --- | --- |
+| `downloadGuardedFile(url, { timeoutMs, maxBytes, maxRedirects?, accept?, userAgent?, allowedPorts?, requireHttps? }, consume, seam?)` | `Ok<{ status, finalUrl, contentType, contentLength, consumed: true, value }>` for a 2xx answer, `Ok<{ …, consumed: false }>` for any other status (its body unread), or `Err` with the `security.outbound_*` codes of `fetchGuardedPage` |
+
+**Options.** As `fetchGuardedPage`, with `accept` defaulting to `*/*` and no truncation: a declared `content-length`
+over `maxBytes` (without `content-encoding`) is `security.outbound_too_large` before `consume` runs, and a body that
+passes `maxBytes` while it streams makes the iteration throw, so the download is `security.outbound_too_large` too.
+`requireHttps: true` refuses a first URL or a redirect that is not `https:` (`security.outbound_invalid_url`).
+
+**Errors of `consume`.** A failure of the body (a reset, a body that does not decode, the cap, the time limit) is
+returned as its code even when `consume` catches and rethrows it. Any other error `consume` throws (a storage
+failure) propagates to the caller. `consume` reads the body to its end or throws; what it leaves unread is discarded
+when the download returns.
+
 ## 5. Migrations and tables
 
 Schema `security`, two migrations:

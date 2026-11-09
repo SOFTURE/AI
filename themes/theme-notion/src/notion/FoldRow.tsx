@@ -53,6 +53,11 @@ export type FoldRowProps = FoldRowSummaryProps &
     readonly size?: "default" | "touch";
     /** More content under the table when opened. */
     readonly children?: ReactNode;
+    /**
+     * Controls on the row's right, outside the summary, so clicking them never folds the row (a delete button, a
+     * menu). Shown whether the row is open or closed, centred on the summary's first line.
+     */
+    readonly actions?: ReactNode;
   };
 
 const CONTENT_CLASS = "flex flex-col gap-2 p-3 empty:hidden";
@@ -114,9 +119,28 @@ function FoldRowChevron() {
 
 // An item as one folding list row: a native `<details>` that opens in place to its details, with no client state.
 export function FoldRow(props: FoldRowProps) {
-  const { isInset = false, size = "default", children } = props;
+  const { actions, size = "default" } = props;
+  if (actions === undefined || actions === null) {
+    return <FoldRowDetails {...props} className="border-b border-border" />;
+  }
+  // The actions sit beside the `<details>`, not in its `<summary>`: a control inside the summary would fold the row.
   return (
-    <details data-slot="fold-row" className="group/fold-row border-b border-border">
+    <div data-slot="fold-row-with-actions" className="flex items-start gap-1 border-b border-border">
+      <FoldRowDetails {...props} className="min-w-0 flex-1" />
+      <div
+        data-slot="fold-row-actions"
+        className={cn("flex shrink-0 items-center gap-1", size === "touch" ? "min-h-touch-target" : "min-h-row-height")}
+      >
+        {actions}
+      </div>
+    </div>
+  );
+}
+
+function FoldRowDetails(props: FoldRowProps & { readonly className: string }) {
+  const { isInset = false, size = "default", children, className } = props;
+  return (
+    <details data-slot="fold-row" className={cn("group/fold-row", className)}>
       <summary
         data-slot="fold-row-summary"
         className={cn(

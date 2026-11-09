@@ -183,13 +183,17 @@ right; opened, it shows a `DetailTable` and its `children`. The opened content i
 sets `data-inset` on the content, like `StatsFold`. A row with a summary of its own (icons, a status) passes `summary`,
 drawn after the chevron in place of `title`, `facts` and `badges`; `details` and `detailsLabel` are optional together,
 so the content can be several tables or a list. `size="touch"` makes the summary at least the `touch-target` height
-(44 px) instead of the row height, for a phone list.
+(44 px) instead of the row height, for a phone list. `actions` puts controls on the row's right (a delete button,
+a menu), beside the `<details>` rather than inside its `<summary>`, so clicking one never folds the row; they show
+whether the row is open or closed, centred on the summary's first line, and the row's bottom border moves to the
+wrapper (`data-slot="fold-row-with-actions"`).
 
 ```tsx
 <FoldRow title="Dentist" facts={["12.01.2027"]} badges={[]} detailsLabel="Visit details" details={rows} />
 <FoldRow summary={<><Receipt aria-hidden="true" className="size-4" /> Invoice 12/2026 <Badge>Paid</Badge></>}>
   <InvoiceLines />
 </FoldRow>
+<FoldRow title="clip.mp4" badges={[]} actions={<DeleteButton />} />
 ```
 
 **`FilterChip`.** The filters above a list or a table, drawn the way a Notion database view draws them: a 24 px pill

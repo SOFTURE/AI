@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## 0.14.0
+## 0.15.0
 
 - Form controls that line up: `FileInput`, a compact file picker for a form row (a button at the 28 px height of
   `Input` and the default `SelectTrigger`, the chosen file's name beside it, copy in `notionMessages.en.fileInput`
@@ -12,6 +12,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   browser's own English "Choose File" inside `Input type="file"`; and `FormGrid`, fields side by side (`columns` 1–3,
   `rows` per field) whose label, control and hint share rows across the columns through CSS subgrid. The README states
   the form rule: controls at their default size, all 28 px. New exports only.
+
+## 0.14.0
+
+- `FoldRow actions`: controls on the row's right (a delete button, a menu), rendered beside the `<details>` instead of
+  inside its `<summary>`, so clicking one never folds the row; shown open or closed, centred on the summary's first
+  line (row height, or the touch target at `size="touch"`). With `actions` the row is wrapped in
+  `data-slot="fold-row-with-actions"`, which carries the bottom border. New optional prop only.
 
 ## 0.13.0
 

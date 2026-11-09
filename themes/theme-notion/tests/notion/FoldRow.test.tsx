@@ -142,3 +142,46 @@ describe("FoldRow size", () => {
     expect(classes).not.toContain("min-h-row-height");
   });
 });
+
+describe("FoldRow actions", () => {
+  function readActionsClasses(html: string): string[] {
+    return (/<div data-slot="fold-row-actions" class="([^"]+)"/.exec(html)?.[1] ?? "").split(" ");
+  }
+
+  it("draws the actions beside the details, outside the summary, and moves the border to the wrapper", () => {
+    const html = renderToStaticMarkup(
+      <FoldRow title="clip.mp4" badges={[]} actions={<button type="button">Delete</button>}>
+        <p>More</p>
+      </FoldRow>,
+    );
+
+    expect(html.startsWith('<div data-slot="fold-row-with-actions" class="flex items-start gap-1 border-b border-border">')).toBe(true);
+    expect(readAttribute(html, "data-slot")).toEqual([
+      "fold-row-with-actions",
+      "fold-row",
+      "fold-row-summary",
+      "fold-row-heading",
+      "fold-row-content",
+      "fold-row-actions",
+    ]);
+    expect(html).toContain('<details data-slot="fold-row" class="group/fold-row min-w-0 flex-1">');
+    expect(html).toMatch(/<\/details><div data-slot="fold-row-actions"[^>]*><button type="button">Delete<\/button><\/div><\/div>$/);
+    expect(/<summary[\s\S]*<\/summary>/.exec(html)?.[0]).not.toContain("Delete");
+    expect(readTextNodes(html)).toEqual(["clip.mp4", "More", "Delete"]);
+  });
+
+  it("centres the actions on the row height, or on the touch target at the touch size", () => {
+    const row = readActionsClasses(renderToStaticMarkup(<FoldRow title="a" badges={[]} actions="x" />));
+    const touch = readActionsClasses(renderToStaticMarkup(<FoldRow title="a" badges={[]} actions="x" size="touch" />));
+
+    expect(row).toEqual(["flex", "shrink-0", "items-center", "gap-1", "min-h-row-height"]);
+    expect(touch).toEqual(["flex", "shrink-0", "items-center", "gap-1", "min-h-touch-target"]);
+  });
+
+  it("keeps the plain row with its own border when the actions are null", () => {
+    const html = renderToStaticMarkup(<FoldRow title="a" badges={[]} actions={null} />);
+
+    expect(html.startsWith('<details data-slot="fold-row" class="group/fold-row border-b border-border">')).toBe(true);
+    expect(html).not.toContain("fold-row-actions");
+  });
+});

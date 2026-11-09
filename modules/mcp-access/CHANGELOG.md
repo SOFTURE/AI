@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.7.2
+
+- **`TokenManager` sections:** an optional `sections` prop (`"tools"`, `"issue"`, `"api"`, `"tokens"`, `"grants"`)
+  shows only the named parts, so an app can lay the token page out in tabs or an accordion with one `TokenManager`
+  per place; the page order is kept and a section without its data stays hidden. `TOKEN_MANAGER_SECTIONS` lists them.
+  Left out, every section shows as before. Migrate: nothing.
+
 ## 0.7.1
 
 - **`get_server_info` speaks the app's language (#1117):** `serverInfoTool` (and `registerServerInfoTool`) takes

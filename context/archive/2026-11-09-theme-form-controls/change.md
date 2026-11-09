@@ -36,7 +36,7 @@ existing `UploadField` is a dropping area for many files, too large for a form r
 
 ## Done
 
-`@softure-ai/theme-notion` 0.14.0: `FileInput` (a 28 px button and the chosen file's name, copy in
+`@softure-ai/theme-notion` 0.15.0: `FileInput` (a 28 px button and the chosen file's name, copy in
 `notionMessages.en.fileInput`, the native input focusable and labelled) and `FormGrid` (`columns` 1–3, `rows` per
 field; label, control and hint share rows across the columns through CSS subgrid). README: the form rule, controls at
 their default size.
