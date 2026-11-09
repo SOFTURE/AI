@@ -35,4 +35,4 @@
   `NODE_OPTIONS=--max-old-space-size=8192 npm run lint` exit 0 (2631fae)
 - [x] p3 guards' peer range and docs; `vitest run foundation/testing foundation/ui modules/pwa themes/theme-notion`:
   2222 passed, 30 skipped (2631fae)
-- [ ] p4 gates, PR, merge, release
+- [x] p4 PR #1218 all checks green on 6317664, merged as 421a0de (#1206 merged with it); release testing 0.5.1, ui 0.3.7
