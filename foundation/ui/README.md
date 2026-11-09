@@ -633,6 +633,18 @@ Guards an app runs over its own source files, built for `readSourceFiles` from `
 `typescript` must be installed to import `@softure-ai/ui/testing` (an optional peer dependency, already in every
 TypeScript app); comments never count.
 
+TypeScript 7.0 ships no compiler API, so the guards need TypeScript 6 (`>=5.0.0 <7.0.0`). An app on TypeScript 7
+keeps `tsc` from 7 and installs the API side by side, as the TypeScript 7.0 announcement recommends:
+
+```json
+{
+  "devDependencies": {
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
+  }
+}
+```
+
 ```ts
 import { readFileSync } from "node:fs";
 import { readSourceFiles } from "@softure-ai/testing/guards";
