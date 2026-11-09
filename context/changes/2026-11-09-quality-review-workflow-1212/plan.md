@@ -55,6 +55,6 @@ Input: change.md, research.md. Complexity: medium.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1
+- [x] Phase 2
+- [x] Phase 3 (smoke: the built CLI with the real SDK 0.3.319 and a fake key starts the agent and fails cleanly, writing no report)
