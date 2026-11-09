@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.1.9
+
+- A per-attempt outcome hook (#1215). New option `onJobAttempt(event, ctx)` runs once per attempt the worker or
+  `runDueJobs` recorded, after the write commits, with `JobAttemptEvent` `{ queue, jobId, origin, attempt, maxAttempts,
+  outcome, code, durationMs, at }`: `outcome` is the worker's own classification (`succeeded`, `retried`, `failed`,
+  `paused`, `cancelled`), `code` the failure's code. Codes and ids only. A throwing hook is logged and changes nothing.
+  `recordJobHooks()` from `/testing` records it as `attempts`. New exports `JobAttemptEvent`, `JobAttemptOutcome`,
+  `OnJobAttemptHook`, and `notifyJobAttempt` in `/server`.
+  - Migrate: nothing to run. An app that wrapped every handler to count runs by outcome can drop the wrapper and set
+    `onJobAttempt` (README §3, "Per-attempt metrics").
+
 ## 0.1.8
 
 - Docs: the README's alert hooks point to `alertsFromJobs` of `@softure-ai/alerts`.

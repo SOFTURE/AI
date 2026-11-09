@@ -68,6 +68,7 @@ export default defineSoftureConfig({
 | `shutdownGraceMs` | `20000` | how long a stopping worker waits for running handlers before releasing their jobs |
 | `retention` | `{ succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30, ownedDays: 1 }` | how long finished jobs, sync ledger items no run met, and the run history (§3, "Run history") are kept, and the floor for a job a user follows (§3, "A user follows their own job"); the worker prunes once an hour |
 | `logRuns` | `"all"` | which ends of a run the worker logs, one line each (§10): `"all"` (succeeded, retried, failed), `"failures"` (retried and failed) or `"none"` |
+| `onJobAttempt` | none | `(event, ctx)`, run once per recorded attempt with its outcome, code and duration (§3, "Per-attempt metrics") |
 | `onJobFailed` | none | `(event, ctx)`, run once when a job ends `failed` (§3, "Alert hooks") |
 | `onQueuePaused` | none | `(event, ctx)`, run once when the breaker or a handler pauses a queue (§3, "Pacing and the circuit breaker") |
 | `onScheduleStateChanged` | none | `(event, ctx)`, run once per transition of a schedule between `healthy`, `failing` and `late` (§3, "Alert hooks") |
@@ -345,8 +346,43 @@ from `@softure-ai/alerts/jobs`, next to its `alertsJobQueues` and `alertsJobSche
   (`the onJobFailed hook failed`, with the error's kind) and never fails the job, the claim or the worker; the
   transition stays reported. A hook is awaited: keep it short, or enqueue a job (as above) that sends the mail
   (`@softure-ai/mailing`) with its own retries.
-- In tests, `recordJobHooks()` from `@softure-ai/jobs/testing` gives `{ options, failedJobs, pausedQueues, scheduleStateChanges }`:
+- In tests, `recordJobHooks()` from `@softure-ai/jobs/testing` gives `{ options, attempts, failedJobs, pausedQueues, scheduleStateChanges }`:
   pass `jobs({ queues, ...recorder.options })` and assert the arrays after `runDueJobs`.
+
+### Per-attempt metrics
+
+An app that charts every queue's stability (runs by outcome, a duration histogram) sets `onJobAttempt` instead of
+wrapping its handlers and re-deriving the worker's classification:
+
+```ts
+import { metrics } from "@opentelemetry/api";
+
+const meter = metrics.getMeter("app");
+const runs = meter.createCounter("app.job.runs");
+const duration = meter.createHistogram("app.job.run.duration", { unit: "ms" });
+
+jobs({
+  queues,
+  onJobAttempt: ({ queue, outcome, durationMs }) => {
+    runs.add(1, { queue, status: outcome });
+    duration.record(durationMs, { queue, status: outcome });
+  },
+});
+```
+
+- `onJobAttempt({ queue, jobId, origin, attempt, maxAttempts, outcome, code, durationMs, at }, ctx)` runs once per
+  attempt the worker or `runDueJobs` recorded, after the write commits (and after `onJobFailed` or `onQueuePaused` for
+  the same attempt). `outcome` is the worker's own classification: `succeeded`; `retried` (a returned error with
+  attempts left, `retryJobLater`, or a throw as `jobs.handler_threw`); `failed` (`failJob`, attempts used up,
+  `jobs.invalid_payload`); `paused` (`pauseQueueLater`: the queue paused and the attempt was given back); `cancelled`
+  (an operator stopped it). `code` is the failure's code, null for `succeeded` and `cancelled`. `durationMs` runs from
+  the start of the attempt to its recorded end.
+- Not for an attempt the claim fence refused (the lease was lost, shutdown released the job): nothing was recorded, so
+  the next attempt reports. Not for a lease that ended with no attempts left either: `onJobFailed` reports that one
+  with `jobs.lease_expired`. An app calling `completeJob` itself records its own outcome and runs no hook.
+- A hook that throws is logged (`the onJobAttempt hook failed`) and never changes the job; it is awaited on the
+  worker's path, so keep it to in-memory work such as a counter. To show a queue's first failure as an increase in
+  Prometheus, the app starts its `failed` series at 0 for the queues it configured.
 
 ### Pacing and the circuit breaker
 

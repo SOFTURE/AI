@@ -1,9 +1,9 @@
 // Test helpers of @softure-ai/jobs: run due jobs in-process against a test database (`createTestDatabase` from
-// `@softure-ai/db/testing`), read the tables back (the run history too) and record the alert hooks' calls.
+// `@softure-ai/db/testing`), read the tables back (the run history too) and record the hooks' calls.
 import type { Queryable } from "@softure-ai/db";
 import { asc } from "drizzle-orm";
-import type { Job, JobFailedEvent, JobRun, QueuePausedEvent, ScheduleStateChangedEvent } from "../contract.js";
-import type { OnJobFailedHook, OnQueuePausedHook, OnScheduleStateChangedHook } from "../options.js";
+import type { Job, JobAttemptEvent, JobFailedEvent, JobRun, QueuePausedEvent, ScheduleStateChangedEvent } from "../contract.js";
+import type { OnJobAttemptHook, OnJobFailedHook, OnQueuePausedHook, OnScheduleStateChangedHook } from "../options.js";
 import { jobs, runs, syncCursors, syncItems } from "../schema.js";
 import { toJob } from "../server/job-row.js";
 import { toJobRun } from "../server/runs.js";
@@ -41,10 +41,13 @@ export async function listSyncState(db: Queryable): Promise<SyncState> {
 export interface JobHookRecorder {
   /** Spread into `jobs({ ... })` of the test's config: `jobs({ queues, ...recorder.options })`. */
   readonly options: {
+    readonly onJobAttempt: OnJobAttemptHook;
     readonly onJobFailed: OnJobFailedHook;
     readonly onQueuePaused: OnQueuePausedHook;
     readonly onScheduleStateChanged: OnScheduleStateChangedHook;
   };
+  /** Every `onJobAttempt` call, in order. */
+  readonly attempts: JobAttemptEvent[];
   /** Every `onJobFailed` call, in order. */
   readonly failedJobs: JobFailedEvent[];
   /** Every `onQueuePaused` call, in order. */
@@ -55,11 +58,15 @@ export interface JobHookRecorder {
 
 /** Hooks that record their calls, for asserting the alerts a test's `runDueJobs` raised. */
 export function recordJobHooks(): JobHookRecorder {
+  const attempts: JobAttemptEvent[] = [];
   const failedJobs: JobFailedEvent[] = [];
   const scheduleStateChanges: ScheduleStateChangedEvent[] = [];
   const pausedQueues: QueuePausedEvent[] = [];
   return {
     options: {
+      onJobAttempt: (event) => {
+        attempts.push(event);
+      },
       onJobFailed: (event) => {
         failedJobs.push(event);
       },
@@ -70,6 +77,7 @@ export function recordJobHooks(): JobHookRecorder {
         scheduleStateChanges.push(event);
       },
     },
+    attempts,
     failedJobs,
     pausedQueues,
     scheduleStateChanges,

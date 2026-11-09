@@ -15,7 +15,7 @@ export const MODULE_ID = "jobs";
 export const jobs = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.8",
+    version: "0.1.9",
     dependsOn: {},
     dbSchema: "jobs",
     tables: ["jobs", "queue_state", "runs", "schedules", "sync_cursors", "sync_items"],
@@ -36,6 +36,8 @@ export {
   JOB_STATUS_ROUTE_ERRORS,
   JOB_STATUSES,
   type Job,
+  type JobAttemptEvent,
+  type JobAttemptOutcome,
   type JobFailedEvent,
   type JobFailure,
   type JobOutcome,
@@ -69,6 +71,7 @@ export {
   type JobsOptions,
   type JobsOptionsInput,
   type LocalTimeScheduleOptions,
+  type OnJobAttemptHook,
   type OnJobFailedHook,
   type OnQueuePausedHook,
   type OnScheduleStateChangedHook,
