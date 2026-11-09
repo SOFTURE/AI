@@ -72,6 +72,6 @@
     }
   },
   "devDependencies": {
-    "lucide": "^1.66.0"
+    "lucide": "^1.70.0"
   }
 }
