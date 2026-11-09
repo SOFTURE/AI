@@ -1,0 +1,312 @@
+# A whole-repository quality review on demand (@softure-ai/quality-review, issue #1212): a reusable workflow an app
+# calls with a few lines (tools/quality-review/examples/quality-review.yml) and starts by hand. There is no schedule
+# and no incremental mode: every run reviews the whole repository at the commit it is started on and replaces
+# QUALITY-REPORT.md entirely.
+#
+# - `review` runs `softure-quality-review run`: a read-only agent on the Claude Agent SDK (Read, Glob and Grep inside
+#   the checkout; no edits, shell, network, MCP servers or the repository's .claude settings) reviews the repository
+#   against its AGENTS.md with the shared prompt kept in SOFTURE/AI, under the hard cost cap `max-budget-usd`. It has
+#   `contents: read` and the ANTHROPIC_API_KEY secret (a repository secret; no Environment, so no production secret
+#   ever reaches the job) and uploads the report as the artifact `quality-report`. A failed run fails here and opens
+#   nothing; a run stopped at the budget still delivers the findings it verified, marked as stopped.
+# - `deliver` has no API key and the write permissions only: it commits the report onto `branch`, cut fresh from the
+#   head of the base branch each run (the branch belongs to this workflow and is replaced), and opens or updates one
+#   pull request into the base branch. It never pushes to the base branch.
+#
+# The CLI and the Agent SDK come from npm at the exact versions of `cli-version` and `agent-sdk-version`.
+
+name: quality-review
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: The runner of every job as JSON, one label or an array of labels (e.g. "ubuntu-latest" or ["self-hosted","linux"])
+        type: string
+        default: '"ubuntu-latest"'
+      model:
+        description: The Claude model of the review agent
+        type: string
+        default: claude-opus-5-5
+      max-budget-usd:
+        description: Hard cost cap of one run in USD; the run stops when it is reached and the report says so
+        type: string
+        default: "10"
+      report-path:
+        description: Where the report goes, relative to the repository root
+        type: string
+        default: QUALITY-REPORT.md
+      branch:
+        description: The branch the report is committed to; replaced on every run, never the base branch
+        type: string
+        default: quality-review
+      base-branch:
+        description: The branch the pull request goes into; empty means the repository's default branch
+        type: string
+        default: ""
+      cli-version:
+        description: Version of @softure-ai/quality-review that runs the review
+        type: string
+        default: 0.1.0
+      agent-sdk-version:
+        description: Version of @anthropic-ai/claude-agent-sdk the review runs on
+        type: string
+        default: 0.3.319
+      node-version:
+        description: Node.js version that runs the CLI
+        type: string
+        default: "22"
+    secrets:
+      ANTHROPIC_API_KEY:
+        description: Claude API key, a repository secret of the calling app (not an Environment secret)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-review-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    name: review the repository
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    outputs:
+      commit: ${{ steps.review.outputs.commit }}
+    steps:
+      - name: Check the runner
+        env:
+          RUNS_ON: ${{ inputs.runs-on }}
+        # GitHub picked this runner from the value already, so a value that is not JSON never gets here; this step
+        # refuses the JSON that GitHub takes but the input does not mean (an object, an empty array, a number).
+        run: |
+          label='"[^"\\]+"'
+          space='[[:space:]]*'
+          pattern="^$space($label|\\[$space$label($space,$space$label)*$space\\])$space\$"
+          if [[ ! "$RUNS_ON" =~ $pattern ]]; then
+            echo "::error::Input runs-on is not valid: a JSON label such as '\"ubuntu-latest\"' or a non-empty array of labels such as '[\"self-hosted\",\"linux\"]'"
+            exit 1
+          fi
+      # A self-hosted runner keeps one work directory per repository between jobs, and a sparse checkout an earlier job
+      # left there outlives the next full one (issue #687): every job that checks out starts from an empty workspace,
+      # as on a hosted runner.
+      - name: Empty the workspace
+        # Outside the workspace, and before a job's defaults.run.working-directory (inside the checkout) exists.
+        working-directory: ${{ runner.temp }}
+        run: |
+          if ! find "${GITHUB_WORKSPACE:?}" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; then
+            echo "::error::The workspace $GITHUB_WORKSPACE could not be emptied: files of another user (a container's volume) are left there. Remove them on the runner, and empty the workspace in its job-started hook (@softure-ai/deploy README, \"Runner\")."
+            exit 1
+          fi
+      - name: Check the inputs
+        env:
+          MODEL: ${{ inputs.model }}
+          BUDGET: ${{ inputs.max-budget-usd }}
+          REPORT_PATH: ${{ inputs.report-path }}
+          BRANCH: ${{ inputs.branch }}
+          BASE_BRANCH: ${{ inputs.base-branch }}
+          CLI_VERSION: ${{ inputs.cli-version }}
+          SDK_VERSION: ${{ inputs.agent-sdk-version }}
+        run: |
+          failures=0
+          reject() { echo "::error::Input $1 is not valid: $2"; failures=$((failures + 1)); }
+          if [[ ! "$MODEL" =~ ^[a-z0-9][a-z0-9.-]*$ ]]; then reject model "a model id such as claude-opus-5-5"; fi
+          if [[ ! "$BUDGET" =~ ^[0-9]+(\.[0-9]+)?$ ]] || [[ "$BUDGET" =~ ^0+(\.0+)?$ ]]; then reject max-budget-usd "a number of USD above 0"; fi
+          if [[ ! "$REPORT_PATH" =~ ^[A-Za-z0-9_][A-Za-z0-9_./-]*\.md$ ]] || [[ "$REPORT_PATH" == *..* ]]; then
+            reject report-path "a Markdown file inside the repository, such as QUALITY-REPORT.md"
+          fi
+          if [[ ! "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || [[ "$BRANCH" == *..* ]]; then reject branch "a branch name"; fi
+          if [ -n "$BASE_BRANCH" ] && { [[ ! "$BASE_BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || [[ "$BASE_BRANCH" == *..* ]]; }; then
+            reject base-branch "a branch name, or empty for the default branch"
+          fi
+          if [[ ! "$CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then reject cli-version "an exact version"; fi
+          if [[ ! "$SDK_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then reject agent-sdk-version "an exact version"; fi
+          if (( failures > 0 )); then exit 1; fi
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Install the review CLI
+        env:
+          CLI_VERSION: ${{ inputs.cli-version }}
+          SDK_VERSION: ${{ inputs.agent-sdk-version }}
+        # Outside the checkout, so the app's own .npmrc and manifests play no part.
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir -p quality-review
+          cd quality-review
+          printf '{"private":true}\n' > package.json
+          npm install --no-audit --no-fund --save-exact \
+            "@softure-ai/quality-review@$CLI_VERSION" "@anthropic-ai/claude-agent-sdk@$SDK_VERSION"
+      - id: review
+        name: Review the repository
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODEL: ${{ inputs.model }}
+          BUDGET: ${{ inputs.max-budget-usd }}
+          REPORT_PATH: ${{ inputs.report-path }}
+        run: |
+          commit="$(git rev-parse HEAD)"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          "$RUNNER_TEMP/quality-review/node_modules/.bin/softure-quality-review" run --repo . --out "$REPORT_PATH" \
+            --model "$MODEL" --max-budget-usd "$BUDGET" --commit "$commit"
+          "$RUNNER_TEMP/quality-review/node_modules/.bin/softure-quality-review" check "$REPORT_PATH"
+          {
+            echo "## Quality review"
+            echo ""
+            sed -n '/^| Field | Value |$/,/^$/p' "$REPORT_PATH"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: quality-report
+          path: ${{ inputs.report-path }}
+          if-no-files-found: error
+          retention-days: 7
+
+  deliver:
+    name: open the pull request
+    needs: review
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check the runner
+        env:
+          RUNS_ON: ${{ inputs.runs-on }}
+        # GitHub picked this runner from the value already, so a value that is not JSON never gets here; this step
+        # refuses the JSON that GitHub takes but the input does not mean (an object, an empty array, a number).
+        run: |
+          label='"[^"\\]+"'
+          space='[[:space:]]*'
+          pattern="^$space($label|\\[$space$label($space,$space$label)*$space\\])$space\$"
+          if [[ ! "$RUNS_ON" =~ $pattern ]]; then
+            echo "::error::Input runs-on is not valid: a JSON label such as '\"ubuntu-latest\"' or a non-empty array of labels such as '[\"self-hosted\",\"linux\"]'"
+            exit 1
+          fi
+      # A self-hosted runner keeps one work directory per repository between jobs, and a sparse checkout an earlier job
+      # left there outlives the next full one (issue #687): every job that checks out starts from an empty workspace,
+      # as on a hosted runner.
+      - name: Empty the workspace
+        # Outside the workspace, and before a job's defaults.run.working-directory (inside the checkout) exists.
+        working-directory: ${{ runner.temp }}
+        run: |
+          if ! find "${GITHUB_WORKSPACE:?}" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; then
+            echo "::error::The workspace $GITHUB_WORKSPACE could not be emptied: files of another user (a container's volume) are left there. Remove them on the runner, and empty the workspace in its job-started hook (@softure-ai/deploy README, \"Runner\")."
+            exit 1
+          fi
+      # GitHub's hosted images ship the GitHub CLI, a self-hosted runner may not (issue #686): without it, this installs
+      # a pinned copy into RUNNER_TEMP for this job only, checked against its SHA-256 first, with no sudo.
+      - name: Set up the GitHub CLI
+        run: |
+          if command -v gh > /dev/null; then
+            exit 0
+          fi
+          version=2.103.0
+          case "$RUNNER_OS $RUNNER_ARCH" in
+            "Linux X64") arch=amd64 sum=fdd768eb70f6409f80fcfa9f3a1c0adf0fc98d827ab3ce0bed2ac22762c5d786 ;;
+            "Linux ARM64") arch=arm64 sum=7f322df34e624d14f5ec0c4acb121fd6dfa14392fdbbd1066aa8e0a05ac3721e ;;
+            *)
+              echo "::error::The GitHub CLI (gh) is not on this runner and cannot be installed on $RUNNER_OS $RUNNER_ARCH: install gh on the runner (https://cli.github.com)"
+              exit 1
+              ;;
+          esac
+          missing=""
+          for tool in curl tar; do
+            command -v "$tool" > /dev/null || missing="$missing $tool"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::The GitHub CLI (gh) is not on this runner, and installing it needs:$missing"
+            exit 1
+          fi
+          name="gh_${version}_linux_$arch"
+          url="https://github.com/cli/cli/releases/download/v$version/$name.tar.gz"
+          dir="$RUNNER_TEMP/gh-$version"
+          archive="$dir/$name.tar.gz"
+          rm -rf "$dir"
+          mkdir -p "$dir"
+          if ! curl -fsSL --retry 3 -o "$archive" "$url"; then
+            echo "::error::Downloading the GitHub CLI failed: $url"
+            exit 1
+          fi
+          if command -v sha256sum > /dev/null; then
+            actual="$(sha256sum "$archive" | cut -d " " -f 1)"
+          else
+            actual="$(shasum -a 256 "$archive" | cut -d " " -f 1)"
+          fi
+          if [ "$actual" != "$sum" ]; then
+            echo "::error::The GitHub CLI archive $name.tar.gz does not match its pinned SHA-256 ($actual, expected $sum)"
+            rm -rf "$dir"
+            exit 1
+          fi
+          tar -xzf "$archive" -C "$dir"
+          rm -f "$archive"
+          "$dir/$name/bin/gh" --version
+          echo "$dir/$name/bin" >> "$GITHUB_PATH"
+      - id: base
+        name: Resolve the base branch
+        env:
+          BASE_BRANCH: ${{ inputs.base-branch }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          base="${BASE_BRANCH:-$DEFAULT_BRANCH}"
+          if [ -z "$base" ]; then
+            echo "::error::The default branch is unknown in this event: set the base-branch input"
+            exit 1
+          fi
+          if [ "$base" = "$BRANCH" ]; then
+            echo "::error::The report branch $BRANCH is the base branch: the report never goes straight to $base"
+            exit 1
+          fi
+          echo "branch=$base" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.base.outputs.branch }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: quality-report
+          path: ${{ runner.temp }}/quality-report
+      - name: Commit the report and open or update the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ steps.base.outputs.branch }}
+          BRANCH: ${{ inputs.branch }}
+          REPORT_PATH: ${{ inputs.report-path }}
+          COMMIT: ${{ needs.review.outputs.commit }}
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/quality-report/$(basename "$REPORT_PATH")"
+          short="${COMMIT:0:8}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # The report branch is this workflow's own: cut fresh from the base branch and replaced on every run.
+          git switch -C "$BRANCH"
+          mkdir -p "$(dirname "$REPORT_PATH")"
+          cp "$report" "$REPORT_PATH"
+          git add -- "$REPORT_PATH"
+          git commit -q -m "docs(quality): quality report of $short"
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          body="$RUNNER_TEMP/pull-request-body.md"
+          {
+            echo "The quality review of \`$short\` (whole repository, read-only agent). This report replaces the previous one entirely."
+            echo ""
+            sed -n '/^| Field | Value |$/,/^$/p' "$REPORT_PATH"
+            echo "Triage: @softure-ai/quality-review README, \"Triage the report\". Accepted exceptions go to quality-review.ignore."
+          } > "$body"
+          number="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')"
+          title="Quality report of $short"
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --repo "$GITHUB_REPOSITORY" --title "$title" --body-file "$body"
+            url="$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json url --jq .url)"
+          else
+            url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base "$BASE" --head "$BRANCH" --title "$title" --body-file "$body")"
+          fi
+          echo "Quality report: $url" >> "$GITHUB_STEP_SUMMARY"
