@@ -28,8 +28,9 @@ JSON
 if [ -n "${WEED_BIN:-}" ]; then
   "$WEED_BIN" server -dir="$work/data" -ip=127.0.0.1 -s3 -s3.port=8333 -s3.config="$work/s3.json" > "$work/weed.log" 2>&1 &
 else
-  docker run --detach --name softure-backup-s3 --publish 8333:8333 --volume "$work:/work" "$IMAGE" \
-    server -dir=/work/data -s3 -s3.port=8333 -s3.config=/work/s3.json > /dev/null
+  # The image runs as its own user: only the config comes from the host, the data stays in the image's /data.
+  docker run --detach --name softure-backup-s3 --publish 8333:8333 --volume "$work/s3.json:/etc/seaweedfs/s3.json:ro" "$IMAGE" \
+    server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json > /dev/null
 fi
 
 # The gateway answers once the master, volume and filer are up.
