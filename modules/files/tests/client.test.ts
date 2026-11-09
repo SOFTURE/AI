@@ -125,11 +125,11 @@ describe("sendUpload", () => {
     const { ctx, url, id, route } = await open();
     const page = await serveUpload(ctx, new Request(url, { headers: { accept: "text/html" } }));
     const script = /<script nonce="[^"]+">([\s\S]*?)<\/script>/.exec(await page.text())?.[1] ?? "";
-    expect(script.startsWith("async function sendUpload(")).toBe(true);
+    expect(script.startsWith("const sendUpload = (async function sendUpload(")).toBe(true);
     // The whole page script compiles, and the sender part of it works without anything around it.
     expect(() => new Script(script)).not.toThrow();
-    const source = script.slice(0, script.indexOf("\nconst config"));
-    const inlined = runInThisContext(`(${source})`) as typeof sendUpload;
+    const source = script.slice("const sendUpload = ".length, script.indexOf(";\nconst config"));
+    const inlined = runInThisContext(source) as typeof sendUpload;
 
     expect(await inlined(new Blob([CONTENT]), { uploadUrl: url, fetch: route })).toEqual({ ok: true, value: { sentBytes: 2560, totalBytes: 2560 } });
     expect((await getUpload(ctx, id))?.state).toBe("complete");
