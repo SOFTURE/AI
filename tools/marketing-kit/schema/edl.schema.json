@@ -331,6 +331,23 @@
                   "l",
                   "pill"
                 ]
+              },
+              "align": {
+                "description": "center (the default) or left: how a hook_title's or a place_card's lines sit in their card.",
+                "type": "string",
+                "enum": [
+                  "center",
+                  "left"
+                ]
+              },
+              "subtitle_size": {
+                "description": "s, m (the default, about 55 % of the title) or l: a place_card's subtitle size.",
+                "type": "string",
+                "enum": [
+                  "s",
+                  "m",
+                  "l"
+                ]
               }
             },
             "additionalProperties": false

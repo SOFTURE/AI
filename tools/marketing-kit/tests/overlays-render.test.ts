@@ -181,3 +181,65 @@ describe.runIf(hasChromium)("overlays in the browser", () => {
     expect(await page.$eval("#ov4", (element) => getComputedStyle(element).visibility)).toBe("hidden");
   });
 });
+
+describe.runIf(hasChromium)("a typed hook title in the browser (RV-131 of an adopting app)", () => {
+  const HOOK: EdlOverlay = { kind: "hook_title", at: 0, duration: 6, text: "Effective plans", style: { entrance: "type", typing_speed: 10 } };
+  const edl: Edl = { ...EDL, segments: [{ id: "s1", clip: "talk", start: 0, end: 9, transition: "cut", motion: "none" }], overlays: [HOOK] };
+  let browser: Browser;
+  let page: Page;
+  let dir: string;
+
+  beforeAll(async () => {
+    const resolved = resolveEdlOverlays({ film, edl, words: [], frame: LAYOUTS["9:16"].frame, caption: CAPTION });
+    if (!resolved.ok) throw new Error(resolved.problems.join("; "));
+    browser = await chromium.launch(CHROMIUM_PATH === undefined ? {} : { executablePath: CHROMIUM_PATH });
+    dir = mkdtempSync(join(tmpdir(), "overlays-typed-"));
+    mkdirSync(join(dir, "assets"));
+    copyFileSync(require.resolve("gsap/dist/gsap.min.js"), join(dir, "assets", "gsap.min.js"));
+    const file = join(dir, "index.html");
+    writeFileSync(
+      file,
+      composeFootage({
+        film,
+        edl,
+        words: [],
+        frame: LAYOUTS["9:16"].frame,
+        caption: CAPTION,
+        headlineSize: 96,
+        colors: COLORS,
+        fonts: { heading: null, body: null },
+        assets: { clips: { talk: "clips/talk.mp4" }, picture: "assets/picture.mp4", speech: "assets/speech.mp3", music: null, lastFrame: "assets/last.jpg", logo: null, sfx: {} },
+        brandName: "Acme",
+        locale: "en-US",
+        overlays: resolved.overlays,
+      }),
+    );
+    page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
+    await page.goto(pathToFileURL(file).href);
+    await page.evaluate(() => document.fonts.ready);
+  });
+
+  afterAll(async () => {
+    await browser.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("keeps the card its fitted size and the typed characters centred in it while it types", async () => {
+    const box = (resolveEdlOverlays({ film, edl, words: [], frame: LAYOUTS["9:16"].frame, caption: CAPTION }) as { overlays: ResolvedOverlay[] }).overlays[0];
+    if (box?.kind !== "hook_title") throw new Error("a hook title");
+    for (const at of [0.65, 1.0, 1.5, 2.0]) {
+      await page.evaluate((seconds) => {
+        (window as unknown as { __timelines: Record<string, { seek: (t: number) => void }> }).__timelines.film?.seek(seconds);
+      }, at);
+      const rects = await page.evaluate(() => {
+        const card = document.querySelector("#ov0 .ov-card")?.getBoundingClientRect();
+        const shown = [...document.querySelectorAll<HTMLElement>("#ov0 .ch")].filter((char) => getComputedStyle(char).opacity === "1").map((char) => char.getBoundingClientRect());
+        return { card: card?.toJSON() as DOMRect, left: Math.min(...shown.map((rect) => rect.left)), right: Math.max(...shown.map((rect) => rect.right)), count: shown.length };
+      });
+      expect(rects.count, `at ${at} s`).toBeGreaterThan(0);
+      expect(Math.round(rects.card.width)).toBe(box.box.width);
+      const inkCentre = (rects.left + rects.right) / 2;
+      expect(Math.abs(inkCentre - (rects.card.left + rects.card.width / 2)) / 1080, `at ${at} s`).toBeLessThanOrEqual(0.02);
+    }
+  }, 30_000);
+});
