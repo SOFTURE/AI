@@ -109,6 +109,28 @@ export {
   type OverlaySize,
 } from "./footage/overlay-schema.js";
 export {
+  CORNER_RADII,
+  CORNER_RADIUS_PX,
+  STYLE_BORDER_PX,
+  STYLE_BORDERS,
+  STYLE_PADDING_SCALES,
+  STYLE_PADDINGS,
+  STYLE_SHADOW,
+  STYLE_SHADOWS,
+  getCaptionCornerRadius,
+  getCornerRadiusCss,
+  getCornerRadiusPx,
+  getStyleBorderCss,
+  getStylePadding,
+  getStyleShadowCss,
+  type BrandStyle,
+  type CornerRadius,
+  type StyleBorder,
+  type StylePadding,
+  type StyleShadow,
+} from "./footage/brand-style.js";
+export { createDraftTextMeasure, wrapDraftLine, type DraftTextMeasure } from "./footage/draft-text-width.js";
+export {
   OVERLAY_FONT_ROLES,
   OVERLAY_FONT_SIZES,
   PUNCH_IN_EASE_SECONDS,

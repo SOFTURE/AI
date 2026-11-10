@@ -79,3 +79,4 @@ export {
   type HeadlineCtaData,
 } from "./templates/schemas.js";
 export { loadMarketingConfig, type LoadConfigResult, type MarketingConfig } from "../config/config.js";
+export { CORNER_RADII, type CornerRadius } from "../footage/brand-style.js";
