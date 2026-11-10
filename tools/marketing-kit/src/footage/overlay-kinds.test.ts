@@ -200,7 +200,7 @@ describe("placing the new kinds", () => {
     expect(search).toMatchObject({ text: "cheap stay Hanoi", fontSize: 42, typing: 14 });
     expect(search.box.width).toBeGreaterThanOrEqual(Math.round(ROOM * 0.82));
     const middle = only(PLACE, "place_card");
-    expect(middle).toMatchObject({ lines: ["Ha Long Bay"], subtitle: "A bay of 1600 islands", subtitleFontSize: 39 });
+    expect(middle).toMatchObject({ lines: ["Ha Long Bay"], subtitle: "A bay of 1600 islands", subtitleFontSize: 51 });
     const top = only({ ...PLACE, style: { position: "top" } }, "place_card");
     const bottom = only({ ...PLACE, style: { position: "bottom" } }, "place_card");
     expect(top.box.top).toBe(ZONE.top);
@@ -245,8 +245,8 @@ describe("placing the new kinds", () => {
     expect(problems([{ ...COUNTER, value: 999_999_999, unit: "kilometres", style: { size: "l" } }])).toEqual([
       "overlays[0]: the counter's number is too wide for one line; shorten it or use a smaller size",
     ]);
-    expect(problems([{ ...HOOK, text: "x ".repeat(32).trim(), style: { size: "l" } }])).toEqual(["overlays[0]: the hook title takes more than 2 lines; shorten it or use a smaller size"]);
-    expect(problems([{ ...HOOK, text: "x".repeat(40) }])).toEqual(["overlays[0]: the hook title takes more than 2 lines; shorten it or use a smaller size"]);
+    expect(problems([{ ...HOOK, text: "x ".repeat(32).trim(), style: { size: "l" } }])).toEqual(["overlays[0]: the hook title takes more than 2 lines even at a smaller size; shorten it or use a smaller size"]);
+    expect(problems([{ ...HOOK, text: "x".repeat(40) }])).toEqual(["overlays[0]: the hook title takes more than 2 lines even at a smaller size; shorten it or use a smaller size"]);
     expect(problems([{ ...HOOK, text: "Why?", place: "W".repeat(40), style: { size: "l" } }])).toEqual(["overlays[0]: the hook title's place label is too wide for one line; shorten it or use a smaller size"]);
     expect(problems([{ ...PLACE, subtitle: "W".repeat(40), style: { size: "l" } }])).toEqual(["overlays[0]: the place card's subtitle is too wide for one line; shorten it or use a smaller size"]);
     const narrow = { frame: { width: 300, height: 960 }, film: { ...film, format: "16:9" as const }, caption: { top: 700, left: 40, right: 40, fontSize: 32 } };
@@ -312,11 +312,11 @@ describe("the render's new kinds", () => {
     expect(html).toContain('class="clip ov ov-search-bar center ty"');
     expect(html).toContain('<span class="ch">c</span><span class="ch">h</span>');
     expect(html).toContain('<span class="ch">&#32;</span>');
-    expect(html).toContain('tl.to("#ov1 .ch", { opacity: 1, duration: 0.01, ease: "none", stagger: 0.071 }, 1.3);');
+    expect(html).toContain('tl.to("#ov1 .ch", { opacity: 1, display: "inline", duration: 0.01, ease: "none", stagger: 0.071 }, 1.3);');
     expect(html).toContain('<span id="ov2n">0</span><span class="ov-unit" style="font-size:54px">km</span>');
     expect(html).toContain('new Intl.NumberFormat("pl-PL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })');
     expect(html).toContain("tl.fromTo(n, { v: 0 }, { v: 1250, duration: 1.5, ease: \"power2.out\"");
-    expect(html).toContain('<div class="ov-sub" style="font-size:39px">A bay of 1600 islands</div>');
+    expect(html).toContain('<div class="ov-sub" style="font-size:51px">A bay of 1600 islands</div>');
     expect(html).toContain('class="clip ov ov-date right"');
     expect(html).toContain('@font-face{font-family:"Ui"');
     expect(html).toContain('.ov-hook-title .ov-line{font-family:"Cal",sans-serif;');
@@ -344,7 +344,7 @@ describe("the render's new kinds", () => {
     const { html, tweens } = getOverlayMarkup(overlays, { colors: COLORS, headingFont: "h", frame: FRAME });
     const all = `${html.join("\n")}\n${tweens.join("\n")}`;
     expect(all).toContain('<div class="ov-card" style="background:#ffffff;color:#000000;border-bottom-color:#00ff00"><span id="ov0t"><span class="ch">3</span><span class="ch">x</span></span></div>');
-    expect(all).toContain('tl.to("#ov0 .ch", { opacity: 1, duration: 0.01, ease: "none", stagger: 0.1 }, 1.3);');
+    expect(all).toContain('tl.to("#ov0 .ch", { opacity: 1, display: "inline", duration: 0.01, ease: "none", stagger: 0.1 }, 1.3);');
     expect(all).toContain('<i class="ov-dot" id="ov1d" style="background:#00ff00"></i>');
     expect(all).toContain('tl.fromTo("#ov1 .ov-card", { opacity: 0, y: 28 }');
     expect(all).not.toContain('"#ov1d", { scale: 0 }');
@@ -354,7 +354,7 @@ describe("the render's new kinds", () => {
     expect(all).toContain('tl.fromTo("#ov3 .ov-svg", { opacity: 0 }');
     expect(all).not.toContain('"#ov4s", { attr');
     expect(all).toContain('<div class="ov-line"><span class="ch">H</span>');
-    expect(all).toContain('tl.to("#ov5 .ch", { opacity: 1, duration: 0.01, ease: "none", stagger: 0.071 }, 3.8);');
+    expect(all).toContain('tl.to("#ov5 .ch", { opacity: 1, display: "inline", duration: 0.01, ease: "none", stagger: 0.071 }, 3.8);');
     expect(all).toContain('<div id="ov6" class="clip ov ov-date"');
     expect(all).toContain('<div class="ov-card" style="color:#000000">');
     expect(all).not.toContain('tl.fromTo("#ov6 .ov-card"');
@@ -403,12 +403,14 @@ describe("the draft's new kinds", () => {
   it("draws a place card, a stamp in its corner and a typed hook title line after line, in the role fonts", () => {
     const lines = draft([PLACE, DATE, { ...HOOK, place: undefined, style: { entrance: "type", typing_speed: 40 } }], { overlayFonts: { heading: "Cal", interface: "Ui" } });
     expect(lines.some((line) => /\\an8\\fs92\\fnCal.*\}Ha Long Bay$/.test(line))).toBe(true);
-    expect(lines.some((line) => /\\an8\\fs39\\fnUi.*\}A bay of 1600 islands$/.test(line))).toBe(true);
+    expect(lines.some((line) => /\\an8\\fs51\\fnUi.*\}A bay of 1600 islands$/.test(line))).toBe(true);
     expect(lines.some((line) => /\\an9\\fs36\\fnUi.*\}Day 12$/.test(line))).toBe(true);
     expect(lines.some((line) => /\\an9\\fs28\\fnUi.*\}Hoi An$/.test(line))).toBe(true);
-    const second = lines.filter((line) => line.includes("Vietnam cost?") && line.includes("\\an8"));
-    // The second line starts hidden with the title and types after the first line's 23 characters.
-    expect(second[0]).toMatch(/^Dialogue: 4,0:00:00\.00,0:00:00\.80,.*\{\\1a&HFF&\}in Vietnam cost\?$/);
+    const second = lines.filter((line) => /\\an8\\fs64\\fnCal\\pos\(\d+,316\)/.test(line));
+    // The second line types after the first line's 20 characters, centred: each step shows only what is typed (RV-131).
+    expect(second[0]).toMatch(/^Dialogue: 4,0:00:00\.80,0:00:00\.83,.*\}i$/);
+    expect(second.at(-1)).toMatch(/^Dialogue: 4,0:00:01\.18,0:00:15\.00,.*\}in Vietnam cost\?$/);
+    expect(lines.some((line) => line.includes("\\1a&HFF&"))).toBe(false);
   });
 
   it("takes each overlay's entrance and colours on the drawn cards and the marks", () => {

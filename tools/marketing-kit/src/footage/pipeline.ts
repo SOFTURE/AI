@@ -747,7 +747,7 @@ async function runRenderFootage(
   if (lowDisk.length > 0) return err(`not enough disk space to render: ${lowDisk.join(" ")}`);
   const seconds = getFootageFilmSeconds(film, edl);
   const words = remapWords(edl, transcript.words, film.cut.fillers);
-  const overlays = resolveEdlOverlays({ film, edl, words, frame: getFrame(film), caption: getFootageCaptionLayout(film, options.layout ?? {}) });
+  const overlays = resolveEdlOverlays({ film, edl, words, frame: getFrame(film), caption: getFootageCaptionLayout(film, options.layout ?? {}), ...(options.brand.style === undefined ? {} : { style: options.brand.style }) });
   if (!overlays.ok) return err(`footage film ${film.id}: the EDL's overlays cannot be drawn: ${overlays.problems.join("; ")}`, { kind: "input" });
   const music = await getMusic(film, edl, clips, seconds, options);
   if (!music.ok) return music;

@@ -710,6 +710,13 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   end card's button and, with `PhotoCoverInput.cornerRadius`, the cover's pill and kicker box. An overlay's own
   `style.corner_radius` wins for its card. The draft measures a caption chunk with the draft font's advances
   (`createDraftTextMeasure`) and draws the pill, its shadow and its border as rounded drawings that fit the text.
+- **Title cards fitted and centred** (0.28.0): a hook title and a place card take `style.align` (`center`, the default,
+  or `left`) and a place card `style.subtitle_size` (`s`, `m` about 55 % of the title, the default, or `l`; never
+  under 44 px of a 1080 px frame unless a long subtitle must shrink to fit). A title wraps to two balanced lines
+  (`wrapOverlayTitle`) and shrinks by 10 % steps, at most three, before it is refused. A centred typed title shows
+  only what is typed, centred in a card that keeps the whole title's width, in the draft and the render alike.
+  `brand.style.padding` pads every overlay card (`resolveEdlOverlays({ style })`, `getOverlayPadding`), and
+  `getTitleContentBox` answers where a title's text block sits in its card.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless

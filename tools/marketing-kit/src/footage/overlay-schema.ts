@@ -36,6 +36,14 @@ export const OVERLAY_POSITIONS = ["top", "middle", "bottom"] as const;
 
 export type OverlayPosition = (typeof OVERLAY_POSITIONS)[number];
 
+/** How a hook title's or a place card's lines sit in their card: centred (the default) or from its left padding. */
+export const OVERLAY_ALIGNS = ["center", "left"] as const;
+
+export type OverlayAlign = (typeof OVERLAY_ALIGNS)[number];
+
+/** The kinds whose lines take an `align`: the two stacked title cards. */
+export const OVERLAY_ALIGNED_KINDS: readonly OverlayKind[] = ["hook_title", "place_card"];
+
 /**
  * How an overlay enters: `fade` in place, `slide` up into place, `type` letter by letter (text kinds), `none` (it is
  * simply there). Without one, the kind's own entrance. Never a bounce or a pop: the reel stays natural.
@@ -109,6 +117,10 @@ export interface EdlOverlayStyle {
   colors?: EdlOverlayColors;
   /** Its card's corner in place of the brand style's (`BrandStyle.cornerRadius`); not on a punch_in, arrow or highlight. */
   corner_radius?: CornerRadius;
+  /** How a hook title's or a place card's lines sit in the card (`center` without it). */
+  align?: OverlayAlign;
+  /** A place card's subtitle size: `s`, `m` (about 55 % of the title, the default) or `l`. */
+  subtitle_size?: OverlaySize;
 }
 
 export interface EdlOverlay {
@@ -260,6 +272,8 @@ function checkOverlayStyle(overlay: EdlOverlay, issue: (path: string[], message:
   }
   if (style.typing_speed !== undefined && !isTypedOverlay(overlay)) issue(["style", "typing_speed"], "only a typed entrance or a search bar has a typing speed");
   if (style.corner_radius !== undefined && (kind === "punch_in" || kind === "arrow" || kind === "highlight")) issue(["style", "corner_radius"], `${article(kind)} draws no card; leave corner_radius out`);
+  if (style.align !== undefined && !OVERLAY_ALIGNED_KINDS.includes(kind)) issue(["style", "align"], "only a hook_title or a place_card aligns its lines; leave align out");
+  if (style.subtitle_size !== undefined && kind !== "place_card") issue(["style", "subtitle_size"], "only a place_card has a subtitle; leave subtitle_size out");
   if (style.colors === undefined) return;
   if (kind === "punch_in") issue(["style", "colors"], "a punch_in draws nothing to colour; leave colors out");
   if ((kind === "arrow" || kind === "highlight") && (style.colors.card !== undefined || style.colors.text !== undefined)) {
@@ -349,6 +363,8 @@ export const overlaySchema = z
           .enum(CORNER_RADII)
           .optional()
           .describe("The card's corner: none, s, m, l or pill; the brand style's without it (no punch_in, arrow or highlight)."),
+        align: z.enum(OVERLAY_ALIGNS).optional().describe("center (the default) or left: how a hook_title's or a place_card's lines sit in their card."),
+        subtitle_size: z.enum(OVERLAY_SIZES).optional().describe("s, m (the default, about 55 % of the title) or l: a place_card's subtitle size."),
       })
       .optional()
       .describe("The overlay's look: size, side, position, entrance, typing speed and colours; fonts are the brand's."),

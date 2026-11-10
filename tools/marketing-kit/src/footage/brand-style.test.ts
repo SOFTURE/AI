@@ -217,7 +217,7 @@ describe("overlay cards in the brand style", () => {
     expect(markup.css).toContain(".ov-card{border-radius:36px;box-shadow:0 14px 44px rgba(0,0,0,0.4);border:3px solid #ff8800}");
     expect(markup.css).toContain(".ov-search{border-radius:999px}");
     expect(markup.css).toContain(".ov-keyword .ov-card{border-bottom:.12em solid #ff8800}");
-    expect(markup.html.join("")).toContain(' style="border-radius:12px"');
+    expect(markup.html.join("")).toContain(' style="border-radius:12px;padding:');
     const borderless = getOverlayMarkup([title], { colors, headingFont: "Head", frame: FRAME, style: { ...STYLE, border: "none" } });
     expect(borderless.css.some((rule) => rule.startsWith(".ov-keyword .ov-card{border-bottom") && rule.endsWith("#ff8800}"))).toBe(false);
     expect(getOverlayMarkup([title], { colors, headingFont: "Head", frame: FRAME }).css.some((rule) => rule.includes("border:3px"))).toBe(false);

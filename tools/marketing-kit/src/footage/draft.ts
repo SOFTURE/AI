@@ -770,7 +770,7 @@ async function runRenderFootageDraft(
   const { rawSpeechFile, declickedFile, speechFile } = getSpeechChainFiles(draftDir, { isDeclick: declickLevel !== "off", isLoudness: loudness !== null });
   const words = remapWords(edl, transcript.words, film.cut.fillers);
   const frame = getFrame(film);
-  const resolved = resolveEdlOverlays({ film, edl, words, frame, caption: getFootageCaptionLayout(film, options.layout ?? {}) });
+  const resolved = resolveEdlOverlays({ film, edl, words, frame, caption: getFootageCaptionLayout(film, options.layout ?? {}), ...(options.brand?.style === undefined ? {} : { style: options.brand.style }) });
   if (!resolved.ok) return err(`footage film ${film.id}: the EDL's overlays cannot be drawn: ${resolved.problems.join("; ")}`, { kind: "input" });
   const overlays = resolved.overlays;
   const brandColors = options.brand?.colors;
