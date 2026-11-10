@@ -1,12 +1,13 @@
 ---
 change_id: theme-fold-row-actions-in-bar
 title: "theme-notion: FoldRow actions sit inside the row's bar"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/theme-notion-fold-row-actions-bar
 created: 2026-11-10
 updated: 2026-11-10
+archived_at: 2026-11-10
 ---
 
 ## Intent
