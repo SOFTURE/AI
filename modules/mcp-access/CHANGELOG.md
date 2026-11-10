@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.7.3
+
+- **`TokenManager` buttons keep their own width:** the token form's submit button, the issued panel's "Open in Claude
+  Code" link and both "Done" buttons sit in a new `actions` slot (a row) instead of stretching across the page's
+  column. `classNames.actions` restyles the row. Migrate: nothing.
+
 ## 0.7.2
 
 - **`TokenManager` sections:** an optional `sections` prop (`"tools"`, `"issue"`, `"api"`, `"tokens"`, `"grants"`)

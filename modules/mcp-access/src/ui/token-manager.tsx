@@ -29,7 +29,7 @@ export type TokenManagerSection = "tools" | "issue" | "api" | "tokens" | "grants
 /** Every section, in the order the page shows them. */
 export const TOKEN_MANAGER_SECTIONS: readonly TokenManagerSection[] = ["tools", "issue", "api", "tokens", "grants"];
 
-export type TokenManagerSlot = "root" | "section" | "heading" | "text" | "list" | "item" | "itemHeader" | "badge" | "details" | "snippet" | "code";
+export type TokenManagerSlot = "root" | "section" | "heading" | "text" | "list" | "item" | "itemHeader" | "badge" | "details" | "snippet" | "code" | "actions";
 
 /** One tool of the app's catalog, prepared on the server. */
 export interface TokenManagerTool {
@@ -116,6 +116,7 @@ const DEFAULT_CLASSES: Readonly<Record<TokenManagerSlot, string>> = {
   badge: "sft:text-xs sft:font-medium sft:text-muted",
   details: "sft:m-0 sft:text-xs sft:text-muted",
   snippet: "sft:flex sft:flex-col sft:gap-1.5",
+  actions: "sft:flex sft:flex-wrap sft:items-center sft:gap-2",
   code: "sft:m-0 sft:block sft:overflow-x-auto sft:whitespace-normal sft:break-words sft:rounded-control sft:border sft:border-border sft:bg-surface-raised sft:p-4 sft:font-mono sft:text-xs sft:text-foreground",
 };
 
@@ -172,16 +173,20 @@ function IssuedTokenPanel({
       </p>
       {snippet(messages.issued.promptTitle, issued.setup.assistantPrompt)}
       <p className={slot("text")}>{messages.issued.promptHint}</p>
-      <ButtonLink href={issued.setup.claudeCodeLink} variant="secondary" size="sm" unstyled={unstyled}>
-        {messages.issued.openClaudeCode}
-      </ButtonLink>
+      <div className={slot("actions")}>
+        <ButtonLink href={issued.setup.claudeCodeLink} variant="secondary" size="sm" unstyled={unstyled}>
+          {messages.issued.openClaudeCode}
+        </ButtonLink>
+      </div>
       {snippet(messages.issued.commandTitle, issued.setup.claudeCodeCommand)}
       {snippet(messages.issued.jsonTitle, issued.setup.jsonConfig)}
       {snippet(messages.issued.desktopTitle, issued.setup.desktopConfig)}
       {snippet(messages.issued.headerTitle, `${issued.setup.endpointUrl}\nAuthorization: ${issued.setup.authorizationHeader}`)}
-      <Button variant="primary" onClick={onDone} unstyled={unstyled}>
-        {messages.issued.done}
-      </Button>
+      <div className={slot("actions")}>
+        <Button variant="primary" onClick={onDone} unstyled={unstyled}>
+          {messages.issued.done}
+        </Button>
+      </div>
     </section>
   );
 }
@@ -234,9 +239,11 @@ function IssueForm({
           {allowWrites ? <Checkbox name="canWrite" label={messages.issue.canWrite} description={messages.issue.canWriteHint} unstyled={unstyled} /> : null}
           <p className={slot("text")}>{formatMessage(messages.issue.limit, { max: maxTokens })}</p>
           <FormError message={state.status === "error" ? (state.message ?? getTokenErrorMessage(messages, state.error)) : undefined} unstyled={unstyled} />
-          <Button type="submit" variant="primary" pending={isPending} unstyled={unstyled}>
-            {isPending ? messages.issue.pending : messages.issue.submit}
-          </Button>
+          <div className={slot("actions")}>
+            <Button type="submit" variant="primary" pending={isPending} unstyled={unstyled}>
+              {isPending ? messages.issue.pending : messages.issue.submit}
+            </Button>
+          </div>
         </form>
       </section>
       {issued === null ? null : <IssuedTokenPanel issued={issued} onDone={() => dismiss(issued.id)} messages={messages} slot={slot} unstyled={unstyled} />}
@@ -272,9 +279,11 @@ function IssuedApiTokenPanel({
       {snippet(messages.apiIssued.tokenTitle, issued.token)}
       {snippet(messages.apiIssued.headerTitle, `Authorization: ${issued.authorizationHeader}`)}
       {issued.examples.map((example) => snippet(example.title, example.text))}
-      <Button variant="primary" onClick={onDone} unstyled={unstyled}>
-        {messages.issued.done}
-      </Button>
+      <div className={slot("actions")}>
+        <Button variant="primary" onClick={onDone} unstyled={unstyled}>
+          {messages.issued.done}
+        </Button>
+      </div>
     </section>
   );
 }
@@ -331,9 +340,11 @@ function ApiIssueForm({
             ))}
           <p className={slot("text")}>{formatMessage(messages.issue.limit, { max: maxTokens })}</p>
           <FormError message={state.status === "error" ? (state.message ?? getTokenErrorMessage(messages, state.error)) : undefined} unstyled={unstyled} />
-          <Button type="submit" variant="primary" pending={isPending} unstyled={unstyled}>
-            {isPending ? messages.apiIssue.pending : messages.apiIssue.submit}
-          </Button>
+          <div className={slot("actions")}>
+            <Button type="submit" variant="primary" pending={isPending} unstyled={unstyled}>
+              {isPending ? messages.apiIssue.pending : messages.apiIssue.submit}
+            </Button>
+          </div>
         </form>
       </section>
       {issued === null ? null : <IssuedApiTokenPanel issued={issued} onDone={() => dismiss(issued.id)} messages={messages} slot={slot} unstyled={unstyled} />}

@@ -967,7 +967,8 @@ counts as off and is logged by the switch's name. The stdio entry reads the swit
 ## 8. Appearance
 
 `TokenManager` slots: `root`, `section`, `heading`, `text`, `list`, `item`, `itemHeader`, `badge`,
-`details`, `snippet`, `code`; `unstyled` renders structure only. `ConsentForm` and `ConsentError` slots: `root`,
+`details`, `snippet`, `code`, `actions` (the row around a form's submit button and the issued panel's buttons, so a
+button keeps its own width); `unstyled` renders structure only. `ConsentForm` and `ConsentError` slots: `root`,
 `details`, `term`, `value`, `target` (where the code goes), `note` (the hint under it), `actions`, `text`, `link`;
 `OAuthConsentPage` takes `classNames` and `unstyled` and passes them to both. Styling comes from
 `@softure-ai/ui` classes on the `--sft-*` tokens; the module ships no CSS of its own.
