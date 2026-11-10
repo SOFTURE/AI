@@ -697,6 +697,12 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   in the brand's heading font, labels, lists, the search query and the stamp in its new optional interface font
   (`brand.fonts.interface`, the body font without one); the glyph check reads each text against its own font. The
   draft draws the same cards (a rounded card, the pin, the magnifier, the text typing in, the number stepping up).
+- **The card an overlay draws** (0.25.0): a keyword, a lower third and a list are placed in the whole width they may
+  take (`box`), but the card shows only round its text. `getDrawnOverlayCard(overlay)` answers that card in px of the
+  frame: its widest line by `estimateTextWidth` plus its padding, on its `side`, as tall as its box (every other kind:
+  `getOverlayBounds`; a `punch_in`: null). The draft draws exactly this card (rounded, 0.42 em, its text inside the
+  padding on its side, a list's points on the render's line height), so an app reporting where an overlay sits (does
+  it cover a face?) reads the box the frame shows.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless

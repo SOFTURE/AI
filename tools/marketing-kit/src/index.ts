@@ -114,6 +114,7 @@ export {
   PUNCH_IN_EASE_SECONDS,
   PUNCH_IN_SCALES,
   formatOverlayNumber,
+  getDrawnOverlayCard,
   getOverlayBounds,
   getOverlaySafeZone,
   getOverlayTexts,

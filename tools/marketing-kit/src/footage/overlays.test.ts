@@ -11,7 +11,7 @@ import { FOOTAGE_DRAFT_FONT, buildFootageDraftArgs, buildFootageDraftCaptions, p
 import { diffEdl, readEdl, type Edl } from "./edl.js";
 import { DEFAULT_TRANSITIONS, type FootageFilm } from "./film.js";
 import type { EdlOverlay } from "./overlay-schema.js";
-import { getOverlaySafeZone, resolveEdlOverlays, type ResolveOverlaysInput, type ResolvedOverlay } from "./overlays.js";
+import { getDrawnOverlayCard, getOverlaySafeZone, resolveEdlOverlays, type ResolveOverlaysInput, type ResolvedOverlay } from "./overlays.js";
 import { readFfmpegListing } from "./tools.js";
 
 /** EDL overlays (issue #1200): the schema, the guards, the render's composition and the draft. */
@@ -253,12 +253,20 @@ describe("the draft's overlays", () => {
 
   it("draws the overlays on layer 3 in the brand's colours, the same places and times as the render", () => {
     const ass = buildFootageDraftCaptions({ film, edl: edlWith(ALL_KINDS), words: WORDS, caption: CAPTION, frame: FRAME, overlays: resolved(ALL_KINDS), overlayColors: COLORS }) ?? "";
-    expect(ass).toContain("Style: Overlay,DejaVu Sans,48,&H00F5F3F2,&H00F5F3F2,&H00201810,&H00201810,-1,0,0,0,100,100,0,0,3,16,0,7,0,0,0,1");
+    expect(ass).not.toContain("Style: Overlay,");
+    expect(ass).toContain("Style: OverlayPlain,DejaVu Sans,48,&H00F5F3F2,&H00F5F3F2,&H00F5F3F2,&H00F5F3F2,-1,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1");
     const events = ass.split("\n").filter((line) => line.startsWith("Dialogue: 3,"));
+    const texts = ass.split("\n").filter((line) => line.startsWith("Dialogue: 4,"));
     expect(events).toHaveLength(5);
-    expect(events[0]).toMatch(/^Dialogue: 3,0:00:00\.20,0:00:01\.20,Overlay,,0,0,0,,\{\\an9\\pos\(\d+,\d+\)\\fs84\\bord29\\fad\(150,250\)\}3x$/);
-    expect(events[1]).toMatch(/^Dialogue: 3,0:00:01\.30,0:00:02\.50,Overlay,,0,0,0,,\{\\an1\\pos\(\d+,\d+\)\\fs52\\bord18\\fad\(150,250\)\}Lisbon, Portugal$/);
-    expect(events[2]).toContain("• Cheap\\N• Sunny");
+    // The keyword's card fits "3x" at the right edge of its box; its text sits inside the card's padding.
+    expect(events[0]).toBe("Dialogue: 3,0:00:00.20,0:00:01.20,OverlayShape,,0,0,0,,{\\an7\\pos(0,0)\\fad(150,250)\\1c&H201810&\\p1}m 776 571 l 901 571 b 920 571 936 587 936 606 l 936 691 b 936 710 920 726 901 726 l 776 726 b 757 726 741 710 741 691 l 741 606 b 741 587 757 571 776 571{\\p0}");
+    expect(texts[0]).toBe("Dialogue: 4,0:00:00.20,0:00:01.20,OverlayPlain,,0,0,0,,{\\an9\\fs84\\pos(886,600)\\fad(150,250)}3x");
+    expect(events[1]).toContain("m 106 1196 l 590 1196");
+    expect(texts[1]).toBe("Dialogue: 4,0:00:01.30,0:00:02.50,OverlayPlain,,0,0,0,,{\\an1\\fs52\\pos(115,1274)\\fad(150,250)}Lisbon, Portugal");
+    expect(events[2]).toContain("m 104 381 l 311 381");
+    // A list's points, one event each on the render's line height.
+    expect(texts[2]).toBe("Dialogue: 4,0:00:02.60,0:00:03.80,OverlayPlain,,0,0,0,,{\\an7\\fs48\\pos(113,404)\\fad(150,250)}• Cheap");
+    expect(texts[3]).toBe("Dialogue: 4,0:00:02.60,0:00:03.80,OverlayPlain,,0,0,0,,{\\an7\\fs48\\pos(113,471)\\fad(150,250)}• Sunny");
     expect(events[3]).toMatch(/^Dialogue: 3,0:00:05\.80,0:00:06\.80,OverlayShape,,0,0,0,,\{\\an7\\pos\(0,0\)\\fad\(150,250\)\\p1\}m [\d l]+ m 800 700 l [\d ]+\{\\p0\}$/);
     expect(events[4]).toBe("Dialogue: 3,0:00:06.80,0:00:08.00,OverlayShape,,0,0,0,,{\\an7\\pos(0,0)\\fad(150,250)\\1a&HFF&\\3c&H7F3DFF&\\bord10\\p1}m 305 505 l 695 505 695 695 305 695{\\p0}");
   });
@@ -266,7 +274,7 @@ describe("the draft's overlays", () => {
   it("makes a captions file for the overlays of a film without captions", () => {
     const overlays = resolved([{ kind: "keyword", at: 0.2, duration: 1, text: "3x" }]);
     const ass = buildFootageDraftCaptions({ film: { ...film, captions: false }, edl: edlWith([]), words: WORDS, caption: CAPTION, frame: FRAME, overlays }) ?? "";
-    expect(ass.split("\n").filter((line) => line.startsWith("Dialogue:"))).toHaveLength(1);
+    expect(ass.split("\n").filter((line) => line.startsWith("Dialogue:"))).toHaveLength(2);
   });
 
   it("zooms a punch-in's segment by its rise, hold and fall", () => {
@@ -336,10 +344,72 @@ describe.skipIf(!canBurn)("the draft's overlays burned in by libass", () => {
     const [keyword] = resolved([{ kind: "keyword", at: 1, duration: 2, text: "3x" }]);
     if (keyword?.kind !== "keyword") throw new Error("a keyword");
     const card = grabFrame([{ kind: "keyword", at: 1, duration: 2, text: "3x" }], 2);
+    const middle = keyword.box.top + Math.round(keyword.box.height / 2);
     // The card's right edge stands at the box's right edge; just inside it, the card's colour.
-    expect(isNear(pixel(card, keyword.box.left + keyword.box.width - 6, keyword.box.top + 6), COLORS.background)).toBe(true);
+    expect(isNear(pixel(card, keyword.box.left + keyword.box.width - 6, middle), COLORS.background)).toBe(true);
     // After the overlay's span, the frame is bare there again.
     const after = grabFrame([{ kind: "keyword", at: 1, duration: 2, text: "3x" }], 4);
-    expect(isNear(pixel(after, keyword.box.left + keyword.box.width - 6, keyword.box.top + 6), "#3366aa")).toBe(true);
+    expect(isNear(pixel(after, keyword.box.left + keyword.box.width - 6, middle), "#3366aa")).toBe(true);
+  });
+
+  it("draws a keyword's card where getDrawnOverlayCard reports it, within 2 % of the frame, not across its whole box", () => {
+    const overlay: EdlOverlay = { kind: "keyword", at: 1, duration: 2, text: "2 konwencje" };
+    const [keyword] = resolved([overlay]);
+    if (keyword === undefined) throw new Error("a keyword");
+    const reported = getDrawnOverlayCard(keyword);
+    if (reported === null) throw new Error("a card");
+    const frame = grabFrame([overlay], 2);
+    const row = reported.top + Math.round(reported.height / 2);
+    const column = reported.left + Math.round(reported.width / 2);
+    const isCard = (x: number, y: number) => isNear(pixel(frame, x, y), COLORS.background) || !isNear(pixel(frame, x, y), "#3366aa");
+    const xs = Array.from({ length: FRAME.width }, (_unused, x) => x).filter((x) => isCard(x, row));
+    const ys = Array.from({ length: FRAME.height }, (_unused, y) => y).filter((y) => isCard(column, y));
+    const drawn = { left: Math.min(...xs), right: Math.max(...xs) + 1, top: Math.min(...ys), bottom: Math.max(...ys) + 1 };
+    const tolerance = FRAME.width * 0.02;
+    expect(Math.abs(drawn.left - reported.left)).toBeLessThanOrEqual(tolerance);
+    expect(Math.abs(drawn.right - (reported.left + reported.width))).toBeLessThanOrEqual(tolerance);
+    expect(Math.abs(drawn.top - reported.top)).toBeLessThanOrEqual(tolerance);
+    expect(Math.abs(drawn.bottom - (reported.top + reported.height))).toBeLessThanOrEqual(tolerance);
+    // The placed box spans the frame's text width; the card takes only its right part.
+    if (keyword.kind !== "keyword") throw new Error("a keyword");
+    expect(reported.left + reported.width).toBe(keyword.box.left + keyword.box.width);
+    expect(reported.width).toBeLessThan(keyword.box.width - 150);
+  });
+});
+
+describe("getDrawnOverlayCard", () => {
+  const only = (overlay: EdlOverlay): ResolvedOverlay => {
+    const [first] = resolved([overlay]);
+    if (first === undefined) throw new Error("an overlay");
+    return first;
+  };
+
+  it("fits a keyword's card to its text on the right edge of its box", () => {
+    const keyword = only({ kind: "keyword", at: 1, duration: 1, text: "3x" });
+    if (keyword.kind !== "keyword") throw new Error("a keyword");
+    // 2 characters × 0.56 em × 84 px, rounded up, plus 2 × 50 px padding.
+    expect(getDrawnOverlayCard(keyword)).toEqual({ left: keyword.box.left + keyword.box.width - 195, top: keyword.box.top, width: 195, height: keyword.box.height });
+  });
+
+  it("puts a left keyword's card at the box's left edge and sizes a list by its widest point with its bullet", () => {
+    const left = only({ kind: "keyword", at: 1, duration: 1, text: "3x", style: { side: "left" } });
+    if (left.kind !== "keyword") throw new Error("a keyword");
+    expect(getDrawnOverlayCard(left)).toEqual({ left: left.box.left, top: left.box.top, width: 195, height: left.box.height });
+    const list = only({ kind: "list", at: 1, duration: 2, items: ["Cheap", "Sunny  days"] });
+    if (list.kind !== "list") throw new Error("a list");
+    // "• Sunny days" (spaces collapsed): 12 × 0.56 × 48 = 322.56 → 323, plus 2 × 29.
+    expect(getDrawnOverlayCard(list)).toEqual({ left: list.box.left, top: list.box.top, width: 381, height: list.box.height });
+  });
+
+  it("never draws a card wider than the box it may take", () => {
+    const long = only({ kind: "keyword", at: 1, duration: 1, text: "W".repeat(24) });
+    if (long.kind !== "keyword") throw new Error("a keyword");
+    expect(getDrawnOverlayCard(long)).toEqual(long.box);
+  });
+
+  it("answers the other kinds' own bounds and nothing for a punch-in", () => {
+    const highlight = only({ kind: "highlight", at: 1, duration: 1, anchor: { x: 300, y: 500, width: 400, height: 200 } });
+    expect(getDrawnOverlayCard(highlight)).toEqual({ left: 300, top: 500, width: 400, height: 200 });
+    expect(getDrawnOverlayCard(only({ kind: "punch_in", at: 1, duration: 1.2 }))).toBeNull();
   });
 });

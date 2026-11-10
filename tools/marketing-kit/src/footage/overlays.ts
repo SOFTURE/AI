@@ -229,6 +229,29 @@ export function getOverlayBounds(overlay: ResolvedOverlay): OverlayBox | null {
   return overlay.box;
 }
 
+type SideTextOverlay = Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" | "list" }>;
+
+/** A keyword's, a lower third's or a list's lines as the draft draws them: a list's points with their bullets. */
+export function getSideTextLines(overlay: SideTextOverlay): string[] {
+  const lines = overlay.kind === "list" ? overlay.items.map((item) => `• ${item}`) : [overlay.text];
+  return lines.map((line) => line.replace(/\s+/g, " ").trim());
+}
+
+/**
+ * The card a drawn overlay shows, in px of the frame, or null for a `punch_in`. A keyword, a lower third and a list
+ * are placed in the whole width they may take (`box`); their card fits their widest line (by `estimateTextWidth`)
+ * plus its padding, on its side, as tall as the box. Every other kind's card is its box (`getOverlayBounds`). The
+ * draft draws this card, so a report of where an overlay sits (does it cover a face?) reads the same box.
+ */
+export function getDrawnOverlayCard(overlay: ResolvedOverlay): OverlayBox | null {
+  if (overlay.kind !== "keyword" && overlay.kind !== "lower_third" && overlay.kind !== "list") return getOverlayBounds(overlay);
+  const { box, fontSize, side } = overlay;
+  const padX = Math.round(fontSize * OVERLAY_PADDING_EM.x);
+  const textWidth = Math.max(0, ...getSideTextLines(overlay).map((line) => estimateTextWidth(line, fontSize)));
+  const width = Math.min(box.width, Math.ceil(textWidth + 2 * padX));
+  return { left: side === "right" ? box.left + box.width - width : box.left, top: box.top, width, height: box.height };
+}
+
 /**
  * The overlays of an EDL resolved to film time and placed, or every reason one cannot be drawn: its word is not said,
  * it is too short or runs past the cut or into the next segment (a `hook_title` may stay across cuts), two overlap,

@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.25.0
+
+- **A keyword's, a lower third's and a list's card as drawn:** new export `getDrawnOverlayCard(overlay)` answers the
+  card a drawn overlay shows, in px of the frame. For a keyword, a lower third and a list it is the card fitted to the
+  widest line (`estimateTextWidth` plus the padding), on its side, as tall as the placed box; for every other kind its
+  bounds (`getOverlayBounds`); null for a `punch_in`. Before, the only box an app could read for those three kinds was
+  the whole width they may take, so a small keyword at the right edge reported a box across the frame. The draft now
+  draws those three kinds as that rounded card (`OverlayShape`, 0.42 em, as the render's `.ov-card`) with their text
+  over it (`OverlayPlain`, inset by the render's padding: 0.6 em across, 0.35 em down), a list's points one event each
+  on the render's line height, so the draft shows the reported card. The draft's `Overlay` style (libass's square
+  opaque box) is gone. Placement, refusals and the render are unchanged.
+
 ## 0.24.0
 
 - **Travel overlays (`hook_title`, `search_bar`, `place_card`, `counter`, `date_stamp`) and style knobs on every
