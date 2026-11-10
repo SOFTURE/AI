@@ -411,7 +411,7 @@ describe("the draft's new kinds", () => {
     expect(second[0]).toMatch(/^Dialogue: 4,0:00:00\.00,0:00:00\.80,.*\{\\1a&HFF&\}in Vietnam cost\?$/);
   });
 
-  it("takes each overlay's entrance and colours on the opaque box and the marks", () => {
+  it("takes each overlay's entrance and colours on the drawn cards and the marks", () => {
     const lines = draft([
       { kind: "keyword", at: 1, duration: 2, text: "3x", style: { entrance: "type", colors: { card: "#ffffff", text: "#000000" } } },
       { kind: "lower_third", at: 11, duration: 2, text: "Hue", style: { entrance: "slide" } },
@@ -420,9 +420,15 @@ describe("the draft's new kinds", () => {
       { kind: "highlight", at: 28, duration: 1.5, anchor: { x: 300, y: 500, width: 100, height: 100 } },
       { ...DATE, at: 7, style: { entrance: "none", colors: { text: "#000000" } } },
     ]).filter((line) => line.startsWith("Dialogue:"));
-    expect(lines[0]).toMatch(/^Dialogue: 3,0:00:01\.00,0:00:01\.30,Overlay,,0,0,0,,\{\\an9\\1c&H000000&\\3c&HFFFFFF&\\fs84\\bord29\\pos\(\d+,\d+\)\\fad\(150,0\)\}\{\\1a&HFF&\}3x$/);
-    expect(lines.some((line) => /0:00:11\.00,0:00:13\.00,Overlay,.*\\move\(\d+,\d+,\d+,\d+,0,300\)\\fad\(150,250\)\}Hue$/.test(line))).toBe(true);
-    expect(lines.some((line) => /0:00:21\.00,0:00:23\.00,Overlay,.*\\pos\(\d+,\d+\)\\fad\(0,250\)\}• a\\N• b$/.test(line))).toBe(true);
+    // The typed keyword: its card in its own colour for the whole span, its text typing in over it.
+    expect(lines[0]).toBe("Dialogue: 3,0:00:01.00,0:00:03.00,OverlayShape,,0,0,0,,{\\an7\\pos(0,0)\\fad(150,250)\\1c&HFFFFFF&\\p1}m 776 571 l 901 571 b 920 571 936 587 936 606 l 936 691 b 936 710 920 726 901 726 l 776 726 b 757 726 741 710 741 691 l 741 606 b 741 587 757 571 776 571{\\p0}");
+    expect(lines[1]).toBe("Dialogue: 4,0:00:01.00,0:00:01.30,OverlayPlain,,0,0,0,,{\\an9\\fs84\\1c&H000000&\\pos(886,600)\\fad(150,0)}{\\1a&HFF&}3x");
+    // The sliding lower third moves its card and its text together.
+    expect(lines).toContain("Dialogue: 3,0:00:11.00,0:00:13.00,OverlayShape,,0,0,0,,{\\an7\\move(0,28,0,0,0,300)\\fad(150,250)\\1c&H2B1A1D&\\p1}m 106 1196 l 212 1196 b 224 1196 234 1206 234 1218 l 234 1270 b 234 1282 224 1292 212 1292 l 106 1292 b 94 1292 84 1282 84 1270 l 84 1218 b 84 1206 94 1196 106 1196{\\p0}");
+    expect(lines).toContain("Dialogue: 4,0:00:11.00,0:00:13.00,OverlayPlain,,0,0,0,,{\\an1\\fs52\\move(115,1302,115,1274,0,300)\\fad(150,250)}Hue");
+    // A list without an entrance only fades out.
+    expect(lines).toContain("Dialogue: 4,0:00:21.00,0:00:23.00,OverlayPlain,,0,0,0,,{\\an7\\fs48\\pos(113,404)\\fad(0,250)}• a");
+    expect(lines).toContain("Dialogue: 4,0:00:21.00,0:00:23.00,OverlayPlain,,0,0,0,,{\\an7\\fs48\\pos(113,471)\\fad(0,250)}• b");
     expect(lines.some((line) => line.startsWith("Dialogue: 3,0:00:25.00,0:00:27.00,OverlayShape,,0,0,0,,{\\an7\\pos(0,0)\\fad(0,250)\\1c&H00FF00&\\p1}"))).toBe(true);
     expect(lines.some((line) => line.startsWith("Dialogue: 3,0:00:28.00,0:00:29.50,OverlayShape,,0,0,0,,{\\an7\\pos(0,0)\\fad(150,250)\\1a&HFF&\\3c&H6B33E8&"))).toBe(true);
     expect(lines.some((line) => /\\an7\\fs36\\1c&H000000&\\pos\(\d+,\d+\)\\fad\(0,250\)\}Day 12$/.test(line))).toBe(true);

@@ -3,12 +3,16 @@ import { getCounterSeconds, getOverlayColors, getTypingTimes, type OverlayColors
 import {
   OVERLAY_FONT_ROLES,
   OVERLAY_LINE_HEIGHT,
+  OVERLAY_LIST_LINE_HEIGHT,
   OVERLAY_PADDING_EM,
   OVERLAY_TITLE_LINE_HEIGHT,
   SEARCH_BAR_ICON_EM,
   SEARCH_BAR_PADDING_EM,
   estimateTextWidth,
   formatOverlayNumber,
+  getDrawnOverlayCard,
+  getSideTextLines,
+  type OverlayBox,
   type OverlayFontRole,
   type OverlayPoint,
   type ResolvedOverlay,
@@ -16,7 +20,7 @@ import {
 
 /**
  * The draft's overlays as ASS (issue #1200): the same places and times as the render, simplified. Text overlays are
- * cards of the brand's background (libass's opaque box, or a drawn rounded card) with the text in its foreground; an
+ * drawn rounded cards of the brand's background, fitted to their text, with the text in its foreground; an
  * arrow is a straight shaft and head in the accent; a highlight the accent's outline round its rectangle; a pin and a
  * magnifier are drawings in the accent. A typed text shows letter by letter (the rest transparent, so its card keeps
  * its size), a counter steps up to its value every tenth of a second, a slide moves up into place. A `punch_in` is drawn
@@ -42,16 +46,11 @@ const r0 = (value: number): number => Math.round(value);
 /** An ASS colour for an override tag (`&HBBGGRR&`). */
 const toTagColor = (hex: string): string => `${toAssColor(hex).replace(/^&H../, "&H")}&`;
 
-/**
- * The three styles the overlays use: `Overlay` (text on an opaque card), `OverlayShape` (drawings) and `OverlayPlain`
- * (text over a drawn card).
- */
+/** The two styles the overlays use: `OverlayShape` (drawings: cards, marks, pins) and `OverlayPlain` (text over them). */
 export function getDraftOverlayStyles(family: string, colors: OverlayColors): string[] {
-  const card = toAssColor(colors.background);
   const text = toAssColor(colors.foreground);
   const accent = toAssColor(colors.accent);
   return [
-    `Style: Overlay,${family},48,${text},${text},${card},${card},-1,0,0,0,100,100,0,0,3,16,0,7,0,0,0,1`,
     `Style: OverlayShape,${family},48,${accent},${accent},${accent},${accent},0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1`,
     `Style: OverlayPlain,${family},48,${text},${text},${text},${text},-1,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1`,
   ];
@@ -176,37 +175,51 @@ function getTypedSteps(text: string, span: { start: number; end: number }, typin
 }
 
 /** The colour and font override tags of an overlay's text: only what differs from the style. */
-function getTextTags(overlay: ResolvedOverlay, colors: OverlayColors, context: DraftContext, role: OverlayFontRole, withCard: boolean): string {
+function getTextTags(overlay: ResolvedOverlay, colors: OverlayColors, context: DraftContext, role: OverlayFontRole): string {
   if (overlay.kind === "punch_in") return "";
   const own = overlay.colors;
   const font = context.fonts[role];
   return [
     font === undefined ? "" : `\\fn${font}`,
     own.text === undefined ? "" : `\\1c${toTagColor(colors.foreground)}`,
-    withCard && own.card === undefined ? "" : withCard ? `\\3c${toTagColor(colors.background)}` : "",
   ].join("");
 }
 
-/** A keyword, a lower third or a list: text on libass's opaque box. */
+/** The corner radius of a keyword's, a lower third's or a list's card: the render's `.ov-card` (0.42 em). */
+function getSideCardRadius(fontSize: number): number {
+  return fontSize * 0.42;
+}
+
+/**
+ * A keyword, a lower third or a list: a drawn rounded card fitted to its text (`getDrawnOverlayCard`) on layer 3 and
+ * its text on layer 4, inset by the card's padding on its side (a lower third from its foot).
+ */
 function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" | "list" }>, context: DraftContext): string[] {
   const colors = getOverlayColors(overlay, context.brand);
-  const { box, fontSize, side } = overlay;
-  const pad = r0(fontSize * OVERLAY_PADDING_EM.y);
+  const { fontSize, side } = overlay;
+  // A side text always has a card: only a punch_in has none.
+  const card = getDrawnOverlayCard(overlay) as OverlayBox;
+  const padX = r0(fontSize * OVERLAY_PADDING_EM.x);
+  const padY = r0(fontSize * OVERLAY_PADDING_EM.y);
   const isRight = side === "right";
-  const x = isRight ? box.left + box.width - pad : box.left + pad;
+  const x = isRight ? card.left + card.width - padX : card.left + padX;
   const isFoot = overlay.kind === "lower_third";
-  const y = isFoot ? box.top + box.height - pad : box.top + pad;
+  const y = isFoot ? card.top + card.height - padY : card.top + padY;
   // \an: 7 top left, 9 top right, 1 bottom left, 3 bottom right.
   const align = isFoot ? (isRight ? 3 : 1) : isRight ? 9 : 7;
-  const tags = `\\an${align}${getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES[overlay.kind], true)}`;
+  const entrance = overlay.entrance === null || overlay.entrance === "type" ? "fade" : overlay.entrance;
   const span = { start: overlay.start, end: overlay.end };
-  if (overlay.entrance === null) {
-    const text = overlay.kind === "list" ? overlay.items.map((item) => `• ${toAssText(item)}`).join("\\N") : toAssText(overlay.text);
-    return [`Dialogue: 3,${toAssTime(overlay.start)},${toAssTime(overlay.end)},Overlay,,0,0,0,,{${tags}\\pos(${r0(x)},${r0(y)})\\fs${fontSize}\\bord${pad}${FADE}}${text}`];
+  const tags = `\\an${align}\\fs${fontSize}${getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES[overlay.kind])}`;
+  const text = (pos: OverlayPoint, steps: TextStep[]) => getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps, entrance, slidePx: SLIDE_PX * context.scale });
+  const shape = getShapeEvent(overlay, getRoundedRectDrawing(card, getSideCardRadius(fontSize)), colors.background, entrance, context.scale);
+  if (overlay.kind === "list") {
+    // One event per point, on the render's line height (libass's own line spacing is tighter), all shown at once.
+    const step = fontSize * OVERLAY_LIST_LINE_HEIGHT;
+    const lead = (step - fontSize * OVERLAY_LINE_HEIGHT) / 2;
+    return [shape, ...getSideTextLines(overlay).flatMap((line, index) => text({ x, y: y + lead + index * step }, [{ from: span.start, to: span.end, text: toAssText(line) }]))];
   }
-  const steps = overlay.kind === "list" ? [{ from: overlay.start, to: overlay.end, text: overlay.items.map((item) => `• ${toAssText(item)}`).join("\\N") }] : getTypedSteps(overlay.text, span, overlay.typing);
-  const entrance = overlay.entrance === "type" ? "fade" : overlay.entrance;
-  return getTextEvents({ layer: 3, style: "Overlay", pos: { x, y }, tags: `${tags}\\fs${fontSize}\\bord${pad}`, steps, entrance, slidePx: SLIDE_PX * context.scale });
+  // A keyword or a lower third types in only when its entrance says so.
+  return [shape, ...text({ x, y }, overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(overlay.text) }] : getTypedSteps(overlay.text, span, overlay.typing))];
 }
 
 type CardOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "search_bar" | "place_card" | "counter" | "date_stamp" }>;
@@ -215,7 +228,7 @@ type CardOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "search_bar" 
 const DEFAULT_ENTRANCES = { hook_title: "slide", search_bar: "fade", place_card: "slide", counter: "fade", date_stamp: "fade" } as const;
 
 /** A drawing event in the overlay's card colour (or accent), with the overlay's entrance. */
-function getShapeEvent(overlay: CardOverlay, drawing: string, colour: string, entrance: "fade" | "slide" | "none", scale: number): string {
+function getShapeEvent(overlay: Pick<ResolvedOverlay, "start" | "end">, drawing: string, colour: string, entrance: "fade" | "slide" | "none", scale: number): string {
   const motion = getMotionTags(entrance, true, true, { x: 0, y: 0, dy: SLIDE_PX * scale });
   const pos = motion.includes("\\move") ? "" : "\\pos(0,0)";
   return `Dialogue: 3,${toAssTime(overlay.start)},${toAssTime(overlay.end)},OverlayShape,,0,0,0,,{\\an7${pos}${motion}\\1c${toTagColor(colour)}\\p1}${drawing}{\\p0}`;
@@ -233,7 +246,7 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
   const padX = r0(fontSize * OVERLAY_PADDING_EM.x);
   const padY = r0(fontSize * OVERLAY_PADDING_EM.y);
   const centerX = box.left + box.width / 2;
-  const tagsFor = (role: OverlayFontRole) => getTextTags(overlay, colors, context, role, false);
+  const tagsFor = (role: OverlayFontRole) => getTextTags(overlay, colors, context, role);
   const text = (pos: OverlayPoint, align: number, size: number, role: OverlayFontRole, steps: TextStep[]) =>
     getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${r0(size)}${tagsFor(role)}`, steps, entrance, slidePx });
   if (overlay.kind === "hook_title" || overlay.kind === "place_card") {
