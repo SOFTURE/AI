@@ -442,7 +442,7 @@
       }
     },
     "captionRanges": {
-      "description": "Moves the caption box for the captions that start in a stretch of film time (from to to, in film seconds), over the segment's own caption; stretches never overlap. Without it, the segments' boxes.",
+      "description": "Moves the caption box for the captions said in a stretch of film time (from to to, in film seconds), over the segment's own caption; stretches never overlap. Without it, the segments' boxes.",
       "maxItems": 40,
       "type": "array",
       "items": {

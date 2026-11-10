@@ -7,8 +7,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 ## 0.32.0
 
 - **Caption boxes for a stretch of film time:** an EDL may carry `captionRanges: [{ from, to, bottom?, top? }]` (film
-  seconds, `to` excluded, at most 40, never overlapping): the captions that start in a range take its box (px of the
-  frame, as a segment's `caption`), over the box of their segment. Captions can clear something held up for part of a
+  seconds, `to` excluded, at most 40, never overlapping): a caption chunk said in a range (any of its words) takes the
+  range's box (px of the frame, as a segment's `caption`), over the box of its segment. Captions can clear something held up for part of a
   segment without moving the whole segment's captions or splitting the cut. The draft and the render place a chunk
   alike (new export `getCaptionPlaceAt(edl, time, base)`, used by `getCaptionChunkLayouts`); `findCaptionRangeAt`
   answers the range at a film second. A text overlay keeps clear of every caption box on screen while it shows (its

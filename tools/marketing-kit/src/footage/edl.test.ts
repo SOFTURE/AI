@@ -262,7 +262,7 @@ describe("a segment's caption box", () => {
     expect(readEdl({ ...base, captionRanges: [{ from: 1, to: 2, left: 3 }] })).toMatchObject({ ok: false });
     expect([0.99, 1, 1.49, 1.5].map((time) => findCaptionRangeAt(ranged, time)?.bottom ?? null)).toEqual([null, 900, 900, null]);
     expect(findCaptionRangeAt(base, 1)).toBeUndefined();
-    expect(JSON.stringify(getEdlJsonSchema())).toContain("Moves the caption box for the captions that start in a stretch of film time");
+    expect(JSON.stringify(getEdlJsonSchema())).toContain("Moves the caption box for the captions said in a stretch of film time");
   });
 
   it("refuses an empty, overlapping, too long or off-frame caption range", () => {

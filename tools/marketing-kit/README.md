@@ -661,7 +661,7 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   another span's sound under its picture: a J- or L-cut, or b-roll over speech with its own sound muted or at
   `ownVolume`, give a segment `caption: { bottom }` or `caption: { top }` (px of the film's frame) to move the caption
   box for the captions that start in it, so they clear what the frame shows low down; or add
-  `captionRanges: [{ from, to, bottom? | top? }]` in film seconds to move it only for the captions that start in that
+  `captionRanges: [{ from, to, bottom? | top? }]` in film seconds to move it only for the captions said in that
   stretch, over the segment's box, when something shows for part of a segment) and render with `--step=render`; a plain `footage` run keeps an EDL that is there, `--step=cut` writes
   it afresh and prints the sentences it would suggest dropping (retakes, false starts, cut-off sentences). A version 1
   file is still read, with generated ids.

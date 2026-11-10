@@ -200,11 +200,17 @@ export function getSegmentCaptionLayout(film: Pick<FootageFilm, "format" | "capt
 }
 
 /**
- * The box each caption chunk is drawn in: the box of the segment where the chunk's first word starts (film time), so
- * a chunk that spans a cut keeps one box. The render and the draft place chunks alike.
+ * The box each caption chunk is drawn in: the box of a caption range the chunk is said in (from its first word's start
+ * to its last word's end), else the box of the segment where its first word starts (film time), so a chunk that spans a
+ * cut keeps one box. The render and the draft place chunks alike.
  */
-export function getCaptionChunkLayouts(chunks: readonly { start: number }[], edl: Edl, base: CaptionLayout): CaptionLayout[] {
-  return chunks.map((chunk) => getCaptionPlaceAt(edl, chunk.start, base));
+export function getCaptionChunkLayouts(chunks: readonly { start: number; end?: number }[], edl: Edl, base: CaptionLayout): CaptionLayout[] {
+  return chunks.map((chunk) => {
+    // A chunk said while a caption range holds takes the range's box, even one that starts just before the range.
+    const end = chunk.end ?? chunk.start;
+    const range = (edl.captionRanges ?? []).find((candidate) => chunk.start < candidate.to && (end > candidate.from || chunk.start >= candidate.from));
+    return range === undefined ? getCaptionPlaceAt(edl, chunk.start, base) : getCaptionPlaceAt(edl, Math.max(chunk.start, range.from), base);
+  });
 }
 
 /**

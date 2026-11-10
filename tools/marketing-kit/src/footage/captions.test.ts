@@ -179,10 +179,12 @@ describe("segment caption boxes", () => {
     expect(layouts.map((layout) => layout.bottom ?? `top ${layout.top}`)).toEqual([base.bottom, base.bottom, 1150, "top 300", "top 300"]);
   });
 
-  it("gives a chunk that starts in a caption range the range's box, over its segment's, the range's end excluded", () => {
+  it("gives a chunk said in a caption range the range's box, over its segment's, the range's end excluded", () => {
     const ranged: Edl = { ...edl, captionRanges: [{ from: 0.4, to: 1, bottom: 900 }, { from: 2.5, to: 3, top: 200 }] };
     const layouts = getCaptionChunkLayouts([{ start: 0.2 }, { start: 0.4 }, { start: 1 }, { start: 2.6 }, { start: 3 }], ranged, base);
     expect(layouts.map((layout) => layout.bottom ?? `top ${layout.top}`)).toEqual([base.bottom, 900, base.bottom, "top 200", 1150]);
+    // A chunk said into the range from just before it takes the range's box too; one ending at its start does not.
+    expect(getCaptionChunkLayouts([{ start: 0.2, end: 0.6 }, { start: 0.1, end: 0.4 }], ranged, base).map((layout) => layout.bottom)).toEqual([900, base.bottom]);
     expect(getCaptionPlaceAt(ranged, 0.5, base)).toEqual({ ...base, bottom: 900 });
     expect(getCaptionPlaceAt({ ...edl, captionRanges: [] }, 2.5, base)).toEqual({ ...base, bottom: 1150 });
   });

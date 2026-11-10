@@ -39,7 +39,7 @@ export interface EdlCaption {
 }
 
 /**
- * The caption box for a stretch of film time, over the segment's (`EdlCaption`): the captions that start between
+ * The caption box for a stretch of film time, over the segment's (`EdlCaption`): the caption chunks said between
  * `from` and `to` (film seconds, `to` excluded) take it, so captions can clear something shown for part of a segment
  * without splitting the cut. Px of the film's frame, as `EdlCaption`.
  */
@@ -134,7 +134,7 @@ export const edlSchema = z
       )
       .max(40)
       .optional()
-      .describe("Moves the caption box for the captions that start in a stretch of film time (from to to, in film seconds), over the segment's own caption; stretches never overlap. Without it, the segments' boxes."),
+      .describe("Moves the caption box for the captions said in a stretch of film time (from to to, in film seconds), over the segment's own caption; stretches never overlap. Without it, the segments' boxes."),
   })
   .describe("The edit decision list of a footage film (edl.json).");
 
