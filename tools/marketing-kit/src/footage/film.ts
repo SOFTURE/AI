@@ -128,9 +128,15 @@ export interface FootageFilm {
   /**
    * How a `highlight` caption lights the word being said: `text` (the default) colours its text `captionHighlight`;
    * `box` puts it on a rounded box of `captionHighlightBox` with its text in `captionHighlightText` (both brand colours
-   * then required). Ignored by `phrase` captions.
+   * then required); `underline` keeps its text and draws an underline in `captionHighlight` under it. Ignored by
+   * `phrase` captions.
    */
   captionHighlightStyle?: CaptionHighlightStyle;
+  /**
+   * How a `highlight` caption's pill enters (`CAPTION_ENTRANCES`) in the render; absent: a 14 px rise while it fades
+   * in, as before. The draft draws the captions without an entrance.
+   */
+  captionEntrance?: CaptionEntrance;
   /** Places the 9:16 caption box inside a platform's safe zone (`CAPTION_SAFE_ZONES`); absent: the layout as it is. */
   captionPreset?: CaptionPreset;
   /**
@@ -279,10 +285,18 @@ export const CAPTION_STYLES = ["phrase", "highlight"] as const;
 
 export type CaptionStyle = (typeof CAPTION_STYLES)[number];
 
-/** How a `highlight` caption lights the word being said: its text colour, or a box behind it (issue #1199). */
-export const CAPTION_HIGHLIGHT_STYLES = ["text", "box"] as const;
+/** How a `highlight` caption lights the word being said: its text colour, a box behind it (issue #1199), or an accent underline. */
+export const CAPTION_HIGHLIGHT_STYLES = ["text", "box", "underline"] as const;
 
 export type CaptionHighlightStyle = (typeof CAPTION_HIGHLIGHT_STYLES)[number];
+
+/**
+ * How a `highlight` caption's pill enters: at once (`none`), fading in (`fade`), or fading in while it grows from 96 %
+ * to 100 % without overshooting (`pop`); 0.16 s each.
+ */
+export const CAPTION_ENTRANCES = ["none", "fade", "pop"] as const;
+
+export type CaptionEntrance = (typeof CAPTION_ENTRANCES)[number];
 
 /** The smallest a caption line limit shrinks a card's font to, as a share of the caption box's size. */
 export const CAPTION_MIN_FONT_SCALE = 0.7;

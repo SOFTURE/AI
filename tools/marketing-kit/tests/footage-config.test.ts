@@ -149,6 +149,15 @@ describe("footage films in marketing.json", () => {
     expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionMaxLines: 5 }]))).toContain("footage[0].captionMaxLines");
   });
 
+  it("keeps a caption entrance and the underline highlight, leaves the entrance out when absent and refuses an unknown one", () => {
+    const film = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionStyle: "highlight", captionEntrance: "pop", captionHighlightStyle: "underline" }])), "a");
+    expect(film?.captionEntrance).toBe("pop");
+    expect(film?.captionHighlightStyle).toBe("underline");
+    const plain = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionStyle: "highlight" }])), "a");
+    expect(plain !== null && "captionEntrance" in plain).toBe(false);
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionEntrance: "bounce" }]))).toContain("footage[0].captionEntrance");
+  });
+
   it("reads key terms trimmed, deduplicated and sorted, and leaves an empty list out", () => {
     const named = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], keyTerms: ["Zakopane", " Acme  Cloud ", "Zakopane"] }])), "a");
     expect(named?.keyTerms).toEqual(["Acme Cloud", "Zakopane"]);

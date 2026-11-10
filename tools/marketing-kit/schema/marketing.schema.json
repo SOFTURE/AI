@@ -2880,11 +2880,21 @@
           },
           "captionHighlightStyle": {
             "default": "text",
-            "description": "How a highlight caption lights the word being said: text (the default) colours it captionHighlight; box puts it on a rounded box of brand.colors.captionHighlightBox with its text in captionHighlightText (both then required).",
+            "description": "How a highlight caption lights the word being said: text (the default) colours it captionHighlight; box puts it on a rounded box of brand.colors.captionHighlightBox with its text in captionHighlightText (both then required); underline keeps its text and underlines it in captionHighlight.",
             "type": "string",
             "enum": [
               "text",
-              "box"
+              "box",
+              "underline"
+            ]
+          },
+          "captionEntrance": {
+            "description": "How a highlight caption's pill enters in the render: none, fade, or pop (grows from 96 % to 100 % while it fades in, no overshoot), 0.16 s; without it, a short rise while it fades in.",
+            "type": "string",
+            "enum": [
+              "none",
+              "fade",
+              "pop"
             ]
           },
           "overlayMinSpacing": {
