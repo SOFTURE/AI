@@ -253,8 +253,40 @@ export function getDrawnOverlayCard(overlay: ResolvedOverlay): OverlayBox | null
 }
 
 /**
+ * Why the cut that starts segment `index` ends a shot, or null for a jump cut inside one shot (RV-136 of an adopting
+ * app): the segment plays the same clip as the one before, starts on a plain `cut`, neither has a Ken Burns zoom, and
+ * both keep the same caption box. Only across such a cut does the frame stay the same, so an overlay may run on.
+ */
+export function findShotBreak(edl: Pick<Edl, "segments">, index: number): string | null {
+  const segment = edl.segments[index];
+  const previous = edl.segments[index - 1];
+  if (segment === undefined || previous === undefined) return "the cut's end";
+  if (segment.clip !== previous.clip) return `segment "${segment.id}" plays another clip`;
+  if (segment.transition !== "cut") return `segment "${segment.id}" starts on a ${segment.transition}, not a plain cut`;
+  if (segment.motion === "kenburns" || previous.motion === "kenburns") return `a Ken Burns zoom at segment "${segment.id}"`;
+  if (segment.caption?.bottom !== previous.caption?.bottom || segment.caption?.top !== previous.caption?.top) return `segment "${segment.id}" moves the captions`;
+  return null;
+}
+
+/**
+ * The film seconds an overlay starting in `segment` may reach: on across every jump cut inside one shot
+ * (`findShotBreak`) until `end`, then the first cut that breaks the shot with its reason. A punch-in zooms its own
+ * segment's picture, so it never crosses a cut.
+ */
+function findShotSpan(edl: Edl, starts: readonly number[], at: { segment: number; end: number; isPunchIn: boolean }): { last: number; end: number; reason: string } {
+  const getEnd = (index: number): number => r3((starts[index] as number) + ((edl.segments[index]?.end ?? 0) - (edl.segments[index]?.start ?? 0)));
+  let last = at.segment;
+  for (;;) {
+    const reason = at.isPunchIn ? "a punch-in stays in its segment" : findShotBreak(edl, last + 1);
+    if (reason !== null || at.end <= getEnd(last) + 0.01) return { last, end: getEnd(last), reason: reason ?? "" };
+    last += 1;
+  }
+}
+
+/**
  * The overlays of an EDL resolved to film time and placed, or every reason one cannot be drawn: its word is not said,
- * it is too short or runs past the cut or into the next segment (a `hook_title` may stay across cuts), two overlap,
+ * it is too short or runs past the cut or across a cut that changes the shot (`findShotBreak`: another clip, a
+ * transition, a Ken Burns zoom, moved captions; a `hook_title` may stay across any cut, a `punch_in` across none), two overlap,
  * two start closer than `overlayMinSpacing`, a text overlay does not fit between the safe zone and the captions, an
  * anchor leaves the safe zone or sits on the captions, or a `punch_in` falls on a `kenburns` segment or inside a zoom
  * cut's ease. A `hook_title` lives in the top band: it does not count against one overlay at a time or the spacing,
@@ -285,11 +317,14 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
     }
     const segment = findSegmentAt(edl, start);
     const segmentStart = starts[segment] as number;
-    const segmentEnd = r3(segmentStart + ((edl.segments[segment]?.end ?? 0) - (edl.segments[segment]?.start ?? 0)));
     const segmentId = edl.segments[segment]?.id ?? "";
-    if (overlay.kind !== "hook_title" && end > segmentEnd + 0.01) {
-      problems.push(`${at}: runs ${r1(end - segmentEnd)} s past the cut at ${segmentEnd} s; keep it inside segment "${segmentId}" (${segmentStart}-${segmentEnd} s) or shorten it`);
-      return;
+    if (overlay.kind !== "hook_title") {
+      const shot = findShotSpan(edl, starts, { segment, end, isPunchIn: overlay.kind === "punch_in" });
+      if (end > shot.end + 0.01) {
+        const inside = shot.last === segment ? `segment "${segmentId}"` : `segments "${segmentId}" to "${edl.segments[shot.last]?.id ?? ""}"`;
+        problems.push(`${at}: runs ${r1(end - shot.end)} s past the cut at ${shot.end} s (${shot.reason}); keep it inside ${inside} (${segmentStart}-${shot.end} s) or shorten it`);
+        return;
+      }
     }
     const base = { index, start, end, segment };
     const placed = placeOverlay(overlay, base, { zone, frame, band: getCaptionBand(input, segment) });
