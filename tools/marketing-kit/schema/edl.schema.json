@@ -320,6 +320,17 @@
                   }
                 },
                 "additionalProperties": false
+              },
+              "corner_radius": {
+                "description": "The card's corner: none, s, m, l or pill; the brand style's without it (no punch_in, arrow or highlight).",
+                "type": "string",
+                "enum": [
+                  "none",
+                  "s",
+                  "m",
+                  "l",
+                  "pill"
+                ]
               }
             },
             "additionalProperties": false
