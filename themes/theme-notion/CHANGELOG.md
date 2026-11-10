@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.16.1
+
+- `FoldRow actions` sit inside the row's bar: the summary's background now runs under them when the row is open or
+  hovered (hovering the actions lights the bar too), with the controls at its right end, instead of a separate
+  column beside a shorter bar. They stay outside the `<summary>`, so a click still never folds the row. Same API.
+
 ## 0.16.0
 
 - `FoldRow isOpenInitially`: renders the row open (`<details open>`), so a page can open the row its address points at (a

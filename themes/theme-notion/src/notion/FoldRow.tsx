@@ -59,8 +59,9 @@ export type FoldRowProps = FoldRowSummaryProps &
      */
     readonly isOpenInitially?: boolean;
     /**
-     * Controls on the row's right, outside the summary, so clicking them never folds the row (a delete button, a
-     * menu). Shown whether the row is open or closed, centred on the summary's first line.
+     * Controls at the right end of the row's bar (a delete button, a menu). They sit beside the `<summary>`, not in
+     * it, so clicking them never folds the row, but they share its background: the bar runs under them when the row
+     * is open or hovered. Shown whether the row is open or closed, centred on the summary's first line.
      */
     readonly actions?: ReactNode;
   };
@@ -129,12 +130,17 @@ export function FoldRow(props: FoldRowProps) {
     return <FoldRowDetails {...props} className="border-b border-border" />;
   }
   // The actions sit beside the `<details>`, not in its `<summary>`: a control inside the summary would fold the row.
+  // They carry the summary's background (the details is their peer: open; the wrapper is the hover group), so the
+  // summary and the actions read as one bar with the controls at its right end.
   return (
-    <div data-slot="fold-row-with-actions" className="flex items-start gap-1 border-b border-border">
-      <FoldRowDetails {...props} className="min-w-0 flex-1" />
+    <div data-slot="fold-row-with-actions" className="group/fold-row-with-actions flex items-start border-b border-border">
+      <FoldRowDetails {...props} className="peer/fold-row min-w-0 flex-1" hasActions />
       <div
         data-slot="fold-row-actions"
-        className={cn("flex shrink-0 items-center gap-1", size === "touch" ? "min-h-touch-target" : "min-h-row-height")}
+        className={cn(
+          "flex shrink-0 items-center gap-1 rounded-r-md pr-1 transition-colors duration-120 group-hover/fold-row-with-actions:bg-accent peer-open/fold-row:bg-accent",
+          size === "touch" ? "min-h-touch-target" : "min-h-row-height",
+        )}
       >
         {actions}
       </div>
@@ -142,8 +148,8 @@ export function FoldRow(props: FoldRowProps) {
   );
 }
 
-function FoldRowDetails(props: FoldRowProps & { readonly className: string }) {
-  const { isInset = false, isOpenInitially = false, size = "default", children, className } = props;
+function FoldRowDetails(props: FoldRowProps & { readonly className: string; readonly hasActions?: boolean }) {
+  const { isInset = false, isOpenInitially = false, size = "default", children, className, hasActions = false } = props;
   return (
     <details data-slot="fold-row" open={isOpenInitially || undefined} className={cn("group/fold-row", className)}>
       <summary
@@ -151,6 +157,8 @@ function FoldRowDetails(props: FoldRowProps & { readonly className: string }) {
         className={cn(
           "flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-1 py-1 transition-colors duration-120 group-open/fold-row:bg-accent hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden",
           size === "touch" ? "min-h-touch-target" : "min-h-row-height",
+          // With actions the bar continues under them: no rounding on the right, and hovering them lights it too.
+          hasActions && "rounded-r-none group-hover/fold-row-with-actions:bg-accent",
         )}
       >
         {props.summary === undefined ? (
