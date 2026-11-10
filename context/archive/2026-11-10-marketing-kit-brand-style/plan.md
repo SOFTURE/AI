@@ -43,7 +43,7 @@ Done when:
 ### Phase 1: Brand style in the draft and the render
 
 #### Automated
-- [ ] 1.1 Style tokens, text measurer, brand and overlay schema
-- [ ] 1.2 Draft captions and overlay cards drawn with the style
-- [ ] 1.3 Render CSS, cover, end card
-- [ ] 1.4 Tests, fixture draft frame grab, gates green, CHANGELOG 0.26.0
+- [x] 1.1 Style tokens, text measurer, brand and overlay schema (f7b0148)
+- [x] 1.2 Draft captions and overlay cards drawn with the style (f7b0148, side cards on 0.25.0 in this commit)
+- [x] 1.3 Render CSS, cover, end card (f7b0148)
+- [x] 1.4 Tests, fixture draft frame grab, gates green, CHANGELOG 0.26.0 (brand-style.test.ts 18 tests; frame grab: draft with style l, pill, keyword, list, place card and hook title on the same 36 px corner)

@@ -1,7 +1,7 @@
 ---
 change_id: marketing-kit-brand-style
 title: "marketing-kit: one brand style (corner radius, padding, shadow, border) for the caption pill, the overlay cards, the cover and the end card"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-92y9hg

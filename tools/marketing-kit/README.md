@@ -703,6 +703,11 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   `getOverlayBounds`; a `punch_in`: null). The draft draws exactly this card (rounded, 0.42 em, its text inside the
   padding on its side, a list's points on the render's line height), so an app reporting where an overlay sits (does
   it cover a face?) reads the box the frame shows.
+- **Brand style** (0.26.0): `brand.style` (`BrandStyle`: `cornerRadius`, `padding`, `shadow`, `border`, optional
+  `captionCornerRadius`) gives every box one look: the caption pill, the overlay cards (a search bar stays a pill), the
+  end card's button and, with `PhotoCoverInput.cornerRadius`, the cover's pill and kicker box. An overlay's own
+  `style.corner_radius` wins for its card. The draft measures a caption chunk with the draft font's advances
+  (`createDraftTextMeasure`) and draws the pill, its shadow and its border as rounded drawings that fit the text.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless

@@ -20,7 +20,7 @@ import type { Edl } from "./edl.js";
 import { DEFAULT_TRANSITIONS, type FootageFilm } from "./film.js";
 import { getOverlayMarkup } from "./overlay-html.js";
 import { overlaySchema } from "./overlay-schema.js";
-import type { ResolvedOverlay } from "./overlays.js";
+import { getDrawnOverlayCard, type ResolvedOverlay } from "./overlays.js";
 
 const STYLE: BrandStyle = { cornerRadius: "l", padding: "m", shadow: "soft", border: "thin" };
 const FRAME = { width: 1080, height: 1920 };
@@ -198,6 +198,18 @@ describe("overlay cards in the brand style", () => {
     const plain = buildDraftOverlayEvents([title], colors, FRAME);
     expect(plain.filter((line) => line.includes(",OverlayShape,"))).toHaveLength(1);
     expect(buildDraftOverlayEvents([search], colors, FRAME, { style: { ...STYLE, shadow: "none", border: "none" } })[0]).toContain("m 140 600 l 860 600");
+  });
+
+  it("draws a keyword's card at the style's corner with its shadow and border, and at the kind's own without a style", () => {
+    const keyword = overlay({ kind: "keyword", text: "Hanoi", side: "left", fontSize: 60, box: { left: 100, top: 300, width: 400, height: 100 } });
+    const card = getDrawnOverlayCard(keyword) as { left: number; top: number };
+    const shapes = (events: string[]) => events.filter((line) => line.includes(",OverlayShape,"));
+    const styled = shapes(buildDraftOverlayEvents([keyword], colors, FRAME, { style: STYLE }));
+    expect(styled).toHaveLength(3);
+    expect(styled[1]).toContain(`m ${String(card.left + 36)} ${String(card.top)} `);
+    const plain = shapes(buildDraftOverlayEvents([keyword], colors, FRAME));
+    expect(plain).toHaveLength(1);
+    expect(plain[0]).toContain(`m ${String(card.left + 25)} ${String(card.top)} `);
   });
 
   it("writes the style into the render's card CSS and an overlay's own corner inline", () => {

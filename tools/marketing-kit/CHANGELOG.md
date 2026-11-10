@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.26.0
+
+- **One brand style for every box:** `FootageBrand.style` (new type `BrandStyle`: `cornerRadius` `none | s | m | l |
+  pill`, `padding` `s | m | l`, `shadow` `none | soft`, `border` `none | thin`, optional `captionCornerRadius`) sets the
+  corner of the caption pill, every overlay card, the end card's call to action and, through the new
+  `PhotoCoverInput.cornerRadius`, the photo cover's pill and kicker box. Radii are px of a 1080 px frame (`s` 12, `m`
+  22, `l` 36; `pill` half the box's height); a search bar stays a pill. The render applies them as CSS; the draft now
+  draws a highlight caption chunk on a rounded pill that fits its measured text (new `createDraftTextMeasure`,
+  `wrapDraftLine`: the draft font's own advances at libass's scale), with a soft shadow and a thin accent border as
+  drawings, instead of libass's square box. An overlay may name its own card corner (`style.corner_radius`; refused on
+  a `punch_in`, `arrow` and `highlight`). Without `style` every drawing is as before.
+
 ## 0.25.0
 
 - **A keyword's, a lower third's and a list's card as drawn:** new export `getDrawnOverlayCard(overlay)` answers the
