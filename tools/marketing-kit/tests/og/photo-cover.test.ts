@@ -274,6 +274,20 @@ describe("renderPhotoCover: layouts", () => {
     expect([Math.abs(redAt(image, 20, 1800) - 128) <= 4, Math.abs(redAt(image, 20, lit.top) - 128) <= 4]).toEqual([true, true]);
   });
 
+  it("draws the pill box with the brand style's corner, its own rounding without one", async () => {
+    const box = async (changes: Partial<PhotoCoverInput>) => {
+      const image = await renderPixels({ photo: GREY_PHOTO, layout: "pill", caption: "Lisbon", ...changes });
+      return { image, box: findPixelBox(image, ([red]) => red < 60) };
+    };
+    const square = await box({ cornerRadius: "none" });
+    const own = await box({});
+    // A square box is dark right at its corner; the pill's own rounding leaves the photo there.
+    expect(redAt(square.image, square.box.left + 1, square.box.top + 1)).toBeLessThan(60);
+    expect(redAt(own.image, own.box.left + 1, own.box.top + 1)).toBeGreaterThan(100);
+    const refused = await cover({ layout: "pill", caption: "Lisbon", cornerRadius: "round" as "s" });
+    expect(refused.ok ? "" : refused.error).toContain("cornerRadius");
+  });
+
   it("draws dark text over a light scrim with the tone dark", async () => {
     const white = makeJpeg(1080, 1920, () => [255, 255, 255]);
     const dark = findLitBox(await renderPixels({ photo: white, caption: "Stop working at 49", tone: "dark" }), (red) => red < 80);

@@ -1,5 +1,6 @@
 import type { BrandColors } from "../config/colors.js";
 import { escapeHtml } from "../compose/html.js";
+import { getCornerRadiusCss, getStyleBorderCss, getStyleShadowCss, type BrandStyle } from "./brand-style.js";
 import type { OverlayEntrance } from "./overlay-schema.js";
 import { OVERLAY_LINE_HEIGHT, OVERLAY_LIST_LINE_HEIGHT, OVERLAY_PADDING_EM, OVERLAY_TITLE_LINE_HEIGHT, SEARCH_BAR_PADDING_EM, formatOverlayNumber, type ResolvedOverlay } from "./overlays.js";
 
@@ -54,7 +55,7 @@ export function getTypingTimes(start: number, text: string, speed: number): numb
 }
 
 /** The CSS every overlay kind shares, written once when the film has any drawn overlay. */
-function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interface: string }): string[] {
+function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interface: string }, style?: BrandStyle, scale = 1): string[] {
   return [
     `.ov{position:absolute;display:flex;pointer-events:none}`,
     `.ov.right{justify-content:flex-end}`,
@@ -81,6 +82,14 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.ov-date:not(.right) .ov-card{align-items:flex-start}`,
     `.ov-date .ov-sub{font-weight:600;margin-top:0}`,
     `.ty .ch{opacity:0}`,
+    // The brand's style (after the kinds' own rules, so it wins over them; the search bar stays a pill).
+    ...(style === undefined
+      ? []
+      : [
+          `.ov-card{border-radius:${getCornerRadiusCss(style.cornerRadius, scale)};box-shadow:${getStyleShadowCss(style, scale)};border:${getStyleBorderCss(style, colors.accent, scale)}}`,
+          `.ov-search{border-radius:999px}`,
+          ...(style.border === "none" ? [] : [`.ov-keyword .ov-card{border-bottom:.12em solid ${colors.accent}}`]),
+        ]),
   ];
 }
 
@@ -119,10 +128,11 @@ function toTypedHtml(text: string): string {
 }
 
 /** The inline colours of a card that has its own. */
-function getCardStyle(overlay: ResolvedOverlay, colors: OverlayColors): string {
+function getCardStyle(overlay: ResolvedOverlay, colors: OverlayColors, scale = 1): string {
   if (overlay.kind === "punch_in") return "";
   const own = overlay.colors;
   const parts = [own.card === undefined ? "" : `background:${colors.background}`, own.text === undefined ? "" : `color:${colors.foreground}`];
+  if (overlay.cornerRadius !== undefined && overlay.cornerRadius !== null) parts.push(`border-radius:${getCornerRadiusCss(overlay.cornerRadius, scale)}`);
   if (overlay.kind === "keyword" && own.accent !== undefined) parts.push(`border-bottom-color:${colors.accent}`);
   const style = parts.filter((part) => part !== "").join(";");
   return style === "" ? "" : ` style="${style}"`;
@@ -156,7 +166,7 @@ interface MarkupContext {
 function addSideText(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" | "list" }>, id: string, context: MarkupContext, out: OverlayMarkup): void {
   const { box, fontSize, side } = overlay;
   const colors = getOverlayColors(overlay, context.colors);
-  const cardStyle = getCardStyle(overlay, colors);
+  const cardStyle = getCardStyle(overlay, colors, context.scale);
   const dotStyle = overlay.colors.accent === undefined ? "" : ` style="background:${colors.accent}"`;
   const isTyped = overlay.typing !== null && overlay.kind !== "list";
   const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;align-items:${overlay.kind === "lower_third" ? "flex-end" : "flex-start"}`;
@@ -217,7 +227,7 @@ function addCard(overlay: CardOverlay, id: string, context: MarkupContext, out: 
   const { box, fontSize } = overlay;
   const { classes, body, typed } = getCardBody(overlay, id, colors, context.locale);
   const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;align-items:flex-start`;
-  out.html.push(clipDiv(overlay, id, `ov ${classes}${overlay.typing === null ? "" : " ty"}`, style, body.replace("__STYLE__", getCardStyle(overlay, colors))));
+  out.html.push(clipDiv(overlay, id, `ov ${classes}${overlay.typing === null ? "" : " ty"}`, style, body.replace("__STYLE__", getCardStyle(overlay, colors, context.scale))));
   const entrance = overlay.entrance ?? (overlay.typing !== null ? "type" : DEFAULT_ENTRANCES[overlay.kind]);
   out.tweens.push(...getEntranceTweens(`#${id} .ov-card`, entrance, overlay.start));
   out.tweens.push(...getTypingTweens(id, overlay, typed));
@@ -291,12 +301,12 @@ function addMark(overlay: Extract<ResolvedOverlay, { kind: "arrow" | "highlight"
  */
 export function getOverlayMarkup(
   overlays: readonly ResolvedOverlay[],
-  input: { colors: OverlayColors; headingFont: string; interfaceFont?: string; locale?: string; frame: { width: number; height: number } },
+  input: { colors: OverlayColors; headingFont: string; interfaceFont?: string; locale?: string; frame: { width: number; height: number }; style?: BrandStyle },
 ): OverlayMarkup {
   const drawn = overlays.filter((overlay): overlay is Exclude<ResolvedOverlay, { kind: "punch_in" }> => overlay.kind !== "punch_in");
   if (drawn.length === 0) return { html: [], css: [], tweens: [] };
   const context: MarkupContext = { colors: input.colors, scale: input.frame.width / 1080, locale: input.locale ?? "en-US", frame: input.frame };
-  const out: OverlayMarkup = { html: [], css: getOverlayCss(input.colors, { heading: input.headingFont, interface: input.interfaceFont ?? "inherit" }), tweens: [] };
+  const out: OverlayMarkup = { html: [], css: getOverlayCss(input.colors, { heading: input.headingFont, interface: input.interfaceFont ?? "inherit" }, input.style, context.scale), tweens: [] };
   for (const overlay of drawn) {
     const id = `ov${overlay.index}`;
     if (overlay.kind === "keyword" || overlay.kind === "lower_third" || overlay.kind === "list") addSideText(overlay, id, context, out);

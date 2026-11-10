@@ -17,6 +17,7 @@ import {
 } from "./overlay-schema.js";
 import { getSegmentZoomEases } from "./compose.js";
 import { normalizeWord } from "./words.js";
+import type { CornerRadius } from "./brand-style.js";
 
 /**
  * An EDL's overlays resolved for the render and the draft (issue #1200): each one's film time (from its word through
@@ -114,6 +115,8 @@ export interface OverlayLook {
   typing: number | null;
   /** Its own colours in place of the brand's (empty: the brand's). */
   colors: EdlOverlayColors;
+  /** Its card's own corner (`style.corner_radius`), else null: the brand style's, or the kind's own without one. */
+  cornerRadius?: CornerRadius | null;
 }
 
 type Drawn = OverlayBase & OverlayLook;
@@ -423,6 +426,7 @@ function getLook(overlay: EdlOverlay): OverlayLook {
     entrance: overlay.style?.entrance ?? null,
     typing: isTypedOverlay(overlay) ? (overlay.style?.typing_speed ?? DEFAULT_OVERLAY_TYPING_SPEED) : null,
     colors: { ...overlay.style?.colors },
+    cornerRadius: overlay.style?.corner_radius ?? null,
   };
 }
 

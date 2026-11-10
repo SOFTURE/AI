@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { CORNER_RADII, type CornerRadius } from "./brand-style.js";
+
 /**
  * An EDL's overlays (issue #1200): small graphics and an emphasis zoom placed on a word of the transcript or at a film
  * second, drawn by the render and the draft alike from a fixed catalogue. Their shape lives here so the EDL schema can
@@ -105,6 +107,8 @@ export interface EdlOverlayStyle {
   /** Characters per second of the `type` entrance and the search bar's query. */
   typing_speed?: number;
   colors?: EdlOverlayColors;
+  /** Its card's corner in place of the brand style's (`BrandStyle.cornerRadius`); not on a punch_in, arrow or highlight. */
+  corner_radius?: CornerRadius;
 }
 
 export interface EdlOverlay {
@@ -255,6 +259,7 @@ function checkOverlayStyle(overlay: EdlOverlay, issue: (path: string[], message:
     issue(["style", "entrance"], entrances.length === 0 ? `${article(kind)} has no entrance; leave it out` : `${article(kind)} enters by ${entrances.join(", ")}`);
   }
   if (style.typing_speed !== undefined && !isTypedOverlay(overlay)) issue(["style", "typing_speed"], "only a typed entrance or a search bar has a typing speed");
+  if (style.corner_radius !== undefined && (kind === "punch_in" || kind === "arrow" || kind === "highlight")) issue(["style", "corner_radius"], `${article(kind)} draws no card; leave corner_radius out`);
   if (style.colors === undefined) return;
   if (kind === "punch_in") issue(["style", "colors"], "a punch_in draws nothing to colour; leave colors out");
   if ((kind === "arrow" || kind === "highlight") && (style.colors.card !== undefined || style.colors.text !== undefined)) {
@@ -340,6 +345,10 @@ export const overlaySchema = z
           })
           .optional()
           .describe("The overlay's own colours in place of the brand's."),
+        corner_radius: z
+          .enum(CORNER_RADII)
+          .optional()
+          .describe("The card's corner: none, s, m, l or pill; the brand style's without it (no punch_in, arrow or highlight)."),
       })
       .optional()
       .describe("The overlay's look: size, side, position, entrance, typing speed and colours; fonts are the brand's."),

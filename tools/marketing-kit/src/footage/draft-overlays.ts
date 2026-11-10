@@ -1,3 +1,5 @@
+import { getCornerRadiusPx, type BrandStyle, type CornerRadius } from "./brand-style.js";
+import { getDraftBoxEvents } from "./draft-boxes.js";
 import { toAssColor } from "./draft-color.js";
 import { getCounterSeconds, getOverlayColors, getTypingTimes, type OverlayColors } from "./overlay-html.js";
 import {
@@ -132,6 +134,17 @@ interface DraftContext {
   locale: string;
   /** The font family per role, when it is not the styles' own. */
   fonts: Partial<Record<OverlayFontRole, string>>;
+  /** The brand's style: the cards' radius, shadow and border; absent: each kind's own corner, no shadow, no border. */
+  style?: BrandStyle;
+}
+
+/**
+ * A card's corner in px: its own token, else the brand style's (a search bar stays a pill unless it names its own),
+ * else `own` (the kind's look before the style).
+ */
+export function getDraftCardRadius(overlay: { kind: string; cornerRadius?: CornerRadius | null }, box: { height: number }, context: Pick<DraftContext, "style" | "scale">, own: number): number {
+  const token = overlay.cornerRadius ?? (context.style === undefined ? null : overlay.kind === "search_bar" ? "pill" : context.style.cornerRadius);
+  return token === null ? own : getCornerRadiusPx(token, box.height, context.scale);
 }
 
 /** One stretch of an overlay's text: what shows from `from` to `to`, and its tags. */
@@ -185,9 +198,30 @@ function getTextTags(overlay: ResolvedOverlay, colors: OverlayColors, context: D
   ].join("");
 }
 
-/** The corner radius of a keyword's, a lower third's or a list's card: the render's `.ov-card` (0.42 em). */
-function getSideCardRadius(fontSize: number): number {
-  return fontSize * 0.42;
+/** A card's own corner without a brand style: the render's `.ov-card` (0.42 em), a search bar's full pill. */
+function getOwnCardRadius(overlay: Pick<ResolvedOverlay, "kind">, box: { height: number }, fontSize: number): number {
+  return overlay.kind === "search_bar" ? box.height / 2 : fontSize * 0.42;
+}
+
+/**
+ * A card's drawn box on layer 3 with the overlay's entrance: one fill without a brand style, else the style's shadow,
+ * fill and border (`getDraftBoxEvents`), at the brand style's corner or the overlay's own (`getDraftCardRadius`).
+ */
+function getCardShapeEvents(overlay: ResolvedOverlay, box: OverlayBox, fontSize: number, colors: { background: string; accent: string }, entrance: "fade" | "slide" | "none", context: DraftContext): string[] {
+  const radius = getDraftCardRadius(overlay, box, context, getOwnCardRadius(overlay, box, fontSize));
+  if (context.style === undefined) return [getShapeEvent(overlay, getRoundedRectDrawing(box, radius), colors.background, entrance, context.scale)];
+  return getDraftBoxEvents({
+    layer: 3,
+    at: `${toAssTime(overlay.start)},${toAssTime(overlay.end)}`,
+    styleName: "OverlayShape",
+    box,
+    radius,
+    color: colors.background,
+    accent: colors.accent,
+    style: context.style,
+    scale: context.scale,
+    motion: getMotionTags(entrance, true, true, { x: 0, y: 0, dy: SLIDE_PX * context.scale }),
+  });
 }
 
 /**
@@ -211,15 +245,15 @@ function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" |
   const span = { start: overlay.start, end: overlay.end };
   const tags = `\\an${align}\\fs${fontSize}${getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES[overlay.kind])}`;
   const text = (pos: OverlayPoint, steps: TextStep[]) => getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps, entrance, slidePx: SLIDE_PX * context.scale });
-  const shape = getShapeEvent(overlay, getRoundedRectDrawing(card, getSideCardRadius(fontSize)), colors.background, entrance, context.scale);
+  const shape = getCardShapeEvents(overlay, card, fontSize, colors, entrance, context);
   if (overlay.kind === "list") {
     // One event per point, on the render's line height (libass's own line spacing is tighter), all shown at once.
     const step = fontSize * OVERLAY_LIST_LINE_HEIGHT;
     const lead = (step - fontSize * OVERLAY_LINE_HEIGHT) / 2;
-    return [shape, ...getSideTextLines(overlay).flatMap((line, index) => text({ x, y: y + lead + index * step }, [{ from: span.start, to: span.end, text: toAssText(line) }]))];
+    return [...shape, ...getSideTextLines(overlay).flatMap((line, index) => text({ x, y: y + lead + index * step }, [{ from: span.start, to: span.end, text: toAssText(line) }]))];
   }
   // A keyword or a lower third types in only when its entrance says so.
-  return [shape, ...text({ x, y }, overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(overlay.text) }] : getTypedSteps(overlay.text, span, overlay.typing))];
+  return [...shape, ...text({ x, y }, overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(overlay.text) }] : getTypedSteps(overlay.text, span, overlay.typing))];
 }
 
 type CardOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "search_bar" | "place_card" | "counter" | "date_stamp" }>;
@@ -241,8 +275,7 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
   const entrance = overlay.entrance === null || overlay.entrance === "type" ? (overlay.typing !== null ? "fade" : DEFAULT_ENTRANCES[overlay.kind]) : overlay.entrance;
   const slidePx = SLIDE_PX * context.scale;
   const span = { start: overlay.start, end: overlay.end };
-  const radius = overlay.kind === "search_bar" ? box.height / 2 : fontSize * 0.42;
-  const events = [getShapeEvent(overlay, getRoundedRectDrawing(box, radius), colors.background, entrance, context.scale)];
+  const events = getCardShapeEvents(overlay, box, fontSize, colors, entrance, context);
   const padX = r0(fontSize * OVERLAY_PADDING_EM.x);
   const padY = r0(fontSize * OVERLAY_PADDING_EM.y);
   const centerX = box.left + box.width / 2;
@@ -333,9 +366,9 @@ export function buildDraftOverlayEvents(
   overlays: readonly ResolvedOverlay[],
   colors: OverlayColors,
   frame: { width: number; height: number },
-  options: { fonts?: Partial<Record<OverlayFontRole, string>>; locale?: string } = {},
+  options: { fonts?: Partial<Record<OverlayFontRole, string>>; locale?: string; style?: BrandStyle } = {},
 ): string[] {
-  const context: DraftContext = { brand: colors, scale: frame.width / 1080, locale: options.locale ?? "en-US", fonts: options.fonts ?? {} };
+  const context: DraftContext = { brand: colors, scale: frame.width / 1080, locale: options.locale ?? "en-US", fonts: options.fonts ?? {}, ...(options.style === undefined ? {} : { style: options.style }) };
   return overlays.flatMap((overlay) => {
     if (overlay.kind === "punch_in") return [];
     if (overlay.kind === "arrow" || overlay.kind === "highlight") return getMarkEvents(overlay, context);

@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +11,11 @@ import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, getFo
 import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
 import { toAssColor } from "./draft-color.js";
 import { buildDraftOverlayEvents, getDraftOverlayStyles } from "./draft-overlays.js";
+import { getCaptionCornerRadius, getCornerRadiusPx, getStylePadding, type BrandStyle } from "./brand-style.js";
+import { getDraftBoxEvents } from "./draft-boxes.js";
+import { createDraftTextMeasure, wrapDraftLine, type DraftTextMeasure } from "./draft-text-width.js";
+import { CAPTION_PILL_PADDING } from "../compose/timeline.js";
+import { estimateTextWidth } from "./overlays.js";
 import type { OverlayColors } from "./overlay-html.js";
 import { resolveEdlOverlays, type OverlayFontRole, type ResolvedOverlay } from "./overlays.js";
 import { chooseFootageDraftFont } from "./draft-font.js";
@@ -138,6 +143,14 @@ export interface FootageDraftCaptionsInput {
   overlayFonts?: Partial<Record<OverlayFontRole, string>>;
   /** How a counter groups its number (BCP 47); default `en-US`. */
   locale?: string;
+  /**
+   * The brand's style (`FootageBrand.style`): a `highlight` chunk is drawn on a rounded pill of its radius, padding,
+   * shadow and border, its lines broken by `measure`; the overlay cards take its radius, shadow and border. Absent:
+   * libass's square box, as before.
+   */
+  style?: BrandStyle;
+  /** The width of a line in the captions' font (`createDraftTextMeasure`); absent or null: the `OVERLAY_CHAR_EM` estimate. */
+  measure?: DraftTextMeasure | null;
 }
 
 /** The pieces of a `highlight` chunk's span: cut wherever a word lights up or goes out (in centiseconds), with the words lit in each. */
@@ -149,33 +162,103 @@ function getHighlightPieces(chunk: { words: TimedWord[] }, span: { start: number
   return cuts.slice(0, -1).map((at, index) => ({ from: at, to: cuts[index + 1] as number, lit: lights.map((light) => light.on <= at && at < light.off) }));
 }
 
+/** Words joined for one ASS line: a space, or `\\N` after the words a drawn pill's lines end on. */
+function joinWords(words: readonly string[], breaks: ReadonlySet<number>): string {
+  return words.map((word, index) => (index === 0 ? word : `${breaks.has(index - 1) ? "\\N" : " "}${word}`)).join("");
+}
+
+/** How a chunk's events are laid out: its line breaks, and whether a drawn pill stands under it (so libass draws no box). */
+interface ChunkLayout {
+  breaks: ReadonlySet<number>;
+  hasPill: boolean;
+}
+
+const BOXLESS_LAYOUT: ChunkLayout = { breaks: new Set(), hasPill: false };
+/** The tags that hide libass's own box of a `BorderStyle 3` style, for text over a drawn pill. */
+const NO_BOX = "{\\3a&HFF&\\4a&HFF&}";
+
 /**
  * A `highlight` chunk as ASS events: its span cut wherever a word lights up or goes out, each piece showing the chunk
  * with the words lit then in `highlight` (a word stays lit for the render's 0.32 s from its start).
  */
-function buildHighlightEvents(chunk: { words: TimedWord[] }, span: { start: number; end: number }, colors: { text: string; highlight: string }, styleName: string): string[] {
+function buildHighlightEvents(chunk: { words: TimedWord[] }, span: { start: number; end: number }, colors: { text: string; highlight: string }, styleName: string, layout: ChunkLayout = BOXLESS_LAYOUT): string[] {
   return getHighlightPieces(chunk, span).map((piece) => {
-    const text = chunk.words.map((word, wordIndex) => (piece.lit[wordIndex] === true ? `{\\1c${colors.highlight}&}${toAssText(word.text)}{\\1c${colors.text}&}` : toAssText(word.text))).join(" ");
-    return `Dialogue: 0,${toAssTime(piece.from / 100)},${toAssTime(piece.to / 100)},${styleName},,0,0,0,,${text}`;
+    const words = chunk.words.map((word, wordIndex) => (piece.lit[wordIndex] === true ? `{\\1c${colors.highlight}&}${toAssText(word.text)}{\\1c${colors.text}&}` : toAssText(word.text)));
+    return `Dialogue: 0,${toAssTime(piece.from / 100)},${toAssTime(piece.to / 100)},${styleName},,0,0,0,,${layout.hasPill ? NO_BOX : ""}${joinWords(words, layout.breaks)}`;
   });
 }
 
 /**
  * A `box` highlight chunk as ASS events (issue #1199), three layers per piece of its span. libass draws a
  * `BorderStyle 3` box per glyph, in each glyph's own `\3c` and `\3a`, so the layers share one layout: 0 is the pill
- * (its text hidden), 1 the lit word's box (every other glyph's box transparent, grown by `boxPadding` instead of the
- * pill's), 2 the text alone (no box) with the lit word in its box text colour.
+ * (its text hidden; left out over a drawn pill), 1 the lit word's box (every other glyph's box transparent, grown by
+ * `boxPadding` instead of the pill's), 2 the text alone (no box) with the lit word in its box text colour.
  */
-function buildHighlightBoxEvents(chunk: { words: TimedWord[] }, span: { start: number; end: number }, colors: { text: string; box: string; boxText: string }, boxPadding: number, styleName: string): string[] {
+function buildHighlightBoxEvents(
+  chunk: { words: TimedWord[] },
+  span: { start: number; end: number },
+  colors: { text: string; box: string; boxText: string },
+  boxPadding: number,
+  styleName: string,
+  layout: ChunkLayout = BOXLESS_LAYOUT,
+): string[] {
   return getHighlightPieces(chunk, span).flatMap((piece) => {
     const at = `${toAssTime(piece.from / 100)},${toAssTime(piece.to / 100)},${styleName},,0,0,0,,`;
     const shown = chunk.words.map((word) => toAssText(word.text));
-    const pill = `{\\1a&HFF&}${shown.join(" ")}`;
-    const box = `{\\1a&HFF&\\bord${boxPadding}\\3a&HFF&}${shown.map((text, index) => (piece.lit[index] === true ? `{\\3c${colors.box}&\\3a&H00&}${text}{\\3a&HFF&}` : text)).join(" ")}`;
-    const text = `{\\3a&HFF&\\4a&HFF&}${shown.map((word, index) => (piece.lit[index] === true ? `{\\1c${colors.boxText}&}${word}{\\1c${colors.text}&}` : word)).join(" ")}`;
+    const pill = `{\\1a&HFF&}${joinWords(shown, layout.breaks)}`;
+    const box = `{\\1a&HFF&\\bord${boxPadding}\\3a&HFF&}${joinWords(
+      shown.map((text, index) => (piece.lit[index] === true ? `{\\3c${colors.box}&\\3a&H00&}${text}{\\3a&HFF&}` : text)),
+      layout.breaks,
+    )}`;
+    const text = `{\\3a&HFF&\\4a&HFF&}${joinWords(
+      shown.map((word, index) => (piece.lit[index] === true ? `{\\1c${colors.boxText}&}${word}{\\1c${colors.text}&}` : word)),
+      layout.breaks,
+    )}`;
     const isLit = piece.lit.some((lit) => lit);
-    return [`Dialogue: 0,${at}${pill}`, ...(isLit ? [`Dialogue: 1,${at}${box}`] : []), `Dialogue: 2,${at}${text}`];
+    return [...(layout.hasPill ? [] : [`Dialogue: 0,${at}${pill}`]), ...(isLit ? [`Dialogue: 1,${at}${box}`] : []), `Dialogue: 2,${at}${text}`];
   });
+}
+
+/** The pill of a chunk drawn in the brand's style: its lines (broken by width) and its shadow, box and border events. */
+interface DrawnPill {
+  breaks: Set<number>;
+  events: string[];
+}
+
+interface DrawnPillInput {
+  words: readonly string[];
+  span: { start: number; end: number };
+  place: CaptionLayout;
+  frame: Frame;
+  style: BrandStyle;
+  measure: DraftTextMeasure;
+  colors: { background: string; accent: string };
+}
+
+/**
+ * A chunk's rounded pill (`style`): its words broken greedily into lines that fit the caption box less the padding,
+ * the pill as wide as the widest line and as tall as the lines (libass draws a line one font size tall) plus the
+ * padding, centred in the box and hung from its foot (or its top) as the text is.
+ */
+function getDrawnPill(input: DrawnPillInput): DrawnPill {
+  const { place, frame, style, measure } = input;
+  const scale = frame.width / 1080;
+  const pad = getStylePadding(CAPTION_PILL_PADDING, style.padding);
+  const areaWidth = frame.width - place.left - place.right;
+  const lines = wrapDraftLine(input.words, areaWidth - 2 * pad.x, place.fontSize, measure);
+  const breaks = new Set<number>();
+  let counted = 0;
+  for (const line of lines.slice(0, -1)) {
+    counted += line.length;
+    breaks.add(counted - 1);
+  }
+  const width = Math.min(areaWidth, Math.max(...lines.map((line) => measure(line.join(" "), place.fontSize))) + 2 * pad.x);
+  const height = lines.length * place.fontSize + 2 * pad.y;
+  const textTop = place.bottom === undefined ? place.top : frame.height - place.bottom - lines.length * place.fontSize;
+  const box = { left: place.left + (areaWidth - width) / 2, top: textTop - pad.y, width, height };
+  const at = `${toAssTime(input.span.start)},${toAssTime(input.span.end)}`;
+  const radius = getCornerRadiusPx(getCaptionCornerRadius(style), height, scale);
+  return { breaks, events: getDraftBoxEvents({ layer: 0, at, styleName: "CaptionShape", box, radius, color: input.colors.background, accent: input.colors.accent, style, scale }) };
 }
 
 /** The highlight look the draft draws: `text` for a `phrase` film; a `box` film without its colours is an input error. */
@@ -246,7 +329,8 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
   // A chunk in a segment's own box gets a style of that box (Caption2, Caption3, ...); the film's box stays `Caption`.
   const styles = [toStyle("Caption", caption)];
   const moved: CaptionLayout[] = [];
-  const styleNames = getCaptionChunkLayouts(chunks, input.edl, caption).map((place) => {
+  const places = getCaptionChunkLayouts(chunks, input.edl, caption);
+  const styleNames = places.map((place) => {
     if (isSameCaptionPlace(place, caption)) return "Caption";
     let index = moved.findIndex((other) => isSameCaptionPlace(other, place));
     if (index === -1) {
@@ -259,11 +343,19 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
   const lit = getDraftHighlightLook(input.film, colors);
   const boxColors = lit.style === "box" ? { text: highlight.text, box: toAssColor(lit.box).replace(/^&H../, "&H"), boxText: toAssColor(lit.text).replace(/^&H../, "&H") } : null;
   const boxPadding = Math.max(1, Math.round(caption.fontSize * CAPTION_HIGHLIGHT_BOX_PADDING_EM));
+  // With the brand's style a `highlight` chunk stands on a drawn rounded pill (its lines broken here), not libass's box.
+  const style = isHighlight ? input.style : undefined;
+  const measure = input.measure ?? ((line: string, size: number) => estimateTextWidth(line, size));
+  const pillColors = { background: colors.captionBackground, accent: lit.style === "box" ? lit.box : colors.captionHighlight };
   const events = chunks.flatMap((chunk, index) => {
     const span = spans[index] as { start: number; end: number };
     const styleName = styleNames[index] ?? "Caption";
-    if (isHighlight && boxColors !== null) return buildHighlightBoxEvents(chunk, span, boxColors, boxPadding, styleName);
-    if (isHighlight) return buildHighlightEvents(chunk, span, highlight, styleName);
+    const pill =
+      style === undefined ? null : getDrawnPill({ words: chunk.words.map((word) => word.text.replace(/\u00a0/g, " ")), span, place: places[index] ?? caption, frame, style, measure, colors: pillColors });
+    const layout: ChunkLayout = pill === null ? BOXLESS_LAYOUT : { breaks: pill.breaks, hasPill: true };
+    const drawn = pill?.events ?? [];
+    if (isHighlight && boxColors !== null) return [...drawn, ...buildHighlightBoxEvents(chunk, span, boxColors, boxPadding, styleName, layout)];
+    if (isHighlight) return [...drawn, ...buildHighlightEvents(chunk, span, highlight, styleName, layout)];
     const line = toAssText(chunk.words.map((word) => word.text).join(" "));
     return [`Dialogue: 0,${toAssTime(span.start)},${toAssTime(span.end)},${styleName},,0,0,0,,${line}`];
   });
@@ -277,7 +369,8 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    ...styles.map((style) => `Style: ${style}`),
+    ...styles.map((line) => `Style: ${line}`),
+    ...(style === undefined || chunks.length === 0 ? [] : [`Style: CaptionShape,${family},${String(caption.fontSize)},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1`]),
     ...(overlays.length === 0 ? [] : getDraftOverlayStyles(family, input.overlayColors ?? FOOTAGE_DRAFT_OVERLAY_COLORS)),
     "",
     "[Events]",
@@ -286,6 +379,7 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     ...buildDraftOverlayEvents(overlays, input.overlayColors ?? FOOTAGE_DRAFT_OVERLAY_COLORS, input.frame, {
       ...(input.overlayFonts === undefined ? {} : { fonts: input.overlayFonts }),
       ...(input.locale === undefined ? {} : { locale: input.locale }),
+      ...(input.style === undefined ? {} : { style: input.style }),
     }),
     "",
   ].join("\n");
@@ -526,7 +620,7 @@ export interface RenderFootageDraftOptions extends Pick<FootageRunOptions, "buil
    * OpenType file; DejaVu Sans when it has none) and its caption colours. Without it, DejaVu Sans and
    * `FOOTAGE_DRAFT_CAPTION_COLORS`.
    */
-  brand?: { colors: FootageDraftCaptionColors & Partial<OverlayColors>; fonts: Pick<FootageBrand["fonts"], "body"> & Partial<Pick<FootageBrand["fonts"], "heading" | "interface">>; locale?: string };
+  brand?: { colors: FootageDraftCaptionColors & Partial<OverlayColors>; fonts: Pick<FootageBrand["fonts"], "body"> & Partial<Pick<FootageBrand["fonts"], "heading" | "interface">>; locale?: string; style?: BrandStyle };
   /**
    * ffmpeg's threads for the draft's decoders, filter graph and encoder (`buildFootageDraftArgs`); by default ffmpeg's
    * own choice, which follows the host's cores. Set it from a CPU-limited container's quota.
@@ -658,6 +752,7 @@ async function runRenderFootageDraft(
     ...(overlays.length === 0 ? {} : { overlays, overlayColors }),
     ...(Object.keys(roleFonts).length === 0 ? {} : { overlayFonts: Object.fromEntries(Object.entries(roleFonts).map(([role, chosen]) => [role, chosen.family])) }),
     ...(options.brand?.locale === undefined ? {} : { locale: options.brand.locale }),
+    ...(options.brand?.style === undefined ? {} : { style: options.brand.style, measure: createDraftTextMeasure(readFileSync(font.file)) }),
   });
   if (captions !== null) {
     writeFileSync(join(draftDir, "captions.ass"), captions);
