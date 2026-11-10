@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { BrandFont } from "../config/config.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { CAPTION_SAFE_ZONES, applySegmentCaption, findMissingCaptionGlyphs, getCaptionBounds, getCaptionChunkLayouts, getCaptionKeepsWithNext, getCaptionPresetLayout, getFootageCaptionChunks, getFootageCaptionLayout, getSegmentCaptionLayout, phraseChunks } from "./captions.js";
+import { CAPTION_SAFE_ZONES, applySegmentCaption, findMissingCaptionGlyphs, getCaptionBounds, getCaptionChunkLayouts, getCaptionKeepsWithNext, getCaptionPlaceAt, getCaptionPresetLayout, getFootageCaptionChunks, getFootageCaptionLayout, getSegmentCaptionLayout, phraseChunks } from "./captions.js";
 import type { Edl } from "./edl.js";
 
 const w = (text: string, start: number): TimedWord => ({ text, start, end: start + 0.3 });
@@ -177,6 +177,14 @@ describe("segment caption boxes", () => {
   it("gives each chunk the box of the segment its first word starts in, the cut's edge belonging to the later one", () => {
     const layouts = getCaptionChunkLayouts([{ start: 0.5 }, { start: 1.9 }, { start: 2 }, { start: 5 }, { start: 9 }], edl, base);
     expect(layouts.map((layout) => layout.bottom ?? `top ${layout.top}`)).toEqual([base.bottom, base.bottom, 1150, "top 300", "top 300"]);
+  });
+
+  it("gives a chunk that starts in a caption range the range's box, over its segment's, the range's end excluded", () => {
+    const ranged: Edl = { ...edl, captionRanges: [{ from: 0.4, to: 1, bottom: 900 }, { from: 2.5, to: 3, top: 200 }] };
+    const layouts = getCaptionChunkLayouts([{ start: 0.2 }, { start: 0.4 }, { start: 1 }, { start: 2.6 }, { start: 3 }], ranged, base);
+    expect(layouts.map((layout) => layout.bottom ?? `top ${layout.top}`)).toEqual([base.bottom, 900, base.bottom, "top 200", 1150]);
+    expect(getCaptionPlaceAt(ranged, 0.5, base)).toEqual({ ...base, bottom: 900 });
+    expect(getCaptionPlaceAt({ ...edl, captionRanges: [] }, 2.5, base)).toEqual({ ...base, bottom: 1150 });
   });
 
   it("bounds a box by the frame less one caption card", () => {

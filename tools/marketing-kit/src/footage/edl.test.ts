@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { TimedWord } from "../voice/voiceover.js";
-import { buildEdl, diffEdl, findEdlProblems, findSegmentAt, getEdlDuration, getEdlJsonSchema, getSegmentStarts, isFiller, normalizeWord, readEdl, remapWords, validateEdl, type Edl, type EdlClip, type EdlSegment } from "./edl.js";
+import { buildEdl, diffEdl, findCaptionRangeAt, findEdlProblems, findSegmentAt, getEdlDuration, getEdlJsonSchema, getSegmentStarts, isFiller, normalizeWord, readEdl, remapWords, validateEdl, type Edl, type EdlClip, type EdlSegment } from "./edl.js";
 import { DEFAULT_FILLERS, DEFAULT_TRANSITIONS, type CutOptions } from "./film.js";
 
 const PL = DEFAULT_FILLERS.pl ?? [];
@@ -254,6 +254,32 @@ describe("a segment's caption box", () => {
     expect(diffEdl(withCaption({ bottom: 1150 }), withCaption({ bottom: 900 }))).toEqual(["s4 captions moved"]);
     expect(diffEdl(withCaption({ bottom: 1150 }), base)).toEqual(["s4 captions back in the film's box"]);
     expect(diffEdl(base, withCaption({}))).toEqual([]);
+  });
+
+  it("reads caption ranges, finds the one at a film time and describes them in the JSON Schema", () => {
+    const ranged: Edl = { ...base, captionRanges: [{ from: 1, to: 1.5, bottom: 900 }] };
+    expect(readEdl(ranged)).toEqual({ ok: true, edl: ranged });
+    expect(readEdl({ ...base, captionRanges: [{ from: 1, to: 2, left: 3 }] })).toMatchObject({ ok: false });
+    expect([0.99, 1, 1.49, 1.5].map((time) => findCaptionRangeAt(ranged, time)?.bottom ?? null)).toEqual([null, 900, 900, null]);
+    expect(findCaptionRangeAt(base, 1)).toBeUndefined();
+    expect(JSON.stringify(getEdlJsonSchema())).toContain("Moves the caption box for the captions that start in a stretch of film time");
+  });
+
+  it("refuses an empty, overlapping, too long or off-frame caption range", () => {
+    const clips = [{ id: "talk", duration: 10 }];
+    const ranges = (captionRanges: NonNullable<Edl["captionRanges"]>): Edl => ({ ...base, captionRanges });
+    expect(validateEdl(ranges([{ from: 0, to: 1, bottom: 900 }, { from: 1, to: 4, bottom: 900 }]), clips, "f", bounds)).toEqual([]);
+    expect(validateEdl(ranges([{ from: 2, to: 2 }]), clips, "f")).toEqual(["captionRanges[0]: to (2 s) must come after from (2 s)"]);
+    expect(validateEdl(ranges([{ from: 3, to: 4.1 }]), clips, "f")).toEqual(["captionRanges[0].to: 4.1 s is past the cut's end (4 s)"]);
+    expect(validateEdl(ranges([{ from: 0, to: 2 }, { from: 1, to: 3 }]), clips, "f")).toEqual(["captionRanges[1]: overlaps captionRanges[0] (1–3 s)"]);
+    expect(validateEdl(ranges([{ from: 0, to: 1, bottom: 1813 }]), clips, "f", bounds)).toEqual(["captionRanges[0].bottom: 1813 px leaves no room for a caption card (at most 1812 px in a 1920 px frame)"]);
+  });
+
+  it("names a change of caption ranges in the diff", () => {
+    const ranged: Edl = { ...base, captionRanges: [{ from: 1, to: 1.5, bottom: 900 }] };
+    expect(diffEdl(base, ranged)).toEqual(["captions moved in 1–1.5 s"]);
+    expect(diffEdl(ranged, { ...base, captionRanges: [] })).toEqual(["captions back in the segments' boxes"]);
+    expect(diffEdl(base, { ...base, captionRanges: [] })).toEqual([]);
   });
 
   it("finds the segment playing at a film time", () => {

@@ -440,6 +440,41 @@
         ],
         "additionalProperties": false
       }
+    },
+    "captionRanges": {
+      "description": "Moves the caption box for the captions that start in a stretch of film time (from to to, in film seconds), over the segment's own caption; stretches never overlap. Without it, the segments' boxes.",
+      "maxItems": 40,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Film second where the stretch starts."
+          },
+          "to": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Film second where the stretch ends (excluded)."
+          },
+          "bottom": {
+            "description": "The caption box's foot, in px above the frame's foot; anchors the box by its foot and wins over top.",
+            "type": "number",
+            "minimum": 0
+          },
+          "top": {
+            "description": "The caption box's top, in px below the frame's top; used when bottom is absent.",
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [

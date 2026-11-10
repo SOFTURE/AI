@@ -684,6 +684,16 @@ describe("buildFootageDraftCaptions with a segment's own caption box", () => {
     expect(ass).toMatch(/Style: Caption2,.*,8,60,80,300,1\n/);
   });
 
+  it("draws the chunks that start in a caption range at the range's foot, the rest of the segment in its own box", () => {
+    // The first chunk starts at 0.1 s, inside the range; "Back." at 4.2 s is past it, in the film's box.
+    const ranged: Edl = { ...edl, captionRanges: [{ from: 0, to: 1, bottom: 900 }] };
+    const ass = buildFootageDraftCaptions({ film, edl: ranged, words, caption, frame: FRAME }) ?? "";
+    expect(ass).toContain(",2,60,80,900,1\n");
+    const lines = dialogue(ass);
+    expect(lines[0]?.split(",")[3]).toBe("Caption2");
+    expect(lines.filter((line) => line.includes("Back.")).every((line) => line.split(",")[3] === "Caption")).toBe(true);
+  });
+
   it("writes the same file for an EDL without the field", () => {
     const plain = buildFootageDraftCaptions({ film, edl, words, caption, frame: FRAME });
     expect(buildFootageDraftCaptions({ film, edl: { ...edl, segments: edl.segments.map((segment) => ({ ...segment, caption: {} })) }, words, caption, frame: FRAME })).toBe(plain);

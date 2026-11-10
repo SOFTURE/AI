@@ -4,7 +4,7 @@ import { CAPTION_LINE_HEIGHT, CAPTION_PILL_PADDING, balanceCaptionGroups, captio
 import type { BrandFont } from "../config/config.js";
 import { readCharacterMap, type CharacterMap } from "../og/character-map.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { findSegmentAt, type Edl, type EdlCaption, type EdlCaptionBounds } from "./edl.js";
+import { findCaptionRangeAt, findSegmentAt, type Edl, type EdlCaption, type EdlCaptionBounds } from "./edl.js";
 import { DEFAULT_CAPTION_KEEP_WITH_NEXT, type CaptionPreset, type FootageFilm } from "./film.js";
 
 /**
@@ -204,7 +204,17 @@ export function getSegmentCaptionLayout(film: Pick<FootageFilm, "format" | "capt
  * a chunk that spans a cut keeps one box. The render and the draft place chunks alike.
  */
 export function getCaptionChunkLayouts(chunks: readonly { start: number }[], edl: Edl, base: CaptionLayout): CaptionLayout[] {
-  return chunks.map((chunk) => applySegmentCaption(base, edl.segments[findSegmentAt(edl, chunk.start)]?.caption));
+  return chunks.map((chunk) => getCaptionPlaceAt(edl, chunk.start, base));
+}
+
+/**
+ * The caption box at film second `time`: a caption range that holds it (`Edl.captionRanges`), else the box of the
+ * segment it falls in (`applySegmentCaption`).
+ */
+export function getCaptionPlaceAt(edl: Edl, time: number, base: CaptionLayout): CaptionLayout {
+  const range = findCaptionRangeAt(edl, time);
+  if (range !== undefined) return applySegmentCaption(base, { ...(range.bottom === undefined ? {} : { bottom: range.bottom }), ...(range.top === undefined ? {} : { top: range.top }) });
+  return applySegmentCaption(base, edl.segments[findSegmentAt(edl, time)]?.caption);
 }
 
 /** Whether two caption boxes sit in the same place (a chunk in the film's box is drawn exactly as before). */
