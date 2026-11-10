@@ -24,3 +24,4 @@ export {
 export type { GrafanaDashboard, GrafanaRule, GrafanaRuleQuery, GrafanaRulesFile, ParseResult } from "./grafana/rules-file.js";
 export { buildLogProblemsRule, buildServiceSilentRule } from "./grafana/rule-builders.js";
 export type { LogProblemsRuleOptions, ObservedService, ServiceSilentRuleOptions } from "./grafana/rule-builders.js";
+export { MEMORY_METRIC_NAMES } from "./memory-metrics.js";

@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.8.3
+
+- Memory gauges, on by default with metric export (`instrumentations.memory: false` turns them off):
+  `process.memory.usage` (the resident set size) and, in a cgroup v2 container, `container.memory.usage`,
+  `container.memory.working_set`, `container.memory.limit` and `container.memory.swap.usage`, read from
+  `/sys/fs/cgroup` at each collection. The V8 heap alone did not show how close a memory-limited worker (ffmpeg,
+  Chromium children, page cache) came to its container's limit. `/node` exports `MEMORY_METRIC_NAMES`.
+
 ## 0.8.2
 
 - A logged `error` that is not an `Error` no longer comes out as its bare `typeof` (`exception.message="string"`).
