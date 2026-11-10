@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.26.0
+
+- **Overlays across a jump cut:** `resolveEdlOverlays` lets an overlay other than a `punch_in` run on across a cut
+  inside one shot: the next segment plays the same clip, starts on a plain `cut`, neither segment has a Ken Burns zoom
+  and both keep the same caption box, so the frame does not change. A list or a keyword on a talking head no longer
+  has to end at the first pause cut. Across another clip, a transition, a Ken Burns zoom or moved captions it still
+  stops, and the refusal names that cut and why (`runs 2 s past the cut at 4 s (segment "s2" plays another clip)`).
+  A `punch_in` stays inside its own segment, a `hook_title` may still cross any cut. New export: `findShotBreak`.
+  EDLs that resolved before resolve the same.
+
 ## 0.25.0
 
 - **A keyword's, a lower third's and a list's card as drawn:** new export `getDrawnOverlayCard(overlay)` answers the
