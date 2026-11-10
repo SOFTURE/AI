@@ -80,6 +80,7 @@ import {
 } from "./publish.js";
 import { describePaidSteps, toPaidAudio, type FootageCharge, type FootageProgress, type FootageProviders, type FootageStage, type PaidAudio, type PaidStep } from "./providers.js";
 import { buildAudioArgs, buildCutPreviewArgs, buildLastFrameArgs, buildMusicArgs, buildSpeechArgs, getSpeechCutOptions } from "./render.js";
+import type { BrandStyle } from "./brand-style.js";
 
 export { getEdlPath } from "./paid.js";
 
@@ -121,6 +122,11 @@ export interface FootageBrand {
    */
   fonts: { heading: BrandFont | null; body: BrandFont | null; interface?: BrandFont | null };
   logo: string | null;
+  /**
+   * One look for every box (`brand-style.ts`): the caption pill's and each overlay card's corner radius, the pill's
+   * padding, a soft shadow and a thin accent border, in the draft and the render. Absent: each box as before.
+   */
+  style?: BrandStyle;
 }
 
 export interface FootageRunOptions {
@@ -882,6 +888,7 @@ async function runRenderFootage(
     brandName: options.brand.name,
     locale: options.brand.locale,
     ...(overlays.overlays.length === 0 ? {} : { overlays: overlays.overlays }),
+    ...(options.brand.style === undefined ? {} : { style: options.brand.style }),
   });
   writeFileSync(join(buildDir, "index.html"), html);
   mkdirSync(dirname(options.output), { recursive: true });

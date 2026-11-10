@@ -10,6 +10,8 @@ import { err, ok, type OgResult } from "./result.js";
  */
 export interface CharacterMap {
   has(codePoint: number): boolean;
+  /** The glyph the code point maps to; 0 (`.notdef`) when the font lacks it or the table is broken there. */
+  getGlyph(codePoint: number): number;
 }
 
 /** The raw `cmap` table of a font file, or a reason it has none. */
@@ -70,14 +72,18 @@ function readCmap(table: Buffer): OgResult<CharacterMap> {
   const format = readUint16(table, start);
   if (format !== 4 && format !== 12) return err(`the font's character map has format ${format}; Satori reads formats 4 and 12`);
   const getGlyph = format === 4 ? getFormat4Glyph : getFormat12Glyph;
+  const findGlyph = (codePoint: number): number => {
+    try {
+      return getGlyph(table, start, codePoint);
+    } catch (error) {
+      if (error instanceof OutOfBounds) return 0;
+      throw error;
+    }
+  };
   return ok({
+    getGlyph: findGlyph,
     has(codePoint) {
-      try {
-        return getGlyph(table, start, codePoint) !== 0;
-      } catch (error) {
-        if (error instanceof OutOfBounds) return false;
-        throw error;
-      }
+      return findGlyph(codePoint) !== 0;
     },
   });
 }

@@ -21,6 +21,8 @@ import {
 import { FOOTAGE_FPS } from "./normalize.js";
 import { getOverlayMarkup } from "./overlay-html.js";
 import type { ResolvedOverlay } from "./overlays.js";
+import { getCaptionCornerRadius, getCornerRadiusCss, getStyleBorderCss, getStylePadding, getStyleShadowCss, type BrandStyle } from "./brand-style.js";
+import { CAPTION_PILL_PADDING } from "../compose/timeline.js";
 
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
 
@@ -82,6 +84,8 @@ export interface FootageComposeInput {
   locale: string;
   /** The EDL's overlays, resolved (`resolveEdlOverlays`); absent or empty: none, and the composition is as without them. */
   overlays?: ResolvedOverlay[];
+  /** The brand's style (`FootageBrand.style`): the pill's and the cards' radius, padding, shadow and border; absent: as before. */
+  style?: BrandStyle;
 }
 
 /** The film's length: the cut plus the end card (`getEndCardSeconds`). */
@@ -279,7 +283,7 @@ export function composeFootage(input: FootageComposeInput): string {
   const headingFont = fonts.heading === null ? bodyFont : fontStack(fonts.heading, "sans-serif");
   const interfaceFont = fonts.interface == null ? bodyFont : fontStack(fonts.interface, "sans-serif");
   const faces = [...fontFaces(fonts.body), ...fontFaces(fonts.heading), ...fontFaces(fonts.interface ?? null)];
-  const overlayMarkup = getOverlayMarkup(overlays, { colors: c, headingFont, interfaceFont, locale: input.locale, frame });
+  const overlayMarkup = getOverlayMarkup(overlays, { colors: c, headingFont, interfaceFont, locale: input.locale, frame, ...(input.style === undefined ? {} : { style: input.style }) });
 
   return assertLocalReferences(`<!doctype html>
 <html lang="${escapeHtml(input.locale)}">
@@ -297,7 +301,7 @@ html,body{width:${frame.width}px;height:${frame.height}px;overflow:hidden;backgr
 .shade{position:absolute;inset:0;background:${c.background};opacity:0}
 .caption{position:absolute;left:${captionBox.left}px;right:${captionBox.right}px;${getCaptionPositionCss(captionBox)};display:flex;justify-content:center}
 .pill{${getCaptionPillCss(captionBox.fontSize)};border-radius:22px;background:${c.captionBackground};box-shadow:0 14px 44px rgba(0,0,0,.5);color:${c.captionText}}
-.pill span{display:inline-block}
+${input.style === undefined ? "" : `${getStyledPillCss(input.style, look.style === "box" ? look.box : c.captionHighlight)}\n`}.pill span{display:inline-block}
 ${isBox ? `.pill{position:relative;z-index:0}
 .pill span{position:relative}
 .hl{position:absolute;top:0;bottom:0;left:-${CAPTION_HIGHLIGHT_BOX_PADDING_EM}em;right:-${CAPTION_HIGHLIGHT_BOX_PADDING_EM}em;z-index:-1;border-radius:${CAPTION_HIGHLIGHT_BOX_RADIUS}px;background:${look.box};opacity:0}
@@ -306,7 +310,7 @@ ${isBox ? `.pill{position:relative;z-index:0}
 .brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:${headingFont};font-size:46px}
 .logo{height:60px;width:auto}
 .headline{font-family:${headingFont};font-weight:500;font-size:${input.headlineSize}px;letter-spacing:-.025em;line-height:1.02;margin-top:44px}
-.url{display:inline-block;margin-top:40px;padding:20px 38px;border-radius:999px;font-size:44px;font-weight:600;color:${c.onCta};background:${c.cta}}
+.url{display:inline-block;margin-top:40px;padding:20px 38px;border-radius:${input.style === undefined ? "999px" : getCornerRadiusCss(input.style.cornerRadius)};font-size:44px;font-weight:600;color:${c.onCta};background:${c.cta}}
 .note{margin-top:26px;font-size:30px;color:${c.muted}}
 .logocard{position:absolute;inset:0;background:${c.background};opacity:0}
 .logobox{position:absolute;top:${logoBox.top}px;bottom:${logoBox.bottom}px;left:${logoBox.left}px;right:${logoBox.right}px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:48px;text-align:center}
@@ -346,6 +350,12 @@ window.__timelines["${COMPOSITION_ID}"] = tl;
 </body>
 </html>
 `);
+}
+
+/** The caption pill's rule in the brand's style, after the pill's own: its radius, padding, shadow and border in `accent`. */
+export function getStyledPillCss(style: BrandStyle, accent: string): string {
+  const pad = getStylePadding(CAPTION_PILL_PADDING, style.padding);
+  return `.pill{border-radius:${getCornerRadiusCss(getCaptionCornerRadius(style))};padding:${String(pad.y)}px ${String(pad.x)}px;box-shadow:${getStyleShadowCss(style)};border:${getStyleBorderCss(style, accent)}}`;
 }
 
 /**

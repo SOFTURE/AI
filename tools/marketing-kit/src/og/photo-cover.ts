@@ -12,6 +12,7 @@ import { describeCharacter, findMissingGlyphs } from "./glyphs.js";
 import { toOpaqueHex, withAlpha } from "./palette.js";
 import { getCoverCrop, getOrientationMatrix, getOrientedSize, readPhotoInfo, type FocusPoint } from "./photo.js";
 import { err, ok, type OgResult } from "./result.js";
+import { CORNER_RADII, CORNER_RADIUS_PX, type CornerRadius } from "../footage/brand-style.js";
 
 /**
  * A publish-ready cover for a vertical video from a photo the owner picks: the photo scaled to cover the frame and
@@ -120,6 +121,7 @@ const coverOptionsSchema = z.object({
   tone: z.enum(["light", "dark"]).optional(),
   accent: z.boolean().optional(),
   accentStyle: z.enum(PHOTO_COVER_ACCENT_STYLES).optional(),
+  cornerRadius: z.enum(CORNER_RADII).optional(),
   quality: z.number().int().min(1).max(100).default(PHOTO_COVER_QUALITY),
 });
 
@@ -150,6 +152,11 @@ export interface PhotoCoverInput {
   colors: BrandColors;
   /** The brand's fonts (`loadOgFonts`); the text is set in the heading (display) family. */
   fonts: OgFonts;
+  /**
+   * The brand style's corner (`BrandStyle.cornerRadius`) for the `pill` box and the kicker's accent box, in px of a
+   * 1080 px wide band; each layout's own corner by default.
+   */
+  cornerRadius?: CornerRadius;
   /** JPEG quality, 1-100; 90 by default. */
   quality?: number;
   /** Names the cover in errors, e.g. the video's id. */
@@ -313,6 +320,13 @@ interface TextLayout {
   text: CoverText;
   fonts: OgFonts;
   ink: CoverInk;
+  cornerRadius?: CornerRadius;
+}
+
+/** A box's corner on the cover: the style's token (a pill as 999 px, which Satori keeps to half the height), else `own`. */
+function getCoverRadius(token: CornerRadius | undefined, own: number, scale: number): number {
+  if (token === undefined) return Math.round(own * scale);
+  return token === "pill" ? 999 : Math.round(CORNER_RADIUS_PX[token] * scale);
 }
 
 /** Where the text block sits: its foot above the band's lower edge, its head below the band's top, or centred in the middle third. */
@@ -346,7 +360,7 @@ function buildTextTree(layout: TextLayout): OgNode {
                 display: "flex",
                 maxWidth: "100%",
                 padding: `${String(Math.round(PILL_PADDING[0] * scale))}px ${String(Math.round(PILL_PADDING[1] * scale))}px`,
-                borderRadius: Math.round(PILL_SIZE * scale),
+                borderRadius: getCoverRadius(layout.cornerRadius, PILL_SIZE, scale),
                 backgroundColor: withAlpha(ink.pill.box, ink.pill.alpha),
                 textAlign: "center",
                 wordBreak: "break-word",
@@ -371,7 +385,7 @@ function buildTextTree(layout: TextLayout): OgNode {
                           display: "flex",
                           maxWidth: "100%",
                           padding: `${String(Math.round(KICKER_BOX_PADDING[0] * scale))}px ${String(Math.round(KICKER_BOX_PADDING[1] * scale))}px`,
-                          borderRadius: Math.round(KICKER_BOX_RADIUS * scale),
+                          borderRadius: getCoverRadius(layout.cornerRadius, KICKER_BOX_RADIUS, scale),
                           backgroundColor: ink.kickerBox,
                           textAlign: "center",
                           wordBreak: "break-word",
@@ -523,6 +537,7 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
     tone: input.tone,
     accent: input.accent,
     accentStyle: input.accentStyle,
+    cornerRadius: input.cornerRadius,
     quality: input.quality,
   });
   if (!parsed.success) {
@@ -542,7 +557,7 @@ export async function renderPhotoCover(input: PhotoCoverInput): Promise<OgResult
   const band = getCoverBand(size);
   const ink = getCoverInk(input.colors, { tone: options.tone ?? "light", layout: text.value?.layout ?? null, accent: options.accent ?? false, accentStyle: options.accentStyle ?? "text" });
   if (!ink.ok) return err(`${name}: ${ink.error}.`);
-  const drawn = text.value === null ? null : await layOutText({ size, band, text: text.value, fonts: input.fonts, ink: ink.value });
+  const drawn = text.value === null ? null : await layOutText({ size, band, text: text.value, fonts: input.fonts, ink: ink.value, ...(options.cornerRadius === undefined ? {} : { cornerRadius: options.cornerRadius }) });
   if (drawn !== null && !drawn.ok) return err(`${name}: ${drawn.error}.`);
 
   const oriented = getOrientedSize(info.value);
