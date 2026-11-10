@@ -18,7 +18,7 @@
 
 - [x] 1. actions slot
 - [x] 2. tests: `npx vitest run modules/mcp-access/tests/token-manager` → 4 files, 42 tests passed
-- [ ] 3. docs and version 0.7.3
+- [x] 3. docs and version 0.7.3 (c42cfd5)
 
 ## Decisions (auto)
 

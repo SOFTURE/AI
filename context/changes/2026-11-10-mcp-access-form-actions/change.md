@@ -4,7 +4,7 @@ title: "mcp-access: TokenManager buttons keep their own width"
 status: in_progress
 roadmap_item: null
 issue: null
-branch: fix/mcp-access-form-actions
+branch: claude/project-thread-cjlupr
 created: 2026-11-10
 updated: 2026-11-10
 ---
