@@ -1,12 +1,13 @@
 ---
 change_id: observability-memory-metrics
 title: "observability: process and container memory gauges"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/observability-memory-metrics
 created: 2026-11-10
 updated: 2026-11-10
+archived_at: 2026-11-10
 ---
 
 ## Intent

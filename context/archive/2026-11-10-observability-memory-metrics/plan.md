@@ -17,7 +17,7 @@
 
 - [x] 1 `memory-metrics.ts`.
 - [x] 2 Wired in `startObservability`, option and export.
-- [x] 3 `npx vitest run foundation/observability`: 16 files, 174 tests (before the last two added) green.
+- [x] 3 `npx vitest run foundation/observability`: 16 files, 174 tests green, plus 2 start.test.ts cases; pre-push full suite 12928 passed; PR #1233 CI green.
 - [x] 4 README, CHANGELOG, 0.8.3.
 
 ## Decisions (auto)
