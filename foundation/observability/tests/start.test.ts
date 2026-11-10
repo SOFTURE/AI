@@ -347,6 +347,28 @@ describe("startObservability: metrics", () => {
     expect(receiver.bodyOf("/v1/metrics").includes("nodejs.eventloop")).toBe(false);
   });
 
+  it("exports the process memory gauge by default", async () => {
+    receiver = await startOtlpReceiver();
+    const handle = startObservability({ serviceName: "my-service", endpoint: receiver.url });
+
+    await handle.forceFlush();
+
+    expect(receiver.bodyOf("/v1/metrics").includes("process.memory.usage")).toBe(true);
+  });
+
+  it("exports no memory gauges with instrumentations.memory false", async () => {
+    receiver = await startOtlpReceiver();
+    const handle = startObservability({
+      serviceName: "my-service",
+      endpoint: receiver.url,
+      instrumentations: { memory: false },
+    });
+
+    await handle.forceFlush();
+
+    expect(receiver.bodyOf("/v1/metrics").includes("process.memory.usage")).toBe(false);
+  });
+
   it("exports no metrics with metrics.enabled false and says so at start", async () => {
     receiver = await startOtlpReceiver();
     const appUrl = await startApp();

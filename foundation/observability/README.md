@@ -167,6 +167,14 @@ the same resource as traces and logs, and once more on `shutdown()`:
   requests to the trace, log and metric endpoints are not measured (nor traced); other paths on that host are.
 - Node.js runtime metrics (`instrumentations.runtime`): `nodejs.eventloop.utilization`, `nodejs.eventloop.delay.*`,
   `nodejs.eventloop.time`, `v8js.gc.duration`, `v8js.memory.heap.*` per heap space, `v8js.resource.active`.
+- Memory (`instrumentations.memory`): `process.memory.usage`, the process's resident set size, and inside a cgroup v2
+  container (Docker, Kubernetes) the container's own memory, read from `/sys/fs/cgroup` at each collection:
+  `container.memory.usage` (`memory.current`, page cache included), `container.memory.working_set` (usage minus
+  `inactive_file`, what the kernel cannot drop before the OOM killer), `container.memory.limit` (`memory.max`, only when
+  a limit is set) and `container.memory.swap.usage` (`memory.swap.current`). All in bytes (`By`), so Prometheus names
+  them `process_memory_usage_bytes`, `container_memory_working_set_bytes` and so on. An alert near the limit compares
+  the working set with the limit, e.g. `container_memory_working_set_bytes / container_memory_limit_bytes > 0.85`.
+  Outside such a container (macOS, cgroup v1) only the process gauge reports; five series per process at most.
 
 **Series.** Backends that bill or cap by active series (Grafana Cloud Free counts them) see roughly 100 series per
 process from the runtime metrics, and for each histogram about 17 series (buckets, sum, count) per combination of its

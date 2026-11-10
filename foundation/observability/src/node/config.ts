@@ -55,6 +55,11 @@ export type InstrumentationOptions = {
   http?: boolean;
   /** Node.js runtime metrics: event loop delay and utilization, garbage collection, heap. Default `true`. */
   runtime?: boolean;
+  /**
+   * Memory gauges: the process's resident set size and, in a cgroup v2 container, the container's usage, working
+   * set, limit and swap (`process.memory.usage`, `container.memory.*`). Default `true`.
+   */
+  memory?: boolean;
 };
 
 export type MetricOptions = {

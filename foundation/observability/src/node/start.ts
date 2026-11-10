@@ -19,6 +19,7 @@ import { configureLogging } from "../logger.js";
 import { resolveObservabilityConfig, type ObservabilityOptions } from "./config.js";
 import { createExportRequestMatcher, type OutgoingRequestTarget } from "./export-request-matcher.js";
 import { createIgnoredPathMatcher, createIgnorePathsSampler } from "./ignore-paths-sampler.js";
+import { registerMemoryMetrics } from "./memory-metrics.js";
 import { StableHttpAttributesProcessor } from "./stable-http-attributes.js";
 
 export type ObservabilityHandle = {
@@ -54,9 +55,9 @@ let httpInstrumentation: HttpInstrumentation | undefined;
 /**
  * Starts OpenTelemetry for this Node.js process: tracer, logger and meter providers exporting over OTLP/HTTP
  * (protobuf), the resource from the options and `OTEL_*` variables, server spans and the request duration metric for
- * incoming `node:http` requests, spans for outgoing `fetch`, and Node.js runtime metrics. Without an endpoint nothing
- * is registered and the loggers write to the console only. Call it once, as early as possible; later calls return the
- * first handle.
+ * incoming `node:http` requests, spans for outgoing `fetch`, Node.js runtime metrics, and the process's and its
+ * container's memory. Without an endpoint nothing is registered and the loggers write to the console only. Call it
+ * once, as early as possible; later calls return the first handle.
  */
 export function startObservability(options: ObservabilityOptions = {}): ObservabilityHandle {
   const global = globalThis as GlobalWithRegistration;
@@ -154,6 +155,10 @@ function register(options: ObservabilityOptions): Registration {
   if (options.instrumentations?.runtime !== false && meterProvider !== null) {
     instrumentations.push(new RuntimeNodeInstrumentation());
   }
+  const stopMemoryMetrics =
+    options.instrumentations?.memory === false || meterProvider === null
+      ? () => undefined
+      : registerMemoryMetrics({ meter: meterProvider.getMeter("@softure-ai/observability") });
   const unregisterInstrumentations = registerInstrumentations({
     tracerProvider,
     ...(meterProvider === null ? {} : { meterProvider }),
@@ -186,6 +191,7 @@ function register(options: ObservabilityOptions): Registration {
       } finally {
         unregisterInstrumentations();
         stopHttpInstrumentation();
+        stopMemoryMetrics();
       }
     })();
     return stopped;
