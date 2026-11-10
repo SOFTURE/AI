@@ -142,7 +142,7 @@ interface DraftContext {
  * A card's corner in px: its own token, else the brand style's (a search bar stays a pill unless it names its own),
  * else `own` (the kind's look before the style).
  */
-export function getDraftCardRadius(overlay: { kind: string; cornerRadius: CornerRadius | null }, box: { height: number }, context: Pick<DraftContext, "style" | "scale">, own: number): number {
+export function getDraftCardRadius(overlay: { kind: string; cornerRadius?: CornerRadius | null }, box: { height: number }, context: Pick<DraftContext, "style" | "scale">, own: number): number {
   const token = overlay.cornerRadius ?? (context.style === undefined ? null : overlay.kind === "search_bar" ? "pill" : context.style.cornerRadius);
   return token === null ? own : getCornerRadiusPx(token, box.height, context.scale);
 }

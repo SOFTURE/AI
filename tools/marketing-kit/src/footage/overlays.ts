@@ -116,7 +116,7 @@ export interface OverlayLook {
   /** Its own colours in place of the brand's (empty: the brand's). */
   colors: EdlOverlayColors;
   /** Its card's own corner (`style.corner_radius`), else null: the brand style's, or the kind's own without one. */
-  cornerRadius: CornerRadius | null;
+  cornerRadius?: CornerRadius | null;
 }
 
 type Drawn = OverlayBase & OverlayLook;

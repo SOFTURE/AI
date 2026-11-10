@@ -132,7 +132,7 @@ function getCardStyle(overlay: ResolvedOverlay, colors: OverlayColors, scale = 1
   if (overlay.kind === "punch_in") return "";
   const own = overlay.colors;
   const parts = [own.card === undefined ? "" : `background:${colors.background}`, own.text === undefined ? "" : `color:${colors.foreground}`];
-  if (overlay.cornerRadius !== null) parts.push(`border-radius:${getCornerRadiusCss(overlay.cornerRadius, scale)}`);
+  if (overlay.cornerRadius !== undefined && overlay.cornerRadius !== null) parts.push(`border-radius:${getCornerRadiusCss(overlay.cornerRadius, scale)}`);
   if (overlay.kind === "keyword" && own.accent !== undefined) parts.push(`border-bottom-color:${colors.accent}`);
   const style = parts.filter((part) => part !== "").join(";");
   return style === "" ? "" : ` style="${style}"`;
