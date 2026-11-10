@@ -135,6 +135,7 @@ export {
   OVERLAY_FONT_SIZES,
   PUNCH_IN_EASE_SECONDS,
   PUNCH_IN_SCALES,
+  findShotBreak,
   formatOverlayNumber,
   getDrawnOverlayCard,
   getOverlayBounds,

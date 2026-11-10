@@ -11,7 +11,7 @@ import { FOOTAGE_DRAFT_FONT, buildFootageDraftArgs, buildFootageDraftCaptions, p
 import { diffEdl, readEdl, type Edl } from "./edl.js";
 import { DEFAULT_TRANSITIONS, type FootageFilm } from "./film.js";
 import type { EdlOverlay } from "./overlay-schema.js";
-import { getDrawnOverlayCard, getOverlaySafeZone, resolveEdlOverlays, type ResolveOverlaysInput, type ResolvedOverlay } from "./overlays.js";
+import { findShotBreak, getDrawnOverlayCard, getOverlaySafeZone, resolveEdlOverlays, type ResolveOverlaysInput, type ResolvedOverlay } from "./overlays.js";
 import { readFfmpegListing } from "./tools.js";
 
 /** EDL overlays (issue #1200): the schema, the guards, the render's composition and the draft. */
@@ -145,7 +145,7 @@ describe("resolveEdlOverlays", () => {
     expect(problems([{ kind: "keyword", at_word: { text: "Paris" }, duration: 1, text: "x" }])).toEqual(['overlays[0].at_word: no word "Paris" in the cut; the film never says it']);
     expect(problems([{ kind: "keyword", at_word: { text: "Lisbon", occurrence: 3 }, duration: 1, text: "x" }])).toEqual(['overlays[0].at_word: no word "Lisbon" (occurrence 3) in the cut; the film says it 2 times']);
     expect(problems([{ kind: "keyword", at: 10.5, duration: 1, text: "x" }])).toEqual(["overlays[0]: ends at 11.5 s, past the cut's end (11 s)"]);
-    expect(problems([{ kind: "keyword", at: 3.5, duration: 1, text: "x" }])).toEqual(['overlays[0]: runs 0.5 s past the cut at 4 s; keep it inside segment "s1" (0-4 s) or shorten it']);
+    expect(problems([{ kind: "keyword", at: 3.5, duration: 1, text: "x" }])).toEqual(['overlays[0]: runs 0.5 s past the cut at 4 s (segment "s2" starts on a zoom, not a plain cut); keep it inside segment "s1" (0-4 s) or shorten it']);
     expect(
       problems([
         { kind: "keyword", at: 1, duration: 2, text: "x" },
@@ -375,6 +375,38 @@ describe.skipIf(!canBurn)("the draft's overlays burned in by libass", () => {
     expect(reported.left + reported.width).toBe(keyword.box.left + keyword.box.width);
     expect(reported.width).toBeLessThan(keyword.box.width - 150);
   });
+
+  it("keeps a list on the frame on both sides of a jump cut it runs across", () => {
+    const segments: Edl["segments"] = [
+      { id: "s1", clip: "talk", start: 0, end: 4, transition: "cut", motion: "none" },
+      { id: "s2", clip: "talk", start: 5, end: 9, transition: "cut", motion: "none" },
+    ];
+    const overlays: EdlOverlay[] = [{ kind: "list", at: 2, duration: 4, items: ["35 zl", "3 days"] }];
+    const input = { film: { ...film, captions: false }, edl: { version: 2 as const, film: "street", segments, overlays }, words: WORDS, caption: CAPTION, frame: FRAME };
+    const placed = resolveEdlOverlays(input);
+    if (!placed.ok) throw new Error(placed.problems.join("; "));
+    const [list] = placed.overlays;
+    if (list?.kind !== "list") throw new Error("a list");
+    dir = mkdtempSync(join(tmpdir(), "overlays-"));
+    writeFileSync(join(dir, "captions.ass"), buildFootageDraftCaptions({ ...input, overlays: placed.overlays, overlayColors: COLORS }) ?? "");
+    mkdirSync(join(dir, "fonts"), { recursive: true });
+    copyFileSync(FOOTAGE_DRAFT_FONT.file, join(dir, "fonts", basename(FOOTAGE_DRAFT_FONT.file)));
+    const grab = (seconds: number): Buffer => {
+      const run = spawnSync(
+        "ffmpeg",
+        ["-v", "error", "-f", "lavfi", "-i", `color=c=0x3366aa:s=${FRAME.width}x${FRAME.height}:d=10:r=30`, "-ss", String(seconds), "-vf", "ass=captions.ass:fontsdir=fonts", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        { cwd: dir, maxBuffer: FRAME.width * FRAME.height * 3 + 1024 },
+      );
+      expect(run.status, run.stderr.toString()).toBe(0);
+      return run.stdout;
+    };
+    const drawn = getDrawnOverlayCard(list);
+    if (drawn === null) throw new Error("a card");
+    // Just inside the card's left edge, half way down: the card's colour, clear of its rounded corners and its text.
+    const inCard = (frame: Buffer): boolean => isNear(pixel(frame, drawn.left + 6, drawn.top + Math.round(drawn.height / 2)), COLORS.background);
+    // The cut is at 4 s: the card shows 0.5 s before it and 1.5 s after it, and is gone once the 4 s are over.
+    expect([3.5, 5.5, 6.5].map((second) => inCard(grab(second)))).toEqual([true, true, false]);
+  });
 });
 
 describe("getDrawnOverlayCard", () => {
@@ -411,5 +443,57 @@ describe("getDrawnOverlayCard", () => {
     const highlight = only({ kind: "highlight", at: 1, duration: 1, anchor: { x: 300, y: 500, width: 400, height: 200 } });
     expect(getDrawnOverlayCard(highlight)).toEqual({ left: 300, top: 500, width: 400, height: 200 });
     expect(getDrawnOverlayCard(only({ kind: "punch_in", at: 1, duration: 1.2 }))).toBeNull();
+  });
+});
+
+describe("an overlay across a jump cut inside one shot", () => {
+  const talk = (id: string, start: number, end: number, changes: Partial<Edl["segments"][number]> = {}): Edl["segments"][number] => ({ id, clip: "talk", start, end, transition: "cut", motion: "none", ...changes });
+  const across = (segments: Edl["segments"], overlays: EdlOverlay[]) => resolveEdlOverlays({ film, edl: { version: 2, film: "street", segments, overlays }, words: WORDS, frame: FRAME, caption: CAPTION });
+  const problemsOf = (segments: Edl["segments"], overlays: EdlOverlay[]): string[] => {
+    const result = across(segments, overlays);
+    return result.ok ? [] : result.problems;
+  };
+  const LIST: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["35 zl", "3 days"] };
+
+  it("keeps a list on for its whole duration across a pause cut of the same clip", () => {
+    const result = across([talk("s1", 0, 4), talk("s2", 5, 9)], [LIST]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.overlays.map(({ start, end, segment }) => ({ start, end, segment }))).toEqual([{ start: 2, end: 6, segment: 0 }]);
+  });
+
+  it("runs on across several jump cuts and names the shot it stays in when it runs past it", () => {
+    const segments = [talk("s1", 0, 2), talk("s2", 3, 5), talk("s3", 6, 8), { ...talk("b1", 0, 3), clip: "street" }];
+    expect(problemsOf(segments, [{ ...LIST, at: 1, duration: 5 }])).toEqual([]);
+    expect(problemsOf(segments, [{ ...LIST, at: 1, duration: 6 }])).toEqual([
+      'overlays[0]: runs 1 s past the cut at 6 s (segment "b1" plays another clip); keep it inside segments "s1" to "s3" (0-6 s) or shorten it',
+    ]);
+  });
+
+  it("stops at a cut to another clip, a transition, a Ken Burns zoom or moved captions, naming the cut", () => {
+    const reason = (second: Edl["segments"][number], first: Edl["segments"][number] = talk("s1", 0, 4)) => problemsOf([first, second], [LIST]);
+    const stop = (why: string) => [`overlays[0]: runs 2 s past the cut at 4 s (${why}); keep it inside segment "s1" (0-4 s) or shorten it`];
+    expect(reason({ ...talk("s2", 0, 4), clip: "street" })).toEqual(stop('segment "s2" plays another clip'));
+    expect(reason(talk("s2", 5, 9, { transition: "fade" }))).toEqual(stop('segment "s2" starts on a fade, not a plain cut'));
+    expect(reason(talk("s2", 5, 9, { motion: "kenburns" }))).toEqual(stop('a Ken Burns zoom at segment "s2"'));
+    expect(reason(talk("s2", 5, 9), talk("s1", 0, 4, { motion: "kenburns" }))).toEqual(stop('a Ken Burns zoom at segment "s2"'));
+    expect(reason(talk("s2", 5, 9, { caption: { bottom: 600 } }))).toEqual(stop('segment "s2" moves the captions'));
+    expect(reason(talk("s2", 5, 9, { caption: { top: 300 } }), talk("s1", 0, 4, { caption: { bottom: 600 } }))).toEqual(stop('segment "s2" moves the captions'));
+    expect(reason(talk("s2", 5, 9, { caption: { bottom: 600 } }), talk("s1", 0, 4, { caption: { bottom: 600 } }))).toEqual([]);
+  });
+
+  it("keeps a punch-in inside its own segment, even across a jump cut", () => {
+    expect(problemsOf([talk("s1", 0, 4), talk("s2", 5, 9)], [{ kind: "punch_in", at: 3, duration: 2 }])).toEqual([
+      'overlays[0]: runs 1 s past the cut at 4 s (a punch-in stays in its segment); keep it inside segment "s1" (0-4 s) or shorten it',
+    ]);
+    expect(problemsOf([talk("s1", 0, 4), talk("s2", 5, 9)], [{ kind: "punch_in", at: 2, duration: 1.5 }])).toEqual([]);
+  });
+
+  it("reads a shot break per cut, and the end of the cut after the last segment", () => {
+    const edl = { segments: [talk("s1", 0, 4), talk("s2", 5, 9), { ...talk("b1", 0, 3), clip: "street" }] };
+    expect(findShotBreak(edl, 1)).toBeNull();
+    expect(findShotBreak(edl, 2)).toBe('segment "b1" plays another clip');
+    expect(findShotBreak(edl, 3)).toBe("the cut's end");
+    expect(findShotBreak(edl, 0)).toBe("the cut's end");
   });
 });

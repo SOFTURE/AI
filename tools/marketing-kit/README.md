@@ -676,7 +676,9 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   `right`) are the only knobs. The render draws them from markup vendored into the kit (no network) and the draft
   draws them in the same place at the same time (the cards, a straight arrow, the marker's outline, the punch-in
   zoom). Before anything is rendered, `resolveEdlOverlays` refuses with a reason per overlay: a word the cut never
-  says, an overlay running past the cut or across a cut into the next segment, two on screen at once, two starting
+  says, an overlay running past the cut or across a cut that changes the shot (since 0.26.0 an overlay other than a
+  `punch_in` runs on across a jump cut: the same clip, a plain `cut`, no Ken Burns zoom, the same caption box;
+  `findShotBreak` names why a cut ends the shot), two on screen at once, two starting
   closer than the film's `overlayMinSpacing` (the app's budget, e.g. 8), a text overlay that does not fit between the
   platform safe zone and the captions, an anchor outside the safe zone or on the captions, a `punch_in` on a
   `kenburns` segment or inside a zoom cut's ease. An EDL without `overlays` renders exactly as before.
@@ -703,7 +705,7 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   `getOverlayBounds`; a `punch_in`: null). The draft draws exactly this card (rounded, 0.42 em, its text inside the
   padding on its side, a list's points on the render's line height), so an app reporting where an overlay sits (does
   it cover a face?) reads the box the frame shows.
-- **Brand style** (0.26.0): `brand.style` (`BrandStyle`: `cornerRadius`, `padding`, `shadow`, `border`, optional
+- **Brand style** (0.27.0): `brand.style` (`BrandStyle`: `cornerRadius`, `padding`, `shadow`, `border`, optional
   `captionCornerRadius`) gives every box one look: the caption pill, the overlay cards (a search bar stays a pill), the
   end card's button and, with `PhotoCoverInput.cornerRadius`, the cover's pill and kicker box. An overlay's own
   `style.corner_radius` wins for its card. The draft measures a caption chunk with the draft font's advances

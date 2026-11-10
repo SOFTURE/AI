@@ -239,8 +239,8 @@ describe("placing the new kinds", () => {
     expect(problems([{ ...HOOK, duration: 31 }])).toEqual(["overlays[0]: ends at 31 s, past the cut's end (30 s)"]);
   });
 
-  it("refuses a search bar across a cut, and text too wide or too tall for its card", () => {
-    expect(problems([{ ...SEARCH, at: 9 }])).toEqual(['overlays[0]: runs 2 s past the cut at 10 s; keep it inside segment "s1" (0-10 s) or shorten it']);
+  it("keeps a search bar on across a jump cut of one shot, and refuses text too wide or too tall for its card", () => {
+    expect(problems([{ ...SEARCH, at: 9 }])).toEqual([]);
     expect(problems([{ ...SEARCH, text: "x".repeat(40), style: { size: "l" } }])).toEqual(["overlays[0]: the search bar's query is too wide for one line; shorten it or use a smaller size"]);
     expect(problems([{ ...COUNTER, value: 999_999_999, unit: "kilometres", style: { size: "l" } }])).toEqual([
       "overlays[0]: the counter's number is too wide for one line; shorten it or use a smaller size",
