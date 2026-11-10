@@ -9,6 +9,7 @@ import {
   isTypedOverlay,
   type EdlOverlay,
   type EdlOverlayColors,
+  type OverlayAlign,
   type OverlayEntrance,
   type OverlayKind,
   type OverlayPosition,
@@ -17,7 +18,7 @@ import {
 } from "./overlay-schema.js";
 import { getSegmentZoomEases } from "./compose.js";
 import { normalizeWord } from "./words.js";
-import type { CornerRadius } from "./brand-style.js";
+import { STYLE_PADDING_SCALES, type BrandStyle, type CornerRadius } from "./brand-style.js";
 
 /**
  * An EDL's overlays resolved for the render and the draft (issue #1200): each one's film time (from its word through
@@ -39,14 +40,21 @@ export const OVERLAY_FONT_SIZES: Record<TextOverlayKind, Record<OverlaySize, num
   keyword: { s: 64, m: 84, l: 108 },
   lower_third: { s: 44, m: 52, l: 60 },
   list: { s: 40, m: 48, l: 56 },
-  hook_title: { s: 52, m: 64, l: 76 },
+  hook_title: { s: 50, m: 64, l: 82 },
   search_bar: { s: 36, m: 42, l: 50 },
-  place_card: { s: 72, m: 92, l: 112 },
+  place_card: { s: 70, m: 92, l: 118 },
   counter: { s: 84, m: 108, l: 132 },
   date_stamp: { s: 30, m: 36, l: 44 },
 };
 /** A second line's type size in main font sizes: the hook title's place label, the subtitle, the unit, the stamp's place. */
-export const OVERLAY_SECONDARY_SCALE = { hook_title: 0.55, place_card: 0.42, counter: 0.5, date_stamp: 0.78 } as const;
+export const OVERLAY_SECONDARY_SCALE = { hook_title: 0.55, place_card: 0.55, counter: 0.5, date_stamp: 0.78 } as const;
+/** A place card's subtitle size in title sizes, by its `subtitle_size` (RV-131 of an adopting app: 0.42 read tiny). */
+export const OVERLAY_SUBTITLE_SCALES: Record<OverlaySize, number> = { s: 0.42, m: 0.55, l: 0.7 };
+/** The smallest a place card's subtitle is drawn, in px of a 1080 px wide frame (2.3 % of a 1920 px tall one). */
+export const MIN_OVERLAY_SUBTITLE_PX = 44;
+/** How a title that does not fit two lines shrinks before it is refused: by this factor, at most `MAX_TITLE_SHRINKS` times. */
+export const OVERLAY_TITLE_SHRINK = 0.9;
+const MAX_TITLE_SHRINKS = 3;
 /** A text overlay's line height and its box's padding, in font sizes. */
 export const OVERLAY_LINE_HEIGHT = 1.15;
 export const OVERLAY_LIST_LINE_HEIGHT = 1.4;
@@ -117,6 +125,8 @@ export interface OverlayLook {
   colors: EdlOverlayColors;
   /** Its card's own corner (`style.corner_radius`), else null: the brand style's, or the kind's own without one. */
   cornerRadius?: CornerRadius | null;
+  /** Its card's padding in `OVERLAY_PADDING_EM`s: the brand style's `padding` (`STYLE_PADDING_SCALES`); absent: 1. */
+  padScale?: number;
 }
 
 type Drawn = OverlayBase & OverlayLook;
@@ -132,9 +142,9 @@ export type ResolvedOverlay =
   | (Drawn & { kind: "list"; items: string[]; fontSize: number; side: OverlaySide; box: OverlayBox })
   | (Drawn & { kind: "arrow"; from: OverlayPoint; to: OverlayPoint })
   | (Drawn & { kind: "highlight"; rect: OverlayBox })
-  | (Drawn & { kind: "hook_title"; lines: string[]; place: string | null; fontSize: number; placeFontSize: number; box: OverlayBox })
+  | (Drawn & { kind: "hook_title"; lines: string[]; place: string | null; fontSize: number; placeFontSize: number; align?: OverlayAlign; box: OverlayBox })
   | (Drawn & { kind: "search_bar"; text: string; fontSize: number; box: OverlayBox })
-  | (Drawn & { kind: "place_card"; lines: string[]; subtitle: string | null; fontSize: number; subtitleFontSize: number; box: OverlayBox })
+  | (Drawn & { kind: "place_card"; lines: string[]; subtitle: string | null; fontSize: number; subtitleFontSize: number; align?: OverlayAlign; box: OverlayBox })
   | (Drawn & { kind: "counter"; value: number; from: number; decimals: number; unit: string | null; fontSize: number; unitFontSize: number; box: OverlayBox })
   | (Drawn & { kind: "date_stamp"; text: string; place: string | null; fontSize: number; placeFontSize: number; side: OverlaySide; box: OverlayBox });
 
@@ -148,6 +158,8 @@ export interface ResolveOverlaysInput {
   frame: { width: number; height: number };
   /** The film's caption box (`getFootageCaptionLayout`). */
   caption: CaptionLayout;
+  /** The brand's style: its `padding` pads every overlay card (absent: `m`, the cards' own padding). */
+  style?: Pick<BrandStyle, "padding">;
 }
 
 /** The part of the frame no platform interface covers: a 9:16 film's caption preset zone (`all` without one), else 80 px. */
@@ -183,6 +195,12 @@ function findOverlayStart(overlay: EdlOverlay, words: TimedWord[]): { ok: true; 
 
 const r1 = (value: number): number => Math.round(value * 10) / 10;
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
+
+/** A drawn overlay's padding round its text, in px: `OVERLAY_PADDING_EM` of its font size, scaled by its `padScale`. */
+export function getOverlayPadding(overlay: { fontSize: number; padScale?: number }): { x: number; y: number } {
+  const scale = overlay.padScale ?? 1;
+  return { x: Math.round(overlay.fontSize * OVERLAY_PADDING_EM.x * scale), y: Math.round(overlay.fontSize * OVERLAY_PADDING_EM.y * scale) };
+}
 
 /** The estimated width of a line of text at a font size, in px (`OVERLAY_CHAR_EM` a letter). */
 export function estimateTextWidth(text: string, fontSize: number): number {
@@ -249,7 +267,7 @@ export function getSideTextLines(overlay: SideTextOverlay): string[] {
 export function getDrawnOverlayCard(overlay: ResolvedOverlay): OverlayBox | null {
   if (overlay.kind !== "keyword" && overlay.kind !== "lower_third" && overlay.kind !== "list") return getOverlayBounds(overlay);
   const { box, fontSize, side } = overlay;
-  const padX = Math.round(fontSize * OVERLAY_PADDING_EM.x);
+  const padX = getOverlayPadding(overlay).x;
   const textWidth = Math.max(0, ...getSideTextLines(overlay).map((line) => estimateTextWidth(line, fontSize)));
   const width = Math.min(box.width, Math.ceil(textWidth + 2 * padX));
   return { left: side === "right" ? box.left + box.width - width : box.left, top: box.top, width, height: box.height };
@@ -330,7 +348,7 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
       }
     }
     const base = { index, start, end, segment };
-    const placed = placeOverlay(overlay, base, { zone, frame, band: getCaptionBand(input, segment) });
+    const placed = placeOverlay(overlay, base, { zone, frame, band: getCaptionBand(input, segment), padScale: STYLE_PADDING_SCALES[input.style?.padding ?? "m"] });
     if (!placed.ok) {
       problems.push(`${at}: ${placed.error}`);
       return;
@@ -391,6 +409,8 @@ interface Placement {
   zone: { top: number; bottom: number; left: number; right: number };
   frame: { width: number; height: number };
   band: { top: number; bottom: number } | null;
+  /** Every card's padding scale (`STYLE_PADDING_SCALES` of the brand's `padding`). */
+  padScale: number;
 }
 
 type Placed = { ok: true; overlay: ResolvedOverlay } | { ok: false; error: string };
@@ -435,7 +455,7 @@ function placeOverlay(overlay: EdlOverlay, base: OverlayBase, place: Placement):
     const ease = r3(Math.min(PUNCH_IN_EASE_SECONDS, (base.end - base.start) / 2));
     return { ok: true, overlay: { ...base, kind: "punch_in", scale: PUNCH_IN_SCALES[overlay.style?.size ?? "m"], ease } };
   }
-  const drawn = { ...base, ...getLook(overlay) };
+  const drawn = { ...base, ...getLook(overlay), ...(place.padScale === 1 ? {} : { padScale: place.padScale }) };
   if (overlay.kind === "arrow" || overlay.kind === "highlight") return placeMark(overlay, drawn, place);
   if (overlay.kind === "keyword" || overlay.kind === "lower_third" || overlay.kind === "list") return placeSideText({ ...overlay, kind: overlay.kind }, drawn, place);
   return placeCard({ ...overlay, kind: overlay.kind }, drawn, place);
@@ -473,7 +493,7 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
   const scale = frame.width / 1080;
   const side = overlay.style?.side ?? (overlay.kind === "keyword" ? "right" : "left");
   const fontSize = Math.round(OVERLAY_FONT_SIZES[overlay.kind][overlay.style?.size ?? "m"] * scale);
-  const padY = Math.round(fontSize * OVERLAY_PADDING_EM.y);
+  const padY = getOverlayPadding({ fontSize, padScale: place.padScale }).y;
   const lines = overlay.kind === "list" ? (overlay.items ?? []).length : 1;
   const lineHeight = overlay.kind === "list" ? OVERLAY_LIST_LINE_HEIGHT : OVERLAY_LINE_HEIGHT;
   const height = Math.ceil(lines * fontSize * lineHeight + 2 * padY);
@@ -512,30 +532,99 @@ interface CardMetrics {
   /** The widest the content may be, in px. */
   room: number;
   label: string;
+  /** The frame's width / 1080. */
+  scale: number;
 }
 
 const tooWide = (metrics: CardMetrics, what: string): CardResult => ({ ok: false, error: `the ${metrics.label}'s ${what} is too wide for one line; shorten it or use a smaller size` });
 
-/** A hook title's or a place card's lines and second line. */
-function measureTitle(overlay: EdlOverlay & { kind: "hook_title" | "place_card" }, metrics: CardMetrics): CardResult {
-  const { fontSize, room, label } = metrics;
-  const lines = wrapOverlayText(overlay.text ?? "", fontSize, room);
-  if (lines.length > MAX_OVERLAY_TITLE_LINES || lines.some((line) => estimateTextWidth(line, fontSize) > room)) {
-    return { ok: false, error: `the ${label} takes more than ${MAX_OVERLAY_TITLE_LINES} lines; shorten it or use a smaller size` };
+/**
+ * A title's lines at a font size: two lines balanced so neither is much wider than the other (the narrower the
+ * wider of the two, the better), or the greedy wrap when it takes one line or more than two.
+ */
+export function wrapOverlayTitle(text: string, fontSize: number, width: number): string[] {
+  const lines = wrapOverlayText(text, fontSize, width);
+  if (lines.length !== 2) return lines;
+  const words = text.split(/\s+/).filter((part) => part.length > 0);
+  let best = lines;
+  let bestWidth = Math.max(...lines.map((line) => estimateTextWidth(line, fontSize)));
+  for (let split = 1; split < words.length; split++) {
+    const pair = [words.slice(0, split).join(" "), words.slice(split).join(" ")];
+    const widest = Math.max(...pair.map((line) => estimateTextWidth(line, fontSize)));
+    if (widest < bestWidth) [best, bestWidth] = [pair, widest];
   }
+  return best;
+}
+
+/** A title's lines and font size: its own size, else smaller by `OVERLAY_TITLE_SHRINK` until it fits two lines; null when it never does. */
+function fitTitle(text: string, fontSize: number, room: number): { lines: string[]; fontSize: number } | null {
+  for (let shrink = 0, size = fontSize; shrink <= MAX_TITLE_SHRINKS; shrink++, size = Math.round(size * OVERLAY_TITLE_SHRINK)) {
+    const lines = wrapOverlayTitle(text, size, room);
+    if (lines.length <= MAX_OVERLAY_TITLE_LINES && lines.every((line) => estimateTextWidth(line, size) <= room)) return { lines, fontSize: size };
+  }
+  return null;
+}
+
+/**
+ * A place card's subtitle size: its `subtitle_size` of the title, at least `MIN_OVERLAY_SUBTITLE_PX`; a subtitle too
+ * long for that shrinks to fit `room`, never below the `s` step (the size every subtitle had before, so nothing that
+ * fitted then is refused now).
+ */
+function getSubtitleSize(input: { subtitle: string; titleSize: number; step: OverlaySize; room: number; scale: number }): number {
+  const wanted = Math.max(Math.round(MIN_OVERLAY_SUBTITLE_PX * input.scale), Math.round(input.titleSize * OVERLAY_SUBTITLE_SCALES[input.step]));
+  const fitting = Math.floor(input.room / ([...input.subtitle].length * OVERLAY_CHAR_EM));
+  return Math.min(wanted, Math.max(fitting, Math.round(input.titleSize * OVERLAY_SUBTITLE_SCALES.s)));
+}
+
+/** A hook title's or a place card's second line: the place label (with its pin) or the subtitle. */
+type TitleOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "place_card" }>;
+
+/**
+ * The text block of a hook title or a place card without its padding, in px: its widest line (the place label with
+ * its pin, the subtitle, each title line) and its height. Its card is this plus the padding, so the draft and the
+ * render find the block's left edge and top inside the card from it whatever the title's fitted size.
+ */
+export function getTitleContentSize(input: { kind: TitleOverlay["kind"]; lines: readonly string[]; fontSize: number; second: string | null; secondSize: number }): { width: number; height: number } {
+  const { kind, lines, fontSize, second, secondSize } = input;
+  const isHook = kind === "hook_title";
+  const secondWidth = second === null ? 0 : estimateTextWidth(second, secondSize) + (isHook ? Math.round(secondSize * 1.1) : 0);
+  const lineHeight = isHook ? OVERLAY_LINE_HEIGHT : OVERLAY_TITLE_LINE_HEIGHT;
+  return {
+    width: Math.max(secondWidth, ...lines.map((line) => estimateTextWidth(line, fontSize))),
+    height: lines.length * fontSize * lineHeight + (second === null ? 0 : secondSize * 1.3 + fontSize * 0.12),
+  };
+}
+
+/** A resolved title's text block inside its card: its left edge and top, in px of the frame. */
+export function getTitleContentBox(overlay: TitleOverlay): OverlayBox {
+  const second = overlay.kind === "hook_title" ? overlay.place : overlay.subtitle;
+  const secondSize = overlay.kind === "hook_title" ? overlay.placeFontSize : overlay.subtitleFontSize;
+  const size = getTitleContentSize({ kind: overlay.kind, lines: overlay.lines, fontSize: overlay.fontSize, second, secondSize });
+  const { box } = overlay;
+  return { left: box.left + (box.width - size.width) / 2, top: box.top + (box.height - size.height) / 2, width: size.width, height: size.height };
+}
+
+/** A hook title's or a place card's lines and second line, aligned as its style says. */
+function measureTitle(overlay: EdlOverlay & { kind: "hook_title" | "place_card" }, metrics: CardMetrics): CardResult {
+  const { room, label } = metrics;
+  const fitted = fitTitle(overlay.text ?? "", metrics.fontSize, room);
+  if (fitted === null) return { ok: false, error: `the ${label} takes more than ${MAX_OVERLAY_TITLE_LINES} lines even at a smaller size; shorten it or use a smaller size` };
+  const { lines, fontSize } = fitted;
   const isHook = overlay.kind === "hook_title";
   const second = (isHook ? overlay.place : overlay.subtitle) ?? null;
-  const secondSize = Math.round(fontSize * OVERLAY_SECONDARY_SCALE[overlay.kind]);
+  const secondSize =
+    !isHook && second !== null
+      ? getSubtitleSize({ subtitle: second, titleSize: metrics.fontSize, step: overlay.style?.subtitle_size ?? "m", room, scale: metrics.scale })
+      : Math.round(metrics.fontSize * OVERLAY_SECONDARY_SCALE[overlay.kind]);
   // The hook title's place label carries a pin about one label line wide before it.
   const secondWidth = second === null ? 0 : estimateTextWidth(second, secondSize) + (isHook ? Math.round(secondSize * 1.1) : 0);
   if (secondWidth > room) return tooWide(metrics, isHook ? "place label" : "subtitle");
-  const lineHeight = isHook ? OVERLAY_LINE_HEIGHT : OVERLAY_TITLE_LINE_HEIGHT;
+  const align = overlay.style?.align ?? "center";
   return {
     ok: true,
     content: {
-      width: Math.max(secondWidth, ...lines.map((line) => estimateTextWidth(line, fontSize))),
-      height: lines.length * fontSize * lineHeight + (second === null ? 0 : secondSize * 1.3 + fontSize * 0.12),
-      fields: isHook ? { kind: "hook_title", lines, place: second, fontSize, placeFontSize: secondSize } : { kind: "place_card", lines, subtitle: second, fontSize, subtitleFontSize: secondSize },
+      ...getTitleContentSize({ kind: overlay.kind, lines, fontSize, second, secondSize }),
+      fields: isHook ? { kind: "hook_title", lines, place: second, fontSize, placeFontSize: secondSize, align } : { kind: "place_card", lines, subtitle: second, fontSize, subtitleFontSize: secondSize, align },
     },
   };
 }
@@ -592,8 +681,8 @@ function placeCard(overlay: EdlOverlay & { kind: CardKind }, drawn: Drawn, place
   const margin = Math.round(OVERLAY_MARGIN * scale);
   const outer = frame.width - zone.left - zone.right - 2 * margin;
   const fontSize = Math.round(OVERLAY_FONT_SIZES[overlay.kind][overlay.style?.size ?? "m"] * scale);
-  const pad = { x: Math.round(fontSize * OVERLAY_PADDING_EM.x), y: Math.round(fontSize * OVERLAY_PADDING_EM.y) };
-  const metrics = { fontSize, pad, room: outer - 2 * pad.x, label: overlay.kind.replace("_", " ") };
+  const pad = getOverlayPadding({ fontSize, padScale: place.padScale });
+  const metrics = { fontSize, pad, room: outer - 2 * pad.x, label: overlay.kind.replace("_", " "), scale };
   const measured =
     overlay.kind === "hook_title" || overlay.kind === "place_card"
       ? measureTitle({ ...overlay, kind: overlay.kind }, metrics)

@@ -2,7 +2,17 @@ import type { BrandColors } from "../config/colors.js";
 import { escapeHtml } from "../compose/html.js";
 import { getCornerRadiusCss, getStyleBorderCss, getStyleShadowCss, type BrandStyle } from "./brand-style.js";
 import type { OverlayEntrance } from "./overlay-schema.js";
-import { OVERLAY_LINE_HEIGHT, OVERLAY_LIST_LINE_HEIGHT, OVERLAY_PADDING_EM, OVERLAY_TITLE_LINE_HEIGHT, SEARCH_BAR_PADDING_EM, formatOverlayNumber, type ResolvedOverlay } from "./overlays.js";
+import {
+  OVERLAY_LINE_HEIGHT,
+  OVERLAY_LIST_LINE_HEIGHT,
+  OVERLAY_PADDING_EM,
+  OVERLAY_TITLE_LINE_HEIGHT,
+  SEARCH_BAR_PADDING_EM,
+  formatOverlayNumber,
+  getOverlayPadding,
+  getTitleContentBox,
+  type ResolvedOverlay,
+} from "./overlays.js";
 
 /**
  * The render's overlays (issue #1200): HTML, CSS and GSAP tweens for the HyperFrames composition, every look in the
@@ -68,7 +78,13 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.ov-list li{display:flex;align-items:center;gap:.45em;list-style:none}`,
     `.ov-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}`,
     `.ov-search,.ov-counter .ov-card,.ov-date .ov-card,.ov-place,.ov-sub,.ov-line{white-space:nowrap}`,
-    `.ov-stack{flex-direction:column;gap:0;text-align:center;transform-origin:50% 0%}`,
+    // A title card fills its fitted box, so a typed title keeps its width; a centred typed line hides its untyped
+    // characters (they take no room), so what is typed stays centred (RV-131 of an adopting app).
+    `.ov-stack{flex-direction:column;justify-content:center;gap:0;text-align:center;width:100%;height:100%;box-sizing:border-box;transform-origin:50% 0%}`,
+    `.ov-stack.left{align-items:flex-start;text-align:left}`,
+    `.ov-stack.left .ov-place{justify-content:flex-start}`,
+    `.ov-line{min-height:1lh}`,
+    `.ty .ov-stack:not(.left) .ch{display:none}`,
     `.ov-hook-title .ov-line{font-family:${fonts.heading};font-weight:800;letter-spacing:-.02em}`,
     `.ov-place{display:flex;align-items:center;justify-content:center;gap:.25em;font-weight:650;opacity:.92;margin-bottom:.12em}`,
     `.ov-pin{flex:none;width:1.05em;height:1.05em}`,
@@ -133,6 +149,14 @@ function getCardStyle(overlay: ResolvedOverlay, colors: OverlayColors, scale = 1
   const own = overlay.colors;
   const parts = [own.card === undefined ? "" : `background:${colors.background}`, own.text === undefined ? "" : `color:${colors.foreground}`];
   if (overlay.cornerRadius !== undefined && overlay.cornerRadius !== null) parts.push(`border-radius:${getCornerRadiusCss(overlay.cornerRadius, scale)}`);
+  if (overlay.kind === "hook_title" || overlay.kind === "place_card") {
+    // The text block sits where the draft draws it: the card's padding is what its fitted box leaves round it.
+    const content = getTitleContentBox(overlay);
+    parts.push(`padding:${r3(content.top - overlay.box.top)}px ${r3(content.left - overlay.box.left)}px`);
+  } else if (overlay.padScale !== undefined && overlay.kind !== "search_bar" && overlay.kind !== "arrow" && overlay.kind !== "highlight") {
+    const pad = getOverlayPadding(overlay);
+    parts.push(`padding:${pad.y}px ${pad.x}px`);
+  }
   if (overlay.kind === "keyword" && own.accent !== undefined) parts.push(`border-bottom-color:${colors.accent}`);
   const style = parts.filter((part) => part !== "").join(";");
   return style === "" ? "" : ` style="${style}"`;
@@ -149,7 +173,7 @@ function getEntranceTweens(target: string, entrance: OverlayEntrance, start: num
 /** The typing tweens: each character of `#<id>` shown at its time. */
 function getTypingTweens(id: string, overlay: { start: number; typing: number | null }, length: number): string[] {
   if (overlay.typing === null || length === 0) return [];
-  return [`tl.to("#${id} .ch", { opacity: 1, duration: 0.01, ease: "none", stagger: ${r3(1 / overlay.typing)} }, ${r3(overlay.start + OVERLAY_TYPING_DELAY)});`];
+  return [`tl.to("#${id} .ch", { opacity: 1, display: "inline", duration: 0.01, ease: "none", stagger: ${r3(1 / overlay.typing)} }, ${r3(overlay.start + OVERLAY_TYPING_DELAY)});`];
 }
 
 /** Each new kind's own entrance when the overlay names none. */
@@ -203,12 +227,12 @@ function getCardBody(overlay: CardOverlay, id: string, colors: OverlayColors, lo
   if (overlay.kind === "hook_title") {
     const place = overlay.place === null ? "" : `<div class="ov-place" style="font-size:${overlay.placeFontSize}px">${getPinSvg(colors.accent)}<span>${escapeHtml(overlay.place)}</span></div>`;
     const lines = overlay.lines.map((line) => `<div class="ov-line">${typedOrPlain(line)}</div>`).join("");
-    return { classes: "ov-hook-title center", body: `<div class="ov-card ov-stack"__STYLE__>${place}${lines}</div>`, typed: overlay.lines.join("").length };
+    return { classes: "ov-hook-title center", body: `<div class="ov-card ov-stack${overlay.align === "left" ? " left" : ""}"__STYLE__>${place}${lines}</div>`, typed: overlay.lines.join("").length };
   }
   if (overlay.kind === "place_card") {
     const subtitle = overlay.subtitle === null ? "" : `<div class="ov-sub" style="font-size:${overlay.subtitleFontSize}px">${escapeHtml(overlay.subtitle)}</div>`;
     const lines = overlay.lines.map((line) => `<div class="ov-line">${typedOrPlain(line)}</div>`).join("");
-    return { classes: "ov-place-card center", body: `<div class="ov-card ov-stack"__STYLE__>${lines}${subtitle}</div>`, typed: overlay.lines.join("").length };
+    return { classes: "ov-place-card center", body: `<div class="ov-card ov-stack${overlay.align === "left" ? " left" : ""}"__STYLE__>${lines}${subtitle}</div>`, typed: overlay.lines.join("").length };
   }
   if (overlay.kind === "search_bar") {
     return { classes: "ov-search-bar center", body: `<div class="ov-card ov-search"__STYLE__>${getGlassSvg(colors.accent)}<span id="${id}t">${typedOrPlain(overlay.text)}</span></div>`, typed: [...overlay.text].length };

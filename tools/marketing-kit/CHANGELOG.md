@@ -4,6 +4,27 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.28.0
+
+- **Title cards fitted to their text and centred while they type:** a centred typed `hook_title` or `place_card` line
+  now shows only what is typed, centred in its card, in the draft (no transparent rest) and the render (untyped
+  characters take no room); the card keeps the whole title's width from the first letter. Before, the typed start sat
+  left of the middle of an empty card. A centred typed line's letters appear as typed instead of fading in.
+- **New style knobs:** `style.align` (`center | left`, hook title and place card; refused on other kinds) and
+  `style.subtitle_size` (`s | m | l`, place card only). The subtitle is 0.42, 0.55 (default, was 0.42) or 0.7 of the
+  title, at least `MIN_OVERLAY_SUBTITLE_PX` (44 px of a 1080 px frame), shrinking to fit its room but never below the
+  `s` step, so every subtitle that fitted before still fits.
+- **Text fit:** titles wrap to two balanced lines (`wrapOverlayTitle`) and, when two lines are not enough, shrink by
+  `OVERLAY_TITLE_SHRINK` (0.9) at most three times before the refusal (now "... even at a smaller size"). The type
+  steps of the two title kinds are wider: `hook_title` 50/64/82 (was 52/64/76), `place_card` 70/92/118 (was
+  72/92/112); `m` is unchanged.
+- **Brand padding on every card:** `ResolveOverlaysInput.style` (`Pick<BrandStyle, "padding">`) scales every overlay
+  card's padding by `STYLE_PADDING_SCALES`; the resolved overlay carries `padScale` when it is not `m`, and
+  `getDrawnOverlayCard`, the draft and the render follow it. `renderFootage` and the draft pass `brand.style`. New
+  exports: `getOverlayPadding`, `getTitleContentBox`, `getTitleContentSize`, `wrapOverlayTitle`,
+  `OVERLAY_SUBTITLE_SCALES`, `MIN_OVERLAY_SUBTITLE_PX`, `OVERLAY_TITLE_SHRINK`, `OVERLAY_ALIGNS`,
+  `OVERLAY_ALIGNED_KINDS`, type `OverlayAlign`. The render pads a title card to where the draft draws its text.
+
 ## 0.27.0
 
 - **One brand style for every box:** `FootageBrand.style` (new type `BrandStyle`: `cornerRadius` `none | s | m | l |

@@ -6,14 +6,15 @@ import {
   OVERLAY_FONT_ROLES,
   OVERLAY_LINE_HEIGHT,
   OVERLAY_LIST_LINE_HEIGHT,
-  OVERLAY_PADDING_EM,
   OVERLAY_TITLE_LINE_HEIGHT,
   SEARCH_BAR_ICON_EM,
   SEARCH_BAR_PADDING_EM,
   estimateTextWidth,
   formatOverlayNumber,
   getDrawnOverlayCard,
+  getOverlayPadding,
   getSideTextLines,
+  getTitleContentBox,
   type OverlayBox,
   type OverlayFontRole,
   type OverlayPoint,
@@ -172,19 +173,24 @@ function getTextEvents(input: { layer: number; style: string; pos: OverlayPoint;
   });
 }
 
-/** The steps of a text that types in letter by letter (the rest transparent), or one step showing it all. */
-function getTypedSteps(text: string, span: { start: number; end: number }, typing: number | null): TextStep[] {
+/**
+ * The steps of a text that types in letter by letter, or one step showing it all. Text anchored at its start (left or
+ * right aligned) keeps the rest transparent so it types in place; centred text (`isCentred`) shows only what is typed,
+ * so the typed part stays centred in its card while the card keeps the whole text's width (RV-131 of an adopting app:
+ * the typed start sat left of an empty card).
+ */
+function getTypedSteps(text: string, span: { start: number; end: number }, typing: number | null, isCentred = false): TextStep[] {
   const clean = toAssText(text);
   if (typing === null || clean.length === 0) return [{ from: span.start, to: span.end, text: clean }];
   const chars = [...clean];
   const times = getTypingTimes(span.start, clean, typing).map((time) => Math.min(time, span.end));
-  const steps: TextStep[] = [{ from: span.start, to: times[0] as number, text: `${HIDDEN}${clean}` }];
+  const steps: TextStep[] = isCentred ? [] : [{ from: span.start, to: times[0] as number, text: `${HIDDEN}${clean}` }];
   times.forEach((time, index) => {
     const shown = chars.slice(0, index + 1).join("");
     const rest = chars.slice(index + 1).join("");
-    steps.push({ from: time, to: times[index + 1] ?? span.end, text: rest.length === 0 ? shown : `${shown}${HIDDEN}${rest}` });
+    steps.push({ from: time, to: times[index + 1] ?? span.end, text: rest.length === 0 || isCentred ? shown.trimEnd() : `${shown}${HIDDEN}${rest}` });
   });
-  return steps.filter((step) => step.to > step.from);
+  return steps.filter((step) => step.to > step.from && step.text.length > 0);
 }
 
 /** The colour and font override tags of an overlay's text: only what differs from the style. */
@@ -233,8 +239,7 @@ function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" |
   const { fontSize, side } = overlay;
   // A side text always has a card: only a punch_in has none.
   const card = getDrawnOverlayCard(overlay) as OverlayBox;
-  const padX = r0(fontSize * OVERLAY_PADDING_EM.x);
-  const padY = r0(fontSize * OVERLAY_PADDING_EM.y);
+  const { x: padX, y: padY } = getOverlayPadding(overlay);
   const isRight = side === "right";
   const x = isRight ? card.left + card.width - padX : card.left + padX;
   const isFoot = overlay.kind === "lower_third";
@@ -276,19 +281,23 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
   const slidePx = SLIDE_PX * context.scale;
   const span = { start: overlay.start, end: overlay.end };
   const events = getCardShapeEvents(overlay, box, fontSize, colors, entrance, context);
-  const padX = r0(fontSize * OVERLAY_PADDING_EM.x);
-  const padY = r0(fontSize * OVERLAY_PADDING_EM.y);
+  const { x: padX, y: padY } = getOverlayPadding(overlay);
   const centerX = box.left + box.width / 2;
   const tagsFor = (role: OverlayFontRole) => getTextTags(overlay, colors, context, role);
-  const text = (pos: OverlayPoint, align: number, size: number, role: OverlayFontRole, steps: TextStep[]) =>
-    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${r0(size)}${tagsFor(role)}`, steps, entrance, slidePx });
+  const text = (pos: OverlayPoint, align: number, size: number, role: OverlayFontRole, steps: TextStep[], own: "fade" | "slide" | "none" = entrance) =>
+    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${r0(size)}${tagsFor(role)}`, steps, entrance: own, slidePx });
   if (overlay.kind === "hook_title" || overlay.kind === "place_card") {
-    let y = box.top + padY;
+    // The text block sits in the card's middle; centred lines on its axis, left ones from its left edge (RV-131).
+    const content = getTitleContentBox(overlay);
+    const isLeft = overlay.align === "left";
+    const lineX = isLeft ? content.left : centerX;
+    const lineAlign = isLeft ? 7 : 8;
+    let y = content.top;
     if (overlay.kind === "hook_title" && overlay.place !== null) {
       const size = overlay.placeFontSize;
       const pin = Math.round(size * 1.05);
       const rowWidth = pin + Math.round(size * 0.25) + estimateTextWidth(overlay.place, size);
-      const rowLeft = centerX - rowWidth / 2;
+      const rowLeft = isLeft ? content.left : centerX - rowWidth / 2;
       events.push(getShapeEvent(overlay, getPinDrawing({ x: rowLeft, y: y + (size * OVERLAY_LINE_HEIGHT - pin) / 2 }, pin), colors.accent, entrance, context.scale).replace("Dialogue: 3,", "Dialogue: 4,"));
       events.push(...text({ x: rowLeft + pin + Math.round(size * 0.25), y }, 7, size, OVERLAY_FONT_ROLES.date_stamp, [{ from: span.start, to: span.end, text: toAssText(overlay.place) }]));
       y += size * 1.3 + fontSize * 0.12;
@@ -296,14 +305,18 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
     const lineHeight = overlay.kind === "hook_title" ? OVERLAY_LINE_HEIGHT : OVERLAY_TITLE_LINE_HEIGHT;
     let typedBefore = 0;
     overlay.lines.forEach((line) => {
-      // The lines type one after the other, as the render's characters do.
+      // The lines type one after the other, as the render's characters do; a left line holds its place transparent
+      // from the start, a centred one shows its typed part only (`getTypedSteps`).
       const lineStart = overlay.typing === null ? span.start : span.start + typedBefore / overlay.typing;
-      events.push(...text({ x: centerX, y }, 8, fontSize, "heading", getTypedSteps(line, { start: lineStart, end: span.end }, overlay.typing).map((step, index) => (index === 0 ? { ...step, from: span.start } : step))));
+      const steps = getTypedSteps(line, { start: lineStart, end: span.end }, overlay.typing, !isLeft);
+      // A centred typed line has no hidden first step to carry the entrance: its letters appear as typed, as the render's.
+      const isTypedCentre = !isLeft && overlay.typing !== null;
+      events.push(...text({ x: lineX, y }, lineAlign, fontSize, "heading", isLeft ? steps.map((step, index) => (index === 0 ? { ...step, from: span.start } : step)) : steps, isTypedCentre ? "none" : entrance));
       typedBefore += [...line].length;
       y += fontSize * lineHeight;
     });
     if (overlay.kind === "place_card" && overlay.subtitle !== null) {
-      events.push(...text({ x: centerX, y: y + fontSize * 0.12 }, 8, overlay.subtitleFontSize, "interface", [{ from: span.start, to: span.end, text: toAssText(overlay.subtitle) }]));
+      events.push(...text({ x: lineX, y: y + fontSize * 0.12 }, lineAlign, overlay.subtitleFontSize, "interface", [{ from: span.start, to: span.end, text: toAssText(overlay.subtitle) }]));
     }
     return events;
   }
