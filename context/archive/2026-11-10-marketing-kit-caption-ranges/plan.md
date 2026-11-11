@@ -29,4 +29,4 @@ chunk layouts and the overlay band use. Test-first on the pure functions.
 ## Progress
 
 - [x] Phase 1: unit tests for ranges in edl, captions, overlays, draft (ASS style at the range's foot) and compose (div at the range's foot); `npx vitest run tools/marketing-kit tests/repo`: 2091 passed, 1 file failed only on a missing ssh-keygen in this container (tests/repo/deploy-workflows, unrelated); typecheck and eslint clean; schema regenerated.
-- [x] Phase 2: 0.28.0 (npm latest was 0.27.0), CHANGELOG and README; release by `auto-release` after the merge.
+- [x] Phase 2: 0.32.0 (0.28.0 to 0.31.0 were taken by other changes first), CHANGELOG and README; release by `auto-release` after the merge.
