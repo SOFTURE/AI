@@ -6,11 +6,11 @@ import type { CaptionLayout, LayoutOverride } from "../compose/timeline.js";
 import type { BrandColors } from "../config/colors.js";
 import { err, ok } from "./failure.js";
 import type { TimedWord } from "../voice/voiceover.js";
-import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_SECONDS, getCaptionHighlight, type CaptionHighlightLook } from "./caption-highlight.js";
+import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_SECONDS, CAPTION_UNDERLINE_EM, getCaptionHighlight, type CaptionHighlightLook } from "./caption-highlight.js";
 import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, isSameCaptionPlace, type CaptionWordsFilm } from "./captions.js";
 import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
 import { toAssColor } from "./draft-color.js";
-import { buildDraftOverlayEvents, getDraftOverlayStyles } from "./draft-overlays.js";
+import { buildDraftOverlayEvents, getDraftOverlayStyles, getRoundedRectDrawing } from "./draft-overlays.js";
 import { getCaptionCornerRadius, getCornerRadiusPx, getStylePadding, type BrandStyle } from "./brand-style.js";
 import { getDraftBoxEvents } from "./draft-boxes.js";
 import { createDraftTextMeasure, wrapDraftLine, type DraftTextMeasure } from "./draft-text-width.js";
@@ -181,9 +181,10 @@ const NO_BOX = "{\\3a&HFF&\\4a&HFF&}";
  * A `highlight` chunk as ASS events: its span cut wherever a word lights up or goes out, each piece showing the chunk
  * with the words lit then in `highlight` (a word stays lit for the render's 0.32 s from its start).
  */
-function buildHighlightEvents(chunk: { words: TimedWord[] }, span: { start: number; end: number }, colors: { text: string; highlight: string }, styleName: string, layout: ChunkLayout = BOXLESS_LAYOUT): string[] {
+function buildHighlightEvents(chunk: { words: TimedWord[] }, span: { start: number; end: number }, colors: { text: string; highlight: string }, styleName: string, layout: ChunkLayout = BOXLESS_LAYOUT, isUnderlined = false): string[] {
+  const [on, off] = isUnderlined ? ["\\u1", "\\u0"] : ["", ""];
   return getHighlightPieces(chunk, span).map((piece) => {
-    const words = chunk.words.map((word, wordIndex) => (piece.lit[wordIndex] === true ? `{\\1c${colors.highlight}&}${toAssText(word.text)}{\\1c${colors.text}&}` : toAssText(word.text)));
+    const words = chunk.words.map((word, wordIndex) => (piece.lit[wordIndex] === true ? `{${on}\\1c${colors.highlight}&}${toAssText(word.text)}{${off}\\1c${colors.text}&}` : toAssText(word.text)));
     return `Dialogue: 0,${toAssTime(piece.from / 100)},${toAssTime(piece.to / 100)},${styleName},,0,0,0,,${layout.hasPill ? NO_BOX : ""}${joinWords(words, layout.breaks)}`;
   });
 }
@@ -219,10 +220,18 @@ function buildHighlightBoxEvents(
   });
 }
 
-/** The pill of a chunk drawn in the brand's style: its lines (broken by width) and its shadow, box and border events. */
+/** Where a word of a drawn pill sits: its left edge, width and its line's top, in the draft's frame. */
+interface DrawnWord {
+  left: number;
+  width: number;
+  lineTop: number;
+}
+
+/** The pill of a chunk drawn in the brand's style: its lines (broken by width), its shadow, box and border events, and each word's place. */
 interface DrawnPill {
   breaks: Set<number>;
   events: string[];
+  words: DrawnWord[];
 }
 
 interface DrawnPillInput {
@@ -258,7 +267,39 @@ function getDrawnPill(input: DrawnPillInput): DrawnPill {
   const box = { left: place.left + (areaWidth - width) / 2, top: textTop - pad.y, width, height };
   const at = `${toAssTime(input.span.start)},${toAssTime(input.span.end)}`;
   const radius = getCornerRadiusPx(getCaptionCornerRadius(style), height, scale);
-  return { breaks, events: getDraftBoxEvents({ layer: 0, at, styleName: "CaptionShape", box, radius, color: input.colors.background, accent: input.colors.accent, style, scale }) };
+  // libass centres each line in the caption box, as the pill is: a word starts where the words before it and a space end.
+  const words = lines.flatMap((line, lineIndex) => {
+    const lineLeft = place.left + (areaWidth - measure(line.join(" "), place.fontSize)) / 2;
+    return line.map((word, index) => {
+      const width = measure(word, place.fontSize);
+      return { left: lineLeft + measure(line.slice(0, index + 1).join(" "), place.fontSize) - width, width, lineTop: textTop + lineIndex * place.fontSize };
+    });
+  });
+  return { breaks, events: getDraftBoxEvents({ layer: 0, at, styleName: "CaptionShape", box, radius, color: input.colors.background, accent: input.colors.accent, style, scale }), words };
+}
+
+/** Where the draft's underline sits under a line, in font sizes: libass draws a line one font size tall, its baseline near 0.8. */
+const DRAFT_UNDERLINE_TOP_EM = 0.9;
+
+/**
+ * An `underline` highlight's bars over a drawn pill: for each piece of the chunk's span, a rounded bar in `color` under
+ * every word lit then, as wide as the word, `CAPTION_UNDERLINE_EM.thickness` font sizes thick.
+ */
+function buildUnderlineEvents(chunk: { words: TimedWord[] }, span: { start: number; end: number }, words: readonly DrawnWord[], fontSize: number, color: string): string[] {
+  const thickness = Math.max(2, Math.round(fontSize * CAPTION_UNDERLINE_EM.thickness));
+  return getHighlightPieces(chunk, span).flatMap((piece) =>
+    words.flatMap((word, index) => {
+      if (piece.lit[index] !== true) return [];
+      const bar = { left: word.left, top: word.lineTop + Math.round(fontSize * DRAFT_UNDERLINE_TOP_EM), width: word.width, height: thickness };
+      return [`Dialogue: 0,${toAssTime(piece.from / 100)},${toAssTime(piece.to / 100)},CaptionShape,,0,0,0,,{\\an7\\pos(0,0)${toUnderlineColorTags(color)}\\bord0\\shad0\\p1}${getRoundedRectDrawing(bar, thickness / 2)}{\\p0}`];
+    }),
+  );
+}
+
+/** A `#rrggbb` colour as an ASS fill colour and alpha. */
+function toUnderlineColorTags(hex: string): string {
+  const ass = toAssColor(hex);
+  return `\\1c&H${ass.slice(4)}&\\1a&H${ass.slice(2, 4)}&`;
 }
 
 /** The highlight look the draft draws: `text` for a `phrase` film; a `box` film without its colours is an input error. */
@@ -354,6 +395,11 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
       style === undefined ? null : getDrawnPill({ words: chunk.words.map((word) => word.text.replace(/\u00a0/g, " ")), span, place: places[index] ?? caption, frame, style, measure, colors: pillColors });
     const layout: ChunkLayout = pill === null ? BOXLESS_LAYOUT : { breaks: pill.breaks, hasPill: true };
     const drawn = pill?.events ?? [];
+    if (isHighlight && lit.style === "underline") {
+      // Over a drawn pill the bar is drawn under the lit word, its text unchanged; without one libass underlines it in the accent.
+      if (pill === null) return buildHighlightEvents(chunk, span, highlight, styleName, layout, true);
+      return [...drawn, ...buildUnderlineEvents(chunk, span, pill.words, (places[index] ?? caption).fontSize, colors.captionHighlight), ...buildHighlightEvents(chunk, span, { text: highlight.text, highlight: highlight.text }, styleName, layout)];
+    }
     if (isHighlight && boxColors !== null) return [...drawn, ...buildHighlightBoxEvents(chunk, span, boxColors, boxPadding, styleName, layout)];
     if (isHighlight) return [...drawn, ...buildHighlightEvents(chunk, span, highlight, styleName, layout)];
     const line = toAssText(chunk.words.map((word) => word.text).join(" "));

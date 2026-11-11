@@ -15,7 +15,7 @@ import {
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
 import { DECLICK_LEVELS } from "../footage/declick.js";
-import { CAPTION_HIGHLIGHT_STYLES, CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS, JUMP_TRANSITIONS } from "../footage/film.js";
+import { CAPTION_ENTRANCES, CAPTION_HIGHLIGHT_STYLES, CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS, JUMP_TRANSITIONS } from "../footage/film.js";
 import { normalizeKeyTerms } from "../footage/keyterms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
@@ -586,7 +586,11 @@ const footageSchema = z
     captionHighlightStyle: z
       .enum(CAPTION_HIGHLIGHT_STYLES)
       .default("text")
-      .describe('How a highlight caption lights the word being said: text (the default) colours it captionHighlight; box puts it on a rounded box of brand.colors.captionHighlightBox with its text in captionHighlightText (both then required).'),
+      .describe('How a highlight caption lights the word being said: text (the default) colours it captionHighlight; box puts it on a rounded box of brand.colors.captionHighlightBox with its text in captionHighlightText (both then required); underline keeps its text and underlines it in captionHighlight.'),
+    captionEntrance: z
+      .enum(CAPTION_ENTRANCES)
+      .optional()
+      .describe("How a highlight caption's pill enters in the render: none, fade, or pop (grows from 96 % to 100 % while it fades in, no overshoot), 0.16 s; without it, a short rise while it fades in."),
     overlayMinSpacing: z
       .number()
       .min(0)

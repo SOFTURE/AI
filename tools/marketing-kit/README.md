@@ -757,7 +757,11 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   each side, radius 12 px, the line's layout unmoved) with its text in `captionHighlightText`, for the same 0.32 s, in
   the render and the draft alike. Both box colours are then required (a film without them stops before anything is
   rendered); `getCaptionHighlightContrast(colors)` returns the lit text's contrast on its box and the box's on the
-  pill, so the app can warn (the kit never changes the colours). `layout` moves their box per format; `captionPreset` (`reels`, `shorts`, `tiktok` or `all`)
+  pill, so the app can warn (the kit never changes the colours). `"underline"` keeps the word in `captionText` and
+  draws a bar of `captionHighlight` under it (0.09 em thick, 1 em below the line's top) for the same 0.32 s.
+  `captionEntrance` sets how a highlight pill enters in the render: `"none"`, `"fade"` or `"pop"` (it grows from 96 %
+  to 100 % while it fades in, `power2.out`, never past its size), 0.16 s each; without it, a 14 px rise while it fades
+  in (`getCaptionEntranceTween`). `layout` moves their box per format; `captionPreset` (`reels`, `shorts`, `tiktok` or `all`)
   keeps a 9:16 film's captions inside that platform's safe zone (`CAPTION_SAFE_ZONES`, the margins its own buttons and
   text cover): the box is anchored by its foot at the zone's bottom margin and grows upwards. `captionMaxLines` (1-4)
   shrinks a longer card's font in the render, to 70 % of the box's size at most (`CAPTION_MIN_FONT_SCALE`), until it
@@ -1227,7 +1231,9 @@ What the draft matches and what it leaves out:
   kept), in `captionText`, each word in `captionHighlight` for the 0.32 s the render lights it. libass draws a square
   box per line: no rounded corners, no drop shadow, no pop-in, and the colour switches instead of fading back. With
   `captionHighlightStyle: "box"` the lit word sits on a square box of `captionHighlightBox` in the same place, its
-  text in `captionHighlightText`.
+  text in `captionHighlightText`. With `"underline"` and a brand `style` (the drawn pill) a rounded bar of
+  `captionHighlight` sits under the lit word; without a style libass underlines the word in that colour. The draft
+  draws no `captionEntrance`.
 - **The brand's body font** (`brand`, the value `renderFootage` takes): the TrueType or OpenType file of
   `brand.fonts.body` closest to the captions' weight (650, normal style first) is copied to the draft's `fonts/`
   and named by the family the file itself declares (libass matches that, not the CSS family). A body font shipped only

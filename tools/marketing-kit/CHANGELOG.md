@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.29.0
+
+- **The caption pill's entrance:** `FootageFilm.captionEntrance` (`none | fade | pop`, new `CAPTION_ENTRANCES` and type
+  `CaptionEntrance`, also in `marketing.json`) sets how a highlight pill enters in the render, 0.16 s: at once, fading
+  in, or fading in while it grows from 96 % to 100 % (`power2.out`, never past its size). Without it, the 14 px rise
+  and fade as before (`getCaptionEntranceTween`). The draft draws no entrance, as before.
+- **An underlined lit word:** `captionHighlightStyle: "underline"` keeps the word in `captionText` and draws a bar of
+  `captionHighlight` under it for the 0.32 s it is lit (`CAPTION_UNDERLINE_EM`), in the render and in the draft (a
+  rounded bar under the word over a drawn pill; libass's underline without a brand style). `text` and `box` draw as
+  before.
+
 ## 0.28.0
 
 - **Title cards fitted to their text and centred while they type:** a centred typed `hook_title` or `place_card` line
