@@ -29,8 +29,10 @@ export interface DraftBoxEventsInput {
   style: Pick<BrandStyle, "shadow" | "border">;
   /** The frame's width / 1080. */
   scale: number;
-  /** Motion tags every drawing takes (a fade, a move); a `\move` replaces the `\pos`. */
+  /** Motion tags every drawing takes (a fade, a move, a scale, a clip); a `\move` replaces the `\pos`. */
   motion?: string;
+  /** A blur entrance or exit: the tags for a drawing whose own blur is `own` (the shadow's, else 0). */
+  blurTags?: (own: number) => string;
 }
 
 /** An ASS colour and alpha as override tags of colour `slot` (1 fill, 3 border). */
@@ -45,12 +47,14 @@ export function getDraftBoxEvents(input: DraftBoxEventsInput): string[] {
   const motion = input.motion ?? "";
   const pos = motion.includes("\\move") ? "" : "\\pos(0,0)";
   const drawing = getRoundedRectDrawing(box, radius);
-  const event = (tags: string, shape: string) => `Dialogue: ${String(input.layer)},${input.at},${input.styleName},,0,0,0,,{\\an7${pos}${motion}${tags}\\p1}${shape}{\\p0}`;
+  const event = (tags: string, shape: string, blur = 0) =>
+    `Dialogue: ${String(input.layer)},${input.at},${input.styleName},,0,0,0,,{\\an7${pos}${motion}${tags}${input.blurTags?.(blur) ?? ""}\\p1}${shape}{\\p0}`;
   const events: string[] = [];
   if (input.style.shadow === "soft") {
     const lowered = getRoundedRectDrawing({ ...box, top: box.top + STYLE_SHADOW.offsetY * scale }, radius);
     const alpha = Math.round((1 - STYLE_SHADOW.opacity) * 255).toString(16).padStart(2, "0").toUpperCase();
-    events.push(event(`\\1c&H000000&\\1a&H${alpha}&\\bord0\\shad0\\blur${String(Math.round((STYLE_SHADOW.blur / 3) * scale))}`, lowered));
+    const blur = Math.round((STYLE_SHADOW.blur / 3) * scale);
+    events.push(event(`\\1c&H000000&\\1a&H${alpha}&\\bord0\\shad0\\blur${String(blur)}`, lowered, blur));
   }
   events.push(event(`${toColorTags(input.color, 1)}\\bord0\\shad0`, drawing));
   if (input.style.border === "thin") {

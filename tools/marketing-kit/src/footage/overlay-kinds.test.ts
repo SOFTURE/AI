@@ -153,7 +153,7 @@ describe("the new kinds' schema", () => {
     expect(error({ ...HOOK, style: { position: "middle" } })).toBe("overlays.0.style.position: a hook_title has a fixed place; leave position out");
     expect(error({ kind: "list", at: 1, duration: 2, items: ["a", "b"], style: { position: "bottom" } })).toBe("overlays.0.style.position: a list sits at top, middle");
     expect(error({ kind: "punch_in", at: 1, duration: 2, style: { entrance: "fade" } })).toBe("overlays.0.style.entrance: a punch_in has no entrance; leave it out");
-    expect(error({ kind: "list", at: 1, duration: 2, items: ["a", "b"], style: { entrance: "type" } })).toBe("overlays.0.style.entrance: a list enters by fade, slide, none");
+    expect(error({ kind: "list", at: 1, duration: 2, items: ["a", "b"], style: { entrance: "type" } })).toBe("overlays.0.style.entrance: a list enters by fade, slide, none, pop, rise, blur, wipe");
     expect(error({ kind: "keyword", at: 1, duration: 2, text: "x", style: { typing_speed: 10 } })).toBe("overlays.0.style.typing_speed: only a typed entrance or a search bar has a typing speed");
     expect(error({ ...SEARCH, style: { entrance: "fade", typing_speed: 10 } })).toBe("overlays.0.style.typing_speed: only a typed entrance or a search bar has a typing speed");
     expect(error({ ...SEARCH, style: { typing_speed: 3 } })).toBe("overlays.0.style.typing_speed: Too small: expected number to be >=4");

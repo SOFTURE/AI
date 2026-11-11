@@ -4,6 +4,30 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.31.0
+
+- **New entrances:** `style.entrance` takes `pop` (92 % to 100 %, `power2.out`, 0.3 s, no overshoot), `rise` (up from
+  5 % of the frame's height with a fade, 0.3 s), `blur` (14 px of a 1080 px frame to sharp, 0.3 s) and `wipe` (the card
+  grows from the left under an accent panel, which then slides off to the right over the card and its text, 0.5 s) on
+  every kind with a card (`OVERLAY_ENTRANCES_BY_KIND`; an arrow and a highlight keep `fade` and `none`).
+- **Exits and easing:** `style.exit` (`OVERLAY_EXITS`: `auto` mirrors the entrance, `fade`, `slide`, `none`) and
+  `style.easing` (`OVERLAY_EASINGS`: `smooth`, `snappy`). Without them, or with no entrance or `none`, an overlay
+  leaves as before. Refused on a `punch_in`.
+- **Per kind:** a list's `style.stagger` and `item_words` (one word per point; a word the cut does not say is refused
+  as `item_words[i]`) or `item_at` (one film second per point), resolved to `itemStarts`; a place card's `style.pin` (`OVERLAY_PINS`) and
+  `style.subtitle_delay` (up to `MAX_OVERLAY_SUBTITLE_DELAY`, 0.6 s), resolved to `pin` and `subtitleDelay` (a pinned
+  card is taller by `getPlaceCardPinRow`; `getPlaceCardTimes` answers when the pin, the title and the subtitle come
+  in); a keyword's `style.underline`. Each is refused on another kind.
+- **One motion model:** `overlay-motion.ts` (`getEntranceMotion`, `getExitMotion`, `getEntranceScaleAt`,
+  `getListItemStarts`, `OVERLAY_EASES`) feeds the render's tweens and the draft's ASS tags. The soft pill of a keyword,
+  a lower third and a list without an entrance now eases with `power3.out` (was `back.out(1.7)`, which passed 100 %),
+  and the lower third's dot with `power2.out`. The counter keeps its `power2.out` count, in the draft from the same
+  curve.
+- **Draft:** a pop scales about the card's middle (the position moves with the scale), a rise moves, a blur animates
+  `\blur` (a shadow keeps its own), a wipe animates `\clip` with an accent panel, a staggered point, a delayed
+  subtitle and a pinned card's title fade in from their own seconds, a dropped pin falls into place, an underline is
+  drawn from the left. `DraftBoxEventsInput.blurTags` (new, optional) gives a box's drawings their blur motion.
+
 ## 0.29.0
 
 - **The caption pill's entrance:** `FootageFilm.captionEntrance` (`none | fade | pop`, new `CAPTION_ENTRANCES` and type

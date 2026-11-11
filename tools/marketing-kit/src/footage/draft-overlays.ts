@@ -1,7 +1,20 @@
 import { getCornerRadiusPx, type BrandStyle, type CornerRadius } from "./brand-style.js";
 import { getDraftBoxEvents } from "./draft-boxes.js";
 import { toAssColor } from "./draft-color.js";
-import { getCounterSeconds, getOverlayColors, getTypingTimes, type OverlayColors } from "./overlay-html.js";
+import { getCounterSeconds, getOverlayColors, getPlaceCardTimes, getTypingTimes, type OverlayColors } from "./overlay-html.js";
+import {
+  OVERLAY_EASES,
+  PIN_DROP_SECONDS,
+  PIN_DROP_SHARE,
+  UNDERLINE_EM,
+  UNDERLINE_SECONDS,
+  getEntranceMotion,
+  getExitMotion,
+  getWipeHalves,
+  type OverlayEntranceMotion,
+  type OverlayExitMotion,
+} from "./overlay-motion.js";
+import type { OverlayEntrance } from "./overlay-schema.js";
 import {
   OVERLAY_FONT_ROLES,
   OVERLAY_LINE_HEIGHT,
@@ -13,6 +26,8 @@ import {
   formatOverlayNumber,
   getDrawnOverlayCard,
   getOverlayPadding,
+  getPlaceCardPinRow,
+  getPlaceCardPinSize,
   getSideTextLines,
   getTitleContentBox,
   type OverlayBox,
@@ -155,21 +170,123 @@ interface TextStep {
   text: string;
 }
 
-/** The entrance and exit tags of a run of events: the first fades or slides in, the last fades out. */
-function getMotionTags(entrance: "fade" | "slide" | "none", isFirst: boolean, isLast: boolean, slide: { x: number; y: number; dy: number } | null): string {
-  const fadeIn = isFirst && entrance !== "none" ? FADE_IN_MS : 0;
-  const fadeOut = isLast ? FADE_OUT_MS : 0;
-  const fade = fadeIn === 0 && fadeOut === 0 ? "" : `\\fad(${fadeIn},${fadeOut})`;
-  const move = isFirst && entrance === "slide" && slide !== null ? `\\move(${r0(slide.x)},${r0(slide.y + slide.dy)},${r0(slide.x)},${r0(slide.y)},0,${SLIDE_MS})` : "";
-  return `${move}${fade}`;
+/** How one overlay moves in the draft: its entrance and exit (`overlay-motion.ts`) and the card they scale about and wipe over. */
+interface DraftMotion {
+  /** The entrance it shows (the kind's own already chosen when the overlay names none). */
+  name: OverlayEntrance;
+  entrance: OverlayEntranceMotion;
+  exit: OverlayExitMotion;
+  /** The card a pop scales about and a wipe reveals. */
+  card: OverlayBox;
+  /** The frame's width / 1080. */
+  scale: number;
+  isSnappy: boolean;
+  /** Whether the card's entrance moves it (slide, rise, pop): then no part moves on the way out, so they stay together. */
+  isCardMoved: boolean;
 }
 
-/** Text events for a run of steps, positioned at `pos` with `tags`, the entrance on the first and the fade out on the last. */
-function getTextEvents(input: { layer: number; style: string; pos: OverlayPoint; tags: string; steps: TextStep[]; entrance: "fade" | "slide" | "none"; slidePx: number }): string[] {
+/** An overlay's draft motion with its entrance `name` (already the kind's own when it names none). */
+function getDraftMotion(overlay: Exclude<ResolvedOverlay, { kind: "punch_in" }>, name: OverlayEntrance, card: OverlayBox, context: DraftContext): DraftMotion {
+  const easing = overlay.easing ?? "smooth";
+  const frame = { width: 1080 * context.scale, height: 1920 * context.scale };
+  return {
+    name,
+    entrance: getEntranceMotion(name, easing, frame),
+    exit: getExitMotion({ exit: overlay.exit ?? "auto", entrance: overlay.entrance, easing, frame }),
+    card,
+    scale: context.scale,
+    isSnappy: easing === "snappy",
+    isCardMoved: name === "slide" || name === "rise" || name === "pop",
+  };
+}
+
+/** The same motion entering by a plain fade: a part that comes in after its card (a delayed subtitle, a staggered point). */
+function withFadeEntrance(motion: DraftMotion): DraftMotion {
+  return { ...motion, name: "fade", entrance: getEntranceMotion("fade", "smooth", { width: 1080, height: 1920 }) };
+}
+
+/** Which part of an overlay an event draws: its card (and drawings on it), its text, or a wipe's accent panel. */
+type DraftPart = "card" | "text";
+
+/** The rectangle a wipe clips to, round the card with room for its shadow and border. */
+function getWipeClip(motion: DraftMotion): { x0: number; y0: number; x1: number; y1: number } {
+  const room = 24 * motion.scale;
+  const { card } = motion;
+  return { x0: r0(card.left - room / 4), y0: r0(card.top - room), x1: r0(card.left + card.width + room / 4), y1: r0(card.top + card.height + room) };
+}
+
+const toClip = (box: { x0: number; y0: number; x1: number; y1: number }): string => `\\clip(${box.x0},${box.y0},${box.x1},${box.y1})`;
+const toMs = (seconds: number): number => Math.max(0, Math.round(seconds * 1000));
+
+/**
+ * The position and motion tags of one event of a run: the first takes the entrance (a fade, a slide or a rise moving up
+ * into place, a pop growing about the card's middle, a wipe's clip), the last the exit (a fade, a move down, a wipe
+ * off to the right). libass scales about an event's position, so a pop moves the position with the scale (both linear)
+ * to keep the card's middle still. `pos` is the event's position, (0, 0) for a drawing.
+ */
+function getMotionTags(motion: DraftMotion, input: { isFirst: boolean; isLast: boolean; pos: OverlayPoint; ms: number; part: DraftPart }): { position: string; rest: string } {
+  const { entrance, exit } = motion;
+  const { pos, ms } = input;
+  let move: string | null = null;
+  const tags: string[] = [];
+  let fadeIn = 0;
+  if (input.isFirst && entrance.kind === "tween") {
+    const enterMs = toMs(entrance.seconds);
+    fadeIn = motion.name === "fade" || motion.name === "slide" || motion.name === "type" ? FADE_IN_MS : r0(enterMs * 0.7);
+    if (motion.name === "slide") move = `\\move(${r0(pos.x)},${r0(pos.y + SLIDE_PX * motion.scale)},${r0(pos.x)},${r0(pos.y)},0,${SLIDE_MS})`;
+    if (entrance.from.y > 0 && motion.name !== "slide") move = `\\move(${r0(pos.x)},${r0(pos.y + entrance.from.y)},${r0(pos.x)},${r0(pos.y)},0,${enterMs})`;
+    if (entrance.from.scale < 1) {
+      const s = entrance.from.scale;
+      const centre = { x: motion.card.left + motion.card.width / 2, y: motion.card.top + motion.card.height / 2 };
+      move = `\\move(${r0(centre.x + s * (pos.x - centre.x))},${r0(centre.y + s * (pos.y - centre.y))},${r0(pos.x)},${r0(pos.y)},0,${enterMs})`;
+      const percent = Math.round(s * 100);
+      tags.push(`\\fscx${percent}\\fscy${percent}\\t(0,${enterMs},\\fscx100\\fscy100)`);
+    }
+  }
+  const clip = getWipeClip(motion);
+  if (input.isFirst && entrance.kind === "wipe") {
+    const halves = getWipeHalves(entrance.seconds);
+    const [grow, reveal] = [toMs(halves.grow), toMs(halves.reveal)];
+    const closed = toClip({ ...clip, x1: clip.x0 });
+    tags.push(input.part === "card" ? `${closed}\\t(0,${grow},${toClip(clip)})` : `${closed}\\t(${grow},${grow + reveal},${toClip(clip)})`);
+  }
+  let fadeOut = 0;
+  if (input.isLast && exit.kind !== "none") {
+    if (exit.kind === "wipe") {
+      const exitMs = toMs(exit.seconds);
+      if (!(input.isFirst && entrance.kind === "wipe")) tags.push(toClip(clip));
+      tags.push(`\\t(${Math.max(0, ms - exitMs)},${ms},${toClip({ ...clip, x0: clip.x1 })})`);
+    } else {
+      fadeOut = motion.isSnappy ? r0(FADE_OUT_MS * 0.7) : FADE_OUT_MS;
+      if (exit.kind === "tween" && exit.from.y > 0 && !motion.isCardMoved) {
+        const exitMs = toMs(exit.seconds);
+        move = `\\move(${r0(pos.x)},${r0(pos.y)},${r0(pos.x)},${r0(pos.y + exit.from.y)},${Math.max(0, ms - exitMs)},${ms})`;
+      }
+    }
+  }
+  const fade = fadeIn === 0 && fadeOut === 0 ? "" : `\\fad(${fadeIn},${fadeOut})`;
+  return { position: move ?? `\\pos(${r0(pos.x)},${r0(pos.y)})`, rest: `${fade}${tags.join("")}` };
+}
+
+/** A blur entrance's and exit's tags for an event whose own blur is `own`: from blurred to its own, from its own to blurred. */
+function getBlurTags(motion: DraftMotion, input: { isFirst: boolean; isLast: boolean; ms: number }, own: number): string {
+  const tags: string[] = [];
+  if (input.isFirst && motion.entrance.kind === "tween" && motion.entrance.from.blur > 0) {
+    tags.push(`\\blur${Math.max(own, r0(motion.entrance.from.blur / 2))}\\t(0,${toMs(motion.entrance.seconds)},\\blur${own})`);
+  }
+  if (input.isLast && motion.exit.kind === "tween" && motion.exit.from.blur > 0) {
+    const exitMs = toMs(motion.exit.seconds);
+    tags.push(`\\t(${Math.max(0, input.ms - exitMs)},${input.ms},\\blur${Math.max(own, r0(motion.exit.from.blur / 2))})`);
+  }
+  return tags.join("");
+}
+
+/** Text events for a run of steps, positioned at `pos` with `tags`, the entrance on the first and the exit on the last. */
+function getTextEvents(input: { layer: number; style: string; pos: OverlayPoint; tags: string; steps: TextStep[]; motion: DraftMotion }): string[] {
   return input.steps.map((step, index) => {
-    const motion = getMotionTags(input.entrance, index === 0, index === input.steps.length - 1, { x: input.pos.x, y: input.pos.y, dy: input.slidePx });
-    const pos = motion.includes("\\move") ? "" : `\\pos(${r0(input.pos.x)},${r0(input.pos.y)})`;
-    return `Dialogue: ${input.layer},${toAssTime(step.from)},${toAssTime(step.to)},${input.style},,0,0,0,,{${input.tags}${pos}${motion}}${step.text}`;
+    const at = { isFirst: index === 0, isLast: index === input.steps.length - 1, ms: toMs(step.to - step.from) };
+    const { position, rest } = getMotionTags(input.motion, { ...at, pos: input.pos, part: "text" });
+    return `Dialogue: ${input.layer},${toAssTime(step.from)},${toAssTime(step.to)},${input.style},,0,0,0,,{${input.tags}${position}${rest}${getBlurTags(input.motion, at, 0)}}${step.text}`;
   });
 }
 
@@ -210,13 +327,18 @@ function getOwnCardRadius(overlay: Pick<ResolvedOverlay, "kind">, box: { height:
 }
 
 /**
- * A card's drawn box on layer 3 with the overlay's entrance: one fill without a brand style, else the style's shadow,
- * fill and border (`getDraftBoxEvents`), at the brand style's corner or the overlay's own (`getDraftCardRadius`).
+ * A card's drawn box on layer 3 with the overlay's motion: one fill without a brand style, else the style's shadow,
+ * fill and border (`getDraftBoxEvents`), at the brand style's corner or the overlay's own (`getDraftCardRadius`); a
+ * wipe's accent panel over it.
  */
-function getCardShapeEvents(overlay: ResolvedOverlay, box: OverlayBox, fontSize: number, colors: { background: string; accent: string }, entrance: "fade" | "slide" | "none", context: DraftContext): string[] {
+function getCardShapeEvents(overlay: Exclude<ResolvedOverlay, { kind: "punch_in" }>, box: OverlayBox, fontSize: number, colors: { background: string; accent: string }, motion: DraftMotion, context: DraftContext): string[] {
   const radius = getDraftCardRadius(overlay, box, context, getOwnCardRadius(overlay, box, fontSize));
-  if (context.style === undefined) return [getShapeEvent(overlay, getRoundedRectDrawing(box, radius), colors.background, entrance, context.scale)];
-  return getDraftBoxEvents({
+  const drawing = getRoundedRectDrawing(box, radius);
+  const panel = getWipePanelEvent(overlay, drawing, colors.accent, motion);
+  if (context.style === undefined) return [getShapeEvent(overlay, drawing, colors.background, motion), ...panel];
+  const at = { isFirst: true, isLast: true, ms: toMs(overlay.end - overlay.start) };
+  const { position, rest } = getMotionTags(motion, { ...at, pos: { x: 0, y: 0 }, part: "card" });
+  const events = getDraftBoxEvents({
     layer: 3,
     at: `${toAssTime(overlay.start)},${toAssTime(overlay.end)}`,
     styleName: "OverlayShape",
@@ -226,13 +348,43 @@ function getCardShapeEvents(overlay: ResolvedOverlay, box: OverlayBox, fontSize:
     accent: colors.accent,
     style: context.style,
     scale: context.scale,
-    motion: getMotionTags(entrance, true, true, { x: 0, y: 0, dy: SLIDE_PX * context.scale }),
+    motion: `${position.startsWith("\\move") ? position : ""}${rest}`,
+    blurTags: (own) => getBlurTags(motion, at, own),
   });
+  return [...events, ...panel];
+}
+
+/** A wipe's accent panel: it grows over the card from the left, then slides off to the right, revealing the card and its text. */
+function getWipePanelEvent(overlay: Pick<ResolvedOverlay, "start">, drawing: string, accent: string, motion: DraftMotion): string[] {
+  if (motion.entrance.kind !== "wipe") return [];
+  const halves = getWipeHalves(motion.entrance.seconds);
+  const [grow, reveal] = [toMs(halves.grow), toMs(halves.reveal)];
+  const clip = getWipeClip(motion);
+  const tags = `${toClip({ ...clip, x1: clip.x0 })}\\t(0,${grow},${toClip(clip)})\\t(${grow},${grow + reveal},${toClip({ ...clip, x0: clip.x1 })})`;
+  return [`Dialogue: 3,${toAssTime(overlay.start)},${toAssTime(overlay.start + motion.entrance.seconds)},OverlayShape,,0,0,0,,{\\an7\\pos(0,0)${tags}\\1c${toTagColor(accent)}\\p1}${drawing}{\\p0}`];
+}
+
+/** A keyword's underline: an accent bar under its text, drawn from the left once the keyword is in. */
+function getUnderlineEvent(overlay: Extract<ResolvedOverlay, { kind: "keyword" }>, card: OverlayBox, colour: string, motion: DraftMotion): string[] {
+  if (overlay.underline !== true) return [];
+  const pad = getOverlayPadding(overlay);
+  const height = Math.max(2, r0(overlay.fontSize * UNDERLINE_EM.height));
+  const bar = { left: card.left + pad.x, top: card.top + card.height - pad.y + r0(overlay.fontSize * UNDERLINE_EM.gap), width: card.width - 2 * pad.x, height };
+  const after = motion.entrance.kind === "none" ? 0 : motion.entrance.seconds;
+  const from = Math.min(overlay.end, overlay.start + after);
+  const drawMs = toMs(UNDERLINE_SECONDS);
+  const x0 = r0(bar.left);
+  const clip = `\\clip(${x0},${r0(bar.top - 4)},${x0},${r0(bar.top + bar.height + 4)})\\t(0,${drawMs},\\clip(${x0},${r0(bar.top - 4)},${r0(bar.left + bar.width)},${r0(bar.top + bar.height + 4)}))`;
+  const fade = motion.exit.kind === "none" ? "" : `\\fad(0,${motion.isSnappy ? r0(FADE_OUT_MS * 0.7) : FADE_OUT_MS})`;
+  // Under a wipe off, the bar leaves as the wipe starts: it is not clipped with the card.
+  const until = motion.exit.kind === "wipe" ? Math.max(from, overlay.end - motion.exit.seconds) : overlay.end;
+  return [`Dialogue: 4,${toAssTime(from)},${toAssTime(until)},OverlayShape,,0,0,0,,{\\an7\\pos(0,0)${fade}${clip}\\1c${toTagColor(colour)}\\p1}${getRoundedRectDrawing(bar, height / 2)}{\\p0}`];
 }
 
 /**
  * A keyword, a lower third or a list: a drawn rounded card fitted to its text (`getDrawnOverlayCard`) on layer 3 and
- * its text on layer 4, inset by the card's padding on its side (a lower third from its foot).
+ * its text on layer 4, inset by the card's padding on its side (a lower third from its foot). A staggered list's points
+ * come in one by one; a keyword's underline is drawn once it is in.
  */
 function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" | "list" }>, context: DraftContext): string[] {
   const colors = getOverlayColors(overlay, context.brand);
@@ -246,19 +398,27 @@ function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" |
   const y = isFoot ? card.top + card.height - padY : card.top + padY;
   // \an: 7 top left, 9 top right, 1 bottom left, 3 bottom right.
   const align = isFoot ? (isRight ? 3 : 1) : isRight ? 9 : 7;
-  const entrance = overlay.entrance === null || overlay.entrance === "type" ? "fade" : overlay.entrance;
+  const motion = getDraftMotion(overlay, overlay.entrance === null || overlay.entrance === "type" ? "fade" : overlay.entrance, card, context);
   const span = { start: overlay.start, end: overlay.end };
   const tags = `\\an${align}\\fs${fontSize}${getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES[overlay.kind])}`;
-  const text = (pos: OverlayPoint, steps: TextStep[]) => getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps, entrance, slidePx: SLIDE_PX * context.scale });
-  const shape = getCardShapeEvents(overlay, card, fontSize, colors, entrance, context);
+  const text = (pos: OverlayPoint, steps: TextStep[], own = motion) => getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps, motion: own });
+  const shape = getCardShapeEvents(overlay, card, fontSize, colors, motion, context);
   if (overlay.kind === "list") {
-    // One event per point, on the render's line height (libass's own line spacing is tighter), all shown at once.
+    // One event per point, on the render's line height (libass's own line spacing is tighter); a staggered point from its second.
     const step = fontSize * OVERLAY_LIST_LINE_HEIGHT;
     const lead = (step - fontSize * OVERLAY_LINE_HEIGHT) / 2;
-    return [...shape, ...getSideTextLines(overlay).flatMap((line, index) => text({ x, y: y + lead + index * step }, [{ from: span.start, to: span.end, text: toAssText(line) }]))];
+    return [
+      ...shape,
+      ...getSideTextLines(overlay).flatMap((line, index) => {
+        const from = overlay.itemStarts?.[index];
+        const pos = { x, y: y + lead + index * step };
+        return from === undefined ? text(pos, [{ from: span.start, to: span.end, text: toAssText(line) }]) : text(pos, [{ from, to: span.end, text: toAssText(line) }], withFadeEntrance(motion));
+      }),
+    ];
   }
   // A keyword or a lower third types in only when its entrance says so.
-  return [...shape, ...text({ x, y }, overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(overlay.text) }] : getTypedSteps(overlay.text, span, overlay.typing))];
+  const steps = overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(overlay.text) }] : getTypedSteps(overlay.text, span, overlay.typing);
+  return [...shape, ...text({ x, y }, steps), ...(overlay.kind === "keyword" ? getUnderlineEvent(overlay, card, colors.accent, motion) : [])];
 }
 
 type CardOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "search_bar" | "place_card" | "counter" | "date_stamp" }>;
@@ -266,26 +426,40 @@ type CardOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "search_bar" 
 /** Each card's own entrance when the overlay names none (a typed card fades its card in). */
 const DEFAULT_ENTRANCES = { hook_title: "slide", search_bar: "fade", place_card: "slide", counter: "fade", date_stamp: "fade" } as const;
 
-/** A drawing event in the overlay's card colour (or accent), with the overlay's entrance. */
-function getShapeEvent(overlay: Pick<ResolvedOverlay, "start" | "end">, drawing: string, colour: string, entrance: "fade" | "slide" | "none", scale: number): string {
-  const motion = getMotionTags(entrance, true, true, { x: 0, y: 0, dy: SLIDE_PX * scale });
-  const pos = motion.includes("\\move") ? "" : "\\pos(0,0)";
-  return `Dialogue: 3,${toAssTime(overlay.start)},${toAssTime(overlay.end)},OverlayShape,,0,0,0,,{\\an7${pos}${motion}\\1c${toTagColor(colour)}\\p1}${drawing}{\\p0}`;
+/** A drawing event in the overlay's card colour (or accent), with the overlay's motion. */
+function getShapeEvent(overlay: Pick<ResolvedOverlay, "start" | "end">, drawing: string, colour: string, motion: DraftMotion, layer = 3): string {
+  const at = { isFirst: true, isLast: true, ms: toMs(overlay.end - overlay.start) };
+  const { position, rest } = getMotionTags(motion, { ...at, pos: { x: 0, y: 0 }, part: "card" });
+  return `Dialogue: ${layer},${toAssTime(overlay.start)},${toAssTime(overlay.end)},OverlayShape,,0,0,0,,{\\an7${position}${rest}${getBlurTags(motion, at, 0)}\\1c${toTagColor(colour)}\\p1}${drawing}{\\p0}`;
+}
+
+/** A place card's pin above its title: there with the card, or dropping a little onto its place. */
+function getPinEvents(overlay: Extract<ResolvedOverlay, { kind: "place_card" }>, at: OverlayPoint, colour: string, motion: DraftMotion): string[] {
+  if (overlay.pin === undefined) return [];
+  const size = getPlaceCardPinSize(overlay.fontSize);
+  const drawing = getPinDrawing(at, size);
+  if (overlay.pin === "static") return [getShapeEvent(overlay, drawing, colour, motion, 4)];
+  const drop = r0(size * PIN_DROP_SHARE);
+  const fade = motion.exit.kind === "none" ? 0 : motion.isSnappy ? r0(FADE_OUT_MS * 0.7) : FADE_OUT_MS;
+  return [
+    `Dialogue: 4,${toAssTime(overlay.start)},${toAssTime(overlay.end)},OverlayShape,,0,0,0,,{\\an7\\move(0,${-drop},0,0,0,${toMs(PIN_DROP_SECONDS)})\\fad(${r0(toMs(PIN_DROP_SECONDS) * 0.6)},${fade})\\1c${toTagColor(colour)}\\p1}${drawing}{\\p0}`,
+  ];
 }
 
 /** A hook title, a search bar, a place card, a counter or a date stamp: a drawn rounded card and its text on layer 4. */
 function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
   const colors = getOverlayColors(overlay, context.brand);
   const { box, fontSize } = overlay;
-  const entrance = overlay.entrance === null || overlay.entrance === "type" ? (overlay.typing !== null ? "fade" : DEFAULT_ENTRANCES[overlay.kind]) : overlay.entrance;
-  const slidePx = SLIDE_PX * context.scale;
+  const name = overlay.entrance === null || overlay.entrance === "type" ? (overlay.typing !== null ? "fade" : DEFAULT_ENTRANCES[overlay.kind]) : overlay.entrance;
+  const motion = getDraftMotion(overlay, name, box, context);
   const span = { start: overlay.start, end: overlay.end };
-  const events = getCardShapeEvents(overlay, box, fontSize, colors, entrance, context);
+  const events = getCardShapeEvents(overlay, box, fontSize, colors, motion, context);
   const { x: padX, y: padY } = getOverlayPadding(overlay);
   const centerX = box.left + box.width / 2;
   const tagsFor = (role: OverlayFontRole) => getTextTags(overlay, colors, context, role);
-  const text = (pos: OverlayPoint, align: number, size: number, role: OverlayFontRole, steps: TextStep[], own: "fade" | "slide" | "none" = entrance) =>
-    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${r0(size)}${tagsFor(role)}`, steps, entrance: own, slidePx });
+  const text = (pos: OverlayPoint, align: number, size: number, role: OverlayFontRole, steps: TextStep[], own: DraftMotion = motion) =>
+    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${r0(size)}${tagsFor(role)}`, steps, motion: own });
+  const plain = { ...motion, name: "none" as const, entrance: { kind: "none" as const } };
   if (overlay.kind === "hook_title" || overlay.kind === "place_card") {
     // The text block sits in the card's middle; centred lines on its axis, left ones from its left edge (RV-131).
     const content = getTitleContentBox(overlay);
@@ -298,32 +472,40 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
       const pin = Math.round(size * 1.05);
       const rowWidth = pin + Math.round(size * 0.25) + estimateTextWidth(overlay.place, size);
       const rowLeft = isLeft ? content.left : centerX - rowWidth / 2;
-      events.push(getShapeEvent(overlay, getPinDrawing({ x: rowLeft, y: y + (size * OVERLAY_LINE_HEIGHT - pin) / 2 }, pin), colors.accent, entrance, context.scale).replace("Dialogue: 3,", "Dialogue: 4,"));
+      events.push(getShapeEvent(overlay, getPinDrawing({ x: rowLeft, y: y + (size * OVERLAY_LINE_HEIGHT - pin) / 2 }, pin), colors.accent, motion, 4));
       events.push(...text({ x: rowLeft + pin + Math.round(size * 0.25), y }, 7, size, OVERLAY_FONT_ROLES.date_stamp, [{ from: span.start, to: span.end, text: toAssText(overlay.place) }]));
       y += size * 1.3 + fontSize * 0.12;
     }
+    const times = overlay.kind === "place_card" ? getPlaceCardTimes(overlay) : { pin: null, title: span.start, subtitle: null };
+    if (overlay.kind === "place_card" && overlay.pin !== undefined) {
+      const size = getPlaceCardPinSize(fontSize);
+      events.push(...getPinEvents(overlay, { x: isLeft ? content.left : centerX - size / 2, y }, colors.accent, motion));
+      y += getPlaceCardPinRow(fontSize);
+    }
     const lineHeight = overlay.kind === "hook_title" ? OVERLAY_LINE_HEIGHT : OVERLAY_TITLE_LINE_HEIGHT;
+    const titleMotion = times.title > span.start ? withFadeEntrance(motion) : motion;
     let typedBefore = 0;
     overlay.lines.forEach((line) => {
       // The lines type one after the other, as the render's characters do; a left line holds its place transparent
       // from the start, a centred one shows its typed part only (`getTypedSteps`).
-      const lineStart = overlay.typing === null ? span.start : span.start + typedBefore / overlay.typing;
+      const lineStart = overlay.typing === null ? times.title : span.start + typedBefore / overlay.typing;
       const steps = getTypedSteps(line, { start: lineStart, end: span.end }, overlay.typing, !isLeft);
       // A centred typed line has no hidden first step to carry the entrance: its letters appear as typed, as the render's.
       const isTypedCentre = !isLeft && overlay.typing !== null;
-      events.push(...text({ x: lineX, y }, lineAlign, fontSize, "heading", isLeft ? steps.map((step, index) => (index === 0 ? { ...step, from: span.start } : step)) : steps, isTypedCentre ? "none" : entrance));
+      events.push(...text({ x: lineX, y }, lineAlign, fontSize, "heading", isLeft ? steps.map((step, index) => (index === 0 ? { ...step, from: span.start } : step)) : steps, isTypedCentre ? plain : titleMotion));
       typedBefore += [...line].length;
       y += fontSize * lineHeight;
     });
     if (overlay.kind === "place_card" && overlay.subtitle !== null) {
-      events.push(...text({ x: lineX, y: y + fontSize * 0.12 }, lineAlign, overlay.subtitleFontSize, "interface", [{ from: span.start, to: span.end, text: toAssText(overlay.subtitle) }]));
+      const from = times.subtitle ?? span.start;
+      events.push(...text({ x: lineX, y: y + fontSize * 0.12 }, lineAlign, overlay.subtitleFontSize, "interface", [{ from, to: span.end, text: toAssText(overlay.subtitle) }], from > span.start ? withFadeEntrance(motion) : motion));
     }
     return events;
   }
   if (overlay.kind === "search_bar") {
     const searchPadX = r0(fontSize * SEARCH_BAR_PADDING_EM.x);
     const middle = box.top + box.height / 2;
-    events.push(getShapeEvent(overlay, getGlassDrawing({ x: box.left + searchPadX, y: middle - fontSize / 2 }, fontSize), colors.accent, entrance, context.scale).replace("Dialogue: 3,", "Dialogue: 4,"));
+    events.push(getShapeEvent(overlay, getGlassDrawing({ x: box.left + searchPadX, y: middle - fontSize / 2 }, fontSize), colors.accent, motion, 4));
     events.push(...text({ x: box.left + searchPadX + Math.round(fontSize * SEARCH_BAR_ICON_EM), y: middle }, 4, fontSize, "interface", getTypedSteps(overlay.text, span, overlay.typing)));
     return events;
   }
@@ -336,8 +518,8 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
     steps.push({ from: span.start, to: count.start, text: show(overlay.from) });
     for (let tick = 1; tick <= ticks; tick++) {
       const progress = tick / ticks;
-      // power2.out, as the render's tween eases.
-      const eased = 1 - (1 - progress) ** 2;
+      // power2.out, as the render's tween eases: the count slows down to its value.
+      const eased = OVERLAY_EASES["power2.out"](progress);
       const value = overlay.from + (overlay.value - overlay.from) * eased;
       steps.push({ from: count.start + (tick - 1) * COUNT_STEP, to: tick === ticks ? span.end : count.start + tick * COUNT_STEP, text: show(value) });
     }

@@ -3,6 +3,18 @@ import { escapeHtml } from "../compose/html.js";
 import { getCornerRadiusCss, getStyleBorderCss, getStyleShadowCss, type BrandStyle } from "./brand-style.js";
 import type { OverlayEntrance } from "./overlay-schema.js";
 import {
+  PIN_DROP_SECONDS,
+  PIN_DROP_SHARE,
+  PIN_TITLE_LEAD,
+  UNDERLINE_EM,
+  UNDERLINE_SECONDS,
+  getEntranceMotion,
+  getExitMotion,
+  getWipeHalves,
+  type OverlayEntranceMotion,
+  type OverlayMotionOffset,
+} from "./overlay-motion.js";
+import {
   OVERLAY_LINE_HEIGHT,
   OVERLAY_LIST_LINE_HEIGHT,
   OVERLAY_PADDING_EM,
@@ -10,6 +22,8 @@ import {
   SEARCH_BAR_PADDING_EM,
   formatOverlayNumber,
   getOverlayPadding,
+  getPlaceCardPinRow,
+  getPlaceCardPinSize,
   getTitleContentBox,
   type ResolvedOverlay,
 } from "./overlays.js";
@@ -22,8 +36,8 @@ import {
  * `lt-soft-pill` (the lower third's scale-pop pill, dot and settling text), `marker-highlight` (the stroke drawn over
  * its target), `hw-arrow` (the drawn-on arrow whose head arrives last) and `push-in` (the eased camera push, in
  * `composeFootage`). They are rewritten for the kit's frame, timeline and brand tokens: see the package's NOTICE. The
- * entrances (`fade`, `slide`, `type`, `none`), the typed search field, the counting number and the drawn pin are the
- * kit's own, eased without overshoot.
+ * entrances and exits (`overlay-motion.ts`), the typed search field, the counting number and the drawn pin are the
+ * kit's own, eased without overshoot: nothing grows past its size.
  */
 
 /** The seconds an overlay takes to leave, ending with its clip. */
@@ -98,6 +112,15 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.ov-date:not(.right) .ov-card{align-items:flex-start}`,
     `.ov-date .ov-sub{font-weight:600;margin-top:0}`,
     `.ty .ch{opacity:0}`,
+    // A wipe's accent panel over its card, the keyword's underline, a dropped pin, and the parts that come in later.
+    `.ov-card{position:relative}`,
+    `.ov-wipe{position:absolute;inset:0;border-radius:inherit;background:${colors.accent};transform-origin:100% 50%}`,
+    `.ov-ul{position:absolute;height:${UNDERLINE_EM.height}em;border-radius:${UNDERLINE_EM.height / 2}em;background:${colors.accent};transform:scaleX(0);transform-origin:0% 50%}`,
+    `.ov-pinrow{display:flex;justify-content:center}`,
+    `.ov-stack.left .ov-pinrow{justify-content:flex-start}`,
+    `.st li,.pd .ov-pinrow svg,.pl .ov-line,.sd .ov-sub{opacity:0}`,
+    // An underlined keyword keeps only its drawn bar: the card's own accent edge would be a second line under it.
+    `.ov-keyword.ul .ov-card{border-bottom-color:transparent}`,
     // The brand's style (after the kinds' own rules, so it wins over them; the search bar stays a pill).
     ...(style === undefined
       ? []
@@ -162,12 +185,55 @@ function getCardStyle(overlay: ResolvedOverlay, colors: OverlayColors, scale = 1
   return style === "" ? "" : ` style="${style}"`;
 }
 
-/** The entrance tweens of a card: fade, slide, a typed card's fade, or nothing. */
-function getEntranceTweens(target: string, entrance: OverlayEntrance, start: number): string[] {
-  if (entrance === "none") return [];
-  if (entrance === "slide") return [`tl.fromTo("${target}", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out", immediateRender: false }, ${start});`];
-  const duration = entrance === "type" ? 0.25 : 0.4;
-  return [`tl.fromTo("${target}", { opacity: 0 }, { opacity: 1, duration: ${duration}, ease: "power2.out", immediateRender: false }, ${start});`];
+/** The GSAP properties of a motion offset: only what differs from rest, in a fixed order. */
+function toTweenVars(offset: OverlayMotionOffset): string[] {
+  return [
+    `opacity: ${offset.opacity}`,
+    ...(offset.scale === 1 ? [] : [`scale: ${offset.scale}`]),
+    ...(offset.y === 0 ? [] : [`y: ${offset.y}`]),
+    ...(offset.blur === 0 ? [] : [`filter: "blur(${offset.blur}px)"`]),
+  ];
+}
+
+/** The same properties at rest: opacity 1, scale 1, in place, sharp. */
+function toRestVars(offset: OverlayMotionOffset): string[] {
+  return [`opacity: 1`, ...(offset.scale === 1 ? [] : [`scale: 1`]), ...(offset.y === 0 ? [] : [`y: 0`]), ...(offset.blur === 0 ? [] : [`filter: "blur(0px)"`])];
+}
+
+/** The entrance tweens of a card (`target`): tweened from its offset, a wipe (its panel `wipe`), or nothing. */
+function getMotionTweens(target: string, motion: OverlayEntranceMotion, start: number, wipe?: string): string[] {
+  if (motion.kind === "none") return [];
+  if (motion.kind === "wipe") {
+    // The card grows from the left under the accent panel, then the panel slides off to the right over the card and its text.
+    const halves = getWipeHalves(motion.seconds);
+    return [
+      `tl.fromTo("${target}", { clipPath: "inset(0% 100% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: ${halves.grow}, ease: "${motion.ease}", immediateRender: false }, ${start});`,
+      `tl.fromTo("${wipe ?? `${target} .ov-wipe`}", { scaleX: 1 }, { scaleX: 0, duration: ${halves.reveal}, ease: "${motion.ease}", immediateRender: false }, ${r3(start + halves.grow)});`,
+    ];
+  }
+  return [`tl.fromTo("${target}", { ${toTweenVars(motion.from).join(", ")} }, { ${[...toRestVars(motion.from), `duration: ${motion.seconds}`, `ease: "${motion.ease}"`, "immediateRender: false"].join(", ")} }, ${start});`];
+}
+
+/** The entrance tweens of a card by its named entrance (fade, slide, type, pop, rise, blur, wipe, or none). */
+function getEntranceTweens(target: string, entrance: OverlayEntrance, start: number, look: { easing?: "smooth" | "snappy"; frame?: { width: number; height: number } } = {}): string[] {
+  return getMotionTweens(target, getEntranceMotion(entrance, look.easing ?? "smooth", look.frame ?? { width: 1080, height: 1920 }), start);
+}
+
+/** The seconds an overlay's entrance takes, so what comes after it (an underline) starts once it is in. */
+function getEntranceSeconds(entrance: OverlayEntrance | null, overlay: ResolvedOverlay, frame: { width: number; height: number }): number {
+  if (entrance === null) return 0.45;
+  const motion = getEntranceMotion(entrance, overlay.kind === "punch_in" ? "smooth" : (overlay.easing ?? "smooth"), frame);
+  return motion.kind === "none" ? 0 : motion.seconds;
+}
+
+/** The exit tweens of an overlay's `target`, ending with its clip: its own (`own`, the kind's), tweened, wiped off, or none. */
+function getExitTweens(target: string, overlay: Exclude<ResolvedOverlay, { kind: "punch_in" }>, frame: { width: number; height: number }, own: string): string[] {
+  const motion = getExitMotion({ exit: overlay.exit ?? "auto", entrance: overlay.entrance, easing: overlay.easing ?? "smooth", frame });
+  if (motion.kind === "none") return [];
+  if (motion.kind === "own") return [own];
+  const at = r3(overlay.end - motion.seconds);
+  if (motion.kind === "wipe") return [`tl.to("${target}", { clipPath: "inset(0% 0% 0% 100%)", duration: ${motion.seconds}, ease: "${motion.ease}" }, ${at});`];
+  return [`tl.to("${target}", { ${[...toTweenVars(motion.from), `duration: ${motion.seconds}`, `ease: "${motion.ease}"`].join(", ")} }, ${at});`];
 }
 
 /** The typing tweens: each character of `#<id>` shown at its time. */
@@ -195,28 +261,48 @@ function addSideText(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lowe
   const isTyped = overlay.typing !== null && overlay.kind !== "list";
   const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;align-items:${overlay.kind === "lower_third" ? "flex-end" : "flex-start"}`;
   const text = overlay.kind === "list" ? "" : isTyped ? toTypedHtml(overlay.text) : escapeHtml(overlay.text);
+  const wipe = overlay.entrance === "wipe" ? `<i class="ov-wipe" id="${id}w"></i>` : "";
+  const underline = overlay.kind === "keyword" && overlay.underline === true ? `<i class="ov-ul" id="${id}u" style="${getUnderlineStyle(overlay)}"></i>` : "";
+  const staggered = overlay.kind === "list" ? overlay.itemStarts : undefined;
   const body =
     overlay.kind === "list"
-      ? `<ul class="ov-card"${cardStyle}>${overlay.items.map((item, i) => `<li id="${id}i${i}"><i class="ov-dot"${dotStyle}></i>${escapeHtml(item)}</li>`).join("")}</ul>`
-      : `<div class="ov-card"${cardStyle}>${overlay.kind === "lower_third" ? `<i class="ov-dot" id="${id}d"${dotStyle}></i>` : ""}<span id="${id}t">${text}</span></div>`;
-  out.html.push(clipDiv(overlay, id, `ov ov-${overlay.kind.replace("_", "-")}${side === "right" ? " right" : ""}${isTyped ? " ty" : ""}`, style, body));
+      ? `<ul class="ov-card"${cardStyle}>${wipe}${overlay.items.map((item, i) => `<li id="${id}i${i}"><i class="ov-dot"${dotStyle}></i>${escapeHtml(item)}</li>`).join("")}</ul>`
+      : `<div class="ov-card"${cardStyle}>${wipe}${overlay.kind === "lower_third" ? `<i class="ov-dot" id="${id}d"${dotStyle}></i>` : ""}<span id="${id}t">${text}</span>${underline}</div>`;
+  out.html.push(clipDiv(overlay, id, `ov ov-${overlay.kind.replace("_", "-")}${side === "right" ? " right" : ""}${isTyped ? " ty" : ""}${staggered === undefined ? "" : " st"}${underline === "" ? "" : " ul"}`, style, body));
   if (overlay.entrance !== null) {
-    out.tweens.push(...getEntranceTweens(`#${id} .ov-card`, overlay.entrance, overlay.start));
+    out.tweens.push(...getMotionTweens(`#${id} .ov-card`, getEntranceMotion(overlay.entrance, overlay.easing ?? "smooth", context.frame), overlay.start));
     if (overlay.kind !== "list") out.tweens.push(...getTypingTweens(id, overlay, [...overlay.text].length));
   } else {
-    // The soft pill's entrance: the card rises from its foot, then its dot and its text settle in.
-    out.tweens.push(`tl.fromTo("#${id} .ov-card", { scale: 0.88, y: 18, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.45, ease: "back.out(1.7)", immediateRender: false }, ${overlay.start});`);
+    // The soft pill's entrance: the card rises from its foot, then its dot and its text settle in, eased out without
+    // overshoot (RV-133 of an adopting app: nothing grows past its size).
+    out.tweens.push(`tl.fromTo("#${id} .ov-card", { scale: 0.88, y: 18, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.45, ease: "power3.out", immediateRender: false }, ${overlay.start});`);
     if (overlay.kind === "lower_third") {
-      out.tweens.push(`tl.fromTo("#${id}d", { scale: 0 }, { scale: 1, duration: 0.35, ease: "back.out(3)", immediateRender: false }, ${r3(overlay.start + 0.25)});`);
+      out.tweens.push(`tl.fromTo("#${id}d", { scale: 0 }, { scale: 1, duration: 0.35, ease: "power2.out", immediateRender: false }, ${r3(overlay.start + 0.25)});`);
       out.tweens.push(`tl.fromTo("#${id}t", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.4, ease: "power3.out", immediateRender: false }, ${r3(overlay.start + 0.3)});`);
     }
-    if (overlay.kind === "list") {
+    if (overlay.kind === "list" && staggered === undefined) {
       overlay.items.forEach((_item, i) => {
         out.tweens.push(`tl.fromTo("#${id}i${i}", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", immediateRender: false }, ${r3(overlay.start + 0.2 + 0.12 * i)});`);
       });
     }
   }
-  out.tweens.push(`tl.to("#${id} .ov-card", { scale: 0.94, y: 14, opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`);
+  // A staggered list's points come in one by one, each on its own second (`itemStarts`).
+  staggered?.forEach((at, i) => {
+    out.tweens.push(`tl.fromTo("#${id}i${i}", { opacity: 0, y: ${r3(14 * context.scale)} }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", immediateRender: false }, ${at});`);
+  });
+  if (underline !== "") {
+    out.tweens.push(`tl.fromTo("#${id}u", { scaleX: 0 }, { scaleX: 1, duration: ${UNDERLINE_SECONDS}, ease: "power2.out", immediateRender: false }, ${r3(overlay.start + getEntranceSeconds(overlay.entrance, overlay, context.frame))});`);
+  }
+  out.tweens.push(
+    ...getExitTweens(`#${id} .ov-card`, overlay, context.frame, `tl.to("#${id} .ov-card", { scale: 0.94, y: 14, opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`),
+  );
+}
+
+/** Where a keyword's underline sits in its card: under the text, inside the card's padding. */
+function getUnderlineStyle(overlay: Extract<ResolvedOverlay, { kind: "keyword" }>): string {
+  const pad = overlay.padScale ?? 1;
+  const x = r3(OVERLAY_PADDING_EM.x * pad);
+  return `left:${x}em;right:${x}em;bottom:${r3(Math.max(0.04, OVERLAY_PADDING_EM.y * pad - UNDERLINE_EM.gap - UNDERLINE_EM.height))}em`;
 }
 
 type CardOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "search_bar" | "place_card" | "counter" | "date_stamp" }>;
@@ -227,22 +313,25 @@ function getCardBody(overlay: CardOverlay, id: string, colors: OverlayColors, lo
   if (overlay.kind === "hook_title") {
     const place = overlay.place === null ? "" : `<div class="ov-place" style="font-size:${overlay.placeFontSize}px">${getPinSvg(colors.accent)}<span>${escapeHtml(overlay.place)}</span></div>`;
     const lines = overlay.lines.map((line) => `<div class="ov-line">${typedOrPlain(line)}</div>`).join("");
-    return { classes: "ov-hook-title center", body: `<div class="ov-card ov-stack${overlay.align === "left" ? " left" : ""}"__STYLE__>${place}${lines}</div>`, typed: overlay.lines.join("").length };
+    return { classes: "ov-hook-title center", body: `<div class="ov-card ov-stack${overlay.align === "left" ? " left" : ""}"__STYLE__>__WIPE__${place}${lines}</div>`, typed: overlay.lines.join("").length };
   }
   if (overlay.kind === "place_card") {
     const subtitle = overlay.subtitle === null ? "" : `<div class="ov-sub" style="font-size:${overlay.subtitleFontSize}px">${escapeHtml(overlay.subtitle)}</div>`;
     const lines = overlay.lines.map((line) => `<div class="ov-line">${typedOrPlain(line)}</div>`).join("");
-    return { classes: "ov-place-card center", body: `<div class="ov-card ov-stack${overlay.align === "left" ? " left" : ""}"__STYLE__>${lines}${subtitle}</div>`, typed: overlay.lines.join("").length };
+    const pinSize = getPlaceCardPinSize(overlay.fontSize);
+    const pin = overlay.pin === undefined ? "" : `<div class="ov-pinrow" id="${id}p" style="height:${getPlaceCardPinRow(overlay.fontSize)}px">${getPinSvg(colors.accent).replace('class="ov-pin"', `class="ov-pin" style="width:${pinSize}px;height:${pinSize}px"`)}</div>`;
+    const later = [overlay.pin === "drop" ? " pd" : "", overlay.pin !== undefined && overlay.typing === null ? " pl" : "", overlay.subtitleDelay === undefined || subtitle === "" ? "" : " sd"].join("");
+    return { classes: `ov-place-card center${later}`, body: `<div class="ov-card ov-stack${overlay.align === "left" ? " left" : ""}"__STYLE__>__WIPE__${pin}${lines}${subtitle}</div>`, typed: overlay.lines.join("").length };
   }
   if (overlay.kind === "search_bar") {
-    return { classes: "ov-search-bar center", body: `<div class="ov-card ov-search"__STYLE__>${getGlassSvg(colors.accent)}<span id="${id}t">${typedOrPlain(overlay.text)}</span></div>`, typed: [...overlay.text].length };
+    return { classes: "ov-search-bar center", body: `<div class="ov-card ov-search"__STYLE__>__WIPE__${getGlassSvg(colors.accent)}<span id="${id}t">${typedOrPlain(overlay.text)}</span></div>`, typed: [...overlay.text].length };
   }
   if (overlay.kind === "counter") {
     const unit = overlay.unit === null ? "" : `<span class="ov-unit" style="font-size:${overlay.unitFontSize}px">${escapeHtml(overlay.unit)}</span>`;
-    return { classes: "ov-counter center", body: `<div class="ov-card"__STYLE__><span id="${id}n">${escapeHtml(formatOverlayNumber(overlay.from, overlay.decimals, locale))}</span>${unit}</div>`, typed: 0 };
+    return { classes: "ov-counter center", body: `<div class="ov-card"__STYLE__>__WIPE__<span id="${id}n">${escapeHtml(formatOverlayNumber(overlay.from, overlay.decimals, locale))}</span>${unit}</div>`, typed: 0 };
   }
   const place = overlay.place === null ? "" : `<div class="ov-sub" style="font-size:${overlay.placeFontSize}px">${escapeHtml(overlay.place)}</div>`;
-  return { classes: `ov-date${overlay.side === "right" ? " right" : ""}`, body: `<div class="ov-card"__STYLE__><span>${typedOrPlain(overlay.text)}</span>${place}</div>`, typed: [...overlay.text].length };
+  return { classes: `ov-date${overlay.side === "right" ? " right" : ""}`, body: `<div class="ov-card"__STYLE__>__WIPE__<span>${typedOrPlain(overlay.text)}</span>${place}</div>`, typed: [...overlay.text].length };
 }
 
 /** A hook title, a search bar, a place card, a counter or a date stamp. */
@@ -251,10 +340,12 @@ function addCard(overlay: CardOverlay, id: string, context: MarkupContext, out: 
   const { box, fontSize } = overlay;
   const { classes, body, typed } = getCardBody(overlay, id, colors, context.locale);
   const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;align-items:flex-start`;
-  out.html.push(clipDiv(overlay, id, `ov ${classes}${overlay.typing === null ? "" : " ty"}`, style, body.replace("__STYLE__", getCardStyle(overlay, colors, context.scale))));
+  const wipe = overlay.entrance === "wipe" ? `<i class="ov-wipe" id="${id}w"></i>` : "";
+  out.html.push(clipDiv(overlay, id, `ov ${classes}${overlay.typing === null ? "" : " ty"}`, style, body.replace("__STYLE__", getCardStyle(overlay, colors, context.scale)).replace("__WIPE__", wipe)));
   const entrance = overlay.entrance ?? (overlay.typing !== null ? "type" : DEFAULT_ENTRANCES[overlay.kind]);
-  out.tweens.push(...getEntranceTweens(`#${id} .ov-card`, entrance, overlay.start));
+  out.tweens.push(...getEntranceTweens(`#${id} .ov-card`, entrance, overlay.start, { ...(overlay.easing === undefined ? {} : { easing: overlay.easing }), frame: context.frame }));
   out.tweens.push(...getTypingTweens(id, overlay, typed));
+  if (overlay.kind === "place_card") out.tweens.push(...getPlaceCardPartTweens(overlay, id, context));
   if (overlay.kind === "counter") {
     const count = getCounterSeconds(overlay);
     const format = `new Intl.NumberFormat(${toScriptString(getScriptLocale(context.locale))}, { minimumFractionDigits: ${overlay.decimals}, maximumFractionDigits: ${overlay.decimals} })`;
@@ -263,7 +354,37 @@ function addCard(overlay: CardOverlay, id: string, context: MarkupContext, out: 
       `(function () { const el = document.getElementById("${id}n"); const nf = ${format}; const n = { v: ${overlay.from} }; tl.fromTo(n, { v: ${overlay.from} }, { v: ${overlay.value}, duration: ${count.duration}, ease: "power2.out", immediateRender: false, onUpdate: () => { el.textContent = nf.format(n.v).replace(/[\\u00a0\\u202f]/g, " "); } }, ${count.start}); })();`,
     );
   }
-  out.tweens.push(`tl.to("#${id} .ov-card", { y: 10, opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`);
+  out.tweens.push(...getExitTweens(`#${id} .ov-card`, overlay, context.frame, `tl.to("#${id} .ov-card", { y: 10, opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`));
+}
+
+/**
+ * A place card's parts that come in after its card: its pin dropping a little onto its place (eased out, no bounce),
+ * its title once the pin is there, and its subtitle after its delay; the film seconds of each in `getPlaceCardTimes`.
+ */
+function getPlaceCardPartTweens(overlay: Extract<ResolvedOverlay, { kind: "place_card" }>, id: string, context: MarkupContext): string[] {
+  const times = getPlaceCardTimes(overlay);
+  const tweens: string[] = [];
+  if (overlay.pin === "drop") {
+    const drop = r3(getPlaceCardPinSize(overlay.fontSize) * PIN_DROP_SHARE);
+    tweens.push(`tl.fromTo("#${id}p svg", { opacity: 0, y: -${drop} }, { opacity: 1, y: 0, duration: ${PIN_DROP_SECONDS}, ease: "power2.out", immediateRender: false }, ${overlay.start});`);
+  }
+  if (overlay.pin !== undefined && overlay.typing === null) {
+    tweens.push(`tl.fromTo("#${id} .ov-line", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out", immediateRender: false }, ${times.title});`);
+  }
+  if (times.subtitle !== null && overlay.subtitleDelay !== undefined) {
+    tweens.push(`tl.fromTo("#${id} .ov-sub", { opacity: 0, y: ${r3(8 * context.scale)} }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out", immediateRender: false }, ${times.subtitle});`);
+  }
+  return tweens;
+}
+
+/** When a place card's pin, title and subtitle come in, in film seconds: pin first, then the title, then the subtitle. */
+export function getPlaceCardTimes(overlay: Pick<Extract<ResolvedOverlay, { kind: "place_card" }>, "start" | "pin" | "typing" | "subtitle" | "subtitleDelay">): {
+  pin: number | null;
+  title: number;
+  subtitle: number | null;
+} {
+  const title = overlay.pin !== undefined && overlay.typing === null ? r3(overlay.start + PIN_TITLE_LEAD) : overlay.start;
+  return { pin: overlay.pin === undefined ? null : overlay.start, title, subtitle: overlay.subtitle === null ? null : r3(title + (overlay.subtitleDelay ?? 0)) };
 }
 
 /** The brand's locale as a canonical BCP 47 tag (letters, digits and dashes only), `en-US` when it is not one. */
@@ -313,8 +434,8 @@ function addMark(overlay: Extract<ResolvedOverlay, { kind: "arrow" | "highlight"
       out.tweens.push(`tl.fromTo("#${id}f", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none", immediateRender: false }, ${r3(overlay.start + 0.3)});`);
     }
   }
-  if (overlay.entrance === "fade") out.tweens.push(...getEntranceTweens(`#${id} .ov-svg`, "fade", overlay.start));
-  out.tweens.push(`tl.to("#${id} .ov-svg", { opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`);
+  if (overlay.entrance === "fade") out.tweens.push(...getEntranceTweens(`#${id} .ov-svg`, "fade", overlay.start, { ...(overlay.easing === undefined ? {} : { easing: overlay.easing }), frame }));
+  out.tweens.push(...getExitTweens(`#${id} .ov-svg`, overlay, frame, `tl.to("#${id} .ov-svg", { opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`));
 }
 
 /**
