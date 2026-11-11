@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.16.2
+
+- `SelectTrigger` shrinks to its cell: `min-w-0 max-w-full` on the trigger and `min-w-0` on its value, so a long
+  option label in a narrow `FormGrid` column (a flex or grid item whose minimum width was its text) is clipped inside
+  the field instead of pushing the control past the cell's edge. Same API; a trigger with room keeps its size.
+
 ## 0.16.1
 
 - `FoldRow actions` sit inside the row's bar: the summary's background now runs under them when the row is open or
