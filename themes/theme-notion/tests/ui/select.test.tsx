@@ -38,6 +38,22 @@ describe("Select", () => {
     expect(readClasses(icon)).not.toContain("py-1");
   });
 
+  it("shrinks the trigger to a narrow cell, clipping its value, instead of overflowing it", () => {
+    render(
+      <Select value="a">
+        <SelectTrigger aria-label="Entrance" className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="a">A long option label that is wider than its cell</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    const trigger = screen.getByRole("combobox", { name: "Entrance" });
+
+    expect(readClasses(trigger)).toEqual(expect.arrayContaining(["min-w-0", "max-w-full", "w-full", "*:data-[slot=select-value]:min-w-0", "*:data-[slot=select-value]:line-clamp-1"]));
+  });
+
   it("mutes an item's icons and check unless they carry their own text colour", () => {
     render(
       <Select open value="a">
