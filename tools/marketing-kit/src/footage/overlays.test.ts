@@ -132,6 +132,22 @@ describe("resolveEdlOverlays", () => {
     expect(lowerThird?.kind === "lower_third" && lowerThird.box.top + lowerThird.box.height).toBe(band.top - 24);
   });
 
+  it("keeps a text overlay clear of every caption box on screen while it shows, a caption range's too", () => {
+    const band = { top: 1920 - 420 - Math.ceil(2 * 64 * 1.18 + 32) };
+    // The captions rise to a foot 900 px above the frame's foot from 1.5 s to 2 s, while the lower third shows.
+    const lifted = { top: 1920 - 900 - Math.ceil(2 * 64 * 1.18 + 32) };
+    const place = (captionRanges: NonNullable<Edl["captionRanges"]>) => {
+      const result = resolveEdlOverlays({ film, edl: { version: 2, film: "street", segments: SEGMENTS, overlays: [{ kind: "lower_third", at: 1.3, duration: 1, text: "Lisbon" }], captionRanges }, words: WORDS, frame: FRAME, caption: CAPTION });
+      const [overlay] = result.ok ? result.overlays : [];
+      return overlay?.kind === "lower_third" ? overlay.box.top + overlay.box.height : null;
+    };
+    expect(place([{ from: 1.5, to: 2, bottom: 900 }])).toBe(lifted.top - 24);
+    // A range wholly around the overlay is the only box on screen: the room under the lifted captions is free again.
+    expect(place([{ from: 1, to: 3, bottom: 900 }])).toBe(1920 - 420);
+    expect(place([{ from: 1, to: 3, top: 1500 }])).toBe(1500 - 24);
+    expect(place([{ from: 4, to: 5, bottom: 900 }])).toBe(band.top - 24);
+  });
+
   it("points an arrow from inwards and above its point", () => {
     const [arrow] = resolved([{ kind: "arrow", at: 1, duration: 1.5, anchor: { x: 800, y: 700 } }]);
     expect(arrow).toMatchObject({ kind: "arrow", to: { x: 800, y: 700 }, from: { x: 580, y: 520 } });

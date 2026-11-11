@@ -38,6 +38,16 @@ export interface EdlCaption {
   top?: number;
 }
 
+/**
+ * The caption box for a stretch of film time, over the segment's (`EdlCaption`): the caption chunks said between
+ * `from` and `to` (film seconds, `to` excluded) take it, so captions can clear something shown for part of a segment
+ * without splitting the cut. Px of the film's frame, as `EdlCaption`.
+ */
+export interface EdlCaptionRange extends EdlCaption {
+  from: number;
+  to: number;
+}
+
 export interface EdlSegment {
   /** Unique in the cut: `s<n>` (the sentence it starts with), `r<n>` (b-roll), `w<n>` (a talking clip without words). */
   id: string;
@@ -63,6 +73,8 @@ export interface Edl {
    * and the film is drawn as without the field.
    */
   overlays?: EdlOverlay[];
+  /** Caption boxes for stretches of film time, over the segments' own (`EdlCaptionRange`); absent or empty: none. */
+  captionRanges?: EdlCaptionRange[];
 }
 
 const SEGMENT_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
@@ -111,6 +123,18 @@ export const edlSchema = z
       .describe(
         "Small graphics and emphasis zooms placed on a word of the transcript (at_word) or a film second (at), one at a time, each inside one shot (one segment, or segments of one clip joined by plain cuts, with no Ken Burns zoom and the same caption box; a punch_in inside one segment): punch_in, keyword, lower_third, list, arrow, highlight, search_bar, place_card, counter, date_stamp; and a hook_title at the top, which may stay across cuts beside the others. Without it, none.",
       ),
+    captionRanges: z
+      .array(
+        z.strictObject({
+          from: z.number().min(0).describe("Film second where the stretch starts."),
+          to: z.number().positive().describe("Film second where the stretch ends (excluded)."),
+          bottom: z.number().min(0).optional().describe("The caption box's foot, in px above the frame's foot; anchors the box by its foot and wins over top."),
+          top: z.number().min(0).optional().describe("The caption box's top, in px below the frame's top; used when bottom is absent."),
+        }),
+      )
+      .max(40)
+      .optional()
+      .describe("Moves the caption box for the captions said in a stretch of film time (from to to, in film seconds), over the segment's own caption; stretches never overlap. Without it, the segments' boxes."),
   })
   .describe("The edit decision list of a footage film (edl.json).");
 
@@ -288,6 +312,23 @@ export function validateEdl(edl: Edl, clips: Pick<EdlClip, "id" | "duration">[],
     const soundLength = r3(audio.end - audio.start);
     if (Math.abs(length - soundLength) > 0.05) problems.push(`${at}.audio: ${soundLength} s of sound for ${length} s of picture (end - start must match)`);
   });
+  problems.push(...findCaptionRangeProblems(edl, captionBounds));
+  return problems;
+}
+
+/** Caption ranges that are empty, run past the cut, overlap one another or (with `captionBounds`) leave the frame. */
+function findCaptionRangeProblems(edl: Edl, captionBounds: EdlCaptionBounds | undefined): string[] {
+  const problems: string[] = [];
+  const duration = getEdlDuration(edl);
+  const ranges = edl.captionRanges ?? [];
+  ranges.forEach((range, index) => {
+    const at = `captionRanges[${index}]`;
+    if (range.to <= range.from) problems.push(`${at}: to (${range.to} s) must come after from (${range.from} s)`);
+    if (range.to > duration + 0.05) problems.push(`${at}.to: ${range.to} s is past the cut's end (${duration} s)`);
+    const other = ranges.findIndex((candidate, j) => j < index && candidate.from < range.to && range.from < candidate.to);
+    if (other !== -1) problems.push(`${at}: overlaps captionRanges[${other}] (${formatSpan({ start: range.from, end: range.to })})`);
+    if (captionBounds !== undefined) problems.push(...findCaptionProblems(at, range, captionBounds));
+  });
   return problems;
 }
 
@@ -384,6 +425,11 @@ export function diffEdl(before: Edl, after: Edl): string[] {
     if (previous === undefined || isSameCaption(previous.caption, segment.caption)) continue;
     lines.push(isMovedCaption(segment.caption) ? `${segment.id} captions moved` : `${segment.id} captions back in the film's box`);
   }
+  const [rangesBefore, rangesAfter] = [before.captionRanges ?? [], after.captionRanges ?? []];
+  if (JSON.stringify(rangesBefore) !== JSON.stringify(rangesAfter)) {
+    const spans = rangesAfter.map((range) => formatSpan({ start: range.from, end: range.to })).join(", ");
+    lines.push(rangesAfter.length === 0 ? "captions back in the segments' boxes" : `captions moved in ${spans}`);
+  }
   const [overlaysBefore, overlaysAfter] = [before.overlays ?? [], after.overlays ?? []];
   if (JSON.stringify(overlaysBefore) !== JSON.stringify(overlaysAfter)) {
     lines.push(`overlays: ${overlaysAfter.map((overlay) => overlay.kind.replace("_", " ")).join(", ") || "none"} (was ${overlaysBefore.length})`);
@@ -420,6 +466,11 @@ export function getEdlDuration(edl: Edl): number {
  * The index of the segment that plays at `time` (film seconds): the one whose span holds it; a time before the film
  * gives the first segment, one at or past the cut's end the last.
  */
+/** The caption range that holds film second `time` (from it, before its end), or undefined. */
+export function findCaptionRangeAt(edl: Pick<Edl, "captionRanges">, time: number): EdlCaptionRange | undefined {
+  return (edl.captionRanges ?? []).find((range) => range.from <= time && time < range.to);
+}
+
 export function findSegmentAt(edl: Edl, time: number): number {
   const starts = getSegmentStarts(edl);
   let found = 0;

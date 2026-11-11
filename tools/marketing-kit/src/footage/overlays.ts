@@ -187,14 +187,24 @@ export function getOverlaySafeZone(film: Pick<FootageFilm, "format" | "captionPr
   return { top: DEFAULT_SAFE_MARGIN, bottom: DEFAULT_SAFE_MARGIN, left: DEFAULT_SAFE_MARGIN, right: DEFAULT_SAFE_MARGIN };
 }
 
-/** The rows a caption card can take in a segment (its box moved by the segment's `caption`), or null without captions. */
-function getCaptionBand(input: ResolveOverlaysInput, segment: number): { top: number; bottom: number } | null {
+/**
+ * The rows a caption card can take while an overlay shows, or null without captions: the box of the segment it starts
+ * in (moved by the segment's `caption`) and of every caption range on screen with it (`Edl.captionRanges`), as one band.
+ */
+function getCaptionBand(input: ResolveOverlaysInput, at: { segment: number; start: number; end: number }): { top: number; bottom: number } | null {
   if (!input.film.captions) return null;
-  const place = applySegmentCaption(input.caption, input.edl.segments[segment]?.caption);
   const lines = input.film.captionMaxLines ?? 2;
-  const height = Math.ceil(lines * place.fontSize * CAPTION_LINE_HEIGHT + 2 * CAPTION_PILL_PADDING.y);
-  if (place.bottom !== undefined) return { top: input.frame.height - place.bottom - height, bottom: input.frame.height - place.bottom };
-  return { top: place.top, bottom: place.top + height };
+  const ranges = (input.edl.captionRanges ?? []).filter((range) => range.from < at.end && at.start < range.to);
+  const isWithinOneRange = ranges.some((range) => range.from <= at.start && at.end <= range.to);
+  const places = [
+    ...(isWithinOneRange ? [] : [applySegmentCaption(input.caption, input.edl.segments[at.segment]?.caption)]),
+    ...ranges.map((range) => applySegmentCaption(input.caption, { ...(range.bottom === undefined ? {} : { bottom: range.bottom }), ...(range.top === undefined ? {} : { top: range.top }) })),
+  ];
+  const bands = places.map((place) => {
+    const height = Math.ceil(lines * place.fontSize * CAPTION_LINE_HEIGHT + 2 * CAPTION_PILL_PADDING.y);
+    return place.bottom !== undefined ? { top: input.frame.height - place.bottom - height, bottom: input.frame.height - place.bottom } : { top: place.top, bottom: place.top + height };
+  });
+  return { top: Math.min(...bands.map((band) => band.top)), bottom: Math.max(...bands.map((band) => band.bottom)) };
 }
 
 /** The film second an overlay starts at, or the reason its word cannot be found. */
@@ -371,7 +381,7 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
       }
     }
     const base = { index, start, end, segment };
-    const placed = placeOverlay(overlay, base, { zone, frame, band: getCaptionBand(input, segment), padScale: STYLE_PADDING_SCALES[input.style?.padding ?? "m"] });
+    const placed = placeOverlay(overlay, base, { zone, frame, band: getCaptionBand(input, base), padScale: STYLE_PADDING_SCALES[input.style?.padding ?? "m"] });
     if (!placed.ok) {
       problems.push(`${at}: ${placed.error}`);
       return;

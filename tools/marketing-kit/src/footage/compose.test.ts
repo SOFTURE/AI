@@ -292,6 +292,14 @@ describe("composeFootage with a segment's own caption box", () => {
     expect(footed).toContain('style="bottom:auto;top:300px"');
   });
 
+  it("draws a chunk that starts in a caption range at the range's foot, over its segment's box", () => {
+    const ranged = composeFootage(input({ edl: { ...moved, captionRanges: [{ from: 2, to: 2.6, bottom: 700 }] }, words }));
+    const divs = ranged.split("\n").filter((line) => line.includes('class="clip caption"'));
+    expect(divs[0]).not.toContain("style=");
+    expect(divs[1]).toContain('style="top:auto;bottom:700px"');
+    expect(divs[2]).toContain('style="top:auto;bottom:1150px"');
+  });
+
   it("writes the same page for an EDL without the field", () => {
     expect(composeFootage(input({ edl: { ...edl, segments: edl.segments.map((segment) => ({ ...segment, caption: {} })) }, words }))).toBe(composeFootage(input({ words })));
     expect(composeFootage(input({ words }))).not.toContain('class="clip caption" data-start="0.05" data-duration="0.45" style=');

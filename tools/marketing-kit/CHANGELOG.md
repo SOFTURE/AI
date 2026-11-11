@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.32.0
+
+- **Caption boxes for a stretch of film time:** an EDL may carry `captionRanges: [{ from, to, bottom?, top? }]` (film
+  seconds, `to` excluded, at most 40, never overlapping): a caption chunk said in a range (any of its words) takes the
+  range's box (px of the frame, as a segment's `caption`), over the box of its segment. Captions can clear something held up for part of a
+  segment without moving the whole segment's captions or splitting the cut. The draft and the render place a chunk
+  alike (new export `getCaptionPlaceAt(edl, time, base)`, used by `getCaptionChunkLayouts`); `findCaptionRangeAt`
+  answers the range at a film second. A text overlay keeps clear of every caption box on screen while it shows (its
+  segment's and each range's). `validateEdl` refuses an empty range, one past the cut's end, an overlap and (with
+  caption bounds) a box off the frame; `diffEdl` names the change (`captions moved in 5.9–6.9 s`). New type
+  `EdlCaptionRange`. An EDL without the field drafts, renders, validates and diffs as before.
+
 ## 0.31.0
 
 - **New entrances:** `style.entrance` takes `pop` (92 % to 100 %, `power2.out`, 0.3 s, no overshoot), `rise` (up from
