@@ -693,7 +693,7 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   knobs in `style`, each checked against its kind: `size`; `side` (keyword, lower third, list, date stamp);
   `position` (`top`, `middle`, `bottom` of the room above the captions: keyword, search bar, place card, counter;
   `top` or `bottom` for a lower third; `top` or `middle` for a list); `entrance` (`fade`, `slide`, `type` for text
-  kinds, `none`; never a bounce or a pop; without it the kind's own); `typing_speed` (4-40 characters per second, 14
+  kinds, `none`, and since 0.31.0 `pop`, `rise`, `blur`, `wipe`; never a bounce; without it the kind's own); `typing_speed` (4-40 characters per second, 14
   by default) for a typed text; `colors: { card, text, accent }` (`#rrggbb`, each in place of the brand's). Missing
   knobs keep the kinds' defaults, so a stored EDL reads and renders as before. Titles, keywords and numbers are drawn
   in the brand's heading font, labels, lists, the search query and the stamp in its new optional interface font
@@ -717,6 +717,19 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   only what is typed, centred in a card that keeps the whole title's width, in the draft and the render alike.
   `brand.style.padding` pads every overlay card (`resolveEdlOverlays({ style })`, `getOverlayPadding`), and
   `getTitleContentBox` answers where a title's text block sits in its card.
+- **Entrances and exits** (0.31.0): `style.entrance` also takes `pop` (92 % to 100 % with an ease-out, never past its
+  size), `rise` (up from 5 % of the frame's height with a fade), `blur` (from a slight blur to sharp) and `wipe` (the
+  card revealed from the left under an accent panel, then its text), on every kind with a card. `style.exit` (`auto`,
+  the default, mirrors the entrance; `fade`, `slide` down and out, `none`) and `style.easing` (`smooth`, the default,
+  or `snappy`: 0.7 as long, `expo.out`) shape the way out and the curve. Per kind: a list's `style.stagger` (its
+  points one by one, spaced automatically) or `item_words` (one transcript word per point, each point on its word);
+  a place card's `style.pin` (`none`, `static`, or `drop`: an accent pin above the title that falls a little and
+  stops) and `style.subtitle_delay` (0-0.6 s; pin first, then the title, then the subtitle); a keyword's
+  `style.underline` (an accent bar drawn under the word once it is in). The motion lives in one model
+  (`getEntranceMotion`, `getExitMotion`, `getEntranceScaleAt`) that the render's tweens and the draft's tags both read;
+  the soft pill of a keyword, a lower third and a list without an entrance now eases out without overshoot. The draft
+  draws a pop about the card's middle, a rise and a slide as moves, a blur, a wipe as clips, and the parts that come
+  later from their own seconds.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless

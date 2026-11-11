@@ -192,6 +192,32 @@
               "maxLength": 32
             }
           },
+          "item_words": {
+            "description": "A list only: the word each point comes in on, one per point in order; the points come in one by one.",
+            "minItems": 2,
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The word as the transcript has it; compared without case and punctuation."
+                },
+                "occurrence": {
+                  "description": "Which time the film says it (1 the first, the default).",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          },
           "anchor": {
             "description": "The point an arrow points at, or the rectangle a highlight marks (x, y its top left), in px of the film's frame.",
             "type": "object",
@@ -284,13 +310,35 @@
                 ]
               },
               "entrance": {
-                "description": "fade, slide, type (text typed in letter by letter) or none; without it the kind's own. Never a bounce or a pop.",
+                "description": "fade, slide, type (text typed in letter by letter), none, pop (92 % to 100 %, no overshoot), rise (up from 5 % of the height), blur (blurred to sharp) or wipe (card revealed from the left in the accent, then the text); without it the kind's own. Never a bounce.",
                 "type": "string",
                 "enum": [
                   "fade",
                   "slide",
                   "type",
+                  "none",
+                  "pop",
+                  "rise",
+                  "blur",
+                  "wipe"
+                ]
+              },
+              "exit": {
+                "description": "auto (the default: mirrors the entrance), fade, slide (down and out) or none.",
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "fade",
+                  "slide",
                   "none"
+                ]
+              },
+              "easing": {
+                "description": "smooth (the default) or snappy: the curve of the entrance and the exit.",
+                "type": "string",
+                "enum": [
+                  "smooth",
+                  "snappy"
                 ]
               },
               "typing_speed": {
@@ -348,6 +396,29 @@
                   "m",
                   "l"
                 ]
+              },
+              "stagger": {
+                "description": "A list only: its points come in one by one (on item_words when given, else spaced automatically).",
+                "type": "boolean"
+              },
+              "subtitle_delay": {
+                "description": "A place_card only: seconds its subtitle waits after its title (0-0.6).",
+                "type": "number",
+                "minimum": 0,
+                "maximum": 0.6
+              },
+              "pin": {
+                "description": "A place_card only: none (the default), static or drop (an accent pin above the title that falls a little and stops).",
+                "type": "string",
+                "enum": [
+                  "none",
+                  "static",
+                  "drop"
+                ]
+              },
+              "underline": {
+                "description": "A keyword only: an accent bar drawn under the word after it enters.",
+                "type": "boolean"
               }
             },
             "additionalProperties": false

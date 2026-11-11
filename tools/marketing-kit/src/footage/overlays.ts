@@ -10,7 +10,9 @@ import {
   type EdlOverlay,
   type EdlOverlayColors,
   type OverlayAlign,
+  type OverlayEasing,
   type OverlayEntrance,
+  type OverlayExit,
   type OverlayKind,
   type OverlayPosition,
   type OverlaySide,
@@ -18,6 +20,7 @@ import {
 } from "./overlay-schema.js";
 import { getSegmentZoomEases } from "./compose.js";
 import { normalizeWord } from "./words.js";
+import { getListItemStarts } from "./overlay-motion.js";
 import { STYLE_PADDING_SCALES, type BrandStyle, type CornerRadius } from "./brand-style.js";
 
 /**
@@ -127,6 +130,10 @@ export interface OverlayLook {
   cornerRadius?: CornerRadius | null;
   /** Its card's padding in `OVERLAY_PADDING_EM`s: the brand style's `padding` (`STYLE_PADDING_SCALES`); absent: 1. */
   padScale?: number;
+  /** How it leaves (`style.exit`); absent: `auto`, mirroring its entrance. */
+  exit?: OverlayExit;
+  /** The curve of its entrance and exit (`style.easing`); absent: `smooth`. */
+  easing?: OverlayEasing;
 }
 
 type Drawn = OverlayBase & OverlayLook;
@@ -137,14 +144,26 @@ type Drawn = OverlayBase & OverlayLook;
  */
 export type ResolvedOverlay =
   | (OverlayBase & { kind: "punch_in"; scale: number; ease: number })
-  | (Drawn & { kind: "keyword"; text: string; fontSize: number; side: OverlaySide; box: OverlayBox })
+  | (Drawn & { kind: "keyword"; text: string; fontSize: number; side: OverlaySide; box: OverlayBox; underline?: boolean })
   | (Drawn & { kind: "lower_third"; text: string; fontSize: number; side: OverlaySide; box: OverlayBox })
-  | (Drawn & { kind: "list"; items: string[]; fontSize: number; side: OverlaySide; box: OverlayBox })
+  | (Drawn & { kind: "list"; items: string[]; fontSize: number; side: OverlaySide; box: OverlayBox; itemStarts?: number[] })
   | (Drawn & { kind: "arrow"; from: OverlayPoint; to: OverlayPoint })
   | (Drawn & { kind: "highlight"; rect: OverlayBox })
   | (Drawn & { kind: "hook_title"; lines: string[]; place: string | null; fontSize: number; placeFontSize: number; align?: OverlayAlign; box: OverlayBox })
   | (Drawn & { kind: "search_bar"; text: string; fontSize: number; box: OverlayBox })
-  | (Drawn & { kind: "place_card"; lines: string[]; subtitle: string | null; fontSize: number; subtitleFontSize: number; align?: OverlayAlign; box: OverlayBox })
+  | (Drawn & {
+      kind: "place_card";
+      lines: string[];
+      subtitle: string | null;
+      fontSize: number;
+      subtitleFontSize: number;
+      align?: OverlayAlign;
+      box: OverlayBox;
+      /** Its accent pin above the title (`style.pin`); absent: none. */
+      pin?: "static" | "drop";
+      /** Seconds its subtitle waits after its title (`style.subtitle_delay`); absent: none. */
+      subtitleDelay?: number;
+    })
   | (Drawn & { kind: "counter"; value: number; from: number; decimals: number; unit: string | null; fontSize: number; unitFontSize: number; box: OverlayBox })
   | (Drawn & { kind: "date_stamp"; text: string; place: string | null; fontSize: number; placeFontSize: number; side: OverlaySide; box: OverlayBox });
 
@@ -181,14 +200,18 @@ function getCaptionBand(input: ResolveOverlaysInput, segment: number): { top: nu
 /** The film second an overlay starts at, or the reason its word cannot be found. */
 function findOverlayStart(overlay: EdlOverlay, words: TimedWord[]): { ok: true; start: number } | { ok: false; error: string } {
   if (overlay.at !== undefined) return { ok: true, start: overlay.at };
-  const wanted = overlay.at_word as NonNullable<EdlOverlay["at_word"]>;
+  return findWordStart(overlay.at_word as NonNullable<EdlOverlay["at_word"]>, words, "at_word");
+}
+
+/** The film second a word of the transcript starts at, or why it is not there (`field` names it in the reason). */
+function findWordStart(wanted: NonNullable<EdlOverlay["at_word"]>, words: TimedWord[], field: string): { ok: true; start: number } | { ok: false; error: string } {
   const key = normalizeWord(wanted.text);
   const occurrence = wanted.occurrence ?? 1;
   const matches = words.filter((word) => normalizeWord(word.text) === key);
   const word = matches[occurrence - 1];
   if (word === undefined) {
     const said = matches.length === 0 ? "the film never says it" : `the film says it ${matches.length} time${matches.length === 1 ? "" : "s"}`;
-    return { ok: false, error: `at_word: no word "${wanted.text}"${occurrence > 1 ? ` (occurrence ${occurrence})` : ""} in the cut; ${said}` };
+    return { ok: false, error: `${field}: no word "${wanted.text}"${occurrence > 1 ? ` (occurrence ${occurrence})` : ""} in the cut; ${said}` };
   }
   return { ok: true, start: word.start };
 }
@@ -353,6 +376,16 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
       problems.push(`${at}: ${placed.error}`);
       return;
     }
+    if (placed.overlay.kind === "list" && (overlay.style?.stagger === true || overlay.item_words !== undefined)) {
+      const said = (overlay.item_words ?? []).map((word, item) => findWordStart(word, input.words, `item_words[${item}]`));
+      const missing = said.flatMap((word) => (word.ok ? [] : [word.error]));
+      if (missing.length > 0) {
+        problems.push(...missing.map((error) => `${at}.${error}`));
+        return;
+      }
+      const times = overlay.item_words === undefined ? undefined : said.map((word) => (word as { start: number }).start);
+      placed.overlay.itemStarts = getListItemStarts({ start, end, count: placed.overlay.items.length, ...(times === undefined ? {} : { words: times }) });
+    }
     if (placed.overlay.kind === "punch_in") {
       if (edl.segments[segment]?.motion === "kenburns") {
         problems.push(`${at}: segment "${segmentId}" has a Ken Burns zoom, which owns the picture's scale; put the punch-in on a still segment`);
@@ -442,11 +475,14 @@ function getPositionTop(region: { top: number; bottom: number }, position: Overl
 }
 
 function getLook(overlay: EdlOverlay): OverlayLook {
+  const style = overlay.style ?? {};
   return {
-    entrance: overlay.style?.entrance ?? null,
-    typing: isTypedOverlay(overlay) ? (overlay.style?.typing_speed ?? DEFAULT_OVERLAY_TYPING_SPEED) : null,
-    colors: { ...overlay.style?.colors },
-    cornerRadius: overlay.style?.corner_radius ?? null,
+    entrance: style.entrance ?? null,
+    typing: isTypedOverlay(overlay) ? (style.typing_speed ?? DEFAULT_OVERLAY_TYPING_SPEED) : null,
+    colors: { ...style.colors },
+    cornerRadius: style.corner_radius ?? null,
+    ...(style.exit === undefined || style.exit === "auto" ? {} : { exit: style.exit }),
+    ...(style.easing === undefined || style.easing === "smooth" ? {} : { easing: style.easing }),
   };
 }
 
@@ -508,7 +544,8 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
   const box = { left: zone.left + margin, top, width: frame.width - zone.left - zone.right - 2 * margin, height };
   if (overlay.kind === "list") return { ok: true, overlay: { ...drawn, kind: "list", items: overlay.items ?? [], fontSize, side, box } };
   const fields = { text: overlay.text ?? "", fontSize, side, box };
-  return { ok: true, overlay: overlay.kind === "keyword" ? { ...drawn, kind: "keyword", ...fields } : { ...drawn, kind: "lower_third", ...fields } };
+  if (overlay.kind === "lower_third") return { ok: true, overlay: { ...drawn, kind: "lower_third", ...fields } };
+  return { ok: true, overlay: { ...drawn, kind: "keyword", ...fields, ...(overlay.style?.underline === true ? { underline: true } : {}) } };
 }
 
 type CardKind = "hook_title" | "search_bar" | "place_card" | "counter" | "date_stamp";
@@ -584,22 +621,35 @@ type TitleOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "place_card"
  * its pin, the subtitle, each title line) and its height. Its card is this plus the padding, so the draft and the
  * render find the block's left edge and top inside the card from it whatever the title's fitted size.
  */
-export function getTitleContentSize(input: { kind: TitleOverlay["kind"]; lines: readonly string[]; fontSize: number; second: string | null; secondSize: number }): { width: number; height: number } {
+export function getTitleContentSize(input: { kind: TitleOverlay["kind"]; lines: readonly string[]; fontSize: number; second: string | null; secondSize: number; pin?: boolean }): {
+  width: number;
+  height: number;
+} {
   const { kind, lines, fontSize, second, secondSize } = input;
   const isHook = kind === "hook_title";
   const secondWidth = second === null ? 0 : estimateTextWidth(second, secondSize) + (isHook ? Math.round(secondSize * 1.1) : 0);
   const lineHeight = isHook ? OVERLAY_LINE_HEIGHT : OVERLAY_TITLE_LINE_HEIGHT;
   return {
-    width: Math.max(secondWidth, ...lines.map((line) => estimateTextWidth(line, fontSize))),
-    height: lines.length * fontSize * lineHeight + (second === null ? 0 : secondSize * 1.3 + fontSize * 0.12),
+    width: Math.max(secondWidth, input.pin === true ? getPlaceCardPinSize(fontSize) : 0, ...lines.map((line) => estimateTextWidth(line, fontSize))),
+    height: lines.length * fontSize * lineHeight + (second === null ? 0 : secondSize * 1.3 + fontSize * 0.12) + (input.pin === true ? getPlaceCardPinRow(fontSize) : 0),
   };
+}
+
+/** A place card's pin height (and width), in px: half its title's size. */
+export function getPlaceCardPinSize(fontSize: number): number {
+  return Math.round(fontSize * 0.5);
+}
+
+/** The row a place card's pin takes above its title: the pin and a small gap. */
+export function getPlaceCardPinRow(fontSize: number): number {
+  return getPlaceCardPinSize(fontSize) + Math.round(fontSize * 0.1);
 }
 
 /** A resolved title's text block inside its card: its left edge and top, in px of the frame. */
 export function getTitleContentBox(overlay: TitleOverlay): OverlayBox {
   const second = overlay.kind === "hook_title" ? overlay.place : overlay.subtitle;
   const secondSize = overlay.kind === "hook_title" ? overlay.placeFontSize : overlay.subtitleFontSize;
-  const size = getTitleContentSize({ kind: overlay.kind, lines: overlay.lines, fontSize: overlay.fontSize, second, secondSize });
+  const size = getTitleContentSize({ kind: overlay.kind, lines: overlay.lines, fontSize: overlay.fontSize, second, secondSize, pin: overlay.kind === "place_card" && overlay.pin !== undefined });
   const { box } = overlay;
   return { left: box.left + (box.width - size.width) / 2, top: box.top + (box.height - size.height) / 2, width: size.width, height: size.height };
 }
@@ -620,11 +670,15 @@ function measureTitle(overlay: EdlOverlay & { kind: "hook_title" | "place_card" 
   const secondWidth = second === null ? 0 : estimateTextWidth(second, secondSize) + (isHook ? Math.round(secondSize * 1.1) : 0);
   if (secondWidth > room) return tooWide(metrics, isHook ? "place label" : "subtitle");
   const align = overlay.style?.align ?? "center";
+  const pin = !isHook && overlay.style?.pin !== undefined && overlay.style.pin !== "none" ? overlay.style.pin : undefined;
+  const delay = !isHook && second !== null && overlay.style?.subtitle_delay !== undefined && overlay.style.subtitle_delay > 0 ? overlay.style.subtitle_delay : undefined;
   return {
     ok: true,
     content: {
-      ...getTitleContentSize({ kind: overlay.kind, lines, fontSize, second, secondSize }),
-      fields: isHook ? { kind: "hook_title", lines, place: second, fontSize, placeFontSize: secondSize, align } : { kind: "place_card", lines, subtitle: second, fontSize, subtitleFontSize: secondSize, align },
+      ...getTitleContentSize({ kind: overlay.kind, lines, fontSize, second, secondSize, pin: pin !== undefined }),
+      fields: isHook
+        ? { kind: "hook_title", lines, place: second, fontSize, placeFontSize: secondSize, align }
+        : { kind: "place_card", lines, subtitle: second, fontSize, subtitleFontSize: secondSize, align, ...(pin === undefined ? {} : { pin }), ...(delay === undefined ? {} : { subtitleDelay: delay }) },
     },
   };
 }

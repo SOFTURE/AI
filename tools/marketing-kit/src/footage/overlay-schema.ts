@@ -46,11 +46,36 @@ export const OVERLAY_ALIGNED_KINDS: readonly OverlayKind[] = ["hook_title", "pla
 
 /**
  * How an overlay enters: `fade` in place, `slide` up into place, `type` letter by letter (text kinds), `none` (it is
- * simply there). Without one, the kind's own entrance. Never a bounce or a pop: the reel stays natural.
+ * simply there), `pop` (grows from 92 % to 100 % while it fades in, eased out, never past its size), `rise` (up from
+ * 5 % of the frame's height while it fades in), `blur` (from a slight blur to sharp) or `wipe` (its card revealed from
+ * the left in the accent colour, then its text). Without one, the kind's own entrance. Never a bounce or an overshoot:
+ * the reel stays natural (`overlay-motion.ts`).
  */
-export const OVERLAY_ENTRANCES = ["fade", "slide", "type", "none"] as const;
+export const OVERLAY_ENTRANCES = ["fade", "slide", "type", "none", "pop", "rise", "blur", "wipe"] as const;
 
 export type OverlayEntrance = (typeof OVERLAY_ENTRANCES)[number];
+
+/**
+ * How an overlay leaves over its last moment: `auto` mirrors its entrance (a pop shrinks a little as it fades, a rise
+ * sinks, a blur blurs, a wipe is wiped off to the right; the kind's own exit without an entrance), `fade`, `slide`
+ * (down and out) or `none` (gone at its end).
+ */
+export const OVERLAY_EXITS = ["auto", "fade", "slide", "none"] as const;
+
+export type OverlayExit = (typeof OVERLAY_EXITS)[number];
+
+/** The curve of an overlay's entrance and exit: `smooth` (the default, a soft ease-out) or `snappy` (quicker, sharper). */
+export const OVERLAY_EASINGS = ["smooth", "snappy"] as const;
+
+export type OverlayEasing = (typeof OVERLAY_EASINGS)[number];
+
+/** A place card's pin above its title: `none`, `static` (there with the card) or `drop` (falls a little and stops). */
+export const OVERLAY_PINS = ["none", "static", "drop"] as const;
+
+export type OverlayPin = (typeof OVERLAY_PINS)[number];
+
+/** The longest a place card's subtitle waits after its title, in seconds. */
+export const MAX_OVERLAY_SUBTITLE_DELAY = 0.6;
 
 /** The shortest an overlay stays on screen: shorter does not read. */
 export const MIN_OVERLAY_SECONDS = 1;
@@ -121,6 +146,18 @@ export interface EdlOverlayStyle {
   align?: OverlayAlign;
   /** A place card's subtitle size: `s`, `m` (about 55 % of the title, the default) or `l`. */
   subtitle_size?: OverlaySize;
+  /** How it leaves (`auto` without it: mirrors the entrance). */
+  exit?: OverlayExit;
+  /** The curve of its entrance and exit (`smooth` without it). */
+  easing?: OverlayEasing;
+  /** A list's points come in one by one (on their `item_words` when given, else spaced automatically). */
+  stagger?: boolean;
+  /** Seconds a place card's subtitle waits after its title (0 to `MAX_OVERLAY_SUBTITLE_DELAY`). */
+  subtitle_delay?: number;
+  /** A place card's accent pin above its title. */
+  pin?: OverlayPin;
+  /** A keyword's accent bar drawn under the word after it enters. */
+  underline?: boolean;
 }
 
 export interface EdlOverlay {
@@ -135,6 +172,8 @@ export interface EdlOverlay {
   text?: string;
   /** The `list` points (2 to 4). */
   items?: string[];
+  /** A `list`'s words its points come in on, one per point (they come in one by one). */
+  item_words?: EdlOverlayWord[];
   /** The `arrow` point or the `highlight` rectangle. */
   anchor?: EdlOverlayAnchor;
   /** The place label of a `hook_title` (with a pin) or a `date_stamp`. */
@@ -201,8 +240,8 @@ export const OVERLAY_POSITIONS_BY_KIND: Partial<Record<OverlayKind, readonly Ove
   counter: ["top", "middle", "bottom"],
 };
 
-const TEXT_ENTRANCES: readonly OverlayEntrance[] = ["fade", "slide", "type", "none"];
-const BLOCK_ENTRANCES: readonly OverlayEntrance[] = ["fade", "slide", "none"];
+const TEXT_ENTRANCES: readonly OverlayEntrance[] = ["fade", "slide", "type", "none", "pop", "rise", "blur", "wipe"];
+const BLOCK_ENTRANCES: readonly OverlayEntrance[] = ["fade", "slide", "none", "pop", "rise", "blur", "wipe"];
 
 /** The entrances a kind may take (none listed: it takes no entrance). */
 export const OVERLAY_ENTRANCES_BY_KIND: Record<OverlayKind, readonly OverlayEntrance[]> = {
@@ -242,6 +281,10 @@ function checkOverlayFields(overlay: EdlOverlay, issue: (path: string[], message
   const limit = TEXT_LIMITS[kind];
   if (limit !== undefined && overlay.text !== undefined && overlay.text.length > limit) issue(["text"], `is longer than ${limit} characters`);
   if (fields.items && overlay.items === undefined) issue(["items"], "a list needs 2 to 4 points");
+  if (overlay.item_words !== undefined) {
+    if (kind !== "list") issue(["item_words"], `${article(kind)} has no points; leave item_words out`);
+    else if (overlay.items !== undefined && overlay.item_words.length !== overlay.items.length) issue(["item_words"], `gives ${overlay.item_words.length} words for ${overlay.items.length} points; one word per point`);
+  }
   if (!fields.items && overlay.items !== undefined) issue(["items"], `${article(kind)} draws no points; leave them out`);
   if (fields.anchor === "none" && overlay.anchor !== undefined) issue(["anchor"], `${article(kind)} has no anchor; leave it out`);
   if (fields.anchor !== "none" && overlay.anchor === undefined) issue(["anchor"], `${article(kind)} needs its anchor`);
@@ -274,6 +317,11 @@ function checkOverlayStyle(overlay: EdlOverlay, issue: (path: string[], message:
   if (style.corner_radius !== undefined && (kind === "punch_in" || kind === "arrow" || kind === "highlight")) issue(["style", "corner_radius"], `${article(kind)} draws no card; leave corner_radius out`);
   if (style.align !== undefined && !OVERLAY_ALIGNED_KINDS.includes(kind)) issue(["style", "align"], "only a hook_title or a place_card aligns its lines; leave align out");
   if (style.subtitle_size !== undefined && kind !== "place_card") issue(["style", "subtitle_size"], "only a place_card has a subtitle; leave subtitle_size out");
+  if (style.subtitle_delay !== undefined && kind !== "place_card") issue(["style", "subtitle_delay"], "only a place_card has a subtitle; leave subtitle_delay out");
+  if (style.pin !== undefined && kind !== "place_card") issue(["style", "pin"], "only a place_card draws a pin; leave pin out");
+  if (style.stagger !== undefined && kind !== "list") issue(["style", "stagger"], "only a list has points to stagger; leave stagger out");
+  if (style.underline !== undefined && kind !== "keyword") issue(["style", "underline"], "only a keyword is underlined; leave underline out");
+  if ((style.exit !== undefined || style.easing !== undefined) && kind === "punch_in") issue(["style", style.exit === undefined ? "easing" : "exit"], "a punch_in eases the picture itself; leave exit and easing out");
   if (style.colors === undefined) return;
   if (kind === "punch_in") issue(["style", "colors"], "a punch_in draws nothing to colour; leave colors out");
   if ((kind === "arrow" || kind === "highlight") && (style.colors.card !== undefined || style.colors.text !== undefined)) {
@@ -310,6 +358,17 @@ export const overlaySchema = z
       .max(4, "a list needs 2 to 4 points")
       .optional()
       .describe(`The list's points: 2 to 4, up to ${MAX_OVERLAY_LIST_ITEM_LENGTH} characters each.`),
+    item_words: z
+      .array(
+        z.strictObject({
+          text: overlayText.describe("The word as the transcript has it; compared without case and punctuation."),
+          occurrence: z.number().int().min(1).optional().describe("Which time the film says it (1 the first, the default)."),
+        }),
+      )
+      .min(2)
+      .max(4)
+      .optional()
+      .describe("A list only: the word each point comes in on, one per point in order; the points come in one by one."),
     anchor: z
       .strictObject({
         x: z.number().min(0).describe("Px from the frame's left edge."),
@@ -344,7 +403,11 @@ export const overlaySchema = z
         entrance: z
           .enum(OVERLAY_ENTRANCES)
           .optional()
-          .describe("fade, slide, type (text typed in letter by letter) or none; without it the kind's own. Never a bounce or a pop."),
+          .describe(
+            "fade, slide, type (text typed in letter by letter), none, pop (92 % to 100 %, no overshoot), rise (up from 5 % of the height), blur (blurred to sharp) or wipe (card revealed from the left in the accent, then the text); without it the kind's own. Never a bounce.",
+          ),
+        exit: z.enum(OVERLAY_EXITS).optional().describe("auto (the default: mirrors the entrance), fade, slide (down and out) or none."),
+        easing: z.enum(OVERLAY_EASINGS).optional().describe("smooth (the default) or snappy: the curve of the entrance and the exit."),
         typing_speed: z
           .number()
           .min(MIN_OVERLAY_TYPING_SPEED)
@@ -365,6 +428,15 @@ export const overlaySchema = z
           .describe("The card's corner: none, s, m, l or pill; the brand style's without it (no punch_in, arrow or highlight)."),
         align: z.enum(OVERLAY_ALIGNS).optional().describe("center (the default) or left: how a hook_title's or a place_card's lines sit in their card."),
         subtitle_size: z.enum(OVERLAY_SIZES).optional().describe("s, m (the default, about 55 % of the title) or l: a place_card's subtitle size."),
+        stagger: z.boolean().optional().describe("A list only: its points come in one by one (on item_words when given, else spaced automatically)."),
+        subtitle_delay: z
+          .number()
+          .min(0)
+          .max(MAX_OVERLAY_SUBTITLE_DELAY)
+          .optional()
+          .describe(`A place_card only: seconds its subtitle waits after its title (0-${MAX_OVERLAY_SUBTITLE_DELAY}).`),
+        pin: z.enum(OVERLAY_PINS).optional().describe("A place_card only: none (the default), static or drop (an accent pin above the title that falls a little and stops)."),
+        underline: z.boolean().optional().describe("A keyword only: an accent bar drawn under the word after it enters."),
       })
       .optional()
       .describe("The overlay's look: size, side, position, entrance, typing speed and colours; fonts are the brand's."),

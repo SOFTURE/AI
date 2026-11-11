@@ -94,8 +94,12 @@ export {
   MIN_OVERLAY_TYPING_SPEED,
   OVERLAY_ALIGNED_KINDS,
   OVERLAY_ALIGNS,
+  OVERLAY_EASINGS,
   OVERLAY_ENTRANCES,
   OVERLAY_ENTRANCES_BY_KIND,
+  OVERLAY_EXITS,
+  OVERLAY_PINS,
+  MAX_OVERLAY_SUBTITLE_DELAY,
   OVERLAY_KINDS,
   OVERLAY_POSITIONS,
   OVERLAY_POSITIONS_BY_KIND,
@@ -109,8 +113,11 @@ export {
   type EdlOverlayStyle,
   type EdlOverlayWord,
   type OverlayAlign,
+  type OverlayEasing,
   type OverlayEntrance,
+  type OverlayExit,
   type OverlayKind,
+  type OverlayPin,
   type OverlayPosition,
   type OverlaySide,
   type OverlaySize,
@@ -150,6 +157,8 @@ export {
   getDrawnOverlayCard,
   getOverlayBounds,
   getOverlayPadding,
+  getPlaceCardPinRow,
+  getPlaceCardPinSize,
   getTitleContentBox,
   getTitleContentSize,
   wrapOverlayTitle,
@@ -164,6 +173,19 @@ export {
   type ResolvedOverlay,
   type ResolvedOverlaysResult,
 } from "./footage/overlays.js";
+export {
+  OVERLAY_EASES,
+  POP_FROM_SCALE,
+  RISE_FROM_HEIGHT,
+  getEntranceMotion,
+  getEntranceScaleAt,
+  getExitMotion,
+  getListItemStarts,
+  type OverlayEase,
+  type OverlayEntranceMotion,
+  type OverlayExitMotion,
+  type OverlayMotionOffset,
+} from "./footage/overlay-motion.js";
 export { resolveBrandColors, type BrandColorsResult } from "./config/brand.js";
 export { readCssColors } from "./config/css-colors.js";
 export { readDesignJsonColors } from "./config/design-json.js";
