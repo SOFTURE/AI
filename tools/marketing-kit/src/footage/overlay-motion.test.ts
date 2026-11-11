@@ -224,9 +224,9 @@ describe("resolving the new knobs", () => {
     expect(getTitleContentSize({ kind: "place_card", lines: ["I"], fontSize: 100, second: null, secondSize: 50, pin: true })).toEqual({ width: 56, height: 105 + 60 });
   });
 
-  it("brings a list's points in on their words or spaced automatically", () => {
-    expect(only({ ...LIST, item_words: [{ text: "First" }, { text: "second" }, { text: "third" }] }, "list").itemStarts).toEqual([2.4, 3.1, 5.4]);
-    expect(only({ ...LIST, style: { stagger: true } }, "list").itemStarts).toEqual([2.2, 2.733, 3.267]);
+  it("brings a list's points in on their words or spaced automatically, the first with the card", () => {
+    expect(only({ ...LIST, item_words: [{ text: "First" }, { text: "second" }, { text: "third" }] }, "list").itemStarts).toEqual([2, 3.1, 5.4]);
+    expect(only({ ...LIST, style: { stagger: true } }, "list").itemStarts).toEqual([2, 2.733, 3.267]);
     // Seconds the caller resolved itself (an app reading the words as its transcript shows them), clamped to the span.
     expect(only({ ...LIST, item_at: [1, 3.5, 99] }, "list").itemStarts).toEqual([2, 3.5, 5.4]);
     const missing = resolve([{ ...LIST, item_words: [{ text: "first" }, { text: "fourth" }, { text: "first", occurrence: 2 }] }]);
@@ -283,12 +283,11 @@ describe("the render's motion", () => {
     expect(markup([PLACE]).html).not.toContain("__WIPE__");
   });
 
-  it("brings a staggered list's points in one by one, hidden until their second", () => {
+  it("brings a staggered list's first point in with its card and each later one hidden until its second", () => {
     const { html, css, tweens } = markup([{ ...LIST, item_words: [{ text: "first" }, { text: "second" }, { text: "third" }] }]);
-    expect(html).toContain('class="clip ov ov-list st"');
-    expect(css).toContain(".st li,.pd .ov-pinrow svg,.pl .ov-line,.sd .ov-sub{opacity:0}");
+    expect(html).toContain('<li id="ov0i0">35 zl</li><li id="ov0i1" style="opacity:0">3 days</li><li id="ov0i2" style="opacity:0">no queue</li>');
+    expect(css).toContain(".pd .ov-pinrow svg,.pl .ov-line,.sd .ov-sub{opacity:0}");
     expect(tweens.filter((tween) => tween.includes("#ov0i"))).toEqual([
-      'tl.fromTo("#ov0i0", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", immediateRender: false }, 2.4);',
       'tl.fromTo("#ov0i1", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", immediateRender: false }, 3.1);',
       'tl.fromTo("#ov0i2", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", immediateRender: false }, 5.4);',
     ]);
@@ -381,7 +380,7 @@ describe("the draft's motion", () => {
   it("brings a staggered list's points in on their seconds, each fading in", () => {
     const lines = draft([{ ...LIST, style: { entrance: "slide", stagger: true } }], null);
     expect(lines.filter((line) => line.startsWith("Dialogue: 4,")).map((line) => line.slice(0, 34))).toEqual([
-      "Dialogue: 4,0:00:02.20,0:00:06.00,",
+      "Dialogue: 4,0:00:02.00,0:00:06.00,",
       "Dialogue: 4,0:00:02.73,0:00:06.00,",
       "Dialogue: 4,0:00:03.27,0:00:06.00,",
     ]);

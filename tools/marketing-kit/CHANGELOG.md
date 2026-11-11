@@ -4,6 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.33.0
+
+- **The list card grows with its points:** a list's first point now comes in with its card (a staggered list's
+  `itemStarts[0]` is the overlay's start), and its card grows to each next point as it comes in, eased out over
+  0.35 s (`power3.out`, never past its size), in the render (width and height tweens, later points clipped by the card)
+  and the draft (the card in three eased steps, a later point clipped to the growing card). An unstaggered list shows
+  every point with its card at its start (before: an empty card, then its points 0.2 s later, 0.12 s apart).
+- **Centred by default:** a list without `style.side` sits in the middle of the room it may take, its lines centred
+  and drawn without bullets (`isCentred` on the resolved list). A list with a side keeps its side and its bullets.
+- **Chips:** `style.list_layout` (new `OVERLAY_LIST_LAYOUTS`, type `OverlayListLayout`): `stack` (the default),
+  `chips` (each point its own small card in one row centred in the room, in their final places, entering in turn from
+  the left with the list's entrance; a row too wide shrinks like a title, at most three 10 % steps, else it is
+  refused) or `auto` (chips when they fit one row, else the stack). Refused on another kind. A resolved list carries
+  `chips` (each chip's box, px), and its `fontSize` is the chips' size. `getDrawnOverlayCard` answers the row's box.
+- **New exports:** `LIST_CHIP_GAP_EM`, `getListCardsByItem` (the drawn boxes after each point comes in) and
+  `getListItemTimes` (each point's film second).
+
 ## 0.32.0
 
 - **Caption boxes for a stretch of film time:** an EDL may carry `captionRanges: [{ from, to, bottom?, top? }]` (film

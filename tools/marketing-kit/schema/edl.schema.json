@@ -411,6 +411,15 @@
                 "description": "A list only: its points come in one by one (on item_words when given, else spaced automatically).",
                 "type": "boolean"
               },
+              "list_layout": {
+                "description": "A list only: stack (the default: one centred card growing as each point comes in), chips (each point its own small card in one centred row, entering in turn from the left) or auto (chips when they fit one row, else stack).",
+                "type": "string",
+                "enum": [
+                  "stack",
+                  "chips",
+                  "auto"
+                ]
+              },
               "subtitle_delay": {
                 "description": "A place_card only: seconds its subtitle waits after its title (0-0.6).",
                 "type": "number",

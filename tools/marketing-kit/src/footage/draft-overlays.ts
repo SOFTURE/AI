@@ -25,6 +25,8 @@ import {
   estimateTextWidth,
   formatOverlayNumber,
   getDrawnOverlayCard,
+  getListCardsByItem,
+  getListItemTimes,
   getOverlayPadding,
   getPlaceCardPinRow,
   getPlaceCardPinSize,
@@ -331,16 +333,24 @@ function getOwnCardRadius(overlay: Pick<ResolvedOverlay, "kind">, box: { height:
  * fill and border (`getDraftBoxEvents`), at the brand style's corner or the overlay's own (`getDraftCardRadius`); a
  * wipe's accent panel over it.
  */
-function getCardShapeEvents(overlay: Exclude<ResolvedOverlay, { kind: "punch_in" }>, box: OverlayBox, fontSize: number, colors: { background: string; accent: string }, motion: DraftMotion, context: DraftContext): string[] {
+function getCardShapeEvents(
+  overlay: Exclude<ResolvedOverlay, { kind: "punch_in" }>,
+  box: OverlayBox,
+  fontSize: number,
+  colors: { background: string; accent: string },
+  motion: DraftMotion,
+  context: DraftContext,
+  span: ShapeSpan = { start: overlay.start, end: overlay.end, isFirst: true, isLast: true },
+): string[] {
   const radius = getDraftCardRadius(overlay, box, context, getOwnCardRadius(overlay, box, fontSize));
   const drawing = getRoundedRectDrawing(box, radius);
-  const panel = getWipePanelEvent(overlay, drawing, colors.accent, motion);
-  if (context.style === undefined) return [getShapeEvent(overlay, drawing, colors.background, motion), ...panel];
-  const at = { isFirst: true, isLast: true, ms: toMs(overlay.end - overlay.start) };
+  const panel = span.isFirst ? getWipePanelEvent(span, drawing, colors.accent, motion) : [];
+  if (context.style === undefined) return [getShapeEvent(span, drawing, colors.background, motion, 3, span), ...panel];
+  const at = { isFirst: span.isFirst, isLast: span.isLast, ms: toMs(span.end - span.start) };
   const { position, rest } = getMotionTags(motion, { ...at, pos: { x: 0, y: 0 }, part: "card" });
   const events = getDraftBoxEvents({
     layer: 3,
-    at: `${toAssTime(overlay.start)},${toAssTime(overlay.end)}`,
+    at: `${toAssTime(span.start)},${toAssTime(span.end)}`,
     styleName: "OverlayShape",
     box,
     radius,
@@ -387,6 +397,7 @@ function getUnderlineEvent(overlay: Extract<ResolvedOverlay, { kind: "keyword" }
  * come in one by one; a keyword's underline is drawn once it is in.
  */
 function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" | "list" }>, context: DraftContext): string[] {
+  if (overlay.kind === "list") return getListEvents(overlay, context);
   const colors = getOverlayColors(overlay, context.brand);
   const { fontSize, side } = overlay;
   // A side text always has a card: only a punch_in has none.
@@ -403,22 +414,99 @@ function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" |
   const tags = `\\an${align}\\fs${fontSize}${getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES[overlay.kind])}`;
   const text = (pos: OverlayPoint, steps: TextStep[], own = motion) => getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps, motion: own });
   const shape = getCardShapeEvents(overlay, card, fontSize, colors, motion, context);
-  if (overlay.kind === "list") {
-    // One event per point, on the render's line height (libass's own line spacing is tighter); a staggered point from its second.
-    const step = fontSize * OVERLAY_LIST_LINE_HEIGHT;
-    const lead = (step - fontSize * OVERLAY_LINE_HEIGHT) / 2;
-    return [
-      ...shape,
-      ...getSideTextLines(overlay).flatMap((line, index) => {
-        const from = overlay.itemStarts?.[index];
-        const pos = { x, y: y + lead + index * step };
-        return from === undefined ? text(pos, [{ from: span.start, to: span.end, text: toAssText(line) }]) : text(pos, [{ from, to: span.end, text: toAssText(line) }], withFadeEntrance(motion));
-      }),
-    ];
-  }
   // A keyword or a lower third types in only when its entrance says so.
   const steps = overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(overlay.text) }] : getTypedSteps(overlay.text, span, overlay.typing);
   return [...shape, ...text({ x, y }, steps), ...(overlay.kind === "keyword" ? getUnderlineEvent(overlay, card, colors.accent, motion) : [])];
+}
+
+/** A list's card grows to its next point's size over these seconds, in this many steps along the render's ease. */
+const LIST_GROW_SECONDS = 0.35;
+const LIST_GROW_STEPS = 3;
+
+/** A clip from a card to the next card it grows to, eased out over the growth (an ASS `\\t` with its acceleration under 1). */
+function getGrowClip(from: OverlayBox, to: OverlayBox): string {
+  const rect = (box: OverlayBox) => toClip({ x0: r0(box.left), y0: r0(box.top), x1: r0(box.left + box.width), y1: r0(box.top + box.height) });
+  return `${rect(from)}\\t(0,${toMs(LIST_GROW_SECONDS)},0.4,${rect(to)})`;
+}
+
+/** A box part of the way (`share`, 0 to 1) from `from` to `to`, in whole px. */
+function getBoxBetween(from: OverlayBox, to: OverlayBox, share: number): OverlayBox {
+  const at = (a: number, b: number) => r0(a + (b - a) * share);
+  return { left: at(from.left, to.left), top: at(from.top, to.top), width: at(from.width, to.width), height: at(from.height, to.height) };
+}
+
+/**
+ * A list's card shapes over time: one card per distinct second its points come in, each easing from the last one's size
+ * in `LIST_GROW_STEPS` steps along the render's `power3.out`; the first takes the entrance, the last the exit.
+ */
+function getStackShapeEvents(overlay: Extract<ResolvedOverlay, { kind: "list" }>, times: readonly number[], colors: OverlayColors, context: DraftContext): string[] {
+  const cards = getListCardsByItem(overlay).map((boxes) => boxes[0] as OverlayBox);
+  // The card shown from each distinct second: the one fitted to every point in by then.
+  const stops = times.flatMap((at, index) => (times[index + 1] === at ? [] : [{ at, card: cards[index] as OverlayBox }]));
+  const name = overlay.entrance === null || overlay.entrance === "type" ? "fade" : overlay.entrance;
+  const parts = stops.flatMap((stop, index) => {
+    const previous = stops[index - 1];
+    if (previous === undefined) return [{ start: stop.at, card: stop.card }];
+    return Array.from({ length: LIST_GROW_STEPS }, (_step, step) => {
+      const share = (step + 1) / LIST_GROW_STEPS;
+      return { start: stop.at + (step * LIST_GROW_SECONDS) / LIST_GROW_STEPS, card: step === LIST_GROW_STEPS - 1 ? stop.card : getBoxBetween(previous.card, stop.card, OVERLAY_EASES["power3.out"](share)) };
+    });
+  });
+  const visible = parts.filter((part, index) => part.start < overlay.end && (parts[index + 1]?.start ?? overlay.end) > part.start);
+  return visible.flatMap((part, index) => {
+    const end = Math.min(overlay.end, visible[index + 1]?.start ?? overlay.end);
+    const motion = getDraftMotion(overlay, name, index === 0 ? part.card : (cards[cards.length - 1] as OverlayBox), context);
+    return getCardShapeEvents(overlay, part.card, overlay.fontSize, colors, motion, context, { start: part.start, end, isFirst: index === 0, isLast: index === visible.length - 1 });
+  });
+}
+
+/**
+ * A list (RV-144 of an adopting app): a stack, its card coming in with its first point and growing to each next one,
+ * its lines centred in the card (a centred stack) or from its side with their bullets; or chips, one card per point in
+ * its final place, each entering on its own second. A point after the first fades in from its second.
+ */
+function getListEvents(overlay: Extract<ResolvedOverlay, { kind: "list" }>, context: DraftContext): string[] {
+  const colors = getOverlayColors(overlay, context.brand);
+  const { fontSize } = overlay;
+  const pad = getOverlayPadding(overlay);
+  const times = getListItemTimes(overlay);
+  const name = overlay.entrance === null || overlay.entrance === "type" ? "fade" : overlay.entrance;
+  const textTags = getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES.list);
+  const lines = getSideTextLines(overlay);
+  const write = (pos: OverlayPoint, align: number, steps: TextStep[], motion: DraftMotion, clip = "") =>
+    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${fontSize}${textTags}${clip}`, steps, motion });
+  if (overlay.chips !== undefined) {
+    return overlay.chips.flatMap((chip, index) => {
+      const from = times[index] as number;
+      const motion = getDraftMotion(overlay, name, chip, context);
+      const span = { start: from, end: overlay.end, isFirst: true, isLast: true };
+      const pos = { x: chip.left + chip.width / 2, y: chip.top + pad.y };
+      return [...getCardShapeEvents(overlay, chip, fontSize, colors, motion, context, span), ...write(pos, 8, [{ from, to: overlay.end, text: toAssText(lines[index] as string) }], motion)];
+    });
+  }
+  // The text sits on the whole list's card: centred on its axis, or from its side.
+  const card = getDrawnOverlayCard(overlay) as OverlayBox;
+  const isCentred = overlay.isCentred === true;
+  const isRight = !isCentred && overlay.side === "right";
+  const x = isCentred ? card.left + card.width / 2 : isRight ? card.left + card.width - pad.x : card.left + pad.x;
+  const align = isCentred ? 8 : isRight ? 9 : 7;
+  // One event per point, on the render's line height (libass's own line spacing is tighter).
+  const step = fontSize * OVERLAY_LIST_LINE_HEIGHT;
+  const lead = (step - fontSize * OVERLAY_LINE_HEIGHT) / 2;
+  const motion = getDraftMotion(overlay, name, card, context);
+  const cards = getListCardsByItem(overlay).map((boxes) => boxes[0] as OverlayBox);
+  return [
+    ...getStackShapeEvents(overlay, times, colors, context),
+    ...lines.flatMap((line, index) => {
+      const from = times[index] as number;
+      const pos = { x, y: card.top + pad.y + lead + index * step };
+      if (from <= overlay.start) return write(pos, align, [{ from, to: overlay.end, text: toAssText(line) }], motion);
+      // A later point shows only inside its card as the card grows to it, as the render's card clips it (a wipe's exit clips on its own).
+      const previous = cards[times.findIndex((at) => at === from) - 1] as OverlayBox;
+      const clip = motion.exit.kind === "wipe" ? "" : getGrowClip(previous, cards[index] as OverlayBox);
+      return write(pos, align, [{ from, to: overlay.end, text: toAssText(line) }], withFadeEntrance(motion), clip);
+    }),
+  ];
 }
 
 type CardOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "search_bar" | "place_card" | "counter" | "date_stamp" }>;
@@ -426,9 +514,17 @@ type CardOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "search_bar" 
 /** Each card's own entrance when the overlay names none (a typed card fades its card in). */
 const DEFAULT_ENTRANCES = { hook_title: "slide", search_bar: "fade", place_card: "slide", counter: "fade", date_stamp: "fade" } as const;
 
-/** A drawing event in the overlay's card colour (or accent), with the overlay's motion. */
-function getShapeEvent(overlay: Pick<ResolvedOverlay, "start" | "end">, drawing: string, colour: string, motion: DraftMotion, layer = 3): string {
-  const at = { isFirst: true, isLast: true, ms: toMs(overlay.end - overlay.start) };
+/** The stretch one drawn card shows for: its seconds, and whether it takes the entrance (first) and the exit (last). */
+interface ShapeSpan {
+  start: number;
+  end: number;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+/** A drawing event in the overlay's card colour (or accent), with the overlay's motion (or a part of it, `span`). */
+function getShapeEvent(overlay: Pick<ResolvedOverlay, "start" | "end">, drawing: string, colour: string, motion: DraftMotion, layer = 3, span?: ShapeSpan): string {
+  const at = { isFirst: span?.isFirst ?? true, isLast: span?.isLast ?? true, ms: toMs(overlay.end - overlay.start) };
   const { position, rest } = getMotionTags(motion, { ...at, pos: { x: 0, y: 0 }, part: "card" });
   return `Dialogue: ${layer},${toAssTime(overlay.start)},${toAssTime(overlay.end)},OverlayShape,,0,0,0,,{\\an7${position}${rest}${getBlurTags(motion, at, 0)}\\1c${toTagColor(colour)}\\p1}${drawing}{\\p0}`;
 }

@@ -334,7 +334,7 @@ describe("the render's new kinds", () => {
     const overlays = resolved([
       { kind: "keyword", at: 1, duration: 2, text: "3x", style: { entrance: "type", typing_speed: 10, colors: { card: "#ffffff", text: "#000000", accent: "#00ff00" } } },
       { kind: "lower_third", at: 11, duration: 2, text: "Hue", style: { entrance: "slide", colors: { accent: "#00ff00" } } },
-      { kind: "list", at: 21, duration: 2, items: ["a", "b"], style: { entrance: "none" } },
+      { kind: "list", at: 21, duration: 2, items: ["a", "b"], style: { entrance: "none", side: "left" } },
       { kind: "arrow", at: 25, duration: 2, anchor: { x: 800, y: 900 }, style: { entrance: "fade", colors: { accent: "#00ff00" } } },
       { kind: "highlight", at: 28, duration: 1.5, anchor: { x: 300, y: 500, width: 100, height: 100 }, style: { entrance: "none" } },
       { ...PLACE, at: 3.5, style: { entrance: "type" } },
@@ -417,7 +417,7 @@ describe("the draft's new kinds", () => {
     const lines = draft([
       { kind: "keyword", at: 1, duration: 2, text: "3x", style: { entrance: "type", colors: { card: "#ffffff", text: "#000000" } } },
       { kind: "lower_third", at: 11, duration: 2, text: "Hue", style: { entrance: "slide" } },
-      { kind: "list", at: 21, duration: 2, items: ["a", "b"], style: { entrance: "none" } },
+      { kind: "list", at: 21, duration: 2, items: ["a", "b"], style: { entrance: "none", side: "left" } },
       { kind: "arrow", at: 25, duration: 2, anchor: { x: 800, y: 900 }, style: { entrance: "none", colors: { accent: "#00ff00" } } },
       { kind: "highlight", at: 28, duration: 1.5, anchor: { x: 300, y: 500, width: 100, height: 100 } },
       { ...DATE, at: 7, style: { entrance: "none", colors: { text: "#000000" } } },
