@@ -1,7 +1,7 @@
 ---
 change_id: marketing-kit-overlay-entrances-exits
 title: "marketing-kit: overlay entrances, exits and per-kind motion"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/marketing-kit-overlay-entrances-exits
