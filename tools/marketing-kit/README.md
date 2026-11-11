@@ -733,6 +733,14 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   the soft pill of a keyword, a lower third and a list without an entrance now eases out without overshoot. The draft
   draws a pop about the card's middle, a rise and a slide as moves, a blur, a wipe as clips, and the parts that come
   later from their own seconds.
+- **List layouts** (0.33.0): a list's card comes in with its first point and grows to each next one as it comes in
+  (eased out, no overshoot), so it never stands empty or sized for the whole list from the start. Without
+  `style.side` its card sits in the middle of the room it may take, its lines centred and without bullets; with a
+  side it keeps its side and bullets. `style.list_layout` (`OVERLAY_LIST_LAYOUTS`): `stack` (the default), `chips`
+  (each point its own small card in one centred row, in their final places, entering in turn from the left; a row too
+  wide shrinks like a title, at most three 10 % steps, else it is refused) or `auto` (chips when they fit one row, else
+  the stack). A resolved list carries `isCentred` or `chips` (each chip's box); `getDrawnOverlayCard` answers the
+  row's box, `getListCardsByItem` the drawn boxes after each point and `getListItemTimes` each point's second.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless

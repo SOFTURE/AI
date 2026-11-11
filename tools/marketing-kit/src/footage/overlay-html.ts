@@ -24,7 +24,10 @@ import {
   getOverlayPadding,
   getPlaceCardPinRow,
   getPlaceCardPinSize,
+  getListCardsByItem,
+  getListItemTimes,
   getTitleContentBox,
+  type OverlayBox,
   type ResolvedOverlay,
 } from "./overlays.js";
 
@@ -90,6 +93,13 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.ov-dot{flex:none;width:.36em;height:.36em;border-radius:50%;background:${colors.accent}}`,
     `.ov-list .ov-card{flex-direction:column;align-items:flex-start;gap:0;line-height:${OVERLAY_LIST_LINE_HEIGHT};font-weight:650}`,
     `.ov-list li{display:flex;align-items:center;gap:.45em;list-style:none}`,
+    // A list's card grows with its points (RV-144 of an adopting app): sized per point, the later points clipped until
+    // they come in; a centred stack centres its lines, and chips are cards of their own, one per point.
+    `.ov-list .ov-card.grow{box-sizing:border-box;overflow:hidden;flex:none}`,
+    `.ov-list .ov-card.cen{align-items:center;text-align:center}`,
+    `.ov-list li{white-space:nowrap}`,
+    `.ov.center .ov-card{transform-origin:50% 100%}`,
+    `.ov-list .ov-chip{position:absolute;box-sizing:border-box;flex-direction:row;align-items:center;justify-content:center;white-space:nowrap;line-height:${OVERLAY_LINE_HEIGHT};transform-origin:50% 100%}`,
     `.ov-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}`,
     `.ov-search,.ov-counter .ov-card,.ov-date .ov-card,.ov-place,.ov-sub,.ov-line{white-space:nowrap}`,
     // A title card fills its fitted box, so a typed title keeps its width; a centred typed line hides its untyped
@@ -118,7 +128,7 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.ov-ul{position:absolute;height:${UNDERLINE_EM.height}em;border-radius:${UNDERLINE_EM.height / 2}em;background:${colors.accent};transform:scaleX(0);transform-origin:0% 50%}`,
     `.ov-pinrow{display:flex;justify-content:center}`,
     `.ov-stack.left .ov-pinrow{justify-content:flex-start}`,
-    `.st li,.pd .ov-pinrow svg,.pl .ov-line,.sd .ov-sub{opacity:0}`,
+    `.pd .ov-pinrow svg,.pl .ov-line,.sd .ov-sub{opacity:0}`,
     // An underlined keyword keeps only its drawn bar: the card's own accent edge would be a second line under it.
     `.ov-keyword.ul .ov-card{border-bottom-color:transparent}`,
     // The brand's style (after the kinds' own rules, so it wins over them; the search bar stays a pill).
@@ -252,26 +262,22 @@ interface MarkupContext {
   frame: { width: number; height: number };
 }
 
-/** A keyword, a lower third or a list, entering as the soft pill (or by its own entrance). */
-function addSideText(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" | "list" }>, id: string, context: MarkupContext, out: OverlayMarkup): void {
+/** A keyword or a lower third, entering as the soft pill (or by its own entrance). */
+function addSideText(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" }>, id: string, context: MarkupContext, out: OverlayMarkup): void {
   const { box, fontSize, side } = overlay;
   const colors = getOverlayColors(overlay, context.colors);
   const cardStyle = getCardStyle(overlay, colors, context.scale);
   const dotStyle = overlay.colors.accent === undefined ? "" : ` style="background:${colors.accent}"`;
-  const isTyped = overlay.typing !== null && overlay.kind !== "list";
+  const isTyped = overlay.typing !== null;
   const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;align-items:${overlay.kind === "lower_third" ? "flex-end" : "flex-start"}`;
-  const text = overlay.kind === "list" ? "" : isTyped ? toTypedHtml(overlay.text) : escapeHtml(overlay.text);
+  const text = isTyped ? toTypedHtml(overlay.text) : escapeHtml(overlay.text);
   const wipe = overlay.entrance === "wipe" ? `<i class="ov-wipe" id="${id}w"></i>` : "";
   const underline = overlay.kind === "keyword" && overlay.underline === true ? `<i class="ov-ul" id="${id}u" style="${getUnderlineStyle(overlay)}"></i>` : "";
-  const staggered = overlay.kind === "list" ? overlay.itemStarts : undefined;
-  const body =
-    overlay.kind === "list"
-      ? `<ul class="ov-card"${cardStyle}>${wipe}${overlay.items.map((item, i) => `<li id="${id}i${i}"><i class="ov-dot"${dotStyle}></i>${escapeHtml(item)}</li>`).join("")}</ul>`
-      : `<div class="ov-card"${cardStyle}>${wipe}${overlay.kind === "lower_third" ? `<i class="ov-dot" id="${id}d"${dotStyle}></i>` : ""}<span id="${id}t">${text}</span>${underline}</div>`;
-  out.html.push(clipDiv(overlay, id, `ov ov-${overlay.kind.replace("_", "-")}${side === "right" ? " right" : ""}${isTyped ? " ty" : ""}${staggered === undefined ? "" : " st"}${underline === "" ? "" : " ul"}`, style, body));
+  const body = `<div class="ov-card"${cardStyle}>${wipe}${overlay.kind === "lower_third" ? `<i class="ov-dot" id="${id}d"${dotStyle}></i>` : ""}<span id="${id}t">${text}</span>${underline}</div>`;
+  out.html.push(clipDiv(overlay, id, `ov ov-${overlay.kind.replace("_", "-")}${side === "right" ? " right" : ""}${isTyped ? " ty" : ""}${underline === "" ? "" : " ul"}`, style, body));
   if (overlay.entrance !== null) {
     out.tweens.push(...getMotionTweens(`#${id} .ov-card`, getEntranceMotion(overlay.entrance, overlay.easing ?? "smooth", context.frame), overlay.start));
-    if (overlay.kind !== "list") out.tweens.push(...getTypingTweens(id, overlay, [...overlay.text].length));
+    out.tweens.push(...getTypingTweens(id, overlay, [...overlay.text].length));
   } else {
     // The soft pill's entrance: the card rises from its foot, then its dot and its text settle in, eased out without
     // overshoot (RV-133 of an adopting app: nothing grows past its size).
@@ -280,18 +286,71 @@ function addSideText(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lowe
       out.tweens.push(`tl.fromTo("#${id}d", { scale: 0 }, { scale: 1, duration: 0.35, ease: "power2.out", immediateRender: false }, ${r3(overlay.start + 0.25)});`);
       out.tweens.push(`tl.fromTo("#${id}t", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.4, ease: "power3.out", immediateRender: false }, ${r3(overlay.start + 0.3)});`);
     }
-    if (overlay.kind === "list" && staggered === undefined) {
-      overlay.items.forEach((_item, i) => {
-        out.tweens.push(`tl.fromTo("#${id}i${i}", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", immediateRender: false }, ${r3(overlay.start + 0.2 + 0.12 * i)});`);
-      });
-    }
   }
-  // A staggered list's points come in one by one, each on its own second (`itemStarts`).
-  staggered?.forEach((at, i) => {
-    out.tweens.push(`tl.fromTo("#${id}i${i}", { opacity: 0, y: ${r3(14 * context.scale)} }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", immediateRender: false }, ${at});`);
-  });
   if (underline !== "") {
     out.tweens.push(`tl.fromTo("#${id}u", { scaleX: 0 }, { scaleX: 1, duration: ${UNDERLINE_SECONDS}, ease: "power2.out", immediateRender: false }, ${r3(overlay.start + getEntranceSeconds(overlay.entrance, overlay, context.frame))});`);
+  }
+  out.tweens.push(
+    ...getExitTweens(`#${id} .ov-card`, overlay, context.frame, `tl.to("#${id} .ov-card", { scale: 0.94, y: 14, opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`),
+  );
+}
+
+/** The seconds a list's card takes to grow to its next point, and a point to come in. */
+const LIST_GROW_SECONDS = 0.35;
+
+/** A card's entrance at `start`: its named entrance, else the soft pill rising from its foot (eased out, no overshoot). */
+function getListCardEntrance(overlay: Extract<ResolvedOverlay, { kind: "list" }>, target: string, start: number, context: MarkupContext): string[] {
+  if (overlay.entrance !== null) return getMotionTweens(target, getEntranceMotion(overlay.entrance, overlay.easing ?? "smooth", context.frame), start);
+  return [`tl.fromTo("${target}", { scale: 0.88, y: ${r3(18 * context.scale)}, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.45, ease: "power3.out", immediateRender: false }, ${start});`];
+}
+
+/** A card's size and padding as inline CSS, in px. */
+function getListCardSize(card: OverlayBox, pad: { x: number; y: number }): string {
+  return `width:${card.width}px;height:${card.height}px;padding:${pad.y}px ${pad.x}px`;
+}
+
+/**
+ * A list (RV-144 of an adopting app): a stack, one card whose first point comes in with it and which grows to each next
+ * point as it comes in (eased out, no overshoot; centred lines in the frame's middle without a side), or chips, one card
+ * per point in its final place of a centred row, each entering on its own second from the left. Every card leaves
+ * together.
+ */
+function addList(overlay: Extract<ResolvedOverlay, { kind: "list" }>, id: string, context: MarkupContext, out: OverlayMarkup): void {
+  const { box, fontSize } = overlay;
+  const colors = getOverlayColors(overlay, context.colors);
+  const own = getCardStyle(overlay, colors, context.scale).replace(/^ style="|"$/g, "");
+  const pad = getOverlayPadding(overlay);
+  const times = getListItemTimes(overlay);
+  const cards = getListCardsByItem(overlay);
+  const wipe = (suffix: string) => (overlay.entrance === "wipe" ? `<i class="ov-wipe" id="${id}w${suffix}"></i>` : "");
+  const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;align-items:flex-start`;
+  if (overlay.chips !== undefined) {
+    const chips = overlay.chips.map((chip, i) => {
+      const place = `left:${chip.left - box.left}px;top:${chip.top - box.top}px;${getListCardSize(chip, pad)}${i === 0 ? "" : ";visibility:hidden"}${own === "" ? "" : `;${own}`}`;
+      return `<div class="ov-card ov-chip" id="${id}c${i}" style="${place}">${wipe(String(i))}<span>${escapeHtml(overlay.items[i] as string)}</span></div>`;
+    });
+    out.html.push(clipDiv(overlay, id, "ov ov-list chips", style, chips.join("")));
+    times.forEach((at, i) => {
+      if (i > 0) out.tweens.push(`tl.set("#${id}c${i}", { visibility: "visible" }, ${at});`);
+      out.tweens.push(...getListCardEntrance(overlay, `#${id}c${i}`, at, context));
+    });
+  } else {
+    const isCentred = overlay.isCentred === true;
+    const dotStyle = overlay.colors.accent === undefined ? "" : ` style="background:${colors.accent}"`;
+    const first = times.filter((at) => at <= overlay.start).length - 1;
+    const card = (cards[first] as OverlayBox[])[0] as OverlayBox;
+    const items = overlay.items.map((item, i) => `<li id="${id}i${i}"${i > first ? ` style="opacity:0"` : ""}>${isCentred ? "" : `<i class="ov-dot"${dotStyle}></i>`}${escapeHtml(item)}</li>`);
+    const cardStyle = `${getListCardSize(card, pad)}${own === "" ? "" : `;${own}`}`;
+    const side = isCentred ? " center" : overlay.side === "right" ? " right" : "";
+    out.html.push(clipDiv(overlay, id, `ov ov-list${side}`, style, `<ul class="ov-card grow${isCentred ? " cen" : ""}" style="${cardStyle}">${wipe("")}${items.join("")}</ul>`));
+    out.tweens.push(...getListCardEntrance(overlay, `#${id} .ov-card`, overlay.start, context));
+    // Each later point: the card eases to its new size as the point fades up into it.
+    times.forEach((at, i) => {
+      if (i <= first) return;
+      const next = (cards[i] as OverlayBox[])[0] as OverlayBox;
+      out.tweens.push(`tl.to("#${id} .ov-card", { width: ${next.width}, height: ${next.height}, duration: ${LIST_GROW_SECONDS}, ease: "power3.out" }, ${at});`);
+      out.tweens.push(`tl.fromTo("#${id}i${i}", { opacity: 0, y: ${r3(14 * context.scale)} }, { opacity: 1, y: 0, duration: ${LIST_GROW_SECONDS}, ease: "power3.out", immediateRender: false }, ${at});`);
+    });
   }
   out.tweens.push(
     ...getExitTweens(`#${id} .ov-card`, overlay, context.frame, `tl.to("#${id} .ov-card", { scale: 0.94, y: 14, opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`),
@@ -454,7 +513,8 @@ export function getOverlayMarkup(
   const out: OverlayMarkup = { html: [], css: getOverlayCss(input.colors, { heading: input.headingFont, interface: input.interfaceFont ?? "inherit" }, input.style, context.scale), tweens: [] };
   for (const overlay of drawn) {
     const id = `ov${overlay.index}`;
-    if (overlay.kind === "keyword" || overlay.kind === "lower_third" || overlay.kind === "list") addSideText(overlay, id, context, out);
+    if (overlay.kind === "list") addList(overlay, id, context, out);
+    else if (overlay.kind === "keyword" || overlay.kind === "lower_third") addSideText(overlay, id, context, out);
     else if (overlay.kind === "arrow" || overlay.kind === "highlight") addMark(overlay, id, context, out);
     else addCard(overlay, id, context, out);
   }

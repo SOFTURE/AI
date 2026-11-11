@@ -74,6 +74,15 @@ export const OVERLAY_PINS = ["none", "static", "drop"] as const;
 
 export type OverlayPin = (typeof OVERLAY_PINS)[number];
 
+/**
+ * How a list draws its points: `stack` (one centred card, its points one under another, the card growing as each one
+ * comes in), `chips` (each point its own small card, side by side in one centred row, entering in turn from the left)
+ * or `auto` (chips when every point fits one row at the list's size, else the stack). Without it: `stack`.
+ */
+export const OVERLAY_LIST_LAYOUTS = ["stack", "chips", "auto"] as const;
+
+export type OverlayListLayout = (typeof OVERLAY_LIST_LAYOUTS)[number];
+
 /** The longest a place card's subtitle waits after its title, in seconds. */
 export const MAX_OVERLAY_SUBTITLE_DELAY = 0.6;
 
@@ -152,6 +161,8 @@ export interface EdlOverlayStyle {
   easing?: OverlayEasing;
   /** A list's points come in one by one (on their `item_words` when given, else spaced automatically). */
   stagger?: boolean;
+  /** How a list draws its points (`stack` without it). */
+  list_layout?: OverlayListLayout;
   /** Seconds a place card's subtitle waits after its title (0 to `MAX_OVERLAY_SUBTITLE_DELAY`). */
   subtitle_delay?: number;
   /** A place card's accent pin above its title. */
@@ -327,6 +338,7 @@ function checkOverlayStyle(overlay: EdlOverlay, issue: (path: string[], message:
   if (style.subtitle_delay !== undefined && kind !== "place_card") issue(["style", "subtitle_delay"], "only a place_card has a subtitle; leave subtitle_delay out");
   if (style.pin !== undefined && kind !== "place_card") issue(["style", "pin"], "only a place_card draws a pin; leave pin out");
   if (style.stagger !== undefined && kind !== "list") issue(["style", "stagger"], "only a list has points to stagger; leave stagger out");
+  if (style.list_layout !== undefined && kind !== "list") issue(["style", "list_layout"], "only a list lays out points; leave list_layout out");
   if (style.underline !== undefined && kind !== "keyword") issue(["style", "underline"], "only a keyword is underlined; leave underline out");
   if ((style.exit !== undefined || style.easing !== undefined) && kind === "punch_in") issue(["style", style.exit === undefined ? "easing" : "exit"], "a punch_in eases the picture itself; leave exit and easing out");
   if (style.colors === undefined) return;
@@ -442,6 +454,12 @@ export const overlaySchema = z
         align: z.enum(OVERLAY_ALIGNS).optional().describe("center (the default) or left: how a hook_title's or a place_card's lines sit in their card."),
         subtitle_size: z.enum(OVERLAY_SIZES).optional().describe("s, m (the default, about 55 % of the title) or l: a place_card's subtitle size."),
         stagger: z.boolean().optional().describe("A list only: its points come in one by one (on item_words when given, else spaced automatically)."),
+        list_layout: z
+          .enum(OVERLAY_LIST_LAYOUTS)
+          .optional()
+          .describe(
+            "A list only: stack (the default: one centred card growing as each point comes in), chips (each point its own small card in one centred row, entering in turn from the left) or auto (chips when they fit one row, else stack).",
+          ),
         subtitle_delay: z
           .number()
           .min(0)

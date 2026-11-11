@@ -227,7 +227,7 @@ function composeInput(overlays?: ResolvedOverlay[]): FootageComposeInput {
 const ALL_KINDS: EdlOverlay[] = [
   { kind: "keyword", at: 0.2, duration: 1, text: "3x" },
   { kind: "lower_third", at: 1.3, duration: 1.2, text: "Lisbon, Portugal" },
-  { kind: "list", at: 2.6, duration: 1.2, items: ["Cheap", "Sunny"] },
+  { kind: "list", at: 2.6, duration: 1.2, items: ["Cheap", "Sunny"], style: { side: "left" } },
   { kind: "punch_in", at: 4.5, duration: 1.2 },
   { kind: "arrow", at: 5.8, duration: 1, anchor: { x: 800, y: 700 } },
   { kind: "highlight", at: 6.8, duration: 1.2, anchor: { x: 300, y: 500, width: 400, height: 200 } },
@@ -443,7 +443,7 @@ describe("getDrawnOverlayCard", () => {
     const left = only({ kind: "keyword", at: 1, duration: 1, text: "3x", style: { side: "left" } });
     if (left.kind !== "keyword") throw new Error("a keyword");
     expect(getDrawnOverlayCard(left)).toEqual({ left: left.box.left, top: left.box.top, width: 195, height: left.box.height });
-    const list = only({ kind: "list", at: 1, duration: 2, items: ["Cheap", "Sunny  days"] });
+    const list = only({ kind: "list", at: 1, duration: 2, items: ["Cheap", "Sunny  days"], style: { side: "left" } });
     if (list.kind !== "list") throw new Error("a list");
     // "• Sunny days" (spaces collapsed): 12 × 0.56 × 48 = 322.56 → 323, plus 2 × 29.
     expect(getDrawnOverlayCard(list)).toEqual({ left: list.box.left, top: list.box.top, width: 381, height: list.box.height });

@@ -14,6 +14,7 @@ import {
   type OverlayEntrance,
   type OverlayExit,
   type OverlayKind,
+  type OverlayListLayout,
   type OverlayPosition,
   type OverlaySide,
   type OverlaySize,
@@ -61,6 +62,8 @@ const MAX_TITLE_SHRINKS = 3;
 /** A text overlay's line height and its box's padding, in font sizes. */
 export const OVERLAY_LINE_HEIGHT = 1.15;
 export const OVERLAY_LIST_LINE_HEIGHT = 1.4;
+/** The room between two chips of a list's row, in font sizes. */
+export const LIST_CHIP_GAP_EM = 0.3;
 /** A place card title's line height, tighter for its big type. */
 export const OVERLAY_TITLE_LINE_HEIGHT = 1.05;
 export const OVERLAY_PADDING_EM = { x: 0.6, y: 0.35 } as const;
@@ -146,7 +149,18 @@ export type ResolvedOverlay =
   | (OverlayBase & { kind: "punch_in"; scale: number; ease: number })
   | (Drawn & { kind: "keyword"; text: string; fontSize: number; side: OverlaySide; box: OverlayBox; underline?: boolean })
   | (Drawn & { kind: "lower_third"; text: string; fontSize: number; side: OverlaySide; box: OverlayBox })
-  | (Drawn & { kind: "list"; items: string[]; fontSize: number; side: OverlaySide; box: OverlayBox; itemStarts?: number[] })
+  | (Drawn & {
+      kind: "list";
+      items: string[];
+      fontSize: number;
+      side: OverlaySide;
+      box: OverlayBox;
+      itemStarts?: number[];
+      /** Its card sits in the middle of `box` with its lines centred (a stack without `style.side`); absent: on its side. */
+      isCentred?: boolean;
+      /** Each point's own card in one row (`style.list_layout` chips, or auto when they fit); absent: one stacked card. */
+      chips?: OverlayBox[];
+    })
   | (Drawn & { kind: "arrow"; from: OverlayPoint; to: OverlayPoint })
   | (Drawn & { kind: "highlight"; rect: OverlayBox })
   | (Drawn & { kind: "hook_title"; lines: string[]; place: string | null; fontSize: number; placeFontSize: number; align?: OverlayAlign; box: OverlayBox })
@@ -285,9 +299,13 @@ export function getOverlayBounds(overlay: ResolvedOverlay): OverlayBox | null {
 
 type SideTextOverlay = Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" | "list" }>;
 
-/** A keyword's, a lower third's or a list's lines as the draft draws them: a list's points with their bullets. */
+/**
+ * A keyword's, a lower third's or a list's lines as the draft draws them: a list's points with their bullets on a list
+ * on its side; a centred stack and chips draw their points without bullets.
+ */
 export function getSideTextLines(overlay: SideTextOverlay): string[] {
-  const lines = overlay.kind === "list" ? overlay.items.map((item) => `• ${item}`) : [overlay.text];
+  const hasBullets = overlay.kind === "list" && overlay.isCentred !== true && overlay.chips === undefined;
+  const lines = overlay.kind === "list" ? overlay.items.map((item) => (hasBullets ? `• ${item}` : item)) : [overlay.text];
   return lines.map((line) => line.replace(/\s+/g, " ").trim());
 }
 
@@ -299,11 +317,53 @@ export function getSideTextLines(overlay: SideTextOverlay): string[] {
  */
 export function getDrawnOverlayCard(overlay: ResolvedOverlay): OverlayBox | null {
   if (overlay.kind !== "keyword" && overlay.kind !== "lower_third" && overlay.kind !== "list") return getOverlayBounds(overlay);
+  if (overlay.kind === "list" && overlay.chips !== undefined) return getBoxesUnion(overlay.chips);
+  return getSideTextCard(overlay, getSideTextLines(overlay), overlay.box.height);
+}
+
+/** The card of a side text fitted to `lines`, `height` tall from the box's top: on its side, or in the box's middle. */
+function getSideTextCard(overlay: SideTextOverlay, lines: readonly string[], height: number): OverlayBox {
   const { box, fontSize, side } = overlay;
   const padX = getOverlayPadding(overlay).x;
-  const textWidth = Math.max(0, ...getSideTextLines(overlay).map((line) => estimateTextWidth(line, fontSize)));
+  const textWidth = Math.max(0, ...lines.map((line) => estimateTextWidth(line, fontSize)));
   const width = Math.min(box.width, Math.ceil(textWidth + 2 * padX));
-  return { left: side === "right" ? box.left + box.width - width : box.left, top: box.top, width, height: box.height };
+  const isCentred = overlay.kind === "list" && overlay.isCentred === true;
+  const left = isCentred ? box.left + Math.round((box.width - width) / 2) : side === "right" ? box.left + box.width - width : box.left;
+  return { left, top: box.top, width, height };
+}
+
+/** The smallest box round every box of a non-empty list. */
+function getBoxesUnion(boxes: readonly OverlayBox[]): OverlayBox {
+  const left = Math.min(...boxes.map((box) => box.left));
+  const top = Math.min(...boxes.map((box) => box.top));
+  const right = Math.max(...boxes.map((box) => box.left + box.width));
+  const bottom = Math.max(...boxes.map((box) => box.top + box.height));
+  return { left, top, width: right - left, height: bottom - top };
+}
+
+/**
+ * A list's drawn boxes after each point has come in (RV-144 of an adopting app): `cards[i]` is what shows once points
+ * 0 to i are in. A stack's card grows with each point, fitted to the points in so far (one line taller, as wide as the
+ * widest), so it never stands sized for the whole list nor empty: its first point comes in with it. Chips add one
+ * card at a time, each in its final place (`overlay.chips`), so the row is centred once complete and nothing already
+ * shown moves. Every entry holds one box per drawn card.
+ */
+export function getListCardsByItem(overlay: Extract<ResolvedOverlay, { kind: "list" }>): OverlayBox[][] {
+  if (overlay.chips !== undefined) {
+    const chips = overlay.chips;
+    return chips.map((_chip, index) => chips.slice(0, index + 1));
+  }
+  const lines = getSideTextLines(overlay);
+  const padY = getOverlayPadding(overlay).y;
+  return lines.map((_line, index) => {
+    const height = index === lines.length - 1 ? overlay.box.height : Math.ceil((index + 1) * overlay.fontSize * OVERLAY_LIST_LINE_HEIGHT + 2 * padY);
+    return [getSideTextCard(overlay, lines.slice(0, index + 1), height)];
+  });
+}
+
+/** The film seconds each point of a list comes in at: its own (`itemStarts`), the first with the card; else all with the card. */
+export function getListItemTimes(overlay: Extract<ResolvedOverlay, { kind: "list" }>): number[] {
+  return overlay.items.map((_item, index) => (index === 0 ? overlay.start : (overlay.itemStarts?.[index] ?? overlay.start)));
 }
 
 /**
@@ -394,7 +454,8 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
         return;
       }
       const times = overlay.item_at ?? (overlay.item_words === undefined ? undefined : said.map((word) => (word as { start: number }).start));
-      placed.overlay.itemStarts = getListItemStarts({ start, end, count: placed.overlay.items.length, ...(times === undefined ? {} : { words: times }) });
+      // The first point comes in with the card, so the card never stands empty (RV-144 of an adopting app).
+      placed.overlay.itemStarts = getListItemStarts({ start, end, count: placed.overlay.items.length, ...(times === undefined ? {} : { words: times }) }).map((at, item) => (item === 0 ? start : at));
     }
     if (placed.overlay.kind === "punch_in") {
       if (edl.segments[segment]?.motion === "kenburns") {
@@ -539,10 +600,15 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
   const scale = frame.width / 1080;
   const side = overlay.style?.side ?? (overlay.kind === "keyword" ? "right" : "left");
   const fontSize = Math.round(OVERLAY_FONT_SIZES[overlay.kind][overlay.style?.size ?? "m"] * scale);
-  const padY = getOverlayPadding({ fontSize, padScale: place.padScale }).y;
+  const pad = getOverlayPadding({ fontSize, padScale: place.padScale });
+  const margin = Math.round(OVERLAY_MARGIN * scale);
+  const room = frame.width - zone.left - zone.right - 2 * margin;
+  const chips = overlay.kind === "list" ? getListChipLayout({ items: overlay.items ?? [], layout: overlay.style?.list_layout ?? "stack", fontSize, padScale: place.padScale, room }) : null;
+  if (chips !== null && !chips.ok) return chips;
+  const row = chips?.row ?? null;
   const lines = overlay.kind === "list" ? (overlay.items ?? []).length : 1;
   const lineHeight = overlay.kind === "list" ? OVERLAY_LIST_LINE_HEIGHT : OVERLAY_LINE_HEIGHT;
-  const height = Math.ceil(lines * fontSize * lineHeight + 2 * padY);
+  const height = row === null ? Math.ceil(lines * fontSize * lineHeight + 2 * pad.y) : row.height;
   const region = getTextRegion(place);
   // Without a position, each kind's own place: the lower third on the captions' room, the keyword in the middle, the list high.
   const position = overlay.style?.position ?? (overlay.kind === "lower_third" ? "bottom" : overlay.kind === "keyword" ? "middle" : null);
@@ -550,12 +616,59 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
   if (top < region.top || top + height > region.bottom) {
     return { ok: false, error: `the ${overlay.kind.replace("_", " ")} (${height} px tall) does not fit between the platform safe zone and the captions; use a smaller size or fewer points` };
   }
-  const margin = Math.round(OVERLAY_MARGIN * scale);
-  const box = { left: zone.left + margin, top, width: frame.width - zone.left - zone.right - 2 * margin, height };
-  if (overlay.kind === "list") return { ok: true, overlay: { ...drawn, kind: "list", items: overlay.items ?? [], fontSize, side, box } };
+  const box = { left: zone.left + margin, top, width: room, height };
+  if (overlay.kind === "list") {
+    const layout = row === null ? (overlay.style?.side === undefined ? { isCentred: true } : {}) : { chips: placeChipRow(row, box) };
+    // A row of chips may be drawn smaller than the list's size, to fit one row.
+    return { ok: true, overlay: { ...drawn, kind: "list", items: overlay.items ?? [], fontSize: row?.fontSize ?? fontSize, side, box, ...layout } };
+  }
   const fields = { text: overlay.text ?? "", fontSize, side, box };
   if (overlay.kind === "lower_third") return { ok: true, overlay: { ...drawn, kind: "lower_third", ...fields } };
   return { ok: true, overlay: { ...drawn, kind: "keyword", ...fields, ...(overlay.style?.underline === true ? { underline: true } : {}) } };
+}
+
+/** A list's chips before they are placed: their type size, each one's width, their common height, the row's width with its gaps. */
+interface ChipRow {
+  fontSize: number;
+  widths: number[];
+  height: number;
+  gap: number;
+  width: number;
+}
+
+/** A row of chips at one type size. */
+function measureChipRow(items: readonly string[], fontSize: number, padScale: number): ChipRow {
+  const pad = getOverlayPadding({ fontSize, padScale });
+  const widths = items.map((item) => Math.ceil(estimateTextWidth(item, fontSize) + 2 * pad.x));
+  const gap = Math.round(fontSize * LIST_CHIP_GAP_EM);
+  const width = widths.reduce((sum, chip) => sum + chip, 0) + gap * Math.max(0, widths.length - 1);
+  return { fontSize, widths, height: Math.ceil(fontSize * OVERLAY_LINE_HEIGHT + 2 * pad.y), gap, width };
+}
+
+/**
+ * Whether a list draws as chips and their row (null: the stack), or why it cannot. A row wider than `room` is tried
+ * smaller, as a title is (by `OVERLAY_TITLE_SHRINK`, at most `MAX_TITLE_SHRINKS` times); one that never fits is refused
+ * on `chips`, and `auto` falls back to the stack at the list's own size. `stack` never draws chips.
+ */
+function getListChipLayout(input: { items: readonly string[]; layout: OverlayListLayout; fontSize: number; padScale: number; room: number }): { ok: true; row: ChipRow | null } | { ok: false; error: string } {
+  const { items, layout, room } = input;
+  if (layout === "stack") return { ok: true, row: null };
+  const own = measureChipRow(items, input.fontSize, input.padScale);
+  for (let shrink = 0, row = own; shrink <= MAX_TITLE_SHRINKS; shrink++, row = measureChipRow(items, Math.round(row.fontSize * OVERLAY_TITLE_SHRINK), input.padScale)) {
+    if (row.width <= room) return { ok: true, row };
+  }
+  if (layout === "auto") return { ok: true, row: null };
+  return { ok: false, error: `the list's points as chips (${own.width} px) do not fit one row (${room} px) even at a smaller size; use list_layout stack or auto, or shorter points` };
+}
+
+/** The chips of a row in their final places: centred in `box`, left to right in the points' order. */
+function placeChipRow(row: ChipRow, box: OverlayBox): OverlayBox[] {
+  let left = box.left + Math.round((box.width - row.width) / 2);
+  return row.widths.map((width) => {
+    const chip = { left, top: box.top, width, height: row.height };
+    left += width + row.gap;
+    return chip;
+  });
 }
 
 type CardKind = "hook_title" | "search_bar" | "place_card" | "counter" | "date_stamp";
