@@ -14,7 +14,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `style.easing` (`OVERLAY_EASINGS`: `smooth`, `snappy`). Without them, or with no entrance or `none`, an overlay
   leaves as before. Refused on a `punch_in`.
 - **Per kind:** a list's `style.stagger` and `item_words` (one word per point; a word the cut does not say is refused
-  as `item_words[i]`), resolved to `itemStarts`; a place card's `style.pin` (`OVERLAY_PINS`) and
+  as `item_words[i]`) or `item_at` (one film second per point), resolved to `itemStarts`; a place card's `style.pin` (`OVERLAY_PINS`) and
   `style.subtitle_delay` (up to `MAX_OVERLAY_SUBTITLE_DELAY`, 0.6 s), resolved to `pin` and `subtitleDelay` (a pinned
   card is taller by `getPlaceCardPinRow`; `getPlaceCardTimes` answers when the pin, the title and the subtitle come
   in); a keyword's `style.underline`. Each is refused on another kind.

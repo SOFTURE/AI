@@ -218,6 +218,16 @@
               "additionalProperties": false
             }
           },
+          "item_at": {
+            "description": "A list only, in place of item_words: the film second each point comes in at, one per point in order.",
+            "minItems": 2,
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
           "anchor": {
             "description": "The point an arrow points at, or the rectangle a highlight marks (x, y its top left), in px of the film's frame.",
             "type": "object",

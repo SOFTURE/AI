@@ -193,6 +193,10 @@ describe("the new knobs' schema", () => {
     expect(error({ ...KEYWORD, item_words: [{ text: "a" }, { text: "b" }] })).toContain("a keyword has no points; leave item_words out");
     expect(error({ ...LIST, item_words: [{ text: "a" }, { text: "b" }] })).toContain("gives 2 words for 3 points; one word per point");
     expect(error({ ...LIST, item_words: [{ text: "a" }, { text: "b" }, { text: "c", occurrence: 2 }] })).toBe("");
+    expect(error({ ...KEYWORD, item_at: [1, 2] })).toContain("a keyword has no points; leave item_at out");
+    expect(error({ ...LIST, item_at: [2.5, 3, 4], item_words: [{ text: "a" }, { text: "b" }, { text: "c" }] })).toContain("give item_words or item_at, not both");
+    expect(error({ ...LIST, item_at: [2.5, 3] })).toContain("gives 2 seconds for 3 points; one second per point");
+    expect(error({ ...LIST, item_at: [2.5, 3, 4] })).toBe("");
     expect(error({ ...PLACE, style: { pin: "drop", subtitle_delay: 0.6 } })).toBe("");
   });
 });
@@ -223,6 +227,8 @@ describe("resolving the new knobs", () => {
   it("brings a list's points in on their words or spaced automatically", () => {
     expect(only({ ...LIST, item_words: [{ text: "First" }, { text: "second" }, { text: "third" }] }, "list").itemStarts).toEqual([2.4, 3.1, 5.4]);
     expect(only({ ...LIST, style: { stagger: true } }, "list").itemStarts).toEqual([2.2, 2.733, 3.267]);
+    // Seconds the caller resolved itself (an app reading the words as its transcript shows them), clamped to the span.
+    expect(only({ ...LIST, item_at: [1, 3.5, 99] }, "list").itemStarts).toEqual([2, 3.5, 5.4]);
     const missing = resolve([{ ...LIST, item_words: [{ text: "first" }, { text: "fourth" }, { text: "first", occurrence: 2 }] }]);
     expect(missing.ok ? [] : missing.problems).toEqual([
       'overlays[0].item_words[1]: no word "fourth" in the cut; the film never says it',

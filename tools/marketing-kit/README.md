@@ -722,7 +722,8 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   card revealed from the left under an accent panel, then its text), on every kind with a card. `style.exit` (`auto`,
   the default, mirrors the entrance; `fade`, `slide` down and out, `none`) and `style.easing` (`smooth`, the default,
   or `snappy`: 0.7 as long, `expo.out`) shape the way out and the curve. Per kind: a list's `style.stagger` (its
-  points one by one, spaced automatically) or `item_words` (one transcript word per point, each point on its word);
+  points one by one, spaced automatically) or `item_words` (one transcript word per point, each point on its word) or `item_at` (the film second of each point, for
+  a caller that reads the words itself);
   a place card's `style.pin` (`none`, `static`, or `drop`: an accent pin above the title that falls a little and
   stops) and `style.subtitle_delay` (0-0.6 s; pin first, then the title, then the subtitle); a keyword's
   `style.underline` (an accent bar drawn under the word once it is in). The motion lives in one model

@@ -376,14 +376,14 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
       problems.push(`${at}: ${placed.error}`);
       return;
     }
-    if (placed.overlay.kind === "list" && (overlay.style?.stagger === true || overlay.item_words !== undefined)) {
+    if (placed.overlay.kind === "list" && (overlay.style?.stagger === true || overlay.item_words !== undefined || overlay.item_at !== undefined)) {
       const said = (overlay.item_words ?? []).map((word, item) => findWordStart(word, input.words, `item_words[${item}]`));
       const missing = said.flatMap((word) => (word.ok ? [] : [word.error]));
       if (missing.length > 0) {
         problems.push(...missing.map((error) => `${at}.${error}`));
         return;
       }
-      const times = overlay.item_words === undefined ? undefined : said.map((word) => (word as { start: number }).start);
+      const times = overlay.item_at ?? (overlay.item_words === undefined ? undefined : said.map((word) => (word as { start: number }).start));
       placed.overlay.itemStarts = getListItemStarts({ start, end, count: placed.overlay.items.length, ...(times === undefined ? {} : { words: times }) });
     }
     if (placed.overlay.kind === "punch_in") {

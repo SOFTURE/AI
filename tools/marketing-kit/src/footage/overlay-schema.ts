@@ -172,8 +172,10 @@ export interface EdlOverlay {
   text?: string;
   /** The `list` points (2 to 4). */
   items?: string[];
-  /** A `list`'s words its points come in on, one per point (they come in one by one). */
+  /** A `list`'s words its points come in on, one per point (they come in one by one); give this or `item_at`. */
   item_words?: EdlOverlayWord[];
+  /** A `list`'s film seconds its points come in at, one per point; give this or `item_words`. */
+  item_at?: number[];
   /** The `arrow` point or the `highlight` rectangle. */
   anchor?: EdlOverlayAnchor;
   /** The place label of a `hook_title` (with a pin) or a `date_stamp`. */
@@ -285,6 +287,11 @@ function checkOverlayFields(overlay: EdlOverlay, issue: (path: string[], message
     if (kind !== "list") issue(["item_words"], `${article(kind)} has no points; leave item_words out`);
     else if (overlay.items !== undefined && overlay.item_words.length !== overlay.items.length) issue(["item_words"], `gives ${overlay.item_words.length} words for ${overlay.items.length} points; one word per point`);
   }
+  if (overlay.item_at !== undefined) {
+    if (kind !== "list") issue(["item_at"], `${article(kind)} has no points; leave item_at out`);
+    else if (overlay.item_words !== undefined) issue(["item_at"], "give item_words or item_at, not both");
+    else if (overlay.items !== undefined && overlay.item_at.length !== overlay.items.length) issue(["item_at"], `gives ${overlay.item_at.length} seconds for ${overlay.items.length} points; one second per point`);
+  }
   if (!fields.items && overlay.items !== undefined) issue(["items"], `${article(kind)} draws no points; leave them out`);
   if (fields.anchor === "none" && overlay.anchor !== undefined) issue(["anchor"], `${article(kind)} has no anchor; leave it out`);
   if (fields.anchor !== "none" && overlay.anchor === undefined) issue(["anchor"], `${article(kind)} needs its anchor`);
@@ -369,6 +376,12 @@ export const overlaySchema = z
       .max(4)
       .optional()
       .describe("A list only: the word each point comes in on, one per point in order; the points come in one by one."),
+    item_at: z
+      .array(z.number().min(0))
+      .min(2)
+      .max(4)
+      .optional()
+      .describe("A list only, in place of item_words: the film second each point comes in at, one per point in order."),
     anchor: z
       .strictObject({
         x: z.number().min(0).describe("Px from the frame's left edge."),
