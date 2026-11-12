@@ -36,7 +36,7 @@ export interface FootageToolsOptions {
 export const REQUIRED_DECODERS = ["hevc", "h264"] as const;
 export const REQUIRED_FILTERS = ["zscale", "tonemap", "lut3d"] as const;
 /** What the fast draft needs on top: libass (with libfreetype) for the captions, `xfade` for fades, `zoompan` for Ken Burns. */
-export const DRAFT_FILTERS = ["ass", "xfade", "zoompan", "gblur", "geq", "rotate", "blend", "noise", "interleave", "hstack"] as const;
+export const DRAFT_FILTERS = ["ass", "xfade", "zoompan", "gblur", "geq", "rotate", "blend", "noise", "interleave", "hstack", "vstack"] as const;
 
 const DRAFT_INSTALL_HINT = "install an ffmpeg built with libass and libfreetype (macOS: brew install ffmpeg, Debian/Ubuntu: apt install ffmpeg)";
 const INSTALL_HINT = "install an ffmpeg built with libzimg (macOS: brew install ffmpeg, Debian/Ubuntu: apt install ffmpeg)";

@@ -177,6 +177,135 @@
               }
             },
             "additionalProperties": false
+          },
+          "split": {
+            "type": "object",
+            "properties": {
+              "layout": {
+                "type": "string",
+                "enum": [
+                  "split3"
+                ],
+                "description": "split3: three shots stacked in horizontal bands."
+              },
+              "bands": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "clip": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The band's clip id."
+                      },
+                      "start": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "Seconds in that trimmed clip where the band's shot starts; it plays for the segment's length."
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 24,
+                        "pattern": "^[^\\n\\r]*$",
+                        "description": "A short handwritten label, one line, at most 24 characters (a place's name)."
+                      },
+                      "focus": {
+                        "description": "Where the band's crop sits in the shot's height: 0 its top, 1 its foot; 0.5 (the middle) without it.",
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      }
+                    },
+                    "required": [
+                      "clip",
+                      "start",
+                      "label"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "clip": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The band's clip id."
+                      },
+                      "start": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "Seconds in that trimmed clip where the band's shot starts; it plays for the segment's length."
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 24,
+                        "pattern": "^[^\\n\\r]*$",
+                        "description": "A short handwritten label, one line, at most 24 characters (a place's name)."
+                      },
+                      "focus": {
+                        "description": "Where the band's crop sits in the shot's height: 0 its top, 1 its foot; 0.5 (the middle) without it.",
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      }
+                    },
+                    "required": [
+                      "clip",
+                      "start",
+                      "label"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "clip": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The band's clip id."
+                      },
+                      "start": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "Seconds in that trimmed clip where the band's shot starts; it plays for the segment's length."
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 24,
+                        "pattern": "^[^\\n\\r]*$",
+                        "description": "A short handwritten label, one line, at most 24 characters (a place's name)."
+                      },
+                      "focus": {
+                        "description": "Where the band's crop sits in the shot's height: 0 its top, 1 its foot; 0.5 (the middle) without it.",
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      }
+                    },
+                    "required": [
+                      "clip",
+                      "start",
+                      "label"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "items": false,
+                "minItems": 3,
+                "maxItems": 3,
+                "description": "The three bands, top to bottom."
+              }
+            },
+            "required": [
+              "layout",
+              "bands"
+            ],
+            "additionalProperties": false,
+            "description": "A split screen: the segment's picture is three shots stacked in bands, each with a handwritten label and a drawn arrow; the segment's sound stays its own. Still (no camera, Ken Burns, zoom or stutter), not the cut's last segment, and the segment after it starts on a plain cut."
           }
         },
         "required": [

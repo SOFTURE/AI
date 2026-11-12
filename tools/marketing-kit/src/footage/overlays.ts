@@ -518,6 +518,11 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
     const segment = findSegmentAt(edl, start);
     const segmentStart = starts[segment] as number;
     const segmentId = edl.segments[segment]?.id ?? "";
+    const split = edl.segments.findIndex((candidate, i) => candidate.split !== undefined && (starts[i] as number) < end - 0.001 && start < (starts[i] as number) + candidate.end - candidate.start - 0.001);
+    if (split !== -1) {
+      problems.push(`${at}: segment "${edl.segments[split]?.id ?? ""}" is a split screen with its own labels and arrows; keep overlays off it`);
+      return;
+    }
     if (!isTitleBand(overlay.kind)) {
       const shot = findShotSpan(edl, starts, { segment, end, isPunchIn: overlay.kind === "punch_in" });
       if (end > shot.end + 0.01) {

@@ -5,6 +5,7 @@ import { cameraSchema, describeCamera, isSameCamera, type EdlCamera } from "./ca
 import { overlaySchema, type EdlOverlay } from "./overlay-schema.js";
 import { DRAWN_TRANSITION_FRAMES, isDrawnTransition, STUTTER_FRAMES } from "./drawn-transitions.js";
 import { FOOTAGE_FPS } from "./normalize.js";
+import { findSplitCaptionProblems, findSplitLabelProblems, splitSchema, type EdlSplit } from "./split-screen.js";
 import { CUT_TRANSITIONS, type ClipRole, type CutOptions, type CutTransition, type FootageTransitions } from "./film.js";
 import { splitFilmSentences, type Sentence } from "./sentences.js";
 import { isFiller } from "./words.js";
@@ -69,6 +70,8 @@ export interface EdlSegment {
   audio?: EdlAudio;
   /** Moves the caption box for the captions that start in this segment; absent: the film's box. */
   caption?: EdlCaption;
+  /** A split screen (`split-screen.ts`): the picture is three shots stacked in bands; absent: the segment's own clip. */
+  split?: EdlSplit;
 }
 
 export interface Edl {
@@ -125,6 +128,7 @@ export const edlSchema = z
             })
             .optional()
             .describe("Moves the caption box for the captions that start in this segment (px of the film's frame). Without it, the film's caption box."),
+          split: splitSchema.optional(),
         }),
       )
       .min(1, "the cut needs at least one segment")
@@ -294,6 +298,8 @@ export function getSoundSpan(segment: EdlSegment): { clip: string; start: number
 export interface EdlCaptionBounds {
   frameHeight: number;
   cardHeight: number;
+  /** The frame's width, for a split screen's labels; absent: a 9:16 frame's (`frameHeight` × 9 / 16). */
+  frameWidth?: number;
 }
 
 /**
@@ -319,6 +325,7 @@ export function validateEdl(edl: Edl, clips: Pick<EdlClip, "id" | "duration">[],
     if (segment.end - segment.start < MIN_SEGMENT_SECONDS) problems.push(`${at}: shorter than ${MIN_SEGMENT_SECONDS} s (start ${segment.start}, end ${segment.end})`);
     if (captionBounds !== undefined) problems.push(...findCaptionProblems(`${at}.caption`, segment.caption, captionBounds));
     problems.push(...findCameraProblems(at, segment));
+    if (segment.split !== undefined) problems.push(...findSplitProblems({ edl, index, split: segment.split, checkSpan, captionBounds }));
     const { audio } = segment;
     if (audio === undefined) return;
     checkSpan(`${at}.audio`, audio);
@@ -327,6 +334,43 @@ export function validateEdl(edl: Edl, clips: Pick<EdlClip, "id" | "duration">[],
     if (Math.abs(length - soundLength) > 0.05) problems.push(`${at}.audio: ${soundLength} s of sound for ${length} s of picture (end - start must match)`);
   });
   problems.push(...findCaptionRangeProblems(edl, captionBounds));
+  return problems;
+}
+
+/** The 1080 px wide 9:16 frame a split screen's labels are measured in when no bounds name the frame. */
+const SPLIT_CHECK_FRAME = { width: 1080, height: 1920 };
+
+/**
+ * What makes a split screen unusable: a band's clip missing or too short for the segment, a zoom of its own (a camera,
+ * Ken Burns, a zoom or stutter cut: the bands hold still), the cut's last segment (the end card's backdrop is one
+ * shot), the segment after it starting on a fade or a drawn transition (its outgoing tail is one shot), a label too
+ * wide, and (with `captionBounds`) captions that would cover a label or an arrow.
+ */
+function findSplitProblems(input: { edl: Edl; index: number; split: EdlSplit; checkSpan: (at: string, span: { clip: string; start: number; end: number }) => void; captionBounds: EdlCaptionBounds | undefined }): string[] {
+  const { edl, index, split, captionBounds } = input;
+  const segment = edl.segments[index] as EdlSegment;
+  const at = `segments[${String(index)}].split`;
+  const length = segment.end - segment.start;
+  const problems: string[] = [];
+  split.bands.forEach((band, bandIndex) => input.checkSpan(`${at}.bands[${String(bandIndex)}]`, { clip: band.clip, start: band.start, end: r3(band.start + length) }));
+  if (segment.camera !== undefined) problems.push(`${at}: a split screen holds still; drop the segment's camera`);
+  if (segment.motion === "kenburns") problems.push(`${at}: a split screen holds still; set motion to none`);
+  if (segment.transition === "zoom" || segment.transition === "stutter") problems.push(`${at}: a split screen holds still; start it on a cut or a fade, not a ${segment.transition}`);
+  const next = edl.segments[index + 1];
+  if (next === undefined) problems.push(`${at}: a split screen cannot end the cut (the end card's backdrop is one shot); put a full shot after it`);
+  else if (next.transition === "fade" || isDrawnTransition(next.transition)) problems.push(`${at}: the segment after a split screen starts on a ${next.transition}; start "${next.id}" on a cut`);
+  const frame = captionBounds === undefined ? SPLIT_CHECK_FRAME : { width: captionBounds.frameWidth ?? Math.round((captionBounds.frameHeight * 9) / 16), height: captionBounds.frameHeight };
+  problems.push(...findSplitLabelProblems(split, frame, at));
+  if (captionBounds === undefined) return problems;
+  const ranges = (edl.captionRanges ?? []).filter((range) => {
+    const start = getSegmentStarts(edl)[index] as number;
+    return range.from < start + length && start < range.to;
+  });
+  problems.push(...findSplitCaptionProblems({ at: `segments[${String(index)}]`, caption: segment.caption, frame, cardHeight: captionBounds.cardHeight }));
+  for (const range of ranges) {
+    const which = (edl.captionRanges ?? []).indexOf(range);
+    problems.push(...findSplitCaptionProblems({ at: `captionRanges[${String(which)}]`, caption: range, frame, cardHeight: captionBounds.cardHeight }).map((problem) => problem.replace(`captionRanges[${String(which)}].caption`, `captionRanges[${String(which)}]`)));
+  }
   return problems;
 }
 
@@ -447,7 +491,7 @@ export function diffEdl(before: Edl, after: Edl): string[] {
   const old = new Map(before.segments.map((segment) => [segment.id, segment]));
   const next = new Map(after.segments.map((segment) => [segment.id, segment]));
   for (const segment of before.segments) if (!next.has(segment.id)) lines.push(`dropped ${segment.id}`);
-  for (const segment of after.segments) if (!old.has(segment.id)) lines.push(`added ${segment.id} (${segment.clip} ${formatSpan(segment)})`);
+  for (const segment of after.segments) if (!old.has(segment.id)) lines.push(`added ${segment.id} (${segment.clip} ${formatSpan(segment)}${segment.split === undefined ? "" : `, split screen ${segment.split.bands.map((band) => band.clip).join(", ")}`})`);
   const common = after.segments.filter((segment) => old.has(segment.id)).map((segment) => segment.id);
   const places = new Map(before.segments.filter((segment) => next.has(segment.id)).map((segment, index) => [segment.id, index]));
   const staying = findStayingIds(common, places);
@@ -462,6 +506,7 @@ export function diffEdl(before: Edl, after: Edl): string[] {
     if (a.transition !== b.transition) lines.push(`${id}: ${a.transition} → ${b.transition}`);
     if (a.motion !== b.motion) lines.push(`${id}: motion ${a.motion} → ${b.motion}`);
     if (!isSameCamera(a.camera, b.camera)) lines.push(`${id}: camera ${describeCamera(a.camera)} → ${describeCamera(b.camera)}`);
+    if (JSON.stringify(a.split) !== JSON.stringify(b.split)) lines.push(b.split === undefined ? `${id}: one shot again` : `${id}: split screen ${b.split.bands.map((band) => `${band.clip} "${band.label}"`).join(", ")}`);
     if (a.fadeFrames !== b.fadeFrames) lines.push(`${id}: fade ${a.fadeFrames === undefined ? "default" : `${String(a.fadeFrames)} frames`} → ${b.fadeFrames === undefined ? "default" : `${String(b.fadeFrames)} frames`}`);
   }
   for (const segment of after.segments) {

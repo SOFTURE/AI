@@ -776,6 +776,19 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   camera framing (or 150 %). A drawn transition needs a segment longer than its frames, a stutter one longer than 5
   frames and no moving camera or Ken Burns zoom (`validateEdl`). The paper costs the most (about 8 s of ffmpeg at
   1080x1920); the per-segment composition without a picture plays a drawn transition as a plain cut.
+- **Split screen (`split3`):** a segment's `split` stacks three shots in horizontal bands, to compare three places:
+  `{ layout: "split3", bands: [{ clip, start, label, focus? }, ×3] }`. Each band plays its clip from `start` for the
+  segment's length, scaled to cover the band and cropped at `focus` (0 its top, 1 its foot, 0.5 by default); the
+  segment's sound stays its own (`clip`, or `audio`). A short handwritten label (the kit's hand font, at most 24
+  characters and half the frame's width) and a drawn curved arrow point into each band, zig-zagging (top band low on
+  the left, middle band high on the right, bottom band high on the left) with a thin line between the bands. The
+  labels, arrows and lines are one SVG layer (`getSplitLayerSvg`) rasterised by resvg at each path's size
+  (`renderSplitLayerPng`) and laid over the bands by one filter builder (`buildSplitScreenFilters`) in the draft and the
+  render's picture, so both show the same picture. A split holds still (no camera, Ken Burns, zoom or stutter), is not
+  the cut's last segment, and the segment after it starts on a plain cut (`validateEdl`); overlays keep off it
+  (`resolveEdlOverlays`). With caption bounds, `validateEdl` also asks for the segment's own caption box clear of the
+  labels: `getSplitCaption(frame)` puts the captions in the lower half of the middle band. The per-segment composition
+  without a picture cannot show one and throws.
 - **Smooth cuts on handheld footage:** three options for cuts that do not jump, all off by default.
   - `edit.zoomEaseFrames` (0-15, 3-5 reads naturally) eases a `zoom` cut into its scale over that many frames, from
     the scale on screen before the cut (in and back out), in the render (a `power1.out` tween) and the draft alike.

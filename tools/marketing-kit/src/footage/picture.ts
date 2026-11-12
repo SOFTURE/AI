@@ -4,6 +4,7 @@ import { buildDrawnTransitionFilters, FRAME_TIMING, getTransitionOverlapFrames, 
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
 import { getFootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS, getThreadArgs, type Frame, type NormalizeEncoder } from "./normalize.js";
+import { buildSplitScreenFilters, getSplitLayerInputArgs, type EdlSplit } from "./split-screen.js";
 
 /**
  * The cut's picture in film time, which the render's composition plays as one `<video>`: one short ffmpeg per segment
@@ -50,6 +51,8 @@ export interface PicturePiece {
   frames: number;
   /** For a `fade` cut or a drawn transition, the outgoing tail the piece starts over; null for any other cut. */
   fade: PictureFadeTail | null;
+  /** The segment's split screen: the piece is its three bands under its layer (`split-screen.ts`); absent: `clip`. */
+  split?: EdlSplit;
 }
 
 /** The film frame a film second falls on. */
@@ -86,7 +89,7 @@ export function planFootagePicture(film: Pick<FootageFilm, "edit">, edl: Edl): P
       const scale = isCamera ? r4(Math.max(1, reached / (scales[index] as number))) : reached;
       fade = { ...(kind === "fade" ? {} : { kind }), clip: previous.clip, start: r3(previous.end), frames: fadeFrames, scale, origin: getCameraOrigin(previous.camera) };
     }
-    return { clip: segment.clip, start: r3(segment.start), frame, frames, fade };
+    return { clip: segment.clip, start: r3(segment.start), frame, frames, fade, ...(segment.split === undefined ? {} : { split: segment.split }) };
   });
 }
 
@@ -133,6 +136,8 @@ export interface PicturePieceArgsInput {
   output: string;
   /** The intermediate clips' encoder (`RenderFootageOptions.normalize`): its preset and threads encode the piece too. */
   encoder?: NormalizeEncoder;
+  /** A split piece's layer (`renderSplitLayerPng` at `frame`'s size); needed when the piece has a `split`. */
+  splitLayer?: string;
 }
 
 /** One piece's ffmpeg arguments: its clip (and a fade's outgoing tail), exactly `frames` frames, H.264 without sound. */
@@ -145,19 +150,32 @@ export function buildPicturePieceArgs(input: PicturePieceArgsInput): string[] {
   };
   const threads = getThreadArgs(input.encoder?.threads, "normalize.threads");
   const seconds = (frames: number): string => String(r3(frames / FOOTAGE_FPS + 1 / FOOTAGE_FPS));
-  const inputs = [...threads.output, "-ss", String(piece.start), "-t", seconds(piece.frames), "-i", getClip(piece.clip)];
-  let graph = `[0:v]${fitStream(piece.frames).join(",")}[picture]`;
+  const inputs: string[] = [];
+  const prelude: string[] = [];
+  let source = `[0:v]${fitStream(piece.frames).join(",")}`;
+  if (piece.split === undefined) {
+    inputs.push(...threads.output, "-ss", String(piece.start), "-t", seconds(piece.frames), "-i", getClip(piece.clip));
+  } else {
+    if (input.splitLayer === undefined) throw new Error("A split piece needs its layer (splitLayer).");
+    for (const band of piece.split.bands) inputs.push(...threads.output, "-ss", String(r3(band.start)), "-t", seconds(piece.frames), "-i", getClip(band.clip));
+    inputs.push(...getSplitLayerInputArgs(input.splitLayer, Number(seconds(piece.frames)), FOOTAGE_FPS));
+    prelude.push(...buildSplitScreenFilters({ inputs: ["0:v", "1:v", "2:v"], layer: "3:v", split: piece.split, frame: input.frame, fit: fitStream(piece.frames), output: "split", prefix: "sp" }));
+    source = "[split]null";
+  }
+  const tailInput = piece.split === undefined ? 1 : 4;
+  let graph = `${source}[picture]`;
   if (piece.fade !== null) {
     const { fade } = piece;
     inputs.push(...threads.output, "-ss", String(fade.start), "-t", seconds(fade.frames), "-i", getClip(fade.clip));
     const tail = [...zoomFilters(fade.scale, input.frame, fade.origin ?? CAMERA_ORIGIN), ...fitStream(fade.frames)];
     graph = fade.kind === undefined ? [
-      `[0:v]${fitStream(piece.frames).join(",")}[incoming]`,
-      `[1:v]${tail.join(",")}[outgoing]`,
+      `${source}[incoming]`,
+      `[${String(tailInput)}:v]${tail.join(",")}[outgoing]`,
       // xfade's output is the outgoing tail plus the incoming piece minus the fade: the piece's own length.
       `[outgoing][incoming]xfade=transition=fade:duration=${r3(fade.frames / FOOTAGE_FPS)}:offset=0,trim=end_frame=${piece.frames}[picture]`,
-    ].join(";") : buildDrawnPieceGraph({ kind: fade.kind, piece, tail, frame: input.frame });
+    ].join(";") : buildDrawnPieceGraph({ kind: fade.kind, piece, tail, frame: input.frame, source, tailInput });
   }
+  if (prelude.length > 0) graph = [...prelude, graph].join(";");
   return [
     "-v",
     "error",
@@ -196,14 +214,14 @@ export function buildPicturePieceArgs(input: PicturePieceArgsInput): string[] {
  * A piece that starts on a drawn transition: its first `frames` blended with the outgoing tail, then the rest of its
  * own frames (the plan gives a drawn transition only to a piece longer than it).
  */
-function buildDrawnPieceGraph(input: { kind: DrawnTransition; piece: PicturePiece; tail: string[]; frame: Frame }): string {
+function buildDrawnPieceGraph(input: { kind: DrawnTransition; piece: PicturePiece; tail: string[]; frame: Frame; source: string; tailInput: number }): string {
   const { piece } = input;
   const frames = piece.fade?.frames ?? 0;
   return [
-    `[0:v]${fitStream(piece.frames).join(",")},split[full1][full2]`,
+    `${input.source},split[full1][full2]`,
     `[full1]trim=end_frame=${frames},setpts=PTS-STARTPTS,${FRAME_TIMING}[incoming]`,
     `[full2]trim=start_frame=${frames},setpts=PTS-STARTPTS,${FRAME_TIMING}[rest]`,
-    `[1:v]${input.tail.join(",")}[outgoing]`,
+    `[${String(input.tailInput)}:v]${input.tail.join(",")}[outgoing]`,
     ...buildDrawnTransitionFilters({ kind: input.kind, outgoing: "outgoing", incoming: "incoming", output: "blend", frame: input.frame, prefix: "dt" }),
     `[blend][rest]concat=n=2:v=1:a=0,settb=1/${FOOTAGE_FPS},fps=${FOOTAGE_FPS}[picture]`,
   ].join(";");

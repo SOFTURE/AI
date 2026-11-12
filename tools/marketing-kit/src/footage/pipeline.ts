@@ -50,6 +50,7 @@ import {
 } from "./loudness.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
 import { FOOTAGE_FPS, normalizeFootage, type Frame, type NormalizeEncoder } from "./normalize.js";
+import { writeSplitLayers } from "./split-screen.js";
 import { buildPictureConcatArgs, buildPictureList, buildPicturePieceArgs, getPictureFrames, planFootagePicture } from "./picture.js";
 import { describeProbe, getTrimmedDuration, probeFootage, type FootageProbe } from "./probe.js";
 import {
@@ -1169,10 +1170,13 @@ async function buildPicture(input: BuildPictureInput): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const aborting = input.signal === undefined ? {} : { signal: input.signal };
   const files: string[] = [];
+  const frame = getFrame(input.film);
+  const layers = writeSplitLayers(input.edl.segments, frame, dir);
   for (const [index, piece] of pieces.entries()) {
     const file = join(dir, `${String(index).padStart(3, "0")}.mp4`);
     const done = piece.frame / FOOTAGE_FPS;
-    await runFfmpeg(`The picture of segment ${index + 1}`, buildPicturePieceArgs({ piece, clips: input.clips, frame: getFrame(input.film), output: file, ...(input.encoder === undefined ? {} : { encoder: input.encoder }) }), {
+    const layer = layers[input.edl.segments[index]?.id ?? ""];
+    await runFfmpeg(`The picture of segment ${index + 1}`, buildPicturePieceArgs({ piece, clips: input.clips, frame, output: file, ...(input.encoder === undefined ? {} : { encoder: input.encoder }), ...(layer === undefined ? {} : { splitLayer: layer }) }), {
       ...aborting,
       output: file,
       onSeconds: (seconds) => input.onSeconds(done + seconds),
