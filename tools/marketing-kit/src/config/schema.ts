@@ -15,7 +15,7 @@ import {
 import { bigNumberDataSchema, carouselDataSchema, headlineChartDataSchema, headlineCtaDataSchema } from "../og/templates/schemas.js";
 import { CHANNEL_CODE_MAX_LENGTH, CHANNEL_CODE_PATTERN, DEFAULT_LINK_IN_BIO, PLATFORMS } from "../platforms.js";
 import { DECLICK_LEVELS } from "../footage/declick.js";
-import { CAPTION_ENTRANCES, CAPTION_HIGHLIGHT_STYLES, CAPTION_PRESETS, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS, JUMP_TRANSITIONS } from "../footage/film.js";
+import { CAPTION_ENTRANCES, CAPTION_HIGHLIGHT_STYLES, CAPTION_PRESETS, CAPTION_RIBBON_MAX_TILT, CAPTION_RIBBON_TILT, CAPTION_STYLES, CLIP_FITS, CLIP_ROLES, CUT_TRANSITIONS, JUMP_TRANSITIONS } from "../footage/film.js";
 import { normalizeKeyTerms } from "../footage/keyterms.js";
 import { ELEVENLABS_DEFAULT_MODEL } from "../voice/voiceover.js";
 import { actionSchema, type SceneAction } from "./actions-schema.js";
@@ -582,7 +582,13 @@ const footageSchema = z
     captionStyle: z
       .enum(CAPTION_STYLES)
       .default("phrase")
-      .describe("phrase (the default): 2-6 words of plain text with a soft shadow; highlight: a pill that lights each word as it is said."),
+      .describe("phrase (the default): 2-6 words of plain text with a soft shadow; highlight: a pill that lights each word as it is said; ribbon: bold capitals, each line on its own flat strip of brand.colors.captionBackground, the block slightly turned (captionRibbonTilt)."),
+    captionRibbonTilt: z
+      .number()
+      .min(-CAPTION_RIBBON_MAX_TILT)
+      .max(CAPTION_RIBBON_MAX_TILT)
+      .optional()
+      .describe(`A ribbon caption's turn in degrees, counter-clockwise positive (-${String(CAPTION_RIBBON_MAX_TILT)} to ${String(CAPTION_RIBBON_MAX_TILT)}); without it, ${String(CAPTION_RIBBON_TILT)}. Ignored by the other styles.`),
     captionHighlightStyle: z
       .enum(CAPTION_HIGHLIGHT_STYLES)
       .default("text")

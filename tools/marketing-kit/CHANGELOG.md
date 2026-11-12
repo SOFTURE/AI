@@ -6,6 +6,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.36.0
 
+- **Ribbon captions:** `CAPTION_STYLES` gains `ribbon`: the cards are cut like the highlight pill's and no word is lit;
+  each card's words are bold capitals of the brand's locale, every wrapped line on its own flat strip of
+  `captionBackground` in `captionText`, the block turned `captionRibbonTilt` degrees about its middle
+  (counter-clockwise positive, -10 to 10, default `CAPTION_RIBBON_TILT` 4). The render wraps the strips with
+  `box-decoration-break: clone` in a turned caption box (`getRibbonCaptionCss`), the draft draws one strip and one
+  centred line per line turned by `\org`/`\frz`; `captionEntrance` applies to it as to the pill. The glyph check reads
+  the capitals. A film with another style composes and drafts exactly as before.
+- **New exports (ribbon captions):** `CAPTION_RIBBON`, `CAPTION_RIBBON_TILT`, `CAPTION_RIBBON_MAX_TILT`,
+  `getCaptionRibbonTilt`, `getRibbonCaptionExtent` (how far a turned block reaches above and below its foot),
+  `toCaptionDisplayText` and the type `RibbonCaptionExtent`.
 - **Split screen:** an EDL segment's new `split` field (`{ layout: "split3", bands: [3 × { clip, start, label, focus? }] }`)
   stacks three shots in horizontal bands, each with a handwritten label and a drawn curved arrow, a thin line between
   the bands. One SVG layer (`getSplitLayerSvg`, the kit's hand font) rasterised by resvg (`renderSplitLayerPng`,

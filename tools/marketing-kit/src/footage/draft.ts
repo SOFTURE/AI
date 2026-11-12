@@ -7,7 +7,7 @@ import type { BrandColors } from "../config/colors.js";
 import { err, ok } from "./failure.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_SECONDS, CAPTION_UNDERLINE_EM, getCaptionHighlight, type CaptionHighlightLook } from "./caption-highlight.js";
-import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, isSameCaptionPlace, type CaptionWordsFilm } from "./captions.js";
+import { getCaptionChunkLayouts, getCaptionRibbonTilt, getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, isSameCaptionPlace, toCaptionDisplayText, type CaptionWordsFilm } from "./captions.js";
 import { getCameraMoveFrames, getCameraOrigin, getCameraScaleExpression, type CameraAnchor, type EdlCamera } from "./camera.js";
 import { getSegmentFadeFrames, getSegmentScales, getSegmentZoomEases } from "./compose.js";
 import { buildDrawnTransitionFilters, DRAWN_TRANSITION_FRAMES, FRAME_TIMING, isDrawnTransition, STUTTER_FRAMES, type DrawnTransition } from "./drawn-transitions.js";
@@ -24,7 +24,7 @@ import { resolveEdlOverlays, type OverlayFontRole, type ResolvedOverlay } from "
 import { chooseFootageDraftFont } from "./draft-font.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
 import { declickSpeech, describeDeclick, type DeclickReport } from "./declick.js";
-import { getDeclickLevel, getFootageEdit, type FootageFilm } from "./film.js";
+import { CAPTION_RIBBON, getDeclickLevel, getFootageEdit, type FootageFilm } from "./film.js";
 import { buildFilmMixArgs } from "./film-mix.js";
 import { DEFAULT_LOUDNESS, formatDb, getLoudnessVerdict, measureLoudness, normalizeLoudness, type MixLoudnessTarget } from "./loudness.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
@@ -125,7 +125,7 @@ function toAssText(text: string): string {
 export type FootageDraftCaptionColors = Pick<BrandColors, "captionBackground" | "captionText" | "captionHighlight" | "captionHighlightBox" | "captionHighlightText">;
 
 export interface FootageDraftCaptionsInput {
-  film: Pick<FootageFilm, "captions" | "captionStyle" | "captionHighlightStyle"> & CaptionWordsFilm;
+  film: Pick<FootageFilm, "captions" | "captionStyle" | "captionHighlightStyle" | "captionRibbonTilt"> & CaptionWordsFilm;
   edl: Edl;
   /** The film's words in film time (`remapWords`). */
   words: TimedWord[];
@@ -280,6 +280,47 @@ function getDrawnPill(input: DrawnPillInput): DrawnPill {
   return { breaks, events: getDraftBoxEvents({ layer: 0, at, styleName: "CaptionShape", box, radius, color: input.colors.background, accent: input.colors.accent, style, scale }), words };
 }
 
+interface RibbonInput {
+  text: string;
+  span: { start: number; end: number };
+  place: CaptionLayout;
+  frame: Frame;
+  tilt: number;
+  measure: DraftTextMeasure;
+  colors: { background: string; text: string };
+}
+
+/**
+ * A `ribbon` chunk: its capitals broken greedily into lines that fit the caption box less a strip's padding, each line
+ * on its own flat strip (`CAPTION_RIBBON`) and centred on the box's axis, the block hung from the box's foot (or top)
+ * and turned `tilt` degrees about its middle (`\org`, `\frz`), as the render turns its caption box.
+ */
+function getRibbonEvents(input: RibbonInput): string[] {
+  const { place, frame, measure } = input;
+  const { lineHeight, padding, radius } = CAPTION_RIBBON;
+  const size = place.fontSize;
+  const scale = frame.width / 1080;
+  const areaWidth = frame.width - place.left - place.right;
+  const pad = { x: padding.x * size, y: padding.y * size };
+  const lines = wrapDraftLine(input.text.split(" "), areaWidth - 2 * pad.x, size, measure).map((line) => line.join(" "));
+  const step = lineHeight * size;
+  const blockTop = place.bottom === undefined ? place.top : frame.height - place.bottom - lines.length * step;
+  const centre = { x: place.left + areaWidth / 2, y: blockTop + (lines.length * step) / 2 };
+  const turn = `\\org(${String(Math.round(centre.x))},${String(Math.round(centre.y))})\\frz${String(input.tilt)}`;
+  const at = `${toAssTime(input.span.start)},${toAssTime(input.span.end)}`;
+  const text = toAssColor(input.colors.text);
+  return lines.flatMap((line, index) => {
+    const width = measure(line, size) + 2 * pad.x;
+    // libass draws a line one font size tall: the strip is that plus its padding, both centred in the line's step.
+    const textTop = blockTop + index * step + (step - size) / 2;
+    const strip = { left: centre.x - width / 2, top: textTop - pad.y, width, height: size + 2 * pad.y };
+    return [
+      ...getDraftBoxEvents({ layer: 0, at, styleName: "CaptionShape", box: strip, radius: radius * scale, color: input.colors.background, accent: input.colors.background, style: { shadow: "none", border: "none" }, scale, motion: turn }),
+      `Dialogue: 1,${at},CaptionShape,,0,0,0,,{\\an8\\pos(${String(Math.round(centre.x))},${String(Math.round(textTop))})${turn}\\b1\\1c&H${text.slice(4)}&\\1a&H${text.slice(2, 4)}&\\bord0\\shad0}${toAssText(line)}`,
+    ];
+  });
+}
+
 /** Where the draft's underline sits under a line, in font sizes: libass draws a line one font size tall, its baseline near 0.8. */
 const DRAFT_UNDERLINE_TOP_EM = 0.9;
 
@@ -323,6 +364,7 @@ function getDraftHighlightLook(film: Pick<FootageFilm, "captionStyle" | "caption
 export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): string | null {
   const overlays = input.overlays ?? [];
   const isHighlight = input.film.captionStyle === "highlight";
+  const isRibbon = input.film.captionStyle === "ribbon";
   // No chunks without captions (`getFootageCaptionChunks`): then only the overlays, if any, make the file.
   const chunks = input.film.captions ? getFootageCaptionChunks(input.film, input.words) : [];
   if (chunks.length === 0 && overlays.length === 0) return null;
@@ -392,6 +434,10 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
   const pillColors = { background: colors.captionBackground, accent: lit.style === "box" ? lit.box : colors.captionHighlight };
   const events = chunks.flatMap((chunk, index) => {
     const span = spans[index] as { start: number; end: number };
+    if (isRibbon) {
+      const ribbonText = toCaptionDisplayText(input.film, chunk.words.map((word) => word.text.replace(/\u00a0/g, " ")).join(" "), input.locale ?? "en-US");
+      return getRibbonEvents({ text: ribbonText, span, place: places[index] ?? caption, frame, tilt: getCaptionRibbonTilt(input.film), measure, colors: { background: colors.captionBackground, text: colors.captionText } });
+    }
     const styleName = styleNames[index] ?? "Caption";
     const pill =
       style === undefined ? null : getDrawnPill({ words: chunk.words.map((word) => word.text.replace(/\u00a0/g, " ")), span, place: places[index] ?? caption, frame, style, measure, colors: pillColors });
@@ -418,7 +464,7 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
     ...styles.map((line) => `Style: ${line}`),
-    ...(style === undefined || chunks.length === 0 ? [] : [`Style: CaptionShape,${family},${String(caption.fontSize)},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1`]),
+    ...((style === undefined && !isRibbon) || chunks.length === 0 ? [] : [`Style: CaptionShape,${family},${String(caption.fontSize)},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1`]),
     ...(overlays.length === 0 ? [] : getDraftOverlayStyles(family, input.overlayColors ?? FOOTAGE_DRAFT_OVERLAY_COLORS)),
     "",
     "[Events]",
@@ -867,7 +913,9 @@ async function runRenderFootageDraft(
     ...(overlays.length === 0 ? {} : { overlays, overlayColors }),
     ...(Object.keys(roleFonts).length === 0 ? {} : { overlayFonts: Object.fromEntries(Object.entries(roleFonts).map(([role, chosen]) => [role, chosen.family])) }),
     ...(options.brand?.locale === undefined ? {} : { locale: options.brand.locale }),
-    ...(options.brand?.style === undefined ? {} : { style: options.brand.style, measure: createDraftTextMeasure(readFileSync(font.file)) }),
+    ...(options.brand?.style === undefined ? {} : { style: options.brand.style }),
+    // A drawn pill and a ribbon break their lines by the font's own widths.
+    ...(options.brand?.style !== undefined || film.captionStyle === "ribbon" ? { measure: createDraftTextMeasure(readFileSync(font.file)) } : {}),
   });
   if (captions !== null) {
     writeFileSync(join(draftDir, "captions.ass"), captions);

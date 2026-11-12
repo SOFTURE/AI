@@ -2879,12 +2879,19 @@
           },
           "captionStyle": {
             "default": "phrase",
-            "description": "phrase (the default): 2-6 words of plain text with a soft shadow; highlight: a pill that lights each word as it is said.",
+            "description": "phrase (the default): 2-6 words of plain text with a soft shadow; highlight: a pill that lights each word as it is said; ribbon: bold capitals, each line on its own flat strip of brand.colors.captionBackground, the block slightly turned (captionRibbonTilt).",
             "type": "string",
             "enum": [
               "phrase",
-              "highlight"
+              "highlight",
+              "ribbon"
             ]
+          },
+          "captionRibbonTilt": {
+            "description": "A ribbon caption's turn in degrees, counter-clockwise positive (-10 to 10); without it, 4. Ignored by the other styles.",
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
           },
           "captionHighlightStyle": {
             "default": "text",

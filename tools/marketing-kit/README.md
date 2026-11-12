@@ -835,7 +835,13 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   rendered); `getCaptionHighlightContrast(colors)` returns the lit text's contrast on its box and the box's on the
   pill, so the app can warn (the kit never changes the colours). `"underline"` keeps the word in `captionText` and
   draws a bar of `captionHighlight` under it (0.09 em thick, 1 em below the line's top) for the same 0.32 s.
-  `captionEntrance` sets how a highlight pill enters in the render: `"none"`, `"fade"` or `"pop"` (it grows from 96 %
+  `"ribbon"` cuts its cards like the highlight pill and lights no word: its words in bold capitals of the brand's
+  locale (`toCaptionDisplayText`), each wrapped line on its own flat strip of `captionBackground` (0.1 x 0.32 em
+  padding, 6 px corners) in `captionText`, the lines 1.42 font sizes apart, the whole block turned
+  `captionRibbonTilt` degrees about its middle (counter-clockwise positive, -10 to 10, default 4), in the render and
+  the draft alike (`CAPTION_RIBBON`). A turned block dips below its foot: `getRibbonCaptionExtent` says how far, for
+  an app that keeps captions off a face.
+  `captionEntrance` sets how a highlight pill (or a ribbon) enters in the render: `"none"`, `"fade"` or `"pop"` (it grows from 96 %
   to 100 % while it fades in, `power2.out`, never past its size), 0.16 s each; without it, a 14 px rise while it fades
   in (`getCaptionEntranceTween`). `layout` moves their box per format; `captionPreset` (`reels`, `shorts`, `tiktok` or `all`)
   keeps a 9:16 film's captions inside that platform's safe zone (`CAPTION_SAFE_ZONES`, the margins its own buttons and
@@ -1303,6 +1309,9 @@ const draft = await renderFootageDraft(film, clips, transcript, edl, { buildDir,
 What the draft matches and what it leaves out:
 
 - **Captions follow `captionStyle`.** The cards are the render's (`getFootageCaptionChunks`, kept words included). `phrase`: the render's phrases in white with a dark outline and shadow.
+  `ribbon`: each line of capitals broken by the font's measured widths, on its own flat strip, the block turned about
+  its middle by the same tilt (`\org`, `\frz`); libass draws a line one font size tall, so its letters are a little
+  smaller than the render's on strips of the same width.
   `highlight`: the render's chunks of up to four words on an opaque box of the brand's `captionBackground` (its alpha
   kept), in `captionText`, each word in `captionHighlight` for the 0.32 s the render lights it. libass draws a square
   box per line: no rounded corners, no drop shadow, no pop-in, and the colour switches instead of fading back. With

@@ -158,6 +158,17 @@ describe("footage films in marketing.json", () => {
     expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionEntrance: "bounce" }]))).toContain("footage[0].captionEntrance");
   });
 
+  it("keeps a ribbon caption and its turn within ten degrees either way, and leaves the turn out when absent", () => {
+    const film = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionStyle: "ribbon", captionRibbonTilt: -10 }])), "a");
+    expect(film?.captionStyle).toBe("ribbon");
+    expect(film?.captionRibbonTilt).toBe(-10);
+    const plain = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionStyle: "ribbon" }])), "a");
+    expect(plain !== null && "captionRibbonTilt" in plain).toBe(false);
+    expect(findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionRibbonTilt: 10 }])), "a")?.captionRibbonTilt).toBe(10);
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionRibbonTilt: 10.5 }]))).toContain("footage[0].captionRibbonTilt");
+    expect(loadError(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], captionRibbonTilt: -11 }]))).toContain("footage[0].captionRibbonTilt");
+  });
+
   it("reads key terms trimmed, deduplicated and sorted, and leaves an empty list out", () => {
     const named = findFootage(load(makeConfig([{ id: "a", title: "A", clips: [{ id: "c", source: "c.mov" }], keyTerms: ["Zakopane", " Acme  Cloud ", "Zakopane"] }])), "a");
     expect(named?.keyTerms).toEqual(["Acme Cloud", "Zakopane"]);

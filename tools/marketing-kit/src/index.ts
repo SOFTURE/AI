@@ -383,6 +383,9 @@ export {
   CAPTION_MIN_FONT_SCALE,
   CAPTION_PRESETS,
   CAPTION_STYLES,
+  CAPTION_RIBBON,
+  CAPTION_RIBBON_MAX_TILT,
+  CAPTION_RIBBON_TILT,
   CAPTION_HIGHLIGHT_STYLES,
   CAPTION_ENTRANCES,
   DEFAULT_EDIT,
@@ -625,6 +628,9 @@ export {
   getCaptionKeepsWithNext,
   getFootageCaptionChunks,
   getCaptionPresetLayout,
+  getCaptionRibbonTilt,
+  getRibbonCaptionExtent,
+  toCaptionDisplayText,
   getCaptionSpans,
   getFootageCaptionLayout,
   getSegmentCaptionLayout,
@@ -635,6 +641,7 @@ export {
   type MissingCaptionGlyphs,
   type PhraseChunk,
   type PhraseChunkOptions,
+  type RibbonCaptionExtent,
   type SafeZone,
 } from "./footage/captions.js";
 export {

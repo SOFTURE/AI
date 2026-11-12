@@ -5,12 +5,13 @@ import { assertLocalReferences, escapeHtml, fontFaces, fontStack } from "../comp
 import { CAPTION_LINE_HEIGHT, getCaptionPillCss, getCaptionPositionCss, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_BOX_RADIUS, CAPTION_HIGHLIGHT_SECONDS, CAPTION_UNDERLINE_EM, getCaptionEntranceTween, getCaptionHighlight } from "./caption-highlight.js";
-import { CAPTION_SAFE_ZONES, getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, type CaptionSpan } from "./captions.js";
+import { CAPTION_SAFE_ZONES, getCaptionChunkLayouts, getCaptionRibbonTilt, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, toCaptionDisplayText, type CaptionSpan } from "./captions.js";
 import { getCameraGsapEase, getCameraMoveSeconds, getCameraOrigin, isCameraMoving, toTransformOrigin } from "./camera.js";
 import { STUTTER_FRAMES, STUTTER_SCALE } from "./drawn-transitions.js";
 import { getEdlDuration, getSegmentStarts, type Edl, type EdlSegment } from "./edl.js";
 import {
   CAPTION_MIN_FONT_SCALE,
+  CAPTION_RIBBON,
   DEFAULT_EDIT,
   DEFAULT_END_CARD_SECONDS,
   DEFAULT_LOGO_END_CARD_FADE_SECONDS,
@@ -245,8 +246,9 @@ export function composeFootage(input: FootageComposeInput): string {
     );
   }
 
-  // --- Captions: plain phrases, or the pill that lights each word ---
+  // --- Captions: plain phrases, the pill that lights each word, or the turned ribbon ---
   const isHighlight = film.captionStyle === "highlight";
+  const isRibbon = film.captionStyle === "ribbon";
   const highlight = isHighlight ? getCaptionHighlight(film, c) : ({ ok: true, look: { style: "text", color: c.captionHighlight } } as const);
   // The pipeline refuses such a film before it composes; reaching here is a bug.
   if (!highlight.ok) throw new Error(`composeFootage: ${highlight.error}`);
@@ -263,10 +265,12 @@ export function composeFootage(input: FootageComposeInput): string {
       const place = boxes[i] ?? captionBox;
       // A chunk in a segment's own box overrides the shared rule's anchor; one in the film's box is written as before.
       const style = isSameCaptionPlace(place, captionBox) ? "" : ` style="${place.bottom === undefined ? `bottom:auto;top:${place.top}px` : `top:auto;bottom:${place.bottom}px`}"`;
-      const box = isHighlight
+      const box = isRibbon
+        ? `<p class="ribbon"><span class="rb">${escapeHtml(toCaptionDisplayText(film, chunk.words.map((w) => w.text).join(" "), input.locale))}</span></p>`
+        : isHighlight
         ? `<p class="pill">${chunk.words.map((w, j) => `<span id="cw${i}_${j}">${isBox ? `<i class="hl" id="cb${i}_${j}"></i>` : ""}${isUnderline ? `<i class="ul" id="cu${i}_${j}"></i>` : ""}${escapeHtml(w.text)}</span>`).join(" ")}</p>`
         : `<p class="phrase">${escapeHtml(chunk.words.map((w) => w.text).join(" "))}</p>`;
-      return `<div id="cap${i}" class="clip caption" data-start="${start}" data-duration="${r3(stop - start)}"${style}>${box}</div>`;
+      return `<div id="cap${i}" class="clip caption${isRibbon ? " turned" : ""}" data-start="${start}" data-duration="${r3(stop - start)}"${style}>${box}</div>`;
     })
     .join("\n  ");
 
@@ -342,7 +346,7 @@ ${isBox ? `.pill{position:relative;z-index:0}
 .hl{position:absolute;top:0;bottom:0;left:-${CAPTION_HIGHLIGHT_BOX_PADDING_EM}em;right:-${CAPTION_HIGHLIGHT_BOX_PADDING_EM}em;z-index:-1;border-radius:${CAPTION_HIGHLIGHT_BOX_RADIUS}px;background:${look.box};opacity:0}
 ` : ""}${isUnderline ? `.pill span{position:relative}
 .ul{position:absolute;left:0;right:0;top:${CAPTION_UNDERLINE_EM.top}em;height:${CAPTION_UNDERLINE_EM.thickness}em;border-radius:${CAPTION_UNDERLINE_EM.thickness / 2}em;background:${look.color};opacity:0}
-` : ""}.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:-.01em;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
+` : ""}${isRibbon ? `${getRibbonCaptionCss(captionBox.fontSize, getCaptionRibbonTilt(film), { background: c.captionBackground, text: c.captionText })}\n` : ""}.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:-.01em;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
 .endcard{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 80px;text-align:center}
 .brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:${headingFont};font-size:46px}
 .logo{height:60px;width:auto}
@@ -367,10 +371,12 @@ ${overlayMarkup.css.map((rule) => `${rule}\n`).join("")}</style>
 ${captionFit}<script>
 const tl = gsap.timeline({ paused: true });
 ${tweens.join("\n")}
-const captions = ${JSON.stringify(isHighlight ? caption.map((chunk) => chunk.words.map((w) => w.start)) : [])};
+const captions = ${JSON.stringify(isHighlight ? caption.map((chunk) => chunk.words.map((w) => w.start)) : isRibbon ? caption.map((chunk) => [chunk.start]) : [])};
 captions.forEach((words, i) => {
-${entrance === null ? "" : `  tl.fromTo("#cap" + i + " .pill", ${toTweenVars(entrance.from)}, ${toTweenVars(entrance.to)}, Math.max(0, words[0] - 0.05));\n`}${
-  look.style === "underline"
+${entrance === null ? "" : `  tl.fromTo("#cap" + i + " ${isRibbon ? ".ribbon" : ".pill"}", ${toTweenVars(entrance.from)}, ${toTweenVars(entrance.to)}, Math.max(0, words[0] - 0.05));\n`}${
+  isRibbon
+    ? ""
+    : look.style === "underline"
     ? `  words.forEach((t, j) => tl.fromTo("#cu" + i + "_" + j, { opacity: 0 }, { opacity: 1, duration: 0.06, immediateRender: false }, t).to("#cu" + i + "_" + j, { opacity: 0, duration: 0.2 }, t + ${CAPTION_HIGHLIGHT_SECONDS}));`
     : look.style === "box"
     ? `  words.forEach((t, j) => {
@@ -393,6 +399,20 @@ window.__timelines["${COMPOSITION_ID}"] = tl;
 /** Tween vars as the page's script writes them: `{ y: 14, opacity: 0 }`, strings quoted. */
 function toTweenVars(vars: Record<string, number | string>): string {
   return `{ ${Object.entries(vars).map(([key, value]) => `${key}: ${typeof value === "string" ? JSON.stringify(value) : String(value)}`).join(", ")} }`;
+}
+
+/**
+ * A `ribbon` caption's rules: the caption box turned `tilt` degrees (counter-clockwise positive, as the draft turns it)
+ * about its middle; its capitals bold and centred, each wrapped line on its own flat strip of `background`
+ * (`box-decoration-break: clone` repeats the strip's padding and corner on every line).
+ */
+export function getRibbonCaptionCss(fontSize: number, tilt: number, colors: { background: string; text: string }): string {
+  const { lineHeight, padding, radius, weight } = CAPTION_RIBBON;
+  return [
+    `.caption.turned{transform:rotate(${String(-tilt)}deg);transform-origin:50% 50%}`,
+    `.ribbon{font-weight:${String(weight)};font-size:${String(fontSize)}px;line-height:${String(lineHeight)};letter-spacing:.01em;text-align:center;color:${colors.text}}`,
+    `.rb{background:${colors.background};padding:${String(padding.y)}em ${String(padding.x)}em;border-radius:${String(radius)}px;-webkit-box-decoration-break:clone;box-decoration-break:clone}`,
+  ].join("\n");
 }
 
 /** The caption pill's rule in the brand's style, after the pill's own: its radius, padding, shadow and border in `accent`. */

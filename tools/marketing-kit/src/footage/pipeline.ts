@@ -18,7 +18,7 @@ import { composeFootage, getFootageFilmSeconds, getFootageSfxCues } from "./comp
 import { getCaptionHighlight } from "./caption-highlight.js";
 import { getOverlayTextsByRole, isHandFontNeeded, resolveEdlOverlays } from "./overlays.js";
 import { HAND_FONT } from "./hand-font.js";
-import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
+import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout, toCaptionDisplayText } from "./captions.js";
 import { err, getProviderFootageFailure, ok, type FootageResult } from "./failure.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
 import { buildEdl, getEdlDuration, readEdl, remapWords, validateEdl, type Edl } from "./edl.js";
@@ -866,7 +866,7 @@ async function runRenderFootage(
   const layout = { ...base, caption: getFootageCaptionLayout(film, options.layout ?? {}) };
   const missing = findMissingCaptionGlyphs({
     fonts: options.brand.fonts,
-    captions: film.captions ? words.map((word) => word.text) : [],
+    captions: film.captions ? words.map((word) => toCaptionDisplayText(film, word.text, options.brand.locale)) : [],
     overlays: getOverlayTextsByRole(overlays.overlays, options.brand.locale),
     endCard: getEndCardTexts(film.endCard),
     brandName: options.brand.name,
