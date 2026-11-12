@@ -362,7 +362,11 @@ describe("the render's text devices", () => {
   it("marks a keyword and a hook title with a highlight behind each line instead of a card", () => {
     const { html, css, tweens } = markup([MARKED, DROPPED]);
     expect(html).toContain('<div class="ov-card hl"><span id="ov0t" class="ov-mark" style="background:#1d1a2b"><span class="ch">3</span><span class="ch">x</span></span></div>');
-    expect(html).toContain('<div class="ov-line"><span class="ov-mark" style="background:#1d1a2b"><span class="dl">O</span>');
+    expect(html).toContain('<div class="ov-line"><span class="ov-mark" id="ov1m0" style="background:#1d1a2b"><span class="dl">O</span>');
+    // A typed mark waits for its first letter; a dropped title's marks stand from the start.
+    expect(css).toContain(".ty .hl .ov-mark{display:none}");
+    expect(tweens).toContain('tl.set("#ov0t", { display: "inline" }, 6.3);');
+    expect(tweens.match(/display: "inline" \}, /g)).toHaveLength(1);
     expect(css).toContain(".ov .ov-card.hl{background:transparent;box-shadow:none;border:none}");
     expect(css).toContain(".ov-mark{padding:.04em .22em;border-radius:.14em;-webkit-box-decoration-break:clone;box-decoration-break:clone}");
     expect(tweens).toContain('tl.fromTo("#ov1 .dl", { y: -19.2, rotation: (i) => [-4,6,-8,5,-7,4,-6,8,-5,7,-4,6,-8,5][i] }');
@@ -371,6 +375,20 @@ describe("the render's text devices", () => {
     const dropped = markup([{ kind: "keyword", at: 1, duration: 2, text: "Go", style: { entrance: "drop" } }]);
     expect(dropped.html).toContain('<span class="dl">G</span><span class="dl">o</span>');
     expect(dropped.html).not.toContain("ov-mark");
+  });
+
+  it("shows each typed title line's mark with the line's first letter, never as an empty block", () => {
+    const typed: EdlOverlay = { kind: "hook_title", at: 0, duration: 3, text: "How much is a week by the sea in Hanoi?", style: { backdrop: "highlight", entrance: "type", typing_speed: 20 } };
+    const resolved = resolveEdlOverlays({ film, edl: edlWith([typed]), words: WORDS, frame: FRAME, caption: CAPTION });
+    if (!resolved.ok) throw new Error(resolved.problems.join("; "));
+    const title = resolved.overlays[0];
+    if (title?.kind !== "hook_title") throw new Error("no hook title");
+    const { html, tweens } = markup([typed]);
+    expect(title.lines.length).toBeGreaterThan(1);
+    expect(html).toContain('id="ov0m1"');
+    const firstOfSecond = 0.3 + [...(title.lines[0] ?? "")].length / 20;
+    expect(tweens).toContain('tl.set("#ov0m0", { display: "inline" }, 0.3);');
+    expect(tweens).toContain(`tl.set("#ov0m1", { display: "inline" }, ${String(Math.round(firstOfSecond * 1000) / 1000)});`);
   });
 
   it("loads the hand font in the composed page only when a device needs it", () => {

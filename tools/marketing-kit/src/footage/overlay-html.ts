@@ -153,6 +153,8 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     // A highlight backdrop: no card, each line on its own tight box that grows with the typed letters.
     `.ov-mark{padding:.04em .22em;border-radius:.14em;-webkit-box-decoration-break:clone;box-decoration-break:clone}`,
     `.ty .hl .ch{display:none}`,
+    // A typed line's mark waits for its first letter: an empty mark would show as a bare block of padding.
+    `.ty .hl .ov-mark{display:none}`,
     // A note: its paper (an SVG outline with a torn edge and a soft shadow), its lines placed in px, its words hidden until said.
     `.ov-note .nb{position:absolute;inset:0;transform-origin:50% 50%}`,
     `.ov-note .paper{position:absolute;inset:0;overflow:visible;filter:drop-shadow(0 6px 14px rgba(0,0,0,.28))}`,
@@ -308,6 +310,19 @@ function getTypingTweens(id: string, overlay: { start: number; typing: number | 
   return [`tl.to("#${id} .ch", { opacity: 1, display: "inline", duration: 0.01, ease: "none", stagger: ${r3(1 / overlay.typing)} }, ${r3(overlay.start + OVERLAY_TYPING_DELAY)});`];
 }
 
+/** Shows each typed line's highlight mark (`#<id>m<line>`, a keyword's `#<id>t`) with the line's first letter. */
+function getMarkRevealTweens(ids: readonly string[], overlay: { start: number; typing: number | null }, lines: readonly string[]): string[] {
+  const { typing } = overlay;
+  if (typing === null) return [];
+  let offset = 0;
+  return lines.flatMap((line, index) => {
+    const at = overlay.start + OVERLAY_TYPING_DELAY + offset / typing;
+    offset += [...line].length;
+    const target = ids[index];
+    return line === "" || target === undefined ? [] : [`tl.set("#${target}", { display: "inline" }, ${r3(at)});`];
+  });
+}
+
 /** Each new kind's own entrance when the overlay names none. */
 const DEFAULT_ENTRANCES = { hook_title: "slide", search_bar: "fade", place_card: "slide", counter: "fade", date_stamp: "fade" } as const;
 
@@ -338,6 +353,7 @@ function addSideText(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lowe
   if (overlay.entrance !== null) {
     out.tweens.push(...getMotionTweens(`#${id} .ov-card`, getEntranceMotion(overlay.entrance, overlay.easing ?? "smooth", context.frame), overlay.start));
     out.tweens.push(...getTypingTweens(id, overlay, [...overlay.text].length));
+    if (isMarked) out.tweens.push(...getMarkRevealTweens([`${id}t`], overlay, [[...overlay.text].join("")]));
     if (isDrop) out.tweens.push(...getDropTweens(`#${id}`, overlay.text, overlay.start, overlay.fontSize));
   } else {
     // The soft pill's entrance: the card rises from its foot, then its dot and its text settle in, eased out without
@@ -434,7 +450,7 @@ function getCardBody(overlay: CardOverlay, id: string, colors: OverlayColors, lo
     const place = overlay.place === null ? "" : `<div class="ov-place" style="font-size:${overlay.placeFontSize}px">${getPinSvg(colors.accent)}<span>${escapeHtml(overlay.place)}</span></div>`;
     const isMarked = overlay.backdrop === "highlight";
     const draw = (line: string) => (overlay.entrance === "drop" ? toDropHtml(line) : typedOrPlain(line));
-    const lines = overlay.lines.map((line) => `<div class="ov-line">${isMarked ? `<span class="ov-mark" style="background:${colors.background}">${draw(line)}</span>` : draw(line)}</div>`).join("");
+    const lines = overlay.lines.map((line, index) => `<div class="ov-line">${isMarked ? `<span class="ov-mark" id="${id}m${String(index)}" style="background:${colors.background}">${draw(line)}</span>` : draw(line)}</div>`).join("");
     return {
       classes: "ov-hook-title center",
       body: `<div class="ov-card ov-stack${overlay.align === "left" ? " left" : ""}${isMarked ? " hl" : ""}"__STYLE__>__WIPE__${place}${lines}</div>`,
@@ -471,6 +487,7 @@ function addCard(overlay: CardOverlay, id: string, context: MarkupContext, out: 
   const entrance = overlay.entrance ?? (overlay.typing !== null ? "type" : DEFAULT_ENTRANCES[overlay.kind]);
   out.tweens.push(...getEntranceTweens(`#${id} .ov-card`, entrance, overlay.start, { ...(overlay.easing === undefined ? {} : { easing: overlay.easing }), frame: context.frame }));
   out.tweens.push(...getTypingTweens(id, overlay, typed));
+  if (overlay.kind === "hook_title" && overlay.backdrop === "highlight") out.tweens.push(...getMarkRevealTweens(overlay.lines.map((_, index) => `${id}m${String(index)}`), overlay, overlay.lines));
   if (overlay.kind === "hook_title" && overlay.entrance === "drop") out.tweens.push(...getDropTweens(`#${id}`, overlay.lines.join(""), overlay.start, overlay.fontSize));
   if (overlay.kind === "place_card") out.tweens.push(...getPlaceCardPartTweens(overlay, id, context));
   if (overlay.kind === "counter") {
