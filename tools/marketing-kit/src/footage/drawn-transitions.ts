@@ -170,7 +170,7 @@ function buildCardFilters(input: DrawnTransitionFiltersInput): string[] {
     if (radius >= 0.5) {
       chain.push(`geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='255*lte(hypot(max(0,abs(X-W/2)-(W/2-${radius})),max(0,abs(Y-H/2)-(H/2-${radius}))),${radius})'`);
     }
-    if (tilt > 0) chain.push(`rotate=${tilt}:c=none:ow=rotw(${tilt}):oh=roth(${tilt})`);
+    if (tilt > 0) chain.push(`rotate=${tilt}:c=black@0:ow=rotw(${tilt}):oh=roth(${tilt})`);
     chain.push(`pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black@0`, "setsar=1");
     return `[${p}s${String(k)}]${chain.join(",")}[${label}]`;
   });

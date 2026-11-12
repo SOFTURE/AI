@@ -193,7 +193,7 @@ describe.skipIf(!hasFfmpeg)("drawn transitions with ffmpeg: the draft and the re
 
   function make(name: string, source: string): string {
     const file = join(dir, `${name}.mp4`);
-    const made = spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", `${source}=s=${SMALL.width}x${SMALL.height}:r=30:d=4`, "-c:v", "libx264", "-preset", "ultrafast", "-crf", "1", "-pix_fmt", "yuv420p", file], { encoding: "utf8" });
+    const made = spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", `${source.endsWith(":") ? source : `${source}=`}s=${SMALL.width}x${SMALL.height}:r=30:d=4`, "-c:v", "libx264", "-preset", "ultrafast", "-crf", "1", "-pix_fmt", "yuv420p", file], { encoding: "utf8" });
     if (made.status !== 0) throw new Error(`making ${name} failed: ${made.stderr}`);
     return file;
   }
@@ -242,5 +242,26 @@ describe.skipIf(!hasFfmpeg)("drawn transitions with ffmpeg: the draft and the re
     expect(diff(drafted[60 + half], talkFrames[60 + half])).toBeGreaterThan(8);
     expect(diff(drafted[60 + half], streetFrames[half])).toBeGreaterThan(8);
     expect(diff(drafted[60 + frames + 2], streetFrames[frames + 2])).toBeLessThan(4);
+  }, 120_000);
+
+  it.each(DRAWN_TRANSITIONS.map((kind) => [kind]))("draws a %s without a coloured fringe between a black and a grey shot", (kind: DrawnTransition) => {
+    dir = mkdtempSync(join(tmpdir(), "drawn-"));
+    // A transparent pixel left at zero chroma shows green where it is blended into a yuv420p frame.
+    const files = { talk: make("talk", "color=c=black:"), street: make("street", "color=c=gray:") };
+    const speech = join(dir, "speech.m4a");
+    expect(spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono", "-t", "4", "-c:a", "aac", speech]).status).toBe(0);
+    const draftFile = join(dir, "draft.mp4");
+    const draft = spawnSync("ffmpeg", buildFootageDraftArgs({ film: {}, edl: twoShots(kind), clips: files, speech, frame: SMALL, width: SMALL.width, captions: null, fontsDir: null, output: draftFile }), { encoding: "utf8" });
+    expect(draft.status, draft.stderr).toBe(0);
+
+    const run = spawnSync("ffmpeg", ["-v", "error", "-i", draftFile, "-vf", "select='between(n,60,79)'", "-vsync", "0", "-pix_fmt", "rgb24", "-f", "rawvideo", "-"], { maxBuffer: 64 * 1024 * 1024 });
+    let tinted = 0;
+    for (let at = 0; at + 2 < run.stdout.length; at += 3) {
+      const [red = 0, green = 0, blue = 0] = run.stdout.subarray(at, at + 3);
+      if (Math.abs(red - green) > 20 || Math.abs(green - blue) > 20 || Math.abs(red - blue) > 20) tinted++;
+    }
+    expect(run.stdout.length).toBe(20 * SMALL.width * SMALL.height * 3);
+    // Only the paper is tinted on purpose (its warm grain); a black and a grey shot carry no colour of their own.
+    if (kind !== "paper") expect(tinted).toBe(0);
   }, 120_000);
 });
