@@ -51,8 +51,8 @@ export interface PicturePiece {
   frames: number;
   /** For a `fade` cut or a drawn transition, the outgoing tail the piece starts over; null for any other cut. */
   fade: PictureFadeTail | null;
-  /** The segment's split screen: the piece is its three bands under its layer (`split-screen.ts`); null: `clip`. */
-  split: EdlSplit | null;
+  /** The segment's split screen: the piece is its three bands under its layer (`split-screen.ts`); absent: `clip`. */
+  split?: EdlSplit;
 }
 
 /** The film frame a film second falls on. */
@@ -89,7 +89,7 @@ export function planFootagePicture(film: Pick<FootageFilm, "edit">, edl: Edl): P
       const scale = isCamera ? r4(Math.max(1, reached / (scales[index] as number))) : reached;
       fade = { ...(kind === "fade" ? {} : { kind }), clip: previous.clip, start: r3(previous.end), frames: fadeFrames, scale, origin: getCameraOrigin(previous.camera) };
     }
-    return { clip: segment.clip, start: r3(segment.start), frame, frames, fade, split: segment.split ?? null };
+    return { clip: segment.clip, start: r3(segment.start), frame, frames, fade, ...(segment.split === undefined ? {} : { split: segment.split }) };
   });
 }
 
@@ -153,7 +153,7 @@ export function buildPicturePieceArgs(input: PicturePieceArgsInput): string[] {
   const inputs: string[] = [];
   const prelude: string[] = [];
   let source = `[0:v]${fitStream(piece.frames).join(",")}`;
-  if (piece.split === null) {
+  if (piece.split === undefined) {
     inputs.push(...threads.output, "-ss", String(piece.start), "-t", seconds(piece.frames), "-i", getClip(piece.clip));
   } else {
     if (input.splitLayer === undefined) throw new Error("A split piece needs its layer (splitLayer).");
@@ -162,7 +162,7 @@ export function buildPicturePieceArgs(input: PicturePieceArgsInput): string[] {
     prelude.push(...buildSplitScreenFilters({ inputs: ["0:v", "1:v", "2:v"], layer: "3:v", split: piece.split, frame: input.frame, fit: fitStream(piece.frames), output: "split", prefix: "sp" }));
     source = "[split]null";
   }
-  const tailInput = piece.split === null ? 1 : 4;
+  const tailInput = piece.split === undefined ? 1 : 4;
   let graph = `${source}[picture]`;
   if (piece.fade !== null) {
     const { fade } = piece;

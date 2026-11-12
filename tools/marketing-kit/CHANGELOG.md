@@ -15,7 +15,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   fade or drawn transition right after one, a label wider than half the frame and (with caption bounds) captions that
   would cover a label (`findSplitCaptionProblems`; `getSplitCaption` places them in the middle band).
   `resolveEdlOverlays` keeps overlays off a split; `composeFootage` without a picture throws on one. An EDL without a
-  split draws exactly as before (a picture piece carries `split: null`).
+  split draws exactly as before (a picture piece carries `split` only for a split).
 - **New exports (split screen):** `SPLIT_LAYOUTS`, `SPLIT_BANDS`, `MAX_SPLIT_LABEL_CHARACTERS`, `splitSchema`,
   `getSplitBandHeights`, `getSplitPlaces`, `getSplitArrowPaths`, `getSplitLayerSvg`, `renderSplitLayerPng`,
   `writeSplitLayers`, `getSplitLayerInputArgs`, `buildSplitScreenFilters`, `getSplitCaption`, `findSplitLabelProblems`,

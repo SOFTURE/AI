@@ -249,7 +249,7 @@ describe("the EDL with a split screen", () => {
 describe("drawing a split screen", () => {
   it("plans the split's picture piece with its bands and no tail of its own after it", () => {
     const pieces = planFootagePicture({}, withSplit());
-    expect(pieces.map((piece) => piece.split)).toEqual([null, SPLIT, null]);
+    expect(pieces.map((piece) => piece.split)).toEqual([undefined, SPLIT, undefined]);
     expect(pieces[2]?.fade).toBeNull();
   });
 
