@@ -371,10 +371,12 @@ ${overlayMarkup.css.map((rule) => `${rule}\n`).join("")}</style>
 ${captionFit}<script>
 const tl = gsap.timeline({ paused: true });
 ${tweens.join("\n")}
-const captions = ${JSON.stringify(isHighlight ? caption.map((chunk) => chunk.words.map((w) => w.start)) : [])};
+const captions = ${JSON.stringify(isHighlight ? caption.map((chunk) => chunk.words.map((w) => w.start)) : isRibbon ? caption.map((chunk) => [chunk.start]) : [])};
 captions.forEach((words, i) => {
-${entrance === null ? "" : `  tl.fromTo("#cap" + i + " .pill", ${toTweenVars(entrance.from)}, ${toTweenVars(entrance.to)}, Math.max(0, words[0] - 0.05));\n`}${
-  look.style === "underline"
+${entrance === null ? "" : `  tl.fromTo("#cap" + i + " ${isRibbon ? ".ribbon" : ".pill"}", ${toTweenVars(entrance.from)}, ${toTweenVars(entrance.to)}, Math.max(0, words[0] - 0.05));\n`}${
+  isRibbon
+    ? ""
+    : look.style === "underline"
     ? `  words.forEach((t, j) => tl.fromTo("#cu" + i + "_" + j, { opacity: 0 }, { opacity: 1, duration: 0.06, immediateRender: false }, t).to("#cu" + i + "_" + j, { opacity: 0, duration: 0.2 }, t + ${CAPTION_HIGHLIGHT_SECONDS}));`
     : look.style === "box"
     ? `  words.forEach((t, j) => {
@@ -384,7 +386,7 @@ ${entrance === null ? "" : `  tl.fromTo("#cap" + i + " .pill", ${toTweenVars(ent
     : `  words.forEach((t, j) => tl.fromTo("#cw" + i + "_" + j, { color: "${c.captionText}" }, { color: "${look.color}", duration: 0.06, immediateRender: false }, t).to("#cw" + i + "_" + j, { color: "${c.captionText}", duration: 0.2 }, t + 0.32));`
 }
 });
-${isRibbon && entrance !== null ? `${JSON.stringify(caption.map((chunk) => chunk.start))}.forEach((t, i) => tl.fromTo("#cap" + i + " .ribbon", ${toTweenVars(entrance.from)}, ${toTweenVars(entrance.to)}, Math.max(0, t - 0.05)));\n` : ""}${overlayMarkup.tweens.map((tween) => `${tween}\n`).join("")}${endCardTweens.join("\n")}
+${overlayMarkup.tweens.map((tween) => `${tween}\n`).join("")}${endCardTweens.join("\n")}
 tl.set({}, {}, ${end});
 window.__timelines = window.__timelines || {};
 window.__timelines["${COMPOSITION_ID}"] = tl;

@@ -128,8 +128,10 @@ describe("the render's ribbon", () => {
 
   it("lets each card enter by the film's entrance, a rise without one, and lights no word", () => {
     const html = composeFootage(composeInput());
-    expect(html).toContain('[0.5,2.15,3.2].forEach((t, i) => tl.fromTo("#cap" + i + " .ribbon", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.16, ease: "power3.out" }, Math.max(0, t - 0.05)));');
-    expect(html).toContain("const captions = [];");
+    // The card's start is its one time: the entrance runs off it, and no word is lit.
+    expect(html).toContain("const captions = [[0.5],[2.15],[3.2]];");
+    expect(html).toContain('tl.fromTo("#cap" + i + " .ribbon", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.16, ease: "power3.out" }, Math.max(0, words[0] - 0.05));');
+    expect(html).not.toContain("words.forEach");
     expect(composeFootage(composeInput({ captionEntrance: "fade" }))).toContain('tl.fromTo("#cap" + i + " .ribbon", { opacity: 0 }, { opacity: 1, duration: 0.16, ease: "power1.out" }');
     expect(composeFootage(composeInput({ captionEntrance: "none" }))).not.toContain(".ribbon\", ");
   });
