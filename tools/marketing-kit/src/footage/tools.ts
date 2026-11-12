@@ -69,8 +69,8 @@ function findCachedHeadlessShell(base: string): string | null {
     if (!statSync(versionDir).isDirectory()) continue;
     for (const folder of readdirSync(versionDir)) {
       for (const name of ["chrome-headless-shell", "chrome-headless-shell.exe"]) {
-        const binary = join(versionDir, folder, name);
-        if (existsSync(binary)) return binary;
+        const binary = join(/* turbopackIgnore: true */ versionDir, folder, name);
+        if (existsSync(/* turbopackIgnore: true */ binary)) return binary;
       }
     }
   }

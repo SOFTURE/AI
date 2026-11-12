@@ -27,7 +27,7 @@ let handMetrics: { measure: DraftTextMeasure; toEm: number } | undefined;
 /** The hand font's measure in CSS pixels and its libass-size-to-em ratio, read once from the kit's own file. */
 function getHandMetrics(): { measure: DraftTextMeasure; toEm: number } {
   if (handMetrics !== undefined) return handMetrics;
-  const font = readFileSync(HAND_FONT.file);
+  const font = readFileSync(/* turbopackIgnore: true */ HAND_FONT.file);
   const tables = readFontTables(font);
   const libass = createDraftTextMeasure(font);
   const head = tables.ok ? tables.value.get("head") : undefined;

@@ -30,7 +30,7 @@ export function footageCacheKey(kind: FootageCacheKind, parts: Record<string, un
 }
 
 export function getFootageCachePath(cacheDir: string, filmId: string, kind: FootageCacheKind, key: string): string {
-  return join(cacheDir, filmId, `${key}.${SUFFIXES[kind]}`);
+  return join(/* turbopackIgnore: true */ cacheDir, filmId, `${key}.${SUFFIXES[kind]}`);
 }
 
 export function writeCacheFile(path: string, data: Buffer | string): void {

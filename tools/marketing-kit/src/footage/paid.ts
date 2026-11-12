@@ -51,7 +51,7 @@ export function getEdlPath(buildDir: string, isPlaceholder: boolean): string {
 export function getDownloadPath(url: string, dir: string): string {
   const name = createHash("sha256").update(url).digest("hex").slice(0, 16);
   const extension = extname(new URL(url).pathname).toLowerCase() || ".mp4";
-  return join(dir, `${name}${extension}`);
+  return join(/* turbopackIgnore: true */ dir, `${name}${extension}`);
 }
 
 /** The clip's local file: the file itself, or a URL's downloaded copy in the build folder; null when there is none yet. */

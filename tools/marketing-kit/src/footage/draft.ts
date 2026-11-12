@@ -915,7 +915,7 @@ async function runRenderFootageDraft(
     ...(options.brand?.locale === undefined ? {} : { locale: options.brand.locale }),
     ...(options.brand?.style === undefined ? {} : { style: options.brand.style }),
     // A drawn pill and a ribbon break their lines by the font's own widths.
-    ...(options.brand?.style !== undefined || film.captionStyle === "ribbon" ? { measure: createDraftTextMeasure(readFileSync(font.file)) } : {}),
+    ...(options.brand?.style !== undefined || film.captionStyle === "ribbon" ? { measure: createDraftTextMeasure(readFileSync(/* turbopackIgnore: true */ font.file)) } : {}),
   });
   if (captions !== null) {
     writeFileSync(join(draftDir, "captions.ass"), captions);

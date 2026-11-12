@@ -11,6 +11,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   object that `fileURLToPath` refuses, so since 0.36.0 (where the EDL's validation reaches the hand font through the
   split screen) every server page importing the kit failed while loading it. A test keeps that pattern out of the
   kit's sources.
+- **Tests:** `tests/bundler.test.ts` builds a small Next.js app (Turbopack, the settings the README asks of an app)
+  against the kit compiled from its sources and installed in the app's own `node_modules`; its server page imports
+  both entry points, validates a cut and checks both fonts on disk. A module that cannot load under the bundler now
+  fails the kit's own suite instead of an app's end-to-end tests.
+- **Bundling:** the file system calls that take a path computed at run time (the footage cache, the tool and font
+  files, the render's copies) carry `turbopackIgnore`, so a Next.js app that links the kit from source no longer
+  traces its whole project.
 
 ## 0.36.0
 
