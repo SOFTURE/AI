@@ -46,14 +46,14 @@ describe("planFootagePicture", () => {
     expect(pieces[0]?.fade).toBeNull();
     expect(pieces[1]?.fade).toBeNull();
     // Out of the zoomed segment (108 %), ten frames by default.
-    expect(pieces[2]?.fade).toEqual({ kind: "fade", clip: "talk", start: 4.013, frames: 10, scale: 1.08, origin: { x: 0.5, y: 0.42 } });
+    expect(pieces[2]?.fade).toEqual({ clip: "talk", start: 4.013, frames: 10, scale: 1.08, origin: { x: 0.5, y: 0.42 } });
     // Out of a Ken Burns segment at scale 1: it ends 4 % in (a hand edit's Ken Burns).
-    expect(pieces[3]?.fade).toEqual({ kind: "fade", clip: "street", start: 3, frames: 10, scale: 1.04, origin: { x: 0.5, y: 0.42 } });
+    expect(pieces[3]?.fade).toEqual({ clip: "street", start: 3, frames: 10, scale: 1.04, origin: { x: 0.5, y: 0.42 } });
   });
 
   it("follows the film's edit: fade length and Ken Burns size", () => {
     const pieces = planFootagePicture({ edit: { fadeFrames: 6, kenBurnsPercent: 10 } }, edl);
-    expect(pieces[3]?.fade).toEqual({ kind: "fade", clip: "street", start: 3, frames: 6, scale: 1.1, origin: { x: 0.5, y: 0.42 } });
+    expect(pieces[3]?.fade).toEqual({ clip: "street", start: 3, frames: 6, scale: 1.1, origin: { x: 0.5, y: 0.42 } });
   });
 
   it("never lets a fade outlast its piece", () => {

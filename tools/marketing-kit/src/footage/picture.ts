@@ -28,8 +28,8 @@ const r4 = (value: number): number => Math.round(value * 10000) / 10000 || 0;
 
 /** The outgoing segment's tail under a cross-fade or a drawn transition. */
 export interface PictureFadeTail {
-  /** How the tail meets the piece: a dissolve, or a drawn transition of exactly `frames`. */
-  kind: "fade" | DrawnTransition;
+  /** How the tail meets the piece: a drawn transition of exactly `frames`; absent: a dissolve. */
+  kind?: DrawnTransition;
   clip: string;
   /** Seconds in the clip: where the outgoing segment ends. */
   start: number;
@@ -84,7 +84,7 @@ export function planFootagePicture(film: Pick<FootageFilm, "edit">, edl: Edl): P
       // baked at what is left of its zoom (never below the full frame: a fade into a tighter camera is a hard cut's job).
       const isCamera = previous.camera !== undefined || segment.camera !== undefined;
       const scale = isCamera ? r4(Math.max(1, reached / (scales[index] as number))) : reached;
-      fade = { kind, clip: previous.clip, start: r3(previous.end), frames: fadeFrames, scale, origin: getCameraOrigin(previous.camera) };
+      fade = { ...(kind === "fade" ? {} : { kind }), clip: previous.clip, start: r3(previous.end), frames: fadeFrames, scale, origin: getCameraOrigin(previous.camera) };
     }
     return { clip: segment.clip, start: r3(segment.start), frame, frames, fade };
   });
@@ -151,7 +151,7 @@ export function buildPicturePieceArgs(input: PicturePieceArgsInput): string[] {
     const { fade } = piece;
     inputs.push(...threads.output, "-ss", String(fade.start), "-t", seconds(fade.frames), "-i", getClip(fade.clip));
     const tail = [...zoomFilters(fade.scale, input.frame, fade.origin ?? CAMERA_ORIGIN), ...fitStream(fade.frames)];
-    graph = fade.kind === "fade" ? [
+    graph = fade.kind === undefined ? [
       `[0:v]${fitStream(piece.frames).join(",")}[incoming]`,
       `[1:v]${tail.join(",")}[outgoing]`,
       // xfade's output is the outgoing tail plus the incoming piece minus the fade: the piece's own length.

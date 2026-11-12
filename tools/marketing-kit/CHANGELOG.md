@@ -12,7 +12,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   both draw the same frames; `stutter` holds the full frame for 5 frames, then its still camera or 150 %
   (`getSegmentScales`, the draft's zoom, two `tl.set`s in the composition). `validateEdl` refuses a drawn transition
   on a segment not longer than its frames, and a stutter on a moving camera, a Ken Burns zoom or a segment of 5 frames
-  or fewer. An EDL without them draws exactly as before, except that a fade's picture tail now names its `kind`.
+  or fewer. An EDL without them draws exactly as before (a picture tail names a `kind` only for a drawn transition).
 - **New exports:** `DRAWN_TRANSITIONS`, `DRAWN_TRANSITION_FRAMES`, `WHIP_OUT_FRAMES`, `PAPER_FADE_FRAMES`,
   `STUTTER_FRAMES`, `STUTTER_SCALE`, `FRAME_TIMING`, `isDrawnTransition`, `getTransitionOverlapFrames`, `getCardFrame`,
   `buildDrawnTransitionFilters` and the types `DrawnTransition`, `DrawnTransitionFiltersInput`.
