@@ -9,3 +9,9 @@ Copyright HeyGen, licensed under the Apache License, Version 2.0
   blocks lt-soft-pill, marker-highlight, hw-arrow and push-in, rewritten for the kit's frame, timeline
   and brand colours. Changes: the markup, sizes, colours and timing are the kit's own; the blocks'
   standalone compositions, variables, fonts and CDN script tags are not included.
+
+This package ships these fonts in fonts/, each under its own licence:
+
+- DejaVuSans-Bold-Latin.ttf: DejaVu Sans Bold, subset (fonts/LICENSE-DejaVu.txt).
+- Caveat-SemiBold-Latin.ttf: Caveat (Copyright 2014 The Caveat Project Authors), a static SemiBold instance, subset, licensed under the
+  SIL Open Font License, Version 1.1 (fonts/LICENSE-Caveat.txt).

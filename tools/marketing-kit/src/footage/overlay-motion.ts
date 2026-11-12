@@ -62,6 +62,8 @@ function getSmoothEntrance(entrance: Exclude<OverlayEntrance, "none" | "wipe">, 
   switch (entrance) {
     case "fade":
       return { from: { ...REST, opacity: 0 }, seconds: 0.4, ease: "power2.out" };
+    // A dropped text's card (or highlight) fades in quickly; its letters fall in on their own (`getDropOffsetAt`).
+    case "drop":
     case "type":
       return { from: { ...REST, opacity: 0 }, seconds: 0.25, ease: "power2.out" };
     case "slide":
@@ -108,6 +110,7 @@ export function getExitMotion(input: { exit: OverlayExit; entrance: OverlayEntra
       return { kind: "own" };
     case "fade":
     case "type":
+    case "drop":
       return tween(fade);
     case "slide":
       return tween(slide);
@@ -155,3 +158,49 @@ export function getListItemStarts(input: { start: number; end: number; count: nu
   const gap = Math.min(0.6, Math.max(0.25, ((end - start) * 0.4) / count));
   return Array.from({ length: count }, (_item, index) => r3(Math.min(latest, start + 0.2 + index * gap)));
 }
+
+/** A dropped letter falls from this share of its line's type size above its place. */
+export const DROP_FROM_EM = 0.3;
+/** The seconds one letter falls, and the seconds between two letters' starts (2 frames at 30 fps). */
+export const DROP_LETTER_SECONDS = 0.3;
+export const DROP_LETTER_GAP = 0.067;
+/** The most a letter is turned when it starts falling, in degrees; it turns back to straight as it lands. */
+export const DROP_MAX_TURN = 8;
+
+/**
+ * The film seconds each letter of a dropped text starts falling at (a space takes no turn of its own): the first at
+ * `start`, each next one `DROP_LETTER_GAP` later.
+ */
+export function getDropLetterTimes(start: number, text: string): number[] {
+  let letter = 0;
+  return [...text].map((char) => {
+    const at = r3(start + letter * DROP_LETTER_GAP);
+    if (char.trim() !== "") letter += 1;
+    return at;
+  });
+}
+
+/** The turn each letter starts with, in degrees: alternating sides, between half and all of `DROP_MAX_TURN`. */
+export function getDropLetterTurns(text: string): number[] {
+  return [...text].map((_char, index) => r3((index % 2 === 0 ? -1 : 1) * DROP_MAX_TURN * (0.5 + 0.5 * (((index * 7) % 5) / 4))));
+}
+
+/**
+ * A dropped letter `seconds` after it starts falling: px above its place (negative y, up), its turn and its opacity.
+ * The fall eases out along `power2.out`, so the letter slows into its place and never passes it: y stays at or above 0
+ * (screen y grows down), and the turn shrinks to 0 without changing sides.
+ */
+export function getDropOffsetAt(seconds: number, input: { fontSize: number; turn: number }): { y: number; turn: number; opacity: number } {
+  const progress = Math.min(1, Math.max(0, seconds / DROP_LETTER_SECONDS));
+  const eased = OVERLAY_EASES["power2.out"](progress);
+  return { y: r3(-DROP_FROM_EM * input.fontSize * (1 - eased)), turn: r3(input.turn * (1 - eased)), opacity: r3(Math.min(1, progress * 2)) };
+}
+
+/** A note strip grows from this share of its size over these seconds (8 frames at 30 fps), eased out. */
+export const NOTE_GROW_FROM_SCALE = 0.3;
+export const NOTE_GROW_SECONDS = 0.267;
+/** A note's tick is drawn over these seconds, this long after its last word. */
+export const NOTE_TICK_SECONDS = 0.3;
+export const NOTE_TICK_DELAY = 0.15;
+/** A note card is there, empty, this long before its first word (one frame at 30 fps). */
+export const NOTE_FIRST_WORD_LEAD = 0.034;

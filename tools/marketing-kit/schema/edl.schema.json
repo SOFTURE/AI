@@ -211,9 +211,11 @@
               "search_bar",
               "place_card",
               "counter",
-              "date_stamp"
+              "date_stamp",
+              "note",
+              "end_word"
             ],
-            "description": "punch_in (an emphasis zoom on a word), keyword, lower_third, list, arrow, highlight, hook_title, search_bar, place_card, counter or date_stamp."
+            "description": "punch_in (an emphasis zoom on a word), keyword, lower_third, list, arrow, highlight, hook_title, search_bar, place_card, counter, date_stamp, note or end_word."
           },
           "at_word": {
             "description": "The transcript word the overlay starts on (its start after the cut); give this or at.",
@@ -243,12 +245,12 @@
           },
           "duration": {
             "type": "number",
-            "minimum": 1,
+            "minimum": 0.5,
             "maximum": 180,
-            "description": "Seconds on screen (1-8; a hook_title up to 180)."
+            "description": "Seconds on screen (1-8; a hook_title up to 180; an end_word 0.5-2)."
           },
           "text": {
-            "description": "The text: keyword (up to 24 characters), lower_third (40), hook_title (64, one or two lines), search_bar (40), place_card title (28) or date_stamp (24).",
+            "description": "The text: keyword (up to 24 characters), lower_third (40), hook_title (64, one or two lines), search_bar (40), place_card title (28), date_stamp (24), note (72) or end_word (16, one line).",
             "type": "string",
             "minLength": 1
           },
@@ -374,7 +376,7 @@
                 ]
               },
               "side": {
-                "description": "The side a keyword, lower third, list or date stamp sits on.",
+                "description": "The side a keyword, lower third, list, date stamp or note sits on.",
                 "type": "string",
                 "enum": [
                   "left",
@@ -382,7 +384,7 @@
                 ]
               },
               "position": {
-                "description": "top, middle or bottom of the room above the captions: keyword, search_bar, place_card, counter (any), lower_third (top or bottom), list (top or middle).",
+                "description": "top, middle or bottom of the room above the captions: keyword, search_bar, place_card, counter (any), lower_third (top or bottom), list and note (top or middle).",
                 "type": "string",
                 "enum": [
                   "top",
@@ -391,7 +393,7 @@
                 ]
               },
               "entrance": {
-                "description": "fade, slide, type (text typed in letter by letter), none, pop (92 % to 100 %, no overshoot), rise (up from 5 % of the height), blur (blurred to sharp) or wipe (card revealed from the left in the accent, then the text); without it the kind's own. Never a bounce.",
+                "description": "fade, slide, type (text typed in letter by letter), none, pop (92 % to 100 %, no overshoot), rise (up from 5 % of the height), blur (blurred to sharp), wipe (card revealed from the left in the accent, then the text) or drop (hook_title, keyword, end_word: letters fall into place one by one, never below their line); without it the kind's own. Never a bounce.",
                 "type": "string",
                 "enum": [
                   "fade",
@@ -401,7 +403,8 @@
                   "pop",
                   "rise",
                   "blur",
-                  "wipe"
+                  "wipe",
+                  "drop"
                 ]
               },
               "exit": {
@@ -509,6 +512,26 @@
               },
               "underline": {
                 "description": "A keyword only: an accent bar drawn under the word after it enters.",
+                "type": "boolean"
+              },
+              "backdrop": {
+                "description": "A hook_title or keyword only: card (the default) or highlight (each line on its own tight box in the card colour; typed in, the box grows with the letters).",
+                "type": "string",
+                "enum": [
+                  "card",
+                  "highlight"
+                ]
+              },
+              "note_style": {
+                "description": "A note only: card (the default: a tilted paper card, handwritten words appearing as they are said) or strip (a torn paper strip that grows in, then types its text in capitals).",
+                "type": "string",
+                "enum": [
+                  "card",
+                  "strip"
+                ]
+              },
+              "tick": {
+                "description": "A note only: a hand-drawn tick after its last word.",
                 "type": "boolean"
               }
             },

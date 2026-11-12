@@ -17,7 +17,8 @@ import { getCaptionCornerRadius, getCornerRadiusPx, getStylePadding, type BrandS
 import { getDraftBoxEvents } from "./draft-boxes.js";
 import { createDraftTextMeasure, wrapDraftLine, type DraftTextMeasure } from "./draft-text-width.js";
 import { CAPTION_PILL_PADDING } from "../compose/timeline.js";
-import { estimateTextWidth } from "./overlays.js";
+import { estimateTextWidth, isHandFontNeeded } from "./overlays.js";
+import { HAND_FONT } from "./hand-font.js";
 import type { OverlayColors } from "./overlay-html.js";
 import { resolveEdlOverlays, type OverlayFontRole, type ResolvedOverlay } from "./overlays.js";
 import { chooseFootageDraftFont } from "./draft-font.js";
@@ -852,7 +853,8 @@ async function runRenderFootageDraft(
   if (captions !== null) {
     writeFileSync(join(draftDir, "captions.ass"), captions);
     mkdirSync(join(draftDir, "fonts"));
-    for (const file of new Set([font.file, ...Object.values(roleFonts).map((chosen) => chosen.file)])) copyFileSync(file, join(draftDir, "fonts", basename(file)));
+    const handFont = isHandFontNeeded(overlays) ? [HAND_FONT.file] : [];
+    for (const file of new Set([font.file, ...Object.values(roleFonts).map((chosen) => chosen.file), ...handFont])) copyFileSync(file, join(draftDir, "fonts", basename(file)));
     if (brandFont === null && options.brand?.fonts.body != null) {
       log(`draft: the brand's body font ${options.brand.fonts.body.family} has no TrueType or OpenType file ffmpeg can read; the captions use ${FOOTAGE_DRAFT_FONT.family}.`);
     }
