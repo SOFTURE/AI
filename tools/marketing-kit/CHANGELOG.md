@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.36.1
+
+- **Fix:** `HAND_FONT.file` and `FOOTAGE_DRAFT_FONT.file` are joined to their module's own path instead of being built
+  from a URL relative to `import.meta.url`. A bundler (Turbopack in a Next.js server) turned that URL into an asset
+  object that `fileURLToPath` refuses, so since 0.36.0 (where the EDL's validation reaches the hand font through the
+  split screen) every server page importing the kit failed while loading it. A test keeps that pattern out of the
+  kit's sources.
+- **Tests:** `tests/bundler.test.ts` builds a small Next.js app (Turbopack, the settings the README asks of an app)
+  against the kit compiled from its sources and installed in the app's own `node_modules`; its server page imports
+  both entry points, validates a cut and checks both fonts on disk. A module that cannot load under the bundler now
+  fails the kit's own suite instead of an app's end-to-end tests.
+- **Bundling:** the file system calls that take a path computed at run time (the footage cache, the tool and font
+  files, the render's copies) carry `turbopackIgnore`, so a Next.js app that links the kit from source no longer
+  traces its whole project.
+
 ## 0.36.0
 
 - **Ribbon captions:** `CAPTION_STYLES` gains `ribbon`: the cards are cut like the highlight pill's and no word is lit;

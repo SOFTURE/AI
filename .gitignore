@@ -10,6 +10,10 @@ coverage/
 # marketing-kit: render artifacts
 tools/marketing-kit/**/build/
 tools/marketing-kit/**/out/
+tools/marketing-kit/tests/fixtures/next-app/.next/
+# Written by `next build` into the app it builds.
+tools/marketing-kit/tests/fixtures/next-app/AGENTS.md
+tools/marketing-kit/tests/fixtures/next-app/CLAUDE.md
 
 # softure-skills:begin (managed by @softure-ai/skills)
 /.claude/skills/softure-archive/

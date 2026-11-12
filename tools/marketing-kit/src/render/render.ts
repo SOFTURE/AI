@@ -59,7 +59,7 @@ export function copyFonts(fonts: RenderInput["fonts"] & { interface?: BrandFont 
       faces: font.files.map((file) => {
         const name = `${count}${extname(file.path).toLowerCase()}`;
         count += 1;
-        cpSync(file.path, join(dir, name));
+        cpSync(/* turbopackIgnore: true */ file.path, join(/* turbopackIgnore: true */ dir, name));
         return { src: `assets/fonts/${name}`, weight: file.weight, style: file.style, unicodeRange: file.unicodeRange };
       }),
     };

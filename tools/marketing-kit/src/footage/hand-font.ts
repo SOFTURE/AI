@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readFontTables, readUint16 } from "../og/font-tables.js";
@@ -12,7 +13,9 @@ import { createDraftTextMeasure, type DraftTextMeasure } from "./draft-text-widt
  */
 export const HAND_FONT = {
   family: "Caveat",
-  file: fileURLToPath(new URL("../../fonts/Caveat-SemiBold-Latin.ttf", import.meta.url)),
+  // A path joined to this module's own path, not a URL relative to `import.meta.url`: a bundler (Turbopack in a Next.js
+  // server) turns that URL into an asset object `fileURLToPath` refuses, which broke every page importing the kit.
+  file: join(dirname(fileURLToPath(import.meta.url)), "../../fonts/Caveat-SemiBold-Latin.ttf"),
   asset: "assets/fonts/hand.ttf",
 } as const;
 
@@ -24,7 +27,7 @@ let handMetrics: { measure: DraftTextMeasure; toEm: number } | undefined;
 /** The hand font's measure in CSS pixels and its libass-size-to-em ratio, read once from the kit's own file. */
 function getHandMetrics(): { measure: DraftTextMeasure; toEm: number } {
   if (handMetrics !== undefined) return handMetrics;
-  const font = readFileSync(HAND_FONT.file);
+  const font = readFileSync(/* turbopackIgnore: true */ HAND_FONT.file);
   const tables = readFontTables(font);
   const libass = createDraftTextMeasure(font);
   const head = tables.ok ? tables.value.get("head") : undefined;
