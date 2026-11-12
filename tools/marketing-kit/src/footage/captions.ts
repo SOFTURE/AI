@@ -5,7 +5,7 @@ import type { BrandFont } from "../config/config.js";
 import { readCharacterMap, type CharacterMap } from "../og/character-map.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { findCaptionRangeAt, findSegmentAt, type Edl, type EdlCaption, type EdlCaptionBounds } from "./edl.js";
-import { DEFAULT_CAPTION_KEEP_WITH_NEXT, type CaptionPreset, type FootageFilm } from "./film.js";
+import { CAPTION_RIBBON, CAPTION_RIBBON_TILT, DEFAULT_CAPTION_KEEP_WITH_NEXT, type CaptionPreset, type FootageFilm } from "./film.js";
 
 /**
  * The footage film's captions: plain phrases (the default style), the 9:16 caption box inside a platform's safe zone,
@@ -95,8 +95,8 @@ export function getCaptionKeepsWithNext(film: CaptionWordsFilm): (word: TimedWor
 }
 
 /**
- * A footage film's caption cards in film time: none without captions, `captionChunks` for `highlight`, `phraseChunks`
- * otherwise; both keep the film's kept words with the next (`getCaptionKeepsWithNext`) and take the film's
+ * A footage film's caption cards in film time: none without captions, `captionChunks` for `highlight` and `ribbon`,
+ * `phraseChunks` otherwise; both keep the film's kept words with the next (`getCaptionKeepsWithNext`) and take the film's
  * `captionMaxWords`, `captionMinWords` and `captionMaxCharacters` (absent: each style's defaults, no evening out). The
  * render and the draft share it.
  */
@@ -108,7 +108,35 @@ export function getFootageCaptionChunks(film: CaptionWordsFilm & Pick<FootageFil
     ...(film.captionMinWords === undefined ? {} : { minWords: film.captionMinWords }),
     ...(film.captionMaxCharacters === undefined ? {} : { maxCharacters: film.captionMaxCharacters }),
   };
-  return film.captionStyle === "highlight" ? captionChunks(words, options) : phraseChunks(words, options);
+  return film.captionStyle === "highlight" || film.captionStyle === "ribbon" ? captionChunks(words, options) : phraseChunks(words, options);
+}
+
+/** A caption's text as the film shows it: a `ribbon` caption in capitals of the film's locale, the others as said. */
+export function toCaptionDisplayText(film: Pick<FootageFilm, "captionStyle">, text: string, locale: string): string {
+  return film.captionStyle === "ribbon" ? text.toLocaleUpperCase(locale) : text;
+}
+
+/** A `ribbon` caption's turn in degrees, counter-clockwise positive: the film's own, else `CAPTION_RIBBON_TILT`. */
+export function getCaptionRibbonTilt(film: Pick<FootageFilm, "captionRibbonTilt">): number {
+  return film.captionRibbonTilt ?? CAPTION_RIBBON_TILT;
+}
+
+/** How far a turned `ribbon` block reaches above and below its foot, in px of the frame. */
+export interface RibbonCaptionExtent {
+  above: number;
+  below: number;
+}
+
+/**
+ * The vertical reach of a `ribbon` block of `lines` lines at `fontSize`, `width` px wide at most, turned `tilt` degrees
+ * about its middle while its foot stays where the caption box anchors it: a turned block dips below its foot by half
+ * its width's rise and rises as much above its top. An app placing captions off a face reads it.
+ */
+export function getRibbonCaptionExtent(input: { fontSize: number; tilt: number; width: number; lines: number }): RibbonCaptionExtent {
+  const height = input.lines * CAPTION_RIBBON.lineHeight * input.fontSize;
+  const radians = (Math.abs(input.tilt) * Math.PI) / 180;
+  const turned = (input.width / 2) * Math.sin(radians) + (height / 2) * (Math.cos(radians) - 1);
+  return { above: Math.ceil(height + turned), below: Math.ceil(Math.max(0, turned)) };
 }
 
 /** When a caption chunk is on screen, in film seconds. */

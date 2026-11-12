@@ -252,6 +252,7 @@ function resolveFootage(data: MarketingJson, at: (relative: string) => string): 
             },
       captions: film.captions,
       captionStyle: film.captionStyle,
+      ...(film.captionRibbonTilt === undefined ? {} : { captionRibbonTilt: film.captionRibbonTilt }),
       ...(film.captionHighlightStyle === "text" ? {} : { captionHighlightStyle: film.captionHighlightStyle }),
       ...(film.captionEntrance === undefined ? {} : { captionEntrance: film.captionEntrance }),
       ...(film.captionPreset === undefined ? {} : { captionPreset: film.captionPreset }),

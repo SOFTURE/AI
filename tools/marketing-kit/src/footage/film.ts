@@ -124,8 +124,14 @@ export interface FootageFilm {
   music: FootageMusic;
   /** Captions from the transcript. */
   captions: boolean;
-  /** `phrase` (the default): 2-6 words of plain text with a soft shadow; `highlight`: a pill that lights each word as it is said. */
+  /**
+   * `phrase` (the default): 2-6 words of plain text with a soft shadow; `highlight`: a pill that lights each word as it
+   * is said; `ribbon`: bold capitals, each line on its own flat strip of `captionBackground`, the block turned by
+   * `captionRibbonTilt`.
+   */
   captionStyle?: CaptionStyle;
+  /** A `ribbon` caption's turn in degrees, counter-clockwise positive (-10 to 10); absent: `CAPTION_RIBBON_TILT`. */
+  captionRibbonTilt?: number;
   /**
    * How a `highlight` caption lights the word being said: `text` (the default) colours its text `captionHighlight`;
    * `box` puts it on a rounded box of `captionHighlightBox` with its text in `captionHighlightText` (both brand colours
@@ -282,9 +288,21 @@ export const DEFAULT_CUT: Omit<CutOptions, "fillers"> = { pauseSeconds: 0.6, pad
 /** Hard cuts everywhere: an ordinary phone video, not a promo. */
 export const DEFAULT_TRANSITIONS: FootageTransitions = { jump: "cut", clip: "cut" };
 
-export const CAPTION_STYLES = ["phrase", "highlight"] as const;
+export const CAPTION_STYLES = ["phrase", "highlight", "ribbon"] as const;
 
 export type CaptionStyle = (typeof CAPTION_STYLES)[number];
+
+/** A `ribbon` caption's turn in degrees, counter-clockwise positive as ASS turns, unless the film names its own. */
+export const CAPTION_RIBBON_TILT = 4;
+
+/** The most a `ribbon` caption may turn either way, in degrees. */
+export const CAPTION_RIBBON_MAX_TILT = 10;
+
+/**
+ * A `ribbon` caption's geometry, shared by the render and the draft: its lines' height in font sizes, each line's strip
+ * padding in font sizes, the strip's corner in px of a 1080 px frame, and the letters' weight.
+ */
+export const CAPTION_RIBBON = { lineHeight: 1.42, padding: { y: 0.1, x: 0.32 }, radius: 6, weight: 800 } as const;
 
 /** How a `highlight` caption lights the word being said: its text colour, a box behind it (issue #1199), or an accent underline. */
 export const CAPTION_HIGHLIGHT_STYLES = ["text", "box", "underline"] as const;
