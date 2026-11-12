@@ -102,6 +102,13 @@ export {
   OVERLAY_PINS,
   OVERLAY_LIST_LAYOUTS,
   MAX_OVERLAY_SUBTITLE_DELAY,
+  MAX_END_WORD_SECONDS,
+  MAX_OVERLAY_END_WORD_LENGTH,
+  MAX_OVERLAY_NOTE_LENGTH,
+  MIN_END_WORD_SECONDS,
+  OVERLAY_BACKDROP_KINDS,
+  OVERLAY_BACKDROPS,
+  OVERLAY_NOTE_STYLES,
   OVERLAY_KINDS,
   OVERLAY_POSITIONS,
   OVERLAY_POSITIONS_BY_KIND,
@@ -115,7 +122,9 @@ export {
   type EdlOverlayStyle,
   type EdlOverlayWord,
   type OverlayAlign,
+  type OverlayBackdrop,
   type OverlayKeywordAlign,
+  type OverlayNoteStyle,
   type OverlayEasing,
   type OverlayEntrance,
   type OverlayExit,
@@ -148,6 +157,7 @@ export {
   type StyleShadow,
 } from "./footage/brand-style.js";
 export { createDraftTextMeasure, wrapDraftLine, type DraftTextMeasure } from "./footage/draft-text-width.js";
+export { HAND_FONT } from "./footage/hand-font.js";
 export {
   OVERLAY_FONT_ROLES,
   OVERLAY_FONT_SIZES,
@@ -172,6 +182,11 @@ export {
   getOverlaySafeZone,
   getOverlayTexts,
   getOverlayTextsByRole,
+  getNoteColors,
+  isHandFontNeeded,
+  isTitleBand,
+  timeNote,
+  wrapNoteText,
   resolveEdlOverlays,
   type OverlayBox,
   type OverlayFontRole,
@@ -188,6 +203,8 @@ export {
   getEntranceScaleAt,
   getExitMotion,
   getListItemStarts,
+  getDropLetterTimes,
+  getDropOffsetAt,
   type OverlayEase,
   type OverlayEntranceMotion,
   type OverlayExitMotion,
@@ -559,6 +576,21 @@ export {
   type CameraEase,
   type EdlCamera,
 } from "./footage/camera.js";
+export {
+  DRAWN_TRANSITIONS,
+  DRAWN_TRANSITION_FRAMES,
+  FRAME_TIMING,
+  PAPER_FADE_FRAMES,
+  STUTTER_FRAMES,
+  STUTTER_SCALE,
+  WHIP_OUT_FRAMES,
+  buildDrawnTransitionFilters,
+  getCardFrame,
+  getTransitionOverlapFrames,
+  isDrawnTransition,
+  type DrawnTransition,
+  type DrawnTransitionFiltersInput,
+} from "./footage/drawn-transitions.js";
 export { findRetakes, splitFilmSentences, splitSentences, type RetakeKind, type RetakeSuggestion, type Sentence } from "./footage/sentences.js";
 export {
   CAPTION_SAFE_ZONES,

@@ -746,10 +746,36 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   also while it types in) or on the right; giving both is refused. Without either it stays on the right. A resolved
   keyword carries `isCentred`, and `getDrawnOverlayCard` answers the card where it is drawn. A title still aligns its
   lines `center` or `left` only.
+- **Text devices** (0.35.0): two more kinds and two knobs, each meant to look made by hand, never generated.
+  `note` (up to 72 characters, at most four lines, on its `side`, `top` or `middle`): a `card` (`style.note_style`,
+  the default) is a slightly tilted paper card with a torn bottom edge, handwritten in the kit's own `HAND_FONT`
+  (Caveat, OFL, shipped in `fonts/`), each word coming in as it is said (matched in order against the cut's words,
+  `timeNote`; spaced over the first half when none is said); a `strip` is a torn strip of paper that grows in and
+  types its text in capitals in the heading font. `style.tick` draws a hand-drawn tick after the last word.
+  `end_word` (up to 16 characters, 0.5-2 s): one big handwritten line at the top of the room, white with a soft
+  shadow, no card, shrunk to fit or refused; like a hook title it may cross cuts and does not count against one
+  overlay at a time, one title at the top at a time and nothing may sit on it (`isTitleBand`). `style.backdrop`
+  (`card`, the default, or `highlight`) on a keyword or a hook title draws a tight highlight mark in the card colour
+  behind each line instead of a card (with a typed entrance it widens with each letter; refused with `underline`).
+  `style.entrance: "drop"` (keyword, hook title, end word; the end word's default) brings the letters in one by one,
+  each falling a little from above with a small turn and an ease-out, never below its line (`getDropOffsetAt`). The
+  render copies the hand font to `assets/fonts/hand.ttf` only when a note card or an end word needs it
+  (`isHandFontNeeded`); the draft copies it next to its caption font and sizes it so its letters match the render's.
+  Handwriting is measured from the font itself (`measureHandText`), a strip's capitals by their own wider average.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless
   `edit.kenBurnsPercent` (up to 5) zooms it; the end card plays its whoosh only with `edit.endCardWhoosh`.
+- **Drawn transitions and the stutter:** `whip` (14 frames: the outgoing shot slides left under a growing horizontal
+  motion blur, the incoming one slides in from the right and lands from 110 %), `card` (13 frames: the incoming shot
+  grows from a small tilted card with rounded corners to the full frame) and `paper` (12 frames: a paper grain settles
+  over the outgoing shot, then a torn edge opens from the middle) play the outgoing segment on under the incoming one,
+  as a `fade` does, and are drawn by one filter builder (`buildDrawnTransitionFilters`) in the draft and in the
+  render's picture, so both show the same frames. The paper's grain and tear are made in code (ffmpeg noise, a sum of
+  sines). No sound is added. `stutter` shows the incoming segment's first 5 frames at the full frame, then its still
+  camera framing (or 150 %). A drawn transition needs a segment longer than its frames, a stutter one longer than 5
+  frames and no moving camera or Ken Burns zoom (`validateEdl`). The paper costs the most (about 8 s of ffmpeg at
+  1080x1920); the per-segment composition without a picture plays a drawn transition as a plain cut.
 - **Smooth cuts on handheld footage:** three options for cuts that do not jump, all off by default.
   - `edit.zoomEaseFrames` (0-15, 3-5 reads naturally) eases a `zoom` cut into its scale over that many frames, from
     the scale on screen before the cut (in and back out), in the render (a `power1.out` tween) and the draft alike.

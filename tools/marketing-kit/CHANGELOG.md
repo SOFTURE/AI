@@ -4,6 +4,36 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.35.0
+
+- **Drawn transitions:** `CUT_TRANSITIONS` gains `whip`, `card`, `paper` and `stutter`. `whip` (14 frames), `card`
+  (13) and `paper` (12) play the outgoing segment on under the incoming one like a `fade` and blend the two through
+  one filter builder in the draft (`planFootageDraft` `drawn`) and the render's picture (`PictureFadeTail.kind`), so
+  both draw the same frames; `stutter` holds the full frame for 5 frames, then its still camera or 150 %
+  (`getSegmentScales`, the draft's zoom, two `tl.set`s in the composition). `validateEdl` refuses a drawn transition
+  on a segment not longer than its frames, and a stutter on a moving camera, a Ken Burns zoom or a segment of 5 frames
+  or fewer. An EDL without them draws exactly as before (a picture tail names a `kind` only for a drawn transition).
+- **New exports (drawn transitions):** `DRAWN_TRANSITIONS`, `DRAWN_TRANSITION_FRAMES`, `WHIP_OUT_FRAMES`, `PAPER_FADE_FRAMES`,
+  `STUTTER_FRAMES`, `STUTTER_SCALE`, `FRAME_TIMING`, `isDrawnTransition`, `getTransitionOverlapFrames`, `getCardFrame`,
+  `buildDrawnTransitionFilters` and the types `DrawnTransition`, `DrawnTransitionFiltersInput`.
+- **Draft tools:** `DRAFT_FILTERS` also asks for `gblur`, `geq`, `rotate`, `blend`, `noise`, `interleave` and `hstack`.
+- **Text devices:** new overlay kinds `note` and `end_word`, `style.backdrop` (`card` or `highlight`) on a keyword and
+  a hook title, and the `drop` entrance (keyword, hook title, end word). A note is a handwritten paper card whose words
+  come in as they are said, or a torn `strip` that grows in and types its capitals (`style.note_style`), with an
+  optional hand-drawn `style.tick`. An end word is one big handwritten line at the top for the film's last moment
+  (0.5-2 s); it shares the hook title's band: one title at the top at a time, nothing on it. The draft and the render
+  draw all of them alike. An EDL without them renders exactly as before.
+- **The kit's handwriting:** `HAND_FONT` (Caveat SemiBold, SIL OFL 1.1, subset to Latin with every Polish letter) ships
+  in `fonts/`; the render copies it to `assets/fonts/hand.ttf` and the draft into its fonts folder, only when a note
+  card or an end word is drawn. `measureHandText` and `getHandFontAssSize` measure and size it.
+- **Changed messages:** two title-band overlays at once are refused as "one title at the top at a time" (was "one hook
+  title at a time"); a typing speed is refused unless the entrance types, the kind is a search bar or a note strip; a
+  text overlay shorter than 1 s is refused as "stays at least 1 s (only an end_word stays shorter)".
+- **New exports (text devices):** `OVERLAY_BACKDROPS`, `OVERLAY_BACKDROP_KINDS`, `OVERLAY_NOTE_STYLES`, `MIN_END_WORD_SECONDS`,
+  `MAX_END_WORD_SECONDS`, `MAX_OVERLAY_NOTE_LENGTH`, `MAX_OVERLAY_END_WORD_LENGTH`, `HAND_FONT`, `isTitleBand`,
+  `isHandFontNeeded`, `timeNote`, `wrapNoteText`, `getNoteColors`, `getDropLetterTimes`, `getDropOffsetAt` and the
+  types `OverlayBackdrop`, `OverlayNoteStyle`.
+
 ## 0.34.0
 
 - **A segment's camera:** an EDL segment may carry `camera: { from, to, ease, seconds?, anchor? }`: its framing (1 is

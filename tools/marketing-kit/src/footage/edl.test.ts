@@ -134,7 +134,7 @@ describe("readEdl and findEdlProblems", () => {
   it("names the field of a broken file", () => {
     expect(readEdl({ ...edl, segments: [{ ...edl.segments[0], transition: "spin" }] })).toEqual({
       ok: false,
-      error: 'segments.0.transition: Invalid option: expected one of "cut"|"fade"|"zoom"|"whoosh"',
+      error: 'segments.0.transition: Invalid option: expected one of "cut"|"fade"|"zoom"|"whoosh"|"whip"|"card"|"paper"|"stutter"',
     });
   });
 

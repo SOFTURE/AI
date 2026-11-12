@@ -15,6 +15,7 @@ import {
   type OverlayExit,
   type OverlayKind,
   type OverlayListLayout,
+  type OverlayNoteStyle,
   type OverlayPosition,
   type OverlaySide,
   type OverlaySize,
@@ -22,8 +23,9 @@ import {
 import { isCameraMoving, isSameCamera } from "./camera.js";
 import { getSegmentZoomEases } from "./compose.js";
 import { normalizeWord } from "./words.js";
-import { getListItemStarts } from "./overlay-motion.js";
+import { NOTE_FIRST_WORD_LEAD, NOTE_TICK_DELAY, getListItemStarts } from "./overlay-motion.js";
 import { STYLE_PADDING_SCALES, type BrandStyle, type CornerRadius } from "./brand-style.js";
+import { measureHandText } from "./hand-font.js";
 
 /**
  * An EDL's overlays resolved for the render and the draft (issue #1200): each one's film time (from its word through
@@ -50,7 +52,29 @@ export const OVERLAY_FONT_SIZES: Record<TextOverlayKind, Record<OverlaySize, num
   place_card: { s: 70, m: 92, l: 118 },
   counter: { s: 84, m: 108, l: 132 },
   date_stamp: { s: 30, m: 36, l: 44 },
+  note: { s: 46, m: 56, l: 68 },
+  end_word: { s: 120, m: 150, l: 180 },
 };
+/** A note strip's type size (its capitals), in px of a 1080 px wide frame; a note card's is `OVERLAY_FONT_SIZES.note`. */
+export const NOTE_STRIP_FONT_SIZES: Record<OverlaySize, number> = { s: 38, m: 46, l: 54 };
+/** A note's line height, and its padding round the text, in font sizes. */
+export const NOTE_LINE_HEIGHT = 1.2;
+export const NOTE_PADDING_EM = { x: 0.55, y: 0.4 } as const;
+/** How deep a note's torn edge cuts into the paper, in font sizes (the card's foot, the strip's top). */
+export const NOTE_TEAR_EM = 0.22;
+/** The points along a note's torn edge. */
+export const NOTE_TEAR_POINTS = 14;
+/** A note's tick: its size and its gap after the last line, in font sizes. */
+export const NOTE_TICK_EM = { size: 0.9, gap: 0.3 } as const;
+/** The most words a line of a note card takes, and the most lines a note takes. */
+export const MAX_NOTE_LINE_WORDS = 6;
+export const MAX_NOTE_LINES = 4;
+/** The share of the safe zone's width a note may take: a small card beside the subject, not a banner. */
+export const NOTE_WIDTH_SHARE = 0.62;
+/** A note's tilt in degrees, counter-clockwise positive as ASS turns (a note on the left leans back, on the right forward). */
+export const NOTE_TILT = { card: 3, strip: 2 } as const;
+/** A note's paper and ink without its own colours: an off-white paper and near-black ink, a green tick. */
+export const NOTE_COLORS = { paper: "#fbf8f1", ink: "#1d1f24", tick: "#2f9e4f" } as const;
 /** A second line's type size in main font sizes: the hook title's place label, the subtitle, the unit, the stamp's place. */
 export const OVERLAY_SECONDARY_SCALE = { hook_title: 0.55, place_card: 0.55, counter: 0.5, date_stamp: 0.78 } as const;
 /** A place card's subtitle size in title sizes, by its `subtitle_size` (RV-131 of an adopting app: 0.42 read tiny). */
@@ -98,6 +122,9 @@ export const OVERLAY_FONT_ROLES: Record<TextOverlayKind, OverlayFontRole> = {
   list: "interface",
   search_bar: "interface",
   date_stamp: "interface",
+  // A note strip types in the heading font; a note card and an end word are handwritten (the kit's own `HAND_FONT`).
+  note: "heading",
+  end_word: "heading",
 };
 
 /** A box in the film's frame, in px. */
@@ -157,6 +184,8 @@ export type ResolvedOverlay =
       underline?: boolean;
       /** Its card sits in the middle of `box`, its text centred (`style.align` center); absent: on its side. */
       isCentred?: boolean;
+      /** Its text on a tight box (`style.backdrop` highlight); absent: the card. */
+      backdrop?: "highlight";
     })
   | (Drawn & { kind: "lower_third"; text: string; fontSize: number; side: OverlaySide; box: OverlayBox })
   | (Drawn & {
@@ -173,7 +202,17 @@ export type ResolvedOverlay =
     })
   | (Drawn & { kind: "arrow"; from: OverlayPoint; to: OverlayPoint })
   | (Drawn & { kind: "highlight"; rect: OverlayBox })
-  | (Drawn & { kind: "hook_title"; lines: string[]; place: string | null; fontSize: number; placeFontSize: number; align?: OverlayAlign; box: OverlayBox })
+  | (Drawn & {
+      kind: "hook_title";
+      lines: string[];
+      place: string | null;
+      fontSize: number;
+      placeFontSize: number;
+      align?: OverlayAlign;
+      box: OverlayBox;
+      /** Each line on its own tight box (`style.backdrop` highlight); absent: the card. */
+      backdrop?: "highlight";
+    })
   | (Drawn & { kind: "search_bar"; text: string; fontSize: number; box: OverlayBox })
   | (Drawn & {
       kind: "place_card";
@@ -189,7 +228,27 @@ export type ResolvedOverlay =
       subtitleDelay?: number;
     })
   | (Drawn & { kind: "counter"; value: number; from: number; decimals: number; unit: string | null; fontSize: number; unitFontSize: number; box: OverlayBox })
-  | (Drawn & { kind: "date_stamp"; text: string; place: string | null; fontSize: number; placeFontSize: number; side: OverlaySide; box: OverlayBox });
+  | (Drawn & { kind: "date_stamp"; text: string; place: string | null; fontSize: number; placeFontSize: number; side: OverlaySide; box: OverlayBox })
+  | (Drawn & {
+      kind: "note";
+      noteStyle: OverlayNoteStyle;
+      /** Its lines as drawn (a strip's in capitals). */
+      lines: string[];
+      fontSize: number;
+      side: OverlaySide;
+      /** Its paper, unturned; it is drawn turned by `tilt` degrees about its middle. */
+      box: OverlayBox;
+      tilt: number;
+      /** The torn edge's depth at each of `NOTE_TEAR_POINTS` points, 0 to 1 of `NOTE_TEAR_EM`. */
+      tear: number[];
+      /** The film second each word comes in at, in reading order (a card's words as they are said); null: a strip, typed. */
+      wordTimes: number[] | null;
+      /** Whether a hand tick is drawn after its last word (`style.tick`). */
+      tick: boolean;
+      /** The film second its tick starts being drawn; null without one. */
+      tickAt: number | null;
+    })
+  | (Drawn & { kind: "end_word"; text: string; fontSize: number; box: OverlayBox });
 
 export type ResolvedOverlaysResult = { ok: true; overlays: ResolvedOverlay[] } | { ok: false; problems: string[] };
 
@@ -262,6 +321,22 @@ export function getOverlayPadding(overlay: { fontSize: number; padScale?: number
 /** The estimated width of a line of text at a font size, in px (`OVERLAY_CHAR_EM` a letter). */
 export function estimateTextWidth(text: string, fontSize: number): number {
   return Math.ceil([...text].length * OVERLAY_CHAR_EM * fontSize - 1e-6);
+}
+
+/** A line's width at a font size, in px. */
+export type TextMeasure = (text: string, fontSize: number) => number;
+
+/** How a note's line is measured: a card's handwriting from the hand font itself, a strip's capitals by their own wider average. */
+export function getNoteMeasure(noteStyle: OverlayNoteStyle): TextMeasure {
+  return noteStyle === "card" ? measureHandText : measureStripText;
+}
+
+/** A strip's capitals per character, in font sizes: bold capitals run about 0.72 em, plus the strip's letter spacing. */
+export const NOTE_STRIP_CHAR_EM = 0.76;
+
+/** How wide a strip's capitals are at `fontSize`: wider than `estimateTextWidth`'s mixed-case average. */
+function measureStripText(text: string, fontSize: number): number {
+  return Math.ceil([...text].length * NOTE_STRIP_CHAR_EM * fontSize - 1e-6);
 }
 
 /** Text broken into lines at spaces so each fits `width` at `fontSize` by the estimate; a word longer than a line stands alone. */
@@ -443,7 +518,7 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
     const segment = findSegmentAt(edl, start);
     const segmentStart = starts[segment] as number;
     const segmentId = edl.segments[segment]?.id ?? "";
-    if (overlay.kind !== "hook_title") {
+    if (!isTitleBand(overlay.kind)) {
       const shot = findShotSpan(edl, starts, { segment, end, isPunchIn: overlay.kind === "punch_in" });
       if (end > shot.end + 0.01) {
         const inside = shot.last === segment ? `segment "${segmentId}"` : `segments "${segmentId}" to "${edl.segments[shot.last]?.id ?? ""}"`;
@@ -468,6 +543,11 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
       // The first point comes in with the card, so the card never stands empty (RV-144 of an adopting app).
       placed.overlay.itemStarts = getListItemStarts({ start, end, count: placed.overlay.items.length, ...(times === undefined ? {} : { words: times }) }).map((at, item) => (item === 0 ? start : at));
     }
+    if (placed.overlay.kind === "note") {
+      const timed = timeNote(placed.overlay, input.words);
+      placed.overlay.wordTimes = timed.wordTimes;
+      placed.overlay.tickAt = timed.tickAt;
+    }
     if (placed.overlay.kind === "punch_in") {
       if (edl.segments[segment]?.motion === "kenburns") {
         problems.push(`${at}: segment "${segmentId}" has a Ken Burns zoom, which owns the picture's scale; put the punch-in on a still segment`);
@@ -490,6 +570,11 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
   return problems.length > 0 ? { ok: false, problems } : { ok: true, overlays: ordered };
 }
 
+/** The kinds that live in the top band (a hook title, an end word): not counted against one overlay at a time. */
+export function isTitleBand(kind: OverlayKind): boolean {
+  return kind === "hook_title" || kind === "end_word";
+}
+
 /** Whether two overlays are on screen at the same time. */
 function isConcurrent(a: ResolvedOverlay, b: ResolvedOverlay): boolean {
   return a.start < b.end - 0.001 && b.start < a.end - 0.001;
@@ -498,7 +583,7 @@ function isConcurrent(a: ResolvedOverlay, b: ResolvedOverlay): boolean {
 /** Two overlays on screen at once, two too close, two hook titles at once, or a drawing on a hook title while it shows. */
 function findTimingProblems(ordered: readonly ResolvedOverlay[], spacing: number): string[] {
   const problems: string[] = [];
-  const counted = ordered.filter((overlay) => overlay.kind !== "hook_title");
+  const counted = ordered.filter((overlay) => !isTitleBand(overlay.kind));
   counted.forEach((overlay, place) => {
     const previous = counted[place - 1];
     if (previous === undefined) return;
@@ -508,17 +593,18 @@ function findTimingProblems(ordered: readonly ResolvedOverlay[], spacing: number
       problems.push(`overlays[${overlay.index}]: starts ${r1(overlay.start - previous.start)} s after overlays[${previous.index}]; the film keeps overlays ${spacing} s apart (overlayMinSpacing)`);
     }
   });
-  const titles = ordered.filter((overlay) => overlay.kind === "hook_title");
+  const titles = ordered.filter((overlay): overlay is Extract<ResolvedOverlay, { kind: "hook_title" | "end_word" }> => isTitleBand(overlay.kind));
   titles.forEach((title, place) => {
+    const name = title.kind.replace("_", " ");
     const previous = titles[place - 1];
     if (previous !== undefined && isConcurrent(title, previous)) {
-      problems.push(`overlays[${title.index}]: starts at ${title.start} s while the hook title overlays[${previous.index}] is on screen (until ${previous.end} s); one hook title at a time`);
+      problems.push(`overlays[${title.index}]: starts at ${title.start} s while the ${previous.kind.replace("_", " ")} overlays[${previous.index}] is on screen (until ${previous.end} s); one title at the top at a time`);
     }
     const titleBox = title.box;
     for (const other of counted) {
       const bounds = getOverlayBounds(other);
       if (bounds === null || !isConcurrent(title, other) || !isOverlapping(bounds, titleBox)) continue;
-      problems.push(`overlays[${other.index}]: the ${other.kind.replace("_", " ")} would sit on the hook title overlays[${title.index}] (on screen until ${title.end} s); move it lower or start it after the title`);
+      problems.push(`overlays[${other.index}]: the ${other.kind.replace("_", " ")} would sit on the ${name} overlays[${title.index}] (on screen until ${title.end} s); move it lower or start it after the ${name}`);
     }
   });
   return problems;
@@ -580,7 +666,147 @@ function placeOverlay(overlay: EdlOverlay, base: OverlayBase, place: Placement):
   const drawn = { ...base, ...getLook(overlay), ...(place.padScale === 1 ? {} : { padScale: place.padScale }) };
   if (overlay.kind === "arrow" || overlay.kind === "highlight") return placeMark(overlay, drawn, place);
   if (overlay.kind === "keyword" || overlay.kind === "lower_third" || overlay.kind === "list") return placeSideText({ ...overlay, kind: overlay.kind }, drawn, place);
+  if (overlay.kind === "note") return placeNote(overlay, drawn, place);
+  if (overlay.kind === "end_word") return placeEndWord(overlay, drawn, place);
   return placeCard({ ...overlay, kind: overlay.kind }, drawn, place);
+}
+
+/** A note's lines: broken at spaces to fit `width`, at most `MAX_NOTE_LINE_WORDS` words a line; null when a word alone is wider. */
+export function wrapNoteText(text: string, fontSize: number, width: number, measure: TextMeasure = estimateTextWidth): string[] | null {
+  const lines: string[][] = [];
+  for (const word of text.split(/\s+/).filter((part) => part.length > 0)) {
+    if (measure(word, fontSize) > width) return null;
+    const last = lines[lines.length - 1];
+    if (last !== undefined && last.length < MAX_NOTE_LINE_WORDS && measure([...last, word].join(" "), fontSize) <= width) last.push(word);
+    else lines.push([word]);
+  }
+  return lines.map((line) => line.join(" "));
+}
+
+/** A number from 0 to 1 for each of `count` points, the same for the same text: a torn edge that is not a pattern. */
+export function getTornEdge(text: string, count = NOTE_TEAR_POINTS): number[] {
+  let seed = 2166136261;
+  for (const char of text) seed = Math.imul(seed ^ (char.codePointAt(0) ?? 0), 16777619) >>> 0;
+  return Array.from({ length: count }, () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return r3(0.25 + 0.75 * (seed / 4294967296));
+  });
+}
+
+/** A note's tick size and the gap before it, in px. */
+export function getNoteTickSize(fontSize: number): { size: number; gap: number } {
+  return { size: Math.round(fontSize * NOTE_TICK_EM.size), gap: Math.round(fontSize * NOTE_TICK_EM.gap) };
+}
+
+/** A note's padding round its text, in px. */
+export function getNotePadding(fontSize: number): { x: number; y: number; tear: number } {
+  return { x: Math.round(fontSize * NOTE_PADDING_EM.x), y: Math.round(fontSize * NOTE_PADDING_EM.y), tear: Math.round(fontSize * NOTE_TEAR_EM) };
+}
+
+/** A note's text block inside its paper: its left edge and top, in px (the tear takes the card's foot, the strip's top). */
+export function getNoteTextBox(note: Pick<Extract<ResolvedOverlay, { kind: "note" }>, "box" | "fontSize" | "noteStyle" | "lines">): OverlayBox {
+  const pad = getNotePadding(note.fontSize);
+  const top = note.box.top + pad.y + (note.noteStyle === "strip" ? pad.tear : 0);
+  return { left: note.box.left + pad.x, top, width: note.box.width - 2 * pad.x, height: note.lines.length * note.fontSize * NOTE_LINE_HEIGHT };
+}
+
+/**
+ * A note: a paper card (handwritten, its words coming in as they are said) or a strip (typed capitals), on its side
+ * in the top or the middle of the room above the captions, at most `NOTE_WIDTH_SHARE` of the safe width; a text that
+ * takes more than `MAX_NOTE_LINES` lines is refused.
+ */
+function placeNote(overlay: EdlOverlay, drawn: Drawn, place: Placement): Placed {
+  const { zone, frame } = place;
+  const scale = frame.width / 1080;
+  const noteStyle = overlay.style?.note_style ?? "card";
+  const size = overlay.style?.size ?? "m";
+  const fontSize = Math.round((noteStyle === "strip" ? NOTE_STRIP_FONT_SIZES : OVERLAY_FONT_SIZES.note)[size] * scale);
+  const pad = getNotePadding(fontSize);
+  const margin = Math.round(OVERLAY_MARGIN * scale);
+  const room = Math.round((frame.width - zone.left - zone.right - 2 * margin) * NOTE_WIDTH_SHARE) - 2 * pad.x;
+  const text = noteStyle === "strip" ? (overlay.text ?? "").toUpperCase() : (overlay.text ?? "");
+  const measure = getNoteMeasure(noteStyle);
+  const lines = wrapNoteText(text, fontSize, room, measure);
+  if (lines === null) return { ok: false, error: "a word of the note is too wide for its card; shorten it or use a smaller size" };
+  if (lines.length > MAX_NOTE_LINES) return { ok: false, error: `the note takes ${lines.length} lines, more than ${MAX_NOTE_LINES}; shorten it or use a smaller size` };
+  const isTick = overlay.style?.tick === true;
+  const tick = getNoteTickSize(fontSize);
+  const lastWidth = measure(lines[lines.length - 1] ?? "", fontSize) + (isTick ? tick.gap + tick.size : 0);
+  const contentWidth = Math.max(lastWidth, ...lines.map((line) => measure(line, fontSize)));
+  if (contentWidth > room) return { ok: false, error: "the note's last line and its tick are too wide for its card; shorten it or leave the tick out" };
+  const width = Math.ceil(contentWidth + 2 * pad.x);
+  const height = Math.ceil(lines.length * fontSize * NOTE_LINE_HEIGHT + 2 * pad.y + pad.tear);
+  const region = getTextRegion(place);
+  const top = getPositionTop(region, overlay.style?.position ?? "top", height);
+  if (top < region.top || top + height > region.bottom) {
+    return { ok: false, error: `the note (${height} px tall) does not fit between the platform safe zone and the captions; use a smaller size or shorter text` };
+  }
+  const side = overlay.style?.side ?? "left";
+  const left = side === "right" ? frame.width - zone.right - margin - width : zone.left + margin;
+  const tilt = (side === "right" ? -1 : 1) * NOTE_TILT[noteStyle];
+  return {
+    ok: true,
+    overlay: { ...drawn, kind: "note", noteStyle, lines, fontSize, side, box: { left, top, width, height }, tilt, tear: getTornEdge(text), wordTimes: null, tick: isTick, tickAt: null },
+  };
+}
+
+/**
+ * A note card's word times and its tick's start: each word of the note comes in on the same word said inside its span
+ * (matched in order, compared like fillers are), a word not said with the one before it; when none is said, the words
+ * are spaced over the first part of the span. The card is there one frame before its first word, and no word comes
+ * later than 0.6 s before its end. A strip types its text (`getTypingTimes`), its tick after its last letter.
+ */
+export function timeNote(note: Extract<ResolvedOverlay, { kind: "note" }>, words: readonly TimedWord[]): { wordTimes: number[] | null; tickAt: number | null } {
+  // The tick comes after the last word, but never in the note's last 0.4 s nor before it starts.
+  const tickAfter = (at: number): number | null => (note.tick ? r3(Math.max(note.start, Math.min(note.end - 0.4, at + NOTE_TICK_DELAY))) : null);
+  const noteWords = note.lines.join(" ").split(" ");
+  const first = r3(note.start + NOTE_FIRST_WORD_LEAD);
+  const latest = r3(Math.max(first, note.end - 0.6));
+  if (note.noteStyle === "strip") {
+    const typed = note.typing ?? DEFAULT_OVERLAY_TYPING_SPEED;
+    const lastLetter = note.start + 0.3 + ([...note.lines.join("")].length - 1) / typed;
+    return { wordTimes: null, tickAt: tickAfter(lastLetter) };
+  }
+  const said = words.filter((word) => word.start >= note.start - 0.05 && word.start < note.end);
+  let cursor = 0;
+  let previous: number | null = null;
+  const matched = noteWords.map((word) => {
+    const key = normalizeWord(word);
+    const found = said.findIndex((spoken, index) => index >= cursor && normalizeWord(spoken.text) === key);
+    if (found === -1) return previous;
+    cursor = found + 1;
+    previous = said[found]?.start ?? null;
+    return previous;
+  });
+  const isSaid = matched.some((time) => time !== null);
+  const gap = Math.min(0.35, Math.max(0.12, ((note.end - note.start) * 0.5) / noteWords.length));
+  const times = noteWords.map((_word, index) => {
+    const at = isSaid ? (matched[index] ?? first) : first + index * gap;
+    return r3(Math.min(latest, Math.max(first, at)));
+  });
+  // Never earlier than the word before: a later word matched before an earlier one keeps the reading order.
+  for (let index = 1; index < times.length; index++) times[index] = Math.max(times[index] as number, times[index - 1] as number);
+  return { wordTimes: times, tickAt: tickAfter(times[times.length - 1] ?? first) };
+}
+
+/** An end word: one big handwritten line at the top of the room, no card, shrunk to fit the width or refused. */
+function placeEndWord(overlay: EdlOverlay, drawn: Drawn, place: Placement): Placed {
+  const { zone, frame } = place;
+  const scale = frame.width / 1080;
+  const margin = Math.round(OVERLAY_MARGIN * scale);
+  const room = frame.width - zone.left - zone.right - 2 * margin;
+  const text = (overlay.text ?? "").replace(/\s+/g, " ").trim();
+  let fontSize = Math.round(OVERLAY_FONT_SIZES.end_word[overlay.style?.size ?? "m"] * scale);
+  for (let shrink = 0; measureHandText(text, fontSize) > room; shrink++) {
+    if (shrink === MAX_TITLE_SHRINKS) return { ok: false, error: "the end word is too wide for one line even at a smaller size; shorten it or use a smaller size" };
+    fontSize = Math.round(fontSize * OVERLAY_TITLE_SHRINK);
+  }
+  const width = measureHandText(text, fontSize);
+  const height = Math.ceil(fontSize * OVERLAY_LINE_HEIGHT);
+  const region = getTextRegion(place);
+  if (region.top + height > region.bottom) return { ok: false, error: `the end word (${height} px tall) does not fit above the captions; use a smaller size` };
+  const left = Math.round(zone.left + margin + (room - width) / 2);
+  return { ok: true, overlay: { ...drawn, kind: "end_word", text, fontSize, box: { left, top: region.top, width, height } } };
 }
 
 /** An arrow's tail and point, or a highlight's rectangle. */
@@ -643,7 +869,14 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
   if (overlay.kind === "lower_third") return { ok: true, overlay: { ...drawn, kind: "lower_third", ...fields } };
   return {
     ok: true,
-    overlay: { ...drawn, kind: "keyword", ...fields, ...(overlay.style?.underline === true ? { underline: true } : {}), ...(align === "center" ? { isCentred: true } : {}) },
+    overlay: {
+      ...drawn,
+      kind: "keyword",
+      ...fields,
+      ...(overlay.style?.underline === true ? { underline: true } : {}),
+      ...(align === "center" ? { isCentred: true } : {}),
+      ...(overlay.style?.backdrop === "highlight" ? { backdrop: "highlight" as const } : {}),
+    },
   };
 }
 
@@ -821,7 +1054,7 @@ function measureTitle(overlay: EdlOverlay & { kind: "hook_title" | "place_card" 
     content: {
       ...getTitleContentSize({ kind: overlay.kind, lines, fontSize, second, secondSize, pin: pin !== undefined }),
       fields: isHook
-        ? { kind: "hook_title", lines, place: second, fontSize, placeFontSize: secondSize, align }
+        ? { kind: "hook_title", lines, place: second, fontSize, placeFontSize: secondSize, align, ...(overlay.style?.backdrop === "highlight" ? { backdrop: "highlight" } : {}) }
         : { kind: "place_card", lines, subtitle: second, fontSize, subtitleFontSize: secondSize, align, ...(pin === undefined ? {} : { pin }), ...(delay === undefined ? {} : { subtitleDelay: delay }) },
     },
   };
@@ -918,6 +1151,9 @@ export function getOverlayTextsByRole(overlays: readonly ResolvedOverlay[], loca
       texts.heading.push(formatOverlayNumber(overlay.value, overlay.decimals, locale), "0123456789", ...(overlay.unit === null ? [] : [overlay.unit]));
     } else if (overlay.kind === "date_stamp") {
       texts.interface.push(overlay.text, ...(overlay.place === null ? [] : [overlay.place]));
+    } else if (overlay.kind === "note" && overlay.noteStyle === "strip") {
+      // A note card and an end word are drawn in the kit's own handwriting, which covers every Latin letter.
+      texts.heading.push(...overlay.lines);
     }
   }
   return texts;
@@ -927,4 +1163,64 @@ export function getOverlayTextsByRole(overlays: readonly ResolvedOverlay[], loca
 export function getOverlayTexts(overlays: readonly ResolvedOverlay[], locale = "en-US"): string[] {
   const texts = getOverlayTextsByRole(overlays, locale);
   return [...texts.heading, ...texts.interface];
+}
+
+type NoteOverlay = Extract<ResolvedOverlay, { kind: "note" }>;
+
+/**
+ * A note's paper as a polygon in px of the frame, before its tilt: straight sides and a torn edge (`tear`) along the
+ * card's foot or the strip's top, cutting at most `NOTE_TEAR_EM` into the paper. Both paths draw this outline.
+ */
+export function getNotePaperPoints(note: Pick<NoteOverlay, "box" | "fontSize" | "noteStyle" | "tear">): OverlayPoint[] {
+  const { left, top, width, height } = note.box;
+  const depth = getNotePadding(note.fontSize).tear;
+  const last = Math.max(1, note.tear.length - 1);
+  const torn = note.tear.map((share, index) => ({ x: r1(left + (width * index) / last), share }));
+  if (note.noteStyle === "strip") {
+    const edge = torn.map(({ x, share }) => ({ x, y: r1(top + depth * share) }));
+    return [...edge, { x: left + width, y: top + height }, { x: left, y: top + height }];
+  }
+  const edge = torn.map(({ x, share }) => ({ x, y: r1(top + height - depth * share) })).reverse();
+  return [{ x: left, y: top }, { x: left + width, y: top }, ...edge];
+}
+
+/** The middle of a note's paper: the point its tilt turns it about. */
+export function getNoteCentre(note: Pick<NoteOverlay, "box">): OverlayPoint {
+  return { x: r1(note.box.left + note.box.width / 2), y: r1(note.box.top + note.box.height / 2) };
+}
+
+/** A note's tick as three points of a hand-drawn check (down to the left, then a long stroke up), in px before the tilt. */
+export function getNoteTickPoints(note: Pick<NoteOverlay, "box" | "fontSize" | "noteStyle" | "lines">): OverlayPoint[] {
+  const text = getNoteTextBox(note);
+  const tick = getNoteTickSize(note.fontSize);
+  const lastTop = text.top + (note.lines.length - 1) * note.fontSize * NOTE_LINE_HEIGHT;
+  const x = text.left + getNoteMeasure(note.noteStyle)(note.lines[note.lines.length - 1] ?? "", note.fontSize) + tick.gap;
+  const y = lastTop + (note.fontSize * NOTE_LINE_HEIGHT - tick.size) / 2;
+  return [
+    { x: r1(x), y: r1(y + tick.size * 0.55) },
+    { x: r1(x + tick.size * 0.35), y: r1(y + tick.size * 0.9) },
+    { x: r1(x + tick.size), y: r1(y + tick.size * 0.08) },
+  ];
+}
+
+/** A note's words line by line, each with its film second (a card's `wordTimes`; a strip's are typed, so its start). */
+export function getNoteWordsByLine(note: Pick<NoteOverlay, "lines" | "wordTimes" | "start">): { text: string; at: number }[][] {
+  let index = 0;
+  return note.lines.map((line) =>
+    line.split(" ").map((text) => {
+      const at = note.wordTimes?.[index] ?? note.start;
+      index += 1;
+      return { text, at };
+    }),
+  );
+}
+
+/** A note's paper, ink and tick colours: its own (`style.colors` card, text, accent), else paper, near-black and green. */
+export function getNoteColors(note: Pick<NoteOverlay, "colors">): { paper: string; ink: string; tick: string } {
+  return { paper: note.colors.card ?? NOTE_COLORS.paper, ink: note.colors.text ?? NOTE_COLORS.ink, tick: note.colors.accent ?? NOTE_COLORS.tick };
+}
+
+/** Whether the overlays draw in the kit's handwriting: a note card or an end word. */
+export function isHandFontNeeded(overlays: readonly ResolvedOverlay[]): boolean {
+  return overlays.some((overlay) => overlay.kind === "end_word" || (overlay.kind === "note" && overlay.noteStyle === "card"));
 }

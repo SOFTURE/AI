@@ -7,6 +7,7 @@ import type { TimedWord } from "../voice/voiceover.js";
 import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_BOX_RADIUS, CAPTION_HIGHLIGHT_SECONDS, CAPTION_UNDERLINE_EM, getCaptionEntranceTween, getCaptionHighlight } from "./caption-highlight.js";
 import { CAPTION_SAFE_ZONES, getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, type CaptionSpan } from "./captions.js";
 import { getCameraGsapEase, getCameraMoveSeconds, getCameraOrigin, isCameraMoving, toTransformOrigin } from "./camera.js";
+import { STUTTER_FRAMES, STUTTER_SCALE } from "./drawn-transitions.js";
 import { getEdlDuration, getSegmentStarts, type Edl, type EdlSegment } from "./edl.js";
 import {
   CAPTION_MIN_FONT_SCALE,
@@ -31,7 +32,8 @@ const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
  * The HyperFrames composition of a footage film (the same 0.8.85 contract as `composeFilm`): one `<video>` clip per
  * EDL segment over the normalized clip with its media start, the transitions (`fade` cross-fades from the segment
  * before over `fadeFrames`, `zoom` punches in by `zoomPercent` on alternate jump cuts, eased over `zoomEaseFrames`, `whoosh` plays the whoosh
- * sound), a slow zoom on `kenburns` segments, the captions (plain phrases, or the word-highlight pill), the end card
+ * sound, `stutter` holds the full frame for `STUTTER_FRAMES` and then its tight framing; the drawn `whip`, `card` and
+ * `paper` are in the picture, and the per-segment videos without one play them as plain cuts), a slow zoom on `kenburns` segments, the captions (plain phrases, or the word-highlight pill), the end card
  * over the cut's last frame (the full card, or the short logo card; its whoosh only with `isEndCardWhoosh`), the cut
  * speech track and the ducked music.
  */
@@ -96,13 +98,15 @@ export function getFootageFilmSeconds(film: Pick<FootageFilm, "endCard">, edl: E
 
 /**
  * The picture scale each segment starts at: `zoom` cuts alternate between punched in (`zoomPercent`) and back out; a
- * segment with a `camera` starts at its camera's `from`.
+ * segment with a `camera` starts at its camera's `from`; a `stutter` holds its camera's framing or `STUTTER_SCALE`
+ * once its wide frames are over.
  */
 export function getSegmentScales(edl: Edl, zoomPercent = DEFAULT_EDIT.zoomPercent): number[] {
   const scales: number[] = [];
   edl.segments.forEach((segment, index) => {
     const previous = scales[index - 1] ?? 1;
     if (segment.camera !== undefined) scales.push(segment.camera.from);
+    else if (segment.transition === "stutter") scales.push(STUTTER_SCALE);
     else scales.push(segment.transition === "zoom" && index > 0 ? (previous === 1 ? zoomPercent / 100 : 1) : 1);
   });
   return scales;
@@ -196,7 +200,14 @@ export function composeFootage(input: FootageComposeInput): string {
     const scale = scales[index] as number;
     const target = picture === undefined ? `#seg${index}` : "#picture";
     // One video carries every segment: each one sets the zoom it starts at (a fade is already in the picture).
-    if (picture !== undefined) tweens.push(hasCamera ? `tl.set("#picture", { scale: ${scale}, transformOrigin: "${originOf(segment)}" }, ${start});` : `tl.set("#picture", { scale: ${scale} }, ${start});`);
+    const isStutter = segment.transition === "stutter";
+    // A stutter shows the full frame first, then cuts to its framing.
+    const opening = isStutter ? 1 : scale;
+    if (picture !== undefined) tweens.push(hasCamera ? `tl.set("#picture", { scale: ${opening}, transformOrigin: "${originOf(segment)}" }, ${start});` : `tl.set("#picture", { scale: ${opening} }, ${start});`);
+    if (isStutter) {
+      if (picture === undefined) tweens.push(`tl.set("${target}", { scale: 1 }, ${start});`);
+      tweens.push(`tl.set("${target}", { scale: ${scale} }, ${r3(start + STUTTER_FRAMES / FOOTAGE_FPS)});`);
+    }
     if (picture === undefined && segment.transition === "fade" && index > 0) {
       tweens.push(`tl.fromTo("${target}", { opacity: 0 }, { opacity: 1, duration: ${fadeSecondsAt(index)}, ease: "none", immediateRender: false }, ${start});`);
     }

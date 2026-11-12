@@ -15,9 +15,11 @@ import { CORNER_RADII, type CornerRadius } from "./brand-style.js";
  * hook's question or title at the top of the frame, one or two lines, with an optional place label (a drawn pin and
  * "City, Country") above it; it may stay across cuts. `search_bar`: a rounded search field whose text types in.
  * `place_card`: a big place title with a one-line subtitle. `counter`: a number with a unit counting up to its value.
- * `date_stamp`: a day or a date with a place, small, in a corner of the top band.
+ * `date_stamp`: a day or a date with a place, small, in a corner of the top band. `note`: a paper note (a handwritten
+ * card whose words appear as they are said, or a torn strip that grows in and types its text). `end_word`: one big
+ * handwritten word at the top over the film's last moment.
  */
-export const OVERLAY_KINDS = ["punch_in", "keyword", "lower_third", "list", "arrow", "highlight", "hook_title", "search_bar", "place_card", "counter", "date_stamp"] as const;
+export const OVERLAY_KINDS = ["punch_in", "keyword", "lower_third", "list", "arrow", "highlight", "hook_title", "search_bar", "place_card", "counter", "date_stamp", "note", "end_word"] as const;
 
 export type OverlayKind = (typeof OVERLAY_KINDS)[number];
 
@@ -54,9 +56,10 @@ export const OVERLAY_ALIGNED_KINDS: readonly OverlayKind[] = ["hook_title", "pla
  * simply there), `pop` (grows from 92 % to 100 % while it fades in, eased out, never past its size), `rise` (up from
  * 5 % of the frame's height while it fades in), `blur` (from a slight blur to sharp) or `wipe` (its card revealed from
  * the left in the accent colour, then its text). Without one, the kind's own entrance. Never a bounce or an overshoot:
- * the reel stays natural (`overlay-motion.ts`).
+ * the reel stays natural (`overlay-motion.ts`). `drop` (a hook title, a keyword, an end word): its letters fall into
+ * place one by one, eased out, never below their line.
  */
-export const OVERLAY_ENTRANCES = ["fade", "slide", "type", "none", "pop", "rise", "blur", "wipe"] as const;
+export const OVERLAY_ENTRANCES = ["fade", "slide", "type", "none", "pop", "rise", "blur", "wipe", "drop"] as const;
 
 export type OverlayEntrance = (typeof OVERLAY_ENTRANCES)[number];
 
@@ -88,11 +91,33 @@ export const OVERLAY_LIST_LAYOUTS = ["stack", "chips", "auto"] as const;
 
 export type OverlayListLayout = (typeof OVERLAY_LIST_LAYOUTS)[number];
 
+/**
+ * What a hook title's or a keyword's text sits on: `card` (its card, the default) or `highlight` (each line on its own
+ * tight box in the card colour, without shadow; typed in, the box grows with the letters).
+ */
+export const OVERLAY_BACKDROPS = ["card", "highlight"] as const;
+
+export type OverlayBackdrop = (typeof OVERLAY_BACKDROPS)[number];
+
+/** The kinds that take a `backdrop`. */
+export const OVERLAY_BACKDROP_KINDS: readonly OverlayKind[] = ["hook_title", "keyword"];
+
+/**
+ * A note's shape: `card` (a slightly tilted paper card with a torn foot, its words handwritten as they are said) or
+ * `strip` (a paper strip with a torn top that grows in, then types its text in capitals).
+ */
+export const OVERLAY_NOTE_STYLES = ["card", "strip"] as const;
+
+export type OverlayNoteStyle = (typeof OVERLAY_NOTE_STYLES)[number];
+
 /** The longest a place card's subtitle waits after its title, in seconds. */
 export const MAX_OVERLAY_SUBTITLE_DELAY = 0.6;
 
 /** The shortest an overlay stays on screen: shorter does not read. */
 export const MIN_OVERLAY_SECONDS = 1;
+/** The shortest and longest an `end_word` stays: the film's last moment. */
+export const MIN_END_WORD_SECONDS = 0.5;
+export const MAX_END_WORD_SECONDS = 2;
 /** The longest an overlay stays on screen (a `hook_title` may stay up to `MAX_HOOK_TITLE_SECONDS`). */
 export const MAX_OVERLAY_SECONDS = 8;
 /** The longest a `hook_title` stays on screen: up to a whole short film. */
@@ -115,6 +140,10 @@ export const MAX_OVERLAY_PLACE_TITLE_LENGTH = 28;
 export const MAX_OVERLAY_SUBTITLE_LENGTH = 40;
 /** The longest `date_stamp` text. */
 export const MAX_OVERLAY_DATE_LENGTH = 24;
+/** The longest `note` text. */
+export const MAX_OVERLAY_NOTE_LENGTH = 72;
+/** The longest `end_word` text. */
+export const MAX_OVERLAY_END_WORD_LENGTH = 16;
 /** The longest `counter` unit. */
 export const MAX_OVERLAY_UNIT_LENGTH = 12;
 /** The largest `counter` value. */
@@ -177,6 +206,12 @@ export interface EdlOverlayStyle {
   pin?: OverlayPin;
   /** A keyword's accent bar drawn under the word after it enters. */
   underline?: boolean;
+  /** What a hook title's or a keyword's text sits on (`card` without it). */
+  backdrop?: OverlayBackdrop;
+  /** A note's shape (`card` without it). */
+  note_style?: OverlayNoteStyle;
+  /** A note's hand-drawn tick after its last word. */
+  tick?: boolean;
 }
 
 export interface EdlOverlay {
@@ -187,7 +222,7 @@ export interface EdlOverlay {
   at?: number;
   /** Seconds on screen (`MIN_OVERLAY_SECONDS` to `MAX_OVERLAY_SECONDS`; a `hook_title` up to `MAX_HOOK_TITLE_SECONDS`). */
   duration: number;
-  /** The text of a `keyword`, `lower_third`, `hook_title`, `search_bar`, `place_card` (its title) or `date_stamp`. */
+  /** The text of a `keyword`, `lower_third`, `hook_title`, `search_bar`, `place_card` (its title), `date_stamp`, `note` or `end_word`. */
   text?: string;
   /** The `list` points (2 to 4). */
   items?: string[];
@@ -237,6 +272,8 @@ const KIND_FIELDS: Record<OverlayKind, KindFields> = {
   place_card: { ...TEXT_ONLY, subtitle: true },
   counter: { ...NO_FIELDS, counter: true },
   date_stamp: { ...TEXT_ONLY, place: true },
+  note: TEXT_ONLY,
+  end_word: TEXT_ONLY,
 };
 
 const TEXT_LIMITS: Partial<Record<OverlayKind, number>> = {
@@ -246,10 +283,12 @@ const TEXT_LIMITS: Partial<Record<OverlayKind, number>> = {
   search_bar: MAX_OVERLAY_SEARCH_LENGTH,
   place_card: MAX_OVERLAY_PLACE_TITLE_LENGTH,
   date_stamp: MAX_OVERLAY_DATE_LENGTH,
+  note: MAX_OVERLAY_NOTE_LENGTH,
+  end_word: MAX_OVERLAY_END_WORD_LENGTH,
 };
 
 /** The kinds that take a side. */
-export const OVERLAY_SIDED_KINDS: readonly OverlayKind[] = ["keyword", "lower_third", "list", "date_stamp"];
+export const OVERLAY_SIDED_KINDS: readonly OverlayKind[] = ["keyword", "lower_third", "list", "date_stamp", "note"];
 
 /** The positions a kind may take (none: its place is fixed). */
 export const OVERLAY_POSITIONS_BY_KIND: Partial<Record<OverlayKind, readonly OverlayPosition[]>> = {
@@ -259,6 +298,7 @@ export const OVERLAY_POSITIONS_BY_KIND: Partial<Record<OverlayKind, readonly Ove
   search_bar: ["top", "middle", "bottom"],
   place_card: ["top", "middle", "bottom"],
   counter: ["top", "middle", "bottom"],
+  note: ["top", "middle"],
 };
 
 const TEXT_ENTRANCES: readonly OverlayEntrance[] = ["fade", "slide", "type", "none", "pop", "rise", "blur", "wipe"];
@@ -267,22 +307,24 @@ const BLOCK_ENTRANCES: readonly OverlayEntrance[] = ["fade", "slide", "none", "p
 /** The entrances a kind may take (none listed: it takes no entrance). */
 export const OVERLAY_ENTRANCES_BY_KIND: Record<OverlayKind, readonly OverlayEntrance[]> = {
   punch_in: [],
-  keyword: TEXT_ENTRANCES,
+  keyword: [...TEXT_ENTRANCES, "drop"],
   lower_third: TEXT_ENTRANCES,
   list: BLOCK_ENTRANCES,
   arrow: ["fade", "none"],
   highlight: ["fade", "none"],
-  hook_title: TEXT_ENTRANCES,
+  hook_title: [...TEXT_ENTRANCES, "drop"],
   search_bar: TEXT_ENTRANCES,
   place_card: TEXT_ENTRANCES,
   counter: BLOCK_ENTRANCES,
   date_stamp: TEXT_ENTRANCES,
+  note: ["fade", "pop", "none"],
+  end_word: ["drop", "pop", "fade", "rise", "none"],
 };
 
-/** Whether an overlay types its text in: the `type` entrance, or a search bar without another entrance. */
+/** Whether an overlay types its text in: the `type` entrance, a search bar without another entrance, or a note strip. */
 export function isTypedOverlay(overlay: Pick<EdlOverlay, "kind" | "style">): boolean {
   const entrance = overlay.style?.entrance;
-  return entrance === "type" || (overlay.kind === "search_bar" && entrance === undefined);
+  return entrance === "type" || (overlay.kind === "search_bar" && entrance === undefined) || (overlay.kind === "note" && overlay.style?.note_style === "strip");
 }
 
 const overlayText = z.string().trim().min(1, "is empty");
@@ -296,7 +338,11 @@ function checkOverlayFields(overlay: EdlOverlay, issue: (path: string[], message
   const { kind } = overlay;
   const fields = KIND_FIELDS[kind];
   if ((overlay.at_word === undefined) === (overlay.at === undefined)) issue([], "needs exactly one of at_word and at");
-  if (kind !== "hook_title" && overlay.duration > MAX_OVERLAY_SECONDS) issue(["duration"], `${article(kind)} stays at most ${MAX_OVERLAY_SECONDS} s (only a hook_title stays longer)`);
+  if (kind === "end_word") {
+    // Below MIN_END_WORD_SECONDS the field's own minimum refuses it.
+    if (overlay.duration > MAX_END_WORD_SECONDS) issue(["duration"], `an end_word stays ${MIN_END_WORD_SECONDS} to ${MAX_END_WORD_SECONDS} s`);
+  } else if (overlay.duration < MIN_OVERLAY_SECONDS) issue(["duration"], `${article(kind)} stays at least ${MIN_OVERLAY_SECONDS} s (only an end_word stays shorter)`);
+  else if (kind !== "hook_title" && overlay.duration > MAX_OVERLAY_SECONDS) issue(["duration"], `${article(kind)} stays at most ${MAX_OVERLAY_SECONDS} s (only a hook_title stays longer)`);
   if (fields.text === "required" && overlay.text === undefined) issue(["text"], `${article(kind)} needs its text`);
   if (fields.text === "none" && overlay.text !== undefined) issue(["text"], `${article(kind)} draws no text; leave it out`);
   const limit = TEXT_LIMITS[kind];
@@ -339,7 +385,7 @@ function checkOverlayStyle(overlay: EdlOverlay, issue: (path: string[], message:
   if (style.entrance !== undefined && !entrances.includes(style.entrance)) {
     issue(["style", "entrance"], entrances.length === 0 ? `${article(kind)} has no entrance; leave it out` : `${article(kind)} enters by ${entrances.join(", ")}`);
   }
-  if (style.typing_speed !== undefined && !isTypedOverlay(overlay)) issue(["style", "typing_speed"], "only a typed entrance or a search bar has a typing speed");
+  if (style.typing_speed !== undefined && !isTypedOverlay(overlay)) issue(["style", "typing_speed"], "only a typed entrance, a search bar or a note strip has a typing speed");
   if (style.corner_radius !== undefined && (kind === "punch_in" || kind === "arrow" || kind === "highlight")) issue(["style", "corner_radius"], `${article(kind)} draws no card; leave corner_radius out`);
   if (style.align !== undefined) {
     if (kind === "keyword") {
@@ -353,6 +399,10 @@ function checkOverlayStyle(overlay: EdlOverlay, issue: (path: string[], message:
   if (style.stagger !== undefined && kind !== "list") issue(["style", "stagger"], "only a list has points to stagger; leave stagger out");
   if (style.list_layout !== undefined && kind !== "list") issue(["style", "list_layout"], "only a list lays out points; leave list_layout out");
   if (style.underline !== undefined && kind !== "keyword") issue(["style", "underline"], "only a keyword is underlined; leave underline out");
+  if (style.backdrop !== undefined && !OVERLAY_BACKDROP_KINDS.includes(kind)) issue(["style", "backdrop"], "only a hook_title or a keyword takes a backdrop; leave it out");
+  if (style.backdrop === "highlight" && style.underline === true) issue(["style", "backdrop"], "a highlighted keyword draws no underline; give backdrop highlight or underline, not both");
+  if (style.note_style !== undefined && kind !== "note") issue(["style", "note_style"], "only a note has a note_style; leave it out");
+  if (style.tick !== undefined && kind !== "note") issue(["style", "tick"], "only a note draws a tick; leave it out");
   if ((style.exit !== undefined || style.easing !== undefined) && kind === "punch_in") issue(["style", style.exit === undefined ? "easing" : "exit"], "a punch_in eases the picture itself; leave exit and easing out");
   if (style.colors === undefined) return;
   if (kind === "punch_in") issue(["style", "colors"], "a punch_in draws nothing to colour; leave colors out");
@@ -365,7 +415,7 @@ export const overlaySchema = z
   .strictObject({
     kind: z
       .enum(OVERLAY_KINDS)
-      .describe("punch_in (an emphasis zoom on a word), keyword, lower_third, list, arrow, highlight, hook_title, search_bar, place_card, counter or date_stamp."),
+      .describe("punch_in (an emphasis zoom on a word), keyword, lower_third, list, arrow, highlight, hook_title, search_bar, place_card, counter, date_stamp, note or end_word."),
     at_word: z
       .strictObject({
         text: overlayText.describe("The word as the transcript has it; compared without case and punctuation."),
@@ -376,13 +426,13 @@ export const overlaySchema = z
     at: z.number().min(0).optional().describe("The film second the overlay starts at; give this or at_word."),
     duration: z
       .number()
-      .min(MIN_OVERLAY_SECONDS)
+      .min(MIN_END_WORD_SECONDS)
       .max(MAX_HOOK_TITLE_SECONDS)
-      .describe(`Seconds on screen (${MIN_OVERLAY_SECONDS}-${MAX_OVERLAY_SECONDS}; a hook_title up to ${MAX_HOOK_TITLE_SECONDS}).`),
+      .describe(`Seconds on screen (${MIN_OVERLAY_SECONDS}-${MAX_OVERLAY_SECONDS}; a hook_title up to ${MAX_HOOK_TITLE_SECONDS}; an end_word ${MIN_END_WORD_SECONDS}-${MAX_END_WORD_SECONDS}).`),
     text: overlayText
       .optional()
       .describe(
-        `The text: keyword (up to ${MAX_OVERLAY_KEYWORD_LENGTH} characters), lower_third (${MAX_OVERLAY_LOWER_THIRD_LENGTH}), hook_title (${MAX_OVERLAY_HOOK_TITLE_LENGTH}, one or two lines), search_bar (${MAX_OVERLAY_SEARCH_LENGTH}), place_card title (${MAX_OVERLAY_PLACE_TITLE_LENGTH}) or date_stamp (${MAX_OVERLAY_DATE_LENGTH}).`,
+        `The text: keyword (up to ${MAX_OVERLAY_KEYWORD_LENGTH} characters), lower_third (${MAX_OVERLAY_LOWER_THIRD_LENGTH}), hook_title (${MAX_OVERLAY_HOOK_TITLE_LENGTH}, one or two lines), search_bar (${MAX_OVERLAY_SEARCH_LENGTH}), place_card title (${MAX_OVERLAY_PLACE_TITLE_LENGTH}), date_stamp (${MAX_OVERLAY_DATE_LENGTH}), note (${MAX_OVERLAY_NOTE_LENGTH}) or end_word (${MAX_OVERLAY_END_WORD_LENGTH}, one line).`,
       ),
     items: z
       .array(overlayText.max(MAX_OVERLAY_LIST_ITEM_LENGTH, `is longer than ${MAX_OVERLAY_LIST_ITEM_LENGTH} characters`))
@@ -433,16 +483,16 @@ export const overlaySchema = z
     style: z
       .strictObject({
         size: z.enum(OVERLAY_SIZES).optional().describe("s, m (the default) or l: the punch-in's zoom (108, 112, 115 %) or the type size."),
-        side: z.enum(OVERLAY_SIDES).optional().describe("The side a keyword, lower third, list or date stamp sits on."),
+        side: z.enum(OVERLAY_SIDES).optional().describe("The side a keyword, lower third, list, date stamp or note sits on."),
         position: z
           .enum(OVERLAY_POSITIONS)
           .optional()
-          .describe("top, middle or bottom of the room above the captions: keyword, search_bar, place_card, counter (any), lower_third (top or bottom), list (top or middle)."),
+          .describe("top, middle or bottom of the room above the captions: keyword, search_bar, place_card, counter (any), lower_third (top or bottom), list and note (top or middle)."),
         entrance: z
           .enum(OVERLAY_ENTRANCES)
           .optional()
           .describe(
-            "fade, slide, type (text typed in letter by letter), none, pop (92 % to 100 %, no overshoot), rise (up from 5 % of the height), blur (blurred to sharp) or wipe (card revealed from the left in the accent, then the text); without it the kind's own. Never a bounce.",
+            "fade, slide, type (text typed in letter by letter), none, pop (92 % to 100 %, no overshoot), rise (up from 5 % of the height), blur (blurred to sharp), wipe (card revealed from the left in the accent, then the text) or drop (hook_title, keyword, end_word: letters fall into place one by one, never below their line); without it the kind's own. Never a bounce.",
           ),
         exit: z.enum(OVERLAY_EXITS).optional().describe("auto (the default: mirrors the entrance), fade, slide (down and out) or none."),
         easing: z.enum(OVERLAY_EASINGS).optional().describe("smooth (the default) or snappy: the curve of the entrance and the exit."),
@@ -486,6 +536,15 @@ export const overlaySchema = z
           .describe(`A place_card only: seconds its subtitle waits after its title (0-${MAX_OVERLAY_SUBTITLE_DELAY}).`),
         pin: z.enum(OVERLAY_PINS).optional().describe("A place_card only: none (the default), static or drop (an accent pin above the title that falls a little and stops)."),
         underline: z.boolean().optional().describe("A keyword only: an accent bar drawn under the word after it enters."),
+        backdrop: z
+          .enum(OVERLAY_BACKDROPS)
+          .optional()
+          .describe("A hook_title or keyword only: card (the default) or highlight (each line on its own tight box in the card colour; typed in, the box grows with the letters)."),
+        note_style: z
+          .enum(OVERLAY_NOTE_STYLES)
+          .optional()
+          .describe("A note only: card (the default: a tilted paper card, handwritten words appearing as they are said) or strip (a torn paper strip that grows in, then types its text in capitals)."),
+        tick: z.boolean().optional().describe("A note only: a hand-drawn tick after its last word."),
       })
       .optional()
       .describe("The overlay's look: size, side, position, entrance, typing speed and colours; fonts are the brand's."),

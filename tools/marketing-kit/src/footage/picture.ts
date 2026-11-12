@@ -1,5 +1,6 @@
 import { CAMERA_ORIGIN, getCameraOrigin, type CameraAnchor } from "./camera.js";
-import { getSegmentFadeFrames, getSegmentScales } from "./compose.js";
+import { getSegmentScales } from "./compose.js";
+import { buildDrawnTransitionFilters, FRAME_TIMING, getTransitionOverlapFrames, isDrawnTransition, type DrawnTransition } from "./drawn-transitions.js";
 import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
 import { getFootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS, getThreadArgs, type Frame, type NormalizeEncoder } from "./normalize.js";
@@ -12,8 +13,9 @@ import { FOOTAGE_FPS, getThreadArgs, type Frame, type NormalizeEncoder } from ".
  *
  * Every piece starts on a film frame and runs to the next segment's frame, so rounding never adds up along the cut.
  * A cross-fade is drawn into the incoming piece: the outgoing segment's tail, held at the zoom it ends on, dissolves
- * into the incoming clip (`xfade`), as the per-segment composition plays it. Zoom cuts and Ken Burns stay tweens on
- * the composition's video.
+ * into the incoming clip (`xfade`), as the per-segment composition plays it. A drawn transition (`whip`, `card`,
+ * `paper`) takes the same tail and blends it with the piece's head (`buildDrawnTransitionFilters`), as the draft does.
+ * Zoom cuts and Ken Burns stay tweens on the composition's video.
  */
 
 /** How far a segment marked `kenburns` zooms when the film's `kenBurnsPercent` is 0, as in the composition. */
@@ -24,8 +26,10 @@ const DEFAULT_PICTURE_PRESET = "veryfast";
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
 const r4 = (value: number): number => Math.round(value * 10000) / 10000 || 0;
 
-/** The outgoing segment's tail under a cross-fade. */
+/** The outgoing segment's tail under a cross-fade or a drawn transition. */
 export interface PictureFadeTail {
+  /** How the tail meets the piece: a drawn transition of exactly `frames`; absent: a dissolve. */
+  kind?: DrawnTransition;
   clip: string;
   /** Seconds in the clip: where the outgoing segment ends. */
   start: number;
@@ -44,7 +48,7 @@ export interface PicturePiece {
   /** The piece's first film frame. */
   frame: number;
   frames: number;
-  /** For a `fade` cut, the outgoing tail the piece dissolves from; null for any other cut. */
+  /** For a `fade` cut or a drawn transition, the outgoing tail the piece starts over; null for any other cut. */
   fade: PictureFadeTail | null;
 }
 
@@ -66,9 +70,13 @@ export function planFootagePicture(film: Pick<FootageFilm, "edit">, edl: Edl): P
     const nextStart = starts[index + 1];
     const frames = Math.max(1, (nextStart === undefined ? lastFrame : toFrame(nextStart)) - frame);
     const previous = edl.segments[index - 1];
-    const fadeFrames = Math.min(frames, getSegmentFadeFrames(edl, index, edit));
+    const overlap = index === 0 ? 0 : getTransitionOverlapFrames(segment, edit.fadeFrames);
+    const kind = segment.transition === "fade" ? "fade" : isDrawnTransition(segment.transition) ? segment.transition : null;
+    // A dissolve fits the piece; a drawn transition has its own frames, and a piece too short for them (the EDL check
+    // refuses one) plays a plain cut.
+    const fadeFrames = kind === "fade" ? Math.min(frames, overlap) : kind !== null && overlap < frames ? overlap : 0;
     let fade: PictureFadeTail | null = null;
-    if (previous !== undefined && fadeFrames > 0) {
+    if (previous !== undefined && kind !== null && fadeFrames > 0) {
       const previousScale = scales[index - 1] as number;
       // The outgoing segment's Ken Burns tween or camera move ends by its end; its tail holds the zoom it reached.
       const reached = previous.camera !== undefined ? previous.camera.to : previous.motion === "kenburns" ? r4(previousScale * kenBurnsScale) : previousScale;
@@ -76,7 +84,7 @@ export function planFootagePicture(film: Pick<FootageFilm, "edit">, edl: Edl): P
       // baked at what is left of its zoom (never below the full frame: a fade into a tighter camera is a hard cut's job).
       const isCamera = previous.camera !== undefined || segment.camera !== undefined;
       const scale = isCamera ? r4(Math.max(1, reached / (scales[index] as number))) : reached;
-      fade = { clip: previous.clip, start: r3(previous.end), frames: fadeFrames, scale, origin: getCameraOrigin(previous.camera) };
+      fade = { ...(kind === "fade" ? {} : { kind }), clip: previous.clip, start: r3(previous.end), frames: fadeFrames, scale, origin: getCameraOrigin(previous.camera) };
     }
     return { clip: segment.clip, start: r3(segment.start), frame, frames, fade };
   });
@@ -143,12 +151,12 @@ export function buildPicturePieceArgs(input: PicturePieceArgsInput): string[] {
     const { fade } = piece;
     inputs.push(...threads.output, "-ss", String(fade.start), "-t", seconds(fade.frames), "-i", getClip(fade.clip));
     const tail = [...zoomFilters(fade.scale, input.frame, fade.origin ?? CAMERA_ORIGIN), ...fitStream(fade.frames)];
-    graph = [
+    graph = fade.kind === undefined ? [
       `[0:v]${fitStream(piece.frames).join(",")}[incoming]`,
       `[1:v]${tail.join(",")}[outgoing]`,
       // xfade's output is the outgoing tail plus the incoming piece minus the fade: the piece's own length.
       `[outgoing][incoming]xfade=transition=fade:duration=${r3(fade.frames / FOOTAGE_FPS)}:offset=0,trim=end_frame=${piece.frames}[picture]`,
-    ].join(";");
+    ].join(";") : buildDrawnPieceGraph({ kind: fade.kind, piece, tail, frame: input.frame });
   }
   return [
     "-v",
@@ -182,6 +190,23 @@ export function buildPicturePieceArgs(input: PicturePieceArgsInput): string[] {
     ...threads.output,
     input.output,
   ];
+}
+
+/**
+ * A piece that starts on a drawn transition: its first `frames` blended with the outgoing tail, then the rest of its
+ * own frames (the plan gives a drawn transition only to a piece longer than it).
+ */
+function buildDrawnPieceGraph(input: { kind: DrawnTransition; piece: PicturePiece; tail: string[]; frame: Frame }): string {
+  const { piece } = input;
+  const frames = piece.fade?.frames ?? 0;
+  return [
+    `[0:v]${fitStream(piece.frames).join(",")},split[full1][full2]`,
+    `[full1]trim=end_frame=${frames},setpts=PTS-STARTPTS,${FRAME_TIMING}[incoming]`,
+    `[full2]trim=start_frame=${frames},setpts=PTS-STARTPTS,${FRAME_TIMING}[rest]`,
+    `[1:v]${input.tail.join(",")}[outgoing]`,
+    ...buildDrawnTransitionFilters({ kind: input.kind, outgoing: "outgoing", incoming: "incoming", output: "blend", frame: input.frame, prefix: "dt" }),
+    `[blend][rest]concat=n=2:v=1:a=0,settb=1/${FOOTAGE_FPS},fps=${FOOTAGE_FPS}[picture]`,
+  ].join(";");
 }
 
 /** The concat demuxer's list: one `file` line per piece, quotes escaped as the demuxer reads them. */

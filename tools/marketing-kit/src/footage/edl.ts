@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { TimedWord } from "../voice/voiceover.js";
 import { cameraSchema, describeCamera, isSameCamera, type EdlCamera } from "./camera.js";
 import { overlaySchema, type EdlOverlay } from "./overlay-schema.js";
+import { DRAWN_TRANSITION_FRAMES, isDrawnTransition, STUTTER_FRAMES } from "./drawn-transitions.js";
+import { FOOTAGE_FPS } from "./normalize.js";
 import { CUT_TRANSITIONS, type ClipRole, type CutOptions, type CutTransition, type FootageTransitions } from "./film.js";
 import { splitFilmSentences, type Sentence } from "./sentences.js";
 import { isFiller } from "./words.js";
@@ -92,7 +94,7 @@ const segmentFields = {
   clip: z.string().min(1).describe("The clip's id: the picture, and the sound unless audio says otherwise."),
   start: z.number().min(0).describe("Seconds in the trimmed clip where the segment starts."),
   end: z.number().positive().describe("Seconds in the trimmed clip where the segment ends."),
-  transition: z.enum(CUT_TRANSITIONS).describe("How the segment starts: cut, fade (a cross-fade from the segment before), zoom (a punch-in) or whoosh."),
+  transition: z.enum(CUT_TRANSITIONS).describe("How the segment starts: cut, fade (a cross-fade from the segment before), zoom (a punch-in), whoosh, whip (a whip pan with motion blur, 14 frames), card (the shot grows from a small card, 13 frames), paper (a torn-paper wipe, 12 frames) or stutter (5 frames wide, then tight)."),
   motion: z.enum(SEGMENT_MOTIONS).describe("kenburns: a slow zoom over the segment; none: still."),
 };
 
@@ -332,9 +334,27 @@ export function validateEdl(edl: Edl, clips: Pick<EdlClip, "id" | "duration">[],
 function findCameraProblems(at: string, segment: EdlSegment): string[] {
   const problems: string[] = [];
   if (segment.fadeFrames !== undefined && segment.transition !== "fade") problems.push(`${at}.fadeFrames: only a fade cut has a length; this segment starts on a ${segment.transition}`);
+  problems.push(...findTransitionProblems(at, segment));
   if (segment.camera === undefined) return problems;
   if (segment.motion === "kenburns") problems.push(`${at}.camera: the segment has a Ken Burns zoom, which owns the picture's scale; set motion to none or drop the camera`);
   if (segment.transition === "zoom") problems.push(`${at}.camera: the segment starts on a zoom cut, which owns the picture's scale; start it on a cut or a fade`);
+  return problems;
+}
+
+/**
+ * A drawn transition on a segment shorter than its frames (its head is the transition), and a stutter beside a zoom of
+ * its own: a moving camera or a Ken Burns zoom (the stutter holds one tight framing after its wide frames).
+ */
+function findTransitionProblems(at: string, segment: EdlSegment): string[] {
+  const problems: string[] = [];
+  const frames = Math.round((segment.end - segment.start) * FOOTAGE_FPS);
+  if (isDrawnTransition(segment.transition) && frames <= DRAWN_TRANSITION_FRAMES[segment.transition]) {
+    problems.push(`${at}.transition: a ${segment.transition} takes ${String(DRAWN_TRANSITION_FRAMES[segment.transition])} frames, longer than the segment (${String(frames)} frames)`);
+  }
+  if (segment.transition !== "stutter") return problems;
+  if (frames <= STUTTER_FRAMES) problems.push(`${at}.transition: a stutter shows ${String(STUTTER_FRAMES)} wide frames first, longer than the segment (${String(frames)} frames)`);
+  if (segment.motion === "kenburns") problems.push(`${at}.transition: a stutter holds one tight framing; the segment's Ken Burns zoom would move it`);
+  if (segment.camera !== undefined && segment.camera.from !== segment.camera.to) problems.push(`${at}.transition: a stutter holds one tight framing; the segment's camera moves`);
   return problems;
 }
 
