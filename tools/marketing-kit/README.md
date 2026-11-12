@@ -741,6 +741,11 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   wide shrinks like a title, at most three 10 % steps, else it is refused) or `auto` (chips when they fit one row, else
   the stack). A resolved list carries `isCentred` or `chips` (each chip's box); `getDrawnOverlayCard` answers the
   row's box, `getListCardsByItem` the drawn boxes after each point and `getListItemTimes` each point's second.
+- **Keyword alignment** (0.34.0): a keyword takes `style.align` (`OVERLAY_KEYWORD_ALIGNS`: `left`, `center` or
+  `right`) in place of `style.side`: its card on the left, in the middle of the room it may take (its text centred,
+  also while it types in) or on the right; giving both is refused. Without either it stays on the right. A resolved
+  keyword carries `isCentred`, and `getDrawnOverlayCard` answers the card where it is drawn. A title still aligns its
+  lines `center` or `left` only.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless
@@ -764,6 +769,14 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   "transitions": { "jump": "auto", "clip": "fade" },
   "edit": { "zoomPercent": 110, "zoomEaseFrames": 4, "fadeFrames": 5, "cutAudioFadeMs": 40, "cutAudioCrossfade": true }
   ```
+- **A segment's camera:** an EDL segment may carry `camera: { from, to, ease, seconds?, anchor? }` (`camera.ts`):
+  the framing it is shown at (1 is the full frame, up to `MAX_CAMERA_SCALE` 1.6) and a slow move over it, a push-in
+  (`from` below `to`), a pull-out or a settle (`from` above `to`); `ease` `linear` keeps one speed, `out` slows down
+  (`power1.out`); `seconds` ends the move early and holds; `anchor` (fractions of the frame, e.g. the face's centre) is
+  the point the zoom keeps still, so the crop never leaves the source frame. The draft (`zoompan` or a crop about the
+  anchor) and the render (a GSAP tween with the anchor as `transform-origin`) draw it alike; captions and overlays are
+  drawn over the moved picture. A camera is refused beside a Ken Burns zoom or a zoom cut, ends a shot for overlays
+  (`findShotBreak`) and takes no `punch_in`. A `fade` segment may set its own `fadeFrames` (1-30) over the film's.
 - **Music:** `file` (local), `prompt` (ElevenLabs Music, instrumental, the film's length) or `fromVideo` (ElevenLabs
   Video to Music, scored to the cut itself, with `description` and `tags`). Generated music is paid and cached the same
   way. It plays at `volume` and ducks to `duckedVolume` while someone speaks, from the word times, with a fade in and out;

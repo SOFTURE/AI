@@ -4,6 +4,29 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.34.0
+
+- **A segment's camera:** an EDL segment may carry `camera: { from, to, ease, seconds?, anchor? }`: its framing (1 is
+  the full frame, up to `MAX_CAMERA_SCALE` 1.6) and a slow move over it (a push-in, a pull-out, a settle that eases
+  back to the full frame), `linear` or `out` (`power1.out`), over the whole segment or its first `seconds`, about an
+  `anchor` (e.g. a face's centre; default 50 % across, 42 % down). The draft draws it with `zoompan` (a still framing
+  with a crop) about the anchor, the render with a GSAP tween and the anchor as `transform-origin` (per segment on the
+  one picture video). A cross-fade's outgoing tail is held at the zoom its camera reached. Refused beside a Ken Burns
+  zoom or a zoom cut (`validateEdl`); a camera move or a change of framing ends a shot for overlays, and a `punch_in`
+  on a camera segment is refused. An EDL without cameras renders exactly as before.
+- **A fade's own length:** a `fade` segment may set `fadeFrames` (1-30, `MIN_FADE_FRAMES`, `MAX_FADE_FRAMES`) over the
+  film's `edit.fadeFrames`, in the draft, the picture and the render (`getSegmentFadeFrames`); refused on another cut.
+- **New exports:** `cameraSchema`, `CAMERA_EASES`, `CAMERA_ORIGIN`, `MAX_CAMERA_SCALE`, `getCameraOrigin`,
+  `isCameraMoving`, `getCameraMoveFrames`, `getCameraMoveSeconds`, `getCameraGsapEase`, `getCameraScaleExpression`,
+  `getCameraScaleAt`, `toTransformOrigin`, `isSameCamera`, `describeCamera`, `getSegmentFadeFrames` and the types
+  `EdlCamera`, `CameraEase`, `CameraAnchor`. `diffEdl` names camera and fade length changes.
+- **Keyword alignment:** `style.align` on a keyword (new `OVERLAY_KEYWORD_ALIGNS`, type `OverlayKeywordAlign`):
+  `left`, `center` or `right`, where its card sits across the room it may take, in place of `style.side` (a keyword
+  with both is refused). `center` puts the card in the middle with its text centred, in the render and the draft
+  alike, a typed entrance included (a resolved keyword carries `isCentred`); `getDrawnOverlayCard` answers it. A
+  keyword without either still sits on the right. A hook title or a place card keeps `center` or `left`; `right` on
+  one is refused by name. `EdlOverlayStyle.align` widens to `OverlayKeywordAlign`.
+
 ## 0.33.0
 
 - **The list card grows with its points:** a list's first point now comes in with its card (a staggered list's

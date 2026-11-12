@@ -403,19 +403,20 @@ function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" |
   // A side text always has a card: only a punch_in has none.
   const card = getDrawnOverlayCard(overlay) as OverlayBox;
   const { x: padX, y: padY } = getOverlayPadding(overlay);
-  const isRight = side === "right";
-  const x = isRight ? card.left + card.width - padX : card.left + padX;
+  const isCentred = overlay.kind === "keyword" && overlay.isCentred === true;
+  const isRight = !isCentred && side === "right";
+  const x = isCentred ? card.left + card.width / 2 : isRight ? card.left + card.width - padX : card.left + padX;
   const isFoot = overlay.kind === "lower_third";
   const y = isFoot ? card.top + card.height - padY : card.top + padY;
-  // \an: 7 top left, 9 top right, 1 bottom left, 3 bottom right.
-  const align = isFoot ? (isRight ? 3 : 1) : isRight ? 9 : 7;
+  // \an: 7 top left, 8 top centre, 9 top right, 1 bottom left, 3 bottom right.
+  const align = isFoot ? (isRight ? 3 : 1) : isCentred ? 8 : isRight ? 9 : 7;
   const motion = getDraftMotion(overlay, overlay.entrance === null || overlay.entrance === "type" ? "fade" : overlay.entrance, card, context);
   const span = { start: overlay.start, end: overlay.end };
   const tags = `\\an${align}\\fs${fontSize}${getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES[overlay.kind])}`;
   const text = (pos: OverlayPoint, steps: TextStep[], own = motion) => getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps, motion: own });
   const shape = getCardShapeEvents(overlay, card, fontSize, colors, motion, context);
   // A keyword or a lower third types in only when its entrance says so.
-  const steps = overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(overlay.text) }] : getTypedSteps(overlay.text, span, overlay.typing);
+  const steps = overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(overlay.text) }] : getTypedSteps(overlay.text, span, overlay.typing, isCentred);
   return [...shape, ...text({ x, y }, steps), ...(overlay.kind === "keyword" ? getUnderlineEvent(overlay, card, colors.accent, motion) : [])];
 }
 

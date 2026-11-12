@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { TimedWord } from "../voice/voiceover.js";
+import { cameraSchema, describeCamera, isSameCamera, type EdlCamera } from "./camera.js";
 import { overlaySchema, type EdlOverlay } from "./overlay-schema.js";
 import { CUT_TRANSITIONS, type ClipRole, type CutOptions, type CutTransition, type FootageTransitions } from "./film.js";
 import { splitFilmSentences, type Sentence } from "./sentences.js";
@@ -59,6 +60,10 @@ export interface EdlSegment {
   transition: CutTransition;
   /** `kenburns`: a slow zoom over a segment without speech. */
   motion: SegmentMotion;
+  /** The segment's framing and a slow move over it (`camera.ts`); absent: the film's own zoom (cuts, Ken Burns). */
+  camera?: EdlCamera;
+  /** A `fade` cut's own length in frames at 30 fps (1-30); absent: the film's `fadeFrames`. */
+  fadeFrames?: number;
   audio?: EdlAudio;
   /** Moves the caption box for the captions that start in this segment; absent: the film's box. */
   caption?: EdlCaption;
@@ -76,6 +81,10 @@ export interface Edl {
   /** Caption boxes for stretches of film time, over the segments' own (`EdlCaptionRange`); absent or empty: none. */
   captionRanges?: EdlCaptionRange[];
 }
+
+/** The shortest and the longest a segment's own `fadeFrames` may be. */
+export const MIN_FADE_FRAMES = 1;
+export const MAX_FADE_FRAMES = 30;
 
 const SEGMENT_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
@@ -96,6 +105,8 @@ export const edlSchema = z
         z.strictObject({
           id: z.string().regex(SEGMENT_ID_PATTERN, "letters, digits, dot, dash or underscore").describe("The segment's id, unique in the cut: s<n> for a sentence, r<n> for b-roll."),
           ...segmentFields,
+          camera: cameraSchema.optional(),
+          fadeFrames: z.number().int().min(MIN_FADE_FRAMES).max(MAX_FADE_FRAMES).optional().describe("A fade cut's own length in frames at 30 fps (1-30); absent: the film's fadeFrames. Only on a fade."),
           audio: z
             .strictObject({
               clip: z.string().min(1).describe("The clip the sound comes from."),
@@ -305,6 +316,7 @@ export function validateEdl(edl: Edl, clips: Pick<EdlClip, "id" | "duration">[],
     checkSpan(at, segment);
     if (segment.end - segment.start < MIN_SEGMENT_SECONDS) problems.push(`${at}: shorter than ${MIN_SEGMENT_SECONDS} s (start ${segment.start}, end ${segment.end})`);
     if (captionBounds !== undefined) problems.push(...findCaptionProblems(`${at}.caption`, segment.caption, captionBounds));
+    problems.push(...findCameraProblems(at, segment));
     const { audio } = segment;
     if (audio === undefined) return;
     checkSpan(`${at}.audio`, audio);
@@ -313,6 +325,16 @@ export function validateEdl(edl: Edl, clips: Pick<EdlClip, "id" | "duration">[],
     if (Math.abs(length - soundLength) > 0.05) problems.push(`${at}.audio: ${soundLength} s of sound for ${length} s of picture (end - start must match)`);
   });
   problems.push(...findCaptionRangeProblems(edl, captionBounds));
+  return problems;
+}
+
+/** A camera beside the film's own zoom (a Ken Burns zoom, a zoom cut), which owns the scale too, and a fade length on another cut. */
+function findCameraProblems(at: string, segment: EdlSegment): string[] {
+  const problems: string[] = [];
+  if (segment.fadeFrames !== undefined && segment.transition !== "fade") problems.push(`${at}.fadeFrames: only a fade cut has a length; this segment starts on a ${segment.transition}`);
+  if (segment.camera === undefined) return problems;
+  if (segment.motion === "kenburns") problems.push(`${at}.camera: the segment has a Ken Burns zoom, which owns the picture's scale; set motion to none or drop the camera`);
+  if (segment.transition === "zoom") problems.push(`${at}.camera: the segment starts on a zoom cut, which owns the picture's scale; start it on a cut or a fade`);
   return problems;
 }
 
@@ -419,6 +441,8 @@ export function diffEdl(before: Edl, after: Edl): string[] {
     if (a.clip !== b.clip || a.start !== b.start || a.end !== b.end) lines.push(`${id}: ${a.clip} ${formatSpan(a)} → ${b.clip} ${formatSpan(b)}`);
     if (a.transition !== b.transition) lines.push(`${id}: ${a.transition} → ${b.transition}`);
     if (a.motion !== b.motion) lines.push(`${id}: motion ${a.motion} → ${b.motion}`);
+    if (!isSameCamera(a.camera, b.camera)) lines.push(`${id}: camera ${describeCamera(a.camera)} → ${describeCamera(b.camera)}`);
+    if (a.fadeFrames !== b.fadeFrames) lines.push(`${id}: fade ${a.fadeFrames === undefined ? "default" : `${String(a.fadeFrames)} frames`} → ${b.fadeFrames === undefined ? "default" : `${String(b.fadeFrames)} frames`}`);
   }
   for (const segment of after.segments) {
     const previous = old.get(segment.id);

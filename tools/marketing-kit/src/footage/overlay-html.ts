@@ -99,6 +99,8 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.ov-list .ov-card.cen{align-items:center;text-align:center}`,
     `.ov-list li{white-space:nowrap}`,
     `.ov.center .ov-card{transform-origin:50% 100%}`,
+    // A centred keyword (style.align center) centres a line that wraps too.
+    `.ov-keyword.center .ov-card{justify-content:center;text-align:center}`,
     `.ov-list .ov-chip{position:absolute;box-sizing:border-box;flex-direction:row;align-items:center;justify-content:center;white-space:nowrap;line-height:${OVERLAY_LINE_HEIGHT};transform-origin:50% 100%}`,
     `.ov-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}`,
     `.ov-search,.ov-counter .ov-card,.ov-date .ov-card,.ov-place,.ov-sub,.ov-line{white-space:nowrap}`,
@@ -265,6 +267,7 @@ interface MarkupContext {
 /** A keyword or a lower third, entering as the soft pill (or by its own entrance). */
 function addSideText(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" }>, id: string, context: MarkupContext, out: OverlayMarkup): void {
   const { box, fontSize, side } = overlay;
+  const isCentred = overlay.kind === "keyword" && overlay.isCentred === true;
   const colors = getOverlayColors(overlay, context.colors);
   const cardStyle = getCardStyle(overlay, colors, context.scale);
   const dotStyle = overlay.colors.accent === undefined ? "" : ` style="background:${colors.accent}"`;
@@ -274,7 +277,7 @@ function addSideText(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lowe
   const wipe = overlay.entrance === "wipe" ? `<i class="ov-wipe" id="${id}w"></i>` : "";
   const underline = overlay.kind === "keyword" && overlay.underline === true ? `<i class="ov-ul" id="${id}u" style="${getUnderlineStyle(overlay)}"></i>` : "";
   const body = `<div class="ov-card"${cardStyle}>${wipe}${overlay.kind === "lower_third" ? `<i class="ov-dot" id="${id}d"${dotStyle}></i>` : ""}<span id="${id}t">${text}</span>${underline}</div>`;
-  out.html.push(clipDiv(overlay, id, `ov ov-${overlay.kind.replace("_", "-")}${side === "right" ? " right" : ""}${isTyped ? " ty" : ""}${underline === "" ? "" : " ul"}`, style, body));
+  out.html.push(clipDiv(overlay, id, `ov ov-${overlay.kind.replace("_", "-")}${isCentred ? " center" : side === "right" ? " right" : ""}${isTyped ? " ty" : ""}${underline === "" ? "" : " ul"}`, style, body));
   if (overlay.entrance !== null) {
     out.tweens.push(...getMotionTweens(`#${id} .ov-card`, getEntranceMotion(overlay.entrance, overlay.easing ?? "smooth", context.frame), overlay.start));
     out.tweens.push(...getTypingTweens(id, overlay, [...overlay.text].length));

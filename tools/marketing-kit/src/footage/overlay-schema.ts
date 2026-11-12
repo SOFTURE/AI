@@ -41,6 +41,11 @@ export const OVERLAY_ALIGNS = ["center", "left"] as const;
 
 export type OverlayAlign = (typeof OVERLAY_ALIGNS)[number];
 
+/** Where a keyword's card sits across the room it may take: on the left, in the middle or on the right. */
+export const OVERLAY_KEYWORD_ALIGNS = ["left", "center", "right"] as const;
+
+export type OverlayKeywordAlign = (typeof OVERLAY_KEYWORD_ALIGNS)[number];
+
 /** The kinds whose lines take an `align`: the two stacked title cards. */
 export const OVERLAY_ALIGNED_KINDS: readonly OverlayKind[] = ["hook_title", "place_card"];
 
@@ -151,8 +156,11 @@ export interface EdlOverlayStyle {
   colors?: EdlOverlayColors;
   /** Its card's corner in place of the brand style's (`BrandStyle.cornerRadius`); not on a punch_in, arrow or highlight. */
   corner_radius?: CornerRadius;
-  /** How a hook title's or a place card's lines sit in the card (`center` without it). */
-  align?: OverlayAlign;
+  /**
+   * How a hook title's or a place card's lines sit in the card (`center` or `left`, `center` without it), or where a
+   * keyword's card sits across its room (`left`, `center` or `right`, in place of `side`).
+   */
+  align?: OverlayKeywordAlign;
   /** A place card's subtitle size: `s`, `m` (about 55 % of the title, the default) or `l`. */
   subtitle_size?: OverlaySize;
   /** How it leaves (`auto` without it: mirrors the entrance). */
@@ -333,7 +341,12 @@ function checkOverlayStyle(overlay: EdlOverlay, issue: (path: string[], message:
   }
   if (style.typing_speed !== undefined && !isTypedOverlay(overlay)) issue(["style", "typing_speed"], "only a typed entrance or a search bar has a typing speed");
   if (style.corner_radius !== undefined && (kind === "punch_in" || kind === "arrow" || kind === "highlight")) issue(["style", "corner_radius"], `${article(kind)} draws no card; leave corner_radius out`);
-  if (style.align !== undefined && !OVERLAY_ALIGNED_KINDS.includes(kind)) issue(["style", "align"], "only a hook_title or a place_card aligns its lines; leave align out");
+  if (style.align !== undefined) {
+    if (kind === "keyword") {
+      if (style.side !== undefined) issue(["style", "align"], "give a keyword align or side, not both");
+    } else if (!OVERLAY_ALIGNED_KINDS.includes(kind)) issue(["style", "align"], "only a hook_title, a place_card or a keyword takes align; leave it out");
+    else if (!(OVERLAY_ALIGNS as readonly string[]).includes(style.align)) issue(["style", "align"], `${article(kind)} aligns its lines ${OVERLAY_ALIGNS.join(" or ")}`);
+  }
   if (style.subtitle_size !== undefined && kind !== "place_card") issue(["style", "subtitle_size"], "only a place_card has a subtitle; leave subtitle_size out");
   if (style.subtitle_delay !== undefined && kind !== "place_card") issue(["style", "subtitle_delay"], "only a place_card has a subtitle; leave subtitle_delay out");
   if (style.pin !== undefined && kind !== "place_card") issue(["style", "pin"], "only a place_card draws a pin; leave pin out");
@@ -451,7 +464,12 @@ export const overlaySchema = z
           .enum(CORNER_RADII)
           .optional()
           .describe("The card's corner: none, s, m, l or pill; the brand style's without it (no punch_in, arrow or highlight)."),
-        align: z.enum(OVERLAY_ALIGNS).optional().describe("center (the default) or left: how a hook_title's or a place_card's lines sit in their card."),
+        align: z
+          .enum(OVERLAY_KEYWORD_ALIGNS)
+          .optional()
+          .describe(
+            "center (the default) or left: how a hook_title's or a place_card's lines sit in their card; left, center or right: where a keyword's card sits across its room (in place of side).",
+          ),
         subtitle_size: z.enum(OVERLAY_SIZES).optional().describe("s, m (the default, about 55 % of the title) or l: a place_card's subtitle size."),
         stagger: z.boolean().optional().describe("A list only: its points come in one by one (on item_words when given, else spaced automatically)."),
         list_layout: z
