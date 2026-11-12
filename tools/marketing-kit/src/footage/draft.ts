@@ -8,7 +8,8 @@ import { err, ok } from "./failure.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_SECONDS, CAPTION_UNDERLINE_EM, getCaptionHighlight, type CaptionHighlightLook } from "./caption-highlight.js";
 import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, isSameCaptionPlace, type CaptionWordsFilm } from "./captions.js";
-import { getSegmentScales, getSegmentZoomEases } from "./compose.js";
+import { getCameraMoveFrames, getCameraOrigin, getCameraScaleExpression, type CameraAnchor, type EdlCamera } from "./camera.js";
+import { getSegmentFadeFrames, getSegmentScales, getSegmentZoomEases } from "./compose.js";
 import { toAssColor } from "./draft-color.js";
 import { buildDraftOverlayEvents, getDraftOverlayStyles, getRoundedRectDrawing } from "./draft-overlays.js";
 import { getCaptionCornerRadius, getCornerRadiusPx, getStylePadding, type BrandStyle } from "./brand-style.js";
@@ -66,8 +67,6 @@ export const FOOTAGE_DRAFT_FONT = {
 
 /** How far a segment marked `kenburns` zooms when the film's `kenBurnsPercent` is 0, as in the render. */
 const HAND_KEN_BURNS_PERCENT = 4;
-/** The point a zoom keeps still, as the render's `transform-origin: 50% 42%`. */
-const ZOOM_ORIGIN = { x: 0.5, y: 0.42 } as const;
 const DRAFT_CRF = 28;
 const DRAFT_AUDIO_BITRATE = "128k";
 
@@ -481,6 +480,10 @@ export interface DraftSegmentPlan {
   startScale: number;
   /** The frames the zoom eases over (`getSegmentZoomEases`); 0: the segment starts at `scale`. */
   easeFrames: number;
+  /** The segment's camera (`EdlCamera`) and the frames its move takes; null: the film's own zoom (`scale`, `endScale`). */
+  camera: { camera: EdlCamera; frames: number } | null;
+  /** The point the segment's zooms keep still: its camera's anchor, else the render's `transform-origin: 50% 42%`. */
+  origin: CameraAnchor;
   /**
    * The EDL's `punch_in` overlays in this segment, in frames from its start: each multiplies the zoom by up to `scale`,
    * rising over `ease` frames from `from` and falling over the last `ease` of its `frames` (linear, the render eases).
@@ -489,17 +492,16 @@ export interface DraftSegmentPlan {
 }
 
 /**
- * How each segment plays in the draft. A `fade` cut lasts the film's `fadeFrames` (clamped to the incoming segment, so
- * the cross-fade never outlasts it) and the outgoing segment runs on under it, as in the render.
+ * How each segment plays in the draft. A `fade` cut lasts its own `fadeFrames` or the film's (clamped to the incoming
+ * segment, so the cross-fade never outlasts it) and the outgoing segment runs on under it, as in the render.
  */
 export function planFootageDraft(film: Pick<FootageFilm, "edit">, edl: Edl, overlays: readonly ResolvedOverlay[] = []): DraftSegmentPlan[] {
   const edit = getFootageEdit(film);
-  const fadeSeconds = r3(edit.fadeFrames / FOOTAGE_FPS);
   const kenBurnsScale = 1 + (edit.kenBurnsPercent > 0 ? edit.kenBurnsPercent : HAND_KEN_BURNS_PERCENT) / 100;
   const scales = getSegmentScales(edl, edit.zoomPercent);
   const eases = getSegmentZoomEases(edl, edit);
   const starts = getSegmentStarts(edl);
-  const fades = edl.segments.map((segment, index) => (segment.transition === "fade" && index > 0 ? r3(Math.min(fadeSeconds, segment.end - segment.start)) : 0));
+  const fades = edl.segments.map((segment, index) => r3(Math.min(getSegmentFadeFrames(edl, index, edit) / FOOTAGE_FPS, segment.end - segment.start)));
   return edl.segments.map((segment, index) => {
     const scale = scales[index] as number;
     return {
@@ -508,9 +510,11 @@ export function planFootageDraft(film: Pick<FootageFilm, "edit">, edl: Edl, over
       start: starts[index] as number,
       fade: fades[index] as number,
       scale,
-      endScale: segment.motion === "kenburns" ? r4(scale * kenBurnsScale) : scale,
+      endScale: segment.camera !== undefined ? segment.camera.to : segment.motion === "kenburns" ? r4(scale * kenBurnsScale) : scale,
       startScale: (eases[index] as number) > 0 ? (scales[index - 1] as number) : scale,
       easeFrames: eases[index] as number,
+      camera: segment.camera === undefined ? null : { camera: segment.camera, frames: getCameraMoveFrames(segment.camera, segment.end - segment.start) },
+      origin: getCameraOrigin(segment.camera),
       punches: overlays.flatMap((overlay) =>
         overlay.kind === "punch_in" && overlay.segment === index
           ? [
@@ -528,36 +532,32 @@ export function planFootageDraft(film: Pick<FootageFilm, "edit">, edl: Edl, over
 }
 
 /**
- * The filters that zoom a segment's picture and scale it to the draft: a crop for a still zoom, `zoompan` for Ken Burns
- * and for an eased zoom cut (the render's `power1.out`: `1 - (1 - t)^2`).
+ * The filters that zoom a segment's picture and scale it to the draft: a crop for a still zoom, `zoompan` for Ken Burns,
+ * a camera's move and an eased zoom cut (the render's `power1.out`: `1 - (1 - t)^2`), each about the segment's origin.
  */
 function buildPictureFilters(plan: DraftSegmentPlan, draft: Frame): string[] {
   const size = `${draft.width}:${draft.height}`;
+  const { origin } = plan;
   const zoompan = (zoom: string): string =>
-    `zoompan=z='${zoom}':x='(iw-iw/zoom)*${ZOOM_ORIGIN.x}':y='(ih-ih/zoom)*${ZOOM_ORIGIN.y}':d=1:s=${draft.width}x${draft.height}:fps=${FOOTAGE_FPS}`;
-  if (plan.punches.length > 0) {
-    // The segment's own zoom (an eased cut, Ken Burns or still) times each punch-in's rise, hold and fall.
-    const frames = Math.max(1, Math.round(plan.length * FOOTAGE_FPS));
-    const own =
-      plan.easeFrames > 0
-        ? `${plan.startScale}+(${r4(plan.scale - plan.startScale)})*(1-pow(1-min(on/${plan.easeFrames},1),2))`
+    `zoompan=z='${zoom}':x='(iw-iw/zoom)*${origin.x}':y='(ih-ih/zoom)*${origin.y}':d=1:s=${draft.width}x${draft.height}:fps=${FOOTAGE_FPS}`;
+  // The zoom runs over the segment's own length, as the render's tween does, and holds through a fade's tail.
+  const frames = Math.max(1, Math.round(plan.length * FOOTAGE_FPS));
+  const own =
+    plan.easeFrames > 0
+      ? `${plan.startScale}+(${r4(plan.scale - plan.startScale)})*(1-pow(1-min(on/${plan.easeFrames},1),2))`
+      : plan.camera !== null && plan.endScale !== plan.scale
+        ? getCameraScaleExpression(plan.camera.camera, plan.camera.frames)
         : plan.endScale !== plan.scale
           ? `${plan.scale}+${r4(plan.endScale - plan.scale)}*min(on/${frames},1)`
-          : `${plan.scale}`;
+          : null;
+  if (plan.punches.length > 0) {
+    // The segment's own zoom (an eased cut, a camera, Ken Burns or still) times each punch-in's rise, hold and fall.
     const lifts = plan.punches.map((punch) => `${r4(punch.scale - 1)}*max(0,min(min(1,(on-${punch.from})/${punch.ease}),(${punch.from + punch.frames}-on)/${punch.ease}))`);
-    return [zoompan(`(${own})*(1+${lifts.join("+")})`)];
+    return [zoompan(`(${own ?? String(plan.scale)})*(1+${lifts.join("+")})`)];
   }
-  if (plan.easeFrames > 0) {
-    return [zoompan(`${plan.startScale}+(${r4(plan.scale - plan.startScale)})*(1-pow(1-min(on/${plan.easeFrames},1),2))`)];
-  }
-  if (plan.endScale !== plan.scale) {
-    // The zoom runs over the segment's own length, as the render's tween does, and holds through a fade's tail.
-    const frames = Math.max(1, Math.round(plan.length * FOOTAGE_FPS));
-    const zoom = `${plan.scale}+${r4(plan.endScale - plan.scale)}*min(on/${frames},1)`;
-    return [zoompan(zoom)];
-  }
+  if (own !== null) return [zoompan(own)];
   if (plan.scale !== 1) {
-    return [`crop=iw/${plan.scale}:ih/${plan.scale}:(iw-iw/${plan.scale})*${ZOOM_ORIGIN.x}:(ih-ih/${plan.scale})*${ZOOM_ORIGIN.y}`, `scale=${size}`];
+    return [`crop=iw/${plan.scale}:ih/${plan.scale}:(iw-iw/${plan.scale})*${origin.x}:(ih-ih/${plan.scale})*${origin.y}`, `scale=${size}`];
   }
   return [`scale=${size}`];
 }

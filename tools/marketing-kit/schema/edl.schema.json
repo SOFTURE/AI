@@ -56,6 +56,73 @@
             ],
             "description": "kenburns: a slow zoom over the segment; none: still."
           },
+          "camera": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 1.6,
+                "description": "The scale the segment starts at: 1 is the full frame, up to 1.6."
+              },
+              "to": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 1.6,
+                "description": "The scale it ends at; equal to from: a still framing."
+              },
+              "ease": {
+                "type": "string",
+                "enum": [
+                  "linear",
+                  "out"
+                ],
+                "description": "linear: one steady speed; out: slows down to its end."
+              },
+              "seconds": {
+                "description": "How long the move takes from the segment's start, then the picture holds; absent: the whole segment.",
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 120
+              },
+              "anchor": {
+                "description": "The point the zoom keeps still, such as the face's centre; absent: 50 % across, 42 % down.",
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Across the frame, 0 (left) to 1 (right)."
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Down the frame, 0 (top) to 1 (bottom)."
+                  }
+                },
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "ease"
+            ],
+            "additionalProperties": false,
+            "description": "The segment's framing and a slow move over it (a push-in, a pull-out, a settle); drawn alike by the draft and the render."
+          },
+          "fadeFrames": {
+            "description": "A fade cut's own length in frames at 30 fps (1-30); absent: the film's fadeFrames. Only on a fade.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          },
           "audio": {
             "description": "Sound from another clip or span: a J- or L-cut, or b-roll over speech. Without it, the segment plays its own sound.",
             "type": "object",

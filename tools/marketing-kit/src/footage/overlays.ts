@@ -19,6 +19,7 @@ import {
   type OverlaySide,
   type OverlaySize,
 } from "./overlay-schema.js";
+import { isCameraMoving, isSameCamera } from "./camera.js";
 import { getSegmentZoomEases } from "./compose.js";
 import { normalizeWord } from "./words.js";
 import { getListItemStarts } from "./overlay-motion.js";
@@ -378,6 +379,7 @@ export function findShotBreak(edl: Pick<Edl, "segments">, index: number): string
   if (segment.clip !== previous.clip) return `segment "${segment.id}" plays another clip`;
   if (segment.transition !== "cut") return `segment "${segment.id}" starts on a ${segment.transition}, not a plain cut`;
   if (segment.motion === "kenburns" || previous.motion === "kenburns") return `a Ken Burns zoom at segment "${segment.id}"`;
+  if (isCameraMoving(segment.camera) || isCameraMoving(previous.camera) || !isSameCamera(segment.camera, previous.camera)) return `a camera move or a new framing at segment "${segment.id}"`;
   if (segment.caption?.bottom !== previous.caption?.bottom || segment.caption?.top !== previous.caption?.top) return `segment "${segment.id}" moves the captions`;
   return null;
 }
@@ -460,6 +462,10 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
     if (placed.overlay.kind === "punch_in") {
       if (edl.segments[segment]?.motion === "kenburns") {
         problems.push(`${at}: segment "${segmentId}" has a Ken Burns zoom, which owns the picture's scale; put the punch-in on a still segment`);
+        return;
+      }
+      if (edl.segments[segment]?.camera !== undefined) {
+        problems.push(`${at}: segment "${segmentId}" has a camera (a move or a framing), which owns the picture's scale; put the punch-in on a segment without one`);
         return;
       }
       const easeEnd = r3(segmentStart + (eases[segment] ?? 0) / FOOTAGE_FPS);

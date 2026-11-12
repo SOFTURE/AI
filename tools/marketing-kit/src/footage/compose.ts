@@ -6,7 +6,8 @@ import { CAPTION_LINE_HEIGHT, getCaptionPillCss, getCaptionPositionCss, type Cap
 import type { TimedWord } from "../voice/voiceover.js";
 import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_BOX_RADIUS, CAPTION_HIGHLIGHT_SECONDS, CAPTION_UNDERLINE_EM, getCaptionEntranceTween, getCaptionHighlight } from "./caption-highlight.js";
 import { CAPTION_SAFE_ZONES, getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, type CaptionSpan } from "./captions.js";
-import { getEdlDuration, getSegmentStarts, type Edl } from "./edl.js";
+import { getCameraGsapEase, getCameraMoveSeconds, getCameraOrigin, isCameraMoving, toTransformOrigin } from "./camera.js";
+import { getEdlDuration, getSegmentStarts, type Edl, type EdlSegment } from "./edl.js";
 import {
   CAPTION_MIN_FONT_SCALE,
   DEFAULT_EDIT,
@@ -93,14 +94,25 @@ export function getFootageFilmSeconds(film: Pick<FootageFilm, "endCard">, edl: E
   return r3(getEdlDuration(edl) + getEndCardSeconds(film.endCard));
 }
 
-/** The picture scale each segment starts at: `zoom` cuts alternate between punched in (`zoomPercent`) and back out. */
+/**
+ * The picture scale each segment starts at: `zoom` cuts alternate between punched in (`zoomPercent`) and back out; a
+ * segment with a `camera` starts at its camera's `from`.
+ */
 export function getSegmentScales(edl: Edl, zoomPercent = DEFAULT_EDIT.zoomPercent): number[] {
   const scales: number[] = [];
   edl.segments.forEach((segment, index) => {
     const previous = scales[index - 1] ?? 1;
-    scales.push(segment.transition === "zoom" && index > 0 ? (previous === 1 ? zoomPercent / 100 : 1) : 1);
+    if (segment.camera !== undefined) scales.push(segment.camera.from);
+    else scales.push(segment.transition === "zoom" && index > 0 ? (previous === 1 ? zoomPercent / 100 : 1) : 1);
   });
   return scales;
+}
+
+/** The frames a segment's cut cross-fades over: its own `fadeFrames` or the film's on a `fade` after the first segment, else 0. */
+export function getSegmentFadeFrames(edl: Pick<Edl, "segments">, index: number, edit: Pick<FootageEdit, "fadeFrames">): number {
+  const segment: EdlSegment | undefined = edl.segments[index];
+  if (segment === undefined || index === 0 || segment.transition !== "fade") return 0;
+  return segment.fadeFrames ?? edit.fadeFrames;
 }
 
 /**
@@ -110,7 +122,7 @@ export function getSegmentScales(edl: Edl, zoomPercent = DEFAULT_EDIT.zoomPercen
 export function getSegmentZoomEases(edl: Edl, edit: Pick<FootageEdit, "zoomPercent" | "zoomEaseFrames">): number[] {
   const scales = getSegmentScales(edl, edit.zoomPercent);
   return edl.segments.map((segment, index) => {
-    const isEased = edit.zoomEaseFrames > 0 && index > 0 && segment.transition === "zoom" && segment.motion !== "kenburns" && scales[index - 1] !== scales[index];
+    const isEased = edit.zoomEaseFrames > 0 && index > 0 && segment.transition === "zoom" && segment.motion !== "kenburns" && segment.camera === undefined && scales[index - 1] !== scales[index];
     return isEased ? Math.max(1, Math.min(edit.zoomEaseFrames, Math.floor((segment.end - segment.start) * FOOTAGE_FPS))) : 0;
   });
 }
@@ -156,7 +168,10 @@ export function composeFootage(input: FootageComposeInput): string {
   const edit = getFootageEdit(film);
   const scales = getSegmentScales(edl, edit.zoomPercent);
   const eases = getSegmentZoomEases(edl, edit);
-  const fadeSeconds = r3(edit.fadeFrames / FOOTAGE_FPS);
+  const fadeSecondsAt = (index: number): number => r3(getSegmentFadeFrames(edl, index, edit) / FOOTAGE_FPS);
+  // A film with a camera anchors its zooms per segment; one without keeps the stylesheet's origin (and its markup).
+  const hasCamera = edl.segments.some((segment) => segment.camera !== undefined);
+  const originOf = (segment: EdlSegment): string => toTransformOrigin(getCameraOrigin(segment.camera));
   const kenBurnsScale = 1 + (edit.kenBurnsPercent > 0 ? edit.kenBurnsPercent : HAND_KEN_BURNS_PERCENT) / 100;
 
   const picture = assets.picture;
@@ -165,12 +180,12 @@ export function composeFootage(input: FootageComposeInput): string {
       ? edl.segments.map((segment, index) => {
           const src = assets.clips[segment.clip];
           if (src === undefined) throw new Error(`The EDL names clip "${segment.clip}", which the film has no file for.`);
-          const next = edl.segments[index + 1];
-          const tail = next?.transition === "fade" ? fadeSeconds : 0;
+          const tail = fadeSecondsAt(index + 1);
           const start = starts[index] as number;
           const duration = r3(segment.end - segment.start + tail);
           const scale = scales[index] as number;
-          const style = scale === 1 ? "" : ` style="transform:scale(${scale})"`;
+          const origin = segment.camera === undefined ? "" : `;transform-origin:${originOf(segment)}`;
+          const style = scale === 1 && origin === "" ? "" : ` style="transform:scale(${scale})${origin}"`;
           return `<video id="seg${index}" class="clip shot" src="${escapeHtml(src)}" data-start="${start}" data-media-start="${segment.start}" data-duration="${duration}"${style} muted playsinline></video>`;
         })
       : [`<video id="picture" class="clip shot" src="${escapeHtml(picture)}" data-start="0" data-media-start="0" data-duration="${cutEnd}" muted playsinline></video>`];
@@ -181,9 +196,14 @@ export function composeFootage(input: FootageComposeInput): string {
     const scale = scales[index] as number;
     const target = picture === undefined ? `#seg${index}` : "#picture";
     // One video carries every segment: each one sets the zoom it starts at (a fade is already in the picture).
-    if (picture !== undefined) tweens.push(`tl.set("#picture", { scale: ${scale} }, ${start});`);
+    if (picture !== undefined) tweens.push(hasCamera ? `tl.set("#picture", { scale: ${scale}, transformOrigin: "${originOf(segment)}" }, ${start});` : `tl.set("#picture", { scale: ${scale} }, ${start});`);
     if (picture === undefined && segment.transition === "fade" && index > 0) {
-      tweens.push(`tl.fromTo("${target}", { opacity: 0 }, { opacity: 1, duration: ${fadeSeconds}, ease: "none", immediateRender: false }, ${start});`);
+      tweens.push(`tl.fromTo("${target}", { opacity: 0 }, { opacity: 1, duration: ${fadeSecondsAt(index)}, ease: "none", immediateRender: false }, ${start});`);
+    }
+    const { camera } = segment;
+    if (camera !== undefined && isCameraMoving(camera)) {
+      const seconds = getCameraMoveSeconds(camera, segment.end - segment.start);
+      tweens.push(`tl.fromTo("${target}", { scale: ${camera.from} }, { scale: ${camera.to}, duration: ${seconds}, ease: "${getCameraGsapEase(camera.ease)}", immediateRender: false }, ${start});`);
     }
     const ease = eases[index] as number;
     if (ease > 0) {
