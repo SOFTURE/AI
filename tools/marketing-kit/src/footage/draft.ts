@@ -28,6 +28,7 @@ import { getDeclickLevel, getFootageEdit, type FootageFilm } from "./film.js";
 import { buildFilmMixArgs } from "./film-mix.js";
 import { DEFAULT_LOUDNESS, formatDb, getLoudnessVerdict, measureLoudness, normalizeLoudness, type MixLoudnessTarget } from "./loudness.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
+import { buildSplitScreenFilters, getSplitLayerInputArgs, writeSplitLayers } from "./split-screen.js";
 import { FOOTAGE_FPS, getThreadArgs, type Frame } from "./normalize.js";
 import {
   findFootageMusic,
@@ -456,6 +457,8 @@ export interface FootageDraftArgsInput {
   overlays?: readonly ResolvedOverlay[];
   /** The folder libass loads the captions' font from, or null for the system's fonts. */
   fontsDir: string | null;
+  /** Each split segment's layer (`renderSplitLayerPng` at the draft's size), by segment id; needed for every split. */
+  splitLayers?: Record<string, string>;
   output: string;
   /**
    * ffmpeg's threads for every segment's decoder, the filter graph and the encoder; by default ffmpeg's own choice,
@@ -620,15 +623,15 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
   const threads = getThreadArgs(input.threads, "draft.threads");
   const inputs: string[] = [];
   const parts: string[] = [];
+  let inputCount = 0;
+  const getClip = (id: string): string => {
+    const clip = input.clips[id];
+    if (clip === undefined) throw new Error(`No file for clip "${id}" of the EDL.`);
+    return clip;
+  };
   edl.segments.forEach((segment, index) => {
-    const clip = input.clips[segment.clip];
-    if (clip === undefined) throw new Error(`No file for clip "${segment.clip}" of the EDL.`);
     const plan = plans[index] as DraftSegmentPlan;
-    // Before an input, -threads sizes that input's decoder: one decoder runs per segment.
-    inputs.push(...threads.output, "-ss", String(r3(segment.start)), "-t", String(plan.seconds), "-i", clip);
-    const filters = [
-      "setpts=PTS-STARTPTS",
-      ...buildPictureFilters(plan, draft),
+    const fit = [
       "setsar=1",
       `fps=${FOOTAGE_FPS}`,
       "format=yuv420p",
@@ -640,7 +643,23 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
       // ffmpeg 7.1's setpts leaves the frame rate unknown (1/0), which xfade refuses (#1057); fps states it again.
       `fps=${FOOTAGE_FPS}`,
     ];
-    parts.push(`[${index}:v]${filters.join(",")}[v${index}]`);
+    const { split } = segment;
+    if (split !== undefined) {
+      // A split screen holds still: its three bands and its layer, at the draft's size, as the render's picture draws them.
+      const layer = input.splitLayers?.[segment.id];
+      if (layer === undefined) throw new Error(`No split layer for segment "${segment.id}" of the EDL.`);
+      const first = inputCount;
+      for (const band of split.bands) inputs.push(...threads.output, "-ss", String(r3(band.start)), "-t", String(plan.seconds), "-i", getClip(band.clip));
+      inputs.push(...getSplitLayerInputArgs(layer, plan.seconds, FOOTAGE_FPS));
+      inputCount += 4;
+      const bands: [string, string, string] = [`${String(first)}:v`, `${String(first + 1)}:v`, `${String(first + 2)}:v`];
+      parts.push(...buildSplitScreenFilters({ inputs: bands, layer: `${String(first + 3)}:v`, split, frame: draft, fit: ["setpts=PTS-STARTPTS", ...fit], output: `v${index}`, prefix: `sp${String(index)}` }));
+      return;
+    }
+    // Before an input, -threads sizes that input's decoder: one decoder runs per segment.
+    inputs.push(...threads.output, "-ss", String(r3(segment.start)), "-t", String(plan.seconds), "-i", getClip(segment.clip));
+    parts.push(`[${inputCount}:v]${["setpts=PTS-STARTPTS", ...buildPictureFilters(plan, draft), ...fit].join(",")}[v${index}]`);
+    inputCount += 1;
   });
   let joined = "v0";
   plans.forEach((plan, index) => {
@@ -664,7 +683,7 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
   } else {
     parts.push(`[${joined}]null[draft]`);
   }
-  const soundInput = edl.segments.length;
+  const soundInput = inputCount;
   const mix = input.mix ?? null;
   const music = mix === null ? (input.music ?? null) : null;
   if (music !== null) parts.push(`[${soundInput}:a][${soundInput + 1}:a]amix=inputs=2:duration=first:normalize=0[sound]`);
@@ -901,6 +920,7 @@ async function runRenderFootageDraft(
     prepared = mixed.value;
   }
   report("film", 0);
+  const splitLayers = writeSplitLayers(edl.segments, getFootageDraftFrame(frame, options.width), draftDir, true);
   // Run in the draft folder: the captions file and the font folder are relative names, so no path needs escaping in the filter graph.
   const args = buildFootageDraftArgs({
     film,
@@ -915,6 +935,7 @@ async function runRenderFootageDraft(
     captions: captions === null ? null : "captions.ass",
     ...(overlays.length === 0 ? {} : { overlays }),
     fontsDir: captions === null ? null : "fonts",
+    ...(Object.keys(splitLayers).length === 0 ? {} : { splitLayers }),
     output,
   });
   await runFfmpeg("The footage draft", args, { ...aborting, output, cwd: draftDir, onSeconds: (done) => report("film", done) });

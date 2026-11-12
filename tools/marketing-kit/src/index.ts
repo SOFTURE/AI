@@ -591,6 +591,29 @@ export {
   type DrawnTransition,
   type DrawnTransitionFiltersInput,
 } from "./footage/drawn-transitions.js";
+export {
+  MAX_SPLIT_LABEL_CHARACTERS,
+  SPLIT_BANDS,
+  SPLIT_LAYOUTS,
+  buildSplitScreenFilters,
+  findSplitCaptionProblems,
+  findSplitLabelProblems,
+  getSplitArrowPaths,
+  getSplitBandHeights,
+  getSplitCaption,
+  getSplitLayerInputArgs,
+  getSplitLayerSvg,
+  getSplitPlaces,
+  renderSplitLayerPng,
+  splitSchema,
+  writeSplitLayers,
+  type EdlSplit,
+  type EdlSplitBand,
+  type SplitBandPlace,
+  type SplitBox,
+  type SplitLayout,
+  type SplitScreenFiltersInput,
+} from "./footage/split-screen.js";
 export { findRetakes, splitFilmSentences, splitSentences, type RetakeKind, type RetakeSuggestion, type Sentence } from "./footage/sentences.js";
 export {
   CAPTION_SAFE_ZONES,
