@@ -741,6 +741,11 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   wide shrinks like a title, at most three 10 % steps, else it is refused) or `auto` (chips when they fit one row, else
   the stack). A resolved list carries `isCentred` or `chips` (each chip's box); `getDrawnOverlayCard` answers the
   row's box, `getListCardsByItem` the drawn boxes after each point and `getListItemTimes` each point's second.
+- **Keyword alignment** (0.34.0): a keyword takes `style.align` (`OVERLAY_KEYWORD_ALIGNS`: `left`, `center` or
+  `right`) in place of `style.side`: its card on the left, in the middle of the room it may take (its text centred,
+  also while it types in) or on the right; giving both is refused. Without either it stays on the right. A resolved
+  keyword carries `isCentred`, and `getDrawnOverlayCard` answers the card where it is drawn. A title still aligns its
+  lines `center` or `left` only.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless

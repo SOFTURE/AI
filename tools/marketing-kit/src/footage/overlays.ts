@@ -148,7 +148,16 @@ type Drawn = OverlayBase & OverlayLook;
  */
 export type ResolvedOverlay =
   | (OverlayBase & { kind: "punch_in"; scale: number; ease: number })
-  | (Drawn & { kind: "keyword"; text: string; fontSize: number; side: OverlaySide; box: OverlayBox; underline?: boolean })
+  | (Drawn & {
+      kind: "keyword";
+      text: string;
+      fontSize: number;
+      side: OverlaySide;
+      box: OverlayBox;
+      underline?: boolean;
+      /** Its card sits in the middle of `box`, its text centred (`style.align` center); absent: on its side. */
+      isCentred?: boolean;
+    })
   | (Drawn & { kind: "lower_third"; text: string; fontSize: number; side: OverlaySide; box: OverlayBox })
   | (Drawn & {
       kind: "list";
@@ -322,13 +331,13 @@ export function getDrawnOverlayCard(overlay: ResolvedOverlay): OverlayBox | null
   return getSideTextCard(overlay, getSideTextLines(overlay), overlay.box.height);
 }
 
-/** The card of a side text fitted to `lines`, `height` tall from the box's top: on its side, or in the box's middle. */
+/** The card of a side text fitted to `lines`, `height` tall from the box's top: on its side, or in the box's middle (a centred list or keyword). */
 function getSideTextCard(overlay: SideTextOverlay, lines: readonly string[], height: number): OverlayBox {
   const { box, fontSize, side } = overlay;
   const padX = getOverlayPadding(overlay).x;
   const textWidth = Math.max(0, ...lines.map((line) => estimateTextWidth(line, fontSize)));
   const width = Math.min(box.width, Math.ceil(textWidth + 2 * padX));
-  const isCentred = overlay.kind === "list" && overlay.isCentred === true;
+  const isCentred = (overlay.kind === "list" || overlay.kind === "keyword") && overlay.isCentred === true;
   const left = isCentred ? box.left + Math.round((box.width - width) / 2) : side === "right" ? box.left + box.width - width : box.left;
   return { left, top: box.top, width, height };
 }
@@ -604,7 +613,9 @@ function placeMark(overlay: EdlOverlay, drawn: Drawn, place: Placement): Placed 
 function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" | "list" }, drawn: Drawn, place: Placement): Placed {
   const { zone, frame } = place;
   const scale = frame.width / 1080;
-  const side = overlay.style?.side ?? (overlay.kind === "keyword" ? "right" : "left");
+  const align = overlay.kind === "keyword" ? overlay.style?.align : undefined;
+  // A keyword's align left or right is its side; center puts its card in the middle (`isCentred`).
+  const side = align === "left" || align === "right" ? align : (overlay.style?.side ?? (overlay.kind === "keyword" ? "right" : "left"));
   const fontSize = Math.round(OVERLAY_FONT_SIZES[overlay.kind][overlay.style?.size ?? "m"] * scale);
   const pad = getOverlayPadding({ fontSize, padScale: place.padScale });
   const margin = Math.round(OVERLAY_MARGIN * scale);
@@ -630,7 +641,10 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
   }
   const fields = { text: overlay.text ?? "", fontSize, side, box };
   if (overlay.kind === "lower_third") return { ok: true, overlay: { ...drawn, kind: "lower_third", ...fields } };
-  return { ok: true, overlay: { ...drawn, kind: "keyword", ...fields, ...(overlay.style?.underline === true ? { underline: true } : {}) } };
+  return {
+    ok: true,
+    overlay: { ...drawn, kind: "keyword", ...fields, ...(overlay.style?.underline === true ? { underline: true } : {}), ...(align === "center" ? { isCentred: true } : {}) },
+  };
 }
 
 /** A list's chips before they are placed: their type size, each one's width, their common height, the row's width with its gaps. */
@@ -798,7 +812,8 @@ function measureTitle(overlay: EdlOverlay & { kind: "hook_title" | "place_card" 
   // The hook title's place label carries a pin about one label line wide before it.
   const secondWidth = second === null ? 0 : estimateTextWidth(second, secondSize) + (isHook ? Math.round(secondSize * 1.1) : 0);
   if (secondWidth > room) return tooWide(metrics, isHook ? "place label" : "subtitle");
-  const align = overlay.style?.align ?? "center";
+  // A title's align is center or left (the schema refuses right on it).
+  const align: OverlayAlign = overlay.style?.align === "left" ? "left" : "center";
   const pin = !isHook && overlay.style?.pin !== undefined && overlay.style.pin !== "none" ? overlay.style.pin : undefined;
   const delay = !isHook && second !== null && overlay.style?.subtitle_delay !== undefined && overlay.style.subtitle_delay > 0 ? overlay.style.subtitle_delay : undefined;
   return {

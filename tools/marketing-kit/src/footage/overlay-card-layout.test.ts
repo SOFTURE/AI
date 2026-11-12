@@ -70,12 +70,13 @@ describe("the align and subtitle size knobs", () => {
     return result.success ? [] : result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
   };
 
-  it("takes align on a hook title and a place card and subtitle_size on a place card only", () => {
+  it("takes align on a hook title, a place card and a keyword, and subtitle_size on a place card only", () => {
     expect(issues({ ...TYPED_HOOK, style: { align: "left" } })).toEqual([]);
     expect(issues({ ...PLACE, style: { align: "center", subtitle_size: "l" } })).toEqual([]);
-    expect(issues({ kind: "keyword", at: 0, duration: 2, text: "2x", style: { align: "left" } })).toEqual(["style.align: only a hook_title or a place_card aligns its lines; leave align out"]);
+    expect(issues({ kind: "keyword", at: 0, duration: 2, text: "2x", style: { align: "left" } })).toEqual([]);
+    expect(issues({ kind: "lower_third", at: 0, duration: 2, text: "Hanoi", style: { align: "left" } })).toEqual(["style.align: only a hook_title, a place_card or a keyword takes align; leave it out"]);
     expect(issues({ ...TYPED_HOOK, style: { subtitle_size: "s" } })).toEqual(["style.subtitle_size: only a place_card has a subtitle; leave subtitle_size out"]);
-    expect(issues({ ...PLACE, style: { align: "right" } } as unknown as EdlOverlay)).toHaveLength(1);
+    expect(issues({ ...PLACE, style: { align: "right" } })).toEqual(["style.align: a place_card aligns its lines center or left"]);
   });
 });
 

@@ -20,6 +20,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `isCameraMoving`, `getCameraMoveFrames`, `getCameraMoveSeconds`, `getCameraGsapEase`, `getCameraScaleExpression`,
   `getCameraScaleAt`, `toTransformOrigin`, `isSameCamera`, `describeCamera`, `getSegmentFadeFrames` and the types
   `EdlCamera`, `CameraEase`, `CameraAnchor`. `diffEdl` names camera and fade length changes.
+- **Keyword alignment:** `style.align` on a keyword (new `OVERLAY_KEYWORD_ALIGNS`, type `OverlayKeywordAlign`):
+  `left`, `center` or `right`, where its card sits across the room it may take, in place of `style.side` (a keyword
+  with both is refused). `center` puts the card in the middle with its text centred, in the render and the draft
+  alike, a typed entrance included (a resolved keyword carries `isCentred`); `getDrawnOverlayCard` answers it. A
+  keyword without either still sits on the right. A hook title or a place card keeps `center` or `left`; `right` on
+  one is refused by name. `EdlOverlayStyle.align` widens to `OverlayKeywordAlign`.
 
 ## 0.33.0
 
