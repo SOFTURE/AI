@@ -746,6 +746,22 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   also while it types in) or on the right; giving both is refused. Without either it stays on the right. A resolved
   keyword carries `isCentred`, and `getDrawnOverlayCard` answers the card where it is drawn. A title still aligns its
   lines `center` or `left` only.
+- **Text devices** (0.35.0): two more kinds and two knobs, each meant to look made by hand, never generated.
+  `note` (up to 72 characters, at most four lines, on its `side`, `top` or `middle`): a `card` (`style.note_style`,
+  the default) is a slightly tilted paper card with a torn bottom edge, handwritten in the kit's own `HAND_FONT`
+  (Caveat, OFL, shipped in `fonts/`), each word coming in as it is said (matched in order against the cut's words,
+  `timeNote`; spaced over the first half when none is said); a `strip` is a torn strip of paper that grows in and
+  types its text in capitals in the heading font. `style.tick` draws a hand-drawn tick after the last word.
+  `end_word` (up to 16 characters, 0.5-2 s): one big handwritten line at the top of the room, white with a soft
+  shadow, no card, shrunk to fit or refused; like a hook title it may cross cuts and does not count against one
+  overlay at a time, one title at the top at a time and nothing may sit on it (`isTitleBand`). `style.backdrop`
+  (`card`, the default, or `highlight`) on a keyword or a hook title draws a tight highlight mark in the card colour
+  behind each line instead of a card (with a typed entrance it widens with each letter; refused with `underline`).
+  `style.entrance: "drop"` (keyword, hook title, end word; the end word's default) brings the letters in one by one,
+  each falling a little from above with a small turn and an ease-out, never below its line (`getDropOffsetAt`). The
+  render copies the hand font to `assets/fonts/hand.ttf` only when a note card or an end word needs it
+  (`isHandFontNeeded`); the draft copies it next to its caption font and sizes it so its letters match the render's.
+  Handwriting is measured from the font itself (`measureHandText`), a strip's capitals by their own wider average.
 - **Transitions and look:** `jump` (a cut inside one talking clip) and `clip` (between clips) are hard cuts by
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless

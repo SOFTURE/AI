@@ -2,7 +2,15 @@ import type { BrandColors } from "../config/colors.js";
 import { escapeHtml } from "../compose/html.js";
 import { getCornerRadiusCss, getStyleBorderCss, getStyleShadowCss, type BrandStyle } from "./brand-style.js";
 import type { OverlayEntrance } from "./overlay-schema.js";
+import { HAND_FONT } from "./hand-font.js";
 import {
+  DROP_FROM_EM,
+  DROP_LETTER_GAP,
+  DROP_LETTER_SECONDS,
+  NOTE_GROW_FROM_SCALE,
+  NOTE_GROW_SECONDS,
+  NOTE_TICK_SECONDS,
+  getDropLetterTurns,
   PIN_DROP_SECONDS,
   PIN_DROP_SHARE,
   PIN_TITLE_LEAD,
@@ -15,6 +23,7 @@ import {
   type OverlayMotionOffset,
 } from "./overlay-motion.js";
 import {
+  NOTE_LINE_HEIGHT,
   OVERLAY_LINE_HEIGHT,
   OVERLAY_LIST_LINE_HEIGHT,
   OVERLAY_PADDING_EM,
@@ -26,7 +35,13 @@ import {
   getPlaceCardPinSize,
   getListCardsByItem,
   getListItemTimes,
+  getNoteColors,
+  getNotePaperPoints,
+  getNoteTextBox,
+  getNoteTickPoints,
+  getNoteWordsByLine,
   getTitleContentBox,
+  isHandFontNeeded,
   type OverlayBox,
   type ResolvedOverlay,
 } from "./overlays.js";
@@ -133,6 +148,20 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.pd .ov-pinrow svg,.pl .ov-line,.sd .ov-sub{opacity:0}`,
     // An underlined keyword keeps only its drawn bar: the card's own accent edge would be a second line under it.
     `.ov-keyword.ul .ov-card{border-bottom-color:transparent}`,
+    // Dropped letters: each its own box, hidden until it starts falling.
+    `.dl{display:inline-block;opacity:0}`,
+    // A highlight backdrop: no card, each line on its own tight box that grows with the typed letters.
+    `.ov-mark{padding:.04em .22em;border-radius:.14em;-webkit-box-decoration-break:clone;box-decoration-break:clone}`,
+    `.ty .hl .ch{display:none}`,
+    // A note: its paper (an SVG outline with a torn edge and a soft shadow), its lines placed in px, its words hidden until said.
+    `.ov-note .nb{position:absolute;inset:0;transform-origin:50% 50%}`,
+    `.ov-note .paper{position:absolute;inset:0;overflow:visible;filter:drop-shadow(0 6px 14px rgba(0,0,0,.28))}`,
+    `.ov-note .nt{position:absolute;white-space:nowrap;line-height:${NOTE_LINE_HEIGHT}}`,
+    `.ov-note .nw{opacity:0}`,
+    `.ov-note .tick{position:absolute;inset:0;overflow:visible}`,
+    `.ov-strip .nt{font-family:${fonts.heading};font-weight:800;letter-spacing:.02em}`,
+    `.ov-hand{font-family:"${HAND_FONT.family}",cursive;font-weight:400}`,
+    `.ov-endword{white-space:nowrap;line-height:${OVERLAY_LINE_HEIGHT};text-shadow:0 3px 10px rgba(0,0,0,.45)}`,
     // The brand's style (after the kinds' own rules, so it wins over them; the search bar stays a pill).
     ...(style === undefined
       ? []
@@ -141,6 +170,30 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
           `.ov-search{border-radius:999px}`,
           ...(style.border === "none" ? [] : [`.ov-keyword .ov-card{border-bottom:.12em solid ${colors.accent}}`]),
         ]),
+    // After the brand's style, so a highlight backdrop never draws the card under its marks.
+    `.ov .ov-card.hl{background:transparent;box-shadow:none;border:none}`,
+  ];
+}
+
+/** The hand font's face, when a note card or an end word is drawn: the kit's file, copied to `src` by the render. */
+function getHandFontCss(overlays: readonly ResolvedOverlay[], src: string): string[] {
+  return isHandFontNeeded(overlays) ? [`@font-face{font-family:"${HAND_FONT.family}";src:url("${src}") format("truetype");font-weight:400;font-style:normal}`] : [];
+}
+
+/** A text whose letters drop in: each letter its own box (spaces stay text, so the line breaks and spaces as before). */
+function toDropHtml(text: string): string {
+  return [...text].map((char) => (char.trim() === "" ? " " : `<span class="dl">${escapeHtml(char)}</span>`)).join("");
+}
+
+/**
+ * The tweens of dropped letters under `target`: each falls from `DROP_FROM_EM` above with its turn and lands eased out
+ * (`power2.out`, never past its place), `DROP_LETTER_GAP` after the one before, fading in over its first half.
+ */
+function getDropTweens(target: string, text: string, start: number, fontSize: number): string[] {
+  const turns = getDropLetterTurns([...text].filter((char) => char.trim() !== "").join(""));
+  return [
+    `tl.fromTo("${target} .dl", { y: ${r3(-DROP_FROM_EM * fontSize)}, rotation: (i) => ${JSON.stringify(turns)}[i] }, { y: 0, rotation: 0, duration: ${DROP_LETTER_SECONDS}, ease: "power2.out", stagger: ${DROP_LETTER_GAP}, immediateRender: false }, ${r3(start)});`,
+    `tl.fromTo("${target} .dl", { opacity: 0 }, { opacity: 1, duration: ${r3(DROP_LETTER_SECONDS / 2)}, ease: "none", stagger: ${DROP_LETTER_GAP}, immediateRender: false }, ${r3(start)});`,
   ];
 }
 
@@ -182,7 +235,8 @@ function toTypedHtml(text: string): string {
 function getCardStyle(overlay: ResolvedOverlay, colors: OverlayColors, scale = 1): string {
   if (overlay.kind === "punch_in") return "";
   const own = overlay.colors;
-  const parts = [own.card === undefined ? "" : `background:${colors.background}`, own.text === undefined ? "" : `color:${colors.foreground}`];
+  const isMarked = (overlay.kind === "hook_title" || overlay.kind === "keyword") && overlay.backdrop === "highlight";
+  const parts = [own.card === undefined || isMarked ? "" : `background:${colors.background}`, own.text === undefined ? "" : `color:${colors.foreground}`];
   if (overlay.cornerRadius !== undefined && overlay.cornerRadius !== null) parts.push(`border-radius:${getCornerRadiusCss(overlay.cornerRadius, scale)}`);
   if (overlay.kind === "hook_title" || overlay.kind === "place_card") {
     // The text block sits where the draft draws it: the card's padding is what its fitted box leaves round it.
@@ -273,14 +327,18 @@ function addSideText(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lowe
   const dotStyle = overlay.colors.accent === undefined ? "" : ` style="background:${colors.accent}"`;
   const isTyped = overlay.typing !== null;
   const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;align-items:${overlay.kind === "lower_third" ? "flex-end" : "flex-start"}`;
-  const text = isTyped ? toTypedHtml(overlay.text) : escapeHtml(overlay.text);
+  const isDrop = overlay.kind === "keyword" && overlay.entrance === "drop";
+  const text = isTyped ? toTypedHtml(overlay.text) : isDrop ? toDropHtml(overlay.text) : escapeHtml(overlay.text);
+  const isMarked = overlay.kind === "keyword" && overlay.backdrop === "highlight";
   const wipe = overlay.entrance === "wipe" ? `<i class="ov-wipe" id="${id}w"></i>` : "";
   const underline = overlay.kind === "keyword" && overlay.underline === true ? `<i class="ov-ul" id="${id}u" style="${getUnderlineStyle(overlay)}"></i>` : "";
-  const body = `<div class="ov-card"${cardStyle}>${wipe}${overlay.kind === "lower_third" ? `<i class="ov-dot" id="${id}d"${dotStyle}></i>` : ""}<span id="${id}t">${text}</span>${underline}</div>`;
+  const mark = isMarked ? ` class="ov-mark" style="background:${colors.background}"` : "";
+  const body = `<div class="ov-card${isMarked ? " hl" : ""}"${cardStyle}>${wipe}${overlay.kind === "lower_third" ? `<i class="ov-dot" id="${id}d"${dotStyle}></i>` : ""}<span id="${id}t"${mark}>${text}</span>${underline}</div>`;
   out.html.push(clipDiv(overlay, id, `ov ov-${overlay.kind.replace("_", "-")}${isCentred ? " center" : side === "right" ? " right" : ""}${isTyped ? " ty" : ""}${underline === "" ? "" : " ul"}`, style, body));
   if (overlay.entrance !== null) {
     out.tweens.push(...getMotionTweens(`#${id} .ov-card`, getEntranceMotion(overlay.entrance, overlay.easing ?? "smooth", context.frame), overlay.start));
     out.tweens.push(...getTypingTweens(id, overlay, [...overlay.text].length));
+    if (isDrop) out.tweens.push(...getDropTweens(`#${id}`, overlay.text, overlay.start, overlay.fontSize));
   } else {
     // The soft pill's entrance: the card rises from its foot, then its dot and its text settle in, eased out without
     // overshoot (RV-133 of an adopting app: nothing grows past its size).
@@ -374,8 +432,14 @@ function getCardBody(overlay: CardOverlay, id: string, colors: OverlayColors, lo
   const typedOrPlain = (text: string) => (overlay.typing === null ? escapeHtml(text) : toTypedHtml(text));
   if (overlay.kind === "hook_title") {
     const place = overlay.place === null ? "" : `<div class="ov-place" style="font-size:${overlay.placeFontSize}px">${getPinSvg(colors.accent)}<span>${escapeHtml(overlay.place)}</span></div>`;
-    const lines = overlay.lines.map((line) => `<div class="ov-line">${typedOrPlain(line)}</div>`).join("");
-    return { classes: "ov-hook-title center", body: `<div class="ov-card ov-stack${overlay.align === "left" ? " left" : ""}"__STYLE__>__WIPE__${place}${lines}</div>`, typed: overlay.lines.join("").length };
+    const isMarked = overlay.backdrop === "highlight";
+    const draw = (line: string) => (overlay.entrance === "drop" ? toDropHtml(line) : typedOrPlain(line));
+    const lines = overlay.lines.map((line) => `<div class="ov-line">${isMarked ? `<span class="ov-mark" style="background:${colors.background}">${draw(line)}</span>` : draw(line)}</div>`).join("");
+    return {
+      classes: "ov-hook-title center",
+      body: `<div class="ov-card ov-stack${overlay.align === "left" ? " left" : ""}${isMarked ? " hl" : ""}"__STYLE__>__WIPE__${place}${lines}</div>`,
+      typed: overlay.lines.join("").length,
+    };
   }
   if (overlay.kind === "place_card") {
     const subtitle = overlay.subtitle === null ? "" : `<div class="ov-sub" style="font-size:${overlay.subtitleFontSize}px">${escapeHtml(overlay.subtitle)}</div>`;
@@ -407,6 +471,7 @@ function addCard(overlay: CardOverlay, id: string, context: MarkupContext, out: 
   const entrance = overlay.entrance ?? (overlay.typing !== null ? "type" : DEFAULT_ENTRANCES[overlay.kind]);
   out.tweens.push(...getEntranceTweens(`#${id} .ov-card`, entrance, overlay.start, { ...(overlay.easing === undefined ? {} : { easing: overlay.easing }), frame: context.frame }));
   out.tweens.push(...getTypingTweens(id, overlay, typed));
+  if (overlay.kind === "hook_title" && overlay.entrance === "drop") out.tweens.push(...getDropTweens(`#${id}`, overlay.lines.join(""), overlay.start, overlay.fontSize));
   if (overlay.kind === "place_card") out.tweens.push(...getPlaceCardPartTweens(overlay, id, context));
   if (overlay.kind === "counter") {
     const count = getCounterSeconds(overlay);
@@ -463,6 +528,55 @@ function toScriptString(value: string): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
+/**
+ * A note: its paper (the torn outline of `getNotePaperPoints`) turned by its tilt about its middle; a card's words
+ * handwritten and shown each on its said second, the card there (empty) just before; a strip growing in from
+ * `NOTE_GROW_FROM_SCALE` (eased out, never past its size) and typing its capitals; the tick drawn after the last word.
+ */
+function addNote(overlay: Extract<ResolvedOverlay, { kind: "note" }>, id: string, context: MarkupContext, out: OverlayMarkup): void {
+  const { box, fontSize } = overlay;
+  const colors = getNoteColors(overlay);
+  const isStrip = overlay.noteStyle === "strip";
+  const local = (point: { x: number; y: number }) => `${r3(point.x - box.left)},${r3(point.y - box.top)}`;
+  const paper = `<svg class="paper" viewBox="0 0 ${box.width} ${box.height}"><polygon points="${getNotePaperPoints(overlay).map(local).join(" ")}" fill="${colors.paper}"/></svg>`;
+  const text = getNoteTextBox(overlay);
+  const lineHeight = fontSize * NOTE_LINE_HEIGHT;
+  const place = (index: number) => `left:${r3(text.left - box.left)}px;top:${r3(text.top - box.top + index * lineHeight)}px`;
+  let word = 0;
+  const lines = isStrip
+    ? overlay.lines.map((line, index) => `<div class="nt" style="${place(index)}">${toTypedHtml(line)}</div>`)
+    : getNoteWordsByLine(overlay).map((words, index) => `<div class="nt" style="${place(index)}">${words.map((entry) => `<span class="nw" id="${id}w${word++}">${escapeHtml(entry.text)}</span>`).join(" ")}</div>`);
+  const tick = overlay.tickAt === null ? "" : `<svg class="tick" viewBox="0 0 ${box.width} ${box.height}"><polyline id="${id}k" points="${getNoteTickPoints(overlay).map(local).join(" ")}" fill="none" stroke="${colors.tick}" stroke-width="${r3(fontSize * 0.12)}" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg>`;
+  const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;color:${colors.ink};transform:rotate(${r3(-overlay.tilt)}deg)`;
+  out.html.push(clipDiv(overlay, id, `ov ov-note ${isStrip ? "ov-strip ty" : "ov-hand"}`, style, `<div class="nb">${paper}${lines.join("")}${tick}</div>`));
+  const look = { ...(overlay.easing === undefined ? {} : { easing: overlay.easing }), frame: context.frame };
+  if (isStrip && overlay.entrance === null) {
+    out.tweens.push(`tl.fromTo("#${id} .nb", { scale: ${NOTE_GROW_FROM_SCALE} }, { scale: 1, duration: ${NOTE_GROW_SECONDS}, ease: "power2.out", immediateRender: false }, ${overlay.start});`);
+  } else out.tweens.push(...getEntranceTweens(`#${id} .nb`, overlay.entrance ?? "none", overlay.start, look));
+  if (isStrip) out.tweens.push(...getTypingTweens(id, overlay, overlay.lines.join("").length));
+  else {
+    getNoteWordsByLine(overlay)
+      .flat()
+      .forEach((entry, index) => out.tweens.push(`tl.fromTo("#${id}w${index}", { opacity: 0 }, { opacity: 1, duration: 0.1, ease: "none", immediateRender: false }, ${entry.at});`));
+  }
+  if (overlay.tickAt !== null) {
+    out.tweens.push(`tl.fromTo("#${id}k", { attr: { "stroke-dashoffset": 1 } }, { attr: { "stroke-dashoffset": 0 }, duration: ${NOTE_TICK_SECONDS}, ease: "power2.out", immediateRender: false }, ${overlay.tickAt});`);
+  }
+  out.tweens.push(...getExitTweens(`#${id} .nb`, overlay, context.frame, `tl.to("#${id} .nb", { opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`));
+}
+
+/** An end word: one big handwritten line, no card, its letters dropping in (or its own entrance), fading out at the end. */
+function addEndWord(overlay: Extract<ResolvedOverlay, { kind: "end_word" }>, id: string, context: MarkupContext, out: OverlayMarkup): void {
+  const { box, fontSize } = overlay;
+  const entrance = overlay.entrance ?? "drop";
+  const text = entrance === "drop" ? toDropHtml(overlay.text) : escapeHtml(overlay.text);
+  const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;justify-content:center;align-items:flex-start`;
+  out.html.push(clipDiv(overlay, id, "ov ov-end-word", style, `<div class="ov-endword ov-hand nb" style="color:${overlay.colors.text ?? "#ffffff"}">${text}</div>`));
+  if (entrance === "drop") out.tweens.push(...getDropTweens(`#${id}`, overlay.text, overlay.start, fontSize));
+  else out.tweens.push(...getEntranceTweens(`#${id} .nb`, entrance, overlay.start, { ...(overlay.easing === undefined ? {} : { easing: overlay.easing }), frame: context.frame }));
+  out.tweens.push(...getExitTweens(`#${id} .nb`, overlay, context.frame, `tl.to("#${id} .nb", { opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`));
+}
+
 /** An overlay's clip: shown for its own span. */
 function clipDiv(overlay: ResolvedOverlay, id: string, classes: string, style: string, body: string): string {
   return `<div id="${id}" class="clip ${classes}" data-start="${overlay.start}" data-duration="${r3(overlay.end - overlay.start)}" style="${style}">${body}</div>`;
@@ -508,17 +622,20 @@ function addMark(overlay: Extract<ResolvedOverlay, { kind: "arrow" | "highlight"
  */
 export function getOverlayMarkup(
   overlays: readonly ResolvedOverlay[],
-  input: { colors: OverlayColors; headingFont: string; interfaceFont?: string; locale?: string; frame: { width: number; height: number }; style?: BrandStyle },
+  input: { colors: OverlayColors; headingFont: string; interfaceFont?: string; locale?: string; frame: { width: number; height: number }; style?: BrandStyle; handFontSrc?: string },
 ): OverlayMarkup {
   const drawn = overlays.filter((overlay): overlay is Exclude<ResolvedOverlay, { kind: "punch_in" }> => overlay.kind !== "punch_in");
   if (drawn.length === 0) return { html: [], css: [], tweens: [] };
   const context: MarkupContext = { colors: input.colors, scale: input.frame.width / 1080, locale: input.locale ?? "en-US", frame: input.frame };
-  const out: OverlayMarkup = { html: [], css: getOverlayCss(input.colors, { heading: input.headingFont, interface: input.interfaceFont ?? "inherit" }, input.style, context.scale), tweens: [] };
+  const css = [...getHandFontCss(drawn, input.handFontSrc ?? HAND_FONT.asset), ...getOverlayCss(input.colors, { heading: input.headingFont, interface: input.interfaceFont ?? "inherit" }, input.style, context.scale)];
+  const out: OverlayMarkup = { html: [], css, tweens: [] };
   for (const overlay of drawn) {
     const id = `ov${overlay.index}`;
     if (overlay.kind === "list") addList(overlay, id, context, out);
     else if (overlay.kind === "keyword" || overlay.kind === "lower_third") addSideText(overlay, id, context, out);
     else if (overlay.kind === "arrow" || overlay.kind === "highlight") addMark(overlay, id, context, out);
+    else if (overlay.kind === "note") addNote(overlay, id, context, out);
+    else if (overlay.kind === "end_word") addEndWord(overlay, id, context, out);
     else addCard(overlay, id, context, out);
   }
   return out;

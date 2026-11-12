@@ -86,7 +86,7 @@ describe("the EDL's overlays schema", () => {
     };
     expect(error({ kind: "keyword", at: 1, duration: 1.5 })).toBe("overlays.0.text: a keyword needs its text");
     expect(error({ kind: "keyword", at: 1, at_word: { text: "x" }, duration: 1.5, text: "x" })).toBe("overlays.0: needs exactly one of at_word and at");
-    expect(error({ kind: "keyword", at: 1, duration: 0.5, text: "x" })).toBe("overlays.0.duration: Too small: expected number to be >=1");
+    expect(error({ kind: "keyword", at: 1, duration: 0.5, text: "x" })).toBe("overlays.0.duration: a keyword stays at least 1 s (only an end_word stays shorter)");
     expect(error({ kind: "list", at: 1, duration: 2, items: ["one"] })).toBe("overlays.0.items: a list needs 2 to 4 points");
     expect(error({ kind: "highlight", at: 1, duration: 2, anchor: { x: 1, y: 1 } })).toBe("overlays.0.anchor: a highlight needs the anchor's width and height");
     expect(error({ kind: "punch_in", at: 1, duration: 2, text: "x" })).toBe("overlays.0.text: a punch_in draws no text; leave it out");

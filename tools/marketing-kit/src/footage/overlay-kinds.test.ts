@@ -154,8 +154,8 @@ describe("the new kinds' schema", () => {
     expect(error({ kind: "list", at: 1, duration: 2, items: ["a", "b"], style: { position: "bottom" } })).toBe("overlays.0.style.position: a list sits at top, middle");
     expect(error({ kind: "punch_in", at: 1, duration: 2, style: { entrance: "fade" } })).toBe("overlays.0.style.entrance: a punch_in has no entrance; leave it out");
     expect(error({ kind: "list", at: 1, duration: 2, items: ["a", "b"], style: { entrance: "type" } })).toBe("overlays.0.style.entrance: a list enters by fade, slide, none, pop, rise, blur, wipe");
-    expect(error({ kind: "keyword", at: 1, duration: 2, text: "x", style: { typing_speed: 10 } })).toBe("overlays.0.style.typing_speed: only a typed entrance or a search bar has a typing speed");
-    expect(error({ ...SEARCH, style: { entrance: "fade", typing_speed: 10 } })).toBe("overlays.0.style.typing_speed: only a typed entrance or a search bar has a typing speed");
+    expect(error({ kind: "keyword", at: 1, duration: 2, text: "x", style: { typing_speed: 10 } })).toBe("overlays.0.style.typing_speed: only a typed entrance, a search bar or a note strip has a typing speed");
+    expect(error({ ...SEARCH, style: { entrance: "fade", typing_speed: 10 } })).toBe("overlays.0.style.typing_speed: only a typed entrance, a search bar or a note strip has a typing speed");
     expect(error({ ...SEARCH, style: { typing_speed: 3 } })).toBe("overlays.0.style.typing_speed: Too small: expected number to be >=4");
     expect(error({ kind: "punch_in", at: 1, duration: 2, style: { colors: { accent: "#ffffff" } } })).toBe("overlays.0.style.colors: a punch_in draws nothing to colour; leave colors out");
     expect(error({ kind: "arrow", at: 1, duration: 2, anchor: { x: 500, y: 600 }, style: { colors: { card: "#ffffff" } } })).toBe(
@@ -226,13 +226,13 @@ describe("placing the new kinds", () => {
   it("keeps a hook title on across cuts and beside another overlay, but refuses what sits on it", () => {
     expect(problems([HOOK, { kind: "keyword", at: 1, duration: 2, text: "3x" }, COUNTER, PLACE, DATE])).toEqual([]);
     expect(problems([{ ...HOOK, duration: 25 }, { ...HOOK, at: 21, duration: 2 }])).toEqual([
-      "overlays[1]: starts at 21 s while the hook title overlays[0] is on screen (until 25 s); one hook title at a time",
+      "overlays[1]: starts at 21 s while the hook title overlays[0] is on screen (until 25 s); one title at the top at a time",
     ]);
     expect(problems([HOOK, { kind: "keyword", at: 1, duration: 2, text: "3x", style: { position: "top" } }])).toEqual([
-      "overlays[1]: the keyword would sit on the hook title overlays[0] (on screen until 15 s); move it lower or start it after the title",
+      "overlays[1]: the keyword would sit on the hook title overlays[0] (on screen until 15 s); move it lower or start it after the hook title",
     ]);
     expect(problems([HOOK, { kind: "date_stamp", at: 1, duration: 2, text: "Day 1" }])).toEqual([
-      "overlays[1]: the date stamp would sit on the hook title overlays[0] (on screen until 15 s); move it lower or start it after the title",
+      "overlays[1]: the date stamp would sit on the hook title overlays[0] (on screen until 15 s); move it lower or start it after the hook title",
     ]);
     // A punch-in draws nothing, so it may play under a hook title.
     expect(problems([HOOK, { kind: "punch_in", at: 2, duration: 1 }])).toEqual([]);

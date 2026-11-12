@@ -16,7 +16,8 @@ import { prepareClipSounds, type SpeechPeaks, type SpeechPreGain } from "./clip-
 import { readCachedTranscript, writeCacheFile, writeTranscript } from "./cache.js";
 import { composeFootage, getFootageFilmSeconds, getFootageSfxCues } from "./compose.js";
 import { getCaptionHighlight } from "./caption-highlight.js";
-import { getOverlayTextsByRole, resolveEdlOverlays } from "./overlays.js";
+import { getOverlayTextsByRole, isHandFontNeeded, resolveEdlOverlays } from "./overlays.js";
+import { HAND_FONT } from "./hand-font.js";
 import { findMissingCaptionGlyphs, getCaptionBounds, getFootageCaptionLayout } from "./captions.js";
 import { err, getProviderFootageFailure, ok, type FootageResult } from "./failure.js";
 import { findLowDiskProblems, getFreeBytes, getRenderTempDir, type FreeBytesReader } from "./disk.js";
@@ -849,6 +850,11 @@ async function runRenderFootage(
   if (!prepared.ok) return prepared;
   const musicAsset = musicFile === null ? null : "assets/music.mp3";
   const fonts = copyFonts(options.brand.fonts, join(assetsDir, "fonts"));
+  // A note card and an end word are handwritten in the kit's own font, copied next to the brand's.
+  if (isHandFontNeeded(overlays.overlays)) {
+    mkdirSync(dirname(join(buildDir, HAND_FONT.asset)), { recursive: true });
+    cpSync(HAND_FONT.file, join(buildDir, HAND_FONT.asset));
+  }
   // The logo card's own logo wins over the brand's; it keeps its extension, so a PNG is drawn as a PNG.
   const logoSource = (film.endCard?.layout === "logo" ? film.endCard.logo : undefined) ?? options.brand.logo;
   const logoAsset = logoSource === null ? null : `assets/logo${extname(logoSource).toLowerCase() || ".svg"}`;

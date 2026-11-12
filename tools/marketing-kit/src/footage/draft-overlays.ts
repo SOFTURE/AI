@@ -1,9 +1,15 @@
 import { getCornerRadiusPx, type BrandStyle, type CornerRadius } from "./brand-style.js";
 import { getDraftBoxEvents } from "./draft-boxes.js";
 import { toAssColor } from "./draft-color.js";
+import { HAND_FONT, getHandFontAssSize } from "./hand-font.js";
 import { getCounterSeconds, getOverlayColors, getPlaceCardTimes, getTypingTimes, type OverlayColors } from "./overlay-html.js";
 import {
+  DROP_LETTER_SECONDS,
+  NOTE_GROW_FROM_SCALE,
+  NOTE_GROW_SECONDS,
+  NOTE_TICK_SECONDS,
   OVERLAY_EASES,
+  getDropLetterTimes,
   PIN_DROP_SECONDS,
   PIN_DROP_SHARE,
   UNDERLINE_EM,
@@ -16,6 +22,7 @@ import {
 } from "./overlay-motion.js";
 import type { OverlayEntrance } from "./overlay-schema.js";
 import {
+  NOTE_LINE_HEIGHT,
   OVERLAY_FONT_ROLES,
   OVERLAY_LINE_HEIGHT,
   OVERLAY_LIST_LINE_HEIGHT,
@@ -27,6 +34,12 @@ import {
   getDrawnOverlayCard,
   getListCardsByItem,
   getListItemTimes,
+  getNoteCentre,
+  getNoteColors,
+  getNotePaperPoints,
+  getNoteTextBox,
+  getNoteTickPoints,
+  getNoteWordsByLine,
   getOverlayPadding,
   getPlaceCardPinRow,
   getPlaceCardPinSize,
@@ -374,6 +387,73 @@ function getWipePanelEvent(overlay: Pick<ResolvedOverlay, "start">, drawing: str
   return [`Dialogue: 3,${toAssTime(overlay.start)},${toAssTime(overlay.start + motion.entrance.seconds)},OverlayShape,,0,0,0,,{\\an7\\pos(0,0)${tags}\\1c${toTagColor(accent)}\\p1}${drawing}{\\p0}`];
 }
 
+/** The same motion with no entrance of its own: a part whose letters or words come in by themselves. */
+function getPlainMotion(motion: DraftMotion): DraftMotion {
+  return { ...motion, name: "none", entrance: { kind: "none" } };
+}
+
+/**
+ * A dropped text as one line of ASS: each letter transparent until its second (`times`, from `getDropLetterTimes`),
+ * then fading in over half a fall. libass moves whole events only, so the draft shows the letters arriving on their
+ * times without the fall the render draws.
+ */
+export function getDropText(text: string, times: readonly number[], eventStart: number): string {
+  const fade = toMs(DROP_LETTER_SECONDS / 2);
+  return [...toAssText(text)]
+    .map((char, index) => {
+      if (char.trim() === "") return char;
+      const from = toMs((times[index] ?? eventStart) - eventStart);
+      return `{\\alpha&HFF&\\t(${from},${from + fade},\\alpha&H00&)}${char}`;
+    })
+    .join("");
+}
+
+/** A highlight mark's padding round its text and its corner, in font sizes (as the render's `.ov-mark`). */
+const MARK_PADDING_EM = { x: 0.22, y: 0.04 } as const;
+const MARK_RADIUS_EM = 0.14;
+
+/**
+ * A highlight backdrop's marks under one line of text (`style.backdrop` highlight): a tight rounded box in the card
+ * colour, its width the text shown so far (each typed letter widens it, as the render's box grows), anchored where
+ * the text is (`x` its left, middle or right edge, `top` its top).
+ */
+function getBackdropMarkEvents(input: {
+  text: string;
+  x: number;
+  align: "left" | "center" | "right";
+  top: number;
+  fontSize: number;
+  colour: string;
+  motion: DraftMotion;
+  span: { start: number; end: number };
+  typing: number | null;
+  /** When the line starts typing, if not at the span's start (a second line of a title). */
+  typeFrom?: number;
+}): string[] {
+  const { fontSize, span } = input;
+  const pad = { x: fontSize * MARK_PADDING_EM.x, y: fontSize * MARK_PADDING_EM.y };
+  const height = fontSize * OVERLAY_LINE_HEIGHT + 2 * pad.y;
+  const boxFor = (shown: string): OverlayBox => {
+    const width = estimateTextWidth(shown, fontSize) + 2 * pad.x;
+    const left = input.align === "left" ? input.x - pad.x : input.align === "right" ? input.x + pad.x - width : input.x - width / 2;
+    return { left, top: input.top - pad.y, width, height };
+  };
+  const clean = toAssText(input.text);
+  const steps =
+    input.typing === null
+      ? [{ from: span.start, to: span.end, shown: clean }]
+      : getTypingTimes(input.typeFrom ?? span.start, clean, input.typing).map((at, index, times) => ({ from: Math.min(at, span.end), to: Math.min(times[index + 1] ?? span.end, span.end), shown: [...clean].slice(0, index + 1).join("").trimEnd() }));
+  const visible = steps.filter((step) => step.to > step.from && step.shown.length > 0);
+  return visible.map((step, index) =>
+    getShapeEvent({ start: step.from, end: step.to }, getRoundedRectDrawing(boxFor(step.shown), fontSize * MARK_RADIUS_EM), input.colour, input.motion, 3, {
+      start: step.from,
+      end: step.to,
+      isFirst: index === 0,
+      isLast: index === visible.length - 1,
+    }),
+  );
+}
+
 /** A keyword's underline: an accent bar under its text, drawn from the left once the keyword is in. */
 function getUnderlineEvent(overlay: Extract<ResolvedOverlay, { kind: "keyword" }>, card: OverlayBox, colour: string, motion: DraftMotion): string[] {
   if (overlay.underline !== true) return [];
@@ -414,7 +494,11 @@ function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" |
   const span = { start: overlay.start, end: overlay.end };
   const tags = `\\an${align}\\fs${fontSize}${getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES[overlay.kind])}`;
   const text = (pos: OverlayPoint, steps: TextStep[], own = motion) => getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps, motion: own });
-  const shape = getCardShapeEvents(overlay, card, fontSize, colors, motion, context);
+  const isMarked = overlay.kind === "keyword" && overlay.backdrop === "highlight";
+  const shape = isMarked
+    ? getBackdropMarkEvents({ text: overlay.text, x, align: isCentred ? "center" : isRight ? "right" : "left", top: y, fontSize, colour: colors.background, motion, span, typing: overlay.typing })
+    : getCardShapeEvents(overlay, card, fontSize, colors, motion, context);
+  if (overlay.entrance === "drop") return [...shape, ...text({ x, y }, [{ from: span.start, to: span.end, text: getDropText(overlay.text, getDropLetterTimes(span.start, overlay.text), span.start) }], getPlainMotion(motion))];
   // A keyword or a lower third types in only when its entrance says so.
   const steps = overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(overlay.text) }] : getTypedSteps(overlay.text, span, overlay.typing, isCentred);
   return [...shape, ...text({ x, y }, steps), ...(overlay.kind === "keyword" ? getUnderlineEvent(overlay, card, colors.accent, motion) : [])];
@@ -550,7 +634,8 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
   const name = overlay.entrance === null || overlay.entrance === "type" ? (overlay.typing !== null ? "fade" : DEFAULT_ENTRANCES[overlay.kind]) : overlay.entrance;
   const motion = getDraftMotion(overlay, name, box, context);
   const span = { start: overlay.start, end: overlay.end };
-  const events = getCardShapeEvents(overlay, box, fontSize, colors, motion, context);
+  const isMarked = overlay.kind === "hook_title" && overlay.backdrop === "highlight";
+  const events = isMarked ? [] : getCardShapeEvents(overlay, box, fontSize, colors, motion, context);
   const { x: padX, y: padY } = getOverlayPadding(overlay);
   const centerX = box.left + box.width / 2;
   const tagsFor = (role: OverlayFontRole) => getTextTags(overlay, colors, context, role);
@@ -582,6 +667,25 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
     const lineHeight = overlay.kind === "hook_title" ? OVERLAY_LINE_HEIGHT : OVERLAY_TITLE_LINE_HEIGHT;
     const titleMotion = times.title > span.start ? withFadeEntrance(motion) : motion;
     let typedBefore = 0;
+    if (overlay.kind === "hook_title" && (isMarked || overlay.entrance === "drop")) {
+      const letters = getDropLetterTimes(span.start, overlay.lines.join(""));
+      overlay.lines.forEach((line) => {
+        const lineStart = overlay.typing === null ? span.start : span.start + typedBefore / overlay.typing;
+        if (isMarked) {
+          const align = isLeft ? "left" : "center";
+          events.push(...getBackdropMarkEvents({ text: line, x: lineX, align, top: y, fontSize, colour: colors.background, motion, span, typing: overlay.typing, typeFrom: lineStart }));
+        }
+        const steps =
+          overlay.entrance === "drop"
+            ? [{ from: span.start, to: span.end, text: getDropText(line, letters.slice(typedBefore, typedBefore + [...line].length), span.start) }]
+            : getTypedSteps(line, { start: lineStart, end: span.end }, overlay.typing, !isLeft);
+        const isQuiet = overlay.entrance === "drop" || (!isLeft && overlay.typing !== null);
+        events.push(...text({ x: lineX, y }, lineAlign, fontSize, "heading", isLeft && overlay.entrance !== "drop" ? steps.map((step, index) => (index === 0 ? { ...step, from: span.start } : step)) : steps, isQuiet ? plain : motion));
+        typedBefore += [...line].length;
+        y += fontSize * lineHeight;
+      });
+      return events;
+    }
     overlay.lines.forEach((line) => {
       // The lines type one after the other, as the render's characters do; a left line holds its place transparent
       // from the start, a centred one shows its typed part only (`getTypedSteps`).
@@ -650,6 +754,115 @@ function getMarkEvents(overlay: Extract<ResolvedOverlay, { kind: "arrow" | "high
   return [`Dialogue: 3,${at},OverlayShape,,0,0,0,,{\\an7\\pos(0,0)${fade}\\1a&HFF&\\3c${accent}\\bord${stroke}\\p1}${shape}{\\p0}`];
 }
 
+/** A polygon as an ASS drawing. */
+function getPolygonDrawing(points: readonly OverlayPoint[]): string {
+  const [first, ...rest] = points;
+  if (first === undefined) return "";
+  return `m ${r0(first.x)} ${r0(first.y)} l ${rest.map((point) => `${r0(point.x)} ${r0(point.y)}`).join(" ")}`;
+}
+
+/** A stroke along `points` `width` px wide as an ASS drawing: one quad per segment and a square cap at each joint. */
+function getStrokeDrawing(points: readonly OverlayPoint[], width: number): string {
+  const half = width / 2;
+  const parts: string[] = [];
+  points.slice(1).forEach((to, index) => {
+    const from = points[index] as OverlayPoint;
+    const length = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+    const n = { x: (-(to.y - from.y) / length) * half, y: ((to.x - from.x) / length) * half };
+    const u = { x: ((to.x - from.x) / length) * half, y: ((to.y - from.y) / length) * half };
+    parts.push(getPolygonDrawing([
+      { x: from.x - u.x + n.x, y: from.y - u.y + n.y },
+      { x: to.x + u.x + n.x, y: to.y + u.y + n.y },
+      { x: to.x + u.x - n.x, y: to.y + u.y - n.y },
+      { x: from.x - u.x - n.x, y: from.y - u.y - n.y },
+    ]));
+  });
+  return parts.join(" ");
+}
+
+/**
+ * A note: its paper's torn outline and a soft shadow (layer 3), turned by its tilt about its middle (`\org`, `\frz`);
+ * a card's handwritten words each fading in on its said second, a strip's capitals typed in after it grows; the tick
+ * drawn from the left after the last word (layer 4). A strip's grow is the same `NOTE_GROW_FROM_SCALE` to full size.
+ */
+function getNoteEvents(overlay: Extract<ResolvedOverlay, { kind: "note" }>, context: DraftContext): string[] {
+  const colors = getNoteColors(overlay);
+  const centre = getNoteCentre(overlay);
+  const turn = `\\org(${r0(centre.x)},${r0(centre.y)})\\frz${overlay.tilt}`;
+  const isStrip = overlay.noteStyle === "strip";
+  const frame = { width: 1080 * context.scale, height: 1920 * context.scale };
+  const easing = overlay.easing ?? "smooth";
+  const grow: OverlayEntranceMotion = { kind: "tween", from: { opacity: 1, scale: NOTE_GROW_FROM_SCALE, y: 0, blur: 0 }, seconds: NOTE_GROW_SECONDS, ease: "power2.out" };
+  const name = overlay.entrance ?? (isStrip ? "pop" : "none");
+  const motion: DraftMotion = {
+    name,
+    entrance: isStrip && overlay.entrance === null ? grow : getEntranceMotion(name, easing, frame),
+    exit: getExitMotion({ exit: overlay.exit ?? "auto", entrance: overlay.entrance ?? "fade", easing, frame }),
+    card: overlay.box,
+    scale: context.scale,
+    isSnappy: easing === "snappy",
+    isCardMoved: name === "pop",
+  };
+  const at = { isFirst: true, isLast: true, ms: toMs(overlay.end - overlay.start) };
+  const shapeTags = getMotionTags(motion, { ...at, pos: { x: 0, y: 0 }, part: "card" });
+  const time = `${toAssTime(overlay.start)},${toAssTime(overlay.end)}`;
+  const paper = getPolygonDrawing(getNotePaperPoints(overlay));
+  const shadowOffset = r0(6 * context.scale);
+  const shadow = getPolygonDrawing(getNotePaperPoints({ ...overlay, box: { ...overlay.box, top: overlay.box.top + shadowOffset } }));
+  const events = [
+    `Dialogue: 3,${time},OverlayShape,,0,0,0,,{\\an7${shapeTags.position}${shapeTags.rest}${turn}\\blur${r0(10 * context.scale)}\\1c&H000000&\\1a&HB0&\\p1}${shadow}{\\p0}`,
+    `Dialogue: 3,${time},OverlayShape,,0,0,0,,{\\an7${shapeTags.position}${shapeTags.rest}${turn}\\1c${toTagColor(colors.paper)}\\p1}${paper}{\\p0}`,
+  ];
+  const textBox = getNoteTextBox(overlay);
+  const lineHeight = overlay.fontSize * NOTE_LINE_HEIGHT;
+  const font = isStrip ? `${context.fonts.heading === undefined ? "" : `\\fn${context.fonts.heading}`}\\b1` : `\\fn${HAND_FONT.family}\\b0`;
+  const textMotion = getPlainMotion(motion);
+  // libass sizes the hand font by its ascent and descent: its \\fs is scaled so the letters match the render's.
+  const assSize = isStrip ? overlay.fontSize : getHandFontAssSize(overlay.fontSize);
+  const tags = `\\an7\\fs${assSize}${font}\\1c${toTagColor(colors.ink)}${turn}`;
+  getNoteWordsByLine(overlay).forEach((words, index) => {
+    const pos = { x: textBox.left, y: textBox.top + index * lineHeight };
+    const line = overlay.lines[index] as string;
+    const span = { start: overlay.start, end: overlay.end };
+    if (isStrip) {
+      const before = overlay.lines.slice(0, index).join("").length;
+      const typing = overlay.typing ?? 14;
+      const steps = getTypedSteps(line, { start: overlay.start + before / typing, end: overlay.end }, typing).map((step, stepIndex) => (stepIndex === 0 ? { ...step, from: overlay.start } : step));
+      events.push(...getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps, motion: textMotion }));
+      return;
+    }
+    const fade = 100;
+    const shown = words.map((word) => `{\\alpha&HFF&\\t(${toMs(word.at - span.start)},${toMs(word.at - span.start) + fade},\\alpha&H00&)}${toAssText(word.text)}`).join(" ");
+    events.push(...getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps: [{ from: span.start, to: span.end, text: shown }], motion: textMotion }));
+  });
+  if (overlay.tickAt !== null) {
+    const points = getNoteTickPoints(overlay);
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const room = overlay.fontSize * 0.2;
+    const clip = { x0: r0(Math.min(...xs) - room), y0: r0(Math.min(...ys) - room), x1: r0(Math.max(...xs) + room), y1: r0(Math.max(...ys) + room) };
+    const draw = `${toClip({ ...clip, x1: clip.x0 })}\\t(0,${toMs(NOTE_TICK_SECONDS)},${toClip(clip)})`;
+    const fade = motion.exit.kind === "none" ? "" : `\\fad(0,${FADE_OUT_MS})`;
+    events.push(`Dialogue: 4,${toAssTime(overlay.tickAt)},${toAssTime(overlay.end)},OverlayShape,,0,0,0,,{\\an7\\pos(0,0)${fade}${draw}${turn}\\1c${toTagColor(colors.tick)}\\p1}${getStrokeDrawing(points, overlay.fontSize * 0.12)}{\\p0}`);
+  }
+  return events;
+}
+
+/** An end word: one big handwritten line at the top, no card, white with a soft shadow, its letters dropping in (or its own entrance). */
+function getEndWordEvents(overlay: Extract<ResolvedOverlay, { kind: "end_word" }>, context: DraftContext): string[] {
+  const name = overlay.entrance ?? "drop";
+  const motion = getDraftMotion(overlay, name, overlay.box, context);
+  const colour = overlay.colors.text ?? "#ffffff";
+  const tags = `\\an8\\fs${getHandFontAssSize(overlay.fontSize)}\\fn${HAND_FONT.family}\\b0\\1c${toTagColor(colour)}\\shad${r0(3 * context.scale)}\\4c&H000000&\\4a&H90&`;
+  const pos = { x: overlay.box.left + overlay.box.width / 2, y: overlay.box.top };
+  const span = { start: overlay.start, end: overlay.end };
+  if (name === "drop") {
+    const text = getDropText(overlay.text, getDropLetterTimes(span.start, overlay.text), span.start);
+    return getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps: [{ from: span.start, to: span.end, text }], motion: getPlainMotion(motion) });
+  }
+  return getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps: [{ from: span.start, to: span.end, text: toAssText(overlay.text) }], motion });
+}
+
 /**
  * The overlays as ASS events, layers 3 and 4. `fonts` names the heading and interface families where they are not the
  * styles' own (the captions' font); `locale` groups a counter's number as the render does.
@@ -665,6 +878,8 @@ export function buildDraftOverlayEvents(
     if (overlay.kind === "punch_in") return [];
     if (overlay.kind === "arrow" || overlay.kind === "highlight") return getMarkEvents(overlay, context);
     if (overlay.kind === "keyword" || overlay.kind === "lower_third" || overlay.kind === "list") return getSideTextEvents(overlay, context);
+    if (overlay.kind === "note") return getNoteEvents(overlay, context);
+    if (overlay.kind === "end_word") return getEndWordEvents(overlay, context);
     return getCardEvents(overlay, context);
   });
 }
