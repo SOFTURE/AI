@@ -65,7 +65,7 @@ export const FOOTAGE_DRAFT_WIDTH = 540;
 /** The font the draft's captions are drawn with: DejaVu Sans Bold, subset to Latin with every Polish letter, shipped in `fonts/`. */
 export const FOOTAGE_DRAFT_FONT = {
   family: "DejaVu Sans",
-  file: fileURLToPath(new URL("../../fonts/DejaVuSans-Bold-Latin.ttf", import.meta.url)),
+  file: join(dirname(fileURLToPath(import.meta.url)), "../../fonts/DejaVuSans-Bold-Latin.ttf"),
 } as const;
 
 /** How far a segment marked `kenburns` zooms when the film's `kenBurnsPercent` is 0, as in the render. */
