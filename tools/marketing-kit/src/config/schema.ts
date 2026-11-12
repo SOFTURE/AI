@@ -546,7 +546,7 @@ const footageSchema = z
           .describe(
             "A cut inside one talking clip: cut (the default), fade, zoom (a punch-in), whoosh, or auto (zoom when the frames on both sides look alike, fade when the camera moved; measured when the cut is built).",
           ),
-        clip: z.enum(CUT_TRANSITIONS).default("cut").describe("A cut from one clip to the next: cut (the default), fade, zoom or whoosh."),
+        clip: z.enum(CUT_TRANSITIONS).default("cut").describe("A cut from one clip to the next: cut (the default), fade, zoom, whoosh, whip, card, paper or stutter."),
         autoThreshold: z
           .number()
           .min(0)

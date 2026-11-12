@@ -559,6 +559,21 @@ export {
   type CameraEase,
   type EdlCamera,
 } from "./footage/camera.js";
+export {
+  DRAWN_TRANSITIONS,
+  DRAWN_TRANSITION_FRAMES,
+  FRAME_TIMING,
+  PAPER_FADE_FRAMES,
+  STUTTER_FRAMES,
+  STUTTER_SCALE,
+  WHIP_OUT_FRAMES,
+  buildDrawnTransitionFilters,
+  getCardFrame,
+  getTransitionOverlapFrames,
+  isDrawnTransition,
+  type DrawnTransition,
+  type DrawnTransitionFiltersInput,
+} from "./footage/drawn-transitions.js";
 export { findRetakes, splitFilmSentences, splitSentences, type RetakeKind, type RetakeSuggestion, type Sentence } from "./footage/sentences.js";
 export {
   CAPTION_SAFE_ZONES,

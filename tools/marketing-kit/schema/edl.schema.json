@@ -44,9 +44,13 @@
               "cut",
               "fade",
               "zoom",
-              "whoosh"
+              "whoosh",
+              "whip",
+              "card",
+              "paper",
+              "stutter"
             ],
-            "description": "How the segment starts: cut, fade (a cross-fade from the segment before), zoom (a punch-in) or whoosh."
+            "description": "How the segment starts: cut, fade (a cross-fade from the segment before), zoom (a punch-in), whoosh, whip (a whip pan with motion blur, 14 frames), card (the shot grows from a small card, 13 frames), paper (a torn-paper wipe, 12 frames) or stutter (5 frames wide, then tight)."
           },
           "motion": {
             "type": "string",

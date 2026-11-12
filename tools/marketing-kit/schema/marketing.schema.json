@@ -2777,18 +2777,26 @@
                   "fade",
                   "zoom",
                   "whoosh",
+                  "whip",
+                  "card",
+                  "paper",
+                  "stutter",
                   "auto"
                 ]
               },
               "clip": {
                 "default": "cut",
-                "description": "A cut from one clip to the next: cut (the default), fade, zoom or whoosh.",
+                "description": "A cut from one clip to the next: cut (the default), fade, zoom, whoosh, whip, card, paper or stutter.",
                 "type": "string",
                 "enum": [
                   "cut",
                   "fade",
                   "zoom",
-                  "whoosh"
+                  "whoosh",
+                  "whip",
+                  "card",
+                  "paper",
+                  "stutter"
                 ]
               },
               "autoThreshold": {

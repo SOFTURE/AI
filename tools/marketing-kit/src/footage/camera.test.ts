@@ -285,9 +285,9 @@ describe("the picture with a camera", () => {
   it("holds a camera's tail at the zoom it reached, relative to the incoming camera's start, about its anchor", () => {
     const pieces = planFootagePicture(film, edl);
     // Out of the tight framing (1.45) into the settle starting at 1.2: what is left is 1.45 / 1.2.
-    expect(pieces[2]?.fade).toEqual({ clip: "talk", start: 5, frames: 3, scale: 1.2083, origin: { x: 0.4, y: 0.35 } });
+    expect(pieces[2]?.fade).toEqual({ kind: "fade", clip: "talk", start: 5, frames: 3, scale: 1.2083, origin: { x: 0.4, y: 0.35 } });
     // Out of the settle (ends at 1) into a segment without a camera at 1.
-    expect(pieces[3]?.fade).toEqual({ clip: "street", start: 2, frames: 10, scale: 1, origin: { x: 0.5, y: 0.3 } });
+    expect(pieces[3]?.fade).toEqual({ kind: "fade", clip: "street", start: 2, frames: 10, scale: 1, origin: { x: 0.5, y: 0.3 } });
     const args = buildPicturePieceArgs({ piece: pieces[2] as NonNullable<(typeof pieces)[number]>, clips: { talk: "/t.mp4", street: "/s.mp4" }, frame: LAYOUTS["9:16"].frame, output: "/p.mp4" });
     expect(args[args.indexOf("-filter_complex") + 1]).toContain("[1:v]crop=iw/1.2083:ih/1.2083:(iw-iw/1.2083)*0.4:(ih-ih/1.2083)*0.35,scale=1080:1920,");
   });

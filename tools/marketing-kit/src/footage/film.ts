@@ -23,9 +23,10 @@ export type ClipFit = (typeof CLIP_FITS)[number];
 
 /**
  * How a segment of the cut starts: `cut` (hard), `fade` (a short cross-fade from the previous segment), `zoom` (a
- * punch-in that hides a jump cut inside one talking clip) or `whoosh` (a hard cut with the whoosh sound).
+ * punch-in that hides a jump cut inside one talking clip), `whoosh` (a hard cut with the whoosh sound), the drawn
+ * transitions `whip`, `card` and `paper` (`drawn-transitions.ts`) or `stutter` (five frames wide, then tight).
  */
-export const CUT_TRANSITIONS = ["cut", "fade", "zoom", "whoosh"] as const;
+export const CUT_TRANSITIONS = ["cut", "fade", "zoom", "whoosh", "whip", "card", "paper", "stutter"] as const;
 
 export type CutTransition = (typeof CUT_TRANSITIONS)[number];
 

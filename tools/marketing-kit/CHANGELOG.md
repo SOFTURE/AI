@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.35.0
+
+- **Drawn transitions:** `CUT_TRANSITIONS` gains `whip`, `card`, `paper` and `stutter`. `whip` (14 frames), `card`
+  (13) and `paper` (12) play the outgoing segment on under the incoming one like a `fade` and blend the two through
+  one filter builder in the draft (`planFootageDraft` `drawn`) and the render's picture (`PictureFadeTail.kind`), so
+  both draw the same frames; `stutter` holds the full frame for 5 frames, then its still camera or 150 %
+  (`getSegmentScales`, the draft's zoom, two `tl.set`s in the composition). `validateEdl` refuses a drawn transition
+  on a segment not longer than its frames, and a stutter on a moving camera, a Ken Burns zoom or a segment of 5 frames
+  or fewer. An EDL without them draws exactly as before, except that a fade's picture tail now names its `kind`.
+- **New exports:** `DRAWN_TRANSITIONS`, `DRAWN_TRANSITION_FRAMES`, `WHIP_OUT_FRAMES`, `PAPER_FADE_FRAMES`,
+  `STUTTER_FRAMES`, `STUTTER_SCALE`, `FRAME_TIMING`, `isDrawnTransition`, `getTransitionOverlapFrames`, `getCardFrame`,
+  `buildDrawnTransitionFilters` and the types `DrawnTransition`, `DrawnTransitionFiltersInput`.
+- **Draft tools:** `DRAFT_FILTERS` also asks for `gblur`, `geq`, `rotate`, `blend`, `noise`, `interleave` and `hstack`.
+
 ## 0.34.0
 
 - **A segment's camera:** an EDL segment may carry `camera: { from, to, ease, seconds?, anchor? }`: its framing (1 is

@@ -10,6 +10,7 @@ import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_SECONDS, CAPTION_UN
 import { getCaptionChunkLayouts, getCaptionSpans, getFootageCaptionChunks, getFootageCaptionLayout, isSameCaptionPlace, type CaptionWordsFilm } from "./captions.js";
 import { getCameraMoveFrames, getCameraOrigin, getCameraScaleExpression, type CameraAnchor, type EdlCamera } from "./camera.js";
 import { getSegmentFadeFrames, getSegmentScales, getSegmentZoomEases } from "./compose.js";
+import { buildDrawnTransitionFilters, DRAWN_TRANSITION_FRAMES, FRAME_TIMING, isDrawnTransition, STUTTER_FRAMES, type DrawnTransition } from "./drawn-transitions.js";
 import { toAssColor } from "./draft-color.js";
 import { buildDraftOverlayEvents, getDraftOverlayStyles, getRoundedRectDrawing } from "./draft-overlays.js";
 import { getCaptionCornerRadius, getCornerRadiusPx, getStylePadding, type BrandStyle } from "./brand-style.js";
@@ -472,6 +473,13 @@ export interface DraftSegmentPlan {
   start: number;
   /** The cross-fade from the segment before, in seconds; 0 for a plain cut. */
   fade: number;
+  /**
+   * The drawn transition from the segment before (`whip`, `card`, `paper`) and its frames, over which the outgoing
+   * segment plays on under this one as under a fade; null for any other cut, or a segment too short for it.
+   */
+  drawn: { kind: DrawnTransition; frames: number } | null;
+  /** Whether the segment starts on a `stutter`: `STUTTER_FRAMES` frames at the full frame, then `scale`. */
+  isStutter: boolean;
   /** The zoom the segment starts at (`getSegmentScales`). */
   scale: number;
   /** The zoom it ends at: above `scale` for a `kenburns` segment, `scale` otherwise. */
@@ -502,13 +510,25 @@ export function planFootageDraft(film: Pick<FootageFilm, "edit">, edl: Edl, over
   const eases = getSegmentZoomEases(edl, edit);
   const starts = getSegmentStarts(edl);
   const fades = edl.segments.map((segment, index) => r3(Math.min(getSegmentFadeFrames(edl, index, edit) / FOOTAGE_FPS, segment.end - segment.start)));
+  // A drawn transition only on a segment longer than its frames (the EDL check refuses a shorter one).
+  const drawn = edl.segments.map((segment, index) =>
+    index > 0 && isDrawnTransition(segment.transition) && Math.round((segment.end - segment.start) * FOOTAGE_FPS) > DRAWN_TRANSITION_FRAMES[segment.transition]
+      ? { kind: segment.transition, frames: DRAWN_TRANSITION_FRAMES[segment.transition] }
+      : null,
+  );
+  const overlaps = edl.segments.map((_, index) => {
+    const own = drawn[index];
+    return own === null || own === undefined ? (fades[index] as number) : r3(own.frames / FOOTAGE_FPS);
+  });
   return edl.segments.map((segment, index) => {
     const scale = scales[index] as number;
     return {
       length: r3(segment.end - segment.start),
-      seconds: r3(segment.end - segment.start + (fades[index + 1] ?? 0)),
+      seconds: r3(segment.end - segment.start + (overlaps[index + 1] ?? 0)),
       start: starts[index] as number,
       fade: fades[index] as number,
+      drawn: drawn[index] ?? null,
+      isStutter: segment.transition === "stutter",
       scale,
       endScale: segment.camera !== undefined ? segment.camera.to : segment.motion === "kenburns" ? r4(scale * kenBurnsScale) : scale,
       startScale: (eases[index] as number) > 0 ? (scales[index - 1] as number) : scale,
@@ -542,6 +562,8 @@ function buildPictureFilters(plan: DraftSegmentPlan, draft: Frame): string[] {
     `zoompan=z='${zoom}':x='(iw-iw/zoom)*${origin.x}':y='(ih-ih/zoom)*${origin.y}':d=1:s=${draft.width}x${draft.height}:fps=${FOOTAGE_FPS}`;
   // The zoom runs over the segment's own length, as the render's tween does, and holds through a fade's tail.
   const frames = Math.max(1, Math.round(plan.length * FOOTAGE_FPS));
+  // A stutter: the full frame for its first frames, then its tight framing (it has no move and no punch-in).
+  if (plan.isStutter) return [zoompan(`if(lt(on,${STUTTER_FRAMES}),1,${plan.scale})`)];
   const own =
     plan.easeFrames > 0
       ? `${plan.startScale}+(${r4(plan.scale - plan.startScale)})*(1-pow(1-min(on/${plan.easeFrames},1),2))`
@@ -560,6 +582,28 @@ function buildPictureFilters(plan: DraftSegmentPlan, draft: Frame): string[] {
     return [`crop=iw/${plan.scale}:ih/${plan.scale}:(iw-iw/${plan.scale})*${origin.x}:(ih-ih/${plan.scale})*${origin.y}`, `scale=${size}`];
   }
   return [`scale=${size}`];
+}
+
+/**
+ * A drawn transition in the draft: the cut so far is split where the incoming segment starts, its tail (the outgoing
+ * segment playing on) blended with the incoming head as the render's picture blends them, and the rest of the
+ * incoming segment follows.
+ */
+function buildDrawnJoin(input: { joined: string; incoming: string; output: string; plan: DraftSegmentPlan; drawn: { kind: DrawnTransition; frames: number }; frame: Frame; index: number }): string[] {
+  const { joined, incoming, output, drawn, index } = input;
+  const at = Math.round(input.plan.start * FOOTAGE_FPS);
+  const p = `d${String(index)}`;
+  return [
+    `[${joined}]split[${p}a][${p}b]`,
+    `[${p}a]trim=end_frame=${String(at)},setpts=PTS-STARTPTS,${FRAME_TIMING}[${p}head]`,
+    `[${p}b]trim=start_frame=${String(at)}:end_frame=${String(at + drawn.frames)},setpts=PTS-STARTPTS,${FRAME_TIMING}[${p}tail]`,
+    `[${incoming}]split[${p}c][${p}d]`,
+    `[${p}c]trim=end_frame=${String(drawn.frames)},setpts=PTS-STARTPTS,${FRAME_TIMING}[${p}in]`,
+    `[${p}d]trim=start_frame=${String(drawn.frames)},setpts=PTS-STARTPTS,${FRAME_TIMING}[${p}rest]`,
+    ...buildDrawnTransitionFilters({ kind: drawn.kind, outgoing: `${p}tail`, incoming: `${p}in`, output: `${p}blend`, frame: input.frame, prefix: `${p}t` }),
+    // concat changes the time base; a later xfade needs both of its inputs on the segments' own.
+    `[${p}head][${p}blend][${p}rest]concat=n=3:v=1:a=0,settb=1/${FOOTAGE_FPS},fps=${FOOTAGE_FPS}[${output}]`,
+  ];
 }
 
 /**
@@ -601,6 +645,11 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
   plans.forEach((plan, index) => {
     if (index === 0) return;
     const label = `j${index}`;
+    if (plan.drawn !== null) {
+      parts.push(...buildDrawnJoin({ joined, incoming: `v${index}`, output: label, plan, drawn: plan.drawn, frame: draft, index }));
+      joined = label;
+      return;
+    }
     parts.push(
       plan.fade > 0
         ? `[${joined}][v${index}]xfade=transition=fade:duration=${plan.fade}:offset=${plan.start}[${label}]`

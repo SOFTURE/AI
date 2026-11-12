@@ -750,6 +750,16 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   default; `zoom` punches in by `edit.zoomPercent` (105-112, default 108) and back out on the next, `fade` lasts
   `edit.fadeFrames` (default 10 at 30 fps), `whoosh` is a cut with the `sfx.whoosh` sound. B-roll stays still unless
   `edit.kenBurnsPercent` (up to 5) zooms it; the end card plays its whoosh only with `edit.endCardWhoosh`.
+- **Drawn transitions and the stutter:** `whip` (14 frames: the outgoing shot slides left under a growing horizontal
+  motion blur, the incoming one slides in from the right and lands from 110 %), `card` (13 frames: the incoming shot
+  grows from a small tilted card with rounded corners to the full frame) and `paper` (12 frames: a paper grain settles
+  over the outgoing shot, then a torn edge opens from the middle) play the outgoing segment on under the incoming one,
+  as a `fade` does, and are drawn by one filter builder (`buildDrawnTransitionFilters`) in the draft and in the
+  render's picture, so both show the same frames. The paper's grain and tear are made in code (ffmpeg noise, a sum of
+  sines). No sound is added. `stutter` shows the incoming segment's first 5 frames at the full frame, then its still
+  camera framing (or 150 %). A drawn transition needs a segment longer than its frames, a stutter one longer than 5
+  frames and no moving camera or Ken Burns zoom (`validateEdl`). The paper costs the most (about 8 s of ffmpeg at
+  1080x1920); the per-segment composition without a picture plays a drawn transition as a plain cut.
 - **Smooth cuts on handheld footage:** three options for cuts that do not jump, all off by default.
   - `edit.zoomEaseFrames` (0-15, 3-5 reads naturally) eases a `zoom` cut into its scale over that many frames, from
     the scale on screen before the cut (in and back out), in the render (a `power1.out` tween) and the draft alike.
