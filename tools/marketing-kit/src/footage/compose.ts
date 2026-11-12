@@ -179,6 +179,8 @@ export function composeFootage(input: FootageComposeInput): string {
   const kenBurnsScale = 1 + (edit.kenBurnsPercent > 0 ? edit.kenBurnsPercent : HAND_KEN_BURNS_PERCENT) / 100;
 
   const picture = assets.picture;
+  // A split screen is drawn only into the cut's picture (`planFootagePicture`); one video per segment cannot show it.
+  if (picture === undefined && edl.segments.some((segment) => segment.split !== undefined)) throw new Error("The EDL has a split screen, which needs the cut's picture (assets.picture).");
   const segments =
     picture === undefined
       ? edl.segments.map((segment, index) => {

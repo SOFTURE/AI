@@ -4,6 +4,25 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.36.0
+
+- **Split screen:** an EDL segment's new `split` field (`{ layout: "split3", bands: [3 × { clip, start, label, focus? }] }`)
+  stacks three shots in horizontal bands, each with a handwritten label and a drawn curved arrow, a thin line between
+  the bands. One SVG layer (`getSplitLayerSvg`, the kit's hand font) rasterised by resvg (`renderSplitLayerPng`,
+  `writeSplitLayers`) and one band filter builder (`buildSplitScreenFilters`) serve the draft (`splitLayers`) and the
+  render's picture (`PicturePiece.split`, `splitLayer`), so both show the same picture. `validateEdl` refuses a band's
+  missing or short clip, a split with a camera, Ken Burns, a zoom or stutter cut, a split as the cut's last segment, a
+  fade or drawn transition right after one, a label wider than half the frame and (with caption bounds) captions that
+  would cover a label (`findSplitCaptionProblems`; `getSplitCaption` places them in the middle band).
+  `resolveEdlOverlays` keeps overlays off a split; `composeFootage` without a picture throws on one. An EDL without a
+  split draws exactly as before (a picture piece carries `split` only for a split).
+- **New exports (split screen):** `SPLIT_LAYOUTS`, `SPLIT_BANDS`, `MAX_SPLIT_LABEL_CHARACTERS`, `splitSchema`,
+  `getSplitBandHeights`, `getSplitPlaces`, `getSplitArrowPaths`, `getSplitLayerSvg`, `renderSplitLayerPng`,
+  `writeSplitLayers`, `getSplitLayerInputArgs`, `buildSplitScreenFilters`, `getSplitCaption`, `findSplitLabelProblems`,
+  `findSplitCaptionProblems` and the types `EdlSplit`, `EdlSplitBand`, `SplitLayout`, `SplitBandPlace`, `SplitBox`,
+  `SplitScreenFiltersInput`; `EdlCaptionBounds.frameWidth`.
+- **Draft tools:** `DRAFT_FILTERS` also asks for `vstack`.
+
 ## 0.35.0
 
 - **Drawn transitions:** `CUT_TRANSITIONS` gains `whip`, `card`, `paper` and `stutter`. `whip` (14 frames), `card`
