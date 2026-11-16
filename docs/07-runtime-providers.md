@@ -75,7 +75,7 @@ Probed in workerd (Miniflare, `nodejs_compat`) for RP-5, so a package does not r
 | --- | --- | --- | --- |
 | `@softure-ai/core` (`.`, `./next`) | yes | yes | RP-1 |
 | `@softure-ai/db` (`./request`) | yes | yes | RP-2 |
-| `@softure-ai/auth` | yes | planned | RP-3 |
+| `@softure-ai/auth` (`.`, `./server`, `./proxy`) | yes | yes | RP-3 |
 | `@softure-ai/jobs` | yes | planned | RP-4 |
 | `@softure-ai/security` (`.`, `./server`, `./signed-request`, `./readable-text`) | yes | yes | RP-5 |
 | `@softure-ai/observability` | yes | planned | RP-6 |

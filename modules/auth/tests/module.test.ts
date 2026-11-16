@@ -17,9 +17,10 @@ describe("the auth module", () => {
     expect(auth.manifest.version).toBe(manifest.version);
   });
 
+  // The hash cost stays unset here: getAuthOptions fills it for the runtime (runtime-cost.test.ts).
   it("fills in the defaults", () => {
     expect(auth().options).toEqual({
-      password: { enabled: true, minLength: 10, scrypt: { cost: 2 ** 17, blockSize: 8, parallelization: 1 } },
+      password: { enabled: true, minLength: 10, scrypt: {} },
       session: { ttlDays: 30 },
       cookie: { name: "softure_session" },
       requireConsent: true,

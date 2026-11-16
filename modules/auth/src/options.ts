@@ -1,5 +1,5 @@
 // The options an app passes to `auth({ ... })` in softure.config.ts, parsed at startup.
-import type { FetchFunction, ModuleContext, SoftureConfig } from "@softure-ai/core";
+import type { FetchFunction, ModuleContext, SoftureConfig, SoftureRuntime } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { z } from "zod";
 import type { RegisteredEvent } from "./contract.js";
@@ -12,6 +12,22 @@ import { ROLE_NAME_PATTERN } from "./roles.js";
  * logins can take 512 MiB. A small server lowers `password.scrypt.cost` (README §3).
  */
 export const DEFAULT_SCRYPT_COST = 2 ** 17;
+
+/** scrypt N, r and p: memory per hash is 128 * cost * blockSize bytes. */
+export interface ScryptParams {
+  readonly cost: number;
+  readonly blockSize: number;
+  readonly parallelization: number;
+}
+
+/**
+ * The hash cost each runtime uses when the app sets none. Node: OWASP's first profile (128 MiB). Workers: OWASP's
+ * equivalent 16 MiB profile (N = 2^14, r = 8, p = 5), because a Workers isolate has 128 MB in all.
+ */
+export const SCRYPT_DEFAULTS: Readonly<Record<SoftureRuntime, ScryptParams>> = Object.freeze({
+  node: Object.freeze({ cost: DEFAULT_SCRYPT_COST, blockSize: 8, parallelization: 1 }),
+  workers: Object.freeze({ cost: 2 ** 14, blockSize: 8, parallelization: 5 }),
+});
 
 const MAX_EMAIL_LENGTH = 254;
 const COOKIE_NAME = /^[A-Za-z0-9_-]{1,64}$/;
@@ -48,6 +64,7 @@ function isPowerOfTwo(value: number): boolean {
   return Number.isInteger(Math.log2(value));
 }
 
+/** Each field left out takes the runtime's default (`SCRYPT_DEFAULTS`), resolved by `getAuthOptions`. */
 const scryptSchema = z.strictObject({
   /** N: CPU and memory cost, a power of two. */
   cost: z
@@ -56,11 +73,11 @@ const scryptSchema = z.strictObject({
     .min(2 ** 10)
     .max(2 ** 20)
     .refine(isPowerOfTwo, "must be a power of two")
-    .default(DEFAULT_SCRYPT_COST),
+    .optional(),
   /** r: block size. */
-  blockSize: z.number().int().min(1).max(32).default(8),
+  blockSize: z.number().int().min(1).max(32).optional(),
   /** p: parallelization. */
-  parallelization: z.number().int().min(1).max(16).default(1),
+  parallelization: z.number().int().min(1).max(16).optional(),
 });
 
 const adminEmailSchema = z.string().trim().toLowerCase().max(MAX_EMAIL_LENGTH).pipe(z.email("must be an email address"));
@@ -199,7 +216,10 @@ export const authOptionsSchema = z.strictObject({
       enabled: z.boolean().default(true),
       /** Shortest password a user may set (characters). */
       minLength: z.number().int().min(8).max(128).default(10),
-      /** Hash cost; memory per hash is 128 * cost * blockSize bytes. Raising it rehashes each password at its owner's next login. */
+      /**
+       * Hash cost; memory per hash is 128 * cost * blockSize bytes. A field left out takes the runtime's default
+       * (`SCRYPT_DEFAULTS`). Changing it rehashes each password at its owner's next login.
+       */
       scrypt: scryptSchema.prefault({}),
     })
     .prefault({}),
@@ -312,5 +332,19 @@ export const authOptionsSchema = z.strictObject({
 });
 
 export type AuthOptionsInput = z.input<typeof authOptionsSchema>;
-export type AuthOptions = z.output<typeof authOptionsSchema>;
-export type ScryptParams = z.output<typeof scryptSchema>;
+/** The options as `auth({ ... })` parsed them, before the runtime is known. */
+export type ParsedAuthOptions = z.output<typeof authOptionsSchema>;
+/** The options of the running app (`getAuthOptions`): the hash cost resolved for its runtime. */
+export type AuthOptions = Omit<ParsedAuthOptions, "password"> & {
+  readonly password: Omit<ParsedAuthOptions["password"], "scrypt"> & { readonly scrypt: ScryptParams };
+};
+
+/** `scrypt` with each unset field taken from the runtime's default. */
+export function resolveScryptParams(scrypt: ParsedAuthOptions["password"]["scrypt"], runtime: SoftureRuntime): ScryptParams {
+  const defaults = SCRYPT_DEFAULTS[runtime];
+  return {
+    cost: scrypt.cost ?? defaults.cost,
+    blockSize: scrypt.blockSize ?? defaults.blockSize,
+    parallelization: scrypt.parallelization ?? defaults.parallelization,
+  };
+}

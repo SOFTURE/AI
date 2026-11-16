@@ -1,5 +1,5 @@
 // Shared setup: an app configuration with security and auth, and a migrated PGlite database.
-import { createTestClock, defineSoftureConfig, type AnySoftureModule, type SoftureConfig, type TestClock } from "@softure-ai/core";
+import { createTestClock, defineSoftureConfig, type AnySoftureModule, type SoftureConfig, type SofturePlatformInput, type TestClock } from "@softure-ai/core";
 import { auth, AUTH_RATE_LIMIT_BUCKETS } from "@softure-ai/auth";
 import type { AuthContext } from "@softure-ai/auth/server";
 import { createTestDatabase, type TestDatabase } from "@softure-ai/db/testing";
@@ -23,11 +23,14 @@ export interface ConfigOptions {
   readonly onlyBuckets?: Record<string, { limit: number; windowMinutes: number }>;
   /** Modules listed after auth, e.g. a switch provider. */
   readonly modules?: readonly AnySoftureModule[];
+  /** Where the app runs; Node on a VPS when absent. */
+  readonly platform?: SofturePlatformInput;
 }
 
 export function createConfig(options: ConfigOptions = {}): SoftureConfig {
   return defineSoftureConfig({
     database: { url: "pglite://" },
+    ...(options.platform === undefined ? {} : { platform: options.platform }),
     locale: "en",
     timezone: "Europe/Warsaw",
     appOrigin: options.appOrigin ?? "http://localhost:3000",
