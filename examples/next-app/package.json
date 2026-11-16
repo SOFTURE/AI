@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cloudflare": "SOFTURE_HOST=cloudflare opennextjs-cloudflare build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "migrate": "softure migrate",
@@ -25,7 +26,8 @@
     "expire-invoice-requests": "node scripts/expire-invoice-requests.ts",
     "blog:publish": "node scripts/blog.ts publish",
     "blog:fixtures": "node scripts/blog.ts publish e2e/fixtures/blog-renamed --commit --no-indexnow && node scripts/blog.ts publish --commit --no-indexnow",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:workers": "playwright test -c playwright.workers.config.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "4.0.177",
@@ -57,12 +59,14 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.17",
     "@playwright/test": "^1.63.0",
     "@softure-ai/testing": "file:../../foundation/testing",
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "wrangler": "^4.163.0"
   }
 }

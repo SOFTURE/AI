@@ -20,7 +20,8 @@ export { closeProcessDatabases, createProcessDatabase, type ProcessDatabase, typ
 export { openRawDatabase, queryDatabase, type RawDatabase } from "./raw.js";
 export { findDriverError, isConstraintViolation, type ConstraintViolation, type DriverError } from "./driver-errors.js";
 export { closeConfiguredDatabases, getConfiguredDatabase, openCommandDatabase, type CommandDatabase } from "./configured.js";
-export { getRequestDatabase, isWorkersRuntime, withRequestDatabase, type RequestDatabaseOptions } from "./request.js";
+export { registerCloudflareSockets, type CloudflareConnect } from "./sockets-bridge.js";
+export { getRequestDatabase, isWorkersRuntime, withRequestDatabase, type RequestDatabaseOptions, type RequestDatabaseScope } from "./request.js";
 export { computeChecksum, readMigrationFiles, type MigrationFile } from "./migrations/files.js";
 export {
   describeProblem,

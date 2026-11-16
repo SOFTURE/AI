@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.7.1
 
+- The Cloudflare `worker.ts` template (RP-10) registers `cloudflare:sockets` for `pg` (`registerCloudflareSockets`)
+  and passes the request scope's `waitUntil` to OpenNext's handler, so streamed rendering and `after()` work keep the
+  request database open until they finish. A new `cloudflare-sockets.d.ts` types that import, and the OpenNext
+  import uses `@ts-ignore`: the file is missing before the first build and typed after it, so `@ts-expect-error`
+  failed the app's typecheck once `.open-next/` existed.
 - **Cloudflare Workers as a host (RP-8, docs/07-runtime-providers.md):** `init --host=cloudflare --domain=<host>`
   writes `wrangler.jsonc` (`nodejs_compat`, the custom domain, OpenNext's assets, Smart Placement or
   `--placement-region`, the Hyperdrive binding with `--hyperdrive-id`, the jobs Cron Trigger, `secrets.required` from

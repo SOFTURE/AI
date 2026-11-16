@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
+## 0.1.16
+
+- **`@softure-ai/db/next-config`** (runtime-providers RP-10): `withDatabaseBuild(nextConfig, { host })` writes what
+  the database layer needs into `next.config` per host. `vps` keeps `@softure-ai/db` and `pg` external, as before;
+  `cloudflare` bundles everything, swaps PGlite for a stand-in that refuses with a clear message, gives `pg` its Workers
+  socket and routes `cloudflare:sockets` through `registerCloudflareSockets(connect)`, which the Worker entry calls.
+  Node-only (it runs in `next.config.ts`), so it is not a Workers entry.
+- `withRequestDatabase` keeps the request handle open until a streamed response body ends (or the client cancels it)
+  and until every promise passed to the scope's `waitUntil` has settled, so server rendering that streams after the
+  handler returns, and `after()` work, still reach the database. `run` now receives the scope (`{ waitUntil }`).
+  - Migrate: in `worker.ts`, call `registerCloudflareSockets(connect)` (from `cloudflare:sockets`) and pass the
+    scope's `waitUntil` to OpenNext's handler (`softure-deploy init --host=cloudflare` writes both); in
+    `next.config.ts`, wrap the config in `withDatabaseBuild` and drop hand-written PGlite aliases.
+
 ## 0.1.15
 
 - `withRequestDatabase({ url, waitUntil?, max? }, run)` and the Workers-safe entry `@softure-ai/db/request`

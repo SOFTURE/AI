@@ -1,10 +1,10 @@
 ---
 change_id: example-on-workers
 title: "example app: e2e on Workers next to Node"
-status: open
+status: archived
 roadmap_item: RP-10
 issue: null
-branch: null
+branch: claude/project-thread-dufdk1
 created: 2026-11-16
 updated: 2026-11-16
 ---

@@ -6,8 +6,8 @@
 // server log only. It takes no input and costs one cheap query per check, so
 // instead of a database-backed rate limit (which would make health depend on the database it
 // reports on) concurrent requests share one run.
-import { errorLogLabel, getModule, systemClock, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
-import { getConfiguredDatabase, type Queryable } from "@softure-ai/db";
+import { errorLogLabel, getModule, isWorkersRuntime, systemClock, type SoftureConfig, type SoftureDatabaseConfig } from "@softure-ai/core";
+import { getConfiguredDatabase, getRequestDatabase, type Queryable } from "@softure-ai/db/request";
 import type { HealthReport } from "../contract.js";
 import { MODULE_ID } from "../index.js";
 import type { OpsOptions } from "../options.js";
@@ -30,10 +30,9 @@ export async function createHealthResponse(config: SoftureConfig): Promise<Respo
   }
   const options = module.options as OpsOptions;
 
-  inFlight ??= checkHealth(config, options).finally(() => {
-    inFlight = null;
-  });
-  const report = await inFlight;
+  // On Cloudflare Workers (docs/07-runtime-providers.md) each request runs its own checks: workerd refuses to let
+  // one request await I/O another request started.
+  const report = isWorkersRuntime() ? await checkHealth(config, options) : await checkHealthOnce(config, options);
 
   const body = options.detail === "checks" ? report : { status: report.status };
   return Response.json(body, {
@@ -41,6 +40,13 @@ export async function createHealthResponse(config: SoftureConfig): Promise<Respo
     // A cached "ok" is exactly the false green this route exists to prevent.
     headers: { "cache-control": "no-store" },
   });
+}
+
+function checkHealthOnce(config: SoftureConfig, options: OpsOptions): Promise<HealthReport> {
+  inFlight ??= checkHealth(config, options).finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
 }
 
 async function checkHealth(config: SoftureConfig, options: OpsOptions): Promise<HealthReport> {
@@ -59,13 +65,17 @@ async function checkHealth(config: SoftureConfig, options: OpsOptions): Promise<
 }
 
 /**
- * The app's `getDatabase` first; then the configured handle when the app set `database.handle`, or for a
- * `pglite://` URL (one instance per process: a second on the same directory corrupts it, an in-memory one
+ * The app's `getDatabase` first; then the request's own handle inside `withRequestDatabase` (a Worker), the
+ * configured handle when the app set `database.handle`, or for a `pglite://` URL (one instance per process: a second on the same directory corrupts it, an in-memory one
  * would be a second, empty database); otherwise the handler's own small Postgres pool.
  */
 function openDatabase(database: SoftureDatabaseConfig, options: OpsOptions): Promise<Queryable> {
   if (options.getDatabase !== undefined) {
     return options.getDatabase();
+  }
+  const scoped = getRequestDatabase();
+  if (scoped !== undefined) {
+    return scoped.then((handle) => handle.db);
   }
   if (database.handle !== undefined || database.url.startsWith(PGLITE_PREFIX)) {
     return getConfiguredDatabase(database).then((handle) => handle.db);

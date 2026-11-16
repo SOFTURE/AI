@@ -118,6 +118,70 @@ jobs:
           path: examples/next-app/test-results/
           retention-days: 7
 
+  # The same app and suite on Cloudflare's runtime: `opennextjs-cloudflare build` with `SOFTURE_HOST=cloudflare`, then
+  # Playwright against `wrangler dev` (workerd, no Cloudflare account). The database is the same Postgres service,
+  # reached through the Hyperdrive binding's local connection string (playwright.workers.config.ts).
+  e2e-workers:
+    name: example app e2e on Workers (workerd)
+    needs: changes
+    if: needs.changes.outputs.example-app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: softure_example
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d softure_example"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/softure_example
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            examples/next-app/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Install the example app (packed foundation packages)
+        working-directory: examples/next-app
+        run: npm ci
+      - name: Install Chromium
+        timeout-minutes: 15
+        uses: ./.github/actions/playwright-chromium
+        with:
+          working-directory: examples/next-app
+      - name: Migrate (softure migrate)
+        working-directory: examples/next-app
+        run: npm run migrate
+      - name: Publish the blog's fixture texts (softure-blog publish)
+        working-directory: examples/next-app
+        run: npm run blog:fixtures
+      - name: Build the app for Cloudflare (OpenNext)
+        working-directory: examples/next-app
+        run: npm run build:cloudflare
+      - name: Playwright on wrangler dev
+        working-directory: examples/next-app
+        run: npm run e2e:workers
+      - name: Keep traces of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-workers-test-results
+          path: examples/next-app/test-results/
+          retention-days: 7
+
   container:
     name: example app container (ops recipe)
     needs: changes

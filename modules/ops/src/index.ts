@@ -15,7 +15,7 @@ export const MODULE_ID = "ops";
 export const ops = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.5",
+    version: "0.2.6",
     dependsOn: {},
     dbSchema: null,
     tables: [],
@@ -24,6 +24,7 @@ export const ops = defineModule({
     routes: { health: "/api/health" },
     mount: [{ kind: "route-handler", path: "app/api/health/route.ts" }],
     privacy: { exports: false, deletes: false },
+    runtimes: ["node", "workers"],
   },
   messages: opsMessages,
   options: opsOptionsSchema,

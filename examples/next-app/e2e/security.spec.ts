@@ -46,8 +46,18 @@ test("three pings pass, the fourth gets 429 with Retry-After, and another addres
   expect(other.status()).toBe(200);
 });
 
+// On Cloudflare the edge (and wrangler dev in its place) sets CF-Connecting-IP on every request, so a request the
+// client sends without it still arrives identified (playwright.workers.config.ts sets E2E_HOST).
+const ON_CLOUDFLARE = process.env.E2E_HOST === "cloudflare";
+
 test("a ping without CF-Connecting-IP is refused as unidentified, not counted in a shared bucket", async ({ request }) => {
   const response = await request.post(PING, { data: "hello" });
+  if (ON_CLOUDFLARE) {
+    // Counted under the address the platform names, never as unidentified.
+    expect(response.status()).not.toBe(400);
+    expect(await response.json()).not.toEqual({ error: "security.client_unidentified" });
+    return;
+  }
   expect(response.status()).toBe(400);
   expect(await response.json()).toEqual({ error: "security.client_unidentified" });
 });

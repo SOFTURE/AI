@@ -15,6 +15,7 @@ export const guestbook = defineModule({
     routes: {},
     mount: [],
     privacy: { exports: false, deletes: false },
+    runtimes: ["node", "workers"],
   },
   // The module has no copy of its own: the app's dictionaries in messages/ hold every text.
   messages: { en: {} },

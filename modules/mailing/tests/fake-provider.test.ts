@@ -1,6 +1,8 @@
-// The fake provider: captures in memory and in an outbox file, honours idempotency keys, refuses
+// The fake provider: captures in memory, in an outbox file or at an outbox URL, honours idempotency keys, refuses
 // production without an outbox.
 import { mkdtempSync, rmSync } from "node:fs";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProviderMessage } from "@softure-ai/mailing";
@@ -84,9 +86,70 @@ describe("fakeMailProvider()", () => {
     const provider = fakeMailProvider();
     await expect(provider.send(MESSAGE, { signal })).resolves.toEqual({ status: "unavailable" });
     expect(provider.sent).toEqual([]);
-    expect(log).toHaveBeenCalledWith("mailing: fakeMailProvider() refuses to run in production without an outboxFile; configure a real provider");
+    expect(log).toHaveBeenCalledWith(
+      "mailing: fakeMailProvider() refuses to run in production without an outboxFile or outboxUrl; configure a real provider",
+    );
 
     const withOutbox = fakeMailProvider({ outboxFile: join(dir, "outbox.jsonl") });
     await expect(withOutbox.send(MESSAGE, { signal })).resolves.toMatchObject({ status: "sent" });
+  });
+
+  describe("with an outboxUrl", () => {
+    let server: Server;
+    let received: { contentType: string | undefined; body: unknown }[];
+    let answer: number;
+    let url: string;
+
+    beforeEach(async () => {
+      received = [];
+      answer = 204;
+      server = createServer((request, response) => {
+        let body = "";
+        request.on("data", (chunk: Buffer) => (body += chunk.toString("utf8")));
+        request.on("end", () => {
+          received.push({ contentType: request.headers["content-type"], body: JSON.parse(body) as unknown });
+          response.statusCode = answer;
+          response.end();
+        });
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      url = `http://127.0.0.1:${String((server.address() as AddressInfo).port)}/outbox`;
+    });
+    afterEach(async () => {
+      await new Promise((resolve) => server.close(resolve));
+    });
+
+    it("posts each mail as one JSON line, attachment bytes as base64", async () => {
+      const provider = fakeMailProvider({ outboxUrl: url });
+      const attachment = { filename: "a.txt", contentType: "text/plain", content: new TextEncoder().encode("hi") };
+      const outcome = await provider.send({ ...MESSAGE, attachments: [attachment] }, { signal });
+      expect(outcome).toMatchObject({ status: "sent" });
+      expect(received).toEqual([
+        {
+          contentType: "application/json",
+          body: { ...MESSAGE, headers: {}, attachments: [{ filename: "a.txt", contentType: "text/plain", content: "aGk=" }], id: provider.sent[0]?.id },
+        },
+      ]);
+    });
+
+    it("answers unavailable and captures nothing when the sink refuses the line", async () => {
+      answer = 500;
+      const provider = fakeMailProvider({ outboxUrl: url });
+      await expect(provider.send(MESSAGE, { signal })).resolves.toEqual({ status: "unavailable" });
+      expect(provider.sent).toEqual([]);
+    });
+
+    it("answers unavailable when the sink cannot be reached", async () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const provider = fakeMailProvider({ outboxUrl: "http://127.0.0.1:1/outbox" });
+      await expect(provider.send(MESSAGE, { signal })).resolves.toEqual({ status: "unavailable" });
+      expect(log).toHaveBeenCalledWith("mailing: fakeMailProvider() could not post to its outboxUrl: TypeError");
+    });
+
+    it("runs in production with an outboxUrl", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      const provider = fakeMailProvider({ outboxUrl: url });
+      await expect(provider.send(MESSAGE, { signal })).resolves.toMatchObject({ status: "sent" });
+    });
   });
 });

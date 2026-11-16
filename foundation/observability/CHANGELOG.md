@@ -6,6 +6,9 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 
 ## 0.8.6
 
+- `registerObservability` starts nothing on Cloudflare Workers and keeps the Node SDK behind a literal
+  `process.env.NEXT_RUNTIME` branch, so a bundle that defines it as `"edge"` (OpenNext's middleware bundle) never pulls
+  the SDK in; the Worker entry exports telemetry with `withObservability` (runtime-providers RP-10).
 - **Cloudflare Workers:** a new entry `@softure-ai/observability/workers` with `withObservability(handler, options)`:
   a server span per request and the request's log records, sent over OTLP/HTTP JSON with `fetch` under
   `ctx.waitUntil`, with the same settings and service naming as on Node and nothing sent without an endpoint. The

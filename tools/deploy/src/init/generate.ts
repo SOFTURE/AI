@@ -312,6 +312,12 @@ export const CLOUDFLARE_TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "cloudflare/wrangler.jsonc.tmpl", target: "wrangler.jsonc", mode: FILE_MODE, isIncluded: always },
   { template: "cloudflare/open-next.config.ts.tmpl", target: "open-next.config.ts", mode: FILE_MODE, isIncluded: always },
   { template: "cloudflare/worker.ts.tmpl", target: WORKER_ENTRY, mode: FILE_MODE, isIncluded: withDatabase },
+  {
+    template: "cloudflare/cloudflare-sockets.d.ts.tmpl",
+    target: "cloudflare-sockets.d.ts",
+    mode: FILE_MODE,
+    isIncluded: withDatabase,
+  },
   { template: "scripts/migrate.ts.tmpl", target: "scripts/migrate.ts", mode: FILE_MODE, isIncluded: withDatabase },
   { template: "cloudflare/.github/workflows/deploy.yml.tmpl", target: ".github/workflows/deploy.yml", mode: FILE_MODE, isIncluded: always },
   { template: "cloudflare/.github/workflows/backup.yml.tmpl", target: ".github/workflows/backup.yml", mode: FILE_MODE, isIncluded: withDatabase },

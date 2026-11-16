@@ -34,16 +34,19 @@ export type NextRequestErrorHandler = (
  * runtime.
  */
 export async function registerObservability(options: ObservabilityOptions = {}): Promise<ObservabilityHandle | null> {
-  if (isEdgeRuntime()) {
-    return null;
+  // The Node SDK sits inside a branch on the literal `process.env.NEXT_RUNTIME`: a bundler that defines it as "edge"
+  // (Next's edge build, OpenNext's middleware bundle for Workers) folds the branch away and never bundles the SDK. On
+  // Cloudflare Workers the Worker's own entry exports telemetry (`withObservability` from `./workers`), so this call
+  // is the same in an app on either host.
+  if (process.env.NEXT_RUNTIME !== "edge" && !isEdgeRuntime() && !isWorkersRuntime()) {
+    const { startObservability } = await import("../node/index.js");
+    return startObservability({
+      ...options,
+      instrumentations: { fetch: false, http: false, ...options.instrumentations },
+      traces: { stableHttpAttributes: true, ...options.traces },
+    });
   }
-
-  const { startObservability } = await import("../node/index.js");
-  return startObservability({
-    ...options,
-    instrumentations: { fetch: false, http: false, ...options.instrumentations },
-    traces: { stableHttpAttributes: true, ...options.traces },
-  });
+  return null;
 }
 
 export type OnRequestErrorOptions = {
@@ -126,4 +129,9 @@ function readHashDigest(error: unknown): string | undefined {
  */
 function isEdgeRuntime(): boolean {
   return "EdgeRuntime" in globalThis || globalThis.process?.env.NEXT_RUNTIME === "edge";
+}
+
+/** Cloudflare's workerd names itself in `navigator.userAgent`. */
+function isWorkersRuntime(): boolean {
+  return (globalThis as { navigator?: { userAgent?: unknown } }).navigator?.userAgent === "Cloudflare-Workers";
 }

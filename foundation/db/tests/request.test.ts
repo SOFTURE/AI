@@ -53,6 +53,99 @@ describe("withRequestDatabase", () => {
     expect(closes).toBe(2);
   });
 
+  it("keeps the handle open until a streamed response body has been read, then closes it", async () => {
+    let closes = 0;
+    let push: ((chunk: string) => void) | undefined;
+    let end: (() => void) | undefined;
+    const response = await withRequestDatabase({ url: URL_A }, async () => {
+      const handle = await getConfiguredDatabase({ url: "" });
+      const close = handle.close;
+      Object.assign(handle, { close: () => ((closes += 1), close()) });
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          push = (chunk) => controller.enqueue(new TextEncoder().encode(chunk));
+          end = () => controller.close();
+        },
+      });
+      return new Response(body, { status: 201, statusText: "Created", headers: { "x-page": "streamed" } });
+    });
+    expect([response.status, response.statusText, response.headers.get("x-page")]).toEqual([201, "Created", "streamed"]);
+    push?.("first ");
+    expect(closes).toBe(0);
+    push?.("second");
+    end?.();
+    expect(await response.text()).toBe("first second");
+    await vi.waitFor(() => expect(closes).toBe(1));
+  });
+
+  it("closes the handle when the client cancels a streamed body", async () => {
+    let closes = 0;
+    const response = await withRequestDatabase({ url: URL_A }, async () => {
+      const handle = await getConfiguredDatabase({ url: "" });
+      const close = handle.close;
+      Object.assign(handle, { close: () => ((closes += 1), close()) });
+      return new Response(new ReadableStream<Uint8Array>({ start: () => undefined }));
+    });
+    expect(closes).toBe(0);
+    await response.body?.cancel();
+    await vi.waitFor(() => expect(closes).toBe(1));
+  });
+
+  it("closes at once for a response without a body", async () => {
+    let closes = 0;
+    const response = await withRequestDatabase({ url: URL_A }, async () => {
+      const handle = await getConfiguredDatabase({ url: "" });
+      const close = handle.close;
+      Object.assign(handle, { close: () => ((closes += 1), close()) });
+      return new Response(null, { status: 204 });
+    });
+    expect(response.status).toBe(204);
+    expect(closes).toBe(1);
+  });
+
+  it("keeps the handle open for work handed to the scope's waitUntil, such as Next's after()", async () => {
+    let closes = 0;
+    let finish: (() => void) | undefined;
+    const platform: Promise<unknown>[] = [];
+    await withRequestDatabase({ url: URL_A, waitUntil: (promise) => platform.push(promise) }, async ({ waitUntil }) => {
+      const handle = await getConfiguredDatabase({ url: "" });
+      const close = handle.close;
+      Object.assign(handle, { close: () => ((closes += 1), close()) });
+      waitUntil(new Promise<void>((resolve) => (finish = resolve)));
+      return "answered";
+    });
+    expect(closes).toBe(0);
+    finish?.();
+    await Promise.all(platform);
+    expect(closes).toBe(1);
+  });
+
+  it("waits for after-work that fails, and for work added while it waits, before closing", async () => {
+    let closes = 0;
+    let addMore: (() => void) | undefined;
+    let finishLast: (() => void) | undefined;
+    const platform: Promise<unknown>[] = [];
+    await withRequestDatabase({ url: URL_A, waitUntil: (promise) => platform.push(promise.catch(() => undefined)) }, async ({ waitUntil }) => {
+      const handle = await getConfiguredDatabase({ url: "" });
+      const close = handle.close;
+      Object.assign(handle, { close: () => ((closes += 1), close()) });
+      waitUntil(
+        new Promise<void>((_, reject) => {
+          addMore = () => {
+            waitUntil(new Promise<void>((resolve) => (finishLast = resolve)));
+            reject(new Error("after failed"));
+          };
+        }),
+      );
+      return "answered";
+    });
+    addMore?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(closes).toBe(0);
+    finishLast?.();
+    await vi.waitFor(() => expect(closes).toBe(1));
+  });
+
   it("hands the close to waitUntil", async () => {
     const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
     await withRequestDatabase({ url: URL_A, waitUntil }, async () => {

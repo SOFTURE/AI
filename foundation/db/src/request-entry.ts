@@ -14,4 +14,5 @@ export {
 } from "./client.js";
 export { getConfiguredDatabase } from "./configured.js";
 export { findDriverError, isConstraintViolation, type ConstraintViolation, type DriverError } from "./driver-errors.js";
-export { getRequestDatabase, isWorkersRuntime, withRequestDatabase, type RequestDatabaseOptions } from "./request.js";
+export { getRequestDatabase, isWorkersRuntime, withRequestDatabase, type RequestDatabaseOptions, type RequestDatabaseScope } from "./request.js";
+export { registerCloudflareSockets, type CloudflareConnect } from "./sockets-bridge.js";

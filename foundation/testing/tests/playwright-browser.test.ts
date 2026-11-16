@@ -60,6 +60,31 @@ function renderAuthForm(kind: "register" | "login", consentMarkup?: string): str
   </script></main>`;
 }
 
+// A login form that behaves like a React form action: the button is busy while the request runs, and the form resets
+// a moment after the answer arrives (when the action's render commits), not when it arrives.
+const RESETTING_LOGIN_PAGE = `<main><form id="form">
+  <label for="email">${COPY.fields.email}</label><input id="email" name="email" type="email" required>
+  <label for="password">${COPY.fields.password}</label><input id="password" name="password" type="password" required>
+  <button id="submit">${COPY.login.submit}</button>
+  <p role="alert" id="alert"></p>
+</form>
+<script>
+  const form = document.getElementById("form");
+  const submit = document.getElementById("submit");
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    submit.disabled = true;
+    submit.setAttribute("aria-busy", "true");
+    await fetch("/api/login", { method: "POST", body: new FormData(form) });
+    setTimeout(() => {
+      form.reset();
+      document.getElementById("alert").textContent = "refused";
+      submit.disabled = false;
+      submit.removeAttribute("aria-busy");
+    }, 400);
+  });
+</script></main>`;
+
 const SELECT_PAGE = `<main><form>
   <div>
     <input type="hidden" name="currency" value="PLN">
@@ -133,6 +158,7 @@ beforeAll(async () => {
       if (path === "/register-hidden-consent") return sendHtml(response, 200, renderAuthForm("register", HIDDEN_CONSENT));
       if (path === "/checkboxes") return sendHtml(response, 200, CHECKBOX_PAGE);
       if (path === "/login") return sendHtml(response, 200, renderAuthForm("login"));
+      if (path === "/login-resetting") return sendHtml(response, 200, RESETTING_LOGIN_PAGE);
       if (path === "/account") return sendHtml(response, 200, "<h1>Account</h1>");
       if (path === "/select") return sendHtml(response, 200, SELECT_PAGE);
       if (path === "/links") {
@@ -199,6 +225,20 @@ describe.skipIf(!hasChromium)("Playwright helpers in a browser", () => {
     await page.goto("/login");
     await submitLogin(page, { copy: COPY, email: "ada@example.com", password: "wrong password" });
     expect(new URL(page.url()).pathname).toBe("/login");
+    await page.context().close();
+  });
+
+  it("waits for a form action to settle, so the next submitLogin is not cleared by the late reset", async () => {
+    registered = ["ada@example.com"];
+    const page = await openPage();
+    page.setDefaultTimeout(3000);
+    await page.goto("/login-resetting");
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await submitLogin(page, { copy: COPY, email: "ada@example.com", password: `wrong password ${String(attempt)}` });
+    }
+
+    expect(submissions).toEqual(["/api/login", "/api/login", "/api/login"]);
     await page.context().close();
   });
 

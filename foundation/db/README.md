@@ -247,19 +247,36 @@ On Workers a socket belongs to the request that opened it, so the process-wide p
 entry (no filesystem), and wrap the Worker's fetch handler:
 
 ```ts
-// worker.ts (around the OpenNext handler)
-import { withRequestDatabase } from "@softure-ai/db/request";
+// worker.ts (around the OpenNext handler; `softure-deploy init --host=cloudflare` writes it)
+import { registerCloudflareSockets, withRequestDatabase } from "@softure-ai/db/request";
+import { connect } from "cloudflare:sockets";
+
+registerCloudflareSockets(connect);
 
 export default {
   fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
-    withRequestDatabase({ url: env.HYPERDRIVE.connectionString, waitUntil: (p) => ctx.waitUntil(p) }, () => handler.fetch(request, env, ctx)),
+    withRequestDatabase({ url: env.HYPERDRIVE.connectionString, waitUntil: (p) => ctx.waitUntil(p) }, (scope) =>
+      handler.fetch(request, env, { waitUntil: scope.waitUntil, passThroughOnException: () => ctx.passThroughOnException() })),
 };
 ```
 
 Inside the scope `getConfiguredDatabase` answers the request's handle (a pool of one on the Hyperdrive URL, opened
-on the first query and closed through `waitUntil` after the response), so every module works unchanged. Outside a
-scope on Workers `getConfiguredDatabase` and `getSharedDatabase` refuse with a message naming `withRequestDatabase`;
-on Node nothing changes. PGlite is Node-only. Migrations never run in a Worker: `softure migrate` runs in CI with the
+on the first query), so every module works unchanged. The handle closes only when the response body has streamed to
+the end (or the client cancelled it) and every promise passed to the scope's `waitUntil` (Next's `after()`) has
+settled. Outside a scope on Workers `getConfiguredDatabase` and `getSharedDatabase` refuse with a message naming
+`withRequestDatabase`; on Node nothing changes.
+
+The build side is one call in `next.config.ts`, the same on both hosts:
+
+```ts
+import { withDatabaseBuild } from "@softure-ai/db/next-config";
+
+export default withDatabaseBuild(nextConfig, { host: process.env.SOFTURE_HOST === "cloudflare" ? "cloudflare" : "vps", appDir: import.meta.dirname });
+```
+
+On `vps` it keeps `@softure-ai/db` and `pg` external; on `cloudflare` it bundles them, swaps PGlite for a stand-in
+that refuses, and gives `pg` its Workers socket (through `registerCloudflareSockets`, since the proxy's bundle cannot
+import `cloudflare:sockets` itself). PGlite is Node-only. Migrations never run in a Worker: `softure migrate` runs in CI with the
 direct database URL. `createProcessDatabase` (a module-level `db`) is Node-only.
 
 ## 4. Mounting

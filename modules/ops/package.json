@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/ops",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "SOFTURE AI ops module: a health endpoint with database and module checks, the container migrate step recipe with least-privilege roles, and a helper for safe ops scripts (dry run by default, --commit applies).",
   "license": "MIT",
   "type": "module",
@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@softure-ai/core": "^0.2.0",
-    "@softure-ai/db": "^0.1.0",
+    "@softure-ai/db": "^0.1.15",
     "zod": "^4.6.7"
   },
   "peerDependencies": {
@@ -69,5 +69,12 @@
     "next": {
       "optional": true
     }
+  },
+  "softure": {
+    "workers": [
+      ".",
+      "./server",
+      "./next"
+    ]
   }
 }

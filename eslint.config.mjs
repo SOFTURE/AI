@@ -16,6 +16,9 @@ export default defineConfig([
     // Installed skills (git-ignored, managed by @softure-ai/skills); not our source.
     ".claude/**",
     "examples/*/.next/**",
+    // The Cloudflare build (OpenNext) and wrangler dev state.
+    "examples/*/.open-next/**",
+    "examples/*/.wrangler/**",
     "examples/*/next-env.d.ts",
     "examples/*/test-results/**",
     "examples/*/playwright-report/**",
