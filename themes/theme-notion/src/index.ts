@@ -105,13 +105,11 @@ export { Steps, type StepItem, type StepState, type StepsLayout, type StepsProps
 export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
 export { Timeline, type TimelineItem, type TimelineItemFold, type TimelineItemSize, type TimelineLine, type TimelineProps } from "./notion/Timeline.js";
 export { TopLoadingBar, type TopLoadingBarProps } from "./notion/TopLoadingBar.js";
+export { DOCUMENT_ZOOM_STEPS, getDocumentKind, type DocumentKind } from "./notion/document-kind.js";
 export {
-  DOCUMENT_ZOOM_STEPS,
   DocumentList,
   DocumentRow,
   DocumentViewer,
-  getDocumentKind,
-  type DocumentKind,
   type DocumentListProps,
   type DocumentMessages,
   type DocumentMessagesOverride,

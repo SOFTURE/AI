@@ -6,7 +6,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { notionMessages } from "../../src/messages/index.js";
-import { DOCUMENT_ZOOM_STEPS, DocumentList, DocumentRow, DocumentViewer, getDocumentKind, type DocumentViewerProps } from "../../src/notion/Document.js";
+import { DocumentList, DocumentRow, DocumentViewer, type DocumentViewerProps } from "../../src/notion/Document.js";
+import { DOCUMENT_ZOOM_STEPS, getDocumentKind } from "../../src/notion/document-kind.js";
 import type { PdfEngine } from "../../src/notion/pdf-engine.js";
 import { installDomShims } from "../gallery/dom.js";
 

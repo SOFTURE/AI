@@ -8,6 +8,7 @@ import { cn } from "../lib/utils.js";
 import { Button } from "../ui/button.js";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "../ui/dialog.js";
 
+import { DOCUMENT_ZOOM_STEPS, getDocumentKind, type DocumentKind } from "./document-kind.js";
 import { formatFileSize } from "./format-file-size.js";
 import { ICON_STROKE_WIDTH } from "./icon-stroke.js";
 import { loadPdfjsEngine, type PdfDocumentHandle, type PdfEngine } from "./pdf-engine.js";
@@ -15,17 +16,6 @@ import { Status } from "./Status.js";
 
 /** What the viewer shows: the bytes at hand (a kept copy, offline) or a URL it fetches. */
 export type DocumentSource = { readonly blob: Blob } | { readonly url: string };
-
-/** How a document is shown: a PDF's pages, an image, or neither. */
-export type DocumentKind = "pdf" | "image" | "other";
-
-/** The kind of a document by its media type (`application/pdf`, `image/png`; parameters ignored). */
-export function getDocumentKind(contentType: string): DocumentKind {
-  const essence = (contentType.split(";")[0] ?? "").trim().toLowerCase();
-  if (essence === "application/pdf") return "pdf";
-  if (essence.startsWith("image/")) return "image";
-  return "other";
-}
 
 /** The texts of the document parts; `{count}`, `{number}` and `{percent}` are filled in. Built-in English: `notionMessages.en.document`. */
 export interface DocumentMessages {
@@ -55,8 +45,6 @@ function fill(template: string, values: Readonly<Record<string, string | number>
   return template.replaceAll(/\{(\w+)\}/g, (match, key: string) => (key in values ? String(values[key]) : match));
 }
 
-/** The zoom steps, as a share of the fitted width. */
-export const DOCUMENT_ZOOM_STEPS: readonly number[] = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
 const FIT_INDEX = 2;
 /** The width a PDF page fits when the viewer cannot measure its area (a page rendered on the server, a test). */
 const FALLBACK_WIDTH = 800;
