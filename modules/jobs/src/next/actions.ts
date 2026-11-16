@@ -14,6 +14,7 @@ import { pauseQueue, resumeQueue } from "../server/queue-state.js";
 import { runScheduleNow } from "../server/schedules.js";
 import { retrySyncItem } from "../server/sync-items.js";
 import { getJobsContext } from "./context.js";
+import { PANEL_PAUSE_REASON } from "./panel-pause.js";
 
 /** Longer than any id, queue or source the module accepts, so a cut value can never match a real one. */
 const MAX_FIELD_LENGTH = 501;
@@ -72,9 +73,6 @@ export async function cancelJobAction(_previous: JobsFormState, formData: FormDa
     return result.ok ? { status: "ok" } : { status: "error", error: result.error };
   });
 }
-
-/** The reason an operator's pause from the admin page carries. */
-export const PANEL_PAUSE_REASON = "jobs.operator_pause";
 
 /** Pauses a queue until an operator resumes it. */
 export async function pauseQueueAction(_previous: JobsFormState, formData: FormData): Promise<JobsFormState> {
