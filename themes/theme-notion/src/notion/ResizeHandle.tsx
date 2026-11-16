@@ -4,15 +4,11 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import { cn } from "../lib/utils.js";
 
+import { clampSize } from "./clamp-size.js";
+
 /** The keyboard step of an arrow key, in pixels; Shift takes four of them. */
 export const RESIZE_HANDLE_STEP = 16;
 const LARGE_STEP_FACTOR = 4;
-
-/** `value` kept within `min` and `max`; a value that is not a finite number falls back to `fallback`. */
-export function clampSize(value: number, min: number, max: number, fallback: number = min): number {
-  if (!Number.isFinite(value)) return Math.min(Math.max(fallback, min), max);
-  return Math.min(Math.max(Math.round(value), min), max);
-}
 
 export interface ResizeHandleProps {
   /** The handle's accessible name, from the app's message layer (e.g. "Resize the plan column"). */

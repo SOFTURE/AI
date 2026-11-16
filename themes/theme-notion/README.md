@@ -252,7 +252,7 @@ and End go to `min` and `max`, a double click restores `defaultValue`. It is a f
 with `aria-controls` and the width with `aria-valuenow`; it takes no width of its own (it lies over the border between
 the columns) and shows `ring` while hovered, focused or dragged; hidden phone-wide. `onChange` gets every width,
 `onCommit` the width once a drag, key or reset ends (the moment to keep it, e.g. in a cookie). `clampSize(value, min,
-max, fallback)` reads a kept width back within the limits.
+max, fallback)` (a plain module, callable in a Server Component) reads a kept width back within the limits.
 
 ```tsx
 <div className="relative flex h-full">
