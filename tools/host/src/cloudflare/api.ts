@@ -3,6 +3,9 @@ import { fail } from "../cli/failure.js";
 
 export const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
 
+/** How long one Cloudflare call may take before the command fails, in ms. */
+export const CLOUDFLARE_TIMEOUT_MS = 30_000;
+
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH";
 
 /** Cloudflare's v4 API, reduced to what onboarding needs. Tests pass a fake. */
@@ -18,7 +21,7 @@ const envelopeSchema = z.object({
 });
 
 /** The API over `fetch` with a bearer token; the token is never printed. */
-export function createCloudflareApi(token: string, fetchFn: typeof fetch = fetch): CloudflareApi {
+export function createCloudflareApi(token: string, fetchFn: typeof fetch = fetch, timeoutMs = CLOUDFLARE_TIMEOUT_MS): CloudflareApi {
   return {
     async request(method, path, body) {
       let response: Response;
@@ -26,6 +29,7 @@ export function createCloudflareApi(token: string, fetchFn: typeof fetch = fetch
         response = await fetchFn(`${CLOUDFLARE_API}${path}`, {
           method,
           headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+          signal: AbortSignal.timeout(timeoutMs),
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         });
       } catch (error) {

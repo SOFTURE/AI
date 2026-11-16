@@ -14,6 +14,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `SOFTURE_HOSTS` and their types. The root and `./next` entries are declared Workers-safe (`softure.workers`).
   - Migrate: nothing. An app on a VPS keeps its config; a config built by hand in a test (cast to `SoftureConfig`)
     can add `platform: { runtime: "node", host: "vps" }` when its code reads it.
+- `createOgFontLoader` gives a URL font 10 s to arrive (#1286), new option `timeoutMs`; a slower server fails the
+  read like a refused request and the font is asked for again on the next card, where a hung request used to block
+  every card that named the font until the process restarted. `loadOgFonts` uses the same default.
+  - Migrate: nothing.
 
 ## 0.2.7
 

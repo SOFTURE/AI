@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an operator who uses `@softure
 version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Each Cloudflare API call gets 30 s (#1286), `CLOUDFLARE_TIMEOUT_MS`, the third argument of `createCloudflareApi`;
+  a call that never returns fails the command instead of hanging it.
+  - Migrate: nothing.
+
 ## 0.1.2
 
 - **Dependencies:** `zod` ^4.6.7 (was ^4.6.5), so a fresh install takes the fixed zod release.

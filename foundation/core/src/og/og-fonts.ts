@@ -35,11 +35,14 @@ export interface OgFontLoaderOptions {
   readonly root: string;
   readonly readFile?: (path: string) => Promise<Uint8Array>;
   readonly fetchImpl?: typeof fetch;
+  /** How long a URL font may take to arrive, in ms; a slower one fails like a refused request. Default: 10 000. */
+  readonly timeoutMs?: number;
   /** What a message names the list by, before `[index]`. Default: `OG card: fonts`. */
   readonly label?: string;
 }
 
 const DEFAULT_LABEL = "OG card: fonts";
+const DEFAULT_FONT_TIMEOUT_MS = 10_000;
 
 /** The first four bytes of each font format Satori parses. */
 const FONT_SIGNATURES = ["wOFF", "OTTO", "\u0000\u0001\u0000\u0000", "true"];
@@ -68,6 +71,7 @@ export function createOgFontLoader(options: OgFontLoaderOptions): (fonts: readon
   const read = options.readFile ?? readFile;
   const fetchImpl = options.fetchImpl ?? fetch;
   const label = options.label ?? DEFAULT_LABEL;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_FONT_TIMEOUT_MS;
   const cache = new Map<string, Promise<BytesResult>>();
 
   async function readSource(location: string, isUrl: boolean): Promise<BytesResult> {
@@ -80,7 +84,9 @@ export function createOgFontLoader(options: OgFontLoaderOptions): (fonts: readon
     }
     let response: Response;
     try {
-      response = await fetchImpl(location);
+      // One signal for the headers and the body: a server that stalls either way fails the read, and the failed
+      // read leaves the cache, so a hung font never blocks the cards that come after it.
+      response = await fetchImpl(location, { signal: AbortSignal.timeout(timeoutMs) });
     } catch (error) {
       return { ok: false, reason: `the request failed (${getErrorCode(error)})` };
     }

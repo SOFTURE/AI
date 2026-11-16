@@ -124,3 +124,21 @@ describe("OG_FONT_WEIGHTS", () => {
     expect(OG_FONT_WEIGHTS).toEqual([100, 200, 300, 400, 500, 600, 700, 800, 900]);
   });
 });
+
+describe("a URL font that never arrives", () => {
+  it("fails after timeoutMs and is not kept, so the next call asks again", async () => {
+    let calls = 0;
+    const fetchImpl: typeof fetch = (_input, init) => {
+      calls += 1;
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason as Error));
+      });
+    };
+    const load = createOgFontLoader({ root: ROOT, fetchImpl, timeoutMs: 20 });
+    const first = await load([source("https://fonts.example.com/inter.ttf")]);
+    expect(first.ok).toBe(false);
+    if (!first.ok) expect(first.error).toContain("the request failed");
+    await load([source("https://fonts.example.com/inter.ttf")]);
+    expect(calls).toBe(2);
+  });
+});

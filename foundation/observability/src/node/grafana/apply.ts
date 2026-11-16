@@ -14,6 +14,8 @@ export type ApplyGrafanaOptions = {
   paused?: boolean;
   /** Default: the global `fetch`. */
   fetch?: typeof fetch;
+  /** How long one Grafana call may take, in ms; a slower one fails the apply. Default: 30 000. */
+  timeoutMs?: number;
 };
 
 export type GrafanaApplyResult =
@@ -35,6 +37,8 @@ type GrafanaResponse = { status: number; body: unknown; text: string };
 type GrafanaRuleGroupBody = { rules?: { uid?: unknown }[] };
 
 export const DASHBOARD_MESSAGE = "Applied by softure-observability";
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 /**
  * Applies a rules file (and a dashboard) to Grafana: creates the folder when it is missing, refuses when the
@@ -163,6 +167,7 @@ function describeNotificationOverrides(rules: GrafanaRulesFile): string[] {
 function createClient(options: ApplyGrafanaOptions): GrafanaClient {
   const baseUrl = trimTrailingSlashes(options.url);
   const fetchImpl = options.fetch ?? fetch;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   return {
     async request(method, path, body) {
       const headers: Record<string, string> = {
@@ -176,7 +181,7 @@ function createClient(options: ApplyGrafanaOptions): GrafanaClient {
         // Keeps the provisioned rules editable in the Grafana UI.
         headers["X-Disable-Provenance"] = "true";
       }
-      const init: RequestInit = { method, headers };
+      const init: RequestInit = { method, headers, signal: AbortSignal.timeout(timeoutMs) };
       if (body !== undefined) {
         init.body = JSON.stringify(body);
       }
