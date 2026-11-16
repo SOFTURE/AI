@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.3.4
 
 - **Dependencies:** `lucide-react` ^1.70.0 (was ^1.66.0). No visual change.
 
