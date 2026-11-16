@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `AsidePanelProvider keepsSidebarOpen`: the left `Sidebar` and the right `AsidePanel` stay open together on a wide
+  screen, each with its own state: opening the panel (or a panel kept open on load) never folds the sidebar, and
+  opening the sidebar (its trigger, Ctrl+B, `AsidePanelSidebarOpener`) never closes the panel; `useAsidePanel()
+  .isSidebarFolded` follows the sidebar alone. New optional prop only; without it, one side panel at a time as before
+  (#1254).
+
 ## 0.16.2
 
 - `SelectTrigger` shrinks to its cell: `min-w-0 max-w-full` on the trigger and `min-w-0` on its value, so a long

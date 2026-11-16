@@ -59,6 +59,7 @@ function renderShell({
   isHidden,
   toggleIcon,
   description,
+  keepsSidebarOpen,
 }: {
   initialState?: AsidePanelState;
   save?: (state: AsidePanelState) => void | Promise<void>;
@@ -66,8 +67,9 @@ function renderShell({
   isHidden?: boolean;
   toggleIcon?: LucideIcon;
   description?: string;
+  keepsSidebarOpen?: boolean;
 } = {}) {
-  return render(shell({ initialState, save, onSaveError, isHidden, toggleIcon, description }));
+  return render(shell({ initialState, save, onSaveError, isHidden, toggleIcon, description, keepsSidebarOpen }));
 }
 
 function shell({
@@ -77,6 +79,7 @@ function shell({
   isHidden,
   toggleIcon,
   description,
+  keepsSidebarOpen,
 }: {
   initialState?: AsidePanelState;
   save?: (state: AsidePanelState) => void | Promise<void>;
@@ -84,9 +87,16 @@ function shell({
   isHidden?: boolean;
   toggleIcon?: LucideIcon;
   description?: string;
+  keepsSidebarOpen?: boolean;
 }) {
   return (
-    <AsidePanelProvider initialState={initialState} save={save} onSaveError={onSaveError} isHidden={isHidden}>
+    <AsidePanelProvider
+      initialState={initialState}
+      save={save}
+      onSaveError={onSaveError}
+      isHidden={isHidden}
+      keepsSidebarOpen={keepsSidebarOpen}
+    >
       <Sidebar collapsible="offcanvas">
         <SidebarContent>Menu</SidebarContent>
       </Sidebar>
@@ -300,6 +310,102 @@ describe("the sidebar handover", () => {
 
     expect(sidebarState()).toBe("collapsed");
     expect(toggle().getAttribute("aria-expanded")).toBe("false");
+  });
+});
+
+describe("the sidebar kept open beside the panel (#1254)", () => {
+  const OPENER = "Show the menu and hide the panel";
+
+  it("keeps the sidebar expanded when the panel opens and when it closes", () => {
+    renderShell({ keepsSidebarOpen: true });
+    fireEvent.click(toggle());
+
+    expect(sidebarState()).toBe("expanded");
+    expect(screen.getByRole("complementary", { name: "Map" })).toBeTruthy();
+    expect(screen.getByText("Menu")).toBeTruthy();
+
+    fireEvent.click(toggle());
+    expect(sidebarState()).toBe("expanded");
+    expect(screen.queryByRole("complementary")).toBeNull();
+  });
+
+  it("starts with the sidebar expanded when the panel is kept open", () => {
+    renderShell({ initialState: OPEN, keepsSidebarOpen: true });
+
+    expect(sidebarState()).toBe("expanded");
+    expect(screen.getByRole("complementary", { name: "Map" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: OPENER })).toBeNull();
+  });
+
+  it("folds and unfolds the sidebar through its trigger without closing the panel or saving", async () => {
+    const save = vi.fn();
+    renderShell({ initialState: OPEN, save, keepsSidebarOpen: true });
+    const trigger = screen.getByRole("button", { name: "Toggle Sidebar" });
+
+    fireEvent.click(trigger);
+    expect(sidebarState()).toBe("collapsed");
+    expect(screen.getByRole("complementary", { name: "Map" })).toBeTruthy();
+
+    fireEvent.click(trigger);
+    expect(sidebarState()).toBe("expanded");
+    expect(screen.getByRole("complementary", { name: "Map" })).toBeTruthy();
+    await act(async () => Promise.resolve());
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("leaves a folded sidebar folded when the panel closes", () => {
+    renderShell({ initialState: OPEN, keepsSidebarOpen: true });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
+    fireEvent.click(toggle());
+
+    expect(sidebarState()).toBe("collapsed");
+    expect(screen.queryByRole("complementary")).toBeNull();
+  });
+
+  it("shows the opener only after the user folds the sidebar; it brings the sidebar back and keeps the panel", async () => {
+    const save = vi.fn();
+    renderShell({ initialState: OPEN, save, keepsSidebarOpen: true });
+    expect(screen.queryByRole("button", { name: OPENER })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
+    fireEvent.click(screen.getByRole("button", { name: OPENER }));
+
+    expect(sidebarState()).toBe("expanded");
+    expect(screen.getByRole("complementary", { name: "Map" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: OPENER })).toBeNull();
+    await act(async () => Promise.resolve());
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("reports the sidebar's own state through useAsidePanel", () => {
+    let folded: boolean | null = null;
+    function Probe() {
+      folded = useAsidePanel().isSidebarFolded;
+      return null;
+    }
+    render(
+      <AsidePanelProvider initialState={OPEN} keepsSidebarOpen>
+        <Sidebar collapsible="offcanvas">
+          <SidebarContent>Menu</SidebarContent>
+        </Sidebar>
+        <SidebarInset>
+          <SidebarTrigger />
+          <Probe />
+        </SidebarInset>
+      </AsidePanelProvider>,
+    );
+    expect(folded).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
+    expect(folded).toBe(true);
+  });
+
+  it("keeps the phone's sheet behaviour: the kept state never opens the panel there", () => {
+    setViewport(390);
+    renderShell({ initialState: OPEN, keepsSidebarOpen: true });
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByTestId("body")).toBeNull();
   });
 });
 

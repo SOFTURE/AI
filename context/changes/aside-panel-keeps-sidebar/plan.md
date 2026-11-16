@@ -19,8 +19,8 @@ Done when: `npm run typecheck`, `npm run lint`, the theme's tests and the reposi
 
 ## Progress
 
-- [ ] 1 Code and tests
-- [ ] 2 Docs and release prep
+- [x] 1 Code and tests (6 new tests fail without the change; theme suite 1188 passed)
+- [x] 2 Docs and release prep (README, CHANGELOG, theme-notion 0.17.0)
 
 ## Decisions (auto)
 

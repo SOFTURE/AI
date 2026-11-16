@@ -1,7 +1,7 @@
 ---
 change_id: aside-panel-keeps-sidebar
 title: "theme-notion: AsidePanelProvider can keep the sidebar open beside the panel"
-status: new
+status: archived
 roadmap_item: null
 issue: 1254
 branch: claude/aside-panel-keeps-sidebar
