@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { parseInitAnswers, toAppName, type InitAnswers } from "../init/answers.js";
+import { getHost, parseInitAnswers, toAppName, type InitAnswers } from "../init/answers.js";
 import { COMPOSE_FILE, readAppFacts, type AppFacts } from "../init/app-facts.js";
 import {
   DEFAULT_APP_ROLE,
@@ -36,10 +36,13 @@ const CALLER_WORKFLOWS = [
   ".github/workflows/checks.yml",
 ];
 
-function listNextConfigWarnings(facts: AppFacts): string[] {
-  if (facts.nextConfigFile === null) return ["no next.config found; the Dockerfile expects a Next standalone build"];
+function listNextConfigWarnings(facts: AppFacts, answers: InitAnswers): string[] {
+  const isCloudflare = getHost(answers) === "cloudflare";
+  if (facts.nextConfigFile === null) {
+    return [isCloudflare ? "no next.config found; the OpenNext build expects a Next app" : "no next.config found; the Dockerfile expects a Next standalone build"];
+  }
   const warnings: string[] = [];
-  if (!facts.isStandalone) {
+  if (!isCloudflare && !facts.isStandalone) {
     warnings.push(`${facts.nextConfigFile} does not mention "standalone"; the Dockerfile needs output: "standalone"`);
   }
   if (facts.hasDatabase && facts.isDbServerExternal === false) {
@@ -51,8 +54,11 @@ function listNextConfigWarnings(facts: AppFacts): string[] {
 }
 
 /** `@softure-ai/jobs` without `@softure-ai/db`: the worker container is part of the database part. */
-function listWorkerWarnings(facts: AppFacts): string[] {
+function listWorkerWarnings(facts: AppFacts, answers: InitAnswers): string[] {
   if (facts.hasJobs !== true || facts.hasDatabase) return [];
+  if (getHost(answers) === "cloudflare") {
+    return ["@softure-ai/jobs is a dependency but @softure-ai/db is not; the jobs tick needs the database part, so no Cron Trigger was written"];
+  }
   return ["@softure-ai/jobs is a dependency but @softure-ai/db is not; the worker container needs the database part, so none was written"];
 }
 
@@ -142,6 +148,24 @@ function listWorkerFlagProblems(facts: AppFacts, answers: InitAnswers): string[]
   return problems;
 }
 
+/** What init cannot do itself for `--host=cloudflare`: the Cloudflare side, the environment's secrets and the app's config. */
+function listCloudflareSteps(facts: AppFacts, answers: InitAnswers): string[] {
+  if (getHost(answers) !== "cloudflare") return [];
+  const steps = [
+    "add @opennextjs/cloudflare and wrangler to devDependencies, and platform: { host: \"cloudflare\" } to softure.config",
+    "set the CLOUDFLARE_API_TOKEN secret (the production environment; Workers Scripts edit, and Workers Routes edit on the zone) and the CLOUDFLARE_ACCOUNT_ID variable",
+  ];
+  if (facts.hasDatabase && answers.hyperdriveId === undefined) {
+    steps.push(
+      `create the Hyperdrive configuration (npx wrangler hyperdrive create ${answers.name} --connection-string=<postgres URL of the app role>) and put its id into wrangler.jsonc, or re-run init with --hyperdrive-id`,
+    );
+  }
+  if (facts.hasDatabase) steps.push("set the MIGRATE_DATABASE_URL secret (production) to the direct Postgres URL of the migrator role; only the runner uses it");
+  if (answers.env.length > 0) steps.push(`set the secrets ${answers.env.join(", ")} (production); the deploy uploads them with the Worker`);
+  steps.push("turn on HSTS for the zone in Cloudflare (SSL/TLS, Edge Certificates), or send it from the app: deploy.json checks the header");
+  return steps;
+}
+
 /** What init cannot do itself for `--worker-dockerfile`: the base image with the worker's tools. */
 function listWorkerImageSteps(facts: AppFacts, answers: InitAnswers): string[] {
   if (!hasWorker(facts) || answers.workerDockerfile === undefined) return [];
@@ -175,9 +199,13 @@ export function runInit(args: string[], io: CliIo): void {
     "worker-cpus": { type: "string" },
     "worker-memory": { type: "string" },
     "worker-tmpfs": { type: "string" },
+    host: { type: "string" },
+    "hyperdrive-id": { type: "string" },
+    "placement-region": { type: "string" },
     force: { type: "boolean", default: false },
   });
-  const missing = (["domain", "image"] as const).filter((name) => flags[name] === undefined);
+  const required = flags.host === "cloudflare" ? (["domain"] as const) : (["domain", "image"] as const);
+  const missing = required.filter((name) => flags[name] === undefined);
   if (missing.length > 0) {
     fail(`init: missing ${missing.map((name) => `--${name}`).join(" and ")}.`, USAGE_EXIT_CODE);
   }
@@ -204,18 +232,23 @@ export function runInit(args: string[], io: CliIo): void {
     workerCpus: flags["worker-cpus"],
     workerMemory: flags["worker-memory"],
     workerTmpfs: flags["worker-tmpfs"],
+    host: flags.host,
+    hyperdriveId: flags["hyperdrive-id"],
+    placementRegion: flags["placement-region"],
   });
   if (!answersResult.ok) fail(`init: nothing written; ${answersResult.problems.join("; ")}.`);
   const workerProblems = listWorkerFlagProblems(facts, answersResult.answers);
   if (workerProblems.length > 0) fail(`init: nothing written; ${workerProblems.join("; ")}.`);
   const cliVersion = readCliVersion();
-  const replacesCompose = flags.force && Boolean(facts.compose);
+  const answers = answersResult.answers;
+  const isCloudflare = getHost(answers) === "cloudflare";
+  const replacesCompose = !isCloudflare && flags.force && Boolean(facts.compose);
   const files = planInitFiles({ answers: answersResult.answers, facts, cliVersion, replacesCompose });
   const result = writeInitFiles({ dir, files, force: flags.force });
   const warnings = [
-    ...listNextConfigWarnings(facts),
-    ...listWorkerWarnings(facts),
-    ...listWorkerHeartbeatWarnings(facts),
+    ...listNextConfigWarnings(facts, answersResult.answers),
+    ...listWorkerWarnings(facts, answers),
+    ...(isCloudflare ? [] : listWorkerHeartbeatWarnings(facts)),
     ...listComposeWarnings(facts, answersResult.answers, replacesCompose),
     ...listEdgeWarnings(facts, answersResult.answers),
     ...listWorkflowsRefWarnings({ written: result.written, workflowsRef: answersResult.answers.workflowsRef, cliVersion }),
@@ -227,7 +260,8 @@ export function runInit(args: string[], io: CliIo): void {
     ...listCdnSteps(answersResult.answers).map((step) => `next    ${step}`),
     ...listTunnelSteps(answersResult.answers).map((step) => `next    ${step}`),
     ...listWorkerImageSteps(facts, answersResult.answers).map((step) => `next    ${step}`),
-    `init: ${result.written.length} written, ${result.skipped.length} kept, database part ${facts.hasDatabase ? "on" : "off"} (@softure-ai/db ${facts.hasDatabase ? "found" : "not found"} in package.json)${hasWorker(facts) ? ", worker part on (@softure-ai/jobs found)" : ""}.`,
+    ...listCloudflareSteps(facts, answers).map((step) => `next    ${step}`),
+    `init: ${result.written.length} written, ${result.skipped.length} kept${isCloudflare ? ", host cloudflare" : ""}, database part ${facts.hasDatabase ? "on" : "off"} (@softure-ai/db ${facts.hasDatabase ? "found" : "not found"} in package.json)${hasWorker(facts) ? `, ${isCloudflare ? "jobs tick" : "worker part"} on (@softure-ai/jobs found)` : ""}.`,
   ];
   io.stdout(`${lines.join("\n")}\n`);
 }

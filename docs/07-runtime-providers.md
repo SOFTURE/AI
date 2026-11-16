@@ -101,7 +101,7 @@ Probed in workerd (Miniflare, `nodejs_compat`) for RP-5, so a package does not r
 | `@softure-ai/theme-kit` (`.`, `./react`, `./next`) | yes | yes | RP-7 |
 | `@softure-ai/alerts` (`.`, `./server`, `./jobs`, `./mailing`, `./next`, `./ui`) | yes | yes | RP-7, RP-4 |
 | `@softure-ai/blog` (`.`, `./server`, `./next`, `./ui`, `./proxy`, `./jobs`) | yes | yes | RP-7, RP-4 |
-| `@softure-ai/deploy` (`host: "cloudflare"`) | yes | planned | RP-8 |
+| `@softure-ai/deploy` (`init --host=cloudflare`, the `deploy-cloudflare` action) | yes | yes | RP-8 |
 | `@softure-ai/backup` (`host: "cloudflare"`) | yes | planned | RP-9 |
 
 A row turns to `yes` in the item that adds the package's `softure.workers` entries and its module's `runtimes`. Every
@@ -131,3 +131,25 @@ export default {
   scheduled: createScheduledHandler({ config, handlers, databaseUrl: (env: Env) => env.HYPERDRIVE.connectionString }),
 };
 ```
+
+## Deploying to Cloudflare
+
+`softure-deploy init --host=cloudflare --domain=<host>` writes `wrangler.jsonc`, `open-next.config.ts`, the
+`worker.ts` above (with a database), the migrate script and a caller workflow that runs the
+[`deploy-cloudflare`](../.github/actions/deploy-cloudflare/action.yml) action from the `production` environment: it
+checks the tag, builds with OpenNext, migrates from the runner with the direct database URL (`MIGRATE_DATABASE_URL`;
+the Worker itself goes through Hyperdrive), deploys the Worker with its secrets as one version
+(`wrangler deploy --secrets-file`), runs `softure-deploy verify` and, when verify fails, `wrangler rollback`. The
+release report is written as on a VPS. Details and the steps `init` prints: the deploy README, "On Cloudflare Workers".
+
+Moving an app from a VPS to Cloudflare:
+
+1. `platform: { host: "cloudflare" }` in `softure.config`; every module the app lists must support `workers`.
+2. `init --host=cloudflare --force` (the server files stay in git until the move is done); create the Hyperdrive
+   configuration on the managed Postgres and set its ID.
+3. Copy the database (`pg_dump` from the server, `pg_restore` into the managed Postgres, or the backup package's
+   restore), set the environment's secrets, publish a release.
+4. Point the domain at the Worker (the custom domain in `wrangler.jsonc`), then retire the server.
+
+Back to a VPS is the same in reverse: `init --force` without `--host`, `platform` removed, the database copied back.
+

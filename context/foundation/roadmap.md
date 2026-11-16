@@ -49,7 +49,7 @@ updated: 2026-11-16
 | **RP-5** | `security-workers-fetch` | `@softure-ai/security` guarded outbound requests and client-address checks run on Workers with the same refusals as on Node (resolved addresses checked before the request, where workerd takes no socket `lookup`) | RP-1 | autonomous | done |
 | **RP-6** | `observability-workers` | `@softure-ai/observability` gets a Workers entry: structured logs and spans sent over OTLP with `fetch`, flushed through `waitUntil`, under the same service naming as on Node | RP-1 | autonomous | done |
 | **RP-7** | `modules-workers-sweep` | every other runtime module (files, mailing, mcp-access, billing, waitlist, privacy, connections, agent-ready, analytics, feature-switches, metering, alerts, seo, blog, pwa) passes the Workers guard: R2 through the S3 driver, DNS checks over DNS-over-HTTPS, no filesystem on the request path | RP-1 | autonomous | done |
-| **RP-8** | `deploy-cloudflare-target` | `@softure-ai/deploy` gets `host: "cloudflare"`: `init` writes `wrangler.jsonc` and an OpenNext build, a reusable workflow migrates from CI and runs `wrangler deploy`, and `verify` and the release report work as on the VPS | RP-2, RP-4 | autonomous | ready |
+| **RP-8** | `deploy-cloudflare-target` | `@softure-ai/deploy` gets `host: "cloudflare"`: `init` writes `wrangler.jsonc` and an OpenNext build, a reusable workflow migrates from CI and runs `wrangler deploy`, and `verify` and the release report work as on the VPS | RP-2, RP-4 | autonomous | done |
 | **RP-9** | `backup-cloudflare-host` | `@softure-ai/backup` backs up a managed Postgres without a server: a scheduled workflow dumps, encrypts with age, uploads to R2 and records the run in `backup.runs` | RP-8 | autonomous | ready |
 | **RP-10** | `example-on-workers` | the example app runs unchanged on both hosts: CI builds it with OpenNext and runs its e2e in workerd against Postgres, next to the existing Node e2e | RP-2, RP-3, RP-4, RP-5, RP-6, RP-7 | autonomous | ready |
 | **RP-11** | `runtime-providers-release` | the changed packages are released, `docs/07-runtime-providers.md` is the adoption guide (Node to Cloudflare and back), and the roadmap is archived | RP-8, RP-9, RP-10 | autonomous | ready |
@@ -155,14 +155,17 @@ updated: 2026-11-16
 
 ### RP-8: Deploying to Cloudflare
 - **Change ID:** `deploy-cloudflare-target`
-- **Status:** ready
-- **Input:** [`deploy-cloudflare-target`](../changes/deploy-cloudflare-target/change.md)
-- **Outcome:** `softure-deploy init --host=cloudflare` writes `wrangler.jsonc` (Hyperdrive, R2, Cron Trigger,
-  `nodejs_compat`, EU placement hints) and the OpenNext build config; a reusable `deploy-cloudflare.yml` builds,
-  migrates with the direct database URL from the GitHub Environment, uploads secrets with `wrangler secret bulk`,
-  deploys with `wrangler deploy` and runs `softure-deploy verify`; rollback is `wrangler rollback`; the VPS target is
-  unchanged. Tests run the workflow's steps against a fake `wrangler`.
-- **Owns:** `tools/deploy/src/` (init, a cloudflare target), `.github/workflows/deploy-cloudflare.yml`.
+- **Status:** done
+- **Input:** [`deploy-cloudflare-target`](../archive/2026-11-16-deploy-cloudflare-target/change.md)
+- **Outcome:** `softure-deploy init --host=cloudflare` writes `wrangler.jsonc` (Hyperdrive, a Cron Trigger with jobs,
+  `nodejs_compat`, Smart Placement or a `--placement-region` hint), the OpenNext build config, a `worker.ts` that opens
+  the request database scope and runs the jobs tick, and a caller workflow; the composite action
+  `.github/actions/deploy-cloudflare` checks the tag, builds, migrates with the direct database URL from the GitHub
+  Environment, deploys code and secrets as one version with `wrangler deploy --secrets-file`, runs
+  `softure-deploy verify`, rolls back with `wrangler rollback` when verify fails and writes the same
+  `deploy-report.json` as the VPS; the VPS target is unchanged. Tests run the action's steps against a fake `wrangler`
+  (deploy 0.7.1).
+- **Owns:** `tools/deploy/src/` (init, a cloudflare target), `.github/actions/deploy-cloudflare/`.
 - **Risk:** high: the production path of every Cloudflare app; secrets stay in the GitHub Environment.
 
 ### RP-9: Backups without a server

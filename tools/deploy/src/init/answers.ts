@@ -21,6 +21,15 @@ const EMAIL = /^[A-Za-z0-9._%+-]+@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-
 /** A commit of SOFTURE/AI, the immutable ref the caller workflows pin. */
 const COMMIT_SHA = /^[0-9a-f]{40}$/;
 
+/** Where the app runs (`init --host`): a server of its own, or Cloudflare Workers (docs/07-runtime-providers.md). */
+export const HOSTS = ["vps", "cloudflare"] as const;
+
+/** A Hyperdrive configuration ID: 32 lower-case hex characters. */
+const HYPERDRIVE_ID = /^[0-9a-f]{32}$/;
+
+/** A Workers placement hint, `<provider>:<region>` (`aws:eu-central-1`, `gcp:europe-west1`, `azure:westeurope`). */
+const PLACEMENT_REGION = /^(?:aws|gcp|azure):[a-z0-9-]{2,40}$/;
+
 /** The CDNs `init --cdn` can lock the origin to. */
 export const CDNS = ["cloudflare"] as const;
 
@@ -69,7 +78,10 @@ const envNameSchema = z
 export const initAnswersSchema = z
   .strictObject({
     domain: z.string().regex(DOMAIN, "a lower-case host name such as example.com"),
-    image: z.string().regex(IMAGE, "registry/name in lower case without a tag, such as ghcr.io/acme/app"),
+    /** `--host`: absent means `vps`. */
+    host: z.enum(HOSTS, { error: "vps or cloudflare" }).optional(),
+    /** Required on a VPS, refused on Cloudflare (wrangler uploads the bundle; there is no image). */
+    image: z.string().regex(IMAGE, "registry/name in lower case without a tag, such as ghcr.io/acme/app").optional(),
     name: z.string().regex(NAME, "lower case letters, digits and -, starting with a letter, at most 40"),
     paths: z
       .array(z.string().regex(PATH_PREFIX, "/ or a path prefix such as /blog"))
@@ -114,8 +126,20 @@ export const initAnswersSchema = z
     workerMemory: z.string().regex(SIZE, "a size such as 512m or 2g").optional(),
     /** `--worker-tmpfs`: the worker's /tmp in memory, of at most this size. */
     workerTmpfs: z.string().regex(SIZE, "a size such as 512m or 2g").optional(),
+    /** `--hyperdrive-id`: the Hyperdrive configuration the Worker reaches Postgres through (`--host=cloudflare`). */
+    hyperdriveId: z.string().regex(HYPERDRIVE_ID, "a Hyperdrive configuration ID: 32 lower-case hex characters").optional(),
+    /** `--placement-region`: run the Worker next to the database's cloud region instead of Smart Placement. */
+    placementRegion: z.string().regex(PLACEMENT_REGION, "<provider>:<region> such as aws:eu-central-1").optional(),
   })
   .superRefine((answers, context) => {
+    if (answers.host === "cloudflare") {
+      for (const problem of listCloudflareConflicts(answers)) context.addIssue({ code: "custom", path: ["host"], message: problem });
+      return;
+    }
+    if (answers.image === undefined) context.addIssue({ code: "custom", path: ["image"], message: "required on a VPS (--image=registry/name)" });
+    for (const [flag, value] of [["--hyperdrive-id", answers.hyperdriveId], ["--placement-region", answers.placementRegion]] as const) {
+      if (value !== undefined) context.addIssue({ code: "custom", path: ["host"], message: `${flag} configures a Cloudflare Worker; add --host=cloudflare` });
+    }
     if (answers.tunnel === true) {
       for (const problem of listTunnelConflicts(answers)) context.addIssue({ code: "custom", path: ["tunnel"], message: problem });
       return;
@@ -147,7 +171,49 @@ function listTunnelConflicts(answers: {
   return problems;
 }
 
+/** What a Cloudflare Worker cannot take: each of these configures Docker, Traefik or the server, which it has none of. */
+function listCloudflareConflicts(answers: {
+  image?: string | undefined;
+  edge?: string | undefined;
+  tunnel?: boolean | undefined;
+  cdn?: string | undefined;
+  acmeEmail?: string | undefined;
+  www: boolean;
+  paths: string[];
+  tables: string[];
+  reportRole?: string | undefined;
+  workerDockerfile?: string | undefined;
+  dataVolume?: string | undefined;
+  workerCpus?: string | undefined;
+  workerMemory?: string | undefined;
+  workerTmpfs?: string | undefined;
+}): string[] {
+  const serverFlags = [
+    ["--image", answers.image, "wrangler uploads the bundle, there is no image"],
+    ["--edge", answers.edge, "a Worker has no Traefik"],
+    ["--tunnel", answers.tunnel === true ? true : undefined, "Cloudflare serves the Worker on its custom domain"],
+    ["--cdn", answers.cdn, "a Worker is behind Cloudflare already"],
+    ["--acme-email", answers.acmeEmail, "Cloudflare holds the certificate"],
+    ["--report-role", answers.reportRole, "it names the role of deploy.sh's report on the server"],
+    ["--worker-dockerfile", answers.workerDockerfile, "jobs run from the Worker's Cron Trigger"],
+    ["--data-volume", answers.dataVolume, "a Worker has no disk; store files in R2"],
+    ["--worker-cpus", answers.workerCpus, "jobs run from the Worker's Cron Trigger"],
+    ["--worker-memory", answers.workerMemory, "jobs run from the Worker's Cron Trigger"],
+    ["--worker-tmpfs", answers.workerTmpfs, "jobs run from the Worker's Cron Trigger"],
+  ] as const;
+  const problems = serverFlags.filter(([, value]) => value !== undefined).map(([flag, , why]) => `${flag} is a VPS flag: ${why}`);
+  if (answers.www) problems.push("--www is a Traefik redirect; with --host=cloudflare add a Cloudflare redirect rule from www to the apex");
+  if (!answers.paths.includes("/")) problems.push("--paths is a Traefik rule; with --host=cloudflare the Worker answers every path");
+  if (answers.tables.length > 0) problems.push("--tables are counted by deploy.sh on the server; with --host=cloudflare there is none");
+  return problems;
+}
+
 export type InitAnswers = z.infer<typeof initAnswersSchema>;
+
+/** The host the answers deploy to. */
+export function getHost(answers: Pick<InitAnswers, "host">): (typeof HOSTS)[number] {
+  return answers.host ?? "vps";
+}
 
 export type InitAnswersResult = { ok: true; answers: InitAnswers } | { ok: false; problems: string[] };
 
