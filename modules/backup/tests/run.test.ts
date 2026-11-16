@@ -1,6 +1,7 @@
 // `softure-backup run`: the night's copy for a host without a server. It dumps over BACKUP_DATABASE_URL with a fake
 // pg_dump here, uploads to the fake S3 with the same code as `upload` and records the same row; the real Postgres
 // path is in offsite-postgres.test.ts.
+import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -108,8 +109,10 @@ describe("softure-backup run", () => {
     const key = "acme-app/db-20261117T031700Z.dump.age";
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
-    expect(result.stdout).toMatch(new RegExp(`^run: ${key.replace(/\./g, "\\.")} \\(\\d+ bytes, sha256 [0-9a-f]{64}\\)\\n$`));
-    expect(await decrypt(s3.objects.get(key) ?? Buffer.alloc(0))).toBe("PGDMP app");
+    const encrypted = s3.objects.get(key) ?? Buffer.alloc(0);
+    const sha256 = createHash("sha256").update(encrypted).digest("hex");
+    expect(result.stdout).toBe(`run: ${key} (${String(encrypted.length)} bytes, sha256 ${sha256})\n`);
+    expect(await decrypt(encrypted)).toBe("PGDMP app");
     expect(readFileSync(join(dir, "pg_dump.args"), "utf8")).toBe("--format=custom\n--no-password\n--exclude-table-data=security.rate_limits\n");
     expect(readFileSync(join(dir, "pg_dump.env"), "utf8")).toBe(
       "PGDATABASE=app\nPGHOST=db.example.test\nPGPASSWORD=db-password-789\nPGPORT=5432\nPGSSLMODE=require\nPGUSER=app_migrator\n",
