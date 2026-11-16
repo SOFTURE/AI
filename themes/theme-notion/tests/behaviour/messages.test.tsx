@@ -11,6 +11,8 @@ import {
   Breadcrumb,
   BreadcrumbEllipsis,
   CommandDialog,
+  DocumentRow,
+  DocumentViewer,
   FileInput,
   FilterChipAdd,
   Dialog,
@@ -254,6 +256,42 @@ const CASES: Readonly<Record<string, MessageCase>> = {
       },
     ]),
   ),
+  // The document parts whose text shows at once (MR-344 of an adopting app); the rest need a loaded document and are
+  // checked in tests/notion/Document.test.tsx.
+  "document.close": {
+    render: (text) => (
+      <DocumentViewer open onOpenChange={() => undefined} title="Ticket" contentType="text/plain" source={{ blob: new Blob(["x"]) }} messages={text === undefined ? undefined : { close: text }} />
+    ),
+    read: attributeOf('[data-slot="document-viewer-close"]', "aria-label"),
+  },
+  "document.unsupported": {
+    render: (text) => (
+      <DocumentViewer open onOpenChange={() => undefined} title="Ticket" contentType="text/plain" source={{ blob: new Blob(["x"]) }} messages={text === undefined ? undefined : { unsupported: text }} />
+    ),
+    read: textOf('[data-slot="document-viewer-error"]'),
+  },
+  "document.loading": {
+    render: (text) => (
+      <DocumentViewer
+        open
+        onOpenChange={() => undefined}
+        title="Ticket"
+        contentType="application/pdf"
+        source={{ url: "/never" }}
+        fetchFile={() => new Promise<Blob>(() => undefined)}
+        messages={text === undefined ? undefined : { loading: text }}
+      />
+    ),
+    read: textOf('[data-slot="document-viewer-loading"]'),
+  },
+  "document.offline": {
+    render: (text) => <DocumentRow title="Ticket" contentType="application/pdf" size={1000} isOffline onOpen={() => undefined} messages={text === undefined ? undefined : { offline: text }} />,
+    read: textOf('[data-slot="status-label"]'),
+  },
+  "document.open": {
+    render: (text) => <DocumentRow title="Ticket" contentType="application/pdf" size={1000} onOpen={() => undefined} messages={text === undefined ? undefined : { open: text }} />,
+    read: () => document.querySelector('[data-slot="document-row-open"] .sr-only')?.textContent?.trim(),
+  },
   "spinner.label": { render: (text) => <Spinner {...labelled(text)} />, read: attributeOf('[role="status"]', "aria-label") },
   "command.title": { render: (text) => <CommandDialog open title={text} />, read: textOf('[data-slot="dialog-title"]') },
   "command.description": { render: (text) => <CommandDialog open description={text} />, read: textOf('[data-slot="dialog-description"]') },
@@ -268,8 +306,16 @@ function readMessage(path: string): string {
 const MESSAGE_PATHS = Object.entries(notionMessages.en).flatMap(([group, texts]) => Object.keys(texts).map((key) => `${group}.${key}`));
 // Checked elsewhere: the phone sheet's copy where a phone is stubbed (tests/behaviour/sidebar.test.tsx), the drag
 // announcements during a keyboard drag (tests/notion/Sortable.test.tsx), the count of several picked files with the
-// number filled in (tests/notion/FileInput.test.tsx).
+// number filled in (tests/notion/FileInput.test.tsx), the texts of a loaded or broken document
+// (tests/notion/Document.test.tsx).
 const CHECKED_ELSEWHERE = new Set([
+  "document.zoomIn",
+  "document.zoomOut",
+  "document.zoom",
+  "document.pageCount",
+  "document.pageCountOne",
+  "document.page",
+  "document.failed",
   "fileInput.count",
   "sidebar.mobileTitle",
   "sidebar.mobileDescription",

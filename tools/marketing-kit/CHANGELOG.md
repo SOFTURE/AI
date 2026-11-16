@@ -4,6 +4,25 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.37.0
+
+- **Draft in pieces:** `renderFootageDraft` takes `assembly`: `"pieces"` (the new default) draws the picture
+  `segmentsPerPiece` segments per ffmpeg run (default `FOOTAGE_DRAFT_PIECE_SEGMENTS`, 4) and joins the pieces with the
+  captions burned in once, so its memory is one piece's whatever the number of cuts; `"single"` keeps the one ffmpeg
+  run, its command byte for byte as before (a test pins it), whose memory grows with every cut (a 146 s cut of 51
+  segments from 1080x1920 sources needs about 3.8 GB). A piece that starts on a fade or a drawn transition draws the
+  segment before it and cuts it away, so both assemblies give the same frames at every border. The result names its
+  `assembly` and `pieces`. A failed piece's step is `The footage draft's piece N of M` (one run's stays
+  `The footage draft`). An app that wants the old behaviour passes `assembly: "single"`.
+- **Memory estimate:** `estimateFootageDraftMemory({ edl, frame, assembly, segmentsPerPiece })` answers the decoders
+  of the draft's largest ffmpeg run and its peak working memory by the kit's estimate (250 MB plus about 70 MB per
+  decoder of a 1080x1920 source), for an app that warns before a draft its worker cannot hold.
+- **New builders:** `planFootageDraftPieces`, `buildFootageDraftPieceArgs`, `buildFootageDraftJoinArgs`,
+  `FOOTAGE_DRAFT_ASSEMBLIES`, types `DraftPiece`, `FootageDraftAssembly`, `FootageDraftMemory`.
+- **Tests:** `tests/draft-assembly.test.ts` compares both assemblies frame by frame on a cut with every transition and
+  a split screen, and measures each ffmpeg run's peak memory: drafts of 51 and 150 cuts in pieces stay at one piece's,
+  where one run grows with the cuts.
+
 ## 0.36.2
 
 - **Security (CodeQL `js/bad-code-sanitization`, #1245):** the dropped-letter tween writes its letter turns into the

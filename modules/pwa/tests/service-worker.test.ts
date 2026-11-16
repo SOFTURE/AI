@@ -678,6 +678,7 @@ describe("resolveServiceWorkerConfig", () => {
       startPath: null,
       maxPages: 60,
       extraOrigins: [],
+      keptFiles: null,
     });
   });
 

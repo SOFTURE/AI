@@ -40,6 +40,14 @@ export {
   splitIntoParts,
   type S3StorageOptions,
 } from "./s3-storage.js";
+export {
+  SAVE_FROM_URL_DEFAULT_NAME,
+  SAVE_FROM_URL_DEFAULT_TIMEOUT_MS,
+  saveFileFromUrl,
+  type SaveFileFromUrlErrorCode,
+  type SaveFileFromUrlInput,
+  type SaveFileFromUrlResult,
+} from "./save-from-url.js";
 export { saveFile, validateFileDescription, type FileDescription, type FileDescriptionInput, type SaveFileInput, type SaveFileResult } from "./save.js";
 export {
   countChunks,
