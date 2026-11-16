@@ -74,3 +74,14 @@ export {
   type SyncItemContext,
 } from "./sync-items.js";
 export { runDueJobs, type RunDueJobsOptions, type RunDueJobsReport } from "./run-due.js";
+export {
+  checkJobsTickHealth,
+  DEFAULT_JOBS_TICK_BUDGET_MS,
+  DEFAULT_JOBS_TICK_HEALTH_MAX_AGE_MS,
+  DEFAULT_JOBS_TICK_WORKER,
+  runJobsTick,
+  type CheckJobsTickHealthInput,
+  type JobsTickHealth,
+  type RunJobsTickOptions,
+  type RunJobsTickReport,
+} from "./tick.js";

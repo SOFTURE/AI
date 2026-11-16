@@ -18,7 +18,7 @@ export const jobs = defineModule({
     version: "0.1.10",
     dependsOn: {},
     dbSchema: "jobs",
-    tables: ["jobs", "queue_state", "runs", "schedules", "sync_cursors", "sync_items"],
+    tables: ["jobs", "queue_state", "runs", "schedules", "sync_cursors", "sync_items", "worker_heartbeats"],
     env: [],
     switches: [],
     routes: { panel: "/admin/jobs" },

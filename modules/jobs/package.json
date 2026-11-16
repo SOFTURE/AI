@@ -68,7 +68,7 @@
   },
   "dependencies": {
     "@softure-ai/core": "^0.2.5",
-    "@softure-ai/db": "^0.1.9",
+    "@softure-ai/db": "^0.1.15",
     "zod": "^4.6.7"
   },
   "peerDependencies": {

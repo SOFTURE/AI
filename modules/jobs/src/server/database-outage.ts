@@ -1,8 +1,8 @@
 // How the worker logs a database failure: while the database has been unavailable for less than the tolerance (a
 // restart, a host reboot), the line is `info`; once the outage lasts, or for any other failure, it is `error`.
 import type { Clock } from "@softure-ai/core";
-import { isDatabaseUnavailableError } from "../server/database-unavailable.js";
-import type { JobsLogFields, JobsLogger } from "../server/logger.js";
+import { isDatabaseUnavailableError } from "./database-unavailable.js";
+import type { JobsLogFields, JobsLogger } from "./logger.js";
 
 export interface DatabaseOutage {
   /** Logs a failed database call; true when the failure means the database is unavailable. */

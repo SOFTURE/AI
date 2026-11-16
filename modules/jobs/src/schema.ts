@@ -97,3 +97,9 @@ export const queueState = jobsSchema.table("queue_state", {
 });
 
 export type QueueStateRow = typeof queueState.$inferSelect;
+
+export const workerHeartbeats = jobsSchema.table("worker_heartbeats", {
+  workerId: text("worker_id").primaryKey(),
+  beatAt: timestamp("beat_at", { withTimezone: true }),
+  prunedAt: timestamp("pruned_at", { withTimezone: true }),
+});

@@ -1,7 +1,7 @@
 // Reading and steering jobs: look one up, list the recent ones, cancel one that has not started or ask a running one
 // to stop, run a failed one again.
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
-import { isConstraintViolation } from "@softure-ai/db";
+import { isConstraintViolation } from "@softure-ai/db/request";
 import { and, desc, eq, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import type { Job, JobStatus } from "../contract.js";
 import { jobs } from "../schema.js";
