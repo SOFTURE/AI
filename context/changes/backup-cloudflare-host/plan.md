@@ -26,7 +26,7 @@ the caller workflows.
   Environment `backup-verify`, the migrations exported from the checkout with `softure migrate --export-migrations`
   instead of copied from an image).
 - **Declare `.` and `./server` of `@softure-ai/backup` Workers-safe**; `./offsite` and the CLI stay Node.
-- backup 0.1.0 → 0.1.1, deploy 0.7.1 → 0.7.2 (patch, as RP-4 and RP-8: no dependent's range has to move).
+- backup 0.1.0 → 0.1.1; deploy stays 0.7.1, which RP-8 set and which is not yet published, so the init change joins it.
 
 ## Phase 1: `softure-backup run` (test-after)
 
@@ -51,5 +51,5 @@ the caller workflows.
 
 ## Progress
 
-- [x] Phase 1: `softure-backup run`
+- [x] Phase 1: `softure-backup run` (152f4da)
 - [ ] Phase 2: the action and init

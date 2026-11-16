@@ -76,9 +76,11 @@ describe("softure-deploy init --host=cloudflare", () => {
       "wrote   worker.ts",
       "wrote   scripts/migrate.ts",
       "wrote   .github/workflows/deploy.yml",
+      "wrote   .github/workflows/backup.yml",
+      "wrote   .github/workflows/backup-verify.yml",
       "wrote   deploy.json",
     ]);
-    expect(text).toContain("init: 6 written, 0 kept, host cloudflare, database part on (@softure-ai/db found in package.json).\n");
+    expect(text).toContain("init: 8 written, 0 kept, host cloudflare, database part on (@softure-ai/db found in package.json).\n");
     for (const path of ["Dockerfile", "docker/prod/docker-compose.yml", "docker/server/deploy.sh", ".github/workflows/release.yml"]) {
       expect(existsSync(join(dir, path)), path).toBe(false);
     }
@@ -138,6 +140,8 @@ describe("softure-deploy init --host=cloudflare", () => {
     expect(wrangler).not.toHaveProperty("triggers");
     expect(existsSync(join(dir, "worker.ts"))).toBe(false);
     expect(existsSync(join(dir, "scripts/migrate.ts"))).toBe(false);
+    expect(existsSync(join(dir, ".github/workflows/backup.yml"))).toBe(false);
+    expect(existsSync(join(dir, ".github/workflows/backup-verify.yml"))).toBe(false);
     const caller = parse(read(".github/workflows/deploy.yml")) as Caller;
     const action = caller.jobs.deploy?.steps?.at(-1);
     expect(action?.with).not.toHaveProperty("migrate-database-url");
@@ -171,6 +175,56 @@ describe("softure-deploy init --host=cloudflare", () => {
     });
     expect(caller.jobs.report?.uses).toBe(`SOFTURE/AI/.github/workflows/deploy-report.yml@${WORKFLOWS_SHA}`);
     expect(caller.jobs.report?.permissions).toEqual({ contents: "write" });
+  });
+
+  it("writes a nightly backup on GitHub's runner that dumps, uploads and records like a VPS's maintain", async () => {
+    writeApp(DATABASE_APP);
+    const code = await runCli(["init", ...CLOUDFLARE, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo());
+    expect(code).toBe(0);
+    const text = read(".github/workflows/backup.yml");
+    expect(text).not.toMatch(/secrets: inherit|toJSON\(secrets\)/);
+    const caller = parse(text) as Caller & { on: Record<string, unknown> };
+    expect(caller.on).toEqual({ schedule: [{ cron: "17 3 * * *" }], workflow_dispatch: null });
+    expect(caller.permissions).toEqual({ contents: "read" });
+    const job = caller.jobs.backup;
+    expect(job?.["runs-on"]).toBe("ubuntu-latest");
+    expect(job?.environment).toBe("production");
+    const action = job?.steps?.at(-1);
+    expect(action?.uses).toBe(`SOFTURE/AI/.github/actions/backup-cloudflare@${WORKFLOWS_SHA}`);
+    expect(action?.env).toEqual({
+      BACKUP_S3_ENDPOINT: "${{ vars.BACKUP_S3_ENDPOINT }}",
+      BACKUP_S3_REGION: "${{ vars.BACKUP_S3_REGION }}",
+      BACKUP_S3_BUCKET: "${{ vars.BACKUP_S3_BUCKET }}",
+      BACKUP_S3_PREFIX: "${{ vars.BACKUP_S3_PREFIX }}",
+      BACKUP_AGE_RECIPIENT: "${{ vars.BACKUP_AGE_RECIPIENT }}",
+      BACKUP_S3_ACCESS_KEY_ID: "${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}",
+      BACKUP_S3_SECRET_ACCESS_KEY: "${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}",
+    });
+    expect(action?.with).toEqual({
+      app: "shop",
+      "database-url": "${{ secrets.MIGRATE_DATABASE_URL }}",
+      "postgres-major": "17",
+      "backup-cli-version": "0.1.1",
+    });
+    expect(out.join("")).toContain("next    for the nightly off-site backup (backup.yml), set the variables BACKUP_S3_ENDPOINT");
+  });
+
+  it("writes a weekly restore check that reads with the read-only token in its own environment", async () => {
+    writeApp(DATABASE_APP);
+    expect(await runCli(["init", ...CLOUDFLARE], makeIo())).toBe(0);
+    const text = read(".github/workflows/backup-verify.yml");
+    const caller = parse(text) as Caller & { on: Record<string, unknown> };
+    expect(caller.on).toEqual({ schedule: [{ cron: "40 5 * * 1" }], workflow_dispatch: null });
+    const job = caller.jobs.verify;
+    expect(job?.["runs-on"]).toBe("ubuntu-latest");
+    expect(job?.environment).toBe("backup-verify");
+    expect(text).toContain("image: postgres:17\n");
+    expect(text).toContain("npx softure migrate --export-migrations ./softure-migrations");
+    expect(text).toContain(
+      "npx --yes --package=@softure-ai/backup@0.1.1 softure-backup verify --app=shop --identity=- --config=deploy.json --migrations-dir=softure-migrations",
+    );
+    expect(text).not.toContain("BACKUP_S3_SECRET_ACCESS_KEY");
+    expect(text).not.toContain("MIGRATE_DATABASE_URL");
   });
 
   it("writes a deploy.json without the server's hooks or row counts", async () => {

@@ -17,6 +17,12 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   Worker with its secrets as one version (`wrangler deploy --secrets-file`, a mode-600 file removed in every case),
   verifies with `deploy.json`, runs `wrangler rollback` after a red verify and writes the `deploy-report` artifact
   `deploy-report.yml` reads. The VPS files and the deploy action are unchanged.
+- **Off-site backups on Cloudflare (RP-9):** with a database, `init --host=cloudflare` also writes
+  `.github/workflows/backup.yml` (nightly, the `production` environment) and `backup-verify.yml` (weekly, the
+  `backup-verify` environment). The nightly caller runs the `backup-cloudflare` action
+  (`SOFTURE/AI/.github/actions/backup-cloudflare`), which dumps the database over its direct URL with the matching
+  `pg_dump` and runs `softure-backup run`: the same encrypted objects, the same `backup.runs` row and the same gauges
+  as `maintain` on a VPS.
 
 ## 0.7.0
 

@@ -139,6 +139,26 @@ shows. When the app has no `backup.runs` table yet, the copy still runs and the 
 in them until the lifecycle rule expires them: keep the rule's days (default 30) in the privacy policy's retention
 section. The module exports and deletes nothing for a user.
 
+## 11a. On Cloudflare (a host without a server)
+
+The package keeps one interface on every host: the same `BACKUP_*` settings, object keys, `backup.runs` row,
+`getLastBackup()`, gauges, `restore`, `fetch` and `verify`. Only the producer of the nightly copy changes. On a VPS it
+is `deploy.sh maintain`; on Cloudflare (`platform: { host: "cloudflare" }`) it is `softure-backup run`, called by the
+[`backup-cloudflare`](../../.github/actions/backup-cloudflare/action.yml) action from the nightly `backup.yml` that
+`softure-deploy init --host=cloudflare` writes:
+
+```bash
+BACKUP_DATABASE_URL=postgres://… npx @softure-ai/backup run --app=acme-app --config=deploy.json --summary=summary.md
+```
+
+`run` dumps the database over `BACKUP_DATABASE_URL` (`pg_dump --format=custom`, the deploy config's
+`excludeTableData` honoured; `--pg-dump=<path>` names another binary, the action uses a `postgres:<major>` container),
+encrypts and uploads it exactly as `upload` does, and inserts the run's row with that same connection, so the URL's
+role must be able to write `backup.runs` (the migrator, `MIGRATE_DATABASE_URL`, does). Without `BACKUP_S3_*` it says
+`not configured` and exits 0; a failed dump, upload or row exits 1, and a copy whose row could not be written is
+reported as such. The URL and its password are redacted from every message. Move steps: docs/07-runtime-providers.md,
+"Backups on Cloudflare".
+
 ## 12. Limitations
 
 - One PUT per file, up to 5 GiB per encrypted object (no multipart upload). A larger database needs a store-side

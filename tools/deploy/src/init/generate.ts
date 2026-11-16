@@ -29,6 +29,11 @@ export const TEMPLATE_VERSIONS = {
   backup: "0.1.0",
 } as const;
 
+/** The managed Postgres's major on Cloudflare: pg_dump and pg_restore of this version read 16 and 17 alike. */
+export const CLOUDFLARE_POSTGRES_MAJOR = "17";
+/** `@softure-ai/backup` on Cloudflare: the first version with `softure-backup run` (a dump without a server). */
+export const CLOUDFLARE_BACKUP_CLI_VERSION = "0.1.1";
+
 /**
  * The host-only settings of the off-site copy: optional names in the compose file's `x-offsite-backup` block, so
  * `env render` writes them to `.env.prod` when the deploy environment sets them; no container reads them.
@@ -309,6 +314,13 @@ export const CLOUDFLARE_TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "cloudflare/worker.ts.tmpl", target: WORKER_ENTRY, mode: FILE_MODE, isIncluded: withDatabase },
   { template: "scripts/migrate.ts.tmpl", target: "scripts/migrate.ts", mode: FILE_MODE, isIncluded: withDatabase },
   { template: "cloudflare/.github/workflows/deploy.yml.tmpl", target: ".github/workflows/deploy.yml", mode: FILE_MODE, isIncluded: always },
+  { template: "cloudflare/.github/workflows/backup.yml.tmpl", target: ".github/workflows/backup.yml", mode: FILE_MODE, isIncluded: withDatabase },
+  {
+    template: "cloudflare/.github/workflows/backup-verify.yml.tmpl",
+    target: ".github/workflows/backup-verify.yml",
+    mode: FILE_MODE,
+    isIncluded: withDatabase,
+  },
   { template: "deploy.json.tmpl", target: "deploy.json", mode: FILE_MODE, isIncluded: always },
 ];
 
@@ -326,6 +338,8 @@ function planCloudflareFiles(options: PlanInitFilesOptions, readTemplate: (path:
     cloudflare: false,
     hasRowCountTables: false,
     main: getWorkerMain(facts),
+    cloudflarePostgresMajor: CLOUDFLARE_POSTGRES_MAJOR,
+    backupCliVersion: CLOUDFLARE_BACKUP_CLI_VERSION,
     compatibilityDate: CLOUDFLARE_COMPATIBILITY_DATE,
     hyperdriveId: answers.hyperdriveId ?? HYPERDRIVE_ID_PLACEHOLDER,
     hasPlacementRegion: answers.placementRegion !== undefined,

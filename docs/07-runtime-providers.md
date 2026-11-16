@@ -102,7 +102,7 @@ Probed in workerd (Miniflare, `nodejs_compat`) for RP-5, so a package does not r
 | `@softure-ai/alerts` (`.`, `./server`, `./jobs`, `./mailing`, `./next`, `./ui`) | yes | yes | RP-7, RP-4 |
 | `@softure-ai/blog` (`.`, `./server`, `./next`, `./ui`, `./proxy`, `./jobs`) | yes | yes | RP-7, RP-4 |
 | `@softure-ai/deploy` (`init --host=cloudflare`, the `deploy-cloudflare` action) | yes | yes | RP-8 |
-| `@softure-ai/backup` (`host: "cloudflare"`) | yes | planned | RP-9 |
+| `@softure-ai/backup` (`.`, `./server`; `softure-backup run`, the `backup-cloudflare` action) | yes | yes | RP-9 |
 
 A row turns to `yes` in the item that adds the package's `softure.workers` entries and its module's `runtimes`. Every
 module's `./jobs` entry is Workers-safe since RP-4; no `./cli`, `./scripts`, `./stdio` or `./testing` entry is
@@ -142,13 +142,26 @@ the Worker itself goes through Hyperdrive), deploys the Worker with its secrets 
 (`wrangler deploy --secrets-file`), runs `softure-deploy verify` and, when verify fails, `wrangler rollback`. The
 release report is written as on a VPS. Details and the steps `init` prints: the deploy README, "On Cloudflare Workers".
 
+## Backups on Cloudflare
+
+One interface, two producers. The settings (`BACKUP_S3_*`, `BACKUP_AGE_RECIPIENT`), the encrypted object keys under
+the prefix, the `backup.runs` row, `getLastBackup()`, the gauges and the alert rules, `restore`, `fetch` and `verify`
+are the same on every host; only what produces the nightly copy differs. On a VPS it is `deploy.sh maintain` (dump in
+the compose project, `softure-backup upload`, the row through `psql`). On Cloudflare there is no server, so `init
+--host=cloudflare` writes a nightly `backup.yml` that runs the
+[`backup-cloudflare`](../.github/actions/backup-cloudflare/action.yml) action from the `production` environment: it
+dumps the database over its direct URL (`MIGRATE_DATABASE_URL`) with `pg_dump` of the database's major version and
+runs `softure-backup run`, which encrypts, uploads and records the row in one step. The weekly `backup-verify.yml`
+restores the newest copy as on a VPS. Moving between hosts keeps the bucket, the prefix, the age key and every copy.
+
 Moving an app from a VPS to Cloudflare:
 
 1. `platform: { host: "cloudflare" }` in `softure.config`; every module the app lists must support `workers`.
 2. `init --host=cloudflare --force` (the server files stay in git until the move is done); create the Hyperdrive
    configuration on the managed Postgres and set its ID.
 3. Copy the database (`pg_dump` from the server, `pg_restore` into the managed Postgres, or the backup package's
-   restore), set the environment's secrets, publish a release.
+   restore), set the environment's secrets (the backup settings stay as they are), publish a release; the nightly
+   `backup.yml` takes over from `maintain`.
 4. Point the domain at the Worker (the custom domain in `wrangler.jsonc`), then retire the server.
 
 Back to a VPS is the same in reverse: `init --force` without `--host`, `platform` removed, the database copied back.

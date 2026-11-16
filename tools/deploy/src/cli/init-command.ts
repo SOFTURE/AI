@@ -162,6 +162,12 @@ function listCloudflareSteps(facts: AppFacts, answers: InitAnswers): string[] {
   }
   if (facts.hasDatabase) steps.push("set the MIGRATE_DATABASE_URL secret (production) to the direct Postgres URL of the migrator role; only the runner uses it");
   if (answers.env.length > 0) steps.push(`set the secrets ${answers.env.join(", ")} (production); the deploy uploads them with the Worker`);
+  if (facts.hasDatabase) {
+    steps.push(
+      "for the nightly off-site backup (backup.yml), set the variables BACKUP_S3_ENDPOINT, BACKUP_S3_REGION, BACKUP_S3_BUCKET, BACKUP_S3_PREFIX, BACKUP_AGE_RECIPIENT and the write-only token's secrets BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY (production); without BACKUP_S3_BUCKET it records not_configured",
+      "for the weekly restore check (backup-verify.yml), create the backup-verify environment with the same BACKUP_S3_* variables, the read-only token's secrets BACKUP_S3_READ_ACCESS_KEY_ID, BACKUP_S3_READ_SECRET_ACCESS_KEY and the age private key BACKUP_AGE_IDENTITY",
+    );
+  }
   steps.push("turn on HSTS for the zone in Cloudflare (SSL/TLS, Edge Certificates), or send it from the app: deploy.json checks the header");
   return steps;
 }
