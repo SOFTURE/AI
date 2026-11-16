@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-overlays-1200
 title: "marketing-kit: footage EDL overlays on words, and hyperframes 0.9.20 (issue #1200)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1200
 branch: claude/project-thread-1p9fy6
 created: 2026-11-07
-updated: 2026-11-07
+updated: 2026-11-16
+archived_at: 2026-11-16
 ---
 
 ## Intent
@@ -28,3 +29,4 @@ Labels: `pkg: marketing-kit`. Same thread and release as #1199 (merged in PR #12
 ## Notes
 
 - Framing: skipped. The issue names the kinds, the fields, the guards and the tests.
+- Archived 2026-11-16: done and merged to master earlier (all plan phases ticked, implementation review approved); closed in the archive sweep. Outcome: marketing-kit: footage EDL overlays on words, and hyperframes 0.9.20 (issue #1200).

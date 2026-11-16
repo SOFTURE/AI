@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-text-cards
 title: "marketing-kit: text devices of hand-edited reels (highlight typing, note card, falling letters, end word)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/marketing-kit-text-cards
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-16
+archived_at: 2026-11-16
 ---
 
 ## Intent
@@ -37,3 +38,4 @@ render copies the brand fonts into `assets/fonts/`.
   the outcome.
 - Ribbon captions and a three-band split screen from the same study are left to separate changes (the adopting app
   split them into their own items).
+- Archived 2026-11-16: done and merged to master earlier (all plan phases ticked, implementation review approved); closed in the archive sweep. Outcome: marketing-kit: text devices of hand-edited reels (highlight typing, note card, falling letters, end word).

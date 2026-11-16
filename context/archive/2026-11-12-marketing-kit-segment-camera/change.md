@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-segment-camera
 title: "marketing-kit: a segment's camera (push-in, pull-out, settle, framing) and a fade's own length"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/marketing-kit-segment-camera
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-16
+archived_at: 2026-11-16
 ---
 
 ## Intent
@@ -35,3 +36,4 @@ punch-in on it (`overlays.ts`).
 
 - Research is short (`research.md`): the files are the three renderers above, the EDL and the overlays' guards.
 - Frame skipped: the adopting app's roadmap item states the outcome and the owner's words.
+- Archived 2026-11-16: done and merged to master earlier (all plan phases ticked, implementation review approved); closed in the archive sweep. Outcome: marketing-kit: a segment's camera (push-in, pull-out, settle, framing) and a fade's own length.
