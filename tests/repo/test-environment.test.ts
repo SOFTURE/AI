@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import config from "../../vitest.config.mjs";
+import { REPOSITORY_GIT_VARIABLES } from "../git-env.js";
 
 // `TEST_TZ=<zone> npm test` runs the suite in another zone on purpose; the date check below only
 // holds in the default zone.
@@ -20,6 +21,12 @@ describe("test environment", () => {
 
   it.skipIf(PROBE_ZONE)("puts 03:00 UTC on 1 January on 31 December (a negative offset)", () => {
     expect(new Date("2026-01-01T03:00:00Z").getDate()).toBe(31);
+  });
+
+  // A worktree's pre-push hook exports GIT_DIR; a test's git in a temp repository then wrote into the real one
+  // (issue #1292). The config removes these variables before any worker starts.
+  it("passes no repository-locating git variable to a test or its child processes", () => {
+    expect(REPOSITORY_GIT_VARIABLES.filter((name) => name in process.env)).toEqual([]);
   });
 
   // Vitest's default hook limit is 10 s while tests get 60 s; a browser launched in `beforeAll` hit the 10 s on a
