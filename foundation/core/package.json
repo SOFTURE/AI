@@ -51,5 +51,11 @@
   },
   "dependencies": {
     "zod": "^4.6.7"
+  },
+  "softure": {
+    "workers": [
+      ".",
+      "./next"
+    ]
   }
 }

@@ -33,5 +33,5 @@ Add `platform` to core's config and `runtimes` to the module manifest, check the
 ## Progress
 
 - [x] Phase 1: platform and runtimes in core; core tests 575 passed, sabotage of the runtime check turns 2 red
-- [ ] Phase 2
+- [x] Phase 2: guard `tests/repo/workers-entries*.ts`; core lists `.` and `./next`; a planted `node:fs` in `core/src/next/registry.ts` turns it red
 - [ ] Phase 3
