@@ -37,8 +37,8 @@ Done when: `npm run typecheck`, `npm run lint`, the llm tests and the repository
 
 ## Progress
 
-- [ ] 1 Code and tests
-- [ ] 2 Docs
+- [x] 1 Code and tests (16 streamChat and 7 fakeChatModel tests; llm suite 91 passed; 324e21f)
+- [x] 2 Docs (README streamChat section, chat route and budget recipes, CHANGELOG Unreleased)
 
 ## Decisions (auto)
 

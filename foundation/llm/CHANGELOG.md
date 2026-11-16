@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `streamChat` (#1258): a streamed chat answer over AI SDK `streamText` that returns its `StreamTextResult` (a route
+  calls `toUIMessageStreamResponse()`), with the client's model, `timeoutMs`, `attributes`, `onUsage`, `onCall`,
+  pricing, provider cost and a span `llm.stream_chat`. One record per chat with the usage and cost of all steps;
+  `llm.aborted` when the request's `abortSignal` stops it, with the usage of the finished steps. `recorded` on the
+  result settles after the hooks and rejects with a hook's error.
+- `fakeChatModel()` in `@softure-ai/llm/testing`: a streaming fake (`text`, `tool-call`, `truncated`, `unavailable`,
+  `error`, `hang`).
+- Types: `UsageRecord.outcome` and `LlmCallRecord.outcome` are now `LlmOutcome` (`"ok" | LlmErrorCode |
+  "llm.aborted"`), and `LlmCallRecord.operation` adds `"streamChat"`. Migrate: code that switches exhaustively over
+  either adds the new case; a route that called AI SDK `streamText` directly and priced it with `getCostUsd` moves to
+  `streamChat` and drops its own usage conversion.
+
 ## 0.2.3
 
 - `@opentelemetry/sdk-trace` ~3.1.0 (was ~3.0.0), the line `@softure-ai/observability` uses.
