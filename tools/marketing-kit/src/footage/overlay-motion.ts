@@ -149,12 +149,19 @@ export const UNDERLINE_EM = { height: 0.09, gap: 0.05 } as const;
 
 /**
  * The film seconds each point of a staggered list comes in at: on its word (`words`, the said times, never before the
- * list nor later than its last 0.6 s), else spaced over the first part of its span (0.25 to 0.6 s apart).
+ * list nor later than its last 0.6 s, and never before the point ahead of it, so the points come in in their order),
+ * else spaced over the first part of its span (0.25 to 0.6 s apart).
  */
 export function getListItemStarts(input: { start: number; end: number; count: number; words?: readonly number[] }): number[] {
   const { start, end, count } = input;
   const latest = Math.max(start, end - 0.6);
-  if (input.words !== undefined) return input.words.map((word) => r3(Math.min(latest, Math.max(start, word))));
+  if (input.words !== undefined) {
+    let previous = start;
+    return input.words.map((word) => {
+      previous = r3(Math.min(latest, Math.max(previous, word)));
+      return previous;
+    });
+  }
   const gap = Math.min(0.6, Math.max(0.25, ((end - start) * 0.4) / count));
   return Array.from({ length: count }, (_item, index) => r3(Math.min(latest, start + 0.2 + index * gap)));
 }

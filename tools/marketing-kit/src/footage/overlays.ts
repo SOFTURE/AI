@@ -323,17 +323,23 @@ function findOverlayStart(overlay: EdlOverlay, words: TimedWord[]): { ok: true; 
 }
 
 /** The film second a word of the transcript starts at, or why it is not there (`field` names it in the reason). */
-function findWordStart(wanted: NonNullable<EdlOverlay["at_word"]>, words: TimedWord[], field: string): { ok: true; start: number } | { ok: false; error: string } {
+function findWordStart(wanted: NonNullable<EdlOverlay["at_word"]>, words: TimedWord[], field: string, from?: number): { ok: true; start: number } | { ok: false; error: string } {
   const key = normalizeWord(wanted.text);
   const occurrence = wanted.occurrence ?? 1;
   const matches = words.filter((word) => normalizeWord(word.text) === key);
-  const word = matches[occurrence - 1];
+  // A list's point is said after the list starts (RV-192 of an adopting app): its occurrence counts from there, and only
+  // a word the list never reaches falls back to the whole cut's count, as before.
+  const after = from === undefined ? [] : matches.filter((word) => word.start >= from - WORD_START_TOLERANCE);
+  const word = after[occurrence - 1] ?? matches[occurrence - 1];
   if (word === undefined) {
     const said = matches.length === 0 ? "the film never says it" : `the film says it ${matches.length} time${matches.length === 1 ? "" : "s"}`;
     return { ok: false, error: `${field}: no word "${wanted.text}"${occurrence > 1 ? ` (occurrence ${occurrence})` : ""} in the cut; ${said}` };
   }
   return { ok: true, start: word.start };
 }
+
+/** How far before a list's start its point's word may begin and still count as said after it: one frame at 30 fps. */
+const WORD_START_TOLERANCE = 0.034;
 
 const r1 = (value: number): number => Math.round(value * 10) / 10;
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;
@@ -590,7 +596,7 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
     // Chips always come in one by one, as a countdown of the points (RV-181 of an adopting app); a stack only when asked.
     const isStaggered = overlay.style?.stagger === true || overlay.item_words !== undefined || overlay.item_at !== undefined;
     if (placed.overlay.kind === "list" && (isStaggered || placed.overlay.chips !== undefined)) {
-      const said = (overlay.item_words ?? []).map((word, item) => findWordStart(word, input.words, `item_words[${item}]`));
+      const said = (overlay.item_words ?? []).map((word, item) => findWordStart(word, input.words, `item_words[${item}]`, start));
       const missing = said.flatMap((word) => (word.ok ? [] : [word.error]));
       if (missing.length > 0) {
         problems.push(...missing.map((error) => `${at}.${error}`));
@@ -1068,15 +1074,16 @@ export function getChipTickPoints(badge: { centre: OverlayPoint; radius: number 
 }
 
 /**
- * When each chip of a row is covered: the second the next point comes in, after which the chip steps back (its point
- * fainter, its number a tick) and the newest point leads, as a countdown does; null for the last chip, and for one
- * whose next point comes in with it or after the list has gone.
+ * When each chip of a row is covered: the first second a later point comes in after it, after which the chip steps
+ * back (its point fainter, its number a tick) and the newest point leads, as a countdown does. So every point before
+ * the one leading is ticked, in order, even when two came in together (RV-192 of an adopting app). Null for the
+ * points that lead last, and for one whose next point comes in only after the list has gone.
  */
 export function getChipCoveredTimes(overlay: Extract<ResolvedOverlay, { kind: "list" }>): (number | null)[] {
   const times = getListItemTimes(overlay);
   return times.map((at, index) => {
-    const next = times[index + 1];
-    return next !== undefined && next > at && next < overlay.end ? next : null;
+    const next = times.slice(index + 1).find((later) => later > at);
+    return next !== undefined && next < overlay.end ? next : null;
   });
 }
 
