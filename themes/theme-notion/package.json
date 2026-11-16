@@ -64,7 +64,7 @@
     "@softure-ai/theme-kit": "^0.1.4",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
-    "lucide-react": "^1.70.0",
+    "lucide-react": "^1.72.0",
     "pdfjs-dist": "^6.5.438",
     "radix-ui": "^1.8.1",
     "sonner": "^2.0.8",
