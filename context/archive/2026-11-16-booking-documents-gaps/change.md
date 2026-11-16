@@ -1,7 +1,7 @@
 ---
 change_id: booking-documents-gaps
 title: "files, pwa, theme-notion: what an app needs to keep documents and show them offline"
-status: planned
+status: archived
 roadmap_item: null
 issue: "#1255, #1256, #1257"
 branch: claude/project-thread-4n160z

@@ -34,7 +34,8 @@ each package. TDD where the contract is clear (files, pwa), test-after for the v
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
-- [ ] Phase 4
+- [x] Phase 1 (df7f591): `npx vitest run modules/files` 234 passed; `tests/save-from-url.test.ts` 21 cases.
+- [x] Phase 2 (22dc210): `npx vitest run modules/pwa` 318 passed; `kept-files-worker.test.ts`, `kept-files.test.ts`.
+- [x] Phase 3 (19b61aa): `npx vitest run themes/theme-notion` 1216 passed; coverage 96.07 % statements, 93.91 % branches;
+  `npm run test:visual -- --grep "inline cases|Document"` 8 passed (axe clean) with the new baselines, checked by eye.
+- [x] Phase 4 (2f1cc03, c740f81, 03eac4e): files 0.5.0, pwa 0.3.0, theme-notion 0.17.0; `npm run build` exit 0.
