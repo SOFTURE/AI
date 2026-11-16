@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.3.0
 
 - `streamChat` (#1258): a streamed chat answer over AI SDK `streamText` that returns its `StreamTextResult` (a route
   calls `toUIMessageStreamResponse()`), with the client's model, `timeoutMs`, `attributes`, `onUsage`, `onCall`,
