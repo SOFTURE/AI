@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.7.5
+
+- `./jobs` is declared Workers-safe (`softure.workers`, runtime-providers RP-4): its handlers run from the
+  Workers Cron Trigger of `@softure-ai/jobs/workers` as well as from the Node worker.
+  - Migrate: nothing.
+
 ## 0.7.4
 
 - Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the

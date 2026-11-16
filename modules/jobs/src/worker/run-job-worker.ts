@@ -7,26 +7,20 @@ import { hostname } from "node:os";
 import { systemClock, type Clock, type SoftureConfig } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import type { JobHandlers } from "../handlers.js";
-import { JobCancelledError } from "../progress.js";
-import { claimJobs, heartbeatJob, releaseJob, type ClaimedJob } from "../server/claim.js";
+import { claimJobs, releaseJob, type ClaimedJob } from "../server/claim.js";
 import type { JobsContext } from "../server/context.js";
+import { createDatabaseOutage, type DatabaseOutage } from "../server/database-outage.js";
 import { checkHandlers } from "../server/handler-check.js";
-import { checkScheduleStates } from "../server/hooks.js";
+import { startLeasedRun, type LeasedRun } from "../server/leased-run.js";
 import { consoleJobsLogger, type JobsLogger } from "../server/logger.js";
-import { pruneJobs } from "../server/maintenance.js";
-import { pruneJobRuns } from "../server/runs.js";
-import { pruneSyncItems } from "../server/sync-items.js";
 import { getJobsOptions, getQueue } from "../server/options.js";
-import { runClaimedJob } from "../server/process.js";
-import { enqueueScheduledRun, getSchedule, getScheduleNames, getScheduleSlot } from "../server/schedules.js";
-import { createDatabaseOutage, type DatabaseOutage } from "./database-outage.js";
+import { checkRoundScheduleStates, enqueueRoundSchedules, pruneRound } from "../server/round.js";
+import { getScheduleNames } from "../server/schedules.js";
 import { createHealthFile } from "./health.js";
 
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 /** How often the loop compares schedule health with what `onScheduleStateChanged` last reported. */
 const SCHEDULE_CHECK_INTERVAL_MS = 60 * 1000;
-/** A lease is extended three times per lease period, so one slow write does not lose it. */
-const HEARTBEATS_PER_LEASE = 3;
 /** How long an unavailable database is logged as `info` before its failures are logged as `error` again. */
 const DATABASE_OUTAGE_TOLERANCE_MS = 60 * 1000;
 
@@ -60,12 +54,6 @@ export interface RunJobWorkerOptions {
   readonly databaseOutageToleranceMs?: number;
 }
 
-interface RunningJob {
-  readonly claimed: ClaimedJob;
-  readonly controller: AbortController;
-  readonly done: Promise<void>;
-}
-
 /**
  * Runs until `signal` aborts, then resolves once every job finished or was released. Throws before starting on a
  * handler for an unknown queue or when no queue has a handler. Database failures while claiming or recording are
@@ -87,7 +75,7 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
     logger,
     toleranceMs: options.databaseOutageToleranceMs ?? DATABASE_OUTAGE_TOLERANCE_MS,
   });
-  const running = new Map<string, Set<RunningJob>>(queues.map((queue) => [queue, new Set()]));
+  const running = new Map<string, Set<LeasedRun>>(queues.map((queue) => [queue, new Set()]));
   const wakeUp = createWakeUp();
   let lastPruneAt = Number.NEGATIVE_INFINITY;
   let lastScheduleCheckAt = Number.NEGATIVE_INFINITY;
@@ -104,71 +92,29 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
   healthFile?.remove();
   logger.info("worker started", { workerId, queues: queues.join(", ") });
 
-  const start = (claimed: ClaimedJob): RunningJob => {
-    const controller = new AbortController();
-    const heartbeatMs = options.heartbeatMs ?? (getQueue(jobsOptions, claimed.job.queue).leaseSeconds * 1000) / HEARTBEATS_PER_LEASE;
-    const heartbeat = setInterval(() => {
-      heartbeatJob(ctx, claimed).then(
-        (state) => {
-          outage.recover();
-          if (controller.signal.aborted || state === "held") return;
-          if (state === "cancel_requested") {
-            logger.info("job cancelled by an operator; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
-            controller.abort(new JobCancelledError());
-            return;
-          }
-          logger.warn("job lease lost; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
-          controller.abort();
-        },
-        (error: unknown) => {
-          outage.fail("could not extend a job lease", { queue: claimed.job.queue, jobId: claimed.job.id, error });
-        },
-      );
-    }, heartbeatMs);
-    const done = runClaimedJob(ctx, claimed, { handlers: options.handlers, logger, signal: controller.signal, random })
-      .then(
-        (outcome) => {
-          outage.recover();
-          if (outcome.kind === "stale") logger.warn("job outcome not recorded: the job was taken over or released", { queue: claimed.job.queue, jobId: claimed.job.id });
-        },
-        (error: unknown) => {
-          outage.fail("could not record a job outcome; it runs again when its lease ends", { queue: claimed.job.queue, jobId: claimed.job.id, error });
-        },
-      )
-      .finally(() => {
-        clearInterval(heartbeat);
-        running.get(claimed.job.queue)?.delete(entry);
+  const roundOptions = { logger, outage };
+  const start = (claimed: ClaimedJob): LeasedRun =>
+    startLeasedRun(ctx, claimed, {
+      handlers: options.handlers,
+      logger,
+      outage,
+      random,
+      ...(options.heartbeatMs === undefined ? {} : { heartbeatMs: options.heartbeatMs }),
+      onSettled: (run) => {
+        running.get(claimed.job.queue)?.delete(run);
         wakeUp.wake();
-      });
-    const entry: RunningJob = { claimed, controller, done };
-    return entry;
-  };
+      },
+    });
 
   while (!options.signal.aborted) {
-    for (const name of scheduleNames) {
-      const slot = getScheduleSlot(getSchedule(jobsOptions, name), ctx.clock.now());
-      if ((settledSlots.get(name) ?? Number.NEGATIVE_INFINITY) >= slot.getTime()) continue;
-      try {
-        const isEnqueued = await enqueueScheduledRun(ctx, name, slot);
-        outage.recover();
-        settledSlots.set(name, slot.getTime());
-        if (isEnqueued) logger.info("scheduled run enqueued", { queue: name, slot: slot.toISOString() });
-      } catch (error) {
-        outage.fail("could not enqueue a scheduled run; trying again next round", { queue: name, error });
-      }
-    }
+    await enqueueRoundSchedules(ctx, scheduleNames, settledSlots, roundOptions);
     if (ctx.clock.now().getTime() - lastScheduleCheckAt >= SCHEDULE_CHECK_INTERVAL_MS) {
       lastScheduleCheckAt = ctx.clock.now().getTime();
-      try {
-        await checkScheduleStates(ctx, { logger });
-        outage.recover();
-      } catch (error) {
-        outage.fail("could not check schedule states", { error });
-      }
+      await checkRoundScheduleStates(ctx, roundOptions);
     }
     let isClaimFailed = false;
     for (const queue of queues) {
-      const slots = running.get(queue) ?? new Set<RunningJob>();
+      const slots = running.get(queue) ?? new Set<LeasedRun>();
       const free = getQueue(jobsOptions, queue).concurrency - slots.size;
       if (free <= 0 || options.signal.aborted) continue;
       try {
@@ -183,27 +129,7 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
     }
     if (ctx.clock.now().getTime() - lastPruneAt >= PRUNE_INTERVAL_MS) {
       lastPruneAt = ctx.clock.now().getTime();
-      try {
-        const deleted = await pruneJobs(ctx);
-        outage.recover();
-        if (deleted > 0) logger.info("pruned finished jobs", { deleted });
-      } catch (error) {
-        outage.fail("could not prune finished jobs", { error });
-      }
-      try {
-        const deleted = await pruneJobRuns(ctx);
-        outage.recover();
-        if (deleted > 0) logger.info("pruned the run history", { deleted });
-      } catch (error) {
-        outage.fail("could not prune the run history", { error });
-      }
-      try {
-        const deleted = await pruneSyncItems(ctx);
-        outage.recover();
-        if (deleted > 0) logger.info("pruned sync ledger items", { deleted });
-      } catch (error) {
-        outage.fail("could not prune sync ledger items", { error });
-      }
+      await pruneRound(ctx, roundOptions);
     }
     if (!isClaimFailed) healthFile?.touch();
     await wakeUp.wait(jobsOptions.pollIntervalMs, options.signal);
@@ -219,7 +145,7 @@ export async function runJobWorker(options: RunJobWorkerOptions): Promise<void> 
  * attempt settles, so what is still there after the grace period is unfinished.
  */
 async function stop(
-  running: ReadonlyMap<string, Set<RunningJob>>,
+  running: ReadonlyMap<string, Set<LeasedRun>>,
   options: { ctx: JobsContext; logger: JobsLogger; outage: DatabaseOutage; graceMs: number },
 ): Promise<void> {
   const jobs = [...running.values()].flatMap((slots) => [...slots]);

@@ -81,7 +81,7 @@ Probed in workerd (Miniflare, `nodejs_compat`) for RP-5, so a package does not r
 | `@softure-ai/core` (`.`, `./next`, `./og`) | yes | yes | RP-1, RP-7 |
 | `@softure-ai/db` (`./request`) | yes | yes | RP-2 |
 | `@softure-ai/auth` (`.`, `./server`, `./proxy`, `./next`, `./ui`) | yes | yes | RP-3, RP-7 |
-| `@softure-ai/jobs` | yes | planned | RP-4 |
+| `@softure-ai/jobs` (`.`, `./server`, `./workers`, `./next`, `./ui`, `./react`) | yes | yes | RP-4 |
 | `@softure-ai/security` (`.`, `./server`, `./signed-request`, `./readable-text`) | yes | yes | RP-5 |
 | `@softure-ai/observability` (`.`, `./workers`) | yes | yes | RP-6 |
 | `@softure-ai/agent-ready` (`.`, `./server`, `./next`, `./webmcp`) | yes | yes | RP-7 |
@@ -99,11 +99,35 @@ Probed in workerd (Miniflare, `nodejs_compat`) for RP-5, so a package does not r
 | `@softure-ai/waitlist` (`.`, `./server`, `./next`, `./ui`) | yes | yes | RP-7 |
 | `@softure-ai/ui` (`.`, `./next`) | yes | yes | RP-7 |
 | `@softure-ai/theme-kit` (`.`, `./react`, `./next`) | yes | yes | RP-7 |
-| `@softure-ai/alerts` (`.`, `./mailing`, `./ui`; `./server`, `./next` after RP-4) | yes | partly | RP-7, RP-4 |
-| `@softure-ai/blog` (`.`, `./next`, `./ui`, `./proxy`; `./server` after RP-4) | yes | partly | RP-7, RP-4 |
+| `@softure-ai/alerts` (`.`, `./server`, `./jobs`, `./mailing`, `./next`, `./ui`) | yes | yes | RP-7, RP-4 |
+| `@softure-ai/blog` (`.`, `./server`, `./next`, `./ui`, `./proxy`, `./jobs`) | yes | yes | RP-7, RP-4 |
 | `@softure-ai/deploy` (`host: "cloudflare"`) | yes | planned | RP-8 |
 | `@softure-ai/backup` (`host: "cloudflare"`) | yes | planned | RP-9 |
 
-A row turns to `yes` in the item that adds the package's `softure.workers` entries and its module's `runtimes`. No
-`./jobs`, `./cli`, `./scripts`, `./stdio` or `./testing` entry is declared: jobs run on Workers after RP-4, the rest are
-Node tools.
+A row turns to `yes` in the item that adds the package's `softure.workers` entries and its module's `runtimes`. Every
+module's `./jobs` entry is Workers-safe since RP-4; no `./cli`, `./scripts`, `./stdio` or `./testing` entry is
+declared, and neither is jobs' `./worker` (the Node process): they are Node tools.
+
+## Background jobs on Workers
+
+A Worker has no process that loops, so jobs run from a Cron Trigger: `createScheduledHandler` from
+`@softure-ai/jobs/workers` is the Worker's `scheduled` export, fired every minute (`"triggers": { "crons":
+["* * * * *"] }` in `wrangler.jsonc`). Each firing opens the request database on the Hyperdrive URL from `env` and runs
+one `runJobsTick`: due schedules are enqueued, due jobs run up to each queue's concurrency under their leases until
+nothing is due or the budget (default 45 s) ends, and the invocation stays alive through `waitUntil` until what it
+started has settled. A job still running at the budget is logged as `warn`; one the platform stops loses its lease and
+is retried as `jobs.lease_expired`. Ticks that overlap never run a job or a schedule period twice. Health is the row
+`jobs.worker_heartbeats` (`checkJobsTickHealth`) instead of the Node worker's file, and pruning runs once an hour.
+
+```ts
+// worker.ts (OpenNext's worker wrapped with the jobs tick)
+import { createScheduledHandler } from "@softure-ai/jobs/workers";
+import handler from "./.open-next/worker.js";
+import config from "./softure.config";
+import { handlers } from "./src/jobs/handlers";
+
+export default {
+  fetch: handler.fetch,
+  scheduled: createScheduledHandler({ config, handlers, databaseUrl: (env: Env) => env.HYPERDRIVE.connectionString }),
+};
+```

@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/jobs",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "SOFTURE AI jobs module: background jobs in Postgres. Enqueue inside the caller's transaction with an optional dedup key, claim with FOR UPDATE SKIP LOCKED under a lease, fenced completion, retry with exponential backoff and a terminal failed state, a worker process with graceful shutdown, an in-process runner for tests, and an admin page for queues, schedules, failed jobs and the sync ledger.",
   "license": "MIT",
   "type": "module",
@@ -42,6 +42,11 @@
       "types": "./dist/worker/index.d.ts",
       "default": "./dist/worker/index.js"
     },
+    "./workers": {
+      "@softure-ai/source": "./src/workers/index.ts",
+      "types": "./dist/workers/index.d.ts",
+      "default": "./dist/workers/index.js"
+    },
     "./next": {
       "@softure-ai/source": "./src/next/index.ts",
       "types": "./dist/next/index.d.ts",
@@ -68,7 +73,7 @@
   },
   "dependencies": {
     "@softure-ai/core": "^0.2.5",
-    "@softure-ai/db": "^0.1.9",
+    "@softure-ai/db": "^0.1.15",
     "zod": "^4.6.7"
   },
   "peerDependencies": {
@@ -90,5 +95,15 @@
     "react": {
       "optional": true
     }
+  },
+  "softure": {
+    "workers": [
+      ".",
+      "./server",
+      "./workers",
+      "./next",
+      "./ui",
+      "./react"
+    ]
   }
 }

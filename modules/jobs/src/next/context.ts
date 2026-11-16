@@ -2,7 +2,7 @@
 // wall clock.
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getConfiguredDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db/request";
 import type { JobsContext } from "../server/context.js";
 
 export async function getJobsContext(config: SoftureConfig = getSoftureConfig()): Promise<JobsContext> {

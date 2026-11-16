@@ -46,7 +46,7 @@ export const AUTH_RATE_LIMIT_BUCKETS = {
 export const auth = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.15",
+    version: "0.2.16",
     runtimes: ["node", "workers"],
     dependsOn: { security: "^0.2.0", mailing: "^0.2.0?", ops: "^0.2.0?", jobs: "^0.1.1?" },
     dbSchema: "auth",

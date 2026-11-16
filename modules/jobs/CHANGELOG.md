@@ -4,6 +4,28 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.1.11
+
+- Jobs run on Cloudflare Workers (runtime-providers RP-4). `runJobsTick({ config, handlers, budgetMs })` in `/server`
+  runs one bounded worker round: it enqueues due schedules, reports schedule health, claims and runs due jobs (each
+  queue up to its concurrency, every job under its lease heartbeat) until nothing is due or the budget (default 45 s)
+  ends, then waits for what it started. A job still running at the budget is logged as `warn` with its id and keeps its
+  lease until it ends; if the platform stops the invocation, the lease expires and the next claim records
+  `jobs.lease_expired`. Overlapping ticks never run a job or a schedule period twice. The new entry
+  `@softure-ai/jobs/workers` exports `createScheduledHandler({ config, handlers, databaseUrl: (env) =>
+  env.HYPERDRIVE.connectionString })`, the Worker's `scheduled` export for a Cron Trigger (`* * * * *`): it opens the
+  request database (`withRequestDatabase`) and hands the tick to `waitUntil`; a tick that cannot run rejects, so the
+  firing shows as failed.
+- New table `jobs.worker_heartbeats` (migration 10): the tick's heartbeat (`checkJobsTickHealth(ctx, { workerName,
+  maxAgeMs })`, default three minutes) and its hourly prune, taken with a conditional upsert so overlapping ticks prune
+  once. The Node worker keeps its health file.
+- The Node worker loop shares the round's steps with the tick; its behaviour is unchanged. The admin actions and the
+  admin page reach the database through `@softure-ai/db/request` (db `^0.1.15`). The manifest lists `runtimes: ["node",
+  "workers"]` and `.`, `./server`, `./workers`, `./next`, `./ui`, `./react` are declared Workers-safe; `./worker`
+  (the Node process) and `./testing` stay Node-only.
+  - Migrate: run `softure migrate` (adds `jobs.worker_heartbeats`). On Workers, export `scheduled` from the Worker
+    and add a Cron Trigger (`"triggers": { "crons": ["* * * * *"] }` in `wrangler.jsonc`).
+
 ## 0.1.10
 
 - `@softure-ai/jobs/next` builds in an app route that imports the admin actions (#1285): `PANEL_PAUSE_REASON` moved out
