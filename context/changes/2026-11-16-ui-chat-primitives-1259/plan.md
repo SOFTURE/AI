@@ -12,8 +12,8 @@ Input: change.md, research.md. Complexity: medium (one package, docs).
 Files: `foundation/ui/src/ui/chat.tsx`, `src/ui/index.ts`, `src/messages/en.ts`, `foundation/ui/package.json`
 (devDependency `axe-core`), `tests/chat-1259.test.tsx`.
 
-- `ChatLog` (`root`, `list`, `announcer`): `<ol role="log" aria-label aria-live="off" aria-busy>` around
-  `ChatMessage` items, plus a visually hidden `role="status"` polite atomic region that holds `announcement` only
+- `ChatLog` (`root`, `log`, `list`, `announcer`): a `<div role="log" aria-label aria-live="off" aria-busy>` around
+  an `<ol>` of `ChatMessage` items (axe refuses `role="log"` on a list), plus a visually hidden `role="status"` polite atomic region that holds `announcement` only
   when `isStreaming` is false.
 - `ChatMessage` (`root`, `label`, `bubble`, `typing`, `meta`, `actions`): `<li data-role data-status>`, the role's
   name from copy (or `name`), a typing indicator while streaming with no content, optional `meta` and `actions`.
@@ -45,9 +45,12 @@ output only), ui `CHANGELOG.md` `## Unreleased`.
   plain text.
 - `ChatEmptyState` composes the existing `EmptyState` look rather than adding a new primitive.
 - No version bump: the coordinator releases the batch.
+- The typing indicator pulses with a new `sft-typing` keyframe (`--animate-typing`), still under reduced motion.
+- No auto-scroll in `ChatLog`: scrolling is the app's layout (README note); a built-in scroller would fight the
+  app's own page scroll.
 
 ## Progress
 
-- [ ] Phase 1: components and copy
+- [x] Phase 1: components and copy (b1ca35f)
 - [ ] Phase 2: docs
 - [ ] Implementation review

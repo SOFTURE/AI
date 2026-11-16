@@ -126,6 +126,7 @@ or a comment throw.
 | Navigation | `AppHeaderBar`, `AccountMenu`, `MobileMenu` (the app shell), `Stepper` (multi-step forms), `Tabs` (ARIA tabs, roving focus), `TabPanels` (panels for a tab bar of links), `SegmentedNav` (links drawn as segments, `aria-current`), `getQueryHref`, `QuerySegmentedNav` (in `@softure-ai/ui/next`), `DisclosureMenu` + `useDisclosure` (a panel of links), `ExternalLink`, `ServerExternalLink` |
 | Dialogs and feedback | `Modal` (`form`, `confirmation`, `panel`; `motion`), `useModalClose`, `StandingPanel`, `ModalBody`, `ModalFooter`, `ModalForm`, `ConfirmActionButton`, `ActionFormModal`, `ModalTrigger`, `ToastHost` + `announceToast`, `useDismissed` (dismiss a banner for N days) |
 | Progress and app states | `ProgressBar` (`track`, `hairline`; indeterminate without a value), `MiniProgress` (a share with its figure inside), `LaunchScreen`, `TopLoadingBar`, `RouteLoading`, `UpdatePrompt`, `InstallBar` (the screens `@softure-ai/pwa` names) |
+| Chat | `ChatLog`, `ChatMessage`, `ChatComposer`, `ToolCallCard`, `ReasoningDisclosure`, `ChatEmptyState`, `ChatError` (plain props, no AI SDK dependency; see "Chat") |
 | Forms | `ActionForm` (server action, value replay, field errors, success toast), `ActionResult`, `MessageActionResult` |
 | Locale | `UiLocaleProvider`, `useUiLocale` |
 | Money and decimals | `parseAmount`, `formatAmountInput`, `normalizeAmountInput`, `getAmountErrorMessage`, `parseDecimal`, `formatDecimal`, `normalizeDecimalInput` |
@@ -144,7 +145,7 @@ Server-safe (no `"use client"`): `Button`, `ButtonLink`, `ButtonAnchor`, `IconBu
 - **`unstyled`.** Drops every default class and keeps structure, ARIA and behaviour.
 - **Copy.** Components with built-in text (`Modal`, `ModalFooter`, `StandingPanel`, `ActionForm`,
   `ConfirmActionButton`, `CopyButton`, `ExternalLink`, `AccountMenu`, `MobileMenu`, `Stepper`, `Checklist`,
-  `ColorField` picker name, `SuggestedAmountField` chip, `Card` hint and collapse names, field hint names) take `locale` (the provider's, else `en`, any BCP 47
+  `ColorField` picker name, `SuggestedAmountField` chip, the chat components (`chat`), `Card` hint and collapse names, field hint names) take `locale` (the provider's, else `en`, any BCP 47
   tag) and partial `messages` for their group in `uiMessages`. The built-in copy is English only; an app that shows
   another language passes its own translation as `messages` (a key it leaves out reads English). Everything else the user reads (labels, titles, button text) comes from the app as
   props.
@@ -536,6 +537,103 @@ Slots: `root`, `progress`, `list`, `item`, `row` (the row link), `marker`, `body
 `DeferredRender` (server-safe) streams a slow part: the page starts the query without `await` and passes the
 promise as `data`; `fallback` is sent at once and `children(value)` follows in the same response. A rejection
 reaches the nearest error boundary. In a client component the promise must be stable (created outside render).
+
+### Chat
+
+Building blocks of a chat screen on the `--sft-*` tokens, so every theme that bridges them styles a chat with no code
+of its own. They are client components with plain props: ui does not depend on `ai` or `@ai-sdk/*`, and an app maps
+its chat state to them (the recipe below for AI SDK UI's `useChat`).
+
+| Component | What it does | Slots |
+| --- | --- | --- |
+| `ChatLog` | The message list: `role="log"`, `aria-busy` while `isStreaming`, not live itself; a polite status region reads `announcement` once streaming ends | `root`, `log`, `list`, `announcer` |
+| `ChatMessage` | One message (`<li>`), `data-role` (`user`, `assistant`, `system`) and `data-status` (`streaming`, `done`, `error`); a typing indicator while streaming with no content; `meta`, `actions`, `name` | `root`, `label`, `bubble`, `typing`, `meta`, `actions` |
+| `ChatComposer` | A labelled textarea: Enter sends the trimmed text, Shift+Enter adds a line, an IME composition never sends; Send turns into Stop while `status` is `submitted` or `streaming` (with `onStop`), Retry shows on `error` (with `onRetry`); controlled (`value`, `onValueChange`) or not | `root`, `label`, `input`, `actions`, `send`, `stop`, `retry` |
+| `ToolCallCard` | A tool call: `data-state` `pending` (`aria-busy`), `done` (shows `children`, the app's own output component) or `error` (shows `errorText`) | `root`, `header`, `title`, `status`, `body`, `error` |
+| `ReasoningDisclosure` | The model's reasoning under a native `<details>`, folded by default; "Thinking…" while `isStreaming` | `root`, `summary`, `content` |
+| `ChatEmptyState` | Before the first message, with prompt `suggestions` as buttons (`onSuggestion`) | `root`, `title`, `description`, `suggestions`, `suggestion` |
+| `ChatError` | A failed answer, `role="alert"`, with Retry when `onRetry` is given | `root`, `message`, `retry` |
+
+Types: `ChatRole`, `ChatMessageStatus`, `ChatStatus` (the values of `useChat().status`), `ToolCallState`, and each
+component's `…Props` and `…Slot`. The copy is the `chat` group of `uiMessages` (log name, role names, composer, tool
+states, reasoning, empty and error texts), overridable per component through `messages` or for the whole app through
+`UiLocaleProvider`. A message's text keeps its line breaks (`white-space: pre-wrap`); ui renders no Markdown and no
+HTML. An app that wants Markdown passes a sanitising renderer's output as `children`, never raw HTML.
+
+**Recipe: AI SDK UI's `useChat`.** One client component maps message parts to props. Each tool gets a component
+from a registry keyed by tool name, which receives the tool's output only once AI SDK has validated it against the
+tool's `outputSchema` (on the server, `safeValidateUIMessages` re-checks the history the client sends back).
+
+```tsx
+"use client";
+import { useChat } from "@ai-sdk/react";
+import { ChatComposer, ChatEmptyState, ChatError, ChatLog, ChatMessage, ReasoningDisclosure, ToolCallCard, type ToolCallState } from "@softure-ai/ui";
+import { DefaultChatTransport, type ToolUIPart } from "ai";
+import type { ReactNode } from "react";
+import type { AppChatMessage, AppTools } from "./chat-types"; // AppTools = InferUITools<typeof tools>; AppChatMessage = UIMessage<Metadata, UIDataTypes, AppTools>
+
+type ToolName = keyof AppTools & string;
+
+// One entry per tool: its title and how its validated output is drawn. Output is data, never HTML.
+const TOOL_VIEWS: { [Name in ToolName]: { readonly title: string; readonly render: (output: AppTools[Name]["output"]) => ReactNode } } = {
+  getProjectStatus: { title: "Project status", render: (output) => <ProjectStatus status={output} /> },
+};
+
+function getToolState(state: ToolUIPart["state"]): ToolCallState {
+  if (state === "output-available") return "done";
+  if (state === "output-error" || state === "output-denied") return "error";
+  return "pending"; // input-streaming, input-available, approval-requested, approval-responded
+}
+
+function renderPart(part: AppChatMessage["parts"][number], key: number): ReactNode {
+  if (part.type === "text") return part.text;
+  if (part.type === "reasoning") return <ReasoningDisclosure key={key} isStreaming={part.state === "streaming"}>{part.text}</ReasoningDisclosure>;
+  if (part.type.startsWith("tool-")) {
+    const tool = part as ToolUIPart<AppTools>;
+    const name = tool.type.slice("tool-".length) as ToolName;
+    const view = TOOL_VIEWS[name];
+    const state = getToolState(tool.state);
+    return (
+      <ToolCallCard key={key} title={view.title} state={state} errorText={state === "error" ? "The tool failed." : undefined}>
+        {tool.state === "output-available" ? view.render(tool.output) : null}
+      </ToolCallCard>
+    );
+  }
+  return null; // files, sources, data parts: render them explicitly when the app uses them
+}
+
+export function Chat() {
+  const { messages, sendMessage, status, stop, regenerate, error } = useChat<AppChatMessage>({
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
+  });
+  const isStreaming = status === "submitted" || status === "streaming";
+  const last = messages.at(-1);
+  const announcement = last?.role === "assistant" ? last.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join(" ") : undefined;
+  return (
+    <>
+      {messages.length === 0 ? (
+        <ChatEmptyState suggestions={["How is my project going?"]} onSuggestion={(text) => void sendMessage({ text })} />
+      ) : (
+        <ChatLog isStreaming={isStreaming} announcement={announcement}>
+          {messages.map((message) => (
+            <ChatMessage key={message.id} role={message.role} status={isStreaming && message === last && message.role === "assistant" ? "streaming" : "done"}>
+              {message.parts.map(renderPart)}
+            </ChatMessage>
+          ))}
+          {status === "submitted" ? <ChatMessage role="assistant" status="streaming" /> : null}
+        </ChatLog>
+      )}
+      {error === undefined ? null : <ChatError onRetry={() => void regenerate()} />}
+      <ChatComposer status={status} onSend={(text) => void sendMessage({ text })} onStop={() => void stop()} onRetry={() => void regenerate()} />
+    </>
+  );
+}
+```
+
+Notes: the error text shown to the user comes from the app's copy (the route maps failures to codes, as for any
+route); a tool missing from `TOOL_VIEWS` fails the type check, so a new tool cannot render as nothing by accident;
+scrolling the log to the newest message is the app's layout (for example a `flex-col-reverse` scroller or a
+`scrollIntoView` on the last message).
 
 ### Next.js adapter (`@softure-ai/ui/next`)
 
