@@ -127,6 +127,7 @@ state. App-specific motion (a wizard's step stamp) stays in the app.
 | `UPDATE_PROMPT_LOOK`, `INSTALL_BAR_LOOK` | ui's `UpdatePrompt` and `InstallBar` `classNames`: flat panel rising in (`prompt-enter`), title on `subsection`, `accent` icon, borderless primary action |
 | `LAUNCH_SCREEN_LOOK`, `ROUTE_LOADING_LOOK` | ui's `LaunchScreen` and `RouteLoading` `classNames`: name on `band`, bar on a `border` track, percentage as a `num`; `TopLoadingBar` needs none (its line is `accent`) |
 | `MINI_PROGRESS_LOOK` | ui's `MiniProgress` `classNames`: flag radius, track at 8 % of the text colour, figure as a caption `num` |
+| `CHAT_LOOK` (`CHAT_LOG_LOOK`, `CHAT_MESSAGE_LOOK`, `CHAT_COMPOSER_LOOK`, `TOOL_CALL_CARD_LOOK`, `REASONING_DISCLOSURE_LOOK`, `CHAT_EMPTY_STATE_LOOK`, `CHAT_ERROR_LOOK`) | ui's chat components `classNames`: the user's bubble outlined in `line-strong`, tool states by border style and a `debt` edge besides colour, the state word in an outlined flag; markup below |
 
 A data table (ui has no table component): column headers 12 px 500 `muted`, 44 px rows with a `border` hairline,
 amounts right-aligned in `tabular` with the last column bold, an empty cell `—` in `muted`, the selected row on
@@ -195,6 +196,31 @@ import { CHOICE_ROW_LOOK as look, RADIO_LOOK as radio } from "@softure-ai/theme-
   </span>
 </label>
 ```
+
+### Chat
+
+ui's chat components render in Flat Paint through the bridge alone; `CHAT_LOOK` adds the theme's own look. In the
+light scheme `surface` and `surface-raised` are both white, so the user's bubble gets a `line-strong` outline. Every
+state has a second carrier besides colour: a running tool call has a dashed border, a settled one a solid border, a
+failed call, message or answer a 4 px `debt` leading edge, and the state's word sits in an outlined flag (`muted`,
+`accessible`, `debt`, all at 4.5:1 or more). Lime stays paint: the only lime is ui's primary Send button.
+
+```tsx
+import { ChatComposer, ChatLog, ChatMessage, ToolCallCard } from "@softure-ai/ui";
+import { CHAT_LOOK } from "@softure-ai/theme-flat-paint";
+
+<h1 className="text-page">Project assistant</h1>
+<ChatLog isStreaming={isStreaming} announcement={lastAnswer} classNames={CHAT_LOOK.log}>
+  <ChatMessage role="user" classNames={CHAT_LOOK.message}>How is the project doing?</ChatMessage>
+  <ChatMessage role="assistant" status="streaming" classNames={CHAT_LOOK.message}>
+    <ToolCallCard title="Project status" state="pending" classNames={CHAT_LOOK.toolCall} />
+  </ChatMessage>
+</ChatLog>
+<ChatComposer status={status} onSend={send} onStop={stop} classNames={CHAT_LOOK.composer} />
+```
+
+The theme uses Tailwind's full preflight, which resets heading styles: a title above the chat needs the type step
+(`text-page`, as above). The chat components set their own text and need nothing.
 
 ## Tokens
 
