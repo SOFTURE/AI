@@ -8,7 +8,7 @@
 // commit would do (the rows before and after, read from the database).
 import type { BlogArticleInput, BlogArticleKind, BlogArticleStatus, BlogPublishAction } from "../contract.js";
 import { parseArticleFile, type ParseArticleFileOptions } from "../content/article-file.js";
-import { findDriverError, isConstraintViolation, type Queryable } from "@softure-ai/db";
+import { findDriverError, isConstraintViolation, type Queryable } from "@softure-ai/db/request";
 import { eq } from "drizzle-orm";
 import { findTermFormConflicts, toGlossary } from "../render/glossary.js";
 import { listArticles, publishArticle, type BlogContext } from "./articles.js";

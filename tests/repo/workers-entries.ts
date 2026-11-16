@@ -16,6 +16,11 @@ export const WORKERS_BUILTINS: ReadonlySet<string> = new Set([
   "dns",
   "dns/promises",
   "events",
+  // workerd's node:fs is a virtual disk: the bundle read-only under /bundle and a /tmp that lasts one request. There is
+  // no project folder, so a file the app ships next to it on Node (.next/BUILD_ID, a content folder) is not there:
+  // request-path code that reads one handles Workers itself (docs/07-runtime-providers.md).
+  "fs",
+  "fs/promises",
   // workerd's node:http and node:https wrap fetch: no socket, so the `lookup` and `agent` options do nothing or are
   // refused (ERR_OPTION_NOT_IMPLEMENTED for `lookup`); a redirect comes back unfollowed and a body still encoded.
   "http",

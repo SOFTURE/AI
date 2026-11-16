@@ -4,13 +4,26 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findFile, getOwnerUsage, openFile, saveFile } from "@softure-ai/files/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ALICE, BOB, chunked, closeTestFiles, createTestFiles, HOUR_MS, listRows, NOW, readText, sha256, type TestFiles } from "./support.js";
 
 describe("saveFile", () => {
   let test: TestFiles;
 
   afterEach(closeTestFiles);
+
+  it("refuses a disk path on Cloudflare Workers and writes nothing", async () => {
+    test = await createTestFiles();
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    try {
+      await expect(saveFile(test.ctx, { ownerId: ALICE, path: "/tmp/render.mp4", name: "render.mp4" })).rejects.toThrow(
+        "@softure-ai/files: saveFile({ path }) reads the server's disk, which Cloudflare Workers do not have; pass the bytes as body",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(await listRows(test.database)).toEqual([]);
+  });
 
   it("stores a streamed body with its hash, size, type, name and kind", async () => {
     test = await createTestFiles();

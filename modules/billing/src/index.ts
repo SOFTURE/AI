@@ -29,7 +29,8 @@ export const BILLING_RATE_LIMIT_BUCKETS = {
 export const billing = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.11.1",
+    version: "0.11.2",
+    runtimes: ["node", "workers"],
     dependsOn: { security: "^0.2.0", auth: "^0.2.0", mailing: "^0.2.0?", ops: "^0.2.0?", jobs: "^0.1.1?" },
     dbSchema: "billing",
     tables: ["entitlements", "payments", "payment_requests", "manual_grants", "trial_extensions", "usage"],

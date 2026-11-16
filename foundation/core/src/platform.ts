@@ -51,3 +51,11 @@ function describeSupportedPlatforms(): string {
     .flatMap(([host, runtimes]) => runtimes.map((runtime) => `${host}+${runtime}`))
     .join(", ");
 }
+
+/**
+ * Whether this code runs on Cloudflare Workers, whose runtime names itself in `navigator.userAgent`. For a code path
+ * that cannot work there at all (a disk folder, a file shipped next to the app); the platform config decides the rest.
+ */
+export function isWorkersRuntime(): boolean {
+  return (globalThis as { navigator?: { userAgent?: unknown } }).navigator?.userAgent === "Cloudflare-Workers";
+}

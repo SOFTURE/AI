@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/seo",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "SOFTURE AI seo module: robots.txt with explicit AI crawler lists, an htmlLimitedBots list that keeps Next's defaults, a sitemap from app and module contributors, one canonical origin, and the IndexNow key file and submit (dry run by default).",
   "license": "MIT",
   "type": "module",
@@ -55,5 +55,13 @@
     "node-html-markdown": "^2.0.0",
     "node-html-parser": "^9.0.7",
     "zod": "^4.6.7"
+  },
+  "softure": {
+    "workers": [
+      ".",
+      "./server",
+      "./proxy",
+      "./next"
+    ]
   }
 }

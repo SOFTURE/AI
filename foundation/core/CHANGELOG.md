@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## 0.2.9
+
+- `isWorkersRuntime()`: whether the code runs on Cloudflare Workers (`navigator.userAgent`), for a code path that
+  cannot work there at all, such as a disk folder (runtime-providers RP-7).
+- `./og` is declared Workers-safe. On Workers give the fonts as https URLs: a path is read from the app's folder,
+  which a Worker does not have.
+  - Migrate: nothing.
+
 ## 0.2.8
 
 - `platform: { runtime?, host? }` in `defineSoftureConfig` (runtime-providers RP-1): `runtime` is `node` or `workers`,

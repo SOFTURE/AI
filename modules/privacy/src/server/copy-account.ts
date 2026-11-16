@@ -5,7 +5,7 @@
 // microseconds) and NULL stays NULL. The copy is verified before it is kept, and a dry run by default.
 import { users } from "@softure-ai/auth";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
-import { findDriverError, type Queryable } from "@softure-ai/db";
+import { findDriverError, type Queryable } from "@softure-ai/db/request";
 import { sql, type SQL } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { getEmailKey } from "./consents.js";

@@ -1,10 +1,10 @@
 ---
 change_id: modules-workers-sweep
 title: "modules: the remaining runtime modules pass the Workers guard"
-status: open
+status: archived
 roadmap_item: RP-7
 issue: null
-branch: null
+branch: claude/project-thread-dufdk1
 created: 2026-11-16
 updated: 2026-11-16
 ---

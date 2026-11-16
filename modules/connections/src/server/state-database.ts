@@ -3,7 +3,7 @@
 // database when the caller's transaction rolls back (issue #935: a `processSyncItem` item that fails). Inside a
 // transaction the state goes through the app's configured database instead, the handle the module's adapters use; a
 // single-connection database (PGlite) has nothing else to write on and keeps the caller's transaction.
-import { getConfiguredDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db/request";
 import { is } from "drizzle-orm";
 import { PgTransaction } from "drizzle-orm/pg-core";
 import type { ConnectionsContext } from "./store.js";

@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.5.1
+
+- Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the
+  entries `.`, `./client`, `./server`, `./next`, `./mcp` are declared Workers-safe (`softure.workers`). Request-path code reaches the database through
+  `@softure-ai/db/request` (db `^0.1.15`); the CLI keeps the root entry.
+- On Workers `createLocalStorage` throws, naming `createS3Storage` (R2 through the S3 driver), and
+  `saveFile({ path })` throws: a Worker has no server disk, so a caller passes the bytes as `body`.
+  - Migrate: nothing.
+
 ## 0.5.0
 
 - `saveFileFromUrl(ctx, { ownerId, url, name?, contentType?, contentTypes?, kind?, expiresAt? | ttlSeconds?,

@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/core",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "The SOFTURE AI module contract: app config, module definitions, Result, Clock and messages.",
   "license": "MIT",
   "type": "module",
@@ -55,7 +55,8 @@
   "softure": {
     "workers": [
       ".",
-      "./next"
+      "./next",
+      "./og"
     ]
   }
 }

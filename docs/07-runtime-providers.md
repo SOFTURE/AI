@@ -68,19 +68,42 @@ Probed in workerd (Miniflare, `nodejs_compat`) for RP-5, so a package does not r
 - `node:http` and `node:https` are a wrapper over `fetch`: a 3xx comes back unfollowed with its `Location`, a body
   keeps its `Content-Encoding`, and the `lookup` option is refused (`ERR_OPTION_NOT_IMPLEMENTED`), so a request
   cannot pin the address it checked.
+- `node:fs` and `node:fs/promises` (measured for RP-7): a virtual disk with the bundle read-only under `/bundle` and
+  a `/tmp` that lasts one request. There is no app folder, so a file the app ships next to its code on Node
+  (`.next/BUILD_ID`, a content folder, a font path) is not there. The guard allows the import; code on a request path
+  that reads such a file handles Workers itself (files refuses its disk driver, pwa reads `SOFTURE_BUILD_VERSION`,
+  OG fonts are given as URLs), and CLIs keep reading files under Node.
 
 ## Support matrix
 
 | Package | Node | Workers | Item |
 | --- | --- | --- | --- |
-| `@softure-ai/core` (`.`, `./next`) | yes | yes | RP-1 |
+| `@softure-ai/core` (`.`, `./next`, `./og`) | yes | yes | RP-1, RP-7 |
 | `@softure-ai/db` (`./request`) | yes | yes | RP-2 |
-| `@softure-ai/auth` (`.`, `./server`, `./proxy`) | yes | yes | RP-3 |
+| `@softure-ai/auth` (`.`, `./server`, `./proxy`, `./next`, `./ui`) | yes | yes | RP-3, RP-7 |
 | `@softure-ai/jobs` | yes | planned | RP-4 |
 | `@softure-ai/security` (`.`, `./server`, `./signed-request`, `./readable-text`) | yes | yes | RP-5 |
 | `@softure-ai/observability` (`.`, `./workers`) | yes | yes | RP-6 |
-| other runtime modules | yes | planned | RP-7 |
+| `@softure-ai/agent-ready` (`.`, `./server`, `./next`, `./webmcp`) | yes | yes | RP-7 |
+| `@softure-ai/analytics` (`.`, `./server`, `./next`, `./next/channel-keeper`, `./proxy`, `./client`, `./ui`) | yes | yes | RP-7 |
+| `@softure-ai/billing` (`.`, `./server`, `./mailing`, `./next`, `./ui`) | yes | yes | RP-7 |
+| `@softure-ai/connections` (`.`, `./server`, `./next`, `./ui`) | yes | yes | RP-7 |
+| `@softure-ai/feature-switches` (`.`, `./server`, `./next`, `./ui`) | yes | yes | RP-7 |
+| `@softure-ai/files` (`.`, `./client`, `./server`, `./next`, `./mcp`) | yes | yes | RP-7 |
+| `@softure-ai/mailing` (`.`, `./server`, `./next`) | yes | yes | RP-7 |
+| `@softure-ai/mcp-access` (`.`, `./server`, `./tokens`, `./next`, `./ui`) | yes | yes | RP-7 |
+| `@softure-ai/metering` (`.`, `./server`) | yes | yes | RP-7 |
+| `@softure-ai/privacy` (`.`, `./server`, `./next`, `./ui`) | yes | yes | RP-7 |
+| `@softure-ai/pwa` (`.`, `./next`, `./react`) | yes | yes | RP-7 |
+| `@softure-ai/seo` (`.`, `./server`, `./proxy`, `./next`) | yes | yes | RP-7 |
+| `@softure-ai/waitlist` (`.`, `./server`, `./next`, `./ui`) | yes | yes | RP-7 |
+| `@softure-ai/ui` (`.`, `./next`) | yes | yes | RP-7 |
+| `@softure-ai/theme-kit` (`.`, `./react`, `./next`) | yes | yes | RP-7 |
+| `@softure-ai/alerts` (`.`, `./mailing`, `./ui`; `./server`, `./next` after RP-4) | yes | partly | RP-7, RP-4 |
+| `@softure-ai/blog` (`.`, `./next`, `./ui`, `./proxy`; `./server` after RP-4) | yes | partly | RP-7, RP-4 |
 | `@softure-ai/deploy` (`host: "cloudflare"`) | yes | planned | RP-8 |
 | `@softure-ai/backup` (`host: "cloudflare"`) | yes | planned | RP-9 |
 
-A row turns to `yes` in the item that adds the package's `softure.workers` entries and its module's `runtimes`.
+A row turns to `yes` in the item that adds the package's `softure.workers` entries and its module's `runtimes`. No
+`./jobs`, `./cli`, `./scripts`, `./stdio` or `./testing` entry is declared: jobs run on Workers after RP-4, the rest are
+Node tools.

@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, rename, rm, stat, statfs, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { isWorkersRuntime } from "@softure-ai/core";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ByteRange } from "../contract.js";
@@ -19,7 +20,11 @@ export interface LocalStorageOptions {
   readonly dir: string;
 }
 
+/** Throws on Cloudflare Workers: their disk is a per-request scratch space, so files would vanish after the request. */
 export function createLocalStorage(options: LocalStorageOptions): FileStorage {
+  if (isWorkersRuntime()) {
+    throw new Error("@softure-ai/files: the local disk driver does not run on Cloudflare Workers; use createS3Storage with an R2 bucket");
+  }
   const root = resolve(options.dir);
 
   function getPath(key: string): string {

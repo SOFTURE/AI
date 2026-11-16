@@ -1,6 +1,7 @@
 {
   "id": "mcp-access",
-  "version": "0.7.3",
+  "version": "0.7.4",
+  "runtimes": ["node", "workers"],
   "dependsOn": { "security": "^0.2.0", "auth": "^0.2.0", "jobs": "^0.1.1?", "ops": "^0.2.0?" },
   "dbSchema": "mcp",
   "tables": ["access_tokens", "oauth_clients", "oauth_authorization_codes", "oauth_grants", "oauth_registration_window", "used_confirmations", "operation_tasks"],

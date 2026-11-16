@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.3.1
+
+- Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the
+  entries `.`, `./next`, `./react` are declared Workers-safe (`softure.workers`).
+- `getBuildVersion` takes `SOFTURE_BUILD_VERSION` when it is set (new export `BUILD_VERSION_ENV`, declared in the
+  manifest's `env`), otherwise `.next/BUILD_ID` as before. On Workers, which have no `.next` folder, the variable is
+  required and its absence throws, naming it: a `dev` version would keep the first service worker forever.
+  - Migrate: nothing.
+
 ## 0.3.0
 
 - Kept files (#1255): `keptFiles: { cache, pathPrefixes }` in the worker's options answers same-origin files the page

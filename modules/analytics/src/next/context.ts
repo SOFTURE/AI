@@ -2,7 +2,7 @@
 // handle and the wall clock.
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getConfiguredDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db/request";
 import type { AnalyticsContext } from "../server/funnel.js";
 
 export async function getAnalyticsContext(config: SoftureConfig = getSoftureConfig()): Promise<AnalyticsContext> {

@@ -2,7 +2,7 @@
 // handle and the wall clock.
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getConfiguredDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db/request";
 import type { SuppressionContext } from "../server/suppressions.js";
 
 export async function getMailingContext(config: SoftureConfig = getSoftureConfig()): Promise<SuppressionContext> {

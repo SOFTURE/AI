@@ -1,6 +1,6 @@
 // The Next.js adapter: the route handlers an app mounts under `/pwa/`, at `/sw.js` and at its share target's action,
 // and the build version.
-export { DEV_BUILD_VERSION, getBuildVersion, readBuildVersion } from "./build-version.js";
+export { BUILD_VERSION_ENV, DEV_BUILD_VERSION, getBuildVersion, readBuildVersion } from "./build-version.js";
 export {
   createIconRoute,
   createManifestRoute,

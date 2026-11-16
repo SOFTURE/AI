@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { defineModule, defineSoftureConfig, getModuleRuntimes, resolvePlatform, toModuleJson } from "@softure-ai/core";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { defineModule, defineSoftureConfig, getModuleRuntimes, isWorkersRuntime, resolvePlatform, toModuleJson } from "@softure-ai/core";
 import { catchConfigError, createTestModule } from "./support.js";
 
 const base = { locale: "en", timezone: "Europe/Warsaw", appOrigin: "https://app.example.com", modules: [] } as const;
@@ -75,5 +75,19 @@ describe("runtimes in the module manifest", () => {
   ])("rejects a %s list", (_name, runtimes) => {
     const manifest = { ...createTestModule({ id: "bad" }).manifest, runtimes } as never;
     expect(() => defineModule({ manifest, messages: { en: { title: "T" }, pl: { title: "T" } } })).toThrow(/runtimes/);
+  });
+});
+
+describe("isWorkersRuntime", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("is true only where navigator names Cloudflare Workers", () => {
+    expect(isWorkersRuntime()).toBe(false);
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    expect(isWorkersRuntime()).toBe(true);
+    vi.stubGlobal("navigator", { userAgent: "Node.js/24" });
+    expect(isWorkersRuntime()).toBe(false);
   });
 });

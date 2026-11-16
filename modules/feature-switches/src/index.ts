@@ -19,7 +19,8 @@ export const MODULE_ID = "feature-switches";
 export const featureSwitches = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.1",
+    version: "0.2.2",
+    runtimes: ["node", "workers"],
     dependsOn: { auth: "^0.2.0" },
     dbSchema: "features",
     tables: ["switches"],

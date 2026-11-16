@@ -2,7 +2,7 @@
 // A server component: anyone without the panel role, signed in or not, gets Next's "not found", and so does everyone
 // while the app has not passed `panelGuard`.
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getConfiguredDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db/request";
 import { Card } from "@softure-ai/ui";
 import { notFound } from "next/navigation";
 import { listRecentAlerts } from "../server/alert.js";

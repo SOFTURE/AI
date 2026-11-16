@@ -2,7 +2,7 @@
 // the wall clock. The keyring and client secrets come from `process.env`.
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getConfiguredDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db/request";
 import type { ConnectionsContext } from "../server/store.js";
 
 export async function getConnectionsContext(config: SoftureConfig = getSoftureConfig()): Promise<ConnectionsContext> {

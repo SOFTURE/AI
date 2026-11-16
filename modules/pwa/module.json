@@ -1,10 +1,17 @@
 {
   "id": "pwa",
-  "version": "0.3.0",
+  "version": "0.3.1",
+  "runtimes": ["node", "workers"],
   "dependsOn": {},
   "dbSchema": null,
   "tables": [],
-  "env": [],
+  "env": [
+    {
+      "name": "SOFTURE_BUILD_VERSION",
+      "required": false,
+      "description": "The build's version for the service worker; required on Cloudflare Workers, where there is no .next/BUILD_ID. Optional on Node."
+    }
+  ],
   "switches": [],
   "routes": { "manifest": "/pwa/manifest.webmanifest", "icons": "/pwa/icons", "version": "/pwa/version", "serviceWorker": "/sw.js" },
   "mount": [
