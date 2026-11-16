@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.4.1
 
 - `COLOR_FIELD_LOOK.swatch` (#1280): the native colour picker is 36 px wide and 28 px tall (`w-9 h-7`), as in the app
   the look was taken from; 0.2.0 swapped the two and made it taller than wide. An app that wants the tall picker
