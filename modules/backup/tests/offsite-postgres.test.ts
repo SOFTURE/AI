@@ -133,6 +133,25 @@ describe.runIf(hasMatchingTools(ADMIN_URL))("the off-site copy against a real Po
     expect(leftovers).toEqual([]);
   });
 
+  it("runs the whole night without a server: dumps over the URL, uploads, records the row and the copy restores", async () => {
+    const result = await runBackupCli(["run", "--app=acme-app"], { cwd: dir, env: { ...env, BACKUP_DATABASE_URL: urlOf(source) }, now: NOW });
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    const key = "acme-app/db-20261109T080000Z.dump.age";
+    expect([...s3.objects.keys()]).toEqual([key]);
+    const runs = await query<{ result: string; size_bytes: string; key: string }>(
+      urlOf(source),
+      "SELECT result, size_bytes::text, objects->0->>'key' AS key FROM backup.runs",
+    );
+    expect(runs).toEqual([{ result: "ok", size_bytes: String(s3.objects.get(key)?.length), key }]);
+
+    const restore = await runBackupCli(["restore", "--app=acme-app", "--identity=-"], { cwd: dir, env, stdin: identity, now: NOW });
+    expect(restore.stderr).toBe("");
+    const restored = /into the new database (\S+)\n$/.exec(restore.stdout)?.[1] ?? "";
+    created.push(restored);
+    expect(await query(urlOf(restored), "SELECT count(*)::int AS n FROM users")).toEqual([{ n: 3 }]);
+  });
+
   it("refuses to restore over an existing database without --overwrite, and restores over it with it", async () => {
     dump("db-20261109T031700Z.dump");
     expect((await runBackupCli(["upload", "--app=acme-app", "--file=db-20261109T031700Z.dump"], { cwd: dir, env })).status).toBe(0);

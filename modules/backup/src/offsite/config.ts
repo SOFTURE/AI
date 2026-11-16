@@ -146,7 +146,23 @@ export function readReadConfig(env: Env, appName: string): ConfigResult<StoreCon
 
 /** The non-empty values of the secret names, for `redactSecrets`. */
 export function collectSecrets(env: Env): string[] {
-  return SECRET_ENV_NAMES.map((name) => env[name]?.trim() ?? "").filter((value) => value.length >= 4);
+  const values = SECRET_ENV_NAMES.map((name) => env[name]?.trim() ?? "");
+  for (const name of DATABASE_URL_ENV_NAMES) values.push(...readUrlSecrets(env[name]));
+  return values.filter((value) => value.length >= 4);
+}
+
+/** The database URLs the CLI reads: their whole text and their password are redacted from every message. */
+export const DATABASE_URL_ENV_NAMES = ["BACKUP_DATABASE_URL", "BACKUP_RESTORE_DATABASE_URL", "BACKUP_VERIFY_DATABASE_URL"] as const;
+
+function readUrlSecrets(value: string | undefined): string[] {
+  const url = value?.trim() ?? "";
+  if (url === "") return [];
+  try {
+    const password = decodeURIComponent(new URL(url).password);
+    return password === "" ? [url] : [url, password];
+  } catch {
+    return [url];
+  }
 }
 
 /** `text` with every secret value replaced by `***`. */

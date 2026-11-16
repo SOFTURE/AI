@@ -116,13 +116,16 @@ describe("macos.yml", () => {
   });
 
   it("filters on every path its tests run and on the workflows and actions they read", () => {
-    expect(targets).toEqual(["tools/deploy/tests", "tests/repo/deploy-workflows.test.ts", "tests/repo/deploy-cloudflare-action.test.ts"]);
+    expect(targets).toEqual(["tools/deploy/tests", "tests/repo/deploy-workflows.test.ts", "tests/repo/deploy-cloudflare-action.test.ts",
+      "tests/repo/backup-cloudflare-action.test.ts",
+    ]);
     for (const path of [
       ...targets,
       "tests/repo/repo-files.ts",
       ".github/workflows/deploy-app.yml",
       ".github/actions/deploy/action.yml",
       ".github/actions/deploy-cloudflare/action.yml",
+      ".github/actions/backup-cloudflare/action.yml",
     ]) {
       expect(isCovered(path), path).toBe(true);
     }

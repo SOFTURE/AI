@@ -14,6 +14,7 @@ export {
   type UploadConfig,
 } from "./config.js";
 export { decryptStream, encryptFile, parseIdentities, type IdentitiesResult } from "./crypto.js";
+export { buildDumpFileName, buildPgDumpArgs, runPgDump, type PgDumpOptions, type PgDumpResult } from "./dump.js";
 export {
   buildLifecycleJson,
   buildLifecycleXml,
@@ -26,6 +27,7 @@ export { buildObjectKey, OBJECT_SUFFIX, parseBackupFileName, parseObjectKey, sel
 export { fetchBackup, resolveKey, restoreBackup, type FetchOptions, type OffsiteResult, type RestoreOptions, type RestoreOutcome } from "./restore.js";
 export { getObjectStream, getObjectUrl, listObjects, putObjectFile, S3RequestError, type S3Options, type StoredObject } from "./s3.js";
 export { EMPTY_SHA256, encodeRfc3986, formatAmzDate, signRequest, type SignInput } from "./sigv4.js";
+export { recordRun } from "./record.js";
 export { buildStatusSql, getPruneBefore, quoteLiteral, STATUS_RETENTION_DAYS } from "./status-sql.js";
 export { buildNotConfiguredRecord, hashFile, uploadBackups, type RunRecord, type UploadOptions } from "./upload.js";
 export { DEFAULT_MAX_AGE_HOURS, selectVerifyTables, verifyBackup, type VerifyOptions, type VerifyOutcome } from "./verify.js";

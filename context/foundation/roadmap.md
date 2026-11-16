@@ -50,7 +50,7 @@ updated: 2026-11-16
 | **RP-6** | `observability-workers` | `@softure-ai/observability` gets a Workers entry: structured logs and spans sent over OTLP with `fetch`, flushed through `waitUntil`, under the same service naming as on Node | RP-1 | autonomous | done |
 | **RP-7** | `modules-workers-sweep` | every other runtime module (files, mailing, mcp-access, billing, waitlist, privacy, connections, agent-ready, analytics, feature-switches, metering, alerts, seo, blog, pwa) passes the Workers guard: R2 through the S3 driver, DNS checks over DNS-over-HTTPS, no filesystem on the request path | RP-1 | autonomous | done |
 | **RP-8** | `deploy-cloudflare-target` | `@softure-ai/deploy` gets `host: "cloudflare"`: `init` writes `wrangler.jsonc` and an OpenNext build, a reusable workflow migrates from CI and runs `wrangler deploy`, and `verify` and the release report work as on the VPS | RP-2, RP-4 | autonomous | done |
-| **RP-9** | `backup-cloudflare-host` | `@softure-ai/backup` backs up a managed Postgres without a server: a scheduled workflow dumps, encrypts with age, uploads to R2 and records the run in `backup.runs` | RP-8 | autonomous | ready |
+| **RP-9** | `backup-cloudflare-host` | `@softure-ai/backup` backs up a managed Postgres without a server: a scheduled workflow dumps, encrypts with age, uploads to R2 and records the run in `backup.runs` | RP-8 | autonomous | done |
 | **RP-10** | `example-on-workers` | the example app runs unchanged on both hosts: CI builds it with OpenNext and runs its e2e in workerd against Postgres, next to the existing Node e2e | RP-2, RP-3, RP-4, RP-5, RP-6, RP-7 | autonomous | ready |
 | **RP-11** | `runtime-providers-release` | the changed packages are released, `docs/07-runtime-providers.md` is the adoption guide (Node to Cloudflare and back), and the roadmap is archived | RP-8, RP-9, RP-10 | autonomous | ready |
 
@@ -170,12 +170,13 @@ updated: 2026-11-16
 
 ### RP-9: Backups without a server
 - **Change ID:** `backup-cloudflare-host`
-- **Status:** ready
-- **Input:** [`backup-cloudflare-host`](../changes/backup-cloudflare-host/change.md)
-- **Outcome:** a reusable scheduled workflow runs `pg_dump` against the managed Postgres, encrypts with age to the
-  app's recipient, uploads to R2 with the write-only token and records the run in `backup.runs`; the weekly verify
-  restores from R2 into a throwaway database as today; the status card and gauges read the same table.
-- **Owns:** `modules/backup/src/`, `.github/workflows/` (backup workflow for the cloudflare host).
+- **Status:** done
+- **Input:** [`backup-cloudflare-host`](../archive/2026-11-16-backup-cloudflare-host/change.md)
+- **Outcome:** `softure-backup run` dumps the managed Postgres over its direct URL, encrypts with age, uploads with
+  the write-only token and records the run in `backup.runs`; the `backup-cloudflare` action runs it nightly from the
+  `backup.yml` that `init --host=cloudflare` writes, and the weekly `backup-verify.yml` restores as on a VPS. The
+  settings, objects, row, status card, gauges, restore and verify are the same on both hosts.
+- **Owns:** `modules/backup/src/`, `.github/actions/backup-cloudflare/`, the Cloudflare init templates.
 - **Risk:** medium.
 
 ### RP-10: The example app on Workers

@@ -1,0 +1,117 @@
+# The nightly off-site copy of @softure-ai/backup (RP-9) for an app without a server, such as one on Cloudflare
+# Workers: the counterpart of the `offsite-backup` step of deploy.sh maintain on a VPS. The producer differs, the result
+# does not: the same encrypted object under the same key names in the bucket, the same row in backup.runs, read by the
+# same getLastBackup() and gauges, and restored or verified by the same `softure-backup restore` and `verify`.
+#
+# It runs `softure-backup run` on GitHub's runner: pg_dump of the server's major version (the postgres image, through
+# docker, since the runner's own client is older than a managed Postgres), age encryption to BACKUP_AGE_RECIPIENT, a PUT
+# with the write-only token, and the row written over the same database URL. The app's job declares `environment:`
+# and passes the settings by name in the step's env (BACKUP_S3_ENDPOINT, BACKUP_S3_REGION, BACKUP_S3_BUCKET,
+# BACKUP_S3_PREFIX, BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY, BACKUP_AGE_RECIPIENT), never the whole secrets
+# context. Without BACKUP_S3_BUCKET the run records `not_configured` and succeeds. Every value reaches a script
+# through `env:`, never interpolated into it.
+
+name: softure-backup-cloudflare
+description: Dump a managed Postgres, encrypt it with age, upload it with a write-only token and record the run (@softure-ai/backup)
+
+inputs:
+  app:
+    description: The app's name, the default key prefix (BACKUP_S3_PREFIX wins when set)
+    required: true
+  database-url:
+    description: The direct postgres:// URL of a role that may dump the database and insert into backup.runs (the migrator)
+    required: true
+  backup-cli-version:
+    description: The @softure-ai/backup version that runs
+    required: true
+  postgres-major:
+    description: The server's Postgres major version; pg_dump must be at least as new as the server
+    default: "17"
+  deploy-config:
+    description: deploy.json, whose database.excludeTableData the dump leaves out; empty or a missing file reads none
+    default: deploy.json
+  docker:
+    description: The docker command
+    default: docker
+
+outputs:
+  result:
+    description: ok, failed or not_configured
+    value: ${{ steps.run.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - id: check
+      name: Check the inputs
+      shell: bash
+      env:
+        APP: ${{ inputs.app }}
+        DATABASE_URL_INPUT: ${{ inputs.database-url }}
+        BACKUP_CLI_VERSION: ${{ inputs.backup-cli-version }}
+        POSTGRES_MAJOR: ${{ inputs.postgres-major }}
+      run: |
+        problems=()
+        if [[ ! "$APP" =~ ^[a-z0-9][a-z0-9_-]{0,62}$ ]]; then problems+=("app is not an app name (lower case letters, digits, - and _)"); fi
+        if [ -z "$DATABASE_URL_INPUT" ]; then
+          problems+=("database-url is empty: pass the direct database URL secret (MIGRATE_DATABASE_URL) of the environment")
+        elif [[ ! "$DATABASE_URL_INPUT" =~ ^postgres(ql)?:// ]]; then
+          problems+=("database-url is not a postgres:// URL")
+        fi
+        if [[ ! "$BACKUP_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then problems+=("backup-cli-version is not a version such as 0.1.1"); fi
+        if [[ ! "$POSTGRES_MAJOR" =~ ^1[4-9]$ ]]; then problems+=("postgres-major is not a Postgres major version from 14 to 19"); fi
+        if [ "${#problems[@]}" -gt 0 ]; then
+          for problem in "${problems[@]}"; do echo "::error::$problem"; done
+          exit 1
+        fi
+    - id: pg-dump
+      name: pg_dump of the server's major version
+      shell: bash
+      env:
+        POSTGRES_MAJOR: ${{ inputs.postgres-major }}
+        DOCKER: ${{ inputs.docker }}
+      run: |
+        image="postgres:$POSTGRES_MAJOR"
+        $DOCKER pull --quiet "$image" > /dev/null
+        wrapper="$RUNNER_TEMP/softure-pg-dump"
+        {
+          echo '#!/usr/bin/env bash'
+          echo "exec $DOCKER run --rm -i --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE -e PGSSLMODE $image pg_dump \"\$@\""
+        } > "$wrapper"
+        chmod 700 "$wrapper"
+        echo "path=$wrapper" >> "$GITHUB_OUTPUT"
+    - id: run
+      name: Dump, encrypt, upload and record
+      shell: bash
+      env:
+        APP: ${{ inputs.app }}
+        BACKUP_DATABASE_URL: ${{ inputs.database-url }}
+        BACKUP_CLI_VERSION: ${{ inputs.backup-cli-version }}
+        BACKUP_PG_DUMP: ${{ steps.pg-dump.outputs.path }}
+        DEPLOY_CONFIG: ${{ inputs.deploy-config }}
+      run: |
+        args=(run "--app=$APP" "--summary=$RUNNER_TEMP/softure-backup-summary")
+        if [ -n "$DEPLOY_CONFIG" ] && [ -f "$DEPLOY_CONFIG" ]; then args+=("--config=$DEPLOY_CONFIG"); fi
+        status=0
+        npx --yes --package="@softure-ai/backup@$BACKUP_CLI_VERSION" softure-backup "${args[@]}" || status=$?
+        summary="$(cat "$RUNNER_TEMP/softure-backup-summary" 2> /dev/null || true)"
+        rm -f "$RUNNER_TEMP/softure-backup-summary"
+        result="${summary%%|*}"
+        case "$result" in
+          ok | failed | not_configured) ;;
+          *) result="failed" ;;
+        esac
+        echo "result=$result" >> "$GITHUB_OUTPUT"
+        {
+          echo "### Off-site backup"
+          echo
+          if [ -n "$summary" ]; then echo "\`$summary\`"; else echo "The run ended with exit status $status before it wrote a summary; see the log."; fi
+        } >> "$GITHUB_STEP_SUMMARY"
+        if [ "$status" -ne 0 ]; then
+          echo "::error::the off-site backup failed (exit status $status): ${summary:-see the log}"
+          exit "$status"
+        fi
+    - name: Remove the pg_dump wrapper
+      if: ${{ always() }}
+      shell: bash
+      run: rm -f "$RUNNER_TEMP/softure-pg-dump"

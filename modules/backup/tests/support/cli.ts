@@ -1,5 +1,6 @@
 // Runs the command line in-process, collecting its output.
 import { runCli, type CliIo } from "../../src/cli/run.js";
+import type { RunRecord } from "../../src/offsite/upload.js";
 
 export interface CliResult {
   readonly status: number;
@@ -7,7 +8,13 @@ export interface CliResult {
   readonly stderr: string;
 }
 
-export async function runBackupCli(args: string[], options: { cwd: string; env: Record<string, string | undefined>; stdin?: string; now?: Date }): Promise<CliResult> {
+export async function runBackupCli(args: string[], options: {
+    cwd: string;
+    env: Record<string, string | undefined>;
+    stdin?: string;
+    now?: Date;
+    recordRun?: (url: string, record: RunRecord) => Promise<void>;
+  }): Promise<CliResult> {
   let stdout = "";
   let stderr = "";
   const io: CliIo = {
@@ -21,6 +28,7 @@ export async function runBackupCli(args: string[], options: { cwd: string; env: 
     },
     readStdin: () => Promise.resolve(options.stdin ?? ""),
     ...(options.now === undefined ? {} : { now: () => options.now as Date }),
+    ...(options.recordRun === undefined ? {} : { recordRun: options.recordRun }),
   };
   const status = await runCli(args, io);
   return { status, stdout, stderr };
