@@ -50,4 +50,4 @@ paths run the same code.
 ## Progress
 
 - [x] Phase 1: shared steps and `runJobsTick` (tests/tick.test.ts 7 passed; jobs suite 355 passed)
-- [ ] Phase 2: `./workers` entry and declarations
+- [x] Phase 2: `./workers` entry and declarations (tests/workers.test.ts 3 passed; Workers guard 102 passed)

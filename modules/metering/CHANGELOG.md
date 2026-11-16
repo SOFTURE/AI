@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses the module. W
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.4.2
+
+- `./jobs` is declared Workers-safe (`softure.workers`, runtime-providers RP-4): its handlers run from the
+  Workers Cron Trigger of `@softure-ai/jobs/workers` as well as from the Node worker.
+  - Migrate: nothing.
+
 ## 0.4.1
 
 - Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the

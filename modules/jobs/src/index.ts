@@ -15,7 +15,8 @@ export const MODULE_ID = "jobs";
 export const jobs = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.10",
+    version: "0.1.11",
+    runtimes: ["node", "workers"],
     dependsOn: {},
     dbSchema: "jobs",
     tables: ["jobs", "queue_state", "runs", "schedules", "sync_cursors", "sync_items", "worker_heartbeats"],

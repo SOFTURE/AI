@@ -215,6 +215,44 @@ status (a monitor or an orchestrator does). `@softure-ai/deploy` writes both lin
 `runJobWorker({ db, config, handlers, signal })` is the loop without the process part, for an app that runs it inside
 a process of its own.
 
+### Running on Cloudflare Workers
+
+A Worker has no process that loops, so the jobs run from a Cron Trigger fired every minute. `createScheduledHandler`
+from `@softure-ai/jobs/workers` is the Worker's `scheduled` export:
+
+```ts
+// worker.ts
+import { createScheduledHandler } from "@softure-ai/jobs/workers";
+import handler from "./.open-next/worker.js";
+import config from "./softure.config";
+import { handlers } from "./src/jobs/handlers";
+
+export default {
+  fetch: handler.fetch,
+  scheduled: createScheduledHandler({ config, handlers, databaseUrl: (env: Env) => env.HYPERDRIVE.connectionString }),
+};
+```
+
+```jsonc
+// wrangler.jsonc
+"triggers": { "crons": ["* * * * *"] }
+```
+
+Each firing opens the request database on the URL from `env` (`withRequestDatabase` of `@softure-ai/db/request`) and
+runs one `runJobsTick`, kept alive with `waitUntil`: it enqueues due schedules, checks schedule health, claims and runs
+due jobs up to each queue's `concurrency` under their leases until nothing is due or `budgetMs` (default 45 000) ends,
+then waits for the jobs it started. A job still running at the budget is logged as `warn` and keeps its lease until it
+ends; if the platform stops the invocation, its lease expires and the next claim records `jobs.lease_expired`, so a
+handler longer than the platform allows is never cut silently. Ticks that overlap never run a job or a schedule period
+twice. A tick that cannot run (no handler, no database) is logged as `error` and rejects, so the firing shows as failed
+in the dashboard. Pruning runs on one tick an hour.
+
+Health on Workers is a row, not a file: each tick whose claims reached the database writes `jobs.worker_heartbeats`
+(`workerName`, default `tick`), and `checkJobsTickHealth(ctx, { workerName, maxAgeMs })` from `/server` answers
+`{ ok: true, ageMs }`, `{ ok: false, reason: "missing" }` or `{ ok: false, reason: "stale", ageMs }` (default limit
+three minutes). `runJobsTick({ config, handlers, db, budgetMs })` is also exported from `/server` for a host with its
+own scheduler.
+
 ### Schedules
 
 A schedule runs its queue's handler once per period (`every`) or at local times of day (`at` in `timeZone`), instead
@@ -741,11 +779,11 @@ show only when passed) from `/next`.
 
 ## 5. Migrations and tables
 
-Schema `jobs`, six tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
+Schema `jobs`, seven tables, `migrations/0001_create_jobs.sql`, `migrations/0002_create_schedules.sql`,
 `migrations/0003_add_schedule_failures.sql`, `migrations/0004_create_sync_state.sql`,
 `migrations/0005_add_schedule_reported_state.sql`, `migrations/0006_create_runs.sql`,
-`migrations/0007_add_progress_and_cancel.sql`, `migrations/0008_create_queue_state.sql` and
-`migrations/0009_add_owner_and_result_ref.sql`:
+`migrations/0007_add_progress_and_cancel.sql`, `migrations/0008_create_queue_state.sql`,
+`migrations/0009_add_owner_and_result_ref.sql` and `migrations/0010_create_worker_heartbeats.sql`:
 
 `jobs.jobs`: `id` (bigint identity; a string in the API), `queue`, `payload` (jsonb), `status` (`pending`, `running`,
 `succeeded`, `failed`, `cancelled`), `attempts`, `max_attempts`, `run_at`, `locked_until`, `locked_by` (the worker,
@@ -779,6 +817,9 @@ first time it is paced, paused or counted; a row of a queue removed from the con
 `error_code` (the last failure's code or the skip reason, never a message), `attempts`, `result_ref` (done items only),
 `first_seen_at`, `last_seen_at`, `updated_at`, `finished_at`. Checks keep `finished_at` set exactly for final items and
 an error code on failed ones.
+
+`jobs.worker_heartbeats`: `worker_id` (primary key, the tick's `workerName`), `beat_at` (the last tick whose claims
+reached the database), `pruned_at` (the last hourly prune). Written only by `runJobsTick`.
 
 The app role needs `SELECT, INSERT, UPDATE, DELETE` on the tables, which the `@softure-ai/ops` roles recipe grants on
 every schema the migrator creates.

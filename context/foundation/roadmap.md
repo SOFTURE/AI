@@ -45,7 +45,7 @@ updated: 2026-11-16
 | **RP-1** | `runtime-platform-contract` | `platform: { runtime, host }` in core's config, a module's declared runtimes checked at startup, and a repository guard that keeps Workers entries free of Node-only APIs | — | autonomous | done |
 | **RP-2** | `db-workers-connection` | `@softure-ai/db` opens a per-request Postgres connection on Workers (Hyperdrive binding), keeps the pooled handle on Node, and never reads migration files at runtime on Workers | RP-1 | autonomous | done |
 | **RP-3** | `auth-workers-password` | `@softure-ai/auth` runs on Workers: scrypt stays (workerd provides it) with a default cost that fits the 128 MB isolate, a login rehashes into the runtime's cost, and the auth entries are declared Workers-safe | RP-1 | autonomous | done |
-| **RP-4** | `jobs-scheduled-tick` | `@softure-ai/jobs` runs due jobs from one `runJobsTick` shared by the Node worker loop and a Workers `scheduled()` handler (Cron Trigger), with health from a database heartbeat | RP-1, RP-2 | autonomous | ready |
+| **RP-4** | `jobs-scheduled-tick` | `@softure-ai/jobs` runs due jobs from one `runJobsTick` shared by the Node worker loop and a Workers `scheduled()` handler (Cron Trigger), with health from a database heartbeat | RP-1, RP-2 | autonomous | done |
 | **RP-5** | `security-workers-fetch` | `@softure-ai/security` guarded outbound requests and client-address checks run on Workers with the same refusals as on Node (resolved addresses checked before the request, where workerd takes no socket `lookup`) | RP-1 | autonomous | done |
 | **RP-6** | `observability-workers` | `@softure-ai/observability` gets a Workers entry: structured logs and spans sent over OTLP with `fetch`, flushed through `waitUntil`, under the same service naming as on Node | RP-1 | autonomous | done |
 | **RP-7** | `modules-workers-sweep` | every other runtime module (files, mailing, mcp-access, billing, waitlist, privacy, connections, agent-ready, analytics, feature-switches, metering, alerts, seo, blog, pwa) passes the Workers guard: R2 through the S3 driver, DNS checks over DNS-over-HTTPS, no filesystem on the request path | RP-1 | autonomous | done |
@@ -104,14 +104,16 @@ updated: 2026-11-16
 
 ### RP-4: Jobs as a scheduled tick
 - **Change ID:** `jobs-scheduled-tick`
-- **Status:** ready
-- **Input:** [`jobs-scheduled-tick`](../changes/jobs-scheduled-tick/change.md)
-- **Outcome:** `runJobsTick({ config, budgetMs })` claims and runs due jobs within a time budget; the Node worker
-  loop calls it, and a `createScheduledHandler(config)` for Workers runs it from a Cron Trigger (every minute) under
-  `waitUntil`; the worker health becomes a heartbeat row in the jobs schema on Workers (the file on Node stays); a
-  job longer than the Workers budget is reported, not cut silently. Once jobs has its Workers entry, every module
-  `./jobs` entry is declared Workers-safe, and so are alerts `./server` and `./next` and blog `./server`, with
-  `workers` added to the alerts and blog manifests' `runtimes` (left for RP-4 by RP-7).
+- **Status:** done
+- **Input:** [`jobs-scheduled-tick`](../archive/2026-11-16-jobs-scheduled-tick/change.md)
+- **Outcome:** `runJobsTick({ config, handlers, budgetMs })` enqueues due schedules and claims and runs due jobs
+  within a time budget; `createScheduledHandler` from the new `@softure-ai/jobs/workers` entry runs it from a Cron
+  Trigger (every minute) on the request database under `waitUntil`. The Node worker loop shares the tick's steps
+  (schedules, schedule check, prune, leased job run) and keeps its continuous loop and health file; the tick's health
+  is a heartbeat row in `jobs.worker_heartbeats`, which also makes the hourly prune run once across overlapping ticks.
+  A job still running at the budget is logged and keeps its lease (the platform's cut becomes `jobs.lease_expired`),
+  never cut silently. Every module `./jobs` entry, alerts `./server` and `./next` and blog `./server` are declared
+  Workers-safe, and alerts, blog and jobs list `workers` in `runtimes`.
 - **Owns:** `modules/jobs/src/worker/`, `modules/jobs/src/server/run-due.ts`, a new `workers` entry.
 - **Risk:** medium: schedules must neither run twice nor skip when ticks overlap (claims stay transactional).
 

@@ -1,7 +1,7 @@
 ---
 change_id: jobs-scheduled-tick
 title: "jobs: one tick for the Node worker loop and a Workers Cron Trigger"
-status: plan_reviewed
+status: archived
 roadmap_item: RP-4
 issue: null
 branch: claude/project-thread-dufdk1

@@ -1,6 +1,7 @@
 {
   "id": "alerts",
-  "version": "0.2.2",
+  "version": "0.2.3",
+  "runtimes": ["node", "workers"],
   "dependsOn": { "jobs": "^0.1.6", "mailing": "^0.2.5?" },
   "dbSchema": "alerts",
   "tables": ["alerts"],

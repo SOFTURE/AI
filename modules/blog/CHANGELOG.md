@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## 0.5.4
+
+- Runs on Cloudflare Workers (runtime-providers RP-4): the manifest lists `runtimes: ["node", "workers"]`, and
+  `./server` and `./jobs` are declared Workers-safe (`softure.workers`) now that `@softure-ai/jobs` runs there.
+  - Migrate: nothing.
+
 ## 0.5.3
 
 - The entries `.`, `./next`, `./ui`, `./proxy` are declared Workers-safe (`softure.workers`, runtime-providers RP-7); the pages, the proxy and
