@@ -58,6 +58,10 @@ test checks `module.json` against `toModuleJson(...)` (decided in FD-3, `core-co
 }
 ```
 
+An optional `"runtimes": ["node", "workers"]` names the runtimes the module's server code runs on; without it the
+module runs on Node only, and an app configured for Workers refuses it
+([07-runtime-providers.md](07-runtime-providers.md)).
+
 ## 4. Database and migrations
 
 **Decision: every module gets its own Postgres schema** (`auth.users`,

@@ -2,6 +2,7 @@
 // is the source of truth at runtime; `module.json` is its JSON projection (`toModuleJson`),
 // checked by the module's own tests, for agents and `softure doctor`.
 import { z } from "zod";
+import { SOFTURE_RUNTIMES } from "./platform.js";
 import { parseVersionRange } from "./version-range.js";
 
 const MODULE_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -35,6 +36,12 @@ export const moduleManifestSchema = z
     routes: z.record(z.string().min(1), z.string().startsWith("/", "must start with /")),
     mount: z.array(mountSchema),
     privacy: z.object({ exports: z.boolean(), deletes: z.boolean() }),
+    /** The runtimes the module's server code runs on (docs/07-runtime-providers.md); absent means Node only. */
+    runtimes: z
+      .array(z.enum(SOFTURE_RUNTIMES))
+      .min(1, "must name at least one runtime")
+      .refine((runtimes) => new Set(runtimes).size === runtimes.length, "must not repeat a runtime")
+      .optional(),
   })
   .superRefine((manifest, context) => {
     if (new Set(manifest.tables).size !== manifest.tables.length) {

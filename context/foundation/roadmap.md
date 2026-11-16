@@ -42,7 +42,7 @@ updated: 2026-11-16
 
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
-| **RP-1** | `runtime-platform-contract` | `platform: { runtime, host }` in core's config, a module's declared runtimes checked at startup, and a repository guard that keeps Workers entries free of Node-only APIs | — | autonomous | ready |
+| **RP-1** | `runtime-platform-contract` | `platform: { runtime, host }` in core's config, a module's declared runtimes checked at startup, and a repository guard that keeps Workers entries free of Node-only APIs | — | autonomous | done |
 | **RP-2** | `db-workers-connection` | `@softure-ai/db` opens a per-request Postgres connection on Workers (Hyperdrive binding), keeps the pooled handle on Node, and never reads migration files at runtime on Workers | RP-1 | autonomous | ready |
 | **RP-3** | `auth-workers-password` | `@softure-ai/auth` hashes with PBKDF2 from Web Crypto on Workers (scrypt's memory exceeds the 128 MB isolate), verifies both formats on both runtimes and rehashes on login; OIDC verification runs on Web Crypto | RP-1 | autonomous | ready |
 | **RP-4** | `jobs-scheduled-tick` | `@softure-ai/jobs` runs due jobs from one `runJobsTick` shared by the Node worker loop and a Workers `scheduled()` handler (Cron Trigger), with health from a database heartbeat | RP-1, RP-2 | autonomous | ready |
@@ -67,8 +67,8 @@ updated: 2026-11-16
 
 ### RP-1: Runtime and host in the app config
 - **Change ID:** `runtime-platform-contract`
-- **Status:** ready
-- **Input:** [`runtime-platform-contract`](../changes/runtime-platform-contract/change.md)
+- **Status:** done
+- **Input:** [`runtime-platform-contract`](../archive/2026-11-16-runtime-platform-contract/change.md)
 - **Outcome:** `defineSoftureConfig` takes `platform: { runtime: "node" | "workers", host: "vps" | "cloudflare" }`
   (default `{ runtime: "node", host: "vps" }`, unchanged behaviour); a module definition declares the runtimes it
   supports and the config refuses one that does not support the chosen runtime, naming the module; core's root and

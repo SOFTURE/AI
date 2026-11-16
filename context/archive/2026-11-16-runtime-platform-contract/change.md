@@ -1,10 +1,10 @@
 ---
 change_id: runtime-platform-contract
 title: "core: runtime and host in the app config, with a Workers-safety guard"
-status: open
+status: archived
 roadmap_item: RP-1
 issue: null
-branch: null
+branch: claude/project-thread-dufdk1
 created: 2026-11-16
 updated: 2026-11-16
 ---
