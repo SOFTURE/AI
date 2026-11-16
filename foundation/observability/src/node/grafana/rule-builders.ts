@@ -15,9 +15,15 @@ export type ObservedService = {
 
 export type ServiceSilentRuleOptions = {
   service: ObservedService;
-  /** UID of the Prometheus (Mimir) data source the metrics land in. */
+  /**
+   * What the service must keep sending. `metrics` (default): `target_info` in Prometheus (Mimir), sent with every
+   * metric export of a Node process. `logs`: any log record in Loki, for a service without metrics, such as an app on
+   * Cloudflare Workers, whose scheduled jobs tick logs every run (`@softure-ai/observability/workers`).
+   */
+  signal?: "metrics" | "logs";
+  /** UID of the data source the signal lands in: Prometheus (Mimir) for `metrics`, Loki for `logs`. */
   datasourceUid: string;
-  /** How long the service has sent no metrics before the rule fires. Default 10. */
+  /** How long the service has sent nothing before the rule fires. Default 10. */
   windowMinutes?: number;
   /** Pending period, e.g. `"5m"`. Default `"0s"`: the window already waits. */
   for?: string;
@@ -48,15 +54,19 @@ const DEFAULT_SEVERITIES = ["WARN", "ERROR"] as const;
 const EXPRESSION_DATASOURCE = "__expr__";
 
 /**
- * "The service is silent": fires when `target_info` of the service has no sample for `windowMinutes`. A service
- * that exports metrics sends `target_info` with every export. Build one per process, e.g. the app and its worker.
+ * "The service is silent": fires when the service sent nothing for `windowMinutes`: no `target_info` sample (signal
+ * `metrics`, sent with every metric export) or no log record (signal `logs`). Build one per process, e.g. the app
+ * and its worker.
  */
 export function buildServiceSilentRule(options: ServiceSilentRuleOptions): GrafanaRule {
   const windowMinutes = options.windowMinutes ?? DEFAULT_SILENT_WINDOW_MINUTES;
   const { service } = options;
-  const expr = `absent_over_time(target_info{${formatSelector(service, "=")}}[${String(windowMinutes)}m])`;
+  const isLogs = options.signal === "logs";
+  const selector = formatSelector(service, "=");
+  const range = `[${String(windowMinutes)}m]`;
+  const expr = isLogs ? `absent_over_time({${selector}} ${range})` : `absent_over_time(target_info{${selector}}${range})`;
   return buildThresholdRule({
-    uid: options.uid ?? deriveRuleUid("silent", service),
+    uid: options.uid ?? deriveRuleUid(isLogs ? "silent-logs" : "silent", service),
     title: options.title ?? `${describeService(service)} is silent`,
     service,
     forDuration: options.for ?? "0s",
@@ -64,9 +74,9 @@ export function buildServiceSilentRule(options: ServiceSilentRuleOptions): Grafa
       refId: "A",
       datasourceUid: options.datasourceUid,
       relativeTimeRange: { from: windowMinutes * 60, to: 0 },
-      model: { refId: "A", expr, instant: true, range: false },
+      model: isLogs ? { refId: "A", expr, queryType: "instant" } : { refId: "A", expr, instant: true, range: false },
     },
-    summary: `No metrics from ${describeService(service)} for ${String(windowMinutes)} minutes.`,
+    summary: `No ${isLogs ? "logs" : "metrics"} from ${describeService(service)} for ${String(windowMinutes)} minutes.`,
   });
 }
 

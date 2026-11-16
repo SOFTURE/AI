@@ -254,6 +254,37 @@ What you get:
   record has no trace id, and the trace has no error span either. Nothing in the app can recover them; find the
   trace by route and time, and the error by `next.digest`.
 
+## Cloudflare Workers
+
+`@softure-ai/observability/workers` (no OpenTelemetry SDK: it does not run in workerd) wraps the Worker's fetch
+handler. Each request gets one server span (`GET`, `http.request.method`, `url.path`, `url.scheme`, `server.address`,
+`http.response.status_code`, `error.type` on a throw or a 5xx), and every `createLogger` record written during it
+carries that span's trace and span ids. Both are sent over OTLP/HTTP JSON with `fetch` under `ctx.waitUntil`, so the
+response does not wait. An incoming `traceparent` continues the caller's trace. A thrown error is logged as
+`request failed` and thrown on.
+
+```ts
+import { createLogger } from "@softure-ai/observability";
+import { withObservability } from "@softure-ai/observability/workers";
+
+const log = createLogger("shop");
+
+export default {
+  fetch: withObservability(async (request, env, ctx) => handle(request, env, ctx), {
+    serviceNamespace: "shop",
+    serviceName: "shop",
+    environment: "production",
+    ignorePaths: ["/api/health"],
+  }),
+};
+```
+
+Settings are the Node entry's: the options first, then `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`,
+`OTEL_SERVICE_NAME` and the other `OTEL_*` variables from the Worker's bindings (secrets: `wrangler secret put`).
+Without an endpoint nothing is sent. No metrics: an isolate has no process to measure, so the "service is silent"
+rule watches the logs instead (`buildServiceSilentRule({ signal: "logs", ... })`); a Worker whose scheduled jobs log
+every run keeps it quiet. A record written outside a request (at module load) goes with the next request's export.
+
 ## Verifying the export
 
 An app that logs only `warn` and `error` sends no log record until something fails, so a wrong `/v1/logs` endpoint
@@ -428,6 +459,7 @@ To log a reason that label mode keeps, pass it as plain attributes that carry no
 - No browser telemetry: an OTLP token must not reach a client bundle; use the frontend's own error reporting.
 - No framework instrumentation (Express, Fastify): server spans and metrics carry no route.
 - The probe (`softure-observability ping`) checks traces and logs only, not metrics.
-- OTLP/HTTP protobuf only (no gRPC, no JSON).
+- OTLP/HTTP protobuf on Node (no gRPC); OTLP/HTTP JSON on Workers.
+- On Workers: one span per request (no child spans for outgoing `fetch` or database calls) and no metrics.
 - `grafana apply` speaks to Grafana only, and creates neither contact points nor notification policies.
 - Batches are sent every few seconds; a process killed without `shutdown()` (or `handleSignals`) can lose the last one.

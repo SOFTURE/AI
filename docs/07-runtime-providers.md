@@ -78,7 +78,7 @@ Probed in workerd (Miniflare, `nodejs_compat`) for RP-5, so a package does not r
 | `@softure-ai/auth` (`.`, `./server`, `./proxy`) | yes | yes | RP-3 |
 | `@softure-ai/jobs` | yes | planned | RP-4 |
 | `@softure-ai/security` (`.`, `./server`, `./signed-request`, `./readable-text`) | yes | yes | RP-5 |
-| `@softure-ai/observability` | yes | planned | RP-6 |
+| `@softure-ai/observability` (`.`, `./workers`) | yes | yes | RP-6 |
 | other runtime modules | yes | planned | RP-7 |
 | `@softure-ai/deploy` (`host: "cloudflare"`) | yes | planned | RP-8 |
 | `@softure-ai/backup` (`host: "cloudflare"`) | yes | planned | RP-9 |
