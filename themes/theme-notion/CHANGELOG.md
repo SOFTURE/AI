@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.17.0
 
 - `AsidePanelProvider keepsSidebarOpen`: the left `Sidebar` and the right `AsidePanel` stay open together on a wide
   screen, each with its own state: opening the panel (or a panel kept open on load) never folds the sidebar, and
