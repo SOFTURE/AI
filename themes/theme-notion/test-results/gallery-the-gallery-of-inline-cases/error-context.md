@@ -1,0 +1,1594 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: gallery.spec.ts >> the gallery of inline cases
+- Location: visual/gallery.spec.ts:44:1
+
+# Error details
+
+```
+Error: A snapshot doesn't exist at /home/user/ai/themes/theme-notion/visual/gallery.spec.ts-snapshots/gallery-linux.png, writing actual.
+```
+
+# Page snapshot
+
+```yaml
+- main [ref=e3]:
+  - region "Accordion" [ref=e4]:
+    - heading "Accordion" [level=2] [ref=e5]
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - heading [level=3] [ref=e8]:
+          - button "What is a workspace?" [expanded] [ref=e9]
+        - region "What is a workspace?" [ref=e10]:
+          - generic [ref=e11]: A shared space for pages and databases.
+      - heading [level=3] [ref=e13]:
+        - button "Who can see it?" [ref=e14]
+  - region "AccordionTrigger[size=touch]" [ref=e15]:
+    - heading "AccordionTrigger[size=touch]" [level=2] [ref=e16]
+    - heading [level=3] [ref=e19]:
+      - button "What is a workspace?" [ref=e20]
+  - region "Alert[variant=default]" [ref=e21]:
+    - heading "Alert[variant=default]" [level=2] [ref=e22]
+    - alert [ref=e23]:
+      - generic [ref=e26]: Payment overdue
+      - generic [ref=e27]: The invoice was due on Monday.
+  - region "Alert[variant=destructive]" [ref=e28]:
+    - heading "Alert[variant=destructive]" [level=2] [ref=e29]
+    - alert [ref=e30]:
+      - generic [ref=e33]: Payment overdue
+      - generic [ref=e34]: The invoice was due on Monday.
+  - region "Alert[variant=gray]" [ref=e35]:
+    - heading "Alert[variant=gray]" [level=2] [ref=e36]
+    - alert [ref=e37]:
+      - generic [ref=e40]: Payment overdue
+      - generic [ref=e41]: The invoice was due on Monday.
+  - region "Alert[variant=brown]" [ref=e42]:
+    - heading "Alert[variant=brown]" [level=2] [ref=e43]
+    - alert [ref=e44]:
+      - generic [ref=e47]: Payment overdue
+      - generic [ref=e48]: The invoice was due on Monday.
+  - region "Alert[variant=orange]" [ref=e49]:
+    - heading "Alert[variant=orange]" [level=2] [ref=e50]
+    - alert [ref=e51]:
+      - generic [ref=e54]: Payment overdue
+      - generic [ref=e55]: The invoice was due on Monday.
+  - region "Alert[variant=yellow]" [ref=e56]:
+    - heading "Alert[variant=yellow]" [level=2] [ref=e57]
+    - alert [ref=e58]:
+      - generic [ref=e61]: Payment overdue
+      - generic [ref=e62]: The invoice was due on Monday.
+  - region "Alert[variant=green]" [ref=e63]:
+    - heading "Alert[variant=green]" [level=2] [ref=e64]
+    - alert [ref=e65]:
+      - generic [ref=e68]: Payment overdue
+      - generic [ref=e69]: The invoice was due on Monday.
+  - region "Alert[variant=blue]" [ref=e70]:
+    - heading "Alert[variant=blue]" [level=2] [ref=e71]
+    - alert [ref=e72]:
+      - generic [ref=e75]: Payment overdue
+      - generic [ref=e76]: The invoice was due on Monday.
+  - region "Alert[variant=purple]" [ref=e77]:
+    - heading "Alert[variant=purple]" [level=2] [ref=e78]
+    - alert [ref=e79]:
+      - generic [ref=e82]: Payment overdue
+      - generic [ref=e83]: The invoice was due on Monday.
+  - region "Alert[variant=pink]" [ref=e84]:
+    - heading "Alert[variant=pink]" [level=2] [ref=e85]
+    - alert [ref=e86]:
+      - generic [ref=e89]: Payment overdue
+      - generic [ref=e90]: The invoice was due on Monday.
+  - region "Alert[variant=red]" [ref=e91]:
+    - heading "Alert[variant=red]" [level=2] [ref=e92]
+    - alert [ref=e93]:
+      - generic [ref=e96]: Payment overdue
+      - generic [ref=e97]: The invoice was due on Monday.
+  - region "Avatar[size=sm]" [ref=e98]:
+    - heading "Avatar[size=sm]" [level=2] [ref=e99]
+    - generic [ref=e100]:
+      - generic [ref=e103]: KM
+      - generic [ref=e105]: "+3"
+  - region "Avatar[size=default]" [ref=e106]:
+    - heading "Avatar[size=default]" [level=2] [ref=e107]
+    - generic [ref=e108]:
+      - generic [ref=e111]: KM
+      - generic [ref=e113]: "+3"
+  - region "Avatar[size=lg]" [ref=e114]:
+    - heading "Avatar[size=lg]" [level=2] [ref=e115]
+    - generic [ref=e116]:
+      - generic [ref=e119]: KM
+      - generic [ref=e121]: "+3"
+  - region "Badge[variant=default,color=none]" [ref=e122]:
+    - heading "Badge[variant=default,color=none]" [level=2] [ref=e123]
+    - generic [ref=e124]: Marketing
+  - region "Badge[variant=default,color=default]" [ref=e125]:
+    - heading "Badge[variant=default,color=default]" [level=2] [ref=e126]
+    - generic [ref=e127]: Marketing
+  - region "Badge[variant=default,color=gray]" [ref=e128]:
+    - heading "Badge[variant=default,color=gray]" [level=2] [ref=e129]
+    - generic [ref=e130]: Marketing
+  - region "Badge[variant=default,color=brown]" [ref=e131]:
+    - heading "Badge[variant=default,color=brown]" [level=2] [ref=e132]
+    - generic [ref=e133]: Marketing
+  - region "Badge[variant=default,color=orange]" [ref=e134]:
+    - heading "Badge[variant=default,color=orange]" [level=2] [ref=e135]
+    - generic [ref=e136]: Marketing
+  - region "Badge[variant=default,color=yellow]" [ref=e137]:
+    - heading "Badge[variant=default,color=yellow]" [level=2] [ref=e138]
+    - generic [ref=e139]: Marketing
+  - region "Badge[variant=default,color=green]" [ref=e140]:
+    - heading "Badge[variant=default,color=green]" [level=2] [ref=e141]
+    - generic [ref=e142]: Marketing
+  - region "Badge[variant=default,color=blue]" [ref=e143]:
+    - heading "Badge[variant=default,color=blue]" [level=2] [ref=e144]
+    - generic [ref=e145]: Marketing
+  - region "Badge[variant=default,color=purple]" [ref=e146]:
+    - heading "Badge[variant=default,color=purple]" [level=2] [ref=e147]
+    - generic [ref=e148]: Marketing
+  - region "Badge[variant=default,color=pink]" [ref=e149]:
+    - heading "Badge[variant=default,color=pink]" [level=2] [ref=e150]
+    - generic [ref=e151]: Marketing
+  - region "Badge[variant=default,color=red]" [ref=e152]:
+    - heading "Badge[variant=default,color=red]" [level=2] [ref=e153]
+    - generic [ref=e154]: Marketing
+  - region "Badge[variant=secondary,color=none]" [ref=e155]:
+    - heading "Badge[variant=secondary,color=none]" [level=2] [ref=e156]
+    - generic [ref=e157]: Marketing
+  - region "Badge[variant=secondary,color=default]" [ref=e158]:
+    - heading "Badge[variant=secondary,color=default]" [level=2] [ref=e159]
+    - generic [ref=e160]: Marketing
+  - region "Badge[variant=secondary,color=gray]" [ref=e161]:
+    - heading "Badge[variant=secondary,color=gray]" [level=2] [ref=e162]
+    - generic [ref=e163]: Marketing
+  - region "Badge[variant=secondary,color=brown]" [ref=e164]:
+    - heading "Badge[variant=secondary,color=brown]" [level=2] [ref=e165]
+    - generic [ref=e166]: Marketing
+  - region "Badge[variant=secondary,color=orange]" [ref=e167]:
+    - heading "Badge[variant=secondary,color=orange]" [level=2] [ref=e168]
+    - generic [ref=e169]: Marketing
+  - region "Badge[variant=secondary,color=yellow]" [ref=e170]:
+    - heading "Badge[variant=secondary,color=yellow]" [level=2] [ref=e171]
+    - generic [ref=e172]: Marketing
+  - region "Badge[variant=secondary,color=green]" [ref=e173]:
+    - heading "Badge[variant=secondary,color=green]" [level=2] [ref=e174]
+    - generic [ref=e175]: Marketing
+  - region "Badge[variant=secondary,color=blue]" [ref=e176]:
+    - heading "Badge[variant=secondary,color=blue]" [level=2] [ref=e177]
+    - generic [ref=e178]: Marketing
+  - region "Badge[variant=secondary,color=purple]" [ref=e179]:
+    - heading "Badge[variant=secondary,color=purple]" [level=2] [ref=e180]
+    - generic [ref=e181]: Marketing
+  - region "Badge[variant=secondary,color=pink]" [ref=e182]:
+    - heading "Badge[variant=secondary,color=pink]" [level=2] [ref=e183]
+    - generic [ref=e184]: Marketing
+  - region "Badge[variant=secondary,color=red]" [ref=e185]:
+    - heading "Badge[variant=secondary,color=red]" [level=2] [ref=e186]
+    - generic [ref=e187]: Marketing
+  - region "Badge[variant=destructive,color=none]" [ref=e188]:
+    - heading "Badge[variant=destructive,color=none]" [level=2] [ref=e189]
+    - generic [ref=e190]: Marketing
+  - region "Badge[variant=destructive,color=default]" [ref=e191]:
+    - heading "Badge[variant=destructive,color=default]" [level=2] [ref=e192]
+    - generic [ref=e193]: Marketing
+  - region "Badge[variant=destructive,color=gray]" [ref=e194]:
+    - heading "Badge[variant=destructive,color=gray]" [level=2] [ref=e195]
+    - generic [ref=e196]: Marketing
+  - region "Badge[variant=destructive,color=brown]" [ref=e197]:
+    - heading "Badge[variant=destructive,color=brown]" [level=2] [ref=e198]
+    - generic [ref=e199]: Marketing
+  - region "Badge[variant=destructive,color=orange]" [ref=e200]:
+    - heading "Badge[variant=destructive,color=orange]" [level=2] [ref=e201]
+    - generic [ref=e202]: Marketing
+  - region "Badge[variant=destructive,color=yellow]" [ref=e203]:
+    - heading "Badge[variant=destructive,color=yellow]" [level=2] [ref=e204]
+    - generic [ref=e205]: Marketing
+  - region "Badge[variant=destructive,color=green]" [ref=e206]:
+    - heading "Badge[variant=destructive,color=green]" [level=2] [ref=e207]
+    - generic [ref=e208]: Marketing
+  - region "Badge[variant=destructive,color=blue]" [ref=e209]:
+    - heading "Badge[variant=destructive,color=blue]" [level=2] [ref=e210]
+    - generic [ref=e211]: Marketing
+  - region "Badge[variant=destructive,color=purple]" [ref=e212]:
+    - heading "Badge[variant=destructive,color=purple]" [level=2] [ref=e213]
+    - generic [ref=e214]: Marketing
+  - region "Badge[variant=destructive,color=pink]" [ref=e215]:
+    - heading "Badge[variant=destructive,color=pink]" [level=2] [ref=e216]
+    - generic [ref=e217]: Marketing
+  - region "Badge[variant=destructive,color=red]" [ref=e218]:
+    - heading "Badge[variant=destructive,color=red]" [level=2] [ref=e219]
+    - generic [ref=e220]: Marketing
+  - region "Badge[variant=outline,color=none]" [ref=e221]:
+    - heading "Badge[variant=outline,color=none]" [level=2] [ref=e222]
+    - generic [ref=e223]: Marketing
+  - region "Badge[variant=outline,color=default]" [ref=e224]:
+    - heading "Badge[variant=outline,color=default]" [level=2] [ref=e225]
+    - generic [ref=e226]: Marketing
+  - region "Badge[variant=outline,color=gray]" [ref=e227]:
+    - heading "Badge[variant=outline,color=gray]" [level=2] [ref=e228]
+    - generic [ref=e229]: Marketing
+  - region "Badge[variant=outline,color=brown]" [ref=e230]:
+    - heading "Badge[variant=outline,color=brown]" [level=2] [ref=e231]
+    - generic [ref=e232]: Marketing
+  - region "Badge[variant=outline,color=orange]" [ref=e233]:
+    - heading "Badge[variant=outline,color=orange]" [level=2] [ref=e234]
+    - generic [ref=e235]: Marketing
+  - region "Badge[variant=outline,color=yellow]" [ref=e236]:
+    - heading "Badge[variant=outline,color=yellow]" [level=2] [ref=e237]
+    - generic [ref=e238]: Marketing
+  - region "Badge[variant=outline,color=green]" [ref=e239]:
+    - heading "Badge[variant=outline,color=green]" [level=2] [ref=e240]
+    - generic [ref=e241]: Marketing
+  - region "Badge[variant=outline,color=blue]" [ref=e242]:
+    - heading "Badge[variant=outline,color=blue]" [level=2] [ref=e243]
+    - generic [ref=e244]: Marketing
+  - region "Badge[variant=outline,color=purple]" [ref=e245]:
+    - heading "Badge[variant=outline,color=purple]" [level=2] [ref=e246]
+    - generic [ref=e247]: Marketing
+  - region "Badge[variant=outline,color=pink]" [ref=e248]:
+    - heading "Badge[variant=outline,color=pink]" [level=2] [ref=e249]
+    - generic [ref=e250]: Marketing
+  - region "Badge[variant=outline,color=red]" [ref=e251]:
+    - heading "Badge[variant=outline,color=red]" [level=2] [ref=e252]
+    - generic [ref=e253]: Marketing
+  - region "Badge[variant=ghost,color=none]" [ref=e254]:
+    - heading "Badge[variant=ghost,color=none]" [level=2] [ref=e255]
+    - generic [ref=e256]: Marketing
+  - region "Badge[variant=ghost,color=default]" [ref=e257]:
+    - heading "Badge[variant=ghost,color=default]" [level=2] [ref=e258]
+    - generic [ref=e259]: Marketing
+  - region "Badge[variant=ghost,color=gray]" [ref=e260]:
+    - heading "Badge[variant=ghost,color=gray]" [level=2] [ref=e261]
+    - generic [ref=e262]: Marketing
+  - region "Badge[variant=ghost,color=brown]" [ref=e263]:
+    - heading "Badge[variant=ghost,color=brown]" [level=2] [ref=e264]
+    - generic [ref=e265]: Marketing
+  - region "Badge[variant=ghost,color=orange]" [ref=e266]:
+    - heading "Badge[variant=ghost,color=orange]" [level=2] [ref=e267]
+    - generic [ref=e268]: Marketing
+  - region "Badge[variant=ghost,color=yellow]" [ref=e269]:
+    - heading "Badge[variant=ghost,color=yellow]" [level=2] [ref=e270]
+    - generic [ref=e271]: Marketing
+  - region "Badge[variant=ghost,color=green]" [ref=e272]:
+    - heading "Badge[variant=ghost,color=green]" [level=2] [ref=e273]
+    - generic [ref=e274]: Marketing
+  - region "Badge[variant=ghost,color=blue]" [ref=e275]:
+    - heading "Badge[variant=ghost,color=blue]" [level=2] [ref=e276]
+    - generic [ref=e277]: Marketing
+  - region "Badge[variant=ghost,color=purple]" [ref=e278]:
+    - heading "Badge[variant=ghost,color=purple]" [level=2] [ref=e279]
+    - generic [ref=e280]: Marketing
+  - region "Badge[variant=ghost,color=pink]" [ref=e281]:
+    - heading "Badge[variant=ghost,color=pink]" [level=2] [ref=e282]
+    - generic [ref=e283]: Marketing
+  - region "Badge[variant=ghost,color=red]" [ref=e284]:
+    - heading "Badge[variant=ghost,color=red]" [level=2] [ref=e285]
+    - generic [ref=e286]: Marketing
+  - region "Badge[variant=link,color=none]" [ref=e287]:
+    - heading "Badge[variant=link,color=none]" [level=2] [ref=e288]
+    - generic [ref=e289]: Marketing
+  - region "Badge[variant=link,color=default]" [ref=e290]:
+    - heading "Badge[variant=link,color=default]" [level=2] [ref=e291]
+    - generic [ref=e292]: Marketing
+  - region "Badge[variant=link,color=gray]" [ref=e293]:
+    - heading "Badge[variant=link,color=gray]" [level=2] [ref=e294]
+    - generic [ref=e295]: Marketing
+  - region "Badge[variant=link,color=brown]" [ref=e296]:
+    - heading "Badge[variant=link,color=brown]" [level=2] [ref=e297]
+    - generic [ref=e298]: Marketing
+  - region "Badge[variant=link,color=orange]" [ref=e299]:
+    - heading "Badge[variant=link,color=orange]" [level=2] [ref=e300]
+    - generic [ref=e301]: Marketing
+  - region "Badge[variant=link,color=yellow]" [ref=e302]:
+    - heading "Badge[variant=link,color=yellow]" [level=2] [ref=e303]
+    - generic [ref=e304]: Marketing
+  - region "Badge[variant=link,color=green]" [ref=e305]:
+    - heading "Badge[variant=link,color=green]" [level=2] [ref=e306]
+    - generic [ref=e307]: Marketing
+  - region "Badge[variant=link,color=blue]" [ref=e308]:
+    - heading "Badge[variant=link,color=blue]" [level=2] [ref=e309]
+    - generic [ref=e310]: Marketing
+  - region "Badge[variant=link,color=purple]" [ref=e311]:
+    - heading "Badge[variant=link,color=purple]" [level=2] [ref=e312]
+    - generic [ref=e313]: Marketing
+  - region "Badge[variant=link,color=pink]" [ref=e314]:
+    - heading "Badge[variant=link,color=pink]" [level=2] [ref=e315]
+    - generic [ref=e316]: Marketing
+  - region "Badge[variant=link,color=red]" [ref=e317]:
+    - heading "Badge[variant=link,color=red]" [level=2] [ref=e318]
+    - generic [ref=e319]: Marketing
+  - region "Badge[variant=tag,color=none]" [ref=e320]:
+    - heading "Badge[variant=tag,color=none]" [level=2] [ref=e321]
+    - generic [ref=e322]: Marketing
+  - region "Badge[variant=tag,color=default]" [ref=e323]:
+    - heading "Badge[variant=tag,color=default]" [level=2] [ref=e324]
+    - generic [ref=e325]: Marketing
+  - region "Badge[variant=tag,color=gray]" [ref=e326]:
+    - heading "Badge[variant=tag,color=gray]" [level=2] [ref=e327]
+    - generic [ref=e328]: Marketing
+  - region "Badge[variant=tag,color=brown]" [ref=e329]:
+    - heading "Badge[variant=tag,color=brown]" [level=2] [ref=e330]
+    - generic [ref=e331]: Marketing
+  - region "Badge[variant=tag,color=orange]" [ref=e332]:
+    - heading "Badge[variant=tag,color=orange]" [level=2] [ref=e333]
+    - generic [ref=e334]: Marketing
+  - region "Badge[variant=tag,color=yellow]" [ref=e335]:
+    - heading "Badge[variant=tag,color=yellow]" [level=2] [ref=e336]
+    - generic [ref=e337]: Marketing
+  - region "Badge[variant=tag,color=green]" [ref=e338]:
+    - heading "Badge[variant=tag,color=green]" [level=2] [ref=e339]
+    - generic [ref=e340]: Marketing
+  - region "Badge[variant=tag,color=blue]" [ref=e341]:
+    - heading "Badge[variant=tag,color=blue]" [level=2] [ref=e342]
+    - generic [ref=e343]: Marketing
+  - region "Badge[variant=tag,color=purple]" [ref=e344]:
+    - heading "Badge[variant=tag,color=purple]" [level=2] [ref=e345]
+    - generic [ref=e346]: Marketing
+  - region "Badge[variant=tag,color=pink]" [ref=e347]:
+    - heading "Badge[variant=tag,color=pink]" [level=2] [ref=e348]
+    - generic [ref=e349]: Marketing
+  - region "Badge[variant=tag,color=red]" [ref=e350]:
+    - heading "Badge[variant=tag,color=red]" [level=2] [ref=e351]
+    - generic [ref=e352]: Marketing
+  - region "Breadcrumb" [ref=e353]:
+    - heading "Breadcrumb" [level=2] [ref=e354]
+    - navigation "breadcrumb" [ref=e355]:
+      - list [ref=e356]:
+        - listitem [ref=e357]:
+          - link "Workspace" [ref=e358] [cursor=pointer]:
+            - /url: "#workspace"
+        - listitem [aria-hidden] [ref=e359]
+        - listitem [ref=e362]:
+          - generic [ref=e368]: More
+        - listitem [aria-hidden] [ref=e369]
+        - listitem [ref=e372]:
+          - link "Roadmap" [disabled] [ref=e373]
+  - region "Button[variant=default,size=default]" [ref=e374]:
+    - heading "Button[variant=default,size=default]" [level=2] [ref=e375]
+    - button "New page" [ref=e376]
+  - region "Button[variant=default,size=xs]" [ref=e377]:
+    - heading "Button[variant=default,size=xs]" [level=2] [ref=e378]
+    - button "New page" [ref=e379]
+  - region "Button[variant=default,size=sm]" [ref=e380]:
+    - heading "Button[variant=default,size=sm]" [level=2] [ref=e381]
+    - button "New page" [ref=e382]
+  - region "Button[variant=default,size=lg]" [ref=e383]:
+    - heading "Button[variant=default,size=lg]" [level=2] [ref=e384]
+    - button "New page" [ref=e385]
+  - region "Button[variant=default,size=icon]" [ref=e386]:
+    - heading "Button[variant=default,size=icon]" [level=2] [ref=e387]
+    - button "Add" [ref=e388]
+  - region "Button[variant=default,size=icon-xs]" [ref=e389]:
+    - heading "Button[variant=default,size=icon-xs]" [level=2] [ref=e390]
+    - button "Add" [ref=e391]
+  - region "Button[variant=default,size=icon-sm]" [ref=e392]:
+    - heading "Button[variant=default,size=icon-sm]" [level=2] [ref=e393]
+    - button "Add" [ref=e394]
+  - region "Button[variant=default,size=icon-lg]" [ref=e395]:
+    - heading "Button[variant=default,size=icon-lg]" [level=2] [ref=e396]
+    - button "Add" [ref=e397]
+  - region "Button[variant=default,size=touch]" [ref=e398]:
+    - heading "Button[variant=default,size=touch]" [level=2] [ref=e399]
+    - button "New page" [ref=e400]
+  - region "Button[variant=default,size=icon-touch]" [ref=e401]:
+    - heading "Button[variant=default,size=icon-touch]" [level=2] [ref=e402]
+    - button "Add" [ref=e403]
+  - region "Button[variant=destructive,size=default]" [ref=e404]:
+    - heading "Button[variant=destructive,size=default]" [level=2] [ref=e405]
+    - button "New page" [ref=e406]
+  - region "Button[variant=destructive,size=xs]" [ref=e407]:
+    - heading "Button[variant=destructive,size=xs]" [level=2] [ref=e408]
+    - button "New page" [ref=e409]
+  - region "Button[variant=destructive,size=sm]" [ref=e410]:
+    - heading "Button[variant=destructive,size=sm]" [level=2] [ref=e411]
+    - button "New page" [ref=e412]
+  - region "Button[variant=destructive,size=lg]" [ref=e413]:
+    - heading "Button[variant=destructive,size=lg]" [level=2] [ref=e414]
+    - button "New page" [ref=e415]
+  - region "Button[variant=destructive,size=icon]" [ref=e416]:
+    - heading "Button[variant=destructive,size=icon]" [level=2] [ref=e417]
+    - button "Add" [ref=e418]
+  - region "Button[variant=destructive,size=icon-xs]" [ref=e419]:
+    - heading "Button[variant=destructive,size=icon-xs]" [level=2] [ref=e420]
+    - button "Add" [ref=e421]
+  - region "Button[variant=destructive,size=icon-sm]" [ref=e422]:
+    - heading "Button[variant=destructive,size=icon-sm]" [level=2] [ref=e423]
+    - button "Add" [ref=e424]
+  - region "Button[variant=destructive,size=icon-lg]" [ref=e425]:
+    - heading "Button[variant=destructive,size=icon-lg]" [level=2] [ref=e426]
+    - button "Add" [ref=e427]
+  - region "Button[variant=destructive,size=touch]" [ref=e428]:
+    - heading "Button[variant=destructive,size=touch]" [level=2] [ref=e429]
+    - button "New page" [ref=e430]
+  - region "Button[variant=destructive,size=icon-touch]" [ref=e431]:
+    - heading "Button[variant=destructive,size=icon-touch]" [level=2] [ref=e432]
+    - button "Add" [ref=e433]
+  - region "Button[variant=outline,size=default]" [ref=e434]:
+    - heading "Button[variant=outline,size=default]" [level=2] [ref=e435]
+    - button "New page" [ref=e436]
+  - region "Button[variant=outline,size=xs]" [ref=e437]:
+    - heading "Button[variant=outline,size=xs]" [level=2] [ref=e438]
+    - button "New page" [ref=e439]
+  - region "Button[variant=outline,size=sm]" [ref=e440]:
+    - heading "Button[variant=outline,size=sm]" [level=2] [ref=e441]
+    - button "New page" [ref=e442]
+  - region "Button[variant=outline,size=lg]" [ref=e443]:
+    - heading "Button[variant=outline,size=lg]" [level=2] [ref=e444]
+    - button "New page" [ref=e445]
+  - region "Button[variant=outline,size=icon]" [ref=e446]:
+    - heading "Button[variant=outline,size=icon]" [level=2] [ref=e447]
+    - button "Add" [ref=e448]
+  - region "Button[variant=outline,size=icon-xs]" [ref=e449]:
+    - heading "Button[variant=outline,size=icon-xs]" [level=2] [ref=e450]
+    - button "Add" [ref=e451]
+  - region "Button[variant=outline,size=icon-sm]" [ref=e452]:
+    - heading "Button[variant=outline,size=icon-sm]" [level=2] [ref=e453]
+    - button "Add" [ref=e454]
+  - region "Button[variant=outline,size=icon-lg]" [ref=e455]:
+    - heading "Button[variant=outline,size=icon-lg]" [level=2] [ref=e456]
+    - button "Add" [ref=e457]
+  - region "Button[variant=outline,size=touch]" [ref=e458]:
+    - heading "Button[variant=outline,size=touch]" [level=2] [ref=e459]
+    - button "New page" [ref=e460]
+  - region "Button[variant=outline,size=icon-touch]" [ref=e461]:
+    - heading "Button[variant=outline,size=icon-touch]" [level=2] [ref=e462]
+    - button "Add" [ref=e463]
+  - region "Button[variant=secondary,size=default]" [ref=e464]:
+    - heading "Button[variant=secondary,size=default]" [level=2] [ref=e465]
+    - button "New page" [ref=e466]
+  - region "Button[variant=secondary,size=xs]" [ref=e467]:
+    - heading "Button[variant=secondary,size=xs]" [level=2] [ref=e468]
+    - button "New page" [ref=e469]
+  - region "Button[variant=secondary,size=sm]" [ref=e470]:
+    - heading "Button[variant=secondary,size=sm]" [level=2] [ref=e471]
+    - button "New page" [ref=e472]
+  - region "Button[variant=secondary,size=lg]" [ref=e473]:
+    - heading "Button[variant=secondary,size=lg]" [level=2] [ref=e474]
+    - button "New page" [ref=e475]
+  - region "Button[variant=secondary,size=icon]" [ref=e476]:
+    - heading "Button[variant=secondary,size=icon]" [level=2] [ref=e477]
+    - button "Add" [ref=e478]
+  - region "Button[variant=secondary,size=icon-xs]" [ref=e479]:
+    - heading "Button[variant=secondary,size=icon-xs]" [level=2] [ref=e480]
+    - button "Add" [ref=e481]
+  - region "Button[variant=secondary,size=icon-sm]" [ref=e482]:
+    - heading "Button[variant=secondary,size=icon-sm]" [level=2] [ref=e483]
+    - button "Add" [ref=e484]
+  - region "Button[variant=secondary,size=icon-lg]" [ref=e485]:
+    - heading "Button[variant=secondary,size=icon-lg]" [level=2] [ref=e486]
+    - button "Add" [ref=e487]
+  - region "Button[variant=secondary,size=touch]" [ref=e488]:
+    - heading "Button[variant=secondary,size=touch]" [level=2] [ref=e489]
+    - button "New page" [ref=e490]
+  - region "Button[variant=secondary,size=icon-touch]" [ref=e491]:
+    - heading "Button[variant=secondary,size=icon-touch]" [level=2] [ref=e492]
+    - button "Add" [ref=e493]
+  - region "Button[variant=ghost,size=default]" [ref=e494]:
+    - heading "Button[variant=ghost,size=default]" [level=2] [ref=e495]
+    - button "New page" [ref=e496]
+  - region "Button[variant=ghost,size=xs]" [ref=e497]:
+    - heading "Button[variant=ghost,size=xs]" [level=2] [ref=e498]
+    - button "New page" [ref=e499]
+  - region "Button[variant=ghost,size=sm]" [ref=e500]:
+    - heading "Button[variant=ghost,size=sm]" [level=2] [ref=e501]
+    - button "New page" [ref=e502]
+  - region "Button[variant=ghost,size=lg]" [ref=e503]:
+    - heading "Button[variant=ghost,size=lg]" [level=2] [ref=e504]
+    - button "New page" [ref=e505]
+  - region "Button[variant=ghost,size=icon]" [ref=e506]:
+    - heading "Button[variant=ghost,size=icon]" [level=2] [ref=e507]
+    - button "Add" [ref=e508]
+  - region "Button[variant=ghost,size=icon-xs]" [ref=e509]:
+    - heading "Button[variant=ghost,size=icon-xs]" [level=2] [ref=e510]
+    - button "Add" [ref=e511]
+  - region "Button[variant=ghost,size=icon-sm]" [ref=e512]:
+    - heading "Button[variant=ghost,size=icon-sm]" [level=2] [ref=e513]
+    - button "Add" [ref=e514]
+  - region "Button[variant=ghost,size=icon-lg]" [ref=e515]:
+    - heading "Button[variant=ghost,size=icon-lg]" [level=2] [ref=e516]
+    - button "Add" [ref=e517]
+  - region "Button[variant=ghost,size=touch]" [ref=e518]:
+    - heading "Button[variant=ghost,size=touch]" [level=2] [ref=e519]
+    - button "New page" [ref=e520]
+  - region "Button[variant=ghost,size=icon-touch]" [ref=e521]:
+    - heading "Button[variant=ghost,size=icon-touch]" [level=2] [ref=e522]
+    - button "Add" [ref=e523]
+  - region "Button[variant=link,size=default]" [ref=e524]:
+    - heading "Button[variant=link,size=default]" [level=2] [ref=e525]
+    - button "New page" [ref=e526]
+  - region "Button[variant=link,size=xs]" [ref=e527]:
+    - heading "Button[variant=link,size=xs]" [level=2] [ref=e528]
+    - button "New page" [ref=e529]
+  - region "Button[variant=link,size=sm]" [ref=e530]:
+    - heading "Button[variant=link,size=sm]" [level=2] [ref=e531]
+    - button "New page" [ref=e532]
+  - region "Button[variant=link,size=lg]" [ref=e533]:
+    - heading "Button[variant=link,size=lg]" [level=2] [ref=e534]
+    - button "New page" [ref=e535]
+  - region "Button[variant=link,size=icon]" [ref=e536]:
+    - heading "Button[variant=link,size=icon]" [level=2] [ref=e537]
+    - button "Add" [ref=e538]
+  - region "Button[variant=link,size=icon-xs]" [ref=e539]:
+    - heading "Button[variant=link,size=icon-xs]" [level=2] [ref=e540]
+    - button "Add" [ref=e541]
+  - region "Button[variant=link,size=icon-sm]" [ref=e542]:
+    - heading "Button[variant=link,size=icon-sm]" [level=2] [ref=e543]
+    - button "Add" [ref=e544]
+  - region "Button[variant=link,size=icon-lg]" [ref=e545]:
+    - heading "Button[variant=link,size=icon-lg]" [level=2] [ref=e546]
+    - button "Add" [ref=e547]
+  - region "Button[variant=link,size=touch]" [ref=e548]:
+    - heading "Button[variant=link,size=touch]" [level=2] [ref=e549]
+    - button "New page" [ref=e550]
+  - region "Button[variant=link,size=icon-touch]" [ref=e551]:
+    - heading "Button[variant=link,size=icon-touch]" [level=2] [ref=e552]
+    - button "Add" [ref=e553]
+  - region "Button[variant=floating,size=default]" [ref=e554]:
+    - heading "Button[variant=floating,size=default]" [level=2] [ref=e555]
+    - button "New page" [ref=e556]
+  - region "Button[variant=floating,size=xs]" [ref=e557]:
+    - heading "Button[variant=floating,size=xs]" [level=2] [ref=e558]
+    - button "New page" [ref=e559]
+  - region "Button[variant=floating,size=sm]" [ref=e560]:
+    - heading "Button[variant=floating,size=sm]" [level=2] [ref=e561]
+    - button "New page" [ref=e562]
+  - region "Button[variant=floating,size=lg]" [ref=e563]:
+    - heading "Button[variant=floating,size=lg]" [level=2] [ref=e564]
+    - button "New page" [ref=e565]
+  - region "Button[variant=floating,size=icon]" [ref=e566]:
+    - heading "Button[variant=floating,size=icon]" [level=2] [ref=e567]
+    - button "Add" [ref=e568]
+  - region "Button[variant=floating,size=icon-xs]" [ref=e569]:
+    - heading "Button[variant=floating,size=icon-xs]" [level=2] [ref=e570]
+    - button "Add" [ref=e571]
+  - region "Button[variant=floating,size=icon-sm]" [ref=e572]:
+    - heading "Button[variant=floating,size=icon-sm]" [level=2] [ref=e573]
+    - button "Add" [ref=e574]
+  - region "Button[variant=floating,size=icon-lg]" [ref=e575]:
+    - heading "Button[variant=floating,size=icon-lg]" [level=2] [ref=e576]
+    - button "Add" [ref=e577]
+  - region "Button[variant=floating,size=touch]" [ref=e578]:
+    - heading "Button[variant=floating,size=touch]" [level=2] [ref=e579]
+    - button "New page" [ref=e580]
+  - region "Button[variant=floating,size=icon-touch]" [ref=e581]:
+    - heading "Button[variant=floating,size=icon-touch]" [level=2] [ref=e582]
+    - button "Add" [ref=e583]
+  - region "ButtonGroup[orientation=horizontal]" [ref=e584]:
+    - heading "ButtonGroup[orientation=horizontal]" [level=2] [ref=e585]
+    - group [ref=e586]:
+      - generic [ref=e587]: View
+      - button "Table" [ref=e588]
+      - button "Board" [ref=e589]
+  - region "ButtonGroup[orientation=vertical]" [ref=e590]:
+    - heading "ButtonGroup[orientation=vertical]" [level=2] [ref=e591]
+    - group [ref=e592]:
+      - generic [ref=e593]: View
+      - button "Table" [ref=e594]
+      - button "Board" [ref=e595]
+  - region "Card" [ref=e596]:
+    - heading "Card" [level=2] [ref=e597]
+    - generic [ref=e598]:
+      - generic [ref=e599]:
+        - generic [ref=e600]: Monthly report
+        - generic [ref=e601]: October, all projects
+        - button "Settings" [ref=e603]
+      - generic [ref=e604]: Twelve pages changed this month.
+      - button "Open" [ref=e606]
+  - region "Checkbox" [ref=e607]:
+    - heading "Checkbox" [level=2] [ref=e608]
+    - generic [ref=e609]:
+      - checkbox "Unchecked" [ref=e610]
+      - checkbox "Checked" [checked] [ref=e611]
+      - checkbox "Invalid" [invalid] [ref=e612]
+      - checkbox "Disabled" [checked] [disabled] [ref=e613]
+  - region "Collapsible" [ref=e614]:
+    - heading "Collapsible" [level=2] [ref=e615]
+    - generic [ref=e616]:
+      - button "Details" [expanded] [ref=e617]
+      - generic [ref=e618]: Created on 3 October.
+  - region "Command" [ref=e619]:
+    - heading "Command" [level=2] [ref=e620]
+    - generic [ref=e621]:
+      - combobox [expanded] [ref=e627]
+      - listbox "Suggestions" [ref=e628]:
+        - generic [ref=e629]:
+          - generic [aria-hidden] [ref=e630]: Pages
+          - group "Pages" [ref=e631]:
+            - option "Roadmap ⌘R" [selected] [ref=e632]:
+              - text: Roadmap
+              - generic [ref=e633]: ⌘R
+            - option "Calendar" [ref=e634]
+          - separator [ref=e635]
+          - generic [aria-hidden] [ref=e636]: Settings
+          - group "Settings" [ref=e637]:
+            - option "Preferences" [ref=e638]
+  - region "EmptyMedia[variant=default]" [ref=e639]:
+    - heading "EmptyMedia[variant=default]" [level=2] [ref=e640]
+    - generic [ref=e641]:
+      - generic [ref=e642]:
+        - generic [ref=e644]: No pages yet
+        - generic [ref=e645]: Create the first page of the workspace.
+      - button "New page" [ref=e647]
+  - region "EmptyMedia[variant=icon]" [ref=e648]:
+    - heading "EmptyMedia[variant=icon]" [level=2] [ref=e649]
+    - generic [ref=e650]:
+      - generic [ref=e651]:
+        - generic [ref=e653]: No pages yet
+        - generic [ref=e654]: Create the first page of the workspace.
+      - button "New page" [ref=e656]
+  - region "Field[orientation=vertical]" [ref=e657]:
+    - heading "Field[orientation=vertical]" [level=2] [ref=e658]
+    - group "Profile" [ref=e659]:
+      - paragraph [ref=e661]: Shown to the workspace.
+      - generic [ref=e662]:
+        - group [ref=e663]:
+          - generic [ref=e664]: Name
+          - textbox "Name" [ref=e665]: Ada
+        - generic [ref=e666]: or
+        - group [ref=e668]:
+          - generic [ref=e669]:
+            - generic [ref=e670]: E-mail
+            - paragraph [ref=e671]: Used to sign in.
+          - textbox "E-mail" [invalid] [ref=e672]: ada@
+          - alert [ref=e673]: Enter a full address.
+  - region "Field[orientation=horizontal]" [ref=e674]:
+    - heading "Field[orientation=horizontal]" [level=2] [ref=e675]
+    - group "Profile" [ref=e676]:
+      - paragraph [ref=e678]: Shown to the workspace.
+      - generic [ref=e679]:
+        - group [ref=e680]:
+          - generic [ref=e681]: Name
+          - textbox "Name" [ref=e682]: Ada
+        - generic [ref=e683]: or
+        - group [ref=e685]:
+          - generic [ref=e686]:
+            - generic [ref=e687]: E-mail
+            - paragraph [ref=e688]: Used to sign in.
+          - textbox "E-mail" [invalid] [ref=e689]: ada@
+          - alert [ref=e690]: Enter a full address.
+  - region "Field[orientation=responsive]" [ref=e691]:
+    - heading "Field[orientation=responsive]" [level=2] [ref=e692]
+    - group "Profile" [ref=e693]:
+      - paragraph [ref=e695]: Shown to the workspace.
+      - generic [ref=e696]:
+        - group [ref=e697]:
+          - generic [ref=e698]: Name
+          - textbox "Name" [ref=e699]: Ada
+        - generic [ref=e700]: or
+        - group [ref=e702]:
+          - generic [ref=e703]:
+            - generic [ref=e704]: E-mail
+            - paragraph [ref=e705]: Used to sign in.
+          - textbox "E-mail" [invalid] [ref=e706]: ada@
+          - alert [ref=e707]: Enter a full address.
+  - region "FieldError[errors]" [ref=e708]:
+    - heading "FieldError[errors]" [level=2] [ref=e709]
+    - alert [ref=e710]:
+      - list [ref=e711]:
+        - listitem [ref=e712]: Too short.
+        - listitem [ref=e713]: Needs a digit.
+  - region "Input" [ref=e714]:
+    - heading "Input" [level=2] [ref=e715]
+    - generic [ref=e716]:
+      - textbox "Title" [ref=e717]:
+        - /placeholder: Untitled
+      - textbox "Invalid" [invalid] [ref=e718]: "?"
+      - textbox "Disabled" [disabled]: Locked
+      - button "File" [ref=e719]
+  - region "InputGroupAddon[align=inline-start]" [ref=e720]:
+    - heading "InputGroupAddon[align=inline-start]" [level=2] [ref=e721]
+    - group [ref=e722]:
+      - textbox "Search" [ref=e723]
+      - group [ref=e724]:
+        - generic [ref=e728]: Find
+  - region "InputGroupAddon[align=inline-end]" [ref=e729]:
+    - heading "InputGroupAddon[align=inline-end]" [level=2] [ref=e730]
+    - group [ref=e731]:
+      - textbox "Search" [ref=e732]
+      - group [ref=e733]:
+        - generic [ref=e737]: Find
+  - region "InputGroupAddon[align=block-start]" [ref=e738]:
+    - heading "InputGroupAddon[align=block-start]" [level=2] [ref=e739]
+    - group [ref=e740]:
+      - textbox "Note" [ref=e741]: A note
+      - group [ref=e742]:
+        - generic [ref=e746]: Find
+  - region "InputGroupAddon[align=block-end]" [ref=e747]:
+    - heading "InputGroupAddon[align=block-end]" [level=2] [ref=e748]
+    - group [ref=e749]:
+      - textbox "Note" [ref=e750]: A note
+      - group [ref=e751]:
+        - generic [ref=e755]: Find
+  - region "InputGroupButton[size=xs]" [ref=e756]:
+    - heading "InputGroupButton[size=xs]" [level=2] [ref=e757]
+    - group [ref=e758]:
+      - textbox "Link" [ref=e759]: https://example.com
+      - group [ref=e760]:
+        - button "Copy" [ref=e761]
+  - region "InputGroupButton[size=sm]" [ref=e762]:
+    - heading "InputGroupButton[size=sm]" [level=2] [ref=e763]
+    - group [ref=e764]:
+      - textbox "Link" [ref=e765]: https://example.com
+      - group [ref=e766]:
+        - button "Copy" [ref=e767]
+  - region "InputGroupButton[size=icon-xs]" [ref=e768]:
+    - heading "InputGroupButton[size=icon-xs]" [level=2] [ref=e769]
+    - group [ref=e770]:
+      - textbox "Link" [ref=e771]: https://example.com
+      - group [ref=e772]:
+        - button "Copy" [ref=e773]
+  - region "InputGroupButton[size=icon-sm]" [ref=e774]:
+    - heading "InputGroupButton[size=icon-sm]" [level=2] [ref=e775]
+    - group [ref=e776]:
+      - textbox "Link" [ref=e777]: https://example.com
+      - group [ref=e778]:
+        - button "Copy" [ref=e779]
+  - region "Item[variant=default,size=default]" [ref=e780]:
+    - heading "Item[variant=default,size=default]" [level=2] [ref=e781]
+    - list [ref=e782]:
+      - listitem [ref=e783]:
+        - generic [ref=e784]: Project
+        - generic [ref=e786]:
+          - generic [ref=e787]: Roadmap
+          - paragraph [ref=e788]: Updated today
+        - button "Open" [ref=e790]
+        - generic [ref=e791]: 3 pages
+  - region "Item[variant=default,size=sm]" [ref=e792]:
+    - heading "Item[variant=default,size=sm]" [level=2] [ref=e793]
+    - list [ref=e794]:
+      - listitem [ref=e795]:
+        - generic [ref=e796]: Project
+        - generic [ref=e798]:
+          - generic [ref=e799]: Roadmap
+          - paragraph [ref=e800]: Updated today
+        - button "Open" [ref=e802]
+        - generic [ref=e803]: 3 pages
+  - region "Item[variant=outline,size=default]" [ref=e804]:
+    - heading "Item[variant=outline,size=default]" [level=2] [ref=e805]
+    - list [ref=e806]:
+      - listitem [ref=e807]:
+        - generic [ref=e808]: Project
+        - generic [ref=e810]:
+          - generic [ref=e811]: Roadmap
+          - paragraph [ref=e812]: Updated today
+        - button "Open" [ref=e814]
+        - generic [ref=e815]: 3 pages
+  - region "Item[variant=outline,size=sm]" [ref=e816]:
+    - heading "Item[variant=outline,size=sm]" [level=2] [ref=e817]
+    - list [ref=e818]:
+      - listitem [ref=e819]:
+        - generic [ref=e820]: Project
+        - generic [ref=e822]:
+          - generic [ref=e823]: Roadmap
+          - paragraph [ref=e824]: Updated today
+        - button "Open" [ref=e826]
+        - generic [ref=e827]: 3 pages
+  - region "Item[variant=muted,size=default]" [ref=e828]:
+    - heading "Item[variant=muted,size=default]" [level=2] [ref=e829]
+    - list [ref=e830]:
+      - listitem [ref=e831]:
+        - generic [ref=e832]: Project
+        - generic [ref=e834]:
+          - generic [ref=e835]: Roadmap
+          - paragraph [ref=e836]: Updated today
+        - button "Open" [ref=e838]
+        - generic [ref=e839]: 3 pages
+  - region "Item[variant=muted,size=sm]" [ref=e840]:
+    - heading "Item[variant=muted,size=sm]" [level=2] [ref=e841]
+    - list [ref=e842]:
+      - listitem [ref=e843]:
+        - generic [ref=e844]: Project
+        - generic [ref=e846]:
+          - generic [ref=e847]: Roadmap
+          - paragraph [ref=e848]: Updated today
+        - button "Open" [ref=e850]
+        - generic [ref=e851]: 3 pages
+  - region "ItemMedia[variant=default]" [ref=e852]:
+    - heading "ItemMedia[variant=default]" [level=2] [ref=e853]
+    - generic [ref=e854]: Reminder
+  - region "ItemMedia[variant=icon]" [ref=e858]:
+    - heading "ItemMedia[variant=icon]" [level=2] [ref=e859]
+    - generic [ref=e860]: Reminder
+  - region "ItemMedia[variant=image]" [ref=e864]:
+    - heading "ItemMedia[variant=image]" [level=2] [ref=e865]
+    - generic [ref=e866]: Reminder
+  - region "Kbd" [ref=e870]:
+    - heading "Kbd" [level=2] [ref=e871]
+    - generic [ref=e872]:
+      - generic: ⌘
+      - generic: K
+  - region "Label" [ref=e873]:
+    - heading "Label" [level=2] [ref=e874]
+    - generic [ref=e875]:
+      - checkbox "Accept the terms" [ref=e876]
+      - generic [ref=e877]: Accept the terms
+  - region "Progress" [ref=e878]:
+    - heading "Progress" [level=2] [ref=e879]
+    - progressbar "Done" [ref=e880]
+  - region "RadioGroup" [ref=e882]:
+    - heading "RadioGroup" [level=2] [ref=e883]
+    - radiogroup "Report frequency" [ref=e884]:
+      - generic [ref=e885]:
+        - radio "daily" [ref=e886]
+        - generic [ref=e887]: daily
+      - generic [ref=e888]:
+        - radio "weekly" [checked] [ref=e889]
+        - generic [ref=e892]: weekly
+      - generic [ref=e893]:
+        - radio "monthly" [ref=e894]
+        - generic [ref=e895]: monthly
+      - generic [ref=e896]:
+        - radio "never" [disabled] [ref=e897]
+        - generic [ref=e898]: never
+  - region "ScrollArea" [ref=e899]:
+    - heading "ScrollArea" [level=2] [ref=e900]
+    - generic [ref=e904]:
+      - paragraph [ref=e905]: Line 1 of the changelog
+      - paragraph [ref=e906]: Line 2 of the changelog
+      - paragraph [ref=e907]: Line 3 of the changelog
+      - paragraph [ref=e908]: Line 4 of the changelog
+      - paragraph [ref=e909]: Line 5 of the changelog
+      - paragraph [ref=e910]: Line 6 of the changelog
+      - paragraph [ref=e911]: Line 7 of the changelog
+      - paragraph [ref=e912]: Line 8 of the changelog
+  - region "ScrollArea[scrollbars=horizontal]" [ref=e913]:
+    - heading "ScrollArea[scrollbars=horizontal]" [level=2] [ref=e914]
+    - generic [ref=e918]:
+      - generic [ref=e919]: Card 1
+      - generic [ref=e920]: Card 2
+      - generic [ref=e921]: Card 3
+      - generic [ref=e922]: Card 4
+      - generic [ref=e923]: Card 5
+      - generic [ref=e924]: Card 6
+      - generic [ref=e925]: Card 7
+      - generic [ref=e926]: Card 8
+  - region "SelectTrigger[size=default]" [ref=e927]:
+    - heading "SelectTrigger[size=default]" [level=2] [ref=e928]
+    - combobox "View" [ref=e929]:
+      - generic: Table
+  - region "SelectTrigger[size=sm]" [ref=e930]:
+    - heading "SelectTrigger[size=sm]" [level=2] [ref=e931]
+    - combobox "View" [ref=e932]:
+      - generic: Table
+  - region "SelectTrigger[size=touch]" [ref=e933]:
+    - heading "SelectTrigger[size=touch]" [level=2] [ref=e934]
+    - combobox "View" [ref=e935]:
+      - generic: Table
+  - region "Separator" [ref=e936]:
+    - heading "Separator" [level=2] [ref=e937]
+    - generic [ref=e939]:
+      - generic [ref=e940]: Pages
+      - generic [ref=e941]: Files
+  - region "SidebarMenuButton[variant=default,size=default]" [ref=e942]:
+    - heading "SidebarMenuButton[variant=default,size=default]" [level=2] [ref=e943]
+    - list [ref=e945]:
+      - listitem [ref=e946]:
+        - button "Inbox" [ref=e947]
+  - region "SidebarMenuButton[variant=default,size=sm]" [ref=e952]:
+    - heading "SidebarMenuButton[variant=default,size=sm]" [level=2] [ref=e953]
+    - list [ref=e955]:
+      - listitem [ref=e956]:
+        - button "Inbox" [ref=e957]
+  - region "SidebarMenuButton[variant=default,size=lg]" [ref=e962]:
+    - heading "SidebarMenuButton[variant=default,size=lg]" [level=2] [ref=e963]
+    - list [ref=e965]:
+      - listitem [ref=e966]:
+        - button "Inbox" [ref=e967]
+  - region "SidebarMenuButton[variant=outline,size=default]" [ref=e972]:
+    - heading "SidebarMenuButton[variant=outline,size=default]" [level=2] [ref=e973]
+    - list [ref=e975]:
+      - listitem [ref=e976]:
+        - button "Inbox" [ref=e977]
+  - region "SidebarMenuButton[variant=outline,size=sm]" [ref=e982]:
+    - heading "SidebarMenuButton[variant=outline,size=sm]" [level=2] [ref=e983]
+    - list [ref=e985]:
+      - listitem [ref=e986]:
+        - button "Inbox" [ref=e987]
+  - region "SidebarMenuButton[variant=outline,size=lg]" [ref=e992]:
+    - heading "SidebarMenuButton[variant=outline,size=lg]" [level=2] [ref=e993]
+    - list [ref=e995]:
+      - listitem [ref=e996]:
+        - button "Inbox" [ref=e997]
+  - region "Skeleton" [ref=e1002]:
+    - heading "Skeleton" [level=2] [ref=e1003]
+  - region "Toaster" [ref=e1007]:
+    - heading "Toaster" [level=2] [ref=e1008]
+    - region "Notifications alt+T"
+  - region "Spinner" [ref=e1009]:
+    - heading "Spinner" [level=2] [ref=e1010]
+    - status "Loading" [ref=e1011]
+  - region "Switch[size=default]" [ref=e1013]:
+    - heading "Switch[size=default]" [level=2] [ref=e1014]
+    - generic [ref=e1015]:
+      - switch "Off" [ref=e1016]
+      - switch "On" [checked] [ref=e1017]
+      - switch "Disabled" [disabled] [ref=e1018]
+  - region "Switch[size=sm]" [ref=e1019]:
+    - heading "Switch[size=sm]" [level=2] [ref=e1020]
+    - generic [ref=e1021]:
+      - switch "Off" [ref=e1022]
+      - switch "On" [checked] [ref=e1023]
+      - switch "Disabled" [disabled] [ref=e1024]
+  - region "Table" [ref=e1025]:
+    - heading "Table" [level=2] [ref=e1026]
+    - table "Invoices of October" [ref=e1028]:
+      - caption [ref=e1029]: Invoices of October
+      - rowgroup [ref=e1030]:
+        - row [ref=e1031]:
+          - columnheader "Number" [ref=e1032]
+          - columnheader "Status" [ref=e1033]
+          - columnheader "Amount" [ref=e1034]
+      - rowgroup [ref=e1035]:
+        - row [ref=e1036]:
+          - cell "INV-001" [ref=e1037]
+          - cell "Paid" [ref=e1038]
+          - cell "1,200" [ref=e1039]
+        - row [ref=e1040]:
+          - cell "INV-002" [ref=e1041]
+          - cell "Due" [ref=e1042]
+          - cell "300" [ref=e1043]
+      - rowgroup [ref=e1044]:
+        - row [ref=e1045]:
+          - cell "Total" [ref=e1046]
+          - cell "1,500" [ref=e1047]
+  - region "TabsList[size=default]" [ref=e1048]:
+    - heading "TabsList[size=default]" [level=2] [ref=e1049]
+    - generic [ref=e1050]:
+      - tablist [ref=e1051]:
+        - tab "Pages" [selected] [ref=e1052]
+        - tab "Files" [ref=e1053]
+      - tabpanel "Pages" [ref=e1054]: Twelve pages.
+  - region "TabsList[size=touch]" [ref=e1055]:
+    - heading "TabsList[size=touch]" [level=2] [ref=e1056]
+    - generic [ref=e1057]:
+      - tablist [ref=e1058]:
+        - tab "Pages" [selected] [ref=e1059]
+        - tab "Files" [ref=e1060]
+      - tabpanel "Pages" [ref=e1061]: Twelve pages.
+  - region "TabsList[variant=default]" [ref=e1062]:
+    - heading "TabsList[variant=default]" [level=2] [ref=e1063]
+    - generic [ref=e1064]:
+      - tablist [ref=e1065]:
+        - tab "Pages" [selected] [ref=e1066]
+        - tab "Files" [ref=e1067]
+        - tab "Trash" [disabled]
+      - tabpanel "Pages" [ref=e1068]: Twelve pages.
+  - region "TabsList[variant=line]" [ref=e1069]:
+    - heading "TabsList[variant=line]" [level=2] [ref=e1070]
+    - generic [ref=e1071]:
+      - tablist [ref=e1072]:
+        - tab "Pages" [selected] [ref=e1073]
+        - tab "Files" [ref=e1074]
+        - tab "Trash" [disabled]
+      - tabpanel "Pages" [ref=e1075]: Twelve pages.
+  - region "TabsList[scrollable=false]" [ref=e1076]:
+    - heading "TabsList[scrollable=false]" [level=2] [ref=e1077]
+    - generic [ref=e1079]:
+      - tablist [ref=e1080]:
+        - tab "Tasks" [ref=e1081]
+        - tab "Invoices" [selected] [ref=e1082]
+      - tabpanel "Invoices" [ref=e1083]: Four invoices.
+  - region "TabsList[scrollable=true]" [ref=e1084]:
+    - heading "TabsList[scrollable=true]" [level=2] [ref=e1085]
+    - generic [ref=e1087]:
+      - tablist [ref=e1088]:
+        - tab "Overview" [ref=e1089]
+        - tab "Projects" [ref=e1090]
+        - tab "Tasks" [ref=e1091]
+        - tab "Documents" [ref=e1092]
+        - tab "Invoices" [selected] [ref=e1093]
+        - tab "Settings" [ref=e1094]
+      - tabpanel "Invoices" [ref=e1095]: Four invoices.
+  - region "Tabs[orientation=vertical]" [ref=e1096]:
+    - heading "Tabs[orientation=vertical]" [level=2] [ref=e1097]
+    - generic [ref=e1098]:
+      - tablist [ref=e1099]:
+        - tab "Pages" [selected] [ref=e1100]
+        - tab "Files" [ref=e1101]
+      - tabpanel "Pages" [ref=e1102]: Twelve pages.
+  - region "Textarea" [ref=e1103]:
+    - heading "Textarea" [level=2] [ref=e1104]
+    - textbox "Comment" [ref=e1105]:
+      - /placeholder: Add a comment
+  - region "Code" [ref=e1106]:
+    - heading "Code" [level=2] [ref=e1107]
+    - paragraph [ref=e1108]:
+      - text: Run
+      - code [ref=e1109]: npm ci
+      - text: first.
+  - region "CodeBlock[wrap=false]" [ref=e1110]:
+    - heading "CodeBlock[wrap=false]" [level=2] [ref=e1111]
+    - region "Deploy log" [ref=e1112]: $ softure-deploy release --environment production --version 0.4.7 Release 0.4.7 is live.
+  - region "CodeBlock[wrap=true]" [ref=e1113]:
+    - heading "CodeBlock[wrap=true]" [level=2] [ref=e1114]
+    - region "Deploy log" [ref=e1115]: $ softure-deploy release --environment production --version 0.4.7 Release 0.4.7 is live.
+  - region "SortableList[dragBy=row]" [ref=e1116]:
+    - heading "SortableList[dragBy=row]" [level=2] [ref=e1117]
+    - list "Stages" [ref=e1118]:
+      - listitem [ref=e1119]: plan
+      - listitem [ref=e1120]: build
+      - listitem [ref=e1121]: ship
+    - status [ref=e1122]
+  - region "SortableList[dragBy=handle]" [ref=e1123]:
+    - heading "SortableList[dragBy=handle]" [level=2] [ref=e1124]
+    - list "Stages" [ref=e1125]:
+      - listitem [ref=e1126]:
+        - button "Drag to reorder" [ref=e1127]
+        - text: plan
+      - listitem [ref=e1128]:
+        - button "Drag to reorder" [ref=e1129]
+        - text: build
+      - listitem [ref=e1130]:
+        - button "Drag to reorder" [ref=e1131]
+        - text: ship
+    - status [ref=e1132]
+  - region "SortableList[dragBy=activator]" [ref=e1133]:
+    - heading "SortableList[dragBy=activator]" [level=2] [ref=e1134]
+    - list "Stages" [ref=e1135]:
+      - listitem [ref=e1136]:
+        - button "plan" [ref=e1137]
+      - listitem [ref=e1138]:
+        - button "build" [ref=e1139]
+      - listitem [ref=e1140]:
+        - button "ship" [ref=e1141]
+    - status [ref=e1142]
+  - region "DetailTable" [ref=e1143]:
+    - heading "DetailTable" [level=2] [ref=e1144]
+    - table "Invoice details" [ref=e1145]:
+      - rowgroup [ref=e1146]:
+        - row [ref=e1147]:
+          - rowheader "Number" [ref=e1148]
+          - cell "INV-001" [ref=e1149]
+        - row [ref=e1150]:
+          - rowheader "Due" [ref=e1151]
+          - cell "3 November" [ref=e1152]
+  - region "FilterChip[isActive=false]" [ref=e1153]:
+    - heading "FilterChip[isActive=false]" [level=2] [ref=e1154]
+    - generic [ref=e1155]:
+      - 'button "Status: all" [ref=e1156] [cursor=pointer]':
+        - generic [ref=e1157]: "Status:"
+        - generic [ref=e1158]: all
+      - button "Add filter" [ref=e1159] [cursor=pointer]
+  - region "FilterChip[isActive=true]" [ref=e1161]:
+    - heading "FilterChip[isActive=true]" [level=2] [ref=e1162]
+    - generic [ref=e1163]:
+      - 'button "Status: Failed" [ref=e1164] [cursor=pointer]':
+        - generic [ref=e1165]: "Status:"
+        - generic [ref=e1166]: Failed
+      - button "Add filter" [ref=e1167] [cursor=pointer]
+  - region "FoldRow" [ref=e1169]:
+    - heading "FoldRow" [level=2] [ref=e1170]
+    - group [ref=e1171]:
+      - generic "Website redesign 12 pages 3 owners Late Paid Note" [ref=e1172] [cursor=pointer]:
+        - generic [ref=e1173]: Website redesign
+        - generic [ref=e1177]: 12 pages
+        - generic [ref=e1178]: 3 owners
+        - generic [ref=e1179]:
+          - generic [ref=e1180]: Late
+          - generic [ref=e1181]: Paid
+          - generic [ref=e1182]: Note
+  - region "FoldRow[inset]" [ref=e1183]:
+    - heading "FoldRow[inset]" [level=2] [ref=e1184]
+    - group [ref=e1185]:
+      - generic "Website redesign 12 pages Paid" [ref=e1186] [cursor=pointer]:
+        - generic [ref=e1187]: Website redesign
+        - generic [ref=e1191]: 12 pages
+        - generic [ref=e1192]: Paid
+  - region "FoldRow[summary]" [ref=e1194]:
+    - heading "FoldRow[summary]" [level=2] [ref=e1195]
+    - group [ref=e1196]:
+      - generic "Website redesign" [ref=e1197] [cursor=pointer]
+  - region "FoldRow[size=touch]" [ref=e1202]:
+    - heading "FoldRow[size=touch]" [level=2] [ref=e1203]
+    - group [ref=e1204]:
+      - generic "Website redesign 12 pages Paid" [ref=e1205] [cursor=pointer]:
+        - generic [ref=e1206]: Website redesign
+        - generic [ref=e1210]: 12 pages
+        - generic [ref=e1211]: Paid
+  - region "MarkPopover" [ref=e1213]:
+    - heading "MarkPopover" [level=2] [ref=e1214]
+    - button "2 open warnings, show the list" [ref=e1216] [cursor=pointer]:
+      - generic [aria-hidden] [ref=e1217]: "2"
+  - region "MiniProgress" [ref=e1218]:
+    - heading "MiniProgress" [level=2] [ref=e1219]
+    - generic [ref=e1220]:
+      - progressbar "Empty" [ref=e1221]:
+        - generic [ref=e1223]: 0%
+        - generic [ref=e1225]: 0%
+      - progressbar "Cost share" [ref=e1226]:
+        - generic [ref=e1229]: < 0.01 USD
+        - generic [ref=e1231]: < 0.01 USD
+      - progressbar "Half" [ref=e1232]:
+        - generic [ref=e1235]: 50%
+        - generic [ref=e1237]: 50%
+      - progressbar "Full" [ref=e1238]:
+        - generic [ref=e1241]: 100%
+        - generic [ref=e1243]: 100%
+      - progressbar "Budget used" [ref=e1244]:
+        - generic [ref=e1247]: 82%
+        - generic [ref=e1249]: 82%
+      - progressbar "Cost share" [ref=e1251]:
+        - generic [ref=e1254]: 1,234.56 USD of 3,000 USD
+        - generic [ref=e1256]: 1,234.56 USD of 3,000 USD
+  - region "PageFrame" [ref=e1257]:
+    - heading "PageFrame" [level=2] [ref=e1258]
+    - paragraph [ref=e1260]: A package page.
+  - region "PageHeader" [ref=e1261]:
+    - heading "PageHeader" [level=2] [ref=e1262]
+    - generic [ref=e1263]:
+      - navigation "breadcrumb" [ref=e1264]:
+        - list [ref=e1265]:
+          - listitem [ref=e1266]:
+            - link "Workspace" [ref=e1267] [cursor=pointer]:
+              - /url: "#workspace"
+          - listitem [aria-hidden] [ref=e1268]
+          - listitem [ref=e1271]:
+            - link "Roadmap" [disabled] [ref=e1272]
+      - heading "Roadmap" [level=1] [ref=e1277]
+      - generic "On track" [ref=e1278]
+      - paragraph [ref=e1280]: What ships this quarter.
+      - button "Share" [ref=e1282]
+  - region "PropertyList" [ref=e1283]:
+    - heading "PropertyList" [level=2] [ref=e1284]
+    - generic [ref=e1285]:
+      - group [ref=e1286]:
+        - generic [ref=e1287]: Status
+        - generic [ref=e1291]: Done
+      - group [ref=e1293]:
+        - generic [ref=e1294]: Due
+        - generic [ref=e1297]: 3 November
+  - region "SidePanel[layout=over]" [ref=e1298]:
+    - heading "SidePanel[layout=over]" [level=2] [ref=e1299]
+    - complementary "Layers" [ref=e1302]:
+      - generic [ref=e1303]:
+        - heading "Layers" [level=2] [ref=e1304]
+        - button "Close" [ref=e1305]
+      - paragraph [ref=e1307]: Traffic
+  - region "SidePanel[layout=left]" [ref=e1308]:
+    - heading "SidePanel[layout=left]" [level=2] [ref=e1309]
+    - complementary "Layers" [ref=e1312]:
+      - generic [ref=e1313]:
+        - heading "Layers" [level=2] [ref=e1314]
+        - button "Close" [ref=e1315]
+      - paragraph [ref=e1317]: Traffic
+  - region "SidePanel[layout=beside]" [ref=e1318]:
+    - heading "SidePanel[layout=beside]" [level=2] [ref=e1319]
+    - complementary "Layers" [ref=e1322]:
+      - generic [ref=e1323]:
+        - heading "Layers" [level=2] [ref=e1324]
+        - button "Close" [ref=e1325]
+      - paragraph [ref=e1327]: Traffic
+  - region "SidePanel[layout=list]" [ref=e1328]:
+    - heading "SidePanel[layout=list]" [level=2] [ref=e1329]
+    - complementary "Layers" [ref=e1332]:
+      - generic [ref=e1333]:
+        - heading "Layers" [level=2] [ref=e1334]
+        - button "Close" [ref=e1335]
+      - paragraph [ref=e1337]: Traffic
+  - region "Stats" [ref=e1338]:
+    - heading "Stats" [level=2] [ref=e1339]
+    - group [ref=e1340]:
+      - heading "Summary" [level=2] [ref=e1344] [cursor=pointer]
+  - region "StatCards[isFullWidth=false,isOneRow=false]" [ref=e1345]:
+    - heading "StatCards[isFullWidth=false,isOneRow=false]" [level=2] [ref=e1346]
+    - list "Totals" [ref=e1347]:
+      - listitem [ref=e1348]:
+        - generic [ref=e1349]:
+          - generic [ref=e1350]: Booked
+          - generic [ref=e1353]: 21.5 h
+      - listitem [ref=e1354]:
+        - generic [ref=e1355]:
+          - generic [ref=e1356]: Left
+          - generic [ref=e1357]: 1.9 h
+  - region "StatCards[isFullWidth=true,isOneRow=false]" [ref=e1358]:
+    - heading "StatCards[isFullWidth=true,isOneRow=false]" [level=2] [ref=e1359]
+    - list "Totals" [ref=e1360]:
+      - listitem [ref=e1361]:
+        - generic [ref=e1362]:
+          - generic [ref=e1363]: Booked
+          - generic [ref=e1366]: 21.5 h
+      - listitem [ref=e1367]:
+        - generic [ref=e1368]:
+          - generic [ref=e1369]: Left
+          - generic [ref=e1370]: 1.9 h
+  - region "StatCards[isFullWidth=false,isOneRow=true]" [ref=e1371]:
+    - heading "StatCards[isFullWidth=false,isOneRow=true]" [level=2] [ref=e1372]
+    - list "Totals" [ref=e1373]:
+      - listitem [ref=e1374]:
+        - generic [ref=e1375]:
+          - generic [ref=e1376]: Booked
+          - generic [ref=e1379]: 21.5 h
+      - listitem [ref=e1380]:
+        - generic [ref=e1381]:
+          - generic [ref=e1382]: Left
+          - generic [ref=e1383]: 1.9 h
+  - region "StatPills" [ref=e1384]:
+    - heading "StatPills" [level=2] [ref=e1385]
+    - list "Counts" [ref=e1386]:
+      - listitem [ref=e1387]:
+        - generic [ref=e1388]:
+          - text: Due
+          - strong [ref=e1389]: "2"
+  - region "Status[color=gray]" [ref=e1390]:
+    - heading "Status[color=gray]" [level=2] [ref=e1391]
+    - generic "gray" [ref=e1392]
+  - region "Status[color=brown]" [ref=e1394]:
+    - heading "Status[color=brown]" [level=2] [ref=e1395]
+    - generic "brown" [ref=e1396]
+  - region "Status[color=orange]" [ref=e1398]:
+    - heading "Status[color=orange]" [level=2] [ref=e1399]
+    - generic "orange" [ref=e1400]
+  - region "Status[color=yellow]" [ref=e1402]:
+    - heading "Status[color=yellow]" [level=2] [ref=e1403]
+    - generic "yellow" [ref=e1404]
+  - region "Status[color=green]" [ref=e1406]:
+    - heading "Status[color=green]" [level=2] [ref=e1407]
+    - generic "green" [ref=e1408]
+  - region "Status[color=blue]" [ref=e1410]:
+    - heading "Status[color=blue]" [level=2] [ref=e1411]
+    - generic "blue" [ref=e1412]
+  - region "Status[color=purple]" [ref=e1414]:
+    - heading "Status[color=purple]" [level=2] [ref=e1415]
+    - generic "purple" [ref=e1416]
+  - region "Status[color=pink]" [ref=e1418]:
+    - heading "Status[color=pink]" [level=2] [ref=e1419]
+    - generic "pink" [ref=e1420]
+  - region "Status[color=red]" [ref=e1422]:
+    - heading "Status[color=red]" [level=2] [ref=e1423]
+    - generic "red" [ref=e1424]
+  - region "Steps[layout=row]" [ref=e1426]:
+    - heading "Steps[layout=row]" [level=2] [ref=e1427]
+    - list "Invoice run" [ref=e1428]:
+      - listitem [ref=e1429]:
+        - generic [aria-hidden] [ref=e1430]: "1"
+        - generic [ref=e1431]:
+          - generic [ref=e1432]:
+            - text: Period
+            - generic [ref=e1433]: ", Done"
+          - generic [ref=e1434]: October
+      - listitem [ref=e1435]:
+        - generic [aria-hidden] [ref=e1436]: "2"
+        - generic [ref=e1437]:
+          - generic [ref=e1438]:
+            - text: Document
+            - generic [ref=e1439]: ", Current"
+          - generic [ref=e1440]: Drafting
+        - generic [ref=e1441]: PDF
+      - listitem [ref=e1443]:
+        - generic [aria-hidden] [ref=e1444]: "3"
+        - generic [ref=e1445]:
+          - generic [ref=e1446]:
+            - text: E-mail draft
+            - generic [ref=e1447]: ", Failed"
+          - generic [ref=e1448]: Mailbox refused
+      - listitem [ref=e1449]:
+        - generic [aria-hidden] [ref=e1450]: "4"
+        - generic [ref=e1452]:
+          - text: Final invoice
+          - generic [ref=e1453]: ", To do"
+  - region "Steps[layout=list]" [ref=e1454]:
+    - heading "Steps[layout=list]" [level=2] [ref=e1455]
+    - list "Invoice run" [ref=e1456]:
+      - listitem [ref=e1457]:
+        - generic [aria-hidden] [ref=e1458]: "1"
+        - generic [ref=e1459]:
+          - generic [ref=e1460]:
+            - text: Period
+            - generic [ref=e1461]: ", Done"
+          - generic [ref=e1462]: October
+      - listitem [ref=e1463]:
+        - generic [aria-hidden] [ref=e1464]: "2"
+        - generic [ref=e1465]:
+          - generic [ref=e1466]:
+            - text: Document
+            - generic [ref=e1467]: ", Current"
+          - generic [ref=e1468]: Drafting
+        - generic [ref=e1469]: PDF
+      - listitem [ref=e1471]:
+        - generic [aria-hidden] [ref=e1472]: "3"
+        - generic [ref=e1473]:
+          - generic [ref=e1474]:
+            - text: E-mail draft
+            - generic [ref=e1475]: ", Failed"
+          - generic [ref=e1476]: Mailbox refused
+      - listitem [ref=e1477]:
+        - generic [aria-hidden] [ref=e1478]: "4"
+        - generic [ref=e1480]:
+          - text: Final invoice
+          - generic [ref=e1481]: ", To do"
+  - region "FileInput" [ref=e1482]:
+    - heading "FileInput" [level=2] [ref=e1483]
+    - group [ref=e1484]:
+      - generic [ref=e1485]: Logo
+      - generic [ref=e1486]:
+        - button "Logo" [ref=e1487]
+        - button [aria-hidden] [ref=e1488]: Choose a file
+        - generic [ref=e1489]: No file chosen
+  - region "FileInput[fileName]" [ref=e1490]:
+    - heading "FileInput[fileName]" [level=2] [ref=e1491]
+    - group [ref=e1492]:
+      - generic [ref=e1493]: Font
+      - generic [ref=e1494]:
+        - button "Font" [ref=e1495]
+        - button [aria-hidden] [ref=e1496]: Choose a file
+        - generic "brand-font-variable.ttf" [ref=e1497]
+  - region "FileInput[disabled]" [ref=e1498]:
+    - heading "FileInput[disabled]" [level=2] [ref=e1499]
+    - group [ref=e1500]:
+      - generic [ref=e1501]: Clips
+      - generic [ref=e1502]:
+        - button "Clips" [disabled] [ref=e1503]
+        - button [disabled] [aria-hidden]: Choose files
+        - generic [ref=e1504]: No file chosen
+  - region "FormGrid" [ref=e1505]:
+    - heading "FormGrid" [level=2] [ref=e1506]
+    - generic [ref=e1507]:
+      - group [ref=e1508]:
+        - generic [ref=e1509]: A label long enough to wrap onto a second line in its column
+        - combobox "A label long enough to wrap onto a second line in its column" [ref=e1510]:
+          - generic: Raleway
+        - paragraph [ref=e1511]: Picked from the uploaded fonts.
+      - group [ref=e1512]:
+        - generic [ref=e1513]: Weight
+        - spinbutton "Weight" [ref=e1514]: "800"
+        - paragraph [ref=e1515]: From 100 to 900.
+      - group [ref=e1516]:
+        - generic [ref=e1517]: Logo
+        - generic [ref=e1518]:
+          - button "Logo" [ref=e1519]
+          - button [aria-hidden] [ref=e1520]: Choose a file
+          - generic [ref=e1521]: No file chosen
+        - paragraph [ref=e1522]: An SVG or a PNG.
+      - group [ref=e1523]:
+        - generic [ref=e1524]: Line
+        - textbox "Line" [ref=e1525]: See you next time
+        - paragraph [ref=e1526]: Up to 60 characters, on the end card.
+  - region "UploadField" [ref=e1527]:
+    - heading "UploadField" [level=2] [ref=e1528]
+    - group [ref=e1529]:
+      - generic [ref=e1530]: Videos
+      - generic [ref=e1531]:
+        - button "Choose files" [ref=e1535]
+        - generic [aria-hidden] [ref=e1536]: or drop them here
+        - button "Videos" [ref=e1537]
+      - paragraph [ref=e1538]: Up to 2 GB each
+  - region "UploadField[error]" [ref=e1539]:
+    - heading "UploadField[error]" [level=2] [ref=e1540]
+    - group [ref=e1541]:
+      - generic [ref=e1542]: Contract
+      - generic [ref=e1543]:
+        - button "Choose a file" [ref=e1547]
+        - generic [aria-hidden] [ref=e1548]: or drop it here
+        - button "Contract" [ref=e1549]
+      - alert [ref=e1550]: Choose a file
+  - region "UploadList" [ref=e1551]:
+    - heading "UploadList" [level=2] [ref=e1552]
+    - list "Files" [ref=e1553]:
+      - listitem [ref=e1554]:
+        - generic [ref=e1559]:
+          - generic "notes.pdf" [ref=e1560]
+          - generic [ref=e1561]: 820 bytes
+          - generic "Queued" [ref=e1562]
+        - button "Remove notes.pdf" [ref=e1565]
+      - listitem [ref=e1566]:
+        - generic [ref=e1570]:
+          - generic [ref=e1571]:
+            - generic "holiday-video.mp4" [ref=e1572]
+            - generic [ref=e1573]: 52.4 MB
+            - generic "Uploading" [ref=e1574]
+          - progressbar "Upload of holiday-video.mp4" [ref=e1576]
+        - generic [ref=e1578]:
+          - button "Pause holiday-video.mp4" [ref=e1579]
+          - button "Remove holiday-video.mp4" [ref=e1580]
+      - listitem [ref=e1581]:
+        - generic [ref=e1585]:
+          - generic [ref=e1586]:
+            - generic "interview.mov" [ref=e1587]
+            - generic [ref=e1588]: 1.3 GB
+            - generic "Paused" [ref=e1589]
+          - progressbar "Upload of interview.mov" [ref=e1591]
+        - generic [ref=e1593]:
+          - button "Resume interview.mov" [ref=e1594]
+          - button "Remove interview.mov" [ref=e1595]
+      - listitem [ref=e1596]:
+        - generic [ref=e1601]:
+          - generic "contract-signed.pdf" [ref=e1602]
+          - generic [ref=e1603]: 240 kB
+          - generic "Done" [ref=e1604]
+        - button "Remove contract-signed.pdf" [ref=e1607]
+      - listitem [ref=e1608]:
+        - generic [ref=e1612]:
+          - generic [ref=e1613]:
+            - generic "scan.jpg" [ref=e1614]
+            - generic [ref=e1615]: 3.1 MB
+            - generic "Failed" [ref=e1616]
+          - paragraph [ref=e1618]: The connection dropped.
+        - generic [ref=e1619]:
+          - button "Retry" [ref=e1620]
+          - button "Remove scan.jpg" [ref=e1621]
+  - region "DocumentList" [ref=e1622]:
+    - heading "DocumentList" [level=2] [ref=e1623]
+    - list "Documents" [ref=e1624]:
+      - listitem [ref=e1625]:
+        - button "Open Hotel confirmation.pdf 182 kB Available offline" [ref=e1629]:
+          - generic [ref=e1630]: Open
+          - generic "Hotel confirmation.pdf" [ref=e1631]
+          - generic [ref=e1632]: 182 kB
+          - generic "Available offline" [ref=e1633]
+      - listitem [ref=e1635]:
+        - button "Open Boarding pass.png 64 kB Available offline" [ref=e1641]:
+          - generic [ref=e1642]: Open
+          - generic "Boarding pass.png" [ref=e1643]
+          - generic [ref=e1644]: 64 kB
+          - generic "Available offline" [ref=e1645]
+      - listitem [ref=e1647]:
+        - button "Open Ferry ticket.html 12.4 kB" [ref=e1651]:
+          - generic [ref=e1652]: Open
+          - generic "Ferry ticket.html" [ref=e1653]
+          - generic [ref=e1654]: 12.4 kB
+  - region "Timeline[fold]" [ref=e1655]:
+    - heading "Timeline[fold]" [level=2] [ref=e1656]
+    - list "Trip" [ref=e1657]:
+      - listitem [ref=e1658]:
+        - generic [ref=e1665]:
+          - button "8–9 Dec · 2 nights Hanoi Booked" [expanded] [ref=e1666] [cursor=pointer]:
+            - generic [ref=e1667]: 8–9 Dec · 2 nights
+            - generic [ref=e1668]: Hanoi
+            - generic "Booked" [ref=e1670]
+          - paragraph [ref=e1675]: Hotel by the lake, check-in from 14:00.
+      - listitem [ref=e1676]:
+        - button "10 Dec, 22:00 Train to Sa Pa" [ref=e1688] [cursor=pointer]:
+          - generic [ref=e1689]: 10 Dec, 22:00
+          - generic [ref=e1690]: Train to Sa Pa
+  - region "Timeline[size=default]" [ref=e1693]:
+    - heading "Timeline[size=default]" [level=2] [ref=e1694]
+    - list "Trip" [ref=e1695]:
+      - listitem [ref=e1696]:
+        - generic [ref=e1702]:
+          - generic [ref=e1703]:
+            - generic [ref=e1704]: Flight
+            - generic [ref=e1705]: 7 Dec, 07:15 → 8 Dec, 04:35
+          - generic [ref=e1706]: Home → Hanoi
+      - listitem [ref=e1707]:
+        - 'button "Show on the map: 8–9 Dec · 2 nights Hanoi Booked In the plan" [ref=e1714] [cursor=pointer]':
+          - generic [ref=e1715]: "Show on the map:"
+          - generic [ref=e1716]: 8–9 Dec · 2 nights
+          - generic [ref=e1717]: Hanoi
+          - generic [ref=e1718]:
+            - generic "Booked" [ref=e1719]
+            - generic [ref=e1721]: In the plan
+        - generic [ref=e1722]: "1"
+      - listitem [ref=e1724]:
+        - generic [ref=e1735]:
+          - generic [ref=e1736]:
+            - generic [ref=e1737]: Train
+            - generic [ref=e1738]: 10 Dec, 22:00
+          - generic [ref=e1739]: Hanoi → Sa Pa
+      - listitem [ref=e1740]:
+        - generic [ref=e1753]:
+          - generic [ref=e1754]: 11–12 Dec · 2 nights
+          - generic [ref=e1755]: Sa Pa
+          - generic "No stay" [ref=e1757]
+  - region "Timeline[size=compact]" [ref=e1759]:
+    - heading "Timeline[size=compact]" [level=2] [ref=e1760]
+    - list "Trip" [ref=e1761]:
+      - listitem [ref=e1762]:
+        - generic [ref=e1768]:
+          - generic [ref=e1769]:
+            - generic [ref=e1770]: Flight
+            - generic [ref=e1771]: 7 Dec, 07:15 → 8 Dec, 04:35
+          - generic [ref=e1772]: Home → Hanoi
+      - listitem [ref=e1773]:
+        - 'button "Show on the map: Hanoi 8–9 Dec · 2 nights Booked In the plan" [ref=e1780] [cursor=pointer]':
+          - generic [ref=e1781]: "Show on the map:"
+          - generic [ref=e1782]:
+            - generic [ref=e1783]: Hanoi
+            - generic [ref=e1784]: 8–9 Dec · 2 nights
+          - generic [ref=e1785]:
+            - generic "Booked" [ref=e1786]
+            - generic [ref=e1788]: In the plan
+        - generic [ref=e1789]: "1"
+      - listitem [ref=e1791]:
+        - generic [ref=e1802]:
+          - generic [ref=e1803]:
+            - generic [ref=e1804]: Train
+            - generic [ref=e1805]: 10 Dec, 22:00
+          - generic [ref=e1806]: Hanoi → Sa Pa
+      - listitem [ref=e1807]:
+        - generic [ref=e1820]:
+          - generic [ref=e1821]:
+            - generic [ref=e1822]: Sa Pa
+            - generic [ref=e1823]: 11–12 Dec · 2 nights
+          - generic "No stay" [ref=e1825]
+  - region "TabBar" [ref=e1827]:
+    - heading "TabBar" [level=2] [ref=e1828]
+    - navigation "Project views" [ref=e1829]:
+      - list [ref=e1830]:
+        - listitem [ref=e1831]:
+          - link "Pages 12" [ref=e1832] [cursor=pointer]:
+            - /url: "#pages"
+            - text: Pages
+            - generic [ref=e1836]: "12"
+        - listitem [ref=e1837]:
+          - link "Files 0" [ref=e1838] [cursor=pointer]:
+            - /url: "#files"
+            - text: Files
+            - generic [ref=e1839]: "0"
+        - listitem [ref=e1840]:
+          - link "Trash" [ref=e1841] [cursor=pointer]:
+            - /url: "#trash"
+```
+
+# Test source
+
+```ts
+  1  | import { pathToFileURL } from "node:url";
+  2  | import { join } from "node:path";
+  3  | 
+  4  | import AxeBuilder from "@axe-core/playwright";
+  5  | import { expect, test, type Page } from "@playwright/test";
+  6  | 
+  7  | import { GALLERY_CASES } from "../tests/gallery/cases.js";
+  8  | import { GALLERY_DIR } from "./build-gallery.js";
+  9  | 
+  10 | const PAGE_URL = pathToFileURL(join(GALLERY_DIR, "index.html")).href;
+  11 | 
+  12 | // WCAG 2.1 A and AA, colour contrast included.
+  13 | const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
+  14 | 
+  15 | // Violations known and tracked elsewhere: the rule, a selector fragment of the offending node, and why it stays.
+  16 | // An entry whose violation no longer occurs is harmless; remove it with the fix.
+  17 | const KNOWN_VIOLATIONS: readonly { readonly rule: string; readonly target: RegExp; readonly reason: string }[] = [
+  18 |   { rule: "aria-required-children", target: /^#radix-/, reason: "cmdk wraps its options in a sizer div inside the listbox (library markup)" },
+  19 |   { rule: "aria-hidden-focus", target: /^#gallery$/, reason: "an open Radix Select hides the page while its trigger stays focusable; Tab closes the list" },
+  20 |   {
+  21 |     rule: "color-contrast",
+  22 |     target: /\.text-background[^ ]*\[data-slot="mini-progress-label"\]/,
+  23 |     reason: "axe ignores clip-path: MiniProgress's copy on the fill shows only over the fill, where tests/contrast.test.ts pins it at AA",
+  24 |   },
+  25 | ];
+  26 | 
+  27 | function isKnown(rule: string, target: string): boolean {
+  28 |   return KNOWN_VIOLATIONS.some((known) => known.rule === rule && known.target.test(target));
+  29 | }
+  30 | 
+  31 | async function openCase(page: Page, name: string | null): Promise<void> {
+  32 |   await page.goto(name === null ? PAGE_URL : `${PAGE_URL}#${new URLSearchParams({ case: name }).toString()}`);
+  33 |   await page.evaluate(() => document.fonts.ready);
+  34 | }
+  35 | 
+  36 | async function expectNoAxeViolations(page: Page): Promise<void> {
+  37 |   const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+  38 |   const unknown = results.violations.flatMap((violation) =>
+  39 |     violation.nodes.map((node) => `${violation.id}: ${node.target.join(" ")}`).filter((entry) => !isKnown(entry.split(": ")[0] ?? "", entry.slice(entry.indexOf(": ") + 2))),
+  40 |   );
+  41 |   expect(unknown).toEqual([]);
+  42 | }
+  43 | 
+  44 | test("the gallery of inline cases", async ({ page }) => {
+  45 |   await openCase(page, null);
+  46 | 
+> 47 |   await expect(page).toHaveScreenshot("gallery.png", { fullPage: true });
+     |   ^ Error: A snapshot doesn't exist at /home/user/ai/themes/theme-notion/visual/gallery.spec.ts-snapshots/gallery-linux.png, writing actual.
+  48 |   await expectNoAxeViolations(page);
+  49 | });
+  50 | 
+  51 | for (const galleryCase of GALLERY_CASES.filter((candidate) => candidate.isIsolated === true)) {
+  52 |   test(`the ${galleryCase.name} case on its own page`, async ({ page }, testInfo) => {
+  53 |     await openCase(page, galleryCase.name);
+  54 |     // On a phone the sidebar is a sheet behind its trigger: open it, so the sheet itself is what gets compared.
+  55 |     const isPhoneSheet = galleryCase.component === "Sidebar" && testInfo.project.name.startsWith("phone") && !galleryCase.name.includes("collapsible=none");
+  56 |     if (isPhoneSheet) await page.locator('[data-slot="sidebar-trigger"]').click();
+  57 |     if (galleryCase.clickToOpen !== undefined) await page.locator(galleryCase.clickToOpen).first().click();
+  58 |     await expect(page.locator(isPhoneSheet ? '[data-slot="sidebar"][data-mobile="true"]' : galleryCase.root).first()).toBeVisible();
+  59 | 
+  60 |     await expect(page).toHaveScreenshot(`${galleryCase.name}.png`);
+  61 |     await expectNoAxeViolations(page);
+  62 |   });
+  63 | }
+  64 | 
+```

@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## 0.17.0
+## 0.18.0
 
 - `DocumentViewer`, `DocumentList`, `DocumentRow` (#1256): documents shown inside the page, never in a new browser
   window. `DocumentViewer` is a full-screen `Dialog` (title, page count, zoom 50 % to 300 % of the fitted width, a
@@ -16,6 +16,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   interface for another engine. Copy in `notionMessages.en.document`.
 - New dependency: `pdfjs-dist` (Apache-2.0), imported only when a PDF opens.
 - Migration: none.
+
+## 0.17.0
+
+- `AsidePanelProvider keepsSidebarOpen`: the left `Sidebar` and the right `AsidePanel` stay open together on a wide
+  screen, each with its own state: opening the panel (or a panel kept open on load) never folds the sidebar, and
+  opening the sidebar (its trigger, Ctrl+B, `AsidePanelSidebarOpener`) never closes the panel; `useAsidePanel()
+  .isSidebarFolded` follows the sidebar alone. New optional prop only; without it, one side panel at a time as before
+  (#1254).
 
 ## 0.16.2
 

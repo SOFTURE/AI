@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## 0.2.13
+
+- **Dependencies:** `zod` ^4.6.7 (was ^4.6.5), so a fresh install takes the fixed zod release.
+- OIDC signing keys are passed to `createPublicKey` without a redundant type cast (no behaviour change).
+
 ## 0.2.12
 
 - The content of 0.2.11, which was never published: its release stopped at the gates (ESLint ran out of memory in

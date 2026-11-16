@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.36.2
+
+- **Security (CodeQL `js/bad-code-sanitization`, #1245):** the dropped-letter tween writes its letter turns into the
+  composition's script as a number array literal (each value a finite number) instead of `JSON.stringify`. The
+  rendered script is unchanged.
+- **Dependencies:** a fresh install resolves `hyperframes`' `hono` (4.13.16 or newer) and `@hono/node-server` (2.1.6 or
+  newer) past seven advisories (#1246, #1247, #1249-#1253); the kit's own ranges are unchanged, so an app runs
+  `npm update hono @hono/node-server` to pick them up.
+
 ## 0.36.1
 
 - **Fix:** `HAND_FONT.file` and `FOOTAGE_DRAFT_FONT.file` are joined to their module's own path instead of being built
