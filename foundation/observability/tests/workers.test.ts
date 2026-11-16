@@ -164,6 +164,20 @@ describe("withObservability on Workers", () => {
     expect(sent.map((item) => item.url)).toEqual(["https://otlp.example.test/otlp/v1/logs"]);
   });
 
+  it("matches an ignored path written with trailing slashes and refuses one without a leading slash", async () => {
+    const { fetch, sent } = createFetch();
+    const { ctx, settle } = createContext();
+    const handler = withObservability(() => new Response("ok"), { fetch, ignorePaths: ["/api/health///"] });
+    await handler(new Request("https://shop.example.test/api/health"), ENDPOINT_ENV, ctx);
+    await handler(new Request("https://shop.example.test/api/healthz"), ENDPOINT_ENV, ctx);
+    await settle();
+    expect(readSpans(sent).map((span) => span.attributes)).toContainEqual(expect.arrayContaining([{ key: "url.path", value: { stringValue: "/api/healthz" } }]));
+    expect(readSpans(sent)).toHaveLength(1);
+    expect(() => withObservability(() => new Response("ok"), { ignorePaths: ["api/health"] })).toThrow(
+      "observability: traces.ignorePaths[0] must be a path starting with /",
+    );
+  });
+
   it("keeps the response when the export fails and names no URL or header in the report", async () => {
     const { fetch } = createFetch(() => Promise.reject(new TypeError("network down")));
     const { ctx, settle } = createContext();

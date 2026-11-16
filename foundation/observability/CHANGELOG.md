@@ -9,7 +9,8 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
 - **Cloudflare Workers:** a new entry `@softure-ai/observability/workers` with `withObservability(handler, options)`:
   a server span per request and the request's log records, sent over OTLP/HTTP JSON with `fetch` under
   `ctx.waitUntil`, with the same settings and service naming as on Node and nothing sent without an endpoint. The
-  entries `.` and `./workers` are declared Workers-safe.
+  entries `.` and `./workers` are declared Workers-safe. Its `ignorePaths` follows the Node rules (whole segments,
+  trailing slashes dropped, an entry without a leading `/` refused), from one matcher shared with the Node sampler.
 - `buildServiceSilentRule` takes `signal: "logs"`: the rule fires when Loki has no record of the service for the
   window, for a service without metrics (a Worker). The default stays `metrics`; the logs rule has its own uid
   (`silent-logs-…`).

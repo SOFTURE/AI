@@ -8,6 +8,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { logs, type LogRecord, type Logger as OtelLogger, type LoggerProvider } from "@opentelemetry/api";
 
+import { createIgnoredPathMatcher } from "../ignored-paths.js";
 import { configureLogging, createLogger } from "../logger.js";
 import { resolveObservabilityConfig, type Environment, type ObservabilityOptions, type ResolvedObservabilityConfig, type SignalExport } from "../node/config.js";
 import { encodeLogs, encodeSpans, SPAN_KIND_SERVER, STATUS_ERROR, STATUS_UNSET, toUnixNano, type OtlpAttributeValue, type OtlpLogRecord, type OtlpSpan } from "./otlp-json.js";
@@ -57,6 +58,7 @@ export function withObservability<Env>(handler: WorkersFetchHandler<Env>, option
     });
   }
 
+  const isIgnoredPath = createIgnoredPathMatcher(options.ignorePaths ?? []);
   // Per handler, since the options differ between handlers; per bindings object, read once per isolate.
   const configs = new WeakMap<object, ResolvedObservabilityConfig>();
   return async (request, env, ctx) => {
@@ -88,7 +90,7 @@ export function withObservability<Env>(handler: WorkersFetchHandler<Env>, option
         if (status !== undefined) attributes["http.response.status_code"] = status;
         const isError = thrown !== undefined || (status ?? 500) >= 500;
         if (isError) attributes["error.type"] = thrown instanceof Error ? thrown.name : String(status ?? "_OTHER");
-        const span: OtlpSpan | null = isIgnored(url.pathname, options.ignorePaths)
+        const span: OtlpSpan | null = isIgnoredPath(url.pathname)
           ? null
           : {
               scope: SCOPE,
@@ -158,13 +160,6 @@ function readStringBindings(env: unknown): Environment {
     }
   }
   return result;
-}
-
-function isIgnored(path: string, ignorePaths: readonly string[] | undefined): boolean {
-  return (ignorePaths ?? []).some((entry) => {
-    const prefix = entry.replace(/\/+$/, "");
-    return path === prefix || path.startsWith(`${prefix}/`);
-  });
 }
 
 function randomHex(bytes: number): string {
