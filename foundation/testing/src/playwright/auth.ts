@@ -46,9 +46,11 @@ export async function registerAccount(page: Page, input: AuthFormInput & AuthNav
 }
 
 /**
- * Fills the login form already on the page, submits it and waits for the action's answer, so a test
- * that fills the form again is not reset by the answer arriving late. Asserts nothing about the
- * outcome: the test checks the URL or the error itself.
+ * Fills the login form already on the page, submits it and waits for the action's answer and for the
+ * form to settle, so a test that fills the form again is not reset by the answer arriving late. React
+ * resets a form action's fields when the action's render commits, which comes after the response: the
+ * submit button stops being busy in that same render. Asserts nothing about the outcome: the test
+ * checks the URL or the error itself.
  */
 export async function submitLogin(page: Page, input: AuthFormInput): Promise<void> {
   const { copy, email, password } = input;
@@ -57,6 +59,8 @@ export async function submitLogin(page: Page, input: AuthFormInput): Promise<voi
   const answered = page.waitForResponse((response) => response.request().method() === "POST");
   await page.getByRole("button", { name: copy.login.submit }).click();
   await answered;
+  // The button is busy until the action's render commits; the form's reset comes in that same render.
+  await expect(page.locator("form button[aria-busy]")).toHaveCount(0);
 }
 
 /** Opens the login page, logs in and waits for the landing page. */

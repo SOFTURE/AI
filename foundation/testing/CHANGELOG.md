@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`testing@x.y.z`).
 
+## 0.5.2
+
+- `submitLogin` waits for the form to settle (no busy submit button) after the action's answer, not only for the
+  answer: React resets a form action's fields when its render commits, which can come after the response, and a test
+  that filled the form again in that gap had its password cleared, so the next submit never left the browser. Seen as a
+  timeout in a test that logs in several times in a row on a loaded runner.
+  - Migrate: nothing.
+
 ## 0.5.1
 
 - The optional peer `typescript` is now `>=5.0.0 <7.0.0`: the source guards parse with the TypeScript compiler API,
