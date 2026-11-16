@@ -11,5 +11,6 @@ export const en = {
     upload_denied: "The storage refused the upload; check the token's permissions.",
     upload_failed: "The upload to the storage failed.",
     network_error: "The storage could not be reached.",
+    dump_failed: "The database could not be dumped.",
   },
 };

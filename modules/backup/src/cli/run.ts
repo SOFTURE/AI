@@ -1,8 +1,9 @@
 // `softure-backup <command>`: the host's nightly upload, and restore, fetch, verify and lifecycle for the operator.
 // Secrets come only from the environment and the private key only from a file or stdin; an argument that looks like
 // a key is refused, so nothing secret ever shows in `ps` or a shell history. Exit status: 0 done, 1 failed, 2 usage.
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { parseDeployConfig, parseTableList } from "@softure-ai/deploy";
 import { createLogger } from "@softure-ai/observability";
@@ -15,6 +16,8 @@ import {
   type StoreConfig,
 } from "../offsite/config.js";
 import { parseIdentities } from "../offsite/crypto.js";
+import { buildDumpFileName, runPgDump } from "../offsite/dump.js";
+import { recordRun } from "../offsite/record.js";
 import { buildLifecycleJson, buildLifecycleXml, parseLifecycleDays } from "../offsite/lifecycle.js";
 import { fetchBackup, restoreBackup } from "../offsite/restore.js";
 import { buildStatusSql } from "../offsite/status-sql.js";
@@ -30,12 +33,16 @@ export interface CliIo {
   readonly readStdin: () => Promise<string>;
   readonly now?: () => Date;
   readonly fetch?: typeof fetch;
+  /** Writes a run's row in `backup.runs` (`run`); a connection to the URL by default. */
+  readonly recordRun?: (url: string, record: RunRecord) => Promise<void>;
 }
 
 const USAGE = `usage: softure-backup <command> [options]
 
   upload --app=<name> --file=<path>... [--status-sql=<file>] [--summary=<file>]
       encrypt and upload the night's backup files (BACKUP_S3_*, BACKUP_AGE_RECIPIENT)
+  run --app=<name> [--config=deploy.json] [--summary=<file>]
+      dump the database (BACKUP_DATABASE_URL), encrypt, upload and record the run: a host without a server
   restore --identity=<file|-> [--key=<object>] [--into=<database>] [--overwrite] [--no-owner] [--app=<name>]
       restore a database backup (newest by default) into a new database (BACKUP_RESTORE_DATABASE_URL)
   fetch --identity=<file|-> --out=<file> [--kind=data|database] [--key=<object>] [--app=<name>]
@@ -148,6 +155,109 @@ async function runUpload(args: string[], io: CliIo): Promise<number> {
   return 0;
 }
 
+function readDeployDatabase(config: string, io: CliIo, command: string): { rowCountTables?: readonly string[]; excludeTableData?: readonly string[] } {
+  const path = resolve(io.cwd, config);
+  let json: unknown;
+  try {
+    json = JSON.parse(readTextFile(path, command));
+  } catch (error) {
+    if (error instanceof UsageError) throw error;
+    throw new UsageError(`${command}: ${path} is not JSON.`);
+  }
+  const parsed = parseDeployConfig(json);
+  if (!parsed.ok) throw new UsageError(`${command}: ${path} is not a valid deploy.json: ${parsed.issues.join("; ")}.`);
+  return parsed.config.database ?? {};
+}
+
+function failedRecord(startedAt: Date, finishedAt: Date, code: "config_invalid" | "dump_failed", message: string): RunRecord {
+  return { startedAt, finishedAt, result: "failed", objects: [], sizeBytes: 0, error: { code, message } };
+}
+
+/**
+ * The whole night's run for a host without a server: dump over BACKUP_DATABASE_URL into a private temporary
+ * directory, upload with the same code as `upload`, and write the same row into `backup.runs` over the same URL.
+ */
+async function runNow(args: string[], io: CliIo): Promise<number> {
+  const { values } = parseArgs({
+    args,
+    strict: true,
+    options: {
+      app: { type: "string" },
+      config: { type: "string" },
+      summary: { type: "string" },
+      "pg-dump": { type: "string" },
+    },
+  });
+  if (values.app === undefined) throw new UsageError("run: --app=<name> is required (the default key prefix).");
+  const databaseUrl = requireUrl(io, "BACKUP_DATABASE_URL", "run");
+  const excludeTableData = values.config === undefined ? [] : [...(readDeployDatabase(values.config, io, "run").excludeTableData ?? [])];
+  const now = io.now ?? (() => new Date());
+  const logger = createLogger("@softure-ai/backup");
+  const secrets = collectSecrets(io.env);
+  const config = readUploadConfig(io.env, values.app);
+  let record: RunRecord;
+  if (config.status === "not_configured") {
+    record = buildNotConfiguredRecord(now());
+  } else if (config.status === "invalid") {
+    const at = now();
+    record = failedRecord(at, at, "config_invalid", config.problems.join("; "));
+  } else {
+    const startedAt = now();
+    const dir = mkdtempSync(join(tmpdir(), "softure-backup-run-"));
+    try {
+      const out = join(dir, buildDumpFileName(startedAt));
+      const dump = await runPgDump({
+        url: databaseUrl,
+        out,
+        excludeTableData,
+        pgDump: values["pg-dump"] ?? io.env.BACKUP_PG_DUMP ?? "pg_dump",
+        env: io.env,
+      });
+      if (dump.ok) {
+        logger.info("database dumped", { bytes: dump.bytes });
+        const uploaded = await uploadBackups({
+          config: config.config,
+          files: [out],
+          now,
+          s3: { now, ...(io.fetch === undefined ? {} : { fetch: io.fetch }) },
+          onUploaded: (object) => {
+            logger.info("off-site backup object uploaded", { key: object.key, bytes: object.bytes, sha256: object.sha256 });
+          },
+        });
+        record = { ...uploaded, startedAt };
+      } else {
+        record = failedRecord(startedAt, now(), "dump_failed", dump.problem);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+  if (record.error !== null) record = { ...record, error: { ...record.error, message: redactSecrets(record.error.message, secrets) } };
+  const summary = describeRecord(record);
+  if (values.summary !== undefined) writeFileSync(resolve(io.cwd, values.summary), `${summary}\n`, { mode: 0o600 });
+  try {
+    await (io.recordRun ?? recordRun)(databaseUrl, record);
+  } catch (error) {
+    const problem = redactSecrets(error instanceof Error ? error.message : String(error), secrets);
+    logger.error("off-site backup run not recorded", { result: record.result, problem });
+    io.stderr(`run: ${summary.split("|")[0] ?? ""}, but the run could not be recorded in backup.runs: ${problem}\n`);
+    return 1;
+  }
+  const durationMs = record.finishedAt.getTime() - record.startedAt.getTime();
+  if (record.result === "failed") {
+    logger.error("off-site backup failed", { result: record.result, code: record.error?.code, message: record.error?.message, durationMs });
+    io.stderr(`run: failed (${record.error?.code ?? ""}): ${record.error?.message ?? ""}\n`);
+    return 1;
+  }
+  if (record.result === "not_configured") {
+    io.stdout("run: not configured (no BACKUP_S3_* in the environment); nothing dumped or uploaded.\n");
+    return 0;
+  }
+  logger.info("off-site backup succeeded", { result: record.result, objects: record.objects.length, bytes: record.sizeBytes, durationMs });
+  for (const object of record.objects) io.stdout(`run: ${object.key} (${String(object.bytes)} bytes, sha256 ${object.sha256})\n`);
+  return 0;
+}
+
 async function runRestore(args: string[], io: CliIo): Promise<number> {
   const { values } = parseArgs({
     args,
@@ -226,17 +336,8 @@ function readVerifyTables(config: string | undefined, tables: string | undefined
     return parsed.tables;
   }
   if (config === undefined) return [];
-  const path = resolve(io.cwd, config);
-  let json: unknown;
-  try {
-    json = JSON.parse(readTextFile(path, "verify"));
-  } catch (error) {
-    if (error instanceof UsageError) throw error;
-    throw new UsageError(`verify: ${path} is not JSON.`);
-  }
-  const parsed = parseDeployConfig(json);
-  if (!parsed.ok) throw new UsageError(`verify: ${path} is not a valid deploy.json: ${parsed.issues.join("; ")}.`);
-  return selectVerifyTables(parsed.config.database?.rowCountTables, parsed.config.database?.excludeTableData);
+  const database = readDeployDatabase(config, io, "verify");
+  return selectVerifyTables(database.rowCountTables, database.excludeTableData);
 }
 
 async function runVerify(args: string[], io: CliIo): Promise<number> {
@@ -311,6 +412,8 @@ export async function runCli(argv: readonly string[], io: CliIo): Promise<number
     switch (command) {
       case "upload":
         return await runUpload(args, io);
+      case "run":
+        return await runNow(args, io);
       case "restore":
         return await runRestore(args, io);
       case "fetch":

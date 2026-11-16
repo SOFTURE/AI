@@ -13,6 +13,7 @@ export const BACKUP_ERROR_CODES = [
   "upload_denied",
   "upload_failed",
   "network_error",
+  "dump_failed",
 ] as const;
 export type BackupErrorCode = (typeof BACKUP_ERROR_CODES)[number];
 
