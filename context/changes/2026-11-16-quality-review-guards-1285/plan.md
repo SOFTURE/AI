@@ -1,6 +1,6 @@
 ---
 change_id: quality-review-guards-1285
-status: in_progress
+status: archived
 ---
 
 # Plan: "use server" export guard and an unused peer (issues #1285, #1287)
@@ -33,3 +33,4 @@ Files: `quality-review.ignore`.
 ## Progress
 
 - [x] Phase 1: 0f18d55 (`npx vitest run tests/repo/server-actions.test.ts modules/jobs`: 356 passed; the new test failed on master with the jobs line)
+- [x] Phase 2: 013ff1f (dropping the peer failed `tests/repo/themes.test.ts`, the contract test; reverted, the finding accepted instead; `npx vitest run tests/repo modules/jobs`: 1303 passed)

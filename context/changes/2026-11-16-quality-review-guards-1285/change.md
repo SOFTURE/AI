@@ -1,7 +1,8 @@
 ---
 change_id: quality-review-guards-1285
 title: "jobs: no constant in a \"use server\" module, guard over every package; theme-flat-paint: no react peer (issues #1285, #1287)"
-status: in_progress
+status: archived
+archived_at: 2026-11-16
 roadmap_item: null
 issue: 1285
 branch: claude/project-thread-rr724b
@@ -37,3 +38,12 @@ theme-flat-paint has no React code but names `react` as a peer, which the theme 
 
 - Research: skipped. The guard's output names the line; the theme's sources were grepped for React (none).
 - Framing: skipped. Both are mechanical slips.
+
+## Done
+
+- `@softure-ai/jobs`: `PANEL_PAUSE_REASON` lives in `src/next/panel-pause.ts`; `actions.ts` exports only async
+  functions, so an app route that imports the admin actions builds. Export of `/next` unchanged. Next release of
+  jobs (patch).
+- `tests/repo/server-actions.test.ts` runs `findNonAsyncServerExports` over every workspace package's `src/`.
+- `quality-review.ignore` accepts `QR-60a7a98b` (theme-flat-paint's `react` peer, required by the theme package
+  contract); #1287 closes as a false positive.
