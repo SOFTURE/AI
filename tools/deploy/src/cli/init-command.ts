@@ -45,10 +45,16 @@ function listNextConfigWarnings(facts: AppFacts, answers: InitAnswers): string[]
   if (!isCloudflare && !facts.isStandalone) {
     warnings.push(`${facts.nextConfigFile} does not mention "standalone"; the Dockerfile needs output: "standalone"`);
   }
-  if (facts.hasDatabase && facts.isDbServerExternal === false) {
-    warnings.push(
-      `${facts.nextConfigFile} does not list "@softure-ai/db" in serverExternalPackages; next build cannot resolve the database driver the app does not install (see serverExternalPackages in the @softure-ai/db README, §2 Installation)`,
-    );
+  if (facts.hasDatabase && facts.usesDatabaseBuild !== true) {
+    if (isCloudflare) {
+      warnings.push(
+        `${facts.nextConfigFile} does not wrap its config with withDatabaseBuild(config, { host: "cloudflare", appDir }) from @softure-ai/db/next-config; a Worker needs pg bundled with its socket and PGlite left out (see "Running on Cloudflare Workers" in the @softure-ai/db README)`,
+      );
+    } else if (facts.isDbServerExternal === false) {
+      warnings.push(
+        `${facts.nextConfigFile} does not list "@softure-ai/db" in serverExternalPackages; next build cannot resolve the database driver the app does not install (see serverExternalPackages in the @softure-ai/db README, §2 Installation, or wrap the config with withDatabaseBuild from @softure-ai/db/next-config)`,
+      );
+    }
   }
   return warnings;
 }
@@ -60,6 +66,14 @@ function listWorkerWarnings(facts: AppFacts, answers: InitAnswers): string[] {
     return ["@softure-ai/jobs is a dependency but @softure-ai/db is not; the jobs tick needs the database part, so no Cron Trigger was written"];
   }
   return ["@softure-ai/jobs is a dependency but @softure-ai/db is not; the worker container needs the database part, so none was written"];
+}
+
+/** `@softure-ai/observability` on Cloudflare without `@softure-ai/db`: no worker.ts is written to wrap the fetch. */
+function listObservabilityWarnings(facts: AppFacts, answers: InitAnswers): string[] {
+  if (facts.hasObservability !== true || facts.hasDatabase || getHost(answers) !== "cloudflare") return [];
+  return [
+    "@softure-ai/observability is a dependency but @softure-ai/db is not, so no worker.ts was written; wrap the Worker's fetch with withObservability from @softure-ai/observability/workers for its spans and logs",
+  ];
 }
 
 /** A worker whose jobs version has no heartbeat: its health check proves only that the process runs. */
@@ -254,6 +268,7 @@ export function runInit(args: string[], io: CliIo): void {
   const warnings = [
     ...listNextConfigWarnings(facts, answersResult.answers),
     ...listWorkerWarnings(facts, answers),
+    ...listObservabilityWarnings(facts, answers),
     ...(isCloudflare ? [] : listWorkerHeartbeatWarnings(facts)),
     ...listComposeWarnings(facts, answersResult.answers, replacesCompose),
     ...listEdgeWarnings(facts, answersResult.answers),

@@ -2,8 +2,9 @@
 
 An app built from SOFTURE packages runs on a Node process on a server (a VPS) or on Cloudflare Workers, and moves
 between them by configuration. This guide describes the contract every package follows and tracks which packages
-support which runtime. The work that fills the matrix is the `runtime-providers` roadmap
-([`context/foundation/roadmap.md`](../context/foundation/roadmap.md), items `RP-1` to `RP-11`).
+support which runtime. The work that filled the matrix is the `runtime-providers` roadmap
+([archived](../context/foundation/archive/2026-11-16-roadmap.md), items `RP-1` to `RP-11`), and
+[Moving an app between hosts](#moving-an-app-between-hosts) is the adoption guide.
 
 ## Two axes
 
@@ -169,15 +170,75 @@ dumps the database over its direct URL (`MIGRATE_DATABASE_URL`) with `pg_dump` o
 runs `softure-backup run`, which encrypts, uploads and records the row in one step. The weekly `backup-verify.yml`
 restores the newest copy as on a VPS. Moving between hosts keeps the bucket, the prefix, the age key and every copy.
 
-Moving an app from a VPS to Cloudflare:
+## Observability on both hosts
 
-1. `platform: { host: "cloudflare" }` in `softure.config`; every module the app lists must support `workers`.
-2. `init --host=cloudflare --force` (the server files stay in git until the move is done); create the Hyperdrive
-   configuration on the managed Postgres and set its ID.
-3. Copy the database (`pg_dump` from the server, `pg_restore` into the managed Postgres, or the backup package's
-   restore), set the environment's secrets (the backup settings stay as they are), publish a release; the nightly
-   `backup.yml` takes over from `maintain`.
-4. Point the domain at the Worker (the custom domain in `wrangler.jsonc`), then retire the server.
+The app's logging code is the same on both hosts: `createLogger` from `@softure-ai/observability`, the same service
+naming and the same `OTEL_EXPORTER_OTLP_*` settings. Only the start differs. On Node `registerObservability` in
+`instrumentation.ts` starts the OpenTelemetry SDK; in a Worker it starts nothing, and the `worker.ts` that `init
+--host=cloudflare` writes wraps the fetch with `withObservability` from `@softure-ai/observability/workers` when the
+app depends on the package (one server span per request, logs with its trace ids, export through `waitUntil`). A
+Worker has no process metrics, so its "service is silent" alert watches the logs.
 
-Back to a VPS is the same in reverse: `init --force` without `--host`, `platform` removed, the database copied back.
+## Moving an app between hosts
 
+An app moves by configuration and generated files; its own code (pages, actions, modules, job handlers, the
+database schema) stays as it is. Before the move, check the app on the target in CI the way `examples/next-app`
+does: build it for the other host and run its e2e there (see above). Then:
+
+### From a VPS to Cloudflare
+
+1. **Config.** `platform: { host: "cloudflare" }` in `softure.config.ts`; `defineSoftureConfig` names any listed
+   module that does not run on `workers`. Wrap `next.config.ts` with `withDatabaseBuild(config, { host:
+   "cloudflare", appDir })` from `@softure-ai/db/next-config` and keep nothing in `serverExternalPackages` (an app
+   that switches with an environment variable, like the example, keeps one config for both). Add
+   `@opennextjs/cloudflare` and `wrangler` to the dev dependencies.
+2. **Generated files.** `softure-deploy init --host=cloudflare --domain=<host> --force` writes `wrangler.jsonc`,
+   `open-next.config.ts`, `worker.ts` (request database, jobs tick, observability), the migrate script, the deploy,
+   backup and backup-verify workflows and `deploy.json`. The VPS files stay in git until the move is done; `init`
+   prints the remaining steps.
+3. **Database.** Create the managed Postgres (EU region) with the same two roles as on the server (the migrator and
+   the app role), create the Hyperdrive configuration on the app role's URL (`wrangler hyperdrive create`) and put its
+   ID into `wrangler.jsonc`. Copy the data: stop writes on the server (registration closed or the app stopped),
+   `pg_dump --format=custom` there, `pg_restore` into the managed database, compare the row counts `deploy.json`
+   lists. The backup package's `restore` into the new database does the same from the newest off-site copy.
+4. **Secrets.** The `production` environment keeps its secrets; add `CLOUDFLARE_API_TOKEN`, the variable
+   `CLOUDFLARE_ACCOUNT_ID` and `MIGRATE_DATABASE_URL` (the migrator's direct URL, used only by the runner). The deploy
+   uploads the app's secrets with the Worker (`secrets.required` in `wrangler.jsonc` lists them), so nothing is set
+   by hand in the dashboard.
+5. **Jobs.** Nothing to change in the handlers or schedules: the Cron Trigger runs `runJobsTick` every minute instead
+   of the worker container. Health reads the heartbeat row instead of the worker's file. A job that runs longer than
+   the tick's budget is retried on the next tick, so split very long jobs into steps.
+6. **Backups.** The settings, the bucket, the prefix and the age key stay; the nightly `backup.yml` takes over from
+   `deploy.sh maintain`, and `backup-verify.yml` keeps restoring the newest copy every week.
+7. **Release and switch.** Publish a release: the deploy migrates, deploys the Worker and verifies `deploy.json`
+   against it. Point the domain at the Worker (the custom domain in `wrangler.jsonc`), watch the health route and the
+   alerts, then retire the server and delete its files from git (`Dockerfile`, `docker/`, the VPS workflows).
+
+### From Cloudflare back to a VPS
+
+The same in reverse: remove `platform` (or set `host: "vps"`), `withDatabaseBuild(config, { host: "vps", appDir })`,
+`softure-deploy init --force` without `--host`, a server prepared as in the deploy README, the database copied back
+with `pg_dump` and `pg_restore` (or `restore` from the newest backup), the `DEPLOY_*` secrets set, a release, the
+domain pointed at the server, then the Cloudflare files deleted. Jobs return to the worker container and backups to
+`deploy.sh maintain` without a code change.
+
+### Rolling back during a move
+
+Until the old host is retired, it is the rollback: point the domain back. A database written on the new host after
+the switch must be copied back first, so keep the switch short or writes closed until the new host has passed its
+checks. Inside one host, a bad release is rolled back as before: on a VPS a redeploy of the previous tag (its image
+is kept on the server), and on Cloudflare the `deploy-cloudflare` action runs `wrangler rollback` by itself after a
+red verify.
+
+## Adding a host
+
+A new host (Azure is the next one) follows the same pattern, so an app moves to it by configuration too:
+
+1. `@softure-ai/core`: the host in `SOFTURE_HOSTS` and its runtimes in `SUPPORTED_PLATFORMS`; a test that
+   `defineSoftureConfig` accepts it.
+2. A new runtime only when the host does not run Node: its value in `SOFTURE_RUNTIMES`, the guard's allowed builtins in
+   `tests/repo/workers-entries.ts` for it, and each package's entries checked against them.
+3. The host-specific adapters behind the packages' existing interfaces, picked from `config.platform`: the database
+   connection (`@softure-ai/db`), scheduling (`runJobsTick` from the host's scheduler), the build
+   (`withDatabaseBuild`), `softure-deploy init --host=<host>` with its deploy action, and the backup producer.
+4. The example app's e2e on the new host in CI, next to Node and Workers, and a row in the support matrix.
