@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   BUTTON_VARIANT_LOOK,
+  CHAT_LOOK,
   CHART_PIN_LOOK,
   CHECKBOX_LOOK,
   CHECKLIST_LOOK,
@@ -168,6 +169,18 @@ describe("theme.css in an app's Tailwind", () => {
     }
     expect(compiled).toMatch(/\.prompt-enter \{\s*animation: flat-paint-rise-in var\(--duration-base\) var\(--ease-out-soft\) backwards;/);
     expect(compiled).toMatch(/\.text-subsection \{\s*font-size: 1\.125rem;/);
+  });
+
+  it("generates every class of the chat look maps", () => {
+    const utilities = Object.values(CHAT_LOOK).flatMap((look) => Object.values(look).flatMap((classes) => classes.split(" ")));
+    // `num` is a class of page.css, not a utility.
+    for (const utility of utilities.filter((name) => name !== "num")) {
+      const selector = `.${utility.replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character}`)}`;
+      expect([selector, compiled.includes(selector)]).toEqual([selector, true]);
+    }
+    expect(compiled).toMatch(/\.border-line-strong \{\s*border-color: var\(--line-strong\);/);
+    expect(compiled).toMatch(/\.border-l-4 \{\s*border-left-style: var\(--tw-border-style\);\s*border-left-width: 4px;/);
+    expect(compiled).toContain(':where([data-state="error"]) .in-data-\\[state\\=error\\]\\:text-debt {');
   });
 
   it("generates the type scale with its line height, weight and tracking", () => {
