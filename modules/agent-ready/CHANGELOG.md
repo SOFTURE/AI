@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- **Dependencies:** `zod` ^4.6.7 (was ^4.6.5), so a fresh install takes the fixed zod release.
+
 ## 0.2.0
 
 - **Breaking (#446):** the built-in `pl` dictionary is gone; English is the only built-in copy and the fallback for

@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- **Dependencies:** `zod` ^4.6.7 (was ^4.6.5), so a fresh install takes the fixed zod release.
+
 ## 0.4.0
 
 - `onConnectionChanged(event, ctx)` (#945), a hook beside `onReconnectRequired`, runs after a connection is
