@@ -97,7 +97,8 @@ describe("fitting a title card to its text", () => {
     const padding = getOverlayPadding(hook);
     expect(hook.box.width).toBe(Math.ceil(estimateTextWidth("Two ways", 64) + 2 * padding.x));
     const zone = getOverlaySafeZone(film, FRAME);
-    expect(hook.box.left + hook.box.width / 2).toBeCloseTo(zone.left + (FRAME.width - zone.left - zone.right) / 2, -1);
+    expect(zone.left).not.toBe(zone.right);
+    expect(Math.abs(hook.box.left + hook.box.width / 2 - FRAME.width / 2)).toBeLessThanOrEqual(0.5);
     expect(hook.align).toBe("center");
     expect(getDrawnOverlayCard(hook)).toEqual(hook.box);
   });

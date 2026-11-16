@@ -31,6 +31,10 @@ import {
   SEARCH_BAR_PADDING_EM,
   estimateTextWidth,
   formatOverlayNumber,
+  LIST_CHIP_COVERED_OPACITY,
+  getChipCoveredTimes,
+  getChipParts,
+  getChipTickPoints,
   getDrawnOverlayCard,
   getListCardsByItem,
   getListItemTimes,
@@ -65,6 +69,8 @@ const STROKE_WIDTH = 10;
 const ARROW_HEAD = 46;
 const FADE_IN_MS = 150;
 const FADE_OUT_MS = 250;
+/** How long a covered chip's tick takes to draw in, in seconds. */
+const CHIP_TICK_SECONDS = 0.3;
 const FADE = `\\fad(${FADE_IN_MS},${FADE_OUT_MS})`;
 /** How far a slide starts below its place, in px of a 1080 px wide frame, and how long it takes. */
 const SLIDE_PX = 28;
@@ -561,12 +567,22 @@ function getListEvents(overlay: Extract<ResolvedOverlay, { kind: "list" }>, cont
   const write = (pos: OverlayPoint, align: number, steps: TextStep[], motion: DraftMotion, clip = "") =>
     getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${fontSize}${textTags}${clip}`, steps, motion });
   if (overlay.chips !== undefined) {
+    const covered = getChipCoveredTimes(overlay);
     return overlay.chips.flatMap((chip, index) => {
       const from = times[index] as number;
+      const until = covered[index] ?? null;
       const motion = getDraftMotion(overlay, name, chip, context);
       const span = { start: from, end: overlay.end, isFirst: true, isLast: true };
-      const pos = { x: chip.left + chip.width / 2, y: chip.top + pad.y };
-      return [...getCardShapeEvents(overlay, chip, fontSize, colors, motion, context, span), ...write(pos, 8, [{ from, to: overlay.end, text: toAssText(lines[index] as string) }], motion)];
+      const parts = getChipParts(chip, overlay);
+      const text = toAssText(lines[index] as string);
+      // The point leads until the next one is in, then steps back (fainter), as a countdown does (RV-181).
+      const fainter = `{\\1a${toAssAlpha(LIST_CHIP_COVERED_OPACITY)}}`;
+      const steps = until === null ? [{ from, to: overlay.end, text }] : [{ from, to: until, text }, { from: until, to: overlay.end, text: `${fainter}${text}` }];
+      return [
+        ...getCardShapeEvents(overlay, chip, fontSize, colors, motion, context, span),
+        ...write({ x: parts.textX, y: chip.top + pad.y }, 8, steps, motion),
+        ...getChipBadgeEvents({ overlay, index, from, until, parts, colors, motion }),
+      ];
     });
   }
   // The text sits on the whole list's card: centred on its axis, or from its side.
@@ -592,6 +608,46 @@ function getListEvents(overlay: Extract<ResolvedOverlay, { kind: "list" }>, cont
       return write(pos, align, [{ from, to: overlay.end, text: toAssText(line) }], withFadeEntrance(motion), clip);
     }),
   ];
+}
+
+/** An ASS alpha tag value for an opacity from 0 (clear) to 1 (solid). */
+function toAssAlpha(opacity: number): string {
+  return `&H${Math.round((1 - opacity) * 255).toString(16).toUpperCase().padStart(2, "0")}&`;
+}
+
+/**
+ * A chip's step badge (layer 5): a round accent mark with the point's number in the card's colour; once the next point
+ * is in, the number gives way to a tick drawn in, as the paper note's is.
+ */
+function getChipBadgeEvents(input: {
+  overlay: Extract<ResolvedOverlay, { kind: "list" }>;
+  index: number;
+  from: number;
+  until: number | null;
+  parts: ReturnType<typeof getChipParts>;
+  colors: OverlayColors;
+  motion: DraftMotion;
+}): string[] {
+  const { overlay, from, until, parts, colors, motion } = input;
+  const { centre, radius } = parts.badge;
+  const span = { start: from, end: overlay.end };
+  const mark = getShapeEvent(span, getCircleDrawing(centre, radius), colors.accent, motion, 5);
+  const numberSize = r0(radius * 1.45);
+  const number = getTextEvents({
+    layer: 6,
+    style: "OverlayPlain",
+    pos: centre,
+    tags: `\\an5\\fs${numberSize}\\b1\\1c${toTagColor(colors.background)}`,
+    steps: [{ from, to: until ?? overlay.end, text: String(input.index + 1) }],
+    motion: until === null ? motion : { ...motion, exit: { ...motion.exit, kind: "none" } },
+  });
+  if (until === null) return [mark, ...number];
+  const points = getChipTickPoints(parts.badge);
+  const clip = { x0: r0(centre.x - radius), y0: r0(centre.y - radius), x1: r0(centre.x + radius), y1: r0(centre.y + radius) };
+  const draw = `${toClip({ ...clip, x1: clip.x0 })}\\t(0,${toMs(CHIP_TICK_SECONDS)},${toClip(clip)})`;
+  const fade = motion.exit.kind === "none" ? "" : `\\fad(0,${FADE_OUT_MS})`;
+  const tick = `Dialogue: 6,${toAssTime(until)},${toAssTime(overlay.end)},OverlayShape,,0,0,0,,{\\an7\\pos(0,0)${fade}${draw}\\1c${toTagColor(colors.background)}\\p1}${getStrokeDrawing(points, radius * 0.24)}{\\p0}`;
+  return [mark, ...number, tick];
 }
 
 type CardOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "search_bar" | "place_card" | "counter" | "date_stamp" }>;

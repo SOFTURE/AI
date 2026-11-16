@@ -17,6 +17,8 @@ import {
   OVERLAY_LINE_HEIGHT,
   OVERLAY_LIST_LINE_HEIGHT,
   estimateTextWidth,
+  getChipBadgeSize,
+  getChipParts,
   getDrawnOverlayCard,
   getListCardsByItem,
   getListItemTimes,
@@ -58,7 +60,7 @@ const WORDS = [
 const edlWith = (overlays: EdlOverlay[]): Edl => ({ version: 2, film: "trip", segments: SEGMENTS, overlays });
 
 /** Three short points, said one by one. */
-const SHORT: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["35 zl", "3 days", "county office"], item_words: [{ text: "price" }, { text: "days" }, { text: "office" }] };
+const SHORT: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["35 zl", "3 days", "town hall"], item_words: [{ text: "price" }, { text: "days" }, { text: "office" }] };
 /** A list with a long point: too wide for one row of chips at size l. */
 const LONG: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["Visa", "Thirty days on arrival, no fee", "Passport"], item_words: [{ text: "price" }, { text: "days" }, { text: "office" }], style: { size: "l" } };
 
@@ -108,9 +110,9 @@ describe("placing a list", () => {
     const stack = list({ ...SHORT, style: { stagger: true } });
     expect(stack.isCentred).toBe(true);
     expect(stack.chips).toBeUndefined();
-    expect(getSideTextLines(stack)).toEqual(["35 zl", "3 days", "county office"]);
+    expect(getSideTextLines(stack)).toEqual(["35 zl", "3 days", "town hall"]);
     const card = getDrawnOverlayCard(stack) as OverlayBox;
-    const width = estimateTextWidth("county office", 48) + 2 * getOverlayPadding(stack).x;
+    const width = estimateTextWidth("town hall", 48) + 2 * getOverlayPadding(stack).x;
     expect(card).toEqual({ left: stack.box.left + Math.round((stack.box.width - width) / 2), top: stack.box.top, width, height: stack.box.height });
   });
 
@@ -122,14 +124,19 @@ describe("placing a list", () => {
     expect(card.left + card.width).toBe(right.box.left + right.box.width);
   });
 
-  it("lays chips out left to right in one row centred in the box, each fitted to its point", () => {
+  it("lays chips out left to right in one row centred on the frame, each fitted to its point", () => {
     const chips = list(withLayout(SHORT, "chips"));
+    const size = chips.fontSize;
     const pad = getOverlayPadding(chips);
-    const widths = chips.items.map((item) => estimateTextWidth(item, 48) + 2 * pad.x);
-    const gap = Math.round(48 * LIST_CHIP_GAP_EM);
+    // Each chip holds its step badge before its point (RV-181 of an adopting app).
+    const badge = getChipBadgeSize(size);
+    const widths = chips.items.map((item) => Math.ceil(estimateTextWidth(item, size) + pad.y + pad.x + badge.size + badge.gap));
+    const gap = Math.round(size * LIST_CHIP_GAP_EM);
     const row = widths.reduce((sum, width) => sum + width, 0) + 2 * gap;
-    const height = Math.ceil(48 * OVERLAY_LINE_HEIGHT + 2 * pad.y);
-    const left = chips.box.left + Math.round((chips.box.width - row) / 2);
+    const height = Math.ceil(size * OVERLAY_LINE_HEIGHT + 2 * pad.y);
+    // The row fits the 792 px centred on the frame (the wider side, 120 px, and the margin on both edges).
+    expect(row).toBeLessThanOrEqual(1080 - 2 * (120 + 24));
+    const left = Math.round((FRAME.width - row) / 2);
     expect(chips.box.height).toBe(height);
     expect(chips.chips).toEqual([
       { left, top: chips.box.top, width: widths[0], height },
@@ -138,18 +145,20 @@ describe("placing a list", () => {
     ]);
     // The drawn card a report reads (does it cover a face?) is the row's box.
     expect(getDrawnOverlayCard(chips)).toEqual({ left, top: chips.box.top, width: row, height });
-    expect(getSideTextLines(chips)).toEqual(["35 zl", "3 days", "county office"]);
+    expect(getSideTextLines(chips)).toEqual(["35 zl", "3 days", "town hall"]);
   });
 
   it("draws chips smaller, as a title shrinks, when the row fits only so", () => {
-    const wide: EdlOverlay = { ...SHORT, items: ["35 zl", "3 days", "county land office"] };
+    const wide: EdlOverlay = { ...SHORT, items: ["35 zl", "3 days", "county office"] };
     const chips = list(withLayout(wide, "auto"));
-    // At 48 px the row is wider than the 852 px of room; two steps of 0.9 bring it to 39 px.
-    expect(chips.fontSize).toBe(39);
+    // At 48 px the row is wider than the 792 px centred on the frame; steps of 0.9 bring it under, never three past.
+    expect(chips.fontSize).toBeLessThan(list(withLayout(SHORT, "chips")).fontSize);
+    expect(chips.fontSize).toBeGreaterThanOrEqual(Math.round(48 * 0.9 ** 3) - 1);
     expect(chips.chips).toHaveLength(3);
     const card = getDrawnOverlayCard(chips) as OverlayBox;
-    expect(card.width).toBeLessThanOrEqual(chips.box.width);
-    expect(chips.box.height).toBe(Math.ceil(39 * OVERLAY_LINE_HEIGHT + 2 * getOverlayPadding(chips).y));
+    expect(card.width).toBeLessThanOrEqual(792);
+    expect(card.left + card.width / 2).toBeCloseTo(540, -0.5);
+    expect(chips.box.height).toBe(Math.ceil(chips.fontSize * OVERLAY_LINE_HEIGHT + 2 * getOverlayPadding(chips).y));
   });
 
   it("takes chips on auto when every point fits one row, else the centred stack", () => {
@@ -163,7 +172,7 @@ describe("placing a list", () => {
   it("refuses chips that do not fit one row, naming both widths and the way out", () => {
     const result = resolve([withLayout(LONG, "chips")]);
     expect(result.ok ? [] : result.problems).toEqual([
-      "overlays[0]: the list's points as chips (1556 px) do not fit one row (852 px) even at a smaller size; use list_layout stack or auto, or shorter points",
+      "overlays[0]: the list's points as chips (1760 px) do not fit one row (852 px) even at a smaller size; use list_layout stack or auto, or shorter points",
     ]);
   });
 
@@ -185,7 +194,7 @@ describe("a list's points over time", () => {
     const cards = getListCardsByItem(stack).map((boxes) => boxes[0] as OverlayBox);
     const pad = getOverlayPadding(stack);
     expect(cards.map((card) => card.height)).toEqual([1, 2].map((lines) => Math.ceil(lines * 48 * OVERLAY_LIST_LINE_HEIGHT + 2 * pad.y)).concat(stack.box.height));
-    expect(cards.map((card) => card.width)).toEqual(["35 zl", "3 days", "county office"].map((text) => estimateTextWidth(text, 48) + 2 * pad.x));
+    expect(cards.map((card) => card.width)).toEqual(["35 zl", "3 days", "town hall"].map((text) => estimateTextWidth(text, 48) + 2 * pad.x));
     const middles = cards.map((card) => card.left + card.width / 2);
     for (const middle of middles) expect(Math.abs(middle - (stack.box.left + stack.box.width / 2))).toBeLessThanOrEqual(0.5);
     expect(cards[2]).toEqual(getDrawnOverlayCard(stack));
@@ -209,7 +218,7 @@ describe("the render's list", () => {
     const { html, tweens } = markup([SHORT]);
     expect(html).toContain(`<div id="ov0" class="clip ov ov-list center"`);
     expect(html).toContain(`<ul class="ov-card grow cen" style="width:${cards[0]?.width}px;height:${cards[0]?.height}px;padding:17px 29px">`);
-    expect(html).toContain('<li id="ov0i0">35 zl</li><li id="ov0i1" style="opacity:0">3 days</li><li id="ov0i2" style="opacity:0">county office</li>');
+    expect(html).toContain('<li id="ov0i0">35 zl</li><li id="ov0i1" style="opacity:0">3 days</li><li id="ov0i2" style="opacity:0">town hall</li>');
     expect(tweens.filter((tween) => tween.includes("width:"))).toEqual([
       `tl.to("#ov0 .ov-card", { width: ${cards[1]?.width}, height: ${cards[1]?.height}, duration: 0.35, ease: "power3.out" }, 3.1);`,
       `tl.to("#ov0 .ov-card", { width: ${cards[2]?.width}, height: ${cards[2]?.height}, duration: 0.35, ease: "power3.out" }, 4.2);`,
@@ -233,7 +242,23 @@ describe("the render's list", () => {
     const first = chips.chips?.[0] as OverlayBox;
     const { html, tweens } = markup([withLayout({ ...SHORT, style: { entrance: "wipe" } }, "chips")]);
     expect(html).toContain('<div id="ov0" class="clip ov ov-list chips"');
-    expect(html).toContain(`<div class="ov-card ov-chip" id="ov0c0" style="left:${first.left - chips.box.left}px;top:0px;width:${first.width}px;height:${first.height}px;padding:17px 29px"><i class="ov-wipe" id="ov0w0"></i><span>35 zl</span></div>`);
+    const pad = getOverlayPadding(chips);
+    const badge = getChipBadgeSize(chips.fontSize);
+    expect(html).toContain(
+      `<div class="ov-card ov-chip" id="ov0c0" style="left:${first.left - chips.box.left}px;top:0px;width:${first.width}px;height:${first.height}px;padding:${pad.y}px ${pad.x}px ${pad.y}px ${pad.y}px"><i class="ov-wipe" id="ov0w0"></i><b class="ov-num" style="width:${badge.size}px;height:${badge.size}px"><i id="ov0n0">1</i><svg viewBox="0 0 ${badge.size} ${badge.size}"><polyline id="ov0k0"`,
+    );
+    // The last chip is never covered: its number stays, no tick.
+    expect(html).toContain('<i id="ov0n2">3</i></b><span id="ov0t2">town hall</span>');
+    expect(html).not.toContain('id="ov0k2"');
+    // Each point steps back when the next one comes in: fainter, its number giving way to a drawn tick (RV-181).
+    expect(tweens.filter((tween) => tween.includes("#ov0t") || tween.includes("#ov0n") || tween.includes("#ov0k"))).toEqual([
+      'tl.to("#ov0t0", { opacity: 0.55, duration: 0.3, ease: "power2.out" }, 3.1);',
+      'tl.to("#ov0n0", { opacity: 0, duration: 0.12, ease: "none" }, 3.1);',
+      'tl.fromTo("#ov0k0", { attr: { "stroke-dashoffset": 1 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.3, ease: "power2.out", immediateRender: false }, 3.18);',
+      'tl.to("#ov0t1", { opacity: 0.55, duration: 0.3, ease: "power2.out" }, 4.2);',
+      'tl.to("#ov0n1", { opacity: 0, duration: 0.12, ease: "none" }, 4.2);',
+      'tl.fromTo("#ov0k1", { attr: { "stroke-dashoffset": 1 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.3, ease: "power2.out", immediateRender: false }, 4.28);',
+    ]);
     expect(html).toContain('id="ov0c1" style="left:');
     expect(html.match(/visibility:hidden/g)).toHaveLength(2);
     expect(tweens.filter((tween) => tween.startsWith("tl.set("))).toEqual(['tl.set("#ov0c1", { visibility: "visible" }, 3.1);', 'tl.set("#ov0c2", { visibility: "visible" }, 4.2);']);
@@ -320,8 +345,24 @@ describe("the draft's list", () => {
     const lines = draft([withLayout(SHORT, "chips")], null);
     const shapes = lines.filter((line) => line.startsWith("Dialogue: 3,"));
     expect(shapes.map((line) => line.slice(12, 34))).toEqual(["0:00:02.00,0:00:06.00,", "0:00:03.10,0:00:06.00,", "0:00:04.20,0:00:06.00,"]);
+    const pad = getOverlayPadding(chips);
     const texts = lines.filter((line) => line.startsWith("Dialogue: 4,"));
-    chips.chips?.forEach((chip, index) => expect(texts[index]).toContain(`\\an8\\fs48\\pos(${Math.round(chip.left + chip.width / 2)},${chip.top + 17})`));
+    // A covered chip's point is two events: leading until the next point, then fainter (RV-181 of an adopting app).
+    expect(texts.map((line) => line.slice(12, 34))).toEqual(["0:00:02.00,0:00:03.10,", "0:00:03.10,0:00:06.00,", "0:00:03.10,0:00:04.20,", "0:00:04.20,0:00:06.00,", "0:00:04.20,0:00:06.00,"]);
+    expect(texts[1]).toMatch(/\{\\1a&H73&\}35 zl$/);
+    chips.chips?.forEach((chip, index) => {
+      const x = Math.round(getChipParts(chip, chips).textX);
+      expect(texts[[0, 2, 4][index] as number]).toContain(`\\an8\\fs${chips.fontSize}\\pos(${x},${chip.top + pad.y})`);
+    });
+    // Each chip's badge: an accent mark and its number (layers 5 and 6), the covered ones a tick from the next point's second.
+    expect(lines.filter((line) => line.startsWith("Dialogue: 5,")).map((line) => line.slice(12, 34))).toEqual(["0:00:02.00,0:00:06.00,", "0:00:03.10,0:00:06.00,", "0:00:04.20,0:00:06.00,"]);
+    const numbers = lines.filter((line) => line.startsWith("Dialogue: 6,") && line.includes("OverlayPlain"));
+    expect(numbers.map((line) => [line.slice(12, 34), line.slice(-1)])).toEqual([
+      ["0:00:02.00,0:00:03.10,", "1"],
+      ["0:00:03.10,0:00:04.20,", "2"],
+      ["0:00:04.20,0:00:06.00,", "3"],
+    ]);
+    expect(lines.filter((line) => line.startsWith("Dialogue: 6,") && line.includes("OverlayShape")).map((line) => line.slice(12, 34))).toEqual(["0:00:03.10,0:00:06.00,", "0:00:04.20,0:00:06.00,"]);
   });
 });
 
@@ -378,21 +419,26 @@ describe.skipIf(!canBurn)("a list burned in by libass", () => {
     const chips = list(overlay, { style: STYLE }).chips as OverlayBox[];
     const shown = [2.6, 3.6, 4.7].map((second) => {
       const frame = grab([overlay], second);
-      return chips.map((chip) => isNear(frame, chip.left + 6, chip.top + Math.round(chip.height / 2), COLORS.background) && countText(frame, chip) > 50);
+      return chips.map((chip) => isNear(frame, chip.left + 6, chip.top + Math.round(chip.height / 2), COLORS.background));
     });
     expect(shown).toEqual([
       [true, false, false],
       [true, true, false],
       [true, true, true],
     ]);
-    // The drawn row matches the reported boxes within 2 % of the frame's width, and sits in the middle of the room it may take.
+    // The newest point leads in full colour; the covered ones step back (fainter text), as a countdown does (RV-181).
+    const lit = (second: number) => chips.map((chip) => countText(grab([overlay], second), chip));
+    const [early, late] = [lit(2.6), lit(4.7)];
+    expect(early[0]).toBeGreaterThan(50);
+    expect(late[2]).toBeGreaterThan(50);
+    expect(late[0]).toBeLessThan((early[0] as number) / 4);
+    // The drawn row matches the reported boxes within 2 % of the frame's width, and sits on the frame's axis (RV-180).
     const frame = grab([overlay], 4.7);
     const span = getCardSpan(frame, (chips[0] as OverlayBox).top + Math.round((chips[0] as OverlayBox).height / 2)) as { left: number; right: number };
     const last = chips[2] as OverlayBox;
     expect(Math.abs(span.left - (chips[0] as OverlayBox).left)).toBeLessThanOrEqual(FRAME.width * 0.02);
     expect(Math.abs(span.right - (last.left + last.width))).toBeLessThanOrEqual(FRAME.width * 0.02);
-    const box = list(overlay, { style: STYLE }).box;
-    expect(Math.abs((span.left + span.right) / 2 - (box.left + box.width / 2))).toBeLessThanOrEqual(FRAME.width * 0.02);
+    expect(Math.abs((span.left + span.right) / 2 - FRAME.width / 2)).toBeLessThanOrEqual(2);
   });
 
   it("shows a long list as a centred stack whose card grows with each point and never stands empty", () => {

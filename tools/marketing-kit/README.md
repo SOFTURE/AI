@@ -741,6 +741,12 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   wide shrinks like a title, at most three 10 % steps, else it is refused) or `auto` (chips when they fit one row, else
   the stack). A resolved list carries `isCentred` or `chips` (each chip's box); `getDrawnOverlayCard` answers the
   row's box, `getListCardsByItem` the drawn boxes after each point and `getListItemTimes` each point's second.
+- **Centred on the frame, chips as a countdown** (0.38.0): every centred overlay is centred on the frame's axis, as
+  the captions are, not on the safe zone whose sides differ (`getCentredLeft`); a card too wide for the span centred
+  on the frame is measured again in it, and only one that never fits keeps the whole zone. Chips come in one by one,
+  each with a numbered accent badge; when the next point comes in, the earlier chip steps back (fainter point, a tick
+  in place of its number) and the newest leads (`getChipCoveredTimes`, `getChipParts`). A note without a side sits on
+  the axis, leaning half as much.
 - **Keyword alignment** (0.34.0): a keyword takes `style.align` (`OVERLAY_KEYWORD_ALIGNS`: `left`, `center` or
   `right`) in place of `style.side`: its card on the left, in the middle of the room it may take (its text centred,
   also while it types in) or on the right; giving both is refused. Without either it stays on the right. A resolved

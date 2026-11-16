@@ -4,6 +4,24 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.38.0
+
+- **Centred overlays on the frame's axis:** a centred overlay (a hook title, a place card, a search bar, a counter, an
+  end word, a centred list or keyword, a row of chips) is centred on the frame, as the captions are, not on the
+  platform safe zone, whose sides differ (60 px on the left, up to 150 px on the right) and put every centred card
+  about 45 px left of the middle. A card wider than the span centred on the frame (the wider side on both edges) is
+  measured again in that span (smaller or on more lines); only one that cannot fit there either keeps the whole zone
+  and sits as near the axis as the zone allows, so nothing that fitted before is refused. New helper
+  `getCentredLeft`.
+- **Chips as a countdown:** a list drawn as `chips` always comes in one point at a time (on `item_words` or `item_at`
+  when given, else spaced automatically). Each chip carries a round accent badge with its number before its point;
+  when the next point comes in, the earlier chip steps back (its point at `LIST_CHIP_COVERED_OPACITY`, 55 %) and its
+  number gives way to a tick drawn in, so the newest point leads. Draft and render alike. The badge takes room
+  (`LIST_CHIP_BADGE_EM`, `getChipBadgeSize`), so a row may be drawn a step smaller to fit; `getChipParts`,
+  `getChipTickPoints` and `getChipCoveredTimes` answer the parts and times.
+- **The note on the axis by default:** a `note` without `style.side` sits on the frame's axis, leaning half as much
+  (a resolved note's `side` is then `"center"`); `left` and `right` keep their place and tilt.
+
 ## 0.37.0
 
 - **Draft in pieces:** `renderFootageDraft` takes `assembly`: `"pieces"` (the new default) draws the picture

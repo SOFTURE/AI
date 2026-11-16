@@ -88,21 +88,22 @@ describe("a keyword's align in the schema", () => {
 });
 
 describe("placing an aligned keyword", () => {
-  it("puts the card in the middle of its room on center, on the left on left and on the right on right", () => {
+  it("puts the card on the frame's axis on center, on the left on left and on the right on right", () => {
     const centre = keyword(aligned("center"));
     const width = Math.ceil(estimateTextWidth("3 days", centre.fontSize) + 2 * getOverlayPadding(centre).x);
     const { box } = centre;
     expect(centre.isCentred).toBe(true);
     expect(getDrawnOverlayCard(centre)).toEqual({ left: box.left + Math.round((box.width - width) / 2), top: box.top, width, height: box.height });
+    expect(box.left + box.width / 2).toBe(540);
     const left = keyword(aligned("left"));
     expect(left).toMatchObject({ side: "left" });
     expect(left.isCentred).toBeUndefined();
-    expect((getDrawnOverlayCard(left) as OverlayBox).left).toBe(box.left);
+    expect((getDrawnOverlayCard(left) as OverlayBox).left).toBe(left.box.left);
     const right = keyword(aligned("right"));
     expect(right).toMatchObject({ side: "right" });
     expect(right.isCentred).toBeUndefined();
     const card = getDrawnOverlayCard(right) as OverlayBox;
-    expect(card.left + card.width).toBe(box.left + box.width);
+    expect(card.left + card.width).toBe(right.box.left + right.box.width);
   });
 
   it("keeps a keyword without align on its side, on the right by default", () => {

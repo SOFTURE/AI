@@ -187,9 +187,11 @@ describe("placing the new kinds", () => {
   it("puts the hook title at the top, centred, its place label above two lines", () => {
     const hook = only(HOOK, "hook_title");
     expect(hook.lines).toEqual(["How much does a week", "in Vietnam cost?"]);
-    expect(hook).toMatchObject({ place: "Hanoi, Vietnam", fontSize: 64, placeFontSize: 35, entrance: null, typing: null, colors: {} });
+    // At 64 px the title is wider than the span centred on the frame, so it is drawn a step smaller to sit on the axis (RV-180).
+    expect(hook).toMatchObject({ place: "Hanoi, Vietnam", fontSize: 58, placeFontSize: 35, entrance: null, typing: null, colors: {} });
     expect(hook.box.top).toBe(ZONE.top);
-    expect(Math.abs(hook.box.left + hook.box.width / 2 - (ZONE.left + 24 + ROOM / 2))).toBeLessThanOrEqual(1);
+    // Centred on the frame, as the captions are, not on the safe zone whose sides differ (RV-180 of an adopting app).
+    expect(Math.abs(hook.box.left + hook.box.width / 2 - 540)).toBeLessThanOrEqual(1);
     const bare = only({ kind: "hook_title", at: 0, duration: 2, text: "Why?" }, "hook_title");
     expect(bare.place).toBeNull();
     expect(bare.box.height).toBeLessThan(hook.box.height);
@@ -383,7 +385,7 @@ describe("the draft's new kinds", () => {
     expect(lines[1]).toMatch(/^Dialogue: 3,0:00:00\.00,0:00:15\.00,OverlayShape,,0,0,0,,\{\\an7\\move\(0,28,0,0,0,300\)\\fad\(150,250\)\\1c&H2B1A1D&\\p1\}m \d+ \d+ l .* b .*\{\\p0\}$/);
     expect(lines[2]).toMatch(/^Dialogue: 4,.*OverlayShape.*\\1c&H6B33E8&\\p1\}m /);
     expect(lines[3]).toMatch(/^Dialogue: 4,0:00:00\.00,0:00:15\.00,OverlayPlain,,0,0,0,,\{\\an7\\fs35\\move\(\d+,\d+,\d+,\d+,0,300\)\\fad\(150,250\)\}Hanoi, Vietnam$/);
-    expect(lines[4]).toMatch(/\\an8\\fs64\\move.*\}How much does a week$/);
+    expect(lines[4]).toMatch(/\\an8\\fs58\\move.*\}How much does a week$/);
     expect(lines[5]).toMatch(/\}in Vietnam cost\?$/);
     const search = lines.filter((line) => /^Dialogue: 4,0:00:0[1-4]/.test(line) && line.includes("\\an4"));
     expect(search[0]).toMatch(/^Dialogue: 4,0:00:01\.00,0:00:01\.30,OverlayPlain,,0,0,0,,\{\\an4\\fs42\\pos\(\d+,\d+\)\\fad\(150,0\)\}\{\\1a&HFF&\}cheap stay Hanoi$/);
@@ -406,7 +408,7 @@ describe("the draft's new kinds", () => {
     expect(lines.some((line) => /\\an8\\fs51\\fnUi.*\}A bay of 1600 islands$/.test(line))).toBe(true);
     expect(lines.some((line) => /\\an9\\fs36\\fnUi.*\}Day 12$/.test(line))).toBe(true);
     expect(lines.some((line) => /\\an9\\fs28\\fnUi.*\}Hoi An$/.test(line))).toBe(true);
-    const second = lines.filter((line) => /\\an8\\fs64\\fnCal\\pos\(\d+,316\)/.test(line));
+    const second = lines.filter((line) => /\\an8\\fs58\\fnCal\\pos\(540,309\)/.test(line));
     // The second line types after the first line's 20 characters, centred: each step shows only what is typed (RV-131).
     expect(second[0]).toMatch(/^Dialogue: 4,0:00:00\.80,0:00:00\.83,.*\}i$/);
     expect(second.at(-1)).toMatch(/^Dialogue: 4,0:00:01\.18,0:00:15\.00,.*\}in Vietnam cost\?$/);

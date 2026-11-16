@@ -124,8 +124,10 @@ describe("resolveEdlOverlays", () => {
       if (overlay.kind !== "keyword" && overlay.kind !== "lower_third" && overlay.kind !== "list") throw new Error("a text overlay");
       expect(overlay.box.top).toBeGreaterThanOrEqual(zone.top);
       expect(overlay.box.top + overlay.box.height).toBeLessThanOrEqual(band.top - 24);
-      expect(overlay.box.left).toBe(zone.left + 24);
-      expect(overlay.box.left + overlay.box.width).toBe(1080 - zone.right - 24);
+      // A centred stack (a list without a side) takes the wider side on both edges, so it sits on the frame's axis.
+      const sides = overlay.kind === "list" ? { left: Math.max(zone.left, zone.right), right: Math.max(zone.left, zone.right) } : zone;
+      expect(overlay.box.left).toBe(sides.left + 24);
+      expect(overlay.box.left + overlay.box.width).toBe(1080 - sides.right - 24);
     }
     const [lowerThird] = resolved([{ kind: "lower_third", at: 1.3, duration: 1, text: "Lisbon" }]);
     // The lower third sits right on top of the captions' room.

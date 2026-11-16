@@ -35,6 +35,11 @@ import {
   getPlaceCardPinSize,
   getListCardsByItem,
   getListItemTimes,
+  LIST_CHIP_BADGE_EM,
+  LIST_CHIP_COVERED_OPACITY,
+  getChipCoveredTimes,
+  getChipParts,
+  getChipTickPoints,
   getNoteColors,
   getNotePaperPoints,
   getNoteTextBox,
@@ -116,7 +121,12 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.ov.center .ov-card{transform-origin:50% 100%}`,
     // A centred keyword (style.align center) centres a line that wraps too.
     `.ov-keyword.center .ov-card{justify-content:center;text-align:center}`,
-    `.ov-list .ov-chip{position:absolute;box-sizing:border-box;flex-direction:row;align-items:center;justify-content:center;white-space:nowrap;line-height:${OVERLAY_LINE_HEIGHT};transform-origin:50% 100%}`,
+    `.ov-list .ov-chip{position:absolute;box-sizing:border-box;flex-direction:row;align-items:center;justify-content:flex-start;gap:${LIST_CHIP_BADGE_EM.gap}em;white-space:nowrap;line-height:${OVERLAY_LINE_HEIGHT};transform-origin:50% 100%}`,
+    // A chip's step badge (RV-181 of an adopting app): a round accent mark with its number, a tick once the next point is in.
+    `.ov-chip span{flex:1;text-align:center}`,
+    `.ov-num{position:relative;flex:none;display:grid;place-items:center;border-radius:50%;background:${colors.accent};color:${colors.background};font-style:normal;font-weight:800;line-height:1}`,
+    `.ov-num i{font-style:normal;font-size:.8em}`,
+    `.ov-num svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}`,
     `.ov-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}`,
     `.ov-search,.ov-counter .ov-card,.ov-date .ov-card,.ov-place,.ov-sub,.ov-line{white-space:nowrap}`,
     // A title card fills its fitted box, so a typed title keeps its width; a centred typed line hides its untyped
@@ -402,14 +412,31 @@ function addList(overlay: Extract<ResolvedOverlay, { kind: "list" }>, id: string
   const wipe = (suffix: string) => (overlay.entrance === "wipe" ? `<i class="ov-wipe" id="${id}w${suffix}"></i>` : "");
   const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;align-items:flex-start`;
   if (overlay.chips !== undefined) {
+    const covered = getChipCoveredTimes(overlay);
     const chips = overlay.chips.map((chip, i) => {
-      const place = `left:${chip.left - box.left}px;top:${chip.top - box.top}px;${getListCardSize(chip, pad)}${i === 0 ? "" : ";visibility:hidden"}${own === "" ? "" : `;${own}`}`;
-      return `<div class="ov-card ov-chip" id="${id}c${i}" style="${place}">${wipe(String(i))}<span>${escapeHtml(overlay.items[i] as string)}</span></div>`;
+      // The badge sits as far from the chip's left edge as from its top.
+      const place = `left:${chip.left - box.left}px;top:${chip.top - box.top}px;${getListCardSize(chip, pad)} ${pad.y}px ${pad.y}px${i === 0 ? "" : ";visibility:hidden"}${own === "" ? "" : `;${own}`}`;
+      const { radius } = getChipParts(chip, overlay).badge;
+      const size = 2 * radius;
+      const local = getChipTickPoints({ centre: { x: radius, y: radius }, radius });
+      const tick =
+        covered[i] === null
+          ? ""
+          : `<svg viewBox="0 0 ${size} ${size}"><polyline id="${id}k${i}" points="${local.map((point) => `${point.x},${point.y}`).join(" ")}" fill="none" stroke="${colors.background}" stroke-width="${r3(radius * 0.24)}" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg>`;
+      const badge = `<b class="ov-num" style="width:${size}px;height:${size}px"><i id="${id}n${i}">${i + 1}</i>${tick}</b>`;
+      return `<div class="ov-card ov-chip" id="${id}c${i}" style="${place}">${wipe(String(i))}${badge}<span id="${id}t${i}">${escapeHtml(overlay.items[i] as string)}</span></div>`;
     });
     out.html.push(clipDiv(overlay, id, "ov ov-list chips", style, chips.join("")));
     times.forEach((at, i) => {
       if (i > 0) out.tweens.push(`tl.set("#${id}c${i}", { visibility: "visible" }, ${at});`);
       out.tweens.push(...getListCardEntrance(overlay, `#${id}c${i}`, at, context));
+    });
+    // Each point leads until the next one is in, then steps back: fainter, its number turned into a tick (RV-181).
+    covered.forEach((at, i) => {
+      if (at === null) return;
+      out.tweens.push(`tl.to("#${id}t${i}", { opacity: ${LIST_CHIP_COVERED_OPACITY}, duration: 0.3, ease: "power2.out" }, ${at});`);
+      out.tweens.push(`tl.to("#${id}n${i}", { opacity: 0, duration: 0.12, ease: "none" }, ${at});`);
+      out.tweens.push(`tl.fromTo("#${id}k${i}", { attr: { "stroke-dashoffset": 1 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.3, ease: "power2.out", immediateRender: false }, ${r3(at + 0.08)});`);
     });
   } else {
     const isCentred = overlay.isCentred === true;
