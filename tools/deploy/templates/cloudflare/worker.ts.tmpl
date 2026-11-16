@@ -4,6 +4,11 @@
 {{#worker}}
 // The app depends on @softure-ai/jobs too, so the Cron Trigger of wrangler.jsonc runs one jobs tick a minute.
 {{/worker}}
+{{#observability}}
+// The app depends on @softure-ai/observability too: each request is one server span, and its logs carry the span's ids
+// (OTEL_EXPORTER_OTLP_* from the Worker's secrets; without an endpoint nothing is sent). On Node the same logs and
+// spans come from registerObservability in instrumentation.ts, which starts nothing in a Worker.
+{{/observability}}
 //
 {{#worker}}
 // The app owns this file: point the handlers import at its handlers, one per queue of `jobs({ queues })`.
@@ -17,6 +22,9 @@ import { connect } from "cloudflare:sockets";
 {{#worker}}
 import { createScheduledHandler } from "@softure-ai/jobs/workers";
 {{/worker}}
+{{#observability}}
+import { withObservability } from "@softure-ai/observability/workers";
+{{/observability}}
 // Written by the OpenNext build (`opennextjs-cloudflare build`): missing before the first build and typed from its .js
 // after it, so neither state may fail the typecheck (@ts-expect-error would fail once the file exists).
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment -- see above
@@ -33,7 +41,7 @@ interface Env {
 
 interface WorkerContext {
   waitUntil(promise: Promise<unknown>): void;
-  passThroughOnException(): void;
+  passThroughOnException?(): void;
 }
 
 /** OpenNext's handler; typed here because its file exists only after the build. */
@@ -46,13 +54,26 @@ const handler = openNextWorker as OpenNextHandler;
 // The app's proxy is bundled apart from this entry and cannot import `cloudflare:sockets` itself; pg reaches it here.
 registerCloudflareSockets(connect);
 
+function handleRequest(request: Request, env: Env, ctx: WorkerContext): Promise<Response> {
+  return withRequestDatabase({ url: env.HYPERDRIVE.connectionString, waitUntil: (promise) => ctx.waitUntil(promise) }, (scope) =>
+    // The scope's waitUntil keeps the request's handle open for Next's after() work.
+    handler.fetch(request, env, { waitUntil: scope.waitUntil, passThroughOnException: () => ctx.passThroughOnException?.() }),
+  );
+}
+
 export default {
-  fetch(request: Request, env: Env, ctx: WorkerContext): Promise<Response> {
-    return withRequestDatabase({ url: env.HYPERDRIVE.connectionString, waitUntil: (promise) => ctx.waitUntil(promise) }, (scope) =>
-      // The scope's waitUntil keeps the request's handle open for Next's after() work.
-      handler.fetch(request, env, { waitUntil: scope.waitUntil, passThroughOnException: () => ctx.passThroughOnException() }),
-    );
-  },
+{{#observability}}
+{{#healthRoute}}
+  // The health route stays out of the traces, as on Node.
+  fetch: withObservability<Env>(handleRequest, { ignorePaths: ["/api/health"] }),
+{{/healthRoute}}
+{{^healthRoute}}
+  fetch: withObservability<Env>(handleRequest),
+{{/healthRoute}}
+{{/observability}}
+{{^observability}}
+  fetch: handleRequest,
+{{/observability}}
 {{#worker}}
   scheduled: createScheduledHandler<Env>({ config, handlers, databaseUrl: (env) => env.HYPERDRIVE.connectionString }),
 {{/worker}}

@@ -6,6 +6,13 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.7.1
 
+- With `@softure-ai/observability` among the app's dependencies, the Cloudflare `worker.ts` wraps its fetch with
+  `withObservability` from `@softure-ai/observability/workers` (the health route left out of the traces when the app
+  has ops), so a move to Cloudflare keeps the request spans and the logs' trace ids that `registerObservability` gives
+  on Node and skips in a Worker. Without a database no `worker.ts` is written, and init says to wrap the fetch by hand.
+- `init` no longer warns about `serverExternalPackages` when the Next config uses `withDatabaseBuild` from
+  `@softure-ai/db/next-config`, and on `--host=cloudflare` it warns when a database app's config does not use it: a
+  Worker needs `pg` bundled with its socket, which a `serverExternalPackages` entry prevents.
 - The Cloudflare `worker.ts` template (RP-10) registers `cloudflare:sockets` for `pg` (`registerCloudflareSockets`)
   and passes the request scope's `waitUntil` to OpenNext's handler, so streamed rendering and `after()` work keep the
   request database open until they finish. A new `cloudflare-sockets.d.ts` types that import, and the OpenNext

@@ -344,6 +344,7 @@ function planCloudflareFiles(options: PlanInitFilesOptions, readTemplate: (path:
     cloudflare: false,
     hasRowCountTables: false,
     main: getWorkerMain(facts),
+    observability: facts.hasObservability === true,
     cloudflarePostgresMajor: CLOUDFLARE_POSTGRES_MAJOR,
     backupCliVersion: CLOUDFLARE_BACKUP_CLI_VERSION,
     compatibilityDate: CLOUDFLARE_COMPATIBILITY_DATE,

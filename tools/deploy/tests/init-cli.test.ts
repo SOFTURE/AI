@@ -250,7 +250,7 @@ describe("softure-deploy init", () => {
   describe("serverExternalPackages of a database app", () => {
     const DATABASE_APP = { name: "shop", dependencies: { "@softure-ai/db": "^0.1.2" } };
     const SERVER_EXTERNAL_WARNING =
-      'warning next.config.ts does not list "@softure-ai/db" in serverExternalPackages; next build cannot resolve the database driver the app does not install (see serverExternalPackages in the @softure-ai/db README, §2 Installation)\n';
+      'warning next.config.ts does not list "@softure-ai/db" in serverExternalPackages; next build cannot resolve the database driver the app does not install (see serverExternalPackages in the @softure-ai/db README, §2 Installation, or wrap the config with withDatabaseBuild from @softure-ai/db/next-config)\n';
 
     async function warningsFor(pkg: object, nextConfig: string): Promise<string[]> {
       writeApp(pkg, nextConfig);
@@ -278,6 +278,12 @@ describe("softure-deploy init", () => {
 
     it("gives no warning when the list is a variable that names @softure-ai/db", async () => {
       const config = "const external = ['@softure-ai/db', 'pg'];\nexport default { output: \"standalone\", serverExternalPackages: external };\n";
+      expect(await warningsFor(DATABASE_APP, config)).toEqual([]);
+    });
+
+    it("gives no warning when withDatabaseBuild sets the database build", async () => {
+      const config =
+        'import { withDatabaseBuild } from "@softure-ai/db/next-config";\nexport default withDatabaseBuild({ output: "standalone" }, { host: "vps", appDir: import.meta.dirname });\n';
       expect(await warningsFor(DATABASE_APP, config)).toEqual([]);
     });
 

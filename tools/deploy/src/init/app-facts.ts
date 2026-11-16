@@ -11,6 +11,7 @@ const NEXT_CONFIG_FILES = ["next.config.ts", "next.config.mts", "next.config.js"
 const SERVER_EXTERNAL_LIST = /serverExternalPackages\s*:\s*\[([^\]]*)\]/;
 const DB_PACKAGE_LITERAL = /(["'`])@softure-ai\/db\1/;
 const JOBS_PACKAGE = "@softure-ai/jobs";
+const OBSERVABILITY_PACKAGE = "@softure-ai/observability";
 
 const packageJsonSchema = z.looseObject({
   name: z.string().optional(),
@@ -34,6 +35,16 @@ export interface AppFacts {
    * when neither reads (no jobs, or a range such as `*`). Absent (facts built by hand) means unknown.
    */
   jobsVersion?: string | null;
+  /**
+   * `@softure-ai/observability` is a dependency: on Cloudflare the generated `worker.ts` wraps the Worker's fetch with
+   * its Workers entry. Absent (facts built by hand) means no.
+   */
+  hasObservability?: boolean;
+  /**
+   * The Next config wraps itself with `withDatabaseBuild` from `@softure-ai/db/next-config`, which sets the database
+   * packages' build for either host. Absent (facts built by hand) means no.
+   */
+  usesDatabaseBuild?: boolean;
   /** A `public/` folder, copied into the image next to the standalone server. */
   hasPublicDir: boolean;
   /** The Next config file, or null when the app has none. */
@@ -122,6 +133,8 @@ export function readAppFacts(dir: string): AppFactsResult {
       hasHealthRoute: "@softure-ai/ops" in dependencies,
       hasJobs: JOBS_PACKAGE in dependencies,
       jobsVersion: readPackageVersion(dir, JOBS_PACKAGE, dependencies[JOBS_PACKAGE]),
+      hasObservability: OBSERVABILITY_PACKAGE in dependencies,
+      usesDatabaseBuild: configText.includes("withDatabaseBuild"),
       hasPublicDir: existsSync(publicDir) && statSync(publicDir).isDirectory(),
       nextConfigFile,
       isStandalone: configText.includes("standalone"),

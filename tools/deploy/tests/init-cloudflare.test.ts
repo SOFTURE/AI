@@ -11,7 +11,8 @@ const PACKAGE_VERSION = (JSON.parse(readFileSync(join(import.meta.dirname, "../p
 const CLOUDFLARE = ["--host=cloudflare", "--domain=shop.example.com"];
 const WORKFLOWS_SHA = "8d8b8e5a7c246b9afe4e92dc055105f042af37ab";
 const HYPERDRIVE_ID = "0123456789abcdef0123456789abcdef";
-const NEXT_CONFIG = 'export default { serverExternalPackages: ["@softure-ai/db", "pg"] };\n';
+const NEXT_CONFIG =
+  'import { withDatabaseBuild } from "@softure-ai/db/next-config";\nexport default withDatabaseBuild({}, { host: "cloudflare", appDir: import.meta.dirname });\n';
 const DATABASE_APP = { name: "@acme/shop", dependencies: { "@softure-ai/db": "^0.1.15", "@softure-ai/ops": "^0.1.2" } };
 const JOBS_APP = { name: "@acme/shop", dependencies: { "@softure-ai/db": "^0.1.15", "@softure-ai/jobs": "^0.1.11" } };
 
@@ -23,9 +24,16 @@ function makeIo(): CliIo {
   return { cwd: dir, env: {}, stdout: (text) => out.push(text), stderr: (text) => err.push(text) };
 }
 
-function writeApp(pkg: object): void {
+function writeApp(pkg: object, nextConfig = NEXT_CONFIG): void {
   writeFileSync(join(dir, "package.json"), JSON.stringify(pkg));
-  writeFileSync(join(dir, "next.config.ts"), NEXT_CONFIG);
+  writeFileSync(join(dir, "next.config.ts"), nextConfig);
+}
+
+function listWarnings(): string[] {
+  return out
+    .join("")
+    .split("\n")
+    .filter((line) => line.startsWith("warning "));
 }
 
 function read(path: string): string {
@@ -112,7 +120,7 @@ describe("softure-deploy init --host=cloudflare", () => {
 
   it("adds the jobs Cron Trigger and the scheduled handler for an app with jobs, and a placement hint when asked", async () => {
     writeApp(JOBS_APP);
-    expect(await runCli(["init", ...CLOUDFLARE, "--placement-region=aws:eu-central-1"], makeIo())).toBe(0);
+    expect(await runCli(["init", ...CLOUDFLARE, "--placement-region=aws:eu-central-1", `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
     const wrangler = readWrangler();
     expect(wrangler.triggers).toEqual({ crons: ["* * * * *"] });
     expect(wrangler.placement).toEqual({ region: "aws:eu-central-1" });
@@ -127,8 +135,39 @@ describe("softure-deploy init --host=cloudflare", () => {
     expect(read("cloudflare-sockets.d.ts")).toContain('declare module "cloudflare:sockets"');
     expect(worker).toContain("registerCloudflareSockets(connect);");
     // Next's after() work reaches the scope's waitUntil, which keeps the request's handle open until it settles.
-    expect(worker).toContain("handler.fetch(request, env, { waitUntil: scope.waitUntil, passThroughOnException: () => ctx.passThroughOnException() })");
+    expect(worker).toContain("handler.fetch(request, env, { waitUntil: scope.waitUntil, passThroughOnException: () => ctx.passThroughOnException?.() })");
+    expect(worker).toContain("  fetch: handleRequest,\n");
+    expect(worker).not.toContain("@softure-ai/observability");
     expect(out.join("")).toContain(", jobs tick on (@softure-ai/jobs found).\n");
+    expect(listWarnings()).toEqual([]);
+  });
+
+  it("wraps the Worker's fetch with the observability Workers entry when the app depends on @softure-ai/observability", async () => {
+    writeApp({ ...DATABASE_APP, dependencies: { ...DATABASE_APP.dependencies, "@softure-ai/observability": "^0.8.6" } });
+    expect(await runCli(["init", ...CLOUDFLARE, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+    const worker = read("worker.ts");
+    expect(worker).toContain('import { withObservability } from "@softure-ai/observability/workers";');
+    // The app has ops, so its health route stays out of the traces, as on Node.
+    expect(worker).toContain('  fetch: withObservability<Env>(handleRequest, { ignorePaths: ["/api/health"] }),\n');
+    expect(worker).not.toContain("  fetch: handleRequest,");
+    expect(listWarnings()).toEqual([]);
+  });
+
+  it("warns that an app with observability but no database gets no worker.ts to wrap", async () => {
+    writeApp({ name: "@acme/site", dependencies: { "@softure-ai/observability": "^0.8.6" } }, "export default {};\n");
+    expect(await runCli(["init", ...CLOUDFLARE, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+    expect(existsSync(join(dir, "worker.ts"))).toBe(false);
+    expect(listWarnings()).toEqual([
+      "warning @softure-ai/observability is a dependency but @softure-ai/db is not, so no worker.ts was written; wrap the Worker's fetch with withObservability from @softure-ai/observability/workers for its spans and logs",
+    ]);
+  });
+
+  it("warns when a database app's Next config does not use withDatabaseBuild, which a Worker needs", async () => {
+    writeApp(DATABASE_APP, 'export default { serverExternalPackages: ["@softure-ai/db", "pg"] };\n');
+    expect(await runCli(["init", ...CLOUDFLARE, `--workflows-ref=${WORKFLOWS_SHA}`], makeIo())).toBe(0);
+    expect(listWarnings()).toEqual([
+      'warning next.config.ts does not wrap its config with withDatabaseBuild(config, { host: "cloudflare", appDir }) from @softure-ai/db/next-config; a Worker needs pg bundled with its socket and PGlite left out (see "Running on Cloudflare Workers" in the @softure-ai/db README)',
+    ]);
   });
 
   it("writes a Hyperdrive placeholder and the step that creates it when no ID is given", async () => {

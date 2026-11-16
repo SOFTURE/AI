@@ -1,10 +1,10 @@
 ---
 change_id: runtime-providers-release
 title: "release the runtime-providers packages and the adoption guide"
-status: open
+status: archived
 roadmap_item: RP-11
 issue: null
-branch: null
+branch: claude/project-thread-dufdk1
 created: 2026-11-16
 updated: 2026-11-16
 ---
@@ -24,4 +24,5 @@ Releases go through the repository's release pipeline (`release.owner: false`).
 
 ## Notes
 
-- Item block: [`roadmap.md` → RP-11](../../foundation/roadmap.md).
+- Item block: [`runtime-providers` → RP-11](../../foundation/archive/2026-11-16-roadmap.md).
+- Frame skipped: the item only releases and documents; the audit's two gaps sit inside the unreleased deploy 0.7.1.
