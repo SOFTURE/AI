@@ -221,3 +221,65 @@ describe("sendGuardedRequest", () => {
     );
   });
 });
+
+describe("sendGuardedRequest without a pinned lookup (Cloudflare Workers)", () => {
+  // workerd's node:http refuses a `lookup` option, so the transport here does too: a pinned request would fail.
+  const refusingLookup = (url: URL, options: RequestOptions): ClientRequest => {
+    if (options.lookup !== undefined || options.agent !== undefined) {
+      throw new Error("ERR_OPTION_NOT_IMPLEMENTED: options.lookup");
+    }
+    return requestHttp(new URL(url.pathname, `http://127.0.0.1:${port}`), options);
+  };
+  const unpinned = (resolveHost: ResolveHost): GuardedRequestSeam => ({
+    pinLookup: false,
+    request: refusingLookup,
+    resolveHost,
+    isAllowedAddress: (address) => address === "203.0.113.7",
+  });
+
+  it("sends the request without a lookup once every address of the host is allowed", async () => {
+    const result = await sendGuardedRequest(`https://hooks.example.com/x`, { method: "POST", body: "a=1", timeoutMs: 2000 }, unpinned(resolvesTo("203.0.113.7")));
+    expect(result).toEqual({ ok: true, value: { status: 204 } });
+    expect(received.map((entry) => entry.body)).toEqual(["a=1"]);
+  });
+
+  it("refuses the host when any address is not allowed, before connecting", async () => {
+    const result = await sendGuardedRequest(`https://hooks.example.com/x`, { method: "GET", timeoutMs: 2000 }, unpinned(resolvesTo("203.0.113.7", "10.0.0.5")));
+    expect(result).toEqual({ ok: false, error: "security.outbound_blocked" });
+    expect(received).toHaveLength(0);
+  });
+
+  it("refuses a host that resolves to no address", async () => {
+    const result = await sendGuardedRequest(`https://hooks.example.com/x`, { method: "GET", timeoutMs: 2000 }, unpinned(resolvesTo()));
+    expect(result).toEqual({ ok: false, error: "security.outbound_blocked" });
+  });
+
+  it("fails when the name does not resolve", async () => {
+    const failing: ResolveHost = (_hostname, _family, callback) => {
+      callback(new Error("ENOTFOUND"), []);
+    };
+    expect(await sendGuardedRequest(`https://nowhere.example.com/`, { method: "GET", timeoutMs: 2000 }, unpinned(failing))).toEqual({
+      ok: false,
+      error: "security.outbound_failed",
+    });
+  });
+
+  it("times out while the host check is still waiting", async () => {
+    const hanging: ResolveHost = () => undefined;
+    const result = await sendGuardedRequest(`https://slow.example.com/`, { method: "GET", timeoutMs: 100 }, unpinned(hanging));
+    expect(result).toEqual({ ok: false, error: "security.outbound_timeout" });
+  });
+
+  it("refuses a non-public literal without resolving it", async () => {
+    let resolved = 0;
+    const counting: ResolveHost = (_hostname, _family, callback) => {
+      resolved += 1;
+      callback(null, []);
+    };
+    expect(await sendGuardedRequest(`https://10.0.0.5/`, { method: "GET", timeoutMs: 2000 }, unpinned(counting))).toEqual({
+      ok: false,
+      error: "security.outbound_blocked",
+    });
+    expect(resolved).toBe(0);
+  });
+});

@@ -5,7 +5,7 @@ import type { ClientRequest, IncomingMessage } from "node:http";
 import { pipeline, type Readable } from "node:stream";
 import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
-import { checkGuardedUrl, openGuardedRequest, type GuardedRequestErrorCode, type GuardedRequestSeam } from "./guarded-request.js";
+import { BlockedAddressError, checkGuardedUrl, openGuardedRequest, type GuardedRequestErrorCode, type GuardedRequestSeam } from "./guarded-request.js";
 
 /** A failure inside a guarded GET, carried to the one place that turns it into a code. */
 export class GuardedFetchError extends Error {
@@ -28,6 +28,8 @@ export interface FollowOptions {
   readonly isAllowedAddress: (address: string) => boolean;
   /** Every hop, the first one included, must be `https:`. */
   readonly requireHttps: boolean;
+  /** Aborted when the caller's time limit passes, so a host check before a hop (Workers) stops waiting. */
+  readonly signal?: AbortSignal;
 }
 
 export interface ReachedResponse {
@@ -59,8 +61,10 @@ export async function followGuardedRedirects(
     const target = checked.value;
     let request: ClientRequest;
     try {
-      request = openGuardedRequest(target, { method: "GET", headers }, seam);
-    } catch {
+      request = await openGuardedRequest(target, { method: "GET", headers, signal: options.signal }, seam);
+    } catch (error) {
+      // A refused address or the caller's abort is the caller's to map, like a refusal inside the socket's lookup.
+      if (error instanceof BlockedAddressError || options.signal?.aborted === true) throw error;
       return err("security.outbound_failed");
     }
     const open: OpenHop = { request };

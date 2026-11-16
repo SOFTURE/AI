@@ -13,8 +13,9 @@ export const MODULE_ID = "security";
 export const security = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.7",
+    version: "0.2.8",
     dependsOn: { jobs: "^0.1.1?" },
+    runtimes: ["node", "workers"],
     dbSchema: "security",
     tables: ["rate_limits", "webhook_deliveries"],
     env: [],

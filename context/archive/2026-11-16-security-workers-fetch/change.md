@@ -1,10 +1,10 @@
 ---
 change_id: security-workers-fetch
 title: "security: guarded outbound requests and client addresses on Workers"
-status: open
+status: archived
 roadmap_item: RP-5
 issue: null
-branch: null
+branch: claude/project-thread-dufdk1
 created: 2026-11-16
 updated: 2026-11-16
 ---

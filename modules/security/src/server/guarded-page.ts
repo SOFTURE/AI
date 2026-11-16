@@ -90,14 +90,16 @@ export async function fetchGuardedPage(
   // One deadline for every hop and the body: tearing down what is open makes the pending step fail.
   let timedOut = false;
   let open: OpenHop | undefined;
+  const controller = new AbortController();
   const timer = setTimeout(() => {
     timedOut = true;
+    controller.abort();
     open?.response?.destroy();
     open?.request.destroy();
   }, timeoutMs);
 
   try {
-    const reached = await followGuardedRedirects(url, { headers, allowedPorts, maxRedirects, isAllowedAddress, requireHttps: false }, seam, (hop) => {
+    const reached = await followGuardedRedirects(url, { headers, allowedPorts, maxRedirects, isAllowedAddress, requireHttps: false, signal: controller.signal }, seam, (hop) => {
       open = hop;
     });
     if (!reached.ok) {

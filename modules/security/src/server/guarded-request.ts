@@ -1,6 +1,8 @@
 // A request to a URL someone else chose (an RFC 8058 one-click unsubscribe address, a webhook target, a
-// link preview), refused when the target is not a public address. The address check runs inside the
-// socket's own lookup, so the address that is checked is the one connected to: no DNS rebinding window.
+// link preview), refused when the target is not a public address. On Node the address check runs inside the
+// socket's own lookup, so the address that is checked is the one connected to: no DNS rebinding window. On
+// Cloudflare Workers `node:http` wraps `fetch` and refuses a `lookup`, so the host's addresses are checked just
+// before the request instead (docs/07-runtime-providers.md); Workers' `fetch` reaches no private network.
 import { lookup as lookupHost, type LookupAddress } from "node:dns";
 import { request as requestHttp, type ClientRequest, type RequestOptions } from "node:http";
 import { request as requestHttps } from "node:https";
@@ -38,6 +40,11 @@ export interface GuardedRequestSeam {
   readonly request?: (url: URL, options: RequestOptions) => ClientRequest;
   readonly isAllowedAddress?: (address: string) => boolean;
   readonly resolveHost?: ResolveHost;
+  /**
+   * Whether the check runs inside the socket's lookup (`true`) or on the resolved addresses just before the request
+   * (`false`). Default: `true` on Node, `false` on Cloudflare Workers, whose `node:http` takes no `lookup`.
+   */
+  readonly pinLookup?: boolean;
 }
 
 export const GUARDED_REQUEST_DEFAULT_PORTS: readonly number[] = [443];
@@ -103,22 +110,56 @@ export function checkGuardedUrl(
   return ok(target);
 }
 
+/** Whether this code runs on Cloudflare Workers, whose runtime names itself in `navigator.userAgent`. */
+export function isWorkersRuntime(): boolean {
+  return (globalThis as { navigator?: { userAgent?: unknown } }).navigator?.userAgent === "Cloudflare-Workers";
+}
+
 /**
- * Starts a request to a checked target with the guarded lookup and no pooled socket (a pooled socket would skip
- * the lookup). Throws synchronously when Node cannot send a header (a control character, an invalid name).
+ * Starts a request to a checked target. Pinned (Node): the guarded lookup and no pooled socket (a pooled socket would
+ * skip the lookup). Not pinned (Workers): every address of the host is checked first, and a refused one rejects with
+ * `BlockedAddressError`; an abort of `signal` rejects with its reason. Rejects too when the runtime cannot send a
+ * header (a control character, an invalid name).
  */
-export function openGuardedRequest(
+export async function openGuardedRequest(
   target: URL,
-  init: { readonly method: string; readonly headers: Readonly<Record<string, string>> },
+  init: { readonly method: string; readonly headers: Readonly<Record<string, string>>; readonly signal?: AbortSignal },
   seam: GuardedRequestSeam,
-): ClientRequest {
+): Promise<ClientRequest> {
   const send = seam.request ?? (target.protocol === "https:" ? requestHttps : requestHttp);
-  return send(target, {
-    method: init.method,
-    headers: { ...init.headers },
-    agent: false,
-    lookup: guardLookup(seam.isAllowedAddress ?? isPublicAddress, seam.resolveHost ?? resolveWithDns),
+  const isAllowedAddress = seam.isAllowedAddress ?? isPublicAddress;
+  const resolveHost = seam.resolveHost ?? resolveWithDns;
+  if (seam.pinLookup ?? !isWorkersRuntime()) {
+    return send(target, { method: init.method, headers: { ...init.headers }, agent: false, lookup: guardLookup(isAllowedAddress, resolveHost) });
+  }
+  await checkHostAddresses(target, isAllowedAddress, resolveHost, init.signal);
+  return send(target, { method: init.method, headers: { ...init.headers } });
+}
+
+/** Resolves the target's host and throws `BlockedAddressError` unless every address is allowed. An IP literal was checked by `checkGuardedUrl`. */
+async function checkHostAddresses(
+  target: URL,
+  isAllowedAddress: (address: string) => boolean,
+  resolveHost: ResolveHost,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  const hostname = target.hostname.startsWith("[") ? target.hostname.slice(1, -1) : target.hostname;
+  if (isIP(hostname) !== 0) return;
+  signal?.throwIfAborted();
+  const addresses = await new Promise<readonly LookupAddress[]>((resolve, reject) => {
+    const onAbort = (): void => {
+      reject(signal?.reason instanceof Error ? signal.reason : new Error("guarded request: aborted"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    resolveHost(hostname, 0, (error, found) => {
+      signal?.removeEventListener("abort", onAbort);
+      if (error === null) resolve(found);
+      else reject(error);
+    });
   });
+  if (addresses.length === 0 || !addresses.every((entry) => isAllowedAddress(entry.address))) {
+    throw new BlockedAddressError(hostname);
+  }
 }
 
 /**
@@ -148,12 +189,14 @@ export async function sendGuardedRequest(
     requestHeaders["content-length"] = String(Buffer.byteLength(body));
   }
 
+  const controller = new AbortController();
   return new Promise<GuardedRequestResult>((resolve) => {
     let settled = false;
     let timedOut = false;
     let request: ClientRequest | undefined;
     const timer = setTimeout(() => {
       timedOut = true;
+      controller.abort();
       request?.destroy();
     }, timeoutMs);
     const settle = (result: GuardedRequestResult): void => {
@@ -163,20 +206,7 @@ export async function sendGuardedRequest(
         resolve(result);
       }
     };
-
-    try {
-      request = openGuardedRequest(checked.value, { method, headers: requestHeaders }, seam);
-    } catch {
-      settle(err("security.outbound_failed"));
-      return;
-    }
-
-    request.on("response", (response) => {
-      settle(ok({ status: response.statusCode ?? 0 }));
-      // The status is all the caller gets; closing here keeps an unbounded body out of memory.
-      response.destroy();
-    });
-    request.on("error", (error) => {
+    const fail = (error: unknown): void => {
       if (timedOut) {
         settle(err("security.outbound_timeout"));
       } else if (error instanceof BlockedAddressError) {
@@ -184,8 +214,23 @@ export async function sendGuardedRequest(
       } else {
         settle(err("security.outbound_failed"));
       }
-    });
-    request.end(body);
+    };
+
+    openGuardedRequest(checked.value, { method, headers: requestHeaders, signal: controller.signal }, seam).then((opened) => {
+      request = opened;
+      if (timedOut) {
+        opened.destroy();
+        fail(undefined);
+        return;
+      }
+      opened.on("response", (response) => {
+        settle(ok({ status: response.statusCode ?? 0 }));
+        // The status is all the caller gets; closing here keeps an unbounded body out of memory.
+        response.destroy();
+      });
+      opened.on("error", fail);
+      opened.end(body);
+    }, fail);
   });
 }
 

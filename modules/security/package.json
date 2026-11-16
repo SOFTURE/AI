@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/security",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "SOFTURE AI security module: fixed-window rate limits in Postgres with buckets from configuration, client-IP resolvers, size-capped request body readers, HMAC-signed request helpers and SSRF-guarded outbound requests, page fetches and streamed file downloads.",
   "license": "MIT",
   "type": "module",
@@ -70,5 +70,13 @@
     "@softure-ai/jobs": {
       "optional": true
     }
+  },
+  "softure": {
+    "workers": [
+      ".",
+      "./server",
+      "./signed-request",
+      "./readable-text"
+    ]
   }
 }

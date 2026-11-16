@@ -12,7 +12,16 @@ export const WORKERS_BUILTINS: ReadonlySet<string> = new Set([
   "buffer",
   "crypto",
   "diagnostics_channel",
+  // workerd resolves names over DNS-over-HTTPS (1.1.1.1).
+  "dns",
+  "dns/promises",
   "events",
+  // workerd's node:http and node:https wrap fetch: no socket, so the `lookup` and `agent` options do nothing or are
+  // refused (ERR_OPTION_NOT_IMPLEMENTED for `lookup`); a redirect comes back unfollowed and a body still encoded.
+  "http",
+  "https",
+  // workerd has BlockList, isIP and SocketAddress; net.Server is not available.
+  "net",
   "path",
   "process",
   "querystring",

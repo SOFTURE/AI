@@ -48,14 +48,26 @@ and every listed module that does not run on the chosen runtime, naming the modu
   `tests/repo/workers-entries.test.ts` walks every module reachable from each listed entry (static imports,
   re-exports and literal dynamic imports; type-only imports are skipped) and fails on:
   - a Node builtin outside the `nodejs_compat` set (`WORKERS_BUILTINS` in `tests/repo/workers-entries.ts`: allowed
-    are `crypto`, `buffer`, `util`, `events`, `stream`, `path`, `url`, `async_hooks`, `zlib` and a few more;
-    `fs`, `child_process`, `net`, `dns`, `http`, `os`, `module` and the rest are refused);
+    are `crypto`, `buffer`, `util`, `events`, `stream`, `path`, `url`, `async_hooks`, `zlib`, `net`, `dns`, `http`,
+    `https` and a few more; `fs`, `child_process`, `os`, `module`, `worker_threads` and the rest are refused);
   - a package that needs a Node process (`NODE_ONLY_PACKAGES`);
   - an import of another `@softure-ai/*` entry that its package does not list as Workers-safe.
 - **Host-specific code sits behind one interface.** A package picks its adapter from `config.platform`; an app never
   imports a host-specific entry by hand. CLIs (migrations, exports, operator scripts) stay Node-only: they run in CI
   or on the operator's machine, not inside a Worker.
 - **Node behaviour does not change** when a package gains a Workers path.
+
+## What workerd provides, measured
+
+Probed in workerd (Miniflare, `nodejs_compat`) for RP-5, so a package does not rewrite what already works:
+
+- `node:crypto` in full: `scrypt` at the default cost, `pbkdf2`, `createPublicKey` (PEM and JWK), `sign`, `verify`.
+  A deployed isolate still has 128 MB, which the local runtime does not enforce.
+- `node:net` `BlockList` and `isIP`; `node:zlib` streams.
+- `node:dns` resolves over DNS-over-HTTPS.
+- `node:http` and `node:https` are a wrapper over `fetch`: a 3xx comes back unfollowed with its `Location`, a body
+  keeps its `Content-Encoding`, and the `lookup` option is refused (`ERR_OPTION_NOT_IMPLEMENTED`), so a request
+  cannot pin the address it checked.
 
 ## Support matrix
 
@@ -65,7 +77,7 @@ and every listed module that does not run on the chosen runtime, naming the modu
 | `@softure-ai/db` (`./request`) | yes | yes | RP-2 |
 | `@softure-ai/auth` | yes | planned | RP-3 |
 | `@softure-ai/jobs` | yes | planned | RP-4 |
-| `@softure-ai/security` | yes | planned | RP-5 |
+| `@softure-ai/security` (`.`, `./server`, `./signed-request`, `./readable-text`) | yes | yes | RP-5 |
 | `@softure-ai/observability` | yes | planned | RP-6 |
 | other runtime modules | yes | planned | RP-7 |
 | `@softure-ai/deploy` (`host: "cloudflare"`) | yes | planned | RP-8 |
