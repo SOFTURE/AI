@@ -44,6 +44,9 @@ export type AsidePanelProviderProps = Omit<ComponentProps<typeof SidebarProvider
   readonly isHidden?: boolean;
   // The panel's `id`, which the toggle points at with `aria-controls`.
   readonly panelId?: string;
+  // Keeps the sidebar open beside the panel: opening the panel never folds the sidebar and opening the sidebar never
+  // closes the panel, so both stay open and clickable. Off by default: one side panel at a time.
+  readonly keepsSidebarOpen?: boolean;
 };
 
 interface AsidePanelContextValue {
@@ -79,6 +82,7 @@ function useAsidePanelContext(component: string): AsidePanelContextValue {
 /**
  * The app shell's provider: renders `SidebarProvider` and keeps one side panel open at a time. While the right panel
  * is open on a wide screen, the left sidebar is folded (offcanvas); opening the sidebar any way closes the panel.
+ * `keepsSidebarOpen` lets both stay open instead, each with its own state.
  * Use it in place of `SidebarProvider`; every other `SidebarProvider` prop passes through.
  */
 export function AsidePanelProvider({
@@ -87,6 +91,7 @@ export function AsidePanelProvider({
   onSaveError,
   isHidden = false,
   panelId = "aside-panel",
+  keepsSidebarOpen = false,
   defaultOpen = true,
   children,
   ...props
@@ -99,7 +104,7 @@ export function AsidePanelProvider({
   const isHeadingFocusRequested = useRef(false);
 
   const isOpen = isHidden ? false : isMobile ? isMobileOpen : kept.isOpen;
-  const isSidebarShown = isSidebarOpen && !(kept.isOpen && !isMobile && !isHidden);
+  const isSidebarShown = isSidebarOpen && (keepsSidebarOpen || !(kept.isOpen && !isMobile && !isHidden));
 
   const keep = useCallback(
     (next: AsidePanelState) => {
@@ -137,8 +142,8 @@ export function AsidePanelProvider({
 
   const openSidebar = useCallback(() => {
     setSidebarOpen(true);
-    if (kept.isOpen && !isMobile) keep({ ...kept, isOpen: false });
-  }, [isMobile, kept, keep]);
+    if (!keepsSidebarOpen && kept.isOpen && !isMobile) keep({ ...kept, isOpen: false });
+  }, [keepsSidebarOpen, isMobile, kept, keep]);
 
   const changeSidebar = useCallback(
     (next: boolean) => {
@@ -217,7 +222,10 @@ export interface AsidePanelSidebarOpenerProps {
   readonly className?: string;
 }
 
-/** The icon button at the top-left edge, shown only while the sidebar is folded: brings it back, closes the panel. */
+/**
+ * The icon button at the top-left edge, shown only while the sidebar is folded: brings it back and closes the panel
+ * (only brings it back under `keepsSidebarOpen`, so the app passes a label without "hide the panel" there).
+ */
 export function AsidePanelSidebarOpener({ label = messages.asidePanel.showSidebar, className }: AsidePanelSidebarOpenerProps) {
   const { isMobile, isSidebarFolded, openSidebar } = useAsidePanelContext("AsidePanelSidebarOpener");
   if (isMobile || !isSidebarFolded) return null;
