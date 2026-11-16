@@ -737,11 +737,14 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   (eased out, no overshoot), so it never stands empty or sized for the whole list from the start. Without
   `style.side` its card sits in the middle of the room it may take, its lines centred and without bullets; with a
   side it keeps its side and bullets. `style.list_layout` (`OVERLAY_LIST_LAYOUTS`): `stack` (the default), `chips`
-  (each point its own small card in one centred row, in their final places, entering in turn from the left; a row too
+  (each point its own small card in one centred row, entering in turn; the chips shown so far are always a row of
+  their own on the frame's axis, the earlier ones easing aside as each next point comes in (0.39.0); a row too
   wide shrinks like a title, three 10 % steps, and an asked row of chips keeps shrinking down to
-  `LIST_CHIP_MIN_FONT_SIZE` (36 px at 1080 px wide, since 0.38.1) before it is refused) or `auto` (chips when they fit one row, else
-  the stack). A resolved list carries `isCentred` or `chips` (each chip's box); `getDrawnOverlayCard` answers the
-  row's box, `getListCardsByItem` the drawn boxes after each point and `getListItemTimes` each point's second.
+  `LIST_CHIP_MIN_FONT_SIZE` (36 px at 1080 px wide, since 0.38.1), in the span centred on the frame down to
+  `LIST_CHIP_CENTRED_MIN_FONT_SIZE` (32 px, since 0.39.0), before it is refused) or `auto` (chips when they fit one
+  row, else the stack). A resolved list carries `isCentred` or `chips` (each chip's box in the full row) and
+  `chipAxis`; `getDrawnOverlayCard` answers the full row's box, `getListCardsByItem` the drawn boxes after each point,
+  `getListStops` the step shown from each distinct second and `getListItemTimes` each point's second.
 - **Centred on the frame, chips as a countdown** (0.38.0): every centred overlay is centred on the frame's axis, as
   the captions are, not on the safe zone whose sides differ (`getCentredLeft`); a card too wide for the span centred
   on the frame is measured again in it, and only one that never fits keeps the whole zone. Chips come in one by one,

@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.39.0
 
 - **Every place card on the frame's axis:** a place card whose subtitle did not fit the span centred on the frame, even
   at its `s` step, was measured in the whole safe zone and pushed against its wider (right) side, up to 3.6 % of the
@@ -15,6 +15,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   up to 40 characters with words now sits on the axis, at every size and subtitle size, on every frame of its
   animation; a card that fitted the centred span before keeps its exact box. Only a title of one word too long for
   two lines is still refused.
+- **Chips centred while the list comes in:** the chips already shown used to stand in their final places of the full
+  row, so a first chip alone sat where the row would start, far left of the axis (11 % to 34.6 % of the width), until
+  every point was in. The chips shown are now always a row of their own on the frame's axis: `getListCardsByItem`
+  gives each step's row centred (`chipAxis` on a resolved list, the frame's axis), each chip enters at its place in the
+  row it joins, and the chips already shown ease aside to their new places as the next point comes in (0.35 s,
+  `power3.out` in the render, three eased steps in the draft, the badge and its tick moving with the chip). Points
+  on the same second come in together and the row widens once (`getListStops`). With every point in, the row is
+  exactly as before. A row of chips too wide for the span centred on the frame at `LIST_CHIP_MIN_FONT_SIZE` may now
+  shrink there down to `LIST_CHIP_CENTRED_MIN_FONT_SIZE` (32 px at 1080 px wide) so it sits on the axis instead of
+  against the wider side of the safe zone (three points at size `l` with the `all` preset spanned 11 % to 83.9 %).
 
 ## 0.38.1
 

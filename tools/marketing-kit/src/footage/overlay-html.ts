@@ -35,6 +35,7 @@ import {
   getPlaceCardPinSize,
   getListCardsByItem,
   getListItemTimes,
+  getListStops,
   LIST_CHIP_BADGE_EM,
   LIST_CHIP_COVERED_OPACITY,
   getChipCoveredTimes,
@@ -399,8 +400,8 @@ function getListCardSize(card: OverlayBox, pad: { x: number; y: number }): strin
 /**
  * A list (RV-144 of an adopting app): a stack, one card whose first point comes in with it and which grows to each next
  * point as it comes in (eased out, no overshoot; centred lines in the frame's middle without a side), or chips, one card
- * per point in its final place of a centred row, each entering on its own second from the left. Every card leaves
- * together.
+ * per point, each entering on its own second at its place in the row so far, the chips already shown easing aside so
+ * the row stays on the list's axis (RV-185 of an adopting app). Every card leaves together.
  */
 function addList(overlay: Extract<ResolvedOverlay, { kind: "list" }>, id: string, context: MarkupContext, out: OverlayMarkup): void {
   const { box, fontSize } = overlay;
@@ -413,9 +414,13 @@ function addList(overlay: Extract<ResolvedOverlay, { kind: "list" }>, id: string
   const style = `left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;font-size:${fontSize}px;align-items:flex-start`;
   if (overlay.chips !== undefined) {
     const covered = getChipCoveredTimes(overlay);
+    const stops = getListStops(overlay);
+    // Each chip starts at its place in the row it joins (RV-185 of an adopting app), the shown chips on the list's axis.
+    const entered = overlay.chips.map((chip, i) => (cards[stops.find((stop) => stop.at === times[i])?.step ?? -1]?.[i] ?? chip));
     const chips = overlay.chips.map((chip, i) => {
+      const start = entered[i] as OverlayBox;
       // The badge sits as far from the chip's left edge as from its top.
-      const place = `left:${chip.left - box.left}px;top:${chip.top - box.top}px;${getListCardSize(chip, pad)} ${pad.y}px ${pad.y}px${i === 0 ? "" : ";visibility:hidden"}${own === "" ? "" : `;${own}`}`;
+      const place = `left:${start.left - box.left}px;top:${chip.top - box.top}px;${getListCardSize(chip, pad)} ${pad.y}px ${pad.y}px${i === 0 ? "" : ";visibility:hidden"}${own === "" ? "" : `;${own}`}`;
       const { radius } = getChipParts(chip, overlay).badge;
       const size = 2 * radius;
       const local = getChipTickPoints({ centre: { x: radius, y: radius }, radius });
@@ -430,6 +435,15 @@ function addList(overlay: Extract<ResolvedOverlay, { kind: "list" }>, id: string
     times.forEach((at, i) => {
       if (i > 0) out.tweens.push(`tl.set("#${id}c${i}", { visibility: "visible" }, ${at});`);
       out.tweens.push(...getListCardEntrance(overlay, `#${id}c${i}`, at, context));
+    });
+    // As each point comes in, the chips already shown slide aside to keep the row on the axis, as a stack's card grows.
+    stops.forEach((stop) => {
+      if (stop.at >= overlay.end) return;
+      const row = cards[stop.step] as OverlayBox[];
+      row.forEach((place, i) => {
+        if ((times[i] as number) >= stop.at) return;
+        out.tweens.push(`tl.to("#${id}c${i}", { left: ${place.left - box.left}, duration: ${LIST_GROW_SECONDS}, ease: "power3.out" }, ${stop.at});`);
+      });
     });
     // Each point leads until the next one is in, then steps back: fainter, its number turned into a tick (RV-181).
     covered.forEach((at, i) => {
