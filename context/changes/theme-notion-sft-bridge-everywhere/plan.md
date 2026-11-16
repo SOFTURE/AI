@@ -24,9 +24,9 @@ pass.
 ## Progress
 
 - [x] 1 Bridge and unit test (760b180; 3 new tests fail on master's bridge, pass after)
-- [ ] 2 Bridge page and browser checks (ui components done: 20 passed in 4 projects; on master's bridge the shell and dark-band checks fail. Chat primitives wait for #1259)
+- [x] 2 Bridge page and browser checks (ui components and #1259's chat primitives, master 842f4f7 merged in: 20 passed in 4 projects, axe clean; on master's bridge the shell and dark-band checks fail)
 - [x] 3 Docs (README, CHANGELOG `## Unreleased`)
-- [ ] 4 Design System artifact
+- [x] 4 Design System artifact (checked: its bundle.css carries neither `--sft-*` nor `[data-page-frame]`, and it ships no ui components; nothing to sync)
 
 ## Decisions (auto)
 

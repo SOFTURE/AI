@@ -1,4 +1,17 @@
-import { Button, Card, EmptyState, FormError, ProgressBar } from "@softure-ai/ui";
+import {
+  Button,
+  Card,
+  ChatComposer,
+  ChatEmptyState,
+  ChatError,
+  ChatLog,
+  ChatMessage,
+  EmptyState,
+  FormError,
+  ProgressBar,
+  ReasoningDisclosure,
+  ToolCallCard,
+} from "@softure-ai/ui";
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -7,7 +20,15 @@ import { PageFrame } from "../src/index.js";
 /** Where a ui screen sits in a Notion app; `visual/bridge.spec.ts` reads the scopes by `data-bridge-scope`. */
 type BridgeScope = "shell" | "frame" | "dark-band";
 
-/** ui components as an app screen uses them: a card with a progress bar, the two main buttons, an error and an empty state. */
+function ignore(): void {
+  // The page is a still picture: sending, stopping and retrying do nothing.
+}
+
+/**
+ * ui components as an app screen uses them: a card with a progress bar, the two main buttons, an error and an empty
+ * state, then a chat (#1259) with every message role and status, tool cards in each state, reasoning, the composer
+ * while streaming, the chat's error and its empty state.
+ */
 function UiScreen({ scope }: { scope: BridgeScope }) {
   return (
     <div data-bridge-scope={scope} className="flex min-w-0 flex-col gap-3 p-4">
@@ -20,6 +41,27 @@ function UiScreen({ scope }: { scope: BridgeScope }) {
       </div>
       <FormError message="The model did not answer. Try again." />
       <EmptyState title="No messages yet">Ask about the report.</EmptyState>
+      <ChatLog label={`Chat (${scope})`} isStreaming>
+        <ChatMessage role="system">The assistant reads the project's reports.</ChatMessage>
+        <ChatMessage role="user">How far is the weekly report?</ChatMessage>
+        <ChatMessage role="assistant" meta="12:04">
+          <ReasoningDisclosure defaultOpen>The report has five sections; three are written.</ReasoningDisclosure>
+          <ToolCallCard title="Read the report" state="done">
+            <ProgressBar value={60} label="Sections written" />
+          </ToolCallCard>
+          Three of five sections are written.
+        </ChatMessage>
+        <ChatMessage role="assistant" status="error">
+          <ToolCallCard title="Send the report" state="error" errorText="The mail server did not answer." />
+        </ChatMessage>
+        <ChatMessage role="assistant" status="streaming">
+          <ToolCallCard title="Check the deadline" state="pending" />
+          The deadline is
+        </ChatMessage>
+      </ChatLog>
+      <ChatError message="The answer stopped halfway." onRetry={ignore} />
+      <ChatComposer status="streaming" onSend={ignore} onStop={ignore} defaultValue="And the budget?" />
+      <ChatEmptyState suggestions={["Summarise the report", "List open tasks"]} onSuggestion={ignore} />
     </div>
   );
 }
