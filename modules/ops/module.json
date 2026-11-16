@@ -1,6 +1,6 @@
 {
   "id": "ops",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "dependsOn": {},
   "dbSchema": null,
   "tables": [],
@@ -8,5 +8,6 @@
   "switches": [],
   "routes": { "health": "/api/health" },
   "mount": [{ "kind": "route-handler", "path": "app/api/health/route.ts" }],
-  "privacy": { "exports": false, "deletes": false }
+  "privacy": { "exports": false, "deletes": false },
+  "runtimes": ["node", "workers"]
 }

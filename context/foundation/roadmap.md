@@ -51,7 +51,7 @@ updated: 2026-11-16
 | **RP-7** | `modules-workers-sweep` | every other runtime module (files, mailing, mcp-access, billing, waitlist, privacy, connections, agent-ready, analytics, feature-switches, metering, alerts, seo, blog, pwa) passes the Workers guard: R2 through the S3 driver, DNS checks over DNS-over-HTTPS, no filesystem on the request path | RP-1 | autonomous | done |
 | **RP-8** | `deploy-cloudflare-target` | `@softure-ai/deploy` gets `host: "cloudflare"`: `init` writes `wrangler.jsonc` and an OpenNext build, a reusable workflow migrates from CI and runs `wrangler deploy`, and `verify` and the release report work as on the VPS | RP-2, RP-4 | autonomous | done |
 | **RP-9** | `backup-cloudflare-host` | `@softure-ai/backup` backs up a managed Postgres without a server: a scheduled workflow dumps, encrypts with age, uploads to R2 and records the run in `backup.runs` | RP-8 | autonomous | done |
-| **RP-10** | `example-on-workers` | the example app runs unchanged on both hosts: CI builds it with OpenNext and runs its e2e in workerd against Postgres, next to the existing Node e2e | RP-2, RP-3, RP-4, RP-5, RP-6, RP-7 | autonomous | ready |
+| **RP-10** | `example-on-workers` | the example app runs unchanged on both hosts: CI builds it with OpenNext and runs its e2e in workerd against Postgres, next to the existing Node e2e | RP-2, RP-3, RP-4, RP-5, RP-6, RP-7 | autonomous | done |
 | **RP-11** | `runtime-providers-release` | the changed packages are released, `docs/07-runtime-providers.md` is the adoption guide (Node to Cloudflare and back), and the roadmap is archived | RP-8, RP-9, RP-10 | autonomous | ready |
 
 ## Order
@@ -181,11 +181,13 @@ updated: 2026-11-16
 
 ### RP-10: The example app on Workers
 - **Change ID:** `example-on-workers`
-- **Status:** ready
-- **Input:** [`example-on-workers`](../changes/example-on-workers/change.md)
-- **Outcome:** `examples/` builds with OpenNext and runs in workerd (`wrangler dev`) against a Postgres service
-  container with `platform: { runtime: "workers", host: "cloudflare" }`; the existing e2e suite runs against it in a
-  CI job beside the Node run, and only the config differs between the two.
+- **Status:** done
+- **Input:** [`example-on-workers`](../archive/2026-11-16-example-on-workers/change.md)
+- **Outcome:** `examples/next-app` builds with OpenNext (`SOFTURE_HOST=cloudflare`) and its whole e2e suite (134
+  tests) runs on `wrangler dev` against Postgres through the Hyperdrive binding's local connection string, in the
+  `e2e-workers` CI job beside the Node run; only `SOFTURE_HOST` differs. The host-specific build lives in
+  `@softure-ai/db/next-config` (`withDatabaseBuild`), the request database stays open for streamed bodies and `after()`
+  work, ops' health runs per request on Workers, and the fake mail provider posts to an `outboxUrl`.
 - **Owns:** `examples/`, `.github/workflows/e2e.yml` (a Workers job).
 - **Risk:** medium: the proof that one package serves both hosts.
 

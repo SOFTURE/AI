@@ -142,6 +142,21 @@ the Worker itself goes through Hyperdrive), deploys the Worker with its secrets 
 (`wrangler deploy --secrets-file`), runs `softure-deploy verify` and, when verify fails, `wrangler rollback`. The
 release report is written as on a VPS. Details and the steps `init` prints: the deploy README, "On Cloudflare Workers".
 
+## The example app on both hosts
+
+`examples/next-app` runs one codebase on both hosts: `SOFTURE_HOST=cloudflare` switches `platform` in
+`softure.config.ts` and the build in `next.config.ts` (`withDatabaseBuild` from `@softure-ai/db/next-config`). Its
+whole Playwright suite runs twice in CI: on `next start` (`npm run e2e`) and on `wrangler dev` after an OpenNext build
+(`npm run build:cloudflare && npm run e2e:workers`, `playwright.workers.config.ts`), against the same Postgres through
+the Hyperdrive binding's local connection string. No Cloudflare account is needed. The one assertion that differs is
+the client address: wrangler always sets `CF-Connecting-IP`, so a request without it cannot be produced there.
+
+Measured while getting there, and now handled by the packages: nothing may stay in `serverExternalPackages` on
+Cloudflare (an external import turns OpenNext's proxy bundle async and the middleware fails); React streams, and
+queries, after the handler returns, and `after()` runs later still, so the request database closes after both; one
+request may not await I/O another started, so ops' health checks run per request there; the fake mail provider posts
+to an `outboxUrl` where there is no file system.
+
 ## Backups on Cloudflare
 
 One interface, two producers. The settings (`BACKUP_S3_*`, `BACKUP_AGE_RECIPIENT`), the encrypted object keys under

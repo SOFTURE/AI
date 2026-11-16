@@ -4,7 +4,7 @@
 // answered 200 on `/login` because that page never touched the database: here health means a
 // query that really goes through, and every module may add what "ready" means for it.
 import { err, errorLogLabel, getModule, ok, type HealthCheck, type ModuleContext, type SoftureConfig } from "@softure-ai/core";
-import type { Queryable } from "@softure-ai/db";
+import type { Queryable } from "@softure-ai/db/request";
 import { sql } from "drizzle-orm";
 import type { HealthCheckState, HealthReport } from "../contract.js";
 import type { OpsOptions } from "../options.js";

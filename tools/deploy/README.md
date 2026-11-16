@@ -1332,7 +1332,8 @@ standalone app, and builds its image from the generated `Dockerfile` (`npm run e
 | --- | --- |
 | `wrangler.jsonc` | `nodejs_compat`, the custom domain, OpenNext's assets, Smart Placement (or `--placement-region=aws:eu-central-1`), the Hyperdrive binding `HYPERDRIVE` (`--hyperdrive-id`, a placeholder until set) with a database, the Cron Trigger `* * * * *` with jobs, `APP_ORIGIN`, and `secrets.required` from `--env` |
 | `open-next.config.ts` | the OpenNext build (`npx opennextjs-cloudflare build`) |
-| `worker.ts` | with a database: OpenNext's `fetch` inside `withRequestDatabase` on the Hyperdrive URL, and `scheduled` from `createScheduledHandler` with jobs |
+| `worker.ts` | with a database: OpenNext's `fetch` inside `withRequestDatabase` on the Hyperdrive URL (the scope's `waitUntil` passed on, so `after()` work keeps the database open), `registerCloudflareSockets(connect)` for `pg`, and `scheduled` from `createScheduledHandler` with jobs |
+| `cloudflare-sockets.d.ts` | with a database: the types of workerd's `cloudflare:sockets`, which `worker.ts` imports |
 | `scripts/migrate.ts` | with a database: the migration, run on the runner against the direct URL |
 | `.github/workflows/deploy.yml` | a published release (or "Run workflow" with a tag) checks out the tag, runs `npm ci` and the `deploy-cloudflare` action from the `production` environment on `ubuntu-latest`, then `deploy-report.yml` |
 | `deploy.json` | the verify routes, as on a VPS |

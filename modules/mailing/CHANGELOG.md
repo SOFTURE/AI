@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## 0.2.8
 
+- `fakeMailProvider({ outboxUrl })` beside `outboxFile` (runtime-providers RP-10): each mail is POSTed as one JSON
+  line to the URL, for runtimes without a file system (Cloudflare Workers in e2e). An unreachable sink answers
+  `unavailable` and captures nothing.
+  - Migrate: nothing.
 - `./jobs` is declared Workers-safe (`softure.workers`, runtime-providers RP-4): its handlers run from the
   Workers Cron Trigger of `@softure-ai/jobs/workers` as well as from the Node worker.
   - Migrate: nothing.

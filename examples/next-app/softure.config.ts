@@ -48,6 +48,8 @@ const LOCAL_DATABASE_URL = "postgresql://postgres:postgres@localhost:5433/softur
 
 const config = defineSoftureConfig({
   database: { url: process.env.DATABASE_URL ?? LOCAL_DATABASE_URL },
+  // The same app on both hosts (docs/07-runtime-providers.md): SOFTURE_HOST=cloudflare builds and runs it in workerd.
+  ...(process.env.SOFTURE_HOST === "cloudflare" ? { platform: { host: "cloudflare" as const } } : {}),
   locale: "en",
   timezone: "Europe/Warsaw",
   appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
@@ -112,13 +114,14 @@ const config = defineSoftureConfig({
       ],
     }),
     // Resend when a key is set; otherwise the fake provider, which the e2e reads through the outbox
-    // file Playwright sets (MAIL_OUTBOX, e2e/mailing-transport.spec.ts). Without either, the fake
+    // file Playwright sets (MAIL_OUTBOX, e2e/mailing-transport.spec.ts); on Cloudflare Workers, which share no
+    // disk with the test, through the sink at MAIL_OUTBOX_URL that appends to that file. Without either, the fake
     // refuses to send under `next start`, so no mail silently disappears. An unsubscribe withdraws
     // the waitlist's consents in the same transaction (e2e/waitlist.spec.ts).
     mailing({
       from: "SOFTURE example <hello@mail.example.com>",
       replyTo: "support@example.com",
-      provider: process.env.RESEND_API_KEY ? resend() : fakeMailProvider({ outboxFile: process.env.MAIL_OUTBOX || undefined }),
+      provider: process.env.RESEND_API_KEY ? resend() : fakeMailProvider({ outboxFile: process.env.MAIL_OUTBOX || undefined, outboxUrl: process.env.MAIL_OUTBOX_URL || undefined }),
       onUnsubscribed: withdrawWaitlistConsents,
     }),
     // The export and account deletion at /account/privacy (e2e/privacy-export-delete.spec.ts). The

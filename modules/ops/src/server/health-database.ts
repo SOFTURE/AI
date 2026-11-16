@@ -1,7 +1,7 @@
 // The database handle of the health handler. Package code cannot reach the app's pool, so ops keeps
 // one small pool per URL. It lives on globalThis under a `Symbol.for` key: `next dev` re-evaluates
 // modules on every change, and separate server bundles share it instead of opening a pool each.
-import { createDatabase, type DatabaseHandle } from "@softure-ai/db";
+import { createDatabase, type DatabaseHandle } from "@softure-ai/db/request";
 
 const DATABASES_KEY = Symbol.for("@softure-ai/ops/databases");
 // Health runs one `select 1` at a time per process (single flight); two connections leave room

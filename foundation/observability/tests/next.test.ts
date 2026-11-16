@@ -63,6 +63,20 @@ describe("registerObservability", () => {
     expect(output).toEqual([]);
   });
 
+  it("starts nothing in Cloudflare Workers, where the Worker entry exports telemetry itself", async () => {
+    delete process.env.NEXT_RUNTIME;
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+
+    try {
+      const handle = await registerObservability({ serviceName: "my-service" });
+
+      expect(handle).toBeNull();
+      expect(output).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("starts observability under a standalone server, where NEXT_RUNTIME is unset", async () => {
     delete process.env.NEXT_RUNTIME;
 

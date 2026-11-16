@@ -74,13 +74,14 @@ describe("softure-deploy init --host=cloudflare", () => {
       "wrote   wrangler.jsonc",
       "wrote   open-next.config.ts",
       "wrote   worker.ts",
+      "wrote   cloudflare-sockets.d.ts",
       "wrote   scripts/migrate.ts",
       "wrote   .github/workflows/deploy.yml",
       "wrote   .github/workflows/backup.yml",
       "wrote   .github/workflows/backup-verify.yml",
       "wrote   deploy.json",
     ]);
-    expect(text).toContain("init: 8 written, 0 kept, host cloudflare, database part on (@softure-ai/db found in package.json).\n");
+    expect(text).toContain("init: 9 written, 0 kept, host cloudflare, database part on (@softure-ai/db found in package.json).\n");
     for (const path of ["Dockerfile", "docker/prod/docker-compose.yml", "docker/server/deploy.sh", ".github/workflows/release.yml"]) {
       expect(existsSync(join(dir, path)), path).toBe(false);
     }
@@ -121,6 +122,12 @@ describe("softure-deploy init --host=cloudflare", () => {
     expect(worker).toContain('import { handlers } from "./src/jobs/handlers";');
     expect(worker).toContain("scheduled: createScheduledHandler<Env>({ config, handlers, databaseUrl: (env) => env.HYPERDRIVE.connectionString }),");
     expect(worker).toContain("withRequestDatabase({ url: env.HYPERDRIVE.connectionString");
+    // The proxy's bundle reaches workerd's sockets through the entry (withDatabaseBuild aliases cloudflare:sockets).
+    expect(worker).toContain('import { connect } from "cloudflare:sockets";');
+    expect(read("cloudflare-sockets.d.ts")).toContain('declare module "cloudflare:sockets"');
+    expect(worker).toContain("registerCloudflareSockets(connect);");
+    // Next's after() work reaches the scope's waitUntil, which keeps the request's handle open until it settles.
+    expect(worker).toContain("handler.fetch(request, env, { waitUntil: scope.waitUntil, passThroughOnException: () => ctx.passThroughOnException() })");
     expect(out.join("")).toContain(", jobs tick on (@softure-ai/jobs found).\n");
   });
 
@@ -139,6 +146,7 @@ describe("softure-deploy init --host=cloudflare", () => {
     expect(wrangler).not.toHaveProperty("hyperdrive");
     expect(wrangler).not.toHaveProperty("triggers");
     expect(existsSync(join(dir, "worker.ts"))).toBe(false);
+    expect(existsSync(join(dir, "cloudflare-sockets.d.ts"))).toBe(false);
     expect(existsSync(join(dir, "scripts/migrate.ts"))).toBe(false);
     expect(existsSync(join(dir, ".github/workflows/backup.yml"))).toBe(false);
     expect(existsSync(join(dir, ".github/workflows/backup-verify.yml"))).toBe(false);

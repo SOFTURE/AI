@@ -59,6 +59,35 @@ describe("createHealthResponse", () => {
     });
   });
 
+  it("shares one run of the checks between concurrent requests on Node", async () => {
+    let runs = 0;
+    const countingCheck = () => {
+      runs += 1;
+      return passingCheck(undefined as never);
+    };
+    const config = createConfig({ modules: [countingCheck], ops: { getDatabase: () => Promise.resolve(database.db) } });
+    const responses = await Promise.all([createHealthResponse(config), createHealthResponse(config)]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(runs).toBe(1);
+  });
+
+  it("runs the checks per request on Cloudflare Workers, which forbid awaiting another request's I/O", async () => {
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    try {
+      let runs = 0;
+      const countingCheck = () => {
+        runs += 1;
+        return passingCheck(undefined as never);
+      };
+      const config = createConfig({ modules: [countingCheck], ops: { getDatabase: () => Promise.resolve(database.db) } });
+      const responses = await Promise.all([createHealthResponse(config), createHealthResponse(config)]);
+      expect(responses.map((response) => response.status)).toEqual([200, 200]);
+      expect(runs).toBe(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("throws a setup error when the ops module is not enabled", async () => {
     await expect(createHealthResponse(createConfig({ ops: null }))).rejects.toThrow(
       "GET /api/health: the ops module is not enabled; add ops() to modules in softure.config.ts",

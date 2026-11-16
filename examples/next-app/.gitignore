@@ -10,3 +10,6 @@ CLAUDE.md
 # Container build output (Dockerfile), produced inside the image.
 softure-migrations/
 migrate.mjs
+# Cloudflare build output (`npm run build:cloudflare`) and wrangler dev state.
+.open-next/
+.wrangler/

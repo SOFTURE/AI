@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/db",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "SOFTURE AI database layer: pg/PGlite client, per-module migrator with plan and adopt, PGlite test databases.",
   "license": "MIT",
   "type": "module",
@@ -37,6 +37,11 @@
       "@softure-ai/source": "./src/request-entry.ts",
       "types": "./dist/request-entry.d.ts",
       "default": "./dist/request-entry.js"
+    },
+    "./next-config": {
+      "@softure-ai/source": "./src/next-config/index.ts",
+      "types": "./dist/next-config/index.d.ts",
+      "default": "./dist/next-config/index.js"
     },
     "./testing": {
       "@softure-ai/source": "./src/testing.ts",
