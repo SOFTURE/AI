@@ -1,7 +1,7 @@
 // The guarded page fetch against a fake server on loopback: the body and its metadata, redirects checked hop by
 // hop, the byte cap after decompression and the one time limit.
 import { once } from "node:events";
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createServer, request as requestHttp, type ClientRequest, type IncomingMessage, type RequestOptions, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { brotliCompressSync, deflateSync, gzipSync } from "node:zlib";
 import { fetchGuardedPage, type GuardedRequestSeam, type ResolveHost } from "@softure-ai/security/server";
@@ -322,5 +322,36 @@ describe("fetchGuardedPage", () => {
     [{ timeoutMs: 1000, maxBytes: 100, allowedPorts: [] }],
   ])("throws on the options %j", async (options) => {
     await expect(fetchGuardedPage("https://example.com/", options)).rejects.toThrow(RangeError);
+  });
+});
+
+describe("fetchGuardedPage without a pinned lookup (Cloudflare Workers)", () => {
+  // Every name reaches the fake server, as Workers' fetch would reach the resolved host; the check decides first.
+  const toLoopback = (url: URL, options: RequestOptions): ClientRequest => {
+    expect(options.lookup).toBeUndefined();
+    return requestHttp(new URL(`${url.pathname}${url.search}`, `http://127.0.0.1:${port}`), options);
+  };
+  const addresses: Record<string, string> = { "links.test": "203.0.113.7", "inside.test": "10.0.0.8" };
+  const unpinned: GuardedRequestSeam = {
+    pinLookup: false,
+    request: toLoopback,
+    isAllowedAddress: (address) => address === "203.0.113.7",
+    resolveHost: (hostname, _family, callback) => {
+      const address = addresses[hostname];
+      callback(null, address === undefined ? [] : [{ address, family: 4 }]);
+    },
+  };
+
+  it("reads a page whose host resolves to allowed addresses", async () => {
+    routes.set("/article", html("<p>hi</p>"));
+    const result = await fetchGuardedPage(page("/article"), { timeoutMs: 2000, maxBytes: 1000, allowedPorts: [port] }, unpinned);
+    expect(result.ok && text(result.value.body)).toBe("<p>hi</p>");
+  });
+
+  it("refuses a redirect to a host that resolves to a private address", async () => {
+    routes.set("/from", redirect(302, `http://inside.test:${port}/secret`));
+    routes.set("/secret", html("secret"));
+    const result = await fetchGuardedPage(page("/from"), { timeoutMs: 2000, maxBytes: 1000, allowedPorts: [port] }, unpinned);
+    expect(result).toEqual({ ok: false, error: "security.outbound_blocked" });
   });
 });

@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
+## 0.2.8
+
+- Runs on Cloudflare Workers (runtime-providers RP-5): the manifest declares `runtimes: ["node", "workers"]` and
+  `softure.workers` lists `.`, `./server`, `./signed-request` and `./readable-text`. Workers' `node:http` refuses a
+  `lookup`, so there `sendGuardedRequest`, `fetchGuardedPage` and `downloadGuardedFile` check every resolved address
+  just before the request instead of inside the socket; the new seam field `pinLookup` picks the way (`true` on Node,
+  `false` on Workers). The time limit covers that check, and the refusals and codes are the same on both runtimes.
+  - Migrate: nothing. Node keeps the pinned lookup.
+
 ## 0.2.7
 
 - `downloadGuardedFile(url, { timeoutMs, maxBytes, maxRedirects?, accept?, userAgent?, allowedPorts?, requireHttps? },

@@ -372,6 +372,13 @@ the shape Node asks for (a list when `autoSelectFamily` is on). `agent: false` k
 skipping the lookup. Redirects are not followed (a 3xx comes back as its status), one timer covers the whole
 exchange up to the status, and the response is closed as soon as its status arrives.
 
+**On Cloudflare Workers.** The same functions run there (`softure.workers` lists `.`, `./server`, `./signed-request`
+and `./readable-text`). Workers' `node:http` wraps `fetch` and refuses a `lookup` option, so the check runs on every
+address the host resolves to just before the request instead of inside the socket (`pinLookup`, `false` on Workers,
+`true` on Node). The residual risk is a DNS answer that changes between the check and the request; Workers' `fetch`
+leaves from Cloudflare's network and reaches no private network of the app, which is what the check protects on a
+VPS. The refusals and error codes are the same on both runtimes.
+
 **Testing against a fake server.** The third argument replaces the transport, the address rule and the
 resolver, so a test can reach a server on loopback:
 
@@ -544,6 +551,8 @@ its own cron.
 - `sendGuardedRequest` returns the status only: no response body and no redirect following
   (`fetchGuardedPage` reads the body and follows redirects, GET only). Neither supports an outbound proxy: a request
   that must go through one needs its own client.
+- On Cloudflare Workers the guarded requests check the resolved addresses before the request, not inside the socket
+  (no DNS pinning; see "Requests to third-party URLs").
 - `htmlToReadableText` reads the HTML as served; a page that renders its content with JavaScript has little text
   beyond its title and description.
 

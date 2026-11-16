@@ -101,13 +101,15 @@ export async function downloadGuardedFile<T>(
       hop.request.destroy();
     }
   };
+  const controller = new AbortController();
   const timer = setTimeout(() => {
     timedOut = true;
+    controller.abort();
     tearDown();
   }, timeoutMs);
 
   try {
-    const reached = await followGuardedRedirects(url, { headers, allowedPorts, maxRedirects, isAllowedAddress, requireHttps }, seam, (hop) => {
+    const reached = await followGuardedRedirects(url, { headers, allowedPorts, maxRedirects, isAllowedAddress, requireHttps, signal: controller.signal }, seam, (hop) => {
       hops.push(hop);
     });
     if (!reached.ok) {

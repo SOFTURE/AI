@@ -44,9 +44,9 @@ updated: 2026-11-16
 | --- | --- | --- | --- | --- | --- |
 | **RP-1** | `runtime-platform-contract` | `platform: { runtime, host }` in core's config, a module's declared runtimes checked at startup, and a repository guard that keeps Workers entries free of Node-only APIs | — | autonomous | done |
 | **RP-2** | `db-workers-connection` | `@softure-ai/db` opens a per-request Postgres connection on Workers (Hyperdrive binding), keeps the pooled handle on Node, and never reads migration files at runtime on Workers | RP-1 | autonomous | done |
-| **RP-3** | `auth-workers-password` | `@softure-ai/auth` hashes with PBKDF2 from Web Crypto on Workers (scrypt's memory exceeds the 128 MB isolate), verifies both formats on both runtimes and rehashes on login; OIDC verification runs on Web Crypto | RP-1 | autonomous | ready |
+| **RP-3** | `auth-workers-password` | `@softure-ai/auth` runs on Workers: scrypt stays (workerd provides it) with a default cost that fits the 128 MB isolate, a login rehashes into the runtime's cost, and the auth entries are declared Workers-safe | RP-1 | autonomous | ready |
 | **RP-4** | `jobs-scheduled-tick` | `@softure-ai/jobs` runs due jobs from one `runJobsTick` shared by the Node worker loop and a Workers `scheduled()` handler (Cron Trigger), with health from a database heartbeat | RP-1, RP-2 | autonomous | ready |
-| **RP-5** | `security-workers-fetch` | `@softure-ai/security` guarded outbound requests and client-address checks run on `fetch` and plain CIDR matching on Workers, with the same refusals as on Node | RP-1 | autonomous | ready |
+| **RP-5** | `security-workers-fetch` | `@softure-ai/security` guarded outbound requests and client-address checks run on Workers with the same refusals as on Node (resolved addresses checked before the request, where workerd takes no socket `lookup`) | RP-1 | autonomous | done |
 | **RP-6** | `observability-workers` | `@softure-ai/observability` gets a Workers entry: structured logs and spans sent over OTLP with `fetch`, flushed through `waitUntil`, under the same service naming as on Node | RP-1 | autonomous | ready |
 | **RP-7** | `modules-workers-sweep` | every other runtime module (files, mailing, mcp-access, billing, waitlist, privacy, connections, agent-ready, analytics, feature-switches, metering, alerts, seo, blog, pwa) passes the Workers guard: R2 through the S3 driver, DNS checks over DNS-over-HTTPS, no filesystem on the request path | RP-1 | autonomous | ready |
 | **RP-8** | `deploy-cloudflare-target` | `@softure-ai/deploy` gets `host: "cloudflare"`: `init` writes `wrangler.jsonc` and an OpenNext build, a reusable workflow migrates from CI and runs `wrangler deploy`, and `verify` and the release report work as on the VPS | RP-2, RP-4 | autonomous | ready |
@@ -95,11 +95,10 @@ updated: 2026-11-16
 - **Change ID:** `auth-workers-password`
 - **Status:** ready
 - **Input:** [`auth-workers-password`](../changes/auth-workers-password/change.md)
-- **Outcome:** a `pbkdf2$<iterations>$<salt>$<key>` hash format (PBKDF2-SHA256 from Web Crypto, iterations per
-  current OWASP guidance) next to `scrypt$…`; the hashing algorithm follows the runtime (overridable), both formats
-  verify on both runtimes, a login with the other format rehashes into the current one, so an app moves hosts without
-  resetting passwords; session tokens, temporary passwords and OIDC (ID token signature, PKCE) use Web Crypto where
-  `KeyObject` is not available on Workers.
+- **Outcome:** passwords keep working when an app moves hosts: workerd runs `node:crypto` `scrypt`, `createPublicKey`
+  and `verify` (measured in RP-5), so the hash format stays `scrypt$…`; the default scrypt cost follows the runtime so
+  a hash fits a 128 MB isolate on Workers (OWASP's lower-memory equivalent), a login rehashes into the runtime's cost,
+  and the auth entries are declared Workers-safe. (The PBKDF2 format first planned is not needed.)
 - **Owns:** `modules/auth/src/server/` (password, session-token, temporary-password, oidc).
 - **Risk:** high: a wrong hash comparison locks users out; tests cover cross-format login both ways.
 
@@ -116,12 +115,13 @@ updated: 2026-11-16
 
 ### RP-5: Guarded outbound requests on Workers
 - **Change ID:** `security-workers-fetch`
-- **Status:** ready
-- **Input:** [`security-workers-fetch`](../changes/security-workers-fetch/change.md)
-- **Outcome:** the guarded GET, download and page reader run on `fetch` on Workers: literal private and reserved
-  addresses refused before the call, redirects followed by hand and re-checked, size and time limits on the body
-  stream, decompression by the platform; client-address parsing and allow-lists use a pure CIDR matcher on both
-  runtimes instead of `node:net` `BlockList`. The Node path keeps DNS pinning.
+- **Status:** done
+- **Input:** [`security-workers-fetch`](../archive/2026-11-16-security-workers-fetch/change.md)
+- **Outcome:** the guarded request, page reader and download run on Workers with the same refusals and codes: workerd
+  provides `node:http`, `node:net` and `node:zlib` but refuses the socket `lookup`, so there the resolved addresses are
+  checked just before the request (`pinLookup`), inside the callers' time limit; RP-1's guard allows the builtins
+  workerd provides. The Node path keeps DNS pinning. (Measured in workerd; a `fetch` rewrite and a CIDR matcher turned
+  out unnecessary.)
 - **Owns:** `modules/security/src/` (guarded-*, public-address, client-ip).
 - **Risk:** medium: Workers cannot pin DNS, so the residual risk (a public name resolving to a private address) is
   documented; Cloudflare's network does not route Workers' `fetch` to private ranges.
@@ -143,8 +143,8 @@ updated: 2026-11-16
 - **Input:** [`modules-workers-sweep`](../changes/modules-workers-sweep/change.md)
 - **Outcome:** each listed module declares `workers` support and passes RP-1's guard: files refuses the local driver
   on Workers and saves through the S3 driver to R2 with web streams; mailing's DNS checks go over DNS-over-HTTPS on
-  Workers; filesystem reads leave the request path (CLIs keep them); `node:crypto` uses are kept only where
-  `nodejs_compat` provides them, otherwise moved to Web Crypto. A module that cannot run on Workers says so in its
+  Workers; filesystem reads leave the request path (CLIs keep them); `node:crypto`, `node:dns`, `node:net` and
+  `node:http` imports stay (workerd provides them, RP-5), only socket options and filesystem use change. A module that cannot run on Workers says so in its
   declaration and in the matrix.
 - **Owns:** `modules/*/src` of the listed modules (not auth, jobs, security, ops, backup).
 - **Risk:** medium: broad but shallow; one module per commit.
