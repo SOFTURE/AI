@@ -1,7 +1,7 @@
 ---
 change_id: llm-stream-chat
 title: "llm: streamed chat with usage, cost and metering hooks (issue #1258)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1258
 branch: claude/project-thread-e6htx4
