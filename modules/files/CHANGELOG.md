@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `saveFileFromUrl(ctx, { ownerId, url, name?, contentType?, contentTypes?, kind?, expiresAt? | ttlSeconds?,
+  timeoutMs? })` (#1257): saves a file from an `https:` URL through `@softure-ai/security`'s `downloadGuardedFile`
+  (the SSRF guard on every hop, `https:` and port 443 only, one time limit), streamed into `saveFile` with its size cap,
+  quota, dedupe and expiry. New codes `files.url_not_allowed`, `files.url_blocked`, `files.download_failed`,
+  `files.download_timeout` (type `FilesDownloadErrorCode`) with English messages; a media type outside `contentTypes`
+  is `files.content_type_not_allowed`. Needs `@softure-ai/security` 0.2.7 or newer.
+- Migration: none; an app that translates every code adds the four new ones to its dictionary.
+
 ## 0.4.1
 
 - Fix: the browser upload page sends the file again from an app's minified production build. The page inlined

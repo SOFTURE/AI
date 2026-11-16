@@ -65,6 +65,7 @@ export type {
   ByteRange,
   CreatedUpload,
   FileLink,
+  FilesDownloadErrorCode,
   FilesErrorCode,
   FilesKeyErrorCode,
   FilesLookupErrorCode,
