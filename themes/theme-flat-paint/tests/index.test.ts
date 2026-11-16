@@ -99,6 +99,6 @@ describe("@softure-ai/theme-flat-paint", () => {
 
   it("frames a picked colour preset instead of ringing it", () => {
     expect(flatPaint.COLOR_FIELD_LOOK.preset).toContain("aria-checked:border-foreground");
-    expect(flatPaint.COLOR_FIELD_LOOK.swatch).toBe("h-9 w-7 border-line-strong bg-surface-raised");
+    expect(flatPaint.COLOR_FIELD_LOOK.swatch).toBe("w-9 h-7 border-line-strong bg-surface-raised");
   });
 });

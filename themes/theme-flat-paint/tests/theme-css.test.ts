@@ -103,6 +103,7 @@ describe("theme.css in an app's Tailwind", () => {
       ...(STEPPER_LOOK.marker ?? "").split(" "),
       ...(MENU_PANEL_LOOK.panel ?? "").split(" "),
       ...(COLOR_FIELD_LOOK.preset ?? "").split(" "),
+      ...(COLOR_FIELD_LOOK.swatch ?? "").split(" "),
       ...HINT_LOOK.classNames.trigger?.split(" ") ?? [],
     ]) {
       const selector = `.${className.replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character}`)}`;

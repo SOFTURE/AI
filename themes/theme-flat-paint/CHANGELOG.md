@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `COLOR_FIELD_LOOK.swatch` (#1280): the native colour picker is 36 px wide and 28 px tall (`w-9 h-7`), as in the app
+  the look was taken from; 0.2.0 swapped the two and made it taller than wide. An app that wants the tall picker
+  passes its own `swatch` class.
+
 ## 0.4.0
 
 - Look maps for `@softure-ai/ui`'s chat components (#1261), grouped as `CHAT_LOOK`: `CHAT_LOG_LOOK`,
