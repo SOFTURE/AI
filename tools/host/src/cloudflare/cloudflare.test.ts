@@ -189,3 +189,13 @@ describe("Access", () => {
     expect(calls).toEqual(["GET /accounts/acc1/access/apps?per_page=100&page=1", "GET /accounts/acc1/access/apps?per_page=100&page=2"]);
   });
 });
+
+describe("createCloudflareApi timeout", () => {
+  it("fails a call Cloudflare never answers", async () => {
+    const fetchFn = ((_url: string, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason as Error));
+      })) as typeof fetch;
+    await expect(createCloudflareApi("tok", fetchFn, 20).request("GET", "/zones")).rejects.toThrow("cloudflare: GET /zones failed:");
+  });
+});

@@ -210,3 +210,14 @@ describe("applyGrafanaResources", () => {
     expect(result).toEqual({ kind: "failed", steps: [], problem: `Grafana at ${URL_BASE} is unreachable: fetch failed` });
   });
 });
+
+describe("applyGrafanaResources timeout", () => {
+  it("fails when Grafana never answers", async () => {
+    const hanging = ((_url: string, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason as Error));
+      })) as typeof fetch;
+    const result = await applyGrafanaResources({ url: URL_BASE, token: TOKEN, rules: RULES, fetch: hanging, timeoutMs: 20 });
+    expect(result.kind).toBe("failed");
+  });
+});

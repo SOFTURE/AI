@@ -110,3 +110,26 @@ describe("check", () => {
     expect((await run(["check", "ftp://example.com"])).code).toBe(2);
   });
 });
+
+describe("request deadline", () => {
+  const hanging = (_input: string, init?: RequestInit) =>
+    new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason as Error));
+    });
+
+  it("fails check and dns-aid check when the server never answers", async () => {
+    const check = await run(["check", "https://example.com"], { fetch: hanging, timeoutMs: 20 });
+    expect(check.code).toBe(1);
+    expect(check.err[0]).toContain("agent-ready: checking https://example.com failed");
+    const dns = await run(["dns-aid", "check", "--domain", "example.com", "--record", "_mcp=app.example.com"], { fetch: hanging, timeoutMs: 20 });
+    expect(dns.code).toBe(1);
+  });
+
+  it("fails the skills line when the index is not the expected shape", async () => {
+    const result = await run(["check", "https://example.com"], {
+      fetch: respond({ "https://example.com/.well-known/agent-skills/index.json": () => Response.json({ skills: "none" }) }),
+    });
+    expect(result.code).toBe(1);
+    expect(result.out[0]).toBe("FAIL skills index: not a JSON object with a skills list");
+  });
+});
