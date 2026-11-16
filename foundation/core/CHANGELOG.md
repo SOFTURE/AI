@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
-## Unreleased
+## 0.2.8
 
 - `createOgFontLoader` gives a URL font 10 s to arrive (#1286), new option `timeoutMs`; a slower server fails the
   read like a refused request and the font is asked for again on the next card, where a hung request used to block

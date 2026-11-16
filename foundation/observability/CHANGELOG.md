@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.8.5
 
 - `applyGrafanaResources` (and `softure-observability grafana apply`) gives each Grafana call 30 s (#1286), new
   option `timeoutMs`; a Grafana that never answers fails the apply as unreachable instead of hanging the deploy step.

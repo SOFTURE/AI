@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.2
 
 - The `agent-ready` CLI gives each request 10 s (#1286); a server that never answers fails `check` or `dns-aid check` instead of hanging it.
   `check` reads the skills index through a schema: an index without a skills list is a failed line.
