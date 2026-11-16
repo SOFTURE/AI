@@ -34,6 +34,7 @@ export const en = {
     privacy: "Your data",
     signupChannel: "Signed up from channel:",
     billing: "Your plan",
+    chat: "Project chat",
   },
   billing: {
     title: "Your plan",
@@ -144,6 +145,17 @@ export const en = {
     clusters: { investingBasics: "Investing basics" },
     ctaLead: "Ready to plan with your own numbers?",
     ctaLink: "See the plans",
+  },
+  chat: {
+    title: "Project chat",
+    lead: "Ask about a project. The answers stream from a scripted model, so no provider is called.",
+    suggestion: "How is the Apollo project doing?",
+    unavailable: "The assistant could not answer.",
+    toolTitle: "Project status",
+    toolFailed: "The project could not be loaded.",
+    progress: "Progress",
+    openTasks: "Open tasks",
+    status: { label: "Status", on_track: "On track", at_risk: "At risk", blocked: "Blocked" },
   },
   errors: {
     "guestbook.message_invalid": "Write between 1 and {max} characters.",

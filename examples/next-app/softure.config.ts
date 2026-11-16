@@ -53,10 +53,11 @@ const config = defineSoftureConfig({
   appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
   modules: [
     guestbook(),
-    // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts).
+    // The e2e sends CF-Connecting-IP itself, standing in for Cloudflare (e2e/security.spec.ts). `example.chat` caps
+    // each user's chat requests (app/api/chat/route.ts).
     security({
       clientIp: cloudflareIp(),
-      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS, ...WAITLIST_RATE_LIMIT_BUCKETS, ...BILLING_RATE_LIMIT_BUCKETS, ...BLOG_RATE_LIMIT_BUCKETS },
+      buckets: { "example.ping": { limit: 3, windowMinutes: 15 }, "example.chat": { limit: 60, windowMinutes: 15 }, ...AUTH_RATE_LIMIT_BUCKETS, ...MCP_RATE_LIMIT_BUCKETS, ...PRIVACY_RATE_LIMIT_BUCKETS, ...WAITLIST_RATE_LIMIT_BUCKETS, ...BILLING_RATE_LIMIT_BUCKETS, ...BLOG_RATE_LIMIT_BUCKETS },
     }),
     // Reset links go out as mail through the mailing module below (e2e/auth-reset-mail.spec.ts).
     // The registration checkbox accepts the legal documents of privacy() below; the hook records
