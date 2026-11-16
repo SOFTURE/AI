@@ -4,14 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.4.0
 
 - Look maps for `@softure-ai/ui`'s chat components (#1261), grouped as `CHAT_LOOK`: `CHAT_LOG_LOOK`,
   `CHAT_MESSAGE_LOOK` (role on a bold `caption`, the user's bubble outlined in `line-strong`, a failed message with a
   4 px `debt` edge, meta as a caption `num`), `CHAT_COMPOSER_LOOK` (Send without a border), `TOOL_CALL_CARD_LOOK`
   (dashed while running, solid once settled, a `debt` edge on failure, the state word in an outlined flag),
   `REASONING_DISCLOSURE_LOOK`, `CHAT_EMPTY_STATE_LOOK` (a card, title on `subsection`) and `CHAT_ERROR_LOOK`. No lime
-  beyond ui's primary Send. Needs `@softure-ai/ui` with the chat components (#1259, the next release).
+  beyond ui's primary Send. Needs `@softure-ai/ui` 0.3.8 or later (the chat components, #1259).
 
 ## 0.3.0
 
