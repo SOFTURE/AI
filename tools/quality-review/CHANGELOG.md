@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 `quality-review.yml` workflow. When an app has run a version in production, the version gets a line
 `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md), "Definition of done").
 
-## Unreleased
+## 0.2.0
 
 - `focus` (#1289): `general` (default, unchanged) or `security`, a second shipped prompt
   (`prompt/security-review.md`) that traces threat scenarios end to end (sign-in and sessions, OAuth 2.1, MCP and API
