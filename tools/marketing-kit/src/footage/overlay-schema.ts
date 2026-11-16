@@ -84,8 +84,8 @@ export type OverlayPin = (typeof OVERLAY_PINS)[number];
 
 /**
  * How a list draws its points: `stack` (one centred card, its points one under another, the card growing as each one
- * comes in), `chips` (each point its own small card, side by side in one centred row, entering in turn from the left)
- * or `auto` (chips when every point fits one row at the list's size, else the stack). Without it: `stack`.
+ * comes in), `chips` (each point its own small card, side by side in one row on the frame's axis, numbered, entering
+ * one by one as a countdown: the newest point leads, the earlier ones step back with a tick) or `auto` (chips when every point fits one row at the list's size, else the stack). Without it: `stack`.
  */
 export const OVERLAY_LIST_LAYOUTS = ["stack", "chips", "auto"] as const;
 
@@ -483,7 +483,7 @@ export const overlaySchema = z
     style: z
       .strictObject({
         size: z.enum(OVERLAY_SIZES).optional().describe("s, m (the default) or l: the punch-in's zoom (108, 112, 115 %) or the type size."),
-        side: z.enum(OVERLAY_SIDES).optional().describe("The side a keyword, lower third, list, date stamp or note sits on."),
+        side: z.enum(OVERLAY_SIDES).optional().describe("The side a keyword, lower third, list, date stamp or note sits on; a note without a side sits on the frame's axis."),
         position: z
           .enum(OVERLAY_POSITIONS)
           .optional()
@@ -526,7 +526,7 @@ export const overlaySchema = z
           .enum(OVERLAY_LIST_LAYOUTS)
           .optional()
           .describe(
-            "A list only: stack (the default: one centred card growing as each point comes in), chips (each point its own small card in one centred row, entering in turn from the left) or auto (chips when they fit one row, else stack).",
+            "A list only: stack (the default: one centred card growing as each point comes in), chips (each point its own small numbered card in one centred row, coming in one by one as a countdown: the newest leads, the earlier ones step back with a tick) or auto (chips when they fit one row, else stack).",
           ),
         subtitle_delay: z
           .number()

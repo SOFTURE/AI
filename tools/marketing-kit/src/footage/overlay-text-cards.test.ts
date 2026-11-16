@@ -75,7 +75,7 @@ const COLORS = {
   captionHighlight: "#e8336b",
 };
 
-const NOTE: EdlOverlay = { kind: "note", at: 1, duration: 4, text: "Three nights cost forty dollars", style: { tick: true } };
+const NOTE: EdlOverlay = { kind: "note", at: 1, duration: 4, text: "Three nights cost forty dollars", style: { tick: true, side: "left" } };
 const STRIP: EdlOverlay = { kind: "note", at: 11, duration: 3, text: "Book early", style: { note_style: "strip", side: "right" } };
 const END: EdlOverlay = { kind: "end_word", at: 21, duration: 1.2, text: "Worth it" };
 const MARKED: EdlOverlay = { kind: "keyword", at: 6, duration: 2, text: "3x", style: { backdrop: "highlight", entrance: "type" } };
@@ -204,6 +204,11 @@ describe("placing the text devices", () => {
       tickAt: 2.8,
     });
     expect(note.tear).toHaveLength(14);
+    // Without a side the note sits on the frame's axis, leaning half as much (RV-182 of an adopting app).
+    const centred = only({ ...NOTE, style: { tick: true } }, "note");
+    expect(centred).toMatchObject({ side: "center", tilt: 1.5, box: { left: 278, top: 220, width: 524, height: 191 } });
+    expect(centred.box.left + centred.box.width / 2).toBe(FRAME.width / 2);
+    expect(only({ ...STRIP, style: { note_style: "strip" } }, "note")).toMatchObject({ side: "center", tilt: 1 });
     expect(note.tear.every((depth) => depth >= 0.25 && depth <= 1)).toBe(true);
     expect(getNoteWordsByLine(note)).toEqual([
       [
@@ -272,9 +277,12 @@ describe("placing the text devices", () => {
   });
 
   it("puts an end word big and centred at the top, shrinking a long one, refusing one that never fits", () => {
-    expect(only(END, "end_word")).toMatchObject({ text: "Worth it", fontSize: 150, box: { left: 275, top: 220, width: 470, height: 173 } });
-    // Measured from the hand font itself: the longest end word the schema takes fits, a little smaller.
-    expect(only({ ...END, text: "Worth every cent", style: { size: "l" } }, "end_word")).toMatchObject({ fontSize: 131, box: { left: 108, width: 804 } });
+    expect(only(END, "end_word")).toMatchObject({ text: "Worth it", fontSize: 150, box: { left: 305, top: 220, width: 470, height: 173 } });
+    // On the frame's axis, as the captions (RV-180 of an adopting app).
+    expect(305 + 470 / 2).toBe(FRAME.width / 2);
+    // Measured from the hand font itself: the longest end word the schema takes fits, a little smaller; too wide for the
+    // span centred on the frame, it keeps the whole zone and sits as near the axis as the zone allows.
+    expect(only({ ...END, text: "Worth every cent", style: { size: "l" } }, "end_word")).toMatchObject({ fontSize: 131, box: { left: 132, width: 804 } });
     expect(only({ ...END, text: "  See   you soon " }, "end_word").text).toBe("See you soon");
     expect(problems([{ ...END, text: "WWWWWWWWWWWWWWWW", style: { size: "l" } }])).toEqual([
       "overlays[0]: the end word is too wide for one line even at a smaller size; shorten it or use a smaller size",
@@ -441,7 +449,7 @@ describe("the draft's text devices", () => {
   it("brings an end word's letters in one by one, handwritten and white", () => {
     const [line] = draft([END]);
     expect(line).toBe(
-      "Dialogue: 4,0:00:21.00,0:00:22.20,OverlayPlain,,0,0,0,,{\\an8\\fs193\\fnCaveat\\b0\\1c&HFFFFFF&\\shad3\\4c&H000000&\\4a&H90&\\pos(510,220)\\fad(0,250)}{\\alpha&HFF&\\t(0,150,\\alpha&H00&)}W{\\alpha&HFF&\\t(67,217,\\alpha&H00&)}o{\\alpha&HFF&\\t(134,284,\\alpha&H00&)}r{\\alpha&HFF&\\t(201,351,\\alpha&H00&)}t{\\alpha&HFF&\\t(268,418,\\alpha&H00&)}h {\\alpha&HFF&\\t(335,485,\\alpha&H00&)}i{\\alpha&HFF&\\t(402,552,\\alpha&H00&)}t",
+      "Dialogue: 4,0:00:21.00,0:00:22.20,OverlayPlain,,0,0,0,,{\\an8\\fs193\\fnCaveat\\b0\\1c&HFFFFFF&\\shad3\\4c&H000000&\\4a&H90&\\pos(540,220)\\fad(0,250)}{\\alpha&HFF&\\t(0,150,\\alpha&H00&)}W{\\alpha&HFF&\\t(67,217,\\alpha&H00&)}o{\\alpha&HFF&\\t(134,284,\\alpha&H00&)}r{\\alpha&HFF&\\t(201,351,\\alpha&H00&)}t{\\alpha&HFF&\\t(268,418,\\alpha&H00&)}h {\\alpha&HFF&\\t(335,485,\\alpha&H00&)}i{\\alpha&HFF&\\t(402,552,\\alpha&H00&)}t",
     );
     const [faded] = draft([{ ...END, style: { entrance: "fade" } }]);
     expect(faded).toMatch(/\\fad\(\d+,250\)\}Worth it$/);
@@ -452,8 +460,8 @@ describe("the draft's text devices", () => {
     const marks = lines.filter((line) => line.startsWith("Dialogue: 3,") && line.includes("\\1c&H2B1A1D&"));
     expect(marks[0]).toMatch(/^Dialogue: 3,0:00:06\.30,0:00:06\.37,.*\}m 831 597 l 893 597 /);
     expect(marks[1]).toMatch(/^Dialogue: 3,0:00:06\.37,0:00:08\.00,.*\}m 784 597 l 893 597 /);
-    expect(marks[2]).toMatch(/^Dialogue: 3,0:00:25\.00,0:00:28\.00,.*\}m 200 240 l 820 240 /);
-    expect(lines.some((line) => line.includes("\\an8\\fs64\\pos(510,242)") && line.includes("{\\alpha&HFF&\\t(0,150,\\alpha&H00&)}O"))).toBe(true);
+    expect(marks[2]).toMatch(/^Dialogue: 3,0:00:25\.00,0:00:28\.00,.*\}m 230 240 l 850 240 /);
+    expect(lines.some((line) => line.includes("\\an8\\fs64\\pos(540,242)") && line.includes("{\\alpha&HFF&\\t(0,150,\\alpha&H00&)}O"))).toBe(true);
     expect(lines.some((line) => line.includes("OverlayShape") && line.includes("m 167 "))).toBe(false);
   });
 });

@@ -89,6 +89,10 @@ export const OVERLAY_LINE_HEIGHT = 1.15;
 export const OVERLAY_LIST_LINE_HEIGHT = 1.4;
 /** The room between two chips of a list's row, in font sizes. */
 export const LIST_CHIP_GAP_EM = 0.3;
+/** A chip's step badge before its point (a round accent mark with its number, a tick once the next point is in), in font sizes. */
+export const LIST_CHIP_BADGE_EM = { size: 1.1, gap: 0.35 } as const;
+/** How opaque a chip's point stays once the next point is in: it steps back, the newest point leads. */
+export const LIST_CHIP_COVERED_OPACITY = 0.55;
 /** A place card title's line height, tighter for its big type. */
 export const OVERLAY_TITLE_LINE_HEIGHT = 1.05;
 export const OVERLAY_PADDING_EM = { x: 0.6, y: 0.35 } as const;
@@ -235,7 +239,8 @@ export type ResolvedOverlay =
       /** Its lines as drawn (a strip's in capitals). */
       lines: string[];
       fontSize: number;
-      side: OverlaySide;
+      /** Its side, or `center` on the frame's axis (the default). */
+      side: OverlaySide | "center";
       /** Its paper, unturned; it is drawn turned by `tilt` degrees about its middle. */
       box: OverlayBox;
       tilt: number;
@@ -537,7 +542,9 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
       problems.push(`${at}: ${placed.error}`);
       return;
     }
-    if (placed.overlay.kind === "list" && (overlay.style?.stagger === true || overlay.item_words !== undefined || overlay.item_at !== undefined)) {
+    // Chips always come in one by one, as a countdown of the points (RV-181 of an adopting app); a stack only when asked.
+    const isStaggered = overlay.style?.stagger === true || overlay.item_words !== undefined || overlay.item_at !== undefined;
+    if (placed.overlay.kind === "list" && (isStaggered || placed.overlay.chips !== undefined)) {
       const said = (overlay.item_words ?? []).map((word, item) => findWordStart(word, input.words, `item_words[${item}]`));
       const missing = said.flatMap((word) => (word.ok ? [] : [word.error]));
       if (missing.length > 0) {
@@ -644,6 +651,37 @@ function isInsideZone(place: Placement, point: OverlayPoint): boolean {
   return point.x >= zone.left && point.x <= frame.width - zone.right && point.y >= zone.top && point.y <= frame.height - zone.bottom;
 }
 
+/**
+ * The left edge of a box `width` wide centred on the frame's vertical axis, as the captions are: the platform safe
+ * zone's sides differ (60 px on the left, up to 150 px on the right), so the middle of the zone sits left of the
+ * frame's middle (RV-180 of an adopting app). A box no wider than `getCentredSpan` is exactly centred; a wider one
+ * (a note, whose room is a share of the whole zone) is pushed inwards only as far as the zone needs.
+ */
+export function getCentredLeft(place: Pick<Placement, "zone" | "frame">, width: number, margin: number): number {
+  const { zone, frame } = place;
+  const lowest = zone.left + margin;
+  const highest = frame.width - zone.right - margin - width;
+  return Math.round(Math.max(lowest, Math.min(highest, (frame.width - width) / 2)));
+}
+
+/** The widest box centred on the frame's axis that stays inside the safe zone: the wider side taken on both edges. */
+function getCentredSpan(place: Pick<Placement, "zone" | "frame">, margin: number): { left: number; width: number } {
+  const side = Math.max(place.zone.left, place.zone.right) + margin;
+  return { left: side, width: place.frame.width - 2 * side };
+}
+
+/**
+ * A centred overlay measured so it can sit on the frame's axis: in the whole zone's width as before when it is no
+ * wider than the centred span, else again in the centred span (smaller or on more lines), and only when it cannot fit
+ * there either in the whole zone, as close to the axis as the zone allows. What fitted before still fits.
+ */
+function measureCentred<T extends { ok: true } | { ok: false; error: string }>(input: { whole: number; centred: number; measure: (room: number) => T; getWidth: (result: T & { ok: true }) => number }): T {
+  const wide = input.measure(input.whole);
+  if (!wide.ok || input.getWidth(wide as T & { ok: true }) <= input.centred) return wide;
+  const narrow = input.measure(input.centred);
+  return narrow.ok ? narrow : wide;
+}
+
 /** The top of a box `height` tall at a named position of the text region. */
 function getPositionTop(region: { top: number; bottom: number }, position: OverlayPosition, height: number): number {
   if (position === "top") return region.top;
@@ -746,9 +784,10 @@ function placeNote(overlay: EdlOverlay, drawn: Drawn, place: Placement): Placed 
   if (top < region.top || top + height > region.bottom) {
     return { ok: false, error: `the note (${height} px tall) does not fit between the platform safe zone and the captions; use a smaller size or shorter text` };
   }
-  const side = overlay.style?.side ?? "left";
-  const left = side === "right" ? frame.width - zone.right - margin - width : zone.left + margin;
-  const tilt = (side === "right" ? -1 : 1) * NOTE_TILT[noteStyle];
+  // Without a side the note sits on the frame's axis, leaning half as much (RV-182 of an adopting app).
+  const side = overlay.style?.side ?? "center";
+  const left = side === "center" ? getCentredLeft(place, width, margin) : side === "right" ? frame.width - zone.right - margin - width : zone.left + margin;
+  const tilt = side === "center" ? NOTE_TILT[noteStyle] / 2 : (side === "right" ? -1 : 1) * NOTE_TILT[noteStyle];
   return {
     ok: true,
     overlay: { ...drawn, kind: "note", noteStyle, lines, fontSize, side, box: { left, top, width, height }, tilt, tear: getTornEdge(text), wordTimes: null, tick: isTick, tickAt: null },
@@ -799,18 +838,28 @@ function placeEndWord(overlay: EdlOverlay, drawn: Drawn, place: Placement): Plac
   const { zone, frame } = place;
   const scale = frame.width / 1080;
   const margin = Math.round(OVERLAY_MARGIN * scale);
-  const room = frame.width - zone.left - zone.right - 2 * margin;
   const text = (overlay.text ?? "").replace(/\s+/g, " ").trim();
-  let fontSize = Math.round(OVERLAY_FONT_SIZES.end_word[overlay.style?.size ?? "m"] * scale);
-  for (let shrink = 0; measureHandText(text, fontSize) > room; shrink++) {
-    if (shrink === MAX_TITLE_SHRINKS) return { ok: false, error: "the end word is too wide for one line even at a smaller size; shorten it or use a smaller size" };
-    fontSize = Math.round(fontSize * OVERLAY_TITLE_SHRINK);
-  }
+  const own = Math.round(OVERLAY_FONT_SIZES.end_word[overlay.style?.size ?? "m"] * scale);
+  const fitted = measureCentred({
+    whole: frame.width - zone.left - zone.right - 2 * margin,
+    centred: getCentredSpan(place, margin).width,
+    measure: (room: number): { ok: true; fontSize: number } | { ok: false; error: string } => {
+      let fontSize = own;
+      for (let shrink = 0; measureHandText(text, fontSize) > room; shrink++) {
+        if (shrink === MAX_TITLE_SHRINKS) return { ok: false, error: "the end word is too wide for one line even at a smaller size; shorten it or use a smaller size" };
+        fontSize = Math.round(fontSize * OVERLAY_TITLE_SHRINK);
+      }
+      return { ok: true, fontSize };
+    },
+    getWidth: (result) => measureHandText(text, result.fontSize),
+  });
+  if (!fitted.ok) return fitted;
+  const { fontSize } = fitted;
   const width = measureHandText(text, fontSize);
   const height = Math.ceil(fontSize * OVERLAY_LINE_HEIGHT);
   const region = getTextRegion(place);
   if (region.top + height > region.bottom) return { ok: false, error: `the end word (${height} px tall) does not fit above the captions; use a smaller size` };
-  const left = Math.round(zone.left + margin + (room - width) / 2);
+  const left = getCentredLeft(place, width, margin);
   return { ok: true, overlay: { ...drawn, kind: "end_word", text, fontSize, box: { left, top: region.top, width, height } } };
 }
 
@@ -851,7 +900,12 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
   const pad = getOverlayPadding({ fontSize, padScale: place.padScale });
   const margin = Math.round(OVERLAY_MARGIN * scale);
   const room = frame.width - zone.left - zone.right - 2 * margin;
-  const chips = overlay.kind === "list" ? getListChipLayout({ items: overlay.items ?? [], layout: overlay.style?.list_layout ?? "stack", fontSize, padScale: place.padScale, room }) : null;
+  const chips = overlay.kind === "list" ? measureCentred({
+          whole: room,
+          centred: getCentredSpan(place, margin).width,
+          measure: (width: number) => getListChipLayout({ items: overlay.items ?? [], layout: overlay.style?.list_layout ?? "stack", fontSize, padScale: place.padScale, room: width }),
+          getWidth: (result) => result.row?.width ?? 0,
+        }) : null;
   if (chips !== null && !chips.ok) return chips;
   const row = chips?.row ?? null;
   const lines = overlay.kind === "list" ? (overlay.items ?? []).length : 1;
@@ -865,12 +919,15 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
     return { ok: false, error: `the ${overlay.kind.replace("_", " ")} (${height} px tall) does not fit between the platform safe zone and the captions; use a smaller size or fewer points` };
   }
   const box = { left: zone.left + margin, top, width: room, height };
+  // A centred card (a stack without a side, a keyword aligned center) sits in a box centred on the frame's axis.
+  const centred = { ...box, ...getCentredSpan(place, margin) };
   if (overlay.kind === "list") {
-    const layout = row === null ? (overlay.style?.side === undefined ? { isCentred: true } : {}) : { chips: placeChipRow(row, box) };
+    const isCentred = row === null && overlay.style?.side === undefined;
+    const layout = row !== null ? { chips: placeChipRow(row, { ...box, left: getCentredLeft(place, row.width, margin), width: row.width }) } : isCentred ? { isCentred: true } : {};
     // A row of chips may be drawn smaller than the list's size, to fit one row.
-    return { ok: true, overlay: { ...drawn, kind: "list", items: overlay.items ?? [], fontSize: row?.fontSize ?? fontSize, side, box, ...layout } };
+    return { ok: true, overlay: { ...drawn, kind: "list", items: overlay.items ?? [], fontSize: row?.fontSize ?? fontSize, side, box: isCentred ? centred : box, ...layout } };
   }
-  const fields = { text: overlay.text ?? "", fontSize, side, box };
+  const fields = { text: overlay.text ?? "", fontSize, side, box: align === "center" ? centred : box };
   if (overlay.kind === "lower_third") return { ok: true, overlay: { ...drawn, kind: "lower_third", ...fields } };
   return {
     ok: true,
@@ -897,7 +954,9 @@ interface ChipRow {
 /** A row of chips at one type size. */
 function measureChipRow(items: readonly string[], fontSize: number, padScale: number): ChipRow {
   const pad = getOverlayPadding({ fontSize, padScale });
-  const widths = items.map((item) => Math.ceil(estimateTextWidth(item, fontSize) + 2 * pad.x));
+  const badge = getChipBadgeSize(fontSize);
+  // The badge sits as far from the chip's left edge as from its top, so the left takes the vertical padding.
+  const widths = items.map((item) => Math.ceil(estimateTextWidth(item, fontSize) + pad.y + pad.x + badge.size + badge.gap));
   const gap = Math.round(fontSize * LIST_CHIP_GAP_EM);
   const width = widths.reduce((sum, chip) => sum + chip, 0) + gap * Math.max(0, widths.length - 1);
   return { fontSize, widths, height: Math.ceil(fontSize * OVERLAY_LINE_HEIGHT + 2 * pad.y), gap, width };
@@ -917,6 +976,46 @@ function getListChipLayout(input: { items: readonly string[]; layout: OverlayLis
   }
   if (layout === "auto") return { ok: true, row: null };
   return { ok: false, error: `the list's points as chips (${own.width} px) do not fit one row (${room} px) even at a smaller size; use list_layout stack or auto, or shorter points` };
+}
+
+/** A chip's step badge: its diameter and the room after it, in px. */
+export function getChipBadgeSize(fontSize: number): { size: number; gap: number } {
+  return { size: Math.round(fontSize * LIST_CHIP_BADGE_EM.size), gap: Math.round(fontSize * LIST_CHIP_BADGE_EM.gap) };
+}
+
+/**
+ * A chip's parts (RV-181 of an adopting app): its step badge, a round mark on the chip's left, and the centre its point
+ * is written about, in the room after the badge.
+ */
+export function getChipParts(chip: OverlayBox, overlay: { fontSize: number; padScale?: number }): { badge: { centre: OverlayPoint; radius: number }; textX: number } {
+  const pad = getOverlayPadding(overlay);
+  const badge = getChipBadgeSize(overlay.fontSize);
+  const radius = badge.size / 2;
+  const textLeft = chip.left + pad.y + badge.size + badge.gap;
+  return { badge: { centre: { x: chip.left + pad.y + radius, y: chip.top + chip.height / 2 }, radius }, textX: r1(textLeft + (chip.left + chip.width - pad.x - textLeft) / 2) };
+}
+
+/** The three points of the tick that takes a covered chip's number's place, inside its badge. */
+export function getChipTickPoints(badge: { centre: OverlayPoint; radius: number }): OverlayPoint[] {
+  const { centre, radius } = badge;
+  return [
+    { x: r1(centre.x - 0.42 * radius), y: r1(centre.y + 0.02 * radius) },
+    { x: r1(centre.x - 0.1 * radius), y: r1(centre.y + 0.32 * radius) },
+    { x: r1(centre.x + 0.44 * radius), y: r1(centre.y - 0.3 * radius) },
+  ];
+}
+
+/**
+ * When each chip of a row is covered: the second the next point comes in, after which the chip steps back (its point
+ * fainter, its number a tick) and the newest point leads, as a countdown does; null for the last chip, and for one
+ * whose next point comes in with it or after the list has gone.
+ */
+export function getChipCoveredTimes(overlay: Extract<ResolvedOverlay, { kind: "list" }>): (number | null)[] {
+  const times = getListItemTimes(overlay);
+  return times.map((at, index) => {
+    const next = times[index + 1];
+    return next !== undefined && next > at && next < overlay.end ? next : null;
+  });
 }
 
 /** The chips of a row in their final places: centred in `box`, left to right in the points' order. */
@@ -1118,15 +1217,21 @@ function placeCard(overlay: EdlOverlay & { kind: CardKind }, drawn: Drawn, place
   const outer = frame.width - zone.left - zone.right - 2 * margin;
   const fontSize = Math.round(OVERLAY_FONT_SIZES[overlay.kind][overlay.style?.size ?? "m"] * scale);
   const pad = getOverlayPadding({ fontSize, padScale: place.padScale });
-  const metrics = { fontSize, pad, room: outer - 2 * pad.x, label: overlay.kind.replace("_", " "), scale };
-  const measured =
-    overlay.kind === "hook_title" || overlay.kind === "place_card"
+  const measure = (room: number): CardResult => {
+    const metrics = { fontSize, pad, room: room - 2 * pad.x, label: overlay.kind.replace("_", " "), scale };
+    return overlay.kind === "hook_title" || overlay.kind === "place_card"
       ? measureTitle({ ...overlay, kind: overlay.kind }, metrics)
       : overlay.kind === "search_bar"
         ? measureSearchBar(overlay, metrics)
         : overlay.kind === "counter"
           ? measureCounter(overlay, metrics)
           : measureDateStamp(overlay, metrics);
+  };
+  // A date stamp sits on its side of the whole zone; every other card on the frame's axis.
+  const measured =
+    overlay.kind === "date_stamp"
+      ? measure(outer)
+      : measureCentred({ whole: outer, centred: getCentredSpan(place, margin).width, measure, getWidth: (result) => Math.ceil(result.content.width + 2 * pad.x) });
   if (!measured.ok) return measured;
   const { content } = measured;
   const width = Math.ceil(content.width + 2 * pad.x);
@@ -1134,10 +1239,10 @@ function placeCard(overlay: EdlOverlay & { kind: CardKind }, drawn: Drawn, place
   const region = getTextRegion(place);
   const top = getPositionTop(region, overlay.style?.position ?? CARD_POSITIONS[overlay.kind], height);
   if (top < region.top || top + height > region.bottom) {
-    return { ok: false, error: `the ${metrics.label} (${height} px tall) does not fit between the platform safe zone and the captions; use a smaller size or shorter text` };
+    return { ok: false, error: `the ${overlay.kind.replace("_", " ")} (${height} px tall) does not fit between the platform safe zone and the captions; use a smaller size or shorter text` };
   }
   const left =
-    overlay.kind !== "date_stamp" ? Math.round(zone.left + margin + (outer - width) / 2) : content.fields.side === "right" ? frame.width - zone.right - margin - width : zone.left + margin;
+    overlay.kind !== "date_stamp" ? getCentredLeft(place, width, margin) : content.fields.side === "right" ? frame.width - zone.right - margin - width : zone.left + margin;
   return { ok: true, overlay: { ...drawn, ...content.fields, box: { left, top, width, height } } as ResolvedOverlay };
 }
 
