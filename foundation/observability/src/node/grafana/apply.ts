@@ -97,6 +97,7 @@ export async function applyGrafanaResources(options: ApplyGrafanaOptions): Promi
         return failed(steps, describeFailure("PUT", groupPath, replaced));
       }
     }
+    steps.push(...describeNotificationOverrides(rules));
 
     if (options.dashboard !== undefined && dashboardState !== undefined) {
       const verb = dashboardState.kind === "exists" ? "updated" : "created";
@@ -123,7 +124,10 @@ export async function applyGrafanaResources(options: ApplyGrafanaOptions): Promi
   return isCommit ? { kind: "applied", steps } : { kind: "planned", steps };
 }
 
-/** The body of the rule group `PUT`: every rule notifies the file's receiver and sits in its folder and group. */
+/**
+ * The body of the rule group `PUT`: every rule notifies the file's receiver (with its own grouping and timings, when it
+ * sets them) and sits in its folder and group.
+ */
 export function buildRuleGroupBody(rules: GrafanaRulesFile, paused: boolean): Record<string, unknown> {
   return {
     title: rules.group,
@@ -134,9 +138,26 @@ export function buildRuleGroupBody(rules: GrafanaRulesFile, paused: boolean): Re
       folderUID: rules.folder.uid,
       ruleGroup: rules.group,
       isPaused: paused || rule["isPaused"] === true,
-      notification_settings: { receiver: rules.receiver },
+      notification_settings: { ...rule.notification_settings, receiver: rules.receiver },
     })),
   };
+}
+
+/** One step per rule whose notifications differ from Grafana's default grouping and timings. */
+function describeNotificationOverrides(rules: GrafanaRulesFile): string[] {
+  return rules.rules.flatMap((rule) => {
+    const settings = rule.notification_settings;
+    if (settings === undefined) {
+      return [];
+    }
+    const parts = [
+      settings.group_by === undefined ? undefined : `grouped by ${settings.group_by.join(", ")}`,
+      settings.group_wait === undefined ? undefined : `first after ${settings.group_wait}`,
+      settings.group_interval === undefined ? undefined : `new alerts every ${settings.group_interval}`,
+      settings.repeat_interval === undefined ? undefined : `repeat every ${settings.repeat_interval}`,
+    ].filter((part) => part !== undefined);
+    return parts.length === 0 ? [] : [`rule "${rule.title}" (${rule.uid}): notifications ${parts.join("; ")}`];
+  });
 }
 
 function createClient(options: ApplyGrafanaOptions): GrafanaClient {

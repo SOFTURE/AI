@@ -7,10 +7,72 @@ const ruleQuerySchema = z.looseObject({
   model: z.record(z.string(), z.unknown()),
 });
 
+/** A Prometheus duration as Grafana parses it: `30s`, `5m`, `4h`, `1h30m`. */
+const DURATION_PATTERN = /^(\d+(ms|s|m|h|d|w|y))+$/;
+
+/** The keys a rule may set in its `notification_settings`; the receiver always comes from the file. */
+export const RULE_NOTIFICATION_KEYS = ["group_by", "group_wait", "group_interval", "repeat_interval"] as const;
+
+const durationSchema = z
+  .string()
+  .refine((value) => DURATION_PATTERN.test(value), { error: (issue) => `${JSON.stringify(issue.input)} is not a duration like 30s, 5m or 4h` });
+
+const groupBySchema = z
+  .array(z.string().min(1))
+  .min(1, "group_by names at least one label")
+  .superRefine((labels, context) => {
+    const repeated = labels.filter((label, index) => labels.indexOf(label) !== index);
+    for (const label of new Set(repeated)) {
+      context.addIssue({ code: "custom", message: `label "${label}" is listed twice` });
+    }
+  });
+
+/**
+ * A rule's own notification grouping and timings, merged under the file's receiver by the apply. Grafana keeps
+ * `alertname` and `grafana_folder` in every grouping itself; `["..."]` groups by every label.
+ */
+const ruleNotificationSettingsSchema = z
+  .looseObject({
+    group_by: groupBySchema.optional(),
+    group_wait: durationSchema.optional(),
+    group_interval: durationSchema.optional(),
+    repeat_interval: durationSchema.optional(),
+  })
+  .superRefine((settings, context) => {
+    const allowed: readonly string[] = RULE_NOTIFICATION_KEYS;
+    for (const key of Object.keys(settings)) {
+      if (key === "receiver") {
+        context.addIssue({ code: "custom", message: "the file's receiver notifies every rule; a rule cannot name its own receiver" });
+      } else if (!allowed.includes(key)) {
+        context.addIssue({
+          code: "custom",
+          message: `unknown key "${key}"; a rule takes group_by, group_wait, group_interval and repeat_interval`,
+        });
+      }
+    }
+  })
+  .transform((settings): RuleNotificationSettings => {
+    const picked: RuleNotificationSettings = {};
+    if (settings.group_by !== undefined) picked.group_by = settings.group_by;
+    if (settings.group_wait !== undefined) picked.group_wait = settings.group_wait;
+    if (settings.group_interval !== undefined) picked.group_interval = settings.group_interval;
+    if (settings.repeat_interval !== undefined) picked.repeat_interval = settings.repeat_interval;
+    return picked;
+  });
+
+/** A rule's own notification grouping and timings (Prometheus durations); the receiver comes from the file. */
+export type RuleNotificationSettings = {
+  group_by?: string[];
+  group_wait?: string;
+  group_interval?: string;
+  repeat_interval?: string;
+};
+
 /**
  * One Grafana alert rule as the provisioning API takes it. The fields Grafana needs are checked; the rest (`for`,
- * `noDataState`, `execErrState`, `labels`, `annotations`, ...) is passed through. `folderUID`, `ruleGroup`,
- * `notification_settings` and `isPaused` are set by the apply from the file and its flags.
+ * `noDataState`, `execErrState`, `labels`, `annotations`, ...) is passed through. `folderUID`, `ruleGroup` and
+ * `isPaused` are set by the apply from the file and its flags; `notification_settings` may carry the rule's own
+ * grouping and timings, and the apply adds the file's receiver.
  */
 const grafanaRuleSchema = z.looseObject({
   uid: z
@@ -19,6 +81,7 @@ const grafanaRuleSchema = z.looseObject({
   title: z.string().min(1),
   condition: z.string().min(1),
   data: z.array(ruleQuerySchema).min(1),
+  notification_settings: ruleNotificationSettingsSchema.optional(),
 });
 
 /** The rules file an app keeps in its repository: one folder, one contact point, one rule group. */

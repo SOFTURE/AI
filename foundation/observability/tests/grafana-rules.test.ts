@@ -54,6 +54,47 @@ describe("parseGrafanaRulesFile", () => {
     expect(parsed.isValid ? [] : parsed.problems.map((problem) => problem.split(":")[0])).toEqual(["receiver", "rules"]);
   });
 
+  it("keeps a rule's notification grouping and timings", () => {
+    const settings = { group_by: ["alertname", "service_name"], group_wait: "30s", group_interval: "5m", repeat_interval: "1h30m" };
+    const rule = { ...buildServiceSilentRule({ service: SERVICE, datasourceUid: "prom" }), notification_settings: settings };
+
+    const parsed = parseGrafanaRulesFile(validFile({ rules: [rule] }));
+
+    expect(parsed.isValid && parsed.value.rules[0]?.notification_settings).toEqual(settings);
+  });
+
+  it("refuses a receiver, an unknown key, an empty or repeated group_by and a bad duration in a rule's settings", () => {
+    const rule = buildServiceSilentRule({ service: SERVICE, datasourceUid: "prom" });
+    const withSettings = (uid: string, notification_settings: Record<string, unknown>): Record<string, unknown> => ({
+      ...rule,
+      uid,
+      notification_settings,
+    });
+
+    const parsed = parseGrafanaRulesFile(
+      validFile({
+        rules: [
+          withSettings("a", { receiver: "someone-else", group_by: ["service_name"] }),
+          withSettings("b", { groupBy: ["service_name"] }),
+          withSettings("c", { group_by: [] }),
+          withSettings("d", { group_by: ["service_name", "service_name"] }),
+          withSettings("e", { repeat_interval: "4 hours" }),
+        ],
+      }),
+    );
+
+    expect(parsed).toEqual({
+      isValid: false,
+      problems: [
+        "rules.0.notification_settings: the file's receiver notifies every rule; a rule cannot name its own receiver",
+        'rules.1.notification_settings: unknown key "groupBy"; a rule takes group_by, group_wait, group_interval and repeat_interval',
+        "rules.2.notification_settings.group_by: group_by names at least one label",
+        'rules.3.notification_settings.group_by: label "service_name" is listed twice',
+        'rules.4.notification_settings.repeat_interval: "4 hours" is not a duration like 30s, 5m or 4h',
+      ],
+    });
+  });
+
   it("refuses a dashboard without a uid", () => {
     expect(parseGrafanaDashboard({ title: "Shop" }).isValid).toBe(false);
     expect(parseGrafanaDashboard({ uid: "shop", title: "Shop", panels: [] }).isValid).toBe(true);
