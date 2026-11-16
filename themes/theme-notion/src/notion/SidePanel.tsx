@@ -25,12 +25,14 @@ export interface SidePanelProps {
   // The panel's width in pixels on a wide screen (a `ResizeHandle` sets it); phone-wide `beside` and `list` keep
   // covering the canvas. Without it, the layout's own width.
   readonly width?: number;
+  // A strip pinned below the scrolling content (an action that belongs to the panel's foot); none: no strip.
+  readonly footer?: ReactNode;
   readonly children: ReactNode;
 }
 
 // A non-modal panel at a side of a canvas (a map) that leaves the canvas usable. Its parent is a `relative` flex row
 // holding the canvas and the panel. Hidden while closed, so its content leaves the reading order.
-export function SidePanel({ id, heading, layout, isOpen, onClose, closeLabel = messages.sidePanel.close, width, children }: SidePanelProps) {
+export function SidePanel({ id, heading, layout, isOpen, onClose, closeLabel = messages.sidePanel.close, width, footer, children }: SidePanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const wasOpenRef = useRef(isOpen);
   const headingId = `${id}-heading`;
@@ -73,6 +75,11 @@ export function SidePanel({ id, heading, layout, isOpen, onClose, closeLabel = m
       <div data-slot="side-panel-content" className="grid flex-1 content-start gap-3 overflow-y-auto p-3">
         {children}
       </div>
+      {footer === undefined ? null : (
+        <div data-slot="side-panel-footer" className="flex flex-none border-t border-border p-2">
+          {footer}
+        </div>
+      )}
     </aside>
   );
 }

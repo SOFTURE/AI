@@ -231,7 +231,9 @@ at once (`Sheet` is modal). It floats on `background` with `shadow-menu`, 24 rem
 heading and a ghost close button. Layouts: `over` (over the canvas's right side), `left` (over its left side),
 `beside` (after the canvas, which shrinks to at least 24 rem or half) and `list` (a 24 rem column before the canvas);
 `beside` and `list` cover the whole canvas on a phone. While closed it is `hidden`. Focus moves into it when it opens;
-Escape inside or the close button calls `onClose`, and the caller moves focus back to its opener.
+Escape inside or the close button calls `onClose`, and the caller moves focus back to its opener. An optional
+`footer` is a strip with a top border pinned below the scrolling content (`data-slot="side-panel-footer"`), for an
+action that belongs to the panel's foot; without it the panel has no strip.
 
 ```tsx
 <div className="relative flex h-full">

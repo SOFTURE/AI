@@ -91,6 +91,39 @@ describe("SidePanel", () => {
     expect(screen.getByRole("button", { name: "Hide layers" }).dataset["slot"]).toBe("button");
   });
 
+  it("renders no footer strip without a footer", () => {
+    renderPanel();
+
+    expect(screen.getByTestId("layers").querySelector('[data-slot="side-panel-footer"]')).toBeNull();
+  });
+
+  it("pins a footer below the scrolling content, outside it, as the panel's last child", () => {
+    render(
+      <SidePanel id="layers" heading="Layers" layout="list" isOpen onClose={vi.fn()} footer={<button type="button">Show plan</button>}>
+        <p>Rows</p>
+      </SidePanel>,
+    );
+    const panel = screen.getByTestId("layers");
+    const footer = panel.querySelector<HTMLElement>('[data-slot="side-panel-footer"]');
+    const content = panel.querySelector<HTMLElement>('[data-slot="side-panel-content"]');
+
+    expect(footer?.parentElement).toBe(panel);
+    expect(panel.lastElementChild).toBe(footer);
+    expect(content?.contains(footer)).toBe(false);
+    expect(footer?.className).toBe("flex flex-none border-t border-border p-2");
+    expect(screen.getByRole("button", { name: "Show plan" }).parentElement).toBe(footer);
+  });
+
+  it("hides the footer with the panel while closed", () => {
+    render(
+      <SidePanel id="layers" heading="Layers" layout="list" isOpen={false} onClose={vi.fn()} footer={<button type="button">Show plan</button>}>
+        <p>Rows</p>
+      </SidePanel>,
+    );
+
+    expect(screen.queryByRole("button", { name: "Show plan" })).toBeNull();
+  });
+
   it("takes a width on a wide screen when one is given, and none of its own otherwise", () => {
     const view = render(
       <SidePanel id="list" heading="List" layout="list" isOpen onClose={vi.fn()} width={320}>
