@@ -3,7 +3,7 @@
 // request (`runHooks`), so fixture rows the app's hooks write (a profile, an entitlement) exist too.
 import type { Queryable } from "@softure-ai/db";
 import type { AuthUser } from "../contract.js";
-import { DEFAULT_SCRYPT_COST, type ScryptParams } from "../options.js";
+import { SCRYPT_DEFAULTS, type ScryptParams } from "../options.js";
 import { userRoles, users } from "../schema.js";
 import { getAuthOptions } from "../server/options.js";
 import { hashPassword, isPasswordHash } from "../server/password.js";
@@ -11,7 +11,7 @@ import type { AuthContext } from "../server/sessions.js";
 import { parseEmail } from "../server/validation.js";
 
 /** Auth's own hash parameters when the app sets none (`password.scrypt` in `auth({ ... })`). */
-const DEFAULT_SCRYPT: ScryptParams = { cost: DEFAULT_SCRYPT_COST, blockSize: 8, parallelization: 1 };
+const DEFAULT_SCRYPT: ScryptParams = SCRYPT_DEFAULTS.node;
 
 /** One hash per password and parameters for the whole test run: scrypt is the slow part of a big suite's setup. */
 const hashCache = new Map<string, Promise<string>>();

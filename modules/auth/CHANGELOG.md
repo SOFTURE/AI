@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## 0.2.14
+
+- **Cloudflare Workers:** auth runs on `platform: { host: "cloudflare" }` (manifest `runtimes: ["node", "workers"]`); the
+  entries `.`, `./server` and `./proxy` are declared Workers-safe. Hashes keep the `scrypt$…` format on both runtimes.
+- **Hash cost per runtime:** a `password.scrypt` field left out now takes the runtime's default (`SCRYPT_DEFAULTS`):
+  Node `{ 2 ** 17, 8, 1 }` as before, Workers `{ 2 ** 14, 8, 5 }` (OWASP's 16 MiB profile). `getAuthOptions(config)`
+  returns the resolved cost; `auth().options.password.scrypt` holds only what the app set. A login rehashes into the
+  runtime's cost, so users keep their passwords when an app moves hosts.
+
 ## 0.2.13
 
 - **Dependencies:** `zod` ^4.6.7 (was ^4.6.5), so a fresh install takes the fixed zod release.

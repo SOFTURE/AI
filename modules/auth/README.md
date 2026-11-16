@@ -81,7 +81,7 @@ export default config;
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `password.minLength` | `number` (8-128) | `10` | Shortest new password, in characters. The longest is 1024. |
-| `password.scrypt` | `{ cost, blockSize, parallelization }` | `{ 2 ** 17, 8, 1 }` | scrypt N, r, p (OWASP). Raising them rehashes each password at its owner's next login. Memory: 128 × N × r bytes per hash, so the default takes 128 MiB and about 0.4 s of one core; Node runs up to four hashes at once (its libuv pool, `UV_THREADPOOL_SIZE`), about 512 MiB at a burst of logins. On a small server, lower `cost` to `2 ** 16` (64 MiB) or `2 ** 15` (32 MiB) and leave the pool at four. |
+| `password.scrypt` | `{ cost, blockSize, parallelization }` | Node: `{ 2 ** 17, 8, 1 }`; Workers: `{ 2 ** 14, 8, 5 }` | scrypt N, r, p (OWASP). A field left out takes the runtime's default (`SCRYPT_DEFAULTS`, from `platform` in the config). Changing them rehashes each password at its owner's next login. Memory: 128 × N × r bytes per hash, so the Node default takes 128 MiB and about 0.4 s of one core; Node runs up to four hashes at once (its libuv pool, `UV_THREADPOOL_SIZE`), about 512 MiB at a burst of logins. On a small server, lower `cost` to `2 ** 16` (64 MiB) or `2 ** 15` (32 MiB) and leave the pool at four. On Cloudflare Workers the default is OWASP's 16 MiB profile, since an isolate has 128 MB in all. |
 | `session.ttlDays` | `number` (1-365) | `30` | Session lifetime from login. It is not extended by use. |
 | `cookie.name` | `string` | `"softure_session"` | Base name of the session cookie (see below). |
 | `cookie.domain` | `string` | none (host-only) | Share the session with subdomains, e.g. `example.com` for the apex and `app.example.com`. |
@@ -864,6 +864,11 @@ Rate limit rows of `security` hold only SHA-256 prefixes of the email and user i
 (`subjectKey`), pruned two windows after they start; they are not exported or deleted.
 
 ## 12. Limitations / known gaps
+
+- On Cloudflare Workers (`platform: { host: "cloudflare" }`) the entries `.`, `./server` and `./proxy` run as on Node,
+  with the same `scrypt$…` hashes. A hash made at the Node default (128 MiB) may not verify in a 128 MB isolate: before
+  an app moves to Workers, lower `password.scrypt.cost` on the VPS to `2 ** 15` or below and let logins rehash, or keep
+  the old cost only for users who have not signed in since. Each login on Workers rehashes into the Workers cost.
 
 - Sessions have a fixed lifetime; there is no sliding renewal and no "remember me".
 - A password change keeps the session that made it (and ends every other one); the token itself

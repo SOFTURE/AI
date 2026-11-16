@@ -44,7 +44,7 @@ updated: 2026-11-16
 | --- | --- | --- | --- | --- | --- |
 | **RP-1** | `runtime-platform-contract` | `platform: { runtime, host }` in core's config, a module's declared runtimes checked at startup, and a repository guard that keeps Workers entries free of Node-only APIs | — | autonomous | done |
 | **RP-2** | `db-workers-connection` | `@softure-ai/db` opens a per-request Postgres connection on Workers (Hyperdrive binding), keeps the pooled handle on Node, and never reads migration files at runtime on Workers | RP-1 | autonomous | done |
-| **RP-3** | `auth-workers-password` | `@softure-ai/auth` runs on Workers: scrypt stays (workerd provides it) with a default cost that fits the 128 MB isolate, a login rehashes into the runtime's cost, and the auth entries are declared Workers-safe | RP-1 | autonomous | ready |
+| **RP-3** | `auth-workers-password` | `@softure-ai/auth` runs on Workers: scrypt stays (workerd provides it) with a default cost that fits the 128 MB isolate, a login rehashes into the runtime's cost, and the auth entries are declared Workers-safe | RP-1 | autonomous | done |
 | **RP-4** | `jobs-scheduled-tick` | `@softure-ai/jobs` runs due jobs from one `runJobsTick` shared by the Node worker loop and a Workers `scheduled()` handler (Cron Trigger), with health from a database heartbeat | RP-1, RP-2 | autonomous | ready |
 | **RP-5** | `security-workers-fetch` | `@softure-ai/security` guarded outbound requests and client-address checks run on Workers with the same refusals as on Node (resolved addresses checked before the request, where workerd takes no socket `lookup`) | RP-1 | autonomous | done |
 | **RP-6** | `observability-workers` | `@softure-ai/observability` gets a Workers entry: structured logs and spans sent over OTLP with `fetch`, flushed through `waitUntil`, under the same service naming as on Node | RP-1 | autonomous | ready |
@@ -93,8 +93,8 @@ updated: 2026-11-16
 
 ### RP-3: Password hashing and OIDC on Workers
 - **Change ID:** `auth-workers-password`
-- **Status:** ready
-- **Input:** [`auth-workers-password`](../changes/auth-workers-password/change.md)
+- **Status:** done
+- **Input:** [`auth-workers-password`](../archive/2026-11-16-auth-workers-password/change.md)
 - **Outcome:** passwords keep working when an app moves hosts: workerd runs `node:crypto` `scrypt`, `createPublicKey`
   and `verify` (measured in RP-5), so the hash format stays `scrypt$…`; the default scrypt cost follows the runtime so
   a hash fits a 128 MB isolate on Workers (OWASP's lower-memory equivalent), a login rehashes into the runtime's cost,
