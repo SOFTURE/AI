@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.17.0
 
 - `DocumentViewer`, `DocumentList`, `DocumentRow` (#1256): documents shown inside the page, never in a new browser
   window. `DocumentViewer` is a full-screen `Dialog` (title, page count, zoom 50 % to 300 % of the fitted width, a
