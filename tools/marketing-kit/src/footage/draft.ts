@@ -45,6 +45,7 @@ import {
   type PreparedMix,
   type TranscribeOutcome,
 } from "./pipeline.js";
+import { buildPictureList } from "./picture.js";
 import { runFfmpeg, withFfmpegFailureReporting } from "./process.js";
 import { buildMusicArgs, buildSpeechArgs, getSpeechCutOptions } from "./render.js";
 
@@ -639,9 +640,8 @@ function buildPictureFilters(plan: DraftSegmentPlan, draft: Frame): string[] {
  * segment playing on) blended with the incoming head as the render's picture blends them, and the rest of the
  * incoming segment follows.
  */
-function buildDrawnJoin(input: { joined: string; incoming: string; output: string; plan: DraftSegmentPlan; drawn: { kind: DrawnTransition; frames: number }; frame: Frame; index: number }): string[] {
-  const { joined, incoming, output, drawn, index } = input;
-  const at = Math.round(input.plan.start * FOOTAGE_FPS);
+function buildDrawnJoin(input: { joined: string; incoming: string; output: string; at: number; drawn: { kind: DrawnTransition; frames: number }; frame: Frame; index: number }): string[] {
+  const { joined, incoming, output, drawn, index, at } = input;
   const p = `d${String(index)}`;
   return [
     `[${joined}]split[${p}a][${p}b]`,
@@ -656,17 +656,31 @@ function buildDrawnJoin(input: { joined: string; incoming: string; output: strin
   ];
 }
 
+/** The draft's picture graph over a run of segments: its inputs, its filters, and the label of the joined stream. */
+interface DraftPictureGraph {
+  inputs: string[];
+  parts: string[];
+  joined: string;
+  inputCount: number;
+}
+
+interface DraftPictureGraphInput {
+  input: FootageDraftArgsInput;
+  plans: readonly DraftSegmentPlan[];
+  draft: Frame;
+  threads: { global: string[]; output: string[] };
+  /** The first and last segment the graph plays; the joined stream starts at the first segment's start. */
+  first: number;
+  last: number;
+}
+
 /**
- * The ffmpeg arguments of the draft: each segment read from its own seek into its clip, zoomed and scaled to the
- * draft's width, joined by `xfade` at `fade` cuts and `concat` at the others, the captions burned in (`ass`), the
- * film's mix copied under it (or the speech and music tracks mixed and encoded to AAC); H.264 yuv420p with fast start,
- * exactly the cut's length.
+ * Segments `first` to `last` read from their clips, zoomed and joined as the draft joins them (`xfade` at a fade,
+ * `concat` at the others, a drawn transition blended in), on a stream that starts at segment `first`'s start. The
+ * whole cut (`first` 0) gives exactly the one-run draft's graph.
  */
-export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
+function buildDraftPictureGraph({ input, plans, draft, threads, first, last }: DraftPictureGraphInput): DraftPictureGraph {
   const { edl } = input;
-  const draft = getFootageDraftFrame(input.frame, input.width);
-  const plans = planFootageDraft(input.film, edl, input.overlays ?? []);
-  const threads = getThreadArgs(input.threads, "draft.threads");
   const inputs: string[] = [];
   const parts: string[] = [];
   let inputCount = 0;
@@ -675,7 +689,9 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
     if (clip === undefined) throw new Error(`No file for clip "${id}" of the EDL.`);
     return clip;
   };
-  edl.segments.forEach((segment, index) => {
+  const base = (plans[first] as DraftSegmentPlan).start;
+  for (let index = first; index <= last; index += 1) {
+    const segment = edl.segments[index] as Edl["segments"][number];
     const plan = plans[index] as DraftSegmentPlan;
     const fit = [
       "setsar=1",
@@ -694,65 +710,78 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
       // A split screen holds still: its three bands and its layer, at the draft's size, as the render's picture draws them.
       const layer = input.splitLayers?.[segment.id];
       if (layer === undefined) throw new Error(`No split layer for segment "${segment.id}" of the EDL.`);
-      const first = inputCount;
+      const bandsFrom = inputCount;
       for (const band of split.bands) inputs.push(...threads.output, "-ss", String(r3(band.start)), "-t", String(plan.seconds), "-i", getClip(band.clip));
       inputs.push(...getSplitLayerInputArgs(layer, plan.seconds, FOOTAGE_FPS));
       inputCount += 4;
-      const bands: [string, string, string] = [`${String(first)}:v`, `${String(first + 1)}:v`, `${String(first + 2)}:v`];
-      parts.push(...buildSplitScreenFilters({ inputs: bands, layer: `${String(first + 3)}:v`, split, frame: draft, fit: ["setpts=PTS-STARTPTS", ...fit], output: `v${index}`, prefix: `sp${String(index)}` }));
-      return;
+      const bands: [string, string, string] = [`${String(bandsFrom)}:v`, `${String(bandsFrom + 1)}:v`, `${String(bandsFrom + 2)}:v`];
+      parts.push(...buildSplitScreenFilters({ inputs: bands, layer: `${String(bandsFrom + 3)}:v`, split, frame: draft, fit: ["setpts=PTS-STARTPTS", ...fit], output: `v${index}`, prefix: `sp${String(index)}` }));
+      continue;
     }
     // Before an input, -threads sizes that input's decoder: one decoder runs per segment.
     inputs.push(...threads.output, "-ss", String(r3(segment.start)), "-t", String(plan.seconds), "-i", getClip(segment.clip));
     parts.push(`[${inputCount}:v]${["setpts=PTS-STARTPTS", ...buildPictureFilters(plan, draft), ...fit].join(",")}[v${index}]`);
     inputCount += 1;
-  });
-  let joined = "v0";
-  plans.forEach((plan, index) => {
-    if (index === 0) return;
+  }
+  let joined = `v${String(first)}`;
+  for (let index = first + 1; index <= last; index += 1) {
+    const plan = plans[index] as DraftSegmentPlan;
     const label = `j${index}`;
+    // The joined stream starts at segment `first`: offsets are counted from there (from 0 for the whole cut).
+    const start = base === 0 ? plan.start : r3(plan.start - base);
     if (plan.drawn !== null) {
-      parts.push(...buildDrawnJoin({ joined, incoming: `v${index}`, output: label, plan, drawn: plan.drawn, frame: draft, index }));
+      const at = base === 0 ? Math.round(plan.start * FOOTAGE_FPS) : Math.round(plan.start * FOOTAGE_FPS) - Math.round(base * FOOTAGE_FPS);
+      parts.push(...buildDrawnJoin({ joined, incoming: `v${index}`, output: label, at, drawn: plan.drawn, frame: draft, index }));
       joined = label;
-      return;
+      continue;
     }
     parts.push(
       plan.fade > 0
-        ? `[${joined}][v${index}]xfade=transition=fade:duration=${plan.fade}:offset=${plan.start}[${label}]`
+        ? `[${joined}][v${index}]xfade=transition=fade:duration=${plan.fade}:offset=${start}[${label}]`
         : // concat changes the time base; xfade needs both of its inputs on the segments' own.
           `[${joined}][v${index}]concat=n=2:v=1:a=0,settb=1/${FOOTAGE_FPS},fps=${FOOTAGE_FPS}[${label}]`,
     );
     joined = label;
-  });
-  if (input.captions !== null) {
-    parts.push(`[${joined}]ass=filename=${input.captions}${input.fontsDir === null ? "" : `:fontsdir=${input.fontsDir}`}[draft]`);
-  } else {
-    parts.push(`[${joined}]null[draft]`);
   }
-  const soundInput = inputCount;
+  return { inputs, parts, joined, inputCount };
+}
+
+/** The draft's sound inputs and filters, and its encoder's arguments: shared by the one-run draft and the join. */
+interface DraftSound {
+  inputs: string[];
+  parts: string[];
+  map: string;
+  codec: string[];
+}
+
+/** The draft's sound read from input `soundInput` on: the film's prepared mix copied, or the speech (and music) mixed. */
+function getDraftSound(input: Pick<FootageDraftArgsInput, "speech" | "music" | "mix">, soundInput: number): DraftSound {
   const mix = input.mix ?? null;
   const music = mix === null ? (input.music ?? null) : null;
-  if (music !== null) parts.push(`[${soundInput}:a][${soundInput + 1}:a]amix=inputs=2:duration=first:normalize=0[sound]`);
-  const seconds = getEdlDuration(edl);
-  // A prepared mix is copied: it was measured as encoded, and a second encode would move its loudness and true peak.
-  const audioCodec = mix === null ? ["-c:a", "aac", "-b:a", DRAFT_AUDIO_BITRATE] : ["-c:a", "copy"];
+  return {
+    inputs: ["-i", mix ?? input.speech, ...(music === null ? [] : ["-i", music])],
+    parts: music === null ? [] : [`[${soundInput}:a][${soundInput + 1}:a]amix=inputs=2:duration=first:normalize=0[sound]`],
+    map: music === null ? `${soundInput}:a` : "[sound]",
+    // A prepared mix is copied: it was measured as encoded, and a second encode would move its loudness and true peak.
+    codec: mix === null ? ["-c:a", "aac", "-b:a", DRAFT_AUDIO_BITRATE] : ["-c:a", "copy"],
+  };
+}
+
+/** The filter that burns the captions into `joined` (or passes it through) as `[draft]`. */
+function getCaptionsFilter(joined: string, input: Pick<FootageDraftArgsInput, "captions" | "fontsDir">): string {
+  if (input.captions === null) return `[${joined}]null[draft]`;
+  return `[${joined}]ass=filename=${input.captions}${input.fontsDir === null ? "" : `:fontsdir=${input.fontsDir}`}[draft]`;
+}
+
+/** The draft's output: the picture and sound mapped, exactly `seconds` long, H.264 yuv420p with fast start. */
+function getDraftOutputArgs(input: { sound: DraftSound; seconds: number; threads: string[]; output: string }): string[] {
   return [
-    "-v",
-    "error",
-    "-y",
-    ...threads.global,
-    ...inputs,
-    "-i",
-    mix ?? input.speech,
-    ...(music === null ? [] : ["-i", music]),
-    "-filter_complex",
-    parts.join(";"),
     "-map",
     "[draft]",
     "-map",
-    music === null ? `${soundInput}:a` : "[sound]",
+    input.sound.map,
     "-t",
-    String(seconds),
+    String(input.seconds),
     "-c:v",
     "libx264",
     "-preset",
@@ -761,12 +790,194 @@ export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
     String(DRAFT_CRF),
     "-pix_fmt",
     "yuv420p",
-    ...audioCodec,
+    ...input.sound.codec,
     "-movflags",
     "+faststart",
+    ...input.threads,
+    input.output,
+  ];
+}
+
+/**
+ * The ffmpeg arguments of the draft in one run (`assembly: "single"`): each segment read from its own seek into its
+ * clip, zoomed and scaled to the draft's width, joined by `xfade` at `fade` cuts and `concat` at the others, the
+ * captions burned in (`ass`), the film's mix copied under it (or the speech and music tracks mixed and encoded to AAC);
+ * H.264 yuv420p with fast start, exactly the cut's length. Every segment keeps its own decoder for the whole run, so
+ * its memory grows with the number of cuts (`estimateFootageDraftMemory`).
+ */
+export function buildFootageDraftArgs(input: FootageDraftArgsInput): string[] {
+  const { edl } = input;
+  const draft = getFootageDraftFrame(input.frame, input.width);
+  const plans = planFootageDraft(input.film, edl, input.overlays ?? []);
+  const threads = getThreadArgs(input.threads, "draft.threads");
+  const graph = buildDraftPictureGraph({ input, plans, draft, threads, first: 0, last: edl.segments.length - 1 });
+  const sound = getDraftSound(input, graph.inputCount);
+  const parts = [...graph.parts, getCaptionsFilter(graph.joined, input), ...sound.parts];
+  return ["-v", "error", "-y", ...threads.global, ...graph.inputs, ...sound.inputs, "-filter_complex", parts.join(";"), ...getDraftOutputArgs({ sound, seconds: getEdlDuration(edl), threads: threads.output, output: input.output })];
+}
+
+/** How a footage draft's picture is assembled: in pieces then joined (bounded memory), or in one ffmpeg run. */
+export const FOOTAGE_DRAFT_ASSEMBLIES = ["pieces", "single"] as const;
+export type FootageDraftAssembly = (typeof FOOTAGE_DRAFT_ASSEMBLIES)[number];
+
+/** How many segments a piece of a `pieces` draft holds by default: one ffmpeg run decodes at most these (and a lead). */
+export const FOOTAGE_DRAFT_PIECE_SEGMENTS = 4;
+/** The CRF of a piece: near transparent, so the join's one encode at the draft's CRF sets the draft's quality. */
+const DRAFT_PIECE_CRF = 16;
+
+/** One piece of a `pieces` draft: a run of whole segments, cut out of a graph that may start one segment earlier. */
+export interface DraftPiece {
+  /** The piece's first and last segment. */
+  first: number;
+  last: number;
+  /**
+   * The segment the piece's graph starts from: `first - 1` when segment `first` starts on a fade or a drawn transition
+   * (its outgoing tail plays under it, as in the one-run draft), `first` otherwise.
+   */
+  from: number;
+  /** The frames of the graph's stream before segment `first`: the lead segment's own, trimmed away. */
+  skipFrames: number;
+  /** The piece's first film frame and its frame count: the pieces cover the cut's frames without a gap. */
+  frame: number;
+  frames: number;
+}
+
+/** The film frame a film second falls on. */
+function toDraftFrame(seconds: number): number {
+  return Math.round(seconds * FOOTAGE_FPS);
+}
+
+/**
+ * The pieces of a `pieces` draft: `segmentsPerPiece` segments each (a positive whole number), the last piece what is
+ * left. Throws on an EDL without segments.
+ */
+export function planFootageDraftPieces(plans: readonly DraftSegmentPlan[], seconds: number, segmentsPerPiece: number = FOOTAGE_DRAFT_PIECE_SEGMENTS): DraftPiece[] {
+  if (!Number.isInteger(segmentsPerPiece) || segmentsPerPiece < 1) throw new Error(`draft.segmentsPerPiece must be a positive whole number, got ${segmentsPerPiece}.`);
+  if (plans.length === 0) throw new Error("The EDL has no segments.");
+  const pieces: DraftPiece[] = [];
+  for (let first = 0; first < plans.length; first += segmentsPerPiece) {
+    const last = Math.min(plans.length, first + segmentsPerPiece) - 1;
+    const plan = plans[first] as DraftSegmentPlan;
+    const from = first > 0 && (plan.fade > 0 || plan.drawn !== null) ? first - 1 : first;
+    const frame = toDraftFrame(plan.start);
+    const next = plans[last + 1];
+    const end = next === undefined ? toDraftFrame(seconds) : toDraftFrame(next.start);
+    pieces.push({ first, last, from, skipFrames: frame - toDraftFrame((plans[from] as DraftSegmentPlan).start), frame, frames: Math.max(1, end - frame) });
+  }
+  return pieces;
+}
+
+export interface FootageDraftPieceArgsInput extends Omit<FootageDraftArgsInput, "speech" | "music" | "mix" | "captions" | "fontsDir"> {
+  piece: DraftPiece;
+}
+
+/**
+ * One piece's ffmpeg arguments: its segments (and a lead segment's tail) as the one-run draft draws them, cut to the
+ * piece's own frames, H.264 without sound or captions. A piece decodes only its own segments, so its memory does not
+ * grow with the cut.
+ */
+export function buildFootageDraftPieceArgs(input: FootageDraftPieceArgsInput): string[] {
+  const { piece } = input;
+  const draft = getFootageDraftFrame(input.frame, input.width);
+  const plans = planFootageDraft(input.film, input.edl, input.overlays ?? []);
+  const threads = getThreadArgs(input.threads, "draft.threads");
+  const full = { ...input, speech: "", captions: null, fontsDir: null };
+  const graph = buildDraftPictureGraph({ input: full, plans, draft, threads, first: piece.from, last: piece.last });
+  const cut = `[${graph.joined}]trim=start_frame=${String(piece.skipFrames)}:end_frame=${String(piece.skipFrames + piece.frames)},setpts=PTS-STARTPTS[picture]`;
+  return [
+    "-v",
+    "error",
+    "-y",
+    ...threads.global,
+    ...graph.inputs,
+    "-filter_complex",
+    [...graph.parts, cut].join(";"),
+    "-map",
+    "[picture]",
+    "-an",
+    "-frames:v",
+    String(piece.frames),
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-crf",
+    String(DRAFT_PIECE_CRF),
+    "-pix_fmt",
+    "yuv420p",
     ...threads.output,
     input.output,
   ];
+}
+
+export interface FootageDraftJoinArgsInput extends Pick<FootageDraftArgsInput, "speech" | "music" | "mix" | "captions" | "fontsDir" | "threads" | "output"> {
+  /** The concat demuxer's list of the pieces (`buildPictureList`). */
+  list: string;
+  /** The cut's length. */
+  seconds: number;
+}
+
+/**
+ * The join of a `pieces` draft: the pieces read one after the other by the concat demuxer (one decoder), the captions
+ * burned in once over the whole film, the sound as the one-run draft takes it, the same encoder and length.
+ */
+export function buildFootageDraftJoinArgs(input: FootageDraftJoinArgsInput): string[] {
+  const threads = getThreadArgs(input.threads, "draft.threads");
+  const sound = getDraftSound(input, 1);
+  const parts = [getCaptionsFilter("0:v", input), ...sound.parts];
+  return ["-v", "error", "-y", ...threads.global, ...threads.output, "-f", "concat", "-safe", "0", "-i", input.list, ...sound.inputs, "-filter_complex", parts.join(";"), ...getDraftOutputArgs({ sound, seconds: input.seconds, threads: threads.output, output: input.output })];
+}
+
+/** The working memory of a draft's ffmpeg run that does not grow with the cut (the encoder, libass, the graph's base). */
+const DRAFT_BASE_MB = 250;
+/** One decoder of a 1080x1920 source with its zoom and frame queues, as measured on a production worker (about 70 MB). */
+const DRAFT_DECODER_MB_AT_1080P = 70;
+const FULL_HD_PIXELS = 1080 * 1920;
+
+export interface FootageDraftMemoryInput {
+  /** The cut's segments; only a split screen's bands count (each opens its own decoder). */
+  edl: { segments: readonly { split?: { bands: readonly unknown[] } | undefined }[] };
+  /** The normalized clips' frame (the film's): a decoder's memory grows with its pixels. */
+  frame: Frame;
+  assembly: FootageDraftAssembly;
+  /** The segments of a piece (`pieces`); default `FOOTAGE_DRAFT_PIECE_SEGMENTS`. */
+  segmentsPerPiece?: number;
+}
+
+/** What a draft's largest ffmpeg run decodes at once, and the working memory that takes by the kit's estimate. */
+export interface FootageDraftMemory {
+  /** The decoders of the largest run: every segment's (three for a split screen) in `single`, a piece's in `pieces`. */
+  decoders: number;
+  /** The estimated peak working memory of that run, in MB (`250 + decoders x 70 x pixels / 1080x1920`). */
+  peakMb: number;
+}
+
+/** The decoders a segment opens: its clip, or a split screen's three bands. */
+function countDecoders(segment: FootageDraftMemoryInput["edl"]["segments"][number]): number {
+  return segment.split === undefined ? 1 : segment.split.bands.length;
+}
+
+/**
+ * The draft's peak memory by the kit's estimate, before it runs: a `single` draft opens every segment's decoder at
+ * once, a `pieces` draft at most one piece's (with a lead segment). An app compares it with its worker's memory limit
+ * and warns before a draft that would not fit.
+ */
+export function estimateFootageDraftMemory(input: FootageDraftMemoryInput): FootageDraftMemory {
+  const segments = input.edl.segments;
+  const per = segments.map(countDecoders);
+  let decoders = per.reduce((sum, count) => sum + count, 0);
+  if (input.assembly === "pieces") {
+    const size = input.segmentsPerPiece ?? FOOTAGE_DRAFT_PIECE_SEGMENTS;
+    if (!Number.isInteger(size) || size < 1) throw new Error(`draft.segmentsPerPiece must be a positive whole number, got ${size}.`);
+    decoders = 0;
+    for (let first = 0; first < per.length; first += size) {
+      // A lead segment is counted whenever there is one before: the estimate does not read transitions.
+      const piece = per.slice(Math.max(0, first - 1), first + size).reduce((sum, count) => sum + count, 0);
+      decoders = Math.max(decoders, piece);
+    }
+  }
+  const decoderMb = (DRAFT_DECODER_MB_AT_1080P * input.frame.width * input.frame.height) / FULL_HD_PIXELS;
+  return { decoders, peakMb: Math.round(DRAFT_BASE_MB + decoders * decoderMb) };
 }
 
 export interface RenderFootageDraftOptions extends Pick<FootageRunOptions, "buildDir" | "log" | "signal" | "onProgress" | "onFfmpegFailure">, Partial<Pick<FootageRunOptions, "cacheDir" | "providers">> {
@@ -787,6 +998,15 @@ export interface RenderFootageDraftOptions extends Pick<FootageRunOptions, "buil
    * own choice, which follows the host's cores. Set it from a CPU-limited container's quota.
    */
   threads?: number;
+  /**
+   * How the picture is assembled. `pieces` (the default): `segmentsPerPiece` segments per ffmpeg run, written to
+   * `<buildDir>/draft/pieces/` and joined with the captions burned in once, so the memory is one piece's whatever the
+   * cut's length; slower. `single`: one ffmpeg run over the whole cut (`buildFootageDraftArgs`), faster, its memory
+   * growing with the number of cuts (`estimateFootageDraftMemory`).
+   */
+  assembly?: FootageDraftAssembly;
+  /** The segments of a piece in `pieces`; default `FOOTAGE_DRAFT_PIECE_SEGMENTS`. A positive whole number. */
+  segmentsPerPiece?: number;
 }
 
 /** The draft's music: the film has none, it played (a file, or generated music from the cache), or it is not cached yet. */
@@ -799,6 +1019,9 @@ export interface FootageDraft {
   captionFont: string | null;
   /** The draft's length: the cut's. */
   seconds: number;
+  /** How the picture was assembled, and in how many pieces (1 for `single`). */
+  assembly: FootageDraftAssembly;
+  pieces: number;
   width: number;
   height: number;
   bytes: number;
@@ -839,8 +1062,9 @@ async function findDraftMusic(film: FootageFilm, edl: Edl, clips: PreparedClip[]
 
 /**
  * Makes the draft of a cut film: the speech track, the ducked music track (when it costs nothing), the captions file
- * and its font in `<buildDir>/draft/`, then one ffmpeg run (`buildFootageDraftArgs`). Spends nothing: no provider is
- * called; takes the same clips, transcript and EDL as `renderFootage`.
+ * and its font in `<buildDir>/draft/`, then the picture: in pieces joined with the captions (`assembly: "pieces"`, the
+ * default, memory bounded by one piece) or in one ffmpeg run (`"single"`, `buildFootageDraftArgs`). Spends nothing: no
+ * provider is called; takes the same clips, transcript and EDL as `renderFootage`.
  */
 export function renderFootageDraft(film: FootageFilm, clips: PreparedClip[], transcript: Extract<TranscribeOutcome, { kind: "ready" }>, edl: Edl, options: RenderFootageDraftOptions): Promise<FootageResult<FootageDraft>> {
   return withFfmpegFailureReporting(getFfmpegReporting(options), () => runRenderFootageDraft(film, clips, transcript, edl, options));
@@ -969,24 +1193,25 @@ async function runRenderFootageDraft(
   }
   report("film", 0);
   const splitLayers = writeSplitLayers(edl.segments, getFootageDraftFrame(frame, options.width), draftDir, true);
+  const assembly = options.assembly ?? "pieces";
   // Run in the draft folder: the captions file and the font folder are relative names, so no path needs escaping in the filter graph.
-  const args = buildFootageDraftArgs({
+  const picture = {
     film,
     edl,
     clips: clipFiles,
-    speech: speechFile,
-    music: musicFile,
-    mix: prepared?.audioFile ?? null,
     frame,
     ...(options.width === undefined ? {} : { width: options.width }),
     ...(options.threads === undefined ? {} : { threads: options.threads }),
-    captions: captions === null ? null : "captions.ass",
     ...(overlays.length === 0 ? {} : { overlays }),
-    fontsDir: captions === null ? null : "fonts",
     ...(Object.keys(splitLayers).length === 0 ? {} : { splitLayers }),
-    output,
-  });
-  await runFfmpeg("The footage draft", args, { ...aborting, output, cwd: draftDir, onSeconds: (done) => report("film", done) });
+  };
+  const sound = { speech: speechFile, music: musicFile, mix: prepared?.audioFile ?? null, captions: captions === null ? null : "captions.ass", fontsDir: captions === null ? null : "fonts" };
+  let pieceCount = 1;
+  if (assembly === "single") {
+    await runFfmpeg("The footage draft", buildFootageDraftArgs({ ...picture, ...sound, output }), { ...aborting, output, cwd: draftDir, onSeconds: (done) => report("film", done) });
+  } else {
+    pieceCount = await assembleDraftInPieces({ picture, sound, seconds, draftDir, output, aborting, segmentsPerPiece: options.segmentsPerPiece, onSeconds: (done) => report("film", done) });
+  }
   const measured = await measureDraftLoudness(output, mixLoudness, prepared !== null, aborting);
   if (!measured.ok) return measured;
   const draftLoudness = measured.value;
@@ -1005,6 +1230,8 @@ async function runRenderFootageDraft(
     music: draftMusic,
     captionFont: captions === null ? null : font.family,
     seconds,
+    assembly,
+    pieces: pieceCount,
     width: draft.width,
     height: draft.height,
     bytes,
@@ -1012,6 +1239,57 @@ async function runRenderFootageDraft(
     loudness: draftLoudness,
     mix: prepared?.mix ?? null,
   });
+}
+
+interface PiecesRun {
+  picture: Omit<FootageDraftPieceArgsInput, "piece" | "output">;
+  sound: Pick<FootageDraftArgsInput, "speech" | "music" | "mix" | "captions" | "fontsDir">;
+  seconds: number;
+  draftDir: string;
+  output: string;
+  aborting: { signal?: AbortSignal };
+  segmentsPerPiece: number | undefined;
+  /** Seconds of the film done: the pieces take the first 80 %, the join the rest. */
+  onSeconds: (seconds: number) => void;
+}
+
+/** The share of the film step the pieces take; the join takes the rest. */
+const PIECES_SHARE = 0.8;
+
+/**
+ * Draws the picture piece by piece into `<draftDir>/pieces/` (one ffmpeg at a time), then joins the pieces with the
+ * captions and the sound into `output`. The pieces are removed after the join; a failed run leaves them for its
+ * snapshot. Answers the number of pieces.
+ */
+async function assembleDraftInPieces(run: PiecesRun): Promise<number> {
+  const { picture, aborting, draftDir } = run;
+  const plans = planFootageDraft(picture.film, picture.edl, picture.overlays ?? []);
+  const pieces = planFootageDraftPieces(plans, run.seconds, run.segmentsPerPiece);
+  const piecesDir = join(draftDir, "pieces");
+  mkdirSync(piecesDir, { recursive: true });
+  const files: string[] = [];
+  for (const [index, piece] of pieces.entries()) {
+    const name = `piece-${String(index).padStart(4, "0")}.mp4`;
+    const file = join(piecesDir, name);
+    const at = piece.frame / FOOTAGE_FPS;
+    await runFfmpeg(`The footage draft's piece ${String(index + 1)} of ${String(pieces.length)}`, buildFootageDraftPieceArgs({ ...picture, piece, output: join("pieces", name) }), {
+      ...aborting,
+      output: file,
+      cwd: draftDir,
+      onSeconds: (done) => run.onSeconds(Math.min(run.seconds, at + done) * PIECES_SHARE),
+    });
+    files.push(name);
+  }
+  const list = join(piecesDir, "pieces.txt");
+  writeFileSync(list, buildPictureList(files));
+  await runFfmpeg("The footage draft's join", buildFootageDraftJoinArgs({ ...run.sound, list: join("pieces", "pieces.txt"), seconds: run.seconds, ...(picture.threads === undefined ? {} : { threads: picture.threads }), output: run.output }), {
+    ...aborting,
+    output: run.output,
+    cwd: draftDir,
+    onSeconds: (done) => run.onSeconds(run.seconds * PIECES_SHARE + Math.min(run.seconds, done) * (1 - PIECES_SHARE)),
+  });
+  rmSync(piecesDir, { recursive: true, force: true });
+  return pieces.length;
 }
 
 /**
