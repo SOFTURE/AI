@@ -10,14 +10,21 @@ const bridge = readFileSync(new URL("../src/sft-bridge.css", import.meta.url), "
 // The token families the bridge re-points; spacing, text sizes, motion and chart tokens stay the package's.
 const BRIDGED_FAMILY = /^(color|font|radius|shadow)-/;
 
-function readFrameBlock(): Map<string, string> {
-  const start = bridge.indexOf("[data-page-frame] {");
-  if (start === -1) throw new Error("sft-bridge.css has no [data-page-frame] block");
-  const block = bridge.slice(start, bridge.indexOf("\n  }", start));
-  return new Map([...block.matchAll(/^\s*(--[\w-]+):\s*([^;]+);/gm)].map((match): [string, string] => [match[1] ?? "", match[2] ?? ""]));
+/** The bridge without its comments. */
+const rules = bridge.replace(/\/\*[\s\S]*?\*\//g, "");
+
+/** The scopes the aliases are declared on, in the order of the selector list. */
+const ALIAS_SCOPES = [":root", ".light", ".dark", "[data-theme]", "[data-page-frame]"];
+
+function readAliasBlock(): { selectors: string[]; aliases: Map<string, string>; offset: number } {
+  const match = /(^|\n)([^{}@]+)\{([^{}]*--sft-[^{}]*)\}/.exec(rules);
+  if (match === null) throw new Error("sft-bridge.css has no block of --sft-* aliases");
+  const selectors = (match[2] ?? "").split(",").map((selector) => selector.trim());
+  const aliases = new Map([...(match[3] ?? "").matchAll(/^\s*(--[\w-]+):\s*([^;]+);/gm)].map((entry): [string, string] => [entry[1] ?? "", entry[2] ?? ""]));
+  return { selectors, aliases, offset: match.index };
 }
 
-const frame = readFrameBlock();
+const { selectors, aliases: frame, offset } = readAliasBlock();
 
 /** Every `--name` the Notion theme defines, as a scheme variable or as a Tailwind theme value. */
 const NOTION_VARIABLES = new Set([
@@ -28,6 +35,21 @@ const NOTION_VARIABLES = new Set([
 ]);
 
 describe("sft-bridge.css", () => {
+  it("re-points the tokens on every scheme scope, so ui components outside a PageFrame take the theme too (#1260)", () => {
+    expect(selectors).toEqual(ALIAS_SCOPES);
+  });
+
+  it("declares the aliases outside every @layer, so they beat ui's defaults in @layer softure on the same element", () => {
+    const before = rules.slice(0, offset);
+    const opened = (before.match(/\{/g) ?? []).length;
+    const closed = (before.match(/\}/g) ?? []).length;
+    expect(opened - closed).toBe(0);
+  });
+
+  it("keeps the PageFrame body rule in @layer base", () => {
+    expect(rules).toMatch(/@layer base \{\s*body:has\(\[data-page-frame\]\) \{\s*margin: 0;\s*background-color: var\(--background\);\s*\}\s*\}/);
+  });
+
   it("re-points every colour, font, radius and shadow token of @softure-ai/ui", () => {
     const bridged = [...SCHEME_TOKENS, ...SHARED_TOKENS].filter((name) => BRIDGED_FAMILY.test(name)).map((name) => `--sft-${name}`);
     expect(bridged.length).toBeGreaterThan(20);
