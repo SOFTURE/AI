@@ -1,4 +1,0 @@
-# test list
-ada@example.org
-bob@example.org
-cy@example.org
