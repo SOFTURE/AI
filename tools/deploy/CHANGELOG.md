@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.7.1
+
+- **Cloudflare Workers as a host (RP-8, docs/07-runtime-providers.md):** `init --host=cloudflare --domain=<host>`
+  writes `wrangler.jsonc` (`nodejs_compat`, the custom domain, OpenNext's assets, Smart Placement or
+  `--placement-region`, the Hyperdrive binding with `--hyperdrive-id`, the jobs Cron Trigger, `secrets.required` from
+  `--env`), `open-next.config.ts`, a `worker.ts` that runs OpenNext's handler inside the request database and the jobs
+  tick, the migrate script, a caller workflow and `deploy.json`. Every VPS flag is refused with it, and `--image` is
+  required only on a VPS.
+- **The `deploy-cloudflare` action** (`SOFTURE/AI/.github/actions/deploy-cloudflare`) checks the inputs and that the
+  tag's commit is on the release branch, builds, migrates from the runner with the direct database URL, deploys the
+  Worker with its secrets as one version (`wrangler deploy --secrets-file`, a mode-600 file removed in every case),
+  verifies with `deploy.json`, runs `wrangler rollback` after a red verify and writes the `deploy-report` artifact
+  `deploy-report.yml` reads. The VPS files and the deploy action are unchanged.
+
 ## 0.7.0
 
 - **Encrypted off-site copies of the nightly backup (#1210):** with a database, `maintain` runs the new step

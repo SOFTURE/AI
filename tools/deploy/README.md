@@ -1324,6 +1324,43 @@ The build needs the registry and Alpine's package mirror once; a Postgres major 
 build, and with it the backup step, before anything restarts. CI generates the files for the example app, staged as a
 standalone app, and builds its image from the generated `Dockerfile` (`npm run e2e:deploy-init`).
 
+### On Cloudflare Workers (`--host=cloudflare`)
+
+`init --host=cloudflare --domain=<host>` writes a Worker instead of a server ([docs/07](../../docs/07-runtime-providers.md)):
+
+| File | What it holds |
+| --- | --- |
+| `wrangler.jsonc` | `nodejs_compat`, the custom domain, OpenNext's assets, Smart Placement (or `--placement-region=aws:eu-central-1`), the Hyperdrive binding `HYPERDRIVE` (`--hyperdrive-id`, a placeholder until set) with a database, the Cron Trigger `* * * * *` with jobs, `APP_ORIGIN`, and `secrets.required` from `--env` |
+| `open-next.config.ts` | the OpenNext build (`npx opennextjs-cloudflare build`) |
+| `worker.ts` | with a database: OpenNext's `fetch` inside `withRequestDatabase` on the Hyperdrive URL, and `scheduled` from `createScheduledHandler` with jobs |
+| `scripts/migrate.ts` | with a database: the migration, run on the runner against the direct URL |
+| `.github/workflows/deploy.yml` | a published release (or "Run workflow" with a tag) checks out the tag, runs `npm ci` and the `deploy-cloudflare` action from the `production` environment on `ubuntu-latest`, then `deploy-report.yml` |
+| `deploy.json` | the verify routes, as on a VPS |
+
+Every VPS flag (`--image`, `--edge`, `--tunnel`, `--cdn`, `--acme-email`, `--www`, `--paths`, `--tables`,
+`--report-role`, `--worker-*`, `--data-volume`) is refused with `--host=cloudflare`; `--hyperdrive-id` and
+`--placement-region` are refused without it. `init` prints the steps it cannot do: the devDependencies
+(`@opennextjs/cloudflare`, `wrangler`), `platform: { host: "cloudflare" }`, the `CLOUDFLARE_API_TOKEN` secret and
+`CLOUDFLARE_ACCOUNT_ID` variable of the environment, the Hyperdrive configuration, `MIGRATE_DATABASE_URL` and each
+`--env` secret.
+
+The action [`.github/actions/deploy-cloudflare`](../../.github/actions/deploy-cloudflare/action.yml) runs, in order:
+
+1. checks the inputs, each secret name (present in the step's `env:`, not reserved) and the tag: the checkout is the
+   tag's commit and that commit is on the release branch;
+2. builds (`build-command`, default `npx opennextjs-cloudflare build`) and migrates with `DATABASE_URL` set to
+   `migrate-database-url` (`migrate-command`, default `npx --yes tsx scripts/migrate.ts`; skipped without a URL);
+3. `wrangler deploy --secrets-file`: the listed secrets, written to a mode-600 file under `RUNNER_TEMP` and removed in
+   every case, go up with the code as one version, so no deployment runs old code with new secrets;
+4. `softure-deploy verify <app-url> --config=deploy.json`;
+5. after a red verify, `wrangler rollback`: the previous version, code and secrets, serves again and the job stays red
+   (the database is not rolled back: migrations move forward only);
+6. the `deploy-report` artifact in the VPS shape (`image` is `worker@<version id>`, server lines `step|migrate|ok`,
+   `step|deploy|ok|<version>`, `step|rollback|ok`, `result|…`), so the release report works unchanged.
+
+Moving an app between hosts is `init --host=… --force` plus `platform.host` in `softure.config`; the database moves
+with `pg_dump`/`pg_restore` (the backup package's restore), and every package keeps its behaviour on both.
+
 ## Integration run
 
 The remote integration run of the SOFTURE skills: `wt-integration.sh` (`softure-worktree`, `softure-worktree-manager`)

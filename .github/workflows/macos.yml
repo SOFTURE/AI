@@ -17,6 +17,7 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "tests/repo/deploy-workflows.test.ts"
+      - "tests/repo/deploy-cloudflare-action.test.ts"
       - "tests/repo/repo-files.ts"
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "tests/repo/deploy-workflows.test.ts"
+      - "tests/repo/deploy-cloudflare-action.test.ts"
       - "tests/repo/repo-files.ts"
   schedule:
     - cron: "0 6 * * 1"
@@ -54,4 +56,4 @@ jobs:
           export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
           bash --version | head -n 1
           tar --version | head -n 1
-          npx vitest run tools/deploy/tests tests/repo/deploy-workflows.test.ts
+          npx vitest run tools/deploy/tests tests/repo/deploy-workflows.test.ts tests/repo/deploy-cloudflare-action.test.ts

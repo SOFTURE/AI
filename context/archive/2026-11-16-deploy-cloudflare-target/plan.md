@@ -60,6 +60,6 @@ work unchanged.
 
 ## Progress
 
-- [ ] Phase 1: init --host=cloudflare
-- [ ] Phase 2: the deploy-cloudflare action
-- [ ] Phase 3: docs and release
+- [x] Phase 1: init --host=cloudflare (c294191; `tools/deploy/tests/init-cloudflare.test.ts`, 19 passed)
+- [x] Phase 2: the deploy-cloudflare action (`tests/repo/deploy-cloudflare-action.test.ts`, 27 passed; added to macos.yml)
+- [x] Phase 3: docs and release (README "On Cloudflare Workers", docs/07, CHANGELOG 0.7.1, workflow CLI defaults 0.7.1)
