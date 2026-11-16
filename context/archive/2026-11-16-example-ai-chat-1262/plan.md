@@ -46,6 +46,9 @@ Example README "What is in it" row; the package description lists llm.
 
 ## Decisions (auto)
 
+- `tests/repo/ci-affected.test.ts` used llm as the package no area reaches; the example now installs llm, so the
+  test takes speech instead.
+
 - Page under `/account/chat`, so the existing guard covers it; no proxy change.
 - Scenario picked from the last user message text, documented in `lib/chat/llm.ts` as test scaffolding: a real app
   passes its provider's model.
@@ -58,10 +61,10 @@ Example README "What is in it" row; the package description lists llm.
 ### Phase 1: chat route, page and e2e
 
 #### Automated
-- [ ] 1.1 `e2e/chat.spec.ts` passes on `next build` + `next start`
-- [ ] 1.2 Example `tsc --noEmit` and root gates green (typecheck, lint, test)
+- [x] 1.1 `e2e/chat.spec.ts` passes on `next build` + `next start` — 44c4ff5
+- [x] 1.2 Example `tsc --noEmit` and root gates green (typecheck, lint, test) — 44c4ff5
 
 ### Phase 2: docs
 
 #### Automated
-- [ ] 2.1 README row and description; markdown link test green
+- [x] 2.1 README row and description; markdown link test green — 1cb2128

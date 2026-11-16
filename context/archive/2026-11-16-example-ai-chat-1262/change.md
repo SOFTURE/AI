@@ -1,13 +1,13 @@
 ---
 change_id: example-ai-chat-1262
 title: "example: AI chat route on llm.streamChat and ui's chat primitives (issue #1262)"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 1262
 branch: claude/project-thread-tcfi2m
 created: 2026-11-16
 updated: 2026-11-16
-archived_at: null
+archived_at: 2026-11-16
 ---
 
 ## Intent
@@ -36,3 +36,10 @@ primitives and do not touch the example; this change does not depend on them.
 ## Notes
 
 - Framing: skipped. The concept check #1248 framed the problem; the issue names the outcome.
+
+## Done
+
+- `examples/next-app`: `/account/chat` (AI SDK UI `useChat` on ui's chat primitives, a tool registry) and
+  `POST /api/chat` (session, rate limit, body limit, `safeValidateUIMessages`, `llm.streamChat` on a scripted
+  `fakeChatModel`), with `e2e/chat.spec.ts` covering streaming, the tool card, Stop, Retry and refused bodies. No
+  package changes; nothing to release.
