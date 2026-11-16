@@ -405,6 +405,45 @@ export async function createServer({ userId, canWrite, tokenId }: McpServerIdent
 }
 ```
 
+### Interactive views: MCP Apps
+
+A host that supports MCP Apps (the `io.modelcontextprotocol/ui` extension: Claude, ChatGPT, VS Code) renders an HTML
+page next to a tool's answer, in a sandboxed iframe. The tool names a `ui://` resource in its `_meta`; the page gets
+the tool's input and result over `postMessage`, and can call the server's tools itself. A host without the extension
+ignores both and shows the text answer as before.
+
+```ts
+import { appToolMeta, registerAppResource, renderAppDocument } from "@softure-ai/mcp-access/server";
+
+const OVERVIEW = "ui://acme/overview.html";
+registerAppResource(server, {
+  name: "overview",
+  uri: OVERVIEW,
+  html: renderAppDocument({
+    title: "Overview",
+    styles: "body { font: 14px system-ui; }",
+    body: '<main id="root">Loading…</main>',
+    script: `mcpApp.onToolResult((data) => { document.getElementById("root").textContent = data.total; });`,
+  }),
+});
+server.registerTool("get_overview", { description: "The overview.", _meta: appToolMeta(OVERVIEW) }, handler);
+```
+
+- `appToolMeta(uri, { visibility? })`: the tool's `_meta`, with `ui.resourceUri` and the legacy `ui/resourceUri`.
+  `visibility: ["app"]` keeps a helper tool for the page only.
+- `registerAppResource(server, { name, uri, html, title?, description?, csp?, prefersBorder? })`: the page as a
+  resource with the MIME type `text/html;profile=mcp-app` (`MCP_APP_MIME_TYPE`). `html` may be a function. Without
+  `csp` the host lets the page reach no origin, so keep it self-contained (inline styles and script).
+- `renderAppDocument({ title, lang?, styles?, body, script? })`: one self-contained page with the bridge
+  (`MCP_APP_BRIDGE_SCRIPT`) inlined before the app's script; `</script>` inside inline code is escaped.
+- The bridge defines `window.mcpApp`: `onToolInput(fn)`, `onToolResult(fn(data, result))` (`data` is
+  `structuredContent`, else the text read as JSON, `null` for an error), `onHostContext(fn)`, `callTool(name, args)`
+  (resolves `{ data, result }`, rejects with the tool's error text), `sendMessage(text)`, `openLink(url)` and
+  `ready`. It sets `data-theme` and `color-scheme` on `<html>` from the host's theme, applies the host's style
+  variables and reports the page's height. Messages from anything but the parent window are ignored.
+- A tool answered with `withToolErrors` (JSON text) works unchanged: the bridge reads the JSON. The page's tool calls
+  go through the same endpoint, token and scopes as the assistant's.
+
 ### Long operations: start, status, cancel
 
 A tool whose work takes minutes (a render, an import) cannot hold the call open: the endpoint answers in JSON mode
