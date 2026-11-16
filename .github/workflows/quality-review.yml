@@ -13,6 +13,11 @@
 #   head of the base branch each run (the branch belongs to this workflow and is replaced), and opens or updates one
 #   pull request into the base branch. It never pushes to the base branch.
 #
+# `focus: security` runs the end-to-end security prompt instead of the general one (issue #1289); `scope` reviews one
+# folder or workspace package with the whole budget, `paths` limits the reported findings to globs. A focused or scoped
+# run gets its own report path and report branch (`quality-review/security`, `quality-review/<scope-slug>`), so several
+# can be open at once.
+#
 # The CLI and the Agent SDK come from npm at the exact versions of `cli-version` and `agent-sdk-version`.
 
 name: quality-review
@@ -32,14 +37,26 @@ on:
         description: Hard cost cap of one run in USD; the run stops when it is reached and the report says so
         type: string
         default: "10"
+      focus:
+        description: What the review looks for, general (the breadth review) or security (threat scenarios traced end to end)
+        type: string
+        default: general
+      scope:
+        description: One folder (modules/auth) or workspace package (@scope/name) to review; empty reviews the whole repository
+        type: string
+        default: ""
+      paths:
+        description: Repository-relative globs, comma or space separated; findings outside them are dropped. Empty keeps every finding
+        type: string
+        default: ""
       report-path:
-        description: Where the report goes, relative to the repository root
+        description: Where the report goes, relative to the repository root; empty means QUALITY-REPORT.md, or <scope>/QUALITY-REPORT.md with a scope
         type: string
-        default: QUALITY-REPORT.md
+        default: ""
       branch:
-        description: The branch the report is committed to; replaced on every run, never the base branch
+        description: The branch the report is committed to, replaced on every run and never the base branch; empty means quality-review, plus /security and /<scope-slug> when set
         type: string
-        default: quality-review
+        default: ""
       base-branch:
         description: The branch the pull request goes into; empty means the repository's default branch
         type: string
@@ -65,7 +82,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: quality-review-${{ github.repository }}
+  group: quality-review-${{ github.repository }}-${{ inputs.focus }}-${{ inputs.scope }}-${{ inputs.branch }}
   cancel-in-progress: false
 
 jobs:
@@ -77,6 +94,10 @@ jobs:
       contents: read
     outputs:
       commit: ${{ steps.review.outputs.commit }}
+      report-path: ${{ steps.resolve.outputs.report-path }}
+      branch: ${{ steps.resolve.outputs.branch }}
+      focus: ${{ steps.resolve.outputs.focus }}
+      scope-folder: ${{ steps.resolve.outputs.scope-folder }}
     steps:
       - name: Check the runner
         env:
@@ -106,6 +127,9 @@ jobs:
         env:
           MODEL: ${{ inputs.model }}
           BUDGET: ${{ inputs.max-budget-usd }}
+          FOCUS: ${{ inputs.focus }}
+          SCOPE: ${{ inputs.scope }}
+          PATHS: ${{ inputs.paths }}
           REPORT_PATH: ${{ inputs.report-path }}
           BRANCH: ${{ inputs.branch }}
           BASE_BRANCH: ${{ inputs.base-branch }}
@@ -116,10 +140,17 @@ jobs:
           reject() { echo "::error::Input $1 is not valid: $2"; failures=$((failures + 1)); }
           if [[ ! "$MODEL" =~ ^[a-z0-9][a-z0-9.-]*$ ]]; then reject model "a model id such as claude-opus-5-5"; fi
           if [[ ! "$BUDGET" =~ ^[0-9]+(\.[0-9]+)?$ ]] || [[ "$BUDGET" =~ ^0+(\.0+)?$ ]]; then reject max-budget-usd "a number of USD above 0"; fi
-          if [[ ! "$REPORT_PATH" =~ ^[A-Za-z0-9_][A-Za-z0-9_./-]*\.md$ ]] || [[ "$REPORT_PATH" == *..* ]]; then
-            reject report-path "a Markdown file inside the repository, such as QUALITY-REPORT.md"
+          if [ "$FOCUS" != general ] && [ "$FOCUS" != security ]; then reject focus "general or security"; fi
+          if [ -n "$SCOPE" ] && { [[ ! "$SCOPE" =~ ^(@[a-z0-9][a-z0-9._-]*/)?[A-Za-z0-9_][A-Za-z0-9_./-]*$ ]] || [[ "$SCOPE" == *..* ]]; }; then
+            reject scope "a folder relative to the repository root (modules/auth) or a workspace package name (@scope/name)"
           fi
-          if [[ ! "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || [[ "$BRANCH" == *..* ]]; then reject branch "a branch name"; fi
+          if [[ ! "$PATHS" =~ ^[A-Za-z0-9_./*?{},[:space:]-]*$ ]] || [[ "$PATHS" == *..* ]]; then
+            reject paths "repository-relative globs separated by commas or spaces, such as modules/auth/**, src/webhooks/**"
+          fi
+          if [ -n "$REPORT_PATH" ] && { [[ ! "$REPORT_PATH" =~ ^[A-Za-z0-9_][A-Za-z0-9_./-]*\.md$ ]] || [[ "$REPORT_PATH" == *..* ]]; }; then
+            reject report-path "a Markdown file inside the repository, such as QUALITY-REPORT.md, or empty"
+          fi
+          if [ -n "$BRANCH" ] && { [[ ! "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || [[ "$BRANCH" == *..* ]]; }; then reject branch "a branch name, or empty"; fi
           if [ -n "$BASE_BRANCH" ] && { [[ ! "$BASE_BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || [[ "$BASE_BRANCH" == *..* ]]; }; then
             reject base-branch "a branch name, or empty for the default branch"
           fi
@@ -144,18 +175,39 @@ jobs:
           printf '{"private":true}\n' > package.json
           npm install --no-audit --no-fund --save-exact \
             "@softure-ai/quality-review@$CLI_VERSION" "@anthropic-ai/claude-agent-sdk@$SDK_VERSION"
+      # The scope is resolved (a folder or a workspace package) before any model call; an unknown one fails here.
+      - id: resolve
+        name: Resolve the scope, the report path and the branch
+        env:
+          FOCUS: ${{ inputs.focus }}
+          SCOPE: ${{ inputs.scope }}
+          REPORT_PATH: ${{ inputs.report-path }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          set -euo pipefail
+          resolved="$("$RUNNER_TEMP/quality-review/node_modules/.bin/softure-quality-review" resolve --repo . \
+            --focus "$FOCUS" --scope "$SCOPE" --out "$REPORT_PATH")"
+          echo "$resolved" >> "$GITHUB_OUTPUT"
+          suffix="$(echo "$resolved" | sed -n 's/^branch-suffix=//p')"
+          if [ -z "$BRANCH" ]; then
+            BRANCH="quality-review${suffix:+/$suffix}"
+          fi
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
       - id: review
         name: Review the repository
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MODEL: ${{ inputs.model }}
           BUDGET: ${{ inputs.max-budget-usd }}
-          REPORT_PATH: ${{ inputs.report-path }}
+          FOCUS: ${{ inputs.focus }}
+          SCOPE: ${{ inputs.scope }}
+          PATHS: ${{ inputs.paths }}
+          REPORT_PATH: ${{ steps.resolve.outputs.report-path }}
         run: |
           commit="$(git rev-parse HEAD)"
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
           "$RUNNER_TEMP/quality-review/node_modules/.bin/softure-quality-review" run --repo . --out "$REPORT_PATH" \
-            --model "$MODEL" --max-budget-usd "$BUDGET" --commit "$commit"
+            --model "$MODEL" --max-budget-usd "$BUDGET" --commit "$commit" --focus "$FOCUS" --scope "$SCOPE" --paths "$PATHS"
           "$RUNNER_TEMP/quality-review/node_modules/.bin/softure-quality-review" check "$REPORT_PATH"
           {
             echo "## Quality review"
@@ -165,7 +217,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: quality-report
-          path: ${{ inputs.report-path }}
+          path: ${{ steps.resolve.outputs.report-path }}
           if-no-files-found: error
           retention-days: 7
 
@@ -255,7 +307,7 @@ jobs:
         env:
           BASE_BRANCH: ${{ inputs.base-branch }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          BRANCH: ${{ inputs.branch }}
+          BRANCH: ${{ needs.review.outputs.branch }}
         run: |
           base="${BASE_BRANCH:-$DEFAULT_BRANCH}"
           if [ -z "$base" ]; then
@@ -278,13 +330,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BASE: ${{ steps.base.outputs.branch }}
-          BRANCH: ${{ inputs.branch }}
-          REPORT_PATH: ${{ inputs.report-path }}
+          BRANCH: ${{ needs.review.outputs.branch }}
+          REPORT_PATH: ${{ needs.review.outputs.report-path }}
           COMMIT: ${{ needs.review.outputs.commit }}
+          FOCUS: ${{ needs.review.outputs.focus }}
+          SCOPE_FOLDER: ${{ needs.review.outputs.scope-folder }}
         run: |
           set -euo pipefail
           report="$RUNNER_TEMP/quality-report/$(basename "$REPORT_PATH")"
           short="${COMMIT:0:8}"
+          kind="quality"
+          title_kind="Quality"
+          if [ "$FOCUS" = security ]; then kind="security" title_kind="Security"; fi
+          what="whole repository"
+          if [ -n "$SCOPE_FOLDER" ]; then what="\`$SCOPE_FOLDER\`"; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # The report branch is this workflow's own: cut fresh from the base branch and replaced on every run.
@@ -292,17 +351,17 @@ jobs:
           mkdir -p "$(dirname "$REPORT_PATH")"
           cp "$report" "$REPORT_PATH"
           git add -- "$REPORT_PATH"
-          git commit -q -m "docs(quality): quality report of $short"
+          git commit -q -m "docs(quality): $kind report of $short${SCOPE_FOLDER:+ ($SCOPE_FOLDER)}"
           git push --force origin "HEAD:refs/heads/$BRANCH"
           body="$RUNNER_TEMP/pull-request-body.md"
           {
-            echo "The quality review of \`$short\` (whole repository, read-only agent). This report replaces the previous one entirely."
+            echo "The $kind review of \`$short\` ($what, read-only agent). This report replaces the previous one entirely."
             echo ""
             sed -n '/^| Field | Value |$/,/^$/p' "$REPORT_PATH"
             echo "Triage: @softure-ai/quality-review README, \"Triage the report\". Accepted exceptions go to quality-review.ignore."
           } > "$body"
           number="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')"
-          title="Quality report of $short"
+          title="$title_kind report of $short${SCOPE_FOLDER:+ ($SCOPE_FOLDER)}"
           if [ -n "$number" ]; then
             gh pr edit "$number" --repo "$GITHUB_REPOSITORY" --title "$title" --body-file "$body"
             url="$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json url --jq .url)"

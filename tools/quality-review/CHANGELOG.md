@@ -4,6 +4,26 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 `quality-review.yml` workflow. When an app has run a version in production, the version gets a line
 `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md), "Definition of done").
 
+## 0.2.0
+
+- `focus` (#1289): `general` (default, unchanged) or `security`, a second shipped prompt
+  (`prompt/security-review.md`) that traces threat scenarios end to end (sign-in and sessions, OAuth 2.1, MCP and API
+  token scope, inbound webhooks, command execution and SSH, SSRF, CSRF, rate limits, secrets) and names the attack
+  path of each finding. New `security` rules: `auth-session`, `oauth-flow`, `token-scope`, `webhook-verification`,
+  `command-injection`, `ssrf`, `csrf`, `rate-limit`.
+- `scope`: one folder or workspace package by name. Findings only inside it, its local context (`AGENTS.md` on the
+  path, `README.md`, `package.json`, `CHANGELOG.md`, tests) leads the task, the report goes to
+  `<scope>/QUALITY-REPORT.md`, and `<scope>/quality-review.ignore` holds its own exceptions. An unknown scope fails
+  before any model call.
+- `paths`: globs; findings outside them are dropped.
+- The report header gains `Focus`, `Scope` and `Paths` when set; `check` accepts both kinds. A general
+  whole-repository run keeps its prompt, task and report exactly.
+- CLI `resolve` prints the report path and branch suffix. The reusable workflow takes `focus`, `scope` and `paths`;
+  `report-path` and `branch` default to empty and resolve per focus and scope (`quality-review/security`,
+  `quality-review/<scope-slug>`), so several runs can be open at once. New example
+  `examples/quality-review-matrix.yml`.
+- Adoption: nothing to change; pass the new inputs to use them.
+
 ## 0.1.1
 
 - The reusable workflow installs this version by default (`cli-version`). The first release published through the
