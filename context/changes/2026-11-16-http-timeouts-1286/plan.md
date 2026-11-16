@@ -25,3 +25,4 @@ Files: `foundation/core/src/og/og-fonts.ts`, `foundation/observability/src/node/
 - One option name, `timeoutMs`, as in `foundation/core`'s HTTP helpers.
 
 ## Progress
+- [x] Phase 1: d75491f (`npx vitest run foundation/core foundation/observability tools/host modules/agent-ready`: 1010 passed; the 5 new tests failed on master)
