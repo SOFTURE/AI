@@ -4,10 +4,8 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import { cn } from "../lib/utils.js";
 
-import { clampSize } from "./clamp-size.js";
+import { clampSize, RESIZE_HANDLE_STEP } from "./clamp-size.js";
 
-/** The keyboard step of an arrow key, in pixels; Shift takes four of them. */
-export const RESIZE_HANDLE_STEP = 16;
 const LARGE_STEP_FACTOR = 4;
 
 export interface ResizeHandleProps {

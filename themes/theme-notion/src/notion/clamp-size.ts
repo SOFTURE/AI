@@ -1,3 +1,6 @@
+/** A `ResizeHandle`'s keyboard step for an arrow key, in pixels; Shift takes four of them. */
+export const RESIZE_HANDLE_STEP = 16;
+
 /**
  * `value` rounded and kept within `min` and `max`; a value that is not a finite number falls back to `fallback` (itself
  * kept within the limits). Plain module, so a Server Component can read a kept width with it (#1311).
