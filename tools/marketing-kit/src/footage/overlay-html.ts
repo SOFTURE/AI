@@ -485,7 +485,9 @@ function getCardBody(overlay: CardOverlay, id: string, colors: OverlayColors, lo
     };
   }
   if (overlay.kind === "place_card") {
-    const subtitle = overlay.subtitle === null ? "" : `<div class="ov-sub" style="font-size:${overlay.subtitleFontSize}px">${escapeHtml(overlay.subtitle)}</div>`;
+    // A wrapped subtitle breaks between its lines (RV-184 of an adopting app); the card's line height spaces them.
+    const subtitleHtml = (overlay.subtitleLines ?? (overlay.subtitle === null ? [] : [overlay.subtitle])).map((line) => escapeHtml(line)).join("<br>");
+    const subtitle = overlay.subtitle === null ? "" : `<div class="ov-sub" style="font-size:${overlay.subtitleFontSize}px">${subtitleHtml}</div>`;
     const lines = overlay.lines.map((line) => `<div class="ov-line">${typedOrPlain(line)}</div>`).join("");
     const pinSize = getPlaceCardPinSize(overlay.fontSize);
     const pin = overlay.pin === undefined ? "" : `<div class="ov-pinrow" id="${id}p" style="height:${getPlaceCardPinRow(overlay.fontSize)}px">${getPinSvg(colors.accent).replace('class="ov-pin"', `class="ov-pin" style="width:${pinSize}px;height:${pinSize}px"`)}</div>`;

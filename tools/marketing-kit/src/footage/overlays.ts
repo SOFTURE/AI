@@ -235,6 +235,11 @@ export type ResolvedOverlay =
       pin?: "static" | "drop";
       /** Seconds its subtitle waits after its title (`style.subtitle_delay`); absent: none. */
       subtitleDelay?: number;
+      /**
+       * Its subtitle's two balanced lines when one line does not fit the card's room at its smallest size, so the
+       * card stays on the frame's axis (RV-184 of an adopting app); absent: one line, `subtitle`.
+       */
+      subtitleLines?: string[];
     })
   | (Drawn & { kind: "counter"; value: number; from: number; decimals: number; unit: string | null; fontSize: number; unitFontSize: number; box: OverlayBox })
   | (Drawn & { kind: "date_stamp"; text: string; place: string | null; fontSize: number; placeFontSize: number; side: OverlaySide; box: OverlayBox })
@@ -680,10 +685,19 @@ function getCentredSpan(place: Pick<Placement, "zone" | "frame">, margin: number
  * wider than the centred span, else again in the centred span (smaller or on more lines), and only when it cannot fit
  * there either in the whole zone, as close to the axis as the zone allows. What fitted before still fits.
  */
-function measureCentred<T extends { ok: true } | { ok: false; error: string }>(input: { whole: number; centred: number; measure: (room: number) => T; getWidth: (result: T & { ok: true }) => number }): T {
-  const wide = input.measure(input.whole);
-  if (!wide.ok || input.getWidth(wide as T & { ok: true }) <= input.centred) return wide;
-  const narrow = input.measure(input.centred);
+function measureCentred<T extends { ok: true } | { ok: false; error: string }>(input: {
+  whole: number;
+  centred: number;
+  /** Measures in `room`; `isCentred` is true for the second measure, in the centred span. */
+  measure: (room: number, isCentred: boolean) => T;
+  getWidth: (result: T & { ok: true }) => number;
+  /** Measure in the centred span also when the whole zone refuses it (a measure that fits more there, a place card). */
+  isRetriedWhenRefused?: boolean;
+}): T {
+  const wide = input.measure(input.whole, false);
+  if (!wide.ok && input.isRetriedWhenRefused !== true) return wide;
+  if (wide.ok && input.getWidth(wide as T & { ok: true }) <= input.centred) return wide;
+  const narrow = input.measure(input.centred, true);
   return narrow.ok ? narrow : wide;
 }
 
@@ -1083,9 +1097,12 @@ export function wrapOverlayTitle(text: string, fontSize: number, width: number):
   return best;
 }
 
-/** A title's lines and font size: its own size, else smaller by `OVERLAY_TITLE_SHRINK` until it fits two lines; null when it never does. */
-function fitTitle(text: string, fontSize: number, room: number): { lines: string[]; fontSize: number } | null {
-  for (let shrink = 0, size = fontSize; shrink <= MAX_TITLE_SHRINKS; shrink++, size = Math.round(size * OVERLAY_TITLE_SHRINK)) {
+/**
+ * A title's lines and font size: its own size, else smaller by `OVERLAY_TITLE_SHRINK` until it fits two lines, at most
+ * `maxShrinks` times; null when it never does.
+ */
+function fitTitle(text: string, fontSize: number, room: number, maxShrinks = MAX_TITLE_SHRINKS): { lines: string[]; fontSize: number } | null {
+  for (let shrink = 0, size = fontSize; shrink <= maxShrinks; shrink++, size = Math.round(size * OVERLAY_TITLE_SHRINK)) {
     const lines = wrapOverlayTitle(text, size, room);
     if (lines.length <= MAX_OVERLAY_TITLE_LINES && lines.every((line) => estimateTextWidth(line, size) <= room)) return { lines, fontSize: size };
   }
@@ -1097,11 +1114,44 @@ function fitTitle(text: string, fontSize: number, room: number): { lines: string
  * long for that shrinks to fit `room`, never below the `s` step (the size every subtitle had before, so nothing that
  * fitted then is refused now).
  */
-function getSubtitleSize(input: { subtitle: string; titleSize: number; step: OverlaySize; room: number; scale: number }): number {
-  const wanted = Math.max(Math.round(MIN_OVERLAY_SUBTITLE_PX * input.scale), Math.round(input.titleSize * OVERLAY_SUBTITLE_SCALES[input.step]));
+function getSubtitleSize(input: { subtitle: string; titleSize: number; step: OverlaySize; room: number; scale: number; isCentred?: boolean }): number {
+  const smallest = Math.round(MIN_OVERLAY_SUBTITLE_PX * input.scale);
+  const wanted = Math.max(smallest, Math.round(input.titleSize * OVERLAY_SUBTITLE_SCALES[input.step]));
   const fitting = Math.floor(input.room / ([...input.subtitle].length * OVERLAY_CHAR_EM));
-  return Math.min(wanted, Math.max(fitting, Math.round(input.titleSize * OVERLAY_SUBTITLE_SCALES.s)));
+  // In the centred span a subtitle may go down to `MIN_OVERLAY_SUBTITLE_PX` too when the `s` step is above it.
+  const floor = Math.round(input.titleSize * OVERLAY_SUBTITLE_SCALES.s);
+  return Math.min(wanted, Math.max(fitting, input.isCentred === true ? Math.min(floor, smallest) : floor));
 }
+
+/**
+ * A place card's subtitle: one line at `getSubtitleSize` when it fits `room` (what fitted before keeps its size), else
+ * two balanced lines, each sized as one line would be; null when even two lines are too wide (RV-184 of an adopting
+ * app: a card whose subtitle cannot fit the centred span is placed off the frame's axis).
+ */
+function fitPlaceSubtitle(input: { subtitle: string; titleSize: number; step: OverlaySize; room: number; scale: number; isCentred: boolean }): { lines: string[]; size: number } | null {
+  const size = getSubtitleSize(input);
+  if (estimateTextWidth(input.subtitle, size) <= input.room) return { lines: [input.subtitle], size };
+  const lines = splitInTwoLines(input.subtitle);
+  if (lines === null) return null;
+  const longest = lines.reduce((widest, line) => ([...line].length > [...widest].length ? line : widest));
+  const lineSize = getSubtitleSize({ ...input, subtitle: longest });
+  return lines.every((line) => estimateTextWidth(line, lineSize) <= input.room) ? { lines, size: lineSize } : null;
+}
+
+/** A text's two lines of words as even as they can be (the longer line as short as it can be); null for one word. */
+function splitInTwoLines(text: string): [string, string] | null {
+  const words = text.split(/\s+/).filter((part) => part.length > 0);
+  if (words.length < 2) return null;
+  let best: [string, string] = [words[0] as string, words.slice(1).join(" ")];
+  for (let split = 2; split < words.length; split++) {
+    const pair: [string, string] = [words.slice(0, split).join(" "), words.slice(split).join(" ")];
+    if (Math.max(...pair.map((line) => [...line].length)) < Math.max(...best.map((line) => [...line].length))) best = pair;
+  }
+  return best;
+}
+
+/** A place card's title may shrink this many steps more in the centred span than in the whole zone (0.9² ≈ 0.81). */
+const CENTRED_TITLE_EXTRA_SHRINKS = 2;
 
 /** A hook title's or a place card's second line: the place label (with its pin) or the subtitle. */
 type TitleOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "place_card" }>;
@@ -1111,17 +1161,29 @@ type TitleOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "place_card"
  * its pin, the subtitle, each title line) and its height. Its card is this plus the padding, so the draft and the
  * render find the block's left edge and top inside the card from it whatever the title's fitted size.
  */
-export function getTitleContentSize(input: { kind: TitleOverlay["kind"]; lines: readonly string[]; fontSize: number; second: string | null; secondSize: number; pin?: boolean }): {
+export function getTitleContentSize(input: {
+  kind: TitleOverlay["kind"];
+  lines: readonly string[];
+  fontSize: number;
+  second: string | null;
+  secondSize: number;
+  pin?: boolean;
+  /** A place card's wrapped subtitle (`subtitleLines`); absent: `second` on one line. */
+  secondLines?: readonly string[];
+}): {
   width: number;
   height: number;
 } {
   const { kind, lines, fontSize, second, secondSize } = input;
   const isHook = kind === "hook_title";
-  const secondWidth = second === null ? 0 : estimateTextWidth(second, secondSize) + (isHook ? Math.round(secondSize * 1.1) : 0);
+  const seconds = second === null ? [] : (input.secondLines ?? [second]);
+  const secondWidth = Math.max(0, ...seconds.map((line) => estimateTextWidth(line, secondSize) + (isHook ? Math.round(secondSize * 1.1) : 0)));
   const lineHeight = isHook ? OVERLAY_LINE_HEIGHT : OVERLAY_TITLE_LINE_HEIGHT;
+  // A wrapped subtitle's further lines each add a card line (`OVERLAY_LINE_HEIGHT`), as the render's `<br>` does.
+  const secondHeight = seconds.length === 0 ? 0 : secondSize * 1.3 + fontSize * 0.12 + (seconds.length - 1) * secondSize * OVERLAY_LINE_HEIGHT;
   return {
     width: Math.max(secondWidth, input.pin === true ? getPlaceCardPinSize(fontSize) : 0, ...lines.map((line) => estimateTextWidth(line, fontSize))),
-    height: lines.length * fontSize * lineHeight + (second === null ? 0 : secondSize * 1.3 + fontSize * 0.12) + (input.pin === true ? getPlaceCardPinRow(fontSize) : 0),
+    height: lines.length * fontSize * lineHeight + secondHeight + (input.pin === true ? getPlaceCardPinRow(fontSize) : 0),
   };
 }
 
@@ -1139,26 +1201,37 @@ export function getPlaceCardPinRow(fontSize: number): number {
 export function getTitleContentBox(overlay: TitleOverlay): OverlayBox {
   const second = overlay.kind === "hook_title" ? overlay.place : overlay.subtitle;
   const secondSize = overlay.kind === "hook_title" ? overlay.placeFontSize : overlay.subtitleFontSize;
-  const size = getTitleContentSize({ kind: overlay.kind, lines: overlay.lines, fontSize: overlay.fontSize, second, secondSize, pin: overlay.kind === "place_card" && overlay.pin !== undefined });
+  const isPlace = overlay.kind === "place_card";
+  const size = getTitleContentSize({
+    kind: overlay.kind,
+    lines: overlay.lines,
+    fontSize: overlay.fontSize,
+    second,
+    secondSize,
+    pin: isPlace && overlay.pin !== undefined,
+    ...(isPlace && overlay.subtitleLines !== undefined ? { secondLines: overlay.subtitleLines } : {}),
+  });
   const { box } = overlay;
   return { left: box.left + (box.width - size.width) / 2, top: box.top + (box.height - size.height) / 2, width: size.width, height: size.height };
 }
 
 /** A hook title's or a place card's lines and second line, aligned as its style says. */
-function measureTitle(overlay: EdlOverlay & { kind: "hook_title" | "place_card" }, metrics: CardMetrics): CardResult {
+function measureTitle(overlay: EdlOverlay & { kind: "hook_title" | "place_card" }, metrics: CardMetrics, isCentred = false): CardResult {
   const { room, label } = metrics;
-  const fitted = fitTitle(overlay.text ?? "", metrics.fontSize, room);
+  const isHook = overlay.kind === "hook_title";
+  // In the centred span a place card's title may shrink further, so a card that fitted the whole zone stays on the axis.
+  const fitted = fitTitle(overlay.text ?? "", metrics.fontSize, room, MAX_TITLE_SHRINKS + (isCentred && !isHook ? CENTRED_TITLE_EXTRA_SHRINKS : 0));
   if (fitted === null) return { ok: false, error: `the ${label} takes more than ${MAX_OVERLAY_TITLE_LINES} lines even at a smaller size; shorten it or use a smaller size` };
   const { lines, fontSize } = fitted;
-  const isHook = overlay.kind === "hook_title";
   const second = (isHook ? overlay.place : overlay.subtitle) ?? null;
-  const secondSize =
-    !isHook && second !== null
-      ? getSubtitleSize({ subtitle: second, titleSize: metrics.fontSize, step: overlay.style?.subtitle_size ?? "m", room, scale: metrics.scale })
-      : Math.round(metrics.fontSize * OVERLAY_SECONDARY_SCALE[overlay.kind]);
+  const subtitle =
+    !isHook && second !== null ? fitPlaceSubtitle({ subtitle: second, titleSize: metrics.fontSize, step: overlay.style?.subtitle_size ?? "m", room, scale: metrics.scale, isCentred }) : null;
+  if (!isHook && second !== null && subtitle === null) return tooWide(metrics, "subtitle");
+  const secondSize = subtitle?.size ?? Math.round(metrics.fontSize * OVERLAY_SECONDARY_SCALE[overlay.kind]);
+  const subtitleLines = subtitle !== null && subtitle.lines.length > 1 ? subtitle.lines : undefined;
   // The hook title's place label carries a pin about one label line wide before it.
-  const secondWidth = second === null ? 0 : estimateTextWidth(second, secondSize) + (isHook ? Math.round(secondSize * 1.1) : 0);
-  if (secondWidth > room) return tooWide(metrics, isHook ? "place label" : "subtitle");
+  const secondWidth = second === null || !isHook ? 0 : estimateTextWidth(second, secondSize) + Math.round(secondSize * 1.1);
+  if (secondWidth > room) return tooWide(metrics, "place label");
   // A title's align is center or left (the schema refuses right on it).
   const align: OverlayAlign = overlay.style?.align === "left" ? "left" : "center";
   const pin = !isHook && overlay.style?.pin !== undefined && overlay.style.pin !== "none" ? overlay.style.pin : undefined;
@@ -1166,10 +1239,20 @@ function measureTitle(overlay: EdlOverlay & { kind: "hook_title" | "place_card" 
   return {
     ok: true,
     content: {
-      ...getTitleContentSize({ kind: overlay.kind, lines, fontSize, second, secondSize, pin: pin !== undefined }),
+      ...getTitleContentSize({ kind: overlay.kind, lines, fontSize, second, secondSize, pin: pin !== undefined, ...(subtitleLines === undefined ? {} : { secondLines: subtitleLines }) }),
       fields: isHook
         ? { kind: "hook_title", lines, place: second, fontSize, placeFontSize: secondSize, align, ...(overlay.style?.backdrop === "highlight" ? { backdrop: "highlight" } : {}) }
-        : { kind: "place_card", lines, subtitle: second, fontSize, subtitleFontSize: secondSize, align, ...(pin === undefined ? {} : { pin }), ...(delay === undefined ? {} : { subtitleDelay: delay }) },
+        : {
+            kind: "place_card",
+            lines,
+            subtitle: second,
+            fontSize,
+            subtitleFontSize: secondSize,
+            align,
+            ...(pin === undefined ? {} : { pin }),
+            ...(delay === undefined ? {} : { subtitleDelay: delay }),
+            ...(subtitleLines === undefined ? {} : { subtitleLines }),
+          },
     },
   };
 }
@@ -1227,10 +1310,10 @@ function placeCard(overlay: EdlOverlay & { kind: CardKind }, drawn: Drawn, place
   const outer = frame.width - zone.left - zone.right - 2 * margin;
   const fontSize = Math.round(OVERLAY_FONT_SIZES[overlay.kind][overlay.style?.size ?? "m"] * scale);
   const pad = getOverlayPadding({ fontSize, padScale: place.padScale });
-  const measure = (room: number): CardResult => {
+  const measure = (room: number, isCentred = false): CardResult => {
     const metrics = { fontSize, pad, room: room - 2 * pad.x, label: overlay.kind.replace("_", " "), scale };
     return overlay.kind === "hook_title" || overlay.kind === "place_card"
-      ? measureTitle({ ...overlay, kind: overlay.kind }, metrics)
+      ? measureTitle({ ...overlay, kind: overlay.kind }, metrics, isCentred)
       : overlay.kind === "search_bar"
         ? measureSearchBar(overlay, metrics)
         : overlay.kind === "counter"
@@ -1241,7 +1324,13 @@ function placeCard(overlay: EdlOverlay & { kind: CardKind }, drawn: Drawn, place
   const measured =
     overlay.kind === "date_stamp"
       ? measure(outer)
-      : measureCentred({ whole: outer, centred: getCentredSpan(place, margin).width, measure, getWidth: (result) => Math.ceil(result.content.width + 2 * pad.x) });
+      : measureCentred({
+          whole: outer,
+          centred: getCentredSpan(place, margin).width,
+          measure,
+          getWidth: (result) => Math.ceil(result.content.width + 2 * pad.x),
+          isRetriedWhenRefused: overlay.kind === "place_card",
+        });
   if (!measured.ok) return measured;
   const { content } = measured;
   const width = Math.ceil(content.width + 2 * pad.x);
