@@ -96,6 +96,43 @@ describe("applyGrafanaResources", () => {
     expect(grafana.calls.every((call) => call.headers["authorization"] === `Bearer ${TOKEN}`)).toBe(true);
   });
 
+  it("merges a rule's notification grouping under the file's receiver and names it in the steps", async () => {
+    const burst = { ...WORKER, uid: "errors-burst", title: "Error burst", notification_settings: { group_by: ["alertname", "service_name"], repeat_interval: "4h" } };
+    const rules: GrafanaRulesFile = { ...RULES, rules: [WEB, burst] };
+    const dryRun = createFakeGrafana({ contactPoints: ["owner-mail"] });
+    const commit = createFakeGrafana({ contactPoints: ["owner-mail"] });
+
+    const planned = await applyGrafanaResources({ url: URL_BASE, token: TOKEN, rules, fetch: dryRun.fetch });
+    const applied = await applyGrafanaResources({ url: URL_BASE, token: TOKEN, rules, commit: true, fetch: commit.fetch });
+
+    const groupingStep = 'rule "Error burst" (errors-burst): notifications grouped by alertname, service_name; repeat every 4h';
+    expect(planned.steps.slice(1)).toEqual([
+      'rule group "shop": will be replaced (add web-silent, errors-burst), 2 rules active, notifying "owner-mail"',
+      groupingStep,
+    ]);
+    expect(applied.steps.slice(1)).toEqual([
+      'rule group "shop": replaced (add web-silent, errors-burst), 2 rules active, notifying "owner-mail"',
+      groupingStep,
+    ]);
+    const put = commit.calls.find((call) => call.method === "PUT");
+    const sentRules = (put?.body as { rules: { uid: string; notification_settings: unknown }[] }).rules;
+    expect(sentRules.map((rule) => [rule.uid, rule.notification_settings])).toEqual([
+      ["web-silent", { receiver: "owner-mail" }],
+      ["errors-burst", { group_by: ["alertname", "service_name"], repeat_interval: "4h", receiver: "owner-mail" }],
+    ]);
+  });
+
+  it("names every timing a rule overrides", async () => {
+    const tuned = { ...WEB, notification_settings: { group_wait: "10s", group_interval: "1m", repeat_interval: "12h" } };
+    const grafana = createFakeGrafana({ contactPoints: ["owner-mail"] });
+
+    const result = await applyGrafanaResources({ url: URL_BASE, token: TOKEN, rules: { ...RULES, rules: [tuned] }, fetch: grafana.fetch });
+
+    expect(result.steps.at(-1)).toBe(
+      `rule "${WEB.title}" (web-silent): notifications first after 10s; new alerts every 1m; repeat every 12h`,
+    );
+  });
+
   it("refuses without writing when the contact point does not exist", async () => {
     const grafana = createFakeGrafana({ contactPoints: ["someone-else"] });
 

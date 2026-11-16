@@ -305,7 +305,7 @@ dry run: nothing was changed; pass --commit to apply
   **The group is replaced as a whole**: a rule added to it in the UI is removed; the dry run names it first.
 - The contact point named by `receiver` must exist: it holds a personal address, so the command never creates it and
   refuses (exit `1`) when it is missing. Notification policies are not touched: every rule carries
-  `notification_settings: { receiver }`.
+  `notification_settings: { receiver }`, plus the rule's own grouping and timings when it sets them (below).
 - `--paused` applies every rule paused, e.g. before the first release that sends telemetry, so the silence rules do
   not mail at once. Applying again without it resumes them; a rule with `"isPaused": true` in the file stays paused.
 - Exit code `0` when applied or planned; `1` when refused, when Grafana answers with an error (the call and its HTTP
@@ -326,6 +326,24 @@ The rules file:
 Each rule is a Grafana provisioning rule: `uid`, `title`, `condition` and `data` are checked, every other field is
 passed on as written. `intervalSeconds` defaults to 60 and is a multiple of 10. The dashboard file is a dashboard JSON
 model with a `uid` and a `title`.
+
+A rule that needs its own grouping or timings sets `notification_settings` without a receiver; the apply merges it
+under the file's `receiver` and prints a line for it (`rule "Error burst" (errors-burst): notifications grouped by
+alertname, service_name`). It takes `group_by` (label names; Grafana keeps `alertname` and `grafana_folder` in it
+itself, `["..."]` groups by every label), `group_wait`, `group_interval` and `repeat_interval` (durations such as
+`30s`, `5m`, `4h`). A `receiver` or any other key there makes the file invalid: one contact point notifies every
+rule. Without it a rule takes Grafana's default grouping (`alertname`, `grafana_folder`), so a per-service rule
+(`sum by (service_name) (...)`) firing for two services at once sends one mail:
+
+```json
+{
+  "uid": "errors-burst",
+  "title": "Error burst",
+  "condition": "C",
+  "data": [],
+  "notification_settings": { "group_by": ["alertname", "service_name"] }
+}
+```
 
 From code, `/node` exports `applyGrafanaResources({ url, token, rules, dashboard, commit, paused })` (it returns the
 steps and `applied`, `planned`, `refused` or `failed`), `grafanaRulesFileSchema` and `parseGrafanaRulesFile` (and the
