@@ -1,6 +1,6 @@
 ---
 change_id: test-git-env-isolation-1292
-status: open
+status: archived
 ---
 
 # Plan: git isolation in tests (issue #1292)
@@ -14,7 +14,7 @@ Files: `tests/git-env.ts`, `vitest.config.mts`, `tests/repo/git-env.test.ts`, `t
 - `tests/git-env.ts`: `REPOSITORY_GIT_VARIABLES` (git's local list) and `removeRepositoryGitVariables(env)`, which
   deletes them from the given environment object.
 - `vitest.config.mts`: call it on `process.env` beside the `TZ` / `NODE_ENV` pins, with the reason.
-- `tests/repo/git-env.test.ts`: the list equals `git rev-parse --local-env-vars` of the installed git; identity
+- `tests/repo/git-env.test.ts`: the list contains every variable `git rev-parse --local-env-vars` of the installed git prints; identity
   variables survive; with `GIT_DIR` set to a decoy repository, a temp-repo `init` + `commit` + `tag` through the
   cleaned environment lands in the temp repo and leaves the decoy's HEAD, tags and `core.bare` unchanged; the same
   calls without cleaning land in the decoy (the hazard the helper prevents).
@@ -29,5 +29,5 @@ Files: `tests/git-env.ts`, `vitest.config.mts`, `tests/repo/git-env.test.ts`, `t
 
 ## Progress
 
-- [ ] Phase 1: helper, config, tests
-- [ ] Implementation review
+- [x] Phase 1: helper, config, tests (8f09d61)
+- [x] Implementation review

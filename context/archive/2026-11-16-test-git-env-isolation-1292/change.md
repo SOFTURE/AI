@@ -1,7 +1,8 @@
 ---
 change_id: test-git-env-isolation-1292
 title: "tests: git in temporary repositories never inherits the hook's GIT_* variables (issue #1292)"
-status: open
+status: archived
+archived_at: 2026-11-16
 roadmap_item: null
 issue: 1292
 branch: claude/project-thread-y7m1be
@@ -37,3 +38,10 @@ smoke tag check) through `npm run test:changed`. Many more tests spawn git in te
 ## Notes
 
 - Framing: skipped. The issue names the cause, the reproduction and the fix.
+
+## Done
+
+- `vitest.config.mts` removes git's repository-local variables (`tests/git-env.ts`, the list of
+  `git rev-parse --local-env-vars`) from `process.env` before any worker starts; every test and child process runs
+  git against its own working directory. Proof in `tests/repo/git-env.test.ts` and `tests/repo/test-environment.test.ts`.
+  No package changed: nothing to release.

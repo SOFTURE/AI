@@ -12,8 +12,7 @@ Reviewed against change.md, research.md and master (d157a76).
 - Ask 2 (a test with `GIT_DIR` set proves the real repository untouched): `git-env.test.ts` with a decoy repository,
   plus a control that shows the hazard without the clean.
 - Risk: `vitest --changed` in a worktree loses `GIT_DIR`; git discovers the worktree from the working directory, so
-  it still works. Checked by the manual run in a worktree setting.
-- Risk: the pinned list drifts from a newer git; the test compares it with the installed git's list (a superset check
-  would hide nothing, so the test asserts git's list is contained in ours).
+  it still works. Checked by the manual run against a worktree's `GIT_DIR`.
+- Risk: the pinned list drifts from a newer git; the test asserts that the installed git's list is contained in ours.
 
 Verdict: approved, no changes.
