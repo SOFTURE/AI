@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `SidePanel footer` (#1312): an optional strip pinned below the scrolling content, with a top border
+  (`data-slot="side-panel-footer"`), for an action that belongs to the panel's foot; it is hidden with the panel.
+  Without `footer` the markup is unchanged. New optional prop only. Migration: none.
+
 ## 0.19.0
 
 - `sft-bridge.css` re-points `@softure-ai/ui`'s `--sft-*` tokens everywhere, not only inside a `PageFrame`: on
