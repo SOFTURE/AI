@@ -171,6 +171,7 @@ export {
   LIST_CHIP_GAP_EM,
   LIST_CHIP_BADGE_EM,
   LIST_CHIP_COVERED_OPACITY,
+  LIST_CHIP_MIN_FONT_SIZE,
   getCentredLeft,
   getChipBadgeSize,
   getChipCoveredTimes,

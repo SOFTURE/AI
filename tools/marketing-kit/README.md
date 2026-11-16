@@ -738,7 +738,8 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   `style.side` its card sits in the middle of the room it may take, its lines centred and without bullets; with a
   side it keeps its side and bullets. `style.list_layout` (`OVERLAY_LIST_LAYOUTS`): `stack` (the default), `chips`
   (each point its own small card in one centred row, in their final places, entering in turn from the left; a row too
-  wide shrinks like a title, at most three 10 % steps, else it is refused) or `auto` (chips when they fit one row, else
+  wide shrinks like a title, three 10 % steps, and an asked row of chips keeps shrinking down to
+  `LIST_CHIP_MIN_FONT_SIZE` (36 px at 1080 px wide, since 0.38.1) before it is refused) or `auto` (chips when they fit one row, else
   the stack). A resolved list carries `isCentred` or `chips` (each chip's box); `getDrawnOverlayCard` answers the
   row's box, `getListCardsByItem` the drawn boxes after each point and `getListItemTimes` each point's second.
 - **Centred on the frame, chips as a countdown** (0.38.0): every centred overlay is centred on the frame's axis, as

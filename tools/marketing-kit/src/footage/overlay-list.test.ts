@@ -28,6 +28,7 @@ import {
   type OverlayBox,
   type ResolveOverlaysInput,
   type ResolvedOverlay,
+  LIST_CHIP_MIN_FONT_SIZE,
 } from "./overlays.js";
 import { readFfmpegListing } from "./tools.js";
 
@@ -159,6 +160,25 @@ describe("placing a list", () => {
     expect(card.width).toBeLessThanOrEqual(792);
     expect(card.left + card.width / 2).toBeCloseTo(540, -0.5);
     expect(chips.box.height).toBe(Math.ceil(chips.fontSize * OVERLAY_LINE_HEIGHT + 2 * getOverlayPadding(chips).y));
+  });
+
+  it("draws a row of badged chips that fitted one row before their badges, smaller still rather than refusing it", () => {
+    // Three points at size l in the widest safe zone: 822 px of room, the row too wide after three shrinks with its badges.
+    const points: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["vaccine", "date", "who signed"], style: { size: "l", list_layout: "chips" } };
+    const chips = list(points, { film: { ...film, captionPreset: "all" } });
+    expect(chips.chips).toHaveLength(3);
+    // Past the three shrinks a title takes (56 px to 41 px), yet never under the smallest chip size.
+    expect(chips.fontSize).toBeLessThan(Math.round(56 * 0.9 ** 3));
+    expect(chips.fontSize).toBeGreaterThanOrEqual(LIST_CHIP_MIN_FONT_SIZE);
+    const card = getDrawnOverlayCard(chips) as OverlayBox;
+    expect(card.width).toBeLessThanOrEqual(822);
+    expect(card.left + card.width / 2).toBeCloseTo(540, -0.5);
+  });
+
+  it("refuses badged chips that stay too wide at the smallest chip size", () => {
+    const points: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["the vaccine and its batch", "the date it was given", "who signed"], style: { size: "l", list_layout: "chips" } };
+    const result = resolve([points], { film: { ...film, captionPreset: "all" } });
+    expect(result.ok ? [] : result.problems).toEqual([expect.stringMatching(/^overlays\[0\]: the list's points as chips \(\d+ px\) do not fit one row \(822 px\) even at a smaller size;/)]);
   });
 
   it("takes chips on auto when every point fits one row, else the centred stack", () => {
