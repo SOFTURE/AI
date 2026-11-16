@@ -1,7 +1,7 @@
 ---
 change_id: backup-cloudflare-host
 title: "backup: managed Postgres backed up to R2 from a scheduled workflow"
-status: planned
+status: archived
 roadmap_item: RP-9
 issue: null
 branch: claude/project-thread-dufdk1

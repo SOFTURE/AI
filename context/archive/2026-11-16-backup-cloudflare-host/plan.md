@@ -52,4 +52,4 @@ the caller workflows.
 ## Progress
 
 - [x] Phase 1: `softure-backup run` (152f4da)
-- [ ] Phase 2: the action and init
+- [x] Phase 2: the action and init (57709b2c)
