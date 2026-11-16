@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.4.0
 
 - Look maps for `@softure-ai/ui`'s chat components (#1261), grouped as `CHAT_LOOK`: `CHAT_LOG_LOOK`,
   `CHAT_MESSAGE_LOOK` (role on a bold `caption`, the user's bubble outlined in `line-strong`, a failed message with a
