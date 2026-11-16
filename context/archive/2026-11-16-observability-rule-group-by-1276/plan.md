@@ -1,6 +1,6 @@
 ---
 change_id: observability-rule-group-by-1276
-status: open
+status: archived
 ---
 
 # Plan: per-rule notification grouping (issue #1276)
@@ -35,6 +35,6 @@ observability README (rules file section) and `CHANGELOG.md` `## Unreleased`.
 
 ## Progress
 
-- [ ] Phase 1: schema, merge and steps
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: schema, merge and steps (47fffdc)
+- [x] Phase 2: docs (a003aa5)
+- [x] Implementation review

@@ -1,7 +1,8 @@
 ---
 change_id: observability-rule-group-by-1276
 title: "observability: a rule keeps its notification grouping under grafana apply (issue #1276)"
-status: open
+status: archived
+archived_at: 2026-11-16
 roadmap_item: null
 issue: 1276
 branch: claude/project-thread-yfd2ys
@@ -37,3 +38,9 @@ coordinator releases the batch.
 ## Notes
 
 - Framing: skipped. The issue names the cause, the code path and the fix; nothing about the problem is in doubt.
+
+## Done
+
+- `@softure-ai/observability`: a rule's `notification_settings` (`group_by`, `group_wait`, `group_interval`,
+  `repeat_interval`) is merged under the file's receiver by `grafana apply`, and the steps name it; README and
+  CHANGELOG `## Unreleased`. Next release of observability (patch: a fix with an additive field).
