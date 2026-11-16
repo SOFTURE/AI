@@ -505,7 +505,7 @@
                 ]
               },
               "side": {
-                "description": "The side a keyword, lower third, list, date stamp or note sits on.",
+                "description": "The side a keyword, lower third, list, date stamp or note sits on; a note without a side sits on the frame's axis.",
                 "type": "string",
                 "enum": [
                   "left",
@@ -616,7 +616,7 @@
                 "type": "boolean"
               },
               "list_layout": {
-                "description": "A list only: stack (the default: one centred card growing as each point comes in), chips (each point its own small card in one centred row, entering in turn from the left) or auto (chips when they fit one row, else stack).",
+                "description": "A list only: stack (the default: one centred card growing as each point comes in), chips (each point its own small numbered card in one centred row, coming in one by one as a countdown: the newest leads, the earlier ones step back with a tick) or auto (chips when they fit one row, else stack).",
                 "type": "string",
                 "enum": [
                   "stack",
