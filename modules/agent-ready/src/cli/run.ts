@@ -7,6 +7,7 @@
 // Exit codes: 0 everything holds, 1 a check failed, 2 wrong usage.
 import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
+import { z } from "zod";
 import { digestOf } from "../agent-skills.js";
 import {
   DNS_AID_ALPN,
@@ -26,6 +27,9 @@ export const EXIT_OK = 0;
 export const EXIT_FAILED = 1;
 export const EXIT_USAGE = 2;
 
+/** How long one request of a check may take, in ms; a slower one fails the check. */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+
 /** The resolver the DNS check asks: DNS-over-HTTPS in JSON. */
 export const DOH_ENDPOINT = "https://cloudflare-dns.com/dns-query";
 
@@ -41,6 +45,8 @@ export interface RunAgentReadyCliOptions {
   readonly output?: CliOutput;
   /** Default: the global `fetch`. */
   readonly fetch?: FetchLike;
+  /** How long one request may take, in ms. Default: `DEFAULT_REQUEST_TIMEOUT_MS`. */
+  readonly timeoutMs?: number;
   /** Whether standard output is a terminal; the key command refuses one. Default: `process.stdout.isTTY`. */
   readonly isTerminal?: boolean;
   /** 32 random bytes for a key. Default: `crypto.randomBytes`. */
@@ -130,12 +136,18 @@ interface CheckLine {
   readonly line: string;
 }
 
+/** The fields of the skills index the check reads; anything else in an entry is left alone. */
+const skillsIndexSchema = z.object({
+  skills: z.array(z.object({ name: z.unknown(), url: z.unknown(), digest: z.unknown() })).optional(),
+});
+
 async function checkSkills(fetchImpl: FetchLike, origin: string): Promise<CheckLine[]> {
   const response = await fetchImpl(`${origin}${AGENT_SKILLS_INDEX_PATH}`);
   if (!response.ok) return [{ ok: false, line: `skills index: HTTP ${response.status}` }];
-  const index = (await response.json()) as { skills?: Array<{ name?: unknown; url?: unknown; digest?: unknown }> };
+  const parsed = skillsIndexSchema.safeParse(await response.json().catch(() => null));
+  if (!parsed.success) return [{ ok: false, line: "skills index: not a JSON object with a skills list" }];
   const lines: CheckLine[] = [];
-  for (const skill of index.skills ?? []) {
+  for (const skill of parsed.data.skills ?? []) {
     const name = String(skill.name);
     if (typeof skill.url !== "string") {
       lines.push({ ok: false, line: `skill ${name}: no url` });
@@ -184,7 +196,11 @@ async function runCheck(args: readonly string[], fetchImpl: FetchLike, output: C
 
 export async function runAgentReadyCli(options: RunAgentReadyCliOptions): Promise<number> {
   const output = options.output ?? consoleOutput;
-  const fetchImpl = options.fetch ?? ((input, init) => fetch(input, init));
+  const baseFetch = options.fetch ?? ((input, init) => fetch(input, init));
+  const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  // Every request of every check gets its own deadline, so a server that never answers fails the check instead of
+  // hanging the deploy step that runs it.
+  const fetchImpl: FetchLike = (input, init) => baseFetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
   const [command, subcommand, ...rest] = options.argv;
   if (command === "web-bot-auth" && subcommand === "key" && rest.length === 0) return runKey(options, output);
   if (command === "dns-aid" && subcommand === "check") return runDnsAid(rest, fetchImpl, output);
