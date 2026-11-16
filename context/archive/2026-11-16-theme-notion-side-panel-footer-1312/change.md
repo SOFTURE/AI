@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-side-panel-footer-1312
 title: "theme-notion: SidePanel footer (issue #1312)"
-status: impl_reviewed
+status: archived
+archived_at: 2026-11-16
 roadmap_item: null
 issue: 1312
 branch: claude/project-thread-wxiy3s
