@@ -19,14 +19,15 @@ two findings of a whole-repository quality review (`QR-5eecbc9e`, `QR-60a7a98b`)
 Labels: `bug`, `pkg: jobs`, `pkg: testing` (#1285); `bug`, `pkg: theme-flat-paint` (#1287). Packages: jobs 0.1.9,
 theme-flat-paint 0.4.1. `findNonAsyncServerExports` of `@softure-ai/testing/guards/next` reports
 `modules/jobs/src/next/actions.ts:77` (`PANEL_PAUSE_REASON`); no repository test runs the guard over the packages.
-theme-flat-paint has no React code but names `react` as a peer. No version bump: the batch release follows.
+theme-flat-paint has no React code but names `react` as a peer, which the theme package contract requires. No version bump: the batch release follows.
 
 ## Scope
 
 - jobs: `PANEL_PAUSE_REASON` moves to `src/next/panel-pause.ts`; `@softure-ai/jobs/next` exports it as before.
 - `tests/repo/server-actions.test.ts`: every workspace package's `src/` passes `findNonAsyncServerExports`.
-- theme-flat-paint: `react` leaves `peerDependencies`.
-- CHANGELOG `## Unreleased` of jobs and theme-flat-paint.
+- `quality-review.ignore` at the root accepts `QR-60a7a98b`: the theme package contract (theme-kit README) requires
+  the `react` peer, so the finding is a false positive (#1287).
+- CHANGELOG `## Unreleased` of jobs.
 
 ## Constraints
 

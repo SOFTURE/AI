@@ -1,0 +1,6 @@
+# Accepted exceptions of the quality review (@softure-ai/quality-review, README "Accepted exceptions").
+# One entry per line: a finding id, `rule <rule> <glob>` or `path <glob>`; `#` starts a comment.
+
+# theme-flat-paint's react peer: the theme package contract (themes/theme-kit/README.md) has every theme take react
+# as a peer, so an app moves between themes without changing its dependencies (issue #1287).
+QR-60a7a98b
