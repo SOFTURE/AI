@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.10
 
 - `@softure-ai/jobs/next` builds in an app route that imports the admin actions (#1285): `PANEL_PAUSE_REASON` moved out
   of the `"use server"` module `actions.ts`, which Next.js lets export only async functions. The export of
