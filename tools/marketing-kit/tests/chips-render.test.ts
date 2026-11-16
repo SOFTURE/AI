@@ -173,4 +173,20 @@ describe.runIf(hasChromium)("list chips in the browser stay centred while the li
     expect(Math.abs(moves[0] as number)).toBeGreaterThan(Math.abs(moves.at(-1) as number));
     for (const left of lefts) expect(left).toBeGreaterThanOrEqual(to - 1);
   });
+  it.each([0, 1])("brings list %i's points in one by one on their seconds, every earlier point ticked, the newest numbered (RV-192)", async (index) => {
+    const list = lists[index] as Extract<ResolvedOverlay, { kind: "list" }>;
+    const times = getListItemTimes(list);
+    for (const [step, at] of times.entries()) {
+      // One frame before its second only the earlier chips show; once it is in (the tick drawn), it leads alone.
+      if (step > 0) {
+        await seek(at - 1 / 30);
+        expect(await getShownChips(index), `${at} s, one frame before`).toHaveLength(step);
+      }
+      await seek(at + 0.45);
+      const numbers = await page.$$eval(`#ov${index} .ov-num > i`, (elements) => elements.map((element) => Math.round(Number(getComputedStyle(element).opacity) * 100) / 100));
+      const ticks = await page.$$eval(`#ov${index} .ov-num polyline`, (elements) => elements.map((element) => Number(getComputedStyle(element).strokeDashoffset.replace("px", ""))));
+      expect(numbers.slice(0, step + 1), `${at} s numbers`).toEqual([...Array.from({ length: step }, () => 0), 1]);
+      expect(ticks.slice(0, step), `${at} s ticks`).toEqual(Array.from({ length: step }, () => 0));
+    }
+  });
 });

@@ -123,4 +123,27 @@ describe("SidePanel", () => {
 
     expect(screen.queryByRole("button", { name: "Show plan" })).toBeNull();
   });
+
+  it("takes a width on a wide screen when one is given, and none of its own otherwise", () => {
+    const view = render(
+      <SidePanel id="list" heading="List" layout="list" isOpen onClose={vi.fn()} width={320}>
+        content
+      </SidePanel>,
+    );
+    const panel = screen.getByTestId("list");
+
+    expect(panel.dataset["sized"]).toBe("true");
+    expect(panel.style.getPropertyValue("--side-panel-width")).toBe("320px");
+    expect(panel.className).toContain("sm:data-[sized=true]:w-(--side-panel-width)");
+    expect(panel.className).toContain("max-sm:data-[layout=list]:w-full");
+
+    view.rerender(
+      <SidePanel id="list" heading="List" layout="list" isOpen onClose={vi.fn()}>
+        content
+      </SidePanel>,
+    );
+
+    expect(panel.dataset["sized"]).toBeUndefined();
+    expect(panel.style.getPropertyValue("--side-panel-width")).toBe("");
+  });
 });

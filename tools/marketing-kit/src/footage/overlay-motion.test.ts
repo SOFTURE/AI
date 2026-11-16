@@ -156,6 +156,9 @@ describe("the motion model", () => {
 
   it("brings a staggered list's points in on their words, else spaced over its first part", () => {
     expect(getListItemStarts({ start: 2, end: 6, count: 3, words: [1, 3.1, 9] })).toEqual([2, 3.1, 5.4]);
+    // A point's word said before the point ahead of it comes in with that point, never ahead of it (RV-192 of an adopting app).
+    expect(getListItemStarts({ start: 2, end: 6, count: 3, words: [2, 4, 3] })).toEqual([2, 4, 4]);
+    expect(getListItemStarts({ start: 2, end: 6, count: 3, words: [2, 5.8, 3] })).toEqual([2, 5.4, 5.4]);
     // 40 % of 4 s over 3 points: 0.533 s apart.
     expect(getListItemStarts({ start: 2, end: 6, count: 3 })).toEqual([2.2, 2.733, 3.267]);
     // At least 0.25 s apart, at most 0.6 s, never past the last 0.6 s.

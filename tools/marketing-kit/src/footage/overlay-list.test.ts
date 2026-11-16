@@ -18,6 +18,7 @@ import {
   OVERLAY_LIST_LINE_HEIGHT,
   estimateTextWidth,
   getChipBadgeSize,
+  getChipCoveredTimes,
   getChipParts,
   getDrawnOverlayCard,
   getListCardsByItem,
@@ -359,6 +360,91 @@ describe("the render's list", () => {
       ["#ov0c1", "3.1"],
       ["#ov0c2", "4.2"],
     ]);
+  });
+});
+
+describe("a list's points in the order they are said (RV-192 of an adopting app)", () => {
+  /** "long" is said once before the list (an opening question) and twice after it starts; "where" and "risks" once. */
+  const SAID = [
+    { text: "How", start: 0.3, end: 0.5 },
+    { text: "long", start: 0.6, end: 0.9 },
+    { text: "where", start: 2, end: 2.3 },
+    { text: "long", start: 2.8, end: 3 },
+    { text: "risks", start: 3.6, end: 3.9 },
+    { text: "long", start: 4.4, end: 4.6 },
+  ];
+  const ASKED: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["where?", "how long?", "risks?"], item_words: [{ text: "where" }, { text: "long" }, { text: "risks" }], style: { list_layout: "chips" } };
+  const said = (overlay: EdlOverlay) => list(overlay, { words: SAID, style: STYLE });
+
+  it("takes a point's word said after the list starts, not the same word said before it", () => {
+    // Before the fix "long" took the opening question's word (0.6 s), so its chip came in with the first one at 2 s.
+    expect(getListItemTimes(said(ASKED))).toEqual([2, 2.8, 3.6]);
+  });
+
+  it("counts a point's occurrence from the list's start", () => {
+    const second = { ...ASKED, item_words: [{ text: "where" }, { text: "risks" }, { text: "long", occurrence: 2 }] };
+    expect(getListItemTimes(said(second))).toEqual([2, 3.6, 4.4]);
+  });
+
+  it("keeps a word said only before the list on the list's start, as before, rather than refusing the list", () => {
+    const early = { ...ASKED, item_words: [{ text: "where" }, { text: "How" }, { text: "risks" }] };
+    expect(getListItemTimes(said(early))).toEqual([2, 2, 3.6]);
+    // An occurrence the list never reaches still counts over the whole cut, as before.
+    const third = { ...ASKED, item_words: [{ text: "where" }, { text: "long", occurrence: 3 }, { text: "risks" }] };
+    // ("long" is said three times in all: the third is 4.4 s, and the point after it waits for it.)
+    expect(getListItemTimes(said(third))).toEqual([2, 4.4, 4.4]);
+  });
+
+  it("still refuses a point's word the cut never says", () => {
+    const result = resolve([{ ...ASKED, item_words: [{ text: "where" }, { text: "visa" }, { text: "risks" }] }], { words: SAID });
+    expect(result).toEqual({ ok: false, problems: ['overlays[0].item_words[1]: no word "visa" in the cut; the film never says it'] });
+  });
+
+  it("never brings a point in before the one ahead of it", () => {
+    expect(list({ ...SHORT, item_words: undefined, item_at: [2, 4, 3] }).itemStarts).toEqual([2, 4, 4]);
+  });
+
+  it("ticks every point before the one that leads, in order, even after two came in together", () => {
+    const base = said(ASKED);
+    expect(getChipCoveredTimes(base)).toEqual([2.8, 3.6, null]);
+    expect(getChipCoveredTimes({ ...base, itemStarts: [2, 2, 3.6] })).toEqual([3.6, 3.6, null]);
+    expect(getChipCoveredTimes({ ...base, itemStarts: [2, 3.6, 3.6] })).toEqual([3.6, null, null]);
+    // A next point the list never reaches covers nothing.
+    expect(getChipCoveredTimes({ ...base, itemStarts: [2, 2.8, 6] })).toEqual([2.8, null, null]);
+  });
+
+  /** The draft's events of one layer and style showing at `at` seconds, as [start, text]. */
+  function showing(lines: readonly string[], layer: string, style: string, at: number): string[] {
+    const seconds = (time: string) => time.split(":").reduce((sum, part) => sum * 60 + Number(part), 0);
+    return lines.filter((line) => {
+      const [, start = "", end = ""] = line.split(",");
+      return line.startsWith(`Dialogue: ${layer},`) && line.includes(`,${style},`) && seconds(start.trim()) <= at && at < seconds(end.trim());
+    });
+  }
+
+  it("brings each chip in on its own word in the draft, one at a time, every earlier one ticked and the newest leading", () => {
+    const overlay = resolve([ASKED], { words: SAID, style: STYLE });
+    if (!overlay.ok) throw new Error(overlay.problems.join("; "));
+    const ass = buildFootageDraftCaptions({ film, edl: edlWith([ASKED]), words: SAID, caption: CAPTION, frame: FRAME, overlays: overlay.overlays, overlayColors: COLORS, style: STYLE }) ?? "";
+    const lines = ass.split("\n").filter((line) => line.startsWith("Dialogue:"));
+    const FRAME_SECONDS = 1 / 30;
+    [2, 2.8, 3.6].forEach((word, point) => {
+      // Just before the word: only the chips said so far; one frame after: one more, the newest.
+      expect(showing(lines, "5", "OverlayShape", word - FRAME_SECONDS)).toHaveLength(point);
+      expect(showing(lines, "5", "OverlayShape", word + FRAME_SECONDS)).toHaveLength(point + 1);
+      // The newest shows its number; every chip before it its tick, none its number.
+      const numbers = showing(lines, "6", "OverlayPlain", word + FRAME_SECONDS);
+      expect(numbers.map((line) => line.slice(-1))).toEqual([String(point + 1)]);
+      expect(showing(lines, "6", "OverlayShape", word + 0.4)).toHaveLength(point);
+    });
+  });
+
+  it("brings each chip in on its own word in the render, and draws the ticks in order", () => {
+    const result = resolve([ASKED], { words: SAID, style: STYLE });
+    if (!result.ok) throw new Error(result.problems.join("; "));
+    const { tweens } = getOverlayMarkup(result.overlays, { colors: COLORS, headingFont: "Cal", frame: FRAME, style: STYLE });
+    expect(tweens.filter((tween) => tween.startsWith("tl.set("))).toEqual(['tl.set("#ov0c1", { visibility: "visible" }, 2.8);', 'tl.set("#ov0c2", { visibility: "visible" }, 3.6);']);
+    expect(tweens.filter((tween) => tween.includes("#ov0n")).map((tween) => tween.slice(-6))).toEqual([" 2.8);", " 3.6);"]);
   });
 });
 

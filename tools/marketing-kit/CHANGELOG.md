@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.40.0
+
+- **A list's points in the order they are said:** an `item_words` word took its occurrence over the whole cut, so a
+  point whose word was also said before the list (a question in the opening sentence) came in with the first point, at
+  the list's start, and the next point looked late. A point's word and its `occurrence` now count from the list's
+  start (one frame of tolerance); only a word the list never reaches still counts over the whole cut, as before, so no
+  list that resolved before is refused now. `getListItemStarts` never brings a point in before the one ahead of it
+  (an `item_at` or words out of order come in with that point).
+- **Every earlier chip ticked:** `getChipCoveredTimes` covered a chip only when the very next point came in after it,
+  so of two points that came in together the first kept its number for good while the later ones turned into ticks.
+  A chip is now covered at the first later second any point comes in after it: once a point leads, every point before
+  it carries its tick, in the draft and the render.
+
 ## 0.39.0
 
 - **Every place card on the frame's axis:** a place card whose subtitle did not fit the span centred on the frame, even

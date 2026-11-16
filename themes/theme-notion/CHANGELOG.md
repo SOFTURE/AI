@@ -4,11 +4,23 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## 0.20.0
+## Unreleased
 
 - `SidePanel footer` (#1312): an optional strip pinned below the scrolling content, with a top border
   (`data-slot="side-panel-footer"`), for an action that belongs to the panel's foot; it is hidden with the panel.
-  Without `footer` the markup is unchanged. New optional prop only. Migration: none.
+  Without `footer` the markup is unchanged. New optional prop only.
+- Migration: none.
+
+## 0.20.0
+
+- `ResizeHandle` (#1311): a vertical handle on a column's right edge that a pointer drags, or the keyboard steps, to set
+  the column's width within `min` and `max`; a double click restores `defaultValue`. A focusable `separator`
+  (`aria-controls`, `aria-valuenow/min/max`) that takes no width of its own and shows `ring` while hovered, focused or
+  dragged; hidden phone-wide. `onChange` on every width, `onCommit` when a drag, key or reset ends. `RESIZE_HANDLE_STEP` is
+  exported beside it, and `clampSize` from a plain module, so a Server Component can read a kept width with it.
+- `SidePanel width` (#1311): optional pixel width on a wide screen; phone-wide `beside` and `list` still cover the canvas.
+  New optional prop only.
+- Migration: none.
 
 ## 0.19.0
 

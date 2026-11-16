@@ -138,7 +138,7 @@ sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, t
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, such as a package's sign-in page),
-`SidePanel` (a non-modal panel at a side of a canvas, below), `AsidePanelProvider`, `AsidePanelToggle`,
+`SidePanel` (a non-modal panel at a side of a canvas, below), `ResizeHandle` (a drag handle that sets a column's width, below), `AsidePanelProvider`, `AsidePanelToggle`,
 `AsidePanel` and `AsidePanelSidebarOpener` (a panel slid in from the right of the app shell, beside the content, below), `SheetMenu`, `SheetMenuItem` and `SheetMenuButton`
 (navigation rows in a side `Sheet`, a phone's drawer, below), `TabBar` (a screen's tabs as links with an optional icon
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
@@ -242,6 +242,26 @@ action that belongs to the panel's foot; without it the panel has no strip.
   <SidePanel id="layers" heading="Layers" layout="over" isOpen={isOpen} onClose={() => setOpen(false)}>
     {/* switches */}
   </SidePanel>
+</div>
+```
+
+`SidePanel width` (pixels, optional) sets its width on a wide screen; phone-wide `beside` and `list` keep covering the
+canvas.
+
+**`ResizeHandle`.** A vertical handle on the right edge of a column (a list, a `SidePanel layout="list"`) that sets the
+column's width: a pointer drags it, the arrow keys step it by `RESIZE_HANDLE_STEP` (16 px, Shift four times that), Home
+and End go to `min` and `max`, a double click restores `defaultValue`. It is a focusable `separator` naming its column
+with `aria-controls` and the width with `aria-valuenow`; it takes no width of its own (it lies over the border between
+the columns) and shows `ring` while hovered, focused or dragged; hidden phone-wide. `onChange` gets every width,
+`onCommit` the width once a drag, key or reset ends (the moment to keep it, e.g. in a cookie). `clampSize(value, min,
+max, fallback)` (a plain module, callable in a Server Component) reads a kept width back within the limits.
+
+```tsx
+<div className="relative flex h-full">
+  <SidePanel id="days" heading="Days" layout="list" isOpen onClose={close} width={width}>…</SidePanel>
+  <ResizeHandle label={copy.resizeDays} controls="days" value={width} min={240} max={480} defaultValue={384}
+    onChange={setWidth} onCommit={keepWidth} />
+  <Map className="flex-1" />
 </div>
 ```
 
