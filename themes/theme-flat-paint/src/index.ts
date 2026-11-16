@@ -74,6 +74,23 @@ export {
 } from "./look/controls.js";
 export { MODAL_LOOK, STANDING_PANEL_LOOK, getModalLook, type ModalLook, type ModalSlot, type ModalWidth } from "./look/modal.js";
 export { ROLE_TONE, type DataRole, type UiTone } from "./look/roles.js";
+export {
+  CHAT_COMPOSER_LOOK,
+  CHAT_EMPTY_STATE_LOOK,
+  CHAT_ERROR_LOOK,
+  CHAT_LOG_LOOK,
+  CHAT_LOOK,
+  CHAT_MESSAGE_LOOK,
+  REASONING_DISCLOSURE_LOOK,
+  TOOL_CALL_CARD_LOOK,
+  type ChatComposerSlot,
+  type ChatEmptyStateSlot,
+  type ChatErrorSlot,
+  type ChatLogSlot,
+  type ChatMessageSlot,
+  type ReasoningDisclosureSlot,
+  type ToolCallCardSlot,
+} from "./look/chat.js";
 export { CHECKLIST_LOOK, type ChecklistSlot } from "./look/checklist.js";
 export { COLOR_FIELD_LOOK, type ColorFieldSlot } from "./look/color-field.js";
 export { HINT_LOOK, type HintLook, type HintSlot } from "./look/hint.js";
