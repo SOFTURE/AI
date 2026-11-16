@@ -3,6 +3,7 @@
 // modules on every change, so the handles live on `globalThis` under a `Symbol.for` key: each
 // reload, and each copy of this file in separate server bundles, finds the same pool.
 import { createDatabase, type CreateDatabaseOptions, type DatabaseHandle } from "./client.js";
+import { isWorkersRuntime, NO_REQUEST_DATABASE_MESSAGE } from "./request.js";
 
 const HANDLES_KEY = Symbol.for("@softure-ai/db/shared-handles");
 
@@ -15,6 +16,7 @@ const host = globalThis as unknown as HandleHost;
  * A failed open is not kept, so the next call tries again.
  */
 export function getSharedDatabase(url: string, options: CreateDatabaseOptions = {}): Promise<DatabaseHandle> {
+  if (isWorkersRuntime()) return Promise.reject(new Error(NO_REQUEST_DATABASE_MESSAGE));
   const handles = (host[HANDLES_KEY] ??= new Map<string, Promise<DatabaseHandle>>());
   let handle = handles.get(url);
   if (handle === undefined) {

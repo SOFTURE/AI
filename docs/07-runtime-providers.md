@@ -62,7 +62,7 @@ and every listed module that does not run on the chosen runtime, naming the modu
 | Package | Node | Workers | Item |
 | --- | --- | --- | --- |
 | `@softure-ai/core` (`.`, `./next`) | yes | yes | RP-1 |
-| `@softure-ai/db` | yes | planned | RP-2 |
+| `@softure-ai/db` (`./request`) | yes | yes | RP-2 |
 | `@softure-ai/auth` | yes | planned | RP-3 |
 | `@softure-ai/jobs` | yes | planned | RP-4 |
 | `@softure-ai/security` | yes | planned | RP-5 |

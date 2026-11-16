@@ -4,6 +4,7 @@
 // package commands all resolve through here.
 import type { SoftureDatabaseConfig } from "@softure-ai/core";
 import { createDatabase, isDatabaseHandle, type CreateDatabaseOptions, type DatabaseHandle } from "./client.js";
+import { getRequestDatabase } from "./request.js";
 import { getSharedDatabase } from "./shared.js";
 
 declare module "@softure-ai/core" {
@@ -37,6 +38,8 @@ function getConfiguredHandles(): ConfiguredHandles {
  * `handle` call is not kept, so the next call tries again.
  */
 export function getConfiguredDatabase(database: SoftureDatabaseConfig): Promise<DatabaseHandle> {
+  const scoped = getRequestDatabase();
+  if (scoped !== undefined) return scoped;
   const source = database.handle;
   if (source === undefined) return getSharedDatabase(database.url);
 

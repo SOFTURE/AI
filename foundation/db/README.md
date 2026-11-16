@@ -240,6 +240,28 @@ try {
 }
 ```
 
+### Running on Cloudflare Workers
+
+On Workers a socket belongs to the request that opened it, so the process-wide pool cannot be shared
+([docs/07](../../docs/07-runtime-providers.md)). Import from `@softure-ai/db/request`, the package's Workers-safe
+entry (no filesystem), and wrap the Worker's fetch handler:
+
+```ts
+// worker.ts (around the OpenNext handler)
+import { withRequestDatabase } from "@softure-ai/db/request";
+
+export default {
+  fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
+    withRequestDatabase({ url: env.HYPERDRIVE.connectionString, waitUntil: (p) => ctx.waitUntil(p) }, () => handler.fetch(request, env, ctx)),
+};
+```
+
+Inside the scope `getConfiguredDatabase` answers the request's handle (a pool of one on the Hyperdrive URL, opened
+on the first query and closed through `waitUntil` after the response), so every module works unchanged. Outside a
+scope on Workers `getConfiguredDatabase` and `getSharedDatabase` refuse with a message naming `withRequestDatabase`;
+on Node nothing changes. PGlite is Node-only. Migrations never run in a Worker: `softure migrate` runs in CI with the
+direct database URL. `createProcessDatabase` (a module-level `db`) is Node-only.
+
 ## 4. Mounting
 
 Nothing to mount. Migrations run as a deploy step:
