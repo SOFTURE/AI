@@ -31,7 +31,7 @@ export const LAYER_ORDER = "@layer theme, base, softure, components, utilities;"
 //   for steps 1 to 8, so padding and gaps follow the theme;
 // - weights, line heights and tracking belong to a font, not to a theme; each text size carries
 //   Tailwind's default line height (a ratio, so it follows the size token), and `sft:leading-*` wins;
-// - two breakpoints (`sft:sm:`, and `sft:md:` for the app bar), two container widths (modal panels), the spinner and the indeterminate progress animations.
+// - two breakpoints (`sft:sm:`, and `sft:md:` for the app bar), two container widths (modal panels), the spinner, the indeterminate progress and the chat's typing animations.
 const STATIC_THEME = `@theme inline reference prefix(sft) {
   --spacing: 0.25rem;
   --spacing-0: 0px;
@@ -59,6 +59,7 @@ const STATIC_THEME = `@theme inline reference prefix(sft) {
   --container-3xl: 48rem;
   --animate-spin: sft-spin 1s linear infinite;
   --animate-indeterminate: sft-indeterminate 1.5s ease-in-out infinite;
+  --animate-typing: sft-typing 1.2s ease-in-out infinite;
 }`;
 
 /** Keyframes of `--animate-*`; a `reference` theme emits none of its own. */
@@ -73,6 +74,15 @@ const KEYFRAMES = `@keyframes sft-spin {
   }
   to {
     transform: translateX(300%);
+  }
+}
+@keyframes sft-typing {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
   }
 }`;
 

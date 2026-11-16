@@ -76,6 +76,44 @@ export const en = {
     /** Name of the "?" that explains why there is no suggestion. */
     noneHintLabel: "Why there is no suggestion: {label}",
   },
+  chat: {
+    /** Name of the message log. */
+    logLabel: "Conversation",
+    /** The author line of a message, per role. */
+    roles: {
+      user: "You",
+      assistant: "Assistant",
+      system: "System",
+    },
+    /** Read by screen readers while an answer has no text yet. */
+    typing: "Writing…",
+    composer: {
+      label: "Message",
+      placeholder: "Write a message…",
+      send: "Send",
+      stop: "Stop",
+      retry: "Try again",
+    },
+    /** A tool call's state. */
+    tool: {
+      pending: "Running…",
+      done: "Done",
+      error: "Failed",
+    },
+    reasoning: {
+      title: "Reasoning",
+      streaming: "Thinking…",
+    },
+    empty: {
+      title: "Start a conversation",
+      /** Name of the list of prompt suggestions. */
+      suggestions: "Suggestions",
+    },
+    error: {
+      message: "Something went wrong. Try again.",
+      retry: "Try again",
+    },
+  },
   errors: {
     amount_invalid: "Enter an amount with at most two decimal places, for example {example}.",
     amount_out_of_range: "This amount is too large.",
