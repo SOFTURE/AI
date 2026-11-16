@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## Unreleased
+
+- Chat primitives on the `--sft-*` tokens (#1259): `ChatLog` (`role="log"`, `aria-busy` while streaming, the finished
+  answer announced once through a polite status region), `ChatMessage` (`data-role`, `data-status`, a typing
+  indicator), `ChatComposer` (Enter sends, Shift+Enter adds a line, Send / Stop / Retry by `useChat().status`),
+  `ToolCallCard` (`data-state` `pending`, `done`, `error`), `ReasoningDisclosure`, `ChatEmptyState` (prompt
+  suggestions) and `ChatError`. Plain props, no dependency on `ai`; the README shows the `useChat` mapping and a
+  tool registry. New copy group `chat` in `uiMessages`. `styles.css` adds the `sft-typing` keyframes.
+
 ## 0.3.7
 
 - The optional peer `typescript` is now `>=5.0.0 <7.0.0`: the source guards parse with the TypeScript compiler API,

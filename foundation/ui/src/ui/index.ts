@@ -6,6 +6,7 @@ export * from "./app-menus.js";
 export * from "./amount.js";
 export * from "./button.js";
 export * from "./card.js";
+export * from "./chat.js";
 export * from "./checklist.js";
 export { CardDisclosure, type CardDisclosureProps, type CardDisclosureSlot } from "./card-disclosure.js";
 export {

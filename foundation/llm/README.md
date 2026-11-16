@@ -6,10 +6,12 @@ One way for an app to ask a language model for structured data or plain text: th
 - `generateStructured`: the answer parsed and validated by a zod schema, a time limit, and a `Result` whose failures
   are stable codes;
 - `generateText`: plain text (a summary, a Markdown rewrite, a short title) with the same limits, codes and records;
+- `streamChat`: a streamed chat answer (AI SDK `streamText`, tools and steps included) for an AI SDK UI `useChat`
+  route, with the same model, time limit, records, cost and spans;
 - a usage record per call (tokens, cost from the app's price table, outcome, the app's attributes such as an account
   id), for quotas and billing;
 - an OpenTelemetry span per call;
-- `fakeModel()` for tests, answering from a script.
+- `fakeModel()` and `fakeChatModel()` for tests, answering from a script.
 
 The package has no provider layer, no environment variables and no `softure.config.ts` entry: the provider, its API
 key and the model id stay in the app.
@@ -112,10 +114,106 @@ Asks for plain text: no JSON envelope, so long Markdown is neither escaped nor c
 
 Returns `Result<{ text, truncated, usage, model, costUsd, costSource }, LlmErrorCode>`. `text` is the answer without surrounding
 whitespace; `truncated` is `true` when `maxChars` cut it. An answer that is empty or only whitespace is
-`llm.invalid_output`. Streaming is not offered.
+`llm.invalid_output`. For a streamed answer, see `streamChat`.
 
 A `maxChars`, `maxOutputTokens` or per-call `timeoutMs` that is out of range rejects with a `RangeError` naming the
 call and the field, before the model is called.
+
+### `streamChat(request)`
+
+Streams a chat answer through AI SDK [`streamText`](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) and
+returns its `StreamTextResult`, so a route answers with `toUIMessageStreamResponse()`. The request is `streamText`'s
+own options (`messages` or `prompt`, `instructions`, `tools`, `stopWhen`, `maxOutputTokens`, `abortSignal`,
+`onEnd`, ...) without `model`, `timeout` and `streamRetries`, plus:
+
+| Field | Meaning |
+| --- | --- |
+| `model` | overrides the client's model for this chat |
+| `timeoutMs` | time limit of the whole answer, every step included; default the client's `timeoutMs` (30 000). A chat with long answers or tools sets a longer one |
+| `attributes` | passed to `onUsage` and `onCall` as given; never written to spans |
+
+The chat is recorded once, when the answer is over: one `onUsage` (when a model call reported usage) and one `onCall`
+with `operation: "streamChat"`, the usage and cost of all steps together (the provider's billed cost summed over the
+steps, else the price table on the total tokens), and the model id the provider answered with:
+
+| How it ended | `outcome` | `usage` |
+| --- | --- | --- |
+| the answer finished | `ok` | all steps |
+| the model stopped on the output token limit | `llm.output_truncated` | all steps |
+| the provider failed, before or during the stream | `llm.unavailable` | the steps that finished before the failure, else `null` |
+| `timeoutMs` elapsed | `llm.timeout` | the finished steps, else `null` |
+| the request's `abortSignal` aborted (the user pressed Stop) | `llm.aborted` | the finished steps, else `null` |
+
+The AI SDK reports no tokens for a step that was cut short, so an answer stopped half way records only the steps
+before it: `usage: null` for a one-step chat. The provider still billed the part it streamed; see the metering recipe
+below for what to do with a reservation. The request's own `onEnd`, `onStepEnd`, `onAbort` and `onError` are still
+called, after the records.
+
+The result carries `recorded: Promise<void>`. It resolves once `onUsage` and `onCall` ran and rejects with the error
+either of them threw; the span records that error too. The response has left by then, so a hook's failure cannot
+reach the route: hand `recorded` to the platform's after-response hook (Next.js `after`), which reports it. The answer
+ends, and `recorded` settles, only once the stream is read, which `toUIMessageStreamResponse()` does.
+
+A `timeoutMs` or `maxOutputTokens` out of range throws a `RangeError` naming the field, before the model is called.
+
+#### A chat route
+
+```ts
+// app/api/chat/route.ts
+import { after } from "next/server";
+import { consumeRateLimit } from "@softure-ai/security/server";
+import { convertToModelMessages, isStepCount, safeValidateUIMessages } from "ai";
+import { z } from "zod";
+import { llm } from "@/lib/llm";
+import { chatTools, type ChatMessage } from "@/lib/chat-tools";
+
+const MAX_BODY_BYTES = 64_000;
+const bodySchema = z.object({ messages: z.array(z.unknown()).min(1).max(40) });
+
+export async function POST(request: Request): Promise<Response> {
+  const session = await requireSession(request); // the app's authorization: 401 without a session
+  const limit = await consumeRateLimit(securityCtx, { bucket: "chat", key: session.userId }); // @softure-ai/security
+  if (!limit.ok) return Response.json({ error: "chat.rate_limited" }, { status: 429 });
+
+  const raw = await request.text();
+  if (raw.length > MAX_BODY_BYTES) return Response.json({ error: "chat.too_large" }, { status: 413 });
+  const body = bodySchema.safeParse(parseJson(raw)); // JSON.parse that returns undefined on bad JSON
+  if (!body.success) return Response.json({ error: "chat.invalid_input" }, { status: 400 });
+  const validated = await safeValidateUIMessages<ChatMessage>({ messages: body.data.messages, tools: chatTools });
+  if (!validated.success) return Response.json({ error: "chat.invalid_input" }, { status: 400 });
+
+  const stream = llm.streamChat({
+    instructions: "You answer questions about the team's projects.",
+    messages: await convertToModelMessages(validated.data, { tools: chatTools }),
+    tools: chatTools,
+    stopWhen: isStepCount(3),
+    timeoutMs: 60_000,
+    abortSignal: request.signal, // the client's Stop ends the call: outcome llm.aborted
+    attributes: { accountId: session.accountId },
+  });
+  after(() => stream.recorded);
+  return stream.toUIMessageStreamResponse<ChatMessage>({ originalMessages: validated.data, onError: () => "chat.unavailable" });
+}
+```
+
+The body limit, the message count, `validateUIMessages` (or `safeValidateUIMessages`) against the route's own tools,
+the session check and the rate limit come before the model is called: a chat route is a public endpoint that spends
+money. The error string the client sees is a code, never the provider's message.
+
+#### Budgets on a chat
+
+With `@softure-ai/metering`, reserve before the chat and settle from the record:
+
+```ts
+const reserved = await reserveSpend(meteringCtx, { provider: "openrouter", amount: estimateUsd, accountId });
+if (!reserved.ok) return Response.json({ error: "chat.budget_exceeded" }, { status: 402 });
+const stream = llm.streamChat({ ...chat, attributes: { accountId, reservationId: reserved.value.id } });
+```
+
+In `onCall`, for a record with `operation: "streamChat"` and a `reservationId` attribute: settle with `costUsd` when
+it is not `null`; for `llm.aborted` or `llm.timeout` without usage, settle at the estimate (the provider billed the
+part it streamed); for `llm.unavailable` without usage, release. Pass `createLlmUsageRecorder` as `onUsage` instead
+when the app keeps a ledger without reservations.
 
 ## Error codes
 
@@ -155,9 +253,9 @@ included:
 
 | Field | Meaning |
 | --- | --- |
-| `operation` | `"generateStructured"` or `"generateText"` |
+| `operation` | `"generateStructured"`, `"generateText"` or `"streamChat"` |
 | `model`, `provider` | the model id the provider answered with; without an answer, the requested one |
-| `outcome` | `"ok"` or the call's error code |
+| `outcome` | `"ok"`, the call's error code, or `"llm.aborted"` for a `streamChat` the request aborted (`LlmOutcome`) |
 | `usage` | as in `UsageRecord`; `null` when the provider reported none (`llm.unavailable`, `llm.timeout`) |
 | `costUsd`, `costSource` | as in `UsageRecord`; `null` without usage |
 | `startedAt`, `durationMs` | when the call started and how long it took, retries included |
@@ -179,7 +277,7 @@ module's job, inside `onUsage`. To refuse a call over quota, check the quota bef
 
 ## Tracing
 
-Every call is one span, `llm.generate_structured` or `llm.generate_text`, with `gen_ai.operation.name`, `gen_ai.provider.name`,
+Every call is one span, `llm.generate_structured`, `llm.generate_text` or `llm.stream_chat` (operation `chat`), with `gen_ai.operation.name`, `gen_ai.provider.name`,
 `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`,
 `softure.llm.cost_usd`, `softure.llm.cost_source` and `softure.llm.outcome`; a failed call has status `ERROR` with its code. The prompt, the
 answer and the call's attributes are never recorded (they may hold personal data). Without an OpenTelemetry SDK in
@@ -213,8 +311,34 @@ expect(model.doGenerateCalls).toHaveLength(0);
 provider reports next to the answer, e.g. `{ openrouter: { usage: { cost: 0.0012 } } }` for a billed cost, or `{ openrouter: { usage: { cost: 0, costDetails: { upstreamInferenceCost: 0.0012 } } } }` for a BYOK call. Each call takes the next response;
 the last one repeats. `model.doGenerateCalls` holds what was sent (prompt, response format, abort signal).
 
+A streamed chat:
+
+```ts
+import { fakeChatModel } from "@softure-ai/llm/testing";
+
+const model = fakeChatModel(
+  { kind: "tool-call", toolName: "projectStatus", input: { projectId: "apollo" } },
+  { kind: "text", text: "Apollo is 64% done." },
+);
+const stream = createLlm({ model }).streamChat({ prompt: "How is Apollo?", tools, stopWhen: isStepCount(3) });
+expect(await stream.text).toBe("Apollo is 64% done.");
+```
+
+| Response | Effect |
+| --- | --- |
+| `{ kind: "text", text, usage?, providerMetadata? }` | streams `text` word by word and stops |
+| `{ kind: "tool-call", toolName, input, text?, usage?, providerMetadata? }` | streams `text`, then calls the tool; the next step takes the next response |
+| `{ kind: "truncated", text?, usage?, providerMetadata? }` | stops on the output token limit → `llm.output_truncated` |
+| `{ kind: "unavailable" }` | fails like HTTP 503 before anything streams → `llm.unavailable` |
+| `{ kind: "error", text? }` | streams `text`, then a provider error → `llm.unavailable` |
+| `{ kind: "hang", text? }` | streams `text`, then waits for the abort → `llm.aborted` or `llm.timeout` |
+
+Options: `modelId`, `provider`, `chunkDelayInMs` (default 0). `model.doStreamCalls` holds what each step sent.
+
 ## Limitations
 
-- Structured output and plain text only: no streaming or tools yet.
+- `generateStructured` and `generateText` take no tools; tools are for `streamChat`.
+- `streamChat` records an answer stopped half way without the unfinished step's tokens (the AI SDK reports none),
+  and does not offer `streamRetries`.
 - AI SDK 7 only (`ai@^7`).
 - No built-in price list: prices change often and differ per provider, so the app keeps them.

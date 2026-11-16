@@ -11,6 +11,12 @@ export const LLM_ERROR_CODES = ["llm.unavailable", "llm.invalid_output", "llm.ou
  */
 export type LlmErrorCode = (typeof LLM_ERROR_CODES)[number];
 
+/**
+ * How a call ended, as `onUsage` and `onCall` see it: `"ok"`, an error code, or `llm.aborted` when the caller aborted
+ * a `streamChat` (the user pressed Stop). The calls that return a `Result` never end `llm.aborted`.
+ */
+export type LlmOutcome = "ok" | LlmErrorCode | "llm.aborted";
+
 /** Token counts of one call; `0` where the provider reported nothing. */
 export interface LlmUsage {
   readonly inputTokens: number;
@@ -49,7 +55,7 @@ export interface UsageRecord {
   readonly costUsd: number | null;
   /** `null` exactly when `costUsd` is `null`. */
   readonly costSource: CostSource | null;
-  readonly outcome: "ok" | LlmErrorCode;
+  readonly outcome: LlmOutcome;
   readonly durationMs: number;
   readonly at: Date;
   /** The call's `attributes`, e.g. `{ accountId }`. */
@@ -58,11 +64,11 @@ export interface UsageRecord {
 
 /** What `onCall` receives after every finished call, failures included. */
 export interface LlmCallRecord {
-  readonly operation: "generateStructured" | "generateText";
+  readonly operation: "generateStructured" | "generateText" | "streamChat";
   /** The model id the provider answered with, else (no answer: `llm.unavailable`, `llm.timeout`) the requested one. */
   readonly model: string;
   readonly provider: string;
-  readonly outcome: "ok" | LlmErrorCode;
+  readonly outcome: LlmOutcome;
   /** `null` when the call ended without the provider reporting usage. */
   readonly usage: LlmUsage | null;
   readonly costUsd: number | null;
