@@ -129,10 +129,13 @@ export function getPathsProblem(paths: string[]): string | null {
 
 /** A branch-safe slug of the scope folder: `modules/mcp-access` → `modules-mcp-access`. */
 export function getScopeSlug(scope: Scope): string {
-  return scope.folder
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const dashed = scope.folder.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  // Trimmed by index rather than with /^-+|-+$/, which backtracks polynomially on a long run of dashes.
+  let start = 0;
+  let end = dashed.length;
+  while (start < end && dashed[start] === "-") start++;
+  while (end > start && dashed[end - 1] === "-") end--;
+  return dashed.slice(start, end);
 }
 
 /** Where the report goes by default: the root report, or the scope's own, so reports of different scopes never collide. */

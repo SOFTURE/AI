@@ -383,6 +383,8 @@ describe("softure-quality-review resolve and run with focus and scope", () => {
 describe("branch names", () => {
   it("joins the focus and the scope slug", () => {
     expect(getScopeSlug({ folder: "modules/mcp-access", packageName: null })).toBe("modules-mcp-access");
+    expect(getScopeSlug({ folder: "_x/.y_", packageName: null })).toBe("x-y");
+    expect(getScopeSlug({ folder: `a${"/".repeat(50_000)}`, packageName: null })).toBe("a");
     expect(getBranchSuffix("general", null)).toBe("");
     expect(getBranchSuffix("security", null)).toBe("security");
     expect(getBranchSuffix("general", { folder: "themes/theme_notion", packageName: "@x/y" })).toBe("themes-theme-notion");
