@@ -38,6 +38,7 @@ import {
   getDrawnOverlayCard,
   getListCardsByItem,
   getListItemTimes,
+  getListStops,
   getNoteCentre,
   getNoteColors,
   getNotePaperPoints,
@@ -568,21 +569,27 @@ function getListEvents(overlay: Extract<ResolvedOverlay, { kind: "list" }>, cont
     getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${fontSize}${textTags}${clip}`, steps, motion });
   if (overlay.chips !== undefined) {
     const covered = getChipCoveredTimes(overlay);
-    return overlay.chips.flatMap((chip, index) => {
-      const from = times[index] as number;
+    return overlay.chips.flatMap((_chip, index) => {
       const until = covered[index] ?? null;
-      const motion = getDraftMotion(overlay, name, chip, context);
-      const span = { start: from, end: overlay.end, isFirst: true, isLast: true };
-      const parts = getChipParts(chip, overlay);
       const text = toAssText(lines[index] as string);
       // The point leads until the next one is in, then steps back (fainter), as a countdown does (RV-181).
       const fainter = `{\\1a${toAssAlpha(LIST_CHIP_COVERED_OPACITY)}}`;
-      const steps = until === null ? [{ from, to: overlay.end, text }] : [{ from, to: until, text }, { from: until, to: overlay.end, text: `${fainter}${text}` }];
-      return [
-        ...getCardShapeEvents(overlay, chip, fontSize, colors, motion, context, span),
-        ...write({ x: parts.textX, y: chip.top + pad.y }, 8, steps, motion),
-        ...getChipBadgeEvents({ overlay, index, from, until, parts, colors, motion }),
-      ];
+      // The chip's places over time: it slides aside as each later point comes in, so the row stays on the axis (RV-185).
+      const places = getChipPlaces(overlay, index);
+      return places.flatMap((place, part) => {
+        const span = { start: place.start, end: place.end, isFirst: part === 0, isLast: part === places.length - 1 };
+        const motion = getPartMotion(getDraftMotion(overlay, name, place.box, context), span);
+        const parts = getChipParts(place.box, overlay);
+        const steps = [
+          { from: place.start, to: until === null ? place.end : Math.min(place.end, until), text },
+          { from: until === null ? place.end : Math.max(place.start, until), to: place.end, text: `${fainter}${text}` },
+        ].filter((step) => step.to > step.from);
+        return [
+          ...getCardShapeEvents(overlay, place.box, fontSize, colors, motion, context, span),
+          ...write({ x: parts.textX, y: place.box.top + pad.y }, 8, steps, motion),
+          ...getChipBadgeEvents({ index, span, until, parts, colors, motion }),
+        ];
+      });
     });
   }
   // The text sits on the whole list's card: centred on its axis, or from its side.
@@ -620,34 +627,76 @@ function toAssAlpha(opacity: number): string {
  * is in, the number gives way to a tick drawn in, as the paper note's is.
  */
 function getChipBadgeEvents(input: {
-  overlay: Extract<ResolvedOverlay, { kind: "list" }>;
   index: number;
-  from: number;
+  span: ShapeSpan;
   until: number | null;
   parts: ReturnType<typeof getChipParts>;
   colors: OverlayColors;
   motion: DraftMotion;
 }): string[] {
-  const { overlay, from, until, parts, colors, motion } = input;
+  const { span, until, parts, colors, motion } = input;
   const { centre, radius } = parts.badge;
-  const span = { start: from, end: overlay.end };
-  const mark = getShapeEvent(span, getCircleDrawing(centre, radius), colors.accent, motion, 5);
+  const mark = getShapeEvent(span, getCircleDrawing(centre, radius), colors.accent, motion, 5, span);
   const numberSize = r0(radius * 1.45);
-  const number = getTextEvents({
-    layer: 6,
-    style: "OverlayPlain",
-    pos: centre,
-    tags: `\\an5\\fs${numberSize}\\b1\\1c${toTagColor(colors.background)}`,
-    steps: [{ from, to: until ?? overlay.end, text: String(input.index + 1) }],
-    motion: until === null ? motion : { ...motion, exit: { ...motion.exit, kind: "none" } },
-  });
-  if (until === null) return [mark, ...number];
+  const numberEnd = until === null ? span.end : Math.min(span.end, until);
+  const number =
+    numberEnd > span.start
+      ? getTextEvents({
+          layer: 6,
+          style: "OverlayPlain",
+          pos: centre,
+          tags: `\\an5\\fs${numberSize}\\b1\\1c${toTagColor(colors.background)}`,
+          steps: [{ from: span.start, to: numberEnd, text: String(input.index + 1) }],
+          motion: numberEnd === span.end ? motion : { ...motion, exit: { ...motion.exit, kind: "none" } },
+        })
+      : [];
+  if (until === null || until >= span.end) return [mark, ...number];
+  // The tick draws in from the next point's second; a part that starts later picks it up as far as it has come.
+  const start = Math.max(span.start, until);
+  const drawn = Math.min(1, (start - until) / CHIP_TICK_SECONDS);
   const points = getChipTickPoints(parts.badge);
   const clip = { x0: r0(centre.x - radius), y0: r0(centre.y - radius), x1: r0(centre.x + radius), y1: r0(centre.y + radius) };
-  const draw = `${toClip({ ...clip, x1: clip.x0 })}\\t(0,${toMs(CHIP_TICK_SECONDS)},${toClip(clip)})`;
-  const fade = motion.exit.kind === "none" ? "" : `\\fad(0,${FADE_OUT_MS})`;
-  const tick = `Dialogue: 6,${toAssTime(until)},${toAssTime(overlay.end)},OverlayShape,,0,0,0,,{\\an7\\pos(0,0)${fade}${draw}\\1c${toTagColor(colors.background)}\\p1}${getStrokeDrawing(points, radius * 0.24)}{\\p0}`;
+  const draw = drawn >= 1 ? toClip(clip) : `${toClip({ ...clip, x1: r0(clip.x0 + (clip.x1 - clip.x0) * drawn) })}\\t(0,${toMs(CHIP_TICK_SECONDS * (1 - drawn))},${toClip(clip)})`;
+  const fade = !span.isLast || motion.exit.kind === "none" ? "" : `\\fad(0,${FADE_OUT_MS})`;
+  const tick = `Dialogue: 6,${toAssTime(start)},${toAssTime(span.end)},OverlayShape,,0,0,0,,{\\an7\\pos(0,0)${fade}${draw}\\1c${toTagColor(colors.background)}\\p1}${getStrokeDrawing(points, radius * 0.24)}{\\p0}`;
   return [mark, ...number, tick];
+}
+
+/** One stretch a chip stands still for: its box from `start` to `end`. */
+interface ChipPlace {
+  start: number;
+  end: number;
+  box: OverlayBox;
+}
+
+/**
+ * A chip's places over the list's life (RV-185 of an adopting app): from its own second at its place in the row so far,
+ * then, as each later point comes in, `LIST_GROW_STEPS` steps easing it aside along the render's `power3.out` to its
+ * place in the wider row, so the chips shown stay on the list's axis. Only the stretches the list shows.
+ */
+function getChipPlaces(overlay: Extract<ResolvedOverlay, { kind: "list" }>, index: number): ChipPlace[] {
+  const cards = getListCardsByItem(overlay);
+  const from = getListItemTimes(overlay)[index] as number;
+  const stops = getListStops(overlay).filter((stop) => stop.at >= from);
+  const moves = stops.flatMap((stop, at) => {
+    const box = (cards[stop.step] as OverlayBox[])[index] as OverlayBox;
+    const previous = stops[at - 1];
+    if (previous === undefined) return [{ start: stop.at, box }];
+    const before = (cards[previous.step] as OverlayBox[])[index] as OverlayBox;
+    return Array.from({ length: LIST_GROW_STEPS }, (_step, step) => {
+      const share = (step + 1) / LIST_GROW_STEPS;
+      return { start: stop.at + (step * LIST_GROW_SECONDS) / LIST_GROW_STEPS, box: step === LIST_GROW_STEPS - 1 ? box : getBoxBetween(before, box, OVERLAY_EASES["power3.out"](share)) };
+    });
+  });
+  return moves
+    .map((move, at) => ({ ...move, end: Math.min(overlay.end, moves[at + 1]?.start ?? overlay.end) }))
+    .filter((move) => move.start < move.end);
+}
+
+/** A part's motion: the entrance only on its first part, the exit only on its last, so a moving chip neither fades nor slides between its parts. */
+function getPartMotion(motion: DraftMotion, span: ShapeSpan): DraftMotion {
+  const entered = span.isFirst ? motion : { ...motion, name: "none" as const, entrance: { kind: "none" as const } };
+  return span.isLast ? entered : { ...entered, exit: { ...entered.exit, kind: "none" as const } };
 }
 
 type CardOverlay = Extract<ResolvedOverlay, { kind: "hook_title" | "search_bar" | "place_card" | "counter" | "date_stamp" }>;

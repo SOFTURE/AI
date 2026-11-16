@@ -22,6 +22,7 @@ import {
   getDrawnOverlayCard,
   getListCardsByItem,
   getListItemTimes,
+  getListStops,
   getOverlayPadding,
   getSideTextLines,
   resolveEdlOverlays,
@@ -29,6 +30,7 @@ import {
   type ResolveOverlaysInput,
   type ResolvedOverlay,
   LIST_CHIP_MIN_FONT_SIZE,
+  LIST_CHIP_CENTRED_MIN_FONT_SIZE,
 } from "./overlays.js";
 import { readFfmpegListing } from "./tools.js";
 
@@ -57,11 +59,14 @@ const WORDS = [
   { text: "price", start: 2.4, end: 2.7 },
   { text: "days", start: 3.1, end: 3.5 },
   { text: "office", start: 4.2, end: 4.6 },
+  { text: "visa", start: 5, end: 5.3 },
 ];
 const edlWith = (overlays: EdlOverlay[]): Edl => ({ version: 2, film: "trip", segments: SEGMENTS, overlays });
 
 /** Three short points, said one by one. */
 const SHORT: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["35 zl", "3 days", "town hall"], item_words: [{ text: "price" }, { text: "days" }, { text: "office" }] };
+/** Four short points, said one by one (RV-185 of an adopting app: the shown chips stay centred while the row fills). */
+const FOUR: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["35 zl", "3 days", "town hall", "visa"], item_words: [{ text: "price" }, { text: "days" }, { text: "office" }, { text: "visa" }] };
 /** A list with a long point: too wide for one row of chips at size l. */
 const LONG: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["Visa", "Thirty days on arrival, no fee", "Passport"], item_words: [{ text: "price" }, { text: "days" }, { text: "office" }], style: { size: "l" } };
 
@@ -76,6 +81,13 @@ function list(overlay: EdlOverlay, changes: Partial<ResolveOverlaysInput> = {}):
   if (first?.kind !== "list") throw new Error("expected a list");
   return first;
 }
+
+/** How far the middle of a group of boxes sits from the frame's vertical axis, in per cent of the frame's width. */
+const getAxisOffsetPercent = (boxes: readonly OverlayBox[]): number => {
+  const left = Math.min(...boxes.map((box) => box.left));
+  const right = Math.max(...boxes.map((box) => box.left + box.width));
+  return (Math.abs((left + right) / 2 - FRAME.width / 2) / FRAME.width) * 100;
+};
 
 const withLayout = (overlay: EdlOverlay, layout: (typeof OVERLAY_LIST_LAYOUTS)[number]): EdlOverlay => ({ ...overlay, style: { ...overlay.style, list_layout: layout } });
 
@@ -147,6 +159,16 @@ describe("placing a list", () => {
     // The drawn card a report reads (does it cover a face?) is the row's box.
     expect(getDrawnOverlayCard(chips)).toEqual({ left, top: chips.box.top, width: row, height });
     expect(getSideTextLines(chips)).toEqual(["35 zl", "3 days", "town hall"]);
+  });
+
+  it("draws a row that fits the zone only off the axis a little smaller, so it sits on the frame's axis", () => {
+    // RV-185 of an adopting app: three points at size l in the safe zone whose sides differ most (`all`) stood at 11 % to
+    // 83.9 % of the width, a row too wide for the centred span at the chips' smallest type.
+    const wide = { film: { ...film, captions: true, captionPreset: "all" as const } };
+    const chips = list(withLayout({ ...SHORT, items: ["medication", "date", "who gave it"], style: { size: "l" } }, "chips"), wide);
+    expect(chips.fontSize).toBeLessThan(LIST_CHIP_MIN_FONT_SIZE);
+    expect(chips.fontSize).toBeGreaterThanOrEqual(LIST_CHIP_CENTRED_MIN_FONT_SIZE);
+    for (const step of getListCardsByItem(chips)) expect(getAxisOffsetPercent(step)).toBeLessThanOrEqual(0.1);
   });
 
   it("draws chips smaller, as a title shrinks, when the row fits only so", () => {
@@ -225,9 +247,45 @@ describe("a list's points over time", () => {
     expect(new Set(cards.map((card) => card.left + card.width)).size).toBe(1);
   });
 
-  it("adds one chip at a time, each already in its final place", () => {
-    const chips = list(withLayout(SHORT, "chips"));
-    expect(getListCardsByItem(chips)).toEqual([chips.chips?.slice(0, 1), chips.chips?.slice(0, 2), chips.chips]);
+  it("adds one chip at a time, the chips shown so far a row of their own on the frame's axis, the last step the full row", () => {
+    for (const overlay of [SHORT, FOUR]) {
+      const chips = list(withLayout(overlay, "chips"));
+      const full = chips.chips as OverlayBox[];
+      const steps = getListCardsByItem(chips);
+      expect(steps.map((step) => step.length)).toEqual(full.map((_chip, index) => index + 1));
+      // RV-185 of an adopting app: one chip alone used to stand where the full row starts, left of the axis.
+      for (const step of steps) expect(getAxisOffsetPercent(step)).toBeLessThanOrEqual(0.1);
+      // Each step keeps the chips' sizes, order and gaps; only the row's place moves.
+      for (const step of steps) {
+        const shift = (step[0] as OverlayBox).left - (full[0] as OverlayBox).left;
+        expect(step).toEqual(full.slice(0, step.length).map((chip) => ({ ...chip, left: chip.left + shift })));
+      }
+      // Stability: with every point in, the row is exactly today's.
+      expect(steps.at(-1)).toEqual(full);
+    }
+  });
+
+  it("names one step per distinct second: points on the same second come in together", () => {
+    expect(getListStops(list(withLayout(SHORT, "chips")))).toEqual([
+      { at: 2, step: 0 },
+      { at: 3.1, step: 1 },
+      { at: 4.2, step: 2 },
+    ]);
+    expect(getListStops(list(withLayout({ ...SHORT, item_words: undefined, item_at: [2, 3, 3] }, "chips")))).toEqual([
+      { at: 2, step: 0 },
+      { at: 3, step: 2 },
+    ]);
+    expect(getListStops(list(withLayout({ ...FOUR, item_words: [{ text: "price" }, { text: "days" }, { text: "days" }, { text: "visa" }] }, "chips")))).toEqual([
+      { at: 2, step: 0 },
+      { at: 3.1, step: 2 },
+      { at: 5, step: 3 },
+    ]);
+  });
+
+  it("keeps a list that does not fit one row of chips (auto) a centred stack on the frame's axis at every step", () => {
+    const stack = list(withLayout(LONG, "auto"));
+    expect(stack.chips).toBeUndefined();
+    for (const step of getListCardsByItem(stack)) expect(getAxisOffsetPercent(step)).toBeLessThanOrEqual(0.1);
   });
 });
 
@@ -259,7 +317,9 @@ describe("the render's list", () => {
 
   it("draws chips as cards of their own, the later ones hidden until their second, then entering in turn", () => {
     const chips = list(withLayout(SHORT, "chips"), { style: STYLE });
-    const first = chips.chips?.[0] as OverlayBox;
+    const steps = getListCardsByItem(chips);
+    // Each chip starts at its place in the row it joins (RV-185 of an adopting app): the first alone on the axis.
+    const first = steps[0]?.[0] as OverlayBox;
     const { html, tweens } = markup([withLayout({ ...SHORT, style: { entrance: "wipe" } }, "chips")]);
     expect(html).toContain('<div id="ov0" class="clip ov ov-list chips"');
     const pad = getOverlayPadding(chips);
@@ -279,7 +339,11 @@ describe("the render's list", () => {
       'tl.to("#ov0n1", { opacity: 0, duration: 0.12, ease: "none" }, 4.2);',
       'tl.fromTo("#ov0k1", { attr: { "stroke-dashoffset": 1 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.3, ease: "power2.out", immediateRender: false }, 4.28);',
     ]);
-    expect(html).toContain('id="ov0c1" style="left:');
+    expect(html).toContain(`id="ov0c1" style="left:${(steps[1]?.[1]?.left ?? 0) - chips.box.left}px;`);
+    expect(html).toContain(`id="ov0c2" style="left:${(chips.chips?.[2]?.left ?? 0) - chips.box.left}px;`);
+    // As each point comes in, the chips shown ease aside to their places in the wider row, as a stack's card grows.
+    const slide = (chip: number, step: number, at: number) => `tl.to("#ov0c${chip}", { left: ${(steps[step]?.[chip]?.left ?? 0) - chips.box.left}, duration: 0.35, ease: "power3.out" }, ${at});`;
+    expect(tweens.filter((tween) => tween.includes("{ left:"))).toEqual([slide(0, 1, 3.1), slide(0, 2, 4.2), slide(1, 2, 4.2)]);
     expect(html.match(/visibility:hidden/g)).toHaveLength(2);
     expect(tweens.filter((tween) => tween.startsWith("tl.set("))).toEqual(['tl.set("#ov0c1", { visibility: "visible" }, 3.1);', 'tl.set("#ov0c2", { visibility: "visible" }, 4.2);']);
     expect(tweens.filter((tween) => tween.includes('clipPath: "inset(0% 100% 0% 0%)"')).map((tween) => tween.slice(0, 18))).toEqual(['tl.fromTo("#ov0c0"', 'tl.fromTo("#ov0c1"', 'tl.fromTo("#ov0c2"']);
@@ -360,29 +424,88 @@ describe("the draft's list", () => {
     for (const text of texts) expect(text).toContain("\\an9\\fs48");
   });
 
-  it("draws each chip and its point from the chip's own second, the point centred in it", () => {
+  it("draws each chip and its point from the chip's own second, the point centred in it, easing aside as later points come in", () => {
     const chips = list(withLayout(SHORT, "chips"), { style: STYLE });
+    const steps = getListCardsByItem(chips);
     const lines = draft([withLayout(SHORT, "chips")], null);
+    const times = (layer: string) => lines.filter((line) => line.startsWith(layer)).map((line) => line.slice(12, 34));
+    // RV-185 of an adopting app: each chip stands still between the points, and slides in three eased steps (as a
+    // stack's card grows) when a later point comes in; the third, the last in, never moves.
+    const first = ["0:00:02.00,0:00:03.10,", "0:00:03.10,0:00:03.22,", "0:00:03.22,0:00:03.33,", "0:00:03.33,0:00:04.20,", "0:00:04.20,0:00:04.32,", "0:00:04.32,0:00:04.43,", "0:00:04.43,0:00:06.00,"];
+    const second = ["0:00:03.10,0:00:04.20,", "0:00:04.20,0:00:04.32,", "0:00:04.32,0:00:04.43,", "0:00:04.43,0:00:06.00,"];
+    const third = ["0:00:04.20,0:00:06.00,"];
+    expect(times("Dialogue: 3,")).toEqual([...first, ...second, ...third]);
     const shapes = lines.filter((line) => line.startsWith("Dialogue: 3,"));
-    expect(shapes.map((line) => line.slice(12, 34))).toEqual(["0:00:02.00,0:00:06.00,", "0:00:03.10,0:00:06.00,", "0:00:04.20,0:00:06.00,"]);
-    const pad = getOverlayPadding(chips);
+    // Only a chip's first part fades in, only its last fades out: no blink between the parts.
+    expect(shapes.map((line) => line.match(/\\fad\((\d+),(\d+)\)/)?.slice(1).join(",") ?? "")).toEqual(["150,0", "", "", "", "", "", "0,250", "150,0", "", "", "0,250", "150,250"]);
+    // A chip's point: leading on its first part, fainter on every part after the next point is in (RV-181).
     const texts = lines.filter((line) => line.startsWith("Dialogue: 4,"));
-    // A covered chip's point is two events: leading until the next point, then fainter (RV-181 of an adopting app).
-    expect(texts.map((line) => line.slice(12, 34))).toEqual(["0:00:02.00,0:00:03.10,", "0:00:03.10,0:00:06.00,", "0:00:03.10,0:00:04.20,", "0:00:04.20,0:00:06.00,", "0:00:04.20,0:00:06.00,"]);
-    expect(texts[1]).toMatch(/\{\\1a&H73&\}35 zl$/);
-    chips.chips?.forEach((chip, index) => {
-      const x = Math.round(getChipParts(chip, chips).textX);
-      expect(texts[[0, 2, 4][index] as number]).toContain(`\\an8\\fs${chips.fontSize}\\pos(${x},${chip.top + pad.y})`);
-    });
-    // Each chip's badge: an accent mark and its number (layers 5 and 6), the covered ones a tick from the next point's second.
-    expect(lines.filter((line) => line.startsWith("Dialogue: 5,")).map((line) => line.slice(12, 34))).toEqual(["0:00:02.00,0:00:06.00,", "0:00:03.10,0:00:06.00,", "0:00:04.20,0:00:06.00,"]);
+    expect(texts.map((line) => line.slice(12, 34))).toEqual([...first, ...second, ...third]);
+    expect(texts.map((line) => line.includes("\\1a&H73&"))).toEqual([false, true, true, true, true, true, true, false, true, true, true, false]);
+    const pad = getOverlayPadding(chips);
+    const at = (chip: OverlayBox) => `\\an8\\fs${chips.fontSize}\\pos(${Math.round(getChipParts(chip, chips).textX)},${chip.top + pad.y})`;
+    // Each chip's text starts at its place in the row it joins and ends at its place in the full row.
+    expect(texts[0]).toContain(at(steps[0]?.[0] as OverlayBox));
+    expect(texts[3]).toContain(at(steps[1]?.[0] as OverlayBox));
+    expect(texts[6]).toContain(at(chips.chips?.[0] as OverlayBox));
+    expect(texts[7]).toContain(at(steps[1]?.[1] as OverlayBox));
+    expect(texts[10]).toContain(at(chips.chips?.[1] as OverlayBox));
+    expect(texts[11]).toContain(at(chips.chips?.[2] as OverlayBox));
+    // Each step of a slide lies between the two places, eased out (most of the way after the first step).
+    const xOf = (line: string) => Number(line.match(/\\pos\((\d+),/)?.[1]);
+    const [from, to] = [xOf(texts[0] as string), xOf(texts[3] as string)];
+    const share = (xOf(texts[1] as string) - from) / (to - from);
+    expect(share).toBeGreaterThan(0.5);
+    expect(share).toBeLessThan(1);
+    // Each chip's badge: an accent mark on every part (layer 5), its number while it leads, a tick from the next point's
+    // second, carried along the slide.
+    expect(times("Dialogue: 5,")).toEqual([...first, ...second, ...third]);
     const numbers = lines.filter((line) => line.startsWith("Dialogue: 6,") && line.includes("OverlayPlain"));
     expect(numbers.map((line) => [line.slice(12, 34), line.slice(-1)])).toEqual([
       ["0:00:02.00,0:00:03.10,", "1"],
       ["0:00:03.10,0:00:04.20,", "2"],
       ["0:00:04.20,0:00:06.00,", "3"],
     ]);
-    expect(lines.filter((line) => line.startsWith("Dialogue: 6,") && line.includes("OverlayShape")).map((line) => line.slice(12, 34))).toEqual(["0:00:03.10,0:00:06.00,", "0:00:04.20,0:00:06.00,"]);
+    const ticks = lines.filter((line) => line.startsWith("Dialogue: 6,") && line.includes("OverlayShape"));
+    expect(ticks.map((line) => line.slice(12, 34))).toEqual([...first.slice(1), ...second.slice(1)]);
+    // The tick draws in from the next point's second; a later part picks it up as far as it has come, then holds it.
+    expect(ticks[0]).toMatch(/\\clip\((\d+),(\d+),\1,(\d+)\)\\t\(0,300,/);
+    expect(ticks[1]).toMatch(/\\t\(0,183,/);
+    expect(ticks[2]).toMatch(/\\t\(0,67,/);
+    expect(ticks[3]).not.toContain("\\t(");
+    expect(ticks[5]).toContain("\\fad(0,250)");
+    expect(ticks[4]).not.toContain("\\fad");
+  });
+
+  it("slides the shown chips once when two points come in on the same second, and never past the list's end", () => {
+    const overlay = withLayout({ ...SHORT, item_words: undefined, item_at: [2, 3, 3] }, "chips");
+    const chips = list(overlay, { style: STYLE });
+    const lines = draft([overlay], null);
+    const shapes = lines.filter((line) => line.startsWith("Dialogue: 3,")).map((line) => line.slice(12, 34));
+    expect(shapes).toEqual([
+      "0:00:02.00,0:00:03.00,",
+      "0:00:03.00,0:00:03.12,",
+      "0:00:03.12,0:00:03.23,",
+      "0:00:03.23,0:00:06.00,",
+      "0:00:03.00,0:00:06.00,",
+      "0:00:03.00,0:00:06.00,",
+    ]);
+    // The two points that come in together start in the full row; only the first chip moves, once.
+    const { html, tweens } = markup([overlay]);
+    expect(html).toContain(`id="ov0c1" style="left:${(chips.chips?.[1]?.left ?? 0) - chips.box.left}px;`);
+    expect(tweens.filter((tween) => tween.includes("{ left:"))).toEqual([`tl.to("#ov0c0", { left: ${(chips.chips?.[0]?.left ?? 0) - chips.box.left}, duration: 0.35, ease: "power3.out" }, 3);`]);
+    // A point that would come in only as the list ends (a list resolved elsewhere) moves nothing, in either path.
+    const late = { ...chips, itemStarts: [2, 3, 6] };
+    const out = getOverlayMarkup([late], { colors: COLORS, headingFont: "Cal", frame: FRAME, style: STYLE });
+    expect(out.tweens.filter((tween) => tween.includes("{ left:"))).toEqual([`tl.to("#ov0c0", { left: ${(getListCardsByItem(late)[1]?.[0]?.left ?? 0) - chips.box.left}, duration: 0.35, ease: "power3.out" }, 3);`]);
+    const ass = buildFootageDraftCaptions({ film, edl: edlWith([overlay]), words: WORDS, caption: CAPTION, frame: FRAME, overlays: [late], overlayColors: COLORS }) ?? "";
+    expect(ass.split("\n").filter((line) => line.startsWith("Dialogue: 3,")).map((line) => line.slice(12, 34))).toEqual([
+      "0:00:02.00,0:00:03.00,",
+      "0:00:03.00,0:00:03.12,",
+      "0:00:03.12,0:00:03.23,",
+      "0:00:03.23,0:00:06.00,",
+      "0:00:03.00,0:00:06.00,",
+    ]);
   });
 });
 
@@ -434,31 +557,45 @@ describe.skipIf(!canBurn)("a list burned in by libass", () => {
     return found;
   }
 
-  it("shows three short points as centred chips appearing in turn", () => {
+  it("shows short points as chips appearing in turn, the chips shown always centred on the frame's axis", () => {
+    // RV-185 of an adopting app: frames with 1, 2, 3 (and 4) chips in, once each slide has settled.
+    for (const [points, seconds] of [
+      [SHORT, [2.6, 3.6, 4.7]],
+      [FOUR, [2.6, 3.6, 4.7, 5.6]],
+    ] as const) {
+      const overlay = withLayout(points, "chips");
+      const resolved = list(overlay, { style: STYLE });
+      const steps = getListCardsByItem(resolved);
+      seconds.forEach((second, step) => {
+        const shown = steps[step] as OverlayBox[];
+        const middle = (shown[0] as OverlayBox).top + Math.round((shown[0] as OverlayBox).height / 2);
+        const span = getCardSpan(grab([overlay], second), middle) as { left: number; right: number };
+        const last = shown[shown.length - 1] as OverlayBox;
+        expect(Math.abs(span.left - (shown[0] as OverlayBox).left)).toBeLessThanOrEqual(3);
+        expect(Math.abs(span.right - (last.left + last.width))).toBeLessThanOrEqual(3);
+        expect(Math.abs((span.left + span.right) / 2 - FRAME.width / 2)).toBeLessThanOrEqual(FRAME.width * 0.01);
+      });
+    }
+  });
+
+  it("slides the shown chips aside as the next one comes in, with no jump, the newest leading", () => {
     const overlay = withLayout(SHORT, "chips");
-    const chips = list(overlay, { style: STYLE }).chips as OverlayBox[];
-    const shown = [2.6, 3.6, 4.7].map((second) => {
-      const frame = grab([overlay], second);
-      return chips.map((chip) => isNear(frame, chip.left + 6, chip.top + Math.round(chip.height / 2), COLORS.background));
-    });
-    expect(shown).toEqual([
-      [true, false, false],
-      [true, true, false],
-      [true, true, true],
-    ]);
+    const resolved = list(overlay, { style: STYLE });
+    const steps = getListCardsByItem(resolved);
+    const middle = resolved.box.top + Math.round(resolved.box.height / 2);
+    const leftAt = (second: number) => (getCardSpan(grab([overlay], second), middle) as { left: number }).left;
+    // Before, during and after the second point comes in at 3.1 s: the first chip's left edge moves left by steps.
+    const [before, during, after] = [leftAt(3.0), leftAt(3.2), leftAt(3.6)];
+    expect(Math.abs(before - (steps[0]?.[0]?.left ?? 0))).toBeLessThanOrEqual(3);
+    expect(Math.abs(after - (steps[1]?.[0]?.left ?? 0))).toBeLessThanOrEqual(3);
+    expect(during).toBeLessThan(before);
+    expect(during).toBeGreaterThan(after);
     // The newest point leads in full colour; the covered ones step back (fainter text), as a countdown does (RV-181).
-    const lit = (second: number) => chips.map((chip) => countText(grab([overlay], second), chip));
-    const [early, late] = [lit(2.6), lit(4.7)];
+    const lit = (second: number, step: number) => (steps[step] as OverlayBox[]).map((chip) => countText(grab([overlay], second), chip));
+    const [early, late] = [lit(2.6, 0), lit(4.7, 2)];
     expect(early[0]).toBeGreaterThan(50);
     expect(late[2]).toBeGreaterThan(50);
     expect(late[0]).toBeLessThan((early[0] as number) / 4);
-    // The drawn row matches the reported boxes within 2 % of the frame's width, and sits on the frame's axis (RV-180).
-    const frame = grab([overlay], 4.7);
-    const span = getCardSpan(frame, (chips[0] as OverlayBox).top + Math.round((chips[0] as OverlayBox).height / 2)) as { left: number; right: number };
-    const last = chips[2] as OverlayBox;
-    expect(Math.abs(span.left - (chips[0] as OverlayBox).left)).toBeLessThanOrEqual(FRAME.width * 0.02);
-    expect(Math.abs(span.right - (last.left + last.width))).toBeLessThanOrEqual(FRAME.width * 0.02);
-    expect(Math.abs((span.left + span.right) / 2 - FRAME.width / 2)).toBeLessThanOrEqual(2);
   });
 
   it("shows a long list as a centred stack whose card grows with each point and never stands empty", () => {

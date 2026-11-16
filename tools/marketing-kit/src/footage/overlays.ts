@@ -98,6 +98,12 @@ export const LIST_CHIP_COVERED_OPACITY = 0.55;
  * shrinking down to it, so the step badges never turn a row that fitted without them into a refusal.
  */
 export const LIST_CHIP_MIN_FONT_SIZE = 36;
+/**
+ * The smallest type a row of chips shrinks to so it can sit on the frame's axis (RV-185 of an adopting app), in px of a
+ * 1080 px wide frame: in the centred span only, where a row that fits the whole zone at `LIST_CHIP_MIN_FONT_SIZE` would
+ * otherwise stand off the axis.
+ */
+export const LIST_CHIP_CENTRED_MIN_FONT_SIZE = 32;
 /** A place card title's line height, tighter for its big type. */
 export const OVERLAY_TITLE_LINE_HEIGHT = 1.05;
 export const OVERLAY_PADDING_EM = { x: 0.6, y: 0.35 } as const;
@@ -208,6 +214,11 @@ export type ResolvedOverlay =
       isCentred?: boolean;
       /** Each point's own card in one row (`style.list_layout` chips, or auto when they fit); absent: one stacked card. */
       chips?: OverlayBox[];
+      /**
+       * The x the chips shown so far centre on, the frame's axis (RV-185 of an adopting app), kept inside `box`; absent
+       * (a list resolved before it): the full row's middle.
+       */
+      chipAxis?: number;
     })
   | (Drawn & { kind: "arrow"; from: OverlayPoint; to: OverlayPoint })
   | (Drawn & { kind: "highlight"; rect: OverlayBox })
@@ -445,13 +456,22 @@ function getBoxesUnion(boxes: readonly OverlayBox[]): OverlayBox {
  * A list's drawn boxes after each point has come in (RV-144 of an adopting app): `cards[i]` is what shows once points
  * 0 to i are in. A stack's card grows with each point, fitted to the points in so far (one line taller, as wide as the
  * widest), so it never stands sized for the whole list nor empty: its first point comes in with it. Chips add one
- * card at a time, each in its final place (`overlay.chips`), so the row is centred once complete and nothing already
- * shown moves. Every entry holds one box per drawn card.
+ * card at a time, and the chips shown so far are always a row of their own on the frame's axis (`chipAxis`, RV-185 of
+ * an adopting app), as close to it as the box allows, their sizes and gaps kept; the last step is the full row
+ * (`overlay.chips`) exactly. Every entry holds one box per drawn card.
  */
 export function getListCardsByItem(overlay: Extract<ResolvedOverlay, { kind: "list" }>): OverlayBox[][] {
   if (overlay.chips !== undefined) {
     const chips = overlay.chips;
-    return chips.map((_chip, index) => chips.slice(0, index + 1));
+    const first = (chips[0] as OverlayBox).left;
+    const axis = overlay.chipAxis ?? (first + getChipRight(chips[chips.length - 1] as OverlayBox)) / 2;
+    const { box } = overlay;
+    return chips.map((chip, index) => {
+      if (index === chips.length - 1) return chips;
+      const width = getChipRight(chip) - first;
+      const left = Math.round(Math.max(box.left, Math.min(box.left + box.width - width, axis - width / 2)));
+      return chips.slice(0, index + 1).map((shown) => ({ ...shown, left: shown.left - first + left }));
+    });
   }
   const lines = getSideTextLines(overlay);
   const padY = getOverlayPadding(overlay).y;
@@ -459,6 +479,21 @@ export function getListCardsByItem(overlay: Extract<ResolvedOverlay, { kind: "li
     const height = index === lines.length - 1 ? overlay.box.height : Math.ceil((index + 1) * overlay.fontSize * OVERLAY_LIST_LINE_HEIGHT + 2 * padY);
     return [getSideTextCard(overlay, lines.slice(0, index + 1), height)];
   });
+}
+
+/** A chip's right edge, in px of the frame. */
+function getChipRight(chip: OverlayBox): number {
+  return chip.left + chip.width;
+}
+
+/**
+ * Which step of `getListCardsByItem` shows from each distinct second a list's points come in at (RV-185 of an adopting
+ * app): points on the same second come in together, so the step is the last of them. In time order, the first at the
+ * list's start.
+ */
+export function getListStops(overlay: Extract<ResolvedOverlay, { kind: "list" }>): { at: number; step: number }[] {
+  const times = getListItemTimes(overlay);
+  return times.flatMap((at, step) => (times[step + 1] === at ? [] : [{ at, step }]));
 }
 
 /** The film seconds each point of a list comes in at: its own (`itemStarts`), the first with the card; else all with the card. */
@@ -922,8 +957,11 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
   const chips = overlay.kind === "list" ? measureCentred({
           whole: room,
           centred: getCentredSpan(place, margin).width,
-          measure: (width: number) => getListChipLayout({ items: overlay.items ?? [], layout: overlay.style?.list_layout ?? "stack", fontSize, minFontSize: Math.round(LIST_CHIP_MIN_FONT_SIZE * scale), padScale: place.padScale, room: width }),
+          measure: (width: number, isCentred: boolean) =>
+            getListChipLayout({ items: overlay.items ?? [], layout: overlay.style?.list_layout ?? "stack", fontSize, minFontSize: Math.round((isCentred ? LIST_CHIP_CENTRED_MIN_FONT_SIZE : LIST_CHIP_MIN_FONT_SIZE) * scale), padScale: place.padScale, room: width }),
           getWidth: (result) => result.row?.width ?? 0,
+          // A row refused in the whole zone may still fit the centred span a little smaller.
+          isRetriedWhenRefused: true,
         }) : null;
   if (chips !== null && !chips.ok) return chips;
   const row = chips?.row ?? null;
@@ -942,7 +980,7 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
   const centred = { ...box, ...getCentredSpan(place, margin) };
   if (overlay.kind === "list") {
     const isCentred = row === null && overlay.style?.side === undefined;
-    const layout = row !== null ? { chips: placeChipRow(row, { ...box, left: getCentredLeft(place, row.width, margin), width: row.width }) } : isCentred ? { isCentred: true } : {};
+    const layout = row !== null ? { chips: placeChipRow(row, { ...box, left: getCentredLeft(place, row.width, margin), width: row.width }), chipAxis: place.frame.width / 2 } : isCentred ? { isCentred: true } : {};
     // A row of chips may be drawn smaller than the list's size, to fit one row.
     return { ok: true, overlay: { ...drawn, kind: "list", items: overlay.items ?? [], fontSize: row?.fontSize ?? fontSize, side, box: isCentred ? centred : box, ...layout } };
   }
