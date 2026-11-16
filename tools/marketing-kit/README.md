@@ -1303,8 +1303,23 @@ import { checkFootageTools, cutFootage, prepareFootage, renderFootageDraft, tran
 
 const problems = await checkFootageTools({ needsRender: false, needsDraft: true }); // ass (libass + libfreetype), xfade, zoompan
 const draft = await renderFootageDraft(film, clips, transcript, edl, { buildDir, output: "draft.mp4", width: 540, brand, cacheDir, providers, log, signal: job.signal, onProgress });
-// draft.value: { output, music, captionFont, seconds, width, height, bytes, declick, loudness, mix }: H.264 yuv420p and AAC with fast start, exactly the cut's length
+// draft.value: { output, music, captionFont, seconds, assembly, pieces, width, height, bytes, declick, loudness, mix }: H.264 yuv420p and AAC with fast start, exactly the cut's length
 ```
+
+**Assembly, pieces or one run (`assembly`).** By default (`"pieces"`) the picture is drawn `segmentsPerPiece`
+segments at a time (`FOOTAGE_DRAFT_PIECE_SEGMENTS`, 4), each piece by its own short ffmpeg into
+`<buildDir>/draft/pieces/`, then the pieces are joined by the concat demuxer with the captions burned in once over the
+whole film and the sound muxed. A piece whose first segment starts on a fade or a drawn transition starts its graph one
+segment early and cuts that segment away, so the outgoing tail plays under it exactly as in one run: the frames match
+the one-run draft within the second encode's grain (a test compares them at every border). Memory is one piece's
+(five decoders at most, plus a split screen's bands) whatever the cut's length; a draft of 150 cuts costs what one of
+50 does, and takes a little longer. `"single"` draws the whole cut in one ffmpeg run (`buildFootageDraftArgs`,
+unchanged): faster, but every segment keeps its decoder for the whole run, so memory grows with the number of cuts
+(about 70 MB per cut of a 1080x1920 source). `estimateFootageDraftMemory({ edl, frame, assembly })` answers the
+largest run's decoders and its peak by that estimate, so an app can warn before a draft its worker cannot hold.
+`planFootageDraftPieces`, `buildFootageDraftPieceArgs` and `buildFootageDraftJoinArgs` are the pure builders of the
+pieces. The pieces are removed after the join; a failed draft leaves them in the draft folder for its snapshot, and a
+failed piece's step is named `The footage draft's piece N of M`.
 
 What the draft matches and what it leaves out:
 
@@ -1338,10 +1353,12 @@ What the draft matches and what it leaves out:
   `warning` on a near miss) and `mix` (what the stage did); a mix that misses its target fails with
   `{ kind: "loudness" }`. `loudness: null` and `mixLoudness: null` skip those stages as in the render.
 - **Left out:** the end card, the cover and the sound effects (whoosh, pop); the mix has speech and music only.
-- `buildFootageDraftArgs`, `buildFootageDraftCaptions` (an ASS file) and `planFootageDraft` are the pure builders, for an
-  app that runs ffmpeg its own way. ffmpeg runs in `<buildDir>/draft/`, so the captions and font paths are relative.
+- `buildFootageDraftArgs` (one run), `buildFootageDraftPieceArgs` and `buildFootageDraftJoinArgs` (pieces),
+  `buildFootageDraftCaptions` (an ASS file), `planFootageDraft` and `planFootageDraftPieces` are the pure builders, for
+  an app that runs ffmpeg its own way. ffmpeg runs in `<buildDir>/draft/`, so the captions and font paths are relative.
 - `onProgress` reports the stage `draft` (the speech track, its declick when the film sets one, its loudness pass, the
-  music track when it plays, the mix, then the film).
+  music track when it plays, the mix, then the film; in pieces the pieces take the film's first 80 % and the join the
+  rest).
 - `threads` sets ffmpeg's threads for every segment's decoder, the filter graph and the encoder. ffmpeg otherwise
   follows the host's cores, not a container's CPU quota, and the draft opens one decoder per segment: pass the
   worker's CPU limit (`threads: 1` on a 1-CPU worker), as with `normalize.threads`. The extra threads buy no speed

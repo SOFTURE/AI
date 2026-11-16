@@ -535,7 +535,11 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     expect(existsSync(join(dir, "build", "draft", "speech.declicked.wav"))).toBe(false);
   }, 60_000);
 
-  it("hands a failed draft step to onFfmpegFailure, and its kept command.sh fails the same way", async () => {
+  it.each([
+    { assembly: "single" as const, step: "The footage draft", inputs: (broken: string, draftDir: string) => [broken, join(draftDir, "mix.m4a")], output: (dir: string) => join(dir, "draft.mp4") },
+    // In pieces the picture fails in its first piece, which reads no sound and writes into the draft folder.
+    { assembly: "pieces" as const, step: "The footage draft's piece 1 of 1", inputs: (broken: string) => [broken], output: () => join("pieces", "piece-0000.mp4") },
+  ])("hands a failed draft step ($assembly) to onFfmpegFailure, and its kept command.sh fails the same way", async ({ assembly, step, inputs, output }) => {
     dir = mkdtempSync(join(tmpdir(), "footage-draft-"));
     const { clips, transcript } = draftInputs();
     // The speech track reads the real clip; the draft's picture reads a file that is not a video.
@@ -545,7 +549,7 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     const lines: string[] = [];
     const failures: FfmpegFailure[] = [];
     const kept = join(dir, "kept");
-    const run = { buildDir: join(dir, "build"), output: join(dir, "draft.mp4"), log: (line: string) => lines.push(line) };
+    const run = { buildDir: join(dir, "build"), output: join(dir, "draft.mp4"), log: (line: string) => lines.push(line), assembly };
     const failed = renderFootageDraft(film, brokenClips, transcript, shortCut, {
       ...run,
       onFfmpegFailure: async (failure) => {
@@ -556,7 +560,7 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     const withoutPointers = (text: string): string[] => text.split("\n").filter((line) => line.trim().length > 0).map((line) => line.replace(/ @ 0x[0-9a-f]+/g, ""));
     const readMessage = (error: unknown): string[] => withoutPointers(error instanceof Error ? error.message : String(error));
     const withHook = readMessage(await failed.then(() => null, (error: unknown) => error));
-    expect(withHook.join("")).toMatch(/^The footage draft: ffmpeg ended with code \d+ \(signal -\): .*broken\.mp4/);
+    expect(withHook.join("")).toMatch(new RegExp(`^${step}: ffmpeg ended with code \\d+ \\(signal -\\): .*broken\\.mp4`));
     // Without the hook the run throws the same text.
     const withoutHook = readMessage(await renderFootageDraft(film, brokenClips, transcript, shortCut, run).then(() => null, (error: unknown) => error));
     expect(withoutHook).toEqual(withHook);
@@ -564,12 +568,12 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     const [failure] = failures;
     if (failure === undefined) throw new Error("no failure was handed over");
     const draftDir = join(dir, "build", "draft");
-    expect(failure).toMatchObject({ step: "The footage draft", cwd: draftDir, signal: null, inputs: [broken, join(draftDir, "mix.m4a")] });
+    expect(failure).toMatchObject({ step, cwd: draftDir, signal: null, inputs: inputs(broken, draftDir) });
     expect(failure.args.slice(0, 3)).toEqual(["-progress", "pipe:1", "-nostats"]);
     expect(failure.args).toContain("-filter_complex");
-    expect(failure.args.at(-1)).toBe(join(dir, "draft.mp4"));
+    expect(failure.args.at(-1)).toBe(output(dir));
     expect(failure.stderr.join("\n")).toContain("broken.mp4");
-    expect(lines).toContain(`ffmpeg failed: The footage draft, in ${draftDir}: ${formatFfmpegCommand(failure.args)}`);
+    expect(lines).toContain(`ffmpeg failed: ${step}, in ${draftDir}: ${formatFfmpegCommand(failure.args)}`);
     const rerun = spawnSync("sh", [join(kept, "command.sh")], { encoding: "utf8" });
     expect(rerun.status).toBe(failure.code);
     expect(withoutPointers(rerun.stderr)).toEqual(withoutPointers(failure.stderr.join("\n")));
