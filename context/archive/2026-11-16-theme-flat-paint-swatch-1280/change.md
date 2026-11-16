@@ -1,7 +1,8 @@
 ---
 change_id: theme-flat-paint-swatch-1280
 title: "theme-flat-paint: native colour picker wider than tall (issue #1280)"
-status: open
+status: archived
+archived_at: 2026-11-16
 roadmap_item: null
 issue: 1280
 branch: claude/project-thread-ut62r9
@@ -35,3 +36,8 @@ the source app had the picker as `w-9 h-7`. No version bump: the coordinator rel
 - Research: skipped. The issue names the source app's classes and the #782 archive shows the misread; nothing else
   to find.
 - Framing: skipped. The problem is a swapped pair of utilities.
+
+## Done
+
+- `@softure-ai/theme-flat-paint`: `COLOR_FIELD_LOOK.swatch` is `w-9 h-7` (36 × 28 px, width × height), as in the
+  source app. Next release of theme-flat-paint (patch).

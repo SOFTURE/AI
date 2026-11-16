@@ -1,6 +1,6 @@
 ---
 change_id: theme-flat-paint-swatch-1280
-status: open
+status: archived
 ---
 
 # Plan: theme-flat-paint swatch orientation (issue #1280)
@@ -24,4 +24,4 @@ Files: `themes/theme-flat-paint/tests/index.test.ts`, `src/look/color-field.ts`,
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1: 66a0528 (`npx vitest run themes/theme-flat-paint`: 84 passed, 4 skipped; the swatch test failed before the fix)
