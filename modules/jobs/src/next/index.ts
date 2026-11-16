@@ -2,7 +2,6 @@
 // (docs/02-module-standard.md §8).
 export {
   cancelJobAction,
-  PANEL_PAUSE_REASON,
   pauseQueueAction,
   resumeQueueAction,
   retryJobAction,
@@ -19,5 +18,6 @@ export {
   type JobStatusRouteOptions,
 } from "./job-status-route.js";
 export { getJobsMessages } from "./messages.js";
+export { PANEL_PAUSE_REASON } from "./panel-pause.js";
 export { JobsPage, readSyncFilter, SYNC_FILTER_PARAM, type JobsPageProps } from "./pages.js";
 export { toJobsPanelData, type JobsPanelData, type JobsPanelSource } from "./panel-rows.js";
