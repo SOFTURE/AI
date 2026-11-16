@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## 0.2.8
+
+- `platform: { runtime?, host? }` in `defineSoftureConfig` (runtime-providers RP-1): `runtime` is `node` or `workers`,
+  `host` is `vps` or `cloudflare`; supported pairs are `vps+node` (the default) and `cloudflare+workers`, and a host
+  alone picks its runtime. `SoftureConfig.platform` is always filled. A module manifest may list `runtimes`; absent
+  means Node only, and the config refuses a module that does not run on the app's runtime, naming it. New exports:
+  `resolvePlatform`, `getModuleRuntimes`, `SUPPORTED_PLATFORMS`, `DEFAULT_PLATFORM`, `SOFTURE_RUNTIMES`,
+  `SOFTURE_HOSTS` and their types. The root and `./next` entries are declared Workers-safe (`softure.workers`).
+  - Migrate: nothing. An app on a VPS keeps its config; a config built by hand in a test (cast to `SoftureConfig`)
+    can add `platform: { runtime: "node", host: "vps" }` when its code reads it.
+
 ## 0.2.7
 
 - `requestText({ url, accept?, maxBytes?, followRedirects?, notFoundAsNull?, headers?, fetch?, timeoutMs?, clock? })`

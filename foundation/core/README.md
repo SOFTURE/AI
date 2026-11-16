@@ -35,6 +35,10 @@ interface SoftureConfigInput {
     trustedOrigins?: string[];       // other origins the app is served under (at most 16)
     trustRequestHost?: boolean;      // trust Host for any host (default false)
   };
+  platform?: {                       // where the app runs (default { runtime: "node", host: "vps" })
+    runtime?: "node" | "workers";    // default: the host's runtime
+    host?: "vps" | "cloudflare";
+  };
   modules: SoftureModule[];          // a module is enabled by being listed
 }
 ```
@@ -61,8 +65,13 @@ export default config;
 next to `https://app.example.com`); `SoftureConfig.landingOrigin` is always filled, with `appOrigin` when the app names
 none. Use it for links from the app to its marketing pages, never for the app's own absolute URLs.
 
+`platform` says where the app runs ([docs/07](../../docs/07-runtime-providers.md)): the runtime its server code
+uses (`node` or `workers`) and the host that builds, deploys and schedules it (`vps` or `cloudflare`). Supported pairs
+are `vps+node` and `cloudflare+workers`; `{ host: "cloudflare" }` alone means Workers. `SoftureConfig.platform` is
+always filled. A module runs on the runtimes its manifest lists in `runtimes` (Node only when it lists none).
+
 `defineSoftureConfig` throws `SoftureConfigError` with every problem listed (`issues`): an
-unknown locale or zone, an origin with a path, a module listed twice, two modules on one database
+unknown locale or zone, an unsupported `platform` pair, a module that does not run on the chosen runtime, an origin with a path, a module listed twice, two modules on one database
 schema, a required dependency missing, a dependency outside its version range (also an optional
 one, when listed), a dependency cycle, or a module with a `dbSchema` and no `database`.
 
