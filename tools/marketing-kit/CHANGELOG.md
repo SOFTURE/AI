@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.36.2
 
 - **Security (CodeQL `js/bad-code-sanitization`, #1245):** the dropped-letter tween writes its letter turns into the
   composition's script as a number array literal (each value a finite number) instead of `JSON.stringify`. The
