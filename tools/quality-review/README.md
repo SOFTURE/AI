@@ -12,8 +12,13 @@ everything at once, for a fixed price cap.
   job holds the API key and nothing else: no production secret, no write token.
 - **One standard.** The prompt lives in this package (`prompt/quality-review.md`), so every app is reviewed the same
   way and improves in one place. The app's own `AGENTS.md` is read first and wins where it is more specific.
-- **On demand, always full.** No schedule, no incremental mode. Every run reviews the whole repository at the commit
-  it starts on and replaces `QUALITY-REPORT.md` entirely; the previous report is deleted before the agent starts.
+- **On demand, always full.** No schedule, no incremental mode. Every run reviews the whole repository (or the one
+  scope it is given) at the commit it starts on and replaces its report entirely; the previous report is deleted
+  before the agent starts.
+- **Breadth or depth.** The default `general` review covers five categories at once. `focus: security` runs a second
+  shipped prompt that traces threat scenarios end to end (sign-in, OAuth, tokens, webhooks, command execution,
+  outbound requests), and `scope` gives the whole budget to one folder or workspace package ("Focus, scope and
+  paths").
 - **Hard cost cap.** `max-budget-usd` (default 10 USD). The real cost, the model and the token counts are in the
   report header.
 - **Billed as API usage.** It runs on `@anthropic-ai/claude-agent-sdk` with `ANTHROPIC_API_KEY`, not on
@@ -41,14 +46,65 @@ The caller grants `contents: write` and `pull-requests: write`. The `review` job
 | `runs-on` | `'"ubuntu-latest"'` | The runner as JSON, one label or an array (a managed runner: `'["self-hosted","linux"]'`) |
 | `model` | `claude-opus-5-5` | The agent's model |
 | `max-budget-usd` | `"10"` | Hard cost cap of one run in USD |
-| `report-path` | `QUALITY-REPORT.md` | Where the report goes |
-| `branch` | `quality-review` | The report branch; cut fresh from the base branch and replaced on every run |
+| `focus` | `general` | `general` (the breadth review) or `security` (threat scenarios traced end to end) |
+| `scope` | empty (whole repository) | One folder (`modules/auth`) or workspace package (`@acme/auth`) to review |
+| `paths` | empty (all findings) | Globs, comma or space separated; findings outside them are dropped |
+| `report-path` | `QUALITY-REPORT.md`, or `<scope>/QUALITY-REPORT.md` with a scope | Where the report goes |
+| `branch` | `quality-review`, plus `/security` and `/<scope-slug>` when set | The report branch; cut fresh from the base branch and replaced on every run |
 | `base-branch` | the default branch | Where the pull request goes |
 | `cli-version` | the released version | `@softure-ai/quality-review` version |
 | `agent-sdk-version` | `0.3.319` | `@anthropic-ai/claude-agent-sdk` version |
 | `node-version` | `"22"` | Node.js version |
 
 Secret: `ANTHROPIC_API_KEY` (required).
+
+## Focus, scope and paths
+
+Three inputs narrow or deepen a run; without them the review, its prompt and its report are exactly the
+whole-repository breadth review.
+
+- **`focus: security`** (CLI `--focus security`) swaps the prompt for
+  [`prompt/security-review.md`](prompt/security-review.md). Instead of scanning for patterns it works through threat
+  scenarios, each where the repository has the surface, and traces every flow from the untrusted input to its effect:
+  sign-in and sessions, OAuth 2.1 and the authorization server, MCP and API token scope, inbound webhooks, command
+  execution and SSH, outbound requests (SSRF), CSRF, rate limits, secrets and personal data. A finding names the
+  attack path (input → steps → effect) in `problem` and the concrete change in `fix`. Its rules are the eight security rules
+  plus the five general security rules. The report is titled "Security report" and its header has `Focus`.
+- **`scope`** (CLI `--scope`) reviews one folder (`--scope modules/mcp-access`) or a workspace package by name
+  (`--scope @softure-ai/mcp-access`, resolved through the root `package.json` `workspaces`). The agent may read the
+  whole repository to follow an import, a caller or a shared helper, but only findings inside the scope are
+  reported. The task starts with the scope's local context: the `AGENTS.md` files on the path from the root to the
+  scope, its `README.md`, `package.json` and `CHANGELOG.md` (each cut at 12,000 characters), and where its tests are;
+  `unused-export` and `unused-dependency` are judged against the package's exports and its dependents. The report
+  goes to `<scope>/QUALITY-REPORT.md` by default and its header has `Scope`. An unknown package name, a missing
+  folder or one outside the repository fails before any model call.
+- **`paths`** (CLI `--paths`, repeatable or comma separated) keeps only findings in files that match one of the
+  globs, relative to the repository root (`modules/auth/**,src/webhooks/**`). With a scope, a finding must be inside
+  both. The header has `Paths`.
+
+Finding ids do not depend on any of them, so the same problem has the same id in a scoped and a whole-repository
+run, and in a general and a security report. Both kinds pass `check`.
+
+A security run of the shared modules, then the app's own surfaces:
+
+```yaml
+    with:
+      focus: security
+      scope: modules/mcp-access
+      max-budget-usd: "15"
+      report-path: modules/mcp-access/SECURITY-REPORT.md
+```
+
+```yaml
+    with:
+      focus: security
+      paths: src/app/api/webhooks/**,src/exec/**
+      max-budget-usd: "15"
+```
+
+[`examples/quality-review.yml`](examples/quality-review.yml) offers `focus`, `scope` and `paths` on the Run workflow
+form; [`examples/quality-review-matrix.yml`](examples/quality-review-matrix.yml) reviews a list of packages, one job
+and one pull request per package.
 
 ## Cost expectations
 
@@ -60,6 +116,10 @@ report says "stopped at the budget": the areas it did not reach are not proven c
 areas in order of risk (security first, dead code last), so a stopped run has covered the most serious ones. Raise
 the cap, or pass `model: claude-sonnet-5-5` (2 / 10 USD per million tokens), for a larger repository.
 
+A `focus: security` run follows flows end to end and reads more per finding: use `claude-opus-5-5` and
+`max-budget-usd: "15"`, and narrow it with `scope` or `paths` to the code where a mistake costs the most. A scoped
+run spends the whole budget on its scope, so one package gets the depth a whole application gets.
+
 ## Report format
 
 `QUALITY-REPORT.md`, format 1 (the marker `<!-- softure-quality-review format 1 -->` is in every report):
@@ -67,7 +127,9 @@ the cap, or pass `model: claude-sonnet-5-5` (2 / 10 USD per million tokens), for
 - **Header table:** `Date` (UTC, ISO 8601), `Commit` (the reviewed commit), `Model` (the models that ran, the most
   expensive first), `Cost` (`<real> USD of a <cap> USD budget`), `Tokens` (`input`, `output`, `cache read`,
   `cache write`), `Status` (`complete`, `stopped at the budget` or `stopped at the turn limit`), `Findings` (count per
-  severity), `Ignored` (findings an accepted exception covered).
+  severity), `Ignored` (findings an accepted exception covered). A focused, scoped or path-limited run adds, after
+  `Commit`, `Focus` (`security`), `Scope` (`` `modules/auth` (@acme/auth) ``) and `Paths` (`` `a/**`, `b/**` ``); a
+  general whole-repository report has none of them.
 - **`## Critical` and `## Warnings`:** one block per finding:
 
   ```markdown
@@ -92,7 +154,7 @@ problem keeps its id from run to run while the code around it moves. Categories 
 
 | Category | Rules |
 | --- | --- |
-| `security` | `missing-authorization`, `secret-in-log`, `unprotected-public-endpoint`, `unsafe-sql`, `other-security` |
+| `security` | `missing-authorization`, `secret-in-log`, `unprotected-public-endpoint`, `unsafe-sql`, `other-security`; with the security focus also `auth-session`, `oauth-flow`, `token-scope`, `webhook-verification`, `command-injection`, `ssrf`, `csrf`, `rate-limit` |
 | `errors` | `swallowed-error`, `missing-timeout`, `other-error-handling` |
 | `tests` | `untested-logic`, `empty-test` |
 | `dead-code` | `unused-file`, `unused-export`, `unused-dependency` |
@@ -116,6 +178,9 @@ path legacy/**                   # everything under a path glob
 Globs: `**` any folders, `*` within one segment, `?` one character. Covered findings are counted in the header
 (`Ignored`) and not listed. A line in none of the forms is reported in the run's log and ignored.
 
+A scoped run also reads `<scope>/quality-review.ignore`, that package's own exceptions. Its globs are relative to the
+scope folder (`rule unused-export src/legacy/**`), and a `rule` line without a glob covers the scope only.
+
 ## Triage the report
 
 A session that receives the report's pull request:
@@ -134,17 +199,23 @@ A session that receives the report's pull request:
 ## How it works
 
 `softure-quality-review run [--repo .] [--out QUALITY-REPORT.md] [--model …] [--max-budget-usd 10] [--max-turns 400]
-[--commit <sha>]`:
+[--commit <sha>] [--focus general|security] [--scope <folder|package>] [--paths <glob>,…]`:
 
-1. Deletes the previous report, reads the accepted exceptions.
+1. Resolves the scope (it fails here, before any model call, when it does not exist), deletes the previous report,
+   reads the accepted exceptions.
 2. Starts the agent (`query` of `@anthropic-ai/claude-agent-sdk`, an optional peer the workflow installs next to this
    package) with the shared prompt and the read-only options (`buildAgentOptions`).
 3. Collects each `<finding>{json}</finding>` the agent emits as soon as it has verified it, so a stop at the budget
    keeps what came before; a block that does not match the schema is dropped and logged.
-4. Drops a finding whose file is outside the repository, missing, or shorter than its line; removes duplicates and
-   the findings an exception covers.
+4. Drops a finding whose file is outside the repository, missing, or shorter than its line, or outside the scope or
+   the paths; removes duplicates and the findings an exception covers.
 5. Writes the report. A run that fails (an API error, no result) writes nothing and exits 1, so the workflow opens no
    pull request.
 
+`softure-quality-review resolve [--focus …] [--scope …] [--out …]` checks the focus and the scope without a model
+call and prints `report-path=`, `branch-suffix=`, `scope-folder=` and `focus=` lines; the reusable workflow writes
+them to `GITHUB_OUTPUT`.
+
 The library exports the same pieces: `runReview`, `buildAgentOptions`, `getToolRefusal`, `extractFindings`,
-`getFindingId`, `verifyLocations`, `readIgnoreRules`, `applyIgnoreRules`, `renderReport`, `parseReport`.
+`getFindingId`, `verifyLocations`, `readIgnoreRules`, `readScopeIgnoreRules`, `applyIgnoreRules`, `resolveScope`,
+`getScopeContext`, `renderReport`, `parseReport`.

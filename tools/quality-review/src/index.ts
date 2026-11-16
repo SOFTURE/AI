@@ -1,6 +1,7 @@
 export {
   CATEGORIES,
   CATEGORY_RULES,
+  FOCUSES,
   RULES,
   SEVERITIES,
   agentFindingSchema,
@@ -12,6 +13,7 @@ export {
   type Category,
   type ExtractedFindings,
   type Finding,
+  type Focus,
   type Rule,
   type Severity,
 } from "./findings.js";
@@ -24,6 +26,7 @@ export {
   matchesGlob,
   parseIgnoreLines,
   readIgnoreRules,
+  readScopeIgnoreRules,
   type FilteredFindings,
   type IgnoreRule,
   type IgnoreRules,
@@ -54,3 +57,19 @@ export {
   type ReviewAgentOptions,
 } from "./agent.js";
 export { AGENT_SDK, loadQuery, readReviewPrompt, runReview, type QueryFunction, type ReviewInput, type ReviewOutcome } from "./review.js";
+export {
+  CONTEXT_FILE_LIMIT,
+  getDefaultReportPath,
+  getPathsProblem,
+  getScopeContext,
+  getScopeSlug,
+  getScopeTests,
+  isInPaths,
+  isInScope,
+  listWorkspaceFolders,
+  parsePaths,
+  resolveScope,
+  type ContextFile,
+  type Scope,
+  type ScopeResult,
+} from "./scope.js";

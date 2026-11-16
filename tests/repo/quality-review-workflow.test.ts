@@ -91,6 +91,27 @@ describe("quality-review.yml", () => {
     expect(inputs.model?.default).toBe("claude-opus-5-5");
   });
 
+  it("takes focus, scope and paths, with report path and branch resolved per focus and scope (issue #1289)", () => {
+    expect(inputs.focus?.default).toBe("general");
+    expect(inputs.scope?.default).toBe("");
+    expect(inputs.paths?.default).toBe("");
+    expect(inputs["report-path"]?.default).toBe("");
+    expect(inputs.branch?.default).toBe("");
+    const names = review?.steps?.map((step) => step.name) ?? [];
+    expect(names.indexOf("Resolve the scope, the report path and the branch")).toBeGreaterThan(names.indexOf("Install the review CLI"));
+    expect(names.indexOf("Resolve the scope, the report path and the branch")).toBeLessThan(names.indexOf("Review the repository"));
+    const resolveStep = review?.steps?.find((step) => step.name === "Resolve the scope, the report path and the branch");
+    expect(resolveStep?.run).toContain('softure-quality-review" resolve --repo .');
+    expect(resolveStep?.run).toContain('BRANCH="quality-review${suffix:+/$suffix}"');
+    expect(JSON.stringify(resolveStep)).not.toContain("ANTHROPIC_API_KEY");
+    const run = review?.steps?.find((step) => step.name === "Review the repository")?.run ?? "";
+    expect(run).toContain('--focus "$FOCUS" --scope "$SCOPE" --paths "$PATHS"');
+    const deliverEnv = deliver?.steps?.find((step) => step.name === "Commit the report and open or update the pull request")?.env ?? {};
+    expect(deliverEnv.BRANCH).toBe("${{ needs.review.outputs.branch }}");
+    expect(deliverEnv.REPORT_PATH).toBe("${{ needs.review.outputs.report-path }}");
+    expect(TEXT).toContain("group: quality-review-${{ github.repository }}-${{ inputs.focus }}-${{ inputs.scope }}-${{ inputs.branch }}");
+  });
+
   it("installs the CLI and the SDK at exact versions outside the checkout", () => {
     const install = review?.steps?.find((step) => step.name === "Install the review CLI");
     expect(install?.run).toContain('"@softure-ai/quality-review@$CLI_VERSION" "@anthropic-ai/claude-agent-sdk@$SDK_VERSION"');
@@ -115,9 +136,23 @@ describe("the example caller", () => {
   });
 });
 
+describe("the matrix example", () => {
+  const example = parse(read("tools/quality-review/examples/quality-review-matrix.yml")) as Workflow;
+  const job = example.jobs["quality-review"];
+
+  it("starts only by hand, reviews one scope per job and passes only inputs the reusable workflow has", () => {
+    expect(Object.keys(example.on)).toEqual(["workflow_dispatch"]);
+    expect(example.permissions).toEqual({});
+    expect(job?.uses).toBe("SOFTURE/AI/.github/workflows/quality-review.yml@master");
+    expect(job?.with?.scope).toBe("${{ matrix.scope }}");
+    for (const key of Object.keys(job?.with ?? {})) expect(inputs, key).toHaveProperty(key);
+  });
+});
+
 describe("the package", () => {
   it("ships the shared prompt and the example", () => {
     expect(PACKAGE.files).toEqual(expect.arrayContaining(["prompt", "examples"]));
     expect(read("tools/quality-review/prompt/quality-review.md")).toContain("<finding>{");
+    expect(read("tools/quality-review/prompt/security-review.md")).toContain("<finding>{");
   });
 });

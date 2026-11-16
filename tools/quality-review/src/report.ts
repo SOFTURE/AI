@@ -1,4 +1,4 @@
-import { CATEGORY_RULES, SEVERITIES, getFindingId, type Category, type Finding, type Rule, type Severity } from "./findings.js";
+import { CATEGORY_RULES, FOCUSES, SEVERITIES, getFindingId, type Category, type Finding, type Focus, type Rule, type Severity } from "./findings.js";
 
 /** The report format version, written into every report and checked by the parser. */
 export const REPORT_FORMAT = 1;
@@ -32,6 +32,12 @@ export interface ReportHeader {
   status: RunStatus;
   /** Findings an accepted exception covered. */
   ignored: number;
+  /** What the run looked for; a general run leaves it out, so its report is the 0.1 report. */
+  focus?: Focus;
+  /** The folder the run reported on, and its package name; left out for the whole repository. */
+  scope?: { folder: string; packageName: string | null };
+  /** The globs findings were limited to; left out when there were none. */
+  paths?: string[];
 }
 
 export interface Report {
@@ -77,22 +83,64 @@ function formatCounts(findings: Finding[]): string {
   return SEVERITIES.map((severity) => `${String(counts[severity])} ${severity}`).join(", ");
 }
 
+function isFocused(header: ReportHeader): boolean {
+  return header.focus !== undefined && header.focus !== "general";
+}
+
+function formatScope(scope: NonNullable<ReportHeader["scope"]>): string {
+  return `\`${scope.folder}\`${scope.packageName === null ? "" : ` (${scope.packageName})`}`;
+}
+
+function formatPaths(paths: string[]): string {
+  return paths.map((glob) => `\`${glob}\``).join(", ");
+}
+
+/** The report's title and opening line; a general whole-repository run keeps the 0.1 text. */
+function getIntro(header: ReportHeader): string[] {
+  if (!isFocused(header) && header.scope === undefined && header.paths === undefined) {
+    return [
+      "# Quality report",
+      "",
+      REPORT_MARKER,
+      "",
+      "A read-only review of the whole repository at one commit (`@softure-ai/quality-review`). Each run replaces this",
+      "file; the format is documented in the package README, \"Report format\".",
+    ];
+  }
+  const kind = isFocused(header) ? `${header.focus ?? ""} review` : "review";
+  const what = header.scope === undefined ? "the whole repository" : `${formatScope(header.scope)}`;
+  const limited = header.paths === undefined ? "" : `, findings limited to ${formatPaths(header.paths)}`;
+  return [
+    isFocused(header) ? "# Security report" : "# Quality report",
+    "",
+    REPORT_MARKER,
+    "",
+    `A read-only ${kind} of ${what} at one commit${limited} (\`@softure-ai/quality-review\`). Each run replaces this`,
+    "file; the format is documented in the package README, \"Report format\".",
+  ];
+}
+
+/** The optional header rows, only for what the run set. */
+function getOptionalRows(header: ReportHeader): string[] {
+  const rows: string[] = [];
+  if (isFocused(header)) rows.push(`| Focus | ${header.focus ?? ""} |`);
+  if (header.scope !== undefined) rows.push(`| Scope | ${formatScope(header.scope)} |`);
+  if (header.paths !== undefined) rows.push(`| Paths | ${formatPaths(header.paths)} |`);
+  return rows;
+}
+
 /** Writes the whole report. Nothing from an earlier report is read or kept: each run replaces the file. */
 export function renderReport(report: Report): string {
   const { header } = report;
   const findings = sortFindings(report.findings);
   const lines = [
-    "# Quality report",
-    "",
-    REPORT_MARKER,
-    "",
-    "A read-only review of the whole repository at one commit (`@softure-ai/quality-review`). Each run replaces this",
-    "file; the format is documented in the package README, \"Report format\".",
+    ...getIntro(header),
     "",
     "| Field | Value |",
     "| --- | --- |",
     `| Date | ${header.date} |`,
     `| Commit | \`${header.commit}\` |`,
+    ...getOptionalRows(header),
     `| Model | ${header.model} |`,
     `| Cost | ${header.costUsd.toFixed(4)} USD of a ${header.budgetUsd.toFixed(2)} USD budget |`,
     `| Tokens | input ${String(header.tokens.input)}, output ${String(header.tokens.output)}, cache read ${String(header.tokens.cacheRead)}, cache write ${String(header.tokens.cacheWrite)} |`,
@@ -102,8 +150,9 @@ export function renderReport(report: Report): string {
     "",
   ];
   if (header.status !== "complete") {
+    const covered = header.scope === undefined && header.paths === undefined ? "the whole repository" : "everything in its scope";
     lines.push(
-      `> The run ${STATUS_TEXT[header.status]} before it covered the whole repository: the findings below are the ones it verified until then, and a clean area is not proven clean.`,
+      `> The run ${STATUS_TEXT[header.status]} before it covered ${covered}: the findings below are the ones it verified until then, and a clean area is not proven clean.`,
       "",
     );
   }
@@ -152,6 +201,8 @@ export function renderReport(report: Report): string {
 export type ParseResult = { ok: true; report: Report } | { ok: false; errors: string[] };
 
 const HEADER_FIELDS = ["Date", "Commit", "Model", "Cost", "Tokens", "Status", "Findings", "Ignored"] as const;
+/** Rows a focused, scoped or path-limited report adds; a general whole-repository report has none of them. */
+const OPTIONAL_HEADER_FIELDS = ["Focus", "Scope", "Paths"] as const;
 
 function splitRow(row: string): string[] {
   return row
@@ -216,7 +267,8 @@ function parseHeader(lines: string[], errors: string[]): ReportHeader | null {
   const values = new Map<string, string>();
   for (const line of lines) {
     const cells = splitRow(line);
-    if (cells.length === 2 && (HEADER_FIELDS as readonly string[]).includes(cells[0] ?? "")) values.set(cells[0] ?? "", cells[1] ?? "");
+    const known = [...HEADER_FIELDS, ...OPTIONAL_HEADER_FIELDS] as readonly string[];
+    if (cells.length === 2 && known.includes(cells[0] ?? "")) values.set(cells[0] ?? "", cells[1] ?? "");
   }
   for (const field of HEADER_FIELDS) if (!values.has(field)) errors.push(`header: ${field} is missing`);
   const cost = /^([\d.]+) USD of a ([\d.]+) USD budget$/.exec(values.get("Cost") ?? "");
@@ -228,8 +280,19 @@ function parseHeader(lines: string[], errors: string[]): ReportHeader | null {
   if (values.has("Status") && status === undefined) errors.push(`header: unknown Status "${values.get("Status") ?? ""}"`);
   if (values.has("Date") && Number.isNaN(Date.parse(date))) errors.push("header: Date is not a date");
   if (!/^\d+$/.test(values.get("Ignored") ?? "")) errors.push("header: Ignored is not a number");
+  const focus = values.get("Focus");
+  if (focus !== undefined && !(FOCUSES as readonly string[]).includes(focus)) errors.push(`header: unknown Focus "${focus}"`);
+  const scopeText = values.get("Scope");
+  const scope = scopeText === undefined ? undefined : /^`([^`]+)`(?: \((.+)\))?$/.exec(scopeText);
+  if (scope === null) errors.push("header: Scope is not \"`<folder>`\" or \"`<folder>` (<package>)\"");
+  const pathsText = values.get("Paths");
+  const paths = pathsText === undefined ? undefined : [...pathsText.matchAll(/`([^`]+)`/g)].map((match) => match[1] ?? "");
+  if (paths?.length === 0) errors.push("header: Paths lists no glob");
   if (cost === null || tokens === null || status === undefined) return null;
   return {
+    ...(focus === undefined ? {} : { focus: focus as Focus }),
+    ...(scope === undefined || scope === null ? {} : { scope: { folder: scope[1] ?? "", packageName: scope[2] ?? null } }),
+    ...(paths === undefined || paths.length === 0 ? {} : { paths }),
     date,
     commit: unquote(values.get("Commit") ?? ""),
     model: values.get("Model") ?? "",

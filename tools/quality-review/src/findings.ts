@@ -3,7 +3,22 @@ import { z } from "zod";
 
 /** What the review looks at, and the rules a finding names (the id hashes the rule, so the list is stable). */
 export const CATEGORY_RULES = {
-  security: ["missing-authorization", "secret-in-log", "unprotected-public-endpoint", "unsafe-sql", "other-security"],
+  security: [
+    "missing-authorization",
+    "secret-in-log",
+    "unprotected-public-endpoint",
+    "unsafe-sql",
+    "other-security",
+    // The rules of the security focus (`prompt/security-review.md`); a general review may name them too.
+    "auth-session",
+    "oauth-flow",
+    "token-scope",
+    "webhook-verification",
+    "command-injection",
+    "ssrf",
+    "csrf",
+    "rate-limit",
+  ],
   errors: ["swallowed-error", "missing-timeout", "other-error-handling"],
   tests: ["untested-logic", "empty-test"],
   "dead-code": ["unused-file", "unused-export", "unused-dependency"],
@@ -15,6 +30,10 @@ export type Rule = (typeof CATEGORY_RULES)[Category][number];
 
 export const CATEGORIES: Category[] = ["security", "errors", "tests", "dead-code", "conventions"];
 export const RULES: Rule[] = CATEGORIES.flatMap((category): readonly Rule[] => CATEGORY_RULES[category]);
+/** What a run looks for: the general breadth review, or the end-to-end security review. */
+export const FOCUSES = ["general", "security"] as const;
+export type Focus = (typeof FOCUSES)[number];
+
 export const SEVERITIES = ["critical", "warning", "suggestion"] as const;
 export type Severity = (typeof SEVERITIES)[number];
 

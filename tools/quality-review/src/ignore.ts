@@ -81,6 +81,30 @@ export function readIgnoreRules(repo: string): IgnoreRules {
   return result;
 }
 
+/**
+ * Reads `<folder>/quality-review.ignore`, a scope's own accepted exceptions. Its globs are relative to the folder, so
+ * a package keeps its exceptions next to its code; they are returned as repository-relative globs.
+ */
+export function readScopeIgnoreRules(repo: string, folder: string): IgnoreRules {
+  const file = join(repo, folder, IGNORE_FILE);
+  if (!existsSync(file)) return { rules: [], invalid: [] };
+  const parsed = parseIgnoreLines(readFileSync(file, "utf8"), `${folder}/${IGNORE_FILE}`);
+  const prefix = (glob: string): string => `${folder}/${normalizePath(glob)}`;
+  return {
+    rules: parsed.rules.map((rule): IgnoreRule => {
+      switch (rule.kind) {
+        case "id":
+          return rule;
+        case "rule":
+          return { ...rule, glob: prefix(rule.glob ?? "**") };
+        case "path":
+          return { ...rule, glob: prefix(rule.glob) };
+      }
+    }),
+    invalid: parsed.invalid,
+  };
+}
+
 /** A glob over repository paths: `**` any folders, `*` within one segment, `?` one character. */
 export function matchesGlob(path: string, glob: string): boolean {
   let pattern = "";

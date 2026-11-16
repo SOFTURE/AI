@@ -1,0 +1,43 @@
+# A review of several workspace packages, one job per package, each with the whole budget and its own report
+# (<package folder>/QUALITY-REPORT.md) and pull request (branch quality-review/<scope-slug>). Started by hand.
+# Copy to .github/workflows/quality-review-packages.yml and edit the package list. Same secret and setting as
+# examples/quality-review.yml.
+name: quality-review-packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: general or security
+        type: choice
+        options:
+          - general
+          - security
+        default: general
+      max-budget-usd:
+        description: Hard cost cap of each package's run in USD
+        type: string
+        default: "10"
+
+permissions: {}
+
+jobs:
+  quality-review:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        scope:
+          - "@acme/auth"
+          - "@acme/billing"
+          - apps/web
+    uses: SOFTURE/AI/.github/workflows/quality-review.yml@master
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      focus: ${{ inputs.focus }}
+      scope: ${{ matrix.scope }}
+      max-budget-usd: ${{ inputs.max-budget-usd }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
