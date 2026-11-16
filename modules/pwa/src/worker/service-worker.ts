@@ -37,6 +37,17 @@ export interface ExtraOrigin {
   readonly store: boolean;
 }
 
+/**
+ * Same-origin files the page keeps for offline use (documents): the worker answers them from `<app>-<cache>` first and
+ * otherwise from the network, and never stores one itself; the page fills and prunes the cache (`createKeptFiles`).
+ */
+export interface KeptFilesConfig {
+  /** The cache's name after the app's prefix. It carries no build, so it survives a new build. */
+  readonly cache: string;
+  /** The paths it serves (whole segments, as `excludedPrefixes`), matched before the excluded prefixes. */
+  readonly pathPrefixes: readonly string[];
+}
+
 export interface ServiceWorkerConfig {
   /** The cache names' prefix: `<app>-shell-<build>`, `<app>-pages-<build>`. */
   readonly app: string;
@@ -65,6 +76,8 @@ export interface ServiceWorkerConfig {
   /** The most pages kept for offline use; the least recently kept goes first. */
   readonly maxPages: number;
   readonly extraOrigins: readonly ExtraOrigin[];
+  /** Same-origin files the page keeps, or `null` for none. */
+  readonly keptFiles: KeptFilesConfig | null;
 }
 
 export interface WorkerExtendableEvent {
@@ -350,6 +363,19 @@ export function serviceWorker(scope: WorkerScope, config: ServiceWorkerConfig): 
     return late ?? Response.error();
   }
 
+  function isKeptFile(path: string): boolean {
+    return config.keptFiles !== null && config.keptFiles.pathPrefixes.some((prefix) => matchesPrefix(path, prefix));
+  }
+
+  // A file the page kept answers from its cache, whatever the network does; one it did not keep goes to the network as
+  // the browser would send it (no time limit: a document may be large), and is not stored: the page decides what fits.
+  async function fromKeptFiles(request: Request, cacheName: string): Promise<Response> {
+    const cache = await scope.caches.open(cacheName);
+    const kept = await cache.match(request.url);
+    if (kept !== undefined) return kept;
+    return scope.fetch(request);
+  }
+
   scope.addEventListener("install", (event) => {
     // No skipWaiting here: a worker that installs while another controls the page waits for the page's "activate".
     event.waitUntil(keepShell());
@@ -370,7 +396,13 @@ export function serviceWorker(scope: WorkerScope, config: ServiceWorkerConfig): 
       event.respondWith(fromExtraOrigin(request, extra));
       return;
     }
-    if (url.origin !== origin || isExcluded(url.pathname)) return;
+    if (url.origin !== origin) return;
+    // Before the exclusions: kept files usually live under `/api/`, which the worker otherwise never touches.
+    if (config.keptFiles !== null && isKeptFile(url.pathname)) {
+      event.respondWith(fromKeptFiles(request, `${config.app}-${config.keptFiles.cache}`));
+      return;
+    }
+    if (isExcluded(url.pathname)) return;
     event.respondWith(request.mode === "navigate" ? navigate(event) : fromShell(request));
   });
 

@@ -16,6 +16,19 @@ export {
   type DeviceDataParts,
   type IndexedDbPart,
 } from "./device-data.js";
+export {
+  createKeptFiles,
+  getKeptFilesCacheName,
+  KEPT_BYTES_HEADER,
+  KEPT_SHA256_HEADER,
+  type KeptFile,
+  type KeptFiles,
+  type KeptFilesDependencies,
+  type KeptFileSkipReason,
+  type KeptFilesOptions,
+  type KeptFilesSync,
+  type KeptFilesUsage,
+} from "./kept-files.js";
 export { findPwaIcon, getIconMetadata, getIconPath, getIconSizes, PWA_ICONS, type IconLink, type PwaIcon, type PwaIconShape } from "./icons.js";
 export {
   buildManifest,
@@ -67,7 +80,7 @@ export const MODULE_ID = "pwa";
 export const pwa = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.0",
+    version: "0.3.0",
     dependsOn: {},
     dbSchema: null,
     tables: [],

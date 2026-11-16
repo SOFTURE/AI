@@ -115,6 +115,7 @@ interface ServiceWorkerOptions {
   assetTimeoutMs?: number; // 10000: the longest wait for a file not kept before it fails
   maxPages?: number; // 60
   extraOrigins?: readonly ExtraOriginOptions[];
+  keptFiles?: { cache: string; pathPrefixes: readonly string[] }; // same-origin files the page keeps; none by default
 }
 
 interface ExtraOriginOptions {
@@ -144,6 +145,37 @@ extraOrigins: [
 Order matters here: `/planet` covers `/planet/…` too, so the tile entry goes first. The page fills the cache with the
 worker's own rule: `(await caches.open(getExtraOriginCacheName("myapp", "map"))).put(getExtraOriginCacheKey(url,
 tileKey), response)`, both from `@softure-ai/pwa/worker`.
+
+### Kept files (documents offline)
+
+Same-origin files the page keeps for offline use, e.g. an entry's documents served under `/api/documents/`:
+
+```ts
+keptFiles: { cache: "documents", pathPrefixes: ["/api/documents/"] },
+```
+
+The worker answers a kept file from `<app>-<cache>` first, even under an excluded prefix (the match runs before
+`excludedPrefixes`), and sends one that is not kept to the network without storing it. The cache carries no build, so
+a new build keeps it. The page decides what is kept, with `createKeptFiles` from `@softure-ai/pwa`:
+
+```ts
+"use client";
+import { createKeptFiles } from "@softure-ai/pwa";
+
+// Once per page module: it registers the cache for sign-out (`clearDeviceData` deletes it).
+const documents = createKeptFiles({ app: "myapp", cache: "documents", budgetBytes: 200 * 1024 * 1024 });
+
+// Whenever the list changes (e.g. after the offline snapshot refreshed): the earlier files win the budget.
+const { kept, bytesKept, skipped } = await documents.sync(list.map((doc) => ({ url: doc.url, sha256: doc.sha256, bytes: doc.size })));
+// skipped: [{ url, reason: "over_budget" | "failed" | "checksum_mismatch" }]
+
+const blob = await documents.find(url); // the kept copy as a Blob, or null; works with no network and no worker
+```
+
+`sync` downloads what is missing or has a new `sha256` (same origin, no HTTP cache, no redirect), checks the bytes
+against the listed hash and size, drops what left the list or no longer fits, and reports what it kept; syncs run one
+at a time. A kept copy answers even when the server holds a newer one, until the next `sync` replaces it, so give each
+version of a file its own `sha256` in the list. `getUsage()` answers `{ files, bytes }`.
 
 A prefix matches whole path segments: `/login` covers `/login` and `/login/sso`, not `/logins`. To add to the defaults:
 `excludedPrefixes: [...DEFAULT_EXCLUDED_PREFIXES, "/admin"]`. The route checks its options when the module loads, so a
@@ -372,6 +404,8 @@ accessible name), the install bar's copy. `pwaMessages.en.launch`: `label`, the 
   event target from `createInstallPromptStore(target)`). The device facts and the storage helpers take the navigator,
   the window and the storage as arguments, the browser's own by default.
 - `extraOrigins`: the worker's extension point for another origin with its own cache.
+- `keptFiles` with `createKeptFiles(options, { caches, fetch, digest, origin })`: same-origin files the page keeps;
+  every browser dependency is injectable for tests.
 - A page sends the worker `{ type: "clear-pages" }` to drop the kept pages (e.g. on sign-out).
 - `registerDeviceData({ caches?, indexedDb?, storageKeys? })`: what the device keeps for the signed-in user. `caches`
   are Cache Storage names (deleted whole), `indexedDb` entries `{ database, store? }` (the whole database, or one store
@@ -408,6 +442,9 @@ accessible name), the install bar's copy. `pwaMessages.en.launch`: `label`, the 
 
 The worker keeps copies of pages the user opened, in the browser, under this build's `<app>-pages-<build>` cache.
 They leave with the next build's activate, or at once with the `clear-pages` message.
+
+Kept files (`createKeptFiles`) are documents of the signed-in user on the device; `createKeptFiles` registers their
+cache with `registerDeviceData`, so `clearDeviceData()` deletes it on sign-out.
 
 What the device keeps for a user (kept pages, an offline snapshot in IndexedDB, cached files, `localStorage` keys) is
 personal data on a device that may be shared. Register every such part with `registerDeviceData` and clear it with

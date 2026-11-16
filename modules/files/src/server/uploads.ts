@@ -399,8 +399,8 @@ function mergeChunkRanges(row: UploadRow, indices: readonly number[]): ByteRange
   return ranges;
 }
 
-/** Whether a normalised media type matches one of the allowed rules (`video/mp4`, `video/*`); null allows any. */
-function isContentTypeAllowed(contentType: string, rules: readonly string[] | null): boolean {
+/** Whether a media type matches one of the rules (`video/mp4`, `video/*`); `null` rules allow any. */
+export function isContentTypeAllowed(contentType: string, rules: readonly string[] | null): boolean {
   if (rules === null) return true;
   const essence = contentType.split(";")[0] ?? "";
   const [type = ""] = essence.split("/");

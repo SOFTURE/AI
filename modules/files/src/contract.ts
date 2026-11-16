@@ -35,7 +35,18 @@ export type FilesUploadErrorCode =
   /** The bytes that arrived do not match the declared SHA-256. */
   | "files.checksum_mismatch";
 
-export type FilesErrorCode = FilesKeyErrorCode | FilesSaveErrorCode | FilesLookupErrorCode | FilesUploadErrorCode;
+/** Why `saveFileFromUrl` could not fetch a file (it also answers the save's and `files.content_type_not_allowed`). */
+export type FilesDownloadErrorCode =
+  /** The URL is not an https URL on the default port, or a redirect leads to plain http. */
+  | "files.url_not_allowed"
+  /** The host resolves to a private, loopback or otherwise blocked address (the SSRF guard), or a redirect names another port. */
+  | "files.url_blocked"
+  /** The server answered a status other than 2xx, the connection failed or the body did not decode. */
+  | "files.download_failed"
+  /** The download, every redirect and the body included, took longer than its time limit. */
+  | "files.download_timeout";
+
+export type FilesErrorCode = FilesKeyErrorCode | FilesSaveErrorCode | FilesLookupErrorCode | FilesUploadErrorCode | FilesDownloadErrorCode;
 
 /** A stored file as the app sees it. Never carries the storage key. */
 export interface StoredFile {

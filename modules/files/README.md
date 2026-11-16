@@ -16,6 +16,11 @@ sandbox, a phone behind a proxy with a body limit) uploads through a signed URL 
   first chunk over, a per-owner quota (`quotaBytesPerOwner`) is checked before and again under a per-owner lock
   after, and with `dedupe` an owner's second copy of the same content answers the first file. A refused or failed
   save leaves no bytes and no row.
+- **`saveFileFromUrl(ctx, { ownerId, url, name?, contentType?, contentTypes?, kind?, expiresAt? | ttlSeconds?,
+  timeoutMs? })`**: a file at an `https:` URL (a document someone links to), downloaded through
+  `@softure-ai/security`'s guarded download (every redirect checked against private and loopback addresses, `https:`
+  only, one time limit for the whole download) and streamed into `saveFile`, so its cap, quota and dedupe apply. See
+  "Saving a file from a URL" below.
 - **`findFile`, `openFile` (a byte range or the whole file), `listFiles`, `deleteFile`, `getOwnerUsage`**: live files
   only (neither deleted nor expired); an `ownerId` filter makes another owner's file read as missing.
 - **Storage drivers** behind one interface (`put`, `get` with a range, `head`, `delete`, an optional `check`):
@@ -150,6 +155,23 @@ const link = await createFileLink(ctx, saved.value.id, { ttlSeconds: 86_400 });
 
 A request body streams in directly: `saveFile(ctx, { ownerId, body: request.body, name, contentType })` (a web
 `ReadableStream` is an async iterable in Node 22).
+
+Saving a file from a URL works the same way, with the download's own refusals:
+
+```ts
+const saved = await saveFileFromUrl(ctx, {
+  ownerId: user.id,
+  url: confirmationUrl, // https only
+  contentTypes: ["application/pdf", "image/*"], // checked against the answer before a byte is stored
+  kind: "document",
+});
+// Refusals: files.url_not_allowed (not https, another port), files.url_blocked (a private or loopback address, the
+// SSRF guard), files.download_failed (a status other than 2xx, a reset), files.download_timeout (60 s by default),
+// files.content_type_not_allowed, files.too_large, files.quota_exceeded, files.invalid_input.
+```
+
+The name defaults to the last part of the final URL's path (`download` when it has none), the media type to the
+answer's (`application/octet-stream` when it sends none); a given `contentType` must itself pass `contentTypes`.
 
 ### 4.1 Uploads from clients
 

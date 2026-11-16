@@ -5,6 +5,7 @@ export {
   type ExtraOrigin,
   type ExtraOriginCacheKey,
   type ExtraOriginStrategy,
+  type KeptFilesConfig,
   type ServiceWorkerConfig,
   type ServiceWorkerMessage,
   type WorkerExtendableEvent,
@@ -25,5 +26,6 @@ export {
   getExtraOriginCacheName,
   resolveServiceWorkerConfig,
   type ExtraOriginOptions,
+  type KeptFilesWorkerOptions,
   type ServiceWorkerOptions,
 } from "./source.js";

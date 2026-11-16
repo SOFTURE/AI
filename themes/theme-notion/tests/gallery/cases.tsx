@@ -227,6 +227,10 @@ import {
   UploadField,
   UploadItem,
   UploadList,
+  DocumentList,
+  DocumentRow,
+  DocumentViewer,
+  type PdfEngine,
   FileInput,
   FormGrid,
   Code,
@@ -242,6 +246,24 @@ const INSTALL_COPY = {
   addStep: "Choose Add to Home Screen",
   close: "Close",
 };
+
+// The document viewer's engine in the gallery: two blank A4 pages, drawn at once, so the page needs no PDF and no
+// pdf.js chunk and its picture never waits on a render.
+const GALLERY_PDF_ENGINE: PdfEngine = {
+  open: () =>
+    Promise.resolve({
+      pageCount: 2,
+      renderPage: (_pageNumber: number, canvas: HTMLCanvasElement, width: number) => {
+        canvas.width = width;
+        canvas.height = Math.round(width * 1.414);
+        canvas.style.width = `${String(width)}px`;
+        canvas.style.height = `${String(Math.round(width * 1.414))}px`;
+        return Promise.resolve();
+      },
+      destroy: () => undefined,
+    }),
+};
+const GALLERY_PDF = { blob: new Blob(["%PDF-1.7"], { type: "application/pdf" }) };
 
 // The launch screen's icon: a rounded mark, inline so the gallery needs no icon route.
 const LAUNCH_ICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2383e2"/><path d="M20 32h24M32 20v24" stroke="#fff" stroke-width="6" stroke-linecap="round"/></svg>')}`;
@@ -1839,6 +1861,27 @@ const NOTION_CASES: readonly GalleryCase[] = [
         <UploadItem item={{ id: "d", name: "contract-signed.pdf", size: 240_000, state: "done" }} onRemove={() => undefined} />
         <UploadItem item={{ id: "e", name: "scan.jpg", size: 3_100_000, state: "failed", error: "The connection dropped." }} onRetry={() => undefined} onRemove={() => undefined} />
       </UploadList>
+    ),
+  },
+  {
+    name: "DocumentList",
+    component: "DocumentList",
+    root: '[data-slot="document-list"]',
+    render: () => (
+      <DocumentList label="Documents" className="w-96 max-w-full">
+        <DocumentRow title="Hotel confirmation.pdf" contentType="application/pdf" size={182_000} isOffline onOpen={() => undefined} />
+        <DocumentRow title="Boarding pass.png" contentType="image/png" size={64_000} isOffline onOpen={() => undefined} />
+        <DocumentRow title="Ferry ticket.html" contentType="text/html" size={12_400} onOpen={() => undefined} />
+      </DocumentList>
+    ),
+  },
+  {
+    name: "DocumentViewer",
+    component: "DocumentViewer",
+    root: '[data-slot="document-viewer"]',
+    isIsolated: true,
+    render: () => (
+      <DocumentViewer open onOpenChange={() => undefined} title="Hotel confirmation.pdf" contentType="application/pdf" source={GALLERY_PDF} loadPdfEngine={() => Promise.resolve(GALLERY_PDF_ENGINE)} />
     ),
   },
   {

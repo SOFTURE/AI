@@ -10,7 +10,7 @@ import type { ServiceWorkerConfig, WorkerScope } from "@softure-ai/pwa/worker";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { answer, FakeWorkerScope, navigation } from "./support/fake-worker-scope.js";
+import { answer, FakeWorkerScope, navigation, ORIGIN } from "./support/fake-worker-scope.js";
 
 const SOURCE = new URL("../src/worker/service-worker.ts", import.meta.url);
 const outDir = mkdtempSync(join(tmpdir(), "softure-pwa-worker-"));
@@ -56,6 +56,8 @@ describe("the built worker", () => {
           store: true,
         },
       ],
+      // The kept files run from the text too (MR-344 of an adopting app, #1255).
+      keptFiles: { cache: "documents", pathPrefixes: ["/api/documents/"] },
     };
     const scope = new FakeWorkerScope();
     scope.route("/offline", answer("<html>offline</html>"));
@@ -78,5 +80,8 @@ describe("the built worker", () => {
     scope.route("https://tiles.example.com/planet/b7/1/2/3.pbf", answer("tile", { type: "cors" }));
     expect(await (await scope.dispatchFetch(new Request("https://tiles.example.com/planet/b7/1/2/3.pbf")).response)?.text()).toBe("tile");
     expect(scope.caches.get("fire-map").getPaths()).toEqual(["https://tiles.example.com/planet/1/2/3.pbf"]);
+
+    await (await scope.caches.open("fire-documents")).put("/api/documents/d1", answer("%PDF kept", { contentType: "application/pdf" }));
+    expect(await (await scope.dispatchFetch(new Request(`${ORIGIN}/api/documents/d1`)).response)?.text()).toBe("%PDF kept");
   });
 });
