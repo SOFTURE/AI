@@ -71,6 +71,8 @@ export { MiniProgress, type MiniProgressProps } from "./notion/MiniProgress.js";
 export { PageFrame, type PageFrameProps } from "./notion/PageFrame.js";
 export { PageHeader, type PageCrumb, type PageHeaderProps } from "./notion/PageHeader.js";
 export { PropertyList, type Property, type PropertyListProps } from "./notion/PropertyList.js";
+export { clampSize, RESIZE_HANDLE_STEP } from "./notion/clamp-size.js";
+export { ResizeHandle, type ResizeHandleProps } from "./notion/ResizeHandle.js";
 export { RouteLoading, type RouteLoadingProps } from "./notion/RouteLoading.js";
 export { SheetMenu, SheetMenuButton, SheetMenuItem, type SheetMenuButtonProps } from "./notion/SheetMenu.js";
 export { SidePanel, type SidePanelLayout, type SidePanelProps } from "./notion/SidePanel.js";
