@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findRequiredNames } from "../env/required-names.js";
 import { DEPLOY_SCHEMA_URL } from "../verify/schema.js";
-import type { InitAnswers } from "./answers.js";
+import { getHost, type InitAnswers } from "./answers.js";
 import { COMPOSE_FILE, type AppFacts } from "./app-facts.js";
 import { CLOUDFLARE_RANGES } from "./cloudflare.js";
 import { renderTemplate, type TemplateValues } from "./render-template.js";
@@ -206,20 +206,21 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
   const isEveryPath = answers.paths.includes("/");
   const workerLimitLines = hasWorker(facts) ? buildWorkerLimitLines(answers) : [];
   const workerImage = hasWorkerImage(facts, answers);
+  const image = answers.image ?? "";
   return {
     name: answers.name,
     domain: answers.domain,
     domainPattern: answers.domain.replaceAll(".", "\\\\."),
-    image: answers.image,
+    image,
     cliVersion,
     database: facts.hasDatabase,
     worker: hasWorker(facts),
     workerHeartbeat: hasWorkerHeartbeat(facts),
     workerHealthFile: WORKER_HEALTH_FILE,
     workerImage,
-    workerImageName: getWorkerImage(answers.image),
+    workerImageName: getWorkerImage(image),
     workerDockerfile: answers.workerDockerfile ?? "",
-    workerServiceImage: workerImage ? getWorkerImage(answers.image) : answers.image,
+    workerServiceImage: workerImage ? getWorkerImage(image) : image,
     hasWorkerLimits: workerLimitLines.length > 0,
     workerLimitLines: workerLimitLines.join("\n"),
     dataVolume: answers.dataVolume !== undefined,
@@ -263,6 +264,7 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
 /** Renders every file init writes for this app; pure apart from reading the templates. */
 export function planInitFiles(options: PlanInitFilesOptions): PlannedFile[] {
   const readTemplate = options.readTemplate ?? readPackagedTemplate;
+  if (getHost(options.answers) === "cloudflare") return planCloudflareFiles(options, readTemplate);
   const base = buildValues(options);
   const included = TEMPLATE_FILES.filter((file) => file.isIncluded(options.facts, options.answers));
   const compose = included.find((file) => file.target === COMPOSE_FILE);
@@ -289,6 +291,56 @@ export function planInitFiles(options: PlanInitFilesOptions): PlannedFile[] {
     mode: FILE_MODE,
   };
   return [...planned.slice(0, 1), workerDockerfile, ...planned.slice(1)];
+}
+
+/** The `compatibility_date` written into a new `wrangler.jsonc`; the app moves it forward when it tests a newer one. */
+export const CLOUDFLARE_COMPATIBILITY_DATE = "2026-11-01";
+
+/** The Hyperdrive ID written until `--hyperdrive-id` names the real one; `wrangler deploy` refuses it. */
+export const HYPERDRIVE_ID_PLACEHOLDER = "<hyperdrive-id: wrangler hyperdrive create>";
+
+/** The Worker's own entry, OpenNext's handler wrapped with the request database (and the jobs tick). */
+const WORKER_ENTRY = "worker.ts";
+
+/** Every file `init --host=cloudflare` can write, in the order it reports them. */
+export const CLOUDFLARE_TEMPLATE_FILES: readonly TemplateFile[] = [
+  { template: "cloudflare/wrangler.jsonc.tmpl", target: "wrangler.jsonc", mode: FILE_MODE, isIncluded: always },
+  { template: "cloudflare/open-next.config.ts.tmpl", target: "open-next.config.ts", mode: FILE_MODE, isIncluded: always },
+  { template: "cloudflare/worker.ts.tmpl", target: WORKER_ENTRY, mode: FILE_MODE, isIncluded: withDatabase },
+  { template: "scripts/migrate.ts.tmpl", target: "scripts/migrate.ts", mode: FILE_MODE, isIncluded: withDatabase },
+  { template: "cloudflare/.github/workflows/deploy.yml.tmpl", target: ".github/workflows/deploy.yml", mode: FILE_MODE, isIncluded: always },
+  { template: "deploy.json.tmpl", target: "deploy.json", mode: FILE_MODE, isIncluded: always },
+];
+
+/** The Worker's `main`: the generated entry with a database, else OpenNext's own worker. */
+export function getWorkerMain(facts: AppFacts): string {
+  return facts.hasDatabase ? WORKER_ENTRY : ".open-next/worker.js";
+}
+
+function planCloudflareFiles(options: PlanInitFilesOptions, readTemplate: (path: string) => string): PlannedFile[] {
+  const { answers, facts } = options;
+  const secrets = answers.env;
+  const values: TemplateValues = {
+    ...buildValues(options),
+    // deploy.json's VPS-only parts: the hooks of --cdn and the row counts of deploy.sh.
+    cloudflare: false,
+    hasRowCountTables: false,
+    main: getWorkerMain(facts),
+    compatibilityDate: CLOUDFLARE_COMPATIBILITY_DATE,
+    hyperdriveId: answers.hyperdriveId ?? HYPERDRIVE_ID_PLACEHOLDER,
+    hasPlacementRegion: answers.placementRegion !== undefined,
+    placementRegion: answers.placementRegion ?? "",
+    hasSecretNames: secrets.length > 0,
+    secretNames: secrets.length > 0 ? secrets.join(", ") : "none",
+    secretNameList: secrets.join(" "),
+    secretsRequiredJson: secrets.map((name) => JSON.stringify(name)).join(", "),
+    secretEnvLines: secrets.map((name) => `          ${name}: \${{ secrets.${name} }}`).join("\n"),
+  };
+  return CLOUDFLARE_TEMPLATE_FILES.filter((file) => file.isIncluded(facts, answers)).map((file) => ({
+    path: file.target,
+    text: renderTemplate(readTemplate(file.template), values),
+    mode: file.mode,
+  }));
 }
 
 function exists(path: string): boolean {

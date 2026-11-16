@@ -1,10 +1,10 @@
 ---
 change_id: deploy-cloudflare-target
 title: "deploy: a Cloudflare host target next to the VPS"
-status: open
+status: planned
 roadmap_item: RP-8
 issue: null
-branch: null
+branch: claude/project-thread-dufdk1
 created: 2026-11-16
 updated: 2026-11-16
 ---
