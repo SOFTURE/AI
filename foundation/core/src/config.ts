@@ -6,6 +6,7 @@ import { isDatabaseOptional } from "./database-requirement.js";
 import { isLocale, type Locale } from "./i18n.js";
 import type { AnySoftureModule } from "./module.js";
 import { err, ok, type Result } from "./result.js";
+import { getModuleRuntimes, resolvePlatform, SOFTURE_HOSTS, SOFTURE_RUNTIMES, type SofturePlatform, type SofturePlatformInput } from "./platform.js";
 import { parseVersionRange, satisfiesRange } from "./version-range.js";
 import { isTimeZone } from "./zoned-time.js";
 
@@ -71,6 +72,8 @@ export interface SoftureConfig {
   readonly landingOrigin: string;
   /** Every origin the app is served under besides `appOrigin`, read by `resolveAppOrigin`. */
   readonly origins: SoftureOrigins;
+  /** Where the app runs: the runtime its server code uses and the host that builds, deploys and schedules it. */
+  readonly platform: SofturePlatform;
   /** Enabled modules, in the order the app listed them. */
   readonly modules: readonly AnySoftureModule[];
 }
@@ -84,6 +87,8 @@ export interface SoftureConfigInput {
   /** The public landing site beside the app; defaults to `appOrigin`. */
   readonly landingOrigin?: string;
   readonly origins?: SoftureOriginsInput;
+  /** Where the app runs; default `{ runtime: "node", host: "vps" }`. A host alone picks its default runtime. */
+  readonly platform?: SofturePlatformInput;
   readonly modules: readonly AnySoftureModule[];
 }
 
@@ -113,6 +118,7 @@ const configSchema = z.object({
       trustRequestHost: z.boolean().default(false),
     })
     .default({ trustedOrigins: [], trustRequestHost: false }),
+  platform: z.strictObject({ runtime: z.enum(SOFTURE_RUNTIMES).optional(), host: z.enum(SOFTURE_HOSTS).optional() }).optional(),
   modules: z.array(z.custom<AnySoftureModule>(isSoftureModule, "must be a module returned by a module factory")),
 });
 
@@ -128,8 +134,13 @@ export function defineSoftureConfig(input: SoftureConfigInput): SoftureConfig {
   }
 
   const config = result.data;
-  const issues = [...checkModules(config.modules), ...(isOptional ? [] : checkDatabase(config))];
-  if (issues.length > 0) {
+  const platform = resolvePlatform(config.platform);
+  const issues = [
+    ...(platform.ok ? checkModuleRuntimes(config.modules, platform.platform) : [`platform: ${platform.reason}`]),
+    ...checkModules(config.modules),
+    ...(isOptional ? [] : checkDatabase(config)),
+  ];
+  if (issues.length > 0 || !platform.ok) {
     throw new SoftureConfigError(CONFIG_SUBJECT, issues);
   }
 
@@ -138,6 +149,7 @@ export function defineSoftureConfig(input: SoftureConfigInput): SoftureConfig {
     landingOrigin: config.landingOrigin ?? config.appOrigin,
     database: config.database === null ? null : Object.freeze({ ...config.database }),
     origins: Object.freeze({ ...config.origins, trustedOrigins: Object.freeze([...config.origins.trustedOrigins]) }),
+    platform: platform.platform,
     modules: Object.freeze([...config.modules]),
   });
 }
@@ -175,6 +187,16 @@ function orderModules(modules: readonly AnySoftureModule[]): { ordered: AnySoftu
     placedIds.add(next.id);
     remaining = remaining.filter((module) => module !== next);
   }
+}
+
+/** One issue per module whose manifest does not list the app's runtime. */
+function checkModuleRuntimes(modules: readonly AnySoftureModule[], platform: SofturePlatform): string[] {
+  return modules.flatMap((module, index) => {
+    const runtimes = getModuleRuntimes(module.manifest);
+    return runtimes.includes(platform.runtime)
+      ? []
+      : [`modules.${index}: module "${module.id}" does not run on the ${platform.runtime} runtime (it supports: ${runtimes.join(", ")})`];
+  });
 }
 
 function checkModules(modules: readonly AnySoftureModule[]): string[] {

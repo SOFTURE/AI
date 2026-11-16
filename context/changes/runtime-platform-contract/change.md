@@ -1,7 +1,7 @@
 ---
 change_id: runtime-platform-contract
 title: "core: runtime and host in the app config, with a Workers-safety guard"
-status: open
+status: implementing
 roadmap_item: RP-1
 issue: null
 branch: null

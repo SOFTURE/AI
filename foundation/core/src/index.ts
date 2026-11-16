@@ -122,6 +122,19 @@ export { SoftureConfigError } from "./config-error.js";
 export { withDatabaseOptional } from "./database-requirement.js";
 export { moduleManifestSchema, type ModuleManifest } from "./manifest.js";
 export {
+  DEFAULT_PLATFORM,
+  getModuleRuntimes,
+  resolvePlatform,
+  SOFTURE_HOSTS,
+  SOFTURE_RUNTIMES,
+  SUPPORTED_PLATFORMS,
+  type PlatformResolution,
+  type SoftureHost,
+  type SofturePlatform,
+  type SofturePlatformInput,
+  type SoftureRuntime,
+} from "./platform.js";
+export {
   defineModule,
   resolveMigrationsDir,
   toModuleJson,
