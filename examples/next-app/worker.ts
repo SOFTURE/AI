@@ -10,7 +10,7 @@ import { connect } from "cloudflare:sockets";
 // after it, so neither state may fail the typecheck (@ts-expect-error would fail once the file exists).
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment -- see above
 // @ts-ignore
-import handler from "./.open-next/worker.js";
+import openNextWorker from "./.open-next/worker.js";
 
 interface Env {
   readonly HYPERDRIVE: { readonly connectionString: string };
@@ -20,6 +20,13 @@ interface WorkerContext {
   waitUntil(promise: Promise<unknown>): void;
   passThroughOnException(): void;
 }
+
+/** OpenNext's handler; typed here because its file exists only after the build. */
+interface OpenNextHandler {
+  readonly fetch: (request: Request, env: Env, ctx: WorkerContext) => Promise<Response>;
+}
+
+const handler = openNextWorker as OpenNextHandler;
 
 // The app's proxy is bundled apart from this entry and cannot import `cloudflare:sockets` itself; pg reaches it here.
 registerCloudflareSockets(connect);
