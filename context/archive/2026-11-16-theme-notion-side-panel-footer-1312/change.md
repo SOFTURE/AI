@@ -26,7 +26,7 @@ resize handle and a width for `SidePanel`) is open in parallel and touches the s
 
 - `SidePanel footer?: ReactNode`, rendered after the content in `data-slot="side-panel-footer"`
   (`flex flex-none border-t border-border p-2`, the same strip a column's own foot uses).
-- Tests, README line, `## Unreleased` in the CHANGELOG; minor version bump (0.20.0) so the adopting app can use it.
+- Tests, README line, `## Unreleased` in the CHANGELOG; minor version bump (0.21.0) so the adopting app can use it.
 
 ## Constraints
 
@@ -43,4 +43,4 @@ resize handle and a width for `SidePanel`) is open in parallel and touches the s
 - A `footer` prop rather than a `SidePanelFooter` child component: the panel owns its layout (header, scrolling
   content, footer), so a slot prop keeps the footer out of the scroll container without the caller knowing the
   markup.
-- Released as 0.20.0 from this change (minor: new optional prop), because the adopting app waits for it.
+- Released as 0.21.0 from this change (minor: new optional prop), because the adopting app waits for it.

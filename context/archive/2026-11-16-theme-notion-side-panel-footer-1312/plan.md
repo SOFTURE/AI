@@ -18,8 +18,8 @@ Add an optional `footer` prop to `SidePanel`; when defined, render it in a non-s
 
 ### Phase 2: version
 
-- `npm run release:version -- theme-notion minor` (0.20.0); the local tag is dropped (the release workflow tags).
-- Done when: `themes/theme-notion/package.json` reads 0.20.0 and the CHANGELOG section is `## 0.20.0`.
+- `npm run release:version -- theme-notion minor` (0.21.0); the local tag is dropped (the release workflow tags).
+- Done when: `themes/theme-notion/package.json` reads 0.21.0 and the CHANGELOG section is `## 0.21.0`.
 
 ## Progress
 
