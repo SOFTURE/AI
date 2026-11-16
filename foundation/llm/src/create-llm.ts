@@ -1,6 +1,6 @@
 import { err, ok, systemClock, type Clock, type Result } from "@softure-ai/core";
 import type { Tracer } from "@opentelemetry/api";
-import { AISDKError, generateText as sdkGenerateText, NoObjectGeneratedError, Output, type LanguageModel } from "ai";
+import { AISDKError, generateText as sdkGenerateText, NoObjectGeneratedError, Output, type LanguageModel, type ToolSet } from "ai";
 import type { z } from "zod";
 import type {
   CostSource,
@@ -20,6 +20,7 @@ import {
   STRUCTURED_SPAN_NAME,
   TEXT_SPAN_NAME,
 } from "./tracing.js";
+import { startStreamChat, type ChatRequest, type ChatStream } from "./stream-chat.js";
 import { readProviderCostUsd, resolveCost, toLlmUsage } from "./usage.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -75,6 +76,11 @@ export interface TextRequest extends BaseRequest {
 export interface Llm {
   generateStructured<T>(request: StructuredRequest<T>): Promise<Result<StructuredResult<T>, LlmErrorCode>>;
   generateText(request: TextRequest): Promise<Result<TextResult, LlmErrorCode>>;
+  /**
+   * Streams a chat answer through AI SDK `streamText` and returns its result (call `toUIMessageStreamResponse()`).
+   * Records the whole answer, every step included, once it ends, fails, times out or is aborted.
+   */
+  streamChat<TOOLS extends ToolSet = ToolSet>(request: ChatRequest<TOOLS>): ChatStream<TOOLS>;
 }
 
 type SdkResult = Awaited<ReturnType<typeof sdkGenerateText>>;
@@ -220,7 +226,24 @@ export function createLlm(options: LlmOptions): Llm {
     return ok({ text: output.text, truncated: output.truncated, ...rest });
   }
 
-  return { generateStructured, generateText };
+  function streamChat<TOOLS extends ToolSet = ToolSet>(request: ChatRequest<TOOLS>): ChatStream<TOOLS> {
+    assertTimeout(request.timeoutMs, "streamChat: timeoutMs");
+    assertPositiveInteger(request.maxOutputTokens, "streamChat: maxOutputTokens");
+    return startStreamChat(
+      {
+        model: options.model,
+        timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+        pricing,
+        onUsage: options.onUsage,
+        onCall: options.onCall,
+        clock,
+        tracer,
+      },
+      request,
+    );
+  }
+
+  return { generateStructured, generateText, streamChat };
 }
 
 /** Runs the AI SDK call under a time limit. Rejects only with an error that is not the AI SDK's (a bug). */

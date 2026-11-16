@@ -1,19 +1,25 @@
 import { SpanStatusCode, trace, type Span, type Tracer } from "@opentelemetry/api";
-import type { CostSource, LlmErrorCode, LlmUsage } from "./contract.js";
+import type { CostSource, LlmOutcome, LlmUsage } from "./contract.js";
 
 export const TRACER_NAME = "@softure-ai/llm";
 export const STRUCTURED_SPAN_NAME = "llm.generate_structured";
 export const TEXT_SPAN_NAME = "llm.generate_text";
+export const STREAM_CHAT_SPAN_NAME = "llm.stream_chat";
 
 /** The global tracer: a no-op until the app starts an OpenTelemetry SDK (e.g. @softure-ai/observability). */
 export function getDefaultTracer(): Tracer {
   return trace.getTracer(TRACER_NAME);
 }
 
-export function startCallSpan(tracer: Tracer, name: string, request: { provider: string; model: string }): Span {
+/** `operation` is the OpenTelemetry GenAI operation name: `generate_content` for one answer, `chat` for a streamed chat. */
+export function startCallSpan(
+  tracer: Tracer,
+  name: string,
+  request: { provider: string; model: string; operation?: "generate_content" | "chat" },
+): Span {
   return tracer.startSpan(name, {
     attributes: {
-      "gen_ai.operation.name": "generate_content",
+      "gen_ai.operation.name": request.operation ?? "generate_content",
       "gen_ai.provider.name": request.provider,
       "gen_ai.request.model": request.model,
     },
@@ -23,7 +29,7 @@ export function startCallSpan(tracer: Tracer, name: string, request: { provider:
 /** Ends the span with the outcome. Never records the prompt, the output or the call's attributes. */
 export function endCallSpan(
   span: Span,
-  outcome: { code: "ok" | LlmErrorCode; model?: string; usage?: LlmUsage; costUsd?: number | null; costSource?: CostSource | null },
+  outcome: { code: LlmOutcome; model?: string; usage?: LlmUsage; costUsd?: number | null; costSource?: CostSource | null },
 ): void {
   span.setAttribute("softure.llm.outcome", outcome.code);
   if (outcome.model !== undefined) span.setAttribute("gen_ai.response.model", outcome.model);

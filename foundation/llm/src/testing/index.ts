@@ -118,3 +118,6 @@ function toResult(text: string, modelId: string, details: FakeAnswerDetails, fin
 function toError(reason: unknown): Error {
   return reason instanceof Error ? reason : new Error("fakeModel: the call was aborted");
 }
+
+export { fakeChatModel } from "./fake-chat-model.js";
+export type { FakeChatModel, FakeChatModelOptions, FakeChatResponse } from "./fake-chat-model.js";
