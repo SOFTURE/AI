@@ -15,7 +15,7 @@ npm i @softure-ai/theme-notion tailwindcss @tailwindcss/postcss
 /* app/globals.css */
 @import "tailwindcss";
 @import "@softure-ai/theme-notion/theme.css";       /* tokens, utilities, dark:, animations, the components' classes */
-@import "@softure-ai/theme-notion/sft-bridge.css";  /* optional: pages of the SOFTURE packages in a PageFrame */
+@import "@softure-ai/theme-notion/sft-bridge.css";  /* optional: @softure-ai/ui components and package pages */
 @import "@softure-ai/theme-notion/base.css";         /* body on the theme's background, text colour and font */
 @import "@softure-ai/theme-notion/page.css";         /* body text 14 px, blue text selection, font smoothing */
 @import "@softure-ai/theme-notion/maplibre.css";     /* only if the app shows MapLibre maps */
@@ -28,6 +28,12 @@ manager layout.
 
 `theme.css` names the package's components as Tailwind sources, so their classes are generated without the app
 listing `node_modules`. It clears Tailwind's default palette: only the theme's colours exist as utilities.
+
+**`@softure-ai/ui` components on the theme.** `sft-bridge.css` points ui's `--sft-*` tokens (colours, fonts, radii,
+shadows) at the Notion tokens on every scheme scope (`:root`, `.light`, `.dark`, `[data-theme]`) and in every
+`PageFrame`, outside any `@layer`, so a ui component takes the theme wherever it sits: a chat panel in the app shell,
+a card in a `.dark` band, or a package page (sign-in, OAuth consent) in a `PageFrame`. Spacing, text sizes and
+durations stay ui's. An app that wants another value for one token writes its own `--sft-*` rule after the import.
 
 An app that also renders pages of the SOFTURE packages (on `@softure-ai/ui`'s `--sft-*` tokens) keeps their base by
 taking the scoped preflight instead of Tailwind's:
@@ -131,7 +137,7 @@ field, input, input-group, item, kbd, label, popover, progress, radio-group, scr
 sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
-and more, a native `<details>`), `PageFrame` (a page outside the app shell, the target of `sft-bridge.css`),
+and more, a native `<details>`), `PageFrame` (a page outside the app shell, such as a package's sign-in page),
 `SidePanel` (a non-modal panel at a side of a canvas, below), `AsidePanelProvider`, `AsidePanelToggle`,
 `AsidePanel` and `AsidePanelSidebarOpener` (a panel slid in from the right of the app shell, beside the content, below), `SheetMenu`, `SheetMenuItem` and `SheetMenuButton`
 (navigation rows in a side `Sheet`, a phone's drawer, below), `TabBar` (a screen's tabs as links with an optional icon
@@ -766,6 +772,9 @@ on every pull request that touches `themes/`.
    every class in the parity fixture generates CSS on the theme (no unknown token, no cleared default colour).
 6. **Visual regression** (`visual/gallery.spec.ts`): the gallery and each overlay at 1440 and 390 px, light and dark,
    against `visual/baselines/`, in Playwright's Chromium with fonts from npm packages.
+   `visual/bridge.spec.ts` does the same for `@softure-ai/ui` components wired as the README says (ui's styles, the
+   scoped preflight, the theme, the bridge): the same screen in the app shell, in a `PageFrame` and in a `.dark` band,
+   each of ui's colour tokens checked against the Notion colour it paints, a baseline and axe.
 7. **Accessibility**: axe (WCAG 2.1 A and AA, colour contrast included) on the same pages; the token pairs in
    `tests/contrast.test.ts` (see Contrast above) run in `npm test`.
 8. **Inventory** (`tests/inventory.test.ts`): exports, files, the README's component list and the gallery agree.

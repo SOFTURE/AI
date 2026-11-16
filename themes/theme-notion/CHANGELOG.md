@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `sft-bridge.css` re-points `@softure-ai/ui`'s `--sft-*` tokens everywhere, not only inside a `PageFrame`: on
+  `:root`, `.light`, `.dark` and `[data-theme]` as well, outside any `@layer`, so a ui component (a chat screen, a
+  card, a form) in the app shell or in a `.dark` band takes the Notion colours, fonts, radii and shadows. Same API and
+  imports. Visible change: ui components outside a frame that showed ui's default look now show the theme's; an app
+  that wants a token of its own writes its `--sft-*` rule after the import (#1260).
+
 ## 0.17.0
 
 - `AsidePanelProvider keepsSidebarOpen`: the left `Sidebar` and the right `AsidePanel` stay open together on a wide

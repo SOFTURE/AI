@@ -23,13 +23,15 @@ pass.
 
 ## Progress
 
-- [ ] 1 Bridge and unit test
-- [ ] 2 Bridge page and browser checks
-- [ ] 3 Docs
+- [x] 1 Bridge and unit test (760b180; 3 new tests fail on master's bridge, pass after)
+- [ ] 2 Bridge page and browser checks (ui components done: 20 passed in 4 projects; on master's bridge the shell and dark-band checks fail. Chat primitives wait for #1259)
+- [x] 3 Docs (README, CHANGELOG `## Unreleased`)
 - [ ] 4 Design System artifact
 
 ## Decisions (auto)
 
 - Option A over a documented `PageFrame` rule: the issue lets the thread choose; A matches theme-flat-paint and needs
   nothing from apps.
+- Baselines taken with Playwright 1.65 on Chromium headless shell 1243 (the container's build; the pinned 1254
+  cannot be downloaded here). All 160 existing baselines pass unchanged on 1243, so the new ones match CI's build.
 - Unlayered aliases: the only way an alias on `:root` beats ui's `@layer softure` defaults on the same element.
