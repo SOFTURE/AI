@@ -1,7 +1,7 @@
 ---
 change_id: theme-notion-sft-bridge-everywhere
 title: "theme-notion: ui's --sft-* tokens take the Notion theme inside and outside PageFrame (issue #1260)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1260
 branch: claude/project-thread-0gxvid
@@ -31,3 +31,9 @@ already applies on every scheme scope (`:root, .light, .dark, [data-theme]`).
 ## Notes
 
 - Release: ridden by the coordinator's next batch release.
+
+## Done
+
+- theme-notion: ui's `--sft-*` tokens take the Notion theme on every scheme scope and in every `PageFrame`
+  (#1260); browser checks and baselines of ui's chat primitives in the app shell, a frame and a `.dark` band.
+- Release: next theme-notion release (`## Unreleased` in its CHANGELOG).
