@@ -1,10 +1,10 @@
 ---
 change_id: observability-workers
 title: "observability: a Workers entry with OTLP over fetch"
-status: open
+status: archived
 roadmap_item: RP-6
 issue: null
-branch: null
+branch: claude/project-thread-dufdk1
 created: 2026-11-16
 updated: 2026-11-16
 ---

@@ -144,6 +144,24 @@ describe("buildServiceSilentRule", () => {
     expect(rule).toMatchObject({ uid: "worker-silent", title: "Worker is silent", for: "5m" });
     expect(rule.data[0]?.relativeTimeRange).toEqual({ from: 1800, to: 0 });
   });
+
+  it("fires on a service without metrics when Loki has no record of it for the window", () => {
+    const rule = buildServiceSilentRule({ service: SERVICE, signal: "logs", datasourceUid: "loki", windowMinutes: 15 });
+
+    expect(rule.data[0]).toEqual({
+      refId: "A",
+      datasourceUid: "loki",
+      relativeTimeRange: { from: 900, to: 0 },
+      model: {
+        refId: "A",
+        expr: 'absent_over_time({service_namespace="shop",service_name="web",deployment_environment="production"} [15m])',
+        queryType: "instant",
+      },
+    });
+    expect(rule.uid).toMatch(/^silent-logs-[0-9a-f]{16}$/);
+    expect(rule.uid).not.toBe(buildServiceSilentRule({ service: SERVICE, datasourceUid: "prom" }).uid);
+    expect(rule.annotations).toMatchObject({ summary: "No logs from shop/web (production) for 15 minutes." });
+  });
 });
 
 describe("buildLogProblemsRule", () => {

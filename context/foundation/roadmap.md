@@ -47,7 +47,7 @@ updated: 2026-11-16
 | **RP-3** | `auth-workers-password` | `@softure-ai/auth` runs on Workers: scrypt stays (workerd provides it) with a default cost that fits the 128 MB isolate, a login rehashes into the runtime's cost, and the auth entries are declared Workers-safe | RP-1 | autonomous | done |
 | **RP-4** | `jobs-scheduled-tick` | `@softure-ai/jobs` runs due jobs from one `runJobsTick` shared by the Node worker loop and a Workers `scheduled()` handler (Cron Trigger), with health from a database heartbeat | RP-1, RP-2 | autonomous | ready |
 | **RP-5** | `security-workers-fetch` | `@softure-ai/security` guarded outbound requests and client-address checks run on Workers with the same refusals as on Node (resolved addresses checked before the request, where workerd takes no socket `lookup`) | RP-1 | autonomous | done |
-| **RP-6** | `observability-workers` | `@softure-ai/observability` gets a Workers entry: structured logs and spans sent over OTLP with `fetch`, flushed through `waitUntil`, under the same service naming as on Node | RP-1 | autonomous | ready |
+| **RP-6** | `observability-workers` | `@softure-ai/observability` gets a Workers entry: structured logs and spans sent over OTLP with `fetch`, flushed through `waitUntil`, under the same service naming as on Node | RP-1 | autonomous | done |
 | **RP-7** | `modules-workers-sweep` | every other runtime module (files, mailing, mcp-access, billing, waitlist, privacy, connections, agent-ready, analytics, feature-switches, metering, alerts, seo, blog, pwa) passes the Workers guard: R2 through the S3 driver, DNS checks over DNS-over-HTTPS, no filesystem on the request path | RP-1 | autonomous | ready |
 | **RP-8** | `deploy-cloudflare-target` | `@softure-ai/deploy` gets `host: "cloudflare"`: `init` writes `wrangler.jsonc` and an OpenNext build, a reusable workflow migrates from CI and runs `wrangler deploy`, and `verify` and the release report work as on the VPS | RP-2, RP-4 | autonomous | ready |
 | **RP-9** | `backup-cloudflare-host` | `@softure-ai/backup` backs up a managed Postgres without a server: a scheduled workflow dumps, encrypts with age, uploads to R2 and records the run in `backup.runs` | RP-8 | autonomous | ready |
@@ -128,8 +128,8 @@ updated: 2026-11-16
 
 ### RP-6: Observability on Workers
 - **Change ID:** `observability-workers`
-- **Status:** ready
-- **Input:** [`observability-workers`](../changes/observability-workers/change.md)
+- **Status:** done
+- **Input:** [`observability-workers`](../archive/2026-11-16-observability-workers/change.md)
 - **Outcome:** an `@softure-ai/observability/workers` entry with the same logger API (`createLogger`, error labels,
   levels) and a request wrapper that records a server span and flushes logs and spans over OTLP/HTTP with `fetch`
   under `waitUntil`; the same `OTEL_EXPORTER_OTLP_*` settings and `toServiceName` naming as on Node; nothing leaves
