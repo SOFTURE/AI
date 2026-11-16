@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.2.2
+
+- The entries `.`, `./mailing`, `./ui` are declared Workers-safe (`softure.workers`, runtime-providers RP-7), and the alert page
+  reaches the database through `@softure-ai/db/request` (db `^0.1.15`). `./server` and `./next` follow once
+  `@softure-ai/jobs` runs on Workers (RP-4), and so does `workers` in the manifest's `runtimes`.
+  - Migrate: nothing.
+
 ## 0.2.1
 
 - **Dependencies:** `zod` ^4.6.7 (was ^4.6.5), so a fresh install takes the fixed zod release.

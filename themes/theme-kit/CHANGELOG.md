@@ -2,6 +2,12 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
+## 0.1.9
+
+- The entries `.`, `./react`, `./next` are declared Workers-safe (`softure.workers`, runtime-providers RP-7); `./build` stays a
+  Node build tool.
+  - Migrate: nothing.
+
 ## 0.1.8
 
 - Text size on mobile Safari (#1056): `base.css` sets `-webkit-text-size-adjust: 100%` and `text-size-adjust: 100%`

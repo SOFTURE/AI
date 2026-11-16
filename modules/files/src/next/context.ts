@@ -2,7 +2,7 @@
 // wall clock. The link keyring comes from `process.env`.
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getConfiguredDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db/request";
 import type { FilesContext } from "../server/context.js";
 
 export async function getFilesContext(config: SoftureConfig = getSoftureConfig()): Promise<FilesContext> {

@@ -19,7 +19,7 @@
 //   const blogProxy = createBlogProxy(softureConfig);
 //   return (await blogProxy(request)) ?? guard(request) ?? NextResponse.next();
 import { pickLocalizedText, systemClock, type SoftureConfig } from "@softure-ai/core";
-import { getConfiguredDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db/request";
 import { findArticleBySlug, findSlugRedirect, getPublishedArticle, type BlogContext } from "../db/articles.js";
 import { prefersMarkdown } from "../pages/accept.js";
 import { toArticleMarkdown } from "../render/article-markdown.js";

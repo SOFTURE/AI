@@ -4,7 +4,7 @@
 // one query on the shared database, not from the pages' Next cache. Crawlers read a sitemap rarely.
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getConfiguredDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db/request";
 import { listArticles } from "./db/articles.js";
 import { getBlogSitemapEntries, type BlogSitemapEntry } from "./discovery/sitemap.js";
 import { getBlogOptions, getBlogRoutes } from "./server/options.js";

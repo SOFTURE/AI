@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`blog@x.y.z`).
 
+## 0.5.3
+
+- The entries `.`, `./next`, `./ui`, `./proxy` are declared Workers-safe (`softure.workers`, runtime-providers RP-7); the pages, the proxy and
+  the sitemap reach the database through `@softure-ai/db/request` (db `^0.1.15`). On Workers, give the OG card fonts
+  as https URLs: a Worker has no app folder to read a font path from. `./server` follows once `@softure-ai/jobs` runs
+  on Workers (RP-4), and so does `workers` in the manifest's `runtimes`.
+  - Migrate: nothing.
+
 ## 0.5.2
 
 - **The quality gate no longer stalls on a crafted line (#1109, #1110, #1111):** the heading, list item and footnote

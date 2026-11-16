@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/metering",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "SOFTURE AI metering module: a ledger of paid provider calls in any unit (credits, usd, characters, seconds, tokens, requests), budgets per provider and day or month that refuse a call before it spends, reservations under a lock, adapters for llm usage and footage charges, and a prune job.",
   "license": "MIT",
   "type": "module",
@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@softure-ai/core": "^0.2.7",
-    "@softure-ai/db": "^0.1.14",
+    "@softure-ai/db": "^0.1.15",
     "zod": "^4.6.7"
   },
   "peerDependencies": {
@@ -59,5 +59,11 @@
     "@softure-ai/jobs": {
       "optional": true
     }
+  },
+  "softure": {
+    "workers": [
+      ".",
+      "./server"
+    ]
   }
 }

@@ -17,8 +17,8 @@ vi.mock("@softure-ai/core/next", () => ({
     return scope.config;
   },
 }));
-vi.mock("@softure-ai/db", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@softure-ai/db")>()),
+vi.mock("@softure-ai/db/request", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@softure-ai/db/request")>()),
   getConfiguredDatabase: () => Promise.resolve({ db: scope.db }),
 }));
 vi.mock("next/cache", () => ({ unstable_cache: <T,>(read: T) => read }));

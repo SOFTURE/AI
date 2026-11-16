@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { DEV_BUILD_VERSION, getBuildVersion, readBuildVersion } from "@softure-ai/pwa/next";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const dirs: string[] = [];
 
@@ -20,6 +20,27 @@ function createAppDir(buildId: string | null): string {
 describe("the build version", () => {
   afterEach(() => {
     for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("takes SOFTURE_BUILD_VERSION over .next/BUILD_ID when it is set", () => {
+    vi.stubEnv("SOFTURE_BUILD_VERSION", " v2026.11.16-3 ");
+    expect(getBuildVersion(createAppDir("from-file"))).toBe("v2026.11.16-3");
+  });
+
+  it("on Cloudflare Workers takes SOFTURE_BUILD_VERSION, since there is no .next folder", () => {
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    vi.stubEnv("SOFTURE_BUILD_VERSION", "abc123");
+    expect(getBuildVersion(createAppDir(null))).toBe("abc123");
+  });
+
+  it("on Cloudflare Workers without SOFTURE_BUILD_VERSION fails naming it, instead of a dev version that never updates", () => {
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    vi.stubEnv("SOFTURE_BUILD_VERSION", "");
+    expect(() => getBuildVersion(createAppDir(null))).toThrow(
+      "@softure-ai/pwa: set SOFTURE_BUILD_VERSION on Cloudflare Workers (a Worker has no .next/BUILD_ID)",
+    );
   });
 
   it("reads .next/BUILD_ID, trimmed", () => {

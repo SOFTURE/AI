@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## 0.2.7
+
+- Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the
+  entries `.`, `./server`, `./next` are declared Workers-safe (`softure.workers`). Request-path code reaches the database through
+  `@softure-ai/db/request` (db `^0.1.15`); the CLI keeps the root entry.
+  - Migrate: nothing.
+
 ## 0.2.6
 
 - **Dependencies:** `zod` ^4.6.7 (was ^4.6.5), so a fresh install takes the fixed zod release.

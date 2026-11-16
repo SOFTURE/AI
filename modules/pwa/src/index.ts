@@ -80,11 +80,18 @@ export const MODULE_ID = "pwa";
 export const pwa = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.3.0",
+    version: "0.3.1",
+    runtimes: ["node", "workers"],
     dependsOn: {},
     dbSchema: null,
     tables: [],
-    env: [],
+    env: [
+      {
+        name: "SOFTURE_BUILD_VERSION",
+        required: false,
+        description: "The build's version for the service worker; required on Cloudflare Workers, where there is no .next/BUILD_ID. Optional on Node.",
+      },
+    ],
     switches: [],
     routes: { manifest: MANIFEST_PATH, icons: ICONS_PATH, version: VERSION_PATH, serviceWorker: SERVICE_WORKER_PATH },
     mount: [

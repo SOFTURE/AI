@@ -2,7 +2,7 @@
 // wall clock; and what it hands the components (`getPageContext`, shared with `/server`).
 import { systemClock, type SoftureConfig } from "@softure-ai/core";
 import { getSoftureConfig } from "@softure-ai/core/next";
-import { getConfiguredDatabase } from "@softure-ai/db";
+import { getConfiguredDatabase } from "@softure-ai/db/request";
 import type { BlogContext } from "../db/articles.js";
 
 export async function getBlogContext(config: SoftureConfig = getSoftureConfig()): Promise<BlogContext> {

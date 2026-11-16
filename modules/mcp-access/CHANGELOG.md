@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.7.4
+
+- Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the
+  entries `.`, `./server`, `./tokens`, `./next`, `./ui` are declared Workers-safe (`softure.workers`). Request-path code reaches the database through
+  `@softure-ai/db/request` (db `^0.1.15`); the CLI keeps the root entry.
+  - Migrate: nothing.
+
 ## 0.7.3
 
 - **`TokenManager` buttons keep their own width:** the token form's submit button, the issued panel's "Open in Claude

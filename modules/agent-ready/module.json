@@ -1,6 +1,7 @@
 {
   "id": "agent-ready",
-  "version": "0.2.2",
+  "version": "0.2.3",
+  "runtimes": ["node", "workers"],
   "dependsOn": {},
   "dbSchema": null,
   "tables": [],

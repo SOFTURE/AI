@@ -48,7 +48,7 @@ updated: 2026-11-16
 | **RP-4** | `jobs-scheduled-tick` | `@softure-ai/jobs` runs due jobs from one `runJobsTick` shared by the Node worker loop and a Workers `scheduled()` handler (Cron Trigger), with health from a database heartbeat | RP-1, RP-2 | autonomous | ready |
 | **RP-5** | `security-workers-fetch` | `@softure-ai/security` guarded outbound requests and client-address checks run on Workers with the same refusals as on Node (resolved addresses checked before the request, where workerd takes no socket `lookup`) | RP-1 | autonomous | done |
 | **RP-6** | `observability-workers` | `@softure-ai/observability` gets a Workers entry: structured logs and spans sent over OTLP with `fetch`, flushed through `waitUntil`, under the same service naming as on Node | RP-1 | autonomous | done |
-| **RP-7** | `modules-workers-sweep` | every other runtime module (files, mailing, mcp-access, billing, waitlist, privacy, connections, agent-ready, analytics, feature-switches, metering, alerts, seo, blog, pwa) passes the Workers guard: R2 through the S3 driver, DNS checks over DNS-over-HTTPS, no filesystem on the request path | RP-1 | autonomous | ready |
+| **RP-7** | `modules-workers-sweep` | every other runtime module (files, mailing, mcp-access, billing, waitlist, privacy, connections, agent-ready, analytics, feature-switches, metering, alerts, seo, blog, pwa) passes the Workers guard: R2 through the S3 driver, DNS checks over DNS-over-HTTPS, no filesystem on the request path | RP-1 | autonomous | done |
 | **RP-8** | `deploy-cloudflare-target` | `@softure-ai/deploy` gets `host: "cloudflare"`: `init` writes `wrangler.jsonc` and an OpenNext build, a reusable workflow migrates from CI and runs `wrangler deploy`, and `verify` and the release report work as on the VPS | RP-2, RP-4 | autonomous | ready |
 | **RP-9** | `backup-cloudflare-host` | `@softure-ai/backup` backs up a managed Postgres without a server: a scheduled workflow dumps, encrypts with age, uploads to R2 and records the run in `backup.runs` | RP-8 | autonomous | ready |
 | **RP-10** | `example-on-workers` | the example app runs unchanged on both hosts: CI builds it with OpenNext and runs its e2e in workerd against Postgres, next to the existing Node e2e | RP-2, RP-3, RP-4, RP-5, RP-6, RP-7 | autonomous | ready |
@@ -109,7 +109,9 @@ updated: 2026-11-16
 - **Outcome:** `runJobsTick({ config, budgetMs })` claims and runs due jobs within a time budget; the Node worker
   loop calls it, and a `createScheduledHandler(config)` for Workers runs it from a Cron Trigger (every minute) under
   `waitUntil`; the worker health becomes a heartbeat row in the jobs schema on Workers (the file on Node stays); a
-  job longer than the Workers budget is reported, not cut silently.
+  job longer than the Workers budget is reported, not cut silently. Once jobs has its Workers entry, every module
+  `./jobs` entry is declared Workers-safe, and so are alerts `./server` and `./next` and blog `./server`, with
+  `workers` added to the alerts and blog manifests' `runtimes` (left for RP-4 by RP-7).
 - **Owns:** `modules/jobs/src/worker/`, `modules/jobs/src/server/run-due.ts`, a new `workers` entry.
 - **Risk:** medium: schedules must neither run twice nor skip when ticks overlap (claims stay transactional).
 
@@ -139,8 +141,8 @@ updated: 2026-11-16
 
 ### RP-7: The remaining modules on Workers
 - **Change ID:** `modules-workers-sweep`
-- **Status:** ready
-- **Input:** [`modules-workers-sweep`](../changes/modules-workers-sweep/change.md)
+- **Status:** done
+- **Input:** [`modules-workers-sweep`](../archive/2026-11-16-modules-workers-sweep/change.md)
 - **Outcome:** each listed module declares `workers` support and passes RP-1's guard: files refuses the local driver
   on Workers and saves through the S3 driver to R2 with web streams; mailing's DNS checks go over DNS-over-HTTPS on
   Workers; filesystem reads leave the request path (CLIs keep them); `node:crypto`, `node:dns`, `node:net` and

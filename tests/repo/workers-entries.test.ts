@@ -76,7 +76,7 @@ function findEntryProblems(info: PackageInfo, exportKey: string): string[] {
 
 describe("Workers-safe package entries", () => {
   it("are declared by at least core", () => {
-    expect(BY_NAME.get("@softure-ai/core")?.workers).toEqual([".", "./next"]);
+    expect(BY_NAME.get("@softure-ai/core")?.workers).toEqual([".", "./next", "./og"]);
   });
 
   for (const info of PACKAGES.filter((candidate) => candidate.workers.length > 0)) {

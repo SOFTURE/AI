@@ -29,8 +29,8 @@ vi.mock("@softure-ai/core/next", () => ({
     return scope.config;
   },
 }));
-vi.mock("@softure-ai/db", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@softure-ai/db")>()),
+vi.mock("@softure-ai/db/request", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@softure-ai/db/request")>()),
   getConfiguredDatabase: () => {
     if (scope.db === undefined) throw new Error("test: no database registered");
     return Promise.resolve({ db: scope.db });

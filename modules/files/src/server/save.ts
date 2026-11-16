@@ -4,7 +4,7 @@
 // refusal after the write deletes the blob it wrote.
 import { createHash, randomUUID, type Hash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { err, errorLogLabel, ok, type Err, type Ok } from "@softure-ai/core";
+import { err, errorLogLabel, isWorkersRuntime, ok, type Err, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
 import { and, eq, sql } from "drizzle-orm";
 import type { FilesSaveErrorCode, StoredFile } from "../contract.js";
@@ -59,8 +59,14 @@ async function* meterBody(body: FileBody, limit: number, meter: Meter): AsyncGen
   }
 }
 
-/** Saves a file for `ownerId`. A storage failure propagates; refusals are codes. */
+/**
+ * Saves a file for `ownerId`. A storage failure propagates; refusals are codes. A disk `path` throws on Cloudflare
+ * Workers, which have no server disk: a caller there passes the bytes as `body`.
+ */
 export async function saveFile(ctx: FilesContext, input: SaveFileInput): Promise<SaveFileResult> {
+  if (input.path !== undefined && isWorkersRuntime()) {
+    throw new Error("@softure-ai/files: saveFile({ path }) reads the server's disk, which Cloudflare Workers do not have; pass the bytes as body");
+  }
   const options = getFilesOptions(ctx.config);
   const now = ctx.clock.now();
   const fields = validateFields(input, now, options.defaultTtlSeconds);

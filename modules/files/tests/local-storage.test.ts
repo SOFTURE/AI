@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createLocalStorage } from "@softure-ai/files/server";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { chunked, readText } from "./support.js";
 
 describe("the local storage driver", () => {
@@ -14,6 +14,17 @@ describe("the local storage driver", () => {
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("is refused on Cloudflare Workers, which have no disk folder, naming the S3 driver", () => {
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    try {
+      expect(() => createLocalStorage({ dir: join(dir, "data") })).toThrow(
+        "@softure-ai/files: the local disk driver does not run on Cloudflare Workers; use createS3Storage with an R2 bucket",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("touches nothing until the first write", () => {

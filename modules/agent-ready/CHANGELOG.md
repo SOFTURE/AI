@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.2.3
+
+- Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the
+  entries `.`, `./server`, `./next`, `./webmcp` are declared Workers-safe (`softure.workers`).
+  - Migrate: nothing.
+
 ## 0.2.2
 
 - The `agent-ready` CLI gives each request 10 s (#1286); a server that never answers fails `check` or `dns-aid check` instead of hanging it.

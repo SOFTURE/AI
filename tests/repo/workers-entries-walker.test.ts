@@ -31,8 +31,8 @@ describe("listValueImports", () => {
 describe("classifyImport", () => {
   it.each([
     ["node:crypto", { kind: "builtin", name: "crypto", isAllowed: true }],
-    ["node:fs", { kind: "builtin", name: "fs", isAllowed: false }],
-    ["fs/promises", { kind: "builtin", name: "fs/promises", isAllowed: false }],
+    ["node:fs", { kind: "builtin", name: "fs", isAllowed: true }],
+    ["fs/promises", { kind: "builtin", name: "fs/promises", isAllowed: true }],
     ["node:child_process", { kind: "builtin", name: "child_process", isAllowed: false }],
     ["node:net", { kind: "builtin", name: "net", isAllowed: true }],
     ["node:http", { kind: "builtin", name: "http", isAllowed: true }],

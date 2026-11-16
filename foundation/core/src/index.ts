@@ -124,6 +124,7 @@ export { moduleManifestSchema, type ModuleManifest } from "./manifest.js";
 export {
   DEFAULT_PLATFORM,
   getModuleRuntimes,
+  isWorkersRuntime,
   resolvePlatform,
   SOFTURE_HOSTS,
   SOFTURE_RUNTIMES,
