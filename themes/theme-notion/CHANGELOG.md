@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.19.0
 
 - `sft-bridge.css` re-points `@softure-ai/ui`'s `--sft-*` tokens everywhere, not only inside a `PageFrame`: on
   `:root`, `.light`, `.dark` and `[data-theme]` as well, outside any `@layer`, so a ui component (a chat screen, a
