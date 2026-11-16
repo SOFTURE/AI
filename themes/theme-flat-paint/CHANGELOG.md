@@ -11,7 +11,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   4 px `debt` edge, meta as a caption `num`), `CHAT_COMPOSER_LOOK` (Send without a border), `TOOL_CALL_CARD_LOOK`
   (dashed while running, solid once settled, a `debt` edge on failure, the state word in an outlined flag),
   `REASONING_DISCLOSURE_LOOK`, `CHAT_EMPTY_STATE_LOOK` (a card, title on `subsection`) and `CHAT_ERROR_LOOK`. No lime
-  beyond ui's primary Send. Needs `@softure-ai/ui` with the chat components (#1259, the next release).
+  beyond ui's primary Send. Needs `@softure-ai/ui` 0.3.8 or later (the chat components, #1259).
 
 ## 0.3.0
 
