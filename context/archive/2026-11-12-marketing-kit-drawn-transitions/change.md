@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-drawn-transitions
 title: "marketing-kit: drawn transitions between shots (whip, card, paper) and the stutter punch"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/marketing-kit-drawn-transitions
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-16
+archived_at: 2026-11-16
 ---
 
 ## Intent
@@ -39,3 +40,4 @@ which the composition plays as one video and zooms. A segment's scale lives in `
 ## Notes
 
 - Frame skipped: the adopting app's roadmap item states the outcome and the measured references.
+- Archived 2026-11-16: done and merged to master earlier (all plan phases ticked, implementation review approved); closed in the archive sweep. Outcome: marketing-kit: drawn transitions between shots (whip, card, paper) and the stutter punch.

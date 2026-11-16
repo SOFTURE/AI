@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-split-screen
 title: "marketing-kit: a three-band split screen (split3) with handwritten labels and drawn arrows"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/marketing-kit-split-screen
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-16
+archived_at: 2026-11-16
 ---
 
 ## Intent
@@ -34,3 +35,4 @@ hand font (Caveat, OFL) and resvg are already shipped.
 ## Notes
 
 - Frame skipped: the adopting app's roadmap item states the outcome and the measured references.
+- Archived 2026-11-16: done and merged to master earlier (all plan phases ticked, implementation review approved); closed in the archive sweep. Outcome: marketing-kit: a three-band split screen (split3) with handwritten labels and drawn arrows.

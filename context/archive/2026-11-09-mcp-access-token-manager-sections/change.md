@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-token-manager-sections
 title: "mcp-access: TokenManager shows only the named sections"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-j5yrtp
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-16
+archived_at: 2026-11-16
 ---
 
 ## Intent
@@ -29,3 +30,4 @@ in the package, released and bumped in the app, with no issue filed.
 
 - Research: skipped. One component, read in full; the gap and the fix are fully in `token-manager.tsx`.
 - Framing: skipped. The problem is a layout the app cannot express; nothing in doubt.
+- Archived 2026-11-16: done and merged to master earlier (all plan phases ticked, implementation review approved); closed in the archive sweep. Outcome: mcp-access: TokenManager shows only the named sections.

@@ -1,12 +1,13 @@
 ---
 change_id: mcp-access-form-actions
 title: "mcp-access: TokenManager buttons keep their own width"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-cjlupr
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-16
+archived_at: 2026-11-16
 ---
 
 ## Intent
@@ -30,3 +31,4 @@ standing order: a gap in a package is fixed in the package, released and bumped 
 
 - Research: skipped. One component, read in full; the cause (flex column children stretch) is in `token-manager.tsx`.
 - Framing: skipped. A layout defect with an obvious fix; nothing in doubt.
+- Archived 2026-11-16: done and merged to master earlier (all plan phases ticked, implementation review approved); closed in the archive sweep. Outcome: mcp-access: TokenManager buttons keep their own width.
