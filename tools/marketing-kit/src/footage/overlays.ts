@@ -93,6 +93,11 @@ export const LIST_CHIP_GAP_EM = 0.3;
 export const LIST_CHIP_BADGE_EM = { size: 1.1, gap: 0.35 } as const;
 /** How opaque a chip's point stays once the next point is in: it steps back, the newest point leads. */
 export const LIST_CHIP_COVERED_OPACITY = 0.55;
+/**
+ * The smallest type a row of chips shrinks to, in px of a 1080 px wide frame: past a title's three shrinks a row keeps
+ * shrinking down to it, so the step badges never turn a row that fitted without them into a refusal.
+ */
+export const LIST_CHIP_MIN_FONT_SIZE = 36;
 /** A place card title's line height, tighter for its big type. */
 export const OVERLAY_TITLE_LINE_HEIGHT = 1.05;
 export const OVERLAY_PADDING_EM = { x: 0.6, y: 0.35 } as const;
@@ -903,7 +908,7 @@ function placeSideText(overlay: EdlOverlay & { kind: "keyword" | "lower_third" |
   const chips = overlay.kind === "list" ? measureCentred({
           whole: room,
           centred: getCentredSpan(place, margin).width,
-          measure: (width: number) => getListChipLayout({ items: overlay.items ?? [], layout: overlay.style?.list_layout ?? "stack", fontSize, padScale: place.padScale, room: width }),
+          measure: (width: number) => getListChipLayout({ items: overlay.items ?? [], layout: overlay.style?.list_layout ?? "stack", fontSize, minFontSize: Math.round(LIST_CHIP_MIN_FONT_SIZE * scale), padScale: place.padScale, room: width }),
           getWidth: (result) => result.row?.width ?? 0,
         }) : null;
   if (chips !== null && !chips.ok) return chips;
@@ -964,15 +969,20 @@ function measureChipRow(items: readonly string[], fontSize: number, padScale: nu
 
 /**
  * Whether a list draws as chips and their row (null: the stack), or why it cannot. A row wider than `room` is tried
- * smaller, as a title is (by `OVERLAY_TITLE_SHRINK`, at most `MAX_TITLE_SHRINKS` times); one that never fits is refused
- * on `chips`, and `auto` falls back to the stack at the list's own size. `stack` never draws chips.
+ * smaller, as a title is (by `OVERLAY_TITLE_SHRINK`, `MAX_TITLE_SHRINKS` times; an asked row of chips then on while its type
+ * stays at or above `minFontSize`); one that never fits is refused on `chips`, and `auto` falls back to the stack at the list's
+ * own size. `stack` never draws chips.
  */
-function getListChipLayout(input: { items: readonly string[]; layout: OverlayListLayout; fontSize: number; padScale: number; room: number }): { ok: true; row: ChipRow | null } | { ok: false; error: string } {
+function getListChipLayout(input: { items: readonly string[]; layout: OverlayListLayout; fontSize: number; minFontSize: number; padScale: number; room: number }): { ok: true; row: ChipRow | null } | { ok: false; error: string } {
   const { items, layout, room } = input;
   if (layout === "stack") return { ok: true, row: null };
   const own = measureChipRow(items, input.fontSize, input.padScale);
-  for (let shrink = 0, row = own; shrink <= MAX_TITLE_SHRINKS; shrink++, row = measureChipRow(items, Math.round(row.fontSize * OVERLAY_TITLE_SHRINK), input.padScale)) {
+  for (let shrink = 0, row = own; ; shrink++) {
     if (row.width <= room) return { ok: true, row };
+    const smaller = Math.round(row.fontSize * OVERLAY_TITLE_SHRINK);
+    // `auto` has the stack to fall back to, so only an asked row of chips shrinks past a title's three steps.
+    if (shrink >= MAX_TITLE_SHRINKS && (layout === "auto" || smaller < input.minFontSize)) break;
+    row = measureChipRow(items, smaller, input.padScale);
   }
   if (layout === "auto") return { ok: true, row: null };
   return { ok: false, error: `the list's points as chips (${own.width} px) do not fit one row (${room} px) even at a smaller size; use list_layout stack or auto, or shorter points` };

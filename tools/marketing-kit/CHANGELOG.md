@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.38.1
+
+- **Badged chips shrink instead of refusing:** an explicit `chips` list that fitted one row before 0.38.0 could be
+  refused once its chips gained number badges, because the row stopped shrinking after a title's three steps. A row
+  of chips asked for explicitly now keeps shrinking, a step at a time, down to `LIST_CHIP_MIN_FONT_SIZE` (36 px at
+  1080 px wide) before it is refused; `auto` still falls back to the stack after three steps.
+
 ## 0.38.0
 
 - **Centred overlays on the frame's axis:** a centred overlay (a hook title, a place card, a search bar, a counter, an
