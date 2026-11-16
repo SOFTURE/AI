@@ -1,7 +1,8 @@
 ---
 change_id: theme-flat-paint-chat-look-1261
 title: "theme-flat-paint: look maps for the chat primitives (issue #1261)"
-status: open
+status: archived
+archived_at: 2026-11-16
 roadmap_item: null
 issue: 1261
 branch: claude/project-thread-pety6o
@@ -38,3 +39,9 @@ a tool card. Package: `themes/theme-flat-paint` 0.3.0. The theme-notion side is 
 ## Notes
 
 - Framing: skipped. The concept check #1248 framed the problem; the issue names the solution and it is additive.
+
+## Done
+
+- `@softure-ai/theme-flat-paint`: `CHAT_LOOK` and the seven chat look maps with their slot types, a Chromium test of
+  the look in both schemes at 390 and 1440 px, README "Chat", CHANGELOG `Unreleased`. Next release of theme-flat-paint
+  (minor: additive exports), after ui's release with the chat components.

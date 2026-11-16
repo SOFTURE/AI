@@ -1,6 +1,6 @@
 ---
 change_id: theme-flat-paint-chat-look-1261
-status: planned
+status: archived
 ---
 
 # Plan: chat look maps (issue #1261)
@@ -44,6 +44,6 @@ README: look maps table rows, a chat example, the `text-page` note for a title a
 
 ## Progress
 
-- [ ] Phase 1: look maps and tests
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 1: look maps and tests (5748724, package tests 88/88)
+- [x] Phase 2: docs (5e2a4b8)
+- [x] Implementation review
