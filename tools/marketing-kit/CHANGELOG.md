@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## Unreleased
+
+- **Every place card on the frame's axis:** a place card whose subtitle did not fit the span centred on the frame, even
+  at its `s` step, was measured in the whole safe zone and pushed against its wider (right) side, up to 3.6 % of the
+  width off the axis (a 22-character subtitle at size `l` with the `all` preset spanned 8 % to 83.9 %); a longer one was
+  refused. In the centred span a place card's subtitle now shrinks down to `MIN_OVERLAY_SUBTITLE_PX` when its `s` step
+  is above it, then wraps to two balanced lines (`subtitleLines` on the resolved overlay, drawn by the draft and the
+  render; `subtitle` keeps the whole text), and its title may shrink two more steps. Every title up to 28 and subtitle
+  up to 40 characters with words now sits on the axis, at every size and subtitle size, on every frame of its
+  animation; a card that fitted the centred span before keeps its exact box. Only a title of one word too long for
+  two lines is still refused.
+
 ## 0.38.1
 
 - **Badged chips shrink instead of refusing:** an explicit `chips` list that fitted one row before 0.38.0 could be

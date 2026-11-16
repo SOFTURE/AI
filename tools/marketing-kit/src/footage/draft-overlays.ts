@@ -755,7 +755,11 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
     });
     if (overlay.kind === "place_card" && overlay.subtitle !== null) {
       const from = times.subtitle ?? span.start;
-      events.push(...text({ x: lineX, y: y + fontSize * 0.12 }, lineAlign, overlay.subtitleFontSize, "interface", [{ from, to: span.end, text: toAssText(overlay.subtitle) }], from > span.start ? withFadeEntrance(motion) : motion));
+      // A wrapped subtitle draws each of its lines one card line apart, on the same axis (RV-184 of an adopting app).
+      (overlay.subtitleLines ?? [overlay.subtitle]).forEach((line, index) => {
+        const lineY = y + fontSize * 0.12 + index * overlay.subtitleFontSize * OVERLAY_LINE_HEIGHT;
+        events.push(...text({ x: lineX, y: lineY }, lineAlign, overlay.subtitleFontSize, "interface", [{ from, to: span.end, text: toAssText(line) }], from > span.start ? withFadeEntrance(motion) : motion));
+      });
     }
     return events;
   }

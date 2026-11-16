@@ -136,13 +136,23 @@ describe("fitting a title card to its text", () => {
     for (const size of ["s", "m", "l"] as const) {
       for (const step of ["s", "m", "l"] as const) expect(subtitle({ size, subtitle_size: step }) / FRAME.height).toBeGreaterThanOrEqual(0.022);
     }
-    // A long subtitle shrinks to fit the card's room, never below the s step: what fitted before still fits.
+    // A long subtitle shrinks to fit the card's room in the span centred on the frame's axis (the wider side of the
+    // safe zone on both edges), never below the s step nor, when that is above it, `MIN_OVERLAY_SUBTITLE_PX`.
     const zone = getOverlaySafeZone(film, FRAME);
-    const room = FRAME.width - zone.left - zone.right - 48 - 2 * getOverlayPadding({ fontSize: 92 }).x;
-    const long = only({ ...PLACE, subtitle: "Limestone islands in green water" }, "place_card");
-    expect(long.subtitleFontSize).toBe(Math.floor(room / (32 * 0.56)));
+    const centredRoom = FRAME.width - 2 * (Math.max(zone.left, zone.right) + 24) - 2 * getOverlayPadding({ fontSize: 92 }).x;
+    const long = only({ ...PLACE, subtitle: "Limestone islands in a bay x" }, "place_card");
+    expect(long.subtitleFontSize).toBe(Math.floor(centredRoom / (28 * 0.56)));
     expect(long.subtitleFontSize).toBeLessThan(MIN_OVERLAY_SUBTITLE_PX);
-    expect(resolve([{ ...PLACE, subtitle: "Limestone islands rising from the sea" }])).toMatchObject({ ok: false });
+    expect(long.subtitleLines).toBeUndefined();
+    // One too long for one line even at that size wraps to two lines on the frame's axis (RV-184 of an adopting app):
+    // before, it was measured in the whole zone and placed off the axis, or refused.
+    for (const text of ["Limestone islands in green water", "Limestone islands rising from the sea"]) {
+      const wrapped = only({ ...PLACE, subtitle: text }, "place_card");
+      expect(wrapped.subtitleLines?.join(" ")).toBe(text);
+      expect(Math.abs(wrapped.box.left + wrapped.box.width / 2 - FRAME.width / 2)).toBeLessThanOrEqual(0.5);
+    }
+    const wrapped = only({ ...PLACE, subtitle: "Limestone islands rising from the sea" }, "place_card");
+    expect(wrapped.subtitleLines).toEqual(["Limestone islands", "rising from the sea"]);
   });
 
   it("pads every card by the brand's padding, the drawn card following it", () => {
