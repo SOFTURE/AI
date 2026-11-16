@@ -1,6 +1,6 @@
 ---
 change_id: quality-review-focus-scope-1289
-status: in_progress
+status: done
 ---
 
 # Plan: quality-review focus, paths and scope (issue #1289)
@@ -55,6 +55,7 @@ Input: change.md, research.md. Complexity: medium.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1 (3a87584)
+- [x] Phase 2 (6632777)
+- [x] Phase 3 (3f1d5f7; `tools/quality-review` and `tests/repo/quality-review-workflow.test.ts`: 8 files, 88 tests green; typecheck and lint green)
+- [x] Release bump 0.2.0 (`chore(release): quality-review@0.2.0`; lockfile limited to the version line)
