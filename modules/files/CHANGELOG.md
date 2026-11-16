@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.5.0
 
 - `saveFileFromUrl(ctx, { ownerId, url, name?, contentType?, contentTypes?, kind?, expiresAt? | ttlSeconds?,
   timeoutMs? })` (#1257): saves a file from an `https:` URL through `@softure-ai/security`'s `downloadGuardedFile`
