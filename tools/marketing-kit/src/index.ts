@@ -116,6 +116,7 @@ export {
   OVERLAY_SIDES,
   OVERLAY_SIZES,
   isTypedOverlay,
+  hasTimedPoints,
   type EdlOverlay,
   type EdlOverlayAnchor,
   type EdlOverlayColors,

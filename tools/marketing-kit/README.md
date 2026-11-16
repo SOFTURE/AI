@@ -669,7 +669,7 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   the app's editor over the transcript. Each is `{ kind, at_word | at, duration, text?, items?, anchor?, style? }`:
   `at_word: { text, occurrence? }` names a word of the cut (compared without case and punctuation, the first time it
   is said unless `occurrence` says otherwise; its start after the cut is the overlay's start), `at` a film second;
-  `duration` is 1-8 s. The kinds: `punch_in` (an emphasis zoom of the picture to 108, 112 or 115 % by `style.size`
+  `duration` is 1-8 s (a list with `item_words` or `item_at` up to 8 s after its last point, since 0.41.0). The kinds: `punch_in` (an emphasis zoom of the picture to 108, 112 or 115 % by `style.size`
   `s`, `m`, `l`, eased in and back out; not a cut transition), `keyword` (one word or number beside the subject, up
   to 24 characters), `lower_third` (a place or a name just above the captions, up to 40), `list` (2-4 points of up to
   32 characters), `arrow` (pointing at `anchor: { x, y }`) and `highlight` (marking `anchor: { x, y, width, height }`),

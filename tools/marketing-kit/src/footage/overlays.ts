@@ -6,6 +6,7 @@ import { getFootageEdit, type FootageFilm } from "./film.js";
 import { FOOTAGE_FPS } from "./normalize.js";
 import {
   DEFAULT_OVERLAY_TYPING_SPEED,
+  MAX_OVERLAY_SECONDS,
   isTypedOverlay,
   type EdlOverlay,
   type EdlOverlayColors,
@@ -603,6 +604,12 @@ export function resolveEdlOverlays(input: ResolveOverlaysInput): ResolvedOverlay
         return;
       }
       const times = overlay.item_at ?? (overlay.item_words === undefined ? undefined : said.map((word) => (word as { start: number }).start));
+      // A list with timed points stays at most MAX_OVERLAY_SECONDS after its last point is said (RV-187 of an adopting app).
+      const lastPoint = times === undefined ? null : r3(Math.max(start, ...times));
+      if (lastPoint !== null && end - lastPoint > MAX_OVERLAY_SECONDS + 0.001) {
+        problems.push(`${at}: a list stays at most ${MAX_OVERLAY_SECONDS} s after its last point (said at ${lastPoint} s); it ends at ${end} s, ${r1(end - lastPoint)} s after it`);
+        return;
+      }
       // The first point comes in with the card, so the card never stands empty (RV-144 of an adopting app).
       placed.overlay.itemStarts = getListItemStarts({ start, end, count: placed.overlay.items.length, ...(times === undefined ? {} : { words: times }) }).map((at, item) => (item === 0 ? start : at));
     }

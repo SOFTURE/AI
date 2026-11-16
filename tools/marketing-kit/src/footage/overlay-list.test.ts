@@ -705,3 +705,52 @@ describe.skipIf(!canBurn)("a list burned in by libass", () => {
     for (const step of seen) expect(Math.abs(((step.first?.left ?? 0) + (step.first?.right ?? 0)) / 2 - middle)).toBeLessThanOrEqual(FRAME.width * 0.02);
   });
 });
+
+/** RV-187 of an adopting app: a list stays until its last point is said, the 8 s counted from that point. */
+describe("a list's seconds counted from its last point", () => {
+  /** A list whose points are said slowly: the last at 10.4 s, 8.4 s after the list's start. */
+  const SLOW_WORDS = [
+    { text: "vaccine", start: 2.2, end: 2.6 },
+    { text: "date", start: 6, end: 6.3 },
+    { text: "who", start: 10.4, end: 10.6 },
+  ];
+  const SLOW: EdlOverlay = { kind: "list", at: 2, duration: 10, items: ["vaccine", "date", "who"], item_words: [{ text: "vaccine" }, { text: "date" }, { text: "who" }], style: { list_layout: "chips" } };
+  const slow = (overlay: EdlOverlay) => resolve([overlay], { words: SLOW_WORDS });
+
+  it("reads a list with points past 8 s, and still refuses any other overlay past 8 s", () => {
+    expect(readEdl(edlWith([SLOW])).ok).toBe(true);
+    expect(readEdl(edlWith([{ ...SLOW, item_words: undefined, item_at: [2, 6, 10.4] }])).ok).toBe(true);
+    const unpointed = readEdl(edlWith([{ ...SLOW, item_words: undefined, style: { stagger: true } }]));
+    expect(unpointed.ok ? "" : unpointed.error).toBe("overlays.0.duration: a list stays at most 8 s (only a hook_title stays longer)");
+  });
+
+  it("shows every point of a slowly said list, the last one on its word", () => {
+    const result = slow(SLOW);
+    if (!result.ok) throw new Error(result.problems.join("; "));
+    expect(getListItemTimes(result.overlays[0] as Extract<ResolvedOverlay, { kind: "list" }>)).toEqual([2, 6, 10.4]);
+  });
+
+  it("keeps a list up to 8 s after its last point is said, and refuses it a moment longer", () => {
+    // The last point at 10.4 s: the list may end at 18.4 s, 16.4 s after its start.
+    expect(slow({ ...SLOW, duration: 16.4 }).ok).toBe(true);
+    expect(slow({ ...SLOW, duration: 16.5 })).toEqual({
+      ok: false,
+      problems: ["overlays[0]: a list stays at most 8 s after its last point (said at 10.4 s); it ends at 18.5 s, 8.1 s after it"],
+    });
+  });
+
+  it("counts the 8 s from the last point of item_at too", () => {
+    const timed: EdlOverlay = { ...SLOW, item_words: undefined, item_at: [2, 6, 10.4] };
+    expect(resolve([{ ...timed, duration: 16.4 }]).ok).toBe(true);
+    expect(resolve([{ ...timed, duration: 16.5 }]).ok).toBe(false);
+  });
+
+  it("counts from the list's start when every point is said with it, as before", () => {
+    const quick: EdlOverlay = { ...SLOW, duration: 8, item_words: undefined, item_at: [2, 2, 2] };
+    expect(resolve([quick]).ok).toBe(true);
+    expect(resolve([{ ...quick, duration: 8.1 }])).toEqual({
+      ok: false,
+      problems: ["overlays[0]: a list stays at most 8 s after its last point (said at 2 s); it ends at 10.1 s, 8.1 s after it"],
+    });
+  });
+});
