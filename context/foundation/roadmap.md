@@ -43,7 +43,7 @@ updated: 2026-11-16
 | ID | Change | Outcome | Depends on | Mode | Status |
 | --- | --- | --- | --- | --- | --- |
 | **RP-1** | `runtime-platform-contract` | `platform: { runtime, host }` in core's config, a module's declared runtimes checked at startup, and a repository guard that keeps Workers entries free of Node-only APIs | — | autonomous | done |
-| **RP-2** | `db-workers-connection` | `@softure-ai/db` opens a per-request Postgres connection on Workers (Hyperdrive binding), keeps the pooled handle on Node, and never reads migration files at runtime on Workers | RP-1 | autonomous | ready |
+| **RP-2** | `db-workers-connection` | `@softure-ai/db` opens a per-request Postgres connection on Workers (Hyperdrive binding), keeps the pooled handle on Node, and never reads migration files at runtime on Workers | RP-1 | autonomous | done |
 | **RP-3** | `auth-workers-password` | `@softure-ai/auth` hashes with PBKDF2 from Web Crypto on Workers (scrypt's memory exceeds the 128 MB isolate), verifies both formats on both runtimes and rehashes on login; OIDC verification runs on Web Crypto | RP-1 | autonomous | ready |
 | **RP-4** | `jobs-scheduled-tick` | `@softure-ai/jobs` runs due jobs from one `runJobsTick` shared by the Node worker loop and a Workers `scheduled()` handler (Cron Trigger), with health from a database heartbeat | RP-1, RP-2 | autonomous | ready |
 | **RP-5** | `security-workers-fetch` | `@softure-ai/security` guarded outbound requests and client-address checks run on `fetch` and plain CIDR matching on Workers, with the same refusals as on Node | RP-1 | autonomous | ready |
@@ -81,8 +81,8 @@ updated: 2026-11-16
 
 ### RP-2: Database connections on Workers
 - **Change ID:** `db-workers-connection`
-- **Status:** ready
-- **Input:** [`db-workers-connection`](../changes/db-workers-connection/change.md)
+- **Status:** done
+- **Input:** [`db-workers-connection`](../archive/2026-11-16-db-workers-connection/change.md)
 - **Outcome:** with `runtime: "workers"` the database handle is opened per request from the Hyperdrive binding's
   connection string (node-postgres under `nodejs_compat`), closed through `waitUntil`, and never shared across
   requests; `database.handle` and the module adapters get it through one request-scoped accessor that falls back to

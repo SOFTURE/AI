@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`db@x.y.z`).
 
+## 0.1.15
+
+- `withRequestDatabase({ url, waitUntil?, max? }, run)` and the Workers-safe entry `@softure-ai/db/request`
+  (runtime-providers RP-2): on Cloudflare Workers the database is scoped to one request (a pool of one on the
+  Hyperdrive URL, opened on the first query, closed after `run` settles, through `waitUntil` when given), and
+  `getConfiguredDatabase` answers it inside the scope, so module adapters work unchanged. Outside a scope on Workers
+  `getConfiguredDatabase` and `getSharedDatabase` refuse with a message naming `withRequestDatabase`; PGlite in a scope
+  is refused. Also exported: `getRequestDatabase`, `isWorkersRuntime`.
+  - Migrate: nothing on Node. A Worker wraps its fetch handler (README §3, "Running on Cloudflare Workers").
+
 ## 0.1.14
 
 - `createTestDatabase`: a query on the database's `db` or `client` made from inside one of its open transactions

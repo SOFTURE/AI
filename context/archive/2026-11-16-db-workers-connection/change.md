@@ -1,10 +1,10 @@
 ---
 change_id: db-workers-connection
 title: "db: per-request Postgres connections on Workers through Hyperdrive"
-status: open
+status: archived
 roadmap_item: RP-2
 issue: null
-branch: null
+branch: claude/project-thread-dufdk1
 created: 2026-11-16
 updated: 2026-11-16
 ---
