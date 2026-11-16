@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.7.6
+
+- **MCP Apps (interactive views):** `/server` gives `appToolMeta`, `registerAppResource` and `renderAppDocument`, so a
+  tool opens an HTML page next to its answer in a host that supports MCP Apps (Claude, ChatGPT, VS Code), with a
+  dependency-free inline bridge (`window.mcpApp`: tool input and result, `callTool`, theme, height). README,
+  "Interactive views: MCP Apps".
+  - Migrate: nothing; a tool without `appToolMeta` answers as before.
+
 ## 0.7.5
 
 - `./jobs` is declared Workers-safe (`softure.workers`, runtime-providers RP-4): its handlers run from the

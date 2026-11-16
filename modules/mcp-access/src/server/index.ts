@@ -12,6 +12,20 @@ export {
   type ToolListVersionReader,
   type VersionedMcpServerFactory,
 } from "./endpoint.js";
+export {
+  appToolMeta,
+  MCP_APP_BRIDGE_SCRIPT,
+  MCP_APP_LEGACY_URI_KEY,
+  MCP_APP_MIME_TYPE,
+  MCP_APP_PROTOCOL_VERSION,
+  registerAppResource,
+  renderAppDocument,
+  type AppDocumentOptions,
+  type AppResourceOptions,
+  type AppToolMetaOptions,
+  type McpAppCsp,
+  type McpAppToolVisibility,
+} from "./apps.js";
 export { actionTool, toFormData, type ActionToolOptions, type FormActionHandler } from "./action-tool.js";
 export {
   CONFIRMATION_FIELD,
