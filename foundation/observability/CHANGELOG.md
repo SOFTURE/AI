@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `grafana apply` keeps a rule's own notification grouping. A rule in the rules file may set `notification_settings`
+  with `group_by`, `group_wait`, `group_interval` and `repeat_interval`; the apply merges it under the file's
+  `receiver` instead of replacing it with `{ receiver }`, and the dry run and commit print a line for every rule that
+  sets it. A `receiver` or an unknown key there makes the file invalid (one contact point per file stays the rule).
+  Rules without it are applied exactly as before. `/node` exports the `RuleNotificationSettings` type.
+
 ## 0.8.3
 
 - Memory gauges, on by default with metric export (`instrumentations.memory: false` turns them off):
