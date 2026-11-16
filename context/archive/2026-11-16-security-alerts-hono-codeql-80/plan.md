@@ -19,6 +19,6 @@
 
 ## Progress
 
-- [ ] p1 lockfile
-- [ ] p2 marketing-kit sanitization fix
-- [ ] p3 release bumps
+- [x] p1 lockfile: bd461645, hono 4.13.18, @hono/node-server 2.1.8, npm audit 0
+- [x] p2 marketing-kit sanitization fix: 9d8ae978, overlay tests 27/27
+- [x] p3 release bumps: 89b6bd01 changelogs, b8ab2bf1..8f3787c7 14 chore(release) commits

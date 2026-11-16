@@ -1,7 +1,8 @@
 ---
 change_id: security-alerts-hono-codeql-80
 title: "security: patch hono and @hono/node-server, fix CodeQL js/bad-code-sanitization in marketing-kit (issues #1245-#1253)"
-status: in_progress
+status: archived
+archived_at: 2026-11-16
 roadmap_item: null
 issue: 1245
 branch: claude/project-thread-ub4gug
@@ -41,3 +42,11 @@ opened for them (#1245, #1246, #1247, #1249, #1250, #1251, #1252, #1253) close t
 ## Notes
 
 - Research: kept short in `research.md`; framing skipped, the alerts name the outcome.
+
+## Done
+
+- Lockfile: `hono` 4.13.18, `@hono/node-server` 2.1.8 (Dependabot alerts #34-#40).
+- marketing-kit: drop-letter turns written as a number literal (CodeQL #80).
+- Patch versions for the combined release: marketing-kit 0.36.2, agent-ready 0.2.1, alerts 0.2.1, analytics 0.3.3,
+  auth 0.2.13, connections 0.4.1, feature-switches 0.2.1, mailing 0.2.6, ops 0.2.5, privacy 0.2.2, seo 0.2.2,
+  waitlist 0.5.2, host 0.1.2, theme-flat-atlas 0.3.4; published by `auto-release.yml` after the merge.
