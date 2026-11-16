@@ -240,6 +240,8 @@ narrows next to it and stays usable (`SidePanel` is a panel over a canvas instea
 `SidebarProvider` (every other prop passes through) and keeps one side panel open at a time: while the panel is open
 on a wide screen the left `Sidebar` (offcanvas) is folded, and opening the sidebar any way (its trigger, Ctrl+B,
 `AsidePanelSidebarOpener`) closes the panel; closing the panel brings the sidebar back unless the user folded it.
+`keepsSidebarOpen` lets both stay open instead: the sidebar keeps its own state, opening the panel never folds it and
+opening the sidebar never closes the panel (the content narrows between the two).
 
 - `AsidePanelToggle`: one icon button fixed at the top-right edge, in the same place open or closed, with
   `aria-expanded`, `aria-controls` and a label that switches between show and hide; `outline` while closed,
@@ -256,7 +258,8 @@ on a wide screen the left `Sidebar` (offcanvas) is folded, and opening the sideb
   Its children render only while it is open, so pass a lazily loaded body (`next/dynamic` with `ssr: false`) and
   screens that never open it never load its code.
 - `AsidePanelSidebarOpener`: an icon button fixed at the top-left edge, shown only while the sidebar is folded on a
-  wide screen; it brings the sidebar back and closes the panel.
+  wide screen; it brings the sidebar back and closes the panel (under `keepsSidebarOpen` it only brings the sidebar
+  back, so give it a `label` that does not mention the panel).
 - Kept state: `initialState` (`{ isOpen, width }`) and `save(state)`, called after each change on a wide screen; keep
   it per signed-in user (the app's database), so the panel opens the same way across screens, reloads and devices. A
   failed save keeps the choice on the page and reaches `onSaveError`. `isHidden` marks a screen that offers no panel:

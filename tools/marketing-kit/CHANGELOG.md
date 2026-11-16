@@ -23,6 +23,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   a split screen, and measures each ffmpeg run's peak memory: drafts of 51 and 150 cuts in pieces stay at one piece's,
   where one run grows with the cuts.
 
+## 0.36.2
+
+- **Security (CodeQL `js/bad-code-sanitization`, #1245):** the dropped-letter tween writes its letter turns into the
+  composition's script as a number array literal (each value a finite number) instead of `JSON.stringify`. The
+  rendered script is unchanged.
+- **Dependencies:** a fresh install resolves `hyperframes`' `hono` (4.13.16 or newer) and `@hono/node-server` (2.1.6 or
+  newer) past seven advisories (#1246, #1247, #1249-#1253); the kit's own ranges are unchanged, so an app runs
+  `npm update hono @hono/node-server` to pick them up.
+
 ## 0.36.1
 
 - **Fix:** `HAND_FONT.file` and `FOOTAGE_DRAFT_FONT.file` are joined to their module's own path instead of being built

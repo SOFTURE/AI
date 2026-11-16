@@ -4,6 +4,10 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ops@x.y.z`).
 
+## 0.2.5
+
+- **Dependencies:** `zod` ^4.6.7 (was ^4.6.5), so a fresh install takes the fixed zod release.
+
 ## 0.2.4
 
 - Docs: the README's hooks section points to `alertFromHealthReport` of `@softure-ai/alerts` for alerts on failed checks.
