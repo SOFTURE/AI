@@ -9,8 +9,8 @@ Finished main roadmaps move to `../archive/<YYYY-MM-DD>-roadmap.md`.
 | --- | --- | --- | --- |
 | [`roadmap-later.md`](roadmap-later.md) | items parked until an owner step (secrets, accounts, the batch release) is done | `LT-` (MK-8, EN-9, MO-6, BL-8 and DP-8 done 2026-10-06) | waiting |
 
-No main roadmap now: since 2026-10-07 work runs on GitHub Issues until further notice, and no queued roadmap is
-promoted (see [`../roadmap.md`](../roadmap.md)). The last main roadmap, charts-followups (`CF-`), closed on 2026-10-07.
+The main roadmap since 2026-11-16 is runtime-providers (`RP-`, [`../roadmap.md`](../roadmap.md)), carried by the
+adopting app's project sessions; GitHub Issues keep driving the rest of the work beside it. The last main roadmap, charts-followups (`CF-`), closed on 2026-10-07.
 Archived: [`foundation`](../archive/2026-10-02-roadmap.md),
 [`identity`](../archive/2026-10-03-roadmap.md), [`engagement`](../archive/2026-10-03-2-roadmap.md),
 [`monetization`](../archive/2026-10-03-3-roadmap.md), [`marketing-kit`](../archive/2026-10-03-4-roadmap.md), [`followups`](../archive/2026-10-04-roadmap.md),
