@@ -194,7 +194,7 @@ function toDropHtml(text: string): string {
 function getDropTweens(target: string, text: string, start: number, fontSize: number): string[] {
   const turns = getDropLetterTurns([...text].filter((char) => char.trim() !== "").join(""));
   return [
-    `tl.fromTo("${target} .dl", { y: ${r3(-DROP_FROM_EM * fontSize)}, rotation: (i) => ${JSON.stringify(turns)}[i] }, { y: 0, rotation: 0, duration: ${DROP_LETTER_SECONDS}, ease: "power2.out", stagger: ${DROP_LETTER_GAP}, immediateRender: false }, ${r3(start)});`,
+    `tl.fromTo("${target} .dl", { y: ${r3(-DROP_FROM_EM * fontSize)}, rotation: (i) => ${toScriptNumberArray(turns)}[i] }, { y: 0, rotation: 0, duration: ${DROP_LETTER_SECONDS}, ease: "power2.out", stagger: ${DROP_LETTER_GAP}, immediateRender: false }, ${r3(start)});`,
     `tl.fromTo("${target} .dl", { opacity: 0 }, { opacity: 1, duration: ${r3(DROP_LETTER_SECONDS / 2)}, ease: "none", stagger: ${DROP_LETTER_GAP}, immediateRender: false }, ${r3(start)});`,
   ];
 }
@@ -538,6 +538,11 @@ export function getScriptLocale(locale: string | undefined): string {
   } catch {
     return "en-US";
   }
+}
+
+/** Numbers as a script array literal: each written as a finite number (0 otherwise), so no text reaches the script. */
+function toScriptNumberArray(values: readonly number[]): string {
+  return `[${values.map((value) => String(Number.isFinite(value) ? value : 0)).join(",")}]`;
 }
 
 /** A string as a script literal that cannot close the `<script>` element it sits in. */
