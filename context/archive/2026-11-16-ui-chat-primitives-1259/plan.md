@@ -1,6 +1,6 @@
 ---
 change_id: ui-chat-primitives-1259
-status: planned
+status: archived
 ---
 
 # Plan: ui chat primitives (issue #1259)
@@ -52,5 +52,5 @@ output only), ui `CHANGELOG.md` `## Unreleased`.
 ## Progress
 
 - [x] Phase 1: components and copy (b1ca35f)
-- [ ] Phase 2: docs
-- [ ] Implementation review
+- [x] Phase 2: docs (ae1a0b5)
+- [x] Implementation review

@@ -1,7 +1,8 @@
 ---
 change_id: ui-chat-primitives-1259
 title: "ui: chat primitives on the --sft-* tokens (issue #1259)"
-status: planned
+status: archived
+archived_at: 2026-11-16
 roadmap_item: null
 issue: 1259
 branch: claude/project-thread-ghozv0
@@ -42,3 +43,9 @@ the tool card root. No version bump: the coordinator releases the batch.
 ## Notes
 
 - Framing: skipped. The concept check #1248 already framed the problem and chose this option.
+
+## Done
+
+- `@softure-ai/ui`: `ChatLog`, `ChatMessage`, `ChatComposer`, `ToolCallCard`, `ReasoningDisclosure`,
+  `ChatEmptyState`, `ChatError`, the `chat` copy group and the `sft-typing` keyframes; README "Chat" with the
+  `useChat` recipe and tool registry. Next release of ui (minor: additive exports).
