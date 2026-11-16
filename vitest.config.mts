@@ -1,5 +1,6 @@
 import { defaultClientConditions, defaultServerConditions } from "vite";
 import { defineConfig } from "vitest/config";
+import { removeRepositoryGitVariables } from "./tests/git-env.js";
 
 // Both pins run in the main process before any worker starts, so they hold in every pool.
 //
@@ -10,6 +11,10 @@ process.env.TZ = process.env.TEST_TZ || "America/New_York";
 // NODE_ENV: Vitest keeps the shell's value, and the owner's shell exports `production`
 // (measured: a test asserting "test" received "production"). React and friends switch builds on it.
 process.env.NODE_ENV = "test";
+// Git: a worktree's pre-push hook exports GIT_DIR (and friends), and every `git` a test runs in a temporary
+// repository, directly or through a workflow's shell step, then committed, tagged and set `core.bare` in the real
+// repository (issue #1292). Removing them here cleans every worker and child process at once.
+removeRepositoryGitVariables(process.env);
 
 // Workspace packages export `@softure-ai/source` -> `src/*.ts` first, so tests (and `tsc`, through
 // `customConditions` in tsconfig.base.json) read sources without building `dist/`.
