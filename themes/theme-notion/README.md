@@ -148,6 +148,8 @@ stages with a state, below), `Timeline` (dated entries on a vertical rail, below
 `UploadField`, `UploadList` and `UploadItem` (pick or drop files, one row per file with progress, retry and remove,
 below),
 `FileInput` (a compact file picker for a form row: a button and the chosen file's name, below),
+`DocumentViewer`, `DocumentList` and `DocumentRow` (a PDF's pages or an image shown inside the page, with page count
+and zoom; one row per document with its type, size and an "available offline" mark, below),
 `FormGrid` (fields side by side whose label, control and hint line up across columns, below).
 
 **Touch sizes.** The controls a phone view taps most reach the `touch-target` token (44 px, Apple's HIG and WCAG
@@ -551,6 +553,37 @@ name); `messages` replaces any of it.
     <UploadItem key={item.id} item={item} onRetry={uploads.retry} onPause={uploads.pause} onResume={uploads.resume} onRemove={uploads.remove} />
   ))}
 </UploadList>
+```
+
+**`DocumentViewer`, `DocumentList`, `DocumentRow`.** Documents shown inside the page, never in a new browser window
+(which an installed iOS app cannot come back from offline). `DocumentViewer` is a full-screen `Dialog` with the
+title, the page count, zoom out and in (50 % to 300 % of the fitted width, `DOCUMENT_ZOOM_STEPS`) and a 44 px close
+button. Its `source` is `{ blob }` (a copy kept on the device, e.g. `createKeptFiles(...).find(url)` of
+`@softure-ai/pwa`, shown with no network) or `{ url }` (fetched with the page's cookies, or by `fetchFile`). By
+`contentType`, a PDF's pages are drawn one under the other into canvases by pdf.js (`pdfjs-dist`, Apache-2.0),
+loaded only when the first PDF opens and run on the main thread, so there is no worker URL to configure; an image
+shows from an object URL; another type, a broken file or a failed fetch shows a message instead of a blank screen.
+`loadPdfEngine` takes another `PdfEngine` (`open(bytes)` → `{ pageCount, renderPage(page, canvas, width), destroy }`).
+Call `loadPdfjsEngine()` once while online (e.g. when a page with documents opens): its chunks are ordinary build
+files, so a service worker that keeps `/_next/static/` has them for an offline open later. `DocumentRow` is one
+`li` of a `DocumentList`: an icon by type (`getDocumentKind`), the title as a touch-sized button that calls `onOpen`,
+the size, an "available offline" mark with `isOffline`, and `actions` (e.g. a menu) after it. Every text has a
+`messages` override (`notionMessages.en.document`).
+
+```tsx
+const [opened, setOpened] = useState<Doc | null>(null);
+<DocumentList label="Documents">
+  {docs.map((doc) => (
+    <DocumentRow key={doc.id} title={doc.name} contentType={doc.type} size={doc.size} isOffline={doc.isKept} onOpen={() => setOpened(doc)} />
+  ))}
+</DocumentList>
+<DocumentViewer
+  open={opened !== null}
+  onOpenChange={(open) => !open && setOpened(null)}
+  title={opened?.name ?? ""}
+  contentType={opened?.type ?? ""}
+  source={opened === null ? null : opened.blob !== null ? { blob: opened.blob } : { url: opened.url }}
+/>
 ```
 
 **`FileInput`.** The file picker of a form row, where `UploadField`'s dropping area is too large (one font, one

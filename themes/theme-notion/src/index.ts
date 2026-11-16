@@ -106,6 +106,21 @@ export { TabBar, type TabBarItem, type TabBarProps } from "./notion/TabBar.js";
 export { Timeline, type TimelineItem, type TimelineItemFold, type TimelineItemSize, type TimelineLine, type TimelineProps } from "./notion/Timeline.js";
 export { TopLoadingBar, type TopLoadingBarProps } from "./notion/TopLoadingBar.js";
 export {
+  DOCUMENT_ZOOM_STEPS,
+  DocumentList,
+  DocumentRow,
+  DocumentViewer,
+  getDocumentKind,
+  type DocumentKind,
+  type DocumentListProps,
+  type DocumentMessages,
+  type DocumentMessagesOverride,
+  type DocumentRowProps,
+  type DocumentSource,
+  type DocumentViewerProps,
+} from "./notion/Document.js";
+export { loadPdfjsEngine, type PdfDocumentHandle, type PdfEngine } from "./notion/pdf-engine.js";
+export {
   UploadField,
   UploadItem,
   UploadList,
