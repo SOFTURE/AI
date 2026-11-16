@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 
 import { en as messages } from "../messages/en.js";
 import { Button } from "../ui/button.js";
@@ -22,12 +22,15 @@ export interface SidePanelProps {
   readonly onClose: () => void;
   // The close button's accessible name, from the app's message layer.
   readonly closeLabel?: string;
+  // The panel's width in pixels on a wide screen (a `ResizeHandle` sets it); phone-wide `beside` and `list` keep
+  // covering the canvas. Without it, the layout's own width.
+  readonly width?: number;
   readonly children: ReactNode;
 }
 
 // A non-modal panel at a side of a canvas (a map) that leaves the canvas usable. Its parent is a `relative` flex row
 // holding the canvas and the panel. Hidden while closed, so its content leaves the reading order.
-export function SidePanel({ id, heading, layout, isOpen, onClose, closeLabel = messages.sidePanel.close, children }: SidePanelProps) {
+export function SidePanel({ id, heading, layout, isOpen, onClose, closeLabel = messages.sidePanel.close, width, children }: SidePanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const wasOpenRef = useRef(isOpen);
   const headingId = `${id}-heading`;
@@ -50,8 +53,10 @@ export function SidePanel({ id, heading, layout, isOpen, onClose, closeLabel = m
       id={id}
       tabIndex={-1}
       data-slot="side-panel"
-      className="absolute inset-y-0 right-0 z-3 flex w-[min(24rem,100%)] flex-col border-l border-border bg-background text-foreground shadow-menu outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-[layout=beside]:relative data-[layout=beside]:w-auto data-[layout=beside]:max-w-full data-[layout=beside]:flex-[0_0_max(50%,24rem)] data-[layout=left]:right-auto data-[layout=left]:left-0 data-[layout=left]:border-r data-[layout=left]:border-l-0 max-sm:data-[layout=beside]:absolute max-sm:data-[layout=beside]:inset-0 max-sm:data-[layout=beside]:w-full max-sm:data-[layout=beside]:border-l-0 data-[layout=list]:relative data-[layout=list]:flex-none data-[layout=list]:border-r data-[layout=list]:border-l-0 max-sm:data-[layout=list]:absolute max-sm:data-[layout=list]:inset-0 max-sm:data-[layout=list]:w-full max-sm:data-[layout=list]:border-r-0 [&[hidden]]:hidden"
+      className="absolute inset-y-0 right-0 z-3 flex w-[min(24rem,100%)] flex-col border-l border-border bg-background text-foreground shadow-menu outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-[layout=beside]:relative data-[layout=beside]:w-auto data-[layout=beside]:max-w-full data-[layout=beside]:flex-[0_0_max(50%,24rem)] data-[layout=left]:right-auto data-[layout=left]:left-0 data-[layout=left]:border-r data-[layout=left]:border-l-0 max-sm:data-[layout=beside]:absolute max-sm:data-[layout=beside]:inset-0 max-sm:data-[layout=beside]:w-full max-sm:data-[layout=beside]:border-l-0 data-[layout=list]:relative data-[layout=list]:flex-none data-[layout=list]:border-r data-[layout=list]:border-l-0 max-sm:data-[layout=list]:absolute max-sm:data-[layout=list]:inset-0 max-sm:data-[layout=list]:w-full max-sm:data-[layout=list]:border-r-0 [&[hidden]]:hidden sm:data-[sized=true]:w-(--side-panel-width) sm:data-[sized=true]:flex-none"
       data-layout={layout}
+      data-sized={width === undefined ? undefined : "true"}
+      style={width === undefined ? undefined : ({ "--side-panel-width": `${width}px` } as CSSProperties)}
       hidden={!isOpen}
       aria-labelledby={headingId}
       data-testid={id}

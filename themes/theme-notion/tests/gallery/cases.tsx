@@ -163,6 +163,7 @@ import {
   SheetMenuItem,
   SheetTitle,
   SheetTrigger,
+  ResizeHandle,
   SidePanel,
   Sidebar,
   SidebarContent,
@@ -1681,6 +1682,20 @@ const NOTION_CASES: readonly GalleryCase[] = [
       ),
     }),
   ),
+  {
+    name: "ResizeHandle",
+    component: "ResizeHandle",
+    root: '[data-slot="resize-handle"]',
+    render: () => (
+      <div className="relative flex h-64 w-full bg-muted">
+        <SidePanel id="panel-resized" heading="Days" layout="list" isOpen onClose={() => undefined} width={288}>
+          <p className="text-ui">Day 1</p>
+        </SidePanel>
+        <ResizeHandle label="Resize the days" controls="panel-resized" value={288} min={240} max={480} defaultValue={384} onChange={() => undefined} />
+        <div className="flex-1" />
+      </div>
+    ),
+  },
   {
     name: "Stats",
     component: "StatsFold",
