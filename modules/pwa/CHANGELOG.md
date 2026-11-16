@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.3.0
 
 - Kept files (#1255): `keptFiles: { cache, pathPrefixes }` in the worker's options answers same-origin files the page
   keeps from `<app>-<cache>` first, even under an excluded prefix, and sends the others to the network without storing
