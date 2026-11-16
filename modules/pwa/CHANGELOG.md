@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Kept files (#1255): `keptFiles: { cache, pathPrefixes }` in the worker's options answers same-origin files the page
+  keeps from `<app>-<cache>` first, even under an excluded prefix, and sends the others to the network without storing
+  them; the cache carries no build, so a new build keeps it. `createKeptFiles({ app, cache, budgetBytes })` in
+  `@softure-ai/pwa` keeps a list of `{ url, sha256, bytes }` there: `sync(list)` downloads what is missing or has a new
+  `sha256`, checks the bytes, drops what left the list or passes the budget (the list's order decides), and reports
+  `{ kept, bytesKept, downloaded, removed, skipped }`; `find(url)` reads a kept copy as a `Blob`; `getUsage()`. Its
+  cache is registered through `registerDeviceData`, so `clearDeviceData()` deletes it on sign-out.
+- Migration: none; `ServiceWorkerConfig` has a new `keptFiles` field (`null` without the option).
+
 ## 0.2.0
 
 - Web Share Target (#959): `shareTarget: { action, params?, files? }` in `buildManifest` / `createManifestRoute` writes

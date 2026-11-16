@@ -4,6 +4,7 @@ import {
   type ExtraOrigin,
   type ExtraOriginCacheKey,
   type ExtraOriginStrategy,
+  type KeptFilesConfig,
   type ServiceWorkerConfig,
 } from "./service-worker.js";
 
@@ -59,6 +60,14 @@ interface ExtraOriginBaseOptions {
 export type ExtraOriginOptions = ExtraOriginBaseOptions &
   ({ readonly strategy?: "cache-first" } | { readonly strategy: "network-first"; /** 5 s by default. */ readonly timeoutMs?: number });
 
+/** Same-origin files the page keeps for offline use (`createKeptFiles` fills the cache). */
+export interface KeptFilesWorkerOptions {
+  /** The cache's name after the app's prefix, e.g. `documents`: lowercase letters, digits and dashes. */
+  readonly cache: string;
+  /** The paths whose files may be kept, e.g. `["/api/documents/"]`; matched before `excludedPrefixes`. */
+  readonly pathPrefixes: readonly string[];
+}
+
 export interface ServiceWorkerOptions {
   /** The cache names' prefix, e.g. the app's slug: lowercase letters, digits and dashes. */
   readonly app: string;
@@ -83,6 +92,8 @@ export interface ServiceWorkerOptions {
   readonly maxPages?: number;
   /** Other origins kept in their own cache (map tiles); none by default. */
   readonly extraOrigins?: readonly ExtraOriginOptions[];
+  /** Same-origin files the page keeps for offline use, answered cache first; none by default. */
+  readonly keptFiles?: KeptFilesWorkerOptions;
 }
 
 function checkPositiveInteger(name: string, value: number): number {
@@ -131,14 +142,33 @@ function resolvePathPrefixes(prefixes: readonly string[] | undefined): readonly 
   return [...prefixes];
 }
 
-function resolveExtraOrigin(options: ExtraOriginOptions): ExtraOrigin {
-  if (!APP_NAME_PATTERN.test(options.cache)) {
-    throw new Error(`resolveServiceWorkerConfig: extra origin cache ${JSON.stringify(options.cache)} must be lowercase letters, digits and dashes`);
+function checkCacheName(owner: string, cache: string): void {
+  if (!APP_NAME_PATTERN.test(cache)) {
+    throw new Error(`resolveServiceWorkerConfig: ${owner} cache ${JSON.stringify(cache)} must be lowercase letters, digits and dashes`);
   }
   // `shell` and `pages` would collide with the build caches that activate drops.
-  if (options.cache.startsWith("shell") || options.cache.startsWith("pages")) {
-    throw new Error(`resolveServiceWorkerConfig: extra origin cache ${JSON.stringify(options.cache)} must not start with "shell" or "pages"`);
+  if (cache.startsWith("shell") || cache.startsWith("pages")) {
+    throw new Error(`resolveServiceWorkerConfig: ${owner} cache ${JSON.stringify(cache)} must not start with "shell" or "pages"`);
   }
+}
+
+function resolveKeptFiles(options: KeptFilesWorkerOptions | undefined, extraOrigins: readonly ExtraOrigin[]): KeptFilesConfig | null {
+  if (options === undefined) return null;
+  checkCacheName("kept files", options.cache);
+  if (extraOrigins.some((extra) => extra.cache === options.cache)) {
+    throw new Error(`resolveServiceWorkerConfig: kept files cache ${JSON.stringify(options.cache)} is already an extra origin's cache`);
+  }
+  if (options.pathPrefixes.length === 0) throw new Error("resolveServiceWorkerConfig: keptFiles.pathPrefixes must name at least one path");
+  for (const prefix of options.pathPrefixes) {
+    if (!prefix.startsWith("/") || prefix === "/") {
+      throw new Error(`resolveServiceWorkerConfig: kept files path prefix ${JSON.stringify(prefix)} must start with / and name a folder`);
+    }
+  }
+  return { cache: options.cache, pathPrefixes: [...options.pathPrefixes] };
+}
+
+function resolveExtraOrigin(options: ExtraOriginOptions): ExtraOrigin {
+  checkCacheName("extra origin", options.cache);
   return {
     origin: readOrigin(options.origin),
     pathPrefixes: resolvePathPrefixes(options.pathPrefixes),
@@ -182,6 +212,7 @@ export function resolveServiceWorkerConfig(options: ServiceWorkerOptions, build:
     throw new Error(`resolveServiceWorkerConfig: navigationMaxWaitMs ${navigationMaxWaitMs} must be at least navigationTimeoutMs ${navigationTimeoutMs}`);
   }
   const excludedPrefixes = options.excludedPrefixes ?? DEFAULT_EXCLUDED_PREFIXES;
+  const extraOrigins = (options.extraOrigins ?? []).map(resolveExtraOrigin);
   return {
     app: options.app,
     build,
@@ -193,7 +224,8 @@ export function resolveServiceWorkerConfig(options: ServiceWorkerOptions, build:
     assetTimeoutMs: checkPositiveInteger("assetTimeoutMs", options.assetTimeoutMs ?? DEFAULT_ASSET_TIMEOUT_MS),
     startPath: options.startPath ?? null,
     maxPages: checkPositiveInteger("maxPages", options.maxPages ?? DEFAULT_MAX_PAGES),
-    extraOrigins: (options.extraOrigins ?? []).map(resolveExtraOrigin),
+    extraOrigins,
+    keptFiles: resolveKeptFiles(options.keptFiles, extraOrigins),
   };
 }
 
