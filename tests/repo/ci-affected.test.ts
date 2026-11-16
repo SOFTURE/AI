@@ -118,7 +118,7 @@ describe("getAffectedAreas", () => {
       lockfileOf({ kind: "packages", names: ["@softure-ai/marketing-kit"] }),
     ).toEqual(["marketing-kit"]);
     expect(
-      lockfileOf({ kind: "packages", names: ["@softure-ai/llm"] }),
+      lockfileOf({ kind: "packages", names: ["@softure-ai/speech"] }),
     ).toEqual([]);
     expect(
       lockfileOf({ kind: "packages", names: ["@softure-ai/core"] }),
