@@ -73,7 +73,7 @@ export interface OpenAiCompatibleEmbeddingModelOptions {
 export function openAiCompatibleEmbeddingModel(options: OpenAiCompatibleEmbeddingModelOptions): EmbedderModel {
   const maxEmbeddingsPerCall = options.maxEmbeddingsPerCall ?? 96;
   assertBatch(maxEmbeddingsPerCall, "openAiCompatibleEmbeddingModel");
-  const url = `${options.baseUrl.replace(/\/+$/, "")}/embeddings`;
+  const url = `${trimTrailingSlashes(options.baseUrl)}/embeddings`;
   const fetchImpl = options.fetch ?? globalThis.fetch;
   return {
     specificationVersion: "v4",
@@ -156,6 +156,13 @@ function readTokens(value: unknown): number | null {
 
 function isVector(value: unknown): value is number[] {
   return Array.isArray(value) && value.every((item) => typeof item === "number");
+}
+
+/** The URL without its trailing slashes; a loop rather than a regular expression, which backtracks on many slashes. */
+function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
 }
 
 function assertBatch(value: number, name: string): void {
