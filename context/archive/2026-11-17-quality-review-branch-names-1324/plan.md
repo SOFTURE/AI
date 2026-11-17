@@ -23,4 +23,4 @@ and let the workflow use it when `branch` is empty. The names are flat (no `/`),
 
 ## Progress
 
-- [ ] Phase 1: names
+- [x] Phase 1: names (f508712): `npx vitest run tools/quality-review tests/repo/quality-review-workflow.test.ts` 90 passed; typecheck, ESLint and the language gate green; the edited resolve step run in bash against the built CLI prints `quality-review-general`, `quality-review-general--tools-quality-review`, `quality-review-security`, `quality-review-security--tools-quality-review`, and falls back to `quality-review/security/docker` for an output without `report-branch=`; a scratch git repository holds `quality-review` next to all five new names, while `quality-review/security` is refused next to `quality-review` (the 0.2.0 defect)

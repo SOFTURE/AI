@@ -1,7 +1,8 @@
 ---
 change_id: quality-review-branch-names-1324
 title: "quality-review: report branch names that coexist (issue #1324)"
-status: planned
+status: archived
+archived_at: 2026-11-17
 roadmap_item: null
 issue: 1324
 branch: claude/project-thread-fe9qdw
