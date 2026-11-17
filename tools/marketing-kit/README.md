@@ -1360,6 +1360,12 @@ What the draft matches and what it leaves out:
   third's that is wider than its box (the render's card wraps it). An app that draws its own scenes with
   `buildFootageDraftCaptions` (a preset preview) passes the same `fonts` set; without it, the sizes go to libass
   unconverted, as before.
+- **Animations at the render's pace:** every animated value the draft draws is the render's own at that second.
+  The curves (`OVERLAY_EASES`) are GSAP's (`power2.out` is cubic, `power3.out` quartic, as GSAP computes them); a
+  counter shows the value the render's tween shows in every frame (`getCounterValueAt`, one step per frame, half a
+  frame either side, `getFrameSteps`); typed letters come one render stagger apart (`getTypingStep`), a later line
+  going on from the letters before it (`getTypingTimes`' `firstIndex`); a wipe's clips move along the render's ease
+  in one `\t` per frame (`getEasedClipTags`). At any second the draft and the render differ by at most one frame.
 - **Music without spending** (`cacheDir`, `providers`, as `renderFootage` takes them): a `file` source plays as is;
   a `prompt` or `video` source plays only when its paid cache entry exists (`findFootageMusic`, the render's lookup).
   It is ducked under the speech, looped and faded to the cut's length exactly as in the render. No provider is ever

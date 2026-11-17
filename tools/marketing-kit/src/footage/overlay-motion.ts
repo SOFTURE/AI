@@ -6,15 +6,53 @@ import type { OverlayEasing, OverlayEntrance, OverlayExit } from "./overlay-sche
  * start to its rest and never past it, so no element grows past 100 % (`getEntranceScaleAt`). No bounce, no elastic.
  */
 
-/** A GSAP ease name and its curve: each one rises from 0 to 1 and never passes 1. */
+/** GSAP 3's `expo.in`, of which `expo.out` is the mirror. */
+const expoIn = (t: number): number => 2 ** (10 * (t - 1)) * t + t ** 6 * (1 - t);
+
+/**
+ * A GSAP ease name and its curve, exactly as GSAP 3 computes it (the render's tweens name the ease, the draft computes
+ * its steps from the curve, so the two stand at the same place in every frame): each one rises from 0 to 1 and never
+ * passes 1. GSAP's `powerN` is a polynomial of degree N + 1 (`power1` is the quadratic), so `power2.out` is cubic.
+ */
 export const OVERLAY_EASES = {
-  "power2.out": (t: number) => 1 - (1 - t) ** 2,
-  "power3.out": (t: number) => 1 - (1 - t) ** 3,
-  "expo.out": (t: number) => (t >= 1 ? 1 : 1 - 2 ** (-10 * t)),
-  "power2.in": (t: number) => t ** 2,
+  "power2.out": (t: number) => 1 - (1 - t) ** 3,
+  "power3.out": (t: number) => 1 - (1 - t) ** 4,
+  "expo.out": (t: number) => 1 - expoIn(1 - t),
+  "power2.in": (t: number) => t ** 3,
 } as const;
 
 export type OverlayEase = keyof typeof OVERLAY_EASES;
+
+/** A step of a value the draft changes every frame: shown from `from` to `to` (film seconds). */
+export interface FrameStep {
+  from: number;
+  to: number;
+  text: string;
+}
+
+/**
+ * A value that changes every frame, as the draft's steps: one step per film frame from `start` to `end`, showing
+ * `valueAt` that frame's second, each spanning half a frame either side of it (so rounding a step's edges to the
+ * centisecond never moves a frame into its neighbour's step); neighbours that show the same text are joined. A span
+ * with no frame in it shows `valueAt(start)`.
+ */
+export function getFrameSteps(input: { start: number; end: number; fps: number; valueAt: (seconds: number) => string }): FrameStep[] {
+  const { start, end, fps } = input;
+  if (!(end > start)) return [];
+  const first = Math.ceil(start * fps - 1e-6);
+  const last = Math.ceil(end * fps - 1e-6) - 1;
+  if (last < first) return [{ from: start, to: end, text: input.valueAt(start) }];
+  const steps: FrameStep[] = [];
+  for (let frame = first; frame <= last; frame++) {
+    const from = frame === first ? start : (frame - 0.5) / fps;
+    const to = frame === last ? end : (frame + 0.5) / fps;
+    const text = input.valueAt(frame / fps);
+    const previous = steps.at(-1);
+    if (previous?.text === text) previous.to = to;
+    else steps.push({ from, to, text });
+  }
+  return steps;
+}
 
 /** How far from its rest an overlay starts or ends: its opacity, its scale, px below its place, px of blur. */
 export interface OverlayMotionOffset {
@@ -53,6 +91,24 @@ const SLIDE_EXIT_PX = 14;
 export const OVERLAY_EXIT_SECONDS = 0.3;
 /** How much quicker a snappy curve runs. */
 const SNAPPY_SPEED = 0.7;
+
+/** When a typed overlay starts typing, after its card has faded in, in seconds from its start. */
+export const OVERLAY_TYPING_DELAY = 0.3;
+
+/** The seconds between two typed characters at `speed` characters a second: the render's stagger, to the millisecond. */
+export function getTypingStep(speed: number): number {
+  return r3(1 / speed);
+}
+
+/**
+ * The film seconds each character of a typed text appears at, from `OVERLAY_TYPING_DELAY` after `start`, one
+ * `getTypingStep` apart (the render's stagger). `firstIndex` characters were typed before it (a later line of the
+ * same overlay), so its first character comes that many steps later.
+ */
+export function getTypingTimes(start: number, text: string, speed: number, firstIndex = 0): number[] {
+  const step = getTypingStep(speed);
+  return [...text].map((_char, index) => r3(start + OVERLAY_TYPING_DELAY + (firstIndex + index) * step));
+}
 
 const REST: OverlayMotionOffset = { opacity: 1, scale: 1, y: 0, blur: 0 };
 const r3 = (value: number): number => Math.round(value * 1000) / 1000 || 0;

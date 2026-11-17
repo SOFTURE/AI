@@ -393,11 +393,16 @@ describe("the draft's new kinds", () => {
     expect(search.at(-1)).toMatch(/0:00:02\.37,0:00:04\.00,.*\\fad\(0,250\)\}cheap stay Hanoi$/);
   });
 
-  it("steps a counter up to its value, grouped as the locale writes it", () => {
+  it("shows a counter's value in every render frame as the render's tween counts it, grouped as the locale writes it", () => {
     const lines = draft([{ ...COUNTER, value: 12500 }], { locale: "pl-PL" }).filter((line) => line.includes("\\an5"));
-    expect(lines[0]).toMatch(/0:00:05\.00,0:00:05\.15,.*\}0\{\\fs54\} km$/);
-    expect(lines.at(-1)).toMatch(/0:00:06\.55,0:00:08\.00,.*\}12 500\{\\fs54\} km$/);
-    expect(lines).toHaveLength(16);
+    // From 0 until the count starts at 5.15 s, then one step per frame (half a frame either side of it) along GSAP's
+    // power2.out (cubic): the frame at 5.167 s shows 412 (1 - (1 - 1/90)^3 of 12 500), not a tenth-second jump.
+    expect(lines[0]).toMatch(/^Dialogue: 4,0:00:05\.00,0:00:05\.15,.*\}0\{\\fs54\} km$/);
+    expect(lines[1]).toMatch(/^Dialogue: 4,0:00:05\.15,0:00:05\.18,.*\}412\{\\fs54\} km$/);
+    expect(lines[2]).toMatch(/^Dialogue: 4,0:00:05\.18,0:00:05\.22,.*\}1209\{\\fs54\} km$/);
+    expect(lines.at(-2)).toMatch(/^Dialogue: 4,0:00:06\.55,0:00:06\.58,.*\}12 498\{\\fs54\} km$/);
+    expect(lines.at(-1)).toMatch(/^Dialogue: 4,0:00:06\.58,0:00:08\.00,.*\}12 500\{\\fs54\} km$/);
+    expect(lines).toHaveLength(45);
     const bare = draft([{ kind: "counter", at: 5, duration: 1, value: 3 }]).filter((line) => line.includes("\\an5"));
     expect(bare.at(-1)).toMatch(/\}3$/);
   });

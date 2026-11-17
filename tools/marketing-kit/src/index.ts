@@ -219,6 +219,7 @@ export {
 } from "./footage/overlays.js";
 export {
   OVERLAY_EASES,
+  OVERLAY_TYPING_DELAY,
   POP_FROM_SCALE,
   RISE_FROM_HEIGHT,
   getEntranceMotion,
@@ -227,6 +228,10 @@ export {
   getListItemStarts,
   getDropLetterTimes,
   getDropOffsetAt,
+  getFrameSteps,
+  getTypingStep,
+  getTypingTimes,
+  type FrameStep,
   type OverlayEase,
   type OverlayEntranceMotion,
   type OverlayExitMotion,
