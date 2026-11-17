@@ -7,14 +7,11 @@ import { en as messages } from "../messages/en.js";
 import { Button } from "../ui/button.js";
 
 import { ICON_STROKE_WIDTH } from "./icon-stroke.js";
+import { SIDE_PANEL_WIDTH_VARIABLE } from "./side-panel-width.js";
 
 // `over` and `left` float over the canvas's right or left side; `beside` and `list` sit next to it (after or before)
 // and shrink it, and cover the whole canvas on a phone.
 export type SidePanelLayout = "over" | "beside" | "left" | "list";
-
-// The CSS variable that holds the panel's width; `page.css` registers it as non-inherited, so changing it restyles
-// only the panel, not its content. A `ResizeHandle liveVariable` writes it during a drag.
-export const SIDE_PANEL_WIDTH_VARIABLE = "--side-panel-width";
 
 export interface SidePanelProps {
   // Also the `data-testid`; the opener points at it with `aria-controls`.

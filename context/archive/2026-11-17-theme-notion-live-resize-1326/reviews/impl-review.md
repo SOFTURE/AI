@@ -14,3 +14,6 @@ Verdict: approved, no findings left open.
   (asserted in `tests/theme-css.test.ts`). Pre-commit typecheck, ESLint and the language gate green.
 - Version: 0.22.0 (minor: new optional prop and export), CHANGELOG `## 0.22.0`, lockfile changes only the version
   line; the local tag was dropped.
+- Follow-up (pre-push): the repository test that keeps client modules free of value exports failed on
+  `SIDE_PANEL_WIDTH_VARIABLE` in `SidePanel.tsx`; the constant moved to the plain module `notion/side-panel-width.ts`
+  (as `clampSize` did for #1311), so a Server Component can import it.
