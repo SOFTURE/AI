@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.44.0
+
+- **The draft runs every animation at the render's pace:** at the same second a counter showed 2734 in the draft and
+  2797 in the render. The kit's curves were not GSAP's: GSAP's `powerN` is of degree N + 1, so `power2.out` is
+  `1 - (1 - t)^3`, not `1 - (1 - t)^2`; `OVERLAY_EASES` now compute `power2.out`, `power3.out`, `power2.in` and
+  `expo.out` exactly as GSAP 3 does, which also moves the draft's dropped letters, pops and list growth onto the
+  render's curve. A counter in the draft shows the render's value in every frame (`getCounterValueAt`,
+  `getFrameSteps`) instead of a step every tenth of a second; typed letters are one render stagger apart
+  (`getTypingStep`, `getTypingTimes(start, text, speed, firstIndex)`), so a second line no longer drifts; a wipe's
+  card, text and accent panel move along the render's ease, one `\t` per frame (`getEasedClipTags`), not in a straight
+  line. A regression test seeks the render's composition in Chromium and reads the draft's ASS at the same seconds:
+  the counter's value, the typed letters and the wipe's opening agree within one frame.
+- `OVERLAY_TYPING_DELAY`, `getTypingStep`, `getTypingTimes` and `getFrameSteps` are exported.
+
 ## 0.43.0
 
 - **The draft draws every overlay card in the render's size and shape:** with the draft's fonts, a keyword's and a

@@ -3,13 +3,15 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
+import { gsap } from "gsap";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { LAYOUTS } from "../compose/timeline.js";
 import { FOOTAGE_DRAFT_FONT, buildFootageDraftCaptions } from "./draft.js";
 import { readEdl, type Edl } from "./edl.js";
 import { DEFAULT_TRANSITIONS, type FootageFilm } from "./film.js";
-import { getOverlayMarkup, getPlaceCardTimes } from "./overlay-html.js";
+import { getEasedClipTags } from "./draft-overlays.js";
+import { COUNTER_EASE, getCounterSeconds, getCounterValueAt, getOverlayMarkup, getPlaceCardTimes } from "./overlay-html.js";
 import {
   BLUR_FROM_PX,
   OVERLAY_EASES,
@@ -17,7 +19,10 @@ import {
   getEntranceMotion,
   getEntranceScaleAt,
   getExitMotion,
+  getFrameSteps,
   getListItemStarts,
+  getTypingStep,
+  getTypingTimes,
   getWipeHalves,
   type OverlayEase,
 } from "./overlay-motion.js";
@@ -88,9 +93,64 @@ function draft(overlays: EdlOverlay[], style: typeof STYLE | null = STYLE): stri
   return (ass ?? "").split("\n").filter((line) => line.startsWith("Dialogue:"));
 }
 
+/** The clip steps of an ASS line: each `\\t(from,to,\\clip(x0,y0,x1,y1))`, in order. */
+function readClipSteps(line: string): { from: number; to: number; clip: number[] }[] {
+  return [...line.matchAll(/\\t\((\d+),(\d+),\\clip\((-?\d+),(-?\d+),(-?\d+),(-?\d+)\)\)/g)].map((match) => ({ from: Number(match[1]), to: Number(match[2]), clip: match.slice(3, 7).map(Number) }));
+}
+
 const KEYWORD: EdlOverlay = { kind: "keyword", at: 1, duration: 2.5, text: "2 konwencje" };
 const PLACE: EdlOverlay = { kind: "place_card", at: 1, duration: 3, text: "Ha Long Bay", subtitle: "A bay of 1600 islands" };
 const LIST: EdlOverlay = { kind: "list", at: 2, duration: 4, items: ["35 zl", "3 days", "no queue"] };
+
+describe("the timing the draft and the render share (RV-196 of an adopting app)", () => {
+  it("counts a counter as the render's GSAP tween does: from its value, along power2.out, to its value", () => {
+    const counter = { start: 2, end: 4.5, from: 0, value: 2800 };
+    expect(getCounterSeconds(counter)).toEqual({ start: 2.15, duration: 1.25 });
+    const ease = gsap.parseEase(COUNTER_EASE);
+    expect(getCounterValueAt(counter, 0)).toBe(0);
+    expect(getCounterValueAt(counter, 2.15)).toBe(0);
+    for (const seconds of [2.2, 2.5, 3.2, 3.3]) expect(getCounterValueAt(counter, seconds)).toBeCloseTo(2800 * ease((seconds - 2.15) / 1.25), 9);
+    // The adopting app's frame: 1.05 s into the count the render shows 2789, the old draft 2734.
+    expect(Math.round(getCounterValueAt(counter, 3.2))).toBe(2789);
+    expect(getCounterValueAt(counter, 3.4)).toBe(2800);
+    expect(getCounterValueAt({ ...counter, from: 3000, value: 1000 }, 9)).toBe(1000);
+  });
+
+  it("steps a value once per frame, half a frame either side, joining frames that show the same", () => {
+    const steps = getFrameSteps({ start: 1, end: 1.1, fps: 30, valueAt: (seconds) => seconds.toFixed(3) });
+    expect(steps).toEqual([
+      { from: 1, to: 30.5 / 30, text: "1.000" },
+      { from: 30.5 / 30, to: 31.5 / 30, text: "1.033" },
+      { from: 31.5 / 30, to: 1.1, text: "1.067" },
+    ]);
+    // A span between two frames shows its start's value; an empty span shows nothing.
+    expect(getFrameSteps({ start: 1.005, end: 1.02, fps: 30, valueAt: () => "x" })).toEqual([{ from: 1.005, to: 1.02, text: "x" }]);
+    expect(getFrameSteps({ start: 1, end: 1, fps: 30, valueAt: () => "x" })).toEqual([]);
+    expect(getFrameSteps({ start: 0, end: 1, fps: 30, valueAt: () => "same" })).toEqual([{ from: 0, to: 1, text: "same" }]);
+  });
+
+  it("types one character per render stagger, a later line going on from the letters typed before it", () => {
+    expect(getTypingStep(14)).toBe(0.071);
+    expect(getTypingStep(40)).toBe(0.025);
+    expect(getTypingTimes(6, "AB", 14)).toEqual([6.3, 6.371]);
+    // "WORTH DOING " is 12 letters: the second line's first letter is the render's 13th stagger.
+    expect(getTypingTimes(6, "TO", 14, 12)).toEqual([7.152, 7.223]);
+    expect(getTypingTimes(6, "", 14)).toEqual([]);
+  });
+
+  it("moves a clip along the render's ease in one straight step per frame", () => {
+    const from = { x0: 0, y0: 0, x1: 0, y1: 10 };
+    const to = { x0: 0, y0: 0, x1: 300, y1: 10 };
+    const steps = [...getEasedClipTags(from, to, { fromMs: 0, toMs: 100, ease: "power3.out" }).matchAll(/\\t\((\d+),(\d+),\\clip\(0,0,(\d+),10\)\)/g)].map((match) => match.slice(1).map(Number));
+    expect(steps).toEqual([
+      [0, 33, Math.round(300 * (1 - (2 / 3) ** 4))],
+      [33, 67, Math.round(300 * (1 - (1 / 3) ** 4))],
+      [67, 100, 300],
+    ]);
+    // Shorter than a frame: one step.
+    expect(getEasedClipTags(from, to, { fromMs: 0, toMs: 10, ease: "power2.in" })).toBe("\\t(0,10,\\clip(0,0,300,10))");
+  });
+});
 
 describe("the motion model", () => {
   it("eases every curve from 0 to 1 without passing 1", () => {
@@ -105,6 +165,17 @@ describe("the motion model", () => {
     }
   });
 
+  it("draws every curve as GSAP draws the ease of the same name, which the render's tweens name", () => {
+    for (const ease of Object.keys(OVERLAY_EASES) as OverlayEase[]) {
+      const gsapEase = gsap.parseEase(ease);
+      for (let step = 0; step <= 100; step++) expect(OVERLAY_EASES[ease](step / 100), `${ease} at ${String(step / 100)}`).toBeCloseTo(gsapEase(step / 100), 12);
+    }
+    // GSAP's powerN is of degree N + 1: power2.out halfway is 0.875, not 0.75.
+    expect(OVERLAY_EASES["power2.out"](0.5)).toBe(0.875);
+    expect(OVERLAY_EASES["power3.out"](0.5)).toBe(0.9375);
+    expect(OVERLAY_EASES["power2.in"](0.5)).toBe(0.125);
+  });
+
   it("never grows any entrance past 100 % in any frame, a pop starting at 92 %", () => {
     for (const entrance of OVERLAY_ENTRANCES) {
       for (const easing of OVERLAY_EASINGS) {
@@ -117,7 +188,7 @@ describe("the motion model", () => {
     const pop = getEntranceMotion("pop", "smooth", FRAME);
     expect(getEntranceScaleAt(pop, 0)).toBe(POP_FROM_SCALE);
     expect(getEntranceScaleAt(pop, -1)).toBe(POP_FROM_SCALE);
-    expect(getEntranceScaleAt(pop, 0.15)).toBeCloseTo(0.92 + 0.08 * 0.75, 6);
+    expect(getEntranceScaleAt(pop, 0.15)).toBeCloseTo(0.92 + 0.08 * 0.875, 6);
   });
 
   it("times each entrance and shortens a snappy one on expo.out", () => {
@@ -352,11 +423,34 @@ describe("the draft's motion", () => {
     expect(blur[0]).toContain("\\blur15\\t(0,300,\\blur15)\\t(2200,2500,\\blur15)");
     expect(blur[1]).toContain("\\blur7\\t(0,300,\\blur0)\\t(2200,2500,\\blur5)");
     const wipe = draft([{ ...KEYWORD, style: { entrance: "wipe" } }]);
-    const panel = wipe.find((line) => line.startsWith("Dialogue: 3,0:00:01.00,0:00:01.50,"));
-    expect(panel).toMatch(/\\clip\((\d+),(\d+),\1,(\d+)\)\\t\(0,250,\\clip\(\1,\2,(\d+),\3\)\)\\t\(250,500,\\clip\(\4,\2,\4,\3\)\)\\1c&H6B33E8&/);
-    expect(wipe[1]).toMatch(/\\clip\((\d+),(\d+),\1,(\d+)\)\\t\(0,250,\\clip\(\1,\2,(\d+),\3\)\)\\t\(2200,2500,\\clip\(\4,\2,\4,\3\)\)/);
-    const text = wipe.find((line) => line.startsWith("Dialogue: 4,"));
-    expect(text).toMatch(/\\clip\((\d+),(\d+),\1,(\d+)\)\\t\(250,500,\\clip\(\1,\2,(\d+),\3\)\)\\t\(2200,2500,/);
+    const panel = wipe.find((line) => line.startsWith("Dialogue: 3,0:00:01.00,0:00:01.50,")) ?? "";
+    // The accent panel grows from the left over 250 ms, then its left edge slides off to the right over 250 ms, each
+    // along the render's power3.out in one step per frame (8 frames of 30 a second each).
+    const panelSteps = readClipSteps(panel);
+    const [x0, x1] = [panelSteps[7]?.clip[0] as number, panelSteps[7]?.clip[2] as number];
+    expect(panel).toMatch(new RegExp(`\\\\clip\\(${String(x0)},\\d+,${String(x0)},\\d+\\)\\\\t\\(0,31,`));
+    expect(panelSteps).toHaveLength(16);
+    panelSteps.slice(0, 8).forEach((step, index) => {
+      expect([step.from, step.to]).toEqual([Math.round((250 * index) / 8), Math.round((250 * (index + 1)) / 8)]);
+      expect(step.clip[2]).toBe(Math.round(x0 + (x1 - x0) * OVERLAY_EASES["power3.out"]((index + 1) / 8)));
+    });
+    panelSteps.slice(8).forEach((step, index) => {
+      expect([step.from, step.to]).toEqual([250 + Math.round((250 * index) / 8), 250 + Math.round((250 * (index + 1)) / 8)]);
+      expect(step.clip[0]).toBe(Math.round(x0 + (x1 - x0) * OVERLAY_EASES["power3.out"]((index + 1) / 8)));
+    });
+    // A quarter into the grow the render's card is 68 % open; the old straight \t opened it 25 %.
+    expect((panelSteps[1]?.clip[2] as number) - x0).toBeGreaterThan((x1 - x0) * 0.6);
+    const card = readClipSteps(wipe[1] ?? "");
+    expect(card.slice(0, 8).map((step) => step.from)).toEqual([0, 31, 63, 94, 125, 156, 188, 219]);
+    // It leaves wiped off to the right over its last 300 ms along power2.in: 9 frames, slow at first.
+    const off = card.slice(8);
+    expect(off.map((step) => step.from)).toEqual([2200, 2233, 2267, 2300, 2333, 2367, 2400, 2433, 2467]);
+    expect(off.at(-1)?.clip[0]).toBe(x1);
+    expect((off[2]?.clip[0] as number) - x0).toBe(Math.round((x1 - x0) * OVERLAY_EASES["power2.in"](3 / 9)));
+    const text = readClipSteps(wipe.find((line) => line.startsWith("Dialogue: 4,")) ?? "");
+    expect(text[0]?.from).toBe(250);
+    expect(text[7]?.to).toBe(500);
+    expect(text[8]?.from).toBe(2200);
   });
 
   it("leaves by sliding down when the card did not move in, at once on none, quicker when snappy", () => {

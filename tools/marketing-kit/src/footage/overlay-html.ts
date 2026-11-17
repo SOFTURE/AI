@@ -11,6 +11,7 @@ import {
   NOTE_GROW_FROM_SCALE,
   NOTE_GROW_SECONDS,
   NOTE_TICK_SECONDS,
+  OVERLAY_EASES,
   getDropLetterTurns,
   PIN_DROP_SECONDS,
   PIN_DROP_SHARE,
@@ -19,10 +20,15 @@ import {
   UNDERLINE_SECONDS,
   getEntranceMotion,
   getExitMotion,
+  getTypingStep,
   getWipeHalves,
+  OVERLAY_TYPING_DELAY,
+  type OverlayEase,
   type OverlayEntranceMotion,
   type OverlayMotionOffset,
 } from "./overlay-motion.js";
+
+export { OVERLAY_TYPING_DELAY, getTypingStep, getTypingTimes } from "./overlay-motion.js";
 import {
   NOTE_LINE_HEIGHT,
   OVERLAY_LETTER_SPACING_EM,
@@ -72,8 +78,6 @@ const EXIT_SECONDS = 0.3;
 const STROKE_WIDTH = 10;
 /** The arrow head's length, in px of a 1080 px wide frame. */
 const ARROW_HEAD = 46;
-/** When a typed overlay starts typing, after its card has faded in, in seconds from its start. */
-export const OVERLAY_TYPING_DELAY = 0.3;
 /** When a counter starts counting, in seconds from its start. */
 const COUNT_DELAY = 0.15;
 
@@ -99,9 +103,17 @@ export function getCounterSeconds(overlay: { start: number; end: number }): { st
   return { start: r3(overlay.start + COUNT_DELAY), duration: r3(Math.min(1.6, Math.max(0.6, (overlay.end - overlay.start) * 0.5))) };
 }
 
-/** The film seconds each character of a typed text appears at, from `OVERLAY_TYPING_DELAY` after the overlay's start. */
-export function getTypingTimes(start: number, text: string, speed: number): number[] {
-  return [...text].map((_char, index) => r3(start + OVERLAY_TYPING_DELAY + index / speed));
+/** The ease a counter counts along. */
+export const COUNTER_EASE = "power2.out" satisfies OverlayEase;
+
+/**
+ * A counter's value at film second `seconds`, as the render's tween sets it: `from` until it starts counting, then
+ * along `COUNTER_EASE` to `value`, and `value` after. The draft shows this value in every frame.
+ */
+export function getCounterValueAt(overlay: { start: number; end: number; from: number; value: number }, seconds: number): number {
+  const count = getCounterSeconds(overlay);
+  const progress = Math.min(1, Math.max(0, (seconds - count.start) / count.duration));
+  return overlay.from + (overlay.value - overlay.from) * OVERLAY_EASES[COUNTER_EASE](progress);
 }
 
 /** The CSS every overlay kind shares, written once when the film has any drawn overlay. */
@@ -320,7 +332,7 @@ function getExitTweens(target: string, overlay: Exclude<ResolvedOverlay, { kind:
 /** The typing tweens: each character of `#<id>` shown at its time. */
 function getTypingTweens(id: string, overlay: { start: number; typing: number | null }, length: number): string[] {
   if (overlay.typing === null || length === 0) return [];
-  return [`tl.to("#${id} .ch", { opacity: 1, display: "inline", duration: 0.01, ease: "none", stagger: ${r3(1 / overlay.typing)} }, ${r3(overlay.start + OVERLAY_TYPING_DELAY)});`];
+  return [`tl.to("#${id} .ch", { opacity: 1, display: "inline", duration: 0.01, ease: "none", stagger: ${getTypingStep(overlay.typing)} }, ${r3(overlay.start + OVERLAY_TYPING_DELAY)});`];
 }
 
 /** Shows each typed line's highlight mark (`#<id>m<line>`, a keyword's `#<id>t`) with the line's first letter. */
@@ -329,7 +341,7 @@ function getMarkRevealTweens(ids: readonly string[], overlay: { start: number; t
   if (typing === null) return [];
   let offset = 0;
   return lines.flatMap((line, index) => {
-    const at = overlay.start + OVERLAY_TYPING_DELAY + offset / typing;
+    const at = overlay.start + OVERLAY_TYPING_DELAY + offset * getTypingStep(typing);
     offset += [...line].length;
     const target = ids[index];
     return line === "" || target === undefined ? [] : [`tl.set("#${target}", { display: "inline" }, ${r3(at)});`];
@@ -540,7 +552,7 @@ function addCard(overlay: CardOverlay, id: string, context: MarkupContext, out: 
     const format = `new Intl.NumberFormat(${toScriptString(getScriptLocale(context.locale))}, { minimumFractionDigits: ${overlay.decimals}, maximumFractionDigits: ${overlay.decimals} })`;
     // The number eases up to its value; the timeline renders it on every seek, so each frame shows its own count.
     out.tweens.push(
-      `(function () { const el = document.getElementById("${id}n"); const nf = ${format}; const n = { v: ${overlay.from} }; tl.fromTo(n, { v: ${overlay.from} }, { v: ${overlay.value}, duration: ${count.duration}, ease: "power2.out", immediateRender: false, onUpdate: () => { el.textContent = nf.format(n.v).replace(/[\\u00a0\\u202f]/g, " "); } }, ${count.start}); })();`,
+      `(function () { const el = document.getElementById("${id}n"); const nf = ${format}; const n = { v: ${overlay.from} }; tl.fromTo(n, { v: ${overlay.from} }, { v: ${overlay.value}, duration: ${count.duration}, ease: "${COUNTER_EASE}", immediateRender: false, onUpdate: () => { el.textContent = nf.format(n.v).replace(/[\\u00a0\\u202f]/g, " "); } }, ${count.start}); })();`,
     );
   }
   out.tweens.push(...getExitTweens(`#${id} .ov-card`, overlay, context.frame, `tl.to("#${id} .ov-card", { y: 10, opacity: 0, duration: ${EXIT_SECONDS}, ease: "power2.in" }, ${r3(overlay.end - EXIT_SECONDS)});`));

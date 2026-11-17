@@ -1,9 +1,10 @@
+import { FOOTAGE_FPS } from "./normalize.js";
 import { getCornerRadiusPx, type BrandStyle, type CornerRadius } from "./brand-style.js";
 import { getDraftBoxEvents } from "./draft-boxes.js";
 import { toAssColor } from "./draft-color.js";
 import { DEFAULT_CONTENT_AREA, getSpacingWidth, toDraftAssSize, toDraftSpacing, wrapDraftLine, type DraftFont } from "./draft-text-width.js";
 import { HAND_FONT, getHandFontAssSize } from "./hand-font.js";
-import { getCounterSeconds, getOverlayColors, getPlaceCardTimes, getTypingTimes, type OverlayColors } from "./overlay-html.js";
+import { getCounterValueAt, getOverlayColors, getPlaceCardTimes, getTypingStep, getTypingTimes, type OverlayColors } from "./overlay-html.js";
 import {
   DROP_LETTER_SECONDS,
   NOTE_GROW_FROM_SCALE,
@@ -11,6 +12,7 @@ import {
   NOTE_TICK_SECONDS,
   OVERLAY_EASES,
   getDropLetterTimes,
+  getFrameSteps,
   PIN_DROP_SECONDS,
   PIN_DROP_SHARE,
   UNDERLINE_EM,
@@ -18,6 +20,7 @@ import {
   getEntranceMotion,
   getExitMotion,
   getWipeHalves,
+  type OverlayEase,
   type OverlayEntranceMotion,
   type OverlayExitMotion,
 } from "./overlay-motion.js";
@@ -72,7 +75,7 @@ import {
  * drawn rounded cards of the brand's background, fitted to their text, with the text in its foreground; an
  * arrow is a straight shaft and head in the accent; a highlight the accent's outline round its rectangle; a pin and a
  * magnifier are drawings in the accent. A typed text shows letter by letter (the rest transparent, so its card keeps
- * its size), a counter steps up to its value every tenth of a second, a slide moves up into place. A `punch_in` is drawn
+ * its size), a counter shows its value in every frame, a slide moves up into place. A `punch_in` is drawn
  * by the picture's zoom (`buildPictureFilters`), not here. They sit on layers 3 and 4, over the captions' 0 to 2.
  */
 
@@ -87,8 +90,6 @@ const FADE = `\\fad(${FADE_IN_MS},${FADE_OUT_MS})`;
 /** How far a slide starts below its place, in px of a 1080 px wide frame, and how long it takes. */
 const SLIDE_PX = 28;
 const SLIDE_MS = 300;
-/** A counter's step in the draft, in seconds. */
-const COUNT_STEP = 0.1;
 /** A transparent primary colour: the typed text not shown yet. */
 const HIDDEN = "{\\1a&HFF&}";
 
@@ -268,6 +269,24 @@ function getWipeClip(motion: DraftMotion): { x0: number; y0: number; x1: number;
 }
 
 const toClip = (box: { x0: number; y0: number; x1: number; y1: number }): string => `\\clip(${box.x0},${box.y0},${box.x1},${box.y1})`;
+
+type ClipBox = { x0: number; y0: number; x1: number; y1: number };
+
+/**
+ * A clip moving from `from` to `to` between `fromMs` and `toMs` of its event along the render's `ease`: one `\\t` per
+ * render frame (libass interpolates each straight), so the draft's clip stands where the render's does in every frame.
+ */
+export function getEasedClipTags(from: ClipBox, to: ClipBox, input: { fromMs: number; toMs: number; ease: OverlayEase }): string {
+  const frames = Math.max(1, Math.round(((input.toMs - input.fromMs) / 1000) * FOOTAGE_FPS));
+  const at = (share: number): ClipBox => ({
+    x0: r0(from.x0 + (to.x0 - from.x0) * share),
+    y0: r0(from.y0 + (to.y0 - from.y0) * share),
+    x1: r0(from.x1 + (to.x1 - from.x1) * share),
+    y1: r0(from.y1 + (to.y1 - from.y1) * share),
+  });
+  const ms = (frame: number) => Math.round(input.fromMs + ((input.toMs - input.fromMs) * frame) / frames);
+  return Array.from({ length: frames }, (_unused, index) => `\\t(${ms(index)},${ms(index + 1)},${toClip(index + 1 === frames ? to : at(OVERLAY_EASES[input.ease]((index + 1) / frames)))})`).join("");
+}
 const toMs = (seconds: number): number => Math.max(0, Math.round(seconds * 1000));
 
 /**
@@ -299,15 +318,16 @@ function getMotionTags(motion: DraftMotion, input: { isFirst: boolean; isLast: b
   if (input.isFirst && entrance.kind === "wipe") {
     const halves = getWipeHalves(entrance.seconds);
     const [grow, reveal] = [toMs(halves.grow), toMs(halves.reveal)];
-    const closed = toClip({ ...clip, x1: clip.x0 });
-    tags.push(input.part === "card" ? `${closed}\\t(0,${grow},${toClip(clip)})` : `${closed}\\t(${grow},${grow + reveal},${toClip(clip)})`);
+    const closed = { ...clip, x1: clip.x0 };
+    const half = input.part === "card" ? { fromMs: 0, toMs: grow } : { fromMs: grow, toMs: grow + reveal };
+    tags.push(`${toClip(closed)}${getEasedClipTags(closed, clip, { ...half, ease: entrance.ease })}`);
   }
   let fadeOut = 0;
   if (input.isLast && exit.kind !== "none") {
     if (exit.kind === "wipe") {
       const exitMs = toMs(exit.seconds);
       if (!(input.isFirst && entrance.kind === "wipe")) tags.push(toClip(clip));
-      tags.push(`\\t(${Math.max(0, ms - exitMs)},${ms},${toClip({ ...clip, x0: clip.x1 })})`);
+      tags.push(getEasedClipTags(clip, { ...clip, x0: clip.x1 }, { fromMs: Math.max(0, ms - exitMs), toMs: ms, ease: exit.ease }));
     } else {
       fadeOut = motion.isSnappy ? r0(FADE_OUT_MS * 0.7) : FADE_OUT_MS;
       if (exit.kind === "tween" && exit.from.y > 0 && !motion.isCardMoved) {
@@ -420,7 +440,9 @@ function getWipePanelEvent(overlay: Pick<ResolvedOverlay, "start">, drawing: str
   const halves = getWipeHalves(motion.entrance.seconds);
   const [grow, reveal] = [toMs(halves.grow), toMs(halves.reveal)];
   const clip = getWipeClip(motion);
-  const tags = `${toClip({ ...clip, x1: clip.x0 })}\\t(0,${grow},${toClip(clip)})\\t(${grow},${grow + reveal},${toClip({ ...clip, x0: clip.x1 })})`;
+  const ease = motion.entrance.ease;
+  const closed = { ...clip, x1: clip.x0 };
+  const tags = `${toClip(closed)}${getEasedClipTags(closed, clip, { fromMs: 0, toMs: grow, ease })}${getEasedClipTags(clip, { ...clip, x0: clip.x1 }, { fromMs: grow, toMs: grow + reveal, ease })}`;
   return [`Dialogue: 3,${toAssTime(overlay.start)},${toAssTime(overlay.start + motion.entrance.seconds)},OverlayShape,,0,0,0,,{\\an7\\pos(0,0)${tags}\\1c${toTagColor(accent)}\\p1}${drawing}{\\p0}`];
 }
 
@@ -921,7 +943,7 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
     if (overlay.kind === "hook_title" && (isMarked || overlay.entrance === "drop")) {
       const letters = getDropLetterTimes(span.start, overlay.lines.join(""));
       overlay.lines.forEach((line) => {
-        const lineStart = overlay.typing === null ? span.start : span.start + typedBefore / overlay.typing;
+        const lineStart = overlay.typing === null ? span.start : span.start + typedBefore * getTypingStep(overlay.typing);
         if (isMarked) {
           const align = isLeft ? "left" : "center";
           const { layout } = context;
@@ -947,7 +969,7 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
     overlay.lines.forEach((line) => {
       // The lines type one after the other, as the render's characters do; a left line holds its place transparent
       // from the start, a centred one shows its typed part only (`getTypedSteps`).
-      const lineStart = overlay.typing === null ? times.title : span.start + typedBefore / overlay.typing;
+      const lineStart = overlay.typing === null ? times.title : span.start + typedBefore * getTypingStep(overlay.typing);
       const steps = getTypedSteps(line, { start: lineStart, end: span.end }, overlay.typing, !isLeft);
       // A centred typed line has no hidden first step to carry the entrance: its letters appear as typed, as the render's.
       const isTypedCentre = !isLeft && overlay.typing !== null;
@@ -977,18 +999,9 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
     const gap = context.layout === undefined ? null : toDraftSpacing(overlay.fontSize * COUNTER_UNIT_GAP_EM - context.layout("heading", " ", overlay.unitFontSize, 0), 1);
     const space = gap === null ? " " : `{\\fsp${String(gap)}}\\h{\\fsp${String(toDraftSpacing(OVERLAY_LETTER_SPACING_EM.card, fontSize))}}`;
     const unit = overlay.unit === null ? "" : `{\\fs${context.toAssSize("heading", overlay.unitFontSize)}}${space}${toAssText(overlay.unit)}`;
-    const count = getCounterSeconds(overlay);
-    const steps: TextStep[] = [];
-    const ticks = Math.max(1, Math.round(count.duration / COUNT_STEP));
     const show = (value: number) => `${formatOverlayNumber(value, overlay.decimals, context.locale)}${unit}`;
-    steps.push({ from: span.start, to: count.start, text: show(overlay.from) });
-    for (let tick = 1; tick <= ticks; tick++) {
-      const progress = tick / ticks;
-      // power2.out, as the render's tween eases: the count slows down to its value.
-      const eased = OVERLAY_EASES["power2.out"](progress);
-      const value = overlay.from + (overlay.value - overlay.from) * eased;
-      steps.push({ from: count.start + (tick - 1) * COUNT_STEP, to: tick === ticks ? span.end : count.start + tick * COUNT_STEP, text: show(value) });
-    }
+    // One step per render frame, each the value the render's tween shows in that frame.
+    const steps: TextStep[] = getFrameSteps({ start: span.start, end: span.end, fps: FOOTAGE_FPS, valueAt: (seconds) => show(getCounterValueAt(overlay, seconds)) });
     const shown = steps.filter((step) => step.to > step.from);
     const { layout } = context;
     if (layout === undefined) return [...events, ...text({ x: centerX, y: box.top + box.height / 2 }, 5, fontSize, "heading", shown)];
@@ -1112,7 +1125,7 @@ function getNoteEvents(overlay: Extract<ResolvedOverlay, { kind: "note" }>, cont
     if (isStrip) {
       const before = overlay.lines.slice(0, index).join("").length;
       const typing = overlay.typing ?? 14;
-      const steps = getTypedSteps(line, { start: overlay.start + before / typing, end: overlay.end }, typing).map((step, stepIndex) => (stepIndex === 0 ? { ...step, from: overlay.start } : step));
+      const steps = getTypedSteps(line, { start: overlay.start + before * getTypingStep(typing), end: overlay.end }, typing).map((step, stepIndex) => (stepIndex === 0 ? { ...step, from: overlay.start } : step));
       events.push(...getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps, motion: textMotion }));
       return;
     }

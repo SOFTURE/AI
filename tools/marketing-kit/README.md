@@ -1365,6 +1365,12 @@ What the draft matches and what it leaves out:
   accent edge, a lower third's dot, a counter's card following its number) and sizes highlight marks to the text
   (`getKeywordMarkBlock`, a hook title's marks to each line and its font's `contentArea`). An app reports the same
   cards with `getDrawnOverlayCard(overlay, createOverlayTextMeasure(fonts))`.
+- **Animations at the render's pace** (0.44.0): every animated value the draft draws is the render's own at that second.
+  The curves (`OVERLAY_EASES`) are GSAP's (`power2.out` is cubic, `power3.out` quartic, as GSAP computes them); a
+  counter shows the value the render's tween shows in every frame (`getCounterValueAt`, one step per frame, half a
+  frame either side, `getFrameSteps`); typed letters come one render stagger apart (`getTypingStep`), a later line
+  going on from the letters before it (`getTypingTimes`' `firstIndex`); a wipe's clips move along the render's ease
+  in one `\t` per frame (`getEasedClipTags`). At any second the draft and the render differ by at most one frame.
 - **Music without spending** (`cacheDir`, `providers`, as `renderFootage` takes them): a `file` source plays as is;
   a `prompt` or `video` source plays only when its paid cache entry exists (`findFootageMusic`, the render's lookup).
   It is ducked under the speech, looped and faded to the cut's length exactly as in the render. No provider is ever

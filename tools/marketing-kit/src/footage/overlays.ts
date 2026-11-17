@@ -24,7 +24,7 @@ import {
 import { isCameraMoving, isSameCamera } from "./camera.js";
 import { getSegmentZoomEases } from "./compose.js";
 import { normalizeWord } from "./words.js";
-import { NOTE_FIRST_WORD_LEAD, NOTE_TICK_DELAY, getListItemStarts } from "./overlay-motion.js";
+import { NOTE_FIRST_WORD_LEAD, NOTE_TICK_DELAY, OVERLAY_TYPING_DELAY, getListItemStarts, getTypingStep } from "./overlay-motion.js";
 import { STYLE_PADDING_SCALES, type BrandStyle, type CornerRadius } from "./brand-style.js";
 import { measureHandText } from "./hand-font.js";
 
@@ -1008,7 +1008,7 @@ export function timeNote(note: Extract<ResolvedOverlay, { kind: "note" }>, words
   const latest = r3(Math.max(first, note.end - 0.6));
   if (note.noteStyle === "strip") {
     const typed = note.typing ?? DEFAULT_OVERLAY_TYPING_SPEED;
-    const lastLetter = note.start + 0.3 + ([...note.lines.join("")].length - 1) / typed;
+    const lastLetter = note.start + OVERLAY_TYPING_DELAY + ([...note.lines.join("")].length - 1) * getTypingStep(typed);
     return { wordTimes: null, tickAt: tickAfter(lastLetter) };
   }
   const said = words.filter((word) => word.start >= note.start - 0.05 && word.start < note.end);
