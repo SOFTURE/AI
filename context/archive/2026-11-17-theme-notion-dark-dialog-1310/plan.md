@@ -26,5 +26,5 @@ upstream-delta and slot-snapshot fixtures in step, and pin the surface with test
 
 ## Progress
 
-- [ ] Phase 1: surfaces
-- [ ] Phase 2: version
+- [x] Phase 1: surfaces (4ab9822)
+- [x] Phase 2: version (13d7ea6)

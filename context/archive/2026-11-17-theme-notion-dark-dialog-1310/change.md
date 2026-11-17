@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-dark-dialog-1310
 title: "theme-notion: modal surfaces on popover (issue #1310)"
-status: in_progress
+status: archived
+archived_at: 2026-11-17
 roadmap_item: null
 issue: 1310
 branch: claude/project-thread-44s4me
