@@ -19,10 +19,20 @@ export interface ResizeHandleProps {
   readonly max: number;
   /** The width a double click restores. */
   readonly defaultValue: number;
-  /** Every new width, during a drag and on each key. */
+  /**
+   * Every new width, during a drag and on each key. With `liveVariable` a drag calls it once, on release, with the
+   * final width.
+   */
   readonly onChange: (value: number) => void;
   /** The width once a drag, a key or the reset ends: the moment to keep it. */
   readonly onCommit?: (value: number) => void;
+  /**
+   * A CSS variable on the `controls` element that a drag writes straight to the DOM (in pixels), with the handle's own
+   * `aria-valuenow`, instead of calling `onChange` on every pointer move: the screen does not re-render while the
+   * pointer moves. `SIDE_PANEL_WIDTH_VARIABLE` for a `SidePanel width`. Without the element, every move calls
+   * `onChange` as without this prop.
+   */
+  readonly liveVariable?: `--${string}`;
   readonly className?: string;
 }
 
@@ -30,6 +40,8 @@ interface Drag {
   readonly pointerId: number;
   readonly startX: number;
   readonly startValue: number;
+  // A live drag's column and the variable's inline value before the drag; null: every move calls `onChange`.
+  readonly live: { readonly column: HTMLElement; readonly variable: string; readonly before: string } | null;
 }
 
 /**
@@ -38,11 +50,12 @@ interface Drag {
  * hovered, focused or dragged. Arrow keys step the width (Shift: four steps), Home and End go to the limits, a double
  * click restores the default. Hidden phone-wide, where the columns stack.
  */
-export function ResizeHandle({ label, controls, value, min, max, defaultValue, onChange, onCommit, className }: ResizeHandleProps) {
+export function ResizeHandle({ label, controls, value, min, max, defaultValue, onChange, onCommit, liveVariable, className }: ResizeHandleProps) {
   const dragRef = useRef<Drag | null>(null);
   const lastRef = useRef(value);
   const [isDragging, setIsDragging] = useState(false);
-  lastRef.current = value;
+  // During a live drag the handle owns the width; a render in between (the dragging flag) must not reset it.
+  if (dragRef.current === null || dragRef.current.live === null) lastRef.current = value;
 
   function change(next: number): number {
     const clamped = clampSize(next, min, max, defaultValue);
@@ -53,18 +66,34 @@ export function ResizeHandle({ label, controls, value, min, max, defaultValue, o
     return clamped;
   }
 
+  function findLiveColumn(handle: HTMLElement): Drag["live"] {
+    if (liveVariable === undefined) return null;
+    const column = handle.ownerDocument.getElementById(controls);
+    if (column === null) return null;
+    return { column, variable: liveVariable, before: column.style.getPropertyValue(liveVariable) };
+  }
+
   function startDrag(event: PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startValue: value };
+    dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startValue: value, live: findLiveColumn(event.currentTarget) };
     setIsDragging(true);
   }
 
   function moveDrag(event: PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
     if (drag === null || drag.pointerId !== event.pointerId) return;
-    change(drag.startValue + event.clientX - drag.startX);
+    const next = drag.startValue + event.clientX - drag.startX;
+    if (drag.live === null) {
+      change(next);
+      return;
+    }
+    const clamped = clampSize(next, min, max, defaultValue);
+    if (clamped === lastRef.current) return;
+    lastRef.current = clamped;
+    drag.live.column.style.setProperty(drag.live.variable, `${clamped}px`);
+    event.currentTarget.setAttribute("aria-valuenow", String(clamped));
   }
 
   function endDrag(event: PointerEvent<HTMLDivElement>) {
@@ -73,7 +102,16 @@ export function ResizeHandle({ label, controls, value, min, max, defaultValue, o
     dragRef.current = null;
     setIsDragging(false);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
-    if (lastRef.current !== drag.startValue) onCommit?.(lastRef.current);
+    const final = lastRef.current;
+    if (drag.live !== null) {
+      // Back to what React rendered, so the parent's next render owns the width (and a parent that keeps the old
+      // width is not left with the dragged one).
+      drag.live.column.style.setProperty(drag.live.variable, drag.live.before);
+      event.currentTarget.setAttribute("aria-valuenow", String(drag.startValue));
+      lastRef.current = drag.startValue;
+      if (final !== drag.startValue) change(final);
+    }
+    if (final !== drag.startValue) onCommit?.(final);
   }
 
   function stepByKey(event: KeyboardEvent<HTMLDivElement>) {

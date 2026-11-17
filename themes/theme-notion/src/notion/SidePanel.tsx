@@ -12,6 +12,10 @@ import { ICON_STROKE_WIDTH } from "./icon-stroke.js";
 // and shrink it, and cover the whole canvas on a phone.
 export type SidePanelLayout = "over" | "beside" | "left" | "list";
 
+// The CSS variable that holds the panel's width; `page.css` registers it as non-inherited, so changing it restyles
+// only the panel, not its content. A `ResizeHandle liveVariable` writes it during a drag.
+export const SIDE_PANEL_WIDTH_VARIABLE = "--side-panel-width";
+
 export interface SidePanelProps {
   // Also the `data-testid`; the opener points at it with `aria-controls`.
   readonly id: string;
@@ -58,7 +62,7 @@ export function SidePanel({ id, heading, layout, isOpen, onClose, closeLabel = m
       className="absolute inset-y-0 right-0 z-3 flex w-[min(24rem,100%)] flex-col border-l border-border bg-background text-foreground shadow-menu outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-[layout=beside]:relative data-[layout=beside]:w-auto data-[layout=beside]:max-w-full data-[layout=beside]:flex-[0_0_max(50%,24rem)] data-[layout=left]:right-auto data-[layout=left]:left-0 data-[layout=left]:border-r data-[layout=left]:border-l-0 max-sm:data-[layout=beside]:absolute max-sm:data-[layout=beside]:inset-0 max-sm:data-[layout=beside]:w-full max-sm:data-[layout=beside]:border-l-0 data-[layout=list]:relative data-[layout=list]:flex-none data-[layout=list]:border-r data-[layout=list]:border-l-0 max-sm:data-[layout=list]:absolute max-sm:data-[layout=list]:inset-0 max-sm:data-[layout=list]:w-full max-sm:data-[layout=list]:border-r-0 [&[hidden]]:hidden sm:data-[sized=true]:w-(--side-panel-width) sm:data-[sized=true]:flex-none"
       data-layout={layout}
       data-sized={width === undefined ? undefined : "true"}
-      style={width === undefined ? undefined : ({ "--side-panel-width": `${width}px` } as CSSProperties)}
+      style={width === undefined ? undefined : ({ [SIDE_PANEL_WIDTH_VARIABLE]: `${width}px` } as CSSProperties)}
       hidden={!isOpen}
       aria-labelledby={headingId}
       data-testid={id}

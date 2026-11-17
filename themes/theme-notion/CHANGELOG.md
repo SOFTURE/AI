@@ -4,6 +4,20 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- Smooth resize drags over a large `SidePanel` (#1326):
+  - `page.css` registers `--side-panel-width` with `@property … inherits: false`. A change of the panel's width no
+    longer restyles every element inside it: an adopting app measured ~1.3 s of style recalculation per 40-step drag
+    over ~460 rows before, ~30 ms after. The layout is unchanged.
+  - `ResizeHandle liveVariable` (optional): during a drag the handle writes the width to that CSS variable on the
+    `controls` element and to its own `aria-valuenow`, and calls `onChange` and `onCommit` once, on release. The
+    screen no longer re-renders on every pointer move. Keys and a double click are unchanged; without the prop the
+    handle behaves as before.
+  - `SIDE_PANEL_WIDTH_VARIABLE` (`"--side-panel-width"`) names the panel's variable for `liveVariable`.
+- Migration: none required. An app that writes the variable on the panel itself during a drag and keeps the width in
+  `onCommit` can drop that code and pass `liveVariable={SIDE_PANEL_WIDTH_VARIABLE}`.
+
 ## 0.21.1
 
 - Modal surfaces on `popover` (#1310): `DialogContent`, `AlertDialogContent` and `SheetContent` (so `CommandDialog`

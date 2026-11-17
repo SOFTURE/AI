@@ -75,7 +75,7 @@ export { clampSize, RESIZE_HANDLE_STEP } from "./notion/clamp-size.js";
 export { ResizeHandle, type ResizeHandleProps } from "./notion/ResizeHandle.js";
 export { RouteLoading, type RouteLoadingProps } from "./notion/RouteLoading.js";
 export { SheetMenu, SheetMenuButton, SheetMenuItem, type SheetMenuButtonProps } from "./notion/SheetMenu.js";
-export { SidePanel, type SidePanelLayout, type SidePanelProps } from "./notion/SidePanel.js";
+export { SIDE_PANEL_WIDTH_VARIABLE, SidePanel, type SidePanelLayout, type SidePanelProps } from "./notion/SidePanel.js";
 export {
   SortableActivator,
   SortableHandle,
