@@ -220,7 +220,10 @@ export interface EdlOverlay {
   at_word?: EdlOverlayWord;
   /** The film second it starts at; give this or `at_word`. */
   at?: number;
-  /** Seconds on screen (`MIN_OVERLAY_SECONDS` to `MAX_OVERLAY_SECONDS`; a `hook_title` up to `MAX_HOOK_TITLE_SECONDS`). */
+  /**
+   * Seconds on screen (`MIN_OVERLAY_SECONDS` to `MAX_OVERLAY_SECONDS`; a `hook_title` up to `MAX_HOOK_TITLE_SECONDS`; a
+   * list with `item_words` or `item_at` up to `MAX_OVERLAY_SECONDS` after its last point).
+   */
   duration: number;
   /** The text of a `keyword`, `lower_third`, `hook_title`, `search_bar`, `place_card` (its title), `date_stamp`, `note` or `end_word`. */
   text?: string;
@@ -333,6 +336,11 @@ const article = (kind: OverlayKind): string => (/^[aeiou]/.test(kind) ? `an ${ki
 const hasTwoDecimals = (value: number): boolean => Math.abs(Math.round(value * 100) - value * 100) < 1e-6;
 const counterNumber = z.number().min(0).max(MAX_OVERLAY_COUNTER_VALUE).refine(hasTwoDecimals, "has more than two decimals");
 
+/** Whether an overlay is a list whose points come in on their own words (`item_words`) or seconds (`item_at`). */
+export function hasTimedPoints(overlay: Pick<EdlOverlay, "kind" | "item_words" | "item_at">): boolean {
+  return overlay.kind === "list" && (overlay.item_words !== undefined || overlay.item_at !== undefined);
+}
+
 /** Every issue of one overlay's fields against its kind. */
 function checkOverlayFields(overlay: EdlOverlay, issue: (path: string[], message: string) => void): void {
   const { kind } = overlay;
@@ -342,7 +350,9 @@ function checkOverlayFields(overlay: EdlOverlay, issue: (path: string[], message
     // Below MIN_END_WORD_SECONDS the field's own minimum refuses it.
     if (overlay.duration > MAX_END_WORD_SECONDS) issue(["duration"], `an end_word stays ${MIN_END_WORD_SECONDS} to ${MAX_END_WORD_SECONDS} s`);
   } else if (overlay.duration < MIN_OVERLAY_SECONDS) issue(["duration"], `${article(kind)} stays at least ${MIN_OVERLAY_SECONDS} s (only an end_word stays shorter)`);
-  else if (kind !== "hook_title" && overlay.duration > MAX_OVERLAY_SECONDS) issue(["duration"], `${article(kind)} stays at most ${MAX_OVERLAY_SECONDS} s (only a hook_title stays longer)`);
+  // A list whose points come in on their words or seconds stays up to MAX_OVERLAY_SECONDS after its last point, which
+  // only the resolution knows (`resolveEdlOverlays`); every other overlay but a hook title from its start.
+  else if (kind !== "hook_title" && !hasTimedPoints(overlay) && overlay.duration > MAX_OVERLAY_SECONDS) issue(["duration"], `${article(kind)} stays at most ${MAX_OVERLAY_SECONDS} s (only a hook_title stays longer)`);
   if (fields.text === "required" && overlay.text === undefined) issue(["text"], `${article(kind)} needs its text`);
   if (fields.text === "none" && overlay.text !== undefined) issue(["text"], `${article(kind)} draws no text; leave it out`);
   const limit = TEXT_LIMITS[kind];
@@ -428,7 +438,7 @@ export const overlaySchema = z
       .number()
       .min(MIN_END_WORD_SECONDS)
       .max(MAX_HOOK_TITLE_SECONDS)
-      .describe(`Seconds on screen (${MIN_OVERLAY_SECONDS}-${MAX_OVERLAY_SECONDS}; a hook_title up to ${MAX_HOOK_TITLE_SECONDS}; an end_word ${MIN_END_WORD_SECONDS}-${MAX_END_WORD_SECONDS}).`),
+      .describe(`Seconds on screen (${MIN_OVERLAY_SECONDS}-${MAX_OVERLAY_SECONDS}; a hook_title up to ${MAX_HOOK_TITLE_SECONDS}; an end_word ${MIN_END_WORD_SECONDS}-${MAX_END_WORD_SECONDS}; a list with item_words or item_at up to ${MAX_OVERLAY_SECONDS} after its last point).`),
     text: overlayText
       .optional()
       .describe(

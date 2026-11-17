@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.41.0
+
+- **A list stays until its last point is said:** a list whose points come in on their words (`item_words`) or seconds
+  (`item_at`) was held to 8 s from its start, so a slowly said list (8 to 12 s from the first point to the last) had
+  to end before its last point. Such a list now stays up to `MAX_OVERLAY_SECONDS` (8 s) after its last point:
+  `readEdl` no longer refuses its `duration` above 8 s, and `resolveEdlOverlays` refuses one that ends more than 8 s
+  after its last point is said (`a list stays at most 8 s after its last point (said at … s); it ends at … s, … s
+  after it`). A list without timed points, and every other kind but a hook title, keeps 8 s from its start. The new
+  `hasTimedPoints(overlay)` says which lists the longer reading applies to.
+
 ## 0.40.0
 
 - **A list's points in the order they are said:** an `item_words` word took its occurrence over the whole cut, so a
