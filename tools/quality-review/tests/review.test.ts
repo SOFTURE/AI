@@ -18,7 +18,7 @@ afterEach(() => {
 
 interface FakeRun {
   query: QueryFunction;
-  calls: { prompt: string; options: ReviewAgentOptions }[];
+  calls: { prompt: string | AsyncIterable<unknown>; options: ReviewAgentOptions }[];
 }
 
 function text(value: string): unknown {

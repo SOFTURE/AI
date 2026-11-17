@@ -1,7 +1,8 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { DEFAULT_BUDGET_USD, DEFAULT_MAX_TURNS, DEFAULT_MODEL, buildAgentOptions, type ReviewAgentOptions } from "./agent.js";
+import { extractCoverage, getMissingScenarios, resolveCoverage, toRepositoryPath, type AgentCoverage, type SecurityScenario } from "./coverage.js";
 import { dedupeFindings, extractFindings, type Finding, type Focus } from "./findings.js";
 import { applyIgnoreRules, readIgnoreRules, readScopeIgnoreRules, type IgnoreRule } from "./ignore.js";
 import { renderReport, type Report, type RunStatus, type TokenCounts } from "./report.js";
@@ -18,8 +19,22 @@ import {
 } from "./scope.js";
 import { verifyLocations } from "./verify.js";
 
-/** The Agent SDK's `query`, as this package calls it. Tests pass a fake; a run imports the real one. */
-export type QueryFunction = (params: { prompt: string; options: ReviewAgentOptions }) => AsyncIterable<unknown>;
+/** A user turn sent to the agent through the prompt stream (the Agent SDK's `SDKUserMessage`). */
+export interface ReviewUserMessage {
+  type: "user";
+  message: { role: "user"; content: string };
+  parent_tool_use_id: null;
+}
+
+/**
+ * The Agent SDK's `query`, as this package calls it. Tests pass a fake; a run imports the real one. A general run
+ * passes its task as a string; a security run passes a stream of user turns, so it can ask for missing coverage in
+ * the same session and under the same budget.
+ */
+export type QueryFunction = (params: { prompt: string | AsyncIterable<ReviewUserMessage>; options: ReviewAgentOptions }) => AsyncIterable<unknown>;
+
+/** How many times a security run asks the agent to finish the scenarios it left out before it reports them. */
+export const MAX_COVERAGE_FOLLOW_UPS = 2;
 
 export const AGENT_SDK = "@anthropic-ai/claude-agent-sdk";
 
@@ -48,6 +63,7 @@ export function readReviewPrompt(focus: Focus = "general"): string {
 }
 
 const textBlockSchema = z.object({ type: z.literal("text"), text: z.string() });
+const readBlockSchema = z.object({ type: z.literal("tool_use"), name: z.literal("Read"), input: z.object({ file_path: z.string() }) });
 const assistantSchema = z.object({
   type: z.literal("assistant"),
   message: z.object({ content: z.array(z.unknown()) }),
@@ -65,6 +81,7 @@ const resultSchema = z.object({
   subtype: z.string(),
   is_error: z.boolean().default(false),
   total_cost_usd: z.number().default(0),
+  num_turns: z.number().default(0),
   modelUsage: z.record(z.string(), modelUsageSchema).default({}),
   errors: z.array(z.string()).optional(),
   result: z.string().optional(),
@@ -146,6 +163,7 @@ function describeIgnoreRules(rules: IgnoreRule[]): string {
 }
 
 interface TaskInput {
+  focus: Focus;
   commit: string;
   out: string;
   rules: IgnoreRule[];
@@ -189,7 +207,71 @@ function buildTask(input: TaskInput): string {
   sections.push(`Do not read ${input.out} or any earlier quality report: this run starts from scratch.`, describeIgnoreRules(input.rules));
   if (scope !== null) sections.push(describeContext(input.context, input.tests));
   sections.push("Emit every verified finding as a <finding> block as soon as you have verified it, then end with a one-line summary.");
+  if (input.focus === "security") {
+    sections.push("Emit a <coverage> block for every threat scenario as you finish it; the run is not complete until each scenario has one.");
+  }
   return sections.join("\n\n");
+}
+
+function toUserMessage(content: string): ReviewUserMessage {
+  return { type: "user", message: { role: "user", content }, parent_tool_use_id: null };
+}
+
+/**
+ * The prompt of a security run: the task first, then one more user turn per `send`, and the end on `close`. The
+ * agent's output iteration finishes only after this stream ends, so every path of a run must call `close`.
+ */
+function createPromptStream(task: string): { stream: AsyncIterable<ReviewUserMessage>; send: (text: string) => void; close: () => void } {
+  const queue: (string | null)[] = [];
+  let wake: (() => void) | null = null;
+  const push = (item: string | null): void => {
+    queue.push(item);
+    const waiting = wake;
+    wake = null;
+    waiting?.();
+  };
+  async function* generate(): AsyncGenerator<ReviewUserMessage> {
+    yield toUserMessage(task);
+    for (;;) {
+      if (queue.length === 0) await new Promise<void>((resolve) => (wake = resolve));
+      const next = queue.shift();
+      if (next === null || next === undefined) return;
+      yield toUserMessage(next);
+    }
+  }
+  return { stream: generate(), send: (text) => push(text), close: () => push(null) };
+}
+
+/** The follow-up turn of a security run that ended with scenarios not accounted for. */
+export function buildCoverageFollowUp(missing: SecurityScenario[]): string {
+  return [
+    `You ended the review before accounting for these threat scenarios: ${missing.join(", ")}.`,
+    "For each of them, search for its surface, trace every flow you find end to end as the instructions describe, emit each verified finding, and emit its <coverage> block: traced with the files you read with the Read tool, or no-surface with what you searched for and where.",
+    "A traced block that names no file you read counts as not covered.",
+    "Then end with `Review complete: <n> findings.`",
+  ].join(" ");
+}
+
+/** The repository files the agent read, relative to the repository, keeping only files that exist. */
+function getFilesRead(repo: string, paths: string[]): Set<string> {
+  const roots = [...new Set([repo, realpathSync(repo)])];
+  const files = new Set<string>();
+  for (const path of paths) {
+    for (const root of roots) {
+      const relativePath = toRepositoryPath(root, path);
+      if (relativePath === null) continue;
+      const absolute = resolve(repo, relativePath);
+      if (existsSync(absolute) && statSync(absolute).isFile()) files.add(relativePath);
+      break;
+    }
+  }
+  return files;
+}
+
+/** The evidence a security report carries: turns, distinct files read, and the coverage of every scenario. */
+function getDepth(repo: string, readPaths: string[], blocks: AgentCoverage[], turns: number): Pick<Report["header"], "turns" | "filesRead" | "coverage"> {
+  const filesRead = getFilesRead(repo, readPaths);
+  return { turns, filesRead: filesRead.size, coverage: resolveCoverage(blocks, filesRead) };
 }
 
 /**
@@ -231,6 +313,7 @@ export async function runReview(input: ReviewInput): Promise<ReviewOutcome> {
     env: input.env ?? process.env,
   });
   const task = buildTask({
+    focus,
     commit: input.commit,
     out,
     rules: ignore.rules,
@@ -241,28 +324,54 @@ export async function runReview(input: ReviewInput): Promise<ReviewOutcome> {
   });
 
   const emitted: Finding[] = [];
+  const coverageBlocks: AgentCoverage[] = [];
+  const readPaths: string[] = [];
   const notes: string[] = ignore.invalid.map((line) => `ignored exception line (not id, rule or path): ${line}`);
+  const isSecurity = focus === "security";
+  const conversation = isSecurity ? createPromptStream(task) : null;
   let initModel: string | null = null;
   let result: ResultMessage | null = null;
+  let turns = 0;
+  let followUps = 0;
   try {
-    for await (const message of input.query({ prompt: task, options })) {
+    for await (const message of input.query({ prompt: conversation?.stream ?? task, options })) {
       const init = initSchema.safeParse(message);
       if (init.success) initModel = init.data.model;
       const assistant = assistantSchema.safeParse(message);
       if (assistant.success) {
         for (const block of assistant.data.message.content) {
+          const read = readBlockSchema.safeParse(block);
+          if (read.success) readPaths.push(read.data.input.file_path);
           const text = textBlockSchema.safeParse(block);
           if (!text.success) continue;
           const extracted = extractFindings(text.data.text);
           emitted.push(...extracted.findings);
           notes.push(...extracted.rejected.map((reason) => `rejected agent block: ${reason}`));
+          if (!isSecurity) continue;
+          const coverage = extractCoverage(text.data.text);
+          coverageBlocks.push(...coverage.coverage);
+          notes.push(...coverage.rejected.map((reason) => `rejected agent block: ${reason}`));
         }
       }
       const parsed = resultSchema.safeParse(message);
-      if (parsed.success) result = parsed.data;
+      if (!parsed.success) continue;
+      // Cost and model usage are running totals of the whole call; turns are counted per user turn.
+      result = parsed.data;
+      turns += parsed.data.num_turns;
+      if (conversation === null) continue;
+      const missing = getMissingScenarios(resolveCoverage(coverageBlocks, getFilesRead(repo, readPaths)));
+      if (getStatus(parsed.data) === "complete" && missing.length > 0 && followUps < MAX_COVERAGE_FOLLOW_UPS) {
+        followUps++;
+        notes.push(`coverage follow-up ${String(followUps)}: ${missing.join(", ")}`);
+        conversation.send(buildCoverageFollowUp(missing));
+      } else {
+        conversation.close();
+      }
     }
   } catch (error) {
     return { ok: false, error: `The review agent failed: ${error instanceof Error ? error.message : String(error)}`, costUsd: result?.total_cost_usd ?? 0 };
+  } finally {
+    conversation?.close();
   }
   if (result === null) return { ok: false, error: "The review agent ended without a result", costUsd: 0 };
   const status = getStatus(result);
@@ -292,6 +401,7 @@ export async function runReview(input: ReviewInput): Promise<ReviewOutcome> {
       ...(focus === "general" ? {} : { focus }),
       ...(scope === null ? {} : { scope }),
       ...(paths.length === 0 ? {} : { paths }),
+      ...(isSecurity ? getDepth(repo, readPaths, coverageBlocks, turns) : {}),
     },
     findings: filtered.findings,
   };

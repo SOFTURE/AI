@@ -37,7 +37,7 @@ afterEach(() => {
 });
 
 interface Call {
-  prompt: string;
+  prompt: string | AsyncIterable<unknown>;
   options: ReviewAgentOptions;
 }
 

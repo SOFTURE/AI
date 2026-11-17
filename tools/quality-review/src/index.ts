@@ -71,7 +71,18 @@ export {
   type AgentOptionsInput,
   type ReviewAgentOptions,
 } from "./agent.js";
-export { AGENT_SDK, loadQuery, readReviewPrompt, runReview, type QueryFunction, type ReviewInput, type ReviewOutcome } from "./review.js";
+export {
+  AGENT_SDK,
+  MAX_COVERAGE_FOLLOW_UPS,
+  buildCoverageFollowUp,
+  loadQuery,
+  readReviewPrompt,
+  runReview,
+  type QueryFunction,
+  type ReviewInput,
+  type ReviewOutcome,
+  type ReviewUserMessage,
+} from "./review.js";
 export {
   CONTEXT_FILE_LIMIT,
   getDefaultReportPath,
