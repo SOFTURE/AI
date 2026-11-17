@@ -487,8 +487,9 @@ describe.skipIf(!canDraft)("renderFootageDraft with ffmpeg", () => {
     expect([...new Set(progress.map((step) => step.item))]).toEqual(["speech", "loudness", "music", "mix", "film"]);
     expect(progress.at(-1)).toEqual({ item: "film", done: 10, total: 10 });
     const ass = readFileSync(join(dir, "build", "draft", "captions.ass"), "utf8");
-    expect(ass).toContain("Style: Caption,DejaVu Sans,");
-    expect(ass).toContain(",&H00FFFFFF,&H00FFFFFF,&H330C0B0A,&H330C0B0A,-1,0,0,0,100,100,0,0,3,16,0,");
+    // The render's 50 px in DejaVu Sans Bold's win metrics (2384 of 2048 units), its letters spaced -0.01 em (RV-193 of an adopting app).
+    expect(ass).toContain("Style: Caption,DejaVu Sans,58.2,");
+    expect(ass).toContain(",&H00FFFFFF,&H00FFFFFF,&H330C0B0A,&H330C0B0A,-1,0,0,0,100,100,-0.5,0,3,16,0,");
     expect(ass).toContain("{\\1c&H0088FF&}Hello{\\1c&HFFFFFF&}");
     expect(existsSync(join(dir, "build", "draft", "music.mp3"))).toBe(true);
     expect(readStreamCodecs(drafted.value.output)).toEqual(["h264", "aac"]);

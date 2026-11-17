@@ -1,6 +1,7 @@
 import { getCornerRadiusPx, type BrandStyle, type CornerRadius } from "./brand-style.js";
 import { getDraftBoxEvents } from "./draft-boxes.js";
 import { toAssColor } from "./draft-color.js";
+import { getSpacingWidth, toDraftAssSize, toDraftSpacing, wrapDraftLine, type DraftFont } from "./draft-text-width.js";
 import { HAND_FONT, getHandFontAssSize } from "./hand-font.js";
 import { getCounterSeconds, getOverlayColors, getPlaceCardTimes, getTypingTimes, type OverlayColors } from "./overlay-html.js";
 import {
@@ -26,6 +27,7 @@ import {
   OVERLAY_FONT_ROLES,
   OVERLAY_LINE_HEIGHT,
   OVERLAY_LIST_LINE_HEIGHT,
+  OVERLAY_LETTER_SPACING_EM,
   OVERLAY_TITLE_LINE_HEIGHT,
   SEARCH_BAR_ICON_EM,
   SEARCH_BAR_PADDING_EM,
@@ -166,12 +168,24 @@ export function getGlassDrawing(at: OverlayPoint, size: number): string {
   return `${ring} ${handle}`;
 }
 
+/** The font an overlay's text is drawn in: the body font (the styles' own) or an overlay role's. */
+export type DraftFontRole = "body" | OverlayFontRole;
+
+/** A character that stands for a line break in an overlay's text until it is written as ASS (`\\N`): one character, as the space it replaces. */
+const LINE_BREAK = "\uE000";
+
 interface DraftContext {
   brand: OverlayColors;
   scale: number;
   locale: string;
   /** The font family per role, when it is not the styles' own. */
   fonts: Partial<Record<OverlayFontRole, string>>;
+  /** The ASS size of a CSS px size in the font of `role` (`body`: the styles' own font, which a role without its own family draws in). */
+  toAssSize: (role: DraftFontRole, cssPx: number) => number;
+  /** A line's width in CSS px in the font of `role`, its letters spaced `spacingEm` (the render's `letter-spacing`). */
+  measure: (role: DraftFontRole, text: string, cssPx: number, spacingEm: number) => number;
+  /** The `\\fsp` tag that spaces letters `spacingEm` at a CSS size as the render does; empty without the draft's fonts (as before). */
+  spacing: (spacingEm: number, cssPx: number) => string;
   /** The brand's style: the cards' radius, shadow and border; absent: each kind's own corner, no shadow, no border. */
   style?: BrandStyle;
 }
@@ -491,23 +505,29 @@ function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" |
   const card = getDrawnOverlayCard(overlay) as OverlayBox;
   const { x: padX, y: padY } = getOverlayPadding(overlay);
   const isCentred = overlay.kind === "keyword" && overlay.isCentred === true;
-  const isRight = !isCentred && side === "right";
-  const x = isCentred ? card.left + card.width / 2 : isRight ? card.left + card.width - padX : card.left + padX;
+  const role = OVERLAY_FONT_ROLES[overlay.kind];
+  // The render's card wraps its text inside the box (`max-width: 100%`): the same breaks, by the font's own widths.
+  const wrapped = getWrappedText(overlay.text, overlay.box.width - 2 * padX, fontSize, (line, size) => context.measure(role, line, size, OVERLAY_LETTER_SPACING_EM.card));
+  // A wrapped card fills its box and its lines start at its left on either side, as the render's do (`text-align` start).
+  const isWrapped = wrapped.includes(LINE_BREAK);
+  const isRight = !isCentred && side === "right" && !isWrapped;
+  const x = isCentred ? card.left + card.width / 2 : isRight ? card.left + card.width - padX : (isWrapped ? overlay.box.left : card.left) + padX;
   const isFoot = overlay.kind === "lower_third";
   const y = isFoot ? card.top + card.height - padY : card.top + padY;
   // \an: 7 top left, 8 top centre, 9 top right, 1 bottom left, 3 bottom right.
   const align = isFoot ? (isRight ? 3 : 1) : isCentred ? 8 : isRight ? 9 : 7;
   const motion = getDraftMotion(overlay, overlay.entrance === null || overlay.entrance === "type" ? "fade" : overlay.entrance, card, context);
   const span = { start: overlay.start, end: overlay.end };
-  const tags = `\\an${align}\\fs${fontSize}${getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES[overlay.kind])}`;
-  const text = (pos: OverlayPoint, steps: TextStep[], own = motion) => getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps, motion: own });
+  const tags = `\\an${align}\\fs${context.toAssSize(role, fontSize)}${context.spacing(OVERLAY_LETTER_SPACING_EM.card, fontSize)}${getTextTags(overlay, colors, context, role)}`;
+  const text = (pos: OverlayPoint, steps: TextStep[], own = motion) =>
+    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps: steps.map((step) => ({ ...step, text: step.text.replaceAll(LINE_BREAK, "\\N") })), motion: own });
   const isMarked = overlay.kind === "keyword" && overlay.backdrop === "highlight";
   const shape = isMarked
     ? getBackdropMarkEvents({ text: overlay.text, x, align: isCentred ? "center" : isRight ? "right" : "left", top: y, fontSize, colour: colors.background, motion, span, typing: overlay.typing })
     : getCardShapeEvents(overlay, card, fontSize, colors, motion, context);
-  if (overlay.entrance === "drop") return [...shape, ...text({ x, y }, [{ from: span.start, to: span.end, text: getDropText(overlay.text, getDropLetterTimes(span.start, overlay.text), span.start) }], getPlainMotion(motion))];
+  if (overlay.entrance === "drop") return [...shape, ...text({ x, y }, [{ from: span.start, to: span.end, text: getDropText(wrapped, getDropLetterTimes(span.start, overlay.text), span.start) }], getPlainMotion(motion))];
   // A keyword or a lower third types in only when its entrance says so.
-  const steps = overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(overlay.text) }] : getTypedSteps(overlay.text, span, overlay.typing, isCentred);
+  const steps = overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(wrapped) }] : getTypedSteps(wrapped, span, overlay.typing, isCentred);
   return [...shape, ...text({ x, y }, steps), ...(overlay.kind === "keyword" ? getUnderlineEvent(overlay, card, colors.accent, motion) : [])];
 }
 
@@ -566,7 +586,7 @@ function getListEvents(overlay: Extract<ResolvedOverlay, { kind: "list" }>, cont
   const textTags = getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES.list);
   const lines = getSideTextLines(overlay);
   const write = (pos: OverlayPoint, align: number, steps: TextStep[], motion: DraftMotion, clip = "") =>
-    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${fontSize}${textTags}${clip}`, steps, motion });
+    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${context.toAssSize(OVERLAY_FONT_ROLES.list, fontSize)}${context.spacing(OVERLAY_LETTER_SPACING_EM.card, fontSize)}${textTags}${clip}`, steps, motion });
   if (overlay.chips !== undefined) {
     const covered = getChipCoveredTimes(overlay);
     return overlay.chips.flatMap((_chip, index) => {
@@ -587,7 +607,7 @@ function getListEvents(overlay: Extract<ResolvedOverlay, { kind: "list" }>, cont
         return [
           ...getCardShapeEvents(overlay, place.box, fontSize, colors, motion, context, span),
           ...write({ x: parts.textX, y: place.box.top + pad.y }, 8, steps, motion),
-          ...getChipBadgeEvents({ index, span, until, parts, colors, motion }),
+          ...getChipBadgeEvents({ index, span, until, parts, colors, motion, toAssSize: (cssPx) => context.toAssSize("body", cssPx) }),
         ];
       });
     });
@@ -633,6 +653,8 @@ function getChipBadgeEvents(input: {
   parts: ReturnType<typeof getChipParts>;
   colors: OverlayColors;
   motion: DraftMotion;
+  /** The ASS size of the number's CSS size (it is drawn in the styles' own font). */
+  toAssSize: (cssPx: number) => number;
 }): string[] {
   const { span, until, parts, colors, motion } = input;
   const { centre, radius } = parts.badge;
@@ -645,7 +667,7 @@ function getChipBadgeEvents(input: {
           layer: 6,
           style: "OverlayPlain",
           pos: centre,
-          tags: `\\an5\\fs${numberSize}\\b1\\1c${toTagColor(colors.background)}`,
+          tags: `\\an5\\fs${input.toAssSize(numberSize)}\\b1\\1c${toTagColor(colors.background)}`,
           steps: [{ from: span.start, to: numberEnd, text: String(input.index + 1) }],
           motion: numberEnd === span.end ? motion : { ...motion, exit: { ...motion.exit, kind: "none" } },
         })
@@ -744,8 +766,11 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
   const { x: padX, y: padY } = getOverlayPadding(overlay);
   const centerX = box.left + box.width / 2;
   const tagsFor = (role: OverlayFontRole) => getTextTags(overlay, colors, context, role);
+  // The render spaces a title's heading lines tighter than the rest of a card's text, and a search query not at all.
+  const spacingFor = (role: OverlayFontRole): number =>
+    overlay.kind === "search_bar" ? 0 : role !== "heading" ? OVERLAY_LETTER_SPACING_EM.card : overlay.kind === "hook_title" ? OVERLAY_LETTER_SPACING_EM.hookTitle : overlay.kind === "place_card" ? OVERLAY_LETTER_SPACING_EM.placeTitle : OVERLAY_LETTER_SPACING_EM.card;
   const text = (pos: OverlayPoint, align: number, size: number, role: OverlayFontRole, steps: TextStep[], own: DraftMotion = motion) =>
-    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${r0(size)}${tagsFor(role)}`, steps, motion: own });
+    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${context.toAssSize(role, r0(size))}${context.spacing(spacingFor(role), r0(size))}${tagsFor(role)}`, steps, motion: own });
   const plain = { ...motion, name: "none" as const, entrance: { kind: "none" as const } };
   if (overlay.kind === "hook_title" || overlay.kind === "place_card") {
     // The text block sits in the card's middle; centred lines on its axis, left ones from its left edge (RV-131).
@@ -820,7 +845,7 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
     return events;
   }
   if (overlay.kind === "counter") {
-    const unit = overlay.unit === null ? "" : `{\\fs${overlay.unitFontSize}} ${toAssText(overlay.unit)}`;
+    const unit = overlay.unit === null ? "" : `{\\fs${context.toAssSize("heading", overlay.unitFontSize)}} ${toAssText(overlay.unit)}`;
     const count = getCounterSeconds(overlay);
     const steps: TextStep[] = [];
     const ticks = Math.max(1, Math.round(count.duration / COUNT_STEP));
@@ -927,8 +952,8 @@ function getNoteEvents(overlay: Extract<ResolvedOverlay, { kind: "note" }>, cont
   const font = isStrip ? `${context.fonts.heading === undefined ? "" : `\\fn${context.fonts.heading}`}\\b1` : `\\fn${HAND_FONT.family}\\b0`;
   const textMotion = getPlainMotion(motion);
   // libass sizes the hand font by its ascent and descent: its \\fs is scaled so the letters match the render's.
-  const assSize = isStrip ? overlay.fontSize : getHandFontAssSize(overlay.fontSize);
-  const tags = `\\an7\\fs${assSize}${font}\\1c${toTagColor(colors.ink)}${turn}`;
+  const assSize = isStrip ? context.toAssSize("heading", overlay.fontSize) : getHandFontAssSize(overlay.fontSize);
+  const tags = `\\an7\\fs${assSize}${isStrip ? context.spacing(OVERLAY_LETTER_SPACING_EM.strip, overlay.fontSize) : ""}${font}\\1c${toTagColor(colors.ink)}${turn}`;
   getNoteWordsByLine(overlay).forEach((words, index) => {
     const pos = { x: textBox.left, y: textBox.top + index * lineHeight };
     const line = overlay.lines[index] as string;
@@ -973,6 +998,17 @@ function getEndWordEvents(overlay: Extract<ResolvedOverlay, { kind: "end_word" }
 }
 
 /**
+ * `text` with the spaces it breaks at turned into `LINE_BREAK`, greedily as a browser breaks a line that does not fit
+ * `width` (a word wider than a line stands alone); the text as it is when it fits on one line.
+ */
+function getWrappedText(text: string, width: number, fontSize: number, measure: (line: string, size: number) => number): string {
+  const words = text.replace(/\s+/g, " ").trim().split(" ");
+  return wrapDraftLine(words, width, fontSize, measure)
+    .map((line) => line.join(" "))
+    .join(LINE_BREAK);
+}
+
+/**
  * The overlays as ASS events, layers 3 and 4. `fonts` names the heading and interface families where they are not the
  * styles' own (the captions' font); `locale` groups a counter's number as the render does.
  */
@@ -980,9 +1016,19 @@ export function buildDraftOverlayEvents(
   overlays: readonly ResolvedOverlay[],
   colors: OverlayColors,
   frame: { width: number; height: number },
-  options: { fonts?: Partial<Record<OverlayFontRole, string>>; locale?: string; style?: BrandStyle } = {},
+  options: { fonts?: Partial<Record<OverlayFontRole, string>>; locale?: string; style?: BrandStyle; drawnFonts?: Record<DraftFontRole, DraftFont> } = {},
 ): string[] {
-  const context: DraftContext = { brand: colors, scale: frame.width / 1080, locale: options.locale ?? "en-US", fonts: options.fonts ?? {}, ...(options.style === undefined ? {} : { style: options.style }) };
+  const drawn = options.drawnFonts;
+  const context: DraftContext = {
+    brand: colors,
+    scale: frame.width / 1080,
+    locale: options.locale ?? "en-US",
+    fonts: options.fonts ?? {},
+    toAssSize: (role, cssPx) => (drawn === undefined ? cssPx : toDraftAssSize(cssPx, drawn[role].assScale)),
+    measure: (role, text, cssPx, spacingEm) => (drawn === undefined ? estimateTextWidth(text, cssPx) : drawn[role].measure(text, cssPx) + getSpacingWidth(text, spacingEm, cssPx)),
+    spacing: (spacingEm, cssPx) => (drawn === undefined || spacingEm === 0 ? "" : `\\fsp${String(toDraftSpacing(spacingEm, cssPx))}`),
+    ...(options.style === undefined ? {} : { style: options.style }),
+  };
   return overlays.flatMap((overlay) => {
     if (overlay.kind === "punch_in") return [];
     if (overlay.kind === "arrow" || overlay.kind === "highlight") return getMarkEvents(overlay, context);

@@ -157,11 +157,22 @@ export {
   type StylePadding,
   type StyleShadow,
 } from "./footage/brand-style.js";
-export { createDraftTextMeasure, wrapDraftLine, type DraftTextMeasure } from "./footage/draft-text-width.js";
+export {
+  createDraftFont,
+  createDraftTextMeasure,
+  getSpacingWidth,
+  toDraftAssSize,
+  toDraftSpacing,
+  withLetterSpacing,
+  wrapDraftLine,
+  type DraftFont,
+  type DraftTextMeasure,
+} from "./footage/draft-text-width.js";
 export { HAND_FONT } from "./footage/hand-font.js";
 export {
   OVERLAY_FONT_ROLES,
   OVERLAY_FONT_SIZES,
+  OVERLAY_LETTER_SPACING_EM,
   OVERLAY_SUBTITLE_SCALES,
   MIN_OVERLAY_SUBTITLE_PX,
   OVERLAY_TITLE_SHRINK,
@@ -278,7 +289,10 @@ export { describeVoiceoverBatch, produceVoiceovers, type VoiceoverBatchItem, typ
 export { getPlaceholderKey, isPlaceholderKey, makePlaceholderWords, writePlaceholderVoiceover, type PlaceholderPace, type WritePlaceholderOptions } from "./voice/placeholder.js";
 export {
   BROWSER_BAR_HEIGHT,
+  CAPTION_LETTER_SPACING_EM,
   CAPTION_LINE_HEIGHT,
+  CAPTION_RIBBON_LETTER_SPACING_EM,
+  toCssEm,
   CAPTION_PILL_PADDING,
   DEVICE_KINDS,
   LAYOUTS,
@@ -687,6 +701,8 @@ export {
   FOOTAGE_DRAFT_OVERLAY_COLORS,
   FOOTAGE_DRAFT_FONT,
   FOOTAGE_DRAFT_WIDTH,
+  loadFootageDraftFonts,
+  type FootageDraftFonts,
   buildFootageDraftArgs,
   buildFootageDraftCaptions,
   buildFootageDraftJoinArgs,

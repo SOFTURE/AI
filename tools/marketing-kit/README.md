@@ -1352,6 +1352,14 @@ What the draft matches and what it leaves out:
   as WOFF or WOFF2, or no `brand`, draws in DejaVu Sans Bold subset to Latin with every Polish letter, shipped in
   [`fonts/`](fonts/README.md) (`FOOTAGE_DRAFT_FONT`), and the log says so. Without `brand` a highlight film uses
   `FOOTAGE_DRAFT_CAPTION_COLORS`. `captionMaxLines` is not applied: the draft wraps at the caption box.
+- **Text at the render's size** (`loadFootageDraftFonts`): every font is drawn as large as the render draws it.
+  libass sizes a font by `usWinAscent + usWinDescent`, a browser by its em, so each size the draft writes (`Fontsize`,
+  `\fs`) is the render's CSS px times the font's own `(usWinAscent + usWinDescent) / unitsPerEm` (`DraftFont.assScale`;
+  0.73x too small for Open Sans before 0.42.0). Letters are spaced as the render spaces them (`\fsp`, the style's
+  `Spacing`), and lines are broken by the font's own widths in CSS px: a caption pill's, and a keyword's or lower
+  third's that is wider than its box (the render's card wraps it). An app that draws its own scenes with
+  `buildFootageDraftCaptions` (a preset preview) passes the same `fonts` set; without it, the sizes go to libass
+  unconverted, as before.
 - **Music without spending** (`cacheDir`, `providers`, as `renderFootage` takes them): a `file` source plays as is;
   a `prompt` or `video` source plays only when its paid cache entry exists (`findFootageMusic`, the render's lookup).
   It is ducked under the speech, looped and faded to the cut's length exactly as in the render. No provider is ever
