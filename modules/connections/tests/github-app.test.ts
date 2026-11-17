@@ -218,3 +218,81 @@ describe("the user side", () => {
     expect(() => app.install("https://github.com/apps/other/installations/new", { account: { login: "x" }, userIds: [], repositories: [] })).toThrow(/install URL/);
   });
 });
+
+describe("the fake App's repository contents", () => {
+  async function readAs(app: ReturnType<typeof createFakeGithubApp>, installationId: number, path: string, accept = "application/vnd.github+json") {
+    const token = await createGithubInstallationToken(app.credentials, installationId, { fetch: app.fetch });
+    if (!token.ok) throw new Error(token.error);
+    return app.fetch(`https://api.github.com${path}`, { method: "GET", headers: { authorization: `Bearer ${token.value.token}`, accept } });
+  }
+
+  it("lists the head's tree with folders and files, and answers a file's bytes raw or base64", async () => {
+    const app = createFakeGithubApp();
+    const installationId = app.createInstallation({
+      account: { login: "octocat" },
+      userIds: [501],
+      repositories: [{ fullName: "octocat/notes", files: { "Projects/Plan.md": "# Plan\n", "Projects/Old/Idea.md": "idea", "Inbox.md": "x" } }],
+    });
+
+    const head = (await (await readAs(app, installationId, "/repos/octocat/notes/commits/main")).json()) as { sha: string; commit: { tree: { sha: string } } };
+    const tree = (await (await readAs(app, installationId, `/repos/octocat/notes/git/trees/${head.commit.tree.sha}?recursive=1`)).json()) as {
+      truncated: boolean;
+      tree: { path: string; type: string; sha: string; size?: number }[];
+    };
+    expect(tree.truncated).toBe(false);
+    expect(tree.tree.map((entry) => [entry.path, entry.type, entry.size ?? null])).toEqual([
+      ["Inbox.md", "blob", 1],
+      ["Projects", "tree", null],
+      ["Projects/Old", "tree", null],
+      ["Projects/Old/Idea.md", "blob", 4],
+      ["Projects/Plan.md", "blob", 7],
+    ]);
+    const plan = tree.tree.find((entry) => entry.path === "Projects/Plan.md");
+    // git's own blob id: sha1 of "blob 7\0# Plan\n"
+    expect(plan?.sha).toBe(createHash("sha1").update("blob 7\0# Plan\n").digest("hex"));
+
+    const raw = await readAs(app, installationId, `/repos/octocat/notes/git/blobs/${plan?.sha ?? ""}`, "application/vnd.github.raw");
+    expect(await raw.text()).toBe("# Plan\n");
+    const encoded = (await (await readAs(app, installationId, `/repos/octocat/notes/git/blobs/${plan?.sha ?? ""}`)).json()) as { content: string; encoding: string };
+    expect([encoded.encoding, Buffer.from(encoded.content, "base64").toString("utf8")]).toEqual(["base64", "# Plan\n"]);
+    const top = (await (await readAs(app, installationId, `/repos/octocat/notes/git/trees/${head.commit.tree.sha}`)).json()) as { tree: { path: string }[] };
+    expect(top.tree.map((entry) => entry.path)).toEqual(["Inbox.md", "Projects"]);
+    expect(app.calls.contents).toBe(5);
+  });
+
+  it("compares a pushed commit with an earlier one, pairing a moved file as a rename, and a rewritten history as diverged", async () => {
+    const app = createFakeGithubApp();
+    const installationId = app.createInstallation({ account: { login: "octocat" }, userIds: [501], repositories: [{ fullName: "octocat/notes", files: { "a.md": "A", "b.md": "B", "c.md": "C" } }] });
+    const first = ((await (await readAs(app, installationId, "/repos/octocat/notes/commits/main")).json()) as { sha: string }).sha;
+    const second = app.commitFiles("octocat/notes", { "a.md": "A2", "moved/b.md": "B", "d.md": "D" });
+
+    const compared = (await (await readAs(app, installationId, `/repos/octocat/notes/compare/${first}...${second}`)).json()) as { status: string; files: { filename: string; status: string; previous_filename?: string }[] };
+    expect(compared.status).toBe("ahead");
+    expect(compared.files.map((file) => [file.filename, file.status, file.previous_filename ?? null])).toEqual([
+      ["a.md", "modified", null],
+      ["c.md", "removed", null],
+      ["d.md", "added", null],
+      ["moved/b.md", "renamed", "b.md"],
+    ]);
+
+    const rewritten = app.rewriteHistory("octocat/notes", { "a.md": "A3" });
+    const diverged = (await (await readAs(app, installationId, `/repos/octocat/notes/compare/${second}...${rewritten}`)).json()) as { status: string };
+    expect(diverged.status).toBe("diverged");
+    expect((await readAs(app, installationId, `/repos/octocat/notes/compare/${"f".repeat(40)}...${rewritten}`)).status).toBe(404);
+  });
+
+  it("answers contents only to a live token of an installation that reaches the repository", async () => {
+    const app = createFakeGithubApp();
+    const reaching = app.createInstallation({ account: { login: "octocat" }, userIds: [501], repositories: [{ fullName: "octocat/notes", files: { "a.md": "A" } }] });
+    const other = app.createInstallation({ account: { login: "mallory" }, userIds: [666], repositories: [{ fullName: "mallory/stuff" }] });
+
+    expect((await readAs(app, other, "/repos/octocat/notes/commits/main")).status).toBe(404);
+    const anonymous = await app.fetch("https://api.github.com/repos/octocat/notes/commits/main", { method: "GET" });
+    expect(anonymous.status).toBe(401);
+    const token = await createGithubInstallationToken(app.credentials, reaching, { fetch: app.fetch });
+    if (!token.ok) throw new Error(token.error);
+    app.uninstall(reaching);
+    const afterUninstall = await app.fetch("https://api.github.com/repos/octocat/notes/commits/main", { method: "GET", headers: { authorization: `Bearer ${token.value.token}` } });
+    expect(afterUninstall.status).toBe(401);
+  });
+});

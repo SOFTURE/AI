@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.6.0
+
+- **`createFakeGithubApp` serves repository contents** through the git data API, for an app that reads a user's
+  repository with an installation token: a repository input takes `files` (the default branch's head), and
+  `commitFiles` and `rewriteHistory` push a new head. It answers `GET /repos/{owner}/{repo}/commits/{branch or sha}`,
+  `/git/trees/{sha}` (with `?recursive=1`, folders as `tree` entries, git's own blob ids), `/git/blobs/{sha}` (raw with
+  `application/vnd.github.raw`, base64 JSON otherwise) and `/compare/{base}...{head}` (`ahead`, `identical` or
+  `diverged`; a moved file is a rename), only to a live token of an installation that reaches the repository.
+  `calls.contents` counts them.
+  - Migrate: nothing.
+
 ## 0.5.0
 
 - **`@softure-ai/connections/github-app`**: the calls an app needs when its own users connect a GitHub App
