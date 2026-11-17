@@ -1,6 +1,6 @@
 {
   "id": "backup",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "dependsOn": {},
   "dbSchema": "backup",
   "tables": ["runs"],
@@ -8,5 +8,6 @@
   "switches": [],
   "routes": {},
   "mount": [],
-  "privacy": { "exports": false, "deletes": false }
+  "privacy": { "exports": false, "deletes": false },
+  "runtimes": ["node", "workers"]
 }

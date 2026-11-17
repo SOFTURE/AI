@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.7.3
+
+- `init --host=cloudflare` for an app with a database writes an `alias` into `wrangler.jsonc` that points
+  `@electric-sql/pglite` and `drizzle-orm/pglite` at `@softure-ai/db`'s refusing stand-in, the one `withDatabaseBuild`
+  already gives the Next bundle. Without it, `wrangler deploy` bundled the PGlite branch of `@softure-ai/db/request`
+  (imported by `worker.ts`) and failed in an app that does not install PGlite.
+
 ## 0.7.2
 
 - **Edge proof for `init --edge` (#1329):** an app on a shared edge network could be reached around its router by any
