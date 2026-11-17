@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 `quality-review.yml` workflow. When an app has run a version in production, the version gets a line
 `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md), "Definition of done").
 
+## Unreleased
+
+- Report branches that coexist (#1324): the default branch is `quality-review-<focus>` (`quality-review-general`,
+  `quality-review-security`), plus `--<scope-slug>` for a scope. The 0.2.0 names nested (`quality-review`,
+  `quality-review/security`, `quality-review/security/<slug>`), and git cannot hold a branch next to one below it, so
+  a run failed to push once a branch above or below its own existed. The new names hold no `/` and nest under none
+  of the old ones. CLI `resolve` prints the name as `report-branch=`; the workflow falls back to the 0.2.0 names with
+  an older `cli-version`.
+- Adoption: a general whole-repository run now delivers on `quality-review-general` instead of `quality-review`. The
+  branches and pull requests 0.2.0 opened (`quality-review`, `quality-review/...`) are no longer updated: close them
+  and delete the branches once their report is read. An explicit `branch` input works as before.
+
 ## 0.2.0
 
 - `focus` (#1289): `general` (default, unchanged) or `security`, a second shipped prompt

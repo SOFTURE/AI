@@ -1,5 +1,5 @@
 # A review of several workspace packages, one job per package, each with the whole budget and its own report
-# (<package folder>/QUALITY-REPORT.md) and pull request (branch quality-review/<scope-slug>). Started by hand.
+# (<package folder>/QUALITY-REPORT.md) and pull request (branch quality-review-general--<scope-slug>). Started by hand.
 # Copy to .github/workflows/quality-review-packages.yml and edit the package list. Same secret and setting as
 # examples/quality-review.yml.
 name: quality-review-packages

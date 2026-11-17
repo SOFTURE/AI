@@ -26,7 +26,7 @@ export const USAGE = `Usage:
 
 run      reviews the repository (or one scope of it) with the read-only agent (needs ANTHROPIC_API_KEY and
          @anthropic-ai/claude-agent-sdk installed next to this package) and replaces the report.
-resolve  checks the focus and the scope without a model call and prints the report path and the branch suffix
+resolve  checks the focus and the scope without a model call and prints the report path, the branch suffix and the report branch
          as key=value lines (for GITHUB_OUTPUT).
 check    validates a report against the documented format and lists what is wrong.`;
 
@@ -131,6 +131,15 @@ export function getBranchSuffix(focus: Focus, scope: Scope | null): string {
   return [focus === "general" ? "" : focus, scope === null ? "" : getScopeSlug(scope)].filter((part) => part !== "").join("/");
 }
 
+/**
+ * The default report branch of a run: `quality-review-<focus>`, plus `--<scope-slug>` for a scope. No name holds a
+ * `/` or equals `quality-review`, so none is a prefix of another or of a 0.2.0 name (`quality-review`,
+ * `quality-review/...`), and git can hold every one of them at once (issue #1324). A slug never holds `--`.
+ */
+export function getReportBranch(focus: Focus, scope: Scope | null): string {
+  return `quality-review-${focus}${scope === null ? "" : `--${getScopeSlug(scope)}`}`;
+}
+
 function runResolve(args: string[], context: CommandContext): number {
   const { values } = parseArgs({
     args,
@@ -160,6 +169,7 @@ function runResolve(args: string[], context: CommandContext): number {
     [
       `report-path=${toOptional(values.out) ?? getDefaultReportPath(scope)}`,
       `branch-suffix=${getBranchSuffix(focus.focus, scope)}`,
+      `report-branch=${getReportBranch(focus.focus, scope)}`,
       `scope-folder=${scope?.folder ?? ""}`,
       `focus=${focus.focus}`,
     ].join("\n") + "\n",
