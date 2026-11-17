@@ -124,6 +124,10 @@ describe("theme.css in an app's Tailwind", () => {
     }
   });
 
+  it("registers the side panel's width variable as non-inherited, so a resize restyles only the panel", () => {
+    expect(compiled).toMatch(/@property --side-panel-width \{\s*syntax: "<length>";\s*inherits: false;\s*initial-value: 0px;\s*\}/);
+  });
+
   it("generates the open and close animations from tw-animate-css", () => {
     expect(compiled).toContain(".animate-in");
   });

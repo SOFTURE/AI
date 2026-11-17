@@ -5,7 +5,17 @@
  *
  * Import it after `theme.css` and the kit's `base.css`, through the app's Tailwind (it reads the type scale with
  * `--theme()`).
+ *
+ * It also registers the size variables a component sets on a large subtree as non-inherited: an inherited custom
+ * property makes the browser restyle every descendant on each change, so a drag that resizes a `SidePanel` full of rows
+ * would restyle all of them on every move (#1326). The panel reads the variable on the element that sets it.
  */
+@property --side-panel-width {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

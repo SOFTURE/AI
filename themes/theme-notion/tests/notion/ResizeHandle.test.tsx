@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { clampSize, RESIZE_HANDLE_STEP, ResizeHandle } from "../../src/index.js";
+import { clampSize, RESIZE_HANDLE_STEP, ResizeHandle, SIDE_PANEL_WIDTH_VARIABLE } from "../../src/index.js";
 
 afterEach(cleanup);
 
@@ -136,5 +136,119 @@ describe("ResizeHandle", () => {
 
     expect(onCommit.mock.calls).toEqual([[DEFAULT]]);
     expect(handle().getAttribute("aria-valuenow")).toBe(String(DEFAULT));
+  });
+
+  describe("with liveVariable", () => {
+    function LiveHarness({ onChange, onCommit, isStored = true, hasColumn = true }: { onChange: (value: number) => void; onCommit?: (value: number) => void; isStored?: boolean; hasColumn?: boolean }) {
+      const [width, setWidth] = useState(DEFAULT);
+      return (
+        <div>
+          {hasColumn ? <div id="list" style={{ [SIDE_PANEL_WIDTH_VARIABLE]: `${width}px` } as CSSProperties} /> : null}
+          <ResizeHandle
+            label="Resize the list"
+            controls="list"
+            value={width}
+            min={MIN}
+            max={MAX}
+            defaultValue={DEFAULT}
+            liveVariable={SIDE_PANEL_WIDTH_VARIABLE}
+            onChange={(value) => {
+              onChange(value);
+              if (isStored) setWidth(value);
+            }}
+            onCommit={onCommit}
+          />
+        </div>
+      );
+    }
+
+    function columnWidth(): string {
+      return document.getElementById("list")?.style.getPropertyValue(SIDE_PANEL_WIDTH_VARIABLE) ?? "";
+    }
+
+    it("writes the width to the column and to aria-valuenow while dragging, and reports it once on release", () => {
+      const onChange = vi.fn();
+      const onCommit = vi.fn();
+      render(<LiveHarness onChange={onChange} onCommit={onCommit} />);
+
+      fireEvent.pointerDown(handle(), { pointerId: 1, button: 0, clientX: 400 });
+      fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 450 });
+      expect(columnWidth()).toBe("290px");
+      expect(handle().getAttribute("aria-valuenow")).toBe("290");
+      fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 2000 });
+      expect(columnWidth()).toBe(`${MAX}px`);
+      fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 480 });
+      expect(onChange).not.toHaveBeenCalled();
+      expect(onCommit).not.toHaveBeenCalled();
+      fireEvent.pointerUp(handle(), { pointerId: 1 });
+
+      expect(onChange.mock.calls).toEqual([[320]]);
+      expect(onCommit.mock.calls).toEqual([[320]]);
+      expect(columnWidth()).toBe("320px");
+      expect(handle().getAttribute("aria-valuenow")).toBe("320");
+    });
+
+    it("hands the column back to the parent's render before onChange", () => {
+      const seen: string[] = [];
+      render(<LiveHarness onChange={() => seen.push(columnWidth())} />);
+
+      fireEvent.pointerDown(handle(), { pointerId: 1, button: 0, clientX: 400 });
+      fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 450 });
+      fireEvent.pointerUp(handle(), { pointerId: 1 });
+
+      expect(seen).toEqual([`${DEFAULT}px`]);
+    });
+
+    it("leaves the column and aria-valuenow at the parent's width when the parent does not store the new one", () => {
+      const onChange = vi.fn();
+      render(<LiveHarness onChange={onChange} isStored={false} />);
+
+      fireEvent.pointerDown(handle(), { pointerId: 1, button: 0, clientX: 400 });
+      fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 450 });
+      fireEvent.pointerCancel(handle(), { pointerId: 1 });
+
+      expect(onChange.mock.calls).toEqual([[290]]);
+      expect(columnWidth()).toBe(`${DEFAULT}px`);
+      expect(handle().getAttribute("aria-valuenow")).toBe(String(DEFAULT));
+    });
+
+    it("reports nothing for a drag that ends where it started", () => {
+      const onChange = vi.fn();
+      const onCommit = vi.fn();
+      render(<LiveHarness onChange={onChange} onCommit={onCommit} />);
+
+      fireEvent.pointerDown(handle(), { pointerId: 1, button: 0, clientX: 400 });
+      fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 450 });
+      fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 400 });
+      fireEvent.pointerUp(handle(), { pointerId: 1 });
+
+      expect(onChange).not.toHaveBeenCalled();
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(columnWidth()).toBe(`${DEFAULT}px`);
+    });
+
+    it("still reports every key step and a double click at once", () => {
+      const onChange = vi.fn();
+      render(<LiveHarness onChange={onChange} />);
+
+      fireEvent.keyDown(handle(), { key: "ArrowRight" });
+      fireEvent.doubleClick(handle());
+
+      expect(onChange.mock.calls).toEqual([[DEFAULT + RESIZE_HANDLE_STEP], [DEFAULT]]);
+    });
+
+    it("falls back to onChange on every move when the column is missing", () => {
+      const onChange = vi.fn();
+      const onCommit = vi.fn();
+      render(<LiveHarness onChange={onChange} onCommit={onCommit} hasColumn={false} />);
+
+      fireEvent.pointerDown(handle(), { pointerId: 1, button: 0, clientX: 400 });
+      fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 450 });
+      fireEvent.pointerMove(handle(), { pointerId: 1, clientX: 480 });
+      fireEvent.pointerUp(handle(), { pointerId: 1 });
+
+      expect(onChange.mock.calls).toEqual([[290], [320]]);
+      expect(onCommit.mock.calls).toEqual([[320]]);
+    });
   });
 });
