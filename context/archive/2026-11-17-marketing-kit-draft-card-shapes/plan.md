@@ -39,7 +39,7 @@ Typecheck, lint, the kit suite green; the regression test fails on 0.42.0 and pa
   `draft-matches-render/draft-overlay-shapes-match-render/01..07-*-{before,after}-1080-light.webp`.
   Gates: `npx tsc --noEmit` clean, ESLint clean, `npm run lint:language` clean, `npx vitest run tools/marketing-kit`
   1783 passed.
-- [ ] 4 Wiring and release: exports, README, CHANGELOG, 0.43.0 (the other open kit change takes 0.44.0).
+- [x] 4 Wiring and release: exports, README, CHANGELOG, 0.43.0 (the other open kit change takes 0.44.0); published by `auto-release.yml` after the merge.
 
 ## Decisions (auto)
 - The render is the reference; the CSS is not changed.

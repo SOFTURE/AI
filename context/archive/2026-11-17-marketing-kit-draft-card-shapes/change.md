@@ -1,12 +1,13 @@
 ---
 change_id: marketing-kit-draft-card-shapes
 title: "marketing-kit: the footage draft draws every overlay card in the render's size and shape"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/marketing-kit-draft-card-shapes
 created: 2026-11-17
 updated: 2026-11-17
+archived_at: 2026-11-17
 ---
 
 ## Intent
