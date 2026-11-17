@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-live-resize-1326
 title: "theme-notion: smooth ResizeHandle drags over a large SidePanel (issue #1326)"
-status: open
+status: archived
+archived_at: 2026-11-17
 roadmap_item: null
 issue: 1326
 branch: claude/project-thread-g7qqhw

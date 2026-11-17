@@ -30,5 +30,5 @@ writes the variable on the controlled element during a drag and reports to React
 
 ## Progress
 
-- [ ] Phase 1: registration and live drag
-- [ ] Phase 2: version
+- [x] Phase 1: registration and live drag (ae6b1c7)
+- [x] Phase 2: version (e6015db)
