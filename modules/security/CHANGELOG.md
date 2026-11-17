@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
-## Unreleased
+## 0.2.10
 
 - **`edgeProofIp({ resolver, secret, header? })` (#1329):** a resolver wrapper for an app on a network it shares with
   other containers (`softure-deploy init --edge`), where any of them could reach the app directly and choose its own
