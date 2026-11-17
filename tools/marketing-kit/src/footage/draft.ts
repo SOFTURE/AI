@@ -25,7 +25,7 @@ import { resolveEdlOverlays, type OverlayFontRole, type OverlayTextMeasure, type
 import { chooseFootageDraftFont } from "./draft-font.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
 import { declickSpeech, describeDeclick, type DeclickReport } from "./declick.js";
-import { CAPTION_RIBBON, getDeclickLevel, getFootageEdit, type FootageFilm } from "./film.js";
+import { CAPTION_MIN_FONT_SCALE, CAPTION_RIBBON, getDeclickLevel, getFootageEdit, type FootageFilm } from "./film.js";
 import { buildFilmMixArgs } from "./film-mix.js";
 import { DEFAULT_LOUDNESS, formatDb, getLoudnessVerdict, measureLoudness, normalizeLoudness, type MixLoudnessTarget } from "./loudness.js";
 import { duckingKeyframes, getDuckingOptions } from "./music.js";
@@ -167,7 +167,7 @@ function toAssText(text: string): string {
 export type FootageDraftCaptionColors = Pick<BrandColors, "captionBackground" | "captionText" | "captionHighlight" | "captionHighlightBox" | "captionHighlightText">;
 
 export interface FootageDraftCaptionsInput {
-  film: Pick<FootageFilm, "captions" | "captionStyle" | "captionHighlightStyle" | "captionRibbonTilt"> & CaptionWordsFilm;
+  film: Pick<FootageFilm, "captions" | "captionStyle" | "captionHighlightStyle" | "captionRibbonTilt" | "captionMaxLines"> & CaptionWordsFilm;
   edl: Edl;
   /** The film's words in film time (`remapWords`). */
   words: TimedWord[];
@@ -339,6 +339,19 @@ function getDrawnPill(input: DrawnPillInput): DrawnPill {
   return { breaks, events: getDraftBoxEvents({ layer: 0, at, styleName: "CaptionShape", box, radius, color: input.colors.background, accent: input.colors.accent, style, scale }), words };
 }
 
+/**
+ * A caption chunk's place at the size the render's fit script gives it (`getCaptionFitScript`): with `maxLines`, the
+ * font shrinks in 1 px steps while its words (each kept whole, as the render's inline blocks are) take more lines of
+ * `width` than that, down to `minFontSize`; without, the place as it is.
+ */
+export function fitDraftCaptionPlace(input: { words: readonly string[]; place: CaptionLayout; width: number; maxLines: number | undefined; minFontSize: number; measure: DraftTextMeasure }): CaptionLayout {
+  const { maxLines } = input;
+  if (maxLines === undefined || input.words.length === 0) return input.place;
+  let size = input.place.fontSize;
+  while (wrapDraftLine(input.words, input.width, size, input.measure).length > maxLines && size > input.minFontSize) size -= 1;
+  return size === input.place.fontSize ? input.place : { ...input.place, fontSize: size };
+}
+
 interface RibbonInput {
   text: string;
   span: { start: number; end: number };
@@ -456,7 +469,7 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
   const toStyle = (name: string, place: CaptionLayout): string => [
     name,
     family,
-    styleSize,
+    place.fontSize === caption.fontSize ? styleSize : toDraftAssSize(place.fontSize, lineScale),
     look.primary,
     look.primary,
     look.outlineColor,
@@ -467,7 +480,7 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     0,
     100,
     100,
-    spacing,
+    place.fontSize === caption.fontSize || fonts === undefined ? spacing : toDraftSpacing(isRibbon ? CAPTION_RIBBON_LETTER_SPACING_EM : CAPTION_LETTER_SPACING_EM, place.fontSize),
     0,
     look.borderStyle,
     look.outline,
@@ -482,10 +495,19 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
   // A chunk in a segment's own box gets a style of that box (Caption2, Caption3, ...); the film's box stays `Caption`.
   const styles = [toStyle("Caption", caption)];
   const moved: CaptionLayout[] = [];
-  const places = getCaptionChunkLayouts(chunks, input.edl, caption);
+  // Each chunk at the size the render's fit gives it (`captionMaxLines`): a smaller one takes a style of its own.
+  const fitWidth = (place: CaptionLayout) => frame.width - place.left - place.right - (isHighlight && input.style !== undefined ? 2 * getStylePadding(CAPTION_PILL_PADDING, input.style.padding).x : 0);
+  const fitMeasure = fonts === undefined ? (input.measure ?? ((line: string, size: number) => estimateTextWidth(line, size))) : withLetterSpacing(fonts.body.measure, CAPTION_LETTER_SPACING_EM);
+  const minFontSize = Math.round(caption.fontSize * CAPTION_MIN_FONT_SCALE);
+  const places = getCaptionChunkLayouts(chunks, input.edl, caption).map((place, index) =>
+    isRibbon
+      ? place
+      : fitDraftCaptionPlace({ words: (chunks[index]?.words ?? []).map((word) => word.text.replace(/\u00a0/g, " ")), place, width: fitWidth(place), maxLines: input.film.captionMaxLines, minFontSize, measure: fitMeasure }),
+  );
+  const isSameStyle = (a: CaptionLayout, b: CaptionLayout) => isSameCaptionPlace(a, b) && a.fontSize === b.fontSize;
   const styleNames = places.map((place) => {
-    if (isSameCaptionPlace(place, caption)) return "Caption";
-    let index = moved.findIndex((other) => isSameCaptionPlace(other, place));
+    if (isSameStyle(place, caption)) return "Caption";
+    let index = moved.findIndex((other) => isSameStyle(other, place));
     if (index === -1) {
       index = moved.push(place) - 1;
       styles.push(toStyle(`Caption${index + 2}`, place));

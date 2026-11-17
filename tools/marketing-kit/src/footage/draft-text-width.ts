@@ -13,6 +13,10 @@ export type DraftTextMeasure = (text: string, fontSize: number) => number;
 interface Metrics {
   /** The font's units per libass font size: `usWinAscent + usWinDescent`. */
   unitsPerSize: number;
+  /** How far below a line's top libass sets its baseline, in font units: `usWinAscent` (else the `hhea` ascender). */
+  drawnAscent: number;
+  /** How far above a line's foot libass sets its baseline, in font units: `usWinDescent` (else the `hhea` descender). */
+  drawnDescent: number;
   /** The font's units per em (`head`), what a browser sizes it by; 0 when the font has no `head`. */
   unitsPerEm: number;
   advances: (glyph: number) => number;
@@ -39,12 +43,15 @@ function readMetrics(font: Buffer): Metrics | null {
   const os2 = tables.value.get("OS/2");
   const winSum = os2 === undefined ? 0 : readUint16(os2, 74) + readUint16(os2, 76);
   const unitsPerSize = winSum > 0 ? winSum : readInt16(hhea, 4) - readInt16(hhea, 6);
+  const isWin = winSum > 0 && os2 !== undefined;
+  const drawnAscent = isWin ? readUint16(os2, 74) : readInt16(hhea, 4);
+  const drawnDescent = isWin ? readUint16(os2, 76) : -readInt16(hhea, 6);
   const count = readUint16(hhea, 34);
   if (unitsPerSize <= 0 || count === 0 || hmtx.length < count * 4) return null;
   const head = tables.value.get("head");
   const unitsPerEm = head === undefined ? 0 : readUint16(head, 18);
   // Glyphs past `numberOfHMetrics` share the last advance (OpenType `hmtx`).
-  return { unitsPerSize, unitsPerEm, advances: (glyph) => readUint16(hmtx, Math.min(glyph, count - 1) * 4), ...readContentArea(hhea, os2) };
+  return { unitsPerSize, drawnAscent, drawnDescent, unitsPerEm, advances: (glyph) => readUint16(hmtx, Math.min(glyph, count - 1) * 4), ...readContentArea(hhea, os2) };
 }
 
 /**
@@ -86,6 +93,14 @@ export interface DraftFont {
    * elsewhere, which then takes `DEFAULT_CONTENT_AREA`.
    */
   contentArea?: { ascentEm: number; descentEm: number };
+  /**
+   * How far below a line's top libass sets the baseline, in ems: `usWinAscent / unitsPerEm`. A browser sets it at the
+   * half-leading plus the content area's ascent, so a line placed by its top is moved by the difference
+   * (`getDraftLineShift`); absent for a font made elsewhere, which is not moved.
+   */
+  drawnAscentEm?: number;
+  /** How far above a line's foot libass sets the baseline, in ems: `usWinDescent / unitsPerEm`; absent with `drawnAscentEm`. */
+  drawnDescentEm?: number;
 }
 
 /** The content area a font without its own is given, in ems: a common sans serif's. */
@@ -94,6 +109,31 @@ export const DEFAULT_CONTENT_AREA = { ascentEm: 0.93, descentEm: 0.24 } as const
 /** The ASS size (`Fontsize`, `\fs`) that draws a font of `assScale` as large as the render's `cssPx`, to 0.01. */
 export function toDraftAssSize(cssPx: number, assScale: number): number {
   return Math.round(cssPx * assScale * 100) / 100;
+}
+
+/**
+ * How far to move a line of `font` drawn by its top (`\\an7`, `\\an8`, `\\an9`) so its baseline stands where the
+ * render's does in a line box of `lineHeightEm` at `cssPx`, in px (negative: up). libass sets the baseline
+ * `drawnAscentEm` below the top; a browser half the leading plus the content area's ascent. 0 for a font without its
+ * metrics (as before).
+ */
+export function getDraftLineShift(font: Pick<DraftFont, "contentArea" | "drawnAscentEm">, cssPx: number, lineHeightEm: number): number {
+  if (font.drawnAscentEm === undefined || font.contentArea === undefined) return 0;
+  const { ascentEm, descentEm } = font.contentArea;
+  const browserBaseline = (lineHeightEm - ascentEm - descentEm) / 2 + ascentEm;
+  return Math.round((browserBaseline - font.drawnAscentEm) * cssPx * 100) / 100;
+}
+
+/**
+ * How far to move a line of `font` drawn by its middle (`\\an4`, `\\an5`, `\\an6`) so its baseline stands where a
+ * browser's does in a line box centred on the same point, in px (negative: up): a browser's baseline stands half the
+ * content area's ascent less its descent below the middle, libass's half the win ascent less the win descent. 0 for a
+ * font without its metrics (as before).
+ */
+export function getDraftMiddleShift(font: Pick<DraftFont, "contentArea" | "drawnAscentEm" | "drawnDescentEm">, cssPx: number): number {
+  if (font.drawnAscentEm === undefined || font.drawnDescentEm === undefined || font.contentArea === undefined) return 0;
+  const { ascentEm, descentEm } = font.contentArea;
+  return Math.round(((ascentEm - descentEm - (font.drawnAscentEm - font.drawnDescentEm)) / 2) * cssPx * 100) / 100;
 }
 
 /** The ASS letter spacing (`\\fsp`, `Spacing`, in the frame's px) of the render's `letter-spacing` of `spacingEm` at `cssPx`, to 0.01. */
@@ -128,6 +168,8 @@ export function createDraftFont(source: { family: string; file: string }, data: 
       file: source.file,
       assScale: metrics.unitsPerSize / unitsPerEm,
       contentArea: { ascentEm: metrics.ascent / unitsPerEm, descentEm: metrics.descent / unitsPerEm },
+      drawnAscentEm: metrics.drawnAscent / unitsPerEm,
+      drawnDescentEm: metrics.drawnDescent / unitsPerEm,
       measure: (text, fontSize) => {
         let units = 0;
         for (const character of text) units += metrics.advances(map.getGlyph(character.codePointAt(0) ?? 0));

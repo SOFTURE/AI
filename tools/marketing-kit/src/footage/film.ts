@@ -148,7 +148,8 @@ export interface FootageFilm {
   captionPreset?: CaptionPreset;
   /**
    * The most lines a caption card may take: the render shrinks a longer card's font (to at most
-   * `CAPTION_MIN_FONT_SCALE` of the box's size) until it fits. Absent: no limit. The draft keeps its font size.
+   * `CAPTION_MIN_FONT_SCALE` of the box's size) until it fits. Absent: no limit. The draft fits each chunk the same
+   * way (`fitDraftCaptionPlace`).
    */
   captionMaxLines?: number;
   /**
