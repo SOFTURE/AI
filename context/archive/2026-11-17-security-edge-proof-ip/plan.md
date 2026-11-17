@@ -17,9 +17,12 @@
 
 ## Progress
 
-- [ ] 1 security resolver.
-- [ ] 2 init --edge.
-- [ ] 3 guard rule.
+- [x] 1 security resolver (fe9f2e4): `npx vitest run modules/security` green (15 new tests in `edge-proof.test.ts`).
+- [x] 2 init --edge (a168fbe): generate and init CLI tests green; the generated compose file passes the guard with
+  its defaults.
+- [x] 3 guard rule (a168fbe): `shared-host-compose.test.ts` green (5 new cases; the other rules' cases pass
+  `edgeProofHeader: false`). `npx vitest run tools/deploy modules/security tests/repo` green, ESLint and the language
+  gate clean.
 
 ## Decisions (auto)
 
@@ -27,3 +30,5 @@
   one in the deploy action: the compose file stays the one list of secrets, and no workflow changes.
 - The guard is on by default with an opt-out: the issue asks it to flag a shared-edge app without the proof.
 - One fixed default header name for both packages, overridable on both sides.
+- Versions: patches (security 0.2.10, deploy 0.7.2), not minors: other packages depend on `^0.2.0` and `^0.7.0`; the
+  CHANGELOGs carry `## Unreleased` until the release PR.

@@ -16,5 +16,4 @@
   migration line, with an opt-out.
 - Constant-time comparison: `crypto.timingSafeEqual` needs equal lengths; comparing SHA-256 digests of both values
   avoids leaking the length.
-- `@softure-ai/security`'s root entry is imported by edge code? `client-ip.ts` already imports `node:net`, so
-  `node:crypto` is no new runtime constraint.
+- `client-ip.ts` already imports `node:net`, so `node:crypto` adds no new runtime constraint to the root entry.

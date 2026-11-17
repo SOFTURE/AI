@@ -1,12 +1,13 @@
 ---
 change_id: security-edge-proof-ip
 title: "security/deploy: an edge-proof client-IP resolver for apps on a shared edge network (issue #1329)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1329
 branch: claude/project-thread-bxmbav
 created: 2026-11-17
 updated: 2026-11-17
+archived_at: 2026-11-17
 ---
 
 ## Intent
@@ -32,3 +33,9 @@ the edge compose labels in `tools/deploy/templates/docker/prod/docker-compose.ym
 ## Notes
 
 - Frame skipped: the issue states the threat, the adopting app's working fix and the proposal.
+
+## Outcome (2026-11-17)
+
+`edgeProofIp({ resolver, secret, header? })` in `@softure-ai/security`; `init --edge` writes the proof middleware and
+the required `EDGE_PROOF_SECRET`, with `next` lines for the secret and the resolver; `checkSharedHostCompose` reports
+`edge-proof-missing`. Rides the next release of both packages (security 0.2.10, deploy 0.7.2).
