@@ -17,7 +17,7 @@ everything at once, for a fixed price cap.
   before the agent starts.
 - **Breadth or depth.** The default `general` review covers five categories at once. `focus: security` runs a second
   shipped prompt that traces threat scenarios end to end (sign-in, OAuth, tokens, webhooks, command execution,
-  outbound requests), and `scope` gives the whole budget to one folder or workspace package ("Focus, scope and
+  outbound requests, runtime hardening) and records the evidence of each one in the report, and `scope` gives the whole budget to one folder or workspace package ("Focus, scope and
   paths").
 - **Hard cost cap.** `max-budget-usd` (default 10 USD). The real cost, the model and the token counts are in the
   report header.
@@ -67,9 +67,17 @@ whole-repository breadth review.
   [`prompt/security-review.md`](prompt/security-review.md). Instead of scanning for patterns it works through threat
   scenarios, each where the repository has the surface, and traces every flow from the untrusted input to its effect:
   sign-in and sessions, OAuth 2.1 and the authorization server, MCP and API token scope, inbound webhooks, command
-  execution and SSH, outbound requests (SSRF), CSRF, rate limits, secrets and personal data. A finding names the
-  attack path (input → steps → effect) in `problem` and the concrete change in `fix`. Its rules are the eight security rules
-  plus the five general security rules. The report is titled "Security report" and its header has `Focus`.
+  execution and SSH, outbound requests (SSRF), CSRF, rate limits, secrets and personal data, runtime and deployment
+  hardening (container capabilities, privilege escalation, published ports, a response plan for a compromised host).
+  A finding names the attack path (input → steps → effect) in `problem` and the concrete change in `fix`. Its rules
+  are the nine security rules plus the five general security rules. The report is titled "Security report" and its
+  header has `Focus`.
+- **Coverage evidence.** A security run accounts for each of its ten threat scenarios: `traced`, with the files it
+  read to follow the flows, or `no surface`, with the searches that show the repository has none. The program checks
+  the files against the agent's real reads (a traced scenario that names no file the run read counts as not covered)
+  and counts the files read and the turns used. When the agent ends with scenarios unaccounted for, the run asks it,
+  in the same session and under the same budget, to finish them (at most twice); what is still missing is reported
+  as `not covered`. So a clean security report says what it traced, and a shallow one shows.
 - **`scope`** (CLI `--scope`) reviews one folder (`--scope modules/mcp-access`) or a workspace package by name
   (`--scope @softure-ai/mcp-access`, resolved through the root `package.json` `workspaces`). The agent may read the
   whole repository to follow an import, a caller or a shared helper, but only findings inside the scope are
@@ -116,8 +124,8 @@ report says "stopped at the budget": the areas it did not reach are not proven c
 areas in order of risk (security first, dead code last), so a stopped run has covered the most serious ones. Raise
 the cap, or pass `model: claude-sonnet-5-5` (2 / 10 USD per million tokens), for a larger repository.
 
-A `focus: security` run follows flows end to end and reads more per finding: use `claude-opus-5-5` and
-`max-budget-usd: "15"`, and narrow it with `scope` or `paths` to the code where a mistake costs the most. A scoped
+A `focus: security` run follows flows end to end, reads more per finding and must account for every threat scenario
+before it ends (up to two follow-up turns): use `claude-opus-5-5` and `max-budget-usd: "15"`, and narrow it with `scope` or `paths` to the code where a mistake costs the most. A scoped
 run spends the whole budget on its scope, so one package gets the depth a whole application gets.
 
 ## Report format
@@ -129,7 +137,12 @@ run spends the whole budget on its scope, so one package gets the depth a whole 
   `cache write`), `Status` (`complete`, `stopped at the budget` or `stopped at the turn limit`), `Findings` (count per
   severity), `Ignored` (findings an accepted exception covered). A focused, scoped or path-limited run adds, after
   `Commit`, `Focus` (`security`), `Scope` (`` `modules/auth` (@acme/auth) ``) and `Paths` (`` `a/**`, `b/**` ``); a
-  general whole-repository report has none of them.
+  general whole-repository report has none of them. A security run also adds, after `Tokens`, `Turns` (model round
+  trips) and `Files read` (distinct repository files the agent read).
+- **`## Coverage`** (security runs only, before the findings): one row per threat scenario, in the prompt's order,
+  `| Scenario | Status | Files | Note |`, the status `traced`, `no surface` or `not covered`, and a line above the
+  table naming the scenarios not covered. The scenarios are `auth-session`, `oauth-flow`, `token-scope`,
+  `webhook-verification`, `command-injection`, `ssrf`, `csrf`, `rate-limit`, `secrets`, `runtime-hardening`.
 - **`## Critical` and `## Warnings`:** one block per finding:
 
   ```markdown
@@ -154,7 +167,7 @@ problem keeps its id from run to run while the code around it moves. Categories 
 
 | Category | Rules |
 | --- | --- |
-| `security` | `missing-authorization`, `secret-in-log`, `unprotected-public-endpoint`, `unsafe-sql`, `other-security`; with the security focus also `auth-session`, `oauth-flow`, `token-scope`, `webhook-verification`, `command-injection`, `ssrf`, `csrf`, `rate-limit` |
+| `security` | `missing-authorization`, `secret-in-log`, `unprotected-public-endpoint`, `unsafe-sql`, `other-security`; with the security focus also `auth-session`, `oauth-flow`, `token-scope`, `webhook-verification`, `command-injection`, `ssrf`, `csrf`, `rate-limit`, `runtime-hardening` |
 | `errors` | `swallowed-error`, `missing-timeout`, `other-error-handling` |
 | `tests` | `untested-logic`, `empty-test` |
 | `dead-code` | `unused-file`, `unused-export`, `unused-dependency` |

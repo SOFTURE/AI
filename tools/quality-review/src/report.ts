@@ -1,3 +1,4 @@
+import { COVERAGE_STATUSES, SECURITY_SCENARIOS, type CoverageEntry, type CoverageStatus, type SecurityScenario } from "./coverage.js";
 import { CATEGORY_RULES, FOCUSES, SEVERITIES, getFindingId, type Category, type Finding, type Focus, type Rule, type Severity } from "./findings.js";
 
 /** The report format version, written into every report and checked by the parser. */
@@ -38,6 +39,12 @@ export interface ReportHeader {
   scope?: { folder: string; packageName: string | null };
   /** The globs findings were limited to; left out when there were none. */
   paths?: string[];
+  /** Model round trips of the run; a security run records it as evidence of its depth. */
+  turns?: number;
+  /** Distinct repository files the agent read; a security run records it as evidence of its depth. */
+  filesRead?: number;
+  /** One entry per threat scenario of a security run, in the prompt's order. */
+  coverage?: CoverageEntry[];
 }
 
 export interface Report {
@@ -129,6 +136,39 @@ function getOptionalRows(header: ReportHeader): string[] {
   return rows;
 }
 
+const COVERAGE_TEXT: Record<CoverageStatus, string> = {
+  traced: "traced",
+  "no-surface": "no surface",
+  "not-covered": "not covered",
+};
+
+/** The depth rows a security run adds after the token counts. */
+function getDepthRows(header: ReportHeader): string[] {
+  const rows: string[] = [];
+  if (header.turns !== undefined) rows.push(`| Turns | ${String(header.turns)} |`);
+  if (header.filesRead !== undefined) rows.push(`| Files read | ${String(header.filesRead)} |`);
+  return rows;
+}
+
+/** The coverage section of a security run: every scenario, its status, the files read for it and a note. */
+function getCoverageLines(coverage: CoverageEntry[]): string[] {
+  const lines = ["## Coverage", ""];
+  const missing = coverage.filter((entry) => entry.status === "not-covered").map((entry) => entry.scenario);
+  if (missing.length > 0) {
+    lines.push(
+      `> ${String(missing.length)} of ${String(coverage.length)} threat scenarios were not covered (${missing.join(", ")}): the findings below do not prove those areas clean.`,
+      "",
+    );
+  }
+  lines.push("| Scenario | Status | Files | Note |", "| --- | --- | --- | --- |");
+  for (const entry of coverage) {
+    const files = entry.files.length === 0 ? "-" : entry.files.map((file) => `\`${toCell(file)}\``).join(", ");
+    lines.push(`| ${entry.scenario} | ${COVERAGE_TEXT[entry.status]} | ${files} | ${toCell(entry.note)} |`);
+  }
+  lines.push("");
+  return lines;
+}
+
 /** Writes the whole report. Nothing from an earlier report is read or kept: each run replaces the file. */
 export function renderReport(report: Report): string {
   const { header } = report;
@@ -144,6 +184,7 @@ export function renderReport(report: Report): string {
     `| Model | ${header.model} |`,
     `| Cost | ${header.costUsd.toFixed(4)} USD of a ${header.budgetUsd.toFixed(2)} USD budget |`,
     `| Tokens | input ${String(header.tokens.input)}, output ${String(header.tokens.output)}, cache read ${String(header.tokens.cacheRead)}, cache write ${String(header.tokens.cacheWrite)} |`,
+    ...getDepthRows(header),
     `| Status | ${STATUS_TEXT[header.status]} |`,
     `| Findings | ${formatCounts(findings)} |`,
     `| Ignored | ${String(header.ignored)} |`,
@@ -159,6 +200,7 @@ export function renderReport(report: Report): string {
   if (findings.length === 0 && header.status === "complete") {
     lines.push("No findings: the review found nothing to report at this commit.", "");
   }
+  if (header.coverage !== undefined) lines.push(...getCoverageLines(header.coverage));
   for (const severity of ["critical", "warning"] as const) {
     lines.push(`## ${SECTION_TITLES[severity]}`, "");
     const section = findings.filter((finding) => finding.severity === severity);
@@ -198,11 +240,43 @@ export function renderReport(report: Report): string {
   return lines.join("\n");
 }
 
+function isScenario(value: string): value is SecurityScenario {
+  return (SECURITY_SCENARIOS as readonly string[]).includes(value);
+}
+
+/** One row of the coverage table, or null (with the reason in errors) when it is not one. */
+function parseCoverageRow(line: string, errors: string[]): CoverageEntry | null {
+  const cells = splitRow(line);
+  if (cells.length !== 4) {
+    errors.push(`a coverage row does not have 4 cells: ${line}`);
+    return null;
+  }
+  const [scenario = "", statusText = "", filesText = "", note = ""] = cells;
+  const status = COVERAGE_STATUSES.find((key) => COVERAGE_TEXT[key] === statusText);
+  if (!isScenario(scenario)) errors.push(`coverage: unknown scenario "${scenario}"`);
+  if (status === undefined) errors.push(`coverage: unknown status "${statusText}" for ${scenario}`);
+  if (note === "") errors.push(`coverage: the note of ${scenario} is empty`);
+  if (!isScenario(scenario) || status === undefined) return null;
+  const files = filesText === "-" ? [] : [...filesText.matchAll(/`([^`]+)`/g)].map((match) => match[1] ?? "");
+  if (status === "traced" && files.length === 0) errors.push(`coverage: ${scenario} is traced but names no file`);
+  return { scenario, status, files, note };
+}
+
+/** Checks the coverage table: every scenario once, in any order. */
+function checkCoverage(coverage: CoverageEntry[], errors: string[]): void {
+  const seen = new Set<string>();
+  for (const entry of coverage) {
+    if (seen.has(entry.scenario)) errors.push(`coverage: ${entry.scenario} is listed twice`);
+    seen.add(entry.scenario);
+  }
+  for (const scenario of SECURITY_SCENARIOS) if (!seen.has(scenario)) errors.push(`coverage: ${scenario} is missing`);
+}
+
 export type ParseResult = { ok: true; report: Report } | { ok: false; errors: string[] };
 
 const HEADER_FIELDS = ["Date", "Commit", "Model", "Cost", "Tokens", "Status", "Findings", "Ignored"] as const;
 /** Rows a focused, scoped or path-limited report adds; a general whole-repository report has none of them. */
-const OPTIONAL_HEADER_FIELDS = ["Focus", "Scope", "Paths"] as const;
+const OPTIONAL_HEADER_FIELDS = ["Focus", "Scope", "Paths", "Turns", "Files read"] as const;
 
 function splitRow(row: string): string[] {
   return row
@@ -288,11 +362,17 @@ function parseHeader(lines: string[], errors: string[]): ReportHeader | null {
   const pathsText = values.get("Paths");
   const paths = pathsText === undefined ? undefined : [...pathsText.matchAll(/`([^`]+)`/g)].map((match) => match[1] ?? "");
   if (paths?.length === 0) errors.push("header: Paths lists no glob");
+  const turns = values.get("Turns");
+  const filesRead = values.get("Files read");
+  if (turns !== undefined && !/^\d+$/.test(turns)) errors.push("header: Turns is not a number");
+  if (filesRead !== undefined && !/^\d+$/.test(filesRead)) errors.push("header: Files read is not a number");
   if (cost === null || tokens === null || status === undefined) return null;
   return {
     ...(focus === undefined ? {} : { focus: focus as Focus }),
     ...(scope === undefined || scope === null ? {} : { scope: { folder: scope[1] ?? "", packageName: scope[2] ?? null } }),
     ...(paths === undefined || paths.length === 0 ? {} : { paths }),
+    ...(turns === undefined || !/^\d+$/.test(turns) ? {} : { turns: Number(turns) }),
+    ...(filesRead === undefined || !/^\d+$/.test(filesRead) ? {} : { filesRead: Number(filesRead) }),
     date,
     commit: unquote(values.get("Commit") ?? ""),
     model: values.get("Model") ?? "",
@@ -321,13 +401,26 @@ export function parseReport(markdown: string): ParseResult {
   const seen = new Set<string>();
   let section: Severity | null = null;
   const sectionsSeen = new Set<Severity>();
+  let coverage: CoverageEntry[] | null = null;
+  let inCoverage = false;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index] ?? "";
     if (line.startsWith("## ")) {
       const title = line.slice(3).trim();
       section = SEVERITIES.find((severity) => SECTION_TITLES[severity] === title) ?? null;
-      if (section === null) errors.push(`unknown section "${title}"`);
+      inCoverage = title === "Coverage";
+      if (inCoverage) {
+        if (coverage !== null) errors.push("the Coverage section is listed twice");
+        coverage = [];
+      } else if (section === null) errors.push(`unknown section "${title}"`);
       else sectionsSeen.add(section);
+      continue;
+    }
+    if (inCoverage && coverage !== null) {
+      if (line.startsWith("|") && !line.startsWith("| Scenario |") && !line.startsWith("| ---")) {
+        const entry = parseCoverageRow(line, errors);
+        if (entry !== null) coverage.push(entry);
+      }
       continue;
     }
     if (section === null) continue;
@@ -370,6 +463,7 @@ export function parseReport(markdown: string): ParseResult {
   if (countsText !== undefined && countsText !== formatCounts(findings)) {
     errors.push(`header: Findings says "${countsText}", the report lists "${formatCounts(findings)}"`);
   }
+  if (coverage !== null) checkCoverage(coverage, errors);
   if (errors.length > 0 || header === null) return { ok: false, errors };
-  return { ok: true, report: { header, findings } };
+  return { ok: true, report: { header: coverage === null ? header : { ...header, coverage }, findings } };
 }

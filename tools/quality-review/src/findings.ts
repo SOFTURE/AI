@@ -18,6 +18,7 @@ export const CATEGORY_RULES = {
     "ssrf",
     "csrf",
     "rate-limit",
+    "runtime-hardening",
   ],
   errors: ["swallowed-error", "missing-timeout", "other-error-handling"],
   tests: ["untested-logic", "empty-test"],
