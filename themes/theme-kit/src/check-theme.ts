@@ -1,3 +1,4 @@
+import { DENSITIES, LIST_DENSITY_VARIABLES, type DensityScale } from "./density.js";
 import { findMissingColorRoles, isColorAlias, type ThemeDefinition } from "./theme-definition.js";
 
 /** A token name: lowercase kebab-case (`primary-hover`, `chart-1`). */
@@ -31,7 +32,13 @@ function listValues(definition: ThemeDefinition): (readonly [string, string])[] 
   );
   const radii = Object.entries(definition.radii).map(([step, value]) => [`radius-${step}`, value] as const);
   const sizes = Object.entries(definition.sizes).map(([name, value]) => [`spacing-${name}`, value] as const);
-  return [...colors, ...shadows, ...fonts, ...textStyles, ...radii, ...sizes];
+  const scales = definition.density;
+  const lengths = Object.keys(LIST_DENSITY_VARIABLES) as (keyof DensityScale)[];
+  const density =
+    scales === undefined
+      ? []
+      : DENSITIES.flatMap((name) => lengths.map((length) => [`density-${name}-${length}`, scales[name][length]] as const));
+  return [...colors, ...shadows, ...fonts, ...textStyles, ...radii, ...sizes, ...density];
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { checkTheme, defineTheme, extendTheme } from "../src/index.js";
+import { checkTheme, DEFAULT_DENSITY, defineTheme, extendTheme } from "../src/index.js";
 import { createCompleteTheme } from "./support/complete-theme.js";
 
 function omitColors(names: readonly string[]) {
@@ -38,6 +38,23 @@ describe("checkTheme", () => {
     expect(checkTheme({ ...theme, colors: { ...theme.colors, "chart-2": { alias: "teal" } } })).toEqual([
       "the theme has no name",
       'colour "chart-2" follows "teal", which the theme does not define',
+    ]);
+  });
+});
+
+describe("checkTheme list density (#1341)", () => {
+  it("finds no problem in a theme with its own density scale", () => {
+    expect(checkTheme(createCompleteTheme({ density: { compact: DEFAULT_DENSITY.compact, roomy: { rowPaddingY: "10px", itemPaddingY: "4px", dividerWidth: "1px" } } }))).toEqual([]);
+  });
+
+  it("names an empty density length and one that could break out of the CSS", () => {
+    const density = {
+      compact: { ...DEFAULT_DENSITY.compact, rowPaddingY: " " },
+      roomy: { ...DEFAULT_DENSITY.roomy, itemPaddingY: "4px}" },
+    };
+    expect(checkTheme(createCompleteTheme({ density }))).toEqual([
+      'value of "density-compact-rowPaddingY" is empty or holds one of ; { } < > or a line break',
+      'value of "density-roomy-itemPaddingY" is empty or holds one of ; { } < > or a line break',
     ]);
   });
 });
@@ -83,6 +100,15 @@ describe("extendTheme", () => {
       { body: { fontSize: "15px", lineHeight: "22px", fontWeight: 400 } },
       true,
     ]);
+  });
+
+  it("keeps the base's density, or takes the overrides' scale whole (#1341)", () => {
+    const roomy = { rowPaddingY: "10px", itemPaddingY: "4px", dividerWidth: "1px" };
+    const base = createCompleteTheme({ density: { compact: DEFAULT_DENSITY.compact, roomy } });
+    expect(extendTheme(base, { name: "Variant" }).density).toEqual({ compact: DEFAULT_DENSITY.compact, roomy });
+    const own = { compact: DEFAULT_DENSITY.compact, roomy: DEFAULT_DENSITY.roomy };
+    expect(extendTheme(base, { name: "Variant", density: own }).density).toEqual(own);
+    expect("density" in extendTheme(createCompleteTheme(), { name: "Variant" })).toBe(false);
   });
 
   it("refuses a variant that breaks the contract", () => {

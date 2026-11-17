@@ -19,7 +19,8 @@ ThemeDefinition (data)  ──defineTheme──▶  theme (checked)  ──build
 ```
 
 - **One contract.** `ThemeDefinition` says what a theme decides: colours (light and dark, or an alias of another
-  colour), shadows, fonts, named text styles, radii, layout sizes, whether Tailwind's default palette is cleared.
+  colour), shadows, fonts, named text styles, radii, layout sizes, whether Tailwind's default palette is cleared, and
+  optionally its list densities.
   `SHADCN_COLOR_ROLES` are the colour roles shadcn/ui components read; every theme defines them all, so a component
   written for one theme renders in any other. A theme adds its own tokens on top (`green-tag`, `primary-hover`).
 - **Declared and checked in one place.** `defineTheme(definition)` checks the theme where it is written and throws
@@ -39,6 +40,7 @@ ThemeDefinition (data)  ──defineTheme──▶  theme (checked)  ──build
 | Export | What it does |
 | --- | --- |
 | `ThemeDefinition`, `SHADCN_COLOR_ROLES`, `findMissingColorRoles` | The token contract |
+| `DENSITIES`, `Density`, `DensityScale`, `DEFAULT_DENSITY`, `LIST_DENSITY_VARIABLES` | The list densities, `compact` or `roomy`, picked with `data-density` ([below](#list-density)) |
 | `defineTheme(definition)` | Declares a theme: checks it, returns it with its literal types, throws with every problem |
 | `checkTheme(definition)` | The contract problems as messages; empty when the theme is complete |
 | `extendTheme(base, overrides)` | A checked variant of a theme: a new name, per group only the tokens that change |
@@ -211,12 +213,37 @@ Every `themes/theme-<name>` package (named `@softure-ai/theme-<name>` by its fol
    setting, unless the page asks for light.
 4. `.dark, [data-theme="dark"]`: the dark values by choice. Works with `next-themes` (`attribute="class"`) and with
    `@softure-ai/ui`'s `ThemeScript` / `ThemeSwitch` (`data-theme` on `<html>`); a section can take a fixed scheme.
-5. `@theme inline`: `--color-<name>`, `--font-*`, `--text-<style>` (size, line height, weight, tracking),
+5. `:root, [data-density="compact"]` and `[data-density="roomy"]`: the list densities' lengths (below).
+6. `@theme inline`: `--color-<name>`, `--font-*`, `--text-<style>` (size, line height, weight, tracking),
    `--radius-*`, `--shadow-*` and the sizes as `--spacing-*`, so `bg-primary`, `text-page-title`, `rounded-xl`,
    `shadow-menu` and `w-sidebar-width` exist. With `clearDefaultPalette`, `--color-*: initial` first.
 
 It throws on a name that is not kebab-case, a value holding `;`, `{`, `}`, `<`, `>` or a line break, and an alias of
 a colour the theme does not define.
+
+## List density
+
+A list's rows are either `compact` (tight rows, no line between them: the default) or `roomy` (a quiet line between
+rows and more room around each). An app picks the density with an attribute, on `<html>` for the whole app (a user
+setting), or on a page, a section or one panel; the nearest attribute wins, so a compact panel can sit in a roomy page:
+
+```tsx
+<html data-density="roomy">            {/* or <section data-density="roomy"> */}
+```
+
+The theme's CSS carries each density as three inherited variables, which a theme's list components read:
+
+| Variable | What it is | `compact` | `roomy` |
+| --- | --- | --- | --- |
+| `--list-row-y` | a row's vertical padding | `0.25rem` | `0.5rem` |
+| `--list-item-y` | the room between a row and the lines around it, on the list item | `0px` | `0.25rem` |
+| `--list-divider-width` | the line between two rows (`0px`: none) | `0px` | `1px` |
+
+The values are the kit's `DEFAULT_DENSITY`; a theme sets its own with `density` in its definition
+(`{ compact: DensityScale, roomy: DensityScale }`, checked like any other token). `DENSITIES` and the `Density` type
+name the densities for an app's own setting, `LIST_DENSITY_VARIABLES` the variables. Every theme gets the variables
+through the kit; a theme's components decide which of its lists follow them (`@softure-ai/theme-notion`: `List`,
+`ListItem`, `ListRow`).
 
 ## Overriding in an app
 

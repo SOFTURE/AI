@@ -195,6 +195,9 @@ import {
   SortableHandle,
   SortableItem,
   SortableList,
+  List,
+  ListItem,
+  ListRow,
   Steps,
   StatPills,
   StatsFold,
@@ -1484,6 +1487,28 @@ const NOTION_CASES: readonly GalleryCase[] = [
         </CodeBlock>
       ),
     }),
+  ),
+  ...(["compact", "roomy"] as const).flatMap((density) =>
+    (["page", "tinted"] as const).map(
+      (surface): GalleryCase => ({
+        name: `List[density=${density},surface=${surface}]`,
+        component: "List",
+        root: '[data-slot="list"]',
+        render: () => (
+          <div data-density={density} className={surface === "tinted" ? "w-64 rounded-lg bg-secondary p-1" : "w-64"}>
+            <List as="ol" surface={surface} aria-label="Days">
+              {["Mon 3 March", "Tue 4 March", "Wed 5 March"].map((day) => (
+                <ListItem key={day}>
+                  <ListRow asChild>
+                    <button type="button">{day}</button>
+                  </ListRow>
+                </ListItem>
+              ))}
+            </List>
+          </div>
+        ),
+      }),
+    ),
   ),
   ...(["row", "handle", "activator"] as const).map(
     (dragBy): GalleryCase => ({

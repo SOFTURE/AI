@@ -2,6 +2,17 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
+## 0.1.10
+
+- List density (#1341): a list is `compact` (tight rows, no line between them, the default) or `roomy` (a quiet line
+  between rows, more room around each), picked with `data-density` on `<html>`, a page, a section or a panel; the
+  nearest attribute wins. `buildThemeCss` writes each density as `--list-row-y`, `--list-item-y` and
+  `--list-divider-width` (compact on `:root` and `[data-density="compact"]`, roomy on `[data-density="roomy"]`), so
+  every theme's `theme.css` carries them. New exports `DENSITIES`, `Density`, `DensityScale`, `DEFAULT_DENSITY`,
+  `LIST_DENSITY_VARIABLES`; `ThemeDefinition.density` and `extendTheme`'s `density` (optional) replace the default
+  scale, checked like any other token.
+  - Migrate: nothing. Without `data-density` the variables hold the compact values and nothing reads them yet.
+
 ## 0.1.9
 
 - The entries `.`, `./react`, `./next` are declared Workers-safe (`softure.workers`, runtime-providers RP-7); `./build` stays a
