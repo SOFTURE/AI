@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.4.0
+
+- **Embeddings**: `createEmbedder({ model, dimensions })` with `embedTexts({ values, attributes })`, over AI SDK
+  `embedMany`: one vector per text, batches by the model's limit, the time limit, `llm.unavailable` / `llm.timeout`, and
+  `llm.invalid_output` when a vector has another length than `dimensions`; usage and cost records (`onCall`
+  `operation: "embedTexts"`) and a span `llm.embed_texts`.
+- Two embedding models without a provider package: `workersAiEmbeddingModel({ binding, model })` (Cloudflare Workers
+  AI through the Worker's binding) and `openAiCompatibleEmbeddingModel({ baseUrl, model, apiKey? })` (any `/embeddings`
+  endpoint).
+- `fakeEmbeddingModel({ dimensions })` and `embedWords` in `@softure-ai/llm/testing`: deterministic word vectors.
+- Types: `LlmCallRecord.operation` adds `"embedTexts"`. Migrate: code that switches exhaustively over it adds the case.
+
 ## 0.3.0
 
 - `streamChat` (#1258): a streamed chat answer over AI SDK `streamText` that returns its `StreamTextResult` (a route

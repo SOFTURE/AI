@@ -325,6 +325,19 @@ A bundle cannot find package folders (`import.meta.url` points at the bundle), h
 connects refuses it. The ledger's own migration
 ships as code.
 
+**Extensions.** PGlite makes an extension available only when it is loaded, so a migration with `CREATE EXTENSION`
+(pgvector, trigrams) needs it in `createTestDatabase` too:
+
+```ts
+import { vector } from "@electric-sql/pglite-pgvector";
+import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
+
+const database = await createTestDatabase(config.modules, { extensions: { vector, pg_trgm } });
+```
+
+The extensions are loaded into the template and every copy; the template is kept per set of extension names. On a
+Postgres server the extension must be installed (e.g. the `pgvector/pgvector` image).
+
 **The app's own migrations** run in the same step, through hooks. `before` runs ahead of the module
 files (app tables a module references, normally the app's whole history), `after` behind them (app
 migrations that reference a table a module creates). With drizzle, define them once and pass the same

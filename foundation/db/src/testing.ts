@@ -6,7 +6,7 @@
 // database reset to the template instead of a new copy (testing/reuse.ts). An app with its own
 // migrations passes the same `app` hooks (and baseline) as to `migrate`, so module tables can
 // reference app tables and a module the app's history already creates is adopted in the template.
-import { PGlite } from "@electric-sql/pglite";
+import { PGlite, type Extensions } from "@electric-sql/pglite";
 import type { AnySoftureModule } from "@softure-ai/core";
 import { createPgliteHandle, type PgliteClientDatabase } from "./client.js";
 import { migrate, type AppMigrationHook, type AppMigrations } from "./migrations/migrator.js";
@@ -49,6 +49,13 @@ export interface CreateTestDatabaseOptions {
    * time. Two open databases never share an instance.
    */
   readonly reuse?: boolean;
+  /**
+   * PGlite extensions the migrations need, loaded into the template and every copy, e.g.
+   * `{ vector, pg_trgm, unaccent }` from `@electric-sql/pglite-pgvector` and `@electric-sql/pglite/contrib/*`. PGlite
+   * makes an extension available only when it is loaded, so a migration's `CREATE EXTENSION` fails without it. The
+   * template is kept per set of extension names.
+   */
+  readonly extensions?: Extensions;
 }
 
 const templates = new Map<string, Promise<Blob | File>>();
@@ -63,9 +70,10 @@ let nextHookId = 1;
  */
 export async function createTestDatabase(modules: readonly AnySoftureModule[] = [], options: CreateTestDatabaseOptions = {}): Promise<TestDatabase> {
   const app = options.app ?? {};
-  const key = computeTemplateKey(modules, app, options.templateKey);
+  const extensions = options.extensions ?? {};
+  const key = `${computeTemplateKey(modules, app, options.templateKey)}#extensions:${listExtensionNames(extensions)}`;
   const openCopy = async (): Promise<TestDatabase> => {
-    const client = new PGlite({ loadDataDir: await getTemplate(key, modules, app, options.templateKey) });
+    const client = new PGlite({ loadDataDir: await getTemplate(key, { modules, app, templateKey: options.templateKey, extensions }), extensions });
     guardPoolInsideTransaction(client);
     const handle = await createPgliteHandle(client);
     return { db: handle.db, client, close: handle.close };
@@ -84,10 +92,22 @@ function computeTemplateKey(modules: readonly AnySoftureModule[], app: AppMigrat
   return `${moduleKey}#before:${identifyHook(app.before)}#after:${identifyHook(app.after)}#baseline:${baselineKey}#key:${templateKey ?? "-"}`;
 }
 
-function getTemplate(key: string, modules: readonly AnySoftureModule[], app: AppMigrations, templateKey: string | undefined): Promise<Blob | File> {
+/** The extension names, sorted: what a template depends on (the extension objects carry no version). */
+function listExtensionNames(extensions: Extensions): string {
+  return Object.keys(extensions).sort().join(",");
+}
+
+interface TemplateInput {
+  readonly modules: readonly AnySoftureModule[];
+  readonly app: AppMigrations;
+  readonly templateKey: string | undefined;
+  readonly extensions: Extensions;
+}
+
+function getTemplate(key: string, input: TemplateInput): Promise<Blob | File> {
   let template = templates.get(key);
   if (template === undefined) {
-    template = loadOrBuildTemplate(modules, app, templateKey);
+    template = loadOrBuildTemplate(input);
     templates.set(key, template);
     // A failed build is not cached: the next call reports the problem again.
     template.catch(() => templates.delete(key));
@@ -109,23 +129,24 @@ function identifyHook(hook: AppMigrationHook | undefined): string {
 }
 
 // From the run's folder when another file already built it; otherwise built here and stored for the others.
-async function loadOrBuildTemplate(modules: readonly AnySoftureModule[], app: AppMigrations, templateKey: string | undefined): Promise<Blob | File> {
+async function loadOrBuildTemplate(input: TemplateInput): Promise<Blob | File> {
+  const { modules, app, templateKey, extensions } = input;
   const dir = getTemplateDir();
-  const name = dir === null ? null : await computeTemplateName({ modules, app, templateKey });
+  const name = dir === null ? null : await computeTemplateName({ modules, app, templateKey, extensionNames: listExtensionNames(extensions) });
   if (dir === null || name === null) {
-    return buildTemplate(modules, app);
+    return buildTemplate(input);
   }
   const stored = await readStoredTemplate(dir, name);
   if (stored !== null) {
     return stored;
   }
-  const built = await buildTemplate(modules, app);
+  const built = await buildTemplate(input);
   await storeTemplate(dir, name, built);
   return built;
 }
 
-async function buildTemplate(modules: readonly AnySoftureModule[], app: AppMigrations): Promise<Blob | File> {
-  const handle = await createPgliteHandle(new PGlite());
+async function buildTemplate({ modules, app, extensions }: TemplateInput): Promise<Blob | File> {
+  const handle = await createPgliteHandle(new PGlite({ extensions }));
   try {
     const result = await migrate(handle, { modules, app });
     if (!result.ok) {

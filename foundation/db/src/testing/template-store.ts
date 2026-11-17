@@ -21,6 +21,8 @@ export interface TemplateSource {
   readonly modules: readonly AnySoftureModule[];
   readonly app: AppMigrations;
   readonly templateKey: string | undefined;
+  /** The PGlite extensions loaded into the template, sorted and joined with commas; empty for none. */
+  readonly extensionNames?: string;
 }
 
 export function getTemplateDir(): string | null {
@@ -46,6 +48,7 @@ export async function computeTemplateName(source: TemplateSource): Promise<strin
     parts.push(`${phase}:${identity}`);
   }
   parts.push(`templateKey:${source.templateKey ?? "-"}`);
+  if (source.extensionNames !== undefined && source.extensionNames !== "") parts.push(`extensions:${source.extensionNames}`);
   const baseline = Object.entries(source.app.baseline ?? {}).sort(([left], [right]) => left.localeCompare(right));
   parts.push(`baseline:${baseline.map(([id, through]) => `${id}=${through}`).join(",")}`);
   return createHash("sha256").update(parts.join("\n")).digest("hex");

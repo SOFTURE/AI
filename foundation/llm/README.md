@@ -215,6 +215,50 @@ it is not `null`; for `llm.aborted` or `llm.timeout` without usage, settle at th
 part it streamed); for `llm.unavailable` without usage, release. Pass `createLlmUsageRecorder` as `onUsage` instead
 when the app keeps a ledger without reservations.
 
+## Embeddings
+
+`createEmbedder` turns texts into vectors for search (a pgvector column, a vector index), with the same time limit,
+error codes, records and spans as the text calls:
+
+```ts
+// lib/embedder.ts (server only)
+import { createEmbedder, openAiCompatibleEmbeddingModel, workersAiEmbeddingModel } from "@softure-ai/llm";
+
+// Cloudflare: the Worker's `ai` binding (wrangler.jsonc `"ai": { "binding": "AI" }`), no API key.
+const onWorkers = createEmbedder({ model: workersAiEmbeddingModel({ binding: env.AI, model: "@cf/baai/bge-m3" }), dimensions: 1024 });
+
+// Anywhere else: an OpenAI-compatible `/embeddings` endpoint (a self-hosted model server, or a hosted API).
+const elsewhere = createEmbedder({
+  model: openAiCompatibleEmbeddingModel({ baseUrl: process.env.EMBEDDINGS_URL ?? "", apiKey: process.env.EMBEDDINGS_API_KEY, model: "bge-m3" }),
+  dimensions: 1024,
+  pricing: { "bge-m3": { inputPerMillion: 0, outputPerMillion: 0 } },
+});
+
+const result = await elsewhere.embedTexts({ values: passages, attributes: { accountId } });
+if (!result.ok) return result; // "llm.unavailable" | "llm.invalid_output" | "llm.timeout"
+const { embeddings, usage, model } = result.value; // one vector per text, in order
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `model` | required | an AI SDK embedding model object, or one of the two adapters below |
+| `dimensions` | required | the length every vector must have; another length fails the call with `llm.invalid_output` |
+| `pricing` | `{}` | model id → `{ inputPerMillion, outputPerMillion }` (only the input price is used) |
+| `onUsage`, `onCall`, `timeoutMs`, `maxRetries`, `clock`, `tracer` | as `createLlm` | `onCall` records have `operation: "embedTexts"`; the time limit covers every batch |
+
+`embedTexts({ values, timeoutMs?, attributes? })` splits the texts into the model's batches (AI SDK `embedMany`) and
+returns `Result<{ embeddings, usage, model, costUsd, costSource }, LlmErrorCode>`; no texts make no call. `modelId`
+and `dimensions` on the embedder name what the vectors came from: store the model id next to them, so a change of model
+can be found and re-embedded.
+
+| Adapter | Options |
+| --- | --- |
+| `workersAiEmbeddingModel` | `binding` (`env.AI`), `model` (e.g. `@cf/baai/bge-m3`), `maxEmbeddingsPerCall` (default 100). Workers AI reports no token counts, so `usage` is 0 and `costUsd` is `null` |
+| `openAiCompatibleEmbeddingModel` | `baseUrl` (`/embeddings` is appended), `model`, `apiKey?` (bearer), `dimensions?` (asks the API for shorter vectors), `maxEmbeddingsPerCall` (default 96), `provider` (default `openai-compatible`), `fetch` |
+
+Both fail with AI SDK's `APICallError`: a network failure, a 408, 429 or 5xx and a throwing binding are retried within
+`maxRetries`; anything else ends at once. Every failure is `llm.unavailable`.
+
 ## Error codes
 
 | Code | When | Usage recorded |
@@ -277,7 +321,7 @@ module's job, inside `onUsage`. To refuse a call over quota, check the quota bef
 
 ## Tracing
 
-Every call is one span, `llm.generate_structured`, `llm.generate_text` or `llm.stream_chat` (operation `chat`), with `gen_ai.operation.name`, `gen_ai.provider.name`,
+Every call is one span, `llm.generate_structured`, `llm.generate_text`, `llm.stream_chat` (operation `chat`) or `llm.embed_texts` (operation `embeddings`), with `gen_ai.operation.name`, `gen_ai.provider.name`,
 `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`,
 `softure.llm.cost_usd`, `softure.llm.cost_source` and `softure.llm.outcome`; a failed call has status `ERROR` with its code. The prompt, the
 answer and the call's attributes are never recorded (they may hold personal data). Without an OpenTelemetry SDK in
@@ -334,6 +378,22 @@ expect(await stream.text).toBe("Apollo is 64% done.");
 | `{ kind: "hang", text? }` | streams `text`, then waits for the abort → `llm.aborted` or `llm.timeout` |
 
 Options: `modelId`, `provider`, `chunkDelayInMs` (default 0). `model.doStreamCalls` holds what each step sent.
+
+An embedding model:
+
+```ts
+import { createEmbedder } from "@softure-ai/llm";
+import { fakeEmbeddingModel } from "@softure-ai/llm/testing";
+
+const model = fakeEmbeddingModel({ dimensions: 64 });
+const embedder = createEmbedder({ model, dimensions: 64 });
+```
+
+Each vector comes from the words of its text (lower case, accents removed, hashed into buckets, length 1), so texts that
+share words are close and texts that share none are not: enough to test ranking code without a network. Usage is one
+token per word; `model.calls` holds the texts of every call. `behaviour`: `answer` (default), `unavailable`
+(`llm.unavailable`), `hang` (`llm.timeout`), `wrong-dimensions` (`llm.invalid_output`). `embedWords(text, dimensions)`
+gives the vector the fake answers for a text.
 
 ## Limitations
 

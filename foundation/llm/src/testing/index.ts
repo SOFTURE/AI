@@ -121,3 +121,5 @@ function toError(reason: unknown): Error {
 
 export { fakeChatModel } from "./fake-chat-model.js";
 export type { FakeChatModel, FakeChatModelOptions, FakeChatResponse } from "./fake-chat-model.js";
+export { embedWords, fakeEmbeddingModel } from "./fake-embedding-model.js";
+export type { FakeEmbeddingModel, FakeEmbeddingModelOptions } from "./fake-embedding-model.js";
