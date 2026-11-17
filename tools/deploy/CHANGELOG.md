@@ -4,12 +4,35 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## 0.7.2
+## 0.7.3
 
 - `init --host=cloudflare` for an app with a database writes an `alias` into `wrangler.jsonc` that points
   `@electric-sql/pglite` and `drizzle-orm/pglite` at `@softure-ai/db`'s refusing stand-in, the one `withDatabaseBuild`
   already gives the Next bundle. Without it, `wrangler deploy` bundled the PGlite branch of `@softure-ai/db/request`
   (imported by `worker.ts`) and failed in an app that does not install PGlite.
+
+## 0.7.2
+
+- **Edge proof for `init --edge` (#1329):** an app on a shared edge network could be reached around its router by any
+  container on that network, which then chose its own `CF-Connecting-IP` and with it its rate-limit key. The router
+  now runs the middleware `<name>-edge-proof` first, setting `X-Softure-Edge-Proof` to the new required secret
+  `EDGE_PROOF_SECRET`, and the app gets the same secret; init prints `next` lines for the secret and for wrapping the
+  resolver in `edgeProofIp` (`@softure-ai/security` 0.2.10). README "Edge network".
+- **`checkSharedHostCompose` rule `edge-proof-missing`:** a router that passes requests to a service of the file (not an
+  `@internal` one, such as the `www` redirect) without a `headers` middleware setting the proof header, directly or in
+  a chain. Option `edgeProofHeader` (default `X-Softure-Edge-Proof`, exported as `DEFAULT_EDGE_PROOF_HEADER`;
+  `false` skips the rule); not checked with `ingress: "tunnel"`.
+- Migrate, for an app deployed with `--edge` (its compose file is its own; init does not change it):
+  1. add to the app's labels
+     `traefik.http.middlewares.<name>-edge-proof.headers.customrequestheaders.X-Softure-Edge-Proof=${EDGE_PROOF_SECRET:?}`
+     and put `<name>-edge-proof` first in `traefik.http.routers.<name>.middlewares`;
+  2. add `EDGE_PROOF_SECRET: ${EDGE_PROOF_SECRET:?}` to the app's `environment` and pass the secret in
+     `.github/workflows/deploy.yml` like the others (an `EDGE_PROOF_SECRET: ${{ secrets.EDGE_PROOF_SECRET }}` line
+     under `env:` and the name in `secret-names`);
+  3. set `EDGE_PROOF_SECRET` in the `production` environment (`openssl rand -hex 32`);
+  4. wrap the resolver: `clientIp: edgeProofIp({ resolver: cloudflareIp(), secret: process.env.EDGE_PROOF_SECRET })`.
+  An app that already sets a proof header of its own passes its name as `edgeProofHeader` to the guard (and as
+  `header` to `edgeProofIp`); one that cannot yet passes `edgeProofHeader: false` until it migrates.
 
 ## 0.7.1
 

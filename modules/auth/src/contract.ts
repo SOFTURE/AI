@@ -20,7 +20,8 @@ export type AuthErrorCode =
   | "auth.oidc_failed"
   | "auth.oidc_cancelled"
   | "auth.oidc_not_allowed"
-  | "auth.oidc_no_account";
+  | "auth.oidc_no_account"
+  | "auth.oidc_registration_closed";
 
 /** Why an OpenID Connect sign-in did not open a session; the login page shows it (`?oidc_error=`). */
 export type OidcSignInErrorCode = Extract<AuthErrorCode, `auth.oidc_${string}`>;

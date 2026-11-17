@@ -13,7 +13,7 @@ export const MODULE_ID = "security";
 export const security = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.9",
+    version: "0.2.10",
     dependsOn: { jobs: "^0.1.1?" },
     runtimes: ["node", "workers"],
     dbSchema: "security",
@@ -31,10 +31,14 @@ export const security = defineModule({
 
 export {
   cloudflareIp,
+  EDGE_PROOF_HEADER,
+  edgeProofIp,
   forwardedForIp,
   headerIp,
   normalizeIp,
+  MIN_EDGE_PROOF_SECRET_LENGTH,
   type ClientIpResolver,
+  type EdgeProofOptions,
   type ForwardedForOptions,
 } from "./client-ip.js";
 export type { RateLimitAllowance, RateLimitRejection, SecurityErrorCode } from "./contract.js";

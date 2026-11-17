@@ -21,7 +21,7 @@ type MessagesBeforeOidc = Omit<EnglishMessages, "oidc" | "errors"> & {
 function createMessagesBeforeOidc(): MessagesBeforeOidc {
   const copy = structuredClone(en) as Partial<EnglishMessages> & { errors: { auth: Partial<EnglishMessages["errors"]["auth"]> } };
   delete copy.oidc;
-  for (const name of ["oidc_failed", "oidc_cancelled", "oidc_not_allowed", "oidc_no_account"] as const) delete copy.errors.auth[name];
+  for (const name of ["oidc_failed", "oidc_cancelled", "oidc_not_allowed", "oidc_no_account", "oidc_registration_closed"] as const) delete copy.errors.auth[name];
   return { ...(copy as MessagesBeforeOidc), login: { ...en.login, submit: "Enter" } };
 }
 

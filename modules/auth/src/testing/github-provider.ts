@@ -20,6 +20,8 @@ export interface FakeGithubProviderOptions {
   readonly allowedDomains?: readonly string[];
   readonly allowedEmails?: readonly string[];
   readonly createAccounts?: boolean;
+  /** Any verified email signs in (`openSignUp`); the default allowlist is then empty. */
+  readonly openSignUp?: boolean;
 }
 
 /** One of the account's emails, as `/user/emails` lists it. */
@@ -164,9 +166,10 @@ export function createFakeGithubProvider(options: FakeGithubProviderOptions = {}
       name: "GitHub",
       clientIdEnv: `${envPrefix}_CLIENT_ID`,
       clientSecretEnv: `${envPrefix}_CLIENT_SECRET`,
-      allowedDomains: [...(options.allowedDomains ?? (options.allowedEmails === undefined ? ["example.com"] : []))],
+      allowedDomains: [...(options.allowedDomains ?? (options.allowedEmails === undefined && options.openSignUp !== true ? ["example.com"] : []))],
       allowedEmails: [...(options.allowedEmails ?? [])],
       createAccounts: options.createAccounts,
+      openSignUp: options.openSignUp,
     },
     env: { [`${envPrefix}_CLIENT_ID`]: clientId, [`${envPrefix}_CLIENT_SECRET`]: clientSecret },
     fetch: fetchFake,

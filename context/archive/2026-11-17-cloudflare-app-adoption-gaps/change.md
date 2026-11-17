@@ -32,7 +32,7 @@ directly, generic, without an issue).
 - `modules/backup`: `runtimes: ["node", "workers"]` in the manifest (`src/index.ts`, `module.json`); 0.1.2.
 - `tests/repo/workers-entries.test.ts`: every module's manifest declares the workers runtime exactly when its package
   lists `.` in `softure.workers`.
-- `tools/deploy`: `templates/cloudflare/wrangler.jsonc.tmpl` writes the `alias` for an app with a database; 0.7.2.
+- `tools/deploy`: `templates/cloudflare/wrangler.jsonc.tmpl` writes the `alias` for an app with a database; 0.7.3.
 
 ## Constraints
 
@@ -46,5 +46,5 @@ directly, generic, without an issue).
 ## Done
 
 - `@softure-ai/backup` 0.1.2: `backup()` runs in an app on Cloudflare Workers (manifest `runtimes`).
-- `@softure-ai/deploy` 0.7.2: `init --host=cloudflare` writes the PGlite `alias` into `wrangler.jsonc`.
+- `@softure-ai/deploy` 0.7.3: `init --host=cloudflare` writes the PGlite `alias` into `wrangler.jsonc`.
 - Release: `auto-release` with `backup deploy` after the merge.

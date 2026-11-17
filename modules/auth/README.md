@@ -167,7 +167,8 @@ the variables the provider names.
   `aud`/`azp`, `exp`, `iat`, `nonce`. Discovery must name the configured issuer and https endpoints (http only on
   localhost).
 - **Who may sign in.** `email_verified` is required, then the email must be in `allowedEmails` or its domain in
-  `allowedDomains` (one of the two lists is required). For `https://accounts.google.com`, `requireHostedDomain`
+  `allowedDomains` (one of the two lists is required, unless `openSignUp: true` lets any verified email in; see
+  "Open sign-up" under GitHub sign-in). For `https://accounts.google.com`, `requireHostedDomain`
   defaults to true: a domain match also needs Google's `hd` claim to name that domain, because a consumer Google
   account can carry a verified address of any domain. A refused identity goes back to the login page with
   `?oidc_error=auth.oidc_not_allowed` and never gets an account.
@@ -187,7 +188,8 @@ the variables the provider names.
   `requireRole`, `adminEmails` and every module built on auth work unchanged. It answers a `303` to `next` (through
   `rewriteRedirect`), or to the login page with `?oidc_error=<code>`: `auth.oidc_failed` (the reason is in the log
   only: `OpenID Connect sign-in with google failed: id_token audience`), `auth.oidc_cancelled`,
-  `auth.oidc_not_allowed`, `auth.oidc_no_account`, or a rate limit code.
+  `auth.oidc_not_allowed`, `auth.oidc_no_account`, `auth.oidc_registration_closed` (an `openSignUp` provider while
+  registration is closed), or a rate limit code.
 - **Passwords off.** `password: { enabled: false }` (needs a provider): `LoginPage` shows only the provider buttons,
   `loginUser` answers `auth.invalid_credentials`, registration is closed, password reset is off and the
   change-password page is not found (`changePassword` answers `auth.forbidden`).
@@ -240,6 +242,12 @@ workflow could not hold them as Environment secrets.
 - **Who may sign in.** Only verified emails count. The primary email is tried first, then any other verified email,
   and the first one that `allowedEmails` or `allowedDomains` accepts signs in (there is no hosted domain on GitHub).
   None: `auth.oidc_not_allowed`.
+- **Open sign-up.** A public product sets `openSignUp: true` instead of an allowlist: any verified email signs in (the
+  primary one first). A first sign-in creates an account only while registration is open (the
+  `auth.registration_closed` switch, read with or without the password form); while it is closed, a new identity gets
+  `auth.oidc_registration_closed` and an account that already exists (linked, or with the same verified email) still
+  signs in. `onRegistered` runs with `consent: null`: show the terms next to the button. The option exists on OpenID
+  Connect providers too.
 - **Accounts.** The subject is the numeric GitHub account id, so a renamed login or a changed email keeps the account.
   The display name is the profile `name`, else the `login`. The log line reads `GitHub sign-in with github failed: …`.
 - **Tests.** `createFakeGithubProvider()` from `@softure-ai/auth/testing` is GitHub in memory (authorize check, token

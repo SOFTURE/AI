@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## 0.2.17
+
+- **Open sign-up through a provider:** `openSignUp: true` on an OpenID Connect or GitHub provider lets any verified email
+  sign in without an allowlist, for a public product. A first sign-in creates an account only while the
+  `auth.registration_closed` switch is off; while it is on, a new identity gets the new error code
+  `auth.oidc_registration_closed` (English copy included, optional in `AuthMessages`) and existing accounts still sign
+  in. `createFakeGithubProvider({ openSignUp: true })` builds such a definition. Providers with an allowlist behave as
+  before.
+  - Migrate: nothing.
+
 ## 0.2.16
 
 - `./jobs` is declared Workers-safe (`softure.workers`, runtime-providers RP-4): its handlers run from the

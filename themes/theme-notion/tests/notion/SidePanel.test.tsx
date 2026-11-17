@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SidePanel, type SidePanelLayout } from "../../src/index.js";
+import { SIDE_PANEL_WIDTH_VARIABLE, SidePanel, type SidePanelLayout } from "../../src/index.js";
 
 afterEach(cleanup);
 
@@ -134,6 +134,7 @@ describe("SidePanel", () => {
 
     expect(panel.dataset["sized"]).toBe("true");
     expect(panel.style.getPropertyValue("--side-panel-width")).toBe("320px");
+    expect(SIDE_PANEL_WIDTH_VARIABLE).toBe("--side-panel-width");
     expect(panel.className).toContain("sm:data-[sized=true]:w-(--side-panel-width)");
     expect(panel.className).toContain("max-sm:data-[layout=list]:w-full");
 

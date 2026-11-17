@@ -246,7 +246,9 @@ action that belongs to the panel's foot; without it the panel has no strip.
 ```
 
 `SidePanel width` (pixels, optional) sets its width on a wide screen; phone-wide `beside` and `list` keep covering the
-canvas.
+canvas. The width lives in the CSS variable `SIDE_PANEL_WIDTH_VARIABLE` (`--side-panel-width`) on the panel itself;
+`page.css` registers it with `@property … inherits: false`, so a change restyles the panel alone, not every row inside
+it (a panel of a few hundred rows went from ~1.3 s to ~30 ms of style work per drag, #1326).
 
 **`ResizeHandle`.** A vertical handle on the right edge of a column (a list, a `SidePanel layout="list"`) that sets the
 column's width: a pointer drags it, the arrow keys step it by `RESIZE_HANDLE_STEP` (16 px, Shift four times that), Home
@@ -263,6 +265,18 @@ max, fallback)` (a plain module, callable in a Server Component) reads a kept wi
     onChange={setWidth} onCommit={keepWidth} />
   <Map className="flex-1" />
 </div>
+```
+
+A drag calls `onChange` on every pointer move, so a width kept in React state re-renders its whole screen per move.
+`liveVariable` avoids that: during a drag the handle writes the width straight to that CSS variable on the `controls`
+element and to its own `aria-valuenow`, then calls `onChange` and `onCommit` once, on release, with the final width
+(nothing for a drag that ends where it started). Keys and a double click still call both at once. On release the
+handle puts the variable back to its rendered value before `onChange`, so the next render owns the width again; a
+missing `controls` element falls back to `onChange` per move. For a `SidePanel`:
+
+```tsx
+<ResizeHandle label={copy.resizeDays} controls="days" value={width} min={240} max={480} defaultValue={384}
+  liveVariable={SIDE_PANEL_WIDTH_VARIABLE} onChange={setWidth} onCommit={keepWidth} />
 ```
 
 **`AsidePanel`.** A column of the app shell that slides in from the right, beside `SidebarInset`: the content
