@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.21.1
 
 - Modal surfaces on `popover` (#1310): `DialogContent`, `AlertDialogContent` and `SheetContent` (so `CommandDialog`
   and `SheetMenu` too) paint with `bg-popover text-popover-foreground` instead of `bg-background`. In the dark theme a
