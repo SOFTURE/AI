@@ -35,4 +35,9 @@ primitives that read them.
 
 - [x] Phase 1: kit contract (cda4458)
 - [x] Phase 2: theme-notion components (763a693)
-- [ ] Phase 3: versions
+- [x] Phase 3: versions (c593f54, 61a6cdd, 82981e9)
+
+Evidence: `npx vitest run themes/theme-kit themes/theme-notion` green (theme-notion 64 files, 1270 tests); `npm run
+typecheck` and ESLint clean; `npm run test:visual -w @softure-ai/theme-notion` 180 passed, only the four gallery
+baselines changed (new List cases), refreshed and inspected: compact rows tight with no line, roomy rows with the
+`border` line and more room, the tinted card's line in `background`, readable in light and dark.

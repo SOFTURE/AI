@@ -1,7 +1,8 @@
 ---
 change_id: theme-list-density-1341
 title: "theme-kit, theme-notion: list density, compact or roomy (issue #1341)"
-status: planned
+status: archived
+archived_at: 2026-11-17
 roadmap_item: null
 issue: 1341
 branch: claude/project-thread-vz5qtn
