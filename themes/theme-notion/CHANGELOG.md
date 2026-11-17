@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.21.1
+
+- Modal surfaces on `popover` (#1310): `DialogContent`, `AlertDialogContent` and `SheetContent` (so `CommandDialog`
+  and `SheetMenu` too) paint with `bg-popover text-popover-foreground` instead of `bg-background`. In the dark theme a
+  dialog is now `#252525` over the `#191919` page, a raised surface that stands out behind the overlay, as Notion's
+  own modals do; light mode is unchanged (both are `#ffffff`). The full-screen `DocumentViewer` stays on
+  `background`.
+- Migration: none. An app that passed `className="bg-popover text-popover-foreground"` to work around it can drop it.
+
 ## 0.21.0
 
 - `SidePanel footer` (#1312): an optional strip pinned below the scrolling content, with a top border
