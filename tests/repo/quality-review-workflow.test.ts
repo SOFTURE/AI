@@ -102,7 +102,8 @@ describe("quality-review.yml", () => {
     expect(names.indexOf("Resolve the scope, the report path and the branch")).toBeLessThan(names.indexOf("Review the repository"));
     const resolveStep = review?.steps?.find((step) => step.name === "Resolve the scope, the report path and the branch");
     expect(resolveStep?.run).toContain('softure-quality-review" resolve --repo .');
-    expect(resolveStep?.run).toContain('BRANCH="quality-review${suffix:+/$suffix}"');
+    expect(resolveStep?.run).toContain("sed -n 's/^report-branch=//p'");
+    expect(resolveStep?.run).toContain('BRANCH="${report_branch:-quality-review${suffix:+/$suffix}}"');
     expect(JSON.stringify(resolveStep)).not.toContain("ANTHROPIC_API_KEY");
     const run = review?.steps?.find((step) => step.name === "Review the repository")?.run ?? "";
     expect(run).toContain('--focus "$FOCUS" --scope "$SCOPE" --paths "$PATHS"');

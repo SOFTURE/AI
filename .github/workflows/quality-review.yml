@@ -15,8 +15,8 @@
 #
 # `focus: security` runs the end-to-end security prompt instead of the general one (issue #1289); `scope` reviews one
 # folder or workspace package with the whole budget, `paths` limits the reported findings to globs. A focused or scoped
-# run gets its own report path and report branch (`quality-review/security`, `quality-review/<scope-slug>`), so several
-# can be open at once.
+# run gets its own report path and report branch (`quality-review-<focus>`, plus `--<scope-slug>` for a scope): flat
+# names git can hold side by side, so several can be open at once.
 #
 # The CLI and the Agent SDK come from npm at the exact versions of `cli-version` and `agent-sdk-version`.
 
@@ -54,7 +54,7 @@ on:
         type: string
         default: ""
       branch:
-        description: The branch the report is committed to, replaced on every run and never the base branch; empty means quality-review, plus /security and /<scope-slug> when set
+        description: The branch the report is committed to, replaced on every run and never the base branch; empty means quality-review-<focus>, plus --<scope-slug> for a scope
         type: string
         default: ""
       base-branch:
@@ -188,9 +188,12 @@ jobs:
           resolved="$("$RUNNER_TEMP/quality-review/node_modules/.bin/softure-quality-review" resolve --repo . \
             --focus "$FOCUS" --scope "$SCOPE" --out "$REPORT_PATH")"
           echo "$resolved" >> "$GITHUB_OUTPUT"
+          # Flat names (quality-review-<focus>, plus --<scope-slug> for a scope)
+          # so git can hold every report branch at once (issue #1324). A CLI older than report-branch= keeps its names.
+          report_branch="$(echo "$resolved" | sed -n 's/^report-branch=//p')"
           suffix="$(echo "$resolved" | sed -n 's/^branch-suffix=//p')"
           if [ -z "$BRANCH" ]; then
-            BRANCH="quality-review${suffix:+/$suffix}"
+            BRANCH="${report_branch:-quality-review${suffix:+/$suffix}}"
           fi
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
       - id: review
