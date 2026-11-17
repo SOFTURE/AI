@@ -1,0 +1,8 @@
+// The Worker of e2e/module-config-on-workerd.spec.ts, served by `wrangler dev` (workerd, no Cloudflare account).
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+  "name": "softure-module-config-on-workerd",
+  "main": "worker.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"]
+}

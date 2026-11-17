@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import {
   defineModule,
@@ -221,6 +221,26 @@ describe("resolveMigrationsDir", () => {
     expect(() => resolveMigrationsDir(emptyImportMeta.url as unknown as string, "../migrations/")).toThrow(
       "resolveMigrationsDir: no module URL (import.meta.url is undefined), so this code runs from a CJS bundle; SOFTURE packages are ESM only, bundle with --format=esm",
     );
+  });
+
+  describe("on Cloudflare Workers, where workerd leaves import.meta.url undefined", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("gives a placeholder under the bundle that defineModule accepts, instead of throwing", () => {
+      vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+      const workerdImportMeta: { url?: string } = {};
+      const dir = resolveMigrationsDir(workerdImportMeta.url as unknown as string, "../migrations/");
+      expect(dir.href).toBe("file:///migrations/");
+      const factory = defineModule({ manifest, messages: { en }, migrations: { dir }, privacy });
+      expect(factory().migrations?.dir.href).toBe("file:///migrations/");
+    });
+
+    it("still resolves a real module URL against itself", () => {
+      vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+      expect(resolveMigrationsDir("file:///bundle/worker.js", "./migrations/").href).toBe("file:///bundle/migrations/");
+    });
   });
 
   it("throws on a relative module URL, which is a bug in the module package", () => {
