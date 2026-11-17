@@ -10,7 +10,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   container on that network, which then chose its own `CF-Connecting-IP` and with it its rate-limit key. The router
   now runs the middleware `<name>-edge-proof` first, setting `X-Softure-Edge-Proof` to the new required secret
   `EDGE_PROOF_SECRET`, and the app gets the same secret; init prints `next` lines for the secret and for wrapping the
-  resolver in `edgeProofIp` (`@softure-ai/security`, its next release). README "Edge network".
+  resolver in `edgeProofIp` (`@softure-ai/security` 0.2.10). README "Edge network".
 - **`checkSharedHostCompose` rule `edge-proof-missing`:** a router that passes requests to a service of the file (not an
   `@internal` one, such as the `www` redirect) without a `headers` middleware setting the proof header, directly or in
   a chain. Option `edgeProofHeader` (default `X-Softure-Edge-Proof`, exported as `DEFAULT_EDGE_PROOF_HEADER`;

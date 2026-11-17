@@ -14,7 +14,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   is (dev and test stacks); a secret under 16 characters throws. README "Shared edge network".
 - Migrate: an app deployed with `--edge` wraps its resolver,
   `clientIp: edgeProofIp({ resolver: cloudflareIp(), secret: process.env.EDGE_PROOF_SECRET })`, and its router sets
-  the header (`@softure-ai/deploy`'s next `init --edge` writes the middleware; an existing compose file adds it as
+  the header (`@softure-ai/deploy` 0.7.2's `init --edge` writes the middleware; an existing compose file adds it as
   that CHANGELOG shows). Other apps: nothing.
 
 ## 0.2.9
