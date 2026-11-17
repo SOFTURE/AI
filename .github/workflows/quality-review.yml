@@ -64,7 +64,7 @@ on:
       cli-version:
         description: Version of @softure-ai/quality-review that runs the review
         type: string
-        default: 0.2.0
+        default: 0.3.0
       agent-sdk-version:
         description: Version of @anthropic-ai/claude-agent-sdk the review runs on
         type: string

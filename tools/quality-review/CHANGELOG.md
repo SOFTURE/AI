@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 `quality-review.yml` workflow. When an app has run a version in production, the version gets a line
 `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md), "Definition of done").
 
-## Unreleased
+## 0.3.0
 
 - `focus: security` proves its coverage (#1325). The agent emits a `<coverage>` block per threat scenario (`traced`
   with the files it read, or `no-surface` with what it searched); the program keeps only files the agent really read
