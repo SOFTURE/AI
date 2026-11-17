@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.22.0
 
 - Smooth resize drags over a large `SidePanel` (#1326):
   - `page.css` registers `--side-panel-width` with `@property … inherits: false`. A change of the panel's width no
