@@ -239,6 +239,7 @@ import {
   FormGrid,
   Code,
   CodeBlock,
+  CopyButton,
 } from "../../src/index.js";
 
 // The install bar's copy, as `pwaMessages.en.install` in `@softure-ai/pwa` has it.
@@ -1488,6 +1489,17 @@ const NOTION_CASES: readonly GalleryCase[] = [
       ),
     }),
   ),
+  {
+    name: "CopyButton",
+    component: "CopyButton",
+    root: '[data-slot="copy-button"]',
+    render: () => (
+      <div className="flex w-96 items-center gap-2">
+        <CodeBlock className="min-w-0 flex-1">https://app.example.test/api/mcp</CodeBlock>
+        <CopyButton value="https://app.example.test/api/mcp" label="Copy URL" copiedLabel="Copied" />
+      </div>
+    ),
+  },
   ...(["compact", "roomy"] as const).flatMap((density) =>
     (["page", "tinted"] as const).map(
       (surface): GalleryCase => ({

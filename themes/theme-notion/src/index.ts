@@ -60,6 +60,7 @@ export {
 } from "./notion/AsidePanel.js";
 export { isOverlayOpen } from "./notion/overlay-open.js";
 export { Code, CodeBlock, type CodeBlockProps } from "./notion/Code.js";
+export { COPY_BUTTON_RESET_MS, CopyButton, type CopyButtonProps } from "./notion/CopyButton.js";
 export { DetailTable, type DetailRow, type DetailTableProps } from "./notion/DetailTable.js";
 export { FilterChip, FilterChipAdd, type FilterChipAddProps, type FilterChipProps } from "./notion/FilterChip.js";
 export { FoldRow, type FoldRowBadge, type FoldRowProps } from "./notion/FoldRow.js";

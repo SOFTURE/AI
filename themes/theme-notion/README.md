@@ -81,7 +81,7 @@ import { CircleCheck } from "lucide-react";
 **Copy.** The components' built-in texts are accessible names in English (`notionMessages.en`). Pass the app's own
 wording by props: `Breadcrumb aria-label`, `BreadcrumbEllipsis label`, `PageHeader crumbsLabel`,
 `DialogContent closeLabel`, `DialogFooter closeLabel` (the `showCloseButton` button's text), `SheetContent closeLabel`, `SidePanel closeLabel`, `AsidePanelToggle showLabel hideLabel`,
-`AsidePanel widenLabel narrowLabel closeLabel`, `AsidePanelSidebarOpener label`, `Steps stateLabels`,
+`AsidePanel widenLabel narrowLabel closeLabel`, `AsidePanelSidebarOpener label`, `Steps stateLabels`, `CopyButton label copiedLabel`,
 `Sidebar mobileTitle mobileDescription`, `SidebarTrigger label`, `SidebarRail label`, `Spinner aria-label`,
 `CommandDialog title description` (`title` also names its search field), `Command label` (the search field's
 name outside a `CommandDialog`; without it the field has none), `SortableList instructions announcements`, `SortableHandle label`.
@@ -144,6 +144,7 @@ and more, a native `<details>`), `PageFrame` (a page outside the app shell, such
 and count, the shown tab in the address; `Tabs` keeps it in client state), `MarkPopover` (a counted tag that opens a
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
+`CopyButton` (one value to the clipboard, with a moment of "Copied", below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
 `List`, `ListItem` and `ListRow` (a list of rows, compact or roomy by the page's density, below),
 `MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
@@ -529,6 +530,20 @@ plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-bloc
 ```tsx
 <p>Run <Code>npm ci</Code> first.</p>
 <CodeBlock label="Build log" wrap>{log}</CodeBlock>
+```
+
+**`CopyButton`.** One value to the clipboard, for a URL, a command or a code the reader pastes elsewhere: a
+`secondary` button (any `Button` variant and size) with Lucide's copy icon that turns into a tick and says
+`copiedLabel` for two seconds (`COPY_BUTTON_RESET_MS`) once the browser took the text, announced politely to a screen
+reader. A refused write (an insecure page, a denied permission) leaves it as it was, so keep the value visible beside
+it (a `CodeBlock`) for the reader to select by hand. The value is never part of the button's name; `onCopied` tells the
+app after a copy. A client component. `data-slot="copy-button"`, `data-copied` while it says "Copied".
+
+```tsx
+<div className="flex items-center gap-2">
+  <CodeBlock className="min-w-0 flex-1">{url}</CodeBlock>
+  <CopyButton value={url} label="Copy URL" copiedLabel="Copied" />
+</div>
 ```
 
 **`UpdatePrompt`.** The offer to reload into a new build, for an installed app on `@softure-ai/pwa`: a floating
