@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.8.7
+
+- **Cloudflare Workers:** `withScheduledObservability(handler, options)` wraps the Worker's `scheduled` handler (a Cron
+  Trigger) as `withObservability` wraps `fetch`: one internal span `scheduled` per firing (`faas.trigger`, `faas.cron`,
+  `error.type` on a throw, thrown on) and the log records written while the handler's promise runs, sent over OTLP/HTTP
+  JSON under `ctx.waitUntil`. Before it, the logs of background work on Workers waited for the next request's export
+  or were lost, so a "jobs are silent" rule on the logs could not tell a dead Cron Trigger from a quiet one.
+  - Migrate: nothing; a Worker with scheduled jobs wraps its `scheduled` export, usually under its own `serviceName`.
+
 ## 0.8.6
 
 - `registerObservability` starts nothing on Cloudflare Workers and keeps the Node SDK behind a literal

@@ -1,2 +1,9 @@
-export { withObservability } from "./handler.js";
-export type { WorkersExecutionContext, WorkersFetchHandler, WorkersObservabilityOptions } from "./handler.js";
+export { withObservability, withScheduledObservability } from "./handler.js";
+export type {
+  WorkersExecutionContext,
+  WorkersFetchHandler,
+  WorkersObservabilityOptions,
+  WorkersScheduledController,
+  WorkersScheduledHandler,
+  WorkersScheduledObservabilityOptions,
+} from "./handler.js";

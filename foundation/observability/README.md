@@ -279,6 +279,18 @@ export default {
 };
 ```
 
+The `scheduled` export (a Cron Trigger) takes `withScheduledObservability(handler, options)` with the same options
+except `ignorePaths`: one internal span `scheduled` per firing (`faas.trigger` `timer`, `faas.cron`, `error.type` when
+it throws, thrown on) and the records written while the handler's promise runs. Give it its own `serviceName` (e.g.
+`shop-jobs`) so a silence rule on the logs (below) watches the background work apart from the requests:
+
+```ts
+export default {
+  fetch: withObservability(handleRequest, { serviceNamespace: "shop", serviceName: "shop" }),
+  scheduled: withScheduledObservability(runJobsTick, { serviceNamespace: "shop", serviceName: "shop-jobs" }),
+};
+```
+
 Settings are the Node entry's: the options first, then `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`,
 `OTEL_SERVICE_NAME` and the other `OTEL_*` variables from the Worker's bindings (secrets: `wrangler secret put`).
 Without an endpoint nothing is sent. No metrics: an isolate has no process to measure, so the "service is silent"
@@ -460,6 +472,7 @@ To log a reason that label mode keeps, pass it as plain attributes that carry no
 - No framework instrumentation (Express, Fastify): server spans and metrics carry no route.
 - The probe (`softure-observability ping`) checks traces and logs only, not metrics.
 - OTLP/HTTP protobuf on Node (no gRPC); OTLP/HTTP JSON on Workers.
-- On Workers: one span per request (no child spans for outgoing `fetch` or database calls) and no metrics.
+- On Workers: one span per request or scheduled run (no child spans for outgoing `fetch` or database calls) and no
+  metrics. A scheduled handler's records are sent only for work its promise awaits.
 - `grafana apply` speaks to Grafana only, and creates neither contact points nor notification policies.
 - Batches are sent every few seconds; a process killed without `shutdown()` (or `handleSignals`) can lose the last one.

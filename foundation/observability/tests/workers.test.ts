@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createLogger } from "../src/index.js";
 import { encodeLogs, toUnixNano } from "../src/workers/otlp-json.js";
-import { withObservability, type WorkersExecutionContext } from "../src/workers/index.js";
+import { withObservability, withScheduledObservability, type WorkersExecutionContext } from "../src/workers/index.js";
 
 type Sent = { url: string; headers: Record<string, string>; body: unknown };
 
@@ -199,6 +199,60 @@ describe("withObservability on Workers", () => {
     const [record] = readRecords(sent);
     expect(record?.body).toEqual({ stringValue: "isolate started" });
     expect(record?.traceId).toBeUndefined();
+  });
+});
+
+describe("withScheduledObservability on Workers", () => {
+  const controller = { scheduledTime: Date.UTC(2026, 10, 17, 12, 0), cron: "* * * * *" };
+
+  it("sends nothing and waits for nothing without an OTLP endpoint, and returns the handler's result", async () => {
+    const { fetch, sent } = createFetch();
+    const { ctx, count } = createContext();
+    const handler = withScheduledObservability(() => Promise.resolve({ ran: 2 }), { fetch });
+    await expect(handler(controller, {}, ctx)).resolves.toEqual({ ran: 2 });
+    expect(count()).toBe(0);
+    expect(sent).toEqual([]);
+  });
+
+  it("sends the run's log records and one internal span named scheduled with the cron", async () => {
+    const { fetch, sent } = createFetch();
+    const { ctx, settle } = createContext();
+    const handler = withScheduledObservability(
+      async () => {
+        await Promise.resolve();
+        appLogger.info("tick ran", { "jobs.ran": 4 });
+      },
+      { fetch, serviceNamespace: "shop", serviceName: "shop-jobs", environment: "production" },
+    );
+    await handler(controller, ENDPOINT_ENV, ctx);
+    await settle();
+    const [span] = readSpans(sent);
+    expect(span).toMatchObject({
+      name: "scheduled",
+      kind: 1,
+      status: { code: 0 },
+      attributes: [
+        { key: "faas.trigger", value: { stringValue: "timer" } },
+        { key: "faas.cron", value: { stringValue: "* * * * *" } },
+      ],
+    });
+    const [record] = readRecords(sent);
+    expect(record).toMatchObject({ body: { stringValue: "tick ran" }, traceId: span?.traceId, spanId: span?.spanId });
+    const resource = (sent.find((item) => item.url.endsWith("/v1/logs"))?.body as LogsBody).resourceLogs[0]?.resource.attributes;
+    expect(resource).toContainEqual({ key: "service.name", value: { stringValue: "shop-jobs" } });
+  });
+
+  it("marks a thrown error on the span, logs it and throws it on", async () => {
+    const { fetch, sent } = createFetch();
+    const { ctx, settle } = createContext();
+    const failure = new RangeError("no database");
+    const handler = withScheduledObservability(() => Promise.reject(failure), { fetch });
+    await expect(handler(controller, ENDPOINT_ENV, ctx)).rejects.toBe(failure);
+    await settle();
+    const [span] = readSpans(sent);
+    expect(span?.status).toEqual({ code: 2 });
+    expect(span?.attributes).toContainEqual({ key: "error.type", value: { stringValue: "RangeError" } });
+    expect(readRecords(sent).map((record) => record.body)).toEqual([{ stringValue: "scheduled run failed" }]);
   });
 });
 
