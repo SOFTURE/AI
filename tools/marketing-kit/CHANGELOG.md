@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.45.0
+
+- **The draft sets every line on the render's baseline:** libass sets a line's baseline `usWinAscent` below its top,
+  a browser half the leading plus the content area's ascent; for a brand font whose win ascent stands far above its
+  typo ascent (a display serif's 1.3 em over 1.0 em) every heading line stood about 0.375 em lower in the draft: a
+  place card's title fell onto its subtitle, a keyword's last line hung out of its card. `DraftFont` reads
+  `drawnAscentEm` and `drawnDescentEm`; every overlay line placed by its top or its middle moves by
+  `getDraftLineShift` or `getDraftMiddleShift` (both 0 without the draft's fonts, as before).
+- **The draft fits captions to `captionMaxLines` as the render does:** a chunk's font shrinks in 1 px steps, down to
+  `CAPTION_MIN_FONT_SCALE` of the box's size, until it takes at most that many lines (`fitDraftCaptionPlace`); a
+  fitted size gets a caption style of its own. Before, a long chunk took three lines at the box's size in the draft
+  and two smaller ones in the render.
+- The draft-versus-render regression test runs a second scenario: a heading font with a raised win ascent and
+  captions limited to two lines, tops and feet within 1 % of the frame.
+
 ## 0.44.0
 
 - **The draft runs every animation at the render's pace:** at the same second a counter showed 2734 in the draft and

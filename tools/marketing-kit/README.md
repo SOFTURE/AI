@@ -1351,7 +1351,9 @@ What the draft matches and what it leaves out:
   and named by the family the file itself declares (libass matches that, not the CSS family). A body font shipped only
   as WOFF or WOFF2, or no `brand`, draws in DejaVu Sans Bold subset to Latin with every Polish letter, shipped in
   [`fonts/`](fonts/README.md) (`FOOTAGE_DRAFT_FONT`), and the log says so. Without `brand` a highlight film uses
-  `FOOTAGE_DRAFT_CAPTION_COLORS`. `captionMaxLines` is not applied: the draft wraps at the caption box.
+  `FOOTAGE_DRAFT_CAPTION_COLORS`. With `captionMaxLines` each chunk's font shrinks as the render's does, in 1 px
+  steps down to `CAPTION_MIN_FONT_SCALE` of the box's size, until it takes that many lines (`fitDraftCaptionPlace`,
+  0.45.0).
 - **Text at the render's size** (`loadFootageDraftFonts`): every font is drawn as large as the render draws it.
   libass sizes a font by `usWinAscent + usWinDescent`, a browser by its em, so each size the draft writes (`Fontsize`,
   `\fs`) is the render's CSS px times the font's own `(usWinAscent + usWinDescent) / unitsPerEm` (`DraftFont.assScale`;
@@ -1371,6 +1373,11 @@ What the draft matches and what it leaves out:
   frame either side, `getFrameSteps`); typed letters come one render stagger apart (`getTypingStep`), a later line
   going on from the letters before it (`getTypingTimes`' `firstIndex`); a wipe's clips move along the render's ease
   in one `\t` per frame (`getEasedClipTags`). At any second the draft and the render differ by at most one frame.
+- **Lines on the render's baseline** (0.45.0): libass sets a line's baseline `usWinAscent` below its top, a browser half
+  the leading plus the content area's ascent below the line box's top. With `fonts`, every overlay line placed by its
+  top or its middle moves by the difference (`getDraftLineShift`, `getDraftMiddleShift`, from
+  `DraftFont.drawnAscentEm` and `drawnDescentEm`), so a display serif whose win ascent stands far above its typo
+  ascent no longer sits low in its card.
 - **Music without spending** (`cacheDir`, `providers`, as `renderFootage` takes them): a `file` source plays as is;
   a `prompt` or `video` source plays only when its paid cache entry exists (`findFootageMusic`, the render's lookup).
   It is ducked under the speech, looped and faded to the cut's length exactly as in the render. No provider is ever

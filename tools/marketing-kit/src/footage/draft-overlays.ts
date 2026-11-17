@@ -2,7 +2,7 @@ import { FOOTAGE_FPS } from "./normalize.js";
 import { getCornerRadiusPx, type BrandStyle, type CornerRadius } from "./brand-style.js";
 import { getDraftBoxEvents } from "./draft-boxes.js";
 import { toAssColor } from "./draft-color.js";
-import { DEFAULT_CONTENT_AREA, getSpacingWidth, toDraftAssSize, toDraftSpacing, wrapDraftLine, type DraftFont } from "./draft-text-width.js";
+import { DEFAULT_CONTENT_AREA, getDraftLineShift, getDraftMiddleShift, getSpacingWidth, toDraftAssSize, toDraftSpacing, wrapDraftLine, type DraftFont } from "./draft-text-width.js";
 import { HAND_FONT, getHandFontAssSize } from "./hand-font.js";
 import { getCounterValueAt, getOverlayColors, getPlaceCardTimes, getTypingStep, getTypingTimes, type OverlayColors } from "./overlay-html.js";
 import {
@@ -205,6 +205,13 @@ interface DraftContext {
   layout?: OverlayTextMeasure;
   /** The content area (ascent, descent in ems) of the font of `role`, as a browser sizes an inline box. */
   contentArea: (role: DraftFontRole) => { ascentEm: number; descentEm: number };
+  /**
+   * How far a line of `role` placed by its top moves so its baseline stands where the render's does in a line box of
+   * `lineHeightEm` (`getDraftLineShift`), in px; 0 without the draft's fonts (as before).
+   */
+  lineShift: (role: DraftFontRole, cssPx: number, lineHeightEm: number) => number;
+  /** The same for a line placed by its middle (`getDraftMiddleShift`); 0 without the draft's fonts. */
+  middleShift: (role: DraftFontRole, cssPx: number) => number;
 }
 
 /**
@@ -653,7 +660,7 @@ function getLaidOutSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "key
   const isTyped = overlay.entrance !== null && overlay.entrance !== "drop" && overlay.typing !== null;
   let typedBefore = 0;
   const lines = layout.lines.flatMap((line, index) => {
-    const pos = { x: layout.textX, y: layout.textTop + index * lineHeight };
+    const pos = { x: layout.textX, y: layout.textTop + index * lineHeight + context.lineShift(role, fontSize, OVERLAY_LINE_HEIGHT) };
     const lineStart = overlay.typing === null ? span.start : span.start + typedBefore / overlay.typing;
     const count = [...line].length;
     const steps =
@@ -726,8 +733,9 @@ function getListEvents(overlay: Extract<ResolvedOverlay, { kind: "list" }>, cont
   const name = overlay.entrance === null || overlay.entrance === "type" ? "fade" : overlay.entrance;
   const textTags = getTextTags(overlay, colors, context, OVERLAY_FONT_ROLES.list);
   const lines = getSideTextLines(overlay);
-  const write = (pos: OverlayPoint, align: number, steps: TextStep[], motion: DraftMotion, clip = "") =>
-    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${context.toAssSize(OVERLAY_FONT_ROLES.list, fontSize)}${context.spacing(OVERLAY_LETTER_SPACING_EM.card, fontSize)}${textTags}${clip}`, steps, motion });
+  const shift = context.lineShift(OVERLAY_FONT_ROLES.list, fontSize, OVERLAY_LINE_HEIGHT);
+  const write = (at: OverlayPoint, align: number, steps: TextStep[], motion: DraftMotion, clip = "") =>
+    getTextEvents({ layer: 4, style: "OverlayPlain", pos: { x: at.x, y: at.y + shift }, tags: `\\an${align}\\fs${context.toAssSize(OVERLAY_FONT_ROLES.list, fontSize)}${context.spacing(OVERLAY_LETTER_SPACING_EM.card, fontSize)}${textTags}${clip}`, steps, motion });
   if (overlay.chips !== undefined) {
     const covered = getChipCoveredTimes(overlay);
     return overlay.chips.flatMap((_chip, index) => {
@@ -912,8 +920,10 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
   // The render spaces a title's heading lines tighter than the rest of a card's text, and a search query not at all.
   const spacingFor = (role: OverlayFontRole): number =>
     overlay.kind === "search_bar" ? 0 : role !== "heading" ? OVERLAY_LETTER_SPACING_EM.card : overlay.kind === "hook_title" ? OVERLAY_LETTER_SPACING_EM.hookTitle : overlay.kind === "place_card" ? OVERLAY_LETTER_SPACING_EM.placeTitle : OVERLAY_LETTER_SPACING_EM.card;
-  const text = (pos: OverlayPoint, align: number, size: number, role: OverlayFontRole, steps: TextStep[], own: DraftMotion = motion) =>
-    getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags: `\\an${align}\\fs${context.toAssSize(role, r0(size))}${context.spacing(spacingFor(role), r0(size))}${tagsFor(role)}`, steps, motion: own });
+  // Every card line is set by its top in the render's line box (a title's heading lines in theirs, the rest in `OVERLAY_LINE_HEIGHT`).
+  const lineBoxFor = (role: OverlayFontRole): number => (role === "heading" && overlay.kind === "place_card" ? OVERLAY_TITLE_LINE_HEIGHT : OVERLAY_LINE_HEIGHT);
+  const text = (at: OverlayPoint, align: number, size: number, role: OverlayFontRole, steps: TextStep[], own: DraftMotion = motion) =>
+    getTextEvents({ layer: 4, style: "OverlayPlain", pos: { x: at.x, y: at.y + (align >= 7 ? context.lineShift(role, r0(size), lineBoxFor(role)) : align >= 4 ? context.middleShift(role, r0(size)) : 0) }, tags: `\\an${align}\\fs${context.toAssSize(role, r0(size))}${context.spacing(spacingFor(role), r0(size))}${tagsFor(role)}`, steps, motion: own });
   const plain = { ...motion, name: "none" as const, entrance: { kind: "none" as const } };
   if (overlay.kind === "hook_title" || overlay.kind === "place_card") {
     // The text block sits in the card's middle; centred lines on its axis, left ones from its left edge (RV-131).
@@ -1119,7 +1129,8 @@ function getNoteEvents(overlay: Extract<ResolvedOverlay, { kind: "note" }>, cont
   const assSize = isStrip ? context.toAssSize("heading", overlay.fontSize) : getHandFontAssSize(overlay.fontSize);
   const tags = `\\an7\\fs${assSize}${isStrip ? context.spacing(OVERLAY_LETTER_SPACING_EM.strip, overlay.fontSize) : ""}${font}\\1c${toTagColor(colors.ink)}${turn}`;
   getNoteWordsByLine(overlay).forEach((words, index) => {
-    const pos = { x: textBox.left, y: textBox.top + index * lineHeight };
+    // A strip's heading font stands on the render's baseline; the hand font is sized to its own letters (`getHandFontAssSize`).
+    const pos = { x: textBox.left, y: textBox.top + index * lineHeight + (isStrip ? context.lineShift("heading", overlay.fontSize, NOTE_LINE_HEIGHT) : 0) };
     const line = overlay.lines[index] as string;
     const span = { start: overlay.start, end: overlay.end };
     if (isStrip) {
@@ -1192,6 +1203,8 @@ export function buildDraftOverlayEvents(
     measure: (role, text, cssPx, spacingEm) => (drawn === undefined ? estimateTextWidth(text, cssPx) : drawn[role].measure(text, cssPx) + getSpacingWidth(text, spacingEm, cssPx)),
     spacing: (spacingEm, cssPx) => (drawn === undefined || spacingEm === 0 ? "" : `\\fsp${String(toDraftSpacing(spacingEm, cssPx))}`),
     contentArea: (role) => drawn?.[role].contentArea ?? DEFAULT_CONTENT_AREA,
+    lineShift: (role, cssPx, lineHeightEm) => (drawn === undefined ? 0 : getDraftLineShift(drawn[role], cssPx, lineHeightEm)),
+    middleShift: (role, cssPx) => (drawn === undefined ? 0 : getDraftMiddleShift(drawn[role], cssPx)),
     ...(options.style === undefined ? {} : { style: options.style }),
     ...(drawn === undefined ? {} : { layout: (role: OverlayFontRole, text: string, cssPx: number, spacingEm: number) => drawn[role].measure(text, cssPx) + getSpacingWidth(text, spacingEm, cssPx) }),
   };

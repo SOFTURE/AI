@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -34,9 +34,8 @@ const DRAFT = { width: 540, height: 960 };
 const SCENE = "#3366aa";
 const CAPTION = { top: 1290, bottom: 420, left: 120, right: 120, fontSize: 64 };
 
-/** The kit's own fixture fonts: DejaVu Sans Bold for the body and the interface, Caveat SemiBold for the headings. */
+/** The kit's own fixture fonts: DejaVu Sans Bold for the body and the interface, Caveat SemiBold (per scenario) for the headings. */
 const BODY: BrandFont = { family: "DejaVu Sans", fallback: "sans-serif", files: [{ path: FOOTAGE_DRAFT_FONT.file, weight: "700", style: "normal", unicodeRange: null }] };
-const HEADING: BrandFont = { family: "Caveat", fallback: "cursive", files: [{ path: HAND_FONT.file, weight: "600", style: "normal", unicodeRange: null }] };
 
 const film: FootageFilm = {
   id: "trip",
@@ -93,8 +92,8 @@ const canBurn = (() => {
   return run.status === 0 && readFfmpegListing(run.stdout).has("ass");
 })();
 
-function getOverlays(): ResolvedOverlay[] {
-  const result = resolveEdlOverlays({ film, edl: EDL, words: WORDS, frame: FRAME, caption: CAPTION, style: STYLE });
+function getOverlays(scenario: Scenario): ResolvedOverlay[] {
+  const result = resolveEdlOverlays({ film: scenario.film, edl: EDL, words: scenario.words, frame: FRAME, caption: CAPTION, style: STYLE });
   if (!result.ok) throw new Error(result.problems.join("; "));
   return result.overlays;
 }
@@ -182,11 +181,55 @@ function saveEvidence(seconds: number, render: Buffer, draft: Buffer): void {
   if (run.status !== 0) throw new Error(run.stderr.toString());
 }
 
-describe.runIf(hasChromium && canBurn)("the draft draws every text as the render does, at half its resolution", () => {
+/**
+ * A cut drawn both ways: its film and words, how its heading font file is made from the kit's Caveat (as it is, or
+ * changed), and how close every text's top and foot must stand (a share of the frame's height).
+ */
+interface Scenario {
+  name: string;
+  film: FootageFilm;
+  words: TimedWord[];
+  makeHeading: (data: Buffer) => Buffer;
+  tolerance: number;
+}
+
+/**
+ * A font's `usWinAscent` raised by `em` ems, the rest unchanged: libass sets its baseline that much lower and sizes it by
+ * the taller box, while a browser keeps the typo (or `hhea`) metrics, as with a brand font whose win metrics stand far
+ * above its other ones (a display serif's do).
+ */
+function raiseWinAscent(data: Buffer, em: number): Buffer {
+  const font = Buffer.from(data);
+  const tables = new Map<string, number>();
+  for (let index = 0; index < font.readUInt16BE(4); index++) tables.set(font.toString("latin1", 12 + index * 16, 16 + index * 16), font.readUInt32BE(20 + index * 16));
+  const os2 = tables.get("OS/2") as number;
+  const unitsPerEm = font.readUInt16BE((tables.get("head") as number) + 18);
+  font.writeUInt16BE(font.readUInt16BE(os2 + 74) + Math.round(em * unitsPerEm), os2 + 74);
+  return font;
+}
+
+/** The fixture as it is: the kit's own fonts, captions without a line limit. */
+const AS_IS: Scenario = { name: "the kit's fonts", film, words: WORDS, makeHeading: (data) => data, tolerance: 0.02 };
+
+/** Spoken words whose second chunk takes three lines of the caption box at its size and two at a smaller one. */
+const FITTED_WORDS: TimedWord[] = ["We", "flew", "east", "today", "Extraordinary", "unforgettable", "mountains", "everywhere", "and", "then", "slept", "well"].map((text, index) => ({
+  text,
+  start: 0.2 + index * 1.5,
+  end: 0.2 + index * 1.5 + 1.2,
+}));
+
+/**
+ * A heading font whose baseline libass sets 0.4 em lower than a browser does, and captions fitted to two lines: each
+ * text's top and foot within 1 % of the frame (RV-198 of an adopting app: a place card's title fell onto its subtitle and a
+ * caption took three lines where the render shrank it to two).
+ */
+const TALL_HEADING: Scenario = { name: "a tall-ascent heading font and two-line captions", film: { ...film, captionMaxLines: 2 }, words: FITTED_WORDS, makeHeading: (data) => raiseWinAscent(data, 0.4), tolerance: 0.01 };
+
+describe.runIf(hasChromium && canBurn).each([AS_IS, TALL_HEADING])("the draft draws every text as the render does, at half its resolution, with $name", (scenario) => {
   let browser: Browser;
   let page: Page;
   let dir: string;
-  const overlays = getOverlays();
+  const overlays = getOverlays(scenario);
   let fonts: FootageDraftFonts;
 
   beforeAll(async () => {
@@ -194,16 +237,17 @@ describe.runIf(hasChromium && canBurn)("the draft draws every text as the render
     mkdirSync(join(dir, "assets", "fonts"), { recursive: true });
     mkdirSync(join(dir, "fonts"));
     copyFileSync(require.resolve("gsap/dist/gsap.min.js"), join(dir, "assets", "gsap.min.js"));
-    for (const file of [FOOTAGE_DRAFT_FONT.file, HAND_FONT.file]) {
-      copyFileSync(file, join(dir, "assets", "fonts", basename(file)));
-      copyFileSync(file, join(dir, "fonts", basename(file)));
-    }
+    copyFileSync(FOOTAGE_DRAFT_FONT.file, join(dir, "assets", "fonts", basename(FOOTAGE_DRAFT_FONT.file)));
+    copyFileSync(FOOTAGE_DRAFT_FONT.file, join(dir, "fonts", basename(FOOTAGE_DRAFT_FONT.file)));
+    const heading = scenario.makeHeading(readFileSync(HAND_FONT.file));
+    for (const folder of [join(dir, "assets", "fonts"), join(dir, "fonts")]) writeFileSync(join(folder, basename(HAND_FONT.file)), heading);
+    const HEADING: BrandFont = { family: "Caveat", fallback: "cursive", files: [{ path: join(dir, "fonts", basename(HAND_FONT.file)), weight: "600", style: "normal", unicodeRange: null }] };
     fonts = loadFootageDraftFonts({ body: BODY, heading: HEADING, interface: BODY });
     const face = (font: BrandFont) => ({ family: font.family, fallback: font.fallback, faces: font.files.map((file) => ({ src: `assets/fonts/${basename(file.path)}`, weight: file.weight, style: file.style, unicodeRange: null })) });
     const html = composeFootage({
-      film,
+      film: scenario.film,
       edl: EDL,
-      words: WORDS,
+      words: scenario.words,
       frame: FRAME,
       caption: CAPTION,
       headlineSize: 96,
@@ -218,7 +262,7 @@ describe.runIf(hasChromium && canBurn)("the draft draws every text as the render
     // Only text may differ from the scene: no picture, no shadows.
     const plain = `<style>html,body,.clip{background:${SCENE}!important}video,img,#picture{visibility:hidden!important}*{box-shadow:none!important;text-shadow:none!important}</style>`;
     writeFileSync(join(dir, "index.html"), html.replace("</head>", `${plain}</head>`));
-    const ass = buildFootageDraftCaptions({ film, edl: EDL, words: WORDS, caption: CAPTION, frame: FRAME, fonts, colors: COLORS, overlays, overlayColors: { background: SCENE, foreground: COLORS.foreground, accent: SCENE }, style: STYLE });
+    const ass = buildFootageDraftCaptions({ film: scenario.film, edl: EDL, words: scenario.words, caption: CAPTION, frame: FRAME, fonts, colors: COLORS, overlays, overlayColors: { background: SCENE, foreground: COLORS.foreground, accent: SCENE }, style: STYLE });
     writeFileSync(join(dir, "captions.ass"), ass ?? "");
     browser = await chromium.launch(CHROMIUM_PATH === undefined ? {} : { executablePath: CHROMIUM_PATH });
     page = await browser.newPage({ viewport: { width: FRAME.width, height: FRAME.height } });
@@ -279,12 +323,12 @@ describe.runIf(hasChromium && canBurn)("the draft draws every text as the render
       if (want === null || got === null) continue;
       compared++;
       expect(got.rows, `${region.name}: lines`).toBe(want.rows);
-      // Within 2 % of the frame on every side of the text.
+      // Within 2 % of the frame across, and the scenario's share of it up and down.
       expect(Math.abs(got.right - got.left - (want.right - want.left)), `${region.name}: width ${got.right - got.left} vs ${want.right - want.left}`).toBeLessThanOrEqual(DRAFT.width * 0.02);
       expect(Math.abs(got.left - want.left), `${region.name}: left ${got.left} vs ${want.left}`).toBeLessThanOrEqual(DRAFT.width * 0.02);
       expect(Math.abs(got.right - want.right), `${region.name}: right ${got.right} vs ${want.right}`).toBeLessThanOrEqual(DRAFT.width * 0.02);
-      expect(Math.abs(got.top - want.top), `${region.name}: top ${got.top} vs ${want.top}`).toBeLessThanOrEqual(DRAFT.height * 0.02);
-      expect(Math.abs(got.bottom - want.bottom), `${region.name}: bottom ${got.bottom} vs ${want.bottom}`).toBeLessThanOrEqual(DRAFT.height * 0.02);
+      expect(Math.abs(got.top - want.top), `${region.name}: top ${got.top} vs ${want.top}`).toBeLessThanOrEqual(DRAFT.height * scenario.tolerance);
+      expect(Math.abs(got.bottom - want.bottom), `${region.name}: bottom ${got.bottom} vs ${want.bottom}`).toBeLessThanOrEqual(DRAFT.height * scenario.tolerance);
     }
     expect(compared).toBeGreaterThanOrEqual(1);
   });
