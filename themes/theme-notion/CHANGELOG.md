@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.23.0
 
 - List density (#1341): `List`, `ListItem` and `ListRow`, a list of rows that is `compact` (tight rows, no line
   between them, the default) or `roomy` (a quiet `border` line between rows and one more 4 px step around each), by
