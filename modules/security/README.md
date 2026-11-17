@@ -79,6 +79,7 @@ edge does not set or overwrite lets any client choose its own key.
 | Resolver | Reads | Use when |
 | --- | --- | --- |
 | `cloudflareIp()` | `CF-Connecting-IP` | the origin accepts traffic from Cloudflare only |
+| `edgeProofIp({ resolver, secret })` | the proof header (`X-Softure-Edge-Proof`), then `resolver` | the app shares a network with other containers (`softure-deploy init --edge`): see below |
 | `forwardedForIp({ trustedProxies: 1 })` | `X-Forwarded-For`, n-th entry from the right | a known number of proxies (Traefik, nginx, a load balancer) append to the header |
 | `forwardedForIp({ trustedProxies: ["10.0.0.0/8"] })` | `X-Forwarded-For`, first entry from the right that is not a trusted proxy | the proxies have known addresses or ranges |
 | `headerIp("x-real-ip")` | a header holding one address | the edge overwrites that header |
@@ -87,6 +88,27 @@ edge does not set or overwrite lets any client choose its own key.
 Entries left of the trusted proxies' entries came from the client and are never used. A missing,
 short or garbled header resolves to nothing. Addresses are normalised: a port and IPv6 brackets are
 removed, IPv4-mapped (and the deprecated IPv4-compatible) IPv6 becomes IPv4, IPv6 is written in full lowercase groups.
+
+**Shared edge network.** "Accepts traffic from Cloudflare only" is about who can reach the app, not
+only the server's firewall. An app set up with `softure-deploy init --edge=<network>` joins a Traefik
+network that other projects' containers share; any of them can call `app:3000` directly and send a new
+`CF-Connecting-IP` (or `X-Forwarded-For`) on every request, past the router's own rules. Wrap the
+resolver in `edgeProofIp`: the app's router sets a secret header (init writes the middleware and the
+`EDGE_PROOF_SECRET` secret), and the inner resolver is trusted only on a request that carries it.
+
+```ts
+security({
+  clientIp: edgeProofIp({ resolver: cloudflareIp(), secret: process.env.EDGE_PROOF_SECRET }),
+  buckets: { ...AUTH_RATE_LIMIT_BUCKETS },
+});
+```
+
+A request without the proof, or with a wrong one, resolves to nothing and is refused as unidentified
+(below). Without a secret (`secret: undefined`: `next dev`, a test stack) the inner resolver is used as
+it is; a secret shorter than 16 characters throws, so generate one (`openssl rand -hex 32`). The header
+is `EDGE_PROOF_HEADER` (`x-softure-edge-proof`) unless `header` names another. The comparison is
+constant-time. The value sits in the router's labels: keep the shared Traefik's API and dashboard off
+the network the apps share.
 
 **Unidentified clients.** A request that no resolver identifies is refused by default
 (`security.client_unidentified`): in production that means the edge was bypassed, and counting all

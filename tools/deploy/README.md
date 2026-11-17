@@ -1061,6 +1061,15 @@ Traefik belongs to another app's stack. A second Traefik would clash on ports 80
   `websecure`, certificate resolver `letsencrypt`, service port 3000 and the security headers as the middleware
   `<name>-security-headers`; with `--www` a router `<name>-www` and the redirect `<name>-www-to-apex`. The names carry
   the app's `<name>`, so they never meet the other stack's routers;
+- the edge proof (issue #1329): the network's other containers reach `app:3000` without the router, so they could send
+  any `CF-Connecting-IP` or `X-Forwarded-For` and pick their own rate-limit key. The router's first middleware
+  `<name>-edge-proof` sets `X-Softure-Edge-Proof` to `${EDGE_PROOF_SECRET:?}` (overwriting a client's value), and the
+  app gets the same `EDGE_PROOF_SECRET`. It is a required secret, so the generated `deploy.yml` passes it; init prints
+  two `next` lines: set it in the `production` environment (`openssl rand -hex 32`), and wrap the app's resolver in
+  `edgeProofIp` from `@softure-ai/security`
+  (`clientIp: edgeProofIp({ resolver: cloudflareIp(), secret: process.env.EDGE_PROOF_SECRET })`), which trusts the
+  inner resolver only on a request that carries the secret. The value sits in the container's labels: keep the edge
+  Traefik's API and dashboard off the shared network;
 - `deploy.sh`'s switch starts `app` (the migrate service runs through `depends_on`) and the worker when there is one;
   there is no `traefik` step.
 
@@ -1143,11 +1152,12 @@ it("keeps the production compose file safe next to the edge stack", () => {
 | `traefik-network` | `traefik.docker.network` names another network than `edgeNetwork` |
 | `bypass-path-blocked` | a router that serves a bypass path (or part of it) carries a `basicAuth`, `digestAuth`, `forwardAuth`, `ipAllowList` or `ipWhiteList` middleware, also inside a `chain` |
 | `bypass-path-claimed` | a router that serves a bypass path has no `Host` matcher, so it takes the path on every host of the edge proxy |
+| `edge-proof-missing` | a router whose service is not `@internal` runs no `headers` middleware (directly or in a `chain`) that sets the edge proof header (`edgeProofHeader`, `X-Softure-Edge-Proof` by default, `DEFAULT_EDGE_PROOF_HEADER`) as a non-empty `customrequestheaders` value; `edgeProofHeader: false` skips the rule |
 | `compose-unreadable` | the file is not YAML or not a mapping |
 
 With `ingress: "tunnel"` (an app that [Cloudflare Tunnel](#softure-deploy-init) publishes) the edge rules turn
 around: `edge-network-missing`, `edge-network-not-external`, `edge-network-changed`, the Traefik name and network rules
-and the bypass rules are not checked, `host-ports` and `host-network` still are, and two rules take their place:
+the bypass rules and `edge-proof-missing` are not checked, `host-ports` and `host-network` still are, and two rules take their place:
 
 | Rule | Breach |
 | --- | --- |

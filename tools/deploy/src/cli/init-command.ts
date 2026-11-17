@@ -129,6 +129,15 @@ function listCdnSteps(answers: InitAnswers): string[] {
   ];
 }
 
+/** What init cannot do itself for `--edge`: the edge proof's secret and the app's resolver (issue #1329). */
+function listEdgeSteps(answers: InitAnswers): string[] {
+  if (answers.edge === undefined) return [];
+  return [
+    "set the EDGE_PROOF_SECRET secret (the production environment) to a random value, e.g. openssl rand -hex 32: the router sets it on X-Softure-Edge-Proof",
+    "wrap the app's client-IP resolver: security({ clientIp: edgeProofIp({ resolver: cloudflareIp(), secret: process.env.EDGE_PROOF_SECRET }) }) from @softure-ai/security, so containers on the shared network cannot pick their own address",
+  ];
+}
+
 /** What init cannot do itself for `--tunnel`: the tunnel in Cloudflare, its token, and the headers Traefik sent. */
 function listTunnelSteps(answers: InitAnswers): string[] {
   if (answers.tunnel !== true) return [];
@@ -279,6 +288,7 @@ export function runInit(args: string[], io: CliIo): void {
     ...result.skipped.map((path) => `kept    ${path} (exists; --force overwrites it)`),
     ...warnings.map((warning) => `warning ${warning}`),
     ...listCdnSteps(answersResult.answers).map((step) => `next    ${step}`),
+    ...listEdgeSteps(answersResult.answers).map((step) => `next    ${step}`),
     ...listTunnelSteps(answersResult.answers).map((step) => `next    ${step}`),
     ...listWorkerImageSteps(facts, answersResult.answers).map((step) => `next    ${step}`),
     ...listCloudflareSteps(facts, answers).map((step) => `next    ${step}`),

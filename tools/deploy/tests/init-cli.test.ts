@@ -114,6 +114,11 @@ describe("softure-deploy init", () => {
     expect(text).toContain(
       "warning docker/prod/docker-compose.yml publishes Postgres on 127.0.0.1:5432, which another stack on this server may hold already; change the host port, or drop it and set database.access to compose-exec in deploy.json\n",
     );
+    expect(readFileSync(join(dir, ".github/workflows/deploy.yml"), "utf8")).toContain("EDGE_PROOF_SECRET: ${{ secrets.EDGE_PROOF_SECRET }}");
+    expect(text).toContain(
+      "next    set the EDGE_PROOF_SECRET secret (the production environment) to a random value, e.g. openssl rand -hex 32: the router sets it on X-Softure-Edge-Proof\n",
+    );
+    expect(text).toContain("next    wrap the app's client-IP resolver: security({ clientIp: edgeProofIp({ resolver: cloudflareIp(), secret: process.env.EDGE_PROOF_SECRET }) })");
     expect(await runCli(["init", ...REQUIRED, "--edge=proxy", "--cdn=cloudflare"], makeIo())).toBe(1);
     expect(err.join("")).toContain("edge: --cdn belongs to the stack that owns the edge Traefik; drop it with --edge");
   });
@@ -132,6 +137,7 @@ describe("softure-deploy init", () => {
     );
     expect(text).toContain("next    set the CLOUDFLARE_TUNNEL_TOKEN secret (the production environment) to the tunnel's token\n");
     expect(text).toContain("next    send the security headers from the app (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy)");
+    expect(text).not.toContain("EDGE_PROOF_SECRET");
     expect(await runCli(["init", ...REQUIRED, "--tunnel", "--www"], makeIo())).toBe(1);
     expect(err.join("")).toContain("tunnel: --www is a Traefik redirect; with --tunnel add a Cloudflare redirect rule from www to the apex");
   });

@@ -2,8 +2,9 @@
 // the edge network is joined, never declared or changed; no service takes a host port or the host network; every
 // Traefik name carries the app's prefix, because names are global on a shared Traefik; and no router blocks or
 // claims the paths an access-proxy bypass must keep open. An app published by a Cloudflare Tunnel instead (issue #905)
-// is held to the opposite: it never joins the edge network and carries no Traefik routing. Pure: the compose text in,
-// the violations out.
+// is held to the opposite: it never joins the edge network and carries no Traefik routing. Every router that reaches the
+// app sets the edge proof (issue #1329), since the network's other containers can reach the app around it. Pure: the
+// compose text in, the violations out.
 import { parse } from "yaml";
 
 export type ComposeRule =
@@ -19,6 +20,7 @@ export type ComposeRule =
   | "traefik-network"
   | "bypass-path-blocked"
   | "bypass-path-claimed"
+  | "edge-proof-missing"
   | "data-volume-missing"
   | "data-volume-bind"
   | "data-volume-split";
@@ -49,7 +51,16 @@ export interface SharedHostComposeOptions {
    * volumes, on the shared host's own disk.
    */
   readonly dataVolume?: { readonly mountPath: string };
+  /**
+   * The header every router that reaches the app sets through a `headers` middleware
+   * (`customrequestheaders.<header>`), which `edgeProofIp` of `@softure-ai/security` checks: `X-Softure-Edge-Proof`
+   * by default, as `init --edge` writes it; `false` skips the rule. Edge ingress only.
+   */
+  readonly edgeProofHeader?: string | false;
 }
+
+/** The proof header `init --edge` sets, `EDGE_PROOF_HEADER` of `@softure-ai/security`. */
+export const DEFAULT_EDGE_PROOF_HEADER = "X-Softure-Edge-Proof";
 
 /** The services that share the data volume. */
 const DATA_VOLUME_SERVICES = ["app", "worker"];
@@ -146,6 +157,8 @@ function assertOptions(options: SharedHostComposeOptions): void {
   if (options.namePrefix.trim() === "") throw new Error("checkSharedHostCompose: namePrefix is empty");
   for (const path of options.bypassPaths ?? []) {
     if (!path.startsWith("/")) throw new Error(`checkSharedHostCompose: bypass path "${path}" does not start with /`);
+  }  if (typeof options.edgeProofHeader === "string" && options.edgeProofHeader.trim() === "") {
+    throw new Error("checkSharedHostCompose: edgeProofHeader is empty; pass false to skip the edge proof");
   }
 }
 
@@ -226,7 +239,40 @@ function checkService(service: string, definition: Record<string, unknown>, opti
     }
   }
   for (const finding of checkBypassPaths(labels, options.bypassPaths ?? [])) at(finding.rule, finding.message);
+  const proofHeader = options.edgeProofHeader ?? DEFAULT_EDGE_PROOF_HEADER;
+  if (proofHeader !== false) {
+    for (const router of findRoutersWithoutProof(labels, proofHeader)) {
+      at("edge-proof-missing", `router "${router}" passes requests to its service without setting the edge proof header ${proofHeader}`);
+    }
+  }
   return violations;
+}
+
+/**
+ * The routers that pass requests to a service of the file but run no `headers` middleware (directly or in a chain)
+ * setting `header` as a custom request header. A router on an `@internal` service (the `www` redirect) never reaches
+ * the app.
+ */
+function findRoutersWithoutProof(labels: ReadonlyMap<string, string>, header: string): string[] {
+  const setters = new Set<string>();
+  const wanted = header.toLowerCase();
+  for (const [key, value] of labels) {
+    const match = /^traefik\.http\.middlewares\.([^.]+)\.headers\.customrequestheaders\.(.+)$/i.exec(key);
+    if (match && (match[2] ?? "").toLowerCase() === wanted && value.trim() !== "") setters.add(match[1] ?? "");
+  }
+  const types = readMiddlewareTypes(labels);
+  const setsProof = (reference: string, visited: Set<string>): boolean => {
+    const name = reference.replace(/@.*$/, "");
+    if (setters.has(name)) return true;
+    const middleware = types.get(name);
+    if (!middleware || visited.has(name)) return false;
+    visited.add(name);
+    return middleware.chain.some((inner) => setsProof(inner, visited));
+  };
+  return readHttpRouters(labels)
+    .filter((router) => !router.service.endsWith("@internal"))
+    .filter((router) => !router.middlewares.some((middleware) => setsProof(middleware, new Set())))
+    .map((router) => router.name);
 }
 
 interface TraefikName {
@@ -290,17 +336,20 @@ interface HttpRouter {
   /** `null` when the label is absent: the provider's default rule is `Host(<container>)`. */
   readonly rule: string | null;
   readonly middlewares: readonly string[];
+  /** The service label's value, `""` when the router names none. */
+  readonly service: string;
 }
 
 function readHttpRouters(labels: ReadonlyMap<string, string>): HttpRouter[] {
-  const routers = new Map<string, { rule: string | null; middlewares: string[] }>();
+  const routers = new Map<string, { rule: string | null; middlewares: string[]; service: string }>();
   for (const [key, value] of labels) {
     const match = /^traefik\.http\.routers\.([^.]+)\.(.+)$/.exec(key);
     if (!match) continue;
     const [, name, field] = match as unknown as [string, string, string];
-    const router = routers.get(name) ?? { rule: null, middlewares: [] };
+    const router = routers.get(name) ?? { rule: null, middlewares: [], service: "" };
     if (field === "rule") router.rule = value;
     if (field === "middlewares") router.middlewares = splitList(value);
+    if (field === "service") router.service = value;
     routers.set(name, router);
   }
   return [...routers].map(([name, router]) => ({ name, ...router }));
