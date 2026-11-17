@@ -4,6 +4,18 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- List density (#1341): `List`, `ListItem` and `ListRow`, a list of rows that is `compact` (tight rows, no line
+  between them, the default) or `roomy` (a quiet `border` line between rows and one more 4 px step around each), by
+  `data-density` on `<html>`, a page or a section, or `density` on the list. They read theme-kit 0.1.10's
+  `--list-row-y`, `--list-item-y`, `--list-divider-width`. `List surface="tinted"` draws the line in the page's
+  `background` on a grey card, where the dark scheme's `border` is the card's own grey. `ListItem asChild` and
+  `ListRow asChild` keep the app's element; `LIST_CLASSES` gives the same classes to a list the app renders itself (a
+  `SortableList`).
+- Migration: none; no existing component changes. An app with its own roomy list classes (`divide-y divide-border` on
+  the list, `py-1` on each item, `py-2` on each row) can move to `List` and set `data-density="roomy"`.
+
 ## 0.22.0
 
 - Smooth resize drags over a large `SidePanel` (#1326):

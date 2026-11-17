@@ -145,6 +145,7 @@ and count, the shown tab in the address; `Tabs` keeps it in client state), `Mark
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
+`List`, `ListItem` and `ListRow` (a list of rows, compact or roomy by the page's density, below),
 `MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
 `UpdatePrompt` (the offer to reload into a new build, for an installed app, below),
 `InstallBar` (the offer to install the app on a phone, below),
@@ -456,6 +457,34 @@ and the body's parts mark the parts.
   ]}
 />
 ```
+
+**`List`, `ListItem`, `ListRow`: list density.** A list of rows (days, places, a bag of items) that is `compact`
+(tight rows, no line between them, the default) or `roomy` (a quiet `border` line between rows and one more 4 px step
+around each, so the rows breathe). The density comes from `data-density` on the nearest ancestor (`<html>` for a user
+setting, a page, a section) or `density` on the list itself; the lengths are theme-kit's `--list-row-y`,
+`--list-item-y` and `--list-divider-width` (theme-kit README, "List density"). The line is drawn between rows only, so
+a list of one has none; `ListItem` keeps the row away from the lines, so a row's rounded hover never touches them. On a
+grey card (`secondary`, `muted`) pass `surface="tinted"`: the line takes the page's `background`, because in the dark
+scheme the theme's `border` is that card's own grey.
+
+```tsx
+<html data-density="roomy">
+  …
+  <List as="ol" aria-label="Days">
+    {days.map((day) => (
+      <ListItem key={day.id}>
+        <ListRow asChild>
+          <button type="button" onClick={() => open(day.id)}>{day.label}</button>
+        </ListRow>
+      </ListItem>
+    ))}
+  </List>
+  <List surface="tinted" density="compact">…</List>   {/* this one stays compact on a roomy page */}
+```
+
+`ListItem asChild` and `ListRow asChild` keep the app's own element (a sortable item, a link). For a list the app
+renders with other components, `LIST_CLASSES` holds the same classes (`list`, `tintedList`, `item`, `row`), e.g.
+`<SortableList className={LIST_CLASSES.list}>` with `<SortableItem className={LIST_CLASSES.item}>`.
 
 **`MiniProgress`.** A share with its figure inside the bar, for a table cell or a tile where a figure next to a
 `Progress` would collide with it: a 20 px rounded track (`primary/12`) that takes the cell's width (at least 64 px),

@@ -33,6 +33,6 @@ primitives that read them.
 
 ## Progress
 
-- [ ] Phase 1: kit contract
+- [x] Phase 1: kit contract (cda4458)
 - [ ] Phase 2: theme-notion components
 - [ ] Phase 3: versions

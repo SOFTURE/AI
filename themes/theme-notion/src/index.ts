@@ -65,6 +65,16 @@ export { FilterChip, FilterChipAdd, type FilterChipAddProps, type FilterChipProp
 export { FoldRow, type FoldRowBadge, type FoldRowProps } from "./notion/FoldRow.js";
 export { InstallBar, type InstallBarOffer, type InstallBarProps } from "./notion/InstallBar.js";
 export { LaunchScreen, type LaunchScreenProps } from "./notion/LaunchScreen.js";
+export {
+  LIST_CLASSES,
+  List,
+  ListItem,
+  ListRow,
+  type ListItemProps,
+  type ListProps,
+  type ListRowProps,
+  type ListSurface,
+} from "./notion/List.js";
 export { PALETTE_COLORS, type PaletteColor } from "./notion/palette.js";
 export { MarkPopover, type MarkPopoverProps } from "./notion/MarkPopover.js";
 export { MiniProgress, type MiniProgressProps } from "./notion/MiniProgress.js";
