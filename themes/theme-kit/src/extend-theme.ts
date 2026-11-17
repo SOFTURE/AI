@@ -11,6 +11,8 @@ export interface ThemeOverrides {
   radii?: ThemeDefinition["radii"];
   sizes?: ThemeDefinition["sizes"];
   clearDefaultPalette?: boolean;
+  /** Replaces the base's list densities whole. */
+  density?: ThemeDefinition["density"];
 }
 
 /**
@@ -20,6 +22,7 @@ export interface ThemeOverrides {
  * `defineTheme`.
  */
 export function extendTheme(base: ThemeDefinition, overrides: ThemeOverrides): ThemeDefinition {
+  const density = overrides.density ?? base.density;
   return defineTheme({
     name: overrides.name,
     colors: { ...base.colors, ...overrides.colors },
@@ -29,5 +32,6 @@ export function extendTheme(base: ThemeDefinition, overrides: ThemeOverrides): T
     radii: { ...base.radii, ...overrides.radii },
     sizes: { ...base.sizes, ...overrides.sizes },
     clearDefaultPalette: overrides.clearDefaultPalette ?? base.clearDefaultPalette,
+    ...(density === undefined ? {} : { density }),
   });
 }

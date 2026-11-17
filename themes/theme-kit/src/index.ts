@@ -9,6 +9,7 @@ export {
   type TextStyle,
   type ThemeDefinition,
 } from "./theme-definition.js";
+export { DEFAULT_DENSITY, DENSITIES, LIST_DENSITY_VARIABLES, type Density, type DensityScale } from "./density.js";
 export { checkTheme } from "./check-theme.js";
 export { defineTheme } from "./define-theme.js";
 export { extendTheme, type ThemeOverrides } from "./extend-theme.js";

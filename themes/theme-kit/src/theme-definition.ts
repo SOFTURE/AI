@@ -1,3 +1,5 @@
+import type { Density, DensityScale } from "./density.js";
+
 /** A colour or shadow with one value per colour scheme. */
 export interface SchemeValue {
   light: string;
@@ -40,6 +42,8 @@ export interface ThemeDefinition {
   sizes: Record<string, string>;
   /** Clears Tailwind's default palette, so only the theme's colours exist as utilities. */
   clearDefaultPalette: boolean;
+  /** The list densities' lengths (`data-density`); the kit's `DEFAULT_DENSITY` when left out. */
+  density?: Record<Density, DensityScale>;
 }
 
 /**

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { buildThemeCss, findMissingColorRoles, SHADCN_COLOR_ROLES, type ThemeDefinition } from "../src/index.js";
+import {
+  buildThemeCss,
+  DEFAULT_DENSITY,
+  DENSITIES,
+  findMissingColorRoles,
+  LIST_DENSITY_VARIABLES,
+  SHADCN_COLOR_ROLES,
+  type ThemeDefinition,
+} from "../src/index.js";
 
 function createDefinition(overrides: Partial<ThemeDefinition> = {}): ThemeDefinition {
   return {
@@ -128,5 +136,55 @@ describe("findMissingColorRoles", () => {
   it("is empty for a theme with every role", () => {
     const colors = Object.fromEntries(SHADCN_COLOR_ROLES.map((role) => [role, { light: "#fff", dark: "#000" }]));
     expect(findMissingColorRoles({ colors })).toEqual([]);
+  });
+});
+
+describe("buildThemeCss list density (#1341)", () => {
+  it("writes the kit's default scale: compact on :root and its attribute, roomy on its attribute", () => {
+    const css = buildThemeCss(createDefinition());
+
+    expect(readBlock(css, ':root, [data-density="compact"]')).toBe(
+      [':root, [data-density="compact"] {', "  --list-row-y: 0.25rem;", "  --list-item-y: 0px;", "  --list-divider-width: 0px;", "}"].join("\n"),
+    );
+    expect(readBlock(css, '[data-density="roomy"]')).toBe(
+      ['[data-density="roomy"] {', "  --list-row-y: 0.5rem;", "  --list-item-y: 0.25rem;", "  --list-divider-width: 1px;", "}"].join("\n"),
+    );
+  });
+
+  it("writes roomy after compact, so roomy wins on an html element that carries the attribute", () => {
+    const css = buildThemeCss(createDefinition());
+
+    expect(css.indexOf('[data-density="roomy"] {')).toBeGreaterThan(css.indexOf(':root, [data-density="compact"] {'));
+    expect(css.indexOf('[data-density="roomy"] {')).toBeLessThan(css.indexOf("@theme inline {"));
+  });
+
+  it("writes a theme's own scale in place of the default", () => {
+    const density = {
+      compact: { rowPaddingY: "2px", itemPaddingY: "0px", dividerWidth: "0px" },
+      roomy: { rowPaddingY: "12px", itemPaddingY: "6px", dividerWidth: "2px" },
+    };
+    const css = buildThemeCss(createDefinition({ density }));
+
+    expect(readBlock(css, '[data-density="roomy"]')).toBe(
+      ['[data-density="roomy"] {', "  --list-row-y: 12px;", "  --list-item-y: 6px;", "  --list-divider-width: 2px;", "}"].join("\n"),
+    );
+    expect(readBlock(css, ':root, [data-density="compact"]')).toContain("--list-row-y: 2px;");
+  });
+
+  it("refuses a density length that is empty or could break out of the block", () => {
+    const density = {
+      compact: DEFAULT_DENSITY.compact,
+      roomy: { ...DEFAULT_DENSITY.roomy, dividerWidth: "1px; color: red" },
+    };
+
+    expect(() => buildThemeCss(createDefinition({ density }))).toThrow(
+      'buildThemeCss: value of "density-roomy-dividerWidth" is empty or holds one of ; { } < > or a line break',
+    );
+  });
+
+  it("names both densities, compact first, and a variable for every length", () => {
+    expect(DENSITIES).toEqual(["compact", "roomy"]);
+    expect(LIST_DENSITY_VARIABLES).toEqual({ rowPaddingY: "--list-row-y", itemPaddingY: "--list-item-y", dividerWidth: "--list-divider-width" });
+    expect(Object.keys(DEFAULT_DENSITY.compact)).toEqual(Object.keys(LIST_DENSITY_VARIABLES));
   });
 });
