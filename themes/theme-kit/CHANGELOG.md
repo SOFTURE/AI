@@ -2,7 +2,7 @@
 
 Newest first. Each version lists what changed for an app or a theme package that uses the kit.
 
-## Unreleased
+## 0.1.10
 
 - List density (#1341): a list is `compact` (tight rows, no line between them, the default) or `roomy` (a quiet line
   between rows, more room around each), picked with `data-density` on `<html>`, a page, a section or a panel; the
