@@ -5,7 +5,7 @@ version: 1
 status: idle
 prd_version: 2
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # No active roadmap
@@ -15,5 +15,5 @@ the full softure chain) with `roadmap_item: null`, its pull request closes the i
 `context/archive/` as usual. A new main roadmap replaces this file only when roadmaps resume.
 
 - Last main roadmap: [`runtime-providers`](archive/2026-11-16-roadmap.md) (`RP-`), closed on 2026-11-16.
-- Still queued: [`later`](roadmaps/roadmap-later.md) (`LT-`), see [`roadmaps/`](roadmaps/README.md).
+- Queued roadmaps: none. The last one, [`later`](archive/2026-11-17-roadmap.md) (`LT-`), closed on 2026-11-17.
 - Every archived roadmap: [`archive/`](archive/).

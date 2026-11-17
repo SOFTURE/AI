@@ -30,10 +30,10 @@ An entry is never in two places, neither as a copy nor as a pointer.
   day ([archive](../foundation/archive/2026-10-07-2-roadmap.md)). While no main roadmap runs (work on GitHub Issues since
   2026-10-07), a new gap becomes a GitHub issue.
 - **Work that is ready but waits only on the owner at the keyboard** (repository secrets, a provider account)
-  becomes an item of [`roadmap-later/`](roadmap-later/) (owner, 2026-10-03): see its README, "Adding an item".
+  was an item of the queued roadmap `later` (owner, 2026-10-03), closed on 2026-11-17
+  ([archive](../foundation/archive/2026-11-17-roadmap.md)). While no roadmap is queued, such work becomes a GitHub
+  issue that names the owner step.
 
 ## Queued roadmaps
 
-| Folder | Roadmap | Starts when |
-| --- | --- | --- |
-| [`roadmap-later/`](roadmap-later/) | [later](../foundation/roadmaps/roadmap-later.md) | the owner step each item waits on is done (MK-8, EN-9 and MO-6 carried over from followups; BL-8 from blog; DP-8 from deploy) |
+None. The last one, `later`, closed on 2026-11-17 ([archive](../foundation/archive/2026-11-17-roadmap.md)).
