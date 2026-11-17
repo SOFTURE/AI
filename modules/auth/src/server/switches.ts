@@ -18,6 +18,14 @@ const OFF = new Set(["false", "0"]);
  */
 export async function isRegistrationClosed(ctx: ModuleContext, env: Readonly<Record<string, string | undefined>> = process.env): Promise<boolean> {
   if (!getAuthOptions(ctx.config).password.enabled) return true;
+  return isRegistrationSwitchOn(ctx, env);
+}
+
+/**
+ * The `auth.registration_closed` switch alone, whatever `password.enabled` says: an open provider sign-up
+ * (`openSignUp`) creates accounts while it is off, with or without the password form.
+ */
+export async function isRegistrationSwitchOn(ctx: ModuleContext, env: Readonly<Record<string, string | undefined>> = process.env): Promise<boolean> {
   const reading = await readSwitch(ctx, REGISTRATION_CLOSED_SWITCH);
   if (reading.kind === "value") return reading.isEnabled;
   const override = env[REGISTRATION_CLOSED_ENV]?.trim().toLowerCase();

@@ -89,6 +89,7 @@ export const en = {
       oidc_cancelled: "Signing in was cancelled.",
       oidc_not_allowed: "This account may not sign in here.",
       oidc_no_account: "There is no account for this sign-in. Ask for access.",
+      oidc_registration_closed: "Registration is closed. Only existing accounts can sign in.",
     },
     security: {
       rate_limited: "Too many attempts. Wait a few minutes and try again.",

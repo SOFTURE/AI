@@ -1,7 +1,7 @@
 // The account an OpenID Connect identity signs in to. The provider's subject finds it (`auth.identities`), so an
 // email change at the provider keeps it; a first sign-in links the account with the same verified email, or creates
 // one with an unusable password when the provider may create accounts. One transaction, so two first sign-ins at
-// once end with one account and one identity. Every sign-in that carries a display name stores it on the account.
+// once end with one account and one identity. An `openSignUp` provider creates none while registration is closed. Every sign-in that carries a display name stores it on the account.
 import { randomBytes } from "node:crypto";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, eq } from "drizzle-orm";
@@ -11,6 +11,7 @@ import { AUTH_USER_COLUMNS, identities, users } from "../../schema.js";
 import { getAuthOptions } from "../options.js";
 import { hashPassword } from "../password.js";
 import type { AuthContext } from "../sessions.js";
+import { isRegistrationSwitchOn } from "../switches.js";
 
 export interface OidcIdentity {
   readonly subject: string;
@@ -20,11 +21,14 @@ export interface OidcIdentity {
   readonly displayName: string | null;
 }
 
-export type OidcAccountResult = Ok<AuthUser> | Err<"auth.oidc_no_account">;
+export type OidcAccountResult = Ok<AuthUser> | Err<"auth.oidc_no_account" | "auth.oidc_registration_closed">;
 
 export async function resolveOidcAccount(ctx: AuthContext, provider: OidcProvider, identity: OidcIdentity): Promise<OidcAccountResult> {
   const options = getAuthOptions(ctx.config);
   const now = ctx.clock.now();
+  // An open provider creates accounts only while registration is open; read before the transaction, which holds the
+  // connection the switch reader would need on a single-connection database.
+  const isSignUpClosed = provider.openSignUp && (await isRegistrationSwitchOn(ctx));
 
   return ctx.db.transaction(async (tx): Promise<OidcAccountResult> => {
     const txCtx: AuthContext = { ...ctx, db: tx };
@@ -55,6 +59,7 @@ export async function resolveOidcAccount(ctx: AuthContext, provider: OidcProvide
     let isCreated = false;
     if (user === undefined) {
       if (!provider.createAccounts) return err("auth.oidc_no_account");
+      if (isSignUpClosed) return err("auth.oidc_registration_closed");
       // Nobody knows this password: the account signs in through its identity (or a reset link, when passwords are on).
       const unusablePassword = await hashPassword(randomBytes(32).toString("base64url"), options.password.scrypt);
       const [created] = await tx

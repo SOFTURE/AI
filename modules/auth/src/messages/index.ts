@@ -6,7 +6,7 @@ export const authMessages = { en };
 
 type EnglishMessages = typeof en;
 type AuthErrorCopy = EnglishMessages["errors"]["auth"];
-type OidcErrorName = "oidc_failed" | "oidc_cancelled" | "oidc_not_allowed" | "oidc_no_account";
+type OidcErrorName = "oidc_failed" | "oidc_cancelled" | "oidc_not_allowed" | "oidc_no_account" | "oidc_registration_closed";
 
 /**
  * One locale's copy. The OpenID Connect keys (`oidc`, `errors.auth.oidc_*`) are optional, so a dictionary written

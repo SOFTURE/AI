@@ -131,6 +131,11 @@ const allowlistShape = {
   allowedEmails: z.array(adminEmailSchema).default([]),
   /** A first sign-in of an allowed identity without an account creates one (no password); false only links. */
   createAccounts: z.boolean().default(true),
+  /**
+   * Any verified email may sign in, with no allowlist (a public product's "Sign in with GitHub"). A first sign-in then
+   * creates an account only while registration is open (`auth.registration_closed`); an account it finds signs in.
+   */
+  openSignUp: z.boolean().default(false),
 };
 
 const providerIdSchema = z.string().regex(OIDC_PROVIDER_ID_PATTERN, "must be an id such as google (a-z first, then a-z, 0-9 or -, at most 32)");
@@ -193,8 +198,8 @@ const oidcProviderSchema = z
       ? { ...provider, requireHostedDomain: false as const }
       : { ...provider, requireHostedDomain: provider.requireHostedDomain ?? provider.issuer === GOOGLE_ISSUER },
   )
-  .refine((provider) => provider.allowedDomains.length + provider.allowedEmails.length > 0, {
-    message: "needs allowedDomains or allowedEmails: a sign-in through a provider is limited to them",
+  .refine((provider) => provider.openSignUp || provider.allowedDomains.length + provider.allowedEmails.length > 0, {
+    message: "needs allowedDomains or allowedEmails (or openSignUp: true): a sign-in through a provider is limited to them",
     path: ["allowedDomains"],
   });
 
