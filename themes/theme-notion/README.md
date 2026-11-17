@@ -534,7 +534,7 @@ plain text. No syntax highlighting. `data-slot="code"` and `data-slot="code-bloc
 
 **`CopyButton`.** One value to the clipboard, for a URL, a command or a code the reader pastes elsewhere: a
 `secondary` button (any `Button` variant and size) with Lucide's copy icon that turns into a tick and says
-`copiedLabel` for two seconds (`COPY_BUTTON_RESET_MS`) once the browser took the text, announced politely to a screen
+`copiedLabel` for two seconds once the browser took the text, announced politely to a screen
 reader. A refused write (an insecure page, a denied permission) leaves it as it was, so keep the value visible beside
 it (a `CodeBlock`) for the reader to select by hand. The value is never part of the button's name; `onCopied` tells the
 app after a copy. A client component. `data-slot="copy-button"`, `data-copied` while it says "Copied".

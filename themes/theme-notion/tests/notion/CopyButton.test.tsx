@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY_BUTTON_RESET_MS, CopyButton } from "../../src/notion/CopyButton.js";
+import { CopyButton } from "../../src/notion/CopyButton.js";
 
 const writeText = vi.fn<(text: string) => Promise<void>>();
 
@@ -48,7 +48,7 @@ describe("CopyButton", () => {
     expect(button.dataset["copied"]).toBe("");
 
     act(() => {
-      vi.advanceTimersByTime(COPY_BUTTON_RESET_MS);
+      vi.advanceTimersByTime(2000); // the button's fixed reset delay
     });
     expect(screen.getByRole("button", { name: "Copy the URL" }).dataset["copied"]).toBeUndefined();
   });

@@ -10,7 +10,7 @@ import { Button } from "../ui/button.js";
 import { ICON_STROKE_WIDTH } from "./icon-stroke.js";
 
 /** How long the button says "Copied" before it goes back to "Copy". */
-export const COPY_BUTTON_RESET_MS = 2000;
+const COPY_BUTTON_RESET_MS = 2000;
 
 export interface CopyButtonProps extends Omit<ComponentProps<typeof Button>, "onClick" | "children" | "asChild" | "value"> {
   /** The text written to the clipboard. */
