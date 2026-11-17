@@ -138,7 +138,7 @@ export function DocumentViewer({ open, onOpenChange, title, contentType, source,
         data-slot="document-viewer"
         showCloseButton={false}
         className={cn(
-          "top-0 left-0 flex h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none p-0 sm:max-w-none",
+          "top-0 left-0 flex h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none bg-background p-0 text-foreground sm:max-w-none",
           "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
           className,
         )}

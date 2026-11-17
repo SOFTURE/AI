@@ -9,11 +9,12 @@ upstream-delta and slot-snapshot fixtures in step, and pin the surface with test
 
 ### Phase 1: surfaces (test-first)
 
-- Tests: `tests/ui/dialog.test.tsx` gains a case that `dialog-content` carries `bg-popover` and
-  `text-popover-foreground` and not `bg-background`; a new `tests/ui/modal-surface.test.tsx` checks
+- Tests: a new `tests/ui/modal-surface.test.tsx` checks that `dialog-content` carries `bg-popover` and
+  `text-popover-foreground` and not `bg-background`, and
   `alert-dialog-content` and `sheet-content` (every `side`) the same way.
 - `src/ui/dialog.tsx`, `src/ui/alert-dialog.tsx`, `src/ui/sheet.tsx`: the class swap.
-- `tests/upstream/deltas.ts` (`ours` strings) and `tests/fixtures/notion-slots.json` follow.
+- `tests/upstream/deltas.ts` (`ours` strings, a new sheet delta) and `tests/fixtures/notion-slots.json` follow.
+- `src/notion/Document.tsx`: the full-screen `DocumentViewer` keeps `bg-background text-foreground` (no page behind it to stand out from).
 - CHANGELOG `## Unreleased`.
 - Done when: `npx vitest run themes/theme-notion` passes, `npm run typecheck` and `npm run lint` pass.
 

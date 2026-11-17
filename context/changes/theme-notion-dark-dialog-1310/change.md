@@ -44,3 +44,5 @@ Labels: `pkg: theme-notion`. Package `themes/theme-notion` 0.21.0 (published). T
   surface of the theme then sits on `popover`, as menus already do. `SidePanel` and `AsidePanel` stay on `background`:
   they are non-modal panels beside the page with no overlay.
 - Patch release (0.21.1): a visual fix with no API change.
+- `DocumentViewer` (a full-screen `DialogContent`) keeps `bg-background text-foreground`: it covers the whole screen,
+  so there is no dimmed page to stand out from, and a lighter full-screen surface would only change its look.
