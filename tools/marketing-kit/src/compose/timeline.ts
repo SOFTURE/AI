@@ -62,6 +62,17 @@ export interface CaptionLayout extends TextBox {
 /** The caption text's line height, in font sizes (the pill and the phrase alike). */
 export const CAPTION_LINE_HEIGHT = 1.18;
 
+/** The caption text's letter spacing, in em (the pill and the phrase alike); a ribbon's capitals are spaced by `CAPTION_RIBBON_LETTER_SPACING_EM`. */
+export const CAPTION_LETTER_SPACING_EM = -0.01;
+
+/** A ribbon caption's letter spacing, in em. */
+export const CAPTION_RIBBON_LETTER_SPACING_EM = 0.01;
+
+/** A letter spacing in em as the render's CSS writes it (`-0.015` → `-.015em`). */
+export function toCssEm(em: number): string {
+  return `${String(em).replace(/^(-?)0\./, "$1.")}em`;
+}
+
 /** The highlight pill's padding around its text, in px. */
 export const CAPTION_PILL_PADDING = { y: 16, x: 28 } as const;
 
@@ -72,7 +83,7 @@ export function getCaptionPositionCss(caption: CaptionLayout): string {
 
 /** The highlight pill's text CSS: weight, size, line height and padding (the colours are the caller's). */
 export function getCaptionPillCss(fontSize: number): string {
-  return `font-weight:650;font-size:${fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:-.01em;text-align:center;padding:${CAPTION_PILL_PADDING.y}px ${CAPTION_PILL_PADDING.x}px`;
+  return `font-weight:650;font-size:${fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:${toCssEm(CAPTION_LETTER_SPACING_EM)};text-align:center;padding:${CAPTION_PILL_PADDING.y}px ${CAPTION_PILL_PADDING.x}px`;
 }
 
 export interface EndCardLayout extends TextBox {

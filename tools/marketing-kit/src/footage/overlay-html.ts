@@ -1,5 +1,6 @@
 import type { BrandColors } from "../config/colors.js";
 import { escapeHtml } from "../compose/html.js";
+import { toCssEm } from "../compose/timeline.js";
 import { getCornerRadiusCss, getStyleBorderCss, getStyleShadowCss, type BrandStyle } from "./brand-style.js";
 import type { OverlayEntrance } from "./overlay-schema.js";
 import { HAND_FONT } from "./hand-font.js";
@@ -24,6 +25,7 @@ import {
 } from "./overlay-motion.js";
 import {
   NOTE_LINE_HEIGHT,
+  OVERLAY_LETTER_SPACING_EM,
   OVERLAY_LINE_HEIGHT,
   OVERLAY_LIST_LINE_HEIGHT,
   OVERLAY_PADDING_EM,
@@ -108,7 +110,7 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.ov{position:absolute;display:flex;pointer-events:none}`,
     `.ov.right{justify-content:flex-end}`,
     `.ov.center{justify-content:center}`,
-    `.ov-card{display:flex;align-items:center;gap:.45em;padding:${OVERLAY_PADDING_EM.y}em ${OVERLAY_PADDING_EM.x}em;border-radius:.42em;background:${colors.background};color:${colors.foreground};box-shadow:0 14px 44px rgba(0,0,0,.35);line-height:${OVERLAY_LINE_HEIGHT};font-family:${fonts.interface};font-weight:700;letter-spacing:-.015em;max-width:100%;overflow-wrap:anywhere;transform-origin:0% 100%}`,
+    `.ov-card{display:flex;align-items:center;gap:.45em;padding:${OVERLAY_PADDING_EM.y}em ${OVERLAY_PADDING_EM.x}em;border-radius:.42em;background:${colors.background};color:${colors.foreground};box-shadow:0 14px 44px rgba(0,0,0,.35);line-height:${OVERLAY_LINE_HEIGHT};font-family:${fonts.interface};font-weight:700;letter-spacing:${toCssEm(OVERLAY_LETTER_SPACING_EM.card)};max-width:100%;overflow-wrap:anywhere;transform-origin:0% 100%}`,
     `.ov.right .ov-card{transform-origin:100% 100%}`,
     `.ov-keyword .ov-card{font-family:${fonts.heading};border-bottom:.12em solid ${colors.accent}}`,
     `.ov-dot{flex:none;width:.36em;height:.36em;border-radius:50%;background:${colors.accent}}`,
@@ -137,10 +139,10 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.ov-stack.left .ov-place{justify-content:flex-start}`,
     `.ov-line{min-height:1lh}`,
     `.ty .ov-stack:not(.left) .ch{display:none}`,
-    `.ov-hook-title .ov-line{font-family:${fonts.heading};font-weight:800;letter-spacing:-.02em}`,
+    `.ov-hook-title .ov-line{font-family:${fonts.heading};font-weight:800;letter-spacing:${toCssEm(OVERLAY_LETTER_SPACING_EM.hookTitle)}}`,
     `.ov-place{display:flex;align-items:center;justify-content:center;gap:.25em;font-weight:650;opacity:.92;margin-bottom:.12em}`,
     `.ov-pin{flex:none;width:1.05em;height:1.05em}`,
-    `.ov-place-card .ov-line{font-family:${fonts.heading};font-weight:800;line-height:${OVERLAY_TITLE_LINE_HEIGHT};letter-spacing:-.025em}`,
+    `.ov-place-card .ov-line{font-family:${fonts.heading};font-weight:800;line-height:${OVERLAY_TITLE_LINE_HEIGHT};letter-spacing:${toCssEm(OVERLAY_LETTER_SPACING_EM.placeTitle)}}`,
     `.ov-sub{font-weight:600;opacity:.88;margin-top:.12em}`,
     `.ov-search{width:100%;border-radius:999px;padding:${SEARCH_BAR_PADDING_EM.y}em ${SEARCH_BAR_PADDING_EM.x}em;gap:.5em;font-weight:600;letter-spacing:0;justify-content:flex-start;transform-origin:50% 50%}`,
     `.ov-glass{flex:none;width:1em;height:1em}`,
@@ -172,7 +174,7 @@ function getOverlayCss(colors: OverlayColors, fonts: { heading: string; interfac
     `.ov-note .nt{position:absolute;white-space:nowrap;line-height:${NOTE_LINE_HEIGHT}}`,
     `.ov-note .nw{opacity:0}`,
     `.ov-note .tick{position:absolute;inset:0;overflow:visible}`,
-    `.ov-strip .nt{font-family:${fonts.heading};font-weight:800;letter-spacing:.02em}`,
+    `.ov-strip .nt{font-family:${fonts.heading};font-weight:800;letter-spacing:${toCssEm(OVERLAY_LETTER_SPACING_EM.strip)}}`,
     `.ov-hand{font-family:"${HAND_FONT.family}",cursive;font-weight:400}`,
     `.ov-endword{white-space:nowrap;line-height:${OVERLAY_LINE_HEIGHT};text-shadow:0 3px 10px rgba(0,0,0,.45)}`,
     // The brand's style (after the kinds' own rules, so it wins over them; the search bar stays a pill).

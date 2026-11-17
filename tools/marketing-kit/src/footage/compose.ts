@@ -2,7 +2,7 @@ import type { BrandColors } from "../config/colors.js";
 import type { SfxEvent } from "../config/schema.js";
 import type { ComposeFont } from "../compose/compose.js";
 import { assertLocalReferences, escapeHtml, fontFaces, fontStack } from "../compose/html.js";
-import { CAPTION_LINE_HEIGHT, getCaptionPillCss, getCaptionPositionCss, type CaptionLayout } from "../compose/timeline.js";
+import { CAPTION_LETTER_SPACING_EM, CAPTION_LINE_HEIGHT, CAPTION_RIBBON_LETTER_SPACING_EM, getCaptionPillCss, getCaptionPositionCss, toCssEm, type CaptionLayout } from "../compose/timeline.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_BOX_RADIUS, CAPTION_HIGHLIGHT_SECONDS, CAPTION_UNDERLINE_EM, getCaptionEntranceTween, getCaptionHighlight } from "./caption-highlight.js";
 import { CAPTION_SAFE_ZONES, getCaptionChunkLayouts, getCaptionRibbonTilt, getCaptionSpans, getFootageCaptionChunks, isSameCaptionPlace, toCaptionDisplayText, type CaptionSpan } from "./captions.js";
@@ -346,7 +346,7 @@ ${isBox ? `.pill{position:relative;z-index:0}
 .hl{position:absolute;top:0;bottom:0;left:-${CAPTION_HIGHLIGHT_BOX_PADDING_EM}em;right:-${CAPTION_HIGHLIGHT_BOX_PADDING_EM}em;z-index:-1;border-radius:${CAPTION_HIGHLIGHT_BOX_RADIUS}px;background:${look.box};opacity:0}
 ` : ""}${isUnderline ? `.pill span{position:relative}
 .ul{position:absolute;left:0;right:0;top:${CAPTION_UNDERLINE_EM.top}em;height:${CAPTION_UNDERLINE_EM.thickness}em;border-radius:${CAPTION_UNDERLINE_EM.thickness / 2}em;background:${look.color};opacity:0}
-` : ""}${isRibbon ? `${getRibbonCaptionCss(captionBox.fontSize, getCaptionRibbonTilt(film), { background: c.captionBackground, text: c.captionText })}\n` : ""}.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:-.01em;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
+` : ""}${isRibbon ? `${getRibbonCaptionCss(captionBox.fontSize, getCaptionRibbonTilt(film), { background: c.captionBackground, text: c.captionText })}\n` : ""}.phrase{font-weight:650;font-size:${captionBox.fontSize}px;line-height:${CAPTION_LINE_HEIGHT};letter-spacing:${toCssEm(CAPTION_LETTER_SPACING_EM)};text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.35)}
 .endcard{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 80px;text-align:center}
 .brand{display:flex;justify-content:center;align-items:center;gap:18px;font-family:${headingFont};font-size:46px}
 .logo{height:60px;width:auto}
@@ -410,7 +410,7 @@ export function getRibbonCaptionCss(fontSize: number, tilt: number, colors: { ba
   const { lineHeight, padding, radius, weight } = CAPTION_RIBBON;
   return [
     `.caption.turned{transform:rotate(${String(-tilt)}deg);transform-origin:50% 50%}`,
-    `.ribbon{font-weight:${String(weight)};font-size:${String(fontSize)}px;line-height:${String(lineHeight)};letter-spacing:.01em;text-align:center;color:${colors.text}}`,
+    `.ribbon{font-weight:${String(weight)};font-size:${String(fontSize)}px;line-height:${String(lineHeight)};letter-spacing:${toCssEm(CAPTION_RIBBON_LETTER_SPACING_EM)};text-align:center;color:${colors.text}}`,
     `.rb{background:${colors.background};padding:${String(padding.y)}em ${String(padding.x)}em;border-radius:${String(radius)}px;-webkit-box-decoration-break:clone;box-decoration-break:clone}`,
   ].join("\n");
 }

@@ -107,6 +107,11 @@ export const LIST_CHIP_MIN_FONT_SIZE = 36;
 export const LIST_CHIP_CENTRED_MIN_FONT_SIZE = 32;
 /** A place card title's line height, tighter for its big type. */
 export const OVERLAY_TITLE_LINE_HEIGHT = 1.05;
+/**
+ * The render's letter spacing, in em: every card's text (`card`), a hook title's and a place card's title lines, and a
+ * paper strip's capitals. The draft spaces its letters the same (`\\fsp`) and measures its lines with it.
+ */
+export const OVERLAY_LETTER_SPACING_EM = { card: -0.015, hookTitle: -0.02, placeTitle: -0.025, strip: 0.02 } as const;
 export const OVERLAY_PADDING_EM = { x: 0.6, y: 0.35 } as const;
 /** The search field's padding round its query, in font sizes (its height is the line plus twice this). */
 export const SEARCH_BAR_PADDING_EM = { x: 0.7, y: 0.55 } as const;

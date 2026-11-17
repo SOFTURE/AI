@@ -4,6 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.42.0
+
+- **The draft draws every text at the render's size:** libass sizes a font by `usWinAscent + usWinDescent`, a
+  browser by its em, and the draft passed the render's CSS px to libass unchanged, so every brand font came out
+  smaller in the draft than in the render (Open Sans 0.73x, a font with taller win metrics less still; DejaVu Sans
+  0.86x). The new `DraftFont` (`createDraftFont`) reads a font's `assScale` and measures lines in CSS px;
+  `loadFootageDraftFonts(brand.fonts)` gives the body, heading and interface fonts, and `buildFootageDraftCaptions`
+  takes them as `fonts`: every `Fontsize` and `\fs` is then converted (`toDraftAssSize`), letters are spaced as the
+  render's `letter-spacing` (`\fsp`, the style's `Spacing`; the values are now shared constants,
+  `CAPTION_LETTER_SPACING_EM`, `CAPTION_RIBBON_LETTER_SPACING_EM`, `OVERLAY_LETTER_SPACING_EM`), a caption pill
+  breaks its words by their CSS widths, and a keyword or a lower third wider than its box is broken into the lines
+  the render's card breaks it into (its lines from the box's left, as the render's). `renderFootageDraft` passes
+  them. Without `fonts`, `buildFootageDraftCaptions` writes the sizes as before. A regression test draws a fixture
+  cut in Chromium and through libass and holds every text's box within 2 % of the frame, on as many lines.
+- Not yet the render's in the draft: the card shapes and heights around wrapped text, a lower third's dot, a
+  multi-line text's line pitch, and the caption fit to `captionMaxLines`.
+
 ## 0.41.0
 
 - **A list stays until its last point is said:** a list whose points come in on their words (`item_words`) or seconds

@@ -13,6 +13,8 @@ export type DraftTextMeasure = (text: string, fontSize: number) => number;
 interface Metrics {
   /** The font's units per libass font size: `usWinAscent + usWinDescent`. */
   unitsPerSize: number;
+  /** The font's units per em (`head`), what a browser sizes it by; 0 when the font has no `head`. */
+  unitsPerEm: number;
   advances: (glyph: number) => number;
 }
 
@@ -27,8 +29,10 @@ function readMetrics(font: Buffer): Metrics | null {
   const unitsPerSize = winSum > 0 ? winSum : readInt16(hhea, 4) - readInt16(hhea, 6);
   const count = readUint16(hhea, 34);
   if (unitsPerSize <= 0 || count === 0 || hmtx.length < count * 4) return null;
+  const head = tables.value.get("head");
+  const unitsPerEm = head === undefined ? 0 : readUint16(head, 18);
   // Glyphs past `numberOfHMetrics` share the last advance (OpenType `hmtx`).
-  return { unitsPerSize, advances: (glyph) => readUint16(hmtx, Math.min(glyph, count - 1) * 4) };
+  return { unitsPerSize, unitsPerEm, advances: (glyph) => readUint16(hmtx, Math.min(glyph, count - 1) * 4) };
 }
 
 /**
@@ -45,6 +49,70 @@ export function createDraftTextMeasure(font: Buffer): DraftTextMeasure | null {
       let units = 0;
       for (const character of text) units += metrics.advances(map.getGlyph(character.codePointAt(0) ?? 0));
       return Math.ceil((units * fontSize) / metrics.unitsPerSize);
+    };
+  } catch (error) {
+    if (error instanceof OutOfBounds) return null;
+    throw error;
+  }
+}
+
+/**
+ * A font of a footage draft as the render sizes it. Every size in the draft is a CSS px size, as in the render; libass
+ * sizes a font by `usWinAscent + usWinDescent`, so an ASS size is written through `toAssSize`, and the text is as large
+ * as the browser draws it (an em of `cssPx`). `measure` gives a line's width at a CSS size, as the browser lays it.
+ */
+export interface DraftFont {
+  /** The family libass knows the file by (its `name` table). */
+  family: string;
+  file: string;
+  /** The libass size that draws one CSS px: `(usWinAscent + usWinDescent) / unitsPerEm`. */
+  assScale: number;
+  /** A line's width in CSS px at a CSS font size (advances per em; kerning not read). */
+  measure: DraftTextMeasure;
+}
+
+/** The ASS size (`Fontsize`, `\fs`) that draws a font of `assScale` as large as the render's `cssPx`, to 0.01. */
+export function toDraftAssSize(cssPx: number, assScale: number): number {
+  return Math.round(cssPx * assScale * 100) / 100;
+}
+
+/** The ASS letter spacing (`\\fsp`, `Spacing`, in the frame's px) of the render's `letter-spacing` of `spacingEm` at `cssPx`, to 0.01. */
+export function toDraftSpacing(spacingEm: number, cssPx: number): number {
+  return Math.round(spacingEm * cssPx * 100) / 100;
+}
+
+/** What a letter spacing of `spacingEm` adds to a line at `cssPx`: once after every character, as a browser spaces them. */
+export function getSpacingWidth(text: string, spacingEm: number, cssPx: number): number {
+  // `+ 0` turns an empty line's -0 into 0.
+  return [...text].length * spacingEm * cssPx + 0;
+}
+
+/** `measure` with the letters spaced `spacingEm`, as the render's `letter-spacing` spaces them. */
+export function withLetterSpacing(measure: DraftTextMeasure, spacingEm: number): DraftTextMeasure {
+  return (text, fontSize) => Math.ceil(measure(text, fontSize) + getSpacingWidth(text, spacingEm, fontSize) - 1e-9);
+}
+
+/**
+ * The draft font of `data` (a TrueType or OpenType file) known to libass as `family`, or null when its tables cannot be
+ * read (no `hhea`, `hmtx`, `head` or `cmap`). A character the font lacks is measured as its `.notdef` glyph.
+ */
+export function createDraftFont(source: { family: string; file: string }, data: Buffer): DraftFont | null {
+  try {
+    const metrics = readMetrics(data);
+    const characters = readCharacterMap(data);
+    if (metrics === null || metrics.unitsPerEm === 0 || !characters.ok) return null;
+    const map = characters.value;
+    const { unitsPerEm } = metrics;
+    return {
+      family: source.family,
+      file: source.file,
+      assScale: metrics.unitsPerSize / unitsPerEm,
+      measure: (text, fontSize) => {
+        let units = 0;
+        for (const character of text) units += metrics.advances(map.getGlyph(character.codePointAt(0) ?? 0));
+        // Float noise must not round a whole width up; `+ 0` turns an empty line's -0 into 0.
+        return Math.ceil((units * fontSize) / unitsPerEm - 1e-9) + 0;
+      },
     };
   } catch (error) {
     if (error instanceof OutOfBounds) return null;

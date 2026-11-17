@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import type { CaptionLayout, LayoutOverride } from "../compose/timeline.js";
 import type { BrandColors } from "../config/colors.js";
+import type { BrandFont } from "../config/config.js";
 import { err, ok } from "./failure.js";
 import type { TimedWord } from "../voice/voiceover.js";
 import { CAPTION_HIGHLIGHT_BOX_PADDING_EM, CAPTION_HIGHLIGHT_SECONDS, CAPTION_UNDERLINE_EM, getCaptionHighlight, type CaptionHighlightLook } from "./caption-highlight.js";
@@ -15,8 +16,8 @@ import { toAssColor } from "./draft-color.js";
 import { buildDraftOverlayEvents, getDraftOverlayStyles, getRoundedRectDrawing } from "./draft-overlays.js";
 import { getCaptionCornerRadius, getCornerRadiusPx, getStylePadding, type BrandStyle } from "./brand-style.js";
 import { getDraftBoxEvents } from "./draft-boxes.js";
-import { createDraftTextMeasure, wrapDraftLine, type DraftTextMeasure } from "./draft-text-width.js";
-import { CAPTION_PILL_PADDING } from "../compose/timeline.js";
+import { createDraftFont, toDraftAssSize, toDraftSpacing, withLetterSpacing, wrapDraftLine, type DraftFont, type DraftTextMeasure } from "./draft-text-width.js";
+import { CAPTION_LETTER_SPACING_EM, CAPTION_PILL_PADDING, CAPTION_RIBBON_LETTER_SPACING_EM } from "../compose/timeline.js";
 import { estimateTextWidth, isHandFontNeeded } from "./overlays.js";
 import { HAND_FONT } from "./hand-font.js";
 import type { OverlayColors } from "./overlay-html.js";
@@ -68,6 +69,37 @@ export const FOOTAGE_DRAFT_FONT = {
   family: "DejaVu Sans",
   file: join(dirname(fileURLToPath(import.meta.url)), "../../fonts/DejaVuSans-Bold-Latin.ttf"),
 } as const;
+
+/** The draft's fonts by role: the captions' (`body`) and the overlays' heading and interface fonts (the body's where the brand has none). */
+export interface FootageDraftFonts {
+  body: DraftFont;
+  heading: DraftFont;
+  interface: DraftFont;
+}
+
+/**
+ * The draft font of a chosen file, or the file's family at libass's own size (`assScale` 1) measured by the
+ * `OVERLAY_CHAR_EM` estimate when its metrics cannot be read: the draft is still drawn, as before this measure existed.
+ */
+function readDraftFont(source: { family: string; file: string }, read: (path: string) => Buffer): DraftFont {
+  return createDraftFont(source, read(source.file)) ?? { family: source.family, file: source.file, assScale: 1, measure: estimateTextWidth };
+}
+
+/**
+ * The fonts a footage draft draws with, sized as the render sizes them (`DraftFont`): the brand's body font (its file
+ * closest to the caption weight, `chooseFootageDraftFont`), else `FOOTAGE_DRAFT_FONT`; its heading and interface fonts
+ * where it has a TrueType or OpenType file of another family for them, else the body's. The same set serves a draft and any other
+ * drawing an app makes with `buildFootageDraftCaptions` (a preset preview), so they all draw the render's sizes.
+ */
+export function loadFootageDraftFonts(fonts: Partial<Record<"body" | OverlayFontRole, BrandFont | null>> | undefined, read: (path: string) => Buffer = (path) => readFileSync(/* turbopackIgnore: true */ path)): FootageDraftFonts {
+  const body = readDraftFont(chooseFootageDraftFont(fonts?.body ?? null, read) ?? FOOTAGE_DRAFT_FONT, read);
+  const forRole = (role: OverlayFontRole): DraftFont => {
+    const chosen = chooseFootageDraftFont(fonts?.[role] ?? null, read);
+    // libass finds a font by its family: a second file of the body's family would compete with the body's, so a role of that family draws with the body's file.
+    return chosen === null || chosen.family === body.family ? body : readDraftFont(chosen, read);
+  };
+  return { body, heading: forRole("heading"), interface: forRole("interface") };
+}
 
 /** How far a segment marked `kenburns` zooms when the film's `kenBurnsPercent` is 0, as in the render. */
 const HAND_KEN_BURNS_PERCENT = 4;
@@ -154,6 +186,18 @@ export interface FootageDraftCaptionsInput {
   style?: BrandStyle;
   /** The width of a line in the captions' font (`createDraftTextMeasure`); absent or null: the `OVERLAY_CHAR_EM` estimate. */
   measure?: DraftTextMeasure | null;
+  /**
+   * The draft's fonts (`loadFootageDraftFonts`): every text is drawn as large as the render draws it, its lines broken
+   * by the font's own widths in CSS px, as the render's are. It takes the place of `fontFamily`, `overlayFonts` and
+   * `measure`. Absent: those fields, and every size goes to libass as it is (libass then draws a brand font smaller
+   * than the render does, by its `usWinAscent + usWinDescent` over its em).
+   */
+  fonts?: FootageDraftFonts;
+}
+
+/** The overlays' heading and interface families where they are not the body's (the styles' own). */
+function getOverlayFamilies(fonts: FootageDraftFonts): Partial<Record<OverlayFontRole, string>> {
+  return Object.fromEntries((["heading", "interface"] as const).flatMap((role) => (fonts[role].family === fonts.body.family ? [] : [[role, fonts[role].family.replace(/,/g, " ")]])));
 }
 
 /** The pieces of a `highlight` chunk's span: cut wherever a word lights up or goes out (in centiseconds), with the words lit in each. */
@@ -228,6 +272,8 @@ interface DrawnWord {
   left: number;
   width: number;
   lineTop: number;
+  /** How tall libass draws the word's line. */
+  lineHeight: number;
 }
 
 /** The pill of a chunk drawn in the brand's style: its lines (broken by width), its shadow, box and border events, and each word's place. */
@@ -244,6 +290,8 @@ interface DrawnPillInput {
   frame: Frame;
   style: BrandStyle;
   measure: DraftTextMeasure;
+  /** How tall libass draws a line of the caption font, per CSS px of its size (`DraftFont.assScale`). */
+  lineScale: number;
   colors: { background: string; accent: string };
 }
 
@@ -255,6 +303,7 @@ interface DrawnPillInput {
 function getDrawnPill(input: DrawnPillInput): DrawnPill {
   const { place, frame, style, measure } = input;
   const scale = frame.width / 1080;
+  const lineHeight = place.fontSize * input.lineScale;
   const pad = getStylePadding(CAPTION_PILL_PADDING, style.padding);
   const areaWidth = frame.width - place.left - place.right;
   const lines = wrapDraftLine(input.words, areaWidth - 2 * pad.x, place.fontSize, measure);
@@ -265,8 +314,8 @@ function getDrawnPill(input: DrawnPillInput): DrawnPill {
     breaks.add(counted - 1);
   }
   const width = Math.min(areaWidth, Math.max(...lines.map((line) => measure(line.join(" "), place.fontSize))) + 2 * pad.x);
-  const height = lines.length * place.fontSize + 2 * pad.y;
-  const textTop = place.bottom === undefined ? place.top : frame.height - place.bottom - lines.length * place.fontSize;
+  const height = lines.length * lineHeight + 2 * pad.y;
+  const textTop = place.bottom === undefined ? place.top : frame.height - place.bottom - lines.length * lineHeight;
   const box = { left: place.left + (areaWidth - width) / 2, top: textTop - pad.y, width, height };
   const at = `${toAssTime(input.span.start)},${toAssTime(input.span.end)}`;
   const radius = getCornerRadiusPx(getCaptionCornerRadius(style), height, scale);
@@ -275,7 +324,7 @@ function getDrawnPill(input: DrawnPillInput): DrawnPill {
     const lineLeft = place.left + (areaWidth - measure(line.join(" "), place.fontSize)) / 2;
     return line.map((word, index) => {
       const width = measure(word, place.fontSize);
-      return { left: lineLeft + measure(line.slice(0, index + 1).join(" "), place.fontSize) - width, width, lineTop: textTop + lineIndex * place.fontSize };
+      return { left: lineLeft + measure(line.slice(0, index + 1).join(" "), place.fontSize) - width, width, lineTop: textTop + lineIndex * lineHeight, lineHeight };
     });
   });
   return { breaks, events: getDraftBoxEvents({ layer: 0, at, styleName: "CaptionShape", box, radius, color: input.colors.background, accent: input.colors.accent, style, scale }), words };
@@ -288,6 +337,8 @@ interface RibbonInput {
   frame: Frame;
   tilt: number;
   measure: DraftTextMeasure;
+  /** How tall libass draws a line of the caption font, per CSS px of its size. */
+  lineScale: number;
   colors: { background: string; text: string };
 }
 
@@ -304,6 +355,7 @@ function getRibbonEvents(input: RibbonInput): string[] {
   const areaWidth = frame.width - place.left - place.right;
   const pad = { x: padding.x * size, y: padding.y * size };
   const lines = wrapDraftLine(input.text.split(" "), areaWidth - 2 * pad.x, size, measure).map((line) => line.join(" "));
+  const drawn = size * input.lineScale;
   const step = lineHeight * size;
   const blockTop = place.bottom === undefined ? place.top : frame.height - place.bottom - lines.length * step;
   const centre = { x: place.left + areaWidth / 2, y: blockTop + (lines.length * step) / 2 };
@@ -313,8 +365,8 @@ function getRibbonEvents(input: RibbonInput): string[] {
   return lines.flatMap((line, index) => {
     const width = measure(line, size) + 2 * pad.x;
     // libass draws a line one font size tall: the strip is that plus its padding, both centred in the line's step.
-    const textTop = blockTop + index * step + (step - size) / 2;
-    const strip = { left: centre.x - width / 2, top: textTop - pad.y, width, height: size + 2 * pad.y };
+    const textTop = blockTop + index * step + (step - drawn) / 2;
+    const strip = { left: centre.x - width / 2, top: textTop - pad.y, width, height: drawn + 2 * pad.y };
     return [
       ...getDraftBoxEvents({ layer: 0, at, styleName: "CaptionShape", box: strip, radius: radius * scale, color: input.colors.background, accent: input.colors.background, style: { shadow: "none", border: "none" }, scale, motion: turn }),
       `Dialogue: 1,${at},CaptionShape,,0,0,0,,{\\an8\\pos(${String(Math.round(centre.x))},${String(Math.round(textTop))})${turn}\\b1\\1c&H${text.slice(4)}&\\1a&H${text.slice(2, 4)}&\\bord0\\shad0}${toAssText(line)}`,
@@ -334,7 +386,7 @@ function buildUnderlineEvents(chunk: { words: TimedWord[] }, span: { start: numb
   return getHighlightPieces(chunk, span).flatMap((piece) =>
     words.flatMap((word, index) => {
       if (piece.lit[index] !== true) return [];
-      const bar = { left: word.left, top: word.lineTop + Math.round(fontSize * DRAFT_UNDERLINE_TOP_EM), width: word.width, height: thickness };
+      const bar = { left: word.left, top: word.lineTop + Math.round(word.lineHeight * DRAFT_UNDERLINE_TOP_EM), width: word.width, height: thickness };
       return [`Dialogue: 0,${toAssTime(piece.from / 100)},${toAssTime(piece.to / 100)},CaptionShape,,0,0,0,,{\\an7\\pos(0,0)${toUnderlineColorTags(color)}\\bord0\\shad0\\p1}${getRoundedRectDrawing(bar, thickness / 2)}{\\p0}`];
     }),
   );
@@ -371,7 +423,13 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
   if (chunks.length === 0 && overlays.length === 0) return null;
   const spans = getCaptionSpans(chunks, getEdlDuration(input.edl));
   const { caption, frame } = input;
-  const family = (input.fontFamily ?? FOOTAGE_DRAFT_FONT.family).replace(/,/g, " ");
+  const fonts = input.fonts;
+  const family = (fonts?.body.family ?? input.fontFamily ?? FOOTAGE_DRAFT_FONT.family).replace(/,/g, " ");
+  // Every size below is the render's (CSS px); an ASS size is written through the body font's scale (1 without `fonts`).
+  const lineScale = fonts?.body.assScale ?? 1;
+  const styleSize = toDraftAssSize(caption.fontSize, lineScale);
+  // With the draft's fonts the letters are spaced as the render spaces them (`letter-spacing`); without, as before.
+  const spacing = fonts === undefined ? 0 : toDraftSpacing(isRibbon ? CAPTION_RIBBON_LETTER_SPACING_EM : CAPTION_LETTER_SPACING_EM, caption.fontSize);
   const colors = input.colors ?? FOOTAGE_DRAFT_CAPTION_COLORS;
   const text = toAssColor(colors.captionText);
   const box = toAssColor(colors.captionBackground);
@@ -389,7 +447,7 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
   const toStyle = (name: string, place: CaptionLayout): string => [
     name,
     family,
-    caption.fontSize,
+    styleSize,
     look.primary,
     look.primary,
     look.outlineColor,
@@ -400,7 +458,7 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     0,
     100,
     100,
-    0,
+    spacing,
     0,
     look.borderStyle,
     look.outline,
@@ -431,17 +489,18 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
   const boxPadding = Math.max(1, Math.round(caption.fontSize * CAPTION_HIGHLIGHT_BOX_PADDING_EM));
   // With the brand's style a `highlight` chunk stands on a drawn rounded pill (its lines broken here), not libass's box.
   const style = isHighlight ? input.style : undefined;
-  const measure = input.measure ?? ((line: string, size: number) => estimateTextWidth(line, size));
+  const measure =
+    fonts === undefined ? (input.measure ?? ((line: string, size: number) => estimateTextWidth(line, size))) : withLetterSpacing(fonts.body.measure, isRibbon ? CAPTION_RIBBON_LETTER_SPACING_EM : CAPTION_LETTER_SPACING_EM);
   const pillColors = { background: colors.captionBackground, accent: lit.style === "box" ? lit.box : colors.captionHighlight };
   const events = chunks.flatMap((chunk, index) => {
     const span = spans[index] as { start: number; end: number };
     if (isRibbon) {
       const ribbonText = toCaptionDisplayText(input.film, chunk.words.map((word) => word.text.replace(/\u00a0/g, " ")).join(" "), input.locale ?? "en-US");
-      return getRibbonEvents({ text: ribbonText, span, place: places[index] ?? caption, frame, tilt: getCaptionRibbonTilt(input.film), measure, colors: { background: colors.captionBackground, text: colors.captionText } });
+      return getRibbonEvents({ text: ribbonText, span, place: places[index] ?? caption, frame, tilt: getCaptionRibbonTilt(input.film), measure, lineScale, colors: { background: colors.captionBackground, text: colors.captionText } });
     }
     const styleName = styleNames[index] ?? "Caption";
     const pill =
-      style === undefined ? null : getDrawnPill({ words: chunk.words.map((word) => word.text.replace(/\u00a0/g, " ")), span, place: places[index] ?? caption, frame, style, measure, colors: pillColors });
+      style === undefined ? null : getDrawnPill({ words: chunk.words.map((word) => word.text.replace(/\u00a0/g, " ")), span, place: places[index] ?? caption, frame, style, measure, lineScale, colors: pillColors });
     const layout: ChunkLayout = pill === null ? BOXLESS_LAYOUT : { breaks: pill.breaks, hasPill: true };
     const drawn = pill?.events ?? [];
     if (isHighlight && lit.style === "underline") {
@@ -465,14 +524,14 @@ export function buildFootageDraftCaptions(input: FootageDraftCaptionsInput): str
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
     ...styles.map((line) => `Style: ${line}`),
-    ...((style === undefined && !isRibbon) || chunks.length === 0 ? [] : [`Style: CaptionShape,${family},${String(caption.fontSize)},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1`]),
+    ...((style === undefined && !isRibbon) || chunks.length === 0 ? [] : [`Style: CaptionShape,${family},${String(styleSize)},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,${String(spacing)},0,1,0,0,7,0,0,0,1`]),
     ...(overlays.length === 0 ? [] : getDraftOverlayStyles(family, input.overlayColors ?? FOOTAGE_DRAFT_OVERLAY_COLORS)),
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ...events,
     ...buildDraftOverlayEvents(overlays, input.overlayColors ?? FOOTAGE_DRAFT_OVERLAY_COLORS, input.frame, {
-      ...(input.overlayFonts === undefined ? {} : { fonts: input.overlayFonts }),
+      ...(fonts === undefined ? (input.overlayFonts === undefined ? {} : { fonts: input.overlayFonts }) : { fonts: getOverlayFamilies(fonts), drawnFonts: fonts }),
       ...(input.locale === undefined ? {} : { locale: input.locale }),
       ...(input.style === undefined ? {} : { style: input.style }),
     }),
@@ -1118,34 +1177,25 @@ async function runRenderFootageDraft(
       ? { background: brandColors.background, foreground: brandColors.foreground, accent: brandColors.accent }
       : FOOTAGE_DRAFT_OVERLAY_COLORS;
   const brandFont = chooseFootageDraftFont(options.brand?.fonts.body ?? null);
-  const font = brandFont ?? FOOTAGE_DRAFT_FONT;
-  // The overlays' heading and interface fonts, where the brand has a TrueType or OpenType file for them.
-  const roleFonts = Object.fromEntries(
-    (["heading", "interface"] as const).flatMap((role) => {
-      const chosen = overlays.length === 0 ? null : chooseFootageDraftFont(options.brand?.fonts[role] ?? null);
-      return chosen === null || chosen.family === font.family ? [] : [[role, chosen]];
-    }),
-  ) as Partial<Record<OverlayFontRole, { family: string; file: string }>>;
+  // Every font sized and measured as the render sizes it; the overlays' roles only when there are overlays to draw.
+  const fonts = loadFootageDraftFonts(overlays.length === 0 ? { body: options.brand?.fonts.body ?? null } : options.brand?.fonts);
   const captions = buildFootageDraftCaptions({
     film,
     edl,
     words,
     caption: getFootageCaptionLayout(film, options.layout ?? {}),
     frame,
-    fontFamily: font.family,
+    fonts,
     ...(options.brand === undefined ? {} : { colors: options.brand.colors }),
     ...(overlays.length === 0 ? {} : { overlays, overlayColors }),
-    ...(Object.keys(roleFonts).length === 0 ? {} : { overlayFonts: Object.fromEntries(Object.entries(roleFonts).map(([role, chosen]) => [role, chosen.family])) }),
     ...(options.brand?.locale === undefined ? {} : { locale: options.brand.locale }),
     ...(options.brand?.style === undefined ? {} : { style: options.brand.style }),
-    // A drawn pill and a ribbon break their lines by the font's own widths.
-    ...(options.brand?.style !== undefined || film.captionStyle === "ribbon" ? { measure: createDraftTextMeasure(readFileSync(/* turbopackIgnore: true */ font.file)) } : {}),
   });
   if (captions !== null) {
     writeFileSync(join(draftDir, "captions.ass"), captions);
     mkdirSync(join(draftDir, "fonts"));
     const handFont = isHandFontNeeded(overlays) ? [HAND_FONT.file] : [];
-    for (const file of new Set([font.file, ...Object.values(roleFonts).map((chosen) => chosen.file), ...handFont])) copyFileSync(file, join(draftDir, "fonts", basename(file)));
+    for (const file of new Set([fonts.body.file, fonts.heading.file, fonts.interface.file, ...handFont])) copyFileSync(file, join(draftDir, "fonts", basename(file)));
     if (brandFont === null && options.brand?.fonts.body != null) {
       log(`draft: the brand's body font ${options.brand.fonts.body.family} has no TrueType or OpenType file ffmpeg can read; the captions use ${FOOTAGE_DRAFT_FONT.family}.`);
     }
@@ -1223,12 +1273,12 @@ async function runRenderFootageDraft(
   const draft = getFootageDraftFrame(frame, options.width);
   const bytes = statSync(output).size;
   const draftMusic: FootageDraftMusic = music.value.kind === "file" ? "played" : music.value.kind;
-  const notes = [captions === null ? "no captions" : `captions in ${font.family}`, draftMusic === "played" ? "music" : draftMusic === "none" ? "no music" : "music not cached"];
+  const notes = [captions === null ? "no captions" : `captions in ${fonts.body.family}`, draftMusic === "played" ? "music" : draftMusic === "none" ? "no music" : "music not cached"];
   log(`draft: ${output}, ${draft.width}×${draft.height}, ${seconds.toFixed(1)} s, ${bytes} bytes, ${notes.join(", ")}.`);
   return ok({
     output,
     music: draftMusic,
-    captionFont: captions === null ? null : font.family,
+    captionFont: captions === null ? null : fonts.body.family,
     seconds,
     assembly,
     pieces: pieceCount,
