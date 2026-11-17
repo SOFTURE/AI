@@ -2,6 +2,7 @@
 // of the app, so the app picks the resolver (docs/02-module-standard.md §7). FIRE_TRACKER read only
 // `cf-connecting-ip` and put every client without it into one shared bucket; here a request whose
 // address cannot be resolved stays unidentified, and the caller refuses it.
+import { createHash, timingSafeEqual } from "node:crypto";
 import { BlockList, isIP } from "node:net";
 
 /**
@@ -45,10 +46,70 @@ export function headerIp(name: string): ClientIpResolver {
 
 /**
  * `CF-Connecting-IP`, set by Cloudflare. Trust it only when the origin accepts traffic from
- * Cloudflare alone; a client that reaches the origin directly can send any value.
+ * Cloudflare alone; a client that reaches the origin directly can send any value. On a network shared
+ * with other containers (`softure-deploy init --edge`) wrap it in `edgeProofIp`.
  */
 export function cloudflareIp(): ClientIpResolver {
   return headerIp("cf-connecting-ip");
+}
+
+/** The request header `edgeProofIp` reads by default; `softure-deploy init --edge` sets it on the app's router. */
+export const EDGE_PROOF_HEADER = "x-softure-edge-proof";
+
+/** The shortest secret `edgeProofIp` accepts: a value anyone could guess proves nothing. */
+export const MIN_EDGE_PROOF_SECRET_LENGTH = 16;
+
+export interface EdgeProofOptions {
+  /** The resolver to trust once the request proved it came through the app's own edge, e.g. `cloudflareIp()`. */
+  readonly resolver: ClientIpResolver;
+  /**
+   * The value the edge sets on the proof header. `undefined` returns `resolver` unchanged, for a stack with no such
+   * edge (`next dev`, a test stack); production reads it from the environment its compose file requires.
+   */
+  readonly secret: string | undefined;
+  /** The header the edge sets; `EDGE_PROOF_HEADER` by default. */
+  readonly header?: string;
+}
+
+/**
+ * Trusts `resolver` only on a request that carries the edge's secret in the proof header, and resolves nothing
+ * otherwise. On a network the app shares with other containers (`init --edge`), any of them can reach the app
+ * directly and send its own `CF-Connecting-IP`; only the app's router knows the secret and overwrites the header.
+ */
+export function edgeProofIp(options: EdgeProofOptions): ClientIpResolver {
+  const { resolver, secret, header = EDGE_PROOF_HEADER } = options;
+  if (typeof resolver !== "function") {
+    throw new TypeError("edgeProofIp: resolver must be a client-IP resolver, e.g. cloudflareIp()");
+  }
+  if (header.trim() === "") {
+    throw new TypeError("edgeProofIp: the header name must not be empty");
+  }
+  try {
+    new Headers().get(header);
+  } catch {
+    throw new TypeError(`edgeProofIp: "${header}" is not a valid header name`);
+  }
+  if (secret === undefined) {
+    return resolver;
+  }
+  if (secret.length < MIN_EDGE_PROOF_SECRET_LENGTH) {
+    throw new TypeError(
+      `edgeProofIp: the secret must be at least ${String(MIN_EDGE_PROOF_SECRET_LENGTH)} characters long, got ${String(secret.length)}`,
+    );
+  }
+  const expected = digest(secret);
+  return (headers) => {
+    const proof = headers.get(header);
+    // Digests of equal length keep the comparison constant-time and say nothing about the secret's length.
+    if (proof === null || !timingSafeEqual(digest(proof), expected)) {
+      return null;
+    }
+    return resolver(headers);
+  };
+}
+
+function digest(value: string): Buffer {
+  return createHash("sha256").update(value).digest();
 }
 
 /**

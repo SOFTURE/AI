@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
+## Unreleased
+
+- **`edgeProofIp({ resolver, secret, header? })` (#1329):** a resolver wrapper for an app on a network it shares with
+  other containers (`softure-deploy init --edge`), where any of them could reach the app directly and choose its own
+  `CF-Connecting-IP`, and with it its own rate-limit key. The inner resolver is trusted only when the proof header
+  (`EDGE_PROOF_HEADER`, `x-softure-edge-proof`) carries the secret the app's router sets (constant-time comparison);
+  otherwise the request is unidentified and refused by default. `secret: undefined` returns the inner resolver as it
+  is (dev and test stacks); a secret under 16 characters throws. README "Shared edge network".
+- Migrate: an app deployed with `--edge` wraps its resolver,
+  `clientIp: edgeProofIp({ resolver: cloudflareIp(), secret: process.env.EDGE_PROOF_SECRET })`, and its router sets
+  the header (`@softure-ai/deploy`'s next `init --edge` writes the middleware; an existing compose file adds it as
+  that CHANGELOG shows). Other apps: nothing.
+
 ## 0.2.9
 
 - `./jobs` is declared Workers-safe (`softure.workers`, runtime-providers RP-4): its handlers run from the

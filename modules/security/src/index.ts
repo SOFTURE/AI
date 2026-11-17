@@ -31,10 +31,14 @@ export const security = defineModule({
 
 export {
   cloudflareIp,
+  EDGE_PROOF_HEADER,
+  edgeProofIp,
   forwardedForIp,
   headerIp,
   normalizeIp,
+  MIN_EDGE_PROOF_SECRET_LENGTH,
   type ClientIpResolver,
+  type EdgeProofOptions,
   type ForwardedForOptions,
 } from "./client-ip.js";
 export type { RateLimitAllowance, RateLimitRejection, SecurityErrorCode } from "./contract.js";
