@@ -7,6 +7,7 @@ import { findComposeNames, findRequiredNames } from "../env/required-names.js";
 import { parseDeployConfig } from "../verify/schema.js";
 import type { InitAnswers } from "./answers.js";
 import type { AppFacts } from "./app-facts.js";
+import { checkSharedHostCompose } from "../testing/shared-host-compose.js";
 import { buildAppRule, hasWorkerHeartbeat, OFFSITE_BACKUP_ENV_NAMES, planInitFiles, writeInitFiles, type PlannedFile } from "./generate.js";
 
 const REPO_ROOT = join(import.meta.dirname, "../../../..");
@@ -489,8 +490,9 @@ describe("planInitFiles with edge, an app behind another stack's Traefik (issue 
       "traefik.http.routers.acme-app.entrypoints=websecure",
       "traefik.http.routers.acme-app.tls.certresolver=letsencrypt",
       "traefik.http.routers.acme-app.service=acme-app",
-      "traefik.http.routers.acme-app.middlewares=acme-app-security-headers",
+      "traefik.http.routers.acme-app.middlewares=acme-app-edge-proof,acme-app-security-headers",
       "traefik.http.services.acme-app.loadbalancer.server.port=3000",
+      "traefik.http.middlewares.acme-app-edge-proof.headers.customrequestheaders.X-Softure-Edge-Proof=${EDGE_PROOF_SECRET:?}",
       "traefik.http.middlewares.acme-app-security-headers.headers.stsSeconds=31536000",
       "traefik.http.middlewares.acme-app-security-headers.headers.stsIncludeSubdomains=true",
       "traefik.http.middlewares.acme-app-security-headers.headers.contentTypeNosniff=true",
@@ -499,6 +501,28 @@ describe("planInitFiles with edge, an app behind another stack's Traefik (issue 
     // Postgres and the migrate service stay on the project's own network only.
     expect(compose.services.postgres?.networks).toBeUndefined();
     expect(compose.services.migrate?.networks).toBeUndefined();
+  });
+
+  it("sets the edge proof on the router and gives the app the same required secret (issue #1329)", () => {
+    for (const facts of [FACTS, NO_DATABASE]) {
+      const files = plan({ edge: "proxy" }, facts);
+      const compose = parse(textOf(files, "docker/prod/docker-compose.yml")) as {
+        services: Record<string, { environment?: Record<string, string> }>;
+      };
+      expect(compose.services.app?.environment?.EDGE_PROOF_SECRET).toBe("${EDGE_PROOF_SECRET:?}");
+      // A required name, so the caller workflow passes it from the production environment.
+      expect(textOf(files, ".github/workflows/deploy.yml")).toContain("EDGE_PROOF_SECRET: ${{ secrets.EDGE_PROOF_SECRET }}");
+    }
+    // The worker serves no HTTP and gets no proof.
+    const worker = parse(textOf(plan({ edge: "proxy" }, { hasJobs: true }), "docker/prod/docker-compose.yml")) as {
+      services: Record<string, { environment?: Record<string, string> }>;
+    };
+    expect(worker.services.worker?.environment).not.toHaveProperty("EDGE_PROOF_SECRET");
+  });
+
+  it("passes the shared-host guard, edge proof included", () => {
+    const text = textOf(plan({ edge: "proxy", www: true }, NO_DATABASE), "docker/prod/docker-compose.yml");
+    expect(checkSharedHostCompose(text, { edgeNetwork: "proxy", namePrefix: "acme-app" })).toEqual([]);
   });
 
   it("routes the allowed prefixes and redirects www through labels only when asked", () => {
@@ -532,6 +556,7 @@ describe("planInitFiles with edge, an app behind another stack's Traefik (issue 
     const compose = composeOf(plan());
     expect(compose).not.toHaveProperty("networks");
     expect(compose.services.app).not.toHaveProperty("labels");
+    expect(textOf(plan(), "docker/prod/docker-compose.yml")).not.toContain("EDGE_PROOF");
   });
 });
 

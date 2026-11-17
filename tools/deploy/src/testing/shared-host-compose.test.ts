@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { planInitFiles } from "../init/generate.js";
 import { checkSharedHostCompose, type SharedHostComposeOptions } from "./shared-host-compose.js";
 
-const OPTIONS: SharedHostComposeOptions = { edgeNetwork: "proxy", namePrefix: "acme", bypassPaths: ["/mcp", "/oauth"] };
+const DEFAULTS: SharedHostComposeOptions = { edgeNetwork: "proxy", namePrefix: "acme", bypassPaths: ["/mcp", "/oauth"] };
+/** The other rules' cases leave the edge proof out; its own describe below checks it with the defaults. */
+const OPTIONS: SharedHostComposeOptions = { ...DEFAULTS, edgeProofHeader: false };
 
 function composeWith(appLabels: readonly string[], extra = ""): string {
   return [
@@ -39,7 +41,7 @@ describe("checkSharedHostCompose", () => {
     });
     const compose = files.find((file) => file.path === "docker/prod/docker-compose.yml")?.text ?? "";
     expect(compose).toContain("traefik.http.routers.acme-www");
-    expect(checkSharedHostCompose(compose, OPTIONS)).toEqual([]);
+    expect(checkSharedHostCompose(compose, DEFAULTS)).toEqual([]);
   });
 
   it("passes a compliant file with map labels and the legacy external form", () => {
@@ -55,6 +57,63 @@ describe("checkSharedHostCompose", () => {
       "      name: proxy",
     ].join("\n");
     expect(checkSharedHostCompose(compose, OPTIONS)).toEqual([]);
+  });
+
+  describe("edge proof (issue #1329)", () => {
+    const PROOF = "traefik.http.middlewares.acme-proof.headers.customrequestheaders.X-Softure-Edge-Proof=${EDGE_PROOF_SECRET:?}";
+    const withProof = (middlewares: string, ...extra: string[]): string[] => [
+      ...APP_LABELS.filter((label) => !label.includes(".middlewares=")),
+      `traefik.http.routers.acme.middlewares=${middlewares}`,
+      PROOF,
+      ...extra,
+    ];
+
+    it("reports a router that reaches its service without setting the proof header", () => {
+      expect(checkSharedHostCompose(composeWith(APP_LABELS), DEFAULTS)).toEqual([
+        {
+          rule: "edge-proof-missing",
+          service: "app",
+          message: 'router "acme" passes requests to its service without setting the edge proof header X-Softure-Edge-Proof',
+        },
+      ]);
+    });
+
+    it("passes a router that runs the proof middleware directly, by provider reference or inside a chain", () => {
+      expect(checkSharedHostCompose(composeWith(withProof("acme-proof,acme-headers")), DEFAULTS)).toEqual([]);
+      expect(checkSharedHostCompose(composeWith(withProof("acme-headers,acme-proof@docker")), DEFAULTS)).toEqual([]);
+      const chain = withProof("acme-chain", "traefik.http.middlewares.acme-chain.chain.middlewares=acme-headers,acme-proof");
+      expect(checkSharedHostCompose(composeWith(chain), DEFAULTS)).toEqual([]);
+    });
+
+    it("reads the header name case-insensitively and reports an empty value or another header", () => {
+      const lower = withProof("acme-proof").map((label) => label.replace("X-Softure-Edge-Proof", "x-softure-edge-proof"));
+      expect(checkSharedHostCompose(composeWith(lower), DEFAULTS)).toEqual([]);
+      const empty = withProof("acme-proof").map((label) => (label === PROOF ? label.replace(/=.*$/, "=") : label));
+      expect(checkSharedHostCompose(composeWith(empty), DEFAULTS).map((violation) => violation.rule)).toEqual(["edge-proof-missing"]);
+      expect(checkSharedHostCompose(composeWith(withProof("acme-proof")), { ...DEFAULTS, edgeProofHeader: "X-Acme-Proof" })).toEqual([
+        {
+          rule: "edge-proof-missing",
+          service: "app",
+          message: 'router "acme" passes requests to its service without setting the edge proof header X-Acme-Proof',
+        },
+      ]);
+    });
+
+    it("skips a router on an internal service, such as the www redirect", () => {
+      const labels = [
+        ...withProof("acme-proof"),
+        "traefik.http.routers.acme-www.rule=Host(`www.acme.example`)",
+        "traefik.http.routers.acme-www.service=noop@internal",
+      ];
+      expect(checkSharedHostCompose(composeWith(labels), DEFAULTS)).toEqual([]);
+    });
+
+    it("is skipped with edgeProofHeader: false and for a tunnel app, and refuses an empty header name", () => {
+      expect(checkSharedHostCompose(composeWith(APP_LABELS), { ...DEFAULTS, edgeProofHeader: false })).toEqual([]);
+      expect(() => checkSharedHostCompose("", { ...DEFAULTS, edgeProofHeader: " " })).toThrow(
+        "checkSharedHostCompose: edgeProofHeader is empty; pass false to skip the edge proof",
+      );
+    });
   });
 
   describe("edge network", () => {
@@ -197,7 +256,7 @@ describe("checkSharedHostCompose", () => {
     it("reads a router without a rule as the provider's Host default and checks nothing without bypass paths", () => {
       const compose = composeWith(["traefik.http.routers.acme.entrypoints=websecure", "traefik.http.routers.acme-mcp.rule=PathPrefix(`/mcp`)"]);
       expect(checkSharedHostCompose(compose, { ...OPTIONS, bypassPaths: ["/oauth"] })).toEqual([]);
-      expect(checkSharedHostCompose(compose, { edgeNetwork: "proxy", namePrefix: "acme" })).toEqual([]);
+      expect(checkSharedHostCompose(compose, { edgeNetwork: "proxy", namePrefix: "acme", edgeProofHeader: false })).toEqual([]);
     });
   });
 

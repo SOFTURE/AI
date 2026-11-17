@@ -13,6 +13,10 @@
 # This stack runs no Traefik: the app joins the external network {{edgeNetwork}} of the Traefik another stack on this
 # server runs (init --edge), and its labels publish it there. That Traefik needs the Docker provider
 # (exposedByDefault=false), the entry point websecure and the certificate resolver letsencrypt.
+#
+# Other containers on that network reach the app without the router, so a client-IP header proves nothing there.
+# The router's first middleware sets X-Softure-Edge-Proof to the secret EDGE_PROOF_SECRET, which the app also gets:
+# wrap the app's resolver in edgeProofIp from @softure-ai/security, so it trusts the header only on proven requests.
 {{/edge}}
 {{#tunnel}}
 #
@@ -73,6 +77,10 @@ services:
 {{#database}}
       DATABASE_URL: postgresql://softure_app:${SOFTURE_APP_PASSWORD:?}@postgres:5432/{{databaseName}}
 {{/database}}
+{{#edge}}
+      # The edge proof (@softure-ai/security edgeProofIp): the value the router sets on X-Softure-Edge-Proof.
+      EDGE_PROOF_SECRET: ${EDGE_PROOF_SECRET:?}
+{{/edge}}
 {{#hasAppEnv}}
 {{appEnvLines}}
 {{/hasAppEnv}}
@@ -129,8 +137,9 @@ services:
       - "traefik.http.routers.{{name}}.entrypoints=websecure"
       - "traefik.http.routers.{{name}}.tls.certresolver=letsencrypt"
       - "traefik.http.routers.{{name}}.service={{name}}"
-      - "traefik.http.routers.{{name}}.middlewares={{name}}-security-headers"
+      - "traefik.http.routers.{{name}}.middlewares={{name}}-edge-proof,{{name}}-security-headers"
       - "traefik.http.services.{{name}}.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.{{name}}-edge-proof.headers.customrequestheaders.X-Softure-Edge-Proof=${EDGE_PROOF_SECRET:?}"
       - "traefik.http.middlewares.{{name}}-security-headers.headers.stsSeconds=31536000"
       - "traefik.http.middlewares.{{name}}-security-headers.headers.stsIncludeSubdomains=true"
       - "traefik.http.middlewares.{{name}}-security-headers.headers.contentTypeNosniff=true"
