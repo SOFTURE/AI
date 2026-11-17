@@ -15,7 +15,8 @@ export type OtlpLogRecord = {
   readonly spanId?: string;
 };
 
-/** OTLP `SpanKind`: 2 is a server span. */
+/** OTLP `SpanKind`: 1 is an internal span (a scheduled run), 2 a server span. */
+export const SPAN_KIND_INTERNAL = 1;
 export const SPAN_KIND_SERVER = 2;
 /** OTLP `StatusCode`: 0 unset, 2 error. */
 export const STATUS_UNSET = 0;

@@ -3,7 +3,8 @@
 // `createLogger` logger written during it (with the span's trace and span ids), and sends both over OTLP/HTTP JSON
 // with `fetch` under `ctx.waitUntil`, so the response does not wait for the export. Settings are the Node entry's
 // (`OTEL_EXPORTER_OTLP_*`, `OTEL_SERVICE_NAME`, the options), read from the Worker's bindings; nothing leaves
-// without an endpoint. No metrics: an isolate has no process to measure.
+// without an endpoint. No metrics: an isolate has no process to measure. `withScheduledObservability` does the same
+// for the Worker's `scheduled` handler (a Cron Trigger), so the logs of background work leave the isolate too.
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import { logs, type LogRecord, type Logger as OtelLogger, type LoggerProvider } from "@opentelemetry/api";
@@ -11,7 +12,7 @@ import { logs, type LogRecord, type Logger as OtelLogger, type LoggerProvider } 
 import { createIgnoredPathMatcher } from "../ignored-paths.js";
 import { configureLogging, createLogger } from "../logger.js";
 import { resolveObservabilityConfig, type Environment, type ObservabilityOptions, type ResolvedObservabilityConfig, type SignalExport } from "../node/config.js";
-import { encodeLogs, encodeSpans, SPAN_KIND_SERVER, STATUS_ERROR, STATUS_UNSET, toUnixNano, type OtlpAttributeValue, type OtlpLogRecord, type OtlpSpan } from "./otlp-json.js";
+import { encodeLogs, encodeSpans, SPAN_KIND_INTERNAL, SPAN_KIND_SERVER, STATUS_ERROR, STATUS_UNSET, toUnixNano, type OtlpAttributeValue, type OtlpLogRecord, type OtlpSpan } from "./otlp-json.js";
 
 export type WorkersObservabilityOptions = Pick<
   ObservabilityOptions,
@@ -29,6 +30,20 @@ export interface WorkersExecutionContext {
 }
 
 export type WorkersFetchHandler<Env> = (request: Request, env: Env, ctx: WorkersExecutionContext) => Promise<Response> | Response;
+
+/** The part of a Cron Trigger's `ScheduledController` this entry uses. */
+export interface WorkersScheduledController {
+  readonly scheduledTime: number;
+  readonly cron: string;
+}
+
+export type WorkersScheduledHandler<Env, Result = unknown> = (
+  controller: WorkersScheduledController,
+  env: Env,
+  ctx: WorkersExecutionContext,
+) => Promise<Result> | Result;
+
+export type WorkersScheduledObservabilityOptions = Omit<WorkersObservabilityOptions, "ignorePaths">;
 
 const SCOPE = "@softure-ai/observability/workers";
 /** Records written outside a request (at module load) wait for the next request's export, at most this many. */
@@ -50,13 +65,7 @@ const requestLogger = createLogger(SCOPE);
  * `export default { fetch: withObservability(handler, { serviceNamespace: "shop", serviceName: "shop" }) }`.
  */
 export function withObservability<Env>(handler: WorkersFetchHandler<Env>, options: WorkersObservabilityOptions = {}): WorkersFetchHandler<Env> {
-  registerLoggerProvider();
-  if (options.logLevel !== undefined || options.errorDetails !== undefined) {
-    configureLogging({
-      ...(options.logLevel === undefined ? {} : { level: options.logLevel }),
-      ...(options.errorDetails === undefined ? {} : { errorDetails: options.errorDetails }),
-    });
-  }
+  configureWorkersLogging(options);
 
   const isIgnoredPath = createIgnoredPathMatcher(options.ignorePaths ?? []);
   // Per handler, since the options differ between handlers; per bindings object, read once per isolate.
@@ -110,6 +119,64 @@ export function withObservability<Env>(handler: WorkersFetchHandler<Env>, option
   };
 }
 
+/**
+ * The Worker's scheduled handler with one span per firing and its log records exported, as `withObservability` does
+ * for a request: `export default { scheduled: withScheduledObservability(handler, { serviceName: "shop-jobs" }) }`.
+ * The span is named `scheduled`, carries `faas.trigger` (`timer`) and `faas.cron`, and `error.type` when the handler
+ * throws (the error is thrown on). The export waits for the handler's promise, so records of work it awaits are sent;
+ * work it only hands to `ctx.waitUntil` and does not await is not.
+ */
+export function withScheduledObservability<Env, Result = unknown>(
+  handler: WorkersScheduledHandler<Env, Result>,
+  options: WorkersScheduledObservabilityOptions = {},
+): WorkersScheduledHandler<Env, Result> {
+  configureWorkersLogging(options);
+  const configs = new WeakMap<object, ResolvedObservabilityConfig>();
+  return async (controller, env, ctx) => {
+    const config = resolveConfig(options, env, configs);
+    const telemetry: RequestTelemetry = { traceId: randomHex(16), spanId: randomHex(8), records: pendingRecords.splice(0) };
+    const startedAt = Date.now();
+    let thrown: unknown;
+    try {
+      return await requestStorage.run(telemetry, () => handler(controller, env, ctx));
+    } catch (error) {
+      thrown = error;
+      requestStorage.run(telemetry, () => {
+        requestLogger.error("scheduled run failed", { error, "faas.cron": controller.cron });
+      });
+      throw error;
+    } finally {
+      if (config.kind === "export") {
+        const attributes: Record<string, OtlpAttributeValue> = { "faas.trigger": "timer", "faas.cron": controller.cron };
+        if (thrown !== undefined) attributes["error.type"] = thrown instanceof Error ? thrown.name : "_OTHER";
+        const span: OtlpSpan = {
+          scope: SCOPE,
+          traceId: telemetry.traceId,
+          spanId: telemetry.spanId,
+          name: "scheduled",
+          kind: SPAN_KIND_INTERNAL,
+          startTimeUnixNano: toUnixNano(startedAt),
+          endTimeUnixNano: toUnixNano(Date.now()),
+          attributes,
+          statusCode: thrown === undefined ? STATUS_UNSET : STATUS_ERROR,
+        };
+        ctx.waitUntil(exportTelemetry(config, telemetry.records, span, options.fetch ?? fetch));
+      }
+    }
+  };
+}
+
+/** Registers the record collector once and applies the handler's log level and error details. */
+function configureWorkersLogging(options: WorkersScheduledObservabilityOptions): void {
+  registerLoggerProvider();
+  if (options.logLevel !== undefined || options.errorDetails !== undefined) {
+    configureLogging({
+      ...(options.logLevel === undefined ? {} : { level: options.logLevel }),
+      ...(options.errorDetails === undefined ? {} : { errorDetails: options.errorDetails }),
+    });
+  }
+}
+
 type ExportConfig = Extract<ResolvedObservabilityConfig, { kind: "export" }>;
 
 /** Sends the request's records and span; a failed export is reported on the console and never reaches the app. */
@@ -140,7 +207,7 @@ async function post(send: typeof fetch, target: SignalExport, signal: string, bo
 const NO_BINDINGS = {};
 
 /** The export settings from the options and the Worker's string bindings, once per bindings object. */
-function resolveConfig(options: WorkersObservabilityOptions, env: unknown, cache: WeakMap<object, ResolvedObservabilityConfig>): ResolvedObservabilityConfig {
+function resolveConfig(options: WorkersScheduledObservabilityOptions, env: unknown, cache: WeakMap<object, ResolvedObservabilityConfig>): ResolvedObservabilityConfig {
   const key = typeof env === "object" && env !== null ? env : NO_BINDINGS;
   const cached = cache.get(key);
   if (cached !== undefined) return cached;
