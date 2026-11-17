@@ -16,6 +16,18 @@ interface Metrics {
   /** The font's units per em (`head`), what a browser sizes it by; 0 when the font has no `head`. */
   unitsPerEm: number;
   advances: (glyph: number) => number;
+  /** The ascent and descent of a browser's inline box, in font units: `hhea`'s, or OS/2's typo metrics when the font says to use them. */
+  ascent: number;
+  descent: number;
+}
+
+/** OS/2 `fsSelection` bit 7: a browser takes the typo ascender and descender for the line's content area. */
+const USE_TYPO_METRICS = 1 << 7;
+
+/** The content area's ascent and descent in font units, as a browser reads them (`hhea`, or typo metrics on request). */
+function readContentArea(hhea: Buffer, os2: Buffer | undefined): { ascent: number; descent: number } {
+  if (os2 !== undefined && os2.length >= 72 && (readUint16(os2, 62) & USE_TYPO_METRICS) !== 0) return { ascent: readInt16(os2, 68), descent: -readInt16(os2, 70) };
+  return { ascent: readInt16(hhea, 4), descent: -readInt16(hhea, 6) };
 }
 
 function readMetrics(font: Buffer): Metrics | null {
@@ -32,7 +44,7 @@ function readMetrics(font: Buffer): Metrics | null {
   const head = tables.value.get("head");
   const unitsPerEm = head === undefined ? 0 : readUint16(head, 18);
   // Glyphs past `numberOfHMetrics` share the last advance (OpenType `hmtx`).
-  return { unitsPerSize, unitsPerEm, advances: (glyph) => readUint16(hmtx, Math.min(glyph, count - 1) * 4) };
+  return { unitsPerSize, unitsPerEm, advances: (glyph) => readUint16(hmtx, Math.min(glyph, count - 1) * 4), ...readContentArea(hhea, os2) };
 }
 
 /**
@@ -69,7 +81,15 @@ export interface DraftFont {
   assScale: number;
   /** A line's width in CSS px at a CSS font size (advances per em; kerning not read). */
   measure: DraftTextMeasure;
+  /**
+   * The ascent and descent of the render's inline box (a highlight mark's background), in ems; absent for a font made
+   * elsewhere, which then takes `DEFAULT_CONTENT_AREA`.
+   */
+  contentArea?: { ascentEm: number; descentEm: number };
 }
+
+/** The content area a font without its own is given, in ems: a common sans serif's. */
+export const DEFAULT_CONTENT_AREA = { ascentEm: 0.93, descentEm: 0.24 } as const;
 
 /** The ASS size (`Fontsize`, `\fs`) that draws a font of `assScale` as large as the render's `cssPx`, to 0.01. */
 export function toDraftAssSize(cssPx: number, assScale: number): number {
@@ -107,6 +127,7 @@ export function createDraftFont(source: { family: string; file: string }, data: 
       family: source.family,
       file: source.file,
       assScale: metrics.unitsPerSize / unitsPerEm,
+      contentArea: { ascentEm: metrics.ascent / unitsPerEm, descentEm: metrics.descent / unitsPerEm },
       measure: (text, fontSize) => {
         let units = 0;
         for (const character of text) units += metrics.advances(map.getGlyph(character.codePointAt(0) ?? 0));

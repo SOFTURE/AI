@@ -92,10 +92,10 @@ function readEvents(ass: string): DraftEvent[] {
 
 const isLive = (event: DraftEvent, seconds: number): boolean => event.from <= seconds && seconds < event.to;
 
-/** The letters a draft event shows: its text up to the first hidden run, tags and drawings left out, spaces not counted. */
+/** The letters a draft event shows: its text up to the first hidden run, tags and drawings left out, spaces (hard ones too) not counted. */
 function getShownLetters(event: DraftEvent): string {
   if (event.text.includes("\\p1")) return "";
-  return event.text.replace(/\{\\1a&HFF&\}.*$/, "").replace(/\{[^}]*\}/g, "").replace(/\s/g, "");
+  return event.text.replace(/\{\\1a&HFF&\}.*$/, "").replace(/\{[^}]*\}/g, "").replace(/\\h/g, "").replace(/\s/g, "");
 }
 
 /** How far a wipe's clip has opened at `ms` into its event (0 closed, 1 open), libass's straight steps followed. */

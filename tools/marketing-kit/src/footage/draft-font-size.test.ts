@@ -11,7 +11,7 @@ import type { Edl } from "./edl.js";
 import { DEFAULT_TRANSITIONS, type FootageFilm } from "./film.js";
 import { HAND_FONT } from "./hand-font.js";
 import type { EdlOverlay } from "./overlay-schema.js";
-import { getOverlayPadding, OVERLAY_LETTER_SPACING_EM, resolveEdlOverlays, type ResolvedOverlay } from "./overlays.js";
+import { COUNTER_UNIT_GAP_EM, getOverlayPadding, OVERLAY_LETTER_SPACING_EM, OVERLAY_LINE_HEIGHT, resolveEdlOverlays, type ResolvedOverlay } from "./overlays.js";
 
 /** RV-193 of an adopting app: the draft sizes, spaces and breaks every text as the render does. */
 
@@ -202,12 +202,14 @@ describe("buildDraftOverlayEvents with the draft's fonts", () => {
     expect(ass).toContain(`\\fs${String(toDraftAssSize(Math.round(card.subtitleFontSize), DEJAVU_SCALE))}\\fsp${String(toDraftSpacing(OVERLAY_LETTER_SPACING_EM.card, Math.round(card.subtitleFontSize)))}`);
   });
 
-  it("sizes a counter's number and its unit in the heading's font", () => {
+  it("sizes a counter's number and its unit in the heading's font, the unit the render's gap after it", () => {
     const [counter] = resolve([{ kind: "counter", at: 0, duration: 3, value: 2800, unit: "PLN" }]);
     if (counter?.kind !== "counter") throw new Error("a counter");
-    const ass = events([{ kind: "counter", at: 0, duration: 3, value: 2800, unit: "PLN" }]);
+    const set = fonts();
+    const ass = events([{ kind: "counter", at: 0, duration: 3, value: 2800, unit: "PLN" }], set);
     expect(ass).toContain(`\\an5\\fs${String(toDraftAssSize(counter.fontSize, CAVEAT_SCALE))}`);
-    expect(ass).toContain(`{\\fs${String(toDraftAssSize(counter.unitFontSize, CAVEAT_SCALE))}} PLN`);
+    const gap = toDraftSpacing(counter.fontSize * COUNTER_UNIT_GAP_EM - set.heading.measure(" ", counter.unitFontSize), 1);
+    expect(ass).toContain(`{\\fs${String(toDraftAssSize(counter.unitFontSize, CAVEAT_SCALE))}}{\\fsp${String(gap)}}\\h{\\fsp${String(toDraftSpacing(OVERLAY_LETTER_SPACING_EM.card, counter.fontSize))}}PLN`);
   });
 
   it("draws a search query unspaced, as the render does", () => {
@@ -216,34 +218,45 @@ describe("buildDraftOverlayEvents with the draft's fonts", () => {
     expect(ass).not.toMatch(/\\an4\\fs[0-9.]+\\fsp/);
   });
 
-  it("breaks a keyword wider than its box where the render's card breaks it, its lines from the box's left on either side", () => {
+  it("breaks a keyword wider than its box where the render's card breaks it, each line one CSS line below the last, from the box's left on either side", () => {
     const overlay: EdlOverlay = { kind: "keyword", at: 0, duration: 3, text: "booklet = yellow fever certificate of vaccination", style: { side: "right" } };
     const [keyword] = resolve([overlay]);
     if (keyword?.kind !== "keyword") throw new Error("a keyword");
     const ass = events([overlay]);
-    expect(ass).toContain("\\N");
-    const padX = getOverlayPadding(keyword).x;
-    expect(ass).toContain(`\\an7\\fs${String(toDraftAssSize(keyword.fontSize, CAVEAT_SCALE))}\\fsp${String(toDraftSpacing(OVERLAY_LETTER_SPACING_EM.card, keyword.fontSize))}`);
-    expect(ass).toContain(`\\pos(${String(Math.round(keyword.box.left + padX))},`);
-  });
-
-  it("keeps a keyword that fits on one line, on its side", () => {
-    const ass = events([{ kind: "keyword", at: 0, duration: 3, text: "3x", style: { side: "right" } }]);
     expect(ass).not.toContain("\\N");
-    expect(ass).toContain("\\an9");
+    const padX = getOverlayPadding(keyword).x;
+    const tags = `\\an7\\fs${String(toDraftAssSize(keyword.fontSize, CAVEAT_SCALE))}\\fsp${String(toDraftSpacing(OVERLAY_LETTER_SPACING_EM.card, keyword.fontSize))}`;
+    const lines = ass.split("\n").filter((line) => line.includes(tags));
+    expect(lines.length).toBeGreaterThan(1);
+    const ys = lines.map((line) => Number(/\\pos\(\d+,(\d+)\)/.exec(line)?.[1]));
+    expect(lines.every((line) => line.includes(`\\pos(${String(Math.round(keyword.box.left + padX))},`))).toBe(true);
+    expect((ys[1] ?? 0) - (ys[0] ?? 0)).toBe(Math.round(keyword.box.top + getOverlayPadding(keyword).y + keyword.fontSize * OVERLAY_LINE_HEIGHT) - Math.round(keyword.box.top + getOverlayPadding(keyword).y));
   });
 
-  it("types a wrapped lower third over its breaks, a break counted as the space it replaces", () => {
-    const ass = events([{ kind: "lower_third", at: 0, duration: 3, text: "The travel medicine clinic on the other side of Warsaw", style: { entrance: "type" } }]);
-    const typed = ass.split("\n").filter((line) => line.includes("\\N"));
-    expect(typed.length).toBeGreaterThan(1);
-    expect(ass).not.toContain("");
+  it("keeps a keyword that fits on one line on its side: its card at the box's right, its text from the card's left", () => {
+    const overlay: EdlOverlay = { kind: "keyword", at: 0, duration: 3, text: "3x", style: { side: "right" } };
+    const [keyword] = resolve([overlay]);
+    if (keyword?.kind !== "keyword") throw new Error("a keyword");
+    const ass = events([overlay]);
+    const x = Number(/\\an7\\fs[0-9.]+[^}]*\\pos\((\d+),/.exec(ass)?.[1]);
+    expect(x).toBeGreaterThan(keyword.box.left + keyword.box.width / 2);
   });
 
-  it("drops a wrapped keyword's letters in with its breaks kept", () => {
+  it("types a wrapped lower third line by line, a break counted as the space it replaces", () => {
+    const text = "The travel medicine clinic on the other side of Warsaw";
+    const ass = events([{ kind: "lower_third", at: 0, duration: 3, text, style: { entrance: "type" } }]);
+    expect(ass).not.toContain("\\N");
+    expect(ass).not.toContain("\uE000");
+    const ys = new Set([...ass.matchAll(/\\an7\\fs[^}]*\\pos\(\d+,(\d+)\)/g)].map((match) => match[1]));
+    expect(ys.size).toBeGreaterThan(1);
+  });
+
+  it("drops a wrapped keyword's letters in, line by line", () => {
     const ass = events([{ kind: "keyword", at: 0, duration: 3, text: "booklet = yellow fever certificate of vaccination", style: { entrance: "drop" } }]);
-    expect(ass).toContain("\\N");
-    expect(ass).not.toContain("");
+    expect(ass).not.toContain("\\N");
+    expect(ass).not.toContain("\uE000");
+    const dropped = ass.split("\n").filter((line) => line.includes("\\alpha&HFF&"));
+    expect(dropped.length).toBeGreaterThan(1);
   });
 
   it("sizes a list's points and a chip's number in their fonts", () => {

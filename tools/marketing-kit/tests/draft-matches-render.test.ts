@@ -281,11 +281,8 @@ describe.runIf(hasChromium && canBurn)("the draft draws every text as the render
       expect(got.rows, `${region.name}: lines`).toBe(want.rows);
       // Within 2 % of the frame on every side of the text.
       expect(Math.abs(got.right - got.left - (want.right - want.left)), `${region.name}: width ${got.right - got.left} vs ${want.right - want.left}`).toBeLessThanOrEqual(DRAFT.width * 0.02);
-      // The draft draws no lower third's dot yet, so its text starts that much further left (the cards' change).
-      if (!region.name.startsWith("lower_third")) {
-        expect(Math.abs(got.left - want.left), `${region.name}: left ${got.left} vs ${want.left}`).toBeLessThanOrEqual(DRAFT.width * 0.02);
-        expect(Math.abs(got.right - want.right), `${region.name}: right ${got.right} vs ${want.right}`).toBeLessThanOrEqual(DRAFT.width * 0.02);
-      }
+      expect(Math.abs(got.left - want.left), `${region.name}: left ${got.left} vs ${want.left}`).toBeLessThanOrEqual(DRAFT.width * 0.02);
+      expect(Math.abs(got.right - want.right), `${region.name}: right ${got.right} vs ${want.right}`).toBeLessThanOrEqual(DRAFT.width * 0.02);
       expect(Math.abs(got.top - want.top), `${region.name}: top ${got.top} vs ${want.top}`).toBeLessThanOrEqual(DRAFT.height * 0.02);
       expect(Math.abs(got.bottom - want.bottom), `${region.name}: bottom ${got.bottom} vs ${want.bottom}`).toBeLessThanOrEqual(DRAFT.height * 0.02);
     }

@@ -4,6 +4,32 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.6.0
+
+- **`createFakeGithubApp` serves repository contents** through the git data API, for an app that reads a user's
+  repository with an installation token: a repository input takes `files` (the default branch's head), and
+  `commitFiles` and `rewriteHistory` push a new head. It answers `GET /repos/{owner}/{repo}/commits/{branch or sha}`,
+  `/git/trees/{sha}` (with `?recursive=1`, folders as `tree` entries, git's own blob ids), `/git/blobs/{sha}` (raw with
+  `application/vnd.github.raw`, base64 JSON otherwise) and `/compare/{base}...{head}` (`ahead`, `identical` or
+  `diverged`; a moved file is a rename), only to a live token of an installation that reaches the repository.
+  `calls.contents` counts them.
+  - Migrate: nothing.
+
+## 0.5.0
+
+- **`@softure-ai/connections/github-app`**: the calls an app needs when its own users connect a GitHub App
+  installation (each user's installation id kept by the app, which it is not a secret): `createGithubAppJwt` (RS256
+  with WebCrypto, from the PKCS#1 key GitHub hands out or PKCS#8), `getGithubAppInstallation`,
+  `createGithubInstallationToken` (narrowed by `repositoryIds` and `permissions`), `listGithubInstallationRepositories`,
+  `exchangeGithubUserCode` and `listGithubUserInstallationRepositories` (the proof that an installation id from a
+  redirect belongs to the signed-in user). Stateless, Workers-safe, failures as `connections.github_app_*` codes with
+  the status and `retryAfterSeconds` (`GithubAppResult<T>`); nothing needs the module's tables or configuration.
+- **`createFakeGithubApp`** in `@softure-ai/connections/testing`: installations, the install redirect to the setup URL,
+  the App's JWT checked against its own key, installation tokens, uninstall, suspend, outages and rate limits; a user
+  token is resolved by the test (`resolveUserId`), for example through auth's fake GitHub. `privateKey` hands it the
+  key an app under test reads from its environment (an end-to-end stack in another process).
+  - Migrate: nothing.
+
 ## 0.4.2
 
 - Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the
