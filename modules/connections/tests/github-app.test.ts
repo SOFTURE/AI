@@ -105,6 +105,16 @@ describe("the GitHub App calls", () => {
     });
   });
 
+  it("work with a key the test hands the fake, escaped as an environment variable would carry it", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs1", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
+    const app = createFakeGithubApp({ privateKey: privateKey.replaceAll("\n", "\\n") });
+    const installationId = app.createInstallation({ account: { login: "octocat" }, userIds: [OCTOCAT.id], repositories: [{ fullName: "octocat/notes" }] });
+
+    expect(app.credentials.privateKey).toBe(privateKey);
+    const installation = await getGithubAppInstallation({ appId: "4242", privateKey }, installationId, { fetch: app.fetch });
+    expect(installation.ok).toBe(true);
+  });
+
   it("answer not found once the installation is removed, and rejected for a suspended one's token", async () => {
     const { app, installationId } = createApp();
     const token = await createGithubInstallationToken(app.credentials, installationId, { fetch: app.fetch });

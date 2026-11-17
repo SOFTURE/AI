@@ -12,10 +12,11 @@ version in production, the version gets a line `verified in: <app>@<commit>` ([d
   `createGithubInstallationToken` (narrowed by `repositoryIds` and `permissions`), `listGithubInstallationRepositories`,
   `exchangeGithubUserCode` and `listGithubUserInstallationRepositories` (the proof that an installation id from a
   redirect belongs to the signed-in user). Stateless, Workers-safe, failures as `connections.github_app_*` codes with
-  the status and `retryAfterSeconds`; nothing needs the module's tables or configuration.
+  the status and `retryAfterSeconds` (`GithubAppResult<T>`); nothing needs the module's tables or configuration.
 - **`createFakeGithubApp`** in `@softure-ai/connections/testing`: installations, the install redirect to the setup URL,
   the App's JWT checked against its own key, installation tokens, uninstall, suspend, outages and rate limits; a user
-  token is resolved by the test (`resolveUserId`), for example through auth's fake GitHub.
+  token is resolved by the test (`resolveUserId`), for example through auth's fake GitHub. `privateKey` hands it the
+  key an app under test reads from its environment (an end-to-end stack in another process).
   - Migrate: nothing.
 
 ## 0.4.2

@@ -4,7 +4,7 @@
 // Stateless: the app keeps the installation id with its own records (it is no secret) and mints a token when it needs
 // one. Every call goes through core's `requestJson` (timeout, no redirect followed, failures as codes) and never puts
 // a token, the key or GitHub's message into an error.
-import { err, ok, requestJson, type Err, type FetchFunction, type HttpJsonFailure, type Result } from "@softure-ai/core";
+import { err, ok, requestJson, type Err, type FetchFunction, type HttpJsonFailure, type Ok } from "@softure-ai/core";
 import { z } from "zod";
 import { createGithubAppJwt, type GithubAppCredentials, type GithubAppKeyInvalid } from "./jwt.js";
 
@@ -39,6 +39,9 @@ export type GithubAppFailure = Err<GithubAppFailureCode> & {
   /** From `Retry-After` on a rate limit or an outage; null otherwise. */
   readonly retryAfterSeconds: number | null;
 };
+
+/** A call's answer: the value, or a failure that carries GitHub's status and `Retry-After`. */
+export type GithubAppResult<T> = Ok<T> | GithubAppFailure;
 
 export interface GithubAccount {
   readonly id: number;
@@ -119,7 +122,7 @@ export async function getGithubAppInstallation(
   credentials: GithubAppCredentials,
   installationId: number,
   options: GithubAppCallOptions = {},
-): Promise<Result<GithubAppInstallation, GithubAppFailureCode> | GithubAppKeyInvalid> {
+): Promise<GithubAppResult<GithubAppInstallation> | GithubAppKeyInvalid> {
   const jwt = await createGithubAppJwt(credentials, options);
   if (!jwt.ok) return jwt;
   const answer = await requestJson({
@@ -149,7 +152,7 @@ export async function createGithubInstallationToken(
   credentials: GithubAppCredentials,
   installationId: number,
   options: GithubAppCallOptions & { readonly repositoryIds?: readonly number[]; readonly permissions?: Readonly<Record<string, string>> } = {},
-): Promise<Result<GithubInstallationToken, GithubAppFailureCode> | GithubAppKeyInvalid> {
+): Promise<GithubAppResult<GithubInstallationToken> | GithubAppKeyInvalid> {
   const jwt = await createGithubAppJwt(credentials, options);
   if (!jwt.ok) return jwt;
   const body: Record<string, unknown> = {};
@@ -173,7 +176,7 @@ export async function createGithubInstallationToken(
 export async function listGithubInstallationRepositories(
   installationToken: string,
   options: GithubAppCallOptions = {},
-): Promise<Result<GithubRepositoryPage, GithubAppFailureCode>> {
+): Promise<GithubAppResult<GithubRepositoryPage>> {
   return readRepositoryPage(`${apiUrl(options)}/installation/repositories?per_page=100`, installationToken, options);
 }
 
@@ -186,7 +189,7 @@ export async function listGithubUserInstallationRepositories(
   userToken: string,
   installationId: number,
   options: GithubAppCallOptions = {},
-): Promise<Result<GithubRepositoryPage, GithubAppFailureCode>> {
+): Promise<GithubAppResult<GithubRepositoryPage>> {
   return readRepositoryPage(`${apiUrl(options)}/user/installations/${String(installationId)}/repositories?per_page=100`, userToken, options);
 }
 
@@ -206,7 +209,7 @@ export interface GithubUserCodeExchange {
 export async function exchangeGithubUserCode(
   exchange: GithubUserCodeExchange,
   options: GithubAppCallOptions & { readonly oauthUrl?: string } = {},
-): Promise<Result<string, GithubAppFailureCode>> {
+): Promise<GithubAppResult<string>> {
   const form = new URLSearchParams({
     client_id: exchange.clientId,
     client_secret: exchange.clientSecret,
@@ -229,7 +232,7 @@ export async function exchangeGithubUserCode(
   return ok(answer.value.access_token);
 }
 
-async function readRepositoryPage(url: string, token: string, options: GithubAppCallOptions): Promise<Result<GithubRepositoryPage, GithubAppFailureCode>> {
+async function readRepositoryPage(url: string, token: string, options: GithubAppCallOptions): Promise<GithubAppResult<GithubRepositoryPage>> {
   const answer = await requestJson({ url, headers: apiHeaders(token), schema: repositoryPageSchema, ...callOptions(options) });
   if (!answer.ok) return toFailure(answer);
   return ok({ totalCount: answer.value.total_count, repositories: answer.value.repositories.map(toRepository) });

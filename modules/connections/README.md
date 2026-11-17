@@ -463,7 +463,8 @@ const app = createFakeGithubApp({
   setupUrl: "https://app.test/api/source/setup",
   resolveUserId: async (token) => readUserId(await github.fetch("https://api.github.com/user", { headers: { authorization: `Bearer ${token}` } })),
 });
-// app.credentials (appId, a PKCS#1 key) and app.fetch go to the github-app calls
+// app.credentials (appId, a PKCS#1 key) and app.fetch go to the github-app calls; `privateKey: process.env.APP_KEY`
+// makes the fake use the key an app in another process was started with (an end-to-end stack)
 const setup = app.install(installUrl, { account: { login: "octocat" }, userIds: [501], repositories: [{ fullName: "octocat/notes" }] });
 app.uninstall(installationId); // every call about it answers 404
 app.failNext("rate_limited", "unavailable");

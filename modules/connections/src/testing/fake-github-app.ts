@@ -3,7 +3,7 @@
 // access tokens, the repositories an installation token reaches, and the repositories of one installation a user's
 // token reaches. A user token belongs to whatever fake handles the user's sign-in (auth's fake GitHub, say): the fake
 // asks `resolveUserId` who holds it. Reached through a `fetch` the app passes to the `github-app` calls.
-import { createVerify, generateKeyPairSync, randomBytes } from "node:crypto";
+import { createPublicKey, createVerify, generateKeyPairSync, randomBytes } from "node:crypto";
 import type { FetchFunction } from "@softure-ai/core";
 import type { GithubAppCredentials } from "../github-app/jwt.js";
 
@@ -12,6 +12,11 @@ const INSTALL_PATH = /^\/apps\/([^/]+)\/installations\/new$/;
 
 export interface FakeGithubAppOptions {
   readonly appId?: number;
+  /**
+   * The App's private key (PEM). Default: a key pair made for this fake. Pass one when the app under test runs in
+   * another process and reads the key from its environment (an end-to-end stack).
+   */
+  readonly privateKey?: string;
   /** The App's URL name (`https://github.com/apps/<slug>`). Default `fake-app`. */
   readonly slug?: string;
   /** Where GitHub sends the browser after an installation (the App's "Setup URL"). */
@@ -92,11 +97,7 @@ export function createFakeGithubApp(options: FakeGithubAppOptions = {}): FakeGit
   const appId = options.appId ?? 4242;
   const slug = options.slug ?? "fake-app";
   const permissions = { ...(options.permissions ?? { contents: "read", metadata: "read" }) };
-  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-    privateKeyEncoding: { type: "pkcs1", format: "pem" },
-    publicKeyEncoding: { type: "spki", format: "pem" },
-  });
+  const { privateKey, publicKey } = readKeyPair(options.privateKey);
   const installations = new Map<number, FakeInstallation>();
   const tokens = new Map<string, IssuedToken>();
   const failures: FakeGithubAppFailure[] = [];
@@ -264,4 +265,16 @@ export function createFakeGithubApp(options: FakeGithubAppOptions = {}): FakeGit
     },
     calls,
   };
+}
+
+function readKeyPair(privateKey: string | undefined): { readonly privateKey: string; readonly publicKey: string } {
+  if (privateKey !== undefined) {
+    const pem = privateKey.replaceAll("\\n", "\n");
+    return { privateKey: pem, publicKey: createPublicKey(pem).export({ type: "spki", format: "pem" }).toString() };
+  }
+  return generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    privateKeyEncoding: { type: "pkcs1", format: "pem" },
+    publicKeyEncoding: { type: "spki", format: "pem" },
+  });
 }

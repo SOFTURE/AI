@@ -12,6 +12,7 @@ export {
   type GithubAccount,
   type GithubAppCallOptions,
   type GithubAppFailure,
+  type GithubAppResult,
   type GithubAppFailureCode,
   type GithubAppInstallation,
   type GithubInstallationToken,
