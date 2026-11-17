@@ -1,4 +1,5 @@
-// Who may sign in through a provider: a verified email listed in `allowedEmails` or of a domain in `allowedDomains`.
+// Who may sign in through a provider: a verified email listed in `allowedEmails` or of a domain in `allowedDomains`, or
+// any verified email when the provider has `openSignUp`.
 import type { OidcProvider } from "../../options.js";
 import type { IdentityClaims } from "./id-token.js";
 
@@ -12,8 +13,9 @@ export function getAllowedEmail(provider: OidcProvider, claims: IdentityClaims):
   return isAllowedEmail(provider, email, claims.hostedDomain) ? email : null;
 }
 
-/** Whether a verified, lowercased email passes the provider's allowlist. */
+/** Whether a verified, lowercased email passes the provider's allowlist (every one does with `openSignUp`). */
 export function isAllowedEmail(provider: OidcProvider, email: string, hostedDomain: string | null): boolean {
+  if (provider.openSignUp) return true;
   if (provider.allowedEmails.includes(email)) return true;
   const at = email.lastIndexOf("@");
   if (at <= 0) return false;

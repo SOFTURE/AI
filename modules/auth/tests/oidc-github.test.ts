@@ -1,6 +1,6 @@
 // Sign-in with GitHub (an OAuth App) against the fake GitHub: the flow it shares with OpenID Connect, the token
 // exchange with GitHub's 200-status errors, the account read from the API and the allowlist over verified emails.
-import { auth } from "@softure-ai/auth";
+import { auth, REGISTRATION_CLOSED_ENV } from "@softure-ai/auth";
 import { completeOidcSignIn, findSessionUser, loginUser, registerUser, startOidcSignIn } from "@softure-ai/auth/server";
 import {
   createFakeGithubProvider,
@@ -53,13 +53,13 @@ describe("the GitHub provider's options", () => {
   it("fills in the defaults, with no issuer and no hosted domain", () => {
     const options = auth({ password: { enabled: false }, oidc: { providers: [{ ...github, allowedEmails: [" Owner@Example.com"] }] } }).options;
     expect(options.oidc.providers).toEqual([
-      { ...github, authorizeParams: {}, allowedDomains: [], allowedEmails: ["owner@example.com"], createAccounts: true, requireHostedDomain: false },
+      { ...github, authorizeParams: {}, allowedDomains: [], allowedEmails: ["owner@example.com"], createAccounts: true, openSignUp: false, requireHostedDomain: false },
     ]);
   });
 
   it("refuses a GitHub provider without an allowlist or a client secret, and OpenID Connect fields on it", () => {
     expect(() => auth({ oidc: { providers: [github] } })).toThrow(
-      "- options.oidc.providers.0.allowedDomains: needs allowedDomains or allowedEmails: a sign-in through a provider is limited to them",
+      "- options.oidc.providers.0.allowedDomains: needs allowedDomains or allowedEmails (or openSignUp: true): a sign-in through a provider is limited to them",
     );
     const withoutSecret = { type: "github", id: "github", name: "GitHub", clientIdEnv: "GITHUB_AUTH_CLIENT_ID", allowedDomains: ["example.com"] } as const;
     // @ts-expect-error -- the secret is required for GitHub
@@ -159,6 +159,56 @@ describe("completeOidcSignIn with GitHub", () => {
     const setup = await setUp({ createAccounts: false });
     expect(await signIn(setup)).toEqual({ ok: false, error: "auth.oidc_no_account" });
     expect(await countRows(setup.test.database, "users")).toBe(0);
+  });
+
+  describe("an open sign-up (openSignUp)", () => {
+    const BEA: FakeGithubUser = { id: 902114, login: "bea", name: null, emails: [{ email: "bea@anywhere.test" }] };
+
+    it("accepts a provider without an allowlist", () => {
+      const github = { type: "github", id: "github", name: "GitHub", clientIdEnv: "GH_AUTH_CLIENT_ID", clientSecretEnv: "GH_AUTH_CLIENT_SECRET" } as const;
+      const options = auth({ oidc: { providers: [{ ...github, openSignUp: true }] } }).options;
+      expect(options.oidc.providers[0]).toMatchObject({ openSignUp: true, allowedDomains: [], allowedEmails: [] });
+    });
+
+    it("creates an account for any verified email and runs onRegistered", async () => {
+      const onRegistered = vi.fn(() => Promise.resolve());
+      const setup = await setUp({ openSignUp: true }, { onRegistered });
+      const result = await signIn(setup, BEA);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.user).toMatchObject({ email: "bea@anywhere.test", displayName: "bea" });
+      expect(onRegistered).toHaveBeenCalledTimes(1);
+    });
+
+    it("still refuses an account whose only email is unverified", async () => {
+      const setup = await setUp({ openSignUp: true });
+      const unverified: FakeGithubUser = { ...BEA, emails: [{ email: "bea@anywhere.test", verified: false }] };
+      expect(await signIn(setup, unverified)).toEqual({ ok: false, error: "auth.oidc_not_allowed" });
+      expect(await countRows(setup.test.database, "users")).toBe(0);
+    });
+
+    it("creates no account while registration is closed, but signs in an account it already has", async () => {
+      const setup = await setUp({ openSignUp: true });
+      const first = await signIn(setup, BEA);
+      if (!first.ok) throw new Error(first.error);
+      vi.stubEnv(REGISTRATION_CLOSED_ENV, "true");
+      try {
+        expect(await signIn(setup, { ...ADA, emails: [{ email: "ada@anywhere.test" }] })).toEqual({ ok: false, error: "auth.oidc_registration_closed" });
+        expect(await countRows(setup.test.database, "users")).toBe(1);
+        expect(await signIn(setup, BEA)).toMatchObject({ ok: true, value: { user: { id: first.value.user.id } } });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it("keeps creating accounts with the password form off, as long as the switch is open", async () => {
+      const setup = await setUp({ openSignUp: true }, { password: { enabled: false } });
+      expect(await signIn(setup, BEA)).toMatchObject({ ok: true, value: { user: { email: "bea@anywhere.test" } } });
+    });
+
+    it("leaves an allowlist provider creating accounts while registration is closed, as before", async () => {
+      const setup = await setUp({}, { registrationClosed: true });
+      expect(await signIn(setup)).toMatchObject({ ok: true, value: { user: { email: "ada@example.com" } } });
+    });
   });
 
   describe("the allowlist over GitHub's emails", () => {

@@ -56,6 +56,7 @@ describe("the auth module", () => {
         allowedEmails: [],
         requireHostedDomain: true,
         createAccounts: true,
+        openSignUp: false,
       },
       {
         type: "oidc",
@@ -70,6 +71,7 @@ describe("the auth module", () => {
         allowedEmails: ["ada@example.com"],
         requireHostedDomain: false,
         createAccounts: true,
+        openSignUp: false,
       },
     ]);
   });
@@ -96,7 +98,7 @@ describe("the auth module", () => {
       ].join("\n"),
     );
     expect(() => auth({ oidc: { providers: [{ ...provider, allowedDomains: [] }] } })).toThrow(
-      "- options.oidc.providers.0.allowedDomains: needs allowedDomains or allowedEmails: a sign-in through a provider is limited to them",
+      "- options.oidc.providers.0.allowedDomains: needs allowedDomains or allowedEmails (or openSignUp: true): a sign-in through a provider is limited to them",
     );
     expect(() => auth({ password: { enabled: false } })).toThrow("- options.password.enabled: needs an oidc provider: without passwords nobody could sign in");
     expect(() => auth({ password: { enabled: false }, oidc: { providers: [{ ...provider, issuer: "http://localhost:8080/realms/dev" }] } })).not.toThrow();
