@@ -11,6 +11,7 @@ import {
   Breadcrumb,
   BreadcrumbEllipsis,
   CommandDialog,
+  CopyButton,
   DocumentRow,
   DocumentViewer,
   FileInput,
@@ -101,6 +102,10 @@ const CASES: Readonly<Record<string, MessageCase>> = {
   ),
   "breadcrumb.label": { render: (text) => <Breadcrumb {...labelled(text)} />, read: attributeOf('[data-slot="breadcrumb"]', "aria-label") },
   "breadcrumb.more": { render: (text) => <BreadcrumbEllipsis label={text} />, read: textOf('[data-slot="breadcrumb-ellipsis"] .sr-only') },
+  "copy.copy": {
+    render: (text) => <CopyButton value="x" {...(text === undefined ? {} : { label: text })} />,
+    read: textOf('[data-slot="copy-button"] span'),
+  },
   "dialog.close": {
     render: (text) => (
       <Dialog open>
@@ -307,8 +312,9 @@ const MESSAGE_PATHS = Object.entries(notionMessages.en).flatMap(([group, texts])
 // Checked elsewhere: the phone sheet's copy where a phone is stubbed (tests/behaviour/sidebar.test.tsx), the drag
 // announcements during a keyboard drag (tests/notion/Sortable.test.tsx), the count of several picked files with the
 // number filled in (tests/notion/FileInput.test.tsx), the texts of a loaded or broken document
-// (tests/notion/Document.test.tsx).
+// (tests/notion/Document.test.tsx), the word after a copy (tests/notion/CopyButton.test.tsx).
 const CHECKED_ELSEWHERE = new Set([
+  "copy.copied",
   "document.zoomIn",
   "document.zoomOut",
   "document.zoom",
