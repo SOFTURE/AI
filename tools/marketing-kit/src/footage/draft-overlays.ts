@@ -1,7 +1,7 @@
 import { getCornerRadiusPx, type BrandStyle, type CornerRadius } from "./brand-style.js";
 import { getDraftBoxEvents } from "./draft-boxes.js";
 import { toAssColor } from "./draft-color.js";
-import { getSpacingWidth, toDraftAssSize, toDraftSpacing, wrapDraftLine, type DraftFont } from "./draft-text-width.js";
+import { DEFAULT_CONTENT_AREA, getSpacingWidth, toDraftAssSize, toDraftSpacing, wrapDraftLine, type DraftFont } from "./draft-text-width.js";
 import { HAND_FONT, getHandFontAssSize } from "./hand-font.js";
 import { getCounterSeconds, getOverlayColors, getPlaceCardTimes, getTypingTimes, type OverlayColors } from "./overlay-html.js";
 import {
@@ -37,7 +37,14 @@ import {
   getChipCoveredTimes,
   getChipParts,
   getChipTickPoints,
+  COUNTER_UNIT_GAP_EM,
+  getCounterCard,
   getDrawnOverlayCard,
+  getKeywordMarkBlock,
+  getSideTextLayout,
+  KEYWORD_EDGE_EM,
+  MARK_PADDING_EM,
+  MARK_RADIUS_EM,
   getListCardsByItem,
   getListItemTimes,
   getListStops,
@@ -55,7 +62,9 @@ import {
   type OverlayBox,
   type OverlayFontRole,
   type OverlayPoint,
+  type OverlayTextMeasure,
   type ResolvedOverlay,
+  type SideTextLayout,
 } from "./overlays.js";
 
 /**
@@ -188,6 +197,13 @@ interface DraftContext {
   spacing: (spacingEm: number, cssPx: number) => string;
   /** The brand's style: the cards' radius, shadow and border; absent: each kind's own corner, no shadow, no border. */
   style?: BrandStyle;
+  /**
+   * With the draft's fonts: the render's measure, so side texts, counters and highlight marks are laid out as the
+   * render lays them out (`getSideTextLayout`, `getCounterCard`); absent: the estimated cards of before.
+   */
+  layout?: OverlayTextMeasure;
+  /** The content area (ascent, descent in ems) of the font of `role`, as a browser sizes an inline box. */
+  contentArea: (role: DraftFontRole) => { ascentEm: number; descentEm: number };
 }
 
 /**
@@ -429,10 +445,6 @@ export function getDropText(text: string, times: readonly number[], eventStart: 
     .join("");
 }
 
-/** A highlight mark's padding round its text and its corner, in font sizes (as the render's `.ov-mark`). */
-const MARK_PADDING_EM = { x: 0.22, y: 0.04 } as const;
-const MARK_RADIUS_EM = 0.14;
-
 /**
  * A highlight backdrop's marks under one line of text (`style.backdrop` highlight): a tight rounded box in the card
  * colour, its width the text shown so far (each typed letter widens it, as the render's box grows), anchored where
@@ -450,14 +462,22 @@ function getBackdropMarkEvents(input: {
   typing: number | null;
   /** When the line starts typing, if not at the span's start (a second line of a title). */
   typeFrom?: number;
+  /**
+   * The render's measure of a line in the text's font and its content area: the mark is the text's width and its
+   * content area tall, centred in a line `lineHeight` tall from `top` (an inline box's background); absent: the
+   * estimated width and the whole line's height.
+   */
+  measured?: { measure: (text: string) => number; contentArea: { ascentEm: number; descentEm: number }; lineHeight: number };
 }): string[] {
-  const { fontSize, span } = input;
+  const { fontSize, span, measured } = input;
   const pad = { x: fontSize * MARK_PADDING_EM.x, y: fontSize * MARK_PADDING_EM.y };
-  const height = fontSize * OVERLAY_LINE_HEIGHT + 2 * pad.y;
+  const content = measured === undefined ? fontSize * OVERLAY_LINE_HEIGHT : fontSize * (measured.contentArea.ascentEm + measured.contentArea.descentEm);
+  const height = content + 2 * pad.y;
+  const top = measured === undefined ? input.top - pad.y : input.top + (fontSize * measured.lineHeight - content) / 2 - pad.y;
   const boxFor = (shown: string): OverlayBox => {
-    const width = estimateTextWidth(shown, fontSize) + 2 * pad.x;
+    const width = (measured === undefined ? estimateTextWidth(shown, fontSize) : measured.measure(shown)) + 2 * pad.x;
     const left = input.align === "left" ? input.x - pad.x : input.align === "right" ? input.x + pad.x - width : input.x - width / 2;
-    return { left, top: input.top - pad.y, width, height };
+    return { left, top, width, height };
   };
   const clean = toAssText(input.text);
   const steps =
@@ -499,6 +519,7 @@ function getUnderlineEvent(overlay: Extract<ResolvedOverlay, { kind: "keyword" }
  */
 function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" | "list" }>, context: DraftContext): string[] {
   if (overlay.kind === "list") return getListEvents(overlay, context);
+  if (context.layout !== undefined) return getLaidOutSideTextEvents(overlay, context, context.layout);
   const colors = getOverlayColors(overlay, context.brand);
   const { fontSize, side } = overlay;
   // A side text always has a card: only a punch_in has none.
@@ -529,6 +550,104 @@ function getSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" |
   // A keyword or a lower third types in only when its entrance says so.
   const steps = overlay.entrance === null ? [{ from: span.start, to: span.end, text: toAssText(wrapped) }] : getTypedSteps(wrapped, span, overlay.typing, isCentred);
   return [...shape, ...text({ x, y }, steps), ...(overlay.kind === "keyword" ? getUnderlineEvent(overlay, card, colors.accent, motion) : [])];
+}
+
+/**
+ * A highlighted keyword's mark as the render draws it (`getKeywordMarkBlock`): one rounded block round its lines;
+ * while it types, the block of the letters typed so far, on the lines they take in the whole text.
+ */
+function getBlockMarkEvents(input: {
+  overlay: Extract<ResolvedOverlay, { kind: "keyword" }>;
+  layout: SideTextLayout;
+  measure: OverlayTextMeasure;
+  colour: string;
+  motion: DraftMotion;
+}): string[] {
+  const { overlay, layout } = input;
+  const { fontSize } = overlay;
+  const blockFor = (lines: readonly string[]): OverlayBox => getKeywordMarkBlock(overlay, layout, lines, input.measure);
+  const span = { start: overlay.start, end: overlay.end };
+  const text = layout.lines.join(" ");
+  const steps =
+    overlay.typing === null || overlay.entrance === null || overlay.entrance === "drop"
+      ? [{ from: span.start, to: span.end, lines: layout.lines }]
+      : getTypingTimes(span.start, text, overlay.typing).map((at, index, times) => {
+          // The typed letters stay on the lines they take in the whole text.
+          let left = index + 1;
+          const lines = layout.lines.map((line) => {
+            const shown = [...line].slice(0, Math.max(0, left)).join("").trimEnd();
+            left -= [...line].length + 1;
+            return shown;
+          });
+          return { from: Math.min(at, span.end), to: Math.min(times[index + 1] ?? span.end, span.end), lines: lines.filter((line) => line.length > 0) };
+        });
+  const visible = steps.filter((step) => step.to > step.from && step.lines.length > 0);
+  return visible.map((step, index) =>
+    getShapeEvent({ start: step.from, end: step.to }, getRoundedRectDrawing(blockFor(step.lines), fontSize * MARK_RADIUS_EM), input.colour, input.motion, 3, {
+      start: step.from,
+      end: step.to,
+      isFirst: index === 0,
+      isLast: index === visible.length - 1,
+    }),
+  );
+}
+
+/**
+ * A keyword or a lower third laid out as the render lays it out (`getSideTextLayout`): its card as wide and tall as
+ * its lines (a keyword with its accent edge, a lower third with its dot), each line its own event one CSS line apart,
+ * so libass's own line pitch does not stretch them; a highlighted keyword has one mark per line.
+ */
+function getLaidOutSideTextEvents(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" }>, context: DraftContext, measure: OverlayTextMeasure): string[] {
+  const colors = getOverlayColors(overlay, context.brand);
+  const { fontSize } = overlay;
+  const layout = getSideTextLayout(overlay, measure);
+  const { card } = layout;
+  const role = OVERLAY_FONT_ROLES[overlay.kind];
+  const isCentred = overlay.kind === "keyword" && overlay.isCentred === true;
+  const isMarked = overlay.kind === "keyword" && overlay.backdrop === "highlight";
+  const motion = getDraftMotion(overlay, overlay.entrance === null || overlay.entrance === "type" ? "fade" : overlay.entrance, card, context);
+  const span = { start: overlay.start, end: overlay.end };
+  const lineHeight = fontSize * OVERLAY_LINE_HEIGHT;
+  const tags = `\\an${isCentred ? 8 : 7}\\fs${context.toAssSize(role, fontSize)}${context.spacing(OVERLAY_LETTER_SPACING_EM.card, fontSize)}${getTextTags(overlay, colors, context, role)}`;
+  const edge = overlay.kind === "keyword" && !isMarked ? Math.round(fontSize * KEYWORD_EDGE_EM) : 0;
+  const shapes: string[] = [];
+  if (isMarked) {
+    // The render's highlighted keyword is one block (a flex item): one mark round all its lines, growing as it types.
+    shapes.push(...getBlockMarkEvents({ overlay, layout, measure, colour: colors.background, motion }));
+  } else {
+    const fill = getCardShapeEvents(overlay, { ...card, height: card.height - edge }, fontSize, colors, motion, context);
+    // The keyword's accent edge: the whole card in the accent under its fill, which leaves the edge's height at its foot.
+    const radius = getDraftCardRadius(overlay, card, context, getOwnCardRadius(overlay, card, fontSize));
+    const edgeEvents = edge === 0 || (overlay.kind === "keyword" && overlay.underline === true) ? [] : [getShapeEvent(overlay, getRoundedRectDrawing(card, radius), colors.accent, motion)];
+    const under = context.style?.shadow === "soft" ? 1 : 0;
+    shapes.push(...fill.slice(0, under), ...edgeEvents, ...fill.slice(under));
+  }
+  if (layout.dot !== null) {
+    // The dot settles in with the card (the render scales it in a little later; the draft shows it with its card).
+    shapes.push(getShapeEvent(overlay, getCircleDrawing(layout.dot.centre, layout.dot.radius), colors.accent, motion, 4));
+  }
+  const text = layout.lines.join(" ");
+  const letters = overlay.entrance === "drop" ? getDropLetterTimes(span.start, text) : [];
+  const isTyped = overlay.entrance !== null && overlay.entrance !== "drop" && overlay.typing !== null;
+  let typedBefore = 0;
+  const lines = layout.lines.flatMap((line, index) => {
+    const pos = { x: layout.textX, y: layout.textTop + index * lineHeight };
+    const lineStart = overlay.typing === null ? span.start : span.start + typedBefore / overlay.typing;
+    const count = [...line].length;
+    const steps =
+      overlay.entrance === "drop"
+        ? [{ from: span.start, to: span.end, text: getDropText(line, letters.slice(typedBefore, typedBefore + count), span.start) }]
+        : isTyped
+          ? getTypedSteps(line, { start: lineStart, end: span.end }, overlay.typing, isCentred)
+          : [{ from: span.start, to: span.end, text: toAssText(line) }];
+    typedBefore += count + 1;
+    // A left line holds its place transparent from the start, so its first event carries the entrance.
+    const held = isTyped && !isCentred ? steps.map((step, at) => (at === 0 ? { ...step, from: span.start } : step)) : steps;
+    const own = overlay.entrance === "drop" || (isTyped && isCentred) ? getPlainMotion(motion) : motion;
+    return getTextEvents({ layer: 4, style: "OverlayPlain", pos, tags, steps: held, motion: own });
+  });
+  const underline = overlay.kind === "keyword" ? getUnderlineEvent(overlay, { ...card, height: card.height - edge }, colors.accent, motion) : [];
+  return [...shapes, ...lines, ...underline];
 }
 
 /** A list's card grows to its next point's size over these seconds, in this many steps along the render's ease. */
@@ -762,7 +881,9 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
   const motion = getDraftMotion(overlay, name, box, context);
   const span = { start: overlay.start, end: overlay.end };
   const isMarked = overlay.kind === "hook_title" && overlay.backdrop === "highlight";
-  const events = isMarked ? [] : getCardShapeEvents(overlay, box, fontSize, colors, motion, context);
+  // A laid-out counter draws its card with each number it shows (below), as the render's card follows its text.
+  const isCounterLaidOut = overlay.kind === "counter" && context.layout !== undefined;
+  const events = isMarked || isCounterLaidOut ? [] : getCardShapeEvents(overlay, box, fontSize, colors, motion, context);
   const { x: padX, y: padY } = getOverlayPadding(overlay);
   const centerX = box.left + box.width / 2;
   const tagsFor = (role: OverlayFontRole) => getTextTags(overlay, colors, context, role);
@@ -803,14 +924,21 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
         const lineStart = overlay.typing === null ? span.start : span.start + typedBefore / overlay.typing;
         if (isMarked) {
           const align = isLeft ? "left" : "center";
-          events.push(...getBackdropMarkEvents({ text: line, x: lineX, align, top: y, fontSize, colour: colors.background, motion, span, typing: overlay.typing, typeFrom: lineStart }));
+          const { layout } = context;
+          const measured =
+            layout === undefined
+              ? {}
+              : { measured: { measure: (shown: string) => layout("heading", shown, fontSize, spacingFor("heading")), contentArea: context.contentArea("heading"), lineHeight } };
+          events.push(...getBackdropMarkEvents({ text: line, x: lineX, align, top: y, fontSize, colour: colors.background, motion, span, typing: overlay.typing, typeFrom: lineStart, ...measured }));
         }
         const steps =
           overlay.entrance === "drop"
             ? [{ from: span.start, to: span.end, text: getDropText(line, letters.slice(typedBefore, typedBefore + [...line].length), span.start) }]
             : getTypedSteps(line, { start: lineStart, end: span.end }, overlay.typing, !isLeft);
         const isQuiet = overlay.entrance === "drop" || (!isLeft && overlay.typing !== null);
-        events.push(...text({ x: lineX, y }, lineAlign, fontSize, "heading", isLeft && overlay.entrance !== "drop" ? steps.map((step, index) => (index === 0 ? { ...step, from: span.start } : step)) : steps, isQuiet ? plain : motion));
+        // A left mark's padding pushes its text in, as an inline box's padding does in the render.
+        const textX = isMarked && isLeft && context.layout !== undefined ? lineX + fontSize * MARK_PADDING_EM.x : lineX;
+        events.push(...text({ x: textX, y }, lineAlign, fontSize, "heading", isLeft && overlay.entrance !== "drop" ? steps.map((step, index) => (index === 0 ? { ...step, from: span.start } : step)) : steps, isQuiet ? plain : motion));
         typedBefore += [...line].length;
         y += fontSize * lineHeight;
       });
@@ -845,7 +973,10 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
     return events;
   }
   if (overlay.kind === "counter") {
-    const unit = overlay.unit === null ? "" : `{\\fs${context.toAssSize("heading", overlay.unitFontSize)}} ${toAssText(overlay.unit)}`;
+    // Laid out, the unit stands the render's gap after the number: a hard space widened to it.
+    const gap = context.layout === undefined ? null : toDraftSpacing(overlay.fontSize * COUNTER_UNIT_GAP_EM - context.layout("heading", " ", overlay.unitFontSize, 0), 1);
+    const space = gap === null ? " " : `{\\fsp${String(gap)}}\\h{\\fsp${String(toDraftSpacing(OVERLAY_LETTER_SPACING_EM.card, fontSize))}}`;
+    const unit = overlay.unit === null ? "" : `{\\fs${context.toAssSize("heading", overlay.unitFontSize)}}${space}${toAssText(overlay.unit)}`;
     const count = getCounterSeconds(overlay);
     const steps: TextStep[] = [];
     const ticks = Math.max(1, Math.round(count.duration / COUNT_STEP));
@@ -858,7 +989,23 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
       const value = overlay.from + (overlay.value - overlay.from) * eased;
       steps.push({ from: count.start + (tick - 1) * COUNT_STEP, to: tick === ticks ? span.end : count.start + tick * COUNT_STEP, text: show(value) });
     }
-    return [...events, ...text({ x: centerX, y: box.top + box.height / 2 }, 5, fontSize, "heading", steps.filter((step) => step.to > step.from))];
+    const shown = steps.filter((step) => step.to > step.from);
+    const { layout } = context;
+    if (layout === undefined) return [...events, ...text({ x: centerX, y: box.top + box.height / 2 }, 5, fontSize, "heading", shown)];
+    // The render's card follows its number: one card per width the count shows, the entrance on the first, the exit on the last.
+    const cardFor = (value: string): OverlayBox => getCounterCard(overlay, value, layout);
+    const values = shown.map((step) => step.text.replace(/\{[^}]*\}.*$/, ""));
+    const runs: { card: OverlayBox; from: number; to: number }[] = [];
+    shown.forEach((step, index) => {
+      const card = cardFor(values[index] as string);
+      const last = runs[runs.length - 1];
+      if (last !== undefined && last.card.width === card.width) last.to = step.to;
+      else runs.push({ card, from: step.from, to: step.to });
+    });
+    const final = runs[runs.length - 1]?.card ?? cardFor(formatOverlayNumber(overlay.value, overlay.decimals, context.locale));
+    const counted = { ...motion, card: final };
+    const cards = runs.flatMap((run, index) => getCardShapeEvents(overlay, run.card, fontSize, colors, counted, context, { start: run.from, end: run.to, isFirst: index === 0, isLast: index === runs.length - 1 }));
+    return [...cards, ...text({ x: centerX, y: final.top + final.height / 2 }, 5, fontSize, "heading", shown, counted)];
   }
   const isRight = overlay.side === "right";
   const x = isRight ? box.left + box.width - padX : box.left + padX;
@@ -1027,7 +1174,9 @@ export function buildDraftOverlayEvents(
     toAssSize: (role, cssPx) => (drawn === undefined ? cssPx : toDraftAssSize(cssPx, drawn[role].assScale)),
     measure: (role, text, cssPx, spacingEm) => (drawn === undefined ? estimateTextWidth(text, cssPx) : drawn[role].measure(text, cssPx) + getSpacingWidth(text, spacingEm, cssPx)),
     spacing: (spacingEm, cssPx) => (drawn === undefined || spacingEm === 0 ? "" : `\\fsp${String(toDraftSpacing(spacingEm, cssPx))}`),
+    contentArea: (role) => drawn?.[role].contentArea ?? DEFAULT_CONTENT_AREA,
     ...(options.style === undefined ? {} : { style: options.style }),
+    ...(drawn === undefined ? {} : { layout: (role: OverlayFontRole, text: string, cssPx: number, spacingEm: number) => drawn[role].measure(text, cssPx) + getSpacingWidth(text, spacingEm, cssPx) }),
   };
   return overlays.flatMap((overlay) => {
     if (overlay.kind === "punch_in") return [];

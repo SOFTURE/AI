@@ -1360,6 +1360,11 @@ What the draft matches and what it leaves out:
   third's that is wider than its box (the render's card wraps it). An app that draws its own scenes with
   `buildFootageDraftCaptions` (a preset preview) passes the same `fonts` set; without it, the sizes go to libass
   unconverted, as before.
+- **Cards in the render's shape** (0.43.0): with `fonts`, the draft lays a keyword's, a lower third's and a counter's
+  card out as the render does (`getSideTextLayout`, `getCounterCard`: wrapped lines one CSS line apart, a keyword's
+  accent edge, a lower third's dot, a counter's card following its number) and sizes highlight marks to the text
+  (`getKeywordMarkBlock`, a hook title's marks to each line and its font's `contentArea`). An app reports the same
+  cards with `getDrawnOverlayCard(overlay, createOverlayTextMeasure(fonts))`.
 - **Music without spending** (`cacheDir`, `providers`, as `renderFootage` takes them): a `file` source plays as is;
   a `prompt` or `video` source plays only when its paid cache entry exists (`findFootageMusic`, the render's lookup).
   It is ducked under the speech, looped and faded to the cut's length exactly as in the render. No provider is ever

@@ -4,6 +4,24 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.43.0
+
+- **The draft draws every overlay card in the render's size and shape:** with the draft's fonts, a keyword's and a
+  lower third's card is laid out as the render's CSS lays it out (`getSideTextLayout`): its text broken inside the
+  box, the card as wide as its widest line (the whole box once it wraps) and as tall as its lines plus padding, a
+  keyword's `.12em` accent edge under it, a lower third's accent dot before its text; each line is its own event one
+  CSS line (1.15 em) below the last, so libass's own line pitch no longer stretches them. A counter's card fits its
+  number, the `.3em` gap and its unit (`getCounterCard`) and follows the number while it counts. A highlighted hook
+  title's marks hug each line's text and its font's content area (`DraftFont.contentArea`, from `hhea`, or the typo
+  metrics with `USE_TYPO_METRICS`); a highlighted keyword's mark is one block round all its lines
+  (`getKeywordMarkBlock`), as the render's flex item is. Without `fonts` the draft draws the estimated cards as before.
+- **The card an app reports is the render's:** `getDrawnOverlayCard(overlay, measure)` with
+  `createOverlayTextMeasure(loadFootageDraftFonts(brand.fonts))` answers the laid-out card of a keyword, a lower third
+  and a counter (at its final value), and where a highlight's marks show. Without a measure it answers as before.
+- A regression test draws a fixture cut (highlighted hook title and keyword with a wipe, wrapping keyword card, lower
+  third, place cards `size: s` and `subtitle_size: m`, counter) in Chromium and through libass: every card and mark
+  within 1 % of the frame, the text on as many lines, and the reported card within 1 % of the render's.
+
 ## 0.42.0
 
 - **The draft draws every text at the render's size:** libass sizes a font by `usWinAscent + usWinDescent`, a
