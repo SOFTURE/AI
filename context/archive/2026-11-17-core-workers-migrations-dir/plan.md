@@ -26,5 +26,5 @@ unit tests and in workerd itself.
 
 ## Progress
 
-- [ ] Phase 1: fix
-- [ ] Phase 2: version
+- [x] Phase 1: fix (d451f23)
+- [x] Phase 2: version (ebc2869)

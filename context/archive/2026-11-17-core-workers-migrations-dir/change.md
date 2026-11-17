@@ -1,7 +1,8 @@
 ---
 change_id: core-workers-migrations-dir
 title: "core: a module's migrations folder resolves on Cloudflare Workers"
-status: implementing
+status: archived
+archived_at: 2026-11-17
 roadmap_item: null
 issue: null
 branch: claude/project-thread-lfwj4y
