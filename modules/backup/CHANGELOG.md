@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the module. W
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.1.2
+
+- The module's manifest declares `runtimes: ["node", "workers"]`, matching the Workers-safe entries its package already
+  lists (`.` and `./server` in `softure.workers`). Before it, `defineSoftureConfig` refused `backup()` in an app with
+  `platform: { host: "cloudflare" }` ("does not run on the workers runtime"), so an app on Cloudflare could not create
+  `backup.runs` for `softure-backup run`. A repository test now holds every module's manifest to its package's
+  `softure.workers`.
+
 ## 0.1.1
 
 - **`softure-backup run` for a host without a server (RP-9):** the whole night's copy in one command for an app on

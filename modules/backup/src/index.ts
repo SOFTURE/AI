@@ -12,7 +12,7 @@ export const MODULE_ID = "backup";
 export const backup = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.1.0",
+    version: "0.1.2",
     dependsOn: {},
     dbSchema: "backup",
     tables: ["runs"],
@@ -21,6 +21,9 @@ export const backup = defineModule({
     routes: {},
     mount: [],
     privacy: { exports: false, deletes: false },
+    // The module's entries (the table, the health check, getLastBackup) run on either host; the off-site copy itself
+    // runs on a VPS (deploy.sh maintain) or from a workflow (`softure-backup run`), never inside the app.
+    runtimes: ["node", "workers"],
   },
   messages: backupMessages,
   migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") },

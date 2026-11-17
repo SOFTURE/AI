@@ -11,6 +11,14 @@
   "compatibility_date": "{{compatibilityDate}}",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+{{#database}}
+  // worker.ts imports @softure-ai/db/request, whose PGlite branch wrangler would bundle; a Worker never runs PGlite, so
+  // both PGlite imports take the stand-in that refuses, the same one withDatabaseBuild gives the Next bundle.
+  "alias": {
+    "@electric-sql/pglite": "./node_modules/@softure-ai/db/dist/next-config/pglite-unavailable.js",
+    "drizzle-orm/pglite": "./node_modules/@softure-ai/db/dist/next-config/pglite-unavailable.js"
+  },
+{{/database}}
   "routes": [{ "pattern": "{{domain}}", "custom_domain": true }],
   "observability": { "enabled": true },
 {{#hasPlacementRegion}}

@@ -85,3 +85,14 @@ describe("Workers-safe package entries", () => {
     });
   }
 });
+
+describe("Module manifests", () => {
+  // defineSoftureConfig refuses a module whose manifest lacks the workers runtime in an app on Cloudflare, so a module
+  // whose root entry is Workers-safe must say so in its manifest too, and the other way round.
+  for (const info of PACKAGES.filter((candidate) => existsSync(join(REPO_ROOT, candidate.dir, "module.json")))) {
+    it(`${info.name} declares the workers runtime exactly when its root entry is Workers-safe`, () => {
+      const manifest = JSON.parse(readFileSync(join(REPO_ROOT, info.dir, "module.json"), "utf8")) as { runtimes?: string[] };
+      expect((manifest.runtimes ?? ["node"]).includes("workers")).toBe(info.workers.includes("."));
+    });
+  }
+});

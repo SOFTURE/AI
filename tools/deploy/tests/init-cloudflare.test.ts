@@ -108,6 +108,10 @@ describe("softure-deploy init --host=cloudflare", () => {
       compatibility_date: "2026-11-01",
       compatibility_flags: ["nodejs_compat", "global_fetch_strictly_public"],
       assets: { directory: ".open-next/assets", binding: "ASSETS" },
+      alias: {
+        "@electric-sql/pglite": "./node_modules/@softure-ai/db/dist/next-config/pglite-unavailable.js",
+        "drizzle-orm/pglite": "./node_modules/@softure-ai/db/dist/next-config/pglite-unavailable.js",
+      },
       routes: [{ pattern: "shop.example.com", custom_domain: true }],
       observability: { enabled: true },
       placement: { mode: "smart" },
@@ -183,6 +187,7 @@ describe("softure-deploy init --host=cloudflare", () => {
     const wrangler = readWrangler();
     expect(wrangler.main).toBe(".open-next/worker.js");
     expect(wrangler).not.toHaveProperty("hyperdrive");
+    expect(wrangler).not.toHaveProperty("alias");
     expect(wrangler).not.toHaveProperty("triggers");
     expect(existsSync(join(dir, "worker.ts"))).toBe(false);
     expect(existsSync(join(dir, "cloudflare-sockets.d.ts"))).toBe(false);
