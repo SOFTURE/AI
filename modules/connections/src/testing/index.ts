@@ -4,6 +4,7 @@ export {
   type FakeGithubApp,
   type FakeGithubAppFailure,
   type FakeGithubAppOptions,
+  type FakeGithubFiles,
   type FakeGithubInstallationInput,
   type FakeGithubRepositoryInput,
 } from "./fake-github-app.js";

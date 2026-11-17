@@ -468,6 +468,10 @@ const app = createFakeGithubApp({
 const setup = app.install(installUrl, { account: { login: "octocat" }, userIds: [501], repositories: [{ fullName: "octocat/notes" }] });
 app.uninstall(installationId); // every call about it answers 404
 app.failNext("rate_limited", "unavailable");
+// repository contents for an app that reads them with an installation token (commits, trees, blobs, compare)
+app.createInstallation({ account: { login: "octocat" }, userIds: [501], repositories: [{ fullName: "octocat/notes", files: { "Projects/Plan.md": "# Plan" } }] });
+const head = app.commitFiles("octocat/notes", { "Projects/Plan.md": "# Plan v2", "Inbox.md": "new" }); // a push
+app.rewriteHistory("octocat/notes", { "Inbox.md": "only" }); // a force-push: compare from an old head answers `diverged`
 ```
 
 ## Build

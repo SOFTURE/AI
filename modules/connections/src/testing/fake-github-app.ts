@@ -1,9 +1,10 @@
 // An in-memory GitHub App for tests: installations the test creates (or a person "installs" through `install`, which
 // answers the App's setup URL as GitHub redirects to it), the App's JWT checked against its own key pair, installation
-// access tokens, the repositories an installation token reaches, and the repositories of one installation a user's
-// token reaches. A user token belongs to whatever fake handles the user's sign-in (auth's fake GitHub, say): the fake
+// access tokens, the repositories an installation token reaches, the repositories of one installation a user's
+// token reaches, and the contents of those repositories through the git data API (a branch's head commit, a recursive
+// tree, a blob, the comparison of two commits), read with an installation token that reaches the repository. A user token belongs to whatever fake handles the user's sign-in (auth's fake GitHub, say): the fake
 // asks `resolveUserId` who holds it. Reached through a `fetch` the app passes to the `github-app` calls.
-import { createPublicKey, createVerify, generateKeyPairSync, randomBytes } from "node:crypto";
+import { createHash, createPublicKey, createVerify, generateKeyPairSync, randomBytes } from "node:crypto";
 import type { FetchFunction } from "@softure-ai/core";
 import type { GithubAppCredentials } from "../github-app/jwt.js";
 
@@ -33,7 +34,15 @@ export interface FakeGithubRepositoryInput {
   readonly fullName: string;
   readonly defaultBranch?: string;
   readonly isPrivate?: boolean;
+  /**
+   * The files of the default branch's head commit, by `/`-separated path (text as UTF-8, or bytes). A repository is
+   * known by its full name across installations: files given here commit over whatever it held. Default: no files.
+   */
+  readonly files?: FakeGithubFiles;
 }
+
+/** A commit's files by `/`-separated path. */
+export type FakeGithubFiles = Readonly<Record<string, string | Uint8Array>>;
 
 export interface FakeGithubInstallationInput {
   readonly account: { readonly login: string; readonly id?: number; readonly type?: "User" | "Organization" };
@@ -65,8 +74,22 @@ export interface FakeGithubApp {
   suspend(installationId: number): void;
   /** The account changes which repositories the installation reaches. */
   setRepositories(installationId: number, repositories: readonly FakeGithubRepositoryInput[]): void;
+  /**
+   * Someone pushes a commit to the repository's default branch holding exactly `files`; answers the new head's sha.
+   * The commit before it stays reachable, so a comparison from it lists what changed.
+   */
+  commitFiles(fullName: string, files: FakeGithubFiles): string;
+  /** Someone force-pushes a commit holding `files` that does not descend from the old head (a rewritten history). */
+  rewriteHistory(fullName: string, files: FakeGithubFiles): string;
   failNext(...failures: FakeGithubAppFailure[]): void;
-  readonly calls: { readonly installation: number; readonly accessTokens: number; readonly repositories: number; readonly userRepositories: number };
+  readonly calls: {
+    readonly installation: number;
+    readonly accessTokens: number;
+    readonly repositories: number;
+    readonly userRepositories: number;
+    /** Calls of the git data API: commits, trees, blobs and comparisons. */
+    readonly contents: number;
+  };
 }
 
 interface FakeInstallation {
@@ -85,6 +108,22 @@ interface FakeRepository {
   readonly isPrivate: boolean;
 }
 
+interface FakeCommit {
+  readonly sha: string;
+  readonly treeSha: string;
+  readonly parentSha: string | null;
+  /** Blob sha by path. */
+  readonly files: ReadonlyMap<string, string>;
+}
+
+interface FakeContents {
+  readonly blobs: Map<string, Uint8Array>;
+  readonly commits: Map<string, FakeCommit>;
+  /** Tree sha → commit sha. */
+  readonly trees: Map<string, string>;
+  headSha: string;
+}
+
 interface IssuedToken {
   readonly installationId: number;
   readonly repositoryIds: ReadonlySet<number> | null;
@@ -101,14 +140,49 @@ export function createFakeGithubApp(options: FakeGithubAppOptions = {}): FakeGit
   const installations = new Map<number, FakeInstallation>();
   const tokens = new Map<string, IssuedToken>();
   const failures: FakeGithubAppFailure[] = [];
-  const calls = { installation: 0, accessTokens: 0, repositories: 0, userRepositories: 0 };
+  const calls = { installation: 0, accessTokens: 0, repositories: 0, userRepositories: 0, contents: 0 };
+  /** Repository contents by full name, shared by every installation that reaches the repository. */
+  const contents = new Map<string, FakeContents>();
 
   const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", ...headers } });
   const notFound = () => json(404, { message: "Not Found" });
 
   function toRepository(input: FakeGithubRepositoryInput): FakeRepository {
+    if (input.files !== undefined) commit(input.fullName, input.files, "descend");
     return { id: input.id ?? (nextId += 1), fullName: input.fullName, defaultBranch: input.defaultBranch ?? "main", isPrivate: input.isPrivate ?? true };
+  }
+
+  /** A repository's contents, created with an empty first commit when it has none yet. */
+  function readContents(fullName: string): FakeContents {
+    const known = contents.get(fullName);
+    if (known !== undefined) return known;
+    const created: FakeContents = { blobs: new Map(), commits: new Map(), trees: new Map(), headSha: "" };
+    contents.set(fullName, created);
+    addCommit(created, new Map(), null);
+    return created;
+  }
+
+  function addCommit(repository: FakeContents, files: ReadonlyMap<string, string>, parentSha: string | null): string {
+    nextId += 1;
+    const sha = sha1(`commit ${String(nextId)} ${parentSha ?? ""}`);
+    const treeSha = sha1(`tree ${sha}`);
+    repository.commits.set(sha, { sha, treeSha, parentSha, files });
+    repository.trees.set(treeSha, sha);
+    repository.headSha = sha;
+    return sha;
+  }
+
+  function commit(fullName: string, files: FakeGithubFiles, history: "descend" | "rewrite"): string {
+    const repository = readContents(fullName);
+    const blobShas = new Map<string, string>();
+    for (const [path, content] of Object.entries(files)) {
+      const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content;
+      const blobSha = gitBlobSha(bytes);
+      repository.blobs.set(blobSha, bytes);
+      blobShas.set(path, blobSha);
+    }
+    return addCommit(repository, blobShas, history === "descend" ? repository.headSha : null);
   }
 
   function createInstallation(input: FakeGithubInstallationInput): number {
@@ -222,7 +296,64 @@ export function createFakeGithubApp(options: FakeGithubAppOptions = {}): FakeGit
     if (path === "/installation/repositories" && method === "GET") return answerInstallationRepositories(init);
     const userMatch = /^\/user\/installations\/(\d+)\/repositories$/.exec(path);
     if (userMatch !== null && method === "GET") return answerUserRepositories(Number(userMatch[1]), init);
+    const contentsMatch = /^\/repos\/([^/]+)\/([^/]+)\/(commits|git\/trees|git\/blobs|compare)\/(.+)$/.exec(path);
+    if (contentsMatch !== null && method === "GET") {
+      const [, owner = "", name = "", kind = "", rest = ""] = contentsMatch;
+      return answerContents({ fullName: `${decodeURIComponent(owner)}/${decodeURIComponent(name)}`, kind, rest: decodeURIComponent(rest), url, init });
+    }
     return notFound();
+  }
+
+  /** The repository a bearer installation token reaches by that name, or null (GitHub answers 404 for it). */
+  function findReachableRepository(fullName: string, init: RequestInit): FakeRepository | "bad_credentials" | null {
+    const issued = tokens.get(readBearer(init) ?? "");
+    const installation = issued === undefined ? undefined : installations.get(issued.installationId);
+    if (issued === undefined || issued.expiresAt <= Date.now() || installation === undefined) return "bad_credentials";
+    const repository = installation.repositories.find((candidate) => candidate.fullName.toLowerCase() === fullName.toLowerCase());
+    if (repository === undefined || (issued.repositoryIds !== null && !issued.repositoryIds.has(repository.id))) return null;
+    return repository;
+  }
+
+  function answerContents(request: { readonly fullName: string; readonly kind: string; readonly rest: string; readonly url: URL; readonly init: RequestInit }): Response {
+    calls.contents += 1;
+    const repository = findReachableRepository(request.fullName, request.init);
+    if (repository === "bad_credentials") return json(401, { message: "Bad credentials" });
+    if (repository === null) return notFound();
+    const stored = readContents(repository.fullName);
+    switch (request.kind) {
+      case "commits": {
+        const sha = request.rest === repository.defaultBranch ? stored.headSha : request.rest;
+        const found = stored.commits.get(sha);
+        if (found === undefined) return json(422, { message: `No commit found for SHA: ${request.rest}` });
+        return json(200, { sha: found.sha, commit: { tree: { sha: found.treeSha } }, parents: found.parentSha === null ? [] : [{ sha: found.parentSha }] });
+      }
+      case "git/trees": {
+        const commitSha = stored.trees.get(request.rest);
+        const found = commitSha === undefined ? undefined : stored.commits.get(commitSha);
+        if (found === undefined) return notFound();
+        return json(200, { sha: found.treeSha, truncated: false, tree: toTreeEntries(found, stored, request.url.searchParams.get("recursive") !== null) });
+      }
+      case "git/blobs": {
+        const bytes = stored.blobs.get(request.rest);
+        if (bytes === undefined) return notFound();
+        const accept = new Headers(request.init.headers).get("accept") ?? "";
+        if (accept.includes("application/vnd.github.raw")) {
+          return new Response(bytes.slice(), { status: 200, headers: { "content-type": "application/octet-stream", "content-length": String(bytes.byteLength) } });
+        }
+        return json(200, { sha: request.rest, size: bytes.byteLength, encoding: "base64", content: Buffer.from(bytes).toString("base64") });
+      }
+      default:
+        return answerCompare(stored, request.rest);
+    }
+  }
+
+  function answerCompare(stored: FakeContents, range: string): Response {
+    const [baseSha = "", headRef = ""] = range.split("...");
+    const base = stored.commits.get(baseSha);
+    const head = stored.commits.get(headRef);
+    if (base === undefined || head === undefined) return notFound();
+    const status = base.sha === head.sha ? "identical" : isAncestor(stored, base.sha, head.sha) ? "ahead" : "diverged";
+    return json(200, { status, files: toChangedFiles(base.files, head.files) });
   }
 
   function forget(installationId: number): void {
@@ -260,11 +391,67 @@ export function createFakeGithubApp(options: FakeGithubAppOptions = {}): FakeGit
       const installation = installations.get(installationId);
       if (installation !== undefined) installation.repositories = repositories.map(toRepository);
     },
+    commitFiles(fullName, files) {
+      return commit(fullName, files, "descend");
+    },
+    rewriteHistory(fullName, files) {
+      return commit(fullName, files, "rewrite");
+    },
     failNext(...next) {
       failures.push(...next);
     },
     calls,
   };
+}
+
+function sha1(text: string): string {
+  return createHash("sha1").update(text).digest("hex");
+}
+
+/** The sha git gives a blob: `blob <size>\0` and the bytes. */
+function gitBlobSha(bytes: Uint8Array): string {
+  return createHash("sha1").update(`blob ${String(bytes.byteLength)}\0`).update(bytes).digest("hex");
+}
+
+function isAncestor(stored: FakeContents, ancestorSha: string, descendantSha: string): boolean {
+  for (let sha: string | null = descendantSha; sha !== null; sha = stored.commits.get(sha)?.parentSha ?? null) {
+    if (sha === ancestorSha) return true;
+  }
+  return false;
+}
+
+/** A commit's tree as GitHub lists it: every folder (`tree`) and file (`blob`), or only the top level. */
+function toTreeEntries(found: FakeCommit, stored: FakeContents, isRecursive: boolean) {
+  const folders = new Set<string>();
+  for (const path of found.files.keys()) {
+    const segments = path.split("/");
+    for (let depth = 1; depth < segments.length; depth += 1) folders.add(segments.slice(0, depth).join("/"));
+  }
+  const entries = [
+    ...[...folders].map((path) => ({ path, mode: "040000", type: "tree", sha: sha1(`folder ${found.treeSha} ${path}`) })),
+    ...[...found.files].map(([path, sha]) => ({ path, mode: "100644", type: "blob", sha, size: stored.blobs.get(sha)?.byteLength ?? 0 })),
+  ];
+  return entries.filter((entry) => isRecursive || !entry.path.includes("/")).sort((left, right) => left.path.localeCompare(right.path));
+}
+
+/** The files that differ between two commits; a removed and an added path with the same blob are a rename. */
+function toChangedFiles(base: ReadonlyMap<string, string>, head: ReadonlyMap<string, string>) {
+  const removed = [...base].filter(([path]) => !head.has(path));
+  const added = [...head].filter(([path]) => !base.has(path));
+  const renamedFrom = new Map<string, string>();
+  for (const [path, sha] of added) {
+    const source = removed.find(([removedPath, removedSha]) => removedSha === sha && ![...renamedFrom.values()].includes(removedPath));
+    if (source !== undefined) renamedFrom.set(path, source[0]);
+  }
+  const renamedPaths = new Set(renamedFrom.values());
+  return [
+    ...added.map(([path, sha]) => {
+      const previous = renamedFrom.get(path);
+      return previous === undefined ? { filename: path, status: "added", sha } : { filename: path, status: "renamed", previous_filename: previous, sha };
+    }),
+    ...[...head].filter(([path, sha]) => base.has(path) && base.get(path) !== sha).map(([path, sha]) => ({ filename: path, status: "modified", sha })),
+    ...removed.filter(([path]) => !renamedPaths.has(path)).map(([path, sha]) => ({ filename: path, status: "removed", sha })),
+  ].sort((left, right) => left.filename.localeCompare(right.filename));
 }
 
 function readKeyPair(privateKey: string | undefined): { readonly privateKey: string; readonly publicKey: string } {
