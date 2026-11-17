@@ -4,13 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.7.2
 
 - **Edge proof for `init --edge` (#1329):** an app on a shared edge network could be reached around its router by any
   container on that network, which then chose its own `CF-Connecting-IP` and with it its rate-limit key. The router
   now runs the middleware `<name>-edge-proof` first, setting `X-Softure-Edge-Proof` to the new required secret
   `EDGE_PROOF_SECRET`, and the app gets the same secret; init prints `next` lines for the secret and for wrapping the
-  resolver in `edgeProofIp` (`@softure-ai/security`, its next release). README "Edge network".
+  resolver in `edgeProofIp` (`@softure-ai/security` 0.2.10). README "Edge network".
 - **`checkSharedHostCompose` rule `edge-proof-missing`:** a router that passes requests to a service of the file (not an
   `@internal` one, such as the `www` redirect) without a `headers` middleware setting the proof header, directly or in
   a chain. Option `edgeProofHeader` (default `X-Softure-Edge-Proof`, exported as `DEFAULT_EDGE_PROOF_HEADER`;
