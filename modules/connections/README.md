@@ -34,6 +34,9 @@ server for clients that call the app.
   owner (e.g. by mail through `@softure-ai/mailing`).
 - **`onConnectionChanged`** and one info log line for every connect, reconnect, disconnect and failed OAuth callback,
   for an audit trail of admin actions.
+- **`@softure-ai/connections/github-app`**: for an app whose own users each connect a GitHub App installation (a
+  repository of theirs): the App's JWT, the installation, installation tokens, and the proof that an installation id
+  belongs to the signed-in user. See "Users' own GitHub App installations" in section 4.
 - A **privacy contributor**, a **health check**, the **`softure-connections`** command (`key`, `rotate-keys`) and a
   **fake OAuth provider** for tests (`@softure-ai/connections/testing`).
 
@@ -273,6 +276,49 @@ transaction. Three consequences:
   transaction and rolled back with it. With the outer `ctx.db` inside an open transaction the one-connection test
   database rejects the read with `PoolInsideTransactionError` instead of waiting forever.
 
+### Users' own GitHub App installations (`/github-app`)
+
+Everything above connects the app's own accounts, as its admin. A product whose **users** each connect a repository
+of their own (a GitHub App installed on their account) needs other calls, in
+`@softure-ai/connections/github-app`. They are stateless: the app keeps each user's installation id with its own
+records (an id is no secret) and mints an installation token when it needs one, so nothing here needs the module's
+tables, its keyring or its configuration, and the entry runs on Node and Workers.
+
+```ts
+import {
+  createGithubInstallationToken,
+  exchangeGithubUserCode,
+  getGithubAppInstallation,
+  listGithubInstallationRepositories,
+  listGithubUserInstallationRepositories,
+} from "@softure-ai/connections/github-app";
+
+const credentials = { appId: env.GH_APP_ID, privateKey: env.GH_APP_PRIVATE_KEY }; // PKCS#1 as GitHub gives it, or PKCS#8
+
+// 1. The setup redirect (`?installation_id=…&state=…`) carries an id anyone could type: prove the user reaches it.
+const userToken = await exchangeGithubUserCode({ clientId, clientSecret, code, redirectUri, codeVerifier });
+if (!userToken.ok) return userToken;
+const reachable = await listGithubUserInstallationRepositories(userToken.value, installationId);
+// connections.github_app_not_found: this user cannot reach that installation. Drop the user token either way.
+
+// 2. Later, as the App: is it still installed, and a token for one repository, read only.
+const installation = await getGithubAppInstallation(credentials, installationId); // not_found once uninstalled
+const token = await createGithubInstallationToken(credentials, installationId, { repositoryIds: [repoId], permissions: { contents: "read" } });
+const repositories = await listGithubInstallationRepositories(token.value.token); // what the token still reaches
+```
+
+| Code | When |
+| --- | --- |
+| `connections.github_app_key_invalid` | the private key is not an RSA key in PEM, or the app id is empty |
+| `connections.github_app_not_found` | 404: uninstalled, or this credential cannot see it |
+| `connections.github_app_rejected` | 401, 403 (a suspended installation, a JWT GitHub refuses), a spent or wrong user code |
+| `connections.github_app_rate_limited` | 429, with `retryAfterSeconds` |
+| `connections.github_app_unavailable` | a network failure, a timeout or a 5xx, with `retryAfterSeconds` when GitHub sent one |
+| `connections.github_app_unexpected` | anything else, a body this client cannot read |
+
+Each failure carries `status` (null when no answer came); a token, the key or GitHub's message never appears in one.
+The JWT is RS256, issued a minute back and valid nine minutes; the imported key is cached per process.
+
 ## 5. Migrations and tables
 
 Schema `connections`, two migrations (`0001_create_accounts_and_states.sql`, `0002_add_last_error_detail.sql`):
@@ -378,7 +424,8 @@ A connection belongs to the app (the owner's account elsewhere), not to the admi
 
 ## 12. Limitations
 
-- No provider-specific API clients; the app calls the API with the token.
+- No provider-specific API clients; the app calls the API with the token. The one exception is `/github-app`: a
+  GitHub App's installation and token calls, which an app cannot make with an OAuth token.
 - Only the authorization code flow (with or without PKCE). No device flow, no client credentials grant, no OpenID
   Connect ID token checks: the module stores what the token endpoint answers.
 - One redirect URI for every provider (`appOrigin` + `routes.callback`).
@@ -402,6 +449,25 @@ fake.revokeGrant(); // the next refresh answers invalid_grant
 fake.failNext("unavailable", "rate_limited"); // the next token calls fail
 fake.rejectAccessTokens(); // fake.apiUrl answers 401 to every token issued so far; refresh tokens still work
 await requestWithConnection(ctx, { provider: "fake" }, { url: fake.apiUrl, fetch: fake.fetch }); // refreshes, retries
+```
+
+A user's own GitHub App installation, with a fake that checks the App's JWT against its own key:
+
+```ts
+import { createFakeGithubProvider } from "@softure-ai/auth/testing";
+import { createFakeGithubApp } from "@softure-ai/connections/testing";
+
+const github = createFakeGithubProvider({ openSignUp: true }); // the user's sign-in and token
+const app = createFakeGithubApp({
+  slug: "my-app",
+  setupUrl: "https://app.test/api/source/setup",
+  resolveUserId: async (token) => readUserId(await github.fetch("https://api.github.com/user", { headers: { authorization: `Bearer ${token}` } })),
+});
+// app.credentials (appId, a PKCS#1 key) and app.fetch go to the github-app calls; `privateKey: process.env.APP_KEY`
+// makes the fake use the key an app in another process was started with (an end-to-end stack)
+const setup = app.install(installUrl, { account: { login: "octocat" }, userIds: [501], repositories: [{ fullName: "octocat/notes" }] });
+app.uninstall(installationId); // every call about it answers 404
+app.failNext("rate_limited", "unavailable");
 ```
 
 ## Build
