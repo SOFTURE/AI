@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 `quality-review.yml` workflow. When an app has run a version in production, the version gets a line
 `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md), "Definition of done").
 
+## Unreleased
+
+- `focus: security` proves its coverage (#1325). The agent emits a `<coverage>` block per threat scenario (`traced`
+  with the files it read, or `no-surface` with what it searched); the program keeps only files the agent really read
+  and counts the files read and the turns. A run that ends with scenarios unaccounted for gets up to two follow-up
+  turns in the same session (one `query()` call with a streamed prompt, so the one cost cap still holds); what is
+  still missing is reported as `not covered`.
+- The security report gains `Turns` and `Files read` header rows and a `## Coverage` section before the findings;
+  `check` validates it. A report with a coverage section needs this version's `check` (the workflow runs one CLI
+  version for both).
+- A tenth scenario, runtime and deployment hardening, with the new rule `runtime-hardening` (container
+  capabilities, privilege escalation, published ports, pinned images, CI token scope, a response plan for a
+  compromised host or a leaked secret).
+- A general run is unchanged: same prompt, task, string prompt and report.
+- Adoption: nothing to change.
+
 ## 0.2.0
 
 - `focus` (#1289): `general` (default, unchanged) or `security`, a second shipped prompt
