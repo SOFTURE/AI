@@ -994,7 +994,11 @@ function getCardEvents(overlay: CardOverlay, context: DraftContext): string[] {
     if (layout === undefined) return [...events, ...text({ x: centerX, y: box.top + box.height / 2 }, 5, fontSize, "heading", shown)];
     // The render's card follows its number: one card per width the count shows, the entrance on the first, the exit on the last.
     const cardFor = (value: string): OverlayBox => getCounterCard(overlay, value, layout);
-    const values = shown.map((step) => step.text.replace(/\{[^}]*\}.*$/, ""));
+    // The number alone: the unit's override tags start at the first brace.
+    const values = shown.map((step) => {
+      const brace = step.text.indexOf("{");
+      return brace === -1 ? step.text : step.text.slice(0, brace);
+    });
     const runs: { card: OverlayBox; from: number; to: number }[] = [];
     shown.forEach((step, index) => {
       const card = cardFor(values[index] as string);
