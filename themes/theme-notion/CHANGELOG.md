@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.24.0
 
 - `CopyButton`: one value to the clipboard, a `secondary` button with a copy icon that says "Copied" (with a tick) for
   two seconds once the browser took the text, announced politely; a refused write leaves it as it was. Its words are
