@@ -5,9 +5,7 @@ and each backlog folder links back here. Only `../roadmap.md` (the main roadmap)
 roadmap becomes the main one only when the owner promotes it (`softure-roadmap --promote <slug>`).
 Finished main roadmaps move to `../archive/<YYYY-MM-DD>-roadmap.md`.
 
-| Roadmap | Theme | Prefix | Status |
-| --- | --- | --- | --- |
-| [`roadmap-later.md`](roadmap-later.md) | items parked until an owner step (secrets, accounts, the batch release) is done | `LT-` (MK-8, EN-9, MO-6, BL-8 and DP-8 done 2026-10-06) | waiting |
+No roadmap is queued now. The last queued one, `later` (`LT-`), closed on 2026-11-17 with every item done.
 
 No main roadmap runs ([`../roadmap.md`](../roadmap.md)); GitHub Issues drive the work. The last main roadmap,
 runtime-providers (`RP-`), closed on 2026-11-16.
@@ -17,7 +15,7 @@ Archived: [`foundation`](../archive/2026-10-02-roadmap.md),
 [`blog`](../archive/2026-10-04-2-roadmap.md), [`blog-followups`](../archive/2026-10-05-roadmap.md),
 [`deploy`](../archive/2026-10-06-roadmap.md), [`deploy-followups`](../archive/2026-10-06-2-roadmap.md),
 [`charts`](../archive/2026-10-07-roadmap.md), [`charts-followups`](../archive/2026-10-07-2-roadmap.md),
-[`runtime-providers`](../archive/2026-11-16-roadmap.md).
+[`runtime-providers`](../archive/2026-11-16-roadmap.md), [`later`](../archive/2026-11-17-roadmap.md).
 
 No roadmap carries a FIRE_TRACKER adoption item (owner, 2026-10-03): FIRE_TRACKER adopts the modules in its own
 roadmap and sessions. Each roadmap still ends with its own release item.

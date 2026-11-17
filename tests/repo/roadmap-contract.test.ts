@@ -134,8 +134,14 @@ describe("the repository roadmaps", () => {
       .map((name) => `context/foundation/roadmaps/${name}`),
   ];
 
-  it("finds the main roadmap and the queued ones", () => {
-    expect(roadmapPaths.length).toBeGreaterThan(1);
+  it("finds the main roadmap and every queued one", () => {
+    const queuedNames = readdirSync(join(REPO_ROOT, "context/foundation/roadmaps")).filter((name) =>
+      name.endsWith(".md") && name !== "README.md",
+    );
+    expect(roadmapPaths).toEqual([
+      "context/foundation/roadmap.md",
+      ...queuedNames.map((name) => `context/foundation/roadmaps/${name}`),
+    ]);
   });
 
   it.each(roadmapPaths)("%s follows the roadmap contract", (path) => {
