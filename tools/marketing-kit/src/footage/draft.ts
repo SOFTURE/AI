@@ -16,12 +16,12 @@ import { toAssColor } from "./draft-color.js";
 import { buildDraftOverlayEvents, getDraftOverlayStyles, getRoundedRectDrawing } from "./draft-overlays.js";
 import { getCaptionCornerRadius, getCornerRadiusPx, getStylePadding, type BrandStyle } from "./brand-style.js";
 import { getDraftBoxEvents } from "./draft-boxes.js";
-import { createDraftFont, toDraftAssSize, toDraftSpacing, withLetterSpacing, wrapDraftLine, type DraftFont, type DraftTextMeasure } from "./draft-text-width.js";
+import { createDraftFont, getSpacingWidth, toDraftAssSize, toDraftSpacing, withLetterSpacing, wrapDraftLine, type DraftFont, type DraftTextMeasure } from "./draft-text-width.js";
 import { CAPTION_LETTER_SPACING_EM, CAPTION_PILL_PADDING, CAPTION_RIBBON_LETTER_SPACING_EM } from "../compose/timeline.js";
 import { estimateTextWidth, isHandFontNeeded } from "./overlays.js";
 import { HAND_FONT } from "./hand-font.js";
 import type { OverlayColors } from "./overlay-html.js";
-import { resolveEdlOverlays, type OverlayFontRole, type ResolvedOverlay } from "./overlays.js";
+import { resolveEdlOverlays, type OverlayFontRole, type OverlayTextMeasure, type ResolvedOverlay } from "./overlays.js";
 import { chooseFootageDraftFont } from "./draft-font.js";
 import { getEdlDuration, getSegmentStarts, remapWords, type Edl } from "./edl.js";
 import { declickSpeech, describeDeclick, type DeclickReport } from "./declick.js";
@@ -99,6 +99,15 @@ export function loadFootageDraftFonts(fonts: Partial<Record<"body" | OverlayFont
     return chosen === null || chosen.family === body.family ? body : readDraftFont(chosen, read);
   };
   return { body, heading: forRole("heading"), interface: forRole("interface") };
+}
+
+/**
+ * The render's measure of overlay text (`OverlayTextMeasure`) from the draft's fonts: a line's width in CSS px in the
+ * font of its role, its letters spaced as the render spaces them. With it `getDrawnOverlayCard` answers the card the
+ * render lays out, as the draft draws it, so an app reports where a card really stands.
+ */
+export function createOverlayTextMeasure(fonts: FootageDraftFonts): OverlayTextMeasure {
+  return (role, text, cssPx, spacingEm) => fonts[role].measure(text, cssPx) + getSpacingWidth(text, spacingEm, cssPx);
 }
 
 /** How far a segment marked `kenburns` zooms when the film's `kenBurnsPercent` is 0, as in the render. */

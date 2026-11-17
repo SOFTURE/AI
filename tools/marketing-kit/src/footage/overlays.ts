@@ -436,9 +436,20 @@ export function getSideTextLines(overlay: SideTextOverlay): string[] {
  * The card a drawn overlay shows, in px of the frame, or null for a `punch_in`. A keyword, a lower third and a list
  * are placed in the whole width they may take (`box`); their card fits their widest line (by `estimateTextWidth`)
  * plus its padding, on its side, as tall as the box. Every other kind's card is its box (`getOverlayBounds`). The
- * draft draws this card, so a report of where an overlay sits (does it cover a face?) reads the same box.
+ * draft draws this card, so a report of where an overlay sits (does it cover a face?) reads the same box. With the
+ * brand fonts' `measure` (`createOverlayTextMeasure`), a keyword's, a lower third's and a counter's card is the one the
+ * render lays out (`getSideTextLayout`, `getCounterCard`, the counter at its final value), as the draft then draws it;
+ * a highlighted keyword or hook title (no card of its own) answers where its marks show.
  */
-export function getDrawnOverlayCard(overlay: ResolvedOverlay): OverlayBox | null {
+export function getDrawnOverlayCard(overlay: ResolvedOverlay, measure?: OverlayTextMeasure): OverlayBox | null {
+  if (measure !== undefined && overlay.kind === "keyword" && overlay.backdrop === "highlight") {
+    const layout = getSideTextLayout(overlay, measure);
+    return getKeywordMarkBlock(overlay, layout, layout.lines, measure);
+  }
+  if (measure !== undefined && (overlay.kind === "keyword" || overlay.kind === "lower_third")) return getSideTextLayout(overlay, measure).card;
+  if (measure !== undefined && overlay.kind === "hook_title" && overlay.backdrop === "highlight") return getMarkedTitleBounds(overlay, measure) ?? overlay.box;
+  // The counter's widest number: its final value, grouped as en-US groups it (as `measureCounter` sizes its box).
+  if (measure !== undefined && overlay.kind === "counter") return getCounterCard(overlay, formatOverlayNumber(overlay.value, overlay.decimals, "en-US"), measure);
   if (overlay.kind !== "keyword" && overlay.kind !== "lower_third" && overlay.kind !== "list") return getOverlayBounds(overlay);
   if (overlay.kind === "list" && overlay.chips !== undefined) return getBoxesUnion(overlay.chips);
   return getSideTextCard(overlay, getSideTextLines(overlay), overlay.box.height);
@@ -453,6 +464,123 @@ function getSideTextCard(overlay: SideTextOverlay, lines: readonly string[], hei
   const isCentred = (overlay.kind === "list" || overlay.kind === "keyword") && overlay.isCentred === true;
   const left = isCentred ? box.left + Math.round((box.width - width) / 2) : side === "right" ? box.left + box.width - width : box.left;
   return { left, top: box.top, width, height };
+}
+
+/**
+ * A line's width in CSS px in the brand font of `role` at `cssPx`, its letters spaced `spacingEm` (the render's
+ * `letter-spacing`): the render's own measure, read from the font files (`createOverlayTextMeasure`).
+ */
+export type OverlayTextMeasure = (role: OverlayFontRole, text: string, cssPx: number, spacingEm: number) => number;
+
+/** A lower third's accent dot and the gap after it, in ems of its font size (the render's `.ov-dot` and card gap). */
+export const OVERLAY_DOT_EM = { size: 0.36, gap: 0.45 } as const;
+/** A keyword card's accent edge under its text, in ems (the render's `border-bottom`). */
+export const KEYWORD_EDGE_EM = 0.12;
+/** The gap between a counter's number and its unit, in ems of the number's size. */
+export const COUNTER_UNIT_GAP_EM = 0.3;
+/** A highlight mark's padding round its text and its corner, in ems (the render's `.ov-mark`). */
+export const MARK_PADDING_EM = { x: 0.22, y: 0.04 } as const;
+export const MARK_RADIUS_EM = 0.14;
+
+/** A keyword's or a lower third's card as the render lays it out: its text's lines, the card, where the text starts and its dot. */
+export interface SideTextLayout {
+  /** The text broken as the render's card breaks it, one entry a line. */
+  lines: string[];
+  card: OverlayBox;
+  /** Where the first letter of every line starts (a centred keyword: the card's middle). */
+  textX: number;
+  /** The top of the first line (inside a highlight mark's padding). */
+  textTop: number;
+  /** A lower third's accent dot; null for a keyword. */
+  dot: { centre: OverlayPoint; radius: number } | null;
+}
+
+/** `words` broken greedily into lines no wider than `width` by `measureLine`, as a browser breaks a line (a word wider than a line stands alone). */
+function breakLines(words: readonly string[], width: number, measureLine: (line: string) => number): string[] {
+  const lines: string[] = [];
+  for (const word of words) {
+    const last = lines[lines.length - 1];
+    if (last !== undefined && measureLine(`${last} ${word}`) <= width) lines[lines.length - 1] = `${last} ${word}`;
+    else lines.push(word);
+  }
+  return lines;
+}
+
+/**
+ * A keyword's or a lower third's card as the render lays it out (`.ov-card` in its box): its text broken inside the
+ * box less the padding (and a highlight mark's padding, a lower third's dot), the card as wide as its widest line (the
+ * whole box once it wraps), as tall as its lines plus padding and a keyword's accent edge; a keyword's card hangs from
+ * the box's top, a lower third's stands on its foot. `measure` reads the brand font, as the browser does.
+ */
+export function getSideTextLayout(overlay: Extract<ResolvedOverlay, { kind: "keyword" | "lower_third" }>, measure: OverlayTextMeasure): SideTextLayout {
+  const { box, fontSize, side } = overlay;
+  const pad = getOverlayPadding(overlay);
+  const role = OVERLAY_FONT_ROLES[overlay.kind];
+  const isMarked = overlay.kind === "keyword" && overlay.backdrop === "highlight";
+  const markPad = isMarked ? fontSize * MARK_PADDING_EM.x : 0;
+  const dotRoom = overlay.kind === "lower_third" ? fontSize * (OVERLAY_DOT_EM.size + OVERLAY_DOT_EM.gap) : 0;
+  const measureLine = (line: string): number => measure(role, line, fontSize, OVERLAY_LETTER_SPACING_EM.card);
+  const words = overlay.text.replace(/\s+/g, " ").trim().split(" ");
+  const lines = breakLines(words, box.width - 2 * pad.x - dotRoom - 2 * markPad, measureLine);
+  const textWidth = Math.max(0, ...lines.map(measureLine)) + 2 * markPad + dotRoom;
+  const width = lines.length > 1 ? box.width : Math.min(box.width, Math.ceil(textWidth + 2 * pad.x));
+  // A highlighted keyword's card draws no border; an underlined one keeps its edge's room, transparent.
+  const edge = overlay.kind === "keyword" && !isMarked ? Math.round(fontSize * KEYWORD_EDGE_EM) : 0;
+  // A highlighted keyword's text is one block (a flex item) on its mark, padded on every side.
+  const markPadY = isMarked ? fontSize * MARK_PADDING_EM.y : 0;
+  const height = Math.ceil(lines.length * fontSize * OVERLAY_LINE_HEIGHT + 2 * markPadY + 2 * pad.y + edge);
+  const isCentred = overlay.kind === "keyword" && overlay.isCentred === true;
+  const left = isCentred ? box.left + Math.round((box.width - width) / 2) : side === "right" ? box.left + box.width - width : box.left;
+  const top = overlay.kind === "lower_third" ? box.top + box.height - height : box.top;
+  const card = { left, top, width, height };
+  const textTop = top + pad.y + markPadY;
+  const dot =
+    overlay.kind === "lower_third" ? { centre: { x: left + pad.x + (fontSize * OVERLAY_DOT_EM.size) / 2, y: top + height / 2 }, radius: (fontSize * OVERLAY_DOT_EM.size) / 2 } : null;
+  return { lines, card, textX: isCentred ? left + width / 2 : left + pad.x + dotRoom + markPad, textTop, dot };
+}
+
+/**
+ * A highlighted keyword's mark as the render draws it (`.ov-mark` is a flex item of the card, so one block): round
+ * `lines` (the whole text's, or the letters typed so far on theirs), as wide as the widest line, or all the card's
+ * room once the text wraps, as tall as the lines, padded by `MARK_PADDING_EM`.
+ */
+export function getKeywordMarkBlock(overlay: Extract<ResolvedOverlay, { kind: "keyword" }>, layout: SideTextLayout, lines: readonly string[], measure: OverlayTextMeasure): OverlayBox {
+  const { fontSize } = overlay;
+  const pad = { x: fontSize * MARK_PADDING_EM.x, y: fontSize * MARK_PADDING_EM.y };
+  const measureLine = (line: string): number => measure(OVERLAY_FONT_ROLES.keyword, line, fontSize, OVERLAY_LETTER_SPACING_EM.card);
+  const width = lines.length > 1 ? layout.card.width - 2 * getOverlayPadding(overlay).x : Math.max(0, ...lines.map(measureLine)) + 2 * pad.x;
+  const height = lines.length * fontSize * OVERLAY_LINE_HEIGHT + 2 * pad.y;
+  const left = overlay.isCentred === true ? layout.textX - width / 2 : layout.textX - pad.x;
+  return { left, top: layout.textTop - pad.y, width, height };
+}
+
+/**
+ * Where a highlighted hook title shows (its card is transparent): round its lines' marks, as wide as the widest line
+ * and its marks' padding, as tall as its lines; null when it names a place (its row is not a mark).
+ */
+function getMarkedTitleBounds(overlay: Extract<ResolvedOverlay, { kind: "hook_title" }>, measure: OverlayTextMeasure): OverlayBox | null {
+  if (overlay.place !== null) return null;
+  const { fontSize } = overlay;
+  const content = getTitleContentBox(overlay);
+  const padX = fontSize * MARK_PADDING_EM.x;
+  const width = Math.max(0, ...overlay.lines.map((line) => measure("heading", line, fontSize, OVERLAY_LETTER_SPACING_EM.hookTitle))) + 2 * padX;
+  const left = overlay.align === "left" ? content.left : content.left + content.width / 2 - width / 2;
+  return { left, top: content.top, width, height: content.height };
+}
+
+/**
+ * A counter's card as the render lays it out while it shows `text` (its number, as formatted): as wide as the number,
+ * its unit and the gap between, plus padding; one line tall; in the middle of its box, from its top.
+ */
+export function getCounterCard(overlay: Extract<ResolvedOverlay, { kind: "counter" }>, text: string, measure: OverlayTextMeasure): OverlayBox {
+  const { box, fontSize, unit, unitFontSize } = overlay;
+  const pad = getOverlayPadding(overlay);
+  const role = OVERLAY_FONT_ROLES.counter;
+  // The card's letter spacing is set in ems of the card's size and inherited as px by the unit.
+  const unitWidth = unit === null ? 0 : fontSize * COUNTER_UNIT_GAP_EM + measure(role, unit, unitFontSize, (OVERLAY_LETTER_SPACING_EM.card * fontSize) / unitFontSize);
+  const width = Math.ceil(measure(role, text, fontSize, OVERLAY_LETTER_SPACING_EM.card) + unitWidth + 2 * pad.x);
+  const height = Math.ceil(fontSize * OVERLAY_LINE_HEIGHT + 2 * pad.y);
+  return { left: box.left + Math.round((box.width - width) / 2), top: box.top, width, height };
 }
 
 /** The smallest box round every box of a non-empty list. */
