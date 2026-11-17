@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## Unreleased
+
+- `resolveMigrationsDir` works on Cloudflare Workers: workerd leaves a bundled Worker's `import.meta.url` undefined,
+  so a Worker whose config enables a module (a jobs Worker's scheduled handler) threw at start. There it now gives a
+  placeholder `file:` URL under the bundle; a Worker never reads the folder (`softure migrate` runs on Node). On Node
+  an undefined URL still throws the CJS-bundle error.
+  - Migrate: a Worker that assigned `import.meta.url` itself before loading the config can drop that import.
+
 ## 0.2.9
 
 - `isWorkersRuntime()`: whether the code runs on Cloudflare Workers (`navigator.userAgent`), for a code path that

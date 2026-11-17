@@ -10,6 +10,7 @@ import { moduleManifestSchema, type ModuleManifest } from "./manifest.js";
 import type { Result } from "./result.js";
 import type { SiteUrlProvider } from "./site-urls.js";
 import type { SwitchReader } from "./switches.js";
+import { isWorkersRuntime } from "./platform.js";
 
 /** What every server function of a module receives; it never reads request scope. */
 export interface ModuleContext<TDatabase = unknown> {
@@ -40,6 +41,9 @@ export interface ModuleMigrations {
   readonly dir: URL;
 }
 
+/** The module URL a Worker resolves migrations folders against: its bundle, which workerd mounts at /bundle. */
+const WORKERS_MODULE_URL = "file:///bundle/worker.js";
+
 /**
  * The URL of a module's migrations folder, relative to the file that calls it:
  * `migrations: { dir: resolveMigrationsDir(import.meta.url, "../migrations/") }`.
@@ -48,12 +52,17 @@ export interface ModuleMigrations {
  * treat that literal form as an asset import and fail the app's build on a folder. Only
  * `softure migrate` reads the folder, under plain Node, where both forms give the same URL.
  *
+ * On Cloudflare Workers workerd leaves `import.meta.url` undefined, and a Worker never reads the folder (migrations
+ * run from Node, `softure migrate`), so there the dir is a placeholder under `file:///bundle/` and a config that
+ * enables modules loads at the Worker's start (a scheduled handler, a fetch handler before OpenNext's first request).
+ *
  * ESM only: a CJS bundle (esbuild `--format=cjs`) empties `import.meta`, so the URL is undefined and
  * this throws naming the bundle format instead of a bare "Invalid URL".
  */
 export function resolveMigrationsDir(moduleUrl: string | URL, relativePath: string): URL {
-  // The type says string | URL; a CJS bundle still passes undefined at runtime.
+  // The type says string | URL; a CJS bundle and workerd still pass undefined at runtime.
   if ((moduleUrl as string | URL | undefined) === undefined || moduleUrl === "") {
+    if (isWorkersRuntime()) return new URL(relativePath, WORKERS_MODULE_URL);
     throw new Error(
       "resolveMigrationsDir: no module URL (import.meta.url is undefined), so this code runs from a CJS bundle; SOFTURE packages are ESM only, bundle with --format=esm",
     );
