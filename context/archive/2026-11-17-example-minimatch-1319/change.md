@@ -1,7 +1,8 @@
 ---
 change_id: example-minimatch-1319
 title: "security: lift minimatch to ^11.0.4 in the example app (issue #1319, Dependabot alert #42)"
-status: in_progress
+status: archived
+archived_at: 2026-11-17
 roadmap_item: null
 issue: 1319
 branch: claude/project-thread-899qdw
@@ -35,3 +36,7 @@ Dependabot alert #42 (GHSA-g3hv-75wg-m249, minimatch globparts amplification, fi
 
 - Research: kept short in `research.md`; framing skipped, the alert names the outcome.
 - No release: the example app is private and unpublished.
+
+## Done
+
+- `examples/next-app`: `minimatch` overridden to `^11.0.4` (lockfile 11.0.9), fixing Dependabot alert #42.

@@ -20,4 +20,4 @@
 
 ## Progress
 
-- [ ] p1 override and lockfile
+- [x] p1 override and lockfile: 7a985e6, minimatch 11.0.9 (overridden under glob 13.0.7); local `npm ci` + `next build` in examples/next-app exit 0
