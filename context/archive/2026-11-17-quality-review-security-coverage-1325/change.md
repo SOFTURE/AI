@@ -1,7 +1,8 @@
 ---
 change_id: quality-review-security-coverage-1325
 title: "quality-review: a security run proves its coverage before it may end clean (issue #1325)"
-status: open
+status: archived
+archived_at: 2026-11-17
 roadmap_item: null
 issue: 1325
 branch: claude/project-thread-el8hz7
@@ -45,3 +46,11 @@ cuts the 0.3.0 release (agreed between the threads).
 
 - Framing: skipped. The issue's two suggestions are the fix; research checks the SDK supports a follow-up turn
   inside one budget.
+
+## Done
+
+- `@softure-ai/quality-review`: a security run emits a coverage entry per threat scenario, checked against the files
+  the agent really read; it gets up to two follow-up turns in the same session (same cost cap) for scenarios it left
+  out; the security report has `Turns`, `Files read` and a `## Coverage` section, validated by `check`. A tenth
+  scenario and rule, `runtime-hardening`. General runs unchanged. Next release of quality-review (0.3.0, together with
+  #1324).

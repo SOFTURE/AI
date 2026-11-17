@@ -1,6 +1,6 @@
 ---
 change_id: quality-review-security-coverage-1325
-status: planned
+status: archived
 ---
 
 # Plan: security coverage evidence and a minimum coverage step (issue #1325)
@@ -46,6 +46,12 @@ Files: `prompt/security-review.md`, `README.md`, `CHANGELOG.md`, `tests/focus-sc
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1: 0d41435 (`npx vitest run tools/quality-review`: 90 passed; the prompt's `runtime-hardening` rule and the coverage format are part of this commit so the prompt test stays green)
+- [x] Phase 2: 0214017 (`npx vitest run tools/quality-review`: 96 passed; `tests/coverage-run.test.ts` drives a streaming fake agent through a follow-up, the follow-up limit, unread files, a budget stop, an agent failure and a general run)
+- [x] Phase 3: 7fbdc4a (`npx vitest run tools/quality-review tests/repo`: 945 passed, 78 skipped; `npm run typecheck`, `npm run lint:language`, package build green)
+
+## Decisions (auto)
+
+- The tests of the new behaviour live in new files (`tests/coverage.test.ts`, `tests/coverage-run.test.ts`), so the
+  parallel change of #1324 (which edits `tests/focus-scope.test.ts`) meets only a one-line type change there.
+- The prompt step for coverage landed in Phase 1 with the new rule, since the prompt test checks every security rule.
