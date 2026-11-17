@@ -5,7 +5,8 @@ export const LLM_ERROR_CODES = ["llm.unavailable", "llm.invalid_output", "llm.ou
 
 /**
  * - `llm.unavailable`: the provider failed (HTTP error, network, missing key, retries exhausted);
- * - `llm.invalid_output`: the model answered, but not with JSON matching the schema (or, for text, with nothing);
+ * - `llm.invalid_output`: the model answered, but not with JSON matching the schema (or, for text, with nothing; for
+ *   embeddings, with vectors of another length or count);
  * - `llm.output_truncated`: the model stopped on the output token limit before finishing its answer;
  * - `llm.timeout`: no answer within `timeoutMs`.
  */
@@ -64,7 +65,7 @@ export interface UsageRecord {
 
 /** What `onCall` receives after every finished call, failures included. */
 export interface LlmCallRecord {
-  readonly operation: "generateStructured" | "generateText" | "streamChat";
+  readonly operation: "generateStructured" | "generateText" | "streamChat" | "embedTexts";
   /** The model id the provider answered with, else (no answer: `llm.unavailable`, `llm.timeout`) the requested one. */
   readonly model: string;
   readonly provider: string;

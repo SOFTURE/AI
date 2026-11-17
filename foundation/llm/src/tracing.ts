@@ -5,17 +5,21 @@ export const TRACER_NAME = "@softure-ai/llm";
 export const STRUCTURED_SPAN_NAME = "llm.generate_structured";
 export const TEXT_SPAN_NAME = "llm.generate_text";
 export const STREAM_CHAT_SPAN_NAME = "llm.stream_chat";
+export const EMBED_SPAN_NAME = "llm.embed_texts";
 
 /** The global tracer: a no-op until the app starts an OpenTelemetry SDK (e.g. @softure-ai/observability). */
 export function getDefaultTracer(): Tracer {
   return trace.getTracer(TRACER_NAME);
 }
 
-/** `operation` is the OpenTelemetry GenAI operation name: `generate_content` for one answer, `chat` for a streamed chat. */
+/**
+ * `operation` is the OpenTelemetry GenAI operation name: `generate_content` for one answer, `chat` for a streamed chat,
+ * `embeddings` for vectors.
+ */
 export function startCallSpan(
   tracer: Tracer,
   name: string,
-  request: { provider: string; model: string; operation?: "generate_content" | "chat" },
+  request: { provider: string; model: string; operation?: "generate_content" | "chat" | "embeddings" },
 ): Span {
   return tracer.startSpan(name, {
     attributes: {
