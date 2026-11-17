@@ -115,6 +115,21 @@ describe("the GitHub App calls", () => {
     expect(installation.ok).toBe(true);
   });
 
+  it("drop any run of trailing slashes from the API address", async () => {
+    const app = createFakeGithubApp();
+    const installationId = app.createInstallation({ account: { login: "octocat" }, userIds: [OCTOCAT.id], repositories: [{ fullName: "octocat/notes" }] });
+    const urls: string[] = [];
+    const fetch: typeof app.fetch = (input, init) => {
+      urls.push(String(input));
+      return app.fetch(input, init);
+    };
+
+    const installation = await getGithubAppInstallation(app.credentials, installationId, { fetch, apiUrl: `https://api.github.com${"/".repeat(50)}` });
+
+    expect(installation.ok).toBe(true);
+    expect(urls).toEqual([`https://api.github.com/app/installations/${String(installationId)}`]);
+  });
+
   it("answer not found once the installation is removed, and rejected for a suspended one's token", async () => {
     const { app, installationId } = createApp();
     const token = await createGithubInstallationToken(app.credentials, installationId, { fetch: app.fetch });

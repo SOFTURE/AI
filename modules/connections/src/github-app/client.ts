@@ -218,7 +218,7 @@ export async function exchangeGithubUserCode(
   });
   if (exchange.codeVerifier !== undefined) form.set("code_verifier", exchange.codeVerifier);
   const answer = await requestJson({
-    url: `${(options.oauthUrl ?? GITHUB_OAUTH_URL).replace(/\/+$/, "")}/login/oauth/access_token`,
+    url: `${trimTrailingSlashes(options.oauthUrl ?? GITHUB_OAUTH_URL)}/login/oauth/access_token`,
     method: "POST",
     form,
     headers: { accept: "application/json" },
@@ -254,7 +254,14 @@ function apiHeaders(bearer: string): Record<string, string> {
 }
 
 function apiUrl(options: GithubAppCallOptions): string {
-  return (options.apiUrl ?? GITHUB_API_URL).replace(/\/+$/, "");
+  return trimTrailingSlashes(options.apiUrl ?? GITHUB_API_URL);
+}
+
+/** Drops trailing slashes without a regular expression, so a long run of them costs linear time. */
+function trimTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") end -= 1;
+  return url.slice(0, end);
 }
 
 function callOptions(options: GithubAppCallOptions): { fetch?: FetchFunction; timeoutMs?: number } {
