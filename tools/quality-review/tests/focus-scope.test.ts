@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ReviewAgentOptions } from "../src/agent.js";
-import { getBranchSuffix, runCommand, type CommandContext } from "../src/cli/command.js";
+import { getBranchSuffix, getReportBranch, runCommand, type CommandContext } from "../src/cli/command.js";
 import { CATEGORY_RULES } from "../src/findings.js";
 import { parseReport, renderReport } from "../src/report.js";
 import { readReviewPrompt, runReview, type QueryFunction } from "../src/review.js";
@@ -346,12 +346,15 @@ describe("softure-quality-review resolve and run with focus and scope", () => {
     err = "";
   });
 
-  it("prints the report path, the branch suffix, the scope folder and the focus", async () => {
+  it("prints the report path, the branch suffix, the report branch, the scope folder and the focus", async () => {
     expect(await runCommand(["resolve", "--focus", "security", "--scope", "@acme/auth"], makeContext())).toBe(0);
-    expect(out).toBe("report-path=modules/auth/QUALITY-REPORT.md\nbranch-suffix=security/modules-auth\nscope-folder=modules/auth\nfocus=security\n");
+    expect(out).toBe(
+      "report-path=modules/auth/QUALITY-REPORT.md\nbranch-suffix=security/modules-auth\n" +
+        "report-branch=quality-review-security--modules-auth\nscope-folder=modules/auth\nfocus=security\n",
+    );
     out = "";
     expect(await runCommand(["resolve", "--focus", "", "--scope", "", "--out", ""], makeContext())).toBe(0);
-    expect(out).toBe("report-path=QUALITY-REPORT.md\nbranch-suffix=\nscope-folder=\nfocus=general\n");
+    expect(out).toBe("report-path=QUALITY-REPORT.md\nbranch-suffix=\nreport-branch=quality-review-general\nscope-folder=\nfocus=general\n");
   });
 
   it("refuses an unknown focus or scope before it loads the SDK", async () => {
@@ -388,6 +391,30 @@ describe("branch names", () => {
     expect(getBranchSuffix("general", null)).toBe("");
     expect(getBranchSuffix("security", null)).toBe("security");
     expect(getBranchSuffix("general", { folder: "themes/theme_notion", packageName: "@x/y" })).toBe("themes-theme-notion");
+  });
+
+  it("names one flat report branch per focus and scope (issue #1324)", () => {
+    const scope = { folder: "src/integrations", packageName: null };
+    expect(getReportBranch("general", null)).toBe("quality-review-general");
+    expect(getReportBranch("security", null)).toBe("quality-review-security");
+    expect(getReportBranch("general", scope)).toBe("quality-review-general--src-integrations");
+    expect(getReportBranch("security", scope)).toBe("quality-review-security--src-integrations");
+  });
+
+  it("gives branches git can hold side by side, also next to the 0.2.0 ones", () => {
+    const folders = ["src/integrations", "docker", "src/app", "security", "general"];
+    const names = (["general", "security"] as const).flatMap((focus) => [
+      getReportBranch(focus, null),
+      ...folders.map((folder) => getReportBranch(focus, { folder, packageName: null })),
+    ]);
+    const legacy = ["quality-review", "quality-review/security", "quality-review/security/src-integrations", "quality-review/docker"];
+    expect(new Set(names).size).toBe(names.length);
+    for (const name of names) {
+      expect(name).not.toContain("/");
+      for (const other of [...names, ...legacy]) {
+        if (other !== name) expect(other.startsWith(`${name}/`) || name.startsWith(`${other}/`)).toBe(false);
+      }
+    }
   });
 });
 

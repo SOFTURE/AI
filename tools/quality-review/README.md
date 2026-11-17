@@ -50,7 +50,7 @@ The caller grants `contents: write` and `pull-requests: write`. The `review` job
 | `scope` | empty (whole repository) | One folder (`modules/auth`) or workspace package (`@acme/auth`) to review |
 | `paths` | empty (all findings) | Globs, comma or space separated; findings outside them are dropped |
 | `report-path` | `QUALITY-REPORT.md`, or `<scope>/QUALITY-REPORT.md` with a scope | Where the report goes |
-| `branch` | `quality-review`, plus `/security` and `/<scope-slug>` when set | The report branch; cut fresh from the base branch and replaced on every run |
+| `branch` | `quality-review-<focus>` (`quality-review-general`, `quality-review-security`), plus `--<scope-slug>` for a scope | The report branch; cut fresh from the base branch and replaced on every run |
 | `base-branch` | the default branch | Where the pull request goes |
 | `cli-version` | the released version | `@softure-ai/quality-review` version |
 | `agent-sdk-version` | `0.3.319` | `@anthropic-ai/claude-agent-sdk` version |
@@ -226,7 +226,7 @@ A session that receives the report's pull request:
    pull request.
 
 `softure-quality-review resolve [--focus …] [--scope …] [--out …]` checks the focus and the scope without a model
-call and prints `report-path=`, `branch-suffix=`, `scope-folder=` and `focus=` lines; the reusable workflow writes
+call and prints `report-path=`, `branch-suffix=`, `report-branch=`, `scope-folder=` and `focus=` lines; the reusable workflow writes
 them to `GITHUB_OUTPUT`.
 
 The library exports the same pieces: `runReview`, `buildAgentOptions`, `getToolRefusal`, `extractFindings`,
