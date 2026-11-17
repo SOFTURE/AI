@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SECURITY_SCENARIOS, resolveCoverage } from "../src/coverage.js";
 import { extractFindings, type Finding } from "../src/findings.js";
 import { REPORT_MARKER, parseReport, renderReport, type Report } from "../src/report.js";
 import { makeAgentFinding, toBlock } from "./fixtures.js";
@@ -137,5 +138,65 @@ describe("parseReport", () => {
     const parsed = parseReport(markdown);
     expect(parsed.ok).toBe(false);
     if (!parsed.ok) expect(parsed.errors).toContain("the Warnings section is missing");
+  });
+});
+
+describe("the coverage of a security report", () => {
+  function makeSecurityReport(): Report {
+    const coverage = resolveCoverage(
+      [
+        { scenario: "auth-session", status: "traced", files: ["src/session.ts", "src/a|b.ts"], note: "Ids rotate on sign-in | on role change." },
+        { scenario: "ssrf", status: "no-surface", files: [], note: "No outbound request takes a URL from input." },
+      ],
+      new Set(["src/session.ts", "src/a|b.ts"]),
+    );
+    return makeReport({ header: { ...makeReport().header, focus: "security", turns: 42, filesRead: 57, coverage } });
+  }
+
+  it("adds the depth rows after the tokens and a coverage table before the findings", () => {
+    const markdown = renderReport(makeSecurityReport());
+    expect(markdown).toContain("| Tokens | input 1200, output 340, cache read 56000, cache write 7800 |\n| Turns | 42 |\n| Files read | 57 |\n| Status | complete |");
+    const coverage = markdown.indexOf("## Coverage");
+    expect(coverage).toBeGreaterThan(0);
+    expect(coverage).toBeLessThan(markdown.indexOf("## Critical"));
+    expect(markdown).toContain("| auth-session | traced | `src/session.ts`, `src/a\\|b.ts` | Ids rotate on sign-in \\| on role change. |");
+    expect(markdown).toContain("| ssrf | no surface | - | No outbound request takes a URL from input. |");
+    expect(markdown).toContain("| csrf | not covered | - | The run did not account for this scenario. |");
+    expect(markdown).toContain(
+      "> 8 of 10 threat scenarios were not covered (oauth-flow, token-scope, webhook-verification, command-injection, csrf, rate-limit, secrets, runtime-hardening): the findings below do not prove those areas clean.",
+    );
+  });
+
+  it("leaves the not-covered note out when every scenario is accounted for", () => {
+    const coverage = SECURITY_SCENARIOS.map((scenario) => ({ scenario, status: "no-surface" as const, files: [], note: "None." }));
+    const markdown = renderReport(makeReport({ header: { ...makeReport().header, focus: "security", coverage } }));
+    expect(markdown).not.toContain("were not covered");
+  });
+
+  it("reads the depth rows and the coverage back", () => {
+    const report = makeSecurityReport();
+    const parsed = parseReport(renderReport(report));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.report.header).toEqual(report.header);
+  });
+
+  it("names a coverage table edited by hand", () => {
+    const markdown = renderReport(makeSecurityReport())
+      .replace("| ssrf | no surface |", "| dns | no surface |")
+      .replace("| csrf | not covered |", "| csrf | skipped |")
+      .replace("| auth-session | traced | `src/session.ts`, `src/a\\|b.ts` |", "| auth-session | traced | - |")
+      .replace("| Turns | 42 |", "| Turns | many |");
+    const parsed = parseReport(markdown);
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+    expect(parsed.errors).toEqual([
+      "header: Turns is not a number",
+      "coverage: auth-session is traced but names no file",
+      'coverage: unknown scenario "dns"',
+      'coverage: unknown status "skipped" for csrf',
+      "coverage: ssrf is missing",
+      "coverage: csrf is missing",
+    ]);
   });
 });

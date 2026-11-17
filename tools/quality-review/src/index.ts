@@ -31,6 +31,21 @@ export {
   type IgnoreRule,
   type IgnoreRules,
 } from "./ignore.js";
+export {
+  AGENT_COVERAGE_STATUSES,
+  COVERAGE_STATUSES,
+  SECURITY_SCENARIOS,
+  agentCoverageSchema,
+  extractCoverage,
+  getMissingScenarios,
+  resolveCoverage,
+  toRepositoryPath,
+  type AgentCoverage,
+  type CoverageEntry,
+  type CoverageStatus,
+  type ExtractedCoverage,
+  type SecurityScenario,
+} from "./coverage.js";
 export { verifyLocations, type VerifiedFindings } from "./verify.js";
 export {
   DEFAULT_REPORT_PATH,
