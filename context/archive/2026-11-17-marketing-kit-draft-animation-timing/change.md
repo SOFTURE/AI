@@ -1,7 +1,7 @@
 ---
 change_id: marketing-kit-draft-animation-timing
 title: "marketing-kit: the footage draft runs every animation at the render's pace"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/marketing-kit-draft-animation-timing
@@ -30,3 +30,9 @@ animation must stand where the render's stands, within one render frame.
   only times and eases.
 
 ## Notes
+- Research done (`research.md`, a probe in Chromium against the draft's ASS); frame skipped: the probe confirmed the
+  cause the adopting app measured.
+
+## Done
+- marketing-kit 0.44.0: the draft runs every animation at the render's pace (GSAP's own curves, a counter per frame,
+  one typing stagger, eased wipe clips), within one render frame.
