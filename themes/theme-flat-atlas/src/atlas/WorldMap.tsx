@@ -1,4 +1,6 @@
-import type { MouseEvent, ReactNode } from "react";
+"use client";
+
+import { useState, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 
 import { cn } from "../lib/utils.js";
 import { projectToMapPercent } from "../map/map-position.js";
@@ -41,6 +43,12 @@ export interface WorldMapProps {
    * as wide as twice the height, and scrolls sideways, for a phone where the map is the whole screen.
    */
   readonly fit?: "contain" | "cover";
+  /**
+   * Country names by the same numeric code, shown as a tag at the mouse pointer while it rests on that country (with
+   * the country lifted a shade), on a device with a mouse; touch and pen never show it. A country without a name
+   * shows no tag. The names are visual only: the map stays one image with its own label.
+   */
+  readonly countryLabels?: Readonly<Record<string, string>>;
   /** Overlay content positioned in percent of the map, such as the open popover. */
   readonly children?: ReactNode;
   readonly className?: string;
@@ -81,14 +89,44 @@ function sortByPaintOrder(countries: WorldMapProps["countries"]): { readonly sha
   );
 }
 
-export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPlaceClick, hasGraticule = true, isFitted = false, fit = "contain", children, className }: WorldMapProps) {
+interface HoveredCountry {
+  readonly id: string;
+  /** The pointer in percent of the map. */
+  readonly x: number;
+  readonly y: number;
+}
+
+/** The country under a mouse pointer, in percent of the map; `null` off a named country or for touch and pen. */
+function findHoveredCountry(event: PointerEvent<HTMLDivElement>, labels: Readonly<Record<string, string>>): HoveredCountry | null {
+  if (event.pointerType !== "mouse" || !(event.target instanceof Element)) return null;
+  const id = event.target.closest("path[data-id]")?.getAttribute("data-id");
+  if (id === null || id === undefined || labels[id] === undefined) return null;
+  const box = event.currentTarget.getBoundingClientRect();
+  if (box.width === 0 || box.height === 0) return null;
+  return { id, x: ((event.clientX - box.left) / box.width) * 100, y: ((event.clientY - box.top) / box.height) * 100 };
+}
+
+export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPlaceClick, hasGraticule = true, isFitted = false, fit = "contain", countryLabels, children, className }: WorldMapProps) {
+  const [hovered, setHovered] = useState<HoveredCountry | null>(null);
+  const onPointerMove =
+    countryLabels === undefined
+      ? undefined
+      : (event: PointerEvent<HTMLDivElement>) => {
+          const next = findHoveredCountry(event, countryLabels);
+          setHovered((current) => (next === null && current === null ? current : next));
+        };
+  const hoveredLabel = hovered === null ? undefined : countryLabels?.[hovered.id];
   return (
     <div
       data-slot="world-map"
       data-fitted={isFitted ? "" : undefined}
       className={cn("overflow-x-auto overscroll-x-contain", isFitted && FITTED_BOX_LOOK, className)}
     >
-      <div className={cn("relative min-w-map-min", isFitted && FITTED_MAP_LOOK[fit])}>
+      <div
+        className={cn("relative min-w-map-min", isFitted && FITTED_MAP_LOOK[fit])}
+        onPointerMove={onPointerMove}
+        onPointerLeave={onPointerMove === undefined ? undefined : () => { setHovered(null); }}
+      >
         <svg
           viewBox={`0 0 ${String(WORLD_MAP_VIEWBOX.width)} ${String(WORLD_MAP_VIEWBOX.height)}`}
           role="img"
@@ -103,12 +141,14 @@ export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPl
                 d={shape.d}
                 data-id={shape.id ?? undefined}
                 data-status={status}
-                className={cn("[stroke-linejoin:round]", COUNTRY_LOOK[status ?? "land"])}
+                data-hovered={hovered !== null && shape.id === hovered.id ? "" : undefined}
+                className={cn("transition-[filter] [stroke-linejoin:round] data-hovered:brightness-90", COUNTRY_LOOK[status ?? "land"])}
               />
             );
           })}
         </svg>
-        <div className="absolute inset-0">
+        {/* The layer lets the pointer through to the countries; its own children (pins, popovers) take it back. */}
+        <div className="pointer-events-none absolute inset-0 *:pointer-events-auto">
           {places.map((place) => {
             const position = projectToMapPercent(place.longitude, place.latitude);
             return (
@@ -125,6 +165,16 @@ export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPl
             );
           })}
           {children}
+          {hovered === null || hoveredLabel === undefined ? null : (
+            <span
+              aria-hidden="true"
+              data-slot="world-map-country-tag"
+              className="pointer-events-none! absolute z-30 -translate-x-1/2 -translate-y-[calc(100%+12px)] rounded-tag bg-foreground px-2.5 py-1 text-label whitespace-nowrap text-background"
+              style={{ left: `${String(hovered.x)}%`, top: `${String(hovered.y)}%` }}
+            >
+              {hoveredLabel}
+            </span>
+          )}
         </div>
       </div>
     </div>

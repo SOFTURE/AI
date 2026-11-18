@@ -137,6 +137,16 @@ describe("CountryChip", () => {
   });
 });
 
+describe("CountryChip with a flag", () => {
+  it("shows the flag in a rounded frame instead of the ISO code, the name after it", () => {
+    const markup = renderToStaticMarkup(<CountryChip code="PL" name="Polska" flag={<img src="/flags/pl.svg" alt="" />} />);
+    expect(markup).toContain('data-slot="country-chip-flag"');
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).not.toContain(">PL<");
+    expect(markup).toMatch(/<img src="\/flags\/pl.svg" alt=""\/><\/span>Polska<\/span>$/);
+  });
+});
+
 describe("MapPin", () => {
   it("is a named button at its position, the flag hidden until hover or focus", () => {
     const markup = renderToStaticMarkup(<MapPin x={47.6} y={31.8} label="Lisbon, Portugal, May 2024" tag={{ name: "Lisbon", detail: "2024" }} />);
