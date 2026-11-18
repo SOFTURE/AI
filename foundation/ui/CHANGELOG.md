@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## 0.3.10
+
+- `PasswordField` takes `required` (default `true`): `required={false}` lets an empty password through to the server,
+  for a form that also offers another way to confirm.
+  - Migrate: nothing.
+
+
 ## 0.3.9
 
 - The entries `.`, `./next` are declared Workers-safe (`softure.workers`, runtime-providers RP-7).

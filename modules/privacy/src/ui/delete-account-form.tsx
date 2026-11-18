@@ -94,6 +94,8 @@ export function DeleteAccountForm({ action, messages, reauthentication, locale, 
             name="password"
             label={messages.delete.password}
             autoComplete="current-password"
+            // With a provider offered, an empty password is a valid answer: the server asks for the sign-in instead.
+            required={providers.length === 0}
             error={errorAt("password")}
             unstyled={unstyled}
             locale={locale}

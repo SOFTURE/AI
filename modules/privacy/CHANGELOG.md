@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`privacy@x.y.z`).
 
+## 0.2.5
+
+- **Fix: the browser no longer blocks a deletion without a password when a provider is offered.** The password field of
+  `DeleteAccountForm` was always required, so an account a provider created could not send the form to be told to
+  sign in again. With a provider offered it is optional now; without one it stays required. Needs
+  `@softure-ai/ui` 0.3.10.
+  - Migrate: nothing.
+
+
 ## 0.2.4
 
 - **An account a provider created can delete itself.** `deleteOwnAccount` takes an optional `sessionToken`: with an
