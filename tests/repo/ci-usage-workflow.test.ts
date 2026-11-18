@@ -84,15 +84,15 @@ describe("ci-usage.yml", () => {
 });
 
 describe.each([
-  ["tools/ci-usage/examples/ci-usage.yml", "SOFTURE/AI/.github/workflows/ci-usage.yml@master"],
-  [".github/workflows/ci-usage-self.yml", "./.github/workflows/ci-usage.yml"],
-])("the caller %s", (path, uses) => {
+  ["tools/ci-usage/examples/ci-usage.yml", "SOFTURE/AI/.github/workflows/ci-usage.yml@master", ["30 6 * * 1"]],
+  [".github/workflows/ci-usage-self.yml", "./.github/workflows/ci-usage.yml", ["30 6 * * 1", "30 6 * * 0,2-6"]],
+])("the caller %s", (path, uses, crons) => {
   const caller = parse(read(path)) as Workflow;
   const job = caller.jobs["ci-usage"];
 
-  it("runs weekly and by hand only", () => {
+  it("runs on its schedule and by hand only, never on a push or a pull request", () => {
     expect(Object.keys(caller.on).sort()).toEqual(["schedule", "workflow_dispatch"]);
-    expect(caller.on.schedule).toEqual([{ cron: "30 6 * * 1" }]);
+    expect(caller.on.schedule).toEqual(crons.map((cron) => ({ cron })));
   });
 
   it("calls the reusable workflow with exactly the permissions it needs", () => {
@@ -100,5 +100,12 @@ describe.each([
     expect(job?.uses).toBe(uses);
     expect(job?.permissions).toEqual({ contents: "read", actions: "read", issues: "write" });
     expect(job?.secrets).toEqual({ CI_USAGE_TOKEN: "${{ secrets.CI_USAGE_TOKEN }}" });
+  });
+});
+
+describe("SOFTURE/AI's own caller", () => {
+  it("publishes on the Monday schedule and by hand, and only warms the cache on the other days", () => {
+    const caller = parse(read(".github/workflows/ci-usage-self.yml")) as Workflow;
+    expect(caller.jobs["ci-usage"]?.with?.publish).toBe("${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '30 6 * * 1' }}");
   });
 });

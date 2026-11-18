@@ -49,6 +49,28 @@ The caller grants `contents: read`, `actions: read` and `issues: write`.
 Secret: `CI_USAGE_TOKEN` (optional). The report always reads with it when it is set and writes the issue with the
 job's own `GITHUB_TOKEN`.
 
+### Busy repositories
+
+`GITHUB_TOKEN` allows 1,000 API requests an hour per repository, and the report needs about one per run. A
+repository with more runs a week than that keeps the run cache warm with a daily run and publishes weekly: two
+schedules, and `publish` only for the weekly one (SOFTURE/AI's own `.github/workflows/ci-usage-self.yml` does this; permissions
+and secrets as in the example):
+
+```yaml
+on:
+  schedule:
+    - cron: "30 6 * * 1"
+    - cron: "30 6 * * 0,2-6"
+  workflow_dispatch:
+jobs:
+  ci-usage:
+    uses: SOFTURE/AI/.github/workflows/ci-usage.yml@master
+    with:
+      publish: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '30 6 * * 1' }}
+```
+
+`CI_USAGE_TOKEN` (5,000 requests an hour) is the other way out.
+
 ## Reading the report
 
 - **The issue** `CI usage report` (label `ci-usage`): its body is always the latest report, with the JSON in a
