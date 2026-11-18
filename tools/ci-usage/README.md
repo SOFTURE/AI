@@ -17,8 +17,10 @@ run's artifact. The same CLI runs on a laptop or in an agent session.
 - **What GitHub billed, optionally.** `billing: org:<name>` (or `user:<name>`) adds the billed minutes and amounts per
   SKU from GitHub's billing usage API, next to the estimate.
 - **Never red for a busy repository.** Runs are listed one UTC day at a time (split into hours past GitHub's
-  1,000-run cap), finished runs are cached between reports, and the client stops at a request reserve: a report that
-  could not count everything says so (`partial`) and still succeeds.
+  1,000-run cap), the jobs of eight runs are read at a time, finished runs are cached between reports, and the
+  client stops at a request reserve (eight requests already in flight may still go below it) and at a time budget
+  (`max-minutes`, below the job timeout): a report that could not count everything says so (`partial`) and still
+  succeeds, and its cache lets the next run go further.
 
 ## Adoption
 
@@ -39,6 +41,7 @@ The caller grants `contents: read`, `actions: read` and `issues: write`.
 | `runs-on` | `'"ubuntu-latest"'` | The report's own runner as JSON, one label or an array (`'"ubicloud-standard-2"'`) |
 | `repositories` | the calling repository | `owner/name` entries, comma or space separated (others need `CI_USAGE_TOKEN`) |
 | `days` | `"7"` | Length of the period, ending now (1 to 31) |
+| `max-minutes` | `"10"` | Minutes the report may spend reading runs before it stops, partial (1 to 14) |
 | `prices` | empty | JSON of runner label to USD per minute, over the built-in table |
 | `ubicloud-premium` | `false` | Price Ubicloud minutes as premium (an account setting a job does not show) |
 | `billing` | empty | `org:<organization>` or `user:<user>`: add what GitHub billed |
@@ -85,8 +88,8 @@ jobs:
   ```
 
 Every minute in the report is a billable minute; `Est. USD` is minutes times the list price of the runner. A
-repository whose runs could not all be counted (the rate limit, an hour of more than 1,000 runs, a run whose jobs
-could not be read) is listed with the reason under "Notes", and the report says `Status: partial`.
+repository whose runs could not all be counted (the rate limit, the time budget, an hour of more than 1,000 runs, a
+run whose jobs could not be read) is listed with the reason under "Notes", and the report says `Status: partial`.
 
 ### The JSON (`schemaVersion: 1`)
 
@@ -118,7 +121,7 @@ repositories[] {
 ```text
 softure-ci-usage report [--repository <owner/name>[,…]] [--days 7 | --from <date> --to <date>] [--out-dir .]
                         [--prices <json>] [--ubicloud-premium] [--billing org:<name>|user:<name>]
-                        [--cache <file>] [--reserve 50]
+                        [--cache <file>] [--reserve 50] [--max-minutes <n>]
 softure-ci-usage publish [--repository <owner/name>] [--report-dir .] [--run-url <url>]
 ```
 

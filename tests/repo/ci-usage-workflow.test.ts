@@ -74,6 +74,17 @@ describe("ci-usage.yml", () => {
     expect(steps.find((step) => step.uses?.startsWith("actions/cache") === true)?.with).toMatchObject({ "restore-keys": "ci-usage-" });
   });
 
+  it("stops reading before the job timeout, so a busy repository still ends in a report", () => {
+    expect(inputs["max-minutes"]?.default).toBe("10");
+    const timeout = (report as Job & { "timeout-minutes"?: number })["timeout-minutes"] ?? 0;
+    const step = report?.steps?.find((candidate) => candidate.name === "Report");
+    expect(step?.env?.MAX_MINUTES).toBe("${{ inputs.max-minutes }}");
+    expect(step?.run).toContain('--max-minutes "$MAX_MINUTES"');
+    expect(Number(inputs["max-minutes"]?.default)).toBeLessThan(timeout);
+    expect(report?.steps?.find((candidate) => candidate.name === "Check the inputs")?.run).toContain("MAX_MINUTES > 14");
+    expect(timeout).toBe(15);
+  });
+
   it("passes every input through by environment, never interpolated into a script", () => {
     for (const step of steps) expect(step.run ?? "", step.name).not.toMatch(/\$\{\{/);
   });

@@ -6,8 +6,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 
 ## 0.1.1
 
-- No change in behaviour. The first version published through the npm trusted publisher (OIDC) with
-  provenance; the reusable workflow installs 0.1.1 by default (`cli-version`).
+- A busy repository's report ends inside the job time (#1366): the jobs of eight runs are read at a time, and
+  `--max-minutes` (the workflow input `max-minutes`, default 10, below the 15-minute job timeout) stops reading and
+  marks the repository partial ("stopped at the time budget"), so the artifact, the issue and the run cache are saved
+  and the next run goes further. 0.1.0 was cancelled at the timeout on a cold cache with nothing published.
+- The first version published through the npm trusted publisher (OIDC) with provenance; the reusable workflow
+  installs 0.1.1 by default (`cli-version`).
 
 ## 0.1.0
 
