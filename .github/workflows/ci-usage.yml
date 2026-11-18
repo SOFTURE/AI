@@ -50,7 +50,7 @@ on:
       cli-version:
         description: Version of @softure-ai/ci-usage that writes the report
         type: string
-        default: 0.1.0
+        default: 0.1.1
       node-version:
         description: Node.js version that runs the CLI
         type: string

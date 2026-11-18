@@ -4,6 +4,11 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 `ci-usage.yml` workflow. When an app has run a version in production, the version gets a line
 `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md), "Definition of done").
 
+## 0.1.1
+
+- No change in behaviour. The first version published through the npm trusted publisher (OIDC) with
+  provenance; the reusable workflow installs 0.1.1 by default (`cli-version`).
+
 ## 0.1.0
 
 - First version (#1360). `softure-ci-usage report` reads the finished workflow runs of a period through the Actions
