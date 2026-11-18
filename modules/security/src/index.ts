@@ -41,6 +41,14 @@ export {
   type EdgeProofOptions,
   type ForwardedForOptions,
 } from "./client-ip.js";
+export {
+  CLIENT_IP_SOURCE_ENV,
+  clientIpFromEnv,
+  createClientIpResolver,
+  readClientIpSource,
+  TRUSTED_PROXY_HOPS_ENV,
+  type ClientIpSource,
+} from "./client-ip-env.js";
 export type { RateLimitAllowance, RateLimitRejection, SecurityErrorCode } from "./contract.js";
 export { securityMessages, type SecurityMessages } from "./messages/index.js";
 export {

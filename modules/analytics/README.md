@@ -95,7 +95,9 @@ steps, the cap and the time zone moved into configuration and the report turned 
   one `funnel.isKnownChannel(channel, ctx)` reports as known from the app's own tables.
 - **The report** (`/server`): `getFunnelReport(ctx, { days })` returns the last `days` days
   (default 30) per channel (`tagged`, `untagged` or `overflow`), each step's count in funnel order,
-  the busiest channel first, with totals. `pruneFunnelCounts(ctx, { keepDays })` deletes older days.
+  the busiest channel first, with totals. `getFunnelDays(ctx, { days })` returns the same window one day at a time
+  (every channel summed, oldest first, a day with no visits as zeros), and `formatFunnelDays(report)` prints it as a
+  plain-text table for a script or a job summary. `pruneFunnelCounts(ctx, { keepDays })` deletes older days.
 
 ## 2. Installation
 

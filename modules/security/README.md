@@ -85,6 +85,18 @@ edge does not set or overwrite lets any client choose its own key.
 | `headerIp("x-real-ip")` | a header holding one address | the edge overwrites that header |
 | `(headers) => string \| null` | anything | your own; the result is normalised, and a value that is not an address counts as no match |
 
+**From the environment.** An app that runs behind different edges by configuration (hosted behind Cloudflare,
+self-hosted behind its own proxy) reads the choice from `CLIENT_IP_SOURCE`: `clientIpFromEnv(process.env)` gives
+`cloudflareIp()` when it is unset or `cloudflare`, `forwardedForIp({ trustedProxies: n })` for `forwarded-for` (with
+`TRUSTED_PROXY_HOPS=n`, 1 by default, at most 20) and `headerIp(name)` for `header:<name>`. Any other value throws with
+the reason, so a wrong setting stops the app at start instead of falling back. `readClientIpSource(env)` returns the
+parsed choice (`{ kind: "invalid", reason }` included) and `createClientIpResolver(source)` builds it, for an app that
+checks its settings separately.
+
+```ts
+security({ clientIp: clientIpFromEnv(process.env), buckets });
+```
+
 Entries left of the trusted proxies' entries came from the client and are never used. A missing,
 short or garbled header resolves to nothing. Addresses are normalised: a port and IPv6 brackets are
 removed, IPv4-mapped (and the deprecated IPv4-compatible) IPv6 becomes IPv4, IPv6 is written in full lowercase groups.

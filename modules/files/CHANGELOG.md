@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `createFakeS3({ bucket, accessKeyId, secretAccessKey, basePath?, isWritable? })` in `./testing`: an S3-compatible
+  bucket in memory over `fetch` (or `handle(request)` behind a local server) that checks each request's SigV4
+  signature; ListObjectsV2 with prefix, pages and continuation tokens, GetObject with `If-Match` and a range, and with
+  `isWritable` PutObject, HeadObject and DeleteObject. `put`, `remove`, `fail(operation, status)` and `calls` let a
+  test seed objects, inject failures and count requests. Moved from an adopting app's tests.
+  - Migrate: nothing; an app with its own fake bucket can drop it for this one.
+
 ## 0.5.2
 
 - `./jobs` is declared Workers-safe (`softure.workers`, runtime-providers RP-4): its handlers run from the

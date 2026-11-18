@@ -14,12 +14,16 @@ export {
 export { handleFunnelBeacon, handleFunnelPixel, MAX_BEACON_BYTES, STEP_FIELD } from "./endpoint.js";
 export {
   formatDay,
+  formatFunnelDays,
+  getFunnelDays,
   getFunnelReport,
   MAX_REPORT_DAYS,
   pruneFunnelCounts,
   recordFunnelStep,
   type AnalyticsContext,
   type FunnelChannel,
+  type FunnelDay,
+  type FunnelDaysReport,
   type FunnelReport,
   type FunnelReportRow,
   type RecordFunnelStepInput,

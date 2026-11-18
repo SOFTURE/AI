@@ -460,6 +460,28 @@ expect(readFileLinkExpiry(link.url)).toEqual(expectedExpiry);
 `fetchFileLink` runs the same code as the route, at the context's clock, so advancing a test clock past the expiry
 gives the `404`.
 
+An app that reads or writes an S3-compatible bucket itself (a user's own bucket, an off-site copy) tests against
+`createFakeS3`, a bucket in memory that checks every request's SigV4 signature against one key pair:
+
+```ts
+import { createS3Storage } from "@softure-ai/files/server";
+import { createFakeS3 } from "@softure-ai/files/testing";
+
+const s3 = createFakeS3({ bucket: "notes", accessKeyId, secretAccessKey, basePath: "/s3", isWritable: true });
+s3.put("vault/a.md", "# A"); // seed objects; s3.remove(key)
+const storage = createS3Storage({
+  endpoint: "http://127.0.0.1:9000/s3", bucket: "notes", region: "auto", fetch: s3.fetch,
+  accessKeyIdEnv: "S3_KEY_ID", secretAccessKeyEnv: "S3_SECRET", env: { S3_KEY_ID: accessKeyId, S3_SECRET: secretAccessKey },
+});
+s3.fail("get", 503); // every GetObject answers 503 until s3.fail("get", null)
+expect(s3.calls).toMatchObject({ list: 0, get: 1 });
+```
+
+It answers path-style ListObjectsV2 (prefix, `max-keys`, continuation tokens) and GetObject (`If-Match`, a byte
+range); with `isWritable` also a single-part PutObject (body checked against `x-amz-content-sha256`), HeadObject and
+DeleteObject. A wrong signature is `403`, an unknown bucket `404`. `s3.handle(request)` answers one `Request`, for a
+local HTTP server that end-to-end tests point an app at.
+
 ## Build
 
 `npm run build -w modules/files` runs `tsc -p tsconfig.build.json`: ESM and `.d.ts` per source file in `dist/`.
