@@ -103,12 +103,16 @@ export async function getOwnerUsage(ctx: FilesContext, ownerId: string): Promise
 export type SetFileExpiryResult = Ok<StoredFile> | Err<"files.not_found">;
 
 export interface SetFileExpiryInput extends FileLookupOptions {
-  /** When the file stops being served and `pruneFiles` removes it; null keeps it until it is deleted. */
+  /**
+   * When the file stops being served and `pruneFiles` removes it, after the file was saved (`files_expiry_check`; an
+   * earlier date is a caller bug and throws); null keeps it until it is deleted.
+   */
   readonly expiresAt: Date | null;
 }
 
 /**
- * Changes a live file's expiry: a later date or null keeps it longer, an earlier one (even a past one) lets
+ * Changes a live file's expiry: a later date or null keeps it longer, an earlier one (even a past one, though never
+ * before the file was saved) lets
  * `pruneFiles` take it sooner. A deleted or expired file reads as missing, so its retention cannot be brought back.
  */
 export async function setFileExpiry(ctx: FilesContext, fileId: string, input: SetFileExpiryInput): Promise<SetFileExpiryResult> {

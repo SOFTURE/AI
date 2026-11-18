@@ -7,9 +7,9 @@ in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](
 ## 0.6.0
 
 - `setFileExpiry(ctx, fileId, { ownerId?, expiresAt })` in `./server`: changes a live file's expiry after it was
-  saved (`null` keeps it until it is deleted; a date, even a past one, lets `pruneFiles` take it then) and answers the
-  updated `StoredFile`, or `files.not_found` for another owner's, a deleted, an expired or an unknown file. For an app
-  whose retention depends on facts it learns after the upload.
+  saved (`null` keeps it until it is deleted; a date after the file was saved, even a past one, lets `pruneFiles` take
+  it then) and answers the updated `StoredFile`, or `files.not_found` for another owner's, a deleted, an expired or an
+  unknown file. For an app whose retention depends on facts it learns after the upload.
   - Migrate: nothing.
 
 ## 0.5.3
