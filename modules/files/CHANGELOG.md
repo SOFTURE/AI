@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.5.3
 
 - `createFakeS3({ bucket, accessKeyId, secretAccessKey, basePath?, isWritable? })` in `./testing`: an S3-compatible
   bucket in memory over `fetch` (or `handle(request)` behind a local server) that checks each request's SigV4
