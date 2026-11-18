@@ -87,22 +87,69 @@ describe("collectRepository", () => {
     expect(fake.requests.some((request) => request.url.pathname.endsWith("/jobs"))).toBe(false);
   });
 
-  it("stops at the reserve and says how many runs were not counted", async () => {
+  it("stops at the reserve between batches and says how many runs were not counted", async () => {
     let remaining = 52;
+    const runs = Array.from({ length: 10 }, (_, index) => makeRun(index + 1));
     const fake = createFakeGithub(
       [
-        { match: isRuns, body: { total_count: 3, workflow_runs: [makeRun(1), makeRun(2), makeRun(3)] } },
+        { match: isRuns, body: { total_count: 10, workflow_runs: runs } },
         { match: (url) => url.pathname.endsWith("/jobs"), body: { total_count: 1, jobs: [makeApiJob(9, 1)] } },
       ],
       () => remaining--,
     );
     const client = createGithubClient({ token: "t", fetch: fake.fetch, reserve: 50 });
     const result = await collectRepository({ client, repository: "acme/app", from: FROM, to: new Date("2026-11-17T00:00:00Z"), cache: EMPTY });
-    // 52 left after the run list, 51 after the first jobs page, 50 (the reserve) after the second.
-    expect(result.runs.counted).toBe(2);
-    expect(result.partial).toHaveLength(1);
-    expect(result.partial[0]).toMatch(/^stopped at the rate limit: 1 of 3 runs not counted/);
+    // 52 left after the run list; the first batch of 8 is already in flight and brings it to 44, under the reserve.
+    expect(result.runs.counted).toBe(8);
+    expect(result.partial).toEqual([expect.stringMatching(/^stopped at the rate limit: 2 of 10 runs not counted/)]);
+    expect(Object.keys(result.cache.runs)).toHaveLength(8);
     expect(result.error).toBeNull();
+  });
+
+  it("reads the jobs of up to 8 runs at the same time, oldest first", async () => {
+    const runs = Array.from({ length: 10 }, (_, index) => makeRun(index + 1));
+    const fake = createFakeGithub([
+      { match: isRuns, body: { total_count: 10, workflow_runs: runs } },
+      { match: (url) => url.pathname.endsWith("/jobs"), body: { total_count: 0, jobs: [] } },
+    ]);
+    let inFlight = 0;
+    let most = 0;
+    const fetch: typeof fake.fetch = async (url, init) => {
+      inFlight += 1;
+      most = Math.max(most, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight -= 1;
+      return fake.fetch(url, init);
+    };
+    const client = createGithubClient({ token: "t", fetch });
+    const result = await collectRepository({ client, repository: "acme/app", from: FROM, to: new Date("2026-11-17T00:00:00Z"), cache: EMPTY });
+    expect(most).toBe(8);
+    expect(result.runs.counted).toBe(10);
+    expect(fake.requests.filter((request) => request.url.pathname.endsWith("/jobs")).map((request) => request.url.pathname.split("/")[6])).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
+  });
+
+  it("stops at the time budget before the next batch, keeping cached runs before it", async () => {
+    const runs = Array.from({ length: 10 }, (_, index) => makeRun(index + 1));
+    const cached: RunCache = { version: 1, runs: { "1:1": { updatedAt: "2026-11-17T10:10:00Z", jobs: [] } } };
+    const fake = createFakeGithub([
+      { match: isRuns, body: { total_count: 10, workflow_runs: runs } },
+      { match: (url) => url.pathname.endsWith("/jobs"), body: { total_count: 0, jobs: [] } },
+    ]);
+    const client = createGithubClient({ token: "t", fetch: fake.fetch });
+    const times = [new Date("2026-11-17T06:00:00Z"), new Date("2026-11-17T06:11:00Z")];
+    const result = await collectRepository({
+      client,
+      repository: "acme/app",
+      from: FROM,
+      to: new Date("2026-11-17T00:00:00Z"),
+      cache: cached,
+      deadline: new Date("2026-11-17T06:10:00Z"),
+      now: () => times.shift() ?? new Date("2026-11-17T07:00:00Z"),
+    });
+    // Run 1 from the cache, runs 2 to 9 in the first batch, run 10 waits for a batch the budget no longer allows.
+    expect(result.runs).toMatchObject({ counted: 9, fromCache: 1 });
+    expect(result.partial).toEqual(["stopped at the time budget: 1 of 10 runs not counted"]);
+    expect(fake.requests.filter((request) => request.url.pathname.endsWith("/jobs"))).toHaveLength(8);
   });
 
   it("reports a repository it cannot read as an error naming the request", async () => {

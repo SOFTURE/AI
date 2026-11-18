@@ -6,7 +6,8 @@
 #   and the estimated USD per repository, workflow and job, on GitHub-hosted, Ubicloud and other runners. It reads with
 #   the secret CI_USAGE_TOKEN when the caller passes one (several repositories, the billing lookup), else with the
 #   caller's GITHUB_TOKEN (`actions: read`, this repository only). A cache of finished runs (actions/cache) lets a
-#   repeated report read only the new runs; a report that hits the rate limit is marked partial, never failed.
+#   repeated report read only the new runs; a report that hits the rate limit or the time budget (`max-minutes`,
+#   below the job's 15-minute timeout) is marked partial, never failed, and its cache lets the next run go further.
 # - `publish` keeps one issue labelled `ci-usage` in the calling repository up to date (the body is the latest report,
 #   with the JSON in a collapsed block) and comments each run's totals. It always writes with GITHUB_TOKEN
 #   (`issues: write`). Agents read that issue with the GitHub tools they already have.
@@ -43,6 +44,10 @@ on:
         description: Add what GitHub billed, org:<organization> or user:<user>; needs CI_USAGE_TOKEN with organization "Administration" or user "Plan" read access
         type: string
         default: ""
+      max-minutes:
+        description: Minutes the report may spend reading runs before it stops and is marked partial (1 to 14, below the job timeout)
+        type: string
+        default: "10"
       publish:
         description: Keep the ci-usage issue of the calling repository up to date
         type: boolean
@@ -50,7 +55,7 @@ on:
       cli-version:
         description: Version of @softure-ai/ci-usage that writes the report
         type: string
-        default: 0.1.0
+        default: 0.1.1
       node-version:
         description: Node.js version that runs the CLI
         type: string
@@ -93,6 +98,7 @@ jobs:
         env:
           REPOSITORIES: ${{ inputs.repositories }}
           DAYS: ${{ inputs.days }}
+          MAX_MINUTES: ${{ inputs.max-minutes }}
           BILLING: ${{ inputs.billing }}
           CLI_VERSION: ${{ inputs.cli-version }}
         # The prices JSON is checked by the CLI itself, which names what is wrong.
@@ -101,6 +107,7 @@ jobs:
           reject() { echo "::error::Input $1 is not valid: $2"; failures=$((failures + 1)); }
           if [[ ! "$REPOSITORIES" =~ ^[A-Za-z0-9_./,[:space:]-]*$ ]]; then reject repositories "owner/name entries separated by commas or spaces, or empty"; fi
           if [[ ! "$DAYS" =~ ^[0-9]+$ ]] || (( DAYS < 1 || DAYS > 31 )); then reject days "a whole number from 1 to 31"; fi
+          if [[ ! "$MAX_MINUTES" =~ ^[0-9]+$ ]] || (( MAX_MINUTES < 1 || MAX_MINUTES > 14 )); then reject max-minutes "a whole number from 1 to 14"; fi
           if [ -n "$BILLING" ] && [[ ! "$BILLING" =~ ^(org|user):[A-Za-z0-9][A-Za-z0-9-]*$ ]]; then reject billing "org:<organization>, user:<user> or empty"; fi
           if [[ ! "$CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then reject cli-version "an exact version"; fi
           if (( failures > 0 )); then exit 1; fi
@@ -128,6 +135,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CI_USAGE_TOKEN || github.token }}
           REPOSITORIES: ${{ inputs.repositories }}
           DAYS: ${{ inputs.days }}
+          MAX_MINUTES: ${{ inputs.max-minutes }}
           PRICES: ${{ inputs.prices }}
           PREMIUM: ${{ inputs.ubicloud-premium }}
           BILLING: ${{ inputs.billing }}
@@ -136,7 +144,7 @@ jobs:
           premium=()
           if [ "$PREMIUM" = true ]; then premium=(--ubicloud-premium); fi
           "$RUNNER_TEMP/ci-usage/node_modules/.bin/softure-ci-usage" report --repository "$REPOSITORIES" --days "$DAYS" \
-            --prices "$PRICES" --billing "$BILLING" "${premium[@]}" \
+            --max-minutes "$MAX_MINUTES" --prices "$PRICES" --billing "$BILLING" "${premium[@]}" \
             --out-dir "$RUNNER_TEMP/ci-usage-report" --cache "$RUNNER_TEMP/ci-usage-cache/runs.json"
           cat "$RUNNER_TEMP/ci-usage-report/ci-usage.md" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
