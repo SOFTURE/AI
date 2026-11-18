@@ -23,6 +23,9 @@ sandbox, a phone behind a proxy with a body limit) uploads through a signed URL 
   "Saving a file from a URL" below.
 - **`findFile`, `openFile` (a byte range or the whole file), `listFiles`, `deleteFile`, `getOwnerUsage`**: live files
   only (neither deleted nor expired); an `ownerId` filter makes another owner's file read as missing.
+- **`setFileExpiry(ctx, fileId, { ownerId?, expiresAt })`**: changes a live file's expiry after it was saved; `null`
+  keeps it until it is deleted (an app that keeps the files a rule of its own chooses), a date lets `pruneFiles` take
+  it then. A deleted or expired file answers `files.not_found`.
 - **Storage drivers** behind one interface (`put`, `get` with a range, `head`, `delete`, an optional `check`):
   `createLocalStorage({ dir })` (partial file renamed into place, keys fanned out by file id) and
   `createS3Storage({ endpoint, bucket, ... })` for Cloudflare R2, MinIO, Garage or AWS S3 (SigV4 with `node:crypto`,

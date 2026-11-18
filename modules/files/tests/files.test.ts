@@ -1,8 +1,8 @@
 // Reading, listing and deleting: only live files, an owner filter, ranges, and deletion that takes the bytes too.
-import { deleteFile, findFile, listFiles, openFile, saveFile } from "@softure-ai/files/server";
+import { deleteFile, findFile, listFiles, openFile, pruneFiles, saveFile, setFileExpiry } from "@softure-ai/files/server";
 import type { StoredFile } from "@softure-ai/files";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ALICE, BOB, chunked, createTestFiles, listRows, readText, type TestFiles } from "./support.js";
+import { ALICE, BOB, chunked, HOUR_MS, createTestFiles, listRows, readText, type TestFiles } from "./support.js";
 
 describe("stored files", () => {
   let test: TestFiles;
@@ -80,6 +80,43 @@ describe("stored files", () => {
     expect(await listFiles(test.ctx, { ownerId: "nobody" })).toEqual([]);
     await deleteFile(test.ctx, a.id);
     expect((await listFiles(test.ctx, { ownerId: ALICE })).map((file) => file.name)).toEqual(["c", "b"]);
+  });
+
+  it("clears a file's expiry so the prune keeps it, and sets one again so the prune takes it", async () => {
+    const saved = await saveFile(test.ctx, { ownerId: ALICE, body: chunked("abc"), name: "clip.mov", ttlSeconds: 3600 });
+    if (!saved.ok) throw new Error(`setup: ${saved.error}`);
+    const file = saved.value;
+
+    const kept = await setFileExpiry(test.ctx, file.id, { ownerId: ALICE, expiresAt: null });
+    expect(kept).toEqual({ ok: true, value: { ...file, expiresAt: null } });
+    test.clock.advance(2 * HOUR_MS);
+    await pruneFiles(test.ctx);
+    expect(await findFile(test.ctx, file.id)).toEqual({ ...file, expiresAt: null });
+
+    const due = new Date(test.clock.now().getTime() + HOUR_MS);
+    expect(await setFileExpiry(test.ctx, file.id, { expiresAt: due })).toEqual({ ok: true, value: { ...file, expiresAt: due } });
+    test.clock.advance(HOUR_MS);
+    expect(await findFile(test.ctx, file.id)).toBeNull();
+    await pruneFiles(test.ctx);
+    expect(await listRows(test.database)).toEqual([]);
+    expect(test.storage.objects().size).toBe(0);
+  });
+
+  it("refuses an expiry for another owner's, a deleted, an expired or an unknown file", async () => {
+    const file = await save("a.txt", "abc");
+    const gone = await save("b.txt", "def");
+    await deleteFile(test.ctx, gone.id);
+    const brief = await saveFile(test.ctx, { ownerId: ALICE, body: chunked("ghi"), name: "c.txt", ttlSeconds: 1 });
+    if (!brief.ok) throw new Error(`setup: ${brief.error}`);
+    test.clock.advance(2000);
+    const missing = { ok: false, error: "files.not_found" };
+
+    expect(await setFileExpiry(test.ctx, file.id, { ownerId: BOB, expiresAt: null })).toEqual(missing);
+    expect(await setFileExpiry(test.ctx, gone.id, { expiresAt: null })).toEqual(missing);
+    expect(await setFileExpiry(test.ctx, brief.value.id, { expiresAt: null })).toEqual(missing);
+    expect(await setFileExpiry(test.ctx, "not-a-uuid", { expiresAt: null })).toEqual(missing);
+    expect(await setFileExpiry(test.ctx, "3f1c2b4a-5d6e-4f70-8192-a3b4c5d6e7f8", { expiresAt: null })).toEqual(missing);
+    expect(await findFile(test.ctx, file.id)).toEqual(file);
   });
 
   it("deletes a file's bytes and row, once, and only for its owner when asked", async () => {
