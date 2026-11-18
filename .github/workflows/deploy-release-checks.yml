@@ -6,6 +6,10 @@
 #   must be on the release branch (the caller's default branch unless `release-branch` names another). Without a tag
 #   and with one shard (a pull request) it is skipped, since every job is billed a whole minute (issue #627): the
 #   other jobs then check out the caller's own commit (`github.sha`).
+# - `guard-in-job` (issue #1375) skips `prepare` unless it builds a shard list (`unit` with more than one shard):
+#   `static` and `unit` then run its tag checkout and commit resolution themselves, before their own checkout, and
+#   empty the workspace again in between. A job billed a whole minute for seconds of work is saved; a stray tag still
+#   fails before anything of the app is checked out or installed, only after the work job's runner started.
 # - Every job checks the inputs first, with one step written once (the `check-inputs` anchor).
 # - `static` runs `static-command` (type check and lint; init's caller runs `next typegen` first, since a fresh
 #   checkout has no generated route types). `static-cache-paths` keeps files such as `.eslintcache` and
@@ -85,10 +89,14 @@ on:
         description: "Checkout patterns, non-cone (e.g. /* and !/context/archive/); empty = the whole commit"
         type: string
         default: ""
+      guard-in-job:
+        description: "Run the tag guard in static and unit instead of a prepare job of its own (one billed job less); prepare still runs for more than one unit shard"
+        type: boolean
+        default: false
     outputs:
       sha:
         description: The commit that was checked
-        value: ${{ jobs.prepare.outputs.sha || github.sha }}
+        value: ${{ jobs.prepare.outputs.sha || jobs.static.outputs.sha || jobs.unit.outputs.sha || github.sha }}
 
 permissions:
   contents: read
@@ -96,19 +104,20 @@ permissions:
 jobs:
   prepare:
     name: prepare
-    # A tag to guard, or a shard list to build; a pull request's run needs neither.
-    if: inputs.tag != '' || (inputs.unit && inputs.shards != 1)
+    # A tag to guard (unless static and unit guard it themselves), or a shard list to build; a pull request's run
+    # needs neither.
+    if: (inputs.tag != '' && !inputs.guard-in-job) || (inputs.unit && inputs.shards != 1)
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 5
     # The branch guard reads the tag's history.
     permissions:
       contents: read
     outputs:
-      sha: ${{ steps.commit.outputs.sha }}
+      sha: ${{ steps.resolved.outputs.sha }}
       # What static and unit check out: empty (the caller's own commit) or a tag's commit proven on the release
       # branch, never a ref from a pull request. Not named `ref`: CodeQL's cache poisoning rule takes a checkout ref
       # whose name holds ref, head, branch, sha or commit for untrusted code (issues #1112 to #1115).
-      revision: ${{ steps.commit.outputs.revision }}
+      revision: ${{ steps.resolved.outputs.revision }}
       shards: ${{ steps.inputs.outputs.shards }}
     steps:
       - &check-runner
@@ -205,8 +214,10 @@ jobs:
             index=$((index + 1))
           done
           echo "shards=[$shards]" >> "$GITHUB_OUTPUT"
-      # Commits only (tree:0): every branch and tag, without the files of any.
-      - if: inputs.tag != ''
+      # Commits only (tree:0): every branch and tag, without the files of any. Shared with static and unit, which run
+      # it themselves under guard-in-job (aliases take no if of their own).
+      - &guard-checkout
+        if: inputs.tag != '' && (github.job == 'prepare' || inputs.guard-in-job)
         uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
@@ -215,8 +226,12 @@ jobs:
           filter: tree:0
           sparse-checkout: /package.json
           sparse-checkout-cone-mode: false
-      - id: commit
+      - &resolve-commit
+        # Not named commit: CodeQL takes a checkout ref read from a step whose id holds ref, head, branch, sha or commit
+        # for untrusted code (issue #1375).
+        id: resolved
         name: Resolve the commit
+        if: github.job == 'prepare' || (inputs.guard-in-job && inputs.tag != '')
         env:
           TAG: ${{ inputs.tag }}
           SHA: ${{ github.sha }}
@@ -262,13 +277,28 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+    # The tag's commit when this job guarded it (guard-in-job).
+    outputs:
+      sha: ${{ steps.resolved.outputs.sha }}
     steps:
       - *check-runner
       - *empty-workspace
       - *check-inputs
+      - *guard-checkout
+      - *resolve-commit
+      # The guard's commits-only clone is no checkout to build on: the work starts from an empty workspace again.
+      - &empty-after-guard
+        name: Empty the workspace after the guard
+        if: inputs.guard-in-job && inputs.tag != ''
+        working-directory: ${{ runner.temp }}
+        run: |
+          if ! find "${GITHUB_WORKSPACE:?}" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; then
+            echo "::error::The workspace $GITHUB_WORKSPACE could not be emptied after the tag guard."
+            exit 1
+          fi
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.revision }}
+          ref: ${{ needs.prepare.outputs.revision || steps.resolved.outputs.revision }}
           persist-credentials: false
           sparse-checkout: ${{ inputs.sparse-checkout }}
           sparse-checkout-cone-mode: false
@@ -282,7 +312,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ inputs.static-cache-paths }}
-          key: softure-static-${{ runner.os }}-${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock') }}-${{ needs.prepare.outputs.sha || github.sha }}
+          key: softure-static-${{ runner.os }}-${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock') }}-${{ needs.prepare.outputs.sha || steps.resolved.outputs.sha || github.sha }}
           restore-keys: softure-static-${{ runner.os }}-${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock') }}-
       - name: Install
         env:
@@ -302,6 +332,9 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+    # The same commit from every shard when they guarded the tag (guard-in-job).
+    outputs:
+      sha: ${{ steps.resolved.outputs.sha }}
     strategy:
       fail-fast: ${{ inputs.fail-fast }}
       matrix:
@@ -310,9 +343,12 @@ jobs:
       - *check-runner
       - *empty-workspace
       - *check-inputs
+      - *guard-checkout
+      - *resolve-commit
+      - *empty-after-guard
       - uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.revision }}
+          ref: ${{ needs.prepare.outputs.revision || steps.resolved.outputs.revision }}
           persist-credentials: false
           sparse-checkout: ${{ inputs.sparse-checkout }}
           sparse-checkout-cone-mode: false
