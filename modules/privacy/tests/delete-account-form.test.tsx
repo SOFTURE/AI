@@ -24,6 +24,7 @@ describe("DeleteAccountForm", () => {
     render(<DeleteAccountForm action={answering({ status: "idle" })} messages={en} />);
     expect(screen.getByText(en.delete.description)).toBeDefined();
     expect(screen.getByLabelText(en.delete.password)).toHaveProperty("type", "password");
+    expect(screen.getByLabelText(en.delete.password)).toHaveProperty("required", true);
     expect(screen.getByRole("checkbox", { name: en.delete.confirm })).toHaveProperty("required", true);
     expect(screen.getByRole("button", { name: en.delete.submit })).toBeDefined();
   });
@@ -63,7 +64,8 @@ describe("DeleteAccountForm", () => {
       const button = screen.getByRole("button", { name: "Confirm with GitHub" });
       const form = button.closest("form") as HTMLFormElement;
       expect(Object.fromEntries(new FormData(form))).toEqual({ provider: "github", next: "/account" });
-      expect(screen.getByLabelText(en.delete.password)).toBeDefined();
+      // An account the provider created knows no password, so the browser must let an empty one through.
+      expect(screen.getByLabelText(en.delete.password)).toHaveProperty("required", false);
     });
 
     it("leaves the password field out when the app has no passwords", () => {

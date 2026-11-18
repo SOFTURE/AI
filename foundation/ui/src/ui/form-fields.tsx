@@ -202,12 +202,17 @@ export function TextField({
 }
 
 export interface PasswordFieldProps extends Omit<BaseFieldProps, "required"> {
+  /**
+   * Whether the browser refuses an empty field (default `true`). `false` only where an empty password is a valid
+   * answer the server judges, such as a form that also offers another way to confirm.
+   */
+  readonly required?: boolean;
   readonly minLength?: number;
   /** `current-password` or `new-password`. */
   readonly autoComplete?: string;
 }
 
-/** A required password input. It takes no default value and never replays a submitted password. */
+/** A password input, required unless told otherwise. It takes no default value and never replays a submitted password. */
 export function PasswordField({
   name,
   label,
@@ -216,6 +221,7 @@ export function PasswordField({
   hintAs,
   hintProps,
   error,
+  required = true,
   minLength,
   autoComplete,
   classNames,
@@ -244,7 +250,7 @@ export function PasswordField({
         id={ids.inputId}
         type="password"
         name={name}
-        required
+        required={required}
         minLength={minLength}
         autoComplete={autoComplete}
         aria-invalid={ids.errorId === undefined ? undefined : true}

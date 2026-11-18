@@ -162,6 +162,12 @@ describe("PasswordField", () => {
     expect(html).not.toContain("secret");
   });
 
+  it("lets an empty field through when told it is not required", () => {
+    const input = getInput(renderToStaticMarkup(<PasswordField id="p" name="password" label="Password" required={false} />));
+    expect(input).toContain('type="password"');
+    expect(input).not.toContain("required");
+  });
+
   it("shows an error the same way as other fields", () => {
     expect(getInput(renderToStaticMarkup(<PasswordField id="p" name="p" label="P" error="Too short" />))).toContain(
       'aria-describedby="p-error"',
