@@ -43,6 +43,12 @@
 # through `env:`, never interpolated into it. The CLI comes from npm (`deploy-cli-version`), so the workflow runs once
 # @softure-ai/deploy is published (DP-8).
 #
+# `guard-in-job: true` (with `build: true` and `deploy: false`, issue #1375) skips the check job: the build job runs its
+# steps (the inputs, the tag's branch) first and hands out `release` and `sha` itself, so a release pipeline's second
+# call pays one billed job, not two. A refused input or a stray tag still stops the run before anything is checked out
+# or built, only after the build job's runner started. With `deploy: true` it is refused (deploy and verify read the
+# check job).
+#
 # `build: false` (with `deploy: false`) runs the check job alone and hands out `release` and `sha` (the tag's commit)
 # within a minute: a release pipeline checks the deploy's secrets with the action's `preflight` and builds the image
 # next to the checks, instead of finding a missing secret after an hour of green checks (issue #628,
@@ -135,6 +141,10 @@ on:
         description: "false (with deploy: false): the check job only, nothing built; the release and sha outputs come within a minute, for a preflight and an image built next to the checks"
         type: boolean
         default: true
+      guard-in-job:
+        description: "true (with deploy: false): the build job validates the inputs and guards the tag itself instead of a check job of its own (one billed job less)"
+        type: boolean
+        default: false
       secrets-from-environment:
         description: "Removed in 0.4.0 (it passed the whole secrets context to the runner): true is refused; deploy from an environment with deploy: false and the deploy action"
         type: boolean
@@ -238,10 +248,10 @@ on:
     outputs:
       release:
         description: The check job's validated values as one JSON object, the deploy action's release input
-        value: ${{ jobs.check.outputs.release }}
+        value: ${{ jobs.check.outputs.release || jobs.build.outputs.release }}
       sha:
         description: The full commit SHA of the tag, e.g. deploy-release-image.yml's ref
-        value: ${{ jobs.check.outputs.sha }}
+        value: ${{ jobs.check.outputs.sha || jobs.build.outputs.sha }}
       image:
         description: The pushed image reference with its tag
         value: ${{ jobs.build.outputs.image }}
@@ -264,6 +274,8 @@ permissions:
 jobs:
   check:
     name: check inputs
+    # Under guard-in-job the build job runs these steps itself; with deploy: true the input is refused here.
+    if: ${{ !(inputs.guard-in-job && inputs.build && !inputs.deploy) }}
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 5
     # The branch guard reads the tag's history.
@@ -302,8 +314,11 @@ jobs:
             exit 1
           fi
 
-      - id: inputs
+      # Shared with the build job, which runs it under guard-in-job (aliases take no if of their own).
+      - &validate-inputs
+        id: inputs
         name: Validate inputs
+        if: github.job == 'check' || inputs.guard-in-job
         env:
           TAG: ${{ inputs.tag }}
           APP_URL: ${{ inputs.app-url }}
@@ -330,6 +345,7 @@ jobs:
           REGISTRY_TOKEN: ${{ inputs.registry-token }}
           DEPLOY: ${{ inputs.deploy }}
           BUILD: ${{ inputs.build }}
+          GUARD_IN_JOB: ${{ inputs.guard-in-job }}
           E2E: ${{ inputs.e2e }}
           REPOSITORY: ${{ github.repository }}
           ORIGIN_ADDRESS: ${{ secrets.origin-address }}
@@ -418,6 +434,10 @@ jobs:
           if [ "${BUILD:-true}" = "false" ]; then
             if [ "${DEPLOY:-true}" != "false" ]; then reject build "true with deploy (the deploy sends the image the build makes)"; fi
             if [ -n "${PREBUILT_IMAGE:-}" ]; then reject build "true with prebuilt-image (only the build tags it)"; fi
+          fi
+          # The deploy and verify jobs read the check job, so only a call that builds without deploying folds it.
+          if [ "${GUARD_IN_JOB:-false}" = "true" ] && [ "${DEPLOY:-true}" != "false" ]; then
+            reject guard-in-job "false with deploy (the deploy and verify jobs read the check job)"
           fi
           origin_input=origin-address
           # The origin address from an app-vars entry, for a caller that keeps it a variable. Not a secret, so it is
@@ -510,7 +530,9 @@ jobs:
               "secret-min-lengths": $min_lengths, "registry-token": $registry_token, "server-files": $server_files}')"
           echo "release=$release" >> "$GITHUB_OUTPUT"
       # Commits only (tree:0): every branch and tag, without the files of any.
-      - uses: actions/checkout@v7
+      - &guard-checkout
+        if: github.job == 'check' || inputs.guard-in-job
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
@@ -518,8 +540,10 @@ jobs:
           filter: tree:0
           sparse-checkout: /${{ inputs.compose-file }}
           sparse-checkout-cone-mode: false
-      - id: commit
+      - &refuse-stray-tag
+        id: commit
         name: Refuse a tag off the release branch
+        if: github.job == 'check' || inputs.guard-in-job
         env:
           TAG: ${{ inputs.tag }}
           RELEASE_BRANCH: ${{ inputs.release-branch }}
@@ -549,7 +573,8 @@ jobs:
   build:
     name: build and push the image
     needs: check
-    if: inputs.build
+    # After the check job, or in its place under guard-in-job.
+    if: ${{ !cancelled() && inputs.build && (needs.check.result == 'success' || (inputs.guard-in-job && !inputs.deploy && needs.check.result == 'skipped')) }}
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 30
     permissions:
@@ -560,9 +585,24 @@ jobs:
       digest: ${{ steps.push.outputs.digest || steps.retag.outputs.digest }}
       worker-image: ${{ steps.worker-ref.outputs.image }}
       worker-digest: ${{ steps.worker-push.outputs.digest }}
+      # The check job's values when this job ran its steps (guard-in-job).
+      release: ${{ steps.inputs.outputs.release }}
+      sha: ${{ steps.commit.outputs.sha }}
     steps:
       - *check-runner
       - *empty-workspace
+      - *validate-inputs
+      - *guard-checkout
+      - *refuse-stray-tag
+      # The guard's commits-only clone is no checkout to build from: the build starts from an empty workspace again.
+      - name: Empty the workspace after the guard
+        if: inputs.guard-in-job
+        working-directory: ${{ runner.temp }}
+        run: |
+          if ! find "${GITHUB_WORKSPACE:?}" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; then
+            echo "::error::The workspace $GITHUB_WORKSPACE could not be emptied after the tag guard."
+            exit 1
+          fi
       - if: inputs.prebuilt-image == ''
         uses: actions/checkout@v7
         with:
@@ -583,7 +623,7 @@ jobs:
       - id: ref
         name: Image reference
         env:
-          IMAGE: ${{ needs.check.outputs.image }}
+          IMAGE: ${{ needs.check.outputs.image || steps.inputs.outputs.image }}
           TAG: ${{ inputs.tag }}
         run: echo "image=$IMAGE:$TAG" >> "$GITHUB_OUTPUT"
       - id: push
@@ -599,7 +639,7 @@ jobs:
           # The tag's commit for the build info (@softure-ai/ops withBuildInfo); a Dockerfile without the ARG ignores it.
           build-args: |
             ${{ inputs.build-args }}
-            SOFTURE_BUILD_COMMIT=${{ needs.check.outputs.sha }}
+            SOFTURE_BUILD_COMMIT=${{ needs.check.outputs.sha || steps.commit.outputs.sha }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ inputs.tag }}
@@ -611,7 +651,7 @@ jobs:
         name: Worker image reference
         if: inputs.worker-dockerfile != ''
         env:
-          IMAGE: ${{ needs.check.outputs.image }}
+          IMAGE: ${{ needs.check.outputs.image || steps.inputs.outputs.image }}
           TAG: ${{ inputs.tag }}
         run: echo "image=$IMAGE-worker:$TAG" >> "$GITHUB_OUTPUT"
       - id: worker-push
@@ -624,7 +664,7 @@ jobs:
           tags: ${{ steps.worker-ref.outputs.image }}
           build-args: |
             ${{ inputs.build-args }}
-            SOFTURE_BUILD_COMMIT=${{ needs.check.outputs.sha }}
+            SOFTURE_BUILD_COMMIT=${{ needs.check.outputs.sha || steps.commit.outputs.sha }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ inputs.tag }}
