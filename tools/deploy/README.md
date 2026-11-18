@@ -796,11 +796,15 @@ skipping is safe. Its one job, `compare`, reads the API only (nothing is checked
    head merged into the base of that moment, and code the base had then and the head lacked is on the release branch
    too, so the trees would differ;
 3. it reads that commit's latest check runs: every line of `check-names` (a name or a glob, e.g. `checks / unit *`
-   for the shards of `examples/checks.yml`) must match at least one run, and every matching run must have succeeded.
+   for the shards of `examples/checks.yml`) must match at least one run, and every matching run must have succeeded;
+4. when the newest commit fails step 2 or 3 (a last push that changed only ignored folders, whose suite the pull
+   request's checks skipped, or a push still red), it tries the pull request's 10 earlier commits, newest first, with
+   the same two steps, and takes the first that passes both. An API failure or a truncated tree stops the search.
 
 Output `tested` is `"true"` only then. Any doubt answers `"false"` with a notice naming it, and the job stays green: an
 API failure, a tree too large for one answer, a file that differs, a missing, skipped, red or running check, no merged
-pull request. Only invalid inputs fail it. Outputs `pull-request` and `head-sha` name what was compared.
+pull request. Only invalid inputs fail it. Outputs `pull-request` and `head-sha` name what was compared (`head-sha` is the commit
+that passed on `"true"`, else the newest one).
 
 ```yaml
   tested:

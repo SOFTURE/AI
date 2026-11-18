@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.7.6
+
+- **`deploy-tested-tree.yml`:** when the pull request's newest commit does not carry the tag's tree outside
+  `ignore-prefixes` with every named check green (its last push changed only `context/`, so the pull request's own
+  checks skipped the suite), it now tries the 10 earlier commits of that pull request, newest first, and answers
+  `"true"` for the first that does. Output `head-sha` names that commit. Any API failure or truncated tree still answers
+  `"false"`.
+- Migrate: none; bump the pins to the `deploy@0.7.6` commit.
+
 ## 0.7.5
 
 - **`guard-in-job` (#1375):** an opt-in input of `deploy-release-checks.yml` and `deploy-app.yml` (default `false`, so
