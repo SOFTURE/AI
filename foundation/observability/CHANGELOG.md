@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.8.8
 
 - **Host metrics** (`instrumentations.host`, on by default): the machine's memory (`system.memory.*` from
   `/proc/meminfo`), CPU (`system.cpu.utilization` between collections, `system.cpu.load_average.1m`,
