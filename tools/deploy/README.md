@@ -756,8 +756,11 @@ kept:
    jobs have only begun. With required reviewers on the environment, this job asks for an approval too.
 3. `static` (`unit: false`) and `unit` (`static: false`, `fail-fast: true`) are two calls of
    `deploy-release-checks.yml`, and `image` builds `sha` next to them.
-4. `build` (`prebuilt-image`) needs all four; `deploy` and `report` follow as in `examples/deploy.yml`.
-5. One watcher job per part, `needs: <part>`, `if: failure()`, `permissions: { actions: write }`, calls
+4. `tested` (below) says whether the tag's code already passed the unit suite on its pull request; `unit` runs only
+   when it did not.
+5. `build` (`prebuilt-image`) needs all of them, each by its result: a `unit` skipped because `tested` said so counts as
+   passed, one skipped because a job it needs failed does not. `deploy` and `report` follow as in `examples/deploy.yml`.
+6. One watcher job per part, `needs: <part>`, `if: failure()`, `permissions: { actions: write }`, calls
    `SOFTURE/AI/.github/workflows/deploy-cancel-run.yml`, which cancels the run through the runs API (a second
    watcher that finds the run cancelled already only warns). One per part, because a job that needs several waits for
    the slowest of them; `failure()` also fires for a failed ancestor, so a red `release` stops the run too. Nothing
@@ -768,11 +771,61 @@ Cancelling takes `actions: write`, which stays in the watchers: `deploy-release-
 since a pull request's caller grants nothing more (a called job may not ask for more than its caller grants, whatever
 its `if`). The two calls of the checks each run `prepare` with the tag, which costs seconds.
 
+### Skip a suite the pull request passed
+
+A tag usually holds exactly the code of the last merged pull request plus workflow artifacts under `context/`, yet the
+release runs the whole unit suite again minutes after that pull request passed it; in an adopting app that was about
+160 runner minutes a week (issue #1373). `SOFTURE/AI/.github/workflows/deploy-tested-tree.yml` tells the release when
+skipping is safe. Its one job, `compare`, reads the API only (nothing is checked out):
+
+1. it resolves `tag` to its commit and lists the pull requests merged into `release-branch` (else the default
+   branch), newest first; the first whose merge commit is in the tag's history is the last one the tag holds (one
+   merged after the tag was cut is passed over);
+2. it compares the tag's tree with the tree of that pull request's newest commit (mode, blob and path of every file),
+   leaving out the folders `ignore-prefixes` names (one per line, each ending in `/`; default `context/`, empty
+   compares everything). This holds for merge, squash and rebase merges alike: a pull request's checks run on its
+   head merged into the base of that moment, and code the base had then and the head lacked is on the release branch
+   too, so the trees would differ;
+3. it reads that commit's latest check runs: every line of `check-names` (a name or a glob, e.g. `checks / unit *`
+   for the shards of `examples/checks.yml`) must match at least one run, and every matching run must have succeeded.
+
+Output `tested` is `"true"` only then. Any doubt answers `"false"` with a notice naming it, and the job stays green: an
+API failure, a tree too large for one answer, a file that differs, a missing, skipped, red or running check, no merged
+pull request. Only invalid inputs fail it. Outputs `pull-request` and `head-sha` name what was compared.
+
+```yaml
+  tested:
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    uses: SOFTURE/AI/.github/workflows/deploy-tested-tree.yml@<sha>
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      check-names: checks / unit *
+
+  checks:
+    needs: tested
+    uses: SOFTURE/AI/.github/workflows/deploy-release-checks.yml@<sha>
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      unit: ${{ needs.tested.outputs.tested != 'true' }}
+      shards: 4
+```
+
+A separate workflow, not an input of `deploy-release-checks.yml`: reading pull requests and check runs takes
+`pull-requests: read` and `checks: read`, which a pull request's caller of the checks does not grant. A pipeline with a
+call of its own for the unit shards (`static: false`, as in **Fail fast**) skips that job with
+`if: needs.tested.outputs.tested != 'true'` instead, since a call with both `static` and `unit` false is refused, and
+its `build` names every result it needs ([`examples/deploy-pipeline.yml`](examples/deploy-pipeline.yml)). The
+pull requests' unit checks have to run for this to pay off: with `examples/checks.yml`, a pull request without the
+`run-tests` label has no unit run, and its release runs the suite.
+
 ### Runner
 
 Every job of the reusable workflows (`deploy-app`, `deploy-release-checks`, `deploy-release-image`,
-`deploy-integration`, `deploy-report`, `deploy-cut-release`, `deploy-release-notes`, `deploy-cancel-run`, and the
-blog's `blog-links`) runs on the runner the input `runs-on` names (issue #670). The input is JSON: one label, or an
+`deploy-integration`, `deploy-report`, `deploy-cut-release`, `deploy-release-notes`, `deploy-cancel-run`,
+`deploy-tested-tree`, and the blog's `blog-links`) runs on the runner the input `runs-on` names (issue #670). The input is JSON: one label, or an
 array of labels a runner must all carry. The default, `'"ubuntu-latest"'`, keeps a caller that passes nothing on
 GitHub's hosted runner.
 
@@ -806,7 +859,8 @@ A self-hosted runner has to provide what the hosted image has and the jobs use:
 - an SSH client (`ssh`, `ssh-keygen`) for the deploy job.
 
 The GitHub CLI is not required (issue #686). The jobs that call `gh` (`deploy-cut-release` → `cut`, `deploy-report` →
-`report`, `deploy-release-notes` → `notes`, `deploy-cancel-run` → `cancel`, `deploy-integration` → `record`) run the
+`report`, `deploy-release-notes` → `notes`, `deploy-cancel-run` → `cancel`, `deploy-integration` → `record`,
+`deploy-tested-tree` → `compare`) run the
 step "Set up the GitHub CLI" after the runner check (and after "Empty the workspace" in a job that checks out). A runner
 that has `gh` uses its own and the step does nothing; on one without it the step downloads GitHub CLI 2.103.0 for Linux
 x64 or arm64 from its GitHub release, checks the archive against the SHA-256 pinned in the workflow, unpacks it into

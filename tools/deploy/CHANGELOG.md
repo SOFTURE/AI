@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.7.4
+
+- **`deploy-tested-tree.yml` (#1373):** a reusable workflow that answers `tested: "true"` when a release tag's tree
+  equals, outside `ignore-prefixes` (default `context/`), the newest commit of the last merged pull request, and every
+  check run `check-names` names (names or globs) succeeded on that commit. Any doubt answers `"false"` and the job
+  stays green. The caller skips its unit suite on `"true"`: `unit: ${{ needs.tested.outputs.tested != 'true' }}`.
+  Its job needs `contents`, `pull-requests` and `checks` read. README "Skip a suite the pull request passed";
+  `examples/deploy-pipeline.yml` uses it.
+- Migrate (optional): add the `tested` job to `.github/workflows/deploy.yml` and pass its answer to the unit checks;
+  `check-names` are the check runs of the app's pull request workflow.
+
 ## 0.7.3
 
 - `init --host=cloudflare` for an app with a database writes an `alias` into `wrangler.jsonc` that points
