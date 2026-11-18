@@ -265,3 +265,92 @@ describe("globToRegExp", () => {
     expect(globToRegExp(glob).test(path)).toBe(expected);
   });
 });
+
+// A CI checkout: detached at the pull request head, no upstream; the job names the last tested commit.
+describe("softure-merge-push-scope --since", () => {
+  const silent = (): void => undefined;
+
+  function detachWithoutUpstream(): void {
+    git("checkout", "-q", "--detach");
+    git("branch", "-q", "-D", "feature");
+  }
+
+  it("is a merge when only the main branch came in since the given commit", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    landOnMain("src/index.ts", "export const one = 2;\n");
+    mergeMain();
+    commitFile("context/changes/a/plan.md", "# Plan\n");
+    detachWithoutUpstream();
+
+    expect(getMergePushScope(app, undefined, tested)).toEqual({
+      scope: "merge",
+      mainRef: "origin/main",
+      branchFiles: ["context/changes/a/plan.md", "src/feature.ts"],
+    });
+    expect(runMergePushScope(["is-merge", "--since", tested], { cwd: app, log: silent })).toBe(0);
+    expect(runMergePushScope(["is-full", `--since=${tested}`], { cwd: app, log: silent })).toBe(1);
+  });
+
+  it("is full when the branch has new code since the given commit", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    commitFile("src/feature.ts", "export const feature = 2;\n");
+    landOnMain("src/index.ts", "export const one = 2;\n");
+    mergeMain();
+    detachWithoutUpstream();
+
+    expect(scopeOf(getMergePushScope(app, undefined, tested))).toBe("full");
+  });
+
+  it("is full when the merge brings in a dependency change since the given commit", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    landOnMain("package.json", "{}\n");
+    mergeMain();
+    detachWithoutUpstream();
+
+    expect(getMergePushScope(app, undefined, tested)).toEqual({ scope: "full", reason: "the merge brings in package.json" });
+  });
+
+  it("is full for an unknown or all-zeros commit", () => {
+    landOnMain("src/index.ts", "export const one = 2;\n");
+    mergeMain();
+    detachWithoutUpstream();
+
+    expect(getMergePushScope(app, undefined, "0000000000000000000000000000000000000000")).toEqual({
+      scope: "full",
+      reason: "0000000000000000000000000000000000000000 is not a known commit",
+    });
+    expect(runMergePushScope(["is-full", "--since", "deadbeef"], { cwd: app, log: silent })).toBe(0);
+  });
+
+  it("is full on a checkout without upstream when --since is not given", () => {
+    landOnMain("src/index.ts", "export const one = 2;\n");
+    mergeMain();
+    detachWithoutUpstream();
+
+    expect(runMergePushScope(["is-full"], { cwd: app, log: silent })).toBe(0);
+  });
+
+  it("runs the related command after -- with --since before it", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    landOnMain("src/index.ts", "export const one = 2;\n");
+    mergeMain();
+    detachWithoutUpstream();
+    const calls: string[][] = [];
+    const runCommand = (command: string, args: readonly string[]): number => {
+      calls.push([command, ...args]);
+      return 0;
+    };
+
+    runMergePushScope(["related", "--since", tested, "--", "npx", "vitest", "related", "--since", "x"], {
+      cwd: app,
+      runCommand,
+      log: silent,
+    });
+    expect(calls).toEqual([["npx", "vitest", "related", "--since", "x", "src/feature.ts"]]);
+  });
+
+  it("rejects a missing value and an unknown argument", () => {
+    expect(runMergePushScope(["is-merge", "--since"], { cwd: app, log: silent })).toBe(2);
+    expect(runMergePushScope(["is-full", "HEAD"], { cwd: app, log: silent })).toBe(2);
+  });
+});
