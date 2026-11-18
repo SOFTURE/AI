@@ -1,9 +1,9 @@
 ---
 change_id: ci-usage-report
 title: "A weekly and on-demand report of the CI minutes each project, workflow and job uses"
-status: preparing
+status: planned
 roadmap_item: null
-issue: null
+issue: 1360
 branch: claude/project-thread-xvy7o9
 created: 2026-11-18
 updated: 2026-11-18
@@ -50,9 +50,7 @@ jobs, four test shards, a narrow pre-push).
 
 ## Notes
 
-- Placement: unlinked (`roadmap_item: null`); the project works from the issue queue and has no active roadmap. An
-  issue is filed once the owner picks the package option (the issue's title and labels depend on it).
-- Decision pending (owner): a new package `@softure-ai/ci-usage` (recommended) or an extension of an existing one; the
-  options and the reasoning are in [research.md](research.md) under "Open questions". Planning waits for that choice.
+- Placement: unlinked (`roadmap_item: null`); the project works from the issue queue. Issue #1360.
+- Owner decision (2026-11-18, decision card): a new package `@softure-ai/ci-usage`.
 - Frame skipped: the problem is stated by the owner with its measurement (minutes per project, workflow and job); the
   open point is where the code lives, which the research answers.
