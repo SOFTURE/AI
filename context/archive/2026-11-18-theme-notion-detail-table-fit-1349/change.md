@@ -25,7 +25,8 @@ the app put the document's facts) in the cell's min-content width, so the table 
 
 ## Scope
 
-- `DetailTable`: `table-fixed`.
+- `DetailTable`: `table-fixed`, inside a `@container` frame; under 28rem the label sits above its value (was: a window
+  under 640 px), so a column beside a side panel gives the value the whole width.
 - `DocumentRow`: optional `details`, rendered after the size inside the row's wrapping open button.
 - Unit tests, the class parity fixture, a geometry test in `visual/fit.spec.ts`, README, CHANGELOG; release 0.26.0
   (minor).
@@ -43,5 +44,8 @@ the app put the document's facts) in the cell's min-content width, so the table 
 
 - `details` sits inside the open button, after the size, so it wraps with the title's line and stays part of the
   button's name (every visible word of the row's button is in its name, as the title and size already are).
-- No new gallery case: `table-fixed` changes no existing pixel and the fit test builds its own narrow case, so the
+- The stacking follows the table's own width (a container query), not the window: beside a side panel at half a
+  1440 px window the column is about 480 px and the label column alone takes 192 px, which left a document row about
+  100 px. 28rem is the theme's `@md` container step, the one `Field` uses.
+- No new gallery case: `table-fixed` and the frame change no existing pixel and the fit test builds its own narrow case, so the
   baselines stay as they are.

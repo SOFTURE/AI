@@ -26,6 +26,7 @@ Fix the cause in the theme, not in the app: a fixed table layout, and a wrapping
 - [x] Phase 1: component
 - [x] Phase 2: docs, version
 
-Evidence: `npx vitest run themes/theme-notion` 66 files, 1286 tests green; `npx playwright test visual/fit.spec.ts`
-20 passed (the new case fails on all 4 projects with `table-fixed` taken out); `visual/gallery.spec.ts` 148 passed
-with the committed baselines (no pixel changed).
+Evidence: `npx vitest run themes/theme-notion` 66 files, 1287 tests green; `npx playwright test visual/` 192 passed
+with the committed baselines (no pixel changed); the fit case (360 px stacked, 600 px as a table) fails on all 4
+projects with `table-fixed` taken out. The adopting app's e2e first showed that `table-fixed` alone left a 100 px
+value cell beside a half-width panel, which added the container-based stacking.
