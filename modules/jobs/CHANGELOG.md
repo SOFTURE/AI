@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.12
 
 - `failJob(code, { expected: true })` (new `FailJobOptions`): a failure the app expects, such as input it refuses, is
   logged at the end of the run as `warn` "job run failed" with `expected: true` instead of `error`, so an alert on
