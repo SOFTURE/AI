@@ -24,7 +24,7 @@ over `/proc` and `statfs`, and a span processor that records a histogram on `onE
 
 - `config.ts` (`host`, `serverSpanMetrics`, `HostMetricOptions`), `start.ts` (meter before tracer, the processor also
   without trace export), `index.ts`; `tests/start.test.ts` end to end through the OTLP receiver.
-- README "Metrics" and "Next.js", CHANGELOG; `npm run release:version -- observability minor` after the merge.
+- README "Metrics" and "Next.js", CHANGELOG; `npm run release:version -- observability patch` (0.8.8).
 - Done when: `npx vitest run foundation/observability` green; typecheck and ESLint clean.
 
 ## Progress

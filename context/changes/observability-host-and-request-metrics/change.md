@@ -30,7 +30,8 @@ and no alert can see a run of 5xx answers.
 - `instrumentations.serverSpanMetrics` (default on when `http` is off): `http.server.request.duration` from root
   server spans, by method, status code and route (`http.route` or `next.route`), never by path; also when trace export
   is off.
-- Tests, README, CHANGELOG; release as a minor (0.9.0): new default series.
+- Tests, README, CHANGELOG; release as a patch (0.8.8): additive, new default series only (a minor would make two
+  dependents widen their ranges for no API change).
 
 ## Notes
 
