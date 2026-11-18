@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { LIST_CLASSES, List, ListItem, ListRow } from "../../src/notion/List.js";
+import { LIST_CLASSES, List, ListGroup, ListGroupHeading, ListItem, ListRow } from "../../src/notion/List.js";
 
 function readOpening(html: string, slot: string): string {
   const match = new RegExp(`<\\w+ [^>]*data-slot="${slot}"[^>]*>`).exec(html);
@@ -105,5 +105,82 @@ describe("LIST_CLASSES (#1341)", () => {
     expect(LIST_CLASSES.tintedList).toBe("flex flex-col divide-y-(length:--list-divider-width) divide-background");
     expect(LIST_CLASSES.item).toBe("py-(--list-item-y)");
     expect(LIST_CLASSES.row).not.toMatch(/\[|#|\bpy-\d/);
+  });
+});
+
+describe("ListGroup (#1350)", () => {
+  it("is a div that holds the side room its heading bleeds over and stops every item below the heading", () => {
+    const html = renderToStaticMarkup(
+      <ListGroup aria-labelledby="france">
+        <ListGroupHeading id="france">France</ListGroupHeading>
+        <List>
+          <ListItem>Mon 3 March</ListItem>
+        </List>
+      </ListGroup>,
+    );
+    const group = readOpening(html, "list-group");
+
+    expect(group.startsWith("<div ")).toBe(true);
+    expect(group).toContain('aria-labelledby="france"');
+    expect(readClasses(group)).toEqual(["px-2", "**:data-[slot=list-item]:scroll-mt-10"]);
+    expect(html.indexOf('data-slot="list-group-heading"')).toBeLessThan(html.indexOf('data-slot="list"'));
+  });
+
+  it("with asChild keeps the app's element and lets the app's side room win", () => {
+    const group = readOpening(
+      renderToStaticMarkup(
+        <ListGroup asChild className="px-3">
+          <section />
+        </ListGroup>,
+      ),
+      "list-group",
+    );
+
+    expect(group.startsWith("<section ")).toBe(true);
+    expect(readClasses(group)).toContain("px-3");
+    expect(readClasses(group)).not.toContain("px-2");
+  });
+});
+
+describe("ListGroupHeading (#1350)", () => {
+  it("sticks at the top of the scroll, spans the scrollport over the group's side room, on the page with a line under it", () => {
+    const heading = readOpening(renderToStaticMarkup(<ListGroupHeading>France</ListGroupHeading>), "list-group-heading");
+    const classes = readClasses(heading);
+
+    expect(heading.startsWith("<div ")).toBe(true);
+    expect(heading).toContain('data-surface="page"');
+    for (const name of ["sticky", "top-0", "z-10", "-mx-2", "px-4", "min-h-10", "bg-background", "border-b", "border-border", "text-ui-medium", "text-foreground"]) {
+      expect(classes).toContain(name);
+    }
+  });
+
+  it("on a tinted card takes the card's secondary and draws its line in the page's background", () => {
+    const heading = readOpening(renderToStaticMarkup(<ListGroupHeading surface="tinted">France</ListGroupHeading>), "list-group-heading");
+
+    expect(heading).toContain('data-surface="tinted"');
+    expect(readClasses(heading)).toContain("bg-secondary");
+    expect(readClasses(heading)).toContain("border-background");
+    expect(readClasses(heading)).not.toContain("bg-background");
+  });
+
+  it("with asChild renders the app's heading element", () => {
+    const heading = readOpening(
+      renderToStaticMarkup(
+        <ListGroupHeading asChild>
+          <h3 id="france">France</h3>
+        </ListGroupHeading>,
+      ),
+      "list-group-heading",
+    );
+
+    expect(heading.startsWith("<h3 ")).toBe(true);
+    expect(heading).toContain('id="france"');
+  });
+
+  it("is exactly as tall as the scroll margin it leaves above each item (min-h-10, scroll-mt-10)", () => {
+    expect(LIST_CLASSES.groupHeading).toContain("min-h-10");
+    expect(LIST_CLASSES.tintedGroupHeading).toContain("min-h-10");
+    expect(LIST_CLASSES.group).toContain("scroll-mt-10");
+    expect(`${LIST_CLASSES.group} ${LIST_CLASSES.groupHeading} ${LIST_CLASSES.tintedGroupHeading}`).not.toMatch(/#|\[\d/);
   });
 });

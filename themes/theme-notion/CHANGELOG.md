@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.27.0
+
+- Sticky group heading for `List` (#1350): `ListGroup` and `ListGroupHeading`, a run of rows under a heading that sticks
+  at the top of its scroll container while the rows pass under it and is pushed away by the next group's heading. The
+  group holds the side room the heading bleeds over, so the heading spans the scrollport; the heading is
+  `text-ui-medium` on `background` with a `border` line under it (`surface="tinted"`: `secondary` with a `background`
+  line), 40 px high, and every `ListItem` in the group stops below it when scrolled into view. `asChild` keeps the
+  app's `section` and `h3`; `LIST_CLASSES.group`, `groupHeading`, `tintedGroupHeading` give the classes to a group the
+  app renders itself.
+- Migration: none; no existing component changes. An app that composes the heading from tokens (`sticky top-0 z-10
+  -mx-2 px-4 py-2 bg-background border-b`, `scroll-mt-10` on each item) can move to `ListGroup`; its scroll container
+  drops its own padding.
+
 ## 0.26.0
 
 - `DetailTable` is laid out fixed at its container's width (`table-fixed`, #1349): a long unbreakable value (a
