@@ -24,6 +24,8 @@ export interface TokenResponse {
   readonly refreshTokenExpiresIn: number | null;
   /** The granted scopes; null when the answer has none (then the requested ones were granted). */
   readonly scope: string | null;
+  /** The provider's id of the account (the provider's `subjectField`); null when it has none or gave none. */
+  readonly subject: string | null;
 }
 
 export interface ClientCredentials {
@@ -74,8 +76,18 @@ export async function requestTokens(options: TokenCallOptions): Promise<TokenCal
       refreshToken: body.refresh_token ?? null,
       refreshTokenExpiresIn: body.refresh_token_expires_in ?? null,
       scope: body.scope ?? null,
+      subject: readSubject(answer.value, options.provider.subjectField),
     },
   };
+}
+
+const SUBJECT_PATTERN = /^[\x21-\x7e]{1,200}$/;
+
+/** The provider's account id from the token response's `field`: printable ASCII without spaces, at most 200 characters. */
+function readSubject(body: unknown, field: string | undefined): string | null {
+  if (field === undefined || typeof body !== "object" || body === null) return null;
+  const value: unknown = (body as Record<string, unknown>)[field];
+  return typeof value === "string" && SUBJECT_PATTERN.test(value) ? value : null;
 }
 
 /** RFC 7009: asks the provider to revoke `token`. Best effort: answers whether the provider took it. */

@@ -13,7 +13,7 @@ import { accounts, type AccountRow } from "../schema.js";
 import { getCredentialContext, sealSecret, type Keyring } from "./crypto.js";
 import { addSeconds, getRefreshExpiry } from "./flow.js";
 import { findProvider, getConnectionsOptions, readClientCredentials } from "./options.js";
-import { findAccount, getKeyring, markReconnectRequired, openOAuthSecrets, parseScopes, releaseLease, type ConnectionsContext } from "./store.js";
+import { findAccount, getKeyring, markReconnectRequired, openOAuthSecrets, parseScopes, releaseLease, resolveOwner, type ConnectionsContext } from "./store.js";
 import { getStateContext } from "./state-database.js";
 import { requestTokens, type TokenCallResult } from "./token-client.js";
 
@@ -21,6 +21,8 @@ export interface GetAccessTokenInput {
   readonly provider: string;
   /** One of the provider's `accounts`; `default` when omitted. */
   readonly accountId?: string;
+  /** The user whose own connection it is (a provider with `owner: "user"`); omitted for the app's connection. */
+  readonly ownerId?: string;
   /**
    * Refresh now, even when the stored token is not close to expiry (the provider refused it early). Same lease,
    * same `invalid_grant` handling; without a refresh token the stored token is answered as it is.
@@ -42,6 +44,7 @@ export async function getAccessToken(ctx: ConnectionsContext, input: GetAccessTo
 export interface ReplaceRejectedTokenInput {
   readonly provider: string;
   readonly accountId?: string;
+  readonly ownerId?: string;
   /** The access token the provider just refused. */
   readonly rejectedToken: string;
 }
@@ -67,9 +70,11 @@ async function readAccessToken(callerCtx: ConnectionsContext, input: ProviderAcc
   if (!found.ok) return found;
   const provider = found.value;
   if (provider.kind !== "oauth") return err("connections.wrong_kind");
+  const owner = resolveOwner(provider, input.ownerId);
+  if (!owner.ok) return owner;
   const keyring = getKeyring(ctx);
   if (!keyring.ok) return keyring;
-  const row = await findAccount(ctx, provider.id, accountId);
+  const row = await findAccount(ctx, provider.id, accountId, owner.value);
   if (row === undefined) return err("connections.not_connected");
   return resolveToken(ctx, { provider, keyring: keyring.value, row, mayWait: true, force });
 }
@@ -77,6 +82,7 @@ async function readAccessToken(callerCtx: ConnectionsContext, input: ProviderAcc
 interface ProviderAccount {
   readonly provider: string;
   readonly accountId?: string;
+  readonly ownerId?: string;
 }
 
 interface ResolveInput {
@@ -98,7 +104,7 @@ async function resolveToken(ctx: ConnectionsContext, input: ResolveInput): Promi
     // Nothing to refresh with: usable until it expires, then only a reconnect helps.
     // (A forced call reaches here with a token that never expires, too.)
     if (row.expiresAt === null || row.expiresAt > now) return toAccessToken(keyring, row);
-    await markReconnectRequired(ctx, { rowId: row.id, provider: row.provider, accountId: row.accountId, kind: "oauth", reason: "expired" });
+    await markReconnectRequired(ctx, { rowId: row.id, provider: row.provider, accountId: row.accountId, ownerId: row.ownerId, kind: "oauth", reason: "expired" });
     return err("connections.reconnect_required");
   }
 
@@ -133,7 +139,7 @@ async function refreshUnderLease(
   const refreshToken = secrets.value.refreshToken;
   if (refreshToken === null) {
     // `has_refresh_token` said otherwise; the sealed payload is the truth.
-    await markReconnectRequired(ctx, { rowId: row.id, provider: row.provider, accountId: row.accountId, kind: "oauth", reason: "expired", leaseId });
+    await markReconnectRequired(ctx, { rowId: row.id, provider: row.provider, accountId: row.accountId, ownerId: row.ownerId, kind: "oauth", reason: "expired", leaseId });
     return err("connections.reconnect_required");
   }
   const client = readClientCredentials(provider, ctx.env);
@@ -159,6 +165,7 @@ async function refreshUnderLease(
         rowId: row.id,
         provider: row.provider,
         accountId: row.accountId,
+        ownerId: row.ownerId,
         kind: "oauth",
         reason: "invalid_grant",
         leaseId,
@@ -177,7 +184,7 @@ async function refreshUnderLease(
   const tokens = answer.tokens;
   // A provider that rotates spends the old refresh token: without a new one, the grant ends when this token does.
   const nextRefreshToken = tokens.refreshToken ?? (provider.rotatesRefreshToken ? null : refreshToken);
-  const sealed = sealSecret(keyring, JSON.stringify({ accessToken: tokens.accessToken, refreshToken: nextRefreshToken }), getCredentialContext(row.provider, row.accountId));
+  const sealed = sealSecret(keyring, JSON.stringify({ accessToken: tokens.accessToken, refreshToken: nextRefreshToken }), getCredentialContext(row.provider, row.accountId, row.ownerId));
   const isNewRefreshToken = tokens.refreshToken !== null;
   const values = {
     keyId: sealed.keyId,
@@ -214,7 +221,7 @@ async function waitForRefresh(ctx: ConnectionsContext, input: ResolveInput): Pro
   const { attempts, intervalMs } = getConnectionsOptions(ctx.config).refreshWait;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
-    const row = await findAccount(ctx, input.row.provider, input.row.accountId);
+    const row = await findAccount(ctx, input.row.provider, input.row.accountId, input.row.ownerId);
     if (row === undefined) return err("connections.not_connected");
     if (row.status === "reconnect_required") return err("connections.reconnect_required");
     // The other worker stored a new token: it is the refresh this caller asked for, forced or not.

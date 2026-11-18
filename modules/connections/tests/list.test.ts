@@ -31,6 +31,8 @@ describe("listConnections", () => {
     expect(fake).toEqual({
       provider: "fake",
       accountId: "default",
+      ownerId: null,
+      subject: null,
       kind: "oauth",
       label: "Fake provider",
       status: "connected",

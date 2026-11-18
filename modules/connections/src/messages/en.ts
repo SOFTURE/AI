@@ -49,6 +49,7 @@ export const en = {
       unknown_provider: "This provider is no longer configured. Reload the page.",
       wrong_kind: "This provider does not take that kind of credential. Reload the page.",
       not_connected: "This account is not connected.",
+      wrong_owner: "This connection belongs to someone else's account, or to the app. Reload the page.",
       reconnect_required: "The provider no longer accepts this connection. Reconnect it.",
       refresh_failed: "Refreshing the access failed. It will be retried.",
       refresh_in_progress: "A refresh is already running. Try again in a moment.",

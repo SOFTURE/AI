@@ -1,39 +1,64 @@
-// Every declared provider account as the page and the app see it, with its health. Reads no secret.
-import { and, eq, inArray } from "drizzle-orm";
+// Every declared provider account as the page and the app see it, with its health. Reads no secret. The app's own
+// connections (`listConnections`, for the admin page) and one user's own (`listOwnConnections`) never mix.
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { ConnectionStatus, ConnectionView } from "../contract.js";
 import type { ProviderDefinition } from "../options.js";
 import { accounts, type AccountRow } from "../schema.js";
 import { getConnectionsOptions, getProviderLabel } from "./options.js";
-import type { ConnectionsContext } from "./store.js";
+import { getProviderOwner, whereConnection, type ConnectionsContext } from "./store.js";
 
-/** One view per declared provider and account, in the order the app declared them. */
+/** One view per declared app provider and account, in the order the app declared them. Users' own connections are not here. */
 export async function listConnections(ctx: ConnectionsContext): Promise<ConnectionView[]> {
-  const { providers } = getConnectionsOptions(ctx.config);
+  const providers = getConnectionsOptions(ctx.config).providers.filter((provider) => getProviderOwner(provider) === "app");
   if (providers.length === 0) return [];
   const rows = await ctx.db
     .select()
     .from(accounts)
-    .where(inArray(accounts.provider, providers.map((provider) => provider.id)));
+    .where(and(inArray(accounts.provider, providers.map((provider) => provider.id)), isNull(accounts.ownerId)));
+  return toViews(ctx, providers, rows, null);
+}
+
+/**
+ * One view per declared user provider (`owner: "user"`) and account for one user: their own connections, connected or
+ * not, in the order the app declared them.
+ */
+export async function listOwnConnections(ctx: ConnectionsContext, ownerId: string): Promise<ConnectionView[]> {
+  const providers = getConnectionsOptions(ctx.config).providers.filter((provider) => getProviderOwner(provider) === "user");
+  if (providers.length === 0) return [];
+  const rows = await ctx.db
+    .select()
+    .from(accounts)
+    .where(and(inArray(accounts.provider, providers.map((provider) => provider.id)), eq(accounts.ownerId, ownerId)));
+  return toViews(ctx, providers, rows, ownerId);
+}
+
+function toViews(ctx: ConnectionsContext, providers: readonly ProviderDefinition[], rows: readonly AccountRow[], ownerId: string | null): ConnectionView[] {
   const byKey = new Map(rows.map((row) => [`${row.provider}/${row.accountId}`, row]));
   const now = ctx.clock.now();
   return providers.flatMap((provider) =>
-    provider.accounts.map((accountId) => toView(ctx, provider, accountId, byKey.get(`${provider.id}/${accountId}`), now)),
+    provider.accounts.map((accountId) => toView(ctx, { provider, accountId, ownerId }, byKey.get(`${provider.id}/${accountId}`), now)),
   );
 }
 
-/** The view of one provider account. */
-export async function getConnection(ctx: ConnectionsContext, provider: ProviderDefinition, accountId: string): Promise<ConnectionView> {
-  const [row] = await ctx.db
-    .select()
-    .from(accounts)
-    .where(and(eq(accounts.provider, provider.id), eq(accounts.accountId, accountId)));
-  return toView(ctx, provider, accountId, row, ctx.clock.now());
+/** The view of one provider account: the app's, or the user's own when `ownerId` is given. */
+export async function getConnection(ctx: ConnectionsContext, provider: ProviderDefinition, accountId: string, ownerId: string | null = null): Promise<ConnectionView> {
+  const [row] = await ctx.db.select().from(accounts).where(whereConnection(provider.id, accountId, ownerId));
+  return toView(ctx, { provider, accountId, ownerId }, row, ctx.clock.now());
 }
 
-function toView(ctx: ConnectionsContext, provider: ProviderDefinition, accountId: string, row: AccountRow | undefined, now: Date): ConnectionView {
+interface ViewTarget {
+  readonly provider: ProviderDefinition;
+  readonly accountId: string;
+  readonly ownerId: string | null;
+}
+
+function toView(ctx: ConnectionsContext, target: ViewTarget, row: AccountRow | undefined, now: Date): ConnectionView {
+  const { provider, accountId, ownerId } = target;
   return {
     provider: provider.id,
     accountId,
+    ownerId,
+    subject: row?.subject ?? null,
     kind: provider.kind,
     label: getProviderLabel(ctx.config, provider),
     status: row === undefined ? "not_connected" : getStatus(ctx, row, now),
