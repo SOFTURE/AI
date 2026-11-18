@@ -253,13 +253,14 @@ const GH_STEP = getJobSteps("deploy-cut-release.yml", "cut")[1];
 const GH_SCRIPT = GH_STEP?.run ?? "exit 99";
 
 describe("the jobs that call gh", () => {
-  it("are the five the issue's workflows run gh in, and the quality review's delivery (#1212)", () => {
+  it("are the six the issue's workflows run gh in, and the quality review's delivery (#1212)", () => {
     expect(GH_JOBS.sort()).toEqual([
       "deploy-cancel-run.yml → cancel",
       "deploy-cut-release.yml → cut",
       "deploy-integration.yml → record",
       "deploy-release-notes.yml → notes",
       "deploy-report.yml → report",
+      "deploy-tested-tree.yml → tested",
       "quality-review.yml → deliver",
     ]);
   });

@@ -712,6 +712,35 @@ costs a cold run):
         **/*.tsbuildinfo
 ```
 
+**A suite the pull request already ran.** A release tag usually carries the code its last pull request tested
+minutes earlier, so the release's unit job repeats that suite. `SOFTURE/AI/.github/workflows/deploy-tested-tree.yml`
+(issue #1373) answers `tested: "true"` when the tag's tree equals, outside `ignore-prefixes` (default `context/`), the
+newest commit of the last merged pull request on which every check run in `check-names` succeeded; anything else,
+an API or git failure included, answers `"false"` and the suite runs as before. It reads the repository, its pull
+requests and its checks (`contents`, `pull-requests`, `checks: read`), so it is a job of its own next to the checks:
+
+```yaml
+jobs:
+  tested:
+    uses: SOFTURE/AI/.github/workflows/deploy-tested-tree.yml@<sha>
+    permissions: { contents: read, pull-requests: read, checks: read }
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      check-names: coverage   # the job(s) that mean the full suite passed on the pull request
+
+  checks:
+    needs: tested
+    uses: SOFTURE/AI/.github/workflows/deploy-release-checks.yml@<sha>
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      unit: ${{ needs.tested.outputs.tested != 'true' }}
+```
+
+Inputs: `tag`, `check-names` (space-separated), `ignore-prefixes`, `depth` (first-parent commits searched for a
+merged pull request, 1 to 50, default 10), `runs-on`. Outputs: `tested`, `tested-sha`. A merge of a pull request
+whose head lacks newer code of the main branch differs from every tested commit, so the suite runs; so does a tag
+with a direct code push after the merge.
+
 **Before a deploy.** In the deploy caller, `checks` and `image` jobs ahead of `deploy` make the release deploy only
 the image the checks passed (the caller's top-level `permissions` already grant `packages: write`). The shortest form
 is below; **Fail fast** shows the same pipeline that stops at its first red part:
@@ -771,7 +800,8 @@ its `if`). The two calls of the checks each run `prepare` with the tag, which co
 ### Runner
 
 Every job of the reusable workflows (`deploy-app`, `deploy-release-checks`, `deploy-release-image`,
-`deploy-integration`, `deploy-report`, `deploy-cut-release`, `deploy-release-notes`, `deploy-cancel-run`, and the
+`deploy-integration`, `deploy-report`, `deploy-cut-release`, `deploy-release-notes`, `deploy-cancel-run`,
+`deploy-tested-tree`, and the
 blog's `blog-links`) runs on the runner the input `runs-on` names (issue #670). The input is JSON: one label, or an
 array of labels a runner must all carry. The default, `'"ubuntu-latest"'`, keeps a caller that passes nothing on
 GitHub's hosted runner.

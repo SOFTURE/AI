@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.7.4
+
+- **`deploy-tested-tree.yml` (#1373):** a reusable workflow that answers whether a release tag carries the code its
+  last merged pull request already tested (every check run in `check-names` green on a commit of that pull request,
+  and only `ignore-prefixes` paths differ). A release caller passes `unit: ${{ needs.tested.outputs.tested != 'true' }}`
+  to `deploy-release-checks.yml` and skips repeating the suite. Any doubt answers `false`. README "Release checks".
+
 ## 0.7.3
 
 - `init --host=cloudflare` for an app with a database writes an `alias` into `wrangler.jsonc` that points

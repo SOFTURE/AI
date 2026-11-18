@@ -1,0 +1,199 @@
+# Whether a release tag's code already passed the full suite on its pull request (@softure-ai/deploy, issue #1373),
+# so a release caller can skip running the same unit tests again on the tag (`unit: false` of
+# deploy-release-checks.yml). An adopting app measured that the release suite repeats, on one runner, a suite its last
+# pull request ran minutes earlier.
+#
+# The job walks the first-parent history of the tag's commit (at most `depth` commits) to the newest one a merged pull
+# request brought in, takes the newest commit of that pull request on which every check run named in `check-names`
+# succeeded, and answers `tested=true` only when the files between that commit and the tag all start with one of
+# `ignore-prefixes` (workflow artifacts such as `context/`). Anything else, an API or git failure included, answers
+# `tested=false`: the caller then runs the suite, as before. The caller grants `contents: read`,
+# `pull-requests: read` and `checks: read`.
+
+name: deploy-tested-tree
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: The runner of every job as JSON, one label or an array of labels (e.g. "ubuntu-latest" or ["self-hosted","linux"])
+        type: string
+        default: '"ubuntu-latest"'
+      tag:
+        description: The release tag whose commit is looked up
+        type: string
+        required: true
+      check-names:
+        description: Check runs (job names) that together mean the full suite passed on a commit, separated by spaces (e.g. "coverage")
+        type: string
+        required: true
+      ignore-prefixes:
+        description: Path prefixes that may differ between the tested commit and the tag, separated by spaces
+        type: string
+        default: context/
+      depth:
+        description: How many first-parent commits of the tag to look through for a merged pull request (1 to 50)
+        type: number
+        default: 10
+    outputs:
+      tested:
+        description: '"true" when the tag carries code that already passed the suite; "false" otherwise'
+        value: ${{ jobs.tested.outputs.tested }}
+      tested-sha:
+        description: The pull request commit whose suite counts, when tested is true
+        value: ${{ jobs.tested.outputs.sha }}
+
+permissions:
+  contents: read
+
+jobs:
+  tested:
+    name: tested tree
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    outputs:
+      tested: ${{ steps.find.outputs.tested }}
+      sha: ${{ steps.find.outputs.sha }}
+    steps:
+      -
+        name: Check the runner
+        env:
+          RUNS_ON: ${{ inputs.runs-on }}
+        # GitHub picked this runner from the value already, so a value that is not JSON never gets here; this step
+        # refuses the JSON that GitHub takes but the input does not mean (an object, an empty array, a number).
+        run: |
+          label='"[^"\\]+"'
+          space='[[:space:]]*'
+          pattern="^$space($label|\\[$space$label($space,$space$label)*$space\\])$space\$"
+          if [[ ! "$RUNS_ON" =~ $pattern ]]; then
+            echo "::error::Input runs-on is not valid: a JSON label such as '\"ubuntu-latest\"' or a non-empty array of labels such as '[\"self-hosted\",\"linux\"]'"
+            exit 1
+          fi
+      # A self-hosted runner keeps one work directory per repository between jobs, and a sparse checkout an earlier job
+      # left there outlives the next full one (issue #687): every job that checks out starts from an empty workspace,
+      # as on a hosted runner.
+      -
+        name: Empty the workspace
+        # Outside the workspace, and before a job's defaults.run.working-directory (inside the checkout) exists.
+        working-directory: ${{ runner.temp }}
+        run: |
+          if ! find "${GITHUB_WORKSPACE:?}" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; then
+            echo "::error::The workspace $GITHUB_WORKSPACE could not be emptied: files of another user (a container's volume) are left there. Remove them on the runner, and empty the workspace in its job-started hook (@softure-ai/deploy README, \"Runner\")."
+            exit 1
+          fi
+
+      - name: Set up the GitHub CLI
+        run: |
+          if command -v gh > /dev/null; then
+            exit 0
+          fi
+          version=2.103.0
+          case "$RUNNER_OS $RUNNER_ARCH" in
+            "Linux X64") arch=amd64 sum=fdd768eb70f6409f80fcfa9f3a1c0adf0fc98d827ab3ce0bed2ac22762c5d786 ;;
+            "Linux ARM64") arch=arm64 sum=7f322df34e624d14f5ec0c4acb121fd6dfa14392fdbbd1066aa8e0a05ac3721e ;;
+            *)
+              echo "::error::The GitHub CLI (gh) is not on this runner and cannot be installed on $RUNNER_OS $RUNNER_ARCH: install gh on the runner (https://cli.github.com)"
+              exit 1
+              ;;
+          esac
+          missing=""
+          for tool in curl tar; do
+            command -v "$tool" > /dev/null || missing="$missing $tool"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::The GitHub CLI (gh) is not on this runner, and installing it needs:$missing"
+            exit 1
+          fi
+          name="gh_${version}_linux_$arch"
+          url="https://github.com/cli/cli/releases/download/v$version/$name.tar.gz"
+          dir="$RUNNER_TEMP/gh-$version"
+          archive="$dir/$name.tar.gz"
+          rm -rf "$dir"
+          mkdir -p "$dir"
+          if ! curl -fsSL --retry 3 -o "$archive" "$url"; then
+            echo "::error::Downloading the GitHub CLI failed: $url"
+            exit 1
+          fi
+          if command -v sha256sum > /dev/null; then
+            actual="$(sha256sum "$archive" | cut -d " " -f 1)"
+          else
+            actual="$(shasum -a 256 "$archive" | cut -d " " -f 1)"
+          fi
+          if [ "$actual" != "$sum" ]; then
+            echo "::error::The GitHub CLI archive $name.tar.gz does not match its pinned SHA-256 ($actual, expected $sum)"
+            rm -rf "$dir"
+            exit 1
+          fi
+          tar -xzf "$archive" -C "$dir"
+          rm -f "$archive"
+          "$dir/$name/bin/gh" --version
+          echo "$dir/$name/bin" >> "$GITHUB_PATH"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+          fetch-depth: 0
+          sparse-checkout: /package.json
+          sparse-checkout-cone-mode: false
+      - id: find
+        name: Find the tested commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          CHECK_NAMES: ${{ inputs.check-names }}
+          IGNORE_PREFIXES: ${{ inputs.ignore-prefixes }}
+          DEPTH: ${{ inputs.depth }}
+        run: |
+          answer() {
+            echo "tested=$1" >> "$GITHUB_OUTPUT"
+            echo "sha=$2" >> "$GITHUB_OUTPUT"
+            echo "$3"
+            exit 0
+          }
+          if [[ ! "$DEPTH" =~ ^[1-9][0-9]?$ ]] || (( DEPTH > 50 )); then
+            echo "::error::Input depth is not valid: 1 to 50"
+            exit 1
+          fi
+          if [ -z "${CHECK_NAMES// /}" ]; then
+            echo "::error::Input check-names is not valid: at least one check run name"
+            exit 1
+          fi
+          sha="$(git rev-parse --verify --quiet "$TAG^{commit}")" || answer false "" "The tag $TAG names no commit: the suite runs."
+          # The newest first-parent commit a merged pull request brought in.
+          pr=""
+          for commit in $(git rev-list --first-parent --max-count="$DEPTH" "$sha"); do
+            pr="$(gh api "repos/$REPOSITORY/commits/$commit/pulls" --jq '[.[] | select(.merged_at != null)][0].number // empty' 2> /dev/null)" || pr=""
+            [ -n "$pr" ] && break
+          done
+          [ -n "$pr" ] || answer false "" "No merged pull request in the last $DEPTH commits of $TAG: the suite runs."
+          commits="$(gh api --paginate "repos/$REPOSITORY/pulls/$pr/commits?per_page=100" --jq '.[].sha' 2> /dev/null)" \
+            || answer false "" "The commits of pull request #$pr could not be read: the suite runs."
+          # Newest first (awk, not tac: the step also runs with BSD tools).
+          for commit in $(printf '%s\n' "$commits" | awk '{ lines[NR] = $0 } END { for (i = NR; i > 0; i--) print lines[i] }'); do
+            passed=1
+            for name in $CHECK_NAMES; do
+              count="$(gh api "repos/$REPOSITORY/commits/$commit/check-runs?check_name=$name" \
+                --jq '[.check_runs[] | select(.conclusion == "success")] | length' 2> /dev/null)" || count=0
+              [ "${count:-0}" -gt 0 ] || { passed=0; break; }
+            done
+            [ "$passed" = 1 ] || continue
+            git fetch --quiet --no-tags origin "$commit" 2> /dev/null \
+              || answer false "" "The tested commit $commit of #$pr could not be fetched: the suite runs."
+            changed="$(git diff --name-only "$commit" "$sha")" \
+              || answer false "" "The diff between $commit and $TAG failed: the suite runs."
+            while IFS= read -r file; do
+              [ -n "$file" ] || continue
+              ignored=0
+              for prefix in $IGNORE_PREFIXES; do
+                case "$file" in "$prefix"*) ignored=1 ;; esac
+              done
+              [ "$ignored" = 1 ] || answer false "" "$file changed after $commit, the last commit of #$pr whose suite passed: the suite runs."
+            done <<< "$changed"
+            answer true "$commit" "$TAG carries the code of $commit (#$pr), whose suite passed: the release can skip it."
+          done
+          answer false "" "No commit of #$pr passed $CHECK_NAMES: the suite runs."
