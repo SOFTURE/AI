@@ -26,7 +26,7 @@ describe("the files module", () => {
       dedupe: false,
       defaultTtlSeconds: null,
       links: { maxTtlSeconds: 7 * 24 * 60 * 60, disposition: "attachment" },
-      uploads: { chunkBytes: 64 * 1024 * 1024, ttlSeconds: 24 * 60 * 60, maxOpenPerOwner: 5, contentTypes: null },
+      uploads: { chunkBytes: 64 * 1024 * 1024, ttlSeconds: 24 * 60 * 60, maxOpenPerOwner: 20, contentTypes: null },
       health: { minFreeBytes: 1024 * 1024 * 1024 },
     });
   });

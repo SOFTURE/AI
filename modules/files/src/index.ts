@@ -26,7 +26,7 @@ export const FILES_RATE_LIMIT_BUCKETS = {
 export const files = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.6.0",
+    version: "0.6.1",
     runtimes: ["node", "workers"],
     dependsOn: { jobs: "^0.1.6?", security: "^0.2.5?" },
     dbSchema: "files",

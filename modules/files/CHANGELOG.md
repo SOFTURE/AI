@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.6.1
+
+- `uploads.maxOpenPerOwner` defaults to 20 (was 5): an assistant or a browser that uploads a batch from a phone (a
+  dozen clips and a cover) no longer gets `files.too_many_uploads` on the sixth file. The limit, its range (1..1000),
+  the expiry of stale sessions and the quota check are unchanged.
+  - Migrate: nothing; an app that wants the old bound sets `uploads: { maxOpenPerOwner: 5 }`.
+
 ## 0.6.0
 
 - `setFileExpiry(ctx, fileId, { ownerId?, expiresAt })` in `./server`: changes a live file's expiry after it was
