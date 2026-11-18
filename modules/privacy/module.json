@@ -1,6 +1,6 @@
 {
   "id": "privacy",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "runtimes": ["node", "workers"],
   "dependsOn": { "auth": "^0.2.18", "security": "^0.2.0", "ops": "^0.2.0?" },
   "dbSchema": "privacy",

@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`privacy@x.y.z`).
 
-## Unreleased
+## 0.2.4
 
 - **An account a provider created can delete itself.** `deleteOwnAccount` takes an optional `sessionToken`: with an
   empty password, a provider sign-in (OpenID Connect or GitHub, `@softure-ai/auth`) that opened that session within
