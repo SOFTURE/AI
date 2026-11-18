@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.26.0
 
 - `DetailTable` lays its table out at its container's width (`table-fixed`) (#1349): a value that holds a
   `DocumentRow` (a truncated title, its buttons) wraps or cuts inside its cell instead of widening the table past its
