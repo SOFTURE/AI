@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
-## Unreleased
+## 0.2.11
 
 - `clientIpFromEnv(env)`, `readClientIpSource(env)` and `createClientIpResolver(source)`: the client-IP resolver an
   app's environment names (`CLIENT_IP_SOURCE`: `cloudflare` by default, `forwarded-for` with `TRUSTED_PROXY_HOPS`, or
