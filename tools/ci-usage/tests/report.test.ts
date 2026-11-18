@@ -107,3 +107,10 @@ describe("renderMarkdown", () => {
     expect(empty).toContain("Status: complete.");
   });
 });
+
+describe("renderMarkdown table cells", () => {
+  it("escapes backslashes before pipes and folds line breaks", () => {
+    const markdown = renderMarkdown(buildReport({ collected: [collected("acme/app", { jobs: [makeJob({ name: "a\\|b\nc", seconds: 60 })] })], from: FROM, to: TO, generatedAt: TO, priceOptions: PRICE_OPTIONS }));
+    expect(markdown).toContain("| ci | a\\\\\\|b c |");
+  });
+});

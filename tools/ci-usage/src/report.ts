@@ -106,9 +106,9 @@ function formatShare(share: number): string {
   return `${(share * 100).toFixed(1)}%`;
 }
 
-/** A Markdown table cell: pipes and line breaks would break the row. */
+/** A Markdown table cell: backslashes, pipes and line breaks would break the row. */
 function cell(text: string): string {
-  return text.replace(/\|/g, "\\|").replace(/\s*\n\s*/g, " ");
+  return text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
 }
 
 function table(header: string[], rows: string[][]): string[] {

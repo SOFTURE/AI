@@ -167,3 +167,11 @@ describe("collectRepository on the API's real shapes", () => {
     expect(result.jobs[0]).toMatchObject({ startedAt: "2026-11-18T13:18:33Z", completedAt: null, runAttempt: 1 });
   });
 });
+
+describe("getNextLink on hostile input", () => {
+  it("returns quickly on a long header of repeated brackets", () => {
+    const started = Date.now();
+    expect(getNextLink(`<${"<=".repeat(100_000)}`)).toBeNull();
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+});

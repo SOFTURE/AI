@@ -33,9 +33,11 @@ const API_VERSION = "2022-11-28";
 /** The `rel="next"` address of a Link header, or null. */
 export function getNextLink(header: string | null): string | null {
   if (header === null) return null;
+  // Plain string parsing: the header comes from the network, so no backtracking pattern runs over it.
   for (const part of header.split(",")) {
-    const match = /<([^>]+)>\s*;\s*rel="next"/.exec(part);
-    if (match?.[1] !== undefined) return match[1];
+    const [target, ...params] = part.split(";").map((piece) => piece.trim());
+    if (target === undefined || !target.startsWith("<") || !target.endsWith(">")) continue;
+    if (params.some((param) => param.replace(/ /g, "") === 'rel="next"')) return target.slice(1, -1);
   }
   return null;
 }
