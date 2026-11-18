@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.6.0
+
+- `setFileExpiry(ctx, fileId, { ownerId?, expiresAt })` in `./server`: changes a live file's expiry after it was
+  saved (`null` keeps it until it is deleted; a date after the file was saved, even a past one, lets `pruneFiles` take
+  it then) and answers the updated `StoredFile`, or `files.not_found` for another owner's, a deleted, an expired or an
+  unknown file. For an app whose retention depends on facts it learns after the upload.
+  - Migrate: nothing.
+
 ## 0.5.3
 
 - `createFakeS3({ bucket, accessKeyId, secretAccessKey, basePath?, isWritable? })` in `./testing`: an S3-compatible

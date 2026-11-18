@@ -100,6 +100,33 @@ export async function getOwnerUsage(ctx: FilesContext, ownerId: string): Promise
   return sumOwnerBytes(ctx.db, ownerId, ctx.clock.now());
 }
 
+export type SetFileExpiryResult = Ok<StoredFile> | Err<"files.not_found">;
+
+export interface SetFileExpiryInput extends FileLookupOptions {
+  /**
+   * When the file stops being served and `pruneFiles` removes it, after the file was saved (`files_expiry_check`; an
+   * earlier date is a caller bug and throws); null keeps it until it is deleted.
+   */
+  readonly expiresAt: Date | null;
+}
+
+/**
+ * Changes a live file's expiry: a later date or null keeps it longer, an earlier one (even a past one, though never
+ * before the file was saved) lets
+ * `pruneFiles` take it sooner. A deleted or expired file reads as missing, so its retention cannot be brought back.
+ */
+export async function setFileExpiry(ctx: FilesContext, fileId: string, input: SetFileExpiryInput): Promise<SetFileExpiryResult> {
+  if (!UUID_PATTERN.test(fileId)) return err("files.not_found");
+  const conditions: SQL[] = [eq(files.id, fileId), isLive(ctx.clock.now())];
+  if (input.ownerId !== undefined) conditions.push(eq(files.ownerId, input.ownerId));
+  const [updated] = await ctx.db
+    .update(files)
+    .set({ expiresAt: input.expiresAt })
+    .where(and(...conditions))
+    .returning();
+  return updated === undefined ? err("files.not_found") : ok(toStoredFile(updated));
+}
+
 export type DeleteFileResult = Ok<undefined> | Err<"files.not_found">;
 
 /**
