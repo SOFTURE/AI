@@ -25,5 +25,11 @@ One prop on `SortableHandle` and one group marker on `SortableItem`, both in `sr
 
 ## Progress
 
-- [ ] Phase 1: prop and tests
-- [ ] Phase 2: browser check, docs, version
+- [x] Phase 1: prop and tests (16c73d7)
+- [x] Phase 2: browser check, docs, version (86a9a01, ba66156)
+
+Evidence: `npx vitest run themes/theme-notion` 67 files, 1305 tests green; typecheck and ESLint clean (pre-commit);
+parity fixture regenerated (only `group/sortable-item` and `data-reveal` added). Browser check (scratch Playwright page
+with the classes Tailwind generates, Chromium headless shell 1243, reduced motion): fine pointer opacity rest 0, row
+hover 1, focus within 1, `data-dragging` 1; coarse pointer (`hasTouch`, `isMobile`) 1 in every state. Version 0.28.0
+(npm latest is 0.27.0); no package depends on theme-notion.

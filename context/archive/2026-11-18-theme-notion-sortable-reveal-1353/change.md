@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-sortable-reveal-1353
 title: "theme-notion: a SortableHandle that shows only while its row is hovered or focused (issue #1353)"
-status: open
+status: archived
+archived_at: 2026-11-18
 roadmap_item: null
 issue: 1353
 branch: claude/project-thread-5v60lf
@@ -35,6 +36,11 @@ visible; an adopting app adds `group/<name>` to `SortableItem` and five `pointer
 
 - Research and frame skipped: one additive prop whose classes the issue already measured in an adopting app; the
   sidebar's own `group-hover/menu-item:opacity-100` action is the in-package precedent.
+
+## Done
+
+- `SortableHandle reveal="hover"` and `group/sortable-item` on `SortableItem` in theme-notion 0.28.0 (released after
+  the merge by the release run).
 
 ## Decisions (auto)
 
