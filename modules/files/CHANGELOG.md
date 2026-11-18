@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.6.0
 
 - `setFileExpiry(ctx, fileId, { ownerId?, expiresAt })` in `./server`: changes a live file's expiry after it was
   saved (`null` keeps it until it is deleted; a date, even a past one, lets `pruneFiles` take it then) and answers the
