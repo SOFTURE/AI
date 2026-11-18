@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { PROSE_CLASSES, Prose } from "../../src/notion/Prose.js";
 
-/** The markup with the class attribute's escapes undone, so a class reads as written. */
+/** The markup with the class attribute's escapes undone, so a class reads as written (`&amp;` last, so nothing is unescaped twice). */
 function renderMarkup(element: Parameters<typeof renderToStaticMarkup>[0]): string {
-  return renderToStaticMarkup(element).replaceAll("&amp;", "&").replaceAll("&gt;", ">");
+  return renderToStaticMarkup(element).replaceAll("&gt;", ">").replaceAll("&amp;", "&");
 }
 
 describe("Prose", () => {
