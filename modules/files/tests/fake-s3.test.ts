@@ -96,6 +96,13 @@ describe("createFakeS3, read-only", () => {
     expect(s3.calls.list).toBe(0);
   });
 
+  it("takes a base path with trailing slashes as the same endpoint", async () => {
+    const s3 = createFakeS3({ bucket: "notes-store", basePath: "/store//", ...KEYS });
+    s3.put("vault/a.md", "a");
+
+    expect(await (await list(s3, "list-type=2")).text()).toContain("<Key>vault/a.md</Key>");
+  });
+
   it("answers an injected status until it is cleared", async () => {
     const { s3 } = setUp(false);
     s3.fail("list", 503);

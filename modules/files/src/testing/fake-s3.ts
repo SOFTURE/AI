@@ -37,7 +37,7 @@ export function createFakeS3(options: FakeS3Options): FakeS3 {
   const objects = new Map<string, Uint8Array>();
   const failures = new Map<FakeS3Operation, number>();
   const calls: Record<FakeS3Operation, number> = { list: 0, get: 0, put: 0, head: 0, delete: 0 };
-  const basePath = (options.basePath ?? "").replace(/\/+$/, "");
+  const basePath = trimTrailingSlashes(options.basePath ?? "");
   const encoder = new TextEncoder();
 
   const etagOf = (content: Uint8Array) => createHash("md5").update(content).digest("hex");
@@ -160,6 +160,13 @@ function isSigned(request: Request, url: URL, options: FakeS3Options): boolean {
     date,
   });
   return expected.authorization === authorization;
+}
+
+/** The path without its trailing slashes (a loop, not a regular expression: no backtracking on a long run of "/"). */
+function trimTrailingSlashes(path: string): string {
+  let end = path.length;
+  while (end > 0 && path[end - 1] === "/") end -= 1;
+  return path.slice(0, end);
 }
 
 function xmlError(status: number, code: string): Response {
