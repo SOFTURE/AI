@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.1.7
+
+- `--since <commit>` for `softure-context-only-push` and `softure-merge-push-scope` (#1371), so a CI job, which has
+  no upstream, can skip the heavy jobs for a push that changes only `context/` or only merges the main branch in.
+  The range is `<commit>..HEAD` instead of `@{push}..HEAD`; `softure-merge-push-scope` then reads the main branch on
+  `origin`. An unknown commit (a force push, all zeros) answers "not context-only" and `full`. A usage error exits 2.
+  The README ("The same checks in CI") has a workflow recipe.
+- Migration for an app: nothing to do; without `--since` both bins behave as before.
+
 ## 0.1.6
 
 - The language gate checks only a merge's own lines (#1047): during a merge (`MERGE_HEAD` present),

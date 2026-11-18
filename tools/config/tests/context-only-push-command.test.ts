@@ -3,7 +3,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isContextOnlyPush, listPushedFiles } from "../src/cli/context-only-push-command.js";
+import {
+  isContextOnlyPush,
+  listPushedFiles,
+  parseSinceOption,
+  runContextOnlyPush,
+} from "../src/cli/context-only-push-command.js";
 
 let root: string;
 let app: string;
@@ -87,5 +92,81 @@ describe("softure-context-only-push", () => {
     };
 
     expect(isContextOnlyPush(app, runGit)).toBe(false);
+  });
+});
+
+// A CI checkout: detached at the pull request head, no upstream; the job names the last tested commit.
+describe("softure-context-only-push --since", () => {
+  const silent = (): void => undefined;
+  const ZEROS = "0000000000000000000000000000000000000000";
+
+  function detach(): void {
+    git("checkout", "-q", "--detach");
+  }
+
+  it("compares the given commit with HEAD on a checkout without upstream", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    commitFile("context/roadmap.md", "# Roadmap\n");
+    detach();
+
+    expect(listPushedFiles(app, undefined, tested)).toEqual(["context/roadmap.md"]);
+    expect(runContextOnlyPush(["--since", tested], { cwd: app, log: silent })).toBe(0);
+    expect(runContextOnlyPush([`--since=${tested}`], { cwd: app, log: silent })).toBe(0);
+  });
+
+  it("is not context-only when code changed since the given commit", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    commitFile("src/index.ts", "export const one = 2;\n");
+    commitFile("context/roadmap.md", "# Roadmap\n");
+    detach();
+
+    expect(runContextOnlyPush(["--since", tested], { cwd: app, log: silent })).toBe(1);
+  });
+
+  it("is not context-only for an unknown or all-zeros commit", () => {
+    commitFile("context/roadmap.md", "# Roadmap\n");
+    detach();
+
+    expect(listPushedFiles(app, undefined, ZEROS)).toBeNull();
+    expect(runContextOnlyPush(["--since", ZEROS], { cwd: app, log: silent })).toBe(1);
+    expect(runContextOnlyPush(["--since", "deadbeef"], { cwd: app, log: silent })).toBe(1);
+  });
+
+  it("is not context-only when nothing changed since the given commit", () => {
+    expect(runContextOnlyPush(["--since", "HEAD"], { cwd: app, log: silent })).toBe(1);
+  });
+
+  it("keeps the upstream range without --since", () => {
+    commitFile("context/roadmap.md", "# Roadmap\n");
+
+    expect(runContextOnlyPush([], { cwd: app, log: silent })).toBe(0);
+  });
+
+  it("rejects a missing value, a repeated option and an unknown argument", () => {
+    const lines: string[] = [];
+    const log = (line: string): void => {
+      lines.push(line);
+    };
+
+    expect(runContextOnlyPush(["--since"], { cwd: app, log })).toBe(2);
+    expect(runContextOnlyPush(["--since="], { cwd: app, log })).toBe(2);
+    expect(runContextOnlyPush(["--since", "HEAD", "--since", "HEAD"], { cwd: app, log })).toBe(2);
+    expect(runContextOnlyPush(["HEAD"], { cwd: app, log })).toBe(2);
+    expect(lines.slice(0, 2)).toEqual([
+      "softure-context-only-push: --since needs a commit",
+      "usage: softure-context-only-push [--since <commit>]",
+    ]);
+  });
+});
+
+describe("parseSinceOption", () => {
+  it("takes both spellings out and keeps the rest in order", () => {
+    expect(parseSinceOption(["a", "--since", "abc", "b"])).toEqual({ since: "abc", rest: ["a", "b"] });
+    expect(parseSinceOption(["--since=abc"])).toEqual({ since: "abc", rest: [] });
+    expect(parseSinceOption([])).toEqual({ since: undefined, rest: [] });
+  });
+
+  it("refuses an option as the value", () => {
+    expect(parseSinceOption(["--since", "--run"])).toEqual({ error: "--since needs a commit" });
   });
 });
