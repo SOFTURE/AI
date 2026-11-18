@@ -1,7 +1,8 @@
 ---
 change_id: deploy-guard-in-job-1375
 title: "deploy: guard-in-job folds the guard jobs into the job that does the work (issue #1375)"
-status: in_progress
+status: archived
+archived_at: 2026-11-18
 roadmap_item: null
 issue: 1375
 branch: claude/project-thread-h2x91n
@@ -40,3 +41,18 @@ runner start; an adopting app's four releases a week pay 8 minutes for two guard
 ## Notes
 
 - Frame skipped: the issue states the problem, the measurement and the proposal.
+
+## Done
+
+- `guard-in-job` in `deploy-release-checks.yml` and `deploy-app.yml`, opted into by `examples/deploy-pipeline.yml`, in
+  `@softure-ai/deploy` 0.7.5 (released by `auto-release.yml` after the merge).
+
+## Decisions (auto)
+
+- One input name in both workflows, `guard-in-job`, as the issue proposed.
+- `static` and `unit` each guard the tag themselves instead of `static` alone: `unit` needs the resolved commit for
+  its checkout too, and the steps cost seconds in a job billed anyway.
+- `deploy-app.yml` folds only with `deploy: false` (refused otherwise): the deploy, verify and summary jobs read the
+  check job, and the pipeline the issue measures deploys from the caller's own job.
+- The skip-the-repeat option (third in the issue) not taken: the check job would still run and bill its minute.
+- Patch release (0.7.5): no CLI code changed, and a minor would fall outside dependents' `^0.7.0` ranges.

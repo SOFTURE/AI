@@ -29,4 +29,7 @@ skipped.
 ## Progress
 
 - [x] Phase 1: workflows and tests (8a468b2)
-- [ ] Phase 2: caller, docs, release
+- [x] Phase 2: caller, docs, release (2d6e61e)
+
+Evidence: `npx vitest run tests/repo tools/deploy` 85 files, 2190 tests green (99 skipped); actionlint 1.7.12 clean on
+both workflows and `examples/deploy-pipeline.yml`; typecheck, ESLint and the language gate clean (pre-commit).
