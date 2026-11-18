@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.7.0
+
+- **`@softure-ai/connections/user-oauth`**: OAuth 2.0 connections that belong to the app's own users (each user
+  connects their own account at a provider, one grant per user kept by the app beside its records):
+  `defineUserOAuthProvider`, `createUserOAuthState` and `hashUserOAuthState` (a one-time state stored as its hex
+  sha256, and a PKCE verifier), `createCodeChallenge`, `buildUserAuthorizationUrl`, `exchangeUserCode`,
+  `refreshUserAccessToken` (`connections.user_oauth_reconnect_required` on `invalid_grant`, the new refresh token of a
+  rotating provider), `revokeUserGrant` (RFC 7009 or a bearer POST) and `sealUserSecret` / `openUserSecret` (bound to
+  the user, the provider and an optional connection name). Stateless, Workers-safe, no table or configuration.
+- A token answer's own identifiers (`account_id`, `uid`) reach the grant as `fields`; a field named like a token or a
+  secret never does.
+- `createFakeOAuthProvider` serves the user flow: `fake.user.definition` and `fake.user.client`, `answerFields`, and
+  `revokeStyle: "bearer"`.
+  - Migrate: nothing.
+
 ## 0.6.0
 
 - **`createFakeGithubApp` serves repository contents** through the git data API, for an app that reads a user's

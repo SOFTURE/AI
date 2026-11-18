@@ -7,6 +7,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { FetchFunction } from "@softure-ai/core";
 import type { ProviderDefinitionInput } from "../options.js";
+import type { UserOAuthClient, UserOAuthProviderInput } from "../user-oauth/provider.js";
 
 export interface FakeOAuthProviderOptions {
   /** The provider id. Default `fake`. */
@@ -30,6 +31,10 @@ export interface FakeOAuthProviderOptions {
   /** Answer `refresh_token_expires_in`. */
   readonly refreshTokenTtlSeconds?: number;
   readonly accounts?: readonly string[];
+  /** Extra top-level string fields of every token answer (`{ account_id: "dbid:1" }`). */
+  readonly answerFields?: Readonly<Record<string, string>>;
+  /** How the user-OAuth definition revokes: RFC 7009 (default) or a bare POST with the bearer access token. */
+  readonly revokeStyle?: "rfc7009" | "bearer";
 }
 
 /** A failure the next token or revoke calls answer with, in order. */
@@ -47,6 +52,8 @@ export type FakeFailure =
 export interface FakeOAuthProvider {
   /** The provider entry for `connections({ providers: [fake.definition] })`. */
   readonly definition: ProviderDefinitionInput;
+  /** The same provider for `@softure-ai/connections/user-oauth`: `defineUserOAuthProvider(fake.user.definition)`. */
+  readonly user: { readonly definition: UserOAuthProviderInput; readonly client: UserOAuthClient };
   /** The environment the definition needs (its client secret), for the module context's `env`. */
   readonly env: Readonly<Record<string, string>>;
   /** The `fetch` for `connections({ fetch })`. */
@@ -114,7 +121,7 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
   function issue(scope: string, refreshToken: string | null): Response {
     const accessToken = `at-${random()}`;
     accessTokens.add(accessToken);
-    const body: Record<string, unknown> = { access_token: accessToken, token_type: "Bearer", scope };
+    const body: Record<string, unknown> = { ...options.answerFields, access_token: accessToken, token_type: "Bearer", scope };
     if (ttl !== null) body.expires_in = ttl;
     if (refreshToken !== null) body.refresh_token = refreshToken;
     if (refreshToken !== null && options.refreshTokenTtlSeconds !== undefined) body.refresh_token_expires_in = options.refreshTokenTtlSeconds;
@@ -207,7 +214,8 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
     if (url === urls.token && init.method === "POST") return handleToken(form, authorization);
     if (url === urls.revoke && init.method === "POST") {
       calls.revoke += 1;
-      const token = form.get("token") ?? "";
+      // The bearer style names the access token in the header and sends no form.
+      const token = form.get("token") ?? (authorization?.startsWith("Bearer ") === true ? authorization.slice(7) : "");
       refreshTokens.delete(token);
       accessTokens.delete(token);
       return new Response(null, { status: 200 });
@@ -229,6 +237,18 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
       clientSecretEnv,
       clientAuth: options.clientAuth ?? "body",
       rotatesRefreshToken: rotates,
+    },
+    user: {
+      definition: {
+        id,
+        authorizeUrl: urls.authorize,
+        tokenUrl: urls.token,
+        revoke: { style: options.revokeStyle ?? "rfc7009", url: urls.revoke },
+        scopes,
+        clientAuth: options.clientAuth ?? "body",
+        rotatesRefreshToken: rotates,
+      },
+      client: { clientId, clientSecret },
     },
     env: { [clientSecretEnv]: clientSecret },
     fetch,

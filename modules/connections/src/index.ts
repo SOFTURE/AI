@@ -17,7 +17,7 @@ export const MODULE_ID = "connections";
 export const connections = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.6.0",
+    version: "0.7.0",
     runtimes: ["node", "workers"],
     dependsOn: { auth: "^0.2.0" },
     dbSchema: "connections",

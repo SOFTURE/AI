@@ -1,7 +1,7 @@
 {
   "name": "@softure-ai/connections",
-  "version": "0.6.0",
-  "description": "SOFTURE AI connections module: the app as an OAuth 2.0 client of third-party APIs and a store for their API keys. Providers from configuration, a connect flow for Next.js (one-time state, PKCE, a callback route) behind an admin-only page with each connection's status, tokens and keys encrypted at rest with AES-256-GCM under a rotating keyring, getAccessToken that refreshes under a lease (no double refresh across workers) and turns invalid_grant into a terminal reconnect_required state, a hook when a connection needs reconnecting, a privacy contributor, the softure-connections key and rotate-keys commands, the GitHub App calls for users' own installations (github-app), and fakes for tests.",
+  "version": "0.7.0",
+  "description": "SOFTURE AI connections module: the app as an OAuth 2.0 client of third-party APIs and a store for their API keys. Providers from configuration, a connect flow for Next.js (one-time state, PKCE, a callback route) behind an admin-only page with each connection's status, tokens and keys encrypted at rest with AES-256-GCM under a rotating keyring, getAccessToken that refreshes under a lease (no double refresh across workers) and turns invalid_grant into a terminal reconnect_required state, a hook when a connection needs reconnecting, a privacy contributor, the softure-connections key and rotate-keys commands, the GitHub App calls for users' own installations (github-app), OAuth connections that belong to the app's own users (user-oauth), and fakes for tests.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -55,6 +55,11 @@
       "types": "./dist/github-app/index.d.ts",
       "default": "./dist/github-app/index.js"
     },
+    "./user-oauth": {
+      "@softure-ai/source": "./src/user-oauth/index.ts",
+      "types": "./dist/user-oauth/index.d.ts",
+      "default": "./dist/user-oauth/index.js"
+    },
     "./testing": {
       "@softure-ai/source": "./src/testing/index.ts",
       "types": "./dist/testing/index.d.ts",
@@ -90,7 +95,8 @@
       "./server",
       "./next",
       "./ui",
-      "./github-app"
+      "./github-app",
+      "./user-oauth"
     ]
   }
 }

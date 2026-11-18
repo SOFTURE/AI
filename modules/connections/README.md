@@ -34,6 +34,9 @@ server for clients that call the app.
   owner (e.g. by mail through `@softure-ai/mailing`).
 - **`onConnectionChanged`** and one info log line for every connect, reconnect, disconnect and failed OAuth callback,
   for an audit trail of admin actions.
+- **`@softure-ai/connections/user-oauth`**: OAuth 2.0 grants that belong to the app's own users, one per user kept by
+  the app: the one-time state and PKCE, the consent URL, the code exchange, refreshes, revocation (RFC 7009 or a
+  bearer call) and sealing a grant to its user. See "Users' own OAuth grants" in section 4.
 - **`@softure-ai/connections/github-app`**: for an app whose own users each connect a GitHub App installation (a
   repository of theirs): the App's JWT, the installation, installation tokens, and the proof that an installation id
   belongs to the signed-in user. See "Users' own GitHub App installations" in section 4.
@@ -319,6 +322,67 @@ const repositories = await listGithubInstallationRepositories(token.value.token)
 Each failure carries `status` (null when no answer came); a token, the key or GitHub's message never appears in one.
 The JWT is RS256, issued a minute back and valid nine minutes; the imported key is cached per process.
 
+### Users' own OAuth grants (`/user-oauth`)
+
+The same need with plain OAuth 2.0: each **user** connects their own account at a provider (a cloud drive, a code host,
+a calendar) and the app reads it on their behalf, one grant per user. `@softure-ai/connections/user-oauth` gives the
+protocol and the sealing; the app keeps the state record and the sealed grant with its own rows, keyed by its user,
+since what a grant is for (a folder, a repository) is the app's own data. Stateless, no table, no configuration; Node
+and Workers.
+
+```ts
+import {
+  buildUserAuthorizationUrl,
+  createUserOAuthState,
+  defineUserOAuthProvider,
+  exchangeUserCode,
+  hashUserOAuthState,
+  openUserSecret,
+  readKeyring,
+  refreshUserAccessToken,
+  revokeUserGrant,
+  sealUserSecret,
+} from "@softure-ai/connections/user-oauth";
+
+const dropbox = defineUserOAuthProvider({
+  id: "dropbox",
+  authorizeUrl: "https://www.dropbox.com/oauth2/authorize",
+  tokenUrl: "https://api.dropboxapi.com/oauth2/token",
+  revoke: { style: "bearer", url: "https://api.dropboxapi.com/2/auth/token/revoke" }, // or { style: "rfc7009", url }
+  scopes: ["files.metadata.read", "files.content.read"],
+  authorizeParams: { token_access_type: "offline" }, // a refresh token
+});
+const client = { clientId: env.DROPBOX_APP_KEY, clientSecret: env.DROPBOX_APP_SECRET };
+
+// 1. The connect button: store stateHash + codeVerifier for the signed-in user (ten minutes, one use).
+const { state, stateHash, codeVerifier } = await createUserOAuthState();
+const url = await buildUserAuthorizationUrl(dropbox, client, { redirectUri, state, codeVerifier });
+
+// 2. The callback: consume the record by hashUserOAuthState(params.state) for the same user, then
+const grant = await exchangeUserCode(dropbox, client, { code, redirectUri, codeVerifier });
+// grant.value: accessToken, refreshToken, expiresAt, scopes (as granted), fields (account_id…, never a token).
+// Check what the app needs (scopes, the folder); refuse with revokeUserGrant(dropbox, client, grant.value.accessToken).
+const sealed = sealUserSecret(keyring, { userId, provider: "dropbox" }, grant.value.refreshToken);
+
+// 3. Later: open, refresh, use. With rotatesRefreshToken, store fresh.value.refreshToken first.
+const refreshToken = openUserSecret(keyring, { userId, provider: "dropbox" }, sealed);
+const fresh = await refreshUserAccessToken(dropbox, client, refreshToken.value);
+```
+
+`readKeyring(env)` reads `SOFTURE_CONNECTIONS_KEYS`; an app with its own keyring variable passes
+`{ SOFTURE_CONNECTIONS_KEYS: env.MY_KEYS }`. A sealed value opens only for the same user, provider and optional
+`name` (two connections of one user at one provider).
+
+| Code | When |
+| --- | --- |
+| `connections.user_oauth_rejected` | the provider answered an OAuth error to a code exchange (a spent code, a wrong verifier, a wrong client) or to a refresh other than `invalid_grant` |
+| `connections.user_oauth_reconnect_required` | a refresh answered `invalid_grant`: the user revoked the app, or the grant expired |
+| `connections.user_oauth_unavailable` | a network failure, a timeout, 429, 5xx, a redirect or an unreadable answer: retry later |
+
+Each failure carries `status` and the provider's `oauthError` code (null when none); never a token or the provider's
+description. `createFakeOAuthProvider` serves this flow too: `fake.user.definition` and `fake.user.client`, with
+`answerFields` for the provider's own identifiers and `revokeStyle: "bearer"`.
+
 ## 5. Migrations and tables
 
 Schema `connections`, two migrations (`0001_create_accounts_and_states.sql`, `0002_add_last_error_detail.sql`):
@@ -426,6 +490,9 @@ A connection belongs to the app (the owner's account elsewhere), not to the admi
 
 - No provider-specific API clients; the app calls the API with the token. The one exception is `/github-app`: a
   GitHub App's installation and token calls, which an app cannot make with an OAuth token.
+- `/user-oauth` keeps no state of its own: the app stores the one-time state, the sealed grant and, if it wants one,
+  a cached access token; it refreshes without a lease, so an app that refreshes one user's grant from several workers
+  at once with a rotating provider serialises those refreshes itself.
 - Only the authorization code flow (with or without PKCE). No device flow, no client credentials grant, no OpenID
   Connect ID token checks: the module stores what the token endpoint answers.
 - One redirect URI for every provider (`appOrigin` + `routes.callback`).
