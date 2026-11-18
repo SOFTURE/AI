@@ -60,6 +60,23 @@ export type InstrumentationOptions = {
    * set, limit and swap (`process.memory.usage`, `container.memory.*`). Default `true`.
    */
   memory?: boolean;
+  /**
+   * The machine's memory, CPU and filesystems, read from `/proc` and `statfs` inside the process, so a container on a
+   * shared host reports the host without an agent (`system.memory.*`, `system.cpu.*`, `system.filesystem.*`). `true`
+   * measures the filesystem of `/`; `{ filesystems }` names the paths whose filesystems are measured. Default `true`.
+   */
+  host?: boolean | HostMetricOptions;
+  /**
+   * The `http.server.request.duration` metric from the server spans another library makes, with the method, the
+   * status code and the route. Default: on when `http` is `false` (the Next.js adapter), so every app has a request
+   * metric; off otherwise, where the http instrumentation records it.
+   */
+  serverSpanMetrics?: boolean;
+};
+
+export type HostMetricOptions = {
+  /** The paths whose filesystems are measured, e.g. `["/", "/srv/data"]`. Default `["/"]`. */
+  filesystems?: readonly string[];
 };
 
 export type MetricOptions = {
@@ -141,7 +158,11 @@ export function resolveObservabilityConfig(
     ...new Set(signals.flatMap((signal) => (signal.kind === "unsupported" ? [signal.warning] : []))),
   ];
   if (signals.every((signal) => signal.kind !== "export")) {
-    return { kind: "disabled", reason: warnings.length === 0 ? "no OTLP endpoint" : warnings.join("; "), warnings };
+    return {
+      kind: "disabled",
+      reason: warnings.length === 0 ? "no OTLP endpoint" : warnings.join("; "),
+      warnings,
+    };
   }
 
   return {
@@ -177,7 +198,13 @@ function resolveSignal(signal: Signal, options: ObservabilityOptions, env: Envir
   const sharedHeaders = parseKeyValueList(readEnv(env, "OTEL_EXPORTER_OTLP_HEADERS"), "OTEL_EXPORTER_OTLP_HEADERS");
   const signalHeaders = parseKeyValueList(readEnv(env, `${signalKey}_HEADERS`), `${signalKey}_HEADERS`);
 
-  return { kind: "export", target: { url, headers: { ...sharedHeaders, ...signalHeaders, ...options.headers } } };
+  return {
+    kind: "export",
+    target: {
+      url,
+      headers: { ...sharedHeaders, ...signalHeaders, ...options.headers },
+    },
+  };
 }
 
 // A per-signal variable with an unsupported scheme does not fall back to the base endpoint: it wins by the OTel spec.

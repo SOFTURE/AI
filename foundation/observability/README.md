@@ -162,7 +162,10 @@ With an endpoint, metrics go to `<endpoint>/v1/metrics` every 60 s (`metrics.exp
 the same resource as traces and logs, and once more on `shutdown()`:
 
 - `http.server.request.duration` (histogram, seconds) by `http.request.method`, `http.response.status_code`,
-  `url.scheme` and `network.protocol.version`: request rate, latency and error rate. Never by path, so its series stay
+  `url.scheme` and `network.protocol.version`: request rate, latency and error rate. Where the http instrumentation is off (the Next.js
+  adapter), `instrumentations.serverSpanMetrics` records the same histogram from the server spans the framework makes,
+  by `http.request.method`, `http.response.status_code` and `http.route` (Next.js's `next.route`), also when traces
+  are not exported; a path in `traces.ignorePaths` is not measured. Never by path, so its series stay
   bounded. `http.client.request.duration` likewise for outgoing calls, by `server.address`. The exporter's own
   requests to the trace, log and metric endpoints are not measured (nor traced); other paths on that host are.
 - Node.js runtime metrics (`instrumentations.runtime`): `nodejs.eventloop.utilization`, `nodejs.eventloop.delay.*`,
@@ -175,6 +178,17 @@ the same resource as traces and logs, and once more on `shutdown()`:
   them `process_memory_usage_bytes`, `container_memory_working_set_bytes` and so on. An alert near the limit compares
   the working set with the limit, e.g. `container_memory_working_set_bytes / container_memory_limit_bytes > 0.85`.
   Outside such a container (macOS, cgroup v1) only the process gauge reports; five series per process at most.
+- Host (`instrumentations.host`): the machine the process runs on, read inside the process at each collection, so a
+  container on a shared server reports the server without an agent. `system.memory.limit` and
+  `system.memory.available` (`MemTotal`, `MemAvailable` of `/proc/meminfo`, bytes) and `system.memory.utilization`;
+  `system.cpu.utilization` (busy share of all CPUs since the previous collection, none on the first),
+  `system.cpu.load_average.1m` and `system.cpu.logical.count`; and per measured path `system.filesystem.limit`,
+  `system.filesystem.available` (what an unprivileged process can still write) and `system.filesystem.utilization`,
+  with the path as `system.filesystem.mountpoint`. `true` (the default) measures `/`, in a container the disk its
+  image and volumes live on; `{ filesystems: ["/", "/srv/data"] }` names the paths. A container without lxcfs sees the
+  host's `/proc`, which is the point; with lxcfs it sees its own limits. macOS has no `/proc`: only the CPU count and
+  the filesystems report. An alert on a full disk: `system_filesystem_utilization_ratio > 0.85`. About 10 series per
+  process.
 
 **Series.** Backends that bill or cap by active series (Grafana Cloud Free counts them) see roughly 100 series per
 process from the runtime metrics, and for each histogram about 17 series (buckets, sum, count) per combination of its

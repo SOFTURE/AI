@@ -19,7 +19,9 @@ import { configureLogging } from "../logger.js";
 import { resolveObservabilityConfig, type ObservabilityOptions } from "./config.js";
 import { createExportRequestMatcher, type OutgoingRequestTarget } from "./export-request-matcher.js";
 import { createIgnoredPathMatcher, createIgnorePathsSampler } from "./ignore-paths-sampler.js";
+import { registerHostMetrics } from "./host-metrics.js";
 import { registerMemoryMetrics } from "./memory-metrics.js";
+import { ServerSpanMetricsProcessor } from "./server-span-metrics.js";
 import { StableHttpAttributesProcessor } from "./stable-http-attributes.js";
 
 export type ObservabilityHandle = {
@@ -31,12 +33,18 @@ export type ObservabilityHandle = {
   shutdown(): Promise<void>;
 };
 
-type Registration = { handle: ObservabilityHandle; dispose: () => Promise<void>; hasWarned: boolean };
+type Registration = {
+  handle: ObservabilityHandle;
+  dispose: () => Promise<void>;
+  hasWarned: boolean;
+};
 
 // On globalThis, so `next dev` reloads and a second copy of the package find the first registration.
 const REGISTRATION_KEY = Symbol.for("softure.observability.registration");
 
-type GlobalWithRegistration = typeof globalThis & { [REGISTRATION_KEY]?: Registration };
+type GlobalWithRegistration = typeof globalThis & {
+  [REGISTRATION_KEY]?: Registration;
+};
 
 const SIGNALS = ["SIGTERM", "SIGINT"] as const;
 
@@ -90,7 +98,11 @@ function register(options: ObservabilityOptions): Registration {
     // The reason names the skipped endpoints already, so they get this one line, as a warning.
     const print = config.warnings.length === 0 ? console.log : console.warn;
     print(`observability: export disabled (${config.reason})`);
-    return { handle: disabledHandle(), dispose: () => Promise.resolve(), hasWarned: false };
+    return {
+      handle: disabledHandle(),
+      dispose: () => Promise.resolve(),
+      hasWarned: false,
+    };
   }
 
   for (const warning of config.warnings) {
@@ -101,16 +113,45 @@ function register(options: ObservabilityOptions): Registration {
   // response, never the request headers.
   diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.ERROR);
 
+  const meterProvider =
+    config.metrics === null
+      ? null
+      : new MeterProvider({
+          resource,
+          readers: [
+            new PeriodicExportingMetricReader({
+              exporter: new OTLPMetricExporter({
+                url: config.metrics.url,
+                headers: config.metrics.headers,
+              }),
+              exportIntervalMillis: options.metrics?.exportIntervalMs ?? DEFAULT_METRIC_EXPORT_INTERVAL_MS,
+            }),
+          ],
+        });
+  if (meterProvider !== null) {
+    metrics.setGlobalMeterProvider(meterProvider);
+  }
+  const meter = meterProvider?.getMeter("@softure-ai/observability") ?? null;
+  // Without the http instrumentation (Next.js spans its requests itself) the request metric comes from the server spans.
+  const serverSpanMetrics =
+    meter !== null && (options.instrumentations?.serverSpanMetrics ?? options.instrumentations?.http === false)
+      ? [new ServerSpanMetricsProcessor(meter)]
+      : [];
+
   const tracerProvider = new TracerProvider({
     resource,
     ...(sampler === undefined ? {} : { sampler }),
     spanProcessors:
       config.traces === null
-        ? []
+        ? serverSpanMetrics
         : [
+            ...serverSpanMetrics,
             ...(options.traces?.stableHttpAttributes === true ? [new StableHttpAttributesProcessor()] : []),
             new BatchSpanProcessor({
-              exporter: new OTLPTraceExporter({ url: config.traces.url, headers: config.traces.headers }),
+              exporter: new OTLPTraceExporter({
+                url: config.traces.url,
+                headers: config.traces.headers,
+              }),
             }),
           ],
   });
@@ -124,28 +165,15 @@ function register(options: ObservabilityOptions): Registration {
           resource,
           processors: [
             new BatchLogRecordProcessor({
-              exporter: new OTLPLogExporter({ url: config.logs.url, headers: config.logs.headers }),
+              exporter: new OTLPLogExporter({
+                url: config.logs.url,
+                headers: config.logs.headers,
+              }),
             }),
           ],
         });
   if (loggerProvider !== null) {
     logs.setGlobalLoggerProvider(loggerProvider);
-  }
-
-  const meterProvider =
-    config.metrics === null
-      ? null
-      : new MeterProvider({
-          resource,
-          readers: [
-            new PeriodicExportingMetricReader({
-              exporter: new OTLPMetricExporter({ url: config.metrics.url, headers: config.metrics.headers }),
-              exportIntervalMillis: options.metrics?.exportIntervalMs ?? DEFAULT_METRIC_EXPORT_INTERVAL_MS,
-            }),
-          ],
-        });
-  if (meterProvider !== null) {
-    metrics.setGlobalMeterProvider(meterProvider);
   }
 
   const instrumentations: Instrumentation[] = [];
@@ -156,9 +184,15 @@ function register(options: ObservabilityOptions): Registration {
     instrumentations.push(new RuntimeNodeInstrumentation());
   }
   const stopMemoryMetrics =
-    options.instrumentations?.memory === false || meterProvider === null
+    options.instrumentations?.memory === false || meter === null ? () => undefined : registerMemoryMetrics({ meter });
+  const hostOption = options.instrumentations?.host ?? true;
+  const stopHostMetrics =
+    hostOption === false || meter === null
       ? () => undefined
-      : registerMemoryMetrics({ meter: meterProvider.getMeter("@softure-ai/observability") });
+      : registerHostMetrics({
+          meter,
+          ...(hostOption === true ? {} : hostOption),
+        });
   const unregisterInstrumentations = registerInstrumentations({
     tracerProvider,
     ...(meterProvider === null ? {} : { meterProvider }),
@@ -192,6 +226,7 @@ function register(options: ObservabilityOptions): Registration {
         unregisterInstrumentations();
         stopHttpInstrumentation();
         stopMemoryMetrics();
+        stopHostMetrics();
       }
     })();
     return stopped;
@@ -271,7 +306,9 @@ function loadHttpModules(): void {
 function registerTracerProvider(tracerProvider: TracerProvider): void {
   context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
   propagation.setGlobalPropagator(
-    new CompositePropagator({ propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()] }),
+    new CompositePropagator({
+      propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()],
+    }),
   );
   trace.setGlobalTracerProvider(tracerProvider);
 }
@@ -281,7 +318,11 @@ function joinWords(words: readonly string[]): string {
 }
 
 function disabledHandle(): ObservabilityHandle {
-  return { isExporting: false, forceFlush: () => Promise.resolve(), shutdown: () => Promise.resolve() };
+  return {
+    isExporting: false,
+    forceFlush: () => Promise.resolve(),
+    shutdown: () => Promise.resolve(),
+  };
 }
 
 // Flushes, then re-raises the signal so the default handler ends the process. When the app listens to the signal

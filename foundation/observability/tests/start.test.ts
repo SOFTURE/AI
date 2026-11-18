@@ -1,8 +1,9 @@
 import { createServer, type Server } from "node:http";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
 
-import { logs, trace } from "@opentelemetry/api";
+import { logs, SpanKind, trace } from "@opentelemetry/api";
 import { LoggerProvider } from "@opentelemetry/sdk-logs";
 import { TracerProvider } from "@opentelemetry/sdk-trace";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -64,6 +65,11 @@ async function httpGet(url: string): Promise<void> {
       })
       .on("error", reject);
   });
+}
+
+// A server span as Next.js makes one, with its legacy attributes, through the global tracer provider.
+function endServerSpan(attributes: Record<string, string | number>): void {
+  trace.getTracer("next.js").startSpan("GET /reels/[id]", { kind: SpanKind.SERVER, attributes }).end();
 }
 
 async function get(url: string): Promise<void> {
@@ -367,6 +373,90 @@ describe("startObservability: metrics", () => {
     await handle.forceFlush();
 
     expect(receiver.bodyOf("/v1/metrics").includes("process.memory.usage")).toBe(false);
+  });
+
+  it("exports the host gauges for the root filesystem by default", async () => {
+    receiver = await startOtlpReceiver();
+    const handle = startObservability({ serviceName: "my-service", endpoint: receiver.url });
+
+    await handle.forceFlush();
+
+    const metrics = receiver.bodyOf("/v1/metrics");
+    expect(metrics.includes("system.filesystem.utilization")).toBe(true);
+    expect(metrics.includes("system.filesystem.mountpoint")).toBe(true);
+    expect(metrics.includes("system.cpu.logical.count")).toBe(true);
+  });
+
+  it("measures the filesystems named in instrumentations.host", async () => {
+    receiver = await startOtlpReceiver();
+    const handle = startObservability({
+      serviceName: "my-service",
+      endpoint: receiver.url,
+      instrumentations: { host: { filesystems: [tmpdir()] } },
+    });
+
+    await handle.forceFlush();
+
+    expect(receiver.bodyOf("/v1/metrics").includes(tmpdir())).toBe(true);
+  });
+
+  it("exports no host gauges with instrumentations.host false", async () => {
+    receiver = await startOtlpReceiver();
+    const handle = startObservability({
+      serviceName: "my-service",
+      endpoint: receiver.url,
+      instrumentations: { host: false },
+    });
+
+    await handle.forceFlush();
+
+    expect(receiver.bodyOf("/v1/metrics").includes("system.")).toBe(false);
+  });
+
+  it("records the request duration from another library's server span when the http instrumentation is off", async () => {
+    receiver = await startOtlpReceiver();
+    const handle = startObservability({
+      serviceName: "my-service",
+      endpoint: receiver.url,
+      instrumentations: { fetch: false, http: false },
+    });
+
+    endServerSpan({ "http.method": "GET", "http.status_code": 503, "next.route": "/reels/[id]" });
+    await handle.forceFlush();
+
+    const metrics = receiver.bodyOf("/v1/metrics");
+    expect(metrics.includes("http.server.request.duration")).toBe(true);
+    expect(metrics.includes("/reels/[id]")).toBe(true);
+  });
+
+  it("records it with trace export off too", async () => {
+    receiver = await startOtlpReceiver();
+    // Only the metrics endpoint is set, so traces are not exported.
+    process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = `${receiver.url}/v1/metrics`;
+    const handle = startObservability({
+      serviceName: "my-service",
+      instrumentations: { fetch: false, http: false },
+    });
+
+    endServerSpan({ "http.method": "GET", "http.status_code": 200 });
+    await handle.forceFlush();
+
+    expect(receiver.requests.some((request) => request.path === "/v1/traces")).toBe(false);
+    expect(receiver.bodyOf("/v1/metrics").includes("http.server.request.duration")).toBe(true);
+  });
+
+  it("records no request duration from spans with instrumentations.serverSpanMetrics false", async () => {
+    receiver = await startOtlpReceiver();
+    const handle = startObservability({
+      serviceName: "my-service",
+      endpoint: receiver.url,
+      instrumentations: { fetch: false, http: false, serverSpanMetrics: false },
+    });
+
+    endServerSpan({ "http.method": "GET", "http.status_code": 200 });
+    await handle.forceFlush();
+
+    expect(receiver.bodyOf("/v1/metrics").includes("http.server.request.duration")).toBe(false);
   });
 
   it("exports no metrics with metrics.enabled false and says so at start", async () => {

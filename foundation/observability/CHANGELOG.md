@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- **Host metrics** (`instrumentations.host`, on by default): the machine's memory (`system.memory.*` from
+  `/proc/meminfo`), CPU (`system.cpu.utilization` between collections, `system.cpu.load_average.1m`,
+  `system.cpu.logical.count`) and filesystems (`system.filesystem.limit|available|utilization` by
+  `system.filesystem.mountpoint`, default `/`, set with `{ filesystems }`), read inside the process, so a container on
+  a shared server shows a filling disk without a host agent.
+- **Request metric for Next.js** (`instrumentations.serverSpanMetrics`, on by default where `http` is off, as in the
+  Next.js adapter): `http.server.request.duration` from the root server spans, by method, status code and route,
+  also without trace export. Before it, a Next.js app had no request metric and no alert could see a run of 5xx.
+  - Migrate: nothing. About 10 new host series per process, and the request histogram per route and status in a
+    Next.js app; `instrumentations: { host: false }` or `{ serverSpanMetrics: false }` turns either off.
+
 ## 0.8.7
 
 - **Cloudflare Workers:** `withScheduledObservability(handler, options)` wraps the Worker's `scheduled` handler (a Cron
