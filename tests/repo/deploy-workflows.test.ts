@@ -2829,6 +2829,79 @@ describe("deploy-tested-tree.yml (issue #1373)", () => {
     expect(result.stdout).toContain(`::notice::The unit suite runs: ${message}`);
   });
 
+  describe("an earlier commit of the pull request", () => {
+    const EARLIER_SHA = "0123456789abcdef".repeat(2) + "01234567";
+    const COMMITS = "repos/acme/app/pulls/7/commits?per_page=100";
+    const SKIPPED = [run("unit (1/2)", "skipped"), run("unit (2/2)", "skipped"), run("static")];
+
+    /** Pull request #7 whose last push changed only context/, so its unit shards were skipped on the head. */
+    function getContextOnlyApi(): Record<string, unknown> {
+      const api = getApi();
+      api[`repos/acme/app/commits/${HEAD_SHA}/check-runs?filter=latest&per_page=100`] = { check_runs: SKIPPED };
+      api[COMMITS] = [{ sha: "7".repeat(40) }, { sha: EARLIER_SHA }, { sha: HEAD_SHA }];
+      api[`repos/acme/app/git/trees/${EARLIER_SHA}?recursive=1`] = tree([...CODE, { path: "context/changes/research.md", sha: "6".repeat(40) }]);
+      api[`repos/acme/app/commits/${EARLIER_SHA}/check-runs?filter=latest&per_page=100`] = { check_runs: RUNS };
+      return api;
+    }
+
+    it("answers true, naming it, when it has the tag's tree outside context/ and passed while the head skipped the suite", () => {
+      const result = compare(getContextOnlyApi());
+      expect(result.status, result.stdout).toBe(0);
+      expect(result.outputs).toEqual({ tested: "true", "pull-request": "7", "head-sha": EARLIER_SHA });
+      expect(result.stdout).toContain(`v2026.11.18 has the tree of pull request #7 (${EARLIER_SHA}, an earlier commit than its newest)`);
+    });
+
+    it("answers false with the head's reason when the earlier commit had other code", () => {
+      const api = getContextOnlyApi();
+      api[`repos/acme/app/git/trees/${EARLIER_SHA}?recursive=1`] = tree(CODE.filter((entry) => entry.path !== "src/index.ts"));
+      const result = compare(api);
+      expect(result.outputs).toEqual({ tested: "false", "pull-request": "7", "head-sha": HEAD_SHA });
+      expect(result.stdout).toContain('::notice::The unit suite runs: the check run "unit (1/2)" of pull request #7 is completed (skipped), not a success.');
+    });
+
+    it("answers false when no earlier commit passed every named check", () => {
+      const api = getContextOnlyApi();
+      api[`repos/acme/app/commits/${EARLIER_SHA}/check-runs?filter=latest&per_page=100`] = { check_runs: SKIPPED };
+      expect(compare(api).outputs.tested).toBe("false");
+    });
+
+    it.each([
+      ["the commits cannot be read", (api: Record<string, unknown>) => { delete api[COMMITS]; }],
+      ["an earlier tree cannot be read", (api: Record<string, unknown>) => { delete api[`repos/acme/app/git/trees/${EARLIER_SHA}?recursive=1`]; }],
+      ["the earlier check runs cannot be read", (api: Record<string, unknown>) => { delete api[`repos/acme/app/commits/${EARLIER_SHA}/check-runs?filter=latest&per_page=100`]; }],
+    ])("answers false with the head's reason when %s", (_case, change) => {
+      const api = getContextOnlyApi();
+      change(api);
+      const result = compare(api);
+      expect(result.status, result.stdout).toBe(0);
+      expect(result.outputs).toEqual({ tested: "false", "pull-request": "7", "head-sha": HEAD_SHA });
+      expect(result.stdout).toContain("is completed (skipped), not a success.");
+    });
+
+    it("stops at a doubt instead of trying older commits", () => {
+      const api = getContextOnlyApi();
+      const OLDER_SHA = "f".repeat(40);
+      const TRUNCATED_SHA = "e".repeat(40);
+      api[`repos/acme/app/git/trees/${TRUNCATED_SHA}?recursive=1`] = tree(CODE, true);
+      api[`repos/acme/app/git/trees/${OLDER_SHA}?recursive=1`] = tree(CODE);
+      api[`repos/acme/app/commits/${OLDER_SHA}/check-runs?filter=latest&per_page=100`] = { check_runs: RUNS };
+      api[COMMITS] = [{ sha: OLDER_SHA }, { sha: HEAD_SHA }];
+      expect(compare(api).outputs).toMatchObject({ tested: "true", "head-sha": OLDER_SHA });
+      api[COMMITS] = [{ sha: OLDER_SHA }, { sha: TRUNCATED_SHA }, { sha: HEAD_SHA }];
+      expect(compare(api).outputs).toEqual({ tested: "false", "pull-request": "7", "head-sha": HEAD_SHA });
+    });
+
+    it("tries at most 10 earlier commits, newest first", () => {
+      const api = getContextOnlyApi();
+      const others = Array.from({ length: 10 }, (_, index) => (index + 10).toString(16).padStart(2, "0").repeat(20));
+      for (const sha of others) api[`repos/acme/app/git/trees/${sha}?recursive=1`] = tree([{ path: "other.ts", sha: "9".repeat(40) }]);
+      api[COMMITS] = [{ sha: EARLIER_SHA }, ...others.map((sha) => ({ sha })), { sha: HEAD_SHA }];
+      expect(compare(api).outputs.tested).toBe("false");
+      api[COMMITS] = [{ sha: EARLIER_SHA }, ...others.slice(1).map((sha) => ({ sha })), { sha: HEAD_SHA }];
+      expect(compare(api).outputs).toMatchObject({ tested: "true", "head-sha": EARLIER_SHA });
+    });
+  });
+
   it("answers false when the event names no default branch", () => {
     const result = compare(getApi(), { DEFAULT_BRANCH: "" });
     expect(result.outputs.tested).toBe("false");
