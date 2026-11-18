@@ -49,6 +49,7 @@ tools/
   host/              shared app server (Ansible, softure.vps_foundation) and one-command app onboarding
   config/            shared app tooling: ESLint preset, tsconfig base, lefthook hooks, language gate
   quality-review/    whole-repository quality review on demand: read-only Agent SDK review, QUALITY-REPORT.md via a PR
+  ci-usage/          CI minutes per repository, workflow and job (GitHub-hosted, Ubicloud), weekly and on demand, in an issue
 themes/              shadcn/ui themes an app installs instead of copying components
   theme-kit/         @softure-ai/theme-kit: the theme contract (defineTheme), CSS generator and build, cn, preflight
   theme-notion/      @softure-ai/theme-notion: the first theme, Notion (tokens, 37 components, compositions)

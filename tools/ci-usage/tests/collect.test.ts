@@ -132,3 +132,38 @@ describe("parseRunCache", () => {
     expect(parseRunCache('{"version":2,"runs":{}}')).toEqual(EMPTY);
   });
 });
+
+describe("collectRepository on the API's real shapes", () => {
+  it("reads a job and a run that leave out the keys they have no value for yet", async () => {
+    // Shapes of SOFTURE/AI's run 44312373806 while it ran (2026-11-18): no conclusion, a job without completed_at.
+    const fake = createFakeGithub([
+      { match: isRuns, body: { total_count: 2, workflow_runs: [makeRun(1, { conclusion: undefined, status: "in_progress" }), makeRun(2, { conclusion: "cancelled" })] } },
+      {
+        match: isJobs(2),
+        body: {
+          total_count: 1,
+          jobs: [
+            {
+              id: 134829549419,
+              run_id: 2,
+              name: "validate and pack",
+              workflow_name: "release",
+              status: "in_progress",
+              runner_name: "GitHub Actions 1000040131",
+              runner_group_name: "GitHub Actions",
+              labels: ["ubuntu-latest"],
+              created_at: "2026-11-18T13:18:30Z",
+              started_at: "2026-11-18T13:18:33Z",
+              html_url: "https://github.com/SOFTURE/AI/actions/runs/44312373806/job/134829549419",
+            },
+          ],
+        },
+      },
+    ]);
+    const client = createGithubClient({ token: "t", fetch: fake.fetch });
+    const result = await collectRepository({ client, repository: "acme/app", from: FROM, to: new Date("2026-11-17T00:00:00Z"), cache: EMPTY });
+    expect(result.error).toBeNull();
+    expect(result.runs).toMatchObject({ counted: 1, running: 1 });
+    expect(result.jobs[0]).toMatchObject({ startedAt: "2026-11-18T13:18:33Z", completedAt: null, runAttempt: 1 });
+  });
+});
