@@ -1,6 +1,6 @@
 {
   "name": "@softure-ai/ci-usage",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SOFTURE AI CI usage: how many GitHub Actions minutes each repository, workflow and job used in a period, on GitHub-hosted and Ubicloud runners, with the estimated cost of each, as JSON and Markdown for people and agents; the CLI behind the reusable ci-usage.yml workflow.",
   "license": "MIT",
   "type": "module",

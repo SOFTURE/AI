@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PRICES } from "../src/prices.js";
-import { getJobMinutes, getPercentile, summarizeUsage } from "../src/usage.js";
+import { getJobMinutes, getPercentile, getWorkflowName, summarizeUsage } from "../src/usage.js";
 import { makeJob } from "./fixtures.js";
 
 const OPTIONS = { prices: DEFAULT_PRICES, ubicloudPremium: false };
@@ -33,7 +33,33 @@ describe("getPercentile", () => {
   });
 });
 
+describe("getWorkflowName", () => {
+  it("keeps a workflow file's own name", () => {
+    expect(getWorkflowName({ workflowName: "ci", workflowPath: ".github/workflows/ci.yml" })).toBe("ci");
+  });
+
+  it("names a dynamic workflow after its path, not after its run's title", () => {
+    expect(getWorkflowName({ workflowName: "PR #1240", workflowPath: "dynamic/github-code-scanning/codeql" })).toBe("CodeQL (default setup)");
+    expect(getWorkflowName({ workflowName: "npm_and_yarn in /. - Update #1707303314", workflowPath: "dynamic/dependabot/dependabot-updates" })).toBe("Dependabot updates");
+    expect(getWorkflowName({ workflowName: "Some run", workflowPath: "dynamic/unknown/thing" })).toBe("dynamic/unknown/thing");
+  });
+});
+
 describe("summarizeUsage", () => {
+  it("groups the runs of a dynamic workflow under one stable name, in the totals and the longest jobs", () => {
+    const usage = summarizeUsage(
+      "acme/app",
+      [
+        makeJob({ workflowName: "PR #1", workflowPath: "dynamic/github-code-scanning/codeql", seconds: 600 }),
+        makeJob({ workflowName: "PR #2", workflowPath: "dynamic/github-code-scanning/codeql", seconds: 60 }),
+      ],
+      { prices: DEFAULT_PRICES, ubicloudPremium: false },
+    );
+    expect(usage.byWorkflow.map((workflow) => workflow.name)).toEqual(["CodeQL (default setup)"]);
+    expect(usage.longestJobs.map((job) => job.workflow)).toEqual(["CodeQL (default setup)", "CodeQL (default setup)"]);
+  });
+
+
   it("sums minutes and cost per provider, workflow and job, most first", () => {
     const jobs = [
       makeJob({ seconds: 600, name: "test", runId: 1 }),
