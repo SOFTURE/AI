@@ -1225,7 +1225,20 @@ describe("the example release pipeline that fails fast (issue #628)", () => {
     expect(needsOf("image")).toEqual(["release"]);
     expect(jobs.image?.with?.ref).toBe("${{ needs.release.outputs.sha }}");
     expect(needsOf("static")).toEqual([]);
-    expect(needsOf("unit")).toEqual([]);
+    expect(needsOf("tested")).toEqual([]);
+    expect(needsOf("unit")).toEqual(["tested"]);
+  });
+
+  it("skips the unit shards when the tag's tree already passed them on its pull request (issue #1373)", () => {
+    expect(jobs.tested?.uses).toBe(`${CALLER_PREFIX}deploy-tested-tree.yml@master`);
+    expect(jobs.tested?.permissions).toEqual({ contents: "read", "pull-requests": "read", checks: "read" });
+    expect(jobs.tested?.with).toMatchObject({ tag: "${{ github.event.release.tag_name || inputs.tag }}", "check-names": "checks / unit *" });
+    expect(jobs.unit?.if).toBe("needs.tested.outputs.tested != 'true'");
+    expect(jobs.build?.if).toBe(
+      "${{ !cancelled() && needs.preflight.result == 'success' && needs.static.result == 'success' " +
+        "&& needs.image.result == 'success' && needs.tested.result == 'success' " +
+        "&& (needs.unit.result == 'success' || (needs.unit.result == 'skipped' && needs.tested.outputs.tested == 'true')) }}",
+    );
   });
 
   it("runs the static checks and the unit shards as two calls, the shards failing fast", () => {
@@ -1255,13 +1268,13 @@ describe("the example release pipeline that fails fast (issue #628)", () => {
   });
 
   it("builds the release from the tested image only after every part passed", () => {
-    expect(needsOf("build").sort()).toEqual(["image", "preflight", "static", "unit"]);
+    expect(needsOf("build").sort()).toEqual(["image", "preflight", "static", "tested", "unit"]);
     expect(jobs.build?.with).toMatchObject({ deploy: false, "prebuilt-image": "${{ needs.image.outputs.prebuilt-image }}" });
     expect(needsOf("deploy")).toEqual(["build"]);
   });
 
   it("watches each part before the build with its own job, and never the build, the deploy or the report", () => {
-    expect(watchers.map(([id]) => id).sort()).toEqual(["stop-on-image", "stop-on-preflight", "stop-on-static", "stop-on-unit"]);
+    expect(watchers.map(([id]) => id).sort()).toEqual(["stop-on-image", "stop-on-preflight", "stop-on-static", "stop-on-tested", "stop-on-unit"]);
     for (const [id, job] of watchers) {
       expect(job.uses, id).toBe(`${CALLER_PREFIX}deploy-cancel-run.yml@master`);
       expect(job.if, id).toBe("failure()");

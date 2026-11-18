@@ -29,5 +29,10 @@ the tag, compares the two trees outside `ignore-prefixes` and reads the head's c
 
 ## Progress
 
-- [x] Phase 1: workflow and tests (SHA_P1)
-- [ ] Phase 2: caller, docs, release
+- [x] Phase 1: workflow and tests (1c7ea81e)
+- [x] Phase 2: caller, docs, release (SHA_P2)
+
+Evidence: `npx vitest run tests/repo` 32 files, 1215 tests green; `npx vitest run tools/deploy` 53 files, 962 tests
+green; typecheck, ESLint and the language gate clean (pre-commit). The compare script run against the live API of
+SOFTURE/AI: `master` (merge of #1370) answered `tested=true` for `unit and repository tests (*)` and `build packages`;
+the merge of #1365, whose head was behind master, answered `false` naming 34 differing files.

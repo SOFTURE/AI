@@ -10,7 +10,12 @@
 #   its first minutes. An environment with required reviewers asks for this job too.
 # - `static` and `unit` are two calls of deploy-release-checks.yml, so each has its own watcher; `fail-fast` stops the
 #   other shards when one is red. `image` builds the tag's commit next to them (deploy-release-image.yml).
-# - `build` tags the tested image only after every part passed; `deploy` and `report` as in examples/deploy.yml.
+# - `tested` (deploy-tested-tree.yml, issue #1373) answers "true" when the tag's tree, outside `context/`, is the tree
+#   of the last merged pull request and that pull request's unit checks passed: `unit` is then skipped. Its job grants
+#   `pull-requests: read` and `checks: read`, which only it needs. `check-names` are the check runs of the app's pull
+#   request workflow (examples/checks.yml names them `checks / unit 1/1`, ...).
+# - `build` tags the tested image only after every part passed (a `unit` skipped because `tested` said so counts as
+#   passed); `deploy` and `report` as in examples/deploy.yml.
 # - One `stop-on-<part>` watcher per part: when that part fails it cancels the run (deploy-cancel-run.yml, the only
 #   job with `actions: write`). One per part, because a job that needs several waits for the slowest. Nothing after
 #   `build` is watched, so a running deploy is never cancelled. An integration suite against the image
@@ -78,7 +83,19 @@ jobs:
       static-command: npx next typegen && npx tsc --noEmit && npm run lint --if-present
       unit: false
 
+  tested:
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    uses: SOFTURE/AI/.github/workflows/deploy-tested-tree.yml@master
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      check-names: checks / unit *
+
   unit:
+    needs: tested
+    if: needs.tested.outputs.tested != 'true'
     uses: SOFTURE/AI/.github/workflows/deploy-release-checks.yml@master
     with:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
@@ -93,7 +110,12 @@ jobs:
       ref: ${{ needs.release.outputs.sha }}
 
   build:
-    needs: [preflight, static, unit, image]
+    needs: [preflight, static, tested, unit, image]
+    # Every result by name: a job skipped because a job it needs failed must not count as passed.
+    if: >-
+      ${{ !cancelled() && needs.preflight.result == 'success' && needs.static.result == 'success'
+      && needs.image.result == 'success' && needs.tested.result == 'success'
+      && (needs.unit.result == 'success' || (needs.unit.result == 'skipped' && needs.tested.outputs.tested == 'true')) }}
     uses: SOFTURE/AI/.github/workflows/deploy-app.yml@master
     with:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
@@ -153,6 +175,13 @@ jobs:
 
   stop-on-static:
     needs: static
+    if: failure()
+    permissions:
+      actions: write
+    uses: SOFTURE/AI/.github/workflows/deploy-cancel-run.yml@master
+
+  stop-on-tested:
+    needs: tested
     if: failure()
     permissions:
       actions: write
