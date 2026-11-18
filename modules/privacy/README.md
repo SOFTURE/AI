@@ -19,7 +19,10 @@ their own document frame and footer.
   with every contributor's part under its id, read in one repeatable-read transaction, bounded by
   `export.maxBytes`.
 - **The deletion.** A page with the export link and a delete form that asks for the current
-  password and an explicit confirmation. Every contributor deletes in one transaction; a refusal or
+  password and an explicit confirmation. An account that signs in with a provider (an OpenID
+  Connect or GitHub sign-in of `@softure-ai/auth`) may confirm by signing in with it again instead:
+  for a few minutes after, the session that sign-in opened deletes without a password, so an
+  account a provider created (no password its owner knows) can delete itself too. Every contributor deletes in one transaction; a refusal or
   a failure rolls everything back. The sessions end with the account, the cookie is cleared, and the
   browser lands on `afterDelete`.
 - **The consent ledger.** `privacy.consents` records who agreed to what, when, where and against
@@ -84,6 +87,7 @@ privacy({
 | `documents[].history` | `{ date, summary, version? }[]` | none | Every published text, in any order; at least one entry. `date` (`YYYY-MM-DD`, unique) is the day it takes effect, `summary` says what changed, `version` defaults to the date. The version in force is the newest entry's. Add an entry on the day its text takes effect: until then `getDocumentVersionAt(config, id, now)` answers the earlier version, but consents are stamped with the newest one. |
 | `export.maxBytes` | `number` | `10485760` (10 MiB) | The largest export, in bytes of JSON (1 KiB to 100 MiB). A larger one is refused with `privacy.export_too_large`. |
 | `export.fileName` | `string` | `account-data` | The download's name before the date. |
+| `deletion.recentSignInMinutes` | `number` | `10` | How recent a provider sign-in must be to confirm a deletion in place of the password (1-60). Only the session that sign-in opened counts. |
 | `routes` | `{ account, export, afterDelete }` | `/account/privacy`, `/api/privacy/export`, `/` | Where the page and the route are mounted, and where a deleted account lands. |
 | `messages` | partial dictionaries per locale (`en` built in; any other is the app's own translation) | built in | Copy overrides (section 9). |
 
@@ -253,6 +257,11 @@ its own history anchor with `changesId` (default `legal-changes`). `as` sets the
 
 Link the page from the app's account page. To build your own page, compose `DeleteAccountForm`
 from `@softure-ai/privacy/ui` with `deleteAccountAction` from `/next`, and link to the export route.
+Pass `reauthentication={await getDeleteAccountReauthentication(<this page's path>)}` (`/next`) so an
+account that signs in with a provider gets a "Confirm with <provider>" button (it posts to auth's
+`oidcSignInAction` and comes back to the page); right after that sign-in the form asks only for the
+confirmation. Without the prop the form asks for the password, as before. With auth's
+`password.enabled: false` the password field is left out.
 
 The route answers 401 without a session, 429 with `retry-after` over the `privacy-export` limit,
 413 over `export.maxBytes` and 500 when a contributor fails, each with `{ error: <code> }`. The
@@ -299,7 +308,8 @@ written in the app's locale, in UTC so the server's time zone cannot move them.
 ## 9. Copy
 
 `privacyMessages.en`: `page` (title, lead), `export` (title, description, button), `delete`
-(title, description, password label, confirmation, submit and pending labels), `legal` (contents,
+(title, description, password label, the provider confirmation's `confirmWith`, `confirmWithLead` and
+`confirmedWith`, confirmation, submit and pending labels), `legal` (contents,
 version, effective from, change history, the footer's navigation name) and `errors` for every
 code the form and the route can give (`privacy.*`, `auth.unauthenticated`, `security.rate_limited`,
 `core.*`). Override any of them with

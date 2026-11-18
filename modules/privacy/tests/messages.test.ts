@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const CODES: DeleteAccountErrorCode[] = [
   "privacy.deletion_refused",
   "privacy.password_invalid",
+  "privacy.reauthentication_required",
   "privacy.confirmation_required",
   "auth.unauthenticated",
   "security.rate_limited",

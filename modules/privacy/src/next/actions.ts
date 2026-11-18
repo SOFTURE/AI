@@ -12,7 +12,7 @@ import type { DeleteAccountErrorCode, DeleteAccountField, DeleteAccountFormState
 import { getPrivacyRoutes } from "../server/options.js";
 import { deleteOwnAccount } from "../server/self-service.js";
 import { getPrivacyContext } from "./context.js";
-import { clearSessionCookie } from "./session-cookie.js";
+import { clearSessionCookie, readSessionToken } from "./session-cookie.js";
 
 /** Longer values are cut: auth refuses them anyway, and nothing huge is hashed. */
 const MAX_FIELD_LENGTH = 4096;
@@ -28,6 +28,7 @@ const deleteAccountInput = z.object({
 
 const FIELD_OF: Partial<Record<DeleteAccountErrorCode, DeleteAccountField>> = {
   "privacy.password_invalid": "password",
+  "privacy.reauthentication_required": "password",
   "privacy.confirmation_required": "confirm",
 };
 
@@ -48,6 +49,7 @@ export async function deleteAccountAction(_previous: DeleteAccountFormState, for
     result = await deleteOwnAccount(await getPrivacyContext(config), {
       userId: user.id,
       password: input.password,
+      sessionToken: await readSessionToken(config),
       isConfirmed: input.confirm !== null,
     });
   } catch (error) {

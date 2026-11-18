@@ -119,6 +119,16 @@ export const privacyOptionsSchema = z
         fileName: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/, "must be 1-64 lowercase letters, digits or -").default("account-data"),
       })
       .prefault({}),
+    deletion: z
+      .strictObject({
+        /**
+         * How recent a provider sign-in must be to confirm an account deletion in place of the password, in minutes.
+         * An account a provider created has no password its owner knows: it confirms by signing in with the provider
+         * again, and only the session that sign-in opened counts.
+         */
+        recentSignInMinutes: z.number().int().min(1).max(60).default(10),
+      })
+      .prefault({}),
   })
   .superRefine((options, context) => {
     const seen = new Set<string>();
