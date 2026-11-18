@@ -29,5 +29,5 @@ the tag, compares the two trees outside `ignore-prefixes` and reads the head's c
 
 ## Progress
 
-- [ ] Phase 1: workflow and tests
+- [x] Phase 1: workflow and tests (SHA_P1)
 - [ ] Phase 2: caller, docs, release

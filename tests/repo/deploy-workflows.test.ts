@@ -2601,3 +2601,224 @@ exit "\${SMOKE_EXIT:-0}"
     });
   });
 });
+
+describe("deploy-tested-tree.yml (issue #1373)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-tested-tree.yml"));
+  const call = getWorkflowCall(workflow);
+  const job = workflow.jobs.compare as Job & { outputs?: Record<string, string> };
+  const inputStep = findNamedStep(job, "Check the inputs");
+  const compareStep = findNamedStep(job, "Compare the tag with the last merged pull request");
+
+  const TAG_SHA = "a".repeat(40);
+  const HEAD_SHA = "b".repeat(40);
+  const MERGE_SHA = "c".repeat(40);
+  const LATER_MERGE_SHA = "d".repeat(40);
+  const LATER_HEAD_SHA = "e".repeat(40);
+  const INPUTS = { TAG: "v2026.11.18", CHECK_NAMES: "unit (*)\nstatic", IGNORE_PREFIXES: "context/", RELEASE_BRANCH: "" };
+  const ENV = { ...INPUTS, GH_TOKEN: "token", REPOSITORY: "acme/app", DEFAULT_BRANCH: "main" };
+
+  type Entry = { path: string; sha: string; mode?: string; type?: string };
+  const CODE: Entry[] = [
+    { path: "src", sha: "1".repeat(40), mode: "040000", type: "tree" },
+    { path: "src/index.ts", sha: "2".repeat(40) },
+    { path: "package.json", sha: "3".repeat(40) },
+    { path: "context", sha: "4".repeat(40), mode: "040000", type: "tree" },
+  ];
+  const tree = (entries: Entry[], truncated = false): unknown => ({
+    truncated,
+    tree: entries.map((entry) => ({ mode: entry.mode ?? "100644", type: entry.type ?? "blob", sha: entry.sha, path: entry.path })),
+  });
+  const run = (name: string, conclusion: string | null = "success", status = "completed"): unknown => ({ name, status, conclusion });
+  const RUNS = [run("unit (1/2)"), run("unit (2/2)"), run("static"), run("e2e", "skipped")];
+
+  /** The API of a release whose tag holds the code of pull request #7 plus an archive commit under context/. */
+  function getApi(): Record<string, unknown> {
+    return {
+      "repos/acme/app/commits/v2026.11.18": { sha: TAG_SHA },
+      "repos/acme/app/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=30": [
+        { number: 6, merged_at: "2026-11-18T09:00:00Z", merge_commit_sha: "f".repeat(40), head: { sha: "9".repeat(40) } },
+        { number: 5, merged_at: null, merge_commit_sha: "8".repeat(40), head: { sha: "7".repeat(40) } },
+        { number: 7, merged_at: "2026-11-18T10:00:00Z", merge_commit_sha: MERGE_SHA, head: { sha: HEAD_SHA } },
+      ],
+      [`repos/acme/app/compare/${MERGE_SHA}...${TAG_SHA}`]: { status: "ahead" },
+      [`repos/acme/app/git/trees/${TAG_SHA}?recursive=1`]: tree([...CODE, { path: "context/archive/plan.md", sha: "5".repeat(40) }]),
+      [`repos/acme/app/git/trees/${HEAD_SHA}?recursive=1`]: tree([...CODE, { path: "context/changes/plan.md", sha: "6".repeat(40) }]),
+      [`repos/acme/app/commits/${HEAD_SHA}/check-runs?filter=latest&per_page=100`]: { check_runs: RUNS },
+    };
+  }
+
+  // A stand-in for gh that serves the answers above through the real jq, as `gh api --jq` would, and logs each call.
+  const GH = [
+    "#!/bin/bash",
+    'printf \'%s\\n\' "$*" >> "$RUNNER_TEMP/gh-calls"',
+    'endpoint=""; expression="."',
+    'while [ $# -gt 0 ]; do',
+    '  case "$1" in',
+    "    api | --paginate) ;;",
+    '    --jq) expression="$2"; shift ;;',
+    '    *) endpoint="$1" ;;',
+    "  esac",
+    "  shift",
+    "done",
+    'file="$API_DIR/$(printf \'%s\' "$endpoint" | tr \'/?&=.\' \'_____\')"',
+    'if [ ! -f "$file" ]; then echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi',
+    'jq -r "$expression" "$file"',
+    "",
+  ].join("\n");
+
+  function compare(api: Record<string, unknown>, env: Record<string, string> = {}): ReturnType<typeof runScript> & { outputs: Record<string, string> } {
+    const dir = mkdtempSync(join(tmpdir(), "deploy-tested-tree-"));
+    try {
+      for (const [endpoint, answer] of Object.entries(api)) {
+        writeFileSync(join(dir, endpoint.replace(/[/?&=.]/g, "_")), JSON.stringify(answer));
+      }
+      const result = runScript(compareStep.run ?? "", { ...ENV, API_DIR: dir, ...env }, { bin: { gh: GH } });
+      const outputs = Object.fromEntries(
+        result.output.split("\n").filter((line) => line.includes("=")).map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]),
+      );
+      return { ...result, outputs };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("takes the tag and the check names, and reads commits, pull requests and check runs only", () => {
+    expect(call.inputs).toMatchObject({
+      tag: { required: true },
+      "check-names": { required: true },
+      "ignore-prefixes": { default: "context/" },
+      "release-branch": { default: "" },
+    });
+    expect(call.secrets).toBeUndefined();
+    expect(Object.keys(call.outputs ?? {})).toEqual(["tested", "pull-request", "head-sha"]);
+    expect(call.outputs?.tested?.value).toBe("${{ jobs.compare.outputs.tested }}");
+    expect(workflow.permissions).toEqual({});
+    expect(Object.keys(workflow.jobs)).toEqual(["compare"]);
+    expect(job.permissions).toEqual({ contents: "read", "pull-requests": "read", checks: "read" });
+    expect(job.outputs?.tested).toBe("${{ steps.compare.outputs.tested || 'false' }}");
+    expect((job.steps ?? []).some((step) => step.uses?.startsWith("actions/checkout@") === true)).toBe(false);
+    expect(compareStep.env).toMatchObject({
+      GH_TOKEN: "${{ github.token }}",
+      REPOSITORY: "${{ github.repository }}",
+      DEFAULT_BRANCH: "${{ github.event.repository.default_branch }}",
+      TAG: "${{ inputs.tag }}",
+      CHECK_NAMES: "${{ inputs.check-names }}",
+      IGNORE_PREFIXES: "${{ inputs.ignore-prefixes }}",
+    });
+  });
+
+  it("accepts the inputs a release passes", () => {
+    expect(runScript(inputStep.run ?? "", INPUTS).status).toBe(0);
+    expect(runScript(inputStep.run ?? "", { ...INPUTS, IGNORE_PREFIXES: "", RELEASE_BRANCH: "release/2026" }).status).toBe(0);
+    expect(runScript(inputStep.run ?? "", { ...INPUTS, IGNORE_PREFIXES: "context/\ndocs/drafts/\n" }).status).toBe(0);
+  });
+
+  it.each([
+    ["TAG", "", "Input tag is not valid: a tag name"],
+    ["TAG", "v1;id", "Input tag is not valid: a tag name"],
+    ["CHECK_NAMES", "", "Input check-names is not valid: at least one check run name or glob"],
+    ["CHECK_NAMES", "\n\n", "Input check-names is not valid: at least one check run name or glob"],
+    ["IGNORE_PREFIXES", "context", 'Input ignore-prefixes is not valid: folders that end in / ("context" would also match "contextx")'],
+    ["IGNORE_PREFIXES", "/context/", "Input ignore-prefixes is not valid: folders inside the repository"],
+    ["IGNORE_PREFIXES", "context/../src/", "Input ignore-prefixes is not valid: folders inside the repository"],
+    ["RELEASE_BRANCH", "a..b", "Input release-branch is not valid: a branch name"],
+  ])("refuses %s=%s", (name, value, message) => {
+    const refused = runScript(inputStep.run ?? "", { ...INPUTS, [name]: value });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain(`::error::${message}`);
+  });
+
+  it("answers true when the tag's tree outside context/ is the pull request's and its named checks passed", () => {
+    const result = compare(getApi());
+    expect(result.status, result.stdout).toBe(0);
+    expect(result.outputs).toEqual({ tested: "true", "pull-request": "7", "head-sha": HEAD_SHA });
+    expect(result.stdout).toContain("v2026.11.18 has the tree of pull request #7");
+    expect(result.summary).toContain("Unit suite skipped");
+  });
+
+  it("passes over a pull request merged after the tag was cut", () => {
+    const api = getApi();
+    api["repos/acme/app/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=30"] = [
+      { number: 8, merged_at: "2026-11-18T11:00:00Z", merge_commit_sha: LATER_MERGE_SHA, head: { sha: LATER_HEAD_SHA } },
+      { number: 7, merged_at: "2026-11-18T10:00:00Z", merge_commit_sha: MERGE_SHA, head: { sha: HEAD_SHA } },
+    ];
+    api[`repos/acme/app/compare/${LATER_MERGE_SHA}...${TAG_SHA}`] = { status: "diverged" };
+    const result = compare(api);
+    expect(result.outputs).toEqual({ tested: "true", "pull-request": "7", "head-sha": HEAD_SHA });
+  });
+
+  it("reads the release branch it is given", () => {
+    const api = getApi();
+    const merged = api["repos/acme/app/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=30"];
+    api["repos/acme/app/pulls?state=closed&base=release/2026&sort=updated&direction=desc&per_page=30"] = merged;
+    delete api["repos/acme/app/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=30"];
+    expect(compare(api, { RELEASE_BRANCH: "release/2026" }).outputs.tested).toBe("true");
+    expect(compare(api).outputs.tested).toBe("false");
+  });
+
+  it("answers false, naming the files, when the tag has code the pull request did not have", () => {
+    const api = getApi();
+    api[`repos/acme/app/git/trees/${TAG_SHA}?recursive=1`] = tree([
+      ...CODE.filter((entry) => entry.path !== "src/index.ts"),
+      { path: "src/index.ts", sha: "0".repeat(40) },
+      { path: "src/new.ts", sha: "0".repeat(40) },
+    ]);
+    const result = compare(api);
+    expect(result.status).toBe(0);
+    expect(result.outputs).toEqual({ tested: "false", "pull-request": "7", "head-sha": HEAD_SHA });
+    expect(result.stdout).toContain(`::notice::The unit suite runs: v2026.11.18 differs from pull request #7 (${HEAD_SHA}) in 2 file(s) outside the ignored folders: src/index.ts src/new.ts`);
+    expect(result.summary).toContain("Unit suite runs");
+  });
+
+  it("answers false for a changed file mode, and for a file the pull request had and the tag lost", () => {
+    const api = getApi();
+    api[`repos/acme/app/git/trees/${TAG_SHA}?recursive=1`] = tree(
+      CODE.map((entry) => (entry.path === "package.json" ? { ...entry, mode: "100755" } : entry)),
+    );
+    expect(compare(api).stdout).toContain("in 1 file(s) outside the ignored folders: package.json");
+    api[`repos/acme/app/git/trees/${TAG_SHA}?recursive=1`] = tree(CODE.filter((entry) => entry.path !== "src/index.ts"));
+    expect(compare(api).stdout).toContain("in 1 file(s) outside the ignored folders: src/index.ts");
+  });
+
+  it("compares context/ too when no folder is ignored", () => {
+    const result = compare(getApi(), { IGNORE_PREFIXES: "" });
+    expect(result.outputs.tested).toBe("false");
+    expect(result.stdout).toContain("in 2 file(s) outside the ignored folders: context/archive/plan.md context/changes/plan.md");
+  });
+
+  it.each([
+    ["a red check", [run("unit (1/2)", "failure"), run("unit (2/2)"), run("static")], 'the check run "unit (1/2)" of pull request #7 is completed (failure), not a success.'],
+    ["a running check", [run("unit (1/2)", null, "in_progress"), run("unit (2/2)"), run("static")], 'the check run "unit (1/2)" of pull request #7 is in_progress (none), not a success.'],
+    ["a skipped check", [run("unit (1/2)"), run("unit (2/2)"), run("static", "skipped")], 'the check run "static" of pull request #7 is completed (skipped), not a success.'],
+    ["a missing check", [run("unit (1/2)"), run("unit (2/2)")], `pull request #7 (${HEAD_SHA}) has no check run named "static".`],
+  ])("answers false for %s", (_case, runs, message) => {
+    const api = getApi();
+    api[`repos/acme/app/commits/${HEAD_SHA}/check-runs?filter=latest&per_page=100`] = { check_runs: runs };
+    const result = compare(api);
+    expect(result.status).toBe(0);
+    expect(result.outputs.tested).toBe("false");
+    expect(result.stdout).toContain(`::notice::The unit suite runs: ${message}`);
+  });
+
+  it.each([
+    ["the tag cannot be read", (api: Record<string, unknown>) => { delete api["repos/acme/app/commits/v2026.11.18"]; }, "the commit of v2026.11.18 could not be read."],
+    ["no pull request is merged", (api: Record<string, unknown>) => { api["repos/acme/app/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=30"] = []; }, "no pull request merged into main is in the history of v2026.11.18."],
+    ["the history cannot be compared", (api: Record<string, unknown>) => { delete api[`repos/acme/app/compare/${MERGE_SHA}...${TAG_SHA}`]; }, "the history of v2026.11.18 could not be compared with pull request #7."],
+    ["a tree is truncated", (api: Record<string, unknown>) => { api[`repos/acme/app/git/trees/${HEAD_SHA}?recursive=1`] = tree(CODE, true); }, `the tree of ${HEAD_SHA} is too large for one API answer (truncated).`],
+    ["a tree cannot be read", (api: Record<string, unknown>) => { delete api[`repos/acme/app/git/trees/${TAG_SHA}?recursive=1`]; }, `the tree of ${TAG_SHA} could not be read.`],
+    ["the check runs cannot be read", (api: Record<string, unknown>) => { delete api[`repos/acme/app/commits/${HEAD_SHA}/check-runs?filter=latest&per_page=100`]; }, "the check runs of pull request #7 could not be read."],
+  ])("answers false, without failing, when %s", (_case, change, message) => {
+    const api = getApi();
+    change(api);
+    const result = compare(api);
+    expect(result.status, result.stdout).toBe(0);
+    expect(result.outputs.tested).toBe("false");
+    expect(result.stdout).toContain(`::notice::The unit suite runs: ${message}`);
+  });
+
+  it("answers false when the event names no default branch", () => {
+    const result = compare(getApi(), { DEFAULT_BRANCH: "" });
+    expect(result.outputs.tested).toBe("false");
+    expect(result.stdout).toContain("set the release-branch input");
+  });
+});
