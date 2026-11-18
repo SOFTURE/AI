@@ -1,7 +1,7 @@
 // The funnel counter on a real Postgres (PGlite): daily sums per channel and step, the cap on new
 // channels, the day in the app's time zone, the report and the cleanup.
 import { OVERFLOW_CHANNEL } from "@softure-ai/analytics";
-import { formatDay, getFunnelReport, pruneFunnelCounts, recordFunnelStep } from "@softure-ai/analytics/server";
+import { formatDay, formatFunnelDays, getFunnelDays, getFunnelReport, pruneFunnelCounts, recordFunnelStep } from "@softure-ai/analytics/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { createConfig, createTestFunnel, listCounts, type TestFunnel } from "./support.js";
 
@@ -232,5 +232,63 @@ describe("formatDay", () => {
     expect(formatDay(new Date("2026-10-03T22:30:00Z"), "Europe/Warsaw")).toBe("2026-10-04");
     expect(formatDay(new Date("2026-10-03T22:30:00Z"), "America/New_York")).toBe("2026-10-03");
     expect(formatDay(new Date("2026-01-05T00:30:00Z"), "UTC")).toBe("2026-01-05");
+  });
+});
+
+describe("getFunnelDays", () => {
+  it("lists every day of the window oldest first, with zeros for a day nothing was counted", async () => {
+    const test = await setUp();
+    await recordFunnelStep(test.ctx, { step: "landing", channel: "ads" });
+    test.clock.advance(2 * DAY_MS);
+    await recordFunnelStep(test.ctx, { step: "landing", channel: "ads" });
+    await recordFunnelStep(test.ctx, { step: "landing", channel: null });
+    await recordFunnelStep(test.ctx, { step: "signup", channel: "newsletter" });
+
+    expect(await getFunnelDays(test.ctx, { days: 3 })).toEqual({
+      from: "2026-10-03",
+      to: "2026-10-05",
+      steps: ["landing", "pricing", "checkout", "signup"],
+      days: [
+        { day: "2026-10-03", counts: { landing: 1, pricing: 0, checkout: 0, signup: 0 } },
+        { day: "2026-10-04", counts: { landing: 0, pricing: 0, checkout: 0, signup: 0 } },
+        { day: "2026-10-05", counts: { landing: 2, pricing: 0, checkout: 0, signup: 1 } },
+      ],
+    });
+  });
+
+  it("leaves out the days before the window", async () => {
+    const test = await setUp();
+    await recordFunnelStep(test.ctx, { step: "pricing", channel: null });
+    test.clock.advance(DAY_MS);
+
+    expect((await getFunnelDays(test.ctx, { days: 1 })).days).toEqual([
+      { day: "2026-10-04", counts: { landing: 0, pricing: 0, checkout: 0, signup: 0 } },
+    ]);
+  });
+
+  it("refuses a window outside 1 to MAX_REPORT_DAYS days", async () => {
+    const test = await setUp();
+    for (const days of [0, 3661, 1.5]) {
+      await expect(getFunnelDays(test.ctx, { days })).rejects.toThrow(/getFunnelDays: days must be a whole number from 1 to 3660/);
+    }
+  });
+});
+
+describe("formatFunnelDays", () => {
+  it("prints one aligned row per day under the step names", () => {
+    const table = formatFunnelDays({
+      steps: ["landing", "waitlist", "signup"],
+      days: [
+        { day: "2026-11-16", counts: { landing: 12, waitlist: 2, signup: 0 } },
+        { day: "2026-11-17", counts: { landing: 3, waitlist: 0, signup: 1 } },
+      ],
+    });
+    expect(table).toBe(
+      ["day         landing  waitlist  signup", "2026-11-16  12       2         0", "2026-11-17  3        0         1"].join("\n"),
+    );
+  });
+
+  it("prints only the header when there are no days", () => {
+    expect(formatFunnelDays({ steps: ["landing"], days: [] })).toBe("day  landing");
   });
 });

@@ -1,0 +1,1 @@
+Impl review: each test runs against the package entry an app imports; the funnel days are checked against counts recorded on a test clock across days, the fake bucket against the module's own S3 driver and signer. No findings.
