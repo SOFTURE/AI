@@ -2,7 +2,7 @@
   "id": "privacy",
   "version": "0.2.3",
   "runtimes": ["node", "workers"],
-  "dependsOn": { "auth": "^0.2.0", "security": "^0.2.0", "ops": "^0.2.0?" },
+  "dependsOn": { "auth": "^0.2.18", "security": "^0.2.0", "ops": "^0.2.0?" },
   "dbSchema": "privacy",
   "tables": ["consents"],
   "env": [],

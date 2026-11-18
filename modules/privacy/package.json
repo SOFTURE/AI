@@ -57,7 +57,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@softure-ai/auth": "^0.2.0",
+    "@softure-ai/auth": "^0.2.18",
     "@softure-ai/core": "^0.2.0",
     "@softure-ai/db": "^0.1.15",
     "@softure-ai/security": "^0.2.0",
