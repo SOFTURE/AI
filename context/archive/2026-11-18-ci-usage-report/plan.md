@@ -85,10 +85,14 @@ the weekly schedule and `workflow_dispatch`; SOFTURE/AI calls it for itself.
 
 ## Progress
 
-- [ ] Phase 1: the package and its pure core
-- [ ] Phase 2: the GitHub client
-- [ ] Phase 3: report, CLI and issue delivery
-- [ ] Phase 4: reusable workflow, example, own use, docs and repository rules
+- [x] Phase 1: the package and its pure core (d8ea0e4; `vitest run tools/ci-usage`: runner, prices, usage tests green)
+- [x] Phase 2: the GitHub client (213323a; collect and billing tests with a fake fetch, no network)
+- [x] Phase 3: report, CLI and issue delivery (15a9b0c; report, publish and command tests, 74 in the package)
+- [x] Phase 4: reusable workflow, example, own use, docs and repository rules (835bf40; tests/repo green, actionlint
+  1.7.12 clean on ci-usage.yml, ci-usage-self.yml and the example; `npm run build` green). The local run against
+  SOFTURE/AI was refused by api.github.com (401: the container's token is not a GitHub token); replaced by a test on
+  the API's real shapes (run 44312373806) and the first live run after the release (impl review #2).
+- [x] Impl review fix: daily cache-warming run for the own caller (31798dd)
 
 ## Decisions (auto)
 

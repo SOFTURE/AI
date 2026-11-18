@@ -1,13 +1,13 @@
 ---
 change_id: ci-usage-report
 title: "A weekly and on-demand report of the CI minutes each project, workflow and job uses"
-status: planned
+status: archived
 roadmap_item: null
 issue: 1360
 branch: claude/project-thread-xvy7o9
 created: 2026-11-18
 updated: 2026-11-18
-archived_at: null
+archived_at: 2026-11-18
 ---
 
 ## Intent
@@ -54,3 +54,14 @@ jobs, four test shards, a narrow pre-push).
 - Owner decision (2026-11-18, decision card): a new package `@softure-ai/ci-usage`.
 - Frame skipped: the problem is stated by the owner with its measurement (minutes per project, workflow and job); the
   open point is where the code lives, which the research answers.
+
+## Done
+
+- New package `@softure-ai/ci-usage` 0.1.0 (unpublished): CLI `softure-ci-usage report` and `publish`, reusable
+  workflow `.github/workflows/ci-usage.yml`, example caller `tools/ci-usage/examples/ci-usage.yml`, SOFTURE/AI's own
+  `.github/workflows/ci-usage-self.yml` (daily cache warm-up, published Mondays and by hand). 75 package tests,
+  repository tests for the workflow and its callers.
+- Release: first publication through `NPM_TOKEN`, then the owner sets the trusted publisher for `@softure-ai/ci-usage`.
+- Check after the release (agent-runnable): dispatch `ci-usage-self.yml` on master and confirm the run is green, the
+  artifact `ci-usage-report` holds both files and the issue labelled `ci-usage` exists with the report.
+
