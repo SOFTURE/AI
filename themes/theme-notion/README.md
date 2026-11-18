@@ -779,7 +779,10 @@ moves up and down. The lifted row floats on `accent-strong` with `shadow-menu` a
 `data-dragging`; every row has `touch-manipulation select-none` and no long-press callout. The order stays with the
 app: `items` are the rows' ids in order, and `onReorder(next, { id, from, to })` gets the new order on a drop.
 `dragBy="handle"` leaves the row alone and drags only by a `SortableHandle` (a ghost grip button, for a desktop list;
-a mouse starts at once there). A screen reader hears the `instructions` on the row (or handle) and the
+a mouse starts at once there). `reveal="hover"` on the handle shows the grip, as Notion does, only while its row is
+hovered, has focus within or is lifted, under a fine pointer; a touch screen, which has no hover, always shows it. The
+hidden grip keeps its place, its tab stop and its hit area (only its opacity changes), and every `SortableItem`
+carries `group/sortable-item` for it, so the app adds no class. A screen reader hears the `instructions` on the row (or handle) and the
 `announcements` while it moves: strings with `{item}`, `{position}` and `{total}`, where `getItemLabel(id)` names the
 row (the id by default). `data-slot="sortable-list"`, `sortable-item` (with `data-id`), `sortable-handle` and
 `sortable-activator` mark the parts.
@@ -809,7 +812,7 @@ secondary content with `group` on the list). `as="ol"` renders a numbered list; 
 <SortableList label="Columns" items={columns} onReorder={setColumns} dragBy="handle">
   {columns.map((id) => (
     <SortableItem key={id} id={id} className="flex items-center gap-1 px-1">
-      <SortableHandle label="Move column" />
+      <SortableHandle label="Move column" reveal="hover" />
       {id}
     </SortableItem>
   ))}
