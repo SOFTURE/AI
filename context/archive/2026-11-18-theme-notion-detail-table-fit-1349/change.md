@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-detail-table-fit-1349
 title: "theme-notion: DetailTable keeps to its column; DocumentRow details"
-status: impl_reviewed
+status: archived
+archived_at: 2026-11-18
 roadmap_item: null
 issue: 1349
 branch: claude/project-thread-wbkgag
