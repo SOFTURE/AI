@@ -35,6 +35,8 @@ describe("the connections module", () => {
       refreshWait: { attempts: 40, intervalMs: 250 },
       stateTtlMinutes: 10,
       httpTimeoutMs: 10_000,
+      keysEnv: "SOFTURE_CONNECTIONS_KEYS",
+      accountReturnPath: "/",
     });
     expect(connections({ providers: [OAUTH, { kind: "api_key", id: "raindrop" }] }).options.providers).toEqual([
       {
@@ -46,6 +48,7 @@ describe("the connections module", () => {
         authorizeParams: {},
         pkce: true,
         rotatesRefreshToken: false,
+        owner: "app",
       },
       { kind: "api_key", id: "raindrop", accounts: ["default"] },
     ]);

@@ -74,6 +74,26 @@ const oauthProviderSchema = z.strictObject({
   rotatesRefreshToken: z.boolean().default(false),
   /** How long the provider keeps a refresh token at most (Google testing mode: 7), for the page's "expiring" state. */
   refreshTokenMaxAgeDays: z.number().int().min(1).max(3650).optional(),
+  /**
+   * Who owns a connection: `app` (the default), one the admin connects for the whole app, or `user`, one each signed-in
+   * user connects for themselves (their own Dropbox, their own calendar). A user's connections are theirs alone:
+   * every read names the owner, the admin page does not list them, and the user's data export and deletion cover them.
+   */
+  owner: z.enum(["app", "user"]).default("app"),
+  /**
+   * Where the callback sends a user back after connecting their own account (`owner: "user"`): an app path such as
+   * `/settings/dropbox`, with `?connected=<provider>/<account>` or `?error=<code>`. Required for a user provider.
+   */
+  returnPath: z
+    .string()
+    .max(500)
+    .regex(/^\/(?!\/)[^\s?#\\]*$/, "must be an app path such as /settings/dropbox, without a query")
+    .optional(),
+  /**
+   * A top-level string field of the token response that names the provider's account (Dropbox `account_id`), kept as
+   * the connection's `subject` when the code is exchanged, so the app can tell one provider account from another.
+   */
+  subjectField: z.string().min(1).max(100).regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "must be a JSON field name such as account_id").optional(),
 });
 
 const keyProviderShape = {
@@ -128,6 +148,17 @@ const RESERVED_AUTHORIZE_PARAMS = new Set(["response_type", "client_id", "redire
 export const connectionsOptionsSchema = z
   .strictObject({
     providers: z.array(providerSchema).default([]),
+    /** The variable that holds the keyring; an app that already keeps one for its own secrets can share it. */
+    keysEnv: envNameSchema.default("SOFTURE_CONNECTIONS_KEYS"),
+    /**
+     * Where the callback sends a user back from their own authorization when it cannot tell the provider (an expired
+     * or unknown state), with `?error=<code>`. Providers with `owner: "user"` name their own `returnPath`.
+     */
+    accountReturnPath: z
+      .string()
+      .max(500)
+      .regex(/^\/(?!\/)[^\s?#\\]*$/, "must be an app path such as /settings, without a query")
+      .default("/"),
     /** The auth role that opens the page, connects and disconnects. */
     panelRole: z.string().regex(ROLE_NAME_PATTERN, "must be a role name such as admin").default("admin"),
     /** An access token this close to its expiry is refreshed before it is handed out. */
@@ -160,6 +191,9 @@ export const connectionsOptionsSchema = z
         context.addIssue({ code: "custom", path: ["providers", index, "accounts"], message: "must not repeat an account" });
       }
       if (provider.kind !== "oauth") return;
+      if (provider.owner === "user" && provider.returnPath === undefined) {
+        context.addIssue({ code: "custom", path: ["providers", index, "returnPath"], message: "a provider with owner: \"user\" needs a returnPath" });
+      }
       if ((provider.clientId === undefined) === (provider.clientIdEnv === undefined)) {
         context.addIssue({ code: "custom", path: ["providers", index, "clientId"], message: "give exactly one of clientId and clientIdEnv" });
       }
@@ -182,4 +216,6 @@ export type ConnectionsOptions = z.output<typeof connectionsOptionsSchema>;
 export type ProviderDefinitionInput = z.input<typeof providerSchema>;
 export type ProviderDefinition = z.output<typeof providerSchema>;
 export type OAuthProviderDefinition = z.output<typeof oauthProviderSchema>;
+/** Who owns a provider's connections. */
+export type ConnectionOwner = OAuthProviderDefinition["owner"];
 export type KeyProviderDefinition = z.output<typeof apiKeyProviderSchema> | z.output<typeof basicProviderSchema>;

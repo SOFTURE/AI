@@ -41,7 +41,7 @@ export async function reencryptConnections(ctx: ConnectionsContext, options: Ree
     }
     resealed += 1;
     if (options.dryRun) continue;
-    const sealed = sealSecret(keyring.value, opened.value, getCredentialContext(row.provider, row.accountId));
+    const sealed = sealSecret(keyring.value, opened.value, getCredentialContext(row.provider, row.accountId, row.ownerId));
     // Conditional on the ciphertext read: a refresh that stored a new one meanwhile already used the current key.
     await ctx.db
       .update(accounts)

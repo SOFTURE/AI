@@ -22,6 +22,11 @@ export type ConnectionsTokenErrorCode =
   | "connections.wrong_kind"
   /** Nothing is stored for this provider and account. */
   | "connections.not_connected"
+  /**
+   * The call does not fit the provider's owner: an owner named for an app provider, or none for a provider whose
+   * connections belong to users (`owner: "user"`).
+   */
+  | "connections.wrong_owner"
   /** Terminal: the grant or the key is gone (revoked, expired, rejected); only a new connect fixes it. */
   | "connections.reconnect_required"
   /** Retryable: the token endpoint was unreachable, rate limited, down or answered something unexpected. */
@@ -50,7 +55,8 @@ export type ConnectionsFlowErrorCode =
   | "connections.exchange_failed"
   /** The key form was empty or too long. */
   | "connections.credential_invalid"
-  | "connections.not_connected";
+  | "connections.not_connected"
+  | "connections.wrong_owner";
 
 /** What the token endpoint answered to a failed refresh. Never its body or error description. */
 export interface TokenEndpointAnswer {
@@ -90,6 +96,10 @@ export type ConnectionStatus = "connected" | "expiring" | "reconnect_required" |
 export interface ConnectionView {
   readonly provider: string;
   readonly accountId: string;
+  /** The auth user id the connection belongs to (`owner: "user"`); null for the app's own connection. */
+  readonly ownerId: string | null;
+  /** The provider's id of the connected account (the token response's `subjectField`); null when it gave none. */
+  readonly subject: string | null;
   readonly kind: ConnectionKind;
   /** The provider's label in the app's locale. */
   readonly label: string;
@@ -135,6 +145,8 @@ export type ReconnectReason =
 export interface ReconnectRequiredEvent {
   readonly provider: string;
   readonly accountId: string;
+  /** The user the connection belongs to; null for the app's own connection. */
+  readonly ownerId: string | null;
   readonly kind: ConnectionKind;
   readonly reason: ReconnectReason;
   readonly at: Date;
@@ -144,6 +156,8 @@ export interface ReconnectRequiredEvent {
 interface ConnectionChangeBase {
   readonly provider: string;
   readonly accountId: string;
+  /** The user the connection belongs to; null for the app's own connection. */
+  readonly ownerId: string | null;
   readonly kind: ConnectionKind;
   /** The auth user id of the admin who acted; null for an operator script. */
   readonly actorId: string | null;

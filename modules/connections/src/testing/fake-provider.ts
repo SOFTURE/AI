@@ -32,6 +32,13 @@ export interface FakeOAuthProviderOptions {
   readonly accounts?: readonly string[];
 }
 
+/** How the user answers the fake consent screen. */
+export interface FakeConsentOptions {
+  readonly deny?: boolean;
+  /** Extra fields the code exchange answers next to the token (the provider's account id, for `subjectField`). */
+  readonly tokenFields?: Readonly<Record<string, string>>;
+}
+
 /** A failure the next token or revoke calls answer with, in order. */
 export type FakeFailure =
   | "unreachable"
@@ -55,7 +62,7 @@ export interface FakeOAuthProvider {
    * The user at the provider's consent screen: checks the authorize URL and answers the callback URL the provider
    * redirects to, with `code` and `state`, or `error=access_denied` when denied.
    */
-  consent(authorizeUrl: string, options?: { readonly deny?: boolean }): URL;
+  consent(authorizeUrl: string, options?: FakeConsentOptions): URL;
   /** Every live refresh token dies: the next refresh answers `invalid_grant` (consent revoked, testing mode). */
   revokeGrant(): void;
   /** The next calls to the token or revoke endpoint fail like this, one per entry. */
@@ -86,6 +93,7 @@ interface PendingCode {
   readonly redirectUri: string;
   readonly challenge: string | null;
   readonly scope: string;
+  readonly tokenFields: Readonly<Record<string, string>>;
 }
 
 const random = () => randomBytes(24).toString("base64url");
@@ -111,10 +119,10 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
 
   const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-  function issue(scope: string, refreshToken: string | null): Response {
+  function issue(scope: string, refreshToken: string | null, tokenFields: Readonly<Record<string, string>> = {}): Response {
     const accessToken = `at-${random()}`;
     accessTokens.add(accessToken);
-    const body: Record<string, unknown> = { access_token: accessToken, token_type: "Bearer", scope };
+    const body: Record<string, unknown> = { ...tokenFields, access_token: accessToken, token_type: "Bearer", scope };
     if (ttl !== null) body.expires_in = ttl;
     if (refreshToken !== null) body.refresh_token = refreshToken;
     if (refreshToken !== null && options.refreshTokenTtlSeconds !== undefined) body.refresh_token_expires_in = options.refreshTokenTtlSeconds;
@@ -172,7 +180,7 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
         const verifier = form.get("code_verifier") ?? "";
         if (createHash("sha256").update(verifier, "ascii").digest("base64url") !== pending.challenge) return json(400, { error: "invalid_grant" });
       }
-      return issue(pending.scope, issuesRefreshToken ? newRefreshToken(pending.scope) : null);
+      return issue(pending.scope, issuesRefreshToken ? newRefreshToken(pending.scope) : null, pending.tokenFields);
     }
     if (grantType === "refresh_token") {
       calls.refresh += 1;
@@ -252,7 +260,7 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
       if (challenge !== null && method !== "S256") throw new Error("fake provider: only S256 is accepted");
       const code = `code-${random()}`;
       const scope = (options.grantedScopes ?? params.get("scope")?.split(/[ ,]/) ?? []).join(" ");
-      codes.set(code, { clientId, redirectUri, challenge, scope });
+      codes.set(code, { clientId, redirectUri, challenge, scope, tokenFields: { ...consentOptions.tokenFields } });
       callback.searchParams.set("code", code);
       return callback;
     },

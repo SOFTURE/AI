@@ -183,7 +183,7 @@ describe("requestWithConnection", () => {
       const api = createRecordingFetch(status(401));
       expect(await requestWithConnection(test.ctx, { provider: "toggl", accountId: "work" }, { url: API, fetch: api.fetch })).toEqual({ ok: false, error: "connections.reconnect_required" });
       expect(api.calls.map((call) => call.authorization)).toEqual([`Basic ${Buffer.from("ada:pw").toString("base64")}`]);
-      expect(events).toEqual([{ provider: "toggl", accountId: "work", kind: "basic", reason: "rejected", at: test.clock.now() }]);
+      expect(events).toEqual([{ provider: "toggl", accountId: "work", ownerId: null, kind: "basic", reason: "rejected", at: test.clock.now() }]);
     });
 
     it.each([
@@ -232,7 +232,7 @@ describe("requestWithConnection", () => {
       const api = createRecordingFetch(status(401));
       expect(await requestWithConnection(test.ctx, { provider: "vendor" }, { url: API, fetch: api.fetch })).toEqual({ ok: false, error: "connections.reconnect_required" });
       expect(api.calls).toHaveLength(1);
-      expect(events).toEqual([{ provider: "vendor", accountId: "default", kind: "api_key", reason: "rejected", at: test.clock.now() }]);
+      expect(events).toEqual([{ provider: "vendor", accountId: "default", ownerId: null, kind: "api_key", reason: "rejected", at: test.clock.now() }]);
     });
   });
 });

@@ -1,13 +1,24 @@
 // API-key and Basic credentials (pasted by an admin, stored sealed like tokens), the app's report that a
 // credential was refused, and disconnecting any connection (with a best-effort revocation for OAuth).
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
-import { and, eq } from "drizzle-orm";
+import { isNull } from "drizzle-orm";
 import type { ConnectionsFlowErrorCode, ConnectionsTokenFailure, StoredCredential } from "../contract.js";
 import { DEFAULT_ACCOUNT_ID, DEFAULT_CREDENTIAL_HEADER, DEFAULT_CREDENTIAL_SCHEME, type CredentialHeaderPlacement, type ProviderDefinition } from "../options.js";
 import { accounts, type AccountRow } from "../schema.js";
 import { getCredentialContext, sealSecret } from "./crypto.js";
 import { findProvider, getConnectionsOptions, readClientCredentials } from "./options.js";
-import { findAccount, getKeyring, markReconnectRequired, notifyConnectionChanged, openApiKey, openBasic, openOAuthSecrets, type ConnectionsContext } from "./store.js";
+import {
+  findAccount,
+  getKeyring,
+  markReconnectRequired,
+  notifyConnectionChanged,
+  openApiKey,
+  openBasic,
+  openOAuthSecrets,
+  resolveOwner,
+  whereConnection,
+  type ConnectionsContext,
+} from "./store.js";
 import { getStateContext } from "./state-database.js";
 import { revokeToken } from "./token-client.js";
 
@@ -18,6 +29,8 @@ export interface ProviderAccountInput {
   readonly provider: string;
   /** One of the provider's `accounts`; `default` when omitted. */
   readonly accountId?: string;
+  /** The user whose own connection it is (an OAuth provider with `owner: "user"`); omitted for the app's connection. */
+  readonly ownerId?: string;
 }
 
 export type CredentialInput = { readonly kind: "api_key"; readonly apiKey: string } | { readonly kind: "basic"; readonly username: string; readonly password: string };
@@ -35,6 +48,8 @@ export async function saveCredential(ctx: ConnectionsContext, input: SaveCredent
   if (!found.ok) return found;
   const { credential } = input;
   if (found.value.kind !== credential.kind) return err("connections.wrong_kind");
+  // Keys belong to the app: only an OAuth provider can be a user's own.
+  if (input.ownerId !== undefined) return err("connections.wrong_owner");
   if (!isCredentialValid(credential)) return err("connections.credential_invalid");
   const keyring = getKeyring(ctx);
   if (!keyring.ok) return keyring;
@@ -67,11 +82,12 @@ export async function saveCredential(ctx: ConnectionsContext, input: SaveCredent
   await ctx.db
     .insert(accounts)
     .values({ provider: found.value.id, accountId, ...values })
-    .onConflictDoUpdate({ target: [accounts.provider, accounts.accountId], set: values });
+    .onConflictDoUpdate({ target: [accounts.provider, accounts.accountId], targetWhere: isNull(accounts.ownerId), set: values });
   await notifyConnectionChanged(ctx, {
     change: replaced ? "reconnected" : "connected",
     provider: found.value.id,
     accountId,
+    ownerId: null,
     kind: credential.kind,
     actorId: input.actorId,
     at: now,
@@ -103,6 +119,7 @@ export async function getCredential(ctx: ConnectionsContext, input: ProviderAcco
   if (!found.ok) return found;
   const provider = found.value;
   if (provider.kind === "oauth") return err("connections.wrong_kind");
+  if (input.ownerId !== undefined) return err("connections.wrong_owner");
   const keyring = getKeyring(ctx);
   if (!keyring.ok) return keyring;
   const row = await findAccount(ctx, provider.id, accountId);
@@ -174,18 +191,20 @@ export async function getCredentialHeader(ctx: ConnectionsContext, input: Provid
 export async function reportCredentialRejected(
   callerCtx: ConnectionsContext,
   input: ProviderAccountInput,
-): Promise<Ok<boolean> | Err<"connections.unknown_provider" | "connections.not_connected">> {
+): Promise<Ok<boolean> | Err<"connections.unknown_provider" | "connections.not_connected" | "connections.wrong_owner">> {
   const ctx = await getStateContext(callerCtx);
   const accountId = input.accountId ?? DEFAULT_ACCOUNT_ID;
   const found = findProvider(ctx.config, input.provider, accountId);
   if (!found.ok) return found;
-  const row = await findAccount(ctx, found.value.id, accountId);
+  const owner = resolveOwner(found.value, input.ownerId);
+  if (!owner.ok) return owner;
+  const row = await findAccount(ctx, found.value.id, accountId, owner.value);
   if (row === undefined) return err("connections.not_connected");
-  return ok(await markReconnectRequired(ctx, { rowId: row.id, provider: row.provider, accountId, kind: row.kind, reason: "rejected" }));
+  return ok(await markReconnectRequired(ctx, { rowId: row.id, provider: row.provider, accountId, ownerId: row.ownerId, kind: row.kind, reason: "rejected" }));
 }
 
 export interface DisconnectInput extends ProviderAccountInput {
-  /** The auth user id of the admin, for `onConnectionChanged` and the log line; null (the default) for a script. */
+  /** The auth user id of who disconnects, for `onConnectionChanged` and the log line; null (the default) for a script. */
   readonly actorId?: string | null;
 }
 
@@ -198,19 +217,30 @@ export interface DisconnectResult {
  * Deletes a connection. For OAuth with a `revokeUrl`, the refresh token (or the access token) is revoked first,
  * best effort: a failed revocation never keeps the connection.
  */
-export async function disconnect(ctx: ConnectionsContext, input: DisconnectInput): Promise<Ok<DisconnectResult> | Err<"connections.unknown_provider" | "connections.not_connected">> {
+export async function disconnect(
+  ctx: ConnectionsContext,
+  input: DisconnectInput,
+): Promise<Ok<DisconnectResult> | Err<"connections.unknown_provider" | "connections.not_connected" | "connections.wrong_owner">> {
   const accountId = input.accountId ?? DEFAULT_ACCOUNT_ID;
   const found = findProvider(ctx.config, input.provider, accountId);
   if (!found.ok) return found;
   const provider = found.value;
+  const owner = resolveOwner(provider, input.ownerId);
+  if (!owner.ok) return owner;
   const at = ctx.clock.now();
-  const [deleted] = await ctx.db
-    .delete(accounts)
-    .where(and(eq(accounts.provider, provider.id), eq(accounts.accountId, accountId)))
-    .returning();
+  const [deleted] = await ctx.db.delete(accounts).where(whereConnection(provider.id, accountId, owner.value)).returning();
   if (deleted === undefined) return err("connections.not_connected");
   const revoked = await revokeDeleted(ctx, provider, deleted);
-  await notifyConnectionChanged(ctx, { change: "disconnected", provider: provider.id, accountId, kind: deleted.kind, actorId: input.actorId ?? null, revoked, at });
+  await notifyConnectionChanged(ctx, {
+    change: "disconnected",
+    provider: provider.id,
+    accountId,
+    ownerId: owner.value,
+    kind: deleted.kind,
+    actorId: input.actorId ?? null,
+    revoked,
+    at,
+  });
   return ok({ revoked });
 }
 

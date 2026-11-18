@@ -26,7 +26,8 @@ export const connections = defineModule({
       {
         name: "SOFTURE_CONNECTIONS_KEYS",
         required: true,
-        description: "Encryption keyring for stored tokens and keys: <id>:<base64 32 bytes>[,<id>:<key>...], the first one seals",
+        description:
+          "Encryption keyring for stored tokens and keys: <id>:<base64 32 bytes>[,<id>:<key>...], the first one seals (another variable when the app sets keysEnv)",
       },
     ],
     switches: [],

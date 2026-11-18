@@ -57,7 +57,7 @@ describe("key credentials", () => {
     await saveCredential(test.ctx, { provider: "raindrop", credential: { kind: "api_key", apiKey: "old" }, actorId: ADMIN });
     expect(await reportCredentialRejected(test.ctx, { provider: "raindrop" })).toEqual({ ok: true, value: true });
     expect(await reportCredentialRejected(test.ctx, { provider: "raindrop" })).toEqual({ ok: true, value: false });
-    expect(events).toEqual([{ provider: "raindrop", accountId: "default", kind: "api_key", reason: "rejected", at: test.clock.now() }]);
+    expect(events).toEqual([{ provider: "raindrop", accountId: "default", ownerId: null, kind: "api_key", reason: "rejected", at: test.clock.now() }]);
     expect(await getCredential(test.ctx, { provider: "raindrop" })).toEqual({ ok: false, error: "connections.reconnect_required" });
     expect((await listConnections(test.ctx)).find((view) => view.provider === "raindrop")?.status).toBe("reconnect_required");
     await saveCredential(test.ctx, { provider: "raindrop", credential: { kind: "api_key", apiKey: "new" }, actorId: ADMIN });
