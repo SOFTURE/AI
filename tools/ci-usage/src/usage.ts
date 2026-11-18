@@ -119,6 +119,24 @@ interface WorkflowBucket {
 }
 
 /** Sums the jobs of one repository; workflows and their jobs are sorted by minutes, most first. */
+/** Names of GitHub's built-in dynamic workflows, which carry no stable name of their own. */
+const DYNAMIC_WORKFLOW_NAMES: Record<string, string> = {
+  "dynamic/github-code-scanning/codeql": "CodeQL (default setup)",
+  "dynamic/dependabot/dependabot-updates": "Dependabot updates",
+  "dynamic/copilot-pull-request-reviewer/copilot-pull-request-reviewer": "Copilot code review",
+  "dynamic/copilot-swe-agent/copilot": "Copilot coding agent",
+  "dynamic/pages/pages-build-deployment": "Pages build and deployment",
+};
+
+/**
+ * The name a workflow is reported under. A `dynamic/...` workflow (CodeQL default setup, Dependabot and the like)
+ * takes its run's title as its name, which changes from run to run, so it is named after its path instead.
+ */
+export function getWorkflowName(job: Pick<JobRecord, "workflowName" | "workflowPath">): string {
+  if (!job.workflowPath.startsWith("dynamic/")) return job.workflowName;
+  return DYNAMIC_WORKFLOW_NAMES[job.workflowPath] ?? job.workflowPath;
+}
+
 export function summarizeUsage(repository: string, jobs: readonly JobRecord[], options: PriceOptions): RepositoryUsage {
   const total = emptyCost();
   const byProvider: Record<Provider, Cost> = { "github-hosted": emptyCost(), ubicloud: emptyCost(), "self-hosted": emptyCost() };
@@ -134,7 +152,7 @@ export function summarizeUsage(repository: string, jobs: readonly JobRecord[], o
     addCost(total, minutes, price);
     addCost(byProvider[runner.provider], minutes, price);
 
-    const workflow: WorkflowBucket = workflows.get(job.workflowPath) ?? { cost: emptyCost(), name: job.workflowName, runIds: new Set<number>(), jobs: 0, byJob: new Map<string, JobBucket>() };
+    const workflow: WorkflowBucket = workflows.get(job.workflowPath) ?? { cost: emptyCost(), name: getWorkflowName(job), runIds: new Set<number>(), jobs: 0, byJob: new Map<string, JobBucket>() };
     workflows.set(job.workflowPath, workflow);
     workflow.runIds.add(job.runId);
     workflow.jobs += 1;
@@ -146,7 +164,7 @@ export function summarizeUsage(repository: string, jobs: readonly JobRecord[], o
     bucket.durations.push(minutes);
     addCost(bucket.cost, minutes, price);
 
-    if (minutes > 0) longest.push({ workflow: job.workflowName, job: job.name, runner: runner.label, minutes, url: job.htmlUrl });
+    if (minutes > 0) longest.push({ workflow: getWorkflowName(job), job: job.name, runner: runner.label, minutes, url: job.htmlUrl });
   }
 
   const byWorkflow: WorkflowUsage[] = [...workflows.entries()].map(([path, bucket]) => {

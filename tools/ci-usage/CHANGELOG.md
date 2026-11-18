@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 `ci-usage.yml` workflow. When an app has run a version in production, the version gets a line
 `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md), "Definition of done").
 
+## 0.1.2
+
+- GitHub's dynamic workflows (CodeQL default setup, Dependabot updates, Copilot, Pages) are reported under one
+  stable name from their path (#1369), not under the title of whichever run came first ("PR #1240"). Other
+  `dynamic/...` workflows are named by their path. The cached runs need no rebuild: the name is set when the report
+  is built. `getWorkflowName` is exported.
+
 ## 0.1.1
 
 - A busy repository's report ends inside the job time (#1366): the jobs of eight runs are read at a time, and

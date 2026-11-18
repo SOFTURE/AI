@@ -7,4 +7,4 @@ export { DEFAULT_PRICES, getMinutePrice, parsePriceOverrides, type PriceOptions,
 export { buildComment, buildIssueBody, publishReport, ISSUE_LABEL, MAX_BODY, type PublishResult } from "./publish.js";
 export { buildReport, renderMarkdown, JSON_FILE, MARKDOWN_FILE, REPORT_MARKER, SCHEMA_VERSION, type CiUsageReport, type RepositoryReport } from "./report.js";
 export { classifyRunner, GITHUB_SKUS, type GithubSku, type Provider, type RunnerClass } from "./runner.js";
-export { getJobMinutes, summarizeUsage, type Cost, type JobRecord, type JobUsage, type RepositoryUsage, type WorkflowUsage } from "./usage.js";
+export { getJobMinutes, getWorkflowName, summarizeUsage, type Cost, type JobRecord, type JobUsage, type RepositoryUsage, type WorkflowUsage } from "./usage.js";
