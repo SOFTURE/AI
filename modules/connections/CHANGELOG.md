@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## 0.7.0
+## Unreleased
 
 - **Connections each signed-in user owns**: a provider with `owner: "user"` keeps one connection per user (Dropbox,
   Google Drive, any per-user OAuth), connected from the app's own page with `startOwnConnectionAction` and
