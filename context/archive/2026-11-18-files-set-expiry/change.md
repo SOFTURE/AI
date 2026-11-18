@@ -1,7 +1,8 @@
 ---
 change_id: files-set-expiry
 title: "files: setFileExpiry changes a stored file's expiry after it was saved"
-status: impl_reviewed
+status: archived
+archived_at: 2026-11-18
 roadmap_item: null
 issue: null
 branch: claude/project-thread-9x1bfc
