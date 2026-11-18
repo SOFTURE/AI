@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.28.0
+
+- A grip that shows on hover (#1353): `SortableHandle reveal="hover"` (default `"always"`) hides the grip under a fine
+  pointer until its row is hovered, has focus within or is lifted (`data-dragging`); a touch screen always shows it.
+  Only the opacity changes, so the grip keeps its tab stop and keyboard and mouse drags work unchanged; the fade is
+  dropped under reduced motion. Every `SortableItem` now carries `group/sortable-item`; the handle carries
+  `data-reveal`.
+- Migration: none; the default keeps every grip visible. An app that composes the reveal itself (`group/<name>` on the
+  row, `pointer-fine:opacity-0` and the `group-hover`, `group-focus-within`, `group-data-dragging` variants on the
+  handle) can drop its classes for `reveal="hover"`.
+
 ## 0.27.0
 
 - Sticky group heading for `List` (#1350): `ListGroup` and `ListGroupHeading`, a run of rows under a heading that sticks

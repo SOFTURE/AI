@@ -250,7 +250,7 @@ export interface SortableItemProps extends ComponentProps<"li"> {
 
 // The lifted row floats on `accent-strong` with `shadow-menu`, above its siblings; `data-dragging` marks it.
 const SORTABLE_ITEM =
-  "rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu";
+  "group/sortable-item rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu";
 
 // The drag props the row element itself carries.
 function getRowBinding(binding: SortableItemBinding) {
@@ -322,14 +322,32 @@ export function SortableActivator(props: SortableActivatorProps) {
   return <Slot.Root data-slot="sortable-activator" {...props} {...pointer} />;
 }
 
+// `always`: the grip is always visible; `hover`: under a fine pointer it shows only while its row is hovered, has
+// focus within or is lifted (a touch screen, which has no hover, always shows it).
+export type SortableHandleReveal = "always" | "hover";
+
 export interface SortableHandleProps extends Omit<ComponentProps<typeof Button>, "children"> {
   // The handle's accessible name.
   readonly label?: string;
+  readonly reveal?: SortableHandleReveal;
 }
+
+// The hidden grip keeps its place, its tab stop and its hit area: only its opacity changes.
+const HANDLE_REVEAL: Readonly<Record<SortableHandleReveal, string>> = {
+  always: "",
+  hover:
+    "motion-reduce:transition-none pointer-fine:opacity-0 pointer-fine:group-hover/sortable-item:opacity-100 pointer-fine:group-focus-within/sortable-item:opacity-100 pointer-fine:group-data-dragging/sortable-item:opacity-100",
+};
 
 // A grip button that drags its row, for a list with `dragBy="handle"`.
 // On a disabled row it is a disabled button.
-export function SortableHandle({ label = messages.sortable.handle, className, disabled, ...props }: SortableHandleProps) {
+export function SortableHandle({
+  label = messages.sortable.handle,
+  reveal = "always",
+  className,
+  disabled,
+  ...props
+}: SortableHandleProps) {
   const { attributes, listeners, setActivatorNodeRef, isDisabled } = useSortableItemBinding("SortableHandle");
   const dragProps = isDisabled ? {} : { ...attributes, ...listeners };
   return (
@@ -339,7 +357,8 @@ export function SortableHandle({ label = messages.sortable.handle, className, di
       variant="ghost"
       size="icon-sm"
       data-slot="sortable-handle"
-      className={cn("cursor-grab touch-none text-muted-foreground active:cursor-grabbing", className)}
+      data-reveal={reveal}
+      className={cn("cursor-grab touch-none text-muted-foreground active:cursor-grabbing", HANDLE_REVEAL[reveal], className)}
       disabled={isDisabled || disabled}
       {...props}
       {...dragProps}

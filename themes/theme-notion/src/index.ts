@@ -102,6 +102,7 @@ export {
   type SortableAnnouncements,
   type SortableDragBy,
   type SortableHandleProps,
+  type SortableHandleReveal,
   type SortableItemProps,
   type SortableListProps,
   type SortableMove,
