@@ -1,12 +1,13 @@
 ---
 change_id: config-push-scope-since
 title: "config: --since for softure-context-only-push and softure-merge-push-scope (issue #1371)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1371
 branch: claude/project-thread-4mpdh1
 created: 2026-11-18
 updated: 2026-11-18
+archived_at: 2026-11-18
 ---
 
 ## Intent
@@ -33,3 +34,7 @@ changes only `context/` or only merges the main branch in, the two cases the hoo
   changes.
 
 ## Done
+
+- `@softure-ai/config` 0.1.7: `--since <commit>` (and `--since=<commit>`) for `softure-context-only-push` and
+  `softure-merge-push-scope`; unknown commit never skips; README recipe for a CI scope job. Release: after the merge,
+  through the trusted publisher (`auto-release.yml`, `config`).
