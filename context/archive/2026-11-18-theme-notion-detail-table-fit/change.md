@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-detail-table-fit
 title: "theme-notion: DetailTable keeps to its column, DocumentRow details wrap (issue #1349)"
-status: in_progress
+status: archived
+archived_at: 2026-11-18
 roadmap_item: null
 issue: 1349
 branch: claude/project-thread-m4fx3l

@@ -26,5 +26,12 @@ One class on `DetailTable`, one optional prop on `DocumentRow`, proven by unit t
 
 ## Progress
 
-- [ ] Phase 1: components
-- [ ] Phase 2: gallery, geometry, docs, version
+- [x] Phase 1: components (edf0613)
+- [x] Phase 2: gallery, geometry, docs, version (edf0613, 844a64a)
+
+Evidence: `npx vitest run themes/theme-notion` 1287 tests green; typecheck and ESLint clean (pre-commit). The new
+geometry check (`visual/fit.spec.ts`, a DetailTable with a DocumentRow copied into a 360 px column) passes on all four
+projects and fails without `table-fixed` (the table's box differs from the column's). The visual suite: 184 passed,
+only the four inline `gallery.png` baselines differed, by the new case, and were refreshed (Chromium 1243 build under
+the 1254 name, as the sandbox cannot download 1254; CI confirms). Rendered case checked by eye: the title cuts with
+an ellipsis, size and details wrap under it, the button stays whole at the row's end.
