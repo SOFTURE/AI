@@ -150,7 +150,7 @@ function decide(ctx: JobsContext, claimed: ClaimedJob, result: unknown, options:
     const seconds = clampRetrySeconds(failure.pauseQueueSeconds);
     return { kind: "paused", error, seconds, runAt: new Date(ctx.clock.now().getTime() + Math.round(seconds * 1000)) };
   }
-  if (failure?.retry === false) return { kind: "failed", error, isPermanent: true };
+  if (failure?.retry === false) return { kind: "failed", error, isPermanent: true, ...(failure.isExpected === true ? { isExpected: true } : {}) };
   if (job.attempts >= job.maxAttempts) return { kind: "failed", error };
   const queue = getQueue(getJobsOptions(ctx.config), job.queue);
   const delaySeconds =
@@ -185,7 +185,7 @@ async function record(ctx: JobsContext, claimed: ClaimedJob, requested: Completi
   } else if (completion.kind === "retry" || completion.kind === "paused") {
     logRunEnd(logger, logRuns, { ...base, outcome: "retried", code: completion.error, runAt: completion.runAt });
   } else {
-    logRunEnd(logger, logRuns, completion.kind === "cancelled" ? { ...base, outcome: "cancelled" } : { ...base, outcome: "failed", code: completion.error });
+    logRunEnd(logger, logRuns, completion.kind === "cancelled" ? { ...base, outcome: "cancelled" } : { ...base, outcome: "failed", code: completion.error, ...(completion.isExpected === true ? { isExpected: true } : {}) });
   }
   const code = completion.kind === "succeeded" || completion.kind === "cancelled" ? null : completion.error;
   const event = { queue: job.queue, jobId: job.id, origin: job.origin, attempt: job.attempts, maxAttempts: job.maxAttempts, outcome: outcome.kind, code, durationMs, at };
@@ -253,18 +253,20 @@ interface ReadFailure {
   readonly retry?: boolean;
   readonly retryAfterSeconds?: number;
   readonly pauseQueueSeconds?: number;
+  readonly isExpected?: boolean;
 }
 
 /** The failure a handler returned, with a code fit for `last_error`; null when the value is not a failure at all. */
 function readFailure(result: unknown): ReadFailure | null {
   if (typeof result !== "object" || result === null) return null;
-  const candidate = result as { ok?: unknown; error?: unknown; retry?: unknown; retryAfterSeconds?: unknown; pauseQueueSeconds?: unknown };
+  const candidate = result as { ok?: unknown; error?: unknown; retry?: unknown; retryAfterSeconds?: unknown; pauseQueueSeconds?: unknown; isExpected?: unknown };
   if (candidate.ok !== false || typeof candidate.error !== "string") return null;
   return {
     error: toErrorCode(candidate.error),
     retry: candidate.retry === false ? false : undefined,
     retryAfterSeconds: readSeconds(candidate.retryAfterSeconds),
     pauseQueueSeconds: readSeconds(candidate.pauseQueueSeconds),
+    isExpected: candidate.isExpected === true ? true : undefined,
   };
 }
 

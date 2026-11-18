@@ -113,7 +113,9 @@ export const handlers: JobHandlers = {
 - `ok()`: done, the job is `succeeded`. `ok({ summary })` also leaves a code-only summary in the run history (§3,
   "Run history").
 - An `Err` (any `Result` failure): retried after the backoff delay, until `maxAttempts`; then `failed`.
-- `failJob(code)`: `failed` at once.
+- `failJob(code)`: `failed` at once. `failJob(code, { expected: true })` when the app expects the failure (input it
+  refuses, a state it reports back to its user): still `failed` at once and seen by every hook and metric, but its end
+  line is a `warn` marked `expected: true` instead of an `error`, so an alert on error logs counts only faults.
 - `retryJobLater(code, seconds)`: retried after `seconds` instead of the backoff (a provider's `Retry-After`); still
   counts as an attempt.
 - A throw: retried like an `Err` with the code `jobs.handler_threw`, and logged with the error.

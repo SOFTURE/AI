@@ -18,7 +18,8 @@ interface RunLineBase {
 export type RunEndLine =
   | (RunLineBase & { readonly outcome: "succeeded"; readonly origin: string; readonly durationMs: number; readonly summary: JobRunSummary | null })
   | (RunLineBase & { readonly outcome: "retried"; readonly code: string; readonly runAt: Date })
-  | (RunLineBase & { readonly outcome: "failed"; readonly code: string })
+  /** `isExpected`: `failJob(code, { expected: true })`, logged as a `warn` marked `expected: true`. */
+  | (RunLineBase & { readonly outcome: "failed"; readonly code: string; readonly isExpected?: boolean })
   | (RunLineBase & { readonly outcome: "cancelled" });
 
 /** Logs the end of one recorded attempt, unless `logRuns` leaves it out. */
@@ -46,6 +47,10 @@ export function logRunEnd(logger: JobsLogger, logRuns: JobsRunLogLevel, line: Ru
   }
   if (line.outcome === "retried") {
     logger.warn("job run failed; retrying", { queue, jobId, attempt, code: line.code, runAt: line.runAt.toISOString() });
+    return;
+  }
+  if (line.isExpected === true) {
+    logger.warn("job run failed", { queue, jobId, attempt, code: line.code, expected: true });
     return;
   }
   logger.error("job run failed", { queue, jobId, attempt, code: line.code });
