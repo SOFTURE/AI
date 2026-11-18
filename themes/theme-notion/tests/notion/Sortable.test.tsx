@@ -206,6 +206,51 @@ describe("SortableList", () => {
 
     expect(screen.getByRole("button", { name: "Move" })).toBeDefined();
   });
+
+  function renderHandle(reveal?: "always" | "hover") {
+    render(
+      <SortableList label="List" items={["a"]} onReorder={vi.fn()} dragBy="handle">
+        <SortableItem id="a">
+          <SortableHandle reveal={reveal} />a
+        </SortableItem>
+      </SortableList>,
+    );
+    return screen.getByRole("button", { name: notionMessages.en.sortable.handle });
+  }
+
+  it("marks every row as the group its handle reveals with", () => {
+    renderHandle();
+
+    expect(getRow("a").classList.contains("group/sortable-item")).toBe(true);
+  });
+
+  it("keeps the handle always visible by default", () => {
+    const handle = renderHandle();
+
+    expect(handle.dataset["reveal"]).toBe("always");
+    expect([...handle.classList].filter((name) => name.startsWith("pointer-fine:"))).toEqual([]);
+  });
+
+  it("hides the handle under a fine pointer until its row is hovered, focused within or lifted", () => {
+    const handle = renderHandle("hover");
+
+    expect(handle.dataset["reveal"]).toBe("hover");
+    expect([...handle.classList].filter((name) => name.startsWith("pointer-fine:"))).toEqual([
+      "pointer-fine:opacity-0",
+      "pointer-fine:group-hover/sortable-item:opacity-100",
+      "pointer-fine:group-focus-within/sortable-item:opacity-100",
+      "pointer-fine:group-data-dragging/sortable-item:opacity-100",
+    ]);
+    expect(handle.classList.contains("hidden")).toBe(false);
+  });
+
+  it("keeps a hidden handle in the tab order and dragging its row from the keyboard", async () => {
+    const handle = renderHandle("hover");
+
+    expect(handle.tabIndex).toBe(0);
+    await pressKey(handle, "Space");
+    expect(getRow("a").hasAttribute("data-dragging")).toBe(true);
+  });
 });
 
 describe("SortableList disabled", () => {
