@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.26.0
 
 - Sticky group heading for `List` (#1350): `ListGroup` and `ListGroupHeading`, a run of rows under a heading that sticks
   at the top of its scroll container while the rows pass under it and is pushed away by the next group's heading. The
