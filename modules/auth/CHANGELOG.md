@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
-## Unreleased
+## 0.2.18
 
 - **Re-authentication by a provider sign-in:** `findRecentProviderSignIn(ctx, { userId, sessionToken, withinMinutes })`
   (`/server`) answers the provider whose sign-in opened that very session within the window, or null (a session a
