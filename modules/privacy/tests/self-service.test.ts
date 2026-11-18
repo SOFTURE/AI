@@ -142,8 +142,8 @@ describe("deleteOwnAccount with a provider sign-in instead of the password", () 
   it("refuses a session that a password login opened, and a missing session", async () => {
     await signInWithProvider();
     test.clock.advance(60 * 1000 + 1);
-    const passwordSession = await createSession(test.ctx, ada.id);
-    expect(await deleteOwnAccount(test.ctx, { userId: ada.id, sessionToken: passwordSession.token, isConfirmed: true })).toEqual({
+    const loginSession = await createSession(test.ctx, ada.id);
+    expect(await deleteOwnAccount(test.ctx, { userId: ada.id, sessionToken: loginSession.token, isConfirmed: true })).toEqual({
       ok: false,
       error: "privacy.reauthentication_required",
     });
