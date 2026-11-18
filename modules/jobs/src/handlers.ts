@@ -34,7 +34,8 @@ export interface JobHandlerContext {
  * What a handler returns: `ok()` when the work is done, or `ok({ summary })` with a code-only `JobRunSummary` the run
  * history keeps, and/or `ok({ resultRef })` with an id of the app's row that holds the result, kept on the job for its
  * owner (`getOwnJob`; letters, digits and `_ . : / -`, at most 200 characters); an `Err` to try again with the queue's
- * backoff (until the attempts are used up); `failJob(code)` to fail for good; `retryJobLater(code, seconds)` to try
+ * backoff (until the attempts are used up); `failJob(code)` to fail for good (`failJob(code, { expected: true })` when
+ * the app expects the failure: logged as a `warn`); `retryJobLater(code, seconds)` to try
  * again after a delay the handler chooses; `pauseQueueLater(code, seconds)` when the service refused, to pause the
  * whole queue and keep the attempt. A throw is retried
  * like an `Err` with the code `jobs.handler_threw` and logged.
@@ -77,9 +78,19 @@ export function defineJobHandler<TSchema extends z.ZodType>(handler: {
   return handler as JobHandler<z.output<TSchema>>;
 }
 
+/** How `failJob` reports the failure. */
+export interface FailJobOptions {
+  /**
+   * The app expects this failure (input it refuses, such as a cut that does not fit; a state it reports back to its
+   * user): the end line is a `warn` marked `expected: true` instead of an `error`, so log-based alerts count only faults.
+   * The job is `failed` and every failure hook and metric sees it as before. Default `false`.
+   */
+  readonly expected?: boolean;
+}
+
 /** A failure that is not retried: the job is `failed` at once with this code. */
-export function failJob<E extends ErrorCode>(error: E): JobFailure {
-  return { ok: false, error, retry: false };
+export function failJob<E extends ErrorCode>(error: E, options: FailJobOptions = {}): JobFailure {
+  return { ok: false, error, retry: false, ...(options.expected === true ? { isExpected: true } : {}) };
 }
 
 /**

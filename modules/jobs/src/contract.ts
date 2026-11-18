@@ -142,6 +142,11 @@ export type JobFailure = Err<ErrorCode> & {
    * due when the pause ends.
    */
   readonly pauseQueueSeconds?: number;
+  /**
+   * `failJob(code, { expected: true })`: the job failed for a reason the app expects (input it refuses, a state it
+   * reports back), not a fault; the end line is a `warn`. Read only with `retry: false`.
+   */
+  readonly isExpected?: boolean;
 };
 
 /** What happened to a job after one attempt. */

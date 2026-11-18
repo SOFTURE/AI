@@ -78,7 +78,7 @@ export {
   type OnScheduleStateChangedHook,
   type PeriodScheduleOptions,
 } from "./options.js";
-export { defineJobHandler, failJob, pauseQueueLater, retryJobLater, type JobHandler, type JobHandlerContext, type JobHandlers } from "./handlers.js";
+export { defineJobHandler, failJob, pauseQueueLater, retryJobLater, type FailJobOptions, type JobHandler, type JobHandlerContext, type JobHandlers } from "./handlers.js";
 export { isJobCancelled, JOB_CANCELLED_CODE, JobCancelledError, jobProgressSchema, type JobProgress } from "./progress.js";
 export { JOB_STEP_OUTCOMES, jobRunSummarySchema, type JobRunSummary, type JobStepOutcome } from "./summary.js";
 export { jobs as jobsTable, runs as jobRunsTable, schedules as jobSchedulesTable, syncCursors as jobSyncCursorsTable, syncItems as jobSyncItemsTable } from "./schema.js";
