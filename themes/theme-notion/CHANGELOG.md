@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.25.0
+
+- `Prose`: the text styles of a long read the app does not draw itself (Markdown rendered to HTML, a documentation
+  article): headings, paragraphs, lists, links, inline code and code blocks, quotes, rules and tables on the theme's
+  tokens, with one rhythm between blocks. `asChild` keeps the app's element; `PROSE_CLASSES` gives the classes to a
+  wrapper the app styles itself.
+- Migration: none; no existing component changes.
+
 ## 0.24.0
 
 - `CopyButton`: one value to the clipboard, a `secondary` button with a copy icon that says "Copied" (with a tick) for

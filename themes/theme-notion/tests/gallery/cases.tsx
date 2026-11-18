@@ -240,6 +240,7 @@ import {
   Code,
   CodeBlock,
   CopyButton,
+  Prose,
 } from "../../src/index.js";
 
 // The install bar's copy, as `pwaMessages.en.install` in `@softure-ai/pwa` has it.
@@ -1498,6 +1499,42 @@ const NOTION_CASES: readonly GalleryCase[] = [
         <CodeBlock className="min-w-0 flex-1">https://app.example.test/api/mcp</CodeBlock>
         <CopyButton value="https://app.example.test/api/mcp" label="Copy URL" copiedLabel="Copied" />
       </div>
+    ),
+  },
+  {
+    name: "Prose",
+    component: "Prose",
+    root: '[data-slot="prose"]',
+    render: () => (
+      <Prose className="w-96">
+        <h2>Getting started</h2>
+        <p>
+          Connect a source, pick the folders to share, then add the connector. Read the <a href="#guide">full guide</a>{" "}
+          or run <code>npm ci</code> first.
+        </p>
+        <ol>
+          <li>Open the panel</li>
+          <li>Pick folders</li>
+        </ol>
+        <pre>
+          <code>https://app.example.test/api/mcp</code>
+        </pre>
+        <blockquote>Nothing is shared before you pick.</blockquote>
+        <table>
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Read-only</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>get_note</td>
+              <td>yes</td>
+            </tr>
+          </tbody>
+        </table>
+      </Prose>
     ),
   },
   ...(["compact", "roomy"] as const).flatMap((density) =>
