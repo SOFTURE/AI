@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.1.7
+
+- `softure-context-only-push` and `softure-merge-push-scope` take `--since <rev>` (#1371), so a CI job can ask the
+  same questions as the pre-push hook: the range starts at `<rev>` instead of `@{push}`, and `softure-merge-push-scope`
+  reads the main branch from `origin`. A CI job on a pull request push passes the last commit whose heavy jobs passed;
+  an unknown commit (a force push) runs everything. Without `--since` nothing changes.
+- Migration for an app: nothing to do. CI use: README, "In CI".
+
 ## 0.1.6
 
 - The language gate checks only a merge's own lines (#1047): during a merge (`MERGE_HEAD` present),

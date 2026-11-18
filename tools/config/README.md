@@ -122,6 +122,20 @@ The main branch is `mainBranch` of `context/workflow.json` when the app has one,
 `main`, else `master`, on the remote the branch pushes to. A failing bin never skips the full suite: `is-merge` then
 exits non-zero, so `test` runs (at worst `test-related` runs too).
 
+### In CI
+
+A CI run on a pull request push has no `@{push}`. Both bins take `--since <rev>` instead: the range starts at that
+commit, and `softure-merge-push-scope` reads the main branch from `origin`. Pass the last commit of the pull request
+whose heavy jobs passed, not simply the event's `before` (its run may have been cancelled), and check out the pull
+request's head with the full history:
+
+```bash
+npx softure-context-only-push --since "$TESTED" && echo "skip the suite"
+npx softure-merge-push-scope is-merge --since "$TESTED" && npx softure-merge-push-scope related --since "$TESTED"
+```
+
+An unknown commit (a force push) answers "not context-only" and `full`.
+
 An app whose tests run through another command gives it to `test-related` after `--`; the files are appended:
 
 ```yaml

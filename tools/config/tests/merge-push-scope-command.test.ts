@@ -8,6 +8,7 @@ import {
   getMergePushScope,
   globToRegExp,
   runMergePushScope,
+  parseScopeOptions,
   type MergePushScope,
 } from "../src/cli/merge-push-scope-command.js";
 
@@ -193,6 +194,89 @@ describe("softure-merge-push-scope", () => {
     };
 
     expect(getMergePushScope(app, runGit)).toEqual({ scope: "full", reason: "git failed: git rev-list exited with 128" });
+  });
+});
+
+describe("softure-merge-push-scope --since (a CI job without @{push})", () => {
+  /** A CI checkout: the pull request's head detached, no upstream, the remote's main branch fetched. */
+  function detachHead(): void {
+    git("checkout", "-q", "--detach", "HEAD");
+  }
+
+  it("is a merge push when everything after the tested commit only merges the main branch in", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    landOnMain("src/index.ts", "export const one = 2;\n");
+    mergeMain();
+    commitFile("context/changes/a/plan.md", "# Plan\n");
+    detachHead();
+
+    expect(getMergePushScope(app, undefined, tested)).toEqual({
+      scope: "merge",
+      mainRef: "origin/main",
+      branchFiles: ["context/changes/a/plan.md", "src/feature.ts"],
+    });
+  });
+
+  it("runs the full suite when the branch pushed code after the tested commit", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    commitFile("src/feature.ts", "export const feature = 2;\n");
+    landOnMain("src/index.ts", "export const one = 2;\n");
+    mergeMain();
+    detachHead();
+
+    expect(getMergePushScope(app, undefined, tested)).toMatchObject({ scope: "full", reason: expect.stringContaining("src/feature.ts") as string });
+  });
+
+  it("runs the full suite when the merge brings in a dependency change", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    landOnMain("package-lock.json", "{}\n");
+    mergeMain();
+    detachHead();
+
+    expect(getMergePushScope(app, undefined, tested)).toEqual({ scope: "full", reason: "the merge brings in package-lock.json" });
+  });
+
+  it("runs the full suite for a commit git does not know (a force push)", () => {
+    expect(getMergePushScope(app, undefined, "0000000000000000000000000000000000000000")).toEqual({
+      scope: "full",
+      reason: "the commit 0000000000000000000000000000000000000000 is not known",
+    });
+  });
+
+  it("takes --since in the bin, before the test command", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    landOnMain("src/index.ts", "export const one = 2;\n");
+    mergeMain();
+    detachHead();
+    const calls: string[][] = [];
+    const runCommand = (command: string, args: readonly string[]): number => {
+      calls.push([command, ...args]);
+      return 0;
+    };
+    const silent = (): void => undefined;
+
+    expect(runMergePushScope(["is-merge", "--since", tested], { cwd: app, log: silent })).toBe(0);
+    expect(runMergePushScope(["is-full", `--since=${tested}`], { cwd: app, log: silent })).toBe(1);
+    expect(runMergePushScope(["is-merge"], { cwd: app, log: silent })).toBe(1);
+    runMergePushScope(["related", "--since", tested, "--", "npx", "vitest", "related", "--run"], { cwd: app, runCommand, log: silent });
+    expect(calls).toEqual([["npx", "vitest", "related", "--run", "src/feature.ts"]]);
+  });
+
+  it("rejects --since without a commit", () => {
+    const silent = (): void => undefined;
+
+    expect(runMergePushScope(["is-merge", "--since"], { cwd: app, log: silent })).toBe(2);
+    expect(runMergePushScope(["is-merge", "--since="], { cwd: app, log: silent })).toBe(2);
+  });
+});
+
+describe("parseScopeOptions", () => {
+  it("splits --since from the rest of the arguments", () => {
+    expect(parseScopeOptions([])).toEqual({ rest: [] });
+    expect(parseScopeOptions(["--", "npx", "vitest"])).toEqual({ rest: ["--", "npx", "vitest"] });
+    expect(parseScopeOptions(["--since", "abc", "--", "npx"])).toEqual({ since: "abc", rest: ["--", "npx"] });
+    expect(parseScopeOptions(["--since=abc"])).toEqual({ since: "abc", rest: [] });
+    expect(parseScopeOptions(["--since", ""])).toBeNull();
   });
 });
 

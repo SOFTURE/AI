@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isContextOnlyPush, listPushedFiles } from "../src/cli/context-only-push-command.js";
+import { isContextOnlyPush, listPushedFiles, parseSinceOption, runGitCommand } from "../src/cli/context-only-push-command.js";
 
 let root: string;
 let app: string;
@@ -87,5 +87,44 @@ describe("softure-context-only-push", () => {
     };
 
     expect(isContextOnlyPush(app, runGit)).toBe(false);
+  });
+
+  it("compares with the --since commit instead of @{push}", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    commitFile("context/changes/a/plan.md", "# Plan\n");
+    git("push", "-q");
+    commitFile("context/roadmap.md", "# Roadmap\n");
+    git("checkout", "-q", "--detach", "HEAD");
+
+    expect(listPushedFiles(app, runGitCommand, tested)).toEqual(["context/changes/a/plan.md", "context/roadmap.md"]);
+    expect(isContextOnlyPush(app, runGitCommand, tested)).toBe(true);
+  });
+
+  it("is not with --since when code changed after that commit", () => {
+    const tested = git("rev-parse", "HEAD").trim();
+    commitFile("src/index.ts", "export const one = 2;\n");
+    git("push", "-q");
+    commitFile("context/roadmap.md", "# Roadmap\n");
+
+    expect(isContextOnlyPush(app, runGitCommand, tested)).toBe(false);
+  });
+
+  it("is not with --since for a commit git does not know", () => {
+    commitFile("context/roadmap.md", "# Roadmap\n");
+
+    expect(listPushedFiles(app, runGitCommand, "0000000000000000000000000000000000000000")).toBeNull();
+    expect(isContextOnlyPush(app, runGitCommand, "0000000000000000000000000000000000000000")).toBe(false);
+  });
+});
+
+describe("parseSinceOption", () => {
+  it("reads --since in both spellings and refuses anything else", () => {
+    expect(parseSinceOption([])).toEqual({});
+    expect(parseSinceOption(["--since", "abc"])).toEqual({ since: "abc" });
+    expect(parseSinceOption(["--since=abc"])).toEqual({ since: "abc" });
+    expect(parseSinceOption(["--since"])).toBeNull();
+    expect(parseSinceOption(["--since="])).toBeNull();
+    expect(parseSinceOption(["--since", "abc", "extra"])).toBeNull();
+    expect(parseSinceOption(["--other"])).toBeNull();
   });
 });
