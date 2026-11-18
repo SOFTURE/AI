@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.28.0
 
 - A grip that shows on hover (#1353): `SortableHandle reveal="hover"` (default `"always"`) hides the grip under a fine
   pointer until its row is hovered, has focus within or is lifted (`data-dragging`); a touch screen always shows it.
