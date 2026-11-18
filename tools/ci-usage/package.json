@@ -1,0 +1,44 @@
+{
+  "name": "@softure-ai/ci-usage",
+  "version": "0.1.0",
+  "description": "SOFTURE AI CI usage: how many GitHub Actions minutes each repository, workflow and job used in a period, on GitHub-hosted and Ubicloud runners, with the estimated cost of each, as JSON and Markdown for people and agents; the CLI behind the reusable ci-usage.yml workflow.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOFTURE/AI.git",
+    "directory": "tools/ci-usage"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "src",
+    "examples",
+    "!src/**/*.test.ts"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "bin": {
+    "softure-ci-usage": "./dist/cli/main.js"
+  },
+  "exports": {
+    ".": {
+      "@softure-ai/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

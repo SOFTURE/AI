@@ -1,0 +1,34 @@
+# The CI minutes report of this repository: every Monday and by hand (Actions → ci-usage → Run workflow).
+# Copy to .github/workflows/ci-usage.yml. With no secret it reports on this repository with GITHUB_TOKEN. To cover
+# several repositories (and add what GitHub billed), create a fine-grained token with "Actions: read" on them (plus
+# organization "Administration: read" or user "Plan: read" for billing) as the repository secret CI_USAGE_TOKEN.
+name: ci-usage
+
+on:
+  schedule:
+    - cron: "30 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Length of the period in days, ending now (1 to 31)
+        type: string
+        default: "7"
+
+permissions: {}
+
+jobs:
+  ci-usage:
+    uses: SOFTURE/AI/.github/workflows/ci-usage.yml@master
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    with:
+      days: ${{ inputs.days || '7' }}
+      # repositories: acme/app, acme/api   # needs CI_USAGE_TOKEN
+      # billing: org:acme                  # needs CI_USAGE_TOKEN with billing read access
+      # prices: '{"my-runner":0.004}'      # runners the built-in table does not know
+      # ubicloud-premium: true             # when premium runners are enabled in Ubicloud
+      # runs-on: '"ubicloud-standard-2"'   # the report's own runner, as JSON
+    secrets:
+      CI_USAGE_TOKEN: ${{ secrets.CI_USAGE_TOKEN }}
