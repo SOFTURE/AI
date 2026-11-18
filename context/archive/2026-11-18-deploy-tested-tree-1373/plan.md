@@ -30,7 +30,7 @@ the tag, compares the two trees outside `ignore-prefixes` and reads the head's c
 ## Progress
 
 - [x] Phase 1: workflow and tests (1c7ea81e)
-- [x] Phase 2: caller, docs, release (SHA_P2)
+- [x] Phase 2: caller, docs, release (2a221b49)
 
 Evidence: `npx vitest run tests/repo` 32 files, 1215 tests green; `npx vitest run tools/deploy` 53 files, 962 tests
 green; typecheck, ESLint and the language gate clean (pre-commit). The compare script run against the live API of
