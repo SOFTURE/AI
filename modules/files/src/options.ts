@@ -70,11 +70,11 @@ export const filesOptionsSchema = z.strictObject({
         .max(7 * DAY_SECONDS)
         .default(DAY_SECONDS),
       /** Sessions one owner may have open at once (not finalized, not expired). */
-      maxOpenPerOwner: z.number().int().min(1).max(1000).default(5),
+      maxOpenPerOwner: z.number().int().min(1).max(1000).default(20),
       /** The media types an upload may declare (`video/mp4`, `video/*`); null: any. */
       contentTypes: z.array(z.string().regex(CONTENT_TYPE_RULE_PATTERN, "must be type/subtype or type/*")).min(1).nullable().default(null),
     })
-    .default({ chunkBytes: 64 * MIB, ttlSeconds: DAY_SECONDS, maxOpenPerOwner: 5, contentTypes: null }),
+    .default({ chunkBytes: 64 * MIB, ttlSeconds: DAY_SECONDS, maxOpenPerOwner: 20, contentTypes: null }),
   health: z
     .strictObject({
       /** Below this many free bytes (when the driver can tell) the health check fails. */

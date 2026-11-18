@@ -24,7 +24,7 @@ newest commit, answered `"false"` for almost every release, and the unit suite r
 ## Scope
 
 - `.github/workflows/deploy-tested-tree.yml`: per-commit check; walk back through at most 10 earlier commits.
-- `tests/repo/deploy-workflows.test.ts`, README, CHANGELOG, deploy 0.7.5 and the CLI default of the callers.
+- `tests/repo/deploy-workflows.test.ts`, README, CHANGELOG, deploy 0.7.6 and the CLI default of the callers.
 
 ## Notes
 

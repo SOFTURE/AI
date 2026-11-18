@@ -96,7 +96,7 @@ files({
 | `health.minFreeBytes` | 1 GiB | the health check fails below this many free bytes (local disk only) |
 | `uploads.chunkBytes` | 64 MiB | the bytes of one upload request; keep it under the edge's body limit (Cloudflare: 100 MB on Free and Pro, 200 MB on Business) |
 | `uploads.ttlSeconds` | 1 day | how long an upload session and its URL work (at most 7 days); `createUpload` may ask for less |
-| `uploads.maxOpenPerOwner` | 5 | sessions one owner may have open at once (`files.too_many_uploads`) |
+| `uploads.maxOpenPerOwner` | 20 | sessions one owner may have open at once, enough for a batch from a phone (`files.too_many_uploads`) |
 | `uploads.contentTypes` | `null` (any) | the media types an upload may declare, `video/mp4` or `video/*` (`files.content_type_not_allowed`) |
 | `routes.links` | `/f` | the link route's prefix; mount the route under the same folder |
 | `routes.uploads` | `/u` | the upload route's prefix; mount the route under the same folder |

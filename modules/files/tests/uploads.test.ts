@@ -156,6 +156,17 @@ describe("upload sessions", () => {
     expect((await create({ size: 10 })).ok).toBe(true);
   });
 
+  it("lets one owner open a batch of twenty sessions by default, refuses the next, and frees a slot when one expires", async () => {
+    const ctx = await setup({ files: { quotaBytesPerOwner: 10_000 } });
+    for (let index = 0; index < 20; index += 1) await open(ctx, { name: `clip-${index}.mp4`, size: 100, ttlSeconds: index === 0 ? 3600 : 7200 });
+    expect(await createUpload(ctx, { ownerId: ALICE, name: "extra.mp4", contentType: "video/mp4", size: 100 })).toEqual({ ok: false, error: "files.too_many_uploads" });
+    test.clock.advance(HOUR_MS);
+    expect((await createUpload(ctx, { ownerId: ALICE, name: "extra.mp4", contentType: "video/mp4", size: 100 })).ok).toBe(true);
+    expect(await createUpload(ctx, { ownerId: ALICE, name: "more.mp4", contentType: "video/mp4", size: 100 })).toEqual({ ok: false, error: "files.too_many_uploads" });
+    await saveFile(ctx, { ownerId: BOB, name: "big", body: chunked("x".repeat(9950)) });
+    expect(await createUpload(ctx, { ownerId: BOB, name: "b.mp4", contentType: "video/mp4", size: 100 })).toEqual({ ok: false, error: "files.quota_exceeded" });
+  });
+
   it("needs the link keyring", async () => {
     const ctx = await setup();
     expect(await createUpload({ ...ctx, env: {} }, { ownerId: ALICE, name: "a", size: 1 })).toEqual({ ok: false, error: "files.link_key_missing" });

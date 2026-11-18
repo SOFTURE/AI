@@ -15,4 +15,4 @@ search; otherwise the answer is `"false"` with the newest commit's reason, so ev
 
 ## Progress
 
-- [x] 1.1 Workflow, tests, docs and 0.7.5 (this commit)
+- [x] 1.1 Workflow, tests, docs and 0.7.6 (this commit)

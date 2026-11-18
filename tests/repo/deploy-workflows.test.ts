@@ -545,7 +545,9 @@ describe("the release guards of deploy-app.yml (DF-11)", () => {
   it("passes build-args to the image build", () => {
     expect(inputs["build-args"]).toMatchObject({ type: "string", default: "" });
     // Then the tag's commit for the build info (issue #878).
-    expect(build?.with?.["build-args"]).toBe("${{ inputs.build-args }}\nSOFTURE_BUILD_COMMIT=${{ needs.check.outputs.sha }}\n");
+    expect(build?.with?.["build-args"]).toBe(
+      "${{ inputs.build-args }}\nSOFTURE_BUILD_COMMIT=${{ needs.check.outputs.sha || steps.commit.outputs.sha }}\n",
+    );
   });
 });
 
@@ -564,7 +566,7 @@ describe("the worker image of deploy-app.yml (issue #948)", () => {
   });
 
   it("pushes <image>-worker with the release tag, from the app image's context and build arguments, with a cache of its own", () => {
-    expect(reference?.env).toEqual({ IMAGE: "${{ needs.check.outputs.image }}", TAG: "${{ inputs.tag }}" });
+    expect(reference?.env).toEqual({ IMAGE: "${{ needs.check.outputs.image || steps.inputs.outputs.image }}", TAG: "${{ inputs.tag }}" });
     expect(reference?.run).toBe('echo "image=$IMAGE-worker:$TAG" >> "$GITHUB_OUTPUT"');
     expect(worker?.uses).toBe(app?.uses);
     expect(worker?.with).toMatchObject({
@@ -915,7 +917,7 @@ describe("deploy: false and the release output of deploy-app.yml (issue #468)", 
 
   it("is on by default, and the workflow hands the check job's release on as its own output", () => {
     expect(call.inputs?.deploy).toMatchObject({ type: "boolean", default: true });
-    expect(call.outputs?.release?.value).toBe("${{ jobs.check.outputs.release }}");
+    expect(call.outputs?.release?.value).toBe("${{ jobs.check.outputs.release || jobs.build.outputs.release }}");
     expect(checkStep?.env).toMatchObject({ DEPLOY: "${{ inputs.deploy }}" });
   });
 
@@ -1000,7 +1002,9 @@ describe("build: false and the sha output of deploy-app.yml (issue #628)", () =>
   it("builds by default, and runs the build job only when it is on", () => {
     expect(call.inputs?.build).toMatchObject({ type: "boolean", default: true });
     expect(checkStep?.env).toMatchObject({ BUILD: "${{ inputs.build }}" });
-    expect(jobs.build?.if).toBe("inputs.build");
+    expect(jobs.build?.if).toBe(
+      "${{ !cancelled() && inputs.build && (needs.check.result == 'success' || (inputs.guard-in-job && !inputs.deploy && needs.check.result == 'skipped')) }}",
+    );
   });
 
   it("checks the inputs and hands out the release with the build off", () => {
@@ -1026,7 +1030,7 @@ describe("build: false and the sha output of deploy-app.yml (issue #628)", () =>
     expect(guard.id).toBe("commit");
     expect(guard.run).toContain('echo "sha=$sha" >> "$GITHUB_OUTPUT"');
     expect(jobs.check?.outputs?.sha).toBe("${{ steps.commit.outputs.sha }}");
-    expect(call.outputs?.sha?.value).toBe("${{ jobs.check.outputs.sha }}");
+    expect(call.outputs?.sha?.value).toBe("${{ jobs.check.outputs.sha || jobs.build.outputs.sha }}");
   });
 });
 
@@ -1271,6 +1275,13 @@ describe("the example release pipeline that fails fast (issue #628)", () => {
     expect(needsOf("build").sort()).toEqual(["image", "preflight", "static", "tested", "unit"]);
     expect(jobs.build?.with).toMatchObject({ deploy: false, "prebuilt-image": "${{ needs.image.outputs.prebuilt-image }}" });
     expect(needsOf("deploy")).toEqual(["build"]);
+  });
+
+  it("folds the guards of the static and build calls into their work jobs, keeping the release check and the shard list (issue #1375)", () => {
+    expect(jobs.static?.with).toMatchObject({ "guard-in-job": true });
+    expect(jobs.build?.with).toMatchObject({ "guard-in-job": true, deploy: false });
+    expect(jobs.release?.with?.["guard-in-job"]).toBeUndefined();
+    expect(jobs.unit?.with?.["guard-in-job"]).toBeUndefined();
   });
 
   it("watches each part before the build with its own job, and never the build, the deploy or the report", () => {
@@ -1977,7 +1988,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
       "install-command": { default: "npm ci" },
     });
     expect(Object.keys(call.outputs ?? {})).toEqual(["sha"]);
-    expect(call.outputs?.sha?.value).toBe("${{ jobs.prepare.outputs.sha || github.sha }}");
+    expect(call.outputs?.sha?.value).toBe("${{ jobs.prepare.outputs.sha || jobs.static.outputs.sha || jobs.unit.outputs.sha || github.sha }}");
     expect(Object.keys(jobs)).toEqual(["prepare", "static", "unit"]);
     for (const job of Object.values(jobs)) expect(job.permissions).toEqual({ contents: "read" });
   });
@@ -2085,16 +2096,16 @@ describe("deploy-release-checks.yml (issue #406)", () => {
 
     it("fetches commits only, without credentials, and only for a tag", () => {
       const checkout = (jobs.prepare?.steps ?? []).find((step) => step.uses?.startsWith("actions/checkout@") === true);
-      expect(checkout?.if).toBe("inputs.tag != ''");
+      expect(checkout?.if).toBe("inputs.tag != '' && (github.job == 'prepare' || inputs.guard-in-job)");
       expect(checkout?.with).toMatchObject({ ref: "${{ inputs.tag }}", "persist-credentials": false, "fetch-depth": 0, filter: "tree:0" });
     });
   });
 
   it("checks out the resolved commit in every other job, without credentials", () => {
     for (const id of ["static", "unit"]) {
-      const checkout = (jobs[id]?.steps ?? []).find((step) => step.uses?.startsWith("actions/checkout@") === true);
+      const checkout = (jobs[id]?.steps ?? []).filter((step) => step.uses?.startsWith("actions/checkout@") === true).at(-1);
       expect(checkout?.with, id).toMatchObject({
-        ref: "${{ needs.prepare.outputs.revision }}",
+        ref: "${{ needs.prepare.outputs.revision || steps.resolved.outputs.revision }}",
         "persist-credentials": false,
         "sparse-checkout": "${{ inputs.sparse-checkout }}",
       });
@@ -2123,7 +2134,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
 
   describe("a pull request's run (issue #627)", () => {
     it("runs prepare only for a tag or more than one unit shard", () => {
-      expect((jobs.prepare as { if?: string }).if).toBe("inputs.tag != '' || (inputs.unit && inputs.shards != 1)");
+      expect((jobs.prepare as { if?: string }).if).toBe("(inputs.tag != '' && !inputs.guard-in-job) || (inputs.unit && inputs.shards != 1)");
     });
 
     it("runs static and unit after a skipped prepare, never after a failed or cancelled one", () => {
@@ -2162,7 +2173,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
 
     it("keys an entry on the OS, the lockfiles and the commit, and restores by the lockfile prefix", () => {
       const prefix = "softure-static-${{ runner.os }}-${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock') }}-";
-      expect(cache?.with?.key).toBe(`${prefix}\${{ needs.prepare.outputs.sha || github.sha }}`);
+      expect(cache?.with?.key).toBe(`${prefix}\${{ needs.prepare.outputs.sha || steps.resolved.outputs.sha || github.sha }}`);
       expect(cache?.with?.["restore-keys"]).toBe(prefix);
     });
 
@@ -2906,5 +2917,141 @@ describe("deploy-tested-tree.yml (issue #1373)", () => {
     const result = compare(getApi(), { DEFAULT_BRANCH: "" });
     expect(result.outputs.tested).toBe("false");
     expect(result.stdout).toContain("set the release-branch input");
+  });
+});
+
+describe("guard-in-job of deploy-release-checks.yml (issue #1375)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-release-checks.yml"));
+  const call = getWorkflowCall(workflow);
+  const jobs = workflow.jobs as Record<string, Job & { if?: string }>;
+  const prepareSteps = jobs.prepare?.steps ?? [];
+  const guardCheckout = prepareSteps.find((step) => step.uses?.startsWith("actions/checkout@") === true);
+  const resolve = findNamedStep(jobs.prepare, "Resolve the commit");
+
+  it("is off by default", () => {
+    expect(call.inputs?.["guard-in-job"]).toMatchObject({ type: "boolean", default: false });
+  });
+
+  it("skips prepare for a tag, unless it builds the list of several unit shards", () => {
+    expect(jobs.prepare?.if).toBe("(inputs.tag != '' && !inputs.guard-in-job) || (inputs.unit && inputs.shards != 1)");
+  });
+
+  it("runs prepare's own guard steps in static and unit, after the inputs and before their checkout", () => {
+    for (const id of ["static", "unit"]) {
+      const steps = jobs[id]?.steps ?? [];
+      const names = steps.map((step) => step.name ?? step.uses);
+      expect(steps[0], id).toEqual(findNamedStep(jobs.prepare, "Check the inputs"));
+      expect(steps[1], id).toEqual(guardCheckout);
+      expect(steps[2], id).toEqual(resolve);
+      expect(names[3], id).toBe("Empty the workspace after the guard");
+      expect(steps[4]?.uses, id).toBe("actions/checkout@v7");
+    }
+  });
+
+  it("runs the guard steps in prepare as before, and in static and unit only under guard-in-job with a tag", () => {
+    expect(guardCheckout?.if).toBe("inputs.tag != '' && (github.job == 'prepare' || inputs.guard-in-job)");
+    expect(resolve.if).toBe("github.job == 'prepare' || (inputs.guard-in-job && inputs.tag != '')");
+    expect(findNamedStep(jobs.static, "Empty the workspace after the guard").if).toBe("inputs.guard-in-job && inputs.tag != ''");
+  });
+
+  it("empties the workspace after the guard, so the work checkout starts clean", () => {
+    const empty = findNamedStep(jobs.static, "Empty the workspace after the guard");
+    const workspace = mkdtempSync(join(tmpdir(), "deploy-guard-workspace-"));
+    try {
+      mkdirSync(join(workspace, ".git"));
+      writeFileSync(join(workspace, "package.json"), "{}");
+      const result = runScript(empty.run ?? "", { GITHUB_WORKSPACE: workspace });
+      expect(result.status, result.stdout).toBe(0);
+      expect(readdirSync(workspace)).toEqual([]);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("hands out the commit the work jobs resolved", () => {
+    expect(jobs.static?.outputs).toEqual({ sha: "${{ steps.resolved.outputs.sha }}" });
+    expect(jobs.unit?.outputs).toEqual({ sha: "${{ steps.resolved.outputs.sha }}" });
+    expect(call.outputs?.sha?.value).toBe("${{ jobs.prepare.outputs.sha || jobs.static.outputs.sha || jobs.unit.outputs.sha || github.sha }}");
+  });
+});
+
+describe("guard-in-job of deploy-app.yml (issue #1375)", () => {
+  const workflow = readYaml(join(WORKFLOWS_DIR, "deploy-app.yml"));
+  const call = getWorkflowCall(workflow);
+  const jobs = workflow.jobs as Record<string, Job & { if?: string }>;
+  const checkSteps = jobs.check?.steps ?? [];
+  const buildSteps = jobs.build?.steps ?? [];
+  const ENV: Record<string, string> = {
+    TAG: "v1.2.3",
+    APP_URL: "https://example.com",
+    IMAGE: "",
+    BUILD_CONTEXT: ".",
+    DOCKERFILE: "Dockerfile",
+    COMPOSE_FILE: "docker/prod/docker-compose.yml",
+    SERVER_SCRIPT: "docker/server/deploy.sh",
+    DEPLOY_ENVIRONMENT: "production",
+    REMOTE_COMMAND: "deploy",
+    SSH_PORT: "22",
+    HEALTH_PATH: "/api/health",
+    VERIFY_TIMEOUT: "300",
+    DEPLOY_CONFIG: "deploy.json",
+    DEPLOY_CLI_VERSION: "0.3.0",
+    NODE_VERSION: "22",
+    REPOSITORY: "acme/app",
+    E2E: "false",
+    APP_VARS: "{}",
+    DEPLOY: "false",
+    BUILD: "true",
+    GUARD_IN_JOB: "true",
+    PASSED_SECRETS: "",
+  };
+
+  it("is off by default", () => {
+    expect(call.inputs?.["guard-in-job"]).toMatchObject({ type: "boolean", default: false });
+    expect(checkSteps[0]?.env).toMatchObject({ GUARD_IN_JOB: "${{ inputs.guard-in-job }}" });
+  });
+
+  it("skips the check job only for a build without a deploy, and builds after the check or in its place", () => {
+    expect(jobs.check?.if).toBe("${{ !(inputs.guard-in-job && inputs.build && !inputs.deploy) }}");
+    expect(jobs.build?.if).toBe(
+      "${{ !cancelled() && inputs.build && (needs.check.result == 'success' || (inputs.guard-in-job && !inputs.deploy && needs.check.result == 'skipped')) }}",
+    );
+  });
+
+  it("runs the check job's three steps first in the build job, then empties the workspace", () => {
+    expect(checkSteps.map((step) => step.name ?? step.uses)).toEqual([
+      "Validate inputs",
+      "actions/checkout@v7",
+      "Refuse a tag off the release branch",
+    ]);
+    for (const step of checkSteps) expect(step.if).toBe("github.job == 'check' || inputs.guard-in-job");
+    expect(buildSteps.slice(0, 3)).toEqual(checkSteps);
+    expect(buildSteps[3]?.name).toBe("Empty the workspace after the guard");
+    expect(buildSteps[3]?.if).toBe("inputs.guard-in-job");
+  });
+
+  it("hands out release and sha from the build job when it ran the check", () => {
+    expect(jobs.build?.outputs).toMatchObject({
+      release: "${{ steps.inputs.outputs.release }}",
+      sha: "${{ steps.commit.outputs.sha }}",
+    });
+    expect(call.outputs?.release?.value).toBe("${{ jobs.check.outputs.release || jobs.build.outputs.release }}");
+    expect(call.outputs?.sha?.value).toBe("${{ jobs.check.outputs.sha || jobs.build.outputs.sha }}");
+  });
+
+  it("accepts it for a build without a deploy", () => {
+    const result = runScript(checkSteps[0]?.run ?? "", ENV);
+    expect(result.status, result.stdout).toBe(0);
+    expect(result.output).toMatch(/^release=\{/m);
+  });
+
+  it("refuses it with a deploy, naming why", () => {
+    const refused = runScript(checkSteps[0]?.run ?? "", {
+      ...ENV,
+      DEPLOY: "true",
+      PASSED_SECRETS: "ssh-host ssh-user ssh-private-key ssh-known-hosts app-secrets",
+    });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toContain("::error::Input guard-in-job is not valid: false with deploy (the deploy and verify jobs read the check job)");
   });
 });
