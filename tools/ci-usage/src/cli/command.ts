@@ -25,7 +25,7 @@ const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 export const USAGE = `Usage:
   softure-ci-usage report [--repository <owner/name>[,<owner/name>…]] [--days ${String(DEFAULT_DAYS)} | --from <date> --to <date>]
                           [--out-dir .] [--prices <json>] [--ubicloud-premium] [--billing org:<name>|user:<name>]
-                          [--cache <file>] [--reserve ${String(DEFAULT_RESERVE)}]
+                          [--cache <file>] [--reserve ${String(DEFAULT_RESERVE)}] [--max-minutes <n>]
   softure-ci-usage publish [--repository <owner/name>] [--report-dir .] [--run-url <url>]
 
 report   reads the finished workflow runs of the period through the Actions API and writes ${JSON_FILE} and ${MARKDOWN_FILE}:
@@ -34,7 +34,8 @@ publish  keeps the issue labelled ci-usage in the repository up to date with the
 
 The token comes from GITHUB_TOKEN (or GH_TOKEN): "Actions: read" on every repository for report (plus organization
 "Administration: read" or user "Plan: read" for --billing), "Issues: write" for publish. The repository defaults to
-GITHUB_REPOSITORY. A report that could not count every run is marked partial and still exits 0.`;
+GITHUB_REPOSITORY. --max-minutes stops reading runs after that many minutes (no limit when unset). A report that
+could not count every run is marked partial and still exits 0.`;
 
 function getToken(env: NodeJS.ProcessEnv): string | undefined {
   const token = env.GITHUB_TOKEN ?? env.GH_TOKEN;
@@ -100,6 +101,7 @@ async function runReport(args: string[], context: CommandContext): Promise<numbe
       billing: { type: "string" },
       cache: { type: "string" },
       reserve: { type: "string" },
+      "max-minutes": { type: "string" },
     },
   });
   const now = context.now?.() ?? new Date();
@@ -108,12 +110,14 @@ async function runReport(args: string[], context: CommandContext): Promise<numbe
   const prices = parsePriceOverrides(values.prices);
   const billing = parseBillingAccount(values.billing);
   const reserve = toOptional(values.reserve) === undefined ? DEFAULT_RESERVE : Number(values.reserve);
+  const maxMinutes = toOptional(values["max-minutes"]) === undefined ? undefined : Number(values["max-minutes"]);
   const errors = [
     repositories.ok ? null : repositories.error,
     period.ok ? null : period.error,
     prices.ok ? null : prices.error,
     billing === null || billing.ok ? null : billing.error,
     Number.isInteger(reserve) && reserve >= 0 ? null : `--reserve must be a whole number of requests, not "${String(values.reserve)}"`,
+    maxMinutes === undefined || (Number.isInteger(maxMinutes) && maxMinutes >= 1) ? null : `--max-minutes must be a whole number of minutes, 1 or more, not "${String(values["max-minutes"])}"`,
   ].filter((error): error is string => error !== null);
   const token = getToken(context.env);
   if (token === undefined) errors.push("GITHUB_TOKEN (or GH_TOKEN) is not set");
@@ -125,9 +129,11 @@ async function runReport(args: string[], context: CommandContext): Promise<numbe
   const client = createGithubClient({ token, reserve, ...(context.fetch ? { fetch: context.fetch } : {}) });
   const cachePath = toOptional(values.cache) === undefined ? undefined : resolve(context.cwd, String(values.cache));
   const cache = readCache(cachePath);
+  const deadline = maxMinutes === undefined ? undefined : new Date(now.getTime() + maxMinutes * 60_000);
+  const clock = context.now ?? ((): Date => new Date());
   const collected: CollectResult[] = [];
   for (const repository of repositories.repositories) {
-    collected.push(await collectRepository({ client, repository, from: period.from, to: period.to, cache }));
+    collected.push(await collectRepository({ client, repository, from: period.from, to: period.to, cache, now: clock, ...(deadline === undefined ? {} : { deadline }) }));
   }
   let billingResult: BuildReportOptions["billing"] = null;
   if (billing?.ok) {

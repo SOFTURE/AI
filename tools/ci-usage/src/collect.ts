@@ -64,7 +64,14 @@ export interface CollectOptions {
   from: Date;
   to: Date;
   cache: RunCache;
+  /** Past this time no further runs are read and the repository is marked partial; no budget when unset. */
+  deadline?: Date;
+  /** Replaces the clock in tests. */
+  now?: () => Date;
 }
+
+/** Runs whose jobs are read at the same time: far below GitHub's limit of 100 concurrent requests. */
+export const JOB_CONCURRENCY = 8;
 
 export interface CollectResult {
   repository: string;
@@ -193,9 +200,42 @@ export async function collectRepository(options: CollectOptions): Promise<Collec
     return done(listed.message);
   }
 
-  // Oldest first, so a budget stop leaves a clean "counted up to" boundary.
+  // Oldest first, so a stop leaves a clean "counted up to" boundary: every run before it is counted, none after.
   const runs = [...listed.value].sort((a, b) => a.id - b.id);
+  const now = options.now ?? ((): Date => new Date());
+  const read = new Map<number, JobRecord[]>();
+  const pending: { index: number; run: Run; key: string }[] = [];
+  let stop: { index: number; note: string } | null = null;
   for (const [index, run] of runs.entries()) {
+    if (run.status !== "completed" || run.conclusion === "skipped") continue;
+    const key = `${String(run.id)}:${String(run.run_attempt ?? 1)}`;
+    if (options.cache.runs[key]?.updatedAt !== run.updated_at) pending.push({ index, run, key });
+  }
+  for (let start = 0; start < pending.length && stop === null; start += JOB_CONCURRENCY) {
+    const batch = pending.slice(start, start + JOB_CONCURRENCY);
+    const first = batch[0];
+    if (first !== undefined && options.deadline !== undefined && now() >= options.deadline) {
+      stop = { index: first.index, note: `stopped at the time budget: ${String(runs.length - first.index)} of ${String(runs.length)} runs not counted` };
+      break;
+    }
+    const results = await Promise.all(batch.map((item) => listJobs(client, repository, item.run)));
+    for (const [offset, result] of results.entries()) {
+      const item = batch[offset];
+      if (item === undefined) continue;
+      if (result.ok) {
+        read.set(item.index, result.value);
+        continue;
+      }
+      if (result.kind === "budget") {
+        stop = { index: item.index, note: `stopped at the rate limit: ${String(runs.length - item.index)} of ${String(runs.length)} runs not counted (${result.message})` };
+        break;
+      }
+      partial.push(`run ${String(item.run.id)} not counted: ${result.message}`);
+    }
+  }
+
+  for (const [index, run] of runs.entries()) {
+    if (stop !== null && index >= stop.index) break;
     if (run.status !== "completed") {
       counts.running += 1;
       continue;
@@ -205,26 +245,22 @@ export async function collectRepository(options: CollectOptions): Promise<Collec
       continue;
     }
     const key = `${String(run.id)}:${String(run.run_attempt ?? 1)}`;
+    const fresh = read.get(index);
+    if (fresh !== undefined) {
+      jobs.push(...fresh);
+      cache.runs[key] = { updatedAt: run.updated_at, jobs: fresh };
+      counts.counted += 1;
+      continue;
+    }
     const cached = options.cache.runs[key];
     if (cached?.updatedAt === run.updated_at) {
       jobs.push(...cached.jobs);
       cache.runs[key] = cached;
       counts.counted += 1;
       counts.fromCache += 1;
-      continue;
     }
-    const read = await listJobs(client, repository, run);
-    if (!read.ok) {
-      if (read.kind === "budget") {
-        partial.push(`stopped at the rate limit: ${String(runs.length - index)} of ${String(runs.length)} runs not counted (${read.message})`);
-        return done();
-      }
-      partial.push(`run ${String(run.id)} not counted: ${read.message}`);
-      continue;
-    }
-    jobs.push(...read.value);
-    cache.runs[key] = { updatedAt: run.updated_at, jobs: read.value };
-    counts.counted += 1;
+    // Otherwise the read failed with an HTTP error, already noted in `partial`.
   }
+  if (stop !== null) partial.push(stop.note);
   return done();
 }

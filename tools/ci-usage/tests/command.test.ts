@@ -74,6 +74,17 @@ describe("report", () => {
     expect(second.fake.requests.some((request) => request.url.pathname.endsWith("/jobs"))).toBe(false);
   });
 
+  it("stops reading runs once --max-minutes has passed and marks the report partial", async () => {
+    const context = makeContext(ROUTES);
+    const times = [NOW, new Date(NOW.getTime() + 6 * 60_000)];
+    context.now = () => times.shift() ?? new Date(NOW.getTime() + 60 * 60_000);
+    expect(await runCommand(["report", "--days", "2", "--max-minutes", "5"], context)).toBe(0);
+    const report = JSON.parse(readFileSync(join(dir, "ci-usage.json"), "utf8")) as CiUsageReport;
+    expect(report.partial).toBe(true);
+    expect(report.repositories[0]?.partial).toEqual(["stopped at the time budget: 1 of 1 runs not counted"]);
+    expect(context.fake.requests.some((request) => request.url.pathname.endsWith("/jobs"))).toBe(false);
+  });
+
   it("exits 1 when no repository could be read", async () => {
     const context = makeContext([{ match: () => true, status: 404, body: { message: "Not Found" } }]);
     expect(await runCommand(["report", "--days", "1"], context)).toBe(1);
@@ -83,9 +94,9 @@ describe("report", () => {
 
   it("lists every input error at once, with the usage", async () => {
     const context = makeContext([], {});
-    expect(await runCommand(["report", "--days", "x", "--prices", "{", "--billing", "team:x"], context)).toBe(1);
+    expect(await runCommand(["report", "--days", "x", "--prices", "{", "--billing", "team:x", "--max-minutes", "0"], context)).toBe(1);
     const message = context.err.join("");
-    for (const part of ["--repository is required", "--days must be", "--prices is not JSON", "--billing must be", "GITHUB_TOKEN (or GH_TOKEN) is not set", "Usage:"]) {
+    for (const part of ["--repository is required", "--days must be", "--prices is not JSON", "--billing must be", '--max-minutes must be a whole number of minutes, 1 or more, not "0"', "GITHUB_TOKEN (or GH_TOKEN) is not set", "Usage:"]) {
       expect(message).toContain(part);
     }
   });
