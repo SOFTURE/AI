@@ -1,12 +1,13 @@
 ---
 change_id: ci-usage-time-budget
 title: "ci-usage finishes a busy repository's report inside the job time"
-status: plan_reviewed
+status: archived
 roadmap_item: null
 issue: 1366
 branch: claude/project-thread-xvy7o9
 created: 2026-11-18
 updated: 2026-11-18
+archived_at: 2026-11-18
 ---
 
 ## Intent
@@ -30,3 +31,10 @@ Today it is cancelled at 15 minutes with nothing published (issue #1366, run 443
 
 - Frame skipped: the observation (a cancelled run) and its cause (sequential requests on a cold cache) are measured,
   and the fix is the one the README already promises.
+
+## Done
+
+- `@softure-ai/ci-usage` 0.1.1: jobs read eight runs at a time, `--max-minutes` and the workflow input `max-minutes`
+  (default 10). Release: next, through the trusted publisher (`auto-release.yml`, `ci-usage`).
+- After the release: dispatch `ci-usage-self.yml`; the run ends green within 15 minutes with the artifact
+  `ci-usage-report` and the `ci-usage` issue (partial on the first cold run is expected).

@@ -34,9 +34,11 @@ input, default `"10"`), and the package becomes 0.1.1 with the workflow's `cli-v
 
 ## Progress
 
-- [ ] Phase 1: concurrency and the time budget
-- [ ] Phase 2: workflow, docs, version
-- [ ] Phase 3: release 0.1.1 and the live run
+- [x] Phase 1: concurrency and the time budget (6308f8a; `vitest run tools/ci-usage`: 80 tests green, new: 8 in
+  flight, reserve stop between batches "2 of 10", time budget stop "1 of 10", `--max-minutes` stop and validation)
+- [x] Phase 2: workflow, docs, version (2ab9da1, version bump fa08d7b; `tests/repo/ci-usage-workflow.test.ts` green,
+  typecheck, ESLint and the language gate green in the pre-commit hook; actionlint runs in CI)
+- [ ] Phase 3: release 0.1.1 and the live run (after the merge: auto-release, then dispatch `ci-usage-self.yml`)
 
 ## Decisions (auto)
 
