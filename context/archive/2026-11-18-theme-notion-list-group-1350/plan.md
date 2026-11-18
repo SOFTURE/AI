@@ -32,4 +32,4 @@ Evidence: `npx vitest run themes/theme-notion` 66 files, 1293 tests green; `tsc 
 ESLint clean; the visual suite (184 cases, 4 projects, Chromium 1243) failed only on the four inline `gallery.png`
 baselines before the refresh (every isolated case matched) and is green after it; a scratch Playwright measurement of
 the `ListGroup[surface=page]` case confirmed the sticking, the full width, the push-away and the scroll margin (see the
-implementation review). Version 0.26.0.
+implementation review). Version 0.27.0 (0.26.0 went to #1349, merged first).

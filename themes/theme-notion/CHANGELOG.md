@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## 0.26.0
+## 0.27.0
 
 - Sticky group heading for `List` (#1350): `ListGroup` and `ListGroupHeading`, a run of rows under a heading that sticks
   at the top of its scroll container while the rows pass under it and is pushed away by the next group's heading. The
@@ -16,6 +16,20 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - Migration: none; no existing component changes. An app that composes the heading from tokens (`sticky top-0 z-10
   -mx-2 px-4 py-2 bg-background border-b`, `scroll-mt-10` on each item) can move to `ListGroup`; its scroll container
   drops its own padding.
+
+## 0.26.0
+
+- `DetailTable` is laid out fixed at its container's width (`table-fixed`, #1349): a long unbreakable value (a
+  `DocumentRow`'s title, a row of buttons) wraps or shortens inside its cell instead of widening the table past its
+  column, e.g. under an `AsidePanel` beside it. A table that already fitted looks the same.
+- `DetailTable` stacks each label above its value by its own width, not the window's: a frame (`data-slot=
+  "detail-table-frame"`, a `@container`) narrower than 28rem stacks (a phone, or a column beside an `AsidePanel`),
+  where before only a window under 640 px did. The table now sits inside that frame.
+- `DocumentRow details` (optional): what else the app says about a document (kind, source, the day it was added),
+  shown after the size in the row's wrapping line, so on a narrow row it moves under the title; `actions` keeps only
+  the buttons, which always show whole.
+- Migration: none. An app that put a document's facts into `actions` moves them to `details`; a selector that
+  expected `detail-table` as the outermost element looks one level deeper.
 
 ## 0.25.0
 

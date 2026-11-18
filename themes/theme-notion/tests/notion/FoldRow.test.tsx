@@ -47,6 +47,7 @@ describe("FoldRow", () => {
       "badge",
       "badge",
       "fold-row-content",
+      "detail-table-frame",
       "detail-table",
     ]);
     expect(readAttribute(html, "data-badge")).toEqual(["state", "cost", "area"]);

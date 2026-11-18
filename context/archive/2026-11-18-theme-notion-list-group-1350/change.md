@@ -42,7 +42,7 @@ without a line read as part of the row below.
 
 ## Done
 
-- `ListGroup` and `ListGroupHeading` in theme-notion 0.26.0 (released by the coordinator's release run).
+- `ListGroup` and `ListGroupHeading` in theme-notion 0.27.0 (released by the coordinator's release run).
 
 ## Decisions (auto)
 
