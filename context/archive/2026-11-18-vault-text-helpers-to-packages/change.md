@@ -1,7 +1,8 @@
 ---
 change_id: vault-text-helpers-to-packages
 title: "core, mcp-access: accent folding for search and the untrusted-text wrapper for MCP answers"
-status: impl_reviewed
+status: archived
+archived_at: 2026-11-18
 roadmap_item: null
 issue: null
 branch: claude/project-thread-83sm99
