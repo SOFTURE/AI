@@ -43,6 +43,7 @@ export {
   type WithConfirmationOptions,
 } from "./confirmation.js";
 export { createMcpAccessContext } from "./context.js";
+export { createUntrustedWrapper, type UntrustedMarkers, type UntrustedWrapper } from "./untrusted.js";
 export { isWritingEnabled } from "./writes-switch.js";
 export { checkAccessTokensTable } from "./health.js";
 export {

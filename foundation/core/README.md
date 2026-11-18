@@ -606,6 +606,16 @@ is dropped, so the next call tries again.
 const getProjection = memoizeByContent((input: ProjectionInput) => simulate(input), { max: 100 });
 ```
 
+**Folding text for search.** `foldText(text)` lowers case and drops accents (NFKD, plus the letters it leaves whole:
+l, o and d with stroke, sharp s → `ss`, the ae and oe ligatures), keeping every other character; `foldWords(text)` also turns
+everything but letters and digits into single spaces and trims. Use them to match a typed query against written text
+("zurich" finds "Zürich", "ete" finds "ÉTÉ") and to fill a stored search column: the result is the same on
+every runtime, unlike Postgres `unaccent`.
+
+```ts
+const matches = foldWords(title).includes(foldWords(query));
+```
+
 ## 10. Hooks
 
 `ModuleContext` is what every server function of a module receives: `{ db, clock, config }`
