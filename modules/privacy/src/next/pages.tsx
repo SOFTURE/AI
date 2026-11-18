@@ -8,6 +8,7 @@ import { getPrivacyRoutes } from "../server/options.js";
 import { DeleteAccountForm } from "../ui/delete-account-form.js";
 import { deleteAccountAction } from "./actions.js";
 import { getPrivacyMessages } from "./messages.js";
+import { getDeleteAccountReauthentication } from "./reauthentication.js";
 
 const LAYOUT_CLASS = "sft:mx-auto sft:box-border sft:flex sft:w-full sft:flex-col sft:gap-4 sft:sm:max-w-md sft:px-4 sft:py-4";
 const DESCRIPTION_CLASS = "sft:m-0 sft:text-sm sft:text-muted";
@@ -29,7 +30,12 @@ export async function PrivacyPage() {
         </div>
       </Card>
       <Card title={messages.delete.title}>
-        <DeleteAccountForm action={deleteAccountAction} messages={messages} locale={config.locale} />
+        <DeleteAccountForm
+          action={deleteAccountAction}
+          messages={messages}
+          reauthentication={await getDeleteAccountReauthentication(routes.account)}
+          locale={config.locale}
+        />
       </Card>
     </main>
   );

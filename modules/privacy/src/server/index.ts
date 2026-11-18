@@ -35,7 +35,9 @@ export { recordRegistrationConsent, REGISTRATION_SOURCE, type RegistrationConsen
 export {
   deleteOwnAccount,
   exportOwnData,
+  getDeletionReauthentication,
   type DeleteOwnAccountErrorCode,
+  type DeletionReauthentication,
   type DeleteOwnAccountInput,
   type DeleteOwnAccountResult,
   type ExportOwnDataInput,

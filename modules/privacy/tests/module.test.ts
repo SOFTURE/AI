@@ -18,8 +18,13 @@ describe("the privacy module", () => {
     expect(privacy.manifest.version).toBe(manifest.version);
   });
 
-  it("fills in the defaults: no app contributors, no documents, a 10 MiB export named account-data", () => {
-    expect(privacy().options).toEqual({ contributors: [], documents: [], export: { maxBytes: DEFAULT_EXPORT_MAX_BYTES, fileName: "account-data" } });
+  it("fills in the defaults: no app contributors, no documents, a 10 MiB export named account-data, a 10-minute sign-in window", () => {
+    expect(privacy().options).toEqual({
+      contributors: [],
+      documents: [],
+      export: { maxBytes: DEFAULT_EXPORT_MAX_BYTES, fileName: "account-data" },
+      deletion: { recentSignInMinutes: 10 },
+    });
     expect(DEFAULT_EXPORT_MAX_BYTES).toBe(10 * 1024 * 1024);
   });
 

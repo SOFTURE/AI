@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- **Re-authentication by a provider sign-in:** `findRecentProviderSignIn(ctx, { userId, sessionToken, withinMinutes })`
+  (`/server`) answers the provider whose sign-in opened that very session within the window, or null (a session a
+  password login opened, an older one, another user's or an expired one). `findLinkedProviders(ctx, userId)` lists the
+  providers an account signs in with. An account a provider created has no password its owner knows; these let an
+  action that cannot be undone, such as `@softure-ai/privacy`'s account deletion, confirm it is the owner.
+  - Migrate: nothing.
+
 ## 0.2.17
 
 - **Open sign-up through a provider:** `openSignUp: true` on an OpenID Connect or GitHub provider lets any verified email

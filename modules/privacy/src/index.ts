@@ -63,7 +63,7 @@ export {
   type PrivacyErrorCode,
   type PrivacyExport,
 } from "./contract.js";
-export { getPrivacyErrorMessage, privacyMessages, type PrivacyMessages } from "./messages/index.js";
+export { getPrivacyErrorMessage, getReauthenticationMessages, privacyMessages, type PrivacyMessages } from "./messages/index.js";
 export {
   CONTRIBUTOR_ID_PATTERN,
   DEFAULT_EXPORT_MAX_BYTES,
