@@ -13,6 +13,8 @@ const config = createConfig([
 const BASE: ConnectionView = {
   provider: "google",
   accountId: "default",
+  ownerId: null,
+  subject: null,
   kind: "oauth",
   label: "Google",
   status: "connected",

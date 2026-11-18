@@ -4,13 +4,13 @@
 // and stores the connection, sealed. Nothing a provider says is echoed: failures are codes.
 import { createHash, randomBytes } from "node:crypto";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
-import { and, eq, gt, lte } from "drizzle-orm";
+import { and, eq, gt, isNotNull, isNull, lte } from "drizzle-orm";
 import type { ConnectionsFlowErrorCode } from "../contract.js";
 import { DEFAULT_ACCOUNT_ID, type OAuthProviderDefinition } from "../options.js";
 import { accounts, oauthStates } from "../schema.js";
 import { getCredentialContext, getVerifierContext, openSecret, sealSecret, type Keyring } from "./crypto.js";
 import { findProvider, getConnectionsOptions, getRedirectUri, readClientCredentials } from "./options.js";
-import { findAccount, getKeyring, notifyConnectionChanged, parseScopes, type ConnectionsContext } from "./store.js";
+import { findAccount, getKeyring, getProviderOwner, notifyConnectionChanged, parseScopes, type ConnectionsContext } from "./store.js";
 import { requestTokens, type TokenResponse } from "./token-client.js";
 
 const RANDOM_BYTES = 32;
@@ -18,7 +18,10 @@ const RANDOM_BYTES = 32;
 export interface StartAuthorizationInput {
   readonly provider: string;
   readonly accountId?: string;
-  /** The auth user id of the admin; only they can complete it. */
+  /**
+   * The auth user id of who starts it; only they can complete it. For a provider with `owner: "user"` the connection
+   * becomes theirs; for the app's own provider the caller checks they are an admin first.
+   */
   readonly actorId: string;
 }
 
@@ -49,6 +52,7 @@ export async function startAuthorization(ctx: ConnectionsContext, input: StartAu
     stateHash,
     provider: provider.id,
     accountId,
+    ownerId: provider.owner === "user" ? input.actorId : null,
     keyId: sealedVerifier?.keyId ?? keyring.value.current.id,
     verifier: sealedVerifier?.sealed ?? null,
     createdBy: input.actorId,
@@ -83,11 +87,29 @@ export interface CallbackParams {
 
 export interface CompleteAuthorizationInput {
   readonly params: CallbackParams;
-  /** The auth user id of the admin whose browser came back. */
+  /** The auth user id of the user whose browser came back. */
   readonly actorId: string;
+  /**
+   * Consume only an authorization of the actor's own connection (`owner: "user"`): a caller that has not checked the
+   * admin role passes true, so a user who is not an admin can never complete an app connection.
+   */
+  readonly ownOnly?: boolean;
 }
 
-export type CompleteAuthorizationResult = Ok<{ readonly provider: string; readonly accountId: string }> | Err<ConnectionsFlowErrorCode>;
+/** The connection an authorization was for, known once its state is found. */
+export interface AuthorizationTarget {
+  readonly provider: string;
+  readonly accountId: string;
+  /** The user it connects for (`owner: "user"`); null for the app's own connection. */
+  readonly ownerId: string | null;
+}
+
+/** A failed completion; `target` is set when the state was found, so the callback can send the user back to its page. */
+export interface CompleteAuthorizationFailure extends Err<ConnectionsFlowErrorCode> {
+  readonly target?: AuthorizationTarget;
+}
+
+export type CompleteAuthorizationResult = Ok<AuthorizationTarget> | CompleteAuthorizationFailure;
 
 /** Consumes the authorization the callback names, exchanges its code and stores the connection. */
 export async function completeAuthorization(ctx: ConnectionsContext, input: CompleteAuthorizationInput): Promise<CompleteAuthorizationResult> {
@@ -98,17 +120,25 @@ export async function completeAuthorization(ctx: ConnectionsContext, input: Comp
   // One-time: the row is gone whatever happens next. Another user's session cannot consume (or burn) it.
   const [pending] = await ctx.db
     .delete(oauthStates)
-    .where(and(eq(oauthStates.stateHash, stateHash), eq(oauthStates.createdBy, input.actorId), gt(oauthStates.expiresAt, now)))
+    .where(
+      and(
+        eq(oauthStates.stateHash, stateHash),
+        eq(oauthStates.createdBy, input.actorId),
+        gt(oauthStates.expiresAt, now),
+        input.ownOnly === true ? isNotNull(oauthStates.ownerId) : undefined,
+      ),
+    )
     .returning();
   if (pending === undefined) return err("connections.state_invalid");
   // From here the provider is known: a failure is reported as `connect_failed`, a success as (re)connected.
   const result = await exchangeCode(ctx, { pending, stateHash, code, error, actorId: input.actorId });
-  const base = { provider: pending.provider, accountId: pending.accountId, kind: "oauth" as const, actorId: input.actorId, at: now };
+  const base = { provider: pending.provider, accountId: pending.accountId, ownerId: pending.ownerId, kind: "oauth" as const, actorId: input.actorId, at: now };
   await notifyConnectionChanged(
     ctx,
     result.ok ? { ...base, change: result.value.replaced ? "reconnected" : "connected" } : { ...base, change: "connect_failed", code: result.error },
   );
-  return result.ok ? ok({ provider: pending.provider, accountId: pending.accountId }) : result;
+  const target: AuthorizationTarget = { provider: pending.provider, accountId: pending.accountId, ownerId: pending.ownerId };
+  return result.ok ? ok(target) : { ok: false, error: result.error, target };
 }
 
 interface ExchangeCodeInput {
@@ -129,6 +159,8 @@ async function exchangeCode(ctx: ConnectionsContext, input: ExchangeCodeInput): 
   if (!found.ok) return found;
   const provider = found.value;
   if (provider.kind !== "oauth") return err("connections.wrong_kind");
+  // The provider's owner changed in the config since the authorization started.
+  if ((getProviderOwner(provider) === "user") !== (pending.ownerId !== null)) return err("connections.wrong_owner");
   const client = readClientCredentials(provider, ctx.env);
   if (!client.ok) return client;
   const keyring = getKeyring(ctx);
@@ -153,14 +185,15 @@ async function exchangeCode(ctx: ConnectionsContext, input: ExchangeCodeInput): 
   }
   if (answer.kind === "failed") return err("connections.exchange_failed");
 
-  const replaced = (await findAccount(ctx, provider.id, pending.accountId)) !== undefined;
-  await storeGrant(ctx, keyring.value, { provider, accountId: pending.accountId, tokens: answer.tokens, actorId: input.actorId });
+  const replaced = (await findAccount(ctx, provider.id, pending.accountId, pending.ownerId)) !== undefined;
+  await storeGrant(ctx, keyring.value, { provider, accountId: pending.accountId, ownerId: pending.ownerId, tokens: answer.tokens, actorId: input.actorId });
   return ok({ replaced });
 }
 
 interface StoreGrantInput {
   readonly provider: OAuthProviderDefinition;
   readonly accountId: string;
+  readonly ownerId: string | null;
   readonly tokens: TokenResponse;
   readonly actorId: string | null;
 }
@@ -172,9 +205,10 @@ async function storeGrant(ctx: ConnectionsContext, keyring: Keyring, input: Stor
   const sealed = sealSecret(
     keyring,
     JSON.stringify({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }),
-    getCredentialContext(provider.id, input.accountId),
+    getCredentialContext(provider.id, input.accountId, input.ownerId),
   );
   const values = {
+    subject: tokens.subject,
     kind: "oauth" as const,
     status: "connected" as const,
     keyId: sealed.keyId,
@@ -197,8 +231,12 @@ async function storeGrant(ctx: ConnectionsContext, keyring: Keyring, input: Stor
   };
   await ctx.db
     .insert(accounts)
-    .values({ provider: provider.id, accountId: input.accountId, ...values })
-    .onConflictDoUpdate({ target: [accounts.provider, accounts.accountId], set: values });
+    .values({ provider: provider.id, accountId: input.accountId, ownerId: input.ownerId, ...values })
+    .onConflictDoUpdate(
+      input.ownerId === null
+        ? { target: [accounts.provider, accounts.accountId], targetWhere: isNull(accounts.ownerId), set: values }
+        : { target: [accounts.ownerId, accounts.provider, accounts.accountId], targetWhere: isNotNull(accounts.ownerId), set: values },
+    );
 }
 
 /** When the refresh token dies: as the provider said, else its configured maximum age, else unknown. */

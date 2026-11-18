@@ -31,9 +31,9 @@ export type Env = Readonly<Record<string, string | undefined>>;
 
 export type KeyringResult = Ok<Keyring> | Err<"connections.key_missing" | "connections.key_invalid">;
 
-/** Parses the keyring from the environment. Never echoes the value it read. */
-export function readKeyring(env: Env = process.env): KeyringResult {
-  const raw = env[CONNECTIONS_KEYS_ENV]?.trim();
+/** Parses the keyring from the environment (`variable`, `SOFTURE_CONNECTIONS_KEYS` by default). Never echoes the value it read. */
+export function readKeyring(env: Env = process.env, variable: string = CONNECTIONS_KEYS_ENV): KeyringResult {
+  const raw = env[variable]?.trim();
   if (raw === undefined || raw === "") return err("connections.key_missing");
   const keys = new Map<string, Buffer>();
   let current: ConnectionsKey | undefined;
@@ -113,9 +113,12 @@ export function readSealedKeyId(sealed: string): string | null {
   return prefix === SEALED_PREFIX && keyId !== undefined && KEY_ID_PATTERN.test(keyId) ? keyId : null;
 }
 
-/** The additional data of a connection's credentials. */
-export function getCredentialContext(provider: string, accountId: string): string {
-  return `connections/accounts/${provider}/${accountId}`;
+/**
+ * The additional data of a connection's credentials. A user's own connection names its owner too, so a ciphertext
+ * copied to another user's row does not open.
+ */
+export function getCredentialContext(provider: string, accountId: string, ownerId: string | null = null): string {
+  return ownerId === null ? `connections/accounts/${provider}/${accountId}` : `connections/owners/${encodeURIComponent(ownerId)}/${provider}/${accountId}`;
 }
 
 /** The additional data of an authorization's PKCE verifier. */

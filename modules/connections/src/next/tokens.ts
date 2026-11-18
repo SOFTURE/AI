@@ -17,6 +17,8 @@ import {
   type ProviderAccountInput,
 } from "../server/credentials.js";
 import { getAccessToken as getServerAccessToken, type GetAccessTokenInput, type GetAccessTokenResult } from "../server/tokens.js";
+import type { ConnectionView } from "../contract.js";
+import { listOwnConnections as listStoredOwnConnections } from "../server/list.js";
 import { getConnectionsContext } from "./context.js";
 
 /** A usable access token for the provider account (`getAccessToken` of `/server`). */
@@ -41,4 +43,9 @@ export const requestWithConnection = (async (account: ProviderAccountInput, opti
 /** Downloads a file with the account's stored credential (`downloadWithConnection` of `/server`). */
 export async function downloadWithConnection(account: ProviderAccountInput, options: RequestBytesOptions): Promise<ConnectionDownloadResult> {
   return downloadWithStoredConnection(await getConnectionsContext(getSoftureConfig()), account, options);
+}
+
+/** The user's own connections, one per user provider and account (`listOwnConnections` of `/server`). */
+export async function listOwnConnections(ownerId: string): Promise<ConnectionView[]> {
+  return listStoredOwnConnections(await getConnectionsContext(getSoftureConfig()), ownerId);
 }

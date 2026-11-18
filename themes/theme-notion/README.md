@@ -149,6 +149,7 @@ stages with a state, below), `Timeline` (dated entries on a vertical rail, below
 `Prose` (the text styles of a long read the app does not draw itself, such as Markdown rendered to HTML, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
 `List`, `ListItem` and `ListRow` (a list of rows, compact or roomy by the page's density, below),
+`ListGroup` and `ListGroupHeading` (a run of rows under a heading that sticks at the top of its scroll, below),
 `MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
 `UpdatePrompt` (the offer to reload into a new build, for an installed app, below),
 `InstallBar` (the offer to install the app on a phone, below),
@@ -488,6 +489,41 @@ scheme the theme's `border` is that card's own grey.
 `ListItem asChild` and `ListRow asChild` keep the app's own element (a sortable item, a link). For a list the app
 renders with other components, `LIST_CLASSES` holds the same classes (`list`, `tintedList`, `item`, `row`), e.g.
 `<SortableList className={LIST_CLASSES.list}>` with `<SortableItem className={LIST_CLASSES.item}>`.
+
+**`ListGroup`, `ListGroupHeading`: a sticky group heading.** A heading over a run of rows (a country's days, a month's
+entries) that sticks at the top of the scroll container while its rows pass under it, and is pushed away by the next
+group's heading. Put the groups straight in the scrolling element and give it no padding: a sticky box sticks at the
+scroll container's padding edge, so top padding would leave a strip above the stuck heading. `ListGroup` holds the side
+room (`px-2`) and the heading bleeds over it (`-mx-2 px-4`), so the heading spans the whole scrollport and its text
+lines up with the rows'. The heading is `text-ui-medium` in `foreground` on the page's `background` with a `border`
+line under it, 40 px high; every `ListItem` in the group gets the same scroll margin, so a row scrolled into view
+(`scrollIntoView({ block: "nearest" })`) stops below the heading. On a grey card pass `surface="tinted"` to both the
+heading and the list: the heading takes `secondary` and its line the page's `background`.
+
+```tsx
+<div className="h-full overflow-y-auto">
+  {countries.map((country) => (
+    <ListGroup key={country.id} asChild aria-labelledby={`country-${country.id}`}>
+      <section>
+        <ListGroupHeading asChild>
+          <h3 id={`country-${country.id}`}>{country.name}</h3>
+        </ListGroupHeading>
+        <List as="ol" aria-label={`Days in ${country.name}`}>
+          {country.days.map((day) => (
+            <ListItem key={day.id}>
+              <ListRow asChild>
+                <button type="button" onClick={() => open(day.id)}>{day.label}</button>
+              </ListRow>
+            </ListItem>
+          ))}
+        </List>
+      </section>
+    </ListGroup>
+  ))}
+</div>
+```
+
+`LIST_CLASSES.group`, `groupHeading` and `tintedGroupHeading` give the same classes to a group the app renders itself.
 
 **`MiniProgress`.** A share with its figure inside the bar, for a table cell or a tile where a figure next to a
 `Progress` would collide with it: a 20 px rounded track (`primary/12`) that takes the cell's width (at least 64 px),

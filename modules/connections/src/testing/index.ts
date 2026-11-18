@@ -8,5 +8,5 @@ export {
   type FakeGithubInstallationInput,
   type FakeGithubRepositoryInput,
 } from "./fake-github-app.js";
-export { createFakeOAuthProvider, type FakeFailure, type FakeOAuthProvider, type FakeOAuthProviderOptions } from "./fake-provider.js";
+export { createFakeOAuthProvider, type FakeConsentOptions, type FakeFailure, type FakeOAuthProvider, type FakeOAuthProviderOptions } from "./fake-provider.js";
 export { createTestKeyring } from "./keyring.js";

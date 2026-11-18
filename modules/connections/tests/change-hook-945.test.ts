@@ -42,8 +42,8 @@ describe("onConnectionChanged and the change log line", () => {
     await connectFake(test);
     await connectFake(test);
     expect(events).toEqual([
-      { event: { change: "connected", provider: "fake", accountId: "default", kind: "oauth", actorId: ADMIN, at: NOW }, rows: ["fake/default connected oauth test"] },
-      { event: { change: "reconnected", provider: "fake", accountId: "default", kind: "oauth", actorId: ADMIN, at: NOW }, rows: ["fake/default connected oauth test"] },
+      { event: { change: "connected", provider: "fake", accountId: "default", ownerId: null, kind: "oauth", actorId: ADMIN, at: NOW }, rows: ["fake/default connected oauth test"] },
+      { event: { change: "reconnected", provider: "fake", accountId: "default", ownerId: null, kind: "oauth", actorId: ADMIN, at: NOW }, rows: ["fake/default connected oauth test"] },
     ]);
     expect(lines).toEqual([
       `@softure-ai/connections: connection connected provider=fake account_id=default kind=oauth actor_id=${ADMIN}`,
@@ -57,9 +57,9 @@ describe("onConnectionChanged and the change log line", () => {
     await reportCredentialRejected(test.ctx, { provider: "raindrop" });
     await saveCredential(test.ctx, { provider: "raindrop", credential: { kind: "api_key", apiKey: "rd-secret-2" }, actorId: OTHER_ADMIN });
     expect(events.map((entry) => entry.event)).toEqual([
-      { change: "connected", provider: "toggl", accountId: "work", kind: "basic", actorId: ADMIN, at: NOW },
-      { change: "connected", provider: "raindrop", accountId: "default", kind: "api_key", actorId: null, at: NOW },
-      { change: "reconnected", provider: "raindrop", accountId: "default", kind: "api_key", actorId: OTHER_ADMIN, at: NOW },
+      { change: "connected", provider: "toggl", accountId: "work", ownerId: null, kind: "basic", actorId: ADMIN, at: NOW },
+      { change: "connected", provider: "raindrop", accountId: "default", ownerId: null, kind: "api_key", actorId: null, at: NOW },
+      { change: "reconnected", provider: "raindrop", accountId: "default", ownerId: null, kind: "api_key", actorId: OTHER_ADMIN, at: NOW },
     ]);
     expect(events[0]?.rows).toEqual(["toggl/work connected basic test"]);
     expect(events[2]?.rows).toEqual(["raindrop/default connected api_key test", "toggl/work connected basic test"]);
@@ -86,8 +86,8 @@ describe("onConnectionChanged and the change log line", () => {
     expect(await disconnect(test.ctx, { provider: "raindrop" })).toEqual({ ok: true, value: { revoked: false } });
     expect(await disconnect(test.ctx, { provider: "raindrop" })).toEqual({ ok: false, error: "connections.not_connected" });
     expect(events).toEqual([
-      { event: { change: "disconnected", provider: "fake", accountId: "default", kind: "oauth", actorId: OTHER_ADMIN, revoked: true, at: NOW }, rows: ["raindrop/default connected api_key test"] },
-      { event: { change: "disconnected", provider: "raindrop", accountId: "default", kind: "api_key", actorId: null, revoked: false, at: NOW }, rows: [] },
+      { event: { change: "disconnected", provider: "fake", accountId: "default", ownerId: null, kind: "oauth", actorId: OTHER_ADMIN, revoked: true, at: NOW }, rows: ["raindrop/default connected api_key test"] },
+      { event: { change: "disconnected", provider: "raindrop", accountId: "default", ownerId: null, kind: "api_key", actorId: null, revoked: false, at: NOW }, rows: [] },
     ]);
     expect(lines).toEqual([
       `@softure-ai/connections: connection disconnected provider=fake account_id=default kind=oauth actor_id=${OTHER_ADMIN} revoked=true`,
@@ -103,8 +103,8 @@ describe("onConnectionChanged and the change log line", () => {
     const authorizeUrl = await start();
     if (failure !== "deny") test.fake.failNext(failure);
     const callback = test.fake.consent(authorizeUrl.toString(), { deny: failure === "deny" });
-    expect(await completeAuthorization(test.ctx, { params: toParams(callback), actorId: ADMIN })).toEqual({ ok: false, error: code });
-    expect(events).toEqual([{ event: { change: "connect_failed", provider: "fake", accountId: "default", kind: "oauth", actorId: ADMIN, code, at: NOW }, rows: [] }]);
+    expect(await completeAuthorization(test.ctx, { params: toParams(callback), actorId: ADMIN })).toEqual({ ok: false, error: code, target: { provider: "fake", accountId: "default", ownerId: null } });
+    expect(events).toEqual([{ event: { change: "connect_failed", provider: "fake", accountId: "default", ownerId: null, kind: "oauth", actorId: ADMIN, code, at: NOW }, rows: [] }]);
     expect(lines).toEqual([`@softure-ai/connections: connection connect_failed provider=fake account_id=default kind=oauth actor_id=${ADMIN} code=${code}`]);
   });
 

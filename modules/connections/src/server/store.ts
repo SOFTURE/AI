@@ -2,12 +2,13 @@
 // `reconnect_required` (with the app's hook, once per transition) and the module context type.
 import { errorLogLabel, ok, type Err, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { ConnectionChangedEvent, ConnectionKind, ConnectionsKeyErrorCode, ReconnectReason, TokenEndpointAnswer } from "../contract.js";
 import { accounts, type AccountRow } from "../schema.js";
 import { getCredentialContext, openSecret, readKeyring, type Env, type Keyring } from "./crypto.js";
 import { getConnectionsOptions } from "./options.js";
+import { DEFAULT_ACCOUNT_ID, type ProviderDefinition } from "../options.js";
 
 /** What every server function receives. `env` defaults to `process.env` (the keyring and client secrets). */
 export interface ConnectionsContext extends ModuleContext<Queryable> {
@@ -27,20 +28,47 @@ const basicSchema = z.strictObject({ username: z.string(), password: z.string() 
 export type KeyringLookup = Ok<Keyring> | Err<"connections.key_missing" | "connections.key_invalid">;
 
 export function getKeyring(ctx: ConnectionsContext): KeyringLookup {
-  return readKeyring(ctx.env ?? process.env);
+  return readKeyring(ctx.env ?? process.env, getConnectionsOptions(ctx.config).keysEnv);
 }
 
-export async function findAccount(ctx: ConnectionsContext, provider: string, accountId: string): Promise<AccountRow | undefined> {
-  const [row] = await ctx.db
-    .select()
-    .from(accounts)
-    .where(and(eq(accounts.provider, provider), eq(accounts.accountId, accountId)));
+/** The condition that picks one connection: the app's (`ownerId` null) or one user's own. */
+export function whereConnection(provider: string, accountId: string, ownerId: string | null) {
+  return and(eq(accounts.provider, provider), eq(accounts.accountId, accountId), ownerId === null ? isNull(accounts.ownerId) : eq(accounts.ownerId, ownerId));
+}
+
+export async function findAccount(ctx: ConnectionsContext, provider: string, accountId: string, ownerId: string | null = null): Promise<AccountRow | undefined> {
+  const [row] = await ctx.db.select().from(accounts).where(whereConnection(provider, accountId, ownerId));
   return row;
+}
+
+/** Who owns a provider's connections: users for an OAuth provider with `owner: "user"`, else the app. */
+export function getProviderOwner(provider: ProviderDefinition): "app" | "user" {
+  return provider.kind === "oauth" ? provider.owner : "app";
+}
+
+/** A connection a caller names: a provider, one of its accounts (`default` when omitted) and, for a user provider, its owner. */
+export interface ConnectionTarget {
+  readonly provider: string;
+  readonly accountId?: string;
+  /** The auth user id a user provider's connection belongs to; omitted for the app's own connection. */
+  readonly ownerId?: string;
+}
+
+/** The owner a call must name for this provider: `wrong_owner` when it names one for an app provider or none for a user's. */
+export function resolveOwner(provider: ProviderDefinition, ownerId: string | undefined): Ok<string | null> | Err<"connections.wrong_owner"> {
+  const owner = getProviderOwner(provider);
+  if (owner === "app") return ownerId === undefined ? ok(null) : { ok: false, error: "connections.wrong_owner" };
+  return ownerId === undefined || ownerId === "" || ownerId.length > 200 ? { ok: false, error: "connections.wrong_owner" } : ok(ownerId);
+}
+
+/** The account a target names, `default` when it names none. */
+export function getTargetAccountId(target: ConnectionTarget): string {
+  return target.accountId ?? DEFAULT_ACCOUNT_ID;
 }
 
 /** Opens a row's sealed payload as JSON of the given shape; a shape mismatch reads as unreadable. */
 function openPayload<T>(keyring: Keyring, row: AccountRow, schema: z.ZodType<T>): Ok<T> | Err<ConnectionsKeyErrorCode> {
-  const opened = openSecret(keyring, row.credentials, getCredentialContext(row.provider, row.accountId));
+  const opened = openSecret(keyring, row.credentials, getCredentialContext(row.provider, row.accountId, row.ownerId));
   if (!opened.ok) return opened;
   let value: unknown;
   try {
@@ -66,13 +94,14 @@ export function openBasic(keyring: Keyring, row: AccountRow): Ok<{ username: str
 
 /** Opens any row's payload as its plain JSON text, for re-sealing under a new key. */
 export function openPayloadText(keyring: Keyring, row: AccountRow) {
-  return openSecret(keyring, row.credentials, getCredentialContext(row.provider, row.accountId));
+  return openSecret(keyring, row.credentials, getCredentialContext(row.provider, row.accountId, row.ownerId));
 }
 
 export interface MarkReconnectInput {
   readonly rowId: string;
   readonly provider: string;
   readonly accountId: string;
+  readonly ownerId: string | null;
   readonly kind: ConnectionKind;
   readonly reason: ReconnectReason;
   /** Releases this refresh lease afterwards. */
@@ -105,7 +134,7 @@ export async function markReconnectRequired(ctx: ConnectionsContext, input: Mark
   const hook = getConnectionsOptions(ctx.config).onReconnectRequired;
   if (hook !== undefined) {
     try {
-      await hook({ provider: input.provider, accountId: input.accountId, kind: input.kind, reason: input.reason, at: now }, ctx);
+      await hook({ provider: input.provider, accountId: input.accountId, ownerId: input.ownerId, kind: input.kind, reason: input.reason, at: now }, ctx);
     } catch (error) {
       console.error(`@softure-ai/connections: the onReconnectRequired hook failed: ${errorLogLabel(error)}`);
     }
@@ -138,7 +167,7 @@ function formatActorId(actorId: string | null): string {
 
 /** The log line of a change. The ids are validated patterns, the rest a kind, a module code or a boolean. */
 export function formatConnectionChange(event: ConnectionChangedEvent): string {
-  const line = `@softure-ai/connections: connection ${event.change} provider=${event.provider} account_id=${event.accountId} kind=${event.kind} actor_id=${formatActorId(event.actorId)}`;
+  const line = `@softure-ai/connections: connection ${event.change} provider=${event.provider} account_id=${event.accountId}${event.ownerId === null ? "" : ` owner_id=${formatActorId(event.ownerId)}`} kind=${event.kind} actor_id=${formatActorId(event.actorId)}`;
   switch (event.change) {
     case "disconnected":
       return `${line} revoked=${String(event.revoked)}`;

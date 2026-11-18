@@ -29,6 +29,8 @@ export interface TokenResponse {
    * grant. A field whose name contains `token` or `secret` is never kept here.
    */
   readonly fields: Readonly<Record<string, string>>;
+  /** The provider's id of the account (the provider's `subjectField`); null when it has none or gave none. */
+  readonly subject: string | null;
 }
 
 export interface ClientCredentials {
@@ -39,7 +41,7 @@ export interface ClientCredentials {
 
 export interface TokenCallOptions {
   /** Only where the token endpoint is and how the client authenticates there. */
-  readonly provider: Pick<OAuthProviderDefinition, "tokenUrl" | "clientAuth">;
+  readonly provider: Pick<OAuthProviderDefinition, "tokenUrl" | "clientAuth"> & { readonly subjectField?: string };
   readonly client: ClientCredentials;
   readonly params: Readonly<Record<string, string>>;
   readonly fetch: FetchFunction;
@@ -81,6 +83,7 @@ export async function requestTokens(options: TokenCallOptions): Promise<TokenCal
       refreshTokenExpiresIn: body.refresh_token_expires_in ?? null,
       scope: body.scope ?? null,
       fields: readExtraFields(answer.value),
+      subject: readSubject(answer.value, options.provider.subjectField),
     },
   };
 }
@@ -99,6 +102,15 @@ function readExtraFields(body: unknown): Record<string, string> {
     if (typeof value === "string" && value.length > 0 && value.length <= 500) fields[name] = value;
   }
   return fields;
+}
+
+const SUBJECT_PATTERN = /^[\x21-\x7e]{1,200}$/;
+
+/** The provider's account id from the token response's `field`: printable ASCII without spaces, at most 200 characters. */
+function readSubject(body: unknown, field: string | undefined): string | null {
+  if (field === undefined || typeof body !== "object" || body === null) return null;
+  const value: unknown = (body as Record<string, unknown>)[field];
+  return typeof value === "string" && SUBJECT_PATTERN.test(value) ? value : null;
 }
 
 /** RFC 7009: asks the provider to revoke `token`. Best effort: answers whether the provider took it. */

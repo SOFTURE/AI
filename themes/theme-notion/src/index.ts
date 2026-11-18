@@ -69,8 +69,12 @@ export { LaunchScreen, type LaunchScreenProps } from "./notion/LaunchScreen.js";
 export {
   LIST_CLASSES,
   List,
+  ListGroup,
+  ListGroupHeading,
   ListItem,
   ListRow,
+  type ListGroupHeadingProps,
+  type ListGroupProps,
   type ListItemProps,
   type ListProps,
   type ListRowProps,

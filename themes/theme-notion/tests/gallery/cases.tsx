@@ -196,6 +196,8 @@ import {
   SortableItem,
   SortableList,
   List,
+  ListGroup,
+  ListGroupHeading,
   ListItem,
   ListRow,
   Steps,
@@ -1558,6 +1560,36 @@ const NOTION_CASES: readonly GalleryCase[] = [
         ),
       }),
     ),
+  ),
+  ...(["page", "tinted"] as const).map(
+    (surface): GalleryCase => ({
+      name: `ListGroup[surface=${surface}]`,
+      component: "ListGroup",
+      root: '[data-list-group-scroll]',
+      render: () => (
+        <div data-list-group-scroll="" className={surface === "tinted" ? "h-40 w-64 overflow-y-auto rounded-lg bg-secondary" : "h-40 w-64 overflow-y-auto"}>
+          {[
+            { country: "France", days: ["Mon 3 March", "Tue 4 March", "Wed 5 March", "Thu 6 March", "Fri 7 March"] },
+            { country: "Spain", days: ["Sat 8 March", "Sun 9 March", "Mon 10 March", "Tue 11 March", "Wed 12 March"] },
+          ].map(({ country, days }) => (
+            <ListGroup key={country}>
+              <ListGroupHeading surface={surface} asChild>
+                <h3>{country}</h3>
+              </ListGroupHeading>
+              <List as="ol" surface={surface} aria-label={`Days in ${country}`}>
+                {days.map((day) => (
+                  <ListItem key={day}>
+                    <ListRow asChild>
+                      <button type="button">{day}</button>
+                    </ListRow>
+                  </ListItem>
+                ))}
+              </List>
+            </ListGroup>
+          ))}
+        </div>
+      ),
+    }),
   ),
   ...(["row", "handle", "activator"] as const).map(
     (dragBy): GalleryCase => ({

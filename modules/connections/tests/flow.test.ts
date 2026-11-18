@@ -4,6 +4,8 @@ import { completeAuthorization, getAccessToken, listConnections, startAuthorizat
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ADMIN, createTestConnections, listRows, NOW, OTHER_ADMIN, readRawRow, type TestConnections } from "./support.js";
 
+const FAKE_TARGET = { provider: "fake", accountId: "default", ownerId: null };
+
 function toParams(url: URL): CallbackParams {
   return { state: url.searchParams.get("state"), code: url.searchParams.get("code"), error: url.searchParams.get("error") };
 }
@@ -53,7 +55,7 @@ describe("the connect flow", () => {
 
   it("connects: exchanges the code with the verifier and stores the grant sealed", async () => {
     const callback = test.fake.consent((await start()).toString());
-    expect(await completeAuthorization(test.ctx, { params: toParams(callback), actorId: ADMIN })).toEqual({ ok: true, value: { provider: "fake", accountId: "default" } });
+    expect(await completeAuthorization(test.ctx, { params: toParams(callback), actorId: ADMIN })).toEqual({ ok: true, value: FAKE_TARGET });
     expect(test.fake.calls.authorizationCode).toBe(1);
     expect(test.fake.calls.lastForm?.get("client_secret")).toBe("fake-client-secret");
     expect(await listRows(test.database)).toEqual(["fake/default connected oauth test"]);
@@ -99,14 +101,15 @@ describe("the connect flow", () => {
 
   it("answers a denied consent and another provider error as codes, spending the state", async () => {
     const denied = test.fake.consent((await start()).toString(), { deny: true });
-    expect(await completeAuthorization(test.ctx, { params: toParams(denied), actorId: ADMIN })).toEqual({ ok: false, error: "connections.consent_denied" });
+    expect(await completeAuthorization(test.ctx, { params: toParams(denied), actorId: ADMIN })).toEqual({ ok: false, error: "connections.consent_denied", target: FAKE_TARGET });
     const url = await start();
     const failed = { state: url.searchParams.get("state"), code: null, error: "server_error" };
-    expect(await completeAuthorization(test.ctx, { params: failed, actorId: ADMIN })).toEqual({ ok: false, error: "connections.authorization_failed" });
+    expect(await completeAuthorization(test.ctx, { params: failed, actorId: ADMIN })).toEqual({ ok: false, error: "connections.authorization_failed", target: FAKE_TARGET });
     const noCode = await start();
     expect(await completeAuthorization(test.ctx, { params: { state: noCode.searchParams.get("state"), code: null, error: null }, actorId: ADMIN })).toEqual({
       ok: false,
       error: "connections.authorization_failed",
+      target: FAKE_TARGET,
     });
     expect(await listRows(test.database)).toEqual([]);
   });
@@ -115,7 +118,7 @@ describe("the connect flow", () => {
     const url = await start();
     const callback = test.fake.consent(url.toString());
     await test.database.client.query("UPDATE connections.oauth_states SET verifier = NULL");
-    expect(await completeAuthorization(test.ctx, { params: toParams(callback), actorId: ADMIN })).toEqual({ ok: false, error: "connections.exchange_failed" });
+    expect(await completeAuthorization(test.ctx, { params: toParams(callback), actorId: ADMIN })).toEqual({ ok: false, error: "connections.exchange_failed", target: FAKE_TARGET });
   });
 
   it.each([
@@ -127,7 +130,7 @@ describe("the connect flow", () => {
   ] as const)("answers %s at the exchange as %s", async (_case, failure, code) => {
     const callback = test.fake.consent((await start()).toString());
     test.fake.failNext(failure);
-    expect(await completeAuthorization(test.ctx, { params: toParams(callback), actorId: ADMIN })).toEqual({ ok: false, error: code });
+    expect(await completeAuthorization(test.ctx, { params: toParams(callback), actorId: ADMIN })).toEqual({ ok: false, error: code, target: FAKE_TARGET });
     expect(await listRows(test.database)).toEqual([]);
   });
 
