@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`core@x.y.z`).
 
+## 0.2.11
+
+- `foldText` and `foldWords`: text in lower case without accents (and, for `foldWords`, its words separated by single
+  spaces), for matching a typed query against written text and for stored search columns. Moved from an adopting app,
+  whose output they keep byte for byte.
+  - Migrate: nothing; an app with its own accent folding can switch to these.
+
 ## 0.2.10
 
 - `resolveMigrationsDir` works on Cloudflare Workers: workerd leaves a bundled Worker's `import.meta.url` undefined,

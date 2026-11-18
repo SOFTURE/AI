@@ -84,6 +84,7 @@ export {
   type HttpTextFailureCode,
   type RequestTextOptions,
 } from "./http-text.js";
+export { foldText, foldWords } from "./fold-text.js";
 export { memoizeByContent, type MemoizeByContentOptions, type MemoizedFunction } from "./memoize.js";
 export { createTestClock, systemClock, type Clock, type TestClock } from "./clock.js";
 export {
