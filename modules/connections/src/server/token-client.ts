@@ -24,6 +24,11 @@ export interface TokenResponse {
   readonly refreshTokenExpiresIn: number | null;
   /** The granted scopes; null when the answer has none (then the requested ones were granted). */
   readonly scope: string | null;
+  /**
+   * The answer's other top-level string fields (`account_id`, `uid`, `team_id`): a provider's own identifiers of the
+   * grant. A field whose name contains `token` or `secret` is never kept here.
+   */
+  readonly fields: Readonly<Record<string, string>>;
   /** The provider's id of the account (the provider's `subjectField`); null when it has none or gave none. */
   readonly subject: string | null;
 }
@@ -35,7 +40,8 @@ export interface ClientCredentials {
 }
 
 export interface TokenCallOptions {
-  readonly provider: OAuthProviderDefinition;
+  /** Only where the token endpoint is and how the client authenticates there. */
+  readonly provider: Pick<OAuthProviderDefinition, "tokenUrl" | "clientAuth"> & { readonly subjectField?: string };
   readonly client: ClientCredentials;
   readonly params: Readonly<Record<string, string>>;
   readonly fetch: FetchFunction;
@@ -76,9 +82,26 @@ export async function requestTokens(options: TokenCallOptions): Promise<TokenCal
       refreshToken: body.refresh_token ?? null,
       refreshTokenExpiresIn: body.refresh_token_expires_in ?? null,
       scope: body.scope ?? null,
+      fields: readExtraFields(answer.value),
       subject: readSubject(answer.value, options.provider.subjectField),
     },
   };
+}
+
+const KNOWN_TOKEN_FIELDS = new Set(["access_token", "token_type", "expires_in", "refresh_token", "refresh_token_expires_in", "scope"]);
+const EXTRA_FIELD_NAME = /^[a-z][a-z0-9_]{0,63}$/;
+const MAX_EXTRA_FIELDS = 20;
+
+/** A token answer's other string fields, bounded; nothing named like a credential. */
+function readExtraFields(body: unknown): Record<string, string> {
+  const fields: Record<string, string> = {};
+  if (typeof body !== "object" || body === null) return fields;
+  for (const [name, value] of Object.entries(body)) {
+    if (Object.keys(fields).length >= MAX_EXTRA_FIELDS) break;
+    if (KNOWN_TOKEN_FIELDS.has(name) || !EXTRA_FIELD_NAME.test(name) || /token|secret|password/.test(name)) continue;
+    if (typeof value === "string" && value.length > 0 && value.length <= 500) fields[name] = value;
+  }
+  return fields;
 }
 
 const SUBJECT_PATTERN = /^[\x21-\x7e]{1,200}$/;
