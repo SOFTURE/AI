@@ -722,7 +722,18 @@
     ["copy-button","inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-secondary text-secondary-foreground hover:bg-accent-strong h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2 shrink-0"]
   ],
   "DetailTable": [
-    ["detail-table","w-full border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"]
+    ["detail-table","w-full table-fixed border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"]
+  ],
+  "DetailTable[documents]": [
+    ["detail-table","w-full table-fixed border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"],
+    ["document-list","flex flex-col gap-1"],
+    ["document-row","flex min-w-0 items-center gap-2 rounded-md px-2 py-1"],
+    ["document-row-open","flex min-h-touch-target min-w-0 flex-1 flex-wrap items-center gap-x-2 rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 md:min-h-7"],
+    ["document-row-title","min-w-0 truncate text-sm font-medium"],
+    ["document-row-size","shrink-0 text-small text-muted-foreground tabular-nums"],
+    ["document-row-details","min-w-0 text-small text-muted-foreground"],
+    ["document-row-actions","flex shrink-0 items-center gap-1"],
+    ["button","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 text-muted-foreground hover:bg-accent hover:text-foreground size-7"]
   ],
   "Dialog": [
     ["dialog-trigger","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-primary-hover h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2"],
@@ -943,7 +954,7 @@
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-green-tag text-green-tag-foreground"],
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-default-tag text-default-tag-foreground"],
     ["fold-row-content","flex flex-col gap-2 p-3 empty:hidden"],
-    ["detail-table","w-full border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"]
+    ["detail-table","w-full table-fixed border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"]
   ],
   "FoldRow[inset]": [
     ["fold-row","group/fold-row border-b border-border"],
@@ -953,7 +964,7 @@
     ["fold-row-badges","ml-auto inline-flex flex-wrap gap-1"],
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-green-tag text-green-tag-foreground"],
     ["fold-row-content","flex flex-col gap-2 py-2 pr-1 pl-6 empty:hidden"],
-    ["detail-table","w-full border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"]
+    ["detail-table","w-full table-fixed border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"]
   ],
   "FoldRow[size=touch]": [
     ["fold-row","group/fold-row border-b border-border"],

@@ -296,6 +296,20 @@ describe("DocumentList and DocumentRow (MR-344)", () => {
     expect(button.className).toContain("min-h-touch-target");
   });
 
+  it("#1349 shows the document's details after the size, inside the open button, and none without them", () => {
+    render(<DocumentRow title="Hotel.pdf" contentType="application/pdf" size={1500} details="Confirmation · from e-mail" onOpen={() => undefined} />);
+    const button = screen.getByRole("button");
+    const details = button.querySelector<HTMLElement>('[data-slot="document-row-details"]');
+
+    expect(details?.textContent).toBe("Confirmation · from e-mail");
+    expect(details?.previousElementSibling?.getAttribute("data-slot")).toBe("document-row-size");
+    expect(button.textContent?.replace(/\s+/g, " ")).toBe("Open Hotel.pdf1.5 kBConfirmation · from e-mail");
+    cleanup();
+
+    render(<DocumentRow title="Hotel.pdf" contentType="application/pdf" size={1500} onOpen={() => undefined} />);
+    expect(document.querySelector('[data-slot="document-row-details"]')).toBeNull();
+  });
+
   it("MR-344 draws the row's actions after it, and none without them", () => {
     render(<DocumentRow title="A.pdf" contentType="application/pdf" size={1} onOpen={() => undefined} actions={<button type="button">Rename</button>} />);
     expect(screen.getByRole("button", { name: "Rename" }).parentElement?.dataset["slot"]).toBe("document-row-actions");

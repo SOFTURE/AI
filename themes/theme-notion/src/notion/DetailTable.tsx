@@ -15,8 +15,10 @@ export interface DetailTableProps {
 }
 
 // A row header in a narrow muted column, a quiet line under every row; on a phone the label sits above its value.
+// The fixed layout keeps the table at its container's width: a value that holds a long unbroken line (a truncated
+// document title, a row of buttons) wraps or cuts inside its cell instead of widening the table past its column.
 const DETAIL_TABLE_CLASS = [
-  "w-full border-collapse text-ui",
+  "w-full table-fixed border-collapse text-ui",
   "[&_tr]:border-b [&_tr]:border-border",
   "[&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground",
   "[&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere",

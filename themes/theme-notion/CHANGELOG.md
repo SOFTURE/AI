@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `DetailTable` lays its table out at its container's width (`table-fixed`) (#1349): a value that holds a
+  `DocumentRow` (a truncated title, its buttons) wraps or cuts inside its cell instead of widening the table past its
+  column, e.g. under an `AsidePanel`. The label column keeps its 12 rem; a table that already fit looks the same.
+- `DocumentRow` takes `details`, the document's facts as text (kind, where it came from, the day it was added), shown
+  after the size and moved under the title on a narrow row (#1349). `actions` is for buttons and always shows whole.
+- Migration: none; facts an app put in `actions` can move to `details`.
+
 ## 0.25.0
 
 - `Prose`: the text styles of a long read the app does not draw itself (Markdown rendered to HTML, a documentation

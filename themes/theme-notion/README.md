@@ -136,7 +136,7 @@ avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, co
 field, input, input-group, item, kbd, label, popover, progress, radio-group, scroll-area, select, separator, sheet,
 sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
-`DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
+`DetailTable` (an item's details as a label and value table, always at its container's width), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, such as a package's sign-in page),
 `SidePanel` (a non-modal panel at a side of a canvas, below), `ResizeHandle` (a drag handle that sets a column's width, below), `AsidePanelProvider`, `AsidePanelToggle`,
 `AsidePanel` and `AsidePanelSidebarOpener` (a panel slid in from the right of the app shell, beside the content, below), `SheetMenu`, `SheetMenuItem` and `SheetMenuButton`
@@ -673,7 +673,9 @@ shows from an object URL; another type, a broken file or a failed fetch shows a 
 Call `loadPdfjsEngine()` once while online (e.g. when a page with documents opens): its chunks are ordinary build
 files, so a service worker that keeps `/_next/static/` has them for an offline open later. `DocumentRow` is one
 `li` of a `DocumentList`: an icon by type (`getDocumentKind`), the title as a touch-sized button that calls `onOpen`,
-the size, an "available offline" mark with `isOffline`, and `actions` (e.g. a menu) after it. Every text has a
+the size, the document's facts as `details` (e.g. "Confirmation · from e-mail · added 18 Nov", moved under the
+title on a narrow row), an "available offline" mark with `isOffline`, and `actions` (buttons only, e.g. a menu, always
+shown whole) after it. Inside a `DetailTable` cell the row keeps to the column: the title cuts with an ellipsis. Every text has a
 `messages` override (`notionMessages.en.document`).
 
 ```tsx

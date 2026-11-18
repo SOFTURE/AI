@@ -25,6 +25,12 @@ describe("DetailTable", () => {
     expect(readTextNodes(html)).toEqual(["Day", "12.01.2027", "Place", "Clinic", "Cost", "0"]);
   });
 
+  it("#1349 lays the table out at its container's width, whatever its cells hold", () => {
+    const html = renderToStaticMarkup(<DetailTable label="Details" rows={[{ key: "day", label: "Day", value: "12.01.2027" }]} />);
+
+    expect(html).toMatch(/<table[^>]*class="[^"]*\btable-fixed\b[^"]*\bw-full\b|<table[^>]*class="[^"]*\bw-full\b[^"]*\btable-fixed\b/);
+  });
+
   it("leaves out rows whose value is null, undefined or empty", () => {
     const html = renderToStaticMarkup(
       <DetailTable

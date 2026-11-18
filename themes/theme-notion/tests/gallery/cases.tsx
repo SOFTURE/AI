@@ -1596,6 +1596,41 @@ const NOTION_CASES: readonly GalleryCase[] = [
       />
     ),
   },
+  {
+    name: "DetailTable[documents]",
+    component: "DetailTable",
+    root: '[data-slot="detail-table"]',
+    render: () => (
+      <div className="w-[28rem] max-w-full">
+        <DetailTable
+          label="Trip details"
+          rows={[
+            { key: "place", label: "Place", value: "Hotel Kyoto Station" },
+            {
+              key: "documents",
+              label: "Documents",
+              value: (
+                <DocumentList label="Documents">
+                  <DocumentRow
+                    title="Hotel booking confirmation for the second week.pdf"
+                    contentType="application/pdf"
+                    size={182_000}
+                    details="Confirmation · from e-mail · added 18 Nov"
+                    onOpen={() => undefined}
+                    actions={
+                      <Button type="button" variant="ghost" size="icon" aria-label="Remove">
+                        <X aria-hidden="true" />
+                      </Button>
+                    }
+                  />
+                </DocumentList>
+              ),
+            },
+          ]}
+        />
+      </div>
+    ),
+  },
   ...[false, true].map(
     (isActive): GalleryCase => ({
       name: `FilterChip[isActive=${String(isActive)}]`,

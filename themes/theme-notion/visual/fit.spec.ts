@@ -166,3 +166,56 @@ test("a scrollable tab strip keeps to its cell and shows its active tab", async 
   expect(fit.active.right).toBeLessThanOrEqual(fit.list.right);
   expect(fit.root.right).toBeLessThanOrEqual(fit.cell.right);
 });
+
+const COLUMN_WIDTH = 360;
+
+interface DetailTableFit {
+  readonly column: Box;
+  readonly table: Box;
+  readonly row: Box;
+  readonly actions: Box;
+  readonly titleTop: number;
+  readonly detailsTop: number;
+}
+
+// Geometry, not pixels (#1349): a DetailTable whose value is a DocumentRow with a long title, its facts and a button
+// keeps to a narrow page column (beside an AsidePanel), the button stays whole inside it and the facts wrap under the
+// title instead of widening the table.
+test(`a detail table holding a document row keeps to a ${COLUMN_WIDTH} px column`, async ({ page }) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+
+  const fit = await page.evaluate((width): DetailTableFit => {
+    const source = document.querySelector('[data-slot="document-row-details"]')?.closest('[data-slot="detail-table"]');
+    if (source == null) throw new Error("no detail table with a document row in the gallery");
+    const column = document.createElement("div");
+    column.style.width = `${String(width)}px`;
+    const table = source.cloneNode(true) as HTMLElement;
+    column.append(table);
+    document.body.append(column);
+
+    const find = (slot: string): Element => {
+      const element = table.querySelector(`[data-slot="${slot}"]`);
+      if (element === null) throw new Error(`no [data-slot="${slot}"] in the copied table`);
+      return element;
+    };
+    const box = (element: Element): Box => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right };
+    };
+    return {
+      column: box(column),
+      table: box(table),
+      row: box(find("document-row")),
+      actions: box(find("document-row-actions")),
+      titleTop: find("document-row-title").getBoundingClientRect().top,
+      detailsTop: find("document-row-details").getBoundingClientRect().top,
+    };
+  }, COLUMN_WIDTH);
+
+  expect(fit.table).toEqual(fit.column);
+  expect(fit.row.right).toBeLessThanOrEqual(fit.column.right);
+  expect(fit.actions.left).toBeGreaterThanOrEqual(fit.row.left);
+  expect(fit.actions.right).toBeLessThanOrEqual(fit.row.right);
+  expect(fit.detailsTop).toBeGreaterThan(fit.titleTop);
+});

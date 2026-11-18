@@ -302,9 +302,12 @@ export interface DocumentRowProps {
   readonly size: number;
   /** Whether a copy is kept on the device; draws the "available offline" mark. */
   readonly isOffline?: boolean;
+  /** The document's facts, e.g. "Confirmation · from e-mail · added 18 Nov"; shown after the size and moved under the
+   * title on a narrow row. */
+  readonly details?: string;
   /** Opens the document, e.g. in `DocumentViewer`. */
   readonly onOpen: () => void;
-  /** Buttons after the row, e.g. a menu to rename or remove. */
+  /** Buttons after the row, e.g. a menu to rename or remove; always shown whole, so facts go in `details`. */
   readonly actions?: ReactNode;
   /** Formats the size, e.g. "de" writes "1,5 kB". */
   readonly locale?: string;
@@ -312,9 +315,9 @@ export interface DocumentRowProps {
   readonly className?: string;
 }
 
-// One document: an icon by its type, the title as a touch-sized button that opens it, its size, and a mark when a copy
-// is kept on the device.
-export function DocumentRow({ title, contentType, size, isOffline = false, onOpen, actions, locale = "en", messages, className }: DocumentRowProps) {
+// One document: an icon by its type, the title as a touch-sized button that opens it, its size, its facts, and a mark
+// when a copy is kept on the device.
+export function DocumentRow({ title, contentType, size, isOffline = false, details, onOpen, actions, locale = "en", messages, className }: DocumentRowProps) {
   const words = mergeMessages(messages);
   const kind = getDocumentKind(contentType);
   const Icon = KIND_ICONS[kind];
@@ -335,6 +338,11 @@ export function DocumentRow({ title, contentType, size, isOffline = false, onOpe
         <span data-slot="document-row-size" className="shrink-0 text-small text-muted-foreground tabular-nums">
           {formatFileSize(size, locale)}
         </span>
+        {details === undefined || details === "" ? null : (
+          <span data-slot="document-row-details" className="min-w-0 text-small text-muted-foreground">
+            {details}
+          </span>
+        )}
         {isOffline ? (
           <Status color="green" icon={CircleCheck} className="shrink-0 text-small">
             {words.offline}
