@@ -2105,7 +2105,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
     for (const id of ["static", "unit"]) {
       const checkout = (jobs[id]?.steps ?? []).filter((step) => step.uses?.startsWith("actions/checkout@") === true).at(-1);
       expect(checkout?.with, id).toMatchObject({
-        ref: "${{ needs.prepare.outputs.revision || steps.commit.outputs.revision }}",
+        ref: "${{ needs.prepare.outputs.revision || steps.resolved.outputs.revision }}",
         "persist-credentials": false,
         "sparse-checkout": "${{ inputs.sparse-checkout }}",
       });
@@ -2173,7 +2173,7 @@ describe("deploy-release-checks.yml (issue #406)", () => {
 
     it("keys an entry on the OS, the lockfiles and the commit, and restores by the lockfile prefix", () => {
       const prefix = "softure-static-${{ runner.os }}-${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock') }}-";
-      expect(cache?.with?.key).toBe(`${prefix}\${{ needs.prepare.outputs.sha || steps.commit.outputs.sha || github.sha }}`);
+      expect(cache?.with?.key).toBe(`${prefix}\${{ needs.prepare.outputs.sha || steps.resolved.outputs.sha || github.sha }}`);
       expect(cache?.with?.["restore-keys"]).toBe(prefix);
     });
 
@@ -2896,8 +2896,8 @@ describe("guard-in-job of deploy-release-checks.yml (issue #1375)", () => {
   });
 
   it("hands out the commit the work jobs resolved", () => {
-    expect(jobs.static?.outputs).toEqual({ sha: "${{ steps.commit.outputs.sha }}" });
-    expect(jobs.unit?.outputs).toEqual({ sha: "${{ steps.commit.outputs.sha }}" });
+    expect(jobs.static?.outputs).toEqual({ sha: "${{ steps.resolved.outputs.sha }}" });
+    expect(jobs.unit?.outputs).toEqual({ sha: "${{ steps.resolved.outputs.sha }}" });
     expect(call.outputs?.sha?.value).toBe("${{ jobs.prepare.outputs.sha || jobs.static.outputs.sha || jobs.unit.outputs.sha || github.sha }}");
   });
 });
