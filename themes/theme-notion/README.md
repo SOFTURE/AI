@@ -145,6 +145,7 @@ and count, the shown tab in the address; `Tabs` keeps it in client state), `Mark
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `CopyButton` (one value to the clipboard, with a moment of "Copied", below),
+`Prose` (the text styles of a long read the app does not draw itself, such as Markdown rendered to HTML, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
 `List`, `ListItem` and `ListRow` (a list of rows, compact or roomy by the page's density, below),
 `MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
@@ -544,6 +545,22 @@ app after a copy. A client component. `data-slot="copy-button"`, `data-copied` w
   <CodeBlock className="min-w-0 flex-1">{url}</CodeBlock>
   <CopyButton value={url} label="Copy URL" copiedLabel="Copied" />
 </div>
+```
+
+**`Prose`.** A long read whose elements the app does not draw itself, such as Markdown rendered to HTML (a help page,
+a documentation article, a CMS body): headings take `heading-1` to `heading-3` with more room above than below,
+paragraphs the `body` style, lists their markers in the quiet foreground, links the `link` colour underlined, inline
+code the `Code` look and a `pre` block the `CodeBlock` look, quotes and rules a quiet `border` line, and a table the
+`ui` size with lines between rows (a wide one scrolls inside its block). The blocks share one rhythm, with none before
+the first or after the last. Put the page's title in a `PageHeader` above it. `asChild` keeps the app's element (an
+`article`); `PROSE_CLASSES` gives the same classes to a wrapper the app styles itself. Pass HTML only from content the
+app trusts (its own files), never a visitor's text. `data-slot="prose"`.
+
+```tsx
+<PageHeader title={doc.title} description={doc.description} />
+<Prose asChild>
+  <article dangerouslySetInnerHTML={{ __html: renderMarkdown(doc.body) }} />
+</Prose>
 ```
 
 **`UpdatePrompt`.** The offer to reload into a new build, for an installed app on `@softure-ai/pwa`: a floating
