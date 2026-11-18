@@ -42,6 +42,15 @@ describe("DetailTable", () => {
     expect(readTextNodes(html)).toEqual(["Kept", "Yes"]);
   });
 
+  it("#1349 lays the table out fixed at its container's width, so a long value never widens it", () => {
+    const html = renderToStaticMarkup(<DetailTable label="Details" rows={[{ key: "title", label: "Title", value: "A".repeat(400) }]} />);
+    const classes = /<table[^>]*class="([^"]+)"/.exec(html)?.[1]?.split(" ") ?? [];
+    expect(classes.slice(0, 4)).toEqual(["w-full", "table-fixed", "border-collapse", "text-ui"]);
+    // The label column keeps its width; the value wraps anywhere inside the rest (the markup escapes `&`).
+    expect(classes).toContain("[&amp;_th]:w-48");
+    expect(classes).toContain("[&amp;_td]:wrap-anywhere");
+  });
+
   it("renders nothing when no row has a value", () => {
     expect(renderToStaticMarkup(<DetailTable label="Details" rows={[]} />)).toBe("");
     expect(

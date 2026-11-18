@@ -166,3 +166,75 @@ test("a scrollable tab strip keeps to its cell and shows its active tab", async 
   expect(fit.active.right).toBeLessThanOrEqual(fit.list.right);
   expect(fit.root.right).toBeLessThanOrEqual(fit.cell.right);
 });
+
+const DETAIL_PARENT_WIDTH = 360;
+const LONG_DOCUMENT_TITLE = "Hotel confirmation for a long stay by the old quarter with breakfast and airport pickup.pdf";
+
+interface DetailFit {
+  readonly parent: Box;
+  readonly table: Box;
+  readonly actions: readonly Box[];
+  readonly isTitleCut: boolean;
+}
+
+// #1349: a detail table whose value is a document row with a long title and its buttons stays within a narrow parent
+// (a page column beside a side panel): the fixed layout keeps the table at the parent's width, the title shortens
+// with an ellipsis and every button shows whole. Geometry, no screenshot.
+test(`a detail table holding a document row stays within a ${DETAIL_PARENT_WIDTH} px parent`, async ({ page }) => {
+  await page.goto(PAGE_URL);
+  await page.evaluate(() => document.fonts.ready);
+
+  const fit = await page.evaluate(
+    ({ width, title }): DetailFit => {
+      const table = document.querySelector('[data-slot="detail-table"]');
+      const list = document.querySelector('[data-slot="document-list"]');
+      if (table === null || list === null) throw new Error("no detail table or document list in the gallery");
+      const parent = document.createElement("div");
+      parent.style.width = `${width}px`;
+      const tableCopy = table.cloneNode(true) as HTMLElement;
+      const listCopy = list.cloneNode(true) as HTMLElement;
+      listCopy.removeAttribute("class");
+      const row = listCopy.querySelector('[data-slot="document-row"]');
+      const titleSpan = listCopy.querySelector<HTMLElement>('[data-slot="document-row-title"]');
+      const cell = tableCopy.querySelector("td");
+      if (row === null || titleSpan === null || cell === null) throw new Error("no document row or cell to fill");
+      titleSpan.textContent = title;
+      const actions = document.createElement("div");
+      actions.dataset["slot"] = "document-row-actions";
+      actions.className = "flex shrink-0 items-center gap-1";
+      for (const name of ["Download", "Edit", "Remove"]) {
+        // An icon button's size (the theme's `icon-sm`, 28 px).
+        const button = document.createElement("button");
+        button.setAttribute("aria-label", name);
+        button.style.width = "28px";
+        button.style.height = "28px";
+        actions.append(button);
+      }
+      row.append(actions);
+      cell.replaceChildren(listCopy);
+      parent.append(tableCopy);
+      document.body.append(parent);
+
+      const toBox = (element: Element): Box => {
+        const box = element.getBoundingClientRect();
+        return { left: box.left, right: box.right };
+      };
+      return {
+        parent: toBox(parent),
+        table: toBox(tableCopy),
+        actions: [...actions.children].map(toBox),
+        isTitleCut: titleSpan.scrollWidth > titleSpan.clientWidth,
+      };
+    },
+    { width: DETAIL_PARENT_WIDTH, title: LONG_DOCUMENT_TITLE },
+  );
+
+  expect(fit.table.left).toBeGreaterThanOrEqual(fit.parent.left);
+  expect(fit.table.right).toBeLessThanOrEqual(fit.parent.right);
+  expect(fit.isTitleCut).toBe(true);
+  expect(fit.actions).toHaveLength(3);
+  for (const action of fit.actions) {
+    expect(action.right).toBeLessThanOrEqual(fit.parent.right);
+    expect(action.right - action.left).toBeGreaterThan(0);
+  }
+});
