@@ -15,7 +15,6 @@ import {
   revokeUserGrant,
   sealUserSecret,
 } from "@softure-ai/connections/user-oauth";
-import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 const REDIRECT_URI = "https://app.example/panel/source/callback";
@@ -43,10 +42,15 @@ describe("user OAuth state", () => {
     const second = await createUserOAuthState();
     expect(first.state).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(first.codeVerifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(first.stateHash).toBe(createHash("sha256").update(first.state).digest("hex"));
+    expect(first.stateHash).toMatch(/^[0-9a-f]{64}$/);
     expect(await hashUserOAuthState(first.state)).toBe(first.stateHash);
     expect(second.state).not.toBe(first.state);
     expect(second.codeVerifier).not.toBe(first.codeVerifier);
+  });
+
+  it("hashes a state to its lowercase hex sha256", async () => {
+    // FIPS 180-2, appendix B.1.
+    expect(await hashUserOAuthState("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   });
 
   it("computes the RFC 7636 S256 challenge", async () => {
