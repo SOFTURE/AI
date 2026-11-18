@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.25.0
 
 - `Prose`: the text styles of a long read the app does not draw itself (Markdown rendered to HTML, a documentation
   article): headings, paragraphs, lists, links, inline code and code blocks, quotes, rules and tables on the theme's
