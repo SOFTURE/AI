@@ -1277,6 +1277,13 @@ describe("the example release pipeline that fails fast (issue #628)", () => {
     expect(needsOf("deploy")).toEqual(["build"]);
   });
 
+  it("folds the guards of the static and build calls into their work jobs, keeping the release check and the shard list (issue #1375)", () => {
+    expect(jobs.static?.with).toMatchObject({ "guard-in-job": true });
+    expect(jobs.build?.with).toMatchObject({ "guard-in-job": true, deploy: false });
+    expect(jobs.release?.with?.["guard-in-job"]).toBeUndefined();
+    expect(jobs.unit?.with?.["guard-in-job"]).toBeUndefined();
+  });
+
   it("watches each part before the build with its own job, and never the build, the deploy or the report", () => {
     expect(watchers.map(([id]) => id).sort()).toEqual(["stop-on-image", "stop-on-preflight", "stop-on-static", "stop-on-tested", "stop-on-unit"]);
     for (const [id, job] of watchers) {

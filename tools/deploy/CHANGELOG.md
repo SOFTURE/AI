@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.7.5
+
+- **`guard-in-job` (#1375):** an opt-in input of `deploy-release-checks.yml` and `deploy-app.yml` (default `false`, so
+  nothing changes without it) that runs the guard job's steps at the start of the job that does the work, instead of
+  a job of its own billed a whole minute. In `deploy-release-checks.yml`, `prepare` is skipped for a tag unless it
+  builds the list of several unit shards, and `static` and `unit` check the tag pattern and the tag's branch before
+  their checkout. In `deploy-app.yml` (with `deploy: false`; refused with `deploy: true`), the `check inputs` job is
+  skipped and `build` validates the inputs and refuses a stray tag first, putting out `release` and `sha` itself. A
+  stray tag still fails before anything of the app is checked out or built, only after that job's runner started.
+  `examples/deploy-pipeline.yml` sets it on the `static` and `build` calls.
+- Migrate (optional): add `guard-in-job: true` to the `static` call (one shard or `unit: false`) and to the `build`
+  call (`deploy: false`) of `.github/workflows/deploy.yml`.
+
 ## 0.7.4
 
 - **`deploy-tested-tree.yml` (#1373):** a reusable workflow that answers `tested: "true"` when a release tag's tree

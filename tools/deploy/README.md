@@ -514,6 +514,7 @@ flags the expression that builds it. For the release tag, between them:
 | `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
 | `deploy` | `true` | `false` stops after the build: no deploy, verify or summary job; the caller's own jobs run the deploy action with the `release` output (below) |
 | `build` | `true` | `false` (with `deploy: false`, without `prebuilt-image`) runs the check job alone: `release` and `sha` within a minute, for a preflight and an image built next to the checks (**Fail fast**, below) |
+| `guard-in-job` | `false` | `true` (with `deploy: false`) skips the check job: the build job validates the inputs and refuses a stray tag as its first steps and puts out `release` and `sha` itself, one billed job less per release; refused with `deploy: true` |
 
 Outputs: `release` (below), `image` and `digest` (the build's), `worker-image` and `worker-digest` (with
 `worker-dockerfile`, else empty), and `sha`, the full commit SHA of the tag (the check job
@@ -692,6 +693,13 @@ release tag is then added to exactly the bytes the checks passed. Its inputs bes
 | `fail-fast` | `false` | a red unit shard cancels the other shards (a release; a pull request sees every red shard) |
 | `static-cache-paths` | empty | files `static` keeps between runs, one path or glob per line inside the checkout |
 | `sparse-checkout` | the whole commit | non-cone checkout patterns for every job |
+| `guard-in-job` | `false` | `true` skips `prepare` for a tag (unless it builds the list of several unit shards): `static` and `unit` check the tag and its branch themselves before their checkout, one billed job less |
+
+**One job less per call.** Every job is billed at least a whole minute and starts its own runner, so `prepare`, whose
+work takes seconds, costs a minute per release. With `guard-in-job: true` the same steps run at the start of `static`
+and `unit` (with one shard or `unit: false`; several shards still need `prepare` for their list): a stray tag still
+fails before anything of the app is checked out or installed, only after that job's runner started.
+`deploy-app.yml` takes the same input for its `check` job in a call with `deploy: false` (**Fail fast**, below).
 
 Output: `sha` (the caller's commit when there was no tag). The commands are the app's own and run with `bash -e -c` from `env:`, never interpolated.
 
@@ -769,7 +777,8 @@ kept:
 
 Cancelling takes `actions: write`, which stays in the watchers: `deploy-release-checks.yml` keeps `contents: read`,
 since a pull request's caller grants nothing more (a called job may not ask for more than its caller grants, whatever
-its `if`). The two calls of the checks each run `prepare` with the tag, which costs seconds.
+its `if`). The `static` call and the `build` call set `guard-in-job: true`, so neither pays a guard job of its own
+(issue #1375); `release` keeps its check job, which is the whole call, and `unit` keeps `prepare` for its shard list.
 
 ### Skip a suite the pull request passed
 

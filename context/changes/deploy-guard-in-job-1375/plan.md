@@ -28,5 +28,5 @@ skipped.
 
 ## Progress
 
-- [ ] Phase 1: workflows and tests
+- [x] Phase 1: workflows and tests (8a468b2)
 - [ ] Phase 2: caller, docs, release

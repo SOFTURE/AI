@@ -14,6 +14,8 @@
 #   of the last merged pull request and that pull request's unit checks passed: `unit` is then skipped. Its job grants
 #   `pull-requests: read` and `checks: read`, which only it needs. `check-names` are the check runs of the app's pull
 #   request workflow (examples/checks.yml names them `checks / unit 1/1`, ...).
+# - `static` and `build` set `guard-in-job: true` (issue #1375): each checks the tag in its own job instead of a guard
+#   job billed a whole minute; `unit` keeps `prepare`, which builds its shard list.
 # - `build` tags the tested image only after every part passed (a `unit` skipped because `tested` said so counts as
 #   passed); `deploy` and `report` as in examples/deploy.yml.
 # - One `stop-on-<part>` watcher per part: when that part fails it cancels the run (deploy-cancel-run.yml, the only
@@ -82,6 +84,7 @@ jobs:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
       static-command: npx next typegen && npx tsc --noEmit && npm run lint --if-present
       unit: false
+      guard-in-job: true
 
   tested:
     permissions:
@@ -122,6 +125,7 @@ jobs:
       app-url: https://example.com
       environment: production
       deploy: false
+      guard-in-job: true
       prebuilt-image: ${{ needs.image.outputs.prebuilt-image }}
 
   deploy:
