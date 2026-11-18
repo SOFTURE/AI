@@ -1,7 +1,8 @@
 ---
 change_id: theme-notion-list-group-1350
 title: "theme-notion: a sticky group heading for List (issue #1350)"
-status: open
+status: archived
+archived_at: 2026-11-18
 roadmap_item: null
 issue: 1350
 branch: claude/project-thread-r9jj5w
@@ -38,6 +39,10 @@ without a line read as part of the row below.
 
 - Research and frame skipped: one small additive composition whose classes the issue already measured in an adopting
   app; the look is the theme's (`text-ui-medium`, `border`, `background`, `secondary`).
+
+## Done
+
+- `ListGroup` and `ListGroupHeading` in theme-notion 0.26.0 (released by the coordinator's release run).
 
 ## Decisions (auto)
 
