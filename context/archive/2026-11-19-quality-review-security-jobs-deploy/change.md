@@ -1,7 +1,8 @@
 ---
 change_id: quality-review-security-jobs-deploy
 title: "security, jobs, deploy: close the findings of the 2026-11-19 quality reviews"
-status: planned
+status: archived
+archived_at: 2026-11-19
 roadmap_item: null
 issue: null
 branch: claude/project-thread-t8pq6z
@@ -41,3 +42,8 @@ Asked in chat (no issue): review, fix, review again until the reports are clean,
   set it; a timeout is logged like a throw (`the <hook> hook timed out`) and the hook's signal is aborted.
 - Poll time limit: the larger of `maxIntervalMs` and 10 s, through `AbortSignal.any` with the unmount signal; a
   timeout reads as `network` and backs off.
+
+## Done
+
+- On master with the next releases: security (minor: replay key), jobs (minor: `hookTimeoutMs`). deploy changes
+  nothing public and rides its next release.

@@ -22,6 +22,11 @@
 
 ## Progress
 
-- [ ] Phase 1: security webhook
-- [ ] Phase 2: jobs hooks and poll
-- [ ] Phase 3: deploy exports
+- [x] Phase 1: security webhook (e3da6e0)
+- [x] Phase 2: jobs hooks and poll (fd0c83e)
+- [x] Phase 3: deploy exports (a5abb3f)
+
+Evidence: `npx vitest run modules/jobs` 25 files, 374 tests green; `npx vitest run modules/security modules/alerts
+tools/deploy` 80 files, 1468 tests green; typecheck, ESLint and the language gate run in the pre-commit hook.
+Phase 2 found a real gap through its new test: `toErrorCode` let any text with a dot through (an email address), so
+`last_error` now takes only the code shape (`src/server/error-code.ts`, shared with the sync ledger).
