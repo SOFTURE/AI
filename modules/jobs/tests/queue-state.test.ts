@@ -308,6 +308,22 @@ describe("pauseQueueLater", () => {
     expect(recorder.pausedQueues).toHaveLength(1);
   });
 
+  it("never replaces an operator's timed pause, even with a longer one", async () => {
+    const recorder = recordJobHooks();
+    test = await createTestJobs({ queues: queueOptions({}), ...recorder.options });
+    await enqueueMany(test, 1);
+    const [claimed] = await claim(test);
+    if (claimed === undefined) throw new Error("expected a claimed job");
+    const operatorUntil = new Date(NOW.getTime() + 60 * SECOND_MS);
+    await pauseQueue(test.ctx, QUEUE, { reason: "app.manual", until: operatorUntil });
+
+    const options = { logger: silentLogger, signal: NEVER_ABORTED, random: () => 0 };
+    await runClaimedJob(test.ctx, claimed, { ...options, handlers: scriptedHandler([pauseQueueLater("app.captcha", 300)]) });
+
+    expect(await getQueuePause(test.ctx, QUEUE)).toEqual({ source: "operator", reason: "app.manual", until: operatorUntil });
+    expect(recorder.pausedQueues).toEqual([]);
+  });
+
   it("logs a throwing onQueuePaused hook and still records the pause", async () => {
     const errors: string[] = [];
     const logger: JobsLogger = { info: () => undefined, warn: () => undefined, error: (message) => errors.push(message) };

@@ -444,6 +444,7 @@ describe("softure-deploy database commands without a database", () => {
     expect(readFileSync(join(dir, "args.txt"), "utf8").split("\n")).toEqual([
       "--format=custom",
       "--no-password",
+      "--lock-wait-timeout=30000",
       "--exclude-table-data=auth_attempts",
       "--exclude-table-data=audit.ip_log",
       "",

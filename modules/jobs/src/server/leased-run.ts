@@ -1,5 +1,5 @@
 // One claimed job run under its lease: the handler runs while a timer extends the lease, aborts the handler when the
-// lease is lost or an operator cancels, and logs a failed recording. The Node worker loop and the Workers tick start
+// lease is lost, runs out while it cannot be extended, or an operator cancels, and logs a failed recording. The Node worker loop and the Workers tick start
 // every job through here.
 import type { JobHandlers } from "../handlers.js";
 import { JobCancelledError } from "../progress.js";
@@ -34,11 +34,17 @@ export interface StartLeasedRunOptions {
 export function startLeasedRun(ctx: JobsContext, claimed: ClaimedJob, options: StartLeasedRunOptions): LeasedRun {
   const { logger, outage } = options;
   const controller = new AbortController();
-  const heartbeatMs = options.heartbeatMs ?? (getQueue(getJobsOptions(ctx.config), claimed.job.queue).leaseSeconds * 1000) / HEARTBEATS_PER_LEASE;
+  const leaseMs = getQueue(getJobsOptions(ctx.config), claimed.job.queue).leaseSeconds * 1000;
+  const heartbeatMs = options.heartbeatMs ?? leaseMs / HEARTBEATS_PER_LEASE;
+  // When the lease ends as far as this process knows: the claim's lease, then each extension from the moment it was
+  // asked for (the database sets it a little later, so this end is never later than the stored one).
+  let leaseEndsAt = claimed.job.lockedUntil?.getTime() ?? ctx.clock.now().getTime() + leaseMs;
   const heartbeat = setInterval(() => {
+    const askedAt = ctx.clock.now().getTime();
     heartbeatJob(ctx, claimed).then(
       (state) => {
         outage.recover();
+        if (state === "held") leaseEndsAt = askedAt + leaseMs;
         if (controller.signal.aborted || state === "held") return;
         if (state === "cancel_requested") {
           logger.info("job cancelled by an operator; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
@@ -50,6 +56,10 @@ export function startLeasedRun(ctx: JobsContext, claimed: ClaimedJob, options: S
       },
       (error: unknown) => {
         outage.fail("could not extend a job lease", { queue: claimed.job.queue, jobId: claimed.job.id, error });
+        // Past its lease another worker may claim the job, so the handler stops instead of running twice.
+        if (controller.signal.aborted || ctx.clock.now().getTime() < leaseEndsAt) return;
+        logger.warn("job lease ran out while it could not be extended; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
+        controller.abort();
       },
     );
   }, heartbeatMs);

@@ -125,8 +125,8 @@ export const handlers: JobHandlers = {
 stopping worker releases unfinished jobs: the job then runs again. Make handlers idempotent (check whether the reply
 was already saved, pass an idempotency key to the provider).
 
-`context.signal` aborts when the job is taken from the handler: the worker's grace period ended on shutdown, its lease
-could not be extended, or an operator cancelled the job (§3, "Progress and cancelling"). Pass it to `fetch` and other
+`context.signal` aborts when the job is taken from the handler: the worker's grace period ended on shutdown, another
+worker took its lease, its lease ran out while the database could not extend it, or an operator cancelled the job (§3, "Progress and cancelling"). Pass it to `fetch` and other
 cancellable calls. After a shutdown or a lost lease anything the handler returns afterwards is not recorded; after a
 cancel the job ends `cancelled`. `context.db` is the worker's pool, not a transaction; `context.job.attempts` is this attempt's number.
 
@@ -462,7 +462,7 @@ jobs({
   running when the queue paused only count; they do not extend the pause.
 - **A handler that recognizes a refusal** (HTTP 429 with a long `Retry-After`, a login wall, a captcha page) returns
   `pauseQueueLater(code, seconds)`: the queue pauses for `seconds` at once (never shortening a longer pause, never
-  replacing an operator's) and this job gets its attempt back, due when the pause ends; the run history has a
+  replacing an operator's, timed or not) and this job gets its attempt back, due when the pause ends; the run history has a
   `retried` row with the code. `retryJobLater(code, seconds)` is still the choice when only this job should wait.
 - **An operator** pauses a queue with `pauseQueue(ctx, queue, { until?, reason })` (without `until`, until resumed;
   replaces any pause) and resumes it with `resumeQueue(ctx, queue)` (which also resets the breaker), from

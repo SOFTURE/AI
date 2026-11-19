@@ -6,6 +6,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **A handler stops when its lease runs out:** while the database refuses every heartbeat, the worker aborts the
+  handler's `signal` once the lease it last extended has ended (logged as `warn`,
+  `job lease ran out while it could not be extended`), since another worker may claim the job from then on. Before,
+  the handler ran on and the job could run twice at once.
+  - Migrate: nothing.
+- **`pauseQueueLater` never replaces an operator's timed pause:** before, a longer handler pause replaced an
+  operator's pause that had an end, against the documented rule.
+  - Migrate: nothing.
 - **Hooks have a time limit:** `onJobAttempt`, `onJobFailed`, `onQueuePaused` and `onScheduleStateChanged` are awaited
   for at most `hookTimeoutMs` (new option, default 10 000 ms, 100 to 60 000). A call past it is logged
   (`the <hook> hook timed out`) and left behind, so a hanging alert channel no longer stops the worker from claiming,

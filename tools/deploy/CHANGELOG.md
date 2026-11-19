@@ -6,6 +6,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **`backup` has time limits:** `pg_dump` runs with `--lock-wait-timeout=30000`, `PGCONNECT_TIMEOUT=10` unless the URL
+  sets `connect_timeout`, and is stopped after 60 minutes (`timeoutMs` of `createBackup`); each ends the backup as
+  failed (`pg_dump did not finish within … s and was stopped`), so a table locked by another session no longer holds
+  the deploy.
+  - Migrate: nothing.
+- **`integration run` tells a lost remote from a slow run:** each failed fetch of the result notes is logged with
+  git's reason, and a wait in which no fetch reached the remote exits 1 (`cannot reach origin for the result (…); the
+  run on … may still be in progress`) instead of 75. A remote that has no notes yet counts as reached.
+  - Migrate: nothing.
 - **Time limits for the database and git steps:** `schema-guard` and `row-counts` connect with a statement limit of
   10 minutes, a lock wait limit of 30 s and a client query limit (also through `withPgClient`), so a lock held by a parallel
   migration fails the step instead of hanging it. `integration run`, `record` and `lookup` give each fetch, push and

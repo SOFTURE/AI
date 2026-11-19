@@ -207,6 +207,69 @@ describe("runJobWorker", () => {
     expect(logger.lines).toContain("info: job cancelled by an operator; its handler is aborted");
   });
 
+  it("aborts a handler whose lease ran out while every heartbeat failed", async () => {
+    await setUp();
+    let offsetMs = 0;
+    const clock = { now: () => new Date(Date.now() + offsetMs) };
+    const switchable = createSwitchableDatabase(database.db);
+    const controller = new AbortController();
+    let handlerSignal: AbortSignal | undefined;
+    const handlers = {
+      "ai.reply": defineJobHandler({
+        payload: z.object({}),
+        run: async (_payload, { signal }) => {
+          handlerSignal = signal;
+          await new Promise((resolve) => signal.addEventListener("abort", resolve));
+          return ok();
+        },
+      }),
+    };
+    const logger = createRecordingLogger();
+    await enqueueJob(ctx, { queue: "ai.reply", payload: {} });
+    const worker = runJobWorker({ db: switchable.db, config, clock, handlers, signal: controller.signal, logger, heartbeatMs: 40, workerId: "test" });
+    await waitFor(() => Promise.resolve(handlerSignal !== undefined));
+
+    switchable.fail(sqlError("57P01"));
+    await delay(150);
+    const wasAbortedEarly = handlerSignal?.aborted === true;
+    offsetMs = 61_000;
+    await waitFor(() => Promise.resolve(handlerSignal?.aborted === true));
+    switchable.fail(undefined);
+    controller.abort();
+    await worker;
+
+    expect(wasAbortedEarly).toBe(false);
+    expect(logger.lines).toContain("warn: job lease ran out while it could not be extended; its handler is aborted");
+  });
+
+  it("aborts a handler whose lease another worker took", async () => {
+    await setUp();
+    const controller = new AbortController();
+    let handlerSignal: AbortSignal | undefined;
+    const handlers = {
+      "ai.reply": defineJobHandler({
+        payload: z.object({}),
+        run: async (_payload, { signal }) => {
+          handlerSignal = signal;
+          await new Promise((resolve) => signal.addEventListener("abort", resolve));
+          return ok();
+        },
+      }),
+    };
+    const logger = createRecordingLogger();
+    const { id } = await enqueueJob(ctx, { queue: "ai.reply", payload: {} });
+    const worker = runJobWorker({ db: database.db, config, handlers, signal: controller.signal, logger, heartbeatMs: 40 });
+    await waitFor(() => Promise.resolve(handlerSignal !== undefined));
+
+    await database.client.query("UPDATE jobs.jobs SET claim_token = gen_random_uuid(), locked_by = 'other' WHERE id = $1", [id]);
+    await waitFor(() => Promise.resolve(handlerSignal?.aborted === true));
+    controller.abort();
+    await worker;
+
+    expect(logger.lines).toContain("warn: job lease lost; its handler is aborted");
+    expect(await getJob(ctx, id)).toMatchObject({ status: "running", lockedBy: "other" });
+  });
+
   it("refuses to start without a handler for any configured queue", async () => {
     await setUp();
     await expect(runJobWorker({ db: database.db, config, handlers: {}, signal: new AbortController().signal, logger: silentLogger })).rejects.toThrow(

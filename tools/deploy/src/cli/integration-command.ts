@@ -164,6 +164,8 @@ export async function runIntegrationRun(args: string[], io: CliIo): Promise<void
       return fail(`${command}: cannot reach ${remote} (${result.reason}); the run did not start.`);
     case "push-failed":
       return fail(`${command}: ${remote} refused ${result.ref} (${result.reason}); the run did not start.`);
+    case "wait-unreachable":
+      return fail(`${command}: cannot reach ${remote} for the result (${result.reason}); the run on ${result.ref} may still be in progress.`);
     case "timeout":
       return fail(`${command}: no result for ${sha.slice(0, 8)} within ${String(waitMinutes)} minutes (${result.ref}).`, NO_RESULT_IN_TIME_EXIT_CODE);
     case "invalid":

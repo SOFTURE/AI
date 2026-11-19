@@ -100,11 +100,14 @@ function tryGit(cwd: string, args: string[]): boolean {
   }
 }
 
-/** Replaces the local integration notes with the remote's; refused when they cannot be fetched (none yet, offline). */
+/** Replaces the local integration notes with the remote's; ok when the remote has none yet, refused when it cannot be reached. */
 export function fetchIntegrationNotes(cwd: string, remote: string, notesRef: string): GitRemoteResult {
   assertSafe("remote", remote);
   assertSafe("ref", notesRef);
-  return tryRemoteGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+${notesRef}:${notesRef}`]);
+  const fetched = tryRemoteGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+${notesRef}:${notesRef}`]);
+  // A remote with no notes yet answered: there is nothing to fetch, which is not a failure to reach it.
+  if (!fetched.ok && /couldn't find remote ref/i.test(fetched.reason)) return { ok: true };
+  return fetched;
 }
 
 /** The note text on `sha`, or null when it has none. */
@@ -174,17 +177,22 @@ export function resolveSha(cwd: string, ref: string): string | null {
   }
 }
 
+/** Fetches the remote's `main` branch into `refs/remotes/<remote>/<main>`, which {@link readMainNoteText} reads. */
+export function fetchMainBranch(cwd: string, remote: string, main: string): GitRemoteResult {
+  assertSafe("remote", remote);
+  assertSafe("ref", main);
+  return tryRemoteGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+refs/heads/${main}:${toTrackingRef(remote, main)}`]);
+}
+
 /**
- * The note text of the newest first-parent commit of the remote's `main` branch that has a note, or null. The branch
- * is fetched first; when that fails the last fetched state of `<remote>/<main>` is used, if any.
+ * The note text of the newest first-parent commit of the last fetched `<remote>/<main>` that has a note, or null
+ * (also when the branch was never fetched). Reads local refs only; {@link fetchMainBranch} brings them up to date.
  */
-export function findMainNoteText(cwd: string, remote: string, notesRef: string, main: string): string | null {
+export function readMainNoteText(cwd: string, remote: string, notesRef: string, main: string): string | null {
   assertSafe("remote", remote);
   assertSafe("ref", main);
   assertSafe("ref", notesRef);
-  const tracking = `refs/remotes/${remote}/${main}`;
-  // A failed fetch falls back to the last fetched state, below.
-  tryRemoteGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+refs/heads/${main}:${tracking}`]);
+  const tracking = toTrackingRef(remote, main);
   if (resolveSha(cwd, tracking) === null) return null;
   let listed: string;
   try {
@@ -198,4 +206,8 @@ export function findMainNoteText(cwd: string, remote: string, notesRef: string, 
   const history = runGit(cwd, ["rev-list", "--first-parent", `--max-count=${String(MAIN_HISTORY_DEPTH)}`, tracking, "--"]);
   const newest = history.split("\n").find((sha) => noted.has(sha));
   return newest === undefined ? null : readNoteText(cwd, notesRef, newest);
+}
+
+function toTrackingRef(remote: string, main: string): string {
+  return `refs/remotes/${remote}/${main}`;
 }

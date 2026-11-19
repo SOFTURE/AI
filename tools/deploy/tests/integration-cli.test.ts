@@ -197,6 +197,21 @@ describe("softure-deploy integration record", () => {
     expect(err.join("")).toContain("origin refused the notes after 1 attempts (! [remote rejected]");
   });
 
+  it("tries again after a lost race and records the note on the next round", async () => {
+    const marker = join(root, "refused-once");
+    writeFileSync(join(remote, "hooks/pre-receive"), `#!/bin/sh\n[ -e "${marker}" ] && exit 0\ntouch "${marker}"\necho "error: cannot lock ref 'refs/notes/integration'" >&2\nexit 1\n`);
+    chmodSync(join(remote, "hooks/pre-receive"), 0o755);
+    expect(await cli(work, ["integration", "record", `--sha=${mainSha}`, "--ref=refs/heads/trunk", "--result=green"])).toBe(0);
+    expect(JSON.parse(remoteNote(mainSha))).toMatchObject({ result: "green", name: "trunk" });
+  });
+
+  it("gives up after five lost races and names the last reason", async () => {
+    writeFileSync(join(remote, "hooks/pre-receive"), "#!/bin/sh\necho \"error: cannot lock ref 'refs/notes/integration'\" >&2\nexit 1\n");
+    chmodSync(join(remote, "hooks/pre-receive"), 0o755);
+    expect(await cli(work, ["integration", "record", "--sha=HEAD", "--ref=refs/heads/trunk", "--result=green"])).toBe(1);
+    expect(err.join("")).toContain("origin refused the notes after 5 attempts (");
+  });
+
   it("stores no counts when the report is missing, and says so", async () => {
     expect(await cli(work, ["integration", "record", "--sha=HEAD", "--ref=refs/heads/trunk", "--result=red", "--junit=missing.xml"])).toBe(0);
     expect(err.join("")).toContain("missing.xml does not exist");
@@ -351,6 +366,19 @@ describe("softure-deploy integration run", () => {
     git(work, "remote", "set-url", "origin", join(root, "gone.git"));
     expect(await cli(work, ["integration", "run", "--name=feature", "--wait-minutes=0"])).toBe(1);
     expect(err.join("")).toMatch(/cannot reach origin \(.*gone\.git.*\); the run did not start/);
+  });
+
+  it("says the remote went away while waiting, not that the run took too long", async () => {
+    const sha = commit(work, "b.txt");
+    const marker = join(root, "pushed");
+    const uploadPack = join(root, "upload-pack.sh");
+    writeFileSync(uploadPack, `#!/bin/sh\nif [ -e "${marker}" ]; then echo "fatal: the remote went away" >&2; exit 128; fi\nexec git-upload-pack "$@"\n`, { mode: 0o755 });
+    git(work, "config", "remote.origin.uploadpack", uploadPack);
+    writeFileSync(join(remote, "hooks/post-receive"), `#!/bin/sh\ntouch "${marker}"\n`, { mode: 0o755 });
+    expect(await cli(work, ["integration", "run", "--name=feature", "--wait-minutes=0"])).toBe(1);
+    expect(err.join("")).toContain("could not fetch the result notes (fatal: the remote went away); trying again");
+    expect(err.join("")).toContain("cannot reach origin for the result (fatal: the remote went away); the run on refs/heads/integration/feature may still be in progress.");
+    expect(remoteRef("refs/heads/integration/feature")).toBe(sha);
   });
 
   it("never prints the credentials of a remote URL in git's reason", async () => {

@@ -1,9 +1,10 @@
 import { formatContractLines } from "./contract.js";
 import {
   fetchIntegrationNotes,
-  findMainNoteText,
+  fetchMainBranch,
   pushCommitToRef,
   pushIntegrationNotes,
+  readMainNoteText,
   readNoteText,
   readRemoteRef,
   writeNoteText,
@@ -37,7 +38,9 @@ export interface IntegrationFound {
 export type IntegrationLookup = IntegrationFound | { kind: "none" } | { kind: "invalid"; problem: string };
 
 function readMainNote(target: GitTarget, main: string): IntegrationNote | null {
-  const text = findMainNoteText(target.cwd, target.remote, getNotesRef(target), main);
+  // A failed fetch falls back to the last fetched state of the branch, if any.
+  fetchMainBranch(target.cwd, target.remote, main);
+  const text = readMainNoteText(target.cwd, target.remote, getNotesRef(target), main);
   if (text === null) return null;
   const parsed = parseIntegrationNote(text);
   return parsed.ok ? parsed.note : null;
@@ -95,7 +98,7 @@ export function recordIntegration(options: RecordOptions): RecordResult {
   let reason = "";
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     // Start from the remote's notes each round, so a note another run pushed meanwhile is kept, not overwritten. A
-    // failed fetch (no notes on the remote yet) leaves the local ones, which the push then creates.
+    // failed fetch leaves the local ones, which the push then creates on the remote.
     fetchIntegrationNotes(options.cwd, options.remote, getNotesRef(options));
     writeNoteText(options.cwd, getNotesRef(options), options.sha, formatIntegrationNote(note));
     const pushed = pushIntegrationNotes(options.cwd, options.remote, getNotesRef(options));
@@ -127,12 +130,14 @@ export type RunResult =
   | { kind: "timeout"; ref: string }
   | { kind: "busy"; ref: string; otherSha: string }
   | { kind: "push-failed"; ref: string; reason: string }
-  | { kind: "unreachable"; reason: string };
+  | { kind: "unreachable"; reason: string }
+  | { kind: "wait-unreachable"; ref: string; reason: string };
 
 /**
  * Starts the remote run for `sha` by pushing `refs/heads/<refPrefix><name>` and waits for its note. A ref that
  * already points at another commit is someone else's run: refused, never replaced. A ref already on `sha` is this
- * run, started earlier: waited for without a push.
+ * run, started earlier: waited for without a push. A wait in which no fetch of the notes reached the remote ends
+ * `wait-unreachable` with git's last reason, not `timeout`.
  */
 export async function runIntegration(options: RunOptions): Promise<RunResult> {
   const ref = `refs/heads/${options.refPrefix ?? INTEGRATION_BRANCH_PREFIX}${options.name}`;
@@ -152,12 +157,22 @@ export async function runIntegration(options: RunOptions): Promise<RunResult> {
     options.log(`pushed ${options.sha.slice(0, 8)} to ${ref}: waiting for the result note`);
   }
   const deadline = options.now() + options.waitMinutes * 60_000;
+  // A wait in which no fetch reached the remote ends unreachable with the last reason, not as a run that took too long.
+  let unreachableReason: string | null = null;
+  let hasFetched = false;
   for (;;) {
-    fetchIntegrationNotes(options.cwd, options.remote, notesRef);
+    const fetched = fetchIntegrationNotes(options.cwd, options.remote, notesRef);
+    if (fetched.ok) {
+      hasFetched = true;
+      unreachableReason = null;
+    } else {
+      options.log(`could not fetch the result notes (${fetched.reason}); trying again`);
+      if (!hasFetched) unreachableReason = fetched.reason;
+    }
     const text = readNoteText(options.cwd, notesRef, options.sha);
     if (text !== null && text !== before) return toLookup(options, text, options.main);
     const remaining = deadline - options.now();
-    if (remaining <= 0) return { kind: "timeout", ref };
+    if (remaining <= 0) return unreachableReason === null ? { kind: "timeout", ref } : { kind: "wait-unreachable", ref, reason: unreachableReason };
     await options.sleep(Math.min(options.pollSeconds * 1000, remaining));
   }
 }
