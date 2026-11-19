@@ -1,6 +1,6 @@
 {
   "id": "security",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "runtimes": ["node", "workers"],
   "dependsOn": { "jobs": "^0.1.1?" },
   "dbSchema": "security",
