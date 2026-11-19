@@ -50,6 +50,8 @@ function readWrangler(): Record<string, unknown> {
 }
 
 interface CallerStep {
+  name?: string;
+  if?: string;
   uses?: string;
   run?: string;
   env?: Record<string, string>;
@@ -277,6 +279,12 @@ describe("softure-deploy init --host=cloudflare", () => {
     );
     expect(text).not.toContain("BACKUP_S3_SECRET_ACCESS_KEY");
     expect(text).not.toContain("MIGRATE_DATABASE_URL");
+    // A red run becomes a backup-verify issue and a green one closes it (issue #1386).
+    expect(caller.permissions).toEqual({ contents: "read", issues: "write" });
+    expect((job?.steps ?? []).slice(-2).map((step) => [step.name, step.if])).toEqual([
+      ["Report the failed check", "failure()"],
+      ["Close the reports of earlier failures", "success()"],
+    ]);
   });
 
   it("writes a deploy.json without the server's hooks or row counts", async () => {
