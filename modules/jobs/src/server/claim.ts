@@ -135,6 +135,7 @@ async function claimDue(
       claimToken: sql`gen_random_uuid()`,
       progress: null,
       progressAt: null,
+      claimedAt: now,
       updatedAt: now,
     })
     .where(inArray(jobs.id, due))

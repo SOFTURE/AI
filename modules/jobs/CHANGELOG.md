@@ -35,6 +35,14 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `{ ok: false, error: "network" }` (also aborted when the hook unmounts or moves to another job).
   - Migrate: nothing.
 
+## 0.1.13
+
+- `getQueueStats` gives each queue `oldestRunningSince`: when its longest-running job was claimed, or null, so an app
+  can export the age of a running job and alert when one hangs (a running job whose lease ended counts until the next
+  claim takes it back). `updated_at` could not tell it, since every lease extension moves it.
+- New column `jobs.jobs.claimed_at` (migration 11), set at every claim. A job last claimed before the migration has
+  none, so its queue reports null until its next claim.
+
 ## 0.1.12
 
 - `failJob(code, { expected: true })` (new `FailJobOptions`): a failure the app expects, such as input it refuses, is

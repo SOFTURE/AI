@@ -1,7 +1,7 @@
 // Steering single jobs and the upkeep functions: cancel, retry, prune, stats.
 import { err, ok } from "@softure-ai/core";
 import { defineJobHandler } from "@softure-ai/jobs";
-import { cancelJob, claimJobs, enqueueJob, getJob, getQueueStats, pruneJobs, retryJob } from "@softure-ai/jobs/server";
+import { cancelJob, claimJobs, completeJob, enqueueJob, extendJobLease, getJob, getQueueStats, pruneJobs, retryJob } from "@softure-ai/jobs/server";
 import { listJobs, runDueJobs } from "@softure-ai/jobs/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -79,9 +79,41 @@ describe("job administration", () => {
     );
 
     expect(await getQueueStats(test.ctx)).toEqual([
-      { queue: "ai.reply", counts: { pending: 3, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 2, oldestDueAt: NOW, schedule: null, pause: null, consecutiveFailures: 0 },
-      { queue: "mail.send", counts: { pending: 0, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 0, oldestDueAt: null, schedule: null, pause: null, consecutiveFailures: 0 },
-      { queue: "old.queue", counts: { pending: 1, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 1, oldestDueAt: NOW, schedule: null, pause: null, consecutiveFailures: 0 },
+      { queue: "ai.reply", counts: { pending: 3, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 2, oldestDueAt: NOW, oldestRunningSince: null, schedule: null, pause: null, consecutiveFailures: 0 },
+      { queue: "mail.send", counts: { pending: 0, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 0, oldestDueAt: null, oldestRunningSince: null, schedule: null, pause: null, consecutiveFailures: 0 },
+      { queue: "old.queue", counts: { pending: 1, running: 0, succeeded: 0, failed: 0, cancelled: 0 }, due: 1, oldestDueAt: NOW, oldestRunningSince: null, schedule: null, pause: null, consecutiveFailures: 0 },
     ]);
+  });
+
+  it("gives the claim time of the longest-running job per queue, which lease extensions do not move", async () => {
+    await enqueueJob(test.ctx, { queue: "ai.reply", payload: {} });
+    await enqueueJob(test.ctx, { queue: "ai.reply", payload: {} });
+    const [first] = await claimJobs(test.ctx, { queue: "ai.reply", workerId: "w1", limit: 1 });
+    test.clock.advance(30 * SECOND_MS);
+    await claimJobs(test.ctx, { queue: "ai.reply", workerId: "w1", limit: 1 });
+    test.clock.advance(30 * SECOND_MS);
+    expect(first).toBeDefined();
+    if (first === undefined) return;
+    expect(await extendJobLease(test.ctx, first)).toBe(true);
+
+    const stats = await getQueueStats(test.ctx);
+    expect(stats.map((row) => [row.queue, row.counts.running, row.oldestRunningSince])).toEqual([
+      ["ai.reply", 2, NOW],
+      ["mail.send", 0, null],
+    ]);
+  });
+
+  it("forgets the running time once the job ends, and leaves a job claimed before the column with no time", async () => {
+    await enqueueJob(test.ctx, { queue: "mail.send", payload: {} });
+    const [claimed] = await claimJobs(test.ctx, { queue: "mail.send", workerId: "w1", limit: 1 });
+    expect(claimed).toBeDefined();
+    if (claimed === undefined) return;
+    await completeJob(test.ctx, claimed, { kind: "succeeded" });
+    await test.database.client.query(
+      "INSERT INTO jobs.jobs (queue, payload, status, attempts, max_attempts, run_at, created_at, updated_at, locked_until, locked_by, claim_token) VALUES ('mail.send', '{}', 'running', 1, 1, $1, $1, $1, $1, 'w0', gen_random_uuid())",
+      [NOW],
+    );
+
+    expect((await getQueueStats(test.ctx)).find((row) => row.queue === "mail.send")).toMatchObject({ counts: { running: 1, succeeded: 1 }, oldestRunningSince: null });
   });
 });

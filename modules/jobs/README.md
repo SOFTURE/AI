@@ -738,7 +738,7 @@ From `@softure-ai/jobs/server`, each on `ctx = { db, clock, config }`:
 | `runScheduleNow(ctx, queue, { origin? })` | enqueues a run of the schedule now with its payload and dedup key (origin `manual` unless named), joining a pending run (`isDuplicate: true`); the schedule's own period is left alone; `jobs.not_a_schedule` |
 | `retrySyncItem(ctx, { source, itemId })` | a `failed` ledger item back to `pending`, attempts and code cleared, so the next `processSyncItem` runs it; `jobs.sync_item_not_retryable`, `jobs.sync_item_not_found` |
 | `reopenSyncItem(ctx, { source, itemId })` | a `done`, `skipped` or `failed` ledger item back to `pending` as never tried, for an explicit "process again"; a `pending` item unchanged; `jobs.sync_item_not_found` |
-| `getQueueStats(ctx)` | per queue: counts per status, the due backlog, the `run_at` of its oldest due job, its `schedule` (or `null`), its active `pause` (or `null`) and the breaker's `consecutiveFailures` |
+| `getQueueStats(ctx)` | per queue: counts per status, the due backlog, the `run_at` of its oldest due job, `oldestRunningSince` (when its longest-running job was claimed, for an alert on a hung job), its `schedule` (or `null`), its active `pause` (or `null`) and the breaker's `consecutiveFailures` |
 | `pauseQueue(ctx, queue, { until?, reason })` | pauses the queue for an operator, until `until` or until resumed (§3, "Pacing and the circuit breaker"); `jobs.unknown_queue` |
 | `resumeQueue(ctx, queue)` | ends the queue's pause, whoever set it, and resets its breaker; `jobs.unknown_queue` |
 | `getQueuePause(ctx, queue)` | the queue's active pause or `null` |
