@@ -1,7 +1,7 @@
 ---
 change_id: backup-verify-live-release
 title: "backup: the weekly verify finds the live release's image and opens an issue when it fails (issue #1386)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1386
 branch: claude/project-thread-ti3e7g
@@ -32,3 +32,8 @@ image part does not apply to it.
 ## Notes
 
 - Research kept short: the change is two workflow files, their docs and tests; the facts are in `research.md`.
+
+## Done
+
+- `examples/backup-verify.yml` (backup 0.1.3) resolves the live release's image and reports a failed check as a
+  `backup-verify` issue; the Cloudflare template of `init` (deploy 0.7.7) reports the same way.

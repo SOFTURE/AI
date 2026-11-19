@@ -42,5 +42,6 @@ Give the Cloudflare template the same two steps. A repository test runs the step
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 1: 0faa69b (example, README, CHANGELOG, repository test)
+- [x] Phase 2: 135ae51 (Cloudflare template, init test, CHANGELOG)
+- [x] Release bumps: 5bbd8f5 (backup 0.1.3), 9d239c0 (deploy 0.7.7), deploy-cli-version 0.7.7
