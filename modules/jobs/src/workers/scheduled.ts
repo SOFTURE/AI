@@ -44,19 +44,21 @@ export function createScheduledHandler<Env>(options: CreateScheduledHandlerOptio
   const logger = options.logger ?? consoleJobsLogger;
   return (controller, env, ctx) => {
     const waitUntil = (promise: Promise<unknown>) => ctx.waitUntil(promise);
-    const tick = runTick(options, logger, controller, env, waitUntil);
+    const tick = runTick({ options, logger, controller, env, waitUntil });
     waitUntil(tick.catch(() => undefined));
     return tick;
   };
 }
 
-async function runTick<Env>(
-  options: CreateScheduledHandlerOptions<Env>,
-  logger: JobsLogger,
-  controller: ScheduledControllerLike,
-  env: Env,
-  waitUntil: (promise: Promise<unknown>) => void,
-): Promise<RunJobsTickReport> {
+interface RunTickInput<Env> {
+  readonly options: CreateScheduledHandlerOptions<Env>;
+  readonly logger: JobsLogger;
+  readonly controller: ScheduledControllerLike;
+  readonly env: Env;
+  readonly waitUntil: (promise: Promise<unknown>) => void;
+}
+
+async function runTick<Env>({ options, logger, controller, env, waitUntil }: RunTickInput<Env>): Promise<RunJobsTickReport> {
   const workerName = options.workerName;
   const runId = `${workerName ?? "tick"}:${new Date(controller.scheduledTime).toISOString()}`;
   try {

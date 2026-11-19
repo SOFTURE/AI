@@ -17,7 +17,7 @@ export const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.me
 export const DEFAULT_APP_ROLE = "softure_app";
 
 /** The ref of SOFTURE/AI's workflows the callers use without `--workflows-ref`. */
-export const DEFAULT_WORKFLOWS_REF = "master";
+const DEFAULT_WORKFLOWS_REF = "master";
 
 /** Pinned versions written into the files; the app bumps them there. */
 export const TEMPLATE_VERSIONS = {
@@ -30,9 +30,9 @@ export const TEMPLATE_VERSIONS = {
 } as const;
 
 /** The managed Postgres's major on Cloudflare: pg_dump and pg_restore of this version read 16 and 17 alike. */
-export const CLOUDFLARE_POSTGRES_MAJOR = "17";
+const CLOUDFLARE_POSTGRES_MAJOR = "17";
 /** `@softure-ai/backup` on Cloudflare: the first version with `softure-backup run` (a dump without a server). */
-export const CLOUDFLARE_BACKUP_CLI_VERSION = "0.1.1";
+const CLOUDFLARE_BACKUP_CLI_VERSION = "0.1.1";
 
 /**
  * The host-only settings of the off-site copy: optional names in the compose file's `x-offsite-backup` block, so
@@ -68,7 +68,7 @@ const withOwnTraefik = (_facts: AppFacts, answers: InitAnswers): boolean => hasO
 const withCloudflare = (_facts: AppFacts, answers: InitAnswers): boolean => answers.cdn === "cloudflare";
 
 /** Whether the stack runs a Traefik of its own: not when it joins another stack's edge or a tunnel publishes it. */
-export function hasOwnTraefik(answers: InitAnswers): boolean {
+function hasOwnTraefik(answers: InitAnswers): boolean {
   return answers.edge === undefined && answers.tunnel !== true;
 }
 
@@ -78,23 +78,23 @@ export function hasWorker(facts: AppFacts): boolean {
 }
 
 /** Whether the worker service runs an image of its own (`init --worker-dockerfile`), `<image>-worker`. */
-export function hasWorkerImage(facts: AppFacts, answers: InitAnswers): boolean {
+function hasWorkerImage(facts: AppFacts, answers: InitAnswers): boolean {
   return hasWorker(facts) && answers.workerDockerfile !== undefined;
 }
 
 /** The repository of the worker image: the app image's with `-worker`, tagged like it (issue #948). */
-export function getWorkerImage(image: string): string {
+function getWorkerImage(image: string): string {
   return `${image}-worker`;
 }
 
 /** The template of the worker image's Dockerfile, written at `--worker-dockerfile` when that file is missing. */
-export const WORKER_DOCKERFILE_TEMPLATE = "worker.Dockerfile.tmpl";
+const WORKER_DOCKERFILE_TEMPLATE = "worker.Dockerfile.tmpl";
 
 /** The first `@softure-ai/jobs` version whose worker writes a heartbeat file and answers `--health`. */
 export const JOBS_HEARTBEAT_VERSION = "0.1.3";
 
 /** Where the generated `scripts/worker.ts` keeps the worker's heartbeat: writable by the image's user, gone with the container. */
-export const WORKER_HEALTH_FILE = "/tmp/softure-jobs-worker.alive";
+const WORKER_HEALTH_FILE = "/tmp/softure-jobs-worker.alive";
 
 /** Whether `a.b.c` is at least `minimum`; false for a version that does not read. */
 function isVersionAtLeast(version: string | null | undefined, minimum: string): boolean {
@@ -178,13 +178,13 @@ export function buildAppRule(answers: InitAnswers, facts: AppFacts): string {
  * The services deploy.sh's switch starts: the stack's own Traefik, the app (with `migrate` and the tunnel through
  * `depends_on`) and the worker, which no other service depends on.
  */
-export function getSwitchServices(answers: InitAnswers, facts: AppFacts): string {
+function getSwitchServices(answers: InitAnswers, facts: AppFacts): string {
   const services = [hasOwnTraefik(answers) ? "traefik" : null, "app", hasWorker(facts) ? "worker" : null];
   return services.filter((service) => service !== null).join(" ");
 }
 
 /** The Postgres major of the app's compose file, else the template's. */
-export function getPostgresVersion(facts: AppFacts): string {
+function getPostgresVersion(facts: AppFacts): string {
   return facts.compose?.postgresMajor ?? TEMPLATE_VERSIONS.postgres;
 }
 
@@ -192,7 +192,7 @@ export function getPostgresVersion(facts: AppFacts): string {
  * The role `deploy.sh`'s report reads as: the `reportRole` answer, else the app's DATABASE_URL role in a compose file
  * init keeps, else the default.
  */
-export function getReportRole(options: { answers: InitAnswers; facts: AppFacts; replacesCompose: boolean }): string {
+function getReportRole(options: { answers: InitAnswers; facts: AppFacts; replacesCompose: boolean }): string {
   const composeRole = options.replacesCompose ? null : options.facts.compose?.appDatabaseRole;
   return options.answers.reportRole ?? composeRole ?? DEFAULT_APP_ROLE;
 }
@@ -299,16 +299,16 @@ export function planInitFiles(options: PlanInitFilesOptions): PlannedFile[] {
 }
 
 /** The `compatibility_date` written into a new `wrangler.jsonc`; the app moves it forward when it tests a newer one. */
-export const CLOUDFLARE_COMPATIBILITY_DATE = "2026-11-01";
+const CLOUDFLARE_COMPATIBILITY_DATE = "2026-11-01";
 
 /** The Hyperdrive ID written until `--hyperdrive-id` names the real one; `wrangler deploy` refuses it. */
-export const HYPERDRIVE_ID_PLACEHOLDER = "<hyperdrive-id: wrangler hyperdrive create>";
+const HYPERDRIVE_ID_PLACEHOLDER = "<hyperdrive-id: wrangler hyperdrive create>";
 
 /** The Worker's own entry, OpenNext's handler wrapped with the request database (and the jobs tick). */
 const WORKER_ENTRY = "worker.ts";
 
 /** Every file `init --host=cloudflare` can write, in the order it reports them. */
-export const CLOUDFLARE_TEMPLATE_FILES: readonly TemplateFile[] = [
+const CLOUDFLARE_TEMPLATE_FILES: readonly TemplateFile[] = [
   { template: "cloudflare/wrangler.jsonc.tmpl", target: "wrangler.jsonc", mode: FILE_MODE, isIncluded: always },
   { template: "cloudflare/open-next.config.ts.tmpl", target: "open-next.config.ts", mode: FILE_MODE, isIncluded: always },
   { template: "cloudflare/worker.ts.tmpl", target: WORKER_ENTRY, mode: FILE_MODE, isIncluded: withDatabase },
@@ -331,7 +331,7 @@ export const CLOUDFLARE_TEMPLATE_FILES: readonly TemplateFile[] = [
 ];
 
 /** The Worker's `main`: the generated entry with a database, else OpenNext's own worker. */
-export function getWorkerMain(facts: AppFacts): string {
+function getWorkerMain(facts: AppFacts): string {
   return facts.hasDatabase ? WORKER_ENTRY : ".open-next/worker.js";
 }
 

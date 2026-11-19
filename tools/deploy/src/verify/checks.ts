@@ -39,7 +39,7 @@ function checkStatus(route: VerifyRoute, response: ObservedResponse): CheckOutco
 }
 
 /** The text between `<head…>` and `</head>` (case-insensitive); empty when the response has no head. */
-export function getHeadText(body: string): string {
+function getHeadText(body: string): string {
   const lower = body.toLowerCase();
   const open = /<head[\s>]/.exec(lower);
   if (open === null) return "";
@@ -49,7 +49,7 @@ export function getHeadText(body: string): string {
 }
 
 /** Non-overlapping occurrences of `marker` in `text`. */
-export function countOccurrences(text: string, marker: string): number {
+function countOccurrences(text: string, marker: string): number {
   let count = 0;
   for (let index = text.indexOf(marker); index !== -1; index = text.indexOf(marker, index + marker.length)) count += 1;
   return count;
@@ -75,7 +75,7 @@ function checkMarkers(route: VerifyRoute, body: string): CheckOutcome[] {
 }
 
 /** The hex of a `sha256:<hex>` or bare-hex digest. */
-export function toDigestHex(digest: string): string {
+function toDigestHex(digest: string): string {
   return digest.startsWith("sha256:") ? digest.slice("sha256:".length) : digest;
 }
 

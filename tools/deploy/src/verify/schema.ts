@@ -10,7 +10,7 @@ export const DEFAULT_TIMEOUT_MS = 10_000;
 const HEADER_NAME = /^[a-z0-9!#$%&'*+.^_`|~-]+$/;
 
 /** Request methods a route may use; `GET` and `HEAD` carry no body. */
-export const ROUTE_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] as const;
+const ROUTE_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] as const;
 
 /** Request headers `fetch` sets itself or that would point the request elsewhere; a route cannot set them. */
 const RESERVED_REQUEST_HEADERS = new Set(["host", "content-length", "connection", "transfer-encoding"]);
@@ -53,7 +53,7 @@ const requestHeadersSchema = z
 /** `sha256:<hex>` (the Agent Skills Discovery format) or the bare hex. */
 export const SHA256_PATTERN = /^(sha256:)?[0-9a-f]{64}$/;
 
-export const SEVERITIES = ["fail", "warn"] as const;
+const SEVERITIES = ["fail", "warn"] as const;
 
 const severitySchema = z.enum(SEVERITIES);
 
