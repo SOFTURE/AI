@@ -17,6 +17,10 @@ limit check made race-free.
   same `401 invalid_token` with a `WWW-Authenticate: Bearer` challenge. The challenge's `scope` is
   `mcp:read mcp:write` while the app allows writes and `mcp:read` otherwise, so an OAuth client asks
   for what it may get.
+- **A password reset or change ends every earlier token:** a hand-issued token (MCP or API), an OAuth grant and an
+  unused code issued before the account's last password change (`auth.users.password_changed_at`) no longer work and
+  leave the token page; `pruneAccessTokens` and `pruneOAuthRecords` delete them. Whoever took an account over keeps
+  none of the tokens they issued once the owner resets the password. Signing out everywhere alone does not touch tokens.
 - **Writes need the app and the token:** the app's `allowWrites` option, the runtime switch
   `mcp-access.writes_enabled` when the app defines it (§7), and a token issued with write access.
   `canWrite` is decided on every request, so turning `allowWrites` or the switch off makes every token

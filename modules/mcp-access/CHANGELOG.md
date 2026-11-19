@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.7.8
+
+- **A password reset or change ends earlier tokens:** an MCP or API token, an OAuth grant (its refresh token and access
+  tokens) and an unused authorization code issued before the account's last password change no longer work, and the
+  token page leaves them out. Before, they lived on for up to their lifetime (90 days for a token), so whoever had
+  taken an account over kept a way in after the owner reset the password. `pruneAccessTokens` and
+  `pruneOAuthRecords` delete them. README, the module's overview.
+  - Migrate: nothing. Tell users that changing the password signs out their assistants and scripts; they issue new
+    tokens or connect the app again.
+
 ## 0.7.7
 
 - `/server` gives `createUntrustedWrapper({ open, close })`: `wrap` puts text a tool did not write between the app's
