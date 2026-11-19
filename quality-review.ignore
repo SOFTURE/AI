@@ -9,3 +9,9 @@ QR-60a7a98b
 # so it cannot answer "check your inbox" for a taken address. A known limitation (modules/auth/README.md,
 # Limitations), bounded by the `register` rate limit; login and password reset still hide accounts.
 QR-5cebc6e2
+
+# mcp-access token endpoint looks the client up before it counts: counting by address alone first would throttle an
+# assistant platform that refreshes all its users' tokens from a few shared addresses. The lookup is one indexed read
+# (ids over 255 characters run none), the cost of the counter itself; adopted clients keep their own id format, so a
+# shape check cannot replace it (comment in handleTokenRequest).
+QR-cc3a4799

@@ -354,7 +354,11 @@ export async function handleTokenRequest(ctx: McpAccessContext, request: Request
     return protocolError("server_error", "The token could not be issued.", 500);
   }
   // Only a registered client gets a counter of its own: a made-up id is counted with its address, so
-  // random ids neither escape the limit nor add a counter row each.
+  // random ids neither escape the limit nor add a counter row each. The lookup comes first on purpose:
+  // counting every request by address alone would throttle an assistant platform that refreshes the
+  // tokens of all its users from a few shared addresses. It is one indexed read (ids over 255
+  // characters run none), the same cost as the counter itself. Clients adopted from an app keep
+  // their own id format, so the id's shape cannot stand in for the lookup.
   const limited = await limitProtocolRequest(ctx, request, client?.clientId ?? null);
   if (limited !== null) return limited;
 
