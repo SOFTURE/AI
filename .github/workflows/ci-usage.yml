@@ -161,5 +161,8 @@ jobs:
         if: inputs.publish
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          CLOSE_ISSUE: ${{ inputs.close-issue }}
         run: |
-          "$RUNNER_TEMP/ci-usage/node_modules/.bin/softure-ci-usage" publish --report-dir "$RUNNER_TEMP/ci-usage-report" ${{ inputs.close-issue && '--close' || '' }}
+          close=()
+          if [ "$CLOSE_ISSUE" = "true" ]; then close=(--close); fi
+          "$RUNNER_TEMP/ci-usage/node_modules/.bin/softure-ci-usage" publish --report-dir "$RUNNER_TEMP/ci-usage-report" ${close[@]+"${close[@]}"}
