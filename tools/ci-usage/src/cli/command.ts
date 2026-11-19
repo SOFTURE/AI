@@ -26,11 +26,12 @@ export const USAGE = `Usage:
   softure-ci-usage report [--repository <owner/name>[,<owner/name>…]] [--days ${String(DEFAULT_DAYS)} | --from <date> --to <date>]
                           [--out-dir .] [--prices <json>] [--ubicloud-premium] [--billing org:<name>|user:<name>]
                           [--cache <file>] [--reserve ${String(DEFAULT_RESERVE)}] [--max-minutes <n>]
-  softure-ci-usage publish [--repository <owner/name>] [--report-dir .] [--run-url <url>]
+  softure-ci-usage publish [--repository <owner/name>] [--report-dir .] [--run-url <url>] [--close]
 
 report   reads the finished workflow runs of the period through the Actions API and writes ${JSON_FILE} and ${MARKDOWN_FILE}:
          billable minutes and estimated USD per repository, workflow and job, on GitHub-hosted, Ubicloud and other runners.
-publish  keeps the issue labelled ci-usage in the repository up to date with the report and comments the run's totals.
+publish  keeps the issue labelled ci-usage in the repository up to date with the report and comments the run's totals;
+         --close keeps that issue closed (it is reused open or closed, and closed after every update).
 
 The token comes from GITHUB_TOKEN (or GH_TOKEN): "Actions: read" on every repository for report (plus organization
 "Administration: read" or user "Plan: read" for --billing), "Issues: write" for publish. The repository defaults to
@@ -171,6 +172,7 @@ async function runPublish(args: string[], context: CommandContext): Promise<numb
       repository: { type: "string" },
       "report-dir": { type: "string", default: "." },
       "run-url": { type: "string" },
+      close: { type: "boolean", default: false },
     },
   });
   const repositories = parseRepositories(values.repository === undefined ? undefined : [values.repository], context.env);
@@ -191,7 +193,7 @@ async function runPublish(args: string[], context: CommandContext): Promise<numb
   const { GITHUB_SERVER_URL: server, GITHUB_REPOSITORY: current, GITHUB_RUN_ID: runId } = context.env;
   const runUrl = toOptional(values["run-url"]) ?? (server && current && runId ? `${server}/${current}/actions/runs/${runId}` : `https://github.com/${repository}/actions`);
   const client = createGithubClient({ token, ...(context.fetch ? { fetch: context.fetch } : {}) });
-  const result = await publishReport({ client, repository, report, markdown, runUrl });
+  const result = await publishReport({ client, repository, report, markdown, runUrl, close: values.close });
   if (!result.ok) {
     context.writeError(`publishing the report to ${repository} failed: ${result.error}\n`);
     return 1;

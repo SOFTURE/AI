@@ -52,10 +52,14 @@ on:
         description: Keep the ci-usage issue of the calling repository up to date
         type: boolean
         default: true
+      close-issue:
+        description: Keep the ci-usage issue closed (reused open or closed, closed after every update); still found by its label
+        type: boolean
+        default: false
       cli-version:
         description: Version of @softure-ai/ci-usage that writes the report
         type: string
-        default: 0.1.2
+        default: 0.1.3
       node-version:
         description: Node.js version that runs the CLI
         type: string
@@ -158,4 +162,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          "$RUNNER_TEMP/ci-usage/node_modules/.bin/softure-ci-usage" publish --report-dir "$RUNNER_TEMP/ci-usage-report"
+          "$RUNNER_TEMP/ci-usage/node_modules/.bin/softure-ci-usage" publish --report-dir "$RUNNER_TEMP/ci-usage-report" ${{ inputs.close-issue && '--close' || '' }}

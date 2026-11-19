@@ -46,6 +46,7 @@ The caller grants `contents: read`, `actions: read` and `issues: write`.
 | `ubicloud-premium` | `false` | Price Ubicloud minutes as premium (an account setting a job does not show) |
 | `billing` | empty | `org:<organization>` or `user:<user>`: add what GitHub billed |
 | `publish` | `true` | Keep the `ci-usage` issue up to date |
+| `close-issue` | `false` | Keep that issue closed: reused open or closed, closed as completed after every update |
 | `cli-version` | the released version | `@softure-ai/ci-usage` version |
 | `node-version` | `"22"` | Node.js version |
 
@@ -79,7 +80,9 @@ jobs:
 - **The issue** `CI usage report` (label `ci-usage`): its body is always the latest report, with the JSON in a
   collapsed block at the end (or a pointer to the artifact when it is too long); every run adds a comment with its
   period and totals, so the comments are the history. An agent reads it with the GitHub tools it already has (an
-  issue read of the label `ci-usage`).
+  issue read of the label `ci-usage`, `state: all` when the caller sets `close-issue`). A repository that acts on its
+  report (optimisations become issues of their own) sets `close-issue: true`, so the report never sits in the
+  open-issue queue.
 - **The artifact** `ci-usage-report` of the run: `ci-usage.json` and `ci-usage.md`, kept 90 days.
 - **The CLI**, anywhere with a token:
 

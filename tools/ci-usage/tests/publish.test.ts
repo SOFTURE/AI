@@ -84,6 +84,63 @@ describe("publishReport", () => {
     expect(fake.requests.find((request) => request.method === "PATCH")?.url.pathname).toBe("/repos/acme/app/issues/5");
   });
 
+  it("with close, reuses a closed report issue and keeps it closed", async () => {
+    const fake = createFakeGithub([
+      { match: (url) => url.pathname === "/repos/acme/app/labels/ci-usage", body: { name: "ci-usage" } },
+      { match: (url) => isIssues(url) && url.search !== "", body: [{ number: 34, body: REPORT_MARKER, html_url: "https://github.com/acme/app/issues/34" }] },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/34", body: { number: 34, body: "", html_url: "https://github.com/acme/app/issues/34" } },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/34/comments", status: 201, body: {} },
+    ]);
+    const client = createGithubClient({ token: "t", fetch: fake.fetch });
+    const result = await publishReport({ client, repository: "acme/app", report: REPORT, markdown: MARKDOWN, runUrl: RUN_URL, close: true });
+
+    expect(result).toEqual({ ok: true, issue: 34, url: "https://github.com/acme/app/issues/34", created: false });
+    expect(fake.requests[1]?.url.searchParams.get("state")).toBe("all");
+    expect(fake.requests.map((request) => `${request.method} ${request.url.pathname}`)).toEqual([
+      "GET /repos/acme/app/labels/ci-usage",
+      "GET /repos/acme/app/issues",
+      "PATCH /repos/acme/app/issues/34",
+      "POST /repos/acme/app/issues/34/comments",
+    ]);
+    expect(fake.requests[2]?.body).toMatchObject({ state: "closed", state_reason: "completed" });
+  });
+
+  it("with close, closes a newly created issue after its first comment", async () => {
+    const fake = createFakeGithub([
+      { match: (url) => url.pathname === "/repos/acme/app/labels/ci-usage", body: { name: "ci-usage" } },
+      { match: (url) => isIssues(url) && url.search !== "", body: [] },
+      { match: isIssues, status: 201, body: { number: 9, body: "", html_url: "https://github.com/acme/app/issues/9" } },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/9/comments", status: 201, body: {} },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/9", body: { number: 9, state: "closed" } },
+    ]);
+    const client = createGithubClient({ token: "t", fetch: fake.fetch });
+    const result = await publishReport({ client, repository: "acme/app", report: REPORT, markdown: MARKDOWN, runUrl: RUN_URL, close: true });
+
+    expect(result).toEqual({ ok: true, issue: 9, url: "https://github.com/acme/app/issues/9", created: true });
+    expect(fake.requests.map((request) => `${request.method} ${request.url.pathname}`)).toEqual([
+      "GET /repos/acme/app/labels/ci-usage",
+      "GET /repos/acme/app/issues",
+      "POST /repos/acme/app/issues",
+      "POST /repos/acme/app/issues/9/comments",
+      "PATCH /repos/acme/app/issues/9",
+    ]);
+    expect(fake.requests.at(-1)?.body).toEqual({ state: "closed", state_reason: "completed" });
+  });
+
+  it("without close, looks only at open issues and leaves the state alone", async () => {
+    const fake = createFakeGithub([
+      { match: (url) => url.pathname === "/repos/acme/app/labels/ci-usage", body: { name: "ci-usage" } },
+      { match: (url) => isIssues(url) && url.search !== "", body: [{ number: 5, body: REPORT_MARKER, html_url: "https://github.com/acme/app/issues/5" }] },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/5", body: { number: 5, body: "", html_url: "https://github.com/acme/app/issues/5" } },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/5/comments", status: 201, body: {} },
+    ]);
+    const client = createGithubClient({ token: "t", fetch: fake.fetch });
+    await publishReport({ client, repository: "acme/app", report: REPORT, markdown: MARKDOWN, runUrl: RUN_URL });
+
+    expect(fake.requests[1]?.url.searchParams.get("state")).toBe("open");
+    expect(Object.keys(fake.requests[2]?.body as object)).toEqual(["body"]);
+  });
+
   it("returns a refused write as a value naming the request", async () => {
     const fake = createFakeGithub([
       { match: (url) => url.pathname === "/repos/acme/app/labels/ci-usage", body: { name: "ci-usage" } },
