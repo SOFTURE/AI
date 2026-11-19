@@ -23,8 +23,8 @@ import { readFlags } from "./options.js";
  * 1 red, 3 no result.
  */
 
-export const NO_RESULT_IN_TIME_EXIT_CODE = 75;
-export const NO_STORED_RESULT_EXIT_CODE = 3;
+const NO_RESULT_IN_TIME_EXIT_CODE = 75;
+const NO_STORED_RESULT_EXIT_CODE = 3;
 const DEFAULT_WAIT_MINUTES = 30;
 const DEFAULT_POLL_SECONDS = 15;
 const DEFAULT_MAIN_BRANCH = "main";
