@@ -104,6 +104,14 @@ describe("running jobs", () => {
     expect(await getJob(test.ctx, limited.id)).toMatchObject({ status: "pending", runAt: new Date(NOW.getTime() + 120 * SECOND_MS) });
   });
 
+  it("keeps a handler's own retry delay within a week", async () => {
+    const handlers = { "ai.reply": defineJobHandler({ payload, run: () => Promise.resolve(retryJobLater("app.rate_limited", 30 * 24 * 60 * 60)) }) };
+    const { id } = await enqueueJob(test.ctx, { queue: "ai.reply", payload: { messageId: "m-1" } });
+
+    expect(await run(handlers)).toMatchObject({ retried: 1 });
+    expect(await getJob(test.ctx, id)).toMatchObject({ status: "pending", runAt: new Date(NOW.getTime() + 604_800 * SECOND_MS) });
+  });
+
   it("fails a payload its handler's schema refuses without running it, logging paths only", async () => {
     const runHandler = vi.fn(() => Promise.resolve(ok()));
     const { id } = await enqueueJob(test.ctx, { queue: "ai.reply", payload: { messageId: 42, secret: "do-not-log" } });

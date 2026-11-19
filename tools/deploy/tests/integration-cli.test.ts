@@ -389,6 +389,17 @@ describe("softure-deploy integration run", () => {
     expect(remoteRef("refs/heads/integration/feature")).toBe(sha);
   });
 
+  it("does not start when the first fetch of the notes fails, so an older note cannot pass for the result", async () => {
+    commit(work, "b.txt");
+    const marker = join(root, "failed-once");
+    const uploadPack = join(root, "upload-pack.sh");
+    writeFileSync(uploadPack, `#!/bin/sh\nif [ ! -e "${marker}" ]; then touch "${marker}"; echo "fatal: the remote hiccuped" >&2; exit 128; fi\nexec git-upload-pack "$@"\n`, { mode: 0o755 });
+    git(work, "config", "remote.origin.uploadpack", uploadPack);
+    expect(await cli(work, ["integration", "run", "--name=feature", "--wait-minutes=0"])).toBe(1);
+    expect(err.join("")).toContain("cannot reach origin (fatal: the remote hiccuped); the run did not start.");
+    expect(remoteRef("refs/heads/integration/feature")).toBe("");
+  });
+
   it("never prints the credentials of a remote URL in git's reason", async () => {
     commit(work, "b.txt");
     git(work, "remote", "set-url", "origin", "http://deploy:s3cr3t-token@127.0.0.1:9/app.git");

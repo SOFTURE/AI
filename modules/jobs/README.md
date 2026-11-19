@@ -117,8 +117,8 @@ export const handlers: JobHandlers = {
 - `failJob(code)`: `failed` at once. `failJob(code, { expected: true })` when the app expects the failure (input it
   refuses, a state it reports back to its user): still `failed` at once and seen by every hook and metric, but its end
   line is a `warn` marked `expected: true` instead of an `error`, so an alert on error logs counts only faults.
-- `retryJobLater(code, seconds)`: retried after `seconds` instead of the backoff (a provider's `Retry-After`); still
-  counts as an attempt.
+- `retryJobLater(code, seconds)`: retried after `seconds` instead of the backoff (a provider's `Retry-After`), at
+  most a week (604 800 s; a longer delay is cut to it, as is a `pauseQueueLater` pause); still counts as an attempt.
 - A throw: retried like an `Err` with the code `jobs.handler_threw`, and logged with the error.
 
 **Handlers run at least once.** A worker can die after the side effect and before recording it, a lease can end, a

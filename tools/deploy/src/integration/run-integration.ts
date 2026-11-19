@@ -150,7 +150,9 @@ export async function runIntegration(options: RunOptions): Promise<RunResult> {
   const notesRef = getNotesRef(options);
   // Read the stored note before the push: a fast run could otherwise replace it before it is read, and the wait
   // below would never see a change.
-  fetchIntegrationNotes(options.cwd, options.remote, notesRef);
+  // A failed fetch would leave `before` stale, and an older note fetched later would pass for this run's result.
+  const fetchedBefore = fetchIntegrationNotes(options.cwd, options.remote, notesRef);
+  if (!fetchedBefore.ok) return { kind: "unreachable", reason: fetchedBefore.reason };
   const before = readNoteText(options.cwd, notesRef, options.sha);
   const current = readRemoteRef(options.cwd, options.remote, ref);
   if (current.kind === "unreachable") return { kind: "unreachable", reason: current.reason };

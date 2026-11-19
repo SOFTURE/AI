@@ -293,6 +293,13 @@ describe("pauseQueueLater", () => {
     expect(await runDueJobs(test.ctx, { handlers: scriptedHandler([]), logger: silentLogger })).toMatchObject({ succeeded: 2 });
   });
 
+  it("keeps a handler's pause within a week", async () => {
+    test = await createTestJobs({ queues: queueOptions({}) });
+    await enqueueMany(test, 1);
+    await runDueJobs(test.ctx, { handlers: scriptedHandler([pauseQueueLater("app.captcha", 30 * 24 * 60 * 60)]), logger: silentLogger });
+    expect(await getQueuePause(test.ctx, QUEUE)).toEqual({ source: "handler", reason: "app.captcha", until: new Date(NOW.getTime() + 604_800 * SECOND_MS) });
+  });
+
   it("never shortens a longer pause", async () => {
     const recorder = recordJobHooks();
     test = await createTestJobs({ queues: queueOptions({}), ...recorder.options });
