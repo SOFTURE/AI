@@ -247,6 +247,17 @@ describe("the OAuth HTTP layer", () => {
       expect((await requestToken({ client_id: other.clientId, grant_type: "refresh_token", refresh_token: "x" })).response.status).toBe(400);
     });
 
+    it("counts unknown client ids with their address, so made-up ids neither escape the limit nor add counters", async () => {
+      const { client } = await connectApp(test.ctx, alice);
+      for (let attempt = 0; attempt < MCP_RATE_LIMIT_BUCKETS["mcp-oauth"].limit; attempt++) {
+        await requestToken({ client_id: `made-up-${String(attempt)}`, grant_type: "refresh_token", refresh_token: "x" });
+      }
+      expect((await requestToken({ client_id: "made-up-again", grant_type: "refresh_token", refresh_token: "x" })).response.status).toBe(429);
+      expect((await requestToken({ client_id: client.clientId, grant_type: "refresh_token", refresh_token: "x" })).response.status).toBe(400);
+      const counters = await test.database.client.query<{ total: number }>("SELECT count(*)::int AS total FROM security.rate_limits WHERE bucket = 'mcp-oauth'");
+      expect(counters.rows[0]?.total).toBe(2);
+    });
+
     it("answers 500 without details when the database fails, and logs no secret", async () => {
       const { client, tokens } = await connectApp(test.ctx, alice);
       const log = vi.spyOn(console, "error").mockImplementation(() => undefined);

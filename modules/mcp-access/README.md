@@ -550,8 +550,14 @@ registerOperationTasks(server, { ctx, identity, readResult });
 
 A tool that spends money (a paid provider call) or cannot be undone follows the `--commit` rule over MCP:
 `withConfirmation` (`/server`) makes the first call estimate only, the person agrees in the chat, and only a second
-call with the same input does the work. The assistant cannot agree on its own: the token comes only from an estimate,
-is single use and bound to that exact input.
+call with the same input does the work. The token comes only from an estimate, is single use and bound to that exact
+input, so the assistant cannot skip the estimate or change the input after the yes.
+
+**What it does not guard against:** the assistant receives the token itself, so a confused or prompt-injected
+assistant (instructions hidden in a document, a mail or a tool answer) can send the second call without asking the
+person. The confirmation is a step the assistant is told to follow, not proof that the person agreed. For an action
+that must never run without the person, keep it off MCP or confirm it outside the chat (a page in the app the person
+opens, a mail link), and keep write access (`canWrite`) to the tokens and grants that need it.
 
 ```ts
 import { confirmationInput, withConfirmation } from "@softure-ai/mcp-access/server";
@@ -756,6 +762,17 @@ export { getAuthorizationServerMetadataRoute as GET, answerOAuthPreflight as OPT
 // app/.well-known/oauth-protected-resource/route.ts and
 // app/.well-known/oauth-protected-resource/api/mcp/route.ts (the endpoint's path after the prefix)
 export { getProtectedResourceMetadataRoute as GET, answerOAuthPreflight as OPTIONS } from "@softure-ai/mcp-access/next";
+```
+
+**The consent page must not be framed**, or another site could lay it under its own and trick a click on "Allow"
+(clickjacking; the session cookie's `SameSite=Lax` does not stop a framed page from using it on a same-site parent).
+A Next page cannot set response headers, so add `buildOAuthConsentHeaders()` (root entry; it takes a moved consent
+path) to `next.config`; it answers `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`:
+
+```ts
+// next.config.ts
+import { buildOAuthConsentHeaders } from "@softure-ai/mcp-access";
+const nextConfig: NextConfig = { headers: () => Promise.resolve([buildOAuthConsentHeaders()]) };
 ```
 
 `/.well-known/oauth-*`, `/api/oauth/token` and `/api/oauth/register` are public: keep them out of

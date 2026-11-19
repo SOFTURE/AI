@@ -199,9 +199,9 @@ function assertOAuthRateLimitBucket(config: SoftureConfig): void {
 
 /**
  * Counts the request in the OAuth bucket before any work: per client address, and for the token
- * endpoint per address and client id (an assistant platform refreshes the tokens of all its users
- * from a few shared addresses, and each connection registers its own client). A failing counter
- * closes (503) and says nothing.
+ * endpoint per address and registered client (an assistant platform refreshes the tokens of all its
+ * users from a few shared addresses, and each connection registers its own client). A failing
+ * counter closes (503) and says nothing.
  */
 async function limitProtocolRequest(ctx: McpAccessContext, request: Request, clientId: string | null = null): Promise<Response | null> {
   assertOAuthRateLimitBucket(ctx.config);
@@ -346,11 +346,19 @@ export async function handleTokenRequest(ctx: McpAccessContext, request: Request
   // An unreadable body is an empty form, which the client check refuses.
   const form = new URLSearchParams(text.ok ? text.value : "");
   const credentials = readClientCredentials(request, form);
-  const limited = await limitProtocolRequest(ctx, request, credentials.clientId);
+  let client: OAuthClientRow | null;
+  try {
+    client = credentials.clientId === null ? null : await findOAuthClient(ctx, credentials.clientId);
+  } catch (error) {
+    console.error(`@softure-ai/mcp-access: the OAuth token endpoint failed: ${errorLogLabel(error)}`);
+    return protocolError("server_error", "The token could not be issued.", 500);
+  }
+  // Only a registered client gets a counter of its own: a made-up id is counted with its address, so
+  // random ids neither escape the limit nor add a counter row each.
+  const limited = await limitProtocolRequest(ctx, request, client?.clientId ?? null);
   if (limited !== null) return limited;
 
   try {
-    const client = credentials.clientId === null ? null : await findOAuthClient(ctx, credentials.clientId);
     if (client === null || !isClientSecretValid(client, credentials.clientSecret === "" ? null : credentials.clientSecret)) {
       return protocolError("invalid_client", "Unknown client or wrong client credentials.", 401, credentials.isBasic ? { "www-authenticate": 'Basic realm="mcp"' } : {});
     }

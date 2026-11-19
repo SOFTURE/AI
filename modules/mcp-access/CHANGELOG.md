@@ -13,6 +13,16 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `pruneOAuthRecords` delete them. README, the module's overview.
   - Migrate: nothing. Tell users that changing the password signs out their assistants and scripts; they issue new
     tokens or connect the app again.
+- **Consent page headers:** `buildOAuthConsentHeaders(consentPath?)` and `OAUTH_CONSENT_PAGE_HEADERS` (root entry)
+  give the `next.config` `headers()` entry that stops other sites from framing the consent page
+  (`Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`). README, the OAuth routes.
+  - Migrate: add `headers: () => Promise.resolve([buildOAuthConsentHeaders()])` to `next.config` when OAuth is on.
+- **Token endpoint rate limit:** the counter per address and client is kept only for a registered client; an
+  unknown `client_id` is counted with its address, so made-up ids no longer escape the limit or add a counter row each.
+  - Migrate: nothing.
+- **README, confirmed calls:** says what `withConfirmation` does not guard against: the assistant holds the token, so a
+  prompt-injected assistant can confirm without the person.
+  - Migrate: nothing; keep actions that must never run without the person off MCP.
 
 ## 0.7.7
 

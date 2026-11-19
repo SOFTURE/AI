@@ -15,3 +15,21 @@ export const DEFAULT_MCP_ACCESS_ROUTES = {
   /** `POST` dynamic client registration. */
   oauthRegister: "/api/oauth/register",
 } as const;
+
+/**
+ * The headers the consent page answers with: no other site may frame it, so none can trick a click
+ * on "Allow" (clickjacking). A page cannot set response headers in Next, so the app adds them in
+ * `next.config` (`buildOAuthConsentHeaders`) or its proxy.
+ */
+export const OAUTH_CONSENT_PAGE_HEADERS: readonly { readonly key: string; readonly value: string }[] = [
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+  { key: "X-Frame-Options", value: "DENY" },
+];
+
+/** A `headers()` entry of `next.config` for the consent page: `headers: () => Promise.resolve([buildOAuthConsentHeaders()])`. */
+export function buildOAuthConsentHeaders(consentPath: string = DEFAULT_MCP_ACCESS_ROUTES.oauthConsent): {
+  source: string;
+  headers: { key: string; value: string }[];
+} {
+  return { source: consentPath, headers: OAUTH_CONSENT_PAGE_HEADERS.map((header) => ({ ...header })) };
+}
