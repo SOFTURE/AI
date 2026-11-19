@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
-## Unreleased
+## 0.45.1
 
 - **A clip recorded in one channel plays on both (issue #1385):** a stereo clip whose sound lives in one channel only
   (a wireless lavalier receiver in stereo mode with one transmitter: voice left, a dead right channel) kept its
