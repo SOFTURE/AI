@@ -193,6 +193,27 @@ describe("useJobStatus", () => {
     expect(result.current).toMatchObject({ job: { status: "cancelled", failureCode: "jobs.cancelled" }, isPolling: false });
   });
 
+  it("answers network for a cancel that hangs past its time limit", async () => {
+    const { result } = render("7", { intervalMs: 1000, maxIntervalMs: 15_000 });
+    await flush();
+    fetchMock.mockImplementationOnce(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    let answer: unknown;
+    await act(async () => {
+      const pending = result.current.cancel().then((value) => {
+        answer = value;
+      });
+      await vi.advanceTimersByTimeAsync(15_000);
+      await pending;
+    });
+    expect(answer).toEqual({ ok: false, error: "network" });
+    expect(fetchMock.mock.calls.filter((call) => call[1]?.method === "DELETE")).toHaveLength(1);
+  });
+
   it("returns the route's refusal of a cancel", async () => {
     const { result } = render("7");
     await flush();

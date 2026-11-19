@@ -16,8 +16,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   `-` (first 200 characters); anything else, such as an exception message with a dot in it, is stored as
   `jobs.handler_threw` (`jobs.sync_item_threw` for a sync item). Before, any text with a dot passed.
   - Migrate: nothing, unless a handler returns codes with other characters: use the code shape.
-- **`useJobStatus` cuts off a poll that hangs** after the larger of `maxIntervalMs` and 10 s; it reports `network` and
-  backs off, instead of holding every later poll until the browser gives up.
+- **`useJobStatus` cuts off a request that hangs** after the larger of `maxIntervalMs` and 10 s: a poll reports
+  `network` and backs off, instead of holding every later poll until the browser gives up, and `cancel()` answers
+  `{ ok: false, error: "network" }` (also aborted when the hook unmounts or moves to another job).
   - Migrate: nothing.
 
 ## 0.1.12
