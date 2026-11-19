@@ -4,9 +4,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import { err, errorLogLabel, ok, type Err, type ModuleContext, type Ok } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { and, count, desc, eq, gt, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { AccessTokenKind, AccessTokenView } from "../contract.js";
 import { MAX_PRESENTED_TOKEN_LENGTH, MAX_TOKEN_NAME_LENGTH, type McpAccessOptions } from "../options.js";
+import { users } from "@softure-ai/auth";
 import { accessTokens, oauthGrants } from "../schema.js";
 import { getMcpAccessOptions } from "./options.js";
 
@@ -131,7 +132,8 @@ export async function insertToken(ctx: McpAccessContext, input: TokenInsert): Pr
 
 /**
  * The owner's hand-issued tokens of both kinds, newest first, expired ones included (the list marks
- * them). OAuth access tokens are left out: the page shows their grants instead.
+ * them). OAuth access tokens are left out: the page shows their grants instead. Tokens issued before
+ * the last password change are left out too: they no longer work.
  */
 export async function listAccessTokens(ctx: McpAccessContext, userId: string): Promise<AccessTokenView[]> {
   return ctx.db
@@ -146,7 +148,8 @@ export async function listAccessTokens(ctx: McpAccessContext, userId: string): P
       lastUsedAt: accessTokens.lastUsedAt,
     })
     .from(accessTokens)
-    .where(and(eq(accessTokens.userId, userId), isNull(accessTokens.grantId)))
+    .innerJoin(users, eq(users.id, accessTokens.userId))
+    .where(and(eq(accessTokens.userId, userId), isNull(accessTokens.grantId), lte(users.passwordChangedAt, accessTokens.createdAt)))
     .orderBy(desc(accessTokens.createdAt), desc(accessTokens.id));
 }
 
@@ -227,7 +230,8 @@ export interface ValidTokenRow {
 
 /**
  * The unexpired token of `kind` stored under this hash, or null, after recording its use. The caller
- * checks the shape first, so no lookup runs for a value that cannot be a token.
+ * checks the shape first, so no lookup runs for a value that cannot be a token. A password reset or
+ * change ends every token issued before it: whoever took the account over keeps none of theirs.
  */
 export async function findValidToken(ctx: McpAccessContext, tokenHash: string, kind: AccessTokenKind): Promise<ValidTokenRow | null> {
   const now = ctx.clock.now();
@@ -241,7 +245,15 @@ export async function findValidToken(ctx: McpAccessContext, tokenHash: string, k
       scopes: accessTokens.scopes,
     })
     .from(accessTokens)
-    .where(and(eq(accessTokens.tokenHash, tokenHash), eq(accessTokens.kind, kind), gt(accessTokens.expiresAt, now)));
+    .innerJoin(users, eq(users.id, accessTokens.userId))
+    .where(
+      and(
+        eq(accessTokens.tokenHash, tokenHash),
+        eq(accessTokens.kind, kind),
+        gt(accessTokens.expiresAt, now),
+        lte(users.passwordChangedAt, accessTokens.createdAt),
+      ),
+    );
   if (row === undefined) return null;
   await recordUse(ctx, row, now);
   return row;
@@ -268,14 +280,20 @@ async function recordUse(ctx: McpAccessContext, token: { readonly id: string; re
 }
 
 /**
- * Deletes every expired token, of every account and kind, hand-issued and OAuth alike. Issuing already
- * removes the issuer's own; an app may call this from a scheduled job so abandoned accounts do not
- * keep dead rows (with `pruneOAuthRecords` for codes, grants and clients).
+ * Deletes every expired token, and every token issued before its account's last password change, of
+ * every account and kind, hand-issued and OAuth alike. Issuing already removes the issuer's expired
+ * ones; an app may call this from a scheduled job so abandoned accounts do not keep dead rows (with
+ * `pruneOAuthRecords` for codes, grants and clients).
  */
 export async function pruneAccessTokens(ctx: McpAccessContext): Promise<number> {
+  const endedByPasswordChange = ctx.db
+    .select({ id: accessTokens.id })
+    .from(accessTokens)
+    .innerJoin(users, eq(users.id, accessTokens.userId))
+    .where(gt(users.passwordChangedAt, accessTokens.createdAt));
   const removed = await ctx.db
     .delete(accessTokens)
-    .where(lte(accessTokens.expiresAt, ctx.clock.now()))
+    .where(or(lte(accessTokens.expiresAt, ctx.clock.now()), inArray(accessTokens.id, endedByPasswordChange)))
     .returning();
   return removed.length;
 }

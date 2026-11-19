@@ -174,7 +174,9 @@ the variables the provider names.
   `?oidc_error=auth.oidc_not_allowed` and never gets an account.
 - **Accounts.** The provider's subject finds the account (`auth.identities`), so an email change at the provider does
   not lock its owner out. A first sign-in links the account with the same verified email, or creates one (with an
-  unusable password) when `createAccounts` is on; account creation does not look at `registrationClosed`, the
+  unusable password) when `createAccounts` is on. Registration does not prove an email, so linking an account no
+  provider has verified yet ends its password (replaced by an unusable one), its sessions and a pending reset link:
+  whoever registered the address first keeps no way in, and the owner sets a password again through a reset link; account creation does not look at `registrationClosed`, the
   allowlist is the gate. An account keeps one identity per provider: a new subject with an email that already has one
   (a recycled address) is refused with `auth.oidc_no_account`. `onRegistered` runs for a created account with
   `consent: null`, `fields: {}` and `oidcProvider: "<id>"`.

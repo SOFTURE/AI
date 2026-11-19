@@ -138,7 +138,7 @@ export {
   type McpToolDefinition,
   type McpToolDefinitionInput,
 } from "./options.js";
-export { DEFAULT_MCP_ACCESS_ROUTES } from "./routes.js";
+export { buildOAuthConsentHeaders, DEFAULT_MCP_ACCESS_ROUTES, OAUTH_CONSENT_PAGE_HEADERS } from "./routes.js";
 export { readRequestOrigin, type McpOriginRequest, type McpOrigins } from "./origins.js";
 export { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants, type OAuthClientRow, type OAuthTokenEndpointAuthMethod } from "./schema.js";
 export { getAccessTokenStatus, type AccessTokenStatusOptions } from "./token-status.js";

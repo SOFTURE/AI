@@ -4,6 +4,26 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## Unreleased
+
+- **A password reset or change ends earlier tokens:** an MCP or API token, an OAuth grant (its refresh token and access
+  tokens) and an unused authorization code issued before the account's last password change no longer work, and the
+  token page leaves them out. Before, they lived on for up to their lifetime (90 days for a token), so whoever had
+  taken an account over kept a way in after the owner reset the password. `pruneAccessTokens` and
+  `pruneOAuthRecords` delete them. README, the module's overview.
+  - Migrate: nothing. Tell users that changing the password signs out their assistants and scripts; they issue new
+    tokens or connect the app again.
+- **Consent page headers:** `buildOAuthConsentHeaders(consentPath?)` and `OAUTH_CONSENT_PAGE_HEADERS` (root entry)
+  give the `next.config` `headers()` entry that stops other sites from framing the consent page
+  (`Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`). README, the OAuth routes.
+  - Migrate: add `headers: () => Promise.resolve([buildOAuthConsentHeaders()])` to `next.config` when OAuth is on.
+- **Token endpoint rate limit:** the counter per address and client is kept only for a registered client; an
+  unknown `client_id` is counted with its address, so made-up ids no longer escape the limit or add a counter row each.
+  - Migrate: nothing.
+- **README, confirmed calls:** says what `withConfirmation` does not guard against: the assistant holds the token, so a
+  prompt-injected assistant can confirm without the person.
+  - Migrate: nothing; keep actions that must never run without the person off MCP.
+
 ## 0.7.7
 
 - `/server` gives `createUntrustedWrapper({ open, close })`: `wrap` puts text a tool did not write between the app's

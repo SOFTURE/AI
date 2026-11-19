@@ -4,7 +4,8 @@
 // `access_tokens` with its grant, so the endpoint verifies it like any other token.
 import { timingSafeEqual } from "node:crypto";
 import { err, ok, type Err, type Ok } from "@softure-ai/core";
-import { and, desc, eq, gt, isNotNull, isNull, lt, lte, notExists } from "drizzle-orm";
+import { users } from "@softure-ai/auth";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, notExists, or } from "drizzle-orm";
 import type { OAuthGrantView } from "../contract.js";
 import { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants, type OAuthClientRow, type OAuthTokenEndpointAuthMethod } from "../schema.js";
 import { getMcpAccessOptions } from "./options.js";
@@ -154,6 +155,8 @@ export async function exchangeAuthorizationCode(ctx: McpAccessContext, input: Ex
       return null;
     }
 
+    if (await isIssuedBeforePasswordChange(tx, code.userId, code.createdAt)) return null;
+
     const redirectUri = input.redirectUri ?? (input.client.redirectUris.length === 1 ? (input.client.redirectUris[0] ?? null) : null);
     if (code.clientId !== input.client.id || code.redirectUri !== redirectUri || !isPkceVerifierValid(input.codeVerifier, code.codeChallenge)) {
       return null;
@@ -204,10 +207,23 @@ export async function refreshMcpGrant(ctx: McpAccessContext, input: RefreshOAuth
       await tx.delete(oauthGrants).where(eq(oauthGrants.previousRefreshTokenHash, presentedHash));
       return null;
     }
+    if (await isIssuedBeforePasswordChange(tx, grant.userId, grant.createdAt)) {
+      await tx.delete(oauthGrants).where(eq(oauthGrants.id, grant.id));
+      return null;
+    }
     // The grant's spent access tokens; the current ones stay valid until they expire.
     await tx.delete(accessTokens).where(and(eq(accessTokens.grantId, grant.id), lte(accessTokens.expiresAt, now)));
     return issueGrantTokens(ctx, tx, { grant, clientName: input.client.clientName, refreshToken, now });
   });
+}
+
+/**
+ * Whether the account's password changed after `issuedAt` (or the account is gone): a reset or a change
+ * ends every code and grant consented to before it, so whoever took the account over keeps no app.
+ */
+async function isIssuedBeforePasswordChange(tx: Transaction, userId: string, issuedAt: Date): Promise<boolean> {
+  const [user] = await tx.select({ passwordChangedAt: users.passwordChangedAt }).from(users).where(eq(users.id, userId));
+  return user === undefined || user.passwordChangedAt > issuedAt;
 }
 
 function getRefreshExpiry(ctx: McpAccessContext, now: Date): Date {
@@ -244,7 +260,7 @@ async function revokeGrantOfReusedCode(tx: Transaction, codeHash: string): Promi
   await tx.delete(oauthGrants).where(and(eq(oauthGrants.userId, reused.userId), eq(oauthGrants.clientId, reused.clientId)));
 }
 
-/** The owner's unexpired grants, newest first: the connected apps list. */
+/** The owner's unexpired grants consented to since the last password change, newest first: the connected apps list. */
 export async function listOAuthGrants(ctx: McpAccessContext, userId: string): Promise<OAuthGrantView[]> {
   return ctx.db
     .select({
@@ -256,7 +272,8 @@ export async function listOAuthGrants(ctx: McpAccessContext, userId: string): Pr
     })
     .from(oauthGrants)
     .innerJoin(oauthClients, eq(oauthGrants.clientId, oauthClients.id))
-    .where(and(eq(oauthGrants.userId, userId), gt(oauthGrants.refreshExpiresAt, ctx.clock.now())))
+    .innerJoin(users, eq(users.id, oauthGrants.userId))
+    .where(and(eq(oauthGrants.userId, userId), gt(oauthGrants.refreshExpiresAt, ctx.clock.now()), lte(users.passwordChangedAt, oauthGrants.createdAt)))
     .orderBy(desc(oauthGrants.createdAt), desc(oauthGrants.id));
 }
 
@@ -289,13 +306,21 @@ export interface PrunedOAuthRecords {
 }
 
 /**
- * Deletes expired codes, grants whose refresh token expired (their access tokens by cascade) and
- * abandoned clients, of every account: for a scheduled job, next to `pruneAccessTokens`.
+ * Deletes expired codes, grants whose refresh token expired or that were consented to before the
+ * account's last password change (their access tokens by cascade) and abandoned clients, of every account: for a scheduled job, next to `pruneAccessTokens`.
  */
 export async function pruneOAuthRecords(ctx: McpAccessContext): Promise<PrunedOAuthRecords> {
   const now = ctx.clock.now();
   const codes = await ctx.db.delete(oauthAuthorizationCodes).where(lte(oauthAuthorizationCodes.expiresAt, now)).returning();
-  const grants = await ctx.db.delete(oauthGrants).where(lte(oauthGrants.refreshExpiresAt, now)).returning();
+  const endedByPasswordChange = ctx.db
+    .select({ id: oauthGrants.id })
+    .from(oauthGrants)
+    .innerJoin(users, eq(users.id, oauthGrants.userId))
+    .where(gt(users.passwordChangedAt, oauthGrants.createdAt));
+  const grants = await ctx.db
+    .delete(oauthGrants)
+    .where(or(lte(oauthGrants.refreshExpiresAt, now), inArray(oauthGrants.id, endedByPasswordChange)))
+    .returning();
   const clients = await deleteStaleClients(ctx, now);
   return { codes: codes.length, grants: grants.length, clients };
 }

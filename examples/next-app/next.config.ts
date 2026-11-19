@@ -1,4 +1,5 @@
 import { withDatabaseBuild } from "@softure-ai/db/next-config";
+import { buildOAuthConsentHeaders } from "@softure-ai/mcp-access";
 import { withBuildInfo } from "@softure-ai/ops/next-config";
 import { buildHtmlLimitedBots } from "@softure-ai/seo";
 import type { NextConfig } from "next";
@@ -12,6 +13,8 @@ const nextConfig: NextConfig = {
   // itself; workerd has no node_modules to load it from, and its Workers entry needs no hooks.
   serverExternalPackages: HOST === "vps" ? ["@softure-ai/observability"] : [],
   poweredByHeader: false,
+  // The OAuth consent page may not be framed (e2e/mcp-oauth.spec.ts).
+  headers: () => Promise.resolve([buildOAuthConsentHeaders()]),
   // Next's default list of bots that get metadata in <head>, plus the AI crawlers (e2e/seo.spec.ts).
   htmlLimitedBots: buildHtmlLimitedBots(),
   // The container image (Dockerfile) runs the standalone server; `npm run e2e` keeps `next start`.

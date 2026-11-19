@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- **Provider sign-in ends an unverified password account's access:** registration does not prove an email, so someone
+  could register the owner's address first and keep the password and the sessions after the owner's first OpenID
+  Connect or GitHub sign-in linked the account. A first provider sign-in that links an account no provider has
+  verified yet now replaces its password with an unusable one and deletes its sessions and a pending reset link, in
+  the same transaction. An account a provider already verified keeps them when another provider links it.
+  - Migrate: nothing. An owner who also used the password sets it again through a reset link.
+
 ## 0.2.18
 
 - **Re-authentication by a provider sign-in:** `findRecentProviderSignIn(ctx, { userId, sessionToken, withinMinutes })`

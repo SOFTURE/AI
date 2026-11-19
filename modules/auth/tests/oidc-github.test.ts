@@ -145,14 +145,14 @@ describe("completeOidcSignIn with GitHub", () => {
     expect(identities.rows).toEqual([{ subject: "583231", email: "lovelace@example.com" }]);
   });
 
-  it("links an existing password account with the same verified email, which keeps its password", async () => {
+  it("links an existing password account with the same verified email, ending its password", async () => {
     const setup = await setUp();
     const registered = await registerUser(setup.ctx, { email: "ada@example.com", password: PASSWORD, hasConsented: true, clientKey: CLIENT });
     if (!registered.ok) throw new Error(registered.error);
     const result = await signIn(setup);
     if (!result.ok) throw new Error(result.error);
     expect(result.value.user.id).toBe(registered.value.user.id);
-    expect((await loginUser(setup.ctx, { email: "ada@example.com", password: PASSWORD, clientKey: CLIENT })).ok).toBe(true);
+    expect(await loginUser(setup.ctx, { email: "ada@example.com", password: PASSWORD, clientKey: CLIENT })).toEqual({ ok: false, error: "auth.invalid_credentials" });
   });
 
   it("only links, never creates, with createAccounts off", async () => {
