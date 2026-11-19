@@ -40,7 +40,7 @@ export function CountryCounter({ value, total, unit, totalLabel, label, parts, s
         <span data-slot="country-counter-value" className={cn("num font-display text-display tracking-normal", size === "lg" && "md:text-hero")}>
           {value}
         </span>
-        <span className="grid gap-1.5 pb-2.5">
+        <span className="grid gap-1.5 md:pb-2.5">
           <span className="inline-flex h-unit w-max items-center rounded-tag bg-accent-fill px-2.5 text-unit text-on-accent">{unit}</span>
           <span className="text-body-sm text-muted">{totalLabel}</span>
         </span>
