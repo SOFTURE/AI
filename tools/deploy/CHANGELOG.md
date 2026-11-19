@@ -4,6 +4,47 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **`integration lookup` says when it reads local notes only:** a remote it cannot reach prints
+  `cannot reach origin (…); reading the local notes` on stderr, and with no result stored locally it exits 1
+  (`cannot reach origin (…) and no result for … is stored locally`) instead of 3, so a caller never reads a network
+  failure as "no result". `run` logs a failed fetch of the main branch before comparing `new-red` with its last
+  fetched state.
+  - Migrate: nothing, unless a script treats exit 3 of `lookup` as the only "nothing usable" answer: exit 1 now also
+    means the remote was unreachable.
+- **No stack trace on an unexpected failure:** a git or file system error no command expected ends the CLI with one
+  line, `softure-deploy <command>: <git's last stderr line or the error's first line>` (credentials in URLs masked),
+  and exit 1.
+  - Migrate: nothing.
+- **`backup` has time limits:** `pg_dump` runs with `--lock-wait-timeout=30000`, `PGCONNECT_TIMEOUT=10` unless the URL
+  sets `connect_timeout`, and is stopped after 60 minutes (`timeoutMs` of `createBackup`); each ends the backup as
+  failed (`pg_dump did not finish within … s and was stopped`), so a table locked by another session no longer holds
+  the deploy.
+  - Migrate: nothing.
+- **`integration run` tells a lost remote from a slow run:** each failed fetch of the result notes is logged with
+  git's reason, and a wait in which no fetch reached the remote exits 1 (`cannot reach origin for the result (…); the
+  run on … may still be in progress`) instead of 75. A remote that has no notes yet counts as reached. A failed fetch
+  before the push stops the run (`cannot reach origin (…); the run did not start`), so an older note on the commit
+  can never pass for the new run's result.
+  - Migrate: nothing.
+- **Time limits for the database and git steps:** `schema-guard` and `row-counts` connect with a statement limit of
+  10 minutes, a lock wait limit of 30 s and a client query limit (also through `withPgClient`), so a lock held by a parallel
+  migration fails the step instead of hanging it. `integration run`, `record` and `lookup` give each fetch, push and
+  `ls-remote` 2 minutes; a remote that stalls counts as unreachable.
+  - Migrate: nothing.
+- **`integration` names git's reason** when the remote refuses or cannot be reached (`origin refused … (! [remote
+  rejected] … (pre-receive hook declined))`), with any credentials of the remote URL masked. `record` retries only a
+  push that lost a race to another run; any other refusal fails at once.
+  - Migrate: nothing.
+- **`countRows` refuses a name that is not a table name** (`table` or `schema.table`, lower snake case) before it
+  runs any query, as `buildRowCountQuery` already did.
+  - Migrate: nothing for names from `parseTableList` or `deploy.json`; a library caller passing other names gets a
+    `RangeError`.
+- **Release notes fail on a git error** instead of reading it as a first release: `findPreviousTag` returns null only
+  when no tag matching the glob is merged into the commit.
+  - Migrate: nothing.
+
 ## 0.7.7
 
 - **`init --host=cloudflare`: the weekly `backup-verify.yml` reports a failed check (#1386).** With `issues: write`, a

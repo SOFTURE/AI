@@ -72,6 +72,7 @@ export {
   type JobsOptions,
   type JobsOptionsInput,
   type LocalTimeScheduleOptions,
+  type JobsHookContext,
   type OnJobAttemptHook,
   type OnJobFailedHook,
   type OnQueuePausedHook,

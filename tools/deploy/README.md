@@ -135,8 +135,10 @@ softure-deploy release-report --body=<release body file> --summary=deploy-report
 ## Database steps around a deploy
 
 `backup`, `schema-guard` and `row-counts` read the database URL from `DATABASE_URL` (`--url-env=<NAME>` names
-another variable). The URL is never printed; a driver error prints its message only. A server `deploy.sh` runs them
-in this order:
+another variable). The URL is never printed; a driver error prints its message only. `schema-guard` and `row-counts`
+connect with time limits (10 s to connect, 10 minutes per statement, 30 s per lock wait), so a lock held by a
+migration running at the same time fails the step with a message instead of hanging it. A server `deploy.sh` runs
+them in this order:
 
 ```bash
 softure-deploy backup --dir=/srv/app/backups --keep=7                   # 1. dump, then retention
@@ -173,6 +175,9 @@ softure-deploy backup [--dir=backups] [--prefix=db] [--keep=7] [--max-age-days=<
   for `pg_dump`, and other `PG*` variables of the shell are not passed on. A URL query parameter without a libpq
   variable is refused by name.
 - The dump is written with mode `0600` through a temporary file and a rename; a failed `pg_dump` leaves no file.
+- **Time limits:** `pg_dump` waits at most 30 s for a table lock (`--lock-wait-timeout`), 10 s for the connection
+  unless the URL sets `connect_timeout`, and is stopped after 60 minutes in all (`timeoutMs` of `createBackup`); each
+  ends the backup as failed instead of holding the deploy.
 - **Integrity:** the new file must start with the custom format's `PGDMP` header; otherwise it is removed and the
   step fails, before any retention.
 - **Retention** runs only after a dump succeeded: the newest `--keep` dumps of `--prefix` stay, older ones of that
@@ -1493,7 +1498,7 @@ so a JUnit report from another writer prints no `flaky` lines.
 | Exit | `run` | `lookup` |
 | --- | --- | --- |
 | `0` | green | a green result is stored |
-| `1` | red, or the run could not start (remote unreachable, push refused, name in use) | a red result is stored |
+| `1` | red, the run could not start (remote unreachable, push refused, name in use), or the remote could not be reached for the result while waiting (the run may still finish) | a red result is stored, or the remote could not be reached and nothing is stored locally |
 | `3` | | no result for the commit |
 | `75` | no result within `--wait-minutes` (retry later; the run may still finish) | |
 

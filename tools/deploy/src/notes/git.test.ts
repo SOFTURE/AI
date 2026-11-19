@@ -67,6 +67,15 @@ describe("git reads of the release report", () => {
     expect(findPreviousTag({ cwd: repo, to: "v1.0.0", match: "*" })).toBeNull();
   });
 
+  it("throws when git fails, instead of reading it as a first release", () => {
+    const outside = mkdtempSync(join(tmpdir(), "not-a-repo-"));
+    try {
+      expect(() => findPreviousTag({ cwd: outside, to: "HEAD", match: "v*" })).toThrow();
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("reads the whole history for a first release", () => {
     expect(readReleaseCommits({ cwd: repo, from: null, to: "v1.0.0" }).map((commit) => commit.subject)).toEqual([
       "chore: first commit",

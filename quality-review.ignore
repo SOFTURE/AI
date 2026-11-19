@@ -15,3 +15,8 @@ QR-5cebc6e2
 # (ids over 255 characters run none), the cost of the counter itself; adopted clients keep their own id format, so a
 # shape check cannot replace it (comment in handleTokenRequest).
 QR-cc3a4799
+
+# security subjectKey stores an unsalted SHA-256 prefix: keying it with an HMAC needs a server secret at every caller
+# (auth, files, waitlist, billing, privacy), none of which has a context where it calls subjectKey. Rate limit rows
+# live two windows, and README §11 states the keys are pseudonymous, not anonymous.
+QR-bcbad772

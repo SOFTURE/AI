@@ -26,9 +26,9 @@ import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import { readInputText, type CliIo } from "./io.js";
 import { readFlags } from "./options.js";
 
-export const DEFAULT_BACKUP_DIR = "backups";
-export const DEFAULT_BACKUP_PREFIX = "db";
-export const DEFAULT_BACKUP_KEEP = 7;
+const DEFAULT_BACKUP_DIR = "backups";
+const DEFAULT_BACKUP_PREFIX = "db";
+const DEFAULT_BACKUP_KEEP = 7;
 
 /** The database URL from the variable `--url-env` names; the URL itself is never printed. */
 function readDatabaseUrl(command: string, env: CliIo["env"], name: string): string {

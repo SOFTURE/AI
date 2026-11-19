@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
+  createBackup,
   formatBackupName,
   hasCustomFormatHeader,
   isBackupName,
@@ -88,5 +89,39 @@ describe("hasCustomFormatHeader", () => {
     expect(hasCustomFormatHeader(write("empty.dump", ""))).toBe(false);
     expect(hasCustomFormatHeader(write("short.dump", "PGD"))).toBe(false);
     expect(hasCustomFormatHeader(write("plain.dump", "--\n-- PostgreSQL database dump\n"))).toBe(false);
+  });
+});
+
+describe("createBackup", () => {
+  const dir = mkdtempSync(join(tmpdir(), "softure-deploy-backup-"));
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function writeScript(name: string, body: string): string {
+    const path = join(dir, name);
+    writeFileSync(path, `#!/bin/sh\n${body}\n`, { mode: 0o755 });
+    return path;
+  }
+
+  const base = { prefix: "db", keep: 3, now: new Date("2026-10-05T18:01:02Z"), env: { PATH: process.env.PATH } };
+
+  it("gives pg_dump a connect timeout unless the URL sets one", async () => {
+    const seen = join(dir, "connect-timeout.txt");
+    const pgDump = writeScript("env-pg-dump.sh", `printf '%s\\n' "$PGCONNECT_TIMEOUT" >> "${seen}"\nprintf 'PGDMP fake'`);
+    const first = await createBackup({ ...base, dir: join(dir, "a"), libpqEnv: { PGHOST: "db" }, pgDump });
+    const second = await createBackup({ ...base, dir: join(dir, "b"), libpqEnv: { PGHOST: "db", PGCONNECT_TIMEOUT: "3" }, pgDump });
+    expect([first.ok, second.ok]).toEqual([true, true]);
+    expect(readFileSync(seen, "utf8")).toBe("10\n3\n");
+  });
+
+  it("stops a pg_dump that runs past its time limit and keeps no file", async () => {
+    const pgDump = writeScript("slow-pg-dump.sh", "exec sleep 5");
+    const target = join(dir, "slow");
+    const startedAt = Date.now();
+    const result = await createBackup({ ...base, dir: target, libpqEnv: {}, pgDump, timeoutMs: 200 });
+    expect(result).toEqual({ ok: false, problem: "pg_dump did not finish within 1 s and was stopped" });
+    expect(Date.now() - startedAt).toBeLessThan(4000);
+    expect(readdirSync(target)).toEqual([]);
   });
 });

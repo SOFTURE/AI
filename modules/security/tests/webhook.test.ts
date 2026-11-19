@@ -62,7 +62,33 @@ describe("handleWebhook", () => {
     const response = await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), options);
     expect(await readAnswer(response)).toEqual({ status: 200, body: null });
     expect(calls.map((call) => call.event)).toEqual([EVENT]);
-    expect(await countDeliveries(test)).toBe(1);
+    expect(await countDeliveries(test)).toBe(2);
+  });
+
+  it("records the header id and a key of the signed bytes, which the id header does not cover", async () => {
+    const body = JSON.stringify(EVENT);
+    await handleWebhook(test.ctx, await signed(body), options);
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body)));
+    const hex = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const rows = await test.database.client.query<{ delivery_id: string }>(
+      "SELECT delivery_id FROM security.webhook_deliveries ORDER BY delivery_id",
+    );
+    expect(rows.rows).toEqual([{ delivery_id: DELIVERY_ID }, { delivery_id: `sha256:${hex}` }]);
+  });
+
+  it("skips the work for a captured delivery resent with a new delivery id header", async () => {
+    await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), options);
+    const resent = await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT), { deliveryId: "forged-new-id" }), options);
+    expect(await readAnswer(resent)).toEqual({ status: 200, body: null });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("runs the work for a new event under a new delivery id", async () => {
+    await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), options);
+    const next = { action: "closed", issue: { id: 42 } };
+    const response = await handleWebhook(test.ctx, await signed(JSON.stringify(next), { deliveryId: "d-2" }), options);
+    expect(response.status).toBe(200);
+    expect(calls.map((call) => call.event)).toEqual([EVENT, next]);
   });
 
   it("gives the work the delivery's transaction, not the connection", async () => {
@@ -77,6 +103,48 @@ describe("handleWebhook", () => {
     const replay = await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), options);
     expect(await readAnswer(replay)).toEqual({ status: 200, body: null });
     expect(calls).toHaveLength(1);
+  });
+
+  describe("with eventTime", () => {
+    const timedSchema = z.object({ action: z.string(), issue: z.object({ id: z.number() }), created_at: z.string() });
+    type TimedEvent = z.infer<typeof timedSchema>;
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    function timedOptions(seen: TimedEvent[]): HandleWebhookOptions<TimedEvent> {
+      return {
+        ...options,
+        schema: timedSchema,
+        eventTime: (event) => new Date(event.created_at),
+        handle: async (event) => {
+          seen.push(event);
+          await Promise.resolve();
+        },
+      };
+    }
+
+    it("answers 200 without the work or a record for an event older than the retention days", async () => {
+      const seen: TimedEvent[] = [];
+      const old = { ...EVENT, created_at: new Date(test.clock.now().getTime() - 30 * DAY_MS - 1).toISOString() };
+      const response = await handleWebhook(test.ctx, await signed(JSON.stringify(old)), timedOptions(seen));
+      expect(await readAnswer(response)).toEqual({ status: 200, body: null });
+      expect(seen).toEqual([]);
+      expect(await countDeliveries(test)).toBe(0);
+    });
+
+    it("runs the work for an event exactly at the retention boundary", async () => {
+      const seen: TimedEvent[] = [];
+      const edge = { ...EVENT, created_at: new Date(test.clock.now().getTime() - 30 * DAY_MS).toISOString() };
+      await handleWebhook(test.ctx, await signed(JSON.stringify(edge)), timedOptions(seen));
+      expect(seen).toEqual([edge]);
+    });
+
+    it("treats an invalid event time as old", async () => {
+      const seen: TimedEvent[] = [];
+      const broken = { ...EVENT, created_at: "not a date" };
+      const response = await handleWebhook(test.ctx, await signed(JSON.stringify(broken)), timedOptions(seen));
+      expect(response.status).toBe(200);
+      expect(seen).toEqual([]);
+    });
   });
 
   it("answers 413 for a body over maxBytes, before checking the signature", async () => {
@@ -149,7 +217,7 @@ describe("handleWebhook", () => {
     const failing = { ...options, handle: () => Promise.reject(new Error("queue unavailable")) };
     const response = await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), failing);
     expect(await readAnswer(response)).toEqual({ status: 500, body: { error: "security.webhook_failed" } });
-    expect(log).toHaveBeenCalledWith('@softure-ai/security: webhook "github" failed: queue unavailable');
+    expect(log).toHaveBeenCalledWith('@softure-ai/security: webhook "github" failed: Error');
     expect(await countDeliveries(test)).toBe(0);
 
     const retry = await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), options);

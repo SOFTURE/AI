@@ -4,6 +4,37 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- **`runDueJobs` extends the lease of the job it runs:** it now runs each job like the worker does (heartbeats every
+  third of `leaseSeconds`, new option `heartbeatMs`), and the handler's `signal` aborts when the lease is lost, runs
+  out or an operator cancels. Before, a handler that outlasted its lease could be claimed and run again by the next
+  cron run while the first was still going.
+  - Migrate: nothing; a long handler should pass `signal` on to its own requests.
+- **A handler stops when its lease runs out:** while the database refuses every heartbeat or does not answer it, the
+  worker aborts the handler's `signal` once the lease it last extended has ended (checked on every heartbeat tick; a
+  heartbeat still waiting for its answer is not sent again) (logged as `warn`,
+  `job lease ran out while it could not be extended`), since another worker may claim the job from then on. Before,
+  the handler ran on and the job could run twice at once.
+  - Migrate: nothing.
+- **`pauseQueueLater` never replaces an operator's timed pause:** before, a longer handler pause replaced an
+  operator's pause that had an end, against the documented rule.
+  - Migrate: nothing.
+- **Hooks have a time limit:** `onJobAttempt`, `onJobFailed`, `onQueuePaused` and `onScheduleStateChanged` are awaited
+  for at most `hookTimeoutMs` (new option, default 10 000 ms, 100 to 60 000). A call past it is logged
+  (`the <hook> hook timed out`) and left behind, so a hanging alert channel no longer stops the worker from claiming,
+  enqueueing schedules or touching its health file. Every hook gets a third argument `{ signal }` that aborts at the
+  time limit (`JobsHookContext`).
+  - Migrate: nothing; pass `signal` to the hook's own requests so they stop with it.
+- **`last_error` holds codes only:** a returned error is stored when it is a dotted code of letters, digits, `_` and
+  `-` (first 200 characters); anything else, such as an exception message with a dot in it, is stored as
+  `jobs.handler_threw` (`jobs.sync_item_threw` for a sync item). Before, any text with a dot passed.
+  - Migrate: nothing, unless a handler returns codes with other characters: use the code shape.
+- **`useJobStatus` cuts off a request that hangs** after the larger of `maxIntervalMs` and 10 s: a poll reports
+  `network` and backs off, instead of holding every later poll until the browser gives up, and `cancel()` answers
+  `{ ok: false, error: "network" }` (also aborted when the hook unmounts or moves to another job).
+  - Migrate: nothing.
+
 ## 0.1.13
 
 - `getQueueStats` gives each queue `oldestRunningSince`: when its longest-running job was claimed, or null, so an app

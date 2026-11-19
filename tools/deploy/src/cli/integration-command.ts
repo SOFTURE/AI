@@ -20,11 +20,11 @@ import { readFlags } from "./options.js";
  * `softure-deploy integration run|lookup|record`: the remote integration run of the SOFTURE skills
  * (`integration.remote` and `integration.lookup` in `context/workflow.json`, read by `wt-integration.sh`).
  * Exit codes follow that contract: run 0 green, 1 red or could not start, 75 no result in time; lookup 0 green,
- * 1 red, 3 no result.
+ * 1 red or the remote unreachable with nothing stored locally, 3 no result.
  */
 
-export const NO_RESULT_IN_TIME_EXIT_CODE = 75;
-export const NO_STORED_RESULT_EXIT_CODE = 3;
+const NO_RESULT_IN_TIME_EXIT_CODE = 75;
+const NO_STORED_RESULT_EXIT_CODE = 3;
 const DEFAULT_WAIT_MINUTES = 30;
 const DEFAULT_POLL_SECONDS = 15;
 const DEFAULT_MAIN_BRANCH = "main";
@@ -111,6 +111,10 @@ export function runIntegrationLookup(args: string[], io: CliIo): void {
   const main = readMainBranch(command, io, flags.main);
   const sha = readSha(command, io, flags.sha);
   const found = lookupIntegration({ cwd: io.cwd, remote, notesRef, sha, main });
+  if (found.fetchFailure !== null && found.kind === "none") {
+    fail(`${command}: cannot reach ${remote} (${found.fetchFailure}) and no result for ${sha.slice(0, 8)} is stored locally.`);
+  }
+  if (found.fetchFailure !== null) io.stderr(`${command}: cannot reach ${remote} (${found.fetchFailure}); reading the local notes.\n`);
   if (found.kind === "none") fail(`${command}: no stored result for ${sha.slice(0, 8)}.`, NO_STORED_RESULT_EXIT_CODE);
   if (found.kind === "invalid") {
     fail(`${command}: the note on ${sha.slice(0, 8)} is not a result (${found.problem}).`, NO_STORED_RESULT_EXIT_CODE);
@@ -161,9 +165,11 @@ export async function runIntegrationRun(args: string[], io: CliIo): Promise<void
     case "busy":
       return fail(`${command}: ${result.ref} is in use by ${result.otherSha.slice(0, 8)} (a run in progress, or a stale ref to delete).`);
     case "unreachable":
-      return fail(`${command}: cannot reach ${remote}; the run did not start.`);
+      return fail(`${command}: cannot reach ${remote} (${result.reason}); the run did not start.`);
     case "push-failed":
-      return fail(`${command}: ${remote} refused ${result.ref}; the run did not start.`);
+      return fail(`${command}: ${remote} refused ${result.ref} (${result.reason}); the run did not start.`);
+    case "wait-unreachable":
+      return fail(`${command}: cannot reach ${remote} for the result (${result.reason}); the run on ${result.ref} may still be in progress.`);
     case "timeout":
       return fail(`${command}: no result for ${sha.slice(0, 8)} within ${String(waitMinutes)} minutes (${result.ref}).`, NO_RESULT_IN_TIME_EXIT_CODE);
     case "invalid":
@@ -264,7 +270,9 @@ export function runIntegrationRecord(args: string[], io: CliIo): void {
     run,
     finishedAt: new Date(),
   });
-  if (recorded.kind === "push-failed") fail(`${command}: ${remote} refused the notes after ${String(recorded.attempts)} attempts.`);
+  if (recorded.kind === "push-failed") {
+    fail(`${command}: ${remote} refused the notes after ${String(recorded.attempts)} attempts (${recorded.reason}).`);
+  }
   const { note } = recorded;
   const countsText = note.total === null ? "" : ` (${String(note.passed)}/${String(note.total)})`;
   io.stdout(`${command}: ${note.result}${countsText} stored on ${sha.slice(0, 8)}\n`);

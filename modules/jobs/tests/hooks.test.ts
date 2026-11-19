@@ -127,7 +127,54 @@ describe("onJobFailed", () => {
   });
 });
 
+describe("a hook's time limit", () => {
+  let test: TestJobs;
+
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  it("logs a hook that never settles as timed out, aborts its signal and keeps the job's outcome", async () => {
+    const { errors, logger } = recordingLogger();
+    const signals: AbortSignal[] = [];
+    test = await createTestJobs({
+      hookTimeoutMs: 100,
+      onJobFailed: (_event, _ctx, { signal }) => {
+        signals.push(signal);
+        return new Promise<void>(() => undefined);
+      },
+    });
+    const { id } = await enqueueJob(test.ctx, { queue: "mail.send", payload: {} });
+
+    const report = await runDueJobs(test.ctx, { handlers: { "mail.send": handlerReturning(() => Promise.resolve(failJob("app.bounced"))) }, logger });
+
+    expect(report).toEqual({ succeeded: 0, retried: 0, failed: 1, stale: 0 });
+    expect(await listJobs(test.database.db)).toMatchObject([{ id, status: "failed", lastError: "app.bounced" }]);
+    expect(errors[0]).toEqual({ message: "the onJobFailed hook timed out", fields: { queue: "mail.send", jobId: id, timeoutMs: 100 } });
+    expect(signals.map((signal) => signal.aborted)).toEqual([true]);
+  });
+
+  it("gives a hook that settles in time a signal that is never aborted", async () => {
+    const signals: AbortSignal[] = [];
+    test = await createTestJobs({
+      onJobFailed: (_event, _ctx, { signal }) => {
+        signals.push(signal);
+      },
+    });
+    await enqueueJob(test.ctx, { queue: "mail.send", payload: {} });
+
+    await runDueJobs(test.ctx, { handlers: { "mail.send": handlerReturning(() => Promise.resolve(failJob("app.bounced"))) }, logger: silentLogger });
+
+    expect(signals.map((signal) => signal.aborted)).toEqual([false]);
+  });
+});
+
 describe("hook options", () => {
+  it("refuses a time limit outside 100 ms to 60 s at config load", () => {
+    expect(() => createConfig({ hookTimeoutMs: 99 })).toThrow(/hookTimeoutMs/);
+    expect(() => createConfig({ hookTimeoutMs: 60_001 })).toThrow(/hookTimeoutMs/);
+  });
+
   it("refuse a hook that is not a function at config load", () => {
     expect(() => createConfig({ onJobFailed: "mail me" as never })).toThrow(/onJobFailed/);
     expect(() => createConfig({ onScheduleStateChanged: 1 as never })).toThrow(/onScheduleStateChanged/);

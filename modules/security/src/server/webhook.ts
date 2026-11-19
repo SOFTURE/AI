@@ -1,13 +1,15 @@
 // One route body for a third-party webhook, so the order of the checks is code, not prose: the size limit, the
 // signature over the raw bytes, parsing and validating the event, then the delivery recorded and the app's work run
 // in one transaction. Takes a web `Request` and returns a `Response`: on Next.js it is the route handler itself.
-import { err, ok, type Err, type Ok } from "@softure-ai/core";
+import { err, errorLogLabel, ok, type Err, type Ok } from "@softure-ai/core";
 import type { z } from "zod";
 import { readSmallBodyBytes } from "../read-small-body.js";
 import { verifyWebhookSignature, type SigningSecret, type WebhookSender } from "../signed-request.js";
 import type { SecurityContext } from "./rate-limit.js";
 import { getSecurityOptions } from "./options.js";
 import { assertSource, recordDeliveryOnce } from "./webhook-deliveries.js";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface HandleWebhookOptions<TEvent> {
   /** The app's constant name for the sender (the `recordDeliveryOnce` rule), e.g. `github`. */
@@ -22,6 +24,12 @@ export interface HandleWebhookOptions<TEvent> {
   readonly schema: z.ZodType<TEvent>;
   /** The delivery id from the event, for a sender without `deliveryIdHeader`. */
   readonly deliveryId?: (event: TEvent) => string;
+  /**
+   * When the provider created the event, read from the validated event. An event older than
+   * `webhookDeliveries.retentionDays` is answered 200 without `handle`: its ledger rows may be pruned already, so it
+   * could be a captured delivery resent. Without it such a replay is processed again.
+   */
+  readonly eventTime?: (event: TEvent) => Date;
   /** The work, with the delivery's transaction as `ctx.db`. Throwing rolls the delivery back; the sender retries. */
   readonly handle: (event: TEvent, ctx: SecurityContext) => Promise<void>;
 }
@@ -81,7 +89,13 @@ export async function handleWebhook<TEvent>(
     return answer("security.webhook_payload_invalid");
   }
   const event = parsed.data;
+  if (options.eventTime !== undefined && isPastRetention(ctx, options.eventTime(event))) {
+    return new Response(null, { status: 200 });
+  }
   const delivery = { source: options.source, deliveryId: readDeliveryId(event) };
+  // A header id is not signed: a captured delivery resent with a new id must still be a replay, so the signed bytes
+  // are recorded too. An id read from the validated event is signed already.
+  const bodyKey = options.deliveryId === undefined ? { source: options.source, deliveryId: await toBodyKey(body.value) } : undefined;
 
   try {
     return await ctx.db.transaction(async (tx) => {
@@ -90,15 +104,24 @@ export async function handleWebhook<TEvent>(
       if (!recorded.ok) {
         return answer(recorded.error);
       }
-      if (recorded.value) {
+      const isBodyNew = bodyKey === undefined || (await recordBodyOnce(txCtx, bodyKey));
+      if (recorded.value && isBodyNew) {
         await options.handle(event, txCtx);
       }
       return new Response(null, { status: 200 });
     });
   } catch (error) {
-    console.error(`@softure-ai/security: webhook "${options.source}" failed: ${error instanceof Error ? error.message : String(error)}`);
+    // The kind only: a query error's message carries its parameters, which can hold the event's personal data.
+    console.error(`@softure-ai/security: webhook "${options.source}" failed: ${errorLogLabel(error)}`);
     return answer("security.webhook_failed");
   }
+}
+
+/** Whether an event is older than the ledger keeps ids; an invalid date counts as old, so it is never processed. */
+function isPastRetention(ctx: SecurityContext, createdAt: Date): boolean {
+  const { retentionDays } = getSecurityOptions(ctx.config).webhookDeliveries;
+  const createdMs = createdAt.getTime();
+  return Number.isNaN(createdMs) || createdMs < ctx.clock.now().getTime() - retentionDays * DAY_MS;
 }
 
 function getDeliveryIdReader<TEvent>(request: Request, options: HandleWebhookOptions<TEvent>): (event: TEvent) => string {
@@ -110,6 +133,21 @@ function getDeliveryIdReader<TEvent>(request: Request, options: HandleWebhookOpt
     throw new RangeError(`handleWebhook: the sender of "${options.source}" has no deliveryIdHeader; pass deliveryId`);
   }
   return () => request.headers.get(header) ?? "";
+}
+
+/** The ledger key of the signed bytes: `sha256:<hex>`, 71 characters, within the delivery id rule. */
+async function toBodyKey(body: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(body)));
+  return `sha256:${Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** Whether the signed bytes are new; the key always fits the id rule, so a refusal is a bug. */
+async function recordBodyOnce(ctx: SecurityContext, key: { readonly source: string; readonly deliveryId: string }): Promise<boolean> {
+  const recorded = await recordDeliveryOnce(ctx, key);
+  if (!recorded.ok) {
+    throw new RangeError(`handleWebhook: the body key of "${key.source}" broke the delivery id rule`);
+  }
+  return recorded.value;
 }
 
 /** The JSON value of UTF-8 bytes; bytes that are not UTF-8 or not JSON are a payload the sender cannot fix by retrying. */

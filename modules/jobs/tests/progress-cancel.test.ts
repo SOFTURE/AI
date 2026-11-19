@@ -217,6 +217,42 @@ describe("cancelling a job", () => {
     expect(recorder.failedJobs).toEqual([]);
   });
 
+  it("runDueJobs aborts a handler that waits on its signal once a heartbeat sees the cancel request", async () => {
+    const handlers = {
+      "ai.reply": defineJobHandler({
+        payload,
+        run: async (_payload, { job, signal }) => {
+          await requestJobCancel(test.ctx, job.id);
+          await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true }));
+          return ok();
+        },
+      }),
+    };
+    const { id } = await enqueueJob(test.ctx, { queue: "ai.reply", payload: {} });
+
+    expect(await runDueJobs(test.ctx, { handlers, logger, heartbeatMs: 20 })).toEqual({ succeeded: 0, retried: 0, failed: 0, stale: 0, cancelled: 1 });
+    expect(await getJob(test.ctx, id)).toMatchObject({ status: "cancelled" });
+    expect(logger.lines).toContain("info: job cancelled by an operator; its handler is aborted");
+  });
+
+  it("runDueJobs aborts a handler whose lease another claim took, and reports it stale", async () => {
+    const handlers = {
+      "ai.reply": defineJobHandler({
+        payload,
+        run: async (_payload, { job, signal }) => {
+          await test.database.client.query("UPDATE jobs.jobs SET claim_token = gen_random_uuid(), locked_by = 'other' WHERE id = $1", [job.id]);
+          await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true }));
+          return ok();
+        },
+      }),
+    };
+    const { id } = await enqueueJob(test.ctx, { queue: "ai.reply", payload: {} });
+
+    expect(await runDueJobs(test.ctx, { handlers, logger, heartbeatMs: 20, maxJobs: 1 })).toEqual({ succeeded: 0, retried: 0, failed: 0, stale: 1 });
+    expect(logger.lines).toContain("warn: job lease lost; its handler is aborted");
+    expect(await getJob(test.ctx, id)).toMatchObject({ status: "running", lockedBy: "other" });
+  });
+
   it("does not log a handler that throws because of the cancel abort", async () => {
     const handlers = {
       "ai.reply": defineJobHandler({

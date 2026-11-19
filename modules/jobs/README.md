@@ -72,6 +72,7 @@ export default defineSoftureConfig({
 | `onJobFailed` | none | `(event, ctx)`, run once when a job ends `failed` (§3, "Alert hooks") |
 | `onQueuePaused` | none | `(event, ctx)`, run once when the breaker or a handler pauses a queue (§3, "Pacing and the circuit breaker") |
 | `onScheduleStateChanged` | none | `(event, ctx)`, run once per transition of a schedule between `healthy`, `failing` and `late` (§3, "Alert hooks") |
+| `hookTimeoutMs` | `10000` | how long one hook call may take (100 to 60 000): past it the call is logged as timed out, its `signal` aborts and the worker goes on (§3, "Alert hooks") |
 | `panelRole` | `"admin"` | the auth role that may open the admin page and use its actions (§4) |
 | `panelGuard` | none | the page's role check, `{ requireRole, authorizeRole }` from `@softure-ai/auth/next`; without it the page is "not found" for everyone (§4) |
 | `routes.panel` | `/admin/jobs` | the page's path, for revalidation after an action (§4) |
@@ -116,16 +117,16 @@ export const handlers: JobHandlers = {
 - `failJob(code)`: `failed` at once. `failJob(code, { expected: true })` when the app expects the failure (input it
   refuses, a state it reports back to its user): still `failed` at once and seen by every hook and metric, but its end
   line is a `warn` marked `expected: true` instead of an `error`, so an alert on error logs counts only faults.
-- `retryJobLater(code, seconds)`: retried after `seconds` instead of the backoff (a provider's `Retry-After`); still
-  counts as an attempt.
+- `retryJobLater(code, seconds)`: retried after `seconds` instead of the backoff (a provider's `Retry-After`), at
+  most a week (604 800 s; a longer delay is cut to it, as is a `pauseQueueLater` pause); still counts as an attempt.
 - A throw: retried like an `Err` with the code `jobs.handler_threw`, and logged with the error.
 
 **Handlers run at least once.** A worker can die after the side effect and before recording it, a lease can end, a
 stopping worker releases unfinished jobs: the job then runs again. Make handlers idempotent (check whether the reply
 was already saved, pass an idempotency key to the provider).
 
-`context.signal` aborts when the job is taken from the handler: the worker's grace period ended on shutdown, its lease
-could not be extended, or an operator cancelled the job (§3, "Progress and cancelling"). Pass it to `fetch` and other
+`context.signal` aborts when the job is taken from the handler: the worker's grace period ended on shutdown, another
+worker took its lease, its lease ran out while the database did not extend it (refused or did not answer), or an operator cancelled the job (§3, "Progress and cancelling"). Pass it to `fetch` and other
 cancellable calls. After a shutdown or a lost lease anything the handler returns afterwards is not recorded; after a
 cancel the job ends `cancelled`. `context.db` is the worker's pool, not a transaction; `context.job.attempts` is this attempt's number.
 
@@ -384,7 +385,10 @@ from `@softure-ai/alerts/jobs`, next to its `alertsJobQueues` and `alertsJobSche
   nothing is checked or written.
 - Events carry codes and ids only, never a payload or an error's text. A hook that throws is logged through `logger`
   (`the onJobFailed hook failed`, with the error's kind) and never fails the job, the claim or the worker; the
-  transition stays reported. A hook is awaited: keep it short, or enqueue a job (as above) that sends the mail
+  transition stays reported. A hook is awaited for at most `hookTimeoutMs` (default 10 s): a call past it is logged
+  (`the onJobFailed hook timed out`), its signal (the third argument, `{ signal }`) aborts, and the worker goes on
+  claiming, so a hanging alert channel cannot stall it. Pass the signal to the hook's own request
+  (`fetch(url, { signal })`), keep the hook short, or enqueue a job (as above) that sends the mail
   (`@softure-ai/mailing`) with its own retries.
 - In tests, `recordJobHooks()` from `@softure-ai/jobs/testing` gives `{ options, attempts, failedJobs, pausedQueues, scheduleStateChanges }`:
   pass `jobs({ queues, ...recorder.options })` and assert the arrays after `runDueJobs`.
@@ -458,7 +462,7 @@ jobs({
   running when the queue paused only count; they do not extend the pause.
 - **A handler that recognizes a refusal** (HTTP 429 with a long `Retry-After`, a login wall, a captcha page) returns
   `pauseQueueLater(code, seconds)`: the queue pauses for `seconds` at once (never shortening a longer pause, never
-  replacing an operator's) and this job gets its attempt back, due when the pause ends; the run history has a
+  replacing an operator's, timed or not) and this job gets its attempt back, due when the pause ends; the run history has a
   `retried` row with the code. `retryJobLater(code, seconds)` is still the choice when only this job should wait.
 - **An operator** pauses a queue with `pauseQueue(ctx, queue, { until?, reason })` (without `until`, until resumed;
   replaces any pause) and resumes it with `resumeQueue(ctx, queue)` (which also resets the breaker), from
@@ -541,8 +545,8 @@ repeated request keeps the first time; a finished job answers `jobs.not_cancella
 (pending jobs only). `retryJob` on a cancelled job clears the request and the progress.
 
 A worker of your own built on `claimJobs` uses `heartbeatJob(ctx, claimed)` (`held`, `cancel_requested` or `lost`)
-in place of `extendJobLease` to see requests. `runDueJobs` has no heartbeat: it sees a request at the handler's next
-progress write.
+in place of `extendJobLease` to see requests. `runDueJobs` extends leases like the worker, so it sees a request at
+its next heartbeat or at the handler's next progress write.
 
 ### A user follows their own job
 
@@ -623,7 +627,10 @@ answer; a body that is not a job status is `jobs.failed`. `cancel()` sends `DELE
 
 `runDueJobs(ctx, { handlers })` (from `@softure-ai/jobs/server` or `/testing`) enqueues the due runs of the schedules
 among its queues, then runs every due job once, in this process, one after another, checks schedule health for
-`onScheduleStateChanged`, and returns `{ succeeded, retried, failed, stale }`. A cron can drain a queue with it; call `pruneJobs(ctx)` and `pruneJobRuns(ctx)` from the same cron.
+`onScheduleStateChanged`, and returns `{ succeeded, retried, failed, stale }`. Each job runs under its lease as in the
+worker: the lease is extended every third of `leaseSeconds` (`heartbeatMs` to change it), and the handler's `signal`
+aborts when the lease is lost, runs out while it cannot be extended, or an operator cancels, so a long handler is never
+run twice at once by the next cron run. A cron can drain a queue with it; call `pruneJobs(ctx)` and `pruneJobRuns(ctx)` from the same cron.
 `enqueueDueSchedules(ctx, { queues? })` only enqueues the due scheduled runs.
 
 ### Sync state for polling

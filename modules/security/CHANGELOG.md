@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`security@x.y.z`).
 
+## Unreleased
+
+- **`handleWebhook` can refuse old events:** new option `eventTime(event)`. An event created longer ago than
+  `webhookDeliveries.retentionDays` is answered 200 without `handle`, so a captured delivery resent after its ledger
+  rows were pruned no longer runs the work again. README §11 now calls subject keys pseudonymous.
+  - Migrate: nothing; pass `eventTime` for a provider whose events carry their creation time.
+- **`handleWebhook` treats a resent delivery under a new id as a replay:** the delivery id header (`X-GitHub-Delivery`,
+  `X-Shopify-Webhook-Id`) is not covered by the signature, so a captured delivery could be resent with a new id and
+  run the work again. When the id comes from the header, the route now also records a key of the signed bytes
+  (`sha256:<hex>`) in the same transaction; either one seen before skips the work. A provider's own retries are
+  unchanged. A sender whose id is read from the event (`deliveryId`) records only that id, as before.
+  - Migrate: nothing. Each header-id delivery takes two rows of `security.webhook_deliveries`, pruned as before.
+- **`handleWebhook` logs a failure's kind only** (`webhook "github" failed: Error`, plus the SQLSTATE of a query
+  error), never the message, which for a query error holds its parameters and so the event's data.
+  - Migrate: nothing; log your own details from `handle` when you need them.
+
 ## 0.2.11
 
 - `clientIpFromEnv(env)`, `readClientIpSource(env)` and `createClientIpResolver(source)`: the client-IP resolver an

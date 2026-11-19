@@ -14,7 +14,7 @@ import { joinUrl, trimTrailingSlashes } from "../verify/checks.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 
-export const DEFAULT_BUILD_INFO_PATH = "/api/health/build";
+const DEFAULT_BUILD_INFO_PATH = "/api/health/build";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const TIMEOUT_RANGE = { min: 100, max: 120_000 };

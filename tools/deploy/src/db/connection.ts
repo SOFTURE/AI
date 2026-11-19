@@ -18,6 +18,11 @@ const QUERY_VARIABLES: Readonly<Record<string, string>> = {
   application_name: "PGAPPNAME",
 };
 const CONNECT_TIMEOUT_MS = 10_000;
+/** A `count(*)` of a large table fits; a lock held by a migration running at the same time does not hang the step. */
+const STATEMENT_TIMEOUT_MS = 10 * 60_000;
+const LOCK_TIMEOUT_MS = 30_000;
+/** The client's own limit, past the server's, for a server that stopped answering. */
+const QUERY_TIMEOUT_MS = STATEMENT_TIMEOUT_MS + 60_000;
 
 export type LibpqEnvResult = { ok: true; env: Record<string, string> } | { ok: false; problem: string };
 
@@ -60,9 +65,23 @@ export function isPostgresUrl(url: string): boolean {
   return /^postgres(ql)?:\/\//.test(url);
 }
 
-/** Opens one connection, runs `run` on it and closes it, also when `run` throws. */
+/**
+ * The client settings of a deploy step: time limits for connecting, each statement, each lock wait and each query on
+ * the client side, so a step fails with a message instead of hanging until its job is killed.
+ */
+export function getPgClientConfig(url: string): pg.ClientConfig {
+  return {
+    connectionString: url,
+    connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
+    statement_timeout: STATEMENT_TIMEOUT_MS,
+    lock_timeout: LOCK_TIMEOUT_MS,
+    query_timeout: QUERY_TIMEOUT_MS,
+  };
+}
+
+/** Opens one connection (`getPgClientConfig`), runs `run` on it and closes it, also when `run` throws. */
 export async function withPgClient<T>(url: string, run: (client: pg.Client) => Promise<T>): Promise<T> {
-  const client = new pg.Client({ connectionString: url, connectionTimeoutMillis: CONNECT_TIMEOUT_MS });
+  const client = new pg.Client(getPgClientConfig(url));
   // A dropped connection emits 'error' on the client; without a listener Node crashes. The pending query rejects.
   client.on("error", () => undefined);
   await client.connect();
