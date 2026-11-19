@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- **Hooks have a time limit:** `onJobAttempt`, `onJobFailed`, `onQueuePaused` and `onScheduleStateChanged` are awaited
+  for at most `hookTimeoutMs` (new option, default 10 000 ms, 100 to 60 000). A call past it is logged
+  (`the <hook> hook timed out`) and left behind, so a hanging alert channel no longer stops the worker from claiming,
+  enqueueing schedules or touching its health file. Every hook gets a third argument `{ signal }` that aborts at the
+  time limit (`JobsHookContext`).
+  - Migrate: nothing; pass `signal` to the hook's own requests so they stop with it.
+- **`last_error` holds codes only:** a returned error is stored when it is a dotted code of letters, digits, `_` and
+  `-` (first 200 characters); anything else, such as an exception message with a dot in it, is stored as
+  `jobs.handler_threw` (`jobs.sync_item_threw` for a sync item). Before, any text with a dot passed.
+  - Migrate: nothing, unless a handler returns codes with other characters: use the code shape.
+- **`useJobStatus` cuts off a poll that hangs** after the larger of `maxIntervalMs` and 10 s; it reports `network` and
+  backs off, instead of holding every later poll until the browser gives up.
+  - Migrate: nothing.
+
 ## 0.1.12
 
 - `failJob(code, { expected: true })` (new `FailJobOptions`): a failure the app expects, such as input it refuses, is

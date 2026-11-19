@@ -1,6 +1,5 @@
 // One attempt of one claimed job: parse the payload with the handler's schema, run the handler, record the outcome
 // (fenced by the claim). Shared by the worker and `runDueJobs`, so tests run the production path.
-import type { ErrorCode } from "@softure-ai/core";
 import type { JobOutcome } from "../contract.js";
 import type { AnyJobHandler, JobHandlers, JobRunResult } from "../handlers.js";
 import { isJobCancelled, JobCancelledError, jobProgressSchema, type JobProgress } from "../progress.js";
@@ -13,10 +12,10 @@ import type { JobsLogger } from "./logger.js";
 import { getJobsOptions, getQueue } from "./options.js";
 import { notifyJobAttempt } from "./hooks.js";
 import { logRunEnd } from "./run-log.js";
+import { toStoredErrorCode } from "./error-code.js";
 
 const INVALID_PAYLOAD = "jobs.invalid_payload";
 const HANDLER_THREW = "jobs.handler_threw";
-const MAX_ERROR_LENGTH = 200;
 /** At most one progress write per job in this window. */
 const PROGRESS_INTERVAL_MS = 1000;
 /** A result reference: an identifier of the app's row, never free text. */
@@ -262,7 +261,7 @@ function readFailure(result: unknown): ReadFailure | null {
   const candidate = result as { ok?: unknown; error?: unknown; retry?: unknown; retryAfterSeconds?: unknown; pauseQueueSeconds?: unknown; isExpected?: unknown };
   if (candidate.ok !== false || typeof candidate.error !== "string") return null;
   return {
-    error: toErrorCode(candidate.error),
+    error: toStoredErrorCode(candidate.error, HANDLER_THREW),
     retry: candidate.retry === false ? false : undefined,
     retryAfterSeconds: readSeconds(candidate.retryAfterSeconds),
     pauseQueueSeconds: readSeconds(candidate.pauseQueueSeconds),
@@ -274,7 +273,3 @@ function readSeconds(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function toErrorCode(error: string): ErrorCode {
-  const trimmed = error.slice(0, MAX_ERROR_LENGTH);
-  return (trimmed.includes(".") && trimmed.length > 0 ? trimmed : HANDLER_THREW) as ErrorCode;
-}

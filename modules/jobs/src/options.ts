@@ -13,14 +13,22 @@ const QUEUE_NAME = /^[a-z][a-z0-9_.-]{0,62}$/;
 const QUEUE_NAME_HINT = "is not a queue name: lowercase letters, digits, _ . and -, starting with a letter";
 const DAY_SECONDS = 24 * 60 * 60;
 
-/** Runs once when a job ends `failed`; a throw is logged and changes nothing. */
-export type OnJobFailedHook = (event: JobFailedEvent, ctx: JobsContext) => Promise<void> | void;
-/** Runs once per recorded attempt, whatever its outcome; a throw is logged and changes nothing. */
-export type OnJobAttemptHook = (event: JobAttemptEvent, ctx: JobsContext) => Promise<void> | void;
-/** Runs once when the breaker or a handler (`pauseQueueLater`) pauses a queue; a throw is logged and changes nothing. */
-export type OnQueuePausedHook = (event: QueuePausedEvent, ctx: JobsContext) => Promise<void> | void;
-/** Runs once per transition of a schedule between `healthy`, `failing` and `late`; a throw is logged and changes nothing. */
-export type OnScheduleStateChangedHook = (event: ScheduleStateChangedEvent, ctx: JobsContext) => Promise<void> | void;
+/**
+ * What every hook receives after the event and the context: `signal` aborts when the hook runs past
+ * `hookTimeoutMs`, so a hook that calls out (`fetch(url, { signal })`) can stop its own request.
+ */
+export interface JobsHookContext {
+  readonly signal: AbortSignal;
+}
+
+/** Runs once when a job ends `failed`; a throw or a timeout is logged and changes nothing. */
+export type OnJobFailedHook = (event: JobFailedEvent, ctx: JobsContext, hook: JobsHookContext) => Promise<void> | void;
+/** Runs once per recorded attempt, whatever its outcome; a throw or a timeout is logged and changes nothing. */
+export type OnJobAttemptHook = (event: JobAttemptEvent, ctx: JobsContext, hook: JobsHookContext) => Promise<void> | void;
+/** Runs once when the breaker or a handler (`pauseQueueLater`) pauses a queue; a throw or a timeout is logged and changes nothing. */
+export type OnQueuePausedHook = (event: QueuePausedEvent, ctx: JobsContext, hook: JobsHookContext) => Promise<void> | void;
+/** Runs once per transition of a schedule between `healthy`, `failing` and `late`; a throw or a timeout is logged and changes nothing. */
+export type OnScheduleStateChangedHook = (event: ScheduleStateChangedEvent, ctx: JobsContext, hook: JobsHookContext) => Promise<void> | void;
 
 /** The same pattern auth enforces for role names. */
 const ROLE_NAME_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/;
@@ -286,6 +294,11 @@ export const jobsOptionsSchema = z
      * `{ queue, code, until, source }`: e.g. tell the operator a provider started refusing. An operator's pause runs no hook.
      */
     onQueuePaused: z.custom<OnQueuePausedHook>((value) => typeof value === "function", "must be a function").optional(),
+    /**
+     * How long the worker waits for one hook call: past it the call is logged as timed out, its signal aborts and the
+     * worker goes on, so a hanging alert channel cannot stall claiming, schedules or the health file.
+     */
+    hookTimeoutMs: z.number().int().min(100).max(60_000).default(10_000),
     /** The auth role that may open the admin page (`JobsPage`) and use its actions. */
     panelRole: z.string().regex(ROLE_NAME_PATTERN, "must be a role name such as admin").default("admin"),
     /**

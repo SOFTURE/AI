@@ -1,6 +1,6 @@
 // Running jobs: success, retries with backoff, terminal failures, invalid payloads, thrown handlers, leases and the
 // fencing of stale workers. Driven through runDueJobs and the claim functions the worker uses.
-import { err, ok } from "@softure-ai/core";
+import { err, ok, type ErrorCode } from "@softure-ai/core";
 import { defineJobHandler, failJob, retryJobLater, type JobHandlers } from "@softure-ai/jobs";
 import { claimJobs, completeJob, enqueueJob, extendJobLease, getJob, releaseJob, type JobsLogger } from "@softure-ai/jobs/server";
 import { runDueJobs } from "@softure-ai/jobs/testing";
@@ -121,6 +121,23 @@ describe("running jobs", () => {
     expect(await run(handlers)).toMatchObject({ retried: 1 });
     expect(await getJob(test.ctx, id)).toMatchObject({ status: "pending", lastError: "jobs.handler_threw" });
     expect(logger.lines).toEqual(["error: job handler threw", "warn: job run failed; retrying"]);
+  });
+
+  it("stores jobs.handler_threw for a returned error that is free text, not a code", async () => {
+    // A JavaScript handler can return an exception's message; it must never reach last_error.
+    const freeText = "socket hang up for user@example.com" as ErrorCode;
+    const handlers = { "ai.reply": defineJobHandler({ payload, run: () => Promise.resolve(err(freeText)) }) };
+    const { id } = await enqueueJob(test.ctx, { queue: "ai.reply", payload: { messageId: "m-1" } });
+    await run(handlers);
+    expect(await getJob(test.ctx, id)).toMatchObject({ status: "pending", lastError: "jobs.handler_threw" });
+  });
+
+  it("stores the first 200 characters of an over-long error code", async () => {
+    const long = `app.${"x".repeat(300)}` as ErrorCode;
+    const handlers = { "ai.reply": defineJobHandler({ payload, run: () => Promise.resolve(err(long)) }) };
+    const { id } = await enqueueJob(test.ctx, { queue: "ai.reply", payload: { messageId: "m-1" } });
+    await run(handlers);
+    expect(await getJob(test.ctx, id)).toMatchObject({ status: "pending", lastError: long.slice(0, 200) });
   });
 
   it("treats a handler that returns no result like a throw", async () => {

@@ -72,6 +72,7 @@ export default defineSoftureConfig({
 | `onJobFailed` | none | `(event, ctx)`, run once when a job ends `failed` (§3, "Alert hooks") |
 | `onQueuePaused` | none | `(event, ctx)`, run once when the breaker or a handler pauses a queue (§3, "Pacing and the circuit breaker") |
 | `onScheduleStateChanged` | none | `(event, ctx)`, run once per transition of a schedule between `healthy`, `failing` and `late` (§3, "Alert hooks") |
+| `hookTimeoutMs` | `10000` | how long one hook call may take (100 to 60 000): past it the call is logged as timed out, its `signal` aborts and the worker goes on (§3, "Alert hooks") |
 | `panelRole` | `"admin"` | the auth role that may open the admin page and use its actions (§4) |
 | `panelGuard` | none | the page's role check, `{ requireRole, authorizeRole }` from `@softure-ai/auth/next`; without it the page is "not found" for everyone (§4) |
 | `routes.panel` | `/admin/jobs` | the page's path, for revalidation after an action (§4) |
@@ -384,7 +385,10 @@ from `@softure-ai/alerts/jobs`, next to its `alertsJobQueues` and `alertsJobSche
   nothing is checked or written.
 - Events carry codes and ids only, never a payload or an error's text. A hook that throws is logged through `logger`
   (`the onJobFailed hook failed`, with the error's kind) and never fails the job, the claim or the worker; the
-  transition stays reported. A hook is awaited: keep it short, or enqueue a job (as above) that sends the mail
+  transition stays reported. A hook is awaited for at most `hookTimeoutMs` (default 10 s): a call past it is logged
+  (`the onJobFailed hook timed out`), its signal (the third argument, `{ signal }`) aborts, and the worker goes on
+  claiming, so a hanging alert channel cannot stall it. Pass the signal to the hook's own request
+  (`fetch(url, { signal })`), keep the hook short, or enqueue a job (as above) that sends the mail
   (`@softure-ai/mailing`) with its own retries.
 - In tests, `recordJobHooks()` from `@softure-ai/jobs/testing` gives `{ options, attempts, failedJobs, pausedQueues, scheduleStateChanges }`:
   pass `jobs({ queues, ...recorder.options })` and assert the arrays after `runDueJobs`.

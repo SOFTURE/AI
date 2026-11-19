@@ -29,6 +29,7 @@ describe("the jobs module", () => {
       shutdownGraceMs: 20_000,
       retention: { succeededDays: 7, failedDays: 30, cancelledDays: 7, syncItemsDays: 90, runsDays: 30, ownedDays: 1 },
       logRuns: "all",
+      hookTimeoutMs: 10_000,
       panelRole: "admin",
     });
   });

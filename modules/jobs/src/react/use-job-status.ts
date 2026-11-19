@@ -11,6 +11,8 @@ import { jobProgressSchema } from "../progress.js";
 
 const DEFAULT_INTERVAL_MS = 1000;
 const DEFAULT_MAX_INTERVAL_MS = 15_000;
+/** The shortest time limit of one poll; a larger `maxIntervalMs` raises it. */
+const MIN_POLL_TIMEOUT_MS = 10_000;
 /** Growth of the interval per poll that saw no change. */
 const IDLE_GROWTH = 1.5;
 /** Growth of the interval per failed poll. */
@@ -69,6 +71,26 @@ interface Snapshot {
   readonly isPolling: boolean;
 }
 
+/**
+ * One poll of the status route, aborted after `timeoutMs` or when `stop` aborts (the hook unmounts or moves to another
+ * job); an abort rejects like a network failure.
+ */
+async function fetchStatus(target: string, stop: AbortSignal, timeoutMs: number): Promise<{ response: Response; body: unknown }> {
+  const poll = new AbortController();
+  const abort = () => poll.abort();
+  const timer = setTimeout(abort, timeoutMs);
+  stop.addEventListener("abort", abort);
+  if (stop.aborted) abort();
+  try {
+    const response = await fetch(target, { cache: "no-store", headers: { accept: "application/json" }, signal: poll.signal });
+    const body: unknown = await response.json().catch(() => null);
+    return { response, body };
+  } finally {
+    clearTimeout(timer);
+    stop.removeEventListener("abort", abort);
+  }
+}
+
 function defaultUrl(id: string): string {
   return `/api/jobs/${encodeURIComponent(id)}`;
 }
@@ -82,6 +104,8 @@ export function useJobStatus(id: string | null, options: UseJobStatusOptions = {
   const url = options.url ?? defaultUrl;
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   const maxIntervalMs = Math.max(options.maxIntervalMs ?? DEFAULT_MAX_INTERVAL_MS, intervalMs);
+  // A poll stuck on a bad connection would hold every later poll back (one is in flight at a time), so it is cut off.
+  const pollTimeoutMs = Math.max(maxIntervalMs, MIN_POLL_TIMEOUT_MS);
   const stopOn = options.stopOn ?? TERMINAL_STATUSES;
   const target = id === null ? null : url(id);
   const stopOnKey = stopOn.join(",");
@@ -119,8 +143,7 @@ export function useJobStatus(id: string | null, options: UseJobStatusOptions = {
       if (document.visibilityState === "hidden") return;
       isInFlight = true;
       try {
-        const response = await fetch(target, { cache: "no-store", headers: { accept: "application/json" }, signal: controller.signal });
-        const body: unknown = await response.json().catch(() => null);
+        const { response, body } = await fetchStatus(target, controller.signal, pollTimeoutMs);
         if (isStopped) return;
         if (response.ok) {
           const parsed = ownJobStatusSchema.safeParse(body);
