@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.5.0
+
+- **Planned countries are dotted:** `WorldMap` fills a planned country with a grid of passport-blue dots on land
+  (an SVG pattern), with the same white border as every other country, instead of a dashed blue outline, which made
+  a map with many neighbours hard to read. The `MapLegend` planned swatch shows the same dots. `CountryChip` and
+  `PostcardStamp` of a plan stay dashed.
+- **`CountryCounter` on a phone:** the unit flag and the total line sit flush with the number's bottom below `md`
+  (no bottom padding); from `md` up they keep the lift to the number's baseline.
+
 ## 0.4.0
 
 - **White map with stronger land:** the map's sea (`map-ocean`) and the borders between countries (`map-edge`) are

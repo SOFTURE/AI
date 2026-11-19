@@ -94,6 +94,10 @@ describe("CountryCounter", () => {
     expect(markup).not.toContain("width:");
   });
 
+  it("sets the unit and the total flush with the number's bottom on a phone, lifted to its baseline from md up", () => {
+    expect(markup).toContain('<span class="grid gap-1.5 md:pb-2.5">');
+  });
+
   it("draws the number on the hero step from md up, untracked", () => {
     expect(getClasses(markup, "country-counter-value")).toEqual(expect.arrayContaining(["num", "font-display", "text-display", "md:text-hero", "tracking-normal"]));
   });
@@ -201,7 +205,16 @@ describe("MapPopover and MapLegend", () => {
         ]}
       />,
     );
-    for (const swatch of ["bg-visited", "bg-place", "border-dashed border-planned", "bg-map-land"]) expect(markup).toContain(swatch);
+    for (const swatch of ["bg-visited", "bg-place", "bg-map-land"]) expect(markup).toContain(swatch);
+  });
+
+  it("dots the planned swatch in passport blue on land, like a planned country on the map", () => {
+    const markup = renderToStaticMarkup(<MapLegend items={[{ kind: "planned", label: "planned" }]} />);
+    const patternId = /<pattern id="(fa-legend-planned-[\w-]+)"/.exec(markup)?.[1];
+    expect(patternId).toBeDefined();
+    expect(markup).toContain('class="fill-planned"');
+    expect(markup).toContain(`fill="url(#${String(patternId)})"`);
+    expect(markup).not.toContain("border-dashed");
   });
 });
 
@@ -246,10 +259,13 @@ describe("WorldMap", () => {
     />,
   );
 
-  it("draws every country once, painting the visited one and outlining the planned one", () => {
+  it("draws every country once, painting the visited one and dotting the planned one", () => {
     expect(markup.match(/<path d="M/g)?.length).toBe(WORLD_COUNTRY_SHAPES.length + 1);
     expect(markup).toMatch(/data-id="616" data-status="visited" class="[^"]*fill-visited/);
-    expect(markup).toMatch(/data-id="764" data-status="planned" class="[^"]*stroke-planned/);
+    const patternId = /<pattern id="(fa-planned-[\w-]+)" data-slot="world-map-planned-pattern"/.exec(markup)?.[1];
+    expect(patternId).toBeDefined();
+    expect(markup).toMatch(new RegExp(`data-id="764" data-status="planned" fill="url\\(#${String(patternId)}\\)" class="[^"]*stroke-map-edge`));
+    expect(markup).not.toContain("stroke-dasharray");
     expect(markup).toMatch(/data-id="620" class="[^"]*fill-map-land/);
   });
 

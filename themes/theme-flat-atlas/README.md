@@ -61,9 +61,9 @@ language and the plural forms.
   pin's flag, an ISO code. Text on it is always white (6.4:1). As text on paper it holds 5.95:1, so links and accent
   text may be stamp ink.
 - **Three meanings on the map, each with a second carrier:** `visited` (the country painted in stamp ink), `place`
-  (a marigold pin with a 2 px ink stroke and a white centre: the stroke turns 2.75:1 into 7:1), `planned` (a dashed
-  passport-blue outline drawn above its neighbours, and a passport-blue pin with the same ink stroke: a plan is never
-  painted). Blue and marigold are data colours: never a button or
+  (a marigold pin with a 2 px ink stroke and a white centre: the stroke turns 2.75:1 into 7:1), `planned` (land dotted
+  in passport blue, drawn above its neighbours, as a chart marks a hatched series, and a passport-blue pin: a plan is
+  never painted in one colour; a chip or a postmark of a plan is dashed). Blue and marigold are data colours: never a button or
   a card, and marigold is never text on paper.
 - **Flat, no exceptions**: depth is `background` → `surface` → `surface-raised` and one 1 px `border`. No shadows,
   glows, gradients or blur, the map included: the ocean is one colour, pins have no halo. The only "shadow" in the
