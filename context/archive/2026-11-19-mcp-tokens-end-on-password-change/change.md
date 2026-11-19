@@ -26,7 +26,7 @@ reset and change delete sessions; mcp-access tokens (90 days) and grants (rotate
   `createdAt` with `auth.users.password_changed_at`.
 - `modules/mcp-access/src/server/oauth.ts`: the code exchange and the refresh refuse a code or grant from before the
   change (the refresh deletes the grant); `listOAuthGrants` and `pruneOAuthRecords` follow.
-- `tests/password-change.test.ts`, README overview, CHANGELOG 0.7.8.
+- `tests/password-change.test.ts`, README overview, CHANGELOG (Unreleased).
 
 ## Constraints
 
@@ -47,4 +47,4 @@ reset and change delete sessions; mcp-access tokens (90 days) and grants (rotate
 
 ## Done
 
-- Fix and tests on master; released with mcp-access 0.7.8.
+- Fix and tests on master; released with the next mcp-access release.

@@ -12,7 +12,7 @@ a lookup inside the OAuth transactions, an `IN (select …)` in the prune delete
 - Test first (`tests/password-change.test.ts`): a hand-issued token from before the change is refused and unlisted,
   one from after and another account's stay; same instant stays; a connected app's access token, refresh and list
   entry end; a code from before is refused; prune deletes exactly the ended rows.
-- Code in `tokens.ts` and `oauth.ts`; README and CHANGELOG 0.7.8.
+- Code in `tokens.ts` and `oauth.ts`; README and CHANGELOG (Unreleased).
 - Done when: `npx vitest run modules/mcp-access` passes, `npm run typecheck` and ESLint on the changed files are clean.
 
 ## Progress
