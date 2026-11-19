@@ -1,12 +1,13 @@
 ---
 change_id: ci-usage-close-issue
 title: "ci-usage can close the report issue after publishing (issue #1390)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1390
 branch: claude/project-thread-jppon2
 created: 2026-11-19
 updated: 2026-11-19
+archived_at: 2026-11-19
 ---
 
 ## Intent
@@ -29,3 +30,10 @@ run finds no open issue and opens a fresh one, so each run leaves one closed iss
 ## Notes
 
 - Frame skipped: the need and the proposal are concrete in the issue, and the change is one optional step.
+
+## Done
+
+- `@softure-ai/ci-usage` 0.2.0: `publish --close`, workflow input `close-issue` (default `false`); SOFTURE/AI's
+  `ci-usage-self.yml` closes its report issues. Release: next, through the trusted publisher (`auto-release.yml`,
+  `ci-usage`).
+- After the release: dispatch `ci-usage-self.yml`; the run is green and its report issue ends closed as completed.

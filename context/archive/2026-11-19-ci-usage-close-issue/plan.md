@@ -32,8 +32,9 @@ workflow's `cli-version` default 0.2.0, and SOFTURE/AI's own `ci-usage-self.yml`
 
 ## Progress
 
-- [ ] Phase 1: close after publishing
-- [ ] Phase 2: workflow, docs, version
+- [x] Phase 1: close after publishing (3417564; `vitest run tools/ci-usage`: 86 tests green, 5 new or changed)
+- [x] Phase 2: workflow, docs, version (391934e; `tests/repo/ci-usage-workflow.test.ts` green, typecheck and lint
+  green in the pre-commit hook; actionlint runs in CI)
 - [ ] Phase 3: release 0.2.0 and the live run
 
 ## Decisions (auto)
