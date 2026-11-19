@@ -51,7 +51,7 @@ export const API_TOKEN_RATE_LIMIT_BUCKETS = {
 export const mcpAccess = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.7.7",
+    version: "0.7.8",
     runtimes: ["node", "workers"],
     dependsOn: { security: "^0.2.0", auth: "^0.2.0", jobs: "^0.1.1?", ops: "^0.2.0?" },
     dbSchema: "mcp",
