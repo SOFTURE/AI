@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses the module. W
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.3
 
 - **`examples/backup-verify.yml` checks the live release and reports a failure (#1386).** `IMAGE` is the app's image
   without a tag; the workflow walks the newest 20 published releases (no drafts, no pre-releases) and takes the first
