@@ -24,7 +24,7 @@ account and left its password and sessions alive, so whoever registered the owne
 
 - `modules/auth/src/server/oidc/accounts.ts`: on a link to an account with no identity yet, replace the password by
   an unusable one and delete its sessions and password resets, in the sign-in's transaction.
-- Tests in `oidc-flow.test.ts` and `oidc-github.test.ts`; README (Accounts) and CHANGELOG 0.2.19.
+- Tests in `oidc-flow.test.ts` and `oidc-github.test.ts`; README (Accounts) and CHANGELOG (Unreleased).
 
 ## Constraints
 
@@ -42,4 +42,4 @@ account and left its password and sessions alive, so whoever registered the owne
 
 ## Done
 
-- Fix and tests on master; released with auth 0.2.19.
+- Fix and tests on master; released with the next auth release.

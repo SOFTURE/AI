@@ -13,7 +13,7 @@ Inside the existing transaction of `resolveOidcAccount`: before the identity ins
   (OIDC and GitHub); a new test proves an account a provider already verified keeps its session when a second
   provider links it.
 - `hasNoIdentity` and `revokeUnverifiedAccess` helpers in `accounts.ts`.
-- README Accounts paragraph, CHANGELOG 0.2.19.
+- README Accounts paragraph, CHANGELOG (Unreleased).
 - Done when: `npx vitest run modules/auth` passes, `tsc -p modules/auth` and ESLint on the changed files are clean.
 
 ## Progress
