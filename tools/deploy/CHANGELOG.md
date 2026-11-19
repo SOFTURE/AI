@@ -7,7 +7,7 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 ## Unreleased
 
 - **Time limits for the database and git steps:** `schema-guard` and `row-counts` connect with a statement limit of
-  10 minutes, a lock wait limit of 30 s and a client query limit (`getPgClientConfig`), so a lock held by a parallel
+  10 minutes, a lock wait limit of 30 s and a client query limit (also through `withPgClient`), so a lock held by a parallel
   migration fails the step instead of hanging it. `integration run`, `record` and `lookup` give each fetch, push and
   `ls-remote` 2 minutes; a remote that stalls counts as unreachable.
   - Migrate: nothing.
