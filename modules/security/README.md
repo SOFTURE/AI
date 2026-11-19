@@ -340,7 +340,7 @@ matches `verifySignedRequest` (§4, "Signed requests"), which also bounds the ti
 
 | Function | Returns |
 | --- | --- |
-| `handleWebhook(ctx, request, { source, maxBytes, sender, secret, schema, deliveryId?, handle })` (`/server`) | the `Response` (table above) |
+| `handleWebhook(ctx, request, { source, maxBytes, sender, secret, schema, deliveryId?, eventTime?, handle })` (`/server`) | the `Response` (table above) |
 | `signWebhookRequest({ url, sender, secret, body, deliveryId?, headers? })` (`@softure-ai/security` and `/signed-request`) | a signed `Request`, for tests of a route |
 | `verifyWebhookSignature({ secret, header, body, algorithm, encoding, prefix? })` (`@softure-ai/security` and `/signed-request`) | `Ok<undefined>` or `Err<"security.signature_invalid">` |
 | `signWebhookBody({ secret, body, algorithm, encoding, prefix? })` (same entries) | the header value the provider would send, for tests of a handler |
@@ -372,7 +372,9 @@ yourself when the provider's id is only in a header.
 `source` is the app's constant name for the sender (the bucket name rule; a malformed one throws), so two
 providers' ids never collide; a `deliveryId` that is empty, longer than 200 characters or holds control characters
 is `security.delivery_id_invalid`. Ids are kept for `webhookDeliveries.retentionDays` (default 30 days, well past
-every retry window), then pruned (§11): a replay older than that is accepted again.
+every retry window), then pruned (§11): a replay older than that is accepted again, unless the event carries its
+creation time. Pass `eventTime: (event) => new Date(event.created_at)` (the provider's field) and an event older than
+`retentionDays` is answered 200 without `handle`; an invalid date counts as old.
 
 ### Requests to third-party URLs
 
@@ -553,8 +555,9 @@ None. Custom client-IP resolvers are plain functions (section 3).
 
 ## 11. GDPR
 
-The table holds rate limit keys only: client addresses (personal data) and SHA-256 prefixes of
-subjects, never an email in clear text (`listRateLimitBuckets` names the buckets keyed by address). Nothing is
+The table holds rate limit keys only: client addresses (personal data) and unsalted SHA-256 prefixes of
+subjects, never an email in clear text. Those prefixes are pseudonymous, not anonymous: whoever holds a dump and a list
+of candidate emails can confirm which of them were counted (`listRateLimitBuckets` names the buckets keyed by address). Nothing is
 exported per user. Cleanup deletes a row two windows after its window started; it runs on a share
 of consumed attempts (`cleanupProbability`), so with little traffic a row can stay longer. Schedule
 `pruneRateLimits` (for example hourly) when the retention period must be guaranteed.
@@ -590,7 +593,7 @@ its own cron.
 - `verifyWebhookSignature` covers HMACs over the raw body. Formats that sign more than the body (a URL and form
   fields, an id and a timestamp joined with the body) or use public-key signatures need the provider's own check.
 - The delivery ledger remembers ids for `webhookDeliveries.retentionDays`; a replay older than that is processed
-  again.
+  again, unless `handleWebhook` gets `eventTime` for a provider whose events carry their creation time.
 - `sendGuardedRequest` returns the status only: no response body and no redirect following
   (`fetchGuardedPage` reads the body and follows redirects, GET only). Neither supports an outbound proxy: a request
   that must go through one needs its own client.

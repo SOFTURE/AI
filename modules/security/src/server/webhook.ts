@@ -9,6 +9,8 @@ import type { SecurityContext } from "./rate-limit.js";
 import { getSecurityOptions } from "./options.js";
 import { assertSource, recordDeliveryOnce } from "./webhook-deliveries.js";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export interface HandleWebhookOptions<TEvent> {
   /** The app's constant name for the sender (the `recordDeliveryOnce` rule), e.g. `github`. */
   readonly source: string;
@@ -22,6 +24,12 @@ export interface HandleWebhookOptions<TEvent> {
   readonly schema: z.ZodType<TEvent>;
   /** The delivery id from the event, for a sender without `deliveryIdHeader`. */
   readonly deliveryId?: (event: TEvent) => string;
+  /**
+   * When the provider created the event, read from the validated event. An event older than
+   * `webhookDeliveries.retentionDays` is answered 200 without `handle`: its ledger rows may be pruned already, so it
+   * could be a captured delivery resent. Without it such a replay is processed again.
+   */
+  readonly eventTime?: (event: TEvent) => Date;
   /** The work, with the delivery's transaction as `ctx.db`. Throwing rolls the delivery back; the sender retries. */
   readonly handle: (event: TEvent, ctx: SecurityContext) => Promise<void>;
 }
@@ -81,6 +89,9 @@ export async function handleWebhook<TEvent>(
     return answer("security.webhook_payload_invalid");
   }
   const event = parsed.data;
+  if (options.eventTime !== undefined && isPastRetention(ctx, options.eventTime(event))) {
+    return new Response(null, { status: 200 });
+  }
   const delivery = { source: options.source, deliveryId: readDeliveryId(event) };
   // A header id is not signed: a captured delivery resent with a new id must still be a replay, so the signed bytes
   // are recorded too. An id read from the validated event is signed already.
@@ -104,6 +115,13 @@ export async function handleWebhook<TEvent>(
     console.error(`@softure-ai/security: webhook "${options.source}" failed: ${errorLogLabel(error)}`);
     return answer("security.webhook_failed");
   }
+}
+
+/** Whether an event is older than the ledger keeps ids; an invalid date counts as old, so it is never processed. */
+function isPastRetention(ctx: SecurityContext, createdAt: Date): boolean {
+  const { retentionDays } = getSecurityOptions(ctx.config).webhookDeliveries;
+  const createdMs = createdAt.getTime();
+  return Number.isNaN(createdMs) || createdMs < ctx.clock.now().getTime() - retentionDays * DAY_MS;
 }
 
 function getDeliveryIdReader<TEvent>(request: Request, options: HandleWebhookOptions<TEvent>): (event: TEvent) => string {

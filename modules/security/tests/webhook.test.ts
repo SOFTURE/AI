@@ -105,6 +105,48 @@ describe("handleWebhook", () => {
     expect(calls).toHaveLength(1);
   });
 
+  describe("with eventTime", () => {
+    const timedSchema = z.object({ action: z.string(), issue: z.object({ id: z.number() }), created_at: z.string() });
+    type TimedEvent = z.infer<typeof timedSchema>;
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    function timedOptions(seen: TimedEvent[]): HandleWebhookOptions<TimedEvent> {
+      return {
+        ...options,
+        schema: timedSchema,
+        eventTime: (event) => new Date(event.created_at),
+        handle: async (event) => {
+          seen.push(event);
+          await Promise.resolve();
+        },
+      };
+    }
+
+    it("answers 200 without the work or a record for an event older than the retention days", async () => {
+      const seen: TimedEvent[] = [];
+      const old = { ...EVENT, created_at: new Date(test.clock.now().getTime() - 30 * DAY_MS - 1).toISOString() };
+      const response = await handleWebhook(test.ctx, await signed(JSON.stringify(old)), timedOptions(seen));
+      expect(await readAnswer(response)).toEqual({ status: 200, body: null });
+      expect(seen).toEqual([]);
+      expect(await countDeliveries(test)).toBe(0);
+    });
+
+    it("runs the work for an event exactly at the retention boundary", async () => {
+      const seen: TimedEvent[] = [];
+      const edge = { ...EVENT, created_at: new Date(test.clock.now().getTime() - 30 * DAY_MS).toISOString() };
+      await handleWebhook(test.ctx, await signed(JSON.stringify(edge)), timedOptions(seen));
+      expect(seen).toEqual([edge]);
+    });
+
+    it("treats an invalid event time as old", async () => {
+      const seen: TimedEvent[] = [];
+      const broken = { ...EVENT, created_at: "not a date" };
+      const response = await handleWebhook(test.ctx, await signed(JSON.stringify(broken)), timedOptions(seen));
+      expect(response.status).toBe(200);
+      expect(seen).toEqual([]);
+    });
+  });
+
   it("answers 413 for a body over maxBytes, before checking the signature", async () => {
     const big = JSON.stringify({ ...EVENT, padding: "x".repeat(1024) });
     const response = await handleWebhook(test.ctx, await signed(big, { secret: "wrong" }), options);

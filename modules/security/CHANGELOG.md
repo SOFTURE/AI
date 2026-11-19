@@ -6,6 +6,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **`handleWebhook` can refuse old events:** new option `eventTime(event)`. An event created longer ago than
+  `webhookDeliveries.retentionDays` is answered 200 without `handle`, so a captured delivery resent after its ledger
+  rows were pruned no longer runs the work again. README §11 now calls subject keys pseudonymous.
+  - Migrate: nothing; pass `eventTime` for a provider whose events carry their creation time.
 - **`handleWebhook` treats a resent delivery under a new id as a replay:** the delivery id header (`X-GitHub-Delivery`,
   `X-Shopify-Webhook-Id`) is not covered by the signature, so a captured delivery could be resent with a new id and
   run the work again. When the id comes from the header, the route now also records a key of the signed bytes

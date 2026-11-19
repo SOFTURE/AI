@@ -545,8 +545,8 @@ repeated request keeps the first time; a finished job answers `jobs.not_cancella
 (pending jobs only). `retryJob` on a cancelled job clears the request and the progress.
 
 A worker of your own built on `claimJobs` uses `heartbeatJob(ctx, claimed)` (`held`, `cancel_requested` or `lost`)
-in place of `extendJobLease` to see requests. `runDueJobs` has no heartbeat: it sees a request at the handler's next
-progress write.
+in place of `extendJobLease` to see requests. `runDueJobs` extends leases like the worker, so it sees a request at
+its next heartbeat or at the handler's next progress write.
 
 ### A user follows their own job
 
@@ -627,7 +627,10 @@ answer; a body that is not a job status is `jobs.failed`. `cancel()` sends `DELE
 
 `runDueJobs(ctx, { handlers })` (from `@softure-ai/jobs/server` or `/testing`) enqueues the due runs of the schedules
 among its queues, then runs every due job once, in this process, one after another, checks schedule health for
-`onScheduleStateChanged`, and returns `{ succeeded, retried, failed, stale }`. A cron can drain a queue with it; call `pruneJobs(ctx)` and `pruneJobRuns(ctx)` from the same cron.
+`onScheduleStateChanged`, and returns `{ succeeded, retried, failed, stale }`. Each job runs under its lease as in the
+worker: the lease is extended every third of `leaseSeconds` (`heartbeatMs` to change it), and the handler's `signal`
+aborts when the lease is lost, runs out while it cannot be extended, or an operator cancels, so a long handler is never
+run twice at once by the next cron run. A cron can drain a queue with it; call `pruneJobs(ctx)` and `pruneJobRuns(ctx)` from the same cron.
 `enqueueDueSchedules(ctx, { queues? })` only enqueues the due scheduled runs.
 
 ### Sync state for polling

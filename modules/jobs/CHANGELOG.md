@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **`runDueJobs` extends the lease of the job it runs:** it now runs each job like the worker does (heartbeats every
+  third of `leaseSeconds`, new option `heartbeatMs`), and the handler's `signal` aborts when the lease is lost, runs
+  out or an operator cancels. Before, a handler that outlasted its lease could be claimed and run again by the next
+  cron run while the first was still going.
+  - Migrate: nothing; a long handler should pass `signal` on to its own requests.
 - **A handler stops when its lease runs out:** while the database refuses every heartbeat or does not answer it, the
   worker aborts the handler's `signal` once the lease it last extended has ended (checked on every heartbeat tick; a
   heartbeat still waiting for its answer is not sent again) (logged as `warn`,
