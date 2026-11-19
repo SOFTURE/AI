@@ -37,17 +37,18 @@ export function resolveCommit(cwd: string, ref: string): string | null {
   }
 }
 
-/** The nearest tag matching `match` (a git glob) before `to`, or null when there is none (a first release). */
+/**
+ * The nearest tag matching `match` (a git glob) before `to`, or null when no such tag is merged into it (a first
+ * release). Any other git failure throws.
+ */
 export function findPreviousTag({ cwd, to, match }: { cwd: string; to: string; match: string }): string | null {
   assertSafeRef(to);
   if (resolveCommit(cwd, `${to}^`) === null) return null;
-  try {
-    return runGit(cwd, ["describe", "--tags", "--abbrev=0", `--match=${match}`, `${to}^`]).trim();
-  } catch (error) {
-    // `git describe` exits with 128 when no tag matches.
-    if (hasExitStatus(error, 128)) return null;
-    throw error;
-  }
+  // Asked first, so that every failure of `git describe` below is a failure (git exits 128 for "no tag" and for a
+  // broken repository alike) and never turns into a first release listing the whole history.
+  const merged = runGit(cwd, ["tag", "--list", "--merged", `${to}^`, "--", match]).trim();
+  if (merged === "") return null;
+  return runGit(cwd, ["describe", "--tags", "--abbrev=0", `--match=${match}`, `${to}^`]).trim();
 }
 
 /** Commit date of `ref`, YYYY-MM-DD. */

@@ -4,6 +4,25 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **Time limits for the database and git steps:** `schema-guard` and `row-counts` connect with a statement limit of
+  10 minutes, a lock wait limit of 30 s and a client query limit (`getPgClientConfig`), so a lock held by a parallel
+  migration fails the step instead of hanging it. `integration run`, `record` and `lookup` give each fetch, push and
+  `ls-remote` 2 minutes; a remote that stalls counts as unreachable.
+  - Migrate: nothing.
+- **`integration` names git's reason** when the remote refuses or cannot be reached (`origin refused … (! [remote
+  rejected] … (pre-receive hook declined))`), with any credentials of the remote URL masked. `record` retries only a
+  push that lost a race to another run; any other refusal fails at once.
+  - Migrate: nothing.
+- **`countRows` refuses a name that is not a table name** (`table` or `schema.table`, lower snake case) before it
+  runs any query, as `buildRowCountQuery` already did.
+  - Migrate: nothing for names from `parseTableList` or `deploy.json`; a library caller passing other names gets a
+    `RangeError`.
+- **Release notes fail on a git error** instead of reading it as a first release: `findPreviousTag` returns null only
+  when no tag matching the glob is merged into the commit.
+  - Migrate: nothing.
+
 ## 0.7.7
 
 - **`init --host=cloudflare`: the weekly `backup-verify.yml` reports a failed check (#1386).** With `issues: write`, a

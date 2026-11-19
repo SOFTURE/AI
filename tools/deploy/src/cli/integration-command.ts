@@ -161,9 +161,9 @@ export async function runIntegrationRun(args: string[], io: CliIo): Promise<void
     case "busy":
       return fail(`${command}: ${result.ref} is in use by ${result.otherSha.slice(0, 8)} (a run in progress, or a stale ref to delete).`);
     case "unreachable":
-      return fail(`${command}: cannot reach ${remote}; the run did not start.`);
+      return fail(`${command}: cannot reach ${remote} (${result.reason}); the run did not start.`);
     case "push-failed":
-      return fail(`${command}: ${remote} refused ${result.ref}; the run did not start.`);
+      return fail(`${command}: ${remote} refused ${result.ref} (${result.reason}); the run did not start.`);
     case "timeout":
       return fail(`${command}: no result for ${sha.slice(0, 8)} within ${String(waitMinutes)} minutes (${result.ref}).`, NO_RESULT_IN_TIME_EXIT_CODE);
     case "invalid":
@@ -264,7 +264,9 @@ export function runIntegrationRecord(args: string[], io: CliIo): void {
     run,
     finishedAt: new Date(),
   });
-  if (recorded.kind === "push-failed") fail(`${command}: ${remote} refused the notes after ${String(recorded.attempts)} attempts.`);
+  if (recorded.kind === "push-failed") {
+    fail(`${command}: ${remote} refused the notes after ${String(recorded.attempts)} attempts (${recorded.reason}).`);
+  }
   const { note } = recorded;
   const countsText = note.total === null ? "" : ` (${String(note.passed)}/${String(note.total)})`;
   io.stdout(`${command}: ${note.result}${countsText} stored on ${sha.slice(0, 8)}\n`);

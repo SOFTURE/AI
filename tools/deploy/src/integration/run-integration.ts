@@ -73,7 +73,8 @@ export interface RecordOptions extends GitTarget {
   attempts?: number;
 }
 
-export type RecordResult = { kind: "recorded"; note: IntegrationNote } | { kind: "push-failed"; attempts: number };
+/** `push-failed` carries git's reason of the last refusal; a refusal that is not a race stops the retries at once. */
+export type RecordResult = { kind: "recorded"; note: IntegrationNote } | { kind: "push-failed"; attempts: number; reason: string };
 
 /** Stores the result as the note on `sha` and pushes it, merging with notes other runs pushed meanwhile. */
 export function recordIntegration(options: RecordOptions): RecordResult {
@@ -91,13 +92,19 @@ export function recordIntegration(options: RecordOptions): RecordResult {
     finishedAt: `${options.finishedAt.toISOString().slice(0, 19)}Z`,
   };
   const attempts = options.attempts ?? 5;
+  let reason = "";
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    // Start from the remote's notes each round, so a note another run pushed meanwhile is kept, not overwritten.
+    // Start from the remote's notes each round, so a note another run pushed meanwhile is kept, not overwritten. A
+    // failed fetch (no notes on the remote yet) leaves the local ones, which the push then creates.
     fetchIntegrationNotes(options.cwd, options.remote, getNotesRef(options));
     writeNoteText(options.cwd, getNotesRef(options), options.sha, formatIntegrationNote(note));
-    if (pushIntegrationNotes(options.cwd, options.remote, getNotesRef(options))) return { kind: "recorded", note };
+    const pushed = pushIntegrationNotes(options.cwd, options.remote, getNotesRef(options));
+    if (pushed.ok) return { kind: "recorded", note };
+    reason = pushed.reason;
+    // Only a lost race is worth another round; a refused login or a missing remote fails the same way every time.
+    if (!pushed.isRace) return { kind: "push-failed", attempts: attempt, reason };
   }
-  return { kind: "push-failed", attempts };
+  return { kind: "push-failed", attempts, reason };
 }
 
 export interface RunOptions extends GitTarget {
@@ -119,8 +126,8 @@ export type RunResult =
   | { kind: "invalid"; problem: string }
   | { kind: "timeout"; ref: string }
   | { kind: "busy"; ref: string; otherSha: string }
-  | { kind: "push-failed"; ref: string }
-  | { kind: "unreachable" };
+  | { kind: "push-failed"; ref: string; reason: string }
+  | { kind: "unreachable"; reason: string };
 
 /**
  * Starts the remote run for `sha` by pushing `refs/heads/<refPrefix><name>` and waits for its note. A ref that
@@ -135,14 +142,14 @@ export async function runIntegration(options: RunOptions): Promise<RunResult> {
   fetchIntegrationNotes(options.cwd, options.remote, notesRef);
   const before = readNoteText(options.cwd, notesRef, options.sha);
   const current = readRemoteRef(options.cwd, options.remote, ref);
-  if (current.kind === "unreachable") return { kind: "unreachable" };
+  if (current.kind === "unreachable") return { kind: "unreachable", reason: current.reason };
   if (current.kind === "at" && current.sha !== options.sha) return { kind: "busy", ref, otherSha: current.sha };
   if (current.kind === "at") {
     options.log(`${ref} already points at ${options.sha.slice(0, 8)}: waiting for that run`);
-  } else if (pushCommitToRef(options.cwd, options.remote, options.sha, ref)) {
-    options.log(`pushed ${options.sha.slice(0, 8)} to ${ref}: waiting for the result note`);
   } else {
-    return { kind: "push-failed", ref };
+    const pushed = pushCommitToRef(options.cwd, options.remote, options.sha, ref);
+    if (!pushed.ok) return { kind: "push-failed", ref, reason: pushed.reason };
+    options.log(`pushed ${options.sha.slice(0, 8)} to ${ref}: waiting for the result note`);
   }
   const deadline = options.now() + options.waitMinutes * 60_000;
   for (;;) {

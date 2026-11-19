@@ -190,6 +190,13 @@ describe("softure-deploy integration record", () => {
     expect(JSON.parse(remoteNote(otherSha))).toMatchObject({ result: "red", name: "other", ref: "refs/heads/integration/other" });
   });
 
+  it("stops at once and names git's reason when the remote refuses the notes for another cause than a race", async () => {
+    writeFileSync(join(remote, "hooks/pre-receive"), "#!/bin/sh\necho 'access denied' >&2\nexit 1\n");
+    chmodSync(join(remote, "hooks/pre-receive"), 0o755);
+    expect(await cli(work, ["integration", "record", "--sha=HEAD", "--ref=refs/heads/trunk", "--result=green"])).toBe(1);
+    expect(err.join("")).toContain("origin refused the notes after 1 attempts (! [remote rejected]");
+  });
+
   it("stores no counts when the report is missing, and says so", async () => {
     expect(await cli(work, ["integration", "record", "--sha=HEAD", "--ref=refs/heads/trunk", "--result=red", "--junit=missing.xml"])).toBe(0);
     expect(err.join("")).toContain("missing.xml does not exist");
@@ -343,7 +350,15 @@ describe("softure-deploy integration run", () => {
     commit(work, "b.txt");
     git(work, "remote", "set-url", "origin", join(root, "gone.git"));
     expect(await cli(work, ["integration", "run", "--name=feature", "--wait-minutes=0"])).toBe(1);
-    expect(err.join("")).toContain("cannot reach origin; the run did not start");
+    expect(err.join("")).toMatch(/cannot reach origin \(.*gone\.git.*\); the run did not start/);
+  });
+
+  it("never prints the credentials of a remote URL in git's reason", async () => {
+    commit(work, "b.txt");
+    git(work, "remote", "set-url", "origin", "http://deploy:s3cr3t-token@127.0.0.1:9/app.git");
+    expect(await cli(work, ["integration", "run", "--name=feature", "--wait-minutes=0"])).toBe(1);
+    expect(err.join("")).toContain("cannot reach origin (");
+    expect(err.join("")).not.toContain("s3cr3t-token");
   });
 
   it("exits 1 when the remote refuses the push", async () => {
@@ -351,7 +366,8 @@ describe("softure-deploy integration run", () => {
     writeFileSync(join(remote, "hooks/pre-receive"), "#!/bin/sh\nexit 1\n");
     chmodSync(join(remote, "hooks/pre-receive"), 0o755);
     expect(await cli(work, ["integration", "run", "--name=feature", "--wait-minutes=0"])).toBe(1);
-    expect(err.join("")).toContain("origin refused refs/heads/integration/feature; the run did not start");
+    expect(err.join("")).toContain("origin refused refs/heads/integration/feature (! [remote rejected]");
+    expect(err.join("")).toContain("(pre-receive hook declined)); the run did not start");
   });
 
   it.each([

@@ -135,8 +135,10 @@ softure-deploy release-report --body=<release body file> --summary=deploy-report
 ## Database steps around a deploy
 
 `backup`, `schema-guard` and `row-counts` read the database URL from `DATABASE_URL` (`--url-env=<NAME>` names
-another variable). The URL is never printed; a driver error prints its message only. A server `deploy.sh` runs them
-in this order:
+another variable). The URL is never printed; a driver error prints its message only. `schema-guard` and `row-counts`
+connect with time limits (10 s to connect, 10 minutes per statement, 30 s per lock wait), so a lock held by a
+migration running at the same time fails the step with a message instead of hanging it. A server `deploy.sh` runs
+them in this order:
 
 ```bash
 softure-deploy backup --dir=/srv/app/backups --keep=7                   # 1. dump, then retention

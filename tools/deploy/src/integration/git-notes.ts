@@ -25,17 +25,71 @@ function assertSafe(kind: "ref" | "remote", value: string): void {
   if (!isSafe) throw new Error(`git: refusing the ${kind} ${JSON.stringify(value)}.`);
 }
 
-function runGit(cwd: string, args: string[], input?: string): string {
+/** One network command (fetch, push, ls-remote): git itself has no connect or transfer limit. */
+const NETWORK_TIMEOUT_MS = 2 * 60_000;
+const MAX_REASON_LENGTH = 200;
+
+function runGit(cwd: string, args: string[], input?: string, timeoutMs?: number): string {
   return execFileSync("git", args, {
     cwd,
     encoding: "utf8",
     input,
     maxBuffer: MAX_OUTPUT_BYTES,
     stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+    timeout: timeoutMs,
+    killSignal: "SIGKILL",
   });
 }
 
-/** Runs git and reports a non-zero exit as false, for steps whose failure the caller handles. */
+/** A git that ran and failed: a non-zero exit, or killed at its time limit. Anything else (git missing) is a bug. */
+function isGitFailure(error: unknown): error is { status: number | null; signal: string | null; stderr?: unknown } {
+  if (typeof error !== "object" || error === null) return false;
+  const status = "status" in error ? error.status : undefined;
+  const signal = "signal" in error ? error.signal : undefined;
+  return typeof status === "number" || typeof signal === "string";
+}
+
+/** What a refused fetch or push said: git's reason, and whether it lost a race to another run. */
+interface GitFailure {
+  readonly reason: string;
+  readonly isRace: boolean;
+}
+
+/**
+ * Reads a failed git's stderr: the reason is the rejection line (` ! [rejected] … (fetch first)`), else the first
+ * `fatal:` line, else the last line that is not a hint, with any `//user:secret@` of a remote URL masked; a lost race is a non-fast-forward
+ * refusal, so a fresh fetch and another push can succeed.
+ */
+function readFailure(error: { signal: string | null; stderr?: unknown }): GitFailure {
+  if (typeof error.signal === "string") return { reason: `git gave no answer within ${String(NETWORK_TIMEOUT_MS / 1000)} s`, isRace: false };
+  const stderr = typeof error.stderr === "string" ? error.stderr : Buffer.isBuffer(error.stderr) ? error.stderr.toString("utf8") : "";
+  const lines = stderr.split("\n").map((line) => line.trim()).filter((line) => line !== "" && !line.startsWith("hint:"));
+  const line =
+    lines.find((entry) => entry.startsWith("! [")) ??
+    lines.find((entry) => entry.startsWith("fatal:")) ??
+    lines.at(-1) ??
+    "git exited without a message";
+  return {
+    reason: line.replace(/\/\/[^/@\s]*@/g, "//***@").slice(0, MAX_REASON_LENGTH),
+    isRace: /non-fast-forward|\(fetch first\)|\(stale info\)|cannot lock ref/i.test(stderr),
+  };
+}
+
+/** What a fetch or push to the remote did: done, or refused with git's reason. */
+export type GitRemoteResult = { readonly ok: true } | ({ readonly ok: false } & GitFailure);
+
+/** Runs a network git command and reports its failure as a value, for steps whose failure the caller handles. */
+function tryRemoteGit(cwd: string, args: string[]): GitRemoteResult {
+  try {
+    runGit(cwd, args, undefined, NETWORK_TIMEOUT_MS);
+    return { ok: true };
+  } catch (error) {
+    if (isGitFailure(error)) return { ok: false, ...readFailure(error) };
+    throw error;
+  }
+}
+
+/** Runs a local git command and reports a non-zero exit as false. */
 function tryGit(cwd: string, args: string[]): boolean {
   try {
     runGit(cwd, args);
@@ -46,11 +100,11 @@ function tryGit(cwd: string, args: string[]): boolean {
   }
 }
 
-/** Replaces the local integration notes with the remote's; false when they cannot be fetched (none yet, offline). */
-export function fetchIntegrationNotes(cwd: string, remote: string, notesRef: string): boolean {
+/** Replaces the local integration notes with the remote's; refused when they cannot be fetched (none yet, offline). */
+export function fetchIntegrationNotes(cwd: string, remote: string, notesRef: string): GitRemoteResult {
   assertSafe("remote", remote);
   assertSafe("ref", notesRef);
-  return tryGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+${notesRef}:${notesRef}`]);
+  return tryRemoteGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+${notesRef}:${notesRef}`]);
 }
 
 /** The note text on `sha`, or null when it has none. */
@@ -77,14 +131,14 @@ export function writeNoteText(cwd: string, notesRef: string, sha: string, text: 
   runGit(cwd, [...identity, "notes", `--ref=${notesRef}`, "add", "--force", "--file=-", sha], text);
 }
 
-/** Pushes the local notes ref; false when the remote refuses it (another run pushed first). */
-export function pushIntegrationNotes(cwd: string, remote: string, notesRef: string): boolean {
+/** Pushes the local notes ref; refused with git's reason (`isRace` when another run pushed first). */
+export function pushIntegrationNotes(cwd: string, remote: string, notesRef: string): GitRemoteResult {
   assertSafe("remote", remote);
   assertSafe("ref", notesRef);
-  return tryGit(cwd, ["push", "--quiet", "--", remote, `${notesRef}:${notesRef}`]);
+  return tryRemoteGit(cwd, ["push", "--quiet", "--", remote, `${notesRef}:${notesRef}`]);
 }
 
-export type RemoteRef = { kind: "absent" } | { kind: "at"; sha: string } | { kind: "unreachable" };
+export type RemoteRef = { kind: "absent" } | { kind: "at"; sha: string } | { kind: "unreachable"; reason: string };
 
 /** Where `ref` points on the remote: nowhere, a commit, or unknown because the remote cannot be reached. */
 export function readRemoteRef(cwd: string, remote: string, ref: string): RemoteRef {
@@ -92,21 +146,21 @@ export function readRemoteRef(cwd: string, remote: string, ref: string): RemoteR
   assertSafe("ref", ref);
   let listed: string;
   try {
-    listed = runGit(cwd, ["ls-remote", "--refs", "--", remote, ref]);
+    listed = runGit(cwd, ["ls-remote", "--refs", "--", remote, ref], undefined, NETWORK_TIMEOUT_MS);
   } catch (error) {
-    if (typeof error === "object" && error !== null && "status" in error && typeof error.status === "number") return { kind: "unreachable" };
+    if (isGitFailure(error)) return { kind: "unreachable", reason: readFailure(error).reason };
     throw error;
   }
   const sha = listed.split("\n").find((entry) => entry.endsWith(`\t${ref}`))?.split("\t")[0];
   return sha === undefined ? { kind: "absent" } : { kind: "at", sha };
 }
 
-/** Creates `ref` on the remote at `sha`; false when the remote refuses it. Never forces. */
-export function pushCommitToRef(cwd: string, remote: string, sha: string, ref: string): boolean {
+/** Creates `ref` on the remote at `sha`; refused with git's reason. Never forces. */
+export function pushCommitToRef(cwd: string, remote: string, sha: string, ref: string): GitRemoteResult {
   assertSafe("remote", remote);
   assertSafe("ref", sha);
   assertSafe("ref", ref);
-  return tryGit(cwd, ["push", "--quiet", "--", remote, `${sha}:${ref}`]);
+  return tryRemoteGit(cwd, ["push", "--quiet", "--", remote, `${sha}:${ref}`]);
 }
 
 /** The full SHA of the commit `ref` names, or null. */
@@ -129,7 +183,8 @@ export function findMainNoteText(cwd: string, remote: string, notesRef: string, 
   assertSafe("ref", main);
   assertSafe("ref", notesRef);
   const tracking = `refs/remotes/${remote}/${main}`;
-  tryGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+refs/heads/${main}:${tracking}`]);
+  // A failed fetch falls back to the last fetched state, below.
+  tryRemoteGit(cwd, ["fetch", "--quiet", "--no-tags", "--", remote, `+refs/heads/${main}:${tracking}`]);
   if (resolveSha(cwd, tracking) === null) return null;
   let listed: string;
   try {

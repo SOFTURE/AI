@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toLibpqEnv } from "./connection.js";
+import { getPgClientConfig, toLibpqEnv } from "./connection.js";
 
 describe("toLibpqEnv", () => {
   it("splits a full URL into libpq variables, decoding escaped parts", () => {
@@ -42,5 +42,17 @@ describe("toLibpqEnv", () => {
       problem: "the database URL has a query parameter pg_dump cannot take: options",
     });
     expect(toLibpqEnv("not a url")).toEqual({ ok: false, problem: "the database URL is not a valid URL" });
+  });
+});
+
+describe("getPgClientConfig", () => {
+  it("bounds connecting, every statement, every lock wait and every query", () => {
+    expect(getPgClientConfig("postgres://app@db/app")).toEqual({
+      connectionString: "postgres://app@db/app",
+      connectionTimeoutMillis: 10_000,
+      statement_timeout: 600_000,
+      lock_timeout: 30_000,
+      query_timeout: 660_000,
+    });
   });
 });

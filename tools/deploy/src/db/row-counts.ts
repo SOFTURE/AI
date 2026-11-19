@@ -37,8 +37,13 @@ export interface Queryable {
   query<Row>(text: string, params?: unknown[]): Promise<{ rows: Row[] }>;
 }
 
-/** Counts each table that exists; one the database lacks (`to_regclass` finds nothing) is `null`. */
+/**
+ * Counts each table that exists; one the database lacks (`to_regclass` finds nothing) is `null`. Throws, before any
+ * query, on a name that is not `table` or `schema.table` in lower snake case: the names are quoted into SQL.
+ */
 export async function countRows(client: Queryable, tables: readonly string[]): Promise<RowCounts> {
+  const invalid = tables.filter((table) => !TABLE_NAME_PATTERN.test(table));
+  if (invalid.length > 0) throw new RangeError(`countRows: not a table name: ${invalid.map((name) => JSON.stringify(name)).join(", ")}`);
   const counts: RowCounts = {};
   for (const table of tables) {
     const quoted = table.split(".").map((part) => `"${part}"`).join(".");
