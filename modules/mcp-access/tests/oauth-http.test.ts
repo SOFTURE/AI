@@ -370,6 +370,20 @@ describe("the OAuth HTTP layer", () => {
       expect(response.headers.get("location")).toBe(`/oauth/authorize?${params.toString()}`);
     });
 
+    it("counts decisions per signed-in account and answers 429 over the limit, writing no more codes", async () => {
+      const { limit } = MCP_RATE_LIMIT_BUCKETS["mcp-oauth"];
+      const params = authorizationParams(await registeredClientId());
+      for (let attempt = 0; attempt < limit; attempt += 1) {
+        expect((await decide(params, { decision: "allow" })).status).toBe(303);
+      }
+      const refused = await decide(params, { decision: "allow" });
+      expect([refused.status, refused.headers.get("retry-after")]).toEqual([429, String(15 * 60)]);
+      const codes = await test.database.client.query<{ total: number }>("SELECT count(*)::int AS total FROM mcp.oauth_authorization_codes");
+      expect(codes.rows[0]?.total).toBe(limit);
+      const bob = await createUser(test.database, "bob@example.com");
+      expect((await decide(params, { decision: "allow" }, bob)).status).toBe(303);
+    }, 60_000);
+
     it("re-validates the posted request: an unknown client goes back to the consent page, never to a redirect", async () => {
       const response = await decide(authorizationParams("nobody", { redirect_uri: "https://evil.example/cb" }), { decision: "allow" });
       expect(response.headers.get("location")).toMatch(/^\/oauth\/authorize\?/);
