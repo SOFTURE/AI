@@ -10,7 +10,9 @@
 #   below the job's 15-minute timeout) is marked partial, never failed, and its cache lets the next run go further.
 # - `publish` keeps one issue labelled `ci-usage` in the calling repository up to date (the body is the latest report,
 #   with the JSON in a collapsed block) and comments each run's totals. It always writes with GITHUB_TOKEN
-#   (`issues: write`). Agents read that issue with the GitHub tools they already have.
+#   (`issues: write`). Agents read that issue with the GitHub tools they already have. With `close-issue` the issue is
+#   closed as completed after each run, so the next run opens a fresh one: the newest issue labelled `ci-usage`,
+#   closed included, is then the latest report.
 #
 # The report also goes to the job summary and the artifact `ci-usage-report`. The CLI comes from npm at the exact
 # version of `cli-version`.
@@ -52,10 +54,14 @@ on:
         description: Keep the ci-usage issue of the calling repository up to date
         type: boolean
         default: true
+      close-issue:
+        description: Close the ci-usage issue as completed after publishing, so the next run opens a new one and the open issues hold only work
+        type: boolean
+        default: false
       cli-version:
         description: Version of @softure-ai/ci-usage that writes the report
         type: string
-        default: 0.1.2
+        default: 0.2.0
       node-version:
         description: Node.js version that runs the CLI
         type: string
@@ -157,5 +163,9 @@ jobs:
         if: inputs.publish
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          CLOSE: ${{ inputs.close-issue }}
         run: |
-          "$RUNNER_TEMP/ci-usage/node_modules/.bin/softure-ci-usage" publish --report-dir "$RUNNER_TEMP/ci-usage-report"
+          set -euo pipefail
+          close=()
+          if [ "$CLOSE" = true ]; then close=(--close); fi
+          "$RUNNER_TEMP/ci-usage/node_modules/.bin/softure-ci-usage" publish --report-dir "$RUNNER_TEMP/ci-usage-report" "${close[@]}"

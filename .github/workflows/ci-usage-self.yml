@@ -1,6 +1,7 @@
 # SOFTURE/AI's own CI minutes report (@softure-ai/ci-usage). About 1,150 runs a week are more requests than one
 # GITHUB_TOKEN hour allows, so the report runs every day to keep the run cache warm (each day reads only that day's new
-# runs) and publishes to the ci-usage issue on Mondays and when started by hand. It installs the published CLI, so it
+# runs) and publishes to the ci-usage issue on Mondays and when started by hand, closing it after each run so the
+# open issues hold only work. It installs the published CLI, so it
 # never runs on a push or a pull request.
 name: ci-usage-self
 
@@ -27,5 +28,6 @@ jobs:
     with:
       days: ${{ inputs.days || '7' }}
       publish: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '30 6 * * 1' }}
+      close-issue: true
     secrets:
       CI_USAGE_TOKEN: ${{ secrets.CI_USAGE_TOKEN }}

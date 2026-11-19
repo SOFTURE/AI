@@ -46,6 +46,7 @@ The caller grants `contents: read`, `actions: read` and `issues: write`.
 | `ubicloud-premium` | `false` | Price Ubicloud minutes as premium (an account setting a job does not show) |
 | `billing` | empty | `org:<organization>` or `user:<user>`: add what GitHub billed |
 | `publish` | `true` | Keep the `ci-usage` issue up to date |
+| `close-issue` | `false` | Close the issue as completed after each run, so the next run opens a new one |
 | `cli-version` | the released version | `@softure-ai/ci-usage` version |
 | `node-version` | `"22"` | Node.js version |
 
@@ -79,7 +80,9 @@ jobs:
 - **The issue** `CI usage report` (label `ci-usage`): its body is always the latest report, with the JSON in a
   collapsed block at the end (or a pointer to the artifact when it is too long); every run adds a comment with its
   period and totals, so the comments are the history. An agent reads it with the GitHub tools it already has (an
-  issue read of the label `ci-usage`).
+  issue read of the label `ci-usage`). With `close-issue: true` (CLI `publish --close`) every run closes its issue as
+  completed and the next run opens a new one, so the open issue count holds only work; the latest report is then the
+  newest issue labelled `ci-usage`, closed included (`state: all`, sorted by creation).
 - **The artifact** `ci-usage-report` of the run: `ci-usage.json` and `ci-usage.md`, kept 90 days.
 - **The CLI**, anywhere with a token:
 
@@ -122,7 +125,7 @@ repositories[] {
 softure-ci-usage report [--repository <owner/name>[,…]] [--days 7 | --from <date> --to <date>] [--out-dir .]
                         [--prices <json>] [--ubicloud-premium] [--billing org:<name>|user:<name>]
                         [--cache <file>] [--reserve 50] [--max-minutes <n>]
-softure-ci-usage publish [--repository <owner/name>] [--report-dir .] [--run-url <url>]
+softure-ci-usage publish [--repository <owner/name>] [--report-dir .] [--run-url <url>] [--close]
 ```
 
 The token comes from `GITHUB_TOKEN` (or `GH_TOKEN`); the repository defaults to `GITHUB_REPOSITORY`. `report` exits

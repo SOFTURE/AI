@@ -85,6 +85,14 @@ describe("ci-usage.yml", () => {
     expect(timeout).toBe(15);
   });
 
+  it("closes the issue after publishing only when the caller asks", () => {
+    expect(inputs["close-issue"]?.default).toBe(false);
+    const step = getStep("Publish the issue");
+    expect(step?.env?.CLOSE).toBe("${{ inputs.close-issue }}");
+    expect(step?.run).toContain('if [ "$CLOSE" = true ]; then close=(--close); fi');
+    expect(step?.run).toContain('"${close[@]}"');
+  });
+
   it("passes every input through by environment, never interpolated into a script", () => {
     for (const step of steps) expect(step.run ?? "", step.name).not.toMatch(/\$\{\{/);
   });
@@ -118,5 +126,10 @@ describe("SOFTURE/AI's own caller", () => {
   it("publishes on the Monday schedule and by hand, and only warms the cache on the other days", () => {
     const caller = parse(read(".github/workflows/ci-usage-self.yml")) as Workflow;
     expect(caller.jobs["ci-usage"]?.with?.publish).toBe("${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '30 6 * * 1' }}");
+  });
+
+  it("closes each report issue after publishing, so the open issues hold only work", () => {
+    const caller = parse(read(".github/workflows/ci-usage-self.yml")) as Workflow;
+    expect(caller.jobs["ci-usage"]?.with?.["close-issue"]).toBe(true);
   });
 });
