@@ -53,7 +53,7 @@ describe("publishReport", () => {
     const client = createGithubClient({ token: "t", fetch: fake.fetch });
     const result = await publishReport({ client, repository: "acme/app", report: REPORT, markdown: MARKDOWN, runUrl: RUN_URL });
 
-    expect(result).toEqual({ ok: true, issue: 9, url: "https://github.com/acme/app/issues/9", created: true });
+    expect(result).toEqual({ ok: true, issue: 9, url: "https://github.com/acme/app/issues/9", created: true, closed: false });
     expect(fake.requests.map((request) => `${request.method} ${request.url.pathname}`)).toEqual([
       "GET /repos/acme/app/labels/ci-usage",
       "POST /repos/acme/app/labels",
@@ -80,7 +80,7 @@ describe("publishReport", () => {
     ]);
     const client = createGithubClient({ token: "t", fetch: fake.fetch });
     const result = await publishReport({ client, repository: "acme/app", report: REPORT, markdown: MARKDOWN, runUrl: RUN_URL });
-    expect(result).toEqual({ ok: true, issue: 5, url: "https://github.com/acme/app/issues/5", created: false });
+    expect(result).toEqual({ ok: true, issue: 5, url: "https://github.com/acme/app/issues/5", created: false, closed: false });
     expect(fake.requests.find((request) => request.method === "PATCH")?.url.pathname).toBe("/repos/acme/app/issues/5");
   });
 
@@ -94,6 +94,60 @@ describe("publishReport", () => {
     expect(await publishReport({ client, repository: "acme/app", report: REPORT, markdown: MARKDOWN, runUrl: RUN_URL })).toEqual({
       ok: false,
       error: "POST /repos/acme/app/issues answered 403: Resource not accessible by integration",
+    });
+  });
+
+  it("closes the issue as completed after the comment when asked", async () => {
+    const fake = createFakeGithub([
+      { match: (url) => url.pathname === "/repos/acme/app/labels/ci-usage", body: { name: "ci-usage" } },
+      { match: (url) => isIssues(url) && url.search !== "", body: [] },
+      { match: isIssues, status: 201, body: { number: 9, body: "", html_url: "https://github.com/acme/app/issues/9" } },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/9/comments", status: 201, body: {} },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/9", body: { number: 9, state: "closed", html_url: "https://github.com/acme/app/issues/9" } },
+    ]);
+    const client = createGithubClient({ token: "t", fetch: fake.fetch });
+    const result = await publishReport({ client, repository: "acme/app", report: REPORT, markdown: MARKDOWN, runUrl: RUN_URL, close: true });
+
+    expect(result).toEqual({ ok: true, issue: 9, url: "https://github.com/acme/app/issues/9", created: true, closed: true });
+    expect(fake.requests.map((request) => `${request.method} ${request.url.pathname}`)).toEqual([
+      "GET /repos/acme/app/labels/ci-usage",
+      "GET /repos/acme/app/issues",
+      "POST /repos/acme/app/issues",
+      "POST /repos/acme/app/issues/9/comments",
+      "PATCH /repos/acme/app/issues/9",
+    ]);
+    expect(fake.requests[4]?.body).toEqual({ state: "closed", state_reason: "completed" });
+  });
+
+  it("closes an issue it updated, and returns a refused close as a value", async () => {
+    const fake = createFakeGithub([
+      { match: (url) => url.pathname === "/repos/acme/app/labels/ci-usage", body: { name: "ci-usage" } },
+      { match: (url) => isIssues(url) && url.search !== "", body: [{ number: 5, body: REPORT_MARKER, html_url: "https://github.com/acme/app/issues/5" }] },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/5/comments", status: 201, body: {} },
+      {
+        match: (url) => url.pathname === "/repos/acme/app/issues/5",
+        body: { number: 5, html_url: "https://github.com/acme/app/issues/5" },
+      },
+    ]);
+    const client = createGithubClient({ token: "t", fetch: fake.fetch });
+    const closed = await publishReport({ client, repository: "acme/app", report: REPORT, markdown: MARKDOWN, runUrl: RUN_URL, close: true });
+    expect(closed).toEqual({ ok: true, issue: 5, url: "https://github.com/acme/app/issues/5", created: false, closed: true });
+    expect(fake.requests.filter((request) => request.method === "PATCH").map((request) => request.body)).toEqual([
+      expect.objectContaining({ body: expect.stringContaining(REPORT_MARKER) as unknown }),
+      { state: "closed", state_reason: "completed" },
+    ]);
+
+    let patches = 0;
+    const refusing = createFakeGithub([
+      { match: (url) => url.pathname === "/repos/acme/app/labels/ci-usage", body: { name: "ci-usage" } },
+      { match: (url) => isIssues(url) && url.search !== "", body: [{ number: 5, body: REPORT_MARKER, html_url: "https://github.com/acme/app/issues/5" }] },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/5/comments", status: 201, body: {} },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/5" && ++patches === 1, body: { number: 5, html_url: "https://github.com/acme/app/issues/5" } },
+      { match: (url) => url.pathname === "/repos/acme/app/issues/5", status: 403, body: { message: "Resource not accessible by integration" } },
+    ]);
+    expect(await publishReport({ client: createGithubClient({ token: "t", fetch: refusing.fetch }), repository: "acme/app", report: REPORT, markdown: MARKDOWN, runUrl: RUN_URL, close: true })).toEqual({
+      ok: false,
+      error: "PATCH /repos/acme/app/issues/5 answered 403: Resource not accessible by integration",
     });
   });
 });

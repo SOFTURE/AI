@@ -1,5 +1,6 @@
 // Keeps one rolling issue per repository up to date with the latest report, and adds a comment per run, so people
-// and agents (with the GitHub tools they already have) read the usage without the artifact.
+// and agents (with the GitHub tools they already have) read the usage without the artifact. With `close` the issue is
+// closed after each run, so the next run opens a fresh one and the open issue count holds only work.
 import { z } from "zod";
 import type { GithubClient } from "./github.js";
 import { ciUsageMessages, formatMessage, type CiUsageMessages } from "./messages/index.js";
@@ -13,7 +14,7 @@ export const MAX_BODY = 65_000;
 
 const ISSUE = z.object({ number: z.number(), body: z.string().nullable().optional(), html_url: z.string(), pull_request: z.unknown().optional() });
 
-export type PublishResult = { ok: true; issue: number; url: string; created: boolean } | { ok: false; error: string };
+export type PublishResult = { ok: true; issue: number; url: string; created: boolean; closed: boolean } | { ok: false; error: string };
 
 /** The issue body: the Markdown report, then the JSON in a collapsed block when the whole still fits. */
 export function buildIssueBody(markdown: string, report: CiUsageReport, messages: CiUsageMessages = ciUsageMessages.en): string {
@@ -62,9 +63,14 @@ export interface PublishOptions {
   markdown: string;
   runUrl: string;
   messages?: CiUsageMessages;
+  /** Close the issue as completed after the comment (the next run then opens a new one). */
+  close?: boolean;
 }
 
-/** Creates the issue the first time, replaces its body afterwards, and comments the run's totals. */
+/**
+ * Creates the issue the first time, replaces its body afterwards, and comments the run's totals; with `close`, closes
+ * it last, so a refused close still leaves the report published.
+ */
 export async function publishReport(options: PublishOptions): Promise<PublishResult> {
   const { client, repository } = options;
   const messages = options.messages ?? ciUsageMessages.en;
@@ -91,5 +97,10 @@ export async function publishReport(options: PublishOptions): Promise<PublishRes
   }
   const comment = await client.send("POST", `/repos/${repository}/issues/${String(number)}/comments`, { body: buildComment(options.report, options.runUrl, messages) });
   if (!comment.ok) return { ok: false, error: comment.message };
-  return { ok: true, issue: number, url, created };
+  const close = options.close === true;
+  if (close) {
+    const closed = await client.send("PATCH", `/repos/${repository}/issues/${String(number)}`, { state: "closed", state_reason: "completed" });
+    if (!closed.ok) return { ok: false, error: closed.message };
+  }
+  return { ok: true, issue: number, url, created, closed: close };
 }
