@@ -119,8 +119,9 @@ mcpAccess({
 keeps every token read-only.
 
 `MCP_RATE_LIMIT_BUCKETS` is `{ mcp: { limit: 200, windowMinutes: 15 }, "mcp-oauth": { limit: 60, windowMinutes: 15 } }`
-per client address. Every endpoint request counts, valid or not, and before the token lookup;
-assistants behind one address share it. `mcp-oauth` counts the public OAuth requests:
+`mcp` counts endpoint requests per verified token, and per client address for a request without a
+valid token, so one caller behind a shared address (hosted assistants reach the endpoint from a few)
+cannot use up the room of every other account there. `mcp-oauth` counts the public OAuth requests:
 registrations per address, token requests per address and client (a token request whose body
 is over `oauth.maxBodyBytes` counts per address, since its client id is never read).
 
@@ -1093,7 +1094,7 @@ to `@softure-ai/privacy` (`privacy` flags on):
 - A hosted client's own tool list cache cannot be refreshed from the server (see "What hosted clients do with a
   changed tool list"); the version and the session renewal help only clients that re-list. `get_server_info` with
   `tools: true` gives the model the current contract in-band instead.
-- The MCP endpoint's rate limit is per client address, not per token (API tokens are counted per token as well).
+- The MCP endpoint's rate limit is per token; a request without a valid token is counted per client address.
 - One API token kind per app (one prefix); the `kind` column takes more kinds without a migration of the rows.
 - `responseMode: "json"` drops mid-call notifications; a streaming tool would need a different mode. Long work is an
   operation instead (start, `get_operation`, `cancel_operation`).

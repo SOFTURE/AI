@@ -5,6 +5,7 @@
 // `404 Not Found`: Streamable HTTP defines that as "start a new session", so the client initializes again and lists
 // the tools again. Nothing is stored: the id itself holds the version, so any instance can check it.
 import { randomBytes } from "node:crypto";
+import { peekJsonBody } from "./peek-body.js";
 
 /** The header that carries the session id, both ways. */
 export const MCP_SESSION_ID_HEADER = "mcp-session-id";
@@ -45,17 +46,8 @@ export function createSessionRenewalResponse(): Response {
  */
 export async function isInitializeRequest(request: Request, maxBytes: number): Promise<boolean> {
   if (request.method !== "POST" || request.headers.has(MCP_SESSION_ID_HEADER)) return false;
-  const length = Number(request.headers.get("content-length") ?? "0");
-  if (!Number.isFinite(length) || length > maxBytes) return false;
-  let body: unknown;
-  try {
-    const text = await request.clone().text();
-    if (text.length > maxBytes) return false;
-    body = JSON.parse(text);
-  } catch {
-    // Not JSON: the SDK answers the parse error itself.
-    return false;
-  }
+  // Counted while it streams; a body over maxBytes or not JSON is no initialize (the SDK answers it itself).
+  const body = await peekJsonBody(request, maxBytes);
   return typeof body === "object" && body !== null && !Array.isArray(body) && (body as { method?: unknown }).method === "initialize";
 }
 

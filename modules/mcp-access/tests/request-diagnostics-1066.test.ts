@@ -170,6 +170,27 @@ describe("request diagnostics", () => {
     expect(JSON.stringify(entries)).not.toContain("guessed-token-value");
   });
 
+  it("reads no method from a streamed body over the cap that has no Content-Length, without buffering it whole", async () => {
+    const endpoint = endpointFor();
+    const text = JSON.stringify({ ...listTools(2), params: { padding: "x".repeat(2 * 1024 * 1024) } });
+    const bytes = new TextEncoder().encode(text);
+    let pulled = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (pulled >= bytes.length) return controller.close();
+        controller.enqueue(bytes.subarray(pulled, pulled + 64 * 1024));
+        pulled += 64 * 1024;
+      },
+    });
+    const base = request(listTools(2));
+    const headers = new Headers(base.headers);
+    headers.delete("content-length");
+    const streamed = new Request(base.url, { method: "POST", headers, body, duplex: "half" } as RequestInit);
+    const response = await endpoint(test.ctx, streamed);
+    expect(response.status).toBe(413);
+    expect(entries.map((entry) => entry.method)).toEqual([null]);
+  });
+
   it("cuts client text and replaces control characters", async () => {
     const endpoint = endpointFor();
     const name = `evil\nclient${"x".repeat(200)}`;
