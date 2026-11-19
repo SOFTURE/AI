@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.7.7
+
+- **`init --host=cloudflare`: the weekly `backup-verify.yml` reports a failed check (#1386).** With `issues: write`, a
+  failed run creates the `backup-verify` label and opens one issue with the run's link (assigned to the repository's
+  owner where GitHub allows it) or comments on the open one; a green run closes them. GitHub alone mails a failed
+  scheduled run only to whoever last edited its cron line. An app that ran `init` before copies the two last steps and
+  the permission from a freshly generated file.
+
 ## 0.7.6
 
 - **`deploy-tested-tree.yml`:** when the pull request's newest commit does not carry the tag's tree outside

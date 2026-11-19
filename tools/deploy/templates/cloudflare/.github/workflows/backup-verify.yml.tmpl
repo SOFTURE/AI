@@ -2,7 +2,11 @@
 # (@softure-ai/deploy {{cliVersion}}); the app owns this file now. It downloads the newest encrypted dump with the
 # read-only token, restores it into a throwaway Postgres on the runner, runs the schema guard against the migrations of
 # the default branch and counts the rows of deploy.json's database.rowCountTables, then drops it. A copy older than 26
-# hours, one that does not decrypt or restore, or a failed guard fails the run, and GitHub mails the failure.
+# hours, one that does not decrypt or restore, or a failed guard fails the run.
+#
+# A failed run opens an issue labelled `backup-verify` (or comments on the open one) with the run's link, assigned to
+# the repository's owner, and the next green run closes it. GitHub itself mails a failed scheduled run only to whoever
+# last edited the cron line, so without the issue a red run stays unseen.
 #
 # Settings live in the GitHub Environment `backup-verify`, which only this workflow uses (never the deploy's):
 #   variables: BACKUP_S3_ENDPOINT, BACKUP_S3_REGION, BACKUP_S3_BUCKET, BACKUP_S3_PREFIX
@@ -18,6 +22,8 @@ on:
 
 permissions:
   contents: read
+  # The issue that reports a failed check.
+  issues: write
 
 jobs:
   verify:
@@ -70,3 +76,31 @@ jobs:
         run: |
           printf '%s\n' "$BACKUP_AGE_IDENTITY" \
             | npx --yes --package=@softure-ai/backup@{{backupCliVersion}} softure-backup verify --app={{name}} --identity=- --config=deploy.json --migrations-dir=softure-migrations
+      # A red run becomes an issue: one open issue per failure streak, assigned to the owner (an organisation cannot be
+      # assigned, then it is opened without), so it reaches notifications and the issue count.
+      - name: Report the failed check
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create backup-verify --force --color B60205 --description "The weekly off-site backup check failed"
+          body="The weekly off-site backup check failed: $RUN_URL"
+          open="$(gh issue list --label backup-verify --state open --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          elif ! gh issue create --title "Backup verify failed" --label backup-verify --assignee "$OWNER" --body "$body"; then
+            gh issue create --title "Backup verify failed" --label backup-verify --body "$body"
+          fi
+      - name: Close the reports of earlier failures
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          for number in $(gh issue list --label backup-verify --state open --limit 100 --json number --jq '.[].number'); do
+            gh issue close "$number" --comment "The weekly off-site backup check is green again: $RUN_URL"
+          done
