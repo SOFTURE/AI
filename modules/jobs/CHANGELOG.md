@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.1.14
 
 - **`runDueJobs` extends the lease of the job it runs:** it now runs each job like the worker does (heartbeats every
   third of `leaseSeconds`, new option `heartbeatMs`), and the handler's `signal` aborts when the lease is lost, runs
