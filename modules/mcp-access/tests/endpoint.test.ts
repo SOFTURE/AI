@@ -169,17 +169,30 @@ describe("the MCP endpoint", () => {
   });
 
   describe("the rate limit", () => {
-    it("counts every request per client address before verification, and answers 429 with Retry-After", async () => {
+    it("counts a valid token on its own, so another account behind the same address is still served", async () => {
       const { limit } = MCP_RATE_LIMIT_BUCKETS.mcp;
-      const token = await issue(alice, false);
+      const busy = await issue(alice, false);
       for (let attempt = 0; attempt < limit; attempt += 1) {
-        await send(callTool("whoami"), { token: attempt % 2 === 0 ? token : "wrong" });
+        await send(callTool("whoami"), { token: busy });
       }
-      const refused = await send(callTool("whoami"), { token });
+      const refused = await send(callTool("whoami"), { token: busy });
       expect(refused.status).toBe(429);
       expect(refused.headers.get("retry-after")).toBe(String(15 * 60));
       expect(await refused.json()).toEqual({ error: "too_many_requests" });
-      expect((await send(callTool("whoami"), { token, ip: "198.51.100.1" })).status).toBe(200);
+      const bob = await createUser(test.database, "bob@example.com");
+      expect((await send(callTool("whoami"), { token: await issue(bob, false) })).status).toBe(200);
+    }, 60_000);
+
+    it("counts requests without a valid token per client address, and leaves valid tokens there served", async () => {
+      const { limit } = MCP_RATE_LIMIT_BUCKETS.mcp;
+      for (let attempt = 0; attempt < limit; attempt += 1) {
+        await send(callTool("whoami"), { token: attempt % 2 === 0 ? "wrong" : `sftmcp_${"C".repeat(43)}` });
+      }
+      const refused = await send(callTool("whoami"), { token: "wrong" });
+      expect(refused.status).toBe(429);
+      expect(refused.headers.get("retry-after")).toBe(String(15 * 60));
+      expect((await send(callTool("whoami"), { token: "wrong", ip: "198.51.100.1" })).status).toBe(401);
+      expect((await send(callTool("whoami"), { token: await issue(alice, false) })).status).toBe(200);
     }, 60_000);
 
     it("refuses a client it cannot identify with 400", async () => {

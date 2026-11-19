@@ -20,6 +20,15 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 - **Token endpoint rate limit:** the counter per address and client is kept only for a registered client; an
   unknown `client_id` is counted with its address, so made-up ids no longer escape the limit or add a counter row each.
   - Migrate: nothing.
+- **MCP endpoint rate limit per token:** `POST /api/mcp` verifies the token first and counts a valid one on its own;
+  a request without a valid token is still counted per client address. Before, every request counted per address, so
+  one assistant (or one caller with a bad token) behind a hosted platform's shared address could lock out every other
+  account there for 15 minutes. README, rate limits.
+  - Migrate: nothing; `MCP_RATE_LIMIT_BUCKETS` keeps its shape and numbers.
+- **Request bodies read for diagnostics and sessions are counted while they stream:** the request diagnostics and the
+  `initialize` check read a clone of the body up to 1 MiB and stop there, also when no `Content-Length` came. Before,
+  a chunked body was buffered whole before the SDK refused it.
+  - Migrate: nothing.
 - **README, confirmed calls:** says what `withConfirmation` does not guard against: the assistant holds the token, so a
   prompt-injected assistant can confirm without the person.
   - Migrate: nothing; keep actions that must never run without the person off MCP.
