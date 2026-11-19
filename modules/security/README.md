@@ -300,7 +300,7 @@ never a message:
 | 401 | `security.signature_invalid` | the signature does not verify, or `secret` is missing or empty |
 | 400 | `security.webhook_payload_invalid` | the body is not UTF-8 JSON, or `schema` refuses it |
 | 400 | `security.delivery_id_invalid` | the delivery id is missing, empty, over 200 characters or holds control characters |
-| 500 | `security.webhook_failed` | `handle` (or the database) threw: logged with the error message, rolled back, so the sender's retry is processed |
+| 500 | `security.webhook_failed` | `handle` (or the database) threw: logged with the error's kind only (a query error's message carries its parameters), rolled back, so the sender's retry is processed |
 
 A sender without a delivery id header (Lemon Squeezy) gets `deliveryId: (event) => event.meta.webhook_id`, read from
 the validated event. A sender the presets lack is any `{ header, algorithm, encoding, prefix?, deliveryIdHeader? }`
@@ -360,7 +360,16 @@ delivery with the same id until they get a 2xx, and `recordDeliveryOnce` turns e
 200 and skip the work. The record is one `INSERT … ON CONFLICT DO NOTHING`, so of two parallel retries exactly one is
 first. Record it in the work's transaction (above): when the work fails, the record rolls back and the provider's
 retry is processed. When the work cannot share the transaction, record first and call `forgetDelivery` when the work
-fails. `source` is the app's constant name for the sender (the bucket name rule; a malformed one throws), so two
+fails.
+
+A delivery id read from a header (`deliveryIdHeader`) is not covered by the signature: someone holding one captured
+delivery could resend its bytes under a new id. So when the id comes from the header, `handleWebhook` also records a
+key of the signed bytes (`sha256:<hex>`, under the same `source`) in the same transaction, and either one seen before
+makes the delivery a replay. A provider's own retry carries the same bytes and id, so nothing changes for it. An id
+read from the validated event (`deliveryId`) is signed already and is recorded alone. By hand, record such a key
+yourself when the provider's id is only in a header.
+
+`source` is the app's constant name for the sender (the bucket name rule; a malformed one throws), so two
 providers' ids never collide; a `deliveryId` that is empty, longer than 200 characters or holds control characters
 is `security.delivery_id_invalid`. Ids are kept for `webhookDeliveries.retentionDays` (default 30 days, well past
 every retry window), then pruned (§11): a replay older than that is accepted again.

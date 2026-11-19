@@ -62,7 +62,33 @@ describe("handleWebhook", () => {
     const response = await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), options);
     expect(await readAnswer(response)).toEqual({ status: 200, body: null });
     expect(calls.map((call) => call.event)).toEqual([EVENT]);
-    expect(await countDeliveries(test)).toBe(1);
+    expect(await countDeliveries(test)).toBe(2);
+  });
+
+  it("records the header id and a key of the signed bytes, which the id header does not cover", async () => {
+    const body = JSON.stringify(EVENT);
+    await handleWebhook(test.ctx, await signed(body), options);
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body)));
+    const hex = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const rows = await test.database.client.query<{ delivery_id: string }>(
+      "SELECT delivery_id FROM security.webhook_deliveries ORDER BY delivery_id",
+    );
+    expect(rows.rows).toEqual([{ delivery_id: DELIVERY_ID }, { delivery_id: `sha256:${hex}` }]);
+  });
+
+  it("skips the work for a captured delivery resent with a new delivery id header", async () => {
+    await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), options);
+    const resent = await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT), { deliveryId: "forged-new-id" }), options);
+    expect(await readAnswer(resent)).toEqual({ status: 200, body: null });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("runs the work for a new event under a new delivery id", async () => {
+    await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), options);
+    const next = { action: "closed", issue: { id: 42 } };
+    const response = await handleWebhook(test.ctx, await signed(JSON.stringify(next), { deliveryId: "d-2" }), options);
+    expect(response.status).toBe(200);
+    expect(calls.map((call) => call.event)).toEqual([EVENT, next]);
   });
 
   it("gives the work the delivery's transaction, not the connection", async () => {
@@ -149,7 +175,7 @@ describe("handleWebhook", () => {
     const failing = { ...options, handle: () => Promise.reject(new Error("queue unavailable")) };
     const response = await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), failing);
     expect(await readAnswer(response)).toEqual({ status: 500, body: { error: "security.webhook_failed" } });
-    expect(log).toHaveBeenCalledWith('@softure-ai/security: webhook "github" failed: queue unavailable');
+    expect(log).toHaveBeenCalledWith('@softure-ai/security: webhook "github" failed: Error');
     expect(await countDeliveries(test)).toBe(0);
 
     const retry = await handleWebhook(test.ctx, await signed(JSON.stringify(EVENT)), options);

@@ -1,7 +1,7 @@
 // One route body for a third-party webhook, so the order of the checks is code, not prose: the size limit, the
 // signature over the raw bytes, parsing and validating the event, then the delivery recorded and the app's work run
 // in one transaction. Takes a web `Request` and returns a `Response`: on Next.js it is the route handler itself.
-import { err, ok, type Err, type Ok } from "@softure-ai/core";
+import { err, errorLogLabel, ok, type Err, type Ok } from "@softure-ai/core";
 import type { z } from "zod";
 import { readSmallBodyBytes } from "../read-small-body.js";
 import { verifyWebhookSignature, type SigningSecret, type WebhookSender } from "../signed-request.js";
@@ -82,6 +82,9 @@ export async function handleWebhook<TEvent>(
   }
   const event = parsed.data;
   const delivery = { source: options.source, deliveryId: readDeliveryId(event) };
+  // A header id is not signed: a captured delivery resent with a new id must still be a replay, so the signed bytes
+  // are recorded too. An id read from the validated event is signed already.
+  const bodyKey = options.deliveryId === undefined ? { source: options.source, deliveryId: await toBodyKey(body.value) } : undefined;
 
   try {
     return await ctx.db.transaction(async (tx) => {
@@ -90,13 +93,15 @@ export async function handleWebhook<TEvent>(
       if (!recorded.ok) {
         return answer(recorded.error);
       }
-      if (recorded.value) {
+      const isBodyNew = bodyKey === undefined || (await recordBodyOnce(txCtx, bodyKey));
+      if (recorded.value && isBodyNew) {
         await options.handle(event, txCtx);
       }
       return new Response(null, { status: 200 });
     });
   } catch (error) {
-    console.error(`@softure-ai/security: webhook "${options.source}" failed: ${error instanceof Error ? error.message : String(error)}`);
+    // The kind only: a query error's message carries its parameters, which can hold the event's personal data.
+    console.error(`@softure-ai/security: webhook "${options.source}" failed: ${errorLogLabel(error)}`);
     return answer("security.webhook_failed");
   }
 }
@@ -110,6 +115,21 @@ function getDeliveryIdReader<TEvent>(request: Request, options: HandleWebhookOpt
     throw new RangeError(`handleWebhook: the sender of "${options.source}" has no deliveryIdHeader; pass deliveryId`);
   }
   return () => request.headers.get(header) ?? "";
+}
+
+/** The ledger key of the signed bytes: `sha256:<hex>`, 71 characters, within the delivery id rule. */
+async function toBodyKey(body: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(body)));
+  return `sha256:${Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** Whether the signed bytes are new; the key always fits the id rule, so a refusal is a bug. */
+async function recordBodyOnce(ctx: SecurityContext, key: { readonly source: string; readonly deliveryId: string }): Promise<boolean> {
+  const recorded = await recordDeliveryOnce(ctx, key);
+  if (!recorded.ok) {
+    throw new RangeError(`handleWebhook: the body key of "${key.source}" broke the delivery id rule`);
+  }
+  return recorded.value;
 }
 
 /** The JSON value of UTF-8 bytes; bytes that are not UTF-8 or not JSON are a payload the sender cannot fix by retrying. */
