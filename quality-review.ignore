@@ -4,3 +4,8 @@
 # theme-flat-paint's react peer: the theme package contract (themes/theme-kit/README.md) has every theme take react
 # as a peer, so an app moves between themes without changing its dependencies (issue #1287).
 QR-60a7a98b
+
+# auth registration answers auth.email_taken: registration signs the person in at once, with no email verification,
+# so it cannot answer "check your inbox" for a taken address. A known limitation (modules/auth/README.md,
+# Limitations), bounded by the `register` rate limit; login and password reset still hide accounts.
+QR-5cebc6e2
