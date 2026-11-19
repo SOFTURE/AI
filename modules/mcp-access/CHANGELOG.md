@@ -25,6 +25,10 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   one assistant (or one caller with a bad token) behind a hosted platform's shared address could lock out every other
   account there for 15 minutes. README, rate limits.
   - Migrate: nothing; `MCP_RATE_LIMIT_BUCKETS` keeps its shape and numbers.
+- **Consent decisions are rate-limited:** the `POST` of the consent page counts in the `mcp-oauth` bucket per signed-in
+  account before it validates the request or writes an authorization code, and answers 429 over the limit. Before, one
+  account could post `allow` in a loop and grow the codes table without bound.
+  - Migrate: nothing.
 - **Request bodies read for diagnostics and sessions are counted while they stream:** the request diagnostics and the
   `initialize` check read a clone of the body up to 1 MiB and stop there, also when no `Content-Length` came. Before,
   a chunked body was buffered whole before the SDK refused it.

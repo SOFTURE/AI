@@ -123,7 +123,8 @@ keeps every token read-only.
 valid token, so one caller behind a shared address (hosted assistants reach the endpoint from a few)
 cannot use up the room of every other account there. `mcp-oauth` counts the public OAuth requests:
 registrations per address, token requests per address and client (a token request whose body
-is over `oauth.maxBodyBytes` counts per address, since its client id is never read).
+is over `oauth.maxBodyBytes` counts per address, since its client id is never read), and consent
+decisions per signed-in account.
 
 ## 4. Mounting
 

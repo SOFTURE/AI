@@ -218,6 +218,22 @@ async function limitProtocolRequest(ctx: McpAccessContext, request: Request, cli
   }
 }
 
+/**
+ * Counts a consent decision in the OAuth bucket per signed-in account, before it is validated or writes a code. A
+ * failing counter closes (503).
+ */
+async function limitDecision(ctx: McpAccessContext, userId: string): Promise<Response | null> {
+  assertOAuthRateLimitBucket(ctx.config);
+  try {
+    const limit = await consumeRateLimit(ctx, { bucket: MCP_OAUTH_RATE_LIMIT_BUCKET, key: `user:${userId}` });
+    if (limit.ok) return null;
+    return new Response(null, { status: 429, headers: { "cache-control": "no-store", "retry-after": String(limit.retryAfterSeconds) } });
+  } catch (error) {
+    console.error(`@softure-ai/mcp-access: counting an OAuth decision failed: ${errorLogLabel(error)}`);
+    return new Response(null, { status: 503, headers: { "cache-control": "no-store" } });
+  }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Request bodies
 
@@ -547,6 +563,9 @@ export async function handleAuthorizationDecision(ctx: McpAccessContext, request
   const params = readAuthorizationParams(form);
   const consent = getConsentPath(ctx.config, params);
   if (userId === null) return seeOther(consent);
+  // Each allow writes a code row that lives 10 minutes, so a signed-in account is counted before any work.
+  const limited = await limitDecision(ctx, userId);
+  if (limited !== null) return limited;
   try {
     const outcome = await validateAuthorizationRequest(ctx, params, origins);
     if (outcome.kind === "show-error") return seeOther(consent);
