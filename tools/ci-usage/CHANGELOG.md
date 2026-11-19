@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 `ci-usage.yml` workflow. When an app has run a version in production, the version gets a line
 `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md), "Definition of done").
 
+## 0.1.3
+
+- `publish --close` (the workflow input `close-issue`, default `false`) keeps the report's issue closed: the issue is
+  found open or closed by its label and marker, updated and commented as before, and closed as completed after
+  every run (a new issue is closed after its first comment). A repository that has acted on its report no longer
+  keeps an open issue in its queue, and the report is still read through the label `ci-usage`.
+
 ## 0.1.2
 
 - GitHub's dynamic workflows (CodeQL default setup, Dependabot updates, Copilot, Pages) are reported under one

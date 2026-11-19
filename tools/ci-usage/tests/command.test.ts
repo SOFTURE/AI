@@ -132,6 +132,21 @@ describe("publish", () => {
     expect(String((context.fake.requests.at(-1)?.body as { body: string }).body)).toContain("(https://github.com/acme/app/actions/runs/77)");
   });
 
+  it("passes --close through: the report issue is found open or closed and closed again", async () => {
+    await runCommand(["report", "--days", "2"], makeContext(ROUTES));
+    const context = makeContext(
+      [
+        { match: (url) => url.pathname.endsWith("/labels/ci-usage"), body: { name: "ci-usage" } },
+        { match: (url) => url.pathname === "/repos/acme/app/issues" && url.search !== "", body: [{ number: 4, body: "<!-- softure-ci-usage -->", html_url: "https://github.com/acme/app/issues/4" }] },
+        { match: (url) => url.pathname === "/repos/acme/app/issues/4", body: { number: 4, html_url: "https://github.com/acme/app/issues/4" } },
+        { match: (url) => url.pathname === "/repos/acme/app/issues/4/comments", status: 201, body: {} },
+      ],
+      { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "acme/app" },
+    );
+    expect(await runCommand(["publish", "--close"], context)).toBe(0);
+    expect(context.fake.requests.find((request) => request.method === "PATCH")?.body).toMatchObject({ state: "closed", state_reason: "completed" });
+  });
+
   it("reports a refused publication and exits 1", async () => {
     writeFileSync(join(dir, "ci-usage.json"), "{}");
     writeFileSync(join(dir, "ci-usage.md"), "x");

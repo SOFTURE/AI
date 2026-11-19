@@ -46,8 +46,8 @@ async function ensureLabel(client: GithubClient, repository: string): Promise<st
   return null;
 }
 
-async function findIssue(client: GithubClient, repository: string): Promise<{ ok: true; number: number | null } | { ok: false; error: string }> {
-  const listed = await client.get(`/repos/${repository}/issues`, { labels: ISSUE_LABEL, state: "open", per_page: "100" });
+async function findIssue(client: GithubClient, repository: string, state: "open" | "all"): Promise<{ ok: true; number: number | null } | { ok: false; error: string }> {
+  const listed = await client.get(`/repos/${repository}/issues`, { labels: ISSUE_LABEL, state, per_page: "100" });
   if (!listed.ok) return { ok: false, error: listed.message };
   const issues = z.array(ISSUE).safeParse(listed.data);
   if (!issues.success) return { ok: false, error: `GET /repos/${repository}/issues answered an unexpected shape` };
@@ -62,7 +62,15 @@ export interface PublishOptions {
   markdown: string;
   runUrl: string;
   messages?: CiUsageMessages;
+  /**
+   * Keep the issue closed: reuse the report's issue whether it is open or closed, and close it after every update,
+   * so a finished report stays out of the open-issue queue and is still found by its label.
+   */
+  close?: boolean;
 }
+
+/** Closed issues are fields of the same PATCH, so a closed report never shows as open in between. */
+const CLOSED_STATE = { state: "closed", state_reason: "completed" } as const;
 
 /** Creates the issue the first time, replaces its body afterwards, and comments the run's totals. */
 export async function publishReport(options: PublishOptions): Promise<PublishResult> {
@@ -70,7 +78,8 @@ export async function publishReport(options: PublishOptions): Promise<PublishRes
   const messages = options.messages ?? ciUsageMessages.en;
   const labelError = await ensureLabel(client, repository);
   if (labelError !== null) return { ok: false, error: labelError };
-  const found = await findIssue(client, repository);
+  const close = options.close === true;
+  const found = await findIssue(client, repository, close ? "all" : "open");
   if (!found.ok) return found;
   const body = buildIssueBody(options.markdown, options.report, messages);
   let number = found.number;
@@ -84,12 +93,17 @@ export async function publishReport(options: PublishOptions): Promise<PublishRes
     number = issue.data.number;
     url = issue.data.html_url;
   } else {
-    const result = await client.send("PATCH", `/repos/${repository}/issues/${String(number)}`, { body });
+    const result = await client.send("PATCH", `/repos/${repository}/issues/${String(number)}`, close ? { body, ...CLOSED_STATE } : { body });
     if (!result.ok) return { ok: false, error: result.message };
     const issue = ISSUE.safeParse(result.data);
     url = issue.success ? issue.data.html_url : `https://github.com/${repository}/issues/${String(number)}`;
   }
   const comment = await client.send("POST", `/repos/${repository}/issues/${String(number)}/comments`, { body: buildComment(options.report, options.runUrl, messages) });
   if (!comment.ok) return { ok: false, error: comment.message };
+  if (close && created) {
+    // An issue is always created open; it is closed once its first comment is in.
+    const closed = await client.send("PATCH", `/repos/${repository}/issues/${String(number)}`, CLOSED_STATE);
+    if (!closed.ok) return { ok: false, error: closed.message };
+  }
   return { ok: true, issue: number, url, created };
 }
