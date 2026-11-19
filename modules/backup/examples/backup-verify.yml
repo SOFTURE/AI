@@ -2,7 +2,11 @@
 # .github/workflows/backup-verify.yml. It downloads the newest encrypted dump with the read-only token, restores it into
 # a throwaway Postgres of the server's major version, runs the schema guard against the migrations of the live image
 # and counts the rows of deploy.json's database.rowCountTables, then drops it. A copy older than 26 hours, one that
-# does not decrypt or restore, a missing table or a failed guard fails the run, and GitHub mails the failure.
+# does not decrypt or restore, a missing table or a failed guard fails the run.
+#
+# A failed run opens an issue labelled `backup-verify` (or comments on the open one) with the run's link, assigned to
+# the repository's owner, and the next green run closes it. GitHub itself mails a failed scheduled run only to whoever
+# last edited the cron line, so without the issue a red run stays unseen.
 #
 # Settings live in the GitHub Environment `backup-verify`, which only this workflow uses (never the deploy's):
 #   variables: BACKUP_S3_ENDPOINT, BACKUP_S3_REGION, BACKUP_S3_BUCKET, BACKUP_S3_PREFIX (the app's prefix)
@@ -12,7 +16,9 @@
 # the server. An owner who keeps the key offline only runs the same `softure-backup verify` on their own machine
 # instead (modules/backup/README.md, "Restore and verify").
 #
-# Adjust IMAGE (the app's image, with a tag the registry keeps for the live release) and the postgres image's major.
+# Adjust IMAGE (the app's image, without a tag) and the postgres image's major. The live release is the newest published
+# release whose tag the registry holds: while a release is being cut, its tag is not on the image yet and the release
+# before it is still the one that runs, which is what the schema guard has to see.
 name: backup verify
 
 on:
@@ -24,6 +30,8 @@ on:
 permissions:
   contents: read
   packages: read
+  # The issue that reports a failed check.
+  issues: write
 
 jobs:
   verify:
@@ -44,19 +52,38 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      IMAGE: ghcr.io/acme/app:latest
+      IMAGE: ghcr.io/acme/app
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      # The migrations the live image ships, for the schema guard.
-      - name: Read the migrations of the live image
+      - name: Log in to the registry
         env:
           REGISTRY_TOKEN: ${{ github.token }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      # The newest published release whose tag is on the image; a release still being cut has none yet.
+      - name: Find the live release's image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          container="$(docker create "$IMAGE")"
+          tags="$(gh release list --exclude-drafts --exclude-pre-releases --limit 20 --json tagName,publishedAt \
+            --jq 'sort_by(.publishedAt) | reverse | .[].tagName')"
+          for tag in $tags; do
+            if docker manifest inspect "$IMAGE:$tag" > /dev/null 2>&1; then
+              echo "live release: $tag"
+              echo "LIVE_IMAGE=$IMAGE:$tag" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "::notice::$IMAGE:$tag is not in the registry (a release in flight or a failed deploy); trying the one before"
+          done
+          echo "::error::none of the last 20 published releases has an image in $IMAGE"
+          exit 1
+      # The migrations the live image ships, for the schema guard.
+      - name: Read the migrations of the live image
+        run: |
+          container="$(docker create "$LIVE_IMAGE")"
           docker cp "$container:/app/softure-migrations" ./softure-migrations
           docker rm "$container" > /dev/null
       # pg_restore of the server's major, from the same image as the throwaway database.
@@ -81,4 +108,32 @@ jobs:
         # The key goes in on stdin, never as an argument.
         run: |
           printf '%s\n' "$BACKUP_AGE_IDENTITY" \
-            | npx --yes @softure-ai/backup@0.1.0 verify --identity=- --config=deploy.json --migrations-dir=softure-migrations
+            | npx --yes --package=@softure-ai/backup@0.1.3 softure-backup verify --identity=- --config=deploy.json --migrations-dir=softure-migrations
+      # A red run becomes an issue: one open issue per failure streak, assigned to the owner (an organisation cannot be
+      # assigned, then it is opened without), so it reaches notifications and the issue count.
+      - name: Report the failed check
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create backup-verify --force --color B60205 --description "The weekly off-site backup check failed"
+          body="The weekly off-site backup check failed: $RUN_URL"
+          open="$(gh issue list --label backup-verify --state open --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          elif ! gh issue create --title "Backup verify failed" --label backup-verify --assignee "$OWNER" --body "$body"; then
+            gh issue create --title "Backup verify failed" --label backup-verify --body "$body"
+          fi
+      - name: Close the reports of earlier failures
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          for number in $(gh issue list --label backup-verify --state open --limit 100 --json number --jq '.[].number'); do
+            gh issue close "$number" --comment "The weekly off-site backup check is green again: $RUN_URL"
+          done

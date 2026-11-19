@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses the module. W
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- **`examples/backup-verify.yml` checks the live release and reports a failure (#1386).** `IMAGE` is the app's image
+  without a tag; the workflow walks the newest 20 published releases (no drafts, no pre-releases) and takes the first
+  whose tag the registry holds (`docker manifest inspect`, after the registry login). Before, a run that started after
+  a release was published and before its deploy tagged the image failed with `not found`, and the week went
+  unchecked. With `issues: write`, a failed run creates the `backup-verify` label and opens one issue with the run's
+  link (assigned to the repository's owner where GitHub allows it) or comments on the open one; a green run closes
+  them. The example runs `softure-backup verify` of this version. To follow it, an app copies the new steps, the
+  `issues: write` permission and the tagless `IMAGE` into its own copy.
+
 ## 0.1.2
 
 - The module's manifest declares `runtimes: ["node", "workers"]`, matching the Workers-safe entries its package already
