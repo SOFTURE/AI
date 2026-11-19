@@ -126,7 +126,7 @@ stopping worker releases unfinished jobs: the job then runs again. Make handlers
 was already saved, pass an idempotency key to the provider).
 
 `context.signal` aborts when the job is taken from the handler: the worker's grace period ended on shutdown, another
-worker took its lease, its lease ran out while the database could not extend it, or an operator cancelled the job (§3, "Progress and cancelling"). Pass it to `fetch` and other
+worker took its lease, its lease ran out while the database did not extend it (refused or did not answer), or an operator cancelled the job (§3, "Progress and cancelling"). Pass it to `fetch` and other
 cancellable calls. After a shutdown or a lost lease anything the handler returns afterwards is not recorded; after a
 cancel the job ends `cancelled`. `context.db` is the worker's pool, not a transaction; `context.job.attempts` is this attempt's number.
 

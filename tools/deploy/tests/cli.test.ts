@@ -197,6 +197,19 @@ describe("softure-deploy release-notes", () => {
     expect(err.at(-1)).toBe("release-notes: cannot read missing.md (ENOENT).\n");
   });
 
+  it("ends an unexpected file system failure with one line and exit 1, not a stack trace", async () => {
+    expect(await runCli(["release-notes", "--to=v1.1.0", "--out=missing-dir/notes.md"], makeIo())).toBe(1);
+    expect(err).toHaveLength(1);
+    expect(err[0]).toMatch(/^softure-deploy release-notes: ENOENT: no such file or directory, open '.*missing-dir\/notes\.md'\n$/);
+  });
+
+  it("names git's last line when a git call fails unexpectedly", async () => {
+    rmSync(join(dir, ".git"), { recursive: true, force: true });
+    expect(await runCli(["release-notes", "--to=HEAD"], makeIo())).toBe(1);
+    expect(err).toHaveLength(1);
+    expect(err[0]).toMatch(/^softure-deploy release-notes: fatal: not a git repository.*\n$/);
+  });
+
   describe("--roadmap=auto", () => {
     const ROADMAP = (id: string): string =>
       `## At a glance\n\n| ID | Change | Outcome | Status |\n| --- | --- | --- | --- |\n| **${id}** | \`work\` | outcome of ${id} | done_code |\n| **XX-9** | \`old\` | shipped | done |\n`;

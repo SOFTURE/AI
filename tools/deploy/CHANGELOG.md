@@ -6,6 +6,17 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **`integration lookup` says when it reads local notes only:** a remote it cannot reach prints
+  `cannot reach origin (…); reading the local notes` on stderr, and with no result stored locally it exits 1
+  (`cannot reach origin (…) and no result for … is stored locally`) instead of 3, so a caller never reads a network
+  failure as "no result". `run` logs a failed fetch of the main branch before comparing `new-red` with its last
+  fetched state.
+  - Migrate: nothing, unless a script treats exit 3 of `lookup` as the only "nothing usable" answer: exit 1 now also
+    means the remote was unreachable.
+- **No stack trace on an unexpected failure:** a git or file system error no command expected ends the CLI with one
+  line, `softure-deploy <command>: <git's last stderr line or the error's first line>` (credentials in URLs masked),
+  and exit 1.
+  - Migrate: nothing.
 - **`backup` has time limits:** `pg_dump` runs with `--lock-wait-timeout=30000`, `PGCONNECT_TIMEOUT=10` unless the URL
   sets `connect_timeout`, and is stopped after 60 minutes (`timeoutMs` of `createBackup`); each ends the backup as
   failed (`pg_dump did not finish within … s and was stopped`), so a table locked by another session no longer holds

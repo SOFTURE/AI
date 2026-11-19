@@ -6,8 +6,9 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
-- **A handler stops when its lease runs out:** while the database refuses every heartbeat, the worker aborts the
-  handler's `signal` once the lease it last extended has ended (logged as `warn`,
+- **A handler stops when its lease runs out:** while the database refuses every heartbeat or does not answer it, the
+  worker aborts the handler's `signal` once the lease it last extended has ended (checked on every heartbeat tick; a
+  heartbeat still waiting for its answer is not sent again) (logged as `warn`,
   `job lease ran out while it could not be extended`), since another worker may claim the job from then on. Before,
   the handler ran on and the job could run twice at once.
   - Migrate: nothing.

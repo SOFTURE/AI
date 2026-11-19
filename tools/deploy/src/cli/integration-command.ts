@@ -20,7 +20,7 @@ import { readFlags } from "./options.js";
  * `softure-deploy integration run|lookup|record`: the remote integration run of the SOFTURE skills
  * (`integration.remote` and `integration.lookup` in `context/workflow.json`, read by `wt-integration.sh`).
  * Exit codes follow that contract: run 0 green, 1 red or could not start, 75 no result in time; lookup 0 green,
- * 1 red, 3 no result.
+ * 1 red or the remote unreachable with nothing stored locally, 3 no result.
  */
 
 const NO_RESULT_IN_TIME_EXIT_CODE = 75;
@@ -111,6 +111,10 @@ export function runIntegrationLookup(args: string[], io: CliIo): void {
   const main = readMainBranch(command, io, flags.main);
   const sha = readSha(command, io, flags.sha);
   const found = lookupIntegration({ cwd: io.cwd, remote, notesRef, sha, main });
+  if (found.fetchFailure !== null && found.kind === "none") {
+    fail(`${command}: cannot reach ${remote} (${found.fetchFailure}) and no result for ${sha.slice(0, 8)} is stored locally.`);
+  }
+  if (found.fetchFailure !== null) io.stderr(`${command}: cannot reach ${remote} (${found.fetchFailure}); reading the local notes.\n`);
   if (found.kind === "none") fail(`${command}: no stored result for ${sha.slice(0, 8)}.`, NO_STORED_RESULT_EXIT_CODE);
   if (found.kind === "invalid") {
     fail(`${command}: the note on ${sha.slice(0, 8)} is not a result (${found.problem}).`, NO_STORED_RESULT_EXIT_CODE);

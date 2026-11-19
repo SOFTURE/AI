@@ -39,10 +39,21 @@ export function startLeasedRun(ctx: JobsContext, claimed: ClaimedJob, options: S
   // When the lease ends as far as this process knows: the claim's lease, then each extension from the moment it was
   // asked for (the database sets it a little later, so this end is never later than the stored one).
   let leaseEndsAt = claimed.job.lockedUntil?.getTime() ?? ctx.clock.now().getTime() + leaseMs;
+  let isHeartbeatInFlight = false;
+  const abortPastLease = (): boolean => {
+    if (controller.signal.aborted || ctx.clock.now().getTime() < leaseEndsAt) return false;
+    logger.warn("job lease ran out while it could not be extended; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
+    controller.abort();
+    return true;
+  };
   const heartbeat = setInterval(() => {
+    // Checked on every tick, so a heartbeat that hangs instead of failing still stops the handler at the lease end.
+    if (abortPastLease() || controller.signal.aborted || isHeartbeatInFlight) return;
+    isHeartbeatInFlight = true;
     const askedAt = ctx.clock.now().getTime();
     heartbeatJob(ctx, claimed).then(
       (state) => {
+        isHeartbeatInFlight = false;
         outage.recover();
         if (state === "held") leaseEndsAt = askedAt + leaseMs;
         if (controller.signal.aborted || state === "held") return;
@@ -55,11 +66,10 @@ export function startLeasedRun(ctx: JobsContext, claimed: ClaimedJob, options: S
         controller.abort();
       },
       (error: unknown) => {
+        isHeartbeatInFlight = false;
         outage.fail("could not extend a job lease", { queue: claimed.job.queue, jobId: claimed.job.id, error });
         // Past its lease another worker may claim the job, so the handler stops instead of running twice.
-        if (controller.signal.aborted || ctx.clock.now().getTime() < leaseEndsAt) return;
-        logger.warn("job lease ran out while it could not be extended; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
-        controller.abort();
+        abortPastLease();
       },
     );
   }, heartbeatMs);

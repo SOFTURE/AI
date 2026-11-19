@@ -37,9 +37,11 @@ export interface IntegrationFound {
 
 export type IntegrationLookup = IntegrationFound | { kind: "none" } | { kind: "invalid"; problem: string };
 
+/** A lookup, with git's reason when the remote could not be fetched and only local state was read. */
+export type IntegrationLookupResult = IntegrationLookup & { readonly fetchFailure: string | null };
+
+/** Reads the main branch's latest result from the last fetched `<remote>/<main>`; the caller fetches it first. */
 function readMainNote(target: GitTarget, main: string): IntegrationNote | null {
-  // A failed fetch falls back to the last fetched state of the branch, if any.
-  fetchMainBranch(target.cwd, target.remote, main);
   const text = readMainNoteText(target.cwd, target.remote, getNotesRef(target), main);
   if (text === null) return null;
   const parsed = parseIntegrationNote(text);
@@ -53,13 +55,17 @@ function toLookup(target: GitTarget, text: string, main: string): IntegrationFou
 }
 
 /**
- * The stored result for `sha`: the remote's notes are fetched first, and the local ones read when the remote cannot
- * be reached. `main` names the branch whose latest result `new-red` compares with.
+ * The stored result for `sha`: the remote's notes and main branch are fetched first, and the local ones read when the
+ * remote cannot be reached (`fetchFailure` then names git's reason). `main` names the branch whose latest result
+ * `new-red` compares with.
  */
-export function lookupIntegration(target: GitTarget & { sha: string; main: string }): IntegrationLookup {
-  fetchIntegrationNotes(target.cwd, target.remote, getNotesRef(target));
+export function lookupIntegration(target: GitTarget & { sha: string; main: string }): IntegrationLookupResult {
+  const notes = fetchIntegrationNotes(target.cwd, target.remote, getNotesRef(target));
+  const fetchFailure = notes.ok ? null : notes.reason;
   const text = readNoteText(target.cwd, getNotesRef(target), target.sha);
-  return text === null ? { kind: "none" } : toLookup(target, text, target.main);
+  if (text === null) return { kind: "none", fetchFailure };
+  const branch = fetchFailure === null ? fetchMainBranch(target.cwd, target.remote, target.main) : notes;
+  return { ...toLookup(target, text, target.main), fetchFailure: branch.ok ? null : branch.reason };
 }
 
 export interface RecordOptions extends GitTarget {
@@ -170,7 +176,11 @@ export async function runIntegration(options: RunOptions): Promise<RunResult> {
       if (!hasFetched) unreachableReason = fetched.reason;
     }
     const text = readNoteText(options.cwd, notesRef, options.sha);
-    if (text !== null && text !== before) return toLookup(options, text, options.main);
+    if (text !== null && text !== before) {
+      const branch = fetchMainBranch(options.cwd, options.remote, options.main);
+      if (!branch.ok) options.log(`could not fetch ${options.main} (${branch.reason}); new-red compares with its last fetched state`);
+      return toLookup(options, text, options.main);
+    }
     const remaining = deadline - options.now();
     if (remaining <= 0) return unreachableReason === null ? { kind: "timeout", ref } : { kind: "wait-unreachable", ref, reason: unreachableReason };
     await options.sleep(Math.min(options.pollSeconds * 1000, remaining));

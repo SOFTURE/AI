@@ -1498,7 +1498,7 @@ so a JUnit report from another writer prints no `flaky` lines.
 | Exit | `run` | `lookup` |
 | --- | --- | --- |
 | `0` | green | a green result is stored |
-| `1` | red, the run could not start (remote unreachable, push refused, name in use), or the remote could not be reached for the result while waiting (the run may still finish) | a red result is stored |
+| `1` | red, the run could not start (remote unreachable, push refused, name in use), or the remote could not be reached for the result while waiting (the run may still finish) | a red result is stored, or the remote could not be reached and nothing is stored locally |
 | `3` | | no result for the commit |
 | `75` | no result within `--wait-minutes` (retry later; the run may still finish) | |
 

@@ -172,8 +172,16 @@ describe("softure-deploy integration lookup", () => {
     expect(await cli(work, ["integration", "lookup"])).toBe(0);
     git(work, "remote", "set-url", "origin", join(root, "gone.git"));
     out = [];
+    err = [];
     expect(await cli(work, ["integration", "lookup"])).toBe(0);
     expect(out.join("")).toBe("integration: green\n");
+    expect(err.join("")).toMatch(/^integration lookup: cannot reach origin \(.*gone\.git.*\); reading the local notes\.\n$/);
+  });
+
+  it("exits 1, not 3, when the remote cannot be reached and nothing is stored locally", async () => {
+    git(work, "remote", "set-url", "origin", join(root, "gone.git"));
+    expect(await cli(work, ["integration", "lookup"])).toBe(1);
+    expect(err.join("")).toMatch(/cannot reach origin \(.*gone\.git.*\) and no result for [0-9a-f]{8} is stored locally\./);
   });
 });
 
