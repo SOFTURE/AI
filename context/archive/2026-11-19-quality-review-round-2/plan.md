@@ -21,6 +21,9 @@
 
 ## Progress
 
-- [ ] Phase 1: jobs cancel time limit
-- [ ] Phase 2: deploy database
-- [ ] Phase 3: deploy git
+- [x] Phase 1: jobs cancel time limit (68bfb64)
+- [x] Phase 2: deploy database (df06aab)
+- [x] Phase 3: deploy git (df06aab)
+
+Evidence: `npx vitest run modules/jobs/tests/use-job-status.test.tsx` green; `npx vitest run tools/deploy
+modules/backup` 62 files, 1016 tests green; typecheck, ESLint and the language gate in the pre-commit hook.

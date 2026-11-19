@@ -1,7 +1,8 @@
 ---
 change_id: quality-review-round-2
 title: "jobs, deploy: close the findings of the second 2026-11-19 quality review round"
-status: planned
+status: archived
+archived_at: 2026-11-19
 roadmap_item: null
 issue: null
 branch: claude/project-thread-t8pq6z
@@ -40,3 +41,8 @@ request as `quality-review-security-jobs-deploy`.
   table, bounded for a lock held by a parallel migration.
 - Git network time limit: 2 min per command, enough for a notes fetch on a slow runner.
 - A refused push's reason is git's last stderr line, at most 200 characters, with `//user:secret@` masked.
+
+## Done
+
+- On master with the next releases: jobs (with `quality-review-security-jobs-deploy`), deploy (minor: new export
+  `getPgClientConfig`, changed integration result shapes).
