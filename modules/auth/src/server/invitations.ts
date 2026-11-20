@@ -3,7 +3,7 @@
 // `auth.registration_closed` is on. Acceptance locks the invitation row, creates the account, marks the invitation
 // accepted, grants the invited roles and runs `onRegistered` in one transaction, so a link creates one account at most.
 // Every invite, resend, revoke and acceptance writes one audit line to the server log, with ids only.
-import { err, ok, type Err, type Ok, type SoftureConfig } from "@softure-ai/core";
+import { err, errorLogLabel, ok, type Err, type Ok, type SoftureConfig } from "@softure-ai/core";
 import type { RateLimitRejection } from "@softure-ai/security";
 import { consumeRateLimit } from "@softure-ai/security/server";
 import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
@@ -111,15 +111,21 @@ export interface InviteInput {
   readonly inviterId: string;
 }
 
-export type InviteErrorCode = "auth.invitations_unavailable" | "auth.email_invalid" | "auth.email_taken" | "auth.role_undeclared";
+export type InviteErrorCode =
+  | "auth.invitations_unavailable"
+  | "auth.email_invalid"
+  | "auth.email_taken"
+  | "auth.role_undeclared"
+  | "auth.invitation_not_sent";
 
 export type InviteResult = Ok<{ readonly invitationId: string }> | Err<InviteErrorCode> | RateLimitRejection;
 
 /**
  * Invites `email`: counts `invitation` for the inviter, refuses an address that already has an account, stores a new
  * link (refreshing the pending invitation of that address: new token, roles, inviter and expiry) and hands it to the
- * app's sender. The caller must have checked that the inviter is an admin. Sender and database errors propagate; the
- * invitation then stays pending and can be resent.
+ * app's sender. The caller must have checked that the inviter is an admin. A sender that throws is logged (without the
+ * link) and answers `auth.invitation_not_sent`: the invitation stays pending and can be resent. Database errors
+ * propagate.
  */
 export async function inviteUser(ctx: AuthContext, input: InviteInput): Promise<InviteResult> {
   assertAuthBuckets(ctx.config);
@@ -150,7 +156,7 @@ export async function inviteUser(ctx: AuthContext, input: InviteInput): Promise<
   // An insert or an update always returns its row.
   if (row === undefined) throw new Error("@softure-ai/auth: storing an invitation returned no row");
   logInvitationEvent("invited", { id: row.id, by: input.inviterId });
-  await send(ctx, token, email.value, { expiresAt, roles });
+  if (!(await send(ctx, token, email.value, { expiresAt, roles }))) return err("auth.invitation_not_sent");
   return ok({ invitationId: row.id });
 }
 
@@ -163,12 +169,12 @@ export interface InvitationChange {
 /**
  * Sends a pending invitation again with a new link and a new expiry (the old link stops working). Counts
  * `invitation` for the admin. `auth.invitation_not_pending` for an accepted, revoked or unknown one (an expired one
- * is renewed). Sender and database errors propagate.
+ * is renewed); `auth.invitation_not_sent` when the sender throws. Database errors propagate.
  */
 export async function resendInvitation(
   ctx: AuthContext,
   change: InvitationChange,
-): Promise<Ok<undefined> | Err<"auth.invitations_unavailable" | "auth.invitation_not_pending"> | RateLimitRejection> {
+): Promise<Ok<undefined> | Err<"auth.invitations_unavailable" | "auth.invitation_not_pending" | "auth.invitation_not_sent"> | RateLimitRejection> {
   assertAuthBuckets(ctx.config);
   if (!isInvitationEnabled(ctx.config)) return err("auth.invitations_unavailable");
   if (!UUID.test(change.invitationId)) return err("auth.invitation_not_pending");
@@ -185,7 +191,7 @@ export async function resendInvitation(
     .returning({ id: invitations.id, email: invitations.email, roles: invitations.roles });
   if (row === undefined) return err("auth.invitation_not_pending");
   logInvitationEvent("resent", { id: row.id, by: change.actorId });
-  await send(ctx, token, row.email, { expiresAt, roles: row.roles });
+  if (!(await send(ctx, token, row.email, { expiresAt, roles: row.roles }))) return err("auth.invitation_not_sent");
   return ok();
 }
 
@@ -299,9 +305,16 @@ function getExpiry(config: SoftureConfig, now: Date): Date {
   return new Date(now.getTime() + getAuthOptions(config).invitations.ttlHours * HOUR_MS);
 }
 
-async function send(ctx: AuthContext, token: string, email: string, details: { readonly expiresAt: Date; readonly roles: readonly string[] }): Promise<void> {
+/** Hands the link to the app's sender; false (logged without the link) when the sender throws. */
+async function send(ctx: AuthContext, token: string, email: string, details: { readonly expiresAt: Date; readonly roles: readonly string[] }): Promise<boolean> {
   const sender = getAuthOptions(ctx.config).invitations.send;
   // isInvitationEnabled checked it before the caller got here.
   if (sender === undefined) throw new Error("@softure-ai/auth: invitations need auth({ invitations: { send } })");
-  await sender(getInvitationLink(ctx.config, token), { email }, { ...details, locale: ctx.config.locale });
+  try {
+    await sender(getInvitationLink(ctx.config, token), { email }, { ...details, locale: ctx.config.locale });
+    return true;
+  } catch (error) {
+    console.error(`@softure-ai/auth: sending an invitation failed: ${errorLogLabel(error)}`);
+    return false;
+  }
 }

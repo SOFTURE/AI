@@ -3,12 +3,15 @@
 export {
   changePasswordAction,
   forgotPasswordAction,
+  inviteAction,
   loginAction,
   logoutAction,
   type LogoutInput,
   oidcSignInAction,
   registerAction,
+  resendInvitationAction,
   resetPasswordAction,
+  revokeInvitationAction,
 } from "./actions.js";
 export {
   authorizeRole,
@@ -26,10 +29,12 @@ export {
   ChangePasswordPage,
   createRegisterPage,
   ForgotPasswordPage,
+  InvitationsPage,
   LoginPage,
   RegisterPage,
   type RegisterPageOptions,
   ResetPasswordPage,
+  toInvitationRow,
 } from "./pages.js";
 export { oidcCallbackRoute } from "./oidc-route.js";
 export { getSessionRoute } from "./route.js";

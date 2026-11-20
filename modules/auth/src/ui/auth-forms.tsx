@@ -267,13 +267,19 @@ export interface RegisterFormProps extends AuthFormBaseProps {
    * `event.fields` when their names are declared in `auth({ registrationFields })`.
    */
   readonly extraFields?: ReactNode;
+  /**
+   * The invitation the form accepts: its token and the invited email, which the form posts instead of an email field
+   * (the page names the address in its lead). The server refuses any other email.
+   */
+  readonly invitation?: { readonly token: string; readonly email: string };
 }
 
 export function RegisterForm(props: RegisterFormProps) {
-  const { action, messages, next, loginHref, requireConsent, minPasswordLength, consentLabel, consentProps, extraFields } = props;
+  const { action, messages, next, loginHref, requireConsent, minPasswordLength, consentLabel, consentProps, extraFields, invitation } = props;
   const { classNames, unstyled, submitVariant } = props;
   const [state, formAction, isPending] = useActionState(action, INITIAL_AUTH_FORM_STATE);
-  const errors = useErrors(state, messages, requireConsent ? ["email", "password", "consent"] : ["email", "password"]);
+  const fields: AuthFormField[] = invitation === undefined ? ["email", "password"] : ["password"];
+  const errors = useErrors(state, messages, requireConsent ? [...fields, "consent"] : fields);
   const field = getFieldLook(props);
   const slot = createSlotClassGetter({ defaults: DEFAULT_CLASSES, classNames, unstyled });
   const footer =
@@ -298,16 +304,23 @@ export function RegisterForm(props: RegisterFormProps) {
       submitVariant={submitVariant}
     >
       {next === undefined ? null : <input type="hidden" name="next" value={next} />}
-      <TextField
-        name="email"
-        type="email"
-        label={messages.fields.email}
-        autoComplete="email"
-        required
-        defaultValue={state.email ?? ""}
-        error={errors.at("email")}
-        {...field}
-      />
+      {invitation === undefined ? (
+        <TextField
+          name="email"
+          type="email"
+          label={messages.fields.email}
+          autoComplete="email"
+          required
+          defaultValue={state.email ?? ""}
+          error={errors.at("email")}
+          {...field}
+        />
+      ) : (
+        <>
+          <input type="hidden" name="invitation" value={invitation.token} />
+          <input type="hidden" name="email" value={invitation.email} autoComplete="username" />
+        </>
+      )}
       <PasswordField
         name="password"
         label={messages.fields.password}

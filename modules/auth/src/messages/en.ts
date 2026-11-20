@@ -80,6 +80,8 @@ export const en = {
     revoke: "Revoke",
     /** The state of one invitation in the list. */
     status: { pending: "Pending", expired: "Expired", accepted: "Accepted", revoked: "Revoked" },
+    /** One invitation in the list: `{email}` and its `{status}`. */
+    itemTitle: "{email}: {status}",
     /** `{roles}` is the list of role names. */
     rolesList: "Roles: {roles}",
     noRoles: "No roles",

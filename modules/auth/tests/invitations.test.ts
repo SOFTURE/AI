@@ -263,6 +263,25 @@ describe("invitations", () => {
     await expect(inviteUser(test.ctx, { email: INVITED, roles: [], inviterId: adminId })).rejects.toThrow('lacks "invitation"');
   });
 
+  it("answers invitation_not_sent when the sender throws, and keeps the invitation pending for a resend", async () => {
+    let shouldFail = true;
+    await setUp({
+      auth: {
+        invitations: {
+          send: (link, recipient, details) => (shouldFail ? Promise.reject(new Error("smtp down")) : recordInvitation(link, recipient, details)),
+        },
+      },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(await inviteUser(test.ctx, { email: INVITED, roles: [], inviterId: adminId })).toEqual({ ok: false, error: "auth.invitation_not_sent" });
+    const [view] = await listInvitations(test.ctx);
+    if (view === undefined) throw new Error("no invitation listed");
+    expect(view.status).toBe("pending");
+    shouldFail = false;
+    expect(await resendInvitation(test.ctx, { invitationId: view.id, actorId: adminId })).toEqual({ ok: true, value: undefined });
+    expect((await accept(tokenOf(sent.at(-1)?.link))).ok).toBe(true);
+  });
+
   it("keeps one pending invitation per email and refuses malformed rows", async () => {
     await setUp();
     const insert = (email: string, roles: string, digit: string) =>

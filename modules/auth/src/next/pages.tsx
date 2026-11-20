@@ -1,6 +1,6 @@
 // Pages ready to mount with one line: `export { LoginPage as default } from "@softure-ai/auth/next"`.
 // Server components: they read the config and the session, and render the forms from `../ui`.
-import type { SoftureConfig } from "@softure-ai/core";
+import { formatMessage, type SoftureConfig } from "@softure-ai/core";
 import type { AuthFormErrorCode } from "../contract.js";
 import { getSoftureConfig } from "@softure-ai/core/next";
 import { Card } from "@softure-ai/ui";
@@ -11,15 +11,29 @@ import { toSafeNextPath } from "../safe-next-path.js";
 import { getAuthOptions, getAuthRoutes } from "../server/options.js";
 import { findPasswordResetUser, isPasswordResetEnabled, RESET_TOKEN_PARAM } from "../server/password-reset.js";
 import { isRegistrationClosed } from "../server/switches.js";
-import { getAuthErrorMessage } from "../messages/index.js";
+import { findInvitation, INVITATION_TOKEN_PARAM, isInvitationEnabled, listInvitations, type InvitationView } from "../server/invitations.js";
+import { getDeclaredRoles } from "../server/roles.js";
+import { ADMIN_ROLE } from "../roles.js";
+import { getAuthErrorMessage, getInvitationMessages, type AuthMessages } from "../messages/index.js";
 import { getOidcProviders } from "../server/oidc/context.js";
 import { ChangePasswordForm, ForgotPasswordForm, LoginForm, RegisterForm, ResetPasswordForm } from "../ui/auth-forms.js";
+import { InvitationPanel, type InvitationPanelRow } from "../ui/invitation-panel.js";
 import { OidcSignIn } from "../ui/oidc-sign-in.js";
-import { changePasswordAction, forgotPasswordAction, loginAction, oidcSignInAction, registerAction, resetPasswordAction } from "./actions.js";
+import {
+  changePasswordAction,
+  forgotPasswordAction,
+  inviteAction,
+  loginAction,
+  oidcSignInAction,
+  registerAction,
+  resendInvitationAction,
+  resetPasswordAction,
+  revokeInvitationAction,
+} from "./actions.js";
 import { getAuthContext } from "./context.js";
-import { getCurrentUser, requireUser } from "./current-user.js";
+import { getCurrentUser, requireRole, requireUser } from "./current-user.js";
 import { getAuthMessages } from "./messages.js";
-import { OIDC_ERROR_PARAM, PASSWORD_RESET_DONE_PARAM } from "./params.js";
+import { INVITATION_NOTICE_PARAM, INVITATION_NOTICES, type InvitationNotice, OIDC_ERROR_PARAM, PASSWORD_RESET_DONE_PARAM } from "./params.js";
 import { toUrlSearchParams } from "./search-params.js";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -29,6 +43,7 @@ export interface AuthPageProps {
 }
 
 const LAYOUT_CLASS = "sft:mx-auto sft:box-border sft:w-full sft:sm:max-w-md sft:px-4 sft:py-4";
+const WIDE_LAYOUT_CLASS = "sft:mx-auto sft:box-border sft:w-full sft:sm:max-w-3xl sft:px-4 sft:py-4";
 const FOOTER_CLASS = "sft:m-0 sft:text-sm sft:text-muted";
 const LINK_CLASS = "sft:font-medium sft:text-accent";
 /** An error code as auth writes it into `?oidc_error=`; anything else in the URL is not shown. */
@@ -127,6 +142,8 @@ async function renderRegisterPage(searchParams: SearchParams | undefined, pageOp
   const config = getSoftureConfig();
   const routes = getAuthRoutes(config);
   const next = await readNext(searchParams, routes.afterLogin);
+  const invitationToken = await readParam(searchParams, INVITATION_TOKEN_PARAM);
+  if (invitationToken !== undefined) return renderInvitationPage(config, invitationToken, next, pageOptions);
   if ((await getCurrentUser()) !== null) await redirectSignedIn(config, next, searchParams);
   const messages = getAuthMessages(config);
   if (await isRegistrationClosed(await getAuthContext(config))) {
@@ -157,6 +174,43 @@ async function renderRegisterPage(searchParams: SearchParams | undefined, pageOp
             {pageOptions.extraFields}
           </>
         }
+      />
+    </AuthLayout>
+  );
+}
+
+/**
+ * The register page opened from an invitation link: the form limited to the invited email, whether registration is
+ * closed or not (and whoever is signed in: registering ends that session). It only checks the token (mail scanners open
+ * links too); the submission consumes it. A dead link gets one neutral page that names no email. The referrer policy is
+ * `same-origin`, as on the reset page, so the token never leaves for another site.
+ */
+async function renderInvitationPage(config: SoftureConfig, token: string, next: string, pageOptions: RegisterPageOptions) {
+  const messages = getAuthMessages(config);
+  const copy = getInvitationMessages(messages);
+  const invitation = await findInvitation(await getAuthContext(config), token);
+  const referrerPolicy = <meta name="referrer" content="same-origin" />;
+  if (invitation === null) {
+    return (
+      <AuthLayout title={copy.invalidTitle} lead={copy.invalidBody}>
+        {referrerPolicy}
+      </AuthLayout>
+    );
+  }
+  const options = getAuthOptions(config);
+  return (
+    <AuthLayout title={copy.acceptTitle} lead={formatMessage(copy.acceptLead, { email: invitation.email })}>
+      {referrerPolicy}
+      <RegisterForm
+        action={registerAction}
+        messages={messages}
+        locale={config.locale}
+        next={next}
+        requireConsent={options.requireConsent}
+        minPasswordLength={options.password.minLength}
+        consentLabel={pageOptions.consentLabel}
+        extraFields={pageOptions.extraFields}
+        invitation={{ token, email: invitation.email }}
       />
     </AuthLayout>
   );
@@ -247,4 +301,60 @@ export async function ResetPasswordPage({ searchParams }: AuthPageProps) {
       />
     </AuthLayout>
   );
+}
+
+/**
+ * The admin page of invitations: invite an email with roles, list the sent ones, resend or revoke a pending one. Not
+ * found for anyone without `admin` (signed in or not) and when the app passed no `invitations.send`.
+ */
+export async function InvitationsPage({ searchParams }: AuthPageProps) {
+  const config = getSoftureConfig();
+  await requireRole(ADMIN_ROLE);
+  if (!isInvitationEnabled(config)) notFound();
+  const messages = getAuthMessages(config);
+  const copy = getInvitationMessages(messages);
+  const views = await listInvitations(await getAuthContext(config));
+  const notice = readInvitationNotice(await readParam(searchParams, INVITATION_NOTICE_PARAM));
+  return (
+    <main className={WIDE_LAYOUT_CLASS}>
+      <Card title={copy.title} subtitle={copy.lead}>
+        <InvitationPanel
+          rows={views.map((view) => toInvitationRow(view, messages, config))}
+          roles={[...getDeclaredRoles(config)]}
+          inviteAction={inviteAction}
+          resendAction={resendInvitationAction}
+          revokeAction={revokeInvitationAction}
+          messages={messages}
+          notice={notice === undefined ? undefined : copy[notice]}
+          locale={config.locale}
+        />
+      </Card>
+    </main>
+  );
+}
+
+function readInvitationNotice(value: string | undefined): InvitationNotice | undefined {
+  return INVITATION_NOTICES.find((notice) => notice === value);
+}
+
+/** One invitation in the app's copy, its dates in the app's locale and time zone. */
+export function toInvitationRow(view: InvitationView, messages: AuthMessages, config: SoftureConfig): InvitationPanelRow {
+  const copy = getInvitationMessages(messages);
+  const format = new Intl.DateTimeFormat(config.locale, { dateStyle: "medium", timeStyle: "short", timeZone: config.timezone });
+  const date = (value: Date) => format.format(value);
+  const details = [
+    view.roles.length === 0 ? copy.noRoles : formatMessage(copy.rolesList, { roles: view.roles.join(", ") }),
+    view.invitedBy === null
+      ? formatMessage(copy.invitedOn, { date: date(view.createdAt) })
+      : formatMessage(copy.invitedBy, { email: view.invitedBy.email, date: date(view.createdAt) }),
+  ];
+  if (view.status === "pending") details.push(formatMessage(copy.expiresOn, { date: date(view.expiresAt) }));
+  if (view.acceptedAt !== null) details.push(formatMessage(copy.acceptedOn, { date: date(view.acceptedAt) }));
+  if (view.revokedAt !== null) details.push(formatMessage(copy.revokedOn, { date: date(view.revokedAt) }));
+  return {
+    id: view.id,
+    title: formatMessage(copy.itemTitle, { email: view.email, status: copy.status[view.status] }),
+    details,
+    isOpen: view.status === "pending" || view.status === "expired",
+  };
 }
