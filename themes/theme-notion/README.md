@@ -169,7 +169,8 @@ and zoom; one row per document with its type, size and an "available offline" ma
 (`SelectItem size="touch"`; an item's own `size` wins over its list's). The same rule holds for the dropdown menu
 (`DropdownMenuContent size="touch"`, or `size="touch"` on a `DropdownMenuItem`, `DropdownMenuCheckboxItem`,
 `DropdownMenuRadioItem` or `DropdownMenuSubTrigger`) and the tabs (`TabsList size="touch"` grows to its triggers,
-each at least 44 × 44, or `TabsTrigger size="touch"`). `AccordionTrigger size="touch"` is at least 44 px high
+each at least 44 × 44, or `TabsTrigger size="touch"`). `TabBar size="touch"` draws every tab link at least 44 × 44 (`data-size="touch"`), and its
+`tabClassName` goes on every link after the size (`tabClassName="md:h-control-height md:min-w-0"` on a desktop). `AccordionTrigger size="touch"` is at least 44 px high
 whatever its padding, and `DialogContent closeButtonSize="touch"` draws the close button 44 × 44 around the same
 icon. Each sets its height with a plain class, so one breakpoint class brings the pointer size back on a desktop.
 

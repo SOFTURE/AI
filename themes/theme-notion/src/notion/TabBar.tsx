@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { cn } from "../lib/utils.js";
+
 export interface TabBarItem<Key extends string> {
   // Kept on the link as `data-tab`.
   readonly key: Key;
@@ -16,10 +18,21 @@ export interface TabBarProps<Key extends string> {
   readonly label: string;
   readonly tabs: readonly TabBarItem<Key>[];
   readonly current: Key;
+  // "touch" draws every tab at least the touch target (44 x 44 px) for a phone view; the default keeps the control's height.
+  readonly size?: "default" | "touch";
+  // Added to every tab's link after the size, so one breakpoint class brings the pointer size back on a desktop
+  // (`size="touch" tabClassName="md:h-control-height md:min-w-0"`).
+  readonly tabClassName?: string;
 }
 
+const TAB_CLASS =
+  "relative inline-flex h-control-height items-center gap-1.5 rounded-md px-2 text-ui-medium whitespace-nowrap text-muted-foreground transition-colors duration-120 after:absolute after:inset-x-0 after:-bottom-1 after:h-0.5 after:bg-foreground after:opacity-0 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[current=page]:text-foreground aria-[current=page]:after:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0";
+
+const TOUCH_TAB_CLASS = "h-touch-target min-w-touch-target justify-center px-3";
+
 // A screen's tabs as line tabs where each tab is a link, so the shown tab lives in the address and survives a reload.
-export function TabBar<Key extends string>({ label, tabs, current }: TabBarProps<Key>) {
+export function TabBar<Key extends string>({ label, tabs, current, size = "default", tabClassName }: TabBarProps<Key>) {
+  const linkClass = cn(TAB_CLASS, size === "touch" && TOUCH_TAB_CLASS, tabClassName);
   return (
     <nav aria-label={label} data-slot="tab-bar" className="overflow-x-auto border-b border-border">
       <ul className="flex gap-1 pb-1">
@@ -27,8 +40,9 @@ export function TabBar<Key extends string>({ label, tabs, current }: TabBarProps
           <li key={tab.key}>
             <a
               href={tab.href}
-              className="relative inline-flex h-control-height items-center gap-1.5 rounded-md px-2 text-ui-medium whitespace-nowrap text-muted-foreground transition-colors duration-120 after:absolute after:inset-x-0 after:-bottom-1 after:h-0.5 after:bg-foreground after:opacity-0 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[current=page]:text-foreground aria-[current=page]:after:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0"
+              className={linkClass}
               data-tab={tab.key}
+              data-size={size === "touch" ? "touch" : undefined}
               aria-current={tab.key === current ? "page" : undefined}
             >
               {tab.icon}
