@@ -1,6 +1,6 @@
 import { cn } from "../lib/utils.js";
 import { Progress } from "../ui/progress.js";
-import { StreamedScript } from "./StreamedScript.js";
+import { StreamedScript } from "../lib/StreamedScript.js";
 
 export interface TopLoadingBarProps {
   /** The progress bar's accessible name (`pwaMessages.en.launch.label` in `@softure-ai/pwa`). */

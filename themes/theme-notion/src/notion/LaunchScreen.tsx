@@ -1,6 +1,6 @@
 import { cn } from "../lib/utils.js";
 import { Progress } from "../ui/progress.js";
-import { StreamedScript } from "./StreamedScript.js";
+import { StreamedScript } from "../lib/StreamedScript.js";
 
 export interface LaunchScreenProps {
   /** The app's name, shown under its icon. */
