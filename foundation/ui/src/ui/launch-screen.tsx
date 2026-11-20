@@ -1,5 +1,6 @@
 import { type ClassNames, createSlotClassGetter, joinClasses } from "./class-names.js";
 import { ProgressBar } from "./progress-bar.js";
+import { StreamedScript } from "./streamed-script.js";
 
 // Server-safe. The loading states of an app's `app/loading.tsx`, streamed before any script of the app runs. Their
 // `data-slot`s are the contract of `@softure-ai/pwa`'s launch counter (`buildLaunchProgressScript`), which finds its
@@ -51,7 +52,7 @@ export function LaunchScreen({ name, iconSrc, label, script, classNames, unstyle
       <p data-slot="launch-screen-percent" aria-hidden="true" suppressHydrationWarning className={slot("percent")}>
         0%
       </p>
-      {script === undefined ? null : <script dangerouslySetInnerHTML={{ __html: script }} />}
+      {script === undefined ? null : <StreamedScript script={script} />}
     </div>
   );
 }
@@ -94,7 +95,7 @@ export function TopLoadingBar({ label, value, script, classNames, unstyled }: To
         classNames={{ root: slot("bar"), indicator: slot("indicator") }}
         unstyled={unstyled}
       />
-      {script === undefined ? null : <script dangerouslySetInnerHTML={{ __html: script }} />}
+      {script === undefined ? null : <StreamedScript script={script} />}
     </div>
   );
 }

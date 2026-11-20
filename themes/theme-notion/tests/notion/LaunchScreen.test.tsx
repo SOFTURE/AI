@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { act } from "react";
+import { hydrateRoot } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LaunchScreen } from "../../src/notion/LaunchScreen.js";
 
@@ -40,5 +42,35 @@ describe("LaunchScreen", () => {
     expect(root?.querySelector('[data-slot="progress"]')).not.toBeNull();
     expect(root?.querySelector('[data-slot="progress-indicator"]')).not.toBeNull();
     expect(root?.querySelector('[data-slot="launch-screen-percent"]')).not.toBeNull();
+  });
+});
+
+describe("LaunchScreen's counter script outside the server's HTML", () => {
+  it("draws no script, and no warning, when a client-side navigation renders it", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { container } = render(<LaunchScreen {...PROPS} script="window.__launch = 1;" />);
+
+    expect(container.querySelector("script")).toBeNull();
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
+  });
+
+  it("keeps the streamed script through hydration without a warning", () => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(<LaunchScreen {...PROPS} script="window.__launch = 1;" />);
+    document.body.append(container);
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    let root: ReturnType<typeof hydrateRoot> | null = null;
+    act(() => {
+      root = hydrateRoot(container, <LaunchScreen {...PROPS} script="window.__launch = 1;" />);
+    });
+
+    expect(errors).not.toHaveBeenCalled();
+    act(() => root?.unmount());
+    container.remove();
+    errors.mockRestore();
   });
 });
