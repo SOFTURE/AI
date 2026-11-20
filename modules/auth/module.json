@@ -4,7 +4,7 @@
   "runtimes": ["node", "workers"],
   "dependsOn": { "security": "^0.2.0", "mailing": "^0.2.0?", "ops": "^0.2.0?", "jobs": "^0.1.1?" },
   "dbSchema": "auth",
-  "tables": ["users", "sessions", "user_roles", "password_resets", "identities", "oidc_states"],
+  "tables": ["users", "sessions", "user_roles", "password_resets", "identities", "oidc_states", "invitations"],
   "env": [
     {
       "name": "SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED",
@@ -19,6 +19,7 @@
     "changePassword": "/account/password",
     "forgotPassword": "/forgot-password",
     "resetPassword": "/reset-password",
+    "invitations": "/admin/invitations",
     "afterLogin": "/",
     "afterLogout": "/login"
   },
@@ -28,6 +29,7 @@
     { "kind": "page", "path": "app/account/password/page.tsx", "export": "ChangePasswordPage" },
     { "kind": "page", "path": "app/forgot-password/page.tsx", "export": "ForgotPasswordPage" },
     { "kind": "page", "path": "app/reset-password/page.tsx", "export": "ResetPasswordPage" },
+    { "kind": "page", "path": "app/admin/invitations/page.tsx", "export": "InvitationsPage" },
     { "kind": "route-handler", "path": "app/api/auth/session/route.ts", "export": "getSessionRoute" },
     { "kind": "route-handler", "path": "app/api/auth/oidc/[provider]/callback/route.ts", "export": "oidcCallbackRoute" },
     { "kind": "middleware", "path": "proxy.ts", "export": "createAuthGuard" }

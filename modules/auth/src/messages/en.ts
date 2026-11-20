@@ -64,6 +64,45 @@ export const en = {
   logout: {
     submit: "Log out",
   },
+  invitations: {
+    title: "Invitations",
+    lead: "Invite a person by email. The link lets them create an account even while registration is closed.",
+    email: "Email",
+    roles: "Roles",
+    submit: "Send invitation",
+    pending: "Sending…",
+    sent: "The invitation is on its way.",
+    resent: "The invitation was sent again with a new link.",
+    revoked: "The invitation was revoked. Its link no longer works.",
+    listTitle: "Sent invitations",
+    empty: "No invitations yet.",
+    resend: "Resend",
+    revoke: "Revoke",
+    /** The state of one invitation in the list. */
+    status: { pending: "Pending", expired: "Expired", accepted: "Accepted", revoked: "Revoked" },
+    /** `{roles}` is the list of role names. */
+    rolesList: "Roles: {roles}",
+    noRoles: "No roles",
+    invitedBy: "Sent by {email} on {date}",
+    invitedOn: "Sent on {date}",
+    expiresOn: "The link works until {date}.",
+    acceptedOn: "Accepted on {date}.",
+    revokedOn: "Revoked on {date}.",
+    acceptTitle: "Accept your invitation",
+    acceptLead: "You were invited as {email}. Choose a password to create your account.",
+    invalidTitle: "This invitation does not work",
+    invalidBody: "The link has expired, was revoked or has already been used. Ask the person who invited you for a new one.",
+  },
+  invitationMail: {
+    subject: "You are invited to create an account",
+    greeting: "Hello,",
+    intro: "You have been invited to create an account. Open this link to choose a password:",
+    action: "Accept the invitation",
+    expiry: "The link works for {duration} and only once.",
+    /** `{count}` hours, by the locale's plural rules (Intl.PluralRules categories). */
+    hours: { one: "{count} hour", few: "{count} hours", many: "{count} hours", other: "{count} hours" },
+    ignore: "If you did not expect this invitation, ignore this mail: no account is created without the link.",
+  },
   oidc: {
     /** The button of an OpenID Connect provider; `{provider}` is its `name` (e.g. Google). */
     signInWith: "Sign in with {provider}",
@@ -90,6 +129,12 @@ export const en = {
       oidc_not_allowed: "This account may not sign in here.",
       oidc_no_account: "There is no account for this sign-in. Ask for access.",
       oidc_registration_closed: "Registration is closed. Only existing accounts can sign in.",
+      invitations_unavailable: "Invitations are not available.",
+      invitation_invalid: "This invitation has expired, was revoked or has already been used.",
+      invitation_email_mismatch: "Use the email address the invitation was sent to.",
+      invitation_not_pending: "This invitation is no longer pending.",
+      invitation_not_sent: "The invitation was saved but the mail was not sent. Try Resend.",
+      role_undeclared: "Choose only the roles listed.",
     },
     security: {
       rate_limited: "Too many attempts. Wait a few minutes and try again.",

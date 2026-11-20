@@ -7,21 +7,43 @@ export const authMessages = { en };
 type EnglishMessages = typeof en;
 type AuthErrorCopy = EnglishMessages["errors"]["auth"];
 type OidcErrorName = "oidc_failed" | "oidc_cancelled" | "oidc_not_allowed" | "oidc_no_account" | "oidc_registration_closed";
+type InvitationErrorName =
+  | "invitations_unavailable"
+  | "invitation_invalid"
+  | "invitation_email_mismatch"
+  | "invitation_not_pending"
+  | "invitation_not_sent"
+  | "role_undeclared";
+/** Error keys added after the first dictionaries: optional, a missing one reads the English copy. */
+type LaterErrorName = OidcErrorName | InvitationErrorName;
 
 /**
- * One locale's copy. The OpenID Connect keys (`oidc`, `errors.auth.oidc_*`) are optional, so a dictionary written
- * before them still compiles; a missing one reads the English copy.
+ * One locale's copy. The OpenID Connect keys (`oidc`, `errors.auth.oidc_*`) and the invitation keys (`invitations`,
+ * `invitationMail`, `errors.auth.invitation*` and `role_undeclared`) are optional, so a dictionary written before them
+ * still compiles; a missing one reads the English copy.
  */
-export type AuthMessages = Omit<EnglishMessages, "oidc" | "errors"> & {
+export type AuthMessages = Omit<EnglishMessages, "oidc" | "invitations" | "invitationMail" | "errors"> & {
   readonly oidc?: EnglishMessages["oidc"];
+  readonly invitations?: EnglishMessages["invitations"];
+  readonly invitationMail?: EnglishMessages["invitationMail"];
   readonly errors: Omit<EnglishMessages["errors"], "auth"> & {
-    readonly auth: Omit<AuthErrorCopy, OidcErrorName> & Partial<Pick<AuthErrorCopy, OidcErrorName>>;
+    readonly auth: Omit<AuthErrorCopy, LaterErrorName> & Partial<Pick<AuthErrorCopy, LaterErrorName>>;
   };
 };
 
 /** The OpenID Connect copy of `messages`, or the English one when the dictionary has none. */
 export function getOidcMessages(messages: AuthMessages): EnglishMessages["oidc"] {
   return messages.oidc ?? en.oidc;
+}
+
+/** The invitation page and form copy of `messages`, or the English one when the dictionary has none. */
+export function getInvitationMessages(messages: AuthMessages): EnglishMessages["invitations"] {
+  return messages.invitations ?? en.invitations;
+}
+
+/** The invitation mail copy of `messages`, or the English one when the dictionary has none. */
+export function getInvitationMailMessages(messages: AuthMessages): EnglishMessages["invitationMail"] {
+  return messages.invitationMail ?? en.invitationMail;
 }
 
 /**

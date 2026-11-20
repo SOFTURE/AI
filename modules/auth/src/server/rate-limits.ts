@@ -14,6 +14,7 @@ export const BUCKETS = {
   passwordResetConfirm: "password-reset-confirm",
   oidcStart: "oidc-start",
   oidcCallback: "oidc-callback",
+  invitation: "invitation",
 } as const;
 
 /** The subject key of an account's email for `login-account` and `password-reset-account`. */
@@ -21,7 +22,7 @@ export function emailSubjectKey(normalizedEmail: string): string {
   return subjectKey(`email:${normalizedEmail}`);
 }
 
-/** The subject key of a user for `change-password`. */
+/** The subject key of a user for `change-password` and `invitation`. */
 export function userSubjectKey(userId: string): string {
   return subjectKey(`user:${userId}`);
 }
@@ -32,12 +33,15 @@ const RESET_BUCKETS: ReadonlySet<string> = new Set([BUCKETS.passwordReset, BUCKE
 /** The buckets only OpenID Connect sign-in counts in; not needed without providers. */
 const OIDC_BUCKETS: ReadonlySet<string> = new Set([BUCKETS.oidcStart, BUCKETS.oidcCallback]);
 
+/** The bucket only invitations count in; not needed while they are off. */
+const INVITATION_BUCKETS: ReadonlySet<string> = new Set([BUCKETS.invitation]);
+
 const checkedConfigs = new WeakSet<SoftureConfig>();
 
 /**
  * Throws, naming every missing bucket, when the app's `security({ buckets })` lacks one auth
  * counts in: the reset buckets only when password reset is on (`passwordReset.send`), the OpenID Connect ones only
- * with a provider. Checked once
+ * with a provider, `invitation` only with `invitations.send`. Checked once
  * per config, before the first attempt is counted, so a setup mistake is one clear error instead of
  * a generic failure on every login.
  */
@@ -48,7 +52,10 @@ export function assertAuthBuckets(config: SoftureConfig): void {
   const authOptions = getAuthOptions(config);
   const isResetOn = authOptions.passwordReset.send !== undefined;
   const isOidcOn = authOptions.oidc.providers.length > 0;
-  const required = Object.values(BUCKETS).filter((name) => (isResetOn || !RESET_BUCKETS.has(name)) && (isOidcOn || !OIDC_BUCKETS.has(name)));
+  const isInvitationOn = authOptions.invitations.send !== undefined;
+  const required = Object.values(BUCKETS).filter(
+    (name) => (isResetOn || !RESET_BUCKETS.has(name)) && (isOidcOn || !OIDC_BUCKETS.has(name)) && (isInvitationOn || !INVITATION_BUCKETS.has(name)),
+  );
   const missing = required.filter((name) => !Object.hasOwn(configured, name));
   if (missing.length > 0) {
     throw new Error(

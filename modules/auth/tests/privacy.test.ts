@@ -67,6 +67,7 @@ describe("the auth privacy contributor", () => {
         sessions: [{ createdAt: NOW, expiresAt: new Date(NOW.getTime() + 30 * 24 * 3_600_000) }],
         passwordReset: { createdAt: NOW, expiresAt: new Date(NOW.getTime() + 3_600_000) },
         identities: [{ provider: "google", subject: adaId, email: "x@example.com", createdAt: NOW, lastLoginAt: NOW }],
+        invitation: null,
       },
     });
     expect(JSON.stringify(result)).not.toMatch(/scrypt\$|[0-9a-f]{64}/);
@@ -88,8 +89,26 @@ describe("the auth privacy contributor", () => {
     await test.database.client.query("UPDATE auth.users SET display_name = $1 WHERE id = $2", ["é".repeat(200), adaId]);
   });
 
+  it("exports the invitation the account came from, and the deletion removes the invitations to its email", async () => {
+    const hash = (digit: string) => digit.repeat(64);
+    await test.database.client.query(
+      "INSERT INTO auth.invitations (email, roles, token_hash, created_at, expires_at, accepted_at, accepted_user_id) VALUES ('ada@example.com', '{admin}', $1, $2, $3, $2, $4)",
+      [hash("1"), NOW, new Date(NOW.getTime() + 3_600_000), adaId],
+    );
+    await test.database.client.query(
+      "INSERT INTO auth.invitations (email, token_hash, invited_by, created_at, expires_at) VALUES ('other@example.com', $1, $2, $3, $4)",
+      [hash("2"), adaId, NOW, new Date(NOW.getTime() + 3_600_000)],
+    );
+    const result = await exportAuthUserData(test.ctx, adaId);
+    expect(result.value.invitation).toEqual({ roles: ["admin"], createdAt: NOW, acceptedAt: NOW });
+
+    await deleteAuthUserData(test.ctx, adaId);
+    const left = await test.database.client.query<{ email: string; invited_by: string | null }>("SELECT email, invited_by FROM auth.invitations");
+    expect(left.rows).toEqual([{ email: "other@example.com", invited_by: null }]);
+  });
+
   it("exports nothing for an unknown account or an id that is not a UUID", async () => {
-    const empty = { ok: true, value: { account: null, roles: [], sessions: [], passwordReset: null, identities: [] } };
+    const empty = { ok: true, value: { account: null, roles: [], sessions: [], passwordReset: null, identities: [], invitation: null } };
     expect(await exportAuthUserData(test.ctx, UNKNOWN_ID)).toEqual(empty);
     expect(await exportAuthUserData(test.ctx, "not-a-uuid")).toEqual(empty);
   });

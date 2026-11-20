@@ -3,6 +3,7 @@ import type { FetchFunction, ModuleContext, SoftureConfig, SoftureRuntime } from
 import type { Queryable } from "@softure-ai/db";
 import { z } from "zod";
 import type { RegisteredEvent } from "./contract.js";
+import type { InvitationSender } from "./invitation-sender.js";
 import type { PasswordResetEnqueuer, PasswordResetSender } from "./password-reset-sender.js";
 import { ROLE_NAME_PATTERN } from "./roles.js";
 
@@ -301,6 +302,18 @@ export const authOptionsSchema = z.strictObject({
     })
     .prefault({}),
   /**
+   * Invitations by email: an admin invites an address with roles, and its link opens a register form limited to that
+   * address, which works while `auth.registration_closed` is on. Off without `send`.
+   */
+  invitations: z
+    .strictObject({
+      /** Delivers invitation links, e.g. `mailingInvitationSender()` of `@softure-ai/auth/mailing`. */
+      send: z.custom<InvitationSender>((value) => typeof value === "function", "must be a function").optional(),
+      /** How long an invitation link works. */
+      ttlHours: z.number().int().min(1).max(720).default(72),
+    })
+    .prefault({}),
+  /**
    * Sign-in with OpenID Connect providers (e.g. Google) or GitHub (`type: "github"`), limited to allowed domains or
    * emails. Off without providers.
    */
@@ -328,6 +341,9 @@ export const authOptionsSchema = z.strictObject({
   }
   if (!options.password.enabled && options.oidc.providers.length === 0) {
     context.addIssue({ code: "custom", path: ["password", "enabled"], message: "needs an oidc provider: without passwords nobody could sign in" });
+  }
+  if (options.invitations.send !== undefined && !options.password.enabled) {
+    context.addIssue({ code: "custom", path: ["invitations", "send"], message: "needs password.enabled: an invitation is accepted through the register form" });
   }
   const legacy = options.legacySession?.cookieName;
   const base = options.cookie.name;

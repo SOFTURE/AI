@@ -24,8 +24,9 @@ export const REGISTRATION_CLOSED_ENV = "SOFTURE_SWITCH_AUTH_REGISTRATION_CLOSED"
  * `register` and `login` per client address, `login-account` per email, `change-password` per user,
  * `password-reset` (link requests) and `password-reset-confirm` (new passwords) per client address,
  * `password-reset-account` per email, which bounds the mails one address can receive, and `oidc-start` and
- * `oidc-callback` (OpenID Connect sign-ins started and completed) per client address. The `oidc-*` buckets are
- * required only with a provider and count nothing without one, so an app without OpenID Connect may leave them out.
+ * `oidc-callback` (OpenID Connect sign-ins started and completed) per client address, and `invitation` (invitations sent
+ * and resent) per inviting admin. The `oidc-*` buckets are required only with a provider, and `invitation` only with
+ * `invitations.send`; they count nothing otherwise, so an app without those features may leave them out.
  */
 export const AUTH_RATE_LIMIT_BUCKETS = {
   register: { limit: 5, windowMinutes: 15, key: "ip" },
@@ -37,6 +38,7 @@ export const AUTH_RATE_LIMIT_BUCKETS = {
   "password-reset-confirm": { limit: 10, windowMinutes: 15, key: "ip" },
   "oidc-start": { limit: 20, windowMinutes: 15, key: "ip" },
   "oidc-callback": { limit: 20, windowMinutes: 15, key: "ip" },
+  invitation: { limit: 20, windowMinutes: 60, key: "account" },
 } as const satisfies Readonly<Record<string, RateLimitBucketInput>>;
 
 /**
@@ -50,7 +52,7 @@ export const auth = defineModule({
     runtimes: ["node", "workers"],
     dependsOn: { security: "^0.2.0", mailing: "^0.2.0?", ops: "^0.2.0?", jobs: "^0.1.1?" },
     dbSchema: "auth",
-    tables: ["users", "sessions", "user_roles", "password_resets", "identities", "oidc_states"],
+    tables: ["users", "sessions", "user_roles", "password_resets", "identities", "oidc_states", "invitations"],
     env: [
       {
         name: REGISTRATION_CLOSED_ENV,
@@ -65,6 +67,7 @@ export const auth = defineModule({
       changePassword: "/account/password",
       forgotPassword: "/forgot-password",
       resetPassword: "/reset-password",
+      invitations: "/admin/invitations",
       afterLogin: "/",
       afterLogout: "/login",
     },
@@ -74,6 +77,7 @@ export const auth = defineModule({
       { kind: "page", path: "app/account/password/page.tsx", export: "ChangePasswordPage" },
       { kind: "page", path: "app/forgot-password/page.tsx", export: "ForgotPasswordPage" },
       { kind: "page", path: "app/reset-password/page.tsx", export: "ResetPasswordPage" },
+      { kind: "page", path: "app/admin/invitations/page.tsx", export: "InvitationsPage" },
       { kind: "route-handler", path: "app/api/auth/session/route.ts", export: "getSessionRoute" },
       { kind: "route-handler", path: "app/api/auth/oidc/[provider]/callback/route.ts", export: "oidcCallbackRoute" },
       { kind: "middleware", path: "proxy.ts", export: "createAuthGuard" },
@@ -122,7 +126,8 @@ export {
   type PasswordResetEnqueuer,
   type PasswordResetSender,
 } from "./password-reset-sender.js";
+export { consoleInvitationSender, type InvitationDetails, type InvitationSender } from "./invitation-sender.js";
 export { getSessionCookie, type SessionCookie } from "./session-cookie.js";
 export { toSafeNextPath } from "./safe-next-path.js";
 export { ADMIN_ROLE, ROLE_NAME_PATTERN } from "./roles.js";
-export { identities, oidcStates, passwordResets, sessions, userRoles, users } from "./schema.js";
+export { identities, invitations, oidcStates, passwordResets, sessions, userRoles, users } from "./schema.js";
