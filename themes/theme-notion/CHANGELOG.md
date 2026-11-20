@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.29.0
+
+- Touch-sized `TabBar`: `size="touch"` draws every tab link at least the touch target (44 x 44 px, `h-touch-target
+  min-w-touch-target`, padded `px-3`, `data-size="touch"`) for a phone view, and `tabClassName` is added to every link
+  after the size, so one breakpoint class brings the pointer size back on a desktop
+  (`tabClassName="md:h-control-height md:min-w-0"`). The bar already scrolls sideways inside itself.
+- Migration: none; the default size renders the same markup as before.
+
 ## 0.28.0
 
 - A grip that shows on hover (#1353): `SortableHandle reveal="hover"` (default `"always"`) hides the grip under a fine
