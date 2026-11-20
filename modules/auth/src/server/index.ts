@@ -1,6 +1,27 @@
 // Server-only API of @softure-ai/auth. Every function receives the module context
 // (`{ db, clock, config }`) and never reads request scope; tokens and client keys come in as values.
 export { changePassword, type ChangePasswordErrorCode, type ChangePasswordInput, type ChangePasswordResult } from "./change-password.js";
+export {
+  findInvitation,
+  getInvitationLink,
+  INVITATION_TOKEN_PARAM,
+  inviteUser,
+  isInvitationEnabled,
+  listInvitations,
+  registerInvitedUser,
+  resendInvitation,
+  revokeInvitation,
+  type InvitationChange,
+  type InvitationStatus,
+  type InvitationView,
+  type InviteErrorCode,
+  type InviteInput,
+  type InviteResult,
+  type OpenInvitation,
+  type RegisterInvitedErrorCode,
+  type RegisterInvitedInput,
+  type RegisterInvitedResult,
+} from "./invitations.js";
 export { loginUser, type LoginInput, type LoginResult } from "./login.js";
 export {
   resolveOnlyAccount,

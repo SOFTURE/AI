@@ -1,7 +1,7 @@
 // Drizzle view of the module's tables (migrations/0001_create_users_and_sessions.sql,
 // 0002_create_user_roles.sql, 0003_create_password_resets.sql, the users.created_at index of
 // 0004_index_users_created_at.sql, 0005_create_identities_and_oidc_states.sql and
-// 0006_add_users_display_name.sql). The migrations are the source of truth; this file only types
+// 0006_add_users_display_name.sql and 0007_create_invitations.sql). The migrations are the source of truth; this file only types
 // the queries. App tables may reference `users.id`.
 import { pgSchema, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
@@ -72,4 +72,17 @@ export const oidcStates = authSchema.table("oidc_states", {
   nextPath: text("next_path").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
+export const invitations = authSchema.table("invitations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
+  roles: text("roles").array().notNull().default([]),
+  tokenHash: text("token_hash").notNull().unique("invitations_token_hash_key"),
+  invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  acceptedUserId: uuid("accepted_user_id").references(() => users.id, { onDelete: "set null" }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
 });

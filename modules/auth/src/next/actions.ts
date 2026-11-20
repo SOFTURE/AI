@@ -20,13 +20,17 @@ import { getAuthOptions } from "../server/options.js";
 import { loginUser } from "../server/login.js";
 import { getAuthRoutes } from "../server/options.js";
 import { deliverPasswordReset, requestPasswordReset, resetPassword } from "../server/password-reset.js";
+import { inviteUser, registerInvitedUser, resendInvitation, revokeInvitation } from "../server/invitations.js";
 import { registerUser } from "../server/register.js";
+import { getDeclaredRoles } from "../server/roles.js";
+import { ADMIN_ROLE } from "../roles.js";
 import { startOidcSignIn } from "../server/oidc/flow.js";
 import { logoutSession } from "../server/sessions.js";
 import { getAuthContext } from "./context.js";
+import { authorizeRole } from "./current-user.js";
 import { writeOidcStateCookie } from "./oidc-cookie.js";
 import { getOidcErrorLoginPath } from "./oidc-login-url.js";
-import { PASSWORD_RESET_DONE_PARAM } from "./params.js";
+import { INVITATION_NOTICE_PARAM, PASSWORD_RESET_DONE_PARAM, type InvitationNotice } from "./params.js";
 import { endPreviousSession, readHeldTokens } from "./previous-session.js";
 import { clearSessionCookie, readSessionToken, writeSessionCookie } from "./session-cookie.js";
 
@@ -44,11 +48,13 @@ const nextPath = z
   .transform((value) => value.slice(0, MAX_NEXT_PATH_LENGTH + 1));
 
 const loginInput = z.object({ email: text, password: text, next: nextPath });
-const registerInput = z.object({ email: text, password: text, next: nextPath, consent: z.string().nullable().catch(null) });
+const registerInput = z.object({ email: text, password: text, next: nextPath, consent: z.string().nullable().catch(null), invitation: text });
 const changePasswordInput = z.object({ currentPassword: text, newPassword: text });
 const forgotPasswordInput = z.object({ email: text });
 const resetPasswordInput = z.object({ token: text, newPassword: text });
 const oidcSignInInput = z.object({ provider: text, next: nextPath });
+const inviteInput = z.object({ email: text });
+const invitationChangeInput = z.object({ id: text });
 
 const FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
   "auth.email_invalid": "email",
@@ -56,6 +62,7 @@ const FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
   "auth.password_too_short": "password",
   "auth.password_too_long": "password",
   "auth.consent_required": "consent",
+  "auth.invitation_email_mismatch": "email",
 };
 
 const CHANGE_FIELD_OF: Partial<Record<AuthFormErrorCode, AuthFormField>> = {
@@ -120,16 +127,19 @@ export async function registerAction(_previous: AuthFormState, formData: FormDat
   const client = identifyClient({ config }, await headers());
   if (!client.ok) return failure(client.error, { email: input.email });
 
+  const registration = {
+    email: input.email,
+    password: input.password,
+    // A checked HTML checkbox sends "on" (or its value); an unchecked one sends nothing.
+    hasConsented: input.consent !== null,
+    clientKey: client.value,
+    fields: readRegistrationFields(config, formData),
+  };
   let result;
   try {
-    result = await registerUser(await getAuthContext(config), {
-      email: input.email,
-      password: input.password,
-      // A checked HTML checkbox sends "on" (or its value); an unchecked one sends nothing.
-      hasConsented: input.consent !== null,
-      clientKey: client.value,
-      fields: readRegistrationFields(config, formData),
-    });
+    const ctx = await getAuthContext(config);
+    // A form opened from an invitation link carries its token: that account may be created while registration is closed.
+    result = input.invitation === "" ? await registerUser(ctx, registration) : await registerInvitedUser(ctx, { ...registration, token: input.invitation });
   } catch (error) {
     return failure(reportFailure("registration", error), { email: input.email });
   }
@@ -264,4 +274,62 @@ export async function logoutAction(input?: FormData | LogoutInput): Promise<void
   }
   await clearSessionCookie(config);
   redirect(await resolveRedirectTarget(config, target));
+}
+
+/** Back to the invitations page with its confirmation; a redirect, so the list is read again. */
+function redirectToInvitations(config: SoftureConfig, notice: InvitationNotice): never {
+  redirect(`${getAuthRoutes(config).invitations}?${INVITATION_NOTICE_PARAM}=${notice}`);
+}
+
+/**
+ * Invites the posted email with the posted roles (a checkbox `role-<name>` per declared role). Admins only: the role is
+ * checked before any input is read. On success, back to the invitations page, which confirms it.
+ */
+export async function inviteAction(_previous: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const admin = await authorizeRole(ADMIN_ROLE);
+  if (!admin.ok) return failure(admin.error);
+  const config = getSoftureConfig();
+  const input = readForm(inviteInput, formData);
+  const roles = [...getDeclaredRoles(config)].filter((role) => formData.get(`role-${role}`) !== null);
+
+  let result;
+  try {
+    result = await inviteUser(await getAuthContext(config), { email: input.email, roles, inviterId: admin.value.id });
+  } catch (error) {
+    return failure(reportFailure("invitation", error), { email: input.email });
+  }
+  if (!result.ok) return failure(result.error, { field: FIELD_OF[result.error], email: input.email });
+  redirectToInvitations(config, "sent");
+}
+
+/** Sends a pending invitation (`id`) again with a new link. Admins only. */
+export async function resendInvitationAction(_previous: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const admin = await authorizeRole(ADMIN_ROLE);
+  if (!admin.ok) return failure(admin.error);
+  const config = getSoftureConfig();
+  const input = readForm(invitationChangeInput, formData);
+  let result;
+  try {
+    result = await resendInvitation(await getAuthContext(config), { invitationId: input.id, actorId: admin.value.id });
+  } catch (error) {
+    return failure(reportFailure("resending an invitation", error));
+  }
+  if (!result.ok) return failure(result.error);
+  redirectToInvitations(config, "resent");
+}
+
+/** Revokes a pending invitation (`id`): its link stops working. Admins only. */
+export async function revokeInvitationAction(_previous: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const admin = await authorizeRole(ADMIN_ROLE);
+  if (!admin.ok) return failure(admin.error);
+  const config = getSoftureConfig();
+  const input = readForm(invitationChangeInput, formData);
+  let result;
+  try {
+    result = await revokeInvitation(await getAuthContext(config), { invitationId: input.id, actorId: admin.value.id });
+  } catch (error) {
+    return failure(reportFailure("revoking an invitation", error));
+  }
+  if (!result.ok) return failure(result.error);
+  redirectToInvitations(config, "revoked");
 }

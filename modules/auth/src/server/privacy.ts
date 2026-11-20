@@ -1,9 +1,9 @@
 // The auth part of a GDPR export and deletion (`@softure-ai/privacy`): the account (with its display name), its roles, its
-// sessions, a pending reset link and its OpenID Connect identities. Secrets never leave: no password hash and no token hash.
+// sessions, a pending reset link, its OpenID Connect identities and the invitation it was created from. Secrets never leave: no password hash and no token hash.
 import { ok, type ModuleContext, type Ok, type PrivacyContributor } from "@softure-ai/core";
 import type { Queryable } from "@softure-ai/db";
-import { asc, eq } from "drizzle-orm";
-import { identities, passwordResets, sessions, userRoles, users } from "../schema.js";
+import { asc, eq, or } from "drizzle-orm";
+import { identities, invitations, passwordResets, sessions, userRoles, users } from "../schema.js";
 
 /** What auth holds about one user, as it appears in their export. */
 export interface AuthUserData {
@@ -28,11 +28,13 @@ export interface AuthUserData {
     readonly createdAt: Date;
     readonly lastLoginAt: Date;
   }[];
+  /** The invitation the account was created from; null for an account that registered or signed in otherwise. */
+  readonly invitation: { readonly roles: readonly string[]; readonly createdAt: Date; readonly acceptedAt: Date | null } | null;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const NO_DATA: AuthUserData = { account: null, roles: [], sessions: [], passwordReset: null, identities: [] };
+const NO_DATA: AuthUserData = { account: null, roles: [], sessions: [], passwordReset: null, identities: [], invitation: null };
 
 /** The user's auth data. An id that is not a UUID cannot be an account, so it has none. */
 export async function exportAuthUserData(context: ModuleContext, userId: string): Promise<Ok<AuthUserData>> {
@@ -68,12 +70,24 @@ export async function exportAuthUserData(context: ModuleContext, userId: string)
     .from(identities)
     .where(eq(identities.userId, userId))
     .orderBy(asc(identities.provider));
-  return ok({ account: account ?? null, roles, sessions: userSessions, passwordReset: passwordReset ?? null, identities: userIdentities });
+  const [invitation] = await db
+    .select({ roles: invitations.roles, createdAt: invitations.createdAt, acceptedAt: invitations.acceptedAt })
+    .from(invitations)
+    .where(eq(invitations.acceptedUserId, userId));
+  return ok({
+    account: account ?? null,
+    roles,
+    sessions: userSessions,
+    passwordReset: passwordReset ?? null,
+    identities: userIdentities,
+    invitation: invitation ?? null,
+  });
 }
 
 /**
  * Deletes the account and everything auth keeps for it. The child rows go first, by name, so the
- * deletion does not depend on the cascades alone; every session ends with them.
+ * deletion does not depend on the cascades alone; every session ends with them. Invitations to the account's email
+ * (the one it was created from included) are deleted; those it sent stay, without the inviter.
  */
 export async function deleteAuthUserData(context: ModuleContext, userId: string): Promise<Ok<undefined>> {
   if (!UUID.test(userId)) return ok();
@@ -82,6 +96,9 @@ export async function deleteAuthUserData(context: ModuleContext, userId: string)
   await db.delete(passwordResets).where(eq(passwordResets.userId, userId));
   await db.delete(userRoles).where(eq(userRoles.userId, userId));
   await db.delete(identities).where(eq(identities.userId, userId));
+  const [account] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId));
+  await db.delete(invitations).where(account === undefined ? eq(invitations.acceptedUserId, userId) : or(eq(invitations.acceptedUserId, userId), eq(invitations.email, account.email)));
+  await db.update(invitations).set({ invitedBy: null }).where(eq(invitations.invitedBy, userId));
   await db.delete(users).where(eq(users.id, userId));
   return ok();
 }

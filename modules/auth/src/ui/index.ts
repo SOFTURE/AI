@@ -15,5 +15,11 @@ export {
   ResetPasswordForm,
   type ResetPasswordFormProps,
 } from "./auth-forms.js";
+export {
+  InvitationPanel,
+  type InvitationPanelProps,
+  type InvitationPanelRow,
+  type InvitationPanelSlot,
+} from "./invitation-panel.js";
 export { LogoutForm, type LogoutFormProps } from "./logout-form.js";
 export { OidcSignIn, type OidcSignInProps, type OidcSignInProvider, type OidcSignInSlot } from "./oidc-sign-in.js";

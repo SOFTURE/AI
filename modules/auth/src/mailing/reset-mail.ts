@@ -21,7 +21,8 @@ export type PasswordResetMail = Pick<OutgoingMail, "subject" | "text"> & { reado
 
 const HTML_ESCAPES: Readonly<Record<string, string>> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 
-function escapeHtml(value: string): string {
+/** The value with the five HTML-special characters escaped, for a mail body. */
+export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => HTML_ESCAPES[character] ?? character);
 }
 
@@ -47,7 +48,7 @@ export function renderPasswordResetMail(messages: AuthMessages, locale: Locale, 
 }
 
 /** The app's auth dictionary for `locale`, with its overrides applied. */
-function getMessages(config: SoftureConfig, locale: Locale): AuthMessages {
+export function getMailMessages(config: SoftureConfig, locale: Locale): AuthMessages {
   // The module factory merged the dictionaries; their shape is the module's own.
   return selectMessages(getAuthModule(config).messages, locale) as AuthMessages;
 }
@@ -61,7 +62,7 @@ function getMessages(config: SoftureConfig, locale: Locale): AuthMessages {
 export function mailingResetSender(): PasswordResetSender {
   return async (link, user, details) => {
     const config = getSoftureConfig();
-    const mail = renderPasswordResetMail(getMessages(config, details.locale), details.locale, {
+    const mail = renderPasswordResetMail(getMailMessages(config, details.locale), details.locale, {
       link,
       ttlMinutes: getAuthOptions(config).passwordReset.ttlMinutes,
     });

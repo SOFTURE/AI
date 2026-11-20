@@ -29,6 +29,7 @@ describe("the auth module", () => {
       roles: [],
       adminEmails: [],
       passwordReset: { ttlMinutes: 60 },
+      invitations: { ttlHours: 72 },
       oidc: { providers: [], stateTtlMinutes: 10, httpTimeoutMs: 10_000 },
     });
   });
@@ -332,6 +333,6 @@ describe("the default buckets", () => {
 describe("the rate limit bucket defaults (#328)", () => {
   it("declare what each bucket is keyed by", () => {
     const kinds = Object.fromEntries(Object.entries(AUTH_RATE_LIMIT_BUCKETS).map(([name, bucket]) => [name, bucket.key]));
-    expect(kinds).toEqual({ "register": "ip", "login": "ip", "login-account": "account", "change-password": "account", "password-reset": "ip", "password-reset-account": "account", "password-reset-confirm": "ip", "oidc-start": "ip", "oidc-callback": "ip" });
+    expect(kinds).toEqual({ "register": "ip", "login": "ip", "login-account": "account", "change-password": "account", "password-reset": "ip", "password-reset-account": "account", "password-reset-confirm": "ip", "oidc-start": "ip", "oidc-callback": "ip", "invitation": "account" });
   });
 });

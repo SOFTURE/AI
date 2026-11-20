@@ -77,7 +77,8 @@ export async function registerUser(ctx: AuthContext, input: RegisterInput): Prom
   });
 }
 
-function pickRegistrationFields(declared: readonly string[], sent: Readonly<Record<string, string>> | undefined): Record<string, string> {
+/** The declared registration fields `sent` carries, cut to 512 characters; empty and undeclared ones are left out. */
+export function pickRegistrationFields(declared: readonly string[], sent: Readonly<Record<string, string>> | undefined): Record<string, string> {
   const fields: Record<string, string> = {};
   for (const name of declared) {
     const value = sent !== undefined && Object.hasOwn(sent, name) ? sent[name] : undefined;
