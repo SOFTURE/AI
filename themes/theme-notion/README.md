@@ -170,7 +170,9 @@ and zoom; one row per document with its type, size and an "available offline" ma
 (`DropdownMenuContent size="touch"`, or `size="touch"` on a `DropdownMenuItem`, `DropdownMenuCheckboxItem`,
 `DropdownMenuRadioItem` or `DropdownMenuSubTrigger`) and the tabs (`TabsList size="touch"` grows to its triggers,
 each at least 44 × 44, or `TabsTrigger size="touch"`). `TabBar size="touch"` draws every tab link at least 44 × 44 (`data-size="touch"`), and its
-`tabClassName` goes on every link after the size (`tabClassName="md:h-control-height md:min-w-0"` on a desktop). `AccordionTrigger size="touch"` is at least 44 px high
+`tabClassName` goes on every link after the size (`tabClassName="md:h-control-height md:min-w-0"` on a desktop). `Switch size="touch"` is a 44 × 44 square that draws the same 26 × 16 track
+inside it and keeps the track's place in the layout (negative margins), so a phone taps the whole square; `className="md:m-0
+md:h-4 md:w-[26px]"` brings the plain switch back on a desktop. `AccordionTrigger size="touch"` is at least 44 px high
 whatever its padding, and `DialogContent closeButtonSize="touch"` draws the close button 44 × 44 around the same
 icon. Each sets its height with a plain class, so one breakpoint class brings the pointer size back on a desktop.
 

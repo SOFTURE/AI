@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.30.0
+
+- Touch-sized `Switch`: `size="touch"` makes the switch a 44 × 44 square (the `touch-target` token, `data-size="touch"`)
+  that draws the same 26 × 16 track and 12 px thumb inside it, the focus ring on the track. Negative margins keep the
+  switch's place in the layout at the track's size, so a row does not grow; a phone taps the whole square. One
+  breakpoint class brings the plain switch back on a desktop (`className="md:m-0 md:h-4 md:w-[26px]"`).
+- Migration: none; the default and `sm` sizes render the same markup as before.
+
 ## 0.29.1
 
 - The loading states' counter script (`LaunchScreen`, `TopLoadingBar`, and through them `RouteLoading`) is drawn only
