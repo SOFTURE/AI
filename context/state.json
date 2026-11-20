@@ -1,29 +1,12 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "project": "SOFTURE AI",
   "mode": "autonomous",
   "main_branch": "master",
-  "updated_at": "2026-11-20T14:28:03Z",
-  "active_roadmap": {
-    "slug": "none",
-    "title": "No active roadmap",
-    "status": "idle",
-    "version": "1",
-    "path": "context/foundation/roadmap.md",
-    "done": 0,
-    "total": 0,
-    "items": []
-  },
+  "updated_at": "2026-11-20T21:52:38Z",
+  "active_roadmap": null,
   "queued": [],
   "open_changes": [],
-  "owner_queue": [
-    {
-      "kind": "step",
-      "source": "context/foundation/roadmap.md#Owner decisions and checks",
-      "item": null,
-      "since": "2026-11-20",
-      "text": "Owner step: (2026-11-20) when an adopting app turns on off-site backups (`@softure-ai/backup`, the"
-    }
-  ],
+  "owner_queue": [],
   "last_release": null
 }
