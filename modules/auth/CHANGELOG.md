@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
-## Unreleased
+## 0.2.20
 
 - **Invitations by email** (issue #1406): with `auth({ invitations: { send } })` an admin invites an address with roles
   from the new admin-only `InvitationsPage` (mount `app/admin/invitations/page.tsx`), which also lists pending and
