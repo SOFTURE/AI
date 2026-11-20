@@ -121,7 +121,12 @@ The full contract is in `node_modules/@softure-ai/skills/WORKFLOW.md`.
   `softure-implement` → `softure-impl-review` → `softure-archive`.
 - **In parallel:** `softure-worktree` runs one change end to end in its own worktree.
   `softure-worktree-manager` runs several at once and merges them.
-- **Any time:** `softure-code-review`, `softure-rule-review`, `softure-lesson`.
+- **Any time:** `softure-code-review`, `softure-rule-review`, `softure-lesson`, `softure-doctor`.
+
+`context/state.json` is the machine-readable state of the project (WORKFLOW §12). Only scripts write
+it (`wt-roadmap.py`, and `context_state.py write --staged` in `softure-archive` and `softure-roadmap`),
+in the same commit as the markdown; never edit it by hand. CI runs `npx softure-skills doctor`, which
+fails on drift in `context/`: fix the file it names, never the check.
 
 **Every change goes through the chain, however small.** A one-line fix reported in chat is a change
 too (`roadmap_item: null`). `new`, `plan`, `plan-review`, `implement`, `impl-review` and `archive` are
@@ -133,6 +138,13 @@ source code. Only the owner can waive this, for one named change, and only in ma
 missing) or `autonomous`. Its rules are the `## Operating mode` section below; it is the only mode
 section in this block. Switch modes only on the owner's explicit word: set `mode`, re-run the installer
 (`npx softure-skills`) so this block follows, commit both as `docs(rules): switch to <mode> mode`.
+
+**Project files and evidence (WORKFLOW §11).** No screenshot, frame grab or recording enters git
+(visual-regression baselines next to their tests excepted). Save each with `softure-evidence` to the
+store in `workflow.json` → `evidence`, named `<change-id>/<NN>-<what>-<before|after>-<width>-<theme>.webp`,
+and link the stored files from the Progress item they prove. Owner material (briefs, real data, designs)
+stays in the project files (`<project-slug>/briefs|data|design/`, listed in `INDEX.md`) and is referenced
+by path, never copied into the repository.
 
 Execution state lives only in the `## Progress` section of `plan.md`. Commands, the main branch
 and the artifact language come from `context/workflow.json`. Before building anything generic
@@ -190,6 +202,9 @@ the owner's to-do.
 **Start of a run.** A coordinator that wakes with no run in flight (a fresh or cleared session, or a
 hosted project's main-chat session on its first message) starts the run itself, without waiting for
 the owner's "go":
+0. **owner-word issues first:** list the open issues labelled `owner-word` in this project's repository
+   (through a thread when the coordinator has no forge access) and act on each before starting any other
+   thread (Owner-word issues, below);
 1. read `context/workflow.json` and the roadmap (or the issue queue) on the main branch; outside a
    checkout, read them, and this block, from the repository first. Then read the project's memory and
    its own coordinator conventions (the project's `AGENTS.md` outside this block). When memory lacks
@@ -220,9 +235,12 @@ Only a "stop" or "pause" from the owner, recorded in memory, holds it back.
   the same files go to the same thread or wait. A planning thread hands its result over and is closed.
   Before starting a thread, check that the item has none yet.
 - **A new roadmap is two steps, never one thread.** When the owner hands over a new roadmap (or a
-  revision), brief one roadmap thread that only shapes, records, commits and merges `roadmap.md`,
-  then ends. Once it is merged, start one thread per ready item, as for any run. Never brief a single
-  thread to record a roadmap and implement its items, or to implement a whole roadmap.
+  revision), brief one roadmap thread that only shapes, records, commits and merges `roadmap.md`
+  **and** opens the change of every new item (`context/changes/<change-id>/change.md`, with the item
+  block and the findings gathered for it) in the same pull request, then ends. Once it is merged,
+  start one thread per ready item, as for any run; each item thread starts from its change, not
+  from the roadmap row. Never brief a single thread to record a roadmap and implement its items, or
+  to implement a whole roadmap.
 - Runs as many threads as are parallel-safe; `worktree.maxParallel` is a soft default.
 - **The roadmap keeps rolling: recompute the startable set on every merge result and every report.**
   Read `roadmap.md` on `origin/<main>`; every item that is not done, has no thread, and whose
@@ -243,6 +261,8 @@ Only a "stop" or "pause" from the owner, recorded in memory, holds it back.
 - **Stale go:** a thread that got its go and has sent no merge SHA within 30 minutes is nudged at once
   (what is it waiting for, CI or a conflict?), not at the next report.
 - Posts every thread's result in the main chat as it arrives (condensed, decision first).
+- **Checks open `owner-word` issues on every report and every wake-up**, before the startable set, and
+  acts on new ones (Owner-word issues, below).
 - **Makes sure finished threads are closed.** On every merge result, and whenever a thread with a
   one-off job hands its result over (a planning thread, the report routine setup thread once it sends
   the routine id back, a report thread), check that the thread is resolved and resolve it yourself
@@ -380,6 +400,18 @@ Search the target for a duplicate first. When the harness scopes forge access to
 the owning repository first (read and issues) and only then decide you cannot file; if it is still out
 of reach, put the issue text in the main chat for the owner. The work goes on around it; the item that
 needs the fix is `blocked (<repo>#<N>)`.
+
+**Owner-word issues.** An open issue labelled `owner-word` in this project's repository is the owner's
+word in writing, equal to the same sentence in the main chat: one decision, its scope and any limit
+("start the queued roadmap payments", "release after the last item", "drop SA-12"). The coordinator acts
+on it like an order in the chat: a roadmap to start goes to a roadmap thread (`--promote`), a release
+word is recorded where the release rules look for it (the roadmap header's `Release:` order, quoted with
+the issue link), a "no" or "later" is recorded in the roadmap (`## Owner decisions and checks` or the
+item's status). Then it comments what it did (thread, PR, merge SHA, roadmap line), closes the issue as
+completed, and names it in the next report. An issue it cannot act on (unclear, contradicts `change.md`
+or a standing order) gets one comment with the question and stays open; the question also goes to the
+owner in the main chat. Owner-word issues are not work items: they never get a thread of their own
+unless the decision itself needs one, and they are not in `context/state.json`.
 
 **Issues as the work source** (`autonomy.source: "issues"`, no roadmap):
 - The coordinator lists open issues (through a thread when it has no forge access). Not well-founded:
