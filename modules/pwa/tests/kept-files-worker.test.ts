@@ -4,7 +4,7 @@
 import { resolveServiceWorkerConfig, serviceWorker, type ServiceWorkerOptions } from "@softure-ai/pwa/worker";
 import { describe, expect, it } from "vitest";
 
-import { answer, FakeWorkerScope, ORIGIN } from "./support/fake-worker-scope.js";
+import { answer, FakeWorkerScope, ORIGIN } from "@softure-ai/pwa/testing";
 
 const OPTIONS: ServiceWorkerOptions = {
   app: "trip",

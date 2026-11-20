@@ -10,7 +10,7 @@ import type { ServiceWorkerConfig, WorkerScope } from "@softure-ai/pwa/worker";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { answer, FakeWorkerScope, navigation, ORIGIN } from "./support/fake-worker-scope.js";
+import { answer, FakeWorkerScope, navigation, ORIGIN } from "@softure-ai/pwa/testing";
 
 const SOURCE = new URL("../src/worker/service-worker.ts", import.meta.url);
 const outDir = mkdtempSync(join(tmpdir(), "softure-pwa-worker-"));

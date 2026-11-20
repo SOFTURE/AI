@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.4.0
+
+- `maxPages: 0` keeps no page: a navigation goes to the network first and, when there is none (or it stays silent past
+  `navigationMaxWaitMs`), to the offline page, never to an old copy. For an app whose pages are live data. The worker
+  then never opens the pages cache; `startPath` with `maxPages: 0` is refused when the route module loads.
+  - Migrate: nothing; a positive `maxPages` behaves as before.
+- New entry `@softure-ai/pwa/testing`: the fake worker scope the package's own tests use (`FakeWorkerScope`, `answer`,
+  `navigation`, `ORIGIN`, `FakeCacheStorage`), so an app unit-tests its worker options without a copy of it.
+
 ## 0.3.1
 
 - Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the

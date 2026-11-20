@@ -73,7 +73,7 @@ export interface ServiceWorkerConfig {
    * it names, so the first cold start after a deploy opens offline; `null` keeps none.
    */
   readonly startPath: string | null;
-  /** The most pages kept for offline use; the least recently kept goes first. */
+  /** The most pages kept for offline use; the least recently kept goes first. `0` keeps none. */
   readonly maxPages: number;
   readonly extraOrigins: readonly ExtraOrigin[];
   /** Same-origin files the page keeps, or `null` for none. */
@@ -266,13 +266,18 @@ export function serviceWorker(scope: WorkerScope, config: ServiceWorkerConfig): 
       (response) => response,
       () => null,
     );
+    const isKeepingPages = config.maxPages > 0;
     // Registered now, while the event is open: the page is kept even when it arrives after another answer was served.
-    event.waitUntil(networkOrNull.then((response) => (response !== null && isWholeAnswer(response, true) ? keepPage(url, response.clone()) : undefined)));
+    if (isKeepingPages) {
+      event.waitUntil(networkOrNull.then((response) => (response !== null && isWholeAnswer(response, true) ? keepPage(url, response.clone()) : undefined)));
+    }
     const first = await raceNetwork(networkOrNull, config.navigationTimeoutMs);
     if (first !== null) return first;
-    const pages = await scope.caches.open(pagesCacheName);
-    const kept = await pages.match(url);
-    if (kept !== undefined) return kept;
+    if (isKeepingPages) {
+      const pages = await scope.caches.open(pagesCacheName);
+      const kept = await pages.match(url);
+      if (kept !== undefined) return kept;
+    }
     // Nothing kept: a slow network is still better than the offline page, up to the bound.
     const late = await raceNetwork(networkOrNull, config.navigationMaxWaitMs - config.navigationTimeoutMs);
     return late ?? findOfflinePage();

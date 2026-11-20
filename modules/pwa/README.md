@@ -23,7 +23,8 @@ mark.
     the open pages;
   - install keeps the offline page and the same-origin scripts, styles and icons its HTML names;
   - a navigation goes to the network first, with a 5 s timeout, then to the kept copy of the page, then to the offline
-    page; at most 60 pages are kept, the least recently kept dropped first;
+    page; at most 60 pages are kept, the least recently kept dropped first; `maxPages: 0` keeps none, for an app
+    whose pages are live data (a navigation is the network, else the offline page);
   - only whole same-origin answers are kept: 200, fetched by the browser itself (`basic`), not redirected, HTML for a
     page; a page whose streamed HTML ends in a sign-in redirect (Next's `<meta http-equiv="refresh">`) or a failed
     boundary (React's `$RX`) is served but not kept, so an expired session never overwrites the kept copy;
@@ -113,7 +114,7 @@ interface ServiceWorkerOptions {
   navigationTimeoutMs?: number; // 5000: the network's head start before a kept page answers
   navigationMaxWaitMs?: number; // 12000: with no kept page, the longest wait before the offline page
   assetTimeoutMs?: number; // 10000: the longest wait for a file not kept before it fails
-  maxPages?: number; // 60
+  maxPages?: number; // 60; 0 keeps no page (then no startPath)
   extraOrigins?: readonly ExtraOriginOptions[];
   keptFiles?: { cache: string; pathPrefixes: readonly string[] }; // same-origin files the page keeps; none by default
 }
@@ -404,6 +405,20 @@ accessible name), the install bar's copy. `pwaMessages.en.launch`: `label`, the 
   event target from `createInstallPromptStore(target)`). The device facts and the storage helpers take the navigator,
   the window and the storage as arguments, the browser's own by default.
 - `extraOrigins`: the worker's extension point for another origin with its own cache.
+- `@softure-ai/pwa/testing`: `FakeWorkerScope` (caches in memory, a network the test answers per URL with `route`,
+  `dispatchLifecycle`, `dispatchFetch`, `dispatchMessage`), `answer` (a response with the browser's `type` and
+  `redirected`) and `navigation(path)`, to unit-test an app's worker options in Node:
+
+  ```ts
+  import { serviceWorker, resolveServiceWorkerConfig } from "@softure-ai/pwa/worker";
+  import { answer, FakeWorkerScope, navigation } from "@softure-ai/pwa/testing";
+
+  const scope = new FakeWorkerScope();
+  serviceWorker(scope.asScope(), resolveServiceWorkerConfig(OPTIONS, "b1"));
+  scope.route("/offline", answer("<p>offline</p>"));
+  await scope.dispatchLifecycle("install");
+  expect(await (await scope.dispatchFetch(navigation("/never-seen")).response)?.text()).toBe("<p>offline</p>");
+  ```
 - `keptFiles` with `createKeptFiles(options, { caches, fetch, digest, origin })`: same-origin files the page keeps;
   every browser dependency is injectable for tests.
 - A page sends the worker `{ type: "clear-pages" }` to drop the kept pages (e.g. on sign-out).

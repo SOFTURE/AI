@@ -88,12 +88,22 @@ export interface ServiceWorkerOptions {
   readonly navigationMaxWaitMs?: number;
   /** The longest wait for a file not kept before it fails: 10 s by default. */
   readonly assetTimeoutMs?: number;
-  /** 60 by default. */
+  /**
+   * 60 by default. `0` keeps no page at all: a navigation goes to the network and, with none, to the offline page, for an
+   * app whose pages are live data that must never be shown from an old copy (no `startPath` then).
+   */
   readonly maxPages?: number;
   /** Other origins kept in their own cache (map tiles); none by default. */
   readonly extraOrigins?: readonly ExtraOriginOptions[];
   /** Same-origin files the page keeps for offline use, answered cache first; none by default. */
   readonly keptFiles?: KeptFilesWorkerOptions;
+}
+
+function checkNonNegativeInteger(name: string, value: number): number {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`resolveServiceWorkerConfig: ${name} must be a whole number, 0 or more, got ${value}`);
+  }
+  return value;
 }
 
 function checkPositiveInteger(name: string, value: number): number {
@@ -211,6 +221,10 @@ export function resolveServiceWorkerConfig(options: ServiceWorkerOptions, build:
   if (navigationMaxWaitMs < navigationTimeoutMs) {
     throw new Error(`resolveServiceWorkerConfig: navigationMaxWaitMs ${navigationMaxWaitMs} must be at least navigationTimeoutMs ${navigationTimeoutMs}`);
   }
+  const maxPages = checkNonNegativeInteger("maxPages", options.maxPages ?? DEFAULT_MAX_PAGES);
+  if (maxPages === 0 && options.startPath !== undefined) {
+    throw new Error("resolveServiceWorkerConfig: startPath needs kept pages, but maxPages is 0");
+  }
   const excludedPrefixes = options.excludedPrefixes ?? DEFAULT_EXCLUDED_PREFIXES;
   const extraOrigins = (options.extraOrigins ?? []).map(resolveExtraOrigin);
   return {
@@ -223,7 +237,7 @@ export function resolveServiceWorkerConfig(options: ServiceWorkerOptions, build:
     navigationMaxWaitMs,
     assetTimeoutMs: checkPositiveInteger("assetTimeoutMs", options.assetTimeoutMs ?? DEFAULT_ASSET_TIMEOUT_MS),
     startPath: options.startPath ?? null,
-    maxPages: checkPositiveInteger("maxPages", options.maxPages ?? DEFAULT_MAX_PAGES),
+    maxPages,
     extraOrigins,
     keptFiles: resolveKeptFiles(options.keptFiles, extraOrigins),
   };

@@ -13,7 +13,7 @@ import {
 } from "@softure-ai/pwa/worker";
 import { describe, expect, it } from "vitest";
 
-import { answer, FakeWorkerScope, navigation, ORIGIN, type FetchHandler } from "./support/fake-worker-scope.js";
+import { answer, FakeWorkerScope, navigation, ORIGIN, type FetchHandler } from "@softure-ai/pwa/testing";
 
 const OFFLINE_HTML = `<!doctype html><html><head>
 <link rel="stylesheet" href="/_next/static/css/app.css">
@@ -246,6 +246,57 @@ describe("the service worker's navigations", () => {
     }
 
     expect(scope.caches.get("fire-pages-b1").getPaths()).toEqual(["/a", "/c"]);
+  });
+});
+
+describe("the service worker that keeps no pages (maxPages: 0)", () => {
+  it("answers a navigation from the network and keeps nothing", async () => {
+    const scope = await installWorker({ maxPages: 0 });
+    scope.route("/reels", answer("<p>reels</p>"));
+
+    const dispatched = scope.dispatchFetch(navigation("/reels"));
+
+    expect(await readBody(dispatched.response)).toBe("<p>reels</p>");
+    await dispatched.settled();
+    expect(await scope.caches.has("fire-pages-b1")).toBe(false);
+  });
+
+  it("serves the offline page, never an earlier answer, when the network fails", async () => {
+    const scope = await installWorker({ maxPages: 0 });
+    scope.route("/reels", answer("<p>reels</p>"));
+    await scope.dispatchFetch(navigation("/reels")).settled();
+    scope.routes.clear();
+
+    expect(await readBody(scope.dispatchFetch(navigation("/reels")).response)).toBe(OFFLINE_HTML);
+    expect(await scope.caches.has("fire-pages-b1")).toBe(false);
+  });
+
+  it("waits for a slow network past the first timeout", async () => {
+    const scope = await installWorker({ maxPages: 0 });
+    scope.route("/reels", async () => {
+      await delay(60);
+      return answer("<p>slow</p>");
+    });
+
+    expect(await readBody(scope.dispatchFetch(navigation("/reels")).response)).toBe("<p>slow</p>");
+  });
+
+  it("answers the offline page at navigationMaxWaitMs on a silent network", async () => {
+    const scope = await installWorker({ maxPages: 0, navigationTimeoutMs: 20, navigationMaxWaitMs: 80 });
+    scope.route("/reels", () => new Promise<Response>(() => undefined));
+    const started = Date.now();
+
+    expect(await readBody(scope.dispatchFetch(navigation("/reels")).response)).toBe(OFFLINE_HTML);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(75);
+  });
+
+  it("still keeps the shell's immutable files", async () => {
+    const scope = await installWorker({ maxPages: 0 });
+    scope.route("/_next/static/chunks/page.js", answer("/* page */", { contentType: "text/javascript" }));
+
+    await scope.dispatchFetch(new Request(`${ORIGIN}/_next/static/chunks/page.js`)).settled();
+
+    expect(scope.caches.get("fire-shell-b1").getPaths()).toContain("/_next/static/chunks/page.js");
   });
 });
 
@@ -726,7 +777,9 @@ describe("resolveServiceWorkerConfig", () => {
     { name: "an app name with spaces", options: { app: "Fire App" }, message: 'app "Fire App" must be lowercase letters' },
     { name: "a relative offline path", options: { offlinePath: "offline" }, message: 'offlinePath "offline" must start with /' },
     { name: "a zero timeout", options: { navigationTimeoutMs: 0 }, message: "navigationTimeoutMs must be a positive integer, got 0" },
-    { name: "a fractional page cap", options: { maxPages: 1.5 }, message: "maxPages must be a positive integer, got 1.5" },
+    { name: "a fractional page cap", options: { maxPages: 1.5 }, message: "maxPages must be a whole number, 0 or more, got 1.5" },
+    { name: "a negative page cap", options: { maxPages: -1 }, message: "maxPages must be a whole number, 0 or more, got -1" },
+    { name: "a start page with no kept pages", options: { maxPages: 0, startPath: "/" }, message: "startPath needs kept pages, but maxPages is 0" },
     { name: "a relative start page", options: { startPath: "home" }, message: 'startPath "home" must start with /' },
     { name: "a zero asset timeout", options: { assetTimeoutMs: 0 }, message: "assetTimeoutMs must be a positive integer, got 0" },
     {
