@@ -34,7 +34,7 @@ which also never skips a lefthook job). Release as `@softure-ai/config@0.1.7`.
 
 - [x] Phase 1: `--since` in both bins (9f8b1b26; `npx vitest run tools/config`: 133 tests green, 17 new)
 - [x] Phase 2: docs, version (605ea426; README "The same checks in CI", CHANGELOG 0.1.7, `tests/repo` green)
-- [ ] Phase 3: release 0.1.7 (after the merge: `auto-release.yml` with `config`)
+- [x] Phase 3: release 0.1.7 (after the merge: `auto-release.yml` with `config`) — done: tag `config@0.1.7` on merge f99ab590 (#1377), on npm
 
 ## Decisions (auto)
 

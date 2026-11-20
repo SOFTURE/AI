@@ -28,4 +28,4 @@
 - [x] p3 satori 0.63.2: `vitest run tools/marketing-kit` 1080 passed; snapshot diffs are anti-aliasing only (looked at
   side by side)
 - [x] p4 README and changelogs
-- [ ] p5 gates, PR, merge, release
+- [x] p5 gates, PR, merge, release — done: #1123 merged (16a1b673); released in `llm@0.2.3`, `marketing-kit@0.13.2` and `observability@0.8.1`

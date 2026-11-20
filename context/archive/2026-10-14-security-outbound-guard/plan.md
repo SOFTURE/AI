@@ -48,8 +48,8 @@ Done when: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` gree
 ### Phase 1: Public addresses
 
 #### Automated
-- [ ] 1.1 `isPublicAddress` refuses every special-purpose range
-- [ ] 1.2 Package tests green
+- [x] 1.1 `isPublicAddress` refuses every special-purpose range — 2ac7d58e (merged with #488, 7154de1e; #479 closed as completed)
+- [x] 1.2 Package tests green — 2ac7d58e (2.3 on ecc9a34: typecheck, lint, test and build green; merged with #488, 7154de1e)
 
 ### Phase 2: Guarded request
 

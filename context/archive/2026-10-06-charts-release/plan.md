@@ -52,4 +52,4 @@ an empty project with React 19 and `LineChart` renders on the server and `checkS
 - [x] 1.3 Gates green (typecheck, lint, test, build) — a745899
 
 #### Owner
-- [ ] 1.4 Owner releases ui 0.1.6 and charts 0.1.0 (NPM_TOKEN, trusted publisher)
+- [x] 1.4 Owner releases ui 0.1.6 and charts 0.1.0 (NPM_TOKEN, trusted publisher) — done: tags `ui@0.1.6` and `charts@0.1.0` on c4421027 (#148), both on npm since 2026-10-07
