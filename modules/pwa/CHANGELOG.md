@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `maxPages: 0` keeps no page: a navigation goes to the network first and, when there is none (or it stays silent past
+  `navigationMaxWaitMs`), to the offline page, never to an old copy. For an app whose pages are live data. The worker
+  then never opens the pages cache; `startPath` with `maxPages: 0` is refused when the route module loads.
+  - Migrate: nothing; a positive `maxPages` behaves as before.
+
 ## 0.3.1
 
 - Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the

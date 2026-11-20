@@ -23,7 +23,8 @@ mark.
     the open pages;
   - install keeps the offline page and the same-origin scripts, styles and icons its HTML names;
   - a navigation goes to the network first, with a 5 s timeout, then to the kept copy of the page, then to the offline
-    page; at most 60 pages are kept, the least recently kept dropped first;
+    page; at most 60 pages are kept, the least recently kept dropped first; `maxPages: 0` keeps none, for an app
+    whose pages are live data (a navigation is the network, else the offline page);
   - only whole same-origin answers are kept: 200, fetched by the browser itself (`basic`), not redirected, HTML for a
     page; a page whose streamed HTML ends in a sign-in redirect (Next's `<meta http-equiv="refresh">`) or a failed
     boundary (React's `$RX`) is served but not kept, so an expired session never overwrites the kept copy;
@@ -113,7 +114,7 @@ interface ServiceWorkerOptions {
   navigationTimeoutMs?: number; // 5000: the network's head start before a kept page answers
   navigationMaxWaitMs?: number; // 12000: with no kept page, the longest wait before the offline page
   assetTimeoutMs?: number; // 10000: the longest wait for a file not kept before it fails
-  maxPages?: number; // 60
+  maxPages?: number; // 60; 0 keeps no page (then no startPath)
   extraOrigins?: readonly ExtraOriginOptions[];
   keptFiles?: { cache: string; pathPrefixes: readonly string[] }; // same-origin files the page keeps; none by default
 }
