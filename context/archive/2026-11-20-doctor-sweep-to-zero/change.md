@@ -27,11 +27,12 @@ the script, and the CI check runs the doctor on every pull request, documentatio
 
 ## Decisions (auto)
 - The one owner-only entry (off-site backup secrets per adopting app, `2026-11-09-backup-offsite-1210` item 4.3) is
-  carried to an `owner-word` issue (#1410): no live roadmap exists to carry it to.
+  carried to `context/foundation/roadmap.md` → `## Owner decisions and checks` with its source #1410 (first filed as
+  an `owner-word` issue, then closed and carried there on the coordinator's decision, 2026-11-20).
 - The doctor runs as its own CI job (`context contract`) in `ci.yml`, which has no paths filter, so it also runs for
   changes that touch only `context/` or other documents.
 
 ## Done
 `npx softure-skills doctor` exits 0 (21 failures before, 20 after `--fix`, 0 after the sweep), `context/state.json`
 written by the script, and the `context contract` job in `.github/workflows/ci.yml` runs the doctor on every pull
-request. One owner step carried to #1410.
+request. One owner step carried to the roadmap's owner section (source #1410).

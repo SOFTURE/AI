@@ -136,5 +136,5 @@ server-loss restore, and the gates pass.
 - [x] 4.2 README, CHANGELOGs, package count test, root README catalogue
 
 #### Owner
-- [x] 4.3 (carried to #1410, an `owner-word` issue: a per-app owner step outside this repository) Real provider bucket, tokens, age key and GitHub Environment secrets per app (owner only: the owner's
+- [x] 4.3 (carried to `context/foundation/roadmap.md` → Owner decisions and checks, via #1410: a per-app owner step outside this repository) Real provider bucket, tokens, age key and GitHub Environment secrets per app (owner only: the owner's
   provider account and secrets; steps in modules/backup/README.md, "Owner guide")
