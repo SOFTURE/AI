@@ -1,0 +1,31 @@
+---
+change_id: doctor-sweep-to-zero
+title: "settle the context/ history to zero with the doctor and run it in CI"
+status: implementing
+roadmap_item: null
+issue: null
+branch: claude/project-thread-v2xvyl
+created: 2026-11-20
+updated: 2026-11-20
+---
+
+## Intent
+`npx softure-skills doctor` (skills 0.22.0) exits 0 on `master` with no baseline, `context/state.json` is written by
+the script, and the CI check runs the doctor on every pull request, documentation-only changes included
+(WORKFLOW §12.4).
+
+## Constraints
+- Touch only `context/` and `.github/workflows/ci.yml`.
+- Nothing in flight is touched (the open pull request for auth invites and its change).
+- Every tick carries its evidence (SHA, release tag, issue or pull request state, workflow run); no baseline.
+- No release, tag or deploy.
+
+## Notes
+- research skipped: the doctor's sweep is the research; every entry's evidence is recorded in the line it settles.
+- frame skipped: the outcome is the doctor's own contract.
+
+## Decisions (auto)
+- The one owner-only entry (off-site backup secrets per adopting app, `2026-11-09-backup-offsite-1210` item 4.3) is
+  carried to an `owner-word` issue (#1410): no live roadmap exists to carry it to.
+- The doctor runs as its own CI job (`context contract`) in `ci.yml`, which has no paths filter, so it also runs for
+  changes that touch only `context/` or other documents.

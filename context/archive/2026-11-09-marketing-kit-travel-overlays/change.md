@@ -1,7 +1,8 @@
 ---
 change_id: marketing-kit-travel-overlays
 title: "marketing-kit: travel overlay kinds, style knobs and fonts per role (0.24.0)"
-status: done
+status: archived
+legacy_status: done
 roadmap_item: null
 issue: null
 branch: claude/marketing-kit-travel-overlays
