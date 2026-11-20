@@ -22,4 +22,4 @@ WORKFLOW §12.4 in order: mechanical fixes, the sweep settled entry by entry wit
 ## Progress
 - [x] Phase 1: mechanical fixes — 742d4488 (doctor 21 failures, 20 after --fix)
 - [x] Phase 2: sweep to zero (20 entries settled; `npx softure-skills doctor` exits 0)
-- [ ] Phase 3: CI
+- [x] Phase 3: CI (`context contract` job in `.github/workflows/ci.yml`; actionlint, repository tests)
