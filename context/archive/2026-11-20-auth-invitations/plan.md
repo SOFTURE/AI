@@ -32,6 +32,17 @@ through the register route, and add one admin page in the Next adapter.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1 (dd91976): `npx vitest run modules/auth/tests/invitations.test.ts` 21/21 (expiry, reuse, revoke, wrong
+      email, other email while closed, roles, inviter and time, rate limits, constraints, audit lines, failing sender);
+      privacy and module tests updated.
+- [x] Phase 2 (a4cf0e6): `npx vitest run modules/auth/tests/invitations-next.test.tsx modules/auth/tests/invitation-mail.test.ts`
+      11/11; the whole auth suite 540/540 (architecture guards included).
+- [x] Phase 3 (8de047e): README section 3 "Invitations", sections 4, 5 and 11, CHANGELOG `Unreleased`. `npm run typecheck`
+      and `npm run lint` green.
+
+## Deviations
+
+- A sender that throws is caught by the server functions and answered as `auth.invitation_not_sent` (the plan let it
+  propagate): the admin action can then name the cause, and the invitation stays pending for Resend.
+- Actions redirect back to the page with `?notice=` instead of returning `ok`, so the list is read again without
+  `next/cache`.

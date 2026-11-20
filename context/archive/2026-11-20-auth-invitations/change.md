@@ -1,12 +1,13 @@
 ---
 change_id: auth-invitations
 title: "auth: invite a person by email while registration is closed (issue #1406)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1406
 branch: claude/project-thread-6j6zxo
 created: 2026-11-20
 updated: 2026-11-20
+archived_at: 2026-11-20
 ---
 
 ## Intent
