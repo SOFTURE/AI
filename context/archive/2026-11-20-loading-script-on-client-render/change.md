@@ -21,7 +21,7 @@ The script should exist only where the browser runs it: the server's HTML.
   hydration and draws nothing on a client-only render. No `typeof window` check, so hydration never mismatches.
 - The same component in `@softure-ai/ui` (`streamed-script.tsx`) and in theme-notion (`StreamedScript.tsx`):
   theme-notion takes ui as a dev dependency only, so it cannot import it at runtime.
-- Versions: theme-notion 0.28.1, ui 0.3.11 (patch: no API change).
+- Versions: theme-notion 0.29.1, ui 0.3.11 (patch: no API change).
 
 ## Notes
 - research and frame skipped: a two-file fix of a reported warning with its cause found in React's source
