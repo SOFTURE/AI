@@ -4,6 +4,23 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- **Invitations by email** (issue #1406): with `auth({ invitations: { send } })` an admin invites an address with roles
+  from the new admin-only `InvitationsPage` (mount `app/admin/invitations/page.tsx`), which also lists pending and
+  accepted invitations and resends or revokes a pending one. The link (`/register?invitation=…`, single use, 72 hours
+  by default, `invitations.ttlHours`, only its sha256 stored) opens a register form limited to that address that works
+  while `auth.registration_closed` is on; the account gets the invited roles in the registration transaction
+  (`onRegistered` runs) and the invitation records the inviter and the times. A dead link creates no account and
+  shows a neutral page. `mailingInvitationSender()` (`/mailing`) mails the link; `consoleInvitationSender` prints it in
+  development. Inviting counts in the new `invitation` bucket per admin (required only with `invitations.send`),
+  accepting in `register`; every event writes an audit line to the server log, with ids only. New error codes
+  `auth.invitations_unavailable`, `auth.invitation_invalid`, `auth.invitation_email_mismatch`,
+  `auth.invitation_not_pending`, `auth.invitation_not_sent` and `auth.role_undeclared`; the new copy keys are optional in
+  `AuthMessages`. README section 3, "Invitations", says how invitations combine with the OpenID Connect allowlists.
+  - Migrate: run `softure migrate` (migration `0007` adds `auth.invitations`). To offer invitations, pass
+    `invitations.send`, spread the updated `AUTH_RATE_LIMIT_BUCKETS` (or add an `invitation` bucket) and mount the page.
+
 ## 0.2.17
 
 - **Open sign-up through a provider:** `openSignUp: true` on an OpenID Connect or GitHub provider lets any verified email

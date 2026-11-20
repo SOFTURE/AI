@@ -19,6 +19,8 @@ script), a `create-account` script for the first account of an app with registra
 (`mailingResetSender()`); `@softure-ai/auth/jobs` sends them from a background job of `@softure-ai/jobs` with
 retry (`enqueuePasswordReset`, `passwordResetJobHandlers`). `@softure-ai/auth/testing` creates accounts directly in the database for
 tests (`createTestAccount`, section 4, "Tests") and ships a fake OpenID Connect provider (`createFakeOidcProvider`).
+`auth({ invitations })` lets an admin invite a teammate by email while registration is closed (section 3,
+"Invitations").
 `auth({ oidc })` adds "Sign in with Google" (or any OpenID Connect provider) next to the password form, or instead of it
 with `password: { enabled: false }` (section 3, "OpenID Connect sign-in").
 
@@ -123,7 +125,8 @@ passwords for one email, from any addresses, block logins to that account for th
 window, the owner's included. Raise its limit if that trade-off is wrong for your app. Auth checks
 at its first call that the buckets it counts in exist and names the missing ones: the three
 `password-reset*` buckets only when `passwordReset.send` is set, `oidc-start` and `oidc-callback` (per client address)
-only with a provider (OpenID Connect or GitHub). A request whose client address
+only with a provider (OpenID Connect or GitHub), and `invitation` (20 invitations sent or resent per admin per hour)
+only when `invitations.send` is set. A request whose client address
 cannot be resolved is refused (`security.client_unidentified`); the security README shows resolver
 chains for production and for development and test stacks.
 
@@ -271,6 +274,48 @@ workflow could not hold them as Environment secrets.
 
 The one step on a bump past 0.2.5: run `softure migrate`, as for any release with a migration.
 
+### Invitations
+
+An app that starts with one owner and later adds a few teammates keeps `registrationClosed` on and invites them:
+
+```ts
+import { mailingInvitationSender } from "@softure-ai/auth/mailing";
+
+auth({ registrationClosed: true, roles: ["editor"], invitations: { send: mailingInvitationSender() } }),
+```
+
+- **Inviting.** `InvitationsPage` (section 4) is admin-only (not found for anyone else, and while `invitations.send`
+  is unset). An admin enters an email and ticks the roles the account will get (the declared roles, `admin`
+  included). Auth stores the invitation with the inviter and the time, and hands a link to the sender: the register
+  route with `?invitation=<token>`, 32 random bytes of which only the sha256 is stored, valid for
+  `invitations.ttlHours` (72 by default, 1 to 720). An address that already has an account is refused
+  (`auth.email_taken`); inviting an address with a pending invitation again replaces that invitation and its link.
+  `consoleInvitationSender` prints the link in development; your own `InvitationSender` gets
+  `(link, { email }, { expiresAt, locale, roles })`.
+- **Accepting.** The link opens the register page as a form limited to the invited address (it names the address and
+  posts it; another address is refused with `auth.invitation_email_mismatch`), while registration is closed too. The
+  account gets the invited roles that are still declared in the registration transaction, `onRegistered` runs as for
+  any registration, and the invitation is marked accepted with the account. A link works once: a second submission, an
+  expired, revoked or replaced link gets `auth.invitation_invalid`, and opening such a link shows one neutral page
+  that names no address. The page only checks the token (mail scanners open links), and sends `same-origin` as its
+  referrer policy.
+- **Managing.** The page lists the newest 200 invitations with their state (pending, expired, accepted, revoked), roles,
+  inviter and dates. A pending or expired one can be resent (a new link and expiry; the old link stops working) or
+  revoked. A sender that fails leaves the invitation pending and shows `auth.invitation_not_sent`; Resend tries again.
+- **Limits and audit.** Inviting and resending count in the `invitation` bucket per admin; accepting counts in
+  `register` per client address. Every invite, resend, revoke and acceptance writes one server log line
+  (`@softure-ai/auth: audit invitation.<event> id=<invitation> by=<admin>` or `user=<account>`), never the address or the
+  link.
+- **With OpenID Connect or GitHub sign-in.** An invitation creates a password account. A provider signs in to it only
+  when the provider's allowlist (or `openSignUp`) admits the verified email, as for any account: add the address or its
+  domain to `allowedEmails` / `allowedDomains` when invited people should also sign in with the provider. The allowlist
+  stays the only gate for provider sign-in; an invitation never widens it.
+- **Server functions** (`/server`): `inviteUser`, `resendInvitation`, `revokeInvitation`, `listInvitations`,
+  `findInvitation` and `registerInvitedUser`, for an app with its own admin shell; `InvitationPanel` (`/ui`) and
+  `inviteAction`, `resendInvitationAction`, `revokeInvitationAction` (`/next`) are the page's parts.
+- **Copy.** The `invitations` and `invitationMail` copy and the new error codes are optional in `AuthMessages`; a
+  dictionary without them reads the English copy.
+
 ## 4. Mounting
 
 One line per file, owned by the app (docs/02 §8):
@@ -285,6 +330,8 @@ export { ChangePasswordPage as default } from "@softure-ai/auth/next";
 // app/forgot-password/page.tsx and app/reset-password/page.tsx (with passwordReset.send)
 export { ForgotPasswordPage as default } from "@softure-ai/auth/next";
 export { ResetPasswordPage as default } from "@softure-ai/auth/next";
+// app/admin/invitations/page.tsx (with invitations.send): invite, list, resend, revoke; admin only
+export { InvitationsPage as default } from "@softure-ai/auth/next";
 // app/api/auth/session/route.ts: { user: { id, email } | null }, never cached
 export { getSessionRoute as GET } from "@softure-ai/auth/next";
 // app/api/auth/oidc/[provider]/callback/route.ts (with auth({ oidc })): the OpenID Connect callback
@@ -724,7 +771,8 @@ module itself.
 `softure migrate` applies `migrations/0001_create_users_and_sessions.sql`,
 `0002_create_user_roles.sql`, `0003_create_password_resets.sql` and
 `0004_index_users_created_at.sql` (an index on `users.created_at` for billing's reminder mail),
-`0005_create_identities_and_oidc_states.sql` and `0006_add_users_display_name.sql` after security's.
+`0005_create_identities_and_oidc_states.sql`, `0006_add_users_display_name.sql` and `0007_create_invitations.sql`
+after security's.
 
 - `auth.users(id uuid, email, password_hash, created_at, password_changed_at, display_name)`: the email is stored
   trimmed and lowercased (`CHECK`), unique; the hash must be a `scrypt$…` string; `display_name` is null or the
@@ -740,6 +788,10 @@ module itself.
   email of the last sign-in.
 - `auth.oidc_states(state_hash, provider, nonce, code_verifier, next_path, created_at, expires_at)`: sign-ins in
   flight (sha256 of the state only), one-time; expired rows go when the next sign-in starts.
+- `auth.invitations(id, email, roles text[], token_hash, invited_by → users ON DELETE SET NULL, created_at, expires_at,
+  accepted_at, accepted_user_id → users ON DELETE SET NULL, revoked_at)`: invitations (section 3, "Invitations"); the
+  email lowercased (`CHECK`), role names of the declared shape, unique `token_hash` (sha256 only), at most one pending
+  row per email (a partial unique index), never both accepted and revoked.
 
 Your own tables reference `users.id` (exported as the Drizzle table `users`; roles as `userRoles`); keep app columns in
 your own 1:1 table, never in `auth.users`. Expired sessions of a user are deleted at their next
@@ -853,16 +905,17 @@ sender. `enqueuePasswordReset` from `@softure-ai/auth/jobs` plugs `@softure-ai/j
 ## 11. GDPR
 
 The module stores an email, a display name from an OpenID Connect provider, a password hash, session rows, role rows
-and pending reset rows. It
+pending reset rows and invitations (an email, roles, the inviter). It
 contributes to `@softure-ai/privacy` (`privacy` flags on):
 
 - **Export** (`exportAuthUserData`): the account (id, email, `createdAt`, `passwordChangedAt`, `displayName`),
   stored roles with their grant dates, sessions (created and expiry dates) and a pending reset link
   (created and expiry dates), and OpenID Connect identities (provider, subject, email, created and last sign-in
-  dates). Never the password hash or a token hash. A role held through
+  dates), and the invitation the account was created from (roles, sent and accepted dates). Never the password hash
+  or a token hash. A role held through
   `adminEmails` is configuration, so it is not in the export.
-- **Deletion** (`deleteAuthUserData`): the user's sessions, pending reset, roles, identities and then the
-  account row, so every session ends with the account. Privacy runs auth after the modules that
+- **Deletion** (`deleteAuthUserData`): the user's sessions, pending reset, roles, identities, the invitations to its
+  email (the one it was created from included; those it sent stay without an inviter) and then the account row, so every session ends with the account. Privacy runs auth after the modules that
   depend on it, and the app's contributors before all modules.
 
 `isCurrentPassword(ctx, userId, password)` (`/server`) checks the password again before an action
