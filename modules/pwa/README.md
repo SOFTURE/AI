@@ -405,6 +405,20 @@ accessible name), the install bar's copy. `pwaMessages.en.launch`: `label`, the 
   event target from `createInstallPromptStore(target)`). The device facts and the storage helpers take the navigator,
   the window and the storage as arguments, the browser's own by default.
 - `extraOrigins`: the worker's extension point for another origin with its own cache.
+- `@softure-ai/pwa/testing`: `FakeWorkerScope` (caches in memory, a network the test answers per URL with `route`,
+  `dispatchLifecycle`, `dispatchFetch`, `dispatchMessage`), `answer` (a response with the browser's `type` and
+  `redirected`) and `navigation(path)`, to unit-test an app's worker options in Node:
+
+  ```ts
+  import { serviceWorker, resolveServiceWorkerConfig } from "@softure-ai/pwa/worker";
+  import { answer, FakeWorkerScope, navigation } from "@softure-ai/pwa/testing";
+
+  const scope = new FakeWorkerScope();
+  serviceWorker(scope.asScope(), resolveServiceWorkerConfig(OPTIONS, "b1"));
+  scope.route("/offline", answer("<p>offline</p>"));
+  await scope.dispatchLifecycle("install");
+  expect(await (await scope.dispatchFetch(navigation("/never-seen")).response)?.text()).toBe("<p>offline</p>");
+  ```
 - `keptFiles` with `createKeptFiles(options, { caches, fetch, digest, origin })`: same-origin files the page keeps;
   every browser dependency is injectable for tests.
 - A page sends the worker `{ type: "clear-pages" }` to drop the kept pages (e.g. on sign-out).

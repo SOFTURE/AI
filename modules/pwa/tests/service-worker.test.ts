@@ -13,7 +13,7 @@ import {
 } from "@softure-ai/pwa/worker";
 import { describe, expect, it } from "vitest";
 
-import { answer, FakeWorkerScope, navigation, ORIGIN, type FetchHandler } from "./support/fake-worker-scope.js";
+import { answer, FakeWorkerScope, navigation, ORIGIN, type FetchHandler } from "@softure-ai/pwa/testing";
 
 const OFFLINE_HTML = `<!doctype html><html><head>
 <link rel="stylesheet" href="/_next/static/css/app.css">

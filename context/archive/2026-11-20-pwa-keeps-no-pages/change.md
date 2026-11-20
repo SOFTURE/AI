@@ -19,7 +19,9 @@ fails or is slower than `navigationTimeoutMs`.
 - `maxPages: 0` means "keep no page" instead of a new boolean: one option, no contradictory pair. The worker then
   never opens the pages cache, so a navigation is the network (up to `navigationMaxWaitMs`), else the offline page.
 - `startPath` with `maxPages: 0` is refused when the route module loads: it would keep a page.
-- Version: pwa 0.4.0 (minor: a new accepted value).
+- The fake worker scope of the package's tests moves to a new entry, `@softure-ai/pwa/testing`, so the app unit-tests
+  its worker options with it instead of a copy.
+- Version: pwa 0.4.0 (minor: a new accepted value and a new entry).
 
 ## Notes
 - research and frame skipped: a two-line change of the worker's navigation with its cause read in the source
@@ -27,4 +29,4 @@ fails or is slower than `navigationTimeoutMs`.
 
 ## Done
 `maxPages: 0` keeps no page; tests lock the network answer, the offline page instead of an earlier answer, the slow
-and the silent network, the shell still kept, and the refused options.
+and the silent network, the shell still kept, and the refused options. `@softure-ai/pwa/testing` exports the fake worker scope; the package's own tests use it.

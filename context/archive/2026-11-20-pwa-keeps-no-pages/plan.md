@@ -13,7 +13,12 @@ Accept `maxPages: 0` in `resolveServiceWorkerConfig` and skip keeping and readin
   changelog `## Unreleased`, then `release:version pwa minor`.
 - Done when: the tests fail without the change and pass with it; typecheck, lint and the package's tests pass.
 
+### Phase 2: the testing entry
+- Move `tests/support/fake-worker-scope.ts` to `src/testing/`, export it as `./testing`, README §10 and changelog.
+- Done when: the package's tests pass through the entry and the build emits it.
+
 ## Progress
+- [x] Phase 2: `@softure-ai/pwa/testing` (the package's tests import the fake scope from it; `npx vitest run modules/pwa tests/repo` 51 files pass, `npm run build -w modules/pwa` emits `dist/testing`).
 - [x] Phase 1: maxPages 0 (without the source change 8 of 104 tests fail; with it the package's 328 tests pass:
   `npx vitest run modules/pwa`).
 

@@ -1,6 +1,6 @@
-// A fake `ServiceWorkerGlobalScope` for Node: caches in memory (insertion-ordered, as the Cache API keeps them),
+// A fake `ServiceWorkerGlobalScope` for Node (`@softure-ai/pwa/testing`), for unit tests of an app's worker options: caches in memory (insertion-ordered, as the Cache API keeps them),
 // a fetch the test answers per URL, and events dispatched with their `waitUntil` and `respondWith` promises.
-import type { WorkerExtendableEvent, WorkerFetchEvent, WorkerMessageEvent, WorkerScope } from "@softure-ai/pwa/worker";
+import type { WorkerExtendableEvent, WorkerFetchEvent, WorkerMessageEvent, WorkerScope } from "../worker/service-worker.js";
 
 export const ORIGIN = "https://app.example.com";
 

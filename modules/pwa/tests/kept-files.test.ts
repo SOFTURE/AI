@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { clearDeviceData, createKeptFiles, KEPT_SHA256_HEADER, type KeptFile, type KeptFilesDependencies } from "@softure-ai/pwa";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { FakeCacheStorage, ORIGIN } from "./support/fake-worker-scope.js";
+import { FakeCacheStorage, ORIGIN } from "@softure-ai/pwa/testing";
 
 function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
