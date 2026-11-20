@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The loading states' counter script (`LaunchScreen`, `TopLoadingBar`, and through them `RouteLoading`) is drawn only
+  in the server's HTML, where the browser runs it, and kept while React hydrates it. A render that starts on the
+  client (a loading state shown by a client-side navigation) draws no `<script>`: React never runs one it creates,
+  and in development it logged "Encountered a script tag while rendering React component" on every such navigation.
+  - Migrate: nothing. The counter still moves on a page load and, as before, stays put on a client-side navigation.
+
 ## 0.29.0
 
 - Touch-sized `TabBar`: `size="touch"` draws every tab link at least the touch target (44 x 44 px, `h-touch-target

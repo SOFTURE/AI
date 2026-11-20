@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act } from "react";
+import { hydrateRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -108,7 +110,35 @@ describe("LaunchScreen and TopLoadingBar", () => {
     expect(screen.getByRole("progressbar", { name: "Loading Workspace" }).getAttribute("aria-valuenow")).toBe("0");
     const percent = root?.querySelector('[data-slot="launch-screen-percent"]');
     expect([percent?.textContent, percent?.getAttribute("aria-hidden")]).toEqual(["0%", "true"]);
-    expect(root?.querySelector("script")?.textContent).toBe("window.counted = true;");
+    // A render that starts on the client (a client-side navigation) draws no script: React would never run it.
+    expect(root?.querySelector("script")).toBeNull();
+  });
+
+  it("streams the counter script in the server's HTML and keeps it through hydration without a warning", () => {
+    const html = renderToStaticMarkup(<LaunchScreen name="Workspace" iconSrc="/i.png" label="Loading" script="window.counted = true;" />);
+    expect(html).toContain("<script>window.counted = true;</script>");
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    document.body.append(container);
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let root: ReturnType<typeof hydrateRoot> | null = null;
+    act(() => {
+      root = hydrateRoot(container, <LaunchScreen name="Workspace" iconSrc="/i.png" label="Loading" script="window.counted = true;" />);
+    });
+    expect(errors).not.toHaveBeenCalled();
+    act(() => root?.unmount());
+    container.remove();
+    errors.mockRestore();
+  });
+
+  it("draws no script and logs no warning when a client render draws the loading states", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    render(<RouteLoading name="Workspace" iconSrc="/i.png" label="Loading" launchScript="a()" barScript="b()" />);
+    expect(document.querySelectorAll("script")).toHaveLength(0);
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
   });
 
   it("adds the app's class to a slot, and draws the top bar as a hairline that never takes the pointer", () => {

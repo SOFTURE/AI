@@ -1,5 +1,6 @@
 import { cn } from "../lib/utils.js";
 import { Progress } from "../ui/progress.js";
+import { StreamedScript } from "./StreamedScript.js";
 
 export interface LaunchScreenProps {
   /** The app's name, shown under its icon. */
@@ -31,7 +32,7 @@ export function LaunchScreen({ name, iconSrc, label, script, className }: Launch
       <p data-slot="launch-screen-percent" aria-hidden="true" suppressHydrationWarning className="text-sm text-muted-foreground tabular-nums">
         0%
       </p>
-      {script === undefined ? null : <script dangerouslySetInnerHTML={{ __html: script }} />}
+      {script === undefined ? null : <StreamedScript script={script} />}
     </div>
   );
 }

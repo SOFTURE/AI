@@ -1,5 +1,6 @@
 import { cn } from "../lib/utils.js";
 import { Progress } from "../ui/progress.js";
+import { StreamedScript } from "./StreamedScript.js";
 
 export interface TopLoadingBarProps {
   /** The progress bar's accessible name (`pwaMessages.en.launch.label` in `@softure-ai/pwa`). */
@@ -22,7 +23,7 @@ export function TopLoadingBar({ label, value, script, className }: TopLoadingBar
   return (
     <div data-slot="top-loading-bar" className={cn("pointer-events-none fixed inset-x-0 top-0 z-50", className)}>
       <Progress value={value} aria-label={label} className="h-0.5 rounded-none bg-transparent" />
-      {script === undefined ? null : <script dangerouslySetInnerHTML={{ __html: script }} />}
+      {script === undefined ? null : <StreamedScript script={script} />}
     </div>
   );
 }
