@@ -1,12 +1,13 @@
 ---
 change_id: doctor-sweep-to-zero
 title: "settle the context/ history to zero with the doctor and run it in CI"
-status: implementing
+status: archived
 roadmap_item: null
 issue: null
 branch: claude/project-thread-v2xvyl
 created: 2026-11-20
 updated: 2026-11-20
+archived_at: 2026-11-20
 ---
 
 ## Intent
@@ -29,3 +30,8 @@ the script, and the CI check runs the doctor on every pull request, documentatio
   carried to an `owner-word` issue (#1410): no live roadmap exists to carry it to.
 - The doctor runs as its own CI job (`context contract`) in `ci.yml`, which has no paths filter, so it also runs for
   changes that touch only `context/` or other documents.
+
+## Done
+`npx softure-skills doctor` exits 0 (21 failures before, 20 after `--fix`, 0 after the sweep), `context/state.json`
+written by the script, and the `context contract` job in `.github/workflows/ci.yml` runs the doctor on every pull
+request. One owner step carried to #1410.

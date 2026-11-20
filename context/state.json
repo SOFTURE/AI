@@ -3,7 +3,7 @@
   "project": "SOFTURE AI",
   "mode": "autonomous",
   "main_branch": "master",
-  "updated_at": "2026-11-20T14:26:31Z",
+  "updated_at": "2026-11-20T14:27:16Z",
   "active_roadmap": {
     "slug": "none",
     "title": "No active roadmap",
@@ -15,16 +15,7 @@
     "items": []
   },
   "queued": [],
-  "open_changes": [
-    {
-      "change_id": "doctor-sweep-to-zero",
-      "title": "settle the context/ history to zero with the doctor and run it in CI",
-      "status": "implementing",
-      "roadmap_item": null,
-      "updated": "2026-11-20",
-      "stage": null
-    }
-  ],
+  "open_changes": [],
   "owner_queue": [],
   "last_release": null
 }
