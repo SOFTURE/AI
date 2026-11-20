@@ -722,7 +722,8 @@
     ["copy-button","inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-secondary text-secondary-foreground hover:bg-accent-strong h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2 shrink-0"]
   ],
   "DetailTable": [
-    ["detail-table","w-full border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"]
+    ["detail-table-frame","@container/detail-table w-full min-w-0"],
+    ["detail-table","w-full table-fixed border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere @max-md/detail-table:[&_tr]:block @max-md/detail-table:[&_tr]:py-1.5 @max-md/detail-table:[&_th]:block @max-md/detail-table:[&_th]:w-auto @max-md/detail-table:[&_th]:py-0 @max-md/detail-table:[&_td]:block @max-md/detail-table:[&_td]:py-0"]
   ],
   "Dialog": [
     ["dialog-trigger","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-primary-hover h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2"],
@@ -943,7 +944,8 @@
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-green-tag text-green-tag-foreground"],
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-default-tag text-default-tag-foreground"],
     ["fold-row-content","flex flex-col gap-2 p-3 empty:hidden"],
-    ["detail-table","w-full border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"]
+    ["detail-table-frame","@container/detail-table w-full min-w-0"],
+    ["detail-table","w-full table-fixed border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere @max-md/detail-table:[&_tr]:block @max-md/detail-table:[&_tr]:py-1.5 @max-md/detail-table:[&_th]:block @max-md/detail-table:[&_th]:w-auto @max-md/detail-table:[&_th]:py-0 @max-md/detail-table:[&_td]:block @max-md/detail-table:[&_td]:py-0"]
   ],
   "FoldRow[inset]": [
     ["fold-row","group/fold-row border-b border-border"],
@@ -953,7 +955,8 @@
     ["fold-row-badges","ml-auto inline-flex flex-wrap gap-1"],
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-green-tag text-green-tag-foreground"],
     ["fold-row-content","flex flex-col gap-2 py-2 pr-1 pl-6 empty:hidden"],
-    ["detail-table","w-full border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere max-sm:[&_tr]:block max-sm:[&_tr]:py-1.5 max-sm:[&_th]:block max-sm:[&_th]:w-auto max-sm:[&_th]:py-0 max-sm:[&_td]:block max-sm:[&_td]:py-0"]
+    ["detail-table-frame","@container/detail-table w-full min-w-0"],
+    ["detail-table","w-full table-fixed border-collapse text-ui [&_tr]:border-b [&_tr]:border-border [&_th]:w-48 [&_th]:py-1.5 [&_th]:pr-3 [&_th]:text-left [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground [&_td]:py-1.5 [&_td]:align-top [&_td]:wrap-anywhere @max-md/detail-table:[&_tr]:block @max-md/detail-table:[&_tr]:py-1.5 @max-md/detail-table:[&_th]:block @max-md/detail-table:[&_th]:w-auto @max-md/detail-table:[&_th]:py-0 @max-md/detail-table:[&_td]:block @max-md/detail-table:[&_td]:py-0"]
   ],
   "FoldRow[size=touch]": [
     ["fold-row","group/fold-row border-b border-border"],
@@ -1171,6 +1174,62 @@
     ["progress-indicator","h-full w-full flex-1 bg-primary transition-all data-[state=indeterminate]:w-1/3 data-[state=indeterminate]:-translate-x-full data-[state=indeterminate]:animate-out data-[state=indeterminate]:slide-out-to-right-[400%] data-[state=indeterminate]:repeat-infinite data-[state=indeterminate]:duration-1500 data-[state=indeterminate]:ease-in-out motion-reduce:data-[state=indeterminate]:animate-none motion-reduce:data-[state=indeterminate]:w-full motion-reduce:data-[state=indeterminate]:translate-x-0 motion-reduce:data-[state=indeterminate]:opacity-50 dark:bg-link"],
     ["launch-screen-percent","text-sm text-muted-foreground tabular-nums"]
   ],
+  "ListGroup[surface=page]": [
+    ["list-group","px-2 **:data-[slot=list-item]:scroll-mt-10"],
+    ["list-group-heading","sticky top-0 z-10 -mx-2 flex min-h-10 items-center border-b border-border bg-background px-4 py-2 text-ui-medium text-foreground"],
+    ["list","flex flex-col divide-y-(length:--list-divider-width) divide-border"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-group","px-2 **:data-[slot=list-item]:scroll-mt-10"],
+    ["list-group-heading","sticky top-0 z-10 -mx-2 flex min-h-10 items-center border-b border-border bg-background px-4 py-2 text-ui-medium text-foreground"],
+    ["list","flex flex-col divide-y-(length:--list-divider-width) divide-border"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"]
+  ],
+  "ListGroup[surface=tinted]": [
+    ["list-group","px-2 **:data-[slot=list-item]:scroll-mt-10"],
+    ["list-group-heading","sticky top-0 z-10 -mx-2 flex min-h-10 items-center border-b border-background bg-secondary px-4 py-2 text-ui-medium text-foreground"],
+    ["list","flex flex-col divide-y-(length:--list-divider-width) divide-background"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-group","px-2 **:data-[slot=list-item]:scroll-mt-10"],
+    ["list-group-heading","sticky top-0 z-10 -mx-2 flex min-h-10 items-center border-b border-background bg-secondary px-4 py-2 text-ui-medium text-foreground"],
+    ["list","flex flex-col divide-y-(length:--list-divider-width) divide-background"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"],
+    ["list-item","py-(--list-item-y)"],
+    ["list-row","flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-(--list-row-y) text-start text-ui outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"]
+  ],
   "List[density=compact,surface=page]": [
     ["list","flex flex-col divide-y-(length:--list-divider-width) divide-border"],
     ["list-item","py-(--list-item-y)"],
@@ -1272,6 +1331,9 @@
     ["badge","inline-flex w-fit max-w-full shrink-0 items-center justify-center-safe gap-1 overflow-hidden border border-transparent whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 h-5 rounded-xs px-1.5 py-0 text-sm font-normal bg-green-tag text-green-tag-foreground"],
     ["field","group/field flex w-full data-[invalid=true]:text-destructive flex-row has-[>[data-slot=field-content]]:items-start has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px min-h-row-height items-center gap-0 [&>[data-slot=field-label]]:flex-none"],
     ["field-label","items-center text-sm select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group/field-label peer/field-label flex leading-snug group-data-[disabled=true]/field:opacity-50 has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col has-[>[data-slot=field]]:rounded-md has-[>[data-slot=field]]:border [&>*]:data-[slot=field]:p-4 has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5 dark:has-data-[state=checked]:bg-primary/10 w-40 flex-none gap-1.5 px-1.5 font-normal text-muted-foreground [&>svg]:size-4"]
+  ],
+  "Prose": [
+    ["prose","min-w-0 text-body text-foreground [&>*]:my-3 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_h1]:mt-10 [&_h1]:mb-3 [&_h1]:text-heading-1 [&_h1]:text-balance [&_h2]:mt-8 [&_h2]:mb-2 [&_h2]:text-heading-2 [&_h2]:text-balance [&_h3]:mt-6 [&_h3]:mb-1 [&_h3]:text-heading-3 [&_h4]:mt-4 [&_h4]:mb-1 [&_h4]:text-ui-medium [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1 [&_li]:marker:text-muted-foreground [&_li>ul]:my-1 [&_li>ol]:my-1 [&_a]:text-link [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:no-underline [&_strong]:font-semibold [&_code]:rounded-xs [&_code]:bg-secondary [&_code]:px-1 [&_code]:font-mono [&_code]:text-code [&_code]:text-code-foreground [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:px-4 [&_pre]:py-3 [&_pre]:font-mono [&_pre]:text-code [&_pre]:whitespace-pre [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-foreground [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_hr]:my-8 [&_hr]:border-border [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-ui [&_th]:border-b [&_th]:border-border [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-start [&_th]:font-medium [&_th]:text-muted-foreground [&_td]:border-b [&_td]:border-border [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top w-96"]
   ],
   "RadioGroup": [
     ["radio-group","grid gap-3"],
@@ -1698,27 +1760,27 @@
   ],
   "SortableList[dragBy=activator]": [
     ["sortable-list","flex flex-col w-64"],
-    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-item","group/sortable-item rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
     ["sortable-activator",""],
-    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-item","group/sortable-item rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
     ["sortable-activator",""],
-    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-item","group/sortable-item rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
     ["sortable-activator",""]
   ],
   "SortableList[dragBy=handle]": [
     ["sortable-list","flex flex-col w-64"],
-    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-item","group/sortable-item rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
     ["sortable-handle","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 hover:bg-accent hover:text-foreground size-6 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"],
-    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-item","group/sortable-item rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
     ["sortable-handle","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 hover:bg-accent hover:text-foreground size-6 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"],
-    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-item","group/sortable-item rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
     ["sortable-handle","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 hover:bg-accent hover:text-foreground size-6 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"]
   ],
   "SortableList[dragBy=row]": [
     ["sortable-list","flex flex-col w-64"],
-    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
-    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
-    ["sortable-item","rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"]
+    ["sortable-item","group/sortable-item rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-item","group/sortable-item rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"],
+    ["sortable-item","group/sortable-item rounded-md bg-background outline-none touch-manipulation select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ring data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:bg-accent-strong data-[dragging]:shadow-menu flex items-center gap-2 px-2 py-1 text-ui"]
   ],
   "Spinner": [
 

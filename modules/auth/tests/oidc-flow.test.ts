@@ -1,5 +1,5 @@
 // OpenID Connect sign-in against the fake provider: the whole flow, the account mapping and every refusal.
-import { completeOidcSignIn, findSessionUser, registerUser, startOidcSignIn } from "@softure-ai/auth/server";
+import { completeOidcSignIn, findSessionUser, issuePasswordReset, loginUser, registerUser, startOidcSignIn } from "@softure-ai/auth/server";
 import { createFakeOidcProvider, type FakeOidcProvider, type FakeOidcProviderOptions, type FakeOidcUser, type FakeSignInOptions } from "@softure-ai/auth/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CLIENT, createTestAuth, NOW, PASSWORD, type ConfigOptions, type TestAuth } from "./support.js";
@@ -143,14 +143,52 @@ describe("completeOidcSignIn", () => {
     expect(await countRows(setup.test, "users")).toBe(1);
   });
 
-  it("links an existing password account with the same verified email, which keeps its password", async () => {
+  it("links an existing password account with the same verified email, ending its password, sessions and reset link", async () => {
     const setup = await setUp();
+    // Whoever registered the email first may not own it: nothing they hold may outlive the owner's provider sign-in.
     const registered = await registerUser(setup.ctx, { email: "ada@example.com", password: PASSWORD, hasConsented: true, clientKey: CLIENT });
     if (!registered.ok) throw new Error(registered.error);
+    await issuePasswordReset(setup.ctx, registered.value.user.id);
     const result = await signIn(setup);
     if (!result.ok) throw new Error(result.error);
     expect(result.value.user.id).toBe(registered.value.user.id);
     expect(await countRows(setup.test, "identities")).toBe(1);
+    expect(await findSessionUser(setup.ctx, registered.value.session.token)).toBeNull();
+    expect((await findSessionUser(setup.ctx, result.value.session.token))?.id).toBe(registered.value.user.id);
+    expect(await countRows(setup.test, "sessions")).toBe(1);
+    expect(await countRows(setup.test, "password_resets")).toBe(0);
+    expect(await loginUser(setup.ctx, { email: "ada@example.com", password: PASSWORD, clientKey: CLIENT })).toEqual({ ok: false, error: "auth.invalid_credentials" });
+  });
+
+  it("keeps the password and sessions of an account a provider already verified when another provider links it", async () => {
+    const clockHolder: { now: () => Date } = { now: () => NOW };
+    const clock = { now: () => clockHolder.now() };
+    const first = createFakeOidcProvider({ id: "first", issuer: "https://first-oidc.test", clock });
+    const second = createFakeOidcProvider({ id: "second", issuer: "https://second-oidc.test", clock });
+    const fetchBoth: FakeOidcProvider["fetch"] = (input, init) =>
+      new URL(input instanceof Request ? input.url : String(input)).host === "first-oidc.test" ? first.fetch(input, init) : second.fetch(input, init);
+    const test = await createTestAuth({ auth: { oidc: { providers: [first.definition, second.definition], fetch: fetchBoth } } });
+    clockHolder.now = () => test.clock.now();
+    open = test;
+    const ctx = { ...test.ctx, env: { ...first.env, ...second.env } };
+    const signInWith = async (fake: FakeOidcProvider, provider: string) => {
+      const started = await startOidcSignIn(ctx, { provider, clientKey: CLIENT });
+      if (!started.ok) throw new Error(started.error);
+      const callback = fake.signIn(started.value.url, ADA);
+      return completeOidcSignIn(ctx, {
+        provider,
+        params: { state: callback.searchParams.get("state"), code: callback.searchParams.get("code"), error: null },
+        browserState: started.value.state,
+        clientKey: CLIENT,
+      });
+    };
+    const viaFirst = await signInWith(first, "first");
+    if (!viaFirst.ok) throw new Error(viaFirst.error);
+    const viaSecond = await signInWith(second, "second");
+    if (!viaSecond.ok) throw new Error(viaSecond.error);
+    expect(viaSecond.value.user.id).toBe(viaFirst.value.user.id);
+    expect(await findSessionUser(ctx, viaFirst.value.session.token)).not.toBeNull();
+    expect(await countRows(test, "identities")).toBe(2);
   });
 
   it("refuses a new subject for an account that already has another identity of the provider", async () => {

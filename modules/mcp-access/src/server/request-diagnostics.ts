@@ -3,6 +3,7 @@
 // JSON-RPC method came, in which session state, with which answer. No token, body, argument value, session id or
 // user identity is ever part of an entry; client-supplied strings are cut and stripped of control characters.
 import { errorLogLabel } from "@softure-ai/core";
+import { peekJsonBody } from "./peek-body.js";
 
 /** How a request's `Mcp-Session-Id` relates to the tool list version (#1055). */
 export type McpSessionState =
@@ -70,17 +71,8 @@ export async function readJsonRpcSummary(request: Request, maxBytes: number): Pr
   const headerVersion = header === null ? null : sanitizeDiagnosticText(header);
   const withHeader = { ...EMPTY_SUMMARY, protocolVersion: headerVersion };
   if (request.method !== "POST") return withHeader;
-  const length = Number(request.headers.get("content-length") ?? "0");
-  if (!Number.isFinite(length) || length > maxBytes) return withHeader;
-  let body: unknown;
-  try {
-    const text = await request.clone().text();
-    if (text.length > maxBytes) return withHeader;
-    body = JSON.parse(text);
-  } catch {
-    // Not JSON or no readable body: the SDK answers that itself; the entry just has no method.
-    return withHeader;
-  }
+  // Counted while it streams; a body over maxBytes, unreadable or not JSON gives no method (the SDK answers it itself).
+  const body = await peekJsonBody(request, maxBytes);
   if (Array.isArray(body)) return { ...withHeader, method: "batch" };
   if (!isRecord(body) || typeof body.method !== "string") return withHeader;
 

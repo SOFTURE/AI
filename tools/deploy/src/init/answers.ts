@@ -22,7 +22,7 @@ const EMAIL = /^[A-Za-z0-9._%+-]+@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-
 const COMMIT_SHA = /^[0-9a-f]{40}$/;
 
 /** Where the app runs (`init --host`): a server of its own, or Cloudflare Workers (docs/07-runtime-providers.md). */
-export const HOSTS = ["vps", "cloudflare"] as const;
+const HOSTS = ["vps", "cloudflare"] as const;
 
 /** A Hyperdrive configuration ID: 32 lower-case hex characters. */
 const HYPERDRIVE_ID = /^[0-9a-f]{32}$/;
@@ -31,7 +31,7 @@ const HYPERDRIVE_ID = /^[0-9a-f]{32}$/;
 const PLACEMENT_REGION = /^(?:aws|gcp|azure):[a-z0-9-]{2,40}$/;
 
 /** The CDNs `init --cdn` can lock the origin to. */
-export const CDNS = ["cloudflare"] as const;
+const CDNS = ["cloudflare"] as const;
 
 /** A Docker network name (`docker network create` takes `[a-zA-Z0-9][a-zA-Z0-9_.-]`). */
 const NETWORK = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/;
@@ -75,7 +75,7 @@ const envNameSchema = z
   .refine((name) => !RESERVED_ENV_NAME.test(name), "reserved for the runner (PATH, HOME, NODE_*, NPM_CONFIG_*)")
   .refine((name) => !(TEMPLATE_ENV_NAMES as readonly string[]).includes(name), "already set by the templates");
 
-export const initAnswersSchema = z
+const initAnswersSchema = z
   .strictObject({
     domain: z.string().regex(DOMAIN, "a lower-case host name such as example.com"),
     /** `--host`: absent means `vps`. */

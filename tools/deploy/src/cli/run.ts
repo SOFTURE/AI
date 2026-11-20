@@ -106,10 +106,10 @@ const COMMANDS: Record<string, Command> = {
   cleanup: runRemoteCleanup,
 };
 
-function findCommand(argv: string[]): { command: Command; args: string[] } | null {
+function findCommand(argv: string[]): { words: string; command: Command; args: string[] } | null {
   for (const [words, command] of Object.entries(COMMANDS)) {
     const parts = words.split(" ");
-    if (parts.every((part, index) => argv[index] === part)) return { command, args: argv.slice(parts.length) };
+    if (parts.every((part, index) => argv[index] === part)) return { words, command, args: argv.slice(parts.length) };
   }
   return null;
 }
@@ -129,8 +129,31 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
     const status = await found.command(found.args, io);
     return status ?? 0;
   } catch (error) {
-    if (!(error instanceof CliFailure)) throw error;
-    io.stderr(`${error.message}\n`);
-    return error.exitCode;
+    if (error instanceof CliFailure) {
+      io.stderr(`${error.message}\n`);
+      return error.exitCode;
+    }
+    // An unexpected failure (a git or file system call) is one line too: no stack trace reaches the user.
+    io.stderr(`softure-deploy ${found.words}: ${describeUnexpectedError(error)}\n`);
+    return 1;
   }
+}
+
+/**
+ * One line for a failure no command expected: a child process's last stderr line, else the error's first line, with
+ * any credentials of a URL masked.
+ */
+function describeUnexpectedError(error: unknown): string {
+  return readUnexpectedErrorLine(error).replace(/\/\/[^/@\s]*@/g, "//***@");
+}
+
+function readUnexpectedErrorLine(error: unknown): string {
+  if (typeof error === "object" && error !== null && "stderr" in error) {
+    const stderr = error.stderr;
+    const text = typeof stderr === "string" ? stderr : Buffer.isBuffer(stderr) ? stderr.toString("utf8") : "";
+    const lastLine = text.trim().split("\n").at(-1)?.trim() ?? "";
+    if (lastLine !== "") return lastLine;
+  }
+  const firstLine = (error instanceof Error ? error.message : String(error)).split("\n")[0]?.trim() ?? "";
+  return firstLine === "" ? "failed without a message" : firstLine;
 }

@@ -86,7 +86,8 @@ export async function readCgroupMemory(cgroupDir: string): Promise<CgroupMemory 
   };
 }
 
-async function readText(path: string): Promise<string | null> {
+/** A file's text; null when it cannot be read (missing outside a container, or no `/proc` on macOS). */
+export async function readText(path: string): Promise<string | null> {
   try {
     return await readFile(path, "utf8");
   } catch {

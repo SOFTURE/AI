@@ -110,7 +110,7 @@ describe("getAccessToken", () => {
     expect(await getAccessToken(test.ctx, { provider: "fake" })).toEqual({ ok: false, error: "connections.reconnect_required" });
     expect(await getAccessToken(test.ctx, { provider: "fake" })).toEqual({ ok: false, error: "connections.reconnect_required" });
     expect(test.fake.calls.refresh).toBe(1);
-    expect(events).toEqual([{ provider: "fake", accountId: "default", kind: "oauth", reason: "invalid_grant", at: test.clock.now() }]);
+    expect(events).toEqual([{ provider: "fake", accountId: "default", ownerId: null, kind: "oauth", reason: "invalid_grant", at: test.clock.now() }]);
     expect(await readRawRow(test.database, "fake")).toMatchObject({ status: "reconnect_required", last_error: "connections.reconnect_required", lease_id: null });
     expect((await listConnections(test.ctx))[0]?.status).toBe("reconnect_required");
     // A new connect brings it back.

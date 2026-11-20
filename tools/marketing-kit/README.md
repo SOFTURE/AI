@@ -923,6 +923,12 @@ softure-marketing footage <film> --step=render       # the EDL as it is, maybe e
   it (`assets/speech.raw.wav`, `speech.declicked.wav`, `speech.wav`) is float WAV, so quiet speech is never encoded
   lossily at its quiet level and the film's final AAC (`mixLoudness.audioBitrateKbps`, 192 to 512 kbps, default 192,
   48 kHz) is the only lossy encode.
+- **A clip recorded in one channel (issue #1385):** before its loudness is measured, each clip's channels are measured
+  (`astats`, RMS per channel). A stereo clip whose quieter channel is under -70 dBFS and at least 30 dB under the other
+  (`ONE_SIDED_CHANNEL`), as a wireless lavalier receiver in stereo mode records a single transmitter, has its live
+  channel copied onto both (`pan=stereo|c0=c0|c1=c0` or the right-hand mirror) in the measure and in
+  `audio/<clip>.wav`, so the voice plays in the middle of the draft and the render. `ClipSound.channels` answers
+  `balanced` or `one_sided` (with `live`, `liveRmsDb`, `deadRmsDb`) and the `log` gets one line per folded clip.
 - **What the pre-gain reached (issue #1181):** quiet speech with a few short peaks (a mouth click, a bump on the
   microphone) has a crest of about 25 dB, so the −3 dBTP ceiling stops the gain under −23 LUFS. Each `ClipSound`
   answers `preGain`, and `transcribeFootage` / `isolateSpeechRanges` answer `speechPreGain` by clip id: `on_target`,

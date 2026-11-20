@@ -1,4 +1,6 @@
-import type { MouseEvent, ReactNode } from "react";
+"use client";
+
+import { useId, useState, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 
 import { cn } from "../lib/utils.js";
 import { projectToMapPercent } from "../map/map-position.js";
@@ -41,6 +43,12 @@ export interface WorldMapProps {
    * as wide as twice the height, and scrolls sideways, for a phone where the map is the whole screen.
    */
   readonly fit?: "contain" | "cover";
+  /**
+   * Country names by the same numeric code, shown as a tag at the mouse pointer while it rests on that country (with
+   * the country lifted a shade), on a device with a mouse; touch and pen never show it. A country without a name
+   * shows no tag. The names are visual only: the map stays one image with its own label.
+   */
+  readonly countryLabels?: Readonly<Record<string, string>>;
   /** Overlay content positioned in percent of the map, such as the open popover. */
   readonly children?: ReactNode;
   readonly className?: string;
@@ -49,8 +57,30 @@ export interface WorldMapProps {
 const COUNTRY_LOOK: Readonly<Record<TravelStatus | "land", string>> = {
   land: "fill-map-land stroke-map-edge stroke-[0.6]",
   visited: "fill-visited stroke-map-edge stroke-[0.6]",
-  planned: "fill-map-land stroke-planned stroke-[1.1] [stroke-dasharray:3_2]",
+  // The fill is the dotted pattern (`PlannedPattern`), set as an attribute, so no fill class here.
+  planned: "stroke-map-edge stroke-[0.6]",
 };
+
+/** The dotted pattern's cell in map units: one passport-blue dot on land every `PLANNED_DOT_STEP` units. */
+const PLANNED_DOT_STEP = 4;
+const PLANNED_DOT_RADIUS = 1.15;
+
+/** The fill of a planned country: land with a grid of passport-blue dots, as a chart marks a hatched series. */
+function PlannedPattern({ id }: { readonly id: string }) {
+  return (
+    <defs>
+      <pattern id={id} data-slot="world-map-planned-pattern" width={PLANNED_DOT_STEP} height={PLANNED_DOT_STEP} patternUnits="userSpaceOnUse">
+        <rect width={PLANNED_DOT_STEP} height={PLANNED_DOT_STEP} className="fill-map-land" />
+        <circle cx={PLANNED_DOT_STEP / 2} cy={PLANNED_DOT_STEP / 2} r={PLANNED_DOT_RADIUS} className="fill-planned" />
+      </pattern>
+    </defs>
+  );
+}
+
+/** A `useId` value as an SVG id that `url(#…)` can name: React's ids carry characters a fragment would need escaped. */
+function toPatternId(reactId: string): string {
+  return `fa-planned-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
+}
 
 /**
  * A fitted map's box is a size container, so the map can take the smaller of its width and twice its height. Auto
@@ -65,12 +95,11 @@ const FITTED_MAP_LOOK: Readonly<Record<NonNullable<WorldMapProps["fit"]>, string
 /**
  * The hero world map: Natural Earth 1:110m countries without Antarctica in the Natural Earth II projection, projected
  * at build time into a static 1000 x 500 SVG. Water is one colour, land is flat, a visited country is painted in the
- * stamp ink, a planned one keeps the land with a dashed passport-blue outline. Pins and labels are HTML over the SVG.
+ * stamp ink, a planned one is land dotted in passport blue. Pins and labels are HTML over the SVG.
  * On a phone the map keeps 720 px and scrolls sideways inside its own container, never the page. `isFitted` makes it
  * fill a box of a given height instead, for a map that is the whole screen; `fit="cover"` also fills its height.
  */
-// Planned countries are drawn last: their dashed outline is wider than a neighbour's edge, so a neighbour drawn
-// after one would cover half of its border (China under Mongolia, Russia and India).
+// Planned countries are drawn last, so their dots sit above the edges of the land around them.
 const PAINT_ORDER: Record<TravelStatus | "land", number> = { land: 0, visited: 1, planned: 2 };
 
 type CountryShape = (typeof WORLD_COUNTRY_SHAPES)[number];
@@ -81,20 +110,52 @@ function sortByPaintOrder(countries: WorldMapProps["countries"]): { readonly sha
   );
 }
 
-export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPlaceClick, hasGraticule = true, isFitted = false, fit = "contain", children, className }: WorldMapProps) {
+interface HoveredCountry {
+  readonly id: string;
+  /** The pointer in percent of the map. */
+  readonly x: number;
+  readonly y: number;
+}
+
+/** The country under a mouse pointer, in percent of the map; `null` off a named country or for touch and pen. */
+function findHoveredCountry(event: PointerEvent<HTMLDivElement>, labels: Readonly<Record<string, string>>): HoveredCountry | null {
+  if (event.pointerType !== "mouse" || !(event.target instanceof Element)) return null;
+  const id = event.target.closest("path[data-id]")?.getAttribute("data-id");
+  if (id === null || id === undefined || labels[id] === undefined) return null;
+  const box = event.currentTarget.getBoundingClientRect();
+  if (box.width === 0 || box.height === 0) return null;
+  return { id, x: ((event.clientX - box.left) / box.width) * 100, y: ((event.clientY - box.top) / box.height) * 100 };
+}
+
+export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPlaceClick, hasGraticule = true, isFitted = false, fit = "contain", countryLabels, children, className }: WorldMapProps) {
+  const [hovered, setHovered] = useState<HoveredCountry | null>(null);
+  const plannedPatternId = toPatternId(useId());
+  const onPointerMove =
+    countryLabels === undefined
+      ? undefined
+      : (event: PointerEvent<HTMLDivElement>) => {
+          const next = findHoveredCountry(event, countryLabels);
+          setHovered((current) => (next === null && current === null ? current : next));
+        };
+  const hoveredLabel = hovered === null ? undefined : countryLabels?.[hovered.id];
   return (
     <div
       data-slot="world-map"
       data-fitted={isFitted ? "" : undefined}
       className={cn("overflow-x-auto overscroll-x-contain", isFitted && FITTED_BOX_LOOK, className)}
     >
-      <div className={cn("relative min-w-map-min", isFitted && FITTED_MAP_LOOK[fit])}>
+      <div
+        className={cn("relative min-w-map-min", isFitted && FITTED_MAP_LOOK[fit])}
+        onPointerMove={onPointerMove}
+        onPointerLeave={onPointerMove === undefined ? undefined : () => { setHovered(null); }}
+      >
         <svg
           viewBox={`0 0 ${String(WORLD_MAP_VIEWBOX.width)} ${String(WORLD_MAP_VIEWBOX.height)}`}
           role="img"
           aria-label={label}
           className="block h-auto w-full bg-map-ocean"
         >
+          <PlannedPattern id={plannedPatternId} />
           {hasGraticule ? <path d={WORLD_GRATICULE_PATH} className="fill-none stroke-foreground/7 stroke-[0.5]" /> : null}
           {sortByPaintOrder(countries).map(({ shape, status }) => {
             return (
@@ -103,12 +164,15 @@ export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPl
                 d={shape.d}
                 data-id={shape.id ?? undefined}
                 data-status={status}
-                className={cn("[stroke-linejoin:round]", COUNTRY_LOOK[status ?? "land"])}
+                data-hovered={hovered !== null && shape.id === hovered.id ? "" : undefined}
+                fill={status === "planned" ? `url(#${plannedPatternId})` : undefined}
+                className={cn("transition-[filter] [stroke-linejoin:round] data-hovered:brightness-90", COUNTRY_LOOK[status ?? "land"])}
               />
             );
           })}
         </svg>
-        <div className="absolute inset-0">
+        {/* The layer lets the pointer through to the countries; its own children (pins, popovers) take it back. */}
+        <div className="pointer-events-none absolute inset-0 *:pointer-events-auto">
           {places.map((place) => {
             const position = projectToMapPercent(place.longitude, place.latitude);
             return (
@@ -125,6 +189,16 @@ export function WorldMap({ label, countries, places = [], selectedPlaceKey, onPl
             );
           })}
           {children}
+          {hovered === null || hoveredLabel === undefined ? null : (
+            <span
+              aria-hidden="true"
+              data-slot="world-map-country-tag"
+              className="pointer-events-none! absolute z-30 -translate-x-1/2 -translate-y-[calc(100%+12px)] rounded-tag bg-foreground px-2.5 py-1 text-label whitespace-nowrap text-background"
+              style={{ left: `${String(hovered.x)}%`, top: `${String(hovered.y)}%` }}
+            >
+              {hoveredLabel}
+            </span>
+          )}
         </div>
       </div>
     </div>

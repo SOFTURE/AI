@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { act } from "react";
+import { hydrateRoot } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RouteLoading } from "../../src/notion/RouteLoading.js";
 import { TopLoadingBar } from "../../src/notion/TopLoadingBar.js";
@@ -55,5 +57,35 @@ describe("RouteLoading", () => {
     expect(bar?.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "md:[@media(display-mode:browser)]:block"]));
     expect(launch?.querySelector("script")?.textContent).toBe("window.__launch = 1;");
     expect(bar?.querySelector("script")?.textContent).toBe("window.__bar = 1;");
+  });
+});
+
+describe("TopLoadingBar's counter script outside the server's HTML", () => {
+  it("draws no script, and no warning, when a client-side navigation renders it", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { container } = render(<TopLoadingBar label="Loading" script="window.__bar = 1;" />);
+
+    expect(container.querySelector("script")).toBeNull();
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
+  });
+
+  it("keeps the streamed script through hydration without a warning", () => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(<TopLoadingBar label="Loading" script="window.__bar = 1;" />);
+    document.body.append(container);
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    let root: ReturnType<typeof hydrateRoot> | null = null;
+    act(() => {
+      root = hydrateRoot(container, <TopLoadingBar label="Loading" script="window.__bar = 1;" />);
+    });
+
+    expect(errors).not.toHaveBeenCalled();
+    act(() => root?.unmount());
+    container.remove();
+    errors.mockRestore();
   });
 });

@@ -1,7 +1,7 @@
 // The line each recorded attempt leaves in the log (issue #934): succeeded, retried and failed with codes and ids
 // only, none for a stale write, and the `logRuns` option.
 import { err, ok } from "@softure-ai/core";
-import { defineJobHandler, failJob, type JobHandlers, type JobsOptionsInput } from "@softure-ai/jobs";
+import { defineJobHandler, failJob, jobsTable, type JobHandlers, type JobsOptionsInput } from "@softure-ai/jobs";
 import { claimJobs, enqueueJob, type JobsLogFields, type JobsLogger } from "@softure-ai/jobs/server";
 import { runDueJobs } from "@softure-ai/jobs/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -104,6 +104,43 @@ describe("the line at the end of a run", () => {
     await run(jobs, handlers, logger);
     expect(logger.lines).toEqual([{ level: "error", message: "job run failed", fields: { queue: "ai.reply", jobId: id, attempt: 1, code: "app.message_gone" } }]);
     expect(JSON.stringify(logger.lines)).not.toContain("secret-id");
+  });
+
+  it("logs an expected failJob as a warning marked expected, still failed at once", async () => {
+    const jobs = await setup();
+    const logger = createLogger();
+    const handlers = { "ai.reply": defineJobHandler({ payload, run: () => Promise.resolve(failJob("app.input_refused", { expected: true })) }) };
+    const { id } = await enqueueJob(jobs.ctx, { queue: "ai.reply", payload: { messageId: "m-1" } });
+
+    expect(await run(jobs, handlers, logger)).toMatchObject({ failed: 1 });
+    expect(logger.lines).toEqual([{ level: "warn", message: "job run failed", fields: { queue: "ai.reply", jobId: id, attempt: 1, code: "app.input_refused", expected: true } }]);
+    expect(await jobs.ctx.db.select().from(jobsTable)).toMatchObject([{ status: "failed", lastError: "app.input_refused", attempts: 1 }]);
+  });
+
+  it("keeps failJob with expected: false, or no options, at error", async () => {
+    const jobs = await setup();
+    const logger = createLogger();
+    const handlers = { "ai.reply": defineJobHandler({ payload, run: ({ messageId }) => Promise.resolve(failJob(messageId === "m-1" ? "app.broken" : "app.gone", messageId === "m-1" ? { expected: false } : undefined)) }) };
+    await enqueueJob(jobs.ctx, { queue: "ai.reply", payload: { messageId: "m-1" } });
+    await enqueueJob(jobs.ctx, { queue: "ai.reply", payload: { messageId: "m-2" } });
+
+    await run(jobs, handlers, logger);
+    expect(logger.runLines().map((line) => [line.level, line.fields?.code, line.fields?.expected])).toEqual([
+      ["error", "app.broken", undefined],
+      ["error", "app.gone", undefined],
+    ]);
+  });
+
+  it("ignores an expected mark on a returned error that is retried, and on a failure that is not failJob", async () => {
+    const jobs = await setup({ queues: { "ai.reply": { maxAttempts: 1 } } });
+    const logger = createLogger();
+    // A hand-built failure marked expected but retried: the attempts run out and it is an error like any other.
+    const handlers = { "ai.reply": defineJobHandler({ payload, run: () => Promise.resolve({ ok: false as const, error: "app.flaky" as const, isExpected: true }) }) };
+    await enqueueJob(jobs.ctx, { queue: "ai.reply", payload: { messageId: "m-1" } });
+
+    await run(jobs, handlers, logger);
+    expect(logger.runLines()).toMatchObject([{ level: "error", message: "job run failed", fields: { code: "app.flaky" } }]);
+    expect(logger.runLines()[0]?.fields).not.toHaveProperty("expected");
   });
 
   it("logs nothing for an attempt whose write is refused because another worker took the job over", async () => {

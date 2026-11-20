@@ -78,7 +78,7 @@ export {
   type RoleErrorCode,
 } from "./roles.js";
 export { authPrivacyContributor, deleteAuthUserData, exportAuthUserData, type AuthUserData } from "./privacy.js";
-export { isCurrentPassword } from "./reauthenticate.js";
+export { findLinkedProviders, findRecentProviderSignIn, isCurrentPassword, type RecentProviderSignInInput } from "./reauthenticate.js";
 export { registerUser, type RegisterErrorCode, type RegisterInput, type RegisterResult } from "./register.js";
 export {
   createSession,

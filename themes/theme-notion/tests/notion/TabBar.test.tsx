@@ -49,6 +49,32 @@ describe("TabBar", () => {
     expect(html).toMatch(/aria-current="page"><svg[^>]*>.*<\/svg>Inbox<\/a>/);
   });
 
+  it("draws every tab at the touch target with size touch, marked for the app's checks", () => {
+    const html = renderToStaticMarkup(<TabBar label="Views" tabs={TABS} current="open" size="touch" />);
+
+    expect(html.match(/data-size="touch"/g)).toHaveLength(3);
+    const classes = (/<a [^>]*class="([^"]*)"[^>]*data-tab="open"/.exec(html)?.[1] ?? "").split(" ");
+    expect(classes).toEqual(expect.arrayContaining(["h-touch-target", "min-w-touch-target", "justify-center", "px-3"]));
+    expect(classes).not.toContain("h-control-height");
+    expect(classes).not.toContain("px-2");
+  });
+
+  it("adds the tab class after the size, so a breakpoint brings the pointer size back on a desktop", () => {
+    const html = renderToStaticMarkup(<TabBar label="Views" tabs={TABS} current="open" size="touch" tabClassName="md:h-control-height md:min-w-0" />);
+
+    const classes = (/<a [^>]*class="([^"]*)"[^>]*data-tab="all"/.exec(html)?.[1] ?? "").split(" ");
+    expect(classes).toEqual(expect.arrayContaining(["h-touch-target", "min-w-touch-target", "md:h-control-height", "md:min-w-0"]));
+    expect(classes.indexOf("md:h-control-height")).toBeGreaterThan(classes.indexOf("h-touch-target"));
+  });
+
+  it("keeps the default tabs unmarked and passes a tab class on the default size", () => {
+    const html = renderToStaticMarkup(<TabBar label="Views" tabs={TABS} current="open" tabClassName="font-semibold" />);
+
+    expect(html).not.toContain("data-size");
+    expect(html).toContain("h-control-height");
+    expect(html).toContain("font-semibold");
+  });
+
   it("is exported from the package root", () => {
     expect(theme.TabBar).toBe(TabBar);
   });

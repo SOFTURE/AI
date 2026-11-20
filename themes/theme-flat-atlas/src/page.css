@@ -4,7 +4,7 @@
  *
  * - Light is the primary scheme. The kit's tokens follow the system setting unless the page asks for light, so an app
  *   that stays on passport paper sets `data-theme="light"` on `<html>`; the browser's controls follow each scope.
- * - One tracking for every face and size, 0.02em, and lining numerals: Raleway's default digits are old-style. Text
+ * - One tracking for every face and size, 0.02em, and lining numerals, so digits sit on the line whatever the face's default. Text
  *   styles carry their own tracking; numbers (`num`) take 0, the wordmark 0.1em (its text style).
  * - Placeholders in `muted`, selected text on the stamp ink with white.
  * - Motion: three durations (160 ms hover and focus, 220 ms a pin's popover, 320 ms a country's first paint) and two

@@ -39,6 +39,10 @@ everything at once, for a fixed price cap.
 The caller grants `contents: write` and `pull-requests: write`. The `review` job uses only `contents: read`; the
 `deliver` job, which has no API key, commits the report and opens the pull request.
 
+SOFTURE/AI reviews itself with `.github/workflows/quality-review-self.yml`, which calls the reusable workflow of the
+same commit (`uses: ./.github/workflows/quality-review.yml`). On a public repository the report pull request is
+public too: a `security` run shows its findings to everyone until they are fixed, so triage it first.
+
 ### Inputs
 
 | Input | Default | What it does |

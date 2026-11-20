@@ -293,6 +293,13 @@ describe("pauseQueueLater", () => {
     expect(await runDueJobs(test.ctx, { handlers: scriptedHandler([]), logger: silentLogger })).toMatchObject({ succeeded: 2 });
   });
 
+  it("keeps a handler's pause within a week", async () => {
+    test = await createTestJobs({ queues: queueOptions({}) });
+    await enqueueMany(test, 1);
+    await runDueJobs(test.ctx, { handlers: scriptedHandler([pauseQueueLater("app.captcha", 30 * 24 * 60 * 60)]), logger: silentLogger });
+    expect(await getQueuePause(test.ctx, QUEUE)).toEqual({ source: "handler", reason: "app.captcha", until: new Date(NOW.getTime() + 604_800 * SECOND_MS) });
+  });
+
   it("never shortens a longer pause", async () => {
     const recorder = recordJobHooks();
     test = await createTestJobs({ queues: queueOptions({}), ...recorder.options });
@@ -306,6 +313,22 @@ describe("pauseQueueLater", () => {
 
     expect(await getQueuePause(test.ctx, QUEUE)).toMatchObject({ until: new Date(NOW.getTime() + 300 * SECOND_MS) });
     expect(recorder.pausedQueues).toHaveLength(1);
+  });
+
+  it("never replaces an operator's timed pause, even with a longer one", async () => {
+    const recorder = recordJobHooks();
+    test = await createTestJobs({ queues: queueOptions({}), ...recorder.options });
+    await enqueueMany(test, 1);
+    const [claimed] = await claim(test);
+    if (claimed === undefined) throw new Error("expected a claimed job");
+    const operatorUntil = new Date(NOW.getTime() + 60 * SECOND_MS);
+    await pauseQueue(test.ctx, QUEUE, { reason: "app.manual", until: operatorUntil });
+
+    const options = { logger: silentLogger, signal: NEVER_ABORTED, random: () => 0 };
+    await runClaimedJob(test.ctx, claimed, { ...options, handlers: scriptedHandler([pauseQueueLater("app.captcha", 300)]) });
+
+    expect(await getQueuePause(test.ctx, QUEUE)).toEqual({ source: "operator", reason: "app.manual", until: operatorUntil });
+    expect(recorder.pausedQueues).toEqual([]);
   });
 
   it("logs a throwing onQueuePaused hook and still records the pause", async () => {

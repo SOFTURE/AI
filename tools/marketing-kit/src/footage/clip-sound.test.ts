@@ -6,9 +6,15 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  buildChannelMeasureArgs,
   buildClipSoundArgs,
   buildClipSoundMeasureArgs,
+  describeChannelFold,
   describeSpeechPreGain,
+  getChannelBalance,
+  getChannelFoldFilter,
+  ONE_SIDED_CHANNEL,
+  readChannelRmsDb,
   getAudioCodecArgs,
   getPreGainDb,
   getSpeechPreGain,
@@ -152,6 +158,96 @@ describe("the clip sound's ffmpeg arguments", () => {
   });
 });
 
+describe("the clip's channel balance (issue #1385)", () => {
+  it("calls a stereo clip with a dead right channel left-only, and one with a dead left channel right-only", () => {
+    expect(getChannelBalance([-20.54, -116.57])).toEqual({ kind: "one_sided", live: "left", liveRmsDb: -20.54, deadRmsDb: -116.57 });
+    expect(getChannelBalance([-Infinity, -24])).toEqual({ kind: "one_sided", live: "right", liveRmsDb: -24, deadRmsDb: -Infinity });
+  });
+
+  it("keeps real stereo, a quiet but live second mic, mono, silence and more than two channels balanced", () => {
+    expect(getChannelBalance([-20, -23])).toEqual({ kind: "balanced" });
+    expect(getChannelBalance([-20, -65])).toEqual({ kind: "balanced" });
+    expect(getChannelBalance([-24])).toEqual({ kind: "balanced" });
+    expect(getChannelBalance([])).toEqual({ kind: "balanced" });
+    expect(getChannelBalance([-Infinity, -Infinity])).toEqual({ kind: "balanced" });
+    expect(getChannelBalance([-20, -120, -20])).toEqual({ kind: "balanced" });
+  });
+
+  it("needs the dead channel under the ceiling and the gap at least the minimum, at the exact bounds", () => {
+    const { deadCeilingDb, minGapDb } = ONE_SIDED_CHANNEL;
+    expect(getChannelBalance([deadCeilingDb + minGapDb, deadCeilingDb])).toEqual({ kind: "balanced" });
+    expect(getChannelBalance([deadCeilingDb + minGapDb - 0.5, deadCeilingDb - 0.5]).kind).toBe("one_sided");
+    expect(getChannelBalance([deadCeilingDb + minGapDb - 1, deadCeilingDb - 0.5])).toEqual({ kind: "balanced" });
+    expect(getChannelBalance([-80, -100])).toEqual({ kind: "balanced" });
+  });
+
+  it("reads each channel's RMS from astats' log, digital silence as minus infinity", () => {
+    const stderr = [
+      "[Parsed_astats_0 @ 0x1] Channel: 1",
+      "[Parsed_astats_0 @ 0x1] RMS level dB: -20.541219",
+      "[Parsed_astats_0 @ 0x1] Channel: 2",
+      "[Parsed_astats_0 @ 0x1] RMS level dB: -inf",
+    ].join("\n");
+    expect(readChannelRmsDb(stderr)).toEqual([-20.541219, -Infinity]);
+    expect(readChannelRmsDb("[Parsed_astats_0 @ 0x1] RMS level dB: -3")).toEqual([-3]);
+    expect(readChannelRmsDb("no measurement")).toEqual([]);
+  });
+
+  it("copies the live channel onto both, and leaves a balanced clip without a filter", () => {
+    expect(getChannelFoldFilter({ kind: "balanced" })).toBe("");
+    expect(getChannelFoldFilter({ kind: "one_sided", live: "left", liveRmsDb: -20, deadRmsDb: -116 })).toBe("pan=stereo|c0=c0|c1=c0,");
+    expect(getChannelFoldFilter({ kind: "one_sided", live: "right", liveRmsDb: -20, deadRmsDb: -116 })).toBe("pan=stereo|c0=c1|c1=c1,");
+  });
+
+  it("logs a folded clip with both levels, and nothing for a balanced one", () => {
+    expect(describeChannelFold("talk", { kind: "one_sided", live: "left", liveRmsDb: -20.54, deadRmsDb: -116.57 })).toBe(
+      "clip sound: clip talk has sound only in its left channel (-20.5 dBFS RMS, right -116.6 dBFS); the left channel is played on both.",
+    );
+    expect(describeChannelFold("street", { kind: "one_sided", live: "right", liveRmsDb: -30, deadRmsDb: -Infinity })).toBe(
+      "clip sound: clip street has sound only in its right channel (-30 dBFS RMS, left silent); the right channel is played on both.",
+    );
+    expect(describeChannelFold("talk", { kind: "balanced" })).toBeNull();
+  });
+
+  it("measures each channel of the trimmed source as it is, before any format change", () => {
+    expect(buildChannelMeasureArgs(input())).toEqual([
+      "-hide_banner",
+      "-nostats",
+      "-ss",
+      "1.5",
+      "-i",
+      "/src/talk.mov",
+      "-t",
+      "2.500",
+      "-map",
+      "0:a:0",
+      "-vn",
+      "-af",
+      "astats=measure_overall=none:measure_perchannel=RMS_level",
+      "-f",
+      "null",
+      "-",
+    ]);
+    expect(buildChannelMeasureArgs(input({ clip: { id: "talk", role: "talk", trim: { start: 0, end: null } } })).slice(2, 4)).toEqual(["-i", "/src/talk.mov"]);
+  });
+
+  it("folds a one-sided clip ahead of the format change in both the loudness measure and the extraction", () => {
+    const balance = { kind: "one_sided", live: "left", liveRmsDb: -20, deadRmsDb: -116 } as const;
+    const measure = buildClipSoundMeasureArgs({ ...input(), balance });
+    expect(measure[measure.indexOf("-af") + 1]).toBe(
+      `pan=stereo|c0=c0|c1=c0,aformat=sample_rates=48000:channel_layouts=stereo,loudnorm=I=${String(SPEECH_PRE_GAIN.target)}:TP=${String(SPEECH_PRE_GAIN.peakCeiling)}:LRA=11:print_format=json`,
+    );
+    const extract = buildClipSoundArgs({ ...input(), gainDb: 3, output: "/b/audio/talk.wav", balance: { ...balance, live: "right" } });
+    expect(extract[extract.indexOf("-af") + 1]).toBe("pan=stereo|c0=c1|c1=c1,aformat=sample_rates=48000:channel_layouts=stereo,volume=3dB");
+  });
+
+  it("gives a balanced clip exactly the arguments it had without a balance", () => {
+    const balanced = { kind: "balanced" } as const;
+    expect(buildClipSoundMeasureArgs({ ...input(), balance: balanced })).toEqual(buildClipSoundMeasureArgs(input()));
+    expect(buildClipSoundArgs({ ...input(), gainDb: 1, output: "/o.wav", balance: balanced })).toEqual(buildClipSoundArgs({ ...input(), gainDb: 1, output: "/o.wav" }));
+  });
+});
+
 const hasFfmpeg = spawnSync("ffprobe", ["-version"]).status === 0 && spawnSync("ffmpeg", ["-version"]).status === 0;
 
 describe.runIf(hasFfmpeg)("prepareClipSounds and the lossless chain (issue #1139)", () => {
@@ -286,4 +382,83 @@ describe.runIf(hasFfmpeg)("prepareClipSounds and the lossless chain (issue #1139
     };
     return rms("bandreject=f=220:width_type=q:w=4,") - rms("");
   }
+});
+
+describe.runIf(hasFfmpeg)("prepareClipSounds with a voice in one channel (issue #1385)", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "footage-clip-channels-"));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function ffmpeg(args: string[]): string {
+    const result = spawnSync("ffmpeg", args, { encoding: "utf8" });
+    if (result.status !== 0) throw new Error(`ffmpeg ${args.join(" ")}: ${result.stderr}`);
+    return result.stderr;
+  }
+
+  /** A 4 s clip with stereo AAC sound made by `stereo` (a lavfi graph ending in a stereo stream), as a phone writes it. */
+  function makeStereoClip(name: string, stereo: string): string {
+    const file = join(dir, name);
+    ffmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=4", "-f", "lavfi", "-i", stereo, "-shortest", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", file]);
+    return file;
+  }
+
+  /** Each channel's RMS in dBFS. */
+  function getChannelRms(file: string): number[] {
+    return readChannelRmsDb(ffmpeg(["-v", "info", "-i", file, "-af", "astats=measure_overall=none:measure_perchannel=RMS_level", "-f", "null", "-"]));
+  }
+
+  const voice = "sine=frequency=220:sample_rate=48000:duration=4,volume=0.05,volume='if(lt(mod(t,1.5),1),1,0)':eval=frame";
+  const silence = "anullsrc=r=48000:cl=mono:d=4";
+  const clip = (id: string, source: string, role: "talk" | "broll"): ClipSoundInput => ({ clip: { id, role, trim: { start: 0, end: null } }, source, probe: { hasAudio: true }, duration: 4 });
+
+  it("plays a left-only voice and a right-only b-roll on both channels, the voice at the pre-gain target, and logs both folds", async () => {
+    const talk = makeStereoClip("talk.mp4", `${voice}[v];${silence}[s];[v][s]join=inputs=2:channel_layout=stereo`);
+    const street = makeStereoClip("street.mp4", `${silence}[s];anoisesrc=d=4:c=pink:a=0.02:r=48000[n];[s][n]join=inputs=2:channel_layout=stereo`);
+    const [talkLeft = 0, talkRight = 0] = getChannelRms(talk);
+    expect(talkLeft - talkRight).toBeGreaterThan(ONE_SIDED_CHANNEL.minGapDb);
+    const lines: string[] = [];
+    const sounds = await prepareClipSounds([clip("talk", talk, "talk"), clip("street", street, "broll")], { buildDir: join(dir, "build"), log: (line) => lines.push(line) });
+    expect(sounds.talk?.channels).toMatchObject({ kind: "one_sided", live: "left" });
+    expect(sounds.street?.channels).toMatchObject({ kind: "one_sided", live: "right" });
+    for (const id of ["talk", "street"]) {
+      const [left = 0, right = -200] = getChannelRms(sounds[id]?.file ?? "");
+      expect(Math.abs(left - right)).toBeLessThan(1);
+      expect(right).toBeGreaterThan(-50);
+    }
+    const measured = readLoudnessMeasurement(spawnSync("ffmpeg", buildLoudnessMeasureArgs(sounds.talk?.file ?? "", DEFAULT_LOUDNESS), { encoding: "utf8" }).stderr);
+    expect(Math.abs((measured?.inputI ?? 0) - SPEECH_PRE_GAIN.target)).toBeLessThan(0.5);
+    expect(lines.filter((line) => line.startsWith("clip sound:"))).toEqual([
+      describeChannelFold("talk", sounds.talk?.channels ?? { kind: "balanced" }),
+      describeChannelFold("street", sounds.street?.channels ?? { kind: "balanced" }),
+    ]);
+  });
+
+  it("carries the folded voice to both channels of the speech track", async () => {
+    const talk = makeStereoClip("talk.mp4", `${voice}[v];${silence}[s];[v][s]join=inputs=2:channel_layout=stereo`);
+    const sounds = await prepareClipSounds([clip("talk", talk, "talk")], { buildDir: join(dir, "build") });
+    const speech = join(dir, "speech.wav");
+    ffmpeg(buildSpeechArgs({ version: 2, film: "f", segments: [{ id: "s1", clip: "talk", start: 0.5, end: 3.5, transition: "cut", motion: "none" }] }, { talk: sounds.talk?.file ?? "" }, speech));
+    const [left = 0, right = -200] = getChannelRms(speech);
+    expect(Math.abs(left - right)).toBeLessThan(1);
+  });
+
+  it("keeps a true stereo clip's channels as they were", async () => {
+    const wide = makeStereoClip("wide.mp4", `${voice}[v];anoisesrc=d=4:c=pink:a=0.01:r=48000[n];[v][n]join=inputs=2:channel_layout=stereo`);
+    const [sourceLeft = 0, sourceRight = 0] = getChannelRms(wide);
+    const sounds = await prepareClipSounds([clip("wide", wide, "talk")], { buildDir: join(dir, "build") });
+    expect(sounds.wide?.channels).toEqual({ kind: "balanced" });
+    const [left = 0, right = 0] = getChannelRms(sounds.wide?.file ?? "");
+    expect(Math.abs(left - right - (sourceLeft - sourceRight))).toBeLessThan(0.5);
+  });
+
+  it("names the clip when its channels cannot be measured", async () => {
+    const broken = join(dir, "broken.mp4");
+    await expect(prepareClipSounds([clip("broken", broken, "talk")], { buildDir: join(dir, "build") })).rejects.toThrow(/Measuring the channels of clip broken: ffmpeg ended with code/);
+  });
 });

@@ -44,6 +44,11 @@ export interface QueueStats {
   readonly due: number;
   /** The `run_at` of the oldest due pending job, or null: how far behind the workers are. */
   readonly oldestDueAt: Date | null;
+  /**
+   * When the longest-running job of the queue was claimed, or null: a job running far longer than usual hangs. It
+   * includes a running job whose lease ended (its worker died) until the next claim takes it back.
+   */
+  readonly oldestRunningSince: Date | null;
   /** The queue's schedule, when `schedules` names it: when it last ran and whether it is late. */
   readonly schedule: ScheduleState | null;
   /** The queue's active pause (breaker, `pauseQueueLater` or an operator), or null: a paused queue claims nothing. */
@@ -67,6 +72,11 @@ export async function getQueueStats(ctx: JobsContext): Promise<QueueStats[]> {
     .from(jobs)
     .where(and(eq(jobs.status, "pending"), sql`${jobs.runAt} <= ${now}`))
     .groupBy(jobs.queue);
+  const running = await ctx.db
+    .select({ queue: jobs.queue, oldestRunningSince: min(jobs.claimedAt) })
+    .from(jobs)
+    .where(eq(jobs.status, "running"))
+    .groupBy(jobs.queue);
   const scheduleStates = await getScheduleStates(ctx);
   const queueStates = await getQueueStateSummaries(ctx);
 
@@ -81,6 +91,7 @@ export async function getQueueStats(ctx: JobsContext): Promise<QueueStats[]> {
       counts,
       due: due?.due ?? 0,
       oldestDueAt: due?.oldestDueAt ?? null,
+      oldestRunningSince: running.find((row) => row.queue === queue)?.oldestRunningSince ?? null,
       schedule: scheduleStates.get(queue) ?? null,
       pause: state?.pause ?? null,
       consecutiveFailures: state?.consecutiveFailures ?? 0,

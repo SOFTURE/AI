@@ -100,7 +100,11 @@ async function callWithConnection<O extends { readonly headers?: HeadersInit }, 
   options: O,
   call: (options: O) => Promise<R>,
 ): Promise<R | ConnectionRequestFailure> {
-  const target = { provider: account.provider, accountId: account.accountId ?? DEFAULT_ACCOUNT_ID };
+  const target = {
+    provider: account.provider,
+    accountId: account.accountId ?? DEFAULT_ACCOUNT_ID,
+    ...(account.ownerId === undefined ? {} : { ownerId: account.ownerId }),
+  };
   const found = findProvider(ctx.config, target.provider, target.accountId);
   if (!found.ok) return found;
 

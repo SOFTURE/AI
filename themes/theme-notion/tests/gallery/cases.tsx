@@ -196,6 +196,8 @@ import {
   SortableItem,
   SortableList,
   List,
+  ListGroup,
+  ListGroupHeading,
   ListItem,
   ListRow,
   Steps,
@@ -240,6 +242,7 @@ import {
   Code,
   CodeBlock,
   CopyButton,
+  Prose,
 } from "../../src/index.js";
 
 // The install bar's copy, as `pwaMessages.en.install` in `@softure-ai/pwa` has it.
@@ -1500,6 +1503,42 @@ const NOTION_CASES: readonly GalleryCase[] = [
       </div>
     ),
   },
+  {
+    name: "Prose",
+    component: "Prose",
+    root: '[data-slot="prose"]',
+    render: () => (
+      <Prose className="w-96">
+        <h2>Getting started</h2>
+        <p>
+          Connect a source, pick the folders to share, then add the connector. Read the <a href="#guide">full guide</a>{" "}
+          or run <code>npm ci</code> first.
+        </p>
+        <ol>
+          <li>Open the panel</li>
+          <li>Pick folders</li>
+        </ol>
+        <pre>
+          <code>https://app.example.test/api/mcp</code>
+        </pre>
+        <blockquote>Nothing is shared before you pick.</blockquote>
+        <table>
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Read-only</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>get_note</td>
+              <td>yes</td>
+            </tr>
+          </tbody>
+        </table>
+      </Prose>
+    ),
+  },
   ...(["compact", "roomy"] as const).flatMap((density) =>
     (["page", "tinted"] as const).map(
       (surface): GalleryCase => ({
@@ -1521,6 +1560,36 @@ const NOTION_CASES: readonly GalleryCase[] = [
         ),
       }),
     ),
+  ),
+  ...(["page", "tinted"] as const).map(
+    (surface): GalleryCase => ({
+      name: `ListGroup[surface=${surface}]`,
+      component: "ListGroup",
+      root: '[data-list-group-scroll]',
+      render: () => (
+        <div data-list-group-scroll="" className={surface === "tinted" ? "h-40 w-64 overflow-y-auto rounded-lg bg-secondary" : "h-40 w-64 overflow-y-auto"}>
+          {[
+            { country: "France", days: ["Mon 3 March", "Tue 4 March", "Wed 5 March", "Thu 6 March", "Fri 7 March"] },
+            { country: "Spain", days: ["Sat 8 March", "Sun 9 March", "Mon 10 March", "Tue 11 March", "Wed 12 March"] },
+          ].map(({ country, days }) => (
+            <ListGroup key={country}>
+              <ListGroupHeading surface={surface} asChild>
+                <h3>{country}</h3>
+              </ListGroupHeading>
+              <List as="ol" surface={surface} aria-label={`Days in ${country}`}>
+                {days.map((day) => (
+                  <ListItem key={day}>
+                    <ListRow asChild>
+                      <button type="button">{day}</button>
+                    </ListRow>
+                  </ListItem>
+                ))}
+              </List>
+            </ListGroup>
+          ))}
+        </div>
+      ),
+    }),
   ),
   ...(["row", "handle", "activator"] as const).map(
     (dragBy): GalleryCase => ({

@@ -4,6 +4,88 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## 0.7.8
+
+- **`integration lookup` says when it reads local notes only:** a remote it cannot reach prints
+  `cannot reach origin (…); reading the local notes` on stderr, and with no result stored locally it exits 1
+  (`cannot reach origin (…) and no result for … is stored locally`) instead of 3, so a caller never reads a network
+  failure as "no result". `run` logs a failed fetch of the main branch before comparing `new-red` with its last
+  fetched state.
+  - Migrate: nothing, unless a script treats exit 3 of `lookup` as the only "nothing usable" answer: exit 1 now also
+    means the remote was unreachable.
+- **No stack trace on an unexpected failure:** a git or file system error no command expected ends the CLI with one
+  line, `softure-deploy <command>: <git's last stderr line or the error's first line>` (credentials in URLs masked),
+  and exit 1.
+  - Migrate: nothing.
+- **`backup` has time limits:** `pg_dump` runs with `--lock-wait-timeout=30000`, `PGCONNECT_TIMEOUT=10` unless the URL
+  sets `connect_timeout`, and is stopped after 60 minutes (`timeoutMs` of `createBackup`); each ends the backup as
+  failed (`pg_dump did not finish within … s and was stopped`), so a table locked by another session no longer holds
+  the deploy.
+  - Migrate: nothing.
+- **`integration run` tells a lost remote from a slow run:** each failed fetch of the result notes is logged with
+  git's reason, and a wait in which no fetch reached the remote exits 1 (`cannot reach origin for the result (…); the
+  run on … may still be in progress`) instead of 75. A remote that has no notes yet counts as reached. A failed fetch
+  before the push stops the run (`cannot reach origin (…); the run did not start`), so an older note on the commit
+  can never pass for the new run's result.
+  - Migrate: nothing.
+- **Time limits for the database and git steps:** `schema-guard` and `row-counts` connect with a statement limit of
+  10 minutes, a lock wait limit of 30 s and a client query limit (also through `withPgClient`), so a lock held by a parallel
+  migration fails the step instead of hanging it. `integration run`, `record` and `lookup` give each fetch, push and
+  `ls-remote` 2 minutes; a remote that stalls counts as unreachable.
+  - Migrate: nothing.
+- **`integration` names git's reason** when the remote refuses or cannot be reached (`origin refused … (! [remote
+  rejected] … (pre-receive hook declined))`), with any credentials of the remote URL masked. `record` retries only a
+  push that lost a race to another run; any other refusal fails at once.
+  - Migrate: nothing.
+- **`countRows` refuses a name that is not a table name** (`table` or `schema.table`, lower snake case) before it
+  runs any query, as `buildRowCountQuery` already did.
+  - Migrate: nothing for names from `parseTableList` or `deploy.json`; a library caller passing other names gets a
+    `RangeError`.
+- **Release notes fail on a git error** instead of reading it as a first release: `findPreviousTag` returns null only
+  when no tag matching the glob is merged into the commit.
+  - Migrate: nothing.
+
+## 0.7.7
+
+- **`init --host=cloudflare`: the weekly `backup-verify.yml` reports a failed check (#1386).** With `issues: write`, a
+  failed run creates the `backup-verify` label and opens one issue with the run's link (assigned to the repository's
+  owner where GitHub allows it) or comments on the open one; a green run closes them. GitHub alone mails a failed
+  scheduled run only to whoever last edited its cron line. An app that ran `init` before copies the two last steps and
+  the permission from a freshly generated file.
+
+## 0.7.6
+
+- **`deploy-tested-tree.yml`:** when the pull request's newest commit does not carry the tag's tree outside
+  `ignore-prefixes` with every named check green (its last push changed only `context/`, so the pull request's own
+  checks skipped the suite), it now tries the 10 earlier commits of that pull request, newest first, and answers
+  `"true"` for the first that does. Output `head-sha` names that commit. Any API failure or truncated tree still answers
+  `"false"`.
+- Migrate: none; bump the pins to the `deploy@0.7.6` commit.
+
+## 0.7.5
+
+- **`guard-in-job` (#1375):** an opt-in input of `deploy-release-checks.yml` and `deploy-app.yml` (default `false`, so
+  nothing changes without it) that runs the guard job's steps at the start of the job that does the work, instead of
+  a job of its own billed a whole minute. In `deploy-release-checks.yml`, `prepare` is skipped for a tag unless it
+  builds the list of several unit shards, and `static` and `unit` check the tag pattern and the tag's branch before
+  their checkout. In `deploy-app.yml` (with `deploy: false`; refused with `deploy: true`), the `check inputs` job is
+  skipped and `build` validates the inputs and refuses a stray tag first, putting out `release` and `sha` itself. A
+  stray tag still fails before anything of the app is checked out or built, only after that job's runner started.
+  `examples/deploy-pipeline.yml` sets it on the `static` and `build` calls.
+- Migrate (optional): add `guard-in-job: true` to the `static` call (one shard or `unit: false`) and to the `build`
+  call (`deploy: false`) of `.github/workflows/deploy.yml`.
+
+## 0.7.4
+
+- **`deploy-tested-tree.yml` (#1373):** a reusable workflow that answers `tested: "true"` when a release tag's tree
+  equals, outside `ignore-prefixes` (default `context/`), the newest commit of the last merged pull request, and every
+  check run `check-names` names (names or globs) succeeded on that commit. Any doubt answers `"false"` and the job
+  stays green. The caller skips its unit suite on `"true"`: `unit: ${{ needs.tested.outputs.tested != 'true' }}`.
+  Its job needs `contents`, `pull-requests` and `checks` read. README "Skip a suite the pull request passed";
+  `examples/deploy-pipeline.yml` uses it.
+- Migrate (optional): add the `tested` job to `.github/workflows/deploy.yml` and pass its answer to the unit checks;
+  `check-names` are the check runs of the app's pull request workflow.
+
 ## 0.7.3
 
 - `init --host=cloudflare` for an app with a database writes an `alias` into `wrangler.jsonc` that points

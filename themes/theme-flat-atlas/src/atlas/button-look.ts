@@ -37,6 +37,6 @@ export const ICON_BUTTON_LOOK =
 /** The outline an icon button takes when it stands alone (a menu button in the header). */
 export const ICON_BUTTON_BORDERED_LOOK = "border-line-strong";
 
-/** The wordmark beside the logo: Raleway capitals at 0.1em, the mark at 44 px, a link to the home page. */
+/** The wordmark beside the logo: Open Sans capitals at 0.1em, the mark at 44 px, a link to the home page. */
 export const WORDMARK_LOOK =
   "inline-flex items-center gap-2.5 font-sans text-wordmark uppercase text-foreground no-underline [&_img]:size-mark [&_img]:shrink-0 [&_svg]:size-mark [&_svg]:shrink-0";

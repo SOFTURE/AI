@@ -21,6 +21,24 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
   - Migrate: run `softure migrate` (migration `0007` adds `auth.invitations`). To offer invitations, pass
     `invitations.send`, spread the updated `AUTH_RATE_LIMIT_BUCKETS` (or add an `invitation` bucket) and mount the page.
 
+## 0.2.19
+
+- **Provider sign-in ends an unverified password account's access:** registration does not prove an email, so someone
+  could register the owner's address first and keep the password and the sessions after the owner's first OpenID
+  Connect or GitHub sign-in linked the account. A first provider sign-in that links an account no provider has
+  verified yet now replaces its password with an unusable one and deletes its sessions and a pending reset link, in
+  the same transaction. An account a provider already verified keeps them when another provider links it.
+  - Migrate: nothing. An owner who also used the password sets it again through a reset link.
+
+## 0.2.18
+
+- **Re-authentication by a provider sign-in:** `findRecentProviderSignIn(ctx, { userId, sessionToken, withinMinutes })`
+  (`/server`) answers the provider whose sign-in opened that very session within the window, or null (a session a
+  password login opened, an older one, another user's or an expired one). `findLinkedProviders(ctx, userId)` lists the
+  providers an account signs in with. An account a provider created has no password its owner knows; these let an
+  action that cannot be undone, such as `@softure-ai/privacy`'s account deletion, confirm it is the owner.
+  - Migrate: nothing.
+
 ## 0.2.17
 
 - **Open sign-up through a provider:** `openSignUp: true` on an OpenID Connect or GitHub provider lets any verified email

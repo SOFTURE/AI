@@ -7,10 +7,19 @@
 // at least one such merge is there, and no incoming file is a migration, a dependency manifest or lockfile, a test
 // setup or a tool config (a built-in list plus the app's `fullSuiteOn` globs). Anything else is `full`: new code of the
 // branch, no upstream, no main branch on the remote, a git error. A failure never skips a gate.
+//
+// A CI job, which has no upstream, names the base of the range with `--since <rev>` (issue #1371): the range is then
+// `<rev>..HEAD` and the main branch is read on `origin`. An unknown `<rev>` (a force push, all zeros) is `full`.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CONTEXT_FOLDER, runGitCommand, type RunGit } from "./context-only-push-command.js";
+import {
+  CONTEXT_FOLDER,
+  parseSinceOption,
+  resolveCommit,
+  runGitCommand,
+  type RunGit,
+} from "./context-only-push-command.js";
 
 export type MergePushScope =
   | { scope: "merge"; mainRef: string; branchFiles: string[] }
@@ -120,20 +129,37 @@ function findMainRef(remote: string, root: string, runGit: RunGit): string | nul
   return ["main", "master"].map((name) => `${remote}/${name}`).find((ref) => hasRef(ref, root, runGit)) ?? null;
 }
 
-function classifyRange(cwd: string, runGit: RunGit): MergePushScope {
-  let pushRef: string;
-  try {
-    pushRef = runGit(["rev-parse", "--abbrev-ref", "@{push}"], cwd).trim();
-  } catch {
-    return { scope: "full", reason: "the branch has no upstream" };
+/** The remote CI checkouts fetch from; `--since` reads the main branch there. */
+export const CI_REMOTE = "origin";
+
+/** The base commit of the range and the remote its main branch lives on, or why there is none. */
+function resolveRangeBase(
+  cwd: string,
+  runGit: RunGit,
+  since: string | undefined,
+): { base: string; remote: string } | { reason: string } {
+  if (since !== undefined) {
+    const base = resolveCommit(since, cwd, runGit);
+    return base === null ? { reason: `${since} is not a known commit` } : { base, remote: CI_REMOTE };
   }
+  try {
+    const pushRef = runGit(["rev-parse", "--abbrev-ref", "@{push}"], cwd).trim();
+    return { base: "@{push}", remote: pushRef.split("/")[0] ?? "" };
+  } catch {
+    return { reason: "the branch has no upstream" };
+  }
+}
+
+function classifyRange(cwd: string, runGit: RunGit, since: string | undefined): MergePushScope {
+  const range = resolveRangeBase(cwd, runGit, since);
+  if ("reason" in range) return { scope: "full", reason: range.reason };
+  const { base: rangeBase, remote } = range;
   const root = runGit(["rev-parse", "--show-toplevel"], cwd).trim();
-  const remote = pushRef.split("/")[0] ?? "";
   const mainRef = findMainRef(remote, root, runGit);
   if (mainRef === null) return { scope: "full", reason: `no main branch found on ${remote}` };
 
   // The branch's own new commits: pushed range minus what the main branch already has. Lines are `<sha> <parents…>`.
-  const commits = splitLines(runGit(["rev-list", "--parents", "HEAD", "^@{push}", `^${mainRef}`], root)).map((line) =>
+  const commits = splitLines(runGit(["rev-list", "--parents", "HEAD", `^${rangeBase}`, `^${mainRef}`], root)).map((line) =>
     line.split(" "),
   );
   if (commits.length === 0) return { scope: "full", reason: "the push brings no commit of the branch" };
@@ -159,7 +185,7 @@ function classifyRange(cwd: string, runGit: RunGit): MergePushScope {
   if (mergeCount === 0) return { scope: "full", reason: `the push merges nothing from ${mainRef}` };
 
   const patterns = [...FULL_SUITE_PATTERNS, ...readAppFullSuitePatterns(root)];
-  const incoming = splitNul(runGit(["diff", "--name-only", "-z", "@{push}", "HEAD"], root));
+  const incoming = splitNul(runGit(["diff", "--name-only", "-z", rangeBase, "HEAD"], root));
   const fullSuiteFile = incoming.find((file) => patterns.some((pattern) => pattern.test(file)));
   if (fullSuiteFile !== undefined) return { scope: "full", reason: `the merge brings in ${fullSuiteFile}` };
 
@@ -168,9 +194,9 @@ function classifyRange(cwd: string, runGit: RunGit): MergePushScope {
   return { scope: "merge", mainRef, branchFiles };
 }
 
-export function getMergePushScope(cwd: string, runGit: RunGit = runGitCommand): MergePushScope {
+export function getMergePushScope(cwd: string, runGit: RunGit = runGitCommand, since?: string): MergePushScope {
   try {
-    return classifyRange(cwd, runGit);
+    return classifyRange(cwd, runGit, since);
   } catch (error) {
     // A git failure must never skip a gate.
     return { scope: "full", reason: `git failed: ${error instanceof Error ? error.message : String(error)}` };
@@ -199,17 +225,27 @@ export interface MergePushScopeOptions {
   log?: (line: string) => void;
 }
 
-const USAGE = "usage: softure-merge-push-scope is-merge | is-full | related [-- <test command…>]";
+const USAGE = "usage: softure-merge-push-scope is-merge | is-full | related [--since <commit>] [-- <test command…>]";
 
 /** The bin: `is-merge` and `is-full` answer through the exit code; `related` runs the branch's related tests. */
 export function runMergePushScope(argv: readonly string[], options: MergePushScopeOptions): number {
   const { cwd, runGit = runGitCommand, runCommand = runAttachedCommand, log = console.error } = options;
-  const [mode, ...rest] = argv;
+  const [mode, ...modeArgs] = argv;
   if (mode !== "is-merge" && mode !== "is-full" && mode !== "related") {
     log(USAGE);
     return 2;
   }
-  const result = getMergePushScope(cwd, runGit);
+  // Options come before `--`; everything after it is the test command, passed on untouched.
+  const separator = modeArgs.indexOf("--");
+  const parsed = parseSinceOption(separator === -1 ? modeArgs : modeArgs.slice(0, separator));
+  const leftover = "error" in parsed ? [] : parsed.rest;
+  if ("error" in parsed || (mode !== "related" && leftover.length > 0)) {
+    log(`softure-merge-push-scope: ${"error" in parsed ? parsed.error : `unknown argument ${leftover[0] ?? ""}`}`);
+    log(USAGE);
+    return 2;
+  }
+  const rest = separator === -1 ? leftover : [...leftover, ...modeArgs.slice(separator)];
+  const result = getMergePushScope(cwd, runGit, parsed.since);
   if (mode === "is-merge") return result.scope === "merge" ? 0 : 1;
   if (mode === "is-full") return result.scope === "full" ? 0 : 1;
 

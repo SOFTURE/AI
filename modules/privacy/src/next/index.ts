@@ -3,4 +3,5 @@
 export { deleteAccountAction } from "./actions.js";
 export { getPrivacyMessages } from "./messages.js";
 export { PrivacyPage } from "./pages.js";
+export { getDeleteAccountReauthentication } from "./reauthentication.js";
 export { exportRoute } from "./route.js";

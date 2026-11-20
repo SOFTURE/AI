@@ -30,10 +30,10 @@ export const PRIVACY_RATE_LIMIT_BUCKETS = {
 export const privacy = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.3",
+    version: "0.2.5",
     runtimes: ["node", "workers"],
     // ops only for the copy-account script in /scripts.
-    dependsOn: { auth: "^0.2.0", security: "^0.2.0", ops: "^0.2.0?" },
+    dependsOn: { auth: "^0.2.18", security: "^0.2.0", ops: "^0.2.0?" },
     dbSchema: "privacy",
     tables: ["consents"],
     env: [],
@@ -63,7 +63,7 @@ export {
   type PrivacyErrorCode,
   type PrivacyExport,
 } from "./contract.js";
-export { getPrivacyErrorMessage, privacyMessages, type PrivacyMessages } from "./messages/index.js";
+export { getPrivacyErrorMessage, getReauthenticationMessages, privacyMessages, type PrivacyMessages } from "./messages/index.js";
 export {
   CONTRIBUTOR_ID_PATTERN,
   DEFAULT_EXPORT_MAX_BYTES,

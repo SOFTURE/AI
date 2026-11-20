@@ -15,6 +15,8 @@ export interface BackupOptions extends BackupTarget {
   readonly pgDump: string;
   /** The rest of the environment `pg_dump` runs with (`PATH`, `HOME`). */
   readonly env: Readonly<Record<string, string | undefined>>;
+  /** How long the whole dump may take before `pg_dump` is killed and the backup fails; default 60 minutes. */
+  readonly timeoutMs?: number;
 }
 
 export type BackupResult =
@@ -31,6 +33,12 @@ const BACKUP_FILE_MODE = 0o600;
 const CUSTOM_FORMAT_MAGIC = "PGDMP";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A dump that waits longer than this for a table lock fails instead of holding the deploy. */
+const LOCK_WAIT_TIMEOUT_MS = 30_000;
+/** Seconds libpq waits for the connection when the URL sets no `connect_timeout`. */
+const DEFAULT_CONNECT_TIMEOUT_SECONDS = "10";
+const DEFAULT_DUMP_TIMEOUT_MS = 60 * 60 * 1000;
 
 /** `db-20261005T180102Z.dump`: sorts by time as a string. */
 export function formatBackupName(prefix: string, now: Date): string {
@@ -161,10 +169,17 @@ type DumpResult = { ok: true } | { ok: false; problem: string };
 function runPgDump(options: BackupOptions, fd: number): Promise<DumpResult> {
   return new Promise((resolve) => {
     const exclusions = (options.excludeTableData ?? []).map((table) => `--exclude-table-data=${table}`);
-    const child = spawn(options.pgDump, ["--format=custom", "--no-password", ...exclusions], {
-      env: { ...pickProcessEnv(options.env), ...options.libpqEnv },
+    const args = ["--format=custom", "--no-password", `--lock-wait-timeout=${String(LOCK_WAIT_TIMEOUT_MS)}`, ...exclusions];
+    const child = spawn(options.pgDump, args, {
+      env: { ...pickProcessEnv(options.env), PGCONNECT_TIMEOUT: DEFAULT_CONNECT_TIMEOUT_SECONDS, ...options.libpqEnv },
       stdio: ["ignore", fd, "pipe"],
     });
+    const timeoutMs = options.timeoutMs ?? DEFAULT_DUMP_TIMEOUT_MS;
+    let hasTimedOut = false;
+    const timer = setTimeout(() => {
+      hasTimedOut = true;
+      child.kill("SIGKILL");
+    }, timeoutMs);
     let stderr = "";
     // stdio[2] is "pipe", so the stream exists; null would be a bug in the options above.
     if (child.stderr === null) throw new Error("runPgDump: pg_dump has no stderr pipe");
@@ -173,10 +188,16 @@ function runPgDump(options: BackupOptions, fd: number): Promise<DumpResult> {
       stderr += chunk;
     });
     child.on("error", (error: NodeJS.ErrnoException) => {
+      clearTimeout(timer);
       const reason = error.code === "ENOENT" ? "not found; install the PostgreSQL client or pass --pg-dump=<path>" : error.message;
       resolve({ ok: false, problem: `${options.pgDump} ${reason}` });
     });
     child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      if (hasTimedOut) {
+        resolve({ ok: false, problem: `pg_dump did not finish within ${String(Math.ceil(timeoutMs / 1000))} s and was stopped` });
+        return;
+      }
       if (code === 0) {
         resolve({ ok: true });
         return;

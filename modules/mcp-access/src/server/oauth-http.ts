@@ -199,9 +199,9 @@ function assertOAuthRateLimitBucket(config: SoftureConfig): void {
 
 /**
  * Counts the request in the OAuth bucket before any work: per client address, and for the token
- * endpoint per address and client id (an assistant platform refreshes the tokens of all its users
- * from a few shared addresses, and each connection registers its own client). A failing counter
- * closes (503) and says nothing.
+ * endpoint per address and registered client (an assistant platform refreshes the tokens of all its
+ * users from a few shared addresses, and each connection registers its own client). A failing
+ * counter closes (503) and says nothing.
  */
 async function limitProtocolRequest(ctx: McpAccessContext, request: Request, clientId: string | null = null): Promise<Response | null> {
   assertOAuthRateLimitBucket(ctx.config);
@@ -215,6 +215,22 @@ async function limitProtocolRequest(ctx: McpAccessContext, request: Request, cli
   } catch (error) {
     console.error(`@softure-ai/mcp-access: counting an OAuth request failed: ${errorLogLabel(error)}`);
     return protocolError("temporarily_unavailable", "The server is temporarily unavailable.", 503);
+  }
+}
+
+/**
+ * Counts a consent decision in the OAuth bucket per signed-in account, before it is validated or writes a code. A
+ * failing counter closes (503).
+ */
+async function limitDecision(ctx: McpAccessContext, userId: string): Promise<Response | null> {
+  assertOAuthRateLimitBucket(ctx.config);
+  try {
+    const limit = await consumeRateLimit(ctx, { bucket: MCP_OAUTH_RATE_LIMIT_BUCKET, key: `user:${userId}` });
+    if (limit.ok) return null;
+    return new Response(null, { status: 429, headers: { "cache-control": "no-store", "retry-after": String(limit.retryAfterSeconds) } });
+  } catch (error) {
+    console.error(`@softure-ai/mcp-access: counting an OAuth decision failed: ${errorLogLabel(error)}`);
+    return new Response(null, { status: 503, headers: { "cache-control": "no-store" } });
   }
 }
 
@@ -346,11 +362,23 @@ export async function handleTokenRequest(ctx: McpAccessContext, request: Request
   // An unreadable body is an empty form, which the client check refuses.
   const form = new URLSearchParams(text.ok ? text.value : "");
   const credentials = readClientCredentials(request, form);
-  const limited = await limitProtocolRequest(ctx, request, credentials.clientId);
+  let client: OAuthClientRow | null;
+  try {
+    client = credentials.clientId === null ? null : await findOAuthClient(ctx, credentials.clientId);
+  } catch (error) {
+    console.error(`@softure-ai/mcp-access: the OAuth token endpoint failed: ${errorLogLabel(error)}`);
+    return protocolError("server_error", "The token could not be issued.", 500);
+  }
+  // Only a registered client gets a counter of its own: a made-up id is counted with its address, so
+  // random ids neither escape the limit nor add a counter row each. The lookup comes first on purpose:
+  // counting every request by address alone would throttle an assistant platform that refreshes the
+  // tokens of all its users from a few shared addresses. It is one indexed read (ids over 255
+  // characters run none), the same cost as the counter itself. Clients adopted from an app keep
+  // their own id format, so the id's shape cannot stand in for the lookup.
+  const limited = await limitProtocolRequest(ctx, request, client?.clientId ?? null);
   if (limited !== null) return limited;
 
   try {
-    const client = credentials.clientId === null ? null : await findOAuthClient(ctx, credentials.clientId);
     if (client === null || !isClientSecretValid(client, credentials.clientSecret === "" ? null : credentials.clientSecret)) {
       return protocolError("invalid_client", "Unknown client or wrong client credentials.", 401, credentials.isBasic ? { "www-authenticate": 'Basic realm="mcp"' } : {});
     }
@@ -535,6 +563,9 @@ export async function handleAuthorizationDecision(ctx: McpAccessContext, request
   const params = readAuthorizationParams(form);
   const consent = getConsentPath(ctx.config, params);
   if (userId === null) return seeOther(consent);
+  // Each allow writes a code row that lives 10 minutes, so a signed-in account is counted before any work.
+  const limited = await limitDecision(ctx, userId);
+  if (limited !== null) return limited;
   try {
     const outcome = await validateAuthorizationRequest(ctx, params, origins);
     if (outcome.kind === "show-error") return seeOther(consent);

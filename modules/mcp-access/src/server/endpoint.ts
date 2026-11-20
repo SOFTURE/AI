@@ -123,10 +123,14 @@ export function createMcpEndpoint({ createServer, toolListVersion, diagnostics }
     const client = identifyClient(ctx, request.headers);
     if (!client.ok) return Response.json({ error: "client_unidentified" }, { status: 400, headers: NO_STORE });
 
+    // Verified first, so a valid token is counted on its own: hosted assistants reach the endpoint from a few shared
+    // addresses, and one caller there must not spend the room of every other account behind them. A request without
+    // a valid token is counted per address; a value without the token's shape runs no lookup.
+    const authInfo = await authenticate(ctx, request);
+    const key = authInfo instanceof Response ? client.value : `token:${authInfo.clientId}`;
     let limit;
     try {
-      // Counted before verification, so a flood of guesses is stopped before any lookup.
-      limit = await consumeRateLimit(ctx, { bucket: MCP_RATE_LIMIT_BUCKET, key: client.value });
+      limit = await consumeRateLimit(ctx, { bucket: MCP_RATE_LIMIT_BUCKET, key });
     } catch (error) {
       // Fails closed and says nothing: the route is public and this runs before authentication.
       console.error(`@softure-ai/mcp-access: counting a request failed: ${errorLogLabel(error)}`);
@@ -139,7 +143,6 @@ export function createMcpEndpoint({ createServer, toolListVersion, diagnostics }
       );
     }
 
-    const authInfo = await authenticate(ctx, request);
     if (authInfo instanceof Response) return authInfo;
     return serveInSession(request, authInfo, trace);
   }

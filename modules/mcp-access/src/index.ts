@@ -21,8 +21,8 @@ export const WRITES_ENABLED_SWITCH = "mcp-access.writes_enabled";
 
 /**
  * The rate limit bucket of `POST /api/mcp`, to spread into `security({ buckets })`: requests per
- * client address, counted before the token is verified. Every request counts, so the limit is for
- * the traffic behind one address (several assistants share it), not for one token.
+ * verified token, and per client address for requests without a valid token. Hosted assistants share
+ * a few addresses, so one caller there cannot spend the room of the other accounts behind them.
  */
 export const MCP_RATE_LIMIT_BUCKETS = {
   mcp: { limit: 200, windowMinutes: 15, key: "ip" },
@@ -51,7 +51,7 @@ export const API_TOKEN_RATE_LIMIT_BUCKETS = {
 export const mcpAccess = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.7.6",
+    version: "0.7.8",
     runtimes: ["node", "workers"],
     dependsOn: { security: "^0.2.0", auth: "^0.2.0", jobs: "^0.1.1?", ops: "^0.2.0?" },
     dbSchema: "mcp",
@@ -138,7 +138,7 @@ export {
   type McpToolDefinition,
   type McpToolDefinitionInput,
 } from "./options.js";
-export { DEFAULT_MCP_ACCESS_ROUTES } from "./routes.js";
+export { buildOAuthConsentHeaders, DEFAULT_MCP_ACCESS_ROUTES, OAUTH_CONSENT_PAGE_HEADERS } from "./routes.js";
 export { readRequestOrigin, type McpOriginRequest, type McpOrigins } from "./origins.js";
 export { accessTokens, oauthAuthorizationCodes, oauthClients, oauthGrants, type OAuthClientRow, type OAuthTokenEndpointAuthMethod } from "./schema.js";
 export { getAccessTokenStatus, type AccessTokenStatusOptions } from "./token-status.js";

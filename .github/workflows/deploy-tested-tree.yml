@@ -1,0 +1,337 @@
+# Tells a release whether its unit suite already passed (@softure-ai/deploy, issue #1373). A tag usually differs from
+# the last merged pull request only in workflow artifacts (`context/`), yet the release runs the whole unit suite again
+# minutes after that pull request passed it. This workflow answers `tested: "true"` only when the tag's tree equals,
+# outside `ignore-prefixes`, the tree of one commit of that pull request (its newest, else one of its 10 earlier ones,
+# newest first: a last push that changed only ignored folders may have skipped its suite), and every check run
+# `check-names` names succeeded on that commit. Any doubt (an API failure, a truncated tree, newer code from the release branch, a direct
+# push, a missing, red or running check) answers "false", and the suite runs as before. The caller skips its unit
+# shards on "true":
+#
+#   tested:
+#     permissions:
+#       contents: read
+#       pull-requests: read
+#       checks: read
+#     uses: SOFTURE/AI/.github/workflows/deploy-tested-tree.yml@<sha>
+#     with:
+#       tag: ${{ github.event.release.tag_name || inputs.tag }}
+#       check-names: unit (*)
+#
+# Equal trees are enough: a pull request's checks run on its head merged into the base of that moment, and code the
+# base had then and the head lacked is also on the release branch, so the trees would differ. A workflow of its own,
+# not an input of deploy-release-checks.yml, because reading pull requests and check runs takes `pull-requests: read`
+# and `checks: read`, which a pull request's caller of the checks does not grant. It reads the API only; nothing is
+# checked out. The caller is `tools/deploy/examples/deploy-pipeline.yml`; README, "Skip a suite the pull request
+# passed".
+
+name: deploy-tested-tree
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: The runner of every job as JSON, one label or an array of labels (e.g. "ubuntu-latest" or ["self-hosted","linux"])
+        type: string
+        default: '"ubuntu-latest"'
+      tag:
+        description: The release tag whose tree is compared
+        type: string
+        required: true
+      check-names:
+        description: "The check runs that must have succeeded on the pull request's newest commit, one name or glob per line (e.g. unit (*))"
+        type: string
+        required: true
+      ignore-prefixes:
+        description: "Folders whose files may differ, one per line, each ending in / (e.g. context/); empty compares the whole tree"
+        type: string
+        default: context/
+      release-branch:
+        description: Branch the pull requests merged into; empty means the caller's default branch
+        type: string
+        default: ""
+    outputs:
+      tested:
+        description: '"true" when the unit suite already passed on this tree, "false" otherwise'
+        value: ${{ jobs.compare.outputs.tested }}
+      pull-request:
+        description: The number of the pull request whose checks were read; empty when none was found
+        value: ${{ jobs.compare.outputs.pull-request }}
+      head-sha:
+        description: "The pull request's commit whose tree and checks were read: the one that passed on \"true\", else its newest; empty when none was found"
+        value: ${{ jobs.compare.outputs.head-sha }}
+
+permissions: {}
+
+jobs:
+  compare:
+    name: compare the tag with the last pull request
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 5
+    # Commits and trees, the merged pull requests, and the check runs of their head; nothing is written.
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    outputs:
+      tested: ${{ steps.compare.outputs.tested || 'false' }}
+      pull-request: ${{ steps.compare.outputs.pull-request }}
+      head-sha: ${{ steps.compare.outputs.head-sha }}
+    steps:
+      - name: Check the runner
+        env:
+          RUNS_ON: ${{ inputs.runs-on }}
+        # GitHub picked this runner from the value already, so a value that is not JSON never gets here; this step
+        # refuses the JSON that GitHub takes but the input does not mean (an object, an empty array, a number).
+        run: |
+          label='"[^"\\]+"'
+          space='[[:space:]]*'
+          pattern="^$space($label|\\[$space$label($space,$space$label)*$space\\])$space\$"
+          if [[ ! "$RUNS_ON" =~ $pattern ]]; then
+            echo "::error::Input runs-on is not valid: a JSON label such as '\"ubuntu-latest\"' or a non-empty array of labels such as '[\"self-hosted\",\"linux\"]'"
+            exit 1
+          fi
+
+      # GitHub's hosted images ship the GitHub CLI, a self-hosted runner may not (issue #686): without it, this installs
+      # a pinned copy into RUNNER_TEMP for this job only, checked against its SHA-256 first, with no sudo.
+      - name: Set up the GitHub CLI
+        run: |
+          if command -v gh > /dev/null; then
+            exit 0
+          fi
+          version=2.103.0
+          case "$RUNNER_OS $RUNNER_ARCH" in
+            "Linux X64") arch=amd64 sum=fdd768eb70f6409f80fcfa9f3a1c0adf0fc98d827ab3ce0bed2ac22762c5d786 ;;
+            "Linux ARM64") arch=arm64 sum=7f322df34e624d14f5ec0c4acb121fd6dfa14392fdbbd1066aa8e0a05ac3721e ;;
+            *)
+              echo "::error::The GitHub CLI (gh) is not on this runner and cannot be installed on $RUNNER_OS $RUNNER_ARCH: install gh on the runner (https://cli.github.com)"
+              exit 1
+              ;;
+          esac
+          missing=""
+          for tool in curl tar; do
+            command -v "$tool" > /dev/null || missing="$missing $tool"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::The GitHub CLI (gh) is not on this runner, and installing it needs:$missing"
+            exit 1
+          fi
+          name="gh_${version}_linux_$arch"
+          url="https://github.com/cli/cli/releases/download/v$version/$name.tar.gz"
+          dir="$RUNNER_TEMP/gh-$version"
+          archive="$dir/$name.tar.gz"
+          rm -rf "$dir"
+          mkdir -p "$dir"
+          if ! curl -fsSL --retry 3 -o "$archive" "$url"; then
+            echo "::error::Downloading the GitHub CLI failed: $url"
+            exit 1
+          fi
+          if command -v sha256sum > /dev/null; then
+            actual="$(sha256sum "$archive" | cut -d " " -f 1)"
+          else
+            actual="$(shasum -a 256 "$archive" | cut -d " " -f 1)"
+          fi
+          if [ "$actual" != "$sum" ]; then
+            echo "::error::The GitHub CLI archive $name.tar.gz does not match its pinned SHA-256 ($actual, expected $sum)"
+            rm -rf "$dir"
+            exit 1
+          fi
+          tar -xzf "$archive" -C "$dir"
+          rm -f "$archive"
+          "$dir/$name/bin/gh" --version
+          echo "$dir/$name/bin" >> "$GITHUB_PATH"
+
+      - name: Check the inputs
+        env:
+          TAG: ${{ inputs.tag }}
+          CHECK_NAMES: ${{ inputs.check-names }}
+          IGNORE_PREFIXES: ${{ inputs.ignore-prefixes }}
+          RELEASE_BRANCH: ${{ inputs.release-branch }}
+        run: |
+          failures=0
+          reject() {
+            echo "::error::Input $1 is not valid: $2"
+            failures=$((failures + 1))
+          }
+          if [[ ! "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            reject tag "a tag name (letters, digits, _ . -; at most 128)"
+          fi
+          names=0
+          while IFS= read -r name || [ -n "$name" ]; do
+            if [ -n "$name" ]; then names=$((names + 1)); fi
+          done <<< "$CHECK_NAMES"
+          (( names > 0 )) || reject check-names "at least one check run name or glob, one per line"
+          while IFS= read -r prefix || [ -n "$prefix" ]; do
+            [ -n "$prefix" ] || continue
+            case "$prefix" in
+              /* | ./* | .. | ../* | */.. | */../* | */./* | *//*)
+                reject ignore-prefixes "folders inside the repository (no leading / or ./, no ..)"
+                break
+                ;;
+              */) ;;
+              *)
+                reject ignore-prefixes "folders that end in / (\"$prefix\" would also match \"${prefix}x\")"
+                break
+                ;;
+            esac
+          done <<< "$IGNORE_PREFIXES"
+          if [ -n "$RELEASE_BRANCH" ]; then
+            if [[ ! "$RELEASE_BRANCH" =~ ^[A-Za-z0-9_.][A-Za-z0-9_./-]{0,254}$ ]] || [[ "$RELEASE_BRANCH" == *..* || "$RELEASE_BRANCH" == */ ]]; then
+              reject release-branch "a branch name"
+            fi
+          fi
+          if (( failures > 0 )); then exit 1; fi
+
+      # Never fails: every doubt answers "false", and the caller runs its suite as it would without this workflow.
+      - id: compare
+        name: Compare the tag with the last merged pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          TAG: ${{ inputs.tag }}
+          CHECK_NAMES: ${{ inputs.check-names }}
+          IGNORE_PREFIXES: ${{ inputs.ignore-prefixes }}
+          RELEASE_BRANCH: ${{ inputs.release-branch }}
+        run: |
+          work="$RUNNER_TEMP/tested-tree"
+          rm -rf "$work"
+          mkdir -p "$work"
+          pr=""
+          head=""
+          answer() {
+            {
+              echo "tested=$1"
+              echo "pull-request=$pr"
+              echo "head-sha=$head"
+            } >> "$GITHUB_OUTPUT"
+            if [ "$1" = true ]; then
+              echo "The unit suite already passed on this tree: $2"
+              echo "Unit suite skipped: $2" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::notice::The unit suite runs: $2"
+              echo "Unit suite runs: $2" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            rm -rf "$work"
+            exit 0
+          }
+          # One API call; its error goes to the log, and the caller answers "false" naming what failed.
+          api() {
+            if ! gh api "$@" 2> "$work/error"; then
+              cat "$work/error" >&2
+              return 1
+            fi
+          }
+          # The tree of a commit outside the ignored folders, one "mode sha<TAB>path" line per file, sorted.
+          list_tree() {
+            api "repos/$REPOSITORY/git/trees/$1?recursive=1" \
+              --jq '"truncated \(.truncated)", (.tree[] | select(.type != "tree") | "\(.mode) \(.sha)\t\(.path)")' \
+              > "$work/raw" || return 1
+            [ "$(head -n 1 "$work/raw")" = "truncated false" ] || return 2
+            tail -n +2 "$work/raw" | awk -F '\t' '
+              BEGIN { count = split(ENVIRON["IGNORE_PREFIXES"], prefixes, "\n") }
+              {
+                for (i = 1; i <= count; i++) {
+                  if (prefixes[i] != "" && index($2, prefixes[i]) == 1) next
+                }
+                print
+              }' | LC_ALL=C sort > "$2"
+          }
+
+          branch="${RELEASE_BRANCH:-$DEFAULT_BRANCH}"
+          [ -n "$branch" ] || answer false "the event names no default branch; set the release-branch input."
+          sha="$(api "repos/$REPOSITORY/commits/$TAG" --jq .sha)" || answer false "the commit of $TAG could not be read."
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || answer false "the commit of $TAG could not be read."
+
+          # The newest merged pull requests first; the first whose merge commit is in the tag's history is the last one
+          # the tag contains (a pull request merged after the tag was cut is passed over).
+          api "repos/$REPOSITORY/pulls?state=closed&base=$branch&sort=updated&direction=desc&per_page=30" \
+            --jq '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | reverse | .[] | "\(.number) \(.merge_commit_sha) \(.head.sha)"' \
+            > "$work/merged" || answer false "the merged pull requests of $branch could not be read."
+          checked=0
+          while read -r number merge candidate; do
+            [ -n "$number" ] || continue
+            checked=$((checked + 1))
+            (( checked <= 10 )) || break
+            status="$(api "repos/$REPOSITORY/compare/$merge...$sha" --jq .status)" || answer false "the history of $TAG could not be compared with pull request #$number."
+            if [ "$status" = ahead ] || [ "$status" = identical ]; then
+              pr="$number"
+              head="$candidate"
+              break
+            fi
+          done < "$work/merged"
+          [ -n "$pr" ] || answer false "no pull request merged into $branch is in the history of $TAG."
+          [[ "$head" =~ ^[0-9a-f]{40}$ ]] || answer false "pull request #$pr names no head commit."
+
+          result=0
+          list_tree "$sha" "$work/tag" || result=$?
+          [ "$result" = 2 ] && answer false "the tree of $sha is too large for one API answer (truncated)."
+          [ "$result" = 0 ] || answer false "the tree of $sha could not be read."
+
+          # Whether one commit of the pull request carries the tag's tree outside the ignored folders and passed every
+          # named check. Returns 0 when it did, 1 when it did not (the reason in $reason), 2 on a doubt that stops the
+          # search (an API failure or a truncated tree, the reason in $reason).
+          check_commit() {
+            local commit="$1" result=0 changed count first pattern matched run_status conclusion name
+            list_tree "$commit" "$work/commit" || result=$?
+            if [ "$result" = 2 ]; then reason="the tree of $commit is too large for one API answer (truncated)."; return 2; fi
+            if [ "$result" != 0 ]; then reason="the tree of $commit could not be read."; return 2; fi
+            if ! cmp -s "$work/tag" "$work/commit"; then
+              # comm indents the commit's lines with a tab; the path is the field after the "mode sha" one.
+              changed="$(LC_ALL=C comm -3 "$work/tag" "$work/commit" | awk '{ sub(/^\t/, ""); split($0, field, "\t"); print field[2] }' | LC_ALL=C sort -u)"
+              count="$(printf '%s\n' "$changed" | grep -c .)"
+              first="$(printf '%s\n' "$changed" | head -n 5 | paste -s -d ' ' -)"
+              reason="$TAG differs from pull request #$pr ($commit) in $count file(s) outside the ignored folders: $first"
+              return 1
+            fi
+            if ! api --paginate "repos/$REPOSITORY/commits/$commit/check-runs?filter=latest&per_page=100" \
+              --jq '.check_runs[] | "\(.status)\t\(.conclusion // "none")\t\(.name)"' > "$work/runs"; then
+              reason="the check runs of pull request #$pr could not be read."
+              return 2
+            fi
+            while IFS= read -r pattern || [ -n "$pattern" ]; do
+              [ -n "$pattern" ] || continue
+              matched=0
+              while IFS="$(printf '\t')" read -r run_status conclusion name; do
+                # A glob on purpose: `unit (*)` names every shard of a matrix.
+                # shellcheck disable=SC2053
+                [[ "$name" == $pattern ]] || continue
+                matched=$((matched + 1))
+                if [ "$run_status" != completed ] || [ "$conclusion" != success ]; then
+                  reason="the check run \"$name\" of pull request #$pr is $run_status ($conclusion), not a success."
+                  return 1
+                fi
+              done < "$work/runs"
+              if (( matched == 0 )); then
+                reason="pull request #$pr ($commit) has no check run named \"$pattern\"."
+                return 1
+              fi
+            done <<< "$CHECK_NAMES"
+            return 0
+          }
+
+          reason=""
+          result=0
+          check_commit "$head" || result=$?
+          [ "$result" = 0 ] && answer true "$TAG has the tree of pull request #$pr ($head) outside the ignored folders, and its checks passed."
+          [ "$result" = 2 ] && answer false "$reason"
+          # The newest commit did not do (the pull request's last push changed only ignored folders, so its suite was
+          # skipped, or that push is still red): an earlier commit with the same tree outside them and green checks
+          # passed the same code. At most 10 earlier commits, newest first; any doubt keeps the head's answer.
+          newest="$reason"
+          if api --paginate "repos/$REPOSITORY/pulls/$pr/commits?per_page=100" --jq '.[].sha' > "$work/commits"; then
+            tried=0
+            while read -r commit; do
+              [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || continue
+              [ "$commit" != "$head" ] || continue
+              tried=$((tried + 1))
+              (( tried <= 10 )) || break
+              result=0
+              check_commit "$commit" || result=$?
+              if [ "$result" = 0 ]; then
+                head="$commit"
+                answer true "$TAG has the tree of pull request #$pr ($commit, an earlier commit than its newest) outside the ignored folders, and its checks passed."
+              fi
+              [ "$result" = 2 ] && break
+            done < <(awk '{ lines[NR] = $0 } END { for (i = NR; i >= 1; i--) print lines[i] }' "$work/commits")
+          fi
+          answer false "$newest"

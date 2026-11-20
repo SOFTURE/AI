@@ -4,6 +4,21 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`ui@x.y.z`).
 
+## 0.3.11
+
+- The loading states' counter script (`LaunchScreen`, `TopLoadingBar`, and through them `RouteLoading`) is drawn only
+  in the server's HTML, where the browser runs it, and kept while React hydrates it. A render that starts on the
+  client (a loading state shown by a client-side navigation) draws no `<script>`: React never runs one it creates,
+  and in development it logged "Encountered a script tag while rendering React component" on every such navigation.
+  - Migrate: nothing. The counter still moves on a page load and, as before, stays put on a client-side navigation.
+
+## 0.3.10
+
+- `PasswordField` takes `required` (default `true`): `required={false}` lets an empty password through to the server,
+  for a form that also offers another way to confirm.
+  - Migrate: nothing.
+
+
 ## 0.3.9
 
 - The entries `.`, `./next` are declared Workers-safe (`softure.workers`, runtime-providers RP-7).

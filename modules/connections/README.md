@@ -34,6 +34,9 @@ server for clients that call the app.
   owner (e.g. by mail through `@softure-ai/mailing`).
 - **`onConnectionChanged`** and one info log line for every connect, reconnect, disconnect and failed OAuth callback,
   for an audit trail of admin actions.
+- **`@softure-ai/connections/user-oauth`**: OAuth 2.0 grants that belong to the app's own users, one per user kept by
+  the app: the one-time state and PKCE, the consent URL, the code exchange, refreshes, revocation (RFC 7009 or a
+  bearer call) and sealing a grant to its user. See "Users' own OAuth grants" in section 4.
 - **`@softure-ai/connections/github-app`**: for an app whose own users each connect a GitHub App installation (a
   repository of theirs): the App's JWT, the installation, installation tokens, and the proof that an installation id
   belongs to the signed-in user. See "Users' own GitHub App installations" in section 4.
@@ -118,6 +121,9 @@ connections({
 | `providers[].pkce` | `boolean` | `true` | PKCE S256. |
 | `providers[].rotatesRefreshToken` | `boolean` | `false` | The provider spends a refresh token on use; a refresh answer without a new one then ends the grant when its access token expires. |
 | `providers[].refreshTokenMaxAgeDays` | `number` | none | Shows the connection as expiring before a refresh token the provider will drop (when the provider does not send `refresh_token_expires_in`). |
+| `providers[].owner` | `"app"` \| `"user"` | `"app"` | (oauth) Who a connection belongs to: the app (one connection per account, connected by an admin) or each signed-in user (one connection per user per account, section 4, "Users' own OAuth connections"). |
+| `providers[].returnPath` | `string` | required when `owner: "user"` | (oauth) The app path a user lands on after connecting their own account, with `?connected=` or `?error=`. |
+| `providers[].subjectField` | `string` | none | (oauth) A field of the code exchange's answer that names the user's account at the provider (Dropbox `account_id`), kept as the connection's `subject`. |
 | `providers[].hint` | `{ en?, <locale>? }` | none | (api_key, basic) Where the admin finds the key. |
 | `providers[].header` | `{ name, scheme? }` | `Authorization: Bearer` | (api_key) Where the key goes: `{ name: "x-api-key" }` sends the bare key in that header; `{ name: "authorization", scheme: "Token" }` sends `Token <key>`. The name is an HTTP token (stored lowercase); `scheme` only with `authorization`, `Bearer` when omitted. |
 | `panelRole` | `string` | `"admin"` | The auth role that opens the page, connects and disconnects. |
@@ -127,6 +133,8 @@ connections({
 | `refreshWait` | `{ attempts, intervalMs }` | `{ 40, 250 }` | How a caller waits while another worker refreshes. |
 | `stateTtlMinutes` | `number` | `10` | How long an authorization may take, button to callback. |
 | `httpTimeoutMs` | `number` | `10000` | Timeout of a token, exchange or revoke call. |
+| `keysEnv` | `string` | `"SOFTURE_CONNECTIONS_KEYS"` | The variable that holds the keyring (section 6), for an app that already keeps one under its own name. |
+| `accountReturnPath` | `string` | `"/"` | Where the callback sends a signed-in user without the panel role when it cannot tell their provider (an unknown or spent state). |
 | `onReconnectRequired` | `(event, ctx) => void \| Promise<void>` | none | Section 10. |
 | `onConnectionChanged` | `(event, ctx) => void \| Promise<void>` | none | Section 10. |
 | `fetch` | `FetchFunction` | global `fetch` | The token client's `fetch`; tests pass the fake provider's. |
@@ -276,6 +284,40 @@ transaction. Three consequences:
   transaction and rolled back with it. With the outer `ctx.db` inside an open transaction the one-connection test
   database rejects the read with `PoolInsideTransactionError` instead of waiting forever.
 
+### Users' own OAuth connections (`owner: "user"`)
+
+A provider with `owner: "user"` keeps one connection per signed-in user (and per account): a user connects their
+own Dropbox, say, from a page of the app, never from the admin panel. The same table holds them with the user's id
+in `owner_id`; each one is sealed with its owner in the additional data, so a row moved to another user does not
+open. Every call takes the owner:
+
+```ts
+// The provider, next to the app's own ones:
+{ kind: "oauth", id: "dropbox", owner: "user", returnPath: "/settings/dropbox", subjectField: "account_id",
+  authorizeUrl: "https://www.dropbox.com/oauth2/authorize", tokenUrl: "https://api.dropboxapi.com/oauth2/token",
+  scopes: ["files.content.read"], clientIdEnv: "DROPBOX_APP_KEY", clientSecretEnv: "DROPBOX_APP_SECRET",
+  authorizeParams: { token_access_type: "offline" } }
+
+// The user's page (any signed-in user; the owner is always the session's user):
+<form action={startOwnConnectionAction}><input type="hidden" name="provider" value="dropbox" />…</form>
+<form action={disconnectOwnAction}>…</form>
+const [dropbox] = await listOwnConnections(user.id); // status, scopes, subject (the provider's account id)
+
+// The app's code, for that user:
+const token = await getAccessToken({ provider: "dropbox", ownerId: user.id });
+await requestWithConnection({ provider: "dropbox", ownerId: user.id }, { url, method: "POST", body });
+```
+
+- The callback route serves both: an admin completes the app's authorizations, any other signed-in user only their
+  own (`completeAuthorization(ctx, { …, ownOnly: true })`). A user lands on the provider's `returnPath`, or on
+  `accountReturnPath` when the state is unknown; a signed-out one on `accountReturnPath?error=auth.forbidden`.
+- A call without `ownerId` for a user provider, or with one for an app provider, answers `connections.wrong_owner`.
+  `startConnectionAction` (the admin panel) refuses a user provider the same way, and the panel never lists them.
+- Refreshes, leases, `reconnect_required` and both hooks work as for the app's connections; their events carry
+  `ownerId` (null for the app's own).
+- Deleting a user (section 11) deletes their connections without calling the provider's revoke endpoint; an app
+  that must revoke first (Dropbox has its own call) does so from its own account deletion step.
+
 ### Users' own GitHub App installations (`/github-app`)
 
 Everything above connects the app's own accounts, as its admin. A product whose **users** each connect a repository
@@ -319,18 +361,84 @@ const repositories = await listGithubInstallationRepositories(token.value.token)
 Each failure carries `status` (null when no answer came); a token, the key or GitHub's message never appears in one.
 The JWT is RS256, issued a minute back and valid nine minutes; the imported key is cached per process.
 
+### Users' own OAuth grants (`/user-oauth`)
+
+The stateless variant of `owner: "user"` above, for an app that keeps each user's grant with its own rows instead of
+the module's tables (or runs where the module's store does not): each **user** connects their own account at a
+provider (a cloud drive, a code host, a calendar) and the app reads it on their behalf, one grant per user. `@softure-ai/connections/user-oauth` gives the
+protocol and the sealing; the app keeps the state record and the sealed grant with its own rows, keyed by its user,
+since what a grant is for (a folder, a repository) is the app's own data. Stateless, no table, no configuration; Node
+and Workers.
+
+```ts
+import {
+  buildUserAuthorizationUrl,
+  createUserOAuthState,
+  defineUserOAuthProvider,
+  exchangeUserCode,
+  hashUserOAuthState,
+  openUserSecret,
+  readKeyring,
+  refreshUserAccessToken,
+  revokeUserGrant,
+  sealUserSecret,
+} from "@softure-ai/connections/user-oauth";
+
+const dropbox = defineUserOAuthProvider({
+  id: "dropbox",
+  authorizeUrl: "https://www.dropbox.com/oauth2/authorize",
+  tokenUrl: "https://api.dropboxapi.com/oauth2/token",
+  revoke: { style: "bearer", url: "https://api.dropboxapi.com/2/auth/token/revoke" }, // or { style: "rfc7009", url }
+  scopes: ["files.metadata.read", "files.content.read"],
+  authorizeParams: { token_access_type: "offline" }, // a refresh token
+});
+const client = { clientId: env.DROPBOX_APP_KEY, clientSecret: env.DROPBOX_APP_SECRET };
+
+// 1. The connect button: store stateHash + codeVerifier for the signed-in user (ten minutes, one use).
+const { state, stateHash, codeVerifier } = await createUserOAuthState();
+const url = await buildUserAuthorizationUrl(dropbox, client, { redirectUri, state, codeVerifier });
+
+// 2. The callback: consume the record by hashUserOAuthState(params.state) for the same user, then
+const grant = await exchangeUserCode(dropbox, client, { code, redirectUri, codeVerifier });
+// grant.value: accessToken, refreshToken, expiresAt, scopes (as granted), fields (account_id…, never a token).
+// Check what the app needs (scopes, the folder); refuse with revokeUserGrant(dropbox, client, grant.value.accessToken).
+const sealed = sealUserSecret(keyring, { userId, provider: "dropbox" }, grant.value.refreshToken);
+
+// 3. Later: open, refresh, use. With rotatesRefreshToken, store fresh.value.refreshToken first.
+const refreshToken = openUserSecret(keyring, { userId, provider: "dropbox" }, sealed);
+const fresh = await refreshUserAccessToken(dropbox, client, refreshToken.value);
+```
+
+`readKeyring(env)` reads `SOFTURE_CONNECTIONS_KEYS`; an app with its own keyring variable passes
+`{ SOFTURE_CONNECTIONS_KEYS: env.MY_KEYS }`. A sealed value opens only for the same user, provider and optional
+`name` (two connections of one user at one provider).
+
+| Code | When |
+| --- | --- |
+| `connections.user_oauth_rejected` | the provider answered an OAuth error to a code exchange (a spent code, a wrong verifier, a wrong client) or to a refresh other than `invalid_grant` |
+| `connections.user_oauth_reconnect_required` | a refresh answered `invalid_grant`: the user revoked the app, or the grant expired |
+| `connections.user_oauth_unavailable` | a network failure, a timeout, 429, 5xx, a redirect or an unreadable answer: retry later |
+
+Each failure carries `status` and the provider's `oauthError` code (null when none); never a token or the provider's
+description. `createFakeOAuthProvider` serves this flow too: `fake.user.definition` and `fake.user.client`, with
+`answerFields` for the provider's own identifiers and `revokeStyle: "bearer"`.
+
 ## 5. Migrations and tables
 
-Schema `connections`, two migrations (`0001_create_accounts_and_states.sql`, `0002_add_last_error_detail.sql`):
+Schema `connections`, three migrations (`0001_create_accounts_and_states.sql`, `0002_add_last_error_detail.sql`,
+`0003_add_owner_and_subject.sql`):
 
 - `accounts`: one row per provider account: `kind`, `status` (`connected` or `reconnect_required`), `key_id`,
   `credentials` (the sealed payload), `token_type`, `scopes`, `has_refresh_token`, `expires_at`,
   `refresh_expires_at`, `connected_at`, `connected_by` (auth user id, no foreign key), `refreshed_at`, `last_error`
   (a code), `last_error_at`, `last_error_http_status` and `last_error_oauth_error` (what the token endpoint answered
-  to the last failed refresh, both nullable), and the refresh lease (`lease_id`, `lease_until`). Unique on
-  `(provider, account_id)`; checks on every enum, id shape and pair of columns.
+  to the last failed refresh, both nullable), the refresh lease (`lease_id`, `lease_until`), `owner_id` (the user a
+  connection belongs to, null for the app's own) and `subject` (the provider's account id, from `subjectField`).
+  Unique on `(provider, account_id)` among the app's rows and on `(owner_id, provider, account_id)` among the owned
+  ones; checks on every enum, id shape and pair of columns.
 - `oauth_states`: authorizations in flight: the state's sha256 (never the state), the sealed PKCE verifier, the
-  admin who started it and an expiry. One-time; expired rows go when a new authorization starts.
+  user who started it, `owner_id` (set for a user provider, always that same user) and an expiry. One-time; expired
+  rows go when a new authorization starts.
 
 `softure migrate` applies it with the other modules (after auth).
 
@@ -415,17 +523,22 @@ Every change also writes one `console.info` line, with or without the hook; a no
 
 ## 11. GDPR
 
-A connection belongs to the app (the owner's account elsewhere), not to the admin who clicked connect.
+An app connection belongs to the app (the owner's account elsewhere), not to the admin who clicked connect. A user's
+own connection (`owner: "user"`) belongs to that user.
 
-- **Export**: the connections the user made (`provider`, `accountId`, `connectedAt`) and their pending
-  authorizations. Never a token or a key.
-- **Delete**: clears the user from `connected_by` and keeps every connection; deletes the user's pending
-  authorizations. `exportConnectionsUserData` and `deleteConnectionsUserData` take `{ db }` only.
+- **Export**: the app connections the user made (`provider`, `accountId`, `connectedAt`), their pending
+  authorizations, and their own connections (`ownConnections`: provider, account, `subject`, scopes, status,
+  `connectedAt`). Never a token or a key.
+- **Delete**: clears the user from `connected_by` and keeps every app connection; deletes the user's own connections
+  (`deletedConnections`) and pending authorizations. `exportConnectionsUserData` and `deleteConnectionsUserData` take `{ db }` only.
 
 ## 12. Limitations
 
 - No provider-specific API clients; the app calls the API with the token. The one exception is `/github-app`: a
   GitHub App's installation and token calls, which an app cannot make with an OAuth token.
+- `/user-oauth` keeps no state of its own: the app stores the one-time state, the sealed grant and, if it wants one,
+  a cached access token; it refreshes without a lease, so an app that refreshes one user's grant from several workers
+  at once with a rotating provider serialises those refreshes itself.
 - Only the authorization code flow (with or without PKCE). No device flow, no client credentials grant, no OpenID
   Connect ID token checks: the module stores what the token endpoint answers.
 - One redirect URI for every provider (`appOrigin` + `routes.callback`).

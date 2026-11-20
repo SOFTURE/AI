@@ -1,0 +1,50 @@
+# SOFTURE/AI's own quality review (@softure-ai/quality-review), started by hand: Actions → quality-review-self →
+# Run workflow. It calls the reusable workflow in this repository (./.github/workflows/quality-review.yml), so a run
+# reviews the workflow and prompt of the commit it starts on. Each run opens or updates one pull request with its report
+# (branch quality-review-<focus>, plus --<scope-slug> for a scope).
+#
+# The repository is public, so a security run publishes its findings in that pull request before they are fixed: the
+# owner accepted this (2026-11-19). Triage a security report first and ship its fixes right away.
+#
+# Needs the repository secret ANTHROPIC_API_KEY and, under Settings → Actions → General, "Allow GitHub Actions to
+# create and approve pull requests".
+name: quality-review-self
+
+on:
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: general (the breadth review) or security (threat scenarios traced end to end)
+        type: choice
+        options:
+          - general
+          - security
+        default: security
+      scope:
+        description: One folder or workspace package to review, e.g. modules/auth or @softure-ai/mcp-access (empty for the whole repository)
+        type: string
+        default: ""
+      paths:
+        description: Report only findings in these globs, comma separated (empty for all)
+        type: string
+        default: ""
+      max-budget-usd:
+        description: Hard cost cap of this run in USD (15 recommended for a security run)
+        type: string
+        default: "15"
+
+permissions: {}
+
+jobs:
+  quality-review:
+    uses: ./.github/workflows/quality-review.yml
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      focus: ${{ inputs.focus }}
+      scope: ${{ inputs.scope }}
+      paths: ${{ inputs.paths }}
+      max-budget-usd: ${{ inputs.max-budget-usd }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -12,6 +12,9 @@ export const en = {
     title: "Delete your account",
     description: "This deletes your account and your data and signs you out on every device. It cannot be undone.",
     password: "Current password",
+    confirmWith: "Confirm with {provider}",
+    confirmWithLead: "Confirm it is you by signing in again, then come back here to delete the account.",
+    confirmedWith: "You signed in with {provider} a moment ago, which confirms it is you. Tick the box to delete the account.",
     confirm: "I understand that my account and my data will be deleted for good.",
     submit: "Delete my account",
     pending: "Deleting…",
@@ -29,6 +32,7 @@ export const en = {
       export_too_large: "Your data is too large to download here. Contact us and we will send it to you.",
       deletion_refused: "Your account cannot be deleted right now, because some of its data must be kept for a while. Contact us for details.",
       password_invalid: "This is not your current password.",
+      reauthentication_required: "Type your current password, or confirm it is you by signing in again.",
       confirmation_required: "Confirm that you want to delete your account.",
     },
     auth: {

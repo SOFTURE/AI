@@ -1,6 +1,6 @@
 // One claimed job run under its lease: the handler runs while a timer extends the lease, aborts the handler when the
-// lease is lost or an operator cancels, and logs a failed recording. The Node worker loop and the Workers tick start
-// every job through here.
+// lease is lost, runs out while it cannot be extended, or an operator cancels, and logs a failed recording. The Node worker loop, the Workers tick and
+// runDueJobs start every job through here.
 import type { JobHandlers } from "../handlers.js";
 import { JobCancelledError } from "../progress.js";
 import { heartbeatJob, type ClaimedJob } from "./claim.js";
@@ -8,6 +8,7 @@ import type { JobsContext } from "./context.js";
 import type { DatabaseOutage } from "./database-outage.js";
 import type { JobsLogger } from "./logger.js";
 import { getJobsOptions, getQueue } from "./options.js";
+import type { JobOutcome } from "../contract.js";
 import { runClaimedJob } from "./process.js";
 
 /** A lease is extended three times per lease period, so one slow write does not lose it. */
@@ -16,6 +17,8 @@ const HEARTBEATS_PER_LEASE = 3;
 export interface LeasedRun {
   readonly claimed: ClaimedJob;
   readonly controller: AbortController;
+  /** The recorded outcome; rejects when the recording failed (the failure is also logged). */
+  readonly outcome: Promise<JobOutcome>;
   /** Settles when the attempt is recorded (or its recording failed and was logged); never rejects. */
   readonly done: Promise<void>;
 }
@@ -34,11 +37,28 @@ export interface StartLeasedRunOptions {
 export function startLeasedRun(ctx: JobsContext, claimed: ClaimedJob, options: StartLeasedRunOptions): LeasedRun {
   const { logger, outage } = options;
   const controller = new AbortController();
-  const heartbeatMs = options.heartbeatMs ?? (getQueue(getJobsOptions(ctx.config), claimed.job.queue).leaseSeconds * 1000) / HEARTBEATS_PER_LEASE;
+  const leaseMs = getQueue(getJobsOptions(ctx.config), claimed.job.queue).leaseSeconds * 1000;
+  const heartbeatMs = options.heartbeatMs ?? leaseMs / HEARTBEATS_PER_LEASE;
+  // When the lease ends as far as this process knows: the claim's lease, then each extension from the moment it was
+  // asked for (the database sets it a little later, so this end is never later than the stored one).
+  let leaseEndsAt = claimed.job.lockedUntil?.getTime() ?? ctx.clock.now().getTime() + leaseMs;
+  let isHeartbeatInFlight = false;
+  const abortPastLease = (): boolean => {
+    if (controller.signal.aborted || ctx.clock.now().getTime() < leaseEndsAt) return false;
+    logger.warn("job lease ran out while it could not be extended; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
+    controller.abort();
+    return true;
+  };
   const heartbeat = setInterval(() => {
+    // Checked on every tick, so a heartbeat that hangs instead of failing still stops the handler at the lease end.
+    if (abortPastLease() || controller.signal.aborted || isHeartbeatInFlight) return;
+    isHeartbeatInFlight = true;
+    const askedAt = ctx.clock.now().getTime();
     heartbeatJob(ctx, claimed).then(
       (state) => {
+        isHeartbeatInFlight = false;
         outage.recover();
+        if (state === "held") leaseEndsAt = askedAt + leaseMs;
         if (controller.signal.aborted || state === "held") return;
         if (state === "cancel_requested") {
           logger.info("job cancelled by an operator; its handler is aborted", { queue: claimed.job.queue, jobId: claimed.job.id });
@@ -49,15 +69,19 @@ export function startLeasedRun(ctx: JobsContext, claimed: ClaimedJob, options: S
         controller.abort();
       },
       (error: unknown) => {
+        isHeartbeatInFlight = false;
         outage.fail("could not extend a job lease", { queue: claimed.job.queue, jobId: claimed.job.id, error });
+        // Past its lease another worker may claim the job, so the handler stops instead of running twice.
+        abortPastLease();
       },
     );
   }, heartbeatMs);
-  const done = runClaimedJob(ctx, claimed, { handlers: options.handlers, logger, signal: controller.signal, random: options.random })
+  const outcome = runClaimedJob(ctx, claimed, { handlers: options.handlers, logger, signal: controller.signal, random: options.random });
+  const done = outcome
     .then(
-      (outcome) => {
+      (recorded) => {
         outage.recover();
-        if (outcome.kind === "stale") logger.warn("job outcome not recorded: the job was taken over or released", { queue: claimed.job.queue, jobId: claimed.job.id });
+        if (recorded.kind === "stale") logger.warn("job outcome not recorded: the job was taken over or released", { queue: claimed.job.queue, jobId: claimed.job.id });
       },
       (error: unknown) => {
         outage.fail("could not record a job outcome; it runs again when its lease ends", { queue: claimed.job.queue, jobId: claimed.job.id, error });
@@ -67,6 +91,6 @@ export function startLeasedRun(ctx: JobsContext, claimed: ClaimedJob, options: S
       clearInterval(heartbeat);
       options.onSettled(run);
     });
-  const run: LeasedRun = { claimed, controller, done };
+  const run: LeasedRun = { claimed, controller, outcome, done };
   return run;
 }

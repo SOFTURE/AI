@@ -6,8 +6,8 @@ import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { readFlags } from "./options.js";
 
-export const DEFAULT_COMPOSE_FILE = "docker/prod/docker-compose.yml";
-export const DEFAULT_ENV_FILE = ".env.prod";
+const DEFAULT_COMPOSE_FILE = "docker/prod/docker-compose.yml";
+const DEFAULT_ENV_FILE = ".env.prod";
 
 /** Owner read and write only: the file holds production secrets. */
 const ENV_FILE_MODE = 0o600;

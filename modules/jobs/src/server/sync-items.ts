@@ -1,19 +1,19 @@
 // The processed-item ledger of a polled source: source + item id → outcome, attempts, first and last sighting. One
 // transaction takes the item's row (an upsert that also locks it, so two workers on one item take turns), runs the
 // caller's callback in a savepoint and records the outcome, so the caller's writes and the ledger commit together.
-import { err, ok, type Err, type ErrorCode, type Ok } from "@softure-ai/core";
+import { err, ok, type Err, type Ok } from "@softure-ai/core";
 import { and, desc, eq, gte, inArray, lt, sql, type SQL } from "drizzle-orm";
 import { syncItems, type SyncItemRow } from "../schema.js";
 import type { SyncItem, SyncItemFailure, SyncItemOutcome, SyncItemRunResult, SyncItemStatus } from "../sync.js";
 import type { JobsContext } from "./context.js";
 import { getJobsOptions } from "./options.js";
 import { checkSyncSource, SYNC_SOURCE } from "./sync-cursors.js";
+import { toStoredErrorCode } from "./error-code.js";
 
 const SYNC_ITEM_THREW = "jobs.sync_item_threw";
 const DEFAULT_MAX_ATTEMPTS = 5;
 const MAX_ITEM_ID_LENGTH = 500;
 const MAX_RESULT_REF_LENGTH = 500;
-const MAX_ERROR_LENGTH = 200;
 const DEFAULT_LIST_LIMIT = 100;
 const MAX_LIST_LIMIT = 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -150,12 +150,12 @@ async function record(
     const item =
       completion.status === "done"
         ? await finish({ status: "done", attempts: attempt, errorCode: null, resultRef: completion.resultRef ?? null, finishedAt: now })
-        : await finish({ status: "skipped", attempts: attempt, errorCode: completion.reason === undefined ? null : toErrorCode(completion.reason), finishedAt: now });
+        : await finish({ status: "skipped", attempts: attempt, errorCode: completion.reason === undefined ? null : toStoredErrorCode(completion.reason, SYNC_ITEM_THREW), finishedAt: now });
     return { kind: "handled", item };
   }
   // A callback that returned neither ok() nor an error (a JavaScript caller) counts as a throw.
   const failure = result as Partial<SyncItemFailure> | null | undefined;
-  const error = toErrorCode(typeof failure?.error === "string" ? failure.error : SYNC_ITEM_THREW);
+  const error = toStoredErrorCode(typeof failure?.error === "string" ? failure.error : SYNC_ITEM_THREW, SYNC_ITEM_THREW);
   // Before the maxAttempts rule: a waiting failure never uses up the item's attempts.
   if (failure?.retry === "wait") return { kind: "waiting", error, item: await finish({ errorCode: error }) };
   if (failure?.retry === false || attempt >= context.maxAttempts) {
@@ -296,10 +296,6 @@ function isOk(result: unknown): result is SyncItemRunResult & { ok: true } {
   return typeof result === "object" && result !== null && (result as { ok?: unknown }).ok === true;
 }
 
-function toErrorCode(error: string): ErrorCode {
-  const trimmed = error.slice(0, MAX_ERROR_LENGTH);
-  return (trimmed.includes(".") ? trimmed : SYNC_ITEM_THREW) as ErrorCode;
-}
 
 function requireRow<T>(row: T | undefined): T {
   if (row === undefined) throw new Error("@softure-ai/jobs: a sync item write returned no row");

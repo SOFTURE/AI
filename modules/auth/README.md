@@ -177,7 +177,9 @@ the variables the provider names.
   `?oidc_error=auth.oidc_not_allowed` and never gets an account.
 - **Accounts.** The provider's subject finds the account (`auth.identities`), so an email change at the provider does
   not lock its owner out. A first sign-in links the account with the same verified email, or creates one (with an
-  unusable password) when `createAccounts` is on; account creation does not look at `registrationClosed`, the
+  unusable password) when `createAccounts` is on. Registration does not prove an email, so linking an account no
+  provider has verified yet ends its password (replaced by an unusable one), its sessions and a pending reset link:
+  whoever registered the address first keeps no way in, and the owner sets a password again through a reset link; account creation does not look at `registrationClosed`, the
   allowlist is the gate. An account keeps one identity per provider: a new subject with an email that already has one
   (a recycled address) is refused with `auth.oidc_no_account`. `onRegistered` runs for a created account with
   `consent: null`, `fields: {}` and `oidcProvider: "<id>"`.
@@ -919,7 +921,12 @@ contributes to `@softure-ai/privacy` (`privacy` flags on):
   depend on it, and the app's contributors before all modules.
 
 `isCurrentPassword(ctx, userId, password)` (`/server`) checks the password again before an action
-that cannot be undone, such as the account deletion; the caller counts the attempt first.
+that cannot be undone, such as the account deletion; the caller counts the attempt first. An account a
+provider created has no password its owner knows, so it re-authenticates by signing in with the
+provider again: `findRecentProviderSignIn(ctx, { userId, sessionToken, withinMinutes })` answers the
+provider whose sign-in opened that very session within the window (a session a password login
+opened, an older one or another user's is null), and `findLinkedProviders(ctx, userId)` lists the
+providers the account signs in with.
 
 Rate limit rows of `security` hold only SHA-256 prefixes of the email and user id
 (`subjectKey`), pruned two windows after they start; they are not exported or deleted.
@@ -945,7 +952,8 @@ Rate limit rows of `security` hold only SHA-256 prefixes of the email and user i
   at most N accounts keeps registration closed.
 - OpenID Connect: no Front-Channel or Back-Channel Logout (a sign-out at the provider leaves the app's session), no
   refresh of the account's email from the provider (`users.email` keeps the first one; `identities.email` follows),
-  and `isCurrentPassword` cannot re-check an account that has no password of its own. With passwords on and reset
-  configured, the owner of an account created by a sign-in can still set a password through a reset link.
+  and `isCurrentPassword` cannot re-check an account that has no password of its own (use
+  `findRecentProviderSignIn`). With passwords on and reset configured, the owner of an account created by a sign-in
+  can still set a password through a reset link.
 - A registration attempt reveals whether an email has an account (`auth.email_taken`); the
   `register` rate limit bounds how fast anyone can ask.

@@ -200,7 +200,11 @@ What the owner does once per app (or once per bucket shared by several apps on o
    the next night's `maintain` uploads.
 7. **Weekly verify:** copy [examples/backup-verify.yml](examples/backup-verify.yml) into the app's repository with its
    own GitHub Environment `backup-verify` (read token, prefix, and the private key as `BACKUP_AGE_IDENTITY` if the
-   owner accepts it there), or run `verify` by hand on the owner's machine each week.
+   owner accepts it there), or run `verify` by hand on the owner's machine each week. Set `IMAGE` to the app's image
+   without a tag: the workflow takes the newest published release whose tag the registry holds, so a run that starts
+   while a release is being cut checks against the release that still runs. A failed run opens an issue labelled
+   `backup-verify` (or comments on the open one), assigned to the repository's owner, and the next green run closes
+   it; GitHub alone mails a failed scheduled run only to whoever last edited its cron line.
 8. **Alert** on the metric: `softure_backup_last_success_age_seconds > 93600` (26 h) for 15 minutes, and on
    `softure_backup_last_run_ok == 0`.
 

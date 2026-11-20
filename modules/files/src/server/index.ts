@@ -8,12 +8,15 @@ export {
   getOwnerUsage,
   listFiles,
   openFile,
+  setFileExpiry,
   type DeleteFileResult,
   type FileLookupOptions,
   type ListFilesInput,
   type OpenedFile,
   type OpenFileOptions,
   type OpenFileResult,
+  type SetFileExpiryInput,
+  type SetFileExpiryResult,
 } from "./files.js";
 export { checkFilesHealth, type FilesHealthErrorCode } from "./health.js";
 export { FILES_LINK_KEYS_ENV, generateFilesLinkKey, readLinkKeyring, type LinkKeyring, type LinkKeyringResult } from "./keys.js";

@@ -4,6 +4,17 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`marketing-kit@x.y.z`).
 
+## 0.45.1
+
+- **A clip recorded in one channel plays on both (issue #1385):** a stereo clip whose sound lives in one channel only
+  (a wireless lavalier receiver in stereo mode with one transmitter: voice left, a dead right channel) kept its
+  stereo in the speech chain, so the draft and the render played the voice in the left ear only. `prepareClipSounds`
+  now measures every clip's channels first (`buildChannelMeasureArgs`, `readChannelRmsDb`, `getChannelBalance`); a
+  clip whose quieter channel is under -70 dBFS RMS and at least 30 dB under the other (`ONE_SIDED_CHANNEL`) has its
+  live channel copied onto both (`getChannelFoldFilter`) before the pre-gain is measured and the sound is extracted.
+  `ClipSound.channels` says what was done and the `log` gets a line per folded clip (`describeChannelFold`). Real
+  stereo, mono and silence keep their exact arguments.
+
 ## 0.45.0
 
 - **The draft sets every line on the render's baseline:** libass sets a line's baseline `usWinAscent` below its top,

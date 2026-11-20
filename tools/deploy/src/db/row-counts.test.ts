@@ -1,5 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { compareRowCounts, countRows, formatRowCountChange, formatRowCountLoss, parseTableList, rowCountsFileSchema } from "./row-counts.js";
 
 describe("parseTableList", () => {
@@ -43,6 +43,14 @@ describe("countRows", () => {
       ["billing.subscriptions", 3],
       ["ledger.entries", null],
     ]);
+  });
+
+  it("refuses a name that is not a table name before running any query", async () => {
+    const query = vi.spyOn(database, "query");
+    await expect(countRows(database, ["users", 'users" ; DROP TABLE users; --'])).rejects.toThrow(
+      'countRows: not a table name: "users\\" ; DROP TABLE users; --"',
+    );
+    expect(query).not.toHaveBeenCalled();
   });
 
   it("counts an empty table as 0, not as absent", async () => {

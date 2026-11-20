@@ -7,6 +7,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { FetchFunction } from "@softure-ai/core";
 import type { ProviderDefinitionInput } from "../options.js";
+import type { UserOAuthClient, UserOAuthProviderInput } from "../user-oauth/provider.js";
 
 export interface FakeOAuthProviderOptions {
   /** The provider id. Default `fake`. */
@@ -30,6 +31,17 @@ export interface FakeOAuthProviderOptions {
   /** Answer `refresh_token_expires_in`. */
   readonly refreshTokenTtlSeconds?: number;
   readonly accounts?: readonly string[];
+  /** Extra top-level string fields of every token answer (`{ account_id: "dbid:1" }`). */
+  readonly answerFields?: Readonly<Record<string, string>>;
+  /** How the user-OAuth definition revokes: RFC 7009 (default) or a bare POST with the bearer access token. */
+  readonly revokeStyle?: "rfc7009" | "bearer";
+}
+
+/** How the user answers the fake consent screen. */
+export interface FakeConsentOptions {
+  readonly deny?: boolean;
+  /** Extra fields the code exchange answers next to the token (the provider's account id, for `subjectField`). */
+  readonly tokenFields?: Readonly<Record<string, string>>;
 }
 
 /** A failure the next token or revoke calls answer with, in order. */
@@ -47,6 +59,8 @@ export type FakeFailure =
 export interface FakeOAuthProvider {
   /** The provider entry for `connections({ providers: [fake.definition] })`. */
   readonly definition: ProviderDefinitionInput;
+  /** The same provider for `@softure-ai/connections/user-oauth`: `defineUserOAuthProvider(fake.user.definition)`. */
+  readonly user: { readonly definition: UserOAuthProviderInput; readonly client: UserOAuthClient };
   /** The environment the definition needs (its client secret), for the module context's `env`. */
   readonly env: Readonly<Record<string, string>>;
   /** The `fetch` for `connections({ fetch })`. */
@@ -55,7 +69,7 @@ export interface FakeOAuthProvider {
    * The user at the provider's consent screen: checks the authorize URL and answers the callback URL the provider
    * redirects to, with `code` and `state`, or `error=access_denied` when denied.
    */
-  consent(authorizeUrl: string, options?: { readonly deny?: boolean }): URL;
+  consent(authorizeUrl: string, options?: FakeConsentOptions): URL;
   /** Every live refresh token dies: the next refresh answers `invalid_grant` (consent revoked, testing mode). */
   revokeGrant(): void;
   /** The next calls to the token or revoke endpoint fail like this, one per entry. */
@@ -86,6 +100,7 @@ interface PendingCode {
   readonly redirectUri: string;
   readonly challenge: string | null;
   readonly scope: string;
+  readonly tokenFields: Readonly<Record<string, string>>;
 }
 
 const random = () => randomBytes(24).toString("base64url");
@@ -111,10 +126,10 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
 
   const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-  function issue(scope: string, refreshToken: string | null): Response {
+  function issue(scope: string, refreshToken: string | null, tokenFields: Readonly<Record<string, string>> = {}): Response {
     const accessToken = `at-${random()}`;
     accessTokens.add(accessToken);
-    const body: Record<string, unknown> = { access_token: accessToken, token_type: "Bearer", scope };
+    const body: Record<string, unknown> = { ...options.answerFields, ...tokenFields, access_token: accessToken, token_type: "Bearer", scope };
     if (ttl !== null) body.expires_in = ttl;
     if (refreshToken !== null) body.refresh_token = refreshToken;
     if (refreshToken !== null && options.refreshTokenTtlSeconds !== undefined) body.refresh_token_expires_in = options.refreshTokenTtlSeconds;
@@ -172,7 +187,7 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
         const verifier = form.get("code_verifier") ?? "";
         if (createHash("sha256").update(verifier, "ascii").digest("base64url") !== pending.challenge) return json(400, { error: "invalid_grant" });
       }
-      return issue(pending.scope, issuesRefreshToken ? newRefreshToken(pending.scope) : null);
+      return issue(pending.scope, issuesRefreshToken ? newRefreshToken(pending.scope) : null, pending.tokenFields);
     }
     if (grantType === "refresh_token") {
       calls.refresh += 1;
@@ -207,7 +222,8 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
     if (url === urls.token && init.method === "POST") return handleToken(form, authorization);
     if (url === urls.revoke && init.method === "POST") {
       calls.revoke += 1;
-      const token = form.get("token") ?? "";
+      // The bearer style names the access token in the header and sends no form.
+      const token = form.get("token") ?? (authorization?.startsWith("Bearer ") === true ? authorization.slice(7) : "");
       refreshTokens.delete(token);
       accessTokens.delete(token);
       return new Response(null, { status: 200 });
@@ -229,6 +245,18 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
       clientSecretEnv,
       clientAuth: options.clientAuth ?? "body",
       rotatesRefreshToken: rotates,
+    },
+    user: {
+      definition: {
+        id,
+        authorizeUrl: urls.authorize,
+        tokenUrl: urls.token,
+        revoke: { style: options.revokeStyle ?? "rfc7009", url: urls.revoke },
+        scopes,
+        clientAuth: options.clientAuth ?? "body",
+        rotatesRefreshToken: rotates,
+      },
+      client: { clientId, clientSecret },
     },
     env: { [clientSecretEnv]: clientSecret },
     fetch,
@@ -252,7 +280,7 @@ export function createFakeOAuthProvider(options: FakeOAuthProviderOptions = {}):
       if (challenge !== null && method !== "S256") throw new Error("fake provider: only S256 is accepted");
       const code = `code-${random()}`;
       const scope = (options.grantedScopes ?? params.get("scope")?.split(/[ ,]/) ?? []).join(" ");
-      codes.set(code, { clientId, redirectUri, challenge, scope });
+      codes.set(code, { clientId, redirectUri, challenge, scope, tokenFields: { ...consentOptions.tokenFields } });
       callback.searchParams.set("code", code);
       return callback;
     },

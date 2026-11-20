@@ -5,10 +5,10 @@ import { createSession, findSessionUser } from "@softure-ai/auth/server";
 import { defineSoftureConfig } from "@softure-ai/core";
 import { auth } from "@softure-ai/auth";
 import { privacy, PRIVACY_RATE_LIMIT_BUCKETS } from "@softure-ai/privacy";
-import { deleteOwnAccount, exportOwnData } from "@softure-ai/privacy/server";
+import { deleteOwnAccount, exportOwnData, getDeletionReauthentication } from "@softure-ai/privacy/server";
 import { headerIp, security } from "@softure-ai/security";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createTestPrivacy, findTraces, PASSWORD, seedUser, type SeededUser, type TestPrivacy } from "./support.js";
+import { createConfig, createTestPrivacy, findTraces, PASSWORD, profileContributor, seedUser, type SeededUser, type TestPrivacy } from "./support.js";
 
 describe("self-service privacy", () => {
   let test: TestPrivacy;
@@ -89,5 +89,84 @@ describe("self-service privacy", () => {
     await expect(exportOwnData(ctx, { userId: ada.id })).rejects.toThrow(
       '@softure-ai/privacy: security({ buckets }) lacks "privacy-export", "privacy-delete"; spread PRIVACY_RATE_LIMIT_BUCKETS into it',
     );
+  });
+});
+
+describe("deleteOwnAccount with a provider sign-in instead of the password", () => {
+  let test: TestPrivacy;
+  let ada: SeededUser;
+
+  beforeEach(async () => {
+    test = await createTestPrivacy();
+    ada = await seedUser(test, "ada@example.com");
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  /** Ada signs in with a provider now: the identity is stamped, then the session opens, as the callback does. */
+  async function signInWithProvider(): Promise<string> {
+    await test.database.client.query(
+      `INSERT INTO auth.identities (provider, subject, user_id, email, created_at, last_login_at) VALUES ('github', 'sub-ada', $1, $2, $3, $3)
+       ON CONFLICT (provider, subject) DO UPDATE SET last_login_at = EXCLUDED.last_login_at`,
+      [ada.id, ada.email, test.clock.now()],
+    );
+    return (await createSession(test.ctx, ada.id)).token;
+  }
+
+  it("deletes the account right after a provider sign-in opened this session, without a password", async () => {
+    const sessionToken = await signInWithProvider();
+    test.clock.advance(5 * 60 * 1000);
+    expect(await deleteOwnAccount(test.ctx, { userId: ada.id, sessionToken, isConfirmed: true })).toEqual({ ok: true, value: undefined });
+    expect(await findTraces(test.database, [ada.id, ada.email])).toEqual([]);
+  });
+
+  it("refuses once the sign-in is older than deletion.recentSignInMinutes", async () => {
+    const sessionToken = await signInWithProvider();
+    test.clock.advance(10 * 60 * 1000 + 1);
+    expect(await deleteOwnAccount(test.ctx, { userId: ada.id, sessionToken, isConfirmed: true })).toEqual({
+      ok: false,
+      error: "privacy.reauthentication_required",
+    });
+    expect(await findTraces(test.database, [ada.id])).toContain("auth.users.id");
+  });
+
+  it("takes the window from the options", async () => {
+    test = await createTestPrivacy(createConfig({ contributors: [profileContributor], deletion: { recentSignInMinutes: 30 } }));
+    ada = await seedUser(test, "ada@example.com");
+    const sessionToken = await signInWithProvider();
+    test.clock.advance(20 * 60 * 1000);
+    expect((await deleteOwnAccount(test.ctx, { userId: ada.id, sessionToken, isConfirmed: true })).ok).toBe(true);
+  });
+
+  it("refuses a session that a password login opened, and a missing session", async () => {
+    await signInWithProvider();
+    test.clock.advance(60 * 1000 + 1);
+    const loginSession = await createSession(test.ctx, ada.id);
+    expect(await deleteOwnAccount(test.ctx, { userId: ada.id, sessionToken: loginSession.token, isConfirmed: true })).toEqual({
+      ok: false,
+      error: "privacy.reauthentication_required",
+    });
+    expect(await deleteOwnAccount(test.ctx, { userId: ada.id, password: "", isConfirmed: true })).toEqual({
+      ok: false,
+      error: "privacy.reauthentication_required",
+    });
+    expect(await findTraces(test.database, [ada.id])).toContain("auth.users.id");
+  });
+
+  it("checks a typed password even after a provider sign-in", async () => {
+    const sessionToken = await signInWithProvider();
+    expect(await deleteOwnAccount(test.ctx, { userId: ada.id, password: "not my password", sessionToken, isConfirmed: true })).toEqual({
+      ok: false,
+      error: "privacy.password_invalid",
+    });
+  });
+
+  it("tells the form which providers the account has and which one confirms now", async () => {
+    expect(await getDeletionReauthentication(test.ctx, { userId: ada.id, sessionToken: null })).toEqual({ linkedProviders: [], recentProvider: null });
+    const sessionToken = await signInWithProvider();
+    expect(await getDeletionReauthentication(test.ctx, { userId: ada.id, sessionToken })).toEqual({ linkedProviders: ["github"], recentProvider: "github" });
+    test.clock.advance(11 * 60 * 1000);
+    expect(await getDeletionReauthentication(test.ctx, { userId: ada.id, sessionToken })).toEqual({ linkedProviders: ["github"], recentProvider: null });
   });
 });

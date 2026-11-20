@@ -163,7 +163,7 @@ export async function recordBreakerOutcome(
 
 /**
  * Pauses a queue for a handler's refusal (`pauseQueueLater`) in the caller's transaction. Never shortens an active
- * pause and never replaces an operator's: then nothing changes and it returns null.
+ * pause and never replaces an operator's, timed or not: then nothing changes and it returns null.
  */
 export async function pauseQueueForHandler(
   db: Queryable,
@@ -173,7 +173,7 @@ export async function pauseQueueForHandler(
   const until = new Date(now.getTime() + input.seconds * 1000);
   const row = await lockRow(db, queue, now);
   const active = toActivePause(row, now);
-  if (active !== null && (active.until === null || active.until.getTime() >= until.getTime())) return null;
+  if (active !== null && (active.source === "operator" || active.until === null || active.until.getTime() >= until.getTime())) return null;
   await db.update(queueState).set({ pauseSource: "handler", pauseReason: code, pausedUntil: until, updatedAt: now }).where(eq(queueState.queue, queue));
   return { queue, code, until, source: "handler", at: now };
 }

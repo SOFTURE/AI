@@ -69,8 +69,12 @@ export { LaunchScreen, type LaunchScreenProps } from "./notion/LaunchScreen.js";
 export {
   LIST_CLASSES,
   List,
+  ListGroup,
+  ListGroupHeading,
   ListItem,
   ListRow,
+  type ListGroupHeadingProps,
+  type ListGroupProps,
   type ListItemProps,
   type ListProps,
   type ListRowProps,
@@ -81,6 +85,7 @@ export { MarkPopover, type MarkPopoverProps } from "./notion/MarkPopover.js";
 export { MiniProgress, type MiniProgressProps } from "./notion/MiniProgress.js";
 export { PageFrame, type PageFrameProps } from "./notion/PageFrame.js";
 export { PageHeader, type PageCrumb, type PageHeaderProps } from "./notion/PageHeader.js";
+export { PROSE_CLASSES, Prose, type ProseProps } from "./notion/Prose.js";
 export { PropertyList, type Property, type PropertyListProps } from "./notion/PropertyList.js";
 export { clampSize, RESIZE_HANDLE_STEP } from "./notion/clamp-size.js";
 export { ResizeHandle, type ResizeHandleProps } from "./notion/ResizeHandle.js";
@@ -97,6 +102,7 @@ export {
   type SortableAnnouncements,
   type SortableDragBy,
   type SortableHandleProps,
+  type SortableHandleReveal,
   type SortableItemProps,
   type SortableListProps,
   type SortableMove,

@@ -153,7 +153,7 @@ function getPathOf(text: string, base: string): string | null {
 }
 
 /** Every `<loc>` of a sitemap (a urlset) whose path contains `match`. */
-export function readSitemapEntries(xml: string, sourceUrl: string, match: string | undefined): ReadEntries {
+function readSitemapEntries(xml: string, sourceUrl: string, match: string | undefined): ReadEntries {
   const entries: LoopEntry[] = [];
   for (const [, raw = ""] of xml.matchAll(/<loc>([^<]*)<\/loc>/g)) {
     const text = raw.trim().replace(/&(amp|lt|gt|quot|apos);/g, (entity) => XML_ENTITIES[entity] ?? entity);
@@ -169,7 +169,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Every entry of a JSON index: its `url` key as a path and, unless `digest` is null, its digest. */
-export function readIndexEntries(text: string, sourceUrl: string, keys: Extract<RouteLoop, { index: string }>): ReadEntries {
+function readIndexEntries(text: string, sourceUrl: string, keys: Extract<RouteLoop, { index: string }>): ReadEntries {
   let document: unknown;
   try {
     document = JSON.parse(text);

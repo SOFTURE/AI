@@ -145,6 +145,52 @@ pre-push:
       skip: true
 ```
 
+### The same checks in CI
+
+A CI checkout has no upstream, so without help both bins answer "run everything" there. `--since <commit>` names
+the base of the range instead of `@{push}`: `softure-context-only-push --since <commit>` compares `<commit>` with
+`HEAD`, and `softure-merge-push-scope is-merge|is-full|related --since <commit> [-- <command>]` classifies the commits
+of `<commit>..HEAD` against the main branch on `origin`. `--since=<commit>` works too. An unknown commit (a force push,
+the all-zeros sha of a new branch) answers "not context-only" and `full`; without `--since` nothing changes.
+
+Pass the head commit of the pull request's last run whose heavy jobs passed, not `github.event.before`: that push
+may have been cancelled or failed, and skipping on top of it would skip untested code. Check out the pull request
+head with full history, since the default `pull_request` checkout is GitHub's merge of the branch into the base:
+
+```yaml
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      skip-tests: ${{ steps.scope.outputs.skip-tests }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          tested=$(gh run list --workflow ci.yml --branch "$BRANCH" --event pull_request --status success \
+            --limit 1 --json headSha --jq '.[0].headSha // ""')
+          skip=false
+          if [ -n "$tested" ] && npx --yes -p @softure-ai/config@^0.1.7 softure-context-only-push --since "$tested"; then
+            skip=true
+          fi
+          echo "skip-tests=$skip" >> "$GITHUB_OUTPUT"
+  test:
+    needs: scope
+    if: needs.scope.outputs.skip-tests != 'true'
+    # ...
+```
+
+A green run that skipped its tests counts as tested here on purpose: its code outside `context/` (or the main branch
+it merged) is the code of a run that did test it. A workflow that also wants the merge speed runs
+`softure-merge-push-scope is-merge --since "$tested"` the same way and, when it exits 0, replaces the full suite with
+`softure-merge-push-scope related --since "$tested" -- <its related-test command>`.
+
 Install the hooks from `prepare`, skipped when `CI` is set (lefthook 2 installs unconditionally, and a CI checkout
 has no use for hooks):
 

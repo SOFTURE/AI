@@ -86,7 +86,7 @@ function runCheck(value: string): { status: number | null; output: string } {
 }
 
 describe("the reusable workflows", () => {
-  it("include the nine the issue lists", () => {
+  it("include the nine the issue lists and the tested tree (#1373)", () => {
     expect(REUSABLE).toEqual(
       expect.arrayContaining([
         "blog-links.yml",
@@ -98,6 +98,7 @@ describe("the reusable workflows", () => {
         "deploy-release-image.yml",
         "deploy-release-notes.yml",
         "deploy-report.yml",
+        "deploy-tested-tree.yml",
       ]),
     );
   });
@@ -253,13 +254,14 @@ const GH_STEP = getJobSteps("deploy-cut-release.yml", "cut")[1];
 const GH_SCRIPT = GH_STEP?.run ?? "exit 99";
 
 describe("the jobs that call gh", () => {
-  it("are the five the issue's workflows run gh in, and the quality review's delivery (#1212)", () => {
+  it("are the five the issue's workflows run gh in, the tested tree's compare (#1373) and the quality review's delivery (#1212)", () => {
     expect(GH_JOBS.sort()).toEqual([
       "deploy-cancel-run.yml → cancel",
       "deploy-cut-release.yml → cut",
       "deploy-integration.yml → record",
       "deploy-release-notes.yml → notes",
       "deploy-report.yml → report",
+      "deploy-tested-tree.yml → compare",
       "quality-review.yml → deliver",
     ]);
   });

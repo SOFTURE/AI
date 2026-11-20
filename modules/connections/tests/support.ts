@@ -74,3 +74,12 @@ export async function readRawRow(database: TestDatabase, provider: string, accou
   if (row === undefined) throw new Error(`test: no row for ${provider}/${accountId}`);
   return row;
 }
+
+type OAuthDefinitionInput = Extract<ProviderDefinitionInput, { kind: "oauth" }>;
+
+/** The fake provider's definition as a provider each signed-in user owns, under another id. */
+export function createOwnedProvider(fake: FakeOAuthProvider, fields: { readonly id: string } & Partial<OAuthDefinitionInput>): OAuthDefinitionInput {
+  const definition = fake.definition;
+  if (definition.kind !== "oauth") throw new Error("test: the fake provider is not an OAuth provider");
+  return { ...definition, owner: "user", returnPath: `/settings/${fields.id}`, label: { en: "Drive" }, ...fields };
+}

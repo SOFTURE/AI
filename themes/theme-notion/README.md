@@ -136,7 +136,8 @@ avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, co
 field, input, input-group, item, kbd, label, popover, progress, radio-group, scroll-area, select, separator, sheet,
 sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
 word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
-`DetailTable` (an item's details as a label and value table), `FoldRow` (a list row folding open to a `DetailTable`
+`DetailTable` (an item's details as a label and value table, laid out fixed at its container's width, each label
+above its value where the table is narrower than 28rem), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, such as a package's sign-in page),
 `SidePanel` (a non-modal panel at a side of a canvas, below), `ResizeHandle` (a drag handle that sets a column's width, below), `AsidePanelProvider`, `AsidePanelToggle`,
 `AsidePanel` and `AsidePanelSidebarOpener` (a panel slid in from the right of the app shell, beside the content, below), `SheetMenu`, `SheetMenuItem` and `SheetMenuButton`
@@ -145,8 +146,10 @@ and count, the shown tab in the address; `Tabs` keeps it in client state), `Mark
 list of what it counts, below), `FilterChip` and `FilterChipAdd` (a list's filter pills, below), `Steps` (numbered
 stages with a state, below), `Timeline` (dated entries on a vertical rail, below), `Code` (inline code) and `CodeBlock` (a mono block for logs and paths, below),
 `CopyButton` (one value to the clipboard, with a moment of "Copied", below),
+`Prose` (the text styles of a long read the app does not draw itself, such as Markdown rendered to HTML, below),
 `SortableList`, `SortableItem`, `SortableHandle` and `SortableActivator` (rows reordered by dragging, below),
 `List`, `ListItem` and `ListRow` (a list of rows, compact or roomy by the page's density, below),
+`ListGroup` and `ListGroupHeading` (a run of rows under a heading that sticks at the top of its scroll, below),
 `MiniProgress` (a compact bar with its figure inside, for a table cell or a tile, below),
 `UpdatePrompt` (the offer to reload into a new build, for an installed app, below),
 `InstallBar` (the offer to install the app on a phone, below),
@@ -166,7 +169,8 @@ and zoom; one row per document with its type, size and an "available offline" ma
 (`SelectItem size="touch"`; an item's own `size` wins over its list's). The same rule holds for the dropdown menu
 (`DropdownMenuContent size="touch"`, or `size="touch"` on a `DropdownMenuItem`, `DropdownMenuCheckboxItem`,
 `DropdownMenuRadioItem` or `DropdownMenuSubTrigger`) and the tabs (`TabsList size="touch"` grows to its triggers,
-each at least 44 × 44, or `TabsTrigger size="touch"`). `AccordionTrigger size="touch"` is at least 44 px high
+each at least 44 × 44, or `TabsTrigger size="touch"`). `TabBar size="touch"` draws every tab link at least 44 × 44 (`data-size="touch"`), and its
+`tabClassName` goes on every link after the size (`tabClassName="md:h-control-height md:min-w-0"` on a desktop). `AccordionTrigger size="touch"` is at least 44 px high
 whatever its padding, and `DialogContent closeButtonSize="touch"` draws the close button 44 × 44 around the same
 icon. Each sets its height with a plain class, so one breakpoint class brings the pointer size back on a desktop.
 
@@ -487,6 +491,41 @@ scheme the theme's `border` is that card's own grey.
 renders with other components, `LIST_CLASSES` holds the same classes (`list`, `tintedList`, `item`, `row`), e.g.
 `<SortableList className={LIST_CLASSES.list}>` with `<SortableItem className={LIST_CLASSES.item}>`.
 
+**`ListGroup`, `ListGroupHeading`: a sticky group heading.** A heading over a run of rows (a country's days, a month's
+entries) that sticks at the top of the scroll container while its rows pass under it, and is pushed away by the next
+group's heading. Put the groups straight in the scrolling element and give it no padding: a sticky box sticks at the
+scroll container's padding edge, so top padding would leave a strip above the stuck heading. `ListGroup` holds the side
+room (`px-2`) and the heading bleeds over it (`-mx-2 px-4`), so the heading spans the whole scrollport and its text
+lines up with the rows'. The heading is `text-ui-medium` in `foreground` on the page's `background` with a `border`
+line under it, 40 px high; every `ListItem` in the group gets the same scroll margin, so a row scrolled into view
+(`scrollIntoView({ block: "nearest" })`) stops below the heading. On a grey card pass `surface="tinted"` to both the
+heading and the list: the heading takes `secondary` and its line the page's `background`.
+
+```tsx
+<div className="h-full overflow-y-auto">
+  {countries.map((country) => (
+    <ListGroup key={country.id} asChild aria-labelledby={`country-${country.id}`}>
+      <section>
+        <ListGroupHeading asChild>
+          <h3 id={`country-${country.id}`}>{country.name}</h3>
+        </ListGroupHeading>
+        <List as="ol" aria-label={`Days in ${country.name}`}>
+          {country.days.map((day) => (
+            <ListItem key={day.id}>
+              <ListRow asChild>
+                <button type="button" onClick={() => open(day.id)}>{day.label}</button>
+              </ListRow>
+            </ListItem>
+          ))}
+        </List>
+      </section>
+    </ListGroup>
+  ))}
+</div>
+```
+
+`LIST_CLASSES.group`, `groupHeading` and `tintedGroupHeading` give the same classes to a group the app renders itself.
+
 **`MiniProgress`.** A share with its figure inside the bar, for a table cell or a tile where a figure next to a
 `Progress` would collide with it: a 20 px rounded track (`primary/12`) that takes the cell's width (at least 64 px),
 filled in `primary` (the link blue in dark, as in `Progress`) or in its `tone`'s colour. `value` is 0–100, clamped
@@ -544,6 +583,22 @@ app after a copy. A client component. `data-slot="copy-button"`, `data-copied` w
   <CodeBlock className="min-w-0 flex-1">{url}</CodeBlock>
   <CopyButton value={url} label="Copy URL" copiedLabel="Copied" />
 </div>
+```
+
+**`Prose`.** A long read whose elements the app does not draw itself, such as Markdown rendered to HTML (a help page,
+a documentation article, a CMS body): headings take `heading-1` to `heading-3` with more room above than below,
+paragraphs the `body` style, lists their markers in the quiet foreground, links the `link` colour underlined, inline
+code the `Code` look and a `pre` block the `CodeBlock` look, quotes and rules a quiet `border` line, and a table the
+`ui` size with lines between rows (a wide one scrolls inside its block). The blocks share one rhythm, with none before
+the first or after the last. Put the page's title in a `PageHeader` above it. `asChild` keeps the app's element (an
+`article`); `PROSE_CLASSES` gives the same classes to a wrapper the app styles itself. Pass HTML only from content the
+app trusts (its own files), never a visitor's text. `data-slot="prose"`.
+
+```tsx
+<PageHeader title={doc.title} description={doc.description} />
+<Prose asChild>
+  <article dangerouslySetInnerHTML={{ __html: renderMarkdown(doc.body) }} />
+</Prose>
 ```
 
 **`UpdatePrompt`.** The offer to reload into a new build, for an installed app on `@softure-ai/pwa`: a floating
@@ -656,7 +711,8 @@ shows from an object URL; another type, a broken file or a failed fetch shows a 
 Call `loadPdfjsEngine()` once while online (e.g. when a page with documents opens): its chunks are ordinary build
 files, so a service worker that keeps `/_next/static/` has them for an offline open later. `DocumentRow` is one
 `li` of a `DocumentList`: an icon by type (`getDocumentKind`), the title as a touch-sized button that calls `onOpen`,
-the size, an "available offline" mark with `isOffline`, and `actions` (e.g. a menu) after it. Every text has a
+the size, an "available offline" mark with `isOffline`, the app's `details` (e.g. "Confirmation · from e-mail · added
+18 Nov", which wraps under the title on a narrow row), and `actions` (buttons only; they never shrink) after it. Every text has a
 `messages` override (`notionMessages.en.document`).
 
 ```tsx
@@ -724,7 +780,10 @@ moves up and down. The lifted row floats on `accent-strong` with `shadow-menu` a
 `data-dragging`; every row has `touch-manipulation select-none` and no long-press callout. The order stays with the
 app: `items` are the rows' ids in order, and `onReorder(next, { id, from, to })` gets the new order on a drop.
 `dragBy="handle"` leaves the row alone and drags only by a `SortableHandle` (a ghost grip button, for a desktop list;
-a mouse starts at once there). A screen reader hears the `instructions` on the row (or handle) and the
+a mouse starts at once there). `reveal="hover"` on the handle shows the grip, as Notion does, only while its row is
+hovered, has focus within or is lifted, under a fine pointer; a touch screen, which has no hover, always shows it. The
+hidden grip keeps its place, its tab stop and its hit area (only its opacity changes), and every `SortableItem`
+carries `group/sortable-item` for it, so the app adds no class. A screen reader hears the `instructions` on the row (or handle) and the
 `announcements` while it moves: strings with `{item}`, `{position}` and `{total}`, where `getItemLabel(id)` names the
 row (the id by default). `data-slot="sortable-list"`, `sortable-item` (with `data-id`), `sortable-handle` and
 `sortable-activator` mark the parts.
@@ -754,7 +813,7 @@ secondary content with `group` on the list). `as="ol"` renders a numbered list; 
 <SortableList label="Columns" items={columns} onReorder={setColumns} dragBy="handle">
   {columns.map((id) => (
     <SortableItem key={id} id={id} className="flex items-center gap-1 px-1">
-      <SortableHandle label="Move column" />
+      <SortableHandle label="Move column" reveal="hover" />
       {id}
     </SortableItem>
   ))}

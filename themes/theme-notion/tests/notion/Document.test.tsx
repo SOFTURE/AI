@@ -304,4 +304,34 @@ describe("DocumentList and DocumentRow (MR-344)", () => {
     render(<DocumentRow title="A.pdf" contentType="application/pdf" size={1} onOpen={() => undefined} />);
     expect(document.querySelector('[data-slot="document-row-actions"]')).toBeNull();
   });
+
+  it("#1349 draws the details after the size inside the row's wrapping line, apart from the actions", () => {
+    render(
+      <DocumentRow
+        title="Hotel.pdf"
+        contentType="application/pdf"
+        size={1500}
+        onOpen={() => undefined}
+        details="Confirmation · from e-mail · added 18 Nov"
+        actions={<button type="button">Rename</button>}
+      />,
+    );
+    const details = document.querySelector<HTMLElement>('[data-slot="document-row-details"]');
+    expect(details?.textContent).toBe("Confirmation · from e-mail · added 18 Nov");
+    // Inside the open button, after the size: it wraps under the title on a narrow row and never shrinks the actions.
+    expect(details?.parentElement?.dataset["slot"]).toBe("document-row-open");
+    expect(details?.previousElementSibling?.getAttribute("data-slot")).toBe("document-row-size");
+    expect(details?.className.split(" ")).toEqual(["min-w-0", "text-small", "text-muted-foreground"]);
+    expect(details?.className).not.toContain("nowrap");
+    expect(details?.closest('[data-slot="document-row-actions"]')).toBeNull();
+    expect(screen.getByRole("button", { name: /Hotel\.pdf/ }).parentElement?.dataset["slot"]).toBe("document-row");
+  });
+
+  it("#1349 leaves the details out when there are none, null or empty", () => {
+    for (const details of [undefined, null, ""]) {
+      render(<DocumentRow title="A.pdf" contentType="application/pdf" size={1} onOpen={() => undefined} details={details} />);
+      expect(document.querySelector('[data-slot="document-row-details"]')).toBeNull();
+      cleanup();
+    }
+  });
 });

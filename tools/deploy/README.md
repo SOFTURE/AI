@@ -135,8 +135,10 @@ softure-deploy release-report --body=<release body file> --summary=deploy-report
 ## Database steps around a deploy
 
 `backup`, `schema-guard` and `row-counts` read the database URL from `DATABASE_URL` (`--url-env=<NAME>` names
-another variable). The URL is never printed; a driver error prints its message only. A server `deploy.sh` runs them
-in this order:
+another variable). The URL is never printed; a driver error prints its message only. `schema-guard` and `row-counts`
+connect with time limits (10 s to connect, 10 minutes per statement, 30 s per lock wait), so a lock held by a
+migration running at the same time fails the step with a message instead of hanging it. A server `deploy.sh` runs
+them in this order:
 
 ```bash
 softure-deploy backup --dir=/srv/app/backups --keep=7                   # 1. dump, then retention
@@ -173,6 +175,9 @@ softure-deploy backup [--dir=backups] [--prefix=db] [--keep=7] [--max-age-days=<
   for `pg_dump`, and other `PG*` variables of the shell are not passed on. A URL query parameter without a libpq
   variable is refused by name.
 - The dump is written with mode `0600` through a temporary file and a rename; a failed `pg_dump` leaves no file.
+- **Time limits:** `pg_dump` waits at most 30 s for a table lock (`--lock-wait-timeout`), 10 s for the connection
+  unless the URL sets `connect_timeout`, and is stopped after 60 minutes in all (`timeoutMs` of `createBackup`); each
+  ends the backup as failed instead of holding the deploy.
 - **Integrity:** the new file must start with the custom format's `PGDMP` header; otherwise it is removed and the
   step fails, before any retention.
 - **Retention** runs only after a dump succeeded: the newest `--keep` dumps of `--prefix` stay, older ones of that
@@ -514,6 +519,7 @@ flags the expression that builds it. For the release tag, between them:
 | `e2e` | `false` | this repository's own end-to-end test (below); refused in any other repository |
 | `deploy` | `true` | `false` stops after the build: no deploy, verify or summary job; the caller's own jobs run the deploy action with the `release` output (below) |
 | `build` | `true` | `false` (with `deploy: false`, without `prebuilt-image`) runs the check job alone: `release` and `sha` within a minute, for a preflight and an image built next to the checks (**Fail fast**, below) |
+| `guard-in-job` | `false` | `true` (with `deploy: false`) skips the check job: the build job validates the inputs and refuses a stray tag as its first steps and puts out `release` and `sha` itself, one billed job less per release; refused with `deploy: true` |
 
 Outputs: `release` (below), `image` and `digest` (the build's), `worker-image` and `worker-digest` (with
 `worker-dockerfile`, else empty), and `sha`, the full commit SHA of the tag (the check job
@@ -692,6 +698,13 @@ release tag is then added to exactly the bytes the checks passed. Its inputs bes
 | `fail-fast` | `false` | a red unit shard cancels the other shards (a release; a pull request sees every red shard) |
 | `static-cache-paths` | empty | files `static` keeps between runs, one path or glob per line inside the checkout |
 | `sparse-checkout` | the whole commit | non-cone checkout patterns for every job |
+| `guard-in-job` | `false` | `true` skips `prepare` for a tag (unless it builds the list of several unit shards): `static` and `unit` check the tag and its branch themselves before their checkout, one billed job less |
+
+**One job less per call.** Every job is billed at least a whole minute and starts its own runner, so `prepare`, whose
+work takes seconds, costs a minute per release. With `guard-in-job: true` the same steps run at the start of `static`
+and `unit` (with one shard or `unit: false`; several shards still need `prepare` for their list): a stray tag still
+fails before anything of the app is checked out or installed, only after that job's runner started.
+`deploy-app.yml` takes the same input for its `check` job in a call with `deploy: false` (**Fail fast**, below).
 
 Output: `sha` (the caller's commit when there was no tag). The commands are the app's own and run with `bash -e -c` from `env:`, never interpolated.
 
@@ -756,8 +769,11 @@ kept:
    jobs have only begun. With required reviewers on the environment, this job asks for an approval too.
 3. `static` (`unit: false`) and `unit` (`static: false`, `fail-fast: true`) are two calls of
    `deploy-release-checks.yml`, and `image` builds `sha` next to them.
-4. `build` (`prebuilt-image`) needs all four; `deploy` and `report` follow as in `examples/deploy.yml`.
-5. One watcher job per part, `needs: <part>`, `if: failure()`, `permissions: { actions: write }`, calls
+4. `tested` (below) says whether the tag's code already passed the unit suite on its pull request; `unit` runs only
+   when it did not.
+5. `build` (`prebuilt-image`) needs all of them, each by its result: a `unit` skipped because `tested` said so counts as
+   passed, one skipped because a job it needs failed does not. `deploy` and `report` follow as in `examples/deploy.yml`.
+6. One watcher job per part, `needs: <part>`, `if: failure()`, `permissions: { actions: write }`, calls
    `SOFTURE/AI/.github/workflows/deploy-cancel-run.yml`, which cancels the run through the runs API (a second
    watcher that finds the run cancelled already only warns). One per part, because a job that needs several waits for
    the slowest of them; `failure()` also fires for a failed ancestor, so a red `release` stops the run too. Nothing
@@ -766,13 +782,68 @@ kept:
 
 Cancelling takes `actions: write`, which stays in the watchers: `deploy-release-checks.yml` keeps `contents: read`,
 since a pull request's caller grants nothing more (a called job may not ask for more than its caller grants, whatever
-its `if`). The two calls of the checks each run `prepare` with the tag, which costs seconds.
+its `if`). The `static` call and the `build` call set `guard-in-job: true`, so neither pays a guard job of its own
+(issue #1375); `release` keeps its check job, which is the whole call, and `unit` keeps `prepare` for its shard list.
+
+### Skip a suite the pull request passed
+
+A tag usually holds exactly the code of the last merged pull request plus workflow artifacts under `context/`, yet the
+release runs the whole unit suite again minutes after that pull request passed it; in an adopting app that was about
+160 runner minutes a week (issue #1373). `SOFTURE/AI/.github/workflows/deploy-tested-tree.yml` tells the release when
+skipping is safe. Its one job, `compare`, reads the API only (nothing is checked out):
+
+1. it resolves `tag` to its commit and lists the pull requests merged into `release-branch` (else the default
+   branch), newest first; the first whose merge commit is in the tag's history is the last one the tag holds (one
+   merged after the tag was cut is passed over);
+2. it compares the tag's tree with the tree of that pull request's newest commit (mode, blob and path of every file),
+   leaving out the folders `ignore-prefixes` names (one per line, each ending in `/`; default `context/`, empty
+   compares everything). This holds for merge, squash and rebase merges alike: a pull request's checks run on its
+   head merged into the base of that moment, and code the base had then and the head lacked is on the release branch
+   too, so the trees would differ;
+3. it reads that commit's latest check runs: every line of `check-names` (a name or a glob, e.g. `checks / unit *`
+   for the shards of `examples/checks.yml`) must match at least one run, and every matching run must have succeeded;
+4. when the newest commit fails step 2 or 3 (a last push that changed only ignored folders, whose suite the pull
+   request's checks skipped, or a push still red), it tries the pull request's 10 earlier commits, newest first, with
+   the same two steps, and takes the first that passes both. An API failure or a truncated tree stops the search.
+
+Output `tested` is `"true"` only then. Any doubt answers `"false"` with a notice naming it, and the job stays green: an
+API failure, a tree too large for one answer, a file that differs, a missing, skipped, red or running check, no merged
+pull request. Only invalid inputs fail it. Outputs `pull-request` and `head-sha` name what was compared (`head-sha` is the commit
+that passed on `"true"`, else the newest one).
+
+```yaml
+  tested:
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    uses: SOFTURE/AI/.github/workflows/deploy-tested-tree.yml@<sha>
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      check-names: checks / unit *
+
+  checks:
+    needs: tested
+    uses: SOFTURE/AI/.github/workflows/deploy-release-checks.yml@<sha>
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      unit: ${{ needs.tested.outputs.tested != 'true' }}
+      shards: 4
+```
+
+A separate workflow, not an input of `deploy-release-checks.yml`: reading pull requests and check runs takes
+`pull-requests: read` and `checks: read`, which a pull request's caller of the checks does not grant. A pipeline with a
+call of its own for the unit shards (`static: false`, as in **Fail fast**) skips that job with
+`if: needs.tested.outputs.tested != 'true'` instead, since a call with both `static` and `unit` false is refused, and
+its `build` names every result it needs ([`examples/deploy-pipeline.yml`](examples/deploy-pipeline.yml)). The
+pull requests' unit checks have to run for this to pay off: with `examples/checks.yml`, a pull request without the
+`run-tests` label has no unit run, and its release runs the suite.
 
 ### Runner
 
 Every job of the reusable workflows (`deploy-app`, `deploy-release-checks`, `deploy-release-image`,
-`deploy-integration`, `deploy-report`, `deploy-cut-release`, `deploy-release-notes`, `deploy-cancel-run`, and the
-blog's `blog-links`) runs on the runner the input `runs-on` names (issue #670). The input is JSON: one label, or an
+`deploy-integration`, `deploy-report`, `deploy-cut-release`, `deploy-release-notes`, `deploy-cancel-run`,
+`deploy-tested-tree`, and the blog's `blog-links`) runs on the runner the input `runs-on` names (issue #670). The input is JSON: one label, or an
 array of labels a runner must all carry. The default, `'"ubuntu-latest"'`, keeps a caller that passes nothing on
 GitHub's hosted runner.
 
@@ -806,7 +877,8 @@ A self-hosted runner has to provide what the hosted image has and the jobs use:
 - an SSH client (`ssh`, `ssh-keygen`) for the deploy job.
 
 The GitHub CLI is not required (issue #686). The jobs that call `gh` (`deploy-cut-release` → `cut`, `deploy-report` →
-`report`, `deploy-release-notes` → `notes`, `deploy-cancel-run` → `cancel`, `deploy-integration` → `record`) run the
+`report`, `deploy-release-notes` → `notes`, `deploy-cancel-run` → `cancel`, `deploy-integration` → `record`,
+`deploy-tested-tree` → `compare`) run the
 step "Set up the GitHub CLI" after the runner check (and after "Empty the workspace" in a job that checks out). A runner
 that has `gh` uses its own and the step does nothing; on one without it the step downloads GitHub CLI 2.103.0 for Linux
 x64 or arm64 from its GitHub release, checks the archive against the SHA-256 pinned in the workflow, unpacks it into
@@ -1426,7 +1498,7 @@ so a JUnit report from another writer prints no `flaky` lines.
 | Exit | `run` | `lookup` |
 | --- | --- | --- |
 | `0` | green | a green result is stored |
-| `1` | red, or the run could not start (remote unreachable, push refused, name in use) | a red result is stored |
+| `1` | red, the run could not start (remote unreachable, push refused, name in use), or the remote could not be reached for the result while waiting (the run may still finish) | a red result is stored, or the remote could not be reached and nothing is stored locally |
 | `3` | | no result for the commit |
 | `75` | no result within `--wait-minutes` (retry later; the run may still finish) | |
 

@@ -4,6 +4,68 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.29.1
+
+- The loading states' counter script (`LaunchScreen`, `TopLoadingBar`, and through them `RouteLoading`) is drawn only
+  in the server's HTML, where the browser runs it, and kept while React hydrates it. A render that starts on the
+  client (a loading state shown by a client-side navigation) draws no `<script>`: React never runs one it creates,
+  and in development it logged "Encountered a script tag while rendering React component" on every such navigation.
+  - Migrate: nothing. The counter still moves on a page load and, as before, stays put on a client-side navigation.
+
+## 0.29.0
+
+- Touch-sized `TabBar`: `size="touch"` draws every tab link at least the touch target (44 x 44 px, `h-touch-target
+  min-w-touch-target`, padded `px-3`, `data-size="touch"`) for a phone view, and `tabClassName` is added to every link
+  after the size, so one breakpoint class brings the pointer size back on a desktop
+  (`tabClassName="md:h-control-height md:min-w-0"`). The bar already scrolls sideways inside itself.
+- Migration: none; the default size renders the same markup as before.
+
+## 0.28.0
+
+- A grip that shows on hover (#1353): `SortableHandle reveal="hover"` (default `"always"`) hides the grip under a fine
+  pointer until its row is hovered, has focus within or is lifted (`data-dragging`); a touch screen always shows it.
+  Only the opacity changes, so the grip keeps its tab stop and keyboard and mouse drags work unchanged; the fade is
+  dropped under reduced motion. Every `SortableItem` now carries `group/sortable-item`; the handle carries
+  `data-reveal`.
+- Migration: none; the default keeps every grip visible. An app that composes the reveal itself (`group/<name>` on the
+  row, `pointer-fine:opacity-0` and the `group-hover`, `group-focus-within`, `group-data-dragging` variants on the
+  handle) can drop its classes for `reveal="hover"`.
+
+## 0.27.0
+
+- Sticky group heading for `List` (#1350): `ListGroup` and `ListGroupHeading`, a run of rows under a heading that sticks
+  at the top of its scroll container while the rows pass under it and is pushed away by the next group's heading. The
+  group holds the side room the heading bleeds over, so the heading spans the scrollport; the heading is
+  `text-ui-medium` on `background` with a `border` line under it (`surface="tinted"`: `secondary` with a `background`
+  line), 40 px high, and every `ListItem` in the group stops below it when scrolled into view. `asChild` keeps the
+  app's `section` and `h3`; `LIST_CLASSES.group`, `groupHeading`, `tintedGroupHeading` give the classes to a group the
+  app renders itself.
+- Migration: none; no existing component changes. An app that composes the heading from tokens (`sticky top-0 z-10
+  -mx-2 px-4 py-2 bg-background border-b`, `scroll-mt-10` on each item) can move to `ListGroup`; its scroll container
+  drops its own padding.
+
+## 0.26.0
+
+- `DetailTable` is laid out fixed at its container's width (`table-fixed`, #1349): a long unbreakable value (a
+  `DocumentRow`'s title, a row of buttons) wraps or shortens inside its cell instead of widening the table past its
+  column, e.g. under an `AsidePanel` beside it. A table that already fitted looks the same.
+- `DetailTable` stacks each label above its value by its own width, not the window's: a frame (`data-slot=
+  "detail-table-frame"`, a `@container`) narrower than 28rem stacks (a phone, or a column beside an `AsidePanel`),
+  where before only a window under 640 px did. The table now sits inside that frame.
+- `DocumentRow details` (optional): what else the app says about a document (kind, source, the day it was added),
+  shown after the size in the row's wrapping line, so on a narrow row it moves under the title; `actions` keeps only
+  the buttons, which always show whole.
+- Migration: none. An app that put a document's facts into `actions` moves them to `details`; a selector that
+  expected `detail-table` as the outermost element looks one level deeper.
+
+## 0.25.0
+
+- `Prose`: the text styles of a long read the app does not draw itself (Markdown rendered to HTML, a documentation
+  article): headings, paragraphs, lists, links, inline code and code blocks, quotes, rules and tables on the theme's
+  tokens, with one rhythm between blocks. `asChild` keeps the app's element; `PROSE_CLASSES` gives the classes to a
+  wrapper the app styles itself.
+- Migration: none; no existing component changes.
+
 ## 0.24.0
 
 - `CopyButton`: one value to the clipboard, a `secondary` button with a copy icon that says "Copied" (with a tick) for

@@ -4,6 +4,32 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`privacy@x.y.z`).
 
+## 0.2.5
+
+- **Fix: the browser no longer blocks a deletion without a password when a provider is offered.** The password field of
+  `DeleteAccountForm` was always required, so an account a provider created could not send the form to be told to
+  sign in again. With a provider offered it is optional now; without one it stays required. Needs
+  `@softure-ai/ui` 0.3.10.
+  - Migrate: nothing.
+
+
+## 0.2.4
+
+- **An account a provider created can delete itself.** `deleteOwnAccount` takes an optional `sessionToken`: with an
+  empty password, a provider sign-in (OpenID Connect or GitHub, `@softure-ai/auth`) that opened that session within
+  the new option `deletion.recentSignInMinutes` (default 10) confirms the deletion; without one the result is the new
+  code `privacy.reauthentication_required`. A typed password is checked as before. `deleteAccountAction` passes the
+  request's session token. `DeleteAccountForm` takes a `reauthentication` prop, built by
+  `getDeleteAccountReauthentication(<page path>)` from `/next`: one "Confirm with <provider>" button per linked
+  provider (posting to auth's `oidcSignInAction`, back to the page), no password field right after that sign-in or
+  when the app has no passwords. `PrivacyPage` passes it. `getDeletionReauthentication` (`/server`) gives the same
+  facts outside Next. New copy: `delete.confirmWith`, `delete.confirmWithLead`, `delete.confirmedWith`,
+  `errors.privacy.reauthentication_required`, optional in `PrivacyMessages` (a missing key reads English).
+  - Needs `@softure-ai/auth` ^0.2.18.
+  - Migrate: an app that composes `DeleteAccountForm` itself passes
+    `reauthentication={await getDeleteAccountReauthentication("<its path>")}`; one that told provider accounts to set a
+    password first can drop that note.
+
 ## 0.2.3
 
 - Runs on Cloudflare Workers (runtime-providers RP-7): the manifest lists `runtimes: ["node", "workers"]` and the

@@ -118,7 +118,7 @@ describe("downloadWithConnection", () => {
       const api = createRecordingFetch(status(401));
       expect(await downloadWithConnection(test.ctx, { provider: "toggl", accountId: "work" }, { url: API, fetch: api.fetch })).toEqual({ ok: false, error: "connections.reconnect_required" });
       expect(api.calls.map((call) => call.headers.get("authorization"))).toEqual([`Basic ${Buffer.from("ada:pw").toString("base64")}`]);
-      expect(events).toEqual([{ provider: "toggl", accountId: "work", kind: "basic", reason: "rejected", at: test.clock.now() }]);
+      expect(events).toEqual([{ provider: "toggl", accountId: "work", ownerId: null, kind: "basic", reason: "rejected", at: test.clock.now() }]);
     });
 
     it.each([

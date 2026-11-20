@@ -68,7 +68,8 @@ async function listTools(request: APIRequestContext, accessToken: string): Promi
  */
 async function allowOnConsentPage(page: Page, authorizeUrl: string, options: { readonly clientName: string; readonly isWriteRequested: boolean }): Promise<URL> {
   await page.route(`${REDIRECT_URI}**`, (route) => route.fulfill({ status: 200, contentType: "text/plain", body: "back at the assistant" }));
-  await page.goto(authorizeUrl);
+  const consent = await page.goto(authorizeUrl);
+  expect([consent?.headers()["content-security-policy"], consent?.headers()["x-frame-options"]]).toEqual(["frame-ancestors 'none'", "DENY"]);
   await expect(page.getByText(formatMessage(mcpCopy.consent.title, { client: options.clientName }))).toBeVisible();
   const writeBox = page.getByRole("checkbox", { name: mcpCopy.consent.allowWrite });
   if (options.isWriteRequested) await writeBox.check();

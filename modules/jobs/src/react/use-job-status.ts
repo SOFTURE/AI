@@ -11,6 +11,8 @@ import { jobProgressSchema } from "../progress.js";
 
 const DEFAULT_INTERVAL_MS = 1000;
 const DEFAULT_MAX_INTERVAL_MS = 15_000;
+/** The shortest time limit of one poll; a larger `maxIntervalMs` raises it. */
+const MIN_POLL_TIMEOUT_MS = 10_000;
 /** Growth of the interval per poll that saw no change. */
 const IDLE_GROWTH = 1.5;
 /** Growth of the interval per failed poll. */
@@ -69,6 +71,31 @@ interface Snapshot {
   readonly isPolling: boolean;
 }
 
+/**
+ * One request to the status route (a poll, or the cancel's DELETE), aborted after `timeoutMs` or when `stop` aborts (the hook unmounts or moves to another
+ * job); an abort rejects like a network failure.
+ */
+async function fetchStatus(
+  target: string,
+  stop: AbortSignal,
+  timeoutMs: number,
+  method: "GET" | "DELETE" = "GET",
+): Promise<{ response: Response; body: unknown }> {
+  const poll = new AbortController();
+  const abort = () => poll.abort();
+  const timer = setTimeout(abort, timeoutMs);
+  stop.addEventListener("abort", abort);
+  if (stop.aborted) abort();
+  try {
+    const response = await fetch(target, { method, cache: "no-store", headers: { accept: "application/json" }, signal: poll.signal });
+    const body: unknown = await response.json().catch(() => null);
+    return { response, body };
+  } finally {
+    clearTimeout(timer);
+    stop.removeEventListener("abort", abort);
+  }
+}
+
 function defaultUrl(id: string): string {
   return `/api/jobs/${encodeURIComponent(id)}`;
 }
@@ -82,6 +109,8 @@ export function useJobStatus(id: string | null, options: UseJobStatusOptions = {
   const url = options.url ?? defaultUrl;
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   const maxIntervalMs = Math.max(options.maxIntervalMs ?? DEFAULT_MAX_INTERVAL_MS, intervalMs);
+  // A poll stuck on a bad connection would hold every later poll back (one is in flight at a time), so it is cut off.
+  const pollTimeoutMs = Math.max(maxIntervalMs, MIN_POLL_TIMEOUT_MS);
   const stopOn = options.stopOn ?? TERMINAL_STATUSES;
   const target = id === null ? null : url(id);
   const stopOnKey = stopOn.join(",");
@@ -119,8 +148,7 @@ export function useJobStatus(id: string | null, options: UseJobStatusOptions = {
       if (document.visibilityState === "hidden") return;
       isInFlight = true;
       try {
-        const response = await fetch(target, { cache: "no-store", headers: { accept: "application/json" }, signal: controller.signal });
-        const body: unknown = await response.json().catch(() => null);
+        const { response, body } = await fetchStatus(target, controller.signal, pollTimeoutMs);
         if (isStopped) return;
         if (response.ok) {
           const parsed = ownJobStatusSchema.safeParse(body);
@@ -174,11 +202,18 @@ export function useJobStatus(id: string | null, options: UseJobStatusOptions = {
     };
   }, [id, target, intervalMs, maxIntervalMs, stopOnKey]);
 
+  // A cancel still pending when the hook unmounts or moves to another job is aborted with it.
+  const cancelStop = useRef<AbortController>(new AbortController());
+  useEffect(() => {
+    const controller = new AbortController();
+    cancelStop.current = controller;
+    return () => controller.abort();
+  }, [target]);
+
   const cancel = useCallback(async (): Promise<CancelJobStatusResult> => {
     if (target === null) return { ok: false, error: "jobs.not_found" };
     try {
-      const response = await fetch(target, { method: "DELETE", cache: "no-store", headers: { accept: "application/json" } });
-      const body: unknown = await response.json().catch(() => null);
+      const { response, body } = await fetchStatus(target, cancelStop.current.signal, pollTimeoutMs, "DELETE");
       if (!response.ok) return { ok: false, error: readErrorCode(body, response.status) };
       const parsed = ownJobStatusSchema.safeParse(body);
       if (!parsed.success) return { ok: false, error: "jobs.failed" };
@@ -187,7 +222,7 @@ export function useJobStatus(id: string | null, options: UseJobStatusOptions = {
     } catch {
       return { ok: false, error: "network" };
     }
-  }, [target]);
+  }, [target, pollTimeoutMs]);
 
   const isCurrent = snapshot.id === id && id !== null;
   return {

@@ -119,9 +119,10 @@ describe("the Next adapter", () => {
     const callback = await startAndConsent();
     scope.cookies.clear();
     expect(await startConnectionAction(IDLE, createForm({ provider: "fake" }))).toEqual({ status: "error", error: "auth.forbidden" });
-    expect((await completeConnectionRoute(new Request(callback))).headers.get("location")).toBe("https://app.example.com/admin/connections?error=auth.forbidden");
+    expect((await completeConnectionRoute(new Request(callback))).headers.get("location")).toBe("https://app.example.com/?error=auth.forbidden");
+    // A signed-in user without the role completes only an authorization of their own, so the admin's stays unused.
     await signIn("bob@example.com", null);
-    expect((await completeConnectionRoute(new Request(callback))).headers.get("location")).toBe("https://app.example.com/admin/connections?error=auth.forbidden");
+    expect((await completeConnectionRoute(new Request(callback))).headers.get("location")).toBe("https://app.example.com/?error=connections.state_invalid");
     expect(await listRows(test.database)).toEqual([]);
   });
 

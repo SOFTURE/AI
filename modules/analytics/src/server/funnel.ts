@@ -120,6 +120,66 @@ export async function getFunnelReport(ctx: AnalyticsContext, input: { readonly d
   return { from, to, steps, rows, total };
 }
 
+/** One calendar day of the funnel: each step's count that day, every channel together. */
+export interface FunnelDay {
+  /** `YYYY-MM-DD` in the app's time zone. */
+  readonly day: string;
+  /** Each configured step's count that day; a step nobody reached is 0. */
+  readonly counts: Readonly<Record<string, number>>;
+}
+
+/** The funnel per day: the days of a window, oldest first, every day present even when nothing was counted. */
+export interface FunnelDaysReport {
+  readonly from: string;
+  readonly to: string;
+  /** The configured step ids, in funnel order. */
+  readonly steps: readonly string[];
+  readonly days: readonly FunnelDay[];
+}
+
+/**
+ * The last `days` days of the funnel (today included) one day at a time, for an operator who reads the trend rather
+ * than the channels. One query, grouped by day and step; every channel is summed.
+ */
+export async function getFunnelDays(ctx: AnalyticsContext, input: { readonly days?: number } = {}): Promise<FunnelDaysReport> {
+  const days = input.days ?? 30;
+  if (!Number.isInteger(days) || days < 1 || days > MAX_REPORT_DAYS) {
+    throw new RangeError(`getFunnelDays: days must be a whole number from 1 to ${String(MAX_REPORT_DAYS)}, got ${String(days)}`);
+  }
+  const steps = getAnalyticsOptions(ctx.config).funnel.steps.map((step) => step.id);
+  const to = formatDay(ctx.clock.now(), ctx.config.timezone);
+  const from = addCalendarDays(to, 1 - days);
+
+  const sums =
+    steps.length === 0
+      ? []
+      : await ctx.db
+          .select({
+            day: sql<string>`to_char(${funnelCounts.day}, 'YYYY-MM-DD')`,
+            step: funnelCounts.step,
+            total: sql<string>`sum(${funnelCounts.count})::text`,
+          })
+          .from(funnelCounts)
+          .where(and(gte(funnelCounts.day, from), lte(funnelCounts.day, to), inArray(funnelCounts.step, steps)))
+          .groupBy(funnelCounts.day, funnelCounts.step);
+
+  const byDay = new Map<string, Record<string, number>>();
+  for (let offset = 0; offset < days; offset += 1) byDay.set(addCalendarDays(from, offset), createEmptyCounts(steps));
+  for (const sum of sums) {
+    const counts = byDay.get(sum.day);
+    if (counts !== undefined) counts[sum.step] = Number(sum.total);
+  }
+  return { from, to, steps, days: [...byDay.entries()].map(([day, counts]) => ({ day, counts })) };
+}
+
+/** A funnel-days report as a plain-text table for a terminal or a job summary: one row per day, one column per step. */
+export function formatFunnelDays(report: Pick<FunnelDaysReport, "steps" | "days">): string {
+  const header = ["day", ...report.steps];
+  const rows = report.days.map((day) => [day.day, ...report.steps.map((step) => String(day.counts[step] ?? 0))]);
+  const widths = header.map((cell, column) => Math.max(cell.length, ...rows.map((row) => row[column]?.length ?? 0)));
+  return [header, ...rows].map((row) => row.map((cell, column) => cell.padEnd(widths[column] ?? 0)).join("  ").trimEnd()).join("\n");
+}
+
 /**
  * Deletes the counts of days before the last `keepDays` days (today included). The counts hold no
  * personal data, so keeping them is the app's choice; call this from a scheduled job to bound them.

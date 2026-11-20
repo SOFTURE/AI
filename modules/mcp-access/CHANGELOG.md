@@ -4,6 +4,46 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mcp-access@x.y.z`).
 
+## 0.7.8
+
+- **A password reset or change ends earlier tokens:** an MCP or API token, an OAuth grant (its refresh token and access
+  tokens) and an unused authorization code issued before the account's last password change no longer work, and the
+  token page leaves them out. Before, they lived on for up to their lifetime (90 days for a token), so whoever had
+  taken an account over kept a way in after the owner reset the password. `pruneAccessTokens` and
+  `pruneOAuthRecords` delete them. README, the module's overview.
+  - Migrate: nothing. Tell users that changing the password signs out their assistants and scripts; they issue new
+    tokens or connect the app again.
+- **Consent page headers:** `buildOAuthConsentHeaders(consentPath?)` and `OAUTH_CONSENT_PAGE_HEADERS` (root entry)
+  give the `next.config` `headers()` entry that stops other sites from framing the consent page
+  (`Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`). README, the OAuth routes.
+  - Migrate: add `headers: () => Promise.resolve([buildOAuthConsentHeaders()])` to `next.config` when OAuth is on.
+- **Token endpoint rate limit:** the counter per address and client is kept only for a registered client; an
+  unknown `client_id` is counted with its address, so made-up ids no longer escape the limit or add a counter row each.
+  - Migrate: nothing.
+- **MCP endpoint rate limit per token:** `POST /api/mcp` verifies the token first and counts a valid one on its own;
+  a request without a valid token is still counted per client address. Before, every request counted per address, so
+  one assistant (or one caller with a bad token) behind a hosted platform's shared address could lock out every other
+  account there for 15 minutes. README, rate limits.
+  - Migrate: nothing; `MCP_RATE_LIMIT_BUCKETS` keeps its shape and numbers.
+- **Consent decisions are rate-limited:** the `POST` of the consent page counts in the `mcp-oauth` bucket per signed-in
+  account before it validates the request or writes an authorization code, and answers 429 over the limit. Before, one
+  account could post `allow` in a loop and grow the codes table without bound.
+  - Migrate: nothing.
+- **Request bodies read for diagnostics and sessions are counted while they stream:** the request diagnostics and the
+  `initialize` check read a clone of the body up to 1 MiB and stop there, also when no `Content-Length` came. Before,
+  a chunked body was buffered whole before the SDK refused it.
+  - Migrate: nothing.
+- **README, confirmed calls:** says what `withConfirmation` does not guard against: the assistant holds the token, so a
+  prompt-injected assistant can confirm without the person.
+  - Migrate: nothing; keep actions that must never run without the person off MCP.
+
+## 0.7.7
+
+- `/server` gives `createUntrustedWrapper({ open, close })`: `wrap` puts text a tool did not write between the app's
+  two markers and `defuse` breaks any copy of a marker inside that text, so a note or a mail cannot close the block and
+  speak as the server. README, "Untrusted text in answers". Moved from an adopting app.
+  - Migrate: nothing; a server that returns user-written text should wrap it.
+
 ## 0.7.6
 
 - **MCP Apps (interactive views):** `/server` gives `appToolMeta`, `registerAppResource` and `renderAppDocument`, so a

@@ -23,6 +23,9 @@ sandbox, a phone behind a proxy with a body limit) uploads through a signed URL 
   "Saving a file from a URL" below.
 - **`findFile`, `openFile` (a byte range or the whole file), `listFiles`, `deleteFile`, `getOwnerUsage`**: live files
   only (neither deleted nor expired); an `ownerId` filter makes another owner's file read as missing.
+- **`setFileExpiry(ctx, fileId, { ownerId?, expiresAt })`**: changes a live file's expiry after it was saved; `null`
+  keeps it until it is deleted (an app that keeps the files a rule of its own chooses), a date after the file was
+  saved lets `pruneFiles` take it then. A deleted or expired file answers `files.not_found`.
 - **Storage drivers** behind one interface (`put`, `get` with a range, `head`, `delete`, an optional `check`):
   `createLocalStorage({ dir })` (partial file renamed into place, keys fanned out by file id) and
   `createS3Storage({ endpoint, bucket, ... })` for Cloudflare R2, MinIO, Garage or AWS S3 (SigV4 with `node:crypto`,
@@ -93,7 +96,7 @@ files({
 | `health.minFreeBytes` | 1 GiB | the health check fails below this many free bytes (local disk only) |
 | `uploads.chunkBytes` | 64 MiB | the bytes of one upload request; keep it under the edge's body limit (Cloudflare: 100 MB on Free and Pro, 200 MB on Business) |
 | `uploads.ttlSeconds` | 1 day | how long an upload session and its URL work (at most 7 days); `createUpload` may ask for less |
-| `uploads.maxOpenPerOwner` | 5 | sessions one owner may have open at once (`files.too_many_uploads`) |
+| `uploads.maxOpenPerOwner` | 20 | sessions one owner may have open at once, enough for a batch from a phone (`files.too_many_uploads`) |
 | `uploads.contentTypes` | `null` (any) | the media types an upload may declare, `video/mp4` or `video/*` (`files.content_type_not_allowed`) |
 | `routes.links` | `/f` | the link route's prefix; mount the route under the same folder |
 | `routes.uploads` | `/u` | the upload route's prefix; mount the route under the same folder |
@@ -459,6 +462,28 @@ expect(readFileLinkExpiry(link.url)).toEqual(expectedExpiry);
 
 `fetchFileLink` runs the same code as the route, at the context's clock, so advancing a test clock past the expiry
 gives the `404`.
+
+An app that reads or writes an S3-compatible bucket itself (a user's own bucket, an off-site copy) tests against
+`createFakeS3`, a bucket in memory that checks every request's SigV4 signature against one key pair:
+
+```ts
+import { createS3Storage } from "@softure-ai/files/server";
+import { createFakeS3 } from "@softure-ai/files/testing";
+
+const s3 = createFakeS3({ bucket: "notes", accessKeyId, secretAccessKey, basePath: "/s3", isWritable: true });
+s3.put("vault/a.md", "# A"); // seed objects; s3.remove(key)
+const storage = createS3Storage({
+  endpoint: "http://127.0.0.1:9000/s3", bucket: "notes", region: "auto", fetch: s3.fetch,
+  accessKeyIdEnv: "S3_KEY_ID", secretAccessKeyEnv: "S3_SECRET", env: { S3_KEY_ID: accessKeyId, S3_SECRET: secretAccessKey },
+});
+s3.fail("get", 503); // every GetObject answers 503 until s3.fail("get", null)
+expect(s3.calls).toMatchObject({ list: 0, get: 1 });
+```
+
+It answers path-style ListObjectsV2 (prefix, `max-keys`, continuation tokens) and GetObject (`If-Match`, a byte
+range); with `isWritable` also a single-part PutObject (body checked against `x-amz-content-sha256`), HeadObject and
+DeleteObject. A wrong signature is `403`, an unknown bucket `404`. `s3.handle(request)` answers one `Request`, for a
+local HTTP server that end-to-end tests point an app at.
 
 ## Build
 

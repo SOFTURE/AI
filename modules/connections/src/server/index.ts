@@ -35,14 +35,16 @@ export {
 export {
   completeAuthorization,
   startAuthorization,
+  type AuthorizationTarget,
   type CallbackParams,
+  type CompleteAuthorizationFailure,
   type CompleteAuthorizationInput,
   type CompleteAuthorizationResult,
   type StartAuthorizationInput,
   type StartAuthorizationResult,
 } from "./flow.js";
 export { checkConnectionsTables } from "./health.js";
-export { getConnection, getStatus, listConnections } from "./list.js";
+export { getConnection, getStatus, listConnections, listOwnConnections } from "./list.js";
 export {
   findProvider,
   getConnectionsModule,
@@ -53,6 +55,7 @@ export {
   readClientCredentials,
   type ConnectionsRoutes,
 } from "./options.js";
+export { getProviderOwner, type ConnectionTarget } from "./store.js";
 export {
   connectionsPrivacyContributor,
   deleteConnectionsUserData,

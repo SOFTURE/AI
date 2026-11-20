@@ -247,6 +247,17 @@ describe("the OAuth HTTP layer", () => {
       expect((await requestToken({ client_id: other.clientId, grant_type: "refresh_token", refresh_token: "x" })).response.status).toBe(400);
     });
 
+    it("counts unknown client ids with their address, so made-up ids neither escape the limit nor add counters", async () => {
+      const { client } = await connectApp(test.ctx, alice);
+      for (let attempt = 0; attempt < MCP_RATE_LIMIT_BUCKETS["mcp-oauth"].limit; attempt++) {
+        await requestToken({ client_id: `made-up-${String(attempt)}`, grant_type: "refresh_token", refresh_token: "x" });
+      }
+      expect((await requestToken({ client_id: "made-up-again", grant_type: "refresh_token", refresh_token: "x" })).response.status).toBe(429);
+      expect((await requestToken({ client_id: client.clientId, grant_type: "refresh_token", refresh_token: "x" })).response.status).toBe(400);
+      const counters = await test.database.client.query<{ total: number }>("SELECT count(*)::int AS total FROM security.rate_limits WHERE bucket = 'mcp-oauth'");
+      expect(counters.rows[0]?.total).toBe(2);
+    });
+
     it("answers 500 without details when the database fails, and logs no secret", async () => {
       const { client, tokens } = await connectApp(test.ctx, alice);
       const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -358,6 +369,20 @@ describe("the OAuth HTTP layer", () => {
       const response = await decide(params, { decision: "allow" }, null);
       expect(response.headers.get("location")).toBe(`/oauth/authorize?${params.toString()}`);
     });
+
+    it("counts decisions per signed-in account and answers 429 over the limit, writing no more codes", async () => {
+      const { limit } = MCP_RATE_LIMIT_BUCKETS["mcp-oauth"];
+      const params = authorizationParams(await registeredClientId());
+      for (let attempt = 0; attempt < limit; attempt += 1) {
+        expect((await decide(params, { decision: "allow" })).status).toBe(303);
+      }
+      const refused = await decide(params, { decision: "allow" });
+      expect([refused.status, refused.headers.get("retry-after")]).toEqual([429, String(15 * 60)]);
+      const codes = await test.database.client.query<{ total: number }>("SELECT count(*)::int AS total FROM mcp.oauth_authorization_codes");
+      expect(codes.rows[0]?.total).toBe(limit);
+      const bob = await createUser(test.database, "bob@example.com");
+      expect((await decide(params, { decision: "allow" }, bob)).status).toBe(303);
+    }, 60_000);
 
     it("re-validates the posted request: an unknown client goes back to the consent page, never to a redirect", async () => {
       const response = await decide(authorizationParams("nobody", { redirect_uri: "https://evil.example/cb" }), { decision: "allow" });

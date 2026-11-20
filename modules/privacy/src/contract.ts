@@ -7,6 +7,7 @@ export type PrivacyErrorCode =
   | "privacy.export_too_large"
   | "privacy.deletion_refused"
   | "privacy.password_invalid"
+  | "privacy.reauthentication_required"
   | "privacy.confirmation_required"
   | "privacy.consent_invalid"
   | "privacy.document_unknown";
@@ -52,7 +53,10 @@ export interface PrivacyExport {
 
 /** Every code the delete form can show: its own, the session and rate limit refusals, the generic ones. */
 export type DeleteAccountErrorCode =
-  | Extract<PrivacyErrorCode, "privacy.deletion_refused" | "privacy.password_invalid" | "privacy.confirmation_required">
+  | Extract<
+      PrivacyErrorCode,
+      "privacy.deletion_refused" | "privacy.password_invalid" | "privacy.reauthentication_required" | "privacy.confirmation_required"
+    >
   | "auth.unauthenticated"
   | "security.rate_limited"
   | CoreErrorCode;

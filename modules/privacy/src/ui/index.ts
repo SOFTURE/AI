@@ -6,6 +6,8 @@ export {
   type DeleteAccountAction,
   type DeleteAccountFormProps,
   type DeleteAccountFormSlot,
+  type DeleteAccountProvider,
+  type DeleteAccountReauthentication,
 } from "./delete-account-form.js";
 export {
   formatLegalDate,

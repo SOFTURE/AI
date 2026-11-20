@@ -31,13 +31,14 @@ describe("the connections privacy contributor", () => {
       value: {
         connectedAccounts: [{ provider: "fake", accountId: "default", connectedAt: NOW }],
         pendingAuthorizations: [{ provider: "fake", accountId: "default", createdAt: NOW }],
+        ownConnections: [],
       },
     });
-    expect(await exportConnectionsUserData({ db: test.database.db }, "someone-else")).toEqual({ ok: true, value: { connectedAccounts: [], pendingAuthorizations: [] } });
+    expect(await exportConnectionsUserData({ db: test.database.db }, "someone-else")).toEqual({ ok: true, value: { connectedAccounts: [], pendingAuthorizations: [], ownConnections: [] } });
   });
 
   it("clears the user from connections, keeps them, and deletes the user's pending authorizations", async () => {
-    expect(await deleteConnectionsUserData({ db: test.database.db }, ADMIN)).toEqual({ ok: true, value: { clearedConnections: 1, deletedAuthorizations: 1 } });
+    expect(await deleteConnectionsUserData({ db: test.database.db }, ADMIN)).toEqual({ ok: true, value: { clearedConnections: 1, deletedAuthorizations: 1, deletedConnections: 0 } });
     expect(await listRows(test.database)).toEqual(["fake/default connected oauth test", "raindrop/default connected api_key test"]);
     expect(await readRawRow(test.database, "fake")).toMatchObject({ connected_by: null });
     expect(await readRawRow(test.database, "raindrop")).toMatchObject({ connected_by: OTHER_ADMIN });

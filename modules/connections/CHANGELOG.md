@@ -4,6 +4,39 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 version in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.8.0
+
+- **`@softure-ai/connections/user-oauth`**: OAuth 2.0 connections that belong to the app's own users (each user
+  connects their own account at a provider, one grant per user kept by the app beside its records):
+  `defineUserOAuthProvider`, `createUserOAuthState` and `hashUserOAuthState` (a one-time state stored as its hex
+  sha256, and a PKCE verifier), `createCodeChallenge`, `buildUserAuthorizationUrl`, `exchangeUserCode`,
+  `refreshUserAccessToken` (`connections.user_oauth_reconnect_required` on `invalid_grant`, the new refresh token of a
+  rotating provider), `revokeUserGrant` (RFC 7009 or a bearer POST) and `sealUserSecret` / `openUserSecret` (bound to
+  the user, the provider and an optional connection name). Stateless, Workers-safe, no table or configuration.
+- A token answer's own identifiers (`account_id`, `uid`) reach the grant as `fields`; a field named like a token or a
+  secret never does.
+- `createFakeOAuthProvider` serves the user flow: `fake.user.definition` and `fake.user.client`, `answerFields`, and
+  `revokeStyle: "bearer"`.
+  - Migrate: nothing.
+
+## 0.7.0
+
+- **Connections each signed-in user owns**: a provider with `owner: "user"` keeps one connection per user (Dropbox,
+  Google Drive, any per-user OAuth), connected from the app's own page with `startOwnConnectionAction` and
+  `disconnectOwnAction` (any signed-in user; the owner is always the session's user) and read with
+  `listOwnConnections(userId)`. Every call that names a connection takes `ownerId` (`getAccessToken`,
+  `requestWithConnection`, `downloadWithConnection`, `replaceRejectedToken`, `disconnect`, …); a missing or misplaced
+  owner answers the new `connections.wrong_owner`. The callback route serves any signed-in user for their own
+  authorizations and lands them on the provider's `returnPath` (required for a user provider) or `accountReturnPath`.
+  Owned rows are sealed with their owner, never listed on the admin panel, exported (`ownConnections`) and deleted
+  with the user (`deletedConnections`). `subjectField` keeps the provider's account id as `subject`.
+- **`keysEnv`**: the keyring's variable, for an app that already keeps one under its own name.
+- `completeAuthorization` answers its target (`provider`, `accountId`, `ownerId`) on success, and on a failure after
+  the state was found; hook events (`onReconnectRequired`, `onConnectionChanged`) carry `ownerId`.
+- `createFakeOAuthProvider`'s `consent` takes `tokenFields`, extra fields of the exchange's answer.
+  - Migrate: run `softure migrate` (0003 adds `owner_id` and `subject`, nullable, and splits the unique key). Code
+    that compares `completeAuthorization`'s value, a hook event or an export with `toEqual` sees the new fields.
+
 ## 0.6.0
 
 - **`createFakeGithubApp` serves repository contents** through the git data API, for an app that reads a user's

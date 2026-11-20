@@ -4,6 +4,30 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.6.1
+
+- `uploads.maxOpenPerOwner` defaults to 20 (was 5): an assistant or a browser that uploads a batch from a phone (a
+  dozen clips and a cover) no longer gets `files.too_many_uploads` on the sixth file. The limit, its range (1..1000),
+  the expiry of stale sessions and the quota check are unchanged.
+  - Migrate: nothing; an app that wants the old bound sets `uploads: { maxOpenPerOwner: 5 }`.
+
+## 0.6.0
+
+- `setFileExpiry(ctx, fileId, { ownerId?, expiresAt })` in `./server`: changes a live file's expiry after it was
+  saved (`null` keeps it until it is deleted; a date after the file was saved, even a past one, lets `pruneFiles` take
+  it then) and answers the updated `StoredFile`, or `files.not_found` for another owner's, a deleted, an expired or an
+  unknown file. For an app whose retention depends on facts it learns after the upload.
+  - Migrate: nothing.
+
+## 0.5.3
+
+- `createFakeS3({ bucket, accessKeyId, secretAccessKey, basePath?, isWritable? })` in `./testing`: an S3-compatible
+  bucket in memory over `fetch` (or `handle(request)` behind a local server) that checks each request's SigV4
+  signature; ListObjectsV2 with prefix, pages and continuation tokens, GetObject with `If-Match` and a range, and with
+  `isWritable` PutObject, HeadObject and DeleteObject. `put`, `remove`, `fail(operation, status)` and `calls` let a
+  test seed objects, inject failures and count requests. Moved from an adopting app's tests.
+  - Migrate: nothing; an app with its own fake bucket can drop it for this one.
+
 ## 0.5.2
 
 - `./jobs` is declared Workers-safe (`softure.workers`, runtime-providers RP-4): its handlers run from the

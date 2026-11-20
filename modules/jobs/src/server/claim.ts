@@ -43,8 +43,11 @@ export type Completion =
    */
   | { readonly kind: "succeeded"; readonly summary?: JobRunSummary | null; readonly resultRef?: string | null }
   | { readonly kind: "retry"; readonly error: string; readonly runAt: Date }
-  /** `isPermanent`: the job's own fault (`failJob`, an invalid payload), which the queue's breaker does not count. */
-  | { readonly kind: "failed"; readonly error: string; readonly isPermanent?: boolean }
+  /**
+   * `isPermanent`: the job's own fault (`failJob`, an invalid payload), which the queue's breaker does not count.
+   * `isExpected`: `failJob(code, { expected: true })`, logged as a `warn`.
+   */
+  | { readonly kind: "failed"; readonly error: string; readonly isPermanent?: boolean; readonly isExpected?: boolean }
   /** `pauseQueueLater`: the queue pauses for `seconds`; the job gets its attempt back and is due at `runAt`, the pause's end. */
   | { readonly kind: "paused"; readonly error: string; readonly seconds: number; readonly runAt: Date }
   /** An operator cancelled the job (`requestJobCancel`): `cancelled`, not retried, no `onJobFailed`. */
@@ -132,6 +135,7 @@ async function claimDue(
       claimToken: sql`gen_random_uuid()`,
       progress: null,
       progressAt: null,
+      claimedAt: now,
       updatedAt: now,
     })
     .where(inArray(jobs.id, due))

@@ -74,9 +74,9 @@ describe("Flat Atlas tokens", () => {
     ]);
   });
 
-  it("names the three faces: Calistoga for headings, Raleway for text, DM Mono for coordinates and codes", () => {
+  it("names the three faces: Calistoga for headings, Open Sans for text, DM Mono for coordinates and codes", () => {
     expect(FLAT_ATLAS_THEME.fonts).toEqual({
-      sans: "Raleway, system-ui, sans-serif",
+      sans: '"Open Sans", system-ui, sans-serif',
       display: "Calistoga, Georgia, serif",
       mono: '"DM Mono", ui-monospace, monospace',
     });

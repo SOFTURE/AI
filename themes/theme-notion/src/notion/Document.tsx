@@ -304,7 +304,12 @@ export interface DocumentRowProps {
   readonly isOffline?: boolean;
   /** Opens the document, e.g. in `DocumentViewer`. */
   readonly onOpen: () => void;
-  /** Buttons after the row, e.g. a menu to rename or remove. */
+  /**
+   * What else the app says about the document, e.g. "Confirmation · from e-mail · added 18 Nov": shown after the size
+   * in the row's wrapping line, so on a narrow row it moves under the title instead of pushing the actions out (#1349).
+   */
+  readonly details?: ReactNode;
+  /** Buttons after the row, e.g. a menu to rename or remove; they never shrink, so keep facts in `details`. */
   readonly actions?: ReactNode;
   /** Formats the size, e.g. "de" writes "1,5 kB". */
   readonly locale?: string;
@@ -313,8 +318,8 @@ export interface DocumentRowProps {
 }
 
 // One document: an icon by its type, the title as a touch-sized button that opens it, its size, and a mark when a copy
-// is kept on the device.
-export function DocumentRow({ title, contentType, size, isOffline = false, onOpen, actions, locale = "en", messages, className }: DocumentRowProps) {
+// is kept on the device, then the app's details; its buttons after it.
+export function DocumentRow({ title, contentType, size, isOffline = false, onOpen, details, actions, locale = "en", messages, className }: DocumentRowProps) {
   const words = mergeMessages(messages);
   const kind = getDocumentKind(contentType);
   const Icon = KIND_ICONS[kind];
@@ -340,6 +345,11 @@ export function DocumentRow({ title, contentType, size, isOffline = false, onOpe
             {words.offline}
           </Status>
         ) : null}
+        {details === undefined || details === null || details === "" ? null : (
+          <span data-slot="document-row-details" className="min-w-0 text-small text-muted-foreground">
+            {details}
+          </span>
+        )}
       </button>
       {actions === undefined ? null : <div data-slot="document-row-actions" className="flex shrink-0 items-center gap-1">{actions}</div>}
     </li>

@@ -137,6 +137,23 @@ describe("the example caller", () => {
   });
 });
 
+describe("the repository's own caller", () => {
+  const self = parse(read(".github/workflows/quality-review-self.yml")) as Workflow;
+  const job = self.jobs["quality-review"];
+
+  it("starts only by hand and calls the reusable workflow of the same commit with the secret and the two write permissions", () => {
+    expect(Object.keys(self.on)).toEqual(["workflow_dispatch"]);
+    expect(self.permissions).toEqual({});
+    expect(job?.uses).toBe("./.github/workflows/quality-review.yml");
+    expect(job?.permissions).toEqual({ contents: "write", "pull-requests": "write" });
+    expect(job?.secrets).toEqual({ ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}" });
+  });
+
+  it("passes only inputs the reusable workflow has", () => {
+    for (const key of Object.keys(job?.with ?? {})) expect(inputs, key).toHaveProperty(key);
+  });
+});
+
 describe("the matrix example", () => {
   const example = parse(read("tools/quality-review/examples/quality-review-matrix.yml")) as Workflow;
   const job = example.jobs["quality-review"];

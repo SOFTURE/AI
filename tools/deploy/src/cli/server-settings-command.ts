@@ -23,7 +23,7 @@ function toHookRecord(hook: DeployHook | MaintainHook): string {
  * The tables a restored backup must hold as many rows of as the live database had right before the dump:
  * `rowCountTables` less `excludeTableData`, whose rows the dump leaves out. Undefined when none are left.
  */
-export function getVerifyTables(database: DeployConfig["database"]): string | undefined {
+function getVerifyTables(database: DeployConfig["database"]): string | undefined {
   const excluded = new Set(database?.excludeTableData ?? []);
   const tables = (database?.rowCountTables ?? []).filter((table) => !excluded.has(table));
   return tables.length === 0 ? undefined : tables.join(",");

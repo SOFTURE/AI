@@ -1,6 +1,7 @@
 export { parseKeyValueList, resolveObservabilityConfig } from "./config.js";
 export type {
   Environment,
+  HostMetricOptions,
   InstrumentationOptions,
   MetricOptions,
   ObservabilityOptions,
@@ -32,3 +33,6 @@ export type {
 export { buildLogProblemsRule, buildServiceSilentRule } from "./grafana/rule-builders.js";
 export type { LogProblemsRuleOptions, ObservedService, ServiceSilentRuleOptions } from "./grafana/rule-builders.js";
 export { MEMORY_METRIC_NAMES } from "./memory-metrics.js";
+export { FILESYSTEM_MOUNTPOINT_ATTRIBUTE, HOST_METRIC_NAMES } from "./host-metrics.js";
+export type { FilesystemStats } from "./host-metrics.js";
+export { SERVER_SPAN_METRIC_NAME } from "./server-span-metrics.js";

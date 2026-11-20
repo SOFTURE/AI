@@ -1,6 +1,6 @@
 {
   "id": "files",
-  "version": "0.5.2",
+  "version": "0.6.1",
   "runtimes": ["node", "workers"],
   "dependsOn": { "jobs": "^0.1.6?", "security": "^0.2.5?" },
   "dbSchema": "files",
