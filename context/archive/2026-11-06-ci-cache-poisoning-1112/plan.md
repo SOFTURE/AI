@@ -32,4 +32,4 @@ the issues' state (the alert API answers 403 to this session).
 
 - [x] Phase 1: workflow and test (CodeQL 4 -> 0 results; deploy-workflows.test.ts 255 passed)
 - [x] Implementation review
-- [ ] Phase 2: alerts closed after the merge
+- [x] Phase 2: alerts closed after the merge — done: merge d1146dd4 (#1116); `security-alerts.yml` closed #1112, #1113, #1114 and #1115 as completed on 2026-11-06 (it closes them only when the alert is fixed)

@@ -46,6 +46,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/ci/affected.mjs
 
+  # The context/ contract (WORKFLOW.md §12 of @softure-ai/skills): archived changes and roadmaps settled, index links
+  # whole, context/state.json current. Drift happens in the documents, so it runs for documentation-only changes too
+  # (this workflow has no paths filter).
+  context:
+    name: context contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx softure-skills doctor
+
   static:
     name: typecheck + lint + language
     runs-on: ubuntu-latest

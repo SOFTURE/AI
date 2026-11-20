@@ -17,3 +17,11 @@ the full softure chain) with `roadmap_item: null`, its pull request closes the i
 - Last main roadmap: [`runtime-providers`](archive/2026-11-16-roadmap.md) (`RP-`), closed on 2026-11-16.
 - Queued roadmaps: none. The last one, [`later`](archive/2026-11-17-roadmap.md) (`LT-`), closed on 2026-11-17.
 - Every archived roadmap: [`archive/`](archive/).
+
+## Owner decisions and checks
+
+- [ ] Owner step: (2026-11-20) when an adopting app turns on off-site backups (`@softure-ai/backup`, the
+  `offsite-backup` step of `@softure-ai/deploy` maintain), create the provider bucket and its tokens, generate the age
+  key and save them as that app's GitHub Environment secrets; steps in `modules/backup/README.md`, "Owner guide".
+  Only the owner holds the provider account and the app's secrets. Source: #1410 (closed, carried here), from item 4.3
+  of [`archive/2026-11-09-backup-offsite-1210/plan.md`](../archive/2026-11-09-backup-offsite-1210/plan.md).

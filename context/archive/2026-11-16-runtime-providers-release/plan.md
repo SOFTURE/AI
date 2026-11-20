@@ -35,4 +35,4 @@ adoption guide in `docs/07`, archive the change and the roadmap, then release ev
 
 - [x] Phase 1: init wiring
 - [x] Phase 2: guide, archive
-- [ ] Phase 3: release (after the merge; recorded in the thread's report)
+- [x] Phase 3: release (after the merge; recorded in the thread's report) — done: merge 20f608b3 (#1317), released from it on 2026-11-17 (`deploy@0.7.1`, `core@0.2.9`, `db@0.1.16` and the other packages, `auto-release.yml` with `all`)

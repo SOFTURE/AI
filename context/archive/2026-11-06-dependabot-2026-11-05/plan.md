@@ -44,4 +44,4 @@
 - [x] p3c container image: Next.js standalone tracing dropped `forwarded-parse` (instrumentation-http 0.300 loads it
   through a rolldown `__require`); observability depends on and requires it, `standalone-tracing.test.ts` guards it.
   CI green on 9a447e6.
-- [ ] p4 close the Dependabot pull requests (after the merge)
+- [x] p4 close the Dependabot pull requests (after the merge) — done: #1097, #1098 and #1099 closed, superseded by #1106 (merge befa8520)

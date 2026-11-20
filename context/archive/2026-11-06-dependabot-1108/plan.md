@@ -17,4 +17,4 @@
 - [x] p1 manifests and lockfile (undici 7.30.2 everywhere, audit 0)
 - [x] p2 `HYPERFRAMES_VERSION` 0.9.6; theme-notion tab order test matches the class inside Tailwind 4.3.4's `:is(...)`
 - [x] p3 typecheck, lint, language green; `vitest run tools/marketing-kit themes` and theme-notion coverage green
-- [ ] p4 close #1108 after the merge
+- [x] p4 close #1108 after the merge — done: #1108 closed 2026-11-06, superseded by #1119 (merge 374bb9b4)

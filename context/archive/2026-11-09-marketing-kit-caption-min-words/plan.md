@@ -24,4 +24,4 @@
 
 - [x] p1 balancing and chunkers, unit tests green
 - [x] p2 film options, schema, docs, version
-- [ ] p3 PR, CI, merge, release
+- [x] p3 PR, CI, merge, release — done: #1222 merged (c9fa2197), `marketing-kit@0.23.0` on npm 2026-11-09

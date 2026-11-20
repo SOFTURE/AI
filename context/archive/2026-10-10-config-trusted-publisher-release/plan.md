@@ -20,6 +20,6 @@ Run `auto-release.yml` on master with `config`; check the "Publish to npm" notic
 ## Progress
 
 - [x] Phase 1: version 0.1.1, CHANGELOG, runbook note
-- [ ] Phase 2: release (runs after the merge; result reported to the coordinator)
+- [x] Phase 2: release (runs after the merge; result reported to the coordinator) — done: tag `config@0.1.1` on merge 640f7449 (#367), on npm since 2026-10-10
 
 Gates on the branch: `npm run typecheck`, `npm run lint`, `npm run build`; the full `npm test` runs in pre-push.

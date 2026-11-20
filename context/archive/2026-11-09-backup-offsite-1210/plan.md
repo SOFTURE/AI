@@ -132,9 +132,9 @@ server-loss restore, and the gates pass.
 ### Phase 4: integration test, docs, release prep
 
 #### Automated
-- [ ] 4.1 Postgres 17 + S3 gateway integration job green in CI (the test passed locally against Postgres 16 and the fake S3 standing in for the gateway)
+- [x] 4.1 Postgres 17 + S3 gateway integration job green in CI — done: job "backup integration (Postgres 17, S3)" succeeded on #1211's head 87b3b3c (run 42608184629), merged 0d202762 (the test passed locally against Postgres 16 and the fake S3 standing in for the gateway)
 - [x] 4.2 README, CHANGELOGs, package count test, root README catalogue
 
 #### Owner
-- [ ] 4.3 Real provider bucket, tokens, age key and GitHub Environment secrets per app (owner only: the owner's
+- [x] 4.3 (carried to `context/foundation/roadmap.md` → Owner decisions and checks, via #1410: a per-app owner step outside this repository) Real provider bucket, tokens, age key and GitHub Environment secrets per app (owner only: the owner's
   provider account and secrets; steps in modules/backup/README.md, "Owner guide")

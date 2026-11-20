@@ -38,7 +38,7 @@ input, default `"10"`), and the package becomes 0.1.1 with the workflow's `cli-v
   flight, reserve stop between batches "2 of 10", time budget stop "1 of 10", `--max-minutes` stop and validation)
 - [x] Phase 2: workflow, docs, version (2ab9da1, version bump fa08d7b; `tests/repo/ci-usage-workflow.test.ts` green,
   typecheck, ESLint and the language gate green in the pre-commit hook; actionlint runs in CI)
-- [ ] Phase 3: release 0.1.1 and the live run (after the merge: auto-release, then dispatch `ci-usage-self.yml`)
+- [x] Phase 3: release 0.1.1 and the live run (after the merge: auto-release, then dispatch `ci-usage-self.yml`) — done: tag `ci-usage@0.1.1` on merge 66b3f25c (#1367); `ci-usage-self.yml` dispatched runs 44361164568 and 44374079068 succeeded on 2026-11-18
 
 ## Decisions (auto)
 
