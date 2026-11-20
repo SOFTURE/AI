@@ -18,6 +18,8 @@ tools/marketing-kit/tests/fixtures/next-app/CLAUDE.md
 # softure-skills:begin (managed by @softure-ai/skills)
 /.claude/skills/softure-archive/
 /.claude/skills/softure-code-review/
+/.claude/skills/softure-doctor/
+/.claude/skills/softure-evidence/
 /.claude/skills/softure-frame/
 /.claude/skills/softure-impl-review/
 /.claude/skills/softure-implement/
