@@ -13,6 +13,7 @@ test("the page lists the ledger and the module migrations applied by softure mig
     "auth 5 create_identities_and_oidc_states (applied)",
     "auth 6 add_users_display_name (applied)",
     "auth 7 create_invitations (applied)",
+    "auth 8 index_invitations_foreign_keys (applied)",
     "billing 1 create_entitlements (applied)",
     "billing 2 create_payments (applied)",
     "billing 3 record_payment_grants (applied)",

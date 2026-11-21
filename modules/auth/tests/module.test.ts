@@ -273,6 +273,36 @@ describe("auth tables constraints", () => {
   });
 });
 
+describe("auth's foreign keys (#1420)", () => {
+  let test: TestAuth;
+
+  beforeEach(async () => {
+    test = await createTestAuth();
+  });
+  afterEach(async () => {
+    await test.database.close();
+  });
+
+  it("each have an index that starts with their column, so deleting an account does not scan a table", async () => {
+    const result = await test.database.client.query<{ table_name: string; column_name: string; is_indexed: boolean }>(`
+      SELECT c.conrelid::regclass::text AS table_name, a.attname AS column_name,
+        EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.conrelid AND i.indkey[0] = c.conkey[1]) AS is_indexed
+      FROM pg_constraint c
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+      WHERE c.contype = 'f' AND c.connamespace = 'auth'::regnamespace
+      ORDER BY 1, 2`);
+    expect(result.rows.map((row) => `${row.table_name}.${row.column_name}`)).toEqual([
+      "auth.identities.user_id",
+      "auth.invitations.accepted_user_id",
+      "auth.invitations.invited_by",
+      "auth.password_resets.user_id",
+      "auth.sessions.user_id",
+      "auth.user_roles.user_id",
+    ]);
+    expect(result.rows.filter((row) => !row.is_indexed)).toEqual([]);
+  });
+});
+
 describe("the auth health check", () => {
   it("passes once the tables exist", async () => {
     const test = await createTestAuth();
