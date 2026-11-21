@@ -24,4 +24,8 @@ Add migration 0008 with two plain indexes and a test that guards every auth fore
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1 (4271071): the new test "auth's foreign keys (#1420)" failed on master with exactly
+      `auth.invitations.accepted_user_id` and `auth.invitations.invited_by` unindexed, and passes with migration 0008;
+      `npx vitest run modules/auth tests/repo` green apart from two container-only failures (no `ssh-keygen`, an
+      `rm` guard on `PATH`), which pass with `openssh-client` installed and `/usr/bin` first on `PATH`.
+      `npm run typecheck` and `npm run lint` green.
