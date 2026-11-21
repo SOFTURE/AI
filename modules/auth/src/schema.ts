@@ -1,7 +1,8 @@
 // Drizzle view of the module's tables (migrations/0001_create_users_and_sessions.sql,
 // 0002_create_user_roles.sql, 0003_create_password_resets.sql, the users.created_at index of
 // 0004_index_users_created_at.sql, 0005_create_identities_and_oidc_states.sql and
-// 0006_add_users_display_name.sql and 0007_create_invitations.sql). The migrations are the source of truth; this file only types
+// 0006_add_users_display_name.sql, 0007_create_invitations.sql and the invitations foreign key indexes of
+// 0008_index_invitations_foreign_keys.sql). The migrations are the source of truth; this file only types
 // the queries. App tables may reference `users.id`.
 import { pgSchema, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 

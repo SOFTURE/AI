@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- **The foreign keys of `auth.invitations` are indexed** (issue #1420): migration `0008` adds
+  `invitations_invited_by_idx` and `invitations_accepted_user_id_idx`, so deleting an account no longer scans
+  `auth.invitations` to set `invited_by` and `accepted_user_id` to null. Every foreign key of the auth tables now has
+  an index that starts with its column (a test guards it), so an app's "every foreign key is indexed" schema check
+  passes again.
+  - Migrate: run `softure migrate` (migration `0008` only adds the two indexes; nothing else changes).
+
 ## 0.2.20
 
 - **Invitations by email** (issue #1406): with `auth({ invitations: { send } })` an admin invites an address with roles
