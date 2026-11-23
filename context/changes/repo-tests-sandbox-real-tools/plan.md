@@ -25,4 +25,8 @@ before `command -v` on the given `PATH`, and pin it with a test that puts a wrap
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1 (985a663c): `findRealTool` checks `/usr/bin` and `/bin` before `command -v`; the new test
+      "links the real tool when a wrapper of the same name comes first on PATH (issue #1424)" fails with the old lookup
+      (5 failed of 96, the four from the issue included) and passes with the new one;
+      `npx vitest run tests/repo/workflow-runners.test.ts` 96 of 96 in this container with the `rm` guard first on
+      `PATH`. `npm run typecheck`, `npm run lint` green.

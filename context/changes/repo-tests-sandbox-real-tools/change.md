@@ -1,7 +1,7 @@
 ---
 change_id: repo-tests-sandbox-real-tools
 title: "tests: the gh setup sandbox links real tools, not PATH wrappers (issue #1424)"
-status: open
+status: impl_reviewed
 roadmap_item: null
 issue: 1424
 branch: claude/project-thread-w5125f
