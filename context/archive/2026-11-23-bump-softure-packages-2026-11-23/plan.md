@@ -1,7 +1,7 @@
-# Plan: skills-0-29
+# Plan: bump-softure-packages-2026-11-23
 
 ## Approach
-One phase: install `@softure-ai/skills@^0.29.0`, run the installer, drop the project merge rule the package now
+One phase: install `@softure-ai/skills@^0.30.0`, run the installer, drop the project merge rule the package now
 carries, run the doctor and fix what it names, run the gates.
 
 ## Decisions (auto)
@@ -15,4 +15,4 @@ carries, run the doctor and fix what it names, run the gates.
 - Done when: the doctor exits 0; typecheck, lint and tests pass.
 
 ## Progress
-- [x] Phase 1: skills 0.29.0 installed; merge rule section removed; state.json regenerated; doctor exit 0.
+- [x] Phase 1: skills 0.30.0 installed; merge rule section removed; state.json regenerated; doctor exit 0.

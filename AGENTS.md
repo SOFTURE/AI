@@ -348,13 +348,17 @@ Only a "stop" or "pause" from the owner, recorded in memory, holds it back.
   unsupervised. Routines
   fire at most once an hour, on the full hour, so the schedule is `every` rounded up to a multiple of
   60 (60 → `0 * * * *`, 120 → `0 */2 * * *`; `wt_config.py --report-cron` prints it); a value below 60
-  runs hourly. **One recurring routine** drives the reports: the coordinator creates it when work
-  starts and deletes it when nothing runs, or on the owner's "stop" or "pause". Never a chain of
-  one-off wake-ups. **A coordinator without a scheduling tool** (a hosted project's main-chat session)
-  starts one short setup thread whose only job is to create that routine from the template
-  `softure-worktree-manager/references/report-routine.md` and send its id back; the setup thread is
-  then closed. The coordinator records the id in memory and, at the end of the run or on "stop" or
-  "pause", has a thread delete the routine by that id. Missing tools never mean skipped reports. After a pause (usage limit) name the reports that were skipped. A report produced in a thread of its own (a scheduled routine) is pasted into the main
+  runs hourly. **One recurring routine** drives the reports: the roadmap heartbeat,
+  `routines/roadmap-heartbeat.md` in the package. It runs in a **fresh session on every fire**
+  (`create_new_session_on_fire`), never in the coordinator's session: it reads the repository and the
+  forge, sends the coordinator the facts in one message (in issue mode also the new open issues) and
+  ends; the coordinator posts the report and runs the heartbeat. The coordinator creates it when work
+  starts and deletes it when the roadmap is archived (issue mode: after `autonomy.reports.idleHours`
+  idle hours), or on the owner's "stop" or "pause". Never a chain of one-off wake-ups. **A coordinator
+  without a scheduling tool** (a hosted project's main-chat session) starts one short setup thread with
+  the brief in that file; the thread sends the routine id back and is closed. The coordinator records
+  the id in memory and, at the end of the run or on "stop" or "pause", has a thread delete the routine
+  by that id. Missing tools never mean skipped reports. After a pause (usage limit) name the reports that were skipped. A report produced in a thread of its own (a scheduled routine) is pasted into the main
   chat and that thread is closed at once.
 - Shape, the same in every project, nothing else:
   1. title: `Roadmap report <roadmap name>, <HH:MM>`;
