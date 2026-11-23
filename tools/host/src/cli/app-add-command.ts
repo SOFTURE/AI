@@ -5,6 +5,7 @@ import { APP_ROOT, buildAppVars } from "../ansible/index.js";
 import { findRequiredNames, readRepositoryFile } from "../github/index.js";
 import { findApp, loadInventory } from "../inventory/index.js";
 import { formatKnownHosts, generateDeployKey, getFingerprint, readHostKeys, type DeployKey } from "../ssh/index.js";
+import { checkOnboarding, readServerFacts } from "../survey/index.js";
 import { runPlaybook } from "./ansible-step.js";
 import { runCloudflareStep } from "./cloudflare-step.js";
 import { resolvePath, say, type HostDeps } from "./context.js";
@@ -23,7 +24,8 @@ const DRY_RUN_KEY = `ssh-ed25519 ${"A".repeat(68)} dry-run`;
 /**
  * `softure-host app add`: onboards one app of the inventory, in order: the GitHub Environment (before anything reads
  * its secrets), the server (folder, first deploy.sh, release key line), the GitHub secrets, Cloudflare. Idempotent;
- * `--check` changes nothing anywhere. A deploy key is issued when GitHub has none, or with `--rotate-key`.
+ * `--check` changes nothing anywhere. A preflight reads the server and the app's compose file first and stops before any
+ * change when the inventory contradicts them. A deploy key is issued when GitHub has none, or with `--rotate-key`.
  */
 export async function runAppAdd(args: string[], io: CliIo, deps: HostDeps): Promise<void> {
   const flags = readFlags("app add", args, {
@@ -36,6 +38,15 @@ export async function runAppAdd(args: string[], io: CliIo, deps: HostDeps): Prom
   const app = findApp(inventory, requireFlag("app add", "app", flags.app));
   const { check } = flags;
   say(io, "app", `${check ? "checking" : "onboarding"} ${app.slug} (${app.repo}, https://${app.host}) on ${inventory.server.host}`);
+
+  // The preflight reads the server and the app before anything changes anywhere (issue #1432).
+  const compose = await readRepositoryFile(deps.runner, app.repo, COMPOSE_PATH);
+  const facts = await readServerFacts(deps.runner, inventory);
+  const preflight = checkOnboarding({ facts, inventory, compose, composePath: COMPOSE_PATH });
+  for (const note of preflight.notes) say(io, "preflight", note);
+  if (preflight.problems.length > 0) {
+    return fail(`app add: stopped before any change:\n${preflight.problems.map((problem) => `- ${problem}`).join("\n")}`);
+  }
 
   const existing = await prepareEnvironment(io, deps, app.repo, check);
   const deployScript = await readRepositoryFile(deps.runner, app.repo, DEPLOY_SCRIPT_PATH);
@@ -70,7 +81,6 @@ export async function runAppAdd(args: string[], io: CliIo, deps: HostDeps): Prom
 
   await runCloudflareStep(io, deps, inventory, app, check);
 
-  const compose = await readRepositoryFile(deps.runner, app.repo, COMPOSE_PATH);
   if (compose !== null) {
     const missing = findRequiredNames(compose).filter((name) => !existing.has(name) && !plan.secrets.has(name));
     say(io, "github", missing.length === 0 ? `every name ${COMPOSE_PATH} requires is set` : `still to set by hand (the app's own secrets): ${missing.join(", ")}`);

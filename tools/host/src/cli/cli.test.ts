@@ -11,6 +11,22 @@ const ADMIN_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAOhB7/zzhC+HXDdGOdLwJln5
 const HOST_KEYS = "ssh-ed25519 AAAAHOSTKEY root@srv\n";
 const DEPLOY_SCRIPT = "#!/usr/bin/env bash\necho deploy\n";
 const COMPOSE = "x: ${POSTGRES_PASSWORD:?}\ny: ${RESEND_API_KEY:?}\nz: ${DEPLOY_SSH_HOST:?}\n";
+/** What the probe prints on a server `softure-host server` set up: its own edge on its own network. */
+const OWN_SERVER = [
+  "sudo\tpasswordless",
+  "docker\t27.3.1",
+  "network\tbridge",
+  "network\tsofture-edge",
+  "edge\tsofture-edge-traefik-1\ttraefik:v3.3\tsofture-edge\tsofture-edge,\t--entrypoints.websecure.address=:443 --certificatesresolvers.letsencrypt.acme.email=ops@example.com",
+].join("\n");
+/** A server another app set up: its Traefik in its own compose project and network. */
+const SHARED_SERVER = [
+  "sudo\tpasswordless",
+  "docker\t27.3.1",
+  "network\tbridge",
+  "network\tfirst-app-edge",
+  "edge\tfirst-app-traefik-1\ttraefik:v3.3\tfirst-app\tfirst-app-edge,\t--entrypoints.websecure.address=:443 --certificatesresolvers.le.acme.tlschallenge=true",
+].join("\n");
 
 let dir: string;
 beforeEach(() => {
@@ -57,7 +73,14 @@ function createDeps(respond: Responder): HostDeps & { runner: ReturnType<typeof 
 }
 
 /** A GitHub repository as gh sees it, plus the server's host keys. */
-function createWorld(options: { environment: boolean; secrets: string[]; tagPolicy?: boolean; deployScript?: boolean }): Responder {
+function createWorld(options: {
+  environment: boolean;
+  secrets: string[];
+  tagPolicy?: boolean;
+  deployScript?: boolean;
+  server?: string;
+  compose?: string;
+}): Responder {
   return (call) => {
     const line = formatCall(call);
     if (line === "gh api repos/acme/notes/environments/production --silent") {
@@ -70,7 +93,11 @@ function createWorld(options: { environment: boolean; secrets: string[]; tagPoli
     if (line.endsWith("contents/docker/server/deploy.sh")) {
       return options.deployScript === false ? { status: 1, stderr: "gh: Not Found (HTTP 404)\n" } : { stdout: DEPLOY_SCRIPT };
     }
-    if (line.endsWith("contents/docker/prod/docker-compose.yml")) return { stdout: COMPOSE };
+    if (line.endsWith("contents/docker/prod/docker-compose.yml")) return { stdout: options.compose ?? COMPOSE };
+    if (call.program === "ssh" && call.args.includes("sh")) {
+      expect(call.input).toContain(" -T -C ");
+      return { stdout: options.server ?? OWN_SERVER };
+    }
     if (call.program === "ssh") return { stdout: HOST_KEYS };
     if (call.program === "ansible-playbook") {
       // The deploy script must exist while Ansible runs.
@@ -158,6 +185,8 @@ describe("softure-host app add", () => {
     await expect(runCli(["app", "add", `--inventory=${writeInventory()}`, "--app=notes"], io, deps)).resolves.toBe(0);
     const lines = deps.runner.calls.map(formatCall);
     const order = [
+      "gh api -H Accept: application/vnd.github.raw repos/acme/notes/contents/docker/prod/docker-compose.yml",
+      "ssh -o BatchMode=yes -p 22 admin@srv.example.com sh -s -- deploy softure-cloudflare-only",
       "gh api repos/acme/notes/environments/production --silent",
       "gh api -X PUT repos/acme/notes/environments/production --input -",
       "gh api repos/acme/notes/environments/production/deployment-branch-policies",
@@ -290,5 +319,67 @@ describe("softure-host app add", () => {
     withToken.stderr = (text) => errors.push(text);
     await expect(runCli(["app", "add", `--inventory=${path}`, "--app=notes"], withToken, createDeps(createWorld({ environment: true, tagPolicy: true, secrets: [] })))).resolves.toBe(2);
     expect(errors.join("")).toContain("cloudflare: the DNS record needs server.ipv4 in the inventory");
+  });
+  it("runs the preflight first: the server's own edge and network pass (issue #1432)", async () => {
+    const io = createIo();
+    const deps = createDeps(createWorld({ environment: true, tagPolicy: true, secrets: [] }));
+    await expect(runCli(["app", "add", `--inventory=${writeInventory()}`, "--app=notes", "--check"], io, deps)).resolves.toBe(0);
+    expect(io.out.join("")).toContain("preflight: the edge network softure-edge exists\n");
+    expect(io.out.join("")).toContain("preflight: docker/prod/docker-compose.yml joins no external network\n");
+  });
+
+  it("stops with --check before any change when an edge already runs and edge.manage is true (issue #1432)", async () => {
+    for (const flags of [["--check"], []]) {
+      const io = createIo();
+      const deps = createDeps(createWorld({ environment: false, secrets: [], server: SHARED_SERVER }));
+      await expect(runCli(["app", "add", `--inventory=${writeInventory()}`, "--app=notes", ...flags], io, deps)).resolves.toBe(1);
+      const error = io.err.join("");
+      expect(error).toContain("app add: stopped before any change:");
+      expect(error).toContain(
+        "an edge already runs on srv.example.com: first-app-traefik-1 (compose project first-app, networks first-app-edge), while the inventory has edge.manage: true. Set edge.manage: false",
+      );
+      expect(error).toContain("the inventory's edge.network softure-edge does not exist on srv.example.com (Docker networks there: bridge, first-app-edge)");
+      expect(deps.runner.calls.filter(isWrite)).toEqual([]);
+      expect(deps.runner.calls.some((call) => call.program === "ansible-playbook" || formatCall(call).includes("environments/production"))).toBe(false);
+    }
+  });
+
+  it("names both networks when the compose file joins another edge network (issue #1432)", async () => {
+    const path = writeInventory();
+    writeFileSync(path, readFileSync(path, "utf8").replace("  acmeEmail: ops@example.com\n", "  manage: false\n  network: first-app-edge\n  certResolver: le\n"));
+    const literal = "services: {}\nnetworks:\n  edge:\n    external: true\n    name: proxy\n";
+    const io = createIo();
+    const deps = createDeps(createWorld({ environment: true, tagPolicy: true, secrets: [], server: SHARED_SERVER, compose: literal }));
+    await expect(runCli(["app", "add", `--inventory=${path}`, "--app=notes", "--check"], io, deps)).resolves.toBe(1);
+    expect(io.err.join("")).toContain(
+      "docker/prod/docker-compose.yml joins the external network proxy, but the inventory's edge.network is first-app-edge.",
+    );
+
+    // The default of ${EDGE_NETWORK:-…} does not matter: app add sets the variable to edge.network (issue #1429).
+    const variable = literal.replace("name: proxy", "name: ${EDGE_NETWORK:-proxy}");
+    const passing = createIo();
+    const passingDeps = createDeps(createWorld({ environment: true, tagPolicy: true, secrets: [], server: SHARED_SERVER, compose: variable }));
+    await expect(runCli(["app", "add", `--inventory=${path}`, "--app=notes", "--check"], passing, passingDeps)).resolves.toBe(0);
+    expect(passing.out.join("")).toContain("preflight: docker/prod/docker-compose.yml joins first-app-edge\n");
+  });
+});
+
+describe("softure-host survey", () => {
+  it("prints what the inventory needs and the edge block for an edge that already runs, changing nothing (issue #1432)", async () => {
+    const io = createIo();
+    const deps = createDeps((call) => (call.program === "ssh" ? { stdout: SHARED_SERVER } : undefined));
+    await expect(runCli(["survey", `--inventory=${writeInventory()}`], io, deps)).resolves.toBe(0);
+    expect(deps.runner.calls.map(formatCall)).toEqual(["ssh -o BatchMode=yes -p 22 admin@srv.example.com sh -s -- deploy softure-cloudflare-only"]);
+    const printed = io.out.join("");
+    expect(printed).toContain("survey: srv.example.com as admin (read-only; nothing was changed)\n");
+    expect(printed).toContain("edge: first-app-traefik-1 (traefik:v3.3), compose project first-app, networks first-app-edge");
+    expect(printed).toContain("edge:\n  manage: false\n  network: first-app-edge\n  certResolver: le\n");
+  });
+
+  it("stops when the admin cannot log in", async () => {
+    const io = createIo();
+    const deps = createDeps(() => ({ status: 255, stderr: "Permission denied (publickey).\n" }));
+    await expect(runCli(["survey", `--inventory=${writeInventory()}`], io, deps)).resolves.toBe(1);
+    expect(io.err.join("")).toContain("cannot survey srv.example.com as admin: Permission denied (publickey).");
   });
 });
