@@ -28,4 +28,6 @@ Pass the button's look through `LogoutForm` and `LogoutButton`, with one slot ma
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1 (190885a): props on `LogoutForm` and `LogoutButton`, four new tests, README sidebar-row example,
+      CHANGELOG `Unreleased`. `npx vitest run modules/auth`: 41 files, 553 tests passed; `npm run typecheck` and
+      ESLint on the touched files green.

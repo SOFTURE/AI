@@ -1,12 +1,13 @@
 ---
 change_id: auth-logout-button-slots
 title: "auth: LogoutButton and LogoutForm style their button, so an app renders logout as a sidebar row (issue #1439)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1439
 branch: claude/project-thread-kb3f9c
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -35,3 +36,10 @@ app works around it with `[&_button]:…` selectors on the form.
 ## Notes
 
 - frame skipped: the issue names the problem and two options; the owner asked to pick the best one.
+
+## Done
+
+- `LogoutForm` (`/ui`) and `LogoutButton` (`/next`) take `size`, `fullWidth`, `iconLeft`, `unstyled` and
+  `classNames: { form, button }`, passed to `@softure-ai/ui`'s `Button`; `className` still styles the form.
+- Tests pin each prop, the busy state under `unstyled`, and the forwarding from `LogoutButton`.
+- README shows a sidebar footer row; CHANGELOG under `Unreleased`. Release auth after the merge.
