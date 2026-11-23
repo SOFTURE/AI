@@ -1,6 +1,7 @@
 import { fail } from "../cli/failure.js";
 import type { CaptureResult, Runner } from "../cli/process.js";
 import type { Inventory } from "../inventory/index.js";
+import { buildAdminSsh } from "./admin-ssh.js";
 
 export interface HostKey {
   type: string;
@@ -34,16 +35,8 @@ export function formatKnownHosts(host: string, port: number, keys: readonly Host
  * asking, so the host is checked against the admin's known_hosts.
  */
 export function captureAsAdmin(runner: Runner, inventory: Inventory, command: string): Promise<CaptureResult> {
-  const { server } = inventory;
-  return runner.capture("ssh", [
-    "-o",
-    "BatchMode=yes",
-    "-p",
-    String(server.port),
-    ...(server.identityFile === undefined ? [] : ["-i", server.identityFile]),
-    `${server.adminUser}@${server.host}`,
-    command,
-  ]);
+  const ssh = buildAdminSsh(inventory, [command]);
+  return runner.capture(ssh.program, ssh.args);
 }
 
 /**

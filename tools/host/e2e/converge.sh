@@ -7,6 +7,9 @@
 # `softure-host operator add-key` and `remove-key` run: one line per label, other lines byte-equal, the operator key
 # reaching only deploy.sh, check mode changing nothing, a key another line holds refused. Every playbook is
 # syntax-checked first.
+# The container's sshd starts with `AllowUsers root`, like a server `softure-host server` never provisioned: the deploy
+# user gets in through the drop-in app.yml adds, an AllowGroups that would still refuse it stops the run before any
+# change, and `softure-host survey` (the real CLI over SSH as root) changes nothing (issue #1432).
 #
 # Needs docker, ansible-core, ssh and node with the workspace installed (npm ci). The collections come from
 # ansible/requirements.yml unless HOST_E2E_COLLECTIONS points at a folder that already holds them.
@@ -23,6 +26,7 @@ work="$(mktemp -d)"
 
 cleanup() {
   docker rm -f "$container" > /dev/null 2>&1 || true
+  ssh-keygen -R "[127.0.0.1]:$port" > /dev/null 2>&1 || true
   rm -rf "$work"
 }
 trap cleanup EXIT
@@ -51,7 +55,9 @@ ansible-playbook --syntax-check -i server, "$package/ansible/operator.yml"
 
 step "starting $image"
 docker run -d --name "$container" -p "127.0.0.1:$port:22" "$image" sleep infinity > /dev/null
-docker exec "$container" bash -c 'apt-get update -qq > /dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 openssh-server > /dev/null && groupadd -f docker && install -d -m 0755 -o root -g root /run/sshd && ssh-keygen -A && /usr/sbin/sshd'
+ssh-keygen -q -t ed25519 -N "" -C admin -f "$work/admin-key"
+docker exec "$container" bash -c 'apt-get update -qq > /dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 openssh-server > /dev/null && groupadd -f docker && install -d -m 0755 -o root -g root /run/sshd && ssh-keygen -A && echo "AllowUsers root" >> /etc/ssh/sshd_config && /usr/sbin/sshd'
+docker exec -i "$container" bash -c 'install -d -m 0700 /root/.ssh && cat > /root/.ssh/authorized_keys && chmod 0600 /root/.ssh/authorized_keys' < "$work/admin-key.pub"
 
 printf '#!/usr/bin/env bash\necho "deploy.sh ran: ${SSH_ORIGINAL_COMMAND:-none}"\n' > "$work/deploy.sh"
 connection="{\"ansible_connection\":\"community.docker.docker\",\"ansible_host\":\"$container\",\"ansible_user\":\"root\"}"
@@ -108,6 +114,7 @@ grep -q "planned change: the deploy user deploy does not exist yet" "$work/run.l
   || fail "check mode does not report the deploy user as a planned change"
 in_container 'id deploy' > /dev/null 2>&1 && fail "check mode created the deploy user"
 in_container 'test -e /srv/notes' && fail "check mode created the app folder"
+in_container 'test -e /etc/ssh/sshd_config.d/60-softure-host-deploy.conf' && fail "check mode wrote the sshd drop-in"
 
 step "first run issues key A: $(converge "$work/key-a")"
 recap="$(converge "$work/key-a")"
@@ -127,8 +134,34 @@ in_container 'grep " notes-release$" /home/deploy/.ssh/authorized_keys' | grep -
 in_container 'id -nG deploy' | grep -qw docker || fail "deploy is not in docker"
 in_container 'id -nG deploy' | grep -qw sudo && fail "deploy is in sudo"
 
+step "the sshd drop-in admits the deploy user next to the server's own AllowUsers"
+in_container 'cat /etc/ssh/sshd_config.d/60-softure-host-deploy.conf' | grep -qx 'AllowUsers deploy' || fail "no AllowUsers drop-in"
+[ "$(in_container '/usr/sbin/sshd -T -C user=deploy,host=localhost,addr=127.0.0.1 | grep ^allowusers | sort | tr "\n" " "')" = "allowusers deploy allowusers root " ] \
+  || fail "sshd does not allow deploy and root"
+
 step "a real login with the issued key runs deploy.sh"
 [ "$(login "$work/key-a")" = "deploy.sh ran: status" ] || fail "login with the issued key"
+
+step "softure-host survey reads the server and changes nothing"
+mkdir -p "$HOME/.ssh"
+ssh-keyscan -p "$port" 127.0.0.1 2> /dev/null >> "$HOME/.ssh/known_hosts" || fail "ssh-keyscan"
+printf 'server: { host: 127.0.0.1, port: %s, adminUser: root, identityFile: %s, deployUser: deploy }\nedge: { manage: false, network: edge }\n' \
+  "$port" "$work/admin-key" > "$work/inventory.yml"
+(cd "$repo" && npx tsx "$package/src/cli/main.ts" survey --inventory="$work/inventory.yml") > "$work/survey.log" 2>&1 || {
+  cat "$work/survey.log" >&2
+  fail "survey"
+}
+cat "$work/survey.log"
+grep -q '^system: root is root$' "$work/survey.log" || fail "survey: admin rights"
+grep -q '^users: deploy (deploy user): no sudo; groups deploy, docker$' "$work/survey.log" || fail "survey: deploy user"
+grep -q '^sshd: AllowUsers deploy, root; AllowGroups none (effective, sshd -T)$' "$work/survey.log" || fail "survey: sshd"
+grep -q '^docker: not installed$' "$work/survey.log" || fail "survey: docker"
+grep -q '^apps: folders under /srv: /srv/notes$' "$work/survey.log" || fail "survey: app folders"
+recap="$(converge "$work/key-a")"
+case "$recap" in
+  *" changed=0 "*) ;;
+  *) fail "a run after the survey changed something: $recap" ;;
+esac
 
 step "a deploy.sh the releases replaced is never overwritten"
 in_container 'echo "# replaced by a release" >> /srv/notes/deploy.sh'
@@ -202,6 +235,17 @@ step "a run without a key refuses an app that has no line"
 in_container 'sed -i "/ notes-release$/d" /home/deploy/.ssh/authorized_keys'
 if converge "" > /dev/null 2> "$work/refusal.log"; then fail "a run without a key accepted an app without a line"; fi
 grep -q -- "--rotate-key" "$work/refusal.log" || fail "the refusal does not point at --rotate-key"
+
+step "an AllowGroups that would still refuse the deploy user stops the run before any change"
+in_container 'echo "AllowGroups admins" > /etc/ssh/sshd_config.d/10-groups.conf'
+before="$(in_container 'sha256sum /etc/ssh/sshd_config.d/* /home/deploy/.ssh/authorized_keys')"
+for mode in --check ""; do
+  if converge "$work/key-a" "$mode" > /dev/null 2> "$work/refusal.log"; then fail "AllowGroups was accepted ($mode)"; fi
+  grep -q "sshd would turn the deploy user deploy away (AllowGroups (admins) has none of its groups (deploy docker))" "$work/refusal.log" \
+    || fail "the refusal does not name AllowGroups ($mode)"
+  [ "$(in_container 'sha256sum /etc/ssh/sshd_config.d/* /home/deploy/.ssh/authorized_keys')" = "$before" ] || fail "a refused run changed the server ($mode)"
+done
+in_container 'rm /etc/ssh/sshd_config.d/10-groups.conf'
 
 step "a deploy user with sudo rights is refused before any change, in check mode and in a real run"
 converge "$work/key-a" > /dev/null

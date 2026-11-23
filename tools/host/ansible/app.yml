@@ -2,7 +2,8 @@
 # Onboards one app on a server `softure-host server` set up: its folder, the first copy of its deploy.sh and its
 # release key line. Run by `softure-host app add`; it touches nothing of other apps. Later releases replace
 # deploy.sh themselves, so an existing copy is never overwritten. A deploy user with sudo rights is refused before
-# any change (tasks/deploy-user-preflight.yml).
+# any change (tasks/deploy-user-preflight.yml). On a server `softure-host server` never provisioned, sshd's
+# AllowUsers may not name the deploy user: a drop-in admits it (tasks/deploy-user-sshd.yml, issue #1432).
 
 - name: Onboard an app
   hosts: all
@@ -21,6 +22,9 @@
 
     - name: Refuse a deploy user with sudo rights before any change
       ansible.builtin.import_tasks: tasks/deploy-user-preflight.yml
+
+    - name: Read whether sshd admits the deploy user, before any change
+      ansible.builtin.import_tasks: tasks/deploy-user-sshd.yml
 
   roles:
     # Check mode skips the role on a first onboarding: its key line task needs the authorized_keys file the real run
@@ -63,6 +67,62 @@
         owner: "{{ deploy_user_name }}"
         group: "{{ deploy_user_group | default(deploy_user_name) }}"
         mode: "0755"
+
+    - name: Admit the deploy user in sshd's AllowUsers
+      when: host_sshd_dropin_needed | bool
+      block:
+        - name: Write the sshd drop-in that adds the deploy user to AllowUsers
+          ansible.builtin.copy:
+            dest: "{{ host_sshd_dropin }}"
+            content: |
+              # Written by softure-host app add (issue #1432): sshd's AllowUsers did not admit the deploy user, so
+              # releases could not log in. AllowUsers lines add up, so this widens the list and leaves the rest.
+              AllowUsers {{ deploy_user_name }}
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Validate sshd's configuration with the drop-in
+          ansible.builtin.command:
+            argv: ["{{ host_sshd_bin }}", "-t"]
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Check that the drop-in admits the deploy user
+          ansible.builtin.command:
+            argv: ["{{ host_sshd_bin }}", "-T", "-C", "user={{ deploy_user_name }},host=localhost,addr=127.0.0.1"]
+          register: host_sshd_after
+          changed_when: false
+          failed_when: >-
+            host_sshd_after.rc != 0 or deploy_user_name not in
+            (host_sshd_after.stdout_lines | select('match', '^allowusers ') | map('regex_replace', '^allowusers ', '') | list)
+          when: not ansible_check_mode
+
+        - name: Reload sshd
+          ansible.builtin.command:
+            argv:
+              - /bin/sh
+              - -c
+              - |
+                if command -v systemctl > /dev/null 2>&1 && systemctl is-active --quiet ssh.service; then systemctl reload ssh.service
+                elif command -v systemctl > /dev/null 2>&1 && systemctl is-active --quiet sshd.service; then systemctl reload sshd.service
+                elif [ -s /run/sshd.pid ]; then kill -HUP "$(cat /run/sshd.pid)"
+                else echo "no running sshd to reload: the next one reads the drop-in"; fi
+          changed_when: true
+          when: not ansible_check_mode
+
+      rescue:
+        - name: Remove the drop-in sshd refused
+          ansible.builtin.file:
+            path: "{{ host_sshd_dropin }}"
+            state: absent
+
+        - name: Report the drop-in sshd refused
+          ansible.builtin.fail:
+            msg: >-
+              sshd did not accept {{ host_sshd_dropin }} or it did not admit {{ deploy_user_name }} (does sshd_config
+              include sshd_config.d?), so it was removed. This step is yours: add {{ deploy_user_name }} to sshd's
+              AllowUsers, run `sshd -t` and reload sshd, then run app add again.
 
     - name: Report the app folder
       ansible.builtin.debug:
