@@ -50,9 +50,8 @@ can be imported into it, and `softure-mail` sends campaigns from a content file.
   export), checked against a count, a total size and a content type allow-list before anything is sent.
 - **Preview and test send.** `previewMail(config, mail)` returns exactly what `sendMail` hands the
   provider, and `formatMailPreview(message)` prints it for a terminal; `softure-mail test` sends a mail to the configured `testAddress` and nowhere else.
-- **A SQL surface** for the app's own queries: `mailing.recipient_key(address)`,
-  `mailing.is_suppressed(address)`, `mailing.was_delivered(scope, address)` and the views
-  `mailing.delivery_outcomes` and `mailing.suppressed_recipients` (section 5).
+- **A SQL surface** for the app's own queries: the views `mailing.delivery_outcomes` and
+  `mailing.suppressed_recipients`, joined on keys from `getRecipientKey` (section 5).
 - **Campaigns.** `sendCampaign`, `planCampaign` and the content file parser in `/server`; the
   `softure-mail campaign` command sends a campaign from a content file.
 - **Sender DNS.** `checkSenderDns(domain)` and `softure-mail dns` report SPF, DKIM and DMARC, hold DMARC to a
@@ -145,8 +144,14 @@ await sendMail(
   (its storage, its retention) until the job is done; it must return the same bytes each attempt, like the body.
 - The delivery ledger stores nothing of the mail, attachments included.
 
-**How a link works.** The link carries `r`, the base64url SHA-256 of the trimmed, lowercased
-address, and `t`, the base64url HMAC-SHA256 of a fixed prefix plus `r` under
+**The recipient key.** Every store of the module (suppressions, the delivery ledger) and every link
+names a recipient by `getRecipientKey(address)`: base64url PBKDF2-HMAC-SHA256 of the trimmed, lowercased
+address (10 000 rounds, 32 bytes), keyed by `SOFTURE_EMAIL_KEY_SECRET`. Without the secret a key cannot be
+matched to an address, not even against a list of candidates. `@softure-ai/privacy` derives its email key the
+same way from the same secret, so an unsubscribe can withdraw that address's consents. A missing or short
+secret throws a `SoftureConfigError` at the first key (list mail answers `unavailable` instead, see section 6).
+
+**How a link works.** The link carries `r`, the recipient key, and `t`, the base64url HMAC-SHA256 of a fixed prefix plus `r` under
 `MAILING_UNSUBSCRIBE_SECRET`. The address never appears in a URL, and the suppression table stores
 only `r`. The page (footer link) shows a button and changes nothing on open: mail scanners open
 links. The one-click route takes a mail client's POST without a session, verifies before touching
@@ -304,8 +309,9 @@ const summary = await runDeliveries(
   pauses after each of those mails.
 - **`dryRun: true`** reads the ledger and the suppression list and checks each mail, and writes and
   sends nothing: `sent` is then what would reach the provider.
-- List mail needs `MAILING_UNSUBSCRIBE_SECRET`: without it the run throws at the first list mail,
-  before any claim, instead of using up every recipient's attempts.
+- Every delivery needs `SOFTURE_EMAIL_KEY_SECRET`, and list mail also `MAILING_UNSUBSCRIBE_SECRET`: without
+  them the run throws at the first delivery that needs one, before any claim, instead of using up every
+  recipient's attempts.
 - `onDelivery(outcome)` sees every outcome (never the address); `deliverOnce`'s options
   (`maxAttempts`, `retakeUncertain`, the claim windows) pass through.
 
@@ -430,8 +436,8 @@ softure-mail campaign launch.md --recipients recipients.txt              # sends
 
   The exit status is the command's: 0 done, 1 failed or incomplete, 2 usage.
 - The command loads `softure.config.*` like `softure migrate` (or `--config <file>`), opens the
-  config's `database.handle` when set, otherwise its own connection on `database.url`, and needs `MAILING_UNSUBSCRIBE_SECRET` (campaigns are list
-  mail). Run `softure migrate` first.
+  config's `database.handle` when set, otherwise its own connection on `database.url`, and needs `SOFTURE_EMAIL_KEY_SECRET`
+  (also for `--dry-run`) and `MAILING_UNSUBSCRIBE_SECRET` (campaigns are list mail). Run `softure migrate` first.
 - Sends go one at a time with a 500 ms pause (`--pause-ms`; Resend allows 2 requests per second by
   default). Unsubscribed recipients are rejected without a send and never retried.
 - **Recipient filter.** With `mailing({ filterCampaignRecipient })` every recipient is checked before
@@ -673,30 +679,31 @@ Schema `mailing`, applied by `softure migrate`:
 | `0003_add_delivery_provider_status.sql` | `mailing.deliveries` | `provider_status` (the HTTP status of the last failed or released answer, 100 to 599, else null); `attempts` may be 0 on a `pending` row (a halt gave its attempt back). |
 | `0004_allow_imported_deliveries.sql` | `mailing.deliveries` | `imported_at` (set by `importDeliveries`, only on `sent`/`rejected` rows); `provider_message_id` only on `sent` rows, and required there unless the row was imported. |
 | `0005_add_sql_surface.sql` | functions and views | the SQL surface below. |
+| `0006_drop_address_key_functions.sql` | functions | drops `mailing.recipient_key`, `mailing.is_suppressed` and `mailing.was_delivered`: the recipient key needs `SOFTURE_EMAIL_KEY_SECRET`, which SQL does not have. Rows written before keep their old keys and match no address. |
 
-**SQL for the app's own queries.** Reports and recipient selections use these, never the tables,
-so a later change to the tables does not silently break them:
+**SQL for the app's own queries.** Reports and recipient selections read these views, never the tables,
+so a later change to the tables does not silently break them. SQL cannot compute a recipient key (the
+secret stays on the app server, and `0006` dropped the functions that keyed an address in SQL), so the
+app passes keys from `getRecipientKey`:
 
 | Name | What it gives |
 | --- | --- |
-| `mailing.recipient_key(address text) → text` | `getRecipientKey` in SQL: base64url SHA-256 of the trimmed, lowercased address. IMMUTABLE, so it can sit in an index on the app's table. |
-| `mailing.is_suppressed(address text) → boolean` | whether the address unsubscribed from list mail |
-| `mailing.was_delivered(scope text, address text) → boolean` | whether a mail of that scope was sent to the address (sent by the module or imported) |
 | view `mailing.delivery_outcomes` | `scope`, `recipient_key`, `kind`, `campaign_id`, `status` (`pending`, `claimed`, `sent`, `rejected`), `attempts`, `claimed_at`, `finished_at`, `imported_at` |
 | view `mailing.suppressed_recipients` | `recipient_key`, `source` (`one-click`, `page`, `operator`), `created_at` |
 
-```sql
--- trials ending this week that were not told yet and did not unsubscribe
-select s.id, u.email
-from subscriptions s join users u on u.id = s.user_id
-where s.trial_ends_at < now() + interval '7 days'
-  and not mailing.was_delivered('billing.trial-ending:' || s.id, u.email)
-  and not mailing.is_suppressed(u.email);
+```ts
+// trials ending this week that were not told yet and did not unsubscribe
+const keyed = candidates.map((row) => ({ ...row, key: getRecipientKey(row.email) }));
+const { rows } = await db.query(
+  `select recipient_key from mailing.suppressed_recipients where recipient_key = any($1)
+   union select recipient_key from mailing.delivery_outcomes
+   where scope = 'billing.trial-ending:' || $2 and status = 'sent' and recipient_key = any($1)`,
+  [keyed.map((row) => row.key), subscriptionId],
+);
 ```
 
-`lower()` follows the database's ctype: under a UTF-8 locale it lowercases like JavaScript, under the
-`C` locale only ASCII letters, so an address with non-ASCII capitals then keys differently in SQL.
-The functions and views are granted like the tables (the app role reads them).
+For a suppression check alone, `findSuppressedAddresses(ctx, addresses)` does this in one call.
+The views are granted like the tables (the app role reads them).
 
 The health check (`checkMailingTables`) runs `select 1 from mailing.<table> limit 0` for the three
 tables.
@@ -706,6 +713,7 @@ tables.
 | Variable | Required | What it does |
 | --- | --- | --- |
 | `RESEND_API_KEY` | with `resend()` and no `apiKey` | Resend API key. Missing at send time: `unavailable` and a log line naming the variable. |
+| `SOFTURE_EMAIL_KEY_SECRET` | to key a recipient: list mail, the delivery ledger (`deliverOnce`, jobs, `runDeliveries`), campaigns, imports, unsubscribes | Keys every recipient (the recipient key above); at least 32 characters (`openssl rand -base64 32`), a shorter one counts as missing. The same value as `@softure-ai/privacy`'s. Missing: list mail answers `unavailable` with a log line naming the variable, `softure-mail campaign` stops before opening the database, and any other keying throws a `SoftureConfigError`. **Never change it**: every stored key derives from it and nothing stores the addresses to derive them again, so a new value forgets every opt-out and every delivery. |
 | `MAILING_UNSUBSCRIBE_SECRET` | to send list mail | Signs and verifies unsubscribe links; at least 32 characters (`openssl rand -base64 32`), a shorter one counts as missing. Missing at send time: list mail answers `unavailable` with a log line naming the variable; transactional mail is unaffected. |
 | `MAILING_UNSUBSCRIBE_SECRET_PREVIOUS` | during a rotation | The secret before the current one: verifies links in mail already sent, never signs. |
 
@@ -816,8 +824,8 @@ vanish. The example app sets `MAIL_OUTBOX` for its e2e (`examples/next-app/e2e/m
 ## 11. GDPR
 
 Addresses and content go to the provider only; never to logs or results. The suppression list
-stores a SHA-256 of the address, not the address: pseudonymous data (it can be matched against a
-known address), kept after an account is deleted because it records the person's objection to
+stores the recipient key, not the address: pseudonymous data (whoever holds `SOFTURE_EMAIL_KEY_SECRET`
+can match it against a known address), kept after an account is deleted because it records the person's objection to
 mail. The delivery ledger also stores recipient keys, never addresses, and campaigns hold no
 personal data. So the module neither exports nor deletes per user (`privacy: { exports: false, deletes: false }`).
 

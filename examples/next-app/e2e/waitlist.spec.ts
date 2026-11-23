@@ -16,7 +16,7 @@ import { asc, eq, inArray, like } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import config from "../softure.config.ts";
 import { openTestDatabase } from "./database.ts";
-import { MAIL_OUTBOX } from "./outbox.ts";
+import { E2E_EMAIL_KEY_ENV, MAIL_OUTBOX } from "./outbox.ts";
 
 const copy = waitlistMessages.en;
 const createdEmails: string[] = [];
@@ -35,7 +35,7 @@ test.afterAll(async () => {
   if (createdEmails.length === 0) return;
   const database = await openTestDatabase();
   try {
-    const keys = createdEmails.map(getEmailKey);
+    const keys = createdEmails.map((email) => getEmailKey(email, E2E_EMAIL_KEY_ENV));
     const rows = await database.db.select({ id: signups.id }).from(signups).where(inArray(signups.email, createdEmails));
     for (const { id } of rows) await database.db.delete(deliveries).where(like(deliveries.scope, `waitlist.welcome:${id}`));
     await database.db.delete(signups).where(inArray(signups.email, createdEmails));
@@ -63,7 +63,7 @@ async function readSignup(email: string) {
     const recorded = await database.db
       .select({ purpose: consents.purpose, granted: consents.granted, documentVersion: consents.documentVersion, source: consents.source })
       .from(consents)
-      .where(eq(consents.emailKey, getEmailKey(email)))
+      .where(eq(consents.emailKey, getEmailKey(email, E2E_EMAIL_KEY_ENV)))
       .orderBy(asc(consents.recordedAt), asc(consents.id));
     return { signup, consents: recorded };
   } finally {
@@ -74,7 +74,7 @@ async function readSignup(email: string) {
 async function readSuppressions(email: string) {
   const database = await openTestDatabase();
   try {
-    return await database.db.select().from(suppressions).where(eq(suppressions.recipientKey, getEmailKey(email)));
+    return await database.db.select().from(suppressions).where(eq(suppressions.recipientKey, getEmailKey(email, E2E_EMAIL_KEY_ENV)));
   } finally {
     await database.close();
   }
