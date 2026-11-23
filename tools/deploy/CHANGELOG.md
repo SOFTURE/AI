@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
-## Unreleased
+## 0.7.9
 
 - **`publicPaths` in `deploy.json`; verify checks only public paths** (#1435). `init` writes `publicPaths` from the
   app's modules (`/api/health`, the MCP and OAuth endpoints of `@softure-ai/mcp-access`, the unsubscribe page and
