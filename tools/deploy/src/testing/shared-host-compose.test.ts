@@ -276,6 +276,45 @@ describe("checkSharedHostCompose", () => {
   });
 });
 
+describe("checkSharedHostCompose with compose interpolation (issue #1429)", () => {
+  const VARIABLE_LABELS = APP_LABELS.map((label) => label.replace("network=proxy", "network=${EDGE_NETWORK:-proxy}"));
+  const variableCompose = composeWith(VARIABLE_LABELS).replace("name: proxy", "name: ${EDGE_NETWORK:-proxy}");
+
+  it("reads the default the compose file gives when env does not set the name", () => {
+    expect(checkSharedHostCompose(variableCompose, OPTIONS)).toEqual([]);
+    expect(checkSharedHostCompose(variableCompose, { ...OPTIONS, env: { OTHER: "web" } })).toEqual([]);
+  });
+
+  it("reads the value env sets, as compose does at deploy time", () => {
+    const options = { ...OPTIONS, env: { EDGE_NETWORK: "web" } };
+    expect(checkSharedHostCompose(variableCompose, { ...options, edgeNetwork: "web" })).toEqual([]);
+    expect(checkSharedHostCompose(variableCompose, options)).toEqual([
+      { rule: "edge-network-missing", service: null, message: "no top-level network joins proxy as external: true" },
+      { rule: "traefik-network", service: "app", message: "traefik.docker.network is web, not proxy" },
+    ]);
+  });
+
+  it("follows compose: an empty value takes the :- default but not the - default", () => {
+    const dashOnly = composeWith(APP_LABELS).replace("name: proxy", "name: ${EDGE_NETWORK-proxy}");
+    expect(checkSharedHostCompose(variableCompose, { ...OPTIONS, env: { EDGE_NETWORK: "" } })).toEqual([]);
+    expect(checkSharedHostCompose(dashOnly, { ...OPTIONS, env: { EDGE_NETWORK: "" } })).toEqual([
+      { rule: "edge-network-missing", service: null, message: "no top-level network joins proxy as external: true" },
+    ]);
+  });
+
+  it("resolves a bare name only when env sets it and leaves an escaped dollar and required forms as written", () => {
+    const bare = composeWith(APP_LABELS).replace("name: proxy", "name: ${EDGE_NETWORK}");
+    expect(checkSharedHostCompose(bare, { ...OPTIONS, env: { EDGE_NETWORK: "proxy" } })).toEqual([]);
+    expect(checkSharedHostCompose(bare, OPTIONS).map((violation) => violation.rule)).toEqual(["edge-network-missing"]);
+    const escaped = composeWith(APP_LABELS).replace("name: proxy", () => "name: $${EDGE_NETWORK:-proxy}");
+    expect(checkSharedHostCompose(escaped, OPTIONS).map((violation) => violation.rule)).toEqual(["edge-network-missing"]);
+    const proof = APP_LABELS.map((label) =>
+      label.replace("acme-headers.headers.stsSeconds=31536000", "acme-headers.headers.customrequestheaders.X-Softure-Edge-Proof=${EDGE_PROOF_SECRET:?}"),
+    );
+    expect(checkSharedHostCompose(composeWith(proof), DEFAULTS)).toEqual([]);
+  });
+});
+
 describe("checkSharedHostCompose with ingress tunnel (issue #905)", () => {
   const TUNNEL: SharedHostComposeOptions = { edgeNetwork: "proxy", namePrefix: "acme", ingress: "tunnel" };
 
