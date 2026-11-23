@@ -162,6 +162,61 @@ describe("AlertDialog", () => {
   });
 });
 
+/**
+ * The exit duration of a layer's classes: `data-[state=closed]:duration-N`, else `duration-N`, else the animation's
+ * default. Radix portals the overlay and the content separately, each unmounted when its own exit animation ends.
+ */
+function getExitDuration(element: Element | null): string {
+  const classes = classesOf(element);
+  const closed = classes.find((name) => name.startsWith("data-[state=closed]:duration-"));
+  if (closed !== undefined) return closed.slice("data-[state=closed]:duration-".length);
+  return classes.find((name) => /^duration-\d+$/.test(name))?.slice("duration-".length) ?? "default";
+}
+
+describe("a modal's overlay leaves together with its content", () => {
+  // Were the overlay gone first, a dialog reopened while its content still fades out would portal a new overlay after
+  // that content, on the same z-index: the overlay would cover the dialog and swallow every click in it.
+  it.each([
+    [
+      "Dialog",
+      <Dialog key="dialog" defaultOpen>
+        <DialogContent>
+          <DialogTitle>Share the page</DialogTitle>
+          <DialogDescription>Anyone with the link can view it.</DialogDescription>
+        </DialogContent>
+      </Dialog>,
+      "dialog",
+    ],
+    [
+      "AlertDialog",
+      <AlertDialog key="alert" defaultOpen>
+        <AlertDialogContent>
+          <AlertDialogTitle>Delete the page?</AlertDialogTitle>
+          <AlertDialogDescription>It moves to the trash.</AlertDialogDescription>
+        </AlertDialogContent>
+      </AlertDialog>,
+      "alert-dialog",
+    ],
+    [
+      "Sheet",
+      <Sheet key="sheet" defaultOpen>
+        <SheetContent>
+          <SheetTitle>Page settings</SheetTitle>
+          <SheetDescription>Layout.</SheetDescription>
+        </SheetContent>
+      </Sheet>,
+      "sheet",
+    ],
+  ])("%s", (_name, tree, slot) => {
+    render(tree);
+    const content = document.querySelector(`[data-slot="${slot}-content"]`);
+    const overlay = document.querySelector(`[data-slot="${slot}-overlay"]`);
+
+    expect(getExitDuration(content)).not.toBe("default");
+    expect(getExitDuration(overlay)).toBe(getExitDuration(content));
+  });
+});
+
 describe("Select", () => {
   function renderSelect(onValueChange = vi.fn()) {
     render(
