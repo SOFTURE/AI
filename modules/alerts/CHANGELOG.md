@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.4
 
 - The `@softure-ai/mailing` peer range also accepts `^0.3.0` (issue #1418), the release that keys a recipient
   with `SOFTURE_EMAIL_KEY_SECRET`.

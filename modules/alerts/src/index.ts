@@ -15,7 +15,7 @@ export const MODULE_ID = "alerts";
 export const alerts = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.3",
+    version: "0.2.4",
     runtimes: ["node", "workers"],
     dependsOn: { jobs: "^0.1.6", mailing: "^0.2.5?" },
     dbSchema: "alerts",
