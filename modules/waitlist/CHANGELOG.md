@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
-## Unreleased
+## 0.5.5
 
 - Needs `SOFTURE_EMAIL_KEY_SECRET` (issue #1418): `@softure-ai/mailing` and `@softure-ai/privacy` now key an address
   with it, and an unsubscribe still withdraws the consents of the same address because both derive the same key.
