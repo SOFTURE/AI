@@ -34,7 +34,7 @@ export function buildCollectionInstall(paths: AnsiblePaths): CommandLine {
 }
 
 export interface PlaybookRun {
-  playbook: "server.yml" | "app.yml";
+  playbook: "server.yml" | "app.yml" | "operator.yml";
   vars: ExtraVars;
   /** Ansible's check mode with a diff: reports what would change, changes nothing. */
   check: boolean;

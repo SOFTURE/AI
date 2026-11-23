@@ -1668,8 +1668,10 @@ softure-deploy report --host=app-prod reports/signups.sql --since=2026-10-01
    ```
 
 3. `deploy.sh` of this version (a release ships it), and the operator's own key bound to it in `authorized_keys`, like
-   the deploy key: `command="/srv/<name>/deploy.sh",restrict ssh-ed25519 AAAA… ops@<laptop>`. `--host` is an ssh host
-   or a `~/.ssh/config` alias naming the user and that key (`--port` and `--ssh=<program>` when needed).
+   the deploy key: `command="/srv/<name>/deploy.sh",restrict ssh-ed25519 AAAA… <name>-operator-<label>`. On a server
+   set up with `@softure-ai/host`, `softure-host operator add-key` writes that line (see the host README,
+   [Running operator commands](../host/README.md#running-operator-commands)); do not edit the file by hand. `--host` is
+   an ssh host or a `~/.ssh/config` alias naming the user and that key (`--port` and `--ssh=<program>` when needed).
 
 **`run`.** Client flags (`--host`, `--port`, `--ssh`) come before the script; every word after it is the script's,
 `--help` included. The server checks the name (kebab-case) and each word (`--key` or `--key=value`), takes the deploy

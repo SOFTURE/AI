@@ -1,5 +1,5 @@
 import { fail } from "../cli/failure.js";
-import type { Runner } from "../cli/process.js";
+import type { CaptureResult, Runner } from "../cli/process.js";
 import type { Inventory } from "../inventory/index.js";
 
 export interface HostKey {
@@ -30,21 +30,29 @@ export function formatKnownHosts(host: string, port: number, keys: readonly Host
 }
 
 /**
- * Reads the server's own host keys over the admin's SSH connection. That connection checks the host against the
- * admin's known_hosts (BatchMode refuses an unknown host instead of asking), so the pinned keys are the ones the
- * admin already trusts, not a blind keyscan.
+ * Runs one command on the server over the admin's own SSH connection. BatchMode refuses an unknown host instead of
+ * asking, so the host is checked against the admin's known_hosts.
  */
-export async function readHostKeys(runner: Runner, inventory: Inventory): Promise<HostKey[]> {
+export function captureAsAdmin(runner: Runner, inventory: Inventory, command: string): Promise<CaptureResult> {
   const { server } = inventory;
-  const result = await runner.capture("ssh", [
+  return runner.capture("ssh", [
     "-o",
     "BatchMode=yes",
     "-p",
     String(server.port),
     ...(server.identityFile === undefined ? [] : ["-i", server.identityFile]),
     `${server.adminUser}@${server.host}`,
-    "cat /etc/ssh/ssh_host_*_key.pub",
+    command,
   ]);
+}
+
+/**
+ * Reads the server's own host keys over the admin's SSH connection, so the pinned keys are the ones the admin already
+ * trusts, not a blind keyscan.
+ */
+export async function readHostKeys(runner: Runner, inventory: Inventory): Promise<HostKey[]> {
+  const { server } = inventory;
+  const result = await captureAsAdmin(runner, inventory, "cat /etc/ssh/ssh_host_*_key.pub");
   if (result.status !== 0) {
     return fail(`cannot read the host keys as ${server.adminUser}@${server.host}: ${result.stderr.trim() || `exit ${result.status}`}`);
   }
