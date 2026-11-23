@@ -4,6 +4,15 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## Unreleased
+
+- **`LogoutButton` and `LogoutForm` style their button** (issue #1439): new props `size`, `fullWidth`, `iconLeft`,
+  `unstyled` and `classNames: { form, button }`, passed to `@softure-ai/ui`'s `Button`. `className` still styles the
+  form (and joins `classNames.form`). An app renders "Log out" as a full-width sidebar row with
+  `<LogoutButton variant="ghost" fullWidth classNames={{ button: "justify-start px-2" }} />`.
+  - Migrate: nothing required. An app that styles the button through descendant selectors on the form
+    (`[&_button]:…`) can move those classes to `classNames.button` and `fullWidth`.
+
 ## 0.2.22
 
 - Works with `@softure-ai/mailing` `^0.3.0` (issue #1418), the release that keys a recipient with
