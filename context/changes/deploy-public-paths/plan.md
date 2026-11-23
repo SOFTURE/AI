@@ -44,7 +44,16 @@
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
-- [ ] Phase 4
+- [x] Phase 1 (d4fb3d6): `publicPaths` in the schema (unique, Access characters, `/` alone), JSON schema
+      regenerated; `checkStatus` names a login redirect. New tests in `checks.test.ts` (Access login, app sign-in,
+      plain redirect keeps the old detail, expected redirect passes) and `schema.test.ts`; `npx vitest run
+      tools/deploy/src/verify tools/deploy/tests` 684 passed.
+- [x] Phase 2 (09488c5): facts `hasMcpAccess`, `hasMailing`; `--public`; `listPublicPaths`, `listVerifyRoutes`; the
+      template renders both from values. `generate.test.ts` (behind a login only `/api/health`; `--public` `["/"]` and
+      `/`; modules' endpoints on a VPS and on Cloudflare) and `init-cli.test.ts`; the e2e app keeps `/` with
+      `public: true` (regenerated). `npx vitest run tools/deploy` 987 passed.
+- [x] Phase 3 (ffced54): `src/cli/public-paths.ts` (`readPublicPaths`, `mergeBypassPaths`), `app add` merges before the
+      Cloudflare step. Acceptance test: `app add --check` with no `bypassPaths` and `publicPaths` of two paths reports
+      `would create` for both bypass applications, GETs only; `npx vitest run tools/host` 66 passed.
+- [x] Phase 4 (ab0e907): deploy README (verify rule and message, `--public`, read-from-the-app list, file table), host
+      README, both CHANGELOGs `## Unreleased`; `npx vitest run tests/repo` 947 passed.
