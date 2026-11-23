@@ -4,6 +4,16 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## 0.31.0
+
+- `PageLayout`: a screen inside the app shell, its `PageHeader` (the `header` prop takes the same props) and then its
+  sections in one grid with the theme's 16 px spacing (`gap-4`, `min-w-0` so a wide table scrolls inside its card).
+  `width="full"` (default) takes the content area's width, `width="content"` caps a reading page at 48 rem
+  (`max-w-3xl`) and centres it. `data-slot="page-layout"`, `data-width`.
+- Migration: an app with its own page wrapper (`<div className="grid w-full min-w-0 gap-4"><PageHeader {...header} />
+  {children}</div>`) replaces it with `<PageLayout header={header}>{children}</PageLayout>`; a test that every page
+  uses the wrapper can look for `data-slot="page-layout"` instead.
+
 ## 0.30.1
 
 - A modal's overlay leaves together with its content: `Dialog` and `AlertDialog` overlays fade out in 200 ms like their

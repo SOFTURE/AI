@@ -135,7 +135,8 @@ All 37 shadcn/ui components of the design system, exported from the package root
 avatar, badge, breadcrumb, button, button-group, card, checkbox, collapsible, command, dialog, dropdown-menu, empty,
 field, input, input-group, item, kbd, label, popover, progress, radio-group, scroll-area, select, separator, sheet,
 sidebar, skeleton, sonner (`Toaster`), spinner, switch, table, tabs, textarea, tooltip. Compositions: `Status` (badge, icon,
-word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PropertyList` (fields of one record),
+word), `PageHeader` (breadcrumb, icon box, title, description, actions), `PageLayout` (a screen in the app shell: its
+`PageHeader`, then its sections, at one width and spacing, below), `PropertyList` (fields of one record),
 `DetailTable` (an item's details as a label and value table, laid out fixed at its container's width, each label
 above its value where the table is narrower than 28rem), `FoldRow` (a list row folding open to a `DetailTable`
 and more, a native `<details>`), `PageFrame` (a page outside the app shell, such as a package's sign-in page),
@@ -191,6 +192,24 @@ icon. Each sets its height with a plain class, so one breakpoint class brings th
 <TabsList size="touch">
   <TabsTrigger value="all" className="md:min-h-0 md:min-w-0">All</TabsTrigger>
 </TabsList>
+```
+
+**`PageLayout`.** A screen inside the app shell: its `PageHeader` (the `header` prop takes the same props), then its
+sections, usually titled `Card`s, in one grid with the theme's 16 px spacing (`gap-4`). Every page that uses it gets
+the same width and the same gap under the header, so an app needs no wrapper of its own. `width="full"` (the default)
+takes the content area's width; `width="content"` caps a reading page at 48 rem (`max-w-3xl`) and centres it. The grid
+is `min-w-0`, so a wide table scrolls inside its card instead of widening the page. `data-slot="page-layout"` and
+`data-width` mark the root.
+
+```tsx
+<PageLayout header={{ title: "Projects", crumbs: [{ label: "Workspace", href: "/" }, { label: "Projects" }] }}>
+  <Card>
+    <CardHeader>
+      <CardTitle>Active</CardTitle>
+    </CardHeader>
+    <CardContent>…</CardContent>
+  </Card>
+</PageLayout>
 ```
 
 **`FoldRow`.** An item as one list row in a native `<details>`: a chevron, the title, short facts and badges on the
