@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an operator who uses `@softure
 version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.2.0
 
 - The `app add` preflight also stops when a router's `tls.certresolver` label in the app's compose file names another
   resolver than the inventory's `edge.certResolver` (#1429); the message names the routers and both values.
