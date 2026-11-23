@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseInventory } from "../inventory/index.js";
 import { parseServerFacts } from "./facts.js";
-import { checkOnboarding, findExternalNetworks, resolveComposeValue } from "./preflight.js";
+import { checkOnboarding, findExternalNetworks, findRouterResolvers, resolveComposeValue } from "./preflight.js";
 import { readProbeScript } from "./probe.js";
 import { formatSurvey, suggestEdgeBlock } from "./report.js";
 
@@ -136,5 +136,40 @@ describe("the onboarding preflight", () => {
       composePath: "c.yml",
     });
     expect(check).toEqual({ problems: [], notes: ["the edge network web exists", "c.yml joins web"] });
+  });
+
+  it("finds each router's certificate resolver, in list or map labels and under deploy (issue #1429)", () => {
+    const compose = [
+      "services:",
+      "  app:",
+      "    labels:",
+      "      - traefik.http.routers.notes.tls.certresolver=${RESOLVER:-le}",
+      "      - traefik.http.routers.notes.entrypoints=websecure",
+      "  worker:",
+      "    deploy:",
+      "      labels:",
+      "        traefik.http.routers.notes-www.tls.certresolver: letsencrypt",
+    ].join("\n");
+    expect(findRouterResolvers(compose, {})).toEqual([
+      { router: "notes", written: "${RESOLVER:-le}", resolved: "le" },
+      { router: "notes-www", written: "letsencrypt", resolved: "letsencrypt" },
+    ]);
+    expect(findRouterResolvers("services: {}\n", {})).toEqual([]);
+  });
+
+  it("stops on a router whose certificate resolver is not the inventory's edge.certResolver (issue #1429)", () => {
+    const compose = (resolver: string): string =>
+      ["services:", "  app:", "    labels:", `      - traefik.http.routers.notes.tls.certresolver=${resolver}`, "networks:", "  edge: { external: true, name: web }"].join("\n");
+    const facts = parseServerFacts(PROBE_OUTPUT);
+    expect(checkOnboarding({ facts, inventory, compose: compose("le"), composePath: "c.yml" })).toEqual({
+      problems: [],
+      notes: ["the edge network web exists", "c.yml joins web", "c.yml's routers use the certificate resolver le"],
+    });
+    expect(checkOnboarding({ facts, inventory, compose: compose("letsencrypt"), composePath: "c.yml" }).problems).toEqual([
+      "c.yml names another certificate resolver than the inventory's edge.certResolver le (routers: notes letsencrypt); the edge runs only that resolver, so Traefik issues no certificate for the app. Set traefik.http.routers.<router>.tls.certresolver=le in the app's compose file, or fix edge.certResolver.",
+    ]);
+    expect(checkOnboarding({ facts, inventory, compose: compose("${RESOLVER}"), composePath: "c.yml" }).problems).toEqual([
+      "c.yml names another certificate resolver than the inventory's edge.certResolver le (routers: notes ${RESOLVER} (a variable that is not set)); the edge runs only that resolver, so Traefik issues no certificate for the app. Set traefik.http.routers.<router>.tls.certresolver=le in the app's compose file, or fix edge.certResolver.",
+    ]);
   });
 });
