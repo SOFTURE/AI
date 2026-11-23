@@ -111,7 +111,9 @@ In order:
    `ssh-keyscan`); their fingerprints are printed.
 4. **GitHub secrets** (Environment `production`): `DEPLOY_SSH_HOST`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_KNOWN_HOSTS`,
    `DEPLOY_SSH_KEY` when issued, `DEPLOY_ORIGIN_IP` behind Cloudflare, the three database passwords only when
-   missing (a new password locks the app out of an existing volume); the repository variable `APP_HOST`.
+   missing (a new password locks the app out of an existing volume); the repository variables `APP_HOST` and
+   `EDGE_NETWORK` (the inventory's `edge.network`, which a compose file from `softure-deploy init --edge` joins at
+   deploy time; issue #1429).
 5. **Cloudflare** (with `edge.cdn: cloudflare` and `CLOUDFLARE_API_TOKEN`): a proxied A (and AAAA) record, a check
    that the zone's TLS mode is Full (strict) (reported, not changed: it is zone-wide), and the Access applications
    `<slug> (softure-host)` for the host's `emails` and `<slug> bypass <path> (softure-host)` per bypass path,

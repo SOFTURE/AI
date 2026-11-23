@@ -193,6 +193,7 @@ describe("softure-host app add", () => {
     expect(secrets.get("DEPLOY_SSH_KEY")).toMatch(/^-----BEGIN OPENSSH PRIVATE KEY-----\n/);
     expect(secrets.get("POSTGRES_PASSWORD")).toMatch(/^[0-9a-f]{64}$/);
     expect(lines).toContain("gh variable set APP_HOST --repo acme/notes --body notes.example.com");
+    expect(lines).toContain("gh variable set EDGE_NETWORK --repo acme/notes --body softure-edge");
 
     // No secret value on any command line, nor in the output.
     const printed = io.out.join("") + io.err.join("");
@@ -243,6 +244,7 @@ describe("softure-host app add", () => {
     const printed = io.out.join("");
     expect(printed).toContain("github: would create the production environment of acme/notes with the tag policy v*");
     expect(printed).toContain("github: would set the production secrets DEPLOY_SSH_HOST");
+    expect(printed).toContain(" and the variables APP_HOST, EDGE_NETWORK\n");
     expect(printed).toContain("app: check done; nothing was changed");
   });
 

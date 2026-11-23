@@ -1131,8 +1131,8 @@ Traefik belongs to another app's stack. A second Traefik would clash on ports 80
   `default`);
 - the network's name belongs to the server, not the app (issue #1429): both the network and the label
   `traefik.docker.network` read the optional variable `EDGE_NETWORK`, with `<network>` as the default. Set it as a
-  variable of the `production` environment (`softure-host app add` sets it from the inventory's `edge.network`) and
-  `env render` writes it into `.env.prod`, so one generated file deploys to servers whose edge networks have other
+  repository or `production` environment variable (`softure-host app add` sets it from the inventory's
+  `edge.network`) and `env render` writes it into `.env.prod`, so one generated file deploys to servers whose edge networks have other
   names; without it the app joins `<network>`, as before;
 - the app is published by labels instead of `traefik.yml`, which init does not write: `traefik.enable`,
   `traefik.docker.network=${EDGE_NETWORK:-<network>}`, a router `<name>` with the same rule `traefik.yml` would hold, entry point

@@ -7,8 +7,8 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 ## Unreleased
 
 - **The edge network's name comes from the server at deploy time** (#1429): `init --edge=<network>` writes
-  `${EDGE_NETWORK:-<network>}` in the top-level external network and in `traefik.docker.network`. A `production`
-  variable `EDGE_NETWORK` (which `softure-host app add` now sets from the inventory's `edge.network`) reaches
+  `${EDGE_NETWORK:-<network>}` in the top-level external network and in `traefik.docker.network`. A repository or
+  `production` variable `EDGE_NETWORK` (which `softure-host app add` now sets from the inventory's `edge.network`) reaches
   `.env.prod` through `env render`, so one generated file deploys to servers whose shared Traefik runs in another
   network; without it the app joins `<network>` as before.
   - Migrate (optional): an app generated with an older `init --edge` that wants this writes
