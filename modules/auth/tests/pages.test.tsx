@@ -85,4 +85,15 @@ describe("the logout button", () => {
     expect(document.querySelector('input[name="next"]')).toBeNull();
     expect(screen.getByRole("button", { name: en.logout.submit })).not.toBeNull();
   });
+
+  it("passes the button's look and slot classes through to the form", async () => {
+    test = await createTestAuth();
+    scope.config = test.config;
+    render(<LogoutButton variant="ghost" fullWidth className="footer" classNames={{ button: "justify-start px-2" }} />);
+
+    const button = screen.getByRole("button", { name: en.logout.submit });
+    expect(button.closest("form")?.className).toBe("footer");
+    expect(button.dataset.variant).toBe("ghost");
+    expect(button.className.split(" ")).toEqual(expect.arrayContaining(["sft:w-full", "justify-start", "px-2"]));
+  });
 });

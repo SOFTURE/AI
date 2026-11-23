@@ -120,4 +120,63 @@ describe("LogoutForm", () => {
     expect(beforeSignOut).toHaveBeenCalledTimes(2);
     expect(action).toHaveBeenCalledTimes(2);
   });
+
+  it("keeps className on the form and gives the button its defaults when no look is passed", () => {
+    render(<LogoutForm action={() => undefined} messages={en} className="account-footer" />);
+
+    const button = screen.getByRole("button", { name: en.logout.submit });
+    expect(getForm().className).toBe("account-footer");
+    expect(button.dataset.variant).toBe("secondary");
+    expect(button.dataset.size).toBe("md");
+    expect(button.className.split(" ")).not.toContain("sft:w-full");
+  });
+
+  it("styles the button as a full-width row through classNames.button, without selectors on the form", () => {
+    render(
+      <LogoutForm
+        action={() => undefined}
+        messages={en}
+        variant="ghost"
+        size="sm"
+        fullWidth
+        iconLeft={<svg data-testid="logout-icon" />}
+        className="footer"
+        classNames={{ form: "-mx-2", button: "justify-start px-2" }}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: en.logout.submit });
+    const classes = button.className.split(" ");
+    expect(getForm().className).toBe("-mx-2 footer");
+    expect(button.dataset.variant).toBe("ghost");
+    expect(button.dataset.size).toBe("sm");
+    expect(classes).toContain("sft:w-full");
+    expect(classes.slice(-2)).toEqual(["justify-start", "px-2"]);
+    expect(button.querySelector('[data-testid="logout-icon"]')).not.toBeNull();
+  });
+
+  it("renders only the app's class on an unstyled button and keeps it busy while beforeSignOut runs", async () => {
+    const clearing = deferred();
+    render(
+      <LogoutForm
+        action={() => undefined}
+        messages={en}
+        beforeSignOut={() => clearing.promise}
+        unstyled
+        classNames={{ button: "sidebar-row" }}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: en.logout.submit });
+    expect(button.className).toBe("sidebar-row");
+
+    await submit();
+    expect(button).toHaveProperty("disabled", true);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+
+    await act(async () => {
+      clearing.resolve();
+      await new Promise((resolve) => setTimeout(resolve));
+    });
+  });
 });

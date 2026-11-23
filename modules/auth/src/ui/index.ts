@@ -21,5 +21,5 @@ export {
   type InvitationPanelRow,
   type InvitationPanelSlot,
 } from "./invitation-panel.js";
-export { LogoutForm, type LogoutFormProps } from "./logout-form.js";
+export { LogoutForm, type LogoutFormProps, type LogoutFormSlot } from "./logout-form.js";
 export { OidcSignIn, type OidcSignInProps, type OidcSignInProvider, type OidcSignInSlot } from "./oidc-sign-in.js";
