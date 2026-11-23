@@ -39,7 +39,7 @@ export async function runAppAdd(args: string[], io: CliIo, deps: HostDeps): Prom
 
   const existing = await prepareEnvironment(io, deps, app.repo, check);
   const deployScript = await readRepositoryFile(deps.runner, app.repo, DEPLOY_SCRIPT_PATH);
-  if (deployScript === null) return fail(`app add: ${app.repo} has no ${DEPLOY_SCRIPT_PATH}; run softure-deploy init in the app first`);
+  if (deployScript === null) return fail(`app add: ${app.repo} has no ${DEPLOY_SCRIPT_PATH}; in the app, run npm install --save-dev @softure-ai/deploy, then npx softure-deploy init`);
 
   const needsKey = flags["rotate-key"] || !existing.has("DEPLOY_SSH_KEY");
   // A dry run issues no key: the playbook's check mode is told one would be written.

@@ -7,6 +7,9 @@ import type { HostDeps } from "./context.js";
 import type { CliIo } from "./io.js";
 import { runCli } from "./run.js";
 
+/** The version the CLI prints in the commands it tells the operator to run next. */
+const HOST_VERSION = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
+
 const ADMIN_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAOhB7/zzhC+HXDdGOdLwJln5NYwm6UNXx3chmQSVTG4 admin@laptop";
 const HOST_KEYS = "ssh-ed25519 AAAAHOSTKEY root@srv\n";
 const DEPLOY_SCRIPT = "#!/usr/bin/env bash\necho deploy\n";
@@ -109,7 +112,8 @@ describe("softure-host server", () => {
   it("installs the pinned collections, then runs server.yml with the admin's key", async () => {
     const io = createIo();
     const deps = createDeps(() => undefined);
-    await expect(runCli(["server", `--inventory=${writeInventory()}`, "--connect-as=root"], io, deps)).resolves.toBe(0);
+    const inventory = writeInventory();
+    await expect(runCli(["server", `--inventory=${inventory}`, "--connect-as=root"], io, deps)).resolves.toBe(0);
     expect(deps.runner.calls.map((call) => `${call.kind} ${call.program} ${call.args[0] ?? ""}`)).toEqual([
       "stream ansible-galaxy collection",
       "stream ansible-playbook /pkg/ansible/server.yml",
@@ -122,6 +126,16 @@ describe("softure-host server", () => {
     });
     expect(deps.runner.calls[1]?.env).toEqual({ ANSIBLE_COLLECTIONS_PATH: "/cache/collections" });
     expect(io.out.join("")).toContain("server: done. Log in as admin from now on");
+  });
+
+  it("prints the next step as the scoped, pinned package, runnable outside any project (issue #1436)", async () => {
+    const io = createIo();
+    const inventory = writeInventory();
+    await expect(runCli(["server", `--inventory=${inventory}`], io, createDeps(() => undefined))).resolves.toBe(0);
+    expect(io.out.at(-1)).toBe(
+      `server: done. Log in as admin from now on; next: npx --yes @softure-ai/host@${HOST_VERSION} app add --inventory=${inventory} --app=<slug>\n`,
+    );
+    expect(io.out.join("")).not.toMatch(/npx softure-host|next: softure-host/);
   });
 
   it("runs Ansible in check mode with --check", async () => {
@@ -252,7 +266,9 @@ describe("softure-host app add", () => {
     const io = createIo();
     const deps = createDeps(createWorld({ environment: true, tagPolicy: true, secrets: [], deployScript: false }));
     await expect(runCli(["app", "add", `--inventory=${writeInventory()}`, "--app=notes"], io, deps)).resolves.toBe(1);
-    expect(io.err.join("")).toContain("acme/notes has no docker/server/deploy.sh; run softure-deploy init in the app first");
+    expect(io.err.join("")).toContain(
+      "acme/notes has no docker/server/deploy.sh; in the app, run npm install --save-dev @softure-ai/deploy, then npx softure-deploy init",
+    );
     expect(deps.runner.calls.some((call) => call.program === "ansible-playbook")).toBe(false);
   });
 
