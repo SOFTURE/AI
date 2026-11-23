@@ -285,12 +285,24 @@ describe("the jobs that call gh", () => {
 describe("the GitHub CLI setup step", () => {
   const PINNED_SUM = /fdd768eb70f6409f80fcfa9f3a1c0adf0fc98d827ab3ce0bed2ac22762c5d786/;
   const VERSION = /^\s*version=([0-9.]+)$/m.exec(GH_SCRIPT)?.[1] ?? "";
+  const SYSTEM_TOOL_DIRS = ["/usr/bin", "/bin"];
 
   interface Sandbox {
     root: string;
     bin: string;
     temp: string;
     githubPath: string;
+  }
+
+  // The real executable of a tool: the system directories first, then the PATH (issue #1424). The first PATH hit can
+  // be a wrapper script that calls the next tool of that name on PATH, which finds nothing inside the sandbox.
+  function findRealTool(tool: string, path: string): string {
+    const system = SYSTEM_TOOL_DIRS.map((dir) => join(dir, tool)).find((file) => existsSync(file));
+    if (system) return system;
+    return spawnSync("bash", ["-c", `command -v ${tool}`], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: path },
+    }).stdout.trim();
   }
 
   // A PATH of its own: only the tools the step uses, so the machine's own gh is never found.
@@ -303,9 +315,7 @@ describe("the GitHub CLI setup step", () => {
     mkdirSync(bin);
     mkdirSync(temp);
     for (const tool of tools) {
-      const found = spawnSync("bash", ["-c", `command -v ${tool}`], {
-        encoding: "utf8",
-      }).stdout.trim();
+      const found = findRealTool(tool, process.env.PATH ?? "");
       if (found) symlinkSync(found, join(bin, tool));
     }
     const githubPath = join(root, "github-path");
@@ -392,6 +402,20 @@ describe("the GitHub CLI setup step", () => {
     );
     expect(result.githubPath).toBe("");
     rmSync(sandbox.root, { recursive: true, force: true });
+  });
+
+  it("links the real tool when a wrapper of the same name comes first on PATH (issue #1424)", () => {
+    const wrappers = mkdtempSync(join(tmpdir(), "gh-setup-wrappers-"));
+    writeFileSync(join(wrappers, "rm"), '#!/bin/bash\necho "rm: guarded" >&2\nexit 127\n');
+    chmodSync(join(wrappers, "rm"), 0o755);
+    writeFileSync(join(wrappers, "only-on-path"), "#!/bin/bash\nexit 0\n");
+    chmodSync(join(wrappers, "only-on-path"), 0o755);
+    const path = `${wrappers}:${process.env.PATH ?? ""}`;
+    const rm = findRealTool("rm", path);
+    expect(SYSTEM_TOOL_DIRS.map((dir) => join(dir, "rm"))).toContain(rm);
+    expect(findRealTool("only-on-path", path)).toBe(join(wrappers, "only-on-path"));
+    expect(findRealTool("no-such-tool-anywhere", path)).toBe("");
+    rmSync(wrappers, { recursive: true, force: true });
   });
 
   it("names the tools it needs and does not find", () => {
