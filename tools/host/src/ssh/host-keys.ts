@@ -1,6 +1,7 @@
 import { fail } from "../cli/failure.js";
 import type { Runner } from "../cli/process.js";
 import type { Inventory } from "../inventory/index.js";
+import { buildAdminSsh } from "./admin-ssh.js";
 
 export interface HostKey {
   type: string;
@@ -36,15 +37,8 @@ export function formatKnownHosts(host: string, port: number, keys: readonly Host
  */
 export async function readHostKeys(runner: Runner, inventory: Inventory): Promise<HostKey[]> {
   const { server } = inventory;
-  const result = await runner.capture("ssh", [
-    "-o",
-    "BatchMode=yes",
-    "-p",
-    String(server.port),
-    ...(server.identityFile === undefined ? [] : ["-i", server.identityFile]),
-    `${server.adminUser}@${server.host}`,
-    "cat /etc/ssh/ssh_host_*_key.pub",
-  ]);
+  const ssh = buildAdminSsh(inventory, ["cat /etc/ssh/ssh_host_*_key.pub"]);
+  const result = await runner.capture(ssh.program, ssh.args);
   if (result.status !== 0) {
     return fail(`cannot read the host keys as ${server.adminUser}@${server.host}: ${result.stderr.trim() || `exit ${result.status}`}`);
   }

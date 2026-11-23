@@ -3,6 +3,7 @@ export * from "./cloudflare/index.js";
 export * from "./github/index.js";
 export * from "./inventory/index.js";
 export * from "./ssh/index.js";
+export * from "./survey/index.js";
 export { runCli, USAGE } from "./cli/run.js";
 export { CliFailure } from "./cli/failure.js";
 export type { CliIo } from "./cli/io.js";
