@@ -17,7 +17,7 @@ export interface ComposeNetwork {
   resolved: string | undefined;
 }
 
-const VARIABLE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(:?-)([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)/g;
+const VARIABLE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(:?-)([^${}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)/g;
 
 /** Compose's interpolation for `${NAME}`, `${NAME:-default}`, `${NAME-default}` and `$NAME`. */
 export function resolveComposeValue(value: string, env: Readonly<Record<string, string>>): string | undefined {

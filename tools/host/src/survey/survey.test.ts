@@ -93,6 +93,10 @@ describe("the onboarding preflight", () => {
     expect(resolveComposeValue("$EDGE_NETWORK", { EDGE_NETWORK: "web" })).toBe("web");
     expect(resolveComposeValue("${OTHER}", {})).toBeUndefined();
     expect(resolveComposeValue("plain", {})).toBe("plain");
+    // A default never holds "$", "{" or "}", so a long run of unclosed variables stays linear (CodeQL).
+    const started = Date.now();
+    expect(resolveComposeValue("${A-".repeat(20000), {})).toBe("${A-".repeat(20000));
+    expect(Date.now() - started).toBeLessThan(1000);
   });
 
   it("finds the external networks of a compose file, named or by key", () => {
