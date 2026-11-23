@@ -228,8 +228,9 @@ database would need a module migration for every app's change of copy.
 
 ## 6. Environment variables
 
-None of its own. The welcome mail, `unsubscribeLinkOnSuccess` and an import with unsubscribed rows
-need mailing's `MAILING_UNSUBSCRIBE_SECRET`; the confirmation link is a random token stored as a
+None of its own. Every sign-up keys its address, so mailing's and privacy's `SOFTURE_EMAIL_KEY_SECRET`
+(one value for both) is required. The welcome mail, `unsubscribeLinkOnSuccess` and an import with unsubscribed rows
+also need mailing's `MAILING_UNSUBSCRIBE_SECRET`; the confirmation link is a random token stored as a
 hash, so double opt-in needs no secret.
 
 ## 7. Switches

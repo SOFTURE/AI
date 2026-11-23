@@ -195,7 +195,7 @@ describe("confirmSignup", () => {
     try {
       await confirm(test, (await requestSignup(test, { scopes: ["launch", "newsletter"] })).token);
       const key = getRecipientKey(ADA);
-      await unsubscribe(test.ctx, { recipientKey: key, signature: signRecipientKey(key, SECRET) }, "page", { MAILING_UNSUBSCRIBE_SECRET: SECRET });
+      await unsubscribe(test.ctx, { recipientKey: key, signature: signRecipientKey(key, SECRET) }, "page", { MAILING_UNSUBSCRIBE_SECRET: SECRET, SOFTURE_EMAIL_KEY_SECRET: process.env.SOFTURE_EMAIL_KEY_SECRET });
       test.clock.set(LATER);
       const request = await requestSignup(test, { scopes: ["launch"] });
       expect(await isSuppressed(test.ctx, ADA)).toBe(true);

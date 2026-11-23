@@ -5,7 +5,7 @@ import { fakeMailProvider } from "@softure-ai/mailing/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfig, createTestMailing, listSuppressions, NOW, PREVIOUS_SECRET, SECRET, type TestMailing } from "./support.js";
 
-const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET };
+const ENV = { MAILING_UNSUBSCRIBE_SECRET: SECRET, SOFTURE_EMAIL_KEY_SECRET: process.env.SOFTURE_EMAIL_KEY_SECRET };
 const ADA_KEY = getRecipientKey("ada@example.org");
 const ADA_TOKEN = { recipientKey: ADA_KEY, signature: signRecipientKey(ADA_KEY, SECRET) };
 
@@ -36,7 +36,7 @@ describe("the suppression list", () => {
 
   it("accepts a link signed with the previous secret during a rotation", async () => {
     const token = { recipientKey: ADA_KEY, signature: signRecipientKey(ADA_KEY, PREVIOUS_SECRET) };
-    const env = { MAILING_UNSUBSCRIBE_SECRET: "a-brand-new-secret-of-32-chars!!", MAILING_UNSUBSCRIBE_SECRET_PREVIOUS: PREVIOUS_SECRET };
+    const env = { MAILING_UNSUBSCRIBE_SECRET: "a-brand-new-secret-of-32-chars!!", MAILING_UNSUBSCRIBE_SECRET_PREVIOUS: PREVIOUS_SECRET, SOFTURE_EMAIL_KEY_SECRET: process.env.SOFTURE_EMAIL_KEY_SECRET };
     expect(await unsubscribe(test.ctx, token, "page", env)).toEqual({ ok: true, value: undefined });
   });
 

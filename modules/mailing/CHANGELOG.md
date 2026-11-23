@@ -4,6 +4,26 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
+## Unreleased
+
+- **Breaking.** The recipient key (suppressions, the delivery ledger, unsubscribe links) is no longer a plain
+  SHA-256 of the address: `getRecipientKey(address, env?)` is base64url PBKDF2-HMAC-SHA256 of the trimmed, lowercased
+  address (10 000 rounds, 32 bytes) keyed by the new `SOFTURE_EMAIL_KEY_SECRET` (at least 32 characters), so a
+  leaked table or link cannot be matched to an address without the secret (issue #1418). `@softure-ai/privacy`
+  derives its email key the same way from the same secret.
+  - List mail without the secret answers `unavailable` (`previewMail`: cause `no_email_key_secret`, new type
+    `MissingListSecret`); `softure-mail campaign` (also `--dry-run`) stops before opening the database;
+    `runDeliveries` throws before any claim; any other keying (`deliverOnce`, `isSuppressed`, imports) throws a
+    `SoftureConfigError` naming the variable. `buildUnsubscribeLinks` takes an optional `env`.
+  - Migration `0006` drops `mailing.recipient_key`, `mailing.is_suppressed` and `mailing.was_delivered`: SQL has no
+    secret. The views `mailing.delivery_outcomes` and `mailing.suppressed_recipients` stay.
+  - New exports: `EMAIL_KEY_SECRET_ENV`, `MIN_EMAIL_KEY_SECRET_LENGTH`, `EMAIL_KEY_ITERATIONS`, `readEmailKeySecret`.
+  - Migrate: set `SOFTURE_EMAIL_KEY_SECRET` (`openssl rand -base64 32`, the same value for `@softure-ai/privacy`),
+    and never change it afterwards. Run `softure migrate`. Replace the three SQL functions with keys from
+    `getRecipientKey` (README section 5). Rows written before keep their SHA-256 keys and match no address: opt-outs
+    and deliveries recorded before the upgrade are forgotten (delete them, or re-record the opt-outs you still know
+    with `suppressRecipient`). Links in mail sent before the upgrade still verify but name the old key.
+
 ## 0.2.8
 
 - `fakeMailProvider({ outboxUrl })` beside `outboxFile` (runtime-providers RP-10): each mail is POSTed as one JSON

@@ -24,7 +24,16 @@ import type { MailingMessages } from "../messages/index.js";
 import { addHtmlFooter, addTextFooter, getListUnsubscribeHeaders } from "./list-mail.js";
 import { getMailingModule, getMailingOptions } from "./options.js";
 import { isSuppressed } from "./suppressions.js";
-import { buildUnsubscribeLinks, MIN_UNSUBSCRIBE_SECRET_LENGTH, readUnsubscribeSecrets, UNSUBSCRIBE_SECRET_ENV, type Env } from "./unsubscribe-link.js";
+import {
+  buildUnsubscribeLinks,
+  EMAIL_KEY_SECRET_ENV,
+  MIN_EMAIL_KEY_SECRET_LENGTH,
+  MIN_UNSUBSCRIBE_SECRET_LENGTH,
+  readEmailKeySecret,
+  readUnsubscribeSecrets,
+  UNSUBSCRIBE_SECRET_ENV,
+  type Env,
+} from "./unsubscribe-link.js";
 import { validateMail, type ValidMail } from "./validate-mail.js";
 
 /**
@@ -83,8 +92,9 @@ export async function sendMailUnchecked(config: SoftureConfig, mail: OutgoingMai
   if (resolveSender(config, validation.value) === null) return refuseSender(provider, validation.value);
   if (!canCarryAttachments(provider, validation.value)) return refuseAttachments(provider, validation.value);
   const secret = readUnsubscribeSecrets().current;
-  if (validation.value.kind !== TRANSACTIONAL_KIND && secret === null) {
-    logFailure(provider, "mailing.unavailable", { cause: "no_unsubscribe_secret", attachments: validation.value.attachments });
+  const missing = validation.value.kind === TRANSACTIONAL_KIND ? null : findMissingListSecret(secret, process.env);
+  if (missing !== null) {
+    logFailure(provider, "mailing.unavailable", { cause: missing, attachments: validation.value.attachments });
     return err("mailing.unavailable");
   }
   return deliver(provider, composeMessage(config, validation.value, secret), timeoutMs);
@@ -130,15 +140,24 @@ function refuseAttachments(provider: MailProvider, mail: ValidMail): SendMailRes
   return err("mailing.invalid_input");
 }
 
-/** Why `previewMail` cannot render a mail: invalid input (with the fields), or list mail without the secret. */
+/** The secret list mail lacks: the one that signs unsubscribe links, or the one that keys the recipient. */
+export type MissingListSecret = "no_unsubscribe_secret" | "no_email_key_secret";
+
+/** Which secret a list mail lacks, or `null` when both are set. */
+function findMissingListSecret(unsubscribeSecret: string | null, env: Env = process.env): MissingListSecret | null {
+  if (unsubscribeSecret === null) return "no_unsubscribe_secret";
+  return readEmailKeySecret(env) === null ? "no_email_key_secret" : null;
+}
+
+/** Why `previewMail` cannot render a mail: invalid input (with the fields), or list mail without a secret it needs. */
 export type MailPreviewFailure =
   | (Err<"mailing.invalid_input"> & { readonly fields: readonly string[] })
-  | (Err<"mailing.unavailable"> & { readonly cause: "no_unsubscribe_secret" });
+  | (Err<"mailing.unavailable"> & { readonly cause: MissingListSecret });
 
 export type MailPreviewResult = Ok<ProviderMessage> | MailPreviewFailure;
 
 export interface PreviewMailOptions extends SendMailOptions {
-  /** Where the unsubscribe secret is read. Default: `process.env`. */
+  /** Where the unsubscribe and email key secrets are read. Default: `process.env`. */
   readonly env?: Env;
 }
 
@@ -155,8 +174,9 @@ export function previewMail(config: SoftureConfig, mail: OutgoingMail, options: 
   if (!validation.ok) return { ...err("mailing.invalid_input"), fields: validation.fields };
   if (resolveSender(config, validation.value) === null) return { ...err("mailing.invalid_input"), fields: ["sender"] };
   const secret = readUnsubscribeSecrets(env).current;
-  if (validation.value.kind !== TRANSACTIONAL_KIND && secret === null) return { ...err("mailing.unavailable"), cause: "no_unsubscribe_secret" };
-  return ok(composeMessage(config, validation.value, secret));
+  const missing = validation.value.kind === TRANSACTIONAL_KIND ? null : findMissingListSecret(secret, env);
+  if (missing !== null) return { ...err("mailing.unavailable"), cause: missing };
+  return ok(composeMessage(config, validation.value, secret, env));
 }
 
 const FAILURE_CODES: Readonly<Record<ProviderFailureStatus, MailingErrorCode>> = {
@@ -176,9 +196,14 @@ async function checkListMail(context: MailContext, mail: ValidMail, secret: stri
   if (context.db === undefined) {
     throw new Error("@softure-ai/mailing: list mail needs the database handle; call sendMail({ config, db }, ...)");
   }
-  if (secret === null) {
+  const missing = findMissingListSecret(secret);
+  if (missing === "no_unsubscribe_secret") {
     console.error(`mailing: list mail needs ${UNSUBSCRIBE_SECRET_ENV} (at least ${String(MIN_UNSUBSCRIBE_SECRET_LENGTH)} characters) to sign unsubscribe links`);
-    return { error: "mailing.unavailable", cause: "no_unsubscribe_secret" };
+    return { error: "mailing.unavailable", cause: missing };
+  }
+  if (missing === "no_email_key_secret") {
+    console.error(`mailing: list mail needs ${EMAIL_KEY_SECRET_ENV} (at least ${String(MIN_EMAIL_KEY_SECRET_LENGTH)} characters) to key the recipient`);
+    return { error: "mailing.unavailable", cause: missing };
   }
   try {
     return (await isSuppressed({ db: context.db }, mail.to)) ? { error: "mailing.suppressed", cause: "unsubscribed" } : null;
@@ -190,9 +215,10 @@ async function checkListMail(context: MailContext, mail: ValidMail, secret: stri
 
 /**
  * The message the provider receives: the resolved sender (see `resolveSender`), the mail's or the configured
- * reply-to, and for list mail the footer and headers signed with `secret` (which the caller checked is set).
+ * reply-to, and for list mail the footer and headers signed with `secret` (the caller checked it and the email key
+ * secret in `env` are set).
  */
-function composeMessage(config: SoftureConfig, mail: ValidMail, secret: string | null): ProviderMessage {
+function composeMessage(config: SoftureConfig, mail: ValidMail, secret: string | null, env: Env = process.env): ProviderMessage {
   const { replyTo } = getMailingOptions(config);
   const { idempotencyKey, kind, replyTo: mailReplyTo, sender, attachments, ...content } = mail;
   const from = resolveSender(config, { sender });
@@ -200,7 +226,7 @@ function composeMessage(config: SoftureConfig, mail: ValidMail, secret: string |
   if (from === null) throw new Error("@softure-ai/mailing: composeMessage got a sender the config does not have");
   const envelope = { from, replyTo: mailReplyTo ?? replyTo ?? null, idempotencyKey, ...(attachments.length === 0 ? {} : { attachments }) };
   if (kind === TRANSACTIONAL_KIND || secret === null) return { ...content, ...envelope };
-  const links = buildUnsubscribeLinks(config, mail.to, secret);
+  const links = buildUnsubscribeLinks(config, mail.to, secret, env);
   // The module factory merged the dictionaries; their shape is the module's own.
   const copy = (selectMessages(getMailingModule(config).messages, config.locale) as MailingMessages).footer;
   return {

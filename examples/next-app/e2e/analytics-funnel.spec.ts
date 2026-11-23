@@ -17,7 +17,7 @@ import { getWelcomeMailScope } from "@softure-ai/waitlist/server";
 import { eq, inArray } from "drizzle-orm";
 import { en } from "../messages/en.ts";
 import { openTestDatabase } from "./database.ts";
-import { MAIL_OUTBOX } from "./outbox.ts";
+import { E2E_EMAIL_KEY_ENV, MAIL_OUTBOX } from "./outbox.ts";
 
 const copy = authMessages.en;
 const PASSWORD = "correct horse battery";
@@ -45,7 +45,7 @@ test.afterAll(async () => {
       const scopes = rows.map(({ id }) => getWelcomeMailScope(id));
       if (scopes.length > 0) await database.db.delete(deliveries).where(inArray(deliveries.scope, scopes));
       await database.db.delete(signups).where(inArray(signups.email, waitlistEmails));
-      await database.db.delete(consents).where(inArray(consents.emailKey, waitlistEmails.map(getEmailKey)));
+      await database.db.delete(consents).where(inArray(consents.emailKey, waitlistEmails.map((email) => getEmailKey(email, E2E_EMAIL_KEY_ENV))));
     }
     if (usedChannels.length > 0) await database.db.delete(funnelCounts).where(inArray(funnelCounts.channel, usedChannels));
   } finally {

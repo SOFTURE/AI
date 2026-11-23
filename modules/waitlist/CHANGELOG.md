@@ -4,6 +4,14 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`waitlist@x.y.z`).
 
+## Unreleased
+
+- Needs `SOFTURE_EMAIL_KEY_SECRET` (issue #1418): `@softure-ai/mailing` and `@softure-ai/privacy` now key an address
+  with it, and an unsubscribe still withdraws the consents of the same address because both derive the same key.
+  Requires mailing `^0.3.0` and privacy `^0.3.0`.
+  - Migrate: set `SOFTURE_EMAIL_KEY_SECRET` (see mailing's CHANGELOG). Signups, consents and opt-outs recorded before
+    keep their old keys.
+
 ## 0.5.4
 
 - `./jobs` is declared Workers-safe (`softure.workers`, runtime-providers RP-4): its handlers run from the

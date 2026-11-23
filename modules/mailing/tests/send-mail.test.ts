@@ -316,6 +316,19 @@ describe("sendMail for list mail", () => {
     );
   });
 
+  it("sends no list mail without the email key secret, and says which variable is missing", async () => {
+    vi.stubEnv("SOFTURE_EMAIL_KEY_SECRET", "too-short");
+    const provider = fakeMailProvider();
+    expect(await send(NEWSLETTER, provider)).toEqual({ ok: false, error: "mailing.unavailable" });
+    expect(provider.sent).toEqual([]);
+    expect(logged()).toBe(
+      [
+        "mailing: list mail needs SOFTURE_EMAIL_KEY_SECRET (at least 32 characters) to key the recipient",
+        "mailing: send failed provider=fake reason=unavailable status=none cause=no_email_key_secret",
+      ].join("\n"),
+    );
+  });
+
   it("sends nothing when the suppression list cannot be read, and logs no query", async () => {
     await test.database.client.query("DROP TABLE mailing.suppressions CASCADE");
     const provider = fakeMailProvider();

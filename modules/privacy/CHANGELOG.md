@@ -4,6 +4,19 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`privacy@x.y.z`).
 
+## Unreleased
+
+- **Breaking.** The key of an email subject (`{ email }`, stored in `consents.email_key`) is no longer a plain
+  SHA-256 of the address: `getEmailKey(email, env?)` is base64url PBKDF2-HMAC-SHA256 of the trimmed, lowercased
+  address (10 000 rounds, 32 bytes) keyed by the new `SOFTURE_EMAIL_KEY_SECRET` (at least 32 characters), the same
+  derivation and secret as `@softure-ai/mailing`'s recipient key (issue #1418). Recording, reading, exporting or
+  copying the consents of an email subject without the secret throws a `SoftureConfigError` naming the variable.
+  - New exports in `/server`: `EMAIL_KEY_SECRET_ENV`, `MIN_EMAIL_KEY_SECRET_LENGTH`, `EMAIL_KEY_ITERATIONS`,
+    `readEmailKeySecret`.
+  - Migrate: set `SOFTURE_EMAIL_KEY_SECRET` (the same value as for `@softure-ai/mailing`) and never change it
+    afterwards. Consents of email subjects recorded before keep their SHA-256 keys and match no address; consents of
+    accounts (`{ userId }`) are unaffected.
+
 ## 0.2.5
 
 - **Fix: the browser no longer blocks a deletion without a password when a provider is offered.** The password field of

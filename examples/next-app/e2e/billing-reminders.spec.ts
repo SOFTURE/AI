@@ -13,7 +13,7 @@ import { clientAddressHeaders, uniqueEmail } from "@softure-ai/testing/playwrigh
 import { eq, inArray } from "drizzle-orm";
 import { createSignedInAccount } from "./accounts.ts";
 import { openTestDatabase } from "./database.ts";
-import { MAIL_OUTBOX } from "./outbox.ts";
+import { MAIL_OUTBOX, SOFTURE_EMAIL_KEY_SECRET } from "./outbox.ts";
 
 const APP_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const copy = billingMessages.en;
@@ -67,7 +67,7 @@ function runReminderScript(appOrigin: string): string {
   const result = spawnSync("npm", ["run", "--silent", "access-reminders"], {
     cwd: APP_DIR,
     encoding: "utf8",
-    env: { ...process.env, APP_ORIGIN: appOrigin, MAIL_OUTBOX },
+    env: { ...process.env, APP_ORIGIN: appOrigin, MAIL_OUTBOX, SOFTURE_EMAIL_KEY_SECRET },
   });
   expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
   return result.stdout.trim();

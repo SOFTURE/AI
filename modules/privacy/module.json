@@ -5,7 +5,13 @@
   "dependsOn": { "auth": "^0.2.18", "security": "^0.2.0", "ops": "^0.2.0?" },
   "dbSchema": "privacy",
   "tables": ["consents"],
-  "env": [],
+  "env": [
+    {
+      "name": "SOFTURE_EMAIL_KEY_SECRET",
+      "required": false,
+      "description": "Keys email subjects (consents of an address without an account), at least 32 characters; required as soon as one is recorded, read or exported; the same value as @softure-ai/mailing's. Never change it: a new value orphans every stored key."
+    }
+  ],
   "switches": [],
   "routes": { "account": "/account/privacy", "export": "/api/privacy/export", "afterDelete": "/" },
   "mount": [

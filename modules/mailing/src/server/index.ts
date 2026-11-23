@@ -64,15 +64,19 @@ export { addHtmlFooter, addTextFooter, getListUnsubscribeHeaders, SIGNATURE_SEPA
 export { formatMailPreview, maskAddress, redactUnsubscribeSignatures } from "./operator-output.js";
 export { getMailingModule, getMailingOptions, getMailingRoutes, resolveMailKind, type MailingRoutes } from "./options.js";
 export { runDeliveries, type DeliveryRunInput, type DeliveryRunSummary, type RunDeliveriesOptions } from "./run-deliveries.js";
-export { previewMail, sendMail, type MailContext, type MailPreviewFailure, type MailPreviewResult, type PreviewMailOptions } from "./send-mail.js";
+export { previewMail, sendMail, type MailContext, type MailPreviewFailure, type MailPreviewResult, type MissingListSecret, type PreviewMailOptions } from "./send-mail.js";
 export { findSuppressedAddresses, isSuppressed, liftSuppression, suppressRecipient, unsubscribe, type SuppressionContext } from "./suppressions.js";
 export {
   buildUnsubscribeLinks,
+  EMAIL_KEY_ITERATIONS,
+  EMAIL_KEY_SECRET_ENV,
   getRecipientKey,
   getUnsubscribeLinkParams,
   MAX_LEGACY_VALUE_LENGTH,
   readUnsubscribeLink,
+  MIN_EMAIL_KEY_SECRET_LENGTH,
   MIN_UNSUBSCRIBE_SECRET_LENGTH,
+  readEmailKeySecret,
   readUnsubscribeSecrets,
   readUnsubscribeToken,
   RECIPIENT_PARAM,

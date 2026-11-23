@@ -140,7 +140,7 @@ await hasConsent(ctx, { subject: { userId }, purpose: "terms" }); // latest row 
 ```
 
 - `subject` is an account (`{ userId }`) or an email address without one (`{ email }`, stored as a
-  SHA-256 key, never as the address; `{ emailKey }` names the same subject by that key, for a
+  keyed email key, never as the address (`getEmailKey`, section 6); `{ emailKey }` names the same subject by that key, for a
   caller that holds only the key, such as mailing's unsubscribe hook). Reads keep the two apart; the export and the deletion of an
   account cover both, so a waitlist consent given before registering goes with the account.
 - `purpose` and `source` are kebab-case (at most 64 characters); `document` names a declared
@@ -276,14 +276,16 @@ Schema `privacy`, one migration:
 
 | Table | Columns | Notes |
 | --- | --- | --- |
-| `consents` | `id` (identity), `user_id` (FK `auth.users`, cascade) or `email_key` (base64url SHA-256 of the trimmed, lowercased address), `purpose`, `granted`, `document_id` + `document_version` (both or neither), `source`, `recorded_at` | exactly one subject (`consents_one_subject`); a `BEFORE UPDATE` trigger refuses every update; indexed by subject, purpose and time |
+| `consents` | `id` (identity), `user_id` (FK `auth.users`, cascade) or `email_key` (`getEmailKey`: base64url PBKDF2-HMAC-SHA256 of the trimmed, lowercased address, keyed by `SOFTURE_EMAIL_KEY_SECRET`), `purpose`, `granted`, `document_id` + `document_version` (both or neither), `source`, `recorded_at` | exactly one subject (`consents_one_subject`); a `BEFORE UPDATE` trigger refuses every update; indexed by subject, purpose and time |
 
 The export and the deletion run every other contributor on its own tables. `GET /api/health` of
 `@softure-ai/ops` checks that the table answers.
 
 ## 6. Environment variables
 
-None.
+| Variable | Required | What it does |
+| --- | --- | --- |
+| `SOFTURE_EMAIL_KEY_SECRET` | as soon as an email subject (`{ email }`) is recorded, read, exported or copied | Keys email subjects: `getEmailKey(email)` is base64url PBKDF2-HMAC-SHA256 of the trimmed, lowercased address (10 000 rounds, 32 bytes) under this secret; at least 32 characters (`openssl rand -base64 32`). The same value as `@softure-ai/mailing`'s, which derives its recipient key the same way, so an unsubscribe finds the consents of the same address. Missing or short: a `SoftureConfigError` naming the variable. **Never change it**: the stored keys derive from it and the table keeps no address to derive them again. |
 
 ## 7. Switches
 
@@ -337,8 +339,8 @@ section 11.
 Its own part is the consent ledger. The export lists every consent of the account and of its email
 address (`privacy.consents`, oldest first, each marked `account` or `email`; the email key is left
 out). The deletion removes them: once the data is gone there is nothing left to prove consent for.
-An email subject is stored only as a SHA-256 key, so the table holds no address; the key is a
-pseudonym, not anonymous data, because anyone with the address can compute it.
+An email subject is stored only as a keyed email key, so the table holds no address; the key is a
+pseudonym, not anonymous data, because whoever holds `SOFTURE_EMAIL_KEY_SECRET` and the address can compute it.
 Rate limit rows of `security` hold only SHA-256 prefixes of user ids and emails and are pruned two
 windows after they start.
 

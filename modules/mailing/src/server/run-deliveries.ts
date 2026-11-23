@@ -5,7 +5,15 @@
 // counts what it did. A dry run reads the same state and writes nothing.
 import { TRANSACTIONAL_KIND, type MailingErrorCode } from "../contract.js";
 import { deliverOnce, forecastDelivery, getRunHalt, type DeliverOptions, type Delivery, type DeliveryContext, type DeliveryForecast, type DeliveryOutcome, type RunHalt } from "./deliveries.js";
-import { getRecipientKey, MIN_UNSUBSCRIBE_SECRET_LENGTH, readUnsubscribeSecrets, UNSUBSCRIBE_SECRET_ENV } from "./unsubscribe-link.js";
+import {
+  EMAIL_KEY_SECRET_ENV,
+  getRecipientKey,
+  MIN_EMAIL_KEY_SECRET_LENGTH,
+  MIN_UNSUBSCRIBE_SECRET_LENGTH,
+  readEmailKeySecret,
+  readUnsubscribeSecrets,
+  UNSUBSCRIBE_SECRET_ENV,
+} from "./unsubscribe-link.js";
 
 /** Rejections the provider answered (the others never left the process). */
 const PROVIDER_REASONS: ReadonlySet<MailingErrorCode> = new Set(["mailing.rejected", "mailing.unavailable"]);
@@ -120,8 +128,14 @@ function getDeliveryKey(delivery: Delivery): string {
   return `${delivery.scope}\n${getRecipientKey(delivery.mail.to)}`;
 }
 
-/** List mail without the signing secret is a configuration bug: stop before any claim is taken. */
+/**
+ * A missing secret is a configuration bug: stop before any claim is taken. Every delivery is keyed by its recipient
+ * (the email key secret); list mail also signs its unsubscribe links.
+ */
 function assertListMailCanBeSigned(delivery: Delivery): void {
+  if (readEmailKeySecret() === null) {
+    throw new Error(`@softure-ai/mailing: runDeliveries keys every recipient, which needs ${EMAIL_KEY_SECRET_ENV} (at least ${String(MIN_EMAIL_KEY_SECRET_LENGTH)} characters)`);
+  }
   if ((delivery.mail.kind ?? TRANSACTIONAL_KIND) === TRANSACTIONAL_KIND || readUnsubscribeSecrets().current !== null) return;
   throw new Error(`@softure-ai/mailing: runDeliveries sends list mail, which needs ${UNSUBSCRIBE_SECRET_ENV} (at least ${String(MIN_UNSUBSCRIBE_SECRET_LENGTH)} characters)`);
 }

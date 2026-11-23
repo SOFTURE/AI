@@ -5,7 +5,7 @@
 import { defineConfig } from "@playwright/test";
 import base from "./playwright.config.ts";
 import { FAKE_STRIPE_ORIGIN, FAKE_STRIPE_PORT, FAKE_STRIPE_SECRET_KEY, STRIPE_APP_PORT } from "./e2e/fake-stripe.ts";
-import { BLOG_REFRESH_SECRET, MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET } from "./e2e/outbox.ts";
+import { BLOG_REFRESH_SECRET, MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, SOFTURE_EMAIL_KEY_SECRET, STRIPE_WEBHOOK_SECRET } from "./e2e/outbox.ts";
 
 // The specs that depend on the host read this (e2e/security.spec.ts).
 process.env.E2E_HOST = "cloudflare";
@@ -27,6 +27,7 @@ function wranglerDev(port: number, inspectorPort: number, vars: Readonly<Record<
 const APP_VARS = {
   MAIL_OUTBOX_URL: `http://127.0.0.1:${String(MAIL_OUTBOX_SINK_PORT)}/outbox`,
   MAILING_UNSUBSCRIBE_SECRET,
+  SOFTURE_EMAIL_KEY_SECRET,
   STRIPE_WEBHOOK_SECRET,
   BLOG_REFRESH_SECRET,
 };

@@ -12,6 +12,9 @@ export const MAIL_OUTBOX = join(tmpdir(), "softure-example-e2e-mail-outbox.jsonl
  * the e2e server is local and throwaway.
  */
 export const MAILING_UNSUBSCRIBE_SECRET = "e2e-unsubscribe-secret-not-for-production";
+export const SOFTURE_EMAIL_KEY_SECRET = "e2e-email-key-secret-not-for-production";
+/** The app's email key secret, for a spec that keys an address itself (`getEmailKey(email, E2E_EMAIL_KEY_ENV)`). */
+export const E2E_EMAIL_KEY_ENV = { SOFTURE_EMAIL_KEY_SECRET };
 
 /** A reset link as auth builds it: the reset route with a 43-character token. */
 const RESET_LINK = /^https?:\/\/\S+\/reset-password\?token=[A-Za-z0-9_-]{43}$/m;

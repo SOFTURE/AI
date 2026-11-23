@@ -1,14 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 import { softurePlaywrightUse } from "@softure-ai/testing/playwright";
 import { FAKE_STRIPE_ORIGIN, FAKE_STRIPE_PORT, FAKE_STRIPE_SECRET_KEY, STRIPE_APP_PORT } from "./e2e/fake-stripe.ts";
-import { BLOG_REFRESH_SECRET, MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET } from "./e2e/outbox.ts";
+import { BLOG_REFRESH_SECRET, MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, SOFTURE_EMAIL_KEY_SECRET, STRIPE_WEBHOOK_SECRET } from "./e2e/outbox.ts";
 
 // Black-box tests of the built app (`next build` first). Playwright starts `next start` itself; with
 // E2E_REUSE_SERVER=1 it uses a server already on the port instead (for example `next dev` while
 // writing a test). The database must be migrated: `npm run migrate`.
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 /** The environment both app servers share. */
-const APP_ENV = { MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, STRIPE_WEBHOOK_SECRET, BLOG_REFRESH_SECRET };
+const APP_ENV = { MAIL_OUTBOX, MAILING_UNSUBSCRIBE_SECRET, SOFTURE_EMAIL_KEY_SECRET, STRIPE_WEBHOOK_SECRET, BLOG_REFRESH_SECRET };
 
 export default defineConfig({
   testDir: "./e2e",
