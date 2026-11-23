@@ -1,12 +1,13 @@
 ---
 change_id: repo-tests-sandbox-real-tools
 title: "tests: the gh setup sandbox links real tools, not PATH wrappers (issue #1424)"
-status: impl_reviewed
+status: archived
 roadmap_item: null
 issue: 1424
 branch: claude/project-thread-w5125f
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -34,3 +35,10 @@ inside the sandbox `PATH` and exits 127.
 ## Notes
 
 - frame skipped: the issue names the defect and a fix; no product question.
+
+## Done
+
+- `findRealTool` in `tests/repo/workflow-runners.test.ts`: the gh setup sandbox links each tool from `/usr/bin` or
+  `/bin` first and falls back to the `PATH` lookup, so a wrapper first on `PATH` no longer breaks the four tests.
+- Test "links the real tool when a wrapper of the same name comes first on PATH (issue #1424)".
+- Test-only change: no package release.
