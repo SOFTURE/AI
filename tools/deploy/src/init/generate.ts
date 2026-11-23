@@ -162,6 +162,53 @@ function getHealthPath(facts: AppFacts): string {
   return facts.hasHealthRoute ? OPS_HEALTH_PATH : "/";
 }
 
+/** The endpoints `@softure-ai/mcp-access` serves to MCP clients without the user's session (its consent page needs one). */
+const MCP_ACCESS_PUBLIC_PATHS = [
+  "/api/mcp",
+  "/api/oauth/token",
+  "/api/oauth/register",
+  "/.well-known/oauth-authorization-server",
+  "/.well-known/oauth-protected-resource",
+];
+
+/** The unsubscribe page and one-click route of `@softure-ai/mailing`, reached from a mail without a login. */
+const MAILING_PUBLIC_PATHS = ["/unsubscribe", "/api/mailing/unsubscribe"];
+
+/**
+ * The paths that must answer without a login (`deploy.json` `publicPaths`, issue #1435): `/` alone for a public app
+ * (`--public`), else what the app's modules serve publicly.
+ */
+export function listPublicPaths(answers: Pick<InitAnswers, "public">, facts: AppFacts): string[] {
+  if (answers.public === true) return ["/"];
+  return [
+    ...(facts.hasHealthRoute ? [OPS_HEALTH_PATH] : []),
+    ...(facts.hasMcpAccess === true ? MCP_ACCESS_PUBLIC_PATHS : []),
+    ...(facts.hasMailing === true ? MAILING_PUBLIC_PATHS : []),
+  ];
+}
+
+/**
+ * The verify routes: the health route when the app has one, `/` only for a public app, or `/` when nothing else
+ * answers without a login (init warns about that). Verify checks only what is public.
+ */
+export function listVerifyRoutes(answers: Pick<InitAnswers, "public">, facts: AppFacts): { path: string; contains?: string[]; excludes?: string[] }[] {
+  const health = facts.hasHealthRoute ? [{ path: OPS_HEALTH_PATH, contains: ['"status":"ok"'] }] : [];
+  const root = { path: "/", excludes: ["Application error"] };
+  return answers.public === true || health.length === 0 ? [...health, root] : health;
+}
+
+function formatVerifyRouteLines(routes: ReturnType<typeof listVerifyRoutes>): string {
+  return routes
+    .map((route) => {
+      const markers = [
+        route.contains === undefined ? null : `"contains": ${JSON.stringify(route.contains)}`,
+        route.excludes === undefined ? null : `"excludes": ${JSON.stringify(route.excludes)}`,
+      ].filter((marker) => marker !== null);
+      return `      { "path": ${JSON.stringify(route.path)}, ${markers.join(", ")} }`;
+    })
+    .join(",\n");
+}
+
 /**
  * The apex rule: the host alone for `/`, else the host and the allowed prefixes, plus what every Next page needs
  * (`/_next/`) and the health route the workflow waits for.
@@ -235,6 +282,8 @@ function buildValues(options: PlanInitFilesOptions): Record<string, string | boo
     publicDir: facts.hasPublicDir,
     healthPath: getHealthPath(facts),
     healthRoute: facts.hasHealthRoute,
+    publicPathsJson: listPublicPaths(answers, facts).map((path) => JSON.stringify(path)).join(", "),
+    verifyRouteLines: formatVerifyRouteLines(listVerifyRoutes(answers, facts)),
     www: answers.www,
     hasAcmeEmail: answers.acmeEmail !== undefined,
     acmeEmail: answers.acmeEmail ?? "",

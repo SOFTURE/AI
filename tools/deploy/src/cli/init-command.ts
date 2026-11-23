@@ -231,6 +231,7 @@ export function runInit(args: string[], io: CliIo): void {
     host: { type: "string" },
     "hyperdrive-id": { type: "string" },
     "placement-region": { type: "string" },
+    public: { type: "boolean", default: false },
     force: { type: "boolean", default: false },
   });
   const required = flags.host === "cloudflare" ? (["domain"] as const) : (["domain", "image"] as const);
@@ -264,6 +265,7 @@ export function runInit(args: string[], io: CliIo): void {
     host: flags.host,
     hyperdriveId: flags["hyperdrive-id"],
     placementRegion: flags["placement-region"],
+    public: flags.public,
   });
   if (!answersResult.ok) fail(`init: nothing written; ${answersResult.problems.join("; ")}.`);
   const workerProblems = listWorkerFlagProblems(facts, answersResult.answers);

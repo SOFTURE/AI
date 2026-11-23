@@ -67,6 +67,19 @@ describe("softure-deploy init", () => {
     expect(script).toContain('command="/srv/shop/deploy.sh",restrict');
   });
 
+  it("writes publicPaths from the app's modules and verifies / only with --public (issue #1435)", async () => {
+    writeApp({ name: "notes", dependencies: { "@softure-ai/ops": "^0.2.0", "@softure-ai/mcp-access": "^0.7.0", "@softure-ai/mailing": "^0.3.0" } });
+    expect(await runCli(["init", ...REQUIRED], makeIo())).toBe(0);
+    const behindLogin = JSON.parse(readFileSync(join(dir, "deploy.json"), "utf8")) as { publicPaths: string[]; verify: { routes: { path: string }[] } };
+    expect(behindLogin.publicPaths).toContain("/api/mcp");
+    expect(behindLogin.publicPaths).toContain("/unsubscribe");
+    expect(behindLogin.verify.routes.map((route) => route.path)).toEqual(["/api/health"]);
+    expect(await runCli(["init", ...REQUIRED, "--public", "--force"], makeIo())).toBe(0);
+    const isPublic = JSON.parse(readFileSync(join(dir, "deploy.json"), "utf8")) as { publicPaths: string[]; verify: { routes: { path: string }[] } };
+    expect(isPublic.publicPaths).toEqual(["/"]);
+    expect(isPublic.verify.routes.map((route) => route.path)).toEqual(["/api/health", "/"]);
+  });
+
   it("keeps the app's own files, then overwrites them with --force", async () => {
     writeApp({ name: "shop" });
     writeFileSync(join(dir, "Dockerfile"), "FROM scratch\n");

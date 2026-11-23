@@ -444,11 +444,36 @@ describe("planInitFiles", () => {
     expect(textOf(plan(), "docker/prod/docker-compose.yml")).not.toContain("acme.email");
   });
 
-  it("writes a deploy.json that verify accepts, with the health route when the app has one", () => {
-    const withHealth = parseDeployConfig(JSON.parse(textOf(plan(), "deploy.json")));
-    expect(withHealth.ok && withHealth.config.verify?.routes.map((route) => route.path)).toEqual(["/api/health", "/"]);
+  it("verifies only the health route of an app behind a login, and / too with --public (issue #1435)", () => {
+    const behindLogin = parseDeployConfig(JSON.parse(textOf(plan(), "deploy.json")));
+    expect(behindLogin.ok && behindLogin.config.verify?.routes.map((route) => route.path)).toEqual(["/api/health"]);
+    expect(behindLogin.ok && behindLogin.config.publicPaths).toEqual(["/api/health"]);
+    const isPublic = parseDeployConfig(JSON.parse(textOf(plan({ public: true }), "deploy.json")));
+    expect(isPublic.ok && isPublic.config.verify?.routes.map((route) => route.path)).toEqual(["/api/health", "/"]);
+    expect(isPublic.ok && isPublic.config.publicPaths).toEqual(["/"]);
+    // No health route: / is the only route left to verify.
     const without = parseDeployConfig(JSON.parse(textOf(plan({}, NO_DATABASE), "deploy.json")));
     expect(without.ok && without.config.verify?.routes.map((route) => route.path)).toEqual(["/"]);
+    expect(without.ok && without.config.publicPaths).toEqual([]);
+  });
+
+  it("lists the public endpoints of mcp-access and mailing in publicPaths, on a VPS and on Cloudflare (issue #1435)", () => {
+    const expected = [
+      "/api/health",
+      "/api/mcp",
+      "/api/oauth/token",
+      "/api/oauth/register",
+      "/.well-known/oauth-authorization-server",
+      "/.well-known/oauth-protected-resource",
+      "/unsubscribe",
+      "/api/mailing/unsubscribe",
+    ];
+    const facts = { hasMcpAccess: true, hasMailing: true };
+    const vps = parseDeployConfig(JSON.parse(textOf(plan({}, facts), "deploy.json")));
+    expect(vps.ok && vps.config.publicPaths).toEqual(expected);
+    const worker = parseDeployConfig(JSON.parse(textOf(plan({ host: "cloudflare", image: undefined, tables: [] }, facts), "deploy.json")));
+    expect(worker.ok && worker.config.publicPaths).toEqual(expected);
+    expect(worker.ok && worker.config.verify?.routes.map((route) => route.path)).toEqual(["/api/health"]);
   });
 
   it("copies the ops roles recipe unchanged", () => {

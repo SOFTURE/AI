@@ -23,6 +23,8 @@ export const E2E_ANSWERS: InitAnswers = {
   www: false,
   env: ["AUTH_SECRET"],
   tables: [],
+  // The example app's home page answers without a login, so verify checks / too.
+  public: true,
 };
 
 /** A fixed version in the generated headers, so a version bump does not change the committed files. */
