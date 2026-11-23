@@ -54,7 +54,7 @@ apps:
 | `server.port` | `22` | SSH port |
 | `server.ipv4`, `server.ipv6` | none | the server's addresses; `ipv4` is required for Cloudflare DNS, `ipv6` adds an AAAA record |
 | `server.identityFile` | none | private key for the admin connection, when the SSH agent does not hold it |
-| `server.deployUser` | `deploy` | the non-sudo user releases log in as |
+| `server.deployUser` | `deploy` | the non-sudo user releases log in as; must differ from `adminUser` |
 | `server.timezone` | `UTC` | system time zone |
 | `edge.name` | `softure-edge` | the edge's compose project and folder (`/srv/<name>`) |
 | `edge.network` | `edge.name` | the Docker network apps join as `external` (`softure-deploy init --edge`, #516) |
@@ -67,6 +67,12 @@ apps:
 | `firewall.rangesFile` | `/srv/<edge.name>/cloudflare-ips.txt` | the ranges the firewall reads, refreshed daily by a timer |
 | `apps[].database` | `false` | generate `POSTGRES_PASSWORD`, `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` when missing |
 | `apps[].access` | disabled | Cloudflare Access for the whole host (`emails`), plus one bypass per path |
+
+**The deploy user never has sudo.** The inventory refuses `deployUser` equal to `adminUser`, and both playbooks
+first read the deploy user on the server and stop, before any change and in `--check` too, when it is in `sudo`,
+`wheel` or `admin` or has a sudoers entry: the collection's `deploy_user` role locks its password, which would take
+password `sudo` from an admin account (#1431). On a first onboarding, where the deploy user does not exist yet,
+`app add --check` reports the user, its `authorized_keys` and the key line as planned changes.
 
 An edge another app already runs (say a network `first-app-edge` with the resolver `le`): set `edge.network`,
 `edge.certResolver` and `edge.manage: false`, and `app add` onboards new apps onto it. Moving the edge out of that

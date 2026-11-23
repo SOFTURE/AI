@@ -231,6 +231,18 @@ describe("softure-host app add", () => {
     expect(deps.runner.calls.some((call) => call.args[2] === "DEPLOY_SSH_KEY")).toBe(true);
   });
 
+  it("refuses a deploy user that is the admin user before running anything, with and without --check (issue #1431)", async () => {
+    const path = writeInventory();
+    writeFileSync(path, readFileSync(path, "utf8").replace("  adminUser: admin\n", "  adminUser: admin\n  deployUser: admin\n"));
+    for (const flags of [[], ["--check"]]) {
+      const io = createIo();
+      const deps = createDeps(createWorld({ environment: false, secrets: [] }));
+      await expect(runCli(["app", "add", `--inventory=${path}`, "--app=notes", ...flags], io, deps)).resolves.toBe(2);
+      expect(io.err.join("")).toContain("server.deployUser: must differ from server.adminUser (admin)");
+      expect(deps.runner.calls).toEqual([]);
+    }
+  });
+
   it("changes nothing with --check, and reads nothing under an Environment that does not exist", async () => {
     const io = createIo();
     const deps = createDeps(createWorld({ environment: false, secrets: [] }));
