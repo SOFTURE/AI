@@ -1,12 +1,13 @@
 ---
 change_id: deploy-edge-network-variable
 title: "deploy: the edge network name reaches the compose file at deploy time (issue #1429)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1429
 branch: claude/project-thread-uov6k2
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -36,3 +37,11 @@ Issue #1429 (no labels). `init --edge` writes the network name as a literal in t
 ## Notes
 
 - frame skipped: the issue names the defect and a fix the adopting app already proved; no product question.
+
+## Done
+
+- `init --edge=<network>` writes `${EDGE_NETWORK:-<network>}` in the external network and `traefik.docker.network`;
+  README "Edge network" documents the variable.
+- `checkSharedHostCompose` resolves compose interpolation in string values, with a new `env` option.
+- `softure-host app add` sets the repository variable `EDGE_NETWORK` from the inventory's `edge.network`.
+- Release: `@softure-ai/deploy` and `@softure-ai/host` (CHANGELOG `## Unreleased`).

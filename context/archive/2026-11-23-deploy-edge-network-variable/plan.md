@@ -33,6 +33,12 @@
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1 (cc1585d): `checkSharedHostCompose` interpolates string values (`env` option); the four new tests in
+      "checkSharedHostCompose with compose interpolation (issue #1429)" failed before (4 of 39) and pass after;
+      `npx vitest run tools/deploy/src/testing` 51 of 51.
+- [x] Phase 2 (f16c400): template writes `${EDGE_NETWORK:-<network>}` in both places; new init test "lets the deploy
+      environment name the edge network, defaulting to --edge (issue #1429)" (optional name, guard with `env`);
+      `npx vitest run tools/deploy` 1000 tests, 982 passed, 18 skipped after updating the init CLI expectation.
+- [x] Phase 3 (e142ce2): `planSecrets` adds `EDGE_NETWORK` from `edge.network`; `github-step.test.ts` (2 tests) and
+      the `app add` CLI test (`gh variable set EDGE_NETWORK ... softure-edge`, dry-run line); `npx vitest run
+      tools/host` green. typecheck and lint green in every pre-commit.
