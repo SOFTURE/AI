@@ -139,8 +139,10 @@ In order:
    `<slug> (softure-host)` for the host's `emails` and `<slug> bypass <path> (softure-host)` per bypass path,
    created or updated by name. Applications it did not create are never touched, and none is deleted: one the
    inventory no longer lists is reported.
-6. **What is left**: the names the app's `docker/prod/docker-compose.yml` requires that the Environment still lacks
-   (the app's own secrets, such as mail API keys), then the next step: run the app's release workflow.
+6. **What is left**: the names the app's `docker/prod/docker-compose.yml` requires that are set nowhere yet (the app's
+   own secrets, such as mail API keys), then the next step: run the app's release workflow. A name counts as set when
+   it is a `production` secret, a repository or `production` variable, or one `app add` has just written (such as
+   `APP_HOST`), since the release renders `.env.prod` from secrets and variables alike (issue #1434).
 
 A deploy key is issued (ed25519, made in memory) when the Environment has no `DEPLOY_SSH_KEY`, or with
 `--rotate-key`. Otherwise the server's line stays as it is; when the server has no line while GitHub holds a key,

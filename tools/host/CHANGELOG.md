@@ -14,6 +14,11 @@ version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../
   - Migrate: a line added by hand keeps working; `operator list` shows it when its comment is `<slug>-operator-<label>`.
     To move one under the command, remove it by hand, then run `operator add-key` with the same key.
 
+- `app add` no longer reports `APP_HOST` (or any variable it has just set, or a repository or `production` variable
+  that already exists) as still to set by hand (#1434). The line lists only names set nowhere and says each can be a
+  `production` secret or, for a value that is not secret, a repository variable.
+  - Migrate: nothing.
+
 - `server` prints its next step as `npx --yes @softure-ai/host@<this version> app add --inventory=<file> --app=<slug>`,
   which runs from any folder, instead of the bare `softure-host app add --app=<slug>`; `app add` without
   `docker/server/deploy.sh` says to install `@softure-ai/deploy` in the app and run `npx softure-deploy init` there.
