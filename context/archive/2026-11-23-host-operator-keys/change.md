@@ -1,12 +1,13 @@
 ---
 change_id: host-operator-keys
 title: "host: operator add-key, remove-key and list for forced-command operator keys (issue #1433)"
-status: in_progress
+status: archived
 roadmap_item: null
 issue: 1433
 branch: claude/project-thread-2u0li3
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -39,3 +40,10 @@ needs a line of the same shape.
 ## Notes
 
 - frame skipped: the issue names the gap and the fix; no product question.
+
+## Done
+
+- `softure-host operator add-key`, `operator remove-key`, `operator list`; playbook `ansible/operator.yml`.
+- `parsePublicKey` validates every public key the package reads (`server.adminPublicKey` included).
+- README "Running operator commands", deploy README pointer, converge e2e scenario.
+- Release: `@softure-ai/host` (CHANGELOG `## Unreleased`).

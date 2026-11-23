@@ -43,3 +43,17 @@
   another line is refused, remove-key removes only its line.
 
 ## Progress
+
+- [x] Phase 1 (742dd09): `parsePublicKey` (one line, known type, base64 blob that declares the same type, no options,
+      no private key; `server` reuses it) and the operator line helpers; `src/operator/operator.test.ts` and the
+      `parsePublicKey` cases in `ssh.test.ts` (modules missing before); `npx vitest run tools/host` green.
+- [x] Phase 2 (3831508): `ansible/operator.yml`, `buildOperatorVars`, `captureAsAdmin`, CLI `operator add-key`,
+      `remove-key`, `list`; `src/cli/operator-command.test.ts` (12 tests); `npx vitest run tools/host` 85 of 85.
+- [x] Phase 3 (54c0a6e): README "Running operator commands", deploy README step 3 points to it, CHANGELOG
+      `## Unreleased`; `e2e/converge.sh` operator scenario run locally against ubuntu:24.04 with sshd
+      (`HOST_E2E_COLLECTIONS` = softure.vps_foundation 1.25.0 + the `ansible` package's collections, since Galaxy is
+      not reachable from this container): `converge: PASS` (add-key twice = one line and `changed=0`, other lines
+      byte-equal, `status`, a shell command and a login without a command all reach deploy.sh only, `--check` reports
+      `changed=1` with the line and leaves the md5 unchanged, four taken keys refused, remove-key removes only its line
+      and the removed key no longer logs in). `npx vitest run tools/host tests/repo` 1342 passed, 81 skipped; typecheck,
+      lint and language gate green in every pre-commit.
