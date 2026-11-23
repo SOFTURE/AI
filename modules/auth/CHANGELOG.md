@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
-## Unreleased
+## 0.2.23
 
 - **`LogoutButton` and `LogoutForm` style their button** (issue #1439): new props `size`, `fullWidth`, `iconLeft`,
   `unstyled` and `classNames: { form, button }`, passed to `@softure-ai/ui`'s `Button`. `className` still styles the
