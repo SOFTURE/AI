@@ -17,6 +17,14 @@ version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../
   the step left. The README has a checklist, "Adding an app to a server that already runs apps".
   - Migrate: nothing. An `app add` that now stops names what to change in the inventory or the app.
 
+- `operator add-key`, `operator remove-key` and `operator list` (#1433): bind the operator's own SSH key to an app's
+  `deploy.sh` in the deploy user's `authorized_keys` (`command="/srv/<slug>/deploy.sh",restrict <key>
+  <slug>-operator-<label>`), replaced in place by its label, never duplicated, other lines untouched; a key already on
+  another line, a private key or a line with options is refused; `--check` prints the line and changes nothing. New
+  playbook `ansible/operator.yml`. README: "Running operator commands".
+  - Migrate: a line added by hand keeps working; `operator list` shows it when its comment is `<slug>-operator-<label>`.
+    To move one under the command, remove it by hand, then run `operator add-key` with the same key.
+
 - `app add` no longer reports `APP_HOST` (or any variable it has just set, or a repository or `production` variable
   that already exists) as still to set by hand (#1434). The line lists only names set nowhere and says each can be a
   `production` secret or, for a value that is not secret, a repository variable.

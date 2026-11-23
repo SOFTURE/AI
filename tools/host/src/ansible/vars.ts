@@ -1,4 +1,5 @@
 import type { Inventory, InventoryApp } from "../inventory/index.js";
+import type { PublicKey } from "../ssh/index.js";
 import { CLOUDFLARE_RANGES } from "./cloudflare-ranges.js";
 
 /** Where every app's folder lives on the server; deploy.sh and the key's forced command assume it. */
@@ -73,5 +74,21 @@ export function buildAppVars(inventory: Inventory, app: InventoryApp, options: A
     host_app_root: APP_ROOT,
     host_app_deploy_script_file: options.deployScriptFile,
     ...(options.publicKey === undefined ? {} : { host_app_key: options.publicKey }),
+  };
+}
+
+/** What ansible/operator.yml does with one operator key line: write it for this key, or remove it. */
+export type OperatorChange = { state: "present"; key: PublicKey } | { state: "absent" };
+
+/** The extra vars of ansible/operator.yml: one app's operator key line by its label, as the admin user. */
+export function buildOperatorVars(inventory: Inventory, app: InventoryApp, label: string, change: OperatorChange): ExtraVars {
+  return {
+    ...buildConnectionVars(inventory, inventory.server.adminUser),
+    deploy_user_name: inventory.server.deployUser,
+    host_app_name: app.slug,
+    host_app_root: APP_ROOT,
+    host_operator_label: label,
+    host_operator_state: change.state,
+    ...(change.state === "present" ? { host_operator_key_type: change.key.type, host_operator_key_body: change.key.body } : {}),
   };
 }
