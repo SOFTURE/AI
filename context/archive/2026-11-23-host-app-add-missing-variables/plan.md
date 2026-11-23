@@ -30,4 +30,8 @@ it exists); `app add` also reads the repository variables and subtracts them, th
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1 (a060050): `listVariableNames` (repository or `production`), `prepareEnvironment` returns secret and
+      variable names, `app add` subtracts `plan.variables` and both variable sets. The two new tests and the updated
+      onboarding test failed before the code change (3 failed of 14) and pass after; `npx vitest run tools/host`
+      58 of 58; the `--check` test asserts no `gh variable list --env` under a missing Environment.
+      `npm run typecheck`, ESLint and the language gate green (pre-commit).

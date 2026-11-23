@@ -1,12 +1,13 @@
 ---
 change_id: host-app-add-missing-variables
 title: "host: app add no longer reports variables it set, or that exist, as still to set (issue #1434)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1434
 branch: claude/project-thread-p6s6wa
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -35,3 +36,11 @@ Issue #1434 (no labels). `app-add-command.ts` subtracts the existing Environment
 ## Notes
 
 - frame skipped: the issue names the defect and the fix; no product question.
+
+## Done
+
+- `softure-host app add` subtracts the variables it has just written (`APP_HOST`, `EDGE_NETWORK`) and the existing
+  repository and `production` variables from the names the compose file requires; the line lists only names set
+  nowhere and says each can be a `production` secret or a repository variable.
+- Tests from the issue's acceptance criteria in `tools/host/src/cli/cli.test.ts`; README step 6, CHANGELOG Unreleased.
+- Release: `@softure-ai/host` next release (batched by the coordinator).
