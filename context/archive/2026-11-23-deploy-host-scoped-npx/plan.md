@@ -27,3 +27,11 @@
 - typecheck and lint green.
 
 ## Progress
+
+- [x] Phase 1 (ffaf606): `server` prints `next: npx --yes @softure-ai/host@<version> app add --inventory=<file>
+      --app=<slug>`; `app add` without deploy.sh names the in-app install and `npx softure-deploy init`; new test
+      "prints the next step as the scoped, pinned package, runnable outside any project (issue #1436)" and the updated
+      deploy.sh test failed before (2 of 13) and pass after; `npx vitest run tools/host` 57 of 57; host README
+      "Running the CLI", CHANGELOG.
+- [x] Phase 2 (bce0532): deploy README "Running the CLI", CHANGELOG; `npx vitest run tests/repo` 33 files green
+      (after installing ssh-keygen in the container), init README tests 61 of 61.
