@@ -1,7 +1,7 @@
 {
   "name": "softure-ai",
   "private": true,
-  "description": "SOFTURE AI \u2014 modular, tested building blocks for AI-assembled apps",
+  "description": "SOFTURE AI — modular, tested building blocks for AI-assembled apps",
   "license": "MIT",
   "workspaces": [
     "foundation/*",
@@ -16,7 +16,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@modelcontextprotocol/server": "^2.4.0",
-    "@softure-ai/skills": "^0.24.0",
+    "@softure-ai/skills": "^0.30.0",
     "@tailwindcss/cli": "^4.3.5",
     "@tailwindcss/node": "^4.3.4",
     "@testing-library/dom": "^10.4.2",
