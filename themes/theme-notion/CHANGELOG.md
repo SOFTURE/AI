@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `DocumentViewer`'s title keeps its 24 px line height: since tailwind-merge 3.7.1 the dialog title's `leading-none`
+  is no longer dropped by `text-base`, so the viewer sets `leading-normal` itself.
+- Migration: none.
+
 ## 0.30.0
 
 - Touch-sized `Switch`: `size="touch"` makes the switch a 44 × 44 square (the `touch-target` token, `data-size="touch"`)

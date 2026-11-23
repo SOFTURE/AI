@@ -145,7 +145,7 @@ export function DocumentViewer({ open, onOpenChange, title, contentType, source,
       >
         <div data-slot="document-viewer-header" className="flex min-w-0 items-center gap-2 border-b border-border py-1 pr-2 pl-4">
           <div className="flex min-w-0 flex-1 flex-col">
-            <DialogTitle className="truncate text-base" title={title}>
+            <DialogTitle className="truncate text-base leading-normal" title={title}>
               {title}
             </DialogTitle>
             <DialogDescription data-slot="document-viewer-pages" className="text-small">
