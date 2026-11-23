@@ -60,7 +60,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.1"
   },
   "peerDependencies": {
     "next": "^16.0.0",
@@ -72,7 +72,7 @@
     }
   },
   "devDependencies": {
-    "lucide": "^1.72.0"
+    "lucide": "^1.76.0"
   },
   "softure": {
     "workers": [

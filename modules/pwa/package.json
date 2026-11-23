@@ -65,7 +65,7 @@
   },
   "devDependencies": {
     "@softure-ai/theme-kit": "^0.1.7",
-    "lucide": "^1.72.0"
+    "lucide": "^1.76.0"
   },
   "softure": {
     "workers": [
