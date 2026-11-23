@@ -6,6 +6,7 @@ import {
   hasEnvironment,
   hasTagPolicy,
   listSecretNames,
+  listVariableNames,
   setSecret,
   setVariable,
   TAG_POLICY,
@@ -17,17 +18,23 @@ import type { CliIo } from "./io.js";
 /** The database passwords `softure-deploy init`'s compose file requires; URL-safe, since they go into URLs. */
 export const DATABASE_SECRETS = ["POSTGRES_PASSWORD", "SOFTURE_MIGRATOR_PASSWORD", "SOFTURE_APP_PASSWORD"] as const;
 
+/** The names already under the Environment (never values). */
+export interface EnvironmentNames {
+  secrets: Set<string>;
+  variables: Set<string>;
+}
+
 /**
- * Makes sure the Environment exists with its tag policy, then lists its secret names. The Environment comes first:
- * listing the secrets of one that does not exist is a 404. A dry run creates nothing and, for an Environment that
+ * Makes sure the Environment exists with its tag policy, then lists its secret and variable names. The Environment
+ * comes first: listing under one that does not exist is a 404. A dry run creates nothing and, for an Environment that
  * does not exist yet, reads nothing under it.
  */
-export async function prepareEnvironment(io: CliIo, deps: HostDeps, repo: string, check: boolean): Promise<Set<string>> {
+export async function prepareEnvironment(io: CliIo, deps: HostDeps, repo: string, check: boolean): Promise<EnvironmentNames> {
   const exists = await hasEnvironment(deps.runner, repo);
   if (!exists) {
     if (check) {
       say(io, "github", `would create the ${ENVIRONMENT} environment of ${repo} with the tag policy ${TAG_POLICY}`);
-      return new Set();
+      return { secrets: new Set(), variables: new Set() };
     }
     await createEnvironment(deps.runner, repo);
     say(io, "github", `created the ${ENVIRONMENT} environment of ${repo}`);
@@ -40,7 +47,10 @@ export async function prepareEnvironment(io: CliIo, deps: HostDeps, repo: string
     await addTagPolicy(deps.runner, repo);
     say(io, "github", `added the deployment policy: ${TAG_POLICY} tags`);
   }
-  return listSecretNames(deps.runner, repo);
+  return {
+    secrets: await listSecretNames(deps.runner, repo),
+    variables: await listVariableNames(deps.runner, repo, "environment"),
+  };
 }
 
 export interface SecretPlan {
