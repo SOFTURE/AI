@@ -19,6 +19,14 @@ export function readPackageVersion(): string {
   return z.object({ version: z.string() }).parse(manifest).version;
 }
 
+/**
+ * A command the operator runs next, in the form that works outside any project: the scoped package at this version
+ * (`npx softure-host` would look up an unscoped package of that name; issue #1436).
+ */
+export function formatHostCommand(version: string, args: string): string {
+  return `npx --yes @softure-ai/host@${version} ${args}`;
+}
+
 export function createHostDeps(io: CliIo): HostDeps {
   return {
     runner: createProcessRunner(io),

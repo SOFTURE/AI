@@ -9,10 +9,23 @@ It is the server side of the one-VPS model of [`@softure-ai/deploy`](../deploy/R
 everything from the release on; `host` sets up the server and the app's place on it, once.
 
 ```bash
-npx @softure-ai/host server --inventory=infra/inventory.yml --check
-npx @softure-ai/host server --inventory=infra/inventory.yml --connect-as=root   # first run on a fresh server
-npx @softure-ai/host app add --inventory=infra/inventory.yml --app=notes
+npx --yes @softure-ai/host@<version> server --inventory=infra/inventory.yml --check
+npx --yes @softure-ai/host@<version> server --inventory=infra/inventory.yml --connect-as=root   # first run on a fresh server
+npx --yes @softure-ai/host@<version> app add --inventory=infra/inventory.yml --app=notes
 ```
+
+## Running the CLI
+
+The bin is `softure-host`. Run it from the operator's machine as the scoped package at a pinned version, from any
+folder:
+
+```bash
+npx --yes @softure-ai/host@<version> <command> [flags]
+```
+
+`npx softure-host …` finds the bin only inside a project that has `@softure-ai/host` installed; anywhere else npm
+looks up an unscoped package named `softure-host`, which is not this one. The commands below are written as
+`softure-host <command>` for short; the next step `server` prints is the full, pinned form.
 
 ## Requirements on the operator's machine
 
@@ -132,7 +145,8 @@ A deploy key is issued (ed25519, made in memory) when the Environment has no `DE
 `--rotate-key`. Otherwise the server's line stays as it is; when the server has no line while GitHub holds a key,
 the run stops and asks for `--rotate-key`.
 
-The app must already have run `softure-deploy init` (it needs `docker/server/deploy.sh`).
+The app must already have run `softure-deploy init` (it needs `docker/server/deploy.sh`): in the app,
+`npm install --save-dev @softure-ai/deploy`, then `npx softure-deploy init …`.
 
 ## What stays manual
 

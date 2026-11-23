@@ -6,6 +6,11 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- README: "Running the CLI" says where `npx softure-deploy` works (inside an app that depends on the package) and
+  gives the scoped, pinned form for everywhere else, `npx --yes --package @softure-ai/deploy@<version> softure-deploy`
+  (#1436).
+  - Migrate: nothing.
+
 - **The edge network's name comes from the server at deploy time** (#1429): `init --edge=<network>` writes
   `${EDGE_NETWORK:-<network>}` in the top-level external network and in `traefik.docker.network`. A repository or
   `production` variable `EDGE_NETWORK` (which `softure-host app add` now sets from the inventory's `edge.network`) reaches
