@@ -6,9 +6,10 @@ in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](
 
 ## 0.2.4
 
-- The `@softure-ai/mailing` peer range also accepts `^0.3.0` (issue #1418), the release that keys a recipient
-  with `SOFTURE_EMAIL_KEY_SECRET`.
-  - Migrate: nothing here; mailing 0.3.0 needs the new secret (see mailing's CHANGELOG).
+- Works with `@softure-ai/mailing` `^0.3.0` (issue #1418), the release that keys a recipient with
+  `SOFTURE_EMAIL_KEY_SECRET`: the peer range and the manifest's `dependsOn` move from mailing `^0.2` to `^0.3.0`.
+  - Migrate: when the app lists mailing, upgrade it to `^0.3.0` and set `SOFTURE_EMAIL_KEY_SECRET` (see mailing's
+    CHANGELOG). An app without mailing changes nothing.
 
 ## 0.2.3
 
