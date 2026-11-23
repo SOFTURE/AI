@@ -9,6 +9,23 @@ npm install --save-dev @softure-ai/deploy
 npx softure-deploy help
 ```
 
+## Running the CLI
+
+The bin is `softure-deploy`. Which command runs it depends on where you are:
+
+- **Inside an app that depends on `@softure-ai/deploy`** (its repository, its CI jobs, its image): `npx softure-deploy
+  <command>`. npm finds the bin in the app's `node_modules`, at the version the lockfile pins. The examples in this
+  README that start with `npx softure-deploy` run there.
+- **Anywhere else** (an operator's machine, a server, a folder without the package): the scoped package at a pinned
+  version,
+
+  ```bash
+  npx --yes --package @softure-ai/deploy@<version> softure-deploy <command>
+  ```
+
+  `npx softure-deploy` outside such an app looks up an unscoped package named `softure-deploy`, which is not this
+  one. The generated workflows and `deploy.sh` always use the scoped, pinned form.
+
 ## `softure-deploy env render`
 
 Writes the production env file from the environment, for every variable the compose file requires.

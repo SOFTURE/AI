@@ -76,6 +76,13 @@ export const inventorySchema = z
   })
   .strict()
   .superRefine((inventory, context) => {
+    if (inventory.server.deployUser === inventory.server.adminUser) {
+      context.addIssue({
+        code: "custom",
+        path: ["server", "deployUser"],
+        message: `must differ from server.adminUser (${inventory.server.adminUser}): releases log in as the deploy user, which never has sudo`,
+      });
+    }
     if (inventory.edge.manage && inventory.edge.acmeEmail === undefined) {
       context.addIssue({ code: "custom", path: ["edge", "acmeEmail"], message: "edge.manage needs edge.acmeEmail" });
     }

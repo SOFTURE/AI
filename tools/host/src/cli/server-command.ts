@@ -3,7 +3,7 @@ import { buildServerVars } from "../ansible/index.js";
 import { loadInventory } from "../inventory/index.js";
 import { parsePublicKey } from "../ssh/index.js";
 import { runPlaybook } from "./ansible-step.js";
-import { resolvePath, say, type HostDeps } from "./context.js";
+import { formatHostCommand, readPackageVersion, resolvePath, say, type HostDeps } from "./context.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { readFlags, requireFlag } from "./options.js";
@@ -32,7 +32,8 @@ export async function runServer(args: string[], io: CliIo, deps: HostDeps): Prom
     check: { type: "boolean", default: false },
     "connect-as": { type: "string" },
   });
-  const inventory = await loadInventory(resolvePath(io, requireFlag("server", "inventory", flags.inventory)));
+  const inventoryPath = requireFlag("server", "inventory", flags.inventory);
+  const inventory = await loadInventory(resolvePath(io, inventoryPath));
   const adminPublicKey = await readAdminPublicKey(io, inventory.server.adminPublicKey);
   const connectAs = flags["connect-as"] ?? inventory.server.adminUser;
   const { server, edge, firewall } = inventory;
@@ -40,5 +41,10 @@ export async function runServer(args: string[], io: CliIo, deps: HostDeps): Prom
   say(io, "server", edge.manage ? `edge ${edge.name} on network ${edge.network}, resolver ${edge.certResolver}` : `edge left as it is (network ${edge.network})`);
   say(io, "server", firewall.manage ? `origin firewall ${firewall.name}, ranges ${firewall.rangesFile}` : "origin firewall left as it is");
   await runPlaybook(deps, { playbook: "server.yml", vars: buildServerVars(inventory, { adminPublicKey, connectAs }), check: flags.check });
-  say(io, "server", flags.check ? "check done; nothing was changed" : `done. Log in as ${server.adminUser} from now on; next: softure-host app add --app=<slug>`);
+  if (flags.check) {
+    say(io, "server", "check done; nothing was changed");
+    return;
+  }
+  const next = formatHostCommand(readPackageVersion(), `app add --inventory=${inventoryPath} --app=<slug>`);
+  say(io, "server", `done. Log in as ${server.adminUser} from now on; next: ${next}`);
 }
