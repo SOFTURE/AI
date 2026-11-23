@@ -128,6 +128,7 @@ import {
   MiniProgress,
   PageFrame,
   PageHeader,
+  PageLayout,
   Popover,
   PopoverAnchor,
   PopoverContent,
@@ -1757,6 +1758,21 @@ const NOTION_CASES: readonly GalleryCase[] = [
           On track
         </Status>
       </PageHeader>
+    ),
+  },
+  {
+    name: "PageLayout",
+    component: "PageLayout",
+    root: '[data-slot="page-layout"]',
+    render: () => (
+      <PageLayout header={{ title: "Projects", crumbs: [{ label: "Workspace", href: "#workspace" }, { label: "Projects" }], description: "Everything in progress." }}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Active</CardTitle>
+          </CardHeader>
+          <CardContent>Three projects ship this month.</CardContent>
+        </Card>
+      </PageLayout>
     ),
   },
   {

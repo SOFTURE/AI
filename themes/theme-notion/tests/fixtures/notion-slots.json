@@ -1312,6 +1312,21 @@
     ["status-label","min-w-0 truncate"],
     ["button","inline-flex shrink-0 items-center justify-center font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-primary-hover h-6 gap-1 rounded-md px-2 text-[13px] has-[>svg:first-child]:pl-1.5 has-[>svg:last-child]:pr-1.5"]
   ],
+  "PageLayout": [
+    ["page-layout","grid w-full min-w-0 gap-4"],
+    ["page-header","flex flex-col"],
+    ["breadcrumb",""],
+    ["breadcrumb-list","flex flex-wrap items-center gap-1.5 text-sm break-words text-muted-foreground sm:gap-2.5"],
+    ["breadcrumb-item","inline-flex items-center gap-1.5"],
+    ["breadcrumb-link","transition-colors hover:text-foreground"],
+    ["breadcrumb-separator","[&>svg]:size-3.5"],
+    ["breadcrumb-item","inline-flex items-center gap-1.5"],
+    ["breadcrumb-page","font-normal text-foreground"],
+    ["card","flex flex-col gap-6 rounded-lg bg-card py-6 text-card-foreground shadow-card"],
+    ["card-header","@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6"],
+    ["card-title","leading-none font-semibold"],
+    ["card-content","px-6"]
+  ],
   "Popover": [
     ["popover-anchor",""],
     ["popover-trigger","inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border border-border bg-background hover:bg-linear-to-r hover:from-accent hover:to-accent hover:text-accent-foreground h-7 px-2.5 has-[>svg:first-child]:pl-2 has-[>svg:last-child]:pr-2"],
