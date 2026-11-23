@@ -2,7 +2,7 @@ import { createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { createFakeRunner } from "../testing/fake-runner.js";
 import { parseInventory } from "../inventory/index.js";
-import { formatKnownHosts, generateDeployKey, getFingerprint, parseHostKeys, readHostKeys } from "./index.js";
+import { formatKnownHosts, generateDeployKey, getFingerprint, parseHostKeys, parsePublicKey, readHostKeys } from "./index.js";
 
 /** Reads the SSH wire strings of a buffer in order. */
 function readStrings(bytes: Buffer, count: number, start = 0): { values: Buffer[]; end: number } {
@@ -95,5 +95,33 @@ describe("host keys", () => {
     expect(runner.calls[0]?.args).toEqual(["-o", "BatchMode=yes", "-p", "2222", "admin@srv.example.com", "cat /etc/ssh/ssh_host_*_key.pub"]);
     const refused = createFakeRunner(() => ({ status: 255, stderr: "Host key verification failed.\n" }));
     await expect(readHostKeys(refused, inventory)).rejects.toThrow("cannot read the host keys as admin@srv.example.com: Host key verification failed.");
+  });
+});
+
+describe("parsePublicKey", () => {
+  const line = generateDeployKey("jaro@laptop").publicKey;
+  const body = line.split(" ")[1] ?? "";
+
+  it("reads type, body and comment of a .pub file", () => {
+    expect(parsePublicKey(`${line}\n`)).toEqual({ ok: true, key: { type: "ssh-ed25519", body, comment: "jaro@laptop" } });
+  });
+
+  it("accepts a key without a comment", () => {
+    expect(parsePublicKey(`ssh-ed25519 ${body}`)).toEqual({ ok: true, key: { type: "ssh-ed25519", body, comment: "" } });
+  });
+
+  it.each([
+    ["a private key", "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----\n", "private key"],
+    ["two lines", `${line}\n${line}\n`, "found 2"],
+    ["an empty file", "\n", "found 0"],
+    ["an options prefix", `command="/bin/sh" ${line}`, "options before the key"],
+    ["an unknown type", `ssh-dss ${body}`, "unsupported key type"],
+    ["a body that is not base64", "ssh-ed25519 not*base64", "not base64"],
+    ["a truncated body", `ssh-ed25519 ${body.slice(0, 8)}`, "not a ssh-ed25519 key"],
+    ["a body of another type", `ssh-rsa ${body}`, "not a ssh-rsa key"],
+  ])("refuses %s", (_name, text, reason) => {
+    const parsed = parsePublicKey(text);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.reason).toContain(reason);
   });
 });

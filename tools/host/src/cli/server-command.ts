@@ -1,13 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { buildServerVars } from "../ansible/index.js";
 import { loadInventory } from "../inventory/index.js";
+import { parsePublicKey } from "../ssh/index.js";
 import { runPlaybook } from "./ansible-step.js";
 import { resolvePath, say, type HostDeps } from "./context.js";
 import { fail, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
 import { readFlags, requireFlag } from "./options.js";
-
-const PUBLIC_KEY_LINE = /^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(?:256|384|521)|sk-ssh-ed25519@openssh\.com) [A-Za-z0-9+/=]+( [^\n]*)?$/;
 
 async function readAdminPublicKey(io: CliIo, path: string | undefined): Promise<string> {
   if (path === undefined) {
@@ -18,9 +17,9 @@ async function readAdminPublicKey(io: CliIo, path: string | undefined): Promise<
     const reason = error instanceof Error ? error.message : String(error);
     return fail(`server: cannot read server.adminPublicKey ${fullPath}: ${reason}`);
   });
-  const line = text.trim();
-  if (!PUBLIC_KEY_LINE.test(line)) return fail(`server: ${fullPath} is not one SSH public key line`, USAGE_EXIT_CODE);
-  return line;
+  const parsed = parsePublicKey(text);
+  if (!parsed.ok) return fail(`server: ${fullPath} is not one SSH public key line: ${parsed.reason}`, USAGE_EXIT_CODE);
+  return text.trim();
 }
 
 /**
