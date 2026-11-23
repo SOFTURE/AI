@@ -1,8 +1,8 @@
 "use client";
 
 import { errorLogLabel } from "@softure-ai/core";
-import { Button, type ButtonVariant } from "@softure-ai/ui";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { Button, type ButtonSize, type ButtonVariant, type ClassNames } from "@softure-ai/ui";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import type { AuthMessages } from "../messages/index.js";
 
 // The sign-out control: a plain form posting to the logout action (`logoutAction` of `@softure-ai/auth/next`), so it
@@ -18,8 +18,20 @@ export interface LogoutFormProps {
   /** Awaited before the sign-out. A throw or rejection is logged by its kind only, and the sign-out goes on. */
   readonly beforeSignOut?: () => unknown;
   readonly variant?: ButtonVariant;
+  readonly size?: ButtonSize;
+  /** The button fills the form's width, e.g. a row in a sidebar footer. */
+  readonly fullWidth?: boolean;
+  /** Decorative icon before the label; the spinner takes its place while the sign-out is held. */
+  readonly iconLeft?: ReactNode;
+  /** The button keeps its structure and busy state only; the app styles it through `classNames.button`. */
+  readonly unstyled?: boolean;
+  /** Classes of the form and of the button. App classes win over the button's defaults without `!important`. */
+  readonly classNames?: ClassNames<LogoutFormSlot>;
+  /** The form's class; joins `classNames.form`. */
   readonly className?: string;
 }
+
+export type LogoutFormSlot = "form" | "button";
 
 async function runBeforeSignOut(beforeSignOut: () => unknown): Promise<void> {
   try {
@@ -30,9 +42,26 @@ async function runBeforeSignOut(beforeSignOut: () => unknown): Promise<void> {
   }
 }
 
+function joinClasses(...parts: readonly (string | undefined)[]): string | undefined {
+  const joined = parts.filter((part) => part !== undefined && part !== "").join(" ");
+  return joined === "" ? undefined : joined;
+}
+
 type LogoutStage = "idle" | "holding" | "submitting";
 
-export function LogoutForm({ action, messages, next, beforeSignOut, variant = "secondary", className }: LogoutFormProps) {
+export function LogoutForm({
+  action,
+  messages,
+  next,
+  beforeSignOut,
+  variant = "secondary",
+  size,
+  fullWidth,
+  iconLeft,
+  unstyled,
+  classNames,
+  className,
+}: LogoutFormProps) {
   const [stage, setStage] = useState<LogoutStage>("idle");
   const formRef = useRef<HTMLFormElement>(null);
   const isClearedRef = useRef(false);
@@ -61,9 +90,18 @@ export function LogoutForm({ action, messages, next, beforeSignOut, variant = "s
   }
 
   return (
-    <form ref={formRef} action={action} onSubmit={holdForBeforeSignOut} className={className}>
+    <form ref={formRef} action={action} onSubmit={holdForBeforeSignOut} className={joinClasses(classNames?.form, className)}>
       {next === undefined ? null : <input type="hidden" name="next" value={next} />}
-      <Button type="submit" variant={variant} pending={stage === "holding"}>
+      <Button
+        type="submit"
+        variant={variant}
+        size={size}
+        fullWidth={fullWidth}
+        iconLeft={iconLeft}
+        unstyled={unstyled}
+        className={classNames?.button}
+        pending={stage === "holding"}
+      >
         {messages.logout.submit}
       </Button>
     </form>

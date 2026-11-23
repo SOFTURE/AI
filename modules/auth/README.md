@@ -385,6 +385,21 @@ ends the session and goes to that path instead of `afterLogout`, e.g. a consent 
 someone else" returning to the same authorization request after the new login. The path is checked
 like login's `next`: anything but a path on this app falls back to `afterLogout`.
 
+Both `LogoutButton` and `LogoutForm` take the button's look: `variant`, `size`, `fullWidth`, `iconLeft`, `unstyled`
+and `classNames: { form, button }` (`className` is the form's class and joins `classNames.form`). App classes on the
+button win over its defaults without `!important` or selectors into the markup. A sidebar footer where "Log out" is a
+full-width row whose text starts at the left edge of the signed-in line:
+
+```tsx
+<SidebarFooter>
+  <p className="px-2 text-xs text-muted-foreground">Signed in as {user.email}</p>
+  <LogoutButton variant="ghost" fullWidth classNames={{ button: "justify-start px-2" }} />
+</SidebarFooter>
+```
+
+With `unstyled` the button keeps only its structure and busy state, and `classNames.button` is its whole look (e.g.
+the theme's own sidebar row classes).
+
 To clear what the device keeps before the sign-out (an installed app's offline copy), render `LogoutForm` from
 `@softure-ai/auth/ui` in a client component with `beforeSignOut`. It is the same plain form (it works without
 JavaScript); with JavaScript the first submit is held while `beforeSignOut()` runs, then the action runs whatever it

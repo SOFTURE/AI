@@ -40,9 +40,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { Button } from \"./button.js\"",
     },
     {
-      reason: "overlay: the `overlay` token instead of `bg-black/50`",
+      reason: "overlay: the `overlay` token instead of `bg-black/50`; it leaves with its content (the content's exit duration), else a dialog reopened while its content fades out portals the overlay above it",
       upstream: "        \"fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0\",",
-      ours: "        \"fixed inset-0 z-50 bg-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0\",",
+      ours: "        \"fixed inset-0 z-50 bg-overlay duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0\",",
     },
     {
       reason: "dialog: radius 10 and `shadow-dialog`, no border, a raised surface on `popover` so it stands out from the dimmed page in the dark theme (#1310)",
@@ -297,9 +297,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { Button } from \"./button.js\"",
     },
     {
-      reason: "overlay: the `overlay` token instead of `bg-black/50`",
+      reason: "overlay: the `overlay` token instead of `bg-black/50`; it leaves with its content (the content's exit duration), else a dialog reopened while its content fades out portals the overlay above it",
       upstream: "        \"fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0\",",
-      ours: "        \"fixed inset-0 z-50 bg-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0\",",
+      ours: "        \"fixed inset-0 z-50 bg-overlay duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0\",",
     },
     {
       reason: "copy: built-in English text from the message layer, overridable by a prop",
@@ -767,9 +767,9 @@ export const UI_DELTAS: Readonly<Record<string, readonly UiDelta[]>> = {
       ours: "import { en as messages } from \"../messages/en.js\"\nimport { cn } from \"../lib/utils.js\"",
     },
     {
-      reason: "overlay: the `overlay` token instead of `bg-black/50`",
+      reason: "overlay: the `overlay` token instead of `bg-black/50`; it leaves with its content (the content's exit duration), else a dialog reopened while its content fades out portals the overlay above it",
       upstream: "        \"fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0\",",
-      ours: "        \"fixed inset-0 z-50 bg-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0\",",
+      ours: "        \"fixed inset-0 z-50 bg-overlay data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0\",",
     },
     {
       reason: "surface: a modal sheet is a raised surface on `popover`, so it stands out from the dimmed page in the dark theme (#1310)",

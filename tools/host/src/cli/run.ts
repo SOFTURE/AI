@@ -2,7 +2,9 @@ import { runAppAdd } from "./app-add-command.js";
 import { createHostDeps, type HostDeps } from "./context.js";
 import { CliFailure, USAGE_EXIT_CODE } from "./failure.js";
 import type { CliIo } from "./io.js";
+import { runOperatorAddKey, runOperatorList, runOperatorRemoveKey } from "./operator-command.js";
 import { runServer } from "./server-command.js";
+import { runSurvey } from "./survey-command.js";
 
 export const USAGE = [
   "Usage: softure-host <command> [flags]",
@@ -15,6 +17,17 @@ export const USAGE = [
   "      onboards one app of the inventory: GitHub Environment production with the v* tag policy, the app folder, the",
   "      first deploy.sh and its release key line on the server, the deploy secrets (database passwords only when",
   "      missing), Cloudflare DNS, TLS check and Access with CLOUDFLARE_API_TOKEN; --rotate-key issues a new key",
+  "      runs a preflight first and stops before any change when the inventory contradicts the server or the app",
+  "  survey --inventory=<file>",
+  "      reads, as the admin user, what an inventory for the server needs: users and sudo, sshd AllowUsers, Docker",
+  "      networks, a running Traefik edge's names, app folders, the origin firewall; changes nothing",
+  "  operator add-key --inventory=<file> --app=<slug> --key=<file.pub> [--name=<label>] [--check]",
+  "      binds the operator's own key to the app's deploy.sh in the deploy user's authorized_keys (forced command,",
+  "      restrict, comment <slug>-operator-<label>; --name defaults to default), replaced in place, never duplicated",
+  "  operator remove-key --inventory=<file> --app=<slug> [--name=<label>] [--check]",
+  "      removes that one line",
+  "  operator list --inventory=<file> --app=<slug>",
+  "      lists the app's operator keys with their fingerprints",
   "  help",
   "",
   "--check changes nothing: Ansible runs in check mode, GitHub and Cloudflare are only read.",
@@ -26,6 +39,10 @@ type Command = (args: string[], io: CliIo, deps: HostDeps) => Promise<void>;
 const COMMANDS: Record<string, Command> = {
   server: runServer,
   "app add": runAppAdd,
+  survey: runSurvey,
+  "operator add-key": runOperatorAddKey,
+  "operator remove-key": runOperatorRemoveKey,
+  "operator list": runOperatorList,
 };
 
 function findCommand(argv: string[]): { command: Command; args: string[] } | null {

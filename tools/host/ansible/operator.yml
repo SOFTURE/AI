@@ -1,0 +1,121 @@
+---
+# Adds, replaces or removes one operator key line of one app in the deploy user's authorized_keys:
+#   command="<root>/<app>/deploy.sh",restrict <type> <body> <app>-operator-<label>
+# Run by `softure-host operator add-key` and `operator remove-key`. The line is matched by its comment only, so the
+# release key line (`<app>-release`), other apps' lines and lines added by hand are never touched. A key whose body is
+# already on another line is refused: sshd takes the first line that matches a key, so a second line for the same key
+# would be dead or would run another app's command.
+
+- name: Manage an operator key
+  hosts: all
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Validate operator variables
+      ansible.builtin.assert:
+        that:
+          - deploy_user_name is match('^[a-z_][a-z0-9_-]*$')
+          - host_app_name is match('^[a-z][a-z0-9-]*$')
+          - host_app_root is match('^/')
+          - host_operator_label is match('^[a-z0-9]{1,32}$')
+          - host_operator_label != 'release'
+          - host_operator_state in ['present', 'absent']
+          - >-
+            host_operator_state == 'absent' or (
+            host_operator_key_type in ['ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384',
+            'ecdsa-sha2-nistp521', 'sk-ssh-ed25519@openssh.com', 'sk-ecdsa-sha2-nistp256@openssh.com', 'ssh-rsa']
+            and host_operator_key_body is match('^[A-Za-z0-9+/]+={0,2}$'))
+        fail_msg: >-
+          deploy_user_name, host_app_name, host_app_root, host_operator_label ([a-z0-9], not "release"),
+          host_operator_state (present or absent) and, to add, host_operator_key_type and host_operator_key_body are required.
+      tags: always
+
+  vars:
+    host_operator_comment: "{{ host_app_name }}-operator-{{ host_operator_label }}"
+    host_operator_command: "{{ host_app_root }}/{{ host_app_name }}/deploy.sh"
+
+  tasks:
+    - name: Read the deploy user
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ deploy_user_name }}"
+        fail_key: false
+
+    - name: Refuse a server without the deploy user
+      ansible.builtin.fail:
+        msg: "The server has no user {{ deploy_user_name }}. Run `softure-host server` first."
+      when: getent_passwd[deploy_user_name] is none
+
+    - name: Locate authorized_keys
+      ansible.builtin.set_fact:
+        host_operator_file: "{{ getent_passwd[deploy_user_name][4] }}/.ssh/authorized_keys"
+
+    - name: Check the app's deploy.sh
+      ansible.builtin.stat:
+        path: "{{ host_operator_command }}"
+      register: host_operator_script
+
+    - name: Refuse an app that was not added
+      ansible.builtin.fail:
+        msg: "{{ host_operator_command }} does not exist. Run `softure-host app add --app={{ host_app_name }}` first."
+      when: host_operator_state == 'present' and not host_operator_script.stat.exists
+
+    - name: Check authorized_keys
+      ansible.builtin.stat:
+        path: "{{ host_operator_file }}"
+      register: host_operator_keys_file
+
+    - name: Read authorized_keys
+      ansible.builtin.slurp:
+        src: "{{ host_operator_file }}"
+      register: host_operator_keys
+      when: host_operator_keys_file.stat.exists
+
+    - name: Find other lines that hold the same key
+      ansible.builtin.set_fact:
+        host_operator_conflicts: >-
+          {{ (host_operator_keys.content | b64decode).split('\n')
+             | reject('search', '\s' ~ (host_operator_comment | regex_escape) ~ '$')
+             | select('search', '(^|\s)' ~ (host_operator_key_body | regex_escape) ~ '(\s|$)')
+             | list }}
+      when: host_operator_state == 'present' and host_operator_keys_file.stat.exists
+
+    - name: Refuse a key that another line already holds
+      ansible.builtin.fail:
+        msg: >-
+          This key is already in {{ host_operator_file }} as
+          {{ host_operator_conflicts | map('split') | map('last') | join(', ') }}. sshd uses the first line that matches
+          a key, so one key cannot serve two lines: create a separate key for {{ host_operator_comment }}
+          (ssh-keygen -t ed25519 -f ~/.ssh/{{ host_app_name }}-operator), or remove the other line first.
+      when: host_operator_conflicts | default([]) | length > 0
+
+    - name: Create .ssh of the deploy user
+      ansible.builtin.file:
+        path: "{{ host_operator_file | dirname }}"
+        state: directory
+        owner: "{{ deploy_user_name }}"
+        group: "{{ getent_passwd[deploy_user_name][2] }}"
+        mode: "0700"
+      when: host_operator_state == 'present'
+
+    - name: Write the operator key line
+      ansible.builtin.lineinfile:
+        path: "{{ host_operator_file }}"
+        regexp: '\s{{ host_operator_comment | regex_escape }}$'
+        line: >-
+          command="{{ host_operator_command }}",restrict {{ host_operator_key_type }} {{ host_operator_key_body }}
+          {{ host_operator_comment }}
+        create: true
+        owner: "{{ deploy_user_name }}"
+        group: "{{ getent_passwd[deploy_user_name][2] }}"
+        mode: "0600"
+        state: present
+      when: host_operator_state == 'present'
+
+    - name: Remove the operator key line
+      ansible.builtin.lineinfile:
+        path: "{{ host_operator_file }}"
+        regexp: '\s{{ host_operator_comment | regex_escape }}$'
+        state: absent
+      when: host_operator_state == 'absent' and host_operator_keys_file.stat.exists
