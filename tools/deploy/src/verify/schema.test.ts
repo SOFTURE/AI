@@ -23,6 +23,16 @@ describe("parseDeployConfig", () => {
     });
   });
 
+  it("keeps publicPaths and refuses a duplicate, a path Access cannot match, and / next to other paths (issue #1435)", () => {
+    const parsed = parseDeployConfig({ publicPaths: ["/api/health", "/.well-known/oauth-protected-resource"] });
+    expect(parsed.ok && parsed.config.publicPaths).toEqual(["/api/health", "/.well-known/oauth-protected-resource"]);
+    expect(parseDeployConfig({ publicPaths: ["/"] }).ok).toBe(true);
+    expect(parseDeployConfig({ publicPaths: ["/a", "/a"] })).toEqual({ ok: false, issues: ["publicPaths: /a is listed twice"] });
+    expect(parseDeployConfig({ publicPaths: ["/", "/a"] })).toEqual({ ok: false, issues: ["publicPaths: / already makes every path public; list it alone"] });
+    const bad = parseDeployConfig({ publicPaths: ["api/health", "/x?y=1"] });
+    expect(bad.ok ? [] : bad.issues.map((issue) => issue.split(":")[0])).toEqual(["publicPaths.0", "publicPaths.1"]);
+  });
+
   it("keeps a redirect, markers, header checks and null for an absent header", () => {
     const route = {
       path: "/old?x=1",

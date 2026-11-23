@@ -33,8 +33,44 @@ function quote(text: string): string {
   return JSON.stringify(text);
 }
 
+function isRedirectStatus(status: number): boolean {
+  return status >= 300 && status < 400;
+}
+
+/** Last path segments of the usual sign-in pages (`/login`, `/auth/sign-in`, `/api/auth/signin`). */
+const LOGIN_SEGMENTS = new Set(["login", "log-in", "signin", "sign-in"]);
+
+/**
+ * Whether a redirect's target is a login: Cloudflare Access (`<team>.cloudflareaccess.com` or a `/cdn-cgi/access/`
+ * path) or an app's sign-in page. `location` is resolved against the request URL.
+ */
+export function isLoginRedirect(location: string, requestUrl: string): boolean {
+  const target = resolveUrl(location, requestUrl);
+  if (target === null) return false;
+  const url = new URL(target);
+  if (url.hostname.endsWith(".cloudflareaccess.com") || url.pathname.includes("/cdn-cgi/access/")) return true;
+  const last = trimTrailingSlashes(url.pathname).split("/").at(-1) ?? "";
+  return LOGIN_SEGMENTS.has(last.toLowerCase());
+}
+
+/** The path (and query) of the request, for messages that name the route. */
+function getRequestPath(requestUrl: string): string {
+  if (!URL.canParse(requestUrl)) return requestUrl;
+  const url = new URL(requestUrl);
+  return `${url.pathname}${url.search}`;
+}
+
 function checkStatus(route: VerifyRoute, response: ObservedResponse): CheckOutcome {
   const passed = response.status === route.status;
+  const location = response.getHeader("location");
+  if (!passed && !isRedirectStatus(route.status) && isRedirectStatus(response.status) && location !== null && isLoginRedirect(location, response.requestUrl)) {
+    const target = resolveUrl(location, response.requestUrl) ?? location;
+    return {
+      kind: "status",
+      passed: false,
+      detail: `${getRequestPath(response.requestUrl)} is behind a login; list it in publicPaths or remove it from verify (status ${response.status} to ${target})`,
+    };
+  }
   return { kind: "status", passed, detail: passed ? `status ${route.status}` : `status ${response.status}, expected ${route.status}` };
 }
 
