@@ -73,6 +73,19 @@ export async function listSecretNames(runner: Runner, repo: string): Promise<Set
   return new Set(parseJson(secretListSchema, text, what).map((secret) => secret.name));
 }
 
+const variableListSchema = z.array(z.object({ name: z.string() }));
+
+/**
+ * The names of the repository's variables, or with `environment` those of the Environment (names only, never values).
+ * The release renders `.env.prod` from secrets and variables alike, so either satisfies a name the compose file needs.
+ */
+export async function listVariableNames(runner: Runner, repo: string, scope: "repository" | "environment"): Promise<Set<string>> {
+  const what = `list the ${scope === "environment" ? `${ENVIRONMENT} ` : "repository "}variables of ${repo}`;
+  const envArgs = scope === "environment" ? ["--env", ENVIRONMENT] : [];
+  const text = await runGh(runner, ["variable", "list", ...envArgs, "--repo", repo, "--json", "name"], what);
+  return new Set(parseJson(variableListSchema, text, what).map((variable) => variable.name));
+}
+
 /** Sets one Environment secret; the value goes to `gh` on stdin, never on its command line. */
 export async function setSecret(runner: Runner, repo: string, name: string, value: string): Promise<void> {
   await runGh(runner, ["secret", "set", name, "--env", ENVIRONMENT, "--repo", repo], `set the secret ${name} of ${repo}`, value);

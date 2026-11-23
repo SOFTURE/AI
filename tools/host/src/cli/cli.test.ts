@@ -10,6 +10,7 @@ import { runCli } from "./run.js";
 const ADMIN_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAOhB7/zzhC+HXDdGOdLwJln5NYwm6UNXx3chmQSVTG4 admin@laptop";
 const HOST_KEYS = "ssh-ed25519 AAAAHOSTKEY root@srv\n";
 const DEPLOY_SCRIPT = "#!/usr/bin/env bash\necho deploy\n";
+const STILL_TO_SET = "still to set by hand (a production secret, or a repository variable for a value that is not secret):";
 const COMPOSE = "x: ${POSTGRES_PASSWORD:?}\ny: ${RESEND_API_KEY:?}\nz: ${DEPLOY_SSH_HOST:?}\n";
 
 let dir: string;
@@ -57,7 +58,21 @@ function createDeps(respond: Responder): HostDeps & { runner: ReturnType<typeof 
 }
 
 /** A GitHub repository as gh sees it, plus the server's host keys. */
-function createWorld(options: { environment: boolean; secrets: string[]; tagPolicy?: boolean; deployScript?: boolean }): Responder {
+interface WorldOptions {
+  environment: boolean;
+  secrets: string[];
+  tagPolicy?: boolean;
+  deployScript?: boolean;
+  compose?: string;
+  repositoryVariables?: string[];
+  environmentVariables?: string[];
+}
+
+function listNames(names: string[] | undefined): { stdout: string } {
+  return { stdout: JSON.stringify((names ?? []).map((name) => ({ name }))) };
+}
+
+function createWorld(options: WorldOptions): Responder {
   return (call) => {
     const line = formatCall(call);
     if (line === "gh api repos/acme/notes/environments/production --silent") {
@@ -66,11 +81,13 @@ function createWorld(options: { environment: boolean; secrets: string[]; tagPoli
     if (line.endsWith("environments/production/deployment-branch-policies")) {
       return { stdout: JSON.stringify({ branch_policies: options.tagPolicy === true ? [{ name: "v*", type: "tag" }] : [] }) };
     }
-    if (line.startsWith("gh secret list")) return { stdout: JSON.stringify(options.secrets.map((name) => ({ name }))) };
+    if (line.startsWith("gh secret list")) return listNames(options.secrets);
+    if (line === "gh variable list --env production --repo acme/notes --json name") return listNames(options.environmentVariables);
+    if (line === "gh variable list --repo acme/notes --json name") return listNames(options.repositoryVariables);
     if (line.endsWith("contents/docker/server/deploy.sh")) {
       return options.deployScript === false ? { status: 1, stderr: "gh: Not Found (HTTP 404)\n" } : { stdout: DEPLOY_SCRIPT };
     }
-    if (line.endsWith("contents/docker/prod/docker-compose.yml")) return { stdout: COMPOSE };
+    if (line.endsWith("contents/docker/prod/docker-compose.yml")) return { stdout: options.compose ?? COMPOSE };
     if (call.program === "ssh") return { stdout: HOST_KEYS };
     if (call.program === "ansible-playbook") {
       // The deploy script must exist while Ansible runs.
@@ -202,7 +219,7 @@ describe("softure-host app add", () => {
       expect(lines.some((line) => line.includes(String(value)))).toBe(false);
       expect(printed).not.toContain(String(value));
     }
-    expect(printed).toContain("github: still to set by hand (the app's own secrets): RESEND_API_KEY");
+    expect(printed).toContain(`github: ${STILL_TO_SET} RESEND_API_KEY\n`);
     expect(printed).toMatch(/server: issued a new release key for notes \(SHA256:/);
   });
 
@@ -224,6 +241,27 @@ describe("softure-host app add", () => {
     expect(io.out.join("")).toContain("github: every name docker/prod/docker-compose.yml requires is set");
   });
 
+  it("does not report the variables it has just set as still to set (issue #1434)", async () => {
+    const io = createIo();
+    const deps = createDeps(createWorld({ environment: false, secrets: [], compose: "a: ${APP_HOST:?}\nb: ${MAIL_KEY:?}\n" }));
+    await expect(runCli(["app", "add", `--inventory=${writeInventory()}`, "--app=notes"], io, deps)).resolves.toBe(0);
+    expect(io.out.join("")).toContain(`github: ${STILL_TO_SET} MAIL_KEY\n`);
+  });
+
+  it("does not report a name an existing repository or Environment variable holds (issue #1434)", async () => {
+    const io = createIo();
+    const world = createWorld({
+      environment: true,
+      tagPolicy: true,
+      secrets: [],
+      compose: "a: ${MAIL_FROM:?}\nb: ${SITE_NAME:?}\nc: ${MAIL_KEY:?}\n",
+      repositoryVariables: ["MAIL_FROM"],
+      environmentVariables: ["SITE_NAME"],
+    });
+    await expect(runCli(["app", "add", `--inventory=${writeInventory()}`, "--app=notes"], io, createDeps(world))).resolves.toBe(0);
+    expect(io.out.join("")).toContain(`github: ${STILL_TO_SET} MAIL_KEY\n`);
+  });
+
   it("issues a new key with --rotate-key", async () => {
     const deps = createDeps(createWorld({ environment: true, tagPolicy: true, secrets: ["DEPLOY_SSH_KEY"] }));
     await runCli(["app", "add", `--inventory=${writeInventory()}`, "--app=notes", "--rotate-key"], createIo(), deps);
@@ -237,6 +275,7 @@ describe("softure-host app add", () => {
     await expect(runCli(["app", "add", `--inventory=${writeInventory()}`, "--app=notes", "--check"], io, deps)).resolves.toBe(0);
     expect(deps.runner.calls.filter(isWrite)).toEqual([]);
     expect(deps.runner.calls.some((call) => formatCall(call).startsWith("gh secret list"))).toBe(false);
+    expect(deps.runner.calls.some((call) => formatCall(call).startsWith("gh variable list --env"))).toBe(false);
     expect(deps.runner.calls.some((call) => formatCall(call).includes("deployment-branch-policies"))).toBe(false);
     const playbook = deps.runner.calls.find((call) => call.program === "ansible-playbook");
     expect(playbook?.args.slice(-2)).toEqual(["--check", "--diff"]);

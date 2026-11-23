@@ -6,6 +6,11 @@ version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../
 
 ## Unreleased
 
+- `app add` no longer reports `APP_HOST` (or any variable it has just set, or a repository or `production` variable
+  that already exists) as still to set by hand (#1434). The line lists only names set nowhere and says each can be a
+  `production` secret or, for a value that is not secret, a repository variable.
+  - Migrate: nothing.
+
 - `app add` sets the repository variable `EDGE_NETWORK` to the inventory's `edge.network` next to `APP_HOST` (#1429).
   A compose file from `softure-deploy init --edge` (`@softure-ai/deploy` from the next release) joins that network at
   deploy time, so an app generated for another network name deploys to this server without editing its compose file.

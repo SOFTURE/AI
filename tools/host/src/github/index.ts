@@ -5,6 +5,7 @@ export {
   hasEnvironment,
   hasTagPolicy,
   listSecretNames,
+  listVariableNames,
   readRepositoryFile,
   setSecret,
   setVariable,
