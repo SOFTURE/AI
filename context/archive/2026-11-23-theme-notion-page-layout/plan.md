@@ -16,5 +16,6 @@ Add `PageLayout` in `src/notion/PageLayout.tsx`, composed of `PageHeader` and a 
 - Add `PageLayout` to the NOTION · Design System artifact (separate IIFE module, type, card), render-checked.
 
 ## Progress
-- [ ] Phase 1: PageLayout
-- [ ] Phase 2: design system artifact
+- [x] Phase 1: PageLayout (new test red before the component; after: `npx vitest run themes/theme-notion` 68 files,
+  1324 tests passed; `playwright test -g "gallery of inline cases"` 4 passed after the baseline update) dafdab4
+- [x] Phase 2: design system artifact (version 72 content, 73 index; preview rendered in Chromium, gap 16px, no errors)

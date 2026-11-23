@@ -1,12 +1,13 @@
 ---
 change_id: theme-notion-page-layout
 title: "theme-notion 0.31.0: a page layout for a screen's width and spacing (issue #1451)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1451
 branch: claude/project-thread-u44zan
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -36,3 +37,9 @@ plus a test that every page uses it.
 ## Notes
 - research skipped: the gap, the app's working wrapper and the proposal are all in the issue; the component composes `PageHeader` only.
 - frame skipped: the problem is a reported, reproduced gap with one proposed shape.
+
+## Done
+0.31.0 in the package: `PageLayout` (`header`, children, `width` full or content, `className`) exported from the root;
+`tests/notion/PageLayout.test.tsx` (red before the component), the gallery case with the parity fixture and the visual
+baselines, README and CHANGELOG (migration from an app's own wrapper). The NOTION · Design System artifact has the
+component (version 72-73).
