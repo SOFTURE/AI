@@ -4,6 +4,12 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 in production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- The `@softure-ai/mailing` peer range also accepts `^0.3.0` (issue #1418), the release that keys a recipient
+  with `SOFTURE_EMAIL_KEY_SECRET`.
+  - Migrate: nothing here; mailing 0.3.0 needs the new secret (see mailing's CHANGELOG).
+
 ## 0.2.3
 
 - Runs on Cloudflare Workers (runtime-providers RP-4): the manifest lists `runtimes: ["node", "workers"]`, and
