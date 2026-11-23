@@ -9,10 +9,23 @@ It is the server side of the one-VPS model of [`@softure-ai/deploy`](../deploy/R
 everything from the release on; `host` sets up the server and the app's place on it, once.
 
 ```bash
-npx @softure-ai/host server --inventory=infra/inventory.yml --check
-npx @softure-ai/host server --inventory=infra/inventory.yml --connect-as=root   # first run on a fresh server
-npx @softure-ai/host app add --inventory=infra/inventory.yml --app=notes
+npx --yes @softure-ai/host@<version> server --inventory=infra/inventory.yml --check
+npx --yes @softure-ai/host@<version> server --inventory=infra/inventory.yml --connect-as=root   # first run on a fresh server
+npx --yes @softure-ai/host@<version> app add --inventory=infra/inventory.yml --app=notes
 ```
+
+## Running the CLI
+
+The bin is `softure-host`. Run it from the operator's machine as the scoped package at a pinned version, from any
+folder:
+
+```bash
+npx --yes @softure-ai/host@<version> <command> [flags]
+```
+
+`npx softure-host …` finds the bin only inside a project that has `@softure-ai/host` installed; anywhere else npm
+looks up an unscoped package named `softure-host`, which is not this one. The commands below are written as
+`softure-host <command>` for short; the next step `server` prints is the full, pinned form.
 
 ## Requirements on the operator's machine
 
@@ -54,7 +67,7 @@ apps:
 | `server.port` | `22` | SSH port |
 | `server.ipv4`, `server.ipv6` | none | the server's addresses; `ipv4` is required for Cloudflare DNS, `ipv6` adds an AAAA record |
 | `server.identityFile` | none | private key for the admin connection, when the SSH agent does not hold it |
-| `server.deployUser` | `deploy` | the non-sudo user releases log in as |
+| `server.deployUser` | `deploy` | the non-sudo user releases log in as; must differ from `adminUser` |
 | `server.timezone` | `UTC` | system time zone |
 | `edge.name` | `softure-edge` | the edge's compose project and folder (`/srv/<name>`) |
 | `edge.network` | `edge.name` | the Docker network apps join as `external` (`softure-deploy init --edge`, #516) |
@@ -67,6 +80,12 @@ apps:
 | `firewall.rangesFile` | `/srv/<edge.name>/cloudflare-ips.txt` | the ranges the firewall reads, refreshed daily by a timer |
 | `apps[].database` | `false` | generate `POSTGRES_PASSWORD`, `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` when missing |
 | `apps[].access` | disabled | Cloudflare Access for the whole host (`emails`), plus one bypass per path |
+
+**The deploy user never has sudo.** The inventory refuses `deployUser` equal to `adminUser`, and both playbooks
+first read the deploy user on the server and stop, before any change and in `--check` too, when it is in `sudo`,
+`wheel` or `admin` or has a sudoers entry: the collection's `deploy_user` role locks its password, which would take
+password `sudo` from an admin account (#1431). On a first onboarding, where the deploy user does not exist yet,
+`app add --check` reports the user, its `authorized_keys` and the key line as planned changes.
 
 An edge another app already runs (say a network `first-app-edge` with the resolver `le`): set `edge.network`,
 `edge.certResolver` and `edge.manage: false`, and `app add` onboards new apps onto it. Moving the edge out of that
@@ -128,7 +147,8 @@ A deploy key is issued (ed25519, made in memory) when the Environment has no `DE
 `--rotate-key`. Otherwise the server's line stays as it is; when the server has no line while GitHub holds a key,
 the run stops and asks for `--rotate-key`.
 
-The app must already have run `softure-deploy init` (it needs `docker/server/deploy.sh`).
+The app must already have run `softure-deploy init` (it needs `docker/server/deploy.sh`): in the app,
+`npm install --save-dev @softure-ai/deploy`, then `npx softure-deploy init …`.
 
 ## What stays manual
 

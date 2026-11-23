@@ -1,0 +1,68 @@
+---
+# Reads the deploy user on the server before anything changes it and refuses one with sudo rights. app.yml and
+# server.yml import it first, tagged `always`, and it runs in check mode too, so `--check` refuses what the real run
+# refuses. It runs before the collection's deploy_user role, which locks the user's password, so a refused run
+# changes no account. It sets `host_deploy_user_ready`: the user and its authorized_keys exist, so the role can run
+# in check mode; when false, check mode skips the role and reports what it would create.
+
+- name: Read the deploy user's groups and sudo rights
+  ansible.builtin.command:
+    argv:
+      - /bin/sh
+      - -c
+      - |
+        user="$1"
+        entry="$(getent passwd "$user")" || { echo "state absent"; exit 0; }
+        echo "state present"
+        home="$(printf '%s\n' "$entry" | cut -d: -f6)"
+        if [ -f "$home/.ssh/authorized_keys" ]; then echo "keys present"; fi
+        groups="$(id -nG "$user")"
+        for group in $groups; do
+          case "$group" in
+            sudo | wheel | admin) echo "conflict: $user is in the $group group" ;;
+          esac
+        done
+        for file in /etc/sudoers /etc/sudoers.d/*; do
+          [ -f "$file" ] || continue
+          for name in "$user" $(for group in $groups; do printf '%%%s ' "$group"; done); do
+            if grep -Eq "^[[:space:]]*${name}[[:space:]]" "$file"; then
+              echo "conflict: $file has a sudoers entry for $name"
+            fi
+          done
+        done
+      - deploy-user-preflight
+      - "{{ deploy_user_name }}"
+  register: host_deploy_user_probe
+  changed_when: false
+  check_mode: false
+  tags: always
+
+- name: Refuse a deploy user with sudo rights
+  ansible.builtin.fail:
+    msg: >-
+      The deploy user {{ deploy_user_name }} has sudo rights
+      ({{ host_deploy_user_conflicts | map('regex_replace', '^conflict: ', '') | join('; ') }}). Releases log in as
+      this user, so it must be a separate user without sudo: set server.deployUser to another name (default
+      `deploy`). Nothing was changed on the server.
+  vars:
+    host_deploy_user_conflicts: "{{ host_deploy_user_probe.stdout_lines | select('match', '^conflict: ') | list }}"
+  when: host_deploy_user_conflicts | length > 0
+  tags: always
+
+- name: Note whether the deploy user and its key file exist
+  ansible.builtin.set_fact:
+    host_deploy_user_ready: >-
+      {{ 'state present' in host_deploy_user_probe.stdout_lines and 'keys present' in host_deploy_user_probe.stdout_lines }}
+  tags: always
+
+- name: Report the deploy user a first run creates
+  ansible.builtin.debug:
+    msg: >-
+      check mode, planned change: {{ ('the deploy user ' ~ deploy_user_name ~ ' does not exist yet; the real run creates
+      it (no sudo, in docker, password locked) with') if 'state present' not in host_deploy_user_probe.stdout_lines
+      else (deploy_user_name ~ ' has no authorized_keys yet; the real run creates') }} its .ssh folder and
+      authorized_keys{{ (' and writes the release key line ' ~ host_app_name ~ '-release')
+      if host_app_key | default('') | length > 0 else '' }}.
+  changed_when: true
+  when: ansible_check_mode and not host_deploy_user_ready | bool
+  tags: always
