@@ -6,6 +6,11 @@ version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../
 
 ## Unreleased
 
+- `app add` adds the `publicPaths` of the app's `deploy.json` (default branch, written by `softure-deploy init`) to
+  `apps[].access.bypassPaths`, prints each path it took from there, and warns about an inventory path `publicPaths`
+  does not list (#1435). The inventory may still list more.
+  - Migrate: nothing; the paths an inventory already lists stay bypassed.
+
 - `app add` no longer reports `APP_HOST` (or any variable it has just set, or a repository or `production` variable
   that already exists) as still to set by hand (#1434). The line lists only names set nowhere and says each can be a
   `production` secret or, for a value that is not secret, a repository variable.

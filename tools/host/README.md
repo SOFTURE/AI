@@ -79,7 +79,7 @@ apps:
 | `firewall.name` | `softure-cloudflare-only` | script and systemd units |
 | `firewall.rangesFile` | `/srv/<edge.name>/cloudflare-ips.txt` | the ranges the firewall reads, refreshed daily by a timer |
 | `apps[].database` | `false` | generate `POSTGRES_PASSWORD`, `SOFTURE_MIGRATOR_PASSWORD`, `SOFTURE_APP_PASSWORD` when missing |
-| `apps[].access` | disabled | Cloudflare Access for the whole host (`emails`), plus one bypass per path |
+| `apps[].access` | disabled | Cloudflare Access for the whole host (`emails`), plus one bypass per path: `bypassPaths` and the `publicPaths` of the app's `deploy.json` |
 
 **The deploy user never has sudo.** The inventory refuses `deployUser` equal to `adminUser`, and both playbooks
 first read the deploy user on the server and stop, before any change and in `--check` too, when it is in `sudo`,
@@ -137,7 +137,11 @@ In order:
    that the zone's TLS mode is Full (strict) (reported, not changed: it is zone-wide), and the Access applications
    `<slug> (softure-host)` for the host's `emails` and `<slug> bypass <path> (softure-host)` per bypass path,
    created or updated by name. Applications it did not create are never touched, and none is deleted: one the
-   inventory no longer lists is reported.
+   inventory no longer lists is reported. The bypass paths are the inventory's `bypassPaths` plus the `publicPaths`
+   of the app's `deploy.json` on its default branch (issue #1435): each path taken from `publicPaths` is printed, and
+   an inventory path that `publicPaths` does not list is a warning (add it to `publicPaths` if it must answer without
+   a login). Without `publicPaths`, or with a `deploy.json` that cannot be read, only `bypassPaths` is used and one
+   line says so.
 6. **What is left**: the names the app's `docker/prod/docker-compose.yml` requires that are set nowhere yet (the app's
    own secrets, such as mail API keys), then the next step: run the app's release workflow. A name counts as set when
    it is a `production` secret, a repository or `production` variable, or one `app add` has just written (such as
