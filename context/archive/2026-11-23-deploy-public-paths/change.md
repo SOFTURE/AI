@@ -1,12 +1,13 @@
 ---
 change_id: deploy-public-paths
 title: "deploy, host: publicPaths in deploy.json, verify only public paths, bypass list from them (issue #1435)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1435
 branch: claude/project-thread-lz308e
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -42,3 +43,14 @@ of what the app knows.
 ## Notes
 
 - frame skipped: the issue names the defect, the impact, the fix and the acceptance criteria; no product question.
+
+## Done
+
+- `deploy.json` takes `publicPaths` (schema and JSON schema); `init` fills it from `@softure-ai/ops`,
+  `@softure-ai/mcp-access` and `@softure-ai/mailing`, and `--public` writes `["/"]`.
+- The generated verify checks `/api/health` only for an app behind a login; `/` only with `--public` or without a
+  health route.
+- `verify` fails a route redirected to a login with `/x is behind a login; list it in publicPaths or remove it from
+  verify`.
+- `softure-host app add` adds `publicPaths` to `access.bypassPaths` and reports the differences.
+- Release: `@softure-ai/deploy` and `@softure-ai/host` (CHANGELOG `## Unreleased`), batched by the coordinator.
