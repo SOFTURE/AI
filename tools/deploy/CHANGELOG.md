@@ -6,6 +6,17 @@ production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../
 
 ## Unreleased
 
+- **`publicPaths` in `deploy.json`; verify checks only public paths** (#1435). `init` writes `publicPaths` from the
+  app's modules (`/api/health`, the MCP and OAuth endpoints of `@softure-ai/mcp-access`, the unsubscribe page and
+  route of `@softure-ai/mailing`) and verifies `/` only with the new `--public` flag (then `publicPaths: ["/"]`) or
+  when the app has no health route, so an app behind Cloudflare Access or its own login passes its first release.
+  `verify` names a route answered by a redirect to a login (Cloudflare Access or a login/sign-in page): `/x is behind
+  a login; list it in publicPaths or remove it from verify`. `softure-host app add` turns `publicPaths` into Access
+  bypasses.
+  - Migrate: add `publicPaths` to `deploy.json` (every path that must answer without a login) and remove from
+    `verify.routes` the routes behind a login. A public app adds
+    `"publicPaths": ["/"]`. Nothing else changes; a `deploy.json` without `publicPaths` stays valid.
+
 - README: "Running the CLI" says where `npx softure-deploy` works (inside an app that depends on the package) and
   gives the scoped, pinned form for everywhere else, `npx --yes --package @softure-ai/deploy@<version> softure-deploy`
   (#1436).

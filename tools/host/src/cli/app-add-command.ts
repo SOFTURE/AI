@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { APP_ROOT, buildAppVars } from "../ansible/index.js";
 import { ENVIRONMENT, findRequiredNames, listVariableNames, readRepositoryFile } from "../github/index.js";
-import { findApp, loadInventory } from "../inventory/index.js";
+import { findApp, loadInventory, type InventoryApp } from "../inventory/index.js";
 import { formatKnownHosts, generateDeployKey, getFingerprint, readHostKeys, type DeployKey } from "../ssh/index.js";
 import { checkOnboarding, readServerFacts } from "../survey/index.js";
 import { runPlaybook } from "./ansible-step.js";
@@ -13,6 +13,7 @@ import { fail } from "./failure.js";
 import { planSecrets, prepareEnvironment, writeSecrets } from "./github-step.js";
 import type { CliIo } from "./io.js";
 import { readFlags, requireFlag } from "./options.js";
+import { DEPLOY_JSON_PATH, mergeBypassPaths, readPublicPaths } from "./public-paths.js";
 
 /** Where `softure-deploy init` puts the server script and the production compose file of an app. */
 export const DEPLOY_SCRIPT_PATH = "docker/server/deploy.sh";
@@ -20,6 +21,30 @@ export const COMPOSE_PATH = "docker/prod/docker-compose.yml";
 
 /** Stands in for the key a real run would issue, so check mode reports the key line it would write. */
 const DRY_RUN_KEY = `ssh-ed25519 ${"A".repeat(68)} dry-run`;
+
+/**
+ * The app with its deploy.json's publicPaths (default branch) added to access.bypassPaths, each difference between
+ * the two lists said once (issue #1435). Only for an app behind Access; a deploy.json that cannot be read is named and
+ * the inventory list stays as it is.
+ */
+async function withPublicPaths(io: CliIo, deps: HostDeps, app: InventoryApp): Promise<InventoryApp> {
+  if (!app.access.enabled) return app;
+  const result = readPublicPaths(await readRepositoryFile(deps.runner, app.repo, DEPLOY_JSON_PATH));
+  if (!result.ok) {
+    say(io, "access", `warning: ${result.problem}; bypassing only the inventory's bypassPaths`);
+    return app;
+  }
+  if (result.paths === null) {
+    say(io, "access", `${app.repo} has no publicPaths in ${DEPLOY_JSON_PATH}; bypassing only the inventory's bypassPaths`);
+    return app;
+  }
+  const merged = mergeBypassPaths(app, result.paths);
+  for (const path of merged.added) say(io, "access", `bypass ${path}: public in ${DEPLOY_JSON_PATH}`);
+  for (const path of merged.notPublic) {
+    say(io, "access", `warning: bypassPaths lists ${path}, which ${DEPLOY_JSON_PATH} publicPaths does not; add it there if it must answer without a login`);
+  }
+  return merged.app;
+}
 
 /**
  * `softure-host app add`: onboards one app of the inventory, in order: the GitHub Environment (before anything reads
@@ -80,7 +105,7 @@ export async function runAppAdd(args: string[], io: CliIo, deps: HostDeps): Prom
   });
   await writeSecrets(io, deps, app.repo, plan, check);
 
-  await runCloudflareStep(io, deps, inventory, app, check);
+  await runCloudflareStep(io, deps, inventory, await withPublicPaths(io, deps, app), check);
 
   if (compose !== null) {
     // The release renders .env.prod from secrets and variables alike, so a variable satisfies a name too (#1434).

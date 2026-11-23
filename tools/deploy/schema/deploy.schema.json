@@ -6,6 +6,15 @@
       "description": "JSON Schema of this file, for editor completion.",
       "type": "string"
     },
+    "publicPaths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\/[A-Za-z0-9._~/-]*$"
+      },
+      "uniqueItems": true,
+      "description": "Paths (prefixes) that must answer without a login: health, OAuth and MCP endpoints, unsubscribe links, webhooks; [\"/\"] for a public app. verify should check only these, and softure-host app add makes each one a Cloudflare Access bypass."
+    },
     "releases": {
       "type": "object",
       "properties": {

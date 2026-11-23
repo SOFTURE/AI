@@ -12,6 +12,8 @@ const SERVER_EXTERNAL_LIST = /serverExternalPackages\s*:\s*\[([^\]]*)\]/;
 const DB_PACKAGE_LITERAL = /(["'`])@softure-ai\/db\1/;
 const JOBS_PACKAGE = "@softure-ai/jobs";
 const OBSERVABILITY_PACKAGE = "@softure-ai/observability";
+const MCP_ACCESS_PACKAGE = "@softure-ai/mcp-access";
+const MAILING_PACKAGE = "@softure-ai/mailing";
 
 const packageJsonSchema = z.looseObject({
   name: z.string().optional(),
@@ -40,6 +42,13 @@ export interface AppFacts {
    * its Workers entry. Absent (facts built by hand) means no.
    */
   hasObservability?: boolean;
+  /**
+   * `@softure-ai/mcp-access` is a dependency: its MCP endpoint and the OAuth endpoints MCP clients call answer without
+   * a login. Absent (facts built by hand) means no.
+   */
+  hasMcpAccess?: boolean;
+  /** `@softure-ai/mailing` is a dependency: its unsubscribe page and route answer without a login. Absent means no. */
+  hasMailing?: boolean;
   /**
    * The Next config wraps itself with `withDatabaseBuild` from `@softure-ai/db/next-config`, which sets the database
    * packages' build for either host. Absent (facts built by hand) means no.
@@ -134,6 +143,8 @@ export function readAppFacts(dir: string): AppFactsResult {
       hasJobs: JOBS_PACKAGE in dependencies,
       jobsVersion: readPackageVersion(dir, JOBS_PACKAGE, dependencies[JOBS_PACKAGE]),
       hasObservability: OBSERVABILITY_PACKAGE in dependencies,
+      hasMcpAccess: MCP_ACCESS_PACKAGE in dependencies,
+      hasMailing: MAILING_PACKAGE in dependencies,
       usesDatabaseBuild: configText.includes("withDatabaseBuild"),
       hasPublicDir: existsSync(publicDir) && statSync(publicDir).isDirectory(),
       nextConfigFile,

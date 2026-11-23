@@ -6,6 +6,11 @@ version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../
 
 ## Unreleased
 
+- `app add` adds the `publicPaths` of the app's `deploy.json` (default branch, written by `softure-deploy init`) to
+  `apps[].access.bypassPaths`, prints each path it took from there, and warns about an inventory path `publicPaths`
+  does not list (#1435). The inventory may still list more.
+  - Migrate: nothing; the paths an inventory already lists stay bypassed.
+
 - **Onboarding onto a server that already runs apps** (#1432). `softure-host survey --inventory=<file>` reads the
   server over the admin's SSH and changes nothing: OS and Docker, users with groups and sudo rights, sshd's
   `AllowUsers`/`AllowGroups`, running Traefik containers (compose project, networks, entry points, resolvers), Docker

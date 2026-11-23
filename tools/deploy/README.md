@@ -304,6 +304,14 @@ softure-deploy verify <url> [--config=deploy.json] [--timeout=<ms>] [--concurren
   401, a bot's `user-agent` that must get the page and not a CDN challenge, `accept: text/markdown`. `host`,
   `content-length`, `connection` and `transfer-encoding` are refused. A non-GET route runs on every verify, so make
   it one the app treats as a no-op or a check. The report names its method (`POST /api/mcp`).
+- **Verify only what is public; everything public is in `publicPaths`** (issue #1435). `publicPaths` at the top of
+  `deploy.json` lists the paths (prefixes) that must answer without a login: the health route, OAuth and MCP
+  endpoints, unsubscribe links, webhooks; `["/"]` for a public app. `softure-host app add` makes each one a
+  Cloudflare Access bypass, so verify's routes and the bypass list come from one list. A route that expects no
+  redirect and gets one to a login (Cloudflare Access: `*.cloudflareaccess.com` or a `/cdn-cgi/access/` path; or a
+  page whose last segment is `login`, `log-in`, `signin` or `sign-in`) fails with `/x is behind a login; list it in
+  publicPaths or remove it from verify`, followed by the status and the target. To check that a private page sends
+  visitors to the login, give the route that redirect (`"status": 302, "redirect": "/login"`).
 - **Type, not only status:** a `content-type` header check (`"headers": { "content-type": "application/rss+xml" }`)
   catches a login page served with 200 where a feed or an image belongs.
 - **Severity:** `"severity": "warn"` on a route prints a failed row as `WARN` and does not fail the run (a probe to
@@ -971,7 +979,8 @@ named in the output, and only `--force` overwrites it.
 softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--name=<slug>] [--paths=/] [--www] \
   [--acme-email=<email>] [--env=AUTH_SECRET,...] [--tables=users,billing.subscriptions] [--workflows-ref=<sha>] \
   [--cdn=cloudflare] [--report-role=<role>] [--edge=<network> | --tunnel] [--worker-dockerfile=<path>] \
-  [--data-volume=<mount path>] [--worker-cpus=<n>] [--worker-memory=<size>] [--worker-tmpfs=<size>] [--force]
+  [--data-volume=<mount path>] [--worker-cpus=<n>] [--worker-memory=<size>] [--worker-tmpfs=<size>] [--public] \
+  [--force]
 ```
 
 | File | What it holds |
@@ -991,7 +1000,7 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
 | `.github/workflows/release.yml` | the caller of `deploy-cut-release.yml` (below): *Run workflow* cuts the next date tag in `UTC` and starts `deploy.yml` on it |
 | `.github/workflows/release-notes.yml` | the caller of `deploy-release-notes.yml` (below): *Run workflow* with `tag` and `body` replaces that release's body above its softure-deploy sections (`keep-report`) |
 | `.github/workflows/checks.yml` | the caller of `deploy-release-checks.yml` (below): `static` on every pull request, the unit tests on demand or with the `run-tests` label |
-| `deploy.json` | a `verify` starter: `/` without an error page, `/api/health` when the app has one, HSTS present, `x-powered-by` absent; with a database and `--tables`, `database.rowCountTables`; with `--cdn=cloudflare`, the range refresh hooks |
+| `deploy.json` | `publicPaths` (below) and a `verify` starter that checks only public paths: `/api/health` when the app has one, `/` without an error page only with `--public` (or when the app has no health route), HSTS present, `x-powered-by` absent; with a database and `--tables`, `database.rowCountTables`; with `--cdn=cloudflare`, the range refresh hooks |
 
 - **Asked:** `--domain` and `--image`; `--paths`, `--www`, `--acme-email`, `--env` (the app's own secrets, added to
   the app service in the required form so `env render` renders them), `--tables` (what `row-counts` compares on
@@ -1005,9 +1014,15 @@ softure-deploy init --domain=example.com --image=ghcr.io/acme/app [--dir=.] [--n
   (an app that a Cloudflare Tunnel publishes, below; not with `--edge`, `--cdn`, `--acme-email`, `--www` or a
   `--paths` other than `/`, which all configure a Traefik). With the job worker: `--worker-dockerfile=<path>` (its own
   image), `--worker-cpus=<n>`, `--worker-memory=<size>` and `--worker-tmpfs=<size>` (its limits); and for any app
-  `--data-volume=<mount path>` (below). The worker flags without the worker part are refused.
+  `--data-volume=<mount path>` (below). The worker flags without the worker part are refused. `--public`: the whole
+  app answers without a login, so `publicPaths` is `["/"]` and verify checks `/` too; without it `init` never
+  verifies `/` of an app that has a health route, since behind Cloudflare Access or an app login `/` answers with a
+  redirect to the login.
 - **Read from the app:** `@softure-ai/db` in `package.json` turns on the database part, `@softure-ai/ops` the
-  `/api/health` route (else `/`), `@softure-ai/jobs` (with `@softure-ai/db`) the job worker, a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
+  `/api/health` route (else `/`), `publicPaths` from the modules' public endpoints (`@softure-ai/ops`
+  `/api/health`; `@softure-ai/mcp-access` `/api/mcp`, `/api/oauth/token`, `/api/oauth/register` and the two
+  `/.well-known/oauth-*` documents; `@softure-ai/mailing` `/unsubscribe` and `/api/mailing/unsubscribe`; add the
+  app's own, such as webhooks, by hand), `@softure-ai/jobs` (with `@softure-ai/db`) the job worker, a `public/` folder its `COPY`; a `next.config.*` without `standalone` is a warning,
   and so is, with a database, one whose `serverExternalPackages` does not name `@softure-ai/db` (without it
   `next build` cannot resolve the driver the app does not install; see the `@softure-ai/db` README, §2).
   An existing `docker/prod/docker-compose.yml` (kept, or replaced with `--force`) gives `deploy.sh` the Postgres

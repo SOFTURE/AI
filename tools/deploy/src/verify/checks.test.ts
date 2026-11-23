@@ -32,6 +32,35 @@ describe("checkResponse", () => {
     ]);
   });
 
+  it("names a route answered by a Cloudflare Access login as behind a login (issue #1435)", () => {
+    const access = "https://acme.cloudflareaccess.com/cdn-cgi/access/login/example.com?redirect_url=%2Fdashboard";
+    const outcomes = checkResponse({
+      route: route({ path: "/dashboard" }),
+      headers: {},
+      response: response({ requestUrl: `${BASE}/dashboard`, status: 302, headers: { location: access } }),
+      baseUrl: BASE,
+    });
+    expect(outcomes).toEqual([
+      { kind: "status", passed: false, detail: `/dashboard is behind a login; list it in publicPaths or remove it from verify (status 302 to ${access})` },
+    ]);
+  });
+
+  it("names a redirect to the app's own sign-in page as behind a login, and keeps the plain message otherwise", () => {
+    for (const location of ["/login?next=%2F", "/auth/sign-in", "https://example.com/cdn-cgi/access/login"]) {
+      const [status] = checkResponse({ route: route(), headers: {}, response: response({ status: 307, headers: { location } }), baseUrl: BASE });
+      expect(status?.detail, location).toMatch(/^\/ is behind a login; list it in publicPaths or remove it from verify \(status 307 to https:\/\/example\.com\//);
+    }
+    const elsewhere = checkResponse({ route: route(), headers: {}, response: response({ status: 302, headers: { location: "/pl/" } }), baseUrl: BASE });
+    expect(elsewhere[0]).toEqual({ kind: "status", passed: false, detail: "status 302, expected 200" });
+    const expected = checkResponse({
+      route: route({ path: "/account", status: 302, redirect: "/login" }),
+      headers: {},
+      response: response({ requestUrl: `${BASE}/account`, status: 302, headers: { location: "/login" } }),
+      baseUrl: BASE,
+    });
+    expect(expected.every((outcome) => outcome.passed)).toBe(true);
+  });
+
   it("checks markers that must be present and absent", () => {
     const checks = checkResponse({
       route: route({ contains: ["<h1>Pricing", "Buy"], excludes: ["Application error", "Pricing"] }),

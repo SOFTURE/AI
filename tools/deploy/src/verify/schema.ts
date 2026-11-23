@@ -412,9 +412,25 @@ const releasesSchema = z
   })
   .describe("Retention of the releases on the server.");
 
+/** A path Cloudflare Access can match as a prefix: the same characters the host inventory's bypassPaths take. */
+const PUBLIC_PATH = /^\/[A-Za-z0-9._~/-]*$/;
+
+const publicPathsSchema = z
+  .array(z.string().regex(PUBLIC_PATH, "a path starting with / of letters, digits and . _ ~ / -, e.g. /api/health"))
+  .superRefine((paths, context) => {
+    const duplicates = new Set(paths.filter((path, index) => paths.indexOf(path) !== index));
+    for (const path of duplicates) context.addIssue({ code: "custom", message: `${path} is listed twice` });
+    if (paths.includes("/") && paths.length > 1) context.addIssue({ code: "custom", message: "/ already makes every path public; list it alone" });
+  })
+  .meta({ uniqueItems: true })
+  .describe(
+    "Paths (prefixes) that must answer without a login: health, OAuth and MCP endpoints, unsubscribe links, webhooks; [\"/\"] for a public app. verify should check only these, and softure-host app add makes each one a Cloudflare Access bypass.",
+  );
+
 export const deploySchema = z
   .strictObject({
     $schema: z.string().optional().describe("JSON Schema of this file, for editor completion."),
+    publicPaths: publicPathsSchema.optional(),
     releases: releasesSchema.optional(),
     database: databaseSchema.optional(),
     data: dataSchema.optional(),

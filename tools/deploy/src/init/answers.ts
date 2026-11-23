@@ -126,6 +126,8 @@ const initAnswersSchema = z
     workerMemory: z.string().regex(SIZE, "a size such as 512m or 2g").optional(),
     /** `--worker-tmpfs`: the worker's /tmp in memory, of at most this size. */
     workerTmpfs: z.string().regex(SIZE, "a size such as 512m or 2g").optional(),
+    /** `--public`: the whole app answers without a login, so verify checks `/` and `publicPaths` is `["/"]` (issue #1435). */
+    public: z.boolean().optional(),
     /** `--hyperdrive-id`: the Hyperdrive configuration the Worker reaches Postgres through (`--host=cloudflare`). */
     hyperdriveId: z.string().regex(HYPERDRIVE_ID, "a Hyperdrive configuration ID: 32 lower-case hex characters").optional(),
     /** `--placement-region`: run the Worker next to the database's cloud region instead of Smart Placement. */

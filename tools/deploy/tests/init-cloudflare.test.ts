@@ -289,7 +289,7 @@ describe("softure-deploy init --host=cloudflare", () => {
 
   it("writes a deploy.json without the server's hooks or row counts", async () => {
     writeApp(DATABASE_APP);
-    expect(await runCli(["init", ...CLOUDFLARE], makeIo())).toBe(0);
+    expect(await runCli(["init", ...CLOUDFLARE, "--public"], makeIo())).toBe(0);
     const config = JSON.parse(read("deploy.json")) as Record<string, unknown>;
     expect(config).not.toHaveProperty("hooks");
     expect(config).not.toHaveProperty("database");
