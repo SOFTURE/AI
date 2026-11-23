@@ -4,7 +4,7 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`mailing@x.y.z`).
 
-## Unreleased
+## 0.3.0
 
 - **Breaking.** The recipient key (suppressions, the delivery ledger, unsubscribe links) is no longer a plain
   SHA-256 of the address: `getRecipientKey(address, env?)` is base64url PBKDF2-HMAC-SHA256 of the trimmed, lowercased

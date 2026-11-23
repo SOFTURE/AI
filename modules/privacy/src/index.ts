@@ -30,7 +30,7 @@ export const PRIVACY_RATE_LIMIT_BUCKETS = {
 export const privacy = defineModule({
   manifest: {
     id: MODULE_ID,
-    version: "0.2.5",
+    version: "0.3.0",
     runtimes: ["node", "workers"],
     // ops only for the copy-account script in /scripts.
     dependsOn: { auth: "^0.2.18", security: "^0.2.0", ops: "^0.2.0?" },

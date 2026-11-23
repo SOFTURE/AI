@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`auth@x.y.z`).
 
+## 0.2.22
+
+- Works with `@softure-ai/mailing` `^0.3.0` (issue #1418), the release that keys a recipient with
+  `SOFTURE_EMAIL_KEY_SECRET`: the peer range and the manifest's `dependsOn` move from mailing `^0.2` to `^0.3.0`.
+  - Migrate: when the app lists mailing, upgrade it to `^0.3.0` and set `SOFTURE_EMAIL_KEY_SECRET` (see mailing's
+    CHANGELOG). An app without mailing changes nothing.
+
 ## 0.2.21
 
 - **The foreign keys of `auth.invitations` are indexed** (issue #1420): migration `0008` adds
