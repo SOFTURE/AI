@@ -1,12 +1,13 @@
 ---
 change_id: host-survey-onboarding-preflight
 title: "host: a read-only survey and an onboarding preflight for a server that already runs apps (issue #1432)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1432
 branch: claude/project-thread-kacn0h
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -47,3 +48,16 @@ compose file reads). Only `server` puts the deploy user into sshd's `AllowUsers`
 ## Notes
 
 - frame skipped: the issue names the problem, the impact and the fix with acceptance criteria; no product question.
+
+## Done
+
+- `softure-host survey --inventory=<file>`: read-only probe over the admin's SSH; users and sudo, sshd access, Docker
+  networks, running Traefik (project, networks, entry points, resolvers), `/srv` folders, the origin firewall, and the
+  `edge:` block for an edge that already runs.
+- `app add` preflight before any change and in `--check`: a foreign edge with `edge.manage: true`, a missing
+  `edge.network`, a compose file joining another network.
+- `app.yml` admits the deploy user through an sshd `AllowUsers` drop-in (validated, reloaded) and refuses
+  Deny*/AllowGroups conflicts before any change.
+- `e2e/converge.sh` covers the drop-in, the login on an `AllowUsers root` server, the AllowGroups refusal and the
+  survey. README section "Adding an app to a server that already runs apps". Release: `@softure-ai/host`
+  (CHANGELOG `## Unreleased`).

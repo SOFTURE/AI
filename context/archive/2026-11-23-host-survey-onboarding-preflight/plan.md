@@ -49,6 +49,19 @@
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1 (682ff2d): `src/survey/probe.sh` (POSIX sh, read-only), `facts.ts`, `report.ts`, `probe.ts`, the
+      `survey` command and `buildAdminSsh` shared with `readHostKeys`. The probe run locally as root on Ubuntu 24.04
+      printed every section; `survey.test.ts` (8 tests) covers the parser, the report, the edge block and the
+      compose interpolation.
+- [x] Phase 2 (1d4f4e7): `app add` reads the compose file and the probe, then `checkOnboarding`, before the GitHub
+      Environment. New CLI tests: own edge passes; a foreign edge with `edge.manage: true` stops in `--check` and in
+      a real run with no GitHub write and no playbook; a literal compose network names both networks;
+      `${EDGE_NETWORK:-proxy}` passes; survey output and an SSH failure. `npx vitest run tools/host` 71 of 71.
+- [x] Phase 3 (7cb7341): `ansible/tasks/deploy-user-sshd.yml` and the drop-in block in `app.yml`; `e2e/converge.sh`
+      run locally (Docker in this container, image `mirror.gcr.io/library/ubuntu:24.04` because Docker Hub rate-limited
+      the pull, collections from pip `ansible` 10 plus `softure.vps_foundation` 1.25.0 from its tag since Galaxy is
+      blocked by the proxy): PASS. Check mode on a first onboarding `ok=10 changed=4` and no drop-in written; first
+      run `changed=9`, second `changed=0`; `sshd -T` lists `allowusers deploy` and `root`; the issued key logs in and
+      runs deploy.sh on an `AllowUsers root` server; `softure-host survey` over SSH as root printed every section and
+      the next converge reported `changed=0`; `AllowGroups admins` refused in check and real mode with the sshd
+      drop-ins and `authorized_keys` unchanged. README section and CHANGELOG `## Unreleased`.
