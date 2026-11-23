@@ -58,7 +58,10 @@ export interface SecretPlanInput {
   privateKey: string | undefined;
 }
 
-/** What `app add` writes: the deploy connection always, the key when new, passwords only when missing. */
+/**
+ * What `app add` writes: the deploy connection always, the key when new, passwords only when missing; the variables
+ * `APP_HOST` and `EDGE_NETWORK`.
+ */
 export function planSecrets(input: SecretPlanInput): SecretPlan {
   const { inventory, app, existing } = input;
   const secrets = new Map<string, string>([
@@ -76,17 +79,20 @@ export function planSecrets(input: SecretPlanInput): SecretPlan {
       if (!existing.has(name)) secrets.set(name, randomBytes(32).toString("hex"));
     }
   }
-  return { secrets, variables: new Map([["APP_HOST", app.host]]) };
+  // EDGE_NETWORK: the server's edge network, which `softure-deploy init --edge` reads at deploy time (issue #1429).
+  return { secrets, variables: new Map([["APP_HOST", app.host], ["EDGE_NETWORK", inventory.edge.network]]) };
 }
 
 /** Writes the plan, or in a dry run prints the names it would write. Never prints a value. */
 export async function writeSecrets(io: CliIo, deps: HostDeps, repo: string, plan: SecretPlan, check: boolean): Promise<void> {
   const names = [...plan.secrets.keys()];
+  const variables = [...plan.variables.keys()];
+  const variablesText = `the ${variables.length === 1 ? "variable" : "variables"} ${variables.join(", ")}`;
   if (check) {
-    say(io, "github", `would set the ${ENVIRONMENT} secrets ${names.join(", ")} and the variable ${[...plan.variables.keys()].join(", ")}`);
+    say(io, "github", `would set the ${ENVIRONMENT} secrets ${names.join(", ")} and ${variablesText}`);
     return;
   }
   for (const [name, value] of plan.secrets) await setSecret(deps.runner, repo, name, value);
   for (const [name, value] of plan.variables) await setVariable(deps.runner, repo, name, value);
-  say(io, "github", `set the ${ENVIRONMENT} secrets ${names.join(", ")} and the variable ${[...plan.variables.keys()].join(", ")}`);
+  say(io, "github", `set the ${ENVIRONMENT} secrets ${names.join(", ")} and ${variablesText}`);
 }

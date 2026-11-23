@@ -4,6 +4,22 @@ Newest first. Each version lists what changed for an app that uses `@softure-ai/
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done"). Versions before the first one below are described in their GitHub Releases (`deploy@x.y.z`).
 
+## Unreleased
+
+- **The edge network's name comes from the server at deploy time** (#1429): `init --edge=<network>` writes
+  `${EDGE_NETWORK:-<network>}` in the top-level external network and in `traefik.docker.network`. A repository or
+  `production` variable `EDGE_NETWORK` (which `softure-host app add` now sets from the inventory's `edge.network`) reaches
+  `.env.prod` through `env render`, so one generated file deploys to servers whose shared Traefik runs in another
+  network; without it the app joins `<network>` as before.
+  - Migrate (optional): an app generated with an older `init --edge` that wants this writes
+    `${EDGE_NETWORK:-<network>}` in both places of `docker/prod/docker-compose.yml` by hand and sets the variable
+    (or re-runs `softure-host app add`). Nothing changes for an app that keeps the literal name.
+- **`checkSharedHostCompose` resolves compose interpolation** (#1429): string values have `${NAME:-default}`,
+  `${NAME-default}` and, when the new `env` option sets it, `${NAME}` resolved before the rules run, so a file with
+  `${EDGE_NETWORK:-proxy}` passes with `edgeNetwork: "proxy"` and `env: { EDGE_NETWORK: "web" }` checks it for a
+  server whose network is `web`. Required forms (`${NAME:?}`) stay as written.
+  - Migrate: an app test that substituted the variable before calling the guard can drop that step.
+
 ## 0.7.8
 
 - **`integration lookup` says when it reads local notes only:** a remote it cannot reach prints

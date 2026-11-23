@@ -57,6 +57,13 @@ export interface SharedHostComposeOptions {
    * by default, as `init --edge` writes it; `false` skips the rule. Edge ingress only.
    */
   readonly edgeProofHeader?: string | false;
+  /**
+   * The deploy environment compose interpolates the file with (issue #1429): every string value has `${NAME}`,
+   * `${NAME:-default}` and `${NAME-default}` resolved as compose does before the rules run, so
+   * `name: ${EDGE_NETWORK:-proxy}` reads as `proxy` without `env` and as the set value with it. A bare `${NAME}`
+   * that `env` lacks and the required forms (`${NAME:?}`) stay as written; `$$` is a literal dollar.
+   */
+  readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
 /** The proof header `init --edge` sets, `EDGE_PROOF_HEADER` of `@softure-ai/security`. */
@@ -82,6 +89,11 @@ export function checkSharedHostCompose(composeYaml: string, options: SharedHostC
     return [topLevel("compose-unreadable", `the compose file is not YAML: ${(error as Error).message}`)];
   }
   if (!isRecord(document)) return [topLevel("compose-unreadable", "the compose file is not a mapping")];
+  const compose = interpolateValues(document, options.env ?? {});
+  return checkCompose(isRecord(compose) ? compose : {}, options);
+}
+
+function checkCompose(document: Record<string, unknown>, options: SharedHostComposeOptions): ComposeViolation[] {
   const services = isRecord(document.services) ? document.services : {};
   const dataVolume = options.dataVolume === undefined ? [] : checkDataVolume(services, document.volumes, options.dataVolume.mountPath);
   if (options.ingress === "tunnel") {
@@ -96,6 +108,27 @@ export function checkSharedHostCompose(composeYaml: string, options: SharedHostC
     ...Object.entries(services).flatMap(([name, service]) => checkService(name, isRecord(service) ? service : {}, options)),
     ...dataVolume,
   ];
+}
+
+// `$$` first, so an escaped dollar never starts a variable; group 2 is `:-`, `-` or absent, group 3 the default.
+const INTERPOLATION = /\$\$|\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(:?-)([^}]*))?\}/g;
+
+/** Resolves compose interpolation in every string value of the parsed file; keys stay as written, as in compose. */
+function interpolateValues(value: unknown, env: Readonly<Record<string, string | undefined>>): unknown {
+  if (typeof value === "string") return interpolate(value, env);
+  if (Array.isArray(value)) return value.map((item) => interpolateValues(item, env));
+  if (isRecord(value)) return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, interpolateValues(item, env)]));
+  return value;
+}
+
+function interpolate(text: string, env: Readonly<Record<string, string | undefined>>): string {
+  return text.replace(INTERPOLATION, (match, name: string | undefined, operator: string | undefined, fallback: string | undefined) => {
+    if (name === undefined) return "$";
+    const value = env[name];
+    if (operator === undefined) return value ?? match;
+    const isUnset = value === undefined || (operator === ":-" && value === "");
+    return isUnset ? (fallback ?? "") : value;
+  });
 }
 
 /** What a service mounts at a container path: a named volume, a host folder (bind), or nothing. */

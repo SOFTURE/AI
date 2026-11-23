@@ -4,6 +4,13 @@ Newest first. Each version lists what changed for an operator who uses `@softure
 version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
+## Unreleased
+
+- `app add` sets the repository variable `EDGE_NETWORK` to the inventory's `edge.network` next to `APP_HOST` (#1429).
+  A compose file from `softure-deploy init --edge` (`@softure-ai/deploy` from the next release) joins that network at
+  deploy time, so an app generated for another network name deploys to this server without editing its compose file.
+  - Migrate: nothing; re-run `softure-host app add` to set the variable for an app added before.
+
 ## 0.1.3
 
 - Each Cloudflare API call gets 30 s (#1286), `CLOUDFLARE_TIMEOUT_MS`, the third argument of `createCloudflareApi`;

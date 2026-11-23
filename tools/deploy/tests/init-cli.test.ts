@@ -110,7 +110,7 @@ describe("softure-deploy init", () => {
     const text = out.join("");
     expect(text).not.toContain("traefik.yml");
     expect(existsSync(join(dir, "docker/prod/traefik.yml"))).toBe(false);
-    expect(readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8")).toContain('      - "traefik.docker.network=proxy"\n');
+    expect(readFileSync(join(dir, "docker/prod/docker-compose.yml"), "utf8")).toContain('      - "traefik.docker.network=${EDGE_NETWORK:-proxy}"\n');
     expect(text).toContain(
       "warning docker/prod/docker-compose.yml publishes Postgres on 127.0.0.1:5432, which another stack on this server may hold already; change the host port, or drop it and set database.access to compose-exec in deploy.json\n",
     );

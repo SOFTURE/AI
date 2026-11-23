@@ -1127,9 +1127,15 @@ to Traefik directly and send any `cf-connecting-ip`, so rate limits keyed on it 
 Traefik belongs to another app's stack. A second Traefik would clash on ports 80 and 443, so init writes none:
 
 - the compose file has no `traefik` service, no `letsencrypt` volume, and a top-level network `edge` that is the
-  external `<network>`; the `app` service joins `edge` and `default` (Postgres and `migrate` stay on `default`);
+  external `${EDGE_NETWORK:-<network>}`; the `app` service joins `edge` and `default` (Postgres and `migrate` stay on
+  `default`);
+- the network's name belongs to the server, not the app (issue #1429): both the network and the label
+  `traefik.docker.network` read the optional variable `EDGE_NETWORK`, with `<network>` as the default. Set it as a
+  repository or `production` environment variable (`softure-host app add` sets it from the inventory's
+  `edge.network`) and `env render` writes it into `.env.prod`, so one generated file deploys to servers whose edge networks have other
+  names; without it the app joins `<network>`, as before;
 - the app is published by labels instead of `traefik.yml`, which init does not write: `traefik.enable`,
-  `traefik.docker.network=<network>`, a router `<name>` with the same rule `traefik.yml` would hold, entry point
+  `traefik.docker.network=${EDGE_NETWORK:-<network>}`, a router `<name>` with the same rule `traefik.yml` would hold, entry point
   `websecure`, certificate resolver `letsencrypt`, service port 3000 and the security headers as the middleware
   `<name>-security-headers`; with `--www` a router `<name>-www` and the redirect `<name>-www-to-apex`. The names carry
   the app's `<name>`, so they never meet the other stack's routers;
@@ -1147,7 +1153,8 @@ Traefik belongs to another app's stack. A second Traefik would clash on ports 80
 
 The edge Traefik must run the Docker provider (`--providers.docker=true`, `--providers.docker.exposedByDefault=false`)
 with the entry point `websecure` and the certificate resolver `letsencrypt`; with other names, edit the labels. The
-network must exist before the first release (`docker network create <network>`, joined by the edge Traefik). With a
+network (the one `EDGE_NETWORK` names, else `<network>`) must exist before the first release (`docker network create
+<network>`, joined by the edge Traefik). With a
 database, init warns that Postgres is published on `127.0.0.1:5432`, which the first app's Postgres may hold: change
 the host port in the compose file, or drop it and set `database.access` to `compose-exec` in `deploy.json`. The
 Cloudflare origin lock is host-wide and stays with the stack that installed it.
@@ -1226,6 +1233,13 @@ it("keeps the production compose file safe next to the edge stack", () => {
 | `bypass-path-claimed` | a router that serves a bypass path has no `Host` matcher, so it takes the path on every host of the edge proxy |
 | `edge-proof-missing` | a router whose service is not `@internal` runs no `headers` middleware (directly or in a `chain`) that sets the edge proof header (`edgeProofHeader`, `X-Softure-Edge-Proof` by default, `DEFAULT_EDGE_PROOF_HEADER`) as a non-empty `customrequestheaders` value; `edgeProofHeader: false` skips the rule |
 | `compose-unreadable` | the file is not YAML or not a mapping |
+
+Values go through compose's interpolation first (issue #1429): `${NAME:-default}` and `${NAME-default}` resolve to the
+default, or to the value the `env` option sets (`env: { EDGE_NETWORK: "web" }`, with compose's rule that `:-` also
+replaces an empty value), and a bare `${NAME}` resolves when `env` sets it. Required forms (`${NAME:?}`) and a bare name
+`env` lacks stay as written; `$$` is a literal dollar. So the file `init --edge=proxy` writes passes with
+`edgeNetwork: "proxy"` and no `env`, and a test that checks it for a server with another network passes
+`edgeNetwork: "web", env: { EDGE_NETWORK: "web" }`.
 
 With `ingress: "tunnel"` (an app that [Cloudflare Tunnel](#softure-deploy-init) publishes) the edge rules turn
 around: `edge-network-missing`, `edge-network-not-external`, `edge-network-changed`, the Traefik name and network rules
