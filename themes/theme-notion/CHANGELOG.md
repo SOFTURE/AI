@@ -4,8 +4,13 @@ Newest first. Each version lists what changed for an app that uses the theme. Wh
 production, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../docs/05-adoption-playbook.md),
 "Definition of done").
 
-## Unreleased
+## 0.30.1
 
+- A modal's overlay leaves together with its content: `Dialog` and `AlertDialog` overlays fade out in 200 ms like their
+  content, the `Sheet` overlay in 300 ms like its panel. Radix portals the overlay and the content separately and
+  unmounts each when its own exit animation ends; the overlay used the animation's shorter default, so a dialog
+  reopened in the gap (a quick Cancel, then the same trigger) got a new overlay portalled after the still-mounted
+  content, on the same z-index. The overlay then covered the dialog and swallowed every click on its buttons.
 - `DocumentViewer`'s title keeps its 24 px line height: since tailwind-merge 3.7.1 the dialog title's `leading-none`
   is no longer dropped by `text-base`, so the viewer sets `leading-normal` itself.
 - Migration: none.
