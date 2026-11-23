@@ -481,11 +481,11 @@ describe("planInitFiles with edge, an app behind another stack's Traefik (issue 
 
   it("puts the app on the external edge network and its own, published by labels", () => {
     const compose = composeOf(plan({ edge: "proxy" }));
-    expect(compose.networks).toEqual({ edge: { name: "proxy", external: true } });
+    expect(compose.networks).toEqual({ edge: { name: "${EDGE_NETWORK:-proxy}", external: true } });
     expect(compose.services.app?.networks).toEqual(["edge", "default"]);
     expect(compose.services.app?.labels).toEqual([
       "traefik.enable=true",
-      "traefik.docker.network=proxy",
+      "traefik.docker.network=${EDGE_NETWORK:-proxy}",
       "traefik.http.routers.acme-app.rule=Host(`example.com`)",
       "traefik.http.routers.acme-app.entrypoints=websecure",
       "traefik.http.routers.acme-app.tls.certresolver=letsencrypt",
@@ -523,6 +523,14 @@ describe("planInitFiles with edge, an app behind another stack's Traefik (issue 
   it("passes the shared-host guard, edge proof included", () => {
     const text = textOf(plan({ edge: "proxy", www: true }, NO_DATABASE), "docker/prod/docker-compose.yml");
     expect(checkSharedHostCompose(text, { edgeNetwork: "proxy", namePrefix: "acme-app" })).toEqual([]);
+  });
+
+  it("lets the deploy environment name the edge network, defaulting to --edge (issue #1429)", () => {
+    const text = textOf(plan({ edge: "proxy" }, NO_DATABASE), "docker/prod/docker-compose.yml");
+    // Optional, so env render writes it into .env.prod only when the production environment sets it.
+    expect(findComposeNames(text).optional).toContain("EDGE_NETWORK");
+    expect(findComposeNames(text).required.map((entry) => entry.name)).not.toContain("EDGE_NETWORK");
+    expect(checkSharedHostCompose(text, { edgeNetwork: "web", namePrefix: "acme-app", env: { EDGE_NETWORK: "web" } })).toEqual([]);
   });
 
   it("routes the allowed prefixes and redirects www through labels only when asked", () => {

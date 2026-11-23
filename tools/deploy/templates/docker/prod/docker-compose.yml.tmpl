@@ -12,7 +12,8 @@
 #
 # This stack runs no Traefik: the app joins the external network {{edgeNetwork}} of the Traefik another stack on this
 # server runs (init --edge), and its labels publish it there. That Traefik needs the Docker provider
-# (exposedByDefault=false), the entry point websecure and the certificate resolver letsencrypt.
+# (exposedByDefault=false), the entry point websecure and the certificate resolver letsencrypt. The network's name
+# belongs to the server: the production variable EDGE_NETWORK (softure-host app add sets it) overrides {{edgeNetwork}}.
 #
 # Other containers on that network reach the app without the router, so a client-IP header proves nothing there.
 # The router's first middleware sets X-Softure-Edge-Proof to the secret EDGE_PROOF_SECRET, which the app also gets:
@@ -132,7 +133,7 @@ services:
       - default
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network={{edgeNetwork}}"
+      - "traefik.docker.network=${EDGE_NETWORK:-{{edgeNetwork}}}"
       - "traefik.http.routers.{{name}}.rule={{appRule}}"
       - "traefik.http.routers.{{name}}.entrypoints=websecure"
       - "traefik.http.routers.{{name}}.tls.certresolver=letsencrypt"
@@ -262,7 +263,7 @@ volumes:
 
 networks:
   edge:
-    name: {{edgeNetwork}}
+    name: ${EDGE_NETWORK:-{{edgeNetwork}}}
     external: true
 {{/edge}}
 {{#tunnel}}
