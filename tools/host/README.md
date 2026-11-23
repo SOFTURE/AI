@@ -8,10 +8,14 @@ Cloudflare through its API. Every command is idempotent and takes `--check`, whi
 It is the server side of the one-VPS model of [`@softure-ai/deploy`](../deploy/README.md): `deploy` covers
 everything from the release on; `host` sets up the server and the app's place on it, once.
 
+A server that already runs other apps (another Traefik, other names): read
+[Adding an app to a server that already runs apps](#adding-an-app-to-a-server-that-already-runs-apps) first.
+
 ```bash
 npx @softure-ai/host server --inventory=infra/inventory.yml --check
 npx @softure-ai/host server --inventory=infra/inventory.yml --connect-as=root   # first run on a fresh server
 npx @softure-ai/host app add --inventory=infra/inventory.yml --app=notes
+npx @softure-ai/host survey --inventory=infra/inventory.yml                     # read-only: what the server runs
 ```
 
 ## Requirements on the operator's machine
@@ -107,12 +111,27 @@ softure-host app add --inventory=<file> --app=<slug> [--check] [--rotate-key]
 
 In order:
 
+0. **Preflight**, before any change and in `--check` too (issue #1432). Over your admin SSH connection the CLI runs
+   the read-only probe of `survey`, reads the app's `docker/prod/docker-compose.yml`, and stops, listing every
+   problem, when:
+   - a Traefik that is not the inventory's own edge (compose project `edge.name`) runs while `edge.manage` is `true`;
+   - the inventory's `edge.network` does not exist on the server (the message lists the networks that do);
+   - the compose file joins external networks of which none is `edge.network`: a literal name, or a variable's
+     default. `${EDGE_NETWORK:-…}` passes, since `app add` sets `EDGE_NETWORK` (step 4).
+
+   When the admin cannot read Docker (not installed, no `docker` group, no passwordless sudo) the edge checks are
+   skipped with one line.
 1. **GitHub Environment.** `production` is created with the deployment policy "`v*` tags" **before** anything reads
    its secrets (a dry run against a repository without it reads nothing under it).
 2. **Server** (`ansible/app.yml`, as the admin user): `/srv/<slug>` owned by the deploy user, the first copy of the
    app's `docker/server/deploy.sh` from its default branch (never overwritten: releases replace it), and the
    release key line `command="/srv/<slug>/deploy.sh",restrict <key> <slug>-release` in the deploy user's
-   `authorized_keys`, added or replaced in place, never duplicated, other apps' lines untouched.
+   `authorized_keys`, added or replaced in place, never duplicated, other apps' lines untouched. When sshd's
+   `AllowUsers` is set without the deploy user (a server `server` never provisioned), the playbook adds
+   `/etc/ssh/sshd_config.d/60-softure-host-<deployUser>.conf` with `AllowUsers <deployUser>` (AllowUsers lines add
+   up, so nobody else loses access), checks it with `sshd -t` and `sshd -T`, and reloads sshd; a drop-in sshd
+   refuses is removed again. A `DenyUsers`, `DenyGroups` or `AllowGroups` that would still turn the deploy user away
+   stops the run before any change and names the step left to you: those lists decide who else may log in.
 3. **Host keys.** Read over your own admin SSH connection (checked against your `known_hosts`, not a blind
    `ssh-keyscan`); their fingerprints are printed.
 4. **GitHub secrets** (Environment `production`): `DEPLOY_SSH_HOST`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_KNOWN_HOSTS`,
@@ -134,6 +153,46 @@ the run stops and asks for `--rotate-key`.
 
 The app must already have run `softure-deploy init` (it needs `docker/server/deploy.sh`).
 
+## `softure-host survey`
+
+```bash
+softure-host survey --inventory=<file>
+```
+
+Logs in as the admin user and prints what an inventory for the server needs, changing nothing: the OS and Docker
+versions, whether the admin has passwordless sudo, the users with their groups and sudo rights, sshd's
+`AllowUsers`/`AllowGroups` (and `DenyUsers`/`DenyGroups`, with drop-ins, from `sshd -T`), running Traefik containers
+with their compose project, networks, entry points and certificate resolvers, the Docker networks, the folders under
+`/srv`, and whether the Cloudflare-only firewall is installed. When an edge that is not the inventory's own runs, it
+ends with the `edge:` block to paste:
+
+```yaml
+edge:
+  manage: false
+  network: first-app-edge
+  certResolver: le
+```
+
+Only the server's connection (`server.host`, `port`, `adminUser`, `identityFile`, `deployUser`) is needed; `apps` may
+be empty. Root-only reads go through `sudo -n`; without passwordless sudo they are reported as partial.
+
+## Adding an app to a server that already runs apps
+
+On a server other apps already use, with an edge `softure-host` did not set up:
+
+1. Run `softure-host survey --inventory=<file>` with only the `server:` block filled in.
+2. Set `edge.manage: false` and the `edge.network` and `edge.certResolver` the survey found (paste its `edge:`
+   block). Leave `firewall.manage` off unless the firewall is yours to manage.
+3. **Never run `softure-host server` on such a server.** It rewrites the SSH hardening, sshd's `AllowUsers` and the
+   admin's authorized keys for everyone; `app add` does what onboarding needs (the deploy user, its sshd access, the
+   app folder).
+4. Use a dedicated deploy user without sudo (`server.deployUser`, default `deploy`), never the admin or a user the
+   other apps share; both commands refuse a deploy user with sudo rights.
+5. `softure-host app add --inventory=<file> --app=<slug> --check`: the preflight reports any contradiction between
+   the inventory, the server and the app's compose file, and Ansible's check mode lists the changes.
+6. `softure-host app add --inventory=<file> --app=<slug>`.
+7. The first release from the app's own pipeline.
+
 ## What stays manual
 
 - Buying the server and the domain; the first SSH key on the server.
@@ -145,4 +204,6 @@ The app must already have run `softure-deploy init` (it needs `docker/server/dep
 
 `npm test` covers the inventory, the Ansible command lines and variables, the key format, the GitHub and Cloudflare
 calls and both commands with fakes. `e2e/converge.sh` (CI job `host-ansible`) converges `ansible/app.yml` against an
-Ubuntu container twice and logs in with the issued key through the forced command.
+Ubuntu container twice and logs in with the issued key through the forced command. That container's sshd starts
+with `AllowUsers root`, as on a server `server` never provisioned, so the test also proves the AllowUsers drop-in,
+the `AllowGroups` refusal, and that `survey` (the CLI over SSH) changes nothing.

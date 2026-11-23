@@ -6,6 +6,17 @@ version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../
 
 ## Unreleased
 
+- **Onboarding onto a server that already runs apps** (#1432). `softure-host survey --inventory=<file>` reads the
+  server over the admin's SSH and changes nothing: OS and Docker, users with groups and sudo rights, sshd's
+  `AllowUsers`/`AllowGroups`, running Traefik containers (compose project, networks, entry points, resolvers), Docker
+  networks, `/srv` folders, the origin firewall, and the `edge:` block for an edge that already runs. `app add` first
+  runs a preflight and stops before any change, in `--check` too, when a foreign edge runs while `edge.manage` is
+  `true`, when `edge.network` does not exist on the server, or when the app's compose file joins another external
+  network. When sshd's `AllowUsers` does not name the deploy user, `app add` adds an sshd drop-in that does
+  (validated, reloaded); a `DenyUsers`, `DenyGroups` or `AllowGroups` that would still refuse it stops the run with
+  the step left. The README has a checklist, "Adding an app to a server that already runs apps".
+  - Migrate: nothing. An `app add` that now stops names what to change in the inventory or the app.
+
 - A deploy user with sudo rights is refused before anything changes (#1431). The inventory refuses
   `server.deployUser` equal to `server.adminUser`; `server` and `app add` first read the deploy user on the server and
   stop, in a real run and in `--check` alike, when it is in `sudo`, `wheel` or `admin` or has a sudoers entry, so the

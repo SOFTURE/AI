@@ -1,0 +1,78 @@
+---
+# Reads whether sshd admits the deploy user, before anything changes (issue #1432). Only `softure-host server` puts
+# the deploy user into sshd's AllowUsers; on a server it never provisioned, an AllowUsers list without the deploy user
+# turns every release away although `app add` succeeded. app.yml imports this in its pre_tasks, tagged `always`, and
+# it runs in check mode too:
+# - AllowUsers set without the deploy user: `host_sshd_dropin_needed`, and app.yml adds a drop-in that admits it;
+# - DenyUsers, DenyGroups or AllowGroups that would still refuse it: stop with the step left to the operator, since
+#   widening those changes who else may log in. Nothing is changed then.
+# Patterns are matched as sshd does (globs); a `user@host` pattern does not count, since releases log in from any
+# address.
+
+- name: Read whether sshd admits the deploy user
+  ansible.builtin.command:
+    argv:
+      - /bin/sh
+      - -c
+      - |
+        set -f
+        user="$1"
+        sshd="$(command -v sshd || echo /usr/sbin/sshd)"
+        echo "sshd $sshd"
+        settings="$("$sshd" -T -C "user=$user,host=localhost,addr=127.0.0.1")" || exit 1
+        # Unquoted on purpose: the words of every line of that keyword, one space apart (set -f: no globbing).
+        values() { echo $(printf '%s\n' "$settings" | awk -v keyword="$1" '$1 == keyword { $1 = ""; print }'); }
+        matches() {
+          name="$1"
+          shift
+          for pattern in "$@"; do
+            case "$pattern" in *@*) continue ;; esac
+            case "$name" in $pattern) return 0 ;; esac
+          done
+          return 1
+        }
+        # The deploy_user role gives a new user its own group and docker.
+        if id "$user" > /dev/null 2>&1; then groups="$(id -nG "$user")"; else groups="$user docker"; fi
+        allow_users="$(values allowusers)"
+        deny_users="$(values denyusers)"
+        allow_groups="$(values allowgroups)"
+        deny_groups="$(values denygroups)"
+        if [ -z "$allow_users" ]; then echo "allowusers none"
+        elif matches "$user" $allow_users; then echo "allowusers ok"
+        else echo "allowusers missing"; fi
+        if matches "$user" $deny_users; then echo "conflict: DenyUsers ($deny_users) matches $user"; fi
+        for group in $groups; do
+          if matches "$group" $deny_groups; then echo "conflict: DenyGroups ($deny_groups) matches its group $group"; fi
+        done
+        if [ -n "$allow_groups" ]; then
+          admitted=no
+          for group in $groups; do
+            if matches "$group" $allow_groups; then admitted=yes; fi
+          done
+          if [ "$admitted" = no ]; then echo "conflict: AllowGroups ($allow_groups) has none of its groups ($groups)"; fi
+        fi
+      - deploy-user-sshd
+      - "{{ deploy_user_name }}"
+  register: host_sshd_probe
+  changed_when: false
+  check_mode: false
+  tags: always
+
+- name: Refuse a deploy user sshd would still turn away
+  ansible.builtin.fail:
+    msg: >-
+      sshd would turn the deploy user {{ deploy_user_name }} away
+      ({{ host_sshd_conflicts | map('regex_replace', '^conflict: ', '') | join('; ') }}).
+      softure-host only widens AllowUsers; this step is yours: admit {{ deploy_user_name }} in sshd's configuration (an
+      sshd_config.d drop-in, then `sshd -t` and a reload), then run app add again. Nothing was changed on the server.
+  vars:
+    host_sshd_conflicts: "{{ host_sshd_probe.stdout_lines | select('match', '^conflict: ') | list }}"
+  when: host_sshd_conflicts | length > 0
+  tags: always
+
+- name: Note whether the deploy user needs an AllowUsers drop-in
+  ansible.builtin.set_fact:
+    host_sshd_dropin_needed: "{{ 'allowusers missing' in host_sshd_probe.stdout_lines }}"
+    host_sshd_bin: "{{ host_sshd_probe.stdout_lines | select('match', '^sshd ') | first | regex_replace('^sshd ', '') }}"
+    host_sshd_dropin: "/etc/ssh/sshd_config.d/60-softure-host-{{ deploy_user_name }}.conf"
+  tags: always
