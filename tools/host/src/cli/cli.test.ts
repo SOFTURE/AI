@@ -69,6 +69,8 @@ interface WorldOptions {
   compose?: string;
   repositoryVariables?: string[];
   environmentVariables?: string[];
+  /** The app's deploy.json; absent answers 404. */
+  deployJson?: string;
 }
 
 function listNames(names: string[] | undefined): { stdout: string } {
@@ -91,6 +93,9 @@ function createWorld(options: WorldOptions): Responder {
       return options.deployScript === false ? { status: 1, stderr: "gh: Not Found (HTTP 404)\n" } : { stdout: DEPLOY_SCRIPT };
     }
     if (line.endsWith("contents/docker/prod/docker-compose.yml")) return { stdout: options.compose ?? COMPOSE };
+    if (line.endsWith("contents/deploy.json")) {
+      return options.deployJson === undefined ? { status: 1, stderr: "gh: Not Found (HTTP 404)\n" } : { stdout: options.deployJson };
+    }
     if (call.program === "ssh") return { stdout: HOST_KEYS };
     if (call.program === "ansible-playbook") {
       // The deploy script must exist while Ansible runs.
@@ -345,5 +350,36 @@ describe("softure-host app add", () => {
     withToken.stderr = (text) => errors.push(text);
     await expect(runCli(["app", "add", `--inventory=${path}`, "--app=notes"], withToken, createDeps(createWorld({ environment: true, tagPolicy: true, secrets: [] })))).resolves.toBe(2);
     expect(errors.join("")).toContain("cloudflare: the DNS record needs server.ipv4 in the inventory");
+  });
+  it("plans one Access bypass per publicPaths entry of the app's deploy.json with --check (issue #1435)", async () => {
+    const path = writeInventory(["    access:", "      enabled: true", "      emails: [owner@example.com]", ""].join("\n"));
+    writeFileSync(path, readFileSync(path, "utf8").replace("  acmeEmail: ops@example.com\n", "  acmeEmail: ops@example.com\n  cdn: cloudflare\n"));
+    const io = { ...createIo(), env: { HOME: dir, CLOUDFLARE_API_TOKEN: "tok" } };
+    const deps = createDeps(createWorld({ environment: true, tagPolicy: true, secrets: [], deployJson: '{ "publicPaths": ["/api/health", "/api/mcp"] }' }));
+    const requests: string[] = [];
+    deps.fetch = ((url: string, init?: RequestInit) => {
+      const target = new URL(url);
+      requests.push(`${init?.method ?? "GET"} ${target.pathname}`);
+      const result = target.pathname === "/client/v4/zones" ? [{ id: "z1", name: "example.com", account: { id: "acc1" } }] : target.pathname.endsWith("/settings/ssl") ? { value: "strict" } : [];
+      return Promise.resolve(new Response(JSON.stringify({ success: true, errors: [], result })));
+    }) as typeof fetch;
+    expect(await runCli(["app", "add", `--inventory=${path}`, "--app=notes", "--check"], io, deps)).toBe(0);
+    const output = io.out.join("");
+    expect(output).toContain("access: bypass /api/health: public in deploy.json\naccess: bypass /api/mcp: public in deploy.json\n");
+    expect(output).toContain('cloudflare: Access "notes bypass /api/health (softure-host)": would create');
+    expect(output).toContain('cloudflare: Access "notes bypass /api/mcp (softure-host)": would create');
+    expect(requests.every((request) => request.startsWith("GET "))).toBe(true);
+  });
+
+  it("names an inventory bypass the app does not list as public, and an app without publicPaths (issue #1435)", async () => {
+    const path = writeInventory(["    access:", "      enabled: true", "      bypassPaths: [/webhooks]", "      emails: [owner@example.com]", ""].join("\n"));
+    const listed = createIo();
+    await runCli(["app", "add", `--inventory=${path}`, "--app=notes", "--check"], listed, createDeps(createWorld({ environment: true, tagPolicy: true, secrets: [], deployJson: '{ "publicPaths": [] }' })));
+    expect(listed.out.join("")).toContain(
+      "access: warning: bypassPaths lists /webhooks, which deploy.json publicPaths does not; add it there if it must answer without a login",
+    );
+    const absent = createIo();
+    await runCli(["app", "add", `--inventory=${path}`, "--app=notes", "--check"], absent, createDeps(createWorld({ environment: true, tagPolicy: true, secrets: [] })));
+    expect(absent.out.join("")).toContain("access: acme/notes has no publicPaths in deploy.json; bypassing only the inventory's bypassPaths");
   });
 });
