@@ -41,6 +41,17 @@
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1 (bde034f): `superRefine` refuses `deployUser` equal to `adminUser`; new tests "refuses a deploy user that
+      is the admin user (issue #1431)" (inventory) and "refuses a deploy user that is the admin user before running
+      anything, with and without --check" (CLI, exit 2, no runner call) failed without the refine (2 of 58) and pass;
+      `npx vitest run tools/host` 58 of 58.
+- [x] Phase 2 (5f05851): `ansible/tasks/deploy-user-preflight.yml` imported by `app.yml` and a first play of
+      `server.yml`. Verified with ansible-core and a local connection against the session container (collection
+      1.25.0 from its tag): check mode with no deploy user `ok=7 changed=3 failed=0`, no user or folder created, report
+      "check mode, planned change: the deploy user deploy does not exist yet ..."; real run `changed=7`, second run
+      `changed=0`; a deploy user in `sudo` (password set) refused in check and real mode (`ok=2 changed=0 failed=1`),
+      `passwd -S` still `P`; an entry in `/etc/sudoers.d/90-deploy` refused; a user without `authorized_keys` reported
+      in check mode; `server.yml`'s first play run alone refuses the sudo user and reports a missing one.
+- [x] Phase 3 (3c29271): `e2e/converge.sh` gains the check-mode first onboarding and the sudo refusal (check and
+      real, shadow, groups, key file and deploy.sh unchanged); `bash -n` clean; runs in CI job "host playbooks
+      converge" (no Docker daemon in this container). README and CHANGELOG `## Unreleased`.

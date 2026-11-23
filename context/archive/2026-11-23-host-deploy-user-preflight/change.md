@@ -1,12 +1,13 @@
 ---
 change_id: host-deploy-user-preflight
 title: "host: refuse a sudo deploy user before any change, and dry-run a first onboarding (issue #1431)"
-status: planned
+status: archived
 roadmap_item: null
 issue: 1431
 branch: claude/project-thread-6j5uoi
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -41,3 +42,11 @@ check mode the role's later tasks and the app folder tasks read a user and files
 ## Notes
 
 - frame skipped: the issue names the defect, the impact and the fix; no product question.
+
+## Done
+
+- The inventory refuses `server.deployUser` equal to `server.adminUser` (exit 2 before any command).
+- `app.yml` and `server.yml` first read the deploy user and refuse one in `sudo`/`wheel`/`admin` or with a sudoers
+  entry, before any change and in check mode too; no account is modified by a refused run.
+- `app add --check` on a first onboarding passes and reports the user, its key file and the key line as planned.
+- `e2e/converge.sh` covers both cases. Release: `@softure-ai/host` (CHANGELOG `## Unreleased`).
