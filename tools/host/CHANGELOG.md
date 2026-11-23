@@ -6,6 +6,10 @@ version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../
 
 ## Unreleased
 
+- The `app add` preflight also stops when a router's `tls.certresolver` label in the app's compose file names another
+  resolver than the inventory's `edge.certResolver` (#1429); the message names the routers and both values.
+  - Migrate: nothing, unless the preflight now stops: set the label to `edge.certResolver`, or fix the inventory.
+
 - `app add` adds the `publicPaths` of the app's `deploy.json` (default branch, written by `softure-deploy init`) to
   `apps[].access.bypassPaths`, prints each path it took from there, and warns about an inventory path `publicPaths`
   does not list (#1435). The inventory may still list more.

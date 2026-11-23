@@ -56,6 +56,43 @@ export function findExternalNetworks(compose: string, env: Readonly<Record<strin
   return found;
 }
 
+/** A router's `tls.certresolver` label: the router, the value as written, and resolved (undefined: unset variable). */
+export interface RouterResolver {
+  router: string;
+  written: string;
+  resolved: string | undefined;
+}
+
+const RESOLVER_LABEL = /^traefik\.http\.routers\.([^.]+)\.tls\.certresolver$/;
+
+function readLabelEntries(labels: unknown): [string, string][] {
+  if (Array.isArray(labels)) {
+    return labels.flatMap((entry): [string, string][] => {
+      if (typeof entry !== "string") return [];
+      const separator = entry.indexOf("=");
+      return separator > 0 ? [[entry.slice(0, separator).trim(), entry.slice(separator + 1).trim()]] : [];
+    });
+  }
+  if (!isRecord(labels)) return [];
+  return Object.entries(labels).flatMap(([key, value]): [string, string][] => (typeof value === "string" ? [[key, value]] : []));
+}
+
+/** Every `traefik.http.routers.<name>.tls.certresolver` label of the compose file's services, resolved with `env`. */
+export function findRouterResolvers(compose: string, env: Readonly<Record<string, string>>): RouterResolver[] {
+  const document: unknown = parse(compose);
+  if (!isRecord(document) || !isRecord(document.services)) return [];
+  const found: RouterResolver[] = [];
+  for (const service of Object.values(document.services)) {
+    if (!isRecord(service)) continue;
+    const deploy = isRecord(service.deploy) ? service.deploy : {};
+    for (const [key, value] of [...readLabelEntries(service.labels), ...readLabelEntries(deploy.labels)]) {
+      const match = RESOLVER_LABEL.exec(key);
+      if (match) found.push({ router: match[1] ?? "", written: value, resolved: resolveComposeValue(value, env) });
+    }
+  }
+  return found;
+}
+
 export interface OnboardingInput {
   facts: ServerFacts;
   inventory: Inventory;
@@ -66,7 +103,8 @@ export interface OnboardingInput {
 
 /**
  * What `app add` checks on a server before it changes anything: an edge the inventory would duplicate, an edge
- * network that does not exist, and a compose file that joins another network. sshd's AllowUsers is the playbook's
+ * network that does not exist, a compose file that joins another network, and routers that name another certificate
+ * resolver than `edge.certResolver`. sshd's AllowUsers is the playbook's
  * part (ansible/tasks/deploy-user-sshd.yml), since reading it fully and fixing it both need root.
  */
 export function checkOnboarding(input: OnboardingInput): OnboardingCheck {
@@ -115,6 +153,27 @@ export function checkOnboarding(input: OnboardingInput): OnboardingCheck {
           `Write \${EDGE_NETWORK:-${edge.network}} in the app's compose file (softure-deploy init --edge does), or fix edge.network.`,
       );
     }
+    checkResolvers(input.compose, input.composePath, inventory, { problems, notes });
   }
   return { problems, notes };
+}
+
+/** The routers' certificate resolvers against the inventory's `edge.certResolver` (issue #1429). */
+function checkResolvers(compose: string, composePath: string, inventory: Inventory, check: OnboardingCheck): void {
+  const { edge } = inventory;
+  const resolvers = findRouterResolvers(compose, { EDGE_NETWORK: edge.network });
+  if (resolvers.length === 0) return;
+  const other = resolvers.filter((entry) => entry.resolved !== edge.certResolver);
+  if (other.length === 0) {
+    check.notes.push(`${composePath}'s routers use the certificate resolver ${edge.certResolver}`);
+    return;
+  }
+  const named = other.map((entry) =>
+    entry.resolved === undefined ? `${entry.router} ${entry.written} (a variable that is not set)` : `${entry.router} ${entry.resolved}`,
+  );
+  check.problems.push(
+    `${composePath} names another certificate resolver than the inventory's edge.certResolver ${edge.certResolver} ` +
+      `(routers: ${named.join(", ")}); the edge runs only that resolver, so Traefik issues no certificate for the app. ` +
+      `Set traefik.http.routers.<router>.tls.certresolver=${edge.certResolver} in the app's compose file, or fix edge.certResolver.`,
+  );
 }

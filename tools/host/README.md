@@ -131,7 +131,10 @@ In order:
    - a Traefik that is not the inventory's own edge (compose project `edge.name`) runs while `edge.manage` is `true`;
    - the inventory's `edge.network` does not exist on the server (the message lists the networks that do);
    - the compose file joins external networks of which none is `edge.network`: a literal name, or a variable's
-     default. `${EDGE_NETWORK:-…}` passes, since `app add` sets `EDGE_NETWORK` (step 4).
+     default. `${EDGE_NETWORK:-…}` passes, since `app add` sets `EDGE_NETWORK` (step 4);
+   - a router's `traefik.http.routers.<router>.tls.certresolver` label (on a service or under `deploy.labels`,
+     variables resolved like compose) names another resolver than `edge.certResolver` (issue #1429): the edge runs
+     only that one, so Traefik would issue no certificate for the app.
 
    When the admin cannot read Docker (not installed, no `docker` group, no passwordless sudo) the edge checks are
    skipped with one line.
