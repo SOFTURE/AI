@@ -40,6 +40,12 @@ caller and test that needs the secret.
 
 ## Progress
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
+- [x] Phase 1 and 2 (a562f36): mailing and privacy derive the key with PBKDF2 under `SOFTURE_EMAIL_KEY_SECRET`;
+      migration 0006; list mail, previews, `runDeliveries` and `softure-mail campaign` refuse without the secret;
+      pinned-derivation and missing-secret tests in both packages, the waitlist equality test under a second secret.
+      `npx vitest run modules/mailing modules/privacy modules/waitlist`: 59 files, 1052 tests passed.
+      `npx vitest run modules/alerts modules/auth modules/billing tests/repo`: green apart from the two
+      container-only repository tests that fail on master too (no `ssh-keygen`, an `rm` guard on `PATH`).
+- [x] Phase 3 (d4fa970): the example app's `.env.example`, both Playwright configs and the two specs that key an
+      address; READMEs (mailing §1, §5, §6, §11; privacy §5, §6; waitlist §6) and CHANGELOGs under `Unreleased`.
+      `npm run typecheck` and `npm run lint` green; no `createHash` on an address left in mailing or privacy.

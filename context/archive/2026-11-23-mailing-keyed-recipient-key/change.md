@@ -1,12 +1,13 @@
 ---
 change_id: mailing-keyed-recipient-key
 title: "mailing, privacy: a keyed, slow email key instead of a plain SHA-256 (issue #1418)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1418
 branch: claude/project-thread-8q4hnr
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -40,3 +41,13 @@ carries only the recipient key, and waitlist withdraws the privacy consents stor
 ## Notes
 
 - frame skipped: the owner chose the option (PBKDF2, breaking, no data transition) on 2026-11-23.
+
+## Done
+
+- mailing `getRecipientKey` and privacy `getEmailKey`: base64url PBKDF2-HMAC-SHA256 (10 000 rounds, 32 bytes) of the
+  trimmed, lowercased address under `SOFTURE_EMAIL_KEY_SECRET`; the plain SHA-256 is gone (alert #97).
+- Missing secret: list mail `unavailable` (`no_email_key_secret`), `runDeliveries` and `softure-mail campaign` stop
+  early, every other keying throws a `SoftureConfigError`.
+- Migration `0006_drop_address_key_functions.sql` drops the SQL functions that keyed an address; the views stay.
+- Example app, READMEs and CHANGELOGs (`Unreleased`, breaking) updated; release mailing 0.3.0, privacy 0.3.0 and
+  waitlist after the merge.
