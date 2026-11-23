@@ -1,7 +1,8 @@
 ---
 # Onboards one app on a server `softure-host server` set up: its folder, the first copy of its deploy.sh and its
 # release key line. Run by `softure-host app add`; it touches nothing of other apps. Later releases replace
-# deploy.sh themselves, so an existing copy is never overwritten.
+# deploy.sh themselves, so an existing copy is never overwritten. A deploy user with sudo rights is refused before
+# any change (tasks/deploy-user-preflight.yml).
 
 - name: Onboard an app
   hosts: all
@@ -18,8 +19,14 @@
         fail_msg: "host_app_name, host_app_root and host_app_deploy_script_file are required."
       tags: always
 
+    - name: Refuse a deploy user with sudo rights before any change
+      ansible.builtin.import_tasks: tasks/deploy-user-preflight.yml
+
   roles:
+    # Check mode skips the role on a first onboarding: its key line task needs the authorized_keys file the real run
+    # creates, and the preflight has reported what it would write.
     - role: softure.vps_foundation.deploy_user
+      when: not ansible_check_mode or host_deploy_user_ready | bool
       vars:
         deploy_user_app_root: "{{ host_app_root }}"
         deploy_user_apps: "{{ [{'name': host_app_name, 'key': host_app_key}] if host_app_key | default('') | length > 0 else [] }}"

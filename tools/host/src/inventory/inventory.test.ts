@@ -85,6 +85,13 @@ describe("parseInventory", () => {
       /edge\.acmeEmail: edge\.manage needs edge\.acmeEmail[\s\S]*apps\.1\.slug: notes is listed twice/,
     );
   });
+
+  it("refuses a deploy user that is the admin user (issue #1431)", () => {
+    const sameUser = { ...MINIMAL, server: { ...MINIMAL.server, deployUser: "admin" } };
+    expect(() => parseInventory(sameUser, "test")).toThrow(
+      "server.deployUser: must differ from server.adminUser (admin): releases log in as the deploy user, which never has sudo",
+    );
+  });
 });
 
 describe("loadInventory and findApp", () => {

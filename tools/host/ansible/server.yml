@@ -3,6 +3,16 @@
 # app on the server shares: the deploy user, the Traefik edge and the Cloudflare-only origin firewall. Run by
 # `softure-host server`, which passes every variable as extra vars (src/ansible/vars.ts); nothing here names an app.
 
+# First, before the bootstrap changes anything: a deploy user with sudo rights is refused with the server untouched.
+- name: Check the deploy user
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Refuse a deploy user with sudo rights before any change
+      ansible.builtin.import_tasks: tasks/deploy-user-preflight.yml
+
 - name: Bootstrap the server
   ansible.builtin.import_playbook: softure.vps_foundation.vps_bootstrap
 

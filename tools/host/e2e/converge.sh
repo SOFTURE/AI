@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Converges ansible/app.yml, what `softure-host app add` runs on the server, against a throwaway Ubuntu container
-# with sshd, and checks the result end to end: the folder and the first deploy.sh, one release key line per app
-# (replaced on rotation, never duplicated), a second run that changes nothing, and a real SSH login with the key the
-# CLI issues landing in deploy.sh through the forced command. Both playbooks are syntax-checked first.
+# with sshd, and checks the result end to end: a check-mode run on a first onboarding that passes and changes nothing,
+# the folder and the first deploy.sh, one release key line per app (replaced on rotation, never duplicated), a second
+# run that changes nothing, a real SSH login with the key the CLI issues landing in deploy.sh through the forced
+# command, and a deploy user with sudo rights refused before any change. Both playbooks are syntax-checked first.
 #
 # Needs docker, ansible-core, ssh and node with the workspace installed (npm ci). The collections come from
 # ansible/requirements.yml unless HOST_E2E_COLLECTIONS points at a folder that already holds them.
@@ -51,15 +52,16 @@ docker exec "$container" bash -c 'apt-get update -qq > /dev/null && DEBIAN_FRONT
 printf '#!/usr/bin/env bash\necho "deploy.sh ran: ${SSH_ORIGINAL_COMMAND:-none}"\n' > "$work/deploy.sh"
 connection="{\"ansible_connection\":\"community.docker.docker\",\"ansible_host\":\"$container\",\"ansible_user\":\"root\"}"
 
-# Runs app.yml with the CLI's own vars; $1 is the key file to issue (empty: no key). Prints the recap line.
+# Runs app.yml with the CLI's own vars; $1 is the key file to issue (empty: no key), $2 an optional --check.
+# Prints the recap line.
 converge() {
-  local vars
+  local vars mode="${2:-}"
   if [ -n "$1" ]; then
     vars="$(cd "$repo" && npx tsx "$package/scripts/e2e-app-vars.ts" "$work/deploy.sh" "$1")"
   else
     vars="$(cd "$repo" && npx tsx "$package/scripts/e2e-app-vars.ts" "$work/deploy.sh")"
   fi
-  ansible-playbook "$package/ansible/app.yml" -i server, -e "$vars" -e "$connection" > "$work/run.log" 2>&1 || {
+  ansible-playbook "$package/ansible/app.yml" -i server, -e "$vars" -e "$connection" ${mode:+"$mode"} > "$work/run.log" 2>&1 || {
     cat "$work/run.log" >&2
     return 1
   }
@@ -74,6 +76,13 @@ login() {
   ssh -i "$1" -p "$port" -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
     deploy@127.0.0.1 status
 }
+
+recap="$(converge "$work/key-a" --check)"
+step "check mode on a first onboarding: $recap"
+grep -q "planned change: the deploy user deploy does not exist yet" "$work/run.log" \
+  || fail "check mode does not report the deploy user as a planned change"
+in_container 'id deploy' > /dev/null 2>&1 && fail "check mode created the deploy user"
+in_container 'test -e /srv/notes' && fail "check mode created the app folder"
 
 step "first run issues key A: $(converge "$work/key-a")"
 recap="$(converge "$work/key-a")"
@@ -111,5 +120,20 @@ step "a run without a key refuses an app that has no line"
 in_container 'sed -i "/ notes-release$/d" /home/deploy/.ssh/authorized_keys'
 if converge "" > /dev/null 2> "$work/refusal.log"; then fail "a run without a key accepted an app without a line"; fi
 grep -q -- "--rotate-key" "$work/refusal.log" || fail "the refusal does not point at --rotate-key"
+
+step "a deploy user with sudo rights is refused before any change, in check mode and in a real run"
+converge "$work/key-a" > /dev/null
+in_container 'echo deploy:secret | chpasswd && usermod -aG sudo deploy'
+snapshot() {
+  in_container 'getent shadow deploy; id -nG deploy; sha256sum /home/deploy/.ssh/authorized_keys /srv/notes/deploy.sh'
+}
+before="$(snapshot)"
+for mode in --check ""; do
+  if converge "$work/key-b" "$mode" > /dev/null 2> "$work/refusal.log"; then fail "a sudo deploy user was accepted ($mode)"; fi
+  grep -q "The deploy user deploy has sudo rights (deploy is in the sudo group)" "$work/refusal.log" \
+    || fail "the refusal does not name the sudo group ($mode)"
+  [ "$(snapshot)" = "$before" ] || fail "a refused run changed the server ($mode)"
+done
+in_container 'passwd -S deploy' | grep -q ' P ' || fail "a refused run locked the deploy user's password"
 
 step "PASS"

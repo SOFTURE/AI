@@ -12,6 +12,14 @@ version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../
   The README gains "Running the CLI" and pins the version in every example (#1436).
   - Migrate: nothing.
 
+- A deploy user with sudo rights is refused before anything changes (#1431). The inventory refuses
+  `server.deployUser` equal to `server.adminUser`; `server` and `app add` first read the deploy user on the server and
+  stop, in a real run and in `--check` alike, when it is in `sudo`, `wheel` or `admin` or has a sudoers entry, so the
+  collection's role never locks the password of an admin account. `app add --check` on a first onboarding, where the
+  deploy user does not exist yet, passes and reports the user, its `authorized_keys` and the key line as planned
+  changes instead of failing on the missing file.
+  - Migrate: an inventory with `deployUser` equal to `adminUser` must name a separate deploy user (default `deploy`).
+
 - `app add` sets the repository variable `EDGE_NETWORK` to the inventory's `edge.network` next to `APP_HOST` (#1429).
   A compose file from `softure-deploy init --edge` (`@softure-ai/deploy` from the next release) joins that network at
   deploy time, so an app generated for another network name deploys to this server without editing its compose file.
