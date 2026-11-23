@@ -6,6 +6,14 @@ version, the version gets a line `verified in: <app>@<commit>` ([docs/05](../../
 
 ## Unreleased
 
+- `operator add-key`, `operator remove-key` and `operator list` (#1433): bind the operator's own SSH key to an app's
+  `deploy.sh` in the deploy user's `authorized_keys` (`command="/srv/<slug>/deploy.sh",restrict <key>
+  <slug>-operator-<label>`), replaced in place by its label, never duplicated, other lines untouched; a key already on
+  another line, a private key or a line with options is refused; `--check` prints the line and changes nothing. New
+  playbook `ansible/operator.yml`. README: "Running operator commands".
+  - Migrate: a line added by hand keeps working; `operator list` shows it when its comment is `<slug>-operator-<label>`.
+    To move one under the command, remove it by hand, then run `operator add-key` with the same key.
+
 - `app add` sets the repository variable `EDGE_NETWORK` to the inventory's `edge.network` next to `APP_HOST` (#1429).
   A compose file from `softure-deploy init --edge` (`@softure-ai/deploy` from the next release) joins that network at
   deploy time, so an app generated for another network name deploys to this server without editing its compose file.

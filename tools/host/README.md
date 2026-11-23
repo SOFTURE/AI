@@ -12,6 +12,7 @@ everything from the release on; `host` sets up the server and the app's place on
 npx @softure-ai/host server --inventory=infra/inventory.yml --check
 npx @softure-ai/host server --inventory=infra/inventory.yml --connect-as=root   # first run on a fresh server
 npx @softure-ai/host app add --inventory=infra/inventory.yml --app=notes
+npx @softure-ai/host operator add-key --inventory=infra/inventory.yml --app=notes --key=~/.ssh/notes-operator.pub
 ```
 
 ## Requirements on the operator's machine
@@ -128,6 +129,61 @@ the run stops and asks for `--rotate-key`.
 
 The app must already have run `softure-deploy init` (it needs `docker/server/deploy.sh`).
 
+## Running operator commands
+
+An app's operational commands (`status`, `cleanup`, and with a database the ops scripts and SQL reports of
+[`softure-deploy run` and `report`](../deploy/README.md#ops-scripts-and-reports-on-the-server)) run on the server
+through the same forced command as a release: a key in the deploy user's `authorized_keys` that can only start
+`/srv/<slug>/deploy.sh`. The release key belongs to GitHub; the operator binds a key of their own.
+
+1. **A key for this app.** One per app and machine, never the admin key (sshd takes the first line that matches a
+   key, so one key cannot serve two lines):
+
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/notes-operator -C "$USER@$(hostname)"
+   ```
+
+2. **Bind it** (as the admin user, through Ansible, like `app add`):
+
+   ```bash
+   softure-host operator add-key --inventory=<file> --app=notes --key=~/.ssh/notes-operator.pub [--name=laptop] [--check]
+   ```
+
+   It writes `command="/srv/notes/deploy.sh",restrict <key> notes-operator-<name>` (`--name` defaults to `default`;
+   lower-case letters and digits, one label per machine). A second run with the same name replaces that line in place,
+   never duplicates it; the release key line, other apps' lines and lines added by hand are never touched. It
+   refuses a file that is not one public key line (a private key, a line with options in front), a key already on
+   another line of the file, and an app `app add` has not set up. `--check` prints the line and changes nothing.
+
+3. **Use it.** The command prints the ssh line and what `deploy.sh` accepts:
+
+   ```bash
+   ssh -i ~/.ssh/notes-operator deploy@srv.example.com status
+   ssh -i ~/.ssh/notes-operator deploy@srv.example.com cleanup --keep=2
+   ```
+
+   Any other command, and a login without one, reaches `deploy.sh`, never a shell; `restrict` turns off port, agent
+   and X11 forwarding and the terminal. For `softure-deploy run` and `report`, name the user and the key in
+   `~/.ssh/config` and pass the alias as `--host`:
+
+   ```text
+   Host notes-prod
+     HostName srv.example.com
+     User deploy
+     IdentityFile ~/.ssh/notes-operator
+     IdentitiesOnly yes
+   ```
+
+```bash
+softure-host operator list --inventory=<file> --app=notes                  # labels and fingerprints, read only
+softure-host operator remove-key --inventory=<file> --app=notes --name=laptop
+```
+
+`list` reads the file over your admin SSH connection (`sudo -n cat`) and flags a `notes-operator-*` line that lacks
+the forced command or `restrict` (one edited by hand): re-add it with `add-key`. Whoever holds such a key can run
+every command `deploy.sh` accepts, a deploy of any image included: give one to each person who operates the app, and
+remove it when they stop.
+
 ## What stays manual
 
 - Buying the server and the domain; the first SSH key on the server.
@@ -137,6 +193,8 @@ The app must already have run `softure-deploy init` (it needs `docker/server/dep
 
 ## Tests
 
-`npm test` covers the inventory, the Ansible command lines and variables, the key format, the GitHub and Cloudflare
-calls and both commands with fakes. `e2e/converge.sh` (CI job `host-ansible`) converges `ansible/app.yml` against an
-Ubuntu container twice and logs in with the issued key through the forced command.
+`npm test` covers the inventory, the Ansible command lines and variables, the key format and the public key checks,
+the GitHub and Cloudflare calls and every command with fakes. `e2e/converge.sh` (CI job `host-ansible`) converges
+`ansible/app.yml` against an Ubuntu container twice and logs in with the issued key through the forced command, then
+runs `ansible/operator.yml`: one line per label, other lines byte-equal, the operator key reaching only `deploy.sh`,
+`--check` changing nothing, a key another line holds refused, `remove-key` removing only its line.
