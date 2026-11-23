@@ -1,12 +1,13 @@
 ---
 change_id: host-preflight-cert-resolver
 title: "host: the app add preflight compares the routers' certificate resolver with edge.certResolver (issue #1429)"
-status: open
+status: archived
 roadmap_item: null
 issue: 1429
 branch: claude/project-thread-uov6k2
 created: 2026-11-23
 updated: 2026-11-23
+archived_at: 2026-11-23
 ---
 
 ## Intent
@@ -30,3 +31,9 @@ resolver comparison is missing.
 
 - research skipped beyond reading `preflight.ts` and its tests: the preflight structure is fixed by #1432.
 - frame skipped: the owner's comment names the check.
+
+## Done
+
+- `checkOnboarding` stops `app add` (and `--check`) when a router's `tls.certresolver` differs from
+  `edge.certResolver`; `findRouterResolvers` reads the labels. README preflight list and CHANGELOG updated.
+- Release: `@softure-ai/host` (CHANGELOG `## Unreleased`).

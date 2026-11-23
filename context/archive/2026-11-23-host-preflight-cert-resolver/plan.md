@@ -22,4 +22,7 @@ as different), or a note when all match. A file without such labels adds nothing
 
 ## Progress
 
-- [ ] Phase 1
+- [x] Phase 1 (ffda314): `findRouterResolvers` and the resolver problem in `checkOnboarding`; tests "finds each
+      router's certificate resolver, in list or map labels and under deploy" and "stops on a router whose certificate
+      resolver is not the inventory's edge.certResolver"; `npx vitest run tools/host` 110 of 110; typecheck and lint
+      green (pre-commit).
